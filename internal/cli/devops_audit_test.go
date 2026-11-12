@@ -197,12 +197,13 @@ func TestWaitTakesDurations(t *testing.T) {
 	}
 	mustRun(t, "reboot", "web1", "--wait", "600", "--dry-run")
 	for in, want := range map[string]time.Duration{"10": 10 * time.Second, "10s": 10 * time.Second, "2m": 2 * time.Minute, "1d": 24 * time.Hour} {
-		if d, err := parseWait(in); err != nil || d != want {
+		var d time.Duration
+		if err := (&durFlag{d: &d, seconds: true, name: "wait"}).Set(in); err != nil || d != want {
 			t.Errorf("%s: %v %v", in, d, err)
 		}
 	}
 	for d, want := range map[time.Duration]string{0: "0", 10 * time.Minute: "10m", time.Hour: "1h", 90 * time.Second: "1m30s"} {
-		if got := (waitFlag{&d}).String(); got != want {
+		if got := (&durFlag{d: &d}).String(); got != want {
 			t.Errorf("%v shows as %s, want %s", d, got, want)
 		}
 	}

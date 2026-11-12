@@ -27,15 +27,24 @@ func TestAgentGolden(t *testing.T) {
 		t.Skip("runs every command")
 	}
 	var b strings.Builder
+	variants := []struct {
+		name  string
+		agent bool
+		out   string
+	}{{"agent json", true, "json"}, {"agent text", true, "text"}, {"script json", false, "json"}, {"script text", false, "text"}}
 	for _, args := range goldenCases(t) {
-		for _, v := range []struct {
-			name  string
-			agent bool
-			out   string
-		}{{"agent json", true, "json"}, {"agent text", true, "text"}, {"script json", false, "json"}, {"script text", false, "text"}} {
+		for _, v := range variants {
 			full := append([]string{"-o", v.out}, args...)
 			stdout, stderr, code := goldenRun(t, v.agent, full)
 			fmt.Fprintf(&b, "### komando %s (%s)\nexit %d\n--- stdout\n%s--- stderr\n%s", strings.Join(full, " "), v.name, code, stdout, stderr)
+		}
+	}
+	// the safety stops, in a home with servers and conns (goldenGates)
+	for _, args := range goldenGates {
+		for _, v := range variants {
+			full := append([]string{"-o", v.out}, args...)
+			stdout, stderr, code := goldenRunWith(t, v.agent, full, goldenGateSetup)
+			fmt.Fprintf(&b, "### komando %s (%s, gate inventory)\nexit %d\n--- stdout\n%s--- stderr\n%s", strings.Join(full, " "), v.name, code, stdout, stderr)
 		}
 	}
 	got := b.String()
@@ -143,7 +152,16 @@ var goldenNoise = []struct {
 // stdin, stdout and stderr not terminals, and gives what it printed.
 func goldenRun(t *testing.T, agent bool, args []string) (string, string, int) {
 	t.Helper()
+	return goldenRunWith(t, agent, args, nil)
+}
+
+// goldenRunWith is goldenRun in a home that setup filled first.
+func goldenRunWith(t *testing.T, agent bool, args []string, setup func(*testing.T)) (string, string, int) {
+	t.Helper()
 	invHome(t)
+	if setup != nil {
+		setup(t)
+	}
 	if agent {
 		t.Setenv("KOMANDO_AGENT", "1")
 		resetApproval()

@@ -380,7 +380,8 @@ func storageCatCmd() *cobra.Command {
 	}
 	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
-	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "read at most this many bytes (1048576 is 1 MiB)")
+	maxBytes = 1 << 20
+	c.Flags().Var(&bytesFlag{n: &maxBytes}, "max-bytes", "read at most this many bytes, e.g. 4MiB (1048576 is 1 MiB)")
 	return c
 }
 
@@ -491,7 +492,7 @@ through --via, only people who can reach that address can use the link.
 		},
 	}
 	expires = time.Hour
-	c.Flags().Var(ageFlag{&expires, "--expires"}, "expires", "how long the link works: 30m, 24h, 7d (max 7d)")
+	c.Flags().Var(&durFlag{d: &expires, positive: true, name: "expires"}, "expires", "how long the link works: 30m, 24h, 7d (max 7d)")
 	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, e.g. https://files.example.com (when komando reaches the storage through --via)")
 	return c
 }

@@ -63,6 +63,12 @@ or a CI job), komando asks instead of stopping:
   target's name (`Dangerous: ... Type the name web1 to continue`),
   or for a `--proxy-command` or a cluster's login program that matches a
   rule, `Blocked by policy: ... Run it anyway, this once? [y/N]`.
+- When komando asked you for a missing argument, it asks before the
+  command runs: the target's name for one that cannot be undone (deleting
+  data or files, a reboot, stopping sshd, `sync --delete`, ending a
+  database session), else `Run it? [y/N, d = --dry-run first]`. One rule
+  table decides which: every command that stops an AI agent as dangerous
+  asks you for the name.
 - No is the default; Enter, Ctrl-C or Ctrl-D is a no, and nothing runs.
   A yes counts for that one command only, as `--yes` or
   `--allow-dangerous` would, and `komando audit` records it with

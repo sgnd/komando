@@ -120,7 +120,7 @@ the approval for protected servers). Try --dry-run first.`,
 		},
 	}
 	wait = 5 * time.Minute
-	c.Flags().Var(waitFlag{&wait}, "wait", "how long each server may take to come back (10m, 1h)")
+	c.Flags().Var(&durFlag{d: &wait, seconds: true, name: "wait"}, "wait", "how long each server may take to come back (e.g. 10m, 1h)")
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "run without sudo")
 	return c
 }

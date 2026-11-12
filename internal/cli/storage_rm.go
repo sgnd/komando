@@ -95,7 +95,7 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 		},
 	}
 	c.Flags().StringVar(&prefix, "prefix", "", "remove everything under this folder (e.g. daily/; / for the whole conn)")
-	c.Flags().StringVar(&olderThan, "older-than", "", "with --prefix: only objects older than this (30d, 12h, 90m)")
+	spanText(c.Flags(), &olderThan, "older-than", "", true, "with --prefix: only objects older than this (e.g. 30d, 12h, 90m)")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "refuse when more than this many objects would be removed")
 	return c
 }

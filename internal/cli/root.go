@@ -258,6 +258,23 @@ func usageErr(cmd *cobra.Command, err error) error {
 		}
 		return e
 	}
+	// a flag value's own message and hint (flagHint), without pflag's
+	// "invalid argument ... for ... flag:" around it
+	if strings.HasPrefix(m, "invalid argument ") {
+		if head, own, ok := strings.Cut(m, " flag: "); ok {
+			name := head[strings.LastIndex(head, " ")+1:] // "--warn" or "-n, --namespace"
+			name = strings.Trim(name, `"`)
+			msg, hint, hinted := strings.Cut(own, flagHintSep)
+			e.Message = name + ": " + msg
+			switch {
+			case hinted:
+				e.Hint = hint
+			case exampleWith(cmd, name) != "":
+				e.Hint = "for example: " + exampleWith(cmd, name)
+			}
+			return e
+		}
+	}
 	if flag, ok := strings.CutPrefix(m, "unknown flag: "); ok {
 		if s := closestFlag(cmd, strings.TrimLeft(flag, "-")); s != "" {
 			e.Message += "; did you mean --" + s + "?"
@@ -335,6 +352,20 @@ func closestFlag(cmd *cobra.Command, typed string) string {
 		best = prefixed[0] // --conn for --connect-timeout
 	}
 	return best
+}
+
+// exampleWith is the first example of cmd that uses flag, or "".
+func exampleWith(cmd *cobra.Command, flag string) string {
+	for _, l := range strings.Split(cmd.Example, "\n") {
+		l = strings.TrimSpace(l)
+		if i := strings.Index(l, "  #"); i > 0 {
+			l = strings.TrimSpace(l[:i])
+		}
+		if slices.Contains(strings.Fields(l), flag) && !approvalFlag.MatchString(l) {
+			return l
+		}
+	}
+	return ""
 }
 
 func firstExample(cmd *cobra.Command) string {
@@ -533,11 +564,11 @@ func newRoot() *cobra.Command {
 	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
 	pf.BoolVar(&g.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
-	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
-	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
+	durVar(pf, &g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
+	durVar(pf, &g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
 	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting, 10)")
 	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting, accept-new)")
-	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (default: setting, 256KiB)")
+	pf.Var(&bytesFlag{i: &g.maxOutput}, "max-output", "bytes kept per stream per server, e.g. 1MiB (default: setting, 256KiB)")
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
 	addCommands(root)

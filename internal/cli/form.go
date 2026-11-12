@@ -133,62 +133,6 @@ func pastedSecret(s string) (string, bool) {
 	return s[:start] + user[:c] + s[at:], true
 }
 
-// formDestructive says what a command deletes for good ("deletes keys"),
-// or "" when it deletes nothing that cannot come back.
-func formDestructive(cmds [][]string) string {
-	for _, c := range cmds {
-		if len(c) < 2 {
-			continue
-		}
-		switch c[0] + " " + c[1] {
-		case "queue purge":
-			return "deletes every waiting message"
-		case "queue rm":
-			return "deletes the topics or queues with their messages"
-		case "cache rm":
-			return "deletes the keys"
-		case "storage rm":
-			return "deletes the files"
-		case "cluster rm":
-			return "deletes it from the cluster"
-		case "registry rm", "registry prune":
-			return "deletes the images"
-		case "db restore":
-			return "replaces what is in the database now"
-		case "db user":
-			if len(c) > 2 && c[2] == "rm" {
-				return "deletes the database user"
-			}
-		case "fs rm":
-			return "deletes the files"
-		case "docker rm":
-			return "deletes the containers"
-		case "docker prune":
-			return "deletes stopped containers and unused images"
-		case "user rm":
-			if slices.Contains(c, "--remove-home") {
-				return "deletes the user and their home folder"
-			}
-			return "deletes the user"
-		case "secret rm":
-			return "deletes the saved passwords"
-		case "key rm":
-			if slices.Contains(c, "--delete-file") {
-				return "deletes the key files"
-			}
-		case "pkg rm":
-			return "removes the packages"
-		case "cron rm":
-			return "deletes the scheduled task"
-		case "cluster scale":
-			if slices.Contains(c, "0") || slices.Contains(c, "--replicas=0") {
-				return "stops every copy of the app"
-			}
-		}
-	}
-	return ""
-}
-
 // formArgs lets an add command take no arguments, for the questions; with
 // any argument the usual rule holds.
 func formArgs(rule cobra.PositionalArgs) cobra.PositionalArgs {

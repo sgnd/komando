@@ -279,8 +279,8 @@ Values that are not UTF-8 text are shown as base64.`,
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 10, "how many messages")
 	c.Flags().BoolVar(&oldest, "oldest", false, "the first messages still kept, not the newest")
-	c.Flags().IntVar(&partition, "partition", -1, "Kafka: only this partition (numbered from 0)")
-	c.Flags().DurationVar(&wait, "wait", 5*time.Second, "Kafka: stop when no message came for this long")
+	optIntVar(c.Flags(), &partition, "partition", "Kafka: only this partition, numbered from 0 (default: every partition)")
+	durVar(c.Flags(), &wait, "wait", 5*time.Second, "Kafka: stop when no message came for this long")
 	return c
 }
 

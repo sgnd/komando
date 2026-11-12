@@ -246,7 +246,7 @@ func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
 	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "the most rows to return per statement (0 = no limit; --max-output caps the size too)")
 	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse, ? in snowflake and bigquery); repeat in order")
-	c.Flags().StringVar(&f.maxBytes, "max-bytes", "", "BigQuery: the most a query may read, which BigQuery bills by (default 10GB; 0 = no cap)")
+	c.Flags().Var(&bytesFlag{text: &f.maxBytes}, "max-bytes", "BigQuery: the most a query may read, which BigQuery bills by, e.g. 50GB (default 10GB; 0 = no cap)")
 }
 
 func dbExplainCmd() *cobra.Command {

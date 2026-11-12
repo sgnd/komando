@@ -41,6 +41,11 @@ func retiredFlag(c *cobra.Command, old, now string) {
 // noteRetiredFlags notes each retired flag spelling cmd was given.
 func noteRetiredFlags(cmd *cobra.Command) {
 	cmd.Flags().Visit(func(f *pflag.Flag) {
+		if r, ok := f.Value.(retiredShaper); ok {
+			if used, now := r.retiredShape(); used != "" {
+				retiredName(used, now)
+			}
+		}
 		if f.Annotations[flagRetired] != nil {
 			retiredName("--"+f.Name, "--"+f.Annotations[flagAliasOf][0])
 		}

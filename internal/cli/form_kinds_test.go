@@ -257,7 +257,7 @@ func TestFormDestructive(t *testing.T) {
 		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host rm web1": false,
 	}
 	for line, want := range cases {
-		if got := formDestructive([][]string{strings.Fields(line)}) != ""; got != want {
+		if got := riskOfLine(strings.Fields(line)).typedWhat() != ""; got != want {
 			t.Errorf("%s: destructive %v, want %v", line, got, want)
 		}
 	}

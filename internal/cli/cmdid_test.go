@@ -102,6 +102,7 @@ func TestTablesKeyedByID(t *testing.T) {
 	add("gateSavesHere", keysOf(gateSavesHere))
 	add("gateNeedsPerson", keysOf(gateNeedsPerson))
 	add("gateTargetArgs", keysOf(gateTargetArgs))
+	add("riskRows", riskRowIDs())
 	add("mask line", []string{"secret.get"})
 	for name, keys := range tables {
 		for _, k := range keys {

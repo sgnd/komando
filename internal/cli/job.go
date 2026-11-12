@@ -262,7 +262,8 @@ func jobLogsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().Int64Var(&offset, "offset", 0, "byte offset to read from (use next_offset from the previous call)")
-	c.Flags().Int64Var(&limit, "max-bytes", 256<<10, "the most bytes to return")
+	limit = 256 << 10
+	c.Flags().Var(&bytesFlag{n: &limit}, "max-bytes", "the most bytes to return, e.g. 1MiB")
 	c.Flags().IntVar(&tail, "tail", 0, "return only the last N lines instead")
 	return c
 }
@@ -336,9 +337,9 @@ group of servers) to wait for all of them at once.`,
 			return finishFleet("job.wait", data, runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
-	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "how often to check")
+	durVar(c.Flags(), &interval, "interval", 3*time.Second, "how often to check")
 	// its own --timeout: the global one's default (5m, per server) is not this one's
-	c.Flags().DurationVar(&waitTimeout, "timeout", 10*time.Minute, "how long to wait (the job keeps running after)")
+	durVar(c.Flags(), &waitTimeout, "timeout", 10*time.Minute, "how long to wait (the job keeps running after)")
 	c.Flags().IntVar(&tail, "tail", 30, "also show the last N lines of output")
 	return c
 }

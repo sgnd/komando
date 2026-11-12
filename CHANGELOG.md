@@ -20,6 +20,34 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `queue peek/send --partition` and `queue create --partitions/--replicas`
+  no longer show `-1` as their default: their help says "default: the
+  broker's", and `komando schema` lists no default for them. Leaving them
+  out, or giving `-1` as before, still means the broker decides.
+- Every size flag reads sizes the same way: `--max-output`, and
+  `--max-bytes` on `fs cat`, `storage cat`, `job logs`, `db query` and
+  `db explain`, take bytes or `256KiB`, `10MB`, `1GB` (KB = KiB = 1024).
+  `--max-output 256KiB` was refused before. `komando schema` lists them
+  with type `bytes`.
+- Every flag that takes a time (`--timeout`, `--connect-timeout`,
+  `--wait`, `--interval`, `--expires`, `--ttl`, `--warn`, `--older-than`)
+  reads it the same way: `30s`, `10m`, `2h` or `7d`, and `0`. Days now
+  work everywhere, a time below 0 is refused while the flags are read, and
+  `komando schema` lists these flags with type `duration` and short
+  defaults (`10m`, not `10m0s`). The bare number of seconds that
+  `svc restart --wait 10` and `reboot --wait 600` took still works and is
+  noted in `meta.deprecated`.
+- One rule table now decides what a command needs before it runs. At a
+  terminal, a command komando asked you to fill in asks you to type the
+  target's name for every change that stops an AI agent as dangerous:
+  `reboot`, `svc stop` of sshd, `sync --delete` and `db kill` now ask
+  for the name instead of `Run it?`. What AI agents and scripts get is
+  unchanged.
+- The test that records what AI agents and scripts get now also records
+  every safety stop komando can show without a server (50 command lines:
+  dangerous commands, protected servers and conns, safety settings,
+  write flags, a large group and person-only commands), so a later change
+  cannot quietly drop one.
 - At a terminal, `group rm` now ends with the way back:
   `Next: komando group add GROUP TARGET...`. Deleting a group of more than
   3 members still needs `--yes` from an AI agent or a script.

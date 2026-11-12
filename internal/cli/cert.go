@@ -83,7 +83,7 @@ exits 1 (code CERT_PROBLEMS), like ` + "`komando doctor`" + `.`,
 			return runCertCheck(cmd.Context(), args, certOpts{warn: w, warnText: warn, via: via, paths: paths})
 		},
 	}
-	c.Flags().StringVar(&warn, "warn", "30d", "flag certificates that expire within this time (30d, 72h)")
+	spanText(c.Flags(), &warn, "warn", "30d", true, "flag certificates that expire within this time (e.g. 30d, 72h)")
 	c.Flags().StringVar(&via, "via", "", "reach websites through this server or VPN (a --via path)")
 	c.Flags().StringSliceVar(&paths, "path", nil, "also check this certificate file (or folder) on the servers")
 	return c

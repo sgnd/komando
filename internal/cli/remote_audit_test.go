@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sgnd/komando/internal/out"
 )
@@ -299,7 +298,7 @@ func TestJobChecks(t *testing.T) {
 	}
 	mustRun(t, "job", "list", "--target", "web2")
 	w := jobWaitCmd()
-	if f := w.Flags().Lookup("timeout"); f == nil || f.DefValue != (10*time.Minute).String() {
+	if f := w.Flags().Lookup("timeout"); f == nil || f.DefValue != "10m" {
 		t.Errorf("job wait --timeout: %+v", f)
 	}
 	if s := (jobStarted{}); strings.Contains(jsonStr(s), "next") {
