@@ -176,6 +176,11 @@ type importResult struct {
 	// Notes are about what was added (how a conn logs in, why it got its
 	// name); not_imported is only about what was left out.
 	Notes []string `json:"notes,omitempty"`
+	// Replaced are the names among those added that were there before
+	// (--overwrite): their old settings are gone.
+	Replaced []string `json:"replaced,omitempty"`
+	// Next is the command that checks what came in (import -> test).
+	Next string `json:"next,omitempty"`
 	// aboutAdded are the notes in NotFound about a server that was added
 	// (what was left out of it): the text output does not call them "not
 	// imported". JSON keeps them in not_imported.
@@ -191,6 +196,16 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	st, err := loadState()
 	if err != nil {
 		return err
+	}
+	existed := map[string]bool{} // before this import put anything in st
+	for n := range st.Hosts {
+		existed[n] = true
+	}
+	for n := range st.Conns {
+		existed[n] = true
+	}
+	for n := range st.Vpns {
+		existed[n] = true
 	}
 	// decide first, so secrets are stored only for what is really added
 	skip := func(kind, name string) string {
@@ -266,6 +281,12 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		res.Recipes = append(res.Recipes, r.Name)
 	}
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
+	for _, n := range slices.Concat(res.Hosts, res.Conns, res.Vpns) {
+		if existed[n] {
+			res.Replaced = append(res.Replaced, n)
+		}
+	}
+	res.Next = importNext(slices.Concat(res.Hosts, res.Conns, res.Vpns), groups)
 	res.Action = "added"
 	incomplete := importIncomplete(len(v.Invalid))
 	if g.dryRun {
@@ -382,6 +403,20 @@ func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
 	}
 }
 
+// importNext is the test command for what an import brings in: its group
+// when --group was given, the names when they are few, else everything.
+func importNext(names, groups []string) string {
+	switch {
+	case len(names) == 0:
+		return ""
+	case len(groups) > 0:
+		return "komando test @" + groups[0]
+	case len(names) <= 5:
+		return "komando test " + strings.Join(names, ",")
+	}
+	return "komando test all"
+}
+
 func (r importResult) Text() string {
 	var sb strings.Builder
 	line := func(label string, names []string) {
@@ -406,9 +441,14 @@ func (r importResult) Text() string {
 	} else {
 		line("logins stored in the vault", r.Secrets)
 	}
+	if g.dryRun {
+		line("of these it would replace", r.Replaced)
+	} else {
+		line("of these replaced (the old settings are gone)", r.Replaced)
+	}
 	line("deny rules "+verb, r.DenyRules)
 	for _, d := range r.SettingsDiffer {
-		fmt.Fprintf(&sb, "setting %s is %s in the file, %s here (not changed; `%s` sets it)\n", d.Key, d.File, d.Here, d.Command)
+		fmt.Fprintf(&sb, "setting %s is %s in the file, %s here (not changed; `%s` sets it)\n", d.Key, dash(d.File), dash(d.Here), d.Command)
 	}
 	for _, s := range r.Skipped {
 		fmt.Fprintf(&sb, "skipped %s: %s\n", s.Name, s.Reason)
@@ -422,6 +462,9 @@ func (r importResult) Text() string {
 		} else {
 			fmt.Fprintf(&sb, "not imported: %s\n", n)
 		}
+	}
+	if r.Next != "" && !g.dryRun {
+		fmt.Fprintf(&sb, "next: %s\n", r.Next)
 	}
 	return sb.String()
 }
@@ -708,6 +751,11 @@ func importIncomplete(refused int) error {
 	if refused == 0 {
 		return nil
 	}
-	return out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "fix them in the source and import again: the rest is in, and importing again skips it",
-		"%s not imported (see skipped)", map[bool]string{true: "1 server was", false: strconv.Itoa(refused) + " servers were"}[refused == 1])
+	if !g.dryRun {
+		return out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "fix them in the source and import again: the rest is in, and importing again skips it",
+			"%s not imported (see skipped)", map[bool]string{true: "1 server was", false: strconv.Itoa(refused) + " servers were"}[refused == 1])
+	}
+	// a preview: nothing is in yet
+	return out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "each skipped entry says why; without --dry-run the rest comes in, and importing again later skips it",
+		"%s would not be imported (see skipped)", countOf(refused, "server"))
 }

@@ -111,3 +111,32 @@ func coreText(t *testing.T, args ...string) string {
 	}
 	return buf.String()
 }
+
+// import says what to run next, which names it replaced, and its dry run
+// never says the rest "is in".
+func TestImportNextReplacedAndPreview(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "cache", "redis://127.0.0.1:6379/0")
+	env := writeTemp(t, ".env", "CACHE_URL=redis://127.0.0.1:6380/0\nDATABASE_URL=postgres://app@127.0.0.1:5432/app\n")
+	d := mustRun(t, "import", "env", env, "--overwrite")
+	if d["next"] != "komando test cache,database" {
+		t.Errorf("next: %v", d["next"])
+	}
+	if fmt.Sprint(d["replaced"]) != "[cache]" {
+		t.Errorf("replaced: %v", d["replaced"])
+	}
+	d = mustRun(t, "import", "env", env, "--overwrite", "-g", "shop", "--dry-run")
+	if d["next"] != "komando test @shop" {
+		t.Errorf("next with a group: %v", d["next"])
+	}
+	if got := importNext([]string{"a", "b", "c", "d", "e", "f"}, nil); got != "komando test all" {
+		t.Errorf("many: %s", got)
+	}
+	g.dryRun = true
+	defer func() { g.dryRun = false }()
+	e := toErr(importIncomplete(1))
+	if strings.Contains(e.Hint, "the rest is in") || !strings.Contains(e.Message, "would not") {
+		t.Errorf("a preview says nothing is in yet: %s / %s", e.Message, e.Hint)
+	}
+}
+

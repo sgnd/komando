@@ -28,6 +28,11 @@ its highlights; the sections below them give the details. Versions follow
 - `key rm` names every server that still uses the key (with one
   `host edit A B --key OTHER` line) and its text output says "removed key
   NAME" instead of printing raw fields. JSON is unchanged.
+- `import` ends with the command that checks what came in (`next: komando
+  test ...`, JSON `next`), lists the names `--overwrite` replaced
+  (`replaced`), and its dry run no longer says "the rest is in" when a
+  server would be left out. A setting that differs shows `-` for an empty
+  value.
 
 ## [0.12.0] - 2026-11-11
 
