@@ -37,6 +37,9 @@ its highlights; the sections below them give the details. Versions follow
   in dry runs and the audit log instead of the shell script; `recipe list
   --category` with an unknown category is a usage error that lists them,
   not an empty list.
+- `docker start`, `stop`, `restart` and `rm` name their argument
+  `CONTAINER...` and `docker pull` `IMAGE...` (was `NAME...`) in help and
+  usage errors.
 
 ## [0.12.0] - 2026-11-11
 

@@ -69,7 +69,7 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 	for _, a := range []string{"start", "stop", "restart", "rm", "pull"} {
 		action := a
 		c.AddCommand(&cobra.Command{
-			Use:   action + " TARGET NAME...",
+			Use:   action + " TARGET " + map[bool]string{true: "IMAGE...", false: "CONTAINER..."}[action == "pull"],
 			Short: dockerActionShorts[action],
 			Args:  cobra.MinimumNArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {

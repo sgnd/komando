@@ -617,3 +617,19 @@ func TestOpsDryRunShapes(t *testing.T) {
 		t.Errorf("unknown category: %v", e)
 	}
 }
+
+// The Use lines name what each argument is, so help, usage errors and the
+// prompter's pickers can tell a container from an image.
+func TestDockerUseNamesTheArgument(t *testing.T) {
+	root := newRoot()
+	for path, word := range map[string]string{"start": "CONTAINER...", "stop": "CONTAINER...", "restart": "CONTAINER...",
+		"rm": "CONTAINER...", "pull": "IMAGE...", "logs": "CONTAINER", "exec": "CONTAINER"} {
+		c, _, err := root.Find([]string{"docker", path})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f := strings.Fields(c.Use); len(f) < 3 || f[2] != word {
+			t.Errorf("docker %s: Use %q, want %s second", path, c.Use, word)
+		}
+	}
+}
