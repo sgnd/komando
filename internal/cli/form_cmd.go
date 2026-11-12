@@ -148,6 +148,8 @@ func formArgPick(name string) (string, bool) {
 		return "conn", false
 	case "VPN":
 		return "vpn", false
+	case "DATABASE":
+		return "db", false
 	case "GROUP":
 		return "group", true
 	case "JOB", "ID":
@@ -198,6 +200,16 @@ func formPickRows(st *store.State, pick string) []menuRow {
 		}
 	case "secret": // names only: the vault is not opened
 		for _, n := range secretNames() {
+			rows = append(rows, menuRow{label: n, value: n})
+		}
+	case "recipe": // saved commands
+		for _, n := range sortedKeys(st.Snippets) {
+			rows = append(rows, menuRow{label: n, value: n})
+		}
+	case "via": // what a server or service is reached through
+		rows = append(menuHostRows(st), menuVpnRows(st)...)
+	case "setting":
+		for _, n := range settingKeys() {
 			rows = append(rows, menuRow{label: n, value: n})
 		}
 	}
@@ -336,8 +348,8 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 		}
 	case len(ff.choices) > 0:
 		q.choices = formValueRows(ff.choices)
-	case ff.pick != "":
-		pick := ff.pick
+	case ff.pick != "" || formFlagPick[f.Name] != "" && f.Value.Type() == "string":
+		pick := cmp.Or(ff.pick, formFlagPick[f.Name])
 		q.choices = func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, pick) }
 		q.free = true
 	case strings.HasSuffix(f.Name, "-ref"): // a reference, never the secret itself
@@ -352,6 +364,10 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 	q.show = ff.show
 	return q
 }
+
+// formFlagPick is the list a flag is picked from when no hint says: the
+// same names shell completion offers for it.
+var formFlagPick = map[string]string{"via": "via", "key": "key"}
 
 // formValueRows is a fixed list of values to pick from.
 func formValueRows(vals []string) func(*store.State, formAnswers) []menuRow {

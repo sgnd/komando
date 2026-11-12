@@ -13,6 +13,10 @@ its highlights; the sections below them give the details. Versions follow
   typed with too few arguments (stdout, stderr and exit code, in JSON and
   text). It guards the move from the menu to typed commands that ask a
   person for what is missing: agents and scripts must see no change.
+- Shell completion now offers your databases for `db dump` and
+  `db restore`. Questions that pick a saved recipe, a `--via` server or
+  VPN, a `--key` or a setting now show a list of the ones you have
+  instead of a blank line.
 
 ### Fixed
 

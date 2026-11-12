@@ -631,3 +631,39 @@ func TestFormArgLabels(t *testing.T) {
 		}
 	}
 }
+
+// A database to back up is picked like any conn, at a prompt and by shell
+// completion; saved commands, what to go through and settings are lists.
+func TestFormPickKinds(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
+	mustRun(t, "recipe", "add", "up", "uptime")
+	root := newRoot()
+	c, _, _ := root.Find([]string{"db", "dump"})
+	got, _ := c.ValidArgsFunction(c, nil, "")
+	if !slices.Contains(got, "app-db") {
+		t.Errorf("db dump <TAB>: %v", got)
+	}
+	if p, _ := formArgPick("DATABASE"); p != "db" {
+		t.Errorf("DATABASE picks %q", p)
+	}
+	st, _ := loadState()
+	names := func(rows []menuRow) (n []string) {
+		for _, r := range rows {
+			n = append(n, r.value)
+		}
+		return n
+	}
+	for kind, want := range map[string]string{"recipe": "up", "via": "web1", "setting": "audit"} {
+		if got := names(formPickRows(st, kind)); !slices.Contains(got, want) {
+			t.Errorf("%s rows: %v, want %s in them", kind, got, want)
+		}
+	}
+	e, _, _ := root.Find([]string{"host", "edit"})
+	for _, q := range formCmdSpec(e).qs {
+		if q.key == "flag:via" && q.choices == nil {
+			t.Error("--via is typed, not picked")
+		}
+	}
+}
