@@ -7,6 +7,8 @@ package storex
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -67,7 +69,13 @@ type s3Bucket struct {
 	prefix string
 	creds  *credentials.Credentials // kept to sign links for another address (LinkAt)
 	region string
+	temp   bool // temporary keys (a session token): links end when they do
 }
+
+// TemporaryKeys reports whether the bucket logs in with temporary keys
+// (SSO, an assumed role): a link signed with them stops working when they
+// expire, which can be before the link's own time is up.
+func (s *s3Bucket) TemporaryKeys() bool { return s.temp }
 
 func init() {
 	// a CLI call should fail fast and let the caller decide to retry
@@ -88,6 +96,9 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 		tr.DialContext = dial
 		tr.Proxy = nil // the --via host is the way out
 	}
+	if err := trustCA(tr, t); err != nil {
+		return nil, err
+	}
 	creds := credentials.NewStaticV4(accessKey, secret, sessionToken)
 	c, err := minio.New(t.Address, &minio.Options{
 		Creds:     creds,
@@ -98,7 +109,41 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 	if err != nil {
 		return nil, out.Usage("invalid storage settings: %v", err)
 	}
-	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region}, nil
+	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region, temp: sessionToken != ""}, nil
+}
+
+// trustCA makes tr trust the conn's ?ca= certificate too, as well as the
+// usual ones: a private CA (a company's, or a proxy's that inspects TLS)
+// on the way to the storage or, for Google Cloud, to its login.
+func trustCA(tr *http.Transport, t driver.Target) error {
+	ca, err := t.CAPEM()
+	if err != nil || ca == "" {
+		return err
+	}
+	pool, err := x509.SystemCertPool()
+	if err != nil || pool == nil {
+		pool = x509.NewCertPool()
+	}
+	pool.AppendCertsFromPEM([]byte(ca))
+	tr.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: pool}
+	return nil
+}
+
+// tlsErr is a certificate that does not verify, with the way to trust
+// it, or nil for any other error.
+func tlsErr(err error, kind string) error {
+	var ua x509.UnknownAuthorityError
+	var hn x509.HostnameError
+	var ci x509.CertificateInvalidError
+	var tv *tls.CertificateVerificationError
+	if !errors.As(err, &ua) && !errors.As(err, &hn) && !errors.As(err, &ci) && !errors.As(err, &tv) {
+		return nil
+	}
+	if kind == "webdav" {
+		return out.Errf(out.ExitConnect, "STORAGE_TLS", "if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL", "the storage server's TLS certificate does not verify: %v", err)
+	}
+	return out.Errf(out.ExitConnect, "STORAGE_TLS", "if the certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add &ca=secret:NAME (or ?ca=) to the conn URL",
+		"the storage server's TLS certificate does not verify: %v", err)
 }
 
 // BucketInfo is one bucket an account can see, and where it lives.
@@ -288,6 +333,9 @@ func toErr(err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "storage did not answer in time")
 	}
 	r := minio.ToErrorResponse(err)
+	if err := regionErr(r); err != nil {
+		return err
+	}
 	switch r.Code {
 	case "NoSuchKey", "NotFound":
 		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "object not found")
@@ -295,6 +343,9 @@ func toErr(err error) error {
 		return out.Errf(out.ExitNotFound, "BUCKET_NOT_FOUND", "check the bucket name in the conn URL (`komando conn show NAME`)", "bucket does not exist")
 	case "AccessDenied", "InvalidAccessKeyId", "SignatureDoesNotMatch", "InvalidToken", "ExpiredToken":
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "check the access key ID in the URL and the secret key reference; the key may lack permission for this action", "%s: %s", r.Code, r.Message)
+	}
+	if e := tlsErr(err, "s3"); e != nil {
+		return e
 	}
 	var ne net.Error
 	if errors.As(err, &ne) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
@@ -304,4 +355,29 @@ func toErr(err error) error {
 		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%s: %s", r.Code, r.Message)
 	}
 	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+}
+
+// regionErr names the bucket's region when the conn's is wrong (AWS says
+// which one it is), or nil when the answer was about something else.
+func regionErr(r minio.ErrorResponse) error {
+	switch r.Code {
+	case "AuthorizationHeaderMalformed", "PermanentRedirect", "InvalidRegion", "IllegalLocationConstraintException", "AuthorizationQueryParametersError":
+		if r.Region == "" && r.Code != "PermanentRedirect" && r.Code != "InvalidRegion" && !strings.Contains(strings.ToLower(r.Message), "region") {
+			return nil
+		}
+	default:
+		// an answer without a body (HEAD): the status, and the region
+		// header AWS adds
+		if r.Region == "" || (r.StatusCode != http.StatusBadRequest && r.StatusCode != http.StatusMovedPermanently) {
+			return nil
+		}
+	}
+	if r.Region == "" {
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR",
+			"set the bucket's region in the conn URL (region=...) with `komando conn edit NAME --url URL`; `komando conn show NAME` shows the URL now",
+			"the bucket is not in the region the conn uses (%s: %s)", r.Code, r.Message)
+	}
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR",
+		"set region="+r.Region+" in the conn URL (and leave out a regional endpoint) with `komando conn edit NAME --url URL`; `komando conn show NAME` shows the URL now",
+		"the bucket is in region %s, not in the one the conn uses", r.Region)
 }

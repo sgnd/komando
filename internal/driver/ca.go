@@ -23,7 +23,7 @@ var ResolveSecret func(ref string) (string, error)
 var ErrSecretNotFound = errors.New("secret not found")
 
 // caKinds are the kinds whose URL takes ?ca= (registry has its own).
-var caKinds = map[string]bool{"postgres": true, "mysql": true, "redis": true, "memcached": true, "mongodb": true, "kafka": true, "rabbitmq": true, "nats": true, "sqlserver": true, "oracle": true, "clickhouse": true, "snowflake": true, "bigquery": true}
+var caKinds = map[string]bool{"postgres": true, "mysql": true, "redis": true, "memcached": true, "mongodb": true, "kafka": true, "rabbitmq": true, "nats": true, "sqlserver": true, "oracle": true, "clickhouse": true, "snowflake": true, "bigquery": true, "s3": true, "gcs": true, "azblob": true}
 
 // parseCA reads ?ca=secret:NAME into t.CA.
 func parseCA(q url.Values, t *Target) error {
@@ -68,7 +68,7 @@ func parseCA(q url.Values, t *Target) error {
 		return out.Usage("?ca= checks a TLS certificate: use it with tls=true (TCPS), without tls=skip-verify or tls=false")
 	case t.Kind.Name == "clickhouse" && t.TLS != "true":
 		return out.Usage("?ca= checks a TLS certificate: use it with tls=true (HTTPS), without tls=skip-verify or tls=false")
-	case t.Kind.Name == "bigquery" && !t.Secure:
+	case (t.Kind.Name == "bigquery" || t.Kind.Name == "s3" || t.Kind.Name == "gcs" || t.Kind.Name == "azblob") && !t.Secure:
 		return out.Usage("?ca= checks a TLS certificate: use an https:// endpoint")
 	case t.Kind.Name == "mysql" && t.TLS != "" && t.TLS != "true":
 		return out.Usage("mysql ca= and tls=%s do not go together: with ca= the certificate is checked against that CA", t.TLS)

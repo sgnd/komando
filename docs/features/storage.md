@@ -14,6 +14,24 @@ komando download backups 2026/app.sql.gz             # into the current folder
 komando upload backups ./app.sql.gz 2026/app.sql.gz
 ```
 
+## The whole journey
+
+| Step | Command |
+|------|---------|
+| Add | `komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password` |
+| Check it works | `komando test backups` |
+| See your storages | `komando list kind:storage` |
+| Browse, read | `komando storage ls backups 2026/` · `komando storage cat backups logs/app.log --tail 50` |
+| Copy | `komando upload backups ./app.sql.gz 2026/` · `komando download backups 2026/app.sql.gz` |
+| Share | `komando storage link backups 2026/app.sql.gz --expires 24h` |
+| Clean up | `komando storage rm backups --prefix daily/ --older-than 30d --dry-run`, then without `--dry-run` |
+| Change it | `komando conn edit backups --url '...'` · `--via bastion` · `--protected` |
+| Remove it from komando (the files stay) | `komando conn rm backups` |
+
+A person who leaves out the storage's name at a terminal is asked for it,
+with a list of the storages komando knows. An AI agent gives every
+argument; a missing one is a `USAGE` error whose hint is a full example.
+
 ## Supported storage
 
 | Kind | URL example | Notes |
@@ -26,6 +44,17 @@ komando upload backups ./app.sql.gz 2026/app.sql.gz
 | SFTP | `sftp://deploy@files.example.com/uploads` | File access over SSH, for accounts without a shell. The path starts at the server's root (on hosting, often your home folder). |
 | SMB (Windows shares) | `smb://alice@fileserver.corp.lan/team/reports?domain=CORP` | A Windows file server, Samba, a NAS or Azure Files. The first part of the path is the share. See [Windows shares](#add-a-windows-share-smb). |
 | FTP | `ftp://deploy@files.example.com/www?insecure=1` | No encryption: the password and files travel in clear. Refused without `?insecure=1`. Prefer FTPS or SFTP. |
+
+**A certificate from your own CA** (a company MinIO, or a proxy that
+inspects TLS): store the CA and name it in the URL, for S3, Google Cloud
+and Azure. komando then trusts that CA as well as the usual ones, and
+still checks the certificate fully. Without it, the error is
+`STORAGE_TLS` with this hint.
+
+```bash
+komando secret set corp-ca < corp-ca.crt
+komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.corp.lan:9000&ca=secret:corp-ca' --ask-password
+```
 
 The folder in the URL is where the conn starts. Keys are relative to it and
 cannot leave it (`../` is refused, also in a dry run).
@@ -87,6 +116,12 @@ komando conn add files azblob://mystorageacct@uploads/2026 --password-ref secret
 - An emulator or another cloud takes `?endpoint=URL`, for example
   `azblob://devstoreaccount1@media?endpoint=http://127.0.0.1:10000/devstoreaccount1`
   for Azurite.
+- gcloud's own login goes only to Google (`https://…googleapis.com`), never
+  to an emulator or another endpoint. A service account key needs an
+  `https://` endpoint: over `http://` its token would travel unencrypted,
+  so komando refuses it (`INSECURE_PROTOCOL`).
+  A SAS token is refused over `http://` for the same reason; the Azure
+  account key only signs, so an emulator like Azurite works with it.
 
 ## Add a file server (WebDAV, FTPS, SFTP, FTP)
 
@@ -160,6 +195,9 @@ komando storage cat backups logs/app.log --tail 50    # read text without downlo
 komando storage cat backups config/app.env --head 20
 ```
 
+- `ls backups 2026` and `ls backups 2026/` both list what is in the folder
+  2026, on every kind of storage. On a bucket, a prefix that names no folder
+  (`ls backups logs/app-2026-11`) lists the keys that start with it.
 - `ls` of a folder that is empty or does not exist is `FOLDER_NOT_FOUND`
   (exit 3), on every kind of storage. The empty "folder marker" objects
   that S3 consoles create are left out of listings and downloads.
@@ -214,6 +252,10 @@ komando storage link backups 2026/app.sql.gz --endpoint https://files.example.co
   storage through `--via`, the result warns that people outside that network
   cannot open it. Use `--endpoint` to sign it for the public address.
 - The download keeps the file's name, also with non-ASCII letters.
+- A conn that logs in with an AWS profile (SSO, an assumed role) signs the
+  link with temporary keys, so the link stops working when they expire,
+  often after an hour, whatever `--expires` says. The result warns about
+  it. For a link that lasts, give the conn an access key of its own.
 
 ## Delete files
 
@@ -223,13 +265,23 @@ komando storage rm backups --prefix daily/ --older-than 30d --dry-run          #
 komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous  # delete them
 ```
 
-- Deleted objects are gone, so `rm` needs `--allow-dangerous`.
+- Deleted objects are gone (unless the bucket keeps old versions, see
+  below), so `rm` needs `--allow-dangerous`. A person at a terminal can
+  leave it out: komando first lists what would go (the first 20 objects,
+  the count and the size), then asks to type the conn's name. Anything
+  else cancels and deletes nothing.
 - Without `--prefix`, `rm` takes exact keys only, no patterns.
 - `--prefix` removes everything under a folder (`/` for the whole conn);
   `--older-than` (`30d`, `12h`, `90m`) keeps the newer ones.
 - `--prefix` refuses to remove more than `--limit` objects (1000 by
   default). Check the dry-run list, and raise the limit if that is what you
   mean.
+- **Buckets that keep old versions** (S3 versioning, Google Cloud object
+  versioning or soft delete, Azure blob versioning or soft delete): `rm`
+  removes the current object only. The provider keeps the old versions (S3
+  adds a delete marker), they still cost storage, and they can be brought
+  back in the provider's console or CLI. komando does not list or remove
+  old versions; a lifecycle rule on the bucket does that.
 
 ## Good to know
 

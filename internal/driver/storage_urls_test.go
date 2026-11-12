@@ -27,15 +27,16 @@ func TestCloudStorageURLs(t *testing.T) {
 		}
 	}
 	for raw, code := range map[string]string{
-		"gs://user@media":                     "USAGE",
-		"gs://media?region=eu":                "USAGE",
-		"gs://media?endpoint=ftp://x":         "USAGE",
-		"azblob://uploads":                    "USAGE", // no account
-		"azblob://acct@uploads?sas=x":         "USAGE",
-		"webdav://bob@nas.lan/share":          "INSECURE_PROTOCOL",
-		"webdavs://bob@nas.lan/share?tls=yes": "USAGE",
-		"webdavs://bob@nas.lan:99999/":        "USAGE",
-		"webdavs:///share":                    "USAGE",
+		"gs://user@media":                             "USAGE",
+		"gs://media?region=eu":                        "USAGE",
+		"gs://media?endpoint=ftp://x":                 "USAGE",
+		"azblob://uploads":                            "USAGE", // no account
+		"azblob://acct@uploads?sas=x":                 "USAGE",
+		"azblob://acct@uploads?sv=2021-08-06&sig=abc": "URL_HAS_PASSWORD", // a SAS token belongs in the vault
+		"webdav://bob@nas.lan/share":                  "INSECURE_PROTOCOL",
+		"webdavs://bob@nas.lan/share?tls=yes":         "USAGE",
+		"webdavs://bob@nas.lan:99999/":                "USAGE",
+		"webdavs:///share":                            "USAGE",
 	} {
 		_, err := Parse(raw)
 		if oe, ok := err.(*out.Error); !ok || oe.Code != code {

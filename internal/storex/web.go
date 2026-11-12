@@ -56,6 +56,9 @@ func webErr(what string, resp *http.Response, err error) error {
 		case errors.Is(err, context.DeadlineExceeded):
 			return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "storage did not answer in time")
 		}
+		if e := tlsErr(err, what); e != nil {
+			return e
+		}
 		var ne net.Error
 		if errors.As(err, &ne) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
 			return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando conn test NAME` to check reachability", "%v", err)

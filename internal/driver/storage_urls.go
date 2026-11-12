@@ -53,7 +53,7 @@ func onlyOptions(q url.Values, kind string, known ...string) error {
 	return nil
 }
 
-// parseGCS reads gs://bucket/folder[?endpoint=URL]. The login is a service
+// parseGCS reads gs://bucket/folder[?endpoint=URL][&ca=secret:NAME]. The login is a service
 // account key from --password-ref, or else gcloud's (application default
 // credentials).
 func parseGCS(u *url.URL, t Target) (Target, error) {
@@ -63,13 +63,16 @@ func parseGCS(u *url.URL, t Target) (Target, error) {
 	}
 	t.Prefix = folderOf(u.Path)
 	q := u.Query()
-	if err := onlyOptions(q, "gcs", "endpoint"); err != nil {
+	if err := onlyOptions(q, "gcs", "endpoint", "ca"); err != nil {
 		return Target{}, err
 	}
-	return t, endpointOf(q, "gcs", "https://storage.googleapis.com", &t)
+	if err := endpointOf(q, "gcs", "https://storage.googleapis.com", &t); err != nil {
+		return Target{}, err
+	}
+	return t, parseCA(q, &t)
 }
 
-// parseAzure reads azblob://ACCOUNT@container/folder[?endpoint=URL]. The
+// parseAzure reads azblob://ACCOUNT@container/folder[?endpoint=URL][&ca=secret:NAME]. The
 // account key or a SAS token comes from --password-ref.
 func parseAzure(u *url.URL, t Target) (Target, error) {
 	t.User, t.Bucket = u.User.Username(), u.Host
@@ -78,10 +81,19 @@ func parseAzure(u *url.URL, t Target) (Target, error) {
 	}
 	t.Prefix = folderOf(u.Path)
 	q := u.Query()
-	if err := onlyOptions(q, "azblob", "endpoint"); err != nil {
+	if q.Has("sig") || q.Has("sv") {
+		// a SAS token pasted into the URL: it is a password
+		return Target{}, out.Errf(out.ExitUsage, "URL_HAS_PASSWORD",
+			"remove the SAS token from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
+			"conn URLs must not contain a password")
+	}
+	if err := onlyOptions(q, "azblob", "endpoint", "ca"); err != nil {
 		return Target{}, err
 	}
-	return t, endpointOf(q, "azblob", "https://"+t.User+".blob.core.windows.net", &t)
+	if err := endpointOf(q, "azblob", "https://"+t.User+".blob.core.windows.net", &t); err != nil {
+		return Target{}, err
+	}
+	return t, parseCA(q, &t)
 }
 
 // parseWebDAV reads webdavs://user@host[:port]/path (webdav:// is plain

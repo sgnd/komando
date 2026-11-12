@@ -2,11 +2,18 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/url"
 	"os"
+	"sort"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/storex"
 )
 
 // An sftp:// conn reaches an SSH server, so it must not be a way around
@@ -49,4 +56,204 @@ func TestOpenBucketSMB(t *testing.T) {
 			t.Error(err)
 		}
 	}
+}
+
+// memBucket is a storage conn in memory, for the command layer's tests.
+type memBucket struct {
+	objs   map[string]string
+	listed int // List calls
+}
+
+func (m *memBucket) List(_ context.Context, prefix string, recursive bool, limit int) ([]storex.Object, bool, error) {
+	m.listed++
+	var objs []storex.Object
+	dirs := map[string]bool{}
+	for k, v := range m.objs {
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		rest := strings.TrimPrefix(k, prefix)
+		if i := strings.Index(rest, "/"); !recursive && i >= 0 {
+			if d := prefix + rest[:i+1]; !dirs[d] {
+				dirs[d] = true
+				objs = append(objs, storex.Object{Key: d, Dir: true})
+			}
+			continue
+		}
+		objs = append(objs, storex.Object{Key: k, Size: int64(len(v)), Modified: time.Now().Add(-time.Hour)})
+	}
+	sort.Slice(objs, func(i, j int) bool { return objs[i].Key < objs[j].Key })
+	if limit > 0 && len(objs) > limit {
+		return objs[:limit], true, nil
+	}
+	return objs, false, nil
+}
+
+func (m *memBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
+	v, ok := m.objs[key]
+	if !ok {
+		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "object not found")
+	}
+	n, err := io.WriteString(w, v)
+	return int64(n), err
+}
+
+func (m *memBucket) Exists(_ context.Context, key string) (bool, error) {
+	_, ok := m.objs[key]
+	return ok, nil
+}
+
+func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
+	v, ok := m.objs[key]
+	if !ok {
+		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "%s not found", key)
+	}
+	return storex.Object{Key: key, Size: int64(len(v))}, nil
+}
+
+func (m *memBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
+	b, err := io.ReadAll(r)
+	m.objs[key] = string(b)
+	return err
+}
+
+func (m *memBucket) Remove(_ context.Context, key string) error { delete(m.objs, key); return nil }
+
+func (m *memBucket) Link(context.Context, string, time.Duration) (*url.URL, error) {
+	return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "", "no links")
+}
+
+func (m *memBucket) Close() error { return nil }
+
+// withMemBucket adds the storage conn bk, backed by m.
+func withMemBucket(t *testing.T, m *memBucket) {
+	t.Helper()
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
+	saved := openBucket
+	openBucket = func(context.Context, *store.State, *store.Conn) (storex.Bucket, error) { return m, nil }
+	t.Cleanup(func() { openBucket = saved })
+}
+
+// typing answers what komando asks on the terminal with answer.
+func typing(t *testing.T, answer string) {
+	t.Helper()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.WriteString(answer)
+	w.Close()
+	saved, savedI := os.Stdin, interactive
+	os.Stdin, interactive = r, func() bool { return true }
+	t.Cleanup(func() { os.Stdin, interactive = saved, savedI; r.Close() })
+}
+
+// rm --prefix at a person's terminal lists what goes before asking for
+// the name; a wrong name deletes nothing, the right one deletes it all.
+func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
+	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb", "keep.txt": "k"}}
+	withMemBucket(t, m)
+	typing(t, "wrong\n")
+	var e *out.Error
+	said := stderrOf(t, func() { _, e = invRun(t, "storage", "rm", "bk", "--prefix", "daily") })
+	if e == nil || e.Code != "POLICY_BLOCKED" || len(m.objs) != 3 {
+		t.Fatalf("a wrong name: %+v, %d objects left", e, len(m.objs))
+	}
+	list, typeName := strings.Index(said, "daily/b.gz"), strings.Index(said, "Type the name bk")
+	if list < 0 || typeName < list || !strings.Contains(said, "2 objects (5 B) under daily/ in bk") {
+		t.Errorf("the list comes before the question:\n%s", said)
+	}
+	typing(t, "bk\n")
+	stderrOf(t, func() { mustRun(t, "storage", "rm", "bk", "--prefix", "daily/") })
+	if _, ok := m.objs["keep.txt"]; len(m.objs) != 1 || !ok {
+		t.Errorf("after the right name: %v", m.objs)
+	}
+}
+
+// An agent (no terminal) is stopped before komando lists anything.
+func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
+	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa"}}
+	withMemBucket(t, m)
+	saved := interactive
+	interactive = func() bool { return false }
+	t.Cleanup(func() { interactive = saved })
+	if e := wantCode(t, "POLICY_BLOCKED", "storage", "rm", "bk", "--prefix", "daily/"); e.Exit != out.ExitPolicy || m.listed != 0 || len(m.objs) != 1 {
+		t.Errorf("exit %d, listed %d, %d objects", e.Exit, m.listed, len(m.objs))
+	}
+}
+
+// Storage errors name the conn in the command they suggest.
+func TestStorageHintNamesTheConn(t *testing.T) {
+	withMemBucket(t, &memBucket{objs: map[string]string{}})
+	e := wantCode(t, "OBJECT_NOT_FOUND", "storage", "cat", "bk", "nope.txt")
+	if e.Hint != "list objects with `komando storage ls bk [PREFIX]`" {
+		t.Errorf("hint: %q", e.Hint)
+	}
+	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando secret set NAME` and pass --password-ref secret:NAME; then `komando conn test NAME`", "x")
+	if got := namedHint(in, "bk").(*out.Error).Hint; got != "store a key with `komando secret set NAME` and pass --password-ref secret:NAME; then `komando conn test bk`" {
+		t.Errorf("only conn commands change: %q", got)
+	}
+}
+
+// storage ls CONN db lists what is in the folder db/ on a bucket too, as
+// on a file server; a prefix that names no folder still lists by prefix.
+func TestStorageLsFolderWithoutSlash(t *testing.T) {
+	withMemBucket(t, &memBucket{objs: map[string]string{"db/a.sql": "a", "db/b.sql": "b", "dbx.txt": "x"}})
+	keys := func(d map[string]any) string {
+		var k []string
+		for _, o := range d["objects"].([]any) {
+			k = append(k, o.(map[string]any)["key"].(string))
+		}
+		return strings.Join(k, ",")
+	}
+	if got := keys(mustRun(t, "storage", "ls", "bk", "db/")); got != "db/a.sql,db/b.sql" {
+		t.Errorf("db/: %s", got)
+	}
+	d := mustRun(t, "storage", "ls", "bk", "db")
+	if got := keys(d); got != "db/a.sql,db/b.sql" || d["prefix"] != "db/" {
+		t.Errorf("db: %s (prefix %v)", got, d["prefix"])
+	}
+	if got := keys(mustRun(t, "storage", "ls", "bk", "d")); got != "db/,dbx.txt" {
+		t.Errorf("d: %s", got)
+	}
+}
+
+// tempKeyBucket makes links with temporary keys, as an S3 conn with an
+// SSO or role profile does.
+type tempKeyBucket struct{ *memBucket }
+
+func (tempKeyBucket) TemporaryKeys() bool { return true }
+
+func (tempKeyBucket) Link(_ context.Context, key string, _ time.Duration) (*url.URL, error) {
+	return url.Parse("https://shop-dev.s3.amazonaws.com/" + key + "?X-Amz-Security-Token=x")
+}
+
+// A link signed with temporary AWS keys says it can end early.
+func TestStorageLinkTemporaryKeysWarns(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://shop-dev/backups?region=eu-west-1", "--option", "aws_profile=dev")
+	saved := openBucket
+	openBucket = func(context.Context, *store.State, *store.Conn) (storex.Bucket, error) {
+		return tempKeyBucket{&memBucket{objs: map[string]string{"a.txt": "a"}}}, nil
+	}
+	t.Cleanup(func() { openBucket = saved })
+	d := mustRun(t, "storage", "link", "bk", "a.txt", "--expires", "24h")
+	if w, _ := d["warning"].(string); !strings.Contains(w, "temporary AWS keys (profile dev)") {
+		t.Errorf("warning: %q", w)
+	}
+}
+
+// The steps around the storage's own entry, as storage --help names them.
+func TestStorageJourneyCommands(t *testing.T) {
+	withMemBucket(t, &memBucket{objs: map[string]string{}})
+	if d := mustRun(t, "list", "kind:storage"); !strings.Contains(fmt.Sprint(d), "bk") {
+		t.Errorf("list kind:storage: %v", d)
+	}
+	e := wantCode(t, "USAGE", "storage", "rm", "bk")
+	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage ls bk") {
+		t.Errorf("rm without keys: %q", e.Hint)
+	}
+	mustRun(t, "conn", "edit", "bk", "--add-tag", "backup")
+	mustRun(t, "conn", "rm", "bk")
 }

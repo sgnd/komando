@@ -202,6 +202,46 @@ its highlights; the sections below them give the details. Versions follow
 
 - `db restore` and `db user rm` typed without their arguments now hint a
   runnable `--dry-run` example (the hint said only "see --help").
+- Google Cloud Storage: gcloud's own login is sent only to Google's
+  HTTPS endpoints (`*.googleapis.com`). A `gs://` conn with an emulator or
+  other `?endpoint=` used to send the person's gcloud token there too, in
+  clear over `http://`. A service account key with an `http://` endpoint
+  is refused with `INSECURE_PROTOCOL`.
+- Azure Blob: a SAS token with an `http://` endpoint is refused
+  (`INSECURE_PROTOCOL`): the token goes in every request as it is, so it
+  would travel unencrypted. The account key, which only signs, still works
+  with an emulator such as Azurite.
+- `storage rm --prefix` typed at a terminal without `--allow-dangerous`
+  now lists what would be deleted (the first 20 objects, the count and the
+  size) before asking to type the conn's name; it used to ask first, with
+  nothing shown. Agents and scripts are stopped as before, before anything
+  is listed.
+- S3: a bucket in another region than the conn's `region=` (or its
+  regional endpoint) now says which region it is in and how to fix the
+  conn (`conn edit NAME --url ...`), instead of a bare `STORAGE_ERROR:
+  AuthorizationHeaderMalformed` or `400 Bad Request`.
+- Storage errors name the conn in the command their hint suggests
+  (`komando conn test backups`, `komando storage ls backups`), not the
+  placeholder `NAME` or `CONN`.
+- `storage ls CONN db` on a bucket (S3, Google Cloud, Azure) lists what is
+  in the folder `db`, as on a file server; it used to list only the folder
+  itself (`DIR db/`).
+- `storage link` on an S3 conn with an AWS profile (SSO, an assumed role)
+  warns that the link ends when the temporary keys do, which can be long
+  before `expires_at`.
+- `komando storage --help` shows the whole journey (add, test, list,
+  edit, remove the conn) with examples; `storage add --help` has examples
+  for an AWS profile, MinIO, Google Cloud, Azure and SFTP; `storage rm
+  CONN` with no key names the next step, including `conn rm CONN` for
+  taking the storage itself out of komando's list.
+- S3, Google Cloud and Azure conns take `&ca=secret:NAME`, for an
+  endpoint whose certificate comes from a private CA (a company MinIO, a
+  TLS-inspecting proxy). There was no way to use one. A certificate that
+  does not verify is now `STORAGE_TLS` with that hint, not a generic
+  `STORAGE_ERROR`.
+- An `azblob://` URL with a SAS token in it (`?sv=...&sig=...`) is refused
+  as `URL_HAS_PASSWORD`, with the hint to store it in the vault, instead of
+  "unknown azblob URL option".
 
 ## [0.12.0] - 2026-11-11
 
