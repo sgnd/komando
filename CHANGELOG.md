@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- "No server named ..." at a terminal now names the command to add one
+  (`komando host add NAME user@address`, `komando conn add NAME URL`,
+  `komando vpn add NAME KIND`) instead of "run komando and pick Add".
 - `conn add` and `conn edit` refuse an `s3://`, `gs://` or `azblob://` conn
   whose `http://` endpoint crosses the network (`INSECURE_PROTOCOL`), as
   they already did for `sqs://` and `pubsub://`: the files and the AWS
