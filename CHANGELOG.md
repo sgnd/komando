@@ -51,6 +51,9 @@ its highlights; the sections below them give the details. Versions follow
   TLS-inspecting proxy). There was no way to use one. A certificate that
   does not verify is now `STORAGE_TLS` with that hint, not a generic
   `STORAGE_ERROR`.
+- An `azblob://` URL with a SAS token in it (`?sv=...&sig=...`) is refused
+  as `URL_HAS_PASSWORD`, with the hint to store it in the vault, instead of
+  "unknown azblob URL option".
 
 ## [0.12.0] - 2026-11-11
 
