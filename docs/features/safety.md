@@ -152,7 +152,7 @@ computer in komando that way: `--read-only` does not make it safe.
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. |
 | `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`. Run it without `--dry-run`: komando asks the person in a window on their screen. |
-| `NEEDS_PERSON` | 6 | Only a person can do this (`secret check`, setting up `config approval-code`). Ask them to run it in their own terminal. |
+| `NEEDS_PERSON` | 6 | Only a person can do this (`secret check`, setting up `config approval-code`, replacing a pinned host key with `host trust --reset`). Ask them to run it in their own terminal. |
 | `SSH_GATE_REFUSED`, `SSH_GATE_READ_ONLY` | 6 | An SSH key limited by `komando ssh-gate` asked for something it may not run (see [above](#a-key-that-runs-komando-and-nothing-else)). No flag allows it: a person runs it on the komando computer. |
 | `SSH_GATE_SYNTAX` | 2 | The key's command is not one komando command. Put an argument with `;`, `\|`, `$`, a backquote and the like in single quotes: `$` and backquotes are refused even in double quotes. |
 | `SSH_GATE_PATH` | 1 | `komando ssh-gate line` cannot tell komando's full path, which the line needs. Run it by its full path, e.g. `/usr/local/bin/komando ssh-gate line ...`. |
@@ -161,9 +161,12 @@ computer in komando that way: `--read-only` does not make it safe.
 | `AUDIT_UNAVAILABLE` | 1 | The audit log cannot be written, so nothing runs. `komando doctor` shows why. |
 
 When you type a command yourself in a terminal, komando asks instead of
-failing: `[y/N]` for a protected target, and typing the target's name for a
-dangerous command. Agents and scripts never see these questions; they need
-the flags.
+failing: `[y/N]` for a protected target, and typing the name of what goes
+for a dangerous command. Agents and scripts never see these questions; they
+need the flags. Every stop a flag lifts has the same hint, naming every
+flag the real run needs: an AI agent reads `check with --dry-run, ask the
+user; once they agree, run it again with --yes`, a script gets its own
+command line with the flags filled in.
 
 Secrets are never accepted as command arguments, because they would land in
 your shell history (`SECRET_IN_ARGS`). `komando secret set NAME` asks for
