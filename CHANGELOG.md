@@ -35,6 +35,10 @@ its highlights; the sections below them give the details. Versions follow
   (it failed with `FILE_EXISTS`), and `--to -` is refused with a usage
   error instead of creating a file named `-`.
 
+- `db` error hints name the conn you gave (`komando db schema prod-db
+  TABLE`), not a `CONN` placeholder, so the hint is the exact next
+  command.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

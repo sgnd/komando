@@ -68,3 +68,19 @@ func TestDBDumpToFolder(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "db", "dump", "lite", "--to", "-")
 }
+
+// A db error's hint names the conn that was given, not the CONN
+// placeholder, so it is the exact next command.
+func TestDBHintNamesConn(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
+	mustRun(t, "db", "query", "lite", "--write", "create table t (id int)")
+	e := wantCode(t, "TABLE_NOT_FOUND", "db", "schema", "lite", "nosuch")
+	if !strings.Contains(e.Hint, "`komando db schema lite`") || strings.Contains(e.Hint, "CONN") {
+		t.Errorf("hint %q", e.Hint)
+	}
+	e = wantCode(t, "DB_ERROR", "db", "query", "lite", "select * from nosuch")
+	if !strings.Contains(e.Hint, "`komando db schema lite TABLE`") {
+		t.Errorf("hint %q", e.Hint)
+	}
+}

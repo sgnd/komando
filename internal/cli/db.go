@@ -59,6 +59,7 @@ Each database is a conn: list them with ` + "`komando list kind:db`" + `, check 
 	var withTimeout func(*cobra.Command)
 	withTimeout = func(cmd *cobra.Command) {
 		for _, sub := range cmd.Commands() {
+			connHints(sub)
 			switch sub.Name() {
 			case "add", "dump", "restore": // dump and restore have no time limit of their own
 			default:
@@ -73,6 +74,29 @@ Each database is a conn: list them with ` + "`komando list kind:db`" + `, check 
 	withTimeout(c)
 	return c
 }
+
+// connHints makes the hints of a db command name the conn it was given:
+// `komando db schema CONN TABLE` becomes `komando db schema prod-db TABLE`,
+// so a hint is the exact next command for a person and an agent.
+func connHints(c *cobra.Command) {
+	if f := strings.Fields(c.Use); c.RunE == nil || len(f) < 2 || f[1] != "CONN" {
+		return
+	}
+	run := c.RunE
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		err := run(cmd, args)
+		var e *out.Error
+		if len(args) > 0 && errors.As(err, &e) {
+			e.Hint = connInHint.ReplaceAllStringFunc(e.Hint, func(m string) string {
+				return strings.TrimSuffix(m, "CONN") + argQ(args[0])
+			})
+		}
+		return err
+	}
+}
+
+// connInHint is CONN inside a komando db or conn command in a hint.
+var connInHint = regexp.MustCompile("`komando (?:db|conn) [a-z ]*?CONN\\b")
 
 type dbFlags struct {
 	write bool
