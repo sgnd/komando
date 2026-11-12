@@ -78,7 +78,7 @@ var commandKinds = map[string]cmdKind{
 	"cluster describe":     reads,
 	"cluster events":       reads,
 	"cluster exec":         dependsOn(unlessReadOnly),
-	"cluster forward":      reads,
+	"cluster forward":      changes, // hands out access (OD-13)
 	"cluster get":          reads,
 	"cluster helm":         reads,
 	"cluster helm history": reads,
@@ -291,7 +291,7 @@ var commandKinds = map[string]cmdKind{
 	"storage":          reads,
 	"storage cat":      reads,
 	"storage download": reads,
-	"storage link":     reads,
+	"storage link":     changes, // hands out access (OD-13)
 	"storage ls":       reads,
 	"storage rm":       changes,
 	"storage upload":   changes,

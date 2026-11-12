@@ -87,6 +87,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `storage link` and `cluster forward` are `kind: change` in `komando
+  schema` (were `read`): they hand out access and already stopped on a
+  protected target. An ssh-gate key added with `--read-only` is refused
+  them (`SSH_GATE_READ_ONLY`, as before); a full key still runs them. At a
+  terminal a filled-in one asks `Run it?` like any change.
 - **Replacing a pinned host key is for a person at a terminal only.**
   `komando host trust NAME --reset` shows the old and new key and asks
   once (one question for a group, with "(protected)" when it is). An AI

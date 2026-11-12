@@ -51,8 +51,7 @@ var gateExec = syscall.Exec
 // A --read-only key runs what komando treats as a read (kinds.go): a
 // command of kind read, and one of kind depends only in its read form
 // (gateReadForm). A change, or a command added later without a kind, is
-// refused. A few reads still leave something on the komando computer or
-// hand out access (gateNotForReadKey); those are refused too.
+// refused; a change that hands out access says so (gateNotForReadKey).
 
 // gateReadForm: these read only with a flag (--read-only), or without one
 // (--write, --analyze, --apply, --refresh). Why the command as given may
@@ -72,7 +71,9 @@ var gateReadForm = map[string]func(c *cobra.Command) string{
 	"recipe.run":     gateRecipeWrites,
 }
 
-// gateNotForReadKey are reads a read-only key still does not run, and why.
+// gateNotForReadKey are commands a read-only key does not run, with a
+// better reason than "it changes something": they hand out access, so they
+// are of kind change (OD-13), and full keys run them (gateOnServers).
 var gateNotForReadKey = map[string]string{
 	"storage.link":    "it makes a link that opens the data without a login",
 	"cluster.forward": "it opens a port on the komando computer",
@@ -110,6 +111,7 @@ var gateOnServers = map[string]func(c *cobra.Command) string{
 	"docker.restart": nil, "docker.rm": nil, "docker.start": nil, "docker.stop": nil,
 	"cluster.apply": nil, "cluster.deploy": nil, "cluster.exec": nil, "cluster.restart": nil,
 	"cluster.rm": nil, "cluster.rollback": nil, "cluster.run": gateKubectlCp, "cluster.scale": nil,
+	"cluster.forward": nil, "storage.link": nil, // hand out access; as before OD-13 made them changes
 	"vpn.up": nil, "vpn.down": nil,
 }
 
