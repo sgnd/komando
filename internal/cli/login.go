@@ -64,8 +64,8 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 	c.AddCommand(loginAWSCmd(),
 		loginNotBuiltCmd("gcp", "Google Cloud", "for now komando uses your Google application default credentials (GOOGLE_APPLICATION_CREDENTIALS, or the file gcloud saved), "+
 			"or a service account key: `komando secret set gcs-key`, then `komando conn add NAME gs://BUCKET --password-ref secret:gcs-key`"),
-		loginNotBuiltCmd("azure", "Azure", "for now komando uses a service principal (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET), a token the Azure CLI saved, "+
-			"or a storage account key: `komando secret set blob-key`, then `komando conn add NAME azblob://ACCOUNT@CONTAINER --password-ref secret:blob-key`"))
+		loginNotBuiltCmd("azure", "Azure", "for now an Azure blob conn takes the storage account key or a SAS token: `komando secret set blob-key`, then "+
+			"`komando conn add NAME azblob://ACCOUNT@CONTAINER --password-ref secret:blob-key`; Key Vault secrets use AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET, a token the Azure CLI saved, or the machine's managed identity"))
 	return c
 }
 
