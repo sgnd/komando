@@ -188,7 +188,7 @@ komando cluster deploy prod deployment/api --image ghcr.io/acme/api:1.4.3 --name
 komando cluster status prod deployment/api --namespace shop --wait    # has it rolled out?
 komando cluster history prod deployment/api --namespace shop          # revisions and their images
 komando cluster rollback prod deployment/api --namespace shop --wait  # back to the previous one
-komando cluster rollback prod deployment/api --to 3 --namespace shop  # back to revision 3
+komando cluster rollback prod deployment/api --revision 3 --namespace shop  # back to revision 3
 
 komando cluster deploy swarm1 service/web --image nginx:1.27 --wait
 komando cluster rollback swarm1 service/web --wait
@@ -207,7 +207,7 @@ With several containers in a pod, name the one that gets the image with
 Both name the stuck pods (or Swarm tasks), why they are stuck, and their
 image. Run `cluster rollback` to go back.
 
-`rollback` without `--to` goes to the newest earlier revision with
+`rollback` without `--revision` goes to the newest earlier revision with
 different images. The revision it replaced (the broken one) is then
 skipped, so rolling back twice does not bring it back. Pick any revision
 with `--to`: a revision that does not exist lists the ones that do, and the

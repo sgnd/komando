@@ -78,6 +78,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `cluster rollback` takes the revision as `--revision N` (kubectl's
+  `--to-revision` works too, for good). `--to` still works in this
+  release and is noted in `meta.deprecated`.
 - `--from` now always means a file on this computer (`db restore`,
   `fs write`, `queue send`). The MySQL account host is `--from-host` on
   `db grant`, `db revoke`, `db user show/add/passwd/rm`, and the backup

@@ -18,6 +18,8 @@ var flagRenames = []struct {
 	{[]string{"db", "user", "passwd"}, "from-host", "from", false},
 	{[]string{"db", "user", "rm"}, "from-host", "from", false},
 	{[]string{"fs", "restore"}, "copy", "from", false},
+	{[]string{"cluster", "rollback"}, "revision", "to", false},
+	{[]string{"cluster", "rollback"}, "revision", "to-revision", true},
 }
 
 func TestStandardFlagRenames(t *testing.T) {

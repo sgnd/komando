@@ -350,7 +350,7 @@ func clusterHistoryCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:     "history TARGET deployment/NAME",
-		Short:   "Revisions of a deployment, newest first, with their images (for rollback --to)",
+		Short:   "Revisions of a deployment, newest first, with their images",
 		Example: "  komando cluster history prod deployment/api --namespace shop",
 		Args:    refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -424,7 +424,7 @@ func deployRevision(d map[string]any) int {
 	return n
 }
 
-// pickRollback chooses where a rollback without --to goes: the newest
+// pickRollback chooses where a rollback without --revision goes: the newest
 // earlier revision with other images than the current one. When the
 // current revision is itself a rollback, the revision it replaced is the
 // one that went wrong, so it is skipped too (go there with --to).
@@ -485,13 +485,13 @@ func clusterRollbackCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "rollback TARGET TYPE/NAME",
-		Short: "Go back to the previous version (or --to REVISION, see `cluster history`)",
-		Long: `Without --to, a deployment goes back to the newest earlier revision that runs
+		Short: "Go back to the previous version (or --revision N, see `cluster history`)",
+		Long: `Without --revision, a deployment goes back to the newest earlier revision that runs
 other images than now. After a rollback, the revision it replaced (the bad
-one) is skipped, so a second rollback does not bring it back; --to picks any
+one) is skipped, so a second rollback does not bring it back; --revision picks any
 revision. A Swarm service goes back to its previous version.`,
 		Example: `  komando cluster rollback prod deployment/api --namespace shop --wait
-  komando cluster rollback prod deployment/api --to 3 --namespace shop
+  komando cluster rollback prod deployment/api --revision 3 --namespace shop
   komando cluster rollback swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -585,7 +585,9 @@ revision. A Swarm service goes back to its previous version.`,
 		},
 	}
 	nsFlags(c, &ns, nil, nil)
-	c.Flags().IntVar(&to, "to", 0, "the revision to go back to (default: the previous one with other images)")
+	c.Flags().IntVar(&to, "revision", 0, "the revision to go back to (default: the previous one with other images)")
+	flagAlias(c, "to-revision", "revision") // kubectl's word: a permanent synonym
+	retiredFlag(c, "to", "revision")
 	c.Flags().BoolVar(&wait, "wait", false, "wait until the rollback finishes (--timeout, default 5m)")
 	return c
 }
