@@ -1151,6 +1151,10 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   `--mode` is given. Before, it took the local file's mode, so a 0600
   `.env` on the server became 0644 (readable by every server user). A
   new file still gets the local file's mode.
+- A job's folder on the server (`~/.komando/jobs/ID`) is made 0700, and
+  its command, output and pid files 0600, whatever the server's umask.
+  Before, other server users could read a job's output. The job itself
+  still runs with the login's own umask.
 
 ## [0.12.0] - 2026-11-11
 
