@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A blocked command given a selector (`host rm @prod`, `tag:edge`) now
+  records the servers and conns it picked in the audit log instead of `-`,
+  so `komando audit --failed --target web2` finds it.
 - The `VAULT_KEY` hint for a server's password reference, and the
   `NO_PASSPHRASE` entry in the error catalog, named the old vault.key file;
   they now say store.key, where the sealed store keeps the key.
