@@ -216,7 +216,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 					return groupNotFound(s, group)
 				}
 				pick := map[string]bool{}
-				if len(args) == 2 {
+				if len(args) >= 2 {
 					sel, err := resolveSelection(s, strings.Join(args[1:], ","))
 					if err != nil {
 						return err

@@ -592,6 +592,13 @@ its highlights; the sections below them give the details. Versions follow
 - README: the Windows `.zip` is an install option, and `prompt` (now
   `status --short`) is no longer listed as a command.
 
+### Fixed
+
+- `group rm GROUP TARGET TARGET` (two or more targets) deleted the whole
+  group instead of taking just those targets out of it. Now it takes out
+  only the targets named; `group rm GROUP` alone still deletes the group
+  (and asks first when it has more than 3 members).
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights
