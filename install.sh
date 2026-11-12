@@ -103,9 +103,13 @@ if [ -n "$now" ] && [ "$now" != "$dir/komando" ]; then
   echo "\`komando version\` shows which one runs."
 fi
 echo
+# bash: eval, not source <(...), which the bash 3.2 of macOS reads as nothing;
+# a new macOS terminal reads ~/.bash_profile, Linux ~/.bashrc
+bashrc="~/.bashrc"
+[ "$os" = darwin ] && bashrc="~/.bash_profile"
 case "${SHELL:-}" in
   */zsh) completion="echo 'source <(komando completion zsh)' >> ~/.zshrc" ;;
-  */bash) completion="echo 'source <(komando completion bash)' >> ~/.bashrc" ;;
+  */bash) completion="echo 'eval \"\$(komando completion bash)\"' >> $bashrc" ;;
   *) completion="komando completion --help" ;;
 esac
 if [ -n "$prev" ]; then

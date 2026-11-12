@@ -347,8 +347,9 @@ Press Tab to complete commands, flags and the names of your servers,
 conns, groups and tags. Turn it on once (then open a new terminal):
 
 ```bash
-echo 'source <(komando completion zsh)' >> ~/.zshrc     # zsh (macOS)
-echo 'source <(komando completion bash)' >> ~/.bashrc   # bash (Linux)
+echo 'source <(komando completion zsh)' >> ~/.zshrc          # zsh (macOS)
+echo 'eval "$(komando completion bash)"' >> ~/.bashrc        # bash (Linux)
+echo 'eval "$(komando completion bash)"' >> ~/.bash_profile  # bash on macOS
 ```
 
 For fish and PowerShell, see `komando completion --help`.

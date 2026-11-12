@@ -20,6 +20,15 @@ its highlights; the sections below them give the details. Versions follow
   `komando_windows_arm64.zip`. It now updates Windows too, and a test keeps
   its list of platforms the same as the ones `make dist` builds.
 
+- Tab completion now turns on as the README and the installer say. In zsh,
+  `source <(komando completion zsh)` printed `command not found: compdef`
+  in every new terminal when `~/.zshrc` had not run `compinit` (a new
+  Mac's has not): the script now runs it when it is missing. For bash the
+  line is `eval "$(komando completion bash)"`, because the bash 3.2 of
+  macOS reads nothing from `source <(...)`. `komando completion SHELL
+  --help` gives these lines instead of the bash-completion package and
+  Homebrew paths.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights
