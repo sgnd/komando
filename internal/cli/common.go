@@ -164,6 +164,9 @@ func toErr(err error) *out.Error {
 		return e
 	}
 	if errors.Is(err, store.ErrDryRun) {
+		// should not happen: every change previews under --dry-run (S-7.5),
+		// and a step that cannot be tried says so in meta.not_simulated; a
+		// write that reaches the store in a dry run still changes nothing
 		return &out.Error{Code: "DRY_RUN_UNSUPPORTED", Message: err.Error(), Hint: "run it again without --dry-run to make the change", Exit: out.ExitUsage}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {

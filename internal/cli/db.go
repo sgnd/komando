@@ -706,6 +706,9 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		if r.Truncated == "rows" {
 			out.P.CutNoted() // the text says it under the table
 		}
+		if g.dryRun && r.Skipped != "" && !strings.HasPrefix(r.Skipped, "dry run: BigQuery checked") {
+			out.P.NotSimulated(r.Keyword + " statement: " + strings.TrimPrefix(r.Skipped, "dry run: "))
+		}
 	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil

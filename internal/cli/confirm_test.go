@@ -1,8 +1,13 @@
 package cli
 
 import (
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // What a person types is the name of what goes, the count of several, or
@@ -70,5 +75,25 @@ func TestWouldNeedEveryFlag(t *testing.T) {
 	_, text = runMain(t, "--dry-run", "secret", "rm", "nothing-here")
 	if strings.Contains(text, "would_need") {
 		t.Errorf("a missing secret stops before the gate: %s", text)
+	}
+}
+
+// A dry run that cannot try a step says so in meta.not_simulated (C-C12):
+// sqlite's VACUUM runs outside a transaction, so the preview leaves it out.
+// DRY_RUN_UNSUPPORTED is the fallback for a write that reaches the store in
+// a dry run, which should not happen: it is a usage error, exit 2.
+func TestDryRunNotSimulated(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
+	mustRun(t, "db", "query", "lite", "--write", "CREATE TABLE a (x int)") // the file is there
+	_, text := runMain(t, "--dry-run", "db", "query", "lite", "--write", "VACUUM")
+	if !strings.Contains(text, `"not_simulated":["VACUUM statement: this statement cannot be rolled back, so it was not executed"]`) {
+		t.Errorf("dry run of VACUUM: %s", text)
+	}
+	if _, text = runMain(t, "--dry-run", "db", "query", "lite", "--write", "CREATE TABLE t (x int)"); strings.Contains(text, "not_simulated") {
+		t.Errorf("a statement the dry run tried: %s", text)
+	}
+	if e := toErr(fmt.Errorf("vault: %w", store.ErrDryRun)); e.Code != "DRY_RUN_UNSUPPORTED" || e.Exit != out.ExitUsage {
+		t.Errorf("fallback: %+v", e)
 	}
 }

@@ -89,6 +89,10 @@ its highlights; the sections below them give the details. Versions follow
   with the flag an AI agent or a script adds (`--allow-dangerous`, `--yes`,
   none for a person-only step) and when. It comes from the same rule table
   as komando's own stops.
+- A dry run that could not try a step says so in the new
+  `meta.not_simulated` (additive): `db query --dry-run` with a statement
+  that commits by itself (MySQL DDL, sqlite VACUUM, CREATE DATABASE ...)
+  lists it there; its result already said `skipped`.
 
 ### Changed
 

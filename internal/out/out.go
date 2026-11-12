@@ -213,6 +213,10 @@ type Meta struct {
 	// Truncated: a list stopped at --limit; more items are there
 	// (--limit 0 shows them all).
 	Truncated bool `json:"truncated,omitempty"`
+	// NotSimulated: under --dry-run, the steps the dry run could not try
+	// without making them (a MySQL DDL statement commits by itself); the
+	// rest of the preview holds, these were not checked.
+	NotSimulated []string `json:"not_simulated,omitempty"`
 }
 
 // Deprecated names a retired spelling and the one that replaces it.
@@ -251,9 +255,10 @@ type Printer struct {
 	mu      sync.Mutex // pinned, warns: connections run side by side
 
 	deprecated *Deprecated
-	cutAt      int  // the --limit a list stopped at (Cut)
-	cut        bool // meta.truncated
-	cutNoted   bool // the command's own text says it was cut
+	cutAt      int      // the --limit a list stopped at (Cut)
+	cut        bool     // meta.truncated
+	cutNoted   bool     // the command's own text says it was cut
+	notSim     []string // meta.not_simulated
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -349,10 +354,18 @@ type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
-	pinned, warns, dep, cut := slices.Clone(p.pinned), slices.Clone(p.warns), p.deprecated, p.cut
+	pinned, warns, dep, cut, ns := slices.Clone(p.pinned), slices.Clone(p.warns), p.deprecated, p.cut, slices.Clone(p.notSim)
 	p.mu.Unlock()
 	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
-		HostKeysPinned: pinned, Warnings: warns, Deprecated: dep, Truncated: cut}
+		HostKeysPinned: pinned, Warnings: warns, Deprecated: dep, Truncated: cut, NotSimulated: ns}
+}
+
+// NotSimulated records a step a dry run left out because trying it would
+// make it (meta.not_simulated).
+func (p *Printer) NotSimulated(what string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.notSim = append(p.notSim, what)
 }
 
 // Cut records that a list stopped at --limit n (meta.truncated). In text
@@ -438,7 +451,7 @@ func ApprovalFlag(e *Error) string {
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.deprecated = nil, nil, nil, nil, nil, nil
+	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.deprecated, p.notSim = nil, nil, nil, nil, nil, nil, nil
 	p.cut, p.cutNoted, p.cutAt = false, false, 0
 }
 
