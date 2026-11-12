@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `cluster apply` sends the whole file to the server as a dry run before
+  it applies anything: when the cluster refuses one object, nothing in the
+  file is applied (`K8S_INVALID`, "nothing was applied: ..."). Before, the
+  objects above the refused one were applied and the file was left half
+  done.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

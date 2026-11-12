@@ -214,6 +214,10 @@ komando cluster apply swarm1 --file compose.yml --stack shop
 komando cluster scale swarm1 service/web 4
 ```
 
+- `apply` first sends the whole file to the server as a dry run. If the
+  cluster refuses one object (a typo, an unknown field or kind), it stops
+  there and nothing in the file is applied (`K8S_INVALID`, "nothing was
+  applied: configmap/bad: ...").
 - `apply --dry-run` shows for each object whether it would be created,
   changed or stay the same, with a diff. Secret values never show: a changed
   value reads `(hidden, changed)`. Objects in a namespace that the same file

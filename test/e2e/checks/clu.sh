@@ -35,6 +35,9 @@ check "apply --namespace must match the file" USAGE "$($K cluster apply lab-k3s 
 check "apply --stack is for Swarm" USAGE "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" --stack x | jget 'd["error"]["code"]')"
 check "apply says created" "created created created" "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" | jget '" ".join(o["action"] for o in d["data"]["objects"])')"
 check "apply again says unchanged" "unchanged unchanged unchanged" "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" | jget '" ".join(o["action"] for o in d["data"]["objects"])')"
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: t-ok, namespace: t-e2eclu}\n---\napiVersion: v1\nkind: ConfigMap\nmetadata: {name: Bad_Name, namespace: t-e2eclu}\n' >"$TMP/half.yaml"
+check "apply: a refused object stops the whole file" "K8S_INVALID True K8S_NOT_FOUND" \
+  "$($K cluster apply lab-k3s --file "$TMP/half.yaml" >"$TMP/o"; jget 'd["error"]["code"] + " " + str("nothing was applied" in d["error"]["message"])' <"$TMP/o") $($K cluster get lab-k3s cm t-ok --namespace t-e2eclu | jget 'd["error"]["code"]' || true)"
 sed 's/password: one/password: two/' "$TMP/clu.yaml" > "$TMP/clu2.yaml"
 check "a changed Secret value is a change, still hidden" "change True" \
   "$($K cluster apply lab-k3s --file "$TMP/clu2.yaml" --dry-run | jget 'd["data"]["changes"][1]["action"] + " " + str("two" not in json.dumps(d) and "(hidden, changed)" in d["data"]["changes"][1]["diff"])')"

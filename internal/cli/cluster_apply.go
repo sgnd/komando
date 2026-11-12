@@ -90,22 +90,40 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 }
 
 // kubeApply applies docs server-side (a dry run asks the server only) and
-// reports per object what happened, or would.
+// reports per object what happened, or would. A real apply first sends the
+// whole file as a server dry run: an object the cluster refuses (a typo, a
+// field it does not know, an unknown kind) stops it before anything
+// changes, instead of half the file being applied.
 func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string) (any, error) {
+	if !g.dryRun {
+		if _, err := applyPass(ctx, k, conn, docs, ns, true); err != nil {
+			var oe *out.Error
+			if errors.As(err, &oe) {
+				oe.Message = "nothing was applied: " + oe.Message
+				return nil, oe
+			}
+			return nil, fmt.Errorf("nothing was applied: %w", err)
+		}
+	}
+	return applyPass(ctx, k, conn, docs, ns, g.dryRun)
+}
+
+// applyPass applies docs once, as a server dry run (dry) or for real.
+func applyPass(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, dry bool) (applyData, error) {
 	q := url.Values{"fieldManager": {"komando"}, "force": {"true"}}
-	if g.dryRun {
+	if dry {
 		q.Set("dryRun", "All")
 	}
-	res := applyData{Conn: conn, DryRun: g.dryRun, Objects: []objectChange{}}
+	res := applyData{Conn: conn, DryRun: dry, Objects: []objectChange{}}
 	creates := map[string]bool{} // namespaces this file creates
 	for _, d := range docs {
 		r, err := k.ResourceFor(ctx, d.APIVersion, d.Kind)
 		var uk *kube.UnknownKindError
 		if errors.As(err, &uk) {
-			return nil, out.Usage("%v", err)
+			return res, out.Usage("%v", err)
 		}
 		if err != nil {
-			return nil, err // the cluster could not be asked: kubeErr says why
+			return res, err // the cluster could not be asked: kubeErr says why
 		}
 		space := ""
 		if r.IsNamespaced() {
@@ -117,23 +135,23 @@ func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc,
 		before, err := k.Do(ctx, "GET", path, nil, nil, "")
 		var ae *kube.APIError
 		if err != nil && !(errors.As(err, &ae) && ae.Code == 404) {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return res, fmt.Errorf("%s: %w", name, err)
 		}
-		if g.dryRun && before == nil && creates[space] {
+		if dry && before == nil && creates[space] {
 			// the server cannot dry-run into a namespace that does not exist yet
 			res.Objects = append(res.Objects, objectChange{Object: name, Namespace: space, Action: "create", Note: "in namespace " + space + ", which this file creates"})
 			continue
 		}
 		after, err := k.Do(ctx, "PATCH", path, q, d.JSON, "application/apply-patch+yaml")
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return res, fmt.Errorf("%s: %w", name, err)
 		}
 		if d.Kind == "Namespace" && before == nil {
 			creates[d.Name] = true
 		}
 		c := diffObject(name, before, after)
 		c.Namespace = space
-		if !g.dryRun {
+		if !dry {
 			c.Diff = ""
 			c.Action = map[string]string{"create": "created", "change": "configured", "none": "unchanged"}[c.Action]
 		}
