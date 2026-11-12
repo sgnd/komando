@@ -221,7 +221,8 @@ it is renamed too (--starts-with shop- acme-shop- turns group shop into acme-sho
 Every reference follows, as with ` + "`host rename`" + ` and ` + "`secret rename`" + `: --via paths,
 password, sudo, key, preshared key and passphrase references, secret:NAME
 options in conn URLs, the key a server uses, group membership, jobs and
-tunnels. A key komando made (key gen) moves its files in ~/.komando/keys.
+tunnels. A key komando made (key gen) lives in the sealed store, so no file
+moves; a key file you added stays where it is.
 The protected mark, labels, notes and creation time stay. Names inside
 URLs (a bucket, a database user) are the resource's own and do not change.
 

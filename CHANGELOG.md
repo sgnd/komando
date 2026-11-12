@@ -919,6 +919,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `key gen`, `key rm` and `rename` help said keys komando makes live in
+  `~/.komando/keys`; they are kept in the sealed store, with no file, and
+  `host ssh-command` hands them to ssh-agent. `key rm --delete-file`
+  says it deletes the private key; servers.md and output.md (which listed
+  the retired `KEY_FILE_EXISTS`) say the same.
 - `group rm GROUP TARGET TARGET` (two or more targets) deleted the whole
   group instead of taking just those targets out of it. Now it takes out
   only the targets named; `group rm GROUP` alone still deletes the group

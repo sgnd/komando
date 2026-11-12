@@ -7421,23 +7421,23 @@ Stopped: this can delete or break things (deletes the saved secret gsec for good
 ### komando -o json key rm gkey --delete-file (agent json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the private key of gkey for good","hint":"check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rm gkey --delete-file (agent text, release note)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes the key files of gkey for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes the private key of gkey for good), so komando asks first. Nothing was changed.
 ### komando -o json key rm gkey --delete-file (script json, release note)
 exit 6
 --- stdout
-{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the key files of gkey for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json key rm gkey --delete-file --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rm","error":{"code":"POLICY_BLOCKED","message":"deletes the private key of gkey for good","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json key rm gkey --delete-file --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rm gkey --delete-file (script text, release note)
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes the key files of gkey for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes the private key of gkey for good), so komando asks first. Nothing was changed.
 ### komando -o json fs rm web1 /tmp/x (agent json, release note)
 exit 6
 --- stdout

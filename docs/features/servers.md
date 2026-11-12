@@ -176,7 +176,8 @@ komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run  
   of one, as in `shop-vpn,shop-bastion`), password, sudo, key, preshared
   key and passphrase references, `secret:NAME` options in conn URLs, the
   key a server uses, group membership, jobs and tunnels. A key komando made
-  (`key gen`) moves its files in `~/.komando/keys`.
+  (`key gen`) lives in the sealed store, so no file moves; a key file you
+  added stays where it is.
 - The protected mark, labels, notes and creation time stay.
   Names inside URLs belong to the resource, not to komando, so in
   `s3://shop-admin@shop-prod` the user and the bucket stay.
@@ -254,8 +255,9 @@ komando key list                                 # NAME TYPE FINGERPRINT USED_BY
 komando key show deploy                          # the public part (never the private key)
 ```
 
-Keys made with `key gen` are kept in `~/.komando/keys` (mode 600). RSA keys
-need at least 3072 bits.
+Keys made with `key gen` are kept in komando's sealed store, never in a
+file; `host ssh-command` hands one to the running ssh-agent when another
+program needs it. RSA keys need at least 3072 bits.
 
 To use a key file you already have, add it to komando's key list. The file
 stays where it is. If it has a passphrase, store the passphrase in the vault first:

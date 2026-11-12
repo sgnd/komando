@@ -89,10 +89,12 @@ func keyGenCmd() *cobra.Command {
 	var overwrite bool
 	c := &cobra.Command{
 		Use:   "gen NAME",
-		Short: "Make a new key pair in ~/.komando/keys (ed25519 by default)",
+		Short: "Make a new SSH key pair (ed25519 by default)",
 		Long: `Makes a key pair like ssh-keygen and adds it to komando's key list. The private
-key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers with
-` + "`komando key deploy`" + `. RSA keys need at least 3072 bits.`,
+key is kept in komando's sealed store, never in a file: komando hands it to
+ssh-agent when another program needs it (host ssh-command). Put the public
+part on servers with ` + "`komando key deploy`" + `. RSA keys need at least 3072
+bits.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web
   komando key gen legacy --type rsa -b 4096 -C ops@example.com`,
 		Args: cobra.ExactArgs(1),
@@ -433,15 +435,16 @@ func keyRmCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "rm NAME",
 		Short: "Remove a key from komando's key list (not while a server uses it)",
-		Long: `Removes the key from komando's key list. --delete-file also deletes the key files,
-but only for keys komando made (key gen); a key you added stays on disk.`,
+		Long: `Removes the key from komando's key list. --delete-file also deletes the private
+key komando keeps for a key it made (key gen), for good; a key file you
+added stays on disk.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			res := map[string]any{"removed": args[0], "file_deleted": false}
 			if deleteFile { // key files komando made have no copy: T3 (OD-7); asked before the state is locked
 				if st, err := loadState(); err == nil {
 					if k, err := findKey(st, args[0]); err == nil && k.Managed && !keyInUse(st, k.Name) {
-						if err := guardLocalDelete([]string{k.Name}, "keys", "deletes the key files of "+k.Name+" for good"); err != nil {
+						if err := guardLocalDelete([]string{k.Name}, "keys", "deletes the private key of "+k.Name+" for good"); err != nil {
 							return err
 						}
 					}
@@ -489,7 +492,7 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 			audit(nil, "key.rm", nil, "", true, map[string]any{"key": res["removed"], "file_deleted": res["file_deleted"]})
 			say := changeSay("remove", "key "+res["removed"].(string), "")
 			if res["file_deleted"] == true {
-				say += "\nits key files were deleted"
+				say += "\nits private key was deleted"
 			} else if f, ok := res["would_delete_file"].(string); ok {
 				say += "\nwould delete " + f
 			}
@@ -500,7 +503,7 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&deleteFile, "delete-file", false, "also delete the key files (only keys komando made)")
+	c.Flags().BoolVar(&deleteFile, "delete-file", false, "also delete the private key komando keeps (only keys komando made)")
 	return c
 }
 

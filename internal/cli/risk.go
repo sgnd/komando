@@ -102,7 +102,7 @@ var riskRows = []riskRow{
 	{id: "user.rm", when: givesFlag("remove-home"), cond: "with --remove-home", tier: tierDangerous, what: "deletes the user and their home folder"},
 	{id: "user.rm", tier: tierDangerous, what: "deletes the user"},
 	{id: "secret.rm", tier: tierDangerous, what: "deletes the saved passwords"},
-	{id: "key.rm", when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the key files"},
+	{id: "key.rm", when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the private key komando keeps"},
 	{id: "pkg.rm", when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
 	{id: "pkg.rm", tier: tierChange, typed: "removes the packages", items: "packages"},
 	{id: "cron.rm", tier: tierChange, typed: "deletes the scheduled task", items: "scheduled tasks"},
