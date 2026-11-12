@@ -442,13 +442,20 @@ type doctorReport struct {
 }
 
 // Text is a list like `brew doctor`: ✓ fine, ✗ to fix, ! worth a look.
+// A long detail wraps at 80 columns under the check's name (M-9), except
+// for an AI agent, which reads each check on one line.
 func (r doctorReport) Text() string {
 	var b strings.Builder
 	fails, warns := 0, 0
+	width := 80
+	if isAgent() {
+		width = 0
+	}
 	line := func(mark, name, detail string) {
-		b.WriteString(mark + " " + name)
+		head := mark + " " + doctorLabel(name)
+		b.WriteString(head)
 		if detail != "" {
-			b.WriteString(": " + detail)
+			b.WriteString(": " + out.Wrap(detail, len([]rune(head))+2, width))
 		}
 		b.WriteString("\n")
 	}

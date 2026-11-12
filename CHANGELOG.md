@@ -663,6 +663,10 @@ instead.
   (`host add`, `host rm`, `doctor`, the target words in `komando schema`),
   and flag help gives examples with "like" or "for example", never
   "e.g.".
+- `komando doctor` names each check in words (`komando folder`, `audit
+  log`, `servers`, `SSH keys`, `AI agent skill`, `VPN office needs
+  openconnect`) and wraps a long detail at 80 columns. `-o json` keeps
+  the check names (`state`, `audit_log`, ...).
 
 ### Removed
 

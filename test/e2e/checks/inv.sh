@@ -108,7 +108,7 @@ check "did you mean on host show" True "$($K host show dirct | jget '"direct" in
 check "schema host.add" "komando host add" "$($K schema host.add | jget 'd["data"]["commands"][0]["path"]')"
 check "test text has USER and SUDO" True "$($K test direct -o text | head -1 | grep -q 'USER *SUDO' && echo True || echo False)"
 $K doctor -o text 2>&1 | grep -E '^✗' | sed 's/^/    doctor says: /' || true
-check "doctor text is a checklist" True "$($K doctor -o text 2>/dev/null | grep -q '^✓ state' && echo True || echo False)"
+check "doctor text is a checklist" True "$($K doctor -o text 2>/dev/null | grep -q '^✓ komando folder' && echo True || echo False)"
 
 # a rebuilt server (new host keys, same address) inside a group: host trust
 # @lab refuses only that one; a script's --reset gets NEEDS_PERSON; a person
