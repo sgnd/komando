@@ -209,10 +209,14 @@ func renameCmd() *cobra.Command {
 	var prefix, notes, labels bool
 	var kinds []string
 	c := &cobra.Command{
-		Use:   "rename --prefix OLD NEW",
-		Short: "Rename many entries at once: every name that starts with OLD",
-		Long: `Renames every server, conn, VPN, secret, key and group whose name starts
-with OLD: OLD is replaced with NEW. When OLD ends in -, the name OLD without
+		Use:   "rename OLD NEW",
+		Short: "Rename one entry of any kind, or (--prefix) every name that starts with OLD",
+		Long: `Without --prefix: renames the one server, conn, VPN, secret, key or group
+named OLD, as ` + "`komando host rename`" + ` and the others do. When OLD names
+two kinds of entry (a server and a secret), it says which commands to use.
+
+With --prefix: renames every server, conn, VPN, secret, key and group whose
+name starts with OLD: OLD is replaced with NEW. When OLD ends in -, the name OLD without
 it is renamed too (--prefix shop- acme-shop- turns group shop into acme-shop).
 
 Every reference follows, as with ` + "`host rename`" + ` and ` + "`secret rename`" + `: --via paths,
@@ -241,7 +245,8 @@ with --dry-run first. --kind renames only some kinds; references still
 follow.
 To rename one entry, use host rename, conn rename, vpn rename, secret rename, key rename or
 group rename.`,
-		Example: `  komando rename --prefix shop- acme-shop- --dry-run   # the old -> new list and every reference
+		Example: `  komando rename web1 web-01 --dry-run                 # one entry, whatever kind it is
+  komando rename --prefix shop- acme-shop- --dry-run   # the old -> new list and every reference
   komando rename --prefix shop- acme-shop- --yes       # some of them are protected
   komando rename --prefix old-registry registry --kind conn,secret
   komando rename --prefix lab- test- --notes --labels --dry-run`,
@@ -249,8 +254,11 @@ group rename.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			old, new := args[0], args[1]
 			if !prefix {
-				return out.Errf(out.ExitUsage, "USAGE", "add --prefix: komando rename --prefix "+old+" "+new+" --dry-run; to rename one entry use host rename, conn rename, vpn rename, secret rename, key rename or group rename",
-					"rename needs --prefix")
+				if notes || labels || len(kinds) > 0 {
+					return out.Errf(out.ExitUsage, "USAGE", "add --prefix: komando rename --prefix "+old+" "+new+" --dry-run",
+						"--notes, --labels and --kind go with --prefix")
+				}
+				return renameOne(cmd, old, new)
 			}
 			if old == "" {
 				return out.Usage("OLD cannot be empty: it would match every name")
@@ -295,7 +303,7 @@ group rename.`,
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&prefix, "prefix", false, "rename every name that starts with OLD (needed)")
+	c.Flags().BoolVar(&prefix, "prefix", false, "rename every name that starts with OLD")
 	c.Flags().StringSliceVar(&kinds, "kind", nil, "rename only these kinds: host, conn, vpn, secret, key, group (default: all)")
 	c.Flags().BoolVar(&notes, "notes", false, "also replace old names in notes (server, conn, VPN and secret names, @group, OLD* patterns)")
 	c.Flags().BoolVar(&labels, "labels", false, "also replace old names in label values, as --notes does (label names stay)")
@@ -312,4 +320,57 @@ func renamedNames(r renameResult) []string {
 		}
 	}
 	return n
+}
+
+// renameKindWords name each kind renameOne may find OLD as.
+var renameKindWords = map[string]string{"host": "server", "conn": "conn", "vpn": "VPN", "secret": "secret", "key": "key", "group": "group"}
+
+// renameOne is `komando rename OLD NEW` without --prefix: it finds the one
+// kind of entry named OLD and runs that kind's own rename command (host
+// rename, ...), so every check, prompt, audit record and the envelope are
+// that command's.
+func renameOne(cmd *cobra.Command, old, new string) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	var found []string
+	if st.Hosts[old] != nil {
+		found = append(found, "host")
+	}
+	if st.Conns[old] != nil {
+		found = append(found, "conn")
+	}
+	if st.Vpns[old] != nil {
+		found = append(found, "vpn")
+	}
+	if slices.Contains(secretNames(), old) {
+		found = append(found, "secret")
+	}
+	if st.Keys[old] != nil {
+		found = append(found, "key")
+	}
+	if len(groupMembersOf(st, strings.TrimPrefix(old, "@"))) > 0 {
+		found = append(found, "group")
+	}
+	switch len(found) {
+	case 0: // USAGE, as before this form existed (rename needed --prefix)
+		return out.Errf(out.ExitUsage, "USAGE",
+			"to rename every name that starts with it: `komando rename --prefix "+old+" "+new+" --dry-run`; check the name with `komando list`, `komando secret list`, `komando key list` and `komando group list`",
+			"no server, conn, VPN, secret, key or group is named %q", old)
+	case 1:
+	default:
+		var what, cmds []string
+		for _, k := range found {
+			what = append(what, renameKindWords[k])
+			cmds = append(cmds, "`komando "+k+" rename "+old+" "+new+"`")
+		}
+		return out.Errf(out.ExitUsage, "USAGE", "say which: "+strings.Join(cmds, " or "),
+			"%q is a %s; rename one of them", old, strings.Join(what, " and a "))
+	}
+	sub, _, err := cmd.Root().Find([]string{found[0], "rename"})
+	if err != nil || sub.RunE == nil {
+		return fmt.Errorf("komando: no %s rename command", found[0])
+	}
+	return sub.RunE(sub, []string{old, new})
 }

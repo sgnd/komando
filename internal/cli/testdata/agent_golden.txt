@@ -4601,43 +4601,43 @@ Error: missing arguments; usage: komando registry rm CONN REPO:TAG|REPO@DIGEST
 ### komando -o json rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename --prefix OLD NEW","hint":"for example: komando rename --prefix shop- acme-shop- --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename OLD NEW","hint":"for example: komando rename web1 web-01 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text rename (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando rename --prefix OLD NEW
+Error: missing arguments; usage: komando rename OLD NEW
 ### komando -o json rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename --prefix OLD NEW","hint":"for example: komando rename --prefix shop- acme-shop- --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename OLD NEW","hint":"for example: komando rename web1 web-01 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text rename (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando rename --prefix OLD NEW
+Error: missing arguments; usage: komando rename OLD NEW
 ### komando -o json rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename --prefix OLD NEW","hint":"for example: komando rename --prefix shop- acme-shop- --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename OLD NEW","hint":"for example: komando rename web1 web-01 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text rename x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando rename --prefix OLD NEW
+Error: missing arguments; usage: komando rename OLD NEW
 ### komando -o json rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename --prefix OLD NEW","hint":"for example: komando rename --prefix shop- acme-shop- --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"rename","error":{"code":"USAGE","message":"missing arguments; usage: komando rename OLD NEW","hint":"for example: komando rename web1 web-01 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text rename x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando rename --prefix OLD NEW
+Error: missing arguments; usage: komando rename OLD NEW
 ### komando -o json secret check (agent json)
 exit 2
 --- stdout

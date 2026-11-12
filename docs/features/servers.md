@@ -152,6 +152,11 @@ to the address, so `host trust` is not needed again. Renaming a protected
 server needs `--yes`. `conn rename` and `vpn rename` do the same for conns and VPNs,
 `key rename` for a key, and `group rename` for a group.
 
+`komando rename OLD NEW` finds the kind for you: it renames the one
+server, conn, VPN, secret, key or group named OLD with that kind's own
+rename. When two kinds share the name, it names the two commands to pick
+from.
+
 ### Rename a whole project at once
 
 When a project or a customer gets a new name, `rename --prefix` renames

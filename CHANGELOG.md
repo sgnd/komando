@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando rename OLD NEW` renames one entry of any kind: the server,
+  conn, VPN, secret, key or group named OLD, through that kind's own
+  rename (same checks, same envelope, e.g. `host.mv`). When two kinds
+  share the name it names both commands (usage error); a name nothing
+  has is a usage error, as before, whose hint shows `--prefix`.
+  `rename --prefix OLD NEW` is unchanged.
 - `komando schema OLD` describes the command an old or second name runs:
   an alias (`schema fs ls`), a command ID as the envelope writes it
   (`schema secret.get`, `schema host.mv`), an old name (`schema script`)
