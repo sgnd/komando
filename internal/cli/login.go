@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -48,21 +49,26 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 		},
 	}
 	// a new subcommand goes into loginClouds too, so no server takes its name
-	c.AddCommand(loginAWSCmd(), loginNotBuiltCmd("gcp", "Google Cloud"), loginNotBuiltCmd("azure", "Azure"))
+	c.AddCommand(loginAWSCmd(),
+		loginNotBuiltCmd("gcp", "Google Cloud", "for now komando uses your Google application default credentials (GOOGLE_APPLICATION_CREDENTIALS, or the file gcloud saved), "+
+			"or a service account key: `komando secret set gcs-key`, then `komando conn add NAME gs://BUCKET --password-ref secret:gcs-key`"),
+		loginNotBuiltCmd("azure", "Azure", "for now komando uses a service principal (AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET), a token the Azure CLI saved, "+
+			"or a storage account key: `komando secret set blob-key`, then `komando conn add NAME azblob://ACCOUNT@CONTAINER --password-ref secret:blob-key`"))
 	return c
 }
 
 // loginNotBuiltCmd answers `komando login gcp|azure` with what to do today
-// instead of "no server named gcp".
-func loginNotBuiltCmd(name, cloud string) *cobra.Command {
+// instead of "no server named gcp". The browser login comes once komando
+// has its own sign-in app with Google and Microsoft: it never borrows the
+// gcloud or az one (docs/features/cloud.md).
+func loginNotBuiltCmd(name, cloud, today string) *cobra.Command {
 	return &cobra.Command{
 		Use:    name,
-		Short:  cloud + " login is not built yet",
+		Short:  cloud + " login is coming in a later release",
 		Hidden: true,
-		Args:   cobra.NoArgs,
+		Args:   cobra.ArbitraryArgs,
 		RunE: func(*cobra.Command, []string) error {
-			return out.Errf(out.ExitUsage, "USAGE", "for now, save a service account key: komando secret set "+name+"-key",
-				"%s login is not built yet", cloud)
+			return out.Errf(out.ExitUsage, "USAGE", today, "komando login %s is not built yet: the %s browser login comes in a later release", name, cloud)
 		},
 	}
 }
@@ -75,16 +81,45 @@ func loginAWSCmd() *cobra.Command {
 		Long: `Opens the AWS sign-in page in your browser and waits until you confirm the
 code shown here. The login is saved where the aws CLI keeps it
 (~/.aws/sso/cache), so komando, the AWS SDKs and the aws CLI all use it. The
-profile is the one in ~/.aws/config with sso_start_url or sso_session.`,
-		Example: `  komando login aws --profile prod`,
-		Args:    cobra.NoArgs,
+profile is the one in ~/.aws/config with sso_start_url or sso_session, or a
+profile that assumes a role from one (source_profile).
+
+Conns that name the profile (--option aws_profile=NAME) use the login until
+it runs out; then their commands stop with AWS_LOGIN_REQUIRED and the same
+command renews it. Logging in is for a person: an AI agent gets
+NEEDS_PERSON and asks you to run it. A profile with keys in
+~/.aws/credentials needs no login.`,
+		Example: `  komando login aws --profile prod       # opens the browser; confirm the code shown
+  komando login aws                      # the profile in AWS_PROFILE, else default
+  komando login aws --profile prod --dry-run   # which sign-in page, without logging in`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !interactive() {
-				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login aws --profile "+cmp.Or(profile, "default")+"`",
-					"logging in needs a person at a terminal and a browser")
+			profile := cmp.Or(profile, "default")
+			again := "komando login aws --profile " + shellQuote(profile)
+			// the sign-in is in the person's browser, never the agent's
+			var stop *out.Error
+			switch {
+			case interactive():
+			case isAgent():
+				stop = out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+					"ask the user to run `"+again+"` in their own terminal; their browser opens for the AWS sign-in, then your commands use the login",
+					"logging in to AWS needs a person at a terminal and a browser")
+			default:
+				stop = out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "a person runs `"+again+"` in a terminal",
+					"logging in to AWS needs a person at a terminal and a browser")
 			}
-			if g.dryRun {
-				out.P.Print("login.aws", map[string]any{"profile": cmp.Or(profile, "default"), "dry_run": true}, nil)
+			if stop != nil && !g.dryRun {
+				return stop
+			}
+			sso, err := cloud.AWSProfileSSO(cmd.Context(), profile)
+			if err != nil {
+				return awsErr(profile, err)
+			}
+			if g.dryRun { // a dry run is never blocked; it says what the real run needs
+				if stop != nil {
+					out.P.WouldBlock(stop)
+				}
+				out.P.Print("login.aws", map[string]any{"profile": profile, "sso_start_url": sso.StartURL, "sso_region": sso.Region, "dry_run": true}, nil)
 				return nil
 			}
 			path, err := cloud.AWSSSOLogin(cmd.Context(), profile, func(url, code string) {
@@ -94,8 +129,8 @@ profile is the one in ~/.aws/config with sso_start_url or sso_session.`,
 			if err != nil {
 				return awsErr(profile, err)
 			}
-			audit(nil, "login.aws", nil, "", true, map[string]any{"profile": cmp.Or(profile, "default")})
-			out.P.Print("login.aws", map[string]any{"profile": cmp.Or(profile, "default"), "saved": path}, nil)
+			audit(nil, "login.aws", nil, "", true, map[string]any{"profile": profile})
+			out.P.Print("login.aws", map[string]any{"profile": profile, "sso_start_url": sso.StartURL, "saved": path}, nil)
 			return nil
 		},
 	}
@@ -109,6 +144,9 @@ func openBrowser(ctx context.Context, url string) {
 	name := "xdg-open"
 	if runtime.GOOS == "darwin" {
 		name = "open"
+	}
+	if !strings.HasPrefix(url, "https://") { // only a web page, never a file or an app
+		return
 	}
 	if _, err := exec.LookPath(name); err == nil {
 		_ = exec.CommandContext(ctx, name, url).Start()

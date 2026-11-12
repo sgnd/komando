@@ -23,6 +23,17 @@ its highlights; the sections below them give the details. Versions follow
   `AWS_LOGIN_REQUIRED` with the hint `komando login aws`, which cannot help
   it: it is `AWS_FAILED` and the hint says where the keys go. Ctrl-C while
   komando talks to AWS is `CANCELLED`, not `AWS_FAILED`.
+- `komando login aws` run by an AI agent is now `NEEDS_PERSON` (exit 6)
+  with the hint "ask the user to run `komando login aws --profile NAME` in
+  their own terminal", like every other person-only step; a script without
+  a terminal still gets `NEEDS_TERMINAL`. `--dry-run` is never blocked: it
+  checks the profile and shows its SSO start URL and region, with
+  `meta.would_be_blocked` for an agent. komando opens only an `https://`
+  sign-in address in the browser.
+- `komando login gcp` and `komando login azure` say that the browser login
+  comes in a later release and what works today (application default
+  credentials, a service principal, or a key in `--password-ref`), for any
+  arguments, instead of a hint to store a "service account key" for Azure.
 
 ## [0.12.0] - 2026-11-11
 
