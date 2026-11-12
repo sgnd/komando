@@ -14,6 +14,9 @@ its highlights; the sections below them give the details. Versions follow
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- `import --overwrite --dry-run` now lists a protected conn as skipped,
+  as the real run does, instead of "would add" plus a block the real run
+  never hit. A protected conn is skipped like a protected server.
 
 ## [0.12.0] - 2026-11-11
 

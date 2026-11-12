@@ -149,6 +149,10 @@ func runImport(source, path string, groups []string, overwrite bool) error {
 	return applyImport(src.Name, path, plan, groups, overwrite)
 }
 
+// importProtectedSkip is why an import with --overwrite leaves a protected
+// server or conn as it is.
+const importProtectedSkip = "protected: replacing it needs --yes after the user confirms"
+
 type importSkip struct {
 	Name   string `json:"name"`
 	Reason string `json:"reason"`
@@ -193,6 +197,12 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		if err := validName(kind, name); err != nil {
 			return toErr(err).Message
 		}
+		// a protected conn is skipped like a protected server (vetImportHosts),
+		// so a dry run lists it as skipped, as the real run does, and the
+		// rest of the file still comes in
+		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !yesOK() {
+			return importProtectedSkip
+		}
 		if err := checkNewName(st, kind, name, overwrite); err != nil {
 			return toErr(err).Message
 		}
@@ -230,7 +240,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		res.Skipped = append(res.Skipped, importSkip{n, "a server with this name exists (use --overwrite to replace it)"})
 	}
 	for _, n := range v.Protected {
-		res.Skipped = append(res.Skipped, importSkip{n, "protected: replacing it needs --yes after the user confirms"})
+		res.Skipped = append(res.Skipped, importSkip{n, importProtectedSkip})
 	}
 	res.Skipped = append(res.Skipped, v.Invalid...)
 	res.NotFound, res.aboutAdded = append(res.NotFound, v.Notes...), v.Notes // each note in v.Notes is about a server in v.Add
