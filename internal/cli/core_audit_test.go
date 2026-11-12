@@ -178,3 +178,15 @@ func TestGroupAddRmSeveralTargets(t *testing.T) {
 	mustRun(t, "group", "rm", "web", "a", "b")
 	wantCode(t, "TARGET_EMPTY", "list", "@web")
 }
+
+// An address that starts with - would be an option in the ssh line host
+// ssh-command prints: it is refused, and one saved before is never printed.
+func TestHostAddressNeverAnOption(t *testing.T) {
+	invHome(t)
+	wantCode(t, "USAGE", "host", "add", "e1", "u@-oProxyCommand=x")
+	wantCode(t, "USAGE", "host", "add", "e2", "--address=-oProxyCommand=x")
+	st := &store.State{Hosts: map[string]*store.Host{"old": {Name: "old", Address: "-oproxycommand=x"}}}
+	if _, err := sshCommandFor(st, st.Hosts["old"]); err == nil || !strings.Contains(err.Error(), "option") {
+		t.Errorf("want a refusal, got %v", err)
+	}
+}

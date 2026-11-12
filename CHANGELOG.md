@@ -41,6 +41,11 @@ its highlights; the sections below them give the details. Versions follow
   `.env` or `.pgpass` file no longer crosses the network unencrypted.
 - `group add GROUP A B` and `group rm GROUP A B` take several targets, like
   `host rm` and `host edit`, instead of failing with "too many arguments".
+- A server address that starts with `-` is refused (`host add`, `host
+  edit`, every import). `user@-oProxyCommand=...` was saved, and `host
+  ssh-command` could print it where `ssh` reads it as an option. A server
+  saved that way before gets an error from `host ssh-command` instead of
+  the line.
 
 ## [0.12.0] - 2026-11-11
 
