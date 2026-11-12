@@ -54,6 +54,8 @@ func awsSharedConfig(ctx context.Context, profile string, files ...string) (conf
 type AWSSSO struct {
 	Profile, StartURL, Region, key string
 	scopes                         []string
+	// Role is the profile's role_arn, also when there is no SSO behind it
+	Role string
 }
 
 // AWSProfileSSO is the SSO login behind a profile, or an error wrapping
@@ -69,13 +71,13 @@ func AWSProfileSSO(ctx context.Context, profile string, files ...string) (AWSSSO
 	}
 	for p := &sc; p != nil; p = p.Source {
 		if p.SSOSession != nil && p.SSOSession.SSOStartURL != "" && p.SSOSession.SSORegion != "" {
-			return AWSSSO{p.Profile, p.SSOSession.SSOStartURL, p.SSOSession.SSORegion, p.SSOSessionName, []string{"sso:account:access"}}, nil
+			return AWSSSO{p.Profile, p.SSOSession.SSOStartURL, p.SSOSession.SSORegion, p.SSOSessionName, []string{"sso:account:access"}, sc.RoleARN}, nil
 		}
 		if p.SSOStartURL != "" && p.SSORegion != "" {
-			return AWSSSO{p.Profile, p.SSOStartURL, p.SSORegion, p.SSOStartURL, nil}, nil
+			return AWSSSO{p.Profile, p.SSOStartURL, p.SSORegion, p.SSOStartURL, nil, sc.RoleARN}, nil
 		}
 	}
-	return AWSSSO{}, fmt.Errorf("%w: profile %s has no sso_start_url or sso_session; its keys come from ~/.aws/credentials or the environment", ErrAWSNotSSO, profile)
+	return AWSSSO{Role: sc.RoleARN}, fmt.Errorf("%w: profile %s has no sso_start_url or sso_session; its keys come from ~/.aws/credentials or the environment", ErrAWSNotSSO, profile)
 }
 
 // AWSSSOLogin logs a person in to the IAM Identity Center (SSO) of a

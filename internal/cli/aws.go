@@ -46,10 +46,10 @@ func awsErr(profile string, err error) error {
 		return out.Errf(out.ExitNotFound, "AWS_PROFILE_NOT_FOUND", "add the profile to ~/.aws/config (or fix --option aws_profile)",
 			"there is no AWS profile %q", profile)
 	case errors.Is(err, cloud.ErrAWSNotSSO):
-		return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile), "AWS profile %s has no SSO login (no sso_start_url or sso_session)", profile)
+		return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile, ""), "AWS profile %s has no SSO login (no sso_start_url or sso_session)", profile)
 	case errors.Is(err, cloud.ErrAWSLogin):
-		if _, serr := cloud.AWSProfileSSO(context.Background(), profile); errors.Is(serr, cloud.ErrAWSNotSSO) {
-			return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile), "AWS profile %s has no keys and no SSO login: %v", profile, err)
+		if sso, serr := cloud.AWSProfileSSO(context.Background(), profile); errors.Is(serr, cloud.ErrAWSNotSSO) {
+			return out.Errf(out.ExitConnect, "AWS_FAILED", awsKeysHint(profile, sso.Role), "AWS profile %s gave no keys: %v", profile, err)
 		}
 		// a person logs in, like VPN MFA: agents ask for it
 		return out.Errf(out.ExitConnect, "AWS_LOGIN_REQUIRED", "a person runs `komando login aws --profile "+profile+"` once, then try again",
@@ -59,8 +59,12 @@ func awsErr(profile string, err error) error {
 }
 
 // awsKeysHint is the next step for a profile without SSO: there is nothing
-// to log in to, its keys are missing.
-func awsKeysHint(profile string) string {
+// to log in to; its keys are missing, or the role it assumes was refused.
+func awsKeysHint(profile, role string) string {
+	if role != "" {
+		return "the profile assumes " + role + " with keys from its source_profile (no SSO, so `komando login aws` cannot help): " +
+			"check those keys and that they may assume the role; the message says what AWS answered"
+	}
 	return "this profile has no SSO login, so `komando login aws` cannot renew it: put its keys under [" + profile +
 		"] in ~/.aws/credentials (aws_access_key_id, aws_secret_access_key), or use an SSO profile (--option aws_profile=NAME)"
 }

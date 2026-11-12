@@ -267,6 +267,17 @@ func TestAWSErrNoDeadEnd(t *testing.T) {
 	if e := toErr(err); e.Code != "AWS_LOGIN_REQUIRED" || !strings.Contains(e.Hint, "komando login aws --profile role") {
 		t.Errorf("role from an SSO profile: %+v", e)
 	}
+	// a role from static keys whose STS call fails: not a login either
+	cfg := os.Getenv("AWS_CONFIG_FILE")
+	b, _ := os.ReadFile(cfg)
+	os.WriteFile(cfg, append(b, "[profile keyrole]\nrole_arn = arn:aws:iam::111122223333:role/k\nsource_profile = src\nregion = us-east-1\n"...), 0o600)
+	os.WriteFile(os.Getenv("AWS_SHARED_CREDENTIALS_FILE"), []byte("[src]\naws_access_key_id = AKIA1\naws_secret_access_key = s\n"), 0o600)
+	t.Setenv("AWS_ENDPOINT_URL", "http://127.0.0.1:1")
+	t.Setenv("AWS_MAX_ATTEMPTS", "1")
+	_, err = awsCredentials(context.Background(), "keyrole")
+	if e := toErr(err); e.Code != "AWS_FAILED" || !strings.Contains(e.Hint, "assumes arn:aws:iam::111122223333:role/k") {
+		t.Errorf("role from keys: %+v", e)
+	}
 	if e := toErr(awsErr("sso", context.Canceled)); e.Code != "CANCELLED" {
 		t.Errorf("Ctrl-C: %+v", e)
 	}
