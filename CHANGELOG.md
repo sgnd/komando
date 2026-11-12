@@ -1143,6 +1143,10 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   "Allow once" (xdotool). Without the code komando opens no window and
   the agent is told to ask you to turn it on or to run the command in
   your own terminal. On Wayland the window now opens on Wayland only.
+- settings.md says plainly what protects the vault from a program that
+  runs as your own user and ignores komando's rules: only another OS
+  user or the signed Mac app. Key file, keychain and passphrase modes do
+  not.
 
 ## [0.12.0] - 2026-11-11
 

@@ -210,6 +210,23 @@ To move to another computer, see [Move to another computer](import.md#move-to-an
 `komando export` (no passwords), or the whole folder once the vault has a
 passphrase.
 
+### What protects the vault from a program running as you
+
+komando's rules (masked secrets, the approval window, protected servers)
+hold for an AI agent that uses komando. A program that runs as your own
+user and ignores those rules can open the vault itself, whichever way the
+key is kept:
+
+- **Key file:** it reads `store.key`.
+- **Keychain:** it asks the keychain for the item, as komando does (see
+  above).
+- **Passphrase:** it reads `KOMANDO_VAULT_PASS` from the shell that started
+  it.
+
+Only two things stop such a program: running it as another OS user (or in
+a container or virtual machine without your home folder and keychain), or
+the signed komando Mac app, which keeps the key for itself.
+
 ## Update komando
 
 ```bash
