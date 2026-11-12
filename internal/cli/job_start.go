@@ -40,6 +40,7 @@ func jobWhat(args []string, cmdStr string, so scriptOpts, readOnly bool, envs []
 		if err := hiddenInInput(so.file, sp.body); err != nil {
 			return sp, err
 		}
+		noteApprovalBody(scriptLabel("the script", so.file), sp.body)
 		if err := guardBody(string(sp.body)); err != nil {
 			return sp, err
 		}

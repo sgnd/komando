@@ -196,6 +196,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 				if err := hiddenInInput(o.stdinFile, stdin); err != nil {
 					return err
 				}
+				noteApprovalBody(scriptLabel("the input", o.stdinFile), stdin)
 				// the input may be a script (bash -s): the policy reads it
 				// like the command, as script does with its file
 				if err := guardBody(string(stdin)); err != nil {

@@ -1132,6 +1132,12 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   `--sudo` download and the reads `fs replace --sudo` makes do not read
   through a link made by a user other than root and the SSH user
   (IS_A_SYMLINK).
+- The approval window for an AI agent's `exec --script FILE`,
+  `job start --script FILE` and `exec --stdin-file FILE` shows the
+  file's SHA-256 and first 10 lines (secrets masked). Before, it showed
+  only the command line, so a person allowed a script they never saw. A
+  file that is not valid text, or holds bidi or zero-width characters,
+  gets no window, as for such a command line.
 
 ## [0.12.0] - 2026-11-11
 

@@ -59,6 +59,8 @@ type call struct {
 	typed     *typedSpec // what this command's typed question asks for (askTypes)
 	typedProt []string   // protected targets a typed answer covered
 
+	body *approvalBody // a file the command sends, which the window shows
+
 	// ask opens the approval window; nil is askOnScreen. An app that runs
 	// calls side by side gives each its own.
 	ask func(text string) (allowed, shown bool)
@@ -181,6 +183,10 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 	if bad == "" {
 		bad = unshowable(line)
 	}
+	body := ""
+	if bad == "" && c.body != nil {
+		body, bad = c.body.shown()
+	}
 	if bad != "" {
 		sess.SetWhy("unshowable")
 		sess.SetUnshown(bad)
@@ -200,7 +206,7 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 			reasons = append(reasons, w)
 		}
 	}
-	text := fmt.Sprintf("%s %s:\n\n%s\n\n", c.caller.Agent, head, line)
+	text := fmt.Sprintf("%s %s:\n\n%s\n\n", c.caller.Agent, head, line) + body
 	if what != "" {
 		if unshowable(what) != "" {
 			what = strconv.QuoteToASCII(what)
