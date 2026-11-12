@@ -717,7 +717,7 @@ it can go). An image a kept tag points at is never deleted. Needs
 						return nil, imageErr(ctx, r, repo, "", err)
 					}
 					if len(tags) > max {
-						return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "prune a narrower set with --match, or in several runs",
+						return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG`",
 							"%s has more than %d tags", repo, max)
 					}
 					// a HEAD per tag for its digest, then one read per image:
@@ -737,7 +737,9 @@ it can go). An image a kept tag points at is never deleted. Needs
 							}
 							d = m.Digest
 						}
-						if _, ok := built[d]; !ok && d != "" {
+						// only an image a tag may go with needs its build date
+						cand := t != "latest" && (rule.Match == nil || rule.Match.MatchString(t))
+						if _, ok := built[d]; !ok && d != "" && cand {
 							m, err := r.Inspect(ctx, repo, d)
 							if err != nil {
 								return nil, err

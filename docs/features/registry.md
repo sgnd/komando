@@ -294,4 +294,5 @@ komando registry prune harbor myorg/api --keep 10 --older-than 30d --match '^v' 
 and so does any image that a kept tag points at. A multi-platform index
 has the build date of its first image, so the rules apply to it like to
 any image. `prune` reads each tag's digest, then each image once, and
-stops with `TOO_MANY_TAGS` above 1000 tags: narrow it with `--match`.
+stops with `TOO_MANY_TAGS` above 1000 tags (`--match` does not lift it,
+since every tag is read): delete some first with `registry rm`.

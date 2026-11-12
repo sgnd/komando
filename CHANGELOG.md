@@ -29,6 +29,9 @@ its highlights; the sections below them give the details. Versions follow
   Hub counts each read as a pull), and the help no longer says a
   multi-platform index always stays: it has its first image's build date
   and can go.
+- registry prune: past 1000 tags, `TOO_MANY_TAGS` no longer suggests
+  `--match` (every tag is still read, so it cannot help); build dates are
+  read only for images a matching tag may take.
 - registry ls, rm, prune and inspect read better at a terminal: a cut list
   says to raise `-n`, an empty one says what fills it, `rm` names every
   tag that goes with the image and warns when `latest` is one, `prune`

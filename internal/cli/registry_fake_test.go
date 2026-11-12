@@ -371,3 +371,23 @@ func TestRegistryRmSaysWhatGoes(t *testing.T) {
 		t.Errorf("prune: %s", e.Message)
 	}
 }
+
+// prune reads build dates only for images a matching tag may take, and
+// past 1000 tags says --match does not help.
+func TestRegistryPruneMatchAndCap(t *testing.T) {
+	invHome(t)
+	m, _ := memRepo(t)
+	mustRun(t, "--dry-run", "registry", "prune", "mem", "shop/api", "--keep", "0", "--match", "^v[12]$")
+	if m.gets != 2 {
+		t.Errorf("manifest reads: %d, want 2", m.gets)
+	}
+	d := m.image("big/app", "t0", time.Now())
+	m.mu.Lock()
+	for i := 1; i <= 1000; i++ {
+		m.tags["big/app"][fmt.Sprintf("t%d", i)] = d
+	}
+	m.mu.Unlock()
+	if e := wantCode(t, "TOO_MANY_TAGS", "--dry-run", "registry", "prune", "mem", "big/app", "--keep", "1", "--match", "^t1$"); !strings.Contains(e.Hint, "registry rm") {
+		t.Errorf("hint: %s", e.Hint)
+	}
+}
