@@ -130,7 +130,7 @@ func connCmd() *cobra.Command {
 komando talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
 lists them). Passwords never go in the URL: store them with
 ` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
-resource is only reachable from a server.
+conn is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with servers.`,
 	}
@@ -443,7 +443,7 @@ func connRmCmd() *cobra.Command {
 func connKindsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "kinds",
-		Short: "List the resource kinds komando knows and their URL schemes",
+		Short: "List the conn kinds komando knows and their URL schemes",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out.P.Print("conn.kinds", kindList{Kinds: driver.Kinds()}, nil)

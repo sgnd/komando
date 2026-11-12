@@ -88,7 +88,7 @@ func formNameProblem(st *store.State, kind, v string) string {
 }
 
 func formKindWord(k string) string {
-	return map[string]string{"host": "server", "conn": "service", "vpn": "VPN"}[k]
+	return map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[k]
 }
 
 // formFreeName is base with the first number after it that no server,

@@ -140,7 +140,7 @@ var details = map[string]string{
 	"komando job kill":          "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
 	"komando job logs":          "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
 	"komando job rm":            "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",
-	"komando list":              "List servers, databases, other services and VPNs together (everything, or what TARGET picks).",
+	"komando list":              "List servers, conns (databases, caches, queues, storage, clusters and\nregistries) and VPNs together: everything, or what TARGET picks.",
 	"komando logs":              "Read logs from journald (--unit), a file (--file) or a container (--container).",
 	"komando net ports":         "Listening sockets as structured rows: proto, address, port, process, pid (read with ss or netstat).",
 	"komando pkg":               "Packages on servers through apt, dnf, yum, apk, zypper or pacman (komando finds which one the server has).",

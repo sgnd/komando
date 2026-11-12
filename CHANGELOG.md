@@ -115,6 +115,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Help says "conn" for a database, cache, queue, storage, cluster or
+  registry komando talks to (`conn kinds`, `conn rename`, `list`, the
+  name check of the add questions), never "service" or "resource", which
+  mean a systemd unit or a cluster object.
 - Every change command's `--help` has a generated `Safety:` line after
   its first paragraph, from the same rule table as `komando schema`'s
   `confirm` (what it asks of a person, an AI agent and a script).

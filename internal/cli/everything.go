@@ -85,7 +85,7 @@ func listCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "list [TARGET]",
 		Aliases: []string{"ls"},
-		Short:   "List servers, databases, other services and VPNs",
+		Short:   "List servers, conns and VPNs",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
 		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
