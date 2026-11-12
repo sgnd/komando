@@ -13,7 +13,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -99,8 +98,10 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 		}
 		return v, nil
 	}
-	// a person at a terminal: ask with hidden input (agents never have a TTY)
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
+	// a person at a terminal: ask with hidden input. An AI agent is never
+	// asked, also when it runs komando under a terminal: it would wait for
+	// an answer nobody gives.
+	if !interactive() {
 		if isAgent() {
 			// A password only the user knows is typed by the user. Sending
 			// the agent back to --from-env or stdin would make it ask for
@@ -228,6 +229,12 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 					"refusing a secret value on the command line: it would be saved in shell history")
 			}
 			v, err := secretInput(cmd, args[0], "Paste or type the value for "+args[0]+", then press Enter (it stays hidden): ")
+			var oe *out.Error
+			if err != nil && g.dryRun && errors.As(err, &oe) && oe.Code == "NEEDS_PERSON" {
+				// a dry run is never blocked: it says whether NAME would be
+				// replaced, and that the real run needs the user
+				err = policyStop(oe)
+			}
 			if err != nil {
 				return err
 			}
