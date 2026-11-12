@@ -459,6 +459,11 @@ func ClassifyMemcache(args []string) driver.Verdict {
 		return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"memcached-server"}, Reasons: []string{"changes or stops the server"}}
 	case cmd == "delete" || cmd == "md":
 		return driver.DataDelete()
+	case cmd == "stats" && len(args) > 1 && (strings.EqualFold(args[1], "reset") ||
+		strings.EqualFold(args[1], "detail") && !(len(args) > 2 && strings.EqualFold(args[2], "dump"))):
+		// stats reset clears the counters and stats detail on|off switches
+		// per-prefix counting on the server; only stats detail dump reads
+		return driver.Verdict{Risk: driver.RiskWrite}
 	case cmd == "get" || cmd == "gets" || cmd == "stats" || cmd == "version" || cmd == "mn" || cmd == "me" || cmd == "lru_crawler":
 		return driver.Verdict{Risk: driver.RiskRead}
 	case cmd == "mg":

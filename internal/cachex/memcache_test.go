@@ -14,6 +14,7 @@ func TestClassifyMemcache(t *testing.T) {
 	for line, want := range map[string]driver.Risk{
 		"get a": driver.RiskRead, "stats items": driver.RiskRead, "lru_crawler metadump all": driver.RiskRead, "mg a v t": driver.RiskRead,
 		"mg a v T30": driver.RiskWrite, "touch a 10": driver.RiskWrite, "incr n 1": driver.RiskWrite,
+		"stats reset": driver.RiskWrite, "stats detail on": driver.RiskWrite, "stats detail dump": driver.RiskRead, "stats slabs": driver.RiskRead,
 		"delete a": driver.RiskDestructive, "flush_all": driver.RiskDestructive, "shutdown": driver.RiskDestructive, "lru_crawler disable": driver.RiskDestructive,
 	} {
 		if got := ClassifyMemcache(strings.Fields(line)).Risk; got != want {

@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `cache run` on memcached: `stats reset` (clears the counters) and
+  `stats detail on|off` (switches per-prefix counting on the server) now
+  need `--write`; they were taken as reads. `stats detail dump` still reads.
 - Security: `cache run` on memcached now rates the words memcached will
   read. An argument holding a newline (`get "a\r\nflush_all"`) used to
   pass as a read and run `flush_all` without `--write` or
