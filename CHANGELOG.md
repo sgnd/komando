@@ -22,6 +22,8 @@ its highlights; the sections below them give the details. Versions follow
 - `queue peek` on a RabbitMQ quorum queue takes no more messages once one
   is near its delivery limit, so a single peek no longer counts down the
   deliveries of every message behind it.
+- `komando queue --help` shows examples of the usual journey.
+
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

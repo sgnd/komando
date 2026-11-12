@@ -40,6 +40,11 @@ delete messages, so they also need --allow-dangerous. Try any change with
 --dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
 a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
 subscription, and groups lists them.`,
+		Example: `  komando queue add events kafka://10.0.0.8:9092 --via web1
+  komando queue ls events
+  komando queue peek events orders -n 5
+  komando queue send events orders --value '{"id": 42}' --dry-run
+  komando queue lag events billing`,
 	}
 	c.AddCommand(connAddCmdFor("queue"), queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
