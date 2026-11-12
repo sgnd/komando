@@ -486,3 +486,17 @@ func TestAgentOutlivesASlowTransport(t *testing.T) {
 	}
 	c.Close()
 }
+
+// A server with no user gets the name of the person at this computer:
+// USER, else USERNAME, the only one Windows sets.
+func TestLocalUser(t *testing.T) {
+	t.Setenv("USER", "")
+	t.Setenv("USERNAME", "budi")
+	if u := LocalUser(); u != "budi" {
+		t.Errorf("only USERNAME: %q", u)
+	}
+	t.Setenv("USER", "ana")
+	if u := LocalUser(); u != "ana" {
+		t.Errorf("USER first: %q", u)
+	}
+}

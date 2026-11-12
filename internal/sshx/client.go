@@ -537,7 +537,7 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 		user = st.Settings.DefaultUser
 	}
 	if user == "" {
-		user = os.Getenv("USER")
+		user = LocalUser()
 	}
 	hkc, err := hostKeyCallback(ctx, h.Name, o.HostKeyPolicy)
 	if err != nil {
@@ -726,6 +726,16 @@ func FetchHostKey(ctx context.Context, st *store.State, h *store.Host, o Options
 		err = errors.New("the server sent no host key")
 	}
 	return nil, err
+}
+
+// LocalUser is the login name ssh uses when neither the server nor the
+// settings give one: the name of the person at this computer, USER, else
+// USERNAME (Windows sets only that).
+func LocalUser() string {
+	if u := os.Getenv("USER"); u != "" {
+		return u
+	}
+	return os.Getenv("USERNAME")
 }
 
 // ssmProxyPrefix is how `host add --ssm` writes its proxy command.

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -657,8 +658,15 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 
 // osUser is the computer account komando runs as, from the system's user
 // database, else its number; never from the environment (user.Current
-// falls back to $USER).
+// falls back to $USER on Unix). Windows has no uid: there user.Current
+// reads the account from the process's own token.
 func osUser() string {
+	if runtime.GOOS == "windows" {
+		if u, err := user.Current(); err == nil {
+			return u.Username
+		}
+		return "unknown"
+	}
 	uid := strconv.Itoa(os.Getuid())
 	if u, err := user.LookupId(uid); err == nil {
 		return u.Username

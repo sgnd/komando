@@ -91,8 +91,8 @@ func CallerFrom(lookup func(string) (string, bool), terminal bool) Caller {
 	}
 	if a, _ := lookup("KOMANDO_ACTOR"); a != "" {
 		c.Actor = a
-	} else {
-		c.Actor, _ = lookup("USER")
+	} else if c.Actor, _ = lookup("USER"); c.Actor == "" {
+		c.Actor, _ = lookup("USERNAME") // Windows sets only this one
 	}
 	return c
 }

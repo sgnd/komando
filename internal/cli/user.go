@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"path"
 	"sort"
 	"strconv"
@@ -153,7 +152,7 @@ func loginUser(st *store.State, h *store.Host) string {
 	case st.Settings.DefaultUser != "":
 		return st.Settings.DefaultUser
 	}
-	return os.Getenv("USER")
+	return sshx.LocalUser()
 }
 
 // lockoutStop refuses to lock or delete root or the account komando logs
