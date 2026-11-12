@@ -109,7 +109,24 @@ func goldenCases(t *testing.T) [][]string {
 	if len(cases) < 150 {
 		t.Fatalf("only %d cases", len(cases))
 	}
-	return cases
+	return append(cases, goldenExtra...)
+}
+
+// goldenExtra are command lines whose exit code changed on purpose
+// (release note, changes.md 11b), recorded so they stay as decided.
+var goldenExtra = [][]string{
+	// C-S02: words for the other program only after -- (USAGE, exit 2)
+	{"exec", "x1", "apt-get", "install", "-y", "nginx"},
+	{"exec", "x1", "uptime", "--dry-run"},
+	{"exec", "x1", "stray", "--", "uptime"},
+	{"job", "start", "x1", "uptime"},
+	{"docker", "exec", "x1", "x2", "id"},
+	{"docker", "compose", "x1", "ps"},
+	{"docker", "raw", "x1", "ps"},
+	{"cluster", "exec", "x1", "x2", "id"},
+	{"cluster", "shell", "x1", "x2", "sh"},
+	{"cluster", "run", "x1", "get", "pods"},
+	{"cache", "run", "x1", "GET", "k"},
 }
 
 // goldenNoise is what differs between runs and machines, not between

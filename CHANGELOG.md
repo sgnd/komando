@@ -20,6 +20,17 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **Commands that hand words to another program now need `--` before
+  them**: `exec`, `job start`, `docker exec`, `docker compose`,
+  `docker raw`, `cluster exec`, `cluster shell`, `cluster run` and
+  `cache run`. `komando exec web1 apt-get install -y nginx` read `-y`
+  as komando's own `--yes`, and a trailing `--dry-run` was taken by
+  komando while the rest ran; such a line is now a usage error (exit 2)
+  that runs nothing and shows the form with `--`. komando's flags still
+  go anywhere before `--`, and `-c` and `--script` are unchanged.
+  `job start TARGET COMMAND` without `--` and `cache run CONN "GET k"`
+  are refused too: write `job start TARGET -- COMMAND` and
+  `cache run CONN -- "GET k"`.
 - A flag that gets a new name keeps its old name as a hidden spelling of
   the same flag, so every safety check (the ssh gate's read-only keys
   included) sees the flag under either name. A test checks each spelling.

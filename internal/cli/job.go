@@ -50,7 +50,7 @@ func jobStartCmd() *cobra.Command {
 	var dir, cmdStr string
 	var so scriptOpts
 	c := &cobra.Command{
-		Use:   "start TARGET [--] COMMAND...",
+		Use:   "start TARGET -- COMMAND...",
 		Short: "Start a background job on each server TARGET picks; returns the job IDs",
 		Long: `Starts COMMAND in the background on each server TARGET picks and returns
 the job IDs at once; the job keeps running when the connection drops.

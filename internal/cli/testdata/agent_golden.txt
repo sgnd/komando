@@ -3221,23 +3221,23 @@ Error: missing arguments; usage: komando job rm JOB_ID...
 ### komando -o json job start (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET [--] COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET -- COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job start TARGET [--] COMMAND...
+Error: missing arguments; usage: komando job start TARGET -- COMMAND...
 ### komando -o json job start (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET [--] COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"missing arguments; usage: komando job start TARGET -- COMMAND...","hint":"for example: komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando job start TARGET [--] COMMAND...
+Error: missing arguments; usage: komando job start TARGET -- COMMAND...
 ### komando -o json job status (agent json)
 exit 2
 --- stdout
@@ -5878,3 +5878,223 @@ exit 2
 --- stdout
 --- stderr
 Error: missing arguments; usage: komando vpn up NAME
+### komando -o json exec x1 apt-get install -y nginx (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec x1 apt-get install -y nginx (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando exec takes the words for the server after --; nothing was run
+### komando -o json exec x1 apt-get install -y nginx (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec x1 apt-get install -y nginx (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando exec takes the words for the server after --; nothing was run
+### komando -o json exec x1 uptime --dry-run (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec x1 uptime --dry-run (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando exec takes the words for the server after --; nothing was run
+### komando -o json exec x1 uptime --dry-run (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec x1 uptime --dry-run (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando exec takes the words for the server after --; nothing was run
+### komando -o json exec x1 stray -- uptime (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec x1 stray -- uptime (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando exec takes the words for the server after --; nothing was run
+### komando -o json exec x1 stray -- uptime (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"exec","error":{"code":"USAGE","message":"komando exec takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando exec web1 -- uptime`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text exec x1 stray -- uptime (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando exec takes the words for the server after --; nothing was run
+### komando -o json job start x1 uptime (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"komando job start takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text job start x1 uptime (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando job start takes the words for the server after --; nothing was run
+### komando -o json job start x1 uptime (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"job.start","error":{"code":"USAGE","message":"komando job start takes the words for the server after --; nothing was run","hint":"put -- before the command: `komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text job start x1 uptime (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando job start takes the words for the server after --; nothing was run
+### komando -o json docker exec x1 x2 id (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"komando docker exec takes the words for docker after --; nothing was run","hint":"put -- before the command: `komando docker exec app1 api -- php artisan migrate:status`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text docker exec x1 x2 id (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando docker exec takes the words for docker after --; nothing was run
+### komando -o json docker exec x1 x2 id (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"docker.exec","error":{"code":"USAGE","message":"komando docker exec takes the words for docker after --; nothing was run","hint":"put -- before the command: `komando docker exec app1 api -- php artisan migrate:status`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text docker exec x1 x2 id (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando docker exec takes the words for docker after --; nothing was run
+### komando -o json docker compose x1 ps (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"docker.compose","error":{"code":"USAGE","message":"komando docker compose takes the words for docker after --; nothing was run","hint":"put -- before the command: `komando docker compose app1 --dir /srv/shop -- up -d --pull always`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text docker compose x1 ps (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando docker compose takes the words for docker after --; nothing was run
+### komando -o json docker compose x1 ps (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"docker.compose","error":{"code":"USAGE","message":"komando docker compose takes the words for docker after --; nothing was run","hint":"put -- before the command: `komando docker compose app1 --dir /srv/shop -- up -d --pull always`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text docker compose x1 ps (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando docker compose takes the words for docker after --; nothing was run
+### komando -o json docker raw x1 ps (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"komando docker raw takes the words for docker after --; nothing was run","hint":"put -- before the command: `komando docker raw web1 -- network ls`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text docker raw x1 ps (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando docker raw takes the words for docker after --; nothing was run
+### komando -o json docker raw x1 ps (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"docker.raw","error":{"code":"USAGE","message":"komando docker raw takes the words for docker after --; nothing was run","hint":"put -- before the command: `komando docker raw web1 -- network ls`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text docker raw x1 ps (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando docker raw takes the words for docker after --; nothing was run
+### komando -o json cluster exec x1 x2 id (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"komando cluster exec takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster exec prod deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster exec x1 x2 id (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cluster exec takes the words for the cluster after --; nothing was run
+### komando -o json cluster exec x1 x2 id (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.exec","error":{"code":"USAGE","message":"komando cluster exec takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster exec prod deploy/api --namespace shop --read-only -- cat /app/config.yml`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster exec x1 x2 id (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cluster exec takes the words for the cluster after --; nothing was run
+### komando -o json cluster shell x1 x2 sh (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"komando cluster shell takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster shell prod api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster shell x1 x2 sh (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cluster shell takes the words for the cluster after --; nothing was run
+### komando -o json cluster shell x1 x2 sh (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.shell","error":{"code":"USAGE","message":"komando cluster shell takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster shell prod api-7d9f-x2 -c api -- /bin/ash`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster shell x1 x2 sh (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cluster shell takes the words for the cluster after --; nothing was run
+### komando -o json cluster run x1 get pods (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"komando cluster run takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster run prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster run x1 get pods (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cluster run takes the words for the cluster after --; nothing was run
+### komando -o json cluster run x1 get pods (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cluster.run","error":{"code":"USAGE","message":"komando cluster run takes the words for the cluster after --; nothing was run","hint":"put -- before the command: `komando cluster run prod-k8s -- get pods -A -o wide`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cluster run x1 get pods (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cluster run takes the words for the cluster after --; nothing was run
+### komando -o json cache run x1 GET k (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"komando cache run takes the words for the cache after --; nothing was run","hint":"put -- before the command: `komando cache run cache -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache run x1 GET k (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cache run takes the words for the cache after --; nothing was run
+### komando -o json cache run x1 GET k (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"cache.run","error":{"code":"USAGE","message":"komando cache run takes the words for the cache after --; nothing was run","hint":"put -- before the command: `komando cache run cache -- HGETALL user:42`; komando reads its own flags (-y, --dry-run, -P) only before --"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text cache run x1 GET k (script text)
+exit 2
+--- stdout
+--- stderr
+Error: komando cache run takes the words for the cache after --; nothing was run

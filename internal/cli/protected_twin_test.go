@@ -53,7 +53,7 @@ func TestProtectedTwinsWhateverTheOrder(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "db1", "root@127.0.0.1") // added before the protected name
 	mustRun(t, "host", "add", "prod", "root@localhost", "--protected")
-	d := mustRun(t, "exec", "db1", "systemctl restart postgresql", "--dry-run")
+	d := mustRun(t, "exec", "db1", "--dry-run", "--", "systemctl restart postgresql")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("db1 is prod: %v", d)
 	}

@@ -479,7 +479,7 @@ func cacheRunCmd() *cobra.Command {
 		Example: `  komando cache run cache -- HGETALL user:42
   komando cache run cache -- ZREVRANGE leaderboard 0 9 WITHSCORES
   komando cache run cache --write -- EXPIRE session:42 3600
-  komando cache run cache "GET feature:dark-mode"   # one quoted line works too`,
+  komando cache run cache -- "GET feature:dark-mode"   # one quoted line works too`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			command, err := cachex.SplitCommand(args[1:])

@@ -22,6 +22,12 @@ is refused, because `--dry-run` there would be part of the command and the
 command would really run. When the command on the server takes such a flag
 itself (`apt-get upgrade --dry-run`), give it as one string with `-c`.
 
+The `--` is required: `komando exec web1 apt-get install -y nginx` is a
+usage error (exit 2) and runs nothing, because komando would read `-y` as
+its own `--yes`. The same holds for every command that hands words to
+another program: `job start`, `docker exec`, `docker compose`, `docker raw`,
+`cluster exec`, `cluster shell`, `cluster run` and `cache run`.
+
 ```bash
 komando exec web1 -- uptime
 komando exec @web -P 20 -- 'df -h / | tail -1'           # up to 20 servers at once
