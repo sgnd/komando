@@ -39,7 +39,7 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 	case k != kind || existing != name:
 		return nameTaken(k, existing)
 	case !overwrite:
-		return out.Errf(out.ExitConflict, strings.ToUpper(kind)+"_EXISTS", fmt.Sprintf("use `komando %s edit` or pass --overwrite to replace it", kind),
+		return out.Errf(out.ExitConflict, map[string]string{"host": "HOST_EXISTS", "conn": "CONN_EXISTS", "vpn": "VPN_EXISTS"}[kind], fmt.Sprintf("use `komando %s edit` or pass --overwrite to replace it", kind),
 			"%s %q already exists", kind, name)
 	}
 	// replacing drops the protected mark, so it counts as changing it

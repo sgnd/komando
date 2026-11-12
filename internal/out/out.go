@@ -131,12 +131,35 @@ func Errf(exit int, code, hint, format string, a ...any) *Error {
 	return &Error{Code: code, Message: fmt.Sprintf(format, a...), Hint: hint, Exit: exit}
 }
 
+// notFoundCodes is the code of each kind NotFound knows, written out so
+// the error catalog and agents can find every code in the source (S-8.1).
+var notFoundCodes = map[string]string{
+	"host":   "HOST_NOT_FOUND",
+	"conn":   "CONN_NOT_FOUND",
+	"vpn":    "VPN_NOT_FOUND",
+	"job":    "JOB_NOT_FOUND",
+	"key":    "KEY_NOT_FOUND",
+	"recipe": "RECIPE_NOT_FOUND",
+	"secret": "SECRET_NOT_FOUND",
+	"tunnel": "TUNNEL_NOT_FOUND",
+	"group":  "GROUP_NOT_FOUND",
+}
+
+// NotFoundCode is the code NotFound gives for kind ("NOT_FOUND" for a kind
+// it does not know; TestErrorCodeCatalog keeps every caller's kind known).
+func NotFoundCode(kind string) string {
+	if c, ok := notFoundCodes[kind]; ok {
+		return c
+	}
+	return "NOT_FOUND"
+}
+
 func NotFound(kind, name string) *Error {
 	word := kind // the code and the command keep kind; the prose says VPN
 	if kind == "vpn" {
 		word = "VPN"
 	}
-	return Errf(ExitNotFound, strings.ToUpper(kind)+"_NOT_FOUND",
+	return Errf(ExitNotFound, NotFoundCode(kind),
 		fmt.Sprintf("run `komando %s list` to see available %ss", kind, word),
 		"%s %q not found", word, name)
 }

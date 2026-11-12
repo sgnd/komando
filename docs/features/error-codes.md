@@ -41,7 +41,8 @@ This page is made from the code (`komando schema` lists the same under
 | `CONNECTION_REFUSED` | 4 | the server refused the connection: nothing listens on that port | check that sshd runs on the server and listens on this port: komando host show … |
 | `CONNECT_FAILED` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, add --via NAME |
 | `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link |
-| `CONN_NOT_FOUND` | 3 | target … picked no conns | run `komando list …` to see what it picks |
+| `CONN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
+| `CONN_NOT_FOUND` | 3 | conn … not found | run `komando conn list` to see available conns |
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the address and port; if the service is only reachable from a server, set `komando conn edit … --via HOST` |
 | `CONSUMER_GROUP_NOT_FOUND` | 3 | consumer group … does not exist | list consumer groups with `komando queue groups CONN` |
 | `CONSUMER_NOT_FOUND` | 3 | consumer … does not exist | list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER |
@@ -86,6 +87,7 @@ This page is made from the code (`komando schema` lists the same under
 | `HOSTKEY_REVOKED` | 4 | … shows the revoked host key … | this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent |
 | `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes) |
 | `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host trust` for it in their own terminal |
+| `HOST_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `HOST_IN_USE` | 8 | server … is on the --via path of … | change them first: … (or --via OTHER), or remove them in the same command |
 | `HOST_NOT_FOUND` | 3 | host … not found | run `komando host list` to see available hosts |
 | `IMPORT_INCOMPLETE` | 1 | … not imported (see skipped) | fix them in the source and import again: the rest is in, and importing again skips it |
@@ -112,7 +114,7 @@ This page is made from the code (`komando schema` lists the same under
 | `KEY_EXISTS` | 8 | key … already exists | choose another name, or `komando key rm …` first |
 | `KEY_INVALID` | 2 | cannot parse …: … | give an OpenSSH or PEM private key file |
 | `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host edit … --key OTHER` |
-| `KEY_NOT_FOUND` | 3 | key … does not exist | list keys with `komando cache keys CONN 'pattern*'` |
+| `KEY_NOT_FOUND` | 3 | key … not found | run `komando key list` to see available keys |
 | `KEY_PASSPHRASE_REQUIRED` | 2 | key … is encrypted and … | load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands) |
 | `KEY_UNREADABLE` | 4 | cannot read key …: … | check the key path |
 | `KILL_FAILED` | 5 | the server did not stop session … | you may lack the right to stop another user's session |
@@ -206,7 +208,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it on stdin |
 | `SECRET_IN_USE` | 8 | secret … is used by … | point them at another secret first, e.g. `…`, or rename it with `komando secret rename` |
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando secret set …` |
-| `SECRET_NOT_FOUND` | 3 | registry CA …: … | store the CA certificate with `komando secret set NAME < ca.crt` |
+| `SECRET_NOT_FOUND` | 3 | secret … not found | run `komando secret list` to see available secrets |
 | `SECRET_UNRESOLVED` | 3 | registry CA …: … | store the CA certificate with `komando secret set NAME < ca.crt` |
 | `SECURITY_UNSUPPORTED` | 3 | komando picks security updates on apt and dnf/yum servers only; … uses … | use `komando pkg upgrade TARGET` on these servers |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, e.g. /usr/local/bin/komando update |
@@ -282,6 +284,7 @@ This page is made from the code (`komando schema` lists the same under
 | `VPN_CLIENT_MISSING` | 3 | … VPNs need the … program, which is not installed | install the program the message names (macOS: `brew install NAME`; Linux: its package) |
 | `VPN_CONFIG` | 2 | …: … | check the file is a WireGuard (wg-quick) config |
 | `VPN_DOWN` | 4 | VPN … did not start: … | the message ends with its log; `komando vpn test …` tries again, and the whole log is … (for a person to read) |
+| `VPN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first |
 | `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn up …` (it needs their login); then try again |
 | `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando shell HOST` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |

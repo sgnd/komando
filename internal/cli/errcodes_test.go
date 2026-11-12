@@ -7,6 +7,7 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -29,11 +30,15 @@ import (
 //
 // (TestErrorCodesDoc writes docs/features/error-codes.md from the catalog.)
 func TestErrorCodeCatalog(t *testing.T) {
+	builtCodes = nil
 	want, mixed := scanErrorCodes(t)
 	// one code, one exit code: agents branch on either, and the catalog
 	// can show only one
 	for _, m := range mixed {
 		t.Error(m)
+	}
+	for _, b := range builtCodes {
+		t.Error(b)
 	}
 	if os.Getenv("KOMANDO_UPDATE_ERRCODES") != "" {
 		writeErrorCodes(t, want)
@@ -560,20 +565,21 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 						case fn.Sel.Name == "Usage" && len(x.Args) >= 1:
 							sites = append(sites, codeSite{path, "USAGE", 2, "", example(srcText(x.Args[0]))})
 						case fn.Sel.Name == "NotFound" && len(x.Args) >= 1 && lit(x.Args[0]) != "":
-							k := lit(x.Args[0])
-							word := k
-							if k == "vpn" {
-								word = "VPN"
-							}
-							sites = append(sites, codeSite{path, strings.ToUpper(k) + "_NOT_FOUND", 3,
-								fmt.Sprintf("run `komando %s list` to see available %ss", k, word), word + " … not found"})
+							sites = append(sites, notFoundSite(path, lit(x.Args[0])))
 						}
 					}
+				}
+				// the inventory lookups pass their kind on to out.NotFound
+				if id, ok := x.Fun.(*ast.Ident); ok && notFoundWrappers[id.Name] && len(x.Args) >= 1 && lit(x.Args[0]) != "" {
+					sites = append(sites, notFoundSite(path, lit(x.Args[0])))
 				}
 			}
 			s := sinkOf(n, path, wrappers)
 			if s == nil {
 				return true
+			}
+			if builtCode(s.code, vars) {
+				builtCodes = append(builtCodes, fmt.Sprintf("%s: an error code built from parts (%s); write it out as a literal (S-8.1)", path, types.ExprString(s.code)))
 			}
 			codes, scopes := codesAt(s.code, vars)
 			for i, code := range codes {
@@ -612,6 +618,50 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 		}
 	}
 	return sites
+}
+
+// notFoundWrappers are the lookups that hand their first argument, a
+// kind, to out.NotFound.
+var notFoundWrappers = map[string]bool{"notFoundSuggest": true, "selectorNotName": true}
+
+// notFoundSite is the catalog entry out.NotFound makes for kind.
+func notFoundSite(path, k string) codeSite {
+	e := out.NotFound(k, "…")
+	return codeSite{path, e.Code, 3, e.Hint, strings.ReplaceAll(e.Message, `"…"`, "…")}
+}
+
+// builtCodes are the error codes the scan found built with strings.ToUpper
+// or + instead of written out (S-8.1, C-E01); TestErrorCodeCatalog fails
+// on each.
+var builtCodes []string
+
+// builtCode reports whether an expression in a code's place builds the
+// code (a call or a +), directly or through the variable that holds it.
+func builtCode(e ast.Expr, vars map[string][]assign) bool {
+	built := func(e ast.Expr) bool {
+		switch x := e.(type) {
+		case *ast.BinaryExpr:
+			return x.Op == token.ADD
+		case *ast.CallExpr:
+			if fn, ok := x.Fun.(*ast.SelectorExpr); ok {
+				if id, ok := fn.X.(*ast.Ident); ok && id.Name == "strings" {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	if built(e) {
+		return true
+	}
+	if id, ok := e.(*ast.Ident); ok {
+		for _, a := range vars[id.Name] {
+			if built(a.val) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // example is a message format as a reader sees it: the values a command

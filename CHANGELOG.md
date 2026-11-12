@@ -96,6 +96,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Every error code is written out in the source: `HOST_EXISTS`,
+  `CONN_EXISTS` and `VPN_EXISTS` (and the not-found codes of `host`,
+  `conn`, `vpn`, `job`, `key`, `recipe`, `secret` and `tunnel`) were
+  built from the kind and missing from `komando schema`'s
+  `error_codes`; they are listed now. Codes and exits are unchanged.
 - Every safety stop that a flag lifts now has one hint wording, naming
   every flag the real run needs. An AI agent reads `check with --dry-run,
   ask the user; once they agree, run it again with --yes (komando then asks
