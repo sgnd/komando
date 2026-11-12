@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando login HOST --dry-run` with nobody at a terminal (an AI agent)
+  now prints the plan with `would_log_in: false` and `NEEDS_TERMINAL` in
+  `meta.would_be_blocked`, instead of failing: a dry run is never blocked.
 - `vpn down` (and its `--dry-run`) now says what the disconnect does to
   the servers and conns that use the VPN: with a person's login they stop
   answering until `komando vpn up NAME`; otherwise their next command

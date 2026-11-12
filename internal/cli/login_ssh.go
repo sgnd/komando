@@ -46,9 +46,10 @@ func loginHost(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	if !interactive() {
-		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
-			"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
+	needsPerson := out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
+		"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
+	if !interactive() && !g.dryRun {
+		return needsPerson
 	}
 	keep, _ := time.ParseDuration(st.Settings.LoginFor)
 	if keep <= 0 {
@@ -58,8 +59,13 @@ func loginHost(ctx context.Context, name string) error {
 		out.P.Print("login.host", loginResult{Host: h.Name, Until: l.Until, Already: true}, nil)
 		return nil
 	}
-	if g.dryRun {
-		out.P.Print("login.host", map[string]any{"host": h.Name, "would_log_in": true, "keeps_it_for": keep.String()}, nil)
+	if g.dryRun { // never blocked: what the real run would need is in would_be_blocked
+		res := map[string]any{"host": h.Name, "would_log_in": true, "keeps_it_for": keep.String()}
+		if !interactive() {
+			res["would_log_in"] = false
+			out.P.WouldBlock(needsPerson)
+		}
+		out.P.Print("login.host", res, nil)
 		return nil
 	}
 	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
