@@ -50,6 +50,10 @@ type formArg struct {
 	// show asks it only while it says true, from the answers so far
 	// (keys: arg0, arg1 ... and flag:NAME)
 	show func(a formAnswers) bool
+	// need: an optional argument a command typed without it is asked for
+	// at a person's terminal while this says true (db query's SQL, unless
+	// --file gives it)
+	need func(a formAnswers) bool
 }
 
 // formFlag is how one flag is asked, when it is asked before More options.
@@ -64,6 +68,9 @@ type formFlag struct {
 	// keep makes a switch three-way for edits: leave it, Yes, or No
 	// (--name=false), since No alone would change nothing
 	keep bool
+	// need, as formArg.need: asked at a person's terminal, when missing,
+	// while it says true (required asks it always)
+	need func(a formAnswers) bool
 }
 
 // formHints is keyed by the command path without "komando " (db query).
@@ -445,25 +452,35 @@ func formCmdArgs(cmd *cobra.Command, uses []formUseArg, h formHint, a formAnswer
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		v, ok := a["flag:"+f.Name]
 		ff := formFlagHint(h, f.Name)
-		switch {
-		case !ok || (v == f.DefValue && !ff.keep) || slices.Contains(h.always, "--"+f.Name) || slices.Contains(formNeverFlags, f.Name):
-		case v == "" && ff.empty:
-			flags = append(flags, "--"+f.Name+"=")
-		case v == "":
-		case f.Value.Type() == "bool" && v == "true":
-			flags = append(flags, "--"+f.Name)
-		case f.Value.Type() == "bool":
-			flags = append(flags, "--"+f.Name+"=false")
-		case ff.local:
-			flags = append(flags, "--"+f.Name+"="+expandHome(v))
-		default: // one word, so a value starting with - stays a value
-			flags = append(flags, "--"+f.Name+"="+v)
+		if ok && !slices.Contains(h.always, "--"+f.Name) && (v != f.DefValue || ff.keep) {
+			flags = append(flags, formFlagWords(f, ff, v)...)
 		}
 	})
 	if i := slices.Index(args, "--"); i >= 0 { // flags go before --, the rest is the command's
 		return append(append(slices.Clone(args[:i]), flags...), args[i:]...)
 	}
 	return append(args, flags...)
+}
+
+// formFlagWords is one flag's answer as command line words: none for an
+// empty answer (or an approval flag), --name for a yes, --name=value as one
+// word, so a value starting with - stays a value.
+func formFlagWords(f *pflag.Flag, ff formFlag, v string) []string {
+	switch {
+	case f == nil || slices.Contains(formNeverFlags, f.Name):
+		return nil
+	case v == "" && ff.empty:
+		return []string{"--" + f.Name + "="}
+	case v == "":
+		return nil
+	case f.Value.Type() == "bool" && v == "true":
+		return []string{"--" + f.Name}
+	case f.Value.Type() == "bool":
+		return []string{"--" + f.Name + "=false"}
+	case ff.local:
+		return []string{"--" + f.Name + "=" + expandHome(v)}
+	}
+	return []string{"--" + f.Name + "=" + v}
 }
 
 // formFlagHint is the hint for one flag, or none.

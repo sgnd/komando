@@ -97,6 +97,21 @@ func executeArgs(args []string) int {
 	if f, ok := outputFormat(os.Getenv("KOMANDO_OUTPUT")); ok {
 		out.P.Format = f
 	}
+	// a person at a terminal who left something out is asked for it first
+	// (prompter_fill.go); everyone else gets args as they are
+	filled, err := promptFill(args)
+	if err != nil {
+		var done fillDone
+		if errors.As(err, &done) {
+			return done.code
+		}
+		out.P.Format = "text"
+		return out.P.Fail("komando", promptStopped(err))
+	}
+	if !slices.Equal(filled, args) {
+		args = filled
+		os.Args = append([]string{os.Args[0]}, filled...) // what the audit and the approval window name
+	}
 	root := newRoot()
 	root.SetArgs(args)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

@@ -22,6 +22,16 @@ its highlights; the sections below them give the details. Versions follow
   d = --dry-run first]`, type a name to confirm). They are only ever
   asked when stdin, stdout and stderr are terminals, no AI agent runs
   komando, CI is not set, TERM is not dumb and the output is text.
+- A person at a terminal who types a command with something missing is
+  now asked for it instead of getting a usage error: `komando logs` asks
+  `TARGET:` with a numbered list of your servers, `komando db query`
+  uses your only database and asks `SQL:`, `komando fs replace web1
+  /etc/x` asks `--old:` and `--new:`. komando then shows the whole line
+  (`$ komando logs web1`) and runs it. A change asks `Run it? [y/N, d =
+  --dry-run first]` first; one that deletes for good asks you to type the
+  target's name; a protected target asks its usual [y/N] instead. A
+  protected server is never picked for you. A command typed in full, and
+  everything AI agents and scripts get, stays exactly as before.
 
 ### Fixed
 

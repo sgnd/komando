@@ -38,7 +38,7 @@ var (
 var dbLookHints = map[string]formHint{
 	"db query": {
 		args: []formArg{dbConn, {ask: "Which SQL should it run? (leave empty to read it from a file)",
-			example: dbSQL.example, help: dbSQL.help}},
+			example: dbSQL.example, help: dbSQL.help, need: func(a formAnswers) bool { return a["flag:file"] == "" }}},
 		flags: []formFlag{dbWrite,
 			{name: "file", ask: "Or read the SQL from which file on this computer?", example: "./migration.sql", local: true,
 				help: "Only when you left the SQL empty. A .sql file on this computer."},

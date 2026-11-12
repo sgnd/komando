@@ -93,7 +93,7 @@ var formFsHints = map[string]formHint{
 		flags: []formFlag{
 			{name: "old", ask: "Which text should be changed?", required: true, example: "worker_connections 768;",
 				help: "Copy it exactly from the file (komando fs cat shows it). It must appear once."},
-			{name: "new", ask: "What should it become?", empty: true, example: "worker_connections 4096;",
+			{name: "new", ask: "What should it become?", empty: true, need: func(formAnswers) bool { return true }, example: "worker_connections 4096;",
 				help: "The new text, put in place of the old. Empty removes the old text."},
 			formFsSudo("Needed for system files, like most files under /etc."),
 			formFsBackup,

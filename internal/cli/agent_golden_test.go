@@ -165,3 +165,33 @@ func goldenRun(t *testing.T, agent bool, args []string) (string, string, int) {
 	}
 	return r[0], r[1], code
 }
+
+// In a real terminal too, an AI agent is never asked: a sample of commands
+// missing arguments ends as the recording says, with its error on the
+// screen and no question.
+func TestAgentGoldenPTY(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts processes")
+	}
+	rec, err := os.ReadFile(filepath.Join("testdata", "agent_golden.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"logs"}, {"db", "query"}, {"host", "show"}, {"exec"}, {"fs", "replace"}} {
+		head := "### komando -o text " + strings.Join(args, " ") + " (agent text)\n"
+		i := strings.Index(string(rec), head)
+		if i < 0 {
+			t.Fatalf("no recording for %v", args)
+		}
+		block := strings.SplitN(string(rec)[i+len(head):], "\n### ", 2)[0]
+		var code int
+		fmt.Sscanf(block, "exit %d", &code)
+		msg := strings.TrimSpace(strings.SplitN(strings.SplitN(block, "--- stderr\n", 2)[1], "\n", 2)[0])
+		invHome(t)
+		mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=agent"}, args...)
+		if got := p.exit(); got != code || !strings.Contains(p.shown(), msg) || strings.Contains(p.shown(), "$ komando") {
+			t.Errorf("%v: exit %d, want %d and %q; the screen:\n%s", args, got, code, msg, p.shown())
+		}
+	}
+}
