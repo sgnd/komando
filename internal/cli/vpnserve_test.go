@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"context"
+	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -66,5 +69,25 @@ func TestSessionUseOpenConnIsNotIdle(t *testing.T) {
 	done2()
 	if u.active.Load() != 0 {
 		t.Fatalf("active = %d", u.active.Load())
+	}
+}
+
+// TestSpawnServeCtrlC: Ctrl-C while vpn up waits (up to 75 s) for the
+// session's server stops it at once; it used to wait on, and the VPN could
+// come up after the person cancelled.
+func TestSpawnServeCtrlC(t *testing.T) {
+	invHome(t)
+	saved := serveCommand
+	serveCommand = func(string, string, string, *store.VpnSession) *exec.Cmd { return exec.Command("sleep", "60") }
+	t.Cleanup(func() { serveCommand = saved })
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(300*time.Millisecond, cancel)
+	t0 := time.Now()
+	_, _, err := spawnServeWith(ctx, "office", filepath.Join(t.TempDir(), "office.log"), time.Minute, "", &store.VpnSession{})
+	if e := toErr(err); e == nil || e.Code != "CANCELLED" {
+		t.Fatalf("want CANCELLED, got %v", err)
+	}
+	if d := time.Since(t0); d > 5*time.Second {
+		t.Errorf("took %s after Ctrl-C", d)
 	}
 }

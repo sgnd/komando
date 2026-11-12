@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Ctrl-C while `vpn up` (or a command that connects a VPN by itself)
+  waits for the VPN's session now stops it at once (`CANCELLED`); the wait
+  of up to 75 seconds ignored it, so the VPN could come up after the
+  person cancelled.
 - Ctrl-C while `tunnel start` waits for its tunnel now stops the
   background process and forgets the tunnel (`CANCELLED`); it was ignored,
   so the tunnel could still come up after the person cancelled.
