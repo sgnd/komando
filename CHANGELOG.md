@@ -7,6 +7,31 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed for scripts and agents
+
+This release makes every command follow one standard. No JSON field is
+renamed or removed and `meta.contract` stays 1, so a script that reads
+JSON keeps working. What a script or an AI agent may notice is listed
+here; the sections below say more about each change.
+
+New fields, all additive (left out when they have nothing to say):
+
+- `error.suggestion`: the name komando thinks you meant, when a command,
+  server, conn, group, secret, setting or flag is misspelled. The hint is
+  then the whole command line with it in place.
+- `error.thing`: which kind of item a shared not-found code is about
+  (`KEY_NOT_FOUND` is an `ssh_key` or a `cache_key`, and so on).
+- `meta.would_need`: under `--dry-run`, the flags the real run needs
+  (`--allow-dangerous`, `--yes`).
+- `meta.truncated`: `true` when a list stopped at its `--limit`.
+- `meta.deprecated`: `{used, now}` when an old flag or name was used; the
+  old one still works for now.
+- `meta.not_simulated`: under `--dry-run`, the steps the dry run could not
+  try.
+- In `komando schema`: `confirm` on each command (its approval tiers and
+  the flag each needs) and `default_from` on a flag whose default comes
+  from a setting.
+
 ### Added
 
 - `error.suggestion` holds the name komando thinks you meant when a
