@@ -277,8 +277,13 @@ func TestRabbitLivePeekStopsEarly(t *testing.T) {
 	if code(err) != "DELIVERY_LIMIT_NEAR" || p == nil || p.Count != 1 {
 		t.Fatalf("peek 3 took more than the message near its limit: %+v %v", p, err)
 	}
-	d, err := q.Describe(ctx, name)
-	if err != nil || d.Messages != 3 {
-		t.Errorf("a message was lost: %+v %v", d, err)
+	// the management API's counts lag a few seconds behind the broker
+	var d *queuex.TopicDetail
+	for range 20 {
+		if d, err = q.Describe(ctx, name); err == nil && d.Messages == 3 {
+			return
+		}
+		time.Sleep(500 * time.Millisecond)
 	}
+	t.Errorf("a message was lost: %+v %v", d, err)
 }
