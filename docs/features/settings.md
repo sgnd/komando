@@ -220,6 +220,9 @@ make sure it works here, and only then puts it in place of the old one. If
 anything fails, the old komando stays as it was. A komando that is running
 right now keeps working; the next command starts the new version.
 
+- On Windows it works the same way, from the release's `.zip`: the running
+  `komando.exe` is renamed aside (Windows does not let a running program be
+  replaced) and the new one takes its name.
 - Run as you, the update goes into the audit log like any other change. As
   root (`sudo komando update`) it writes nothing in `~/.komando`, so no file
   there ends up belonging to root.

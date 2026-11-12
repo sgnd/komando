@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -491,5 +492,30 @@ func TestUpdateRedirectStaysHTTPS(t *testing.T) {
 	many := make([]*http.Request, 10)
 	if err := httpsOnlyRedirect(req("https://example.com/x"), many); err == nil {
 		t.Error("too many redirects must be refused")
+	}
+}
+
+// update knows every platform `make dist` builds: a release has an archive
+// for each, so update must not say there is none (Windows did, while its
+// .zip was already in every release).
+func TestReleasePlatformsMatchMakefile(t *testing.T) {
+	mk, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var built []string
+	for _, line := range strings.Split(string(mk), "\n") {
+		if v, ok := strings.CutPrefix(line, "PLATFORMS := "); ok {
+			built = strings.Fields(v)
+		}
+	}
+	if len(built) == 0 {
+		t.Fatal("no PLATFORMS line in the Makefile")
+	}
+	got := mapKeys(releasePlatforms)
+	slices.Sort(got)
+	slices.Sort(built)
+	if !slices.Equal(got, built) {
+		t.Errorf("releasePlatforms = %v, make dist builds %v", got, built)
 	}
 }

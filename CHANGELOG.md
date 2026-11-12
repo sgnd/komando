@@ -15,6 +15,11 @@ its highlights; the sections below them give the details. Versions follow
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
 
+- `komando update` on Windows said there was no komando release for
+  Windows, although every release has `komando_windows_amd64.zip` and
+  `komando_windows_arm64.zip`. It now updates Windows too, and a test keeps
+  its list of platforms the same as the ones `make dist` builds.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights
