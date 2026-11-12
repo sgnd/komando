@@ -728,6 +728,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- store.db zeroes the space a deleted record or an old key's copy leaves
+  behind. Before, a removed secret's sealed bytes stayed in the file, and
+  after `secret passphrase` they still opened with the old key.
 - A plain runtime.json beside the sealed store is no longer trusted: it
   is read as empty (only `komando seal` reads one, from a folder of
   before). Before, a program that wrote one could point a server's held
