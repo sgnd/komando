@@ -166,7 +166,7 @@ func runUpdate(ctx context.Context, want string) (updateResult, error) {
 		out.P.WouldBlock(err)
 	}
 	if c < 0 {
-		if err := guardSafety("going back to the older komando " + r.To + " (it may lack this version's safety checks)"); err != nil {
+		if err := guardSafety("going back to the older komando " + r.To); err != nil {
 			return r, err
 		}
 	}

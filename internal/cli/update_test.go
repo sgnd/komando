@@ -317,7 +317,7 @@ func TestUpdateOlderNeedsYes(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.5.0", "v0.7.0"}}
 	exe, _ := updateLab(t, "v0.7.0", f)
 	e := updateFails(t, "v0.5.0")
-	if e.Code != "SAFETY_SETTING" || e.Exit != out.ExitPolicy || !strings.Contains(e.Message, "going back to the older komando v0.5.0") {
+	if e.Code != "SAFETY_SETTING" || e.Exit != out.ExitPolicy || !strings.Contains(e.Message, "going back to the older komando v0.5.0") || strings.Count(e.Message, "safety checks") != 1 {
 		t.Errorf("going back without --yes: %v (exit %d)", e, e.Exit)
 	}
 	if fileText(t, exe) != "old komando" || f.downloads.Load() != 0 {
