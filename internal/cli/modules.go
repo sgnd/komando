@@ -423,11 +423,12 @@ func pkgCmd() *cobra.Command {
 			Short: short,
 			Args: func(cmd *cobra.Command, args []string) error {
 				// the usual missing-arguments error, which names the Use line
+				n := 1
 				if needPkgs {
-					return cobra.MinimumNArgs(2)(cmd, args)
+					n = 2
 				}
-				if err := cobra.MinimumNArgs(1)(cmd, args); err != nil {
-					return err
+				if err := cobra.MinimumNArgs(n)(cmd, args); err != nil {
+					return usageErr(cmd, err)
 				}
 				if action == "update" && len(args) > 1 {
 					return out.Errf(out.ExitUsage, "USAGE", "to upgrade packages: komando pkg upgrade "+args[0]+" "+strings.Join(args[1:], " "),

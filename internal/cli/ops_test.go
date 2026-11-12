@@ -585,7 +585,7 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { g.dryRun = false }()
+	defer func() { g.dryRun, store.DryRun = false, false }()
 	o := captureOutput(t, func() error { return runRoot(t, "-o", "json", "--dry-run", "pkg", "rm", "web1", "telnet") })
 	if !strings.Contains(o, `"command":"pkg.rm"`) || !strings.Contains(o, `"remote_command":"pkg rm telnet"`) {
 		t.Errorf("dry run: %s", o)
@@ -594,7 +594,7 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 	if e := toErr(runRoot(t, "-o", "json", "pkg", "rm", "win1", "telnet")); e == nil || !strings.Contains(e.Message, "pkg rm does not work on Windows") {
 		t.Errorf("windows: %v", e)
 	}
-	if e := toErr(runRoot(t, "-o", "json", "pkg", "install", "web1")); e == nil || !strings.Contains(e.Error(), "accepts at least 2 arg") && !strings.Contains(e.Error(), "requires at least 2 arg") {
+	if e := toErr(runRoot(t, "-o", "json", "pkg", "install", "web1")); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "usage: komando pkg install TARGET PACKAGE...") {
 		t.Errorf("missing package: %v", e)
 	}
 }
@@ -611,7 +611,7 @@ func TestOpsDryRunShapes(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { g.dryRun = false }()
+	defer func() { g.dryRun, store.DryRun = false, false }()
 	for args, want := range map[string]string{
 		"reboot web1":                               `"data":{"order":"one server at a time","would_be_blocked":{"code":"POLICY_BLOCKED"`,
 		"user rm web1 bob --remove-home":            `"remote_command":"user rm bob --remove-home"`,
@@ -658,7 +658,7 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { g.dryRun = false }()
+	defer func() { g.dryRun, store.DryRun = false, false }()
 	for _, args := range [][]string{
 		{"--dry-run", "docker", "exec", "web1", "--", "--privileged", "-u", "root", "api", "sh"},
 		{"--dry-run", "docker", "exec", "web1", "--", "-e", "X=1", "api", "id"},
@@ -688,7 +688,7 @@ func TestUserNamesAreChecked(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { g.dryRun = false }()
+	defer func() { g.dryRun, store.DryRun = false, false }()
 	for _, verb := range []string{"add", "lock", "unlock", "rm"} {
 		if e := toErr(runRoot(t, "-o", "json", "--dry-run", "user", verb, "web1", "--", "-r")); e == nil || e.Code != "USAGE" {
 			t.Errorf("user %s -r: %v", verb, e)
@@ -700,6 +700,7 @@ func TestUserNamesAreChecked(t *testing.T) {
 // Ctrl-C ends logs --follow: the lines so far are the result, exit 0,
 // not CANCELLED (it is how a person stops a follow, like --timeout).
 func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
+	store.DryRun = false // an earlier --dry-run test leaves it on
 	s := startFakeServer(t)
 	lines := make([]string, 60)
 	for i := range lines {
