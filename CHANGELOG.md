@@ -20,6 +20,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- A flag that gets a new name keeps its old name as a hidden spelling of
+  the same flag, so every safety check (the ssh gate's read-only keys
+  included) sees the flag under either name. A test checks each spelling.
 - An old name or flag that komando still accepts (`komando script`,
   `db query --csv`) no longer prints "goes away in the next release":
   it keeps working. It now says so on stderr only at a terminal, and JSON
