@@ -315,6 +315,8 @@ func TestGateLocalTargets(t *testing.T) {
 		"exec vpnd -- id":                                                         R, // through a VPN: may be this computer
 		"exec web -- id":                                                          "",
 		"fs write me /home/u/.bashrc":                                             R,
+		"fs restore me /home/u/.bashrc":                                           R,
+		"fs restore web /etc/nginx/nginx.conf":                                    "", // the undo of fs replace --backup
 		"svc restart lh sshd":                                                     R,
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,

@@ -14,7 +14,6 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/sgnd/komando/internal/vault"
 )
 
 // Jobs are detached remote processes (nohup/setsid) whose output lives in
@@ -49,20 +48,27 @@ func jobStartCmd() *cobra.Command {
 	var sudo, readOnly bool
 	var envs []string
 	var dir, cmdStr string
+	var so scriptOpts
 	c := &cobra.Command{
 		Use:   "start TARGET [--] COMMAND...",
 		Short: "Start a background job on each server TARGET picks; returns the job IDs",
+		Long: `Starts COMMAND in the background on each server TARGET picks and returns
+the job IDs at once; the job keeps running when the connection drops.
+
+--script FILE runs a script from this computer as the job, like
+` + "`exec --script`" + `: it goes to the interpreter (from its #! line, else sh;
+--interpreter to choose) and its copy on the server is removed as soon as
+the job has opened it. --arg values become $1, $2 ... .`,
 		Example: `  komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
-  komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'`,
+  komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
+  komando job start @web --script ./deploy.sh --arg v1.2.3 --sudo`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			command, err := commandWords(cmdStr, args[1:], "job start "+args[0])
+			sp, err := jobWhat(args, cmdStr, so, readOnly, envs)
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(command) == "" {
-				return out.Usage("no command given: komando job start TARGET -- COMMAND")
-			}
+			sp.sudo, sp.dir = sudo, dir
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -71,79 +77,26 @@ func jobStartCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if readOnly {
-				if err := checkReadOnlyEnv(command, envs); err != nil {
-					return err
-				}
-			}
-			if err := guard(st, hosts, command, !readOnly || readOnlyMutates(command, envs)); err != nil {
+			if err := guard(st, hosts, sp.command, sp.mutating); err != nil {
 				return err
 			}
-			env, err := parseEnvTo(envs, hosts)
-			if err != nil {
+			if sp.env, err = parseEnvTo(envs, hosts); err != nil {
 				return err
 			}
 			if g.dryRun {
-				out.P.Print("job.start", map[string]any{"hosts": hostNames(hosts), "command": command}, nil)
+				plan := map[string]any{"hosts": hostNames(hosts), "command": sp.shown}
+				if sp.body != nil {
+					plan["script_bytes"] = len(sp.body)
+				}
+				out.P.Print("job.start", plan, nil)
 				return nil
 			}
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-				id := newID("j")
-				// The exports go, on stdin, to a private file the job reads and
-				// deletes: a command line is visible to every user on the
-				// server (ps), secrets included, and a job runs for long.
-				exports, err := sshx.EnvExports(c, env)
+				s, err := startJob(ctx, c, sp)
 				if err != nil {
 					return nil, err
 				}
-				inner, _, err := sshx.BuildCommand(c, sshx.RunRequest{Command: command, Dir: dir, NoEnv: true})
-				if err != nil {
-					return nil, err
-				}
-				if exports != "" {
-					inner = `. "$1"; rm -f "$1"; ` + inner
-				}
-				var pw []byte // the sudo password, sent as input, never on a command line
-				pwFile := ""
-				switch {
-				case sudo && c.Host.SudoRef != "":
-					p, err := vault.Resolve(c.Host.SudoRef)
-					if err != nil {
-						return nil, err
-					}
-					pw = []byte(p + "\n")
-					// The password waits in a private file. The job opens it as
-					// sudo's input and deletes it at once; the command itself
-					// gets no input, so it can never read the password.
-					pwFile = `(umask 077; cat > "$d/pw") && `
-					inner = `{ rm -f "$d/pw"; sudo -S -p '' sh -c ` + sshx.Q("exec </dev/null; "+inner) + ` sh "$d/env"; } < "$d/pw"`
-				case sudo:
-					inner = "sudo -n sh -c " + sshx.Q(inner) + ` sh "$d/env"`
-				default:
-					inner = "sh -c " + sshx.Q(inner) + ` sh "$d/env"`
-				}
-				wrapper := "( " + inner + " ); echo $? > \"$d/exit\""
-				envFile := ""
-				if exports != "" {
-					envFile = sshx.SaveInput(len(exports), `"$d/env"`) + ` && `
-				}
-				script := `d="` + jobDir(id) + `"; mkdir -p "$d" && ` + envFile + pwFile + `printf '%s\n' ` + sshx.Q(command) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
-					`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
-					`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
-				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: append([]byte(exports), pw...), Timeout: 30 * time.Second, MaxOutput: 64 << 10})
-				if err != nil {
-					return nil, err
-				}
-				o, code := strings.TrimSpace(r.Stdout), r.ExitCode
-				pid, perr := strconv.Atoi(strings.TrimSpace(o))
-				if code != 0 || perr != nil {
-					return nil, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
-				}
-				j := &store.Job{ID: id, Host: c.Host.Name, Command: command, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
-				if err := store.UpdateRuntime(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
-					return nil, err
-				}
-				return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil
+				return s, nil
 			})
 			var data jobStarted
 			worst := 0
@@ -162,11 +115,13 @@ func jobStartCmd() *cobra.Command {
 				data.Summary.OK++
 			}
 			data.Summary.Total = len(res)
-			audit(st, "job.start", hostNames(hosts), command, data.Summary.Failed == 0, nil)
+			audit(st, "job.start", hostNames(hosts), sp.shown, data.Summary.Failed == 0, nil)
 			return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
+	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer as the job ('-' = komando's stdin)")
+	so.bind(c)
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo (uses the server's --sudo-ref password if set)")
 	c.Flags().StringArrayVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
 	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")
@@ -443,7 +398,7 @@ func waitVerdict(s *jobStatus, waitTimeout time.Duration) *out.Error {
 	case s.State == "killed":
 		return out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", s.ID, s.Signal)
 	case s.State == "lost":
-		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --tail 50` shows how far it got; start it again with `komando job start` if needed", "job %s lost", s.ID)
+		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --tail 50` shows how far it got; start it again with `komando job start "+s.Host+" -- "+sshx.Q(s.Command)+"` if needed", "job %s lost", s.ID)
 	case s.ExitCode != nil && *s.ExitCode != 0:
 		return out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+s.ID+" --tail 50`", "job exited with %d", *s.ExitCode)
 	}
@@ -461,6 +416,25 @@ type waitRow struct {
 type jobWaited struct {
 	Jobs    []waitRow    `json:"jobs"`
 	Summary fleetSummary `json:"summary"`
+}
+
+// fleetHint: the jobs still running can be waited for again, in one
+// command; the others say in data.jobs why they failed.
+func (d jobWaited) fleetHint() string {
+	var running []string
+	for _, r := range d.Jobs {
+		if r.Error != nil && r.Error.Code == "WAIT_TIMEOUT" {
+			running = append(running, r.ID)
+		}
+	}
+	hint := "each job's state and error are in data.jobs"
+	if out.P.Format == "text" {
+		hint = "each job's state is above"
+	}
+	if len(running) > 0 {
+		hint = "still running: `komando job wait " + strings.Join(running, " ") + "` waits again; " + hint
+	}
+	return hint + "; `komando job logs ID --tail 50` shows one's output"
 }
 
 func (d jobWaited) Text() string {
@@ -589,6 +563,13 @@ func jobRmCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if force {
+					// --kill may stop it, the change job kill is: a protected
+					// server asks first
+					if err := guard(st, []*store.Host{h}, "", true); err != nil {
+						return err
+					}
+				}
 				err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 					s, err := fetchStatus(cmd.Context(), c, j, 0)
 					if err != nil {
@@ -600,8 +581,16 @@ func jobRmCmd() *cobra.Command {
 								"job %s is still running", id)
 						}
 						if !g.dryRun {
-							if _, _, err := sshx.Output(cmd.Context(), c, jobKillScript(j, "TERM"), 30*time.Second); err != nil {
+							script := jobKillScript(j, "TERM")
+							r, err := sshx.Run(cmd.Context(), c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: 4096})
+							if err != nil {
 								return err
+							}
+							audit(st, "job.kill", []string{h.Name}, script, r.ExitCode == 0, map[string]any{"job": j.ID})
+							if r.ExitCode != 0 {
+								// still running: keep the record, or nothing finds it again
+								return out.Errf(out.ExitRemote, "KILL_FAILED", "it runs as another user (started with --sudo?): `komando job kill "+id+" --sudo`, then `komando job rm "+id+"`",
+									"could not stop job %s: %s", id, strings.TrimSpace(r.Stderr))
 							}
 						}
 					}
@@ -611,7 +600,7 @@ func jobRmCmd() *cobra.Command {
 					}
 					return nil
 				})
-				if err != nil && toErr(err).Code == "JOB_RUNNING" {
+				if err != nil && (toErr(err).Code == "JOB_RUNNING" || toErr(err).Code == "KILL_FAILED" || toErr(err).Exit == out.ExitPolicy) {
 					return err
 				}
 				// an unreachable server: the record goes anyway (its logs stay there)
@@ -649,10 +638,34 @@ type jobStarted struct {
 	Next    string       `json:"next,omitempty"` // left out when no job started
 }
 
-// withNext adds the commands that follow, when a job started.
+// fleetHint: why each server did not start its job is in data.jobs.
+func (d jobStarted) fleetHint() string {
+	if out.P.Format == "text" {
+		return "each server's error is above"
+	}
+	return "each server's error is in data.jobs"
+}
+
+// ids are the IDs of the jobs that started.
+func (d jobStarted) ids() []string {
+	var ids []string
+	for _, j := range d.Jobs {
+		if j.ID != "" {
+			ids = append(ids, j.ID)
+		}
+	}
+	return ids
+}
+
+// withNext adds the commands that follow, when a job started, with the
+// real IDs: job wait takes them all at once, status and logs one each.
 func (d jobStarted) withNext() jobStarted {
-	if d.Summary.OK > 0 {
-		d.Next = "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"
+	ids := d.ids()
+	switch {
+	case len(ids) == 1:
+		d.Next = "komando job status " + ids[0] + "  |  komando job logs " + ids[0] + " --offset 0  |  komando job wait " + ids[0]
+	case len(ids) > 1:
+		d.Next = "komando job wait " + strings.Join(ids, " ") + "  |  komando job status <id>  |  komando job logs <id> --offset <next_offset>"
 	}
 	return d
 }
@@ -667,16 +680,11 @@ func (d jobStarted) Text() string {
 		rows = append(rows, []string{j.ID, j.Host, strconv.Itoa(j.PID), "started"})
 	}
 	s := textTable([]string{"id", "host", "pid", "state"}, rows)
-	if d.Summary.OK > 0 {
-		id := "<id>"
-		if d.Summary.OK == 1 {
-			for _, j := range d.Jobs {
-				if j.ID != "" {
-					id = j.ID
-				}
-			}
-		}
-		s += "\nfollow it with: komando job logs " + id + " --tail 20   |   komando job wait " + id + "\n"
+	switch ids := d.ids(); {
+	case len(ids) == 1:
+		s += "\nfollow it with: komando job logs " + ids[0] + " --tail 20   |   komando job wait " + ids[0] + "\n"
+	case len(ids) > 1:
+		s += "\nwait for them all: komando job wait " + strings.Join(ids, " ") + "\none's output:      komando job logs <id> --tail 20\n"
 	}
 	return s
 }

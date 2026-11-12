@@ -16,6 +16,7 @@ import (
 
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -35,7 +36,59 @@ For an agent, ` + "`fs replace`" + ` is the way to edit a config file: it fails 
 old text matches exactly once (or --all), and --backup keeps a .bak copy.`,
 	}
 	c.AddCommand(fsLsCmd(), fsStatCmd(), fsCatCmd(), fsWriteCmd(), fsReplaceCmd(), fsRmCmd(), fsMkdirCmd(), fsMvCmd(), fsChmodCmd(), fsRestoreCmd())
+	for _, sub := range c.Commands() {
+		if run := sub.RunE; run != nil && sub.Flags().Lookup("sudo") != nil {
+			sub.RunE = func(cmd *cobra.Command, args []string) error {
+				fsSudoRetry = sudoRetryHint(cmd, args)
+				return run(cmd, args)
+			}
+		}
+	}
 	return c
+}
+
+// fsSudoRetry is the hint of a permission error in the fs command running
+// now: the same command line with --sudo, to copy.
+var fsSudoRetry = "retry with --sudo"
+
+// sudoRetryHint is "retry with --sudo: `komando fs ... --sudo`", the
+// command as given plus --sudo. Approval flags are never in it; a long
+// --content (or one already with --sudo) keeps the short hint.
+func sudoRetryHint(cmd *cobra.Command, args []string) string {
+	const short = "retry with --sudo"
+	if on, _ := cmd.Flags().GetBool("sudo"); on {
+		return "it was refused even with --sudo (a read-only mount, or a protected file): `komando fs stat` shows its owner and mode"
+	}
+	parts := append(strings.Fields(cmd.CommandPath()), args...)
+	long := false
+	cmd.Flags().Visit(func(f *pflag.Flag) {
+		switch f.Name {
+		case "yes", "allow-dangerous", "reveal", "output":
+			return
+		}
+		v := f.Value.String()
+		if len(v) > 120 || strings.ContainsAny(v, "\n\r") {
+			long = true
+			return
+		}
+		if f.Value.Type() == "bool" {
+			if v == "true" {
+				parts = append(parts, "--"+f.Name)
+			}
+			return
+		}
+		if sv, ok := f.Value.(pflag.SliceValue); ok {
+			for _, one := range sv.GetSlice() {
+				parts = append(parts, "--"+f.Name, one)
+			}
+			return
+		}
+		parts = append(parts, "--"+f.Name, v)
+	})
+	if long {
+		return short
+	}
+	return short + ": `" + shellLine(append(parts, "--sudo")) + "`"
 }
 
 func sftpClient(c *sshx.Client) (*sftp.Client, error) {
@@ -70,7 +123,7 @@ func oneHost(ctx context.Context, target string, fn func(st *store.State, c *ssh
 }
 
 func fsErr(p string, err error) error {
-	return fsErrHint(p, err, "retry with --sudo")
+	return fsErrHint(p, err, fsSudoRetry)
 }
 
 // fsErrHint is fsErr for commands without --sudo: permHint says what to do

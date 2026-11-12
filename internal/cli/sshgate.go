@@ -95,7 +95,7 @@ var gateOnServers = map[string]func(c *cobra.Command) string{
 	"exec": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
 	"cp": gateLocalDst, "sync": gateLocalDst,
 	"job.start": nil, "job.kill": nil, "job.rm": nil,
-	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.rm": nil, "fs.write": nil,
+	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.restore": nil, "fs.rm": nil, "fs.write": nil,
 	"svc.daemon-reload": nil, "svc.disable": nil, "svc.enable": nil, "svc.reload": nil,
 	"svc.restart": nil, "svc.start": nil, "svc.stop": nil,
 	"pkg.install": nil, "pkg.rm": nil, "pkg.security": nil, "pkg.update": nil, "pkg.upgradable": nil, "pkg.upgrade": nil,

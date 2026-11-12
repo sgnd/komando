@@ -679,8 +679,8 @@ func TestPolicyChangeText(t *testing.T) {
 		p    policyChange
 		want string
 	}{
-		{false, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}, "added the deny rule a\\s+b (1 custom rule now)\n"},
-		{true, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}, "would add the deny rule a\\s+b (dry run; 1 custom rule then)\n"},
+		{false, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}.denied(), "added the deny rule a\\s+b as " + policy.CustomID(`a\s+b`) + " (1 custom rule now)\ntry it:   komando policy check 'COMMAND'\nundo it:  komando policy rm " + policy.CustomID(`a\s+b`) + "\n"},
+		{true, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}.denied(), "would add the deny rule a\\s+b as " + policy.CustomID(`a\s+b`) + " (dry run; 1 custom rule then)\n"},
 		{false, policyChange{Custom: []string{}, Removed: `a\s+b`}, "removed the deny rule a\\s+b (0 custom rules left)\n"},
 		{true, policyChange{Custom: []string{}, Removed: `a\s+b`}, "would remove the deny rule a\\s+b (dry run; 0 custom rules left then)\n"},
 	} {

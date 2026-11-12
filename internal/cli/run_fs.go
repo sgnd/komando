@@ -232,7 +232,7 @@ func fsExitMap(code int, stderr string) *out.Error {
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "add --overwrite to replace it", "%s", msg)
 	}
 	if strings.Contains(msg, "Permission denied") || strings.Contains(msg, "Operation not permitted") {
-		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", "retry with --sudo", "%s", msg)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", fsSudoRetry, "%s", msg)
 	}
 	return nil
 }
@@ -278,6 +278,9 @@ func mkdirScript(paths []string) string {
 		b.WriteString("if [ -e " + rq(p) + " ] && [ ! -d " + rq(p) + " ]; then " + failWith(fsExitNotFolder, p+" exists and is not a folder") + "; fi; ")
 	}
 	b.WriteString("mkdir -p -- " + rqAll(paths))
+	for _, p := range paths {
+		b.WriteString(" && " + say("made: "+p))
+	}
 	return b.String()
 }
 
@@ -287,7 +290,7 @@ func mvScript(src, dst string, overwrite bool) string {
 	var b strings.Builder
 	b.WriteString("s=" + rq(src) + "; t=" + rq(dst) + "; ")
 	b.WriteString(`if [ ! -e "$s" ] && [ ! -L "$s" ]; then ` + failWith(fsExitNoSource, src+": no such file or directory") + "; fi; ")
-	b.WriteString(`if [ -d "$t" ] && [ ! -L "$t" ]; then t="$t/$(basename -- "$s")"; fi; `)
+	b.WriteString(`if [ -d "$t" ] && [ ! -L "$t" ]; then t="${t%/}/$(basename -- "$s")"; fi; `)
 	if overwrite {
 		b.WriteString(`if [ -e "$t" ] || [ -L "$t" ]; then printf 'replaced: %s\n' "$t"; fi; `)
 	} else {
@@ -306,7 +309,12 @@ func chmodScript(mode string, paths []string, recursive bool) string {
 	if recursive {
 		r = "-R "
 	}
-	b.WriteString("chmod " + r + sshx.Q(mode) + " -- " + rqAll(paths))
+	// -- before the mode: a mode like -w is not an option, and BSD chmod
+	// reads a -- after the mode as a file name
+	b.WriteString("chmod " + r + "-- " + sshx.Q(mode) + " " + rqAll(paths))
+	for _, p := range paths {
+		b.WriteString(" && " + say("mode "+mode+": "+p))
+	}
 	return b.String()
 }
 

@@ -288,10 +288,11 @@ Anything that may exceed ~2 minutes (upgrades, backups, builds, migrations):
 komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'   # returns job id at once
 komando job logs <id> --offset <next_offset>     # read only new output
 komando job wait <id> --timeout 10m              # blocks; exit code mirrors the job
+komando job start @web --script ./migrate.sh --arg v2   # a long script from this computer
 ```
 
 Several servers: `job start @web ...` prints one ID per server; `job wait
-<id1> <id2> ...` waits for all of them. A job survives a dropped connection
+<id1> <id2> ...` waits for all of them (its `next` field has the line). A job survives a dropped connection
 (VPN, Wi-Fi): `job wait` connects again by itself. Over a shaky link, prefer
 a job to `exec`.
 

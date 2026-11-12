@@ -7,6 +7,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `job start --script FILE` (with `--arg` and `--interpreter`) runs a
+  script from this computer as a background job, as `exec --script` does
+  in the foreground. A long `exec --script` that times out names it.
+
 ### Changed
 
 - A test now records what AI agents and scripts get from every command
@@ -68,6 +74,34 @@ its highlights; the sections below them give the details. Versions follow
   is `komando test all` and `komando doctor`.
 
 ### Fixed
+
+- `job rm --kill` on a protected server asks first (`PROTECTED_HOST` for
+  an agent), as `job kill` does; it stopped the job without asking. The
+  stop is in the audit log, and a job it could not stop (started with
+  `--sudo`) keeps its record and says `komando job kill ID --sudo`.
+- `fs chmod` works on servers with BSD `chmod` (FreeBSD, macOS): the
+  `--` came after the mode, which BSD reads as a file name. `fs mkdir`
+  and `fs chmod` now say what they did (`made: PATH`, `mode 640: PATH`)
+  instead of printing nothing on one server, and `fs mv` into `DIR/` no
+  longer prints a double slash.
+- `policy deny` says the new rule's id and the commands that follow:
+  `komando policy check 'COMMAND'` to try it and `komando policy rm ID` to
+  undo it. Its JSON gains `id` and `next`.
+- `fs` commands refused with `PERMISSION_DENIED` give the same command
+  line with `--sudo` added as their hint (it said only "retry with
+  --sudo"). With `--sudo` already given, the hint no longer suggests it.
+- `exec` that times out, or loses its connection, now gives the exact
+  `komando job start TARGET ... -- 'COMMAND'` line in its hint, with the
+  same `--sudo`, `--dir` and `--env`, instead of "use `komando job start`".
+- `job start` on several servers prints `komando job wait ID ID ...` with
+  the real IDs (it printed `<id>`), and so does `next` in its JSON. A
+  `job wait` for several jobs that are still running says
+  `komando job wait ID ...` to wait again. It pointed at `data.results`,
+  which job results do not have, and in text it suggested `job start`.
+  A lost job's hint gives the exact `job start` line to run it again.
+- `ssh-gate`: a key that may change things can now run `fs restore`, the
+  undo of `fs replace --backup` and `fs write --backup`, on a server.
+  It was refused as if it changed komando's own setup.
 
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`

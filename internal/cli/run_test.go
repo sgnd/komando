@@ -262,8 +262,8 @@ func TestFsScripts(t *testing.T) {
 	if o, code := runSh(t, dir, mvScript("a", "b", true)); code != 0 || !strings.Contains(o, "replaced") {
 		t.Errorf("mv --overwrite: %d %s", code, o)
 	}
-	if _, code := runSh(t, dir, mvScript("b", "d", false)); code != 0 {
-		t.Errorf("mv into a folder: exit %d", code)
+	if o, code := runSh(t, dir, mvScript("b", "d/", false)); code != 0 || !strings.Contains(o, "moved to: d/b\n") {
+		t.Errorf("mv into a folder: exit %d %q", code, o)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "d/b")); err != nil {
 		t.Error("mv into a folder did not land in it")
@@ -280,6 +280,13 @@ func TestFsScripts(t *testing.T) {
 	}
 	if _, code := runSh(t, dir, rmScript([]string{"d"}, true)); code != 0 {
 		t.Errorf("rm -r: exit %d", code)
+	}
+	// a change on one server says what it did: the text shows only stdout
+	if o, code := runSh(t, dir, mkdirScript([]string{"m/n", "m/o"})); code != 0 || o != "made: m/n\nmade: m/o\n" {
+		t.Errorf("mkdir: %d %q", code, o)
+	}
+	if o, code := runSh(t, dir, chmodScript("0700", []string{"m/n"}, false)); code != 0 || o != "mode 0700: m/n\n" {
+		t.Errorf("chmod: %d %q", code, o)
 	}
 	if _, code := runSh(t, dir, chmodScript("0600", []string{"zzz"}, false)); code != fsExitNoSource {
 		t.Errorf("chmod missing: exit %d", code)

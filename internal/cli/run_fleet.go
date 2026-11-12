@@ -56,6 +56,16 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 		return nil
 	}
 	soft := &out.Error{Exit: worst}
+	defer func() {
+		// data that is not per-host results (jobs) says itself where to look
+		// and what to run next, for a person and an agent alike
+		if h, ok := data.(fleetHinter); ok && sum.Total > 1 {
+			if hint := h.fleetHint(); hint != "" {
+				soft.Hint = hint
+			}
+		}
+		out.P.Print(command, data, soft)
+	}()
 	if sum.Total == 1 {
 		f := fails[0]
 		soft.Code, soft.Message = "FAILED", "server "+f.host+" failed ("+f.reason+")"
@@ -82,9 +92,12 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 			soft.Hint = "see the per-host results (data.results) for exit codes and stderr"
 		}
 	}
-	out.P.Print(command, data, soft)
 	return exitCode(worst)
 }
+
+// fleetHinter is data whose closing hint is its own: job start and job
+// wait return jobs, not data.results.
+type fleetHinter interface{ fleetHint() string }
 
 // truncationNotes tells a person, on stderr, that output was cut. JSON
 // readers have stdout_truncated / stderr_truncated.
