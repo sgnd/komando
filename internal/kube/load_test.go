@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -107,5 +108,49 @@ func TestResourceForErrors(t *testing.T) {
 	}
 	if _, err := c.ResourceFor(context.Background(), "v1", "Widget"); !errors.As(err, &uk) || err.Error() != "the cluster does not serve v1 Widget" {
 		t.Errorf("unknown kind: %v", err)
+	}
+}
+
+// "." and ".." never reach the server as a name or namespace: pods/.. is
+// the namespace itself, a DELETE there must not be sent.
+func TestDotNamesRefused(t *testing.T) {
+	sent := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { sent++ }))
+	defer srv.Close()
+	x := &Context{}
+	x.Cluster.Server = srv.URL
+	k, err := New(x, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pods := ResourceType{Path: "/api/v1", Name: "pods", Kind: "Pod", Namespaced: true}
+	for _, p := range []string{pods.ObjectPath("shop", ".."), pods.ObjectPath("..", "web"), pods.ObjectPath("shop", ".")} {
+		_, err := k.Do(context.Background(), "DELETE", p, nil, nil, "")
+		var ae *APIError
+		if !errors.As(err, &ae) || ae.Code != 400 {
+			t.Errorf("%s: want a 400 before sending, got %v", p, err)
+		}
+	}
+	if sent != 0 {
+		t.Errorf("%d requests sent", sent)
+	}
+}
+
+// With a CA in the kubeconfig the server is always checked against it,
+// even when insecure-skip-tls-verify is set too (kubectl refuses the pair).
+func TestCAWinsOverInsecure(t *testing.T) {
+	srv := httptest.NewTLSServer(http.NotFoundHandler())
+	defer srv.Close()
+	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
+	x := &Context{}
+	x.Cluster.Server = "https://10.255.255.1:6443"
+	x.Cluster.InsecureSkipTLSVerify = true
+	x.Cluster.CertificateAuthorityData = base64.StdEncoding.EncodeToString(ca)
+	k, err := New(x, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k.http.Transport.(*http.Transport).TLSClientConfig.InsecureSkipVerify {
+		t.Error("a CA was given, yet the server's certificate is not checked")
 	}
 }

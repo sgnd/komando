@@ -155,6 +155,28 @@ its highlights; the sections below them give the details. Versions follow
   is a touch, so it needs `--write`), the command word is sent in lower
   case (memcached ignores `GET`), and `watch`, which never returns, stops
   with `NOT_SUPPORTED`.
+- `import kubeconfig` notes a context that skips the API server's
+  certificate check (`insecure-skip-tls-verify` without a CA), and a
+  kubeconfig with both a CA and `insecure-skip-tls-verify` now checks the
+  server against the CA instead of checking nothing.
+- `cluster rm` and `cluster scale ... 0` at a person's terminal ask to
+  type the object's name (`Type the name web to continue`). Before,
+  Kubernetes asked for the cluster's name and Swarm for "yes", so the
+  answer did not say what would go. Scripts and agents are unchanged
+  (`--allow-dangerous`).
+- Cluster commands refuse `.` and `..` as an object or namespace name
+  before anything is sent (`K8S_INVALID`): as a path segment, `cluster rm
+  prod pod ..` named another object than the one typed.
+- A cluster whose kubeconfig logs in with a program that is not installed
+  (`kubelogin`, `oidc-login` ...) now stops with `TOOL_MISSING` (exit 3)
+  and the kubeconfig's own `installHint`, and a login program that fails
+  with `LOGIN_FAILED` (exit 4), instead of `K8S_UNREACHABLE` and a hint to
+  test the network.
+- `cluster apply` sends the whole file to the server as a dry run before
+  it applies anything: when the cluster refuses one object, nothing in the
+  file is applied (`K8S_INVALID`, "nothing was applied: ..."). Before, the
+  objects above the refused one were applied and the file was left half
+  done.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

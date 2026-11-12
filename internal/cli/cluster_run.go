@@ -61,6 +61,9 @@ func clusterRmCmd() *cobra.Command {
 				} else if err := swarmStackExists(cmd.Context(), t, name); err != nil {
 					return err // stack rm of a missing stack says "Nothing found" and exits 0
 				}
+				if err := confirmObject(nil, name, "removes "+kind+" "+name); err != nil {
+					return err
+				}
 				_, ran, err := swarmDo(cmd.Context(), "cluster.rm", t, line, nil, driver.RiskDestructive, "removes "+kind+" "+name)
 				if err != nil {
 					return err
@@ -71,6 +74,9 @@ func clusterRmCmd() *cobra.Command {
 				}
 				out.P.Print("cluster.rm", res, nil)
 				return nil
+			}
+			if err := confirmObject([]string{t.conn.Name}, name, "deletes "+typ+"/"+name+" from the cluster"); err != nil {
+				return err
 			}
 			return withKube(cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
@@ -427,6 +433,10 @@ func importKubeconfig(path string) (*importPlan, error) {
 		p.Conns = append(p.Conns, c)
 		if why := clash[n]; why != "" {
 			p.ConnNotes[c] = append(p.ConnNotes[c], why)
+		}
+		if x.Cluster.InsecureSkipTLSVerify && x.Cluster.CertificateAuthorityData == "" && x.Cluster.CertificateAuthority == "" {
+			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s does not check the server's certificate (insecure-skip-tls-verify): "+
+				"its login goes to whoever answers at %s; add the cluster's CA (certificate-authority-data) to the kubeconfig and import it again", n, u.Host))
 		}
 		if e := x.Plugin(); e != nil {
 			// a person imported it, or allowed it (guardKubeImport): agents

@@ -35,6 +35,9 @@ check "apply --namespace must match the file" USAGE "$($K cluster apply lab-k3s 
 check "apply --stack is for Swarm" USAGE "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" --stack x | jget 'd["error"]["code"]')"
 check "apply says created" "created created created" "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" | jget '" ".join(o["action"] for o in d["data"]["objects"])')"
 check "apply again says unchanged" "unchanged unchanged unchanged" "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" | jget '" ".join(o["action"] for o in d["data"]["objects"])')"
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: t-ok, namespace: t-e2eclu}\n---\napiVersion: v1\nkind: ConfigMap\nmetadata: {name: Bad_Name, namespace: t-e2eclu}\n' >"$TMP/half.yaml"
+check "apply: a refused object stops the whole file" "K8S_INVALID True K8S_NOT_FOUND" \
+  "$($K cluster apply lab-k3s --file "$TMP/half.yaml" >"$TMP/o"; jget 'd["error"]["code"] + " " + str("nothing was applied" in d["error"]["message"])' <"$TMP/o") $($K cluster get lab-k3s cm t-ok --namespace t-e2eclu | jget 'd["error"]["code"]' || true)"
 sed 's/password: one/password: two/' "$TMP/clu.yaml" > "$TMP/clu2.yaml"
 check "a changed Secret value is a change, still hidden" "change True" \
   "$($K cluster apply lab-k3s --file "$TMP/clu2.yaml" --dry-run | jget 'd["data"]["changes"][1]["action"] + " " + str("two" not in json.dumps(d) and "(hidden, changed)" in d["data"]["changes"][1]["diff"])')"
@@ -83,6 +86,20 @@ check "cluster run ends a watch at --timeout" 0 "$($K cluster run lab-k3s --time
 # kubectl's words stay in $TMP/fw.err to show why if it fails
 check "forward ends normally at --timeout" "0 True" "$($K cluster forward lab-k3s deploy/web :80 --namespace t-e2eclu --timeout 5s >"$TMP/o" 2>"$TMP/fw.err"; echo $?) $(jget 'd["ok"]' <"$TMP/o")"
 [ "$(jget 'd["ok"]' <"$TMP/o")" = True ] || { echo "  forward stderr:"; head -5 "$TMP/fw.err"; }
+# Ctrl-C ends a forward cleanly: exit 0, the local port is closed again
+$K cluster forward lab-k3s deploy/web 18096:80 --namespace t-e2eclu >"$TMP/fwi.out" 2>/dev/null &
+FW=$!
+for _ in $(seq 1 40); do (exec 3<>/dev/tcp/127.0.0.1/18096) 2>/dev/null && break; sleep 0.5; done
+kill -INT "$FW"; wait "$FW"; RC=$?
+check "forward: Ctrl-C ends it normally" "0 True" "$RC $(jget 'd["data"]["stopped"]' <"$TMP/fwi.out")"
+check "forward: the local port is closed after Ctrl-C" closed "$( (exec 3<>/dev/tcp/127.0.0.1/18096) 2>/dev/null && echo open || echo closed)"
+# a person deletes by typing the object's name; the cluster's name is not enough
+ptty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
+O=$(ptty 'lab-k3s\n' cluster rm lab-k3s deployment web --namespace t-e2eclu); RC=$?
+check "person: cluster rm asks for the object's name" 1 "$(grep -c 'Type the name web to continue' <<<"$O")"
+check "person: the cluster's name deletes nothing" "6 web" "$RC $($K cluster get lab-k3s deploy web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]')"
+O=$(ptty 'web\n' cluster rm lab-k3s deployment web --namespace t-e2eclu); RC=$?
+check "person: the object's name deletes it, asked once" "0 1 K8S_NOT_FOUND" "$RC $(grep -c 'Type the name' <<<"$O") $($K cluster get lab-k3s deploy web --namespace t-e2eclu | jget 'd["error"]["code"]' || true)"
 q $K cluster rm lab-k3s namespace t-e2eclu --allow-dangerous
 fi
 
@@ -111,7 +128,13 @@ check "docker raw: global flags do not hide rm" POLICY_BLOCKED "$($K docker raw 
 check "docker compose: down -v behind -p is checked" POLICY_BLOCKED "$($K docker compose swarm1 --dry-run -- -p proj down -v | jget 'd["meta"]["would_be_blocked"]["code"]')"
 check "docker raw refuses an unknown leading flag" USAGE "$($K docker raw swarm1 -- --weird x ps | jget 'd["error"]["code"]')"
 check "docker inspect of a missing object is not found" 3 "$($K docker inspect swarm1 nope >/dev/null; echo $?)"
-q $K cluster rm swarm1 service/t-e2eclu-web --allow-dangerous
+# a person removes a Swarm service by typing its name, not "yes"
+ptty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
+O=$(ptty 'yes\n' cluster rm swarm1 service/t-e2eclu-web); RC=$?
+check "person: Swarm rm asks for the service's name" 1 "$(grep -c 'Type the name t-e2eclu-web to continue' <<<"$O")"
+check "person: yes removes nothing" "6 True" "$RC $($K cluster ls swarm1 svc | jget 'any(i["name"]=="t-e2eclu-web" for i in d["data"]["items"])')"
+O=$(ptty 't-e2eclu-web\n' cluster rm swarm1 service/t-e2eclu-web); RC=$?
+check "person: the service's name removes it, asked once" "0 1 3" "$RC $(grep -c 'Type the name' <<<"$O") $($K cluster status swarm1 svc/t-e2eclu-web >/dev/null; echo $?)"
 q $K docker raw swarm1 --allow-dangerous -- rmi t-e2eclu/busybox:2
 fi
 

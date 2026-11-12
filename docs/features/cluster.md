@@ -37,13 +37,22 @@ EKS and GKE logins itself (`aws eks get-token`, `aws-iam-authenticator`,
 `gke-gcloud-auth-plugin`), so you do not need those programs. Other
 credential plugins run as the kubeconfig says: they are programs on this
 computer, so an AI agent needs a person's yes (`--yes`) to import such a
-kubeconfig, as with a host's `--proxy-command`. A kubeconfig a person
+kubeconfig, as with a host's `--proxy-command`. When that program is not
+installed, cluster commands stop with `TOOL_MISSING` (exit 3) and the
+kubeconfig's own `installHint`; when it runs but cannot log in (it may
+want a person to sign in first), with `LOGIN_FAILED` (exit 4). A kubeconfig a person
 imported (or allowed) is trusted for that program and server: agents then
 use the conn without asking. If the kubeconfig in the vault changes to
 another program or server (for example with `secret set`), every agent
 command asks again, reads included, until a person imports it again. The
 same goes for a kubeconfig that reads its token from a local file
 (`tokenFile`).
+
+komando checks the API server's certificate against the kubeconfig's CA.
+A context with `insecure-skip-tls-verify` and no CA skips that check, as
+kubectl does; the import names it in its notes, because its login goes
+to whoever answers at that address. With a CA, the certificate is always
+checked, even if `insecure-skip-tls-verify` is set too.
 
 To add one cluster by hand, store its kubeconfig in the vault first, then
 name it with `cluster add` (the same as `conn add`, but it refuses a URL
@@ -67,6 +76,9 @@ Every command names objects the way kubectl does: `TYPE NAME` or
 mistype a kind, the error suggests the one you probably meant.
 
 - Name a namespace (see [Glossary](glossary.md)) with `--namespace`.
+  Without it, komando uses the cluster's usual namespace: the one its
+  kubeconfig context names, else `default`. Change it for good with
+  `komando conn edit prod --option namespace=shop`.
   komando keeps `-n` for "how many" (`--limit`); if you write `-n shop`,
   the error tells you the right flag.
   `-A` (`--all-namespaces`) works on `ls`, `events` and `helm ls`. It
@@ -214,6 +226,10 @@ komando cluster apply swarm1 --file compose.yml --stack shop
 komando cluster scale swarm1 service/web 4
 ```
 
+- `apply` first sends the whole file to the server as a dry run. If the
+  cluster refuses one object (a typo, an unknown field or kind), it stops
+  there and nothing in the file is applied (`K8S_INVALID`, "nothing was
+  applied: configmap/bad: ...").
 - `apply --dry-run` shows for each object whether it would be created,
   changed or stay the same, with a diff. Secret values never show: a changed
   value reads `(hidden, changed)`. Objects in a namespace that the same file
@@ -222,7 +238,11 @@ komando cluster scale swarm1 service/web 4
   refused, as kubectl does.
 - `scale` reports `previous_replicas` (or `unchanged`).
 - A protected cluster needs `--yes` before any change.
-- Scaling to 0 and `rm` stop things, so they need `--allow-dangerous`.
+- Scaling to 0 and `rm` stop things. A person at a terminal is asked to
+  type the object's name (`Type the name api-7d9f-x2 to continue`); any
+  other answer, the cluster's name too, changes nothing. A script or an AI
+  agent adds `--allow-dangerous` instead (for an agent, the person allows
+  it in komando's window).
 
 ## Work inside a pod
 

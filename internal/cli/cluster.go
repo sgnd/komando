@@ -205,6 +205,18 @@ func kubeErr(err error) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
+	var pe *kube.PluginError
+	if errors.As(err, &pe) {
+		if pe.Missing {
+			hint := "install " + pe.Command + " on this computer (the conn's kubeconfig logs in with it), or import a kubeconfig that logs in another way: `komando import kubeconfig FILE --overwrite`"
+			if pe.InstallHint != "" {
+				hint = "the kubeconfig says: " + pe.InstallHint
+			}
+			return out.Errf(out.ExitNotFound, "TOOL_MISSING", hint, "%s", pe.Error())
+		}
+		return out.Errf(out.ExitConnect, "LOGIN_FAILED", "run the program in a terminal to see why it cannot log in (it may need a person to sign in first), then try again",
+			"%s", cleanText(pe.Error()))
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test NAME` (and its --via path)",
 			"the cluster did not answer within the time limit (--timeout)")
@@ -293,6 +305,27 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	return nil
 }
 
+// confirmObject: deleting a cluster object, or stopping every replica of
+// one, asks a person at a terminal to type that object's name ("Type the
+// name api-7d9f-x2 to continue"), not the cluster's or "yes": the name
+// says what goes, as gh repo delete does. A right answer also counts for
+// the cluster check guardConns (or swarmDo) makes next, keyed by the same
+// names, so the person is asked once; a wrong one stops here and nothing
+// changes. Agents and scripts are unchanged: they use --allow-dangerous,
+// and a dry run never asks.
+func confirmObject(names []string, obj, reason string) error {
+	if g.allowDangerous || g.dryRun || !interactive() {
+		return nil
+	}
+	if !confirmDangerous([]string{obj}, reason) {
+		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
+			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
+			"the command matches destructive rules [%s]: %s", "cluster", reason).Say(dangerSay([]string{reason}), dangerHint))
+	}
+	cur().sess.ConfirmDanger(strings.Join(names, ","))
+	return nil
+}
+
 // age is a Kubernetes timestamp as a kubectl age (40s, 5m, 3h, 12d).
 func age(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
@@ -311,7 +344,16 @@ func clusterCmd() *cobra.Command {
 or a Swarm manager server. The same verbs work on both. Reads need nothing; restart,
 scale and apply change the cluster (protected targets need --yes; try
 --dry-run); rm needs --allow-dangerous. Anything else: ` + "`cluster run`" + `
-passes the native kubectl or docker command, read-only unless --write.`,
+passes the native kubectl or docker command, read-only unless --write.
+
+A cluster's usual namespace is its kubeconfig context's; change it with
+` + "`komando conn edit NAME --option namespace=shop`" + `, or name one per command
+with --namespace.`,
+		Example: `  komando import kubeconfig                       # one cluster per kubeconfig context
+  komando cluster status prod                     # version, nodes, what is not healthy
+  komando cluster ls prod pods --namespace shop
+  komando cluster logs prod deploy/api --namespace shop -f
+  komando cluster deploy prod deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait`,
 	}
 	c.AddCommand(connAddCmdFor("cluster"), clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
 		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd(), clusterHelmCmd())

@@ -289,6 +289,11 @@ func clusterScaleCmd() *cobra.Command {
 				}
 				return swarmScale(cmd.Context(), t, typ, name, n, wait, risk)
 			}
+			if n == 0 {
+				if err := confirmObject([]string{t.conn.Name}, name, "scaling "+typ+"/"+name+" to 0 stops it"); err != nil {
+					return err
+				}
+			}
 			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.scale", t, risk, map[string]any{"object": typ + "/" + name, "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
@@ -349,5 +354,10 @@ func swarmScale(ctx context.Context, t clusterTarget, typ, name string, n int, w
 		return nil
 	}
 	line := "docker service scale --detach " + sshx.Q(name+"="+strconv.Itoa(n))
+	if n == 0 {
+		if err := confirmObject(nil, name, "scaling service/"+name+" to 0 stops it"); err != nil {
+			return err
+		}
+	}
 	return swarmChange(ctx, "cluster.scale", t, name, line, wait, false, risk, res)
 }
