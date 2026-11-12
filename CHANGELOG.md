@@ -29,6 +29,11 @@ its highlights; the sections below them give the details. Versions follow
   --help` gives these lines instead of the bash-completion package and
   Homebrew paths.
 
+- Tab completion of a CONN offers only the conns the command works with:
+  `komando cache info <Tab>` lists caches, `komando db query <Tab>`
+  databases (groups, `all` and `kind:` as before). It listed every conn,
+  so a database could be picked for a cache command.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

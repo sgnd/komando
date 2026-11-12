@@ -87,11 +87,48 @@ func addCompletion(c *cobra.Command) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		case "KEY":
 			return completionNames("key"), cobra.ShellCompDirectiveDefault // a key name or a .pub file
-		case "CONN", "host", "conn", "vpn", "key", "secret", "recipe", "GROUP", "setting":
+		case "CONN":
+			return connsOfFamily(completionNames("CONN"), commandFamily(c)), cobra.ShellCompDirectiveNoFileComp
+		case "host", "conn", "vpn", "key", "secret", "recipe", "GROUP", "setting":
 			return completionNames(kinds[i]), cobra.ShellCompDirectiveNoFileComp
 		}
 		return nil, cobra.ShellCompDirectiveDefault
 	}
+}
+
+// commandFamily is the conn family a command works with: "cache" for
+// `cache info`, "db" for `db user grants`; "" for other commands.
+func commandFamily(c *cobra.Command) string {
+	for ; c.HasParent(); c = c.Parent() {
+		if !c.Parent().HasParent() {
+			switch c.Name() {
+			case "db", "cache", "queue", "storage", "cluster", "registry":
+				return c.Name()
+			}
+		}
+	}
+	return ""
+}
+
+// connsOfFamily leaves out the conns another command works with, so
+// `cache info <Tab>` offers caches, not databases. Groups, tags, all and
+// kind: stay: they pick the right conns when the command runs.
+func connsOfFamily(names []string, family string) []string {
+	if family == "" {
+		return names
+	}
+	st, err := store.Load()
+	if err != nil {
+		return names
+	}
+	var keep []string
+	for _, n := range names {
+		if c, ok := st.Conns[n]; ok && connFamily(c) != family {
+			continue
+		}
+		keep = append(keep, n)
+	}
+	return keep
 }
 
 func flagCompletion(c *cobra.Command, flag string, f func(prefix string) []string) {

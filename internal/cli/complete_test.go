@@ -84,3 +84,42 @@ func TestCompletionHelpIsKomandos(t *testing.T) {
 		}
 	}
 }
+
+// A CONN is completed with the conns its command works with: `cache info`
+// offers caches, `db query` databases; groups, all and kind: stay.
+func TestConnCompletionByFamily(t *testing.T) {
+	invHome(t)
+	for _, args := range [][]string{
+		{"conn", "add", "app-db", "postgres://app@10.0.0.5/app"},
+		{"conn", "add", "app-cache", "rediss://default@10.0.0.7:6379/0"},
+		{"group", "add", "prod", "app-db"},
+	} {
+		if _, e := invRun(t, args...); e != nil {
+			t.Fatalf("%v: %v", args, e)
+		}
+	}
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"cache", "info", ""}, "@prod all app-cache kind:"},
+		{[]string{"db", "query", ""}, "@prod all app-db kind:"},
+		{[]string{"db", "schema", ""}, "@prod all app-db kind:"},
+		{[]string{"test", ""}, "@prod all app-cache app-db kind:"},
+	} {
+		got := captureOutput(t, func() error {
+			root := newRoot()
+			root.SetArgs(append([]string{"__complete"}, c.args...))
+			return root.Execute()
+		})
+		var names []string
+		for _, l := range strings.Split(got, "\n") {
+			if l != "" && !strings.HasPrefix(l, ":") && !strings.HasPrefix(l, "Completion ended") {
+				names = append(names, l)
+			}
+		}
+		if strings.Join(names, " ") != c.want {
+			t.Errorf("%v: %q, want %q", c.args, strings.Join(names, " "), c.want)
+		}
+	}
+}
