@@ -176,3 +176,25 @@ func TestJobStartScriptOnTheWire(t *testing.T) {
 		}
 	}
 }
+
+// job rm --kill stops a running job, the change job kill is: on a
+// protected server it asks first, before komando even connects.
+func TestJobRmKillProtected(t *testing.T) {
+	srv := startFakeServer(t)
+	if err := store.Update(func(st *store.State) error {
+		st.Jobs["j9"] = &store.Job{ID: "j9", Host: "prod", Command: "sleep 99", PID: 7}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runRoot(t, "job", "rm", "j9", "--kill"); errCode(err) != "PROTECTED_HOST" {
+		t.Fatalf("want PROTECTED_HOST, got %v", err)
+	}
+	if n := len(srv.take()); n != 0 {
+		t.Errorf("%d commands ran on the protected server", n)
+	}
+	st, _ := store.Load()
+	if st.Jobs["j9"] == nil {
+		t.Error("the job record is gone")
+	}
+}

@@ -15,6 +15,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `job rm --kill` on a protected server asks first (`PROTECTED_HOST` for
+  an agent), as `job kill` does; it stopped the job without asking. The
+  stop is in the audit log, and a job it could not stop (started with
+  `--sudo`) keeps its record and says `komando job kill ID --sudo`.
 - `fs chmod` works on servers with BSD `chmod` (FreeBSD, macOS): the
   `--` came after the mode, which BSD reads as a file name. `fs mkdir`
   and `fs chmod` now say what they did (`made: PATH`, `mode 640: PATH`)

@@ -671,6 +671,13 @@ func jobRmCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
+				if force {
+					// --kill may stop it, the change job kill is: a protected
+					// server asks first
+					if err := guard(st, []*store.Host{h}, "", true); err != nil {
+						return err
+					}
+				}
 				err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
 					s, err := fetchStatus(cmd.Context(), c, j, 0)
 					if err != nil {
@@ -682,8 +689,16 @@ func jobRmCmd() *cobra.Command {
 								"job %s is still running", id)
 						}
 						if !g.dryRun {
-							if _, _, err := sshx.Output(cmd.Context(), c, jobKillScript(j, "TERM"), 30*time.Second); err != nil {
+							script := jobKillScript(j, "TERM")
+							r, err := sshx.Run(cmd.Context(), c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: 4096})
+							if err != nil {
 								return err
+							}
+							audit(st, "job.kill", []string{h.Name}, script, r.ExitCode == 0, map[string]any{"job": j.ID})
+							if r.ExitCode != 0 {
+								// still running: keep the record, or nothing finds it again
+								return out.Errf(out.ExitRemote, "KILL_FAILED", "it runs as another user (started with --sudo?): `komando job kill "+id+" --sudo`, then `komando job rm "+id+"`",
+									"could not stop job %s: %s", id, strings.TrimSpace(r.Stderr))
 							}
 						}
 					}
@@ -693,7 +708,7 @@ func jobRmCmd() *cobra.Command {
 					}
 					return nil
 				})
-				if err != nil && toErr(err).Code == "JOB_RUNNING" {
+				if err != nil && (toErr(err).Code == "JOB_RUNNING" || toErr(err).Code == "KILL_FAILED" || toErr(err).Exit == out.ExitPolicy) {
 					return err
 				}
 				// an unreachable server: the record goes anyway (its logs stay there)
