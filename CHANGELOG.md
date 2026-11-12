@@ -20,6 +20,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Every flag that takes a time (`--timeout`, `--connect-timeout`,
+  `--wait`, `--interval`, `--expires`, `--ttl`, `--warn`, `--older-than`)
+  reads it the same way: `30s`, `10m`, `2h` or `7d`, and `0`. Days now
+  work everywhere, a time below 0 is refused while the flags are read, and
+  `komando schema` lists these flags with type `duration` and short
+  defaults (`10m`, not `10m0s`). The bare number of seconds that
+  `svc restart --wait 10` and `reboot --wait 600` took still works and is
+  noted in `meta.deprecated`.
 - One rule table now decides what a command needs before it runs. At a
   terminal, a command komando asked you to fill in asks you to type the
   target's name for every change that stops an AI agent as dangerous:

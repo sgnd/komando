@@ -90,7 +90,7 @@ read from docker on the server. The real run deletes and needs
 			return runDocker(cmd.Context(), "docker.prune", args[0], line, *sudo, true)
 		},
 	}
-	c.Flags().StringVar(&o.ageText, "older-than", "", "only what is older than this (30d, 12h)")
+	spanText(c.Flags(), &o.ageText, "older-than", "", true, "only what is older than this (e.g. 30d, 12h)")
 	c.Flags().BoolVarP(&o.all, "all", "a", false, "every image no container uses, not only dangling ones")
 	c.Flags().BoolVar(&o.volumes, "volumes", false, "also unused anonymous volumes (their data is lost)")
 	return c

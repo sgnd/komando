@@ -38,7 +38,11 @@ func invRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	saved := out.P.W
 	out.P.W = &buf
 	defer func() { out.P.W = saved }()
-	err := root.Execute()
+	cmd, err := root.ExecuteC()
+	var oe *out.Error
+	if err != nil && !errors.As(err, &oe) && isUsageErr(err) {
+		err = usageErr(cmd, err) // as Execute does: a flag or argument error is USAGE
+	}
 	var env struct {
 		Data  map[string]any `json:"data"`
 		Error *out.Error     `json:"error"`

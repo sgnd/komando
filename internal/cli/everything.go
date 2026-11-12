@@ -293,7 +293,7 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 			return exitCode(worst)
 		},
 	}
-	c.Flags().DurationVar(&wait, "wait", 0, "test again every few seconds until every target passes, for up to this long (5m)")
+	durVar(c.Flags(), &wait, "wait", 0, "test again every few seconds until every target passes, for up to this long (e.g. 5m)")
 	return c
 }
 

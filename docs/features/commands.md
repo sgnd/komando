@@ -158,6 +158,12 @@ command line, so other users of the server do not see it in `ps` and it is
 not written to sudo's log. Values that are not from the vault are on the
 command line as usual.
 
+### Times, sizes and KEY=VALUE flags
+
+Every flag that takes a time reads it the same way: a number and a unit,
+such as `30s`, `10m`, `2h`, `1h30m` or `7d`. A number without a unit is
+refused (`--older-than 30` could mean seconds or days), except `0`.
+
 ## Run a local script
 
 `komando exec TARGET --script FILE` sends a script file from this computer

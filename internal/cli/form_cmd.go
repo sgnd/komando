@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -376,6 +375,15 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 	default:
 		typ := f.Value.Type()
 		q.check = func(_ *store.State, _ formAnswers, v string) string { return formValueProblem(typ, v) }
+		if vc, ok := f.Value.(valueChecker); ok { // the flag's own check, in its own words
+			q.check = func(_ *store.State, _ formAnswers, v string) string {
+				if err := vc.check(v); err != nil {
+					msg, _, _ := strings.Cut(err.Error(), flagHintSep)
+					return msg
+				}
+				return ""
+			}
+		}
 	}
 	if def != "" {
 		q.def = func(*store.State, formAnswers) string { return def }
@@ -419,13 +427,13 @@ func formRefProblem(v string) string {
 // formValueProblem checks a typed value as the flag's type would read it.
 func formValueProblem(typ, v string) string {
 	switch {
+	case typ == "duration":
+		if _, err := parseSpan(v); err != nil {
+			return "type a time like 30s, 5m, 2h or 7d"
+		}
 	case strings.HasPrefix(typ, "int") || strings.HasPrefix(typ, "uint"):
 		if _, err := strconv.ParseInt(v, 10, 64); err != nil {
 			return "type a whole number"
-		}
-	case typ == "duration":
-		if _, err := time.ParseDuration(v); err != nil {
-			return "type a time like 30s, 5m or 2h"
 		}
 	case typ == "float64" || typ == "float32":
 		if _, err := strconv.ParseFloat(v, 64); err != nil {

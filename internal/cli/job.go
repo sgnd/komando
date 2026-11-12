@@ -336,9 +336,9 @@ group of servers) to wait for all of them at once.`,
 			return finishFleet("job.wait", data, runSummary{fleetSummary: data.Summary}, worst, fails)
 		},
 	}
-	c.Flags().DurationVar(&interval, "interval", 3*time.Second, "how often to check")
+	durVar(c.Flags(), &interval, "interval", 3*time.Second, "how often to check")
 	// its own --timeout: the global one's default (5m, per server) is not this one's
-	c.Flags().DurationVar(&waitTimeout, "timeout", 10*time.Minute, "how long to wait (the job keeps running after)")
+	durVar(c.Flags(), &waitTimeout, "timeout", 10*time.Minute, "how long to wait (the job keeps running after)")
 	c.Flags().IntVar(&tail, "tail", 30, "also show the last N lines of output")
 	return c
 }
