@@ -20,6 +20,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Every command now carries a stable ID (its dotted path, such as
+  `fs.ls`), and the envelopes, the audit log, personal-data hiding, the
+  ssh-gate tables and the other checks keyed by command use it. A command
+  that is renamed later keeps its ID, so no check can miss it under the
+  new name. A test lists every ID and fails if one disappears.
 - `komando --help` now lists the commands under the same headings as
   `komando` alone: Servers, Data, Platform, Access, Overview and Setup.
 - At a person's terminal, many more commands end with a `Next:` line of

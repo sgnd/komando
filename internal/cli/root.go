@@ -376,14 +376,9 @@ func envelopeName(c *cobra.Command) string {
 	return commandName(c)
 }
 
-func commandName(c *cobra.Command) string {
-	p := strings.TrimPrefix(c.CommandPath(), "komando")
-	p = strings.TrimSpace(p)
-	if p == "" {
-		return "komando"
-	}
-	return strings.ReplaceAll(p, " ", ".")
-}
+// commandName is c's stable ID (cmdid.go): what the envelopes, the audit
+// log and every table keyed by command use.
+func commandName(c *cobra.Command) string { return cmdID(c) }
 
 // vaultValues returns every vault secret by name, so output can hide them
 // (a remote .env, a log line). A vault that cannot be opened hides nothing.
@@ -409,7 +404,7 @@ var localReads = map[string]bool{
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
 	"tunnel.list": true, "job.list": true, "status": true, "seal": true, "prompt": true,
-	"host.list": true, "conn.list": true, "vpn.list": true, "secret.get": true, "recipe.show": true,
+	"host.list": true, "conn.list": true, "vpn.list": true, "secret.get": true,
 }
 
 // checkStoreWritable refuses to run a command that may change something
@@ -551,6 +546,7 @@ func newRoot() *cobra.Command {
 	applyConventions(root)
 	useShortGlobals(root)
 	addCompletion(root)
+	stampIDs(root)
 	return root
 }
 

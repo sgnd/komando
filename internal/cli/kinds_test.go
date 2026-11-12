@@ -16,7 +16,7 @@ func TestEveryCommandHasKind(t *testing.T) {
 			return
 		}
 		if c.HasParent() && c.Runnable() {
-			key := commandKey(c)
+			key := idKey(c)
 			seen[key] = true
 			k, ok := kindOf(c)
 			switch {
