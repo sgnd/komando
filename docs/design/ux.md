@@ -242,12 +242,99 @@ run next).
 
 ## 6. Confirmation and safety
 
-- **Agents and scripts**: changes on a protected target fail without `--yes`
-  (exit 6), with a hint.
+One rule table (`internal/cli/risk.go`) says what each command and flag
+combination needs; the stops, the person's questions, `komando schema`'s
+`confirm` and this table all come from it (command-standard S-7.1, S-7.2).
+
+<!-- tiers: made by TestTiersDoc from risk.go; KOMANDO_UPDATE_TIERS=1 writes it -->
+
+| Tier | What | An AI agent or a script needs | A person at a terminal |
+|---|---|---|---|
+| read | looks only | nothing | nothing |
+| change | can be undone, or only komando's own list | nothing | typed in full: runs; filled in: `Run it?` |
+| protected | a change on a protected server, conn or VPN | `--yes` (PROTECTED_HOST, PROTECTED_TARGET) | `NAME (protected): ... Continue? [y/N]` |
+| dangerous | cannot be undone, or an outage | `--allow-dangerous` (POLICY_BLOCKED) | types the name of what goes, the count, or the target |
+| safety | weakens komando's own checks | `--yes` (SAFETY_SETTING, OPEN_BIND, SECRET_DESTINATION) | `This turns off a komando safety check: ... Continue? [y/N]` |
+| person | only a person at a terminal | no flag: NEEDS_PERSON and friends | the command itself |
+
+Every row of the rule table (`risk.go`). A command without a row has its
+kind's tier: read, or change. "when the ..." rows are decided at run time.
+
+| Command | When | Tier | Flag |
+|---|---|---|---|
+| `queue purge` | always | dangerous | `--allow-dangerous` |
+| `queue rm` | always | dangerous | `--allow-dangerous` |
+| `cache rm` | always | dangerous | `--allow-dangerous` |
+| `storage rm` | always | dangerous | `--allow-dangerous` |
+| `cluster rm` | always | dangerous | `--allow-dangerous` |
+| `cluster scale` | REPLICAS is 0 | dangerous | `--allow-dangerous` |
+| `registry rm` | always | dangerous | `--allow-dangerous` |
+| `registry prune` | always | dangerous | `--allow-dangerous` |
+| `db restore` | always | dangerous | `--allow-dangerous` |
+| `db user rm` | always | dangerous | `--allow-dangerous` |
+| `db kill` | a person types the name of what goes | change |  |
+| `fs rm` | always | dangerous | `--allow-dangerous` |
+| `docker rm` | always | dangerous | `--allow-dangerous` |
+| `docker prune` | always | dangerous | `--allow-dangerous` |
+| `user rm` | with --remove-home | dangerous | `--allow-dangerous` |
+| `user rm` | always | dangerous | `--allow-dangerous` |
+| `secret rm` | always | dangerous | `--allow-dangerous` |
+| `key rm` | with --delete-file, for a key komando made | dangerous | `--allow-dangerous` |
+| `pkg rm` | a package the server needs (openssh-server, sudo, systemd, ...) | dangerous | `--allow-dangerous` |
+| `pkg rm` | a person types the name of what goes | change |  |
+| `cron rm` | a person types the name of what goes | change |  |
+| `reboot` | always | dangerous | `--allow-dangerous` |
+| `svc stop` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
+| `svc disable` | the unit is ssh or sshd | dangerous | `--allow-dangerous` |
+| `sync` | with --delete | dangerous | `--allow-dangerous` |
+| `exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `job start` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `recipe run` | when the recipe's command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `docker exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `docker raw` | when the docker command deletes or stops something | dangerous | `--allow-dangerous` |
+| `docker compose` | when the compose command deletes or stops something | dangerous | `--allow-dangerous` |
+| `cluster exec` | when the command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `cluster run` | when the kubectl command deletes something | dangerous | `--allow-dangerous` |
+| `cache run` | when the cache command deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
+| `db query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
+| `db explain` | with --analyze, when the SQL deletes data | dangerous | `--allow-dangerous` |
+| `pkg security` | with --apply, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
+| `pkg upgrade` | with --security, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
+| `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
+| `host edit` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `host add` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
+| `import` | when an imported ProxyCommand matches a destructive rule | dangerous | `--allow-dangerous` |
+| `policy rm` | always | safety | `--yes` |
+| `config set` | when the setting turns a check off (audit, keychain, host key policy, ...) | safety | `--yes` |
+| `host edit` | with --protected=false | safety | `--yes` |
+| `conn edit` | with --protected=false | safety | `--yes` |
+| `vpn edit` | with --protected=false | safety | `--yes` |
+| `vpn edit` | with --mfa=false | safety | `--yes` |
+| `update` | when it installs an older version | safety | `--yes` |
+| `tunnel start` | when it listens on an open address (OPEN_BIND) | safety | `--yes` |
+| `secret keychain` | when it turns the keychain off | safety | `--yes` |
+| `config approval-code` | always | person |  |
+| `secret passphrase` | always | person |  |
+| `secret check` | always | person |  |
+| `shell` | always | person |  |
+| `db shell` | always | person |  |
+| `cluster shell` | always | person |  |
+| `login` | always | person |  |
+| `login aws` | always | person |  |
+| `ssh-gate` | always | person |  |
+| `host trust` | with --reset, when a key is pinned | person |  |
+| `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
+
+<!-- end of tiers -->
+
+- **Agents and scripts**: a stop gives exit 6 and a hint naming every flag
+  the real run needs; a dry run lists them in `meta.would_need`.
 - **People at a terminal** (stdin and stderr are both terminals, and no AI
-  agent runs komando): komando asks `prod-db is protected. Change it
-  anyway? [y/N]`. For destructive commands on a protected target, the
-  target name must be typed again. The answer is read from the terminal,
+  agent runs komando): komando asks `prod-db (protected): this command
+  changes it. Continue? [y/N]`. A step that cannot be undone asks once to
+  type the name of what goes (or how many, or the target for a
+  whole-target step; never "yes"), and on a protected target that one
+  answer covers the protection too. The answer is read from the terminal,
   not from piped stdin, so an agent cannot answer it. A question is one
   typed line with a safe default. A choice (a VPN login's realm, say)
   shows its options as numbered lines and takes the number or the name; a
