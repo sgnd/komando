@@ -1122,6 +1122,42 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   group instead of taking just those targets out of it. Now it takes out
   only the targets named; `group rm GROUP` alone still deletes the group
   (and asks first when it has more than 3 members).
+- A Tailscale or Headscale VPN keeps its node state (the machine and node
+  private keys) sealed in store.db, not in a plain `tailscaled.state` file
+  under `~/.komando/vpn/`. A file left by an earlier komando is moved in
+  and removed on the next `vpn up`. `vpn rm` now also forgets that state
+  and folder, so a VPN added again under the same name never joins as the
+  old node.
+- An AI agent's `download`, `cp`, `storage download` and `sync` never put
+  the real text on this computer's disk: a text file is masked in memory
+  before it is written. Before, the unmasked bytes sat in the temporary
+  file until the download ended (and stayed there after a crash). A
+  binary or larger file that holds a value from komando's vault now stops
+  with SENSITIVE_FILE instead of being saved as is.
+- `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo`
+  follow a link only when root made it and it leads into a folder root
+  owns; any other link stops with IS_A_SYMLINK. Before, a link another
+  user planted (an app's `.env` to `/etc/sudoers.d/x`) had root write a
+  file of that user's choosing.
+- `key revoke --user` edits that user's authorized_keys as the user, with
+  a random temporary name. Before, root wrote a predictable temporary
+  file in the user's `.ssh`, so a link the user planted there sent their
+  own lines into a system file.
+- `vpn up` for an AI agent hands the VPN password to openconnect only when
+  openconnect and ocproxy sit in folders only root can change, or a
+  person says yes (SECRET_DESTINATION). Before, an agent could put its
+  own `openconnect` first in PATH and read the password it gets.
+- `user add --key` writes the key as that user, not as root. Before, a
+  user who linked `~/.ssh/authorized_keys` to a system file (such as
+  /etc/shadow) got a line appended to it and its ownership, and so root.
+- store.db zeroes the space a deleted record or an old key's copy leaves
+  behind. Before, a removed secret's sealed bytes stayed in the file, and
+  after `secret passphrase` they still opened with the old key.
+- A plain runtime.json beside the sealed store is no longer trusted: it
+  is read as empty (only `komando seal` reads one, from a folder of
+  before). Before, a program that wrote one could point a server's held
+  login at its own socket and see every command, password and file sent
+  to that server.
 - `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo` no
   longer write into a folder that a user other than root and the SSH user
   can change (owned by that user, writable by a group other than root's,
@@ -1342,42 +1378,6 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
 
 ### Fixed
 
-- A Tailscale or Headscale VPN keeps its node state (the machine and node
-  private keys) sealed in store.db, not in a plain `tailscaled.state` file
-  under `~/.komando/vpn/`. A file left by an earlier komando is moved in
-  and removed on the next `vpn up`. `vpn rm` now also forgets that state
-  and folder, so a VPN added again under the same name never joins as the
-  old node.
-- An AI agent's `download`, `cp`, `storage download` and `sync` never put
-  the real text on this computer's disk: a text file is masked in memory
-  before it is written. Before, the unmasked bytes sat in the temporary
-  file until the download ended (and stayed there after a crash). A
-  binary or larger file that holds a value from komando's vault now stops
-  with SENSITIVE_FILE instead of being saved as is.
-- `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo`
-  follow a link only when root made it and it leads into a folder root
-  owns; any other link stops with IS_A_SYMLINK. Before, a link another
-  user planted (an app's `.env` to `/etc/sudoers.d/x`) had root write a
-  file of that user's choosing.
-- `key revoke --user` edits that user's authorized_keys as the user, with
-  a random temporary name. Before, root wrote a predictable temporary
-  file in the user's `.ssh`, so a link the user planted there sent their
-  own lines into a system file.
-- `vpn up` for an AI agent hands the VPN password to openconnect only when
-  openconnect and ocproxy sit in folders only root can change, or a
-  person says yes (SECRET_DESTINATION). Before, an agent could put its
-  own `openconnect` first in PATH and read the password it gets.
-- `user add --key` writes the key as that user, not as root. Before, a
-  user who linked `~/.ssh/authorized_keys` to a system file (such as
-  /etc/shadow) got a line appended to it and its ownership, and so root.
-- store.db zeroes the space a deleted record or an old key's copy leaves
-  behind. Before, a removed secret's sealed bytes stayed in the file, and
-  after `secret passphrase` they still opened with the old key.
-- A plain runtime.json beside the sealed store is no longer trusted: it
-  is read as empty (only `komando seal` reads one, from a folder of
-  before). Before, a program that wrote one could point a server's held
-  login at its own socket and see every command, password and file sent
-  to that server.
 - **Over 150 bugs found by a hands-on review of every command.** The main
   ones:
   - **Dry runs:** a previewed edit says "would change", not "changed";
