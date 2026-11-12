@@ -655,7 +655,11 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			case len(installed) == 0:
 				add("agent_skill", false, "no AI agent has komando's skill yet: `komando guide install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando")
 			case len(stale) > 0:
-				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando guide install` again, so your AI agents use this version's commands")
+				detail := "from another komando version in " + strings.Join(stale, ", ") + ": run `komando guide install` again, so your AI agents use this version's commands"
+				if cites := skillCites(stale); len(cites) > 0 {
+					detail += "; it still teaches old spellings that go away in a later release: use " + strings.Join(cites, ", ")
+				}
+				add("agent_skill", false, detail)
 			default:
 				add("agent_skill", true, strings.Join(installed, ", "))
 			}

@@ -101,8 +101,21 @@ func TestDoctorChecksTheAgentSkill(t *testing.T) {
 	}
 	p := filepath.Join(home, ".claude", "skills", "komando", "SKILL.md")
 	os.WriteFile(p, []byte("an older skill\n"), 0o644)
-	if c := check(); c["ok"] != false || !strings.Contains(c["detail"].(string), "another komando version") {
+	if c := check(); c["ok"] != false || !strings.Contains(c["detail"].(string), "another komando version") || strings.Contains(c["detail"].(string), "old spellings") {
 		t.Errorf("stale: %v", c)
+	}
+	// a skill of 0.12 teaches flags that are retired now: doctor names them
+	old := "- Patches: `komando pkg security <target> --apply` installs\n(`--on HOST` runs `pg_dump`)\n`komando rename --prefix OLD NEW --dry-run`\n"
+	os.WriteFile(p, []byte(old), 0o644)
+	c := check()
+	for _, want := range []string{"old spellings", "`pkg upgrade TARGET --security`", "`db dump --run-on HOST`", "`rename --starts-with`"} {
+		if !strings.Contains(c["detail"].(string), want) {
+			t.Errorf("stale 0.12 skill: no %q in %v", want, c["detail"])
+		}
+	}
+	// the skill of this version teaches none of them
+	if cites := skillCites([]string{"skill.md", "guide.md", "../../AGENTS.md"}); len(cites) > 0 {
+		t.Errorf("this version's agent docs teach retired spellings: %v", cites)
 	}
 }
 

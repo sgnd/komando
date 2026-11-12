@@ -58,18 +58,23 @@ not know? Set `KOMANDO_AGENT=1`.
    with `komando exec <target> --read-only -- '<cmd>'`. `db query`,
    `cache run` and `cluster run` are the other way round: they only read
    unless you add `--write`.
+   Every command that hands words to another program (`exec`, `job start`,
+   `docker exec`, `docker compose`, `docker raw`, `cluster exec`, `cluster
+   shell`, `cluster run`, `cache run`) takes them only after `--`, and
+   komando's own flags go before it. Without `--` it stops with `USAGE`
+   and runs nothing.
 3. **Use the command made for the job.**
    - Files: `komando fs replace <target> <path> --old '...' --new '...' --backup`,
      never `sed -i` over `exec`.
    - Databases: query with `komando db query`. Back up with
-     `komando db dump <conn> --to FILE` (`--on HOST` runs `pg_dump` or
+     `komando db dump <conn> --to FILE` (`--run-on HOST` runs `pg_dump` or
      `mysqldump` on that server, at low priority), never `pg_dump` through
      `exec` and base64. Manage users with `komando db user` and
      `komando db grant` (passwords as `--password-ref secret:NAME`, never
      `CREATE USER ... PASSWORD` in a query).
    - Services: after writing a systemd unit, run `komando svc daemon-reload`.
      Restart servers only with `komando reboot` (it needs the human).
-   - Patches: `komando pkg security <target> --apply` installs security
+   - Patches: `komando pkg upgrade <target> --security` installs security
      updates only, one server at a time, checked before and after. It never
      reboots.
    - Certificates: `komando cert check <target|https://name>` (exit 1
@@ -77,9 +82,9 @@ not know? Set `KOMANDO_AGENT=1`.
    - Docker disk space: `komando docker prune <target> --dry-run` first; it
      lists what would be removed and how much space that frees.
    - The inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
-     (one approval for every server), `komando host mv OLD NEW` (updates
-     every reference; `key mv` and `group mv` likewise),
-     `komando rename --prefix OLD NEW --dry-run` (every server, conn, VPN,
+     (one approval for every server), `komando host rename OLD NEW` (updates
+     every reference; `key rename` and `group rename` likewise),
+     `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,
      secret, key and group of a project, one approval for all of them),
      `komando import csv FILE` (many servers at once).
 4. **Long or fragile work is a job.** Use `komando job start` for anything
@@ -125,12 +130,12 @@ not know? Set `KOMANDO_AGENT=1`.
      IBANs, columns the human named) shows as `[hidden: KIND]`. Work with
      ids and counts, never write it back, and ask the human if a task needs
      a real value.
-   - `secret get --reveal` is for people only (`REVEAL_NEEDS_HUMAN`), and so
+   - `secret show --reveal` is for people only (`REVEAL_NEEDS_HUMAN`), and so
      is `secret check` (`NEEDS_PERSON`). For a password only the human
      knows, ask them to run `komando secret set NAME` in their own terminal
      (it asks for it hidden). Never ask for a password in the chat.
-   - Rename or copy a secret with `komando secret mv OLD NEW` or
-     `secret cp OLD NEW` (references follow a mv; the value is never shown)
+   - Rename or copy a secret with `komando secret rename OLD NEW` or
+     `secret cp OLD NEW` (references follow a rename; the value is never shown)
      instead of asking the human to type it again.
    - Refer to secrets as `secret:NAME`; never put a secret value on a
      command line.

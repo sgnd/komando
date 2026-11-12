@@ -93,7 +93,7 @@ runs itself is not connected): ask the human to run `komando vpn up <name>`.
 
 Windows servers (`"os": "windows"` in `komando host show`, pick them with
 `os:windows`): commands run in PowerShell, not sh. `exec` (also
-`--script`), `facts`, `fs ls/stat/cat/write`, `upload`, `download` and
+`--script`), `facts`, `fs list/stat/cat/write`, `upload`, `download` and
 `svc` (not `reload`, `daemon-reload` or `logs`) work; there
 is no `--sudo` (the login's own rights apply). Other commands stop with
 `NOT_SUPPORTED`: use PowerShell through `exec` instead. A server added
@@ -150,9 +150,9 @@ The inventory itself changes in bulk too, each with `--dry-run` first:
 - `komando host edit <target> --sudo-ref secret:NAME` sets one value on
   many servers (one `--yes` and one approval window for the protected ones,
   which lists every server).
-- `komando host mv OLD NEW` renames a server and every reference to it
-  (`conn mv`, `vpn mv`, `key mv`, `group mv` likewise).
-- `komando rename --prefix OLD NEW` renames every server, conn, VPN,
+- `komando host rename OLD NEW` renames a server and every reference to it
+  (`conn rename`, `vpn rename`, `key rename`, `group rename` likewise).
+- `komando rename --starts-with OLD NEW` renames every server, conn, VPN,
   secret, key and group that starts with OLD in one step (one `--yes` and
   one window for all the protected ones).
 - `komando import csv FILE` adds a whole spreadsheet of servers (all rows
@@ -181,7 +181,7 @@ structured rows, and the password shows up in the server's process list.
 
 Back up with `komando db dump <conn> --to FILE` (the file lands on this
 computer), never with `pg_dump`/`mysqldump` through `exec` and base64.
-`--on HOST` runs `pg_dump`/`mysqldump` on that inventory server (at low
+`--run-on HOST` runs `pg_dump`/`mysqldump` on that inventory server (at low
 priority, password in its environment, backup streamed back over SSH), for example
 when the conn goes through a VPN and you need `--format custom`. Dry-run it
 first: `runs_on` says where it runs. `db restore` needs `--allow-dangerous`.
@@ -239,7 +239,7 @@ changes, `cache rm` deletes (needs `--allow-dangerous`). `komando cache run
 <conn> -- CMD ...` only reads unless you add `--write`. Never use `KEYS`;
 `cache keys` uses SCAN.
 
-**Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue info|ls|describe|groups|lag
+**Queues** (Kafka, Redpanda, MSK, RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub): `komando queue info|list|describe|groups|lag
 <conn>` read; `komando queue peek <conn> TOPIC -n 20` reads the newest
 messages without joining a consumer group (nothing moves, nothing is
 removed; `--oldest` for the first ones). On RabbitMQ peek takes the first
@@ -260,15 +260,15 @@ first key naming the command (`{"find": "users", "filter": {...}}`); reads
 run as they are, changes need `--write`, and `db schema`/`db info` describe
 the database.
 
-**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage ls <conn> [FOLDER]`,
-`storage cat <conn> KEY --tail 50` and `komando download <conn> KEY` read;
+**Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage list <conn> [FOLDER]`,
+`storage cat <conn> OBJECT --tail 50` and `komando download <conn> OBJECT` read;
 `komando upload <conn> FILE` and `storage link` change or share;
 `storage rm` deletes (needs `--allow-dangerous`): list first with
-`storage rm <conn> --prefix FOLDER/ --older-than 30d --dry-run`. Keys are
-relative to the conn's folder. On a versioned bucket `rm` keeps the old
+`storage rm <conn> --prefix FOLDER/ --older-than 30d --dry-run`. Object
+names are relative to the conn's folder. On a versioned bucket `rm` keeps the old
 versions. The conn itself: `komando test <conn>`, `conn edit`, `conn rm`.
 
-**Clusters** (Kubernetes, Docker Swarm): `komando cluster status|ls|get|logs
+**Clusters** (Kubernetes, Docker Swarm): `komando cluster status|list|get|logs
 <conn>` read; `apply` (try `--dry-run` first, the cluster checks it),
 `restart` and `scale` change; `rm` and scaling to 0 need
 `--allow-dangerous`. To release a new image, use `komando cluster deploy
@@ -277,12 +277,12 @@ rollback <conn> deployment/NAME --wait` puts the earlier images back
 (`cluster history` lists the revisions). For anything else, `komando cluster run <conn> --
 <kubectl args>` (needs `--write` to change). Pick a namespace with
 `--namespace` (`-n`); how many is `--limit` (a number after `-n` is
-refused). `status`, `ls`, `events` and `helm ls` also take a group
+refused). `status`, `list`, `events` and `helm list` also take a group
 (`@prod`): one row per cluster in `data.results`. Read Helm releases with
-`komando cluster helm ls|status|history|values` (no helm needed; install
+`komando cluster helm list|status|history|values` (no helm needed; install
 and upgrade stay with helm).
 
-**Registries**: `komando registry ls|inspect <conn>` read, `registry copy`
+**Registries**: `komando registry list|inspect <conn>` read, `registry copy`
 changes, `registry rm` and `registry prune` delete (need
 `--allow-dangerous`; `prune --dry-run` shows which tags would go).
 
@@ -306,7 +306,7 @@ Several servers: `job start @web ...` prints one ID per server; `job wait
 (VPN, Wi-Fi): `job wait` connects again by itself. Over a shaky link, prefer
 a job to `exec`.
 
-Security patching is the exception: `komando pkg security <target> --apply`
+Security patching is the exception: `komando pkg upgrade <target> --security`
 (after `pkg security <target> --refresh` and a `--dry-run`) installs only
 security updates, one server at a time, compares running containers,
 failed units, pending updates and reboot state before and after, and stops
@@ -359,10 +359,10 @@ Anything that must keep running (a temporary web server, a watcher) is a
   run `komando secret set NAME` in their own terminal, where it asks for it
   hidden. Never ask for a password in the chat (`NEEDS_PERSON` says the
   same).
-- Rename a secret with `komando secret mv OLD NEW` (every server, conn, key
+- Rename a secret with `komando secret rename OLD NEW` (every server, conn, key
   and VPN that uses it follows) and copy one with `secret cp OLD NEW`: the
   value stays in the vault, so nobody retypes it.
-- A login fails and you suspect the stored password: `komando secret get
+- A login fails and you suspect the stored password: `komando secret show
   NAME` warns when it starts or ends with a space or tab. Only the human can
   compare it with the right one: ask them to run `komando secret check NAME`
   (`NEEDS_PERSON` for you).

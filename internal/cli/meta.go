@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -133,6 +134,38 @@ func skillStatus() (installed, stale []string) {
 		}
 	}
 	return installed, stale
+}
+
+// skillRetired are the retired spellings a skill of an older komando
+// teaches, each with the one to use now. They keep working until doctor
+// finds no stale skill that cites them (S-1.7), so doctor names them.
+var skillRetired = []struct {
+	old *regexp.Regexp
+	now string
+}{
+	{regexp.MustCompile(`pkg security [^\n]*--apply`), "`pkg upgrade TARGET --security` (was `pkg security --apply`)"},
+	{regexp.MustCompile("`--on HOST`"), "`db dump --run-on HOST` (was `--on`)"},
+	{regexp.MustCompile(`rename --prefix`), "`rename --starts-with` (was `--prefix`)"},
+	{regexp.MustCompile(`fs ls [^\n]*--max\b`), "`fs list --limit` (was `--max`)"},
+	{regexp.MustCompile(`vpn (add|edit) [^\n]*--address\b`), "`vpn add --proxy-address` (was `--address`)"},
+}
+
+// skillCites are the retired spellings the skill files at paths still
+// teach, by what replaces them.
+func skillCites(paths []string) []string {
+	var cites []string
+	for _, p := range paths {
+		b, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		for _, r := range skillRetired {
+			if r.old.Match(b) && !slices.Contains(cites, r.now) {
+				cites = append(cites, r.now)
+			}
+		}
+	}
+	return cites
 }
 
 // skillDirs are the folders AI agents read skills from: Claude Code reads

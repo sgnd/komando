@@ -604,6 +604,14 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   (`would fetch the host key of web1 ... and remove 1 pinned key`) and
   `seal` on a sealed folder have a line of their own. JSON is unchanged.
 
+- The skill, `komando guide` and AGENTS.md use each command's primary
+  name (`secret show`, `host rename`, `fs list`, `storage list`, `pkg
+  upgrade --security`, `db dump --run-on`, `rename --starts-with`) and
+  teach the `--` before the words for another program on every command
+  that takes them. `komando doctor`, when an AI agent's skill is from
+  another komando version, names the old spellings it still teaches and
+  what to use now; run `komando guide install` again.
+
 ### Removed
 
 - The menu that `komando` alone opened at a terminal, its task lists and
