@@ -93,7 +93,7 @@ This page is made from the code (`komando schema` lists the same under
 | `IS_A_SYMLINK` | 8 | … is a symbolic link (--no-follow) | drop --no-follow to write the file it points to |
 | `JOB_FAILED` | 5 | job exited with … | read its output with `komando job logs … --tail 50` |
 | `JOB_KILLED` | 5 | job … was killed (…) | it was stopped with `komando job kill` |
-| `JOB_LOST` | 5 | job … lost | it stopped without an exit code (killed, or the server restarted): `komando job logs … --tail 50` shows how far it got; start it again with `komando job start` if needed |
+| `JOB_LOST` | 5 | job … lost | it stopped without an exit code (killed, or the server restarted): `komando job logs … --tail 50` shows how far it got; start it again with `komando job start … -- …` if needed |
 | `JOB_NOT_FOUND` | 3 | job … not found | run `komando job list` to see available jobs |
 | `JOB_RUNNING` | 8 | job … is still running | stop it first with `komando job kill …`, or pass --kill to stop and remove it |
 | `JOB_START_FAILED` | 5 | could not start job: … | check that /bin/sh and nohup work there: `komando test TARGET` |
