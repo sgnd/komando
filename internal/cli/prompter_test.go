@@ -119,11 +119,11 @@ func TestAskRunAndTypeName(t *testing.T) {
 		}
 	}
 	promptFake(t, "old-box")
-	if ok, _ := askTypeName("old-box"); !ok {
+	if ok, _ := askTypeName("old-box", "the name old-box"); !ok {
 		t.Error("the right name is a no")
 	}
 	promptFake(t, "old")
-	if ok, _ := askTypeName("old-box"); ok {
+	if ok, _ := askTypeName("old-box", "the name old-box"); ok {
 		t.Error("a wrong name is a yes")
 	}
 }

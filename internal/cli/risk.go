@@ -50,6 +50,11 @@ type riskRow struct {
 	what    string // "deletes the keys": the person reads "This deletes the keys."
 	dynamic string // set: the tier holds only when this is so; the command decides
 	bulk    string // set: a bulk confirm the command keeps (CONFIRM_REQUIRED)
+
+	// typed: a T1 row (an agent needs nothing more, OD-7: easy to redo)
+	// for which a person at the terminal who was asked for the command's
+	// words also types the name of what goes; items says what those are
+	typed, items string
 }
 
 // givesFlag: words give --name (or --name=true).
@@ -89,7 +94,7 @@ var riskRows = []riskRow{
 	{id: "registry.prune", tier: tierDangerous, what: "deletes the images"},
 	{id: "db.restore", tier: tierDangerous, what: "replaces what is in the database now"},
 	{id: "db.user.rm", tier: tierDangerous, what: "deletes the database user"},
-	{id: "db.kill", tier: tierDangerous, what: "ends the session (its client loses the connection)"},
+	{id: "db.kill", tier: tierChange, typed: "ends the session (its client loses the connection)", items: "sessions"},
 	{id: "fs.rm", tier: tierDangerous, what: "deletes the files"},
 	{id: "docker.rm", tier: tierDangerous, what: "deletes the containers"},
 	{id: "docker.prune", tier: tierDangerous, what: "deletes stopped containers and unused images"},
@@ -97,8 +102,9 @@ var riskRows = []riskRow{
 	{id: "user.rm", tier: tierDangerous, what: "deletes the user"},
 	{id: "secret.rm", tier: tierDangerous, what: "deletes the saved passwords"},
 	{id: "key.rm", when: givesFlag("delete-file"), tier: tierDangerous, what: "deletes the key files"},
-	{id: "pkg.rm", tier: tierDangerous, what: "removes the packages"},
-	{id: "cron.rm", tier: tierDangerous, what: "deletes the scheduled task"},
+	{id: "pkg.rm", when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
+	{id: "pkg.rm", tier: tierChange, typed: "removes the packages", items: "packages"},
+	{id: "cron.rm", tier: tierChange, typed: "deletes the scheduled task", items: "scheduled tasks"},
 	{id: "reboot", tier: tierDangerous, what: "restarts the server (it is away until it is back)"},
 	{id: "svc.stop", when: sshUnit, tier: tierDangerous, what: "stops sshd (no one can log in remotely)"},
 	{id: "svc.disable", when: sshUnit, tier: tierDangerous, what: "turns sshd off (no one can log in remotely after a restart)"},
@@ -188,11 +194,14 @@ func riskOf(c *cobra.Command, words []string) riskRow {
 }
 
 // typedWhat is what the command does for good when a person must type a
-// name before it runs at once (a T3 row that holds whatever the command
-// runs), or "".
+// name before it runs (a T3 row that holds whatever the command runs, or a
+// T1 row a person types the name for), or "".
 func (r riskRow) typedWhat() string {
-	if r.tier == tierDangerous && r.dynamic == "" {
+	switch {
+	case r.tier == tierDangerous && r.dynamic == "":
 		return r.what
+	case r.typed != "":
+		return r.typed
 	}
 	return ""
 }

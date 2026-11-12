@@ -256,14 +256,14 @@ func askRun() (string, error) {
 	return "n", nil
 }
 
-// askTypeName asks the person to type name to go on with something that
-// cannot be undone; a wrong name is a no.
-func askTypeName(name string) (bool, error) {
-	v, err := promptLine("This cannot be undone. Type " + name + " to confirm: ")
+// askTypeName asks the person to type want (shown as typedAnswer shows it)
+// to go on with something that cannot be undone; a wrong answer is a no.
+func askTypeName(want, shown string) (bool, error) {
+	v, err := promptLine("Type " + shown + " to continue: ")
 	if err != nil {
 		return false, err
 	}
-	return v == name, nil
+	return want != "" && v == want, nil
 }
 
 // promptReadMasked reads one line drawn through mask as it is typed (a

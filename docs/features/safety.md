@@ -73,10 +73,12 @@ or a CI job), komando asks instead of stopping:
 - A `--proxy-command` or a cluster's login program that matches a rule
   says `Blocked by policy: ...` and asks you to type the server's or
   conn's name to run it anyway, this once.
-- When komando asked you for a missing argument, it asks before the
-  command runs: the target's name for one that cannot be undone (deleting
-  data or files, a reboot, stopping sshd, `sync --delete`, ending a
-  database session), else `Run it? [y/N, d = --dry-run first]`. One rule
+- When komando asked you for a missing argument, it asks `Run it? [y/N,
+  d = --dry-run first]` before the command runs. One that cannot be
+  undone (deleting data or files, a reboot, stopping sshd, `sync
+  --delete`) then asks you to type the name of what goes, once. `cron
+  rm`, `pkg rm` and `db kill` need nothing more from an AI agent, but
+  you type the name of what goes instead of answering `Run it?`. One rule
   table decides which: every command that stops an AI agent as dangerous
   asks you for the name.
 - No is the default; Enter or Ctrl-D is a no, and nothing runs. A no

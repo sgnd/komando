@@ -327,10 +327,13 @@ func (f *fill) targets() []string {
 	return names
 }
 
-// confirm asks before a filled-in change runs: the name typed for one that
-// cannot be undone (a T3 row of riskOf), else Run it? (d runs it with --dry-run first and asks
-// again). A protected target asks [y/N] in the command itself, so it is
-// not asked twice. A read, or a dry run, runs at once.
+// confirm asks before a filled-in change runs: Run it? (d runs it with
+// --dry-run first and asks again). A step that cannot be undone (a T3 row
+// of riskOf) then asks the typed name in the command itself, once (S-7.4);
+// a T1 row a person types the name for (riskRow.typed: the command does
+// not ask) asks it here instead of Run it?. A protected target asks [y/N]
+// in the command itself, so it is not asked twice. A read, or a dry run,
+// runs at once.
 func (f *fill) confirm(filled []string) error {
 	if !f.changes() || f.a["flag:dry-run"] == "true" || slices.Contains(filled, "--dry-run") {
 		return nil
@@ -343,16 +346,25 @@ func (f *fill) confirm(filled []string) error {
 	if path := strings.Fields(commandKey(f.cmd)); len(words) >= len(path) && slices.Equal(words[:len(path)], path) {
 		words = words[len(path):]
 	}
-	if gone := riskOf(f.cmd, words).typedWhat(); gone != "" && len(targets) == 1 { // the rule table, risk.go
-		fmt.Fprintln(promptW, "This "+gone+".")
-		ok, err := askTypeName(targets[0])
+	if r := riskOf(f.cmd, words); r.typed != "" && len(targets) == 1 { // the rule table, risk.go
+		items := riskArgs(words)
+		if len(items) > 0 {
+			items = items[1:] // what goes: the words after the target
+		}
+		of := r.items + " on " + targets[0]
+		if len(items) == 0 {
+			items, of = targets, "targets"
+		}
+		fmt.Fprintln(promptW, "This "+r.typed+".")
+		want, shown := typedAnswer(items, of)
+		ok, err := askTypeName(want, shown)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			return promptNo()
 		}
-		promptConfirmed = "typed " + targets[0] + ": " + gone
+		promptConfirmed = "typed " + want + ": " + r.typed
 		return nil
 	}
 	for {

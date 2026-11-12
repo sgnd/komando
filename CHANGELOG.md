@@ -87,6 +87,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- A command komando filled in at a terminal asks `Run it?` and then, for
+  a step that cannot be undone, the typed name once, in the command
+  itself; before, a prompted `cache rm` or `cluster rm` asked for a name
+  twice (and two different ones). `cron rm`, `pkg rm` (not an essential
+  package) and `db kill` ask for the name of what goes instead of `Run
+  it?`; they still need no flag from an agent or a script.
 - At a terminal, a step that cannot be undone asks you to type the name
   of what goes (the key, file, secret, topic, image or user), or how many
   when several go (`Type 37 (objects under daily/ in backups) to
