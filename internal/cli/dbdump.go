@@ -134,7 +134,7 @@ a server). --table and --schema-only narrow the dump. SQLite databases are copie
 as a database file instead. An existing FILE is never overwritten. The file
 holds your data: it is created readable only by you.`,
 		Example: `  komando db dump prod-db                  # saves prod-db-<date>.sql.gz here
-  komando db dump prod-db --to backups/              # the same name, inside backups/
+  komando db dump prod-db --to backups/    # the same name, inside backups/
   komando db dump prod-db --to prod-2026-11-02.sql.gz
   komando db dump prod-db --to prod.dump --format custom
   komando db dump prod-db --to prod.dump --format custom --on db1
