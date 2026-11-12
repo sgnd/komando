@@ -238,6 +238,9 @@ func formCmdSpec(cmd *cobra.Command) formSpec {
 	}
 	asked := map[string]bool{}
 	for _, ff := range h.flags {
+		if slices.Contains(formNeverFlags, ff.name) {
+			continue // a hint never brings in --yes, --allow-dangerous or --reveal
+		}
 		if f := cmd.Flags().Lookup(ff.name); f != nil {
 			sp.qs = append(sp.qs, formFlagQ(f, ff, false))
 			asked[ff.name] = true
@@ -420,12 +423,14 @@ func formCmdArgs(cmd *cobra.Command, uses []formUseArg, h formHint, a formAnswer
 		}
 		args = append(args, formArgWords(key, u, ah, v)...)
 	}
-	flags := slices.Clone(h.always)
+	flags := slices.DeleteFunc(slices.Clone(h.always), func(w string) bool {
+		return slices.Contains(formNeverFlags, strings.SplitN(strings.TrimLeft(w, "-"), "=", 2)[0])
+	})
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		v, ok := a["flag:"+f.Name]
 		ff := formFlagHint(h, f.Name)
 		switch {
-		case !ok || (v == f.DefValue && !ff.keep) || slices.Contains(h.always, "--"+f.Name):
+		case !ok || (v == f.DefValue && !ff.keep) || slices.Contains(h.always, "--"+f.Name) || slices.Contains(formNeverFlags, f.Name):
 		case v == "" && ff.empty:
 			flags = append(flags, "--"+f.Name+"=")
 		case v == "":

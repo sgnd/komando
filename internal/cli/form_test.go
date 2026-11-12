@@ -78,6 +78,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 				}
 				for _, line := range sp.build(st, a) {
 					formParse(t, commandKey(s), line)
+					formNoApproval(t, commandKey(s), line)
 				}
 				// Try it first is a dry run, never the real thing
 				if dry := formDry(sp.build(st, a)); true {
@@ -93,6 +94,47 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 	walk(newRoot())
 	if n < 150 {
 		t.Errorf("only %d commands have questions", n)
+	}
+}
+
+// formNoApproval: a form's line never carries a flag that approves or
+// shows something for the person (docs/design/ux.md, section 10).
+func formNoApproval(t *testing.T, source string, line []string) {
+	t.Helper()
+	for _, w := range line {
+		if w == "--" {
+			return // the rest is the remote command's own words
+		}
+		name := strings.SplitN(strings.TrimLeft(w, "-"), "=", 2)[0]
+		if strings.HasPrefix(w, "--") && slices.Contains([]string{"yes", "allow-dangerous", "reveal", "dry-run"}, name) {
+			t.Errorf("%s: `komando %s` has %s", source, menuCommandLine(line), w)
+		}
+	}
+}
+
+// Even a hint that names an approval flag, or adds it to every line,
+// cannot put it in a form's command.
+func TestFormHintCannotApprove(t *testing.T) {
+	root := &cobra.Command{Use: "komando"}
+	c := &cobra.Command{Use: "zap TARGET", Run: func(*cobra.Command, []string) {}}
+	for _, n := range []string{"yes", "allow-dangerous", "reveal", "force"} {
+		c.Flags().Bool(n, false, n)
+	}
+	root.AddCommand(c)
+	formHints["zap"] = formHint{flags: []formFlag{{name: "yes"}, {name: "reveal"}, {name: "force"}},
+		always: []string{"--allow-dangerous", "--yes=true"}}
+	defer delete(formHints, "zap")
+	sp := formCmdSpec(c)
+	a := formAnswers{"arg0": "web-1", "flag:yes": "true", "flag:reveal": "true", "flag:allow-dangerous": "true", "flag:force": "true"}
+	for _, q := range sp.qs {
+		if q.key == "flag:yes" || q.key == "flag:reveal" || q.key == "flag:allow-dangerous" {
+			t.Errorf("asked %s", q.key)
+		}
+	}
+	got := sp.build(nil, a)[0]
+	formNoApproval(t, "zap", got)
+	if !slices.Contains(got, "--force") {
+		t.Errorf("an ordinary flag was lost: %v", got)
 	}
 }
 

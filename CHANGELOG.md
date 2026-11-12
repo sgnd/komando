@@ -24,6 +24,9 @@ its highlights; the sections below them give the details. Versions follow
   typing a new secret name `db` saved over `db-pass`, and a name that is
   part of another could not be typed. A typed answer also comes back as
   typed when you change it from the review.
+- Guided forms can no longer put `--yes`, `--allow-dangerous` or
+  `--reveal` in a command, even if a command's form hints name one. No
+  form did; a test now checks every command's form for it.
 
 ## [0.12.0] - 2026-11-11
 
