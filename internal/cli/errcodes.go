@@ -212,6 +212,7 @@ var errorCodes = []errorCode{
 	{"SENSITIVE_FILE", 6, "… is …; komando does not read it for an AI agent", "ask the user for the one value you need"},
 	{"SESSION_NOT_FOUND", 3, "no session …", "list sessions with `komando db activity CONN --all`"},
 	{"SFTP_UNAVAILABLE", 4, "sftp: …", "enable the sftp subsystem in sshd_config"},
+	{"SHARED_FOLDER_CONFLICT", 8, "… can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes)", "write it as … instead, e.g. `komando exec TARGET --sudo-user USER --stdin-file FILE -- sh -c 'cat > PATH'`"},
 	{"SKIPPED", 1, "skipped: another server failed first, and --fail-fast is on", "run without --fail-fast to reach every server"},
 	{"SOURCE_BUILD", 8, "this komando was built from source (version …), so update does not replace it", "build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install"},
 	{"SOURCE_EMPTY", 3, "… has no files to sync, so --delete would remove everything in …", "check the source path; nothing was deleted"},

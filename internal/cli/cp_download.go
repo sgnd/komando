@@ -135,7 +135,7 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	if err := guardSensitiveCopy(src); err != nil {
 		return xferStats{}, err
 	}
-	r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: `if [ -d ` + sshx.Q(src) + ` ]; then echo "is a folder" >&2; exit 81; fi; cat -- ` + sshx.Q(src),
+	r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: `if [ -d ` + sshx.Q(src) + ` ]; then echo "is a folder" >&2; exit 81; fi; ` + sudoReadScript(src, "cat"),
 		Sudo: true, MaxOutput: sudoMaxBytes, Timeout: 30 * time.Minute})
 	if err != nil {
 		return xferStats{}, err
@@ -143,6 +143,8 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	switch {
 	case r.ExitCode == 81:
 		return xferStats{}, out.Usage("--sudo downloads single files; %s is a folder", src)
+	case r.ExitCode == sudoExitLink:
+		return xferStats{}, readLinkStop(src)
 	case r.ExitCode != 0 && strings.Contains(r.Stderr, "No such file"):
 		return xferStats{}, fsErr(src, os.ErrNotExist)
 	case r.ExitCode != 0:

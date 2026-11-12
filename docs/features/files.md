@@ -104,7 +104,7 @@ komando fs replace web1 /etc/ssh/sshd_config --old 'PermitRootLogin yes' --new '
 
 | Flag | What it does |
 |------|--------------|
-| `-s`, `--sudo` | Write a root-owned file (writes a temporary file, then `sudo install`). |
+| `-s`, `--sudo` | Write a root-owned file (writes a temporary file, then `sudo install`). Not into a folder another server user can change: that stops with `SHARED_FOLDER_CONFLICT`; write such a file as that user. |
 | `--backup` | Keep the previous version as `PATH.bak`. A backup is never overwritten: when `PATH.bak` exists, the new one is `PATH.bak.<UTC time>` (e.g. `nginx.conf.bak.20261105T031500Z`). The result's `backup` names the file. With `--sudo` the backup belongs to root, mode 0600. Backups stay next to the file and add up, one per edit: remove old ones with `fs rm`, and keep them out of folders where every file is loaded (`sites-enabled/`, `conf.d/*.conf`). |
 | `--mode 0640` | File mode (default: keep the old mode, or 0644 for a new file). An SFTP server that does not allow setting modes (storage boxes, SFTP-only accounts) is fine when its new files are no more open than asked: the result's `mode` is the one the file got. Otherwise the write fails with `CHMOD_FAILED`. |
 | `--owner USER:GROUP` | Owner of the file (needs `--sudo`; the group is optional). |

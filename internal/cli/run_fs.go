@@ -218,11 +218,18 @@ func linkStop(p string, noFollow bool) error {
 }
 
 // notRootsLink: a write as root met a link another user made, or one into
-// a folder root does not own (sudoFollowScript).
+// a folder root does not own (sudoWriteScript).
 func notRootsLink(p string) error {
 	return out.Errf(out.ExitConflict, "IS_A_SYMLINK",
 		"look at where it leads (`komando fs stat TARGET PATH`), then write that file by its own path, or write without --sudo",
-		"%s is a link made by another user than root, or one that leads into a folder root does not own: as root, komando does not follow it", p)
+		"%s is, or leads through, a link made by another user than root, or one that leads into a folder root does not own: as root, komando does not follow it", p)
+}
+
+// readLinkStop is exit 92 of a read as root.
+func readLinkStop(p string) error {
+	return out.Errf(out.ExitConflict, "IS_A_SYMLINK",
+		"look at where it leads (`komando fs stat TARGET PATH`), then read that file by its own path, or read without --sudo",
+		"%s leads through a link made by a user other than root and the SSH user, or changed while root opened it: as root, komando does not read through such a link", p)
 }
 
 // fs rm, mkdir, mv and chmod.

@@ -1122,6 +1122,16 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   group instead of taking just those targets out of it. Now it takes out
   only the targets named; `group rm GROUP` alone still deletes the group
   (and asks first when it has more than 3 members).
+- `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo` no
+  longer write into a folder that a user other than root and the SSH user
+  can change (owned by that user, writable by a group other than root's,
+  or by everyone): that user could swap the file for a link while root
+  writes. They stop with SHARED_FOLDER_CONFLICT, whose hint says how to
+  write as that user instead. A link on the way to the file (not only the
+  file itself) is followed only when root made it. `fs cat --sudo`, a
+  `--sudo` download and the reads `fs replace --sudo` makes do not read
+  through a link made by a user other than root and the SSH user
+  (IS_A_SYMLINK).
 
 ## [0.12.0] - 2026-11-11
 

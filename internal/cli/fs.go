@@ -308,9 +308,12 @@ func fsStatCmd() *cobra.Command {
 
 func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
 	if sudo {
-		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: "cat -- " + sshx.Q(p), Sudo: true, MaxOutput: int(limit), Timeout: 2 * time.Minute})
+		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sudoReadScript(p, "cat"), Sudo: true, MaxOutput: int(limit), Timeout: 2 * time.Minute})
 		if err != nil {
 			return nil, false, err
+		}
+		if r.ExitCode == sudoExitLink {
+			return nil, false, readLinkStop(p)
 		}
 		if r.ExitCode != 0 {
 			if strings.Contains(r.Stderr, "No such file") {
@@ -347,9 +350,12 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
 	var b []byte
 	if sudo {
-		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: "tail -c " + strconv.FormatInt(limit+1, 10) + " -- " + sshx.Q(p), Sudo: true, MaxOutput: int(limit + 1), Timeout: 2 * time.Minute})
+		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sudoReadScript(p, "tail -c "+strconv.FormatInt(limit+1, 10)), Sudo: true, MaxOutput: int(limit + 1), Timeout: 2 * time.Minute})
 		if err != nil {
 			return nil, false, err
+		}
+		if r.ExitCode == sudoExitLink {
+			return nil, false, readLinkStop(p)
 		}
 		if r.ExitCode != 0 {
 			if strings.Contains(r.Stderr, "No such file") {
