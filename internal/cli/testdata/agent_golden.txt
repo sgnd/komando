@@ -6251,7 +6251,7 @@ Stopped: this can delete or break things (recursive delete of / or home), so kom
 ### komando -o json exec web1 -- rm -rf / (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json exec web1 --allow-dangerous -- rm -rf /`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [rm-root]: recursive delete of / or home","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- rm -rf / (script text, gate inventory)
 exit 6
@@ -6271,7 +6271,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json exec web1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json exec web1 --allow-dangerous -- reboot`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- reboot (script text, gate inventory)
 exit 6
@@ -6291,7 +6291,7 @@ Stopped: this can delete or break things (matches custom deny pattern foo.*bar),
 ### komando -o json exec web1 -- foo bar (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json exec web1 --allow-dangerous -- foo bar`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [custom-3d4b9b20]: matches custom deny pattern foo.*bar","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec web1 -- foo bar (script text, gate inventory)
 exit 6
@@ -6311,7 +6311,7 @@ Stopped: this can delete or break things (powers off or reboots the server), so 
 ### komando -o json job start web1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json job start web1 --allow-dangerous -- reboot`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"POLICY_BLOCKED","message":"the command matches destructive rules [power]: powers off or reboots the server","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start web1 -- reboot (script text, gate inventory)
 exit 6
@@ -6531,7 +6531,7 @@ Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, 
 ### komando -o json cache run cache1 --write -- FLUSHALL (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json cache run cache1 --write --allow-dangerous -- FLUSHALL`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [redis-flush]: deletes every key (FLUSHALL, FLUSHDB, SWAPDB)","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run cache1 --write -- FLUSHALL (script text, gate inventory)
 exit 6
@@ -6551,7 +6551,7 @@ Stopped: this can delete or break things (drops a database object or column), so
 ### komando -o json db query db1 --write DROP TABLE x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db query db1 --write 'DROP TABLE x' --allow-dangerous`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-drop]: drops a database object or column","hint":"check with --dry-run, then run it again with --allow-dangerous"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query db1 --write DROP TABLE x (script text, gate inventory)
 exit 6
@@ -6571,7 +6571,7 @@ Stopped: this can delete or break things (UPDATE without WHERE changes every row
 ### komando -o json db query pdb --write UPDATE x SET a=1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes: `komando -o json db query pdb --write 'UPDATE x SET a=1' --allow-dangerous --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.query","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [sql-update-no-where]: UPDATE without WHERE changes every row","hint":"check with --dry-run, then run it again with --allow-dangerous and --yes"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db query pdb --write UPDATE x SET a=1 (script text, gate inventory)
 exit 6
@@ -6771,7 +6771,7 @@ Stopped: this can delete or break things (docker system prune -af), so komando a
 ### komando -o json docker raw web1 -- system prune -af (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -af","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json docker raw web1 --allow-dangerous -- system prune -af`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.raw","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [docker]: docker system prune -af","hint":"check with --dry-run, then run it again with --allow-dangerous (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker raw web1 -- system prune -af (script text, gate inventory)
 exit 6
@@ -6791,7 +6791,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json exec prod1 -- touch /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json exec prod1 --yes -- touch /tmp/x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (script text, gate inventory)
 exit 6
@@ -6811,7 +6811,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json job start prod1 -- touch x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json job start prod1 --yes -- touch x`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start prod1 -- touch x (script text, gate inventory)
 exit 6
@@ -6891,7 +6891,7 @@ Stopped: prod1 is a protected server (production), so komando asks before changi
 ### komando -o json fs write prod1 /tmp/x --content hi (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json fs write prod1 /tmp/x --content hi --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write prod1 /tmp/x --content hi (script text, gate inventory)
 exit 6
@@ -7051,7 +7051,7 @@ Stopped: pcache is a protected cache (production), so komando asks before changi
 ### komando -o json cache run pcache --write -- SET k v (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, then run it again with --yes: `komando -o json cache run pcache --write --yes -- SET k v`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cache.run","error":{"code":"PROTECTED_TARGET","message":"a write action on protected conn: pcache","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cache run pcache --write -- SET k v (script text, gate inventory)
 exit 6
