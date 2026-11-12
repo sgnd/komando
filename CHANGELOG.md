@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `queue purge` and `queue rm` name what they would delete: the person's
+  "Dangerous:" prompt, the approval window and the agent's `POLICY_BLOCKED`
+  message now say `deletes every message in orders-retry`, not only "a
+  topic, queue or stream" on the conn.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

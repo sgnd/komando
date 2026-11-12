@@ -87,7 +87,12 @@ func TestQueueKafka(t *testing.T) {
 	}
 	wantCode(t, "CONSUMER_GROUP_NOT_FOUND", "queue", "lag", "events", "nobody")
 
-	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "events", "orders")
+	if e := wantCode(t, "POLICY_BLOCKED", "queue", "purge", "events", "orders"); !strings.Contains(e.Message, "deletes every message in orders") {
+		t.Errorf("purge names the topic: %s", e.Message)
+	}
+	if e := wantCode(t, "POLICY_BLOCKED", "queue", "rm", "events", "orders", "audit"); !strings.Contains(e.Message, "deletes orders, audit and every message") {
+		t.Errorf("rm names the topics: %s", e.Message)
+	}
 	if d := mustRun(t, "--dry-run", "queue", "purge", "events", "orders"); d["messages"].(float64) != 2 || !strings.Contains(jsonOf(d), "POLICY_BLOCKED") {
 		t.Errorf("dry-run purge: %v", d)
 	}

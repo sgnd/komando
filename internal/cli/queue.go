@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -52,11 +53,26 @@ var queueRules = []driver.Rule{
 	{ID: "queue-purge", Reason: "deletes every message in a topic, queue or stream (it stays)"},
 }
 
-func queueRisk(id string) driver.Verdict {
+// queueRisk is the verdict of a queue change. For rm and purge the reason
+// names the topics, so the person's prompt, the approval window and the
+// agent's POLICY_BLOCKED message all say what would be deleted, not only
+// on which conn.
+func queueRisk(id string, topics ...string) driver.Verdict {
 	for _, r := range queueRules {
-		if r.ID == id {
-			return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{r.ID}, Reasons: []string{r.Reason}}
+		if r.ID != id {
+			continue
 		}
+		reason := r.Reason
+		switch {
+		case len(topics) == 0:
+		case id == "queue-purge":
+			reason = "deletes every message in " + topics[0] + " (it stays)"
+		case len(topics) == 1:
+			reason = "deletes " + topics[0] + " and every message in it"
+		default:
+			reason = "deletes " + strings.Join(topics, ", ") + " and every message in them"
+		}
+		return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{r.ID}, Reasons: []string{reason}}
 	}
 	return driver.Verdict{Risk: driver.RiskWrite}
 }

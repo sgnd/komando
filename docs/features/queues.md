@@ -141,6 +141,18 @@ komando queue rm events old-orders --allow-dangerous      # delete the topic and
 - `purge` and `rm` cannot be undone, so they need `--allow-dangerous`
   (rules `queue-purge` and `queue-delete` in `komando policy list`). Their
   `--dry-run` lists what would go.
+- A person at a terminal can leave `--allow-dangerous` out: komando says
+  what would be deleted and asks for the conn's name instead.
+
+  ```
+  $ komando queue purge events orders-retry
+  Dangerous: deletes every message in orders-retry (it stays).
+  Type the name events to continue: events
+  ```
+
+  Anything else stops it and changes nothing. An AI agent gets
+  `POLICY_BLOCKED` (exit 6) with the same reason, and adds
+  `--allow-dangerous` only after the person agrees.
 
 ## RabbitMQ
 

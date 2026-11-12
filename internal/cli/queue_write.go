@@ -174,7 +174,7 @@ func queueRmCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			topics := args[1:]
-			return withQueue(cmd.Context(), "queue.rm", args[0], queueRisk("queue-delete"), map[string]any{"topics": topics},
+			return withQueue(cmd.Context(), "queue.rm", args[0], queueRisk("queue-delete", topics...), map[string]any{"topics": topics},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -196,7 +196,7 @@ func queuePurgeCmd() *cobra.Command {
   komando queue purge events orders-retry --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withQueue(cmd.Context(), "queue.purge", args[0], queueRisk("queue-purge"), map[string]any{"topic": args[1]},
+			return withQueue(cmd.Context(), "queue.purge", args[0], queueRisk("queue-purge", args[1]), map[string]any{"topic": args[1]},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
