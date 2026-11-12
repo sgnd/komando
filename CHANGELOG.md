@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- docs/features/error-codes.md has a table of the codes that mean the
+  same (`PROTECTED_HOST` and `PROTECTED_TARGET`, `TARGET_EMPTY` and
+  `NO_MATCHING_TARGETS`, ...) and which one new errors use. All of them
+  stay.
 - `error.thing` says which kind of item a shared not-found code is
   about: `KEY_NOT_FOUND` is `ssh_key` or `cache_key`, `NOT_FOUND` a Swarm
   service, stack or other object, `REGISTRY_NOT_FOUND` a `repository` or

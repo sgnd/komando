@@ -316,3 +316,18 @@ each its own code; until then the code stays as it is.
 | `NOT_FOUND` | `swarm_service`, `swarm_stack`, `swarm_node`, `swarm_task`, `swarm_config`, `swarm_secret`, `swarm_network`, `docker_object`, `cache_info_section` | SWARM_SERVICE_NOT_FOUND, SWARM_STACK_NOT_FOUND, SWARM_OBJECT_NOT_FOUND, DOCKER_OBJECT_NOT_FOUND, CACHE_SECTION_NOT_FOUND |
 | `REGISTRY_NOT_FOUND` | `repository`, `image_tag` | REPOSITORY_NOT_FOUND, IMAGE_NOT_FOUND |
 | `K8S_NOT_FOUND` | `k8s_object`, `k8s_pod`, `k8s_container` | K8S_NOT_FOUND, K8S_POD_NOT_FOUND, K8S_CONTAINER_NOT_FOUND |
+
+## Codes that mean the same
+
+Each row is codes that mean the same thing. All of them stay, since
+scripts branch on them; new errors use the first one, and a later
+contract keeps only that one.
+
+| Codes | Use | Meaning |
+|-------|-----|---------|
+| `PROTECTED_TARGET`, `PROTECTED_HOST` | `PROTECTED_TARGET` | a protected item needs a person's yes (--yes); PROTECTED_HOST is the server case |
+| `REVEAL_NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN` | `REVEAL_NEEDS_PERSON` | --reveal needs a person; REVEAL_NEEDS_HUMAN is the case where no window can ask one, so only a person at a terminal can run it |
+| `TARGET_EMPTY`, `NO_MATCHING_TARGETS`, `CONN_NOT_FOUND` | `TARGET_EMPTY` | the target picked nothing the command can use; CONN_NOT_FOUND counts only with error.thing selector |
+| `CONN_UNREACHABLE`, `CONNECT_FAILED` | `CONN_UNREACHABLE` | komando could not reach the address |
+| `TOOL_FAILED`, `FAILED` | `TOOL_FAILED` | a program komando ran (kubectl, a dump tool) failed; its words follow |
+| `IS_A_DIRECTORY`, `USAGE` | `IS_A_DIRECTORY` | storage download of a folder without -r gives USAGE today; contract 2 gives IS_A_DIRECTORY, as fs cat does |

@@ -147,6 +147,15 @@ func TestErrorCodesDoc(t *testing.T) {
 	for _, c := range sharedCodes {
 		fmt.Fprintf(&b, "| `%s` | %s | %s |\n", c.Code, "`"+strings.Join(c.Things, "`, `")+"`", c.Split)
 	}
+	b.WriteString("\n## Codes that mean the same\n\n")
+	b.WriteString("Each row is codes that mean the same thing. All of them stay, since\n")
+	b.WriteString("scripts branch on them; new errors use the first one, and a later\n")
+	b.WriteString("contract keeps only that one.\n\n")
+	b.WriteString("| Codes | Use | Meaning |\n")
+	b.WriteString("|-------|-----|---------|\n")
+	for _, c := range sameAsCodes {
+		fmt.Fprintf(&b, "| %s | `%s` | %s |\n", "`"+strings.Join(c.Codes, "`, `")+"`", c.Survivor, cell(c.Note))
+	}
 	const path = "../../docs/features/error-codes.md"
 	if os.Getenv("KOMANDO_UPDATE_ERRCODES") != "" {
 		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {

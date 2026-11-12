@@ -55,3 +55,18 @@ func TestSharedCodes(t *testing.T) {
 		}
 	}
 }
+
+// TestSameAsCodes: every code in the same-meaning table is one komando
+// gives, and the survivor is one of them (C-E03).
+func TestSameAsCodes(t *testing.T) {
+	for _, s := range sameAsCodes {
+		if !slices.Contains(s.Codes, s.Survivor) {
+			t.Errorf("sameAsCodes: %s is not among %v", s.Survivor, s.Codes)
+		}
+		for _, c := range s.Codes {
+			if !slices.ContainsFunc(errorCodes, func(e errorCode) bool { return e.Code == c }) {
+				t.Errorf("sameAsCodes lists %s, which the catalog does not have", c)
+			}
+		}
+	}
+}
