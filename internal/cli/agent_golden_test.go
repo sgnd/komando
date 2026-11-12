@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -57,6 +58,21 @@ func TestAgentGolden(t *testing.T) {
 			fmt.Fprintf(&b, "### komando %s (%s, release note)\nexit %d\n--- stdout\n%s--- stderr\n%s", strings.Join(full, " "), v.name, code, stdout, stderr)
 		}
 	}
+	// the ssh-gate code changes of the release notes (changes.md 11b, C-C08):
+	// what a read-only key gets for the command it sent. Each is refused, so
+	// nothing runs; a key's command that got through would fail here
+	savedExec := gateExec
+	gateExec = func(string, []string, []string) error { return errors.New("a read-only key's command ran") }
+	for _, line := range goldenGateKeys {
+		t.Setenv("SSH_ORIGINAL_COMMAND", line)
+		for _, v := range variants {
+			full := []string{"-o", v.out, "ssh-gate", "--name", "phone-read", "--read-only"}
+			stdout, stderr, code := goldenRunWith(t, v.agent, full, gateInventory)
+			fmt.Fprintf(&b, "### komando %s, SSH_ORIGINAL_COMMAND='%s' (%s, read-only key)\nexit %d\n--- stdout\n%s--- stderr\n%s", strings.Join(full, " "), line, v.name, code, stdout, stderr)
+		}
+	}
+	t.Setenv("SSH_ORIGINAL_COMMAND", "")
+	gateExec = savedExec
 	// the schema values of the release notes (changes.md 11a): kind,
 	// approvals and each flag's type, shorthand and default, without the
 	// help text, which the cases above already pin
@@ -164,6 +180,13 @@ var goldenExtra = [][]string{
 	{"storage", "rm", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
 	// C-V17: the top-level forward is a retired name for one release (noted)
 	{"forward", "list"},
+}
+
+// goldenGateKeys are the command lines a read-only ssh-gate key sends
+// whose answer changed (changes.md 11b): SSH_GATE_READ_ONLY, exit 6.
+var goldenGateKeys = []string{
+	"komando storage link s3 report.pdf",
+	"komando cluster forward k8s svc/web 8080",
 }
 
 // goldenSchema are commands whose schema values the release notes list

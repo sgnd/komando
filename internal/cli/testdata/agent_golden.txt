@@ -7642,6 +7642,46 @@ exit 2
 --- stdout
 --- stderr
 Error: unknown command "restat" for "komando svc"; did you mean restart?
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (agent json, read-only key)
+exit 6
+--- stdout
+{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando storage link is refused for a read-only key: it makes a link that opens the data without a login","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (agent text, read-only key)
+exit 6
+--- stdout
+--- stderr
+Stopped: komando storage link is refused for a read-only key: it makes a link that opens the data without a login. Nothing was changed.
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (script json, read-only key)
+exit 6
+--- stdout
+{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando storage link is refused for a read-only key: it makes a link that opens the data without a login","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (script text, read-only key)
+exit 6
+--- stdout
+--- stderr
+Stopped: komando storage link is refused for a read-only key: it makes a link that opens the data without a login. Nothing was changed.
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (agent json, read-only key)
+exit 6
+--- stdout
+{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando cluster forward is refused for a read-only key: it opens a port on the komando computer","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (agent text, read-only key)
+exit 6
+--- stdout
+--- stderr
+Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer. Nothing was changed.
+### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (script json, read-only key)
+exit 6
+--- stdout
+{"ok":false,"command":"ssh-gate","error":{"code":"SSH_GATE_READ_ONLY","message":"komando cluster forward is refused for a read-only key: it opens a port on the komando computer","hint":"this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (script text, read-only key)
+exit 6
+--- stdout
+--- stderr
+Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer. Nothing was changed.
 ### komando schema storage link (schema values)
 exit 0
 komando storage link kind=change confirm=[{"tier":"change"}]

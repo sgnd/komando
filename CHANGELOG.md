@@ -75,7 +75,7 @@ Exit and error codes that changed:
 | `secret rm`, `key rm --delete-file`, `fs rm` | ran | `POLICY_BLOCKED`, exit 6, until a person agrees and `--allow-dangerous` is added |
 | `storage link`, `cluster forward` through a read-only ssh-gate key | ran | `SSH_GATE_READ_ONLY`, exit 6 |
 | `host trust --reset` (or a changed key) from an agent or a script | `SAFETY_SETTING`, exit 6, lifted by `--yes` | `NEEDS_PERSON`, exit 6; no flag lifts it |
-| a person answers no to a filled-in command | exit 1 | `DECLINED`, exit 6 |
+| a person answers no to a filled-in command (a person only: no agent or script is asked, so the agent recording has no row for it) | exit 1 | `DECLINED`, exit 6 |
 | `forward ...`, `storage rm -n 10` | ran | still run now, with `meta.deprecated`; in a later release `forward` is an unknown command and `-n` a `USAGE` error |
 
 Text output (`-o text`) is not part of the contract, but agents read it:
