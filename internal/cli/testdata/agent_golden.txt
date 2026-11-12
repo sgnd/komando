@@ -7510,16 +7510,16 @@ exit 6
 Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack). Nothing was changed.
 ### komando schema storage link (schema values)
 exit 0
-komando storage link kind=change confirm=null
+komando storage link kind=change confirm=[{"tier":"change"}]
   --endpoint type=string
   --expires type=duration default=1h
 ### komando schema cluster forward (schema values)
 exit 0
-komando cluster forward kind=change confirm=null
+komando cluster forward kind=change confirm=[{"tier":"change"}]
   --namespace shorthand=n type=string
 ### komando schema host add (schema values)
 exit 0
-komando host add kind=change confirm=null
+komando host add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when --proxy-command matches a destructive rule"}]
   --address type=string
   --ask-password type=bool default=false
   --env shorthand=e type=stringArray default=[]
@@ -7541,7 +7541,7 @@ komando host add kind=change confirm=null
   --via type=string
 ### komando schema conn add (schema values)
 exit 0
-komando conn add kind=change confirm=null
+komando conn add kind=change confirm=[{"tier":"change"}]
   --ask-password type=bool default=false
   --group shorthand=g type=stringSlice default=[]
   --label type=stringArray default=[]
@@ -7554,23 +7554,23 @@ komando conn add kind=change confirm=null
   --via type=string
 ### komando schema cache set (schema values)
 exit 0
-komando cache set kind=change confirm=null
+komando cache set kind=change confirm=[{"tier":"change"}]
   --ttl type=duration
 ### komando schema cert check (schema values)
 exit 0
-komando cert check kind=read confirm=null
+komando cert check kind=read confirm=[{"tier":"read"}]
   --path type=stringSlice default=[]
   --via type=string
   --warn type=duration default=30d
 ### komando schema registry prune (schema values)
 exit 0
-komando registry prune kind=change confirm=null
+komando registry prune kind=change confirm=[{"flag":"--allow-dangerous","tier":"dangerous"}]
   --keep type=int default=0
   --match type=string
   --older-than type=duration
 ### komando schema cluster logs (schema values)
 exit 0
-komando cluster logs kind=read confirm=null
+komando cluster logs kind=read confirm=[{"tier":"read"}]
   --container shorthand=c type=string
   --follow shorthand=f type=bool default=false
   --limit type=int default=200
@@ -7581,17 +7581,17 @@ komando cluster logs kind=read confirm=null
   --timestamps type=bool default=false
 ### komando schema cache get (schema values)
 exit 0
-komando cache get kind=read confirm=null
+komando cache get kind=read confirm=[{"tier":"read"}]
   --limit shorthand=n type=int default=100
 ### komando schema fs list (schema values)
 exit 0
-komando fs list kind=read confirm=null
+komando fs list kind=read confirm=[{"tier":"read"}]
   --all shorthand=a type=bool default=false
   --limit shorthand=n type=int default=1000
   --recursive shorthand=r type=bool default=false
 ### komando schema fs cat (schema values)
 exit 0
-komando fs cat kind=read confirm=null
+komando fs cat kind=read confirm=[{"tier":"read"}]
   --head type=int default=0
   --line-numbers type=bool default=false
   --max-bytes type=bytes default=1048576
@@ -7599,7 +7599,7 @@ komando fs cat kind=read confirm=null
   --tail type=int default=0
 ### komando schema exec (schema values)
 exit 0
-komando exec kind=depends confirm=null
+komando exec kind=depends confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when the command matches a destructive rule"}]
   --arg type=stringArray default=[]
   --cmd shorthand=c type=string
   --dir shorthand=C type=string
@@ -7615,14 +7615,14 @@ komando exec kind=depends confirm=null
   --sudo-user type=string
 ### komando schema queue create (schema values)
 exit 0
-komando queue create kind=change confirm=null
+komando queue create kind=change confirm=[{"tier":"change"}]
   --config type=stringArray default=[]
   --partitions type=int
   --replicas type=int
   --type type=string
 ### komando schema cluster events (schema values)
 exit 0
-komando cluster events kind=read confirm=null
+komando cluster events kind=read confirm=[{"tier":"read"}]
   --all-namespaces shorthand=A type=bool default=false
   --for type=string
   --limit type=int default=100
@@ -7630,12 +7630,12 @@ komando cluster events kind=read confirm=null
   --warnings type=bool default=false
 ### komando schema cluster list (schema values)
 exit 0
-komando cluster list kind=read confirm=null
+komando cluster list kind=read confirm=[{"tier":"read"}]
   --all-namespaces shorthand=A type=bool default=false
   --limit type=int default=500
   --namespace shorthand=n type=string
   --selector shorthand=l type=string
 ### komando schema cluster get (schema values)
 exit 0
-komando cluster get kind=read confirm=null
+komando cluster get kind=read confirm=[{"tier":"read"}]
   --namespace shorthand=n type=string

@@ -84,6 +84,11 @@ its highlights; the sections below them give the details. Versions follow
 - `job start --script FILE` (with `--arg` and `--interpreter`) runs a
   script from this computer as a background job, as `exec --script` does
   in the foreground. A long `exec --script` that times out names it.
+- `komando schema` gives each command a `confirm` list (additive): the
+  approval tier it always has, then each tier it reaches only sometimes,
+  with the flag an AI agent or a script adds (`--allow-dangerous`, `--yes`,
+  none for a person-only step) and when. It comes from the same rule table
+  as komando's own stops.
 
 ### Changed
 

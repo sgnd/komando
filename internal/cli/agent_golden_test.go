@@ -172,10 +172,10 @@ var goldenSchema = [][]string{
 	{"storage", "link"}, {"cluster", "forward"}, // C-C08: kind read -> change
 	{"host", "add"}, {"conn", "add"}, // C-F02: --env, --option stringArray
 	{"cache", "set"}, {"cert", "check"}, {"registry", "prune"}, // C-F04: duration
-	{"cluster", "logs"}, // C-F05, C-S01
+	{"cluster", "logs"},              // C-F05, C-S01
 	{"cache", "get"}, {"fs", "list"}, // C-F08: --limit int
 	{"fs", "cat"}, {"exec"}, // C-F09: bytes
-	{"queue", "create"}, // C-F22: no -1 default
+	{"queue", "create"},                                            // C-F22: no -1 default
 	{"cluster", "events"}, {"cluster", "list"}, {"cluster", "get"}, // C-S01: -n
 }
 

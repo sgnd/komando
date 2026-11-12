@@ -46,6 +46,7 @@ func (t tier) String() string {
 type riskRow struct {
 	id      string
 	when    func(words []string) bool // nil: always
+	cond    string                    // when, in words for `komando schema` (set with when)
 	tier    tier
 	what    string // "deletes the keys": the person reads "This deletes the keys."
 	dynamic string // set: the tier holds only when this is so; the command decides
@@ -89,7 +90,7 @@ var riskRows = []riskRow{
 	{id: "cache.rm", tier: tierDangerous, what: "deletes the keys"},
 	{id: "storage.rm", tier: tierDangerous, what: "deletes the files"},
 	{id: "cluster.rm", tier: tierDangerous, what: "deletes it from the cluster"},
-	{id: "cluster.scale", when: anyWord("0", "--replicas=0"), tier: tierDangerous, what: "stops every copy of the app"},
+	{id: "cluster.scale", when: anyWord("0", "--replicas=0"), cond: "REPLICAS is 0", tier: tierDangerous, what: "stops every copy of the app"},
 	{id: "registry.rm", tier: tierDangerous, what: "deletes the images"},
 	{id: "registry.prune", tier: tierDangerous, what: "deletes the images"},
 	{id: "db.restore", tier: tierDangerous, what: "replaces what is in the database now"},
@@ -98,17 +99,17 @@ var riskRows = []riskRow{
 	{id: "fs.rm", tier: tierDangerous, what: "deletes the files"},
 	{id: "docker.rm", tier: tierDangerous, what: "deletes the containers"},
 	{id: "docker.prune", tier: tierDangerous, what: "deletes stopped containers and unused images"},
-	{id: "user.rm", when: givesFlag("remove-home"), tier: tierDangerous, what: "deletes the user and their home folder"},
+	{id: "user.rm", when: givesFlag("remove-home"), cond: "with --remove-home", tier: tierDangerous, what: "deletes the user and their home folder"},
 	{id: "user.rm", tier: tierDangerous, what: "deletes the user"},
 	{id: "secret.rm", tier: tierDangerous, what: "deletes the saved passwords"},
-	{id: "key.rm", when: givesFlag("delete-file"), tier: tierDangerous, what: "deletes the key files"},
-	{id: "pkg.rm", when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
+	{id: "key.rm", when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the key files"},
+	{id: "pkg.rm", when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
 	{id: "pkg.rm", tier: tierChange, typed: "removes the packages", items: "packages"},
 	{id: "cron.rm", tier: tierChange, typed: "deletes the scheduled task", items: "scheduled tasks"},
 	{id: "reboot", tier: tierDangerous, what: "restarts the server (it is away until it is back)"},
-	{id: "svc.stop", when: sshUnit, tier: tierDangerous, what: "stops sshd (no one can log in remotely)"},
-	{id: "svc.disable", when: sshUnit, tier: tierDangerous, what: "turns sshd off (no one can log in remotely after a restart)"},
-	{id: "sync", when: givesFlag("delete"), tier: tierDangerous, what: "deletes the files in DST that SRC does not have"},
+	{id: "svc.stop", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "stops sshd (no one can log in remotely)"},
+	{id: "svc.disable", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "turns sshd off (no one can log in remotely after a restart)"},
+	{id: "sync", when: givesFlag("delete"), cond: "with --delete", tier: tierDangerous, what: "deletes the files in DST that SRC does not have"},
 
 	// T3 when the command's own check finds it: a policy or classifier hit
 	// on what the command runs, decided at run time.
@@ -123,8 +124,8 @@ var riskRows = []riskRow{
 	{id: "cache.run", tier: tierDangerous, dynamic: "the cache command deletes data (FLUSHALL, ...)"},
 	{id: "db.query", tier: tierDangerous, dynamic: "the SQL deletes data (DROP, DELETE without WHERE, ...)"},
 	{id: "db.explain", tier: tierDangerous, dynamic: "with --analyze, the SQL deletes data"},
-	{id: "pkg.security", when: givesFlag("apply"), tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
-	{id: "pkg.upgrade", when: givesFlag("security"), tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
+	{id: "pkg.security", when: givesFlag("apply"), cond: "with --apply", tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
+	{id: "pkg.upgrade", when: givesFlag("security"), cond: "with --security", tier: tierDangerous, dynamic: "an update would remove a package the server needs"},
 	{id: "key.revoke", tier: tierDangerous, dynamic: "it is the key komando logs in with"},
 	{id: "host.edit", tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},
 	{id: "host.add", tier: tierDangerous, dynamic: "--proxy-command matches a destructive rule"},
@@ -133,10 +134,10 @@ var riskRows = []riskRow{
 	// T3s: weakens komando's own checks.
 	{id: "policy.rm", tier: tierSafety, what: "removes a deny rule"},
 	{id: "config.set", tier: tierSafety, dynamic: "the setting turns a check off (audit, keychain, host key policy, ...)"},
-	{id: "host.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
-	{id: "conn.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
-	{id: "vpn.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
-	{id: "vpn.edit", when: anyWord("--mfa=false"), tier: tierSafety, what: "turns --mfa off (komando may then connect it without a person)"},
+	{id: "host.edit", when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
+	{id: "conn.edit", when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
+	{id: "vpn.edit", when: protectionOff, cond: "with --protected=false", tier: tierSafety, what: "turns protection off"},
+	{id: "vpn.edit", when: anyWord("--mfa=false"), cond: "with --mfa=false", tier: tierSafety, what: "turns --mfa off (komando may then connect it without a person)"},
 	{id: "update", tier: tierSafety, dynamic: "it installs an older version"},
 	{id: "tunnel.start", tier: tierSafety, dynamic: "it listens on an open address (OPEN_BIND)"},
 	{id: "secret.keychain", tier: tierSafety, dynamic: "it turns the keychain off"},
@@ -151,10 +152,10 @@ var riskRows = []riskRow{
 	{id: "login", tier: tierPerson},
 	{id: "login.aws", tier: tierPerson},
 	{id: "ssh-gate", tier: tierPerson},
-	{id: "host.trust", when: anyWord("--reset", "--reset=true"), tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
+	{id: "host.trust", when: anyWord("--reset", "--reset=true"), cond: "with --reset, when a key is pinned", tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
 
 	// a bulk change keeps its own confirm (CONFIRM_REQUIRED for an agent)
-	{id: "group.rm", when: func(w []string) bool { return len(riskArgs(w)) == 1 }, tier: tierChange, bulk: "deleting a group of more than 3 members"},
+	{id: "group.rm", when: func(w []string) bool { return len(riskArgs(w)) == 1 }, cond: "GROUP alone", tier: tierChange, bulk: "deleting a group of more than 3 members"},
 }
 
 // riskArgs are the words that are no flags (the positionals, roughly:
@@ -223,4 +224,64 @@ func riskRowIDs() []string {
 		ids = append(ids, r.id)
 	}
 	return ids
+}
+
+// flag is what an AI agent or a script adds for a tier: none for a read or
+// a change, and none for a person-only step (no flag lifts it).
+func (t tier) flag() string {
+	switch t {
+	case tierDangerous:
+		return "--allow-dangerous"
+	case tierProtected, tierSafety:
+		return "--yes"
+	}
+	return ""
+}
+
+// confirmSchema is one approval of a command in `komando schema` (S-7.7):
+// its tier, the flag an AI agent or a script adds for it, and when it
+// holds ("" = always). A change on a protected server or conn also needs
+// --yes (PROTECTED_HOST, PROTECTED_TARGET); the target decides that, so it
+// is no entry.
+type confirmSchema struct {
+	Tier string `json:"tier"`           // read, change, dangerous, safety or person
+	Flag string `json:"flag,omitempty"` // --allow-dangerous or --yes
+	When string `json:"when,omitempty"`
+}
+
+// confirmOf is c's approvals from the rule table: first the one it always
+// has, then each one it reaches only sometimes, in table order.
+func confirmOf(c *cobra.Command) []confirmSchema {
+	id := cmdID(c)
+	always := confirmSchema{Tier: tierRead.String()}
+	if k, ok := kindOf(c); !ok || k.Kind != kindRead {
+		always.Tier = tierChange.String()
+	}
+	var more []confirmSchema
+	for _, r := range riskRows {
+		if r.id != id {
+			continue
+		}
+		e := confirmSchema{Tier: r.tier.String(), Flag: r.tier.flag(), When: r.cond}
+		switch {
+		case r.bulk != "":
+			e.Flag, e.When = "--yes", r.cond+": "+r.bulk+" (CONFIRM_REQUIRED)"
+		case r.dynamic != "" && e.When != "":
+			e.When += ", when " + r.dynamic
+		case r.dynamic != "":
+			e.When = "when " + r.dynamic
+		}
+		if e.When == "" {
+			always = e
+			continue
+		}
+		more = append(more, e)
+	}
+	res := []confirmSchema{always}
+	for _, e := range more {
+		if e.Tier != always.Tier || e.Flag != always.Flag {
+			res = append(res, e) // one it always needs anyway says nothing more
+		}
+	}
+	return res
 }

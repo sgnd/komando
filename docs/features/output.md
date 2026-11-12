@@ -15,6 +15,16 @@ komando schema                           # also every exit code and error code
 komando doctor                           # check the local setup
 ```
 
+Each command in `komando schema` has a `kind` (`read`, `change` or
+`depends`) and a `confirm` list from komando's rule table: first the tier
+it always has, then each tier it reaches only sometimes, with the flag an
+agent or a script adds and when, for example
+`[{"tier":"change"},{"tier":"dangerous","flag":"--allow-dangerous","when":"with --remove-home"}]`.
+Tiers are `read`, `change`, `dangerous` (`--allow-dangerous`), `safety`
+(`--yes`) and `person` (no flag: a person at a terminal runs it). A change
+on a protected server or conn also needs `--yes`; the target decides that,
+so it is not listed.
+
 ## Text or JSON
 
 In a terminal you get readable text. When another program (such as an AI

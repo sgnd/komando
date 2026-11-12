@@ -363,6 +363,9 @@ type cmdSchema struct {
 	Runnable bool         `json:"runnable"`
 	Kind     string       `json:"kind,omitempty"`      // read, change or depends (kinds.go)
 	KindNote string       `json:"kind_note,omitempty"` // on what, for depends
+	// Confirm is what a run needs, from the rule table (S-7.7): the tier it
+	// always has first, then each it reaches only sometimes
+	Confirm []confirmSchema `json:"confirm,omitempty"`
 }
 
 // schemaPath reads a command named as one argument: host.add, as in the
@@ -461,6 +464,9 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 						}
 						if k, ok := kindOf(c); ok && s.Runnable {
 							s.Kind, s.KindNote = k.Kind, k.Note
+						}
+						if s.Runnable {
+							s.Confirm = confirmOf(c)
 						}
 						ownFlags(c).VisitAll(func(f *pflag.Flag) {
 							if f.Hidden || f.Name == "help" {
