@@ -281,8 +281,8 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	p.answer("Production [Yes, protect it]: ", "\r")
 	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
-	p.answer("Run it? [y/N, d = --dry-run first]: ", "\r") // Enter is No
-	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Nothing was run") {
+	p.answer("Run it? [y/N, d = --dry-run first]: ", "\r") // Enter is No: exit 6 (S-8.9)
+	if code := p.exit(); code != 6 || !strings.Contains(p.shown(), "Cancelled. Nothing was changed.") {
 		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
 	}
 	if strings.Contains(p.shown(), "ter2") || strings.Contains(p.shown(), "hun") {
@@ -301,7 +301,7 @@ func TestFormAddCtrlC(t *testing.T) {
 	invHome(t)
 	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "db", "add")
 	p.answer("KIND: ", "\x03")
-	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Nothing was run") {
+	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Stopped.") {
 		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
 	}
 	if echo, _ := p.leftTerminal(); !echo {
