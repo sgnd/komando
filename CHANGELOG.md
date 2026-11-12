@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- The `VAULT_KEY` hint for a server's password reference, and the
+  `NO_PASSPHRASE` entry in the error catalog, named the old vault.key file;
+  they now say store.key, where the sealed store keeps the key.
 - "No server named ..." at a terminal now names the command to add one
   (`komando host add NAME user@address`, `komando conn add NAME URL`,
   `komando vpn add NAME KIND`) instead of "run komando and pick Add".
