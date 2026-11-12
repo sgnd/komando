@@ -118,7 +118,6 @@ var examples = map[string]string{
 
 	"komando vpn down":   "  komando vpn down office\n  komando vpn down --all",
 	"komando vpn list":   "  komando vpn list",
-	"komando vpn rm":     "  komando vpn rm old-office",
 	"komando vpn show":   "  komando vpn show office",
 	"komando vpn status": "  komando vpn status",
 	"komando vpn test":   "  komando vpn test office",
