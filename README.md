@@ -18,8 +18,9 @@ puts them behind one command, built so that both you and an AI agent
 - A history of everything that was done, and by whom.
 - One file to install, with its own SSH, database and VPN clients built in.
 
-New here? Install it, then type `komando`. A menu asks what you want to do,
-one plain question at a time. Unsure about a word? See [Key terms](#key-terms).
+New here? Install it, then type `komando`: it shows what komando does and
+where to start. Type a command with something left out and komando asks for
+it, one line at a time. Unsure about a word? See [Key terms](#key-terms).
 
 ## Install
 
@@ -70,89 +71,79 @@ server's identity (its host key) and checks it on every later visit.
 komando
 ```
 
-A menu opens. On a new computer it looks like this:
+At your terminal it shows the commands by what they work on, with START
+first, and on a new computer how to add your first server:
 
 ```text
-komando
+komando: one safe command line for servers, databases, caches, queues, storage, clusters and VPNs
 
-Welcome to komando. Start by adding a server.
+Nothing added yet: komando host add  or  komando import ssh-config
 
-> 1. Add a server        Its address and the user you log in with
-  2. Set up my AI agent  Lets Claude, Codex, Cursor or Gemini use komando
-  3. Settings and help   AI agent, passwords, production servers, SSH keys
-
-↑↓ move · Enter or 1-3 choose · ? help · q quit
+START        host add · import ssh-config · list · test <target> · guide install
+SERVERS      exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell
+...
+Leave out an argument at a terminal and komando asks for it.
 ```
 
-Move with the arrow keys (or `j`/`k`) and press Enter, or press a row's
-number. Esc goes back one step, `?` explains the screen you are on, and `q`
-quits. When `~/.ssh/config` names servers komando does not know yet,
-**Bring in my SSH servers** shows as well.
-
-Once you have added something, the menu starts with what you have:
-**Servers**, **Databases and services** and **VPNs**. Pick one, then pick
-what to do with it: open a shell, check its health, read logs, restart a
-service, run a query. Below them are **Add something**, **Check
-everything**, **History and undo** and **Settings and help**.
+`komando import ssh-config` brings in the servers you already have in
+`~/.ssh/config`. `komando help safety` (or `environment`, `exit-codes`,
+`output`) explains one thing that holds for every command.
 
 ### 2. Add a server
 
-Choose **Add a server** (later: **Add something**, then **Server**).
-komando asks one question at a time: a name, the address, the user, what
-the server runs (Linux or Windows), the port, how you log in, and whether it
-is production. Each question shows an example, and Enter takes the default
-(`Port [22]:`). A wrong answer, such as a name that is taken or a key file
-that is not there, is marked `!` under the question and waits for you to
-fix it. The production question starts on **Yes, protect it**: komando then
-asks you before every change there. Choose No for a test machine.
+Type `komando host add` alone. komando asks one line at a time: a name, the
+address, the user, what the server runs (Linux or Windows), the port, how
+you log in, and whether it is production. Enter takes the default in
+brackets (`Port [22]:`), `?` explains the question, a number picks from a
+list. A wrong answer, such as a name that is taken, says why and asks
+again. Production starts on **Yes, protect it**: komando then asks you
+before every change there.
 
-The last screen shows the commands your answers make, before anything runs:
+Then komando shows the commands your answers make, before anything runs:
 
 ```text
-Add a server: check and run
-This runs:
-  $ komando host add web1 ubuntu@203.0.113.10 --protected
-  $ komando test web1
+$ komando host add web1 ubuntu@203.0.113.10 --protected
+$ komando test web1
+Run it? [y/N, d = --dry-run first]: y
 ```
 
-Choose **Run it**. If you log in with a password, the command adds
-`--ask-password`: it asks for the password itself, hidden, and keeps it in
-the vault. You never type a password into the menu.
+If you log in with a password, the command gets `--ask-password`: it asks
+for the password itself, hidden, and keeps it in the vault. A password
+pasted with the address (`root:secret@1.2.3.4`) is taken out and never
+shown. If the test fails, komando says the commands to change, test again
+or remove it.
 
-Add works the same way for a database, a cache, a message queue, file
-storage, Kubernetes, a container registry or a VPN.
+`komando db add`, `cache add`, `queue add`, `storage add`, `cluster add`,
+`registry add` and `vpn add` typed alone ask the same way.
 
 ### 3. Test it
 
-The add already ran `komando test web1`. Run it again any time, from the
-menu (**Servers**, web1, **Change this server**, **Test it**), with
-**Check everything**, or by typing:
+The add already ran `komando test web1`. Run it again any time:
 
 ```bash
 komando test web1
+komando test all        # every server and service
 ```
 
 ### 4. Run a command
-
-In the menu, pick **Servers**, then web1: **Check health** shows what the
-server is and how it is doing, and **Open a shell** logs you in. Every other
-task (logs, services, files, Docker, updates) is in the same list, and
-komando asks only for what it still needs. Or type the command:
 
 ```bash
 komando facts web1               # what is this server?
 komando recipe run health web1   # is it healthy?
 komando exec web1 -- uptime      # run any command
+komando host show web1           # its settings, then the commands for it
 ```
 
-The menu runs the same command you could type, and shows it first
-(`$ komando facts web1`). Every key and screen of the menu is on
-[the menu page](docs/features/commands.md#the-menu-for-people).
+Leave something out and komando asks: `komando logs` asks `TARGET:` with a
+numbered list of your servers, then shows the whole line it runs
+(`$ komando logs web1`) and, next time, you can type it yourself. A change
+asks `Run it? [y/N, d = --dry-run first]`; `d` shows what it would do
+first. Nothing is ever asked of an AI agent, a script or a pipe: they get
+the usual error that names what is missing.
 
 ### The same steps, typed
 
-Everything the menu does is a command. These lines add, check and protect
-the same server:
+These lines add, check and protect the same server, typed in full:
 
 ```bash
 komando host add web1 ubuntu@203.0.113.10
@@ -212,7 +203,7 @@ without a keychain (see
 
 ### Databases and caches
 
-Add them with the menu, or with `conn add` and a short name. A private
+Add them with `komando db add` (or `cache add` ...) alone, which asks, or with `conn add` and a short name. A private
 database is reached through a server (`--via`), so it never has to be open
 to the internet:
 
@@ -375,7 +366,7 @@ For fish and PowerShell, see `komando completion --help`.
 | Word | Meaning |
 |------|---------|
 | Server | A computer (usually in the cloud) that runs your apps. |
-| Host | komando's word for a server in its list. You add one with Add in the menu, or with `komando host add`. |
+| Host | komando's word for a server in its list. You add one with `komando host add`. |
 | Terminal / CLI | A window where you type commands instead of clicking. |
 | SSH | The secure way to log in to and control a Linux server remotely. |
 | Conn | komando's word for anything you connect to that isn't a server: a database, cache, queue, storage bucket, cluster or registry. |

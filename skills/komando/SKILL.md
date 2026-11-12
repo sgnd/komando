@@ -24,18 +24,20 @@ If `komando` is not installed, stop and ask the human to install it:
 Update komando only when the human asks: `komando update` (when it stops with
 `NOT_WRITABLE`, ask them to run `sudo komando update`).
 
-## The menu is for people; you get no questions
+## People are asked; you get no questions
 
-A person who runs `komando` alone at a terminal gets a menu: they pick a
-server, database or VPN, then a task, and komando asks one question at a
-time. `komando host add` (or `db add`, `vpn add`) typed alone asks the same
+At a person's terminal, a command typed with something missing asks for
+it, one line at a time, and shows the whole line before it runs.
+`komando host add` (or `db add`, `vpn add`) typed alone asks that kind's
 questions.
 
 komando never asks an AI agent or a script anything. Give every argument
 and flag on the command line. When a step needs a person (a yes, a
 password, a two-factor code), the command stops with an error code, and
 `error.hint` says what to ask the human for. If the human would rather add
-servers themselves, point them to the menu.
+servers themselves, tell them to type `komando host add` in their own
+terminal. Running komando under a pseudo-terminal as an agent komando does
+not know? Set `KOMANDO_AGENT=1`.
 
 ## Rules
 

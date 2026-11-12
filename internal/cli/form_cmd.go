@@ -2,7 +2,6 @@ package cli
 
 import (
 	"cmp"
-	"errors"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,12 +14,12 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// Every feature as questions: picking a task in the menu (Servers, web1,
-// Read logs) asks for what its command still needs, its arguments first (a
-// server, a database ... picked from a list) and the flags that matter, the
-// others under More options on the review. The questions come
-// from the command itself (its Use line and its flags), so a new command
-// or flag shows up here on its own; a formHint makes one read better.
+// Every command as questions: a person at a terminal who types a command
+// with something missing is asked for it (prompter_fill.go), its arguments
+// first (a server, a database ... picked from a list) and the flags it
+// needs. The questions come from the command itself (its Use line and its
+// flags), so a new command or flag shows up here on its own; a formHint
+// makes one read better (its help on ?, its list, what it needs).
 
 // formHint makes one command's questions read well.
 type formHint struct {
@@ -30,10 +29,13 @@ type formHint struct {
 	hide  []string   // flags never offered here, besides formNeverFlags
 	// form is a hand-made form used instead (host add, conn add, vpn add)
 	form func() []formGroup
-	// skip keeps it out of the menu (ssh-gate: sshd runs it, not a person)
+	// skip: nobody is ever asked its questions (ssh-gate: sshd runs it)
 	skip bool
 	// always are flags every line gets (rename --prefix)
 	always []string
+	// next are the commands that usually follow, {} the first argument:
+	// shown on stderr as Next: after it ends well for a person at a terminal
+	next []string
 }
 
 // formArg is how one argument is asked.
@@ -50,6 +52,10 @@ type formArg struct {
 	// show asks it only while it says true, from the answers so far
 	// (keys: arg0, arg1 ... and flag:NAME)
 	show func(a formAnswers) bool
+	// need: an optional argument a command typed without it is asked for
+	// at a person's terminal while this says true (db query's SQL, unless
+	// --file gives it)
+	need func(a formAnswers) bool
 }
 
 // formFlag is how one flag is asked, when it is asked before More options.
@@ -64,6 +70,9 @@ type formFlag struct {
 	// keep makes a switch three-way for edits: leave it, Yes, or No
 	// (--name=false), since No alone would change nothing
 	keep bool
+	// need, as formArg.need: asked at a person's terminal, when missing,
+	// while it says true (required asks it always)
+	need func(a formAnswers) bool
 }
 
 // formHints is keyed by the command path without "komando " (db query).
@@ -79,7 +88,7 @@ func addFormHints(m map[string]formHint) {
 	}
 }
 
-// formNeverFlags are not offered by the menu. A person approves what needs
+// formNeverFlags are never asked or added by a question. A person approves what needs
 // a yes when the command asks (or in its window); output is for scripts.
 var formNeverFlags = []string{"help", "yes", "allow-dangerous", "reveal", "output", "dry-run"}
 
@@ -148,6 +157,8 @@ func formArgPick(name string) (string, bool) {
 		return "conn", false
 	case "VPN":
 		return "vpn", false
+	case "DATABASE":
+		return "db", false
 	case "GROUP":
 		return "group", true
 	case "JOB", "ID":
@@ -200,6 +211,16 @@ func formPickRows(st *store.State, pick string) []menuRow {
 		for _, n := range secretNames() {
 			rows = append(rows, menuRow{label: n, value: n})
 		}
+	case "recipe": // saved commands
+		for _, n := range sortedKeys(st.Snippets) {
+			rows = append(rows, menuRow{label: n, value: n})
+		}
+	case "via": // what a server or service is reached through
+		rows = append(menuHostRows(st), menuVpnRows(st)...)
+	case "setting":
+		for _, n := range settingKeys() {
+			rows = append(rows, menuRow{label: n, value: n})
+		}
 	}
 	return rows
 }
@@ -211,18 +232,12 @@ func formWords(name string) string {
 	if slices.Contains(formAcronyms, name) {
 		return name
 	}
-	if w, ok := formPlainNames[name]; ok {
-		return w
-	}
 	n := strings.ToLower(strings.Join(strings.Fields(name), " "))
 	if n == "" {
 		return name
 	}
 	return strings.ToUpper(n[:1]) + n[1:]
 }
-
-// formPlainNames are Use names a beginner would not read as words.
-var formPlainNames = map[string]string{"SRC": "From", "DST": "To", "DEST": "To", "CONN": "Service"}
 
 // formAcronyms stay in capitals as labels.
 var formAcronyms = []string{"SQL", "URL", "PID", "TTL", "ID", "IP", "CSV", "DNS", "OS"}
@@ -238,6 +253,9 @@ func formCmdSpec(cmd *cobra.Command) formSpec {
 	}
 	asked := map[string]bool{}
 	for _, ff := range h.flags {
+		if slices.Contains(formNeverFlags, ff.name) {
+			continue // a hint never brings in --yes, --allow-dangerous or --reveal
+		}
 		if f := cmd.Flags().Lookup(ff.name); f != nil {
 			sp.qs = append(sp.qs, formFlagQ(f, ff, false))
 			asked[ff.name] = true
@@ -333,8 +351,8 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 		}
 	case len(ff.choices) > 0:
 		q.choices = formValueRows(ff.choices)
-	case ff.pick != "":
-		pick := ff.pick
+	case ff.pick != "" || formFlagPick[f.Name] != "" && f.Value.Type() == "string":
+		pick := cmp.Or(ff.pick, formFlagPick[f.Name])
 		q.choices = func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, pick) }
 		q.free = true
 	case strings.HasSuffix(f.Name, "-ref"): // a reference, never the secret itself
@@ -349,6 +367,10 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 	q.show = ff.show
 	return q
 }
+
+// formFlagPick is the list a flag is picked from when no hint says: the
+// same names shell completion offers for it.
+var formFlagPick = map[string]string{"via": "via", "key": "key"}
 
 // formValueRows is a fixed list of values to pick from.
 func formValueRows(vals []string) func(*store.State, formAnswers) []menuRow {
@@ -420,29 +442,41 @@ func formCmdArgs(cmd *cobra.Command, uses []formUseArg, h formHint, a formAnswer
 		}
 		args = append(args, formArgWords(key, u, ah, v)...)
 	}
-	flags := slices.Clone(h.always)
+	flags := slices.DeleteFunc(slices.Clone(h.always), func(w string) bool {
+		return slices.Contains(formNeverFlags, strings.SplitN(strings.TrimLeft(w, "-"), "=", 2)[0])
+	})
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
 		v, ok := a["flag:"+f.Name]
 		ff := formFlagHint(h, f.Name)
-		switch {
-		case !ok || (v == f.DefValue && !ff.keep) || slices.Contains(h.always, "--"+f.Name):
-		case v == "" && ff.empty:
-			flags = append(flags, "--"+f.Name+"=")
-		case v == "":
-		case f.Value.Type() == "bool" && v == "true":
-			flags = append(flags, "--"+f.Name)
-		case f.Value.Type() == "bool":
-			flags = append(flags, "--"+f.Name+"=false")
-		case ff.local:
-			flags = append(flags, "--"+f.Name+"="+expandHome(v))
-		default: // one word, so a value starting with - stays a value
-			flags = append(flags, "--"+f.Name+"="+v)
+		if ok && !slices.Contains(h.always, "--"+f.Name) && (v != f.DefValue || ff.keep) {
+			flags = append(flags, formFlagWords(f, ff, v)...)
 		}
 	})
 	if i := slices.Index(args, "--"); i >= 0 { // flags go before --, the rest is the command's
 		return append(append(slices.Clone(args[:i]), flags...), args[i:]...)
 	}
 	return append(args, flags...)
+}
+
+// formFlagWords is one flag's answer as command line words: none for an
+// empty answer (or an approval flag), --name for a yes, --name=value as one
+// word, so a value starting with - stays a value.
+func formFlagWords(f *pflag.Flag, ff formFlag, v string) []string {
+	switch {
+	case f == nil || slices.Contains(formNeverFlags, f.Name):
+		return nil
+	case v == "" && ff.empty:
+		return []string{"--" + f.Name + "="}
+	case v == "":
+		return nil
+	case f.Value.Type() == "bool" && v == "true":
+		return []string{"--" + f.Name}
+	case f.Value.Type() == "bool":
+		return []string{"--" + f.Name + "=false"}
+	case ff.local:
+		return []string{"--" + f.Name + "=" + expandHome(v)}
+	}
+	return []string{"--" + f.Name + "=" + v}
 }
 
 // formFlagHint is the hint for one flag, or none.
@@ -523,8 +557,7 @@ func formSplitWords(v string) []string {
 // Areas.
 
 // formAreas sorts the commands by area, and which command words fall in
-// each when no hint says. The menu reaches each command from an item's
-// tasks (menu.go); the areas keep the hints and tests in order.
+// each when no hint says. The areas keep the hints and tests in order.
 var formAreas = []struct {
 	label, detail string
 	words         []string
@@ -545,7 +578,7 @@ var formAreas = []struct {
 	{"Setup", "AI agents, updates", []string{"guide", "update", "version", "schema", "completion"}},
 }
 
-// formListed: the menu offers it. A group command (cache, cluster
+// formListed: it has questions. A group command (cache, cluster
 // helm) that only shows its help is left out; its subcommands are listed.
 func formListed(c *cobra.Command) bool {
 	h, hinted := formHints[commandKey(c)]
@@ -573,35 +606,4 @@ func formAreaOf(c *cobra.Command) int {
 		}
 	}
 	return -1
-}
-
-// formQuitIsCancel: q or Ctrl-C on a form's list cancels the form, not the
-// menu.
-func formQuitIsCancel(err error) error {
-	if errors.Is(err, errMenuQuit) {
-		return errFormCancel
-	}
-	return err
-}
-
-// formCancelKey is the cancel key a form list shows: on a list without a
-// filter q cancels the form (letters are not typed there), so it says so;
-// on a list with one, q is a letter and only Ctrl-C cancels.
-func formCancelKey(l *menuList) string {
-	if l.typing {
-		return "Ctrl-C cancel"
-	}
-	return "q cancel"
-}
-
-// formTry runs a command with --dry-run from the review and comes back to
-// it, so a person sees what a change would do before it happens.
-type formTry func(args []string) error
-
-// formTryFor offers the dry run only for a command that changes things.
-func formTryFor(c *cobra.Command, try formTry) formTry {
-	if k, ok := kindOf(c); ok && k.Kind == kindRead {
-		return nil
-	}
-	return try
 }

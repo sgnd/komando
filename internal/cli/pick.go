@@ -1,13 +1,28 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 	"slices"
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
+
+// The lists a question picks from (servers, conns, VPNs, each with a short
+// detail), and how komando shows and runs a command line it built. They
+// were the menu's; the questions of a typed command use them now.
+
+// menuRow is one line a person can choose.
+type menuRow struct {
+	label, detail string
+	value         string // what choosing it gives back (an action or a name)
+}
 
 // menuNames is the names a list may offer, sorted. A name the inventory
 // would not accept today (a hand-edited state file, or "all" from before it
@@ -157,52 +172,69 @@ func menuDetail(parts, groups, tags []string) string {
 	return cleanText(strings.Join(parts, "  "))
 }
 
-// menuHeader is the top line: komando and what it knows, as
-// "komando  3 servers · 2 databases · 1 VPN (office connected)".
-func menuHeader(st *store.State) []seg {
-	var counts []string
-	if n := len(menuNames(st.Hosts, "host")); n > 0 {
-		counts = append(counts, menuCount(n, "server"))
+// menuRunOne runs one komando command on this terminal: its exit code, -1
+// when a signal ended it.
+func menuRunOne(self string, args []string) (int, error) {
+	err := menuCommand(self, args).Run()
+	var ee *exec.ExitError
+	switch {
+	case err == nil:
+		return 0, nil
+	case errors.As(err, &ee):
+		return ee.ExitCode(), nil
 	}
-	dbs, others := 0, 0
-	for _, n := range menuNames(st.Conns, "conn") {
-		if connFamily(st.Conns[n]) == "db" {
-			dbs++
-		} else {
-			others++
-		}
-	}
-	if dbs > 0 {
-		counts = append(counts, menuCount(dbs, "database"))
-	}
-	if others > 0 {
-		counts = append(counts, menuCount(others, "service"))
-	}
-	if names := menuNames(st.Vpns, "vpn"); len(names) > 0 {
-		vpns := menuCount(len(names), "VPN")
-		var up []string
-		for _, n := range names {
-			if menuVpnUp(st, n) {
-				up = append(up, n)
-			}
-		}
-		switch {
-		case len(up) == 1:
-			vpns += " (" + up[0] + " connected)"
-		case len(up) > 1:
-			vpns += fmt.Sprintf(" (%d connected)", len(up))
-		}
-		counts = append(counts, cleanText(vpns))
-	}
-	if len(counts) == 0 {
-		return []seg{{"komando", "1"}}
-	}
-	return []seg{{"komando", "1"}, {"  " + strings.Join(counts, " · "), "2"}}
+	return 0, err
 }
 
-func menuCount(n int, word string) string {
-	if n == 1 {
-		return "1 " + word
+// menuCommandLine is args as a person would type them: a word a shell
+// would read differently is quoted, so the line can be copied.
+func menuCommandLine(args []string) string {
+	words := make([]string, len(args))
+	for i, a := range args {
+		words[i] = a
+		safe := a != "" && !strings.ContainsFunc(a, func(r rune) bool {
+			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("@%+=:,./_-", r))
+		})
+		if !safe {
+			words[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
+		}
 	}
-	return fmt.Sprintf("%d %ss", n, word)
+	return cleanText(strings.Join(words, " "))
+}
+
+// menuCommand is the komando command the menu runs, on this terminal. It
+// is not tied to a context: Ctrl-C stops the command, not the menu. Its
+// environment is komando's own (vault.SelfEnv): komando took
+// KOMANDO_VAULT_PASS out of its environment when it started, and the
+// command needs it to open a passphrase vault, as it would when typed. The
+// command takes it out again before it starts anything else.
+func menuCommand(self string, args []string) *exec.Cmd {
+	c := exec.Command(self, args...)
+	c.Env = vault.SelfEnv()
+	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
+	return c
+}
+
+// menuVpnUp: komando keeps a session of this VPN up. The process is checked
+// by its pid only, as `komando status --short` does: the list must draw at once.
+func menuVpnUp(st *store.State, name string) bool {
+	s := st.Sessions[name]
+	return s != nil && netx.Alive(s.PID)
+}
+
+// menuWrap cuts text into lines of at most width columns, between words.
+func menuWrap(text string, width int) []string {
+	var lines []string
+	line := ""
+	for _, w := range strings.Fields(text) {
+		if line != "" && displayWidth(line)+1+displayWidth(w) > width {
+			lines = append(lines, line)
+			line = ""
+		}
+		if line != "" {
+			line += " "
+		}
+		line += w
+	}
+	return append(lines, line)
 }

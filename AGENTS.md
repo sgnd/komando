@@ -11,8 +11,10 @@ the setup below). Only an agent komando knows gets secrets hidden in output
 and the approval window for `--yes`, `--allow-dangerous` and `--reveal`.
 
 komando never asks an agent or a script anything: give every argument and
-flag on the command line. The menu (`komando` alone: pick a server, a
-database or a VPN, then a task) is for a person at a terminal.
+flag on the command line. At a person's terminal, a command typed with
+something missing asks for it; that is for people only. If you run komando
+under a pseudo-terminal and komando does not know your agent, set
+`KOMANDO_AGENT=1`, so it never asks you.
 
 ## Rules
 

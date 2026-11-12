@@ -44,6 +44,9 @@ func addCompletion(c *cobra.Command) {
 		if w == "NAME" {
 			w = c.Parent().Name()
 		}
+		if w == "DATABASE" { // db dump and db restore name a conn (a database komando knows)
+			w = "CONN"
+		}
 		if w == "KEY" && c.Parent().Name() == "config" {
 			w = "setting"
 		}

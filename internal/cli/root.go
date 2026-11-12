@@ -81,7 +81,11 @@ type exitCode int
 
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
-func Execute() int {
+func Execute() int { return executeArgs(os.Args[1:]) }
+
+// executeArgs runs komando with these arguments (os.Args[1:] for the real
+// program): one command, its envelope or text, and its exit code.
+func executeArgs(args []string) int {
 	if Version == "dev" {
 		// `go install ...@v1.2.3` records the module version in the binary
 		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
@@ -93,11 +97,28 @@ func Execute() int {
 	if f, ok := outputFormat(os.Getenv("KOMANDO_OUTPUT")); ok {
 		out.P.Format = f
 	}
+	// a person at a terminal who left something out is asked for it first
+	// (prompter_fill.go); everyone else gets args as they are
+	filled, err := promptFill(args)
+	if err != nil {
+		var done fillDone
+		if errors.As(err, &done) {
+			return done.code
+		}
+		out.P.Format = "text"
+		return out.P.Fail("komando", promptStopped(err))
+	}
+	if !slices.Equal(filled, args) {
+		args = filled
+		os.Args = append([]string{os.Args[0]}, filled...) // what the audit and the approval window name
+	}
 	root := newRoot()
+	root.SetArgs(args)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	cmd, err := root.ExecuteContextC(ctx)
 	if err == nil {
+		promptNext()
 		return 0
 	}
 	var ec exitCode
@@ -219,8 +240,6 @@ func usageErr(cmd *cobra.Command, err error) error {
 		return e
 	} else if ok {
 		e.Message = fmt.Sprintf("unknown command %q", name)
-		// not "pick Add something": the first-run menu, where a newcomer
-		// most likely is, has no such row
 		if name == "add" && !cmd.HasParent() {
 			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
 			return e
@@ -543,7 +562,7 @@ func newRoot() *cobra.Command {
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
-	root.InitDefaultHelpCmd()
+	addHelpTopics(root) // and cobra's help command
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	applyConventions(root)
@@ -586,7 +605,7 @@ const rootLong = `komando is one safe command line for
 for people and AI agents alike.
 
 First steps:
-  komando                                  a menu of common tasks (in a terminal)
+  komando                                  what komando does, by group
   komando host add web1 ubuntu@203.0.113.10
   komando test web1                        check that web1 answers
   komando guide install                    let your AI agent use komando safely
@@ -608,17 +627,50 @@ const rootScriptNotes = `For scripts and AI agents:
               8 precondition or conflict.
   komando guide is the playbook for agents; komando schema lists every command.`
 
-// printFirstSteps is `komando` alone: the menu for a person at a terminal
-// (menu.go), else the first steps, not a wall of text (ux.md, section 10).
+// printFirstSteps is `komando` alone: the commands by group for a person at
+// a terminal, else the first steps, not a wall of text (ux.md, section 10).
 func printFirstSteps(cmd *cobra.Command, args []string) error {
 	if out.P.Format == "json" { // piped: one JSON envelope, never text
 		return out.Usage("komando needs a command").WithHint("read `komando guide` (the playbook for agents) or `komando schema` (every command)")
 	}
-	if menuWanted(cmd, args) {
-		return runMenu()
+	if promptable(outputFlag()) { // a person at a terminal: what komando does, by group
+		_, err := fmt.Fprint(cmd.OutOrStdout(), personHelp())
+		return err
 	}
 	_, err := fmt.Fprint(cmd.OutOrStdout(), firstSteps)
 	return err
+}
+
+// personHelp is `komando` alone for a person at a terminal: the commands
+// by what they work on, START first, a few examples, and how to learn more.
+func personHelp() string {
+	var b strings.Builder
+	b.WriteString("komando: one safe command line for " + tagline + "\n\n")
+	if st, err := loadState(); err == nil && len(st.Hosts) == 0 && len(st.Conns) == 0 && len(st.Vpns) == 0 {
+		b.WriteString("Nothing added yet: komando host add  or  komando import ssh-config\n\n")
+	}
+	for _, g := range [][2]string{
+		{"START", "host add · import ssh-config · list · test <target> · guide install"},
+		{"SERVERS", "exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell"},
+		{"DATA", "db  cache  queue  storage"},
+		{"PLATFORM", "cluster  registry"},
+		{"ACCESS", "vpn  login  secret  key  tunnel"},
+		{"OVERVIEW", "status  audit  list  doctor"},
+		{"SETUP", "host  conn  group  config  guide  completion"},
+	} {
+		fmt.Fprintf(&b, "%-12s %s\n", g[0], g[1])
+	}
+	b.WriteString(`
+EXAMPLES
+  $ komando host add web1 deploy@10.0.0.5
+  $ komando logs web1 --unit nginx --since 30m
+  $ komando db query prod-db "select now()"
+  $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
+
+Leave out an argument at a terminal and komando asks for it.
+LEARN MORE   komando <command> --help · komando help safety|environment|exit-codes|output
+`)
+	return b.String()
 }
 
 // tagline is what komando works with, said the same way in `komando`

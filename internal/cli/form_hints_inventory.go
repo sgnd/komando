@@ -172,6 +172,7 @@ var invListHints = map[string]formHint{
 var invJobHints = map[string]formHint{
 	"job": {},
 	"job start": {
+		next: []string{"job list", "job status JOB_ID"},
 		args: []formArg{invServers, {ask: "What command should it run?", example: "apt-get -y upgrade",
 			help: "A long task that keeps running when your connection drops. Type it as you would on the server."}},
 		flags: []formFlag{invSudo, invReadOnly,

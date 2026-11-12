@@ -221,11 +221,20 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 	return fmt.Sprintf("%s is %s, not a %s.", name, what, one), strings.ToUpper(use[:1]) + use[1:] + "."
 }
 
-// addHint says how to add the first of what a command works with: the
-// menu for a person at a terminal, the command line for agents and scripts.
+// addHint says how to add the first of what a command works with. A person
+// at a terminal can type the add command alone, which asks step by step.
 func addHint(family, code string) string {
 	if interactive() {
-		return "run komando and pick Add"
+		cmd := "host add"
+		switch {
+		case familyWord[family] != [2]string{}:
+			cmd = family + " add"
+		case family == "conn" || family != "host" && family != "vpn" && code == "CONN_NOT_FOUND":
+			cmd = "conn add"
+		case family == "vpn" || code == "VPN_NOT_FOUND":
+			cmd = "vpn add"
+		}
+		return "type `komando " + cmd + "`: it asks step by step"
 	}
 	switch {
 	case familyWord[family] != [2]string{} || family == "conn" || family != "host" && family != "vpn" && code == "CONN_NOT_FOUND":

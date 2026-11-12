@@ -7,6 +7,66 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed
+
+- A test now records what AI agents and scripts get from every command
+  typed with too few arguments (stdout, stderr and exit code, in JSON and
+  text). It guards the move from the menu to typed commands that ask a
+  person for what is missing: agents and scripts must see no change.
+- Shell completion now offers your databases for `db dump` and
+  `db restore`. Questions that pick a saved recipe, a `--via` server or
+  VPN, a `--key` or a setting now show a list of the ones you have
+  instead of a blank line.
+- New: komando's line-by-line questions for a person at a terminal (a
+  value by its real name, a numbered list to pick from, `Run it? [y/N,
+  d = --dry-run first]`, type a name to confirm). They are only ever
+  asked when stdin, stdout and stderr are terminals, no AI agent runs
+  komando, CI is not set, TERM is not dumb and the output is text.
+- A person at a terminal who types a command with something missing is
+  now asked for it instead of getting a usage error: `komando logs` asks
+  `TARGET:` with a numbered list of your servers, `komando db query`
+  uses your only database and asks `SQL:`, `komando fs replace web1
+  /etc/x` asks `--old:` and `--new:`. komando then shows the whole line
+  (`$ komando logs web1`) and runs it. A change asks `Run it? [y/N, d =
+  --dry-run first]` first; one that deletes for good asks you to type the
+  target's name; a protected target asks its usual [y/N] instead. A
+  protected server is never picked for you. A command typed in full, and
+  everything AI agents and scripts get, stays exactly as before.
+- `komando host add`, `conn add`, `vpn add`, `db add`, `cache add`,
+  `queue add`, `storage add`, `cluster add` and `registry add` typed alone
+  at a terminal now ask their questions line by line in the normal screen
+  (which kind, name, address or the parts of the URL, how to log in,
+  production), show the commands, ask `Run it?`, and run them. A password
+  pasted with the address is never drawn. When the test after an add
+  fails, komando says the three commands to change, test again or remove
+  it, instead of a menu.
+- At a terminal, a `--proxy-command` or a cluster's login program that the
+  dangerous-command filter blocks now asks `Blocked by policy: ... Run it
+  anyway, this once? [y/N]` (No by default) instead of failing; the other
+  blocked commands already asked you to type the name, which now starts
+  with `Blocked by policy:`. A yes you give at the terminal is recorded in
+  `komando audit` as `confirm: tty`. Nothing is asked, and no answer
+  counts, when CI is set. AI agents get exit 6 as before.
+- `komando` alone at your terminal now prints what komando does, by
+  group (START, SERVERS, DATA, PLATFORM, ACCESS, OVERVIEW, SETUP), with
+  examples, and says how to add your first server when nothing is added
+  yet. New help topics: `komando help safety`, `environment`,
+  `exit-codes`, `output`. At your terminal, `host show`, `conn show` and
+  `vpn show` end with the commands that work on that item, and after a
+  command ends well komando may say what usually comes next (`Next:`) and,
+  when it asked you for something, the line to type next time. All of
+  this goes to stderr, and only at a person's terminal.
+
+### Removed
+
+- The menu that `komando` alone opened at a terminal, its task lists and
+  the full-screen forms and review screen (owner decision 2026-11-12:
+  person mode is commands). Everything it did is a command: `komando`
+  alone shows them by group, `host show` lists the commands for a server,
+  and a command typed with something missing asks for it. Running now is
+  `komando status`, History and undo is `komando audit`, Check everything
+  is `komando test all` and `komando doctor`.
+
 ### Fixed
 
 - `user add` and `user rm` on a server without `useradd` or `userdel`
@@ -14,6 +74,19 @@ its highlights; the sections below them give the details. Versions follow
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- Menu and guided forms: Esc from the review screen goes back one
+  question at a time, and Esc on the first question now leaves the form
+  (nothing runs). Before, it went round to the review again, so Esc
+  never got you out; only q or Ctrl-C did.
+- Guided forms, lists that also take typing (a secret's name, a group,
+  servers): what you type is now a row of its own at the top, and Enter
+  takes it. Before, Enter took the first row that contained the text, so
+  typing a new secret name `db` saved over `db-pass`, and a name that is
+  part of another could not be typed. A typed answer also comes back as
+  typed when you change it from the review.
+- Guided forms can no longer put `--yes`, `--allow-dangerous` or
+  `--reveal` in a command, even if a command's form hints name one. No
+  form did; a test now checks every command's form for it.
 
 ## [0.12.0] - 2026-11-11
 

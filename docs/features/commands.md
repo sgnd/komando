@@ -242,118 +242,56 @@ komando recipe rm disk-of
   never runs the recipe with its default.
 - `recipe run --no-sudo` skips sudo even when the recipe asks for it.
 
-## The menu (for people)
+## At your terminal: komando asks for what is missing
 
-Type `komando` alone in a terminal and a menu opens. Pick a thing first
-(a server, a database, a VPN), then what to do with it. Move with the arrow
-keys (or `j`/`k`) and choose with Enter or a number. In a list of servers
-or services, type to filter it.
-
-```text
-komando  3 servers · 1 database · 2 services · 2 VPNs (office connected)
-
-> 1. Servers                 db1, web1, web2
-  2. Databases and services  cache1, orders-queue, shop-db
-  3. VPNs                    lab not connected · office connected
-  4. Running now (1)         VPNs, tunnels and logins on this computer; jobs on servers
-  5. Add something           A server, a database, a VPN or another service
-  6. Check everything        See if every server and service answers
-  7. History and undo        What komando and your AI agent changed, and how to put it back
-  8. Settings and help       AI agent, passwords, production servers, SSH keys
-
-↑↓ move · Enter or 1-8 choose · ? help · q quit
-```
-
-The first time, with nothing added yet, the menu offers Add a server, Bring
-in my SSH servers (when `~/.ssh/config` names some), Set up my AI agent and
-Settings and help. While something is still running (a job, a tunnel, a VPN,
-a kept login), a Running now row shows it, with a way to stop each one.
-
-Pick a server and komando asks what you want to do with it: open a shell,
-check its health, read logs, start or stop services, run a command, work
-with files, Docker, updates, reboot, change it or remove it. More… holds the
-rest (cron, users, network checks, tunnels, certificates, SSH keys, saved
-commands). Databases, caches, queues, file storage, clusters, registries and
-VPNs each have their own list of tasks the same way.
-
-A line too long for the window ends in `…`; the help and problems under a
-question wrap instead. A long filter shows its end, where you type.
-
-The menu runs the same command you could type, and shows it first
-(`$ komando shell web1`), so every question and safety check works as it
-does on the command line. When the command ends, Enter goes back to the
-menu and `q` quits. Esc goes back one step (on the main menu, it leaves). Ctrl-C stops the command
-that is running, not the menu. `?` explains the screen you are on.
-
-The menu is only for a person at a terminal. AI agents, scripts, pipes and
-`komando` with any flag get the first steps (or, when piped, a `USAGE`
-error). `komando --help` lists every command.
-
-### Add, one question at a time
-
-Add asks what you are adding (a Linux or Windows server, a database, a
-cache, a message queue, file storage, Kubernetes, a container registry or a
-VPN), then one question at a time, in the order you think of it: a name,
-the address, the user, what the server runs, the port, how you log in, and
-whether it is production. Each question says what it is
-and where to find it, shows an example, and offers a default that Enter
-takes (`Port [22]:`). An answer is checked before the next question: a name
-that is taken, an address with a typo or a file that is not there is said
-under it, marked `!`, and the answer stays to be fixed.
+There is one way to use komando: `komando <thing> <verb> [target] [flags]`.
+At your own terminal, leave something out and komando asks for it, one line
+at a time, in the normal screen (your scrollback keeps it):
 
 ```text
-Add a server · 3 of 7
-  Name     web1
-  Address  203.0.113.20
-
-Which user do you log in as?
-User: root_
-The login name on the server. Many VPS use root; Ubuntu cloud servers use ubuntu; Windows uses Administrator, or user@domain for a domain user.
+$ komando logs
+   1  web1  ubuntu@10.0.0.5
+   2  web2  ubuntu@10.0.0.6
+TARGET: 1
+$ komando logs web1
+...
+Next time: komando logs web1
 ```
 
-The last screen shows every answer and the commands they make, before
-anything runs:
+- It asks only what the command needs: missing arguments, required flags,
+  and the few values a command is useless without (the SQL of `db query`,
+  the command of `exec`). Labels are the real names: `CONN (database):`,
+  `TARGET:`, `--old:`. `?` explains the question; Enter takes the default
+  in brackets.
+- Lists come from what komando knows: a number picks a row, part of a name
+  narrows the list, and a selector (`@web`, `tag:db`) or a new name is
+  taken as typed. With one item that is not protected komando uses it and
+  says so (`Using app-db (the only one of your databases)`); a protected
+  one is never picked for you. With none it says how to add one.
+- It then shows the whole line (`$ komando ...`). A read runs at once. A
+  change asks `Run it? [y/N, d = --dry-run first]` (Enter is No; `d` shows
+  what it would do and asks again). One that deletes for good asks you to
+  type the target's name. A protected target asks its usual
+  `Change it anyway? [y/N]` instead.
+- `komando host add` (or `conn add`, `vpn add`, `db add`, `cache add`,
+  `queue add`, `storage add`, `cluster add`, `registry add`) typed alone
+  asks that kind's own questions: which kind, a name, the address or the
+  parts of the URL, the user, the port, how you log in, and whether it is
+  production. A password is never asked here: the command asks for it
+  itself, hidden (`--ask-password`). A password pasted with the address
+  (`root:secret@10.0.0.5`) is taken out before it is drawn. After the add,
+  `komando test` shows that it answers; if it does not, komando says the
+  commands to change, test again or remove it.
+- Ctrl-C at a question stops it and nothing runs. komando never adds
+  `--yes`, `--allow-dangerous`, `--reveal` or `--write` for you.
+- After a command you ran ends well, komando may say what usually comes
+  next (`Next: komando db info app-db`). `komando host show web1` (`conn
+  show`, `vpn show`) ends with the commands for that item.
 
-```text
-Add a server: check and run
-This runs:
-  $ komando host add web1 root@203.0.113.20 --ask-password --protected
-  $ komando test web1
-
-> 1. Run it          run the commands above
-  2. Try it first    show what it would do, changing nothing (--dry-run)
-  3. Name            web1
-  ...
-  10. More options   jump host, one-time code, group, notes
-```
-
-Enter on an answer asks it again; More options asks the rare ones (a jump
-host or VPN, a one-time code, a group, notes). A password is never typed into the menu:
-the command asks for it itself, hidden (`--ask-password`), and keeps it as
-a saved password. A password pasted with the address (`root:secret@10.0.0.5`) is
-taken out before it is shown, and nothing keeps it. After the add, `komando
-test` shows that it answers (for a server with a one-time code, `komando
-login` instead).
-
-`komando host add`, `komando db add` (and `cache add`, `queue add`,
-`storage add`, `cluster add`, `registry add`, `vpn add`) typed alone at a
-terminal ask the same questions. With any argument or flag, or for an AI
-agent or a script, they ask nothing.
-
-### Every task asks what it needs
-
-A task picked in the menu asks only what it needs: the server, database or
-VPN you picked is already filled in, then the few things that matter.
-Everything else waits under More options on the review screen. For a
-command that changes something, the review also offers *Try it first*,
-which runs it with `--dry-run` and comes back to the review. The menu never
-adds `--yes`, `--allow-dangerous` or `--reveal`: a change that needs your
-yes asks you when it runs.
-
-Keys in a form: Enter takes the answer (or the default), Esc clears what
-you typed and then goes back one question, numbers choose on a list, and
-Ctrl-C cancels before anything runs: the menu then says "Nothing was added."
-or "Nothing was run."
+`komando` alone shows the commands by group, START first. A command typed
+in full runs as it always did. Nothing is ever asked of an AI agent, a
+script, a pipe, a CI job (`CI` set), a dumb terminal (`TERM=dumb`) or JSON
+output: they get the usual `USAGE` error that names what is missing.
 
 ## Interactive shell (for people)
 

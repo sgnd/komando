@@ -802,9 +802,6 @@ func connAddCmdFor(kind string) *cobra.Command {
 		if len(args) > 0 {
 			return run(cmd, args)
 		}
-		if menuWanted(cmd, nil) {
-			return formCommand(formGroupNamed(formFamilyAdd[kind+" add"]))
-		}
 		return out.Errf(out.ExitUsage, "USAGE",
 			"for example: "+k.example+". A person can type `komando "+kind+" add` alone at a terminal to be asked step by step",
 			"komando %s add needs a name and a URL", kind)

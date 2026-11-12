@@ -77,6 +77,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 				}
 				for _, line := range sp.build(st, a) {
 					formParse(t, commandKey(s), line)
+					formNoApproval(t, commandKey(s), line)
 				}
 				// Try it first is a dry run, never the real thing
 				if dry := formDry(sp.build(st, a)); true {
@@ -92,6 +93,47 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 	walk(newRoot())
 	if n < 150 {
 		t.Errorf("only %d commands have questions", n)
+	}
+}
+
+// formNoApproval: a form's line never carries a flag that approves or
+// shows something for the person (docs/design/ux.md, section 10).
+func formNoApproval(t *testing.T, source string, line []string) {
+	t.Helper()
+	for _, w := range line {
+		if w == "--" {
+			return // the rest is the remote command's own words
+		}
+		name := strings.SplitN(strings.TrimLeft(w, "-"), "=", 2)[0]
+		if strings.HasPrefix(w, "--") && slices.Contains([]string{"yes", "allow-dangerous", "reveal", "dry-run"}, name) {
+			t.Errorf("%s: `komando %s` has %s", source, menuCommandLine(line), w)
+		}
+	}
+}
+
+// Even a hint that names an approval flag, or adds it to every line,
+// cannot put it in a form's command.
+func TestFormHintCannotApprove(t *testing.T) {
+	root := &cobra.Command{Use: "komando"}
+	c := &cobra.Command{Use: "zap TARGET", Run: func(*cobra.Command, []string) {}}
+	for _, n := range []string{"yes", "allow-dangerous", "reveal", "force"} {
+		c.Flags().Bool(n, false, n)
+	}
+	root.AddCommand(c)
+	formHints["zap"] = formHint{flags: []formFlag{{name: "yes"}, {name: "reveal"}, {name: "force"}},
+		always: []string{"--allow-dangerous", "--yes=true"}}
+	defer delete(formHints, "zap")
+	sp := formCmdSpec(c)
+	a := formAnswers{"arg0": "web-1", "flag:yes": "true", "flag:reveal": "true", "flag:allow-dangerous": "true", "flag:force": "true"}
+	for _, q := range sp.qs {
+		if q.key == "flag:yes" || q.key == "flag:reveal" || q.key == "flag:allow-dangerous" {
+			t.Errorf("asked %s", q.key)
+		}
+	}
+	got := sp.build(nil, a)[0]
+	formNoApproval(t, "zap", got)
+	if !slices.Contains(got, "--force") {
+		t.Errorf("an ordinary flag was lost: %v", got)
 	}
 }
 
@@ -221,36 +263,49 @@ func TestFormNameProblem(t *testing.T) {
 	}
 }
 
-// `komando host add` alone at a terminal asks, one question at a time,
-// takes a pasted password out before it is ever drawn, and shows the
-// commands it would run; Ctrl-C there adds nothing.
+// `komando host add` alone at a person's terminal asks the server's own
+// questions line by line; a pasted user:password@ is never drawn, the
+// lines are shown before they run, and No adds nothing.
 func TestFormHostAddAtATerminal(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a process")
 	}
 	invHome(t)
-	p := startPTY(t, "host", "add")
-	p.answer("What do you want to call this server?", "web1\r")
-	p.answer("What is the server's address?", "root:hun@ter2@203.0.113.20")
-	p.waitFor("a password was in it")
-	p.answer("a password was in it", "\r")
-	p.answer("User [root]: ", "\r")
-	p.answer("What does the server run?", "\r") // Linux
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "host", "add")
+	p.answer("Name, e.g. web1: ", "web1\r")
+	p.answer("Address, e.g.", "root:hun@ter2@203.0.113.20\r")
+	p.answer("a password was in it", "\r") // User [root]
+	p.answer("System [Linux]: ", "\r")
 	p.answer("Port [22]: ", "\r")
-	p.answer("How do you log in?", "2") // A password
-	p.answer("Can a mistake on this server hurt real users", "\r")
-	p.waitFor("check and run")
+	p.answer("Login [My SSH key]: ", "2\r") // A password
+	p.answer("Production [Yes, protect it]: ", "\r")
 	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
-	p.answer("Run it", "\x03") // Ctrl-C
-	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "nothing was added") {
+	p.answer("Run it? [y/N, d = --dry-run first]: ", "\r") // Enter is No
+	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Nothing was run") {
 		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
 	}
 	if strings.Contains(p.shown(), "ter2") || strings.Contains(p.shown(), "hun") {
 		t.Errorf("the pasted password was drawn:\n%s", p.shown())
 	}
 	if _, err := invRun(t, "host", "show", "web1"); err == nil {
-		t.Error("web1 was added after Ctrl-C")
+		t.Error("web1 was added after No")
+	}
+}
+
+// Ctrl-C at any question of an add stops it, and nothing was added.
+func TestFormAddCtrlC(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a process")
+	}
+	invHome(t)
+	p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "db", "add")
+	p.answer("KIND: ", "\x03")
+	if code := p.exit(); code != 1 || !strings.Contains(p.shown(), "Nothing was run") {
+		t.Errorf("exit %d; the screen:\n%s", code, p.shown())
+	}
+	if echo, _ := p.leftTerminal(); !echo {
+		t.Error("the terminal was left without echo")
 	}
 }
 
@@ -289,26 +344,6 @@ func TestFormSplitWords(t *testing.T) {
 		if got := strings.Join(formSplitWords(in), "|"); got != want {
 			t.Errorf("%q: %q, want %q", in, got, want)
 		}
-	}
-}
-
-// A typed selector is kept as typed, not swapped for the first server it
-// filters to; a moved cursor or an exact name picks that row.
-func TestFormPicked(t *testing.T) {
-	l := &menuList{typing: true, rows: []menuRow{
-		{label: "web1", detail: "@web", value: "web1"}, {label: "web2", detail: "@web", value: "web2"},
-		{label: "@web", detail: "group", value: "@web"}}}
-	for typed, want := range map[string]string{"@web": "@web", "web2": "web2", "tag:prod": "tag:prod",
-		"web1 web2": "web1 web2", "we": "web1", "": "web1", "nothing-like-it": "nothing-like-it"} {
-		l.setFilter(typed)
-		if got := formPicked(l, false); got != want {
-			t.Errorf("typed %q: %q, want %q", typed, got, want)
-		}
-	}
-	l.setFilter("web")
-	l.cursor = 1
-	if got := formPicked(l, true); got != "web2" {
-		t.Errorf("moved to web2: %q", got)
 	}
 }
 
@@ -495,32 +530,38 @@ func TestFormHidesHaveAReason(t *testing.T) {
 	}
 }
 
-// Labels read as words: no Use syntax ([LOCAL:]REMOTE, SRC_CONN:IMAGE),
-// no shouting (KEY, SRC) and no "conn".
-func TestFormArgLabels(t *testing.T) {
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
-		for _, s := range c.Commands() {
-			walk(s)
-			if !s.Runnable() {
-				continue
-			}
-			for _, q := range formCmdSpec(s).qs {
-				if !strings.HasPrefix(q.key, "arg") {
-					continue
-				}
-				l := q.label
-				if strings.ContainsAny(l, "[]:_") || (len(l) > 1 && l == strings.ToUpper(l) && !slices.Contains(formAcronyms, l)) ||
-					strings.Contains(strings.ToLower(l), "conn") {
-					t.Errorf("%s: label %q", commandKey(s), l)
-				}
-			}
+// A database to back up is picked like any conn, at a prompt and by shell
+// completion; saved commands, what to go through and settings are lists.
+func TestFormPickKinds(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
+	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
+	mustRun(t, "recipe", "add", "up", "uptime")
+	root := newRoot()
+	c, _, _ := root.Find([]string{"db", "dump"})
+	got, _ := c.ValidArgsFunction(c, nil, "")
+	if !slices.Contains(got, "app-db") {
+		t.Errorf("db dump <TAB>: %v", got)
+	}
+	if p, _ := formArgPick("DATABASE"); p != "db" {
+		t.Errorf("DATABASE picks %q", p)
+	}
+	st, _ := loadState()
+	names := func(rows []menuRow) (n []string) {
+		for _, r := range rows {
+			n = append(n, r.value)
+		}
+		return n
+	}
+	for kind, want := range map[string]string{"recipe": "up", "via": "web1", "setting": "audit"} {
+		if got := names(formPickRows(st, kind)); !slices.Contains(got, want) {
+			t.Errorf("%s rows: %v, want %s in them", kind, got, want)
 		}
 	}
-	walk(newRoot())
-	for in, want := range map[string]string{"[LOCAL:]REMOTE": "Local remote", "SRC_CONN:IMAGE": "Src conn image", "KEY": "Key", "SQL": "SQL", "SRC": "From"} {
-		if got := formWords(in); got != want {
-			t.Errorf("formWords(%q) = %q, want %q", in, got, want)
+	e, _, _ := root.Find([]string{"host", "edit"})
+	for _, q := range formCmdSpec(e).qs {
+		if q.key == "flag:via" && q.choices == nil {
+			t.Error("--via is typed, not picked")
 		}
 	}
 }

@@ -29,8 +29,7 @@ PY
 }
 
 # ptykeys KEYS... -- CMD... runs CMD in a pseudo-terminal and types each KEYS
-# once the screen has been still for a moment (a menu waits for keys, so it
-# never prints [y/N]). KEYS take escapes: \r Enter, \x1b[B down, \x03 Ctrl-C.
+# once the screen has been still for a moment (a question waits for keys). KEYS take escapes: \r Enter, \x1b[B down, \x03 Ctrl-C.
 # Prints what the terminal showed and exits with CMD's exit code.
 ptykeys() {
   python3 -I - "$@" <<'PY'

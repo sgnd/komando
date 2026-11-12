@@ -33,6 +33,14 @@ func TestPTYChild(t *testing.T) {
 		t.Skip("the pty tests run it")
 	}
 	interactive = func() bool { return true }
+	switch os.Getenv("KOMANDO_PTY_AS") {
+	case "person": // whatever TERM and CI the tests run with
+		promptable = func(f string) bool { return promptGate(f, isAgent(), "", "xterm") }
+	case "agent": // TestMain took the agent variables away
+		os.Setenv("KOMANDO_AGENT", "1")
+		resetApproval()
+		interactive = func() bool { return false } // as the real one says for an agent
+	}
 	os.Args = append([]string{"komando"}, strings.Split(args, "\x1f")...)
 	code := Execute()
 	// the terminal as komando leaves it (the test cannot look itself: the
@@ -62,13 +70,19 @@ type ptyRun struct {
 // startPTY runs komando with args on a new pseudo-terminal.
 func startPTY(t *testing.T, args ...string) *ptyRun {
 	t.Helper()
+	return startPTYEnv(t, nil, args...)
+}
+
+// startPTYEnv is startPTY with more environment for komando.
+func startPTYEnv(t *testing.T, env []string, args ...string) *ptyRun {
+	t.Helper()
 	m, tty, err := openPTY()
 	if err != nil {
 		t.Skipf("no pseudo-terminal here: %v", err)
 	}
 	p := &ptyRun{t: t, master: m, tty: tty, report: filepath.Join(t.TempDir(), "report")}
 	p.cmd = exec.Command(os.Args[0], "-test.run=^TestPTYChild$")
-	p.cmd.Env = append(os.Environ(), "KOMANDO_PTY_ARGS="+strings.Join(args, "\x1f"), "KOMANDO_PTY_REPORT="+p.report, "KOMANDO_OUTPUT=text")
+	p.cmd.Env = append(append(os.Environ(), "KOMANDO_PTY_ARGS="+strings.Join(args, "\x1f"), "KOMANDO_PTY_REPORT="+p.report, "KOMANDO_OUTPUT=text"), env...)
 	// this process took the passphrase out of its environment; the child
 	// needs it for every command, as a person's own shell would give it
 	if pass := vault.Passphrase(); pass != "" {

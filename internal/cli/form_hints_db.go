@@ -38,7 +38,7 @@ var (
 var dbLookHints = map[string]formHint{
 	"db query": {
 		args: []formArg{dbConn, {ask: "Which SQL should it run? (leave empty to read it from a file)",
-			example: dbSQL.example, help: dbSQL.help}},
+			example: dbSQL.example, help: dbSQL.help, need: func(a formAnswers) bool { return a["flag:file"] == "" }}},
 		flags: []formFlag{dbWrite,
 			{name: "file", ask: "Or read the SQL from which file on this computer?", example: "./migration.sql", local: true,
 				help: "Only when you left the SQL empty. A .sql file on this computer."},
@@ -89,6 +89,7 @@ var dbChangeHints = map[string]formHint{
 			help: "No stops only the running query and the program stays connected. Yes disconnects it."}},
 	},
 	"db dump": {
+		next: []string{"db restore {} --from FILE --dry-run"},
 		args: []formArg{{ask: "Which database should it back up?", pick: "db",
 			help: "A database you added to komando."}},
 		flags: []formFlag{

@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -265,24 +263,6 @@ func TestFormDestructive(t *testing.T) {
 	}
 }
 
-// After an add whose test fails, komando knows how to take it out again
-// and which line says why.
-func TestFormAfterFailedCheck(t *testing.T) {
-	rm := formRemoveCmd([][]string{{"host", "add", "web1", "root@10.0.0.5"}, {"test", "web1"}})
-	if strings.Join(rm, " ") != "host rm web1" {
-		t.Errorf("remove: %v", rm)
-	}
-	if formRemoveCmd([][]string{{"import", "kubeconfig"}, {"cluster", "status", "kind:k8s"}}) != nil {
-		t.Error("an import has no single remove")
-	}
-	if !formIsCheck([]string{"test", "web1"}) || !formIsCheck([]string{"vpn", "up", "office"}) || formIsCheck([]string{"host", "add"}) {
-		t.Error("formIsCheck")
-	}
-	if got := formLastLine("a\n\x1b[1merror\x1b[0m: no route to host\n\n"); got != "error: no route to host" {
-		t.Errorf("last line: %q", got)
-	}
-}
-
 // Forms never say vault or conn to a person.
 func TestFormNoJargon(t *testing.T) {
 	for _, g := range formGroups() {
@@ -305,34 +285,6 @@ func TestFormNoJargon(t *testing.T) {
 	}
 }
 
-// Every Add something row opens all of its groups, together every Add
-// group once, and every `KIND add` typed alone opens its own group.
-func TestMenuAddGroups(t *testing.T) {
-	seen := map[string]int{}
-	for _, r := range menuAddRows {
-		gs := menuAddGroups(r.label)
-		if len(gs) != len(r.groups) {
-			t.Errorf("Add something > %s: %d groups, want %v", r.label, len(gs), r.groups)
-		}
-		for _, g := range gs {
-			seen[g.label]++
-		}
-	}
-	for _, g := range formGroups() {
-		if seen[g.label] != 1 {
-			t.Errorf("Add group %q is offered %d times by Add something", g.label, seen[g.label])
-		}
-	}
-	for kind := range connAddKinds {
-		if gs := formGroupNamed(formFamilyAdd[kind+" add"]); len(gs) != 1 {
-			t.Errorf("komando %s add alone: %d groups, want its own", kind, len(gs))
-		}
-	}
-	if _, _, err := formPick(context.Background(), nil, nil, menuScreen{}); !errors.Is(err, errMenuBack) {
-		t.Errorf("formPick with nothing to pick: %v", err)
-	}
-}
-
 // The production question is asked of every kind, servers too: its Yes
 // default must take effect without opening More options.
 func TestFormProtectAskedEverywhere(t *testing.T) {
@@ -344,19 +296,5 @@ func TestFormProtectAskedEverywhere(t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-// The review shows exactly what Run it runs: an answer a later edit hid
-// (a log file, once a service was picked) is in neither.
-func TestFormReviewShowsWhatRuns(t *testing.T) {
-	st := menuTestState()
-	c, _, _ := newRoot().Find([]string{"logs"})
-	sp := formCmdSpec(c)
-	a := formAnswers{"arg0": "web-1", "flag:file": "/var/log/app.log", "flag:unit": "nginx"}
-	l := formReviewList(st, sp, a, true)
-	want := "$ komando " + menuCommandLine(formBuild(st, sp, a)[0])
-	if len(l.runs) != 1 || l.runs[0] != want || strings.Contains(want, "app.log") {
-		t.Errorf("review %v, runs %q", l.runs, want)
 	}
 }

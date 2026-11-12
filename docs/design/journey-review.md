@@ -1,9 +1,11 @@
 # komando menu redesign: synthesis and completeness check
 
-Status: **done, shipped in v0.11.0.** This was the plan for the menu
-redesign. The menu and forms in `internal/cli/menu*.go` and
-`internal/cli/form*.go` are now the reference; how to use them is in
-[docs/features/commands.md](../features/commands.md#the-menu-for-people).
+Status: **replaced (2026-11-12).** This was the plan for the menu
+redesign, shipped in v0.11.0. The owner then chose commands instead of a
+menu (vision.md decision 5): the menu is gone, and a typed command asks a
+person for what is missing; see
+[docs/features/commands.md](../features/commands.md#at-your-terminal-komando-asks-for-what-is-missing).
+Kept for the history of the questions it settled.
 Two points shipped differently from the plan: the main menu footer is
 `↑↓ move · Enter or 1-N choose · ? help · q quit`, with no Esc and no
 filter there (typing filters only in the lists of servers and services), and the production question of item 15

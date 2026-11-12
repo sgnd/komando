@@ -52,6 +52,26 @@ commands in, so these rules apply to it too:
 
 Scripts and you at your terminal use the flags as before.
 
+## When you are at the terminal
+
+When you run a command yourself at a terminal (not an AI agent, a script
+or a CI job), komando asks instead of stopping:
+
+- A change on a protected server or conn asks `web1 is protected. Change
+  it anyway? [y/N]`.
+- A command the dangerous-command filter blocks asks you to type the
+  target's name (`Blocked by policy: ... Type the name web1 to continue`),
+  or for a `--proxy-command` or a cluster's login program that matches a
+  rule, `Blocked by policy: ... Run it anyway, this once? [y/N]`.
+- No is the default; Enter, Ctrl-C or Ctrl-D is a no, and nothing runs.
+  A yes counts for that one command only, as `--yes` or
+  `--allow-dangerous` would, and `komando audit` records it with
+  `confirm: tty` and what you said yes to.
+- Blocks no flag clears (`HOSTKEY_MISMATCH`, `NEEDS_PERSON`, `SSH_GATE_*`,
+  `STORE_OLD_COPY`, `REVEAL_NEEDS_HUMAN`) are never asked.
+
+An AI agent is never asked: it gets exit 6 and the same codes as before.
+
 ## A key that runs komando and nothing else
 
 To reach komando on this computer from another device (the Komando app on

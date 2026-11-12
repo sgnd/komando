@@ -77,7 +77,8 @@ func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 var srvRunHints = map[string]formHint{
 	"exec": {
 		args: []formArg{srvServers, {ask: "What command should it run?", example: "df -h /",
-			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead."}},
+			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead.",
+			need: func(a formAnswers) bool { return a["flag:script"] == "" }}},
 		flags: []formFlag{
 			{name: "script", ask: "Which script on this computer?", example: "./deploy.sh", local: true, show: srvNoCommand,
 				help: "A file on this computer. komando sends it to the server and runs it there; nothing is left on disk."},

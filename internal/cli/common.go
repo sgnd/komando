@@ -501,7 +501,7 @@ func sftpHost(c *store.Conn) *store.Host {
 // are, so they still need --yes and --allow-dangerous (docs/design/ux.md,
 // section 6).
 var interactive = func() bool {
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent()
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent() && !ciRun()
 }
 
 // ask prints question on stderr and reads one line from the terminal.
@@ -509,13 +509,6 @@ var interactive = func() bool {
 func ask(question string) string {
 	line, _ := readAnswer(question, false)
 	return strings.TrimSpace(line)
-}
-
-// confirmProtected asks a human at the terminal to confirm a change to
-// protected targets. A yes counts as --yes for the rest of this command.
-func confirmProtected(names []string) bool {
-	askedAbout = names
-	return confirmYes(fmt.Sprintf("%s %s protected. Change it anyway?", strings.Join(names, ", "), map[bool]string{true: "is", false: "are"}[len(names) == 1]))
 }
 
 // confirmYes asks a [y/N] question at the terminal. The answer covers this
@@ -527,6 +520,9 @@ func confirmYes(question string) bool {
 	a := strings.ToLower(ask(question + " [y/N] "))
 	ok := a == "y" || a == "yes"
 	cur().sess.SaidNo(!ok)
+	if ok {
+		ttyYes(question)
+	}
 	return ok
 }
 
@@ -568,11 +564,12 @@ func confirmDangerous(names []string, reason string) bool {
 	case len(names) > 1:
 		want, what = fmt.Sprint(len(names)), fmt.Sprintf("%d (the number of targets)", len(names))
 	}
-	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
+	fmt.Fprintf(os.Stderr, "Blocked by policy: %s. To run it anyway, this once:\n", reason)
 	ok := ask("Type "+what+" to continue: ") == want
 	cur().sess.SaidNo(!ok)
 	if ok {
 		cur().sess.ConfirmDanger(key)
+		ttyYes("typed " + want + ": " + reason)
 	}
 	return ok
 }
@@ -648,6 +645,10 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 			rec["actor_claimed"] = true
 		}
 		rec["os_user"] = osUser()
+	}
+	if c := cur(); len(c.ttyYes) > 0 || promptConfirmed != "" {
+		rec["confirm"] = "tty" // a person said yes at the terminal
+		rec["confirmed"] = append(slices.Clone(c.ttyYes), slices.DeleteFunc([]string{promptConfirmed}, func(s string) bool { return s == "" })...)
 	}
 	for k, v := range extra {
 		rec[k] = v
