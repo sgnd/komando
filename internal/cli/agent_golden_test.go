@@ -143,6 +143,8 @@ var goldenExtra = [][]string{
 	{"cluster", "ls", "x1", "pods", "-n", "50"},
 	{"cluster", "events", "x1", "-n", "50"},
 	{"cluster", "logs", "x1", "x2", "-n", "50"},
+	// C-F03: storage rm -n is --max-remove for one release (noted), then USAGE
+	{"storage", "rm", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
 }
 
 // goldenNoise is what differs between runs and machines, not between

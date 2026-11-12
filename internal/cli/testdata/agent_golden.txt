@@ -6198,6 +6198,26 @@ exit 2
 --- stdout
 --- stderr
 Error: -n: 50 is a count, but -n is --namespace in cluster commands
+### komando -o json storage rm x1 --prefix a/ -n 10 --dry-run (agent json)
+exit 3
+--- stdout
+{"ok":false,"command":"storage.rm","error":{"code":"CONN_NOT_FOUND","message":"no server, conn or VPN named \"x1\"","hint":"run `komando list` to see servers, conns and VPNs"},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"deprecated":{"used":"-n","now":"--max-remove"}}}
+--- stderr
+### komando -o text storage rm x1 --prefix a/ -n 10 --dry-run (agent text)
+exit 3
+--- stdout
+--- stderr
+Error: No file storage named "x1".
+### komando -o json storage rm x1 --prefix a/ -n 10 --dry-run (script json)
+exit 3
+--- stdout
+{"ok":false,"command":"storage.rm","error":{"code":"CONN_NOT_FOUND","message":"no server, conn or VPN named \"x1\"","hint":"run `komando list` to see servers, conns and VPNs"},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"deprecated":{"used":"-n","now":"--max-remove"}}}
+--- stderr
+### komando -o text storage rm x1 --prefix a/ -n 10 --dry-run (script text)
+exit 3
+--- stdout
+--- stderr
+Error: No file storage named "x1".
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout

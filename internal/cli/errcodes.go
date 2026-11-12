@@ -246,7 +246,7 @@ var errorCodes = []errorCode{
 	{"TOOL_FAILED", 5, "a program komando ran on the server failed (its words follow)", "check that … is installed and works: `komando doctor`"},
 	{"TOOL_MISSING", 3, "curl is not installed", "install curl on the server"},
 	{"TOOL_TOO_OLD", 5, "… failed on … (exit …): …", "pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --on HOST"},
-	{"TOO_MANY", 8, "… objects match, more than --limit …", "narrow --prefix or --older-than, or raise --limit above … after checking the list"},
+	{"TOO_MANY", 8, "… objects match, more than --max-remove …", "narrow --prefix or --older-than, or raise --max-remove above … after checking the list"},
 	{"TOO_MANY_TAGS", 2, "… has more than … tags", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN REPO:TAG`"},
 	{"TOPIC_EXISTS", 8, "topic … already exists", "pick another name, or see it with `komando queue describe CONN …`"},
 	{"TOPIC_NOT_FOUND", 3, "topic … does not exist", "list topics with `komando queue ls CONN`"},

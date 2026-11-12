@@ -25,6 +25,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `storage rm --prefix` names its safety cap `--max-remove` (default
+  1000), so it is not taken for a list's `--limit`. `--limit` and `-n`
+  still set it in this release and are noted in `meta.deprecated`; after
+  that, `-n` on `storage rm` is a usage error that names `--max-remove`.
+  The `TOO_MANY` message and hint name `--max-remove`.
 - **In `cluster` commands, `-n` is now `--namespace`, as in kubectl**, on
   all 20 commands that take a namespace. `cluster events`, `logs` and
   `ls` keep `--limit`, now without a short form. A number after `-n`

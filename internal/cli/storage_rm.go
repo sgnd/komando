@@ -27,7 +27,7 @@ func storageRmCmd() *cobra.Command {
 		Long: `Without --prefix, rm takes exact keys (no patterns). With --prefix it removes
 every object under that folder, or with --older-than only the ones older
 than that (30d, 12h): the usual cleanup of old backups. --dry-run lists them
-first; --limit (default 1000) refuses to go on when more would be removed.`,
+first; --max-remove (default 1000) refuses to go on when more would be removed.`,
 		Example: `  komando storage rm backups tmp/old.sql.gz --allow-dangerous
   komando storage rm backups --prefix daily/ --older-than 30d --dry-run
   komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous`,
@@ -96,7 +96,11 @@ first; --limit (default 1000) refuses to go on when more would be removed.`,
 	}
 	c.Flags().StringVar(&prefix, "prefix", "", "remove everything under this folder (e.g. daily/; / for the whole conn)")
 	spanText(c.Flags(), &olderThan, "older-than", "", true, "with --prefix: only objects older than this (e.g. 30d, 12h, 90m)")
-	c.Flags().IntVarP(&limit, "limit", "n", 1000, "refuse when more than this many objects would be removed")
+	c.Flags().IntVar(&limit, "max-remove", 1000, "refuse when more than this many objects would be removed")
+	// a safety cap, not a list's --limit (S-5.1): the old spellings work for
+	// one release and are noted
+	retiredFlag(c, "limit", "max-remove")
+	retiredShort(c, "n", "max-remove")
 	return c
 }
 
@@ -115,13 +119,13 @@ func removeKeys(ctx context.Context, s storex.Bucket, keys []string) ([]string, 
 	return done, nil
 }
 
-// rmPlan is what rm removes (or, in a dry run or over --limit, would).
+// rmPlan is what rm removes (or, in a dry run or over --max-remove, would).
 type rmPlan struct {
 	Conn        string   `json:"conn"`
 	Prefix      string   `json:"prefix,omitempty"`
 	Count       int      `json:"count"`
 	Bytes       int64    `json:"bytes"`
-	Keys        []string `json:"keys,omitempty"`         // over --limit: the first ones
+	Keys        []string `json:"keys,omitempty"`         // over --max-remove: the first ones
 	WouldDelete []string `json:"would_delete,omitempty"` // dry run
 	Missing     []string `json:"missing,omitempty"`      // dry run of exact keys: not there
 	Deleted     []string `json:"deleted,omitempty"`
@@ -141,7 +145,7 @@ func (p rmPlan) Text() string {
 			fmt.Fprintf(&b, "%s does not exist\n", k)
 		}
 		fmt.Fprintf(&b, "would delete %d object%s (%s)\n", p.Count, plural(p.Count), humanBytes(p.Bytes))
-	default: // over --limit
+	default: // over --max-remove
 		b.WriteString(objectTable(p.objs))
 		fmt.Fprintf(&b, "(the first %d of %d objects, %s in all)\n", len(p.objs), p.Count, humanBytes(p.Bytes))
 	}
@@ -197,8 +201,8 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	p.Count = len(keys)
 	if len(keys) > limit {
 		p.Keys, p.objs = keys[:limit], p.objs[:limit]
-		out.P.Print("storage.rm", p, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --limit above %d after checking the list", len(keys)),
-			"%d objects match, more than --limit %d", len(keys), limit))
+		out.P.Print("storage.rm", p, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --max-remove above %d after checking the list", len(keys)),
+			"%d objects match, more than --max-remove %d", len(keys), limit))
 		return exitCode(out.ExitConflict)
 	}
 	if g.dryRun {

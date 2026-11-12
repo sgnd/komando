@@ -276,9 +276,9 @@ komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous  #
 - Without `--prefix`, `rm` takes exact keys only, no patterns.
 - `--prefix` removes everything under a folder (`/` for the whole conn);
   `--older-than` (`30d`, `12h`, `90m`) keeps the newer ones.
-- `--prefix` refuses to remove more than `--limit` objects (1000 by
-  default). Check the dry-run list, and raise the limit if that is what you
-  mean.
+- `--prefix` refuses to remove more than `--max-remove` objects (1000 by
+  default). Check the dry-run list, and raise the cap if that is what you
+  mean. (`--limit` and `-n`, its old names, still work in this release.)
 - **Buckets that keep old versions** (S3 versioning, Google Cloud object
   versioning or soft delete, Azure blob versioning or soft delete): `rm`
   removes the current object only. The provider keeps the old versions (S3

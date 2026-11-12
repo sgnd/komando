@@ -38,6 +38,17 @@ func retiredFlag(c *cobra.Command, old, now string) {
 	flagAlias(c, old, now).Annotations[flagRetired] = []string{"true"}
 }
 
+// retiredShort adds -letter as a retired short spelling of c's flag now
+// (a hidden flag that owns the letter and shares the value).
+func retiredShort(c *cobra.Command, letter, now string) {
+	f := c.Flags().Lookup(now)
+	if f == nil {
+		panic("retiredShort: " + c.CommandPath() + " has no --" + now)
+	}
+	c.Flags().AddFlag(&pflag.Flag{Name: letter, Shorthand: letter, Usage: "old short form of --" + now, Value: f.Value,
+		DefValue: f.DefValue, Hidden: true, Annotations: map[string][]string{flagAliasOf: {now}, flagRetired: {"true"}}})
+}
+
 // noteRetiredFlags notes each retired flag spelling cmd was given.
 func noteRetiredFlags(cmd *cobra.Command) {
 	cmd.Flags().Visit(func(f *pflag.Flag) {
@@ -47,7 +58,11 @@ func noteRetiredFlags(cmd *cobra.Command) {
 			}
 		}
 		if f.Annotations[flagRetired] != nil {
-			retiredName("--"+f.Name, "--"+f.Annotations[flagAliasOf][0])
+			used := "--" + f.Name
+			if len(f.Name) == 1 {
+				used = "-" + f.Name // retiredShort
+			}
+			retiredName(used, "--"+f.Annotations[flagAliasOf][0])
 		}
 	})
 }
