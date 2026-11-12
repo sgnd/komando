@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -276,6 +277,16 @@ func storageLsCmd() *cobra.Command {
 					objs, more, err := s.List(ctx, prefix, recursive, limit)
 					if err != nil {
 						return nil, err
+					}
+					if folder := strings.TrimPrefix(prefix, "/") + "/"; !recursive && folder != "/" && !strings.HasSuffix(prefix, "/") &&
+						slices.ContainsFunc(objs, func(o storex.Object) bool { return o.Dir && o.Key == folder }) {
+						// a bucket lists the folder itself (and db.sql) for "db";
+						// a file server lists what is in the folder db: do that
+						// everywhere when the prefix names a folder
+						prefix = folder
+						if objs, more, err = s.List(ctx, prefix, false, limit); err != nil {
+							return nil, err
+						}
 					}
 					if len(objs) == 0 && strings.Trim(prefix, "/") != "" {
 						// a bucket has no folders, only keys: nothing under the

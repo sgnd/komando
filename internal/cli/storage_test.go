@@ -194,3 +194,26 @@ func TestStorageHintNamesTheConn(t *testing.T) {
 		t.Errorf("only conn commands change: %q", got)
 	}
 }
+
+// storage ls CONN db lists what is in the folder db/ on a bucket too, as
+// on a file server; a prefix that names no folder still lists by prefix.
+func TestStorageLsFolderWithoutSlash(t *testing.T) {
+	withMemBucket(t, &memBucket{objs: map[string]string{"db/a.sql": "a", "db/b.sql": "b", "dbx.txt": "x"}})
+	keys := func(d map[string]any) string {
+		var k []string
+		for _, o := range d["objects"].([]any) {
+			k = append(k, o.(map[string]any)["key"].(string))
+		}
+		return strings.Join(k, ",")
+	}
+	if got := keys(mustRun(t, "storage", "ls", "bk", "db/")); got != "db/a.sql,db/b.sql" {
+		t.Errorf("db/: %s", got)
+	}
+	d := mustRun(t, "storage", "ls", "bk", "db")
+	if got := keys(d); got != "db/a.sql,db/b.sql" || d["prefix"] != "db/" {
+		t.Errorf("db: %s (prefix %v)", got, d["prefix"])
+	}
+	if got := keys(mustRun(t, "storage", "ls", "bk", "d")); got != "db/,dbx.txt" {
+		t.Errorf("d: %s", got)
+	}
+}

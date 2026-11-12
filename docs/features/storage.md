@@ -166,6 +166,9 @@ komando storage cat backups logs/app.log --tail 50    # read text without downlo
 komando storage cat backups config/app.env --head 20
 ```
 
+- `ls backups 2026` and `ls backups 2026/` both list what is in the folder
+  2026, on every kind of storage. On a bucket, a prefix that names no folder
+  (`ls backups logs/app-2026-11`) lists the keys that start with it.
 - `ls` of a folder that is empty or does not exist is `FOLDER_NOT_FOUND`
   (exit 3), on every kind of storage. The empty "folder marker" objects
   that S3 consoles create are left out of listings and downloads.
