@@ -56,7 +56,7 @@ var gateExec = syscall.Exec
 // gateReadForm: these read only with a flag (--read-only), or without one
 // (--write, --analyze, --apply, --refresh). Why the command as given may
 // change something, or "". The checks read flag values, which an old
-// spelling of a flag shares (flagalias.go), so every spelling counts.
+// spelling of a flag shares (flag_alias.go), so every spelling counts.
 var gateReadForm = map[string]func(c *cobra.Command) string{
 	"exec":           needFlag("read-only"),
 	"job.start":      needFlag("read-only"),

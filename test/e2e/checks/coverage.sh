@@ -11,7 +11,7 @@
 # - `config approval-code` is turned on by a person at a terminal, who types
 #   the code from an authenticator app on their phone.
 # Their unit tests cover them instead (internal/cli/secret_keychain_test.go,
-# internal/cli/approvalcode_cmd_test.go), without touching a real keychain.
+# internal/cli/approval_code_cmd_test.go), without touching a real keychain.
 ok() { jget 'd["ok"]'; }
 has() { jget "'$1' in json.dumps(d)"; } # has TEXT: the JSON answer mentions TEXT
 C="t-cov-$$"                            # unique per run, so a rerun never meets leftovers

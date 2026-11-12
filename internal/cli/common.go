@@ -58,7 +58,7 @@ func applyConventions(c *cobra.Command) {
 		}
 	}
 	if n := passthroughFixed(c.Use); n >= 0 && c.Runnable() {
-		needDash(c, n) // words for the other program only after -- (passthrough.go)
+		needDash(c, n) // words for the other program only after -- (args_passthrough.go)
 	}
 	if c.Long == "" {
 		c.Long = details[c.CommandPath()]

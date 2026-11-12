@@ -79,7 +79,7 @@ func TestStandardTableCells(t *testing.T) {
 	}
 	files, _ := filepath.Glob("*.go")
 	for _, f := range files {
-		if strings.HasSuffix(f, "_test.go") || f == "textfmt.go" {
+		if strings.HasSuffix(f, "_test.go") || f == "text.go" {
 			continue
 		}
 		b, _ := os.ReadFile(f)
