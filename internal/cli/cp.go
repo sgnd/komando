@@ -16,6 +16,7 @@ import (
 
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -210,7 +211,22 @@ func shortList(l []string, n int) string {
 type cpOpts struct {
 	recursive, sudo, mkdirs, overwrite bool
 	mode                               string
+	oneHost                            bool // one server: a big file shows progress at a terminal
 }
+
+// transferProgress is a progress line on stderr for one big file going to
+// or from one server, at a person's terminal only: never for an AI agent,
+// never on stdout, and nil (no line) otherwise.
+func transferProgress(o cpOpts, name string, total int64) *progress {
+	if !o.oneHost || total < progressMin || isAgent() || !term.IsTerminal(int(os.Stderr.Fd())) {
+		return nil
+	}
+	return &progress{label: name, total: total}
+}
+
+// progressMin is the smallest file that shows progress: smaller ones are
+// done before a line would be worth drawing.
+const progressMin = 8 << 20
 
 // bind adds the flags of both directions (cp); upload and download add
 // only their own.
@@ -352,6 +368,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 	} else if err := guardSensitiveCopy(remote); err != nil {
 		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
 	}
+	o.oneHost = len(hosts) == 1
 	if g.dryRun {
 		if err := downloadExists(local, remote, !up && !o.overwrite && !o.recursive && len(hosts) == 1); err != nil {
 			return err // the real run would stop here
@@ -467,7 +484,12 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 			mode = "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
 		}
 		// streamed: a multi-GB backup never sits in memory
-		r, err := writeRemoteFrom(ctx, c, sc, dst, storex.CtxReader(ctx, f), writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: mode})
+		var in io.Reader = storex.CtxReader(ctx, f)
+		if p := transferProgress(o, filepath.Base(src), fi.Size()); p != nil {
+			defer p.done()
+			in = io.TeeReader(in, p)
+		}
+		r, err := writeRemoteFrom(ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: mode})
 		if err != nil {
 			return xferStats{}, err
 		}
@@ -585,7 +607,12 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			return xferStats{}, fsErrHint(src, err, downloadPermHint)
 		}
 		defer in.Close()
-		n, sum, masked, err := fetchFile(ctx, in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite)
+		var watch io.Writer
+		if p := transferProgress(o, path.Base(src), fi.Size()); p != nil {
+			defer p.done()
+			watch = p
+		}
+		n, sum, masked, err := fetchFile(ctx, in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite, watch)
 		if err != nil {
 			return xferStats{}, err // nothing was saved: never "downloaded 1 file"
 		}
@@ -632,7 +659,7 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(fsErrHint(w.Path(), err, downloadPermHint)).Message})
 			continue
 		}
-		n, _, masked, err := fetchFile(ctx, in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite)
+		n, _, masked, err := fetchFile(ctx, in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite, nil)
 		in.Close()
 		if ctx.Err() != nil {
 			return st, ctx.Err()
@@ -682,7 +709,7 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return xferStats{}, err
 	}
-	n, sum, masked, err := fetchFile(ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite)
+	n, sum, masked, err := fetchFile(ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite, nil)
 	if err != nil {
 		return xferStats{}, err
 	}
@@ -693,7 +720,8 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 // fs cat shows it, secret values as [hidden] (masked; the sum is then left
 // out: it would let a weak hidden value be guessed). The real file never
 // reaches dst: the temporary file is masked before it is moved there.
-func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool) (n int64, sum string, masked bool, err error) {
+// watch, when not nil, sees every byte (a progress line).
+func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool, watch io.Writer) (n int64, sum string, masked bool, err error) {
 	if _, err := os.Lstat(dst); err == nil && !overwrite {
 		return 0, "", false, fileExists(dst)
 	}
@@ -704,7 +732,11 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 	defer os.Remove(tmp.Name()) // no-op once it has been moved into place
 	h := sha256.New()
 	// the destination watches ctx: an SFTP source keeps reading in parallel
-	n, err = io.Copy(storex.CtxWriter(ctx, io.MultiWriter(tmp, h)), in)
+	var w io.Writer = io.MultiWriter(tmp, h)
+	if watch != nil {
+		w = io.MultiWriter(tmp, h, watch)
+	}
+	n, err = io.Copy(storex.CtxWriter(ctx, w), in)
 	if err == nil && out.P.Mask && !revealOK() {
 		if masked, err = maskDownload(tmp, n); masked {
 			n, _ = tmp.Seek(0, io.SeekEnd)

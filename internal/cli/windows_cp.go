@@ -70,7 +70,7 @@ try {
   [Console]::Out.Flush()
 } finally { $fs.Close() }`)
 	w := &b64Sink{save: func(in io.Reader) (xferStats, error) {
-		n, sum, masked, err := fetchFile(ctx, in, dst, 0o644, time.Time{}, overwrite)
+		n, sum, masked, err := fetchFile(ctx, in, dst, 0o644, time.Time{}, overwrite, nil)
 		if err != nil {
 			return xferStats{}, err
 		}

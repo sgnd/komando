@@ -30,6 +30,11 @@ its highlights; the sections below them give the details. Versions follow
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
 
+### Added
+
+- `upload`, `download` and `cp` show the progress of a file of 8 MiB or
+  more going to or from one server on stderr, at a person's terminal only.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

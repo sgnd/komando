@@ -45,7 +45,7 @@ func TestDownloadMasksSecretsForAgents(t *testing.T) {
 
 	out.P.Mask = true
 	dst := filepath.Join(dir, "agent.conf")
-	_, sum, masked, err := fetchFile(context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false)
+	_, sum, masked, err := fetchFile(context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false, nil)
 	got, _ := os.ReadFile(dst)
 	if err != nil || !masked || sum != "" || strings.Contains(string(got), "hunter2pass") || !strings.Contains(string(got), "requirepass [hidden]") {
 		t.Fatalf("agent download: masked=%v sum=%q err=%v file=%q", masked, sum, err, got)
@@ -54,7 +54,7 @@ func TestDownloadMasksSecretsForAgents(t *testing.T) {
 		t.Error("the masked copy could be uploaded back")
 	}
 	dst = filepath.Join(dir, "agent.bin")
-	if _, _, masked, _ := fetchFile(context.Background(), strings.NewReader(bin), dst, 0o644, time.Time{}, false); masked {
+	if _, _, masked, _ := fetchFile(context.Background(), strings.NewReader(bin), dst, 0o644, time.Time{}, false, nil); masked {
 		t.Error("a binary file was rewritten")
 	}
 	// sync down: the same masking
@@ -70,7 +70,7 @@ func TestDownloadMasksSecretsForAgents(t *testing.T) {
 
 	out.P.Mask = false
 	dst = filepath.Join(dir, "person.conf")
-	_, sum, masked, err = fetchFile(context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false)
+	_, sum, masked, err = fetchFile(context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false, nil)
 	if got, _ := os.ReadFile(dst); err != nil || masked || sum == "" || string(got) != conf {
 		t.Fatalf("person download changed: masked=%v err=%v file=%q", masked, err, got)
 	}

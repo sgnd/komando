@@ -238,6 +238,10 @@ read, the rest are still copied; the result lists the failures under
 
 ### Big files and Ctrl-C
 
+- At a terminal, a file of 8 MiB or more going to or from one server shows
+  its progress on stderr (`app.tar.gz: 120.0 of 512.0 MB`). Nothing is
+  shown when stderr is not a terminal, or for an AI agent; stdout never
+  gets it.
 - Ctrl-C stops a copy, or a sync, within a moment. The file being copied is
   not left behind, files already copied stay, and komando exits 1 with
   `CANCELLED`. Run the same command again to finish: `sync` sends only
