@@ -33,6 +33,12 @@ its highlights; the sections below them give the details. Versions follow
   (`replaced`), and its dry run no longer says "the rest is in" when a
   server would be left out. A setting that differs shows `-` for an empty
   value.
+- `import` now applies the TLS default `conn add` gives: a database URL
+  without TLS settings gets verified TLS (`sslmode=verify-full`,
+  `tls=true`, ...), and a clear-text `redis://`, `amqp://`, `nats://`,
+  `kafka://` or `http://` endpoint to another computer is skipped with the
+  `INSECURE_PROTOCOL` reason instead of being saved, so a password from a
+  `.env` or `.pgpass` file no longer crosses the network unencrypted.
 
 ## [0.12.0] - 2026-11-11
 

@@ -54,6 +54,11 @@ appear in komando's list, output or history.
 
 - Importing the same file again changes nothing. A different database that
   happens to have the same name gets the next free name (`shop-2`).
+- Conns get the same TLS default as `conn add`: a database URL that says
+  nothing about TLS gets TLS that checks the certificate (for example
+  `sslmode=verify-full`, said in a note), and a `redis://`, `amqp://` or
+  other clear-text URL to another computer is skipped unless it ends in
+  `?insecure=1`.
 - With `--overwrite`, the result lists what it replaced. A protected server
   or conn is skipped (`--yes` after the person agrees replaces it), in the
   dry run too.

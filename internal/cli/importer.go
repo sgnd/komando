@@ -351,10 +351,24 @@ func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func
 	var sends, weak []string
 	for _, c := range plan.Conns {
 		c.URL = normConnURL(c.URL)
+		// the TLS default conn add applies: verified TLS where the URL says
+		// nothing, and no password in clear text over the network unless
+		// the URL says ?insecure=1 (docs/features/import.md)
+		var tls connResult
+		if err := secureConnURL(c, &tls); err != nil {
+			e := toErr(err)
+			res.Skipped = append(res.Skipped, importSkip{c.Name, e.Message + "; " + e.Hint})
+			continue
+		}
 		// the same database imported again is skipped; a different one that
 		// happens to share the name gets the next free name (shop-2)
+		name := c.Name
 		if old, ok := st.Conns[c.Name]; ok && old.URL != c.URL && !overwrite {
 			renameImported(st, plan, c)
+		}
+		for _, w := range tls.Warnings {
+			w = strings.ReplaceAll(w, "conn test "+name+"`", "conn test "+c.Name+"`")
+			plan.ConnNotes[c] = append(plan.ConnNotes[c], c.Name+": "+w)
 		}
 		if r := skip("conn", c.Name); r != "" {
 			res.Skipped = append(res.Skipped, importSkip{c.Name, r})

@@ -140,3 +140,28 @@ func TestImportNextReplacedAndPreview(t *testing.T) {
 	}
 }
 
+// An import gets the TLS default conn add gives: verified TLS where the URL
+// says nothing, and a clear-text login over the network is refused.
+func TestImportAppliesConnTLSDefault(t *testing.T) {
+	invHome(t)
+	env := writeTemp(t, ".env", "REDIS_URL=redis://:pw@cache9.example:6379/0\nDATABASE_URL=postgres://app:pw@db.example:5432/shop\nLOCAL_REDIS_URL=redis://127.0.0.1:6379/0\n")
+	d := mustRun(t, "import", "env", env)
+	if got := fmt.Sprint(d["conns"]); got != "[database local-redis]" {
+		t.Errorf("conns: %s", got)
+	}
+	if !strings.Contains(fmt.Sprint(d["skipped"]), "INSECURE") && !strings.Contains(fmt.Sprint(d["skipped"]), "without TLS") {
+		t.Errorf("clear-text redis must be skipped: %v", d["skipped"])
+	}
+	c := mustRun(t, "conn", "show", "database")
+	if !strings.Contains(fmt.Sprint(c["url"]), "sslmode=verify-full") {
+		t.Errorf("postgres over the network gets verified TLS: %v", c["url"])
+	}
+	if !strings.Contains(fmt.Sprint(d["notes"]), "sslmode=verify-full") {
+		t.Errorf("the note says so: %v", d["notes"])
+	}
+	// importing the same file again changes nothing (the stored URL has the default)
+	d = mustRun(t, "import", "env", env)
+	if fmt.Sprint(d["conns"]) != "[]" {
+		t.Errorf("second import added %v", d["conns"])
+	}
+}
