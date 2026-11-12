@@ -65,7 +65,7 @@ q $K host add "$R-app" agent@10.9.9.7 -g "$R" --notes "db $R as role $R-ro on $R
 q $K conn add "$R-db" "postgres://$R-ro@10.9.9.9/$R" --via "$R-app" --password-ref "secret:$R-ro" --label "host=$R-app" --label "team=$R"
 DRY=$($K rename --prefix "$R-" "$N-" --dry-run)
 check "rename: a label naming an old entry is listed" "$N-app" "$(echo "$DRY" | jget '[k["to"] for k in d["data"]["kept"] if k["entry"] == "conn '"$N"'-db" and k["field"] == "label host"][0]')"
-check "rename: notes stay without --notes, with a warning" True "$(echo "$DRY" | jget 'any("--notes replaces them" in w for w in d["data"]["warnings"])')"
+check "rename: notes stay without --in-notes, with a warning" True "$(echo "$DRY" | jget 'any("--in-notes replaces them" in w for w in d["data"]["warnings"])')"
 OUT=$($K rename --prefix "$R-" "$N-" --notes --labels)
 check "rename --notes: names, patterns and @group follow" "db $R as role $R-ro on $N-db; nodes $N-app*; group @$N" "$($K host show "$N-app" | jget 'd["data"]["notes"]')"
 check "rename --notes: OLD without - is kept" True "$(echo "$OUT" | jget 'any(k["name"] == "'"$R"'" and k["field"] == "notes" for k in d["data"]["kept"])')"
