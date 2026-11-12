@@ -687,7 +687,7 @@ func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
 			return nil, out.Errf(out.ExitUsage, "USAGE", "add the server first (`komando host add NAME USER@ADDRESS`), then use --run-on NAME",
 				"--run-on takes a server from the inventory, not %q", on)
 		}
-		return h, nil
+		return h, runOnSecret(st, c, h)
 	}
 	if c.Via == "" {
 		return nil, nil
@@ -700,6 +700,21 @@ func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
 		return nil, nil
 	}
 	return h, nil
+}
+
+// runOnSecret: a server named with --run-on that is not the conn's own
+// --via server gets the conn's password, so for an AI agent it needs a
+// person's yes (SECRET_DESTINATION), as any other place a secret goes.
+func runOnSecret(st *store.State, c *store.Conn, h *store.Host) error {
+	if c.PasswordRef == "" {
+		return nil
+	}
+	if c.Via != "" {
+		if own, vpn, err := resolveVia(st, c.Via); err == nil && vpn == nil && own != nil && own.Name == h.Name {
+			return nil
+		}
+	}
+	return guardSecretUse([]string{c.PasswordRef}, h.Name+" (--run-on: the dump tool for conn "+c.Name+" runs there)")
 }
 
 // toolFailed maps a failed dump or restore tool to the same error codes

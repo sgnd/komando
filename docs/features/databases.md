@@ -435,7 +435,8 @@ komando db dump prod-db --to prod.dump --format custom --run-on db1
 - `HOST` is a server from your inventory (a name or a selector that picks
   exactly one); komando reaches it the usual way, through its own `--via`.
   The conn's password goes to it, so a `user@address` that is not in the
-  inventory is refused.
+  inventory is refused, and for an AI agent a server other than the conn's
+  own `--via` server needs your yes (`SECRET_DESTINATION`).
 - The tool there connects to the conn URL's address as that server sees
   it. When the database only listens on `127.0.0.1` on that server, add a
   second conn for that address reached through it

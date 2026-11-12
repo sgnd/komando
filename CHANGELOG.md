@@ -1163,6 +1163,10 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   there already, always 0600. Before, they wrote over your own
   `settings.json.bak` and kept its mode (often 0644, while settings can
   hold tokens).
+- An AI agent's `db dump --run-on HOST` and `db restore --run-on HOST`
+  need a person's yes (SECRET_DESTINATION) when HOST is not the conn's
+  own `--via` server: the conn's password goes there. Before, an agent
+  could send it to any server in the inventory.
 
 ## [0.12.0] - 2026-11-11
 
