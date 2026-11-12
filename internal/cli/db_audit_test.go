@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 )
 
 // Every db command names its conn CONN in Use, so completion and the
@@ -29,5 +30,16 @@ func TestDBUseLines(t *testing.T) {
 		if strings.Contains(c.Use, "--") || strings.Contains(c.Use, "(") {
 			t.Errorf("%s: Use %q carries flags", c.CommandPath(), c.Use)
 		}
+	}
+}
+
+// db kill --dry-run says in meta.would_be_blocked that the real run needs
+// a person's yes (it skipped the check before).
+func TestDBKillDryRunWouldBeBlocked(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "pg", "postgres://app@127.0.0.1:1/app", "--protected")
+	_, _ = invRun(t, "db", "kill", "pg", "42", "--dry-run")
+	if b := out.P.Blocked(); b == nil || b.Code != "PROTECTED_TARGET" {
+		t.Fatalf("would_be_blocked = %+v, want PROTECTED_TARGET", b)
 	}
 }

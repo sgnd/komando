@@ -165,10 +165,9 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 			if session {
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-kill-session"}, Reasons: []string{"ends session " + args[1] + " (its client loses the connection)"}}
 			}
-			if !g.dryRun {
-				if err := guardConns(st, []*store.Conn{c}, v); err != nil {
-					return err
-				}
+			// under --dry-run guardConns stops nothing: it fills meta.would_be_blocked
+			if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+				return err
 			}
 			db, closeDB, err := openDB(cmd.Context(), st, c, false)
 			if err != nil {

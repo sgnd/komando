@@ -22,6 +22,10 @@ its highlights; the sections below them give the details. Versions follow
   or `revoke` without `--privileges`/`--role` now give a runnable example
   in the hint.
 
+- `db kill --dry-run` now fills `meta.would_be_blocked` (a protected
+  conn, or `--session` without `--allow-dangerous`), as every other dry
+  run does; before, it skipped the check and looked allowed.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights
