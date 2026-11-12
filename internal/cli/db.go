@@ -44,7 +44,16 @@ func dbCmd() *cobra.Command {
 Without --write every query runs in a read-only transaction (SQL Server: one
 that is always rolled back), so nothing can change. With --write, try
 --dry-run first: it runs the SQL and rolls it back, showing how many rows
-would change.`,
+would change.
+
+Each database is a conn: list them with ` + "`komando list kind:db`" + `, check one with
+` + "`komando test NAME`" + `, change it with ` + "`komando conn edit NAME`" + `, rename it with
+` + "`komando rename OLD NEW`" + ` and remove it with ` + "`komando conn rm NAME`" + `.`,
+		Example: `  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref secret:shop-pw
+  komando db query prod-db "select id, email from users order by id desc limit 10"
+  komando db schema prod-db users
+  komando db dump prod-db --to prod.sql.gz
+  komando db restore staging-db --from prod.sql.gz --dry-run`,
 	}
 	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	var withTimeout func(*cobra.Command)

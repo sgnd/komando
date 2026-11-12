@@ -12,7 +12,7 @@ func init() {
 // Answers several hints share.
 var (
 	dbConn = formArg{ask: "Which database?", pick: "db",
-		help: "A database from your list. Add one first with Add, Database."}
+		help: "A database from your list (`komando list kind:db`). Add one with `komando db add`."}
 	dbSQL = formArg{ask: "Which SQL should it run?", example: "select id, email from users order by id desc limit 10",
 		help: "One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {\"find\": \"users\"}."}
 	dbWrite = formFlag{name: "write", ask: "May it change data?",
@@ -92,9 +92,9 @@ var dbChangeHints = map[string]formHint{
 		args: []formArg{{ask: "Which database should it back up?", pick: "db",
 			help: "A database you added to komando."}},
 		flags: []formFlag{
-			{name: "to", ask: "Save the backup to which file on this computer?", required: true, local: true,
+			{name: "to", ask: "Save the backup to which file on this computer?", local: true,
 				example: "./prod-2026-11-10.sql.gz",
-				help:    "A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it."},
+				help:    "A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: CONN-<date>.sql.gz in this folder."},
 			{name: "format", ask: "Which kind of backup?", choices: []string{"plain", "custom"},
 				help: "plain is SQL any database tool reads. custom is PostgreSQL's own archive (needs pg_dump on a server; no .gz then)."},
 			{name: "schema-only", ask: "Only the tables' shape, without the rows?",
