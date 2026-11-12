@@ -142,6 +142,9 @@ komando: following logs on web1, web2 (Ctrl-C stops)
 - `via` is the way there: the VPN first, then the bastions.
 - A protected server or database says `PROTECTED`, in red unless `NO_COLOR`
   is set.
+- On a terminal that cannot show them (`TERM=dumb`, or a locale such as
+  `LANG=C` that is not UTF-8), komando writes its marks in ASCII: `+` for
+  ✓, `x` for ✗, `*` for ●, `->` for →, `-` for ·.
 - When a `shell` or `db shell` ends, one more line says how:
   `komando: left web1 (exit 0, 12m)` or
   `komando: connection to web1 lost after 3m`.

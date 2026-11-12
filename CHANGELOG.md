@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Text output on a terminal that cannot show Unicode (`TERM=dumb`, or a
+  locale such as `LANG=C` that is not UTF-8) now writes komando's marks in
+  ASCII (`+` for ✓, `*` for ●, `->` for →) instead of broken characters.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
