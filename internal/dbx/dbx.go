@@ -110,7 +110,8 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 			q.Add("_pragma", "query_only(1)")
 		}
 		var err error
-		if db, err = sql.Open("sqlite", "file:"+SQLitePath(t)+"?"+q.Encode()); err != nil {
+		// a URI path takes / (SQLite reads file:C:/data/app.db on Windows)
+		if db, err = sql.Open("sqlite", "file:"+filepath.ToSlash(SQLitePath(t))+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
 	case "sqlserver", "oracle", "clickhouse", "snowflake", "bigquery":

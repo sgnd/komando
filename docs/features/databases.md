@@ -51,7 +51,7 @@ start of the URL:
 | ClickHouse | `clickhouse://app@ch.internal:8443/analytics?tls=true` (the HTTP interface). See [ClickHouse](#clickhouse). |
 | Snowflake | `snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO` (the account in place of a host). See [Snowflake](#snowflake). |
 | BigQuery | `bigquery://my-project/analytics?location=EU` (the project, and a default dataset). See [BigQuery](#bigquery). |
-| SQLite | `sqlite:///var/lib/app.db` (a file on this computer) |
+| SQLite | `sqlite:///var/lib/app.db` (a file on this computer; on Windows `sqlite://C:\data\app.db`) |
 | MongoDB | `mongodb://app@db1.internal:27017,db2.internal/shop?replicaSet=rs0&authSource=admin` (Atlas: `mongodb+srv://app@cluster0.abcde.mongodb.net/shop`). See [MongoDB](#mongodb). |
 
 `komando conn kinds` lists every kind, including caches, queues, storage,

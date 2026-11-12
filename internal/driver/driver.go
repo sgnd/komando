@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,10 +209,40 @@ var urlParsers = map[string]func(*url.URL, Target) (Target, error){
 // passwordParams are query parameters that would carry a password or key.
 var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret", "secret_key", "secretkey", "aws_secret_access_key"}
 
+// goos is the system komando runs on; tests set it.
+var goos = runtime.GOOS
+
+// drivePath reports whether p starts with a Windows drive: C:\ or C:/.
+func drivePath(p string) bool {
+	return len(p) >= 3 && (p[0]|0x20 >= 'a' && p[0]|0x20 <= 'z') && p[1] == ':' && (p[2] == '\\' || p[2] == '/')
+}
+
+// parseDrivePath reads a file conn whose URL names a Windows path after
+// the scheme, sqlite://C:\data\app.db: a URL parser would read C: as a
+// host (and refuse the backslashes), so the path is taken as it is.
+func parseDrivePath(raw string) (Target, bool) {
+	scheme, rest, ok := strings.Cut(raw, "://")
+	if !ok || !drivePath(rest) {
+		return Target{}, false
+	}
+	rest, _, _ = strings.Cut(rest, "?") // as for sqlite:///path?x: no options; Windows names hold no ?
+	for _, k := range kinds {
+		for _, s := range k.Schemes {
+			if k.File && strings.EqualFold(scheme, s) {
+				return Target{Kind: k, Path: rest}, true
+			}
+		}
+	}
+	return Target{}, false
+}
+
 // Parse reads a conn URL such as postgres://app@db.internal:5432/app or
 // sqlite:///var/lib/app.db. The kind comes from the scheme. URLs that carry
 // a password are refused: passwords belong in the vault.
 func Parse(raw string) (Target, error) {
+	if t, ok := parseDrivePath(strings.TrimSpace(raw)); ok {
+		return t, nil
+	}
 	first, brokers := splitHostList(firstMongoHost(strings.TrimSpace(raw)))
 	u, err := url.Parse(first)
 	if err != nil || u.Scheme == "" {
@@ -248,6 +279,9 @@ func Parse(raw string) (Target, error) {
 		t.Path = u.Opaque
 		if t.Path == "" {
 			t.Path = u.Path
+		}
+		if goos == "windows" && len(t.Path) > 1 && t.Path[0] == '/' && drivePath(t.Path[1:]) {
+			t.Path = t.Path[1:] // sqlite:///C:/data/app.db is C:/data/app.db
 		}
 		if t.Path == "" {
 			return Target{}, out.Usage("%s URL needs a file path, for example %s:///var/lib/app.db", k.Name, u.Scheme)
