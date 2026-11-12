@@ -7,7 +7,7 @@ and memcached safely. [All docs](README.md)
 
 ```bash
 komando secret set cache-pass
-komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
+komando cache add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
 komando cache info cache                      # version, role, memory, clients, keys, hit rate
 komando cache keys cache 'session:*'          # find keys (safe on big caches)
 komando cache get cache session:42            # value, type and time to live
@@ -20,7 +20,7 @@ Add the cache as a conn. The URL is `redis://USER@HOST:PORT/DB`; use
 
 ```bash
 komando secret set cache-pass                 # each password once, typed hidden
-komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
+komando cache add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:cache-pass
 komando conn add sessions rediss://default@cache.internal:6379/1 --ask-password   # or type it now
 ```
 
@@ -60,7 +60,14 @@ komando conn add queue 'redis://default@sentinel1:26379/0?sentinel=mymaster&sent
 - In a Cluster, `cache keys` scans every master and `cache info` adds up
   memory, clients and keys over them, with the cluster's state
   (`cluster_state`, `masters`). A command for one key goes to the node that
-  holds it. A Cluster has only database 0.
+  holds it, and `cache rm` deletes keys of different slots one by one. A
+  Cluster has only database 0.
+- In a Cluster, `cache run -- DBSIZE` adds up every master. `SCAN`,
+  `RANDOMKEY`, `KEYS`, `FLUSHALL`, `FLUSHDB` and `SWAPDB` would reach one
+  master only, so they stop with `NOT_SUPPORTED` (use `cache keys`; to
+  flush, add each master as its own conn). A command over several keys of
+  different slots (`MGET a b`) fails with `CROSSSLOT`: use one command per
+  key, or a common `{tag}` in the key names.
 - Sentinels listen on 26379 when the URL names no port. More Sentinels go
   in `sentinels=HOST[:PORT],...`. The password is for Redis; when the
   Sentinels want it too, add `&sentinel_auth=same`.
@@ -125,6 +132,14 @@ Commands that delete, wipe, block, run scripts or reconfigure the server
   client until someone sends `SCRIPT KILL` (`FUNCTION KILL` for `FCALL_RO`).
 - Module code counts too: Redis Stack functions (`TFCALL`, `TFCALLASYNC`)
   and RedisGears (`RG.PYEXECUTE`, `RG.TRIGGER`).
+- Cluster and Sentinel administration counts too: `CLUSTER MEET`,
+  `ADDSLOTS`, `FLUSHSLOTS`, `REPLICATE` (the node drops its own data),
+  `SENTINEL SET`, `FAILOVER`, `REMOVE`, `CONFIG SET` and the like.
+  `CLUSTER NODES`, `CLUSTER REPLICAS`, `SENTINEL MASTERS`,
+  `SENTINEL GET-MASTER-ADDR-BY-NAME` and `SENTINEL CONFIG GET` only read.
+- So do commands that delete keys another way: `FT.DROPINDEX ... DD`,
+  `FT.DROP` without `KEEPDOCS`, and `SET` or `GETEX` with an `EXAT` or
+  `PXAT` time already past.
 - `FUNCTION LOAD REPLACE` and `TFUNCTION LOAD REPLACE` count too: they swap
   the code behind functions the application already calls. A plain
   `FUNCTION LOAD` only needs `--write`.
@@ -133,6 +148,39 @@ Commands that delete, wipe, block, run scripts or reconfigure the server
   hashes in `ACL LIST` and `ACL GETUSER` show as `[hidden]`, even when a
   password is a word like `yes`. A hash field named like a secret
   (`password`, `token`, ...) is hidden the same over RESP2 and RESP3.
+
+## Leave something out
+
+At a terminal, `komando cache get` with the cache or the key left out asks
+for just that, with a list of your caches to pick from, then shows the full
+command. An AI agent, a script or a pipe never gets a question: the same
+command stops with `USAGE` (exit 2) and a hint with an example.
+
+```bash
+komando cache get                             # a person: asks CONN (cache), then KEY
+komando cache get -o json                     # an agent: USAGE, exit 2, hint: komando cache get cache session:42
+```
+
+## Check, change, rename or remove a cache
+
+A cache is a conn, so the conn commands work on it:
+
+```bash
+komando test cache                            # can komando reach it and log in?
+komando conn show cache                       # its URL, way in and password reference
+komando conn edit cache --via web2            # reach it another way
+komando conn edit cache --protected           # every change then needs a person's yes
+komando conn mv cache sessions-cache           # rename it
+komando conn rm cache                         # remove it from the list (the cache is untouched)
+```
+
+komando has no backup command for caches. Redis saves its own snapshot,
+which you can then fetch from its server:
+
+```bash
+komando cache run cache --write -- BGSAVE
+komando download web1 /var/lib/redis/dump.rdb --sudo --to ./
+```
 
 ## memcached
 
@@ -153,6 +201,10 @@ komando cache run mc -- stats slabs
 - `cache run` sends one command line and only reads unless `--write`.
   `flush_all` and commands that change or stop the server also need
   `--allow-dangerous`. Store values with `cache set`.
+- The line is split at spaces the way memcached reads it, and the command
+  word is sent in lower case. A newline or other control character in it
+  stops with `USAGE` (it would start a second command). `watch` never
+  returns, so it stops with `NOT_SUPPORTED`.
 
 ## Output
 

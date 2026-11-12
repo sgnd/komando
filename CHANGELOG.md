@@ -119,6 +119,42 @@ its highlights; the sections below them give the details. Versions follow
   (`./current -> releases/42`) as the folder it names. They sent nothing
   and still reported success ("skipped 1 file: .").
 
+- Redis Cluster: `cache rm` with keys in different hash slots failed with
+  `CROSSSLOT`; it now deletes them one by one. `cache run -- DBSIZE`
+  counted one master only; it now adds up every master. `SCAN`,
+  `RANDOMKEY`, `KEYS`, `FLUSHALL`, `FLUSHDB` and `SWAPDB`, which would reach
+  one master only, stop with `NOT_SUPPORTED` before any approval is asked,
+  and a `CROSSSLOT` error says what to do.
+- `komando cache` (the bare group) shows examples of the usual journey;
+  its questions for a person name commands (`komando cache add`,
+  `--dry-run`) instead of menu rows. The caches page shows `cache add`, what
+  happens when an argument is left out, how to test, change, rename and
+  remove a cache, and how to save a Redis snapshot.
+- `policy check --for memcached` rates the words memcached reads, like
+  `cache run`: a line with a newline or other control character is
+  dangerous (new rule `memcached-line`), and `mg "key T30"` is a write.
+- `cache keys --limit 0` listed no keys yet said more matched, and
+  `cache get --limit 0` (or a negative limit) quietly showed 100 items;
+  both now stop with `USAGE` before connecting.
+- `cache run` on Redis: more commands that change a cluster or Sentinel
+  setup (`CLUSTER MEET`, `ADDSLOTS`, `FLUSHSLOTS`, `REPLICATE`, `SENTINEL
+  SET`, `FAILOVER`, `REMOVE`, `CONFIG SET` ...) and that delete keys
+  another way (`FT.DROPINDEX ... DD`, `FT.DROP`, `SET`/`GETEX` with an
+  `EXAT`/`PXAT` already past) now need `--allow-dangerous` as well as
+  `--write`. Read-only `CLUSTER REPLICAS`, `CLUSTER LINKS`, `SENTINEL
+  MASTERS`, `SENTINEL GET-MASTER-ADDR-BY-NAME` and `SENTINEL CONFIG GET`
+  no longer need `--write`.
+- `cache run` on memcached: `stats reset` (clears the counters) and
+  `stats detail on|off` (switches per-prefix counting on the server) now
+  need `--write`; they were taken as reads. `stats detail dump` still reads.
+- Security: `cache run` on memcached now rates the words memcached will
+  read. An argument holding a newline (`get "a\r\nflush_all"`) used to
+  pass as a read and run `flush_all` without `--write` or
+  `--allow-dangerous`; such a line now stops with `USAGE` before anything
+  is sent. Arguments are split at spaces as memcached does (`mg "key T30"`
+  is a touch, so it needs `--write`), the command word is sent in lower
+  case (memcached ignores `GET`), and `watch`, which never returns, stops
+  with `NOT_SUPPORTED`.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

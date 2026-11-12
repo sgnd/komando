@@ -1,9 +1,14 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
+	"fmt"
+	"net"
 	"os"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
@@ -124,5 +129,155 @@ func TestCacheRunQuotedCommand(t *testing.T) {
 	}
 	if _, err := runCache(t, "-o", "json", "cache", "run", "c", "--write", "--dry-run", "--", "MONITOR"); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("MONITOR: %v", err)
+	}
+}
+
+// fakeMemcached answers just enough of memcached's text protocol for a
+// connect and a get, and records every line it receives.
+func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	var mu sync.Mutex
+	var got []string
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer c.Close()
+				r := bufio.NewReader(c)
+				for {
+					l, err := r.ReadString('\n')
+					if err != nil {
+						return
+					}
+					l = strings.TrimRight(l, "\r\n")
+					mu.Lock()
+					got = append(got, l)
+					mu.Unlock()
+					reply := "ERROR"
+					switch f := strings.Fields(l); {
+					case len(f) == 0:
+						continue
+					case f[0] == "version":
+						reply = "VERSION 1.6.39"
+					case f[0] == "mn":
+						reply = "MN"
+					case f[0] == "get" || f[0] == "stats":
+						reply = "END"
+					case f[0] == "flush_all":
+						reply = "OK"
+					case f[0] == "mg":
+						reply = "EN"
+					}
+					fmt.Fprintf(c, "%s\r\n", reply)
+				}
+			}()
+		}
+	}()
+	return ln.Addr().String(), func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]string(nil), got...)
+	}
+}
+
+// TestCacheRunMemcachedLineInjection: memcached ends a command at a
+// newline and splits it at spaces, so `cache run` rates the words memcached
+// will read, not the arguments as given: "get" with "\r\nflush_all" in an
+// argument must not send flush_all as a read, a leading space must not hide
+// flush_all from the --allow-dangerous rule, and "mg" with "key T30" in one
+// argument is a touch (a write).
+func TestCacheRunMemcachedLineInjection(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	addr, lines := fakeMemcached(t)
+	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
+		t.Fatal(err)
+	}
+	code := func(err error) string {
+		var e *out.Error
+		if errors.As(err, &e) {
+			return e.Code
+		}
+		return ""
+	}
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--", "get", "a\r\nflush_all"}, "USAGE"},
+		{[]string{"--", "get", "a\nflush_all"}, "USAGE"},
+		{[]string{`get "a\r\nflush_all"`}, "USAGE"}, // one quoted line, escapes as redis-cli reads them
+		{[]string{"--write", "--", " flush_all"}, "POLICY_BLOCKED"},
+		{[]string{"--", "mg", "a T30"}, "WRITE_REQUIRES_FLAG"},
+		{[]string{"--", "watch"}, "NOT_SUPPORTED"},
+	} {
+		_, err := runCache(t, append([]string{"-o", "json", "cache", "run", "m"}, c.args...)...)
+		if code(err) != c.want {
+			t.Errorf("%q: %v, want %s", c.args, err, c.want)
+		}
+	}
+	if _, err := runCache(t, "-o", "json", "cache", "run", "m", "--", "GET", "a"); err != nil {
+		t.Errorf("a plain get: %v", err)
+	}
+	for _, l := range lines() {
+		if strings.Contains(l, "flush_all") || strings.Contains(l, "T30") {
+			t.Errorf("sent to memcached: %q", l)
+		}
+	}
+	if !slices.Contains(lines(), "get a") {
+		t.Errorf("the plain get was not sent as `get a`: %q", lines())
+	}
+}
+
+// --limit 0 used to list nothing yet say more keys match (cache keys) or
+// quietly show 100 items (cache get); it is a usage error before connecting.
+func TestCacheLimitMustBePositive(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{
+		{"cache", "keys", "c", "--limit", "0"},
+		{"cache", "keys", "c", "*", "-n", "-5"},
+		{"cache", "get", "c", "k", "--limit", "0"},
+	} {
+		_, err := runCache(t, append([]string{"-o", "json"}, args...)...)
+		var e *out.Error
+		if !errors.As(err, &e) || e.Code != "USAGE" {
+			t.Errorf("%q: %v", args, err)
+		}
+	}
+}
+
+// In a Redis Cluster, FLUSHALL, SCAN and the other whole-key-space commands
+// reach one master only; cache run refuses them before any approval or
+// connection (the conn has no server).
+func TestCacheRunClusterWide(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	defer func() { g.dryRun, store.DryRun = false, false }()
+	if _, err := runCache(t, "-o", "json", "conn", "add", "cl", "redis://127.0.0.1:1?cluster=1"); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"--write", "--", "FLUSHALL"}, {"--", "scan", "0"}, {"--", "RANDOMKEY"}} {
+		_, err := runCache(t, append([]string{"-o", "json", "cache", "run", "cl"}, args...)...)
+		var e *out.Error
+		if !errors.As(err, &e) || e.Code != "NOT_SUPPORTED" {
+			t.Errorf("%q: %v", args, err)
+		}
+	}
+	var e *out.Error
+	if _, err := runCache(t, "-o", "json", "cache", "run", "cl", "--", "DBSIZE"); !errors.As(err, &e) || e.Code != "CACHE_CONNECT" {
+		t.Errorf("DBSIZE is summed over the masters, so it is sent: %v", err)
 	}
 }

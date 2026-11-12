@@ -142,7 +142,8 @@ var readSub = map[string]map[string]bool{
 	"OBJECT":    set("ENCODING FREQ IDLETIME REFCOUNT HELP"),
 	"SLOWLOG":   set("GET LEN HELP"),
 	"LATENCY":   set("LATEST HISTORY DOCTOR GRAPH HELP HISTOGRAM"),
-	"CLUSTER":   set("INFO NODES SLOTS SHARDS MYID KEYSLOT COUNTKEYSINSLOT GETKEYSINSLOT HELP"),
+	"CLUSTER":   set("INFO NODES SLOTS SHARDS MYID MYSHARDID KEYSLOT COUNTKEYSINSLOT GETKEYSINSLOT REPLICAS SLAVES LINKS COUNT-FAILURE-REPORTS HELP"),
+	"SENTINEL":  set("MASTERS MASTER PRIMARIES PRIMARY REPLICAS SLAVES SENTINELS GET-MASTER-ADDR-BY-NAME GET-PRIMARY-ADDR-BY-NAME CKQUORUM INFO-CACHE MYID HELP"),
 	"XINFO":     set("STREAM GROUPS CONSUMERS HELP"),
 	"ACL":       set("LIST USERS WHOAMI GETUSER CAT LOG HELP"),
 	"SCRIPT":    set("EXISTS HELP"),
@@ -169,9 +170,16 @@ var destructive = map[string]string{
 }
 
 var destructiveSub = map[string]map[string]string{
-	"CONFIG":    {"SET": "redis-server-config", "REWRITE": "redis-server-config", "RESETSTAT": "redis-server-config"},
-	"CLIENT":    {"KILL": "redis-kill", "PAUSE": "redis-kill", "NO-EVICT": "redis-server-config"},
-	"CLUSTER":   {"RESET": "redis-server-config", "FAILOVER": "redis-server-config", "FORGET": "redis-server-config", "DELSLOTS": "redis-server-config", "SETSLOT": "redis-server-config"},
+	"CONFIG": {"SET": "redis-server-config", "REWRITE": "redis-server-config", "RESETSTAT": "redis-server-config"},
+	"CLIENT": {"KILL": "redis-kill", "PAUSE": "redis-kill", "NO-EVICT": "redis-server-config"},
+	"CLUSTER": {"RESET": "redis-server-config", "FAILOVER": "redis-server-config", "FORGET": "redis-server-config", "DELSLOTS": "redis-server-config",
+		"SETSLOT": "redis-server-config", "DELSLOTSRANGE": "redis-server-config", "ADDSLOTS": "redis-server-config", "ADDSLOTSRANGE": "redis-server-config",
+		"FLUSHSLOTS": "redis-server-config", "MEET": "redis-server-config", "BUMPEPOCH": "redis-server-config", "SET-CONFIG-EPOCH": "redis-server-config",
+		// a node made a replica drops its own data and copies its new master's
+		"REPLICATE": "redis-flush"},
+	// Sentinel: which master it watches and when it fails over
+	"SENTINEL": {"SET": "redis-server-config", "REMOVE": "redis-server-config", "MONITOR": "redis-server-config", "FAILOVER": "redis-server-config",
+		"RESET": "redis-server-config", "FLUSHCONFIG": "redis-server-config", "DEBUG": "redis-server-config", "SIMULATE-FAILURE": "redis-kill"},
 	"ACL":       {"SETUSER": "redis-acl", "DELUSER": "redis-acl", "LOAD": "redis-acl", "SAVE": "redis-acl"},
 	"SCRIPT":    {"FLUSH": "redis-scripts"},
 	"FUNCTION":  {"FLUSH": "redis-scripts", "DELETE": "redis-scripts", "RESTORE": "redis-scripts"},
@@ -306,7 +314,7 @@ func Classify(args []string) driver.Verdict {
 	if id, ok := destructive[cmd]; ok {
 		return flag(id)
 	}
-	if cmd == "DEL" || cmd == "UNLINK" || cmd == "GETDEL" || cmd == "RENAME" || expiresNow(cmd, args) {
+	if cmd == "DEL" || cmd == "UNLINK" || cmd == "GETDEL" || cmd == "RENAME" || expiresNow(cmd, args) || dropsDocs(cmd, args) {
 		// same as `cache rm`: the key (or RENAME's target) is gone afterwards
 		return driver.DataDelete()
 	}
@@ -317,6 +325,12 @@ func Classify(args []string) driver.Verdict {
 		// swaps the code behind functions the application already calls;
 		// a plain LOAD only adds a library and fails if the name is taken
 		return flag("redis-scripts")
+	}
+	if cmd == "SENTINEL" && sub == "CONFIG" {
+		if len(args) > 2 && strings.EqualFold(args[2], "GET") {
+			return driver.Verdict{Risk: driver.RiskRead}
+		}
+		return flag("redis-server-config")
 	}
 	if id, ok := destructiveSub[cmd][sub]; ok {
 		return flag(id)
@@ -341,9 +355,41 @@ func replaces(args []string) bool {
 	return false
 }
 
+// dropsDocs: FT.DROPINDEX with DD deletes every document the index
+// covers, and the old FT.DROP does so unless KEEPDOCS is given.
+func dropsDocs(cmd string, args []string) bool {
+	has := func(w string) bool {
+		return slices.ContainsFunc(args[min(len(args), 2):], func(a string) bool { return strings.EqualFold(a, w) })
+	}
+	switch cmd {
+	case "FT.DROPINDEX":
+		return has("DD")
+	case "FT.DROP":
+		return !has("KEEPDOCS")
+	}
+	return false
+}
+
 // expiresNow reports EXPIRE/PEXPIRE with a time of zero or less, and
-// EXPIREAT/PEXPIREAT with a time in the past: Redis deletes the key at once.
+// EXPIREAT/PEXPIREAT, or SET/GETEX with EXAT/PXAT, with a time in the
+// past: Redis deletes the key at once.
 func expiresNow(cmd string, args []string) bool {
+	if cmd == "SET" || cmd == "GETEX" {
+		first := 2 // GETEX key [options]; SET key value [options]
+		if cmd == "SET" {
+			first = 3
+		}
+		for i := first; i+1 < len(args); i++ {
+			n, err := strconv.ParseInt(args[i+1], 10, 64)
+			switch {
+			case err != nil:
+			case strings.EqualFold(args[i], "EXAT") && n <= time.Now().Unix(),
+				strings.EqualFold(args[i], "PXAT") && n <= time.Now().UnixMilli():
+				return true
+			}
+		}
+		return false
+	}
 	if len(args) < 3 {
 		return false
 	}
@@ -522,8 +568,16 @@ func Info(ctx context.Context, c redis.UniversalClient, section string) (map[str
 	return res, nil
 }
 
+// clusterWide are keyless commands that act on the whole key space. In a
+// Cluster one of them reaches a single master, so its answer (or its
+// effect) would cover only that master's part of the keys.
+var clusterWide = set("DBSIZE FLUSHALL FLUSHDB SCAN RANDOMKEY KEYS SWAPDB")
+
 // Run sends a raw command and converts the reply to JSON-safe values.
 func Run(ctx context.Context, c redis.UniversalClient, args []string) (any, error) {
+	if cc, ok := c.(*redis.ClusterClient); ok && len(args) > 0 && clusterWide[strings.ToUpper(args[0])] {
+		return clusterRun(ctx, cc, args)
+	}
 	a := make([]any, len(args))
 	for i, s := range args {
 		a[i] = s
@@ -711,6 +765,9 @@ func cmdErr(err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "redis did not answer in time")
 	}
 	msg := err.Error()
+	if strings.HasPrefix(msg, "CROSSSLOT") {
+		return out.Errf(out.ExitRemote, "CACHE_ERROR", "in a Redis Cluster the keys of one command must share a hash slot: send one command per key, or name related keys with the same {tag} (user:{42}:a, user:{42}:b)", "%s", msg)
+	}
 	if strings.HasPrefix(msg, "NOPERM") || strings.HasPrefix(msg, "NOAUTH") {
 		return out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference", "%s", msg)
 	}

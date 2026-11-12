@@ -45,6 +45,9 @@ $K cache info cache nosuchsection >/dev/null; check "unknown info section is usa
 check "DEL hint points at cache rm" True "$($K cache run cache -- DEL t-e2edata:a | jget '"cache rm" in d["error"]["hint"]')"
 check "cache rm dry-run lists keys" "['t-e2edata:a']" "$($K cache rm cache t-e2edata:a t-e2edata:none --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm cache t-e2edata:a t-e2edata:l --allow-dangerous
+$K cache keys cache --limit 0 >/dev/null; check "cache keys --limit 0 is usage" 2 $?
+check "SET with an EXAT already past needs --allow-dangerous" POLICY_BLOCKED "$($K cache run cache --write -- SET t-e2edata:x v EXAT 1 | jget 'd["error"]["code"]' || true)"
+check "CLUSTER MEET needs --allow-dangerous" True "$($K cache run cache -- CLUSTER MEET 10.0.0.9 6379 | jget '"--allow-dangerous" in d["error"]["message"]' || true)"
 
 # storage
 echo e2edata > "$TMP/e2edata.txt"

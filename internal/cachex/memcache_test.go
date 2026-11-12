@@ -14,11 +14,23 @@ func TestClassifyMemcache(t *testing.T) {
 	for line, want := range map[string]driver.Risk{
 		"get a": driver.RiskRead, "stats items": driver.RiskRead, "lru_crawler metadump all": driver.RiskRead, "mg a v t": driver.RiskRead,
 		"mg a v T30": driver.RiskWrite, "touch a 10": driver.RiskWrite, "incr n 1": driver.RiskWrite,
+		"stats reset": driver.RiskWrite, "stats detail on": driver.RiskWrite, "stats detail dump": driver.RiskRead, "stats slabs": driver.RiskRead,
 		"delete a": driver.RiskDestructive, "flush_all": driver.RiskDestructive, "shutdown": driver.RiskDestructive, "lru_crawler disable": driver.RiskDestructive,
 	} {
 		if got := ClassifyMemcache(strings.Fields(line)).Risk; got != want {
 			t.Errorf("%q = %v, want %v", line, got, want)
 		}
+	}
+	for _, args := range [][]string{{"get", "a\r\nflush_all"}, {"get", "a\nb"}} {
+		if v := ClassifyMemcache(args); v.Risk != driver.RiskDestructive || v.RuleIDs[0] != "memcached-line" {
+			t.Errorf("%q = %+v", args, v)
+		}
+	}
+	if v := ClassifyMemcache([]string{"mg", "a T30"}); v.Risk != driver.RiskWrite {
+		t.Errorf("mg with the flag in one argument = %v", v.Risk)
+	}
+	if v := ClassifyMemcache([]string{" flush_all", "x"}); v.Risk != driver.RiskDestructive {
+		t.Errorf("leading space = %v", v.Risk)
 	}
 	if validKey("has space") == nil || validKey(strings.Repeat("k", 251)) == nil || validKey("ok:1") != nil {
 		t.Error("key checks")

@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // In a Redis Cluster each master holds part of the keys: listing scans
@@ -113,4 +115,44 @@ func sumInfo(all []map[string]map[string]string) map[string]map[string]string {
 		res["keyspace"] = map[string]string{"db0": "keys=" + strconv.FormatInt(keys, 10) + ",expires=" + strconv.FormatInt(expires, 10)}
 	}
 	return res
+}
+
+// clusterRun answers DBSIZE for the whole Cluster (the sum over its
+// masters) and refuses the other whole-key-space commands, which would
+// reach one master only.
+func clusterRun(ctx context.Context, cc *redis.ClusterClient, args []string) (any, error) {
+	if err := ClusterWideProblem(args); err != nil {
+		return nil, err
+	}
+	var mu sync.Mutex
+	var total int64
+	err := cc.ForEachMaster(ctx, func(ctx context.Context, node *redis.Client) error {
+		n, err := node.DBSize(ctx).Result()
+		mu.Lock()
+		total += n
+		mu.Unlock()
+		return err
+	})
+	if err != nil {
+		return nil, cmdErr(err)
+	}
+	return total, nil
+}
+
+// ClusterWideProblem refuses a whole-key-space command other than DBSIZE
+// for a Redis Cluster, before any approval is asked for it.
+func ClusterWideProblem(args []string) error {
+	if len(args) == 0 {
+		return nil
+	}
+	cmd := strings.ToUpper(args[0])
+	if !clusterWide[cmd] || cmd == "DBSIZE" {
+		return nil
+	}
+	hint := "list keys with `komando cache keys CONN 'pattern*'`, which scans every master"
+	if cmd == "FLUSHALL" || cmd == "FLUSHDB" || cmd == "SWAPDB" {
+		hint = "to run it on every master, add each master as its own conn (without ?cluster=1) and run it on each, with the user's yes"
+	}
+	return out.Errf(out.ExitUsage, "NOT_SUPPORTED", hint,
+		"%s in a Redis Cluster reaches one master only, so it would cover part of the keys", cmd)
 }
