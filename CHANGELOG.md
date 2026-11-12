@@ -479,6 +479,40 @@ its highlights; the sections below them give the details. Versions follow
   setting. komando now applies it to STS too (`AWS_ENDPOINT_URL_STS` still
   wins).
 
+- `komando update` on Windows said there was no komando release for
+  Windows, although every release has `komando_windows_amd64.zip` and
+  `komando_windows_arm64.zip`. It now updates Windows too, and a test keeps
+  its list of platforms the same as the ones `make dist` builds.
+
+- Tab completion now turns on as the README and the installer say. In zsh,
+  `source <(komando completion zsh)` printed `command not found: compdef`
+  in every new terminal when `~/.zshrc` had not run `compinit` (a new
+  Mac's has not): the script now runs it when it is missing. For bash the
+  line is `eval "$(komando completion bash)"`, because the bash 3.2 of
+  macOS reads nothing from `source <(...)`. `komando completion SHELL
+  --help` gives these lines instead of the bash-completion package and
+  Homebrew paths.
+
+- Tab completion of a CONN offers only the conns the command works with:
+  `komando cache info <Tab>` lists caches, `komando db query <Tab>`
+  databases (groups, `all` and `kind:` as before). It listed every conn,
+  so a database could be picked for a cache command.
+
+- `make licenses` (and so `make dist`) stopped at "archive/tar does not
+  have module info" when Go ran a downloaded toolchain (go.mod's `go`
+  line newer than the installed Go): the script now hands go-licenses
+  Go's own GOROOT. Run on its own, it also covers the Windows builds.
+
+- The install line says what went wrong in words: a `KOMANDO_VERSION`
+  that does not exist, no connection, a missing `curl` or `tar`, a
+  checksum that does not match. It checks `KOMANDO_INSTALL_DIR` before it
+  downloads, and puts komando in place with a rename inside that folder,
+  never by writing into a komando that is running. On Windows (Git Bash)
+  it points to the `.zip` download; it no longer calls `komando` alone a
+  menu.
+- README: the Windows `.zip` is an install option, and `prompt` (now
+  `status --short`) is no longer listed as a command.
+
 ## [0.12.0] - 2026-11-11
 
 ### Highlights

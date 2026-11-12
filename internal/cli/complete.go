@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"slices"
 	"sort"
 	"strings"
 
@@ -21,6 +23,9 @@ import (
 func addCompletion(c *cobra.Command) {
 	for _, sub := range c.Commands() {
 		addCompletion(sub)
+	}
+	if c.Name() == "completion" && c.HasParent() && !c.Parent().HasParent() {
+		completionScripts(c)
 	}
 	flagCompletion(c, "key", func(string) []string { return completionNames("key") })
 	flagCompletion(c, "via", func(prefix string) []string { return listPrefixed(prefix, completionNames("via")) })
@@ -85,11 +90,48 @@ func addCompletion(c *cobra.Command) {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		case "KEY":
 			return completionNames("key"), cobra.ShellCompDirectiveDefault // a key name or a .pub file
-		case "CONN", "host", "conn", "vpn", "key", "secret", "recipe", "GROUP", "setting":
+		case "CONN":
+			return connsOfFamily(completionNames("CONN"), commandFamily(c)), cobra.ShellCompDirectiveNoFileComp
+		case "host", "conn", "vpn", "key", "secret", "recipe", "GROUP", "setting":
 			return completionNames(kinds[i]), cobra.ShellCompDirectiveNoFileComp
 		}
 		return nil, cobra.ShellCompDirectiveDefault
 	}
+}
+
+// commandFamily is the conn family a command works with: "cache" for
+// `cache info`, "db" for `db user grants`; "" for other commands.
+func commandFamily(c *cobra.Command) string {
+	for ; c.HasParent(); c = c.Parent() {
+		if !c.Parent().HasParent() {
+			switch c.Name() {
+			case "db", "cache", "queue", "storage", "cluster", "registry":
+				return c.Name()
+			}
+		}
+	}
+	return ""
+}
+
+// connsOfFamily leaves out the conns another command works with, so
+// `cache info <Tab>` offers caches, not databases. Groups, tags, all and
+// kind: stay: they pick the right conns when the command runs.
+func connsOfFamily(names []string, family string) []string {
+	if family == "" {
+		return names
+	}
+	st, err := store.Load()
+	if err != nil {
+		return names
+	}
+	var keep []string
+	for _, n := range names {
+		if c, ok := st.Conns[n]; ok && connFamily(c) != family {
+			continue
+		}
+		keep = append(keep, n)
+	}
+	return keep
 }
 
 func flagCompletion(c *cobra.Command, flag string, f func(prefix string) []string) {
@@ -240,4 +282,71 @@ func completionNames(kind string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// completionHelp is how each shell turns completion on, as a line a person
+// adds once to the shell's startup file. bash takes eval, not source <(...):
+// the bash 3.2 of macOS reads nothing from source <(...).
+var completionHelp = map[string]string{
+	"bash": `Prints the tab-completion script for bash. Turn it on once, then open a new
+terminal:
+
+  echo 'eval "$(komando completion bash)"' >> ~/.bashrc
+
+On macOS, where a new terminal reads ~/.bash_profile, add the line there.
+Completing flags and names works without the bash-completion package; with
+it, bash completes a little more.`,
+	"zsh": `Prints the tab-completion script for zsh. Turn it on once, then open a new
+terminal:
+
+  echo 'source <(komando completion zsh)' >> ~/.zshrc
+
+The script turns on zsh's completion system (compinit) itself when
+~/.zshrc has not. Or save it where zsh finds completions:
+komando completion zsh > "${fpath[1]}/_komando".`,
+	"fish": `Prints the tab-completion script for fish. Turn it on once, then open a new
+terminal:
+
+  komando completion fish > ~/.config/fish/completions/komando.fish`,
+	"powershell": `Prints the tab-completion script for PowerShell. Turn it on once: add this
+line to your PowerShell profile (notepad $PROFILE), then open a new window:
+
+  komando completion powershell | Out-String | Invoke-Expression`,
+}
+
+// zshInit turns on zsh's completion system when ~/.zshrc has not (a new
+// Mac's has not): the script calls compdef, which compinit defines, so
+// without it every new terminal said "command not found: compdef" and
+// nothing completed.
+const zshInit = "(( $+functions[compdef] )) || { autoload -Uz compinit && compinit }\n"
+
+// completionScripts gives the shells' scripts komando's help, and the zsh
+// script the line that makes `source <(komando completion zsh)` work on its
+// own.
+func completionScripts(c *cobra.Command) {
+	for _, sh := range c.Commands() {
+		if h, ok := completionHelp[sh.Name()]; ok {
+			sh.Long = h
+		}
+		if sh.Name() != "zsh" {
+			continue
+		}
+		sh.RunE = func(cmd *cobra.Command, _ []string) error {
+			var b bytes.Buffer
+			var err error
+			if noDesc, _ := cmd.Flags().GetBool("no-descriptions"); noDesc {
+				err = cmd.Root().GenZshCompletionNoDesc(&b)
+			} else {
+				err = cmd.Root().GenZshCompletion(&b)
+			}
+			if err != nil {
+				return err
+			}
+			// after "#compdef komando", which must stay the first line
+			first, rest, _ := bytes.Cut(b.Bytes(), []byte("\n"))
+			script := slices.Concat(first, []byte("\n"+zshInit), rest)
+			_, err = cmd.OutOrStdout().Write(script)
+			return err
+		}
+	}
 }

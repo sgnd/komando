@@ -24,8 +24,12 @@ import (
 // download (update_fetch.go) is checked like install.sh checks it, and put
 // in place by update_install.go.
 
-// releasePlatforms are the archives a release has (Makefile, PLATFORMS).
-var releasePlatforms = map[string]bool{"linux/amd64": true, "linux/arm64": true, "darwin/amd64": true, "darwin/arm64": true}
+// releasePlatforms are the archives a release has (Makefile, PLATFORMS;
+// a test keeps the two the same).
+var releasePlatforms = map[string]bool{
+	"linux/amd64": true, "linux/arm64": true, "darwin/amd64": true, "darwin/arm64": true,
+	"windows/amd64": true, "windows/arm64": true,
+}
 
 // asRoot reports whether komando runs as root (sudo komando update).
 // Tests pretend.
@@ -162,7 +166,7 @@ func runUpdate(ctx context.Context, want string) (updateResult, error) {
 		out.P.WouldBlock(err)
 	}
 	if c < 0 {
-		if err := guardSafety("going back to the older komando " + r.To + " (it may lack this version's safety checks)"); err != nil {
+		if err := guardSafety("going back to the older komando " + r.To); err != nil {
 			return r, err
 		}
 	}
