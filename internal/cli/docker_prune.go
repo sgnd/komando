@@ -80,7 +80,7 @@ read from docker on the server. The real run deletes and needs
 				return out.Usage("docker cannot combine --volumes with --older-than (volumes have no age filter); run them as two prunes")
 			}
 			pa := o.args()
-			if _, err := guardDocker(pa); err != nil {
+			if _, err := guardDocker(args[0], pa); err != nil {
 				return err
 			}
 			line := "docker " + strings.Join(pa, " ") // fixed words and a number: nothing to quote

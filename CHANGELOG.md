@@ -14,6 +14,10 @@ its highlights; the sections below them give the details. Versions follow
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- `docker rm`, `docker prune` and other docker deletes at a terminal now
+  ask the person to type the server's name, like every other destructive
+  command, instead of accepting a bare `yes`; `docker prune --all` asks
+  once instead of twice.
 
 ## [0.12.0] - 2026-11-11
 

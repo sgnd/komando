@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"encoding/json"
+	"fmt"
 	"path"
 	"regexp"
 	"sort"
@@ -72,7 +73,7 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 			Short: dockerActionShorts[action],
 			Args:  cobra.MinimumNArgs(2),
 			RunE: func(cmd *cobra.Command, args []string) error {
-				if _, err := guardDocker(append([]string{action}, args[1:]...)); err != nil {
+				if _, err := guardDocker(args[0], append([]string{action}, args[1:]...)); err != nil {
 					return err
 				}
 				return runDocker(cmd.Context(), "docker."+action, args[0], "docker "+action+" "+quoteAll(args[1:]), sudo, true)
@@ -128,7 +129,7 @@ server only commands komando knows read skip --yes.`,
 		Example: "  komando docker compose app1 --dir /srv/shop -- up -d --pull always",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mutating, err := guardDocker(append([]string{"compose"}, args[1:]...))
+			mutating, err := guardDocker(args[0], append([]string{"compose"}, args[1:]...))
 			if err != nil {
 				return err
 			}
@@ -150,7 +151,7 @@ server only commands komando knows read skip --yes.`,
 		Short: "Run any docker subcommand (the same safety rules apply)",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			mutating, err := guardDocker(args[1:])
+			mutating, err := guardDocker(args[0], args[1:])
 			if err != nil {
 				return err
 			}
@@ -294,8 +295,11 @@ func parseJSONLines(_ *store.Host, s string) any {
 // guardDocker rates a docker command line (docker raw, compose, the
 // start/stop/rm verbs) with the same rules as `cluster run` on a Swarm
 // manager: reads stay reads, changes need --yes on protected servers, and
-// deletes and anything that runs arbitrary code need --allow-dangerous.
-func guardDocker(args []string) (mutating bool, err error) {
+// deletes and anything that runs arbitrary code need --allow-dangerous. A
+// person at a terminal confirms a delete by typing the server's name (the
+// number of servers for several), the same answer the server guard
+// takes, so a prune is confirmed once and never with a bare "yes".
+func guardDocker(target string, args []string) (mutating bool, err error) {
 	if len(args) == 0 {
 		return true, nil
 	}
@@ -316,8 +320,12 @@ func guardDocker(args []string) (mutating bool, err error) {
 		if v, _ := dockerVerbArgs(args); len(v) > 0 && strings.EqualFold(v[0], "exec") {
 			reason += " (runs anything in the container; `komando docker exec` checks the command itself)"
 		}
-		if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"docker"}, Reasons: []string{reason}}); err != nil {
-			return true, err
+		v := driver.Verdict{Risk: risk, RuleIDs: []string{"docker"}, Reasons: []string{reason}}
+		hosts, _ := resolveTargets(st, target) // an unknown target fails later, with its own error
+		if !dangerOK(fmt.Sprintf("[docker] %s", reason), targetsWhy(st, hosts)) && !confirmDangerous(hostNames(hosts), reason) {
+			return true, policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
+				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
+				"the operation matches destructive rules [docker]: %s", reason).Say(dangerSay(v.Reasons), dangerHint))
 		}
 	}
 	return risk > driver.RiskRead, nil
