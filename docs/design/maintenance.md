@@ -50,7 +50,7 @@ test green, including `TestOutputShapes`, and `make e2e`.
    builder only reads flags and calls one function that does the work.
 3. **Move areas out of `internal/cli` into their own packages**, so that
    `internal/cli` only turns flags into calls. The cluster code
-   (`cluster*.go`, `clu_*.go`, `kctl*.go`, about 11,000 lines) is the
+   (`cluster*.go`, about 11,000 lines) is the
    biggest, but it uses about 35 names from the rest of `internal/cli`
    (`g`, `toErr`, `loadState`, `guard`, `audit`, `withClient`, ...).
    First move those shared pieces into a small package that both can

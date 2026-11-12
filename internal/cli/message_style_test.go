@@ -91,7 +91,7 @@ func styleTexts(t *testing.T) []styleText {
 			}
 			name := d.Name()
 			if d.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") ||
-				strings.HasPrefix(name, "kctl") || name == "errcodes.go" { // kubectl's words (M-15); generated
+				strings.HasPrefix(name, "cluster_kctl") || name == "errcodes.go" { // kubectl's words (M-15); generated
 				return nil
 			}
 			fset := token.NewFileSet()
@@ -627,12 +627,12 @@ var (
 	// M-5: the Swarm and Kubernetes Service, command words, and URL or
 	// account placeholders
 	allowTerms = []string{
-		"cli/clu_names.go: Swarm has no namespaces: leave out --namespace (a stack's se",
-		"cli/clu_swarm.go: Swarm lists services, tasks, nodes or stacks",
-		"cli/clu_swarm.go: a stack is its services: `komando cluster list %s services -",
-		"cli/clu_swarm.go: list services with `komando cluster list TARGET services`",
-		"cli/clu_swarm.go: list the services with `komando cluster list {x} services`",
-		"cli/clu_swarm.go: list what exists with `komando cluster list {x} services` (o",
+		"cli/cluster_names.go: Swarm has no namespaces: leave out --namespace (a stack's se",
+		"cli/cluster_swarm.go: Swarm lists services, tasks, nodes or stacks",
+		"cli/cluster_swarm.go: a stack is its services: `komando cluster list %s services -",
+		"cli/cluster_swarm.go: list services with `komando cluster list TARGET services`",
+		"cli/cluster_swarm.go: list the services with `komando cluster list {x} services`",
+		"cli/cluster_swarm.go: list what exists with `komando cluster list {x} services` (o",
 		"cli/cluster_objects.go: service %s is global (one task per node); scale works on rep",
 		"cli/docker.go: list what exists with `komando docker ps TARGET --all` or `k",
 		"cli/form_cluster.go: pods, deployments, services, nodes, ingresses, configmaps ..",
