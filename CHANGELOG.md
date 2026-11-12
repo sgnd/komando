@@ -62,8 +62,7 @@ its highlights; the sections below them give the details. Versions follow
 - At a terminal, a `--proxy-command` or a cluster's login program that the
   dangerous-command filter blocks now asks `Blocked by policy: ... Run it
   anyway, this once? [y/N]` (No by default) instead of failing; the other
-  blocked commands already asked you to type the name, which now starts
-  with `Blocked by policy:`. A yes you give at the terminal is recorded in
+  dangerous commands still ask you to type the name. A yes you give at the terminal is recorded in
   `komando audit` as `confirm: tty`. Nothing is asked, and no answer
   counts, when CI is set. AI agents get exit 6 as before.
 - `komando` alone at your terminal now prints what komando does, by

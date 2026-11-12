@@ -566,7 +566,7 @@ func confirmDangerous(names []string, reason string) bool {
 	case len(names) > 1:
 		want, what = fmt.Sprint(len(names)), fmt.Sprintf("%d (the number of targets)", len(names))
 	}
-	fmt.Fprintf(os.Stderr, "Blocked by policy: %s. To run it anyway, this once:\n", reason)
+	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
 	ok := ask("Type "+what+" to continue: ") == want
 	cur().sess.SaidNo(!ok)
 	if ok {

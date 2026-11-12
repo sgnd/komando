@@ -60,7 +60,7 @@ or a CI job), komando asks instead of stopping:
 - A change on a protected server or conn asks `web1 is protected. Change
   it anyway? [y/N]`.
 - A command the dangerous-command filter blocks asks you to type the
-  target's name (`Blocked by policy: ... Type the name web1 to continue`),
+  target's name (`Dangerous: ... Type the name web1 to continue`),
   or for a `--proxy-command` or a cluster's login program that matches a
   rule, `Blocked by policy: ... Run it anyway, this once? [y/N]`.
 - No is the default; Enter, Ctrl-C or Ctrl-D is a no, and nothing runs.
