@@ -167,3 +167,29 @@ func TestAddHintForAPerson(t *testing.T) {
 		}
 	}
 }
+
+// `komando --help` groups the commands as `komando` alone does, so a
+// person finds each one under the same heading in both.
+func TestHelpGroupsMatchPersonHelp(t *testing.T) {
+	root := newRoot()
+	title := map[string]string{}
+	for _, g := range root.Groups() {
+		title[g.ID] = strings.ToUpper(strings.TrimSuffix(g.Title, ":"))
+	}
+	for _, l := range strings.Split(personHelp(), "\n") {
+		f := strings.Fields(l)
+		if len(f) < 2 || !slices.Contains([]string{"SERVERS", "DATA", "PLATFORM", "ACCESS", "OVERVIEW", "SETUP"}, f[0]) {
+			continue
+		}
+		for _, name := range f[1:] {
+			c, _, err := root.Find([]string{name})
+			if err != nil || c == root {
+				t.Errorf("%s: %q is not a command", f[0], name)
+				continue
+			}
+			if got := title[c.GroupID]; got != f[0] {
+				t.Errorf("%s is under %q in --help, %q in komando alone", name, got, f[0])
+			}
+		}
+	}
+}

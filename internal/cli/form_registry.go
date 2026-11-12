@@ -426,7 +426,7 @@ func dockerConfigProblem(v string) string {
 	return ""
 }
 
-// The registry commands, asked from a menu task.
+// The registry commands: what a typed command asks for when it is missing.
 
 func init() {
 	conn := formArg{ask: "Which registry?", pick: "registry",

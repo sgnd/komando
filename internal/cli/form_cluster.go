@@ -174,7 +174,7 @@ func swarmForm() formSpec {
 	return sp
 }
 
-// The cluster commands, asked from a menu task.
+// The cluster commands: what a typed command asks for when it is missing.
 
 var (
 	clusterTargetArg = formArg{ask: "Which cluster?", pick: "cluster", free: true,

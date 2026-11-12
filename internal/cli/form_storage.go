@@ -665,7 +665,7 @@ func smbUserQ() formQ {
 	return q
 }
 
-// The storage commands, asked from a menu task.
+// The storage commands: what a typed command asks for when it is missing.
 
 func init() {
 	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add."}

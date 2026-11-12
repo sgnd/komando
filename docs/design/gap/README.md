@@ -37,7 +37,7 @@ code are under "Done" in each theme.
 ## 5. What is deliberately not built (NON-GOAL)
 
 According to [vision.md](../vision.md#non-goals), and still true after
-this comparison: TUI/dashboard beyond the menu `komando` alone opens for a
+this comparison: TUI/dashboard beyond the grouped help `komando` alone prints for a
 person (k9s, Lens, lazydocker, Portainer, RedisInsight), helm
 install/upgrade/template, kustomize, GitOps, Terraform/IaC,
 mount/serve storage, continuous monitoring (`MONITOR`, watch), image

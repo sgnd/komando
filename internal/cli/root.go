@@ -544,12 +544,14 @@ func newRoot() *cobra.Command {
 	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (default: setting, 256KiB)")
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
+	// the groups of `komando` alone (personHelp), so --help reads the same
 	root.AddGroup(
-		&cobra.Group{ID: "inv", Title: "Inventory & credentials:"},
-		&cobra.Group{ID: "run", Title: "Remote execution:"},
-		&cobra.Group{ID: "data", Title: "Databases, caches, queues & storage:"},
-		&cobra.Group{ID: "ops", Title: "DevOps modules:"},
-		&cobra.Group{ID: "meta", Title: "Agent helpers & config:"},
+		&cobra.Group{ID: "servers", Title: "Servers:"},
+		&cobra.Group{ID: "data", Title: "Data:"},
+		&cobra.Group{ID: "platform", Title: "Platform:"},
+		&cobra.Group{ID: "access", Title: "Access:"},
+		&cobra.Group{ID: "overview", Title: "Overview:"},
+		&cobra.Group{ID: "setup", Title: "Setup:"},
 	)
 	add := func(group string, cmds ...*cobra.Command) {
 		for _, c := range cmds {
@@ -557,11 +559,14 @@ func newRoot() *cobra.Command {
 			root.AddCommand(c)
 		}
 	}
-	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd(), renameCmd(), loginCmd(), logoutCmd(), loginHolderCmd())
-	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
-	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
-	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
-	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	add("servers", execCmd(), scriptCmd(), logsCmd(), factsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
+		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
+	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
+	add("platform", clusterCmd(), registryCmd())
+	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
+	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
+	add("setup", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd(), configCmd(), policyCmd(), guideCmd(),
+		promptCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
 	addHelpTopics(root) // and cobra's help command
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
@@ -572,18 +577,18 @@ func newRoot() *cobra.Command {
 }
 
 // labelBuiltinCmds files cobra's own help and completion commands under
-// "meta" and gives them komando's wording; dropped old names suggest the
+// "setup" and gives them komando's wording; dropped old names suggest the
 // command that does it now.
 func labelBuiltinCmds(root *cobra.Command) {
 	suggestDroppedNames(root)
 	for _, c := range root.Commands() {
 		switch c.Name() {
 		case "help":
-			c.GroupID = "meta"
+			c.GroupID = "setup"
 			c.Short = "Show the help of a command"
 			c.Long = "Shows what a command does, its flags and examples: komando help db query\n(the same as komando db query --help)."
 		case "completion":
-			c.GroupID = "meta"
+			c.GroupID = "setup"
 			c.Short = "Print a tab-completion script for your shell"
 			c.Long = "Prints a script that lets Tab complete komando's commands, flags and names\nin bash, zsh, fish or PowerShell. Each one's help says how to load it:\nkomando completion zsh --help."
 			for _, sh := range c.Commands() {

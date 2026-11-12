@@ -20,6 +20,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `komando --help` now lists the commands under the same headings as
+  `komando` alone: Servers, Data, Platform, Access, Overview and Setup.
 - At a person's terminal, many more commands end with a `Next:` line of
   what usually comes next (`svc status` suggests `logs web1 --unit UNIT
   --since 30m`), and `group list GROUP`, `key show`, `job status`, `secret

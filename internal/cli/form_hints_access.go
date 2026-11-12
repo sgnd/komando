@@ -124,7 +124,7 @@ func init() {
 }
 
 // loginForm asks for one server: a bare `komando login` only shows its
-// help, so the menu never leaves the server out.
+// help, so a person at a terminal is always asked for the server.
 func loginForm() []formGroup {
 	sp := formSpec{title: "Log in to a server once and keep it", qs: []formQ{{
 		key: "arg0", label: "Host", ask: "Which server should you log in to?",
