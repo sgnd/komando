@@ -41,6 +41,11 @@ its highlights; the sections below them give the details. Versions follow
   `aws_profile` option, `komando import aws`, the AWS error codes and what
   works for Google Cloud and Azure until their login comes. The agent
   guide lists `AWS_LOGIN_REQUIRED`.
+- With `AWS_ENDPOINT_URL` set (LocalStack, moto), a profile that assumes a
+  role sent its AssumeRole call to the real AWS, signed with the source
+  access key: the AWS SDK leaves the role's STS client out of that
+  setting. komando now applies it to STS too (`AWS_ENDPOINT_URL_STS` still
+  wins).
 
 ## [0.12.0] - 2026-11-11
 

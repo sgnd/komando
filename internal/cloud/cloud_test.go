@@ -380,3 +380,24 @@ func TestWriteTokenFile(t *testing.T) {
 		t.Errorf("left %v", left)
 	}
 }
+
+// A role profile's AssumeRole goes to AWS_ENDPOINT_URL (an emulator), never
+// to the real AWS: the SDK alone sends it to sts.amazonaws.com.
+func TestAWSRoleUsesGlobalEndpoint(t *testing.T) {
+	home := awsEnv(t)
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+	os.WriteFile(filepath.Join(home, "config"), []byte("[profile r]\nrole_arn = arn:aws:iam::123456789012:role/e2e\nsource_profile = s\nregion = us-east-1\n"), 0o600)
+	os.WriteFile(filepath.Join(home, "credentials"), []byte("[s]\naws_access_key_id = test\naws_secret_access_key = test\n"), 0o600)
+	t.Setenv("AWS_ENDPOINT_URL", srv.URL)
+	t.Setenv("AWS_ENDPOINT_URL_STS", "")
+	os.Unsetenv("AWS_ENDPOINT_URL_STS")
+	t.Setenv("AWS_MAX_ATTEMPTS", "1")
+	if _, err := AWSCredentials(context.Background(), "r"); err == nil || hits.Load() == 0 {
+		t.Errorf("AssumeRole did not reach AWS_ENDPOINT_URL: hits %d, %v", hits.Load(), err)
+	}
+}
