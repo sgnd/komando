@@ -263,7 +263,7 @@ func policyCmd() *cobra.Command {
 			if added {
 				audit(nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
 			}
-			out.P.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}, nil)
+			out.P.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}.denied(), nil)
 			return nil
 		},
 	})
@@ -728,18 +728,28 @@ type policyChange struct {
 	Custom  []string `json:"custom"`
 	Added   *bool    `json:"added,omitempty"`   // deny
 	Removed string   `json:"removed,omitempty"` // allow
+	ID      string   `json:"id,omitempty"`      // deny: the rule's id, for policy rm
+	Next    string   `json:"next,omitempty"`    // deny: how to try it and take it away
 	pattern string
+}
+
+// denied is policy deny's result: the rule's id and the commands that
+// follow, check and rm.
+func (p policyChange) denied() policyChange {
+	p.ID = policy.CustomID(p.pattern)
+	p.Next = "komando policy check 'COMMAND' says whether it blocks a command  |  komando policy rm " + p.ID + " removes it"
+	return p
 }
 
 func (p policyChange) Text() string {
 	n := countOf(len(p.Custom), "custom rule")
 	switch {
 	case p.Added != nil && *p.Added && g.dryRun:
-		return fmt.Sprintf("would add the deny rule %s (dry run; %s then)\n", p.pattern, n)
+		return fmt.Sprintf("would add the deny rule %s as %s (dry run; %s then)\n", p.pattern, p.ID, n)
 	case p.Added != nil && *p.Added:
-		return fmt.Sprintf("added the deny rule %s (%s now)\n", p.pattern, n)
+		return fmt.Sprintf("added the deny rule %s as %s (%s now)\ntry it:   komando policy check 'COMMAND'\nundo it:  komando policy rm %s\n", p.pattern, p.ID, n, p.ID)
 	case p.Added != nil:
-		return fmt.Sprintf("the deny rule %s is there already (%s)\n", p.pattern, n)
+		return fmt.Sprintf("the deny rule %s is there already, as %s (%s)\n", p.pattern, p.ID, n)
 	case g.dryRun:
 		return fmt.Sprintf("would remove the deny rule %s (dry run; %s left then)\n", p.Removed, n)
 	}

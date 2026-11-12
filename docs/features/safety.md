@@ -133,7 +133,7 @@ or a pipe.
 ## Add your own rules
 
 ```bash
-komando policy deny 'terraform\s+destroy'           # a Go regular expression
+komando policy deny 'terraform\s+destroy'           # a Go regular expression; prints its id
 komando policy list                                  # built-in and custom rules, with ids
 komando policy rm 'terraform\s+destroy'              # remove it again
 komando policy rm custom-1a2b3c4d                    # or remove it by its id
@@ -203,7 +203,7 @@ Every action is in the audit log: time, who ran it, which AI agent asked,
 whether a person allowed it, the targets and the command. Every change to
 the inventory and to safety settings is there too: servers, conns, groups,
 keys, secrets (names only), `config set` (old and new value) and
-`policy deny/allow`.
+`policy deny` and `policy rm`.
 
 ```bash
 komando audit -o text                 # one line per entry, newest 50

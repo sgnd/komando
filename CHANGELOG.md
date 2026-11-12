@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `policy deny` says the new rule's id and the commands that follow:
+  `komando policy check 'COMMAND'` to try it and `komando policy rm ID` to
+  undo it. Its JSON gains `id` and `next`.
 - `fs` commands refused with `PERMISSION_DENIED` give the same command
   line with `--sudo` added as their hint (it said only "retry with
   --sudo"). With `--sudo` already given, the hint no longer suggests it.
