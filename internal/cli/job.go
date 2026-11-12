@@ -172,9 +172,10 @@ func jobAlive(pid int) string {
 func jobStatusCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
-		Use:   "status JOB_ID",
-		Short: "Show a job's state (running, exited, lost), exit code, run time and last lines",
-		Args:  cobra.ExactArgs(1),
+		Use:     "status JOB_ID",
+		Aliases: []string{"show"},
+		Short:   "Show a job's state (running, exited, lost), exit code, run time and last lines",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, j, h, err := lookupJob(args[0])
 			if err != nil {
@@ -460,9 +461,10 @@ func jobKillCmd() *cobra.Command {
 	var sig string
 	var sudo bool
 	c := &cobra.Command{
-		Use:   "kill JOB_ID",
-		Short: "Stop a job: send a signal to its process group (default TERM)",
-		Args:  cobra.ExactArgs(1),
+		Use:     "kill JOB_ID",
+		Aliases: []string{"stop"},
+		Short:   "Stop a job: send a signal to its process group (default TERM)",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			sig = strings.TrimPrefix(strings.ToUpper(sig), "SIG")
 			if !validSignal(sig) {

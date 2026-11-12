@@ -49,7 +49,7 @@ IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,
   komando tunnel list
   komando tunnel stop t1102-...`,
 	}
-	c.AddCommand(tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd(), tunnelServeCmd())
+	c.AddCommand(tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd(), tunnelServeCmd(), tunnelShowCmd())
 	return c
 }
 

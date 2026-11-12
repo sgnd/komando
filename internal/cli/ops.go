@@ -230,7 +230,7 @@ func recipeCmd() *cobra.Command {
 		Aliases: []string{"recipes"},
 		Short:   "Ready-made and saved commands: health, disk, oom, your own",
 	}
-	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd())
+	c.AddCommand(recipeListCmd(), recipeAddCmd(), recipeRmCmd(), recipeRunCmd(), recipeShowCmd())
 	return c
 }
 

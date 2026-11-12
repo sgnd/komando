@@ -185,6 +185,18 @@ the help says so. When a list stops at its limit, the JSON has
 `meta.truncated: true` and `-o text` says on stderr
 `showing N of more; use --limit 0 for all`.
 
+### Other names that work
+
+Help shows one name per command, but the words people often type work
+too, for good: plurals and help words for every area (`servers`,
+`databases`, `files`), `ls` for `list`, `mv` for `rename`, `get` for
+`secret show`, `show` where an area lists one item (`group show web`,
+`job show ID`, `tunnel show ID`, `recipe show NAME`), `add` for
+`policy deny` and `secret set`, `create` for `user add`, `copy` for
+`cp`, `stop` for `job kill`, `describe` for `inspect`, and
+`cluster info TARGET` for `cluster status TARGET`. `komando schema` with
+any of these names describes the command it runs.
+
 ## Run a local script
 
 `komando exec TARGET --script FILE` sends a script file from this computer

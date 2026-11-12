@@ -211,7 +211,8 @@ func secretCmd() *cobra.Command {
 		Short:   "Saved passwords and tokens (use them as secret:NAME)",
 		Long:    secretLong,
 	}
-	c.AddCommand(secretSetCmd(), secretGetCmd(), secretCheckCmd(), secretListCmd(), secretCopyCmd(true), secretCopyCmd(false), secretRmCmd(), secretKeychainCmd(), secretPassphraseCmd())
+	c.AddCommand(addAliases(secretSetCmd(), "add"), secretGetCmd(), secretCheckCmd(), secretListCmd(), secretCopyCmd(true),
+		addAliases(secretCopyCmd(false), "copy"), secretRmCmd(), secretKeychainCmd(), addAliases(secretPassphraseCmd(), "passwd"))
 	return c
 }
 

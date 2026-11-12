@@ -190,7 +190,7 @@ func cacheKeysCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:     "keys CONN [PATTERN]",
-		Aliases: []string{"ls"},
+		Aliases: []string{"list", "ls"},
 		Short:   "List keys matching a pattern (uses SCAN, so a big cache is not blocked)",
 		Example: `  komando cache keys cache 'session:*'
   komando cache keys cache --limit 1000`,

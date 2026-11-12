@@ -91,3 +91,58 @@ func TestStandardListVerb(t *testing.T) {
 	}
 	walk(newRoot())
 }
+
+// Every noun has its plural and its help word as a synonym (S-2.1), and
+// each synonym of C-V07..C-V21 runs the command (and ID) it stands for.
+func TestStandardSynonyms(t *testing.T) {
+	root := newRoot()
+	for noun, aliases := range nounAliases {
+		c := findCmd(t, root, noun)
+		for _, a := range aliases {
+			if !c.HasAlias(a) {
+				t.Errorf("%s: no alias %s", noun, a)
+			}
+		}
+	}
+	for _, c := range []struct {
+		args []string
+		id   string
+	}{
+		{[]string{"servers"}, "host"}, {[]string{"server", "list"}, "host.list"},
+		{[]string{"databases", "query"}, "db.query"}, {[]string{"files", "cat"}, "fs.cat"},
+		{[]string{"tunnels", "list"}, "tunnel.list"}, {[]string{"policies", "list"}, "policy.list"},
+		{[]string{"cache", "list"}, "cache.keys"}, {[]string{"cache", "ls"}, "cache.keys"},
+		{[]string{"group", "show"}, "group.list"}, {[]string{"job", "show"}, "job.status"},
+		{[]string{"tunnel", "show"}, "tunnel.list"}, {[]string{"recipe", "show"}, "recipe.list"},
+		{[]string{"policy", "add"}, "policy.deny"}, {[]string{"secret", "add"}, "secret.set"},
+		{[]string{"docker", "describe"}, "docker.inspect"}, {[]string{"registry", "describe"}, "registry.inspect"},
+		{[]string{"user", "create"}, "user.add"}, {[]string{"db", "user", "create"}, "db.user.add"},
+		{[]string{"secret", "copy"}, "secret.cp"}, {[]string{"copy"}, "cp"},
+		{[]string{"job", "stop"}, "job.kill"}, {[]string{"secret", "passwd"}, "secret.passphrase"},
+		{[]string{"cluster", "info"}, "cluster.status"},
+	} {
+		if got := cmdID(findCmd(t, root, c.args...)); got != c.id {
+			t.Errorf("%v: ID %q, want %q", c.args, got, c.id)
+		}
+	}
+}
+
+// The wrappers take their own argument rule and give the result of the
+// command they stand for.
+func TestSynonymWrappers(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "web")
+	d := mustRun(t, "group", "show", "web")
+	if m := d["members"].([]any); len(m) != 1 || m[0] != "web1" {
+		t.Errorf("group show web: %v", d)
+	}
+	wantCode(t, "USAGE", "group", "show")
+	if d := mustRun(t, "recipe", "show", "disk"); d["count"].(float64) != 1 {
+		t.Errorf("recipe show disk: %v", d)
+	}
+	wantCode(t, "RECIPE_NOT_FOUND", "recipe", "show", "nope")
+	wantCode(t, "TUNNEL_NOT_FOUND", "tunnel", "show", "t-nope")
+	if code, text := runMain(t, "group", "show", "web"); code != 0 || !strings.Contains(text, `"command":"group.list"`) {
+		t.Errorf("group show: exit %d %s", code, text)
+	}
+}

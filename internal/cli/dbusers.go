@@ -118,6 +118,9 @@ func dbUserChangeCmd(action string) *cobra.Command {
 	if action == "add" {
 		c.Flags().BoolVar(&noLogin, "no-login", false, "a role that cannot log in (a group to grant to users)")
 	}
+	if action == "add" {
+		c.Aliases = []string{"create"} // useradd stays the primary word
+	}
 	return c
 }
 

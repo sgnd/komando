@@ -226,6 +226,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 	var admin bool
 	add := &cobra.Command{
 		Use:     "add TARGET USERNAME",
+		Aliases: []string{"create"},
 		Short:   "Create a user if missing, with an SSH key and sudo if asked",
 		Example: "  komando user add @web deploy --key deploy --admin",
 		Args:    cobra.ExactArgs(2),

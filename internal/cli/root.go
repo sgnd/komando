@@ -562,6 +562,7 @@ func addCommands(root *cobra.Command) {
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("setup", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd(), configCmd(), policyCmd(), guideCmd(),
 		promptCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	addNounAliases(root)
 }
 
 // labelBuiltinCmds files cobra's own help and completion commands under

@@ -52,9 +52,10 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 come with -f. --since and --until take a time back from now (10m, 2h, 7d)
 or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 	inspect := &cobra.Command{
-		Use:   "inspect TARGET NAME",
-		Short: "Show a container, image or other object in full (docker inspect)",
-		Args:  cobra.ExactArgs(2),
+		Use:     "inspect TARGET NAME",
+		Aliases: []string{"describe"},
+		Short:   "Show a container, image or other object in full (docker inspect)",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// the exit status travels in stdout so a missing object can say
 			// "not found" (exit 3) instead of a bare remote failure

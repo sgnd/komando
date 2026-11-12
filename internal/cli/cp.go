@@ -275,8 +275,9 @@ links are not copied (they are listed as skipped).
 func cpCmd() *cobra.Command {
 	var o cpOpts
 	c := &cobra.Command{
-		Use:   "cp SRC DST",
-		Short: "Copy files, written SRC DST with TARGET:PATH (upload/download)",
+		Use:     "cp SRC DST",
+		Aliases: []string{"copy"},
+		Short:   "Copy files, written SRC DST with TARGET:PATH (upload/download)",
 		Long: `Remote paths are written TARGET:PATH (TARGET: alone, or TARGET:~/x, is the
 login user's home folder). Uploads accept any target selector (@group,
 tag:x, ...) and run in parallel. Downloads from several servers go to

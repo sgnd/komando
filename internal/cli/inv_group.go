@@ -135,7 +135,7 @@ A group exists while something is in it.`,
 		},
 	}
 	limitFlag(list, &limit, 0, "groups and tags each, or members of GROUP")
-	c.AddCommand(list)
+	c.AddCommand(list, synonymWrapper(list, "show GROUP", "group.list", "group list GROUP", cobra.ExactArgs(1)))
 	c.AddCommand(groupAddCmd(), groupRmCmd(), groupMvCmd())
 	return c
 }

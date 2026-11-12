@@ -9,6 +9,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- More names find the command you mean, each for good and silently:
+  plurals and help words for every noun (`servers`, `server`,
+  `databases`, `dbs`, `files`, `vpns`, `caches`, `queues`, `clusters`,
+  `registries`, `tunnels`, `policies`, `crons`, `services`,
+  `containers`); `cache list`/`ls` (= `cache keys`); `group show GROUP`,
+  `job show`, `tunnel show TUNNEL`, `recipe show NAME`, `policy add`
+  (= `deny`), `secret add` (= `set`); `describe` on `docker inspect`
+  and `registry inspect`; `create` on `user add` and `db user add`;
+  `copy` on `cp` and `secret cp`; `job stop` (= `kill`);
+  `secret passwd` (= `passphrase`); `cluster info TARGET`
+  (= `cluster status TARGET`). The envelope's `command` is that of the
+  command they run.
 - Every list command takes `-n/--limit` (`--limit` only in `cluster`,
   where `-n` is the namespace): `list`, `host/conn/vpn/key/secret/
   recipe/policy/job/tunnel/group list`, `svc/user/cron list`,

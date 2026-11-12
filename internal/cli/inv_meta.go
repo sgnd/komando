@@ -240,6 +240,7 @@ func policyCmd() *cobra.Command {
 	c.AddCommand(policyCheckCmd())
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",
+		Aliases: []string{"add"},
 		Short:   "Add a custom deny pattern (Go regexp)",
 		Example: `  komando policy deny 'kubectl\s+delete'`,
 		Args:    cobra.ExactArgs(1),

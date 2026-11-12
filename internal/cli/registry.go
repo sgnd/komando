@@ -352,7 +352,7 @@ func withTruncated(res map[string]any, cut bool) map[string]any {
 func registryInspectCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "inspect CONN REPO[:TAG|@DIGEST]",
-		Aliases: []string{"get", "show"},
+		Aliases: []string{"get", "show", "describe"},
 		Short:   "Digest, size, platforms, created time and labels of an image",
 		Example: `  komando registry inspect ghcr myorg/api:1.4.2
   komando registry inspect dockerhub nginx            # Docker Hub: library/nginx:latest
