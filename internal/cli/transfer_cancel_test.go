@@ -86,3 +86,26 @@ func TestTransferStopsOnCancel(t *testing.T) {
 		}
 	}
 }
+
+// A download that stops at a file already here saved nothing: the text
+// said "downloaded 1 file (0 B)" above the FILE_EXISTS error.
+func TestDownloadExistingCountsNothing(t *testing.T) {
+	sc := localSFTP(t)
+	src := filepath.Join(t.TempDir(), "a.txt")
+	_ = os.WriteFile(src, []byte("new"), 0o644)
+	dst := filepath.Join(t.TempDir(), "a.txt")
+	_ = os.WriteFile(dst, []byte("mine"), 0o644)
+	st, err := download(context.Background(), nil, sc, src, dst, cpOpts{})
+	if e := toErr(err); err == nil || e.Code != "FILE_EXISTS" {
+		t.Fatalf("err %v", err)
+	}
+	if st.Files != 0 || st.Dest != "" {
+		t.Errorf("stats %+v, want none", st)
+	}
+	if got := (xferData{Results: []xferStats{{Host: "web1", Error: toErr(err)}}}).Text(); strings.Contains(got, "downloaded") {
+		t.Errorf("text %q", got)
+	}
+	if read(t, dst) != "mine" {
+		t.Error("the file here was replaced")
+	}
+}

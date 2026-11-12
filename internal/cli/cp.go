@@ -580,7 +580,10 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 		}
 		defer in.Close()
 		n, sum, masked, err := fetchFile(ctx, in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite)
-		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, err
+		if err != nil {
+			return xferStats{}, err // nothing was saved: never "downloaded 1 file"
+		}
+		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 	}
 	if !o.recursive {
 		return xferStats{}, out.Usage("%s is a folder; add -r", src)
@@ -674,7 +677,10 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 		return xferStats{}, err
 	}
 	n, sum, masked, err := fetchFile(ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite)
-	return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, err
+	if err != nil {
+		return xferStats{}, err
+	}
+	return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 }
 
 // fetchFile saves in as dst. For an AI agent a text file is saved the way

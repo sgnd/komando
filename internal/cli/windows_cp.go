@@ -71,7 +71,10 @@ try {
 } finally { $fs.Close() }`)
 	w := &b64Sink{save: func(in io.Reader) (xferStats, error) {
 		n, sum, masked, err := fetchFile(ctx, in, dst, 0o644, time.Time{}, overwrite)
-		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, err
+		if err != nil {
+			return xferStats{}, err
+		}
+		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 	}}
 	code, stderr, err := sshx.RunPS(ctx, c, script, nil, w)
 	fail := err

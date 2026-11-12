@@ -17,6 +17,9 @@ its highlights; the sections below them give the details. Versions follow
 - A folder upload (`upload -r`, `cp -r`) writes each file under a
   temporary name and moves it into place, as `sync` does, so an
   interrupted upload no longer leaves a file on the server cut short.
+- A download refused with `FILE_EXISTS` no longer prints
+  "downloaded 1 file (0 B)" above the error, and its JSON result no longer
+  counts the file.
 
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
