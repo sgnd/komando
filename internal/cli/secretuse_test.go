@@ -270,6 +270,10 @@ func TestAgentOtherHome(t *testing.T) {
 		t.Errorf("message: %q", e.Message)
 	}
 	wantCode(t, "SAFETY_SETTING", "host", "add", "prod", "root@10.0.0.2")
+	// a synonym is typed like the command it names: the same stop
+	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
+		wantCode(t, "SAFETY_SETTING", syn...)
+	}
 	for _, free := range [][]string{{"version"}, {"schema"}, {"guide"}} {
 		mustRun(t, free...)
 	}

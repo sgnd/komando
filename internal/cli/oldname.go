@@ -48,10 +48,11 @@ func oldName(c *cobra.Command, now string) *cobra.Command {
 }
 
 // backgroundCmd reports whether cmd is hidden because komando itself runs
-// it (tunnel serve, vpn serve, the agent guard), not an old name a person or
-// agent types: those get every check of the new name.
+// it (tunnel serve, vpn serve, the agent guard), not an old name or a
+// synonym (cluster info, tunnel show) a person or agent types: those get
+// every check of the command they name.
 func backgroundCmd(cmd *cobra.Command) bool {
-	return cmd.Hidden && cmd.Annotations[oldNameNote] == ""
+	return cmd.Hidden && cmd.Annotations[oldNameNote] == "" && cmd.Annotations[synonymNote] == ""
 }
 
 // markOldName hides c and names the command that does it now.
