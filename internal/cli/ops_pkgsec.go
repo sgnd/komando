@@ -497,7 +497,7 @@ say that; it still works in this release.`,
 			return pkgSecurity(cmd.Context(), args[0], apply, refresh, keepGoing, !*noSudo)
 		},
 	}
-	c.Flags().BoolVar(&apply, "apply", false, "old way to install them: use `komando pkg upgrade TARGET --security`")
+	c.Flags().BoolVar(&apply, "apply", false, "old way to install them: use komando pkg upgrade TARGET --security")
 	c.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update)")
 	c.Flags().BoolVar(&keepGoing, "keep-going", false, "with --apply: go on to the next server after a failure or an unexpected change")
 	_ = c.Flags().MarkHidden("apply")
