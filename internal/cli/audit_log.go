@@ -16,7 +16,7 @@ import (
 // send the log elsewhere when that matters.
 
 // appendAudit adds one record, under a lock so parallel komando processes
-// keep the chain in order (auditlog_sealed.go).
+// keep the chain in order (audit_log_sealed.go).
 func appendAudit(rec map[string]any) error {
 	line, err := writeAudit(rec)
 	if err == nil && auditSyslog != "" {
@@ -45,7 +45,7 @@ func (a auditCheck) Text() string {
 	return "audit log broken at line " + strconv.Itoa(a.FirstBroken) + "\n" + a.Note
 }
 
-// verifyAudit checks the store's audit records (auditlog_sealed.go).
+// verifyAudit checks the store's audit records (audit_log_sealed.go).
 func verifyAudit() (auditCheck, error) { return verifySealedAudit() }
 
 func auditVerifyCmd() *cobra.Command {

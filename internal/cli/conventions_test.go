@@ -42,10 +42,10 @@ func TestConventions(t *testing.T) {
 		}
 		// every command people run shows one real example (ux.md, section 10)
 		if c.Runnable() && !c.HasSubCommands() && !c.Hidden && c.Example == "" && c.Name() != "help" && c.Parent().Name() != "completion" {
-			t.Errorf("%s: no example; set Example or add one to examples (examples.go)", path)
+			t.Errorf("%s: no example; set Example or add one to examples (help_examples.go)", path)
 		}
 		if _, ok := examples[path]; ok && c.Annotations[exampleFromTable] == "" {
-			t.Errorf("%s: has its own Example; remove it from examples.go", path)
+			t.Errorf("%s: has its own Example; remove it from help_examples.go", path)
 		}
 		// command lists fit 80 columns: `komando --help` puts a top-level
 		// Short at column 15, a sub-command's a little further right

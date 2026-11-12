@@ -37,7 +37,7 @@ const groupOnly = "komando-group"
 
 // applyConventions applies the rules every command shares, so a new command
 // cannot forget them. TestConventions checks the rest.
-// exampleFromTable marks a command whose Example comes from examples.go.
+// exampleFromTable marks a command whose Example comes from help_examples.go.
 const exampleFromTable = "example_from_table"
 
 func applyConventions(c *cobra.Command) {

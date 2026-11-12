@@ -563,7 +563,7 @@ Guidelines](https://clig.dev) and the rules above.
 - [ ] `komando` alone: the commands by group for a person at a terminal;
   otherwise the first steps, a dozen lines at most. A command typed with
   something missing asks a person for it, and nobody else.
-- [ ] Every command has at least one real example (`examples.go` or its
+- [ ] Every command has at least one real example (`help_examples.go` or its
   own `Example`). `TestConventions` fails without one, and
   `TestExamplesParse` fails when an example names a command or flag that
   does not exist.
@@ -573,7 +573,7 @@ Guidelines](https://clig.dev) and the rules above.
   others. A group's Short is the area and 3 or 4 jobs in plain verbs. A
   person-only command's ends with "(person only)", which komando adds
   (`TestStandardShort`). The detail goes in Long (or `details` in
-  `examples.go`).
+  `help_examples.go`).
 - [ ] A change command's Long says what it does first; komando adds the
   `Safety:` line after that paragraph and wraps it at 76 columns
   (`TestStandardLong`). It shows a `--dry-run` example, and an example
