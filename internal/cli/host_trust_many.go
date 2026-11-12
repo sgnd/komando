@@ -130,10 +130,7 @@ func approveReplacements(st *store.State, rows []*trustRow) error {
 	if len([]rune(what)) > approvalMaxLen {
 		what = fmt.Sprintf("replacing the pinned host keys of %s: %s", countOf(len(names), "server"), strings.Join(names, ", "))
 	}
-	if err := guardSafety(what); err != nil {
-		return err
-	}
-	return guardProtection("host", "replacing the pinned host key of", prot)
+	return replacePin(names, prot, what)
 }
 
 // pinTrustRows writes the pins: new keys are added, mismatches without
@@ -222,10 +219,7 @@ func trustDryRun(st *store.State, hosts []*store.Host, reset bool) error {
 				prot = append(prot, h.Name)
 			}
 		}
-		if err := guardSafety(fmt.Sprintf("replacing the pinned host keys of %s (keys may be replaced)", countOf(len(hosts), "server"))); err != nil {
-			return err
-		}
-		if err := guardProtection("host", "replacing the pinned host key of", prot); err != nil {
+		if err := replacePin(hostNames(hosts), prot, fmt.Sprintf("replacing the pinned host keys of %s (keys may be replaced)", countOf(len(hosts), "server"))); err != nil {
 			return err
 		}
 	}

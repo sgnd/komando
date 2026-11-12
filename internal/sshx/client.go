@@ -680,7 +680,7 @@ func CountPinned(addr string) (int, error) {
 // not written again. With replace, every other pin for addr goes in the
 // same write, so a failure never leaves the server unpinned; removed is how
 // many pins went. Whether a pin may be replaced is the caller's decision
-// (`host trust --reset` needs a person's yes).
+// (`host trust --reset` is for a person at a terminal only).
 func PinHostKey(addr string, key ssh.PublicKey, replace bool) (removed int, err error) {
 	err = HostKeys().update(context.Background(), func(t hostKeyTx) error {
 		pins, matched, err := t.Pins(addr)

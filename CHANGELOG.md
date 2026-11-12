@@ -87,6 +87,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **Replacing a pinned host key is for a person at a terminal only.**
+  `komando host trust NAME --reset` shows the old and new key and asks
+  once (one question for a group, with "(protected)" when it is). An AI
+  agent or a script gets `NEEDS_PERSON` (exit 6; was `SAFETY_SETTING`,
+  which `--yes` lifted), before anything is fetched when a key is pinned,
+  and no flag lifts it; the hint names the command for a person to run.
+  A server with no pin yet is pinned as before.
 - At a terminal, `registry prune` asks you to type the repository whose
   old images go (`Type the name shop/api`), not the conn's name.
 - **`secret rm`, `key rm --delete-file` (a key komando made) and every

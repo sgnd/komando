@@ -525,12 +525,14 @@ console or the server's own console), then replace the old key:
 
 ```bash
 komando host trust web1 --reset --dry-run   # how many pinned keys would go
-komando host trust web1 --reset --yes
+komando host trust web1 --reset             # shows the old and new key, asks once
 ```
 
-Replacing a pinned key needs `--yes`, and an AI agent also needs your yes
-in komando's window, because an agent that re-pins the key could be
-talking to an impostor. Without `--reset`, `host trust` never adds a
+Only a person at a terminal replaces a pinned key: komando shows the old
+and the new fingerprint and asks once. An AI agent or a script gets
+`NEEDS_PERSON` (exit 6) whatever flags it adds, because an agent that
+re-pins the key could be talking to an impostor; its hint names the
+command for you to run. Without `--reset`, `host trust` never adds a
 second key: a different key stops with `HOSTKEY_MISMATCH`, and a server
 that cannot be reached keeps its old key.
 
@@ -542,7 +544,7 @@ trust` the group instead of one name. It takes every kind of target, like
 
 ```bash
 komando host trust @cluster                 # new servers get pinned; changed keys are refused
-komando host trust @cluster --reset --yes   # after the rebuild: one yes for all of them
+komando host trust @cluster --reset         # after the rebuild: one yes for all of them
 ```
 
 `data.results` lists every server with its new `fingerprint` and, when the

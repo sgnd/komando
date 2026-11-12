@@ -137,7 +137,6 @@ var riskRows = []riskRow{
 	{id: "conn.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
 	{id: "vpn.edit", when: protectionOff, tier: tierSafety, what: "turns protection off"},
 	{id: "vpn.edit", when: anyWord("--mfa=false"), tier: tierSafety, what: "turns --mfa off (komando may then connect it without a person)"},
-	{id: "host.trust", when: anyWord("--reset", "--replace", "--reset=true", "--replace=true"), tier: tierSafety, what: "replaces a pinned host key"},
 	{id: "update", tier: tierSafety, dynamic: "it installs an older version"},
 	{id: "tunnel.start", tier: tierSafety, dynamic: "it listens on an open address (OPEN_BIND)"},
 	{id: "secret.keychain", tier: tierSafety, dynamic: "it turns the keychain off"},
@@ -152,6 +151,7 @@ var riskRows = []riskRow{
 	{id: "login", tier: tierPerson},
 	{id: "login.aws", tier: tierPerson},
 	{id: "ssh-gate", tier: tierPerson},
+	{id: "host.trust", when: anyWord("--reset", "--reset=true"), tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
 
 	// a bulk change keeps its own confirm (CONFIRM_REQUIRED for an agent)
 	{id: "group.rm", when: func(w []string) bool { return len(riskArgs(w)) == 1 }, tier: tierChange, bulk: "deleting a group of more than 3 members"},

@@ -7438,3 +7438,53 @@ exit 6
 --- stdout
 --- stderr
 Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first. Nothing was changed.
+### komando -o json host trust prod1 --reset --dry-run (agent json, release note)
+exit 0
+--- stdout
+{"ok":true,"command":"host.trust","data":{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
+--- stderr
+### komando -o text host trust prod1 --reset --dry-run (agent text, release note)
+exit 0
+--- stdout
+address: 127.0.0.2:1
+host: prod1
+would_fetch_from: the server directly
+would_remove_entries: 1
+--- stderr
+dry run: nothing was changed
+without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
+### komando -o json host trust prod1 --reset --dry-run (script json, release note)
+exit 0
+--- stdout
+{"ok":true,"command":"host.trust","data":{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
+--- stderr
+### komando -o text host trust prod1 --reset --dry-run (script text, release note)
+exit 0
+--- stdout
+address: 127.0.0.2:1
+host: prod1
+would_fetch_from: the server directly
+would_remove_entries: 1
+--- stderr
+dry run: nothing was changed
+without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
+### komando -o json host trust prod1 --reset (agent json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"host.trust","error":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host trust prod1 --reset (agent text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack). Nothing was changed.
+### komando -o json host trust prod1 --reset (script json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"host.trust","error":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host trust prod1 --reset (script text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack). Nothing was changed.

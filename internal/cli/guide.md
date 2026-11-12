@@ -387,8 +387,9 @@ Anything that must keep running (a temporary web server, a watcher) is a
   keys for the first time. Show the human each `host` and `fingerprint` to
   compare with the server's own.
 - If the human says the servers were rebuilt, ask for one command for all
-  of them: `komando host trust @group --reset --yes` (or `'name-*'`). The
-  human confirms every new key in one window. `host rm` plus `host add` does
+  of them to run in their own terminal: `komando host trust @group --reset`
+  (or `'name-*'`). Only a person replaces a pinned key (you get
+  `NEEDS_PERSON`); they confirm every new key with one answer. `host rm` plus `host add` does
   not get past a mismatch: the old key stays pinned.
 
 ### Server output and the audit log

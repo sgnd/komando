@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -11,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -111,7 +113,7 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 		code string
 	}{
 		{"plain trust of a changed key", []string{"host", "trust", "prod1"}, "HOSTKEY_MISMATCH"},
-		{"--reset without --yes", []string{"host", "trust", "prod1", "--reset"}, "SAFETY_SETTING"},
+		{"--reset from a script", []string{"host", "trust", "prod1", "--reset"}, "NEEDS_PERSON"},
 	}
 	for _, s := range steps {
 		e := wantCode(t, s.code, s.args...)
@@ -123,19 +125,22 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 
 	d = mustRun(t, "host", "trust", "prod1", "--reset", "--dry-run")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
-		t.Errorf("--reset --dry-run does not say it needs --yes: %v", d)
+		t.Errorf("--reset --dry-run does not say it needs a person: %v", d)
 	}
 	onlyPin("--reset --dry-run", realFP)
 
 	// a server that cannot be reached keeps its pin, even with --reset
 	keySSHDDown(t)
-	wantCode(t, "CONNECTION_REFUSED", "host", "trust", "down", "--reset", "--yes")
+	wantCode(t, "NEEDS_PERSON", "host", "trust", "down", "--reset") // a script: stopped before it connects
+	personTypes(t, "y")
+	wantCode(t, "CONNECTION_REFUSED", "host", "trust", "down", "--reset")
 
-	d = mustRun(t, "host", "trust", "prod1", "--reset", "--yes")
+	personTypes(t, "y") // a person at the terminal replaces it (OD-9)
+	d = mustRun(t, "host", "trust", "prod1", "--reset")
 	if d["fingerprint"] != impFP || d["removed_entries"].(float64) != 1 {
-		t.Errorf("--reset --yes: %v", d)
+		t.Errorf("--reset by a person: %v", d)
 	}
-	onlyPin("--reset --yes", impFP)
+	onlyPin("--reset by a person", impFP)
 }
 
 // keySSHDDown adds host "down" at a closed port, with a pinned key that
@@ -169,18 +174,19 @@ func containsAll(s string, parts ...string) bool {
 	return true
 }
 
-// An AI agent cannot replace a pin by itself: --yes opens the approval
-// window, and a person who says no keeps the old key.
+// An AI agent never replaces a pin (OD-9, AGENTS rule 8): it gets
+// NEEDS_PERSON, which no flag lifts and which opens no window, and the
+// hint names the command a person runs. The old key stays.
 func TestHostTrustResetNeedsAPersonForAgents(t *testing.T) {
 	addr, key, real, impostor := trustLab(t)
 	key.Store(&impostor)
-	windows := asAgent(t, false, true)
-	e := wantCode(t, "SAFETY_SETTING", "host", "trust", "prod1", "--reset", "--yes")
-	if *windows != 1 {
+	windows := asAgent(t, true, true)
+	e := wantCode(t, "NEEDS_PERSON", "host", "trust", "prod1", "--reset")
+	if *windows != 0 {
 		t.Errorf("approval windows: %d", *windows)
 	}
-	if e.Hint == "" {
-		t.Error("no hint")
+	if !e.Final || !strings.Contains(e.Hint, "komando host trust prod1 --reset") || out.ApprovalFlag(e) != "" {
+		t.Errorf("no flag lifts it, and the hint names the person's command: %+v", e)
 	}
 	if fps := pinnedFingerprints(t, addr); len(fps) != 1 || fps[0] != ssh.FingerprintSHA256(real.PublicKey()) {
 		t.Errorf("pins after the person said no: %v", fps)
@@ -270,18 +276,19 @@ func TestHostTrustGroup(t *testing.T) {
 		t.Errorf("node1 pins after a refused trust: %v", fps)
 	}
 
-	var texts []string
-	saved := askOnScreen
-	windows := asAgent(t, true, true)
-	inner := askOnScreen
-	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return inner(text) }
-	t.Cleanup(func() { askOnScreen = saved })
-	d = mustRun(t, "host", "trust", "@lab", "--reset", "--yes")
-	if *windows != 1 {
-		t.Fatalf("windows: %d, want one for the whole group", *windows)
+	// a person at the terminal: one question for the whole group, naming
+	// each server whose key changes with its new key
+	personTypes(t, "y")
+	screen, err := os.CreateTemp(t.TempDir(), "screen")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !containsAll(texts[0], "2 servers", "node1 "+shortFP(newFP[0]), "node2 "+shortFP(newFP[1])) || strings.Contains(texts[0], "node3") {
-		t.Errorf("window text: %q", texts[0])
+	os.Stderr = screen
+	d = mustRun(t, "host", "trust", "@lab", "--reset")
+	shown, _ := os.ReadFile(screen.Name())
+	if text := string(shown); strings.Count(text, "[y/N]") != 1 ||
+		!containsAll(text, "2 servers", "node1 "+shortFP(newFP[0]), "node2 "+shortFP(newFP[1])) || strings.Contains(text, "node3 ") {
+		t.Errorf("the question: %q", text)
 	}
 	r = trustResults(t, d)
 	if r["node1"]["fingerprint"] != newFP[0] || r["node1"]["old_fingerprints"].([]any)[0] != old1 {
@@ -294,8 +301,8 @@ func TestHostTrustGroup(t *testing.T) {
 	}
 }
 
-// A person who says no in the window keeps every old key; a dry run
-// fetches nothing and says what --reset would need.
+// An agent is stopped and a person who says no keeps every old key; a dry
+// run fetches nothing and says what --reset would need.
 func TestHostTrustGroupDenied(t *testing.T) {
 	addrs, keys := trustGroup(t, 2)
 	mustRun(t, "host", "trust", "@lab")
@@ -308,8 +315,12 @@ func TestHostTrustGroupDenied(t *testing.T) {
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil || len(d["results"].([]any)) != 2 {
 		t.Errorf("dry run: %v", d)
 	}
-	asAgent(t, false, true)
-	wantCode(t, "SAFETY_SETTING", "host", "trust", "@lab", "--reset", "--yes")
+	asAgent(t, true, true)
+	wantCode(t, "NEEDS_PERSON", "host", "trust", "@lab", "--reset")
+	personTypes(t, "n")
+	if e := wantCode(t, "DECLINED", "host", "trust", "@lab", "--reset"); e.Exit != out.ExitPolicy {
+		t.Errorf("a person's no: %+v", e)
+	}
 	for i, a := range addrs {
 		if fps := pinnedFingerprints(t, a); len(fps) != 1 || fps[0] != before[i][0] {
 			t.Errorf("node%d pins after a no: %v", i+1, fps)

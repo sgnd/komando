@@ -111,15 +111,17 @@ $K doctor -o text 2>&1 | grep -E '^✗' | sed 's/^/    doctor says: /' || true
 check "doctor text is a checklist" True "$($K doctor -o text 2>/dev/null | grep -q '^✓ state' && echo True || echo False)"
 
 # a rebuilt server (new host keys, same address) inside a group: host trust
-# @lab refuses only that one; --reset --yes re-pins it, the others stay
+# @lab refuses only that one; a script's --reset gets NEEDS_PERSON; a person
+# at a terminal answers y and it is re-pinned, the others stay
 DC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
 oldfp=$($K host trust direct | jget 'd["data"]["fingerprint"]')
 DC exec -T direct sh -c 'rm -f /etc/ssh/ssh_host_*; ssh-keygen -q -A; kill -HUP 1' >/dev/null
 sleep 1
 check "host trust @lab refuses only the rebuilt server" "PARTIAL_FAILURE HOSTKEY_MISMATCH True" \
   "$($K host trust @lab | jget 'd["error"]["code"] + " " + [r for r in d["data"]["results"] if r["host"] == "direct"][0]["error"]["code"] + " " + str(all(r["ok"] for r in d["data"]["results"] if r["host"] != "direct"))' || true)"
-o=$($K host trust @lab --reset --yes)
-check "host trust @lab --reset --yes re-pins it, with the old key named" "True True" \
+check "a script cannot replace a pinned key" NEEDS_PERSON "$($K host trust @lab --reset | jget 'd["error"]["code"]' || true)"
+o=$(ptyrun 'y\n' env NO_COLOR=1 TERM=dumb "$K" -o json host trust @lab --reset 2>/dev/null | tr -d '\r' | grep '^{')
+check "host trust @lab --reset by a person re-pins it, with the old key named" "True True" \
   "$(jget '[str(r["fingerprint"] != r["old_fingerprints"][0]) + " " + str(r["old_fingerprints"][0] == "'"$oldfp"'") for r in d["data"]["results"] if r["host"] == "direct"][0]' <<<"$o")"
 check "the rebuilt server works again" direct "$($K exec direct --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
 

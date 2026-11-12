@@ -1,10 +1,15 @@
 package cli
 
 import (
+	"crypto/ed25519"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/crypto/ssh"
+
+	"github.com/sgnd/komando/internal/sshx"
 )
 
 // goldenGateHome is a komando home with the gate rows' inventory, made
@@ -41,6 +46,15 @@ func goldenGateSetup(t *testing.T) {
 			{"key", "gen", "gkey"},
 		} {
 			mustRun(t, a...)
+		}
+		// prod1 has a pinned host key, so `host trust prod1 --reset` would
+		// replace one (a fixed key: the golden text stays the same)
+		pub, err := ssh.NewPublicKey(ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize)).Public())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sshx.PinHostKey("127.0.0.2:1", pub, false); err != nil {
+			t.Fatal(err)
 		}
 		goldenGateHome = filepath.Join(os.TempDir(), "komando-golden-gates-"+filepath.Base(home))
 		if err := os.CopyFS(goldenGateHome, os.DirFS(home)); err != nil {
@@ -151,4 +165,8 @@ var goldenNotes = [][]string{
 	{"secret", "rm", "gsec"},
 	{"key", "rm", "gkey", "--delete-file"},
 	{"fs", "rm", "web1", "/tmp/x"},
+	// C-C13 (OD-9): replacing a pinned host key is for a person only; with
+	// a key pinned, the real run stops before it connects
+	{"host", "trust", "prod1", "--reset", "--dry-run"},
+	{"host", "trust", "prod1", "--reset"},
 }
