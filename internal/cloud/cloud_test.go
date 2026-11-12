@@ -338,3 +338,66 @@ func TestGCPAccessTokenErrors(t *testing.T) {
 type failingSource struct{}
 
 func (failingSource) Token() (*oauth2.Token, error) { return nil, errors.New("invalid_grant") }
+
+// A profile that assumes a role from an SSO profile logs in to that SSO;
+// a profile with neither says ErrAWSNotSSO.
+func TestAWSProfileSSO(t *testing.T) {
+	home := awsEnv(t)
+	os.WriteFile(filepath.Join(home, "config"), []byte("[profile old]\nsso_start_url = https://old.awsapps.com/start\nsso_region = us-east-1\n"+
+		"sso_account_id = 1\nsso_role_name = r\n[profile role]\nrole_arn = arn:aws:iam::1:role/x\nsource_profile = old\n[profile plain]\nregion = eu-west-1\n"), 0o600)
+	s, err := AWSProfileSSO(context.Background(), "role")
+	if err != nil || s.StartURL != "https://old.awsapps.com/start" || s.Profile != "old" || s.key != s.StartURL {
+		t.Errorf("role: %+v %v", s, err)
+	}
+	if _, err := AWSProfileSSO(context.Background(), "plain"); !errors.Is(err, ErrAWSNotSSO) {
+		t.Errorf("plain: %v", err)
+	}
+	if _, err := AWSProfileSSO(context.Background(), "nope"); !AWSProfileMissing(err) {
+		t.Errorf("missing: %v", err)
+	}
+}
+
+// The token file is replaced by a new private file: an old file others
+// could read, or a link planted at the old temporary name, gets no token.
+func TestWriteTokenFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "cache", "x.json")
+	os.MkdirAll(filepath.Dir(path), 0o700)
+	os.WriteFile(path, []byte("old"), 0o644)
+	elsewhere := filepath.Join(dir, "elsewhere")
+	os.Symlink(elsewhere, path+".tmp")
+	if err := writeTokenFile(path, []byte("tok")); err != nil {
+		t.Fatal(err)
+	}
+	fi, err := os.Stat(path)
+	if b, _ := os.ReadFile(path); err != nil || string(b) != "tok" || fi.Mode().Perm() != 0o600 {
+		t.Errorf("%s: %v %v", path, fi, err)
+	}
+	if _, err := os.Stat(elsewhere); err == nil {
+		t.Error("the token went through the link")
+	}
+	if left, _ := filepath.Glob(filepath.Join(dir, "cache", ".komando-*")); len(left) != 0 {
+		t.Errorf("left %v", left)
+	}
+}
+
+// A role profile's AssumeRole goes to AWS_ENDPOINT_URL (an emulator), never
+// to the real AWS: the SDK alone sends it to sts.amazonaws.com.
+func TestAWSRoleUsesGlobalEndpoint(t *testing.T) {
+	home := awsEnv(t)
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer srv.Close()
+	os.WriteFile(filepath.Join(home, "config"), []byte("[profile r]\nrole_arn = arn:aws:iam::123456789012:role/e2e\nsource_profile = s\nregion = us-east-1\n"), 0o600)
+	os.WriteFile(filepath.Join(home, "credentials"), []byte("[s]\naws_access_key_id = test\naws_secret_access_key = test\n"), 0o600)
+	t.Setenv("AWS_ENDPOINT_URL", srv.URL)
+	t.Setenv("AWS_ENDPOINT_URL_STS", "")
+	os.Unsetenv("AWS_ENDPOINT_URL_STS")
+	t.Setenv("AWS_MAX_ATTEMPTS", "1")
+	if _, err := AWSCredentials(context.Background(), "r"); err == nil || hits.Load() == 0 {
+		t.Errorf("AssumeRole did not reach AWS_ENDPOINT_URL: hits %d, %v", hits.Load(), err)
+	}
+}

@@ -256,9 +256,13 @@ func importAWS(path string) (*importPlan, error) {
 	for _, prof := range profiles {
 		creds, region, endpoint, err := cloud.AWSProfileAccess(ctx, prof, path, credsFile)
 		if err != nil {
-			if errors.Is(err, cloud.ErrAWSLogin) {
-				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: the login has expired; run `komando login aws --profile %s`, then import again", prof, prof))
-			} else {
+			_, serr := cloud.AWSProfileSSO(ctx, prof, path, credsFile)
+			switch {
+			case errors.Is(err, cloud.ErrAWSLogin) && errors.Is(serr, cloud.ErrAWSNotSSO):
+				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: no keys and no SSO login; put its keys under [%s] in %s, then import again", prof, prof, credsFile))
+			case errors.Is(err, cloud.ErrAWSLogin):
+				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: no valid SSO login; a person runs `komando login aws --profile %s`, then import again", prof, prof))
+			default:
 				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: %v", prof, err))
 			}
 			continue

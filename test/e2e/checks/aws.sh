@@ -37,10 +37,38 @@ sso_region = us-east-1
 EOF
 q $K conn add t-aws-expired "s3://backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --option aws_profile=e2e-sso
 check "an SSO profile without a valid login is AWS_LOGIN_REQUIRED" AWS_LOGIN_REQUIRED \
-  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_EC2_METADATA_DISABLED=true $K storage ls t-aws-expired | jget 'd["error"]["code"]' || true)"
+  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true $K storage ls t-aws-expired | jget 'd["error"]["code"]' || true)"
 check "the hint says how to log in" True \
-  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_EC2_METADATA_DISABLED=true $K storage ls t-aws-expired | jget '"komando login aws --profile e2e-sso" in d["error"]["hint"]' || true)"
+  "$(env AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true $K storage ls t-aws-expired | jget '"komando login aws --profile e2e-sso" in d["error"]["hint"]' || true)"
 q $K conn rm t-aws-expired
+
+# komando login aws is for a person: an agent gets NEEDS_PERSON (exit 6) with
+# the exact command; a person's dry run shows the sign-in page, logs in to
+# nothing, and runs in a real terminal
+set +e
+AL=$(AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null A login aws --profile e2e-sso </dev/null); RC=$?
+set -e
+check "login aws: an agent gets NEEDS_PERSON" NEEDS_PERSON "$(jget 'd["error"]["code"]' <<<"$AL" || true)"
+check "login aws: exit 6 for the agent" 6 "$RC"
+check "login aws: the hint is the person's command" True "$(jget '"`komando login aws --profile e2e-sso`" in d["error"]["hint"]' <<<"$AL" || true)"
+check "login aws: an agent's dry run is not blocked" NEEDS_PERSON \
+  "$(AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null A --dry-run login aws --profile e2e-sso </dev/null | jget 'd["meta"]["would_be_blocked"]["code"]' || true)"
+O=$(ptyrun "" env NO_COLOR=1 TERM=dumb AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null "$K" -o text --dry-run login aws --profile e2e-sso | tr -d '\r')
+check "person: login aws --dry-run shows the SSO start page" 1 "$(grep -c 'sso_start_url: https://e2e-nowhere.awsapps.com/start' <<<"$O")"
+
+# a role assumed from static keys through STS (moto): komando's own STS
+# call gives the role's keys, which then list the bucket
+curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "http://127.0.0.1:$E2E_MOTO/e2e-sts" >/dev/null ||
+  curl -sf -X PUT "http://127.0.0.1:$E2E_MOTO/e2e-sts" >/dev/null || echo "  (could not create the e2e-sts bucket in moto)"
+printf '[profile e2e-role]\nrole_arn = arn:aws:iam::123456789012:role/e2e\nsource_profile = e2e-src\nregion = us-east-1\n' >"$TMP/aws-role-config"
+printf '[e2e-src]\naws_access_key_id = test\naws_secret_access_key = test\n' >"$TMP/aws-role-credentials"
+ROLEENV=(env PATH=/usr/bin:/bin AWS_CONFIG_FILE="$TMP/aws-role-config" AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-role-credentials" AWS_EC2_METADATA_DISABLED=true)
+q $K conn add t-aws-role "s3://e2e-sts?endpoint=http://127.0.0.1:$E2E_MOTO&region=us-east-1" --option aws_profile=e2e-role
+check "STS: a role from source_profile keys lists the bucket (moto)" True \
+  "$("${ROLEENV[@]}" AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" $K storage ls t-aws-role | jget 'd["ok"] or d["error"]["code"] + ": " + d["error"]["message"]' || true)"
+check "STS: a refused role is AWS_FAILED, not a login" AWS_FAILED \
+  "$("${ROLEENV[@]}" AWS_ENDPOINT_URL=http://127.0.0.1:1 AWS_MAX_ATTEMPTS=1 $K storage ls t-aws-role | jget 'd["error"]["code"]' || true)"
+q $K conn rm t-aws-role
 
 # Amazon ECR: a fresh login from the ECR API (moto here) on every call,
 # with the region from the host name and the conn's aws_profile

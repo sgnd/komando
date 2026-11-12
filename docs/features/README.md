@@ -40,6 +40,7 @@ Unsure about a word? See the [glossary](glossary.md).
 | [Queues](queues.md) | Kafka topics, RabbitMQ queues, NATS JetStream streams, Amazon SQS queues and Google Cloud Pub/Sub topics: list, peek, lag, send | `queue` |
 | [Storage](storage.md) | browse, download, upload and share files in S3, Google Cloud and Azure buckets, on WebDAV/FTPS/SFTP/FTP servers and Windows (SMB) shares | `storage`, `upload`, `download`, `sync` |
 | [Clusters](cluster.md) | Kubernetes and Docker Swarm: status, list, logs, apply, restart, scale | `cluster` |
+| [Cloud logins](cloud.md) | log in to AWS SSO once; S3, SQS and ECR conns that use your AWS profile; a conn per S3 bucket | `login aws`, `import aws` |
 | [Container registries](registry.md) | list repositories and tags, inspect and copy images, delete old ones | `registry` |
 | [Rotate keys and passwords](rotate.md) | change a key or a password everywhere, in order; when someone leaves | `key`, `secret`, `db user`, `audit` |
 | [Safety](safety.md) | the seatbelts and what to do when one stops you | `policy`, `audit`, `ssh-gate` |

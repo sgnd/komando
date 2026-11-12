@@ -64,3 +64,29 @@ func TestImportAWS(t *testing.T) {
 		t.Errorf("notes %q", notes)
 	}
 }
+
+// A profile that cannot log in says what fixes it: `komando login aws` only
+// for an SSO profile, the credentials file for one without SSO. No AWS
+// endpoint is reached.
+func TestImportAWSNotes(t *testing.T) {
+	awsHome(t)
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "config")
+	os.WriteFile(cfg, []byte("[profile corp]\nsso_session = s\nsso_account_id = 1\nsso_role_name = r\n[sso-session s]\n"+
+		"sso_start_url = https://x.awsapps.com/start\nsso_region = eu-west-1\n[profile bare]\nregion = eu-west-1\n"), 0o600)
+	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", "")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	p, err := importAWS(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notes := strings.Join(p.Notes, "\n")
+	if !strings.Contains(notes, "profile corp: no valid SSO login; a person runs `komando login aws --profile corp`") ||
+		!strings.Contains(notes, "profile bare: no keys and no SSO login; put its keys under [bare] in "+filepath.Join(dir, "credentials")) ||
+		strings.Contains(notes, "login aws --profile bare") {
+		t.Errorf("notes:\n%s", notes)
+	}
+	if len(p.Conns) != 0 {
+		t.Errorf("conns %v", p.Conns)
+	}
+}

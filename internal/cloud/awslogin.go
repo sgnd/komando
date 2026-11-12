@@ -26,36 +26,72 @@ func AWSProfileMissing(err error) bool {
 	return errors.As(err, &e)
 }
 
-// AWSSSOLogin logs a person in to the IAM Identity Center (SSO) of a
-// profile, the way `aws sso login` does: the device-code flow. show gets the
-// page and the code to confirm there. The token is written to the same
-// cache file the aws CLI uses (~/.aws/sso/cache), so the SDK, the aws CLI
-// and komando share the login.
-func AWSSSOLogin(ctx context.Context, profile string, show func(url, code string)) (string, error) {
-	if profile == "" {
-		profile = "default"
-	}
-	sc, err := config.LoadSharedConfigProfile(ctx, profile, func(o *config.LoadSharedConfigOptions) {
-		// the environment's file names, as LoadDefaultConfig uses them
+// ErrAWSNotSSO says a profile has no IAM Identity Center (SSO) login:
+// its keys come from ~/.aws/credentials or the environment, so there is
+// nothing to log in to.
+var ErrAWSNotSSO = errors.New("the profile does not use SSO")
+
+// awsSharedConfig is a profile of ~/.aws/config and credentials, with the
+// environment's file names, as LoadDefaultConfig uses them.
+// files, when given, are the config and credentials file instead.
+func awsSharedConfig(ctx context.Context, profile string, files ...string) (config.SharedConfig, error) {
+	return config.LoadSharedConfigProfile(ctx, profile, func(o *config.LoadSharedConfigOptions) {
 		if f := os.Getenv("AWS_CONFIG_FILE"); f != "" {
 			o.ConfigFiles = []string{f}
 		}
 		if f := os.Getenv("AWS_SHARED_CREDENTIALS_FILE"); f != "" {
 			o.CredentialsFiles = []string{f}
 		}
+		if len(files) == 2 {
+			o.ConfigFiles, o.CredentialsFiles = files[:1], files[1:]
+		}
 	})
+}
+
+// AWSSSO is the SSO login a profile uses: its own, or that of the profile
+// its role is assumed from (role_arn with source_profile). key names the
+// token's cache file.
+type AWSSSO struct {
+	Profile, StartURL, Region, key string
+	scopes                         []string
+	// Role is the profile's role_arn, also when there is no SSO behind it
+	Role string
+}
+
+// AWSProfileSSO is the SSO login behind a profile, or an error wrapping
+// ErrAWSNotSSO when it has none.
+// files, when given, are the config and credentials file to read (import).
+func AWSProfileSSO(ctx context.Context, profile string, files ...string) (AWSSSO, error) {
+	if profile == "" {
+		profile = "default"
+	}
+	sc, err := awsSharedConfig(ctx, profile, files...)
+	if err != nil {
+		return AWSSSO{}, err
+	}
+	for p := &sc; p != nil; p = p.Source {
+		if p.SSOSession != nil && p.SSOSession.SSOStartURL != "" && p.SSOSession.SSORegion != "" {
+			return AWSSSO{p.Profile, p.SSOSession.SSOStartURL, p.SSOSession.SSORegion, p.SSOSessionName, []string{"sso:account:access"}, sc.RoleARN}, nil
+		}
+		if p.SSOStartURL != "" && p.SSORegion != "" {
+			return AWSSSO{p.Profile, p.SSOStartURL, p.SSORegion, p.SSOStartURL, nil, sc.RoleARN}, nil
+		}
+	}
+	return AWSSSO{Role: sc.RoleARN}, fmt.Errorf("%w: profile %s has no sso_start_url or sso_session; its keys come from ~/.aws/credentials or the environment", ErrAWSNotSSO, profile)
+}
+
+// AWSSSOLogin logs a person in to the IAM Identity Center (SSO) of a
+// profile, the way `aws sso login` does: the device-code flow. A profile
+// that assumes a role from an SSO profile logs in to that one. show gets
+// the page and the code to confirm there. The token is written to the same
+// cache file the aws CLI uses (~/.aws/sso/cache), so the SDK, the aws CLI
+// and komando share the login.
+func AWSSSOLogin(ctx context.Context, profile string, show func(url, code string)) (string, error) {
+	sso, err := AWSProfileSSO(ctx, profile)
 	if err != nil {
 		return "", err
 	}
-	startURL, region, key := sc.SSOStartURL, sc.SSORegion, sc.SSOStartURL
-	var scopes []string
-	if sc.SSOSession != nil {
-		startURL, region, key = sc.SSOSession.SSOStartURL, sc.SSOSession.SSORegion, sc.SSOSessionName
-		scopes = []string{"sso:account:access"}
-	}
-	if startURL == "" || region == "" {
-		return "", fmt.Errorf("profile %s does not use SSO (no sso_start_url); its keys come from ~/.aws/credentials or the environment", profile)
-	}
+	startURL, region, key, scopes := sso.StartURL, sso.Region, sso.key, sso.scopes
 	client := ssooidc.New(ssooidc.Options{Region: region}, func(o *ssooidc.Options) {
 		if ssoOIDCEndpoint != "" {
 			o.BaseEndpoint = aws.String(ssoOIDCEndpoint)
@@ -114,15 +150,33 @@ func AWSSSOLogin(ctx context.Context, profile string, show func(url, code string
 			cache["refreshToken"] = *tok.RefreshToken
 		}
 		b, _ := json.Marshal(cache)
-		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-			return "", err
-		}
-		tmp := path + ".tmp"
-		if err := os.WriteFile(tmp, b, 0o600); err != nil {
-			return "", err
-		}
-		return path, os.Rename(tmp, path)
+		return path, writeTokenFile(path, b)
 	}
+}
+
+// writeTokenFile replaces path with b, readable by this user only. The
+// temporary file is new (never one that is already there, or a link to
+// somewhere else), so the token is never in a file others can read.
+func writeTokenFile(path string, b []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, ".komando-*.tmp") // mode 0600
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(b)
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(f.Name(), path)
+	}
+	if err != nil {
+		os.Remove(f.Name())
+	}
+	return err
 }
 
 func firstPtr(v ...*string) *string {

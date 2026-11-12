@@ -408,6 +408,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 4    | HOSTKEY_MISMATCH                  | never fix it; report it to the human |
 | 4    | HOSTKEY_UNKNOWN                   | host keys are strict: show the human the fingerprint in the message and let them compare it before `host trust` (it asks them) |
 | 4    | VPN_LOGIN_REQUIRED, VPN_DOWN      | ask the human to run `komando vpn up <name>` |
+| 4    | AWS_LOGIN_REQUIRED                | the AWS SSO login ran out: ask the human to run the `komando login aws --profile NAME` that `error.hint` names (an agent gets NEEDS_PERSON); AWS_FAILED and AWS_PROFILE_NOT_FOUND: follow `error.hint` (keys or profile in ~/.aws); never read ~/.aws yourself |
 | 4    | CONNECTION_LOST                   | the link broke mid-command: it may still run or have finished. Check with a read-only command before re-running; use `job start` next time |
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |

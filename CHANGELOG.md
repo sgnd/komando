@@ -446,6 +446,38 @@ its highlights; the sections below them give the details. Versions follow
   password, like `facts` and `pkg security`, so all three agree. On dnf and
   yum the login user's own cache could list other updates (48 against 4
   on Rocky 9).
+- `komando login aws --profile ROLE` now works for a profile that assumes a
+  role from an SSO profile (`role_arn` with `source_profile`): it logs in
+  to that SSO, as the role's commands need. The SSO token file is written
+  through a new private temporary file, so a file left at the old
+  temporary name (or a link there) never gets the token.
+- An AWS profile without SSO and without keys no longer says
+  `AWS_LOGIN_REQUIRED` with the hint `komando login aws`, which cannot help
+  it: it is `AWS_FAILED` and the hint says where the keys go. Ctrl-C while
+  komando talks to AWS is `CANCELLED`, not `AWS_FAILED`.
+- `komando login aws` run by an AI agent is now `NEEDS_PERSON` (exit 6)
+  with the hint "ask the user to run `komando login aws --profile NAME` in
+  their own terminal", like every other person-only step; a script without
+  a terminal still gets `NEEDS_TERMINAL`. `--dry-run` is never blocked: it
+  checks the profile and shows its SSO start URL and region, with
+  `meta.would_be_blocked` for an agent. komando opens only an `https://`
+  sign-in address in the browser.
+- `komando login gcp` and `komando login azure` say that the browser login
+  comes in a later release and what works today (application default
+  credentials, a service principal, or a key in `--password-ref`), for any
+  arguments, instead of a hint to store a "service account key" for Azure.
+- `komando import aws` names the right fix per profile: `komando login aws
+  --profile NAME` only for an SSO profile, the credentials file for a
+  profile without keys or SSO (it said "the login has expired" for both).
+- New page [Cloud logins](docs/features/cloud.md): `komando login aws`, the
+  `aws_profile` option, `komando import aws`, the AWS error codes and what
+  works for Google Cloud and Azure until their login comes. The agent
+  guide lists `AWS_LOGIN_REQUIRED`.
+- With `AWS_ENDPOINT_URL` set (LocalStack, moto), a profile that assumes a
+  role sent its AssumeRole call to the real AWS, signed with the source
+  access key: the AWS SDK leaves the role's STS client out of that
+  setting. komando now applies it to STS too (`AWS_ENDPOINT_URL_STS` still
+  wins).
 
 ## [0.12.0] - 2026-11-11
 

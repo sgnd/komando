@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -27,6 +28,7 @@ var ErrAWSLogin = errors.New("AWS login required")
 // usual chain (environment, ~/.aws/config and credentials, SSO, roles,
 // instance metadata). region overrides the profile's region when set.
 func AWSConfig(ctx context.Context, profile, region string) (aws.Config, error) {
+	stsEndpointFromGlobal()
 	var opts []func(*config.LoadOptions) error
 	if profile != "" && profile != "default" {
 		opts = append(opts, config.WithSharedConfigProfile(profile))
@@ -39,6 +41,17 @@ func AWSConfig(ctx context.Context, profile, region string) (aws.Config, error) 
 		return aws.Config{}, awsErr(err)
 	}
 	return cfg, nil
+}
+
+// stsEndpointFromGlobal makes AWS_ENDPOINT_URL cover STS too. The SDK
+// applies it to every client but the STS one it makes for a role profile
+// (role_arn), so with an emulator (LocalStack, moto) the role's AssumeRole
+// went to the real AWS with the source access key. AWS_ENDPOINT_URL_STS,
+// when set, still wins.
+func stsEndpointFromGlobal() {
+	if e := os.Getenv("AWS_ENDPOINT_URL"); e != "" && os.Getenv("AWS_ENDPOINT_URL_STS") == "" {
+		os.Setenv("AWS_ENDPOINT_URL_STS", e)
+	}
 }
 
 // AWSCredentials are the profile's current keys.
@@ -59,6 +72,7 @@ func AWSCredentials(ctx context.Context, profile string) (aws.Credentials, error
 // AWSProfileAccess is what a profile in the given config and credentials
 // files gives: its current keys, region and custom endpoint ("" for AWS).
 func AWSProfileAccess(ctx context.Context, profile, configFile, credsFile string) (aws.Credentials, string, string, error) {
+	stsEndpointFromGlobal()
 	opts := []func(*config.LoadOptions) error{config.WithSharedConfigProfile(profile),
 		config.WithSharedConfigFiles([]string{configFile}), config.WithSharedCredentialsFiles([]string{credsFile})}
 	cfg, err := config.LoadDefaultConfig(ctx, opts...)
