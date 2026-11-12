@@ -509,7 +509,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	case strings.Contains(msg, "i/o timeout"), strings.Contains(msg, "deadline exceeded"):
 		return out.Errf(out.ExitTimeout, "CONNECT_TIMEOUT", "a firewall drops the connection, or the server is private: check the address with `komando host show "+host+"`, reach it through a bastion or VPN (`komando host edit "+host+" --via NAME`), or raise --connect-timeout on a slow link", "connecting to %s timed out", host)
 	case strings.Contains(msg, "connection refused"):
-		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "check that sshd runs on the server and listens on this port: komando host show "+host, "%s: %s", host, msg)
+		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "check that sshd runs on the server and listens on this port: `komando host show "+host+"`", "%s: %s", host, msg)
 	case strings.Contains(msg, "no such host"):
 		return out.Errf(out.ExitConnect, "DNS_ERROR", "the name does not resolve here: check it with `komando host show "+host+"` and fix it with `komando host edit "+host+" --address ADDRESS`; a name only a VPN resolves needs --via that VPN", "%s: %s", host, msg)
 	}

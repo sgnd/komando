@@ -379,7 +379,7 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 			arg := args[0]
 			for _, r := range policy.Rules() {
 				if r.ID == arg {
-					return out.Errf(out.ExitUsage, "BUILTIN_RULE", "built-in rules always apply; for one intended command, confirm with the user and pass --allow-dangerous",
+					return out.Errf(out.ExitUsage, "BUILTIN_RULE", "built-in rules always apply (see them with `komando policy list`); for one intended command, confirm with the user and pass --allow-dangerous",
 						"%s is a built-in rule and cannot be removed", arg)
 				}
 			}
@@ -677,7 +677,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			var soft *out.Error
 			if !ok {
-				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the checks marked ✗ (ok: false)", "some checks failed")
+				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the checks marked ✗ (ok: false), then run `komando doctor` again", "some checks failed")
 			}
 			out.P.Print("doctor", r, soft)
 			if soft != nil {

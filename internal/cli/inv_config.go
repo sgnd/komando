@@ -205,7 +205,7 @@ func findSetting(key string) (*setting, error) {
 			return &settings[i], nil
 		}
 	}
-	e := out.Errf(out.ExitUsage, "UNKNOWN_SETTING", "settings: "+strings.Join(settingKeys(), ", "), "unknown setting %q", key)
+	e := out.Errf(out.ExitUsage, "UNKNOWN_SETTING", "see the settings with `komando config show`: "+strings.Join(settingKeys(), ", "), "unknown setting %q", key)
 	if c := closest(key, settingKeys()); c != "" {
 		suggest(e, key, c)
 	}

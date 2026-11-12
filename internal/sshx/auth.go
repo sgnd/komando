@@ -148,7 +148,7 @@ func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) 
 	}
 	if err != nil {
 		if explicit {
-			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path", "cannot read key %s: %v", path, err)
+			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path (`komando key list` shows the keys komando knows)", "cannot read key %s: %v", path, err)
 		}
 		return nil, nil
 	}

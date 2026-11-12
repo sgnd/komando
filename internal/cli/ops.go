@@ -312,7 +312,7 @@ func recipeAddCmd() *cobra.Command {
 			}
 			err := store.Update(func(st *store.State) error {
 				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
-					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "pass --overwrite to replace it", "recipe %q exists", s.Name)
+					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "see it with `komando recipe show NAME`, or pass --overwrite to replace it", "recipe %q exists", s.Name)
 				}
 				if makesReadOnly(st) && !approved {
 					return out.Errf(out.ExitConflict, "RECIPE_CHANGED", "run it again",

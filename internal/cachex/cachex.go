@@ -769,7 +769,7 @@ func cmdErr(err error) error {
 		return out.Errf(out.ExitRemote, "CACHE_ERROR", "in a Redis Cluster the keys of one command must share a hash slot: send one command per key, or name related keys with the same {tag} (user:{42}:a, user:{42}:b)", "%s", msg)
 	}
 	if strings.HasPrefix(msg, "NOPERM") || strings.HasPrefix(msg, "NOAUTH") {
-		return out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference", "%s", msg)
+		return out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "%s", msg)
 	}
 	return out.Errf(out.ExitRemote, "CACHE_ERROR", "check the command and its arguments (redis.io/commands)", "%s", msg)
 }

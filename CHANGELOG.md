@@ -115,6 +115,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- More error hints name the komando command to run: `AMBIGUOUS_MATCH`
+  (`komando fs cat`), `BUILTIN_RULE` (`komando policy list`),
+  `CACHE_AUTH` and `DB_CONNECT` (`komando conn show`),
+  `CONNECTION_REFUSED` (`komando host show`, now in backticks),
+  `DOCTOR_FAILED`, `KEY_UNREADABLE`, `NO_MATCHING_TARGETS`,
+  `PORT_IN_USE`, `RECIPE_EXISTS`, `UNKNOWN_SETTING`, `VPN_IN_USE` and
+  `STORE_NEWER` (`komando update`).
 - An unknown command word suggests at most two names, within one typo
   for a word of four letters or fewer and two for a longer one: `komando
   ps` no longer suggests cp, db, fs, pkg and vpn. The hint names a

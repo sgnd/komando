@@ -409,7 +409,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 // checked and flags that would do nothing for them.
 func certTargetsFit(ctx context.Context, hosts []*store.Host, urls []certURL, o certOpts) error {
 	if len(hosts)+len(urls) == 0 {
-		return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "give a server, a TLS conn or a website (https://NAME)", "nothing to check")
+		return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "give a server, a TLS conn or a website (https://NAME): `komando cert check https://NAME`", "nothing to check")
 	}
 	if _, err := windowsGate(ctx, "cert.check", hosts, false); err != nil {
 		return err

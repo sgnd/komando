@@ -64,7 +64,7 @@ func openMemcache(ctx context.Context, t driver.Target, password string, dial Di
 		}
 		if line != "STORED" {
 			m.Close()
-			return nil, out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference", "memcached refused the login: %s", line)
+			return nil, out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "memcached refused the login: %s", line)
 		}
 	}
 	if _, err := m.cmd(ctx, "version"); err != nil {
