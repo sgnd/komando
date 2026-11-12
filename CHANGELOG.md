@@ -728,6 +728,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `key revoke --user` edits that user's authorized_keys as the user, with
+  a random temporary name. Before, root wrote a predictable temporary
+  file in the user's `.ssh`, so a link the user planted there sent their
+  own lines into a system file.
 - `vpn up` for an AI agent hands the VPN password to openconnect only when
   openconnect and ocproxy sit in folders only root can change, or a
   person says yes (SECRET_DESTINATION). Before, an agent could put its

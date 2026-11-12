@@ -289,11 +289,18 @@ func userKeyScript(u, pubKey string) string {
 		`{ grep -qF -- "$2" "$1/.ssh/authorized_keys" || printf '%s\n' "$2" >> "$1/.ssh/authorized_keys"; } && ` +
 		`chmod 700 "$1/.ssh" && chmod 600 "$1/.ssh/authorized_keys"`
 	// as the user: su from root, or sh when komando is that user already
-	return "ku() { if [ \"$(id -un)\" = " + q + " ]; then sh -c \"$@\"; else su -s /bin/sh " + q + " -c \"$@\"; fi; }; " +
+	return asUserFunc(q) +
 		"h=$(getent passwd " + q + " | cut -d: -f6); " +
 		"ku 'mkdir -m 700 -p \"$1/.ssh\"' sh \"$h\" 2>/dev/null || true; " +
 		"[ -e \"$h/.ssh\" ] || [ -L \"$h/.ssh\" ] || { mkdir -m 700 \"$h/.ssh\" && chown -h " + q + ":$(id -gn " + q + ") \"$h/.ssh\"; }; " +
 		"ku " + sshx.Q(asUser) + " sh \"$h\" " + sshx.Q(pubKey) + "; "
+}
+
+// asUserFunc defines ku, which runs `ku SCRIPT ARG0 ARGS...` as the user
+// q (already quoted): through su from root, or sh when komando logged in
+// as that user.
+func asUserFunc(q string) string {
+	return "ku() { if [ \"$(id -un)\" = " + q + " ]; then sh -c \"$@\"; else su -s /bin/sh " + q + " -c \"$@\"; fi; }; "
 }
 
 func userRmCmd(noSudo *bool) *cobra.Command {
