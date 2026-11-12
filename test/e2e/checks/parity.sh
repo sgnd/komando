@@ -8,8 +8,10 @@ native() { docker exec -i "$P-$1-1" "${@:2}"; } # native SERVICE CMD...: run CMD
 nativeas() { docker exec -i -u "$1" "$P-$2-1" "${@:3}"; } # as the user komando logs in as
 words() { tr '\n' ' ' | sed 's/ *$//'; }                  # lines -> one line, for comparing
 V="t-par-$$"
+# each part runs in the area that has its containers (run.sh)
 stdout_of() { jget 'd["data"]["results"][0]["stdout"]'; }
 
+if in_area data; then
 # a command on a server (ssh host CMD)
 check "exec = native shell" "$(nativeas agent direct sh -c 'uname -n; id -un' | words)" \
   "$($K exec direct --read-only -- 'uname -n; id -un' | stdout_of | words)"
@@ -49,19 +51,25 @@ echo "parity $V" >"$TMP/$V.txt"
 q $K storage upload files-sftp "$TMP/$V.txt" "$V.txt"
 check "storage upload = file on the sftp server" "parity $V" "$(native sftp cat "/home/deploy/uploads/$V.txt")"
 check "storage ls = ls" True "$($K storage ls files-sftp | jget '"'"$V.txt"'" in json.dumps(d["data"])')"
+fi
 
+if in_area k8s; then
 # Kubernetes (kubectl get)
 check "cluster ls namespaces = kubectl" "$(native k3s kubectl get ns -o name | sed 's|namespace/||' | sort | words)" \
   "$($K cluster ls lab-k3s namespaces | jget '" ".join(sorted(i["name"] for i in d["data"]["items"]))')"
 check "cluster ls kube-system deployments = kubectl" "$(native k3s kubectl get deploy -n kube-system -o name | sed 's|.*/||' | sort | words)" \
   "$($K cluster ls lab-k3s deployments --namespace kube-system | jget '" ".join(sorted(i["name"] for i in d["data"]["items"]))')"
+fi
 
+if in_area swarm; then
 # Docker on swarm1 (docker ps / images / node ls)
 check "docker images = docker image ls" "$(native swarm docker image ls --format '{{.Repository}}' | grep -v '<none>' | sort -u | words)" \
   "$($K docker images swarm1 | jget '" ".join(sorted(set(i["Repository"] for r in d["data"]["results"] for i in (r.get("data") or []) if i.get("Repository") and i["Repository"] != "<none>")))')"
 check "Swarm nodes = docker node ls" "$(native swarm docker node ls --format '{{.Hostname}}' | sort | words)" \
   "$($K cluster ls swarm1 nodes | jget '" ".join(sorted(i["name"] for i in d["data"]["items"]))')"
+fi
 
+if in_area data; then
 # packages (dpkg-query)
 check "pkg installed = dpkg-query" "$(native direct dpkg-query -W -f='${Version}' curl)" "$($K pkg installed direct curl | jget 'd["data"]["results"][0]["data"][0]["version"]')"
 
@@ -101,15 +109,25 @@ check "cache keys = redis-cli --scan" "$(native redis redis-cli -a redispass --n
   "$($K cache keys cache "$V:*" | jget '" ".join(sorted(d["data"]["keys"]))')"
 check "db schema = psql's tables" "$(native pg psql -U app -d app -At -c "select tablename from pg_tables where schemaname = 'public' order by 1" | words)" \
   "$($K db schema pg | jget '" ".join(sorted(t["name"] for t in d["data"]["tables"] if t["schema"] == "public" and t["type"] == "table"))')"
+fi
+
+if in_area registry; then
 check "registry ls = the registry's catalog" "$(native bastion curl -s http://registry:5000/v2/_catalog | python3 -c 'import json,sys; print(" ".join(sorted(json.load(sys.stdin)["repositories"])))')" \
   "$($K registry ls reg | jget '" ".join(sorted(d["data"]["repositories"]))')"
+fi
 
+if in_area k8s; then
 # kubectl logs, docker ps
 check "cluster logs = kubectl logs" "$(native k3s kubectl logs -n kube-system deploy/coredns --tail 3)" \
   "$($K cluster logs lab-k3s deploy/coredns --namespace kube-system -n 3 | jget 'd["data"]["logs"].rstrip("\n")')"
+fi
+
+if in_area swarm; then
 check "docker ps --all = docker ps -a" "$(native swarm docker ps -a --format '{{.Names}}' | sort | words)" \
   "$($K docker ps swarm1 --all | jget '" ".join(sorted(c.get("Names") or c.get("names") or c.get("name", "") for c in d["data"]["results"][0]["data"]))')"
+fi
 
+if in_area data; then
 # a tunnel reaches the same service as a direct connection
 T=$($K tunnel start direct -L 0:localhost:22 | jget 'd["data"]["listen"] + " " + d["data"]["id"]')
 banner() { python3 -c 'import socket,sys; h,p=sys.argv[1].rsplit(":",1); s=socket.create_connection((h,int(p)),5); print(s.recv(64).decode().split()[0])' "$1"; }
@@ -120,3 +138,4 @@ q $K exec direct -- "rm -rf /tmp/$V.sync"
 q $K cache rm cache "$V:a" "$V:b" --allow-dangerous
 q $K exec direct -- "rm -f /tmp/$V.bin /tmp/$V.conf"
 q $K cache rm cache "$V:k" --allow-dangerous
+fi

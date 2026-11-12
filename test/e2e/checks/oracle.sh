@@ -15,7 +15,7 @@ if [ "$($K conn test sys-ora | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)
   echo "  oracle is not answering; its state and last log lines:"
   ORC ps -a oracle 2>&1 | sed 's/^/    /'
   ORC logs --tail 30 oracle 2>&1 | sed 's/^/    /'
-  echo "  the Oracle checks are skipped (the image could not run here)"
+  skipped "the Oracle checks: the database did not start here (it needs about 2 GB of memory)"
   q $K conn rm sys-ora
   $K secret rm ora-system ora-shop ora-ro >/dev/null 2>&1 || true
   set -e

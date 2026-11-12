@@ -8,8 +8,8 @@
 # Then each area's change that an agent may not make alone must stop with
 # the code that tells the agent what to ask the user.
 #
-# The name starts with zz_ so it runs last: every conn and host the other
-# checks leave (k3s, swarm1, registry, files) is there by then.
+# Each part runs in the area that has its containers (run.sh), after the
+# area's other checks: every conn and host they leave is there by then.
 AG="$TMP/zz-agent.log" # every agent answer, for the leak check at the end
 : >"$AG"
 ag() { A "$@" </dev/null | tee -a "$AG"; }      # ag ARGS...: run as the agent, keep the answer
@@ -18,6 +18,7 @@ acode() { # acode NAME CODE ARGS...: the agent's command stops with CODE
   check "agent: $1" "$2" "$(ag "${@:3}" | jget '(d.get("error") or d.get("data", {}).get("would_be_blocked") or {}).get("code")' || true)"
 }
 
+if in_area data; then
 # inventory, settings and help
 aok "version" version
 aok "list" list
@@ -56,9 +57,14 @@ aok "net check" net check bastion pg:5432
 aok "pkg installed" pkg installed direct curl
 aok "user list" user list direct
 aok "cron list" cron list direct
+fi
+
+if in_area swarm; then
 aok "docker ps" docker ps swarm1
 aok "docker images" docker images swarm1
+fi
 
+if in_area data; then
 # data
 aok "db query" db query pg 'select 1'
 aok "db schema" db schema pg
@@ -71,8 +77,13 @@ aok "db on a protected conn reads" db query maria 'select 1'
 aok "cache info" cache info cache
 aok "cache keys" cache keys cache '*'
 aok "storage ls" storage ls bucket
-aok "registry ls" registry ls reg
+fi
 
+if in_area registry; then
+aok "registry ls" registry ls reg
+fi
+
+if in_area k8s; then
 # clusters
 aok "cluster status" cluster status lab-k3s
 aok "cluster ls" cluster ls lab-k3s pods -A
@@ -80,20 +91,38 @@ aok "cluster events" cluster events lab-k3s -A
 aok "cluster helm ls" cluster helm ls lab-k3s -A
 check "agent: cluster get hides Secret values" True \
   "$(ag cluster get lab-k3s secret --namespace kube-system "$(A cluster ls lab-k3s secrets --namespace kube-system </dev/null | jget 'd["data"]["items"][0]["name"]')" | jget 'len(d["data"]["data"]) > 0 and all(v == "(hidden)" for v in d["data"]["data"].values())' || true)"
+fi
 
+if in_area data; then
 # what an agent may not do alone: each stops with a code that says why
 acode "db write needs --write" WRITE_REQUIRES_FLAG db query pg 'create table t_agent(x int)'
 acode "db write on a protected conn needs a person" PROTECTED_TARGET db query maria --write 'create table t_agent(x int)'
 acode "cache write needs --write" WRITE_REQUIRES_FLAG cache run cache SET t-agent 1
 acode "storage rm needs --allow-dangerous" POLICY_BLOCKED storage rm bucket e2e/nothing
+fi
+
+if in_area registry; then
 acode "registry rm needs --allow-dangerous" POLICY_BLOCKED registry rm reg e2e/nothing:1
+fi
+
+if in_area k8s; then
 acode "scaling to 0 needs --allow-dangerous" POLICY_BLOCKED cluster scale lab-k3s deploy/web 0
+fi
+
+if in_area data; then
 acode "a service on a protected host needs a person" PROTECTED_HOST svc restart target nginx
 acode "a change on a protected host needs a person" PROTECTED_HOST exec target -- touch /tmp/t-agent
 acode "an agent cannot log in for a person" NEEDS_TERMINAL login direct
 acode "an agent gets no SQL shell" NEEDS_TERMINAL db shell pg
+fi
+
+if in_area k8s; then
 acode "an agent gets no pod shell" NEEDS_TERMINAL cluster shell lab-k3s deploy/web
+fi
+
+if in_area data; then
 acode "an agent cannot change the vault passphrase" NEEDS_PERSON secret passphrase
+fi
 
 # not one password of the lab in anything the agent saw
 check "agent: no lab password in any answer" 0 \

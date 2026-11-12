@@ -60,14 +60,48 @@ jobs:
           go-version-file: go.mod
       - run: make security
 
-  # Real SSH, databases, caches and storage in Docker.
-  e2e:
-    name: End-to-end tests
+  # Real SSH, databases, caches and storage in Docker: each area of the lab
+  # (test/e2e/run.sh --list) on a runner of its own, at the same time.
+  e2e-areas:
+    name: End-to-end areas
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 5
+    outputs:
+      areas: ${{ steps.list.outputs.areas }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: list
+        run: echo "areas=$(test/e2e/run.sh --list-json)" >> "$GITHUB_OUTPUT"
+
+  e2e:
+    name: End-to-end tests (${{ matrix.area }})
+    needs: e2e-areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        area: ${{ fromJSON(needs.e2e-areas.outputs.areas) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - run: make e2e
+      - run: make e2e AREA=${{ matrix.area }}
+
+  # One check named "End-to-end tests" (the name the "Protect main" ruleset
+  # requires): green only when the area list and every area passed. A
+  # failed, cancelled or skipped area makes it fail.
+  e2e-all:
+    name: End-to-end tests
+    needs: [e2e-areas, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          AREAS: ${{ needs.e2e-areas.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          echo "area list: $AREAS, areas: $E2E"
+          [ "$AREAS" = success ] && [ "$E2E" = success ]
