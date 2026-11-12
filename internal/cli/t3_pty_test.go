@@ -91,6 +91,18 @@ func TestT3AsksTheTypedName(t *testing.T) {
 			}
 		})
 	}
+	// on a protected server the one typed question says so and covers the
+	// protection too: no [y/N] after it (S-7.4, C-C04)
+	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
+	t.Run("protected", func(t *testing.T) {
+		p := startPTYEnv(t, []string{"KOMANDO_PTY_AS=person"}, "reboot", "prod1")
+		p.answer(" to continue: ", "prod1\r")
+		code := p.exit()
+		shown := p.shown()
+		if code == out.ExitPolicy || strings.Count(shown, "Type ") != 1 || !strings.Contains(shown, "prod1 (protected)") || strings.Contains(shown, "[y/N") {
+			t.Errorf("exit %d; the screen:\n%s", code, shown)
+		}
+	})
 	// nothing went: the secret and the key are still there
 	if _, err := os.Stat(os.Getenv("KOMANDO_HOME")); err != nil {
 		t.Fatal(err)
