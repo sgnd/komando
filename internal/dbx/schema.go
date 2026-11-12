@@ -98,7 +98,7 @@ func Schema(ctx context.Context, db *sql.DB, kind string, names []string, timeou
 				}
 			}
 			if !found {
-				return nil, out.Errf(out.ExitNotFound, "TABLE_NOT_FOUND", "run `komando db schema CONN` to list tables", "table %q not found", n)
+				return nil, out.Errf(out.ExitNotFound, "TABLE_NOT_FOUND", "run `komando db schema CONN` to list tables", "no table named %q", n)
 			}
 		}
 	}

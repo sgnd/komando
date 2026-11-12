@@ -93,7 +93,7 @@ func noJetStream(err error) bool {
 }
 
 func streamNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "STREAM_NOT_FOUND", "list streams with `komando queue list CONN`", "stream %s does not exist", name)
+	return out.Errf(out.ExitNotFound, "STREAM_NOT_FOUND", "list streams with `komando queue list CONN`", "no stream named %q", name)
 }
 
 func streamExists(name string) error {
@@ -101,5 +101,5 @@ func streamExists(name string) error {
 }
 
 func consumerNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "CONSUMER_NOT_FOUND", "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER", "consumer %s does not exist", name)
+	return out.Errf(out.ExitNotFound, "CONSUMER_NOT_FOUND", "list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER", "no consumer named %q", name)
 }

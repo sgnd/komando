@@ -201,7 +201,7 @@ func resolveLink(sc *sftp.Client, p string) (string, error) {
 }
 
 func folderMissing(dir string) error {
-	return out.Errf(out.ExitNotFound, "FOLDER_NOT_FOUND", "add -p/--parents to create it", "folder %s does not exist", dir)
+	return out.Errf(out.ExitNotFound, "FOLDER_NOT_FOUND", "add -p/--parents to create it", "no folder named %q", dir)
 }
 
 func isASymlink(p string) error {

@@ -159,7 +159,7 @@ func (c *bqConnector) describeTable(ctx context.Context, name string) (Table, er
 	err := c.call(ctx, http.MethodGet, "/projects/"+url.PathEscape(project)+"/datasets/"+url.PathEscape(dataset)+"/tables/"+url.PathEscape(table), nil, nil, &bt)
 	var e *bqError
 	if errors.As(err, &e) && e.Status == http.StatusNotFound {
-		return Table{}, out.Errf(out.ExitNotFound, "TABLE_NOT_FOUND", "run `komando db schema CONN` to list tables", "table %q not found", name)
+		return Table{}, out.Errf(out.ExitNotFound, "TABLE_NOT_FOUND", "run `komando db schema CONN` to list tables", "no table named %q", name)
 	}
 	if err != nil {
 		return Table{}, err

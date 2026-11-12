@@ -92,11 +92,11 @@ func opErr(err error, what string) error {
 }
 
 func topicNotFound(topic string) error {
-	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`", "topic %s does not exist", topic)
+	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`", "no topic named %q", topic)
 }
 
 func groupNotFound(group string) error {
-	return out.Errf(out.ExitNotFound, "CONSUMER_GROUP_NOT_FOUND", "list consumer groups with `komando queue groups CONN`", "consumer group %s does not exist", group)
+	return out.Errf(out.ExitNotFound, "CONSUMER_GROUP_NOT_FOUND", "list consumer groups with `komando queue groups CONN`", "no consumer group named %q", group)
 }
 
 // NotSupported is the answer of an engine to a verb or flag it cannot do.

@@ -103,7 +103,7 @@ func opErr(err error, what string) error {
 
 func queueNotFound(name string) error {
 	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue list CONN`; a queue of another AWS account needs ?account=ID in the conn's URL, and the region is the URL's host",
-		"queue %s does not exist", name)
+		"no queue named %q", name)
 }
 
 func queueExists(name string) error {

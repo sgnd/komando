@@ -225,7 +225,7 @@ func userErr(err error, name string) error {
 	case strings.Contains(msg, "already exists"), strings.Contains(msg, "1396") && strings.Contains(strings.ToLower(msg), "create user"):
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case strings.Contains(msg, "does not exist"), strings.Contains(msg, "1396"):
-		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user list CONN`", "user %s does not exist", name)
+		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user list CONN`", "no database user named %q", name)
 	case strings.Contains(msg, "permission denied"), strings.Contains(msg, "does not have permission"), strings.Contains(msg, "must have CREATEROLE"), strings.Contains(msg, "Access denied"), strings.Contains(msg, "1227"):
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user needs the right to manage users (PostgreSQL: CREATEROLE; MySQL: CREATE USER; SQL Server: ALTER ANY LOGIN and ALTER ANY USER)", "%s", firstLine(msg))
 	case strings.Contains(msg, "depend on it"), strings.Contains(msg, "owns"):

@@ -154,14 +154,26 @@ func NotFoundCode(kind string) string {
 	return "NOT_FOUND"
 }
 
-func NotFound(kind, name string) *Error {
-	word := kind // the code and the command keep kind; the prose says VPN
-	if kind == "vpn" {
-		word = "VPN"
+// KindWord is the word people read for an inventory kind: a host is a
+// server, a key an SSH key (S-8.4). Codes and commands keep the kind.
+func KindWord(kind string) string {
+	switch kind {
+	case "host":
+		return "server"
+	case "vpn":
+		return "VPN"
+	case "key":
+		return "SSH key"
 	}
+	return kind
+}
+
+// NotFound is the error for a name komando does not know, worded the one
+// way S-8.4 asks: no <kind> named "<name>".
+func NotFound(kind, name string) *Error {
 	return Errf(ExitNotFound, NotFoundCode(kind),
-		fmt.Sprintf("run `komando %s list` to see available %ss", kind, word),
-		"%s %q not found", word, name)
+		fmt.Sprintf("see them with `komando %s list`", kind),
+		"no %s named %q", KindWord(kind), name)
 }
 
 // UsageHint is the hint a usage error gets when its command gives none.

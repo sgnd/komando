@@ -280,7 +280,7 @@ func pickContainer(o map[string]any, name string) (string, string, error) {
 	if name == "" {
 		return "", "", out.Usage("it has %d containers (%s); pick one with --container", len(cs), strings.Join(names, ", "))
 	}
-	return "", "", out.Errf(out.ExitNotFound, "CONTAINER_NOT_FOUND", "its containers: "+strings.Join(names, ", "), "no container %q", name)
+	return "", "", out.Errf(out.ExitNotFound, "CONTAINER_NOT_FOUND", "its containers: "+strings.Join(names, ", "), "no container named %q", name)
 }
 
 // softErr turns err into the envelope's error while the data still prints.

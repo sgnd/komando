@@ -29,12 +29,12 @@ func svcResult(rr *sshx.RunResult) ([]map[string]any, *out.Error) {
 	var missing []string
 	for _, u := range units {
 		if u["load_state"] == "not-found" {
-			missing = append(missing, fmt.Sprint(u["id"]))
+			missing = append(missing, fmt.Sprintf("%q", fmt.Sprint(u["id"])))
 		}
 	}
 	if len(missing) > 0 {
 		return units, out.Errf(out.ExitNotFound, "UNIT_NOT_FOUND", "check the name with `komando svc list TARGET`",
-			"unit not found: %s", strings.Join(missing, ", "))
+			"no unit named %s", strings.Join(missing, " or "))
 	}
 	return units, nil
 }

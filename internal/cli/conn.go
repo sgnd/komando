@@ -40,7 +40,7 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 		return nameTaken(k, existing)
 	case !overwrite:
 		return out.Errf(out.ExitConflict, map[string]string{"host": "HOST_EXISTS", "conn": "CONN_EXISTS", "vpn": "VPN_EXISTS"}[kind], fmt.Sprintf("use `komando %s edit` or pass --overwrite to replace it", kind),
-			"%s %q already exists", kind, name)
+			"%s %q already exists", out.KindWord(kind), name)
 	}
 	// replacing drops the protected mark, so it counts as changing it
 	if h, ok := s.Hosts[name]; ok && h.Protected {
@@ -57,7 +57,7 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 
 func nameTaken(kind, name string) error {
 	return out.Errf(out.ExitConflict, "NAME_TAKEN", fmt.Sprintf("pick another name; servers, conns and VPNs share one name space (see `komando %s show %s`)", kind, name),
-		"name %q is already used by a %s", name, kind)
+		"name %q is already used by a %s", name, out.KindWord(kind))
 }
 
 type connFlags struct {

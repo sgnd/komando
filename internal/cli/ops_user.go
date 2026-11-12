@@ -118,7 +118,7 @@ func shadowMissing(rr *sshx.RunResult) *out.Error {
 func userResult(name, action string, rr *sshx.RunResult) (any, *out.Error) {
 	switch marker(rr.Stdout) {
 	case "no-user":
-		return nil, out.Errf(out.ExitNotFound, "USER_NOT_FOUND", "list the accounts with `komando user list TARGET --all`", "user %s does not exist", name)
+		return nil, out.Errf(out.ExitNotFound, "USER_NOT_FOUND", "list the accounts with `komando user list TARGET --all`", "no user named %q", name)
 	}
 	if e := shadowMissing(rr); e != nil {
 		return nil, e

@@ -244,7 +244,7 @@ func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]h
 	if len(items) == 0 {
 		return nil, out.Errf(out.ExitNotFound, "HELM_RELEASE_NOT_FOUND",
 			"see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace",
-			"no Helm release %q in namespace %q", release, ns)
+			"no Helm release named %q in namespace %q", release, ns)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].version < items[j].version })
 	revs := make([]helmRelease, 0, len(items))

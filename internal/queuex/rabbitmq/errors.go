@@ -80,5 +80,5 @@ func opErr(err error, what string) error {
 
 func queueNotFound(name string) error {
 	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path",
-		"queue %s does not exist", name)
+		"no queue named %q", name)
 }

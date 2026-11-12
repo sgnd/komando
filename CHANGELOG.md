@@ -96,6 +96,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- A name komando does not find is worded one way in `error.message`:
+  `no server named "web9"`, `no topic named "orders"`, `no cache key
+  named "x"` (was `host "web9" not found`, `topic orders does not
+  exist` and others). The word is the one people read (server, SSH key,
+  VPN), never `host`. `error.message` is free text; codes are unchanged.
 - Every error code is written out in the source: `HOST_EXISTS`,
   `CONN_EXISTS` and `VPN_EXISTS` (and the not-found codes of `host`,
   `conn`, `vpn`, `job`, `key`, `recipe`, `secret` and `tunnel`) were

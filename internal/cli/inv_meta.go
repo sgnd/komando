@@ -396,7 +396,7 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 					if len(list) == 0 {
 						hint = "there are no custom rules; built-in ones cannot be removed"
 					}
-					return out.Errf(out.ExitNotFound, "RULE_NOT_FOUND", hint, "no custom deny rule %q", arg)
+					return out.Errf(out.ExitNotFound, "RULE_NOT_FOUND", hint, "no custom deny rule named %q", arg)
 				}
 				removed = list[i]
 				if err := guardSafety("removing the deny rule " + removed); err != nil {
