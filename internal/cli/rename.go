@@ -266,18 +266,9 @@ group rename.`,
 			if old == new {
 				return out.Usage("the old and the new prefix are the same")
 			}
-			want := map[string]bool{}
-			for _, k := range kinds {
-				k = strings.TrimSpace(strings.ToLower(k))
-				if !slices.Contains(renameKinds, k) {
-					return out.Errf(out.ExitUsage, "USAGE", "--kind takes: "+strings.Join(renameKinds, ", "), "unknown kind %q", k)
-				}
-				want[k] = true
-			}
-			if len(want) == 0 {
-				for _, k := range renameKinds {
-					want[k] = true
-				}
+			want, err := renameWant(kinds)
+			if err != nil {
+				return err
 			}
 			var skipped []renameSkip
 			what := fmt.Sprintf("renaming %s* to %s*", old, new)
@@ -311,6 +302,24 @@ group rename.`,
 	retiredFlag(c, "notes", "in-notes")
 	retiredFlag(c, "labels", "in-labels")
 	return c
+}
+
+// renameWant is the set of kinds --kind names (every kind when none).
+func renameWant(kinds []string) (map[string]bool, error) {
+	want := map[string]bool{}
+	for _, k := range kinds {
+		k = strings.TrimSpace(strings.ToLower(k))
+		if !slices.Contains(renameKinds, k) {
+			return nil, out.Errf(out.ExitUsage, "USAGE", "--kind takes: "+strings.Join(renameKinds, ", "), "unknown kind %q", k)
+		}
+		want[k] = true
+	}
+	if len(want) == 0 {
+		for _, k := range renameKinds {
+			want[k] = true
+		}
+	}
+	return want, nil
 }
 
 // renamedNames are the new names of the servers and conns a rename

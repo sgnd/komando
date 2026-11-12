@@ -585,11 +585,16 @@ revision. A Swarm service goes back to its previous version.`,
 		},
 	}
 	nsFlags(c, &ns, nil, nil)
-	c.Flags().IntVar(&to, "revision", 0, "the revision to go back to (default: the previous one with other images)")
+	rollbackFlags(c, &to, &wait)
+	return c
+}
+
+// rollbackFlags are cluster rollback's own flags.
+func rollbackFlags(c *cobra.Command, to *int, wait *bool) {
+	c.Flags().IntVar(to, "revision", 0, "the revision to go back to (default: the previous one with other images)")
 	flagAlias(c, "to-revision", "revision") // kubectl's word: a permanent synonym
 	retiredFlag(c, "to", "revision")
-	c.Flags().BoolVar(&wait, "wait", false, "wait until the rollback finishes (--timeout, default 5m)")
-	return c
+	c.Flags().BoolVar(wait, "wait", false, "wait until the rollback finishes (--timeout, default 5m)")
 }
 
 // rollbackNote prints, for a person, how to undo a deploy that went

@@ -113,9 +113,7 @@ Add --dry-run to see the change without making it.`,
 			return nil
 		},
 	}
-	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read and write with sudo (for files root owns)")
-	c.Flags().StringVar(&from, "copy", "", "the backup copy to put back, a path on the server (default: the newest PATH.bak)")
-	retiredFlag(c, "from", "copy")
+	fsRestoreFlags(c, &sudo, &from)
 	return c
 }
 
@@ -180,4 +178,11 @@ func argQ(s string) string {
 		return s
 	}
 	return sshx.Q(s)
+}
+
+// fsRestoreFlags are fs restore's own flags.
+func fsRestoreFlags(c *cobra.Command, sudo *bool, from *string) {
+	c.Flags().BoolVarP(sudo, "sudo", "s", false, "read and write with sudo (for files root owns)")
+	c.Flags().StringVar(from, "copy", "", "the backup copy to put back, a path on the server (default: the newest PATH.bak)")
+	retiredFlag(c, "from", "copy")
 }
