@@ -177,7 +177,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	timeout := 60 * time.Second
 	switch {
 	case v.Kind == "wireguard":
-		pid, addr, err := spawnServe(v.Name, logFile, 15*time.Second, s)
+		pid, addr, err := spawnServe(ctx, v.Name, logFile, 15*time.Second, s)
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +195,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 				return nil, err
 			}
 		}
-		pid, addr, err := spawnServe(v.Name, logFile, 90*time.Second, s)
+		pid, addr, err := spawnServe(ctx, v.Name, logFile, 90*time.Second, s)
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +210,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if err != nil {
 			return nil, err
 		}
-		pid, addr, err := spawnServeWith(v.Name, logFile, timeout+15*time.Second, cookie, s)
+		pid, addr, err := spawnServeWith(ctx, v.Name, logFile, timeout+15*time.Second, cookie, s)
 		if err != nil {
 			return nil, err
 		}
@@ -270,7 +270,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 				return nil, err
 			}
 		}
-		pid, addr, err := spawnServeWith(v.Name, logFile, timeout+15*time.Second, typed, s)
+		pid, addr, err := spawnServeWith(ctx, v.Name, logFile, timeout+15*time.Second, typed, s)
 		if err != nil {
 			return nil, err
 		}
@@ -359,14 +359,15 @@ func loginSecret(label string) (string, error) {
 }
 
 // spawnServe starts `komando vpn serve NAME` and waits for its SOCKS port.
-func spawnServe(name, logFile string, wait time.Duration, s *store.VpnSession) (int, string, error) {
-	return spawnServeWith(name, logFile, wait, "", s)
+func spawnServe(ctx context.Context, name, logFile string, wait time.Duration, s *store.VpnSession) (int, string, error) {
+	return spawnServeWith(ctx, name, logFile, wait, "", s)
 }
 
 // spawnServeWith starts the session's server with a random SOCKS login
 // (kept in s), a password a person typed and the vault passphrase, all on
-// its stdin.
-func spawnServeWith(name, logFile string, wait time.Duration, password string, s *store.VpnSession) (int, string, error) {
+// its stdin. Ctrl-C (ctx) while it waits stops that server: a VPN the
+// person cancelled does not come up after all.
+func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duration, password string, s *store.VpnSession) (int, string, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return 0, "", err
@@ -377,6 +378,9 @@ func spawnServeWith(name, logFile string, wait time.Duration, password string, s
 	}
 	var addr string
 	waitFor(wait, func() bool {
+		if ctx.Err() != nil {
+			return true
+		}
 		b, _ := os.ReadFile(logFile)
 		if i := strings.Index(string(b), "READY "); i >= 0 {
 			addr = strings.TrimSpace(strings.SplitN(string(b)[i+6:], "\n", 2)[0])
@@ -384,6 +388,12 @@ func spawnServeWith(name, logFile string, wait time.Duration, password string, s
 		}
 		return strings.Contains(string(b), "ERROR ")
 	})
+	if err := ctx.Err(); err != nil {
+		_ = netx.Terminate(pid)
+		e := toErr(err)
+		e.Hint = "vpn " + name + " was stopped before it came up; nothing is left running"
+		return 0, "", e
+	}
 	if addr == "" {
 		_ = netx.Terminate(pid)
 		b, _ := os.ReadFile(logFile)
@@ -396,7 +406,7 @@ func spawnServeWith(name, logFile string, wait time.Duration, password string, s
 // a new SOCKS login, kept in s, and the typed password go to it on stdin,
 // then the vault passphrase, never in its environment: it runs for long
 // (serveStdin reads them).
-func serveCommand(self, name, password string, s *store.VpnSession) *exec.Cmd {
+var serveCommand = func(self, name, password string, s *store.VpnSession) *exec.Cmd {
 	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
 	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
 	c.Stdin = strings.NewReader("SOCKS " + s.SocksUser + " " + s.SocksPass + "\n" + password + "\n")
@@ -542,6 +552,9 @@ func vpnDownCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if all && len(args) > 0 {
+				return out.Errf(out.ExitUsage, "USAGE", "use `komando vpn down --all` or `komando vpn down "+strings.Join(args, " ")+"`", "--all disconnects every VPN session; give names or --all, not both")
+			}
 			names := args
 			if all {
 				names = nil
@@ -558,7 +571,11 @@ func vpnDownCmd() *cobra.Command {
 				}
 			}
 			if g.dryRun {
-				out.P.Print("vpn.down", map[string]any{"would_disconnect": names}, nil)
+				res := map[string]any{"would_disconnect": names}
+				if a := vpnDownAffects(st, names); len(a) > 0 {
+					res["affects"] = a
+				}
+				out.P.Print("vpn.down", res, nil)
 				return nil
 			}
 			down, idle, notes := []string{}, []string{}, []string{}
@@ -610,7 +627,7 @@ func vpnDownCmd() *cobra.Command {
 			if len(down) > 0 {
 				audit(st, "vpn.down", down, "", true, nil)
 			}
-			out.P.Print("vpn.down", vpnDownData{Disconnected: down, NotConnected: idle, Notes: notes}, nil)
+			out.P.Print("vpn.down", vpnDownData{Disconnected: down, NotConnected: idle, Notes: notes, Affects: vpnDownAffects(st, down)}, nil)
 			return nil
 		},
 	}
@@ -619,15 +636,60 @@ func vpnDownCmd() *cobra.Command {
 }
 
 type vpnDownData struct {
-	Disconnected []string `json:"disconnected"`
-	NotConnected []string `json:"not_connected,omitempty"`
-	Notes        []string `json:"notes,omitempty"`
+	Disconnected []string            `json:"disconnected"`
+	NotConnected []string            `json:"not_connected,omitempty"`
+	Notes        []string            `json:"notes,omitempty"`
+	Affects      []vpnDownAffectsRow `json:"affects,omitempty"`
+}
+
+// vpnDownAffectsRow is what disconnecting one VPN does to the servers and
+// conns whose --via path needs it: with a login a person must give, they
+// stop answering until `vpn up`; otherwise their next command connects it
+// again.
+type vpnDownAffectsRow struct {
+	Vpn    string   `json:"vpn"`
+	UsedBy []string `json:"used_by"`
+	Until  string   `json:"until"` // "vpn up" or "next command"
+	Next   string   `json:"next,omitempty"`
+}
+
+// vpnDownAffects lists, for each VPN in names that something uses, what a
+// disconnect does to those users.
+func vpnDownAffects(st *store.State, names []string) []vpnDownAffectsRow {
+	var rows []vpnDownAffectsRow
+	for _, n := range names {
+		users := vpnUsers(st, n)
+		v := st.Vpns[n]
+		if len(users) == 0 || v == nil {
+			continue
+		}
+		r := vpnDownAffectsRow{Vpn: n, UsedBy: users, Until: "next command"}
+		if needsPersonLogin(v) {
+			r.Until, r.Next = "vpn up", "komando vpn up "+n
+		}
+		rows = append(rows, r)
+	}
+	return rows
+}
+
+func (r vpnDownAffectsRow) text() string {
+	who := strings.Join(r.UsedBy, ", ")
+	if len(r.UsedBy) > 3 {
+		who = usedByText(r.UsedBy)
+	}
+	if r.Until == "vpn up" {
+		return who + " stop answering until a person runs `" + r.Next + "`"
+	}
+	return who + " connect " + r.Vpn + " again on their next command"
 }
 
 func (d vpnDownData) Text() string {
 	var sb strings.Builder
 	for _, n := range d.Disconnected {
 		sb.WriteString("disconnected " + n + "\n")
+	}
+	for _, a := range d.Affects {
+		sb.WriteString("  " + a.text() + "\n")
 	}
 	for _, n := range d.Notes {
 		sb.WriteString(n + "\n")

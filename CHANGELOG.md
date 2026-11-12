@@ -212,6 +212,41 @@ its highlights; the sections below them give the details. Versions follow
   `secret set NAME --dry-run` without a value previews (`replaced`,
   `would_set`) with `meta.would_be_blocked: NEEDS_PERSON` instead of
   stopping.
+- `tunnel stop` never signals a process that is not komando: after a
+  crash or a restart a tunnel's pid may belong to another program, which
+  it used to end. `tunnel list` shows such a tunnel as down and forgets it.
+- A `--via` path that names a server or VPN twice (`office,office`,
+  `a,b,a`) is refused with `VIA_CYCLE` and the path without the repeat;
+  a VPN named twice got the wrong hint "put the VPN first", and a repeated
+  server was accepted.
+- `vpn down NAME --all` and `tunnel stop ID --all` are refused with
+  `USAGE`, as `logout HOST --all` is; the names, even unknown ones, were
+  ignored. `tunnel stop` is now in the audit log.
+- `tunnel start -L/-R/-D` takes IPv6 addresses in brackets, as ssh does
+  (`-L 8080:[::1]:80`); they were refused as an invalid spec. An open IPv6
+  bind (`[::]`) still needs a person's yes.
+- Ctrl-C while `vpn up` (or a command that connects a VPN by itself)
+  waits for the VPN's session now stops it at once (`CANCELLED`); the wait
+  of up to 75 seconds ignored it, so the VPN could come up after the
+  person cancelled.
+- Ctrl-C while `tunnel start` waits for its tunnel now stops the
+  background process and forgets the tunnel (`CANCELLED`); it was ignored,
+  so the tunnel could still come up after the person cancelled.
+- `komando login HOST --dry-run` with nobody at a terminal (an AI agent)
+  now prints the plan with `would_log_in: false` and `NEEDS_TERMINAL` in
+  `meta.would_be_blocked`, instead of failing: a dry run is never blocked.
+- `vpn down` (and its `--dry-run`) now says what the disconnect does to
+  the servers and conns that use the VPN: with a person's login they stop
+  answering until `komando vpn up NAME`; otherwise their next command
+  connects it again (new JSON field `affects`).
+- `vpn test` and `vpn up` of a SOCKS or HTTP proxy VPN without `--check`
+  now connect to the proxy itself and fail with `VPN_DOWN` when it does
+  not answer; they said ok for a dead proxy while `vpn status` said it was
+  down.
+- A VPN session no longer drops a connection that is still open when
+  `vpn_idle` (30m) passes: a `shell`, `logs --follow` or `tunnel` through
+  a WireGuard, OpenVPN, IPsec or SSL VPN session was cut after 30 minutes
+  because only new logins counted as use.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

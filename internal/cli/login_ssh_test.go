@@ -137,6 +137,11 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 		t.Fatalf("an agent without a login: %+v", e)
 	}
 	wantCode(t, "NEEDS_TERMINAL", "login", "web1")
+	// its dry run is never blocked: the plan says what the real run needs
+	d := mustRun(t, "login", "web1", "--dry-run")
+	if b, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); d["would_log_in"] != false || b["code"] != "NEEDS_TERMINAL" {
+		t.Fatalf("an agent's dry run: %v", d)
+	}
 
 	// a person logs in once, at a terminal
 	os.Unsetenv("KOMANDO_AGENT")

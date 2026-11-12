@@ -73,6 +73,9 @@ komando tunnel stop t1102-...                       # stop one by its ID
 komando tunnel stop --all
 ```
 
+IPv6 addresses go in brackets, as with ssh: `-L 8080:[::1]:80`, or
+`-L [::1]:8080:[fd00::5]:5432` to listen on the IPv6 loopback.
+
 - A port of `0` picks a free one. The result shows the address that was used.
 - For `-R`, the listening address is on the server. The result says so
   (`remote_listen`, `listen_on`).

@@ -275,7 +275,7 @@ This page is made from the code (`komando schema` lists the same under
 | `VAULT_KEY` | 1 | password for … (…): … | restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault |
 | `VAULT_LOCKED` | 1 | password for … (…): … | the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase) |
 | `VERSION_NOT_FOUND` | 3 | komando … has no download for … | pick another version from …/releases |
-| `VIA_CYCLE` | 1 | --via loop at … | fix the --via setting with `komando host edit … --via ...` |
+| `VIA_CYCLE` | 2 | host … cannot reach itself through itself | --via names the servers (or VPN) in front of this one, not the server itself |
 | `VIA_NOT_FOUND` | 3 | no server or VPN named … | --via takes server and VPN names; see `komando list` |
 | `VIA_ORDER` | 2 | …: the --via path reaches VPN … after another step | a path can use one VPN, as its first step |
 | `VPN_CLIENT_MISSING` | 3 | … VPNs need the … program, which is not installed | install the program the message names (macOS: `brew install NAME`; Linux: its package) |

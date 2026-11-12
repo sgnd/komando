@@ -33,7 +33,10 @@ docker run -d --rm --name "$SERVER" --network "$NET" --network-alias ovpnsrv --c
   'apk add -q --no-cache openvpn && for c in tcp crypt auth login; do openvpn --config /pki/$c.conf --daemon ovpn-$c --log /tmp/$c.log; done; sleep infinity' >/dev/null
 docker run -d --rm --name "$CLIENT" --network "$NET" -v "$W/komando:/usr/local/bin/komando:ro" -v "$W/pki:/pki:ro" \
   python:3.13-alpine sleep infinity >/dev/null
-for _ in $(seq 1 40); do [ "$(docker exec "$SERVER" sh -c 'grep -l "Initialization Sequence Completed" /tmp/*.log 2>/dev/null | wc -l')" = 4 ] && break; sleep 1; done
+# the server installs openvpn first, which can take a minute on a slow mirror
+ready=0
+for _ in $(seq 1 180); do [ "$(docker exec "$SERVER" sh -c 'grep -l "Initialization Sequence Completed" /tmp/*.log 2>/dev/null | wc -l')" = 4 ] && ready=1 && break; sleep 1; done
+[ "$ready" = 1 ] || fail "the OpenVPN servers did not start within 180 s (apk add openvpn, or a server config)"
 
 routes_before=$(docker exec "$CLIENT" sh -c 'ip route; ip addr' | md5sum)
 in_client sh -c 'printf e2e-pass | komando secret set ovpn-pass' >/dev/null
