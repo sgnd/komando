@@ -41,3 +41,16 @@ func TestPkgUpgradeSecurity(t *testing.T) {
 		t.Error("pkg security --apply must be hidden")
 	}
 }
+
+// `pkg upgrade @web --security` goes one server at a time and stops at the
+// first that fails: the next is never reached (C-V18, the serial rollout).
+func TestPkgUpgradeSecurityOneAtATime(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "1", "-g", "web")
+	mustRun(t, "host", "add", "web2", "root@127.0.0.1", "--port", "2", "-g", "web")
+	code, text := runMain(t, "pkg", "upgrade", "@web", "--security")
+	if code == 0 || !strings.Contains(text, `"order":"one server at a time, stopping at a failure or an unexpected change"`) ||
+		!strings.Contains(text, `"not_run":["web2"]`) || strings.Contains(text, `"host":"web2"`) {
+		t.Errorf("exit %d %s", code, text)
+	}
+}
