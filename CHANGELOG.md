@@ -7,6 +7,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- A [Secrets](docs/features/secrets.md) page: save, use, check, rename,
+  copy and remove secrets, where the key is kept, and what an AI agent
+  runs or gets at each step.
+
 ### Fixed
 
 - An AI agent reading `secret passphrase --dry-run` and `secret keychain
