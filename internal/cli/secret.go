@@ -418,12 +418,25 @@ picks would be a way to guess the secret one try at a time.`,
 				out.P.Print("secret.rm", map[string]any{"would_remove": args}, nil)
 				return nil
 			}
-			for _, n := range args {
-				if err := vault.Delete(n); err != nil && err != vault.ErrNotFound {
-					return err
+			// all or none, and under the state lock (then the vault lock, as
+			// moveSecret takes them), so a reference another komando adds
+			// meanwhile is seen before its secret is gone
+			args = dedupe(args)
+			err = store.Update(func(s *store.State) error {
+				for _, n := range args {
+					if users := secretUsers(s, n); len(users) > 0 {
+						return secretInUse(n, users)
+					}
 				}
+				return vault.DeleteMany(args)
+			})
+			audit(nil, "secret.rm", nil, "", err == nil, map[string]any{"secrets": args})
+			if errors.Is(err, vault.ErrNotFound) { // removed by another komando meanwhile
+				return notFoundSuggest("secret", strings.TrimPrefix(err.Error(), vault.ErrNotFound.Error()+": "), secretNames())
 			}
-			audit(nil, "secret.rm", nil, "", true, map[string]any{"secrets": args})
+			if err != nil {
+				return err
+			}
 			removed := any(args)
 			if len(args) == 1 {
 				removed = args[0] // one name prints as a string, several as a list
