@@ -17,6 +17,11 @@ its highlights; the sections below them give the details. Versions follow
   `db restore`. Questions that pick a saved recipe, a `--via` server or
   VPN, a `--key` or a setting now show a list of the ones you have
   instead of a blank line.
+- New: komando's line-by-line questions for a person at a terminal (a
+  value by its real name, a numbered list to pick from, `Run it? [y/N,
+  d = --dry-run first]`, type a name to confirm). They are only ever
+  asked when stdin, stdout and stderr are terminals, no AI agent runs
+  komando, CI is not set, TERM is not dumb and the output is text.
 
 ### Fixed
 
