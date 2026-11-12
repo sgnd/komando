@@ -95,7 +95,7 @@ export NO_PROXY=.internal,10.0.0.0/8     # names and networks reached directly
 | What | How it gets out |
 |---|---|
 | Web APIs: Kubernetes clusters (also `cluster exec`, `cluster forward`, `cluster shell`), registries, S3 storage, secret stores (Vault, 1Password, Bitwarden, AWS, GCP, Azure), the logins and tunnels of AnyConnect, Fortinet, GlobalProtect, F5 and Pulse VPNs, and `komando update` | through `HTTPS_PROXY` (and `HTTP_PROXY` for `http://` addresses), except what `NO_PROXY` names |
-| Servers (SSH), databases, caches, FTP and SFTP | not through `HTTPS_PROXY`: `ssh` and `psql` do not read it either, and a company proxy usually lets only web traffic out. Reach them through the proxy added as a VPN, then `--via NAME`: an HTTP proxy with `komando vpn add NAME proxy --address HOST:PORT`, a SOCKS proxy with `komando vpn add NAME socks --address HOST:PORT`; or through a bastion |
+| Servers (SSH), databases, caches, FTP and SFTP | not through `HTTPS_PROXY`: `ssh` and `psql` do not read it either, and a company proxy usually lets only web traffic out. Reach them through the proxy added as a VPN, then `--via NAME`: an HTTP proxy with `komando vpn add NAME proxy --proxy-address HOST:PORT`, a SOCKS proxy with `komando vpn add NAME socks --proxy-address HOST:PORT`; or through a bastion |
 | WireGuard, L2TP/IPsec, IPsec and IKEv2 VPNs | not through a proxy: they use UDP, which a web proxy cannot carry |
 
 - A kubeconfig's `proxy-url` wins over `HTTPS_PROXY` for that cluster, as

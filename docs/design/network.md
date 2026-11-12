@@ -80,7 +80,7 @@ Each step in the chain is a host (SSH bastion) or a VPN.
 komando vpn add vpn-a openvpn --config office.ovpn --user alice --password-ref secret:vpn-a
 komando vpn add vpn-b globalprotect --portal vpn.client.example.com --user alice --password-ref secret:vpn-b
 komando vpn add office wireguard --config ~/Downloads/office.conf
-komando vpn add lab socks --address 127.0.0.1:1080
+komando vpn add lab socks --proxy-address 127.0.0.1:1080
 
 komando host edit app --via vpn-a,bastion
 komando conn edit app-db --via vpn-b
