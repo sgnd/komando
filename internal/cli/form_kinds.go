@@ -602,12 +602,17 @@ func sqliteForm() formSpec {
 // The add commands use the hand-made forms above from every menu path.
 func init() {
 	addFormHints(map[string]formHint{
-		"host add": {form: func() []formGroup { return formGroupsFor("host") }},
-		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }},
-		"vpn add":  {form: func() []formGroup { return formGroupsFor("vpn") }},
+		"host add": {form: func() []formGroup { return formGroupsFor("host") }, next: []string{"facts {}", "logs {} --since 1h", "host edit {} --protected"}},
+		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }, next: []string{"conn show {}", "test {}"}},
+		"vpn add":  {form: func() []formGroup { return formGroupsFor("vpn") }, next: []string{"vpn up {}", "vpn test {}"}},
 	})
 	// db add, cache add, ...: conn add for one family, asked the same way.
+	next := map[string][]string{
+		"db add": {"db info {}", "db query {} \"select 1\""}, "cache add": {"cache info {}", "cache keys {}"},
+		"queue add": {"queue ls {}", "queue peek {} TOPIC"}, "storage add": {"storage ls {}"},
+		"cluster add": {"cluster status {}", "cluster ls {} pods"}, "registry add": {"registry ls {}"},
+	}
 	for cmd, label := range formFamilyAdd {
-		addFormHints(map[string]formHint{cmd: {form: func() []formGroup { return formGroupNamed(label) }}})
+		addFormHints(map[string]formHint{cmd: {form: func() []formGroup { return formGroupNamed(label) }, next: next[cmd]}})
 	}
 }

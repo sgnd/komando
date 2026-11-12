@@ -87,7 +87,7 @@ var formFsHints = map[string]formHint{
 				help: "Yes makes komando ask you to confirm first, since it cannot be undone."},
 			formFsSudo("Needed for files owned by root or another user."),
 		}},
-	"fs replace": {args: []formArg{formFsServer,
+	"fs replace": {next: []string{"fs restore {} PATH"}, args: []formArg{formFsServer,
 		{ask: "Which file do you want to edit?", example: "/etc/nginx/nginx.conf",
 			help: "The full path of the file on the server."}},
 		flags: []formFlag{

@@ -118,6 +118,7 @@ func executeArgs(args []string) int {
 	defer cancel()
 	cmd, err := root.ExecuteContextC(ctx)
 	if err == nil {
+		promptNext()
 		return 0
 	}
 	var ec exitCode
@@ -563,6 +564,7 @@ func newRoot() *cobra.Command {
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	addHelpTopics(root)
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
@@ -634,11 +636,44 @@ func printFirstSteps(cmd *cobra.Command, args []string) error {
 	if out.P.Format == "json" { // piped: one JSON envelope, never text
 		return out.Usage("komando needs a command").WithHint("read `komando guide` (the playbook for agents) or `komando schema` (every command)")
 	}
-	if menuWanted(cmd, args) {
-		return runMenu()
+	if promptable(outputFlag()) { // a person at a terminal: what komando does, by group
+		_, err := fmt.Fprint(cmd.OutOrStdout(), personHelp())
+		return err
 	}
 	_, err := fmt.Fprint(cmd.OutOrStdout(), firstSteps)
 	return err
+}
+
+// personHelp is `komando` alone for a person at a terminal: the commands
+// by what they work on, START first, a few examples, and how to learn more.
+func personHelp() string {
+	var b strings.Builder
+	b.WriteString("komando: one safe command line for " + tagline + "\n\n")
+	if st, err := loadState(); err == nil && len(st.Hosts) == 0 && len(st.Conns) == 0 && len(st.Vpns) == 0 {
+		b.WriteString("Nothing added yet: komando host add  or  komando import ssh-config\n\n")
+	}
+	for _, g := range [][2]string{
+		{"START", "host add · import ssh-config · list · test <target> · guide install"},
+		{"SERVERS", "exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell"},
+		{"DATA", "db  cache  queue  storage"},
+		{"PLATFORM", "cluster  registry"},
+		{"ACCESS", "vpn  login  secret  key  tunnel"},
+		{"OVERVIEW", "status  audit  list  doctor"},
+		{"SETUP", "host  conn  group  config  guide  completion"},
+	} {
+		fmt.Fprintf(&b, "%-12s %s\n", g[0], g[1])
+	}
+	b.WriteString(`
+EXAMPLES
+  $ komando host add web1 deploy@10.0.0.5
+  $ komando logs web1 --unit nginx --since 30m
+  $ komando db query prod-db "select now()"
+  $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
+
+Leave out an argument at a terminal and komando asks for it.
+LEARN MORE   komando <command> --help · komando help safety|environment|exit-codes|output
+`)
+	return b.String()
 }
 
 // tagline is what komando works with, said the same way in `komando`

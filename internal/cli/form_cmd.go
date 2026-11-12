@@ -34,6 +34,9 @@ type formHint struct {
 	skip bool
 	// always are flags every line gets (rename --prefix)
 	always []string
+	// next are the commands that usually follow, {} the first argument:
+	// shown on stderr as Next: after it ends well for a person at a terminal
+	next []string
 }
 
 // formArg is how one argument is asked.

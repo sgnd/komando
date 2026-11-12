@@ -47,6 +47,15 @@ its highlights; the sections below them give the details. Versions follow
   with `Blocked by policy:`. A yes you give at the terminal is recorded in
   `komando audit` as `confirm: tty`. Nothing is asked, and no answer
   counts, when CI is set. AI agents get exit 6 as before.
+- `komando` alone at your terminal now prints what komando does, by
+  group (START, SERVERS, DATA, PLATFORM, ACCESS, OVERVIEW, SETUP), with
+  examples, and says how to add your first server when nothing is added
+  yet. New help topics: `komando help safety`, `environment`,
+  `exit-codes`, `output`. At your terminal, `host show`, `conn show` and
+  `vpn show` end with the commands that work on that item, and after a
+  command ends well komando may say what usually comes next (`Next:`) and,
+  when it asked you for something, the line to type next time. All of
+  this goes to stderr, and only at a person's terminal.
 
 ### Fixed
 

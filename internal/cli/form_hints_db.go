@@ -89,6 +89,7 @@ var dbChangeHints = map[string]formHint{
 			help: "No stops only the running query and the program stays connected. Yes disconnects it."}},
 	},
 	"db dump": {
+		next: []string{"db restore {} --from FILE --dry-run"},
 		args: []formArg{{ask: "Which database should it back up?", pick: "db",
 			help: "A database you added to komando."}},
 		flags: []formFlag{

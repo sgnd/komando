@@ -38,10 +38,11 @@ func (f fillDone) Error() string { return "exit " + strconv.Itoa(f.code) }
 // promptFill is args with what was missing asked and added, or args as
 // they are. Its error is a cancel at a question (or fillDone).
 func promptFill(args []string) ([]string, error) {
-	promptConfirmed = ""
+	promptConfirmed, fillSeen = "", fillInfo{}
 	if !promptable(outputFlag()) {
 		return args, nil
 	}
+	fillSeen.person = true
 	scratch := newRoot() // its flags are parsed here; the real run parses its own
 	cmd, rest, err := scratch.Find(args)
 	if err != nil || cmd == scratch || !cmd.Runnable() || cmd.Hidden || slices.Contains(promptSkip, strings.Fields(commandKey(cmd))[0]) {
@@ -52,6 +53,10 @@ func promptFill(args []string) ([]string, error) {
 	}
 	if h, _ := cmd.Flags().GetBool("help"); h {
 		return args, nil
+	}
+	fillSeen.key = commandKey(cmd)
+	if pos := cmd.Flags().Args(); len(pos) > 0 {
+		fillSeen.first = pos[0]
 	}
 	st, err := loadState()
 	if err != nil {
@@ -79,6 +84,10 @@ func promptFill(args []string) ([]string, error) {
 		f.a[f.sp.qs[i].key] = v
 	}
 	filled := f.argv(args)
+	fillSeen.prompted, fillSeen.line = true, filled
+	if fillSeen.first == "" && len(f.missing) > 0 && f.sp.qs[f.missing[0]].key == "arg0" {
+		fillSeen.first = f.a["arg0"]
+	}
 	fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(menuCommandLine(filled)))
 	if err := f.confirm(filled); err != nil {
 		return nil, err
