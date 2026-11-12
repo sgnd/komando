@@ -73,11 +73,7 @@ func parseNetCheck(s string) ([]map[string]any, *out.Error) {
 func netCheckText(data any) string {
 	rows := [][]string{}
 	for _, r := range data.([]map[string]any) {
-		open := "no"
-		if r["open"] == true {
-			open = "yes"
-		}
-		rows = append(rows, []string{cell(r["target"]), open, cell(r["reason"]), cell(r["ms"])})
+		rows = append(rows, []string{cell(r["target"]), yesCell(r["open"] == true), cell(r["reason"]), cell(r["ms"])})
 	}
 	return textTable([]string{"target", "open", "reason", "ms"}, rows)
 }

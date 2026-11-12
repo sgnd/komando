@@ -275,7 +275,7 @@ func objectTable(objs []storex.Object) string {
 			rows[i] = []string{"DIR", "", o.Key}
 			continue
 		}
-		rows[i] = []string{humanBytes(o.Size), o.Modified.Format("2006-01-02 15:04"), o.Key}
+		rows[i] = []string{humanBytes(o.Size), timeCell(o.Modified), o.Key}
 	}
 	return dataTable([]string{"size", "modified", "key"}, rows)
 }

@@ -37,7 +37,7 @@ func (l secretList) Text() string {
 	for _, s := range l.Secrets {
 		rows = append(rows, []string{s.Name, humanAge(time.Since(s.UpdatedAt)) + " ago", strings.Join(s.UsedBy, ", ")})
 	}
-	return textTable([]string{"NAME", "UPDATED", "USED_BY"}, rows)
+	return textTable([]string{"NAME", "UPDATED", "USED BY"}, rows)
 }
 
 func secretNames() []string {

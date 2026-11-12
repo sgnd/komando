@@ -61,15 +61,7 @@ func (d vpnStatusData) Text() string {
 	}
 	rows := [][]string{}
 	for _, r := range d.Vpns {
-		up := "no"
-		if r.Up {
-			up = "yes"
-		}
-		since := ""
-		if !r.Since.IsZero() {
-			since = humanAge(time.Since(r.Since))
-		}
-		rows = append(rows, []string{r.Name, r.Kind, up, since, usedByText(r.UsedBy), r.Detail})
+		rows = append(rows, []string{r.Name, r.Kind, yesCell(r.Up), ageCell(r.Since), usedByText(r.UsedBy), r.Detail})
 	}
 	return textTable([]string{"name", "kind", "up", "since", "used by", "detail"}, rows)
 }

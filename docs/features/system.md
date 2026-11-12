@@ -290,7 +290,7 @@ Only then does it go on to the next server.
 ## Users
 
 ```bash
-komando user list web1                       # NAME UID HOME SHELL ADMIN-GROUP LOCKED
+komando user list web1                       # NAME UID HOME SHELL ADMIN GROUP LOCKED
 komando user list web1 --all                 # include system accounts
 komando user add @web deploy --key deploy --admin
 komando user add web1 ci --pubkey 'ssh-ed25519 AAAA... ci@example.com' --shell /bin/sh

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 // emptyLine is S-9.5: `no <things> yet` with the add command, or
@@ -52,6 +53,41 @@ func TestStandardEmptyLines(t *testing.T) {
 		for i, l := range strings.Split(string(b), "\n") {
 			if old.MatchString(l) {
 				t.Errorf("%s:%d: an empty list worded the old way; use noneYet or noneMatch: %s", f, i+1, strings.TrimSpace(l))
+			}
+		}
+	}
+}
+
+// S-9.6: tables write a boolean as yes or -, a moment as local time with
+// its zone, an age as 3h, and header words with spaces, through yesCell,
+// timeCell and ageCell.
+func TestStandardTableCells(t *testing.T) {
+	if yesCell(true) != "yes" || yesCell(false) != "-" || ageCell(time.Time{}) != "-" || timeCell(time.Time{}) != "-" {
+		t.Error("yesCell, ageCell or timeCell")
+	}
+	if got := ageCell(time.Now().Add(-3 * time.Hour)); got != "3h" {
+		t.Errorf("ageCell: %q", got)
+	}
+	at := time.Date(2026, 11, 7, 7, 30, 0, 0, time.UTC)
+	if got, want := timeCell(at), at.Local().Format("2006-01-02 15:04 ")+at.Local().Format("MST"); got != want || !strings.Contains(got, " ") {
+		t.Errorf("timeCell: %q, want %q", got, want)
+	}
+	bad := map[string]*regexp.Regexp{
+		"a yes/no map; use yesCell":             regexp.MustCompile(`true: "yes", false: "no"`),
+		"a time without its zone; use timeCell": regexp.MustCompile(`Format\("2006-01-02 15:04(:05)?"\)`),
+		"a header with _; use a space":          regexp.MustCompile(`[tT]able\(\[\]string\{[^}]*"[A-Za-z]+_[A-Za-z_]+"`),
+	}
+	files, _ := filepath.Glob("*.go")
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") || f == "textfmt.go" {
+			continue
+		}
+		b, _ := os.ReadFile(f)
+		for i, l := range strings.Split(string(b), "\n") {
+			for why, re := range bad {
+				if re.MatchString(l) && !strings.Contains(l, `+ " UTC"`) { // journalctl's --since, in UTC
+					t.Errorf("%s:%d: %s: %s", f, i+1, why, strings.TrimSpace(l))
+				}
 			}
 		}
 	}

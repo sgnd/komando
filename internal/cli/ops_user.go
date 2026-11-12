@@ -73,21 +73,15 @@ func parseUsers(s string, all bool) []userRow {
 }
 
 func usersText(data any) string {
-	yes := func(b bool) string {
-		if b {
-			return "yes"
-		}
-		return "no"
-	}
 	rows := [][]string{}
 	for _, r := range data.([]userRow) {
-		lk := ""
+		lk := "?" // the server did not say
 		if r.Locked != nil {
-			lk = yes(*r.Locked)
+			lk = yesCell(*r.Locked)
 		}
-		rows = append(rows, []string{r.Name, strconv.Itoa(r.UID), r.Home, r.Shell, yes(r.AdminGroup), lk})
+		rows = append(rows, []string{r.Name, strconv.Itoa(r.UID), r.Home, r.Shell, yesCell(r.AdminGroup), lk})
 	}
-	return textTable([]string{"name", "uid", "home", "shell", "admin-group", "locked"}, rows)
+	return textTable([]string{"name", "uid", "home", "shell", "admin group", "locked"}, rows)
 }
 
 // userExists stops a script with a marker when the user does not exist.

@@ -58,7 +58,7 @@ func (r renameResult) Text() string {
 		for _, p := range r.Renamed[k] {
 			row := []string{k, p.From, p.To}
 			if len(r.Protected) > 0 {
-				row = append(row, map[bool]string{true: "yes", false: "no"}[p.Protected])
+				row = append(row, yesCell(p.Protected))
 			}
 			rows = append(rows, row)
 		}

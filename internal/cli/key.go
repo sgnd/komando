@@ -375,7 +375,7 @@ func (l sshKeyList) Text() string {
 	for _, k := range l.Keys {
 		rows = append(rows, []string{k.Name, strings.TrimPrefix(k.Type, "ssh-"), k.Fingerprint, strings.Join(k.UsedBy, ",")})
 	}
-	return textTable([]string{"NAME", "TYPE", "FINGERPRINT", "USED_BY"}, rows)
+	return textTable([]string{"NAME", "TYPE", "FINGERPRINT", "USED BY"}, rows)
 }
 
 func keyListCmd() *cobra.Command {

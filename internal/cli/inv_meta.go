@@ -48,7 +48,7 @@ func (l auditList) Text() string {
 	for _, e := range l.Entries {
 		ts := fmt.Sprint(e["ts"])
 		if t, err := time.Parse(time.RFC3339Nano, ts); err == nil {
-			ts = t.Local().Format("2006-01-02 15:04:05")
+			ts = timeCell(t)
 		}
 		who := fmt.Sprint(e["actor"])
 		if a, ok := e["agent"].(string); ok && a != "" {

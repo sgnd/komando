@@ -510,6 +510,16 @@ its highlights; the sections below them give the details. Versions follow
   printed only a header or `(none)` before. JSON still returns an empty
   array.
 
+- Text tables read one way: a yes-or-no column says `yes` or `-` (`vpn
+  status` UP, `net check` OPEN, `recipe list` READ ONLY, `user list`
+  ADMIN GROUP and LOCKED, where `?` is unknown, `rename` PROTECTED,
+  RabbitMQ consumers ACTIVE; they said `yes`/`no`); a time carries its
+  zone (`2026-11-07 14:30 WIB` in `audit`, `fs list`, `storage list` and
+  `registry prune`, where storage times were UTC shown without one); an
+  age is `3h` (`vpn status` SINCE); headers are words with spaces (`USED
+  BY` in `key list` and `secret list`). A script that greps `-o text`
+  for `no` in these columns reads `-o json` instead, which is unchanged.
+
 ### Removed
 
 - The menu that `komando` alone opened at a terminal, its task lists and

@@ -251,7 +251,7 @@ with the servers' current login (for example a password) to install it:
 komando key gen deploy                           # ed25519; --type rsa|ecdsa, -b BITS, -C COMMENT
 komando key deploy deploy @web --set-default     # install it, then log in with it
 komando key deploy ~/.ssh/id_ed25519.pub web1    # a .pub file works too
-komando key list                                 # NAME TYPE FINGERPRINT USED_BY
+komando key list                                 # NAME TYPE FINGERPRINT USED BY
 komando key show deploy                          # the public part (never the private key)
 ```
 

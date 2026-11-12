@@ -100,7 +100,7 @@ func (r lsResult) Text() string {
 		if e.Type == "dir" {
 			size = "-"
 		}
-		rows = append(rows, []string{lsMode(e), size, e.ModTime.Local().Format("2006-01-02 15:04"), name})
+		rows = append(rows, []string{lsMode(e), size, timeCell(e.ModTime), name})
 	}
 	if len(rows) == 0 {
 		return noneYet("files in "+r.Path, "")

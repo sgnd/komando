@@ -140,10 +140,6 @@ func (l recipeList) Text() string {
 		if !r.Builtin {
 			cat = "saved"
 		}
-		ro := "no"
-		if r.ReadOnly {
-			ro = "yes"
-		}
 		desc := r.Desc
 		if desc == "" {
 			desc = r.Command
@@ -151,9 +147,9 @@ func (l recipeList) Text() string {
 		if b := recipeBlanks(r); len(b) > 0 {
 			desc += " [" + strings.Join(b, ", ") + "]"
 		}
-		rows = append(rows, []string{r.Name, cat, ro, desc})
+		rows = append(rows, []string{r.Name, cat, yesCell(r.ReadOnly), desc})
 	}
-	return textTable([]string{"name", "category", "read-only", "description"}, rows)
+	return textTable([]string{"name", "category", "read only", "description"}, rows)
 }
 
 // The recipe command.
