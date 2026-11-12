@@ -335,3 +335,43 @@ func TestVpnChangeText(t *testing.T) {
 		t.Errorf("weaker login: %s", got)
 	}
 }
+
+// TestVpnTestProxyMustAnswer: `vpn test` and `vpn up` of a SOCKS or HTTP
+// proxy without --check connect to the proxy itself; they said ok for a
+// proxy that does not answer, while `vpn status` said it was down.
+func TestVpnTestProxyMustAnswer(t *testing.T) {
+	invHome(t)
+	dead, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadAddr := dead.Addr().String()
+	dead.Close()
+	live, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Close()
+	go func() {
+		for {
+			c, err := live.Accept()
+			if err != nil {
+				return
+			}
+			c.Close()
+		}
+	}()
+	mustRun(t, "vpn", "add", "deadsocks", "socks", "--address", deadAddr)
+	mustRun(t, "vpn", "add", "deadproxy", "proxy", "--address", deadAddr)
+	mustRun(t, "vpn", "add", "livesocks", "socks", "--address", live.Addr().String())
+	wantCode(t, "VPN_DOWN", "vpn", "up", "deadsocks")
+	wantCode(t, "VPN_DOWN", "vpn", "up", "deadproxy")
+	d, _ := invRun(t, "vpn", "test", "deadproxy")
+	if r := d["results"].([]any)[0].(map[string]any); r["ok"] != false {
+		t.Errorf("dead proxy tested ok: %v", r)
+	}
+	d = mustRun(t, "vpn", "test", "livesocks")
+	if r := d["results"].([]any)[0].(map[string]any); r["ok"] != true {
+		t.Errorf("live proxy: %v", r)
+	}
+}

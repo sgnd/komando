@@ -589,7 +589,9 @@ func vpnAddNotes(v *store.Vpn, config string, keysInFile bool) []string {
 	if v.Kind == "wireguard" || v.Kind == "openvpn" && keysInFile {
 		notes = append(notes, config+" still holds the keys that are now in the vault; delete it if you no longer need it")
 	}
-	if v.Check == "" {
+	if v.Check == "" && (v.Kind == "socks" || v.Kind == "proxy") {
+		notes = append(notes, "without --check, `komando vpn up` and `komando test` only see whether the proxy answers; add an address behind it with `komando vpn edit "+v.Name+" --check HOST:PORT`")
+	} else if v.Check == "" {
 		notes = append(notes, "without --check, `komando vpn up` and `komando test` cannot tell whether the VPN works; add one with `komando vpn edit "+v.Name+" --check HOST:PORT`")
 	}
 	if v.MFA {
@@ -668,6 +670,15 @@ func testVpn(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
 		}
 		c.Close()
 		detail["checked"] = v.Check
+	} else if v.Kind == "socks" || v.Kind == "proxy" {
+		// no --check: the proxy itself must at least answer (opening a
+		// proxy dialer connects nowhere, so this said ok for a dead one)
+		if up, how := vpnReachable(v); !up {
+			r.Error = toErr(netx.Down(v, fmt.Errorf("%s", how)))
+			return r
+		}
+		detail["checked"] = v.Address
+		detail["note"] = "no --check address, so only the proxy itself was checked"
 	} else if v.Check == "" {
 		detail["note"] = "no --check address, so only the configuration was checked"
 	}

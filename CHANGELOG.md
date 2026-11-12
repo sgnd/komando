@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `vpn test` and `vpn up` of a SOCKS or HTTP proxy VPN without `--check`
+  now connect to the proxy itself and fail with `VPN_DOWN` when it does
+  not answer; they said ok for a dead proxy while `vpn status` said it was
+  down.
 - A VPN session no longer drops a connection that is still open when
   `vpn_idle` (30m) passes: a `shell`, `logs --follow` or `tunnel` through
   a WireGuard, OpenVPN, IPsec or SSL VPN session was cut after 30 minutes
