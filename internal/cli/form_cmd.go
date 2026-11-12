@@ -30,7 +30,7 @@ type formHint struct {
 	form func() []formGroup
 	// skip: nobody is ever asked its questions (ssh-gate: sshd runs it)
 	skip bool
-	// always are flags every line gets (rename --prefix)
+	// always are flags every line gets (rename --starts-with)
 	always []string
 	// next are the commands that usually follow, {} the first argument:
 	// shown on stderr as Next: after it ends well for a person at a terminal
@@ -116,7 +116,7 @@ type formUseArg struct {
 }
 
 // formUseArgs reads the arguments from a Use line. A flag in it is skipped
-// with its value ("--old TEXT"), a switch alone ("rename --prefix OLD
+// with its value ("--old TEXT"), a switch alone ("rename --starts-with OLD
 // NEW"); a choice of flags in parentheses ends it.
 func formUseArgs(use string, flags *pflag.FlagSet) []formUseArg {
 	f := strings.Fields(use)

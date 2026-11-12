@@ -45,7 +45,7 @@ func TestRenameOneEntry(t *testing.T) {
 		t.Errorf("two kinds: %+v", e)
 	}
 	e = wantCode(t, "USAGE", "rename", "nope", "x")
-	if !strings.Contains(e.Hint, "komando rename --prefix nope x --dry-run") {
+	if !strings.Contains(e.Hint, "komando rename --starts-with nope x --dry-run") {
 		t.Errorf("none: %+v", e)
 	}
 	wantCode(t, "USAGE", "rename", "web-01", "web-02", "--notes")

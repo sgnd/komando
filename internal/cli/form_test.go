@@ -517,7 +517,7 @@ var formHides = map[string]string{
 	"job start cmd":          "the same as the command words, which are asked",
 	"exec cmd":               "the same as the command words, which are asked",
 	"guide install no-guard": "it turns off the guard that keeps AI agents away from secret files",
-	"rename prefix":          "always added (rename needs it)",
+	"rename starts-with":     "always added: the menu renames by the start of the names",
 }
 
 func TestFormHidesHaveAReason(t *testing.T) {

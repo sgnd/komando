@@ -17,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// The rename engine behind `komando rename --prefix`, `key mv` and `group
+// The rename engine behind `komando rename --starts-with`, `key mv` and `group
 // mv`: many renames at once, in one step. The inventory and the vault are
 // each written once, after every check passed, or not at all. Every
 // reference follows (--via paths, password and other refs, secret:NAME in a
@@ -56,7 +56,7 @@ type renameRef struct {
 func (r renameRef) String() string { return r.Entry + " " + r.Field }
 
 // renameKept is an old name left as it is in a note or a label value, and
-// why. To is what --labels would make of a label value.
+// why. To is what --in-labels would make of a label value.
 type renameKept struct {
 	Entry  string `json:"entry"` // kind and name after the rename: "host web-01"
 	Field  string `json:"field"` // notes, or "label KEY"
@@ -69,7 +69,7 @@ type renameKept struct {
 type renameOpts struct {
 	notes  bool // replace old names in notes too (see nameText)
 	labels bool // and in label values
-	// prefix is OLD and NEW of `rename --prefix`, for the notes and labels
+	// prefix is OLD and NEW of `rename --starts-with`, for the notes and labels
 	// that name old entries; nil for key mv and group mv
 	prefix *renamePair
 	// guard asks for a person's yes before protected servers and conns
@@ -153,7 +153,7 @@ func applyRenames(s *store.State, set renameSet, opts renameOpts) (renameResult,
 	res.Moved = append(res.Moved, moves...)
 	rw.rewrite(s)
 	if rw.notesLeft > 0 {
-		res.Warnings = append(res.Warnings, fmt.Sprintf("the notes of %d %s name old entries and stay as they are; --notes replaces them (see each with --notes --dry-run)",
+		res.Warnings = append(res.Warnings, fmt.Sprintf("the notes of %d %s name old entries and stay as they are; --in-notes replaces them (see each with --in-notes --dry-run)",
 			rw.notesLeft, renameNoun(rw.notesLeft, "entry")))
 	}
 	return res, moves, nil
@@ -189,7 +189,7 @@ type refRewriter struct {
 	opts      renameOpts
 	steps     map[string]string // --via steps name servers and VPNs
 	text      *nameText         // old names in notes and labels; nil for key mv and group mv
-	notesLeft int               // entries whose notes --notes would change, when it is not given
+	notesLeft int               // entries whose notes --in-notes would change, when it is not given
 	res       *renameResult
 	now       time.Time
 	touched   bool // the entry being rewritten changed
@@ -317,7 +317,7 @@ func (w *refRewriter) groups(entry string, p *[]string) {
 	}
 }
 
-// notes replaces the old names in a note with --notes. Without it, the
+// notes replaces the old names in a note with --in-notes. Without it, the
 // note stays and is only counted for one warning.
 func (w *refRewriter) notes(entry string, p *string) {
 	if w.text == nil || *p == "" {
@@ -334,8 +334,8 @@ func (w *refRewriter) notes(entry string, p *string) {
 	w.change(entry, "notes", p, nt)
 }
 
-// labels replaces the old names in label values with --labels, as notes
-// does; label names stay. Labels are free text, so without --labels each
+// labels replaces the old names in label values with --in-labels, as notes
+// does; label names stay. Labels are free text, so without --in-labels each
 // value that would change is listed as kept, with what it would become.
 func (w *refRewriter) labels(entry string, m map[string]string) {
 	if w.text == nil {
@@ -351,7 +351,7 @@ func (w *refRewriter) labels(entry string, m map[string]string) {
 			w.change(entry, f, &v, nv)
 			m[k] = v
 		default:
-			w.res.Kept = append(w.res.Kept, renameKept{Entry: entry, Field: f, Name: v, To: nv, Reason: "labels change only with --labels"})
+			w.res.Kept = append(w.res.Kept, renameKept{Entry: entry, Field: f, Name: v, To: nv, Reason: "labels change only with --in-labels"})
 		}
 	}
 }
@@ -558,8 +558,8 @@ func (c *renameChecker) check(k, from, to string) error {
 	return nil
 }
 
-// nameText replaces old names in free text: notes (--notes) and label
-// values (--labels). Free text names more than komando's entries, so only
+// nameText replaces old names in free text: notes (--in-notes) and label
+// values (--in-labels). Free text names more than komando's entries, so only
 // what clearly means an entry follows:
 //
 //   - the names of servers, conns, VPNs and secrets, as whole words (not
@@ -570,7 +570,7 @@ func (c *renameChecker) check(k, from, to string) error {
 //     other (a target written in a note keeps meaning the same entries).
 //
 // Some old names stay, and the result lists each with the reason: OLD
-// without its - (shop for --prefix shop-), which is usually a plain word
+// without its - (shop for --starts-with shop-), which is usually a plain word
 // such as a database or a role; group names written without @; key names,
 // which often name an environment, a bucket or an account too; and a name
 // that is also the user, host, bucket or database in a conn URL, which

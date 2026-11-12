@@ -78,6 +78,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `komando rename` switches read as switches: `--starts-with` (was
+  `--prefix`, which elsewhere takes a value), `--in-notes` (was
+  `--notes`) and `--in-labels` (was `--labels`). The old names still work
+  in this release and are noted in `meta.deprecated`.
 - `host edit`, `conn edit` and `vpn edit` show `--add-group` and
   `--add-tag` in help; `--group/-g` and `--tag/-t` still work there, for
   good, and are no longer listed.

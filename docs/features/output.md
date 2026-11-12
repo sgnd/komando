@@ -91,8 +91,8 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `SECRET_UNRESOLVED` | the stored password or environment variable is missing | `komando secret list` |
 | `SECRET_IN_USE` | `secret rm` of a secret that something still uses | point them elsewhere, or rename it with `komando secret rename OLD NEW` |
 | `SECRET_EXISTS` | `secret rename` or `secret cp` to a name that is taken; `vpn add` whose keys would go into a secret that exists (`NAME-key`, `NAME-psk`, `NAME-config`) and is not that VPN's own | pick another name, or add `--overwrite` (`secret rename`, `secret cp`); for `vpn add`, pick another VPN name or move the secret away with `komando secret rename` |
-| `NAME_TAKEN` | a new name (from `host rename`, `rename --prefix`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
-| `NOTHING_TO_RENAME` | `rename --prefix`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
+| `NAME_TAKEN` | a new name (from `host rename`, `rename --starts-with`, ...) is used already; for `rename` the message lists every clash, and nothing was renamed | pick other names, or rename or remove what is in the way; `--dry-run` shows the whole list first |
+| `NOTHING_TO_RENAME` | `rename --starts-with`: no name starts with OLD | check the spelling and case with `komando list` and `komando secret list` |
 | `GROUP_EXISTS` | `group rename` to the name of another group | pick another name, or merge them: `komando group add NEW @OLD`, then `komando group rm OLD` |
 | `KEY_FILE_EXISTS` | `key gen` or `key rename`: a file of that name is in `~/.komando/keys` | move it away, or pick another name |
 | `SECRET_MISMATCH` | `secret check`: the value entered is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |

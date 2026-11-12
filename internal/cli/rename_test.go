@@ -456,8 +456,8 @@ func TestRenameLabels(t *testing.T) {
 
 	d := mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--dry-run")
 	for _, c := range []struct{ entry, field, name, to, why string }{
-		{"conn acme-shop-db", "label host", "shop-web", "acme-shop-web", "labels change only with --labels"},
-		{"host other", "label backup", "shop-db", "acme-shop-db", "labels change only with --labels"},
+		{"conn acme-shop-db", "label host", "shop-web", "acme-shop-web", "labels change only with --in-labels"},
+		{"host other", "label backup", "shop-db", "acme-shop-db", "labels change only with --in-labels"},
 		{"conn acme-shop-db", "label team", "shop", "", "OLD without its -"},
 	} {
 		if r := keptReason(d, c.entry, c.field, c.name); !strings.HasPrefix(r, c.why) {
@@ -467,7 +467,7 @@ func TestRenameLabels(t *testing.T) {
 	if k := d["kept"].([]any); len(k) != 3 {
 		t.Errorf("kept: %v", k)
 	}
-	if text := renameResultText(t, d); !strings.Contains(text, "conn acme-shop-db label host: shop-web (labels change only with --labels; it would become acme-shop-web)") {
+	if text := renameResultText(t, d); !strings.Contains(text, "conn acme-shop-db label host: shop-web (labels change only with --in-labels; it would become acme-shop-web)") {
 		t.Errorf("text:\n%s", text)
 	}
 	mustRun(t, "rename", "--prefix", "shop-", "acme-shop-")

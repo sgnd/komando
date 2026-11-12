@@ -133,10 +133,10 @@ var invListHints = map[string]formHint{
 			{ask: "What should they start with instead?", example: "acme-shop-",
 				help: "shop-web becomes acme-shop-web."},
 		},
-		always: []string{"--prefix"},
-		hide:   []string{"prefix"},
+		always: []string{"--starts-with"},
+		hide:   []string{"starts-with"},
 		flags: []formFlag{
-			{name: "notes", ask: "Also change the old names in notes?",
+			{name: "in-notes", ask: "Also change the old names in notes?",
 				help: "Yes changes them in the notes of servers, conns, VPNs and secrets too."},
 		},
 	},

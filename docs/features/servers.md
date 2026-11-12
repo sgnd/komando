@@ -159,14 +159,14 @@ from.
 
 ### Rename a whole project at once
 
-When a project or a customer gets a new name, `rename --prefix` renames
+When a project or a customer gets a new name, `rename --starts-with` renames
 every server, conn, VPN, secret, key and group whose name starts with the
 old prefix, in one step:
 
 ```bash
-komando rename --prefix shop- acme-shop- --dry-run   # the old -> new list per kind, and every reference
-komando rename --prefix shop- acme-shop- --yes       # --yes once, when some of them are protected
-komando rename --prefix shop- acme-shop- --notes --labels --dry-run   # notes and labels too: what changes, what is kept
+komando rename --starts-with shop- acme-shop- --dry-run   # the old -> new list per kind, and every reference
+komando rename --starts-with shop- acme-shop- --yes       # --yes once, when some of them are protected
+komando rename --starts-with shop- acme-shop- --in-notes --in-labels --dry-run   # notes and labels too: what changes, what is kept
 ```
 
 - It renames every name that starts with `shop-`. When the old prefix
@@ -180,8 +180,8 @@ komando rename --prefix shop- acme-shop- --notes --labels --dry-run   # notes an
 - The protected mark, labels, notes and creation time stay.
   Names inside URLs belong to the resource, not to komando, so in
   `s3://shop-admin@shop-prod` the user and the bucket stay.
-- `--notes` also replaces old names in notes, and
-  `--labels` in label values (label names stay). Only what clearly means
+- `--in-notes` also replaces old names in notes, and
+  `--in-labels` in label values (label names stay). Only what clearly means
   an entry follows: server, conn, VPN and secret names as whole words, a
   group written `@shop`, and a pattern such as `shop-db-*` when it matches
   the same servers, conns and VPNs after the rename. These stay, because
@@ -190,10 +190,10 @@ komando rename --prefix shop- acme-shop- --notes --labels --dry-run   # notes an
   names (`bucket shop-dev`), and a name that is also the user, host, bucket
   or database in a conn URL. The result lists each one under `kept`, with
   the reason, so you can fix it by hand.
-- Without `--labels`, every label value that names
+- Without `--in-labels`, every label value that names
   an old entry stays and is listed under `kept` with what it would become.
   A conn's `host=` label matters: `komando doctor` reads it to warn when a
-  conn of a protected server is not protected itself. Without `--notes`,
+  conn of a protected server is not protected itself. Without `--in-notes`,
   one warning counts the notes that still name old entries.
 - It renames all or nothing. The inventory and the vault are each written
   once.
