@@ -562,8 +562,7 @@ func newRoot() *cobra.Command {
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
 	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
 	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
-	addHelpTopics(root)
-	root.InitDefaultHelpCmd()
+	addHelpTopics(root) // and cobra's help command
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
 	applyConventions(root)

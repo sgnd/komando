@@ -47,4 +47,5 @@ func addHelpTopics(root *cobra.Command) {
 	for _, t := range helpTopics {
 		root.AddCommand(&cobra.Command{Use: t.name, Short: t.short, Long: t.long, GroupID: "meta"})
 	}
+	root.InitDefaultHelpCmd()
 }

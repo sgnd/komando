@@ -504,32 +504,11 @@ var interactive = func() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent() && !ciRun()
 }
 
-// ciRun: CI is set (and not false or 0). A CI job is never a person, even
-// on a terminal, so nothing is asked there and no answer counts as a yes.
-func ciRun() bool {
-	ci := os.Getenv("CI")
-	return ci != "" && ci != "false" && ci != "0"
-}
-
-// ttyYes notes a yes a person typed at the terminal for this command: the
-// audit records it as confirm: tty, with what was asked.
-func ttyYes(what string) {
-	c := cur()
-	c.ttyYes = append(c.ttyYes, what)
-}
-
 // ask prints question on stderr and reads one line from the terminal.
 // Ctrl-C or Ctrl-D gives an empty answer, which every question takes as no.
 func ask(question string) string {
 	line, _ := readAnswer(question, false)
 	return strings.TrimSpace(line)
-}
-
-// confirmProtected asks a human at the terminal to confirm a change to
-// protected targets. A yes counts as --yes for the rest of this command.
-func confirmProtected(names []string) bool {
-	askedAbout = names
-	return confirmYes(fmt.Sprintf("%s %s protected. Change it anyway?", strings.Join(names, ", "), map[bool]string{true: "is", false: "are"}[len(names) == 1]))
 }
 
 // confirmYes asks a [y/N] question at the terminal. The answer covers this
@@ -545,14 +524,6 @@ func confirmYes(question string) bool {
 		ttyYes(question)
 	}
 	return ok
-}
-
-// policyAsk asks a person at the terminal whether a command the safety
-// policy blocks runs anyway, this once: a yes counts as --allow-dangerous
-// for this check of this command only. Never under --dry-run, for an AI
-// agent, a script or CI.
-func policyAsk(rule string) bool {
-	return confirmYes("Blocked by policy: " + rule + ". Run it anyway, this once?")
 }
 
 // askedAbout: the targets of the last yes/no question, so a "no" can say

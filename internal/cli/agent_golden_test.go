@@ -23,7 +23,7 @@ import (
 // testdata/agent_golden.txt. The test never runs at a terminal, so nothing
 // may be asked. KOMANDO_GOLDEN_UPDATE=1 records it again (only on purpose).
 func TestAgentGolden(t *testing.T) {
-	if testing.Short() {
+	if testing.Short() || raceOn { // the same bytes with or without the race detector, which makes it slow
 		t.Skip("runs every command")
 	}
 	var b strings.Builder
