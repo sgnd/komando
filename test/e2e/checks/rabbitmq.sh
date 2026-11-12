@@ -26,6 +26,19 @@ check "rabbitmq groups is not for RabbitMQ" NOT_SUPPORTED "$($K queue groups job
 check "rabbitmq purge needs --allow-dangerous" POLICY_BLOCKED "$($K queue purge jobs e2e-emails | jget 'd["error"]["code"]')"
 check "rabbitmq rm needs --allow-dangerous" POLICY_BLOCKED "$($K queue rm jobs e2e-emails | jget 'd["error"]["code"]')"
 check "rabbitmq purge --dry-run counts" 2 "$($K --dry-run queue purge jobs e2e-emails | jget 'd["data"]["messages"]')"
+check "rabbitmq peek --wait is for Kafka" NOT_SUPPORTED "$($K queue peek jobs e2e-emails --wait 2s | jget 'd["error"]["code"]')"
+check "rabbitmq peek took nothing" 2 "$($K queue describe jobs e2e-emails | jget 'd["data"]["ready"]')"
+check "rabbitmq ls -n 1 is cut and says so" "1 True" "$($K queue create jobs e2e-zz >/dev/null; $K queue ls jobs 'e2e-*' -n 1 | jget '"%d %s" % (d["data"]["count"], d["data"].get("truncated"))')"
+# a person purges by typing the conn's name; a wrong one stops it
+pty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
+O=$(pty 'wrong\n' queue purge jobs e2e-emails); RC=$?
+check "rabbitmq person: purge names the queue" 1 "$(grep -c 'deletes every message in e2e-emails' <<<"$O")"
+check "rabbitmq person: a wrong name stops purge (6)" 6 "$RC"
+check "rabbitmq person: the messages are still there" 2 "$($K queue describe jobs e2e-emails | jget 'd["data"]["ready"]')"
+pty 'jobs\n' queue purge jobs e2e-emails >/dev/null
+check "rabbitmq person: the right name purges" 0 "$($K queue describe jobs e2e-emails | jget 'd["data"]["ready"]')"
+pty 'jobs\n' queue rm jobs e2e-zz >/dev/null
+check "rabbitmq person: the right name removes the queue" QUEUE_NOT_FOUND "$($K queue describe jobs e2e-zz | jget 'd["error"]["code"]')"
 q $K queue rm jobs e2e-emails --allow-dangerous
 q $K conn rm jobs
 set -e
