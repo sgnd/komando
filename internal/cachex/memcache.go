@@ -366,10 +366,11 @@ func memcacheSummary(info map[string]map[string]string) Summary {
 // Run sends one command line (no data block: use `cache set` to store) and
 // returns the reply lines; values come with their data.
 func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
-	if len(args) == 0 {
-		return nil, out.Usage("give a memcached command, e.g. `stats` or `get KEY`")
+	args, err := MemcacheWords(args) // again here, so no caller can skip it
+	if err != nil {
+		return nil, err
 	}
-	if storeCmds[strings.ToLower(args[0])] {
+	if storeCmds[args[0]] {
 		return nil, out.Usage("%s needs a data block; use `komando cache set CONN KEY VALUE`", args[0])
 	}
 	if err := m.send(ctx, strings.Join(args, " ")); err != nil {
@@ -416,6 +417,33 @@ func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
 }
 
 var storeCmds = set("set add replace append prepend cas ms")
+
+// MemcacheWords are the words memcached reads from a `cache run` line.
+// memcached splits a line at spaces and ends it at a newline, so the words
+// are re-split the same way here, before the command is rated: otherwise
+// "get" plus an argument holding "\r\nflush_all" is rated a read and sends
+// flush_all, " flush_all" is not seen as flush_all, and "mg" plus "key T30"
+// hides the touch flag. A control byte cannot be in a memcached command, so
+// a word with one is refused.
+func MemcacheWords(args []string) ([]string, error) {
+	for _, a := range args {
+		for i := 0; i < len(a); i++ {
+			if a[i] < ' ' || a[i] == 0x7f {
+				return nil, out.Usage("a memcached command line has no newlines or other control characters: %q", a)
+			}
+		}
+	}
+	words := strings.Fields(strings.Join(args, " "))
+	if len(words) == 0 {
+		return nil, out.Usage("give a memcached command, e.g. `stats` or `get KEY`")
+	}
+	if words[0] = strings.ToLower(words[0]); words[0] == "watch" {
+		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"cache run sends one command and prints its reply; watch streams until the connection closes",
+			"watch waits for data that keeps coming, so cache run would never return")
+	}
+	return words, nil
+}
 
 // ClassifyMemcache rates a memcached command line.
 func ClassifyMemcache(args []string) driver.Verdict {

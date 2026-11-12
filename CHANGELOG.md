@@ -9,6 +9,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Security: `cache run` on memcached now rates the words memcached will
+  read. An argument holding a newline (`get "a\r\nflush_all"`) used to
+  pass as a read and run `flush_all` without `--write` or
+  `--allow-dangerous`; such a line now stops with `USAGE` before anything
+  is sent. Arguments are split at spaces as memcached does (`mg "key T30"`
+  is a touch, so it needs `--write`), the command word is sent in lower
+  case (memcached ignores `GET`), and `watch`, which never returns, stops
+  with `NOT_SUPPORTED`.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

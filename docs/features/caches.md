@@ -153,6 +153,10 @@ komando cache run mc -- stats slabs
 - `cache run` sends one command line and only reads unless `--write`.
   `flush_all` and commands that change or stop the server also need
   `--allow-dangerous`. Store values with `cache set`.
+- The line is split at spaces the way memcached reads it, and the command
+  word is sent in lower case. A newline or other control character in it
+  stops with `USAGE` (it would start a second command). `watch` never
+  returns, so it stops with `NOT_SUPPORTED`.
 
 ## Output
 

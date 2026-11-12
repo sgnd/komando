@@ -462,7 +462,11 @@ func cacheRunCmd() *cobra.Command {
 				return err
 			}
 			kind := cacheKind(args[0])
-			if kind != "memcached" {
+			if kind == "memcached" {
+				if command, err = cachex.MemcacheWords(command); err != nil {
+					return err
+				}
+			} else {
 				if err := cachex.OneReply(command); err != nil {
 					return err
 				}
