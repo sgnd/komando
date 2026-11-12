@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `job start` on several servers prints `komando job wait ID ID ...` with
+  the real IDs (it printed `<id>`), and so does `next` in its JSON. A
+  `job wait` for several jobs that are still running says
+  `komando job wait ID ...` to wait again. It pointed at `data.results`,
+  which job results do not have, and in text it suggested `job start`.
+  A lost job's hint gives the exact `job start` line to run it again.
 - `ssh-gate`: a key that may change things can now run `fs restore`, the
   undo of `fs replace --backup` and `fs write --backup`, on a server.
   It was refused as if it changed komando's own setup.

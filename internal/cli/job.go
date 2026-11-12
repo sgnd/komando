@@ -443,7 +443,7 @@ func waitVerdict(s *jobStatus, waitTimeout time.Duration) *out.Error {
 	case s.State == "killed":
 		return out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", s.ID, s.Signal)
 	case s.State == "lost":
-		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --tail 50` shows how far it got; start it again with `komando job start` if needed", "job %s lost", s.ID)
+		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --tail 50` shows how far it got; start it again with `komando job start "+s.Host+" -- "+sshx.Q(s.Command)+"` if needed", "job %s lost", s.ID)
 	case s.ExitCode != nil && *s.ExitCode != 0:
 		return out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+s.ID+" --tail 50`", "job exited with %d", *s.ExitCode)
 	}
@@ -461,6 +461,25 @@ type waitRow struct {
 type jobWaited struct {
 	Jobs    []waitRow    `json:"jobs"`
 	Summary fleetSummary `json:"summary"`
+}
+
+// fleetHint: the jobs still running can be waited for again, in one
+// command; the others say in data.jobs why they failed.
+func (d jobWaited) fleetHint() string {
+	var running []string
+	for _, r := range d.Jobs {
+		if r.Error != nil && r.Error.Code == "WAIT_TIMEOUT" {
+			running = append(running, r.ID)
+		}
+	}
+	hint := "each job's state and error are in data.jobs"
+	if out.P.Format == "text" {
+		hint = "each job's state is above"
+	}
+	if len(running) > 0 {
+		hint = "still running: `komando job wait " + strings.Join(running, " ") + "` waits again; " + hint
+	}
+	return hint + "; `komando job logs ID --tail 50` shows one's output"
 }
 
 func (d jobWaited) Text() string {
@@ -649,10 +668,34 @@ type jobStarted struct {
 	Next    string       `json:"next,omitempty"` // left out when no job started
 }
 
-// withNext adds the commands that follow, when a job started.
+// fleetHint: why each server did not start its job is in data.jobs.
+func (d jobStarted) fleetHint() string {
+	if out.P.Format == "text" {
+		return "each server's error is above"
+	}
+	return "each server's error is in data.jobs"
+}
+
+// ids are the IDs of the jobs that started.
+func (d jobStarted) ids() []string {
+	var ids []string
+	for _, j := range d.Jobs {
+		if j.ID != "" {
+			ids = append(ids, j.ID)
+		}
+	}
+	return ids
+}
+
+// withNext adds the commands that follow, when a job started, with the
+// real IDs: job wait takes them all at once, status and logs one each.
 func (d jobStarted) withNext() jobStarted {
-	if d.Summary.OK > 0 {
-		d.Next = "komando job status <id>  |  komando job logs <id> --offset <next_offset>  |  komando job wait <id>"
+	ids := d.ids()
+	switch {
+	case len(ids) == 1:
+		d.Next = "komando job status " + ids[0] + "  |  komando job logs " + ids[0] + " --offset 0  |  komando job wait " + ids[0]
+	case len(ids) > 1:
+		d.Next = "komando job wait " + strings.Join(ids, " ") + "  |  komando job status <id>  |  komando job logs <id> --offset <next_offset>"
 	}
 	return d
 }
@@ -667,16 +710,11 @@ func (d jobStarted) Text() string {
 		rows = append(rows, []string{j.ID, j.Host, strconv.Itoa(j.PID), "started"})
 	}
 	s := textTable([]string{"id", "host", "pid", "state"}, rows)
-	if d.Summary.OK > 0 {
-		id := "<id>"
-		if d.Summary.OK == 1 {
-			for _, j := range d.Jobs {
-				if j.ID != "" {
-					id = j.ID
-				}
-			}
-		}
-		s += "\nfollow it with: komando job logs " + id + " --tail 20   |   komando job wait " + id + "\n"
+	switch ids := d.ids(); {
+	case len(ids) == 1:
+		s += "\nfollow it with: komando job logs " + ids[0] + " --tail 20   |   komando job wait " + ids[0] + "\n"
+	case len(ids) > 1:
+		s += "\nwait for them all: komando job wait " + strings.Join(ids, " ") + "\none's output:      komando job logs <id> --tail 20\n"
 	}
 	return s
 }
