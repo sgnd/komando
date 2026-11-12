@@ -821,7 +821,7 @@ Error: missing arguments; usage: komando cluster restart TARGET TYPE/NAME
 ### komando -o json cluster rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"for example: komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm (agent text)
 exit 2
@@ -831,7 +831,7 @@ Error: missing arguments; usage: komando cluster rm TARGET TYPE/NAME
 ### komando -o json cluster rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"for example: komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm (script text)
 exit 2
@@ -841,7 +841,7 @@ Error: missing arguments; usage: komando cluster rm TARGET TYPE/NAME
 ### komando -o json cluster rm x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"for example: komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm x1 (agent text)
 exit 2
@@ -851,7 +851,7 @@ Error: missing arguments; usage: komando cluster rm TARGET TYPE/NAME
 ### komando -o json cluster rm x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"see `komando cluster rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster rm TARGET TYPE/NAME","hint":"for example: komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster rm x1 (script text)
 exit 2
@@ -5001,7 +5001,7 @@ Error: missing arguments; usage: komando storage list CONN [PREFIX]
 ### komando -o json storage rm (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups --prefix daily/ --older-than 30d --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups tmp/old.sql.gz --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm (agent text)
 exit 2
@@ -5011,7 +5011,7 @@ Error: missing arguments; usage: komando storage rm CONN [OBJECT...]
 ### komando -o json storage rm (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups --prefix daily/ --older-than 30d --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando storage rm CONN [OBJECT...]","hint":"for example: komando storage rm backups tmp/old.sql.gz --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm (script text)
 exit 2

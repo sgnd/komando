@@ -35,7 +35,7 @@ func TestConventions(t *testing.T) {
 		if c.Runnable() && !c.HasSubCommands() && !c.Hidden && c.Example == "" && c.Name() != "help" && c.Parent().Name() != "completion" {
 			t.Errorf("%s: no example; set Example or add one to examples (examples.go)", path)
 		}
-		if _, ok := examples[path]; ok && c.Example != examples[path] {
+		if _, ok := examples[path]; ok && c.Annotations[exampleFromTable] == "" {
 			t.Errorf("%s: has its own Example; remove it from examples.go", path)
 		}
 		// command lists fit 80 columns: `komando --help` puts a top-level

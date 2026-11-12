@@ -530,6 +530,7 @@ func newRoot() *cobra.Command {
 	useShortGlobals(root)
 	addCompletion(root)
 	stampIDs(root)
+	applyHelpStandard(root)
 	return root
 }
 

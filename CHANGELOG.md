@@ -115,6 +115,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Every change command's `--help` has a generated `Safety:` line after
+  its first paragraph, from the same rule table as `komando schema`'s
+  `confirm` (what it asks of a person, an AI agent and a script).
+  Person-only commands end their summary with "(person only)". Help text
+  is wrapped at 76 columns. Each change command shows a `--dry-run`
+  example, and an example with `--yes`, `--allow-dangerous` or
+  `--reveal` comes right after its dry run and ends with `# after a
+  person's yes`.
 - Command summaries (`Short`, the line in every list) follow one shape:
   a verb phrase with no flags, semicolons or approval notes ("needs
   --allow-dangerous" is gone from them; the generated Safety line in the

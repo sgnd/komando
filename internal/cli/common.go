@@ -37,6 +37,9 @@ const groupOnly = "komando-group"
 
 // applyConventions applies the rules every command shares, so a new command
 // cannot forget them. TestConventions checks the rest.
+// exampleFromTable marks a command whose Example comes from examples.go.
+const exampleFromTable = "example_from_table"
+
 func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
@@ -46,7 +49,13 @@ func applyConventions(c *cobra.Command) {
 		c.Aliases = append(c.Aliases, other)
 	}
 	if c.Example == "" {
-		c.Example = examples[c.CommandPath()]
+		if ex, ok := examples[c.CommandPath()]; ok {
+			c.Example = ex
+			if c.Annotations == nil {
+				c.Annotations = map[string]string{}
+			}
+			c.Annotations[exampleFromTable] = "true"
+		}
 	}
 	if n := passthroughFixed(c.Use); n >= 0 && c.Runnable() {
 		needDash(c, n) // words for the other program only after -- (passthrough.go)
