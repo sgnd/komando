@@ -112,8 +112,9 @@ When a command connects a VPN by itself, it says so on one line:
 komando: vpn office connected; it stays up until unused for 30m (`komando vpn down office` stops it)
 ```
 
-A VPN session that is unused for 30 minutes is closed (only connections
-that log in to its local proxy count as use). To change that:
+A VPN session that is unused for 30 minutes is closed. Use means a
+connection through it: one that stays open (a `shell`, `logs --follow`, a
+tunnel) counts for as long as it is open. To change that:
 `komando config set vpn_idle 1h` (`0` keeps it up until you stop it).
 
 ## VPNs that need a person (MFA, SSO)
@@ -126,6 +127,17 @@ komando vpn up client-x       # log in here, MFA included
 komando exec app1 -- uptime   # later commands (and agents) reuse the session
 komando vpn down client-x     # or: komando vpn down --all
 ```
+
+`vpn down` says what the disconnect does to the servers and conns that use
+the VPN:
+
+```text
+disconnected client-x
+  app1, app2 stop answering until a person runs `komando vpn up client-x`
+```
+
+A VPN without a person's login is connected again by the next command that
+needs it (`--dry-run` shows the same list first; in JSON it is `affects`).
 
 komando never answers MFA by itself. Tailscale without an auth key works the
 same way: `komando vpn up tailnet` shows the login page once, and the node

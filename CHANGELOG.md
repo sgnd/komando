@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `vpn down` (and its `--dry-run`) now says what the disconnect does to
+  the servers and conns that use the VPN: with a person's login they stop
+  answering until `komando vpn up NAME`; otherwise their next command
+  connects it again (new JSON field `affects`).
 - `vpn test` and `vpn up` of a SOCKS or HTTP proxy VPN without `--check`
   now connect to the proxy itself and fail with `VPN_DOWN` when it does
   not answer; they said ok for a dead proxy while `vpn status` said it was

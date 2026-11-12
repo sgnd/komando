@@ -7,12 +7,14 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
 	"strings"
 	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -374,4 +376,65 @@ func TestVpnTestProxyMustAnswer(t *testing.T) {
 	if r := d["results"].([]any)[0].(map[string]any); r["ok"] != true {
 		t.Errorf("live proxy: %v", r)
 	}
+}
+
+// TestVpnDownSaysWhatStops: vpn down names the servers and conns that use
+// the VPN, and whether they stop answering until a person's `vpn up` (a
+// login with MFA) or connect it again on their next command.
+func TestVpnDownSaysWhatStops(t *testing.T) {
+	invHome(t)
+	now := time.Now().UTC()
+	if err := store.Update(func(st *store.State) error {
+		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
+		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "openvpn", Check: "10.0.0.1:22", CreatedAt: now, UpdatedAt: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "host", "add", "app", "u@10.0.0.5", "--via", "client-x")
+	mustRun(t, "host", "add", "web", "u@10.0.0.6", "--via", "office")
+	d := mustRun(t, "vpn", "down", "client-x", "office", "--dry-run")
+	aff, _ := d["affects"].([]any)
+	if len(aff) != 2 {
+		t.Fatalf("dry run affects: %v", d)
+	}
+	if a := aff[0].(map[string]any); a["vpn"] != "client-x" || a["until"] != "vpn up" || a["next"] != "komando vpn up client-x" {
+		t.Errorf("mfa vpn: %v", a)
+	}
+	if a := aff[1].(map[string]any); a["vpn"] != "office" || a["until"] != "next command" {
+		t.Errorf("vpn without a person's login: %v", a)
+	}
+	// a running session (a stand-in process) is stopped, and down says so
+	sleeper := exec.Command("sleep", "60")
+	if err := sleeper.Start(); err != nil {
+		t.Skip("no sleep program:", err)
+	}
+	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
+	g.dryRun, store.DryRun = false, false // left on by the dry run above
+	if err := store.UpdateRuntime(func(st *store.State) error {
+		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: "sleep", StartedAt: now, LastUsed: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if x := mustState(t).Sessions["client-x"]; x == nil || !netx.SessionAlive(x) {
+		t.Fatalf("stand-in session: %+v", x)
+	}
+	d = mustRun(t, "vpn", "down", "client-x")
+	if aff, _ := d["affects"].([]any); len(aff) != 1 {
+		t.Fatalf("affects: %v", d)
+	}
+	txt := vpnDownData{Disconnected: []string{"client-x"}, Affects: vpnDownAffects(mustState(t), []string{"client-x"})}.Text()
+	if !strings.Contains(txt, "app stop answering until a person runs `komando vpn up client-x`") {
+		t.Errorf("text: %q", txt)
+	}
+}
+
+func mustState(t *testing.T) *store.State {
+	t.Helper()
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
 }

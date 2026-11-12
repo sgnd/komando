@@ -558,7 +558,11 @@ func vpnDownCmd() *cobra.Command {
 				}
 			}
 			if g.dryRun {
-				out.P.Print("vpn.down", map[string]any{"would_disconnect": names}, nil)
+				res := map[string]any{"would_disconnect": names}
+				if a := vpnDownAffects(st, names); len(a) > 0 {
+					res["affects"] = a
+				}
+				out.P.Print("vpn.down", res, nil)
 				return nil
 			}
 			down, idle, notes := []string{}, []string{}, []string{}
@@ -610,7 +614,7 @@ func vpnDownCmd() *cobra.Command {
 			if len(down) > 0 {
 				audit(st, "vpn.down", down, "", true, nil)
 			}
-			out.P.Print("vpn.down", vpnDownData{Disconnected: down, NotConnected: idle, Notes: notes}, nil)
+			out.P.Print("vpn.down", vpnDownData{Disconnected: down, NotConnected: idle, Notes: notes, Affects: vpnDownAffects(st, down)}, nil)
 			return nil
 		},
 	}
@@ -619,15 +623,60 @@ func vpnDownCmd() *cobra.Command {
 }
 
 type vpnDownData struct {
-	Disconnected []string `json:"disconnected"`
-	NotConnected []string `json:"not_connected,omitempty"`
-	Notes        []string `json:"notes,omitempty"`
+	Disconnected []string            `json:"disconnected"`
+	NotConnected []string            `json:"not_connected,omitempty"`
+	Notes        []string            `json:"notes,omitempty"`
+	Affects      []vpnDownAffectsRow `json:"affects,omitempty"`
+}
+
+// vpnDownAffectsRow is what disconnecting one VPN does to the servers and
+// conns whose --via path needs it: with a login a person must give, they
+// stop answering until `vpn up`; otherwise their next command connects it
+// again.
+type vpnDownAffectsRow struct {
+	Vpn    string   `json:"vpn"`
+	UsedBy []string `json:"used_by"`
+	Until  string   `json:"until"` // "vpn up" or "next command"
+	Next   string   `json:"next,omitempty"`
+}
+
+// vpnDownAffects lists, for each VPN in names that something uses, what a
+// disconnect does to those users.
+func vpnDownAffects(st *store.State, names []string) []vpnDownAffectsRow {
+	var rows []vpnDownAffectsRow
+	for _, n := range names {
+		users := vpnUsers(st, n)
+		v := st.Vpns[n]
+		if len(users) == 0 || v == nil {
+			continue
+		}
+		r := vpnDownAffectsRow{Vpn: n, UsedBy: users, Until: "next command"}
+		if needsPersonLogin(v) {
+			r.Until, r.Next = "vpn up", "komando vpn up "+n
+		}
+		rows = append(rows, r)
+	}
+	return rows
+}
+
+func (r vpnDownAffectsRow) text() string {
+	who := strings.Join(r.UsedBy, ", ")
+	if len(r.UsedBy) > 3 {
+		who = usedByText(r.UsedBy)
+	}
+	if r.Until == "vpn up" {
+		return who + " stop answering until a person runs `" + r.Next + "`"
+	}
+	return who + " connect " + r.Vpn + " again on their next command"
 }
 
 func (d vpnDownData) Text() string {
 	var sb strings.Builder
 	for _, n := range d.Disconnected {
 		sb.WriteString("disconnected " + n + "\n")
+	}
+	for _, a := range d.Affects {
+		sb.WriteString("  " + a.text() + "\n")
 	}
 	for _, n := range d.Notes {
 		sb.WriteString(n + "\n")
