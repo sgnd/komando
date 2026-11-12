@@ -164,9 +164,10 @@ is given.`,
 			} else if err != nil {
 				return err
 			}
-			if limit > 0 && len(all) > limit {
-				all = all[len(all)-limit:]
+			if from > 0 && len(all) >= limit {
+				out.P.Cut(limit) // older records were not read
 			}
+			all = cutLast(all, limit)
 			out.P.Print("audit", auditList{Count: len(all), Entries: all}, nil)
 			return nil
 		},
@@ -202,7 +203,8 @@ func (p policyCheck) Text() string {
 
 func policyCmd() *cobra.Command {
 	c := &cobra.Command{Use: "policy", Short: "Rules that block destructive commands: list, check, deny, rm"}
-	c.AddCommand(&cobra.Command{
+	var limit int
+	list := &cobra.Command{
 		Use:   "list",
 		Short: "List built-in and custom rules",
 		Args:  cobra.NoArgs,
@@ -224,12 +226,17 @@ func policyCmd() *cobra.Command {
 				}
 				custom = append(custom, r)
 			}
-			out.P.Print("policy.list", policyList{"builtin": rules, "custom": st.Settings.ExtraDenyPattern, "custom_rules": custom, "sql": rulesByID(driver.SQLRules()), "redis": rulesByID(cachex.Rules()), "memcached": rulesByID(cachex.MemcacheRules()), "mongodb": rulesByID(dbx.MongoRules()), "queue": rulesByID(queuePolicyRules()), "data": rulesByID(driver.DataRules()),
+			n := limit // each kind of rule stops at --limit
+			out.P.Print("policy.list", policyList{"builtin": cutRows(rules, n), "custom": cutRows(st.Settings.ExtraDenyPattern, n), "custom_rules": cutRows(custom, n),
+				"sql": cutRows(rulesByID(driver.SQLRules()), n), "redis": cutRows(rulesByID(cachex.Rules()), n), "memcached": cutRows(rulesByID(cachex.MemcacheRules()), n),
+				"mongodb": cutRows(rulesByID(dbx.MongoRules()), n), "queue": cutRows(rulesByID(queuePolicyRules()), n), "data": cutRows(rulesByID(driver.DataRules()), n),
 				"note": "these rules catch common accidents; they are not a security boundary. Protected servers and conns also need --yes for any change. " +
 					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
 		},
-	})
+	}
+	limitFlag(list, &limit, 0, "rules of each kind")
+	c.AddCommand(list)
 	c.AddCommand(policyCheckCmd())
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",

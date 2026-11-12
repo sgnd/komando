@@ -133,9 +133,13 @@ func hasKey(m map[string]string, k string) bool { _, ok := m[k]; return ok }
 // winFsLs is fs ls on a Windows server. Hidden files are left out unless
 // --all, as dotfiles are on Linux.
 func winFsLs(ctx context.Context, st *store.State, h *store.Host, p string, all, recursive bool, maxEntries int) (any, error) {
+	first := "" // --limit 0: every entry
+	if maxEntries > 0 {
+		first = " | Select-Object -First " + strconv.Itoa(maxEntries+1)
+	}
 	script := winPath(p) + winCatch(`if (-not (Test-Path -LiteralPath $p)) { mark 'not-found'; exit 0 }
 $i = Get-Item -LiteralPath $p -Force
-if ($i.PSIsContainer) { $items = @(Get-ChildItem -LiteralPath $p -Force:$`+strconv.FormatBool(all)+` -Recurse:$`+strconv.FormatBool(recursive)+` -ErrorAction SilentlyContinue | Select-Object -First `+strconv.Itoa(maxEntries+1)+`) } else { $items = @($i) }
+if ($i.PSIsContainer) { $items = @(Get-ChildItem -LiteralPath $p -Force:$`+strconv.FormatBool(all)+` -Recurse:$`+strconv.FormatBool(recursive)+` -ErrorAction SilentlyContinue`+first+`) } else { $items = @($i) }
 $rows = foreach ($f in $items) { `+winRow+` }
 mark ('path=' + $p)
 mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
@@ -149,8 +153,9 @@ mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
 	}
 	r := lsResult{Path: m["path"], Entries: []fileInfo{}, recursive: recursive}
 	for _, e := range es {
-		if len(r.Entries) >= maxEntries {
+		if maxEntries > 0 && len(r.Entries) >= maxEntries {
 			r.Truncated = true
+			out.P.CutNoted()
 			break
 		}
 		r.Entries = append(r.Entries, e.info())

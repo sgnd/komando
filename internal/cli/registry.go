@@ -342,6 +342,7 @@ func cutList(items []string, limit int) ([]string, bool) {
 // withTruncated marks a cut list, as cluster ls does.
 func withTruncated(res map[string]any, cut bool) map[string]any {
 	if cut {
+		out.P.CutNoted()
 		res["truncated"] = true
 	}
 	return res

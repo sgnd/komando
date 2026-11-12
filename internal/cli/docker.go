@@ -33,6 +33,7 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 	}
 	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "run docker with sudo")
 	var all bool
+	var psLimit, statsLimit, imagesLimit int
 	ps := &cobra.Command{
 		Use:   "ps TARGET",
 		Short: "Running containers (--all for stopped ones too)",
@@ -42,29 +43,32 @@ servers need --yes); rm, prune, compose down -v and other deletes need
 			if all {
 				line += " -a"
 			}
-			return probe(cmd.Context(), "docker.ps", a[0], line+" --format '{{json .}}'", sudo, dockerTable(
+			return probe(cmd.Context(), "docker.ps", a[0], line+" --format '{{json .}}'", sudo, dockerTableN(psLimit,
 				[]string{"name", "image", "status", "ports", "created"}, []string{"Names", "Image", "Status", "Ports", "RunningFor"}, "Names"))
 		},
 	}
 	ps.Flags().BoolVarP(&all, "all", "a", false, "stopped containers too")
+	limitFlag(ps, &psLimit, 0, "containers per server")
 	stats := &cobra.Command{
 		Use:   "stats TARGET",
 		Short: "CPU, memory, network and disk use of running containers",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, a []string) error {
-			return probe(cmd.Context(), "docker.stats", a[0], "docker stats --no-stream --format '{{json .}}'", sudo, dockerTable(
+			return probe(cmd.Context(), "docker.stats", a[0], "docker stats --no-stream --format '{{json .}}'", sudo, dockerTableN(statsLimit,
 				[]string{"name", "cpu", "memory", "mem%", "net i/o", "block i/o", "pids"}, []string{"Name", "CPUPerc", "MemUsage", "MemPerc", "NetIO", "BlockIO", "PIDs"}, "Name"))
 		},
 	}
+	limitFlag(stats, &statsLimit, 0, "containers per server")
 	images := &cobra.Command{
 		Use:   "images TARGET",
 		Short: "Images on the server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, a []string) error {
-			return probe(cmd.Context(), "docker.images", a[0], "docker images --format '{{json .}}'", sudo, dockerTable(
+			return probe(cmd.Context(), "docker.images", a[0], "docker images --format '{{json .}}'", sudo, dockerTableN(imagesLimit,
 				[]string{"repository", "tag", "id", "created", "size"}, []string{"Repository", "Tag", "ID", "CreatedSince", "Size"}, "Repository", "Tag"))
 		},
 	}
+	limitFlag(images, &imagesLimit, 0, "images per server")
 	c.AddCommand(ps, stats, images)
 	for _, a := range []string{"start", "stop", "restart", "rm", "pull"} {
 		action := a
@@ -239,6 +243,12 @@ func firstLine(s string) string {
 // (docker itself puts the newest first). For a person (-o text) it lays the
 // chosen fields out as a table instead (labels and mounts would drown it).
 func dockerTable(headers, fields []string, sortBy ...string) func(*store.Host, string) (any, error) {
+	return dockerTableN(0, headers, fields, sortBy...)
+}
+
+// dockerTableN is dockerTable with each server's rows stopping at limit
+// (--limit; 0: all).
+func dockerTableN(limit int, headers, fields []string, sortBy ...string) func(*store.Host, string) (any, error) {
 	return func(h *store.Host, s string) (any, error) {
 		rows := parseJSONLines(h, s)
 		list, ok := rows.([]any)
@@ -252,6 +262,8 @@ func dockerTable(headers, fields []string, sortBy ...string) func(*store.Host, s
 				return k
 			}
 			sort.SliceStable(list, func(i, j int) bool { return key(list[i]) < key(list[j]) })
+			list = cutRows(list, limit)
+			rows = list
 		}
 		if out.P.Format != "text" || !ok {
 			return rows, nil

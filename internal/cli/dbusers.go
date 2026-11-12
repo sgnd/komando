@@ -32,7 +32,8 @@ change (a production database asks first); removing one needs --allow-dangerous.
 }
 
 func dbUserLsCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:     "ls CONN",
 		Short:   "List users and roles (login, superuser, member of ...; MySQL: host, locked)",
 		Example: "  komando db user ls prod-db",
@@ -46,10 +47,13 @@ func dbUserLsCmd() *cobra.Command {
 				if rows == nil {
 					rows = []map[string]any{}
 				}
+				rows = cutRows(rows, limit)
 				return map[string]any{"conn": c.Name, "count": len(rows), "users": rows}, nil
 			})
 		},
 	}
+	limitFlag(c, &limit, 0, "users")
+	return c
 }
 
 func dbUserChangeCmd(action string) *cobra.Command {

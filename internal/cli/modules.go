@@ -144,6 +144,7 @@ func (o *logOpts) bind(c *cobra.Command) {
 	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo (the whole journal, protected files)")
 	f.BoolVarP(&o.follow, "follow", "f", false, "keep printing new lines until Ctrl-C")
 	f.BoolVar(&o.timestamps, "timestamps", false, "show when each container log line was written (containers)")
+	flagAlias(c, "tail", "limit") // the word docker and kubectl use: a permanent synonym
 }
 
 func (o *logOpts) build() (string, error) {
@@ -409,6 +410,7 @@ func pkgCmd() *cobra.Command {
 		Short:   "Packages on servers (apt, dnf, yum, apk, zypper, pacman)",
 	}
 	var noSudo, refresh bool
+	var limit int
 	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
 	mk := func(action, short string, needPkgs, mutating, sudo bool) *cobra.Command {
 		use := action + " TARGET"
@@ -462,7 +464,7 @@ func pkgCmd() *cobra.Command {
 				}
 				useSudo := (sudo || action == "upgradable" && refresh) && !noSudo
 				if action != "update" {
-					return runPkg(cmd.Context(), action, args[0], args[1:], useSudo, refresh)
+					return runPkg(cmd.Context(), action, args[0], args[1:], useSudo, refresh, limit)
 				}
 				command := "ACTION=" + action + " PKGS=" + sshx.Q(pkgs) + "; " + pkgShell
 				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs), exitMap: orSudo(soleHost(args[0]), nil)}
@@ -472,6 +474,9 @@ func pkgCmd() *cobra.Command {
 	}
 	upgradable := mk("upgradable", "Pending upgrades (--refresh updates the package index first)", false, false, false)
 	upgradable.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update), so the list is current")
+	limitFlag(upgradable, &limit, 0, "packages per server")
+	installed := mk("installed", "Show installed versions (all or given packages)", false, false, false)
+	limitFlag(installed, &limit, 0, "packages per server")
 	pkgRm := mk("remove", "Remove packages and report what changed (skips uninstalled)", true, true, true) // "remove" is what the package managers call it
 	pkgRm.Use = "rm TARGET PACKAGE..."
 	c.AddCommand(
@@ -480,7 +485,7 @@ func pkgCmd() *cobra.Command {
 		mk("update", "Refresh the package index", false, true, true),
 		mk("upgrade", "Upgrade all or the given packages (--dry-run lists them)", false, true, true),
 		upgradable,
-		mk("installed", "Show installed versions (all or given packages)", false, false, false),
+		installed,
 		pkgSecurityCmd(&noSudo),
 	)
 	return c
@@ -498,15 +503,17 @@ func netCmd() *cobra.Command {
 		RunE:    netCheckRun,
 	}
 	var sudo bool
+	var portsLimit int
 	ports := &cobra.Command{
 		Use:   "ports TARGET",
 		Short: "Listening sockets: protocol, address, port, process",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return netPortsRun(cmd, args[0], sudo)
+			return netPortsRun(cmd, args[0], sudo, portsLimit)
 		},
 	}
 	ports.Flags().BoolVarP(&sudo, "sudo", "s", false, "use sudo to see process names")
+	limitFlag(ports, &portsLimit, 0, "sockets per server")
 	var expect string
 	httpC := &cobra.Command{
 		Use:   "http TARGET URL",
@@ -652,13 +659,14 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 		return `new=$(printf '%s\n' "$cur" | awk -v t=` + sshx.Q("# komando:"+id) + ` '{ n = length(t); if (length($0) >= n && substr($0, length($0) - n + 1) == t) next; print }')
 `
 	}
+	var cronLimit int
 	list := &cobra.Command{
 		Use:     "list TARGET",
 		Aliases: []string{"ls"},
 		Short:   "Show crontab entries",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(),
+			return runOps(cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(), limit: cronLimit,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 					if rr.ExitCode != 0 {
 						return nil, out.Errf(out.ExitRemote, "CRONTAB_UNREADABLE", "check the user name; reading another user's crontab needs sudo", "cannot read the crontab (exit %d)", rr.ExitCode)
@@ -686,6 +694,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 				}})
 		},
 	}
+	limitFlag(list, &cronLimit, 0, "entries per server")
 	var schedule string
 	set := &cobra.Command{
 		Use:   "set TARGET ID COMMAND",

@@ -192,6 +192,7 @@ picks would be a way to guess the secret one try at a time.`,
 
 // secretListCmd is `secret list`.
 func secretListCmd() *cobra.Command {
+	var limit int
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List secret names, when they changed and what uses them",
@@ -205,6 +206,7 @@ func secretListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			l = cutRows(l, limit)
 			res := secretList{Count: len(l), Secrets: []secretRow{}}
 			for _, i := range l {
 				res.Secrets = append(res.Secrets, secretRow{Name: i.Name, UpdatedAt: i.UpdatedAt, UsedBy: orEmpty(secretUsers(st, i.Name))})
@@ -213,6 +215,7 @@ func secretListCmd() *cobra.Command {
 			return nil
 		},
 	}
+	limitFlag(list, &limit, 0, "secrets")
 	return list
 }
 

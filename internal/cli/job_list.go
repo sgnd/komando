@@ -15,6 +15,7 @@ import (
 func jobListCmd() *cobra.Command {
 	var target string
 	var refresh bool
+	var limit int
 	c := &cobra.Command{
 		Use:   "list",
 		Short: "List the jobs komando started (--refresh asks the servers)",
@@ -45,6 +46,7 @@ func jobListCmd() *cobra.Command {
 				}
 			}
 			sort.Slice(jobs, func(a, b int) bool { return jobs[a].StartedAt.After(jobs[b].StartedAt) })
+			jobs = cutRows(jobs, limit) // newest first: the cut drops the oldest
 			if !refresh {
 				out.P.Print("job.list", jobList{Count: len(jobs), Jobs: jobs}, nil)
 				return nil
@@ -74,6 +76,7 @@ func jobListCmd() *cobra.Command {
 	}
 	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
 	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")
+	limitFlag(c, &limit, 0, "jobs, newest first")
 	return c
 }
 

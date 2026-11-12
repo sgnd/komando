@@ -107,7 +107,7 @@ func (r lsResult) Text() string {
 	}
 	s := textTable([]string{"mode", "size", "modified", "name"}, rows)
 	if r.Truncated {
-		s += fmt.Sprintf("(showing the first %d; raise --max)\n", len(rows))
+		s += fmt.Sprintf("(showing the first %d; raise --limit, or --limit 0 for all)\n", len(rows))
 	}
 	return s
 }

@@ -86,6 +86,7 @@ func clusterLsCmd() *cobra.Command {
 					res["namespace"] = space
 				}
 				if list.Metadata.Continue != "" {
+					out.P.CutNoted()
 					res["truncated"] = true
 				}
 				return res, nil

@@ -204,6 +204,7 @@ func userCmd() *cobra.Command {
 	var noSudo bool
 	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
 	var all bool
+	var limit int
 	list := &cobra.Command{
 		Use:     "list TARGET",
 		Aliases: []string{"ls"},
@@ -214,12 +215,13 @@ whether the account is locked (expired, as ` + "`komando user lock`" + ` does). 
 state is read through sudo; with --no-sudo it is left out.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "user.list", target: args[0], command: userListScript, display: "user list", sudo: !noSudo,
+			return runOps(cmd.Context(), opsSpec{name: "user.list", target: args[0], command: userListScript, display: "user list", sudo: !noSudo, limit: limit,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return parseUsers(rr.Stdout, all), nil },
 				text:  usersText})
 		},
 	}
 	list.Flags().BoolVarP(&all, "all", "a", false, "include system accounts")
+	limitFlag(list, &limit, 0, "accounts per server")
 	var pubKey, keyName, shell string
 	var admin bool
 	add := &cobra.Command{

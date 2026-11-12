@@ -9,6 +9,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- Every list command takes `-n/--limit` (`--limit` only in `cluster`,
+  where `-n` is the namespace): `list`, `host/conn/vpn/key/secret/
+  recipe/policy/job/tunnel/group list`, `svc/user/cron list`,
+  `docker ps/images/stats`, `pkg installed/upgradable`, `net ports`,
+  `db user ls`, `db activity`, `db locks`, `queue groups`,
+  `cluster history` and `cluster helm ls/history`. Where there was no
+  limit the default is 0, all, as before. A list that stops at its limit
+  sets `meta.truncated: true` (new, additive), and in text mode one line
+  on stderr says `showing N of more; use --limit 0 for all`. On commands
+  that run on several servers the limit counts per server.
+- `fs ls` counts with `-n/--limit` (default 1000, as before; 0 lists
+  everything); `--max` still works and is noted in `meta.deprecated`.
+  `job logs` takes `-n/--limit N` for the last lines, and `--tail` works
+  on every log reader (`logs`, `svc logs`, `docker logs`,
+  `cluster logs`, `job logs`) as another name for `--limit`.
+
 - An unknown short flag gets a did-you-mean: `-n` where a command counts
   with `--limit`, `-it` (komando runs one command; `komando shell` or
   `komando cluster shell` for a shell), `-L`/`-R`/`-D` (port forwarding
@@ -39,6 +55,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `cache get --limit` is listed as `int` in `komando schema` (was
+  `int64`); the values it takes are the same.
 - `storage rm --prefix` names its safety cap `--max-remove` (default
   1000), so it is not taken for a list's `--limit`. `--limit` and `-n`
   still set it in this release and are noted in `meta.deprecated`; after

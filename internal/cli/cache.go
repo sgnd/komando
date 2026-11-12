@@ -143,7 +143,7 @@ func cacheIsCluster(expr string) bool {
 }
 
 func cacheGetCmd() *cobra.Command {
-	var limit int64
+	var limit int
 	c := &cobra.Command{
 		Use:   "get CONN KEY",
 		Short: "Show a key: its type, time to live and value (any type)",
@@ -156,11 +156,11 @@ func cacheGetCmd() *cobra.Command {
 			}
 			return withCache(cmd.Context(), "cache.get", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
 				func(st *store.State, _ *store.Conn, rc cachex.Store) (any, error) {
-					return rc.Get(cmd.Context(), args[1], limit, maxOutput(st))
+					return rc.Get(cmd.Context(), args[1], int64(limit), maxOutput(st))
 				})
 		},
 	}
-	c.Flags().Int64VarP(&limit, "limit", "n", 100, "the most items to show of a hash, list, set or sorted set")
+	c.Flags().IntVarP(&limit, "limit", "n", 100, "the most items to show of a hash, list, set or sorted set")
 	return c
 }
 
@@ -210,6 +210,9 @@ func cacheKeysCmd() *cobra.Command {
 						return nil, err
 					}
 					sort.Strings(keys)
+					if more {
+						out.P.CutNoted()
+					}
 					return keyList{Conn: c.Name, Pattern: pattern, Keys: keys, Count: len(keys), More: more}, nil
 				})
 		},

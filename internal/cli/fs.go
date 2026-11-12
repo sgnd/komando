@@ -210,8 +210,9 @@ func fsLsCmd() *cobra.Command {
 							}
 							continue
 						}
-						if len(r.Entries) >= maxEntries {
+						if maxEntries > 0 && len(r.Entries) >= maxEntries {
 							r.Truncated = true
+							out.P.CutNoted()
 							break
 						}
 						r.Entries = append(r.Entries, toInfo(path.Dir(w.Path()), w.Stat()))
@@ -225,8 +226,9 @@ func fsLsCmd() *cobra.Command {
 						if !all && strings.HasPrefix(fi.Name(), ".") {
 							continue
 						}
-						if len(r.Entries) >= maxEntries {
+						if maxEntries > 0 && len(r.Entries) >= maxEntries {
 							r.Truncated = true
+							out.P.CutNoted()
 							break
 						}
 						r.Entries = append(r.Entries, toInfo(dir, fi))
@@ -249,7 +251,8 @@ func fsLsCmd() *cobra.Command {
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
-	c.Flags().IntVar(&maxEntries, "max", 1000, "the most entries to return")
+	limitFlag(c, &maxEntries, 1000, "entries")
+	retiredFlag(c, "max", "limit")
 	return c
 }
 

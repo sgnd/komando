@@ -107,7 +107,8 @@ func groupCmd() *cobra.Command {
 command. Group names use letters, digits and . _ - and match in any case.
 A group exists while something is in it.`,
 	}
-	c.AddCommand(&cobra.Command{
+	var limit int
+	list := &cobra.Command{
 		Use:   "list [GROUP]",
 		Short: "List groups and tags with their members, or the members of one group",
 		Example: `  komando group list
@@ -124,13 +125,17 @@ A group exists while something is in it.`,
 				if len(m) == 0 {
 					return groupNotFound(st, group)
 				}
-				out.P.Print("group.list", groupMembers{Group: group, Members: m}, nil)
+				out.P.Print("group.list", groupMembers{Group: group, Members: cutRows(m, limit)}, nil)
 				return nil
 			}
-			out.P.Print("group.list", allGroups(st), nil)
+			l := allGroups(st)
+			l.Groups, l.Tags = cutMap(l.Groups, limit), cutMap(l.Tags, limit)
+			out.P.Print("group.list", l, nil)
 			return nil
 		},
-	})
+	}
+	limitFlag(list, &limit, 0, "groups and tags each, or members of GROUP")
+	c.AddCommand(list)
 	c.AddCommand(groupAddCmd(), groupRmCmd(), groupMvCmd())
 	return c
 }

@@ -316,6 +316,9 @@ func storageLsCmd() *cobra.Command {
 						// prefix is what a missing folder is on a file server
 						return nil, storex.FolderNotFound(prefix)
 					}
+					if more {
+						out.P.CutNoted()
+					}
 					return objectList{Conn: c.Name, Prefix: prefix, Objects: objs, Count: len(objs), More: more}, nil
 				})
 		},

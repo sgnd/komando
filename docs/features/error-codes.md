@@ -91,9 +91,9 @@ This page is made from the code (`komando schema` lists the same under
 | `INSECURE_PROTOCOL` | 2 | …:// crosses the network to … without TLS, so the password and the data travel unencrypted | use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted |
 | `IS_A_DIRECTORY` | 2 | … is a folder, not a file | list it with `komando fs ls TARGET …` |
 | `IS_A_SYMLINK` | 8 | … is a symbolic link (--no-follow) | drop --no-follow to write the file it points to |
-| `JOB_FAILED` | 5 | job exited with … | read its output with `komando job logs … --tail 50` |
+| `JOB_FAILED` | 5 | job exited with … | read its output with `komando job logs … --limit 50` |
 | `JOB_KILLED` | 5 | job … was killed (…) | it was stopped with `komando job kill` |
-| `JOB_LOST` | 5 | job … lost | it stopped without an exit code (killed, or the server restarted): `komando job logs … --tail 50` shows how far it got; start it again with `komando job start … -- …` if needed |
+| `JOB_LOST` | 5 | job … lost | it stopped without an exit code (killed, or the server restarted): `komando job logs … --limit 50` shows how far it got; start it again with `komando job start … -- …` if needed |
 | `JOB_NOT_FOUND` | 3 | job … not found | run `komando job list` to see available jobs |
 | `JOB_RUNNING` | 8 | job … is still running | stop it first with `komando job kill …`, or pass --kill to stop and remove it |
 | `JOB_START_FAILED` | 5 | could not start job: … | check that /bin/sh and nohup work there: `komando test TARGET` |
@@ -287,7 +287,7 @@ This page is made from the code (`komando schema` lists the same under
 | `VPN_NOT_FOUND` | 3 | VPN … not found | run `komando vpn list` to see available VPNs |
 | `VPN_OS_MODE_REMOVED` | 2 | VPN … uses OpenVPN OS mode (--os-mode), which komando no longer has | add it again with komando's own client: `komando vpn add … openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in) |
 | `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn down …` again; if it still fails, end process … yourself |
-| `WAIT_TIMEOUT` | 7 | job … still running after … | it is still running: `komando job wait …` waits again, `komando job logs … --tail 50` shows its output so far |
+| `WAIT_TIMEOUT` | 7 | job … still running after … | it is still running: `komando job wait …` waits again, `komando job logs … --limit 50` shows its output so far |
 | `WEAK_PASSPHRASE` | 2 | the passphrase is shorter than 15 characters | nothing was changed; run it again with another passphrase |
 | `WINRM_ERROR` | 5 | …: … | read the message; `winrm quickconfig` on the server sets WinRM up, and the user must be allowed to use it (an administrator, or the Remote Management Users group) |
 | `WINRM_INSECURE` | 2 | Basic login over plain HTTP sends the password unencrypted | use HTTPS (leave tls=off out), or NTLM (leave auth=basic out), which never sends the password |

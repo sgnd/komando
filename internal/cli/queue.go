@@ -187,6 +187,9 @@ func queueLsCmd() *cobra.Command {
 						return nil, err
 					}
 					cut := len(ts) > limit
+					if cut {
+						out.P.CutNoted()
+					}
 					ts = queuex.First(ts, limit)
 					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), Truncated: cut, kind: c.Kind}, nil
 				})
@@ -285,7 +288,8 @@ Values that are not UTF-8 text are shown as base64.`,
 }
 
 func queueGroupsCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:     "groups CONN",
 		Short:   "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
 		Example: `  komando queue groups events`,
@@ -299,10 +303,13 @@ func queueGroupsCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
+					gs = cutRows(gs, limit)
 					return queueGroups{Conn: c.Name, Groups: gs, Count: len(gs), kind: c.Kind}, nil
 				})
 		},
 	}
+	limitFlag(c, &limit, 0, "groups")
+	return c
 }
 
 func queueLagCmd() *cobra.Command {

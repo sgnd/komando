@@ -377,7 +377,8 @@ func (l sshKeyList) Text() string {
 }
 
 func keyListCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:   "list",
 		Short: "List keys and the servers that use them",
 		Args:  cobra.NoArgs,
@@ -397,11 +398,14 @@ func keyListCmd() *cobra.Command {
 				l.Keys = append(l.Keys, r)
 			}
 			sort.Slice(l.Keys, func(i, j int) bool { return l.Keys[i].Name < l.Keys[j].Name })
+			l.Keys = cutRows(l.Keys, limit)
 			l.Count = len(l.Keys)
 			out.P.Print("key.list", l, nil)
 			return nil
 		},
 	}
+	limitFlag(c, &limit, 0, "keys")
+	return c
 }
 
 func keyShowCmd() *cobra.Command {

@@ -39,6 +39,8 @@ type opsSpec struct {
 	// the command does not work there), and winParse reads its result
 	win      string
 	winParse func(h *store.Host, r *sshx.RunResult) (any, *out.Error)
+	// limit is --limit on a list: each server's rows stop there (0: all)
+	limit int
 }
 
 type opsRow struct {
@@ -255,8 +257,9 @@ func opsDryRun(spec opsSpec, hosts []*store.Host, shown string, guardErr error) 
 // nothing to parse then.
 func opsParser(spec opsSpec, h *store.Host) func(h *store.Host, r *sshx.RunResult) (any, *out.Error) {
 	if h.Windows() && spec.winParse != nil {
-		return spec.winParse
+		return cutOps(spec.limit, spec.winParse)
 	}
+	spec.parse = cutOps(spec.limit, spec.parse)
 	if !spec.sudo || h.Windows() || spec.parse == nil {
 		return spec.parse
 	}
@@ -273,6 +276,12 @@ func opsParser(spec opsSpec, h *store.Host) func(h *store.Host, r *sshx.RunResul
 type opsWarnings struct {
 	data     any
 	warnings []string
+}
+
+// cutTo cuts the rows inside, keeping the warnings (limiter).
+func (w opsWarnings) cutTo(n int) any {
+	w.data = cutValue(w.data, n)
+	return w
 }
 
 // renderPlain is the text view of data without its own renderer: key:

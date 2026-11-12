@@ -54,6 +54,7 @@ func clusterEvents(ctx context.Context, k *kube.Client, space, kind, name string
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return str(rows[i]["last"]) < str(rows[j]["last"]) })
 	if limit > 0 && len(rows) > limit {
+		out.P.Cut(limit)
 		rows = rows[len(rows)-limit:]
 	}
 	return rows, nil

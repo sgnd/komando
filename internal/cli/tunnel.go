@@ -363,7 +363,8 @@ func tunnelListen(t *store.Tunnel) string {
 }
 
 func tunnelListCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:   "list",
 		Short: "List tunnels and whether each is up; dead ones are removed",
 		Args:  cobra.NoArgs,
@@ -390,10 +391,13 @@ func tunnelListCmd() *cobra.Command {
 					return nil
 				})
 			}
+			rows = cutRows(rows, limit)
 			out.P.Print("tunnel.list", tunnelList{Count: len(rows), Tunnels: rows}, nil)
 			return nil
 		},
 	}
+	limitFlag(c, &limit, 0, "tunnels")
+	return c
 }
 
 func tunnelStopCmd() *cobra.Command {

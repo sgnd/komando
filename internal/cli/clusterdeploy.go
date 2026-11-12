@@ -347,6 +347,7 @@ func rsImages(rs map[string]any) []string {
 
 func clusterHistoryCmd() *cobra.Command {
 	var ns string
+	var limit int
 	c := &cobra.Command{
 		Use:     "history TARGET deployment/NAME",
 		Short:   "Revisions of a deployment, newest first, with their images (for rollback --to)",
@@ -392,11 +393,12 @@ func clusterHistoryCmd() *cobra.Command {
 					rows = append(rows, map[string]any{"revision": rsRevision(rs), "images": rsImages(rs),
 						"current": rsRevision(rs) == current, "age": age(str(rm["creationTimestamp"]))})
 				}
-				return historyData{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "revisions": rows}, nil
+				return historyData{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "revisions": cutRows(rows, limit)}, nil
 			})
 		},
 	}
 	nsFlags(c, &ns, nil, nil)
+	clusterLimitFlag(c, &limit, 0, "revisions, newest first")
 	return c
 }
 

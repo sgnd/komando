@@ -100,7 +100,7 @@ var itemCommands = map[string][]string{
 	"group": {"list @{}", "test @{}", "exec @{} -- uptime", "facts @{}", "pkg upgradable @{}", "recipe run health @{}",
 		"group add {} TARGET", "group rm {} TARGET", "group mv {} NEW"},
 	"key":     {"key deploy {} TARGET", "key revoke {} TARGET", "key edit {}", "key mv {} NEW", "key rm {}"},
-	"job":     {"job logs {} --tail 50", "job wait {}", "job kill {}", "job rm {}"},
+	"job":     {"job logs {} --limit 50", "job wait {}", "job kill {}", "job rm {}"},
 	"secret":  {"secret check {}", "secret set {}", "secret mv {} NEW", "secret cp {} NEW", "secret rm {}"},
 	"setting": {"config set {} VALUE"},
 }

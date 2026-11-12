@@ -178,6 +178,7 @@ func (l helmList) Text() string {
 func helmLsCmd() *cobra.Command {
 	var ns string
 	var all bool
+	var limit int
 	c := &cobra.Command{
 		Use:   "ls TARGET",
 		Short: "Helm releases: name, revision, status, chart and app version",
@@ -217,6 +218,7 @@ func helmLsCmd() *cobra.Command {
 						}
 						rels = append(rels, row)
 					}
+					rels = cutRows(rels, limit)
 					res := helmList{"conn": t.conn.Name, "count": len(rels), "releases": rels}
 					if !all {
 						res["namespace"] = space
@@ -226,6 +228,7 @@ func helmLsCmd() *cobra.Command {
 		},
 	}
 	nsFlags(c, &ns, &all, nil)
+	clusterLimitFlag(c, &limit, 0, "releases per cluster")
 	return c
 }
 
@@ -356,6 +359,7 @@ func helmStatusCmd() *cobra.Command {
 
 func helmHistoryCmd() *cobra.Command {
 	var ns string
+	var limit int
 	c := &cobra.Command{
 		Use:     "history TARGET RELEASE",
 		Short:   "Every stored revision of a Helm release, oldest first",
@@ -368,11 +372,12 @@ func helmHistoryCmd() *cobra.Command {
 					rows[i] = map[string]any{"revision": r.Version, "updated": r.Info.LastDeployed, "status": r.Info.Status,
 						"chart": r.chart(), "app_version": r.Chart.Metadata.AppVersion, "description": r.Info.Description}
 				}
-				return helmHistory{"conn": t.conn.Name, "name": args[1], "namespace": revs[0].Namespace, "revisions": rows}, nil
+				return helmHistory{"conn": t.conn.Name, "name": args[1], "namespace": revs[0].Namespace, "revisions": cutLast(rows, limit)}, nil
 			})
 		},
 	}
 	nsFlags(c, &ns, nil, nil)
+	clusterLimitFlag(c, &limit, 0, "revisions, newest kept")
 	return c
 }
 

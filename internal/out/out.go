@@ -184,6 +184,9 @@ type Meta struct {
 	// The retired flag or argument shape the command used (it still
 	// works), and how to write it today (meta.deprecated).
 	Deprecated *Deprecated `json:"deprecated,omitempty"`
+	// Truncated: a list stopped at --limit; more items are there
+	// (--limit 0 shows them all).
+	Truncated bool `json:"truncated,omitempty"`
 }
 
 // Deprecated names a retired spelling and the one that replaces it.
@@ -221,6 +224,9 @@ type Printer struct {
 	mu      sync.Mutex // pinned, warns: connections run side by side
 
 	deprecated *Deprecated
+	cutAt      int  // the --limit a list stopped at (Cut)
+	cut        bool // meta.truncated
+	cutNoted   bool // the command's own text says it was cut
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -316,10 +322,39 @@ type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
-	pinned, warns, dep := slices.Clone(p.pinned), slices.Clone(p.warns), p.deprecated
+	pinned, warns, dep, cut := slices.Clone(p.pinned), slices.Clone(p.warns), p.deprecated, p.cut
 	p.mu.Unlock()
 	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked,
-		HostKeysPinned: pinned, Warnings: warns, Deprecated: dep}
+		HostKeysPinned: pinned, Warnings: warns, Deprecated: dep, Truncated: cut}
+}
+
+// Cut records that a list stopped at --limit n (meta.truncated). In text
+// mode one line on stderr says so after the result.
+func (p *Printer) Cut(n int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.cut = true
+	if n > p.cutAt {
+		p.cutAt = n
+	}
+}
+
+// CutNoted is Cut for a command whose own text already says the list was
+// cut: meta.truncated only, no extra stderr line.
+func (p *Printer) CutNoted() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.cut, p.cutNoted = true, true
+}
+
+// printCut tells a person, on stderr, that a list stopped at --limit.
+func (p *Printer) printCut() {
+	p.mu.Lock()
+	cut, noted, n := p.cut, p.cutNoted, p.cutAt
+	p.mu.Unlock()
+	if cut && !noted && n > 0 {
+		fmt.Fprintf(os.Stderr, "showing %d of more; use --limit 0 for all\n", n)
+	}
 }
 
 // UsedRetired records, for meta.deprecated, the first retired spelling the
@@ -353,6 +388,7 @@ func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.blocked, p.skipped, p.pinned, p.warns, p.deprecated = nil, nil, nil, nil, nil
+	p.cut, p.cutNoted, p.cutAt = false, false, 0
 }
 
 // Warn records something that went wrong beside the result: it goes to
@@ -428,6 +464,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 				fmt.Fprintln(os.Stderr, "nothing to show")
 			}
 		}
+		p.printCut()
 		if softErr != nil {
 			p.printErr(softErr, false)
 		}

@@ -702,6 +702,11 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		}
 		return nil
 	}
+	for _, r := range res.Results {
+		if r.Truncated == "rows" {
+			out.P.CutNoted() // the text says it under the table
+		}
+	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil
 }

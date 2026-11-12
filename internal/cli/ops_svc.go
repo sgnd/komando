@@ -172,6 +172,7 @@ func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
 func svcListCmd() *cobra.Command {
 	var state string
 	var failed bool
+	var limit int
 	c := &cobra.Command{
 		Use:     "list TARGET",
 		Aliases: []string{"ls"},
@@ -188,13 +189,14 @@ func svcListCmd() *cobra.Command {
 			if state != "" {
 				command += " --state=" + sshx.Q(state)
 			}
-			return runOps(cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command,
+			return runOps(cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command, limit: limit,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcListResult(rr) }, text: svcListTable,
 				win: winSvcListScript, winParse: winSvcList(state)})
 		},
 	}
 	c.Flags().StringVar(&state, "state", "", "only units in this state, such as running or failed")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed units (the same as --state failed)")
+	limitFlag(c, &limit, 0, "units per server")
 	return c
 }
 

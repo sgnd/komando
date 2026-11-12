@@ -274,6 +274,13 @@ type pkgUpgradable struct {
 // staleIndex is when `pkg upgradable` suggests --refresh.
 const staleIndex = 24 * time.Hour
 
+// cutTo cuts the package list (limiter).
+func (d pkgUpgradable) cutTo(n int) any {
+	d.Packages = cutRows(d.Packages, n)
+	d.Count = len(d.Packages)
+	return d
+}
+
 func pkgUpgradableResult(rr *sshx.RunResult, refreshed bool) (any, *out.Error) {
 	pm := stderrValue(rr.Stderr, "package-manager")
 	if rr.ExitCode != 0 {
@@ -334,7 +341,7 @@ func pkgSimulateResult(rr *sshx.RunResult) (any, *out.Error) {
 }
 
 // runPkg runs the pkg actions komando reads the result of.
-func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, refresh bool) error {
+func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, refresh bool, limit int) error {
 	// the package managers call it remove; the command is pkg rm
 	verb := map[string]string{"remove": "rm"}[action]
 	if verb == "" {
@@ -344,7 +351,7 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 	q := sshx.Q(strings.Join(pkgs, " "))
 	switch action {
 	case "installed":
-		return runOps(ctx, opsSpec{name: "pkg.installed", target: target, command: "ACTION=installed PKGS=" + q + "; " + pkgShell, display: display,
+		return runOps(ctx, opsSpec{name: "pkg.installed", target: target, command: "ACTION=installed PKGS=" + q + "; " + pkgShell, display: display, limit: limit,
 			parse: func(h *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 				if rr.ExitCode != 0 {
 					return nil, pkgFailure(action, rr, nil)
@@ -374,7 +381,7 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 		if refresh {
 			command = "ACTION=update PKGS=''; (" + pkgShell + ") >/dev/null; " + command
 		}
-		return runOps(ctx, opsSpec{name: "pkg.upgradable", target: target, command: command, display: display, sudo: sudo,
+		return runOps(ctx, opsSpec{name: "pkg.upgradable", target: target, command: command, display: display, sudo: sudo, limit: limit,
 			parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgUpgradableResult(rr, refresh) },
 			text:  pkgUpgradableText})
 	}

@@ -173,6 +173,18 @@ time; repeat it for more: `--label team=ops --label env=prod`. A value
 keeps its commas (`--option hosts=a,b`), and a second `KEY=` after a
 comma is refused, so `--option a=on,b=x` is never read as one value.
 
+### How many: `--limit`
+
+Every list command takes `-n/--limit N`, the most items to show (in
+`cluster` commands `--limit` only, since `-n` is the namespace there).
+Log readers show the last N lines, and `--tail N` means the same there.
+A command that runs on several servers counts per server. Without
+`--limit` a list shows what it always did: everything, or the default
+its help names (`fs ls` 1000, `logs` 200). `--limit 0` shows all where
+the help says so. When a list stops at its limit, the JSON has
+`meta.truncated: true` and `-o text` says on stderr
+`showing N of more; use --limit 0 for all`.
+
 ## Run a local script
 
 `komando exec TARGET --script FILE` sends a script file from this computer
@@ -216,7 +228,7 @@ komando job rm JOB_ID                   # forget it and delete its remote logs
 Good to know:
 
 - `job logs --offset N` reads only what is new: pass back the `next_offset`
-  from the previous call. `--tail N` gives the last lines instead.
+  from the previous call. `-n/--limit N` gives the last lines instead (`--tail N` works too).
 - `job wait` waits up to `--timeout` (default 10m). When the time is up, the
   job keeps running and komando exits 7 (`WAIT_TIMEOUT`). Otherwise the exit
   code follows the job's. If the connection drops while it waits, it

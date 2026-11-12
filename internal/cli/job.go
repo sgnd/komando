@@ -214,11 +214,11 @@ func jobLogsCmd() *cobra.Command {
 	var tail int
 	c := &cobra.Command{
 		Use:   "logs JOB_ID",
-		Short: "Read job output: what is new since --offset, or the last --tail lines",
+		Short: "Read job output: what is new since --offset, or the last --limit lines",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if offset < 0 {
-				return out.Usage("--offset must be 0 or more (it is a byte position; use --tail N for the last lines)")
+				return out.Usage("--offset must be 0 or more (it is a byte position; use --limit N for the last lines)")
 			}
 			if limit <= 0 {
 				return out.Usage("--max-bytes must be more than 0")
@@ -264,7 +264,8 @@ func jobLogsCmd() *cobra.Command {
 	c.Flags().Int64Var(&offset, "offset", 0, "byte offset to read from (use next_offset from the previous call)")
 	limit = 256 << 10
 	c.Flags().Var(&bytesFlag{n: &limit}, "max-bytes", "the most bytes to return, e.g. 1MiB")
-	c.Flags().IntVar(&tail, "tail", 0, "return only the last N lines instead")
+	c.Flags().IntVarP(&tail, "limit", "n", 0, "return only the last N lines instead (0 = read from --offset)")
+	flagAlias(c, "tail", "limit") // a permanent synonym, as on the other log readers
 	return c
 }
 
@@ -395,13 +396,13 @@ func waitJob(ctx context.Context, id string, deadline time.Time, interval time.D
 func waitVerdict(s *jobStatus, waitTimeout time.Duration) *out.Error {
 	switch {
 	case s.State == "running":
-		return out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "it is still running: `komando job wait "+s.ID+"` waits again, `komando job logs "+s.ID+" --tail 50` shows its output so far", "job %s still running after %s", s.ID, waitTimeout)
+		return out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "it is still running: `komando job wait "+s.ID+"` waits again, `komando job logs "+s.ID+" --limit 50` shows its output so far", "job %s still running after %s", s.ID, waitTimeout)
 	case s.State == "killed":
 		return out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", s.ID, s.Signal)
 	case s.State == "lost":
-		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --tail 50` shows how far it got; start it again with `komando job start "+s.Host+" -- "+sshx.Q(s.Command)+"` if needed", "job %s lost", s.ID)
+		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --limit 50` shows how far it got; start it again with `komando job start "+s.Host+" -- "+sshx.Q(s.Command)+"` if needed", "job %s lost", s.ID)
 	case s.ExitCode != nil && *s.ExitCode != 0:
-		return out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+s.ID+" --tail 50`", "job exited with %d", *s.ExitCode)
+		return out.Errf(out.ExitRemote, "JOB_FAILED", "read its output with `komando job logs "+s.ID+" --limit 50`", "job exited with %d", *s.ExitCode)
 	}
 	return nil
 }
@@ -435,7 +436,7 @@ func (d jobWaited) fleetHint() string {
 	if len(running) > 0 {
 		hint = "still running: `komando job wait " + strings.Join(running, " ") + "` waits again; " + hint
 	}
-	return hint + "; `komando job logs ID --tail 50` shows one's output"
+	return hint + "; `komando job logs ID --limit 50` shows one's output"
 }
 
 func (d jobWaited) Text() string {
@@ -683,9 +684,9 @@ func (d jobStarted) Text() string {
 	s := textTable([]string{"id", "host", "pid", "state"}, rows)
 	switch ids := d.ids(); {
 	case len(ids) == 1:
-		s += "\nfollow it with: komando job logs " + ids[0] + " --tail 20   |   komando job wait " + ids[0] + "\n"
+		s += "\nfollow it with: komando job logs " + ids[0] + " --limit 20   |   komando job wait " + ids[0] + "\n"
 	case len(ids) > 1:
-		s += "\nwait for them all: komando job wait " + strings.Join(ids, " ") + "\none's output:      komando job logs <id> --tail 20\n"
+		s += "\nwait for them all: komando job wait " + strings.Join(ids, " ") + "\none's output:      komando job logs <id> --limit 20\n"
 	}
 	return s
 }

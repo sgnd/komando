@@ -186,6 +186,7 @@ func swarmList(ctx context.Context, t clusterTarget, kind, selector string, limi
 	res := kubeList{"host": t.host.Name, "type": strings.ToUpper(kind[:1]) + kind[1:], "count": len(items), "items": items}
 	if limit > 0 && len(items) > limit {
 		res["items"], res["count"], res["truncated"] = items[:limit], limit, true
+		out.P.CutNoted()
 	}
 	return res, nil
 }

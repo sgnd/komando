@@ -189,7 +189,7 @@ var invJobHints = map[string]formHint{
 		{name: "tail", ask: "How many of its last output lines to show?", example: "20",
 			help: "0 shows none."}}},
 	"job logs": {args: []formArg{invJob}, flags: []formFlag{
-		{name: "tail", ask: "Only the last how many lines?", example: "50",
+		{name: "limit", ask: "Only the last how many lines?", example: "50",
 			help: "Leave empty to read the output from the start."}}},
 	"job wait": {args: []formArg{invJobs}},
 	"job kill": {args: []formArg{invJob}, flags: []formFlag{
@@ -310,8 +310,8 @@ func init() {
 		"import":       {next: []string{"list", "test all"}},
 		"group add":    {next: []string{"list @{}", "test @{}"}},
 		"group rm":     {next: []string{"group add {} TARGET..."}}, // to put them back
-		"job status":   {next: []string{"job logs {} --tail 50", "job wait {}", "job kill {}"}},
-		"job wait":     {next: []string{"job logs {} --tail 50", "job rm {}"}},
+		"job status":   {next: []string{"job logs {} --limit 50", "job wait {}", "job kill {}"}},
+		"job wait":     {next: []string{"job logs {} --limit 50", "job rm {}"}},
 		"job kill":     {next: []string{"job status {}", "job rm {}"}},
 		"job list":     {next: []string{"job list --refresh", "job status JOB_ID", "job rm JOB_ID"}},
 		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm ID"}},

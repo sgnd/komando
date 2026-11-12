@@ -3181,7 +3181,7 @@ Error: missing arguments; usage: komando job kill JOB_ID
 ### komando -o json job logs (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB_ID","hint":"for example: komando job logs j1103-101500-ab12cd34 --tail 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB_ID","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job logs (agent text)
 exit 2
@@ -3191,7 +3191,7 @@ Error: missing arguments; usage: komando job logs JOB_ID
 ### komando -o json job logs (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB_ID","hint":"for example: komando job logs j1103-101500-ab12cd34 --tail 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.logs","error":{"code":"USAGE","message":"missing arguments; usage: komando job logs JOB_ID","hint":"for example: komando job logs j1103-101500-ab12cd34 --limit 100"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job logs (script text)
 exit 2

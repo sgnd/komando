@@ -236,6 +236,7 @@ func recipeCmd() *cobra.Command {
 
 func recipeListCmd() *cobra.Command {
 	var category string
+	var limit int
 	c := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -262,11 +263,13 @@ func recipeListCmd() *cobra.Command {
 			}
 			// by name; the category column says which are your own ("saved")
 			sort.SliceStable(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
+			rows = cutRows(rows, limit)
 			out.P.Print("recipe.list", recipeList{Count: len(rows), Recipes: rows}, nil)
 			return nil
 		},
 	}
 	c.Flags().StringVar(&category, "category", "", "only this category (or \"saved\" for your own)")
+	limitFlag(c, &limit, 0, "recipes")
 	return c
 }
 

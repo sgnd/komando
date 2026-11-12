@@ -94,7 +94,7 @@ the pods that exist when it starts. --since takes a duration back from now
 				if timestamps {
 					q.Set("timestamps", "true")
 				}
-				if follow && !cmd.Flags().Changed("limit") {
+				if follow && !flagChanged(cmd, "limit") {
 					q.Set("tailLines", "10") // like tail -f: a little context, then new lines
 				}
 				if container != "" {
@@ -143,6 +143,7 @@ the pods that exist when it starts. --since takes a duration back from now
 		},
 	}
 	nsFlags(c, &ns, nil, &limitOpt{&limit, 200, "the most lines per pod (the last ones)"})
+	flagAlias(c, "tail", "limit") // kubectl's word: a permanent synonym
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
 	c.Flags().StringVar(&since, "since", "", "only newer than this: 10m, 2h, or a time like 2026-01-02T10:00:00Z")
 	c.Flags().BoolVar(&previous, "previous", false, "the previous run of a restarted container")

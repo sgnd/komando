@@ -25,7 +25,7 @@ komando fs cat web1 /var/log/auth.log --sudo          # a file only root can rea
 komando fs cat web1 '~/app/.env'
 komando fs ls web1 /var/www                           # ls -l style with -o text
 komando fs ls web1 -a                                 # no PATH: your home folder; -a shows dotfiles
-komando fs ls web1 /srv -r --max 200                  # walk folders (up to 1000 entries by default)
+komando fs ls web1 /srv -r --limit 200                # walk folders (up to 1000 entries by default)
 komando fs stat web1 /etc/hosts --sha256              # exists:false instead of an error when missing
 ```
 

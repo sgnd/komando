@@ -131,7 +131,7 @@ func TestPromptNext(t *testing.T) {
 		{"conn show", "notes", "komando db dump notes --to backup.sql", "db user ls"},
 		{"conn show", "notes", "komando conn rm notes", "db activity"},
 		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
-		{"job status", "7f3", "komando job logs 7f3 --tail 50", "conn "},
+		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},
 		{"group rm", "old", "Next: komando group add old TARGET...", "group rm"},
 	} {
 		drawn.Reset()

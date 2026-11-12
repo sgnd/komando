@@ -483,5 +483,5 @@ var schemaEnvelope = map[string]string{
 	"command": "dotted command name",
 	"data":    "command-specific result; multi-host commands use data.results[] + data.summary",
 	"error":   "{code, message, hint} when ok=false (data may still be present for partial failures)",
-	"meta":    "{contract, version, duration_ms, dry_run}, and when they apply: would_be_blocked (a dry run's stop), skipped (targets a command cannot use), host_keys_pinned, deprecated ({used, now}: a retired flag or argument shape that still works)",
+	"meta":    "{contract, version, duration_ms, dry_run}, and when they apply: would_be_blocked (a dry run's stop), skipped (targets a command cannot use), host_keys_pinned, deprecated ({used, now}: a retired flag or argument shape that still works), truncated (a list stopped at --limit; --limit 0 shows all)",
 }

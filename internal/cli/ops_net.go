@@ -185,8 +185,8 @@ func netPortsText(data any) string {
 	return textTable([]string{"proto", "address", "port", "process", "pid"}, rows)
 }
 
-func netPortsRun(cmd *cobra.Command, target string, sudo bool) error {
-	return runOps(cmd.Context(), opsSpec{name: "net.ports", target: target, command: netPortsScript, display: "net ports", sudo: sudo,
+func netPortsRun(cmd *cobra.Command, target string, sudo bool, limit int) error {
+	return runOps(cmd.Context(), opsSpec{name: "net.ports", target: target, command: netPortsScript, display: "net ports", sudo: sudo, limit: limit,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			rows, err := parsePorts(rr.Stdout)
 			if err != nil {

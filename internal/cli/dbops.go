@@ -60,6 +60,7 @@ func dbInfoCmd() *cobra.Command {
 
 func dbActivityCmd() *cobra.Command {
 	var all bool
+	var limit int
 	c := &cobra.Command{
 		Use:   "activity CONN",
 		Short: "Sessions running something now: pid, user, how long, what",
@@ -72,16 +73,19 @@ func dbActivityCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
+				rows = cutRows(rows, limit)
 				return activityData{Conn: c.Name, Count: len(rows), Sessions: rows}, nil
 			})
 		},
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include idle sessions")
+	limitFlag(c, &limit, 0, "sessions")
 	return c
 }
 
 func dbLocksCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:     "locks CONN",
 		Short:   "Sessions waiting for a lock, and the session that holds it",
 		Example: "  komando db locks prod-db",
@@ -92,10 +96,13 @@ func dbLocksCmd() *cobra.Command {
 				if err != nil {
 					return nil, err
 				}
+				rows = cutRows(rows, limit)
 				return locksData{Conn: c.Name, Count: len(rows), Waits: rows}, nil
 			})
 		},
 	}
+	limitFlag(c, &limit, 0, "waiting sessions")
+	return c
 }
 
 func dbSizesCmd() *cobra.Command {

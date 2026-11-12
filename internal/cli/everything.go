@@ -81,6 +81,7 @@ func listCmd() *cobra.Command { return listCmdFor("") }
 
 func listCmdFor(only string) *cobra.Command {
 	var target string
+	var limit int
 	c := &cobra.Command{
 		Use:     "list [TARGET]",
 		Aliases: []string{"ls"},
@@ -127,11 +128,13 @@ func listCmdFor(only string) *cobra.Command {
 			// one list by name, not servers first: the KIND column tells
 			// servers, conns and VPNs apart
 			sort.SliceStable(l.Targets, func(i, j int) bool { return l.Targets[i].Name < l.Targets[j].Name })
+			l.Targets = cutRows(l.Targets, limit)
 			l.Count = len(l.Targets)
 			out.P.Print("list", l, nil)
 			return nil
 		},
 	}
+	limitFlag(c, &limit, 0, "items")
 	return c
 }
 
