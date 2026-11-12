@@ -223,7 +223,7 @@ var invRecipeHints = map[string]formHint{
 		},
 		flags: []formFlag{
 			{name: "desc", ask: "What does it do, in a few words?", example: "Last lines of the app log"},
-			invSudo,
+			{name: "needs-sudo", ask: invSudo.ask, help: invSudo.help},
 			{name: "read-only", ask: "Does it only look, without changing anything?",
 				help: "Yes lets it run on a production server without asking you first. Say yes only when that is true."},
 		},

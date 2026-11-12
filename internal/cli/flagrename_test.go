@@ -26,6 +26,7 @@ var flagRenames = []struct {
 	{[]string{"queue", "peek"}, "idle", "wait", false},
 	{[]string{"db", "dump"}, "run-on", "on", false},
 	{[]string{"db", "restore"}, "run-on", "on", false},
+	{[]string{"recipe", "add"}, "needs-sudo", "sudo", false},
 	{[]string{"rename"}, "starts-with", "prefix", false},
 	{[]string{"rename"}, "in-notes", "notes", false},
 	{[]string{"rename"}, "in-labels", "labels", false},
@@ -74,5 +75,22 @@ func TestLogsIdleFlagsHidden(t *testing.T) {
 	code, text := runMain(t, "docker", "logs", "nope", "api", "--priority", "err")
 	if code == 0 || !strings.Contains(text, `"deprecated":{"used":"--priority"`) {
 		t.Errorf("docker logs --priority: exit %d %s", code, text)
+	}
+}
+
+// cron --sudo is the same as --user root: hidden, still works, noted in
+// meta.deprecated; recipe add --sudo is --needs-sudo now (C-F19).
+func TestCronSudoRetired(t *testing.T) {
+	root := newRoot()
+	if f := findCmd(t, root, "cron", "list").InheritedFlags().Lookup("sudo"); f == nil || !f.Hidden {
+		t.Errorf("cron --sudo must be hidden: %+v", f)
+	}
+	if f := findCmd(t, root, "cron", "list").InheritedFlags().Lookup("user"); f == nil || f.Hidden {
+		t.Error("cron --user stays visible")
+	}
+	invHome(t)
+	code, text := runMain(t, "cron", "list", "nope", "--sudo")
+	if code == 0 || !strings.Contains(text, `"deprecated":{"used":"--sudo","now":"--user root"}`) {
+		t.Errorf("cron list --sudo: exit %d %s", code, text)
 	}
 }

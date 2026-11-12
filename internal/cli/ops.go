@@ -279,7 +279,7 @@ func recipeAddCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "add NAME COMMAND",
 		Short: "Save a recipe; {{name}} is a blank, {{name=x}} defaults to x",
-		Example: `  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo
+		Example: `  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
   komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -330,7 +330,8 @@ func recipeAddCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&desc, "desc", "", "what the recipe does, in a few words (shown in recipe list)")
-	c.Flags().BoolVar(&sudo, "sudo", false, "run with sudo")
+	c.Flags().BoolVar(&sudo, "needs-sudo", false, "the recipe runs with sudo")
+	retiredFlag(c, "sudo", "needs-sudo")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "the recipe only reads, so protected servers don't need --yes")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a recipe with the same name")
 	return c

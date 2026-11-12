@@ -4301,7 +4301,7 @@ Error: missing arguments; usage: komando reboot TARGET
 ### komando -o json recipe add (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text recipe add (agent text)
 exit 2
@@ -4311,7 +4311,7 @@ Error: missing arguments; usage: komando recipe add NAME COMMAND
 ### komando -o json recipe add (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text recipe add (script text)
 exit 2
@@ -4321,7 +4321,7 @@ Error: missing arguments; usage: komando recipe add NAME COMMAND
 ### komando -o json recipe add x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text recipe add x1 (agent text)
 exit 2
@@ -4331,7 +4331,7 @@ Error: missing arguments; usage: komando recipe add NAME COMMAND
 ### komando -o json recipe add x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"recipe.add","error":{"code":"USAGE","message":"missing arguments; usage: komando recipe add NAME COMMAND","hint":"for example: komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text recipe add x1 (script text)
 exit 2

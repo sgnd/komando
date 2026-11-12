@@ -271,7 +271,7 @@ can save your own next to them.
 ```bash
 komando recipe list                                   # built-in and saved
 komando recipe list --category saved                  # only your own
-komando recipe add restart-app 'systemctl restart {{app}}' --sudo
+komando recipe add restart-app 'systemctl restart {{app}}' --needs-sudo
 komando recipe add disk-of 'df -h {{path=/}}' --read-only --desc 'Disk use of a path'
 komando recipe run restart-app @web --var app=shop
 komando recipe run disk-of web1 --var path=/srv

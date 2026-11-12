@@ -78,6 +78,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `recipe add --needs-sudo` marks a saved recipe as one that runs with
+  sudo (was `--sudo`, which elsewhere runs the command itself with sudo),
+  and `cron` reads root's crontab with `--user root` (`--sudo`/`-s` there
+  is hidden). The old flags still work in this release and are noted in
+  `meta.deprecated`.
 - `db dump` and `db restore` name the server that runs pg_dump,
   mysqldump or pg_restore with `--run-on HOST` (was `--on`, which on
   `db grant` names what the privileges are on). `--on` still works on

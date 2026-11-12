@@ -116,48 +116,6 @@ func svcLogsCmd() *cobra.Command {
 
 // logs.
 
-type logOpts struct {
-	unit, file, container, since, until, grep, priority string
-	lines                                               int
-	sudo, follow, timestamps                            bool
-}
-
-// dockerLogs is `docker logs` with the time of each line only when asked
-// (--timestamps), as docker and kubectl do.
-func (o *logOpts) dockerLogs() string {
-	if o.timestamps {
-		return "docker logs --timestamps"
-	}
-	return "docker logs"
-}
-
-func (o *logOpts) bind(c *cobra.Command) {
-	f := c.Flags()
-	f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
-	f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
-	f.StringVarP(&o.container, "container", "c", "", "read this Docker container's log (its name or ID)")
-	f.StringVar(&o.since, "since", "", "start time: back from now (30m, 2h, 7d), today, yesterday or '2026-01-02 10:00'")
-	f.StringVar(&o.until, "until", "", "end time, in the same forms as --since")
-	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")
-	f.StringVarP(&o.priority, "priority", "p", "", "journal priority and worse: emerg, alert, crit, err, warning, notice, info, debug (or 0-7)")
-	f.IntVarP(&o.lines, "limit", "n", 200, "the most lines to show (the last ones)")
-	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo (the whole journal, protected files)")
-	f.BoolVarP(&o.follow, "follow", "f", false, "keep printing new lines until Ctrl-C")
-	f.BoolVar(&o.timestamps, "timestamps", false, "show when each container log line was written (containers)")
-	flagAlias(c, "tail", "limit") // the word docker and kubectl use: a permanent synonym
-}
-
-func (o *logOpts) build() (string, error) {
-	if err := o.check(); err != nil {
-		return "", err
-	}
-	c := o.source()
-	if o.follow {
-		return c, nil // followCheck checks the source before streaming
-	}
-	return o.preflight() + c, nil
-}
-
 func (o *logOpts) source() string {
 	n := strconv.Itoa(o.lines)
 	since, until, _ := o.times() // check() has refused a bad one
@@ -639,13 +597,21 @@ func cronCmd() *cobra.Command {
 	var sudo bool
 	c.PersistentFlags().StringVar(&user, "user", "", "crontab of this user (uses sudo)")
 	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "use root's crontab (through sudo)")
+	_ = c.PersistentFlags().MarkHidden("sudo") // retired: --user root is the same
+	noted := false
 	ct := func() string {
 		if user != "" {
 			return "crontab -u " + sshx.Q(user)
 		}
 		return "crontab"
 	}
-	useSudo := func() bool { return sudo || user != "" }
+	useSudo := func() bool {
+		if sudo && !noted {
+			noted = true
+			retiredName("--sudo", "--user root")
+		}
+		return sudo || user != ""
+	}
 	// readCron puts the current crontab in $cur; "no crontab" (busybox: "can't
 	// open ...: No such file") is empty, any other error (no permission,
 	// busybox not suid) stops before a write could replace the whole crontab

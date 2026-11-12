@@ -77,7 +77,7 @@ sudo, the command stops with `PERMISSION_DENIED` and a hint that names the
 fix (`komando host edit web1 --sudo-ref secret:web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)); a server with no
 sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same holds
-for `pkg`, `user`, `cron --sudo`, `docker --sudo` and recipes that use
+for `pkg`, `user`, `cron --user root`, `docker --sudo` and recipes that use
 sudo. They
 work on system services only: komando does not manage a user's own units
 (`systemctl --user`); use `komando exec` for those.
