@@ -142,7 +142,7 @@ var invListHints = map[string]formHint{
 	},
 	"import": {
 		args: []formArg{
-			{ask: "What do you want to bring in?", example: "ssh-config",
+			{ask: "What do you want to bring in?", example: "ssh-config", choices: importSourceNames(),
 				help: "One of: ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando (a file from komando export), csv."},
 			{ask: "From which file? (leave empty for the usual place)", example: "./app/.env", local: true,
 				help: "Empty reads the usual file, like ~/.ssh/config. komando and csv need a file."},
@@ -256,10 +256,10 @@ var invSafetyHints = map[string]formHint{
 		help: "Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay."}}},
 	"config":      {},
 	"config show": {},
-	"config get": {args: []formArg{{ask: "Which setting?", example: "parallel",
+	"config get": {args: []formArg{{ask: "Which setting?", example: "parallel", choices: settingKeys(),
 		help: "`komando config show` lists them: parallel, default_timeout, host_key_policy, audit ..."}}},
 	"config set": {args: []formArg{
-		{ask: "Which setting?", example: "default_timeout",
+		{ask: "Which setting?", example: "default_timeout", choices: settingKeys(),
 			help: "`komando config show` lists them with the values each one takes."},
 		{ask: "What should it be?", example: "10m",
 			help: "Like 20 for parallel, 10m for default_timeout, strict for host_key_policy."}}},
@@ -289,4 +289,14 @@ var invSetupHints = map[string]formHint{
 	"completion fish":       {},
 	"completion powershell": {},
 	"completion zsh":        {},
+}
+
+// importSourceNames are the values import SOURCE takes, so a person picks
+// one instead of typing it (config get/set KEY use settingKeys).
+func importSourceNames() []string {
+	var n []string
+	for _, s := range importSources {
+		n = append(n, s.Name)
+	}
+	return n
 }

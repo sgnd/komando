@@ -203,3 +203,13 @@ func TestExportSealedKey(t *testing.T) {
 		t.Errorf("keys_sealed %v key_files %v", d["keys_sealed"], d["key_files"])
 	}
 }
+
+// The prompter offers the values import SOURCE and config get/set KEY take.
+func TestCoreHintsChoices(t *testing.T) {
+	for cmd, want := range map[string]string{"import": "ssh-config", "config get": "parallel", "config set": "host_key_policy"} {
+		h := formHints[cmd]
+		if len(h.args) == 0 || !strings.Contains(strings.Join(h.args[0].choices, " "), want) {
+			t.Errorf("%s: first argument choices %v lack %s", cmd, h.args, want)
+		}
+	}
+}

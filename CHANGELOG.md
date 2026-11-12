@@ -50,6 +50,8 @@ its highlights; the sections below them give the details. Versions follow
   komando made (they have no file): it says to run `komando key gen NAME`
   on the other computer and deploy that key (JSON `keys_sealed`). The
   import note for a missing key says the same.
+- Asked for a missing argument, `import` offers its sources and `config
+  get`/`config set` their settings as a list to pick from.
 
 ## [0.12.0] - 2026-11-11
 
