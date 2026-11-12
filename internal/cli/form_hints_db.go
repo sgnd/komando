@@ -159,3 +159,23 @@ func dbGrantHint(ask string, revoke bool) formHint {
 			dbFrom},
 	}
 }
+
+// Next: lines for the database commands (db dump has its own above).
+func init() {
+	addFormHints(map[string]formHint{
+		"db query":       {next: []string{"db schema {} TABLE", "db query {} --write --dry-run \"update ...\"", "db dump {} --to backup.sql"}},
+		"db schema":      {next: []string{"db schema {} TABLE", "db query {} \"select * from TABLE limit 10\""}},
+		"db explain":     {next: []string{"db explain {} --analyze \"select ...\"", "db schema {} TABLE"}},
+		"db info":        {next: []string{"db sizes {}", "db activity {}"}},
+		"db activity":    {next: []string{"db locks {}", "db kill {} PID --dry-run"}},
+		"db locks":       {next: []string{"db kill {} PID --dry-run", "db activity {}"}},
+		"db kill":        {next: []string{"db activity {}"}},
+		"db sizes":       {next: []string{"db schema {} TABLE", "db dump {} --to backup.sql"}},
+		"db restore":     {next: []string{"db schema {}", "db query {} \"select count(*) from TABLE\""}},
+		"db user ls":     {next: []string{"db grants {} USER", "db user add {} NAME --password-ref secret:NAME"}},
+		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db grants {} USER"}},
+		"db user passwd": {next: []string{"db grants {} USER"}},
+		"db grant":       {next: []string{"db grants {} USER"}},
+		"db revoke":      {next: []string{"db grants {} USER"}},
+	})
+}

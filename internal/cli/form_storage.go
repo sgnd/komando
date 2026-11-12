@@ -695,3 +695,14 @@ func init() {
 			flags: []formFlag{{name: "expires", ask: "How long should the link work?", help: "Like 30m or 24h; at most 168h (7 days).", def: "1h"}}},
 	})
 }
+
+// Next: lines for the storage commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"storage ls":       {next: []string{"storage cat {} KEY --tail 50", "download {} KEY", "storage ls {} FOLDER/ --recursive"}},
+		"storage cat":      {next: []string{"download {} KEY"}},
+		"storage upload":   {next: []string{"storage ls {} FOLDER/", "storage link {} KEY --expires 24h"}},
+		"storage download": {next: []string{"storage ls {}"}},
+		"storage rm":       {next: []string{"storage ls {} --recursive"}},
+	})
+}

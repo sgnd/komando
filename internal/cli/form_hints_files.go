@@ -87,7 +87,7 @@ var formFsHints = map[string]formHint{
 				help: "Yes makes komando ask you to confirm first, since it cannot be undone."},
 			formFsSudo("Needed for files owned by root or another user."),
 		}},
-	"fs replace": {next: []string{"fs restore {} PATH"}, args: []formArg{formFsServer,
+	"fs replace": {next: []string{"fs restore {} PATH --dry-run", "fs cat {} PATH"}, args: []formArg{formFsServer,
 		{ask: "Which file do you want to edit?", example: "/etc/nginx/nginx.conf",
 			help: "The full path of the file on the server."}},
 		flags: []formFlag{
@@ -165,4 +165,16 @@ var formTransferHints = map[string]formHint{
 			{name: "exclude", ask: "Skip some names?", example: ".git",
 				help: "Files or folders to leave out, like .git or *.log. Empty copies everything."},
 		}},
+}
+
+// Next: lines for the file commands (fs replace has its own above).
+func init() {
+	addFormHints(map[string]formHint{
+		"fs cat":     {next: []string{"fs replace {} PATH --old A --new B --backup --dry-run", "fs stat {} PATH"}},
+		"fs write":   {next: []string{"fs cat {} PATH", "fs restore {} PATH"}},
+		"fs restore": {next: []string{"fs cat {} PATH"}},
+		"fs ls":      {next: []string{"fs cat {} PATH", "fs stat {} PATH"}},
+		"upload":     {next: []string{"fs stat {} DEST --sha256", "svc reload {} UNIT"}},
+		"download":   {next: []string{"fs cat {} PATH", "download {} PATH --overwrite"}},
+	})
 }

@@ -450,3 +450,12 @@ func init() {
 				help: "Like harbor:shop/api:1.4.3. Type only harbor: to keep the same name."}}},
 	})
 }
+
+// Next: lines for the registry commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"registry ls":      {next: []string{"registry ls {} REPO", "registry inspect {} REPO:TAG", "registry prune {} REPO --keep 10 --dry-run"}},
+		"registry inspect": {next: []string{"registry copy {}:REPO:TAG OTHER:", "registry rm {} REPO:TAG --dry-run"}},
+		"registry copy":    {next: []string{"registry inspect OTHER REPO:TAG"}},
+	})
+}

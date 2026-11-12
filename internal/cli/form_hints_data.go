@@ -40,3 +40,14 @@ func init() {
 				help: "No sends only commands known to just read, so nothing can change. Say yes only for SET, DEL, EXPIRE and the like."}}},
 	})
 }
+
+// Next: lines for the cache commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"cache info": {next: []string{"cache keys {} 'user:*'", "cache info {} memory"}},
+		"cache keys": {next: []string{"cache get {} KEY", "cache rm {} KEY --dry-run"}},
+		"cache get":  {next: []string{"cache set {} KEY VALUE --dry-run", "cache run {} -- TTL KEY", "cache rm {} KEY --dry-run"}},
+		"cache set":  {next: []string{"cache get {} KEY"}},
+		"cache rm":   {next: []string{"cache keys {} 'user:*'"}},
+	})
+}

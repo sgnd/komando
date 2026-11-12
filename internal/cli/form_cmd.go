@@ -78,14 +78,30 @@ type formFlag struct {
 // formHints is keyed by the command path without "komando " (db query).
 var formHints = map[string]formHint{}
 
-// addFormHints registers hints; a path given twice is a mistake.
+// addFormHints registers hints; a path given twice is a mistake. An entry
+// with only next (an area's Next: lines) joins the questions given for
+// the same path elsewhere, in either order, unless both give next.
 func addFormHints(m map[string]formHint) {
 	for k, v := range m {
-		if _, dup := formHints[k]; dup {
-			panic("form hint twice: " + k)
+		if old, dup := formHints[k]; dup {
+			switch {
+			case nextOnly(v) && len(old.next) == 0:
+				old.next = v.next
+				v = old
+			case nextOnly(old) && len(v.next) == 0:
+				v.next = old.next
+			default:
+				panic("form hint twice: " + k)
+			}
 		}
 		formHints[k] = v
 	}
+}
+
+// nextOnly: h gives Next: lines and nothing else.
+func nextOnly(h formHint) bool {
+	return len(h.next) > 0 && h.area == "" && h.args == nil && h.flags == nil && h.hide == nil &&
+		h.form == nil && !h.skip && h.always == nil
 }
 
 // formNeverFlags are never asked or added by a question. A person approves what needs

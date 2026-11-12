@@ -134,3 +134,26 @@ func loginForm() []formGroup {
 	sp.build = func(_ *store.State, a formAnswers) [][]string { return [][]string{{"login", a["arg0"]}} }
 	return []formGroup{{label: "Login", kinds: []formKind{{label: "Server", spec: func() formSpec { return sp }}}}}
 }
+
+// Next: lines for VPNs, logins, tunnels, secrets and keys (network,
+// secrets, core and cloud areas).
+func init() {
+	addFormHints(map[string]formHint{
+		"vpn up":       {next: []string{"vpn status", "test TARGET", "vpn down {}"}},
+		"vpn down":     {next: []string{"vpn status", "vpn up {}"}},
+		"login":        {next: []string{"status", "exec {} -- uptime", "logout {}"}},
+		"logout":       {next: []string{"status"}},
+		"tunnel start": {next: []string{"tunnel list", "tunnel stop ID"}},
+		"tunnel stop":  {next: []string{"tunnel list"}},
+		"login aws":    {next: []string{"test CONN", "storage ls CONN", "import aws"}},
+		"secret set": {next: []string{"host edit HOST --password-ref secret:{}", "conn edit CONN --password-ref secret:{}",
+			"secret list"}},
+		"secret list":       {next: []string{"secret get NAME", "secret set NAME"}},
+		"secret mv":         {next: []string{"secret list", "test TARGET"}},
+		"secret cp":         {next: []string{"secret list"}},
+		"secret keychain":   {next: []string{"doctor"}},
+		"secret passphrase": {next: []string{"doctor", "tunnel list", "vpn status"}},
+		"key gen":           {next: []string{"key deploy {} TARGET --set-default", "key show {}"}},
+		"key deploy":        {next: []string{"test TARGET", "key revoke OLD_KEY TARGET"}},
+	})
+}

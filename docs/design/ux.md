@@ -304,9 +304,12 @@ run next).
   asks it, hidden, `--ask-password`); a pasted `user:password@` is never
   drawn. After a failed test the next steps are three commands.
 - After a command a person ran ends well: `Next time: <line>` when komando
-  asked for something, `Next:` from the formHint's `next`, and `host
-  show`/`conn show`/`vpn show` end with that item's commands. All on
-  stderr, only at a person's terminal.
+  asked for something, `Next:` from the formHint's `next` (each area
+  keeps its lines in its form hints file, at most three), and the show
+  commands in `showKinds` (`host show`, `conn show`, `vpn show`, `group
+  list GROUP`, `key show`, `job status`, `secret get`, `config get`) end
+  with that item's commands from `itemCommands`. All on stderr, only at
+  a person's terminal.
 - Every command has at least one real example in `--help`.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always

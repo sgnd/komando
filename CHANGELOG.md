@@ -20,6 +20,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- At a person's terminal, many more commands end with a `Next:` line of
+  what usually comes next (`svc status` suggests `logs web1 --unit UNIT
+  --since 30m`), and `group list GROUP`, `key show`, `job status`, `secret
+  get` and `config get` now end with the commands for that item, as
+  `host show` does. A conn's list fits its kind (a SQLite database has no
+  `db user ls`); a Windows server and a Swarm manager get their own.
 - A test now records what AI agents and scripts get from every command
   typed with too few arguments (stdout, stderr and exit code, in JSON and
   text). It guards the move from the menu to typed commands that ask a

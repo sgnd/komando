@@ -301,3 +301,21 @@ func importSourceNames() []string {
 	}
 	return n
 }
+
+// Next: lines for your list, jobs, safety and setup (core, server and
+// release areas): what a person usually runs after each command.
+func init() {
+	addFormHints(map[string]formHint{
+		"host edit":    {next: []string{"host show {}", "test {}"}},
+		"import":       {next: []string{"list", "test all"}},
+		"group add":    {next: []string{"list @{}", "test @{}"}},
+		"job status":   {next: []string{"job logs {} --tail 50", "job wait {}", "job kill {}"}},
+		"job wait":     {next: []string{"job logs {} --tail 50", "job rm {}"}},
+		"job kill":     {next: []string{"job status {}", "job rm {}"}},
+		"job list":     {next: []string{"job list --refresh", "job status JOB_ID", "job rm JOB_ID"}},
+		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm ID"}},
+		"policy check": {next: []string{"policy list"}},
+		"audit":        {next: []string{"audit verify", "audit --failed"}},
+		"update":       {next: []string{"guide install", "version"}},
+	})
+}

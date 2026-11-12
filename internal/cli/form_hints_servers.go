@@ -236,3 +236,43 @@ var srvNetHints = map[string]formHint{
 			help: "Warns 30 days before. Empty keeps that. Or type 14d or 72h."}},
 	},
 }
+
+// Next: lines for the server commands (server and ops areas).
+func init() {
+	addFormHints(map[string]formHint{
+		"exec":              {next: []string{"job start {} -- COMMAND", "logs {}", "facts {}"}},
+		"facts":             {next: []string{"pkg upgradable {}", "logs {}", "svc list {}"}},
+		"svc list":          {next: []string{"svc status {} UNIT", "logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s"}},
+		"svc status":        {next: []string{"logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s --dry-run"}},
+		"svc start":         {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
+		"svc restart":       {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
+		"svc reload":        {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
+		"svc stop":          {next: []string{"svc status {} UNIT", "svc disable {} UNIT"}},
+		"svc enable":        {next: []string{"svc status {} UNIT"}},
+		"svc disable":       {next: []string{"svc status {} UNIT"}},
+		"svc daemon-reload": {next: []string{"svc restart {} UNIT --wait 10s"}},
+		"logs":              {next: []string{"logs {} --unit UNIT --follow", "svc status {} UNIT"}},
+		"pkg upgradable":    {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
+		"pkg security":      {next: []string{"pkg security {} --apply --dry-run", "reboot {} --dry-run"}},
+		"pkg upgrade":       {next: []string{"facts {}", "reboot {} --dry-run"}},
+		"pkg update":        {next: []string{"pkg upgradable {}"}},
+		"pkg install":       {next: []string{"pkg installed {} PACKAGE"}},
+		"pkg rm":            {next: []string{"pkg installed {} PACKAGE"}},
+		"user list":         {next: []string{"user add {} NAME --key KEY", "user lock {} NAME"}},
+		"user add":          {next: []string{"user list {}"}},
+		"user lock":         {next: []string{"user unlock {} NAME", "user rm {} NAME --dry-run"}},
+		"docker ps":         {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
+		"docker logs":       {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
+		"docker prune":      {next: []string{"recipe run disk {}"}},
+		"cron list":         {next: []string{"cron set {} ID COMMAND --schedule '0 2 * * *'", "cron rm {} ID"}},
+		"cron set":          {next: []string{"cron list {}"}},
+		"cron rm":           {next: []string{"cron list {}"}},
+		"net ports":         {next: []string{"net check {} HOST:PORT"}},
+		"net check":         {next: []string{"net dns {} HOST", "net http {} URL"}},
+		"cert check":        {next: []string{"cert check {} --warn 14d"}},
+		"reboot":            {next: []string{"facts {}", "svc list {} --failed"}},
+		"recipe list":       {next: []string{"recipe run NAME TARGET"}},
+		"recipe add":        {next: []string{"recipe run {} TARGET --dry-run"}},
+		"recipe run":        {next: []string{"recipe list"}},
+	})
+}

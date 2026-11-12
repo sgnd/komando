@@ -253,3 +253,17 @@ func clusterChangeHints() map[string]formHint {
 				help: "No: komando refuses a command that would change something."}}},
 	}
 }
+
+// Next: lines for the cluster commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"cluster status":   {next: []string{"cluster ls {} pods", "cluster events {} --warnings"}},
+		"cluster ls":       {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},
+		"cluster deploy":   {next: []string{"cluster status {} TYPE/NAME --wait", "cluster rollback {} TYPE/NAME"}},
+		"cluster rollback": {next: []string{"cluster history {} deployment/NAME"}},
+		"cluster apply":    {next: []string{"cluster status {}"}},
+		"cluster rm":       {next: []string{"cluster ls {} TYPE"}},
+		"cluster scale":    {next: []string{"cluster status {} TYPE/NAME --wait"}},
+		"cluster logs":     {next: []string{"cluster describe {} TYPE NAME", "cluster events {} --for TYPE/NAME"}},
+	})
+}

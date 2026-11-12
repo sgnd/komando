@@ -50,3 +50,17 @@ var queueHints = map[string]formHint{
 	"queue rm": {args: []formArg{queueConn, {ask: "Delete which topics or queues? (several: separate them with spaces)", example: "old-orders",
 		help: "Deletes them with their messages. Pub/Sub: subscriptions/NAME for a subscription. Cannot be undone: try it first."}}},
 }
+
+// Next: lines for the queue commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"queue ls":       {next: []string{"queue describe {} TOPIC", "queue peek {} TOPIC", "queue groups {}"}},
+		"queue describe": {next: []string{"queue peek {} TOPIC", "queue lag {} GROUP"}},
+		"queue peek":     {next: []string{"queue describe {} TOPIC", "queue send {} TOPIC --value V --dry-run"}},
+		"queue groups":   {next: []string{"queue lag {} GROUP"}},
+		"queue send":     {next: []string{"queue peek {} TOPIC -n 1"}},
+		"queue create":   {next: []string{"queue send {} TOPIC --value V --dry-run", "queue describe {} TOPIC"}},
+		"queue purge":    {next: []string{"queue ls {}"}},
+		"queue rm":       {next: []string{"queue ls {}"}},
+	})
+}
