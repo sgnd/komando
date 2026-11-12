@@ -208,6 +208,15 @@ func isASymlink(p string) error {
 	return out.Errf(out.ExitConflict, "IS_A_SYMLINK", "drop --no-follow to write the file it points to", "%s is a symbolic link (--no-follow)", p)
 }
 
+// linkStop is exit 95 of a write as root: --no-follow, or a link root
+// does not follow.
+func linkStop(p string, noFollow bool) error {
+	if noFollow {
+		return isASymlink(p)
+	}
+	return notRootsLink(p)
+}
+
 // notRootsLink: a write as root met a link another user made, or one into
 // a folder root does not own (sudoFollowScript).
 func notRootsLink(p string) error {

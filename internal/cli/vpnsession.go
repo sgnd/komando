@@ -226,29 +226,10 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		}
 		pidFile := filepath.Join(dir, v.Name+".pid")
 		_ = os.Remove(pidFile)
-		// the password and the tunnel's traffic go to these programs: an
-		// agent gets ones in folders only root can change, or a person's yes
-		var refs []string
-		if !interactive && v.KeyRef != "" {
-			refs = []string{v.KeyRef}
-		}
-		ocBin, err := localTool("openconnect", refs)
+		oc, err := openconnectCmd(ctx, v, k.Protocol, pidFile, port, interactive)
 		if err != nil {
 			return nil, err
 		}
-		proxyBin, err := localTool("ocproxy", refs)
-		if err != nil {
-			return nil, err
-		}
-		args := []string{"--protocol=" + k.Protocol, "--background", "--pid-file=" + pidFile,
-			"--script-tun", "--script", fmt.Sprintf("%s -D %d", sshx.Q(proxyBin), port)}
-		if v.User != "" {
-			args = append(args, "--user="+v.User)
-		}
-		if !interactive {
-			args = append(args, "--non-inter", "--passwd-on-stdin")
-		}
-		oc := exec.CommandContext(ctx, ocBin, append(args, "--", v.Portal)...)
 		if interactive {
 			oc.Stdin, oc.Stdout, oc.Stderr = os.Stdin, os.Stderr, os.Stderr // the login and MFA prompts
 		} else {
@@ -764,4 +745,31 @@ func osModeGone(v *store.Vpn) error {
 	return out.Errf(out.ExitUsage, "VPN_OS_MODE_REMOVED",
 		"add it again with komando's own client: `komando vpn add "+v.Name+" openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in)",
 		"VPN %s uses OpenVPN OS mode (--os-mode), which komando no longer has", v.Name)
+}
+
+// openconnectCmd is the openconnect command of v, with ocproxy giving its
+// SOCKS port. The password and the tunnel's traffic go to these programs:
+// an agent gets ones in folders only root can change, or a person's yes.
+func openconnectCmd(ctx context.Context, v *store.Vpn, protocol, pidFile string, port int, interactive bool) (*exec.Cmd, error) {
+	var refs []string
+	if !interactive && v.KeyRef != "" {
+		refs = []string{v.KeyRef}
+	}
+	ocBin, err := localTool("openconnect", refs)
+	if err != nil {
+		return nil, err
+	}
+	proxyBin, err := localTool("ocproxy", refs)
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"--protocol=" + protocol, "--background", "--pid-file=" + pidFile,
+		"--script-tun", "--script", fmt.Sprintf("%s -D %d", sshx.Q(proxyBin), port)}
+	if v.User != "" {
+		args = append(args, "--user="+v.User)
+	}
+	if !interactive {
+		args = append(args, "--non-inter", "--passwd-on-stdin")
+	}
+	return exec.CommandContext(ctx, ocBin, append(args, "--", v.Portal)...), nil
 }

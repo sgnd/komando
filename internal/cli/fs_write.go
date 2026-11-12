@@ -136,10 +136,8 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		switch {
 		case r.ExitCode == 97 && o.validate != "":
 			return nil, validateFailed(r.Stderr)
-		case r.ExitCode == 95 && o.noFollow:
-			return nil, isASymlink(p)
 		case r.ExitCode == 95:
-			return nil, notRootsLink(p)
+			return nil, linkStop(p, o.noFollow)
 		case r.ExitCode == 94 && o.backup:
 			return nil, backupFailed(p, r.Stderr)
 		case r.ExitCode == 96:
