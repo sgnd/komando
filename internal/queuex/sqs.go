@@ -15,7 +15,7 @@ type SqsInfo struct {
 	Queues    int    `json:"queues"`
 }
 
-// SqsQueue is what `queue ls` shows of an SQS queue. Messages (in Topic)
+// SqsQueue is what `queue list` shows of an SQS queue. Messages (in Topic)
 // are the ones waiting to be received.
 type SqsQueue struct {
 	Fifo            bool   `json:"fifo"`

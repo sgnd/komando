@@ -34,9 +34,9 @@ change (a production database asks first); removing one needs --allow-dangerous.
 func dbUserLsCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
-		Use:     "ls CONN",
+		Use:     "list CONN",
 		Short:   "List users and roles (login, superuser, member of ...; MySQL: host, locked)",
-		Example: "  komando db user ls prod-db",
+		Example: "  komando db user list prod-db",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return readDB(cmd.Context(), "db.user.ls", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
@@ -53,6 +53,7 @@ func dbUserLsCmd() *cobra.Command {
 		},
 	}
 	limitFlag(c, &limit, 0, "users")
+	withID(c, "db.user.ls") // `ls` before: a permanent synonym
 	return c
 }
 

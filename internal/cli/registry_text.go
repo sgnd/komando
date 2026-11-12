@@ -12,13 +12,13 @@ import (
 // What a person reads from the registry commands with -o text. The JSON
 // stays the map each command builds.
 
-// lsData is `registry ls`: repositories, or one repository's tags.
+// lsData is `registry list`: repositories, or one repository's tags.
 type lsData map[string]any
 
 func (d lsData) Text() string {
 	var b strings.Builder
 	items, _ := d["repositories"].([]string)
-	what, next := "repositories", "komando registry ls "+fmt.Sprint(d["conn"])+" REPO"
+	what, next := "repositories", "komando registry list "+fmt.Sprint(d["conn"])+" REPO"
 	if repo, ok := d["repo"].(string); ok {
 		items, _ = d["tags"].([]string)
 		what, next = "tags in "+repo, "komando registry inspect "+fmt.Sprint(d["conn"])+" "+repo+":TAG"

@@ -185,7 +185,7 @@ func TestQueueText(t *testing.T) {
 		want string
 	}{
 		{queueTopics{}, "no topics"},
-		{queueTopics{Conn: "events", Count: 1, Truncated: true, Topics: []queuex.Topic{{Name: "a", KafkaTopic: &queuex.KafkaTopic{}}}}, "only the first 1 by name: narrow it with a pattern (komando queue ls events 'orders-*') or raise --limit"},
+		{queueTopics{Conn: "events", Count: 1, Truncated: true, Topics: []queuex.Topic{{Name: "a", KafkaTopic: &queuex.KafkaTopic{}}}}, "only the first 1 by name: narrow it with a pattern (komando queue list events 'orders-*') or raise --limit"},
 		{queueTopics{Topics: []queuex.Topic{{Name: "orders", Messages: 10, KafkaTopic: &queuex.KafkaTopic{Partitions: 3, Replicas: 2}}}}, "orders  3           2         10"},
 		{queueTopic{TopicDetail: &queuex.TopicDetail{Name: "orders", Messages: 1, KafkaTopicDetail: &queuex.KafkaTopicDetail{Partitions: []queuex.Partition{{Leader: -1}}}}}, "orders (1 partition, 0 replicas, 1 message)"},
 		{queuePeek{PeekResult: &queuex.PeekResult{From: "newest", Count: 1, More: true, Partial: true,

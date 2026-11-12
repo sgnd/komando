@@ -93,7 +93,7 @@ func noJetStream(err error) bool {
 }
 
 func streamNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "STREAM_NOT_FOUND", "list streams with `komando queue ls CONN`", "stream %s does not exist", name)
+	return out.Errf(out.ExitNotFound, "STREAM_NOT_FOUND", "list streams with `komando queue list CONN`", "stream %s does not exist", name)
 }
 
 func streamExists(name string) error {

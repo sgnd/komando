@@ -230,7 +230,7 @@ func sftpErr(err error) error {
 	case errors.Is(err, context.Canceled):
 		return err // Ctrl-C: komando says CANCELLED
 	case errors.Is(err, os.ErrNotExist):
-		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage ls CONN [FOLDER]`", "file not found")
+		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [FOLDER]`", "file not found")
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "the account may not write or read here; check the folder in the conn URL", "permission denied")
 	}

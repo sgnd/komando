@@ -9,7 +9,7 @@ commands. [All docs](README.md)
 komando import kubeconfig                                  # one conn per kubeconfig context
 komando conn rename my-ctx-name prod                           # give it a short name (import names it after the context)
 komando cluster status prod                                # version, nodes, and every problem
-komando cluster ls prod pods --namespace shop              # what runs
+komando cluster list prod pods --namespace shop              # what runs
 komando cluster logs prod deploy/api --namespace shop -f   # follow the logs
 komando cluster deploy prod deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
 komando cluster rollback prod deploy/api --namespace shop --wait
@@ -93,16 +93,16 @@ mistype a kind, the error suggests the one you probably meant.
 ```bash
 komando cluster status prod                                     # version, nodes, every problem it finds
 komando cluster status prod --namespace shop                    # only the problems in one namespace
-komando cluster ls prod pods --namespace shop
-komando cluster ls prod deploy -A                               # every namespace
-komando cluster ls prod pods -l app=api                         # only objects with these labels
+komando cluster list prod pods --namespace shop
+komando cluster list prod deploy -A                               # every namespace
+komando cluster list prod pods -l app=api                         # only objects with these labels
 komando cluster describe prod deployment/api --namespace shop   # images, strategy, pods, events
 komando cluster events prod --namespace shop --warnings         # what went wrong, oldest first
 komando cluster events prod --for deployment/api --namespace shop
 komando cluster get prod deploy api --namespace shop            # the whole object (Secret values hidden)
 
 komando cluster status swarm1                                   # a Swarm manager
-komando cluster ls swarm1 services                              # also: tasks, nodes, stacks
+komando cluster list swarm1 services                              # also: tasks, nodes, stacks
 komando cluster describe swarm1 service/web                     # image, replicas, update state, task errors
 ```
 
@@ -117,7 +117,7 @@ nodes that are down or drained and services short of replicas, with the
 error of each task that does not run. A server that is not a Swarm manager
 says so (`NOT_SWARM_MANAGER`, exit 3).
 
-`cluster ls` shows the useful columns for each kind: ready replicas,
+`cluster list` shows the useful columns for each kind: ready replicas,
 restarts, ingress hosts, volume claims, job completions, cron schedules and
 autoscaler targets. In text mode the tables look like kubectl's
 (`NAME READY UP-TO-DATE AVAILABLE AGE` for deployments,
@@ -126,7 +126,7 @@ under `data.items[]`, for Kubernetes and Swarm alike.
 
 ### Many clusters at once
 
-`cluster status`, `cluster ls`, `cluster events` and `cluster helm ls` take
+`cluster status`, `cluster list`, `cluster events` and `cluster helm list` take
 a selector that picks several clusters: a group, `kind:k8s`, a tag or `all`.
 komando reads them at the same time and shows one block per cluster. A
 server counts as a Swarm manager there only when it has the tag `swarm`
@@ -137,7 +137,7 @@ are listed in `meta.skipped`:
 komando group add prod prod-eu,prod-us,prod-ap
 komando cluster status @prod                     # health of every production cluster
 komando cluster events @prod --warnings -A       # what goes wrong anywhere
-komando cluster ls @prod nodes
+komando cluster list @prod nodes
 ```
 
 In JSON each cluster is a row of `data.results[]` (`cluster`, `engine`,
@@ -153,7 +153,7 @@ komando reads the Helm releases stored in the cluster, without the `helm`
 program. It only reads: install, upgrade and rollback stay with `helm`.
 
 ```bash
-komando cluster helm ls prod -A                             # name, revision, status, chart, app version
+komando cluster helm list prod -A                             # name, revision, status, chart, app version
 komando cluster helm status prod shop-api --namespace shop  # deployed when, description, notes
 komando cluster helm history prod shop-api --namespace shop
 komando cluster helm values prod shop-api --namespace shop        # the values it was installed with

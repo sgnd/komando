@@ -85,7 +85,7 @@ func chUserErr(n int, msg, name string) error {
 	case 493: // ACCESS_ENTITY_ALREADY_EXISTS
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case 192, 511: // UNKNOWN_USER, UNKNOWN_ROLE
-		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "%s", msg)
+		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user list CONN`", "%s", msg)
 	case 497:
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user needs the right to manage users (ClickHouse: access_management, or CREATE USER, ALTER USER, DROP USER and GRANT with grant option)", "%s", msg)
 	case 495: // ACCESS_STORAGE_READONLY

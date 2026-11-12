@@ -55,6 +55,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- **`list` is the one listing verb**: `cluster list`, `cluster helm list`,
+  `db user list`, `fs list`, `queue list`, `registry list` and
+  `storage list` are the names in help, hints and docs. `ls` keeps
+  working on every list command for good, and the envelope's `command`
+  stays `fs.ls` and so on.
 - `secret show NAME` is the name for checking a secret (it never prints
   the value to an agent); `secret get` keeps working for good. The
   envelope's `command` stays `secret.get`, so an agent's output is

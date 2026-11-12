@@ -55,7 +55,7 @@ func (n *Nats) streams(ctx context.Context) ([]*jetstream.StreamInfo, error) {
 // (KV_NAME) and object stores (OBJ_NAME) are streams too, and are listed.
 func (n *Nats) Topics(ctx context.Context, pattern string, internal bool, limit int) ([]queuex.Topic, error) {
 	if internal {
-		return nil, queuex.NotSupported("--internal", "nats", "`komando queue ls CONN` lists every stream of the account, key-value buckets (KV_*) and object stores (OBJ_*) too")
+		return nil, queuex.NotSupported("--internal", "nats", "`komando queue list CONN` lists every stream of the account, key-value buckets (KV_*) and object stores (OBJ_*) too")
 	}
 	sis, err := n.streams(ctx)
 	if err != nil {

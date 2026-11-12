@@ -9,7 +9,7 @@ Google Cloud and Azure logins come in a later release.
 ```bash
 komando login aws --profile prod                                   # a person signs in once in the browser
 komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
-komando storage ls backups                                         # uses the login until it runs out
+komando storage list backups                                         # uses the login until it runs out
 komando import aws                                                 # or: a storage conn per S3 bucket of each profile
 ```
 

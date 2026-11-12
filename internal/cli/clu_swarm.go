@@ -76,7 +76,7 @@ func swarmErr(host, stderr, stdout string, code int) *out.Error {
 	case "DOCKER_ERROR":
 		e.Code = "SWARM_ERROR"
 	case "NOT_FOUND":
-		e.Hint = "list what exists with `komando cluster ls " + host + " services` (or tasks, nodes, stacks)"
+		e.Hint = "list what exists with `komando cluster list " + host + " services` (or tasks, nodes, stacks)"
 	}
 	return e
 }
@@ -324,7 +324,7 @@ func swarmDescribe(ctx context.Context, t clusterTarget, name string) (any, erro
 	p := swarmSections(s, 3)
 	ins := jsonLines(p[0])
 	if len(ins) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list the services with `komando cluster ls "+t.host.Name+" services`", "service %s not found", name)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list the services with `komando cluster list "+t.host.Name+" services`", "service %s not found", name)
 	}
 	ready := ""
 	for _, l := range jsonLines(p[2]) {
@@ -393,7 +393,7 @@ func swarmGet(ctx context.Context, t clusterTarget, typ, name string) (any, erro
 		}
 	}
 	if kind == "stack" {
-		return nil, out.Usage("a stack is its services: `komando cluster ls %s services -l com.docker.stack.namespace=%s`", t.host.Name, name)
+		return nil, out.Usage("a stack is its services: `komando cluster list %s services -l com.docker.stack.namespace=%s`", t.host.Name, name)
 	}
 	st, err := loadState()
 	if err != nil {
@@ -409,7 +409,7 @@ func swarmGet(ctx context.Context, t clusterTarget, typ, name string) (any, erro
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando cluster ls TARGET "+kind+"s`", "%s %s not found", kind, name)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando cluster list TARGET "+kind+"s`", "%s %s not found", kind, name)
 	}
 	return rows[0], nil
 }
@@ -536,7 +536,7 @@ func swarmInspect(ctx context.Context, t clusterTarget, service string) (map[str
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list services with `komando cluster ls TARGET services`", "service %s not found", service)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list services with `komando cluster list TARGET services`", "service %s not found", service)
 	}
 	return rows[0], nil
 }
@@ -710,7 +710,7 @@ func swarmStackExists(ctx context.Context, t clusterTarget, stack string) error 
 		return err
 	}
 	if strings.TrimSpace(s) == "" {
-		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list the stacks with `komando cluster ls "+t.host.Name+" stacks`", "stack %s not found", stack)
+		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list the stacks with `komando cluster list "+t.host.Name+" stacks`", "stack %s not found", stack)
 	}
 	return nil
 }

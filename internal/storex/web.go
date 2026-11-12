@@ -72,7 +72,7 @@ func webErr(what string, resp *http.Response, err error) error {
 	}
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "object not found")
+		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "object not found")
 	case http.StatusUnauthorized, http.StatusForbidden:
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "check the conn's user, key or token reference; it may lack permission for this action",
 			"%s: %s %s", what, resp.Status, msg)

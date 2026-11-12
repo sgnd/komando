@@ -128,7 +128,7 @@ func TestPromptNext(t *testing.T) {
 	// a sqlite conn gets its own list, a key its own, and both end there
 	mustRun(t, "conn", "add", "notes", "sqlite:///tmp/notes.db")
 	for _, c := range []struct{ key, first, want, not string }{
-		{"conn show", "notes", "komando db dump notes --to backup.sql", "db user ls"},
+		{"conn show", "notes", "komando db dump notes --to backup.sql", "db user list"},
 		{"conn show", "notes", "komando conn rm notes", "db activity"},
 		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
 		{"job status", "7f3", "komando job logs 7f3 --limit 50", "conn "},

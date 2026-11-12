@@ -48,7 +48,7 @@ does not check the certificate, ?tls=false is plain HTTP. ?resolve=IP
 connects to that IP instead of what DNS says (like curl --resolve). With
 --via the last server looks the name up.`,
 		Example: `  komando registry add ghcr registry://myuser@ghcr.io --ask-password
-  komando registry ls ghcr myorg/api
+  komando registry list ghcr myorg/api
   komando registry inspect ghcr myorg/api:1.4.2
   komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2
   komando registry prune harbor prod/api --keep 10 --dry-run`,
@@ -236,10 +236,10 @@ func catalogErr(r *registry.Client, err error) error {
 	noCatalog := r.DockerHub() || r.Base.Host == "ghcr.io"
 	switch {
 	case noCatalog && (e.Status == 401 || e.Status == 403 || e.Status == 404 || e.Status == 405):
-		return out.Errf(out.ExitRemote, "REGISTRY_UNSUPPORTED", "name the repository: `komando registry ls CONN REPO` (on Docker Hub, nginx means library/nginx)",
+		return out.Errf(out.ExitRemote, "REGISTRY_UNSUPPORTED", "name the repository: `komando registry list CONN REPO` (on Docker Hub, nginx means library/nginx)",
 			"%s has no list of every repository", r.Base.Host)
 	case e.Status == 401 || e.Status == 403:
-		return out.Errf(out.ExitConnect, "REGISTRY_AUTH", "the login may read images but not list every repository: name one with `komando registry ls CONN REPO`; else check the user in the conn URL and its --password-ref",
+		return out.Errf(out.ExitConnect, "REGISTRY_AUTH", "the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref",
 			"the registry refused to list its repositories: %s", e.Error())
 	}
 	return err
@@ -289,10 +289,10 @@ func splitImage(s string) (repo, ref string) {
 func registryLsCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
-		Use:   "ls CONN [REPO]",
+		Use:   "list CONN [REPO]",
 		Short: "List repositories, or the tags of one repository",
-		Example: `  komando registry ls harbor
-  komando registry ls ghcr myorg/api`,
+		Example: `  komando registry list harbor
+  komando registry list ghcr myorg/api`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
@@ -324,6 +324,7 @@ func registryLsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
+	withID(c, "registry.ls") // `ls` before: a permanent synonym
 	return c
 }
 
@@ -339,7 +340,7 @@ func cutList(items []string, limit int) ([]string, bool) {
 	return items, false
 }
 
-// withTruncated marks a cut list, as cluster ls does.
+// withTruncated marks a cut list, as cluster list does.
 func withTruncated(res map[string]any, cut bool) map[string]any {
 	if cut {
 		out.P.CutNoted()
@@ -660,7 +661,7 @@ func imageErr(ctx context.Context, r *registry.Client, repo, ref string, err err
 	if !errors.As(err, &e) || e.Status != 404 {
 		return err
 	}
-	hint := "list the repositories with `komando registry ls CONN`"
+	hint := "list the repositories with `komando registry list CONN`"
 	tags, terr := r.Tags(ctx, repo, 50)
 	if terr != nil || ref == "" {
 		return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", hint, "repository %s not found", repo)
@@ -673,7 +674,7 @@ func imageErr(ctx context.Context, r *registry.Client, repo, ref string, err err
 	if len(tags) == 50 {
 		more = ", ..."
 	}
-	return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", "list the tags with `komando registry ls CONN "+repo+"`",
+	return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", "list the tags with `komando registry list CONN "+repo+"`",
 		"%s not found; tags: %s%s", name, strings.Join(tags, ", "), more)
 }
 

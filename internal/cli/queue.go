@@ -41,7 +41,7 @@ delete messages, so they also need --allow-dangerous. Try any change with
 a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
 subscription, and groups lists them.`,
 		Example: `  komando queue add events kafka://10.0.0.8:9092 --via web1
-  komando queue ls events
+  komando queue list events
   komando queue peek events orders -n 5
   komando queue send events orders --value '{"id": 42}' --dry-run
   komando queue lag events billing`,
@@ -161,13 +161,12 @@ func queueLsCmd() *cobra.Command {
 	var internal bool
 	var limit int
 	c := &cobra.Command{
-		Use:     "ls CONN [PATTERN]",
-		Aliases: []string{"list"},
-		Short:   "List topics (or queues, or streams) with their message counts",
-		Example: `  komando queue ls events
-  komando queue ls events 'orders-*'
-  komando queue ls events --internal
-  komando queue ls events -n 50`,
+		Use:   "list CONN [PATTERN]",
+		Short: "List topics (or queues, or streams) with their message counts",
+		Example: `  komando queue list events
+  komando queue list events 'orders-*'
+  komando queue list events --internal
+  komando queue list events -n 50`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 {
@@ -197,6 +196,7 @@ func queueLsCmd() *cobra.Command {
 	}
 	c.Flags().BoolVar(&internal, "internal", false, "Kafka: also list its own topics (__consumer_offsets, ...)")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most topics (or queues, or streams) to show, the first by name")
+	withID(c, "queue.ls") // `ls` before: a permanent synonym
 	return c
 }
 

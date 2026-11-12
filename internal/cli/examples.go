@@ -65,7 +65,7 @@ var examples = map[string]string{
 
 	"komando fs cat":   "  komando fs cat web1 /etc/nginx/nginx.conf\n  komando fs cat web1 /var/log/syslog --tail 50",
 	"komando fs chmod": "  komando fs chmod web1 640 /etc/app/config.yml",
-	"komando fs ls":    "  komando fs ls web1 /var/www\n  komando fs ls web1 /etc/nginx --recursive",
+	"komando fs list":  "  komando fs list web1 /var/www\n  komando fs list web1 /etc/nginx --recursive",
 	"komando fs mkdir": "  komando fs mkdir web1 /srv/app/releases",
 	"komando fs mv":    "  komando fs mv web1 /srv/app/current /srv/app/previous",
 	"komando fs rm":    "  komando fs rm web1 /tmp/upload.tar.gz\n  komando fs rm web1 /srv/app/releases/old --recursive --allow-dangerous",
@@ -132,7 +132,7 @@ var examples = map[string]string{
 var details = map[string]string{
 	"komando cluster describe":  "One object in short: state, images, conditions, its pods or tasks, and recent events.",
 	"komando cluster events":    "Recent events, oldest first (--warnings for problems only, --for TYPE/NAME for one object).",
-	"komando cluster ls":        "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks).",
+	"komando cluster list":      "List pods, deployments, services, nodes, ... (Swarm: services, tasks, nodes, stacks).",
 	"komando cluster rm":        "Delete an object (Kubernetes) or a service or stack (Swarm); needs --allow-dangerous.",
 	"komando db activity":       "Sessions running something now (pid, user, how long, what); --all includes idle ones.",
 	"komando export":            "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",

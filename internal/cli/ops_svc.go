@@ -442,7 +442,7 @@ func (o *logOpts) result(rr *sshx.RunResult) (any, *out.Error) {
 	case "no-systemd":
 		return "", errNoSystemd()
 	case "no-file":
-		return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path, e.g. `komando fs ls TARGET /var/log`", "%s does not exist", o.file)
+		return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path, e.g. `komando fs list TARGET /var/log`", "%s does not exist", o.file)
 	case "no-read":
 		return "", out.Errf(out.ExitRemote, "PERMISSION_DENIED", "add --sudo", "cannot read %s", o.file)
 	}

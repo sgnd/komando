@@ -40,7 +40,7 @@ type Broker struct {
 	Version    string `json:"version,omitempty"` // a guess from the API versions it takes
 }
 
-// Topic is one line of `queue ls`: a Kafka or Pub/Sub topic, a RabbitMQ or
+// Topic is one line of `queue list`: a Kafka or Pub/Sub topic, a RabbitMQ or
 // SQS queue, or a NATS JetStream stream.
 type Topic struct {
 	Name     string `json:"name"`
@@ -52,7 +52,7 @@ type Topic struct {
 	*PubsubTopic
 }
 
-// KafkaTopic is what `queue ls` shows of a Kafka topic.
+// KafkaTopic is what `queue list` shows of a Kafka topic.
 type KafkaTopic struct {
 	Partitions int  `json:"partitions"`
 	Replicas   int  `json:"replicas"`

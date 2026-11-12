@@ -19,7 +19,7 @@ different for each is in [RabbitMQ](#rabbitmq),
 komando secret set kafka-pass
 komando conn add events 'kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512' --password-ref secret:kafka-pass
 komando queue info events                     # brokers, controller, Kafka version
-komando queue ls events                       # topics, partitions, message counts
+komando queue list events                       # topics, partitions, message counts
 komando queue peek events orders              # the newest 10 messages; no consumer group moves
 komando queue lag events billing              # how far a consumer group is behind
 ```
@@ -73,10 +73,10 @@ These commands only read:
 
 ```bash
 komando queue info events                     # brokers (id, address, rack), controller, version
-komando queue ls events                       # every topic, with partitions, replicas, messages
-komando queue ls events 'orders-*'            # topics matching a pattern
-komando queue ls events --internal            # also __consumer_offsets and friends
-komando queue ls events -n 50                 # only the first 50 by name
+komando queue list events                       # every topic, with partitions, replicas, messages
+komando queue list events 'orders-*'            # topics matching a pattern
+komando queue list events --internal            # also __consumer_offsets and friends
+komando queue list events -n 50                 # only the first 50 by name
 komando queue describe events orders          # partitions, offsets, settings, the groups reading it
 komando queue groups events                   # consumer groups: state, members, topics, lag
 komando queue lag events billing              # one group, per topic and partition
@@ -168,7 +168,7 @@ komando secret set rabbit-pass
 komando conn add jobs 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --password-ref secret:rabbit-pass
 komando conn add jobs2 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --password-ref secret:rabbit-pass
 komando queue info jobs                       # version, cluster, nodes, totals
-komando queue ls jobs                         # queues: messages, ready, unacked, consumers
+komando queue list jobs                         # queues: messages, ready, unacked, consumers
 komando queue peek jobs emails                # the first 10 messages; all of them go back
 ```
 
@@ -260,7 +260,7 @@ komando conn add stream2 nats://nats.internal:4222 --via web1 --password-ref sec
 komando secret set ngs-creds < user.creds
 komando conn add cloud 'tls://connect.ngs.global?creds=secret:ngs-creds'
 komando queue info stream                     # version, server, the account's streams and limits
-komando queue ls stream                       # streams: subjects, messages, size, consumers
+komando queue list stream                       # streams: subjects, messages, size, consumers
 komando queue peek stream ORDERS              # the newest 10 messages; none is taken away
 ```
 
@@ -360,7 +360,7 @@ komando conn add aws2 sqs://eu-west-1          # no profile: AWS_* variables, ~/
 komando secret set sqs-secret                  # or: keys of an IAM user
 komando conn add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
 komando queue info aws                         # region, account, how many queues
-komando queue ls aws                           # queues: waiting, in flight, delayed, dead-letter queue
+komando queue list aws                           # queues: waiting, in flight, delayed, dead-letter queue
 komando queue peek aws orders                  # up to 10 messages; none is hidden or deleted
 ```
 
@@ -445,7 +445,7 @@ komando secret set pubsub-key < key.json      # or: a service account key
 komando conn add gcp2 pubsub://my-project --password-ref secret:pubsub-key
 komando conn add local 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
 komando queue info gcp                         # how many topics and subscriptions
-komando queue ls gcp                           # topics and how many subscriptions each has
+komando queue list gcp                           # topics and how many subscriptions each has
 komando queue groups gcp                       # subscriptions: topic, delivery, ack deadline
 komando queue peek gcp billing                 # up to 10 messages of subscription billing; all given back
 ```
@@ -546,12 +546,12 @@ komando queue rm gcp subscriptions/billing old-orders --dry-run
 | `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`); SQS: the AWS profile or keys; Pub/Sub: the service account key, or `gcloud auth application-default login` |
 | `AWS_LOGIN_REQUIRED`, `AWS_PROFILE_NOT_FOUND` | SQS: a person runs `komando login aws --profile NAME`, or fix the conn's `aws_profile` option |
 | `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, a RabbitMQ permission on the vhost or queue, a NATS permission on the subject or the JetStream API, an IAM permission for SQS (`sqs:ReceiveMessage`, ...), or a Pub/Sub role (`roles/pubsub.subscriber`, ...; or the Pub/Sub API is not enabled): ask the admin |
-| `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue ls`, `queue groups` or `queue describe` |
+| `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue list`, `queue groups` or `queue describe` |
 | `TOPIC_EXISTS` | `queue create` of a topic that is there |
 | `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the conn's vhost, or one is there already; check the vhost in the URL's path. SQS: check the region (the URL's host) and, for another account's queue, `?account=` |
 | `SUBSCRIPTION_NOT_FOUND`, `SUBSCRIPTION_EXISTS` | Pub/Sub: no such subscription (`queue groups` lists them; peek takes a subscription, not a topic), or one is there already |
 | `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit, an SQS message close to its queue's `maxReceiveCount`, or a Pub/Sub message close to its subscription's `maxDeliveryAttempts`: stop peeking and let its consumers take the message |
-| `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue ls` and `queue groups` show the names |
+| `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue list` and `queue groups` show the names |
 | `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream; SQS: `groups`, `lag`, `peek --oldest`; Pub/Sub: `lag`, `peek --oldest`, peek of a push subscription); the hint says what works instead |
 
 The design behind these commands is in

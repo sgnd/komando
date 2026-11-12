@@ -130,7 +130,7 @@ func winMarkerErr(p string, m map[string]string) error {
 
 func hasKey(m map[string]string, k string) bool { _, ok := m[k]; return ok }
 
-// winFsLs is fs ls on a Windows server. Hidden files are left out unless
+// winFsLs is fs list on a Windows server. Hidden files are left out unless
 // --all, as dotfiles are on Linux.
 func winFsLs(ctx context.Context, st *store.State, h *store.Host, p string, all, recursive bool, maxEntries int) (any, error) {
 	first := "" // --limit 0: every entry

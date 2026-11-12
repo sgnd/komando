@@ -156,7 +156,7 @@ func latest(items []helmItem) []helmItem {
 	return res
 }
 
-// helmList is `cluster helm ls`.
+// helmList is `cluster helm list`.
 type helmList map[string]any
 
 func (l helmList) Text() string {
@@ -180,11 +180,11 @@ func helmLsCmd() *cobra.Command {
 	var all bool
 	var limit int
 	c := &cobra.Command{
-		Use:   "ls TARGET",
+		Use:   "list TARGET",
 		Short: "Helm releases: name, revision, status, chart and app version",
-		Example: `  komando cluster helm ls prod-k8s -A
-  komando cluster helm ls prod-k8s --namespace shop
-  komando cluster helm ls @prod -A              # every cluster in the group`,
+		Example: `  komando cluster helm list prod-k8s -A
+  komando cluster helm list prod-k8s --namespace shop
+  komando cluster helm list @prod -A              # every cluster in the group`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
@@ -229,10 +229,11 @@ func helmLsCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, &all, nil)
 	clusterLimitFlag(c, &limit, 0, "releases per cluster")
+	withID(c, "cluster.helm.ls") // `ls` before: a permanent synonym
 	return c
 }
 
-const helmNoSwarm = "Helm is for Kubernetes; on Swarm, `cluster ls TARGET stacks` lists the stacks"
+const helmNoSwarm = "Helm is for Kubernetes; on Swarm, `cluster list TARGET stacks` lists the stacks"
 
 // helmRevisions reads every stored revision of one release, oldest first.
 func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]helmRelease, error) {
@@ -242,7 +243,7 @@ func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]h
 	}
 	if len(items) == 0 {
 		return nil, out.Errf(out.ExitNotFound, "HELM_RELEASE_NOT_FOUND",
-			"see the releases with `komando cluster helm ls TARGET -A`, and name the namespace with --namespace",
+			"see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace",
 			"no Helm release %q in namespace %q", release, ns)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].version < items[j].version })

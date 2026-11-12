@@ -73,7 +73,7 @@ type queueTopics struct {
 func (l queueTopics) Text() string {
 	s := l.table()
 	if l.Truncated {
-		s += fmt.Sprintf("\nonly the first %d by name: narrow it with a pattern (komando queue ls %s 'orders-*') or raise --limit\n", l.Count, l.Conn)
+		s += fmt.Sprintf("\nonly the first %d by name: narrow it with a pattern (komando queue list %s 'orders-*') or raise --limit\n", l.Count, l.Conn)
 	}
 	return s
 }

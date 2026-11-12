@@ -32,6 +32,13 @@ func TestStandardRenamedIDs(t *testing.T) {
 		{[]string{"secret", "rename"}, []string{"secret", "mv"}, "secret.mv"},
 		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.mv"},
 		{[]string{"secret", "show"}, []string{"secret", "get"}, "secret.get"},
+		{[]string{"cluster", "list"}, []string{"cluster", "ls"}, "cluster.ls"},
+		{[]string{"cluster", "helm", "list"}, []string{"cluster", "helm", "ls"}, "cluster.helm.ls"},
+		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.ls"},
+		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.ls"},
+		{[]string{"queue", "list"}, []string{"queue", "ls"}, "queue.ls"},
+		{[]string{"registry", "list"}, []string{"registry", "ls"}, "registry.ls"},
+		{[]string{"storage", "list"}, []string{"storage", "ls"}, "storage.ls"},
 	} {
 		now, old := findCmd(t, root, c.now...), findCmd(t, root, c.old...)
 		if now != old {
@@ -62,4 +69,25 @@ func TestRenameOldVerbStillWorks(t *testing.T) {
 	if code != 0 || !strings.Contains(outText, `"command":"host.mv"`) {
 		t.Errorf("host rename: exit %d, %s", code, outText)
 	}
+}
+
+// `list` is the one listing verb, and `ls` its permanent synonym on every
+// list command (S-3.1, OD-2).
+func TestStandardListVerb(t *testing.T) {
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		for _, s := range c.Commands() {
+			walk(s)
+		}
+		if c.Hidden || c.Parent() == nil {
+			return
+		}
+		if c.Name() == "ls" {
+			t.Errorf("%s: the visible name is list, with ls as an alias", c.CommandPath())
+		}
+		if c.Name() == "list" && !c.HasAlias("ls") {
+			t.Errorf("%s: list needs the ls alias", c.CommandPath())
+		}
+	}
+	walk(newRoot())
 }

@@ -34,7 +34,7 @@ type RabbitTotals struct {
 	Unacked     int64 `json:"unacked"`
 }
 
-// RabbitQueue is what `queue ls` shows of a RabbitMQ queue.
+// RabbitQueue is what `queue list` shows of a RabbitMQ queue.
 type RabbitQueue struct {
 	Type      string `json:"type"` // classic, quorum or stream
 	Durable   bool   `json:"durable"`

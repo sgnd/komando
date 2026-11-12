@@ -278,7 +278,7 @@ func TestRegistryText(t *testing.T) {
 		want []string
 	}{
 		{[]string{"registry", "ls", "mem", "shop/api", "-n", "3"}, []string{"latest\nv1\nv2\n", "the first 3 tags in shop/api; there are more: raise -n", "Next: komando registry inspect mem shop/api:TAG"}},
-		{[]string{"registry", "ls", "mem"}, []string{"multi/app\nshop/api\n", "Next: komando registry ls mem REPO"}},
+		{[]string{"registry", "ls", "mem"}, []string{"multi/app\nshop/api\n", "Next: komando registry list mem REPO"}},
 		{[]string{"--dry-run", "registry", "rm", "mem", "shop/api:v9"}, []string{"would delete shop/api@sha256:", "with it goes every tag on that image: latest, v9", "latest is one of them"}},
 		{[]string{"--dry-run", "registry", "prune", "mem", "shop/api", "--keep", "2"}, []string{"shop/api: would delete 4 images of 7 tags", "  - v4 ", "  = latest", "latest is always kept"}},
 		{[]string{"registry", "inspect", "mem", "shop/api:v9"}, []string{"created: " + time.Now().Format("2006-01-02")}},
@@ -347,7 +347,7 @@ func TestCatalogErr(t *testing.T) {
 		t.Errorf("hub: %+v", e)
 	}
 	own := registry.New("harbor.example.com", registry.TLS{}, "", "", nil)
-	if e := toErr(catalogErr(own, &registry.Error{Status: 403})); e.Code != "REGISTRY_AUTH" || !strings.Contains(e.Hint, "registry ls CONN REPO") {
+	if e := toErr(catalogErr(own, &registry.Error{Status: 403})); e.Code != "REGISTRY_AUTH" || !strings.Contains(e.Hint, "registry list CONN REPO") {
 		t.Errorf("own: %+v", e)
 	}
 	if own.Repo("nginx") != "nginx" || hub.Repo("nginx") != "library/nginx" || hub.Repo("me/app") != "me/app" {

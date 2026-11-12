@@ -95,7 +95,7 @@ func opErr(err error, what string, missing func(string) error) error {
 }
 
 func topicNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue ls CONN`; a subscription is written subscriptions/NAME, and the project is the conn URL's host",
+	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`; a subscription is written subscriptions/NAME, and the project is the conn URL's host",
 		"topic %s does not exist", name)
 }
 

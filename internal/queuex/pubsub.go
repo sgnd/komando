@@ -17,7 +17,7 @@ type PubsubInfo struct {
 	SubscriptionCount int    `json:"subscription_count"`
 }
 
-// PubsubTopic is what `queue ls` shows of a Pub/Sub topic.
+// PubsubTopic is what `queue list` shows of a Pub/Sub topic.
 type PubsubTopic struct {
 	SubscriptionCount int    `json:"subscription_count"`
 	MessageRetention  string `json:"message_retention,omitempty"` // how long the topic itself keeps messages (for seek); "": it does not

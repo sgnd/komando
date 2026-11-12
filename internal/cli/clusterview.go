@@ -84,7 +84,7 @@ func clusterEventsCmd() *cobra.Command {
 				return err
 			}
 			return readClusters(cmd.Context(), "cluster.events", st, ts, clusterRead{
-				swarmNo: "events are a Kubernetes view; on Swarm, `cluster ls TARGET tasks` shows failed tasks and their errors",
+				swarmNo: "events are a Kubernetes view; on Swarm, `cluster list TARGET tasks` shows failed tasks and their errors",
 				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 					kind, name := "", ""
 					if of != "" {

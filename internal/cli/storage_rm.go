@@ -39,7 +39,7 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.`
 			}
 			if prefix == "" && len(keys) == 0 {
 				return out.Errf(out.ExitUsage, "USAGE",
-					fmt.Sprintf("for example: komando storage rm %s KEY, or komando storage rm %s --prefix FOLDER/ --dry-run (komando storage ls %s shows the keys). To take %s out of komando's list, not its files: komando conn rm %s", args[0], args[0], args[0], args[0], args[0]),
+					fmt.Sprintf("for example: komando storage rm %s KEY, or komando storage rm %s --prefix FOLDER/ --dry-run (komando storage list %s shows the keys). To take %s out of komando's list, not its files: komando conn rm %s", args[0], args[0], args[0], args[0], args[0]),
 					"give exact keys, or --prefix FOLDER/")
 			}
 			if prefix != "" && len(keys) > 0 {
@@ -47,7 +47,7 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.`
 			}
 			for _, k := range keys {
 				if strings.HasSuffix(k, "/") || strings.ContainsAny(k, "*?") {
-					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage ls`)", k)
+					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage list`)", k)
 				}
 				if err := storex.CheckKey(k); err != nil {
 					return err

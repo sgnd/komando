@@ -339,7 +339,7 @@ komando secret set app-ro-pass                              # the password goes 
 komando db user add app-db app_ro --password-ref secret:app-ro-pass
 komando db grant app-db app_ro --privileges SELECT --on all-tables:public
 komando db grants app-db app_ro                             # what it may do now
-komando db user ls app-db                                   # all users and roles
+komando db user list app-db                                   # all users and roles
 komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate (the conn's own user: also conn edit, see rotate.md)
 komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
 komando db user rm app-db app_ro --allow-dangerous
@@ -356,7 +356,7 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
   For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
-  for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user ls` and
+  for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user list` and
   `db grants` read; adding, changing and granting are not available. On
   BigQuery, users and rights are Google Cloud IAM, so these commands are
   not available.

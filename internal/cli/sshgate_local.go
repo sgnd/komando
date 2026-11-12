@@ -14,7 +14,7 @@ import (
 )
 
 // A command on a target that is this computer runs here: exec on localhost
-// is a shell, `logs --file`, `fs cat` and `fs ls` read any file here (a
+// is a shell, `logs --file`, `fs cat` and `fs list` read any file here (a
 // private key whose lines MaskSecrets cannot tell from data), a sqlite conn
 // is a file here (VACUUM INTO, ATTACH and db restore write any file), and a
 // database, cache or cluster at 127.0.0.1 runs programs or reads and writes

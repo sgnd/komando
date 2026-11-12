@@ -393,7 +393,7 @@ func ftpErr(err error, t driver.Target) error {
 		case ftp.StatusNotLoggedIn:
 			return out.Errf(out.ExitConnect, "STORAGE_AUTH", "check the user in the conn URL and its --password-ref", "login refused: %s", te.Msg)
 		case ftp.StatusFileUnavailable:
-			return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage ls CONN [FOLDER]`", "%s", te.Msg)
+			return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [FOLDER]`", "%s", te.Msg)
 		}
 		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "FTP %d: %s", te.Code, te.Msg)
 	}

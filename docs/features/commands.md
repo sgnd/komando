@@ -180,7 +180,7 @@ Every list command takes `-n/--limit N`, the most items to show (in
 Log readers show the last N lines, and `--tail N` means the same there.
 A command that runs on several servers counts per server. Without
 `--limit` a list shows what it always did: everything, or the default
-its help names (`fs ls` 1000, `logs` 200). `--limit 0` shows all where
+its help names (`fs list` 1000, `logs` 200). `--limit 0` shows all where
 the help says so. When a list stops at its limit, the JSON has
 `meta.truncated: true` and `-o text` says on stderr
 `showing N of more; use --limit 0 for all`.

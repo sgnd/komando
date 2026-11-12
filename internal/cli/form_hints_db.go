@@ -23,7 +23,7 @@ var (
 	dbLimit = formFlag{name: "limit", ask: "Show at most how many rows?",
 		help: "0 shows every row. Big results are cut anyway, so keep it small for a first look.", example: "100"}
 	dbUser = formArg{ask: "Which database user?", example: "app_ro",
-		help: "The user name inside the database, not your SSH user. `komando db user ls` shows them."}
+		help: "The user name inside the database, not your SSH user. `komando db user list` shows them."}
 	dbFrom = formFlag{name: "from", ask: "MySQL only: from where does this user connect?",
 		help:    "The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL.",
 		example: "10.0.0.%"}
@@ -71,7 +71,7 @@ var dbLookHints = map[string]formHint{
 		args:  []formArg{dbConn, dbUser},
 		flags: []formFlag{dbFrom},
 	},
-	"db user ls": {args: []formArg{dbConn}},
+	"db user list": {args: []formArg{dbConn}},
 	"db shell": {
 		args: []formArg{{ask: "Which database?", pick: "db",
 			help: "You type SQL in it and see the rows. \\q leaves, \\? lists what else it knows."}},
@@ -172,7 +172,7 @@ func init() {
 		"db kill":        {next: []string{"db activity {}"}},
 		"db sizes":       {next: []string{"db schema {} TABLE", "db dump {} --to backup.sql"}},
 		"db restore":     {next: []string{"db schema {}", "db query {} \"select count(*) from TABLE\""}},
-		"db user ls":     {next: []string{"db grants {} USER", "db user add {} NAME --password-ref secret:NAME"}},
+		"db user list":   {next: []string{"db grants {} USER", "db user add {} NAME --password-ref secret:NAME"}},
 		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db grants {} USER"}},
 		"db user passwd": {next: []string{"db grants {} USER"}},
 		"db grant":       {next: []string{"db grants {} USER"}},

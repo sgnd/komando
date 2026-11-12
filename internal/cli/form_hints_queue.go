@@ -14,7 +14,7 @@ var queueConn = formArg{ask: "Which message queue?", pick: "queue",
 var queueHints = map[string]formHint{
 	"queue info":   {args: []formArg{queueConn}},
 	"queue groups": {args: []formArg{queueConn}},
-	"queue ls": {args: []formArg{queueConn, {ask: "Only names like? (leave empty for all)", example: "orders-*",
+	"queue list": {args: []formArg{queueConn, {ask: "Only names like? (leave empty for all)", example: "orders-*",
 		help: "A pattern: * stands for any letters, so orders-* lists orders-eu, orders-us ..."}},
 		flags: []formFlag{{name: "internal", ask: "Kafka only: also list Kafka's own topics (__consumer_offsets ...)?"}}},
 	"queue describe": {args: []formArg{queueConn, {ask: "Which topic or queue?", example: "orders",
@@ -54,13 +54,13 @@ var queueHints = map[string]formHint{
 // Next: lines for the queue commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"queue ls":       {next: []string{"queue describe {} TOPIC", "queue peek {} TOPIC", "queue groups {}"}},
+		"queue list":     {next: []string{"queue describe {} TOPIC", "queue peek {} TOPIC", "queue groups {}"}},
 		"queue describe": {next: []string{"queue peek {} TOPIC", "queue lag {} GROUP"}},
 		"queue peek":     {next: []string{"queue describe {} TOPIC", "queue send {} TOPIC --value V --dry-run"}},
 		"queue groups":   {next: []string{"queue lag {} GROUP"}},
 		"queue send":     {next: []string{"queue peek {} TOPIC -n 1"}},
 		"queue create":   {next: []string{"queue send {} TOPIC --value V --dry-run", "queue describe {} TOPIC"}},
-		"queue purge":    {next: []string{"queue ls {}"}},
-		"queue rm":       {next: []string{"queue ls {}"}},
+		"queue purge":    {next: []string{"queue list {}"}},
+		"queue rm":       {next: []string{"queue list {}"}},
 	})
 }

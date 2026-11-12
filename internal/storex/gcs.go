@@ -204,7 +204,7 @@ func (b *gcsBucket) Stat(ctx context.Context, rel string) (Object, error) {
 	resp, err := b.get(ctx, b.objectURL(full), http.StatusOK)
 	if err != nil {
 		if oe, ok := err.(*out.Error); ok && oe.Code == "OBJECT_NOT_FOUND" {
-			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "%s not found", rel)
+			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "%s not found", rel)
 		}
 		return Object{}, err
 	}

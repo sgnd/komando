@@ -131,7 +131,7 @@ func fsErr(p string, err error) error {
 func fsErrHint(p string, err error, permHint string) error {
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "list the folder with `komando fs ls TARGET "+path.Dir(p)+"`", "%s: no such file or directory", p)
+		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "list the folder with `komando fs list TARGET "+path.Dir(p)+"`", "%s: no such file or directory", p)
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
 	}
@@ -172,7 +172,7 @@ func fsLsCmd() *cobra.Command {
 	var recursive bool
 	var maxEntries int
 	c := &cobra.Command{
-		Use:   "ls TARGET [PATH]",
+		Use:   "list TARGET [PATH]",
 		Short: "List a folder on one server (default: the login user's home)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -185,7 +185,7 @@ func fsLsCmd() *cobra.Command {
 			}
 			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
-				permHint := "fs ls reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
+				permHint := "fs list reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
 				r := lsResult{Path: dir, Entries: []fileInfo{}, recursive: recursive}
 				if fi, err := sc.Stat(dir); err != nil {
 					return nil, fsErrHint(dir, err, permHint)
@@ -253,6 +253,7 @@ func fsLsCmd() *cobra.Command {
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
 	limitFlag(c, &maxEntries, 1000, "entries")
 	retiredFlag(c, "max", "limit")
+	withID(c, "fs.ls") // `ls` before: a permanent synonym
 	return c
 }
 
@@ -393,7 +394,7 @@ func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p strin
 }
 
 func isADirectory(p string) error {
-	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls TARGET "+p+"`", "%s is a folder, not a file", p)
+	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs list TARGET "+p+"`", "%s is a folder, not a file", p)
 }
 
 type catResult struct {

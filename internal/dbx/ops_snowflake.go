@@ -110,7 +110,7 @@ func sfNoLocks() error {
 // Snowflake: this version reads users and grants only.
 func SFNoUserChange(what string) error {
 	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-		"run the statement yourself with `komando db query CONN --write` (CREATE USER, GRANT ROLE ...: it needs --allow-dangerous, so ask the user first); `db user ls` and `db grants` work",
+		"run the statement yourself with `komando db query CONN --write` (CREATE USER, GRANT ROLE ...: it needs --allow-dangerous, so ask the user first); `db user list` and `db grants` work",
 		"%s is not available for snowflake", what)
 }
 
@@ -169,7 +169,7 @@ func snowflakeGrants(ctx context.Context, db *sql.DB, name string) ([]map[string
 		grants, gerr := rowsOf(ctx, db, "SHOW GRANTS TO ROLE "+quoted)
 		if gerr != nil {
 			if role == name {
-				return nil, out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users and roles with `komando db user ls CONN` (the conn's role must see them)",
+				return nil, out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users and roles with `komando db user list CONN` (the conn's role must see them)",
 					"user or role %s does not exist, or the conn's role may not see it", name)
 			}
 			return nil, snowflakeErr(gerr)

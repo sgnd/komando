@@ -10,7 +10,7 @@ Azure Container Registry, Google Artifact Registry and your own
 ```bash
 komando import docker                                              # registries you are logged in to
 komando list kind:registry                                         # the names the import gave (ghcr.io -> ghcr ...)
-komando registry ls ghcr myorg/api                                 # tags of one repository
+komando registry list ghcr myorg/api                                 # tags of one repository
 komando registry inspect ghcr myorg/api:1.4.2                      # digest, size, platforms, labels
 komando registry copy ghcr:myorg/api:1.4.2 harbor:prod/api:1.4.2   # copy between registries
 komando registry rm harbor myorg/api:old --dry-run                 # what a delete would remove
@@ -48,13 +48,13 @@ your AWS, Google or Azure login each time (see below).
 
 ```bash
 komando registry add dockerhub registry://myuser@docker.io --ask-password
-komando registry ls dockerhub myuser/app        # tags of your repository
+komando registry list dockerhub myuser/app        # tags of your repository
 komando registry inspect dockerhub nginx        # an official image: library/nginx:latest
 ```
 
 - An official image's name without a `/` (`nginx`) means
   `library/nginx`, as with `docker pull`.
-- Docker Hub has no list of every repository: `registry ls dockerhub`
+- Docker Hub has no list of every repository: `registry list dockerhub`
   without a repository gives `REGISTRY_UNSUPPORTED`; name one.
 - Docker Hub limits pulls (fewer without a login) and counts every manifest
   read. Past the limit, komando stops with `REGISTRY_RATE_LIMIT` and says
@@ -122,7 +122,7 @@ machine's service account on Google Cloud. No `gcloud` program is needed:
 
 ```bash
 komando registry add gar registry://europe-west1-docker.pkg.dev
-komando registry ls gar my-project/my-repo/api
+komando registry list gar my-project/my-repo/api
 ```
 
 To use a service account key from the vault instead, store the key file
@@ -212,8 +212,8 @@ server on the path connects to the IP. `komando tunnel` uses the IP too.
 ## Look at images
 
 ```bash
-komando registry ls harbor                    # repositories (Docker Hub and GHCR do not allow this)
-komando registry ls ghcr myorg/api            # tags of one repository
+komando registry list harbor                    # repositories (Docker Hub and GHCR do not allow this)
+komando registry list ghcr myorg/api            # tags of one repository
 komando registry inspect ghcr myorg/api:1.4.2 # digest, size, platforms, created, labels
 ```
 

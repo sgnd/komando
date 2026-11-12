@@ -92,7 +92,7 @@ func (m *memBucket) List(_ context.Context, prefix string, recursive bool, limit
 func (m *memBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
 	v, ok := m.objs[key]
 	if !ok {
-		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "object not found")
+		return 0, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "object not found")
 	}
 	n, err := io.WriteString(w, v)
 	return int64(n), err
@@ -106,7 +106,7 @@ func (m *memBucket) Exists(_ context.Context, key string) (bool, error) {
 func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
 	v, ok := m.objs[key]
 	if !ok {
-		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "%s not found", key)
+		return storex.Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "%s not found", key)
 	}
 	return storex.Object{Key: key, Size: int64(len(v))}, nil
 }
@@ -187,7 +187,7 @@ func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
 func TestStorageHintNamesTheConn(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{}})
 	e := wantCode(t, "OBJECT_NOT_FOUND", "storage", "cat", "bk", "nope.txt")
-	if e.Hint != "list objects with `komando storage ls bk [PREFIX]`" {
+	if e.Hint != "list objects with `komando storage list bk [PREFIX]`" {
 		t.Errorf("hint: %q", e.Hint)
 	}
 	in := out.Errf(out.ExitConnect, "STORAGE_AUTH", "store a key with `komando secret set NAME` and pass --password-ref secret:NAME; then `komando conn test NAME`", "x")
@@ -251,7 +251,7 @@ func TestStorageJourneyCommands(t *testing.T) {
 		t.Errorf("list kind:storage: %v", d)
 	}
 	e := wantCode(t, "USAGE", "storage", "rm", "bk")
-	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage ls bk") {
+	if !strings.Contains(e.Hint, "komando conn rm bk") || !strings.Contains(e.Hint, "komando storage list bk") {
 		t.Errorf("rm without keys: %q", e.Hint)
 	}
 	mustRun(t, "conn", "edit", "bk", "--add-tag", "backup")

@@ -31,7 +31,7 @@ type NatsAccount struct {
 	MaxConsumers int    `json:"max_consumers"` // -1: no limit, for all four
 }
 
-// NatsStream is what `queue ls` shows of a JetStream stream.
+// NatsStream is what `queue list` shows of a JetStream stream.
 type NatsStream struct {
 	Subjects      []string `json:"subjects"`
 	Bytes         uint64   `json:"bytes"`

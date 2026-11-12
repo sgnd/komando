@@ -8,7 +8,7 @@ import (
 
 // -o text for the cluster commands: kubectl-like tables, not YAML dumps.
 
-// kubeList is `cluster ls` (Kubernetes or Swarm): {type, count, items}.
+// kubeList is `cluster list` (Kubernetes or Swarm): {type, count, items}.
 type kubeList map[string]any
 
 // listColumns are the table columns per kind: header and item key.

@@ -50,7 +50,7 @@ nothing half written.
 The storage itself: komando storage add, komando test CONN, komando conn
 edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
 		Example: `  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
-  komando storage ls backups 2026/
+  komando storage list backups 2026/
   komando download backups 2026/app.sql.gz --to ./
   komando storage rm backups --prefix daily/ --older-than 30d --dry-run`,
 	}
@@ -134,7 +134,7 @@ func namedHint(err error, conn string) error {
 		return err
 	}
 	h := oe.Hint
-	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage ls ", "download ", "upload "} {
+	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "download ", "upload "} {
 		for _, word := range []string{"NAME", "CONN"} {
 			h = strings.ReplaceAll(h, "komando "+cmd+word, "komando "+cmd+conn)
 		}
@@ -284,11 +284,10 @@ func storageLsCmd() *cobra.Command {
 	var recursive bool
 	var limit int
 	c := &cobra.Command{
-		Use:     "ls CONN [PREFIX]",
-		Aliases: []string{"list"},
-		Short:   "List objects and folders (one level; --recursive for all)",
-		Example: `  komando storage ls backups
-  komando storage ls backups db/2026-11/ --recursive`,
+		Use:   "list CONN [PREFIX]",
+		Short: "List objects and folders (one level; --recursive for all)",
+		Example: `  komando storage list backups
+  komando storage list backups db/2026-11/ --recursive`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prefix := ""
@@ -325,6 +324,7 @@ func storageLsCmd() *cobra.Command {
 	}
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "include everything below the prefix, not just one level")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
+	withID(c, "storage.ls") // `ls` before: a permanent synonym
 	return c
 }
 

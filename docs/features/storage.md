@@ -9,7 +9,7 @@ on Windows (SMB) shares, all with the same commands. [All docs](README.md)
 ```bash
 komando secret set backups-secret                    # the secret access key
 komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:backups-secret
-komando storage ls backups                           # one level; --recursive for everything
+komando storage list backups                           # one level; --recursive for everything
 komando download backups 2026/app.sql.gz             # into the current folder
 komando upload backups ./app.sql.gz 2026/app.sql.gz
 ```
@@ -21,7 +21,7 @@ komando upload backups ./app.sql.gz 2026/app.sql.gz
 | Add | `komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password` |
 | Check it works | `komando test backups` |
 | See your storages | `komando list kind:storage` |
-| Browse, read | `komando storage ls backups 2026/` · `komando storage cat backups logs/app.log --tail 50` |
+| Browse, read | `komando storage list backups 2026/` · `komando storage cat backups logs/app.log --tail 50` |
 | Copy | `komando upload backups ./app.sql.gz 2026/` · `komando download backups 2026/app.sql.gz` |
 | Share | `komando storage link backups 2026/app.sql.gz --expires 24h` |
 | Clean up | `komando storage rm backups --prefix daily/ --older-than 30d --dry-run`, then without `--dry-run` |
@@ -134,7 +134,7 @@ server as a conn:
 ```bash
 komando secret set hosting-pass
 komando conn add site 'ftps://deploy@files.example.com/public_html' --password-ref secret:hosting-pass
-komando storage ls site --recursive
+komando storage list site --recursive
 komando upload site ./index.html index.html
 komando download site logs/error.log
 ```
@@ -159,7 +159,7 @@ A shared folder on a Windows server, Samba, a NAS or Azure Files (the
 ```bash
 komando secret set team-share
 komando conn add team 'smb://alice@fileserver.corp.lan/team/reports?domain=CORP' --password-ref secret:team-share
-komando storage ls team
+komando storage list team
 komando upload team ./q3.pdf 2026/q3.pdf
 ```
 
@@ -192,8 +192,8 @@ komando upload team ./q3.pdf 2026/q3.pdf
 ## Browse and read files
 
 ```bash
-komando storage ls backups                            # one level (up to 1000 entries; --limit)
-komando storage ls backups 2026/ --recursive          # everything under 2026/
+komando storage list backups                            # one level (up to 1000 entries; --limit)
+komando storage list backups 2026/ --recursive          # everything under 2026/
 komando storage cat backups logs/app.log --tail 50    # read text without downloading it
 komando storage cat backups config/app.env --head 20
 ```

@@ -55,7 +55,7 @@ func (n *Nats) Send(ctx context.Context, m queuex.Message, dryRun bool) (*queuex
 // noStreamFor is the error for a subject no stream keeps; when it is a
 // stream's name, the hint gives that stream's subjects.
 func (n *Nats) noStreamFor(ctx context.Context, subject string) error {
-	hint := "send takes a subject a stream keeps: see each stream's subjects with `komando queue ls CONN`, or make a stream for it with `komando queue create CONN NAME --config subjects=" + subject + "`"
+	hint := "send takes a subject a stream keeps: see each stream's subjects with `komando queue list CONN`, or make a stream for it with `komando queue create CONN NAME --config subjects=" + subject + "`"
 	if checkName("stream", subject) == nil {
 		if s, err := n.js.Stream(ctx, subject); err == nil {
 			hint = subject + " is a stream: send to one of its subjects (" + strings.Join(s.CachedInfo().Config.Subjects, ", ") + ")"

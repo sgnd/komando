@@ -610,9 +610,9 @@ func init() {
 	next := map[string][]string{
 		"db add":      {"db info {}", "db query {} \"select 1\"", "db schema {}"},
 		"cache add":   {"cache info {}", "cache keys {}", "conn edit {} --protected"},
-		"queue add":   {"queue info {}", "queue ls {}", "queue peek {} TOPIC"},
-		"storage add": {"storage ls {}", "conn edit {} --protected"},
-		"cluster add": {"cluster status {}", "cluster ls {} pods"}, "registry add": {"registry ls {}", "registry ls {} REPO"},
+		"queue add":   {"queue info {}", "queue list {}", "queue peek {} TOPIC"},
+		"storage add": {"storage list {}", "conn edit {} --protected"},
+		"cluster add": {"cluster status {}", "cluster list {} pods"}, "registry add": {"registry list {}", "registry list {} REPO"},
 	}
 	for cmd, label := range formFamilyAdd {
 		addFormHints(map[string]formHint{cmd: {form: func() []formGroup { return formGroupNamed(label) }, next: next[cmd]}})

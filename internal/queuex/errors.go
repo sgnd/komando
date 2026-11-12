@@ -92,7 +92,7 @@ func opErr(err error, what string) error {
 }
 
 func topicNotFound(topic string) error {
-	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue ls CONN`", "topic %s does not exist", topic)
+	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`", "topic %s does not exist", topic)
 }
 
 func groupNotFound(group string) error {

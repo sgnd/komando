@@ -42,7 +42,7 @@ var formFsHints = map[string]formHint{
 				help: "Handy for long logs. Empty shows the whole file."},
 			formFsSudo("Needed when the file can only be read by root."),
 		}},
-	"fs ls": {args: []formArg{formFsServer,
+	"fs list": {args: []formArg{formFsServer,
 		{ask: "Which folder?", example: "/var/www",
 			help: "The full path of the folder. Empty lists the login user's home folder."}},
 		flags: []formFlag{
@@ -173,7 +173,7 @@ func init() {
 		"fs cat":     {next: []string{"fs replace {} PATH --old A --new B --backup --dry-run", "fs stat {} PATH"}},
 		"fs write":   {next: []string{"fs cat {} PATH", "fs restore {} PATH"}},
 		"fs restore": {next: []string{"fs cat {} PATH"}},
-		"fs ls":      {next: []string{"fs cat {} PATH", "fs stat {} PATH"}},
+		"fs list":    {next: []string{"fs cat {} PATH", "fs stat {} PATH"}},
 		"upload":     {next: []string{"fs stat {} DEST --sha256", "svc reload {} UNIT"}},
 		"download":   {next: []string{"fs cat {} PATH", "download {} PATH --overwrite"}},
 	})

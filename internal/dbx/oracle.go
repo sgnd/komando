@@ -190,7 +190,7 @@ func oracleErr(err error) error {
 	case 1031: // insufficient privileges
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user lacks this right; ask an admin to grant it, or use a conn with an admin user", "%s", msg)
 	case 1919: // role does not exist
-		return out.Errf(out.ExitRemote, "DB_ERROR", "check the role's name: `komando db user ls CONN` lists users and roles; names without \"quotes\" are upper case in Oracle", "%s", msg)
+		return out.Errf(out.ExitRemote, "DB_ERROR", "check the role's name: `komando db user list CONN` lists users and roles; names without \"quotes\" are upper case in Oracle", "%s", msg)
 	case 1749: // GRANT or REVOKE to or from oneself
 		return out.Errf(out.ExitRemote, "DB_ERROR", "a user cannot grant to or revoke from itself; name another user, or run it from a conn with another user", "%s", msg)
 	case 942: // table or view does not exist (also a missing grant on it)

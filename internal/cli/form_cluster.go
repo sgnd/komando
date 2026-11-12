@@ -180,17 +180,17 @@ var (
 	clusterTargetArg = formArg{ask: "Which cluster?", pick: "cluster", free: true,
 		help: "A Kubernetes cluster from your list. For a Docker Swarm, type its manager server's name. @group reaches several."}
 	clusterRefArg = formArg{ask: "Which workload?", example: "deployment/api",
-		help: "Its kind and name, like deployment/api or statefulset/db. komando cluster ls shows them."}
+		help: "Its kind and name, like deployment/api or statefulset/db. komando cluster list shows them."}
 	clusterTypeArg = formArg{ask: "What kind of object?", example: "deployment",
 		help: "pod, deployment, service, node, ingress, configmap ... On a Swarm: service, task, node, stack."}
 	clusterNameArg = formArg{ask: "Its name?", example: "api",
-		help: "komando cluster ls shows the names."}
+		help: "komando cluster list shows the names."}
 	clusterPodArg = formArg{ask: "Which pod or workload?", example: "deployment/api or api-7d9f8c6b5-x2k4q",
 		help: "A pod's name, or a kind and name like deployment/api (komando picks one of its pods)."}
 	clusterWaitFlag = formFlag{name: "wait", ask: "Wait until it is done?",
 		help: "Yes: komando stays until every copy runs the new version, or says what went wrong."}
 	clusterReleaseArg = formArg{ask: "Which Helm release?", example: "ingress-nginx",
-		help: "komando cluster helm ls shows the releases."}
+		help: "komando cluster helm list shows the releases."}
 )
 
 func init() {
@@ -204,7 +204,7 @@ func clusterReadHints() map[string]formHint {
 	return map[string]formHint{
 		"cluster status": {args: []formArg{t, {ask: "One workload to check its rollout? (leave empty for the whole cluster)", example: "deployment/api",
 			help: "Empty: the whole cluster, its nodes and what is not healthy."}}},
-		"cluster ls": {args: []formArg{t, {ask: "What do you want to list?", def: "pods",
+		"cluster list": {args: []formArg{t, {ask: "What do you want to list?", def: "pods",
 			help: "pods, deployments, services, nodes, ingresses, configmaps ... On a Swarm: services, tasks, nodes, stacks."}},
 			flags: []formFlag{{name: "all-namespaces", ask: "From every namespace?",
 				help: "No: only the cluster's usual namespace (a namespace is a folder of objects in the cluster)."}}},
@@ -215,8 +215,8 @@ func clusterReadHints() map[string]formHint {
 			flags: []formFlag{{name: "since", ask: "Only lines newer than? (leave empty for the last lines)", example: "10m or 2h",
 				help: "Empty: the last lines of each pod."}, {name: "follow", ask: "Keep showing new lines? (Ctrl-C stops)"}}},
 		"cluster history": {args: []formArg{t, {ask: "Which deployment?", example: "deployment/api",
-			help: "Written deployment/NAME. komando cluster ls TARGET deployments shows them."}}},
-		"cluster helm ls":      {args: []formArg{t}},
+			help: "Written deployment/NAME. komando cluster list TARGET deployments shows them."}}},
+		"cluster helm list":    {args: []formArg{t}},
 		"cluster helm status":  {args: []formArg{t, clusterReleaseArg}},
 		"cluster helm history": {args: []formArg{t, clusterReleaseArg}},
 		"cluster helm values": {args: []formArg{t, clusterReleaseArg},
@@ -257,12 +257,12 @@ func clusterChangeHints() map[string]formHint {
 // Next: lines for the cluster commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"cluster status":   {next: []string{"cluster ls {} pods", "cluster events {} --warnings"}},
-		"cluster ls":       {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},
+		"cluster status":   {next: []string{"cluster list {} pods", "cluster events {} --warnings"}},
+		"cluster list":     {next: []string{"cluster describe {} TYPE NAME", "cluster logs {} TYPE/NAME"}},
 		"cluster deploy":   {next: []string{"cluster status {} TYPE/NAME --wait", "cluster rollback {} TYPE/NAME"}},
 		"cluster rollback": {next: []string{"cluster history {} deployment/NAME"}},
 		"cluster apply":    {next: []string{"cluster status {}"}},
-		"cluster rm":       {next: []string{"cluster ls {} TYPE"}},
+		"cluster rm":       {next: []string{"cluster list {} TYPE"}},
 		"cluster scale":    {next: []string{"cluster status {} TYPE/NAME --wait"}},
 		"cluster logs":     {next: []string{"cluster describe {} TYPE NAME", "cluster events {} --for TYPE/NAME"}},
 	})

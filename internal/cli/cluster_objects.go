@@ -22,13 +22,13 @@ func clusterLsCmd() *cobra.Command {
 	var all bool
 	var limit int
 	c := &cobra.Command{
-		Use:   "ls TARGET TYPE",
+		Use:   "list TARGET TYPE",
 		Short: "List pods, deployments, services, nodes ... (Swarm: services, tasks)",
-		Example: `  komando cluster ls prod-k8s pods --namespace shop
-  komando cluster ls prod-k8s deploy -A
-  komando cluster ls @prod nodes                # every cluster in the group
-  komando cluster ls swarm-manager services
-  komando cluster ls swarm-manager tasks --limit 20`,
+		Example: `  komando cluster list prod-k8s pods --namespace shop
+  komando cluster list prod-k8s deploy -A
+  komando cluster list @prod nodes                # every cluster in the group
+  komando cluster list swarm-manager services
+  komando cluster list swarm-manager tasks --limit 20`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
@@ -95,6 +95,7 @@ func clusterLsCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "the most objects to show"})
 	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, e.g. app=api or 'tier in (web,api)'")
+	withID(c, "cluster.ls") // `ls` before: a permanent synonym
 	return c
 }
 

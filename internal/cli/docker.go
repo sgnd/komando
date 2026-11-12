@@ -188,7 +188,7 @@ func dockerErr(msg string, code int) *out.Error {
 	case msg == "" && code == 127:
 		return out.Errf(out.ExitNotFound, "DOCKER_MISSING", "install Docker on the server, or pick another server", "docker not found")
 	case dockerNotFound.MatchString(msg):
-		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando docker ps TARGET --all` or `komando cluster ls TARGET services`", "%s", firstLine(msg))
+		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando docker ps TARGET --all` or `komando cluster list TARGET services`", "%s", firstLine(msg))
 	case strings.Contains(msg, "permission denied") && strings.Contains(msg, "docker.sock"):
 		return out.Errf(out.ExitRemote, "DOCKER_PERMISSION", "add --sudo, or add the login user to the docker group", "%s", firstLine(msg))
 	case msg == "":

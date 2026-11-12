@@ -187,7 +187,7 @@ func kubeErr(err error) error {
 		case e.Code == 401 || e.Code == 403:
 			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster run TARGET -- auth whoami` and what it may do with `komando cluster run TARGET -- auth can-i --list`"
 		case e.Code == 404:
-			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster ls TARGET pods` (or deployments, services ...)"
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
 		case e.Code == 409:
 			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run the command again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
@@ -351,7 +351,7 @@ A cluster's usual namespace is its kubeconfig context's; change it with
 with --namespace.`,
 		Example: `  komando import kubeconfig                       # one cluster per kubeconfig context
   komando cluster status prod                     # version, nodes, what is not healthy
-  komando cluster ls prod pods --namespace shop
+  komando cluster list prod pods --namespace shop
   komando cluster logs prod deploy/api --namespace shop -f
   komando cluster deploy prod deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait`,
 	}

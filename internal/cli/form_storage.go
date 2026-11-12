@@ -671,14 +671,14 @@ func init() {
 	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add."}
 	key := func(ask, help, example string) formArg { return formArg{ask: ask, help: help, example: example} }
 	addFormHints(map[string]formHint{
-		"storage ls": {args: []formArg{conn,
+		"storage list": {args: []formArg{conn,
 			key("Which folder inside it?", "Empty lists the top. A folder ends in /, like db/2026-11/.", "db/")},
 			flags: []formFlag{{name: "recursive", ask: "List everything below it too, not only one level?"}}},
 		"storage cat": {args: []formArg{conn,
-			key("Which file?", "Its name inside the storage, as storage ls shows it.", "logs/app.log")},
+			key("Which file?", "Its name inside the storage, as storage list shows it.", "logs/app.log")},
 			flags: []formFlag{{name: "tail", ask: "Show only the last how many lines?", help: "Empty shows the whole file, up to 1 MiB.", example: "50"}}},
 		"storage download": {args: []formArg{conn,
-			key("Which file (or folder) to download?", "Its name inside the storage, as storage ls shows it. A folder ends in /.", "reports/q3.pdf")},
+			key("Which file (or folder) to download?", "Its name inside the storage, as storage list shows it. A folder ends in /.", "reports/q3.pdf")},
 			flags: []formFlag{
 				{name: "to", ask: "Where to save it on this computer?", help: "A file or a folder. Empty saves it in the current folder with its own name.", example: "~/Downloads/"},
 				{name: "recursive", ask: "Is it a folder? Download everything in it?"}}},
@@ -686,7 +686,7 @@ func init() {
 			key("Which file on this computer?", "Its path; ~/ means your home folder.", "./report.pdf"),
 			key("Where in the storage?", "Empty keeps its name, at the top. A folder ends in /, like reports/2026/.", "reports/2026/")}},
 		"storage rm": {args: []formArg{conn,
-			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage ls shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
+			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
 			flags: []formFlag{
 				{name: "prefix", ask: "Delete everything in a folder?", help: "Empty when you named the files above. A folder ends in /, like daily/.", example: "daily/"},
 				{name: "older-than", ask: "Only files older than?", help: "With a folder: newer ones are kept. Like 30d (days) or 12h (hours).", example: "30d"}}},
@@ -699,10 +699,10 @@ func init() {
 // Next: lines for the storage commands.
 func init() {
 	addFormHints(map[string]formHint{
-		"storage ls":       {next: []string{"storage cat {} KEY --tail 50", "download {} KEY", "storage ls {} FOLDER/ --recursive"}},
+		"storage list":     {next: []string{"storage cat {} KEY --tail 50", "download {} KEY", "storage list {} FOLDER/ --recursive"}},
 		"storage cat":      {next: []string{"download {} KEY"}},
-		"storage upload":   {next: []string{"storage ls {} FOLDER/", "storage link {} KEY --expires 24h"}},
-		"storage download": {next: []string{"storage ls {}"}},
-		"storage rm":       {next: []string{"storage ls {} --recursive"}},
+		"storage upload":   {next: []string{"storage list {} FOLDER/", "storage link {} KEY --expires 24h"}},
+		"storage download": {next: []string{"storage list {}"}},
+		"storage rm":       {next: []string{"storage list {} --recursive"}},
 	})
 }

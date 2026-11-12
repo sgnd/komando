@@ -187,7 +187,7 @@ Paths are Windows paths: `C:\inetpub\app.config` or `C:/inetpub/app.config`.
 backslashes in single quotes in your shell.
 
 ```bash
-komando fs ls win1 'C:\inetpub\logs' -r --limit 200
+komando fs list win1 'C:\inetpub\logs' -r --limit 200
 komando fs stat win1 'C:\app\web.config' --sha256
 komando fs cat win1 'C:\app\app.log' --tail 50
 komando fs write win1 'C:\app\web.config' --from ./web.config --backup --if-changed
@@ -195,7 +195,7 @@ komando upload os:windows ./tool.exe 'C:\tools\'
 komando download win1 'C:\app\app.log' --to ./logs/
 ```
 
-- `fs ls` leaves out hidden files unless `--all`.
+- `fs list` leaves out hidden files unless `--all`.
 - `fs write` writes a new file next to the old one, then swaps it in one
   step, so the file keeps its permissions (ACL). `--backup`, `-p`,
   `--append`, `--if-changed`, `--no-follow` and `--validate` work.
@@ -222,7 +222,7 @@ lists services that should start automatically but stopped with an error.
 | Works | Not yet (stops with `NOT_SUPPORTED`) |
 |-------|--------------------------------------|
 | `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `cert check`, `recipe run`, `reboot` |
-| `fs ls`, `stat`, `cat`, `write` | `fs replace`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
+| `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
 | `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
 | `host trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host trust` over WinRM |

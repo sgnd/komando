@@ -23,9 +23,9 @@ komando fs cat web1 /etc/nginx/nginx.conf --tail 50
 komando fs cat web1 /var/log/syslog --head 20 --line-numbers
 komando fs cat web1 /var/log/auth.log --sudo          # a file only root can read
 komando fs cat web1 '~/app/.env'
-komando fs ls web1 /var/www                           # ls -l style with -o text
-komando fs ls web1 -a                                 # no PATH: your home folder; -a shows dotfiles
-komando fs ls web1 /srv -r --limit 200                # walk folders (up to 1000 entries by default)
+komando fs list web1 /var/www                           # ls -l style with -o text
+komando fs list web1 -a                                 # no PATH: your home folder; -a shows dotfiles
+komando fs list web1 /srv -r --limit 200                # walk folders (up to 1000 entries by default)
 komando fs stat web1 /etc/hosts --sha256              # exists:false instead of an error when missing
 ```
 
