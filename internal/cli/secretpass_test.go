@@ -98,7 +98,7 @@ func TestPTYSecretPassphrase(t *testing.T) {
 	if code := p.exit(); code != 0 {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
 	}
-	p.waitFor("Re-encrypted 1 secret:")
+	p.waitFor("Re-encrypted 1 secret, and")
 	screen := p.shown()
 	if strings.Contains(screen, ptyNewPass) || !strings.Contains(screen, "put the new passphrase in KOMANDO_VAULT_PASS") {
 		t.Errorf("the screen:\n%s", screen)
@@ -217,5 +217,20 @@ func TestDoctorVaultKey(t *testing.T) {
 	c := checks()["security:vault_key"]
 	if c.OK || c.Warning || !strings.Contains(c.Detail, "komando secret passphrase") {
 		t.Errorf("a changed passphrase: %+v", c)
+	}
+}
+
+// An AI agent reads the plain text of these previews whole: no word of
+// komando's own sentences is taken for a value and shown as [hidden].
+func TestSecretPreviewTextNotMaskedForAgent(t *testing.T) {
+	invHome(t)
+	setSecret(t, "db-pass", "s3cret-value")
+	t.Setenv("KOMANDO_KEYCHAIN", "off")
+	asAgent(t, true, true)
+	for _, args := range [][]string{{"secret", "passphrase", "--dry-run"}, {"secret", "keychain", "--dry-run"}} {
+		_, text := runMain(t, append(args, "-o", "text")...)
+		if strings.Contains(text, "[hidden") {
+			t.Errorf("%v: %s", args, text)
+		}
 	}
 }

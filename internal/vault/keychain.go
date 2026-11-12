@@ -107,7 +107,7 @@ func keychainOff() bool { return os.Getenv("KOMANDO_KEYCHAIN") == "off" }
 // KeychainTool says which tool keeps the key here, or why there is none.
 func KeychainTool() (string, error) {
 	if keychainOff() {
-		return "", errors.New("KOMANDO_KEYCHAIN=off: komando uses no keychain on this computer")
+		return "", errors.New("komando uses no keychain on this computer (KOMANDO_KEYCHAIN is off)")
 	}
 	switch keychainOS {
 	case "darwin":

@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An AI agent reading `secret passphrase --dry-run` and `secret keychain
+  --dry-run` as text saw words of komando's own sentences as `[hidden]`
+  ("3 secrets: [hidden] vault's key", "KOMANDO_KEYCHAIN=[hidden]"); the
+  sentences are reworded so nothing is masked.
 - `secret passphrase --dry-run` previews for an AI agent or a script too
   (what would change, how many secrets, whether the current key opens
   them) with `meta.would_be_blocked: NEEDS_PERSON`, as `secret keychain`
