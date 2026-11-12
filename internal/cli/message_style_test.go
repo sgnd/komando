@@ -636,7 +636,7 @@ var (
 		"cli/cluster_objects.go: service %s is global (one task per node); scale works on rep",
 		"cli/docker.go: list what exists with `komando docker ps TARGET --all` or `k",
 		"cli/form_cluster.go: pods, deployments, services, nodes, ingresses, configmaps ..",
-		"cli/inv_sshcmd.go: host ssh-command writes a copy of the pinned host keys for O",
+		"cli/host_sshcommand.go: host ssh-command writes a copy of the pinned host keys for O",
 		"cli/select.go: unknown kind %q: use host, conn, vpn, a conn kind (see `koma",
 		"cli/vpn.go: --server takes a host name or address (host or host:port)",
 		"cli/vpn_inv.go: --server takes a host name or address (host or host:port)",

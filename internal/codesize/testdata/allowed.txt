@@ -20,7 +20,7 @@ func internal/cli/fs_write.go writeRemoteFrom 199
 func internal/cli/guard_shell.go checkAgentVars 113
 func internal/cli/guard_shell.go checkShellDepth 112
 func internal/cli/host_sshconfig.go parseSSHConfig 126
-func internal/cli/importer.go applyImport 124
+func internal/cli/import.go applyImport 124
 func internal/cli/cluster_kctl_change.go kctlRun.create 240
 func internal/cli/cluster_kctl_explain.go kctlRun.explain 102
 func internal/cli/ops_pkgsec.go pkgSecurity 113
