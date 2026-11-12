@@ -210,7 +210,7 @@ func renameCmd() *cobra.Command {
 	var kinds []string
 	c := &cobra.Command{
 		Use:   "rename OLD NEW",
-		Short: "Rename one entry of any kind, or (--prefix) every name that starts with OLD",
+		Short: "Rename one entry, or every name that starts with OLD (--prefix)",
 		Long: `Without --prefix: renames the one server, conn, VPN, secret, key or group
 named OLD, as ` + "`komando host rename`" + ` and the others do. When OLD names
 two kinds of entry (a server and a secret), it says which commands to use.

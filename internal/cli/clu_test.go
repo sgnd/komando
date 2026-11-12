@@ -191,8 +191,8 @@ func TestClusterDashN(t *testing.T) {
 			}
 		}
 	}
-	if n != 20 {
-		t.Errorf("%d cluster commands have --namespace, want 20", n)
+	if n != 21 { // 20, and the hidden `cluster info` synonym of cluster status
+		t.Errorf("%d cluster commands have --namespace, want 21", n)
 	}
 	invHome(t)
 	e := mainErr(t, "cluster", "ls", "x1", "pods", "-n", "50")

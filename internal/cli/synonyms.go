@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/out"
 )
@@ -63,7 +64,24 @@ func synonymWrapper(of *cobra.Command, use, id, now string, args cobra.Positiona
 			return of.RunE(cmd, a)
 		},
 	}
+	// a hidden flag that owns a letter for its long flag (cluster -n, which
+	// refuses a number) gives the letter to the parser of c too: AddFlag
+	// maps a shorthand to the flag that carries it while it is added
+	var owners [][2]*pflag.Flag
+	of.Flags().VisitAll(func(f *pflag.Flag) {
+		if a := f.Annotations[flagAliasOf]; len(a) == 1 && len(f.Name) == 1 && f.Shorthand == "" {
+			if long := of.Flags().Lookup(a[0]); long != nil && long.Shorthand == f.Name {
+				owners = append(owners, [2]*pflag.Flag{f, long})
+			}
+		}
+	})
+	for _, o := range owners {
+		o[0].Shorthand, o[1].Shorthand = o[0].Name, ""
+	}
 	c.Flags().AddFlagSet(of.Flags())
+	for _, o := range owners {
+		o[0].Shorthand, o[1].Shorthand = "", o[0].Name
+	}
 	withID(c, id)
 	c.Annotations[synonymNote] = now
 	return c
