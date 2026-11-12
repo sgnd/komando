@@ -338,7 +338,7 @@ komando db kill app-db 4821 --session --allow-dangerous   # end the whole connec
 komando secret set app-ro-pass                              # the password goes to the vault first
 komando db user add app-db app_ro --password-ref secret:app-ro-pass
 komando db grant app-db app_ro --privileges SELECT --on all-tables:public
-komando db grants app-db app_ro                             # what it may do now
+komando db user show app-db app_ro                             # what it may do now
 komando db user list app-db                                   # all users and roles
 komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate (the conn's own user: also conn edit, see rotate.md)
 komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
@@ -357,7 +357,7 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
   For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
   for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user list` and
-  `db grants` read; adding, changing and granting are not available. On
+  `db user show` read; adding, changing and granting are not available. On
   BigQuery, users and rights are Google Cloud IAM, so these commands are
   not available.
 - Adding users and grants are changes (`--yes` on protected conns).
@@ -792,7 +792,7 @@ komando db schema analytics public.orders          # columns, primary key, clust
 komando db explain analytics "select * from orders where id = 42"
 komando db activity analytics                      # running and queued queries
 komando db kill analytics 4387013457812345         # the pid db activity shows
-komando db grants analytics APP_RO                 # its roles, and what each role may do
+komando db user show analytics APP_RO                 # its roles, and what each role may do
 ```
 
 - **The URL.** The account goes where other kinds have a host: the

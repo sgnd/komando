@@ -199,7 +199,7 @@ FROM dba_sys_privs WHERE grantee = :2
 UNION ALL
 SELECT 'role', granted_role, 'MEMBER' FROM dba_role_privs WHERE grantee = :3`, user, user, user))
 	if err != nil {
-		return nil, catalogErr(err, "db grants")
+		return nil, catalogErr(err, "db user show")
 	}
 	if more, err := lowerRows(rowsOf(ctx, db, `SELECT 'schema' AS on_type, schema AS object, privilege FROM dba_schema_privs WHERE grantee = :1`, user)); err == nil {
 		rows = append(rows, more...)

@@ -174,3 +174,27 @@ func TestSchemaResolvesOldNames(t *testing.T) {
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "no-such-thing")
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "tunnel", "serve") // komando's own background command
 }
+
+// `db grants` (one letter from `db grant`) is `db user show` now: the old
+// name is hidden, still works, is noted in meta.deprecated, and both keep
+// the ID db.grants (C-V15).
+func TestDbUserShowReplacesGrants(t *testing.T) {
+	invHome(t)
+	root := newRoot()
+	show, old := findCmd(t, root, "db", "user", "show"), findCmd(t, root, "db", "grants")
+	if cmdID(show) != "db.grants" || cmdID(old) != "db.grants" || show.Hidden || !old.Hidden {
+		t.Fatalf("ids %s %s, hidden %v %v", cmdID(show), cmdID(old), show.Hidden, old.Hidden)
+	}
+	code, text := runMain(t, "db", "grants", "nope", "app_ro")
+	if code == 0 || !strings.Contains(text, `"command":"db.grants"`) || !strings.Contains(text, `"deprecated":{"used":"komando db grants","now":"komando db user show"}`) {
+		t.Errorf("db grants: exit %d %s", code, text)
+	}
+	code, text = runMain(t, "db", "user", "show", "nope", "app_ro")
+	if code == 0 || strings.Contains(text, "deprecated") {
+		t.Errorf("db user show: exit %d %s", code, text)
+	}
+	d := mustRun(t, "schema", "db.grants")
+	if p := d["commands"].([]any)[0].(map[string]any)["path"]; p != "komando db user show" {
+		t.Errorf("schema db.grants: %v", p)
+	}
+}

@@ -414,7 +414,7 @@ order by 1, 2`, user)
 	case "snowflake":
 		return snowflakeGrants(ctx, db, user)
 	case "bigquery":
-		return nil, BQNoUsers("db grants")
+		return nil, BQNoUsers("db user show")
 	}
-	return nil, NotSupported(kind, "db grants")
+	return nil, NotSupported(kind, "db user show")
 }

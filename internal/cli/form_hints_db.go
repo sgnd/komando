@@ -67,7 +67,7 @@ var dbLookHints = map[string]formHint{
 		args:  []formArg{dbConn},
 		flags: []formFlag{{name: "limit", ask: "Show how many of the biggest tables and indexes?", example: "10"}},
 	},
-	"db grants": {
+	"db user show": {
 		args:  []formArg{dbConn, dbUser},
 		flags: []formFlag{dbFrom},
 	},
@@ -172,10 +172,10 @@ func init() {
 		"db kill":        {next: []string{"db activity {}"}},
 		"db sizes":       {next: []string{"db schema {} TABLE", "db dump {} --to backup.sql"}},
 		"db restore":     {next: []string{"db schema {}", "db query {} \"select count(*) from TABLE\""}},
-		"db user list":   {next: []string{"db grants {} USER", "db user add {} NAME --password-ref secret:NAME"}},
-		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db grants {} USER"}},
-		"db user passwd": {next: []string{"db grants {} USER"}},
-		"db grant":       {next: []string{"db grants {} USER"}},
-		"db revoke":      {next: []string{"db grants {} USER"}},
+		"db user list":   {next: []string{"db user show {} USER", "db user add {} NAME --password-ref secret:NAME"}},
+		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db user show {} USER"}},
+		"db user passwd": {next: []string{"db user show {} USER"}},
+		"db grant":       {next: []string{"db user show {} USER"}},
+		"db revoke":      {next: []string{"db user show {} USER"}},
 	})
 }

@@ -72,6 +72,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `db user show CONN USER` shows what a database user may do (was
+  `db grants`, one letter from `db grant`). `db grants` still works in
+  this release, is noted in `meta.deprecated`, and is hidden from help;
+  the envelope's `command` stays `db.grants`.
 - **`list` is the one listing verb**: `cluster list`, `cluster helm list`,
   `db user list`, `fs list`, `queue list`, `registry list` and
   `storage list` are the names in help, hints and docs. `ls` keeps

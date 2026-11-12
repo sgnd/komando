@@ -55,7 +55,7 @@ Each database is a conn: list them with ` + "`komando list kind:db`" + `, check 
   komando db dump prod-db --to prod.sql.gz
   komando db restore staging-db --from prod.sql.gz --dry-run`,
 	}
-	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(true), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	var withTimeout func(*cobra.Command)
 	withTimeout = func(cmd *cobra.Command) {
 		for _, sub := range cmd.Commands() {

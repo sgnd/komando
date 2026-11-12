@@ -335,7 +335,7 @@ func clickhouseErr(err error) error {
 		}
 		return writeRequired("statement")
 	case 497, 36: // ACCESS_DENIED, and a grant of more than the user has
-		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user lacks this right; ask an admin to grant it (`komando db grants CONN USER` shows the user's grants), or use a conn with an admin user", "%s", msg)
+		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user lacks this right; ask an admin to grant it (`komando db user show CONN USER` shows the user's grants), or use a conn with an admin user", "%s", msg)
 	case 456, 457: // UNKNOWN_QUERY_PARAMETER, BAD_QUERY_PARAMETER
 		return out.Errf(out.ExitUsage, "USAGE", "write placeholders as {p1:String}, {p2:UInt64}, ... and give one --arg per placeholder, in order", "%s", msg)
 	case 159: // TIMEOUT_EXCEEDED (max_execution_time, from --timeout)

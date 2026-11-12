@@ -20,14 +20,14 @@ import (
 func dbUserCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "user",
-		Short: "Database users: list, add, change the password, remove",
+		Short: "Database users: list, show, add, change the password, remove",
 		Long: `Passwords come from a secret reference (--password-ref secret:NAME, vault:...,
 aws-sm:...), so they are never typed on a command line or shown. PostgreSQL
 gets a SCRAM-SHA-256 verifier komando computes, so the password itself never
 reaches the server or its logs. Adding a user or changing a password is a
 change (a production database asks first); removing one needs --allow-dangerous.`,
 	}
-	c.AddCommand(dbUserLsCmd(), dbUserChangeCmd("add"), dbUserChangeCmd("passwd"), dbUserChangeCmd("rm"))
+	c.AddCommand(dbUserLsCmd(), dbGrantsCmd(false), dbUserChangeCmd("add"), dbUserChangeCmd("passwd"), dbUserChangeCmd("rm"))
 	return c
 }
 
@@ -181,7 +181,7 @@ func dbGrantCmd(revoke bool) *cobra.Command {
 all-tables:SCHEMA; --role ROLE ` + map[bool]string{false: "makes the user a member of ROLE", true: "takes the user out of ROLE"}[revoke] + `. For MySQL:
 DB.*, DB.TABLE or *.* (with --from for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
-available (db grants reads them). BigQuery: not available (Google Cloud
+available (db user show reads them). BigQuery: not available (Google Cloud
 IAM). --dry-run shows the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
   komando db ` + verb + ` prod-db app_ro --role readers
@@ -226,12 +226,15 @@ IAM). --dry-run shows the statement.`,
 	return c
 }
 
-func dbGrantsCmd() *cobra.Command {
+// dbGrantsCmd is `db user show CONN USER`; with old, the hidden retired
+// `db grants CONN USER` (one letter from `db grant`). Both have the ID
+// db.grants.
+func dbGrantsCmd(old bool) *cobra.Command {
 	var host string
 	c := &cobra.Command{
-		Use:     "grants CONN USER",
+		Use:     "show CONN USER",
 		Short:   "What a user may do: privileges on tables and databases, and its roles",
-		Example: "  komando db grants prod-db app_ro",
+		Example: "  komando db user show prod-db app_ro",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return readDB(cmd.Context(), "db.grants", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
@@ -247,6 +250,11 @@ func dbGrantsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&host, "from", "", "MySQL: where the user connects from (the account host; default %)")
+	withID(c, "db.grants")
+	if old {
+		c.Use = "grants CONN USER"
+		return oldName(c, "db user show")
+	}
 	return c
 }
 
