@@ -309,6 +309,7 @@ func init() {
 		"host edit":    {next: []string{"host show {}", "test {}"}},
 		"import":       {next: []string{"list", "test all"}},
 		"group add":    {next: []string{"list @{}", "test @{}"}},
+		"group rm":     {next: []string{"group add {} TARGET..."}}, // to put them back
 		"job status":   {next: []string{"job logs {} --tail 50", "job wait {}", "job kill {}"}},
 		"job wait":     {next: []string{"job logs {} --tail 50", "job rm {}"}},
 		"job kill":     {next: []string{"job status {}", "job rm {}"}},

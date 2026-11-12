@@ -132,6 +132,7 @@ func TestPromptNext(t *testing.T) {
 		{"conn show", "notes", "komando conn rm notes", "db activity"},
 		{"key show", "deploy", "komando key deploy deploy TARGET", "db "},
 		{"job status", "7f3", "komando job logs 7f3 --tail 50", "conn "},
+		{"group rm", "old", "Next: komando group add old TARGET...", "group rm"},
 	} {
 		drawn.Reset()
 		fillSeen = fillInfo{person: true, key: c.key, first: c.first}

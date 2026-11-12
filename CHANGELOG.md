@@ -20,6 +20,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- At a terminal, `group rm` now ends with the way back:
+  `Next: komando group add GROUP TARGET...`. Deleting a group of more than
+  3 members still needs `--yes` from an AI agent or a script.
 - **Commands that hand words to another program now need `--` before
   them**: `exec`, `job start`, `docker exec`, `docker compose`,
   `docker raw`, `cluster exec`, `cluster shell`, `cluster run` and
