@@ -138,6 +138,15 @@ func TestErrorCodesDoc(t *testing.T) {
 	for _, c := range errorCodes {
 		fmt.Fprintf(&b, "| `%s` | %d | %s | %s |\n", c.Code, c.Exit, cell(c.Example), cell(c.Hint))
 	}
+	b.WriteString("\n## Codes shared by several things\n\n")
+	b.WriteString("These codes are given for more than one kind of item. `error.thing` says\n")
+	b.WriteString("which one (it is left out for the other codes). A later contract gives\n")
+	b.WriteString("each its own code; until then the code stays as it is.\n\n")
+	b.WriteString("| Code | `error.thing` | Codes it will split into |\n")
+	b.WriteString("|------|---------------|--------------------------|\n")
+	for _, c := range sharedCodes {
+		fmt.Fprintf(&b, "| `%s` | %s | %s |\n", c.Code, "`"+strings.Join(c.Things, "`, `")+"`", c.Split)
+	}
 	const path = "../../docs/features/error-codes.md"
 	if os.Getenv("KOMANDO_UPDATE_ERRCODES") != "" {
 		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {

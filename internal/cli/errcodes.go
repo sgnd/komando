@@ -180,7 +180,7 @@ var errorCodes = []errorCode{
 	{"RECIPE_NOT_FOUND", 3, "no recipe named …", "see them with `komando recipe list`"},
 	{"REGISTRY_AUTH", 4, "the registry refused to list its repositories: …", "the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref"},
 	{"REGISTRY_ERROR", 5, "the registry did not say the image's digest", "run it again; if it keeps failing, the registry may not support this image format"},
-	{"REGISTRY_NOT_FOUND", 3, "repository … not found", "list the repositories with `komando registry list CONN`"},
+	{"REGISTRY_NOT_FOUND", 3, "no repository named …", "list the repositories with `komando registry list CONN`"},
 	{"REGISTRY_RATE_LIMIT", 5, "the registry turned the request down: too many requests (Docker Hub's pull limit)", "the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again"},
 	{"REGISTRY_TLS", 4, "the registry's TLS certificate is for another name: …", "use the host name the certificate is for in the conn URL; with --via the server on the path looks the name up (its /etc/hosts applies)"},
 	{"REGISTRY_UNREACHABLE", 4, "the registry did not answer (address, TLS or --via path)", "check the conn with `komando test NAME`"},

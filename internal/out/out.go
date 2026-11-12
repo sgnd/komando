@@ -37,7 +37,10 @@ type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Hint    string `json:"hint,omitempty"`
-	Exit    int    `json:"-"`
+	// Thing says which kind of item a code shared by several kinds is
+	// about (KEY_NOT_FOUND: ssh_key or cache_key), S-8.3; additive
+	Thing string `json:"thing,omitempty"`
+	Exit  int    `json:"-"`
 	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
 	// --reveal), so an AI agent is not told that adding one asks the user
 	Final bool `json:"-"`
@@ -82,6 +85,9 @@ func (e *Error) Error() string { return e.Code + ": " + e.Message }
 func (e *Error) NoFlag() *Error { e.Final = true; return e }
 
 func (e *Error) WithHint(h string) *Error { e.Hint = h; return e }
+
+// About sets error.thing: which kind of item a shared code is about.
+func (e *Error) About(thing string) *Error { e.Thing = thing; return e }
 
 // MarshalJSON writes the error with a hint even when the code that made it
 // gave none: error.hint always says what to try next.
@@ -171,10 +177,19 @@ func KindWord(kind string) string {
 // NotFound is the error for a name komando does not know, worded the one
 // way S-8.4 asks: no <kind> named "<name>".
 func NotFound(kind, name string) *Error {
-	return Errf(ExitNotFound, NotFoundCode(kind),
+	e := Errf(ExitNotFound, NotFoundCode(kind),
 		fmt.Sprintf("see them with `komando %s list`", kind),
 		"no %s named %q", KindWord(kind), name)
+	if t, ok := sharedThings[kind]; ok {
+		e.Thing = t
+	}
+	return e
 }
+
+// sharedThings: the kinds whose not-found code another kind of item gives
+// too (KEY_NOT_FOUND for cache keys, CONN_NOT_FOUND for a selector that
+// picks no conns), so error.thing tells them apart.
+var sharedThings = map[string]string{"key": "ssh_key", "conn": "conn"}
 
 // UsageHint is the hint a usage error gets when its command gives none.
 // The error handler swaps it for the failing command's own --help and

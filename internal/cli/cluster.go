@@ -183,15 +183,18 @@ func kubeErr(err error) error {
 	var e *kube.APIError
 	if errors.As(err, &e) {
 		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
+		thing := ""
 		switch {
 		case e.Code == 401 || e.Code == 403:
 			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster run TARGET -- auth whoami` and what it may do with `komando cluster run TARGET -- auth can-i --list`"
 		case e.Code == 404:
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
+			thing = "k8s_object"
 		case e.Code == 409:
 			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run the command again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
 			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod NAME`"
+			thing = "k8s_container"
 		case e.Code == 400 || e.Code == 422:
 			code, exit, hint = "K8S_INVALID", out.ExitUsage, "the cluster refused it as written: check the label selector (-l) or the object's YAML"
 		}
@@ -199,7 +202,7 @@ func kubeErr(err error) error {
 		if outer := err.Error(); outer != e.Error() {
 			msg = strings.TrimSuffix(outer, e.Error()) + e.Message // keep "deployment/web: " in front
 		}
-		return out.Errf(exit, code, hint, "%s", cmp.Or(msg, e.Reason))
+		return out.Errf(exit, code, hint, "%s", cmp.Or(msg, e.Reason)).About(thing)
 	}
 	var oe *out.Error
 	if errors.As(err, &oe) {

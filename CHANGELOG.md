@@ -9,6 +9,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `error.thing` says which kind of item a shared not-found code is
+  about: `KEY_NOT_FOUND` is `ssh_key` or `cache_key`, `NOT_FOUND` a Swarm
+  service, stack or other object, `REGISTRY_NOT_FOUND` a `repository` or
+  an `image_tag`, `K8S_NOT_FOUND` a `k8s_object`, `k8s_pod` or
+  `k8s_container`, `CONN_NOT_FOUND` a `conn` or a `selector` that picked
+  none. Additive; codes are unchanged. docs/features/error-codes.md
+  lists the values and the codes a later contract splits them into.
 - `vpn add/edit --label KEY=VALUE` and `--protected`, and `vpn edit
   --unset` (user, password-ref, psk-ref, id, remote-id, ca, check, notes),
   as on host and conn. `vpn edit` and `vpn rm` take several names or a

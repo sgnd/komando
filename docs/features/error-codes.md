@@ -183,7 +183,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RECIPE_NOT_FOUND` | 3 | no recipe named … | see them with `komando recipe list` |
 | `REGISTRY_AUTH` | 4 | the registry refused to list its repositories: … | the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref |
 | `REGISTRY_ERROR` | 5 | the registry did not say the image's digest | run it again; if it keeps failing, the registry may not support this image format |
-| `REGISTRY_NOT_FOUND` | 3 | repository … not found | list the repositories with `komando registry list CONN` |
+| `REGISTRY_NOT_FOUND` | 3 | no repository named … | list the repositories with `komando registry list CONN` |
 | `REGISTRY_RATE_LIMIT` | 5 | the registry turned the request down: too many requests (Docker Hub's pull limit) | the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again |
 | `REGISTRY_TLS` | 4 | the registry's TLS certificate is for another name: … | use the host name the certificate is for in the conn URL; with --via the server on the path looks the name up (its /etc/hosts applies) |
 | `REGISTRY_UNREACHABLE` | 4 | the registry did not answer (address, TLS or --via path) | check the conn with `komando test NAME` |
@@ -302,3 +302,17 @@ This page is made from the code (`komando schema` lists the same under
 | `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); re-run with --write |
 | `WRONG_KIND` | 2 | … is a … URL, not one for `komando … add` | add it with `komando … add` (or `komando conn add`) |
 | `WRONG_PASSPHRASE` | 2 | that passphrase does not open the vault | nothing was changed; run it again and type the passphrase the vault has now |
+
+## Codes shared by several things
+
+These codes are given for more than one kind of item. `error.thing` says
+which one (it is left out for the other codes). A later contract gives
+each its own code; until then the code stays as it is.
+
+| Code | `error.thing` | Codes it will split into |
+|------|---------------|--------------------------|
+| `KEY_NOT_FOUND` | `ssh_key`, `cache_key` | SSH_KEY_NOT_FOUND, CACHE_KEY_NOT_FOUND |
+| `CONN_NOT_FOUND` | `conn`, `selector` | CONN_NOT_FOUND, TARGET_EMPTY |
+| `NOT_FOUND` | `swarm_service`, `swarm_stack`, `swarm_node`, `swarm_task`, `swarm_config`, `swarm_secret`, `swarm_network`, `docker_object`, `cache_info_section` | SWARM_SERVICE_NOT_FOUND, SWARM_STACK_NOT_FOUND, SWARM_OBJECT_NOT_FOUND, DOCKER_OBJECT_NOT_FOUND, CACHE_SECTION_NOT_FOUND |
+| `REGISTRY_NOT_FOUND` | `repository`, `image_tag` | REPOSITORY_NOT_FOUND, IMAGE_NOT_FOUND |
+| `K8S_NOT_FOUND` | `k8s_object`, `k8s_pod`, `k8s_container` | K8S_NOT_FOUND, K8S_POD_NOT_FOUND, K8S_CONTAINER_NOT_FOUND |

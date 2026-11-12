@@ -255,7 +255,7 @@ commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
 						return cacheSummary{Conn: c.Name, Summary: cachex.SummarizeFor(connKind(c), info)}, nil
 					}
 					if len(info) == 0 {
-						return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "this server has no such section; try `komando cache info CONN --all`", "INFO %s returned nothing", section)
+						return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "this server has no such section; try `komando cache info CONN --all`", "INFO %s returned nothing", section).About("cache_info_section")
 					}
 					return cacheInfo{Conn: c.Name, Info: info}, nil
 				})

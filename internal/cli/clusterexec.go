@@ -152,7 +152,7 @@ func runningPods(ctx context.Context, k *kube.Client, space, ref string) ([]stri
 		}
 	}
 	if len(running) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "K8S_NOT_FOUND", "check them with `komando cluster list TARGET pods`", "%s has no running pod", ref)
+		return nil, out.Errf(out.ExitNotFound, "K8S_NOT_FOUND", "check them with `komando cluster list TARGET pods`", "%s has no running pod", ref).About("k8s_pod")
 	}
 	return running, nil
 }

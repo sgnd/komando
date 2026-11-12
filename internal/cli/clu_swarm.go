@@ -324,7 +324,7 @@ func swarmDescribe(ctx context.Context, t clusterTarget, name string) (any, erro
 	p := swarmSections(s, 3)
 	ins := jsonLines(p[0])
 	if len(ins) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list the services with `komando cluster list "+t.host.Name+" services`", "service %s not found", name)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list the services with `komando cluster list "+t.host.Name+" services`", "no service named %q", name).About("swarm_service")
 	}
 	ready := ""
 	for _, l := range jsonLines(p[2]) {
@@ -409,7 +409,7 @@ func swarmGet(ctx context.Context, t clusterTarget, typ, name string) (any, erro
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando cluster list TARGET "+kind+"s`", "%s %s not found", kind, name)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando cluster list TARGET "+kind+"s`", "no %s named %q", kind, name).About("swarm_" + kind)
 	}
 	return rows[0], nil
 }
@@ -539,7 +539,7 @@ func swarmInspect(ctx context.Context, t clusterTarget, service string) (map[str
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list services with `komando cluster list TARGET services`", "service %s not found", service)
+		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list services with `komando cluster list TARGET services`", "no service named %q", service).About("swarm_service")
 	}
 	return rows[0], nil
 }
@@ -713,7 +713,7 @@ func swarmStackExists(ctx context.Context, t clusterTarget, stack string) error 
 		return err
 	}
 	if strings.TrimSpace(s) == "" {
-		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list the stacks with `komando cluster list "+t.host.Name+" stacks`", "stack %s not found", stack)
+		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list the stacks with `komando cluster list "+t.host.Name+" stacks`", "no stack named %q", stack).About("swarm_stack")
 	}
 	return nil
 }

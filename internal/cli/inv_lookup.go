@@ -170,7 +170,7 @@ func rmConns(s *store.State, args []string) ([]*store.Conn, error) {
 				return nil, err
 			}
 			if cs = sel.Conns; len(cs) == 0 {
-				return nil, out.Errf(out.ExitNotFound, "CONN_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no conns", a)
+				return nil, out.Errf(out.ExitNotFound, "CONN_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no conns", a).About("selector")
 			}
 		}
 		for _, c := range cs {

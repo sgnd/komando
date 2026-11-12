@@ -176,12 +176,13 @@ func registryTLS(t driver.Target) (registry.TLS, error) {
 func registryErr(err error) error {
 	if e, ok := err.(*registry.Error); ok {
 		code, exit := "REGISTRY_ERROR", out.ExitRemote
-		hint := ""
+		hint, thing := "", ""
 		switch e.Status {
 		case 401, 403:
 			code, exit, hint = "REGISTRY_AUTH", out.ExitConnect, "check the user in the conn URL and its --password-ref (a token with the right scopes)"
 		case 404:
 			code, exit = "REGISTRY_NOT_FOUND", out.ExitNotFound
+			thing = "repository"
 		case 405:
 			code, hint = "REGISTRY_UNSUPPORTED", "this registry does not allow it (Docker Hub and GHCR have no catalog; deletes may be turned off)"
 		case 429:
@@ -191,7 +192,7 @@ func registryErr(err error) error {
 			}
 			hint += ", or log in: put the user in the conn URL and give --password-ref"
 		}
-		return out.Errf(exit, code, hint, "%s", e.Error())
+		return out.Errf(exit, code, hint, "%s", e.Error()).About(thing)
 	}
 	if _, ok := err.(*out.Error); ok {
 		return err
@@ -665,18 +666,18 @@ func imageErr(ctx context.Context, r *registry.Client, repo, ref string, err err
 	hint := "list the repositories with `komando registry list CONN`"
 	tags, terr := r.Tags(ctx, repo, 50)
 	if terr != nil || ref == "" {
-		return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", hint, "repository %s not found", repo)
+		return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", hint, "no repository named %q", repo).About("repository")
 	}
 	name := repo + refSep(ref) + ref
 	if len(tags) == 0 {
-		return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", hint, "%s not found; the repository has no tags", name)
+		return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", hint, "%s not found; the repository has no tags", name).About("image_tag")
 	}
 	more := ""
 	if len(tags) == 50 {
 		more = ", ..."
 	}
 	return out.Errf(out.ExitNotFound, "REGISTRY_NOT_FOUND", "list the tags with `komando registry list CONN "+repo+"`",
-		"%s not found; tags: %s%s", name, strings.Join(tags, ", "), more)
+		"%s not found; tags: %s%s", name, strings.Join(tags, ", "), more).About("image_tag")
 }
 
 // inspectData is `registry inspect`; a person reads the size in MB.
