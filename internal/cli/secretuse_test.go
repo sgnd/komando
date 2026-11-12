@@ -49,6 +49,7 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	texts := windowText(t, true)
 	// the stop comes before komando connects
 	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--content", "DB={{secret:db-pass}}")
+	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--value", "DB={{secret:db-pass}}") // the synonym: the same stop
 	wantCode(t, "SECRET_DESTINATION", "fs", "replace", "web1", "/etc/app.env", "--old", "DB=[hidden]", "--new", "DB={{secret:db-pass}}")
 	wantCode(t, "RESERVED_SECRET", "fs", "write", "web1", "/etc/app.env", "--content", "{{secret:"+approvalSecret+"}}")
 	if _, err := expandSecretRefs("DB={{secret:db-pass}}", "web1:/etc/app.env", false); toErr(err).Code != "SECRET_DESTINATION" || toErr(err).Exit != out.ExitPolicy {

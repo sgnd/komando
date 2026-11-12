@@ -29,6 +29,7 @@ var flagRenames = []struct {
 	{[]string{"recipe", "add"}, "needs-sudo", "sudo", false},
 	{[]string{"rename"}, "starts-with", "prefix", false},
 	{[]string{"policy", "check"}, "conn-kind", "for", false},
+	{[]string{"fs", "write"}, "content", "value", true},
 	{[]string{"vpn", "add"}, "proxy-address", "address", false},
 	{[]string{"vpn", "edit"}, "proxy-address", "address", false},
 	{[]string{"rename"}, "in-notes", "notes", false},

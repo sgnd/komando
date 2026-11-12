@@ -384,7 +384,7 @@ func fsWriteCmd() *cobra.Command {
   komando fs write web1 /srv/app/config.yml --from ./config.yml --if-changed`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := fsWriteInput(cmd.Flags().Changed("content"), content, from)
+			data, err := fsWriteInput(flagChanged(cmd, "content"), content, from)
 			if err != nil {
 				return err
 			}
@@ -456,6 +456,7 @@ func fsWriteCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&content, "content", "", "the content, written as given")
+	flagAlias(c, "value", "content") // a permanent synonym
 	c.Flags().StringVar(&from, "from", "", "file on this computer to send ('-' = stdin)")
 	c.Flags().BoolVar(&appendMode, "append", false, "add to the end instead of replacing the file")
 	c.Flags().BoolVar(&ifChanged, "if-changed", false, "skip the write when the content is the same (safe to run again)")

@@ -9,6 +9,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `fs write --value TEXT` works as another name for `--content`.
 - `komando rename OLD NEW` renames one entry of any kind: the server,
   conn, VPN, secret, key or group named OLD, through that kind's own
   rename (same checks, same envelope, e.g. `host.mv`). When two kinds
