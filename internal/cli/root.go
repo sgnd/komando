@@ -568,6 +568,7 @@ func newRoot() *cobra.Command {
 	durVar(pf, &g.connectTimeout, "connect-timeout", 0, "time to connect, e.g. 30s (default: setting connect_timeout, 15s)")
 	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting parallel, 10)")
 	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting host_key_policy, accept-new)")
+	g.maxOutput = 0
 	pf.Var(&bytesFlag{i: &g.maxOutput}, "max-output", "bytes kept per stream per server, e.g. 1MiB (default: setting max_output_bytes, 256KiB)")
 	for flag, key := range map[string]string{"timeout": "default_timeout", "connect-timeout": "connect_timeout", "parallel": "parallel", "host-key-policy": "host_key_policy", "max-output": "max_output_bytes"} {
 		_ = pf.SetAnnotation(flag, defaultFrom, []string{"setting:" + key})

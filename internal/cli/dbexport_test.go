@@ -165,7 +165,7 @@ func TestDBHelpTimeout(t *testing.T) {
 		var b bytes.Buffer
 		c.SetOut(&b)
 		_ = c.Help()
-		want := map[bool]string{true: "default 30s", false: "default: setting, 5m"}[path[1] != "dump"]
+		want := map[bool]string{true: "default 30s", false: "default: setting default_timeout, 5m"}[path[1] != "dump"]
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("%v help: no %q in\n%s", path, want, b.String())
 		}
