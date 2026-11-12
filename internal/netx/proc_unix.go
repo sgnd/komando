@@ -6,6 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -26,4 +30,16 @@ func Terminate(pid int) error {
 		return fmt.Errorf("refusing to signal pid %d", pid)
 	}
 	return syscall.Kill(pid, syscall.SIGTERM)
+}
+
+// programName is the file name of the program pid runs: Linux's
+// /proc/PID/comm (no ps needed in small images), else ps.
+func programName(pid int) (string, error) {
+	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/comm")
+	if err != nil {
+		if b, err = exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output(); err != nil {
+			return "", err
+		}
+	}
+	return filepath.Base(strings.TrimSpace(string(b))), nil
 }

@@ -15,10 +15,8 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
+	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -120,19 +118,22 @@ func isProgram(pid int, exe string) bool {
 	if exe == "" {
 		return true
 	}
-	// Linux: /proc/PID/comm (no ps needed in small images); others: ps
-	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/comm")
-	if err != nil {
-		if b, err = exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output(); err != nil {
-			return false
-		}
+	name, err := programName(pid)
+	return err == nil && sameProgram(name, exe, runtime.GOOS == "windows")
+}
+
+// sameProgram reports whether name, the file name the system gives a
+// running process, is the program exe. Linux shortens a process's name to
+// 15 characters, so only that much of exe has to match; Windows file names
+// do not care about case (fold).
+func sameProgram(name, exe string, fold bool) bool {
+	if len(exe) > 15 {
+		exe = exe[:15]
 	}
-	name := filepath.Base(strings.TrimSpace(string(b)))
-	want := exe
-	if len(want) > 15 { // Linux shortens comm to 15 characters
-		want = want[:15]
+	if fold {
+		name, exe = strings.ToLower(name), strings.ToLower(exe)
 	}
-	return name != "" && strings.HasPrefix(name, want)
+	return name != "" && strings.HasPrefix(name, exe)
 }
 
 // ReapIdle closes sessions unused for longer than vpn_idle. It runs at
