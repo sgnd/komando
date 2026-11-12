@@ -55,6 +55,10 @@ its highlights; the sections below them give the details. Versions follow
 - Ctrl-C ends `logs --follow` (and `svc logs`, `docker logs -f`) cleanly
   with exit 0 and the lines so far, as `--timeout` does, instead of an
   `interrupted` error with exit 1.
+- `pkg upgradable` reads the package index as root when sudo needs no
+  password, like `facts` and `pkg security`, so all three agree. On dnf and
+  yum the login user's own cache could list other updates (48 against 4
+  on Rocky 9).
 
 ## [0.12.0] - 2026-11-11
 

@@ -365,6 +365,12 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 			}})
 	case "upgradable":
 		command := "ACTION=upgradable PKGS=" + q + "; " + pkgShell
+		if !sudo {
+			// as root when sudo needs no password, like facts and pkg
+			// security: dnf and yum keep a cache per user, and the login
+			// user's own can list other updates than the system's
+			command = `if [ "$(id -u)" != 0 ] && sudo -n true 2>/dev/null; then exec sudo -n sh -c ` + sshx.Q(command) + "; fi\n" + command
+		}
 		if refresh {
 			command = "ACTION=update PKGS=''; (" + pkgShell + ") >/dev/null; " + command
 		}

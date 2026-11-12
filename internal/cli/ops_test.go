@@ -715,3 +715,17 @@ func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
 		t.Fatalf("Ctrl-C on a follow: %v", err)
 	}
 }
+
+// pkg upgradable reads the system's package index (as root when sudo needs
+// no password), like facts and pkg security: dnf keeps a cache per user,
+// and the login user's own listed 48 updates where root's listed 4.
+func TestPkgUpgradableReadsAsRootWhenItCan(t *testing.T) {
+	store.DryRun = false
+	s := startFakeServer(t)
+	s.reply("")
+	_ = runRoot(t, "-o", "json", "pkg", "upgradable", "dev")
+	ex := s.take()
+	if len(ex) == 0 || !strings.Contains(ex[0].cmd, `sudo -n true 2>/dev/null; then exec sudo -n sh -c `) {
+		t.Fatalf("upgradable: %v", ex)
+	}
+}
