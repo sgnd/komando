@@ -258,6 +258,9 @@ Values that are not UTF-8 text are shown as base64.`,
 			o := queuex.PeekOptions{Topic: args[1], Limit: limit, Oldest: oldest, Partition: int32(partition), Wait: wait}
 			return withQueue(cmd.Context(), "queue.peek", args[0], driver.Verdict{}, map[string]any{"topic": args[1], "limit": limit},
 				func(st *store.State, c *store.Conn, q queuex.Queue) (any, error) {
+					if cmd.Flags().Changed("wait") && c.Kind != "kafka" {
+						return nil, queuex.NotSupported("--wait", c.Kind, "only a Kafka peek waits for messages to arrive; drop --wait")
+					}
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
 					o.MaxBytes = maxOutput(st)

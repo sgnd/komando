@@ -17,6 +17,8 @@ its highlights; the sections below them give the details. Versions follow
   streams, the first by name, and marks a longer list `"truncated": true`
   with a hint to narrow it. On SQS and Kafka it no longer reads every
   queue's counts first, so a big account answers within the time limit.
+- `queue peek --wait` on RabbitMQ, NATS, SQS or Pub/Sub is refused
+  (`NOT_SUPPORTED`) instead of being ignored: only a Kafka peek waits.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like

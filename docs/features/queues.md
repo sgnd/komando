@@ -103,7 +103,8 @@ komando queue peek events orders --oldest -n 5   # the first ones still kept
 group and never commits an offset, so no application's position moves
 and no message is removed. It stops once it has the messages that were
 there when it started; if nothing comes for `--wait` (5 seconds), it stops
-and says some may be missing.
+and says some may be missing. `--wait` is for Kafka only; the other kinds
+refuse it (`NOT_SUPPORTED`).
 
 - Values that are UTF-8 text are shown as they are; others come as base64
   (`"encoding": "base64"`). A value longer than `max_output` is cut
