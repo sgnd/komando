@@ -559,3 +559,30 @@ func TestSudoProblem(t *testing.T) {
 		t.Errorf("a group names NAME: %q", e.Hint)
 	}
 }
+
+// pkg rm is pkg.rm everywhere (envelope, audit, Windows refusal), not the
+// package managers' "remove", and a missing package is the usual usage
+// error that names the Use line.
+func TestPkgRmIsPkgRm(t *testing.T) {
+	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
+		st.Hosts["win1"] = &store.Host{Name: "win1", Address: "10.255.255.4", User: "admin", OS: "windows"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { g.dryRun = false }()
+	o := captureOutput(t, func() error { return runRoot(t, "-o", "json", "--dry-run", "pkg", "rm", "web1", "telnet") })
+	if !strings.Contains(o, `"command":"pkg.rm"`) || !strings.Contains(o, `"remote_command":"pkg rm telnet"`) {
+		t.Errorf("dry run: %s", o)
+	}
+	g.dryRun = false
+	if e := toErr(runRoot(t, "-o", "json", "pkg", "rm", "win1", "telnet")); e == nil || !strings.Contains(e.Message, "pkg rm does not work on Windows") {
+		t.Errorf("windows: %v", e)
+	}
+	if e := toErr(runRoot(t, "-o", "json", "pkg", "install", "web1")); e == nil || !strings.Contains(e.Error(), "accepts at least 2 arg") && !strings.Contains(e.Error(), "requires at least 2 arg") {
+		t.Errorf("missing package: %v", e)
+	}
+}

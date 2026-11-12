@@ -28,6 +28,10 @@ its highlights; the sections below them give the details. Versions follow
   `recipe` alone now show the usual journey as examples. Examples, form
   hints and docs write times as `30m` (not `-30m`), as komando takes them
   everywhere; `user rm` shows a `--dry-run` first.
+- `pkg rm` reports itself as `pkg.rm` in JSON, the audit log, dry runs and
+  the Windows refusal (it said `pkg.remove` / `pkg remove`), and `pkg`
+  commands given no package give the usual `missing arguments; usage: ...`
+  error.
 
 ## [0.12.0] - 2026-11-11
 

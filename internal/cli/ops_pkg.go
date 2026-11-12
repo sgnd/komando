@@ -335,7 +335,12 @@ func pkgSimulateResult(rr *sshx.RunResult) (any, *out.Error) {
 
 // runPkg runs the pkg actions komando reads the result of.
 func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, refresh bool) error {
-	display := strings.TrimSpace("pkg " + action + " " + strings.Join(pkgs, " "))
+	// the package managers call it remove; the command is pkg rm
+	verb := map[string]string{"remove": "rm"}[action]
+	if verb == "" {
+		verb = action
+	}
+	display := strings.TrimSpace("pkg " + verb + " " + strings.Join(pkgs, " "))
 	q := sshx.Q(strings.Join(pkgs, " "))
 	switch action {
 	case "installed":
@@ -367,7 +372,7 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 			parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgUpgradableResult(rr, refresh) },
 			text:  pkgUpgradableText})
 	}
-	spec := opsSpec{name: "pkg." + action, target: target, command: pkgChangeScript(action, pkgs, action == "remove" && !dangerOK()), display: display, sudo: sudo, mutating: true,
+	spec := opsSpec{name: "pkg." + verb, target: target, command: pkgChangeScript(action, pkgs, action == "remove" && !dangerOK()), display: display, sudo: sudo, mutating: true,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgChangeResult(action, pkgs, rr) },
 		text:  pkgChangeText}
 	if action == "upgrade" && g.dryRun {
