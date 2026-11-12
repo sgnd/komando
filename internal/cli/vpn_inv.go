@@ -376,7 +376,7 @@ func vpnRmCmd() *cobra.Command {
 				out.P.Print("vpn.rm", map[string]any{"would_remove": one()}, nil)
 				return nil
 			}
-			unused, err := vpnRemove(check, &names)
+			unused, warnings, err := vpnRemove(check, &names)
 			if err != nil {
 				return err
 			}
@@ -384,6 +384,9 @@ func vpnRmCmd() *cobra.Command {
 			res := map[string]any{"removed": one()} // one VPN stays a string, so scripts that read it keep working
 			if len(unused) > 0 {
 				res["secrets_unused"] = unused
+			}
+			if len(warnings) > 0 {
+				res["warnings"] = warnings
 			}
 			out.P.Print("vpn.rm", textAs{res, rmResult{Removed: names, SecretsUnused: unused}}, nil)
 			return nil
@@ -393,7 +396,8 @@ func vpnRmCmd() *cobra.Command {
 
 // vpnRemove takes the VPNs check picks out of the state (disconnecting
 // any that is up) and says which of their vault secrets nothing uses now.
-func vpnRemove(check func(*store.State) error, names *[]string) (unused []string, err error) {
+func vpnRemove(check func(*store.State) error, names *[]string) (unused, warnings []string, err error) {
+	var gone []*store.Vpn
 	err = store.Update(func(s *store.State) error {
 		if err := check(s); err != nil {
 			return err
@@ -402,6 +406,7 @@ func vpnRemove(check func(*store.State) error, names *[]string) (unused []string
 		for _, name := range *names {
 			v := s.Vpns[name]
 			refs = append(refs, v.KeyRef, v.PSKRef, v.ConfigRef)
+			gone = append(gone, v)
 			if sess := s.Sessions[name]; sess != nil {
 				if err := netx.StopSession(sess); err != nil {
 					return out.Errf(out.ExitError, "VPN_STOP_FAILED", "disconnect it first with `komando vpn down "+name+"`", "%v", err)
@@ -413,7 +418,19 @@ func vpnRemove(check func(*store.State) error, names *[]string) (unused []string
 		unused = unusedSecrets(s, refs)
 		return nil
 	})
-	return unused, err
+	if err != nil {
+		return nil, nil, err
+	}
+	// a Tailscale node's keys go with it: a VPN added later under the same
+	// name must not join as the old node
+	for _, v := range gone {
+		if v.Kind == "tailscale" {
+			if ferr := netx.ForgetTailscale(v); ferr != nil {
+				warnings = append(warnings, fmt.Sprintf("the Tailscale node state of %s could not be removed: %v", v.Name, ferr))
+			}
+		}
+	}
+	return unused, warnings, nil
 }
 
 // vpnUnusedFlags refuses a vpn add flag the kind does not use.

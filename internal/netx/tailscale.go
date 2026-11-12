@@ -16,10 +16,11 @@ import (
 
 // Tailscale and Headscale run inside komando (tsnet, Tailscale's own Go
 // library) in user-space mode: no tailscaled, no admin rights, and the
-// computer's network is not changed. The node's state lives in
-// ~/.komando/vpn/NAME-tailscale.
+// computer's network is not changed. The node's state (its keys) is sealed
+// in the store (tailscale_state.go); ~/.komando/vpn/NAME-tailscale holds
+// only tsnet's other files.
 
-// TailscaleDir is where the VPN's node keys and state are kept.
+// TailscaleDir is tsnet's folder for the VPN (no keys: see sealedTSState).
 func TailscaleDir(v *store.Vpn) string { return store.Path("vpn", v.Name+"-tailscale") }
 
 func newTailscale(v *store.Vpn) (*tsnet.Server, error) {
@@ -33,9 +34,13 @@ func newTailscale(v *store.Vpn) (*tsnet.Server, error) {
 	if err := os.MkdirAll(TailscaleDir(v), 0o700); err != nil {
 		return nil, err
 	}
+	if err := adoptTSStateFile(v); err != nil {
+		return nil, err
+	}
 	quiet := func(string, ...any) {}
 	return &tsnet.Server{
 		Dir:        TailscaleDir(v),
+		Store:      &sealedTSState{id: tsStateID(v)},
 		Hostname:   "komando-" + v.Name,
 		AuthKey:    key,
 		ControlURL: v.Server, // "" is Tailscale's own

@@ -184,11 +184,10 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 	if watch != nil {
 		w = io.MultiWriter(tmp, h, watch)
 	}
-	n, err = io.Copy(storex.CtxWriter(ctx, w), in)
-	if err == nil && out.P.Mask && !revealOK() {
-		if masked, err = maskDownload(tmp, n); masked {
-			n, _ = tmp.Seek(0, io.SeekEnd)
-		}
+	if out.P.Mask && !revealOK() {
+		n, masked, err = fetchMasked(ctx, in, tmp, h, watch)
+	} else {
+		n, err = io.Copy(storex.CtxWriter(ctx, w), in)
 	}
 	if err == nil {
 		err = tmp.Chmod(perm | 0o200)
@@ -216,28 +215,40 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 	return n, hex.EncodeToString(h.Sum(nil)), false, nil
 }
 
-// maskDownload rewrites f (n bytes) with the secret values hidden, if it is
-// text komando can read whole (not binary, at most hiddenScanMax).
-func maskDownload(f *os.File, n int64) (bool, error) {
-	if n == 0 || n > hiddenScanMax {
-		return false, nil
+// fetchMasked saves in to tmp for an AI agent. A text file komando can
+// read whole is masked in memory, so its real secret values never reach
+// the disk, not even for a moment in the temporary file. A binary or
+// larger file cannot be masked; it is stopped when it holds a vault value.
+func fetchMasked(ctx context.Context, in io.Reader, tmp *os.File, h io.Writer, watch io.Writer) (int64, bool, error) {
+	seen := io.Writer(h)
+	if watch != nil {
+		seen = io.MultiWriter(h, watch)
 	}
-	b := make([]byte, n)
-	if _, err := f.ReadAt(b, 0); err != nil {
-		return false, err
+	var head bytes.Buffer
+	n, err := io.Copy(storex.CtxWriter(ctx, io.MultiWriter(&head, seen)), io.LimitReader(in, hiddenScanMax+1))
+	if err != nil {
+		return 0, false, err
 	}
-	if bytes.IndexByte(b, 0) >= 0 {
-		return false, nil
+	b := head.Bytes()
+	if n <= hiddenScanMax && bytes.IndexByte(b, 0) < 0 {
+		m := out.P.Redact(string(b))
+		if _, err := tmp.WriteString(m); err != nil {
+			return 0, false, err
+		}
+		return int64(len(m)), m != string(b), nil
 	}
-	m := out.P.Redact(string(b))
-	if m == string(b) {
-		return false, nil
+	sc := out.P.NewValueScanner()
+	_, _ = sc.Write(b)
+	if _, err := tmp.Write(b); err != nil {
+		return 0, false, err
 	}
-	if err := f.Truncate(0); err != nil {
-		return false, err
+	rest, err := io.Copy(storex.CtxWriter(ctx, io.MultiWriter(tmp, seen, sc)), in)
+	if err == nil && sc.Found() {
+		err = out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+			revealHint("it is binary or larger than komando reads whole, so its secrets cannot be shown as [hidden]; if the user wants the real file on this computer, re-run with --reveal"),
+			"the file holds a value from komando's vault; komando does not copy it to this computer for an AI agent")
 	}
-	_, err := f.WriteAt([]byte(m), 0)
-	return true, err
+	return n + rest, false, err
 }
 
 func count(b bool) int {

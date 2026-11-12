@@ -249,9 +249,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 				sb.WriteString("if getent group sudo >/dev/null; then usermod -aG sudo " + q + "; else usermod -aG wheel " + q + "; fi; ")
 			}
 			if pubKey != "" {
-				sb.WriteString("h=$(getent passwd " + q + " | cut -d: -f6); install -d -m 700 -o " + q + " -g $(id -gn " + q + ") \"$h/.ssh\"; touch \"$h/.ssh/authorized_keys\"; " +
-					"grep -qF " + sshx.Q(pubKey) + " \"$h/.ssh/authorized_keys\" || printf '%s\\n' " + sshx.Q(pubKey) + " >> \"$h/.ssh/authorized_keys\"; " +
-					"chown " + q + ": \"$h/.ssh/authorized_keys\"; chmod 600 \"$h/.ssh/authorized_keys\"; ")
+				sb.WriteString(userKeyScript(u, pubKey))
 			}
 			sb.WriteString("id " + q)
 			shown := "user add " + u
@@ -273,6 +271,31 @@ state is read through sudo; with --no-sudo it is left out.`,
 	lock, unlock := userLockCmds(&noSudo)
 	c.AddCommand(list, add, lock, unlock, userRmCmd(&noSudo))
 	return c
+}
+
+// userKeyScript authorizes pubKey for user u. It runs as root, in a home
+// the user owns: root only makes ~/.ssh when the user cannot (mkdir and
+// chown -h, neither follows a link), and the key file is written as the
+// user (su), so a link the user planted at ~/.ssh or authorized_keys
+// (to /etc/shadow, say) gets nothing written or chowned by root.
+func userKeyScript(u, pubKey string) string {
+	q := sshx.Q(u)
+	asUser := `umask 077; mkdir -p "$1/.ssh" && touch "$1/.ssh/authorized_keys" && ` +
+		`{ grep -qF -- "$2" "$1/.ssh/authorized_keys" || printf '%s\n' "$2" >> "$1/.ssh/authorized_keys"; } && ` +
+		`chmod 700 "$1/.ssh" && chmod 600 "$1/.ssh/authorized_keys"`
+	// as the user: su from root, or sh when komando is that user already
+	return asUserFunc(q) +
+		"h=$(getent passwd " + q + " | cut -d: -f6); " +
+		"ku 'mkdir -m 700 -p \"$1/.ssh\"' sh \"$h\" 2>/dev/null || true; " +
+		"[ -e \"$h/.ssh\" ] || [ -L \"$h/.ssh\" ] || { mkdir -m 700 \"$h/.ssh\" && chown -h " + q + ":$(id -gn " + q + ") \"$h/.ssh\"; }; " +
+		"ku " + sshx.Q(asUser) + " sh \"$h\" " + sshx.Q(pubKey) + "; "
+}
+
+// asUserFunc defines ku, which runs `ku SCRIPT ARG0 ARGS...` as the user
+// q (already quoted): through su from root, or sh when komando logged in
+// as that user.
+func asUserFunc(q string) string {
+	return "ku() { if [ \"$(id -un)\" = " + q + " ]; then sh -c \"$@\"; else su -s /bin/sh " + q + " -c \"$@\"; fi; }; "
 }
 
 func userRmCmd(noSudo *bool) *cobra.Command {

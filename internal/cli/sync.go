@@ -156,9 +156,10 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	}
 	defer os.Remove(tmp.Name())
 	// the destination watches ctx: an SFTP source keeps reading in parallel
-	n, err := io.Copy(storex.CtxWriter(ctx, tmp), r)
-	if err == nil && out.P.Mask && !revealOK() {
-		_, err = maskDownload(tmp, n) // as download does: secret values as [hidden]
+	if out.P.Mask && !revealOK() {
+		_, _, err = fetchMasked(ctx, r, tmp, io.Discard, nil) // as download does: secret values as [hidden]
+	} else {
+		_, err = io.Copy(storex.CtxWriter(ctx, tmp), r)
 	}
 	mode := f.Mode
 	if mode == 0 {

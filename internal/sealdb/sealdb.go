@@ -10,6 +10,8 @@
 // lock at its start (BEGIN IMMEDIATE) and waits up to BusyTimeout when
 // another writer holds it. The rollback journal keeps the store one file,
 // and every commit is flushed fully to disk (F_FULLFSYNC on macOS).
+// Freed space is zeroed (secure_delete), so a deleted record or one sealed
+// under an old key leaves no copy in the file.
 //
 // The deletion marker and the change time are also inside the seal, so
 // editing those columns makes the row fail to open. Audit entries are bound
@@ -165,6 +167,10 @@ func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
 		"synchronous(FULL)",
 		"fullfsync(ON)",
 		"foreign_keys(ON)",
+		// a deleted record, or one sealed again under a new key, is
+		// overwritten with zeros, not left in free space where the old
+		// key (a leaked key file, the reason for a new one) opens it
+		"secure_delete(ON)",
 	} {
 		q.Add("_pragma", p)
 	}

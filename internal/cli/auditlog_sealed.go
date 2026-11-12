@@ -85,7 +85,7 @@ func eachAuditAfter(after int64, fn func(n int, rec []byte) error) error {
 }
 
 func verifySealedAudit() (auditCheck, error) {
-	r := auditCheck{OK: true, Note: "every record is sealed and numbered; an edited, moved or removed record would stop the check (a cut-off end would not)"}
+	r := auditCheck{OK: true, Note: "every record is sealed and numbered; an edited, moved or removed record, or records cut from the end, would stop the check"}
 	last := 0
 	err := eachAudit(func(n int, _ []byte) error {
 		r.Entries++

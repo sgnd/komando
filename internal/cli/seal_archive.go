@@ -176,7 +176,7 @@ func replaceOldFiles(o *oldFolder) []string {
 		case filepath.Dir(rel) == "keys" && !moved[rel]:
 			continue
 		case rel == "runtime.json":
-			if err := store.UpdateRuntime(func(*store.State) error { return nil }); err != nil {
+			if err := store.SealPlainRuntime(); err != nil {
 				left = append(left, rel+": "+err.Error())
 			}
 			continue

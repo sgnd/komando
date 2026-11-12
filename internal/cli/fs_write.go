@@ -92,7 +92,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		if o.noFollow {
 			sb.WriteString(`if [ -L "$p" ]; then rm -f ` + sshx.Q(tmp) + `; exit 95; fi; `)
 		} else {
-			sb.WriteString(`if [ -L "$p" ]; then p=$(readlink -f -- "$p"); fi; `)
+			sb.WriteString(sudoFollowScript(sshx.Q(tmp)))
 		}
 		if o.mkdirs {
 			sb.WriteString(`mkdir -p "$(dirname -- "$p")"; `)
@@ -137,7 +137,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		case r.ExitCode == 97 && o.validate != "":
 			return nil, validateFailed(r.Stderr)
 		case r.ExitCode == 95:
-			return nil, isASymlink(p)
+			return nil, linkStop(p, o.noFollow)
 		case r.ExitCode == 94 && o.backup:
 			return nil, backupFailed(p, r.Stderr)
 		case r.ExitCode == 96:
@@ -515,4 +515,18 @@ func bindWriteOpts(c *cobra.Command, o *writeOpts) {
 	c.Flags().StringVar(&o.owner, "owner", "", "owner[:group] (needs --sudo)")
 	c.Flags().StringVar(&o.validate, "validate", "", "check the new file before it goes into place; %s is its path (e.g. 'visudo -cf %s', 'nginx -t -c %s')")
 	c.Flags().BoolVar(&o.noFollow, "no-follow", false, "refuse to write through a symbolic link (by default the file it points to is written and the link stays)")
+}
+
+// sudoFollowScript follows a link at $p for a write as root
+// (sites-enabled -> sites-available), so the link stays a link. Only a
+// link root made is followed, into a folder root owns: a link another
+// user planted (an app's .env -> /etc/sudoers.d/x) would have root write
+// a file of that user's choosing. Such a link stops with exit 95.
+func sudoFollowScript(tmpQ string) string {
+	stop := "{ rm -f " + tmpQ + "; exit 95; }"
+	return `if [ -L "$p" ]; then q="$p"; i=0; while [ -L "$q" ]; do ` +
+		`[ "$(stat -c %u -- "$q")" = 0 ] || ` + stop + `; ` +
+		`t=$(readlink -- "$q"); case $t in /*) q=$t;; *) q=$(dirname -- "$q")/$t;; esac; ` +
+		`i=$((i+1)); [ "$i" -lt 40 ] || ` + stop + `; done; ` +
+		`p=$(readlink -f -- "$p"); [ "$(stat -c %u -- "$(dirname -- "$p")")" = 0 ] || ` + stop + `; fi; `
 }
