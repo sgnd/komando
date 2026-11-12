@@ -58,15 +58,15 @@ log in, it exits 4, except when the server does not answer within
 timeouts.
 
 With `-o text`, one server prints like `ssh`: its output, its errors, and a
-closing `error [FAILED]: server web1 failed (exit 3)` when it fails. Several servers
+closing `Error: server web1 failed (exit 3)` when it fails. Several servers
 get a block each:
 
 ```text
-=== web1 [ok exit=0]
+=== web1 [ok, exit 0]
 active
-=== web2 [FAILED exit=3]
+=== web2 [failed: exit 3]
 [stderr] inactive
-error [PARTIAL_FAILURE]: 1 of 2 failed: web2 (exit 3)
+Error: 1 of 2 failed: web2 (exit 3)
 ```
 
 With `--fail-fast`, servers that never started are reported as skipped, not

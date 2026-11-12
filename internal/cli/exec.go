@@ -63,9 +63,9 @@ func (d execData) Text() string {
 			}
 		}
 		if r.Error != nil && multi && r.Error.Code != "SKIPPED" {
-			fmt.Fprintf(&sb, "error [%s]: %s\n", r.Error.Code, r.Error.Message)
+			fmt.Fprintf(&sb, "  Error: %s (code %s)\n", r.Error.Message, r.Error.Code)
 			if r.Error.Hint != "" {
-				fmt.Fprintf(&sb, "hint: %s\n", r.Error.Hint)
+				fmt.Fprintf(&sb, "  Hint: %s\n", r.Error.Hint)
 			}
 		}
 	}
@@ -77,19 +77,19 @@ func hostStatus(r execHostResult) string {
 	case r.Error != nil && r.Error.Code == "SKIPPED":
 		return "skipped"
 	case r.OK && r.RunResult != nil:
-		return fmt.Sprintf("ok exit=%d", r.ExitCode)
+		return fmt.Sprintf("ok, exit %d", r.ExitCode)
 	case r.OK:
 		return "ok"
 	case r.Error != nil && r.Error.Code == "CONNECTION_LOST":
-		return "FAILED connection lost, outcome unknown"
+		return "failed: connection lost, outcome unknown"
 	case r.RunResult != nil && r.TimedOut:
-		return "FAILED timed out"
+		return "failed: timed out"
 	case r.RunResult != nil:
-		return fmt.Sprintf("FAILED exit=%d", r.ExitCode)
+		return fmt.Sprintf("failed: exit %d", r.ExitCode)
 	case r.Error != nil:
-		return "FAILED " + failReason(0, r.Error)
+		return "failed: " + failReason(0, r.Error)
 	}
-	return "FAILED"
+	return "failed"
 }
 
 type execOpts struct {

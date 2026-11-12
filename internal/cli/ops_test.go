@@ -321,7 +321,7 @@ func TestCronParsing(t *testing.T) {
 func TestRunOpsTextBlocks(t *testing.T) {
 	d := opsData{Results: []opsRow{{Host: "a", OK: true, text: "x\n"}, {Host: "b", Stderr: "boom"}}, Summary: fleetSummary{Total: 2, OK: 1, Failed: 1}}
 	s := d.Text()
-	if !strings.Contains(s, "● a  ok\n  x\n") || !strings.Contains(s, "● b  FAILED\n  | boom\n") {
+	if !strings.Contains(s, "● a  ok\n  x\n") || !strings.Contains(s, "● b  failed\n  | boom\n") {
 		t.Fatalf("text:\n%s", s)
 	}
 	if strings.TrimSpace(sections("junk\n#komando:a\n1\n#komando:b\n2\n")["b"]) != "2" || marker("x\n#komando:no-user\n") != "no-user" {

@@ -74,7 +74,7 @@ func (d opsData) Text() string {
 		if multi {
 			status := "ok"
 			if !r.OK {
-				status = "FAILED"
+				status = "failed"
 			}
 			fmt.Fprintf(&sb, "● %s  %s\n", r.Host, status)
 			indent = "  "
@@ -102,9 +102,9 @@ func (d opsData) Text() string {
 			}
 		}
 		if r.Error != nil && multi { // one server: the closing line says it once
-			fmt.Fprintf(&sb, "%serror [%s]: %s\n", indent, r.Error.Code, r.Error.Message)
+			fmt.Fprintf(&sb, "%sError: %s (code %s)\n", indent, r.Error.Message, r.Error.Code)
 			if r.Error.Hint != "" {
-				fmt.Fprintf(&sb, "%shint: %s\n", indent, r.Error.Hint)
+				fmt.Fprintf(&sb, "%sHint: %s\n", indent, r.Error.Hint)
 			}
 		}
 	}

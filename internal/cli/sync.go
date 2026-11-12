@@ -745,12 +745,12 @@ func (f syncFleet) Text() string {
 			}
 			e, _ := v["error"].(*out.Error)
 			if e == nil {
-				fmt.Fprintf(&sb, "● %v  FAILED\n", v["host"])
+				fmt.Fprintf(&sb, "● %v  failed\n", v["host"])
 				continue
 			}
-			fmt.Fprintf(&sb, "● %v  FAILED [%s] %s\n", v["host"], e.Code, e.Message)
+			fmt.Fprintf(&sb, "● %v  failed: %s (%s)\n", v["host"], e.Message, e.Code)
 			if e.Hint != "" {
-				sb.WriteString("  hint: " + e.Hint + "\n")
+				sb.WriteString("  Hint: " + e.Hint + "\n")
 			}
 		}
 	}

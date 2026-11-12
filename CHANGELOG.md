@@ -625,6 +625,11 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   in `komando login`. A no at `seal`, `seal --undo` and `doctor
   --accept-old-copy` says what stayed in the message and the command to
   run again in the hint (the hint said "nothing was changed in ...").
+- Status words in `-o text` are lower case: `ok, exit 0`, `failed: exit 3`,
+  `failed: timed out`, `failed: <why>` (were `ok exit=0`, `FAILED ...`),
+  `audit log broken at line N`, and a failed server's block in a
+  several-server result ends with `Error: <what> (code CODE)` and `Hint:`
+  (was `error [CODE]:` and `hint:`).
 
 ### Removed
 

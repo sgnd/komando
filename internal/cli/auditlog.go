@@ -42,7 +42,7 @@ func (a auditCheck) Text() string {
 	if a.OK {
 		return "audit log intact: " + strconv.Itoa(a.Entries) + " entries\n" + a.Note
 	}
-	return "audit log BROKEN at line " + strconv.Itoa(a.FirstBroken) + "\n" + a.Note
+	return "audit log broken at line " + strconv.Itoa(a.FirstBroken) + "\n" + a.Note
 }
 
 // verifyAudit checks the store's audit records (auditlog_sealed.go).

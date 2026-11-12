@@ -136,7 +136,7 @@ func (d prunePreviewData) Text() string {
 			b.WriteString("\n")
 		}
 		if r.Error != nil {
-			fmt.Fprintf(&b, "%s: error: %s\n", r.Host, r.Error.Message)
+			fmt.Fprintf(&b, "%s: failed: %s\n", r.Host, r.Error.Message)
 			continue
 		}
 		fmt.Fprintf(&b, "%s: %s would free about %s\n", r.Host, r.WouldRun, r.Total)

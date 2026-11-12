@@ -13,15 +13,15 @@ pulling `stdout` out of the JSON with python or jq:
 
 ```bash
 komando exec web1 --read-only -o text -- cat /etc/os-release   # the server's output as it is
-komando exec @web --read-only -o text -- uptime                # one "=== web1 [ok exit=0]" block per server
+komando exec @web --read-only -o text -- uptime                # one "=== web1 [ok, exit 0]" block per server
 ```
 
 - One server: its stdout as it is. Its stderr goes to stderr (or into
   komando's closing error line, when that line already says it).
 - Several servers: one block per server, headed `=== NAME [STATUS]`
-  (`ok exit=0`, `FAILED exit=N`, `FAILED timed out`, `skipped` ...). Its
+  (`ok, exit 0`, `failed: exit N`, `failed: timed out`, `skipped` ...). Its
   stderr lines start with `[stderr]`, and a failed server's block ends with
-  `error [CODE]:` and `hint:` lines.
+  `Error: ... (code CODE)` and `Hint:` lines.
 - The exit code is komando's own (5 when a command exits non-zero, whatever
   its code), not the command's. A note about cut output goes to stderr.
 

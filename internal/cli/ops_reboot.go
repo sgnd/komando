@@ -88,7 +88,7 @@ func (d rebootData) Text() string {
 		case r.OK:
 			fmt.Fprintf(&sb, "%s  rebooted, back after %.0fs (up since %s)\n", r.Host, r.BackAfter, r.Uptime)
 		case r.Error != nil:
-			fmt.Fprintf(&sb, "%s  FAILED: %s\n", r.Host, r.Error.Message)
+			fmt.Fprintf(&sb, "%s  failed: %s\n", r.Host, r.Error.Message)
 		}
 	}
 	if len(d.Skipped) > 0 {

@@ -20,7 +20,7 @@ func factsText(d probeData) string {
 			} else if r.Stderr != "" {
 				msg = r.Stderr
 			}
-			fmt.Fprintf(&b, "● %s  FAILED: %s\n", r.Host, msg)
+			fmt.Fprintf(&b, "● %s  failed: %s\n", r.Host, msg)
 			continue
 		}
 		if f["os"] == "windows" {

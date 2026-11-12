@@ -623,7 +623,7 @@ func writeResults(sb *strings.Builder, rs []any, summary any) {
 		}
 		status := "ok"
 		if m["ok"] == false {
-			status = "FAILED"
+			status = "failed"
 		}
 		fmt.Fprintf(sb, "● %v  %s\n", m["host"], status)
 		rest := map[string]any{}

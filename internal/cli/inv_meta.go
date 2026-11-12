@@ -80,7 +80,7 @@ func (l auditList) Text() string {
 		case e["blocked"] != nil:
 			res = "blocked"
 		case e["ok"] != true:
-			res = "FAILED"
+			res = "failed"
 		}
 		t := truncateWidth(auditCell(strings.Join(targets, ",")), 60)
 		rows = append(rows, []string{auditCell(ts), auditCell(who), auditCell(fmt.Sprint(e["command"])), t, res})
@@ -732,7 +732,7 @@ func (p policyList) Text() string {
 		for _, r := range rs {
 			why := "your pattern: " + r["pattern"]
 			if r["error"] != "" {
-				why = "BROKEN (" + r["error"] + "): " + r["pattern"]
+				why = "broken (" + r["error"] + "): " + r["pattern"]
 			}
 			rows = append(rows, []string{"shell", r["id"], why})
 		}

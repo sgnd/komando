@@ -164,9 +164,9 @@ func (d xferData) Text() string {
 		}
 		if r.Error != nil && r.Files == 0 && len(r.Errors) == 0 {
 			if many {
-				fmt.Fprintf(&b, "%sFAILED [%s] %s\n", pre, r.Error.Code, r.Error.Message)
+				fmt.Fprintf(&b, "%sfailed: %s (%s)\n", pre, r.Error.Message, r.Error.Code)
 				if r.Error.Hint != "" {
-					b.WriteString("  hint: " + r.Error.Hint + "\n")
+					b.WriteString("  Hint: " + r.Error.Hint + "\n")
 				}
 			}
 			continue

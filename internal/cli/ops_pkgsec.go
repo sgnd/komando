@@ -400,7 +400,7 @@ func (d pkgSecData) Text() string {
 	for _, r := range d.Results {
 		switch {
 		case r.Error != nil && r.Before == nil && r.State == nil:
-			fmt.Fprintf(&sb, "● %s  FAILED: %s\n", r.Host, r.Error.Message)
+			fmt.Fprintf(&sb, "● %s  failed: %s\n", r.Host, r.Error.Message)
 			continue
 		case !d.Applied:
 			fmt.Fprintf(&sb, "● %s  %s (%s)\n", r.Host, countOf(r.Count, "security update"), r.PackageManager)
@@ -412,7 +412,7 @@ func (d pkgSecData) Text() string {
 		default:
 			status := "patched"
 			if r.Error != nil {
-				status = "FAILED: " + r.Error.Message
+				status = "failed: " + r.Error.Message
 			}
 			fmt.Fprintf(&sb, "● %s  %s, %s changed (%s)\n", r.Host, status, countOf(len(r.Upgraded)+len(r.Removed), "package"), r.Method)
 			for _, c := range r.Changes {

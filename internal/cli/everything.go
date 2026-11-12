@@ -191,7 +191,7 @@ func (d testData) Text() string {
 		rows = append(rows, []string{r.Host, r.Kind, r.Error.Code, "", "", "", ""})
 		hints = append(hints, withHost(r.Host, r.Error.Message))
 		if r.Error.Hint != "" && len(d.Results) > 1 { // one target: the error below gives its hint
-			hints = append(hints, "  hint: "+r.Error.Hint)
+			hints = append(hints, "  Hint: "+r.Error.Hint)
 		}
 	}
 	sb.WriteString(textTable([]string{"NAME", "KIND", "RESULT", "LATENCY", "USER", "SUDO", "NOTE"}, rows))

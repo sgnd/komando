@@ -55,14 +55,14 @@ func (m clusterMany) Text() string {
 	for _, r := range m.Results {
 		state := "ok"
 		if !r.OK {
-			state = "FAILED"
+			state = "failed"
 		}
 		fmt.Fprintf(&b, "● %s (%s)  %s\n", r.Cluster, r.Engine, state)
 		switch {
 		case r.Error != nil:
 			b.WriteString(block(r.Error.Code + ": " + r.Error.Message))
 			if r.Error.Hint != "" {
-				b.WriteString(block("hint: " + r.Error.Hint))
+				b.WriteString(block("Hint: " + r.Error.Hint))
 			}
 		case r.Data != nil:
 			if t, ok := r.Data.(out.Texter); ok {

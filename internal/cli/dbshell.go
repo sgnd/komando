@@ -371,7 +371,7 @@ func (s *sqlShell) exec(ctx context.Context, text string, expanded bool) {
 		s.printf("error: %s\n", e.Message)
 		var oe *out.Error
 		if errors.As(err, &oe) && oe.Hint != "" {
-			s.printf("hint: %s\n", oe.Hint)
+			s.printf("Hint: %s\n", oe.Hint)
 		}
 		return
 	}
