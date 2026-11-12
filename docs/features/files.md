@@ -220,9 +220,11 @@ root-owned folder, upload it to a place you own and move it with
 sync` has no `--sudo` either: it writes only where the login user may
 write.
 
-Symbolic links are not copied; they are listed as `skipped`. When some files
-in a folder cannot be read, the rest are still copied; the result lists the
-failures under `errors` and komando exits 5.
+A folder given as a symbolic link (`./current -> releases/42`) is copied as
+the folder it names, as `scp -r` does. Symbolic links inside a folder are not
+copied; they are listed as `skipped`. When some files in a folder cannot be
+read, the rest are still copied; the result lists the failures under
+`errors` and komando exits 5.
 
 ### What a copy replaces
 
@@ -267,7 +269,9 @@ komando sync backups:2026/ ./restore                               # from storag
 - A source that does not exist is an error (`PATH_NOT_FOUND`, exit 3), and
   `--delete` never runs from an empty source, so a typo cannot wipe the
   destination.
-- Symbolic links are not copied; they are listed as `skipped`.
+- Symbolic links inside the folder are not copied; they are listed as
+  `skipped`. A source folder given as a link is synced as the folder it
+  names.
 - Ctrl-C stops it within a moment; files already copied stay, and the
   next run sends the rest.
 

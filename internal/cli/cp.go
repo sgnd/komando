@@ -485,11 +485,17 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		}
 	}
 	st := xferStats{Dest: dst}
-	err = filepath.Walk(src, func(p string, info os.FileInfo, err error) error {
+	// a folder given as a symbolic link (./current -> releases/42) is copied
+	// as the folder it names, as scp -r does; links inside it are skipped
+	root := src
+	if real, err := filepath.EvalSymlinks(src); err == nil {
+		root = real
+	}
+	err = filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
 		if cerr := ctx.Err(); cerr != nil {
 			return cerr // Ctrl-C: stop here, the files sent so far stay
 		}
-		rel, _ := filepath.Rel(src, p)
+		rel, _ := filepath.Rel(root, p)
 		if err != nil {
 			st.Errors = append(st.Errors, xferErr{Path: rel, Message: err.Error()})
 			return nil

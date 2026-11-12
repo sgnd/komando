@@ -109,3 +109,38 @@ func TestDownloadExistingCountsNothing(t *testing.T) {
 		t.Error("the file here was replaced")
 	}
 }
+
+// A folder given as a symbolic link (./current -> releases/42) is copied
+// as the folder it names; it used to send nothing ("skipped 1 file: .")
+// and still say ok.
+func TestFolderThroughSymlink(t *testing.T) {
+	sc := localSFTP(t)
+	here, there := t.TempDir(), t.TempDir()
+	real := filepath.Join(here, "releases", "42")
+	_ = os.MkdirAll(filepath.Join(real, "css"), 0o755)
+	_ = os.WriteFile(filepath.Join(real, "index.html"), []byte("i"), 0o644)
+	_ = os.WriteFile(filepath.Join(real, "css", "a.css"), []byte("c"), 0o644)
+	_ = os.Symlink("/etc/hosts", filepath.Join(real, "hosts"))
+	link := filepath.Join(here, "current")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	st, err := upload(context.Background(), nil, sc, link, filepath.Join(there, "site"), cpOpts{recursive: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Files != 2 || len(st.Skipped) != 1 || st.Skipped[0] != "hosts" {
+		t.Errorf("stats %+v", st)
+	}
+	if read(t, filepath.Join(there, "site", "css", "a.css")) != "c" {
+		t.Error("css/a.css not uploaded")
+	}
+
+	files, err := localSide{root: link}.list(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 3 || files["index.html"].Skip || files["css/a.css"].Skip || !files["hosts"].Skip {
+		t.Errorf("sync list %+v", files)
+	}
+}

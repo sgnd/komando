@@ -20,6 +20,9 @@ its highlights; the sections below them give the details. Versions follow
 - A download refused with `FILE_EXISTS` no longer prints
   "downloaded 1 file (0 B)" above the error, and its JSON result no longer
   counts the file.
+- `upload -r`, `cp -r` and `sync` copy a folder given as a symbolic link
+  (`./current -> releases/42`) as the folder it names. They sent nothing
+  and still reported success ("skipped 1 file: .").
 
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`

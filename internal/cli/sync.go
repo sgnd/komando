@@ -61,7 +61,13 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	} else if err == nil && !fi.IsDir() {
 		return nil, out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync works on folders; for one file use `komando upload` or `komando download`", "%s is a file, not a folder", l.root)
 	}
-	err := filepath.WalkDir(l.root, func(p string, d fs.DirEntry, err error) error {
+	// a folder given as a symbolic link is the folder it names; links
+	// inside it are listed as skipped
+	root := l.root
+	if real, err := filepath.EvalSymlinks(root); err == nil {
+		root = real
+	}
+	err := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -69,7 +75,7 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 			return nil
 		}
 		if !d.Type().IsRegular() {
-			rel, _ := filepath.Rel(l.root, p)
+			rel, _ := filepath.Rel(root, p)
 			files[filepath.ToSlash(rel)] = syncFile{Skip: true}
 			return nil
 		}
@@ -77,7 +83,7 @@ func (l localSide) list(context.Context) (map[string]syncFile, error) {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(l.root, p)
+		rel, _ := filepath.Rel(root, p)
 		files[filepath.ToSlash(rel)] = syncFile{Size: fi.Size(), Mtime: fi.ModTime(), Mode: fi.Mode().Perm()}
 		return nil
 	})
