@@ -790,7 +790,7 @@ it can go). An image a kept tag points at is never deleted. Needs
 		},
 	}
 	c.Flags().IntVar(&keep, "keep", 0, "keep the newest N matching tags")
-	spanText(c.Flags(), &olderThan, "older-than", "", true, "delete only images built before this age (e.g. 30d, 12h)")
+	spanText(c.Flags(), &olderThan, "older-than", "", true, "delete only images built before this age (like 30d, 12h)")
 	c.Flags().StringVar(&match, "match", "", "only tags matching this regular expression may go")
 	return c
 }

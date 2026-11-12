@@ -187,7 +187,7 @@ var details = map[string]string{
 	"komando export":            "Save servers, conns, VPNs, recipes, your deny rules and settings to a file, to move them to another computer (no passwords).",
 	"komando fs replace":        "Edit a file on a server by exact (or --regex) replacement. It fails when the text is not found, or matches more than once without --all.",
 	"komando guide":             "Playbook for AI agents: workflow, safety rules, recipes (read this first).",
-	"komando host rm":           "Remove servers from the inventory. The servers are not touched, and their pinned host keys stay.",
+	"komando host rm":           "Remove servers from your list. The servers are not touched, and their pinned host keys stay.",
 	"komando job kill":          "Send a signal to a job's process group (default TERM). A job that already ended is left as it is.",
 	"komando job logs":          "Read a job's output piece by piece (--offset with the next_offset of the last call), or its last --limit N lines.",
 	"komando job rm":            "Forget jobs and delete their log folders on the server (a running job needs `job kill` or --kill).",

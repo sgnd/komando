@@ -236,7 +236,7 @@ func (o *cpOpts) bindUp(c *cobra.Command, prefix string) {
 	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "copy folders (a trailing / on SRC copies its contents)")
 	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, prefix+"install into place with sudo (single files)")
 	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, prefix+"create missing parent folders")
-	c.Flags().StringVar(&o.mode, "mode", "", prefix+"file mode, e.g. 0755")
+	c.Flags().StringVar(&o.mode, "mode", "", prefix+"file mode, like 0755")
 }
 
 const cpFolderRule = `Folders (-r), like cp and rsync:

@@ -299,7 +299,7 @@ Which flags go with which VPN:
 	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (needs a person's yes)")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "put it in these groups (comma-separated)")
-	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
+	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, like prod (comma-separated)")
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.BoolVar(&overwrite, "overwrite", false, "replace a VPN with the same name")
 	inv.bindInv(c, false)

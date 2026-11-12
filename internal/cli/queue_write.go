@@ -161,7 +161,7 @@ func queueCreateCmd() *cobra.Command {
 	optIntVar(c.Flags(), &partitions, "partitions", "Kafka: how many partitions (default: the broker's)")
 	optIntVar(c.Flags(), &replicas, "replicas", "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)")
 	c.Flags().StringVar(&typ, "type", "", "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)")
-	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, e.g. retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)")
+	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)")
 	return c
 }
 

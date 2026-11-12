@@ -112,7 +112,7 @@ func clusterEventsCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 100, "the most events to show (the newest)"})
 	c.Flags().BoolVar(&warnings, "warnings", false, "only Warning events")
-	c.Flags().StringVar(&of, "for", "", "only events about this object, e.g. deployment/api")
+	c.Flags().StringVar(&of, "for", "", "only events about this object, like deployment/api")
 	return c
 }
 

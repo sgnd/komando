@@ -685,7 +685,7 @@ func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
 		// the conn's password goes to this server: only one from the inventory
 		if st.Hosts[h.Name] != h {
 			return nil, out.Errf(out.ExitUsage, "USAGE", "add the server first (`komando host add NAME USER@ADDRESS`), then use --run-on NAME",
-				"--run-on takes a server from the inventory, not %q", on)
+				"--run-on takes a server from your list, not %q", on)
 		}
 		return h, runOnSecret(st, c, h)
 	}

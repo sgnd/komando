@@ -156,7 +156,7 @@ func clusterLogFlags(f *pflag.FlagSet, container, since, selector *string, previ
 	f.BoolVar(previous, "previous", false, "the previous run of a restarted container")
 	f.BoolVar(timestamps, "timestamps", false, "start each line with its time")
 	f.BoolVarP(follow, "follow", "f", false, "keep reading new lines (Ctrl-C or --timeout stops)")
-	f.StringVarP(selector, "selector", "l", "", "read every pod with these labels, e.g. app=api")
+	f.StringVarP(selector, "selector", "l", "", "read every pod with these labels, like app=api")
 }
 
 // sinceParam turns --since into the API's sinceSeconds or sinceTime.

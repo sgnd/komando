@@ -264,7 +264,7 @@ func jobLogsCmd() *cobra.Command {
 	}
 	c.Flags().Int64Var(&offset, "offset", 0, "byte offset to read from (use next_offset from the previous call)")
 	limit = 256 << 10
-	c.Flags().Var(&bytesFlag{n: &limit}, "max-bytes", "the most bytes to return, e.g. 1MiB")
+	c.Flags().Var(&bytesFlag{n: &limit}, "max-bytes", "the most bytes to return, like 1MiB")
 	c.Flags().IntVarP(&tail, "limit", "n", 0, "return only the last N lines instead (0 = read from --offset)")
 	flagAlias(c, "tail", "limit") // a permanent synonym, as on the other log readers
 	return c

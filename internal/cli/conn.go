@@ -85,7 +85,7 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: via,password-ref,notes,protected")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
-		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
+		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, like prod (comma-separated)")
 		kvVar(fl, &f.labels, "label", "", "label KEY=VALUE (repeatable)")
 		kvVar(fl, &f.options, "option", "", "an option of this kind, KEY=VALUE (repeatable)")
 	}

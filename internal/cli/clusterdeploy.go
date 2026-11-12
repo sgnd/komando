@@ -255,7 +255,7 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 		},
 	}
 	nsFlags(c, &ns, nil, nil)
-	c.Flags().StringVar(&image, "image", "", "the new image, e.g. ghcr.io/acme/api:1.4.3 (or CONTAINER=IMAGE)")
+	c.Flags().StringVar(&image, "image", "", "the new image, like ghcr.io/acme/api:1.4.3 (or CONTAINER=IMAGE)")
 	c.Flags().StringVarP(&container, "container", "c", "", "which container gets the image (needed when there are several)")
 	c.Flags().BoolVar(&wait, "wait", false, "wait until the rollout finishes (or fails; --timeout, default 5m)")
 	return c

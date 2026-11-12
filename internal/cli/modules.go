@@ -102,7 +102,7 @@ func svcActionCmd(action string) *cobra.Command {
 	switch action {
 	case "start", "restart", "reload":
 		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"
-		c.Flags().Var(&durFlag{d: &wait, seconds: true, name: "wait"}, "wait", "wait up to this long (e.g. 10s, 2m) for the units to be active; fail if they are not")
+		c.Flags().Var(&durFlag{d: &wait, seconds: true, name: "wait"}, "wait", "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not")
 	case "enable", "disable":
 		verb := map[string]string{"enable": "start", "disable": "stop"}[action]
 		c.Flags().BoolVar(&now, "now", false, "also "+verb+" the units now (systemctl "+action+" --now)")
@@ -369,7 +369,7 @@ func pkgCmd() *cobra.Command {
 	}
 	var noSudo, refresh bool
 	var limit int
-	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
+	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (like when logged in as root)")
 	mk := func(action, short string, needPkgs, mutating, sudo bool) *cobra.Command {
 		use := action + " TARGET"
 		switch {
@@ -528,7 +528,7 @@ func netCmd() *cobra.Command {
 			}})
 		},
 	}
-	httpC.Flags().StringVar(&expect, "expect", "", "fail unless the status matches, e.g. 200 or 2xx (like curl -f)")
+	httpC.Flags().StringVar(&expect, "expect", "", "fail unless the status matches, like 200 or 2xx (like curl -f)")
 	var rrType string
 	dns := &cobra.Command{
 		Use:     "dns TARGET DOMAIN",

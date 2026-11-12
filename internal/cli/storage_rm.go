@@ -95,8 +95,8 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.`
 				})
 		},
 	}
-	c.Flags().StringVar(&prefix, "prefix", "", "remove everything under this folder (e.g. daily/; / for the whole conn)")
-	spanText(c.Flags(), &olderThan, "older-than", "", true, "with --prefix: only objects older than this (e.g. 30d, 12h, 90m)")
+	c.Flags().StringVar(&prefix, "prefix", "", "remove everything under this folder (like daily/; / for the whole conn)")
+	spanText(c.Flags(), &olderThan, "older-than", "", true, "with --prefix: only objects older than this (like 30d, 12h, 90m)")
 	c.Flags().IntVar(&limit, "max-remove", 1000, "refuse when more than this many objects would be removed")
 	// a safety cap, not a list's --limit (S-5.1): the old spellings work for
 	// one release and are noted

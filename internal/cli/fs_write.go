@@ -422,8 +422,8 @@ func bindWriteOpts(c *cobra.Command, o *writeOpts) {
 	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write with sudo (for files root owns)")
 	c.Flags().BoolVar(&o.backup, "backup", false, "keep the previous version as PATH.bak (PATH.bak.<UTC time> when that exists; a backup is never overwritten)")
 	c.Flags().BoolVarP(&o.mkdirs, "parents", "p", false, "create missing parent folders")
-	c.Flags().StringVar(&o.mode, "mode", "", "file mode, e.g. 0640 (default: keep existing or 0644)")
+	c.Flags().StringVar(&o.mode, "mode", "", "file mode, like 0640 (default: keep existing or 0644)")
 	c.Flags().StringVar(&o.owner, "owner", "", "owner[:group] (needs --sudo)")
-	c.Flags().StringVar(&o.validate, "validate", "", "check the new file before it goes into place; %s is its path (e.g. 'visudo -cf %s', 'nginx -t -c %s')")
+	c.Flags().StringVar(&o.validate, "validate", "", "check the new file before it goes into place; %s is its path (like 'visudo -cf %s', 'nginx -t -c %s')")
 	c.Flags().BoolVar(&o.noFollow, "no-follow", false, "refuse to write through a symbolic link (by default the file it points to is written and the link stays)")
 }

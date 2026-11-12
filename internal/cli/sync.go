@@ -565,7 +565,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 		},
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
-	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), e.g. .git, '*.log'")
+	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
 	return c
 }
 

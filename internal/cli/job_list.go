@@ -74,7 +74,7 @@ func jobListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
+	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, like @web)")
 	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")
 	limitFlag(c, &limit, 0, "jobs, newest first")
 	return c

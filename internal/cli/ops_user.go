@@ -194,7 +194,7 @@ func lockoutStop(target, user, verb string) error {
 func userCmd() *cobra.Command {
 	c := &cobra.Command{Use: "user", Aliases: []string{"users"}, Short: "Linux user accounts: see, add, lock, remove"}
 	var noSudo bool
-	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
+	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (like when logged in as root)")
 	var all bool
 	var limit int
 	list := &cobra.Command{

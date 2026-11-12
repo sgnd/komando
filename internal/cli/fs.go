@@ -469,7 +469,7 @@ func fsCatCmd() *cobra.Command {
 	}
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read with sudo")
 	maxBytes = 1 << 20
-	c.Flags().Var(&bytesFlag{n: &maxBytes}, "max-bytes", "the most bytes to read, e.g. 4MiB")
+	c.Flags().Var(&bytesFlag{n: &maxBytes}, "max-bytes", "the most bytes to read, like 4MiB")
 	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
 	c.Flags().BoolVar(&numbered, "line-numbers", false, "start each line with its number")

@@ -659,6 +659,10 @@ instead.
   database, cache or other conn (`To which server or conn?`, `No conns
   yet: ...`) and "like" for an example (`Name, like web1:`, was `Name,
   e.g. web1:`).
+- Help says "your list" for the servers, conns and VPNs komando knows
+  (`host add`, `host rm`, `doctor`, the target words in `komando schema`),
+  and flag help gives examples with "like" or "for example", never
+  "e.g.".
 
 ### Removed
 

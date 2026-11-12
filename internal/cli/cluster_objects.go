@@ -94,7 +94,7 @@ func clusterLsCmd() *cobra.Command {
 		},
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "the most objects to show"})
-	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, e.g. app=api or 'tier in (web,api)'")
+	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, like app=api or 'tier in (web,api)'")
 	withID(c, "cluster.ls") // `ls` before: a permanent synonym
 	return c
 }

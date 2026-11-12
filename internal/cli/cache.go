@@ -371,7 +371,7 @@ func cacheSetCmd() *cobra.Command {
 				})
 		},
 	}
-	spanText(c.Flags(), &ttlFlag, "ttl", "", false, "expire the key after this long (e.g. 30m, 24h, 7d); 0 or left out: never")
+	spanText(c.Flags(), &ttlFlag, "ttl", "", false, "expire the key after this long (like 30m, 24h, 7d); 0 or left out: never")
 	return c
 }
 

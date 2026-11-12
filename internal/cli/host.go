@@ -50,7 +50,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "where the sudo password is, written like --password-ref")
-	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, e.g. vpn1,bastion")
+	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion")
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
 	fl.StringVar(&f.os, "os", "", "the server's OS: windows (commands run in PowerShell) or linux (the default, also for other Unixes)")
 	fl.BoolVar(&f.ssm, "ssm", false, "reach it through AWS Systems Manager: the address is the instance ID (komando speaks Session Manager itself when the aws CLI or its plugin is not installed)")
@@ -68,7 +68,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,os,transport (transport: back to SSH from WinRM)")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
-		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
+		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, like prod (comma-separated)")
 		kvVar(fl, &f.labels, "label", "", "label KEY=VALUE (repeatable)")
 		kvVar(fl, &f.env, "env", "e", "env KEY=VALUE exported before every command (repeatable)")
 	}
@@ -85,7 +85,7 @@ func hostAddCmd() *cobra.Command {
 	var force, askPw bool
 	c := &cobra.Command{
 		Use:   "add NAME [[USER@]ADDRESS[:PORT]]",
-		Short: "Add a server to the inventory",
+		Short: "Add a server to your list",
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
   komando host add db1 --address db.internal --user root --via bastion --protected
   komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)

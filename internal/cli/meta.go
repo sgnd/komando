@@ -545,15 +545,15 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 				}
 				res["error_codes"] = errorCodes // every code: its exit, an example message, the usual next step
 				res["target_selectors"] = map[string]string{
-					"NAME":           "a server, conn or VPN from the inventory",
+					"NAME":           "a server, conn or VPN from your list",
 					"glob":           "web-* or db-?",
 					"@GROUP":         "everything in a group (servers and conns)",
 					"tag:TAG":        "everything with a tag",
 					"label:KEY=VAL":  "everything with a label (label:KEY = any value)",
 					"kind:KIND":      "by type: host, conn, vpn, a conn kind (postgres, redis, s3, ...), a command family (db, cache, queue, storage, cluster, registry) or a VPN kind",
 					"os:OS":          "servers by system: os:windows or os:linux",
-					"all":            "everything in the inventory",
-					"user@addr:port": "ad-hoc server not in the inventory",
+					"all":            "everything in your list",
+					"user@addr:port": "ad-hoc server not in your list",
 					"a,b,!c":         "union of selectors, ! excludes",
 				}
 				res["selector_note"] = "a selector picks servers and conns together; each command uses the ones it works with and lists the rest in meta.skipped"
