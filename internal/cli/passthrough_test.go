@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -69,5 +71,23 @@ func TestPassthroughDocumentedForms(t *testing.T) {
 	d := mustRun(t, "--dry-run", "exec", "web1", "--", "yum", "update", "-y")
 	if !strings.Contains(stringOf(d), "yum update -y") {
 		t.Errorf("plan: %v", d)
+	}
+}
+
+// The USAGE hint never hands out an approval flag: an example with --yes,
+// -y, --allow-dangerous or --reveal is skipped (review F10).
+func TestDashExampleSkipsApprovalFlags(t *testing.T) {
+	c := &cobra.Command{Use: "exec TARGET -- COMMAND", Example: "  komando exec web1 --allow-dangerous -- rm -rf /tmp/x\n" +
+		"  komando exec web1 -y -- reboot\n  komando exec web1 -- uptime   # how long it is up"}
+	if got := dashExample(c); got != "komando exec web1 -- uptime" {
+		t.Errorf("dashExample: %q", got)
+	}
+	c.Example = "  komando exec web1 -- apt-get install -y nginx" // the other program's -y
+	if got := dashExample(c); got != "komando exec web1 -- apt-get install -y nginx" {
+		t.Errorf("dashExample: %q", got)
+	}
+	c.Example = "  komando exec web1 --yes -- touch /tmp/x"
+	if got, _, _ := strings.Cut(dashExample(c), " -- "); approvalFlag.MatchString(got) {
+		t.Errorf("dashExample with only approval examples: %q", got)
 	}
 }

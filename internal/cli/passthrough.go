@@ -68,11 +68,13 @@ func dashCheck(cmd *cobra.Command, args []string, fixed int) error {
 		"komando %s takes the words for %s after --; nothing was run", strings.TrimPrefix(cmd.CommandPath(), "komando "), dashWho(cmd))
 }
 
-// dashExample is the command's first example with `--`.
+// dashExample is the command's first example with `--` and no approval
+// flag (a USAGE hint never hands an agent --yes or --allow-dangerous).
 func dashExample(cmd *cobra.Command) string {
 	for _, l := range strings.Split(cmd.Example, "\n") {
 		l, _, _ = strings.Cut(strings.TrimSpace(l), "   #")
-		if strings.HasPrefix(l, "komando ") && strings.Contains(l, " -- ") {
+		own, _, dash := strings.Cut(l, " -- ") // -y after -- is the other program's
+		if strings.HasPrefix(l, "komando ") && dash && !approvalFlag.MatchString(own) {
 			return strings.TrimSpace(l)
 		}
 	}
