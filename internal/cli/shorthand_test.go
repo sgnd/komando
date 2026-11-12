@@ -1,8 +1,13 @@
 package cli
 
 import (
+	"maps"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // C-S05: fs mkdir always makes the parents, so -p from habit is a hidden
@@ -68,5 +73,86 @@ func TestShorthandDidYouMean(t *testing.T) {
 	}
 	if s := shorthandSuggest(c, "a", "-a"); s != "did you mean --all?" {
 		t.Errorf("-a: %q", s)
+	}
+}
+
+// TestStandardShorthands walks the tree and checks every short letter
+// against the reserved table (docs/design/ux.md, section 3; S-5.14 and
+// S-5.15): one meaning per letter within its scope, and none at all for
+// the flags that must be typed in full.
+func TestStandardShorthands(t *testing.T) {
+	in := func(path string, list ...string) bool {
+		return slices.Contains(list, strings.TrimPrefix(path, "komando "))
+	}
+	cluster := func(path string) bool { return strings.HasPrefix(path, "komando cluster ") }
+	editOrAdd := func(path string) bool {
+		n := path[strings.LastIndex(path, " ")+1:]
+		return n == "add" || n == "edit" || n == "import"
+	}
+	logStreamers := []string{"logs", "svc logs", "docker logs", "cluster logs"}
+	// letter -> long flag -> where it may be (nil: everywhere)
+	table := map[string]map[string]func(path string) bool{
+		"o": {"output": nil}, "P": {"parallel": nil}, "y": {"yes": nil}, "h": {"help": nil},
+		"v": {"version": func(p string) bool { return p == "komando" }},
+		"a": {"all": func(p string) bool {
+			return in(p, "docker ps", "docker prune", "fs ls", "user list", "db activity", "cache info", "cluster helm values", "guide")
+		}},
+		"A": {"all-namespaces": cluster},
+		"c": {"container": nil, "cmd": func(p string) bool { return in(p, "exec", "job start") }},
+		"C": {"dir": nil, "comment": func(p string) bool { return in(p, "key gen") }},
+		"e": {"env": nil},
+		"f": {"follow": func(p string) bool { return in(p, logStreamers...) }, "file": func(p string) bool { return !in(p, logStreamers...) }},
+		"g": {"group": editOrAdd},
+		"l": {"selector": cluster},
+		"n": {"namespace": cluster, "limit": func(p string) bool { return !cluster(p) && !in(p, "storage rm") },
+			"n": func(p string) bool { return in(p, "storage rm") }}, // the retired -n of --max-remove (S-5.14 allow-list)
+		"p": {"parents": func(p string) bool { return in(p, "cp", "upload", "fs write", "fs replace", "fs mkdir") },
+			"priority": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }},
+		"r": {"recursive": nil}, "s": {"sudo": nil},
+		"t": {"tag": editOrAdd},
+		"u": {"unit": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }}, // the logs family
+		"b": {"bits": func(p string) bool { return in(p, "key gen") }},
+		"D": {"dynamic": func(p string) bool { return in(p, "tunnel start") }},
+		"L": {"local": func(p string) bool { return in(p, "tunnel start") }},
+		"R": {"remote": func(p string) bool { return in(p, "tunnel start") }},
+	}
+	never := []string{"allow-dangerous", "reveal", "write", "dry-run", "port", "user", "label"}
+	root := newRoot()
+	check := func(path string, c *cobra.Command, f *pflag.Flag) {
+		if f.Shorthand == "" {
+			return
+		}
+		if slices.Contains(never, f.Name) {
+			t.Errorf("%s --%s has -%s; it must be typed in full (S-5.15)", path, f.Name, f.Shorthand)
+		}
+		if f.Name == "all" && c != nil && !in(path, "docker prune") { // docker prune -a: docker's own
+			if k, ok := kindOf(c); ok && k.Kind == "change" {
+				t.Errorf("%s --all has -a on a change command (S-5.15)", path)
+			}
+		}
+		longs, ok := table[f.Shorthand]
+		if !ok {
+			t.Errorf("%s --%s: -%s is not in the reserved table; add a row with the reference CLI first", path, f.Name, f.Shorthand)
+			return
+		}
+		where, ok := longs[f.Name]
+		if !ok {
+			t.Errorf("%s --%s: -%s is reserved for another flag (%v)", path, f.Name, f.Shorthand, slices.Sorted(maps.Keys(longs)))
+			return
+		}
+		if where != nil && !where(path) {
+			t.Errorf("%s --%s: -%s is outside its scope here", path, f.Name, f.Shorthand)
+		}
+	}
+	root.PersistentFlags().VisitAll(func(f *pflag.Flag) { check("komando", nil, f) })
+	root.InitDefaultHelpFlag()
+	root.InitDefaultVersionFlag()
+	for _, c := range allCommands(root) {
+		c.LocalFlags().VisitAll(func(f *pflag.Flag) { check(c.CommandPath(), c, f) })
+	}
+	// the parser's own -n in cluster is the namespace with the number check
+	c, _, _ := root.Find([]string{"cluster", "ls"})
+	if f := c.Flags().ShorthandLookup("n"); f == nil || f.Value.Type() != "string" {
+		t.Errorf("cluster ls: the parser's -n is %+v", f)
 	}
 }

@@ -130,10 +130,11 @@ How commands use the selector result:
 
 | Need | Flag | Notes |
 |---|---|---|
-| how many | `-n, --limit` | log lines, items, keys, SQL rows |
+| how many | `-n, --limit` | log lines, items, keys, SQL rows; in `cluster`, `--limit` has no short form (`-n` is the namespace there) |
+| a safety cap | `--max-remove`, `--max-bytes`, `--max-output` | the run is refused above it; never `--limit` |
 | recursive | `-r, --recursive` | always lowercase `-r` |
-| keep following (logs) | `-f, --follow` | `-f` is **only** for follow, like `tail -f` and `kubectl logs -f` |
-| input file | `--file` | `-f` only when the original tool uses it (`db query -f`, `docker compose -f`); in `logs`, `-f` is for follow |
+| keep following (logs) | `-f, --follow` | on the log streamers `-f` is follow, like `tail -f` and `kubectl logs -f` |
+| input file | `-f, --file` | a file a tool reads (`db query -f`, `docker compose -f`, `cluster apply -f`); in `logs`, `-f` is for follow |
 | to/from a local file | `--to` / `--from` | |
 | replace what exists | `--overwrite` | replaces `--force` |
 | named parameters | `--var KEY=VALUE` | for recipes |
@@ -143,7 +144,49 @@ How commands use the selector result:
 | filter the inventory | `--target SELECTOR` | replaces `--host` in `audit` and `job list` |
 | root rights | `--sudo` / `--no-sudo` | see the sudo rule below |
 | raw command changes nothing | `--read-only` | see the polarity rules |
-| time | `--since`, `--until`, `--ttl`, `--expires`, `--wait`, `--warn` | a duration: Go format (`10m`, `2h`) or days (`7d`). `--since`/`--until` also take `today`, `yesterday` or a date; `--wait` also takes a bare number of seconds |
+| time | `--since`, `--until`, `--ttl`, `--expires`, `--wait`, `--warn`, `--older-than`, `--interval`, `--timeout` | one duration type: Go format (`10m`, `2h`) or days (`7d`); a bare number only as `0`. `--since`/`--until` also take `today`, `yesterday` or a date. `svc`/`reboot --wait 10` (bare seconds) is a retired shape that still works |
+| size | `--max-bytes`, `--max-output` | one bytes type: bytes, or `KB`/`MB`/`GB`/`KiB`/`MiB`/`GiB`, where KB = KiB = 1024 |
+| KEY=VALUE | `-e, --env`, `--label`, `--option`, `--var`, `--header` | one pair per use, repeatable, never split on commas; a second `KEY=` after a comma is a usage error |
+
+### Reserved short flags
+
+A short letter means the same long flag wherever it appears, inside the
+scope given here (S-5.14 of the command standard).
+`TestStandardShorthands` (`internal/cli/shorthand_test.go`) walks the
+command tree and checks every letter against this table. A new short
+flag needs a row here first, with a well-known tool that uses the letter
+the same way. A letter that means something else on a command today is
+retired there with a usage error naming the new flag, unless every input
+that works today still means the same or fails.
+
+| Letter | Long flag | Scope | From |
+|---|---|---|---|
+| `-o` | `--output` | global | kubectl |
+| `-P` | `--parallel` | global | xargs -P |
+| `-y` | `--yes` | global; never after `--` | apt, gcloud |
+| `-h` | `--help` | global | |
+| `-v` | `--version` | root only | |
+| `-a` | `--all` | read commands only: `docker ps`, `fs ls`, `user list`, `db activity`, `cache info`, `cluster helm values`, `guide`; `docker prune -a` kept (docker's own) | ls, docker ps |
+| `-A` | `--all-namespaces` | cluster | kubectl |
+| `-c` | `--container` | any `--container`; `--cmd` only on `exec` and `job start` | kubectl |
+| `-C` | `--dir` | any `--dir`; `--comment` only on `key gen` | git, make |
+| `-e` | `--env` | any `--env` | docker |
+| `-f` | `--follow` on the log streamers (`logs`, `svc logs`, `docker logs`, `cluster logs`); `--file` elsewhere | | tail, kubectl apply |
+| `-g` | `--group` | add, edit and import | |
+| `-l` | `--selector` | cluster | kubectl |
+| `-n` | `--namespace` in cluster (a number is refused: `--limit N`, or `--namespace=N`); `--limit` elsewhere; on `storage rm` the retired spelling of `--max-remove` | | kubectl, head |
+| `-p` | `--parents` on writers (`cp`, `upload`, `fs write`, `fs replace`; a no-op on `fs mkdir`); `--priority` on journal readers | | mkdir, journalctl |
+| `-r` | `--recursive` | everywhere | cp |
+| `-s` | `--sudo` | everywhere | |
+| `-t` | `--tag` | add and edit | |
+| `-u` | `--unit` | the logs commands | journalctl |
+| `-b`, `-D`, `-L`, `-R` | bits; dynamic, local, remote | `key gen`; `tunnel start` | ssh-keygen, ssh |
+
+Never a short letter for `--allow-dangerous`, `--reveal`, `--write`,
+`--dry-run`, `--port`, `--user`, `--label`, or a bool `--all` on a
+command that changes things (`fs replace`, `tunnel stop`, `vpn down`,
+`logout`). An unknown letter gets a did-you-mean: the habit of another
+tool (`-n`, `-it`, `-L`, `-w`), else the long flags with that letter.
 
 ### Polarity rules (important for safety)
 
@@ -317,7 +360,7 @@ run next).
 - Renaming a command or flag: the old name keeps working as an alias
   for one minor release, with a warning on stderr, then it is removed.
 - `TestConventions` (`internal/cli/conventions_test.go`) guards part of
-  the naming rules: short flags, retired flag names, the `rm` and
+  the naming rules: retired flag names, the `rm` and
   `list`/`ls` aliases, an example on every command and the length of the
   one-line help. The verb list in section 1 is kept by review: no test
   checks it.

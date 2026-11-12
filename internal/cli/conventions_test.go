@@ -11,8 +11,7 @@ import (
 // TestConventions checks the naming rules of docs/design/ux.md on every
 // command, so a new command cannot drift from them.
 func TestConventions(t *testing.T) {
-	// one meaning per short flag
-	shorts := map[string]string{"n": "limit", "r": "recursive", "g": "group", "t": "tag", "s": "sudo", "o": "output", "y": "yes", "f": "follow"}
+	// one meaning per short flag: TestStandardShorthands (shorthand_test.go)
 	// old flag names that were renamed and then removed; they must not come back
 	retired := []string{"force", "param", "lines", "number", "host", "mutating", "jump", "rename", "wait-timeout"}
 	var walk func(c *cobra.Command)
@@ -45,11 +44,6 @@ func TestConventions(t *testing.T) {
 			t.Errorf("%s: Short is %d characters, over %d; move the detail to Long", path, len(c.Short), limit)
 		}
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
-			// -f is --file only where the native tool means that too (psql -f, docker compose -f)
-			fileOK := f.Shorthand == "f" && f.Name == "file" && slices.Contains([]string{"komando db query", "komando docker compose"}, path)
-			if want, ok := shorts[f.Shorthand]; ok && f.Name != want && !fileOK {
-				t.Errorf("%s --%s: -%s is reserved for --%s", path, f.Name, f.Shorthand, want)
-			}
 			if slices.Contains(retired, f.Name) {
 				t.Errorf("%s --%s: retired flag name; use the new name (see CHANGELOG, Removed)", path, f.Name)
 			}
