@@ -57,6 +57,16 @@ its highlights; the sections below them give the details. Versions follow
   when it asked you for something, the line to type next time. All of
   this goes to stderr, and only at a person's terminal.
 
+### Removed
+
+- The menu that `komando` alone opened at a terminal, its task lists and
+  the full-screen forms and review screen (owner decision 2026-11-12:
+  person mode is commands). Everything it did is a command: `komando`
+  alone shows them by group, `host show` lists the commands for a server,
+  and a command typed with something missing asks for it. Running now is
+  `komando status`, History and undo is `komando audit`, Check everything
+  is `komando test all` and `komando doctor`.
+
 ### Fixed
 
 - `user add` and `user rm` on a server without `useradd` or `userdel`

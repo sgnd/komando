@@ -21,3 +21,5 @@ func (p *ptyRun) answer(_, _ string) {}
 func (p *ptyRun) exit() int          { return 0 }
 
 func startPTYEnv(t *testing.T, _ []string, _ ...string) *ptyRun { return startPTY(t) }
+
+func (p *ptyRun) leftTerminal() (bool, int) { return true, 0 }

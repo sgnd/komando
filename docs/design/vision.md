@@ -208,7 +208,7 @@ v1.0.
 | **M5** ✅ | `cluster` for Kubernetes (direct API, through `--via`/VPN) and Docker Swarm: status, ls, get, logs, apply, restart, scale, rm, `run`, describe, events, exec, forward, shell, deploy, rollback, history and Helm reads | 2, 3 |
 | **M6** ✅ | `registry` (ls, inspect, rm, copy, prune) | 3 |
 | **M7** ✅ | `storage` for FTP/FTPS/SFTP; external secret refs (`op://`, `vault:`, `aws-sm:`, `gcp-sm:`); `db shell` | 3, 4 |
-| **After M7** ✅ (v0.4.0 to v0.12.0) | `queue` (Kafka, RabbitMQ, NATS JetStream, SQS, Pub/Sub); Windows servers over OpenSSH and WinRM; SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB; SMB shares; `komando update`; `rename --prefix`; `ssh-gate`; `login HOST` for two-factor servers; the menu and guided forms for people; `fs restore`; GlobalProtect browser sign-in; the sealed local store; komando on Windows | 1, 2, 3, 4 |
+| **After M7** ✅ (v0.4.0 to v0.12.0) | `queue` (Kafka, RabbitMQ, NATS JetStream, SQS, Pub/Sub); Windows servers over OpenSSH and WinRM; SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB; SMB shares; `komando update`; `rename --prefix`; `ssh-gate`; `login HOST` for two-factor servers; guided questions for people (from 2026-11-12: typed commands that ask what is missing); `fs restore`; GlobalProtect browser sign-in; the sealed local store; komando on Windows | 1, 2, 3, 4 |
 | **Built in** ✅ | Features work with the komando binary alone (no Docker, kubectl, psql/pg_dump, openvpn, openconnect, aws/vault/gcloud/op CLIs), fully open source; what is left is in [built-in.md](built-in.md#where-it-stands-2026-11-03) | 1, 4 |
 | **v1.0** | Contract frozen (`schema` version 1), every family passes the checklist, complete documentation in English (the project is English-only; the Indonesian translations were removed) | all |
 
@@ -235,9 +235,8 @@ A new family is only added when **all** of these are met:
   another program installed ([built-in.md](built-in.md)). The rest can still
   be done through `exec` on a host or with the original tool.
 - Infrastructure as Code, cloud provisioning, or GitOps.
-- GUI, TUI (beyond the menu `komando` alone opens for a person, which only
-  runs ordinary commands), plugin system, or daemon/server. komando stays a
-  pure CLI.
+- GUI, TUI, menus, dashboards, panes and full-screen apps. A person is asked
+  for what a typed command misses, one line at a time, in the normal screen.
 - Monitoring or alerting that runs continuously.
 
 ## Decisions and open questions
@@ -248,10 +247,10 @@ A new family is only added when **all** of these are met:
 | 2 | One `cluster`, or separate `k8s`/`swarm`? | ✅ One `cluster`. General verbs sit directly under it; a feature only one engine has sits there too and says so on the other (`cluster helm`). |
 | 3 | Does `@prod` pick hosts and conns together? | ✅ Yes, everything. The full rules are in [ux.md](ux.md#2-targets-and-selectors-apply-to-hosts-and-conns). |
 | 4 | Binary budget? | ✅ One binary, pure Go, **no size limit** (the 40 MB limit was removed). |
-| 5 | TUI? | ✅ No. Pure CLI. One exception (2026-11-08): `komando` alone opens a small menu for a person at a terminal. It only runs ordinary commands and is never shown to agents, scripts or pipes. Dashboards, panes and full-screen apps stay out. |
+| 5 | TUI? | ✅ No. Pure CLI. 2026-11-08: `komando` alone opened a small menu for a person at a terminal. **Replaced 2026-11-12 (owner decision): person mode is commands, not a menu.** There is one interface, `komando <noun> <verb> [target] [flags]`, like gh, gcloud and kubectl. At a person's terminal a command typed with something missing asks for it, one line at a time (pickers from the inventory), shows the whole line and asks before a change; `komando` alone prints grouped help. Agents, scripts, pipes, CI and JSON output get exactly what they got before. The menu, its task lists and the full-screen review are gone (design: komando-audit/DESIGN-command-first.md). |
 | 6 | May a feature need Docker or another installed program? | ✅ No (2026-11-03). Every feature is built in; plan in [built-in.md](built-in.md). |
 | 7 | Own implementation or a vendor library? Open source? | ✅ Own implementation where no suitable open library exists, and fully open source: no closed or prebuilt components (2026-11-03). |
-| 8 | Who is komando for? | ✅ Everyone (2026-11-09). The open-source CLI serves two equal ways of use: **a person** working interactively (the menu, questions one step at a time) and **an AI agent** giving direct commands (flags and JSON, never a question). Every CLI feature works both ways. **Teams** (shared inventory and rules, roles and permissions (RBAC), sessions that say who is acting, and the like) are served only by the komando app, not by the open-source CLI. |
+| 8 | Who is komando for? | ✅ Everyone (2026-11-09). The open-source CLI serves two equal ways of use: **a person** working interactively (typed commands that ask for what is missing, one line at a time) and **an AI agent** giving direct commands (flags and JSON, never a question). Every CLI feature works both ways. **Teams** (shared inventory and rules, roles and permissions (RBAC), sessions that say who is acting, and the like) are served only by the komando app, not by the open-source CLI. |
 | 9 | How does an AI agent reach a server with a two-factor login? | ✅ A person runs `komando login HOST` once and answers the code; komando keeps that login for some hours (`login_for`, 8h) and the agent's commands use it, like `vpn up` (2026-11-09). |
 | 10 | Should `komando update` check a release's signed build provenance itself? | Open. Options and cost in [update-provenance.md](update-provenance.md). |
 

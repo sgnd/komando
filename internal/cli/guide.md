@@ -41,11 +41,12 @@ komando schema --compact              # every command (`komando schema <cmd>`: i
 komando import ssh-config --dry-run   # (with the human) bring in servers they already have
 ```
 
-People get a menu; you get no questions. A person who runs `komando` alone
-at a terminal gets a menu: they pick a server, database or VPN, then a
-task, and komando asks one question at a time. `komando host add` (or
-`db add`, `vpn add`) typed alone asks the same questions. komando never asks an AI agent or a
-script anything, so give every argument and flag yourself; `komando` alone
+People are asked; you get no questions. At a person's terminal, a command
+typed with something missing asks for it, one line at a time, and
+`komando host add` (or `db add`, `vpn add`) typed alone asks that kind's
+questions. komando never asks an AI agent or a
+script anything (under a pseudo-terminal, an agent komando does not know
+sets `KOMANDO_AGENT=1`), so give every argument and flag yourself; `komando` alone
 answers you with a `USAGE` error that points here. When a step needs a
 person (a yes, a password, a two-factor code), the command stops with an
 error code, and `error.hint` says what to ask the human for.

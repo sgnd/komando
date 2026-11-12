@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -11,31 +10,6 @@ import (
 	"regexp"
 	"strings"
 )
-
-// The rows after a check that failed.
-const (
-	formChangeRow = "change"
-	formKeepRow   = "keep"
-	formRemoveRow = "remove"
-)
-
-// formAfterFailedCheck asks what to do with something just added that did
-// not answer: change the answers, keep it, or take it out again.
-func formAfterFailedCheck(ctx context.Context, t *menuTerm, scr menuScreen, name, reason string) (string, error) {
-	l := &menuList{title: name + " did not answer: what now?"}
-	l.lead = [][]seg{{{reason, ""}}}
-	l.rows = []menuRow{
-		{label: "Change the answers", detail: "the questions again, with your answers filled in", value: formChangeRow},
-		{label: "Keep it anyway", detail: "it stays in your list; test it later with komando test " + name, value: formKeepRow},
-		{label: "Remove it", detail: "take " + name + " out of your list again", value: formRemoveRow},
-	}
-	scr.footer = listKeys(l, "Esc keep it", "Ctrl-C keep it")
-	row, err := menuChoose(ctx, t, l, scr)
-	if errors.Is(err, errMenuBack) {
-		return formKeepRow, nil
-	}
-	return row.value, err
-}
 
 // formRunAll runs the commands here, each shown first, until one fails:
 // its exit code and, when the one that failed is the check after an add

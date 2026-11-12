@@ -240,8 +240,6 @@ func usageErr(cmd *cobra.Command, err error) error {
 		return e
 	} else if ok {
 		e.Message = fmt.Sprintf("unknown command %q", name)
-		// not "pick Add something": the first-run menu, where a newcomer
-		// most likely is, has no such row
 		if name == "add" && !cmd.HasParent() {
 			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
 			return e
@@ -608,7 +606,7 @@ const rootLong = `komando is one safe command line for
 for people and AI agents alike.
 
 First steps:
-  komando                                  a menu of common tasks (in a terminal)
+  komando                                  what komando does, by group
   komando host add web1 ubuntu@203.0.113.10
   komando test web1                        check that web1 answers
   komando guide install                    let your AI agent use komando safely
@@ -630,8 +628,8 @@ const rootScriptNotes = `For scripts and AI agents:
               8 precondition or conflict.
   komando guide is the playbook for agents; komando schema lists every command.`
 
-// printFirstSteps is `komando` alone: the menu for a person at a terminal
-// (menu.go), else the first steps, not a wall of text (ux.md, section 10).
+// printFirstSteps is `komando` alone: the commands by group for a person at
+// a terminal, else the first steps, not a wall of text (ux.md, section 10).
 func printFirstSteps(cmd *cobra.Command, args []string) error {
 	if out.P.Format == "json" { // piped: one JSON envelope, never text
 		return out.Usage("komando needs a command").WithHint("read `komando guide` (the playbook for agents) or `komando schema` (every command)")

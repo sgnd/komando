@@ -16,14 +16,3 @@ func echoOff(fd int) error {
 	t.Lflag &^= unix.ECHO
 	return unix.IoctlSetTermios(fd, ioctlSetTermios, t)
 }
-
-// errWaitInterrupted is waitInput's error when a signal cut the wait short.
-var errWaitInterrupted = unix.EINTR
-
-// waitInput waits up to ms milliseconds for input on fd and says whether
-// some is there to read.
-func waitInput(fd, ms int) (bool, error) {
-	fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
-	n, err := unix.Poll(fds, ms)
-	return n > 0, err
-}

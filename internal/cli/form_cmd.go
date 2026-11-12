@@ -2,7 +2,6 @@ package cli
 
 import (
 	"cmp"
-	"errors"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,12 +14,12 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// Every feature as questions: picking a task in the menu (Servers, web1,
-// Read logs) asks for what its command still needs, its arguments first (a
-// server, a database ... picked from a list) and the flags that matter, the
-// others under More options on the review. The questions come
-// from the command itself (its Use line and its flags), so a new command
-// or flag shows up here on its own; a formHint makes one read better.
+// Every command as questions: a person at a terminal who types a command
+// with something missing is asked for it (prompter_fill.go), its arguments
+// first (a server, a database ... picked from a list) and the flags it
+// needs. The questions come from the command itself (its Use line and its
+// flags), so a new command or flag shows up here on its own; a formHint
+// makes one read better (its help on ?, its list, what it needs).
 
 // formHint makes one command's questions read well.
 type formHint struct {
@@ -30,7 +29,7 @@ type formHint struct {
 	hide  []string   // flags never offered here, besides formNeverFlags
 	// form is a hand-made form used instead (host add, conn add, vpn add)
 	form func() []formGroup
-	// skip keeps it out of the menu (ssh-gate: sshd runs it, not a person)
+	// skip: nobody is ever asked its questions (ssh-gate: sshd runs it)
 	skip bool
 	// always are flags every line gets (rename --prefix)
 	always []string
@@ -89,7 +88,7 @@ func addFormHints(m map[string]formHint) {
 	}
 }
 
-// formNeverFlags are not offered by the menu. A person approves what needs
+// formNeverFlags are never asked or added by a question. A person approves what needs
 // a yes when the command asks (or in its window); output is for scripts.
 var formNeverFlags = []string{"help", "yes", "allow-dangerous", "reveal", "output", "dry-run"}
 
@@ -233,18 +232,12 @@ func formWords(name string) string {
 	if slices.Contains(formAcronyms, name) {
 		return name
 	}
-	if w, ok := formPlainNames[name]; ok {
-		return w
-	}
 	n := strings.ToLower(strings.Join(strings.Fields(name), " "))
 	if n == "" {
 		return name
 	}
 	return strings.ToUpper(n[:1]) + n[1:]
 }
-
-// formPlainNames are Use names a beginner would not read as words.
-var formPlainNames = map[string]string{"SRC": "From", "DST": "To", "DEST": "To", "CONN": "Service"}
 
 // formAcronyms stay in capitals as labels.
 var formAcronyms = []string{"SQL", "URL", "PID", "TTL", "ID", "IP", "CSV", "DNS", "OS"}
@@ -564,8 +557,7 @@ func formSplitWords(v string) []string {
 // Areas.
 
 // formAreas sorts the commands by area, and which command words fall in
-// each when no hint says. The menu reaches each command from an item's
-// tasks (menu.go); the areas keep the hints and tests in order.
+// each when no hint says. The areas keep the hints and tests in order.
 var formAreas = []struct {
 	label, detail string
 	words         []string
@@ -586,7 +578,7 @@ var formAreas = []struct {
 	{"Setup", "AI agents, updates", []string{"guide", "update", "version", "schema", "completion"}},
 }
 
-// formListed: the menu offers it. A group command (cache, cluster
+// formListed: it has questions. A group command (cache, cluster
 // helm) that only shows its help is left out; its subcommands are listed.
 func formListed(c *cobra.Command) bool {
 	h, hinted := formHints[commandKey(c)]
@@ -614,35 +606,4 @@ func formAreaOf(c *cobra.Command) int {
 		}
 	}
 	return -1
-}
-
-// formQuitIsCancel: q or Ctrl-C on a form's list cancels the form, not the
-// menu.
-func formQuitIsCancel(err error) error {
-	if errors.Is(err, errMenuQuit) {
-		return errFormCancel
-	}
-	return err
-}
-
-// formCancelKey is the cancel key a form list shows: on a list without a
-// filter q cancels the form (letters are not typed there), so it says so;
-// on a list with one, q is a letter and only Ctrl-C cancels.
-func formCancelKey(l *menuList) string {
-	if l.typing {
-		return "Ctrl-C cancel"
-	}
-	return "q cancel"
-}
-
-// formTry runs a command with --dry-run from the review and comes back to
-// it, so a person sees what a change would do before it happens.
-type formTry func(args []string) error
-
-// formTryFor offers the dry run only for a command that changes things.
-func formTryFor(c *cobra.Command, try formTry) formTry {
-	if k, ok := kindOf(c); ok && k.Kind == kindRead {
-		return nil
-	}
-	return try
 }

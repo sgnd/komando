@@ -69,3 +69,16 @@ func TestPromptNext(t *testing.T) {
 		t.Errorf("printed for someone who is not a person at a terminal: %s", drawn)
 	}
 }
+
+// A person told there is nothing yet is given the add command to type,
+// never a menu that is gone.
+func TestAddHintForAPerson(t *testing.T) {
+	saved := interactive
+	interactive = func() bool { return true }
+	defer func() { interactive = saved }()
+	for family, want := range map[string]string{"db": "komando db add", "host": "komando host add", "vpn": "komando vpn add"} {
+		if h := addHint(family, ""); !strings.Contains(h, want) || strings.Contains(h, "pick Add") {
+			t.Errorf("%s: %q", family, h)
+		}
+	}
+}

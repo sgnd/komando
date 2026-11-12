@@ -275,33 +275,38 @@ run next).
 
 ## 10. Help and ease of use
 
-- `komando` with no arguments: for a person at a terminal, a menu (arrow
-  keys and Enter) that runs the same commands they could type; for agents,
-  scripts and any flag the first three steps, not a wall of text; piped, one
-  `USAGE` envelope (see Streams and scripts).
-- The menu picks a thing first, then what to do with it
-  (internal/cli/menu.go). With nothing added: Add a server, Bring in my SSH
-  servers (when ~/.ssh/config has new ones), Set up my AI agent, Settings
-  and help. After that the rows keep one order and never move: Servers,
-  Databases and services, VPNs, Running now (only while something runs),
-  Add something, Check everything, History and undo, Settings and help.
-  Picking a server, group, database, cache, queue, storage, cluster,
-  registry or VPN shows that kind's tasks (menuTask), each one a komando
-  command with the item already answered. Esc goes back one step, `?`
-  explains the screen, q quits. Disconnecting a VPN and Reboot ask first,
-  with No on top. `TestMenuEveryCommandHasAHome` fails when a command has no
-  task and no reason in `menuCLIOnly`.
-- Every task opens its command's questions directly (internal/cli/form*.go):
-  Add has hand-made forms per kind; every other command gets questions from
-  its Use line and flags, made plainer by a formHint. A form asks one
-  question at a time (answers so far stay on screen), checks each answer
-  with the same rules the command uses, and ends on a review that shows the
-  exact command lines, with the rarer flags under More options. A read with
-  nothing left to ask runs at once. Forms never hold a secret (the command
-  asks with --ask-password) and never add --yes, --allow-dangerous or
-  --reveal. `host add`, `conn add` and `vpn add` alone at a person's
-  terminal open the same form; with any argument or flag, or for an agent,
-  nothing changes.
+- **Person mode is commands, not a menu** (owner decision 2026-11-12,
+  vision.md decision 5). `komando` with no arguments: for a person at a
+  terminal, the commands by group with START first (and, with nothing
+  added, how to add the first server); for agents and scripts the first
+  steps; piped, one `USAGE` envelope (see Streams and scripts). Help topics:
+  `komando help safety|environment|exit-codes|output`.
+- **A typed command asks for what is missing**, only when `promptable()`:
+  stdin, stdout and stderr are terminals, no AI agent, `CI` unset or
+  false, `TERM` not dumb, output text. The line is filled in before cobra
+  runs (internal/cli/prompter_fill.go): missing positionals in Use order,
+  required flags, and optional values a formHint marks `need` (db query's
+  SQL without --file). One line per question, labelled with the real name
+  (`CONN (database):`, `--old:`), `?` for the hint's help, the default in
+  brackets, a wrong answer explained and asked again (3 times). Lists come
+  from the inventory (formPickRows); a number picks, text narrows, a
+  selector or a new name is taken as typed. One item that is not protected
+  is used and said; a protected one is never picked; none says how to add
+  one. Then `$ komando ...` (the line that runs, as typed). A read runs at
+  once; a change asks `Run it? [y/N, d = --dry-run first]`, a delete for
+  good asks to type the name, a protected target leaves it to its own
+  `[y/N]`. The questions never add `--yes`, `--allow-dangerous`,
+  `--reveal` or `--write`. A command typed in full runs as it always did;
+  what agents and scripts get is pinned by TestAgentGolden.
+- `host add`, `conn add`, `vpn add` and each family's add typed alone ask
+  that kind's own questions (form_kinds.go, form_<family>.go): kind, name,
+  address or URL parts, login, production; never a password (the command
+  asks it, hidden, `--ask-password`); a pasted `user:password@` is never
+  drawn. After a failed test the next steps are three commands.
+- After a command a person ran ends well: `Next time: <line>` when komando
+  asked for something, `Next:` from the formHint's `next`, and `host
+  show`/`conn show`/`vpn show` end with that item's commands. All on
+  stderr, only at a person's terminal.
 - Every command has at least one real example in `--help`.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always
@@ -408,8 +413,9 @@ Guidelines](https://clig.dev) and the rules above.
   `PARTIAL_FAILURE`.
 
 **Help**
-- [ ] `komando` alone: a menu for a person at a terminal; otherwise the
-  first steps, a dozen lines at most.
+- [ ] `komando` alone: the commands by group for a person at a terminal;
+  otherwise the first steps, a dozen lines at most. A command typed with
+  something missing asks a person for it, and nobody else.
 - [ ] Every command has at least one real example (`examples.go` or its
   own `Example`). `TestConventions` fails without one, and
   `TestExamplesParse` fails when an example names a command or flag that

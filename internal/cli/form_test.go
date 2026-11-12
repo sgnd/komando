@@ -347,56 +347,6 @@ func TestFormSplitWords(t *testing.T) {
 	}
 }
 
-// A typed selector is kept as typed, not swapped for the first server it
-// filters to; a moved cursor or an exact name picks that row.
-func TestFormPicked(t *testing.T) {
-	l := &menuList{typing: true, rows: []menuRow{
-		{label: "web1", detail: "@web", value: "web1"}, {label: "web2", detail: "@web", value: "web2"},
-		{label: "@web", detail: "group", value: "@web"}}}
-	for typed, want := range map[string]string{"@web": "@web", "web2": "web2", "tag:prod": "tag:prod",
-		"web1 web2": "web1 web2", "we": "web1", "": "web1", "nothing-like-it": "nothing-like-it"} {
-		l.setFilter(typed)
-		if got := formPicked(l, false); got != want {
-			t.Errorf("typed %q: %q, want %q", typed, got, want)
-		}
-	}
-	l.setFilter("web")
-	l.cursor = 1
-	if got := formPicked(l, true); got != "web2" {
-		t.Errorf("moved to web2: %q", got)
-	}
-}
-
-// On a list that also takes typing (a secret's name, a group), what was
-// typed is a row of its own on top: Enter takes it, never the first row
-// the text happens to be part of ("db" is not "db-pass"), and the arrows
-// still pick a row. A typed answer comes back as typed on Back.
-func TestFormTypedNameIsTaken(t *testing.T) {
-	base := []menuRow{{label: "db-pass", value: "db-pass"}, {label: "web-1", detail: "10.0.0.5", value: "web-1"}}
-	pick := func(typed string, downs int) string {
-		l := &menuList{typing: true, rows: base}
-		for _, r := range typed {
-			l.update(menuKey{kind: keyRune, r: r}, 10)
-			l.rows = formTypedRow(base, l.filter)
-		}
-		for range downs {
-			l.update(menuKey{kind: keyDown}, 10)
-			l.rows = formTypedRow(base, l.filter)
-		}
-		return formPicked(l, downs > 0)
-	}
-	for _, c := range []struct {
-		typed string
-		downs int
-		want  string
-	}{{"db", 0, "db"}, {"pass", 0, "pass"}, {"10.0", 0, "10.0"}, {"db-pass", 0, "db-pass"},
-		{"db", 1, "db-pass"}, {"", 0, "db-pass"}, {"", 1, "web-1"}, {"@web", 0, "@web"}} {
-		if got := pick(c.typed, c.downs); got != c.want {
-			t.Errorf("typed %q, %d down: %q, want %q", c.typed, c.downs, got, c.want)
-		}
-	}
-}
-
 // Nothing is left out of the menu: every command it lists has a hint
 // (written for it, even an empty one), every conn kind and VPN kind has an
 // Add form, and every flag a person could need is offered.
@@ -576,36 +526,6 @@ func TestFormHidesHaveAReason(t *testing.T) {
 			if _, ok := formHides[p+" "+f]; !ok {
 				t.Errorf("%s hides --%s with no reason in formHides", p, f)
 			}
-		}
-	}
-}
-
-// Labels read as words: no Use syntax ([LOCAL:]REMOTE, SRC_CONN:IMAGE),
-// no shouting (KEY, SRC) and no "conn".
-func TestFormArgLabels(t *testing.T) {
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
-		for _, s := range c.Commands() {
-			walk(s)
-			if !s.Runnable() {
-				continue
-			}
-			for _, q := range formCmdSpec(s).qs {
-				if !strings.HasPrefix(q.key, "arg") {
-					continue
-				}
-				l := q.label
-				if strings.ContainsAny(l, "[]:_") || (len(l) > 1 && l == strings.ToUpper(l) && !slices.Contains(formAcronyms, l)) ||
-					strings.Contains(strings.ToLower(l), "conn") {
-					t.Errorf("%s: label %q", commandKey(s), l)
-				}
-			}
-		}
-	}
-	walk(newRoot())
-	for in, want := range map[string]string{"[LOCAL:]REMOTE": "Local remote", "SRC_CONN:IMAGE": "Src conn image", "KEY": "Key", "SQL": "SQL", "SRC": "From"} {
-		if got := formWords(in); got != want {
-			t.Errorf("formWords(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

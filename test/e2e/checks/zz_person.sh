@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # A person at a terminal: every question komando asks, answered no and yes
-# in a real pseudo-terminal, plus the menu that `komando` alone opens.
+# in a real pseudo-terminal, plus typed commands that ask for what is missing.
 # A "no" must change nothing; a "yes" must do what was asked, once.
 # Uses names that start with t-person; everything is removed at the end.
 P1="t-person-$$"
@@ -59,10 +59,14 @@ q $K logout "$P1-login"
 check "person: after logout the agent is out again" False "$(A exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
 q $K host rm "$P1-login"
 
-# the menu: `komando` alone, Settings and help (the last row), then
-# Check my setup (4 rows above its last row, Version), see it run, quit
-O=$(ptykeys '\x1b[F' '\r' '\x1b[F' '\x1b[A' '\x1b[A' '\x1b[A' '\x1b[A' '\r' '\r' '\x03' -- env TERM=xterm "$K" | tr -d '\r')
-check "person: the menu lists what to do" True "$(grep -q 'Add' <<<"$O" && grep -q 'Settings and help' <<<"$O" && echo True || echo False)"
-check "person: the menu runs the picked command" True "$(grep -q -i 'security' <<<"$O" && echo True || echo False)"
-check "person: the menu is never shown to an agent" 0 "$(A </dev/null | grep -c -i 'arrow keys' || true)"
+# typed commands at a terminal: what is missing is asked, the line shown
+O=$(ptykeys -- env TERM=xterm "$K" | tr -d '\r')
+check "person: komando alone shows the commands by group" True "$(grep -q 'START' <<<"$O" && grep -q 'SERVERS' <<<"$O" && echo True || echo False)"
+O=$(ptykeys 'target\r' -- env TERM=xterm "$K" host show | tr -d '\r')
+check "person: a missing NAME is asked, then the line runs" True "$(grep -q 'NAME' <<<"$O" && grep -q '\$ komando host show target' <<<"$O" && echo True || echo False)"
+# a change on a protected server: the server's own [y/N] is the question, and no changes nothing
+O=$(ptykeys "/tmp/$P1-dir\r" 'n\r' -- env TERM=xterm "$K" fs mkdir target | tr -d '\r')
+check "person: a filled-in change on a protected server asks [y/N]" 1 "$(grep -c 'Change it anyway? \[y/N\]' <<<"$O")"
+check "person: no to it made nothing" False "$($K fs stat target "/tmp/$P1-dir" | jget 'd["data"]["exists"]')"
+check "person: an agent at a terminal is never asked" 0 "$(ptykeys -- env TERM=xterm KOMANDO_AGENT=1 "$K" host show </dev/null | grep -c 'NAME:' || true)"
 set -e
