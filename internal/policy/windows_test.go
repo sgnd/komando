@@ -166,8 +166,11 @@ func FuzzPSReadOnly(f *testing.F) {
 		if PSOnlyReads(s) && why != "" {
 			t.Fatalf("%q: known reads, but refused under --read-only (%s)", s, why)
 		}
-		if why == "" && strings.ContainsAny(s, "`@&>") {
-			t.Fatalf("%q: accepted with a backtick, @, & or >", s)
+		// psForbidden refuses these wherever they stand. > is refused only
+		// outside a string (TestPSRefusedShapes covers that): in GC '>' it is
+		// plain text, not a redirection.
+		if why == "" && strings.ContainsAny(s, "`@&") {
+			t.Fatalf("%q: accepted with a backtick, @ or &", s)
 		}
 		for i := 0; why == "" && i < len(s); i++ {
 			if s[i] >= 0x80 {
