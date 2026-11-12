@@ -29,7 +29,7 @@ it is now is kept as a new backup first, so you can undo the restore too.
 Add --dry-run to see the change without making it.`,
 		Example: `  komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run
   komando fs restore web1 /etc/nginx/nginx.conf --sudo
-  komando fs restore web1 /etc/nginx/nginx.conf --from /etc/nginx/nginx.conf.bak --sudo`,
+  komando fs restore web1 /etc/nginx/nginx.conf --copy /etc/nginx/nginx.conf.bak --sudo`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -66,7 +66,7 @@ Add --dry-run to see the change without making it.`,
 					}
 					n := newestBackup(path.Base(p), names)
 					if n == "" {
-						return out.Errf(out.ExitNotFound, "BACKUP_NOT_FOUND", "komando keeps a backup only when you edit with --backup; give another copy with --from FILE",
+						return out.Errf(out.ExitNotFound, "BACKUP_NOT_FOUND", "komando keeps a backup only when you edit with --backup; give another copy with --copy PATH",
 							"no backup of %s found (looked for %s.bak)", p, path.Base(p))
 					}
 					b = path.Join(path.Dir(p), n)
@@ -114,7 +114,8 @@ Add --dry-run to see the change without making it.`,
 		},
 	}
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read and write with sudo (for files root owns)")
-	c.Flags().StringVar(&from, "from", "", "the backup to put back (default: the newest PATH.bak)")
+	c.Flags().StringVar(&from, "copy", "", "the backup copy to put back, a path on the server (default: the newest PATH.bak)")
+	retiredFlag(c, "from", "copy")
 	return c
 }
 

@@ -47,7 +47,7 @@ ORDER BY 1`))
 // oracleUserSQL is userSQL for Oracle.
 func oracleUserSQL(action string, u UserSpec) (stmt, shown string, err error) {
 	if u.Host != "" {
-		return "", "", out.Usage("--from is for MySQL; Oracle users are not tied to a host")
+		return "", "", out.Usage("--from-host is for MySQL; Oracle users are not tied to a host")
 	}
 	if err := checkOraUser(u.Name); err != nil {
 		return "", "", err
@@ -117,7 +117,7 @@ var oraSchemaPrivs = map[string]string{"SELECT": "SELECT ANY TABLE", "READ": "RE
 // schema privileges); --role grants a role.
 func oracleGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 	if g.Host != "" {
-		return "", out.Usage("--from is for MySQL; Oracle users are not tied to a host")
+		return "", out.Usage("--from-host is for MySQL; Oracle users are not tied to a host")
 	}
 	if err := checkOraUser(g.User); err != nil {
 		return "", err

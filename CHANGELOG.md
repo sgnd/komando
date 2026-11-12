@@ -78,6 +78,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `--from` now always means a file on this computer (`db restore`,
+  `fs write`, `queue send`). The MySQL account host is `--from-host` on
+  `db grant`, `db revoke`, `db user show/add/passwd/rm`, and the backup
+  copy `fs restore` puts back is `--copy PATH`. The old `--from` there
+  still works in this release and is noted in `meta.deprecated`.
 - The top-level `komando forward` (another name for `tunnel`, easy to
   mix up with `cluster forward`) is retired: `forward start/list/stop`
   still work in this release and are noted in `meta.deprecated`; use

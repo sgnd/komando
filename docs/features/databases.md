@@ -343,7 +343,7 @@ komando db user list app-db                                   # all users and ro
 komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate (the conn's own user: also conn edit, see rotate.md)
 komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
 komando db user rm app-db app_ro --allow-dangerous
-komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10.0.%'   # MySQL
+komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from-host '10.0.%'   # MySQL
 ```
 
 - Passwords come only from a secret reference. They are never typed on a
@@ -354,7 +354,7 @@ komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from '10
   window, `SECRET_DESTINATION`): the conn could be a server the agent set up.
 - `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
   `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
-  and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from` sets the account host).
+  and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from-host` sets the account host).
   For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
   for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user list` and
   `db user show` read; adding, changing and granting are not available. On

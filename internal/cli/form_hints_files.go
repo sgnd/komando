@@ -115,7 +115,7 @@ var formFsHints = map[string]formHint{
 		{ask: "Which file should go back to how it was?", example: "/etc/nginx/nginx.conf",
 			help: "The file you changed, not its .bak copy. Try it first to see the difference."}},
 		flags: []formFlag{
-			{name: "from", ask: "Which backup? (leave empty for the newest)", example: "/etc/nginx/nginx.conf.bak",
+			{name: "copy", ask: "Which backup? (leave empty for the newest)", example: "/etc/nginx/nginx.conf.bak",
 				help: "Empty puts back the newest copy. The file as it is now is kept, so you can undo this too."},
 			formFsSudo("Needed for system files, like most files under /etc."),
 		}},

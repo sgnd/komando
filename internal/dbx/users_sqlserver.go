@@ -35,7 +35,7 @@ ORDER BY dp.name`)
 // mssqlUserSQL is userSQL for SQL Server.
 func mssqlUserSQL(action string, u UserSpec) (stmt, shown string, err error) {
 	if u.Host != "" {
-		return "", "", out.Usage("--from is for MySQL; SQL Server logins are not tied to a host")
+		return "", "", out.Usage("--from-host is for MySQL; SQL Server logins are not tied to a host")
 	}
 	id := msid(u.Name)
 	// one transaction: a login is not left without its user, nor a user without its login
@@ -68,7 +68,7 @@ var msPrivs = map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": true, "D
 // --role adds the user to a database role (db_datareader, ...).
 func mssqlGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 	if g.Host != "" {
-		return "", out.Usage("--from is for MySQL; SQL Server logins are not tied to a host")
+		return "", out.Usage("--from-host is for MySQL; SQL Server logins are not tied to a host")
 	}
 	if g.Role != "" {
 		if err := checkRole(g.Role); err != nil {

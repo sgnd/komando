@@ -55,7 +55,7 @@ ORDER BY name`)
 // name is one.
 func clickhouseUserSQL(ctx context.Context, db *sql.DB, action string, u UserSpec) (stmt, shown string, err error) {
 	if u.Host != "" {
-		return "", "", out.Usage("--from is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
+		return "", "", out.Usage("--from-host is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
 	}
 	id := chid(u.Name)
 	switch action {
@@ -104,7 +104,7 @@ var chPrivs = map[string]bool{"SELECT": true, "INSERT": true, "ALTER": true, "CR
 // or *.* as in MySQL, or database:DB, table:DB.TABLE, all-tables:DB.
 func clickhouseGrantSQL(_ context.Context, _ *sql.DB, g Grant) (string, error) {
 	if g.Host != "" {
-		return "", out.Usage("--from is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
+		return "", out.Usage("--from-host is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
 	}
 	verb, prep := "grant ", " to "
 	if g.Revoke {

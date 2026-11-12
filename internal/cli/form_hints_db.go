@@ -24,7 +24,7 @@ var (
 		help: "0 shows every row. Big results are cut anyway, so keep it small for a first look.", example: "100"}
 	dbUser = formArg{ask: "Which database user?", example: "app_ro",
 		help: "The user name inside the database, not your SSH user. `komando db user list` shows them."}
-	dbFrom = formFlag{name: "from", ask: "MySQL only: from where does this user connect?",
+	dbFrom = formFlag{name: "from-host", ask: "MySQL only: from where does this user connect?",
 		help:    "The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL.",
 		example: "10.0.0.%"}
 	dbOn = formFlag{name: "on", ask: "Which server should run the backup tool?", pick: "server",
