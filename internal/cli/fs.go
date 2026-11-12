@@ -462,7 +462,7 @@ func fsCatCmd() *cobra.Command {
 			}
 			out.P.Print("fs.cat", res, nil)
 			if r, ok := res.(catResult); ok && r.Truncated && out.P.Format == "text" {
-				fmt.Fprintf(os.Stderr, "note: output truncated at %s (raise --max-bytes, or use `komando download`)\n", humanBytes(maxBytes))
+				fmt.Fprintf(os.Stderr, "Note: showing the first %s; raise --max-bytes, or use `komando download`\n", humanBytes(maxBytes))
 			}
 			return nil
 		},

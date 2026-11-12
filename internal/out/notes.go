@@ -52,7 +52,7 @@ func (p *Printer) printCut() {
 	cut, noted, n := p.cut, p.cutNoted, p.cutAt
 	p.mu.Unlock()
 	if cut && !noted && n > 0 {
-		fmt.Fprintf(os.Stderr, "showing %d of more; use --limit 0 for all\n", n)
+		fmt.Fprintf(os.Stderr, "Note: showing the first %d; --limit 0 shows all\n", n)
 	}
 }
 

@@ -202,12 +202,12 @@ func (f *fill) pick(key string) string {
 // and how one is added; only these are ever picked for the person.
 var promptKinds = map[string]struct{ noun, add string }{
 	"server": {"servers", "komando host add"}, "host": {"servers", "komando host add"},
-	"target": {"servers or services", "komando host add"}, "files": {"servers or file storage", "komando host add"},
-	"conn": {"services", "komando conn add"}, "db": {"databases", "komando db add"},
+	"target": {"servers or conns", "komando host add"}, "files": {"servers or file storage", "komando host add"},
+	"conn": {"conns", "komando conn add"}, "db": {"databases", "komando db add"},
 	"cache": {"caches", "komando cache add"}, "queue": {"message queues", "komando queue add"},
 	"storage": {"file storages", "komando storage add"}, "cluster": {"clusters", "komando cluster add"},
 	"registry": {"registries", "komando registry add"}, "vpn": {"VPNs", "komando vpn add"},
-	"job": {"background jobs", "komando job start"}, "tunnel": {"tunnels", "komando tunnel start"},
+	"job": {"jobs", "komando job start"}, "tunnel": {"tunnels", "komando tunnel start"},
 }
 
 // label is a question's name as the command spells it: CONN (database),
@@ -248,7 +248,7 @@ func (f *fill) ask(i int) (string, error) {
 		}
 		switch {
 		case len(real) == 0:
-			fmt.Fprintf(promptW, "No %s yet; add one: %s\n", k.noun, k.add)
+			fmt.Fprintf(promptW, "No %s yet: `%s`\n", k.noun, k.add)
 			return "", errPromptCancel
 		case len(real) == 1 && len(rows) <= 2 && !promptProtected(f.st, real[0].value):
 			fmt.Fprintf(promptW, "Using %s (the only one of your %s)\n", real[0].value, k.noun)

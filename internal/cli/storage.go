@@ -375,7 +375,7 @@ func storageCatCmd() *cobra.Command {
 						lines = lines[len(lines)-tail:]
 					}
 					if w.capped && out.P.Format == "text" {
-						fmt.Fprintf(os.Stderr, "(truncated at %s; raise --max-bytes or download it)\n", humanBytes(w.max))
+						fmt.Fprintf(os.Stderr, "Note: showing the first %s; raise --max-bytes or download it\n", humanBytes(w.max))
 					}
 					return catData{Conn: c.Name, Key: args[1], Content: strings.Join(lines, ""), Truncated: truncated}, nil
 				})
@@ -488,7 +488,7 @@ through --via, only people who can reach that address can use the link.
 						d.Warning = strings.TrimPrefix(d.Warning+"; "+w, "; ")
 					}
 					if d.Warning != "" && out.P.Format == "text" {
-						fmt.Fprintln(os.Stderr, "warning: "+d.Warning)
+						fmt.Fprintln(os.Stderr, "Warning: "+d.Warning)
 					}
 					return d, nil
 				})

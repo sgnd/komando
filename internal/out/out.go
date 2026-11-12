@@ -385,7 +385,7 @@ func (p *Printer) Warn(msg string) {
 	p.mu.Lock()
 	p.warns = append(p.warns, msg)
 	p.mu.Unlock()
-	fmt.Fprintln(os.Stderr, Marks("warning: "+noteText(p.Redact(msg))))
+	fmt.Fprintln(os.Stderr, Marks("Warning: "+Wrap(noteText(p.Redact(msg)), len("Warning: "), StderrWidth())))
 }
 
 // Blocked is the stop WouldBlock recorded, or nil.
@@ -412,14 +412,14 @@ func (p *Printer) printSkipped() {
 	case n == 0:
 	case n <= 3:
 		for _, s := range p.skipped {
-			fmt.Fprintf(os.Stderr, "skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
+			fmt.Fprintf(os.Stderr, "Skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
 		}
 	default:
 		names := make([]string, n)
 		for i, s := range p.skipped {
 			names[i] = s.Name
 		}
-		fmt.Fprintf(os.Stderr, "skipped %d targets this command does not work with: %s (details with -o json)\n", n, strings.Join(names, ", "))
+		fmt.Fprintf(os.Stderr, "Skipped %d targets this command does not work with: %s (details with -o json)\n", n, strings.Join(names, ", "))
 	}
 }
 
@@ -435,9 +435,9 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 		p.printSkipped()
 		if p.DryRun {
 			// a person must never read a preview as a result
-			fmt.Fprintln(os.Stderr, "dry run: nothing was changed")
+			fmt.Fprintln(os.Stderr, "Dry run: nothing was changed")
 			if p.blocked != nil {
-				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
+				fmt.Fprintf(os.Stderr, "Without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
 				p.hint(p.blocked.hintOrDefault())
 			}
 		}
@@ -456,7 +456,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			if s == "" {
 				// an empty list would print nothing, and a person cannot tell
 				// "no results" from "did not run"; stderr keeps pipes clean
-				fmt.Fprintln(os.Stderr, "nothing to show")
+				fmt.Fprintln(os.Stderr, "Nothing to show")
 			}
 		}
 		p.printCut()
@@ -491,26 +491,19 @@ func (p *Printer) printErr(e *Error, stopped bool) {
 		fmt.Fprintln(os.Stderr, msg)
 		return
 	}
+	label := "Error: "
 	if stopped && e.Exit == ExitPolicy {
-		msg = "Stopped: " + sentence(msg)
+		// a one-line error is a fragment (M-3): the state joins it after
+		// a semicolon, and no full stop ends it
+		label = "Stopped: "
+		msg = strings.TrimRight(msg, " .")
 		if !strings.Contains(strings.ToLower(msg), "nothing was changed") {
-			msg += " Nothing was changed."
+			msg += "; nothing was changed"
 		}
-	} else {
-		msg = "Error: " + msg
 	}
-	fmt.Fprintln(os.Stderr, msg)
+	fmt.Fprintln(os.Stderr, label+Wrap(msg, len(label), StderrWidth()))
 	p.hint(e.TextHint())
 	fmt.Fprintf(hintW, "(code %s, exit %d)\n", e.Code, e.Exit)
-}
-
-// sentence ends s with a period unless it ends in punctuation already.
-func sentence(s string) string {
-	s = strings.TrimRight(s, " ")
-	if s == "" || strings.ContainsAny(s[len(s)-1:], ".!?:") {
-		return s
-	}
-	return s + "."
 }
 
 // hint prints an error's hint in text mode, hidden and made safe like the
@@ -518,7 +511,7 @@ func sentence(s string) string {
 // terminal escapes.
 func (p *Printer) hint(h string) {
 	if h != "" {
-		fmt.Fprintf(hintW, "hint: %s\n", Marks(noteText(p.Redact(h))))
+		fmt.Fprintf(hintW, "Hint: %s\n", Marks(Wrap(noteText(p.Redact(h)), len("Hint: "), StderrWidth())))
 	}
 }
 

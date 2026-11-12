@@ -696,7 +696,7 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		}
 		for _, r := range res.Results {
 			if r.Truncated == "rows" {
-				fmt.Fprintf(os.Stderr, "komando: stopped at --limit %d rows per statement\n", f.limit)
+				fmt.Fprintf(os.Stderr, "Note: showing the first %d rows of each statement; raise --limit (0 shows all)\n", f.limit)
 				break
 			}
 		}

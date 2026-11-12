@@ -91,7 +91,7 @@ func (d opsData) Text() string {
 			if multi {
 				fmt.Fprintf(&sb, "%swarning: %s\n", indent, w)
 			} else {
-				fmt.Fprintf(os.Stderr, "warning: %s\n", out.SafeText(w))
+				fmt.Fprintf(os.Stderr, "Warning: %s\n", out.SafeText(w))
 			}
 		}
 		if !r.OK && r.Stderr != "" {

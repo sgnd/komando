@@ -6247,7 +6247,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (recursive delete of / or home), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (recursive delete of / or home), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- rm -rf / (script json, gate inventory)
 exit 6
 --- stdout
@@ -6257,7 +6257,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (recursive delete of / or home), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (recursive delete of / or home), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6267,7 +6267,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
@@ -6277,7 +6277,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- foo bar (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6287,7 +6287,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (matches custom deny pattern foo.*bar), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (matches custom deny pattern foo.*bar), so komando asks first; nothing was changed
 ### komando -o json exec web1 -- foo bar (script json, gate inventory)
 exit 6
 --- stdout
@@ -6297,7 +6297,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (matches custom deny pattern foo.*bar), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (matches custom deny pattern foo.*bar), so komando asks first; nothing was changed
 ### komando -o json job start web1 -- reboot (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6307,7 +6307,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json job start web1 -- reboot (script json, gate inventory)
 exit 6
 --- stdout
@@ -6317,7 +6317,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json reboot web1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6327,7 +6327,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json reboot web1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6337,7 +6337,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json reboot prod1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6347,7 +6347,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json reboot prod1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6357,7 +6357,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (powers off or reboots the server), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (powers off or reboots the server), so komando asks first; nothing was changed
 ### komando -o json svc stop web1 sshd (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6367,7 +6367,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out), so komando asks first; nothing was changed
 ### komando -o json svc stop web1 sshd (script json, gate inventory)
 exit 6
 --- stdout
@@ -6377,7 +6377,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (stops sshd (locks out remote access); stops remote access (SSH or WinRM), which locks you out), so komando asks first; nothing was changed
 ### komando -o json user rm web1 bob (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6387,7 +6387,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes a user account), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes a user account), so komando asks first; nothing was changed
 ### komando -o json user rm web1 bob (script json, gate inventory)
 exit 6
 --- stdout
@@ -6397,7 +6397,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes a user account), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes a user account), so komando asks first; nothing was changed
 ### komando -o json pkg rm web1 openssh-server (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6407,7 +6407,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing openssh-server can lock you out of the server or break it. Nothing was changed.
+Stopped: removing openssh-server can lock you out of the server or break it; nothing was changed
 ### komando -o json pkg rm web1 openssh-server (script json, gate inventory)
 exit 6
 --- stdout
@@ -6417,7 +6417,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing openssh-server can lock you out of the server or break it. Nothing was changed.
+Stopped: removing openssh-server can lock you out of the server or break it; nothing was changed
 ### komando -o json fs rm web1 /tmp/x --recursive (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6427,7 +6427,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 /tmp/x --recursive (script json, gate inventory)
 exit 6
 --- stdout
@@ -6437,7 +6437,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (rm --recursive deletes whole folders and everything in them), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 / (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6447,7 +6447,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (removing the top-level path /), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (removing the top-level path /), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 / (script json, gate inventory)
 exit 6
 --- stdout
@@ -6457,7 +6457,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (removing the top-level path /), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (removing the top-level path /), so komando asks first; nothing was changed
 ### komando -o json sync testdata web1:/tmp/x --delete (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6467,7 +6467,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: --delete removes files in the destination that the source does not have. Nothing was changed.
+Stopped: --delete removes files in the destination that the source does not have; nothing was changed
 ### komando -o json sync testdata web1:/tmp/x --delete (script json, gate inventory)
 exit 6
 --- stdout
@@ -6477,7 +6477,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: --delete removes files in the destination that the source does not have. Nothing was changed.
+Stopped: --delete removes files in the destination that the source does not have; nothing was changed
 ### komando -o json cache rm cache1 k (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6487,7 +6487,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 ### komando -o json cache rm cache1 k (script json, gate inventory)
 exit 6
 --- stdout
@@ -6497,7 +6497,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 ### komando -o json cache rm pcache k (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6507,7 +6507,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 ### komando -o json cache rm pcache k (script json, gate inventory)
 exit 6
 --- stdout
@@ -6517,7 +6517,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 ### komando -o json cache run cache1 --write -- FLUSHALL (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6527,7 +6527,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, SWAPDB)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, SWAPDB)), so komando asks first; nothing was changed
 ### komando -o json cache run cache1 --write -- FLUSHALL (script json, gate inventory)
 exit 6
 --- stdout
@@ -6537,7 +6537,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, SWAPDB)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes every key (FLUSHALL, FLUSHDB, SWAPDB)), so komando asks first; nothing was changed
 ### komando -o json db query db1 --write DROP TABLE x (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6547,7 +6547,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (drops a database object or column), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (drops a database object or column), so komando asks first; nothing was changed
 ### komando -o json db query db1 --write DROP TABLE x (script json, gate inventory)
 exit 6
 --- stdout
@@ -6557,7 +6557,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (drops a database object or column), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (drops a database object or column), so komando asks first; nothing was changed
 ### komando -o json db query pdb --write UPDATE x SET a=1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6567,7 +6567,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (UPDATE without WHERE changes every row), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (UPDATE without WHERE changes every row), so komando asks first; nothing was changed
 ### komando -o json db query pdb --write UPDATE x SET a=1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6577,7 +6577,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (UPDATE without WHERE changes every row), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (UPDATE without WHERE changes every row), so komando asks first; nothing was changed
 ### komando -o json db user rm db1 bob (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6587,7 +6587,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (removes the user bob), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (removes the user bob), so komando asks first; nothing was changed
 ### komando -o json db user rm db1 bob (script json, gate inventory)
 exit 6
 --- stdout
@@ -6597,7 +6597,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (removes the user bob), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (removes the user bob), so komando asks first; nothing was changed
 ### komando -o json db restore db1 --from testdata/golden_restore.sql (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6607,7 +6607,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (restoring a backup can overwrite existing data), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (restoring a backup can overwrite existing data), so komando asks first; nothing was changed
 ### komando -o json db restore db1 --from testdata/golden_restore.sql (script json, gate inventory)
 exit 6
 --- stdout
@@ -6617,7 +6617,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (restoring a backup can overwrite existing data), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (restoring a backup can overwrite existing data), so komando asks first; nothing was changed
 ### komando -o json queue purge q1 t (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6627,7 +6627,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes every message in t (it stays)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes every message in t (it stays)), so komando asks first; nothing was changed
 ### komando -o json queue purge q1 t (script json, gate inventory)
 exit 6
 --- stdout
@@ -6637,7 +6637,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes every message in t (it stays)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes every message in t (it stays)), so komando asks first; nothing was changed
 ### komando -o json queue rm q1 t (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6647,7 +6647,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes t and every message in it), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes t and every message in it), so komando asks first; nothing was changed
 ### komando -o json queue rm q1 t (script json, gate inventory)
 exit 6
 --- stdout
@@ -6657,7 +6657,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes t and every message in it), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes t and every message in it), so komando asks first; nothing was changed
 ### komando -o json storage rm st1 k (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6667,7 +6667,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 ### komando -o json storage rm st1 k (script json, gate inventory)
 exit 6
 --- stdout
@@ -6677,7 +6677,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes data that cannot be recovered (cache keys, stored objects)), so komando asks first; nothing was changed
 ### komando -o json registry rm reg1 a:1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6687,7 +6687,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (registry.rm), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (registry.rm), so komando asks first; nothing was changed
 ### komando -o json registry rm reg1 a:1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6697,7 +6697,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (registry.rm), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (registry.rm), so komando asks first; nothing was changed
 ### komando -o json registry prune reg1 a --keep 5 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6707,7 +6707,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (registry.prune; deletes old images of a (--dry-run lists them)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (registry.prune; deletes old images of a (--dry-run lists them)), so komando asks first; nothing was changed
 ### komando -o json registry prune reg1 a --keep 5 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6717,7 +6717,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (registry.prune; deletes old images of a (--dry-run lists them)), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (registry.prune; deletes old images of a (--dry-run lists them)), so komando asks first; nothing was changed
 ### komando -o json docker rm web1 c1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6727,7 +6727,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (docker rm c1), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (docker rm c1), so komando asks first; nothing was changed
 ### komando -o json docker rm web1 c1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6737,7 +6737,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (docker rm c1), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (docker rm c1), so komando asks first; nothing was changed
 ### komando -o json docker prune web1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6747,7 +6747,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (docker system prune -f), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (docker system prune -f), so komando asks first; nothing was changed
 ### komando -o json docker prune web1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6757,7 +6757,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (docker system prune -f), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (docker system prune -f), so komando asks first; nothing was changed
 ### komando -o json docker raw web1 -- system prune -af (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6767,7 +6767,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (docker system prune -af), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (docker system prune -af), so komando asks first; nothing was changed
 ### komando -o json docker raw web1 -- system prune -af (script json, gate inventory)
 exit 6
 --- stdout
@@ -6777,7 +6777,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (docker system prune -af), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (docker system prune -af), so komando asks first; nothing was changed
 ### komando -o json exec prod1 -- touch /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6787,7 +6787,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json exec prod1 -- touch /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
@@ -6797,7 +6797,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json job start prod1 -- touch x (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6807,7 +6807,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json job start prod1 -- touch x (script json, gate inventory)
 exit 6
 --- stdout
@@ -6817,7 +6817,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json svc restart prod1 nginx (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6827,7 +6827,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json svc restart prod1 nginx (script json, gate inventory)
 exit 6
 --- stdout
@@ -6837,7 +6837,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json user add prod1 bob (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6847,7 +6847,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json user add prod1 bob (script json, gate inventory)
 exit 6
 --- stdout
@@ -6857,7 +6857,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json pkg install prod1 vim (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6867,7 +6867,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json pkg install prod1 vim (script json, gate inventory)
 exit 6
 --- stdout
@@ -6877,7 +6877,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json fs write prod1 /tmp/x --content hi (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6887,7 +6887,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json fs write prod1 /tmp/x --content hi (script json, gate inventory)
 exit 6
 --- stdout
@@ -6897,7 +6897,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json fs rm prod1 /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6907,7 +6907,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so komando asks first; nothing was changed
 ### komando -o json fs rm prod1 /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
@@ -6917,7 +6917,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes /tmp/x on prod1 for good), so komando asks first; nothing was changed
 ### komando -o json docker stop prod1 c1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6927,7 +6927,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json docker stop prod1 c1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6937,7 +6937,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json cron rm prod1 1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6947,7 +6947,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json cron rm prod1 1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6957,7 +6957,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6967,7 +6967,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (script json, gate inventory)
 exit 6
 --- stdout
@@ -6977,7 +6977,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: prod1 is a protected server (production), so komando asks before changing it. Nothing was changed.
+Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 ### komando -o json host rm prod1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -6987,7 +6987,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing protected host: prod1. Nothing was changed.
+Stopped: removing protected host: prod1; nothing was changed
 ### komando -o json host rm prod1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -6997,7 +6997,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing protected host: prod1. Nothing was changed.
+Stopped: removing protected host: prod1; nothing was changed
 ### komando -o json host edit prod1 --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7007,7 +7007,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off protection of protected host: prod1. Nothing was changed.
+Stopped: turning off protection of protected host: prod1; nothing was changed
 ### komando -o json host edit prod1 --protected=false (script json, gate inventory)
 exit 6
 --- stdout
@@ -7017,7 +7017,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off protection of protected host: prod1. Nothing was changed.
+Stopped: turning off protection of protected host: prod1; nothing was changed
 ### komando -o json cache set pcache k v (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7027,7 +7027,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: pcache is a protected cache (production), so komando asks before changing it. Nothing was changed.
+Stopped: pcache is a protected cache (production), so komando asks before changing it; nothing was changed
 ### komando -o json cache set pcache k v (script json, gate inventory)
 exit 6
 --- stdout
@@ -7037,7 +7037,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: pcache is a protected cache (production), so komando asks before changing it. Nothing was changed.
+Stopped: pcache is a protected cache (production), so komando asks before changing it; nothing was changed
 ### komando -o json cache run pcache --write -- SET k v (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7047,7 +7047,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: pcache is a protected cache (production), so komando asks before changing it. Nothing was changed.
+Stopped: pcache is a protected cache (production), so komando asks before changing it; nothing was changed
 ### komando -o json cache run pcache --write -- SET k v (script json, gate inventory)
 exit 6
 --- stdout
@@ -7057,7 +7057,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: pcache is a protected cache (production), so komando asks before changing it. Nothing was changed.
+Stopped: pcache is a protected cache (production), so komando asks before changing it; nothing was changed
 ### komando -o json db kill pdb 1 (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7067,7 +7067,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: pdb is a protected database (production), so komando asks before changing it. Nothing was changed.
+Stopped: pdb is a protected database (production), so komando asks before changing it; nothing was changed
 ### komando -o json db kill pdb 1 (script json, gate inventory)
 exit 6
 --- stdout
@@ -7077,7 +7077,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: pdb is a protected database (production), so komando asks before changing it. Nothing was changed.
+Stopped: pdb is a protected database (production), so komando asks before changing it; nothing was changed
 ### komando -o json conn rm pcache (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7087,7 +7087,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing protected conn: pcache. Nothing was changed.
+Stopped: removing protected conn: pcache; nothing was changed
 ### komando -o json conn rm pcache (script json, gate inventory)
 exit 6
 --- stdout
@@ -7097,7 +7097,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing protected conn: pcache. Nothing was changed.
+Stopped: removing protected conn: pcache; nothing was changed
 ### komando -o json conn edit pcache --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7107,7 +7107,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off protection of protected conn: pcache. Nothing was changed.
+Stopped: turning off protection of protected conn: pcache; nothing was changed
 ### komando -o json conn edit pcache --protected=false (script json, gate inventory)
 exit 6
 --- stdout
@@ -7117,7 +7117,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off protection of protected conn: pcache. Nothing was changed.
+Stopped: turning off protection of protected conn: pcache; nothing was changed
 ### komando -o json vpn rm pvpn (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7127,7 +7127,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing protected VPN: pvpn. Nothing was changed.
+Stopped: removing protected VPN: pvpn; nothing was changed
 ### komando -o json vpn rm pvpn (script json, gate inventory)
 exit 6
 --- stdout
@@ -7137,7 +7137,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing protected VPN: pvpn. Nothing was changed.
+Stopped: removing protected VPN: pvpn; nothing was changed
 ### komando -o json vpn edit pvpn --notes x (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7147,7 +7147,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: changing protected VPN: pvpn. Nothing was changed.
+Stopped: changing protected VPN: pvpn; nothing was changed
 ### komando -o json vpn edit pvpn --notes x (script json, gate inventory)
 exit 6
 --- stdout
@@ -7157,7 +7157,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: changing protected VPN: pvpn. Nothing was changed.
+Stopped: changing protected VPN: pvpn; nothing was changed
 ### komando -o json policy rm foo.*bar (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7167,7 +7167,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing the deny rule foo.*bar turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: removing the deny rule foo.*bar turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json policy rm foo.*bar (script json, gate inventory)
 exit 6
 --- stdout
@@ -7177,7 +7177,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: removing the deny rule foo.*bar turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: removing the deny rule foo.*bar turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json config set audit off (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7187,7 +7187,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off the audit log turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: turning off the audit log turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json config set audit off (script json, gate inventory)
 exit 6
 --- stdout
@@ -7197,7 +7197,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off the audit log turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: turning off the audit log turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json vpn edit pvpn --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7207,7 +7207,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json vpn edit pvpn --protected=false (script json, gate inventory)
 exit 6
 --- stdout
@@ -7217,7 +7217,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: turning off the protection of VPN pvpn turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json vpn edit pvpn --mfa=false (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7227,7 +7227,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json vpn edit pvpn --mfa=false (script json, gate inventory)
 exit 6
 --- stdout
@@ -7237,7 +7237,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first. Nothing was changed.
+Stopped: turning off --mfa of VPN pvpn (komando could then connect it without a person) turns off one of komando's safety checks, so komando asks first; nothing was changed
 ### komando -o json cache run cache1 -- SET k v (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7247,7 +7247,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: SET needs --write. Nothing was changed.
+Stopped: SET needs --write; nothing was changed
 ### komando -o json cache run cache1 -- SET k v (script json, gate inventory)
 exit 6
 --- stdout
@@ -7257,7 +7257,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: SET needs --write. Nothing was changed.
+Stopped: SET needs --write; nothing was changed
 ### komando -o json db query db1 DELETE FROM x (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7267,7 +7267,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row). Nothing was changed.
+Stopped: destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row); nothing was changed
 ### komando -o json db query db1 DELETE FROM x (script json, gate inventory)
 exit 6
 --- stdout
@@ -7277,7 +7277,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row). Nothing was changed.
+Stopped: destructive statement needs --write (and --allow-dangerous: DELETE without WHERE removes every row); nothing was changed
 ### komando -o json group rm big (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7287,7 +7287,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: deleting group big takes 4 entries out of it. Nothing was changed.
+Stopped: deleting group big takes 4 entries out of it; nothing was changed
 ### komando -o json group rm big (script json, gate inventory)
 exit 6
 --- stdout
@@ -7297,7 +7297,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: deleting group big takes 4 entries out of it. Nothing was changed.
+Stopped: deleting group big takes 4 entries out of it; nothing was changed
 ### komando -o json config approval-code (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7307,7 +7307,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: setting up the approval code shows its secret, so only a person at a terminal can do it. Nothing was changed.
+Stopped: setting up the approval code shows its secret, so only a person at a terminal can do it; nothing was changed
 ### komando -o json config approval-code (script json, gate inventory)
 exit 6
 --- stdout
@@ -7317,7 +7317,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: setting up the approval code shows its secret, so only a person at a terminal can do it. Nothing was changed.
+Stopped: setting up the approval code shows its secret, so only a person at a terminal can do it; nothing was changed
 ### komando -o json update web1 (agent json, release note)
 exit 2
 --- stdout
@@ -7407,7 +7407,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first; nothing was changed
 ### komando -o json secret rm gsec (script json, release note)
 exit 6
 --- stdout
@@ -7417,7 +7417,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes the saved secret gsec for good), so komando asks first; nothing was changed
 ### komando -o json key rm gkey --delete-file (agent json, release note)
 exit 6
 --- stdout
@@ -7427,7 +7427,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes the private key of gkey for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes the private key of gkey for good), so komando asks first; nothing was changed
 ### komando -o json key rm gkey --delete-file (script json, release note)
 exit 6
 --- stdout
@@ -7437,7 +7437,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes the private key of gkey for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes the private key of gkey for good), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 /tmp/x (agent json, release note)
 exit 6
 --- stdout
@@ -7447,7 +7447,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first; nothing was changed
 ### komando -o json fs rm web1 /tmp/x (script json, release note)
 exit 6
 --- stdout
@@ -7457,7 +7457,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first. Nothing was changed.
+Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so komando asks first; nothing was changed
 ### komando -o json host trust prod1 --reset --dry-run (agent json, release note)
 exit 0
 --- stdout
@@ -7468,8 +7468,8 @@ exit 0
 --- stdout
 would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
 --- stderr
-dry run: nothing was changed
-without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
+Dry run: nothing was changed
+Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
 ### komando -o json host trust prod1 --reset --dry-run (script json, release note)
 exit 0
 --- stdout
@@ -7480,8 +7480,8 @@ exit 0
 --- stdout
 would fetch the host key of prod1 (127.0.0.2:1) from the server directly, and remove 1 pinned key
 --- stderr
-dry run: nothing was changed
-without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
+Dry run: nothing was changed
+Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)
 ### komando -o json host trust prod1 --reset (agent json, release note)
 exit 6
 --- stdout
@@ -7491,7 +7491,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack). Nothing was changed.
+Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack); nothing was changed
 ### komando -o json host trust prod1 --reset (script json, release note)
 exit 6
 --- stdout
@@ -7501,7 +7501,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack). Nothing was changed.
+Stopped: replacing the pinned host key of prod1: only a person at a terminal replaces a pinned host key (a changed key may be an attack); nothing was changed
 ### komando -o json ps (agent json, release note)
 exit 2
 --- stdout
@@ -7651,7 +7651,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: komando storage link is refused for a read-only key: it makes a link that opens the data without a login. Nothing was changed.
+Stopped: komando storage link is refused for a read-only key: it makes a link that opens the data without a login; nothing was changed
 ### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (script json, read-only key)
 exit 6
 --- stdout
@@ -7661,7 +7661,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: komando storage link is refused for a read-only key: it makes a link that opens the data without a login. Nothing was changed.
+Stopped: komando storage link is refused for a read-only key: it makes a link that opens the data without a login; nothing was changed
 ### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (agent json, read-only key)
 exit 6
 --- stdout
@@ -7671,7 +7671,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer. Nothing was changed.
+Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer; nothing was changed
 ### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando cluster forward k8s svc/web 8080' (script json, read-only key)
 exit 6
 --- stdout
@@ -7681,7 +7681,7 @@ exit 6
 exit 6
 --- stdout
 --- stderr
-Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer. Nothing was changed.
+Stopped: komando cluster forward is refused for a read-only key: it opens a port on the komando computer; nothing was changed
 ### komando schema storage link (schema values)
 exit 0
 komando storage link kind=change confirm=[{"tier":"change"}]

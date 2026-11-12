@@ -30,7 +30,7 @@ const oldNameNote = "komando.old-name"
 func retiredName(used, now string) {
 	out.P.UsedRetired(used, now)
 	if term.IsTerminal(int(os.Stderr.Fd())) {
-		fmt.Fprintf(os.Stderr, "komando: `%s` is an old spelling that still works; use `%s` now\n", used, now)
+		fmt.Fprintf(os.Stderr, "Note: `%s` is an old spelling that still works; use `%s` now\n", used, now)
 	}
 }
 

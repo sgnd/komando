@@ -113,7 +113,7 @@ func truncationNotes(rs []execHostResult, limit int, many bool) {
 		if many {
 			who = " from " + r.Host
 		}
-		fmt.Fprintf(os.Stderr, "note: output%s truncated at %s (raise --max-output, or use `komando job start` / `komando download` for big output)\n", who, humanBytes(int64(limit)))
+		fmt.Fprintf(os.Stderr, "Note: showing the first %s of the output%s; raise --max-output, or run it with `komando job start` or `komando download` for big output\n", humanBytes(int64(limit)), who)
 	}
 }
 

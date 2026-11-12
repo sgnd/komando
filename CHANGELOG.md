@@ -612,6 +612,13 @@ an empty list reads `no <things> yet` or `no <things> match ...`.
   that takes them. `komando doctor`, when an AI agent's skill is from
   another komando version, names the old spellings it still teaches and
   what to use now; run `komando guide install` again.
+- komando's own lines on stderr start with a capital or a fixed label:
+  `Hint:`, `Warning:`, `Note:`, `Dry run:`, `Skipped`, `Nothing to show`
+  (were lower case). A stop reads `Stopped: <what>; nothing was changed`,
+  every cut list or output says `Note: showing the first N; ...`, and at
+  a terminal errors, hints and warnings wrap at 80 columns without
+  breaking a backticked command. An AI agent and a pipe still get each on
+  one line.
 
 ### Removed
 

@@ -27,7 +27,7 @@ func TestCutTruncated(t *testing.T) {
 
 	p = &Printer{Format: "text", W: &buf}
 	p.Cut(20)
-	if got := captureStderr(t, func() { p.Print("x", []string{"a"}, nil) }); !strings.Contains(got, "showing 20 of more; use --limit 0 for all") {
+	if got := captureStderr(t, func() { p.Print("x", []string{"a"}, nil) }); !strings.Contains(got, "Note: showing the first 20; --limit 0 shows all") {
 		t.Errorf("text stderr: %q", got)
 	}
 	p = &Printer{Format: "text", W: &buf}
