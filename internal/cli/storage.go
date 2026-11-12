@@ -72,6 +72,7 @@ func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Ver
 	}
 	rec["conns"], rec["risk"] = []string{c.Name}, v.Risk.String()
 	fail := func(err error) error {
+		err = namedHint(err, c.Name)
 		rec["error"] = toErr(err).Code
 		audit(st, name, nil, "", false, rec)
 		return err
@@ -108,6 +109,28 @@ func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Ver
 		out.P.Print(name, data, nil)
 	}
 	return nil
+}
+
+// namedHint puts the conn's name into the next command a storage error
+// names (the drivers know no conn: they say NAME or CONN), so a person or
+// an agent can run the hint as it is.
+func namedHint(err error, conn string) error {
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Hint == "" {
+		return err
+	}
+	h := oe.Hint
+	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage ls ", "download ", "upload "} {
+		for _, word := range []string{"NAME", "CONN"} {
+			h = strings.ReplaceAll(h, "komando "+cmd+word, "komando "+cmd+conn)
+		}
+	}
+	if h == oe.Hint {
+		return err
+	}
+	e := *oe
+	e.Hint = h
+	return &e
 }
 
 // openBucket connects to a storage conn of any kind (a variable so tests
@@ -418,12 +441,12 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	}
 	b, err := openBucket(ctx, st, c)
 	if err != nil {
-		return err
+		return namedHint(err, c.Name)
 	}
 	defer b.Close()
 	objs, more, err := b.List(ctx, prefix, true, 1_000_000)
 	if err != nil {
-		return err
+		return namedHint(err, c.Name)
 	}
 	if more {
 		return out.Usage("more than a million objects under %q; use a narrower --prefix", prefix)
@@ -467,7 +490,7 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	rec["conns"], rec["deleted"] = []string{c.Name}, len(done)
 	audit(st, "storage.rm", nil, "", err == nil, rec)
 	if err != nil {
-		return err
+		return namedHint(err, c.Name)
 	}
 	p.Deleted = done
 	out.P.Print("storage.rm", p, nil)

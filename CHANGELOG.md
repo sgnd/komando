@@ -32,6 +32,9 @@ its highlights; the sections below them give the details. Versions follow
   regional endpoint) now says which region it is in and how to fix the
   conn (`conn edit NAME --url ...`), instead of a bare `STORAGE_ERROR:
   AuthorizationHeaderMalformed` or `400 Bad Request`.
+- Storage errors name the conn in the command their hint suggests
+  (`komando conn test backups`, `komando storage ls backups`), not the
+  placeholder `NAME` or `CONN`.
 
 ## [0.12.0] - 2026-11-11
 
