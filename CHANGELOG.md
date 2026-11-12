@@ -9,6 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `fs chmod` works on servers with BSD `chmod` (FreeBSD, macOS): the
+  `--` came after the mode, which BSD reads as a file name. `fs mkdir`
+  and `fs chmod` now say what they did (`made: PATH`, `mode 640: PATH`)
+  instead of printing nothing on one server, and `fs mv` into `DIR/` no
+  longer prints a double slash.
 - `policy deny` says the new rule's id and the commands that follow:
   `komando policy check 'COMMAND'` to try it and `komando policy rm ID` to
   undo it. Its JSON gains `id` and `next`.
