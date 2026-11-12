@@ -16,3 +16,6 @@ func echoOff(fd int) error {
 	t.Lflag &^= unix.ECHO
 	return unix.IoctlSetTermios(fd, ioctlSetTermios, t)
 }
+
+// consoleVT: a Unix terminal reads escape sequences as they are.
+func consoleVT(int) (ok bool, restore func()) { return true, func() {} }

@@ -137,3 +137,32 @@ func TestCIRunIsNoPerson(t *testing.T) {
 		}
 	}
 }
+
+// On a console without escape sequences (an old Windows console) a masked
+// line is redrawn with spaces and backspaces over what is left.
+func TestMaskedRedraw(t *testing.T) {
+	for _, c := range []struct {
+		shown string
+		drawn int
+		want  string
+	}{
+		{"URL: post", 0, "URL: post"},
+		{"URL: pos", 9, "URL: pos \b"},
+		{"URL: ", 9, "URL:     \b\b\b\b"},
+		{"URL: é", 6, "URL: é"},
+	} {
+		if got := maskedRedraw(c.shown, c.drawn); got != c.want {
+			t.Errorf("maskedRedraw(%q, %d) = %q, want %q", c.shown, c.drawn, got, c.want)
+		}
+	}
+}
+
+// No colour where escape sequences would show as text.
+func TestColorNeedsVT(t *testing.T) {
+	saved := vtOK
+	t.Cleanup(func() { vtOK = saved })
+	vtOK = false
+	if colorOK() {
+		t.Error("colour on a console that shows escape sequences as text")
+	}
+}

@@ -83,8 +83,16 @@ func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 func Execute() int {
 	// no program komando starts inherits the secret stores' unlock values
 	vault.TakeUnlockEnv()
+	// a Windows console shows colour and line clearing only when asked
+	ok, restore := consoleVT(int(os.Stderr.Fd()))
+	defer restore()
+	vtOK = ok
 	return executeArgs(os.Args[1:])
 }
+
+// vtOK: the terminal on stderr reads escape sequences (colour, clearing a
+// line). Only an old Windows console does not.
+var vtOK = true
 
 // executeArgs runs komando with these arguments (os.Args[1:] for the real
 // program): one command, its envelope or text, and its exit code.

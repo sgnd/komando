@@ -293,7 +293,16 @@ func readMaskedLine(label string, mask func(string) string) (string, error) {
 	}
 	defer func() { _ = term.Restore(fd, old) }()
 	var line []rune
-	draw := func() { fmt.Fprint(promptW, "\r\x1b[2K"+label+mask(string(line))) }
+	drawn := 0 // characters on the line, for a console without escape sequences
+	draw := func() {
+		shown := label + mask(string(line))
+		if vtOK {
+			fmt.Fprint(promptW, "\r\x1b[2K"+shown)
+			return
+		}
+		fmt.Fprint(promptW, "\r"+maskedRedraw(shown, drawn))
+		drawn = utf8.RuneCountInString(shown)
+	}
 	draw()
 	buf := make([]byte, 4096)
 	for {
@@ -337,4 +346,15 @@ func readMaskedLine(label string, mask func(string) string) (string, error) {
 		}
 		draw()
 	}
+}
+
+// maskedRedraw is shown written over a line that held drawn characters,
+// for a console that reads no escape sequences: spaces over what is left
+// of the old line, then backspaces to the end of the new one.
+func maskedRedraw(shown string, drawn int) string {
+	n := drawn - utf8.RuneCountInString(shown)
+	if n <= 0 {
+		return shown
+	}
+	return shown + strings.Repeat(" ", n) + strings.Repeat("\b", n)
 }

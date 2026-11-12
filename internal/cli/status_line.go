@@ -83,12 +83,12 @@ func showExit(target string, code int, lost bool, took time.Duration) {
 	}
 }
 
-// colorOK: stderr is a terminal and the person did not turn color off
-// (NO_COLOR, TERM=dumb). Color only ever adds to a word: PROTECTED is
+// colorOK: stderr is a terminal that reads escape sequences (vtOK) and
+// the person did not turn color off (NO_COLOR, TERM=dumb). Color only ever adds to a word: PROTECTED is
 // bold red and still says PROTECTED without color. Bold red reads on light
 // and dark terminals; yellow and dim do not, so they are not used here.
 var colorOK = func() bool {
-	return os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" && term.IsTerminal(int(os.Stderr.Fd()))
+	return vtOK && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" && term.IsTerminal(int(os.Stderr.Fd()))
 }
 
 // cleanText drops control and bidi characters, so a name or address cannot
