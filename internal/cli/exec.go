@@ -546,6 +546,9 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			}
 			// a lost connection keeps what the command printed before it broke
 			hr.RunResult, _ = r.Value.(*sshx.RunResult)
+			if line := jobStartLine(name, hr.Host, command, stdin, o); line != "" && hr.Error.Code == "CONNECTION_LOST" {
+				hr.Error.Hint += "; over a shaky link run it as a job, which survives a drop: `" + line + "`"
+			}
 			worst = worse(worst, hr.Error.Exit)
 			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
 		} else {
@@ -558,6 +561,9 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			switch {
 			case hr.TimedOut:
 				hr.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout or use `komando job start` for long tasks", "command timed out after %s", req.Timeout)
+				if line := jobStartLine(name, hr.Host, command, stdin, o); line != "" {
+					hr.Error.Hint = "raise --timeout, or run it as a background job that outlives the connection: `" + line + "`"
+				}
 				worst = worse(worst, out.ExitTimeout)
 				fails = append(fails, hostFail{host: hr.Host, reason: "timed out", err: hr.Error})
 			case !hr.OK && o.exitMap != nil && o.exitMap(hr.RunResult) != nil:
@@ -662,6 +668,27 @@ func (l *lineBuffer) flush() string {
 	s := string(l.buf)
 	l.buf = nil
 	return s
+}
+
+// jobStartLine is the job start command that runs what exec ran on host,
+// with the same --sudo, --dir and --env. job start takes no input, pty or
+// --sudo-user, so a run with one of those gets "", and so does any command
+// but exec: module commands build their own scripts.
+func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
+	if name != "exec" || stdin != nil || o.pty || o.sudoUser != "" || o.display != "" {
+		return ""
+	}
+	parts := []string{"komando", "job", "start", host}
+	if o.sudo {
+		parts = append(parts, "--sudo")
+	}
+	if o.dir != "" {
+		parts = append(parts, "--dir", o.dir)
+	}
+	for _, e := range o.env {
+		parts = append(parts, "--env", e)
+	}
+	return shellLine(parts) + " -- " + sshx.Q(command)
 }
 
 // runOne is the building block for module commands (svc, docker, pkg ...):

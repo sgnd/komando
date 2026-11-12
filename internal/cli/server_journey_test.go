@@ -41,3 +41,29 @@ func TestJobWaitHintWaitsAgain(t *testing.T) {
 		t.Errorf("hint: %q", h)
 	}
 }
+
+func TestExecTimeoutNamesJobStart(t *testing.T) {
+	o := execOpts{sudo: true, dir: "/srv/app", env: []string{"MODE=full"}}
+	got := jobStartLine("exec", "web1", "pg_dump app | gzip > /b/app.gz", nil, o)
+	want := `komando job start web1 --sudo --dir /srv/app --env MODE=full -- 'pg_dump app | gzip > /b/app.gz'`
+	if got != want {
+		t.Fatalf("got  %s\nwant %s", got, want)
+	}
+	// job start has no input, pty or --sudo-user; module commands build
+	// their own scripts: no line to copy then
+	for name, c := range map[string]struct {
+		name  string
+		stdin []byte
+		o     execOpts
+	}{
+		"stdin":     {"exec", []byte("x"), execOpts{}},
+		"pty":       {"exec", nil, execOpts{pty: true}},
+		"sudo-user": {"exec", nil, execOpts{sudoUser: "app"}},
+		"svc":       {"svc.restart", nil, execOpts{}},
+		"script":    {"exec", nil, execOpts{display: "./deploy.sh"}},
+	} {
+		if got := jobStartLine(c.name, "web1", "uptime", c.stdin, c.o); got != "" {
+			t.Errorf("%s: %q, want none", name, got)
+		}
+	}
+}

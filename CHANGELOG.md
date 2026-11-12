@@ -9,6 +9,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `exec` that times out, or loses its connection, now gives the exact
+  `komando job start TARGET ... -- 'COMMAND'` line in its hint, with the
+  same `--sudo`, `--dir` and `--env`, instead of "use `komando job start`".
 - `job start` on several servers prints `komando job wait ID ID ...` with
   the real IDs (it printed `<id>`), and so does `next` in its JSON. A
   `job wait` for several jobs that are still running says
