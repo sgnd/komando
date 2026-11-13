@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+- A symbolic link inside the folder a `download -r` or a `sync` from a server or storage writes into was followed: a file could land wherever the link leads, outside the folder, and `sync --delete` could remove a file there. komando now stops at such a link (`UNSAFE_PATH`) and writes nothing through it; a file that is itself a link is replaced, never written through.
+
 ### Changed
 - `download -r` from a server keeps the files that are already on this computer and copies the rest, as `download -r` from storage does; it used to stop at the first one with `FILE_EXISTS`. The result says how many it kept (`kept`). `--overwrite` still replaces them.
 

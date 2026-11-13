@@ -96,6 +96,9 @@ func downloadFolder(ctx context.Context, sc *sftp.Client, src, dst string, dstIs
 			return st, out.Errf(out.ExitRemote, "UNSAFE_PATH", "check the server for odd file names", "server sent the path %q, which leads outside %s; nothing outside the folder was written", w.Path(), dst)
 		}
 		lp := filepath.Join(dst, filepath.FromSlash(rel))
+		if link := linkInDest(dst, filepath.FromSlash(rel), w.Stat().IsDir()); link != "" {
+			return st, localLinkStop(rel, link)
+		}
 		if w.Stat().IsDir() {
 			if err := os.MkdirAll(lp, 0o755); err != nil {
 				return st, err
@@ -140,6 +143,22 @@ func downloadFolder(ctx context.Context, sc *sftp.Client, src, dst string, dstIs
 		st.Masked += count(masked)
 	}
 	return st, nil
+}
+
+// linkInDest is the first symbolic link on the way from root to rel (the
+// folders above a file, the folder itself), or "": writing through it
+// would put the file wherever the link leads, outside the folder. The
+// file's own name may be a link: a new file replaces the link itself.
+func linkInDest(root, rel string, dir bool) string {
+	if !dir {
+		rel = filepath.Dir(rel)
+	}
+	return symlinkOn(root, rel)
+}
+
+func localLinkStop(rel, link string) error {
+	return out.Errf(out.ExitConflict, "UNSAFE_PATH", "remove the link, or copy into a folder without links",
+		"%s would be written through %s, a symbolic link on this computer that can lead outside the folder; nothing was written through it", rel, link)
 }
 
 // keepLocal counts a file of a folder download that is already on this
