@@ -364,6 +364,23 @@ window). `host ssh-command` adds `-o ForwardAgent=yes` for such a server.
 Your agent holds only the keys you added to it (`ssh-add`); keys komando
 keeps sealed are never in it unless `host ssh-command` put them there.
 
+### Security keys (FIDO2)
+
+A key on a security key (YubiKey, SoloKey, made with `ssh-keygen -t
+ed25519-sk` or `-t ecdsa-sk`) is signed by the device, so komando uses it
+through ssh-agent, as `ssh` does:
+
+```bash
+ssh-add ~/.ssh/id_ed25519_sk                     # touch the key when it blinks
+komando key add yubikey ~/.ssh/id_ed25519_sk     # reads the public key from id_ed25519_sk.pub
+komando host edit web1 --key yubikey
+```
+
+At each login the key asks for a touch. Without ssh-agent holding it, the
+server fails with `KEY_PASSPHRASE_REQUIRED` and the hint says to `ssh-add`
+it. Keep `id_ed25519_sk.pub` next to the key file: komando finds the key in
+the agent by it.
+
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.

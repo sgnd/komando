@@ -235,6 +235,12 @@ login, as ssh does; --cert names one kept somewhere else.`,
 				} else {
 					res.Warnings = append(res.Warnings, "no "+filepath.Base(p)+".pub next to it, so the public key is unknown (needed by key deploy)")
 				}
+			case skPublic(p) != nil:
+				// a FIDO2 key: komando signs with it through ssh-agent
+				pub := skPublic(p)
+				k.Type, k.Fingerprint = pub.Type(), ssh.FingerprintSHA256(pub)
+				k.PublicKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
+				res.Warnings = append(res.Warnings, "a security key (FIDO2): komando logs in with it through ssh-agent; load it with `ssh-add "+p+"` (touch the key when it blinks)")
 			default:
 				return out.Errf(out.ExitUsage, "KEY_INVALID", "give an OpenSSH or PEM private key file", "cannot parse %s: %v", p, err)
 			}
@@ -312,6 +318,20 @@ func certWindow(c *ssh.Certificate) string {
 		return "from " + from + ", no end"
 	}
 	return from + " to " + time.Unix(int64(c.ValidBefore), 0).UTC().Format(time.RFC3339)
+}
+
+// skPublic is the public key of the security key (FIDO2) whose key file
+// is p, from p.pub next to it; nil when p is no security key.
+func skPublic(p string) ssh.PublicKey {
+	b, err := os.ReadFile(p + ".pub")
+	if err != nil {
+		return nil
+	}
+	pub, _, _, _, err := ssh.ParseAuthorizedKey(b)
+	if err != nil || !sshx.IsSecurityKey(pub) {
+		return nil
+	}
+	return pub
 }
 
 // rsaBits is the size of an RSA public key line, or 0.

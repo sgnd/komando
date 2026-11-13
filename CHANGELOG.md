@@ -53,6 +53,8 @@ its highlights; the sections below them give the details. Versions follow
 - `komando import aws-ec2` adds a server for each running EC2 instance of each AWS profile in `~/.aws/config`, in the profile's region, read with the profile's own login (SSO and roles too; nothing is changed in AWS): named by its `Name` tag, grouped by region, labelled with its instance ID. An instance with no public address, a Windows one and the key pair to add are listed with what to do.
 ### Added
 - `host edit --forward-agent` lends a server your ssh-agent while komando is connected, as `ssh -A` does (for a `git pull` over SSH on it, or a hop komando does not make). It is off by default and set per server; turning it on asks first (`SAFETY_SETTING`, a person's yes for an AI agent), because root there can use your keys meanwhile. `--unset forward-agent` takes it back; `host ssh-command` adds `-o ForwardAgent=yes` for such a server.
+### Added
+- Security keys (FIDO2: `ed25519-sk`, `ecdsa-sk`): `key add` takes their key file (the public key from `FILE.pub`), and a server that logs in with one uses the copy in ssh-agent, found by its public key, as `ssh` does; the device asks for a touch. Without the agent holding it, the error says to `ssh-add` it instead of calling the file broken.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
