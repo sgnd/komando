@@ -37,12 +37,12 @@ type runningLogin struct {
 }
 
 type runningData struct {
-	Vpns    []runningVpn   `json:"vpns"`
-	Logins  []runningLogin `json:"logins"`
+	Vpns   []runningVpn   `json:"vpns"`
+	Logins []runningLogin `json:"logins"`
 	// AWS IAM Identity Center logins saved in ~/.aws/sso/cache
 	AWSLogins []cloud.AWSLogin `json:"aws_logins"`
 	Tunnels   []tunnelRow      `json:"tunnels"`
-	Jobs    []*store.Job   `json:"jobs"`
+	Jobs      []*store.Job     `json:"jobs"`
 }
 
 func statusCmd() *cobra.Command {
