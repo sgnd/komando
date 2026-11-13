@@ -253,11 +253,14 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 		{"Bash", "", map[string]any{"command": "grep -E 'a.*b' notes.txt"}, false},
 		{"Grep", "", map[string]any{"path": "/Users/me/code", "glob": "*.go"}, false},
 	}
-	for _, c := range cases {
-		if d := checkTool(c.tool, c.in, home, c.cwd); d.Deny != c.block {
-			t.Errorf("%s %v (cwd %q): deny=%v (%s)", c.tool, c.in, c.cwd, d.Deny, d.Reason)
+	t.Run("unix paths", func(t *testing.T) {
+		unixOnly(t, "the cases name a Unix home, /Users/me, which is not a full path on Windows; TestGuardGlobsUnderThisHome covers globs there")
+		for _, c := range cases {
+			if d := checkTool(c.tool, c.in, home, c.cwd); d.Deny != c.block {
+				t.Errorf("%s %v (cwd %q): deny=%v (%s)", c.tool, c.in, c.cwd, d.Deny, d.Reason)
+			}
 		}
-	}
+	})
 
 	// files that are there: a glob that matches one, and a link to komando's folder
 	dir, err := filepath.EvalSymlinks(t.TempDir())
@@ -292,10 +295,37 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 	}
 
 	// the other harnesses' hooks send cwd too
+	if runtime.GOOS == "windows" {
+		return // home is /Users/me, not a full path there
+	}
 	b, _ := json.Marshal(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "cat .komando/state.json"}, "cwd": home})
 	t.Setenv("KOMANDO_HOME", "")
 	if d := guardAgent("codex", b, home); !d.Deny {
 		t.Error("codex hook with cwd: relative path to komando's data allowed")
+	}
+}
+
+// Globs and /proc under a home that is a full path on every system: on
+// Windows its parts are split by \, and /proc is written with /.
+func TestGuardGlobsUnderThisHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("KOMANDO_HOME", "")
+	for line, block := range map[string]bool{
+		"cat ~/.komand?/vault.ke?":    true,
+		"cat ~/.komand*/keys/*":       true,
+		"cat ~/.ss?/id_*":             true,
+		"cat ~/.{komando,x}/store.db": true,
+		"cat /proc/self/environ":      true,
+		"cat ~/.ssh/*.pub":            false,
+		"cat ~/code/*.go":             false,
+		"du -sh ~/*/*":                false,
+	} {
+		if d := checkTool("Bash", map[string]any{"command": line}, home, ""); d.Deny != block {
+			t.Errorf("%q: deny=%v (%s)", line, d.Deny, d.Reason)
+		}
+	}
+	if d := checkTool("Read", map[string]any{"file_path": "/proc/1/environ"}, home, ""); !d.Deny {
+		t.Error("Read /proc/1/environ allowed")
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -157,8 +158,9 @@ func pathIn(p, dir string) bool {
 // isProcEnviron: /proc/PID/environ, also /proc/self/task/1/environ, holds
 // the variables of a process, komando's vault passphrase among them.
 func isProcEnviron(p string) bool {
-	p = filepath.Clean(p)
-	return strings.HasPrefix(p, "/proc/") && filepath.Base(p) == "environ"
+	// with / on Windows too, where Cygwin and MSYS shells have /proc
+	p = path.Clean(filepath.ToSlash(p))
+	return strings.HasPrefix(p, "/proc/") && path.Base(p) == "environ"
 }
 
 // holdsProtected reports whether the folder p holds one of the folders
@@ -318,8 +320,9 @@ func globUnder(p, dir, home string) (string, bool) {
 	if caseFoldFS {
 		p, dir, home = strings.ToLower(p), strings.ToLower(dir), strings.ToLower(home)
 	}
-	pc := strings.Split(strings.Trim(p, "/"), "/")
-	dc := strings.Split(strings.Trim(dir, "/"), "/")
+	// by / on every system: a Windows path has \ between its parts
+	pc := strings.Split(strings.Trim(filepath.ToSlash(p), "/"), "/")
+	dc := strings.Split(strings.Trim(filepath.ToSlash(dir), "/"), "/")
 	if len(pc) < len(dc) {
 		return "", false
 	}
