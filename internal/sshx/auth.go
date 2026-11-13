@@ -43,6 +43,9 @@ type lockedKey struct {
 	path    string
 	keyName string        // the keychain key (--key); "" for --identity
 	pub     ssh.PublicKey // nil when unknown: not in the file, no .pub
+	// sk: a security key (FIDO2: sk-ssh-ed25519, sk-ecdsa), which only
+	// ssh-agent can sign with (the key asks for a touch); no passphrase helps
+	sk bool
 }
 
 // loginKeys is what the key files and ssh-agent gave for one login.
@@ -175,12 +178,27 @@ func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) 
 		s, err = ssh.ParsePrivateKeyWithPassphrase(b, []byte(pass))
 	}
 	if err != nil {
+		if pub := publicPart(path, nil, k); explicit && IsSecurityKey(pub) {
+			// a FIDO2 key: ssh-agent signs with it, found by its public key
+			name := ""
+			if k != nil {
+				name = k.Name
+			}
+			lk.locked = append(lk.locked, lockedKey{path: path, keyName: name, pub: pub, sk: true})
+			return nil, nil
+		}
 		if explicit {
 			return nil, out.Errf(out.ExitUsage, "KEY_INVALID", "check that "+path+" is a private key in OpenSSH or PEM format, and that its passphrase ref is right", "cannot parse key %s: %v", path, err)
 		}
 		return nil, nil
 	}
 	return s, nil
+}
+
+// IsSecurityKey: pub is a FIDO2 security key's (sk-ssh-ed25519@openssh.com,
+// sk-ecdsa-sha2-nistp256@openssh.com), which only ssh-agent can sign with.
+func IsSecurityKey(pub ssh.PublicKey) bool {
+	return pub != nil && strings.HasPrefix(pub.Type(), "sk-")
 }
 
 // publicPart is an encrypted key's public key: from the key file itself
@@ -264,6 +282,14 @@ func sameAgentKey(a, want ssh.PublicKey) bool {
 // ssh-agent does not hold: load it there, or store its passphrase.
 func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k lockedKey) *out.Error {
 	p := shellPath(k.path)
+	if k.sk {
+		why := "ssh-agent does not hold it"
+		if lk.agent == agentUnset || lk.agent == agentDown {
+			why = "no ssh-agent answers"
+		}
+		return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", "load it into ssh-agent with `ssh-add "+p+"` (touch the key when it blinks); komando then logs in through the agent",
+			"key %s is a security key (FIDO2), which only ssh-agent can use, and %s", p, why)
+	}
 	var why, load string
 	switch lk.agent {
 	case agentUnset:

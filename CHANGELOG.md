@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+- Security keys (FIDO2: `ed25519-sk`, `ecdsa-sk`): `key add` takes their key file (the public key from `FILE.pub`), and a server that logs in with one uses the copy in ssh-agent, found by its public key, as `ssh` does; the device asks for a touch. Without the agent holding it, the error says to `ssh-add` it instead of calling the file broken.
+
 ### Fixed
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
