@@ -38,7 +38,7 @@ In JSON, `config show` gives each setting in `data.keys`.
 | `audit_syslog` | also send each audit record to a central log server (a SIEM) | `udp://HOST:514`, `tcp://HOST:514`, `tls://HOST:6514`, `off` (any change turns a check off) | `off` |
 | `mask_personal` | where AI agents see email addresses, phone numbers, card numbers and IBANs hidden (see [Personal data](safety.md#personal-data)) | `protected`, `all`, `off` (showing more turns a check off) | `protected` |
 | `login_for` | how long `komando login SERVER` keeps a server's login for later commands, an AI agent's too | a duration, such as `2h`; an AI agent needs a person's yes to make it longer | `8h` |
-| `vpn_idle` | close a VPN that komando started after this long with no command and no open connection through it | a duration; `0` = never close | `30m` |
+| `vpn_idle` | close a VPN that komando started after this long with no command and no open connection through it | a duration; `0` = never close. Making it longer, or `0`, asks first (an AI agent needs a person's yes) | `30m` |
 
 A change that turns a check off asks you first at your terminal
 (`This turns off a komando safety check: ... Continue? [y/N]`); an AI agent

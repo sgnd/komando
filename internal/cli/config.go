@@ -186,8 +186,24 @@ var settings = []setting{
 	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn up` is closed after this long unused",
 		func(s *store.Settings) string { return s.VpnIdle },
 		func(st *store.State, v string) (err error) {
-			st.Settings.VpnIdle, err = positiveDur("vpn_idle", v, true)
-			return err
+			if v, err = positiveDur("vpn_idle", v, true); err != nil {
+				return err
+			}
+			// 0 keeps a VPN up for ever: a longer time, or never, needs a
+			// yes, as login_for does (an agent's VPN stays open longer)
+			now, _ := parseDur(st.Settings.VpnIdle)
+			d, _ := parseDur(v)
+			if now > 0 && (d == 0 || d > now) {
+				what := "keeping unused VPNs up longer (vpn_idle " + v + ")"
+				if d == 0 {
+					what = "keeping unused VPNs up until they are stopped (vpn_idle 0)"
+				}
+				if err := guardSafety(what); err != nil {
+					return err
+				}
+			}
+			st.Settings.VpnIdle = v
+			return nil
 		}},
 }
 
