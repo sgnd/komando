@@ -46,6 +46,7 @@ its highlights; the sections below them give the details. Versions follow
 
 - `download -r` from a server keeps the files that are already on this computer and copies the rest, as `download -r` from storage does; it used to stop at the first one with `FILE_EXISTS`. The result says how many it kept (`kept`). `--overwrite` still replaces them.
 - A job's `--env` values and its input (`--script`, `--stdin-file`) now reach the command through a pipe from the job's private folder instead of being read from files there, so a command run as another user gets them too. With a sudo password, the job first asks sudo whether it needs one and deletes it unread when it does not.
+- Inside the engine (no change you can see): each command now runs as a call of its own, with its own output, flags, approvals and environment, instead of package-wide ones. `cli.RunCall` runs one command for an `engine.Call` (its environment, input, output and approval window), so the Mac and iPhone apps can run a person's command and an AI agent's command at the same time in one process. The plan, and what the lower packages still share, is in `docs/design/engine-per-call.md`.
 
 ### Changed for scripts and agents
 
