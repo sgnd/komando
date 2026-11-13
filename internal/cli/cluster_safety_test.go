@@ -520,6 +520,7 @@ func TestClassifyDockerHostEscapes(t *testing.T) {
 // A kubeconfig login program is a program on this computer: an agent
 // brings it in, or runs it, only with a person's yes.
 func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
+	unixOnly(t, "the kubeconfig's login program is a /bin/sh script")
 	invHome(t)
 	l := newLabCluster(t)
 	marker := filepath.Join(t.TempDir(), "ran")
@@ -886,6 +887,7 @@ func TestKctlLocalSecretFiles(t *testing.T) {
 // The window names the program the agent's --yes lets run, and a yes
 // given for something else (a protected conn) does not cover it.
 func TestPluginApprovalNamesTheProgram(t *testing.T) {
+	unixOnly(t, "the kubeconfig's login program is a /bin/sh script")
 	invHome(t)
 	l := newLabCluster(t)
 	t.Setenv("CLAUDECODE", "1")
@@ -937,6 +939,7 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 // change of program or server in the vault asks again; a dry run of
 // exec, shell or forward reports the stop the real run would meet.
 func TestTrustedKubePlugin(t *testing.T) {
+	unixOnly(t, "the kubeconfig's login program is a /bin/sh script")
 	invHome(t)
 	l := newLabCluster(t)
 	plugin := "    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: /bin/sh\n      args: [\"-c\", \"echo '{\\\"status\\\":{\\\"token\\\":\\\"t\\\"}}'\"]\n"

@@ -629,6 +629,7 @@ func TestGateAgentName(t *testing.T) {
 }
 
 func TestSSHGateLine(t *testing.T) {
+	unixOnly(t, "ssh-gate line writes an authorized_keys command= for a Unix shell; on Windows komando refuses it (SSH_GATE_PATH)")
 	invHome(t)
 	pub, _, _ := ed25519.GenerateKey(rand.Reader)
 	sp, _ := ssh.NewPublicKey(pub)
