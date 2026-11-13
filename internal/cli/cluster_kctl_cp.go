@@ -41,7 +41,7 @@ func (r *kctlRun) cp() error {
 		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: tarball, Stderr: &errb})
 		if tarball.over {
 			return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE",
-				"copy a smaller part, or pack it smaller in the pod first (cluster run TARGET --write -- exec POD -- gzip PATH)",
+				"copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH`",
 				"%s:%s is more than %s; komando holds a copy from a pod in memory, and stopped", pod, rpath, humanBytes(maxPodCopy)))
 		}
 		if err != nil {

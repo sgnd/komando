@@ -72,7 +72,7 @@ var errorCodes = []errorCode{
 	{"FILE_ERROR", 1, "a file on this computer cannot be read or written", "check that the folder exists and is writable"},
 	{"FILE_EXISTS", 8, "… already exists on this computer", "choose another --to, remove the file, or pass --overwrite"},
 	{"FILE_NOT_FOUND", 3, "identity file …: …", "give the path of a private key file, or register it with `komando key add NAME FILE` and use --key"},
-	{"FILE_TOO_LARGE", 8, "…:… is more than …; komando holds a copy from a pod in memory, and stopped", "copy a smaller part, or pack it smaller in the pod first (cluster run TARGET --write -- exec POD -- gzip PATH)"},
+	{"FILE_TOO_LARGE", 8, "…:… is more than …; komando holds a copy from a pod in memory, and stopped", "copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH`"},
 	{"FOLDER_NOT_FOUND", 3, "no folder named …", "add -p/--parents to create it"},
 	{"GCP_LOGIN_REQUIRED", 4, "…: …", "a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used"},
 	{"GROUP_EXISTS", 8, "group … exists", "pick another name; to merge them, run `komando group add … @…` and then `komando group rm …`"},
