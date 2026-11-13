@@ -7,11 +7,11 @@ import (
 	"testing"
 )
 
-// The tier table in docs/design/ux.md section 6 is made from the rule table
+// The tier table in docs/features/safety.md ("What needs a yes") is made from the rule table
 // (S-7.2, C-C11), so the design text, the schema's confirm and the stops
 // cannot tell different stories. KOMANDO_UPDATE_TIERS=1 writes it again.
 func TestTiersDoc(t *testing.T) {
-	const path = "../../docs/design/ux.md"
+	const path = "../../docs/features/safety.md"
 	const start, end = "<!-- tiers: made by TestTiersDoc from risk.go; KOMANDO_UPDATE_TIERS=1 writes it -->\n", "<!-- end of tiers -->\n"
 	doc, err := os.ReadFile(path)
 	if err != nil {
@@ -19,7 +19,7 @@ func TestTiersDoc(t *testing.T) {
 	}
 	i, j := strings.Index(string(doc), start), strings.Index(string(doc), end)
 	if i < 0 || j < i {
-		t.Fatalf("ux.md has no tier table between %q and %q", start, end)
+		t.Fatalf("safety.md has no tier table between %q and %q", start, end)
 	}
 	want := string(doc[:i]) + start + tiersTable() + end + string(doc[j+len(end):])
 	if os.Getenv("KOMANDO_UPDATE_TIERS") != "" {
@@ -29,7 +29,7 @@ func TestTiersDoc(t *testing.T) {
 		return
 	}
 	if string(doc) != want {
-		t.Error("the tier table in docs/design/ux.md is out of date: run KOMANDO_UPDATE_TIERS=1 go test ./internal/cli/ -run TestTiersDoc")
+		t.Error("the tier table in docs/features/safety.md is out of date: run KOMANDO_UPDATE_TIERS=1 go test ./internal/cli/ -run TestTiersDoc")
 	}
 }
 

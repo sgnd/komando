@@ -1,13 +1,14 @@
 # The komando message style
 
-Status: adopted, 2026-11-13. It covers every line komando writes for a
-person: questions and confirms, the approval window, warnings and notes,
-dry-run and Next: lines, success and empty lines, errors and hints,
-progress and Ctrl-C lines, doctor and the guide. Help text follows the
-command standard (S-6); only its words follow this file. It adds to the
-command standard and does not repeat it: S-7 (confirms), S-8 (errors and
-hints) and S-9 (output) still hold. The strings that still break it are
-the allow-lists of `internal/cli/message_style_test.go`.
+The words of every line komando writes for a person: questions and
+confirms, the approval window, warnings and notes, dry-run and `Next:`
+lines, success and empty lines, errors and hints, progress and Ctrl-C
+lines, `doctor` and the guide. Help text follows the
+[command standard](command-standard.md) (S-6); only its words follow this
+page. This page adds to the command standard and does not repeat it: S-7
+(confirms), S-8 (errors and hints) and S-9 (output) still hold. The
+strings that still break a rule are the allow-lists in
+`internal/cli/message_style_test.go`.
 
 Tags: **[test]** a Go test can enforce it (the test it needs is under
 "Tests"); **[review]** a person checks it.
@@ -69,7 +70,7 @@ capital: a label from this closed set, then a fragment, or a sentence.
 | `Error:` / `Stopped:` | the end of a failed or stopped command (printer) |
 | `Hint:` | the next step (printer) |
 | `Warning:` | something went wrong beside the result |
-| `Note:` | a fact the person should know: output cut, old spelling, unknown agent |
+| `Note:` | a fact the person should know: output cut, unknown agent |
 | `Dry run:` | the dry-run line |
 | `Skipped` | a target left out |
 | `Next:` / `Next time:` | S-9.3 |
