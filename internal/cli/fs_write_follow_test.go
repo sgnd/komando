@@ -30,12 +30,23 @@ set -- $e
 case $fmt in %u) echo "$1";; '%u %g %a') echo "$1 $2 $3";; '%U %G') echo "$4 $5";; esac
 `
 
+// fakeGetfacl is a getfacl -cn stand-in: the base entries, and for a path
+// in $FACL ("PATH|entry" lines) its extended entries.
+const fakeGetfacl = `#!/bin/sh
+for f; do :; done
+printf 'user::rwx\ngroup::r-x\nother::r-x\n'
+printf '%s\n' "$FACL" | awk -F'|' -v f="$f" '$1==f {print $2}'
+`
+
 // runAsRoot runs script as root would, with fakeStat, the SSH user as uid
 // 1000 and table as $TABLE. It returns stdout, stderr and the exit code.
 func runAsRoot(t *testing.T, script string, table map[string]string, env ...string) (string, string, int) {
 	t.Helper()
 	bin := t.TempDir()
 	if err := os.WriteFile(filepath.Join(bin, "stat"), []byte(fakeStat), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bin, "getfacl"), []byte(fakeGetfacl), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	var tb []string
@@ -137,9 +148,15 @@ func TestSudoWriteRefusesSharedFolder(t *testing.T) {
 		{"everyone's sticky folder above", file, map[string]string{app: "0 0 1777 root root"}, 0, ""},
 		{"everyone's folder above, not sticky", file, map[string]string{app: "0 0 777 root root"}, sudoExitFolder, "everyone root root"},
 		{"a new folder in another user's", filepath.Join(app, "new", "x"), notRoot(app), sudoExitFolder, "user www-data www-data"},
+		{"another user in the access list", file, nil, sudoExitFolder, "acl root root"},
+		{"another user in the access list above", filepath.Join(app, "conf", "x"), nil, sudoExitFolder, "acl root root"},
+	}
+	acl := map[string]string{
+		"another user in the access list":       filepath.Dir(file) + "|user:33:rwx",
+		"another user in the access list above": app + "|group:33:rwx",
 	}
 	for _, tc := range cases {
-		_, stderr, code := runFollow(t, tc.p, tc.table)
+		_, stderr, code := runAsRoot(t, "p='"+tc.p+"'; "+sudoWriteScript("/nonexistent", false)+`echo "$p"`, tc.table, "FACL="+acl[tc.name])
 		if code != tc.code {
 			t.Errorf("%s: exit %d, want %d (%s)", tc.name, code, tc.code, stderr)
 			continue
@@ -148,9 +165,17 @@ func TestSudoWriteRefusesSharedFolder(t *testing.T) {
 			t.Errorf("%s: stderr %q does not name %q", tc.name, stderr, tc.who)
 		}
 	}
+	for _, entry := range []string{"user:33:r-x", "user:1000:rwx", "user:0:rwx", "group:0:rwx", "default:user:33:rwx", "mask::rwx"} {
+		if _, stderr, code := runAsRoot(t, "p='"+file+"'; "+sudoWriteScript("/nonexistent", false), nil, "FACL="+filepath.Dir(file)+"|"+entry); code != 0 {
+			t.Errorf("access list entry %s: exit %d (%s)", entry, code, stderr)
+		}
+	}
 	e := toErr(unsafeFolder(file, sudoFolderMark+"user www-data www-data "+app+"\n"))
 	if e.Code != "SHARED_FOLDER_CONFLICT" || !strings.Contains(e.Message, app) || !strings.Contains(e.Hint, "--sudo-user") {
 		t.Fatalf("error: %+v", e)
+	}
+	if e := toErr(unsafeFolder(file, sudoFolderMark+"acl root root "+app+"\n")); !strings.Contains(e.Message, "access list (ACL)") {
+		t.Fatalf("access list error: %+v", e)
 	}
 }
 

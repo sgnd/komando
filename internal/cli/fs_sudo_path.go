@@ -48,15 +48,21 @@ func sudoWalkScript(stop string) string {
 // sudoFolderScript stops with exit 93 when the folder $p goes into, or a
 // folder above it, can be changed by a user other than root and the SSH
 // user ($me): owned by another user, writable by a group other than
-// root's, or writable by everyone. A folder above with the sticky bit
+// root's, writable by everyone, or writable by a user or group its
+// access list (POSIX ACL) names. A folder above with the sticky bit
 // (/tmp) is fine: no one can move the folder under it that root or $me
 // owns. The folder itself never is: anyone could make the file first.
+// Without getfacl, any access list (a mode ending in + in ls -l) stops.
 func sudoFolderScript(tmpQ string) string {
 	return `d=$(dirname -- "$p"); while [ ! -e "$d" ]; do d=$(dirname -- "$d"); done; c=; ` +
 		`while :; do set -- $(stat -c '%u %g %a' -- "$d"); w=; ` +
 		`case $1 in 0|"$me") ;; *) w=user;; esac; ` +
 		`if [ "$2" != 0 ] && [ $((0$3 & 020)) != 0 ]; then w=group; fi; ` +
 		`if [ $((0$3 & 02)) != 0 ] && { [ -z "$c" ] || [ $((0$3 & 01000)) = 0 ]; }; then w=everyone; fi; ` +
+		`if [ -z "$w" ] && { [ -z "$c" ] || [ $((0$3 & 01000)) = 0 ]; }; then ` +
+		`if command -v getfacl >/dev/null 2>&1; then ` +
+		`getfacl -cn -- "$d" 2>/dev/null | grep -E '^(user|group):[0-9]+:.w' | grep -Ev "^(user:($me|0)|group:0):" | grep -q . && w=acl; ` +
+		`else case $(ls -ld -- "$d") in ??????????+*) w=acl;; esac; fi; fi; ` +
 		`if [ -n "$w" ]; then printf '\036komando-folder %s %s %s\n' "$w" "$(stat -c '%U %G' -- "$d")" "$d" >&2; rm -f ` + tmpQ + `; exit 93; fi; ` +
 		`[ "$d" = / ] && break; c=1; d=$(dirname -- "$d"); done; `
 }
@@ -109,6 +115,8 @@ func unsafeFolder(p, stderr string) error {
 		by, as = "the group "+group, "a user of the group "+group
 	case "everyone":
 		by, as = "every user", "the user who should own the file"
+	case "acl":
+		by, as = "a user or group its access list (ACL) names", "the user who should own the file"
 	}
 	return out.Errf(out.ExitConflict, "SHARED_FOLDER_CONFLICT",
 		"write it as "+as+" instead, for example `komando exec TARGET --sudo-user USER --stdin-file FILE -- sh -c 'cat > PATH'`",

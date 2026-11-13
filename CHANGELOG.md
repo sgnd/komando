@@ -1225,7 +1225,8 @@ instead.
 - `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo` no
   longer write into a folder that a user other than root and the SSH user
   can change (owned by that user, writable by a group other than root's,
-  or by everyone): that user could swap the file for a link while root
+  by everyone, or by a user or group its access list (ACL) names): that
+  user could swap the file for a link while root
   writes. They stop with SHARED_FOLDER_CONFLICT, whose hint says how to
   write as that user instead. A link on the way to the file (not only the
   file itself) is followed only when root made it. `fs cat --sudo`, a
