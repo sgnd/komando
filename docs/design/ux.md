@@ -154,7 +154,7 @@ How commands use the selector result:
 | filter the inventory | `--target SELECTOR` | replaces `--host` in `audit` and `job list` |
 | root rights | `--sudo` / `--no-sudo` | see the sudo rule below |
 | raw command changes nothing | `--read-only` | see the polarity rules |
-| time | `--since`, `--until`, `--ttl`, `--expires`, `--wait`, `--warn`, `--older-than`, `--interval`, `--timeout` | one duration type: Go format (`10m`, `2h`) or days (`7d`); a bare number only as `0`. `--since`/`--until` also take `today`, `yesterday` or a date. `svc`/`reboot --wait 10` (bare seconds) is a retired shape that still works |
+| time | `--since`, `--until`, `--ttl`, `--expires`, `--wait`, `--warn`, `--older-than`, `--interval`, `--timeout` | one duration type: Go format (`10m`, `2h`) or days (`7d`); a bare number only as `0`. `--since`/`--until` also take `today`, `yesterday` or a date. `--wait 10` (no unit) is a usage error that names `10s` |
 | size | `--max-bytes`, `--max-output` | one bytes type: bytes, or `KB`/`MB`/`GB`/`KiB`/`MiB`/`GiB`, where KB = KiB = 1024 |
 | KEY=VALUE | `-e, --env`, `--label`, `--option`, `--var`, `--header` | one pair per use, repeatable, never split on commas; a second `KEY=` after a comma is a usage error |
 
@@ -166,8 +166,7 @@ scope given here (S-5.14 of the command standard).
 command tree and checks every letter against this table. A new short
 flag needs a row here first, with a well-known tool that uses the letter
 the same way. A letter that means something else on a command today is
-retired there with a usage error naming the new flag, unless every input
-that works today still means the same or fails.
+taken away there in the same change that gives it its new meaning.
 
 | Letter | Long flag | Scope | From |
 |---|---|---|---|
@@ -184,7 +183,7 @@ that works today still means the same or fails.
 | `-f` | `--follow` on the log streamers (`logs`, `svc logs`, `docker logs`, `cluster logs`); `--file` elsewhere | | tail, kubectl apply |
 | `-g` | `--group` | add, edit and import | |
 | `-l` | `--selector` | cluster | kubectl |
-| `-n` | `--namespace` in cluster (a number is refused: `--limit N`, or `--namespace=N`); `--limit` elsewhere; on `storage rm` the retired spelling of `--max-remove` | | kubectl, head |
+| `-n` | `--namespace` in cluster (a number is refused: `--limit N`, or `--namespace=N`); `--limit` elsewhere; `storage rm` has none (its cap is `--max-remove`) | | kubectl, head |
 | `-p` | `--parents` on writers (`cp`, `upload`, `fs write`, `fs replace`; a no-op on `fs mkdir`); `--priority` on journal readers | | mkdir, journalctl |
 | `-r` | `--recursive` | everywhere | cp |
 | `-s` | `--sudo` | everywhere | |
@@ -312,7 +311,6 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `cache run` | when the cache command deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
 | `db query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
 | `db explain` | with --analyze, when the SQL deletes data | dangerous | `--allow-dangerous` |
-| `pkg security` | with --apply, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
 | `pkg upgrade` | with --security, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
 | `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
 | `host edit` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |
@@ -458,10 +456,13 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always
   updated in the same commit as the feature.
-- Renaming a command or flag: the old name keeps working as an alias
-  for one minor release, with a warning on stderr, then it is removed.
+- Renaming a command or flag: while komando is used internally only
+  (owner rule 2026-11-13), the old name goes at once, and every caller
+  (docs, skill, tests, the apps) changes in the same commit. A plain
+  synonym people type (`ls`, `mv`, `get`, a plural) may stay as a cobra
+  alias; it is UX, not an old name.
 - `TestConventions` (`internal/cli/conventions_test.go`) guards part of
-  the naming rules: retired flag names, the `rm` and
+  the naming rules: the `rm` and
   `list`/`ls` aliases, an example on every command and the length of the
   one-line help. The verb list in section 1 is kept by review: no test
   checks it.
@@ -489,10 +490,10 @@ Current overlaps, and the decision:
 | `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` are aliases that call it |
 | `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); the old names `ops` and `snippet` are gone |
 | `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` call them |
-| `script` and `exec` | ✅ `exec --script FILE`; `script` is an old name for one release |
+| `script` and `exec` | ✅ `exec --script FILE`; `script` is gone |
 | `group add/rm` and `edit --add-group/--rm-group` | keep both (many vs one), same code |
-| `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are old names for one release |
-| `prompt` and `status` | ✅ `status --short`; `prompt` is an old name for one release |
+| `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are gone |
+| `prompt` and `status` | ✅ `status --short`; `prompt` is gone |
 
 ## 12. Every native CLI feature can be used
 

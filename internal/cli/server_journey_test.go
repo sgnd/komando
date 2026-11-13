@@ -82,12 +82,12 @@ func TestFsPermissionHintIsTheLineWithSudo(t *testing.T) {
 		t.Fatal(err)
 	}
 	sub.Flags().Bool("yes", false, "the global approval flag")
-	if err := sub.ParseFlags([]string{"--from", "/etc/app.conf.bak", "--yes"}); err != nil {
+	if err := sub.ParseFlags([]string{"--copy", "/etc/app.conf.bak", "--yes"}); err != nil {
 		t.Fatal(err)
 	}
 	got := sudoRetryHint(sub, []string{"web1", "/etc/app.conf"})
 	// alone, fs is the root here; under komando it reads `komando fs restore ...`
-	want := "retry with --sudo: `fs restore web1 /etc/app.conf --from /etc/app.conf.bak --sudo`"
+	want := "retry with --sudo: `fs restore web1 /etc/app.conf --copy /etc/app.conf.bak --sudo`"
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}

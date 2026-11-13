@@ -119,24 +119,23 @@ Some recipes have blanks with defaults, for example `big-dirs` takes
 `--var path=/srv --var depth=2`. `komando recipe list` shows each recipe's
 blanks.
 
-Checks that have their own command are no longer recipes. For one
-release, `recipe run` with the old name says which command to use:
+Checks that have their own command are not recipes:
 
-| Old recipe | Use now |
-|------------|---------|
-| `ports` | `komando net ports TARGET --sudo` |
-| `dns` | `komando net dns TARGET NAME` |
-| `http-check` | `komando net http TARGET URL` |
-| `failed-units` | `komando svc list TARGET --failed` |
-| `journal-errors` | `komando logs TARGET -p err --since 1h --sudo` |
-| `updates` | `komando pkg upgradable TARGET` |
-| `security-updates` | `komando pkg security TARGET` |
-| `docker-overview` | `komando docker ps TARGET --all` |
-| `k8s-overview` | `komando cluster status CLUSTER` |
-| `mysql-status`, `postgres-status` | `komando db activity CONN` |
-| `redis-info` | `komando cache info CONN` |
-| `cert-expiry`, `certbot-certs` | `komando cert check` |
-| `docker-prune` | `komando docker prune TARGET --dry-run` |
+| Check | Command |
+|-------|---------|
+| listening ports | `komando net ports TARGET --sudo` |
+| a name in DNS | `komando net dns TARGET NAME` |
+| a URL answers | `komando net http TARGET URL` |
+| failed units | `komando svc list TARGET --failed` |
+| journal errors | `komando logs TARGET -p err --since 1h --sudo` |
+| pending updates | `komando pkg upgradable TARGET` |
+| security updates | `komando pkg security TARGET` |
+| containers | `komando docker ps TARGET --all` |
+| a Kubernetes cluster | `komando cluster status CLUSTER` |
+| database sessions | `komando db activity CONN` |
+| a cache | `komando cache info CONN` |
+| certificates | `komando cert check` |
+| Docker clean-up | `komando docker prune TARGET --dry-run` |
 To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).
 
 ## Check TLS certificates

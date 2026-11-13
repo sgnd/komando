@@ -38,15 +38,15 @@ check "rm a via host alone" HOST_IN_USE "$($K host rm t-e2einv3 | code)"
 check "rm both together" ok "$($K host rm t-e2einv3 t-e2einv4 | code)"
 q $K host add t-e2einv6 agent@10.9.9.6
 q $K host add t-e2einv7 agent@10.9.9.7
-check "rm a selector --dry-run lists it" 2 "$($K host rm 't-e2einv*' --dry-run | jget 'len(d["data"]["removed"])')"
+check "rm a selector --dry-run lists it" 2 "$($K host rm 't-e2einv*' --dry-run | jget 'len(d["data"]["would_remove"])')"
 check "rm a selector" ok "$($K host rm 't-e2einv*' | code)"
 # @lab holds bastion (the --via host of the conns) and target (protected)
 check "rm @group still in use removes nothing" HOST_IN_USE "$($K host rm @lab | code)"
 check "rm @group protected stop in dry-run" PROTECTED_HOST "$($K host rm target --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 
 # host trust --reset --dry-run changes nothing
-N1=$($K host trust direct --reset --dry-run | jget 'd["data"]["would_remove_entries"]')
-N2=$($K host trust direct --reset --dry-run | jget 'd["data"]["would_remove_entries"]')
+N1=$($K host trust direct --reset --dry-run | jget 'd["data"]["results"][0]["would_remove_entries"]')
+N2=$($K host trust direct --reset --dry-run | jget 'd["data"]["results"][0]["would_remove_entries"]')
 check "trust --reset --dry-run removes nothing" "$N1" "$N2"
 check "trust --reset --dry-run counts the pinned key" True "$([ "$N1" -ge 1 ] && echo True || echo False)"
 
@@ -56,11 +56,10 @@ check "trust --reset --dry-run counts the pinned key" True "$([ "$N1" -ge 1 ] &&
 check "ssh-command without an ssh-agent" SSH_AGENT_NEEDED "$(env -u SSH_AUTH_SOCK $K host ssh-command target | jget 'd["error"]["code"]' || true)"
 
 # import: a proxy command never comes from a file; protected names
-printf '%s\n' '{"hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command":"nc %h %p"}]}' >"$TMP/inv-hosts.json"
+printf '%s\n' '{"format":"komando-export/1","hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command":"nc %h %p"}]}' >"$TMP/inv-hosts.json"
 check "import komando drops a proxy command" True "$(A import komando "$TMP/inv-hosts.json" --dry-run | jget '"proxy_command" in str(d["data"]["not_imported"])')"
 $K export target >"$TMP/inv-target.json"
 check "overwrite of a protected host is skipped" target "$($K import komando "$TMP/inv-target.json" --overwrite | jget 'd["data"]["skipped"][0]["name"]')"
-check "old name host import still works" target "$($K host import --json "$TMP/inv-target.json" --dry-run 2>/dev/null | jget 'd["data"]["skipped"][0]["name"]')"
 
 # groups
 q $K group add t-e2einvg direct
@@ -114,7 +113,7 @@ check "doctor text is a checklist" True "$($K doctor -o text 2>/dev/null | grep 
 # @lab refuses only that one; a script's --reset gets NEEDS_PERSON; a person
 # at a terminal answers y and it is re-pinned, the others stay
 DC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
-oldfp=$($K host trust direct | jget 'd["data"]["fingerprint"]')
+oldfp=$($K host trust direct | jget 'd["data"]["results"][0]["fingerprint"]')
 DC exec -T direct sh -c 'rm -f /etc/ssh/ssh_host_*; ssh-keygen -q -A; kill -HUP 1' >/dev/null
 sleep 1
 check "host trust @lab refuses only the rebuilt server" "PARTIAL_FAILURE HOSTKEY_MISMATCH True" \

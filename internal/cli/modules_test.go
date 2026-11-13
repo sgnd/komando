@@ -514,27 +514,8 @@ func TestConfigSetAsksBeforeLocking(t *testing.T) {
 	}
 }
 
-// A retired built-in recipe names the command that replaced it; it is no
-// longer a recipe, and the command it names exists.
-func TestRetiredRecipesNameTheirCommand(t *testing.T) {
-	root := newRoot()
-	for name, cmd := range retiredRecipes {
-		if builtinRecipe(name) != nil {
-			t.Errorf("%s is retired but still a built-in recipe", name)
-		}
-		e := recipeNotFound(name)
-		if e.Code != "RECIPE_NOT_FOUND" || !strings.Contains(e.Hint, cmd) {
-			t.Errorf("%s: %+v", name, e)
-		}
-		f := strings.Fields(cmd)[1:]
-		words := f[:2]
-		if strings.ToUpper(f[1]) == f[1] { // a top-level command: logs TARGET
-			words = f[:1]
-		}
-		if c, _, err := root.Find(words); err != nil || c.Name() != words[len(words)-1] {
-			t.Errorf("%s: %q is not a command (%v)", name, cmd, err)
-		}
-	}
+// An unknown recipe points to the list.
+func TestRecipeNotFound(t *testing.T) {
 	if e := recipeNotFound("t-nope"); !strings.Contains(e.Hint, "recipe list") {
 		t.Errorf("unknown recipe: %+v", e)
 	}

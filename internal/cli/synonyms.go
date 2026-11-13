@@ -20,6 +20,14 @@ import (
 // `komando schema` can show that one (S-9.8).
 const synonymNote = "komando.synonym-of"
 
+// backgroundCmd reports whether cmd is hidden because komando itself runs
+// it (tunnel serve, vpn serve, the agent guard), not a synonym (cluster
+// info, tunnel show) a person or agent types: those get every check of the
+// command they name.
+func backgroundCmd(cmd *cobra.Command) bool {
+	return cmd.Hidden && cmd.Annotations[synonymNote] == ""
+}
+
 // addAliases adds permanent synonyms to c.
 func addAliases(c *cobra.Command, names ...string) *cobra.Command {
 	for _, n := range names {
@@ -135,19 +143,5 @@ func recipeShowCmd() *cobra.Command {
 	}
 	withID(c, "recipe.list")
 	c.Annotations[synonymNote] = "recipe list"
-	return c
-}
-
-// forwardCmd is the old top-level `forward`, which was another name for
-// `tunnel` and read like `cluster forward`. It is retired: each use is
-// noted (meta.deprecated, and stderr at a terminal) and runs the tunnel
-// command with its ID (C-V17).
-func forwardCmd() *cobra.Command {
-	c := withID(&cobra.Command{Use: "forward"}, "tunnel")
-	markOldName(c, "tunnel")
-	for _, sub := range []*cobra.Command{tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd()} {
-		now := "tunnel " + sub.Name()
-		c.AddCommand(oldName(withID(sub, "tunnel."+sub.Name()), now))
-	}
 	return c
 }

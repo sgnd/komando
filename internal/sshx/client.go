@@ -482,7 +482,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	switch {
 	case errors.As(err, &rv):
 		return out.Errf(out.ExitConnect, "HOSTKEY_REVOKED",
-			"this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent",
+			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`; nothing was sent",
 			"%s shows the revoked host key %s", host, ssh.FingerprintSHA256(rv.Revoked.Key))
 	case errors.As(err, &hk):
 		return hk.outErr(host)

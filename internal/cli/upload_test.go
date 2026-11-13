@@ -116,8 +116,8 @@ func stderrOf(t *testing.T, fn func()) string {
 	return string(b)
 }
 
-// exec --script runs a local script; script is its old name: it keeps
-// working and says so in meta.deprecated (and on stderr at a terminal).
+// exec --script runs a local script: the file goes to the interpreter as
+// its input, with --arg as $1 ...
 func TestExecScript(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
@@ -133,36 +133,20 @@ func TestExecScript(t *testing.T) {
 	} {
 		wantCode(t, "USAGE", args...)
 	}
-	if scriptCmd().Flags().Lookup("stdin-file") != nil {
-		t.Error("the old script name takes --stdin-file, which a script cannot use")
-	}
-	var plan, old map[string]any
+	var plan map[string]any
 	note := stderrOf(t, func() {
 		plan = mustRun(t, "--dry-run", "exec", "web1", "--script", f, "--arg", "v1")
 	})
 	if note != "" {
 		t.Errorf("exec --script printed %q", note)
 	}
-	note = stderrOf(t, func() {
-		old = mustRun(t, "--dry-run", "script", "web1", f, "--arg", "v1")
-	})
-	// not a terminal: no stderr line, the note is in meta.deprecated
-	dep, _ := old["_meta"].(map[string]any)["deprecated"].(map[string]any)
-	if note != "" || dep["used"] != "komando script" || dep["now"] != "komando exec TARGET --script FILE" {
-		t.Errorf("script note: %q, meta.deprecated %v", note, dep)
-	}
-	delete(old, "_meta")
 	delete(plan, "_meta")
 	want := "bash -s -- 'v1'"
-	for _, d := range []map[string]any{plan, old} {
-		if s := strings.Join(strings.Fields(strings.ReplaceAll(stringOf(d), "\\", "")), " "); !strings.Contains(s, want) {
-			t.Errorf("plan has no %q: %v", want, d)
-		}
+	if s := strings.Join(strings.Fields(strings.ReplaceAll(stringOf(plan), "\\", "")), " "); !strings.Contains(s, want) {
+		t.Errorf("plan has no %q: %v", want, plan)
 	}
-	root := newRoot()
-	c, _, _ := root.Find([]string{"script"})
-	if !c.Hidden {
-		t.Error("script is listed")
+	if code, _ := runMain(t, "script", "web1", f); code == 0 {
+		t.Error("script, an old name of exec --script, still runs")
 	}
 }
 

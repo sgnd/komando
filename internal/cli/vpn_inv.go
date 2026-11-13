@@ -358,13 +358,6 @@ func vpnRmCmd() *cobra.Command {
 				}
 				return guardProtection("vpn", "removing", prot)
 			}
-			// one name: the name itself; several: the list
-			one := func() any {
-				if len(names) == 1 && len(args) == 1 && !isSelector(args[0]) {
-					return names[0]
-				}
-				return names
-			}
 			if g.dryRun { // the same checks as the real removal
 				st, err := loadState()
 				if err != nil {
@@ -373,7 +366,7 @@ func vpnRmCmd() *cobra.Command {
 				if err := check(st); err != nil {
 					return err
 				}
-				out.P.Print("vpn.rm", map[string]any{"would_remove": one()}, nil)
+				out.P.Print("vpn.rm", map[string]any{"would_remove": names}, nil)
 				return nil
 			}
 			unused, warnings, err := vpnRemove(check, &names)
@@ -381,7 +374,7 @@ func vpnRmCmd() *cobra.Command {
 				return err
 			}
 			audit(nil, "vpn.rm", names, "", true, nil)
-			res := map[string]any{"removed": one()} // one VPN stays a string, so scripts that read it keep working
+			res := map[string]any{"removed": names}
 			if len(unused) > 0 {
 				res["secrets_unused"] = unused
 			}

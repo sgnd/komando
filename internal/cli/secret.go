@@ -229,7 +229,7 @@ it is never printed, so an AI agent can do this too. Nothing that uses OLD
 changes.`
 	example := "  komando secret cp db-pass db-pass-old\n  komando secret cp web-pass shared-pass --overwrite"
 	if move {
-		verb, command = "rename", "secret.mv" // `secret mv` stays a synonym
+		verb, command = "rename", "secret.rename"
 		short = "Rename a secret and every reference to it (value never shown)"
 		long = `Renames OLD to NEW inside the vault, and points every server, conn, key and
 VPN that used secret:OLD at secret:NEW in the same step, so nothing stops
@@ -314,8 +314,7 @@ are not changed.`
 	}
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace NEW when it exists (what uses NEW then gets the value of OLD)")
 	if move {
-		c.Aliases = []string{"mv"} // a permanent synonym; the ID stays secret.mv
-		withID(c, "secret.mv")
+		c.Aliases = []string{"mv"} // a plain synonym
 	}
 	return c
 }

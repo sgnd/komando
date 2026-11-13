@@ -1,7 +1,9 @@
 # Phase 0, step S6: the sealed store for fresh installs
 
 Status: built, 2026-11-11 (commits 1 to 9 on `feat/phase0-sealed-store`). Part of [sync-security.md](sync-security.md)
-section 16. Nothing here changes an existing home: that is S9.
+section 16. Nothing here changes an existing home: that is S9. (History:
+`komando seal`, `NEEDS_SEAL` and the readers of the old files described
+below were removed on 2026-11-13, once every internal home was moved.)
 
 ## What S6 does
 

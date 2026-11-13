@@ -16,7 +16,7 @@ $K logs direct -n -1 >/dev/null; check "logs -n -1 is a usage error" 2 $?
 $K logs direct --file /t-fixops-nope --follow --timeout 3s >/dev/null; check "logs -f of a missing file exits 3" 3 $?
 set -e
 check "svc status names NO_SYSTEMD" NO_SYSTEMD "$($K svc status direct ssh | jget "${r0}[\"error\"][\"code\"]" || true)"
-check "svc restart names NO_SYSTEMD" NO_SYSTEMD "$($K svc restart direct ssh --wait 3 | jget "${r0}[\"error\"][\"code\"]" || true)"
+check "svc restart names NO_SYSTEMD" NO_SYSTEMD "$($K svc restart direct ssh --wait 3s | jget "${r0}[\"error\"][\"code\"]" || true)"
 check "logs --unit names NO_JOURNAL or NO_SYSTEMD" True "$($K logs direct --unit ssh | jget "${r0}[\"error\"][\"code\"] in ('NO_JOURNAL', 'NO_SYSTEMD')" || true)"
 check "logs --file reads the file" direct "$($K logs direct --file /etc/hostname -n 1 | jget "${r0}[\"stdout\"].strip()")"
 check "svc dry-run shows the short command" "svc enable --now t-fixops" "$($K svc enable direct t-fixops --now --dry-run | jget 'd["data"]["would_run"][0]["remote_command"]')"
@@ -79,10 +79,10 @@ q $K pkg rm swarm1 tree
 check "pkg upgradable lists rows" True "$($K pkg upgradable direct | jget "isinstance(${r0}['data']['packages'], list)")"
 check "pkg upgrade --dry-run lists what would change" True "$($K pkg upgrade direct --dry-run | jget "d['meta'].get('dry_run') and isinstance(${r0}['data']['would_upgrade'], list)")"
 check "pkg security lists rows and the state" True "$($K pkg security direct | jget "isinstance(d['data']['results'][0]['security_updates'], list) and 'pending_updates' in d['data']['results'][0]['state']")"
-check "pkg security --apply --dry-run changes nothing" True "$($K pkg security direct --apply --dry-run | jget "d['meta'].get('dry_run') and not d['data']['applied']")"
+check "pkg upgrade --security --dry-run changes nothing" True "$($K pkg upgrade direct --security --dry-run | jget "d['meta'].get('dry_run') and not d['data']['applied']")"
 set +e
 $K pkg security swarm1 >/dev/null; check "pkg security on Alpine is unsupported" 3 $?
-$K pkg security direct --keep-going >/dev/null; check "pkg security --keep-going needs --apply" 2 $?
+$K pkg upgrade direct --keep-going >/dev/null; check "pkg upgrade --keep-going needs --security" 2 $?
 set -e
 check "pkg output shows the short command" "pkg install tree" "$($K pkg install direct tree --dry-run | jget 'd["data"]["would_run"][0]["remote_command"]')"
 
@@ -104,8 +104,8 @@ check "net ports on busybox (netstat)" True "$($K net ports swarm1 | jget "any(r
 # vpn: status sees a working SOCKS proxy, dry-run makes the real checks
 set +e
 $K vpn rm lab --dry-run >/dev/null; check "vpn rm --dry-run sees VPN_IN_USE" 8 $?
-$K vpn add lab socks --address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees VPN_EXISTS" 8 $?
-$K vpn add direct socks --address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees NAME_TAKEN" 8 $?
+$K vpn add lab socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees VPN_EXISTS" 8 $?
+$K vpn add direct socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees NAME_TAKEN" 8 $?
 set -e
 check "vpn status: stopped SOCKS proxy is down" False "$($K vpn status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
 q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"

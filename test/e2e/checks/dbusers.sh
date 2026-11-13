@@ -16,7 +16,7 @@ q $K db grant dbu-pg dbu_ro --privileges SELECT --on table:public.dbu_t
 q $K conn add dbu-pg-ro 'postgres://dbu_ro@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:dbu-pass
 check "postgres: the new user logs in with the vault password (SCRAM verifier)" 1 "$($K db query dbu-pg-ro 'select count(*) as n from dbu_t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "postgres: and may only read what was granted" False "$($K db query dbu-pg-ro --write 'insert into dbu_t values (2)' | jget 'd["ok"]' || true)"
-check "db grants shows the table" True "$($K db grants dbu-pg dbu_ro | jget 'any(g["object"]=="public.dbu_t" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
+check "db user show shows the table" True "$($K db user show dbu-pg dbu_ro | jget 'any(g["object"]=="public.dbu_t" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
 q $K db user passwd dbu-pg dbu_ro --password-ref secret:dbu-pass2
 check "postgres: after passwd the old password fails" False "$($K db query dbu-pg-ro 'select 1' | jget 'd["ok"]' || true)"
 q $K conn edit dbu-pg-ro --password-ref secret:dbu-pass2
@@ -34,7 +34,7 @@ q $K db user add dbu-my dbu_ro --password-ref secret:dbu-pass --yes
 q $K db grant dbu-my dbu_ro --privileges SELECT --on 'shop.*' --yes
 q $K conn add dbu-my-ro 'mysql://dbu_ro@maria:3306/shop' --via bastion --password-ref secret:dbu-pass --yes
 check "mariadb: the new user logs in with the vault password" 1 "$($K db query dbu-my-ro 'select 1 as n' | jget 'd["data"]["results"][0]["rows"][0][0]')"
-check "mariadb: db grants shows SELECT on shop" True "$($K db grants dbu-my dbu_ro | jget 'any("SELECT ON `shop`.*" in g["grant"] for g in d["data"]["grants"])')"
+check "mariadb: db user show shows SELECT on shop" True "$($K db user show dbu-my dbu_ro | jget 'any("SELECT ON `shop`.*" in g["grant"] for g in d["data"]["grants"])')"
 check "mariadb: no write without the grant" False "$($K db query dbu-my-ro --write --yes 'create table dbu_x(id int)' | jget 'd["ok"]' || true)"
 q $K db user rm dbu-my dbu_ro --allow-dangerous --yes
 check "mariadb: the user is gone" False "$($K db user ls dbu-my | jget 'any(u["name"]=="dbu_ro" for u in d["data"]["users"])')"

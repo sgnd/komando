@@ -214,10 +214,9 @@ var agentDocs = []string{"../../AGENTS.md", "guide.md", "skill.md"}
 
 // C-D04: the agent docs name every command by its primary name (`secret
 // show`, `host rename`, `fs list`, `pkg upgrade --security`, `db dump
-// --run-on`), never a synonym, a retired name or a retired flag, and give
+// --run-on`), never a synonym, a hidden command or a hidden flag, and give
 // a command that hands words to another program its `--`. A synonym keeps
-// working, but an agent copies what it reads, and a retired name goes
-// away.
+// working, but an agent copies what it reads.
 func TestAgentDocsUsePrimaryNames(t *testing.T) {
 	root := newRoot()
 	for _, f := range agentDocs {
@@ -241,14 +240,14 @@ func TestAgentDocsUsePrimaryNames(t *testing.T) {
 				t.Errorf("%s: `komando %s`: write `komando %s`, the primary name", f, line, strings.Join(key, " "))
 			}
 			if cmd.Hidden {
-				t.Errorf("%s: `komando %s`: a hidden or retired command", f, line)
+				t.Errorf("%s: `komando %s`: a hidden command", f, line)
 			}
 			unquoted := exampleQuoted.ReplaceAllString(head, "''")
 			for _, fm := range exampleFlag.FindAllStringSubmatch(" "+unquoted, -1) {
 				for p := cmd; p != nil; p = p.Parent() {
 					if fl := p.Flags().Lookup(fm[1]); fl != nil {
 						if fl.Hidden && fm[1] != "help" {
-							t.Errorf("%s: `komando %s`: --%s is a hidden or retired flag", f, line, fm[1])
+							t.Errorf("%s: `komando %s`: --%s is a hidden flag", f, line, fm[1])
 						}
 						break
 					}

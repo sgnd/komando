@@ -1,14 +1,9 @@
 package cli
 
 import (
-	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
@@ -19,26 +14,6 @@ import (
 // so it only reads the state file: no lock, no writes, no other programs, no
 // network (docs/design/session-status.md). In particular it never calls
 // netx.LiveSession, which marks a VPN as used and would keep it up forever.
-
-// promptCmd is the old name of `status --short`; it keeps working. Its
-// note goes to stderr only when a person typed it: inside $(komando prompt)
-// stdout is not a terminal, and a note there would be drawn on every prompt.
-func promptCmd() *cobra.Command {
-	c := &cobra.Command{
-		Use:  "prompt",
-		Args: cobra.NoArgs,
-		// not the root's checks, as for status --short
-		PersistentPreRunE: func(*cobra.Command, []string) error { return nil },
-		Run: func(cmd *cobra.Command, _ []string) {
-			if term.IsTerminal(int(os.Stdout.Fd())) {
-				sayOldName(cmd)
-			}
-			fmt.Print(promptText(time.Now()))
-		},
-	}
-	markOldName(c, "status --short")
-	return c
-}
 
 // promptText is the note with a newline, or "" when nothing runs or the
 // state cannot be read: a broken prompt is worse than a missing note. It

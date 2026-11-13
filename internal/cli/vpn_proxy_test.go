@@ -9,16 +9,16 @@ import (
 // server through it.
 func TestVpnProxyKind(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "corp", "proxy", "--address", "proxy.corp.example:3128")
+	mustRun(t, "vpn", "add", "corp", "proxy", "--proxy-address", "proxy.corp.example:3128")
 	if d := mustRun(t, "vpn", "show", "corp")["vpn"].(map[string]any); d["address"] != "http://proxy.corp.example:3128" {
 		t.Errorf("the address is kept as a URL: %v", d)
 	}
-	mustRun(t, "vpn", "add", "corp-tls", "proxy", "--address", "https://proxy.corp.example")
+	mustRun(t, "vpn", "add", "corp-tls", "proxy", "--proxy-address", "https://proxy.corp.example")
 	for _, bad := range [][]string{
-		{"vpn", "add", "x1", "proxy"},                                           // no address
-		{"vpn", "add", "x2", "proxy", "--address", "proxy.corp.example"},        // no port
-		{"vpn", "add", "x3", "proxy", "--address", "socks5://p:1080"},           // that is a socks VPN
-		{"vpn", "add", "x4", "proxy", "--address", "p:3128", "--user", "alice"}, // a user needs its password
+		{"vpn", "add", "x1", "proxy"},                                                 // no address
+		{"vpn", "add", "x2", "proxy", "--proxy-address", "proxy.corp.example"},        // no port
+		{"vpn", "add", "x3", "proxy", "--proxy-address", "socks5://p:1080"},           // that is a socks VPN
+		{"vpn", "add", "x4", "proxy", "--proxy-address", "p:3128", "--user", "alice"}, // a user needs its password
 	} {
 		wantCode(t, "USAGE", bad...)
 	}
@@ -27,11 +27,11 @@ func TestVpnProxyKind(t *testing.T) {
 	if cmd := strings.Join(toStrings(d["argv"]), " "); !strings.Contains(cmd, "ProxyCommand=nc -X connect -x proxy.corp.example:3128 %h %p") {
 		t.Errorf("OpenSSH goes through the proxy too: %s", cmd)
 	}
-	mustRun(t, "vpn", "edit", "corp", "--address", "proxy2.corp.example:8080")
+	mustRun(t, "vpn", "edit", "corp", "--proxy-address", "proxy2.corp.example:8080")
 	if d := mustRun(t, "vpn", "show", "corp")["vpn"].(map[string]any); d["address"] != "http://proxy2.corp.example:8080" {
 		t.Errorf("edit keeps the address as a URL: %v", d)
 	}
-	wantCode(t, "USAGE", "vpn", "edit", "corp", "--address", "socks5://p:1080")
+	wantCode(t, "USAGE", "vpn", "edit", "corp", "--proxy-address", "socks5://p:1080")
 }
 
 func toStrings(v any) []string {

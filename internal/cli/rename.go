@@ -295,12 +295,9 @@ group rename.`,
 		},
 	}
 	c.Flags().BoolVar(&prefix, "starts-with", false, "rename every name that starts with OLD")
-	retiredFlag(c, "prefix", "starts-with")
 	c.Flags().StringSliceVar(&kinds, "kind", nil, "rename only these kinds: host, conn, vpn, secret, key, group (default: all)")
 	c.Flags().BoolVar(&notes, "in-notes", false, "also replace old names in notes (server, conn, VPN and secret names, @group, OLD* patterns)")
 	c.Flags().BoolVar(&labels, "in-labels", false, "also replace old names in label values, as --in-notes does (label names stay)")
-	retiredFlag(c, "notes", "in-notes")
-	retiredFlag(c, "labels", "in-labels")
 	return c
 }
 

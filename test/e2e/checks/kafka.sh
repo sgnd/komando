@@ -36,7 +36,7 @@ check "kafka peek leaves the group where it was" 2 "$($K queue peek events e2e-o
 KG --to-latest
 check "kafka lag of a group that read everything" 0 "$($K queue lag events e2e-billing | jget 'd["data"]["lag"]')"
 check "kafka groups lists the group's topic" "['e2e-orders']" "$($K queue groups events | jget '[g["topics"] for g in d["data"]["groups"] if g["name"] == "e2e-billing"][0]')"
-check "kafka peek --wait is a Kafka flag" 2 "$($K queue peek events e2e-orders --wait 2s | jget 'd["data"]["count"]')"
+check "kafka peek --idle is a Kafka flag" 2 "$($K queue peek events e2e-orders --idle 2s | jget 'd["data"]["count"]')"
 
 # a person purges and removes by typing the topic's name; a wrong one stops it
 pty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }

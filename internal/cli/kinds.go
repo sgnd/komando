@@ -1,10 +1,6 @@
 package cli
 
-import (
-	"strings"
-
-	"github.com/spf13/cobra"
-)
+import "github.com/spf13/cobra"
 
 // What each command does, in one word, so that agents (through `komando
 // schema`) and reviewers see it without reading the code:
@@ -63,7 +59,7 @@ var commandKinds = map[string]cmdKind{
 	"queue groups":   reads,
 	"queue info":     reads,
 	"queue lag":      reads,
-	"queue ls":       reads,
+	"queue list":     reads,
 	"queue peek":     reads,
 	"queue purge":    changes,
 	"queue rm":       changes,
@@ -82,12 +78,12 @@ var commandKinds = map[string]cmdKind{
 	"cluster get":          reads,
 	"cluster helm":         reads,
 	"cluster helm history": reads,
-	"cluster helm ls":      reads,
+	"cluster helm list":    reads,
 	"cluster helm status":  reads,
 	"cluster helm values":  reads,
 	"cluster history":      reads,
 	"cluster logs":         reads,
-	"cluster ls":           reads,
+	"cluster list":         reads,
 	"cluster restart":      changes,
 	"cluster rm":           changes,
 	"cluster rollback":     changes,
@@ -113,7 +109,7 @@ var commandKinds = map[string]cmdKind{
 	"conn edit":    changes,
 	"conn kinds":   reads,
 	"conn list":    reads,
-	"conn mv":      changes,
+	"conn rename":  changes,
 	"conn rm":      changes,
 	"conn show":    reads,
 	"conn test":    reads,
@@ -130,7 +126,7 @@ var commandKinds = map[string]cmdKind{
 	"db dump":        reads,
 	"db explain":     dependsOn("only plans the query; --analyze runs it, and a write needs --write too"),
 	"db grant":       changes,
-	"db grants":      reads,
+	"db user show":   reads,
 	"db info":        reads,
 	"db kill":        changes,
 	"db locks":       reads,
@@ -142,7 +138,7 @@ var commandKinds = map[string]cmdKind{
 	"db sizes":       reads,
 	"db user":        reads,
 	"db user add":    changes,
-	"db user ls":     reads,
+	"db user list":   reads,
 	"db user passwd": changes,
 	"db user rm":     changes,
 
@@ -163,7 +159,6 @@ var commandKinds = map[string]cmdKind{
 	"docker stop":    changes,
 
 	"doctor":   reads,
-	"seal":     changes,
 	"download": reads,
 	"exec":     dependsOn(unlessReadOnly),
 	"export":   reads,
@@ -172,7 +167,7 @@ var commandKinds = map[string]cmdKind{
 	"fs":         reads,
 	"fs cat":     reads,
 	"fs chmod":   changes,
-	"fs ls":      reads,
+	"fs list":    reads,
 	"fs mkdir":   changes,
 	"fs mv":      changes,
 	"fs replace": changes,
@@ -181,11 +176,11 @@ var commandKinds = map[string]cmdKind{
 	"fs stat":    reads,
 	"fs write":   changes,
 
-	"group":      reads,
-	"group add":  changes,
-	"group list": reads,
-	"group mv":   changes,
-	"group rm":   changes,
+	"group":        reads,
+	"group add":    changes,
+	"group list":   reads,
+	"group rename": changes,
+	"group rm":     changes,
 
 	"guide":           reads,
 	"guide install":   changes,
@@ -195,7 +190,7 @@ var commandKinds = map[string]cmdKind{
 	"host add":         changes,
 	"host edit":        changes,
 	"host list":        reads,
-	"host mv":          changes,
+	"host rename":      changes,
 	"host rm":          changes,
 	"host show":        reads,
 	"host ssh-command": reads,
@@ -219,7 +214,7 @@ var commandKinds = map[string]cmdKind{
 	"key edit":   changes,
 	"key gen":    changes,
 	"key list":   reads,
-	"key mv":     changes,
+	"key rename": changes,
 	"key revoke": changes,
 	"key rm":     changes,
 	"key show":   reads,
@@ -240,7 +235,7 @@ var commandKinds = map[string]cmdKind{
 	"pkg install":    changes,
 	"pkg installed":  reads,
 	"pkg rm":         changes,
-	"pkg security":   dependsOn("only lists unless --apply"),
+	"pkg security":   dependsOn("only reads, unless --refresh updates the package index first"),
 	"pkg update":     changes,
 	"pkg upgradable": dependsOn("only reads, unless --refresh updates the package index first"),
 	"pkg upgrade":    changes,
@@ -264,7 +259,7 @@ var commandKinds = map[string]cmdKind{
 	"registry":         reads,
 	"registry copy":    changes,
 	"registry inspect": reads,
-	"registry ls":      reads,
+	"registry list":    reads,
 	"registry prune":   changes,
 	"registry rm":      changes,
 
@@ -273,10 +268,10 @@ var commandKinds = map[string]cmdKind{
 	"secret":            reads,
 	"secret check":      reads,
 	"secret cp":         changes,
-	"secret get":        reads,
+	"secret show":       reads,
 	"secret keychain":   changes,
 	"secret list":       reads,
-	"secret mv":         changes,
+	"secret rename":     changes,
 	"secret passphrase": changes,
 	"secret rm":         changes,
 	"secret set":        changes,
@@ -292,7 +287,7 @@ var commandKinds = map[string]cmdKind{
 	"storage cat":      reads,
 	"storage download": reads,
 	"storage link":     changes, // hands out access (OD-13)
-	"storage ls":       reads,
+	"storage list":     reads,
 	"storage rm":       changes,
 	"storage upload":   changes,
 
@@ -333,7 +328,7 @@ var commandKinds = map[string]cmdKind{
 	"vpn down":   changes,
 	"vpn edit":   changes,
 	"vpn list":   reads,
-	"vpn mv":     changes,
+	"vpn rename": changes,
 	"vpn rm":     changes,
 	"vpn show":   reads,
 	"vpn status": reads,
@@ -342,13 +337,7 @@ var commandKinds = map[string]cmdKind{
 }
 
 // kindOf is the kind of a command; ok is false for one missing from the table.
-// An old name has the kind of the command that does it now.
 func kindOf(c *cobra.Command) (cmdKind, bool) {
-	if now := c.Annotations[oldNameNote]; now != "" && c.Root() != c {
-		if n, _, err := c.Root().Find(strings.Fields(now)); err == nil && n != c {
-			c = n
-		}
-	}
 	k, ok := commandKinds[idKey(c)]
 	return k, ok
 }

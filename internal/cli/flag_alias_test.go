@@ -1,20 +1,16 @@
 package cli
 
 import (
-	"bytes"
-	"encoding/json"
 	"slices"
 	"testing"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // gateReadFlags are the flags the ssh gate reads to tell a read from a
 // change (gateReadForm, gateSavesHere, gateSetDefault).
-var gateReadFlags = []string{"read-only", "write", "analyze", "apply", "refresh", "to", "set-default"}
+var gateReadFlags = []string{"read-only", "write", "analyze", "refresh", "to", "set-default"}
 
 // Every hidden flag spelling shares the value of the flag it stands for,
 // and the ssh gate gives the same answer for every spelling of each flag
@@ -104,7 +100,7 @@ func spellingAnswer(t *testing.T, id, flag, alias string) string {
 func TestAliasSpellingReachesGate(t *testing.T) {
 	for _, c := range []struct{ id, flag string }{
 		{"pkg.upgradable", "--refresh"}, {"db.query", "--write"}, {"cache.run", "--write"},
-		{"cluster.run", "--write"}, {"db.explain", "--analyze"}, {"pkg.security", "--apply"},
+		{"cluster.run", "--write"}, {"db.explain", "--analyze"}, {"pkg.security", "--refresh"},
 	} {
 		if got := spellingAnswer(t, c.id, c.flag, "old-spelling"); got != "SSH_GATE_READ_ONLY" {
 			t.Errorf("%s under a hidden spelling of %s: %q, want SSH_GATE_READ_ONLY", c.id, c.flag, got)
@@ -119,43 +115,17 @@ func TestAliasSpellingReachesGate(t *testing.T) {
 	}
 }
 
-// A retired flag spelling works and is noted in meta.deprecated; a plain
-// hidden spelling is not.
-func TestRetiredFlagNoted(t *testing.T) {
+// A hidden spelling shares the flag's value, and flagChanged and
+// flagSpellings see it.
+func TestFlagAliasSharesValue(t *testing.T) {
 	var v bool
-	c := &cobra.Command{Use: "x", RunE: func(*cobra.Command, []string) error { return nil }}
+	c := &cobra.Command{Use: "y"}
 	c.Flags().BoolVar(&v, "refresh", false, "")
-	retiredFlag(c, "update-index", "refresh")
 	flagAlias(c, "renew", "refresh")
-	out.P.Reset()
-	if err := c.ParseFlags([]string{"--update-index"}); err != nil || !v || !flagChanged(c, "refresh") {
+	if err := c.ParseFlags([]string{"--renew"}); err != nil || !v || !flagChanged(c, "refresh") {
 		t.Fatalf("parse: %v %v", err, v)
 	}
-	noteRetiredFlags(c)
-	if d := metaDeprecated(); d == nil || d.Used != "--update-index" || d.Now != "--refresh" {
-		t.Errorf("meta.deprecated %+v", d)
+	if got := flagSpellings(c, "refresh"); !slices.Equal(got, []string{"refresh", "renew"}) {
+		t.Errorf("spellings %v", got)
 	}
-	out.P.Reset()
-	c2 := &cobra.Command{Use: "y"}
-	c2.Flags().BoolVar(&v, "refresh", false, "")
-	flagAlias(c2, "renew", "refresh")
-	_ = c2.ParseFlags([]string{"--renew"})
-	noteRetiredFlags(c2)
-	if d := metaDeprecated(); d != nil || !slices.Equal(flagSpellings(c2, "refresh"), []string{"refresh", "renew"}) {
-		t.Errorf("a plain spelling is noted: %+v", d)
-	}
-}
-
-// metaDeprecated is meta.deprecated of an envelope printed now.
-func metaDeprecated() *out.Deprecated {
-	var buf bytes.Buffer
-	saved, savedF := out.P.W, out.P.Format
-	out.P.W, out.P.Format = &buf, "json"
-	out.P.Print("x", nil, nil)
-	out.P.W, out.P.Format = saved, savedF
-	var env struct {
-		Meta out.Meta `json:"meta"`
-	}
-	_ = json.Unmarshal(buf.Bytes(), &env)
-	return env.Meta.Deprecated
 }

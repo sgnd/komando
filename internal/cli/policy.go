@@ -186,7 +186,6 @@ func policyCheckCmd() *cobra.Command {
 		},
 	}
 	check.Flags().StringVar(&kind, "conn-kind", "", "rate the argument for a conn kind instead: "+strings.Join(policyCheckKinds(), ", ")+" (a command document as JSON)")
-	retiredFlag(check, "for", "conn-kind")
 	return check
 }
 

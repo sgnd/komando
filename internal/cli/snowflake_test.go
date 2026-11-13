@@ -36,7 +36,7 @@ func TestSnowflakeConns(t *testing.T) {
 	// the classifier says what needs --write before anything connects
 	wantCode(t, "WRITE_REQUIRES_FLAG", "db", "query", "sf", "insert into t values (1)")
 	wantCode(t, "SQL_HIDDEN_CODE", "db", "query", "sf", "select 1 // a\x0bdrop table t")
-	p, e := invRun(t, "policy", "check", "--for", "snowflake", "select system$cancel_query('x')")
+	p, e := invRun(t, "policy", "check", "--conn-kind", "snowflake", "select system$cancel_query('x')")
 	if p["risk"] != "destructive" || e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("policy check: %v %+v", p, e)
 	}

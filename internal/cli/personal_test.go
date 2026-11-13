@@ -89,7 +89,7 @@ func TestPersonalMaskColumns(t *testing.T) {
 	saved := out.P.W
 	out.P.W = &buf
 	root := newRoot()
-	root.SetArgs([]string{"db", "query", "prod", "--csv", "select email, card from users"})
+	root.SetArgs([]string{"db", "query", "prod", "-o", "csv", "select email, card from users"})
 	err := root.Execute()
 	out.P.W = saved
 	if err != nil || !strings.Contains(buf.String(), "[hidden: email],[hidden: card]") || strings.Contains(buf.String(), "ada@") {

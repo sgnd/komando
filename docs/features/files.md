@@ -128,7 +128,7 @@ Changed /etc/nginx/nginx.conf on web1. To undo: komando fs restore web1 /etc/ngi
 
 `fs restore` puts the newest backup back. Add `--dry-run` first to see the
 change. The file as it is now becomes a new backup, so a restore can be undone
-too. `--copy PATH` picks an older backup (`--from` still works in this release).
+too. `--copy PATH` picks an older backup.
 
 ```bash
 komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run

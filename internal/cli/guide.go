@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -133,38 +132,6 @@ func skillStatus() (installed, stale []string) {
 		}
 	}
 	return installed, stale
-}
-
-// skillRetired are the retired spellings a skill of an older komando
-// teaches, each with the one to use now. They keep working until doctor
-// finds no stale skill that cites them (S-1.7), so doctor names them.
-var skillRetired = []struct {
-	old *regexp.Regexp
-	now string
-}{
-	{regexp.MustCompile(`pkg security [^\n]*--apply`), "`pkg upgrade TARGET --security` (was `pkg security --apply`)"},
-	{regexp.MustCompile("`--on HOST`"), "`db dump --run-on HOST` (was `--on`)"},
-	{regexp.MustCompile(`rename --prefix`), "`rename --starts-with` (was `--prefix`)"},
-	{regexp.MustCompile(`fs ls [^\n]*--max\b`), "`fs list --limit` (was `--max`)"},
-	{regexp.MustCompile(`vpn (add|edit) [^\n]*--address\b`), "`vpn add --proxy-address` (was `--address`)"},
-}
-
-// skillCites are the retired spellings the skill files at paths still
-// teach, by what replaces them.
-func skillCites(paths []string) []string {
-	var cites []string
-	for _, p := range paths {
-		b, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		for _, r := range skillRetired {
-			if r.old.Match(b) && !slices.Contains(cites, r.now) {
-				cites = append(cites, r.now)
-			}
-		}
-	}
-	return cites
 }
 
 // skillDirs are the folders AI agents read skills from: Claude Code reads
@@ -434,9 +401,9 @@ func schemaPath(args []string) []string {
 }
 
 // schemaFind is the command `komando schema` describes for args: a path,
-// an alias (fs ls), a command ID (secret.get, db.grants), an old name or
-// a hidden synonym, each resolved to the visible command it runs (S-9.8).
-// nil when there is none.
+// an alias (fs ls), a command ID (secret.show, db.user.show) or a hidden
+// synonym, each resolved to the visible command it runs (S-9.8). nil when
+// there is none.
 func schemaFind(root *cobra.Command, args []string) *cobra.Command {
 	found, rest, err := root.Find(args)
 	if err != nil || found == root || len(rest) > 0 {
@@ -444,9 +411,6 @@ func schemaFind(root *cobra.Command, args []string) *cobra.Command {
 	}
 	for i := 0; found != nil && found.Hidden && i < 3; i++ {
 		now := found.Annotations[synonymNote]
-		if now == "" {
-			now = found.Annotations[oldNameNote]
-		}
 		if now == "" {
 			return found // komando's own background command: walk() leaves it out
 		}
@@ -574,5 +538,5 @@ var schemaEnvelope = map[string]string{
 	"command": "dotted command name",
 	"data":    "command-specific result; multi-host commands use data.results[] + data.summary",
 	"error":   "{code, message, hint} when ok=false (data may still be present for partial failures)",
-	"meta":    "{contract, version, duration_ms, dry_run}, and when they apply: would_be_blocked (a dry run's stop), skipped (targets a command cannot use), host_keys_pinned, deprecated ({used, now}: a retired flag or argument shape that still works), truncated (a list stopped at --limit; --limit 0 shows all)",
+	"meta":    "{contract, version, duration_ms, dry_run}, and when they apply: would_be_blocked (a dry run's stop), skipped (targets a command cannot use), host_keys_pinned, truncated (a list stopped at --limit; --limit 0 shows all)",
 }

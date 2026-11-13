@@ -10,7 +10,7 @@ komando exec web1 -- uptime              # readable text in a terminal
 komando exec web1 -o json -- uptime      # one JSON object (what agents get)
 komando status                           # VPNs, tunnels and jobs still running
 komando schema exec                      # every flag of exec, machine-readable
-komando schema fs.ls                     # an old name or command ID: shows the command it runs (fs list)
+komando schema secret.show               # a command ID, as the envelope names it, or an alias (fs ls)
 komando schema                           # also every exit code and error code
 komando doctor                           # check the local setup
 ```
@@ -58,13 +58,13 @@ as data.
 |-------|---------|
 | `ok` | `true` only when everything succeeded |
 | `command` | the command, dotted (`exec`, `db.query`, `svc.restart`) |
-| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...). `test` results also have `name`, the same value, kept for older scripts: use `host` |
+| `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
 | `error.thing` | for a code several kinds of item share (`KEY_NOT_FOUND`, `NOT_FOUND`, `CONN_NOT_FOUND`, `REGISTRY_NOT_FOUND`, `K8S_NOT_FOUND`): which one it is about, such as `ssh_key` or `cache_key`. Left out otherwise. [Error codes](error-codes.md#codes-shared-by-several-things) lists every value |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |
 | `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or `komando job start`) |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
-| `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run, `would_need` (every approval flag the real run needs) and `not_simulated` (steps the dry run could not try without making them, such as a MySQL DDL statement or sqlite's VACUUM); `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own; `deprecated` (`used`, `now`) when the command used an old flag or argument shape that still works; `truncated` when a list stopped at `--limit` and there is more (`--limit 0` shows all) |
+| `meta` | `contract`, `version`, `duration_ms`; `dry_run` and `would_be_blocked` on a dry run, `would_need` (every approval flag the real run needs) and `not_simulated` (steps the dry run could not try without making them, such as a MySQL DDL statement or sqlite's VACUUM); `skipped` when the target picked things this command cannot use, with the reason (also when the command then fails); `host_keys_pinned` when the command trusted a server's SSH host key for the first time (`host`, `address`, `key_type`, `fingerprint`), for the person to compare with the server's own; `truncated` when a list stopped at `--limit` and there is more (`--limit 0` shows all) |
 
 ## Exit codes
 
@@ -117,8 +117,7 @@ komando schema -o json | python3 -c 'import json,sys; [print(c["code"], c["exit"
 | `SAFETY_SETTING` | a change that turns a seatbelt off | a person may add `--yes` |
 | `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; a person may add `--yes` |
 | `NEEDS_PERSON` | an AI agent asked for something only a person can do: type a password into `secret set`, compare one with `secret check`, set the approval code | the agent asks the user to run the command in their own terminal; no flag lets an agent do it |
-| `HOSTKEY_REVOKED` | the server shows a host key that was revoked (an `@revoked` line `komando seal` carried over) | treat the server as compromised; nothing was sent |
-| `NEEDS_SEAL` | the komando folder holds the files of an earlier komando, not yet moved into the sealed store | the agent asks the user to run `komando seal` in their own terminal; every other command stops until then |
+| `HOSTKEY_REVOKED` | the server shows a host key on komando's list of revoked keys | treat the server as compromised; nothing was sent |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
@@ -215,8 +214,7 @@ when = true
 ```
 
 It only reads komando's state file (no network, nothing written, never an
-error, no JSON), so it is safe to run on every prompt. `komando prompt` is
-its old name and keeps working. It is a quick hint: a VPN
+error, no JSON), so it is safe to run on every prompt. It is a quick hint: a VPN
 that crashed a moment ago can still show until the next komando command.
 `komando status` is the full check.
 

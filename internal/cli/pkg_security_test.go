@@ -201,23 +201,16 @@ func TestPkgSecScript(t *testing.T) {
 	}
 }
 
-// --apply is a change: a protected server needs --yes, and a dry run shows
-// the stop instead of failing on it.
+// pkg security only lists: no protected stop (the closed port fails
+// instead), and it takes no --apply or --keep-going.
 func TestPkgSecGates(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
 	mustRun(t, "host", "edit", "web1", "--protected")
-	if e := wantCode(t, "PROTECTED_HOST", "pkg", "security", "web1", "--apply"); e.Exit != out.ExitPolicy {
-		t.Errorf("exit %d", e.Exit)
-	}
-	d, _ := invRun(t, "pkg", "security", "web1", "--apply", "--dry-run")
-	if m, _ := d["_meta"].(map[string]any); m == nil || m["would_be_blocked"] == nil {
-		t.Errorf("dry run: %v", d)
-	}
-	// listing is not a change: no protected stop (the closed port fails instead)
 	if _, e := invRun(t, "pkg", "security", "web1"); e == nil || e.Code == "PROTECTED_HOST" {
 		t.Errorf("list: %+v", e)
 	}
+	wantCode(t, "USAGE", "pkg", "security", "web1", "--apply")
 	wantCode(t, "USAGE", "pkg", "security", "web1", "--keep-going")
 }
 

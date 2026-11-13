@@ -123,7 +123,7 @@ promise that a query without `--write` cannot change anything:
   database, the primary key from `SHOW PRIMARY KEYS`, the clustering key
   as an index. Unquoted names are upper-cased, as Snowflake does.
 - **Users and grants: read only.** `db user ls` is `SHOW USERS` (some
-  columns) and `SHOW ROLES`; `db grants NAME` is `SHOW GRANTS TO USER` and
+  columns) and `SHOW ROLES`; `db user show CONN NAME` is `SHOW GRANTS TO USER` and
   `SHOW GRANTS TO ROLE` for each of its roles, one level (or for NAME as a
   role). Adding users, passwords (Snowflake's own way is key pairs) and
   grants are `NOT_SUPPORTED`, before connecting; the hint says to send the

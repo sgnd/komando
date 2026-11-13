@@ -69,7 +69,7 @@ capital: a label from this closed set, then a fragment, or a sentence.
 | `Error:` / `Stopped:` | the end of a failed or stopped command (printer) |
 | `Hint:` | the next step (printer) |
 | `Warning:` | something went wrong beside the result |
-| `Note:` | a fact the person should know: output cut, old spelling, unknown agent |
+| `Note:` | a fact the person should know: output cut, unknown agent |
 | `Dry run:` | the dry-run line |
 | `Skipped` | a target left out |
 | `Next:` / `Next time:` | S-9.3 |

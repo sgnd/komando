@@ -110,7 +110,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 	kept("lab-config")
 	// nor does --overwrite of a VPN that only points at the secret: a SOCKS
 	// VPN's password is not a key `vpn add` stored
-	mustRun(t, "vpn", "add", "corp", "socks", "--address", "127.0.0.1:1080", "--user", "alice", "--password-ref", "secret:corp-key")
+	mustRun(t, "vpn", "add", "corp", "socks", "--proxy-address", "127.0.0.1:1080", "--user", "alice", "--password-ref", "secret:corp-key")
 	set("corp-key")
 	wantCode(t, "SECRET_EXISTS", "vpn", "add", "corp", "wireguard", "--config", wg("1"), "--overwrite")
 	kept("corp-key")

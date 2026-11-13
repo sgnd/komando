@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // findCmd finds the command komando runs for args, through aliases.
@@ -17,28 +19,28 @@ func findCmd(t *testing.T, root *cobra.Command, args ...string) *cobra.Command {
 	return c
 }
 
-// A renamed command keeps its ID (S-1.6) under the new name and under the
-// old one, which stays a permanent synonym (S-1.7).
+// A renamed command's ID is its new path; its plain synonym (mv, get, ls)
+// runs the same command (S-1.7).
 func TestStandardRenamedIDs(t *testing.T) {
 	root := newRoot()
 	for _, c := range []struct {
 		now, old []string
 		id       string
 	}{
-		{[]string{"host", "rename"}, []string{"host", "mv"}, "host.mv"},
-		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.mv"},
-		{[]string{"vpn", "rename"}, []string{"vpn", "mv"}, "vpn.mv"},
-		{[]string{"key", "rename"}, []string{"key", "mv"}, "key.mv"},
-		{[]string{"secret", "rename"}, []string{"secret", "mv"}, "secret.mv"},
-		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.mv"},
-		{[]string{"secret", "show"}, []string{"secret", "get"}, "secret.get"},
-		{[]string{"cluster", "list"}, []string{"cluster", "ls"}, "cluster.ls"},
-		{[]string{"cluster", "helm", "list"}, []string{"cluster", "helm", "ls"}, "cluster.helm.ls"},
-		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.ls"},
-		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.ls"},
-		{[]string{"queue", "list"}, []string{"queue", "ls"}, "queue.ls"},
-		{[]string{"registry", "list"}, []string{"registry", "ls"}, "registry.ls"},
-		{[]string{"storage", "list"}, []string{"storage", "ls"}, "storage.ls"},
+		{[]string{"host", "rename"}, []string{"host", "mv"}, "host.rename"},
+		{[]string{"conn", "rename"}, []string{"conn", "mv"}, "conn.rename"},
+		{[]string{"vpn", "rename"}, []string{"vpn", "mv"}, "vpn.rename"},
+		{[]string{"key", "rename"}, []string{"key", "mv"}, "key.rename"},
+		{[]string{"secret", "rename"}, []string{"secret", "mv"}, "secret.rename"},
+		{[]string{"group", "rename"}, []string{"group", "mv"}, "group.rename"},
+		{[]string{"secret", "show"}, []string{"secret", "get"}, "secret.show"},
+		{[]string{"cluster", "list"}, []string{"cluster", "ls"}, "cluster.list"},
+		{[]string{"cluster", "helm", "list"}, []string{"cluster", "helm", "ls"}, "cluster.helm.list"},
+		{[]string{"db", "user", "list"}, []string{"db", "user", "ls"}, "db.user.list"},
+		{[]string{"fs", "list"}, []string{"fs", "ls"}, "fs.list"},
+		{[]string{"queue", "list"}, []string{"queue", "ls"}, "queue.list"},
+		{[]string{"registry", "list"}, []string{"registry", "ls"}, "registry.list"},
+		{[]string{"storage", "list"}, []string{"storage", "ls"}, "storage.list"},
 	} {
 		now, old := findCmd(t, root, c.now...), findCmd(t, root, c.old...)
 		if now != old {
@@ -53,20 +55,16 @@ func TestStandardRenamedIDs(t *testing.T) {
 	}
 }
 
-// Renaming through the old name works, prints the same command ID and is
-// a silent synonym: no meta.deprecated.
-func TestRenameOldVerbStillWorks(t *testing.T) {
+// mv is a synonym of rename and prints the same command ID.
+func TestRenameMvSynonym(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	d := mustRun(t, "host", "mv", "web1", "web-01")
-	if m := d["_meta"].(map[string]any); m["deprecated"] != nil {
-		t.Errorf("host mv is a permanent synonym, not a retired name: %v", m)
-	}
+	mustRun(t, "host", "mv", "web1", "web-01")
 	if d := mustRun(t, "host", "rename", "web-01", "web-02"); d["to"] != "web-02" {
 		t.Errorf("host rename: %v", d)
 	}
 	code, outText := runMain(t, "host", "rename", "web-02", "web-03")
-	if code != 0 || !strings.Contains(outText, `"command":"host.mv"`) {
+	if code != 0 || !strings.Contains(outText, `"command":"host.rename"`) {
 		t.Errorf("host rename: exit %d, %s", code, outText)
 	}
 }
@@ -147,23 +145,23 @@ func TestSynonymWrappers(t *testing.T) {
 	}
 }
 
-// `komando schema OLD` describes the command OLD runs: an alias, a command
-// ID, an old name or a hidden synonym (G-03, S-9.8).
-func TestSchemaResolvesOldNames(t *testing.T) {
+// `komando schema NAME` describes the command NAME runs: an alias, a
+// command ID or a hidden synonym (G-03, S-9.8).
+func TestSchemaResolvesNames(t *testing.T) {
 	invHome(t)
 	for _, c := range []struct {
 		args []string
 		path string
 	}{
-		{[]string{"fs.ls"}, "komando fs list"},
+		{[]string{"fs.list"}, "komando fs list"},
 		{[]string{"fs", "ls"}, "komando fs list"},
 		{[]string{"secret", "get"}, "komando secret show"},
-		{[]string{"secret.get"}, "komando secret show"},
-		{[]string{"host.mv"}, "komando host rename"},
+		{[]string{"secret.show"}, "komando secret show"},
+		{[]string{"host.rename"}, "komando host rename"},
 		{[]string{"group", "show"}, "komando group list"},
 		{[]string{"cluster", "info"}, "komando cluster status"},
-		{[]string{"script"}, "komando exec"},
 		{[]string{"servers"}, "komando host"},
+		{[]string{"db.user.show"}, "komando db user show"},
 	} {
 		d := mustRun(t, append([]string{"schema"}, c.args...)...)
 		cmds := d["commands"].([]any)
@@ -173,50 +171,33 @@ func TestSchemaResolvesOldNames(t *testing.T) {
 	}
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "no-such-thing")
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "tunnel", "serve") // komando's own background command
+	wantCode(t, "COMMAND_NOT_FOUND", "schema", "db.grants")       // an ID that is gone
 }
 
-// `db grants` (one letter from `db grant`) is `db user show` now: the old
-// name is hidden, still works, is noted in meta.deprecated, and both keep
-// the ID db.grants (C-V15).
+// `db user show` has the ID db.user.show; `db grants` is no command (C-V15).
 func TestDbUserShowReplacesGrants(t *testing.T) {
 	invHome(t)
-	root := newRoot()
-	show, old := findCmd(t, root, "db", "user", "show"), findCmd(t, root, "db", "grants")
-	if cmdID(show) != "db.grants" || cmdID(old) != "db.grants" || show.Hidden || !old.Hidden {
-		t.Fatalf("ids %s %s, hidden %v %v", cmdID(show), cmdID(old), show.Hidden, old.Hidden)
+	show := findCmd(t, newRoot(), "db", "user", "show")
+	if cmdID(show) != "db.user.show" || show.Hidden {
+		t.Fatalf("id %s, hidden %v", cmdID(show), show.Hidden)
 	}
-	code, text := runMain(t, "db", "grants", "nope", "app_ro")
-	if code == 0 || !strings.Contains(text, `"command":"db.grants"`) || !strings.Contains(text, `"deprecated":{"used":"komando db grants","now":"komando db user show"}`) {
-		t.Errorf("db grants: exit %d %s", code, text)
+	if code, _ := runMain(t, "db", "grants", "nope", "app_ro"); code != out.ExitUsage {
+		t.Errorf("db grants: exit %d", code)
 	}
-	code, text = runMain(t, "db", "user", "show", "nope", "app_ro")
-	if code == 0 || strings.Contains(text, "deprecated") {
+	code, text := runMain(t, "db", "user", "show", "nope", "app_ro")
+	if code == 0 || !strings.Contains(text, `"command":"db.user.show"`) {
 		t.Errorf("db user show: exit %d %s", code, text)
-	}
-	d := mustRun(t, "schema", "db.grants")
-	if p := d["commands"].([]any)[0].(map[string]any)["path"]; p != "komando db user show" {
-		t.Errorf("schema db.grants: %v", p)
 	}
 }
 
 // The top-level `forward` (another name for tunnel, which read like
-// `cluster forward`) is retired: it still works for one release and is
-// noted in meta.deprecated; `pf` stays a silent synonym (C-V17).
-func TestForwardRetired(t *testing.T) {
+// `cluster forward`) is gone; `pf` stays a synonym (C-V17).
+func TestForwardGone(t *testing.T) {
 	invHome(t)
-	code, text := runMain(t, "forward", "list")
-	if code != 0 || !strings.Contains(text, `"command":"tunnel.list"`) ||
-		!strings.Contains(text, `"deprecated":{"used":"komando forward list","now":"komando tunnel list"}`) {
-		t.Errorf("forward list: exit %d %s", code, text)
+	if code, _ := runMain(t, "forward", "list"); code != out.ExitUsage {
+		t.Errorf("forward list: exit %d", code)
 	}
-	if code, text := runMain(t, "pf", "list"); code != 0 || strings.Contains(text, "deprecated") {
+	if code, text := runMain(t, "pf", "list"); code != 0 || !strings.Contains(text, `"command":"tunnel.list"`) {
 		t.Errorf("pf list: exit %d %s", code, text)
-	}
-	if findCmd(t, newRoot(), "forward").IsAvailableCommand() {
-		t.Error("forward must be hidden")
-	}
-	d := mustRun(t, "schema", "forward", "start")
-	if p := d["commands"].([]any)[0].(map[string]any)["path"]; p != "komando tunnel start" {
-		t.Errorf("schema forward start: %v", p)
 	}
 }

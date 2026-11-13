@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
@@ -21,8 +20,6 @@ import (
 // command, so a new command cannot drift from them.
 func TestConventions(t *testing.T) {
 	// one meaning per short flag: TestStandardShorthands (shorthand_test.go)
-	// old flag names that were renamed and then removed; they must not come back
-	retired := []string{"force", "param", "lines", "number", "host", "mutating", "jump", "rename", "wait-timeout"}
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		path := c.CommandPath()
@@ -52,11 +49,6 @@ func TestConventions(t *testing.T) {
 		if limit := map[bool]int{true: 64, false: 72}[c.Parent() == c.Root()]; len(c.Short) > limit {
 			t.Errorf("%s: Short is %d characters, over %d; move the detail to Long", path, len(c.Short), limit)
 		}
-		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
-			if slices.Contains(retired, f.Name) {
-				t.Errorf("%s --%s: retired flag name; use the new name (see CHANGELOG, Removed)", path, f.Name)
-			}
-		})
 		for _, sub := range c.Commands() {
 			walk(sub)
 		}
@@ -96,7 +88,7 @@ func TestChangeCommandsOwnText(t *testing.T) {
 		{"recipe", "add", "r1", "uptime", "--read-only"}, {"recipe", "rm", "r1"}, {"policy", "deny", "foo bar"},
 		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "trust", "web2"},
 		{"--dry-run", "export", "--to", filepath.Join(t.TempDir(), "x.json")}, {"--dry-run", "secret", "rm", "s3"},
-		{"--dry-run", "seal"}, {"tunnel", "stop", "--all"}, {"host", "rm", "web2"}, {"conn", "rm", "db3"},
+		{"tunnel", "stop", "--all"}, {"host", "rm", "web2"}, {"conn", "rm", "db3"},
 		{"vpn", "rm", "off2"}, {"key", "rm", "k2"},
 	} {
 		line = strings.Join(a, " ")

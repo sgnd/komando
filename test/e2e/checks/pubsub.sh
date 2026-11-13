@@ -18,7 +18,7 @@ q $K queue send pubsub1 e2e-orders --value '{"id": 2}' --key k1
 check "pubsub peek of a topic points to its subscriptions" SUBSCRIPTION_NOT_FOUND "$($K queue peek pubsub1 e2e-orders | jget 'd["error"]["code"]')"
 check "pubsub peek pulls and gives back" "2 True" "$($K queue peek pubsub1 e2e-billing | jget '"%d %s" % (d["data"]["count"], d["data"]["requeued"])')"
 check "pubsub peek again sees the same messages" 2 "$($K queue peek pubsub1 e2e-billing | jget 'd["data"]["count"]')"
-check "pubsub peek --wait is for Kafka" NOT_SUPPORTED "$($K queue peek pubsub1 e2e-billing --wait 2s | jget 'd["error"]["code"]')"
+check "pubsub peek --idle is for Kafka" NOT_SUPPORTED "$($K queue peek pubsub1 e2e-billing --idle 2s | jget 'd["error"]["code"]')"
 check "pubsub ls -n 1 is cut and says so" "1 True" "$($K queue create pubsub1 e2e-zz >/dev/null; $K queue ls pubsub1 'e2e-*' -n 1 | jget '"%d %s" % (d["data"]["count"], d["data"].get("truncated"))')"
 check "pubsub describe lists the subscription" e2e-billing "$($K queue describe pubsub1 e2e-orders | jget 'd["data"]["subscription_info"][0]["subscription"]')"
 check "pubsub groups lists subscriptions" pull "$($K queue groups pubsub1 | jget '[g for g in d["data"]["groups"] if g["name"] == "e2e-billing"][0]["delivery"]')"

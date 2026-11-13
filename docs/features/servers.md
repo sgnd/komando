@@ -575,7 +575,7 @@ server's own first:
 
 ```bash
 komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNKNOWN
-komando host trust web1                     # answer: key_type and fingerprint
+komando host trust web1                     # answer: data.results[0] has key_type and fingerprint
 ```
 
 `HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,
@@ -610,15 +610,14 @@ an AI agent gets `NEEDS_PERSON`.
 - Bring servers in with `komando import ssh-config [FILE]`, from a
   spreadsheet with `komando import csv FILE`, and from another computer with
   `komando export --to FILE` there and `komando import komando FILE` here
-  (`komando export kind:host` saves only the servers). The old names
-  `host import` and `host export` go away in the next release.
+  (`komando export kind:host` saves only the servers).
   A server komando refuses is listed under `skipped`, and the import ends
   with `IMPORT_INCOMPLETE` (exit 1).
 - `host list` and `host test` are the same as `komando list kind:host` and
   `komando test`.
 - `komando test` tells you, per server, the login user and whether sudo
   works without a password. In JSON each result names its target in `host`,
-  like `exec` and `facts` (`name` holds the same value, for older scripts).
+  like `exec` and `facts`.
   `komando facts` reports the same sudo check, plus much more.
 - A proxy command runs on this computer, so an AI agent needs a person's yes
   to import one.

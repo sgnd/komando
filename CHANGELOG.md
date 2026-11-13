@@ -9,10 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
-This release makes every command follow one standard. No JSON field is
-renamed or removed and `meta.contract` stays 1, so a script that reads
-JSON keeps working. What a script or an AI agent may notice is listed
-here; the sections below say more about each change.
+This release makes every command follow one standard. `meta.contract`
+stays 1. komando is used internally only, so a few answers changed shape
+instead of keeping an old one beside the new (listed below under
+"Removed"); every other JSON field of 0.12 is unchanged. What a script or
+an AI agent may notice is listed here; the sections below say more about
+each change.
 
 New fields, all additive (left out when they have nothing to say):
 
@@ -24,8 +26,6 @@ New fields, all additive (left out when they have nothing to say):
 - `meta.would_need`: under `--dry-run`, the flags the real run needs
   (`--allow-dangerous`, `--yes`).
 - `meta.truncated`: `true` when a list stopped at its `--limit`.
-- `meta.deprecated`: `{used, now}` when an old flag or name was used; the
-  old one still works for now.
 - `meta.not_simulated`: under `--dry-run`, the steps the dry run could not
   try.
 - In `komando schema`: `confirm` on each command (its approval tiers and
@@ -47,21 +47,27 @@ Values in `komando schema` that changed (field names are the same):
 | `kind` of `storage link` and `cluster forward` | `read` | `change` |
 | `shorthand` `-n` on `cluster events`, `cluster logs`, `cluster list` | `--limit` | `--namespace` (as on the other 17 cluster commands, which gain it) |
 | `path` and `usage` of renamed commands | `secret get`, `... ls`, `... mv`, `db grants`, `pkg security --apply` | `secret show`, `... list`, `... rename`, `db user show`, `pkg upgrade --security` |
+| `command` in the envelope and the audit log of renamed commands | `secret.get`, `fs.ls` (and the six other `.ls`), `host.mv` (and the five other `.mv`), `db.grants`, `pkg.security` for `pkg upgrade --security` | `secret.show`, `fs.list`, `host.rename`, `db.user.show`, `pkg.upgrade` |
 | `usage` argument words | `KEY` for several things, `HOST`, `NAME` | one meaning per word (`OBJECT`, `SETTING`, `SERVER`, `USER`, `JOB`, `TUNNEL`, `TYPE/NAME`, ...) |
 
-The old names in the last two rows still work, and `komando schema OLD`
-describes the command they run. Synonyms (`ls`, `mv`, `get`, `keys`,
-plurals) stay for good. Retired flags and names work for at least one
-more release and set `meta.deprecated`: `db dump/restore --on`
-(`--run-on`), `--from` on `db user`, `db grant` and `db revoke`
-(`--from-host`), `fs ls
---max` (`--limit`), `fs restore --from` (`--copy`), `storage rm --limit`
-and `-n` (`--max-remove`), `vpn add/edit --address` (`--proxy-address`),
+Synonyms (`ls`, `mv`, `get`, `keys`, plurals) stay for good, and
+`komando schema` describes the command they run; `db grants` and `pkg
+security --apply` are gone. The retired flags are gone (komando is used
+internally only): `db dump/restore --on` (now `--run-on`), `--from` on
+`db user`, `db grant` and `db revoke` (`--from-host`), `fs list --max`
+(`--limit`), `fs restore --from` (`--copy`), `storage rm --limit` and
+`-n` (`--max-remove`), `vpn add/edit --address` (`--proxy-address`),
 `rename --prefix`, `--notes`, `--labels` (`--starts-with`,
 `--in-notes`, `--in-labels`), `recipe add --sudo` (`--needs-sudo`),
-`queue peek --wait` (`--idle`), `cluster rollback --to` (`--revision`),
-`policy check --for` (`--conn-kind`), `pkg security --apply` (`pkg
-upgrade --security`) and the top-level `forward` (`tunnel`).
+`cron --sudo`/`-s` (`--user root`), `queue peek --wait` (`--idle`),
+`cluster rollback --to` (`--revision`), `policy check --for`
+(`--conn-kind`), `db query --csv`/`--tsv` (`-o csv`/`-o tsv`),
+`key gen --overwrite`, `pkg security --apply` and `--keep-going` (`pkg
+upgrade --security`), and `docker logs --priority` and `svc logs
+--timestamps`, which did nothing there. Each is an unknown flag
+(`USAGE`, exit 2). A bare number of seconds for `svc --wait` and
+`reboot --wait` (`--wait 10`) and `-1` for queue `--partition`,
+`--partitions` and `--replicas` are usage errors too.
 
 Exit and error codes that changed:
 
@@ -76,7 +82,8 @@ Exit and error codes that changed:
 | `storage link`, `cluster forward` through a read-only ssh-gate key | ran | `SSH_GATE_READ_ONLY`, exit 6 |
 | `host trust --reset` (or a changed key) from an agent or a script | `SAFETY_SETTING`, exit 6, lifted by `--yes` | `NEEDS_PERSON`, exit 6; no flag lifts it |
 | a person answers no to a filled-in command (a person only: no agent or script is asked, so the agent recording has no row for it) | exit 1 | `DECLINED`, exit 6 |
-| `forward ...`, `storage rm -n 10` | ran | still run now, with `meta.deprecated`; in a later release `forward` is an unknown command and `-n` a `USAGE` error |
+| `forward ...`, `script`, `prompt`, `host import`, `host export`, `db grants` | ran | unknown command, `USAGE`, exit 2 (use `tunnel`, `exec --script`, `status --short`, `import`, `export`, `db user show`) |
+| `storage rm -n 10` and the other retired flags listed above | ran | unknown flag, `USAGE`, exit 2 |
 
 Text output (`-o text`) is not part of the contract, but agents read it:
 the `next:` lines moved to stderr (`data.next` is unchanged), tables say
@@ -113,7 +120,8 @@ instead.
 - `vpn add/edit --label KEY=VALUE` and `--protected`, and `vpn edit
   --unset` (user, password-ref, psk-ref, id, remote-id, ca, check, notes),
   as on host and conn. `vpn edit` and `vpn rm` take several names or a
-  selector (`NAME|TARGET...`). A protected VPN needs `--yes` (a person's
+  selector (`NAME|TARGET...`); `vpn rm` lists the VPNs in `removed`
+  (`would_remove` under `--dry-run`), even for one. A protected VPN needs `--yes` (a person's
   yes) to be changed, replaced or removed (`PROTECTED_TARGET`);
   `--protected=false` and `--mfa=false` need it too (`SAFETY_SETTING`).
   `vpn edit` of several VPNs prints `{"vpns": [...], "changed": [...]}`;
@@ -121,14 +129,13 @@ instead.
 - `fs write --value TEXT` works as another name for `--content`.
 - `komando rename OLD NEW` renames one entry of any kind: the server,
   conn, VPN, secret, key or group named OLD, through that kind's own
-  rename (same checks, same envelope, e.g. `host.mv`). When two kinds
+  rename (same checks, same envelope, e.g. `host.rename`). When two kinds
   share the name it names both commands (usage error); a name nothing
-  has is a usage error, as before, whose hint shows `--prefix`.
-  `rename --prefix OLD NEW` is unchanged.
-- `komando schema OLD` describes the command an old or second name runs:
+  has is a usage error, as before, whose hint shows `--starts-with`.
+  `rename --starts-with OLD NEW` renames by prefix.
+- `komando schema NAME` describes the command a second name runs:
   an alias (`schema fs ls`), a command ID as the envelope writes it
-  (`schema secret.get`, `schema host.mv`), an old name (`schema script`)
-  or a hidden synonym (`schema group show`). Before, hidden names gave
+  (`schema secret.show`, `schema host.rename`) or a hidden synonym (`schema group show`). Before, hidden names gave
   `COMMAND_NOT_FOUND`.
 - More names find the command you mean, each for good and silently:
   plurals and help words for every noun (`servers`, `server`,
@@ -153,7 +160,7 @@ instead.
   on stderr says `showing N of more; use --limit 0 for all`. On commands
   that run on several servers the limit counts per server.
 - `fs ls` counts with `-n/--limit` (default 1000, as before; 0 lists
-  everything); `--max` still works and is noted in `meta.deprecated`.
+  everything); `--max` there is gone.
   `job logs` takes `-n/--limit N` for the last lines, and `--tail` works
   on every log reader (`logs`, `svc logs`, `docker logs`,
   `cluster logs`, `job logs`) as another name for `--limit`.
@@ -378,74 +385,66 @@ instead.
 - **Security updates are installed with `komando pkg upgrade TARGET
   --security`** (with `--keep-going` and `--refresh`): the same rollout
   as before, one server at a time with a check before and after, the
-  same stops, and `pkg.security` in the envelope and the audit log.
-  `pkg security` now only looks; `pkg security --apply` still works for at
-  least two releases (the agent skill cites it), is hidden from help and
-  is noted in `meta.deprecated`.
+  same stops, and `pkg.upgrade` in the envelope and the audit log (was
+  `pkg.security`). `pkg security` now only looks; `pkg security --apply`
+  is gone.
 - `vpn add/edit --proxy-address` is the address of a SOCKS or HTTP proxy
   VPN (was `--address`, which on `host add` is the server's address), and
   `policy check --conn-kind KIND` rates a statement for a conn kind (was
-  `--for`, while `--kind` elsewhere is a list). The old names still work
-  in this release and are noted in `meta.deprecated`.
+  `--for`, while `--kind` elsewhere is a list). The old names are gone.
 - `recipe add --needs-sudo` marks a saved recipe as one that runs with
   sudo (was `--sudo`, which elsewhere runs the command itself with sudo),
   and `cron` reads root's crontab with `--user root` (`--sudo`/`-s` there
-  is hidden). The old flags still work in this release and are noted in
-  `meta.deprecated`.
+  is gone). The old flags are gone.
 - `db dump` and `db restore` name the server that runs pg_dump,
   mysqldump or pg_restore with `--run-on HOST` (was `--on`, which on
-  `db grant` names what the privileges are on). `--on` still works on
-  dump and restore for at least two releases (a shipped skill cites it)
-  and is noted in `meta.deprecated`.
+  `db grant` names what the privileges are on). `--on` on dump and
+  restore is gone.
 - `komando rename` switches read as switches: `--starts-with` (was
   `--prefix`, which elsewhere takes a value), `--in-notes` (was
-  `--notes`) and `--in-labels` (was `--labels`). The old names still work
-  in this release and are noted in `meta.deprecated`.
+  `--notes`) and `--in-labels` (was `--labels`). The old names are gone.
 - `host edit`, `conn edit` and `vpn edit` show `--add-group` and
   `--add-tag` in help; `--group/-g` and `--tag/-t` still work there, for
   good, and are no longer listed.
 - `docker logs` no longer shows `--priority` (a container log has none)
   and `svc logs` no longer shows `--timestamps` (the journal always has
-  times). Both are still accepted in this release, do nothing as before,
-  and are noted in `meta.deprecated`.
+  times). Neither command takes that flag any more.
 - `queue peek --idle 10s` is how long a Kafka peek waits with no new
   message (was `--wait`, which elsewhere means "wait for the result").
-  `--wait` still works in this release and is noted in `meta.deprecated`.
+  `--wait` is gone.
 - `cluster rollback` takes the revision as `--revision N` (kubectl's
-  `--to-revision` works too, for good). `--to` still works in this
-  release and is noted in `meta.deprecated`.
+  `--to-revision` works too, for good). `--to` is gone.
 - `--from` now always means a file on this computer (`db restore`,
   `fs write`, `queue send`). The MySQL account host is `--from-host` on
   `db grant`, `db revoke`, `db user show/add/passwd/rm`, and the backup
-  copy `fs restore` puts back is `--copy PATH`. The old `--from` there
-  still works in this release and is noted in `meta.deprecated`.
+  copy `fs restore` puts back is `--copy PATH`. The old `--from` there is
+  gone.
 - The top-level `komando forward` (another name for `tunnel`, easy to
-  mix up with `cluster forward`) is retired: `forward start/list/stop`
-  still work in this release and are noted in `meta.deprecated`; use
-  `komando tunnel` (or `pf`). It is hidden from help.
+  mix up with `cluster forward`) is gone: use `komando tunnel` (or `pf`).
 - `db user show CONN USER` shows what a database user may do (was
-  `db grants`, one letter from `db grant`). `db grants` still works in
-  this release, is noted in `meta.deprecated`, and is hidden from help;
-  the envelope's `command` stays `db.grants`.
+  `db grants`, one letter from `db grant`, which is gone); the envelope's
+  `command` is `db.user.show` (was `db.grants`).
 - **`list` is the one listing verb**: `cluster list`, `cluster helm list`,
   `db user list`, `fs list`, `queue list`, `registry list` and
   `storage list` are the names in help, hints and docs. `ls` keeps
-  working on every list command for good, and the envelope's `command`
-  stays `fs.ls` and so on.
+  working on every list command for good. The envelope's `command` is
+  `fs.list` and so on (was `fs.ls`, `cluster.ls`, `cluster.helm.ls`,
+  `db.user.ls`, `queue.ls`, `registry.ls`, `storage.ls`).
 - `secret show NAME` is the name for checking a secret (it never prints
   the value to an agent); `secret get` keeps working for good. The
-  envelope's `command` stays `secret.get`, so an agent's output is
-  masked as before.
+  envelope's `command` is `secret.show` (was `secret.get`), and an
+  agent's output is masked as before.
 - **Renaming an item is `rename`**: `host rename`, `conn rename`,
   `vpn rename`, `key rename`, `secret rename` and `group rename OLD NEW`.
-  `mv` keeps working there for good and prints nothing extra; the
-  envelope's `command` stays `host.mv` and so on. `fs mv` is unchanged.
+  `mv` keeps working there for good and prints nothing extra. The
+  envelope's `command` is `host.rename` and so on (was `host.mv`,
+  `conn.mv`, `vpn.mv`, `key.mv`, `secret.mv`, `group.mv`). `fs mv` is
+  unchanged.
 - `cache get --limit` is listed as `int` in `komando schema` (was
   `int64`); the values it takes are the same.
 - `storage rm --prefix` names its safety cap `--max-remove` (default
   1000), so it is not taken for a list's `--limit`. `--limit` and `-n`
-  still set it in this release and are noted in `meta.deprecated`; after
-  that, `-n` on `storage rm` is a usage error that names `--max-remove`.
+  there are gone.
   The `TOO_MANY` message and hint name `--max-remove`.
 - **In `cluster` commands, `-n` is now `--namespace`, as in kubectl**, on
   all 20 commands that take a namespace. `cluster events`, `logs` and
@@ -462,7 +461,7 @@ instead.
 - `queue peek/send --partition` and `queue create --partitions/--replicas`
   no longer show `-1` as their default: their help says "default: the
   broker's", and `komando schema` lists no default for them. Leaving them
-  out, or giving `-1` as before, still means the broker decides.
+  out means the broker decides; `-1` is a usage error.
 - Every size flag reads sizes the same way: `--max-output`, and
   `--max-bytes` on `fs cat`, `storage cat`, `job logs`, `db query` and
   `db explain`, take bytes or `256KiB`, `10MB`, `1GB` (KB = KiB = 1024).
@@ -473,9 +472,8 @@ instead.
   reads it the same way: `30s`, `10m`, `2h` or `7d`, and `0`. Days now
   work everywhere, a time below 0 is refused while the flags are read, and
   `komando schema` lists these flags with type `duration` and short
-  defaults (`10m`, not `10m0s`). The bare number of seconds that
-  `svc restart --wait 10` and `reboot --wait 600` took still works and is
-  noted in `meta.deprecated`.
+  defaults (`10m`, not `10m0s`). `svc restart --wait 10` and `reboot
+  --wait 600` need a unit now (`10s`, `600s`).
 - One rule table now says what a command needs before it runs; the
   stops stay in the commands, and a test checks each recorded stop
   against the table. At a terminal, a command komando asked you to fill in asks you to type the
@@ -502,20 +500,17 @@ instead.
   `job start TARGET COMMAND` without `--` and `cache run CONN "GET k"`
   are refused too: write `job start TARGET -- COMMAND` and
   `cache run CONN -- "GET k"`.
-- A flag that gets a new name keeps its old name as a hidden spelling of
-  the same flag, so every safety check (the ssh gate's read-only keys
-  included) sees the flag under either name. A test checks each spelling.
-- An old name or flag that komando still accepts (`komando script`,
-  `db query --csv`) no longer prints "goes away in the next release":
-  it keeps working. It now says so on stderr only at a terminal, and JSON
-  output names it in a new `meta.deprecated` field (`used`, `now`), so
-  `2>&1 | jq` and AI agents see no new text. A short alias such as `x`
-  for `exec` prints nothing at all.
-- Every command now carries a stable ID (its dotted path, such as
-  `fs.ls`), and the envelopes, the audit log, personal-data hiding, the
-  ssh-gate tables and the other checks keyed by command use it. A command
-  that is renamed later keeps its ID, so no check can miss it under the
-  new name. A test lists every ID and fails if one disappears.
+- A flag synonym (`--tail`, `--to-revision`, `--value`, `-g`/`-t` on
+  edit) is a hidden spelling of the same flag, so every safety check (the
+  ssh gate's read-only keys included) sees the flag under either name. A
+  test checks each spelling. A short alias such as `x` for `exec` prints
+  nothing extra.
+- Every command now carries an ID (its dotted path, such as
+  `fs.list`), and the envelopes, the audit log, personal-data hiding, the
+  ssh-gate tables and the other checks keyed by command use it. A test
+  lists every ID and checks that every table key is one, so a rename that
+  forgets a table fails. Audit records written before keep the ID of
+  their time.
 - `komando --help` now lists the commands under the same headings as
   `komando` alone: Servers, Data, Platform, Access, Overview and Setup.
 - At a person's terminal, many more commands end with a `Next:` line of
@@ -608,16 +603,15 @@ instead.
   set` list each field as words (`password ref: secret:web1-pass`, was
   `password_ref`) and each warning as `warning: ...`; `secret rename/cp`
   (`renamed secret s1 to s2`), `secret rm`, `tunnel stop`, `host trust`
-  (`would fetch the host key of web1 ... and remove 1 pinned key`) and
-  `seal` on a sealed folder have a line of their own. JSON is unchanged.
+  (`would fetch the host key of web1 ... and remove 1 pinned key`) have
+  a line of their own. JSON is unchanged.
 
 - The skill, `komando guide` and AGENTS.md use each command's primary
   name (`secret show`, `host rename`, `fs list`, `storage list`, `pkg
   upgrade --security`, `db dump --run-on`, `rename --starts-with`) and
   teach the `--` before the words for another program on every command
-  that takes them. `komando doctor`, when an AI agent's skill is from
-  another komando version, names the old spellings it still teaches and
-  what to use now; run `komando guide install` again.
+  that takes them. `komando doctor` says when an AI agent's skill is from
+  another komando version; run `komando guide install` again.
 - komando's own lines on stderr start with a capital or a fixed label:
   `Hint:`, `Warning:`, `Note:`, `Dry run:`, `Skipped`, `Nothing to show`
   (were lower case). A stop reads `Stopped: <what>; nothing was changed`,
@@ -628,8 +622,7 @@ instead.
 - Ctrl-C reads the same everywhere: `Stopped. Nothing was run.` at a
   question, `Stopped (Ctrl-C) before the end; what already ran stays as it
   is` while a command runs, and `Stopped (Ctrl-C); the login was not kept`
-  in `komando login`. A no at `seal`, `seal --undo` and `doctor
-  --accept-old-copy` says what stayed in the message and the command to
+  in `komando login`. A no at `doctor --accept-old-copy` says what stayed in the message and the command to
   run again in the hint (the hint said "nothing was changed in ...").
 - Status words in `-o text` are lower case: `ok, exit 0`, `failed: exit 3`,
   `failed: timed out`, `failed: <why>` (were `ok exit=0`, `FAILED ...`),
@@ -673,6 +666,58 @@ instead.
 
 ### Removed
 
+- The old command names `forward` (now `tunnel`), `script` (`exec
+  --script`), `prompt` (`status --short`), `host import` (`import
+  ssh-config` or `import komando`), `host export` (`export`) and `db
+  grants` (`db user show`). komando is used internally only, so a renamed
+  command no longer keeps its old name; each is now an unknown command.
+- The retired flags: `db dump/restore --on`, `--from` on `db user`, `db
+  grant` and `db revoke`, `fs list --max`, `fs restore --from`, `storage
+  rm --limit` and `-n`, `vpn add/edit --address`, `rename --prefix`,
+  `--notes` and `--labels`, `recipe add --sudo`, `cron --sudo`/`-s`,
+  `queue peek --wait`, `cluster rollback --to`, `policy check --for`,
+  `db query --csv`/`--tsv`, `key gen --overwrite`, `docker logs
+  --priority` and `svc logs --timestamps`. Each is an unknown flag now.
+- `pkg security --apply` and `--keep-going`: `pkg upgrade TARGET
+  --security` installs the security updates and audits as `pkg.upgrade`.
+  A bare number of seconds for `svc` and `reboot --wait`, and `-1` for
+  queue `--partition`, `--partitions` and `--replicas`.
+- `recipe run` of a built-in recipe removed in 0.12 (`ports`, `dns`,
+  `failed-units` ...) no longer names the command that replaced it; it is
+  `RECIPE_NOT_FOUND` like any unknown recipe. Typing `ops`, `snippet`,
+  `snippets`, `diag` or `policy allow` no longer suggests the command
+  that took the name; `inspect` and `systemd` still suggest `facts` and
+  `svc`.
+- `import komando` reads only the export file (`komando-export/1`, or the
+  envelope `komando export` prints); a plain list of hosts or the
+  `{"hosts": [...]}` that `host export` printed before 0.12 is refused.
+- Command IDs that kept a renamed command's old path: `host.mv`,
+  `conn.mv`, `vpn.mv`, `key.mv`, `secret.mv`, `group.mv`, `secret.get`,
+  `cluster.ls`, `cluster.helm.ls`, `db.user.ls`, `fs.ls`, `queue.ls`,
+  `registry.ls`, `storage.ls` and `db.grants` are now `host.rename` ...
+  `secret.show`, `cluster.list` ... `storage.list` and `db.user.show`, the
+  command's path.
+- Answers kept in an old shape beside the new one: under `--dry-run`,
+  `host rm`, `conn rm` and `key rm` print only `would_remove` (no longer
+  `removed` too); `vpn rm` always lists the VPNs (one VPN was a string);
+  `host trust NAME` answers with `data.results` and `data.summary`, as
+  for several servers (one server was a flat object).
+- Homes from before 0.12 are no longer read: `komando seal` and `seal
+  --undo`, the `NEEDS_SEAL` and `SEAL_UNFINISHED` codes, and the readers
+  of `state.json`, a plain `runtime.json`, `vault.json` (with `vault.key`,
+  a keychain key or a passphrase, and the old scrypt cost), `known_hosts`,
+  `keys/` and a plain Tailscale `tailscaled.state` are gone (every
+  internal home has `store.db`). A home without `store.db` starts empty,
+  as a new install does; one that had a store (`store.key`,
+  `runtime.pids` or the keychain's change count) and lost `store.db`
+  still stops with `STATE_CORRUPT`, and the hint says to put `store.db`
+  back from a backup. `doctor` no longer warns about old files beside
+  `store.db`.
+- `meta.deprecated` and the code behind it: nothing uses an old spelling
+  now, so no command sets it. `komando schema` no longer resolves old
+  names (an alias, a command ID and a hidden synonym still resolve), and
+  `komando doctor` no longer lists the old spellings a stale AI agent
+  skill teaches (it still says the skill is from another version).
 - The menu that `komando` alone opened at a terminal, its task lists and
   the full-screen forms and review screen (owner decision 2026-11-12:
   person mode is commands). Everything it did is a command: `komando`
@@ -706,7 +751,7 @@ instead.
   streams, the first by name, and marks a longer list `"truncated": true`
   with a hint to narrow it. On SQS and Kafka it no longer reads every
   queue's counts first, so a big account answers within the time limit.
-- `queue peek --wait` on RabbitMQ, NATS, SQS or Pub/Sub is refused
+- `queue peek --idle` on RabbitMQ, NATS, SQS or Pub/Sub is refused
   (`NOT_SUPPORTED`) instead of being ignored: only a Kafka peek waits.
 - `queue peek` on a RabbitMQ quorum queue takes no more messages once one
   is near its delivery limit, so a single peek no longer counts down the
@@ -796,7 +841,7 @@ instead.
   `--dry-run`) instead of menu rows. The caches page shows `cache add`, what
   happens when an argument is left out, how to test, change, rename and
   remove a cache, and how to save a Redis snapshot.
-- `policy check --for memcached` rates the words memcached reads, like
+- `policy check --conn-kind memcached` rates the words memcached reads, like
   `cache run`: a line with a newline or other control character is
   dangerous (new rule `memcached-line`), and `mg "key T30"` is a write.
 - `cache keys --limit 0` listed no keys yet said more matched, and
@@ -856,7 +901,7 @@ instead.
 - `secret passphrase --dry-run` previews for an AI agent or a script too
   (what would change, how many secrets, whether the current key opens
   them) with `meta.would_be_blocked: NEEDS_PERSON`, as `secret keychain`
-  and `seal` do, instead of stopping: a dry run is never blocked.
+  does, instead of stopping: a dry run is never blocked.
 - `secret rm A B` removes every name in one change of the vault, or none:
   a failure part way no longer leaves some removed without an audit entry,
   and a reference another komando adds meanwhile is seen before the
@@ -1189,8 +1234,7 @@ instead.
   (and asks first when it has more than 3 members).
 - A Tailscale or Headscale VPN keeps its node state (the machine and node
   private keys) sealed in store.db, not in a plain `tailscaled.state` file
-  under `~/.komando/vpn/`. A file left by an earlier komando is moved in
-  and removed on the next `vpn up`. `vpn rm` now also forgets that state
+  under `~/.komando/vpn/`. `vpn rm` now also forgets that state
   and folder, so a VPN added again under the same name never joins as the
   old node.
 - An AI agent's `download`, `cp`, `storage download` and `sync` never put
@@ -1219,8 +1263,7 @@ instead.
   behind. Before, a removed secret's sealed bytes stayed in the file, and
   after `secret passphrase` they still opened with the old key.
 - A plain runtime.json beside the sealed store is no longer trusted: it
-  is read as empty (only `komando seal` reads one, from a folder of
-  before). Before, a program that wrote one could point a server's held
+  is read as empty. Before, a program that wrote one could point a server's held
   login at its own socket and see every command, password and file sent
   to that server.
 - `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo` no

@@ -129,7 +129,7 @@ func loginForm() []formGroup {
 	sp := formSpec{title: "Log in to a server once and keep it", qs: []formQ{{
 		key: "arg0", label: "Host", ask: "Which server should you log in to?",
 		help:    "komando asks what the server asks (a password, a code from your phone) and keeps the login open for a while, so later commands need no login.",
-		choices: func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, "server") },
+		choices: func(st *store.State, _ formAnswers) []pickRow { return formPickRows(st, "server") },
 	}}}
 	sp.build = func(_ *store.State, a formAnswers) [][]string { return [][]string{{"login", a["arg0"]}} }
 	return []formGroup{{label: "Login", kinds: []formKind{{label: "Server", spec: func() formSpec { return sp }}}}}

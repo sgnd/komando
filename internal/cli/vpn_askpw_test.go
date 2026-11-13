@@ -15,7 +15,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 	invHome(t)
 	noAgent(t)
 	socks := func(name string, extra ...string) []string {
-		return append([]string{"vpn", "add", name, "socks", "--address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
+		return append([]string{"vpn", "add", name, "socks", "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
 	}
 	// a script: no terminal
 	if e := wantCode(t, "NEEDS_TERMINAL", socks("lab")...); !strings.Contains(e.Hint, "komando secret set lab-pass") {
@@ -107,7 +107,7 @@ func TestVpnAddAskPasswordOverwriteRefused(t *testing.T) {
 	asked := 0
 	readPassword = func(string) (string, error) { asked++; return "Old-Vpn-1", nil }
 	socks := func(extra ...string) []string {
-		return append([]string{"vpn", "add", "lab", "socks", "--address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
+		return append([]string{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
 	}
 	mustRun(t, socks()...)
 	if asked != 1 {

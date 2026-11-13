@@ -134,7 +134,7 @@ func TestFillHint(t *testing.T) {
 		t.Errorf("got %q", e.Hint)
 	}
 	// a VPN fills neither TARGET nor CONN, a server fills TARGET but not CONN
-	mustRun(t, "vpn", "add", "corp", "socks", "--address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "add", "corp", "socks", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
 	e = out.Errf(out.ExitConnect, "VPN_DOWN", "run `komando exec TARGET -- true` or `komando test NAME`", "x")
 	fillHint(e, "corp")

@@ -279,9 +279,9 @@ its name (NAME-key, NAME-config, ...) move to the new name when only this VPN
 uses them, so the old name is free again. Disconnect it first
 (` + "`komando vpn down NAME`" + `) if it is up.`,
 	}[kind]
-	return withID(&cobra.Command{
+	return &cobra.Command{
 		Use:     "rename OLD NEW",
-		Aliases: []string{"mv"}, // a permanent synonym; the ID stays kind.mv
+		Aliases: []string{"mv"}, // a plain synonym
 		Short:   "Rename a " + formKindWord(kind) + " and every reference to it",
 		Long:    long,
 		Example: example,
@@ -300,12 +300,12 @@ uses them, so the old name is free again. Disconnect it first
 				return err
 			}
 			if res.Action == "renamed" {
-				audit(nil, kind+".mv", []string{res.To}, "", true, map[string]any{"from": res.From, "to": res.To, "updated": len(res.Updated)})
+				audit(nil, kind+".rename", []string{res.To}, "", true, map[string]any{"from": res.From, "to": res.To, "updated": len(res.Updated)})
 			}
-			out.P.Print(kind+".mv", res, nil)
+			out.P.Print(kind+".rename", res, nil)
 			return nil
 		},
-	}, kind+".mv")
+	}
 }
 
 func hostMvCmd() *cobra.Command {

@@ -175,7 +175,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 				if cmdStr != "" || len(args) > 1 {
 					return out.Usage("give a command or --script FILE, not both")
 				}
-				return runScript(cmd.Context(), "exec", args[0], so, o, readOnly)
+				return runScript(cmd.Context(), args[0], so, o, readOnly)
 			}
 			if so.interpreter != "" || len(so.args) > 0 {
 				return out.Usage("--interpreter and --arg go with --script FILE")

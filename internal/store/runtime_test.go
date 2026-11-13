@@ -7,8 +7,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 func TestRuntimeLivesApart(t *testing.T) {
@@ -70,10 +68,6 @@ func TestCorruptRuntime(t *testing.T) {
 	if _, err := Load(); err != nil {
 		t.Fatalf("err %v", err)
 	}
-	// broken while `komando seal` reads a folder of before: stop
-	if err := SealPlainRuntime(); err == nil || !strings.Contains(err.Error(), "runtime") {
-		t.Fatalf("seal err %v", err)
-	}
 }
 
 // Update and UpdateRuntime at the same time lose no change of either.
@@ -103,38 +97,6 @@ func TestRuntimeAndInventoryTogether(t *testing.T) {
 	s, _ := Load()
 	if len(s.Hosts) != n || len(s.Jobs) != n {
 		t.Fatalf("hosts %d jobs %d, want %d each", len(s.Hosts), len(s.Jobs), n)
-	}
-}
-
-// ReadOldState reads a folder of before as an earlier komando did: once
-// runtime.json is there it is the record of runtime data, and what
-// state.json still holds of it is left behind. It writes nothing.
-func TestReadOldState(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("KOMANDO_HOME", home)
-	old := `{"hosts":{"web":{"name":"web","address":"10.0.0.1","via":"bastion"}},"vpn_sessions":{"office":{"vpn":"office","pid":7}},"settings":{"audit":true},"ids":{"host":{"web":{"id":"x","version":3}}}}`
-	if err := os.WriteFile(filepath.Join(home, "state.json"), []byte(old), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	s, err := ReadOldState()
-	if err != nil || s.Sessions["office"] == nil || s.Hosts["web"].Via != "bastion" || !s.Settings.Audit || s.Settings.HostKeyPolicy == "" {
-		t.Fatalf("read: %+v %v", s, err)
-	}
-	if err := os.WriteFile(filepath.Join(home, "runtime.json"), []byte(`{}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if s, err = ReadOldState(); err != nil || s.Sessions["office"] != nil {
-		t.Fatalf("removed session came back: %v", err)
-	}
-	if ents, _ := os.ReadDir(home); len(ents) != 2 {
-		t.Fatalf("reading wrote files: %v", ents)
-	}
-	if err := os.WriteFile(filepath.Join(home, "state.json"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var oe *out.Error
-	if _, err := ReadOldState(); !errors.As(err, &oe) || oe.Code != "STATE_CORRUPT" {
-		t.Fatalf("a cut-short state.json: %v", err)
 	}
 }
 

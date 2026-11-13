@@ -70,17 +70,17 @@ q $K db restore pg --from "$TMP/t2.dump" --allow-dangerous
 check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K db dump pg --to "$TMP/schema.sql" --schema-only
 check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
-# --on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
+# --run-on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
 q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref secret:pg-pass
 check "custom dump without a server names --run-on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--run-on HOST" in d["error"]["message"]' || true)"
-check "dump --on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
-q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --on bastion
-check "dump --on writes a pg archive" PGDMP "$(head -c 5 "$TMP/on.dump")"
-check "dump --on from a server that cannot reach the database" CONN_UNREACHABLE "$($K db dump pg-on --to "$TMP/on2.sql" --on direct | jget 'd["error"]["code"]' || true)"
+check "dump --run-on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --run-on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
+q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --run-on bastion
+check "dump --run-on writes a pg archive" PGDMP "$(head -c 5 "$TMP/on.dump")"
+check "dump --run-on from a server that cannot reach the database" CONN_UNREACHABLE "$($K db dump pg-on --to "$TMP/on2.sql" --run-on direct | jget 'd["error"]["code"]' || true)"
 q $K db query pg --write --allow-dangerous "drop table t2"
-check "restore --on needs --allow-dangerous" POLICY_BLOCKED "$($K db restore pg-on --from "$TMP/on.dump" --on bastion | jget 'd["error"]["code"]' || true)"
-q $K db restore pg-on --from "$TMP/on.dump" --on bastion --allow-dangerous
-check "pg_restore --on brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "restore --run-on needs --allow-dangerous" POLICY_BLOCKED "$($K db restore pg-on --from "$TMP/on.dump" --run-on bastion | jget 'd["error"]["code"]' || true)"
+q $K db restore pg-on --from "$TMP/on.dump" --run-on bastion --allow-dangerous
+check "pg_restore --run-on brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "audit names where the dump ran" bastion "$($K audit -n 50 | jget '" ".join(sorted({e.get("runs_on", "") for e in d["data"]["entries"] if e.get("command") == "db.dump" and str(e.get("file", "")).endswith("/on.dump")}))')"
 q $K conn rm pg-on
 

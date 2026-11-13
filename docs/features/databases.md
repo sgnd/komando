@@ -187,8 +187,7 @@ then says on stderr when it stopped there). If the rows are more than
 `--max-output` bytes, komando prints nothing and fails with
 `OUTPUT_TRUNCATED` (exit 1), so a file is never cut without you knowing:
 raise `--max-output`, or for a whole database use `komando db dump`.
-Errors go to stderr, so the file holds only rows. `--csv` and `--tsv`
-are the old names; they still work in this release and say to use `-o`.
+Errors go to stderr, so the file holds only rows.
 
 Otherwise a query returns at most 500 rows (`--limit`, `0` for no limit)
 and `--max-output` bytes. A cut result says which cap it hit:

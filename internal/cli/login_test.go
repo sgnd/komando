@@ -186,8 +186,8 @@ func TestLoginCloudNamesReserved(t *testing.T) {
 	mustRun(t, "host", "add", "aws-1", "u@192.0.2.7")
 	wantCode(t, "USAGE", "host", "mv", "aws-1", "aws")
 	f := filepath.Join(t.TempDir(), "h.json")
-	os.WriteFile(f, []byte(`[{"name":"azure","address":"192.0.2.8"},{"name":"b1","address":"192.0.2.9"}]`), 0o600)
-	d, e := invRun(t, "host", "import", "--json", f)
+	os.WriteFile(f, []byte(`{"format":"komando-export/1","hosts":[{"name":"azure","address":"192.0.2.8"},{"name":"b1","address":"192.0.2.9"}]}`), 0o600)
+	d, e := invRun(t, "import", "komando", f)
 	if e == nil || e.Code != "IMPORT_INCOMPLETE" || fmt.Sprint(d["hosts"]) != "[b1]" || !strings.Contains(fmt.Sprint(d["skipped"]), "azure") {
 		t.Errorf("import: %v %+v", d, e)
 	}

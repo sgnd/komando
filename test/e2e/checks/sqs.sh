@@ -26,7 +26,7 @@ check "sqs peek --oldest is not supported" NOT_SUPPORTED "$($K queue peek sqs e2
 check "sqs groups is not supported" NOT_SUPPORTED "$($K queue groups sqs | jget 'd["error"]["code"]')"
 check "sqs ls" 2 "$($K queue ls sqs 'e2e-orders*' | jget 'd["data"]["count"]')"
 check "sqs ls -n 1 is cut, the first by name" "1 True e2e-orders" "$($K queue ls sqs 'e2e-orders*' -n 1 | jget '"%d %s %s" % (d["data"]["count"], d["data"].get("truncated"), d["data"]["topics"][0]["name"])')"
-check "sqs peek --wait is for Kafka" NOT_SUPPORTED "$($K queue peek sqs e2e-orders --wait 2s | jget 'd["error"]["code"]')"
+check "sqs peek --idle is for Kafka" NOT_SUPPORTED "$($K queue peek sqs e2e-orders --idle 2s | jget 'd["error"]["code"]')"
 check "sqs purge needs --allow-dangerous" POLICY_BLOCKED "$($K queue purge sqs e2e-orders | jget 'd["error"]["code"]')"
 check "sqs rm needs --allow-dangerous" POLICY_BLOCKED "$($K queue rm sqs e2e-orders | jget 'd["error"]["code"]')"
 check "sqs purge --dry-run counts" 2 "$($K --dry-run queue purge sqs e2e-orders | jget 'd["data"]["messages"]')"

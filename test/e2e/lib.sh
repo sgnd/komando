@@ -141,7 +141,7 @@ setup_maria_conn() {
 # +vpns: the SOCKS VPN lab (through the bastion, in use by target-lab) and
 # the system VPN corp, which is down
 setup_vpns() {
-  q $K vpn add lab socks --address "127.0.0.1:$E2E_SOCKS" --check pg:5432
+  q $K vpn add lab socks --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
   q $K vpn add corp system --check 127.0.0.1:1
   q $K host add target-lab agent@target --via lab --password-ref secret:agent-pass
 }

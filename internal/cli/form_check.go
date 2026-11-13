@@ -16,9 +16,9 @@ import (
 // (test, login, vpn up, cluster status), the last line it printed.
 func formRunAll(self string, cmds [][]string) (int, string, error) {
 	for i, c := range cmds {
-		fmt.Fprintf(os.Stderr, "$ komando %s\n", menuCommandLine(c))
+		fmt.Fprintf(os.Stderr, "$ komando %s\n", pickCommandLine(c))
 		var buf bytes.Buffer
-		x := menuCommand(self, c)
+		x := pickCommand(self, c)
 		x.Stderr = io.MultiWriter(os.Stderr, &buf)
 		code, err := formExitCode(x.Run())
 		if err != nil || code == 0 {

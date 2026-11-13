@@ -107,19 +107,12 @@ and `komando doctor` says so. The same three ways keep its key as the vault's ke
 below: `komando secret keychain` and `komando secret passphrase` move and
 change it, and `komando doctor` says which one is in use.
 
-A folder from an earlier komando (with `state.json`, `vault.json`,
-`known_hosts`, `audit.jsonl` or `keys/`) must be sealed before use: every
-command except `komando seal`, `komando doctor`, `komando version`, `help`,
-`guide` and `schema` stops with `NEEDS_SEAL` until you run `komando seal`
-in your own terminal (an AI agent cannot). It reads the old files once,
-whichever way their vault key was kept (`vault.key`, the keychain or
-`KOMANDO_VAULT_PASS`), moves everything into `store.db`, reads it back and
-compares, keeps the old files in a sealed archive (`before-seal.archive`),
-and replaces each old file with a short note, so an older komando stops
-instead of starting with an empty folder. `komando seal --dry-run` shows
-what it would move. `komando seal --undo` puts the old files back; this
-komando then stops with `NEEDS_SEAL` again. Backups made before the move
-(Time Machine, disk snapshots) still hold the plain files.
+komando reads only `store.db`. Files an earlier komando (before 0.12)
+kept in the folder (`state.json`, `vault.json`, `known_hosts`, `keys/`)
+are not read: a folder that holds only those starts empty, as a new
+install does. A folder that had a store (`store.key` or `runtime.pids`
+is there, or the keychain keeps its change count) but lost `store.db`
+stops with `STATE_CORRUPT` until you put `store.db` back from a backup.
 
 Back this folder up and keep it private.
 
@@ -261,9 +254,7 @@ right now keeps working; the next command starts the new version.
   there ends up belonging to root.
 - Afterwards, run `komando guide install` (without `sudo`): the skill your
   AI agents read comes with komando and changes with it. Until then
-  `komando doctor` marks the skill as from another version, and names the
-  old spellings it still teaches (`pkg security --apply`, `--on HOST`)
-  with the ones to use now.
+  `komando doctor` marks the skill as from another version.
 - Going back to an older version needs a person's yes (for an AI agent:
   `--yes` and the "Allow once" window), because an older komando may lack
   safety checks the newer one has. Without a VERSION, `update` never goes

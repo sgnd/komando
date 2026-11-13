@@ -42,8 +42,8 @@ func redisForm() formSpec {
 			check: cacheUserProblem}),
 		{key: "setup", label: "Setup", ask: "How is Redis set up?", advanced: true,
 			def: func(*store.State, formAnswers) string { return "single" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "One server", detail: "the usual case", value: "single"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "One server", detail: "the usual case", value: "single"},
 					{label: "Redis Cluster", detail: "data spread over several nodes; Address is any one node", value: "cluster"},
 					{label: "Behind Sentinels", detail: "Address is a Sentinel; port 26379 unless you set another", value: "sentinel"}}
 			}},
@@ -150,8 +150,8 @@ func cacheTLSQ(scheme string) formQ {
 		help: "Cloud caches usually do: their connection string starts with " + scheme + "s://. Not sure? Ask your provider.",
 		show: cacheDirect,
 		def:  func(*store.State, formAnswers) string { return "yes" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Yes", detail: "encrypted, and its certificate is checked", value: "yes"},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Yes", detail: "encrypted, and its certificate is checked", value: "yes"},
 				{label: "No, send it unencrypted",
 					detail: "only on a network you trust: the password and data can be read on the way", value: "no"}}
 		}}
@@ -182,8 +182,8 @@ func cacheTLS(a formAnswers) bool {
 func cachePasswordQ(ask, help, def string, advanced bool) formQ {
 	return formQ{key: "password", label: "Password", ask: ask, help: help, advanced: advanced,
 		def: func(*store.State, formAnswers) string { return def },
-		choices: func(*store.State, formAnswers) []menuRow {
-			rows := []menuRow{
+		choices: func(*store.State, formAnswers) []pickRow {
+			rows := []pickRow{
 				{label: "Yes, I type it next", detail: "hidden; komando keeps it as a saved password", value: "ask"},
 				{label: "No password", detail: "common for a cache inside a private network", value: "none"},
 			}
@@ -191,7 +191,7 @@ func cachePasswordQ(ask, help, def string, advanced bool) formQ {
 				rows[0], rows[1] = rows[1], rows[0]
 			}
 			if len(secretNames()) > 0 {
-				rows = append(rows, menuRow{label: "Yes, I saved it in komando before", detail: "pick it from your saved passwords", value: "secret"})
+				rows = append(rows, pickRow{label: "Yes, I saved it in komando before", detail: "pick it from your saved passwords", value: "secret"})
 			}
 			return rows
 		}}
@@ -214,10 +214,10 @@ func cacheCAQ() formQ {
 		choices: cacheSecretRows, check: cacheCAProblem}), cacheTLS)
 }
 
-func cacheSecretRows(*store.State, formAnswers) []menuRow {
-	var rows []menuRow
+func cacheSecretRows(*store.State, formAnswers) []pickRow {
+	var rows []pickRow
 	for _, n := range secretNames() {
-		rows = append(rows, menuRow{label: n, value: n})
+		rows = append(rows, pickRow{label: n, value: n})
 	}
 	return rows
 }

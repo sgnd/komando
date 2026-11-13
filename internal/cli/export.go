@@ -56,8 +56,6 @@ func importKomando(path string) (*importPlan, error) {
 		}
 		if err2 := json.Unmarshal(b, &env); err2 == nil && env.Data.Format != "" {
 			f = env.Data
-		} else if hosts, ok := parseHostsJSON(b); ok && len(hosts) > 0 {
-			f = exportFile{Format: exportFormat, Hosts: hosts} // a list of hosts, as `host export` printed before 0.12
 		} else {
 			return nil, out.Errf(out.ExitUsage, "USAGE", "give a file made by `komando export --to FILE`", "%s is not a komando export file", path)
 		}

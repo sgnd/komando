@@ -64,7 +64,7 @@ func TestPromptFill(t *testing.T) {
 			t.Errorf("%v: %v\n%s", c.args, err, drawn)
 			continue
 		}
-		if line := menuCommandLine(got); line != c.want {
+		if line := pickCommandLine(got); line != c.want {
 			t.Errorf("%v: %s, want %s\n%s", c.args, line, c.want, drawn)
 			continue
 		}
@@ -117,7 +117,7 @@ func TestPromptFillPicks(t *testing.T) {
 	defer func() { promptable = saved }()
 	drawn := promptFake(t, "1")
 	got, err := promptFill([]string{"facts"})
-	if err != nil || menuCommandLine(got) != "facts prod1" || strings.Contains(drawn.String(), "Using") {
+	if err != nil || pickCommandLine(got) != "facts prod1" || strings.Contains(drawn.String(), "Using") {
 		t.Errorf("%v %v\n%s", got, err, drawn)
 	}
 	drawn = promptFake(t)

@@ -117,7 +117,7 @@ cannot change anything:
   reaches the server or its query log. `--no-login` creates a role; `db
   user rm` drops a role when the name is one. `db grant` takes `DB.*`,
   `DB.TABLE`, `*.*`, `database:DB` or `table:DB.TABLE`, and `--role`.
-  `db grants` reads `system.grants` and `system.role_grants`, for a user or
+  `db user show` reads `system.grants` and `system.role_grants`, for a user or
   a role. Users from `users.xml` cannot be changed with SQL (the error
   says so).
 

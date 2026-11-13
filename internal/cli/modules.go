@@ -102,7 +102,7 @@ func svcActionCmd(action string) *cobra.Command {
 	switch action {
 	case "start", "restart", "reload":
 		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"
-		c.Flags().Var(&durFlag{d: &wait, seconds: true, name: "wait"}, "wait", "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not")
+		c.Flags().Var(&durFlag{d: &wait}, "wait", "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not")
 	case "enable", "disable":
 		verb := map[string]string{"enable": "start", "disable": "stop"}[action]
 		c.Flags().BoolVar(&now, "now", false, "also "+verb+" the units now (systemctl "+action+" --now)")
@@ -597,24 +597,14 @@ func cronCmd() *cobra.Command {
 		Long:  cronLong,
 	}
 	var user string
-	var sudo bool
 	c.PersistentFlags().StringVar(&user, "user", "", "crontab of this user (uses sudo)")
-	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "use root's crontab (through sudo)")
-	_ = c.PersistentFlags().MarkHidden("sudo") // retired: --user root is the same
-	noted := false
 	ct := func() string {
 		if user != "" {
 			return "crontab -u " + sshx.Q(user)
 		}
 		return "crontab"
 	}
-	useSudo := func() bool {
-		if sudo && !noted {
-			noted = true
-			retiredName("--sudo", "--user root")
-		}
-		return sudo || user != ""
-	}
+	useSudo := func() bool { return user != "" }
 	// readCron puts the current crontab in $cur; "no crontab" (busybox: "can't
 	// open ...: No such file") is empty, any other error (no permission,
 	// busybox not suid) stops before a write could replace the whole crontab

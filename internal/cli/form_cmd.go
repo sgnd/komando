@@ -207,58 +207,58 @@ func formArgPick(name string) (string, bool) {
 }
 
 // formPickRows is what a picker offers.
-func formPickRows(st *store.State, pick string) []menuRow {
-	var rows []menuRow
+func formPickRows(st *store.State, pick string) []pickRow {
+	var rows []pickRow
 	switch pick {
 	case "server":
-		rows = menuHostRows(st)
+		rows = pickHostRows(st)
 	case "files": // where files go: servers, groups, all, file storage
-		rows = append(formPickRows(st, "host"), menuConnRows(st, "storage")...)
+		rows = append(formPickRows(st, "host"), pickConnRows(st, "storage")...)
 	case "host", "target":
-		rows = menuHostRows(st)
+		rows = pickHostRows(st)
 		if pick == "target" {
-			rows = append(append(rows, menuConnRows(st, "")...), menuVpnRows(st)...)
+			rows = append(append(rows, pickConnRows(st, "")...), pickVpnRows(st)...)
 		}
 		gl := allGroups(st)
 		for _, g := range sortedKeys(gl.Groups) {
-			rows = append(rows, menuRow{label: "@" + g, detail: "group: " + strings.Join(gl.Groups[g], ", "), value: "@" + g})
+			rows = append(rows, pickRow{label: "@" + g, detail: "group: " + strings.Join(gl.Groups[g], ", "), value: "@" + g})
 		}
-		rows = append(rows, menuRow{label: "all", detail: "everything komando knows", value: "all"})
+		rows = append(rows, pickRow{label: "all", detail: "everything komando knows", value: "all"})
 	case "conn":
-		rows = menuConnRows(st, "")
+		rows = pickConnRows(st, "")
 	case "db", "cache", "queue", "storage", "cluster", "registry":
-		rows = menuConnRows(st, pick)
+		rows = pickConnRows(st, pick)
 	case "vpn":
-		rows = menuVpnRows(st)
+		rows = pickVpnRows(st)
 	case "group":
 		for _, g := range sortedKeys(allGroups(st).Groups) {
-			rows = append(rows, menuRow{label: g, value: g})
+			rows = append(rows, pickRow{label: g, value: g})
 		}
 	case "key":
-		for _, n := range menuNames(st.Keys, "key") {
-			rows = append(rows, menuRow{label: n, value: n})
+		for _, n := range pickNames(st.Keys, "key") {
+			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "job":
 		for _, n := range sortedKeys(st.Jobs) {
-			rows = append(rows, menuRow{label: n, detail: st.Jobs[n].Host, value: n})
+			rows = append(rows, pickRow{label: n, detail: st.Jobs[n].Host, value: n})
 		}
 	case "tunnel":
 		for _, n := range sortedKeys(st.Tunnels) {
-			rows = append(rows, menuRow{label: n, value: n})
+			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "secret": // names only: the vault is not opened
 		for _, n := range secretNames() {
-			rows = append(rows, menuRow{label: n, value: n})
+			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "recipe": // saved commands
 		for _, n := range sortedKeys(st.Snippets) {
-			rows = append(rows, menuRow{label: n, value: n})
+			rows = append(rows, pickRow{label: n, value: n})
 		}
 	case "via": // what a server or service is reached through
-		rows = append(menuHostRows(st), menuVpnRows(st)...)
+		rows = append(pickHostRows(st), pickVpnRows(st)...)
 	case "setting":
 		for _, n := range settingKeys() {
-			rows = append(rows, menuRow{label: n, value: n})
+			rows = append(rows, pickRow{label: n, value: n})
 		}
 	}
 	return rows
@@ -296,7 +296,7 @@ func formCmdSpec(cmd *cobra.Command) formSpec {
 			}
 			if i >= len(h.args) || h.args[i].pick == "" && h.args[i].ask == "" {
 				pick := targetPick(kinds)
-				q.choices = func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, pick) }
+				q.choices = func(st *store.State, _ formAnswers) []pickRow { return formPickRows(st, pick) }
 			}
 		}
 		sp.qs = append(sp.qs, q)
@@ -313,7 +313,7 @@ func formCmdSpec(cmd *cobra.Command) formSpec {
 	}
 	globals := cmd.Root().PersistentFlags()
 	cmd.Flags().VisitAll(func(f *pflag.Flag) { // its own flags and a parent's (docker --sudo)
-		if asked[f.Name] || f.Hidden || f.Deprecated != "" || slices.Contains(formNeverFlags, f.Name) ||
+		if asked[f.Name] || f.Hidden || slices.Contains(formNeverFlags, f.Name) ||
 			slices.Contains(h.hide, f.Name) || globals.Lookup(f.Name) != nil {
 			return
 		}
@@ -346,7 +346,7 @@ func formArgQ(i int, u formUseArg, h formHint) formQ {
 	}
 	if ah.pick != "" {
 		pick := ah.pick
-		q.choices = func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, pick) }
+		q.choices = func(st *store.State, _ formAnswers) []pickRow { return formPickRows(st, pick) }
 		q.free = ah.free || u.many
 	}
 	if len(ah.choices) > 0 {
@@ -388,22 +388,22 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 	switch {
 	case f.Value.Type() == "bool" && ff.keep:
 		def, q.optional = "", true
-		q.choices = func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Leave it as it is", value: ""}, {label: "Yes", value: "true"}, {label: "No", value: "false"}}
+		q.choices = func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Leave it as it is", value: ""}, {label: "Yes", value: "true"}, {label: "No", value: "false"}}
 		}
 	case f.Value.Type() == "bool":
 		if def == "" {
 			def = "false"
 		}
 		q.optional = false // a switch is always yes or no
-		q.choices = func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "No", value: "false"}, {label: "Yes", value: "true"}}
+		q.choices = func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "No", value: "false"}, {label: "Yes", value: "true"}}
 		}
 	case len(ff.choices) > 0:
 		q.choices = formValueRows(ff.choices)
 	case ff.pick != "" || formFlagPick[f.Name] != "" && f.Value.Type() == "string":
 		pick := cmp.Or(ff.pick, formFlagPick[f.Name])
-		q.choices = func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, pick) }
+		q.choices = func(st *store.State, _ formAnswers) []pickRow { return formPickRows(st, pick) }
 		q.free = true
 	case strings.HasSuffix(f.Name, "-ref"): // a reference, never the secret itself
 		q.check = func(_ *store.State, _ formAnswers, v string) string { return formRefProblem(v) }
@@ -432,11 +432,11 @@ func formFlagQ(f *pflag.Flag, ff formFlag, advanced bool) formQ {
 var formFlagPick = map[string]string{"via": "via", "key": "key"}
 
 // formValueRows is a fixed list of values to pick from.
-func formValueRows(vals []string) func(*store.State, formAnswers) []menuRow {
-	return func(*store.State, formAnswers) []menuRow {
-		rows := make([]menuRow, 0, len(vals))
+func formValueRows(vals []string) func(*store.State, formAnswers) []pickRow {
+	return func(*store.State, formAnswers) []pickRow {
+		rows := make([]pickRow, 0, len(vals))
 		for _, v := range vals {
-			rows = append(rows, menuRow{label: v, value: v})
+			rows = append(rows, pickRow{label: v, value: v})
 		}
 		return rows
 	}
@@ -633,7 +633,7 @@ var formAreas = []struct {
 	{"Secrets and keys", "the vault and SSH keys", []string{"secret", "key"}},
 	{"Your list", "servers, conns, groups: add, change, import", []string{"host", "conn", "group", "list", "rename", "import", "export", "test"}},
 	{"Jobs and recipes", "long tasks and saved commands", []string{"job", "recipe"}},
-	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "seal", "status", "config", "ssh-gate"}},
+	{"Safety and audit", "what happened, rules, checks", []string{"audit", "policy", "doctor", "status", "config", "ssh-gate"}},
 	{"Setup", "AI agents, updates", []string{"guide", "update", "version", "schema", "completion"}},
 }
 

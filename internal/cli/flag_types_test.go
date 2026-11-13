@@ -67,28 +67,6 @@ func TestStandardDurations(t *testing.T) {
 	}
 }
 
-// A bare number of seconds on svc/reboot --wait is a retired shape: it
-// works and is noted.
-func TestWaitSecondsNoted(t *testing.T) {
-	c := &cobra.Command{Use: "x", RunE: func(*cobra.Command, []string) error { return nil }}
-	var d time.Duration
-	c.Flags().Var(&durFlag{d: &d, seconds: true, name: "wait"}, "wait", "")
-	out.P.Reset()
-	if err := c.ParseFlags([]string{"--wait", "10"}); err != nil || d != 10*time.Second {
-		t.Fatalf("parse: %v %v", err, d)
-	}
-	noteRetiredFlags(c)
-	if m := metaDeprecated(); m == nil || m.Used != "--wait 10" || m.Now != "--wait 10s" {
-		t.Errorf("meta.deprecated %+v", m)
-	}
-	out.P.Reset()
-	_ = c.ParseFlags([]string{"--wait", "10s"})
-	noteRetiredFlags(c)
-	if m := metaDeprecated(); m != nil {
-		t.Errorf("10s is noted: %+v", m)
-	}
-}
-
 // mainErr runs komando as the program does and returns its error envelope.
 func mainErr(t *testing.T, args ...string) out.Error {
 	t.Helper()
@@ -148,8 +126,8 @@ func TestStandardBytes(t *testing.T) {
 	}
 }
 
-// S-5.7: an unset optional number shows no default, never -1; -1 given
-// still means "left out", as before.
+// S-5.7: an unset optional number shows no default, never -1, and -1 is
+// not a value one can give.
 func TestStandardNoMinusOneDefault(t *testing.T) {
 	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
 		if f.DefValue == "-1" {
@@ -159,7 +137,7 @@ func TestStandardNoMinusOneDefault(t *testing.T) {
 	p := 0
 	v := &optInt{&p}
 	p = -1
-	if v.String() != "" || v.Set("-1") != nil || p != -1 || v.Set("2") != nil || p != 2 || v.Set("-2") == nil {
+	if v.String() != "" || v.Set("-1") == nil || p != -1 || v.Set("2") != nil || p != 2 || v.Set("-2") == nil {
 		t.Errorf("optInt: %d", p)
 	}
 }
