@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/releasesig"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -60,6 +61,8 @@ type fakeReleases struct {
 	says      map[string]string // the version the binary prints, when not its tag
 	sums      string            // "" right; "bad" every line wrong; "other" only another platform's line right; "missing" no line for this platform
 	noBinary  bool              // the archive has no komando
+	sig       string            // "" signed with the key komando knows; "none" no checksums.txt.sig; "other" signed with another key; "tampered" checksums.txt changed after signing; "junk" no signature in the file
+	key       string            // the private key whose public key komando knows (updateLab sets it)
 	fail      atomic.Int32      // answer this many requests with 503 first
 	slow      time.Duration     // wait this long before /releases/latest answers
 	downloads atomic.Int32      // archives served
@@ -119,6 +122,22 @@ func (f *fakeReleases) checksums(data []byte, name string) string {
 	return w + "  komando_other_arch.tar.gz\n" + r + "  " + name + "\n"
 }
 
+// signature is checksums.txt.sig for sums, as f.sig says.
+func (f *fakeReleases) signature(sums string) string {
+	key := f.key
+	switch f.sig {
+	case "junk":
+		return "not a signature\n"
+	case "other":
+		_, key, _ = releasesig.NewKey()
+	}
+	line, err := releasesig.Sign(key, []byte(sums))
+	if err != nil {
+		panic(err)
+	}
+	return line
+}
+
 func (f *fakeReleases) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.requests.Add(1)
 	if f.fail.Load() > 0 {
@@ -144,7 +163,17 @@ func (f *fakeReleases) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write(data)
 			return
 		case "/releases/download/" + tag + "/checksums.txt":
-			_, _ = w.Write([]byte(f.checksums(data, name)))
+			sums := f.checksums(data, name)
+			if f.sig == "tampered" {
+				sums += strings.Repeat("0", 64) + "  komando_extra.tar.gz\n"
+			}
+			_, _ = w.Write([]byte(sums))
+			return
+		case "/releases/download/" + tag + "/" + releasesig.File:
+			if f.sig == "none" {
+				break
+			}
+			_, _ = w.Write([]byte(f.signature(f.checksums(data, name))))
 			return
 		}
 	}
@@ -158,6 +187,14 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	t.Helper()
 	srv := httptest.NewServer(f)
 	t.Cleanup(srv.Close)
+	pub, priv, err := releasesig.NewKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.key = priv
+	savedKeys := releasesig.Keys
+	releasesig.Keys = []string{pub}
+	t.Cleanup(func() { releasesig.Keys = savedKeys })
 	exe = filepath.Join(t.TempDir(), "komando")
 	if err := os.WriteFile(exe, []byte("old komando"), 0o755); err != nil {
 		t.Fatal(err)
@@ -415,6 +452,58 @@ func TestUpdateRefusesBadDownloads(t *testing.T) {
 			onlyFile(t, exe)
 		})
 	}
+}
+
+// A release must be signed with a key built into komando: checksums.txt
+// alone cannot show who made it. The signature is checked before anything
+// is downloaded or asked, in a dry run too.
+func TestUpdateChecksSignature(t *testing.T) {
+	for _, c := range []struct {
+		name, sig, tag, code, hint string
+	}{
+		{"signed with another key", "other", "v0.14.0", "RELEASE_SIGNATURE_INVALID", "someone may have replaced the release's files"},
+		{"checksums.txt changed after signing", "tampered", "v0.14.0", "RELEASE_SIGNATURE_INVALID", "someone may have replaced the release's files"},
+		{"no signature file", "none", "v0.14.0", "RELEASE_SIGNATURE_NOT_FOUND", "someone may have replaced the release's files"},
+		{"no signature in the file", "junk", "v0.14.0", "RELEASE_SIGNATURE_NOT_FOUND", "someone may have replaced the release's files"},
+		{"an old release, from before signing", "none", "v0.13.0", "RELEASE_SIGNATURE_NOT_FOUND", "KOMANDO_VERSION=v0.13.0"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := &fakeReleases{newest: c.tag, tags: []string{c.tag}, sig: c.sig}
+			exe, _ := updateLab(t, "v0.12.0", f)
+			for _, dry := range []bool{true, false} {
+				args := []string{}
+				if dry {
+					args = append(args, "--dry-run")
+				}
+				e := updateFails(t, args...)
+				exit := map[string]int{"RELEASE_SIGNATURE_INVALID": out.ExitUsage, "RELEASE_SIGNATURE_NOT_FOUND": out.ExitNotFound}[c.code]
+				if e.Code != c.code || e.Exit != exit || !strings.Contains(e.Hint, c.hint) || !strings.Contains(e.Message, "nothing was changed") {
+					t.Errorf("dry run %v: got %v (hint %q), want %s with %q", dry, e, e.Hint, c.code, c.hint)
+				}
+			}
+			if f.downloads.Load() != 0 || fileText(t, exe) != "old komando" {
+				t.Errorf("downloaded %d archives or replaced komando", f.downloads.Load())
+			}
+			onlyFile(t, exe)
+		})
+	}
+	t.Run("a komando without a public key", func(t *testing.T) {
+		f := &fakeReleases{newest: "v0.14.0", tags: []string{"v0.14.0"}}
+		updateLab(t, "v0.12.0", f)
+		releasesig.Keys = nil
+		if e := updateFails(t); !strings.Contains(e.Message, "no public key") || e.Exit != out.ExitError {
+			t.Errorf("got %v", e)
+		}
+	})
+	t.Run("signed by an old and a new key", func(t *testing.T) {
+		f := &fakeReleases{newest: "v0.14.0", tags: []string{"v0.14.0"}}
+		exe, _ := updateLab(t, "v0.12.0", f)
+		other, _, _ := releasesig.NewKey()
+		releasesig.Keys = append([]string{other}, releasesig.Keys...)
+		if d, _ := updateJSON(t); d["action"] != "updated" || !strings.Contains(fileText(t, exe), "echo v0.14.0") {
+			t.Errorf("data = %v", d)
+		}
+	})
 }
 
 // GitHub's downloads answer 5xx now and then: update tries again.
