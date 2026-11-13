@@ -122,7 +122,7 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 		if err != nil {
 			return err
 		}
-		files = append(files, goFile{path, f})
+		files = append(files, goFile{filepath.ToSlash(path), f}) // the checks below name files with /
 		return nil
 	})
 	if err != nil {
@@ -423,7 +423,7 @@ func sinkOf(n ast.Node, path string, wrappers map[string]*wrapper) *errorSink {
 		case *ast.Ident:
 			if strings.HasSuffix(path, "/out/out.go") {
 				name = fn.Name
-			} else if w := wrappers[filepath.Dir(path)+"."+fn.Name]; w != nil && w.codeArg < len(x.Args) {
+			} else if w := wrappers[filepath.ToSlash(filepath.Dir(path))+"."+fn.Name]; w != nil && w.codeArg < len(x.Args) {
 				s := &errorSink{code: x.Args[w.codeArg], w: w}
 				arg := func(i int) ast.Expr {
 					if i >= 0 && i < len(x.Args) {
@@ -505,7 +505,7 @@ func findWrappers(files []goFile) map[string]*wrapper {
 	for changed := true; changed; {
 		changed = false
 		for _, gf := range files {
-			if strings.HasSuffix(filepath.Dir(gf.path), "/out") {
+			if strings.HasSuffix(filepath.ToSlash(filepath.Dir(gf.path)), "/out") {
 				continue
 			}
 			for _, d := range gf.f.Decls {
@@ -513,7 +513,7 @@ func findWrappers(files []goFile) map[string]*wrapper {
 				if !ok || fd.Body == nil || fd.Recv != nil {
 					continue
 				}
-				key := filepath.Dir(gf.path) + "." + fd.Name.Name
+				key := filepath.ToSlash(filepath.Dir(gf.path)) + "." + fd.Name.Name
 				if wrappers[key] != nil {
 					continue
 				}
