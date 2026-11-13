@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -215,36 +217,9 @@ func importDBeaver(path string) (*importPlan, error) {
 // The conns use the profile (aws_profile), so no key is copied: komando
 // reads the person's current login each time, SSO and roles included.
 func importAWS(path string) (*importPlan, error) {
-	b, err := readSource(path)
+	profiles, credsFile, err := awsImportProfiles(path)
 	if err != nil {
 		return nil, err
-	}
-	credsFile := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-	if credsFile == "" {
-		credsFile = filepath.Join(filepath.Dir(path), "credentials")
-	}
-	var profiles []string
-	seen := map[string]bool{}
-	add := func(name string) {
-		if name != "" && !seen[name] {
-			seen[name] = true
-			profiles = append(profiles, name)
-		}
-	}
-	_, order := parseINI(string(b))
-	for _, s := range order {
-		switch {
-		case s == "default":
-			add("default")
-		case strings.HasPrefix(s, "profile "):
-			add(strings.TrimSpace(strings.TrimPrefix(s, "profile ")))
-		}
-	}
-	if cb, err := os.ReadFile(credsFile); err == nil { // profiles that only have keys
-		_, corder := parseINI(string(cb))
-		for _, s := range corder {
-			add(s)
-		}
 	}
 	p := newPlan()
 	if len(profiles) == 0 {
@@ -254,17 +229,8 @@ func importAWS(path string) (*importPlan, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	for _, prof := range profiles {
-		creds, region, endpoint, err := cloud.AWSProfileAccess(ctx, prof, path, credsFile)
-		if err != nil {
-			_, serr := cloud.AWSProfileSSO(ctx, prof, path, credsFile)
-			switch {
-			case errors.Is(err, cloud.ErrAWSLogin) && errors.Is(serr, cloud.ErrAWSNotSSO):
-				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: no keys and no SSO login; put its keys under [%s] in %s, then import again", prof, prof, credsFile))
-			case errors.Is(err, cloud.ErrAWSLogin):
-				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: no valid SSO login; a person runs `komando login aws --profile %s`, then import again", prof, prof))
-			default:
-				p.Notes = append(p.Notes, fmt.Sprintf("profile %s: %v", prof, err))
-			}
+		creds, region, endpoint, ok := awsImportAccess(ctx, p, prof, path, credsFile)
+		if !ok {
 			continue
 		}
 		buckets, err := storex.ListBuckets(ctx, endpoint, creds.AccessKeyID, creds.SecretAccessKey, creds.SessionToken, cmp.Or(region, "us-east-1"))
@@ -296,4 +262,59 @@ func importAWS(path string) (*importPlan, error) {
 		}
 	}
 	return p, nil
+}
+
+// awsImportProfiles are the profiles of the AWS config file path (and the
+// credentials file next to it, or AWS_SHARED_CREDENTIALS_FILE), in order.
+func awsImportProfiles(path string) (profiles []string, credsFile string, err error) {
+	b, err := readSource(path)
+	if err != nil {
+		return nil, "", err
+	}
+	credsFile = os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	if credsFile == "" {
+		credsFile = filepath.Join(filepath.Dir(path), "credentials")
+	}
+	seen := map[string]bool{}
+	add := func(name string) {
+		if name != "" && !seen[name] {
+			seen[name] = true
+			profiles = append(profiles, name)
+		}
+	}
+	_, order := parseINI(string(b))
+	for _, s := range order {
+		switch {
+		case s == "default":
+			add("default")
+		case strings.HasPrefix(s, "profile "):
+			add(strings.TrimSpace(strings.TrimPrefix(s, "profile ")))
+		}
+	}
+	if cb, err := os.ReadFile(credsFile); err == nil { // profiles that only have keys
+		_, corder := parseINI(string(cb))
+		for _, s := range corder {
+			add(s)
+		}
+	}
+	return profiles, credsFile, nil
+}
+
+// awsImportAccess is a profile's keys, region and endpoint; when it has no
+// login that works it adds a note to p saying what to do, and ok is false.
+func awsImportAccess(ctx context.Context, p *importPlan, prof, path, credsFile string) (creds aws.Credentials, region, endpoint string, ok bool) {
+	creds, region, endpoint, err := cloud.AWSProfileAccess(ctx, prof, path, credsFile)
+	if err == nil {
+		return creds, region, endpoint, true
+	}
+	_, serr := cloud.AWSProfileSSO(ctx, prof, path, credsFile)
+	switch {
+	case errors.Is(err, cloud.ErrAWSLogin) && errors.Is(serr, cloud.ErrAWSNotSSO):
+		p.Notes = append(p.Notes, fmt.Sprintf("profile %s: no keys and no SSO login; put its keys under [%s] in %s, then import again", prof, prof, credsFile))
+	case errors.Is(err, cloud.ErrAWSLogin):
+		p.Notes = append(p.Notes, fmt.Sprintf("profile %s: no valid SSO login; a person runs `komando login aws --profile %s`, then import again", prof, prof))
+	default:
+		p.Notes = append(p.Notes, fmt.Sprintf("profile %s: %v", prof, err))
+	}
+	return creds, "", "", false
 }

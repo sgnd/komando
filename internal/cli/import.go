@@ -70,6 +70,7 @@ var importSources = []importSource{
 	{"filezilla", "~/.config/filezilla/sitemanager.xml", "SFTP sites from FileZilla's Site Manager", importFileZilla},
 	{"rclone", "~/.config/rclone/rclone.conf", "SFTP remotes from rclone", importRclone},
 	{"aws", "~/.aws/config", "an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied)", importAWS},
+	{"aws-ec2", "~/.aws/config", "a server per running EC2 instance of each AWS profile, in its region (read only, with the profile's login)", importAWSEC2},
 	{"dbeaver", "~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json", "databases from DBeaver (passwords set afterwards)", importDBeaver},
 	{"komando", "", "a file made by `komando export` (moving to another computer)", importKomando},
 	{"csv", "", "servers from a spreadsheet (CSV, first row names the columns: " + csvColumnList + ")", importCSV},

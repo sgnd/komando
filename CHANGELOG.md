@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+- `komando import aws-ec2` adds a server for each running EC2 instance of each AWS profile in `~/.aws/config`, in the profile's region, read with the profile's own login (SSO and roles too; nothing is changed in AWS): named by its `Name` tag, grouped by region, labelled with its instance ID. An instance with no public address, a Windows one and the key pair to add are listed with what to do.
+
 ### Fixed
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.

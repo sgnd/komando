@@ -37,6 +37,7 @@ usual place for that source.
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP sites are listed, not added) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
 | `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied ([Cloud logins](cloud.md#add-a-conn-for-every-s3-bucket)) |
+| `aws-ec2` | `~/.aws/config` (and `credentials`) | a server per running EC2 instance of each profile, in the profile's region, read with the profile's login (nothing is changed in AWS): named by its `Name` tag, in a group named after the region, labelled `aws-instance`. Instances with no public address, Windows ones and their key pairs are listed with what to do |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
 | `komando` | a file from `komando export` | servers, conns, VPNs and recipes |
 | `csv` | a spreadsheet saved as CSV (no default: give the file) | servers, one per row; see [Add many servers from a spreadsheet](servers.md#add-many-servers-from-a-spreadsheet) |
