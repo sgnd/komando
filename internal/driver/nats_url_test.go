@@ -47,7 +47,7 @@ func TestParseNATSRefuses(t *testing.T) {
 		"nats://nats?creds=/home/me/user.creds":  "secret:NAME",
 		"nats://app@nats?creds=secret:x":         "not both",
 		"nats://nats?token=abc":                  "unknown nats URL option",
-		"nats://nats:0":                          "invalid port",
+		"nats://nats:0":                          "is not a number from 1 to 65535",
 		"nats:///":                               "needs a server",
 	} {
 		_, err := Parse(raw)

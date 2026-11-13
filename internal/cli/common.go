@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -29,7 +30,7 @@ import (
 func loadState() (*store.State, error) { return store.Load() }
 
 // rmAliases are the other words people type for rm. Every rm command
-// accepts them (docs/design/ux.md, section 1).
+// accepts them (docs/design/command-standard.md, S-3.1).
 var rmAliases = []string{"remove", "delete", "del"}
 
 // groupOnly marks a group of commands (`komando db`): run on its own it
@@ -38,6 +39,9 @@ const groupOnly = "komando-group"
 
 // applyConventions applies the rules every command shares, so a new command
 // cannot forget them. TestConventions checks the rest.
+// exampleFromTable marks a command whose Example comes from help_examples.go.
+const exampleFromTable = "example_from_table"
+
 func applyConventions(c *cobra.Command) {
 	if c.Name() == "rm" {
 		c.Aliases = rmAliases
@@ -47,7 +51,16 @@ func applyConventions(c *cobra.Command) {
 		c.Aliases = append(c.Aliases, other)
 	}
 	if c.Example == "" {
-		c.Example = examples[c.CommandPath()]
+		if ex, ok := examples[c.CommandPath()]; ok {
+			c.Example = ex
+			if c.Annotations == nil {
+				c.Annotations = map[string]string{}
+			}
+			c.Annotations[exampleFromTable] = "true"
+		}
+	}
+	if n := passthroughFixed(c.Use); n >= 0 && c.Runnable() {
+		needDash(c, n) // words for the other program only after -- (args_passthrough.go)
 	}
 	if c.Long == "" {
 		c.Long = details[c.CommandPath()]
@@ -75,12 +88,13 @@ func applyConventions(c *cobra.Command) {
 				}
 				return cmd.Help()
 			}
-			e := out.Usage("unknown command %q for %q", args[0], cmd.CommandPath())
-			cmd.SuggestionsMinimumDistance = 2
-			if s := cmd.SuggestionsFor(args[0]); len(s) > 0 {
-				e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
+			e := unknownCommandErr(cmd, args[0], args[1:])
+			if e.Suggestion == "" {
+				e.Hint = has
 			}
-			e.Hint = has
+			if h := inventoryVerbHint(cmd, args[0]); h != "" {
+				e.Hint = h + "; " + has
+			}
 			return e
 		}
 	}
@@ -100,15 +114,17 @@ func dash(s string) string {
 const aliasOf = "alias_of"
 
 // alias marks c as the per-area spelling of a shared command (`host list`
-// for `list kind:host`). It keeps working and says so in its help, so there
-// is one implementation and one name to learn (docs/design/ux.md, section 11).
-func alias(c *cobra.Command, shared string) *cobra.Command {
+// for `list kind:host`), with short as what it does. It keeps working and
+// says so in its help, so there is one implementation and one name to
+// learn (docs/design/principles.md, section 12).
+func alias(c *cobra.Command, shared, short string) *cobra.Command {
 	if c.Annotations == nil {
 		c.Annotations = map[string]string{}
 	}
 	c.Annotations[aliasOf] = strings.Fields(shared)[0]
-	c.Short = "Same as `komando " + shared + "`"
-	c.Long = ""
+	// the action in Short, the other spelling in Long's first line (S-6.3)
+	c.Short = short
+	c.Long = "Same as `komando " + shared + "`."
 	c.Example = ""
 	return c
 }
@@ -149,6 +165,14 @@ func parallelism(st *store.State) int {
 	return st.Settings.Parallel
 }
 
+// sayLine writes one message of komando's own on w (stderr) as one line:
+// a pipe, a script or an AI agent reads it whole, and a person at a
+// terminal sees it wrapped (out.Wrap at out.StderrWidth), as errors,
+// hints and warnings are. Never put a line break in msg to fit a width.
+func sayLine(w io.Writer, msg string) {
+	_, _ = fmt.Fprintln(w, out.Wrap(msg, 0, out.StderrWidth()))
+}
+
 func toErr(err error) *out.Error {
 	if err == nil {
 		return nil
@@ -158,6 +182,9 @@ func toErr(err error) *out.Error {
 		return e
 	}
 	if errors.Is(err, store.ErrDryRun) {
+		// should not happen: every change previews under --dry-run (S-7.5),
+		// and a step that cannot be tried says so in meta.not_simulated; a
+		// write that reaches the store in a dry run still changes nothing
 		return &out.Error{Code: "DRY_RUN_UNSUPPORTED", Message: err.Error(), Hint: "run it again without --dry-run to make the change", Exit: out.ExitUsage}
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
@@ -165,8 +192,9 @@ func toErr(err error) *out.Error {
 			Hint: "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"}
 	}
 	if errors.Is(err, context.Canceled) {
-		return &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError,
-			Hint: "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"}
+		return (&out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError,
+			Hint: "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"}).
+			Say("Stopped (Ctrl-C) before the end; what already ran stays as it is", "check what it left, then run it again")
 	}
 	switch {
 	case errors.Is(err, vault.ErrLocked):
@@ -276,6 +304,14 @@ func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *
 // guard enforces the safety policy before anything mutating runs.
 func guard(st *store.State, hosts []*store.Host, command string, mutating bool) error {
 	names := hostNames(hosts)
+	var prot []string
+	if mutating {
+		for _, h := range hosts {
+			if protectedHost(st, h) {
+				prot = append(prot, h.Name)
+			}
+		}
+	}
 	if command != "" {
 		hits := policy.Check(command, st.Settings.ExtraDenyPattern)
 		ids := make([]string, len(hits))
@@ -283,24 +319,17 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		for i, h := range hits {
 			ids[i], reasons[i] = h.ID, h.Reason
 		}
-		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerous(names, hits[0].Reason) {
-			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-				"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-				"the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")).Say(dangerSay(reasons), dangerHint))
-		}
-	}
-	if mutating {
-		var prot []string
-		for _, h := range hosts {
-			if protectedHost(st, h) {
-				prot = append(prot, h.Name)
+		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(names, prot, hits[0].Reason) {
+			// a dry run goes on to the protection check, so meta.would_need names both flags
+			if err := policyStop(approvalErr("POLICY_BLOCKED",
+				fmt.Sprintf("the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protNeed(prot)...).Say(dangerSay(reasons), dangerHint)); err != nil {
+				return err
 			}
 		}
-		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
-			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
-				"a change on a protected server needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"this changes protected %s: %s", nouns(len(prot), "host"), strings.Join(prot, ", ")).Say(protectedSay(prot, "server"), protectedHint))
-		}
+	}
+	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
+		return policyStop(approvalErr("PROTECTED_HOST",
+			fmt.Sprintf("this changes protected %s: %s", nouns(len(prot), "server"), strings.Join(prot, ", "))).Say(protectedSay(prot, "server"), protectedHint))
 	}
 	return nil
 }
@@ -340,23 +369,23 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	for i, c := range conns {
 		names[i] = c.Name
 	}
-	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerous(names, strings.Join(v.Reasons, "; ")) {
-		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED",
-			"only if this is intended: confirm with the user, then re-run with --allow-dangerous (try --dry-run first)",
-			"the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")).Say(dangerSay(v.Reasons), dangerHint))
-	}
+	var prot []string
 	if v.Risk >= driver.RiskWrite {
-		var prot []string
 		for _, c := range conns {
 			if protectedConn(st, c) {
 				prot = append(prot, c.Name)
 			}
 		}
-		if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
-			return policyStop(out.Errf(out.ExitPolicy, "PROTECTED_TARGET",
-				"a change on a protected conn needs a person's yes: re-run with --yes after the user confirms (try --dry-run first)",
-				"a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", ")).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
+	}
+	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(names, prot, strings.Join(v.Reasons, "; ")) {
+		if err := policyStop(approvalErr("POLICY_BLOCKED",
+			fmt.Sprintf("the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), protNeed(prot)...).Say(dangerSay(v.Reasons), dangerHint)); err != nil {
+			return err
 		}
+	}
+	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
+		return policyStop(approvalErr("PROTECTED_TARGET",
+			fmt.Sprintf("a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", "))).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
 	}
 	return nil
 }
@@ -498,10 +527,10 @@ func sftpHost(c *store.Conn) *store.Host {
 
 // interactive is true when a human sits at a terminal: stdin and stderr are
 // both terminals and no AI agent runs komando. Agents and scripts never
-// are, so they still need --yes and --allow-dangerous (docs/design/ux.md,
-// section 6).
+// are, so they still need --yes and --allow-dangerous (docs/design/principles.md,
+// section 7).
 var interactive = func() bool {
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent()
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent() && !ciRun()
 }
 
 // ask prints question on stderr and reads one line from the terminal.
@@ -509,13 +538,6 @@ var interactive = func() bool {
 func ask(question string) string {
 	line, _ := readAnswer(question, false)
 	return strings.TrimSpace(line)
-}
-
-// confirmProtected asks a human at the terminal to confirm a change to
-// protected targets. A yes counts as --yes for the rest of this command.
-func confirmProtected(names []string) bool {
-	askedAbout = names
-	return confirmYes(fmt.Sprintf("%s %s protected. Change it anyway?", strings.Join(names, ", "), map[bool]string{true: "is", false: "are"}[len(names) == 1]))
 }
 
 // confirmYes asks a [y/N] question at the terminal. The answer covers this
@@ -527,6 +549,9 @@ func confirmYes(question string) bool {
 	a := strings.ToLower(ask(question + " [y/N] "))
 	ok := a == "y" || a == "yes"
 	cur().sess.SaidNo(!ok)
+	if ok {
+		ttyYes(question)
+	}
 	return ok
 }
 
@@ -541,40 +566,12 @@ func guardSafety(what string) error {
 	if cur().sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
 		return nil
 	}
-	if g.yes && personAllowsFor("--yes", what) || confirmYes("This weakens komando's safety checks: "+what+". Continue?") {
+	if g.yes && personAllowsFor("--yes", what) || confirmYes("This turns off a komando safety check: "+what+". Continue?") {
 		cur().sess.ApproveSafety(what)
 		return nil
 	}
-	return policyStop(out.Errf(out.ExitPolicy, "SAFETY_SETTING", "re-run with --yes after the user confirms", "%s weakens komando's safety checks", what).
+	return policyStop(approvalErr("SAFETY_SETTING", what+" weakens komando's safety checks").
 		Say(what+" turns off one of komando's safety checks, so komando asks first", "Run it again in a terminal to answer the question, or add --yes in a script if you are sure."))
-}
-
-// confirmDangerous asks a human at the terminal to confirm a destructive
-// action by typing the target's name (or how many targets there are), so a
-// reflex "y" is not enough.
-func confirmDangerous(names []string, reason string) bool {
-	if g.dryRun || !interactive() {
-		return false
-	}
-	askedAbout = names
-	key := strings.Join(names, ",")
-	if cur().sess.DangerConfirmed(key) {
-		return true // the person typed it for these targets in this command already
-	}
-	want, what := "yes", "yes"
-	switch {
-	case len(names) == 1:
-		want, what = names[0], "the name "+names[0]
-	case len(names) > 1:
-		want, what = fmt.Sprint(len(names)), fmt.Sprintf("%d (the number of targets)", len(names))
-	}
-	fmt.Fprintf(os.Stderr, "Dangerous: %s.\n", reason)
-	ok := ask("Type "+what+" to continue: ") == want
-	cur().sess.SaidNo(!ok)
-	if ok {
-		cur().sess.ConfirmDanger(key)
-	}
-	return ok
 }
 
 // guardProtection stops a way around protection: removing a protected
@@ -591,17 +588,20 @@ func guardProtectionWhy(kind, action string, names []string, why string) error {
 		return nil
 	}
 	asked := func() bool { return confirmProtected(names) }
+	word := map[string]string{"vpn": "VPN"}[kind]
+	if word == "" {
+		word = kind
+	}
 	if why == "" {
-		why = fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), kind), strings.Join(names, ", "))
+		why = fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))
 	} else {
-		asked = func() bool { return confirmYes(why + ". Change them anyway?") }
+		asked = func() bool { return confirmYes(why + ". Continue?") }
 	}
 	if yesOK(why) || asked() {
 		return nil
 	}
-	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
-	return policyStop(out.Errf(out.ExitPolicy, code, "re-run with --yes after the user confirms",
-		"%s protected %s: %s", action, nouns(len(names), kind), strings.Join(names, ", ")))
+	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind]
+	return policyStop(approvalErr(code, fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
 }
 
 func hostNames(hs []*store.Host) []string {
@@ -649,6 +649,10 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 		}
 		rec["os_user"] = osUser()
 	}
+	if c := cur(); len(c.ttyYes) > 0 || promptConfirmed != "" {
+		rec["confirm"] = "tty" // a person said yes at the terminal
+		rec["confirmed"] = append(slices.Clone(c.ttyYes), slices.DeleteFunc([]string{promptConfirmed}, func(s string) bool { return s == "" })...)
+	}
 	for k, v := range extra {
 		rec[k] = v
 	}
@@ -663,8 +667,15 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 
 // osUser is the computer account komando runs as, from the system's user
 // database, else its number; never from the environment (user.Current
-// falls back to $USER).
+// falls back to $USER on Unix). Windows has no uid: there user.Current
+// reads the account from the process's own token.
 func osUser() string {
+	if runtime.GOOS == "windows" {
+		if u, err := user.Current(); err == nil {
+			return u.Username
+		}
+		return "unknown"
+	}
 	uid := strconv.Itoa(os.Getuid())
 	if u, err := user.LookupId(uid); err == nil {
 		return u.Username
@@ -713,7 +724,7 @@ func finish(command string, data any, sum fleetSummary, worstExit int) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: failedOf(sum.Failed, sum.Total) + ": " + strings.Join(sum.FailedHosts, ", "),
-			Hint: "see each server's result in data.results for its exit code and stderr", Exit: worstExit}
+			Hint: "each server's result has its own exit code and error output (data.results in -o json)", Exit: worstExit}
 		if sum.Total == 1 {
 			soft.Code = "FAILED"
 			soft.Message = "server " + sum.FailedHosts[0] + " failed"
@@ -744,15 +755,6 @@ func worse(a, b int) int {
 		return b
 	}
 	return a
-}
-
-func readStdinIfPiped() ([]byte, error) {
-	fi, err := os.Stdin.Stat()
-	if err != nil || fi.Mode()&os.ModeCharDevice != 0 {
-		return nil, nil
-	}
-	b, err := io.ReadAll(os.Stdin)
-	return b, err
 }
 
 func parseKV(pairs []string) (map[string]string, error) {

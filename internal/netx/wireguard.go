@@ -84,7 +84,7 @@ func ParseWG(text string) (*WGConfig, error) {
 				if err != nil {
 					ad, err2 := netip.ParseAddr(a)
 					if err2 != nil {
-						return nil, fmt.Errorf("line %d: bad Address %q", n, a)
+						return nil, fmt.Errorf("line %d: Address %q is not an IP address with a prefix, like 10.0.0.2/32", n, a)
 					}
 					p = netip.PrefixFrom(ad, ad.BitLen())
 				}
@@ -99,7 +99,7 @@ func ParseWG(text string) (*WGConfig, error) {
 		case section == "interface" && k == "mtu":
 			m, err := strconv.Atoi(v)
 			if err != nil {
-				return nil, fmt.Errorf("line %d: bad MTU", n)
+				return nil, fmt.Errorf("line %d: MTU is not a number", n)
 			}
 			c.MTU = m
 		case section == "peer" && k == "publickey":
@@ -112,7 +112,7 @@ func ParseWG(text string) (*WGConfig, error) {
 			for _, a := range list() {
 				p, err := netip.ParsePrefix(a)
 				if err != nil {
-					return nil, fmt.Errorf("line %d: bad AllowedIPs %q", n, a)
+					return nil, fmt.Errorf("line %d: AllowedIPs %q is not a list of IP ranges, like 10.0.0.0/24, 0.0.0.0/0", n, a)
 				}
 				peer.AllowedIPs = append(peer.AllowedIPs, p)
 			}

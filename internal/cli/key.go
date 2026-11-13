@@ -27,7 +27,7 @@ import (
 )
 
 func keyCmd() *cobra.Command {
-	c := &cobra.Command{Use: "key", Aliases: []string{"keys"}, Short: "SSH keys: generate, register, deploy to servers, list"}
+	c := &cobra.Command{Use: "key", Aliases: []string{"keys"}, Short: "SSH keys: make, add, put on servers, take off"}
 	c.AddCommand(keyGenCmd(), keyAddCmd(), keyListCmd(), keyShowCmd(), keyRmCmd(), keyDeployCmd(), keyRevokeCmd(), keyEditCmd(), keyMvCmd())
 	return c
 }
@@ -57,10 +57,10 @@ func checkKeyType(typ string, bits int) error {
 		}
 	case "ecdsa":
 		if bits != 0 && bits != 256 && bits != 384 && bits != 521 {
-			return out.Errf(out.ExitUsage, "USAGE", "ECDSA takes --bits 256, 384 or 521", "invalid --bits %d for ecdsa", bits)
+			return out.Errf(out.ExitUsage, "USAGE", "ECDSA takes --bits 256, 384 or 521", "an ecdsa key has 256, 384 or 521 bits, not %d", bits)
 		}
 	default:
-		return out.Errf(out.ExitUsage, "USAGE", "use ed25519 (the default), rsa or ecdsa", "unknown key type %q", typ)
+		return out.Errf(out.ExitUsage, "USAGE", "use ed25519 (the default), rsa or ecdsa", "komando does not make %q keys", typ)
 	}
 	return nil
 }
@@ -86,13 +86,14 @@ func newSigner(typ string, bits int) (crypto.Signer, error) {
 func keyGenCmd() *cobra.Command {
 	var typ, comment string
 	var bits int
-	var overwrite bool
 	c := &cobra.Command{
 		Use:   "gen NAME",
-		Short: "Make a new key pair in ~/.komando/keys (ed25519 by default)",
+		Short: "Make a new SSH key pair (ed25519 by default)",
 		Long: `Makes a key pair like ssh-keygen and adds it to komando's key list. The private
-key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers with
-` + "`komando key deploy`" + `. RSA keys need at least 3072 bits.`,
+key is kept in komando's sealed store, never in a file: komando hands it to
+ssh-agent when another program needs it (host ssh-command). Put the public
+part on servers with ` + "`komando key deploy`" + `. RSA keys need at least 3072
+bits.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web
   komando key gen legacy --type rsa -b 4096 -C ops@example.com`,
 		Args: cobra.ExactArgs(1),
@@ -106,7 +107,7 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 				comment = "komando-" + name
 			}
 			if hasControl(comment) {
-				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, e.g. -C ops@example.com", "the key comment cannot hold line breaks or control characters")
+				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, for example -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
 			if g.dryRun {
 				if err := checkKeyType(typ, bits); err != nil {
@@ -161,8 +162,6 @@ key stays in ~/.komando/keys/NAME (mode 600); put the public part on servers wit
 	c.Flags().StringVar(&typ, "type", "ed25519", "ed25519 | rsa | ecdsa")
 	c.Flags().IntVarP(&bits, "bits", "b", 0, "key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521")
 	c.Flags().StringVarP(&comment, "comment", "C", "", "public key comment (default komando-NAME)")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "no longer needed: keys komando makes live in the sealed store")
-	_ = c.Flags().MarkHidden("overwrite")
 	return c
 }
 
@@ -179,7 +178,7 @@ func isPublicKey(b []byte) bool {
 func keyAddCmd() *cobra.Command {
 	var passRef string
 	c := &cobra.Command{
-		Use:   "add NAME PATH",
+		Use:   "add NAME FILE",
 		Short: "Add a private key file you already have (komando keeps its path)",
 		Long: `Adds a private key file you already have to komando's key list; the file stays
 where it is. For a key with a passphrase, store the passphrase in the vault
@@ -197,7 +196,7 @@ and pass --passphrase-ref secret:NAME.`,
 			p, _ := filepath.Abs(expandHome(args[1]))
 			b, err := os.ReadFile(p)
 			if err != nil {
-				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, e.g. ~/.ssh/id_ed25519", "%s: %v", p, errText(err))
+				return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of a private key file, for example ~/.ssh/id_ed25519", "%s: %v", p, errText(err))
 			}
 			if isPublicKey(b) {
 				return out.Errf(out.ExitUsage, "KEY_INVALID", "this is a public key; pass the private key file: "+strings.TrimSuffix(args[1], ".pub"),
@@ -243,7 +242,7 @@ and pass --passphrase-ref secret:NAME.`,
 				}
 				for _, o := range s.Keys {
 					if k.Fingerprint != "" && o.Fingerprint == k.Fingerprint {
-						res.Warnings = append(res.Warnings, "this is the same key as "+o.Name+": servers can use that one (`komando host edit NAME --key "+o.Name+"`); `komando key rm "+k.Name+"` removes this second name")
+						res.Warnings = append(res.Warnings, "this is the same key as "+o.Name+": servers can use that one (`komando host edit TARGET --key "+o.Name+"`); `komando key rm "+k.Name+"` removes this second name")
 					}
 				}
 				s.Keys[k.Name] = k
@@ -317,7 +316,7 @@ passphrase with ` + "`komando secret set NAME`" + ` first and pass secret:NAME;
 			case fl.Changed("unset"):
 				passRef = ""
 			case !fl.Changed("passphrase-ref"):
-				return out.Errf(out.ExitUsage, "USAGE", "e.g. komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
+				return out.Errf(out.ExitUsage, "USAGE", "for example komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
 			}
 			if err := checkPassphraseRef(passRef); err != nil {
 				return err
@@ -367,17 +366,18 @@ type sshKeyList struct {
 
 func (l sshKeyList) Text() string {
 	if len(l.Keys) == 0 {
-		return "no keys yet: komando key gen NAME, or komando key add NAME PATH\n"
+		return noneYet("SSH keys", "key gen NAME", "or `komando key add NAME FILE`")
 	}
 	var rows [][]string
 	for _, k := range l.Keys {
 		rows = append(rows, []string{k.Name, strings.TrimPrefix(k.Type, "ssh-"), k.Fingerprint, strings.Join(k.UsedBy, ",")})
 	}
-	return textTable([]string{"NAME", "TYPE", "FINGERPRINT", "USED_BY"}, rows)
+	return textTable([]string{"NAME", "TYPE", "FINGERPRINT", "USED BY"}, rows)
 }
 
 func keyListCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:   "list",
 		Short: "List keys and the servers that use them",
 		Args:  cobra.NoArgs,
@@ -397,11 +397,14 @@ func keyListCmd() *cobra.Command {
 				l.Keys = append(l.Keys, r)
 			}
 			sort.Slice(l.Keys, func(i, j int) bool { return l.Keys[i].Name < l.Keys[j].Name })
+			l.Keys = cutRows(l.Keys, limit)
 			l.Count = len(l.Keys)
 			out.P.Print("key.list", l, nil)
 			return nil
 		},
 	}
+	limitFlag(c, &limit, 0, "keys")
+	return c
 }
 
 func keyShowCmd() *cobra.Command {
@@ -428,22 +431,40 @@ func keyRmCmd() *cobra.Command {
 	var deleteFile bool
 	c := &cobra.Command{
 		Use:   "rm NAME",
-		Short: "Remove a key from komando's key list (not while a server uses it)",
-		Long: `Removes the key from komando's key list. --delete-file also deletes the key files,
-but only for keys komando made (key gen); a key you added stays on disk.`,
+		Short: "Remove a key (from komando only)",
+		Long: `Removes the key from komando's key list. --delete-file also deletes the private
+key komando keeps for a key it made (key gen), for good; a key file you
+added stays on disk.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			res := map[string]any{"removed": args[0], "file_deleted": false}
+			if deleteFile { // key files komando made have no copy: T3 (OD-7); asked before the state is locked
+				if st, err := loadState(); err == nil {
+					if k, err := findKey(st, args[0]); err == nil && k.Managed && !keyInUse(st, k.Name) {
+						if err := guardLocalDelete([]string{k.Name}, "keys", "deletes the private key of "+k.Name+" for good"); err != nil {
+							return err
+						}
+					}
+				}
+			}
 			err := store.Update(func(s *store.State) error {
 				k, err := findKey(s, args[0])
 				if err != nil {
 					return err
 				}
 				res["removed"] = k.Name
+				var users []string // every server, so one edit frees the key
 				for _, h := range s.SortedHosts() {
 					if h.Key == k.Name {
-						return out.Errf(out.ExitConflict, "KEY_IN_USE", "give the server another key first: `komando host edit "+h.Name+" --key OTHER`", "server %s still uses this key", h.Name)
+						users = append(users, h.Name)
 					}
+				}
+				if len(users) > 0 {
+					hint := "give the server another key first: `komando host edit " + strings.Join(users, " ") + " --key OTHER`"
+					if len(users) == 1 {
+						return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "server %s still uses this key", users[0])
+					}
+					return out.Errf(out.ExitConflict, "KEY_IN_USE", hint, "servers %s still use this key", joinAnd(users))
 				}
 				switch {
 				case deleteFile && !k.Managed:
@@ -462,15 +483,26 @@ but only for keys komando made (key gen); a key you added stays on disk.`,
 			if err != nil {
 				return err
 			}
-			if g.dryRun {
-				res["would_remove"] = res["removed"] // "removed" stays for scripts that read it (contract 1)
+			name := res["removed"].(string)
+			if g.dryRun { // a preview does not read as done
+				res["would_remove"] = name
+				delete(res, "removed")
 			}
-			audit(nil, "key.rm", nil, "", true, map[string]any{"key": res["removed"], "file_deleted": res["file_deleted"]})
-			out.P.Print("key.rm", res, nil)
+			audit(nil, "key.rm", nil, "", true, map[string]any{"key": name, "file_deleted": res["file_deleted"]})
+			say := changeSay("remove", "key "+name, "")
+			if res["file_deleted"] == true {
+				say += "\nits private key was deleted"
+			} else if f, ok := res["would_delete_file"].(string); ok {
+				say += "\nwould delete " + f
+			}
+			if n, ok := res["note"].(string); ok {
+				say += "\nnote: " + n
+			}
+			out.P.Print("key.rm", textAs{res, textBlob(say)}, nil)
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&deleteFile, "delete-file", false, "also delete the key files (only keys komando made)")
+	c.Flags().BoolVar(&deleteFile, "delete-file", false, "also delete the private key komando keeps (only keys komando made)")
 	return c
 }
 
@@ -499,7 +531,7 @@ func deployKey(st *store.State, arg string) (name, line string, err error) {
 func keyDeployCmd() *cobra.Command {
 	var setDefault bool
 	c := &cobra.Command{
-		Use:   "deploy KEY TARGET",
+		Use:   "deploy NAME TARGET",
 		Short: "Install a public key in ~/.ssh/authorized_keys (like ssh-copy-id)",
 		Long: `Installs a public key on servers, like ssh-copy-id. KEY is a key in
 komando's key list or a .pub file. komando logs in the way each server is set
@@ -519,7 +551,7 @@ this key.`,
 				return err
 			}
 			if setDefault && st.Keys[name] == nil {
-				return out.Errf(out.ExitUsage, "USAGE", "add the private key first with `komando key add NAME PATH`, then deploy NAME", "--set-default needs a key in komando's key list, not a .pub file")
+				return out.Errf(out.ExitUsage, "USAGE", "add the private key first with `komando key add NAME FILE`, then deploy NAME", "--set-default needs a key in komando's key list, not a .pub file")
 			}
 			hosts, err := resolveTargets(st, args[1])
 			if err != nil {
@@ -542,7 +574,7 @@ this key.`,
 					return nil, err
 				}
 				if code != 0 {
-					return nil, out.Errf(out.ExitRemote, "DEPLOY_FAILED", "check that ~/.ssh is writable there: `komando fs stat HOST ~/.ssh`", "%s", o)
+					return nil, out.Errf(out.ExitRemote, "DEPLOY_FAILED", "check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh`", "%s", o)
 				}
 				return o, nil
 			})
@@ -584,4 +616,14 @@ this key.`,
 	}
 	c.Flags().BoolVar(&setDefault, "set-default", false, "servers that got the key log in with it from now on")
 	return c
+}
+
+// keyInUse: a server logs in with key name (key rm refuses it then).
+func keyInUse(st *store.State, name string) bool {
+	for _, h := range st.Hosts {
+		if h.Key == name {
+			return true
+		}
+	}
+	return false
 }

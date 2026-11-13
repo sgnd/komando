@@ -36,54 +36,26 @@ import (
 func tunnelCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "tunnel",
-		Aliases: []string{"forward", "pf"},
-		Short:   "Background port forwarding: local (-L), remote (-R), SOCKS5 (-D)",
+		Aliases: []string{"pf"},
+		Short:   "Background port forwarding: start, see, stop",
 		Long: `Specs:
   -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server
   -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this machine
   -D [bind:]PORT                SOCKS5 proxy through the server
-LPORT/PORT 0 picks a free port; the chosen address is returned.`,
+LPORT/PORT 0 picks a free port; the chosen address is returned.
+IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,
 		Example: `  komando tunnel start db1 -L 15432:localhost:5432
   komando tunnel start bastion -D 1080
   komando tunnel list
   komando tunnel stop t1102-...`,
 	}
-	c.AddCommand(tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd(), tunnelServeCmd())
+	c.AddCommand(tunnelStartCmd(), tunnelListCmd(), tunnelStopCmd(), tunnelServeCmd(), tunnelShowCmd())
 	return c
 }
 
-type tunnelSpec struct {
-	Kind       string
-	BindAddr   string
-	TargetAddr string
-}
-
-// guardBind asks for --yes before a tunnel listens on anything but this
-// computer's loopback (or, for -R, the server's): other machines on the
-// network could then use it, without a login (docs/design/network.md).
-func guardBind(t tunnelSpec) error {
-	host, _, err := net.SplitHostPort(t.BindAddr)
-	if err != nil || host == "localhost" {
-		return nil
-	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		return nil
-	}
-	if yesOK() {
-		return nil
-	}
-	where := "this computer"
-	if t.Kind == "remote" {
-		where = "the server"
-	}
-	return policyStop(out.Errf(out.ExitPolicy, "OPEN_BIND", "keep the default 127.0.0.1, or re-run with --yes if other machines should reach it",
-		"the tunnel would listen on %s of %s, open to its network", host, where))
-}
-
-func portInUse(addr, where string, err error) error {
-	return out.Errf(out.ExitConflict, "PORT_IN_USE", "pick another port, or 0 for a free one",
-		"%s on %s is already in use (%v)", addr, where, err)
-}
+// tunnelServeCommand is the background `komando tunnel serve ID` process
+// (self is komando); tests put a stand-in here.
+var tunnelServeCommand = func(self string, args []string) *exec.Cmd { return exec.Command(self, args...) }
 
 // tunnelInfo is a started (or, under --dry-run, planned) tunnel.
 type tunnelInfo struct {
@@ -126,52 +98,16 @@ func (t tunnelInfo) Text() string {
 	return "tunnel " + t.ID + " is up: " + line + "\nstop it with: komando tunnel stop " + t.ID + "\n"
 }
 
-func parseTunnel(kind, spec string) (tunnelSpec, error) {
-	parts := strings.Split(spec, ":")
-	t := tunnelSpec{Kind: kind}
-	switch kind {
-	case "local", "remote":
-		switch len(parts) {
-		case 3:
-			t.BindAddr = "127.0.0.1:" + parts[0]
-			t.TargetAddr = net.JoinHostPort(parts[1], parts[2])
-		case 4:
-			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
-			t.TargetAddr = net.JoinHostPort(parts[2], parts[3])
-		default:
-			return t, out.Usage("invalid forward spec %q: use PORT:HOST:HOSTPORT or ADDRESS:PORT:HOST:HOSTPORT", spec)
-		}
-	case "dynamic":
-		switch len(parts) {
-		case 1:
-			t.BindAddr = "127.0.0.1:" + parts[0]
-		case 2:
-			t.BindAddr = net.JoinHostPort(parts[0], parts[1])
-		default:
-			return t, out.Usage("invalid SOCKS spec %q: use PORT or ADDRESS:PORT", spec)
-		}
-	}
-	if _, p, _ := net.SplitHostPort(t.BindAddr); !tunnelPort(p, 0) {
-		return t, out.Usage("%q in %q is not a port: use 0 (a free one) to 65535", p, spec)
-	}
-	if t.TargetAddr != "" {
-		if _, p, _ := net.SplitHostPort(t.TargetAddr); !tunnelPort(p, 1) {
-			return t, out.Usage("%q in %q is not a port: use 1 to 65535", p, spec)
-		}
-	}
-	return t, nil
-}
-
 func tunnelStartCmd() *cobra.Command {
 	var l, r, d string
 	var port int
 	c := &cobra.Command{
-		Use:   "start TARGET [-L spec | -R spec | -D spec]",
-		Short: "Start a background tunnel; returns its ID and bound address",
+		Use:   "start TARGET (-L SPEC | -R SPEC | -D SPEC)",
+		Short: "Start a background tunnel",
 		Long: `With a conn name and no -L/-R/-D, the tunnel leads to that conn through its --via path:
 point your database app or psql at the local address it prints. With a server, give one of -L, -R or -D.`,
-		Example: `  komando tunnel start app-db               # localhost:<free port> -> app-db
-  komando tunnel start app-db --port 15432
+		Example: `  komando tunnel start prod-db               # localhost:<free port> -> prod-db
+  komando tunnel start prod-db --port 15432
   komando tunnel start web1 -L 8080:localhost:80
   komando tunnel start bastion -D 1080       # SOCKS proxy`,
 		Args: cobra.ExactArgs(1),
@@ -255,7 +191,7 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			id := newID("t")
 			logPath := store.Path("tunnels", id+".log")
-			if err := os.MkdirAll(store.Path("tunnels"), 0o700); err != nil {
+			if err := store.MkdirPrivate("tunnels"); err != nil {
 				return err
 			}
 			t := &store.Tunnel{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
@@ -277,7 +213,7 @@ point your database app or psql at the local address it prints. With a server, g
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}
-			p := exec.Command(self, pargs...)
+			p := tunnelServeCommand(self, pargs)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
 			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long
@@ -293,31 +229,8 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				return nil
 			})
-			// wait for READY / ERROR from the child
-			deadline := time.Now().Add(sshOpts(st).ConnectTimeout + 5*time.Second)
-			for time.Now().Before(deadline) {
-				b, _ := os.ReadFile(logPath)
-				s := string(b)
-				if i := strings.Index(s, "READY "); i >= 0 {
-					addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
-					audit(st, "tunnel.start", []string{hostName}, "", true, map[string]any{"kind": kind, "spec": spec, "id": id})
-					info := tunnelInfo{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Listen: addr, Target: ts.TargetAddr, PID: pid, Log: logPath}
-					if kind == "remote" {
-						info.RemoteListen, info.ListenOn = addr, hostName
-					}
-					out.P.Print("tunnel.start", info, nil)
-					return nil
-				}
-				if i := strings.Index(s, "ERROR "); i >= 0 {
-					_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-					_ = os.Remove(logPath) // the error says what it held
-					return tunnelErr(strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0]), kind, hostName, ts.BindAddr)
-				}
-				time.Sleep(150 * time.Millisecond)
-			}
-			_ = netx.Terminate(pid)
-			_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, id); return nil })
-			return tunnelTimeout(hostName, logPath)
+			info := tunnelInfo{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Target: ts.TargetAddr, PID: pid, Log: logPath}
+			return tunnelWait(cmd.Context(), st, info, ts.BindAddr, sshOpts(st).ConnectTimeout+5*time.Second)
 		},
 	}
 	c.Flags().StringVarP(&l, "local", "L", "", "local forward [bind:]LPORT:RHOST:RPORT")
@@ -325,6 +238,47 @@ point your database app or psql at the local address it prints. With a server, g
 	c.Flags().StringVarP(&d, "dynamic", "D", "", "SOCKS5 proxy [bind:]PORT")
 	c.Flags().IntVar(&port, "port", 0, "with a conn: the local port (default: a free one)")
 	return c
+}
+
+// tunnelWait waits for the READY or ERROR line of the tunnel process that
+// tunnel start started (info: its ID, pid and log), and prints the tunnel
+// or why it did not start. Ctrl-C (ctx) ends that process, so a tunnel the
+// person cancelled does not come up after all.
+func tunnelWait(ctx context.Context, st *store.State, info tunnelInfo, bind string, wait time.Duration) error {
+	deadline := time.Now().Add(wait)
+	undo := func() {
+		_ = netx.Terminate(info.PID)
+		_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, info.ID); return nil })
+	}
+	for time.Now().Before(deadline) {
+		if err := ctx.Err(); err != nil {
+			undo()
+			_ = os.Remove(info.Log)
+			e := toErr(err)
+			e.Hint = "the tunnel was stopped before it came up; nothing is left running (`komando tunnel list` shows the rest)"
+			return e
+		}
+		b, _ := os.ReadFile(info.Log)
+		s := string(b)
+		if i := strings.Index(s, "READY "); i >= 0 {
+			addr := strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0])
+			audit(st, "tunnel.start", []string{info.Host}, "", true, map[string]any{"kind": info.Kind, "spec": info.Spec, "id": info.ID})
+			info.Listen = addr
+			if info.Kind == "remote" {
+				info.RemoteListen, info.ListenOn = addr, info.Host
+			}
+			out.P.Print("tunnel.start", info, nil)
+			return nil
+		}
+		if i := strings.Index(s, "ERROR "); i >= 0 {
+			_ = store.UpdateRuntime(func(s *store.State) error { delete(s.Tunnels, info.ID); return nil })
+			_ = os.Remove(info.Log) // the error says what it held
+			return tunnelErr(strings.TrimSpace(strings.SplitN(s[i+6:], "\n", 2)[0]), info.Kind, info.Host, bind)
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
+	undo()
+	return tunnelTimeout(info.Host, info.Log)
 }
 
 // tunnelConn finds the conn a tunnel leads to. Only conns reached through
@@ -365,7 +319,7 @@ type tunnelList struct {
 
 func (l tunnelList) Text() string {
 	if len(l.Tunnels) == 0 {
-		return "no tunnels: komando tunnel start TARGET starts one\n"
+		return noneYet("tunnels", "tunnel start TARGET -L SPEC")
 	}
 	rows := [][]string{}
 	for _, t := range l.Tunnels {
@@ -409,9 +363,10 @@ func tunnelListen(t *store.Tunnel) string {
 }
 
 func tunnelListCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:   "list",
-		Short: "List tunnels and whether each is up; dead ones are removed",
+		Short: "List tunnels and whether each is up",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			rows := []tunnelRow{}
@@ -421,7 +376,7 @@ func tunnelListCmd() *cobra.Command {
 				return err
 			}
 			for _, t := range st.Tunnels {
-				r := tunnelRow{Tunnel: t, Alive: alive(t.PID), Listen: tunnelListen(t)}
+				r := tunnelRow{Tunnel: t, Alive: tunnelAlive(t), Listen: tunnelListen(t)}
 				if !r.Alive {
 					dead = append(dead, t.ID)
 				}
@@ -436,20 +391,26 @@ func tunnelListCmd() *cobra.Command {
 					return nil
 				})
 			}
+			rows = cutRows(rows, limit)
 			out.P.Print("tunnel.list", tunnelList{Count: len(rows), Tunnels: rows}, nil)
 			return nil
 		},
 	}
+	limitFlag(c, &limit, 0, "tunnels")
+	return c
 }
 
 func tunnelStopCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
-		Use:   "stop [ID...]",
+		Use:   "stop [TUNNEL...]",
 		Short: "Stop tunnels by ID (--all for every tunnel)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !all && len(args) == 0 {
 				return out.Usage("give tunnel IDs or --all")
+			}
+			if all && len(args) > 0 {
+				return out.Errf(out.ExitUsage, "USAGE", "use `komando tunnel stop --all` or `komando tunnel stop "+strings.Join(args, " ")+"`", "--all stops every tunnel; give IDs or --all, not both")
 			}
 			stopped := []string{}
 			err := store.UpdateRuntime(func(s *store.State) error {
@@ -465,7 +426,7 @@ func tunnelStopCmd() *cobra.Command {
 					if !ok {
 						return out.NotFound("tunnel", id)
 					}
-					if alive(t.PID) && !g.dryRun {
+					if tunnelAlive(t) && !g.dryRun {
 						_ = netx.Terminate(t.PID)
 					}
 					delete(s.Tunnels, id)
@@ -477,10 +438,13 @@ func tunnelStopCmd() *cobra.Command {
 				return err
 			}
 			if g.dryRun {
-				out.P.Print("tunnel.stop", map[string]any{"would_stop": stopped}, nil)
+				out.P.Print("tunnel.stop", textAs{map[string]any{"would_stop": stopped}, stoppedText(stopped)}, nil)
 				return nil
 			}
-			out.P.Print("tunnel.stop", map[string]any{"stopped": stopped}, nil)
+			if len(stopped) > 0 {
+				audit(nil, "tunnel.stop", stopped, "", true, nil)
+			}
+			out.P.Print("tunnel.stop", textAs{map[string]any{"stopped": stopped}, stoppedText(stopped)}, nil)
 			return nil
 		},
 	}
@@ -779,4 +743,17 @@ func socks5Auth(conn net.Conn, cm *connMgr, logger *log.Logger, user, pass strin
 		rc.Write(b)
 	}
 	pipe(conn, rc)
+}
+
+// stoppedText is tunnel stop's text: the tunnels it stopped, or none.
+func stoppedText(ids []string) out.Texter {
+	return textFn(func() string {
+		switch {
+		case len(ids) == 0:
+			return "no tunnels were running\n"
+		case g.dryRun:
+			return "would stop " + joinAnd(ids) + "\n"
+		}
+		return "stopped " + joinAnd(ids) + "\n"
+	})
 }

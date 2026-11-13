@@ -239,7 +239,7 @@ func ovpnWords(line string) ([]string, error) {
 	}
 	switch {
 	case tag && len(words) > 1:
-		return nil, errors.New("a tag (<...>) must be alone on its line")
+		return nil, errors.New("a tag (<...>) shares its line with other text: put it on a line of its own")
 	case len(words) > ovpnMaxWords:
 		return nil, fmt.Errorf("more than %d words (OpenVPN drops the rest)", ovpnMaxWords)
 	}
@@ -278,12 +278,12 @@ func ovpnDirective(words []string, inConn bool) (ovpnItem, error) {
 	case !allowed[name]:
 		return ovpnItem{}, fmt.Errorf("%q is not allowed (komando passes only client settings; nothing that runs programs or reads/writes files)", words[0])
 	case slices.Contains(ovpnInline, name) && len(args) > 0 && args[0] != "[inline]":
-		return ovpnItem{}, fmt.Errorf("%s must be inline (<%s>...</%s>), not a file path", name, name, name)
+		return ovpnItem{}, fmt.Errorf("%s names a file; komando takes it only inline (<%s>...</%s>)", name, name, name)
 	case name == "setenv" && len(args) > 0 && strings.EqualFold(args[0], "opt"):
 		// OpenVPN runs "setenv opt X ..." as option X, which would get past this list
 		return ovpnItem{}, errors.New(`"setenv opt" is not allowed (OpenVPN runs the rest of the line as an option)`)
 	case name == "auth-user-pass" && len(args) > 0:
-		return ovpnItem{}, errors.New("auth-user-pass must not name a file; komando passes the login itself")
+		return ovpnItem{}, errors.New("auth-user-pass names a file; komando passes the login itself, so leave the file name out")
 	}
 	return ovpnItem{name: name, args: args}, nil
 }

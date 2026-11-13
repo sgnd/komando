@@ -16,7 +16,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-// Windows servers run every command in PowerShell (docs/design/windows.md).
+// Windows servers run every command in PowerShell (docs/features/windows.md).
 // The command line is always the same short bootstrap; the script itself
 // travels on the command's input, as its first line (base64), followed by
 // the values of secret environment variables and then the caller's own

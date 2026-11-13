@@ -67,7 +67,7 @@ func legacyHint(o *Options, err error) error {
 }
 
 // ErrNeedsPerson: the login asks for a one-time code and nobody is there.
-var ErrNeedsPerson = errors.New("the VPN login asks for a one-time code; a person must run `komando vpn up NAME`")
+var ErrNeedsPerson = errors.New("the VPN login asks for a one-time code; a person runs `komando vpn up NAME`")
 
 // Session is an established IPsec connection: ESP SAs over UDP, kept up
 // (dead peer detection, rekeys) until closed.

@@ -49,9 +49,9 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the endpoint's certificate could not be checked against this computer's CAs; check ?endpoint=",
 			"cannot connect to %s: %s", t.Address, msg)
 	case strings.Contains(msg, "not SQS JSON") || strings.Contains(msg, "server gave HTTP response to HTTPS client"):
-		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check ?endpoint=: it must be an SQS server (http:// for an emulator without TLS)", "cannot connect to %s: %s", t.Address, msg)
+		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check ?endpoint=: it names an SQS server (http:// for an emulator without TLS)", "cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach SQS --via a server that can",
+	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test TARGET` to check reachability, or reach SQS --via a server that can",
 		"cannot connect to %s: %s", t.Address, msg)
 }
 
@@ -75,7 +75,7 @@ func opErr(err error, what string) error {
 	}
 	var api *apiError
 	if !errors.As(err, &api) {
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to SQS failed; run `komando conn test NAME`", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to SQS failed; run `komando test TARGET`", "%s: %v", what, err)
 	}
 	switch c := api.Code; {
 	case c == "QueueDoesNotExist" || c == "AWS.SimpleQueueService.NonExistentQueue":
@@ -87,13 +87,13 @@ func opErr(err error, what string) error {
 	case deniedCodes[c]:
 		return deniedErr(what + ": " + err.Error())
 	case strings.Contains(c, "QueueDeletedRecently"):
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS needs 60 seconds after a queue is deleted before a queue of the same name can be made; try again then",
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS needs 60 seconds after a queue is deleted before a queue of the same name can be made; run it again then",
 			"%s: %v", what, err)
 	case strings.Contains(c, "PurgeQueueInProgress"):
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS lets a queue be purged once every 60 seconds, and the last purge may still be deleting; try again then",
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS lets a queue be purged once every 60 seconds, and the last purge may still be deleting; run it again then",
 			"%s: %v", what, err)
 	case strings.Contains(c, "Throttl") || c == "RequestThrottled" || c == "TooManyRequests":
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS is asking komando to slow down; try again in a moment", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS is asking komando to slow down; run it again in a moment", "%s: %v", what, err)
 	case strings.HasPrefix(c, "InvalidAttribute") || c == "InvalidParameterValue" || c == "InvalidParameterCombination" || c == "UnsupportedOperation":
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "SQS refused a setting: check --config (SQS attribute names such as VisibilityTimeout=60), and that FIFO-only settings go to a queue whose name ends in .fifo",
 			"%s: %v", what, err)
@@ -102,8 +102,8 @@ func opErr(err error, what string) error {
 }
 
 func queueNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue ls CONN`; a queue of another AWS account needs ?account=ID in the conn's URL, and the region is the URL's host",
-		"queue %s does not exist", name)
+	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue list CONN`; a queue of another AWS account needs ?account=ID in the conn's URL, and the region is the URL's host",
+		"no queue named %q", name)
 }
 
 func queueExists(name string) error {

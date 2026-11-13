@@ -3,7 +3,7 @@
 // queuex for amqp:// and amqps:// conns. Reading never removes a message:
 // peek takes messages from the front of a queue and gives them back. ls,
 // info and describe also use the management HTTP API when the URL names
-// its port (?management=15672). See docs/design/queue.md.
+// its port (?management=15672). See docs/features/queues.md.
 package rabbitmq
 
 import (

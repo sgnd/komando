@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"crypto/cipher"
 	"errors"
 	"fmt"
 	"os"
@@ -308,13 +307,11 @@ func TestSealedKeyFileChangeStoppedHalfway(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	store.Close() // Windows cannot replace an open file
 	os.WriteFile(store.DBPath()+".tmp", b, 0o600)
 	if err := os.Rename(store.DBPath()+".tmp", store.DBPath()); err != nil {
 		t.Fatal(err)
 	}
-	aeadMu.Lock()
-	aeadCache = map[string]cipher.AEAD{}
-	aeadMu.Unlock()
 	if v, err := Get("db"); err != nil || v != "pw" {
 		t.Fatalf("store.key.new not taken as the key: %q %v", v, err)
 	}

@@ -13,7 +13,9 @@ import (
 func TestBwDeviceIDHonoursKomandoHome(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "state")
 	t.Setenv("KOMANDO_HOME", home)
-	t.Setenv("HOME", t.TempDir())
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads USERPROFILE on Windows
 
 	id := bwDeviceID()
 	if id == "" || id == "komando" {

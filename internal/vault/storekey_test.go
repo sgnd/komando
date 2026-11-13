@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func TestStoreMasterKeyFile(t *testing.T) {
 	if err != nil || len(k) != keyLen || meta["key_mode"] != "keyfile" {
 		t.Fatalf("%d %v %v", len(k), meta, err)
 	}
-	if fi, err := os.Stat(storeKeyFile()); err != nil || fi.Mode().Perm() != 0o600 {
+	if fi, err := os.Stat(storeKeyFile()); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("store.key: %v", err)
 	}
 	if _, err := os.Stat(store.Path("vault.key")); !os.IsNotExist(err) {
@@ -76,13 +77,14 @@ func TestStoreMasterPassphrase(t *testing.T) {
 
 // The keychain item a macOS stand-in returns opens a keychain-mode store.
 func TestStoreMasterKeychain(t *testing.T) {
+	unixOnly(t, "an sh script plays macOS's security tool")
 	freshHome(t)
 	t.Setenv("KOMANDO_KEYCHAIN", "")
 	dir := t.TempDir()
 	savedOS, savedSec := keychainOS, securityTool
 	keychainOS, securityTool = "darwin", filepath.Join(dir, "security")
 	t.Cleanup(func() { keychainOS, securityTool = savedOS, savedSec })
-	script := "#!/bin/sh\ncase \"$1\" in find-generic-password) for a in \"$@\"; do [ \"$a\" = -w ] && { echo " + strings.Repeat("cd", 32) + "; exit 0; }; done ;; esac\n"
+	script := "#!/bin/sh\ncase \"$1\" in default-keychain) echo login.keychain-db ;; find-generic-password) for a in \"$@\"; do [ \"$a\" = -w ] && { echo " + strings.Repeat("cd", 32) + "; exit 0; }; done ;; esac\n"
 	if err := os.WriteFile(securityTool, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}

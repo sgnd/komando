@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -106,6 +107,9 @@ func TestSecretEnvGoesOnInput(t *testing.T) {
 		t.Errorf("--dry-run shows %q, Run sends %q", shown, cmd)
 	}
 	want := "prod|" + weird + "|" + weird + "|rest of input"
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix only: runs the command in the shells a server has")
+	}
 	ran := 0
 	for _, sh := range []string{"sh", "bash", "dash", "zsh", "ksh"} {
 		path, err := exec.LookPath(sh)
@@ -163,6 +167,9 @@ func TestEnvLineEscapes(t *testing.T) {
 // SaveInput takes exactly its bytes off the input, into a file only the
 // user can read, and leaves the rest for the next step.
 func TestSaveInput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix only: runs a server's sh script")
+	}
 	f := filepath.Join(t.TempDir(), "env")
 	x := exec.Command("sh", "-c", SaveInput(len("export A='1\n2'; "), `"$F"`)+` && cat`)
 	x.Env = append(os.Environ(), "F="+f)

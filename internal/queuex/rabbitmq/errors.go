@@ -38,7 +38,7 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the server closed the connection: check that this port speaks AMQP (5672, or 5671 for amqps://) and not the management API (15672)",
 			"cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach the server --via an SSH server that can",
+	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test TARGET` to check reachability, or reach the server --via an SSH server that can",
 		"cannot connect to %s: %s", t.Address, msg)
 }
 
@@ -62,7 +62,7 @@ func opErr(err error, what string) error {
 	}
 	var ae *amqp.Error
 	if !errors.As(err, &ae) {
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to the server failed; run `komando conn test NAME`", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to the server failed; run `komando test TARGET`", "%s: %v", what, err)
 	}
 	switch ae.Code {
 	case amqp.NotFound:
@@ -79,6 +79,6 @@ func opErr(err error, what string) error {
 }
 
 func queueNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue ls CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path",
-		"queue %s does not exist", name)
+	return out.Errf(out.ExitNotFound, "QUEUE_NOT_FOUND", "list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path",
+		"no queue named %q", name)
 }

@@ -205,7 +205,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	var c *ssh.Client
 	switch {
 	case hop.ProxyCommand != "" && reached:
-		return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that host first in --via",
+		return nil, out.Errf(out.ExitUsage, "PROXY_NOT_FIRST", "a proxy command can only start a path; put that server first in --via",
 			"%s has a proxy command but is reached through another hop", hop.Name)
 	case builtinSSM(hop):
 		// AWS Session Manager, spoken by komando itself
@@ -361,7 +361,7 @@ func ParseAdhoc(s string) (*store.Host, error) {
 		h.Address = s
 	}
 	if h.Address == "" || strings.ContainsAny(h.Address, " /") {
-		return nil, fmt.Errorf("invalid host spec")
+		return nil, fmt.Errorf("the server address is empty or holds a space or a slash")
 	}
 	return h, nil
 }
@@ -482,7 +482,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	switch {
 	case errors.As(err, &rv):
 		return out.Errf(out.ExitConnect, "HOSTKEY_REVOKED",
-			"this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent",
+			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`; nothing was sent",
 			"%s shows the revoked host key %s", host, ssh.FingerprintSHA256(rv.Revoked.Key))
 	case errors.As(err, &hk):
 		return hk.outErr(host)
@@ -508,8 +508,8 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h), "authentication to %s failed: %s", host, msg)
 	case strings.Contains(msg, "i/o timeout"), strings.Contains(msg, "deadline exceeded"):
 		return out.Errf(out.ExitTimeout, "CONNECT_TIMEOUT", "a firewall drops the connection, or the server is private: check the address with `komando host show "+host+"`, reach it through a bastion or VPN (`komando host edit "+host+" --via NAME`), or raise --connect-timeout on a slow link", "connecting to %s timed out", host)
-	case strings.Contains(msg, "connection refused"):
-		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "check that sshd runs on the server and listens on this port: komando host show "+host, "%s: %s", host, msg)
+	case Refused(err):
+		return out.Errf(out.ExitConnect, "CONNECTION_REFUSED", "check that sshd runs on the server and listens on this port: `komando host show "+host+"`", "%s: %s", host, msg)
 	case strings.Contains(msg, "no such host"):
 		return out.Errf(out.ExitConnect, "DNS_ERROR", "the name does not resolve here: check it with `komando host show "+host+"` and fix it with `komando host edit "+host+" --address ADDRESS`; a name only a VPN resolves needs --via that VPN", "%s: %s", host, msg)
 	}
@@ -537,7 +537,7 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 		user = st.Settings.DefaultUser
 	}
 	if user == "" {
-		user = os.Getenv("USER")
+		user = LocalUser()
 	}
 	hkc, err := hostKeyCallback(ctx, h.Name, o.HostKeyPolicy)
 	if err != nil {
@@ -680,7 +680,7 @@ func CountPinned(addr string) (int, error) {
 // not written again. With replace, every other pin for addr goes in the
 // same write, so a failure never leaves the server unpinned; removed is how
 // many pins went. Whether a pin may be replaced is the caller's decision
-// (`host trust --reset` needs a person's yes).
+// (`host trust --reset` is for a person at a terminal only).
 func PinHostKey(addr string, key ssh.PublicKey, replace bool) (removed int, err error) {
 	err = HostKeys().update(context.Background(), func(t hostKeyTx) error {
 		pins, matched, err := t.Pins(addr)
@@ -726,6 +726,16 @@ func FetchHostKey(ctx context.Context, st *store.State, h *store.Host, o Options
 		err = errors.New("the server sent no host key")
 	}
 	return nil, err
+}
+
+// LocalUser is the login name ssh uses when neither the server nor the
+// settings give one: the name of the person at this computer, USER, else
+// USERNAME (Windows sets only that).
+func LocalUser() string {
+	if u := os.Getenv("USER"); u != "" {
+		return u
+	}
+	return os.Getenv("USERNAME")
 }
 
 // ssmProxyPrefix is how `host add --ssm` writes its proxy command.

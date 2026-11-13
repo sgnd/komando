@@ -1,5 +1,7 @@
 package cli
 
+import "slices"
+
 // The questions for your list (servers, conns, groups, import, export,
 // test), jobs and recipes, safety and audit, and setup. host add, conn add
 // and vpn add have hand-made forms (form_kinds.go).
@@ -25,9 +27,9 @@ var (
 	invConns = formArg{ask: "Which conns?", pick: "conn", free: true,
 		help: "Pick one from your list, or type @group, tag:prod or several names separated by commas."}
 	invTargets = formArg{ask: "Which ones?", pick: "target", free: true,
-		help: "A server, service or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
+		help: "A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
 	invTargetsAll = formArg{ask: "Which ones? (pick all for everything)", pick: "target", free: true,
-		help: "A server, service or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
+		help: "A server, conn or VPN from your list, or @group, tag:prod, or several names separated by spaces or commas."}
 	invNewName = formArg{ask: "What should the new name be?", example: "web2",
 		help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}
 	invJob = formArg{ask: "Which job?", pick: "job", free: true,
@@ -86,7 +88,7 @@ var invHostHints = map[string]formHint{
 	},
 	"host list": {args: []formArg{{ask: "Which servers? (pick all for every server)", pick: "host", free: true,
 		help: "Pick one, or type @group, tag:prod or several names separated by spaces or commas."}}},
-	"host mv": {args: []formArg{{ask: "Which server do you want to rename?", pick: "server",
+	"host rename": {args: []formArg{{ask: "Which server do you want to rename?", pick: "server",
 		help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
 	"host rm": {args: []formArg{{ask: "Which servers should come off your list?", pick: "host", free: true,
 		help: "Only komando's list changes; the servers themselves are not touched."}}},
@@ -115,7 +117,7 @@ var invConnHints = map[string]formHint{
 	"conn kinds": {},
 	"conn list": {args: []formArg{{ask: "Which conns? (leave empty for all)", pick: "conn", free: true,
 		help: "Pick one, or type @group, kind:postgres or several names separated by commas."}}},
-	"conn mv": {args: []formArg{{ask: "Which conn do you want to rename?", pick: "conn",
+	"conn rename": {args: []formArg{{ask: "Which conn do you want to rename?", pick: "conn",
 		help: "Groups, notes and everything else that names it are changed too."}, invNewName}},
 	"conn rm": {args: []formArg{{ask: "Which conns should come off your list?", pick: "conn", free: true,
 		help: "Only komando's list changes; the database, bucket or cluster itself is not touched."}}},
@@ -133,19 +135,20 @@ var invListHints = map[string]formHint{
 			{ask: "What should they start with instead?", example: "acme-shop-",
 				help: "shop-web becomes acme-shop-web."},
 		},
-		always: []string{"--prefix"},
-		hide:   []string{"prefix"},
+		always: []string{"--starts-with"},
+		hide:   []string{"starts-with"},
 		flags: []formFlag{
-			{name: "notes", ask: "Also change the old names in notes?",
+			{name: "in-notes", ask: "Also change the old names in notes?",
 				help: "Yes changes them in the notes of servers, conns, VPNs and secrets too."},
 		},
 	},
 	"import": {
 		args: []formArg{
-			{ask: "What do you want to bring in?", example: "ssh-config",
+			{ask: "What do you want to bring in?", example: "ssh-config", choices: importSourceNames(),
 				help: "One of: ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando (a file from komando export), csv."},
 			{ask: "From which file? (leave empty for the usual place)", example: "./app/.env", local: true,
-				help: "Empty reads the usual file, like ~/.ssh/config. komando and csv need a file."},
+				help: "Empty reads the usual file, like ~/.ssh/config. komando and csv need a file.",
+				need: importNeedsFile},
 		},
 		flags: []formFlag{invImportGroup, invOverwrite},
 	},
@@ -159,10 +162,10 @@ var invListHints = map[string]formHint{
 	},
 	"group": {},
 	"group add": {args: []formArg{invGroupNew, {ask: "What goes in it?", pick: "target", free: true,
-		help: "A server, service or VPN, or tag:prod or several names separated by spaces or commas."}}},
+		help: "A server, conn or VPN, or tag:prod or several names separated by spaces or commas."}}},
 	"group list": {args: []formArg{{ask: "Which group? (leave empty for all)", pick: "group", free: true,
 		help: "Empty lists every group and tag with what is in it."}}},
-	"group mv": {args: []formArg{invGroup, {ask: "What should the new name be?", example: "web-prod",
+	"group rename": {args: []formArg{invGroup, {ask: "What should the new name be?", example: "web-prod",
 		help: "Letters, digits, dot, dash and underscore."}}},
 	"group rm": {args: []formArg{invGroup, {ask: "What should come out of it? (leave empty to delete the group)",
 		pick: "target", free: true,
@@ -172,6 +175,7 @@ var invListHints = map[string]formHint{
 var invJobHints = map[string]formHint{
 	"job": {},
 	"job start": {
+		next: []string{"job list", "job status JOB"},
 		args: []formArg{invServers, {ask: "What command should it run?", example: "apt-get -y upgrade",
 			help: "A long task that keeps running when your connection drops. Type it as you would on the server."}},
 		flags: []formFlag{invSudo, invReadOnly,
@@ -188,7 +192,7 @@ var invJobHints = map[string]formHint{
 		{name: "tail", ask: "How many of its last output lines to show?", example: "20",
 			help: "0 shows none."}}},
 	"job logs": {args: []formArg{invJob}, flags: []formFlag{
-		{name: "tail", ask: "Only the last how many lines?", example: "50",
+		{name: "limit", ask: "Only the last how many lines?", example: "50",
 			help: "Leave empty to read the output from the start."}}},
 	"job wait": {args: []formArg{invJobs}},
 	"job kill": {args: []formArg{invJob}, flags: []formFlag{
@@ -222,7 +226,7 @@ var invRecipeHints = map[string]formHint{
 		},
 		flags: []formFlag{
 			{name: "desc", ask: "What does it do, in a few words?", example: "Last lines of the app log"},
-			invSudo,
+			{name: "needs-sudo", ask: invSudo.ask, help: invSudo.help},
 			{name: "read-only", ask: "Does it only look, without changing anything?",
 				help: "Yes lets it run on a production server without asking you first. Say yes only when that is true."},
 		},
@@ -243,11 +247,9 @@ var invSafetyHints = map[string]formHint{
 	}},
 	"audit verify": {},
 	"doctor":       {},
-	"seal": {flags: []formFlag{{name: "undo", ask: "Put the files of before back instead?",
-		help: "Only after an earlier komando seal; the store is kept aside."}}},
-	"status":      {},
-	"policy":      {},
-	"policy list": {},
+	"status":       {},
+	"policy":       {},
+	"policy list":  {},
 	"policy check": {args: []formArg{{ask: "Which command do you want to check?", example: "rm -rf /",
 		help: "komando says whether it would refuse to run it. Nothing runs."}}},
 	"policy deny": {args: []formArg{{ask: "Which command should komando block?", example: `kubectl\s+delete`,
@@ -256,10 +258,10 @@ var invSafetyHints = map[string]formHint{
 		help: "Its id (custom-1a2b3c4d ...) or the pattern as you wrote it. `komando policy list` shows them. Built-in rules always stay."}}},
 	"config":      {},
 	"config show": {},
-	"config get": {args: []formArg{{ask: "Which setting?", example: "parallel",
+	"config get": {args: []formArg{{ask: "Which setting?", example: "parallel", choices: settingKeys(),
 		help: "`komando config show` lists them: parallel, default_timeout, host_key_policy, audit ..."}}},
 	"config set": {args: []formArg{
-		{ask: "Which setting?", example: "default_timeout",
+		{ask: "Which setting?", example: "default_timeout", choices: settingKeys(),
 			help: "`komando config show` lists them with the values each one takes."},
 		{ask: "What should it be?", example: "10m",
 			help: "Like 20 for parallel, 10m for default_timeout, strict for host_key_policy."}}},
@@ -289,4 +291,39 @@ var invSetupHints = map[string]formHint{
 	"completion fish":       {},
 	"completion powershell": {},
 	"completion zsh":        {},
+}
+
+// importSourceNames are the values import SOURCE takes, so a person picks
+// one instead of typing it (config get/set KEY use settingKeys).
+func importSourceNames() []string {
+	var n []string
+	for _, s := range importSources {
+		n = append(n, s.Name)
+	}
+	return n
+}
+
+// Next: lines for your list, jobs, safety and setup (core, server and
+// release areas): what a person usually runs after each command.
+func init() {
+	addFormHints(map[string]formHint{
+		"host edit":    {next: []string{"host show {}", "test {}"}},
+		"import":       {next: []string{"list", "test all"}},
+		"group add":    {next: []string{"list @{}", "test @{}"}},
+		"group rm":     {next: []string{"group add {} TARGET..."}}, // to put them back
+		"job status":   {next: []string{"job logs {} --limit 50", "job wait {}", "job kill {}"}},
+		"job wait":     {next: []string{"job logs {} --limit 50", "job rm {}"}},
+		"job kill":     {next: []string{"job status {}", "job rm {}"}},
+		"job list":     {next: []string{"job list --refresh", "job status JOB", "job rm JOB"}},
+		"policy deny":  {next: []string{"policy check 'COMMAND'", "policy list", "policy rm RULE"}},
+		"policy check": {next: []string{"policy list"}},
+		"audit":        {next: []string{"audit verify", "audit --failed"}},
+		"update":       {next: []string{"guide install", "version"}},
+	})
+}
+
+// importNeedsFile: the source has no usual file (komando, csv), so FILE is
+// asked when it is left out.
+func importNeedsFile(a formAnswers) bool {
+	return slices.ContainsFunc(importSources, func(s importSource) bool { return s.Name == a["arg0"] && s.Default == "" })
 }

@@ -168,7 +168,7 @@ func parseAVPs(b []byte) ([]pulseAVP, error) {
 			hdr = 12
 		}
 		if l < hdr || l > len(b) {
-			return nil, errors.New("bad AVP length")
+			return nil, errors.New("an attribute's length does not match")
 		}
 		a.data = b[hdr:l]
 		known := a.vendor == pulseAVPVendor || a.vendor == 0 && a.code == avpEAPMessage
@@ -237,7 +237,7 @@ func parseEAP(b []byte) (eapMsg, error) {
 	}
 	n := int(binary.BigEndian.Uint16(b[2:]))
 	if n < 4 || n > len(b) {
-		return eapMsg{}, errors.New("bad EAP length")
+		return eapMsg{}, errors.New("an EAP message's length does not match")
 	}
 	m := eapMsg{code: b[0], id: b[1]}
 	b = b[:n]
@@ -456,7 +456,7 @@ func (s *pulseSession) answer(avps []pulseAVP) ([]byte, error) {
 		case avpRegionList:
 			regions = append(regions, string(a.data))
 		case avpSessions:
-			return nil, &LoginError{Msg: "the VPN allows no more sessions for this user; end one in the Pulse portal, then try again"}
+			return nil, &LoginError{Msg: "the VPN allows no more sessions for this user; end one in the Pulse portal, then run it again"}
 		case avpBanner:
 			return s.banner(string(a.data))
 		case avpPassLabel, avpPass2Label:

@@ -44,6 +44,9 @@ func OpenAzure(t driver.Target, secret string, dial DialFunc, timeout time.Durat
 	scheme := map[bool]string{true: "https", false: "http"}[t.Secure]
 	b := &azBucket{c: webClient(dial, timeout, false), base: scheme + "://" + hostOf(t), account: t.User,
 		container: t.Bucket, prefix: t.Prefix, now: time.Now}
+	if err := trustCA(b.c.Transport.(*http.Transport), t); err != nil {
+		return nil, err
+	}
 	if t.Path != "" {
 		b.base += "/" + t.Path
 	}
@@ -53,6 +56,12 @@ func OpenAzure(t driver.Target, secret string, dial DialFunc, timeout time.Durat
 		return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH",
 			"store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME",
 			"an azblob conn needs the storage account's key or a SAS token")
+	case strings.Contains(secret, "sig=") && !t.Secure:
+		// a SAS token goes in every request as it is (the account key only
+		// signs): over http anyone on the way could reuse it
+		return nil, out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+			"use an https:// endpoint, or the account key (it signs each request and is never sent)",
+			"azblob: the endpoint is http://, so the SAS token would travel unencrypted")
 	case strings.Contains(secret, "sig="):
 		q, err := url.ParseQuery(strings.TrimPrefix(secret, "?"))
 		if err != nil {
@@ -234,7 +243,7 @@ func (b *azBucket) Stat(ctx context.Context, rel string) (Object, error) {
 	resp, err := b.send(ctx, http.MethodHead, b.blobURL(full, nil), nil, -1, nil, http.StatusOK)
 	if err != nil {
 		if oe, ok := err.(*out.Error); ok && oe.Code == "OBJECT_NOT_FOUND" {
-			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "%s not found", rel)
+			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "%s not found", rel)
 		}
 		return Object{}, err
 	}

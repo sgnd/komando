@@ -11,7 +11,7 @@
 # - `config approval-code` is turned on by a person at a terminal, who types
 #   the code from an authenticator app on their phone.
 # Their unit tests cover them instead (internal/cli/secret_keychain_test.go,
-# internal/cli/approvalcode_cmd_test.go), without touching a real keychain.
+# internal/cli/approval_code_cmd_test.go), without touching a real keychain.
 ok() { jget 'd["ok"]'; }
 has() { jget "'$1' in json.dumps(d)"; } # has TEXT: the JSON answer mentions TEXT
 C="t-cov-$$"                            # unique per run, so a rerun never meets leftovers
@@ -110,7 +110,7 @@ check "vpn show" corp "$($K vpn show corp | jget 'd["data"]["vpn"]["name"]')"
 check "vpn test of a VPN that is down" VPN_DOWN "$($K vpn test corp | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 # renames: a conn reached through a SOCKS VPN keeps working when both get new names
 TUN=$($K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS" | jget 'd["data"]["id"]')
-q $K vpn add "$C-vpn" socks --address "127.0.0.1:$E2E_SOCKS"
+q $K vpn add "$C-vpn" socks --proxy-address "127.0.0.1:$E2E_SOCKS"
 q $K conn add "$C-db" 'postgres://app@pg:5432/app?sslmode=disable' --via "$C-vpn" --password-ref secret:pg-pass
 check "vpn mv takes the conn's --via along" "conn $C-db --via" "$($K vpn mv "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
 check "conn mv" "renamed $C-db2" "$($K conn mv "$C-db" "$C-db2" | jget 'd["data"]["action"] + " " + d["data"]["to"]')"

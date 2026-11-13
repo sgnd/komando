@@ -10,7 +10,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -111,7 +113,7 @@ from mysql.user order by user, host`)
 	case "snowflake":
 		return snowflakeUsers(ctx, db)
 	case "bigquery":
-		return nil, BQNoUsers("db user ls")
+		return nil, BQNoUsers("db user list")
 	}
 	return nil, NotSupported(kind, "db user")
 }
@@ -188,7 +190,7 @@ func userSQL(ctx context.Context, db *sql.DB, kind, action string, u UserSpec) (
 	default:
 		return "", "", NotSupported(kind, "db user")
 	}
-	return "", "", fmt.Errorf("unknown user action %q", action)
+	return "", "", fmt.Errorf("komando has no user action %q (a bug: report it)", action)
 }
 
 func hidden(pw string) string {
@@ -225,7 +227,7 @@ func userErr(err error, name string) error {
 	case strings.Contains(msg, "already exists"), strings.Contains(msg, "1396") && strings.Contains(strings.ToLower(msg), "create user"):
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case strings.Contains(msg, "does not exist"), strings.Contains(msg, "1396"):
-		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "user %s does not exist", name)
+		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user list CONN`", "no database user named %q", name)
 	case strings.Contains(msg, "permission denied"), strings.Contains(msg, "does not have permission"), strings.Contains(msg, "must have CREATEROLE"), strings.Contains(msg, "Access denied"), strings.Contains(msg, "1227"):
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user needs the right to manage users (PostgreSQL: CREATEROLE; MySQL: CREATE USER; SQL Server: ALTER ANY LOGIN and ALTER ANY USER)", "%s", firstLine(msg))
 	case strings.Contains(msg, "depend on it"), strings.Contains(msg, "owns"):
@@ -233,7 +235,7 @@ func userErr(err error, name string) error {
 	case strings.Contains(msg, "is currently logged in"):
 		return out.Errf(out.ExitConflict, "DB_USER_IN_USE", "end its sessions first: find them with `komando db activity CONN --all`, then `komando db kill CONN PID --session`", "%s", firstLine(msg))
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql (password hidden)", "%s", firstLine(msg))
+	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement komando sent is in the result, its password hidden (data.sql in -o json)", "%s", firstLine(msg))
 }
 
 func firstLine(s string) string {
@@ -286,7 +288,7 @@ func GrantSQL(ctx context.Context, db *sql.DB, kind string, g Grant) (string, er
 	for _, p := range g.Privs {
 		p = strings.ToUpper(strings.TrimSpace(p))
 		if !known[p] {
-			return "", out.Usage("unknown privilege %q", p)
+			return "", out.Usage("%q is not a privilege komando grants on %s (known: %s)", p, kind, strings.Join(slices.Sorted(maps.Keys(known)), ", "))
 		}
 		privs = append(privs, p)
 	}
@@ -414,7 +416,7 @@ order by 1, 2`, user)
 	case "snowflake":
 		return snowflakeGrants(ctx, db, user)
 	case "bigquery":
-		return nil, BQNoUsers("db grants")
+		return nil, BQNoUsers("db user show")
 	}
-	return nil, NotSupported(kind, "db grants")
+	return nil, NotSupported(kind, "db user show")
 }

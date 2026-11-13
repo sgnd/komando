@@ -34,9 +34,9 @@ import (
 // process keeps that login for the login_for setting (8h). Later commands
 // reach the server through it, an AI agent's too, without a person; every
 // other check (rules, approvals, audit) still runs in those commands.
-// `komando logout HOST` ends it sooner. See sshx/held.go.
+// `komando logout SERVER` ends it sooner. See sshx/held.go.
 
-// loginHost runs `komando login HOST`.
+// loginHost runs `komando login SERVER`.
 func loginHost(ctx context.Context, name string) error {
 	st, err := loadState()
 	if err != nil {
@@ -46,9 +46,10 @@ func loginHost(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	if !interactive() {
-		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
-			"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
+	needsPerson := out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
+		"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
+	if !interactive() && !g.dryRun {
+		return needsPerson
 	}
 	keep, _ := time.ParseDuration(st.Settings.LoginFor)
 	if keep <= 0 {
@@ -58,8 +59,13 @@ func loginHost(ctx context.Context, name string) error {
 		out.P.Print("login.host", loginResult{Host: h.Name, Until: l.Until, Already: true}, nil)
 		return nil
 	}
-	if g.dryRun {
-		out.P.Print("login.host", map[string]any{"host": h.Name, "would_log_in": true, "keeps_it_for": keep.String()}, nil)
+	if g.dryRun { // never blocked: what the real run would need is in would_be_blocked
+		res := map[string]any{"host": h.Name, "would_log_in": true, "keeps_it_for": keep.String()}
+		if !interactive() {
+			res["would_log_in"] = false
+			out.P.WouldBlock(needsPerson)
+		}
+		out.P.Print("login.host", res, nil)
 		return nil
 	}
 	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
@@ -117,7 +123,7 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		return nil, err
 	}
 	dir := store.Path("login")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := store.MkdirPrivate("login"); err != nil {
 		return nil, err
 	}
 	logFile := filepath.Join(dir, safeFileName(h.Name)+".log")
@@ -130,7 +136,7 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		StartedAt: time.Now().UTC(), Until: time.Now().Add(keep).UTC()}
 	c := holderCommand(self, h.Name)
 	if c.Env == nil {
-		c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
+		c.Env = os.Environ() // vault.TakeUnlockEnv took KOMANDO_VAULT_PASS and the like out of it
 	}
 	c.Stderr = lf
 	c.SysProcAttr = detachAttr() // it outlives this command and its terminal
@@ -152,9 +158,10 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 		_ = c.Wait()
 		return nil, e
 	}
-	// the token, how long to keep the login and the vault passphrase go on
-	// its input, never in its arguments or environment
-	fmt.Fprintf(stdin, "TOKEN %s\nUNTIL %d\nPASS %s\n", l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Passphrase())))
+	// the token, how long to keep the login, the vault passphrase and the
+	// other secret stores' unlock values go on its input, never in its
+	// arguments or environment
+	fmt.Fprintf(stdin, "TOKEN %s\nUNTIL %d\nPASS %s\n", l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
 	var cancelled error
 	in := bufio.NewReader(stdout)
 	for {
@@ -236,7 +243,7 @@ func safeFileName(name string) string {
 	}, name)
 }
 
-// loginHolderCmd is the background process of `komando login HOST`: it
+// loginHolderCmd is the background process of `komando login SERVER`: it
 // logs in (its questions go to the person through `login` on its output)
 // and then serves the login on a Unix socket until the login_for time, a
 // `komando logout`, or the server closing the connection.
@@ -327,7 +334,7 @@ func relayAsk(in *bufio.Reader, say func(string)) func(host, text string, hidden
 		line, err := in.ReadString('\n')
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
 		if err != nil || word != "ANS" {
-			stop = &out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}
+			stop = (&out.Error{Code: "CANCELLED", Message: "interrupted", Exit: out.ExitError}).Say("Stopped (Ctrl-C); the login was not kept", "")
 			return "", stop
 		}
 		a, err := base64.StdEncoding.DecodeString(rest)
@@ -418,9 +425,9 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 func logoutCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
-		Use:   "logout [HOST...]",
+		Use:   "logout [SERVER...]",
 		Short: "End server logins kept by `komando login` (--all for every one)",
-		Long: `Ends what ` + "`komando login HOST`" + ` keeps: the connection closes, and later
+		Long: `Ends what ` + "`komando login SERVER`" + ` keeps: the connection closes, and later
 commands to that server log in again (a two-factor server asks a person).
 ` + "`komando status`" + ` lists the logins that are kept.`,
 		Example: `  komando logout web1

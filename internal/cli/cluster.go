@@ -17,13 +17,14 @@ import (
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
 // `komando cluster` works the same on Kubernetes (a k8s conn: the API is
 // called directly, through --via and VPNs) and Docker Swarm (a manager
 // server: docker runs there over SSH). Verbs that exist in both engines
-// sit directly under `cluster` (docs/design/vision.md).
+// sit directly under `cluster` (docs/design/principles.md).
 
 type clusterTarget struct {
 	conn *store.Conn // Kubernetes
@@ -127,9 +128,9 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 		return nil
 	}
 	line := pluginLine(e)
-	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() {
+	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("the kubeconfig of conn "+c.Name+" logs in with `"+line+"`, which matches "+hits[0].Reason, c.Name) {
 		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn (if this program is intended, --allow-dangerous lets it run)",
-			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s", c.Name, line, hits[0].Reason)
+			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig of this conn)", c.Name, line, hits[0].Reason)
 		if g.dryRun {
 			out.P.WouldBlock(stop)
 			return errDryRunStopped
@@ -140,10 +141,8 @@ func guardKubePlugin(c *store.Conn, x *kube.Context) error {
 		return nil
 	}
 	what := "the kubeconfig of conn " + c.Name + " runs `" + line + "` on this computer to log in"
-	stop := out.Errf(out.ExitPolicy, "SAFETY_SETTING",
-		"a program on this computer is outside the agent guard's view: re-run with --yes after the user confirms it (read-only commands ask too). "+
-			"To trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves",
-		"%s; an AI agent needs a person's yes each time", what)
+	stop := approvalErr("SAFETY_SETTING",
+		what+"; a program on this computer is outside the agent guard's view, so an AI agent needs a person's yes each time, read-only commands too (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)")
 	if g.dryRun { // a dry run never runs it: --yes is not asked for here
 		if !g.yes {
 			out.P.WouldBlock(stop)
@@ -183,15 +182,18 @@ func kubeErr(err error) error {
 	var e *kube.APIError
 	if errors.As(err, &e) {
 		code, exit, hint := "K8S_ERROR", out.ExitRemote, "read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately"
+		thing := ""
 		switch {
 		case e.Code == 401 || e.Code == 403:
 			code, exit, hint = "K8S_FORBIDDEN", out.ExitConnect, "the conn's account may not do this: see who it is with `komando cluster run TARGET -- auth whoami` and what it may do with `komando cluster run TARGET -- auth can-i --list`"
 		case e.Code == 404:
-			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster ls TARGET pods` (or deployments, services ...)"
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "list what exists with `komando cluster list TARGET pods` (or deployments, services ...)"
+			thing = "k8s_object"
 		case e.Code == 409:
-			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run the command again"
+			code, exit, hint = "K8S_CONFLICT", out.ExitConflict, "the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run it again"
 		case e.Code == 400 && strings.Contains(e.Message, "is not valid for pod"):
-			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod NAME`"
+			code, exit, hint = "K8S_NOT_FOUND", out.ExitNotFound, "see the pod's containers with `komando cluster describe TARGET pod/NAME`"
+			thing = "k8s_container"
 		case e.Code == 400 || e.Code == 422:
 			code, exit, hint = "K8S_INVALID", out.ExitUsage, "the cluster refused it as written: check the label selector (-l) or the object's YAML"
 		}
@@ -199,17 +201,29 @@ func kubeErr(err error) error {
 		if outer := err.Error(); outer != e.Error() {
 			msg = strings.TrimSuffix(outer, e.Error()) + e.Message // keep "deployment/web: " in front
 		}
-		return out.Errf(exit, code, hint, "%s", cmp.Or(msg, e.Reason))
+		return out.Errf(exit, code, hint, "%s", cmp.Or(msg, e.Reason)).About(thing)
 	}
 	var oe *out.Error
 	if errors.As(err, &oe) {
 		return oe
 	}
+	var pe *kube.PluginError
+	if errors.As(err, &pe) {
+		if pe.Missing {
+			hint := "install " + pe.Command + " on this computer (the conn's kubeconfig logs in with it), or import a kubeconfig that logs in another way: `komando import kubeconfig FILE --overwrite`"
+			if pe.InstallHint != "" {
+				hint = "the kubeconfig says: " + pe.InstallHint
+			}
+			return out.Errf(out.ExitNotFound, "TOOL_MISSING", hint, "%s", pe.Error())
+		}
+		return out.Errf(out.ExitConnect, "LOGIN_FAILED", "run the program in a terminal to see why it cannot log in (it may need a person to sign in first), then run it again",
+			"%s", cleanText(pe.Error()))
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test NAME` (and its --via path)",
+		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test TARGET` (and its --via path)",
 			"the cluster did not answer within the time limit (--timeout)")
 	}
-	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test NAME` (and its --via path)", "%s", dialMessage(err))
+	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test TARGET` (and its --via path)", "%s", dialMessage(err))
 }
 
 // dialMessage says "cannot reach HOST:PORT: connection refused" for a
@@ -219,6 +233,9 @@ func dialMessage(err error) string {
 	var op *net.OpError
 	if !errors.As(err, &op) || op.Op != "dial" || op.Addr == nil {
 		return err.Error()
+	}
+	if sshx.Refused(op.Err) { // Windows has its own words for it
+		return "cannot reach " + op.Addr.String() + ": connection refused"
 	}
 	why := op.Err
 	var sys *os.SyscallError
@@ -293,6 +310,26 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 	return nil
 }
 
+// confirmObject: deleting a cluster object, or stopping every replica of
+// one, asks a person at a terminal to type that object's name ("Type the
+// name api-7d9f-x2 to continue"), not the cluster's or "yes": the name
+// says what goes, as gh repo delete does. A right answer also counts for
+// the cluster check guardConns (or swarmDo) makes next, which asks for the
+// same name (askTypes), so the person is asked once; a wrong one stops here and nothing
+// changes. Agents and scripts are unchanged: they use --allow-dangerous,
+// and a dry run never asks.
+func confirmObject(names []string, obj, reason string) error {
+	if g.allowDangerous || g.dryRun || !interactive() {
+		return nil
+	}
+	askTypes([]string{obj}, "objects")
+	if !confirmDangerous(names, reason) {
+		return policyStop(approvalErr("POLICY_BLOCKED",
+			"the command matches destructive rules [cluster]: "+reason).Say(dangerSay([]string{reason}), dangerHint))
+	}
+	return nil
+}
+
 // age is a Kubernetes timestamp as a kubectl age (40s, 5m, 3h, 12d).
 func age(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
@@ -306,14 +343,25 @@ func clusterCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "cluster",
 		Aliases: []string{"k8s", "kube", "swarm"},
-		Short:   "Kubernetes and Docker Swarm: status, logs, restart, scale, apply",
+		Short:   "Kubernetes and Docker Swarm: check, read logs, roll out, scale",
 		Long: `TARGET is a Kubernetes cluster (bring yours in with ` + "`komando import kubeconfig`" + `)
 or a Swarm manager server. The same verbs work on both. Reads need nothing; restart,
 scale and apply change the cluster (protected targets need --yes; try
 --dry-run); rm needs --allow-dangerous. Anything else: ` + "`cluster run`" + `
-passes the native kubectl or docker command, read-only unless --write.`,
+passes the native kubectl or docker command, read-only unless --write.
+
+A cluster's usual namespace is its kubeconfig context's; change it with
+` + "`komando conn edit NAME --option namespace=shop`" + `, or name one per command
+with --namespace.`,
+		Example: `  komando import kubeconfig                       # one cluster per kubeconfig context
+  komando cluster status prod-k8s                     # version, nodes, what is not healthy
+  komando cluster list prod-k8s pods --namespace shop
+  komando cluster logs prod-k8s deploy/api --namespace shop -f
+  komando cluster deploy prod-k8s deploy/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait`,
 	}
-	c.AddCommand(connAddCmdFor("cluster"), clusterStatusCmd(), clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
+	status := clusterStatusCmd()
+	c.AddCommand(synonymWrapper(status, "info TARGET", "cluster.status", "cluster status TARGET", cobra.ExactArgs(1)))
+	c.AddCommand(connAddCmdFor("cluster"), status, clusterLsCmd(), clusterGetCmd(), clusterDescribeCmd(), clusterEventsCmd(), clusterLogsCmd(), clusterDeployCmd(), clusterHistoryCmd(), clusterRollbackCmd(), clusterExecCmd(), clusterShellCmd(), clusterForwardCmd(), clusterRestartCmd(),
 		clusterScaleCmd(), clusterApplyCmd(), clusterRmCmd(), clusterRunCmd(), clusterHelmCmd())
 	return c
 }

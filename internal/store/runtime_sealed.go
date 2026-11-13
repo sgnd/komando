@@ -11,12 +11,13 @@ import (
 	"github.com/sgnd/komando/internal/sealrow"
 )
 
-// runtime.json is sealed too (docs/design/sync-security.md
-// section 16): it holds the SOCKS logins of running VPNs and the tokens of
+// runtime.json is sealed too: it holds the SOCKS logins of running VPNs and the tokens of
 // kept server logins. It is sealed with the store's row key, bound to its
 // own ID and type, so it cannot be swapped with a store record. A plain
-// runtime.json (from before, or a folder of before) is read as is and
-// sealed at its next write.
+// runtime.json was put there by something other than komando, and is read
+// as empty. Trusted, it could point a server's
+// held login at a socket of its own, which would then see every command,
+// password and file sent to that server.
 
 var runtimeMagic = []byte("komando-runtime-sealed-1\n")
 
@@ -70,7 +71,8 @@ func sealRuntime(plain []byte) ([]byte, error) {
 func openRuntime(b []byte) ([]byte, error) {
 	rest, ok := bytes.CutPrefix(b, runtimeMagic)
 	if !ok {
-		return b, nil // plain: from before, sealed at its next write
+		// never trusted: only running sessions are lost, found or made again
+		return []byte("{}"), nil
 	}
 	k, err := runtimeKey()
 	if err != nil {

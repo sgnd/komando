@@ -102,7 +102,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 
 	// the audit names the secrets, never the value
 	b := []byte(auditText(t))
-	if !strings.Contains(string(b), `"secret.mv"`) || strings.Contains(string(b), "the-value") {
+	if !strings.Contains(string(b), `"secret.rename"`) || strings.Contains(string(b), "the-value") {
 		t.Errorf("audit: %s", b)
 	}
 
@@ -288,4 +288,18 @@ func TestSecretSetWithoutValueSendsAgentToUser(t *testing.T) {
 	}
 	// a value a program makes still works for an agent
 	withStdin(t, "generated-token-123\n", func() { mustRun(t, "secret", "set", "ci-token") })
+}
+
+// --from-env with an empty variable stores nothing, as an empty pipe does.
+func TestSecretSetFromEmptyEnv(t *testing.T) {
+	invHome(t)
+	t.Setenv("EMPTY_PASS", "")
+	if e := wantCode(t, "USAGE", "secret", "set", "x", "--from-env", "EMPTY_PASS"); e.Message != "env EMPTY_PASS is empty" {
+		t.Errorf("message %q", e.Message)
+	}
+	t.Setenv("EMPTY_PASS", " \n")
+	wantCode(t, "USAGE", "secret", "set", "x", "--from-env", "EMPTY_PASS")
+	if names := secretNames(); len(names) != 0 {
+		t.Errorf("stored %v", names)
+	}
 }

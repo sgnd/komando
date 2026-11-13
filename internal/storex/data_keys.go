@@ -23,7 +23,7 @@ func CheckKey(rel string) error {
 // FolderNotFound is the one error for a folder that is not there, on every
 // kind of storage.
 func FolderNotFound(prefix string) error {
-	return out.Errf(out.ExitNotFound, "FOLDER_NOT_FOUND", "list what exists with `komando storage ls CONN` (or a parent folder)",
+	return out.Errf(out.ExitNotFound, "FOLDER_NOT_FOUND", "list what exists with `komando storage list CONN` (or a parent folder)",
 		"nothing under %q", prefix)
 }
 
@@ -87,7 +87,7 @@ func (b *ftpBucket) Stat(_ context.Context, rel string) (Object, error) {
 		}
 		return Object{Key: rel, Size: int64(e.Size), Modified: e.Time.UTC()}, nil
 	}
-	return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage ls CONN [FOLDER]`", "%s not found", rel)
+	return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "%s not found", rel)
 }
 
 // isMarker reports a listed key ending in / that is a folder marker (an

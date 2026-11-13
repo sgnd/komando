@@ -22,7 +22,7 @@ func queueSendCmd() *cobra.Command {
 	var partition int
 	c := &cobra.Command{
 		Use:   "send CONN TOPIC",
-		Short: "Publish one message (--value, --from FILE, or stdin)",
+		Short: "Publish one message",
 		Long: `Publish one message to an existing topic (or queue) and wait until the
 server keeps it. The value comes from --value, from a file (--from FILE;
 '-' is stdin), or from data piped on stdin. --dry-run checks the topic and
@@ -38,9 +38,9 @@ Amazon SQS: text only; --header values become message attributes. A FIFO
 queue (name.fifo) needs --key, the message group.
 Google Cloud Pub/Sub: TOPIC is a topic; --header values become message
 attributes and --key is the ordering key.`,
-		Example: `  komando queue send events orders --value '{"id": 42, "status": "paid"}' --key 42
-  komando queue send events orders --from ./order.json --header source=support
-  komando queue send events orders --value test --dry-run`,
+		Example: `  komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
+  komando queue send prod-kafka orders --from ./order.json --header source=support
+  komando queue send prod-kafka orders --value test --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			data, err := queueValue(cmd, value, from)
@@ -79,7 +79,7 @@ attributes and --key is the ordering key.`,
 	c.Flags().StringVar(&from, "from", "", "read the message from this file ('-' for stdin)")
 	c.Flags().StringVar(&key, "key", "", "Kafka: the message key (picks the partition); SQS: the message group of a FIFO queue; Pub/Sub: the ordering key")
 	c.Flags().StringArrayVar(&headers, "header", nil, "a message header KEY=VALUE (repeatable)")
-	c.Flags().IntVar(&partition, "partition", -1, "Kafka: send to this partition (numbered from 0)")
+	optIntVar(c.Flags(), &partition, "partition", "Kafka: send to this partition, numbered from 0 (default: the broker's choice)")
 	return c
 }
 
@@ -97,11 +97,11 @@ func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
 			return nil, err
 		}
 	default:
-		if data, err = readStdinIfPiped(); err != nil {
+		if data, err = readStdinIfPiped(maxQueueMessage, "the message"); err != nil {
 			return nil, err
 		}
 		if data == nil {
-			return nil, out.Usage("give the message with --value, --from FILE, or pipe it on stdin")
+			return nil, out.Usage("give the message with --value, --from FILE, or pipe it in (stdin)")
 		}
 	}
 	if len(data) > maxQueueMessage {
@@ -128,9 +128,9 @@ func queueCreateCmd() *cobra.Command {
 	var typ string
 	c := &cobra.Command{
 		Use:   "create CONN TOPIC",
-		Short: "Create a topic, queue or stream (Kafka: --dry-run asks the brokers to check it)",
-		Example: `  komando queue create events orders --partitions 6 --replicas 3 --dry-run
-  komando queue create events orders --partitions 6 --replicas 3 --config retention.ms=604800000
+		Short: "Create a topic, queue or stream",
+		Example: `  komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
+  komando queue create prod-kafka orders --partitions 6 --replicas 3 --config retention.ms=604800000
   komando queue create jobs emails --type quorum --config x-max-length=10000
   komando queue create stream ORDERS --replicas 3 --config subjects='orders.>' --config max_age=7d
   komando queue create aws orders.fifo --config ContentBasedDeduplication=true
@@ -143,7 +143,7 @@ func queueCreateCmd() *cobra.Command {
 				return err
 			}
 			if partitions == 0 || partitions < -1 || replicas == 0 || replicas < -1 || replicas > 32767 {
-				return out.Usage("--partitions and --replicas must be at least 1 (or -1 for the brokers' default)")
+				return out.Usage("--partitions and --replicas take 1 or more (leave them out for the broker's default)")
 			}
 			s := queuex.TopicSpec{Topic: args[1], Partitions: int32(partitions), Replicas: int16(replicas), Type: typ, Config: cfg}
 			return withQueue(cmd.Context(), "queue.create", args[0], queueRisk(""), map[string]any{"topic": args[1], "partitions": partitions, "replicas": replicas},
@@ -158,23 +158,24 @@ func queueCreateCmd() *cobra.Command {
 				})
 		},
 	}
-	c.Flags().IntVar(&partitions, "partitions", -1, "Kafka: how many partitions (-1: the brokers' default)")
-	c.Flags().IntVar(&replicas, "replicas", -1, "copies of each message. Kafka: copies of each partition (-1 uses the brokers' default); NATS: copies of the stream (-1 means 1)")
+	optIntVar(c.Flags(), &partitions, "partitions", "Kafka: how many partitions (default: the broker's)")
+	optIntVar(c.Flags(), &replicas, "replicas", "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)")
 	c.Flags().StringVar(&typ, "type", "", "RabbitMQ: the queue type, classic, quorum or stream (default: the server's)")
-	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, e.g. retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)")
+	c.Flags().StringArrayVar(&configs, "config", nil, "a setting KEY=VALUE, like retention.ms=86400000 (Kafka), x-max-length=1000 (RabbitMQ), max_age=7d (NATS), VisibilityTimeout=60 (SQS) or ackDeadlineSeconds=60 (Pub/Sub) (repeatable)")
 	return c
 }
 
 func queueRmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "rm CONN TOPIC...",
-		Short: "Delete topics, queues or streams and their messages (needs --allow-dangerous)",
-		Example: `  komando queue rm events old-orders --dry-run
-  komando queue rm events old-orders --allow-dangerous`,
+		Short: "Delete topics, queues or streams with their messages",
+		Example: `  komando queue rm prod-kafka old-orders --dry-run
+  komando queue rm prod-kafka old-orders --allow-dangerous`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			topics := args[1:]
-			return withQueue(cmd.Context(), "queue.rm", args[0], queueRisk("queue-delete"), map[string]any{"topics": topics},
+			askTypes(topics, "topics or queues in "+args[0])
+			return withQueue(cmd.Context(), "queue.rm", args[0], queueRisk("queue-delete", topics...), map[string]any{"topics": topics},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -191,12 +192,13 @@ func queueRmCmd() *cobra.Command {
 func queuePurgeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "purge CONN TOPIC",
-		Short: "Empty a topic, queue or stream and keep it (needs --allow-dangerous)",
-		Example: `  komando queue purge events orders-retry --dry-run
-  komando queue purge events orders-retry --allow-dangerous`,
+		Short: "Empty a topic, queue or stream and keep it",
+		Example: `  komando queue purge prod-kafka orders-retry --dry-run
+  komando queue purge prod-kafka orders-retry --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return withQueue(cmd.Context(), "queue.purge", args[0], queueRisk("queue-purge"), map[string]any{"topic": args[1]},
+			askTypes(args[1:], "topics or queues in "+args[0])
+			return withQueue(cmd.Context(), "queue.purge", args[0], queueRisk("queue-purge", args[1]), map[string]any{"topic": args[1]},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()

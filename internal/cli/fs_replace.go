@@ -17,8 +17,8 @@ func fsReplaceCmd() *cobra.Command {
 	var oldS, newS string
 	var all, isRegex bool
 	c := &cobra.Command{
-		Use:   "replace TARGET PATH --old TEXT --new TEXT",
-		Short: "Edit a file on one server: replace text that matches once (or --all)",
+		Use:   "replace SERVER PATH --old TEXT --new TEXT",
+		Short: "Edit a file on one server by replacing exact text",
 		Example: `  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
   komando fs replace web1 /etc/ssh/sshd_config --regex --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo`,
 		Args: cobra.ExactArgs(2),
@@ -169,7 +169,7 @@ func planReplace(p *out.Printer, src, oldS, newS string, re *regexp.Regexp, all 
 		return pl, out.Errf(out.ExitConflict, "NO_MATCH", "read the file with `komando fs cat TARGET "+name+"` and copy the exact text (whitespace matters)", "--old text not found in %s", name)
 	}
 	if pl.n > 1 && !all {
-		return pl, out.Errf(out.ExitConflict, "AMBIGUOUS_MATCH", "add surrounding context to --old so it is unique, or pass --all", "--old matches %d times in %s", pl.n, name)
+		return pl, out.Errf(out.ExitConflict, "AMBIGUOUS_MATCH", "add surrounding context to --old so it is unique (read the file with `komando fs cat SERVER PATH`), or pass --all", "--old matches %d times in %s", pl.n, name)
 	}
 	if !all {
 		locs = locs[:1]
@@ -192,7 +192,7 @@ func planReplace(p *out.Printer, src, oldS, newS string, re *regexp.Regexp, all 
 	now, asked := p.View(pl.updated).Text, p.View(pl.shown).Text
 	for _, v := range view.Hidden(src) {
 		if v != "" && strings.Count(now, v) > strings.Count(asked, v) {
-			return pl, out.Errf(out.ExitUsage, "HIDDEN_VALUE", "keep the name or text around a hidden value that marks it as secret, or replace the value too, e.g. --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT_NAME}}'",
+			return pl, out.Errf(out.ExitUsage, "HIDDEN_VALUE", "keep the name or text around a hidden value that marks it as secret, or replace the value too, for example --old 'NAME=[hidden]' --new 'NAME={{secret:VAULT_NAME}}'",
 				"the edit would show a value komando hid")
 		}
 	}

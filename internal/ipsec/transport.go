@@ -36,7 +36,7 @@ func resolve(ctx context.Context, host string) (netip.Addr, int, error) {
 	if h, p, err := net.SplitHostPort(host); err == nil {
 		host = h
 		if port, err = strconv.Atoi(p); err != nil || port <= 0 || port > 65535 {
-			return netip.Addr{}, 0, fmt.Errorf("bad port in %q", host)
+			return netip.Addr{}, 0, fmt.Errorf("the port in %q is not a number from 1 to 65535", host)
 		}
 	}
 	if a, err := netip.ParseAddr(host); err == nil {

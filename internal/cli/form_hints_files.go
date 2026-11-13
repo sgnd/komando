@@ -42,7 +42,7 @@ var formFsHints = map[string]formHint{
 				help: "Handy for long logs. Empty shows the whole file."},
 			formFsSudo("Needed when the file can only be read by root."),
 		}},
-	"fs ls": {args: []formArg{formFsServer,
+	"fs list": {args: []formArg{formFsServer,
 		{ask: "Which folder?", example: "/var/www",
 			help: "The full path of the folder. Empty lists the login user's home folder."}},
 		flags: []formFlag{
@@ -87,13 +87,13 @@ var formFsHints = map[string]formHint{
 				help: "Yes makes komando ask you to confirm first, since it cannot be undone."},
 			formFsSudo("Needed for files owned by root or another user."),
 		}},
-	"fs replace": {args: []formArg{formFsServer,
+	"fs replace": {next: []string{"fs restore {} PATH --dry-run", "fs cat {} PATH"}, args: []formArg{formFsServer,
 		{ask: "Which file do you want to edit?", example: "/etc/nginx/nginx.conf",
 			help: "The full path of the file on the server."}},
 		flags: []formFlag{
 			{name: "old", ask: "Which text should be changed?", required: true, example: "worker_connections 768;",
-				help: "Copy it exactly from the file (komando fs cat shows it). It must appear once."},
-			{name: "new", ask: "What should it become?", empty: true, example: "worker_connections 4096;",
+				help: "Copy it exactly from the file (komando fs cat shows it). It has to appear once."},
+			{name: "new", ask: "What should it become?", empty: true, need: func(formAnswers) bool { return true }, example: "worker_connections 4096;",
 				help: "The new text, put in place of the old. Empty removes the old text."},
 			formFsSudo("Needed for system files, like most files under /etc."),
 			formFsBackup,
@@ -115,7 +115,7 @@ var formFsHints = map[string]formHint{
 		{ask: "Which file should go back to how it was?", example: "/etc/nginx/nginx.conf",
 			help: "The file you changed, not its .bak copy. Try it first to see the difference."}},
 		flags: []formFlag{
-			{name: "from", ask: "Which backup? (leave empty for the newest)", example: "/etc/nginx/nginx.conf.bak",
+			{name: "copy", ask: "Which backup? (leave empty for the newest)", example: "/etc/nginx/nginx.conf.bak",
 				help: "Empty puts back the newest copy. The file as it is now is kept, so you can undo this too."},
 			formFsSudo("Needed for system files, like most files under /etc."),
 		}},
@@ -165,4 +165,17 @@ var formTransferHints = map[string]formHint{
 			{name: "exclude", ask: "Skip some names?", example: ".git",
 				help: "Files or folders to leave out, like .git or *.log. Empty copies everything."},
 		}},
+}
+
+// Next: lines for the file commands (fs replace has its own above).
+func init() {
+	addFormHints(map[string]formHint{
+		"fs cat":     {next: []string{"fs replace {} PATH --old A --new B --backup --dry-run", "fs stat {} PATH"}},
+		"fs write":   {next: []string{"fs cat {} PATH", "fs restore {} PATH"}},
+		"fs restore": {next: []string{"fs cat {} PATH"}},
+		"fs rm":      {next: []string{"fs list {} PATH"}},
+		"fs list":    {next: []string{"fs cat {} PATH", "fs stat {} PATH"}},
+		"upload":     {next: []string{"fs stat {} PATH --sha256", "svc reload {} UNIT"}},
+		"download":   {next: []string{"fs cat {} PATH", "download {} PATH --overwrite"}},
+	})
 }

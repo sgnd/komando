@@ -7,13 +7,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 func TestRuntimeLivesApart(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
 	inv, _ := os.ReadFile(filepath.Join(home, StoreFile))
 
@@ -46,6 +45,7 @@ func TestRuntimeLivesApart(t *testing.T) {
 
 func TestUpdateRuntimeRefusesInventory(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
 	err := UpdateRuntime(func(s *State) error {
 		s.Hosts["web"].Address = "x"
@@ -63,10 +63,12 @@ func TestUpdateRuntimeRefusesInventory(t *testing.T) {
 func TestCorruptRuntime(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	if err := os.WriteFile(filepath.Join(home, "runtime.json"), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "runtime") {
+	// plain, so never komando's own: read as empty, not trusted
+	if _, err := Load(); err != nil {
 		t.Fatalf("err %v", err)
 	}
 }
@@ -74,6 +76,7 @@ func TestCorruptRuntime(t *testing.T) {
 // Update and UpdateRuntime at the same time lose no change of either.
 func TestRuntimeAndInventoryTogether(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(*State) {})
 	var wg sync.WaitGroup
 	const n = 20
@@ -101,40 +104,9 @@ func TestRuntimeAndInventoryTogether(t *testing.T) {
 	}
 }
 
-// ReadOldState reads a folder of before as an earlier komando did: once
-// runtime.json is there it is the record of runtime data, and what
-// state.json still holds of it is left behind. It writes nothing.
-func TestReadOldState(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("KOMANDO_HOME", home)
-	old := `{"hosts":{"web":{"name":"web","address":"10.0.0.1","via":"bastion"}},"vpn_sessions":{"office":{"vpn":"office","pid":7}},"settings":{"audit":true},"ids":{"host":{"web":{"id":"x","version":3}}}}`
-	if err := os.WriteFile(filepath.Join(home, "state.json"), []byte(old), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	s, err := ReadOldState()
-	if err != nil || s.Sessions["office"] == nil || s.Hosts["web"].Via != "bastion" || !s.Settings.Audit || s.Settings.HostKeyPolicy == "" {
-		t.Fatalf("read: %+v %v", s, err)
-	}
-	if err := os.WriteFile(filepath.Join(home, "runtime.json"), []byte(`{}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if s, err = ReadOldState(); err != nil || s.Sessions["office"] != nil {
-		t.Fatalf("removed session came back: %v", err)
-	}
-	if ents, _ := os.ReadDir(home); len(ents) != 2 {
-		t.Fatalf("reading wrote files: %v", ents)
-	}
-	if err := os.WriteFile(filepath.Join(home, "state.json"), nil, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var oe *out.Error
-	if _, err := ReadOldState(); !errors.As(err, &oe) || oe.Code != "STATE_CORRUPT" {
-		t.Fatalf("a cut-short state.json: %v", err)
-	}
-}
-
 func TestUpdateRuntimeDryRun(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
 	DryRun = true
 	defer func() { DryRun = false }()

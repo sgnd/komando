@@ -61,7 +61,7 @@ MIIB
 		{"tls-crypt-v2 [inline]", "not supported"},
 		{"ca /etc/openvpn/ca.crt", "inline"},
 		{"auth-user-pass /etc/pass", "--password-ref"},
-		{"frobnicate yes", "unknown option frobnicate"},
+		{"frobnicate yes", "does not know the option frobnicate"},
 		{"cipher BF-CBC", "not supported"},
 	} {
 		if _, err := Parse(profile + bad.line + "\n"); err == nil || !strings.Contains(err.Error(), bad.want) {

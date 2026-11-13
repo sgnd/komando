@@ -45,6 +45,9 @@ $K cache info cache nosuchsection >/dev/null; check "unknown info section is usa
 check "DEL hint points at cache rm" True "$($K cache run cache -- DEL t-e2edata:a | jget '"cache rm" in d["error"]["hint"]')"
 check "cache rm dry-run lists keys" "['t-e2edata:a']" "$($K cache rm cache t-e2edata:a t-e2edata:none --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm cache t-e2edata:a t-e2edata:l --allow-dangerous
+$K cache keys cache --limit 0 >/dev/null; check "cache keys --limit 0 is usage" 2 $?
+check "SET with an EXAT already past needs --allow-dangerous" POLICY_BLOCKED "$($K cache run cache --write -- SET t-e2edata:x v EXAT 1 | jget 'd["error"]["code"]' || true)"
+check "CLUSTER MEET needs --allow-dangerous" True "$($K cache run cache -- CLUSTER MEET 10.0.0.9 6379 | jget '"--allow-dangerous" in d["error"]["message"]' || true)"
 
 # storage
 echo e2edata > "$TMP/e2edata.txt"
@@ -68,6 +71,14 @@ $K storage cat bucket t-e2edata/dir/e2edata.txt --head 1 --tail 1 >/dev/null; ch
 check "cat cap is said on stderr" True "$($K storage cat bucket t-e2edata/dir/e2edata.txt --max-bytes 2 -o text 2>&1 >/dev/null | grep -q 'raise --max-bytes' && echo True || echo False)"
 check "link through --via warns" True "$($K storage link bucket t-e2edata/dir/e2edata.txt | jget '"bastion" in d["data"]["warning"]')"
 check "rm dry-run text has one key per line" True "$($K storage rm bucket --prefix t-e2edata/ --dry-run -o text 2>/dev/null | grep -q '  t-e2edata/dir/e2edata.txt$' && echo True || echo False)"
+# a person deleting a folder sees the list, then types what goes: the one
+# object's name here (several are asked as a count)
+O=$(ptyrun 'wrong\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage rm bucket --prefix t-e2edata/dir/ | tr -d '\r'); RC=$?
+check "person: storage rm --prefix lists before asking" 1 "$(sed -n '/e2edata.txt/,$p' <<<"$O" | grep -c 'Type the name t-e2edata/dir/e2edata.txt to continue')"
+check "person: a wrong name stops storage rm (6)" 6 "$RC"
+check "person: a wrong name deleted nothing" True "$($K storage ls bucket t-e2edata/dir/ | jget 'len(d["data"]["objects"]) == 1')"
+ptyrun 't-e2edata/dir/e2edata.txt\n' env NO_COLOR=1 TERM=dumb "$K" -o text storage rm bucket --prefix t-e2edata/dir/ >/dev/null
+$K storage ls bucket t-e2edata/dir/ >/dev/null; check "person: the right name deleted the folder" 3 $?
 for c in bucket files-sftp files-ftps; do
   q $K storage rm "$c" --prefix t-e2edata/ --allow-dangerous
 done

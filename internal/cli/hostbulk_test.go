@@ -111,7 +111,7 @@ func TestConnMv(t *testing.T) {
 
 func TestVpnMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "lab", "socks", "--address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "h1", "u@10.0.0.1", "--via", "lab")
 	mustRun(t, "host", "add", "h2", "u@10.0.0.2", "--via", "lab,h1")
 	d := mustRun(t, "vpn", "mv", "lab", "office")
@@ -236,8 +236,8 @@ func TestImportCSV(t *testing.T) {
 	}
 
 	for _, c := range []struct{ text, want string }{
-		{"name,address,colour\nx,10.0.0.1,red\n", `unknown column "colour"`},
-		{"name,address,env\nx,10.0.0.1,prod\n", `unknown column "env"`},
+		{"name,address,colour\nx,10.0.0.1,red\n", `does not import: "colour"`},
+		{"name,address,env\nx,10.0.0.1,prod\n", `does not import: "env"`},
 		{"name,user\nx,u\n", "name and an address column"},
 		{"name,address,address\n", "appears twice"},
 		{"name,address\n", "only the header row"},

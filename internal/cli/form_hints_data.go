@@ -7,7 +7,7 @@ package cli
 
 func init() {
 	conn := formArg{ask: "Which cache?", pick: "cache",
-		help: "A Redis, Valkey or Memcached cache from your list. Add one first with Add, Caches."}
+		help: "A Redis, Valkey or Memcached cache from your list. Add one first: komando cache add."}
 	key := formArg{ask: "Which key?", example: "session:42",
 		help: "Its exact name. `komando cache keys` lists them."}
 	addFormHints(map[string]formHint{
@@ -30,7 +30,7 @@ func init() {
 			flags: []formFlag{{name: "ttl", ask: "Delete it by itself after how long? (leave empty to keep it)", example: "30m, 24h or 7d",
 				help: "The key's time to live. Empty keeps it until someone deletes it."}}},
 		"cache rm": {args: []formArg{conn, {ask: "Which keys to delete? (several: separate them with spaces)", example: "session:42 session:43",
-			help: "Exact names, no patterns. Try it first shows which exist. Deleting needs a person's extra yes: komando stops and says how."}}},
+			help: "Exact names, no patterns. --dry-run shows which exist. Deleting needs --allow-dangerous, a person's extra yes."}}},
 		"cache run": {args: []formArg{conn,
 			{ask: "Which Redis command?", example: "HGETALL",
 				help: "One word, like GET, HGETALL, TTL or EXPIRE. Its arguments come next."},
@@ -38,5 +38,16 @@ func init() {
 				help: "Separate them with spaces, like: leaderboard 0 9 WITHSCORES."}},
 			flags: []formFlag{{name: "write", ask: "May it change data?",
 				help: "No sends only commands known to just read, so nothing can change. Say yes only for SET, DEL, EXPIRE and the like."}}},
+	})
+}
+
+// Next: lines for the cache commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"cache info": {next: []string{"cache keys {} 'user:*'", "cache info {} memory"}},
+		"cache keys": {next: []string{"cache get {} KEY", "cache rm {} KEY --dry-run"}},
+		"cache get":  {next: []string{"cache set {} KEY VALUE --dry-run", "cache run {} -- TTL KEY", "cache rm {} KEY --dry-run"}},
+		"cache set":  {next: []string{"cache get {} KEY"}},
+		"cache rm":   {next: []string{"cache keys {} 'user:*'"}},
 	})
 }

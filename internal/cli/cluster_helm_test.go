@@ -175,7 +175,7 @@ func TestClusterManyText(t *testing.T) {
 		{Cluster: "ap", Engine: "k8s", Error: &out.Error{Code: "K8S_FORBIDDEN", Message: "no", Hint: "ask for access"}},
 	}, Summary: clusterSummary{Total: 2, OK: 1, Failed: 1}}
 	got := m.Text()
-	for _, want := range []string{"● eu (k8s)  ok\n", "  NAME", "  api ", "● ap (k8s)  FAILED\n", "  K8S_FORBIDDEN: no\n", "  hint: ask for access\n", "1 ok, 1 failed"} {
+	for _, want := range []string{"● eu (k8s)  ok\n", "  NAME", "  api ", "● ap (k8s)  failed\n", "  K8S_FORBIDDEN: no\n", "  Hint: ask for access\n", "1 ok, 1 failed"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in\n%s", want, got)
 		}

@@ -43,7 +43,7 @@ func TestDBQueryDryRunBlockedRunsNothing(t *testing.T) {
 		meta := d["_meta"].(map[string]any)
 		res := d["results"].([]any)[0].(map[string]any)
 		skipped, _ := res["skipped"].(string)
-		if c.blocked != (meta["would_be_blocked"] != nil) || c.blocked != strings.Contains(skipped, "would be blocked") {
+		if c.blocked != (meta["would_be_blocked"] != nil) || c.blocked != strings.Contains(skipped, "would stop at a safety check") {
 			t.Errorf("%s %q: would_be_blocked %v, skipped %q", c.conn, c.sql, meta["would_be_blocked"], skipped)
 		}
 		if !c.blocked && d["rolled_back"] != true {

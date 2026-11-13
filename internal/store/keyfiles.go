@@ -13,12 +13,8 @@ import (
 )
 
 // The private key files of SSH keys. A key komando made (key gen,
-// Managed) is kept in the sealed store (docs/design/sync-security.md
-// section 16); an earlier komando kept it under keys/. A key added from
-// elsewhere (key add) stays the person's own file at its path.
-
-// ManagedKeyPath is where a key komando makes under name is kept.
-func ManagedKeyPath(name string) string { return Path("keys", name) }
+// Managed) is kept in the sealed store. A key added from elsewhere (key
+// add) stays the person's own file at its path.
 
 // sealedKeyPrefix starts the Path of a key kept in the sealed store.
 const sealedKeyPrefix = "sealed:"
@@ -87,24 +83,23 @@ func RemoveManagedKey(k *Key) error {
 	if !k.Managed {
 		return errors.New("store: " + k.Path + " is not a key komando made")
 	}
-	if id, ok := strings.CutPrefix(k.Path, sealedKeyPrefix); ok {
-		d, err := DB(false)
-		if errors.Is(err, ErrNoStore) {
-			return nil
-		}
-		if err != nil {
+	id, ok := strings.CutPrefix(k.Path, sealedKeyPrefix)
+	if !ok {
+		return errors.New("store: key " + k.Name + " is not in the sealed store")
+	}
+	d, err := DB(false)
+	if errors.Is(err, ErrNoStore) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return d.Update(context.Background(), func(tx *sealdb.Tx) error {
+		if err := tx.Delete(id); err != nil && !errors.Is(err, sealdb.ErrNotFound) {
 			return err
 		}
-		return d.Update(context.Background(), func(tx *sealdb.Tx) error {
-			if err := tx.Delete(id); err != nil && !errors.Is(err, sealdb.ErrNotFound) {
-				return err
-			}
-			return nil
-		})
-	}
-	// a key file of an earlier komando that `komando seal` did not move
-	// (it was outside keys/): the person's file now, left where it is
-	return nil
+		return nil
+	})
 }
 
 func expandHome(p string) string {

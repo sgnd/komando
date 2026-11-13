@@ -4,7 +4,7 @@
 # here): key-pair and token logins, TLS with a private CA, placeholders,
 # what needs --write never reaching the server, a dry run that only
 # reports a write. Snowflake's own SQL is not checked here
-# (docs/design/snowflake.md).
+# (docs/features/databases.md).
 set +e
 SFC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
 for _ in $(seq 1 60); do SFC exec -T snowflake test -s /e2e/user.key 2>/dev/null && break; sleep 1; done
@@ -40,5 +40,5 @@ check "no snowflake secret in the audit log" 0 "$(audit_text | grep -c -E 'e2e-p
 q $K conn rm sf
 q $K conn rm sf-pat
 q $K conn rm sf-noca
-$K secret rm sf-ca sf-key sf-pat >/dev/null 2>&1 || true
+$K secret rm sf-ca sf-key sf-pat --allow-dangerous >/dev/null 2>&1 || true
 set -e

@@ -23,7 +23,7 @@ func svcCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "svc",
 		Aliases: []string{"service"},
-		Short:   "Services (systemd, Windows): status, start, stop, restart, logs",
+		Short:   "Services on servers: check, start, stop, read logs",
 	}
 	c.AddCommand(svcStatusCmd(), svcListCmd(), svcLogsCmd(), svcDaemonReloadCmd())
 	for _, a := range []string{"start", "stop", "restart", "reload", "enable", "disable"} {
@@ -102,7 +102,7 @@ func svcActionCmd(action string) *cobra.Command {
 	switch action {
 	case "start", "restart", "reload":
 		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"
-		c.Flags().Var(waitFlag{&wait}, "wait", "wait up to this long (10s, 2m) for the units to be active; fail if they are not")
+		c.Flags().Var(&durFlag{d: &wait}, "wait", "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not")
 	case "enable", "disable":
 		verb := map[string]string{"enable": "start", "disable": "stop"}[action]
 		c.Flags().BoolVar(&now, "now", false, "also "+verb+" the units now (systemctl "+action+" --now)")
@@ -115,47 +115,6 @@ func svcLogsCmd() *cobra.Command {
 }
 
 // logs.
-
-type logOpts struct {
-	unit, file, container, since, until, grep, priority string
-	lines                                               int
-	sudo, follow, timestamps                            bool
-}
-
-// dockerLogs is `docker logs` with the time of each line only when asked
-// (--timestamps), as docker and kubectl do.
-func (o *logOpts) dockerLogs() string {
-	if o.timestamps {
-		return "docker logs --timestamps"
-	}
-	return "docker logs"
-}
-
-func (o *logOpts) bind(c *cobra.Command) {
-	f := c.Flags()
-	f.StringVarP(&o.unit, "unit", "u", "", "systemd unit (journalctl)")
-	f.StringVar(&o.file, "file", "", "read this log file on the server (full path)")
-	f.StringVar(&o.container, "container", "", "read this Docker container's log (its name or ID)")
-	f.StringVar(&o.since, "since", "", "start time: back from now (30m, 2h, 7d), today, yesterday or '2026-01-02 10:00'")
-	f.StringVar(&o.until, "until", "", "end time, in the same forms as --since")
-	f.StringVar(&o.grep, "grep", "", "only lines matching this extended regex (case-insensitive)")
-	f.StringVarP(&o.priority, "priority", "p", "", "journal priority and worse: emerg, alert, crit, err, warning, notice, info, debug (or 0-7)")
-	f.IntVarP(&o.lines, "limit", "n", 200, "the most lines to show (the last ones)")
-	f.BoolVarP(&o.sudo, "sudo", "s", false, "read via sudo (the whole journal, protected files)")
-	f.BoolVarP(&o.follow, "follow", "f", false, "keep printing new lines until Ctrl-C")
-	f.BoolVar(&o.timestamps, "timestamps", false, "show when each container log line was written (containers)")
-}
-
-func (o *logOpts) build() (string, error) {
-	if err := o.check(); err != nil {
-		return "", err
-	}
-	c := o.source()
-	if o.follow {
-		return c, nil // followCheck checks the source before streaming
-	}
-	return o.preflight() + c, nil
-}
 
 func (o *logOpts) source() string {
 	n := strconv.Itoa(o.lines)
@@ -238,7 +197,7 @@ func logsCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "logs TARGET",
 		Short: "Read logs from journald, a file or a container",
-		Example: `  komando logs web1 --unit nginx --since -30m --grep 'error|crit'
+		Example: `  komando logs web1 --unit nginx --since 30m --grep 'error|crit'
   komando logs @web --file /var/log/nginx/error.log -n 50 --sudo
   komando logs app1 --container api --since 10m`,
 		Args: cobra.ExactArgs(1),
@@ -406,10 +365,11 @@ func pkgCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "pkg",
 		Aliases: []string{"package", "packages"},
-		Short:   "Packages on servers (apt, dnf, yum, apk, zypper, pacman)",
+		Short:   "Packages on servers: install, update, remove, check for updates",
 	}
 	var noSudo, refresh bool
-	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (e.g. when logged in as root)")
+	var limit int
+	c.PersistentFlags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (like when logged in as root)")
 	mk := func(action, short string, needPkgs, mutating, sudo bool) *cobra.Command {
 		use := action + " TARGET"
 		switch {
@@ -422,11 +382,13 @@ func pkgCmd() *cobra.Command {
 			Use:   use,
 			Short: short,
 			Args: func(cmd *cobra.Command, args []string) error {
-				if needPkgs && len(args) < 2 {
-					return out.Usage("give TARGET and at least one package")
+				// the usual missing-arguments error, which names the Use line
+				n := 1
+				if needPkgs {
+					n = 2
 				}
-				if len(args) < 1 {
-					return out.Usage("give TARGET")
+				if err := cobra.MinimumNArgs(n)(cmd, args); err != nil {
+					return usageErr(cmd, err)
 				}
 				if action == "update" && len(args) > 1 {
 					return out.Errf(out.ExitUsage, "USAGE", "to upgrade packages: komando pkg upgrade "+args[0]+" "+strings.Join(args[1:], " "),
@@ -443,15 +405,18 @@ func pkgCmd() *cobra.Command {
 						if pkgFileRe.MatchString(p) {
 							return out.Usage("%q looks like a package file: pkg installs packages by name from the server's repositories; for a local file, copy it with `komando upload` and install it with `komando exec`", p)
 						}
-						return out.Usage("invalid package name %q (give exact names, no options or patterns)", p)
+						return out.Usage("%q is not a package name: give exact names, no options or patterns", p)
 					}
 				}
 				pkgs := strings.Join(args[1:], " ")
 				if action == "remove" {
 					for _, p := range args[1:] {
-						if essentialPkg(p) && !dangerOK() && !confirmDangerous(args[:1], "removing "+p+" can lock you out of the server or break it") {
-							if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "if this is truly intended, confirm with the user and re-run with --allow-dangerous",
-								"removing %s can lock you out of the server or break it", p)); err != nil {
+						if essentialPkg(p) {
+							askTypes([]string{p}, "packages on "+args[0])
+						}
+						if essentialPkg(p) && !dangerOK() && !confirmDangerous(args[:1], "removes "+p+", which can lock you out of the server or break it") {
+							if err := policyStop(approvalErr("POLICY_BLOCKED",
+								"removing "+p+" can lock you out of the server or break it")); err != nil {
 								return err
 							}
 							break // --dry-run: show the plan, marked would_be_blocked
@@ -460,25 +425,28 @@ func pkgCmd() *cobra.Command {
 				}
 				useSudo := (sudo || action == "upgradable" && refresh) && !noSudo
 				if action != "update" {
-					return runPkg(cmd.Context(), action, args[0], args[1:], useSudo, refresh)
+					return runPkg(cmd.Context(), action, args[0], args[1:], useSudo, refresh, limit)
 				}
 				command := "ACTION=" + action + " PKGS=" + sshx.Q(pkgs) + "; " + pkgShell
-				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs)}
+				o := execOpts{sudo: useSudo, display: strings.TrimSpace("pkg " + action + " " + pkgs), exitMap: orSudo(soleHost(args[0]), nil)}
 				return runFleet(cmd.Context(), "pkg."+action, args[0], command, nil, o, mutating)
 			},
 		}
 	}
 	upgradable := mk("upgradable", "Pending upgrades (--refresh updates the package index first)", false, false, false)
 	upgradable.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update), so the list is current")
+	limitFlag(upgradable, &limit, 0, "packages per server")
+	installed := mk("installed", "Show installed versions (all or given packages)", false, false, false)
+	limitFlag(installed, &limit, 0, "packages per server")
 	pkgRm := mk("remove", "Remove packages and report what changed (skips uninstalled)", true, true, true) // "remove" is what the package managers call it
 	pkgRm.Use = "rm TARGET PACKAGE..."
 	c.AddCommand(
 		mk("install", "Install packages and report what changed (installed ones stay)", true, true, true),
 		pkgRm,
 		mk("update", "Refresh the package index", false, true, true),
-		mk("upgrade", "Upgrade all or the given packages (--dry-run lists them)", false, true, true),
+		pkgUpgradeSecurity(mk("upgrade", "Upgrade all or the given packages (--dry-run lists them)", false, true, true), &noSudo),
 		upgradable,
-		mk("installed", "Show installed versions (all or given packages)", false, false, false),
+		installed,
 		pkgSecurityCmd(&noSudo),
 	)
 	return c
@@ -487,24 +455,26 @@ func pkgCmd() *cobra.Command {
 // net.
 
 func netCmd() *cobra.Command {
-	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from the servers: ports, HTTP, DNS"}
+	c := &cobra.Command{Use: "net", Aliases: []string{"network"}, Short: "Network checks from servers: open ports, reachability, HTTP, DNS"}
 	check := &cobra.Command{
-		Use:     "check TARGET HOST:PORT...",
+		Use:     "check TARGET ADDRESS:PORT...",
 		Short:   "Check that each server can open a TCP connection to HOST:PORT",
 		Example: "  komando net check @web db.internal:5432 redis.internal:6379",
 		Args:    cobra.MinimumNArgs(2),
 		RunE:    netCheckRun,
 	}
 	var sudo bool
+	var portsLimit int
 	ports := &cobra.Command{
 		Use:   "ports TARGET",
 		Short: "Listening sockets: protocol, address, port, process",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return netPortsRun(cmd, args[0], sudo)
+			return netPortsRun(cmd, args[0], sudo, portsLimit)
 		},
 	}
 	ports.Flags().BoolVarP(&sudo, "sudo", "s", false, "use sudo to see process names")
+	limitFlag(ports, &portsLimit, 0, "sockets per server")
 	var expect string
 	httpC := &cobra.Command{
 		Use:   "http TARGET URL",
@@ -531,7 +501,7 @@ func netCmd() *cobra.Command {
 				code, _ := v["code"].(float64)
 				switch {
 				case code == 0:
-					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" HOST:443`", "no HTTP answer from %s", args[1])
+					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" ADDRESS:443`", "no HTTP answer from %s", args[1])
 				case expect != "" && !statusMatches(int(code), expect):
 					return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
 				}
@@ -558,11 +528,11 @@ func netCmd() *cobra.Command {
 			}})
 		},
 	}
-	httpC.Flags().StringVar(&expect, "expect", "", "fail unless the status matches, e.g. 200 or 2xx (like curl -f)")
+	httpC.Flags().StringVar(&expect, "expect", "", "fail unless the status matches, like 200 or 2xx (like curl -f)")
 	var rrType string
 	dns := &cobra.Command{
-		Use:     "dns TARGET NAME",
-		Short:   "Resolve NAME from each server (--type MX etc. needs dig there)",
+		Use:     "dns TARGET DOMAIN",
+		Short:   "Resolve a domain name from each server",
 		Example: "  komando net dns @web db.internal\n  komando net dns web1 example.com --type MX",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -623,20 +593,18 @@ kept as they are.`
 func cronCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cron",
-		Short: "Manage crontab entries by ID (set replaces, never duplicates)",
+		Short: "Scheduled tasks on servers: see, set and remove them",
 		Long:  cronLong,
 	}
 	var user string
-	var sudo bool
 	c.PersistentFlags().StringVar(&user, "user", "", "crontab of this user (uses sudo)")
-	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "use root's crontab (through sudo)")
 	ct := func() string {
 		if user != "" {
 			return "crontab -u " + sshx.Q(user)
 		}
 		return "crontab"
 	}
-	useSudo := func() bool { return sudo || user != "" }
+	useSudo := func() bool { return user != "" }
 	// readCron puts the current crontab in $cur; "no crontab" (busybox: "can't
 	// open ...: No such file") is empty, any other error (no permission,
 	// busybox not suid) stops before a write could replace the whole crontab
@@ -650,43 +618,10 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 		return `new=$(printf '%s\n' "$cur" | awk -v t=` + sshx.Q("# komando:"+id) + ` '{ n = length(t); if (length($0) >= n && substr($0, length($0) - n + 1) == t) next; print }')
 `
 	}
-	list := &cobra.Command{
-		Use:     "list TARGET",
-		Aliases: []string{"ls"},
-		Short:   "Show crontab entries",
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(),
-				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
-					if rr.ExitCode != 0 {
-						return nil, out.Errf(out.ExitRemote, "CRONTAB_UNREADABLE", "check the user name; reading another user's crontab needs sudo", "cannot read the crontab (exit %d)", rr.ExitCode)
-					}
-					rows := []map[string]any{}
-					for _, l := range strings.Split(rr.Stdout, "\n") {
-						t := strings.TrimSpace(l)
-						if t == "" || strings.HasPrefix(t, "#") {
-							continue
-						}
-						rows = append(rows, parseCronLine(t))
-					}
-					return rows, nil
-				},
-				text: func(data any) string {
-					rows := [][]string{}
-					for _, r := range data.([]map[string]any) {
-						cmdText := cell(r["command"])
-						if r["schedule"] == nil {
-							cmdText = cell(r["line"])
-						}
-						rows = append(rows, []string{cell(r["schedule"]), cmdText, cell(r["id"])})
-					}
-					return textTable([]string{"schedule", "command", "id"}, rows)
-				}})
-		},
-	}
+	list := cronListCmd(readCron, useSudo)
 	var schedule string
 	set := &cobra.Command{
-		Use:   "set TARGET ID COMMAND",
+		Use:   "set TARGET NAME COMMAND --schedule SCHEDULE",
 		Short: "Create or replace the entry with this ID",
 		Example: `  komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'
   komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily`,
@@ -696,10 +631,10 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 				return err
 			}
 			if !cronID.MatchString(args[1]) {
-				return out.Usage("invalid ID %q: use letters, digits, - and _", args[1])
+				return out.Usage("%q cannot be an ID: use letters, digits, - and _", args[1])
 			}
 			if strings.ContainsAny(args[2], "\r\n") {
-				return out.Usage("COMMAND must be one line (cron runs one line per entry)")
+				return out.Usage("COMMAND has more than one line; cron runs one line per entry")
 			}
 			if strings.TrimSpace(args[2]) == "" {
 				return out.Usage("COMMAND is empty")
@@ -707,18 +642,18 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 			// cron reads an unescaped % as a newline: date +%F would break
 			line := schedule + " " + escapeCronPercent(args[2]) + " # komando:" + args[1]
 			command := readCron() + without(args[1]) + `{ [ -n "$new" ] && printf '%s\n' "$new"; printf '%s\n' ` + sshx.Q(line) + "; } | " + ct() + " - && echo " + sshx.Q(line)
-			return runFleet(cmd.Context(), "cron.set", args[0], command, nil, execOpts{sudo: useSudo(), display: "cron set " + args[1] + ": " + line}, true)
+			return runFleet(cmd.Context(), "cron.set", args[0], command, nil, execOpts{sudo: useSudo(), display: "cron set " + args[1] + ": " + line, exitMap: orSudo(soleHost(args[0]), nil)}, true)
 		},
 	}
 	set.Flags().StringVar(&schedule, "schedule", "", "cron schedule: 5 fields like '*/5 * * * *', or @hourly, @daily, @weekly, @monthly, @yearly, @reboot")
 	_ = set.MarkFlagRequired("schedule")
 	rm := &cobra.Command{
-		Use:   "rm TARGET ID",
-		Short: "Remove the entry with this ID",
+		Use:   "rm TARGET NAME",
+		Short: "Remove a scheduled task",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !cronID.MatchString(args[1]) {
-				return out.Usage("invalid ID %q: use letters, digits, - and _", args[1])
+				return out.Usage("%q cannot be an ID: use letters, digits, - and _", args[1])
 			}
 			command := readCron() + without(args[1]) + `n=$(( $(printf '%s\n' "$cur" | grep -c .) - $(printf '%s\n' "$new" | grep -c .) ))
 if [ "$n" -gt 0 ]; then { [ -n "$new" ] && printf '%s\n' "$new"; } | ` + ct() + ` - || exit $?; fi
@@ -754,7 +689,7 @@ func checkCronSchedule(s string) error {
 	}
 	f := strings.Fields(s)
 	if len(f) != 5 {
-		return out.Usage("--schedule needs 5 fields (minute hour day month weekday), e.g. '0 2 * * *', or @daily")
+		return out.Usage("--schedule needs 5 fields (minute hour day month weekday), for example '0 2 * * *', or @daily")
 	}
 	limits := [5][2]int{{0, 59}, {0, 23}, {1, 31}, {1, 12}, {0, 7}}
 	names := [5]string{"minute", "hour", "day of month", "month", "day of week"}
@@ -763,7 +698,7 @@ func checkCronSchedule(s string) error {
 			rng, step, hasStep := strings.Cut(part, "/")
 			if hasStep {
 				if n, err := strconv.Atoi(step); err != nil || n < 1 {
-					return out.Usage("invalid step %q in the %s field", step, names[i])
+					return out.Usage("the step %q in the %s field is not a number of 1 or more", step, names[i])
 				}
 			}
 			if rng == "*" {
@@ -821,12 +756,4 @@ func parseCronLine(t string) map[string]any {
 		r["command"] = rest
 	}
 	return r
-}
-
-// followLogs streams a log command until Ctrl-C (or --timeout, if given).
-func followLogs(ctx context.Context, target, command string, sudo bool) error {
-	if g.timeout == 0 {
-		g.timeout = 24 * time.Hour // the person stops it with Ctrl-C
-	}
-	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
 }

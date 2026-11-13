@@ -42,7 +42,7 @@ func (d dialerFunc) DialContext(ctx context.Context, network, addr string) (net.
 func OpenMongo(ctx context.Context, rawURL string, t driver.Target, password string, dial DialFunc, appName string, timeout time.Duration) (*Mongo, error) {
 	o := options.Client().ApplyURI(driver.WithoutCA(rawURL))
 	if err := o.Validate(); err != nil {
-		return nil, out.Usage("invalid mongodb URL: %v", err)
+		return nil, out.Usage("komando cannot read the mongodb URL: %v", err)
 	}
 	if o.Auth != nil {
 		o.Auth.Password, o.Auth.PasswordSet = password, password != ""
@@ -84,7 +84,7 @@ func mongoConnectErr(t driver.Target, err error) error {
 	case strings.Contains(msg, "x509") || strings.Contains(msg, "certificate"):
 		return out.Errf(out.ExitConnect, "DB_CONNECT", "the server's certificate could not be checked: give the CA that signed it with ?ca=secret:NAME", "cannot connect to %s: %v", t.Where(), err)
 	}
-	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME`; through a bastion, add --via HOST", "cannot connect to %s: %v", t.Where(), err)
+	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando test TARGET`; through a bastion, add --via HOST", "cannot connect to %s: %v", t.Where(), err)
 }
 
 func mongoErr(err error) error {
@@ -95,11 +95,11 @@ func mongoErr(err error) error {
 	case errors.As(err, &ce) && (ce.Code == 13 || ce.Code == 18):
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user lacks the role for this command", "%v", err)
 	case errors.As(err, &ce):
-		return out.Errf(out.ExitRemote, "DB_ERROR", "check the command: its first key names it, e.g. {\"find\": \"users\", \"filter\": {}}", "%v", err)
+		return out.Errf(out.ExitRemote, "DB_ERROR", "check the command: its first key names it, for example {\"find\": \"users\", \"filter\": {}}", "%v", err)
 	case errors.Is(err, context.DeadlineExceeded):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "MongoDB did not answer in time")
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando conn test NAME`", "%v", err)
+	return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando test TARGET`", "%v", err)
 }
 
 // ParseMongoCommand reads a command document written as JSON (MongoDB
@@ -122,7 +122,7 @@ func ParseMongoCommand(text string) (bson.D, string, error) {
 		keep = append(keep, e)
 	}
 	if len(keep) == 0 {
-		return nil, "", out.Usage("an empty command: its first key names it, e.g. {\"find\": \"users\"}")
+		return nil, "", out.Usage("an empty command: its first key names it, for example {\"find\": \"users\"}")
 	}
 	return keep, db, nil
 }

@@ -133,18 +133,18 @@ func parseChosen(sa []byte) (chosen, error) {
 	p := sa[8:]
 	pl := int(binary.BigEndian.Uint16(p[2:]))
 	if pl < 8 || pl > len(p) {
-		return chosen{}, errors.New("bad proposal")
+		return chosen{}, errors.New("komando cannot read the server's proposal")
 	}
 	p = p[4:pl]
 	spiLen := int(p[2])
 	if len(p) < 4+spiLen+4 {
-		return chosen{}, errors.New("bad proposal")
+		return chosen{}, errors.New("komando cannot read the server's proposal")
 	}
 	c := chosen{spi: append([]byte{}, p[4:4+spiLen]...)}
 	t := p[4+spiLen:]
 	tl := int(binary.BigEndian.Uint16(t[2:]))
 	if tl < 8 || tl > len(t) {
-		return chosen{}, errors.New("bad transform")
+		return chosen{}, errors.New("komando cannot read the server's transform")
 	}
 	c.tid = t[5]
 	c.attrs = parseAttrs(t[8:tl])
@@ -163,10 +163,10 @@ func suiteFromP1(as []attr) (p1Suite, error) {
 		case 256:
 			s.enc = aes256
 		default:
-			return s, errors.New("unknown AES key length")
+			return s, errors.New("the server chose an AES key length komando does not offer")
 		}
 	default:
-		return s, errors.New("unknown cipher")
+		return s, errors.New("the server chose a cipher komando does not offer")
 	}
 	switch attrNum(as, 2) {
 	case 2:
@@ -178,7 +178,7 @@ func suiteFromP1(as []attr) (p1Suite, error) {
 	case 6:
 		s.hash = hSHA512
 	default:
-		return s, errors.New("unknown hash")
+		return s, errors.New("the server chose a hash komando does not offer")
 	}
 	s.group = uint16(attrNum(as, 4))
 	return s, nil

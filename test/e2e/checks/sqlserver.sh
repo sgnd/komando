@@ -19,7 +19,7 @@ fi
 if [ "$(MSC ps -q --status running mssql 2>/dev/null)" = "" ]; then
   skipped "mssql is not running here (an arm64 machine under QEMU? see E2E_MSSQL_IMAGE in compose.yml)"
   q $K conn rm sa-mssql
-  $K secret rm mssql-sa mssql-ro >/dev/null 2>&1 || true
+  $K secret rm mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
   set -e
   return 0
 fi
@@ -50,7 +50,7 @@ q $K db grant shop-mssql sales_ro --privileges SELECT --on schema:dbo
 q $K conn add ro-mssql 'sqlserver://sales_ro@mssql:1433/e2e_sales' --via bastion --password-ref secret:mssql-ro
 check "sqlserver: the new user logs in with the vault password" 2 "$($K db query ro-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "sqlserver: and may only read what was granted" False "$($K db query ro-mssql --write "insert into dbo.orders (item) values (N'x')" | jget 'd["ok"]')"
-check "sqlserver db grants shows SELECT on dbo" True "$($K db grants shop-mssql sales_ro | jget 'any(g["object"] == "dbo" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
+check "sqlserver db user show shows SELECT on dbo" True "$($K db user show shop-mssql sales_ro | jget 'any(g["object"] == "dbo" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
 q $K db user rm shop-mssql sales_ro --allow-dangerous
 check "sqlserver db user rm removed it" False "$($K db user ls shop-mssql | jget 'any(u["name"] == "sales_ro" for u in d["data"]["users"])')"
 check "sqlserver dump is not supported yet" NOT_SUPPORTED "$($K db dump shop-mssql --to "$TMP/s.sql" | jget 'd["error"]["code"]')"
@@ -58,5 +58,5 @@ check "no sqlserver password in the audit log" 0 "$(audit_text | grep -c -E 'Sal
 q $K conn rm ro-mssql shop-mssql
 q $K db query sa-mssql --write --allow-dangerous 'drop database e2e_sales'
 q $K conn rm sa-mssql
-$K secret rm mssql-sa mssql-ro >/dev/null 2>&1 || true
+$K secret rm mssql-sa mssql-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

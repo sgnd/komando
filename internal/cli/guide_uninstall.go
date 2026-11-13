@@ -23,7 +23,7 @@ func guideUninstallCmd() *cobra.Command {
 	var project bool
 	c := &cobra.Command{
 		Use:   "uninstall",
-		Short: "Take the komando skill and guard out of Claude Code, Codex, Cursor, Gemini CLI",
+		Short: "Take the komando skill and guard out of your AI agents",
 		Long: `Removes what ` + "`komando guide install`" + ` added: komando/SKILL.md in ~/.claude/skills
 and ~/.agents/skills, and komando's guard entries in .claude/settings.json,
 .cursor/hooks.json, .gemini/settings.json and .codex/hooks.json. Everything
@@ -158,7 +158,7 @@ func removeGuard(path string, check bool) (skillFile, error) {
 	if len(hooks) == 0 {
 		delete(settings, "hooks")
 	}
-	f.Action, f.Backup = "updated", path+".bak"
+	f.Action, f.Backup = "updated", settingsBackup(path)
 	if check || g.dryRun {
 		return f, nil
 	}
@@ -169,7 +169,7 @@ func removeGuard(path string, check bool) (skillFile, error) {
 	if err := enc.Encode(settings); err != nil {
 		return f, err
 	}
-	if err := os.WriteFile(f.Backup, old, 0o600); err != nil {
+	if err := saveSettingsBackup(f.Backup, old); err != nil {
 		return f, err
 	}
 	return f, store.WriteFileAtomic(path, buf.Bytes(), 0o600)

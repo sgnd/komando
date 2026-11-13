@@ -211,7 +211,7 @@ func TestParseBigQuery(t *testing.T) {
 		"bigquery://my-project?credentials=x":                 "unknown bigquery URL option",
 		"bigquery://my-project?location=e%20u":                "not a location",
 		"bigquery://my-project?ca=proxy":                      "secret:NAME",
-		"bigquery://my-project?endpoint=ftp://x":              "endpoint must be a URL",
+		"bigquery://my-project?endpoint=ftp://x":              "endpoint is a URL",
 		"bigquery://my-project?endpoint=http://x&ca=secret:c": "https:// endpoint",
 	} {
 		_, err := Parse(raw)

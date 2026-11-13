@@ -63,20 +63,29 @@ func orDash(s string) string {
 }
 
 type queueTopics struct {
-	Conn   string         `json:"conn"`
-	Topics []queuex.Topic `json:"topics"` // rabbitmq: queues; nats: streams
-	Count  int            `json:"count"`
-	kind   string
+	Conn      string         `json:"conn"`
+	Topics    []queuex.Topic `json:"topics"` // rabbitmq: queues; nats: streams
+	Count     int            `json:"count"`
+	Truncated bool           `json:"truncated,omitempty"` // there are more than --limit
+	kind      string
 }
 
 func (l queueTopics) Text() string {
+	s := l.table()
+	if l.Truncated {
+		s += fmt.Sprintf("\nonly the first %d by name: narrow it with a pattern (komando queue list %s 'orders-*') or raise --limit\n", l.Count, l.Conn)
+	}
+	return s
+}
+
+func (l queueTopics) table() string {
 	switch {
 	case len(l.Topics) == 0 && (l.kind == "rabbitmq" || l.kind == "sqs"):
-		return "no queues\n"
+		return noneYet("queues", "queue create "+l.Conn+" QUEUE")
 	case len(l.Topics) == 0 && l.kind == "nats":
-		return "no streams\n"
+		return noneYet("streams", "queue create "+l.Conn+" STREAM")
 	case len(l.Topics) == 0:
-		return "no topics\n"
+		return noneYet("topics", "queue create "+l.Conn+" TOPIC")
 	case l.kind == "rabbitmq":
 		return rabbitQueuesText(l.Topics)
 	case l.kind == "nats":
@@ -188,7 +197,7 @@ func (p queuePeek) Text() string {
 		fmt.Fprintf(&b, "(the %s %s; the topic holds more: raise -n, or use --oldest or --partition)\n", p.From, countOf(p.Count, "message"))
 	}
 	if p.Partial {
-		b.WriteString("(stopped waiting: some messages may be missing; raise --wait)\n")
+		b.WriteString("(stopped waiting: some messages may be missing; raise --idle)\n")
 	}
 	return b.String()
 }
@@ -211,9 +220,9 @@ type queueGroups struct {
 func (l queueGroups) Text() string {
 	switch {
 	case len(l.Groups) == 0 && l.kind == "pubsub":
-		return "no subscriptions\n"
+		return noneYet("subscriptions", "")
 	case len(l.Groups) == 0:
-		return "no consumer groups\n"
+		return noneYet("consumer groups", "")
 	case l.Groups[0].NatsConsumer != nil:
 		return natsGroupsText(l.Groups)
 	case l.Groups[0].PubsubSubscription != nil:

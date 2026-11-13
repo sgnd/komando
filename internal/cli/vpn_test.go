@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -278,7 +279,7 @@ func TestNeedsPersonLogin(t *testing.T) {
 // of a kind that has them.
 func TestVpnEditFlags(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "v1", "socks", "--address", "127.0.0.1:1080", "-g", "a", "-t", "x")
+	mustRun(t, "vpn", "add", "v1", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "a", "-t", "x")
 	mustRun(t, "vpn", "edit", "v1", "-g", "b", "-t", "y")
 	st, _ := store.Load()
 	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "a,b" || strings.Join(v.Tags, ",") != "x,y" {
@@ -318,11 +319,11 @@ func TestAliasEnvelopeName(t *testing.T) {
 }
 
 // vpn add reads as host add: what happened first, the config indented,
-// next last.
+// notes last; the next command is on stderr (S-9.3).
 func TestVpnChangeText(t *testing.T) {
 	v := &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:office-key", Config: "[Interface]\nAddress = 10.66.0.2/32\n", Groups: []string{"a"}}
-	got := vpnChangeText{verb: "added", v: v, notes: []string{"n1"}, next: "komando vpn up office"}.Text()
-	want := "added office\n  kind: wireguard\n  private key: secret:office-key\n  groups: a\n  config:\n    [Interface]\n    Address = 10.66.0.2/32\nnote: n1\nnext: komando vpn up office"
+	got := vpnChangeText{verb: "added", v: v, notes: []string{"n1"}}.Text()
+	want := "added office\n  kind: wireguard\n  private key: secret:office-key\n  groups: a\n  config:\n    [Interface]\n    Address = 10.66.0.2/32\nnote: n1"
 	if got != want {
 		t.Errorf("got:\n%s\nwant:\n%s", got, want)
 	}
@@ -334,4 +335,105 @@ func TestVpnChangeText(t *testing.T) {
 	if got := (vpnChangeText{verb: "changed", v: weak}).Text(); !strings.Contains(got, "legacy crypto: yes") || !strings.Contains(got, "allow PAP: yes") {
 		t.Errorf("weaker login: %s", got)
 	}
+}
+
+// TestVpnTestProxyMustAnswer: `vpn test` and `vpn up` of a SOCKS or HTTP
+// proxy without --check connect to the proxy itself; they said ok for a
+// proxy that does not answer, while `vpn status` said it was down.
+func TestVpnTestProxyMustAnswer(t *testing.T) {
+	invHome(t)
+	dead, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadAddr := dead.Addr().String()
+	dead.Close()
+	live, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer live.Close()
+	go func() {
+		for {
+			c, err := live.Accept()
+			if err != nil {
+				return
+			}
+			c.Close()
+		}
+	}()
+	mustRun(t, "vpn", "add", "deadsocks", "socks", "--proxy-address", deadAddr)
+	mustRun(t, "vpn", "add", "deadproxy", "proxy", "--proxy-address", deadAddr)
+	mustRun(t, "vpn", "add", "livesocks", "socks", "--proxy-address", live.Addr().String())
+	wantCode(t, "VPN_DOWN", "vpn", "up", "deadsocks")
+	wantCode(t, "VPN_DOWN", "vpn", "up", "deadproxy")
+	d, _ := invRun(t, "vpn", "test", "deadproxy")
+	if r := d["results"].([]any)[0].(map[string]any); r["ok"] != false {
+		t.Errorf("dead proxy tested ok: %v", r)
+	}
+	d = mustRun(t, "vpn", "test", "livesocks")
+	if r := d["results"].([]any)[0].(map[string]any); r["ok"] != true {
+		t.Errorf("live proxy: %v", r)
+	}
+}
+
+// TestVpnDownSaysWhatStops: vpn down names the servers and conns that use
+// the VPN, and whether they stop answering until a person's `vpn up` (a
+// login with MFA) or connect it again on their next command.
+func TestVpnDownSaysWhatStops(t *testing.T) {
+	invHome(t)
+	now := time.Now().UTC()
+	if err := store.Update(func(st *store.State) error {
+		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
+		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "openvpn", Check: "10.0.0.1:22", CreatedAt: now, UpdatedAt: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "host", "add", "app", "u@10.0.0.5", "--via", "client-x")
+	mustRun(t, "host", "add", "web", "u@10.0.0.6", "--via", "office")
+	d := mustRun(t, "vpn", "down", "client-x", "office", "--dry-run")
+	aff, _ := d["affects"].([]any)
+	if len(aff) != 2 {
+		t.Fatalf("dry run affects: %v", d)
+	}
+	if a := aff[0].(map[string]any); a["vpn"] != "client-x" || a["until"] != "vpn up" || a["next"] != "komando vpn up client-x" {
+		t.Errorf("mfa vpn: %v", a)
+	}
+	if a := aff[1].(map[string]any); a["vpn"] != "office" || a["until"] != "next command" {
+		t.Errorf("vpn without a person's login: %v", a)
+	}
+	// a running session (a stand-in process) is stopped, and down says so
+	sleeper := sleeperCmd()
+	if err := sleeper.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
+	g.dryRun, store.DryRun = false, false // left on by the dry run above
+	if err := store.UpdateRuntime(func(st *store.State) error {
+		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), StartedAt: now, LastUsed: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if x := mustState(t).Sessions["client-x"]; x == nil || !netx.SessionAlive(x) {
+		t.Fatalf("stand-in session: %+v", x)
+	}
+	d = mustRun(t, "vpn", "down", "client-x")
+	if aff, _ := d["affects"].([]any); len(aff) != 1 {
+		t.Fatalf("affects: %v", d)
+	}
+	txt := vpnDownData{Disconnected: []string{"client-x"}, Affects: vpnDownAffects(mustState(t), []string{"client-x"})}.Text()
+	if !strings.Contains(txt, "app stop answering until a person runs `komando vpn up client-x`") {
+		t.Errorf("text: %q", txt)
+	}
+}
+
+func mustState(t *testing.T) *store.State {
+	t.Helper()
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return st
 }

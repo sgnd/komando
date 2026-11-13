@@ -58,17 +58,17 @@ func init() {
 				{name: "notes", ask: "Notes about this VPN?", example: "office in Jakarta, ask Budi for access",
 					help: "Anything to remember. Leave empty to keep them."},
 			}},
-		"vpn mv": {args: []formArg{accVpn, accNewName}},
-		"vpn rm": {args: []formArg{accVpns}},
+		"vpn rename": {args: []formArg{accVpn, accNewName}},
+		"vpn rm":     {args: []formArg{accVpns}},
 
 		// Tunnels
-		"tunnel start": {args: []formArg{{ask: "To which server or service?", pick: "target", free: true,
-			help: "Pick a service (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
+		"tunnel start": {args: []formArg{{ask: "To which server or conn?", pick: "target", free: true,
+			help: "Pick a conn (a database, a cache) to reach it from this computer, or a server to forward a port through it."}},
 			flags: []formFlag{
-				{name: "port", ask: "Which port on this computer? (for a service)", example: "15432",
+				{name: "port", ask: "Which port on this computer? (for a conn)", example: "15432",
 					help: "Point your app at localhost and this port. Leave empty for a free one; komando shows which."},
 				{name: "local", ask: "What should it forward? (for a server)", example: "8080:localhost:80",
-					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a service."},
+					help: "LOCALPORT:ADDRESS:PORT: localhost:8080 here reaches localhost:80 as the server sees it. Leave empty for a conn."},
 			}},
 		"tunnel list": {},
 		"tunnel stop": {args: []formArg{{ask: "Which tunnels should stop? (leave empty with --all)", pick: "tunnel", free: true,
@@ -86,12 +86,12 @@ func init() {
 		// Secrets
 		"secret set": {args: []formArg{{ask: "What name should the secret have?", example: "db-pass", pick: "secret", free: true,
 			help: "Pick one to give it a new value, or type a new name: letters, digits, dot, dash and underscore, starting with a letter or digit. komando asks for the value next and hides it as you type or paste."}}},
-		"secret get": {args: []formArg{accSecret}},
+		"secret show": {args: []formArg{accSecret}},
 		"secret check": {args: []formArg{{ask: "Which secret should your value be compared with?", example: "vpn-pass", pick: "secret", free: true,
 			help: "Its name in the vault. komando asks for your value next, hidden, and says whether it matches, never showing either."}}},
-		"secret list": {},
-		"secret mv":   {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
-		"secret cp":   {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
+		"secret list":   {},
+		"secret rename": {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
+		"secret cp":     {args: []formArg{accSecret, accSecretNew}, flags: []formFlag{accOverwrite}},
 		"secret rm": {args: []formArg{{ask: "Which secrets?", example: "old-pass", pick: "secret", free: true,
 			help: "Their names in the vault. Several: separate them with spaces. A secret still in use is not deleted."}}},
 		"secret keychain": {flags: []formFlag{accSecretOff}},
@@ -108,12 +108,12 @@ func init() {
 			{ask: "Where is the private key file on this computer?", example: "~/.ssh/id_ed25519", local: true,
 				help: "The file without .pub at the end. It stays where it is. ~/ means your home folder."}},
 			flags: []formFlag{accPassRef}},
-		"key edit": {args: []formArg{accKey}, flags: []formFlag{accPassRef}},
-		"key list": {},
-		"key show": {args: []formArg{accKey}},
-		"key mv":   {args: []formArg{accKey, {ask: "What should the new name be?", example: "deploy-2026", help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}}},
-		"key rm": {args: []formArg{accKey}, flags: []formFlag{{name: "delete-file", ask: "Also delete the key files?",
-			help: "Only for a key komando made. Deleted key files cannot be brought back."}}},
+		"key edit":   {args: []formArg{accKey}, flags: []formFlag{accPassRef}},
+		"key list":   {},
+		"key show":   {args: []formArg{accKey}},
+		"key rename": {args: []formArg{accKey, {ask: "What should the new name be?", example: "deploy-2026", help: "Letters, digits, dot, dash and underscore, starting with a letter or digit."}}},
+		"key rm": {args: []formArg{accKey}, flags: []formFlag{{name: "delete-file", ask: "Also delete the private key?",
+			help: "Only for a key komando made. A deleted private key cannot be brought back."}}},
 		"key deploy": {args: []formArg{accKeyOrPub, accServers},
 			flags: []formFlag{{name: "set-default", ask: "Should komando log in with this key from now on?",
 				help: "Yes switches each server where it worked to this key."}}},
@@ -124,13 +124,36 @@ func init() {
 }
 
 // loginForm asks for one server: a bare `komando login` only shows its
-// help, so the menu never leaves the server out.
+// help, so a person at a terminal is always asked for the server.
 func loginForm() []formGroup {
 	sp := formSpec{title: "Log in to a server once and keep it", qs: []formQ{{
 		key: "arg0", label: "Host", ask: "Which server should you log in to?",
 		help:    "komando asks what the server asks (a password, a code from your phone) and keeps the login open for a while, so later commands need no login.",
-		choices: func(st *store.State, _ formAnswers) []menuRow { return formPickRows(st, "server") },
+		choices: func(st *store.State, _ formAnswers) []pickRow { return formPickRows(st, "server") },
 	}}}
 	sp.build = func(_ *store.State, a formAnswers) [][]string { return [][]string{{"login", a["arg0"]}} }
 	return []formGroup{{label: "Login", kinds: []formKind{{label: "Server", spec: func() formSpec { return sp }}}}}
+}
+
+// Next: lines for VPNs, logins, tunnels, secrets and keys (network,
+// secrets, core and cloud areas).
+func init() {
+	addFormHints(map[string]formHint{
+		"vpn up":       {next: []string{"vpn status", "test TARGET", "vpn down {}"}},
+		"vpn down":     {next: []string{"vpn status", "vpn up {}"}},
+		"login":        {next: []string{"status", "exec {} -- uptime", "logout {}"}},
+		"logout":       {next: []string{"status"}},
+		"tunnel start": {next: []string{"tunnel list", "tunnel stop TUNNEL"}},
+		"tunnel stop":  {next: []string{"tunnel list"}},
+		"login aws":    {next: []string{"test TARGET", "storage list CONN", "import aws"}},
+		"secret set": {next: []string{"host edit TARGET --password-ref secret:{}", "conn edit NAME --password-ref secret:{}",
+			"secret list"}},
+		"secret list":       {next: []string{"secret show NAME", "secret set NAME"}},
+		"secret rename":     {next: []string{"secret list", "test TARGET"}},
+		"secret cp":         {next: []string{"secret list"}},
+		"secret keychain":   {next: []string{"doctor"}},
+		"secret passphrase": {next: []string{"doctor", "tunnel list", "vpn status"}},
+		"key gen":           {next: []string{"key deploy {} TARGET --set-default", "key show {}"}},
+		"key deploy":        {next: []string{"test TARGET", "key revoke NAME TARGET"}},
+	})
 }

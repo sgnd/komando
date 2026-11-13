@@ -18,7 +18,7 @@ func TestApprovalHintOnlyWhereAFlagAsks(t *testing.T) {
 		e          *out.Error
 		want, nope string
 	}{
-		{&out.Error{Code: "POLICY_BLOCKED", Hint: "check it", Exit: out.ExitPolicy}, "komando asks the user in a window", ""},
+		{&out.Error{Code: "POLICY_BLOCKED", Hint: "check it", Exit: out.ExitPolicy}, "komando then asks them in a window", ""},
 		{(&out.Error{Code: "UNSAFE_BACKUP", Hint: "fix that line", Exit: out.ExitPolicy}).NoFlag(), "fix that line", "window"},
 		{&out.Error{Code: "WRITE_REQUIRES_FLAG", Hint: "re-run with --write", Exit: out.ExitPolicy}, "komando does not ask the user about this", "window"},
 		{&out.Error{Code: "READ_ONLY_VIOLATION", Hint: "it changes something", Exit: out.ExitPolicy}, "komando does not ask the user about this", "window"},
@@ -46,7 +46,7 @@ func TestSafetyStopTextHintForAgents(t *testing.T) {
 	resetApproval()
 	e = toErr(guardSafety("turning off the audit log"))
 	approvalHint(e)
-	if h := e.TextHint(); strings.Contains(h, "in a script") || !strings.Contains(h, "komando asks the user in a window") {
+	if h := e.TextHint(); strings.Contains(h, "in a script") || !strings.Contains(h, "komando then asks them in a window") {
 		t.Errorf("agent text hint: %q", h)
 	}
 	if !strings.HasPrefix(e.TextMessage(), "turning off the audit log turns off") {
@@ -80,6 +80,7 @@ func TestDoctorChecksTheAgentSkill(t *testing.T) {
 	invHome(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Chdir(t.TempDir())
 	check := func() map[string]any {
 		t.Helper()
@@ -101,7 +102,7 @@ func TestDoctorChecksTheAgentSkill(t *testing.T) {
 	}
 	p := filepath.Join(home, ".claude", "skills", "komando", "SKILL.md")
 	os.WriteFile(p, []byte("an older skill\n"), 0o644)
-	if c := check(); c["ok"] != false || !strings.Contains(c["detail"].(string), "another komando version") {
+	if c := check(); c["ok"] != false || !strings.Contains(c["detail"].(string), "another komando version") || strings.Contains(c["detail"].(string), "old spellings") {
 		t.Errorf("stale: %v", c)
 	}
 }
@@ -124,6 +125,7 @@ func TestGuideUninstall(t *testing.T) {
 	invHome(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	os.MkdirAll(filepath.Join(home, ".claude"), 0o755)
 	own := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"my-own-check"}]}]},"model":"x"}`
 	os.WriteFile(filepath.Join(home, ".claude", "settings.json"), []byte(own), 0o600)

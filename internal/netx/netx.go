@@ -1,5 +1,5 @@
 // Package netx opens the networks komando reaches targets through
-// (docs/design/network.md). WireGuard, SOCKS, HTTP proxies, L2TP, IPsec,
+// (docs/features/vpn.md). WireGuard, SOCKS, HTTP proxies, L2TP, IPsec,
 // IKEv2, Tailscale, OpenVPN and AnyConnect run inside komando, in user
 // space, so the computer's routes are not changed. Only the openconnect
 // family (globalprotect, fortinet, pulse, f5) uses an outside client when
@@ -15,10 +15,8 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
+	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +44,7 @@ type Kind struct {
 // Kinds are the VPN kinds komando knows.
 var Kinds = map[string]Kind{
 	"wireguard":     {Desc: "WireGuard, run inside komando (no admin rights, many at once)"},
-	"socks":         {Desc: "a SOCKS5 proxy that is already running (`komando tunnel start HOST -D`, a company proxy)"},
+	"socks":         {Desc: "a SOCKS5 proxy that is already running (`komando tunnel start TARGET -D`, a company proxy)"},
 	"proxy":         {Desc: "an HTTP proxy (CONNECT), such as a company proxy: every connection is tunneled through it"},
 	"system":        {Desc: "a VPN set up in your computer's settings; --service lets `vpn up` connect it"},
 	"l2tp":          {Desc: "L2TP/IPsec with a pre-shared key, run inside komando (no admin rights)", Session: true},
@@ -77,7 +75,7 @@ var StartSession func(ctx context.Context, name string) error
 
 // LoginRequired is the error for a VPN that needs a human to log in.
 func LoginRequired(v *store.Vpn) error {
-	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs their login); then try again",
+	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs their login); then run it again",
 		"VPN %s is not connected and needs a person to log in", v.Name)
 }
 
@@ -120,19 +118,22 @@ func isProgram(pid int, exe string) bool {
 	if exe == "" {
 		return true
 	}
-	// Linux: /proc/PID/comm (no ps needed in small images); others: ps
-	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/comm")
-	if err != nil {
-		if b, err = exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output(); err != nil {
-			return false
-		}
+	name, err := programName(pid)
+	return err == nil && sameProgram(name, exe, runtime.GOOS == "windows")
+}
+
+// sameProgram reports whether name, the file name the system gives a
+// running process, is the program exe. Linux shortens a process's name to
+// 15 characters, so only that much of exe has to match; Windows file names
+// do not care about case (fold).
+func sameProgram(name, exe string, fold bool) bool {
+	if len(exe) > 15 {
+		exe = exe[:15]
 	}
-	name := filepath.Base(strings.TrimSpace(string(b)))
-	want := exe
-	if len(want) > 15 { // Linux shortens comm to 15 characters
-		want = want[:15]
+	if fold {
+		name, exe = strings.ToLower(name), strings.ToLower(exe)
 	}
-	return name != "" && strings.HasPrefix(name, want)
+	return name != "" && strings.HasPrefix(name, exe)
 }
 
 // ReapIdle closes sessions unused for longer than vpn_idle. It runs at
@@ -226,7 +227,7 @@ func sameSession(a, b *store.VpnSession) bool {
 // Lock holds the per-VPN lock that starting and stopping a session take,
 // so a stale stop can never hit a session another process just started.
 func Lock(name string) (unlock func(), err error) {
-	if err := os.MkdirAll(store.Path("vpn"), 0o700); err != nil {
+	if err := store.MkdirPrivate("vpn"); err != nil {
 		return nil, err
 	}
 	f, err := os.OpenFile(store.Path("vpn", name+".lock"), os.O_CREATE|os.O_RDWR, 0o600)
@@ -353,7 +354,7 @@ func OpenDirect(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 		}
 		return (&net.Dialer{Timeout: timeout}).DialContext, nopCloser{}, nil
 	}
-	return nil, nil, configErr(v, fmt.Errorf("unknown kind %q", v.Kind))
+	return nil, nil, configErr(v, fmt.Errorf("komando has no VPN kind %q (a bug: report it)", v.Kind))
 }
 
 // socksErr says plainly when nothing runs at the proxy's address (the
@@ -375,9 +376,9 @@ func Down(v *store.Vpn, err error) error {
 func DownHint(v *store.Vpn) string {
 	switch {
 	case v.Kind == "system":
-		return "connect the VPN " + v.Name + " on this computer first, then try again"
+		return "connect the VPN " + v.Name + " on this computer first, then run it again"
 	case v.Kind == "socks":
-		return "start the SOCKS proxy at " + v.Address + ", e.g. `komando tunnel start HOST -D " + v.Address + "`, then try again"
+		return "start the SOCKS proxy at " + v.Address + ", for example `komando tunnel start TARGET -D " + v.Address + "`, then run it again"
 	case v.Kind == "proxy":
 		return "check that the proxy at " + v.Address + " answers and lets this port through (many company proxies allow only 443), and its login (`komando vpn show " + v.Name + "`)"
 	case v.Kind == "wireguard":

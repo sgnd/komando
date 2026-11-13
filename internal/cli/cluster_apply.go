@@ -23,20 +23,26 @@ import (
 
 func clusterApplyCmd() *cobra.Command {
 	var file, ns, stack string
+	var forceConflicts bool
 	c := &cobra.Command{
 		Use:   "apply TARGET --file FILE",
-		Short: "Apply YAML (Kubernetes) or deploy a stack (Swarm)",
+		Short: "Apply Kubernetes YAML or deploy a Swarm stack",
 		Long: `Kubernetes: applies every object in FILE server-side and says per object
 whether it was created, configured or unchanged. --dry-run asks the server
 what would change and shows it as a diff (Secret values stay hidden; a
 changed value shows as "(hidden, changed)"). Objects without a namespace go
 to --namespace; one that names another namespace is refused.
 
+A field another field manager owns (an autoscaler's replicas, a kubectl
+edit) stops the apply with K8S_CONFLICT naming that manager, and nothing
+is applied. --force-conflicts takes those fields over, as
+` + "`kubectl apply --server-side --force-conflicts`" + ` does.
+
 Swarm: deploys FILE (a compose file) as the stack --stack; --dry-run checks
 the file with ` + "`docker stack config`" + ` on the manager.`,
 		Example: `  komando cluster apply prod-k8s --file app.yaml --dry-run
   komando cluster apply prod-k8s --file app.yaml
-  komando cluster apply swarm-manager --file compose.yml --stack shop`,
+  komando cluster apply swarm1 --file compose.yml --stack shop`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if file == "" {
@@ -61,11 +67,15 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 				if stack == "" {
 					return out.Usage("Swarm needs --stack NAME")
 				}
+				if forceConflicts {
+					return out.Usage("--force-conflicts is for Kubernetes; Swarm has no field managers")
+				}
 				return swarmApply(cmd.Context(), t, stack, b)
 			}
 			if stack != "" {
 				return out.Usage("--stack is for Swarm; Kubernetes objects take their namespace from the file or --namespace")
 			}
+
 			docs, err := splitYAML(b)
 			if err != nil {
 				return out.Usage("%s: %v", file, err)
@@ -78,34 +88,61 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 					return out.Usage("%s/%s is in namespace %s in the file, not %s from --namespace: leave out --namespace or change the file", strings.ToLower(d.Kind), d.Name, d.Namespace, ns)
 				}
 			}
-			return withKube(cmd.Context(), "cluster.apply", t, driver.RiskWrite, map[string]any{"file": file, "objects": len(docs)}, func(ctx context.Context, k *kube.Client) (any, error) {
-				return kubeApply(ctx, k, t.conn.Name, docs, ns)
+			extra := map[string]any{"file": file, "objects": len(docs)}
+			if forceConflicts {
+				extra["force_conflicts"] = true
+			}
+			return withKube(cmd.Context(), "cluster.apply", t, driver.RiskWrite, extra, func(ctx context.Context, k *kube.Client) (any, error) {
+				return kubeApply(ctx, k, t.conn.Name, docs, ns, forceConflicts)
 			})
 		},
 	}
-	c.Flags().StringVar(&file, "file", "", "YAML file ('-' for stdin)")
+	c.Flags().StringVarP(&file, "file", "f", "", "YAML file ('-' for stdin)")
 	c.Flags().StringVar(&stack, "stack", "", "Swarm: the stack name")
+	c.Flags().BoolVar(&forceConflicts, "force-conflicts", false, "Kubernetes: take over fields another field manager owns")
 	nsFlags(c, &ns, nil, nil)
 	return c
 }
 
 // kubeApply applies docs server-side (a dry run asks the server only) and
-// reports per object what happened, or would.
-func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string) (any, error) {
-	q := url.Values{"fieldManager": {"komando"}, "force": {"true"}}
-	if g.dryRun {
+// reports per object what happened, or would. A real apply first sends the
+// whole file as a server dry run: an object the cluster refuses (a typo, a
+// field it does not know, an unknown kind) stops it before anything
+// changes, instead of half the file being applied. Without force a field
+// another manager owns stops it (K8S_CONFLICT); force takes it over.
+func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, force bool) (any, error) {
+	if !g.dryRun {
+		if _, err := applyPass(ctx, k, conn, docs, ns, true, force); err != nil {
+			var oe *out.Error
+			if errors.As(err, &oe) {
+				oe.Message = "nothing was applied: " + oe.Message
+				return nil, oe
+			}
+			return nil, fmt.Errorf("nothing was applied: %w", err)
+		}
+	}
+	return applyPass(ctx, k, conn, docs, ns, g.dryRun, force)
+}
+
+// applyPass applies docs once, as a server dry run (dry) or for real.
+func applyPass(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, dry, force bool) (applyData, error) {
+	q := url.Values{"fieldManager": {"komando"}}
+	if force {
+		q.Set("force", "true")
+	}
+	if dry {
 		q.Set("dryRun", "All")
 	}
-	res := applyData{Conn: conn, DryRun: g.dryRun, Objects: []objectChange{}}
+	res := applyData{Conn: conn, DryRun: dry, Objects: []objectChange{}}
 	creates := map[string]bool{} // namespaces this file creates
 	for _, d := range docs {
 		r, err := k.ResourceFor(ctx, d.APIVersion, d.Kind)
 		var uk *kube.UnknownKindError
 		if errors.As(err, &uk) {
-			return nil, out.Usage("%v", err)
+			return res, out.Usage("%v", err)
 		}
 		if err != nil {
-			return nil, err // the cluster could not be asked: kubeErr says why
+			return res, err // the cluster could not be asked: kubeErr says why
 		}
 		space := ""
 		if r.IsNamespaced() {
@@ -117,23 +154,29 @@ func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc,
 		before, err := k.Do(ctx, "GET", path, nil, nil, "")
 		var ae *kube.APIError
 		if err != nil && !(errors.As(err, &ae) && ae.Code == 404) {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return res, fmt.Errorf("%s: %w", name, err)
 		}
-		if g.dryRun && before == nil && creates[space] {
+		if dry && before == nil && creates[space] {
 			// the server cannot dry-run into a namespace that does not exist yet
 			res.Objects = append(res.Objects, objectChange{Object: name, Namespace: space, Action: "create", Note: "in namespace " + space + ", which this file creates"})
 			continue
 		}
 		after, err := k.Do(ctx, "PATCH", path, q, d.JSON, "application/apply-patch+yaml")
+		if errors.As(err, &ae) && ae.Code == 409 && strings.HasPrefix(ae.Message, "Apply failed with") {
+			// the server's words name the other manager and its fields
+			return res, out.Errf(out.ExitConflict, "K8S_CONFLICT",
+				"another field manager owns these fields (named above): leave them out of the file, or take them over with `komando cluster apply TARGET --file FILE --force-conflicts`",
+				"%s: %s", name, ae.Message)
+		}
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return res, fmt.Errorf("%s: %w", name, err)
 		}
 		if d.Kind == "Namespace" && before == nil {
 			creates[d.Name] = true
 		}
 		c := diffObject(name, before, after)
 		c.Namespace = space
-		if !g.dryRun {
+		if !dry {
 			c.Diff = ""
 			c.Action = map[string]string{"create": "created", "change": "configured", "none": "unchanged"}[c.Action]
 		}

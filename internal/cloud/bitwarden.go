@@ -48,7 +48,7 @@ import (
 func Bitwarden(ctx context.Context, ref string) (string, error) {
 	item, field, ok := strings.Cut(strings.TrimPrefix(ref, "bw://"), "/")
 	if !ok || item == "" || field == "" {
-		return "", errors.New("bw:// references are bw://ITEM/FIELD, e.g. bw://shop-db/password")
+		return "", errors.New("bw:// references are bw://ITEM/FIELD, for example bw://shop-db/password")
 	}
 	v, err := bwOpen(ctx)
 	if err != nil {
@@ -124,7 +124,7 @@ func bwEndpoints(server string) (identity, api string) {
 }
 
 func bwLoad(ctx context.Context) ([]bwItem, error) {
-	email, password := os.Getenv("KOMANDO_BW_EMAIL"), os.Getenv("KOMANDO_BW_PASSWORD")
+	email, password := os.Getenv("KOMANDO_BW_EMAIL"), UnlockEnv("KOMANDO_BW_PASSWORD")
 	if email == "" || password == "" {
 		return nil, errors.New("bitwarden: set KOMANDO_BW_EMAIL and KOMANDO_BW_PASSWORD (the master password decrypts the vault here)")
 	}
@@ -146,7 +146,7 @@ func bwLoad(ctx context.Context) ([]bwItem, error) {
 	}
 	form := url.Values{"scope": {"api offline_access"}, "deviceType": {bwDeviceType()}, "deviceName": {"komando"},
 		"deviceIdentifier": {bwDeviceID()}, "client_id": {"cli"}}
-	if id, sec := os.Getenv("KOMANDO_BW_CLIENT_ID"), os.Getenv("KOMANDO_BW_CLIENT_SECRET"); id != "" && sec != "" {
+	if id, sec := os.Getenv("KOMANDO_BW_CLIENT_ID"), UnlockEnv("KOMANDO_BW_CLIENT_SECRET"); id != "" && sec != "" {
 		form.Set("grant_type", "client_credentials")
 		form.Set("scope", "api")
 		form.Set("client_id", id)
@@ -288,7 +288,7 @@ func BitwardenMasterKey(password, email string, kdf, iterations, memoryMiB, para
 		s := sha256.Sum256(salt)
 		return argon2.IDKey([]byte(password), s[:], uint32(iterations), uint32(memoryMiB*1024), uint8(parallelism), 32), nil
 	}
-	return nil, fmt.Errorf("bitwarden: unknown key derivation %d", kdf)
+	return nil, fmt.Errorf("bitwarden: the account uses a key derivation komando does not know (%d)", kdf)
 }
 
 // BitwardenPasswordHash is what the server checks at login: one more
@@ -315,13 +315,13 @@ func BitwardenDecrypt(s string, key []byte) ([]byte, error) {
 	}
 	parts := strings.Split(rest, "|")
 	if len(parts) != 3 {
-		return nil, errors.New("bitwarden: malformed cipher string")
+		return nil, errors.New("bitwarden: komando cannot read an encrypted value")
 	}
 	iv, err1 := base64.StdEncoding.DecodeString(parts[0])
 	ct, err2 := base64.StdEncoding.DecodeString(parts[1])
 	mac, err3 := base64.StdEncoding.DecodeString(parts[2])
 	if err := errors.Join(err1, err2, err3); err != nil {
-		return nil, errors.New("bitwarden: malformed cipher string")
+		return nil, errors.New("bitwarden: komando cannot read an encrypted value")
 	}
 	m := hmac.New(sha256.New, key[32:])
 	m.Write(iv)
@@ -330,14 +330,14 @@ func BitwardenDecrypt(s string, key []byte) ([]byte, error) {
 		return nil, errors.New("bitwarden: integrity check failed")
 	}
 	if len(iv) != aes.BlockSize || len(ct) == 0 || len(ct)%aes.BlockSize != 0 {
-		return nil, errors.New("bitwarden: malformed cipher string")
+		return nil, errors.New("bitwarden: komando cannot read an encrypted value")
 	}
 	block, _ := aes.NewCipher(key[:32])
 	out := make([]byte, len(ct))
 	cipher.NewCBCDecrypter(block, iv).CryptBlocks(out, ct)
 	pad := int(out[len(out)-1])
 	if pad == 0 || pad > aes.BlockSize || pad > len(out) {
-		return nil, errors.New("bitwarden: bad padding")
+		return nil, errors.New("bitwarden: the decrypted value has broken padding")
 	}
 	return out[:len(out)-pad], nil
 }
@@ -346,7 +346,7 @@ func BitwardenDecrypt(s string, key []byte) ([]byte, error) {
 // e2e seeding; komando itself only reads).
 func BitwardenEncrypt(plain, key []byte) (string, error) {
 	if len(key) != 64 {
-		return "", errors.New("bitwarden: key must be 64 bytes")
+		return "", errors.New("bitwarden: the key is not 64 bytes")
 	}
 	iv := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(iv); err != nil {
@@ -400,7 +400,7 @@ func bwDeviceID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	id := fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:])
-	_ = os.MkdirAll(store.Home(), 0o700)
+	_ = store.EnsureHome()
 	_ = os.WriteFile(p, []byte(id), 0o600)
 	return id
 }

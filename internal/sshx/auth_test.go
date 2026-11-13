@@ -11,7 +11,9 @@ import (
 // AUTH_FAILED), and a password reference that cannot be read is a missing
 // secret (exit 3, like everywhere else SECRET_UNRESOLVED is returned).
 func TestAuthMethodsErrorExitCodes(t *testing.T) {
-	t.Setenv("HOME", t.TempDir()) // no ~/.ssh/id_* keys
+	fakeHome := t.TempDir() // no ~/.ssh/id_* keys
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Setenv("SSH_AUTH_SOCK", "")
 	t.Run("no auth", func(t *testing.T) {
 		_, _, err := authMethods(&store.State{}, &store.Host{Name: "web1"}, 0)

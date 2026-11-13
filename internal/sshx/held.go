@@ -15,7 +15,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Held logins: `komando login HOST` lets a person log in to a server once
+// Held logins: `komando login SERVER` lets a person log in to a server once
 // (password, two-factor code) and keeps that connection open in a
 // background komando process for the login_for setting. Later commands,
 // an AI agent's too, reach the server through it without a person: the

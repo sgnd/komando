@@ -119,7 +119,7 @@ func servedCert(ctx context.Context, dial netx.Dialer, address, serverName strin
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return certInfo{}, certConnErr(address, via, ctx.Err())
 		}
-		return certInfo{}, out.Errf(out.ExitConnect, "TLS_HANDSHAKE_FAILED", "the server ended the TLS handshake; try again, and check that "+address+" is the TLS port (not plain HTTP)",
+		return certInfo{}, out.Errf(out.ExitConnect, "TLS_HANDSHAKE_FAILED", "the server ended the TLS handshake; run it again, and check that "+address+" is the TLS port (not plain HTTP)",
 			"TLS handshake with %s failed: %v", address, err)
 	}
 	peers := conn.ConnectionState().PeerCertificates

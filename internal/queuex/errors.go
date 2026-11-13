@@ -39,7 +39,7 @@ func connectErr(t driver.Target, err error) error {
 	case !t.Secure && closed(msg):
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the broker closed the connection: it may want TLS (?tls=true) or a SASL login (?sasl=...)", "cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability; brokers must be reachable at the addresses they advertise (use --via a server that can reach them)",
+	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test TARGET` to check reachability; komando reaches the brokers at the addresses they advertise (use --via a server that can reach them)",
 		"cannot connect to %s: %s", t.Address, msg)
 }
 
@@ -92,11 +92,11 @@ func opErr(err error, what string) error {
 }
 
 func topicNotFound(topic string) error {
-	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue ls CONN`", "topic %s does not exist", topic)
+	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`", "no topic named %q", topic)
 }
 
 func groupNotFound(group string) error {
-	return out.Errf(out.ExitNotFound, "CONSUMER_GROUP_NOT_FOUND", "list consumer groups with `komando queue groups CONN`", "consumer group %s does not exist", group)
+	return out.Errf(out.ExitNotFound, "CONSUMER_GROUP_NOT_FOUND", "list consumer groups with `komando queue groups CONN`", "no consumer group named %q", group)
 }
 
 // NotSupported is the answer of an engine to a verb or flag it cannot do.

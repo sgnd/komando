@@ -17,7 +17,7 @@ if [ "$($K conn test sys-ora | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)
   ORC logs --tail 30 oracle 2>&1 | sed 's/^/    /'
   skipped "the Oracle checks: the database did not start here (it needs about 2 GB of memory)"
   q $K conn rm sys-ora
-  $K secret rm ora-system ora-shop ora-ro >/dev/null 2>&1 || true
+  $K secret rm ora-system ora-shop ora-ro --allow-dangerous >/dev/null 2>&1 || true
   set -e
   return 0
 fi
@@ -52,7 +52,7 @@ q $K db grant sys-ora e2e_ro --privileges SELECT --on table:e2e_shop.orders
 q $K conn add ro-ora 'oracle://e2e_ro@oracle:1521/FREEPDB1' --via bastion --password-ref secret:ora-ro
 check "oracle: the new user logs in with the vault password" 2 "$($K db query ro-ora 'select count(*) from e2e_shop.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "oracle: and may only read what was granted" False "$($K db query ro-ora --write "insert into e2e_shop.orders (item) values ('x')" | jget 'd["ok"]')"
-check "oracle db grants shows SELECT on the table" True "$($K db grants sys-ora e2e_ro | jget 'any(g["object"] == "E2E_SHOP.ORDERS" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
+check "oracle db user show shows SELECT on the table" True "$($K db user show sys-ora e2e_ro | jget 'any(g["object"] == "E2E_SHOP.ORDERS" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
 q $K conn rm ro-ora
 q $K db user rm sys-ora e2e_ro --allow-dangerous
 check "oracle db user rm removed it" False "$($K db user ls sys-ora | jget 'any(u["name"] == "E2E_RO" for u in d["data"]["users"])')"
@@ -61,5 +61,5 @@ check "no oracle password in the audit log" 0 "$(audit_text | grep -c -E 'Shop-p
 q $K conn rm shop-ora
 q $K db query sys-ora --write --allow-dangerous 'drop user e2e_shop cascade'
 q $K conn rm sys-ora
-$K secret rm ora-system ora-shop ora-ro >/dev/null 2>&1 || true
+$K secret rm ora-system ora-shop ora-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -160,7 +161,10 @@ func dialHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
-	t.Setenv("HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Setenv("SSH_AUTH_SOCK", "")
 	return home
 }
@@ -284,13 +288,17 @@ func TestProxyKeepsTheErrorCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bridge := `exec "$KOMANDO_TEST_BIN" -test.run='^TestHelperProxy$'`
+	// the lines are written for the shell that runs them: sh, or cmd.exe
+	bridge, chatty, fails := `exec "$KOMANDO_TEST_BIN" -test.run='^TestHelperProxy$'`, `echo 'Starting session with SessionId: abc-123' >&2; `, `echo 'TargetNotConnected' >&2; exit 1`
+	if runtime.GOOS == "windows" {
+		bridge, chatty, fails = `"%KOMANDO_TEST_BIN%" "-test.run=^TestHelperProxy$"`, `echo Starting session with SessionId: abc-123 1>&2 & `, `echo TargetNotConnected 1>&2 & exit 1`
+	}
 	cases := []struct {
 		name, proxy, code, inMessage string
 	}{
 		{"silent proxy", bridge, "HOSTKEY_MISMATCH", ""},
-		{"chatty proxy", `echo 'Starting session with SessionId: abc-123' >&2; ` + bridge, "HOSTKEY_MISMATCH", "the proxy command said: Starting session"},
-		{"proxy that fails", `echo 'TargetNotConnected' >&2; exit 1`, "PROXY_FAILED", "the proxy command said: TargetNotConnected"},
+		{"chatty proxy", chatty + bridge, "HOSTKEY_MISMATCH", "the proxy command said: Starting session"},
+		{"proxy that fails", fails, "PROXY_FAILED", "the proxy command said: TargetNotConnected"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -480,4 +488,18 @@ func TestAgentOutlivesASlowTransport(t *testing.T) {
 		t.Fatalf("login with the agent's key: %v", err)
 	}
 	c.Close()
+}
+
+// A server with no user gets the name of the person at this computer:
+// USER, else USERNAME, the only one Windows sets.
+func TestLocalUser(t *testing.T) {
+	t.Setenv("USER", "")
+	t.Setenv("USERNAME", "budi")
+	if u := LocalUser(); u != "budi" {
+		t.Errorf("only USERNAME: %q", u)
+	}
+	t.Setenv("USER", "ana")
+	if u := LocalUser(); u != "ana" {
+		t.Errorf("USER first: %q", u)
+	}
 }

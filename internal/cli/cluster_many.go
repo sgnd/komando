@@ -55,14 +55,14 @@ func (m clusterMany) Text() string {
 	for _, r := range m.Results {
 		state := "ok"
 		if !r.OK {
-			state = "FAILED"
+			state = "failed"
 		}
 		fmt.Fprintf(&b, "● %s (%s)  %s\n", r.Cluster, r.Engine, state)
 		switch {
 		case r.Error != nil:
 			b.WriteString(block(r.Error.Code + ": " + r.Error.Message))
 			if r.Error.Hint != "" {
-				b.WriteString(block("hint: " + r.Error.Hint))
+				b.WriteString(block("Hint: " + r.Error.Hint))
 			}
 		case r.Data != nil:
 			if t, ok := r.Data.(out.Texter); ok {
@@ -190,7 +190,7 @@ func readClusters(ctx context.Context, name string, st *store.State, ts []cluste
 	if m.Summary.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Exit: worst,
 			Message: failedOf(m.Summary.Failed, m.Summary.Total) + ": " + strings.Join(m.Summary.FailedClusters, ", "),
-			Hint:    "see each cluster's error in data.results"}
+			Hint:    "each cluster's result above has its own error (data.results in -o json)"}
 	}
 	out.P.Print(name, m, soft)
 	if soft != nil {

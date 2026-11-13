@@ -7,10 +7,12 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
+	"go/types"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,11 +31,15 @@ import (
 //
 // (TestErrorCodesDoc writes docs/features/error-codes.md from the catalog.)
 func TestErrorCodeCatalog(t *testing.T) {
+	builtCodes = nil
 	want, mixed := scanErrorCodes(t)
 	// one code, one exit code: agents branch on either, and the catalog
 	// can show only one
 	for _, m := range mixed {
 		t.Error(m)
+	}
+	for _, b := range builtCodes {
+		t.Error(b)
 	}
 	if os.Getenv("KOMANDO_UPDATE_ERRCODES") != "" {
 		writeErrorCodes(t, want)
@@ -116,7 +122,7 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 		if err != nil {
 			return err
 		}
-		files = append(files, goFile{path, f})
+		files = append(files, goFile{filepath.ToSlash(path), f}) // the checks below name files with /
 		return nil
 	})
 	if err != nil {
@@ -158,6 +164,14 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 			}
 		}
 		c := pickSite(ss)
+		if want, ok := catalogSite[code]; ok {
+			i := slices.IndexFunc(ss, func(s codeSite) bool { return s.message == want })
+			if i < 0 {
+				mixed = append(mixed, fmt.Sprintf("catalogSite: no site of %s gives the message %q", code, want))
+			} else {
+				c.Example, c.Hint = ss[i].message, ss[i].hint
+			}
+		}
 		if m, ok := meanings[code]; ok && letters(c.Example) < 4 {
 			c.Example = m
 		}
@@ -166,6 +180,14 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 		}
 		if c.Hint == "" { // what the output gives in its place
 			c.Hint = out.DefaultHint(c.Exit)
+		}
+		// a stop a flag lifts gets the one approval hint (S-8.6, C-C10):
+		// the catalog shows the agent variant, as TestAgentGolden pins it
+		if f := out.ApprovalFlag(&out.Error{Code: code, Exit: out.ExitPolicy}); f != "" && f != "--reveal" {
+			c.Hint = approvalText([]string{f}, true, false)
+			if m, ok := approvalMeanings[code]; ok {
+				c.Example = m
+			}
 		}
 		codes = append(codes, c)
 	}
@@ -401,7 +423,7 @@ func sinkOf(n ast.Node, path string, wrappers map[string]*wrapper) *errorSink {
 		case *ast.Ident:
 			if strings.HasSuffix(path, "/out/out.go") {
 				name = fn.Name
-			} else if w := wrappers[filepath.Dir(path)+"."+fn.Name]; w != nil && w.codeArg < len(x.Args) {
+			} else if w := wrappers[filepath.ToSlash(filepath.Dir(path))+"."+fn.Name]; w != nil && w.codeArg < len(x.Args) {
 				s := &errorSink{code: x.Args[w.codeArg], w: w}
 				arg := func(i int) ast.Expr {
 					if i >= 0 && i < len(x.Args) {
@@ -483,7 +505,7 @@ func findWrappers(files []goFile) map[string]*wrapper {
 	for changed := true; changed; {
 		changed = false
 		for _, gf := range files {
-			if strings.HasSuffix(filepath.Dir(gf.path), "/out") {
+			if strings.HasSuffix(filepath.ToSlash(filepath.Dir(gf.path)), "/out") {
 				continue
 			}
 			for _, d := range gf.f.Decls {
@@ -491,7 +513,7 @@ func findWrappers(files []goFile) map[string]*wrapper {
 				if !ok || fd.Body == nil || fd.Recv != nil {
 					continue
 				}
-				key := filepath.Dir(gf.path) + "." + fd.Name.Name
+				key := filepath.ToSlash(filepath.Dir(gf.path)) + "." + fd.Name.Name
 				if wrappers[key] != nil {
 					continue
 				}
@@ -560,20 +582,21 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 						case fn.Sel.Name == "Usage" && len(x.Args) >= 1:
 							sites = append(sites, codeSite{path, "USAGE", 2, "", example(srcText(x.Args[0]))})
 						case fn.Sel.Name == "NotFound" && len(x.Args) >= 1 && lit(x.Args[0]) != "":
-							k := lit(x.Args[0])
-							word := k
-							if k == "vpn" {
-								word = "VPN"
-							}
-							sites = append(sites, codeSite{path, strings.ToUpper(k) + "_NOT_FOUND", 3,
-								fmt.Sprintf("run `komando %s list` to see available %ss", k, word), word + " … not found"})
+							sites = append(sites, notFoundSite(path, lit(x.Args[0])))
 						}
 					}
+				}
+				// the inventory lookups pass their kind on to out.NotFound
+				if id, ok := x.Fun.(*ast.Ident); ok && notFoundWrappers[id.Name] && len(x.Args) >= 1 && lit(x.Args[0]) != "" {
+					sites = append(sites, notFoundSite(path, lit(x.Args[0])))
 				}
 			}
 			s := sinkOf(n, path, wrappers)
 			if s == nil {
 				return true
+			}
+			if builtCode(s.code, vars) {
+				builtCodes = append(builtCodes, fmt.Sprintf("%s: an error code built from parts (%s); write it out as a literal (S-8.1)", path, types.ExprString(s.code)))
 			}
 			codes, scopes := codesAt(s.code, vars)
 			for i, code := range codes {
@@ -612,6 +635,50 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 		}
 	}
 	return sites
+}
+
+// notFoundWrappers are the lookups that hand their first argument, a
+// kind, to out.NotFound.
+var notFoundWrappers = map[string]bool{"notFoundSuggest": true, "selectorNotName": true}
+
+// notFoundSite is the catalog entry out.NotFound makes for kind.
+func notFoundSite(path, k string) codeSite {
+	e := out.NotFound(k, "…")
+	return codeSite{path, e.Code, 3, e.Hint, strings.ReplaceAll(e.Message, `"…"`, "…")}
+}
+
+// builtCodes are the error codes the scan found built with strings.ToUpper
+// or + instead of written out (S-8.1, C-E01); TestErrorCodeCatalog fails
+// on each.
+var builtCodes []string
+
+// builtCode reports whether an expression in a code's place builds the
+// code (a call or a +), directly or through the variable that holds it.
+func builtCode(e ast.Expr, vars map[string][]assign) bool {
+	built := func(e ast.Expr) bool {
+		switch x := e.(type) {
+		case *ast.BinaryExpr:
+			return x.Op == token.ADD
+		case *ast.CallExpr:
+			if fn, ok := x.Fun.(*ast.SelectorExpr); ok {
+				if id, ok := fn.X.(*ast.Ident); ok && id.Name == "strings" {
+					return true
+				}
+			}
+		}
+		return false
+	}
+	if built(e) {
+		return true
+	}
+	if id, ok := e.(*ast.Ident); ok {
+		for _, a := range vars[id.Name] {
+			if built(a.val) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // example is a message format as a reader sees it: the values a command
@@ -666,9 +733,10 @@ var meanings = map[string]string{
 	"READ_FAILED":          "komando could not read from the server or the resource",
 	"REGISTRY_AUTH":        "the registry refused the login or the token's scopes",
 	"REGISTRY_UNSUPPORTED": "the registry does not allow this request",
+	"REGISTRY_RATE_LIMIT":  "the registry turned the request down: too many requests (Docker Hub's pull limit)",
 	"REGISTRY_UNREACHABLE": "the registry did not answer (address, TLS or --via path)",
 	"REMOTE_ERROR":         "an error from outside komando with no more specific code (its words follow)",
-	"RESTORE_FAILED":       "the restore stopped; what was loaded before the error stays (unless it ran in one transaction)",
+	"RESTORE_FAILED":       "the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it",
 	"REVISION_NOT_FOUND":   "the deployment has no revision with that number (cluster history lists them)",
 	"REVOKE_FAILED":        "the key could not be removed from a server's authorized_keys",
 	"SECRET_MISMATCH":      "secret check: the value typed is not the stored one",
@@ -695,6 +763,28 @@ var meanings = map[string]string{
 	"SSM_FAILED":           "AWS Session Manager could not open a session to the instance",
 }
 
+// approvalMeanings are the example messages of the stops a flag lifts,
+// whose sites build the message from what the command does.
+var approvalMeanings = map[string]string{
+	"POLICY_BLOCKED":     "the command matches destructive rules [rm-rf]: deletes files recursively",
+	"PROTECTED_HOST":     "this changes protected server …: …",
+	"PROTECTED_TARGET":   "a change action on protected conn …: …",
+	"SAFETY_SETTING":     "… weakens komando's safety checks",
+	"SECRET_DESTINATION": "an AI agent asked to send …; that needs a person's yes",
+	"OPEN_BIND":          "the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer)",
+	"CONFIRM_REQUIRED":   "deleting group … takes … entries out of it",
+}
+
+// catalogSite picks, by its message, the call site whose message and hint
+// `komando schema` shows for a code whose sites tie in pickSite, where the
+// order of the files would decide: renaming a file must not change what
+// the catalog shows (these are the texts 0.12.0 showed).
+var catalogSite = map[string]string{
+	"NO_FOLDER":       "cannot find the folder: …",
+	"RENAME_FAILED":   "the vault cannot rename the VPN's secrets: …; nothing was renamed",
+	"ROLLOUT_TIMEOUT": "not rolled out after … (replicas …)…",
+}
+
 // renamedFrom are codes given by renaming another error (e.Code =
 // "SWARM_ERROR" on a DOCKER_ERROR), which keeps that error's exit and hint.
 var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR"}
@@ -703,9 +793,9 @@ var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR"}
 // key's path, or from the tool's error): what it tells the reader to do.
 var hintMeanings = map[string]string{
 	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)",
-	"NO_PASSPHRASE":           "the vault keeps its key in vault.key or the OS keychain already; the hint says which",
+	"NO_PASSPHRASE":           "the vault keeps its key in store.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
-	"TOOL_FAILED":             "read the message; `komando conn test CONN` checks reachability (for a known problem, the hint names the fix)",
+	"TOOL_FAILED":             "read the message; `komando test CONN` checks reachability (for a known problem, the hint names the fix)",
 	"AZURE_LOGIN_REQUIRED":    "set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login`",
 }
 

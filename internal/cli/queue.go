@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Queue commands (docs/design/queue.md), for Kafka, RabbitMQ, NATS
+// Queue commands (docs/features/queues.md), for Kafka, RabbitMQ, NATS
 // JetStream, Amazon SQS and Google Cloud Pub/Sub: reading never moves a
 // consumer group or removes a message; send and create change, so
 // protected conns need --yes; rm and purge delete messages, so they also
@@ -26,7 +27,7 @@ func queueCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "queue",
 		Aliases: []string{"kafka", "rabbitmq", "nats", "sqs", "pubsub"},
-		Short:   "Read and change Kafka, RabbitMQ, NATS, SQS and Pub/Sub queues",
+		Short:   "Queues (Kafka, RabbitMQ, NATS, SQS, Pub/Sub): read, send, manage",
 		Long: `Read and send messages on Kafka, RabbitMQ, NATS, SQS and Pub/Sub. Add a queue
 with ` + "`komando queue add`" + `.
 
@@ -39,6 +40,11 @@ delete messages, so they also need --allow-dangerous. Try any change with
 --dry-run first. In RabbitMQ words a topic is a queue; in NATS words it is
 a stream. Pub/Sub keeps messages in subscriptions: peek and purge take a
 subscription, and groups lists them.`,
+		Example: `  komando queue add prod-kafka kafka://10.0.0.8:9092 --via web1
+  komando queue list prod-kafka
+  komando queue peek prod-kafka orders -n 5
+  komando queue send prod-kafka orders --value '{"id": 42}' --dry-run
+  komando queue lag prod-kafka billing`,
 	}
 	c.AddCommand(connAddCmdFor("queue"), queueInfoCmd(), queueLsCmd(), queueDescribeCmd(), queuePeekCmd(), queueGroupsCmd(), queueLagCmd(),
 		queueSendCmd(), queueCreateCmd(), queueRmCmd(), queuePurgeCmd())
@@ -52,11 +58,26 @@ var queueRules = []driver.Rule{
 	{ID: "queue-purge", Reason: "deletes every message in a topic, queue or stream (it stays)"},
 }
 
-func queueRisk(id string) driver.Verdict {
+// queueRisk is the verdict of a queue change. For rm and purge the reason
+// names the topics, so the person's prompt, the approval window and the
+// agent's POLICY_BLOCKED message all say what would be deleted, not only
+// on which conn.
+func queueRisk(id string, topics ...string) driver.Verdict {
 	for _, r := range queueRules {
-		if r.ID == id {
-			return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{r.ID}, Reasons: []string{r.Reason}}
+		if r.ID != id {
+			continue
 		}
+		reason := r.Reason
+		switch {
+		case len(topics) == 0:
+		case id == "queue-purge":
+			reason = "deletes every message in " + topics[0] + " (it stays)"
+		case len(topics) == 1:
+			reason = "deletes " + topics[0] + " and every message in it"
+		default:
+			reason = "deletes " + strings.Join(topics, ", ") + " and every message in them"
+		}
+		return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{r.ID}, Reasons: []string{reason}}
 	}
 	return driver.Verdict{Risk: driver.RiskWrite}
 }
@@ -119,7 +140,7 @@ func queueInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "info CONN",
 		Short:   "Server summary: version, brokers or nodes, topic, queue or stream count",
-		Example: `  komando queue info events`,
+		Example: `  komando queue info prod-kafka`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withQueue(cmd.Context(), "queue.info", args[0], driver.Verdict{}, nil,
@@ -138,32 +159,43 @@ func queueInfoCmd() *cobra.Command {
 
 func queueLsCmd() *cobra.Command {
 	var internal bool
+	var limit int
 	c := &cobra.Command{
-		Use:     "ls CONN [PATTERN]",
-		Aliases: []string{"list"},
-		Short:   "List topics (or queues, or streams) with their message counts",
-		Example: `  komando queue ls events
-  komando queue ls events 'orders-*'
-  komando queue ls events --internal`,
+		Use:   "list CONN [PATTERN]",
+		Short: "List topics (or queues, or streams) with their message counts",
+		Example: `  komando queue list prod-kafka
+  komando queue list prod-kafka 'orders-*'
+  komando queue list prod-kafka --internal
+  komando queue list prod-kafka -n 50`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 1 {
+				return out.Usage("--limit takes 1 or more")
+			}
 			pattern := ""
 			if len(args) == 2 {
 				pattern = args[1]
 			}
-			return withQueue(cmd.Context(), "queue.ls", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
+			return withQueue(cmd.Context(), "queue.list", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					ts, err := q.Topics(ctx, pattern, internal)
+					// one more than asked tells whether the list was cut
+					ts, err := q.Topics(ctx, pattern, internal, limit+1)
 					if err != nil {
 						return nil, err
 					}
-					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), kind: c.Kind}, nil
+					cut := len(ts) > limit
+					if cut {
+						out.P.CutNoted()
+					}
+					ts = queuex.First(ts, limit)
+					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), Truncated: cut, kind: c.Kind}, nil
 				})
 		},
 	}
 	c.Flags().BoolVar(&internal, "internal", false, "Kafka: also list its own topics (__consumer_offsets, ...)")
+	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most topics (or queues, or streams) to show, the first by name")
 	return c
 }
 
@@ -171,7 +203,7 @@ func queueDescribeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "describe CONN TOPIC",
 		Short:   "One topic, queue or stream: messages, settings, and who reads it",
-		Example: `  komando queue describe events orders`,
+		Example: `  komando queue describe prod-kafka orders`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withQueue(cmd.Context(), "queue.describe", args[0], driver.Verdict{}, map[string]any{"topic": args[1]},
@@ -222,17 +254,20 @@ once. With a dead-letter topic each pull counts as a delivery: peek stops
 (DELIVERY_LIMIT_NEAR) before a message runs out of them.
 
 Values that are not UTF-8 text are shown as base64.`,
-		Example: `  komando queue peek events orders
-  komando queue peek events orders -n 50 --partition 2
-  komando queue peek events orders --oldest -n 5`,
+		Example: `  komando queue peek prod-kafka orders
+  komando queue peek prod-kafka orders -n 50 --partition 2
+  komando queue peek prod-kafka orders --oldest -n 5`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 1 || limit > 10000 {
-				return out.Usage("--limit must be between 1 and 10000")
+				return out.Usage("--limit takes 1 to 10000")
 			}
 			o := queuex.PeekOptions{Topic: args[1], Limit: limit, Oldest: oldest, Partition: int32(partition), Wait: wait}
 			return withQueue(cmd.Context(), "queue.peek", args[0], driver.Verdict{}, map[string]any{"topic": args[1], "limit": limit},
 				func(st *store.State, c *store.Conn, q queuex.Queue) (any, error) {
+					if flagChanged(cmd, "idle") && c.Kind != "kafka" {
+						return nil, queuex.NotSupported("--idle", c.Kind, "only a Kafka peek waits for messages to arrive; drop --idle")
+					}
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
 					o.MaxBytes = maxOutput(st)
@@ -246,16 +281,17 @@ Values that are not UTF-8 text are shown as base64.`,
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 10, "how many messages")
 	c.Flags().BoolVar(&oldest, "oldest", false, "the first messages still kept, not the newest")
-	c.Flags().IntVar(&partition, "partition", -1, "Kafka: only this partition (numbered from 0)")
-	c.Flags().DurationVar(&wait, "wait", 5*time.Second, "Kafka: stop when no message came for this long")
+	optIntVar(c.Flags(), &partition, "partition", "Kafka: only this partition, numbered from 0 (default: every partition)")
+	durVar(c.Flags(), &wait, "idle", 5*time.Second, "Kafka: stop when no message came for this long")
 	return c
 }
 
 func queueGroupsCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	c := &cobra.Command{
 		Use:     "groups CONN",
 		Short:   "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
-		Example: `  komando queue groups events`,
+		Example: `  komando queue groups prod-kafka`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return withQueue(cmd.Context(), "queue.groups", args[0], driver.Verdict{}, nil,
@@ -266,17 +302,20 @@ func queueGroupsCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
+					gs = cutRows(gs, limit)
 					return queueGroups{Conn: c.Name, Groups: gs, Count: len(gs), kind: c.Kind}, nil
 				})
 		},
 	}
+	limitFlag(c, &limit, 0, "groups")
+	return c
 }
 
 func queueLagCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "lag CONN GROUP",
+		Use:   "lag CONN CONSUMER",
 		Short: "How far one Kafka consumer group (or NATS consumer) is behind",
-		Example: `  komando queue lag events billing
+		Example: `  komando queue lag prod-kafka billing
   komando queue lag stream ORDERS/billing`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

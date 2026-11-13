@@ -189,3 +189,31 @@ func TestParseResolve(t *testing.T) {
 		}
 	}
 }
+
+// A Windows path after a file conn's scheme is the file: C: is not a host.
+func TestParseWindowsPath(t *testing.T) {
+	for raw, want := range map[string]string{
+		`sqlite://C:\data\app.db`:     `C:\data\app.db`,
+		`sqlite://c:/data/app.db`:     `c:/data/app.db`,
+		`sqlite3://D:\x.db?mode=ro`:   `D:\x.db`,
+		`SQLITE://C:\Users\me\a b.db`: `C:\Users\me\a b.db`,
+	} {
+		got, err := Parse(raw)
+		if err != nil || got.Kind.Name != "sqlite" || got.Path != want {
+			t.Errorf("Parse(%q) = %q %q %v, want %q", raw, got.Kind.Name, got.Path, err, want)
+		}
+	}
+	// only a file conn: postgres://C:/x stays a URL (and fails as one)
+	if got, err := Parse(`postgres://C:\x`); err == nil {
+		t.Errorf("postgres with a drive: %+v", got)
+	}
+	// sqlite:///C:/data/app.db on Windows; the same URL is a Unix path elsewhere
+	saved := goos
+	t.Cleanup(func() { goos = saved })
+	for sys, want := range map[string]string{"windows": "C:/data/app.db", "linux": "/C:/data/app.db"} {
+		goos = sys
+		if got, err := Parse("sqlite:///C:/data/app.db"); err != nil || got.Path != want {
+			t.Errorf("%s: %q %v, want %q", sys, got.Path, err, want)
+		}
+	}
+}

@@ -3,8 +3,6 @@
 package cli
 
 import (
-	"errors"
-	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -13,29 +11,7 @@ import (
 // The console calls golang.org/x/sys/windows does not wrap.
 var (
 	procPeekConsoleInputW = windows.NewLazySystemDLL("kernel32.dll").NewProc("PeekConsoleInputW")
-	procReadConsoleInputW = windows.NewLazySystemDLL("kernel32.dll").NewProc("ReadConsoleInputW")
 )
-
-// dropNoKeys reads away the console events it peeked when none of them
-// is a typed character. Only those: a key pressed meanwhile stays.
-func dropNoKeys(h windows.Handle) {
-	var total uint32
-	if err := windows.GetNumberOfConsoleInputEvents(h, &total); err != nil || total == 0 {
-		return
-	}
-	recs := make([]inputRecord, total)
-	var got uint32
-	if r, _, _ := procPeekConsoleInputW.Call(uintptr(h), uintptr(unsafe.Pointer(&recs[0])), uintptr(total), uintptr(unsafe.Pointer(&got))); r == 0 || got == 0 {
-		return
-	}
-	for _, e := range recs[:got] {
-		if e.eventType == keyEvent && e.keyDown != 0 && e.char != 0 {
-			return
-		}
-	}
-	var read uint32
-	procReadConsoleInputW.Call(uintptr(h), uintptr(unsafe.Pointer(&recs[0])), uintptr(got), uintptr(unsafe.Pointer(&read)))
-}
 
 // inputRecord is the console's INPUT_RECORD with its KEY_EVENT_RECORD.
 type inputRecord struct {
@@ -95,35 +71,20 @@ func echoOff(fd int) error {
 	return windows.SetConsoleMode(h, mode&^windows.ENABLE_ECHO_INPUT)
 }
 
-// errWaitInterrupted is never returned on Windows; it keeps callers alike.
-var errWaitInterrupted = errors.New("wait interrupted")
-
-// waitInput waits up to ms milliseconds for a typed character on the
-// console fd and says whether one is there to read. The console handle is
-// signalled by any event (a key release, focus, the mouse), so events that
-// carry no character are thrown away and the wait goes on.
-func waitInput(fd, ms int) (bool, error) {
+// consoleVT turns on escape sequences (colour, clearing a line) for the
+// console on fd: a Windows console shows them as text unless a program
+// asks. It says whether they work, and gives what puts the console back.
+func consoleVT(fd int) (ok bool, restore func()) {
 	h := windows.Handle(fd)
-	deadline := time.Now().Add(time.Duration(ms) * time.Millisecond)
-	for {
-		left := time.Until(deadline)
-		if left < 0 {
-			left = 0
-		}
-		ev, err := windows.WaitForSingleObject(h, uint32(left/time.Millisecond))
-		if err != nil {
-			return false, err
-		}
-		if ev != windows.WAIT_OBJECT_0 {
-			return false, nil
-		}
-		if typedAhead(fd) > 0 {
-			return true, nil
-		}
-		dropNoKeys(h)
-		if left == 0 {
-			return false, nil
-		}
-		time.Sleep(time.Millisecond)
+	var mode uint32
+	if err := windows.GetConsoleMode(h, &mode); err != nil {
+		return false, func() {} // not a console: a pipe or a file
 	}
+	if mode&windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0 {
+		return true, func() {}
+	}
+	if err := windows.SetConsoleMode(h, mode|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING); err != nil {
+		return false, func() {} // a console older than Windows 10
+	}
+	return true, func() { _ = windows.SetConsoleMode(h, mode) }
 }

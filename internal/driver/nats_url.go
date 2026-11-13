@@ -8,7 +8,7 @@ import (
 )
 
 // parseNATS reads nats://user@host:4222,host2:4222 and tls:// (TLS) for
-// NATS with JetStream (docs/design/queue.md). hosts are the servers the
+// NATS with JetStream (docs/features/queues.md). hosts are the servers the
 // URL lists, as splitHostList found them; Address is the first. Options:
 //
 //	?creds=secret:NAME   log in with the .creds file (a user JWT and its
@@ -19,7 +19,7 @@ import (
 //	?insecure=1          accept nats:// (no TLS) across the network
 func parseNATS(u *url.URL, t Target, hosts []string) (Target, error) {
 	if len(hosts) == 0 || u.Hostname() == "" {
-		return Target{}, out.Usage("nats URL needs a server, e.g. %s", t.Kind.Example)
+		return Target{}, out.Usage("nats URL needs a server, for example %s", t.Kind.Example)
 	}
 	if p := strings.Trim(u.Path, "/"); p != "" {
 		return Target{}, out.Usage("a nats URL names servers only: drop %q from it (streams are given to each command)", "/"+p)
@@ -56,7 +56,7 @@ func parseNATS(u *url.URL, t Target, hosts []string) (Target, error) {
 		if name, ok := strings.CutPrefix(creds, "secret:"); !ok || name == "" {
 			return Target{}, out.Errf(out.ExitUsage, "USAGE",
 				"store the .creds file with `komando secret set NAME < user.creds`, then use ?creds=secret:NAME",
-				"nats creds option must be secret:NAME, not %q", creds)
+				"the nats creds option takes secret:NAME, not %q", creds)
 		}
 		if t.User != "" {
 			return Target{}, out.Usage("a nats URL logs in with a user or with creds=, not both: drop %s@ from it", t.User)

@@ -1,0 +1,4 @@
+Host px
+  HostName 10.0.0.7
+  User deploy
+  ProxyCommand nc %h %p

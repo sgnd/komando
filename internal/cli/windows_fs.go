@@ -130,12 +130,16 @@ func winMarkerErr(p string, m map[string]string) error {
 
 func hasKey(m map[string]string, k string) bool { _, ok := m[k]; return ok }
 
-// winFsLs is fs ls on a Windows server. Hidden files are left out unless
+// winFsLs is fs list on a Windows server. Hidden files are left out unless
 // --all, as dotfiles are on Linux.
 func winFsLs(ctx context.Context, st *store.State, h *store.Host, p string, all, recursive bool, maxEntries int) (any, error) {
+	first := "" // --limit 0: every entry
+	if maxEntries > 0 {
+		first = " | Select-Object -First " + strconv.Itoa(maxEntries+1)
+	}
 	script := winPath(p) + winCatch(`if (-not (Test-Path -LiteralPath $p)) { mark 'not-found'; exit 0 }
 $i = Get-Item -LiteralPath $p -Force
-if ($i.PSIsContainer) { $items = @(Get-ChildItem -LiteralPath $p -Force:$`+strconv.FormatBool(all)+` -Recurse:$`+strconv.FormatBool(recursive)+` -ErrorAction SilentlyContinue | Select-Object -First `+strconv.Itoa(maxEntries+1)+`) } else { $items = @($i) }
+if ($i.PSIsContainer) { $items = @(Get-ChildItem -LiteralPath $p -Force:$`+strconv.FormatBool(all)+` -Recurse:$`+strconv.FormatBool(recursive)+` -ErrorAction SilentlyContinue`+first+`) } else { $items = @($i) }
 $rows = foreach ($f in $items) { `+winRow+` }
 mark ('path=' + $p)
 mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
@@ -149,8 +153,9 @@ mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
 	}
 	r := lsResult{Path: m["path"], Entries: []fileInfo{}, recursive: recursive}
 	for _, e := range es {
-		if len(r.Entries) >= maxEntries {
+		if maxEntries > 0 && len(r.Entries) >= maxEntries {
 			r.Truncated = true
+			out.P.CutNoted()
 			break
 		}
 		r.Entries = append(r.Entries, e.info())
@@ -293,7 +298,7 @@ func winWrite(ctx context.Context, c *sshx.Client, p string, src io.Reader, o wi
 		return m, e
 	}
 	if code != 0 || m["sha256"] == "" {
-		return m, out.Errf(out.ExitRemote, "WRITE_FAILED", "the file was not changed; read the message", "cannot write %s: %s", p, dash(strings.TrimSpace(stderr)))
+		return m, out.Errf(out.ExitRemote, "WRITE_FAILED", "read the message", "cannot write %s: %s; the file was not changed", p, dash(strings.TrimSpace(stderr)))
 	}
 	return m, nil
 }
@@ -392,7 +397,7 @@ func winFsWrite(ctx context.Context, st *store.State, h *store.Host, p string, d
 		case err != nil:
 			return err
 		case trunc && appendMode:
-			return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, e.g. `Add-Content FILE`", "the file is larger than 64MiB, the most fs write --append reads")
+			return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "append to it with exec instead, for example `Add-Content FILE`", "the file is larger than 64MiB, the most fs write --append reads")
 		}
 	}
 	if appendMode {

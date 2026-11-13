@@ -97,12 +97,12 @@ type mgmtQueue struct {
 
 // Topics lists the vhost's queues whose name matches pattern; it needs the
 // management API. RabbitMQ has no internal queues to hide.
-func (r *Rabbit) Topics(ctx context.Context, pattern string, internal bool) ([]queuex.Topic, error) {
+func (r *Rabbit) Topics(ctx context.Context, pattern string, internal bool, limit int) ([]queuex.Topic, error) {
 	if internal {
-		return nil, queuex.NotSupported("--internal", "rabbitmq", "RabbitMQ has no internal queues: `komando queue ls CONN` lists every queue of the vhost")
+		return nil, queuex.NotSupported("--internal", "rabbitmq", "RabbitMQ has no internal queues: `komando queue list CONN` lists every queue of the vhost")
 	}
 	if r.t.Management == "" {
-		return nil, queuex.NotSupported("queue ls without the management API", "rabbitmq", noManagement)
+		return nil, queuex.NotSupported("queue list without the management API", "rabbitmq", noManagement)
 	}
 	var qs []mgmtQueue
 	if err := r.mgmt(ctx, r.vhostPath("queues", "")+"?columns=name,type,durable,messages,messages_ready,messages_unacknowledged,consumers,state", "", &qs); err != nil {
@@ -117,7 +117,7 @@ func (r *Rabbit) Topics(ctx context.Context, pattern string, internal bool) ([]q
 			Type: orClassic(q.Type), Durable: q.Durable, Ready: q.Ready, Unacked: q.Unacked, Consumers: q.Consumers, State: q.State}})
 	}
 	sort.Slice(res, func(i, j int) bool { return res[i].Name < res[j].Name })
-	return res, nil
+	return queuex.First(res, limit), nil
 }
 
 // Describe reads one queue: with the management API all of it, otherwise

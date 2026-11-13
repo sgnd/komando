@@ -253,11 +253,14 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 		{"Bash", "", map[string]any{"command": "grep -E 'a.*b' notes.txt"}, false},
 		{"Grep", "", map[string]any{"path": "/Users/me/code", "glob": "*.go"}, false},
 	}
-	for _, c := range cases {
-		if d := checkTool(c.tool, c.in, home, c.cwd); d.Deny != c.block {
-			t.Errorf("%s %v (cwd %q): deny=%v (%s)", c.tool, c.in, c.cwd, d.Deny, d.Reason)
+	t.Run("unix paths", func(t *testing.T) {
+		unixOnly(t, "the cases name a Unix home, /Users/me, which is not a full path on Windows; TestGuardGlobsUnderThisHome covers globs there")
+		for _, c := range cases {
+			if d := checkTool(c.tool, c.in, home, c.cwd); d.Deny != c.block {
+				t.Errorf("%s %v (cwd %q): deny=%v (%s)", c.tool, c.in, c.cwd, d.Deny, d.Reason)
+			}
 		}
-	}
+	})
 
 	// files that are there: a glob that matches one, and a link to komando's folder
 	dir, err := filepath.EvalSymlinks(t.TempDir())
@@ -271,7 +274,7 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	t.Setenv("KOMANDO_HOME", kh)
+	setHome(t, kh)
 	if err := os.WriteFile(filepath.Join(proj, "credentials.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -292,10 +295,37 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 	}
 
 	// the other harnesses' hooks send cwd too
+	if runtime.GOOS == "windows" {
+		return // home is /Users/me, not a full path there
+	}
 	b, _ := json.Marshal(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "cat .komando/state.json"}, "cwd": home})
 	t.Setenv("KOMANDO_HOME", "")
 	if d := guardAgent("codex", b, home); !d.Deny {
 		t.Error("codex hook with cwd: relative path to komando's data allowed")
+	}
+}
+
+// Globs and /proc under a home that is a full path on every system: on
+// Windows its parts are split by \, and /proc is written with /.
+func TestGuardGlobsUnderThisHome(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("KOMANDO_HOME", "")
+	for line, block := range map[string]bool{
+		"cat ~/.komand?/vault.ke?":    true,
+		"cat ~/.komand*/keys/*":       true,
+		"cat ~/.ss?/id_*":             true,
+		"cat ~/.{komando,x}/store.db": true,
+		"cat /proc/self/environ":      true,
+		"cat ~/.ssh/*.pub":            false,
+		"cat ~/code/*.go":             false,
+		"du -sh ~/*/*":                false,
+	} {
+		if d := checkTool("Bash", map[string]any{"command": line}, home, ""); d.Deny != block {
+			t.Errorf("%q: deny=%v (%s)", line, d.Deny, d.Reason)
+		}
+	}
+	if d := checkTool("Read", map[string]any{"file_path": "/proc/1/environ"}, home, ""); !d.Deny {
+		t.Error("Read /proc/1/environ allowed")
 	}
 }
 
@@ -328,7 +358,8 @@ func agentFiles(t *testing.T) (kh, home, proj string) {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", home)
-	t.Setenv("KOMANDO_HOME", kh)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
+	setHome(t, kh)
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	return kh, home, proj
 }
@@ -509,7 +540,7 @@ func TestLocalReadCommandsForAgents(t *testing.T) {
 	for _, args := range [][]string{
 		{"exec", "web", "--read-only", "--stdin-file", key, "--", "base64"},
 		{"exec", "web", "--read-only", "--stdin-file", filepath.Join(proj, "link", "vault.key"), "--", "base64"},
-		{"script", "web", filepath.Join(home, ".ssh", "id_ed25519")},
+		{"exec", "web", "--script", filepath.Join(home, ".ssh", "id_ed25519")},
 		{"cp", filepath.Join(home, ".ssh", "id_ed25519"), "web:/tmp/k"},
 		{"cp", "-r", kh, "web:/tmp/k"},
 		{"sync", kh, "web:/tmp/k"},

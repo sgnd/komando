@@ -259,7 +259,7 @@ func (b *ftpBucket) List(_ context.Context, prefix string, recursive bool, limit
 	return objs, more, nil
 }
 
-func (b *ftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
+func (b *ftpBucket) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
 	p, err := b.path(key)
 	if err != nil {
 		return 0, err
@@ -269,7 +269,7 @@ func (b *ftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, erro
 		return 0, ftpErr(err, driver.Target{})
 	}
 	defer r.Close()
-	n, err := io.Copy(w, r)
+	n, err := io.Copy(CtxWriter(ctx, w), r)
 	return n, ftpErr(err, driver.Target{})
 }
 
@@ -315,7 +315,7 @@ func isNotImplemented(err error) bool {
 
 // Put uploads to a temporary name and renames it into place, so a failed
 // upload never leaves half a file under the real name.
-func (b *ftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
+func (b *ftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _ string) error {
 	p, err := b.path(key)
 	if err != nil {
 		return err
@@ -329,7 +329,7 @@ func (b *ftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ s
 		}
 	}
 	tmp := path.Join(dir, ".komando-upload-"+path.Base(p))
-	if err := b.c.Stor(tmp, r); err != nil {
+	if err := b.c.Stor(tmp, CtxReader(ctx, r)); err != nil {
 		_ = b.c.Delete(tmp)
 		return ftpErr(err, driver.Target{})
 	}
@@ -347,8 +347,8 @@ func (b *ftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ s
 		}
 		if rerr := b.c.Rename(tmp, p); rerr != nil {
 			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
-				"the old file was removed; the new content is on the server as "+tmp+": rename it by hand",
-				"could not rename the upload into place: %v", rerr)
+				"the new content is on the server as "+tmp+": rename it by hand",
+				"could not rename the upload into place: %v; the old file was removed", rerr)
 		}
 	}
 	return nil
@@ -384,15 +384,18 @@ func ftpErr(err error, t driver.Target) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
+	if errors.Is(err, context.Canceled) {
+		return err // Ctrl-C: komando says CANCELLED
+	}
 	var te *textproto.Error
 	if errors.As(err, &te) {
 		switch te.Code {
 		case ftp.StatusNotLoggedIn:
 			return out.Errf(out.ExitConnect, "STORAGE_AUTH", "check the user in the conn URL and its --password-ref", "login refused: %s", te.Msg)
 		case ftp.StatusFileUnavailable:
-			return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage ls CONN [FOLDER]`", "%s", te.Msg)
+			return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "%s", te.Msg)
 		}
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "FTP %d: %s", te.Code, te.Msg)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "FTP %d: %s", te.Code, te.Msg)
 	}
 	if strings.Contains(err.Error(), "certificate") {
 		return out.Errf(out.ExitConnect, "STORAGE_TLS", "if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL", "%v", err)
@@ -404,5 +407,5 @@ func ftpErr(err error, t driver.Target) error {
 	if where == "" {
 		where = "the server"
 	}
-	return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando conn test NAME` to check reachability", "%s: %v", where, err)
+	return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test TARGET` to check reachability", "%s: %v", where, err)
 }

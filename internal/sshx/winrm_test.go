@@ -81,6 +81,7 @@ func winrmHost(t *testing.T, srv *httptest.Server, opts store.WinRMOpts) *store.
 
 func TestRunOverWinRM(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	srv, commands := winrmServer(t)
 	h := winrmHost(t, srv, store.WinRMOpts{Auth: "basic", CA: "env:WINRM_TEST_CA"})
 	st := newState(h)
@@ -108,6 +109,7 @@ func TestRunOverWinRM(t *testing.T) {
 
 func TestWinRMChecksTheCertificate(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	srv, commands := winrmServer(t)
 	h := winrmHost(t, srv, store.WinRMOpts{Auth: "basic"}) // no CA: the test server's certificate is unknown
 	c, err := Dial(context.Background(), newState(h), h, Options{ConnectTimeout: 5 * time.Second, WinRM: true})
@@ -143,6 +145,7 @@ func TestWinRMChecksTheCertificate(t *testing.T) {
 
 func TestWinRMOnlyForPowerShell(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	srv, _ := winrmServer(t)
 	h := winrmHost(t, srv, store.WinRMOpts{})
 	if _, err := Dial(context.Background(), newState(h), h, Options{ConnectTimeout: time.Second}); asOutErr(t, err).Code != "NOT_SUPPORTED" {

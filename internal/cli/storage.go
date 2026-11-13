@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -33,7 +33,7 @@ func storageCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "storage",
 		Aliases: []string{"s3"},
-		Short:   "Buckets (S3, GCS, Azure) and WebDAV/FTP/SFTP/SMB file servers",
+		Short:   "Buckets (S3, GCS, Azure) and file servers: browse, copy, remove",
 		Long: `List, copy and share files in a bucket or on a file server. Add one with
 ` + "`komando storage add`" + `.
 
@@ -45,9 +45,23 @@ files and link shares one (S3, Google Cloud and Azure; on production
 storage both ask first); rm deletes, so it also needs --allow-dangerous.
 Downloads never overwrite a local file unless --overwrite, and uploads to
 file servers go to a temporary name first, so a failed upload leaves
-nothing half written.`,
+nothing half written.
+
+The storage itself: komando storage add, komando test CONN, komando conn
+edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
+		Example: `  komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password
+  komando storage list backups 2026/
+  komando download backups 2026/app.sql.gz --to ./
+  komando storage rm backups --prefix daily/ --older-than 30d --dry-run`,
 	}
-	c.AddCommand(connAddCmdFor("storage"), storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
+	add := connAddCmdFor("storage")
+	add.Example += `
+  komando storage add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod   # AWS SSO or a role
+  komando storage add minio 's3://AKIAEXAMPLE@media?endpoint=https://minio.internal:9000' --via bastion --ask-password
+  komando storage add media gs://my-bucket/site   # logs in like gcloud
+  komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
+  komando storage add site 'sftp://deploy@files.example.com/uploads'`
+	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
 	return c
 }
 
@@ -72,6 +86,7 @@ func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Ver
 	}
 	rec["conns"], rec["risk"] = []string{c.Name}, v.Risk.String()
 	fail := func(err error) error {
+		err = namedHint(err, c.Name)
 		rec["error"] = toErr(err).Code
 		audit(st, name, nil, "", false, rec)
 		return err
@@ -110,8 +125,31 @@ func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Ver
 	return nil
 }
 
-// openBucket connects to a storage conn of any kind.
-func openBucket(ctx context.Context, st *store.State, c *store.Conn) (storex.Bucket, error) {
+// namedHint puts the conn's name into the next command a storage error
+// names (the drivers know no conn: they say NAME or CONN), so a person or
+// an agent can run the hint as it is.
+func namedHint(err error, conn string) error {
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Hint == "" {
+		return err
+	}
+	h := oe.Hint
+	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "download ", "upload "} {
+		for _, word := range []string{"NAME", "CONN"} {
+			h = strings.ReplaceAll(h, "komando "+cmd+word, "komando "+cmd+conn)
+		}
+	}
+	if h == oe.Hint {
+		return err
+	}
+	e := *oe
+	e.Hint = h
+	return &e
+}
+
+// openBucket connects to a storage conn of any kind (a variable so tests
+// can give a bucket in memory).
+var openBucket = func(ctx context.Context, st *store.State, c *store.Conn) (storex.Bucket, error) {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
 		return nil, err
@@ -181,6 +219,16 @@ func (c closeBoth) Close() error {
 	return err
 }
 
+// TemporaryKeys passes through to the bucket inside (S3 only).
+func (c closeBoth) TemporaryKeys() bool { return temporaryKeys(c.Bucket) }
+
+// temporaryKeys: the bucket logs in with temporary keys, so its links end
+// when the keys do.
+func temporaryKeys(b storex.Bucket) bool {
+	t, ok := b.(interface{ TemporaryKeys() bool })
+	return ok && t.TemporaryKeys()
+}
+
 // LinkAt passes through to the bucket inside (S3 only), so storage link
 // --endpoint works for conns reached through --via, the case it is for.
 func (c closeBoth) LinkAt(ctx context.Context, key string, expires time.Duration, endpoint *url.URL) (*url.URL, error) {
@@ -203,10 +251,10 @@ type objectList struct {
 
 func (l objectList) Text() string {
 	if len(l.Objects) == 0 && l.Prefix != "" {
-		return "nothing under " + l.Prefix + " in " + l.Conn + "\n"
+		return noneMatch("objects", l.Prefix+" in "+l.Conn)
 	}
 	if len(l.Objects) == 0 {
-		return l.Conn + " is empty: `komando upload " + l.Conn + " FILE` adds a file\n"
+		return noneYet("objects in "+l.Conn, "upload "+l.Conn+" FILE")
 	}
 	var b strings.Builder
 	b.WriteString(objectTable(l.Objects))
@@ -227,7 +275,7 @@ func objectTable(objs []storex.Object) string {
 			rows[i] = []string{"DIR", "", o.Key}
 			continue
 		}
-		rows[i] = []string{humanBytes(o.Size), o.Modified.Format("2006-01-02 15:04"), o.Key}
+		rows[i] = []string{humanBytes(o.Size), timeCell(o.Modified), o.Key}
 	}
 	return dataTable([]string{"size", "modified", "key"}, rows)
 }
@@ -236,27 +284,39 @@ func storageLsCmd() *cobra.Command {
 	var recursive bool
 	var limit int
 	c := &cobra.Command{
-		Use:     "ls CONN [PREFIX]",
-		Aliases: []string{"list"},
-		Short:   "List objects and folders (one level; --recursive for all)",
-		Example: `  komando storage ls backups
-  komando storage ls backups db/2026-11/ --recursive`,
+		Use:   "list CONN [PREFIX]",
+		Short: "List the objects and folders of a storage conn",
+		Example: `  komando storage list backups
+  komando storage list backups db/2026-11/ --recursive`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prefix := ""
 			if len(args) == 2 {
 				prefix = args[1]
 			}
-			return withStorage(cmd.Context(), "storage.ls", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
+			return withStorage(cmd.Context(), "storage.list", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					objs, more, err := s.List(ctx, prefix, recursive, limit)
 					if err != nil {
 						return nil, err
 					}
+					if folder := strings.TrimPrefix(prefix, "/") + "/"; !recursive && folder != "/" && !strings.HasSuffix(prefix, "/") &&
+						slices.ContainsFunc(objs, func(o storex.Object) bool { return o.Dir && o.Key == folder }) {
+						// a bucket lists the folder itself (and db.sql) for "db";
+						// a file server lists what is in the folder db: do that
+						// everywhere when the prefix names a folder
+						prefix = folder
+						if objs, more, err = s.List(ctx, prefix, false, limit); err != nil {
+							return nil, err
+						}
+					}
 					if len(objs) == 0 && strings.Trim(prefix, "/") != "" {
 						// a bucket has no folders, only keys: nothing under the
 						// prefix is what a missing folder is on a file server
 						return nil, storex.FolderNotFound(prefix)
+					}
+					if more {
+						out.P.CutNoted()
 					}
 					return objectList{Conn: c.Name, Prefix: prefix, Objects: objs, Count: len(objs), More: more}, nil
 				})
@@ -267,203 +327,12 @@ func storageLsCmd() *cobra.Command {
 	return c
 }
 
-func storageRmCmd() *cobra.Command {
-	var prefix, olderThan string
-	var limit int
-	c := &cobra.Command{
-		Use:   "rm CONN [KEY...]",
-		Short: "Delete objects by key or --prefix (needs --allow-dangerous)",
-		Long: `Without --prefix, rm takes exact keys (no patterns). With --prefix it removes
-every object under that folder, or with --older-than only the ones older
-than that (30d, 12h): the usual cleanup of old backups. --dry-run lists them
-first; --limit (default 1000) refuses to go on when more would be removed.`,
-		Example: `  komando storage rm backups tmp/old.sql.gz --allow-dangerous
-  komando storage rm backups --prefix daily/ --older-than 30d --dry-run
-  komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous`,
-		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			keys := args[1:]
-			if prefix == "" && olderThan != "" {
-				return out.Usage("--older-than goes with --prefix (use --prefix / for the whole conn)")
-			}
-			if prefix == "" && len(keys) == 0 {
-				return out.Usage("give exact keys, or --prefix FOLDER/")
-			}
-			if prefix != "" && len(keys) > 0 {
-				return out.Usage("give keys or --prefix, not both")
-			}
-			for _, k := range keys {
-				if strings.HasSuffix(k, "/") || strings.ContainsAny(k, "*?") {
-					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage ls`)", k)
-				}
-				if err := storex.CheckKey(k); err != nil {
-					return err
-				}
-			}
-			var age time.Duration
-			if olderThan != "" {
-				var err error
-				if age, err = parseAge(olderThan, "--older-than"); err != nil {
-					return err
-				}
-			}
-			rec := map[string]any{"keys": keys, "prefix": prefix, "older_than": olderThan}
-			if prefix != "" {
-				// list first, even in a dry run: the answer is the list
-				return storageRmPrefix(cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
-			}
-			return withStoragePreview(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
-				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-					done, err := removeKeys(ctx, s, keys)
-					rec["deleted"] = done
-					if err != nil {
-						return nil, err
-					}
-					return map[string]any{"conn": c.Name, "deleted": done}, nil
-				},
-				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-					p := rmPlan{Conn: c.Name, DryRun: true, WouldDelete: []string{}, Missing: []string{}}
-					for _, k := range keys {
-						o, err := s.Stat(ctx, k)
-						if err != nil {
-							if toErr(err).Exit == out.ExitNotFound {
-								p.Missing = append(p.Missing, k)
-								continue
-							}
-							return nil, err
-						}
-						p.objs = append(p.objs, o)
-						p.WouldDelete = append(p.WouldDelete, k)
-						p.Bytes += o.Size
-					}
-					p.Count = len(p.WouldDelete)
-					return p, nil
-				})
-		},
-	}
-	c.Flags().StringVar(&prefix, "prefix", "", "remove everything under this folder (e.g. daily/; / for the whole conn)")
-	c.Flags().StringVar(&olderThan, "older-than", "", "with --prefix: only objects older than this (30d, 12h, 90m)")
-	c.Flags().IntVarP(&limit, "limit", "n", 1000, "refuse when more than this many objects would be removed")
-	return c
-}
-
-func removeKeys(ctx context.Context, s storex.Bucket, keys []string) ([]string, error) {
-	done := []string{}
-	for _, k := range keys {
-		if err := s.Remove(ctx, k); err != nil {
-			e := toErr(err)
-			if len(done) > 0 {
-				e.Message += fmt.Sprintf(" (already deleted: %d)", len(done))
-			}
-			return done, e
-		}
-		done = append(done, k)
-	}
-	return done, nil
-}
-
-// rmPlan is what rm removes (or, in a dry run or over --limit, would).
-type rmPlan struct {
-	Conn        string   `json:"conn"`
-	Prefix      string   `json:"prefix,omitempty"`
-	Count       int      `json:"count"`
-	Bytes       int64    `json:"bytes"`
-	Keys        []string `json:"keys,omitempty"`         // over --limit: the first ones
-	WouldDelete []string `json:"would_delete,omitempty"` // dry run
-	Missing     []string `json:"missing,omitempty"`      // dry run of exact keys: not there
-	Deleted     []string `json:"deleted,omitempty"`
-	DryRun      bool     `json:"dry_run,omitempty"`
-	objs        []storex.Object
-}
-
-func (p rmPlan) Text() string {
-	var b strings.Builder
-	switch {
-	case p.Deleted != nil:
-		fmt.Fprintf(&b, "deleted %d object%s (%s)\n", len(p.Deleted), plural(len(p.Deleted)), humanBytes(p.Bytes))
-		return b.String()
-	case p.DryRun:
-		b.WriteString(objectTable(p.objs))
-		for _, k := range p.Missing {
-			fmt.Fprintf(&b, "%s does not exist\n", k)
-		}
-		fmt.Fprintf(&b, "would delete %d object%s (%s)\n", p.Count, plural(p.Count), humanBytes(p.Bytes))
-	default: // over --limit
-		b.WriteString(objectTable(p.objs))
-		fmt.Fprintf(&b, "(the first %d of %d objects, %s in all)\n", len(p.objs), p.Count, humanBytes(p.Bytes))
-	}
-	return b.String()
-}
-
-// storageRmPrefix lists what is under prefix (and older than age), shows
-// it in a dry run, and removes it otherwise.
-func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Duration, limit int, rec map[string]any) error {
-	st, err := loadState()
-	if err != nil {
-		return err
-	}
-	c, err := singleConn(st, connExpr, "storage")
-	if err != nil {
-		return err
-	}
-	if err := guardConns(st, []*store.Conn{c}, driver.DataDelete()); err != nil {
-		return err // under --dry-run this only records the stop
-	}
-	b, err := openBucket(ctx, st, c)
-	if err != nil {
-		return err
-	}
-	defer b.Close()
-	objs, more, err := b.List(ctx, prefix, true, 1_000_000)
-	if err != nil {
-		return err
-	}
-	if more {
-		return out.Usage("more than a million objects under %q; use a narrower --prefix", prefix)
-	}
-	cutoff := time.Now().Add(-age)
-	p := rmPlan{Conn: c.Name, Prefix: prefix}
-	for _, o := range objs {
-		if o.Dir || (age > 0 && !o.Modified.Before(cutoff)) {
-			continue
-		}
-		p.objs = append(p.objs, o)
-		p.Bytes += o.Size
-	}
-	sort.Slice(p.objs, func(i, j int) bool { return p.objs[i].Key < p.objs[j].Key })
-	keys := make([]string, len(p.objs))
-	for i, o := range p.objs {
-		keys[i] = o.Key
-	}
-	p.Count = len(keys)
-	if len(keys) > limit {
-		p.Keys, p.objs = keys[:limit], p.objs[:limit]
-		out.P.Print("storage.rm", p, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --limit above %d after checking the list", len(keys)),
-			"%d objects match, more than --limit %d", len(keys), limit))
-		return exitCode(out.ExitConflict)
-	}
-	if g.dryRun {
-		p.WouldDelete, p.DryRun = keys, true
-		out.P.Print("storage.rm", p, nil)
-		return nil
-	}
-	done, err := removeKeys(ctx, b, keys)
-	rec["conns"], rec["deleted"] = []string{c.Name}, len(done)
-	audit(st, "storage.rm", nil, "", err == nil, rec)
-	if err != nil {
-		return err
-	}
-	p.Deleted = done
-	out.P.Print("storage.rm", p, nil)
-	return nil
-}
-
 func storageCatCmd() *cobra.Command {
 	var head, tail int
 	var maxBytes int64
 	c := &cobra.Command{
-		Use:   "cat CONN KEY",
-		Short: "Show an object's text (--head or --tail N lines, --max-bytes)",
+		Use:   "cat CONN OBJECT",
+		Short: "Show the text of an object",
 		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
   komando storage cat config prod/app.env`,
 		Args: cobra.ExactArgs(2),
@@ -476,7 +345,7 @@ func storageCatCmd() *cobra.Command {
 				return out.Usage("--head and --tail take a number of lines (1 or more)")
 			}
 			if maxBytes < 1 {
-				return out.Usage("--max-bytes must be 1 or more")
+				return out.Usage("--max-bytes takes 1 or more")
 			}
 			return withStorage(cmd.Context(), "storage.cat", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
@@ -492,7 +361,7 @@ func storageCatCmd() *cobra.Command {
 						text = strings.ToValidUTF8(text[:len(text)-incompleteRune(text)], "") // cut inside a character
 					}
 					if !utf8.ValidString(text) || strings.ContainsRune(text, 0) {
-						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando download CONN KEY`", "%s is not text", args[1])
+						return nil, out.Errf(out.ExitUsage, "NOT_TEXT", "download it with `komando storage download CONN OBJECT`", "%s is not text", args[1])
 					}
 					lines := strings.SplitAfter(text, "\n")
 					if len(lines) > 0 && lines[len(lines)-1] == "" {
@@ -505,7 +374,7 @@ func storageCatCmd() *cobra.Command {
 						lines = lines[len(lines)-tail:]
 					}
 					if w.capped && out.P.Format == "text" {
-						fmt.Fprintf(os.Stderr, "(truncated at %s; raise --max-bytes or download it)\n", humanBytes(w.max))
+						fmt.Fprintf(os.Stderr, "Note: showing the first %s; raise --max-bytes or download it\n", humanBytes(w.max))
 					}
 					return catData{Conn: c.Name, Key: args[1], Content: strings.Join(lines, ""), Truncated: truncated}, nil
 				})
@@ -513,7 +382,8 @@ func storageCatCmd() *cobra.Command {
 	}
 	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
-	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "read at most this many bytes (1048576 is 1 MiB)")
+	maxBytes = 1 << 20
+	c.Flags().Var(&bytesFlag{n: &maxBytes}, "max-bytes", "read at most this many bytes, like 4MiB (1048576 is 1 MiB)")
 	return c
 }
 
@@ -563,7 +433,7 @@ func storageLinkCmd() *cobra.Command {
 	var expires time.Duration
 	var endpoint string
 	c := &cobra.Command{
-		Use:     "link CONN KEY",
+		Use:     "link CONN OBJECT",
 		Aliases: []string{"presign", "share"},
 		Short:   "Make a temporary download link that works without a login",
 		Long: `Prints a URL anyone can use to download KEY until it expires (default 1 hour,
@@ -578,13 +448,13 @@ through --via, only people who can reach that address can use the link.
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
-				return out.Usage("--expires must be between 1s and 7d (168h)")
+				return out.Usage("--expires takes 1s to 7d (168h)")
 			}
 			var pub *url.URL
 			if endpoint != "" {
 				u, err := url.Parse(endpoint)
 				if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.Trim(u.Path, "/") != "" {
-					return out.Usage("--endpoint must be http(s)://HOST[:PORT], e.g. https://files.example.com")
+					return out.Usage("--endpoint takes http(s)://HOST[:PORT], for example https://files.example.com")
 				}
 				pub = u
 			}
@@ -612,16 +482,20 @@ through --via, only people who can reach that address can use the link.
 						via = "" // signed for the address people use
 					}
 					d := linkData{Conn: c.Name, Key: args[1], URL: u.String(), ExpiresAt: time.Now().Add(expires).UTC(), Warning: linkWarning(u, via)}
+					if temporaryKeys(s) {
+						w := "the link is signed with temporary AWS keys (profile " + awsProfile(c) + "), so it stops working when they expire, which can be before expires_at; for a link that lasts, give the conn an access key of its own (--password-ref)"
+						d.Warning = strings.TrimPrefix(d.Warning+"; "+w, "; ")
+					}
 					if d.Warning != "" && out.P.Format == "text" {
-						fmt.Fprintln(os.Stderr, "warning: "+d.Warning)
+						fmt.Fprintln(os.Stderr, "Warning: "+d.Warning)
 					}
 					return d, nil
 				})
 		},
 	}
 	expires = time.Hour
-	c.Flags().Var(ageFlag{&expires, "--expires"}, "expires", "how long the link works: 30m, 24h, 7d (max 7d)")
-	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, e.g. https://files.example.com (when komando reaches the storage through --via)")
+	c.Flags().Var(&durFlag{d: &expires, positive: true}, "expires", "how long the link works, like 30m, 24h or 7d (at most 7d)")
+	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, like https://files.example.com (when komando reaches the storage through --via)")
 	return c
 }
 

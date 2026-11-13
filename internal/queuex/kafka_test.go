@@ -66,7 +66,7 @@ func TestKafkaRoundTrip(t *testing.T) {
 	if _, err := q.Create(ctx, TopicSpec{Topic: "orders", Partitions: 2, Replicas: 1}, true); err != nil {
 		t.Fatal(err)
 	}
-	if ts, _ := q.Topics(ctx, "", false); len(ts) != 0 {
+	if ts, _ := q.Topics(ctx, "", false, 0); len(ts) != 0 {
 		t.Fatalf("a dry-run create made a topic: %+v", ts)
 	}
 	cr, err := q.Create(ctx, TopicSpec{Topic: "orders", Partitions: 2, Replicas: 1, Config: map[string]string{"retention.ms": "3600000"}}, false)
@@ -98,11 +98,11 @@ func TestKafkaRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ts, err := q.Topics(ctx, "ord*", false)
+	ts, err := q.Topics(ctx, "ord*", false, 0)
 	if err != nil || len(ts) != 1 || ts[0].Messages != 6 || ts[0].Partitions != 2 {
 		t.Fatalf("topics: %+v %v", ts, err)
 	}
-	if ts, _ := q.Topics(ctx, "x*", false); len(ts) != 0 {
+	if ts, _ := q.Topics(ctx, "x*", false, 0); len(ts) != 0 {
 		t.Errorf("pattern x* matched %+v", ts)
 	}
 
@@ -156,13 +156,13 @@ func TestKafkaRoundTrip(t *testing.T) {
 	if err != nil || pg.Messages != 6 {
 		t.Fatalf("dry purge: %+v %v", pg, err)
 	}
-	if ts, _ := q.Topics(ctx, "orders", false); ts[0].Messages != 6 {
+	if ts, _ := q.Topics(ctx, "orders", false, 0); ts[0].Messages != 6 {
 		t.Fatal("a dry-run purge removed messages")
 	}
 	if pg, err = q.Purge(ctx, "orders", false); err != nil || pg.Messages != 6 {
 		t.Fatalf("purge: %+v %v", pg, err)
 	}
-	if ts, _ := q.Topics(ctx, "orders", false); ts[0].Messages != 0 {
+	if ts, _ := q.Topics(ctx, "orders", false, 0); ts[0].Messages != 0 {
 		t.Errorf("after purge: %+v", ts)
 	}
 	if p, err := q.Peek(ctx, PeekOptions{Topic: "orders", Limit: 3, Partition: -1}); err != nil || p.Count != 0 || p.More {
@@ -180,7 +180,7 @@ func TestKafkaRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	fresh := open(t, "kafka://"+c.ListenAddrs()[0], "", nil) // q keeps the brokers' list of topics for a second
-	if ts, _ := fresh.Topics(ctx, "", false); len(ts) != 0 {
+	if ts, _ := fresh.Topics(ctx, "", false, 0); len(ts) != 0 {
 		t.Errorf("after delete: %+v", ts)
 	}
 

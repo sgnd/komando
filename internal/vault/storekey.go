@@ -14,7 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// The master key of the sealed store (docs/design/phase0-s6.md), kept the
+// The master key of the sealed store, kept the
 // three ways the vault key is kept: in the OS keychain, in a key file
 // beside the store (store.key, never vault.key), or made from the
 // passphrase in $KOMANDO_VAULT_PASS with a salt kept in the store.
@@ -69,7 +69,7 @@ func storeMaster(meta map[string]string, create bool) ([]byte, map[string]string
 		}
 		return b[:keyLen], nil, nil
 	}
-	return nil, nil, fmt.Errorf("%w: the store names an unknown key mode %q; update komando", ErrKey, meta["key_mode"])
+	return nil, nil, fmt.Errorf("%w: the store names a key mode this komando does not know (%q); update komando", ErrKey, meta["key_mode"])
 }
 
 // newStoreMaster picks where a new store's key lives, as a new vault does:

@@ -85,7 +85,7 @@ func (m *modp) Shared(peer []byte) ([]byte, error) {
 	y := new(big.Int).SetBytes(peer)
 	one := big.NewInt(1)
 	if y.Cmp(one) <= 0 || y.Cmp(new(big.Int).Sub(m.p, one)) >= 0 {
-		return nil, errors.New("DH: the server's key is invalid")
+		return nil, errors.New("DH: the server's key does not check out")
 	}
 	return new(big.Int).Exp(y, m.x, m.p).FillBytes(make([]byte, m.size)), nil
 }
@@ -120,7 +120,7 @@ func (e *ecGroup) Shared(peer []byte) ([]byte, error) {
 	}
 	pk, err := e.curve.NewPublicKey(peer)
 	if err != nil {
-		return nil, fmt.Errorf("DH: the server's key is invalid: %v", err)
+		return nil, fmt.Errorf("DH: the server's key does not check out: %v", err)
 	}
 	return e.key.ECDH(pk)
 }

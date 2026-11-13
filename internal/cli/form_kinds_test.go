@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,7 +17,7 @@ func formCheckLine(t *testing.T, source string, line []string) {
 	t.Helper()
 	for _, w := range line {
 		if w == "--yes" || w == "--allow-dangerous" || w == "--reveal" {
-			t.Errorf("%s: `komando %s` has %s", source, menuCommandLine(line), w)
+			t.Errorf("%s: `komando %s` has %s", source, pickCommandLine(line), w)
 		}
 	}
 	cmd := formParse(t, source, line)
@@ -144,12 +142,12 @@ func TestFormKindLines(t *testing.T) {
 		{"Queues", "NATS JetStream", formAnswers{"name": "lab", "servers": "nats.lab", "tls": "no", "login": "token",
 			"password": "ask", "protected": "no"},
 			"conn add lab nats://nats.lab?insecure=1 --ask-password"},
-		{"Queues", "Amazon SQS", formAnswers{"name": "aws", "region": "eu-west-1", "login": "profile", "profile": "prod", "protected": "no"},
-			"conn add aws sqs://eu-west-1 --option aws_profile=prod"},
+		{"Queues", "Amazon SQS", formAnswers{"name": "sqs", "region": "eu-west-1", "login": "profile", "profile": "prod", "protected": "no"},
+			"conn add sqs sqs://eu-west-1 --option aws_profile=prod"},
 		{"Queues", "Amazon SQS", formAnswers{"name": "aws3", "region": "eu-west-1", "login": "key", "keyid": "AKIAIOSFODNN7EXAMPLE", "protected": "no"},
 			"conn add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --ask-password"},
-		{"Queues", "Google Cloud Pub/Sub", formAnswers{"name": "gcp", "project": "my-project", "login": "gcloud", "protected": "no"},
-			"conn add gcp pubsub://my-project"},
+		{"Queues", "Google Cloud Pub/Sub", formAnswers{"name": "pubsub", "project": "my-project", "login": "gcloud", "protected": "no"},
+			"conn add pubsub pubsub://my-project"},
 		{"File storage", "Windows share (SMB)", formAnswers{"name": "team", "host": "fileserver.corp.lan", "share": "team",
 			"folder": "reports", "user": "alice", "domain": "CORP", "protected": "no", "port": "445"},
 			"conn add team smb://alice@fileserver.corp.lan/team/reports?domain=CORP --ask-password"},
@@ -259,27 +257,9 @@ func TestFormDestructive(t *testing.T) {
 		"pkg rm web1 nginx": true, "cron rm web1 backup": true, "host rm web1": false,
 	}
 	for line, want := range cases {
-		if got := formDestructive([][]string{strings.Fields(line)}) != ""; got != want {
+		if got := riskOfLine(strings.Fields(line)).typedWhat() != ""; got != want {
 			t.Errorf("%s: destructive %v, want %v", line, got, want)
 		}
-	}
-}
-
-// After an add whose test fails, komando knows how to take it out again
-// and which line says why.
-func TestFormAfterFailedCheck(t *testing.T) {
-	rm := formRemoveCmd([][]string{{"host", "add", "web1", "root@10.0.0.5"}, {"test", "web1"}})
-	if strings.Join(rm, " ") != "host rm web1" {
-		t.Errorf("remove: %v", rm)
-	}
-	if formRemoveCmd([][]string{{"import", "kubeconfig"}, {"cluster", "status", "kind:k8s"}}) != nil {
-		t.Error("an import has no single remove")
-	}
-	if !formIsCheck([]string{"test", "web1"}) || !formIsCheck([]string{"vpn", "up", "office"}) || formIsCheck([]string{"host", "add"}) {
-		t.Error("formIsCheck")
-	}
-	if got := formLastLine("a\n\x1b[1merror\x1b[0m: no route to host\n\n"); got != "error: no route to host" {
-		t.Errorf("last line: %q", got)
 	}
 }
 
@@ -305,34 +285,6 @@ func TestFormNoJargon(t *testing.T) {
 	}
 }
 
-// Every Add something row opens all of its groups, together every Add
-// group once, and every `KIND add` typed alone opens its own group.
-func TestMenuAddGroups(t *testing.T) {
-	seen := map[string]int{}
-	for _, r := range menuAddRows {
-		gs := menuAddGroups(r.label)
-		if len(gs) != len(r.groups) {
-			t.Errorf("Add something > %s: %d groups, want %v", r.label, len(gs), r.groups)
-		}
-		for _, g := range gs {
-			seen[g.label]++
-		}
-	}
-	for _, g := range formGroups() {
-		if seen[g.label] != 1 {
-			t.Errorf("Add group %q is offered %d times by Add something", g.label, seen[g.label])
-		}
-	}
-	for kind := range connAddKinds {
-		if gs := formGroupNamed(formFamilyAdd[kind+" add"]); len(gs) != 1 {
-			t.Errorf("komando %s add alone: %d groups, want its own", kind, len(gs))
-		}
-	}
-	if _, _, err := formPick(context.Background(), nil, nil, menuScreen{}); !errors.Is(err, errMenuBack) {
-		t.Errorf("formPick with nothing to pick: %v", err)
-	}
-}
-
 // The production question is asked of every kind, servers too: its Yes
 // default must take effect without opening More options.
 func TestFormProtectAskedEverywhere(t *testing.T) {
@@ -344,19 +296,5 @@ func TestFormProtectAskedEverywhere(t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-// The review shows exactly what Run it runs: an answer a later edit hid
-// (a log file, once a service was picked) is in neither.
-func TestFormReviewShowsWhatRuns(t *testing.T) {
-	st := menuTestState()
-	c, _, _ := newRoot().Find([]string{"logs"})
-	sp := formCmdSpec(c)
-	a := formAnswers{"arg0": "web-1", "flag:file": "/var/log/app.log", "flag:unit": "nginx"}
-	l := formReviewList(st, sp, a, true)
-	want := "$ komando " + menuCommandLine(formBuild(st, sp, a)[0])
-	if len(l.runs) != 1 || l.runs[0] != want || strings.Contains(want, "app.log") {
-		t.Errorf("review %v, runs %q", l.runs, want)
 	}
 }

@@ -101,7 +101,7 @@ func TestOracleErrors(t *testing.T) {
 		}
 	}
 	// a missing role, or a grant to oneself, is no missing right
-	for n, hint := range map[int]string{1919: "db user ls", 1749: "itself"} {
+	for n, hint := range map[int]string{1919: "db user list", 1749: "itself"} {
 		e, _ := queryErr("oracle", ctx, &network.OracleError{ErrCode: n, ErrMsg: fmt.Sprintf("ORA-%05d: m", n)}).(*out.Error)
 		if e == nil || e.Code != "DB_ERROR" || !strings.Contains(e.Hint, hint) {
 			t.Errorf("%d: %v, want DB_ERROR with %q", n, e, hint)

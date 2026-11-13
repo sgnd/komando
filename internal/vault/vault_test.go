@@ -5,10 +5,13 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 func TestShortPassphraseIsReported(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("KOMANDO_VAULT_PASS", "short")
 	pass = ""
 	Passphrase()

@@ -169,11 +169,11 @@ func TestReadVerbs(t *testing.T) {
 	if err != nil || inf.TopicCount != 2 || inf.SubscriptionCount != 3 || inf.Engine != "pubsub" {
 		t.Errorf("info: %+v %v", inf, err)
 	}
-	ts, err := p.Topics(ctx, "ord*", false)
+	ts, err := p.Topics(ctx, "ord*", false, 0)
 	if err != nil || len(ts) != 1 || ts[0].SubscriptionCount != 2 || ts[0].Messages != -1 {
 		t.Errorf("ls: %+v %v", ts, err)
 	}
-	if _, err := p.Topics(ctx, "", true); code(err) != "NOT_SUPPORTED" {
+	if _, err := p.Topics(ctx, "", true, 0); code(err) != "NOT_SUPPORTED" {
 		t.Errorf("--internal: %v", err)
 	}
 	d, err := p.Describe(ctx, "orders")

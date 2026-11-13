@@ -13,7 +13,7 @@ check "the server follows the rename" secret:agent-pass-renamed "$($K host show 
 check "secret mv back" 3 "$($K secret mv agent-pass-renamed agent-pass | jget 'len(d["data"]["updated"])')"
 $K secret cp agent-pass agent-pass-copy >/dev/null
 check "secret cp to a taken name needs --overwrite" SECRET_EXISTS "$($K secret cp agent-pass agent-pass-copy | jget 'd["error"]["code"]' || true)"
-$K secret rm agent-pass-copy >/dev/null
+$K secret rm agent-pass-copy --allow-dangerous >/dev/null
 
 check "completion lists the inventory" True "$($K __complete exec '' 2>/dev/null | grep -qx direct && echo True || echo False)"
 check "schema knows kind: selectors" True "$($K schema | jget '"kind:KIND" in d["data"]["target_selectors"]')"
@@ -68,12 +68,13 @@ check "an agent with no value is sent to the user" NEEDS_PERSON "$(A secret set 
 check "the agent playbook reaches an agent whole" 0 "$(A guide -o text | grep -c 'password: \[hidden\]' || true)"
 $K host rm nopass >/dev/null
 # --ask-password: a person types it once while adding the server; later logins use the vault
-O=$(ptyrun 'agentpass\n' env NO_COLOR=1 "$K" -o text host add askpw "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password | tr -d '\r'); check "host add --ask-password" 0 $?
-check "host add says what to run next" 1 "$(grep -c '^next: komando test askpw' <<<"$O")"
+# Next: is said on stderr to a person at a terminal that is not dumb (not CI)
+O=$(ptyrun 'agentpass\n' env NO_COLOR=1 TERM=xterm CI= "$K" -o text host add askpw "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password | tr -d '\r'); check "host add --ask-password" 0 $?
+check "host add says what to run next" 1 "$(grep -c '^Next: komando test askpw' <<<"$O")"
 check "the stored password logs in without a question" "stored-ok" "$($K exec askpw --read-only -- echo stored-ok | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "an agent cannot use --ask-password" NEEDS_PERSON "$(A host add askpw2 "agent@127.0.0.1:$E2E_SSH_DIRECT" --ask-password </dev/null | jget 'd["error"]["code"]' || true)"
 check "rm names the secret left behind" "['askpw-pass']" "$($K host rm askpw | jget 'd["data"]["secrets_unused"]')"
-$K secret rm askpw-pass >/dev/null
+$K secret rm askpw-pass --allow-dangerous >/dev/null
 # a whole export carries your deny rules, and import adds them in another home
 $K policy deny 'e2e-forbidden-word' >/dev/null
 EXP="$(mktemp -d)/backup.json"
@@ -129,6 +130,16 @@ SJ=$($K job start ops --sudo -- 'whoami; cat; echo end' | jget 'd["data"]["jobs"
 check "job with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
 check "job with sudo password runs as root" "root end" "$($K job logs "$SJ" | jget '" ".join(d["data"]["content"].split())')"
 check "job sudo password file is deleted" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
+# a long script from this computer as a job: exec --script's twin
+SJ=$($K job start ops --sudo --script "$TMP/who.sh" | jget 'd["data"]["jobs"][0]["id"]')
+check "job start --script with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
+check "job start --script runs the script as root" root "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job start --script leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/script" | jget 'd["data"]["exists"]')"
+printf '#!/usr/bin/env bash\necho "got:$1:$2"\n' > "$TMP/args.sh"
+SJ=$($K job start direct --script "$TMP/args.sh" --arg 'a b' --arg c | jget 'd["data"]["jobs"][0]["id"]')
+$K job wait "$SJ" --interval 1s >/dev/null
+check "job start --script --arg" "got:a b:c" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job list shows the script, not its text" True "$($K job list | jget 'any(j["command"].startswith("--script") for j in d["data"]["jobs"])')"
 # sudo never asks on a NOPASSWD host, so the password must not reach the command
 $K host edit direct --sudo-ref secret:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"

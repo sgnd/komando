@@ -42,7 +42,7 @@ func (d viaDialer) HostName() string { return d.host }
 func sqlserverConfig(rawURL string, t driver.Target, password, appName string) (msdsn.Config, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return msdsn.Config{}, out.Usage("invalid sqlserver URL: %v", err)
+		return msdsn.Config{}, out.Usage("komando cannot read the sqlserver URL: %v", err)
 	}
 	o, err := driver.ParseSQLServerOptions(u.Query())
 	if err != nil {
@@ -72,7 +72,7 @@ func sqlserverConfig(rawURL string, t driver.Target, password, appName string) (
 		if password != "" {
 			msg = strings.ReplaceAll(msg, password, "[hidden]")
 		}
-		return msdsn.Config{}, out.Usage("invalid sqlserver settings: %s", msg)
+		return msdsn.Config{}, out.Usage("komando cannot use the sqlserver settings: %s", msg)
 	}
 	pool, err := t.RootCAs()
 	if err != nil {

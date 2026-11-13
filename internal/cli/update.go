@@ -24,8 +24,12 @@ import (
 // download (update_fetch.go) is checked like install.sh checks it, and put
 // in place by update_install.go.
 
-// releasePlatforms are the archives a release has (Makefile, PLATFORMS).
-var releasePlatforms = map[string]bool{"linux/amd64": true, "linux/arm64": true, "darwin/amd64": true, "darwin/arm64": true}
+// releasePlatforms are the archives a release has (Makefile, PLATFORMS;
+// a test keeps the two the same).
+var releasePlatforms = map[string]bool{
+	"linux/amd64": true, "linux/arm64": true, "darwin/amd64": true, "darwin/arm64": true,
+	"windows/amd64": true, "windows/arm64": true,
+}
 
 // asRoot reports whether komando runs as root (sudo komando update).
 // Tests pretend.
@@ -64,9 +68,6 @@ func (r updateResult) Text() string {
 	}
 	fmt.Fprintf(&b, "  %s\n", r.Path)
 	fmt.Fprintf(&b, "what changed: %s\n", r.Release)
-	if r.Next != "" {
-		fmt.Fprintf(&b, "next: %s\n", r.Next)
-	}
 	return b.String()
 }
 
@@ -104,6 +105,9 @@ whole update (default 10m).`,
 			if len(args) == 1 {
 				want = args[0]
 			}
+			if err := updateNotATarget(want); err != nil {
+				return err
+			}
 			r, err := runUpdate(cmd.Context(), want)
 			if err != nil {
 				return updateErr(err)
@@ -121,9 +125,11 @@ func updateErr(err error) error {
 	switch e.Code {
 	case "TIMEOUT":
 		e.Message = "the update took longer than " + strings.TrimSuffix(updateTimeout().String(), "0s")
-		e.Hint = "nothing was changed; give it more time: komando update --timeout 30m"
+		e.Message += "; nothing was changed"
+		e.Hint = "give it more time: `komando update --timeout 30m`"
 	case "CANCELLED":
-		e.Hint = "nothing was changed"
+		e.Message += "; nothing was changed"
+		e.Hint = "run it again: `komando update`"
 	}
 	return e
 }
@@ -162,7 +168,7 @@ func runUpdate(ctx context.Context, want string) (updateResult, error) {
 		out.P.WouldBlock(err)
 	}
 	if c < 0 {
-		if err := guardSafety("going back to the older komando " + r.To + " (it may lack this version's safety checks)"); err != nil {
+		if err := guardSafety("going back to the older komando " + r.To); err != nil {
 			return r, err
 		}
 	}
@@ -175,6 +181,7 @@ func runUpdate(ctx context.Context, want string) (updateResult, error) {
 		return r, err
 	}
 	r.Next = nextAfterUpdate()
+	sayNext(r.Next)
 	return r, nil
 }
 
@@ -191,13 +198,41 @@ func updatable() (string, error) {
 	}
 	exe, err := selfPath()
 	if err != nil {
-		return "", out.Errf(out.ExitError, "SELF_NOT_FOUND", "run komando by its full path, e.g. /usr/local/bin/komando update",
+		return "", out.Errf(out.ExitError, "SELF_NOT_FOUND", "run komando by its full path, for example /usr/local/bin/komando update",
 			"cannot find the komando program that is running: %v", err)
 	}
 	return exe, nil
 }
 
 func platform() string { return runtime.GOOS + "/" + runtime.GOARCH }
+
+// updateNotATarget refuses a server, conn or selector given as the
+// version (S-3.6): `komando update web1` means the server's packages, which
+// `pkg upgrade` updates, never a komando version named web1. A name in the
+// inventory counts first, even one shaped like a version.
+func updateNotATarget(want string) error {
+	if want == "" || want == "latest" {
+		return nil
+	}
+	st, err := loadState()
+	if err != nil {
+		st = nil // the version check that follows says what is wrong
+	}
+	what := ""
+	if st != nil {
+		if kind, name, ok := st.FindName(want); ok && kind != "vpn" {
+			what = map[string]string{"host": "server", "conn": "conn"}[kind] + " " + name
+		}
+	}
+	if what == "" && (strings.HasPrefix(want, "@") || strings.HasPrefix(want, "tag:") || strings.HasPrefix(want, "label:")) {
+		what = "selector " + want
+	}
+	if what == "" {
+		return nil
+	}
+	return out.Errf(out.ExitUsage, "USAGE", "komando pkg upgrade "+want,
+		"%q is the %s, not a komando version: `komando update` updates komando itself; `komando pkg upgrade %s` updates the packages there", want, what, want)
+}
 
 // pickVersion is the version asked for (v added when missing), or the
 // newest release for none or "latest".
@@ -290,8 +325,8 @@ func checkWritable(exe, want string) *out.Error {
 		why = pe.Err // "read-only file system", not the temporary name
 	}
 	if !errors.Is(err, fs.ErrPermission) || os.Geteuid() == 0 {
-		return out.Errf(out.ExitConflict, "NOT_WRITABLE", "nothing was changed; make "+dir+" writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR)",
-			"cannot replace %s: %s: %v", exe, dir, why)
+		return out.Errf(out.ExitConflict, "NOT_WRITABLE", "make "+dir+" writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR)",
+			"cannot replace %s: %s: %v; nothing was changed", exe, dir, why)
 	}
 	line := "sudo " + shellQuote(exe) + " update" // sudo's PATH may find another komando, or none
 	if want != "" {

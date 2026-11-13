@@ -36,8 +36,8 @@ func installRelease(ctx context.Context, tag, exe string, sums []byte) error {
 	}
 	bin, err := binaryFromArchive(data)
 	if err != nil {
-		return out.Errf(out.ExitError, "BAD_RELEASE", "nothing was changed; report it at "+releaseSite+"/issues",
-			"%s of komando %s: %v", archive, tag, err)
+		return out.Errf(out.ExitError, "BAD_RELEASE", "report it at "+releaseSite+"/issues",
+			"%s of komando %s: %v; nothing was changed", archive, tag, err)
 	}
 	return replaceSelf(ctx, exe, bin, tag)
 }
@@ -58,8 +58,8 @@ func checkSum(sums []byte, name string, data []byte) error {
 	want := sumFor(sums, name)
 	sum := sha256.Sum256(data)
 	if got := hex.EncodeToString(sum[:]); want == "" || got != want {
-		return out.Errf(out.ExitError, "CHECKSUM_MISMATCH", "nothing was changed; try again, and report it at "+releaseSite+"/issues if it happens again",
-			"%s does not match checksums.txt of its release", name)
+		return out.Errf(out.ExitError, "CHECKSUM_MISMATCH", "run it again, and report it at "+releaseSite+"/issues if it happens again",
+			"%s does not match checksums.txt of its release; nothing was changed", name)
 	}
 	return nil
 }
@@ -127,7 +127,7 @@ func replaceSelf(ctx context.Context, exe string, bin []byte, tag string) error 
 	dir := filepath.Dir(exe)
 	f, err := os.CreateTemp(dir, ".komando-update-*"+exeSuffix)
 	if err != nil {
-		return out.Errf(out.ExitError, "WRITE_FAILED", "nothing was changed; check that you may write to "+dir, "%v", err)
+		return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may write to "+dir, "%v; nothing was changed", err)
 	}
 	tmp := f.Name()
 	defer os.Remove(tmp) // gone after the rename; cleans up after a failure
@@ -142,13 +142,13 @@ func replaceSelf(ctx context.Context, exe string, bin []byte, tag string) error 
 		err = ownLikeFolder(tmp, dir)
 	}
 	if err != nil {
-		return out.Errf(out.ExitError, "WRITE_FAILED", "nothing was changed; check the free space and permissions of "+dir, "%v", err)
+		return out.Errf(out.ExitError, "WRITE_FAILED", "check the free space and permissions of "+dir, "%v; nothing was changed", err)
 	}
 	if err := tryBinary(ctx, tmp, tag); err != nil {
 		return err
 	}
 	if err := swapExe(tmp, exe); err != nil {
-		return out.Errf(out.ExitError, "WRITE_FAILED", "nothing was changed; check that you may write to "+dir, "%v", err)
+		return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may write to "+dir, "%v; nothing was changed", err)
 	}
 	return nil
 }
@@ -171,12 +171,18 @@ func ownLikeFolder(file, dir string) error {
 	return os.Chown(file, uid, gid)
 }
 
+// runVersion runs file --version and gives what it printed. The update
+// tests on Windows replace it: a script cannot stand in for a program there.
+var runVersion = func(ctx context.Context, file string) ([]byte, error) {
+	return exec.CommandContext(ctx, file, "--version").Output()
+}
+
 // tryBinary runs the new program once (--version) before it replaces the
 // old one: a file for another computer, or a broken one, stops here.
 func tryBinary(parent context.Context, file, tag string) error {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Second)
 	defer cancel()
-	b, err := exec.CommandContext(ctx, file, "--version").Output()
+	b, err := runVersion(ctx, file)
 	if perr := parent.Err(); perr != nil {
 		return perr // Ctrl-C or --timeout: updateErr says which
 	}
@@ -185,8 +191,8 @@ func tryBinary(parent context.Context, file, tag string) error {
 		if err != nil {
 			why = flatText(err.Error())
 		}
-		return out.Errf(out.ExitError, "BAD_RELEASE", "nothing was changed; report it at "+releaseSite+"/issues",
-			"the new komando %s does not run on this computer: %s", tag, why)
+		return out.Errf(out.ExitError, "BAD_RELEASE", "report it at "+releaseSite+"/issues",
+			"the new komando %s does not run on this computer: %s; nothing was changed", tag, why)
 	}
 	return nil
 }

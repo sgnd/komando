@@ -40,7 +40,7 @@ type Broker struct {
 	Version    string `json:"version,omitempty"` // a guess from the API versions it takes
 }
 
-// Topic is one line of `queue ls`: a Kafka or Pub/Sub topic, a RabbitMQ or
+// Topic is one line of `queue list`: a Kafka or Pub/Sub topic, a RabbitMQ or
 // SQS queue, or a NATS JetStream stream.
 type Topic struct {
 	Name     string `json:"name"`
@@ -52,7 +52,7 @@ type Topic struct {
 	*PubsubTopic
 }
 
-// KafkaTopic is what `queue ls` shows of a Kafka topic.
+// KafkaTopic is what `queue list` shows of a Kafka topic.
 type KafkaTopic struct {
 	Partitions int  `json:"partitions"`
 	Replicas   int  `json:"replicas"`
@@ -168,7 +168,7 @@ func (k *Kafka) Info(ctx context.Context) (*Info, error) {
 }
 
 // Topics lists topics whose name matches pattern (shell style: orders-*).
-func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]Topic, error) {
+func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool, limit int) ([]Topic, error) {
 	tds, err := k.adm.ListTopicsWithInternal(ctx)
 	if err != nil {
 		return nil, opErr(err, "topics")
@@ -180,6 +180,7 @@ func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]To
 		}
 	}
 	sort.Strings(names)
+	names = First(names, limit) // message counts only for those shown
 	res := []Topic{}
 	if len(names) == 0 {
 		return res, nil
@@ -198,6 +199,14 @@ func (k *Kafka) Topics(ctx context.Context, pattern string, internal bool) ([]To
 		res = append(res, t)
 	}
 	return res, nil
+}
+
+// First keeps the first limit names (limit 0: all of them).
+func First[T any](items []T, limit int) []T {
+	if limit > 0 && len(items) > limit {
+		return items[:limit]
+	}
+	return items
 }
 
 // Match says whether name matches a shell-style pattern ("" and "*" match

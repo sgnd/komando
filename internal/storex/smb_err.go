@@ -73,12 +73,15 @@ func smbErr(err error) error {
 	if errors.As(err, &oe) {
 		return oe
 	}
+	if errors.Is(err, context.Canceled) {
+		return err // Ctrl-C: komando says CANCELLED
+	}
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, os.ErrDeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "the SMB server did not answer in time")
 	}
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage ls CONN [FOLDER]`", "file not found")
+		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "file not found")
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "the account may not read or write here; check the share's and the folder's permissions", "access denied")
 	}
@@ -90,16 +93,16 @@ func smbErr(err error) error {
 	var ne net.Error
 	if errors.As(err, &te) || errors.As(err, &ne) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
 		return out.Errf(out.ExitConnect, "STORAGE_CONNECT",
-			"run `komando conn test NAME` to check reachability; port 445 is often blocked across the internet, so reach the server --via an SSH host or a VPN", "%v", err)
+			"run `komando test TARGET` to check reachability; port 445 is often blocked across the internet, so reach the server --via another server or a VPN", "%v", err)
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "%v", err)
 }
 
 // smbStatusErr explains an NTSTATUS answer to a file operation.
 func smbStatusErr(re *smb2.ResponseError) error {
 	switch re.Code {
 	case ntSharingViolation:
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "another program has the file open; close it there and try again", "the file is in use")
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "another program has the file open; close it there and run it again", "the file is in use")
 	case ntIsADirectory:
 		return out.Usage("that name is a folder; give a file")
 	case ntDiskFull:
@@ -109,5 +112,5 @@ func smbStatusErr(re *smb2.ResponseError) error {
 	case ntNotEmpty:
 		return out.Usage("the folder is not empty")
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", re)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "%v", re)
 }

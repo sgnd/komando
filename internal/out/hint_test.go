@@ -10,8 +10,8 @@ import (
 	"testing"
 )
 
-// Every error tells the reader what to do next (docs/design/ux.md, section
-// 5): an Errf with an empty hint is a bug.
+// Every error tells the reader what to do next (docs/design/command-standard.md,
+// S-8.5): an Errf with an empty hint is a bug.
 func TestEveryErrfHasHint(t *testing.T) {
 	empty := regexp.MustCompile(`Errf\([^,]+,\s*"[A-Z_]+",\s*"",`)
 	root := filepath.Join("..", "..")

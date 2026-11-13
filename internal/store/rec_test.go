@@ -30,6 +30,7 @@ func update(t *testing.T, fn func(s *State)) {
 
 func TestRecIdentity(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) {
 		s.Hosts["web"] = &Host{Name: "web", Address: "10.0.0.1"}
 		s.Snippets["up"] = &Snippet{Name: "up", Command: "uptime"}
@@ -101,6 +102,7 @@ func TestRecNotInRecordJSON(t *testing.T) {
 
 func TestRecDryRun(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
 	a := recOf(t, KindHost, "a")
 	DryRun = true

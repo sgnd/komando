@@ -20,7 +20,7 @@ import (
 func TestQueueSQSConn(t *testing.T) {
 	invHome(t)
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "s", "sqs://us-east-1?endpoint=http://sqs.example.com")
-	mustRun(t, "conn", "add", "aws", "sqs://eu-west-1", "--option", "aws_profile=nowhere")
+	mustRun(t, "conn", "add", "sqs", "sqs://eu-west-1", "--option", "aws_profile=nowhere")
 	mustRun(t, "host", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "s-via", "sqs://us-east-1?endpoint=http://moto:5000", "--via", "office")
 	mustRun(t, "conn", "add", "s-plain", "sqs://us-east-1?endpoint=http://sqs.example.com&insecure=1")
@@ -30,13 +30,13 @@ func TestQueueSQSConn(t *testing.T) {
 	if w := weakTLS("", "sqs://us-east-1?endpoint=http://sqs.example.com&insecure=1"); len(w) != 1 {
 		t.Errorf("weakTLS: %v", w)
 	}
-	if d := mustRun(t, "conn", "show", "aws"); !strings.Contains(jsonOf(d), "eu-west-1") {
+	if d := mustRun(t, "conn", "show", "sqs"); !strings.Contains(jsonOf(d), "eu-west-1") {
 		t.Errorf("conn show: %v", d)
 	}
 	t.Setenv("AWS_CONFIG_FILE", os.DevNull)
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", os.DevNull)
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-	wantCode(t, "AWS_PROFILE_NOT_FOUND", "queue", "info", "aws")
+	wantCode(t, "AWS_PROFILE_NOT_FOUND", "queue", "info", "sqs")
 	t.Setenv("KOMANDO_TEST_SQS_SECRET", "x")
 	mustRun(t, "conn", "add", "nokey", "sqs://us-east-1?endpoint=http://127.0.0.1:9", "--password-ref", "env:KOMANDO_TEST_SQS_SECRET")
 	wantCode(t, "USAGE", "queue", "info", "nokey")
@@ -92,7 +92,7 @@ func TestQueueSQSLive(t *testing.T) {
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", creds)
 	t.Setenv("AWS_CONFIG_FILE", os.DevNull)
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-	mustRun(t, "conn", "add", "aws", "sqs://test@us-east-1?endpoint="+endpoint, "--password-ref", "env:KOMANDO_TEST_SQS_SECRET")
+	mustRun(t, "conn", "add", "sqs", "sqs://test@us-east-1?endpoint="+endpoint, "--password-ref", "env:KOMANDO_TEST_SQS_SECRET")
 	mustRun(t, "conn", "add", "aws-sso", "sqs://us-east-1?endpoint="+endpoint, "--option", "aws_profile=e2e")
 	const name = "komando-cli"
 	tg, _ := driver.Parse("sqs://test@us-east-1?endpoint=" + endpoint)
@@ -104,7 +104,7 @@ func TestQueueSQSLive(t *testing.T) {
 	}
 	cleanup()
 	t.Cleanup(cleanup)
-	for _, conn := range []string{"aws", "aws-sso"} {
+	for _, conn := range []string{"sqs", "aws-sso"} {
 		if d := mustRun(t, "conn", "test", conn); !strings.Contains(jsonOf(d), `"check":"login"`) {
 			t.Errorf("conn test %s: %v", conn, d)
 		}
@@ -112,38 +112,38 @@ func TestQueueSQSLive(t *testing.T) {
 	if d := mustRun(t, "queue", "info", "aws-sso"); d["engine"] != "sqs" || d["region"] != "us-east-1" {
 		t.Errorf("info: %v", d)
 	}
-	if d := mustRun(t, "--dry-run", "queue", "create", "aws", name, "--config", "VisibilityTimeout=60"); d["dry_run"] != true {
+	if d := mustRun(t, "--dry-run", "queue", "create", "sqs", name, "--config", "VisibilityTimeout=60"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
 	g.dryRun, store.DryRun = false, false
-	wantCode(t, "QUEUE_NOT_FOUND", "queue", "describe", "aws", name)
-	mustRun(t, "queue", "create", "aws", name, "--config", "VisibilityTimeout=60")
-	wantCode(t, "QUEUE_EXISTS", "queue", "create", "aws", name)
-	if d := mustRun(t, "queue", "send", "aws", name, "--value", `{"id": 1}`, "--header", "source=test"); d["message_id"] == "" {
+	wantCode(t, "QUEUE_NOT_FOUND", "queue", "describe", "sqs", name)
+	mustRun(t, "queue", "create", "sqs", name, "--config", "VisibilityTimeout=60")
+	wantCode(t, "QUEUE_EXISTS", "queue", "create", "sqs", name)
+	if d := mustRun(t, "queue", "send", "sqs", name, "--value", `{"id": 1}`, "--header", "source=test"); d["message_id"] == "" {
 		t.Errorf("send: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "send", "aws", name, "--value", "x", "--key", "k")
-	wantCode(t, "HIDDEN_VALUE", "queue", "send", "aws", name, "--value", "password=[hidden]")
+	wantCode(t, "NOT_SUPPORTED", "queue", "send", "sqs", name, "--value", "x", "--key", "k")
+	wantCode(t, "HIDDEN_VALUE", "queue", "send", "sqs", name, "--value", "password=[hidden]")
 	for range 2 { // peek takes nothing away
 		d := mustRun(t, "queue", "peek", "aws-sso", name)
 		if d["count"].(float64) != 1 || d["queue"] != name || !strings.Contains(jsonOf(d), `"source":"test"`) {
 			t.Errorf("peek: %v", d)
 		}
 	}
-	if d := mustRun(t, "queue", "describe", "aws", name); d["messages"].(float64) != 1 || d["in_flight"].(float64) != 0 || d["visibility_timeout"].(float64) != 60 {
+	if d := mustRun(t, "queue", "describe", "sqs", name); d["messages"].(float64) != 1 || d["in_flight"].(float64) != 0 || d["visibility_timeout"].(float64) != 60 {
 		t.Errorf("describe after peek: %v", d)
 	}
-	if d := mustRun(t, "queue", "ls", "aws", "komando-*"); d["count"].(float64) < 1 {
+	if d := mustRun(t, "queue", "ls", "sqs", "komando-*"); d["count"].(float64) < 1 {
 		t.Errorf("ls: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "groups", "aws")
-	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "aws", name)
-	if d := mustRun(t, "--dry-run", "queue", "purge", "aws", name); d["messages"].(float64) != 1 {
+	wantCode(t, "NOT_SUPPORTED", "queue", "groups", "sqs")
+	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "sqs", name)
+	if d := mustRun(t, "--dry-run", "queue", "purge", "sqs", name); d["messages"].(float64) != 1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
 	g.dryRun, store.DryRun = false, false
-	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "aws", name)
-	if d := mustRun(t, "--dry-run", "queue", "rm", "aws", name); !strings.Contains(jsonOf(d), `"exists":true`) {
+	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "sqs", name)
+	if d := mustRun(t, "--dry-run", "queue", "rm", "sqs", name); !strings.Contains(jsonOf(d), `"exists":true`) {
 		t.Errorf("dry-run rm: %v", d)
 	}
 }

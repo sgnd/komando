@@ -131,13 +131,14 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 					return err
 				}
 				defer f.Close()
-				if n, err = s.Get(ctx, key, f); err != nil {
-					return err
-				}
-				if mask {
-					if masked, err = maskDownload(f, n); err != nil {
+				if !mask {
+					if n, err = s.Get(ctx, key, f); err != nil {
 						return err
 					}
+					return f.Sync()
+				}
+				if n, masked, err = getMasked(ctx, s, key, f); err != nil {
+					return err
 				}
 				return f.Sync()
 			}
@@ -175,4 +176,16 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder is writable and has free space", "%v", err)
 	}
 	return nil
+}
+
+// getMasked saves object key into f for an AI agent, masked before it
+// reaches the disk (fetchMasked).
+func getMasked(ctx context.Context, s storex.Bucket, key string, f *os.File) (int64, bool, error) {
+	pr, pw := io.Pipe()
+	defer pr.Close()
+	go func() {
+		_, err := s.Get(ctx, key, pw)
+		pw.CloseWithError(err)
+	}()
+	return fetchMasked(ctx, pr, f, io.Discard, nil)
 }

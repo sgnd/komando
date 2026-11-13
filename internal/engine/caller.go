@@ -1,8 +1,8 @@
 // Package engine holds what one komando call is: who makes it and the
 // state of its approvals. Today the CLI makes one call per process; the
 // Mac and iPhone apps will run many calls in one process, for a person and
-// for an agent at the same time (docs/design/sync-security.md, phase 0
-// track E), so nothing here reads the environment or a global by itself:
+// for an agent at the same time, so nothing here reads the environment or
+// a global by itself:
 // the caller hands it in.
 package engine
 
@@ -91,8 +91,8 @@ func CallerFrom(lookup func(string) (string, bool), terminal bool) Caller {
 	}
 	if a, _ := lookup("KOMANDO_ACTOR"); a != "" {
 		c.Actor = a
-	} else {
-		c.Actor, _ = lookup("USER")
+	} else if c.Actor, _ = lookup("USER"); c.Actor == "" {
+		c.Actor, _ = lookup("USERNAME") // Windows sets only this one
 	}
 	return c
 }

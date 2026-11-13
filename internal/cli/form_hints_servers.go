@@ -22,14 +22,14 @@ var (
 		help: "Not sure? Say no. Yes is only for commands that read, like df -h or cat."}
 	srvDir = formFlag{name: "dir", ask: "In which folder on the server should it run?",
 		help: "Leave empty for the login user's home folder.", example: "/srv/app"}
-	// journalctl takes -1h (or today), docker logs 1h; logs and docker logs
-	// drop a leading -, so -1h works for both.
-	srvSince = formFlag{name: "since", ask: "From how long ago?", example: "-1h",
-		help: "-30m or -2h means that long ago; the journal (a service or the whole system) also takes today or 2026-01-02 10:00. Leave empty for the latest lines."}
-	srvUntil = formFlag{name: "until", ask: "Up to when?", example: "-10m",
-		help: "Like -10m (ten minutes ago), or a time like 2026-01-02 11:00. Leave empty for up to now."}
-	srvJournalSince = formFlag{name: "since", ask: "From how long ago?", example: "-1h",
-		help: "Like -30m, -2h, today, yesterday or 2026-01-02 10:00. Leave empty for the latest lines."}
+	// a time back from now is 1h for every source (komando writes -1h for
+	// journalctl itself)
+	srvSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
+		help: "30m or 2h means that long ago; the journal (a service or the whole system) also takes today or 2026-01-02 10:00. Leave empty for the latest lines."}
+	srvUntil = formFlag{name: "until", ask: "Up to when?", example: "10m",
+		help: "Like 10m (ten minutes ago), or a time like 2026-01-02 11:00. Leave empty for up to now."}
+	srvJournalSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
+		help: "Like 30m, 2h, today, yesterday or 2026-01-02 10:00. Leave empty for the latest lines."}
 	srvDockerSince = formFlag{name: "since", ask: "From how long ago?", example: "1h",
 		help: "Like 30m or 2h (that long ago), or a time like 2026-01-02T10:00:00. Leave empty for the latest lines."}
 	srvGrep = formFlag{name: "grep", ask: "Only lines that contain a word?",
@@ -77,7 +77,8 @@ func srvWithShow(f formFlag, show func(formAnswers) bool) formFlag {
 var srvRunHints = map[string]formHint{
 	"exec": {
 		args: []formArg{srvServers, {ask: "What command should it run?", example: "df -h /",
-			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead."}},
+			help: "Type it as you would on the server itself, pipes and all. Leave it empty to run a script file from this computer instead.",
+			need: func(a formAnswers) bool { return a["flag:script"] == "" }}},
 		flags: []formFlag{
 			{name: "script", ask: "Which script on this computer?", example: "./deploy.sh", local: true, show: srvNoCommand,
 				help: "A file on this computer. komando sends it to the server and runs it there; nothing is left on disk."},
@@ -130,14 +131,14 @@ var srvPkgHints = map[string]formHint{
 	"pkg rm":        {args: []formArg{srvServers, srvPkgs}},
 	"pkg security": {args: []formArg{srvServers}, flags: []formFlag{
 		{name: "refresh", ask: "Refresh the package list first?",
-			help: "Yes asks the package sources what is new, so the list is current."},
-		{name: "apply", ask: "Install the security updates now?",
-			help: "No only lists them. Yes installs them, one server at a time."}}},
+			help: "Yes asks the package sources what is new, so the list is current."}}},
 	"pkg update": {args: []formArg{srvServers}},
 	"pkg upgradable": {args: []formArg{srvServers, srvPkgsAll}, flags: []formFlag{
 		{name: "refresh", ask: "Refresh the package list first?",
 			help: "Yes asks the package sources what is new, so the list is current."}}},
-	"pkg upgrade": {args: []formArg{srvServers, srvPkgsAll}},
+	"pkg upgrade": {args: []formArg{srvServers, srvPkgsAll}, flags: []formFlag{
+		{name: "security", ask: "Only the security updates, one server at a time?",
+			help: "Yes installs only security fixes and stops when a server comes out of it different. Leave the packages empty then."}}},
 }
 
 var srvUserCronHints = map[string]formHint{
@@ -234,4 +235,45 @@ var srvNetHints = map[string]formHint{
 		flags: []formFlag{{name: "warn", ask: "Warn how long before a certificate ends?", example: "30d",
 			help: "Warns 30 days before. Empty keeps that. Or type 14d or 72h."}},
 	},
+}
+
+// Next: lines for the server commands (server and ops areas).
+func init() {
+	addFormHints(map[string]formHint{
+		"docker rm":         {next: []string{"docker ps {} --all"}},
+		"exec":              {next: []string{"job start {} -- COMMAND", "logs {}", "facts {}"}},
+		"facts":             {next: []string{"pkg upgradable {}", "logs {}", "svc list {}"}},
+		"svc list":          {next: []string{"svc status {} UNIT", "logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s"}},
+		"svc status":        {next: []string{"logs {} --unit UNIT --since 30m", "svc restart {} UNIT --wait 10s --dry-run"}},
+		"svc start":         {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
+		"svc restart":       {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
+		"svc reload":        {next: []string{"svc status {} UNIT", "logs {} --unit UNIT -n 50"}},
+		"svc stop":          {next: []string{"svc status {} UNIT", "svc disable {} UNIT"}},
+		"svc enable":        {next: []string{"svc status {} UNIT"}},
+		"svc disable":       {next: []string{"svc status {} UNIT"}},
+		"svc daemon-reload": {next: []string{"svc restart {} UNIT --wait 10s"}},
+		"logs":              {next: []string{"logs {} --unit UNIT --follow", "svc status {} UNIT"}},
+		"pkg upgradable":    {next: []string{"pkg upgrade {} --dry-run", "pkg security {}"}},
+		"pkg security":      {next: []string{"pkg upgrade {} --security --dry-run", "reboot {} --dry-run"}},
+		"pkg upgrade":       {next: []string{"facts {}", "reboot {} --dry-run"}},
+		"pkg update":        {next: []string{"pkg upgradable {}"}},
+		"pkg install":       {next: []string{"pkg installed {} PACKAGE"}},
+		"pkg rm":            {next: []string{"pkg installed {} PACKAGE"}},
+		"user list":         {next: []string{"user add {} USER --key KEY", "user lock {} USER"}},
+		"user add":          {next: []string{"user list {}"}},
+		"user lock":         {next: []string{"user unlock {} USER", "user rm {} USER --dry-run"}},
+		"docker ps":         {next: []string{"docker logs {} CONTAINER --since 10m", "docker restart {} CONTAINER", "docker stats {}"}},
+		"docker logs":       {next: []string{"docker restart {} CONTAINER", "docker inspect {} CONTAINER"}},
+		"docker prune":      {next: []string{"recipe run disk {}"}},
+		"cron list":         {next: []string{"cron set {} NAME COMMAND --schedule '0 2 * * *'", "cron rm {} NAME"}},
+		"cron set":          {next: []string{"cron list {}"}},
+		"cron rm":           {next: []string{"cron list {}"}},
+		"net ports":         {next: []string{"net check {} ADDRESS:PORT"}},
+		"net check":         {next: []string{"net dns {} DOMAIN", "net http {} URL"}},
+		"cert check":        {next: []string{"cert check {} --warn 14d"}},
+		"reboot":            {next: []string{"facts {}", "svc list {} --failed"}},
+		"recipe list":       {next: []string{"recipe run NAME TARGET"}},
+		"recipe add":        {next: []string{"recipe run {} TARGET --dry-run"}},
+		"recipe run":        {next: []string{"recipe list"}},
+	})
 }

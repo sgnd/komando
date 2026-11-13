@@ -15,6 +15,7 @@ import (
 func jobListCmd() *cobra.Command {
 	var target string
 	var refresh bool
+	var limit int
 	c := &cobra.Command{
 		Use:   "list",
 		Short: "List the jobs komando started (--refresh asks the servers)",
@@ -45,6 +46,7 @@ func jobListCmd() *cobra.Command {
 				}
 			}
 			sort.Slice(jobs, func(a, b int) bool { return jobs[a].StartedAt.After(jobs[b].StartedAt) })
+			jobs = cutRows(jobs, limit) // newest first: the cut drops the oldest
 			if !refresh {
 				out.P.Print("job.list", jobList{Count: len(jobs), Jobs: jobs}, nil)
 				return nil
@@ -72,8 +74,9 @@ func jobListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, e.g. @web)")
+	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, like @web)")
 	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")
+	limitFlag(c, &limit, 0, "jobs, newest first")
 	return c
 }
 
@@ -113,7 +116,7 @@ func (l jobList) Text() string {
 		}
 	}
 	if len(rows) == 0 {
-		return "no jobs: start one with komando job start TARGET -- COMMAND\n"
+		return noneYet("jobs", "job start TARGET -- COMMAND")
 	}
 	s := textTable([]string{"id", "host", "state", "exit", "age", "command"}, rows)
 	if _, ok := l.Jobs.([]*store.Job); ok {

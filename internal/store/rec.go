@@ -8,7 +8,7 @@ import (
 	"sort"
 )
 
-// Rec is a record's identity (docs/design/sync-security.md section 16): a
+// Rec is a record's identity: a
 // random ID that stays when the record is renamed, and a version that goes
 // up by one each time the record changes. The coming sealed store keys its
 // rows by ID, and sync tells changes apart by version.

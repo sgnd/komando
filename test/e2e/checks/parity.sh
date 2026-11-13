@@ -119,7 +119,7 @@ fi
 if in_area k8s; then
 # kubectl logs, docker ps
 check "cluster logs = kubectl logs" "$(native k3s kubectl logs -n kube-system deploy/coredns --tail 3)" \
-  "$($K cluster logs lab-k3s deploy/coredns --namespace kube-system -n 3 | jget 'd["data"]["logs"].rstrip("\n")')"
+  "$($K cluster logs lab-k3s deploy/coredns --namespace kube-system --limit 3 | jget 'd["data"]["logs"].rstrip("\n")')"
 fi
 
 if in_area swarm; then

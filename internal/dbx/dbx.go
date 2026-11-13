@@ -50,7 +50,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 	case "postgres":
 		cfg, err := pgx.ParseConfig(driver.WithoutCA(rawURL))
 		if err != nil {
-			return nil, out.Usage("invalid postgres URL: %v", err)
+			return nil, out.Usage("komando cannot read the postgres URL: %v", err)
 		}
 		pool, err := t.RootCAs()
 		if err != nil {
@@ -110,7 +110,8 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 			q.Add("_pragma", "query_only(1)")
 		}
 		var err error
-		if db, err = sql.Open("sqlite", "file:"+SQLitePath(t)+"?"+q.Encode()); err != nil {
+		// a URI path takes / (SQLite reads file:C:/data/app.db on Windows)
+		if db, err = sql.Open("sqlite", "file:"+filepath.ToSlash(SQLitePath(t))+"?"+q.Encode()); err != nil {
 			return nil, err
 		}
 	case "sqlserver", "oracle", "clickhouse", "snowflake", "bigquery":
@@ -579,7 +580,7 @@ func runStatement(ctx context.Context, q querier, conn *sql.Conn, kind string, s
 
 func writeRequired(kw string) *out.Error {
 	return out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
-		"this statement changes data; re-run with --write (try --write --dry-run first)",
+		"this statement changes data; run it again with --write (try --write --dry-run first)",
 		"%s needs --write", kw)
 }
 
@@ -614,7 +615,7 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the database did not answer in time; check the address or raise --connect-timeout", "connecting to %s timed out", t.Where())
 	}
 	if t.Kind.File {
-		return out.Errf(out.ExitConnect, "DB_CONNECT", "check the file path in the conn URL", "cannot open %s: %v", t.Path, err)
+		return out.Errf(out.ExitConnect, "DB_CONNECT", "check the file path in the conn URL (`komando conn show NAME`)", "cannot open %s: %v", t.Path, err)
 	}
 	if t.Kind.Name == "oracle" && t.Secure && (errors.Is(err, io.EOF) || err.Error() == "EOF") {
 		// a listener without TCPS closes the connection on the TLS hello
@@ -623,7 +624,7 @@ func connectErr(t driver.Target, err error) error {
 	if h := tlsHint(t.Kind.Name, err); h != "" {
 		return out.Errf(out.ExitConnect, "DB_CONNECT", h, "cannot connect to %s: %v", t.Where(), err)
 	}
-	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando conn test NAME` to check reachability", "cannot connect to %s: %v", t.Where(), err)
+	return out.Errf(out.ExitConnect, "DB_CONNECT", "run `komando test TARGET` to check reachability", "cannot connect to %s: %v", t.Where(), err)
 }
 
 // tlsHint says what to do when TLS stopped the connection: the server's

@@ -26,7 +26,7 @@ func shopInventory(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	mustRun(t, "vpn", "add", "shop-vpn", "socks", "--address", "127.0.0.1:1080", "-g", "shop")
+	mustRun(t, "vpn", "add", "shop-vpn", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "shop")
 	mustRun(t, "host", "add", "shop-bastion", "u@10.0.0.1", "--via", "shop-vpn", "-g", "shop", "-g", "shop-stg",
 		"--password-ref", "secret:shop-pass", "--protected", "--label", "dc=jkt", "--notes", "jump for shop-db; see shop-vpn.")
 	mustRun(t, "key", "gen", "shop-key")
@@ -83,7 +83,7 @@ func TestRenamePrefix(t *testing.T) {
 	keep := homeFiles(t)
 
 	// the dry run: the old -> new map per kind, every reference, and the stop
-	d := mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--dry-run")
+	d := mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--dry-run")
 	if d["action"] != "would_rename" || d["count"].(float64) != 10 {
 		t.Fatalf("dry run: %v", d)
 	}
@@ -149,14 +149,14 @@ func TestRenamePrefix(t *testing.T) {
 	}
 
 	// a script without --yes: stopped, nothing changed
-	wantCode(t, "PROTECTED_HOST", "rename", "--prefix", "shop-", "acme-shop-")
+	wantCode(t, "PROTECTED_HOST", "rename", "--starts-with", "shop-", "acme-shop-")
 	if homeFiles(t) != keep {
 		t.Fatal("a stopped rename changed something")
 	}
 
 	// an AI agent: one window for every protected entry, which says how many
 	texts := windowText(t, true)
-	d = mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--yes")
+	d = mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "2 protected entries (1 server, 1 conn)") ||
 		!strings.Contains((*texts)[0], "shop-bastion, shop-db") {
 		t.Errorf("one window that counts them: %q", *texts)
@@ -214,7 +214,7 @@ func TestRenamePrefix(t *testing.T) {
 		t.Errorf("the old secret is still there: %v", err)
 	}
 	// nothing starts with shop- any more
-	wantCode(t, "NOTHING_TO_RENAME", "rename", "--prefix", "shop-", "acme-shop-")
+	wantCode(t, "NOTHING_TO_RENAME", "rename", "--starts-with", "shop-", "acme-shop-")
 }
 
 // When NEW starts with OLD, a second run changes nothing; OLD without its
@@ -223,13 +223,13 @@ func TestRenamePrefixTwice(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "team-registry", "registry://u@reg.lan", "-g", "team")
 	mustRun(t, "host", "add", "team", "u@10.0.0.1")
-	d := mustRun(t, "rename", "--prefix", "team-", "team-ops-")
+	d := mustRun(t, "rename", "--starts-with", "team-", "team-ops-")
 	if pairs(d, "conn")["team-registry"] != "team-ops-registry" || pairs(d, "group")["team"] != "team-ops" ||
 		pairs(d, "host")["team"] != "team-ops" {
 		t.Fatalf("first run: %v", d)
 	}
 	keep := homeFiles(t)
-	d = mustRun(t, "rename", "--prefix", "team-", "team-ops-")
+	d = mustRun(t, "rename", "--starts-with", "team-", "team-ops-")
 	if d["action"] != "unchanged" || d["count"].(float64) != 0 || len(d["skipped"].([]any)) != 3 {
 		t.Errorf("second run: %v", d)
 	}
@@ -239,7 +239,7 @@ func TestRenamePrefixTwice(t *testing.T) {
 	// a bare name only counts when OLD ends in -
 	mustRun(t, "host", "add", "lab", "u@10.0.0.2")
 	mustRun(t, "host", "add", "lab2", "u@10.0.0.3")
-	d = mustRun(t, "rename", "--prefix", "lab", "test", "--kind", "host")
+	d = mustRun(t, "rename", "--starts-with", "lab", "test", "--kind", "host")
 	if h := pairs(d, "host"); len(h) != 2 || h["lab"] != "test" || h["lab2"] != "test2" {
 		t.Errorf("no - : %v", h)
 	}
@@ -267,7 +267,7 @@ func TestRenameClashChangesNothing(t *testing.T) {
 			shopInventory(t)
 			c.setup()
 			keep := homeFiles(t)
-			e := wantCode(t, "NAME_TAKEN", "rename", "--prefix", "shop-", "acme-shop-", "--yes")
+			e := wantCode(t, "NAME_TAKEN", "rename", "--starts-with", "shop-", "acme-shop-", "--yes")
 			if !strings.Contains(e.Message, "acme-shop-") {
 				t.Errorf("the message names the clash: %s", e.Message)
 			}
@@ -286,7 +286,7 @@ func TestRenameClashChangesNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	keep := homeFiles(t)
-	wantCode(t, "VPN_IN_USE", "rename", "--prefix", "shop-", "acme-shop-", "--yes")
+	wantCode(t, "VPN_IN_USE", "rename", "--starts-with", "shop-", "acme-shop-", "--yes")
 	if homeFiles(t) != keep {
 		t.Fatal("VPN_IN_USE changed something")
 	}
@@ -295,13 +295,13 @@ func TestRenameClashChangesNothing(t *testing.T) {
 func TestRenameUsage(t *testing.T) {
 	shopInventory(t)
 	wantCode(t, "USAGE", "rename", "shop-", "acme-shop-")
-	wantCode(t, "USAGE", "rename", "--prefix", "shop-", "shop-")
-	wantCode(t, "USAGE", "rename", "--prefix", "", "x-")
-	wantCode(t, "USAGE", "rename", "--prefix", "shop-", "acme-shop-", "--kind", "bucket")
-	wantCode(t, "USAGE", "rename", "--prefix", "shop-", "bad name-", "--yes")
-	wantCode(t, "NOTHING_TO_RENAME", "rename", "--prefix", "nope-", "x-")
+	wantCode(t, "USAGE", "rename", "--starts-with", "shop-", "shop-")
+	wantCode(t, "USAGE", "rename", "--starts-with", "", "x-")
+	wantCode(t, "USAGE", "rename", "--starts-with", "shop-", "acme-shop-", "--kind", "bucket")
+	wantCode(t, "USAGE", "rename", "--starts-with", "shop-", "bad name-", "--yes")
+	wantCode(t, "NOTHING_TO_RENAME", "rename", "--starts-with", "nope-", "x-")
 	// --kind: only secrets are renamed; references still follow
-	d := mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--kind", "secret")
+	d := mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--kind", "secret")
 	if len(pairs(d, "secret")) != 3 || len(pairs(d, "host")) != 0 || d["_meta"].(map[string]any)["would_be_blocked"] != nil {
 		t.Errorf("--kind secret: %v", d)
 	}
@@ -342,7 +342,7 @@ func TestRenameNotes(t *testing.T) {
 		"Password: secret:shop-pass. Members: @shop and @shop-stg (shop-stg); ssh u@shop. Is it shop-vpn?"
 	mustRun(t, "host", "add", "ops", "u@10.0.0.11", "--notes", note)
 
-	d := mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--notes", "--yes", "--dry-run")
+	d := mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--in-notes", "--yes", "--dry-run")
 	from, to, ok := updatedRef(d, "host ops", "notes")
 	want := "db shop, role shop on acme-shop-db; dump to bucket shop-dev. Copy to shop-prod, then acme-shop-prod-db-* and shop-web-*. " +
 		"Password: secret:acme-shop-pass. Members: @acme-shop and @acme-shop-stg (shop-stg); ssh u@shop. Is it acme-shop-vpn?"
@@ -377,7 +377,7 @@ func TestRenameNotes(t *testing.T) {
 		}
 	}
 
-	mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--notes", "--yes")
+	mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--in-notes", "--yes")
 	st, _ := store.Load()
 	if n := st.Hosts["ops"].Notes; n != want {
 		t.Errorf("saved notes: %q", n)
@@ -390,7 +390,7 @@ func TestRenameNotes(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "lab-db-1", "u@10.0.0.1", "--notes", "backups on lab-db-* via lab-gw")
 	mustRun(t, "conn", "add", "lab-gw", "postgres://a@10.0.0.2/x")
-	d = mustRun(t, "rename", "--prefix", "lab-", "test-", "--kind", "conn", "--notes")
+	d = mustRun(t, "rename", "--starts-with", "lab-", "test-", "--kind", "conn", "--in-notes")
 	if _, to, _ := updatedRef(d, "host lab-db-1", "notes"); to != "backups on lab-db-* via test-gw" {
 		t.Errorf("--kind conn notes: %q", to)
 	}
@@ -454,10 +454,10 @@ func TestRenameLabels(t *testing.T) {
 	mustRun(t, "conn", "add", "shop-db", "postgres://app@10.0.0.2/app", "--label", "host=shop-web", "--label", "team=shop", "--label", "dc=eu")
 	mustRun(t, "host", "add", "other", "u@10.0.0.3", "--label", "backup=shop-db")
 
-	d := mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--dry-run")
+	d := mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--dry-run")
 	for _, c := range []struct{ entry, field, name, to, why string }{
-		{"conn acme-shop-db", "label host", "shop-web", "acme-shop-web", "labels change only with --labels"},
-		{"host other", "label backup", "shop-db", "acme-shop-db", "labels change only with --labels"},
+		{"conn acme-shop-db", "label host", "shop-web", "acme-shop-web", "labels change only with --in-labels"},
+		{"host other", "label backup", "shop-db", "acme-shop-db", "labels change only with --in-labels"},
 		{"conn acme-shop-db", "label team", "shop", "", "OLD without its -"},
 	} {
 		if r := keptReason(d, c.entry, c.field, c.name); !strings.HasPrefix(r, c.why) {
@@ -467,10 +467,10 @@ func TestRenameLabels(t *testing.T) {
 	if k := d["kept"].([]any); len(k) != 3 {
 		t.Errorf("kept: %v", k)
 	}
-	if text := renameResultText(t, d); !strings.Contains(text, "conn acme-shop-db label host: shop-web (labels change only with --labels; it would become acme-shop-web)") {
+	if text := renameResultText(t, d); !strings.Contains(text, "conn acme-shop-db label host: shop-web (labels change only with --in-labels; it would become acme-shop-web)") {
 		t.Errorf("text:\n%s", text)
 	}
-	mustRun(t, "rename", "--prefix", "shop-", "acme-shop-")
+	mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-")
 	st, _ := store.Load()
 	if l := st.Conns["acme-shop-db"].Labels; l["host"] != "shop-web" || l["team"] != "shop" {
 		t.Errorf("labels changed without --labels: %v", l)
@@ -480,7 +480,7 @@ func TestRenameLabels(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "shop-web", "u@10.0.0.1", "-g", "shop")
 	mustRun(t, "conn", "add", "shop-db", "postgres://app@10.0.0.2/app", "--label", "host=shop-web", "--label", "team=shop", "--label", "dc=eu")
-	d = mustRun(t, "rename", "--prefix", "shop-", "acme-shop-", "--labels")
+	d = mustRun(t, "rename", "--starts-with", "shop-", "acme-shop-", "--in-labels")
 	if from, to, ok := updatedRef(d, "conn acme-shop-db", "label host"); !ok || from != "shop-web" || to != "acme-shop-web" {
 		t.Errorf("label host: %q -> %q", from, to)
 	}
@@ -502,13 +502,13 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	if err := vault.Set("lab-pass", "v"); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "lab-a", "u@10.0.0.1", "--via", "lab-vpn", "--password-ref", "secret:lab-pass", "--env", "P=secret:lab-pass")
 	mustRun(t, "conn", "add", "lab-db", "postgres://a@10.0.0.2/x", "--via", "lab-vpn,lab-a", "--password-ref", "secret:lab-pass")
 	t.Setenv("CLAUDECODE", "1")
 	resetApproval()
 	t.Cleanup(resetApproval)
-	d := mustRun(t, "rename", "--prefix", "lab-", "test-")
+	d := mustRun(t, "rename", "--starts-with", "lab-", "test-")
 	if d["action"] != "renamed" || d["count"].(float64) != 4 {
 		t.Errorf("agent rename: %v", d)
 	}
@@ -518,7 +518,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	askOnScreen = func(string) (bool, bool) { return false, false } // no screen
 	t.Cleanup(func() { askOnScreen = saved })
 	keep := homeFiles(t)
-	wantCode(t, "PROTECTED_HOST", "rename", "--prefix", "lab-", "test-", "--yes")
+	wantCode(t, "PROTECTED_HOST", "rename", "--starts-with", "lab-", "test-", "--yes")
 	if homeFiles(t) != keep {
 		t.Fatal("a refused rename changed something")
 	}
@@ -533,7 +533,7 @@ func TestRenameReservedSecret(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	d := mustRun(t, "rename", "--prefix", "komando-", "k-", "--kind", "secret")
+	d := mustRun(t, "rename", "--starts-with", "komando-", "k-", "--kind", "secret")
 	if s := pairs(d, "secret"); len(s) != 1 || s["komando-other"] != "k-other" {
 		t.Errorf("renamed: %v", s)
 	}
@@ -608,7 +608,7 @@ func TestGroupMv(t *testing.T) {
 	mustRun(t, "host", "add", "a", "u@10.0.0.1", "-g", "web")
 	mustRun(t, "host", "add", "b", "u@10.0.0.2", "-g", "Web", "--protected")
 	mustRun(t, "conn", "add", "c", "postgres://a@10.0.0.3/x", "-g", "web", "-g", "db")
-	mustRun(t, "vpn", "add", "v", "socks", "--address", "127.0.0.1:1080", "-g", "web")
+	mustRun(t, "vpn", "add", "v", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "web")
 
 	// a protected member: one yes
 	wantCode(t, "PROTECTED_HOST", "group", "mv", "web", "frontend")
@@ -639,6 +639,7 @@ func TestGroupMv(t *testing.T) {
 // A failure after the vault changed (a VPN folder that cannot move) puts
 // the secrets back and leaves the store unchanged.
 func TestRenameRollback(t *testing.T) {
+	unixOnly(t, "a folder made read-only with chmod (Windows folders ignore it)")
 	shopInventory(t)
 	secretsNow := func() string {
 		var b strings.Builder
@@ -666,7 +667,7 @@ func TestRenameRollback(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(vpnDir, 0o700) })
-	wantCode(t, "RENAME_FAILED", "rename", "--prefix", "shop-", "acme-shop-", "--yes")
+	wantCode(t, "RENAME_FAILED", "rename", "--starts-with", "shop-", "acme-shop-", "--yes")
 	_ = os.Chmod(vpnDir, 0o700)
 	if secretsNow() != s0 || homeFiles(t) != h0 {
 		t.Fatal("a vault that did not open left changes")

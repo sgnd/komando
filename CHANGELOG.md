@@ -8,12 +8,1407 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- On Windows, the hints for an encrypted key wrote it as `~/'.ssh\id_ed25519'`; they now write `~/.ssh/id_ed25519`.
+- On Windows, the AI agent guard (`komando guide guard`) let globs such as `cat ~/.komand?/vault.ke?` through, and reads of `/proc/*/environ` (which Cygwin and MSYS shells have): it split paths only by `/`.
+- On Windows, `cluster run TARGET -- cp C:\data pod:/tmp` took `C:\data` for pod `C`: it copied from that pod instead of sending the folder, and so skipped the check that keeps komando's data and secret files on this computer for an AI agent. A path with a drive letter is a path on this computer, as kubectl cp reads it.
+- On Windows, a server, cluster or registry that refuses the connection is `CONNECTION_REFUSED` ("connection refused") as on other systems, not `CONNECT_FAILED` or `KEYSCAN_FAILED` with Windows' own words; `test --wait` and `host trust` tell it apart again.
+- On Windows, a VPN's web sign-in stopped with "fork/exec ...: not supported by windows" when Chrome, Edge or Brave was installed: komando cannot give a browser its DevTools pipe there. The sign-in now opens in your own browser and you paste the address it ends on, as on a computer without one of those browsers.
 
+## [0.13.0] - 2026-11-13
+
+### Highlights
+
+- **People type commands too.** The plain-language menu is gone. Type a
+  command like `komando db query`; komando asks only for what is missing,
+  with a list to pick from, shows the full command, and asks
+  `Run it? [y/N, d]` before a change. After it works, `Next:` names the
+  usual next step. AI agents see no change in how they are asked.
+- **One command standard.** `list` is the listing verb everywhere (`ls`
+  still works), flags and short letters mean one thing everywhere, and
+  removing something asks you to type its name. `komando schema` says what
+  each command needs before it runs (`confirm`).
+- **Remote commands go after `--`.** `komando exec web1 -- apt-get install
+  -y nginx`: words after `--` belong to the server, so apt's `-y` can no
+  longer be read as komando's `--yes`.
+- **Breaking for scripts: old names are removed, not kept.** For example
+  `recipe add --sudo` is `--needs-sudo`, `db dump --on` is `--run-on`,
+  `pkg security --apply` is `pkg upgrade --security`, `-n` in the cluster
+  commands is `--namespace`, and `secret rm`, `key rm --delete-file` and
+  `fs rm` need `--allow-dangerous`. `komando seal` is gone: a folder from
+  before 0.12 is no longer read. The full list is under "Changed for
+  scripts and agents" and "Removed".
+- **Safer.** Over 35 security fixes, among them: an AI agent could take a
+  VPN password through a program it placed in PATH; root could be made to
+  write through a link another user planted on the server; the approval
+  window now shows a whole script, and every Linux desktop needs the
+  approval code; password-manager tokens leave the environment; on Windows
+  komando's folder is yours alone.
+- **Clearer.** Every message follows one style (what happened, why, the
+  command to run next), and the documentation is rewritten for beginners,
+  with an install page for Windows too.
+- **Also:** `cluster apply` no longer takes over fields another tool owns
+  unless you add `--force-conflicts`, and SQL Server certificates with a
+  negative serial number are accepted.
+
+### Changed for scripts and agents
+
+This release makes every command follow one standard. `meta.contract`
+stays 1. komando is used internally only, so a few answers changed shape
+instead of keeping an old one beside the new (listed below under
+"Removed"); every other JSON field of 0.12 is unchanged. What a script or
+an AI agent may notice is listed here; the sections below say more about
+each change.
+
+New fields, all additive (left out when they have nothing to say):
+
+- `error.suggestion`: the name komando thinks you meant, when a command,
+  server, conn, group, secret, setting or flag is misspelled. The hint is
+  then the whole command line with it in place.
+- `error.thing`: which kind of item a shared not-found code is about
+  (`KEY_NOT_FOUND` is an `ssh_key` or a `cache_key`, and so on).
+- `meta.would_need`: under `--dry-run`, the flags the real run needs
+  (`--allow-dangerous`, `--yes`).
+- `meta.truncated`: `true` when a list stopped at its `--limit`.
+- `meta.not_simulated`: under `--dry-run`, the steps the dry run could not
+  try.
+- In `komando schema`: `confirm` on each command (its approval tiers and
+  the flag each needs) and `default_from` on a flag whose default comes
+  from a setting.
+
+Values in `komando schema` that changed (field names are the same):
+
+| What | Before | Now |
+|---|---|---|
+| `flags[].type` of `--env` (host add/edit), `--label` (10 commands), `--option` (8) | `stringSlice` | `stringArray`: repeat the flag, commas are kept |
+| `flags[].type` of `--ttl`, `--warn`, `--older-than` (3 commands) | `string` | `duration` |
+| `flags[].type` of `cache get --limit` | `int64` | `int` |
+| `--limit` on 34 list commands | not there | `int`, default 0 (all) where there was no limit |
+| `flags[].type` of `--max-output` and every `--max-bytes` | `int`, `int64` or `string` | `bytes` (`256KiB`, `1MB`; KB means 1024) |
+| `default` of a duration | `1h0m0s` | `1h` |
+| `default` of `--timeout`, `--connect-timeout`, `--parallel`, `--host-key-policy`, `--max-output` | the value | `0` or empty, with `default_from` naming the setting |
+| `default` of queue `--partition`, `--partitions`, `--replicas` | `-1` | none (the help says "the broker's") |
+| `kind` of `storage link` and `cluster forward` | `read` | `change` |
+| `shorthand` `-n` on `cluster events`, `cluster logs`, `cluster list` | `--limit` | `--namespace` (as on the other 17 cluster commands, which gain it) |
+| `path` and `usage` of renamed commands | `secret get`, `... ls`, `... mv`, `db grants`, `pkg security --apply` | `secret show`, `... list`, `... rename`, `db user show`, `pkg upgrade --security` |
+| `command` in the envelope and the audit log of renamed commands | `secret.get`, `fs.ls` (and the six other `.ls`), `host.mv` (and the five other `.mv`), `db.grants`, `pkg.security` for `pkg upgrade --security` | `secret.show`, `fs.list`, `host.rename`, `db.user.show`, `pkg.upgrade` |
+| `usage` argument words | `KEY` for several things, `HOST`, `NAME` | one meaning per word (`OBJECT`, `SETTING`, `SERVER`, `USER`, `JOB`, `TUNNEL`, `TYPE/NAME`, ...) |
+
+Synonyms (`ls`, `mv`, `get`, `keys`, plurals) stay for good, and
+`komando schema` describes the command they run; `db grants` and `pkg
+security --apply` are gone. The retired flags are gone (komando is used
+internally only): `db dump/restore --on` (now `--run-on`), `--from` on
+`db user`, `db grant` and `db revoke` (`--from-host`), `fs list --max`
+(`--limit`), `fs restore --from` (`--copy`), `storage rm --limit` and
+`-n` (`--max-remove`), `vpn add/edit --address` (`--proxy-address`),
+`rename --prefix`, `--notes`, `--labels` (`--starts-with`,
+`--in-notes`, `--in-labels`), `recipe add --sudo` (`--needs-sudo`),
+`cron --sudo`/`-s` (`--user root`), `queue peek --wait` (`--idle`),
+`cluster rollback --to` (`--revision`), `policy check --for`
+(`--conn-kind`), `db query --csv`/`--tsv` (`-o csv`/`-o tsv`),
+`key gen --overwrite`, `pkg security --apply` and `--keep-going` (`pkg
+upgrade --security`), and `docker logs --priority` and `svc logs
+--timestamps`, which did nothing there. Each is an unknown flag
+(`USAGE`, exit 2). A bare number of seconds for `svc --wait` and
+`reboot --wait` (`--wait 10`) and `-1` for queue `--partition`,
+`--partitions` and `--replicas` are usage errors too.
+
+Exit and error codes that changed:
+
+| Command | Before | Now |
+|---|---|---|
+| `exec`, `job start`, `docker exec/compose/raw`, `cluster exec/shell/run`, `cache run` with words for the server and no `--` | ran (and took komando flags such as `-y` from those words) | `USAGE`, exit 2; nothing runs |
+| `cluster events/logs/list -n 50` | a limit of 50 | `USAGE`, exit 2 (`-n` is the namespace; use `--limit 50`) |
+| `--option a=on,b=x` (any KEY=VALUE flag with a comma before another KEY=) | two options | `USAGE`, exit 2 (repeat the flag) |
+| `update web1` (a server or conn name) | tried to install version web1 | `USAGE`, exit 2, hint `komando pkg upgrade` |
+| `host add aws ...` (`gcp`, `azure`; conn add and vpn add too) | added | `USAGE`, exit 2 (the names are kept for `komando login aws`) |
+| `secret rm`, `key rm --delete-file`, `fs rm` | ran | `POLICY_BLOCKED`, exit 6, until a person agrees and `--allow-dangerous` is added |
+| `storage link`, `cluster forward` through a read-only ssh-gate key | ran | `SSH_GATE_READ_ONLY`, exit 6 |
+| `host trust --reset` (or a changed key) from an agent or a script | `SAFETY_SETTING`, exit 6, lifted by `--yes` | `NEEDS_PERSON`, exit 6; no flag lifts it |
+| a person answers no to a filled-in command (a person only: no agent or script is asked, so the agent recording has no row for it) | exit 1 | `DECLINED`, exit 6 |
+| `forward ...`, `script`, `prompt`, `host import`, `host export`, `db grants` | ran | unknown command, `USAGE`, exit 2 (use `tunnel`, `exec --script`, `status --short`, `import`, `export`, `db user show`) |
+| `storage rm -n 10` and the other retired flags listed above | ran | unknown flag, `USAGE`, exit 2 |
+| `cluster apply` (and `cluster run -- apply`) on a field another field manager owns | took the field over (server-side apply with force) | `K8S_CONFLICT`, exit 8, naming that manager; nothing is applied; `--force-conflicts` takes it over |
+
+Text output (`-o text`) is not part of the contract, but agents read it:
+the `next:` lines moved to stderr (`data.next` is unchanged), tables say
+`yes` or `-` for a yes-or-no column and show times with their zone, and
+an empty list reads `no <things> yet` or `no <things> match ...`.
+
+`error.message` and `error.hint` are free text, and this release rewrites
+many of them in plainer words (see "Changed" below); error codes and exit
+codes are the same. A script that matches message text (`invalid port`,
+`must be`, `unknown column`, `data.results`) should match the code
+instead.
+
+### Added
+
+- `cluster apply --force-conflicts` (and `cluster run -- apply
+  --force-conflicts`) takes over fields another field manager owns, as
+  `kubectl apply --server-side --force-conflicts` does. Without it,
+  apply no longer takes them over: an autoscaler's replicas or a
+  `kubectl edit` stop it with `K8S_CONFLICT`, which names the manager
+  and the fields, and nothing is applied. A protected cluster still
+  needs a person's yes either way.
+- `error.suggestion` holds the name komando thinks you meant when a
+  command, server, conn, group, secret, setting or flag is misspelled,
+  and the hint is then the whole command line with it in place (`run it
+  again with exec: komando exec web1 -- uptime`). Additive. Words from
+  other tools get the komando command that does that job: `komando ps`
+  suggests `komando docker ps TARGET`, `kubectl` `komando cluster run
+  TARGET -- ...`, `psql` and `mysql` `komando db query CONN`, `get`
+  `komando list`, `delete web1` `komando host rm web1`.
+- docs/features/error-codes.md has a table of the codes that mean the
+  same (`PROTECTED_HOST` and `PROTECTED_TARGET`, `TARGET_EMPTY` and
+  `NO_MATCHING_TARGETS`, ...) and which one new errors use. All of them
+  stay.
+- `error.thing` says which kind of item a shared not-found code is
+  about: `KEY_NOT_FOUND` is `ssh_key` or `cache_key`, `NOT_FOUND` a Swarm
+  service, stack or other object, `REGISTRY_NOT_FOUND` a `repository` or
+  an `image_tag`, `K8S_NOT_FOUND` a `k8s_object`, `k8s_pod` or
+  `k8s_container`, `CONN_NOT_FOUND` a `conn` or a `selector` that picked
+  none. Additive; codes are unchanged. docs/features/error-codes.md
+  lists the values and the codes a later contract splits them into.
+- `vpn add/edit --label KEY=VALUE` and `--protected`, and `vpn edit
+  --unset` (user, password-ref, psk-ref, id, remote-id, ca, check, notes),
+  as on host and conn. `vpn edit` and `vpn rm` take several names or a
+  selector (`NAME|TARGET...`); `vpn rm` lists the VPNs in `removed`
+  (`would_remove` under `--dry-run`), even for one. A protected VPN needs `--yes` (a person's
+  yes) to be changed, replaced or removed (`PROTECTED_TARGET`);
+  `--protected=false` and `--mfa=false` need it too (`SAFETY_SETTING`).
+  `vpn edit` of several VPNs prints `{"vpns": [...], "changed": [...]}`;
+  one VPN prints `{"vpn": ...}` as before.
+- `fs write --value TEXT` works as another name for `--content`.
+- `komando rename OLD NEW` renames one entry of any kind: the server,
+  conn, VPN, secret, key or group named OLD, through that kind's own
+  rename (same checks, same envelope, e.g. `host.rename`). When two kinds
+  share the name it names both commands (usage error); a name nothing
+  has is a usage error, as before, whose hint shows `--starts-with`.
+  `rename --starts-with OLD NEW` renames by prefix.
+- `komando schema NAME` describes the command a second name runs:
+  an alias (`schema fs ls`), a command ID as the envelope writes it
+  (`schema secret.show`, `schema host.rename`) or a hidden synonym (`schema group show`). Before, hidden names gave
+  `COMMAND_NOT_FOUND`.
+- More names find the command you mean, each for good and silently:
+  plurals and help words for every noun (`servers`, `server`,
+  `databases`, `dbs`, `files`, `vpns`, `caches`, `queues`, `clusters`,
+  `registries`, `tunnels`, `policies`, `crons`, `services`,
+  `containers`); `cache list`/`ls` (= `cache keys`); `group show GROUP`,
+  `job show`, `tunnel show TUNNEL`, `recipe show NAME`, `policy add`
+  (= `deny`), `secret add` (= `set`); `describe` on `docker inspect`
+  and `registry inspect`; `create` on `user add` and `db user add`;
+  `copy` on `cp` and `secret cp`; `job stop` (= `kill`);
+  `secret passwd` (= `passphrase`); `cluster info TARGET`
+  (= `cluster status TARGET`). The envelope's `command` is that of the
+  command they run.
+- Every list command takes `-n/--limit` (`--limit` only in `cluster`,
+  where `-n` is the namespace): `list`, `host/conn/vpn/key/secret/
+  recipe/policy/job/tunnel/group list`, `svc/user/cron list`,
+  `docker ps/images/stats`, `pkg installed/upgradable`, `net ports`,
+  `db user ls`, `db activity`, `db locks`, `queue groups`,
+  `cluster history` and `cluster helm ls/history`. Where there was no
+  limit the default is 0, all, as before. A list that stops at its limit
+  sets `meta.truncated: true` (new, additive), and in text mode one line
+  on stderr says `showing N of more; use --limit 0 for all`. On commands
+  that run on several servers the limit counts per server.
+- `fs ls` counts with `-n/--limit` (default 1000, as before; 0 lists
+  everything); `--max` there is gone.
+  `job logs` takes `-n/--limit N` for the last lines, and `--tail` works
+  on every log reader (`logs`, `svc logs`, `docker logs`,
+  `cluster logs`, `job logs`) as another name for `--limit`.
+
+- An unknown short flag gets a did-you-mean: `-n` where a command counts
+  with `--limit`, `-it` (komando runs one command; `komando shell` or
+  `komando cluster shell` for a shell), `-L`/`-R`/`-D` (port forwarding
+  is `komando tunnel start`), `-w` for `--wait`, and otherwise the long
+  flags that start with the same letter.
+- `fs mkdir -p` (and `--parents`) is accepted and changes nothing:
+  `fs mkdir` always makes the missing parents.
+- More short flags, each with the meaning it has everywhere else:
+  `cluster apply -f FILE`; `-c` for `--container` on `logs` and
+  `cluster deploy`; `-a` for `--all` on `cache info`,
+  `cluster helm values`, `db activity`, `user list` and `guide`;
+  `docker compose -C DIR`; `host add/edit -e KEY=VALUE`. A command that
+  changes things gets no `-a` (`fs replace`, `tunnel stop`, `vpn down`,
+  `logout` keep `--all` only).
+- `komando schema` names where a flag's real default comes from:
+  `--timeout`, `--connect-timeout`, `--parallel`, `--host-key-policy` and
+  `--max-output` carry `default_from` (`setting:default_timeout` and so
+  on), and their help names the setting. Help texts give example values
+  as "e.g. 30m", so they are not read as defaults.
+- `upload`, `download` and `cp` show the progress of a file of 8 MiB or
+  more going to or from one server on stderr, at a person's terminal only.
+- A [Secrets](docs/features/secrets.md) page: save, use, check, rename,
+  copy and remove secrets, where the key is kept, and what an AI agent
+  runs or gets at each step.
+- `job start --script FILE` (with `--arg` and `--interpreter`) runs a
+  script from this computer as a background job, as `exec --script` does
+  in the foreground. A long `exec --script` that times out names it.
+- `komando schema` gives each command a `confirm` list (additive): the
+  approval tier it always has, then each tier it reaches only sometimes,
+  with the flag an AI agent or a script adds (`--allow-dangerous`, `--yes`,
+  none for a person-only step) and when. It comes from the same rule table
+  as komando's own stops.
+- A dry run that could not try a step says so in the new
+  `meta.not_simulated` (additive): `db query --dry-run` with a statement
+  that commits by itself (MySQL DDL, sqlite VACUUM, CREATE DATABASE ...)
+  lists it there; its result already said `skipped`.
+
+### Changed
+
+- The docs are rewritten for beginners: every feature page starts with the
+  most common task as a command, shows what komando asks when something
+  is left out, and ends with its limits and troubleshooting. The README is
+  short, installing (also on Windows) has its own page, and the rules
+  komando follows are in `docs/design/principles.md` and the command
+  standard. Design notes and reviews left the repository.
+- Commands named in hints, help and Next: lines use the words of the
+  command they name: `komando test TARGET` (was `test CONN` and `test
+  NAME`; komando fills in the name you gave, a VPN's too), `komando
+  shell SERVER`, `komando conn rm TARGET`, `komando storage download
+  CONN OBJECT`, `komando registry rm CONN IMAGE`, `komando cluster
+  history TARGET TYPE/NAME`, `komando user lock web1 USER`, `komando
+  policy rm RULE`, `komando queue lag CONN CONSUMER` and others. The
+  groups `host`, `conn`, `vpn`, `key`, `secret`, `group`, `job`, `fs`,
+  `policy`, `config`, `db user` and `cluster helm` show examples that
+  walk look, dry run, change.
+- Examples use one set of sample names: servers `web1`, `web2`, `db1`,
+  `@web`; databases `prod-db`, `staging-db`; cache `prod-redis`; queue
+  `prod-kafka`; storage `backups`; registries `ghcr`, `harbor`;
+  clusters `prod-k8s`, `swarm1`; VPN `office`; users `alice`, `app`. A
+  conn is never named after its family (`cache`, `events`), and cluster
+  objects are written `TYPE/NAME` (`pod/api-7d9f-x2`).
+- Help says "conn" for a database, cache, queue, storage, cluster or
+  registry komando talks to (`conn kinds`, `conn rename`, `list`, the
+  name check of the add questions), never "service" or "resource", which
+  mean a systemd unit or a cluster object.
+- Every change command's `--help` has a generated `Safety:` line after
+  its first paragraph, from the same rule table as `komando schema`'s
+  `confirm` (what it asks of a person, an AI agent and a script).
+  Person-only commands end their summary with "(person only)". Help text
+  is wrapped at 76 columns. Each change command shows a `--dry-run`
+  example, and an example with `--yes`, `--allow-dangerous` or
+  `--reveal` comes right after its dry run and ends with `# after a
+  person's yes`.
+- Command summaries (`Short`, the line in every list) follow one shape:
+  a verb phrase with no flags, semicolons or approval notes ("needs
+  --allow-dangerous" is gone from them; the generated Safety line in the
+  help says it). Group summaries name the area and its main jobs in plain
+  verbs (`Services on servers: check, start, stop, read logs`).
+  Inventory `rm` commands end with "(from komando only)", and `secret
+  rm` says the value goes for good. `host list`, `conn test`, `svc logs`
+  and the other second spellings say what they do; "Same as `komando
+  ...`" moved to the first line of their help.
+- `komando --help` starts with Start (`host add`, `conn add`, `import
+  ssh-config`, `list`, `test TARGET`, `guide install`), and a new
+  Inventory group holds `host`, `conn`, `group`, `import`, `export` and
+  `rename`, which Setup no longer crowds. `komando` alone at a terminal
+  shows the same groups.
+- Usage lines give each argument word one meaning (`komando schema`'s
+  `usage` values change; every command takes the same arguments as
+  before). SSH keys are `key deploy NAME TARGET` and `key revoke NAME
+  TARGET`; a storage object is `OBJECT` and a setting `SETTING`, so `KEY`
+  is only a cache key; `queue lag CONN CONSUMER`; the `fs` commands that
+  take one server and `shell` say `SERVER`; `login [SERVER]`, `logout
+  [SERVER...]`, `net check TARGET ADDRESS:PORT...`, `net dns TARGET
+  DOMAIN`; accounts are `USER` (`user add TARGET USER`, `db user add CONN
+  USER`); `job ... JOB`, `tunnel stop [TUNNEL...]`, `cron set/rm TARGET
+  NAME`, `policy rm RULE`; cluster objects are `TYPE/NAME` (`TYPE NAME`
+  still works); what runs after `--` is `-- COMMAND...` or `-- ARGS...`;
+  a required flag shows with its value (`db restore CONN --from FILE`,
+  `cron set ... --schedule SCHEDULE`, `ssh-gate line PUBLIC_KEY --name
+  NAME`, `db user add/passwd ... --password-ref REF`, `tunnel start
+  TARGET (-L SPEC | -R SPEC | -D SPEC)`); `host add NAME
+  [[USER@]ADDRESS[:PORT]]`, `host/conn/vpn edit` and `rm TARGET...`,
+  `registry inspect/rm CONN IMAGE`, `cert check TARGET|URL...`.
+- A person asked for a TARGET reads which kinds it takes (`Target
+  (servers)`, `Target (clusters)`, `Target (servers or file storage)`),
+  and the picker and Tab offer only those. `fs cat` and the other
+  one-server commands pick one server.
+- More error hints name the komando command to run: `AMBIGUOUS_MATCH`
+  (`komando fs cat`), `BUILTIN_RULE` (`komando policy list`),
+  `CACHE_AUTH` and `DB_CONNECT` (`komando conn show`),
+  `CONNECTION_REFUSED` (`komando host show`, now in backticks),
+  `DOCTOR_FAILED`, `KEY_UNREADABLE`, `NO_MATCHING_TARGETS`,
+  `PORT_IN_USE`, `RECIPE_EXISTS`, `UNKNOWN_SETTING`, `VPN_IN_USE` and
+  `STORE_NEWER` (`komando update`).
+- An unknown command word suggests at most two names, within one typo
+  for a word of four letters or fewer and two for a longer one: `komando
+  ps` no longer suggests cp, db, fs, pkg and vpn. The hint names a
+  command only when there is one suggestion.
+- Commands in hints use the words of the command they name, and komando
+  fills them in: drivers say `komando test CONN` (was `komando conn
+  test NAME`), and `komando login SERVER`, `komando shell SERVER`,
+  `komando fs stat SERVER ~/.ssh` and `komando net check TARGET
+  ADDRESS:443` replace HOST. The target the command was given now fills
+  SERVER (a server) and NAME (in a command of its own noun, such as
+  `komando conn edit NAME`) as well as TARGET and CONN.
+- Every safety stop a flag lifts is built by one helper, so its hint
+  reads the same wherever it comes from, results per server included
+  (`check with --dry-run, ask the user; once they agree, run it again
+  with --yes`). `komando schema`'s `error_codes` shows that hint for
+  `POLICY_BLOCKED`, `PROTECTED_*`, `SAFETY_SETTING`,
+  `SECRET_DESTINATION`, `OPEN_BIND` and `CONFIRM_REQUIRED`. The
+  `PROTECTED_HOST` message says "server" (was "host"). Advice a hint
+  carried (log in as another user first, trusting a kubeconfig program)
+  is in the message now. "re-run with" reads "run it again with".
+- Error hints say only the next step. What happened ("nothing was
+  changed", "nothing was renamed", "the file was not changed") moved to
+  the end of `error.message`, and every retry reads "run it again"
+  (was "try again", "re-run", "run the command again"). `RESTORE_FAILED`
+  says what the database holds per engine (PostgreSQL: nothing changed;
+  MySQL: the statements before the line stay) and its hint is the
+  `komando db restore` line to run again. A person's no (`DECLINED`) and
+  Ctrl-C (`CANCELLED`) hints say to run it again. Codes and exits are
+  unchanged.
+- A name komando does not find is worded one way in `error.message`:
+  `no server named "web9"`, `no topic named "orders"`, `no cache key
+  named "x"` (was `host "web9" not found`, `topic orders does not
+  exist` and others). The word is the one people read (server, SSH key,
+  VPN), never `host`. `error.message` is free text; codes are unchanged.
+- Every error code is written out in the source: `HOST_EXISTS`,
+  `CONN_EXISTS` and `VPN_EXISTS` (and the not-found codes of `host`,
+  `conn`, `vpn`, `job`, `key`, `recipe`, `secret` and `tunnel`) were
+  built from the kind and missing from `komando schema`'s
+  `error_codes`; they are listed now. Codes and exits are unchanged.
+- Every safety stop that a flag lifts now has one hint wording, naming
+  every flag the real run needs. An AI agent reads `check with --dry-run,
+  ask the user; once they agree, run it again with --yes (komando then asks
+  them in a window on their screen)`; a script reads `check with --dry-run,
+  then run it again with --allow-dangerous:` followed by its own command
+  line with the flag filled in (the flag goes before `--`). In a dry
+  run, `meta.would_be_blocked.hint` says to run it again without
+  `--dry-run`. Codes, messages and exit codes are unchanged; a few
+  messages gained the advice their hint carried (a credential plugin, a
+  proxy command, an open tunnel address, trusting a kubeconfig program).
+- `storage link` and `cluster forward` are `kind: change` in `komando
+  schema` (were `read`): they hand out access and already stopped on a
+  protected target. An ssh-gate key added with `--read-only` is refused
+  them (`SSH_GATE_READ_ONLY`, as before); a full key still runs them. At a
+  terminal a filled-in one asks `Run it?` like any change.
+- **Replacing a pinned host key is for a person at a terminal only.**
+  `komando host trust NAME --reset` shows the old and new key and asks
+  once (one question for a group, with "(protected)" when it is). An AI
+  agent or a script gets `NEEDS_PERSON` (exit 6; was `SAFETY_SETTING`,
+  which `--yes` lifted), before anything is fetched when a key is pinned,
+  and no flag lifts it; the hint names the command for a person to run.
+  A server with no pin yet is pinned as before.
+- At a terminal, `registry prune` asks you to type the repository whose
+  old images go (`Type the name shop/api`), not the conn's name.
+- **`secret rm`, `key rm --delete-file` (a key komando made) and every
+  `fs rm` now need `--allow-dangerous`** from an AI agent or a script:
+  what they delete has no copy. Without it they stop with
+  `POLICY_BLOCKED` (exit 6); `--dry-run` shows what would go and lists
+  the flag in `meta.would_need`. At a terminal a person types the name
+  of what goes instead. `fs rm` on a protected server stops with
+  `POLICY_BLOCKED` first now (was `PROTECTED_HOST`), and its hint names
+  `--yes` as well. `cron rm` and `pkg rm` (not an essential package) need
+  no flag, as before.
+- A command komando filled in at a terminal asks `Run it?` and then, for
+  a step that cannot be undone, the typed name once, in the command
+  itself; before, a prompted `cache rm` or `cluster rm` asked for a name
+  twice (and two different ones). `cron rm`, `pkg rm` (not an essential
+  package) and `db kill` ask for the name of what goes instead of `Run
+  it?`; they still need no flag from an agent or a script.
+- At a terminal, a step that cannot be undone asks you to type the name
+  of what goes (the key, file, secret, topic, image or user), or how many
+  when several go (`Type 37 (objects under daily/ in backups) to
+  continue`), or the server's or conn's name for a whole-target step;
+  never the word yes. On a protected target that one question covers the
+  protection too, so komando no longer asks a [y/N] after it. A policy hit
+  on a `--proxy-command` or a cluster login program asks for the name
+  instead of [y/N]. The questions use three forms: `NAME (protected): ...
+  Continue? [y/N]`, `Dangerous: ...` with the typed name, and `This turns
+  off a komando safety check: ... Continue? [y/N]`.
+- A destructive step on a protected target: the POLICY_BLOCKED hint now
+  names both flags (`--allow-dangerous and --yes`), and a dry run lists
+  every flag the real run needs in the new `meta.would_need`
+  (`["--allow-dangerous","--yes"]`); before, a dry run stopped looking at
+  the first stop.
+- A person who answers no when komando asks before running a filled-in
+  command (`Run it?`, the typed name) gets exit 6, like a no at any safety
+  question, with the new code `DECLINED` and `Cancelled. Nothing was
+  changed.` (was `CANCELLED`, exit 1). Ctrl-C there stays `CANCELLED`,
+  exit 1, and now says `Stopped.`. AI agents and scripts are never asked,
+  so nothing changes for them.
+- `aws`, `gcp` and `azure` are reserved names for conns and VPNs too, as
+  for servers and as `all` is: `conn add`, `vpn add`, `rename` and
+  `import` refuse them (usage error, exit 2). An older entry with such a
+  name keeps working; `komando login aws` stays the cloud login and notes
+  on stderr (and in `meta.warnings`) how to rename it, and `doctor` warns.
+- `komando update NAME` with the name of a server or conn (or a selector
+  like `@web`) is a usage error (exit 2) whose hint is
+  `komando pkg upgrade NAME`; before, it was taken as a version to
+  install. A version (`update v0.6.0`) works as before.
+- **Security updates are installed with `komando pkg upgrade TARGET
+  --security`** (with `--keep-going` and `--refresh`): the same rollout
+  as before, one server at a time with a check before and after, the
+  same stops, and `pkg.upgrade` in the envelope and the audit log (was
+  `pkg.security`). `pkg security` now only looks; `pkg security --apply`
+  is gone.
+- `vpn add/edit --proxy-address` is the address of a SOCKS or HTTP proxy
+  VPN (was `--address`, which on `host add` is the server's address), and
+  `policy check --conn-kind KIND` rates a statement for a conn kind (was
+  `--for`, while `--kind` elsewhere is a list). The old names are gone.
+- `recipe add --needs-sudo` marks a saved recipe as one that runs with
+  sudo (was `--sudo`, which elsewhere runs the command itself with sudo),
+  and `cron` reads root's crontab with `--user root` (`--sudo`/`-s` there
+  is gone). The old flags are gone.
+- `db dump` and `db restore` name the server that runs pg_dump,
+  mysqldump or pg_restore with `--run-on HOST` (was `--on`, which on
+  `db grant` names what the privileges are on). `--on` on dump and
+  restore is gone.
+- `komando rename` switches read as switches: `--starts-with` (was
+  `--prefix`, which elsewhere takes a value), `--in-notes` (was
+  `--notes`) and `--in-labels` (was `--labels`). The old names are gone.
+- `host edit`, `conn edit` and `vpn edit` show `--add-group` and
+  `--add-tag` in help; `--group/-g` and `--tag/-t` still work there, for
+  good, and are no longer listed.
+- `docker logs` no longer shows `--priority` (a container log has none)
+  and `svc logs` no longer shows `--timestamps` (the journal always has
+  times). Neither command takes that flag any more.
+- `queue peek --idle 10s` is how long a Kafka peek waits with no new
+  message (was `--wait`, which elsewhere means "wait for the result").
+  `--wait` is gone.
+- `cluster rollback` takes the revision as `--revision N` (kubectl's
+  `--to-revision` works too, for good). `--to` is gone.
+- `--from` now always means a file on this computer (`db restore`,
+  `fs write`, `queue send`). The MySQL account host is `--from-host` on
+  `db grant`, `db revoke`, `db user show/add/passwd/rm`, and the backup
+  copy `fs restore` puts back is `--copy PATH`. The old `--from` there is
+  gone.
+- The top-level `komando forward` (another name for `tunnel`, easy to
+  mix up with `cluster forward`) is gone: use `komando tunnel` (or `pf`).
+- `db user show CONN USER` shows what a database user may do (was
+  `db grants`, one letter from `db grant`, which is gone); the envelope's
+  `command` is `db.user.show` (was `db.grants`).
+- **`list` is the one listing verb**: `cluster list`, `cluster helm list`,
+  `db user list`, `fs list`, `queue list`, `registry list` and
+  `storage list` are the names in help, hints and docs. `ls` keeps
+  working on every list command for good. The envelope's `command` is
+  `fs.list` and so on (was `fs.ls`, `cluster.ls`, `cluster.helm.ls`,
+  `db.user.ls`, `queue.ls`, `registry.ls`, `storage.ls`).
+- `secret show NAME` is the name for checking a secret (it never prints
+  the value to an agent); `secret get` keeps working for good. The
+  envelope's `command` is `secret.show` (was `secret.get`), and an
+  agent's output is masked as before.
+- **Renaming an item is `rename`**: `host rename`, `conn rename`,
+  `vpn rename`, `key rename`, `secret rename` and `group rename OLD NEW`.
+  `mv` keeps working there for good and prints nothing extra. The
+  envelope's `command` is `host.rename` and so on (was `host.mv`,
+  `conn.mv`, `vpn.mv`, `key.mv`, `secret.mv`, `group.mv`). `fs mv` is
+  unchanged.
+- `cache get --limit` is listed as `int` in `komando schema` (was
+  `int64`); the values it takes are the same.
+- `storage rm --prefix` names its safety cap `--max-remove` (default
+  1000), so it is not taken for a list's `--limit`. `--limit` and `-n`
+  there are gone.
+  The `TOO_MANY` message and hint name `--max-remove`.
+- **In `cluster` commands, `-n` is now `--namespace`, as in kubectl**, on
+  all 20 commands that take a namespace. `cluster events`, `logs` and
+  `ls` keep `--limit`, now without a short form. A number after `-n`
+  there (`-n 50`, the old count) is refused (exit 2) with the hint
+  "`--limit 50`, or `--namespace=50` for a namespace named 50", so an
+  old command line never reads 50 as a namespace.
+- **`--env` (host add/edit), `--label` and `--option` take one KEY=VALUE
+  each time and no longer split on commas.** Repeat the flag for more:
+  `--label team=ops --label env=prod`. A value keeps its commas, and
+  `--option a=on,b=x` (two pairs in one) is now a usage error (exit 2)
+  that shows the repeated form, never one option. `komando schema` lists
+  these flags as `stringArray`.
+- `queue peek/send --partition` and `queue create --partitions/--replicas`
+  no longer show `-1` as their default: their help says "default: the
+  broker's", and `komando schema` lists no default for them. Leaving them
+  out means the broker decides; `-1` is a usage error.
+- Every size flag reads sizes the same way: `--max-output`, and
+  `--max-bytes` on `fs cat`, `storage cat`, `job logs`, `db query` and
+  `db explain`, take bytes or `256KiB`, `10MB`, `1GB` (KB = KiB = 1024).
+  `--max-output 256KiB` was refused before. `komando schema` lists them
+  with type `bytes`.
+- Every flag that takes a time (`--timeout`, `--connect-timeout`,
+  `--wait`, `--interval`, `--expires`, `--ttl`, `--warn`, `--older-than`)
+  reads it the same way: `30s`, `10m`, `2h` or `7d`, and `0`. Days now
+  work everywhere, a time below 0 is refused while the flags are read, and
+  `komando schema` lists these flags with type `duration` and short
+  defaults (`10m`, not `10m0s`). `svc restart --wait 10` and `reboot
+  --wait 600` need a unit now (`10s`, `600s`).
+- One rule table now says what a command needs before it runs; the
+  stops stay in the commands, and a test checks each recorded stop
+  against the table. At a terminal, a command komando asked you to fill in asks you to type the
+  target's name for every change that stops an AI agent as dangerous:
+  `reboot`, `svc stop` of sshd, `sync --delete` and `db kill` now ask
+  for the name instead of `Run it?`. What AI agents and scripts get is
+  unchanged.
+- The test that records what AI agents and scripts get now also records
+  every safety stop komando can show without a server (50 command lines:
+  dangerous commands, protected servers and conns, safety settings,
+  write flags, a large group and person-only commands), so a later change
+  cannot quietly drop one.
+- At a terminal, `group rm` now ends with the way back:
+  `Next: komando group add GROUP TARGET...`. Deleting a group of more than
+  3 members still needs `--yes` from an AI agent or a script.
+- **Commands that hand words to another program now need `--` before
+  them**: `exec`, `job start`, `docker exec`, `docker compose`,
+  `docker raw`, `cluster exec`, `cluster shell`, `cluster run` and
+  `cache run`. `komando exec web1 apt-get install -y nginx` read `-y`
+  as komando's own `--yes`, and a trailing `--dry-run` was taken by
+  komando while the rest ran; such a line is now a usage error (exit 2)
+  that runs nothing and shows the form with `--`. komando's flags still
+  go anywhere before `--`, and `-c` and `--script` are unchanged.
+  `job start TARGET COMMAND` without `--` and `cache run CONN "GET k"`
+  are refused too: write `job start TARGET -- COMMAND` and
+  `cache run CONN -- "GET k"`.
+- A flag synonym (`--tail`, `--to-revision`, `--value`, `-g`/`-t` on
+  edit) is a hidden spelling of the same flag, so every safety check (the
+  ssh gate's read-only keys included) sees the flag under either name. A
+  test checks each spelling. A short alias such as `x` for `exec` prints
+  nothing extra.
+- Every command now carries an ID (its dotted path, such as
+  `fs.list`), and the envelopes, the audit log, personal-data hiding, the
+  ssh-gate tables and the other checks keyed by command use it. A test
+  lists every ID and checks that every table key is one, so a rename that
+  forgets a table fails. Audit records written before keep the ID of
+  their time.
+- `komando --help` now lists the commands under the same headings as
+  `komando` alone: Servers, Data, Platform, Access, Overview and Setup.
+- At a person's terminal, many more commands end with a `Next:` line of
+  what usually comes next (`svc status` suggests `logs web1 --unit UNIT
+  --since 30m`), and `group list GROUP`, `key show`, `job status`, `secret
+  get` and `config get` now end with the commands for that item, as
+  `host show` does. A conn's list fits its kind (a SQLite database has no
+  `db user ls`); a Windows server and a Swarm manager get their own.
+- A test now records what AI agents and scripts get from every command
+  typed with too few arguments (stdout, stderr and exit code, in JSON and
+  text). It guards the move from the menu to typed commands that ask a
+  person for what is missing: agents and scripts must see no change.
+- Shell completion now offers your databases for `db dump` and
+  `db restore`. Questions that pick a saved recipe, a `--via` server or
+  VPN, a `--key` or a setting now show a list of the ones you have
+  instead of a blank line.
+- New: komando's line-by-line questions for a person at a terminal (a
+  value by its real name, a numbered list to pick from, `Run it? [y/N,
+  d = --dry-run first]`, type a name to confirm). They are only ever
+  asked when stdin, stdout and stderr are terminals, no AI agent runs
+  komando, CI is not set, TERM is not dumb and the output is text.
+- A person at a terminal who types a command with something missing is
+  now asked for it instead of getting a usage error: `komando logs` asks
+  `TARGET:` with a numbered list of your servers, `komando db query`
+  uses your only database and asks `SQL:`, `komando fs replace web1
+  /etc/x` asks `--old:` and `--new:`. komando then shows the whole line
+  (`$ komando logs web1`) and runs it. A change asks `Run it? [y/N, d =
+  --dry-run first]` first; one that deletes for good asks you to type the
+  target's name; a protected target asks its usual [y/N] instead. A
+  protected server is never picked for you. A command typed in full, and
+  everything AI agents and scripts get, stays exactly as before.
+- `komando host add`, `conn add`, `vpn add`, `db add`, `cache add`,
+  `queue add`, `storage add`, `cluster add` and `registry add` typed alone
+  at a terminal now ask their questions line by line in the normal screen
+  (which kind, name, address or the parts of the URL, how to log in,
+  production), show the commands, ask `Run it?`, and run them. A password
+  pasted with the address is never drawn. When the test after an add
+  fails, komando says the three commands to change, test again or remove
+  it, instead of a menu.
+- At a terminal, a `--proxy-command` or a cluster's login program that the
+  dangerous-command filter blocks now asks `Blocked by policy: ... Run it
+  anyway, this once? [y/N]` (No by default) instead of failing; the other
+  dangerous commands still ask you to type the name. A yes you give at the terminal is recorded in
+  `komando audit` as `confirm: tty`. Nothing is asked, and no answer
+  counts, when CI is set. AI agents get exit 6 as before.
+- `komando` alone at your terminal now prints what komando does, by
+  group (START, SERVERS, DATA, PLATFORM, ACCESS, OVERVIEW, SETUP), with
+  examples, and says how to add your first server when nothing is added
+  yet. New help topics: `komando help safety`, `environment`,
+  `exit-codes`, `output`. At your terminal, `host show`, `conn show` and
+  `vpn show` end with the commands that work on that item, and after a
+  command ends well komando may say what usually comes next (`Next:`) and,
+  when it asked you for something, the line to type next time. All of
+  this goes to stderr, and only at a person's terminal.
+
+- **What to run next is on stderr only.** `next:` lines are gone from
+  stdout (`host add`, `conn add`, `vpn add`, `import`, `update`,
+  `registry list`; job start's "follow it with:" and policy deny's "try
+  it:" lines). A person sees one `Next:` line on stderr, at most three
+  commands, filled in: `host add web1` gives `Next: komando test web1 ·
+  komando host show web1 · ...`, `job start` the real job IDs. JSON keeps
+  `data.next` (and `data.next_steps`) as before. A script that read the
+  `next:` line from `-o text` reads `data.next` instead.
+- Every add, edit, rename and rm says what comes next: add → `test` and
+  `show`, edit → `show` and `test`, rename → `show NEW`, rm → `list`
+  (`fs rm` → `fs list`, `docker rm` → `docker ps --all`). `tunnel show`
+  and `recipe show` end with the commands for that tunnel or recipe.
+
+- A list with nothing in it says so in one wording on stdout:
+  ``no SSH keys yet: `komando key gen NAME` ``, ``no conns yet: `komando
+  conn add NAME URL` ``, `no cache keys match "user:*"`, `no audit
+  entries match --failed (fewer filters show more)`. `conn list`, `vpn
+  list` and `host list` with none of their kind, `docker ps/images`, `fs
+  list` of an empty folder, `cluster history` and `cluster helm history`
+  printed only a header or `(none)` before. JSON still returns an empty
+  array.
+
+- Text tables read one way: a yes-or-no column says `yes` or `-` (`vpn
+  status` UP, `net check` OPEN, `recipe list` READ ONLY, `user list`
+  ADMIN GROUP and LOCKED, where `?` is unknown, `rename` PROTECTED,
+  RabbitMQ consumers ACTIVE; they said `yes`/`no`); a time carries its
+  zone (`2026-11-07 14:30 WIB` in `audit`, `fs list`, `storage list` and
+  `registry prune`, where storage times were UTC shown without one); an
+  age is `3h` (`vpn status` SINCE); headers are words with spaces (`USED
+  BY` in `key list` and `secret list`). A script that greps `-o text`
+  for `no` in these columns reads `-o json` instead, which is unchanged.
+
+- Change commands say what they did in words with `-o text`, never raw
+  JSON keys: `host add/edit`, `conn add/edit`, `key gen/add` and `secret
+  set` list each field as words (`password ref: secret:web1-pass`, was
+  `password_ref`) and each warning as `warning: ...`; `secret rename/cp`
+  (`renamed secret s1 to s2`), `secret rm`, `tunnel stop`, `host trust`
+  (`would fetch the host key of web1 ... and remove 1 pinned key`) have
+  a line of their own. JSON is unchanged.
+
+- The skill, `komando guide` and AGENTS.md use each command's primary
+  name (`secret show`, `host rename`, `fs list`, `storage list`, `pkg
+  upgrade --security`, `db dump --run-on`, `rename --starts-with`) and
+  teach the `--` before the words for another program on every command
+  that takes them. `komando doctor` says when an AI agent's skill is from
+  another komando version; run `komando guide install` again.
+- komando's own lines on stderr start with a capital or a fixed label:
+  `Hint:`, `Warning:`, `Note:`, `Dry run:`, `Skipped`, `Nothing to show`
+  (were lower case). A stop reads `Stopped: <what>; nothing was changed`,
+  every cut list or output says `Note: showing the first N; ...`, and at
+  a terminal errors, hints, warnings and notes wrap at 80 columns without
+  breaking a backticked command. An AI agent and a pipe still get each on
+  one line.
+- Ctrl-C reads the same everywhere: `Stopped. Nothing was run.` at a
+  question, `Stopped (Ctrl-C) before the end; what already ran stays as it
+  is` while a command runs, and `Stopped (Ctrl-C); the login was not kept`
+  in `komando login`. A no at `doctor --accept-old-copy` says what stayed in the message and the command to
+  run again in the hint (the hint said "nothing was changed in ...").
+- Status words in `-o text` are lower case: `ok, exit 0`, `failed: exit 3`,
+  `failed: timed out`, `failed: <why>` (were `ok exit=0`, `FAILED ...`),
+  `audit log broken at line N`, and a failed server's block in a
+  several-server result ends with `Error: <what> (code CODE)` and `Hint:`
+  (was `error [CODE]:` and `hint:`).
+- The typed question for a step that cannot be undone starts `This <what it
+  does>.` (was `Dangerous: <what>.`), and every rule reason reads after
+  "This": `deletes / or the home folder recursively` (was `recursive
+  delete of / or home`), `starts a fork bomb ...`, `changes the owner of
+  / recursively`, `removes every row (DELETE without WHERE)`, `restores
+  a backup, which can overwrite existing data`, `matches your deny rule
+  ...` (was `matches custom deny pattern ...`). These are also the
+  `reason` values of `komando policy list` and part of `POLICY_BLOCKED`
+  messages; rule IDs are unchanged.
+- Error messages and hints say what is true about the input, never blame:
+  `"x y" cannot be a server name`, `the port "0" in the conn URL is not a
+  number from 1 to 65535`, `komando cannot read the conn URL ...`, `the
+  kafka tls option takes true or skip-verify, not "yes"` (were `invalid
+  ...`, `bad ...`, `... must be ...`). "unknown" appears only with the
+  known values (`db grant --privileges` lists them). Hints use "for
+  example" (not "e.g."), "server" and "conn" (not "host" or "service"),
+  "your list" (not "inventory"), and plain words before JSON paths and
+  stream names: `each server's result has its exit code and error output
+  (data.results in -o json)`, `read the error output (stderr) ...`.
+  Flag errors say what a flag takes (`--limit takes 1 or more`, was
+  `--limit must be 1 or more`).
+- The questions komando asks for a missing argument say "conn" for a
+  database, cache or other conn (`To which server or conn?`, `No conns
+  yet: ...`) and "like" for an example (`Name, like web1:`, was `Name,
+  e.g. web1:`).
+- Help says "your list" for the servers, conns and VPNs komando knows
+  (`host add`, `host rm`, `doctor`, the target words in `komando schema`),
+  and flag help gives examples with "like" or "for example", never
+  "e.g.".
+- `komando doctor` names each check in words (`komando folder`, `audit
+  log`, `servers`, `SSH keys`, `AI agent skill`, `VPN office needs
+  openconnect`) and, at a terminal, wraps a long detail at 80 columns (a
+  pipe or a script gets each check on one line). `-o json` keeps
+  the check names (`state`, `audit_log`, ...).
+
+### Removed
+
+- The old command names `forward` (now `tunnel`), `script` (`exec
+  --script`), `prompt` (`status --short`), `host import` (`import
+  ssh-config` or `import komando`), `host export` (`export`) and `db
+  grants` (`db user show`). komando is used internally only, so a renamed
+  command no longer keeps its old name; each is now an unknown command.
+- The retired flags: `db dump/restore --on`, `--from` on `db user`, `db
+  grant` and `db revoke`, `fs list --max`, `fs restore --from`, `storage
+  rm --limit` and `-n`, `vpn add/edit --address`, `rename --prefix`,
+  `--notes` and `--labels`, `recipe add --sudo`, `cron --sudo`/`-s`,
+  `queue peek --wait`, `cluster rollback --to`, `policy check --for`,
+  `db query --csv`/`--tsv`, `key gen --overwrite`, `docker logs
+  --priority` and `svc logs --timestamps`. Each is an unknown flag now.
+- `pkg security --apply` and `--keep-going`: `pkg upgrade TARGET
+  --security` installs the security updates and audits as `pkg.upgrade`.
+  A bare number of seconds for `svc` and `reboot --wait`, and `-1` for
+  queue `--partition`, `--partitions` and `--replicas`.
+- `recipe run` of a built-in recipe removed in 0.12 (`ports`, `dns`,
+  `failed-units` ...) no longer names the command that replaced it; it is
+  `RECIPE_NOT_FOUND` like any unknown recipe. Typing `ops`, `snippet`,
+  `snippets`, `diag` or `policy allow` no longer suggests the command
+  that took the name; `inspect` and `systemd` still suggest `facts` and
+  `svc`.
+- `import komando` reads only the export file (`komando-export/1`, or the
+  envelope `komando export` prints); a plain list of hosts or the
+  `{"hosts": [...]}` that `host export` printed before 0.12 is refused.
+- Command IDs that kept a renamed command's old path: `host.mv`,
+  `conn.mv`, `vpn.mv`, `key.mv`, `secret.mv`, `group.mv`, `secret.get`,
+  `cluster.ls`, `cluster.helm.ls`, `db.user.ls`, `fs.ls`, `queue.ls`,
+  `registry.ls`, `storage.ls` and `db.grants` are now `host.rename` ...
+  `secret.show`, `cluster.list` ... `storage.list` and `db.user.show`, the
+  command's path.
+- Answers kept in an old shape beside the new one: under `--dry-run`,
+  `host rm`, `conn rm` and `key rm` print only `would_remove` (no longer
+  `removed` too); `vpn rm` always lists the VPNs (one VPN was a string);
+  `host trust NAME` answers with `data.results` and `data.summary`, as
+  for several servers (one server was a flat object).
+- Homes from before 0.12 are no longer read: `komando seal` and `seal
+  --undo`, the `NEEDS_SEAL` and `SEAL_UNFINISHED` codes, and the readers
+  of `state.json`, a plain `runtime.json`, `vault.json` (with `vault.key`,
+  a keychain key or a passphrase, and the old scrypt cost), `known_hosts`,
+  `keys/` and a plain Tailscale `tailscaled.state` are gone (every
+  internal home has `store.db`). A home without `store.db` starts empty,
+  as a new install does; one that had a store (`store.key`,
+  `runtime.pids` or the keychain's change count) and lost `store.db`
+  still stops with `STATE_CORRUPT`, and the hint says to put `store.db`
+  back from a backup. `doctor` no longer warns about old files beside
+  `store.db`.
+- `meta.deprecated` and the code behind it: nothing uses an old spelling
+  now, so no command sets it. `komando schema` no longer resolves old
+  names (an alias, a command ID and a hidden synonym still resolve), and
+  `komando doctor` no longer lists the old spellings a stale AI agent
+  skill teaches (it still says the skill is from another version).
+- The menu that `komando` alone opened at a terminal, its task lists and
+  the full-screen forms and review screen (owner decision 2026-11-12:
+  person mode is commands). Everything it did is a command: `komando`
+  alone shows them by group, `host show` lists the commands for a server,
+  and a command typed with something missing asks for it. Running now is
+  `komando status`, History and undo is `komando audit`, Check everything
+  is `komando test all` and `komando doctor`.
+
+### Fixed
+- `komando schema` (`confirm`), the commands' Safety line and the tier
+  table in docs/features/safety.md now name every stop an AI agent meets:
+  `host ssh-command` and `secret keychain` (moving the key in) are for a
+  person only (`NEEDS_PERSON`); `--yes` (`SAFETY_SETTING`) for an agent's
+  `--proxy-command` on `host add` and `host edit`, a server with a proxy
+  command in `import`, a kubeconfig context whose login runs a program or
+  sends a file (`import kubeconfig`), `recipe add --overwrite --read-only`
+  on a recipe that was not read-only, a first host key pin under strict
+  host keys (`host trust`) and `guide uninstall`. The stops are unchanged;
+  an agent that planned from `confirm` met them unannounced.
+- `import komando` and `import csv` typed at a terminal without FILE ask
+  for it (they have no usual file); before, the run stopped with "give the
+  file to import".
+- SQL Server: a certificate with a negative serial number, which SQL
+  Server makes for itself, failed with `x509: negative serial number`.
+  komando now parses it (`x509negativeserial=1`); the chain and the host
+  name are still checked.
+- On Windows, komando's folder (`KOMANDO_HOME`) gets an access list of its own when komando makes it, as does every folder above it that komando has to make: only you and SYSTEM may open it and everything inside. A folder made under `C:\` used to let every user of the computer read it, since file modes do nothing on Windows. `komando doctor` now reads the access lists there and names any file others may open, with the `icacls` commands that fix it (they set the folder's access list whole, so no entry for another account stays).
+- On Windows, komando knew no running VPN session, tunnel or `komando login` as its own: it asked `ps` which program a process runs, and Windows has no `ps`. It now asks Windows, so `vpn status`, `tunnel list` and `status` see them and `vpn down` stops them.
+- On Windows, `login aws` and a VPN's web sign-in open your browser (they printed the address only), and a VPN sign-in that komando watches finds Chrome, Edge or Brave where Windows installs them.
+- On Windows, a server's `--proxy-command` runs in cmd.exe; it called `/bin/sh`, which Windows does not have. `%h`, `%r` and `%n` go in bare or in double quotes, and a server whose address, user or name holds `%`, `"` or a line break stops with `PROXY_FAILED` instead of running.
+- On Windows, a server with no user logs in as you (`USERNAME`; komando read only `USER`, which Windows does not set), the audit log names you as the actor, and its `os_user` is your account instead of `uid -1`.
+- A SQLite conn takes a Windows path: `sqlite://C:\data\app.db` (and `sqlite:///C:/data/app.db` on Windows). `C:` used to be read as a server name: the URL was refused, or `sqlite://C:/data/app.db` opened `/data/app.db`.
+- In a Windows console, the red PROTECTED mark and a question that hides a pasted password show as meant: komando turns on the console's escape sequences while it runs (they showed as text like `←[1;31m`). A console too old for them gets no colour, and the hidden line is redrawn without them.
+- An ssh-gate key gets the same answer for `cluster info`, `group show`, `tunnel show` and `recipe show` as for the command each names (`cluster status`, `group list`, `tunnel list`, `recipe list`); they were refused as komando's own plumbing.
+- The approval hint a script or a person gets (`check with --dry-run, then run it again with --allow-dangerous: ...`) repeats the command line only when it holds no value that may be a secret: words after `--`, free text such as SQL, a value the mask hides, or the value of a flag such as `--content` or `--password`. Those get the same sentence without the line, so a password typed for a server command no longer lands in `error.hint` or a CI log.
+- When komando fills in `cron rm`, `pkg rm` or `db kill` for a person, the name to type counts only what goes: written as an alias (`cron remove`), a plural (`crons rm`) or after `-o text`, the command's own words were counted too ("Type 3" for one task).
+- The hidden synonyms `cluster info`, `group show`, `tunnel show` and `recipe show` get every check of the command they name: an AI agent with `KOMANDO_HOME` set to another folder needs a person's yes (`SAFETY_SETTING`), and a command that writes the audit log stops when it cannot (`AUDIT_UNAVAILABLE`). They used to skip both, like komando's own background commands.
+- An s3, gcs or azblob conn with `?insecure=1` now needs a person's yes when an AI agent adds it, like the other kinds: an AWS session token would travel in clear.
+- On a terminal without Unicode, a result's text (a file, a row, a log line) is no longer rewritten in ASCII; only komando's own lines are.
+
+- `vpn status` could show a SOCKS, proxy or system VPN as down when it
+  answered: the row was written over after the check filled it in.
+- `queue purge` and `queue rm` name what they would delete: the person's
+  "Dangerous:" prompt, the approval window and the agent's `POLICY_BLOCKED`
+  message now say `deletes every message in orders-retry`, not only "a
+  topic, queue or stream" on the conn.
+- `queue ls` shows at most `--limit` (`-n`, default 1000) topics, queues or
+  streams, the first by name, and marks a longer list `"truncated": true`
+  with a hint to narrow it. On SQS and Kafka it no longer reads every
+  queue's counts first, so a big account answers within the time limit.
+- `queue peek --idle` on RabbitMQ, NATS, SQS or Pub/Sub is refused
+  (`NOT_SUPPORTED`) instead of being ignored: only a Kafka peek waits.
+- `queue peek` on a RabbitMQ quorum queue takes no more messages once one
+  is near its delivery limit, so a single peek no longer counts down the
+  deliveries of every message behind it.
+- `komando queue --help` shows examples of the usual journey.
+- `komando status` and the restart list after `secret passwd` no longer
+  count a tunnel whose process id now belongs to another program (after a
+  crash or a restart) as running.
+- `komando db ls`, `cache show NAME`, `queue edit NAME`, `storage test NAME`
+  and the like now say which shared command does it (`komando list
+  kind:db`, `komando conn show`, `komando conn edit`, `komando test`,
+  `komando conn rm`, `komando conn mv`) instead of only "unknown command".
+- A blocked command given a selector (`host rm @prod`, `tag:edge`) now
+  records the servers and conns it picked in the audit log instead of `-`,
+  so `komando audit --failed --target web2` finds it.
+- The `VAULT_KEY` hint for a server's password reference, and the
+  `NO_PASSPHRASE` entry in the error catalog, named the old vault.key file;
+  they now say store.key, where the sealed store keeps the key.
+- `conn add` and `conn edit` refuse an `s3://`, `gs://` or `azblob://` conn
+  whose `http://` endpoint crosses the network (`INSECURE_PROTOCOL`), as
+  they already did for `sqs://` and `pubsub://`: the files and the AWS
+  session token would travel unencrypted. Use https, `--via HOST`, or add
+  `?insecure=1`; an endpoint on this computer is fine. `komando doctor`
+  now flags such gs:// and azblob:// conns too.
+- `secret set` and `queue send` read at most 1 MiB from stdin and stop
+  with a clear `USAGE` error beyond it, so a wrong pipe cannot fill memory.
+  `fs write` from stdin is not capped.
+- A second Ctrl-C now ends komando at once when the clean stop after the
+  first one hangs; before, every later Ctrl-C was ignored.
+- Secret masking for AI agents no longer hides words in komando's own
+  messages: "Would re-encrypt 3 secrets: the vault's key" and
+  "KOMANDO_KEYCHAIN=off: ..." now read whole. Real values after `secrets:`
+  or `NAME=` are still hidden.
+- Text output on a terminal that cannot show Unicode (`TERM=dumb`, or a
+  locale such as `LANG=C` that is not UTF-8) now writes komando's marks in
+  ASCII (`+` for ✓, `*` for ●, `->` for →) instead of broken characters.
+- `job rm --kill` on a protected server asks first (`PROTECTED_HOST` for
+  an agent), as `job kill` does; it stopped the job without asking. The
+  stop is in the audit log, and a job it could not stop (started with
+  `--sudo`) keeps its record and says `komando job kill ID --sudo`.
+- `fs chmod` works on servers with BSD `chmod` (FreeBSD, macOS): the
+  `--` came after the mode, which BSD reads as a file name. `fs mkdir`
+  and `fs chmod` now say what they did (`made: PATH`, `mode 640: PATH`)
+  instead of printing nothing on one server, and `fs mv` into `DIR/` no
+  longer prints a double slash.
+- `policy deny` says the new rule's id and the commands that follow:
+  `komando policy check 'COMMAND'` to try it and `komando policy rm ID` to
+  undo it. Its JSON gains `id` and `next`.
+- `fs` commands refused with `PERMISSION_DENIED` give the same command
+  line with `--sudo` added as their hint (it said only "retry with
+  --sudo"). With `--sudo` already given, the hint no longer suggests it.
+- `exec` that times out, or loses its connection, now gives the exact
+  `komando job start TARGET ... -- 'COMMAND'` line in its hint, with the
+  same `--sudo`, `--dir` and `--env`, instead of "use `komando job start`".
+- `job start` on several servers prints `komando job wait ID ID ...` with
+  the real IDs (it printed `<id>`), and so does `next` in its JSON. A
+  `job wait` for several jobs that are still running says
+  `komando job wait ID ...` to wait again. It pointed at `data.results`,
+  which job results do not have, and in text it suggested `job start`.
+  A lost job's hint gives the exact `job start` line to run it again.
+- `ssh-gate`: a key that may change things can now run `fs restore`, the
+  undo of `fs replace --backup` and `fs write --backup`, on a server.
+  It was refused as if it changed komando's own setup.
+- Ctrl-C now stops `upload`, `download`, `cp` and `sync` (servers, and
+  SFTP, FTP and SMB storage conns). komando caught the signal and went on
+  copying to the last byte; a big upload ran for 20 s after Ctrl-C, and
+  `sync` had to be killed. The copy now stops within a moment with
+  `CANCELLED` (exit 1), and the file being copied is not left behind.
+- A folder upload (`upload -r`, `cp -r`) writes each file under a
+  temporary name and moves it into place, as `sync` does, so an
+  interrupted upload no longer leaves a file on the server cut short.
+- A download refused with `FILE_EXISTS` no longer prints
+  "downloaded 1 file (0 B)" above the error, and its JSON result no longer
+  counts the file.
+- `upload -r`, `cp -r` and `sync` copy a folder given as a symbolic link
+  (`./current -> releases/42`) as the folder it names. They sent nothing
+  and still reported success ("skipped 1 file: .").
+
+- Redis Cluster: `cache rm` with keys in different hash slots failed with
+  `CROSSSLOT`; it now deletes them one by one. `cache run -- DBSIZE`
+  counted one master only; it now adds up every master. `SCAN`,
+  `RANDOMKEY`, `KEYS`, `FLUSHALL`, `FLUSHDB` and `SWAPDB`, which would reach
+  one master only, stop with `NOT_SUPPORTED` before any approval is asked,
+  and a `CROSSSLOT` error says what to do.
+- `komando cache` (the bare group) shows examples of the usual journey;
+  its questions for a person name commands (`komando cache add`,
+  `--dry-run`) instead of menu rows. The caches page shows `cache add`, what
+  happens when an argument is left out, how to test, change, rename and
+  remove a cache, and how to save a Redis snapshot.
+- `policy check --conn-kind memcached` rates the words memcached reads, like
+  `cache run`: a line with a newline or other control character is
+  dangerous (new rule `memcached-line`), and `mg "key T30"` is a write.
+- `cache keys --limit 0` listed no keys yet said more matched, and
+  `cache get --limit 0` (or a negative limit) quietly showed 100 items;
+  both now stop with `USAGE` before connecting.
+- `cache run` on Redis: more commands that change a cluster or Sentinel
+  setup (`CLUSTER MEET`, `ADDSLOTS`, `FLUSHSLOTS`, `REPLICATE`, `SENTINEL
+  SET`, `FAILOVER`, `REMOVE`, `CONFIG SET` ...) and that delete keys
+  another way (`FT.DROPINDEX ... DD`, `FT.DROP`, `SET`/`GETEX` with an
+  `EXAT`/`PXAT` already past) now need `--allow-dangerous` as well as
+  `--write`. Read-only `CLUSTER REPLICAS`, `CLUSTER LINKS`, `SENTINEL
+  MASTERS`, `SENTINEL GET-MASTER-ADDR-BY-NAME` and `SENTINEL CONFIG GET`
+  no longer need `--write`.
+- `cache run` on memcached: `stats reset` (clears the counters) and
+  `stats detail on|off` (switches per-prefix counting on the server) now
+  need `--write`; they were taken as reads. `stats detail dump` still reads.
+- Security: `cache run` on memcached now rates the words memcached will
+  read. An argument holding a newline (`get "a\r\nflush_all"`) used to
+  pass as a read and run `flush_all` without `--write` or
+  `--allow-dangerous`; such a line now stops with `USAGE` before anything
+  is sent. Arguments are split at spaces as memcached does (`mg "key T30"`
+  is a touch, so it needs `--write`), the command word is sent in lower
+  case (memcached ignores `GET`), and `watch`, which never returns, stops
+  with `NOT_SUPPORTED`.
+- `import kubeconfig` notes a context that skips the API server's
+  certificate check (`insecure-skip-tls-verify` without a CA), and a
+  kubeconfig with both a CA and `insecure-skip-tls-verify` now checks the
+  server against the CA instead of checking nothing.
+- `cluster rm` and `cluster scale ... 0` at a person's terminal ask to
+  type the object's name (`Type the name web to continue`). Before,
+  Kubernetes asked for the cluster's name and Swarm for "yes", so the
+  answer did not say what would go. Scripts and agents are unchanged
+  (`--allow-dangerous`).
+- Cluster commands refuse `.` and `..` as an object or namespace name
+  before anything is sent (`K8S_INVALID`): as a path segment, `cluster rm
+  prod pod ..` named another object than the one typed.
+- A cluster whose kubeconfig logs in with a program that is not installed
+  (`kubelogin`, `oidc-login` ...) now stops with `TOOL_MISSING` (exit 3)
+  and the kubeconfig's own `installHint`, and a login program that fails
+  with `LOGIN_FAILED` (exit 4), instead of `K8S_UNREACHABLE` and a hint to
+  test the network.
+- `cluster apply` sends the whole file to the server as a dry run before
+  it applies anything: when the cluster refuses one object, nothing in the
+  file is applied (`K8S_INVALID`, "nothing was applied: ..."). Before, the
+  objects above the refused one were applied and the file was left half
+  done.
+- On a Mac whose user has no default keychain (a changed `HOME`: `sudo -E`,
+  a sandbox, CI, a test run), komando no longer makes macOS show a
+  "Keychain Not Found" dialog. It asks `security default-keychain` first
+  (no dialog); without one, a new store keeps its key in `store.key`, the
+  change count is not kept in the keychain, and `secret keychain` says
+  "no default macOS keychain for this user".
+- An AI agent reading `secret passphrase --dry-run` and `secret keychain
+  --dry-run` as text saw words of komando's own sentences as `[hidden]`
+  ("3 secrets: [hidden] vault's key", "KOMANDO_KEYCHAIN=[hidden]"); the
+  sentences are reworded so nothing is masked.
+- `secret passphrase --dry-run` previews for an AI agent or a script too
+  (what would change, how many secrets, whether the current key opens
+  them) with `meta.would_be_blocked: NEEDS_PERSON`, as `secret keychain`
+  does, instead of stopping: a dry run is never blocked.
+- `secret rm A B` removes every name in one change of the vault, or none:
+  a failure part way no longer leaves some removed without an audit entry,
+  and a reference another komando adds meanwhile is seen before the
+  secret goes.
+- `komando secret --help` and the Settings and Moving pages named
+  `vault.json` and `vault.key`, the files of an earlier komando; they now
+  say `store.db` and `store.key`. The help also lists the other places a
+  `-ref` flag can read a password from (`env:`, `file:`, `vault:`,
+  `aws-sm:`, `gcp-sm:`, `azure-kv:`, `op://`, `bw://`, `kdbx:`).
+- `secret set NAME --from-env VAR` refuses an empty (or blank) variable
+  with `USAGE`, as an empty pipe is refused, instead of storing an empty
+  password.
+- `secret set` and `secret check` never ask an AI agent for a value at a
+  hidden prompt, also when the agent runs komando under a terminal: it
+  gets `NEEDS_PERSON` at once instead of a prompt that waits forever.
+  `secret set NAME --dry-run` without a value previews (`replaced`,
+  `would_set`) with `meta.would_be_blocked: NEEDS_PERSON` instead of
+  stopping.
+- `tunnel stop` never signals a process that is not komando: after a
+  crash or a restart a tunnel's pid may belong to another program, which
+  it used to end. `tunnel list` shows such a tunnel as down and forgets it.
+- A `--via` path that names a server or VPN twice (`office,office`,
+  `a,b,a`) is refused with `VIA_CYCLE` and the path without the repeat;
+  a VPN named twice got the wrong hint "put the VPN first", and a repeated
+  server was accepted.
+- `vpn down NAME --all` and `tunnel stop ID --all` are refused with
+  `USAGE`, as `logout HOST --all` is; the names, even unknown ones, were
+  ignored. `tunnel stop` is now in the audit log.
+- `tunnel start -L/-R/-D` takes IPv6 addresses in brackets, as ssh does
+  (`-L 8080:[::1]:80`); they were refused as an invalid spec. An open IPv6
+  bind (`[::]`) still needs a person's yes.
+- Ctrl-C while `vpn up` (or a command that connects a VPN by itself)
+  waits for the VPN's session now stops it at once (`CANCELLED`); the wait
+  of up to 75 seconds ignored it, so the VPN could come up after the
+  person cancelled.
+- Ctrl-C while `tunnel start` waits for its tunnel now stops the
+  background process and forgets the tunnel (`CANCELLED`); it was ignored,
+  so the tunnel could still come up after the person cancelled.
+- `komando login HOST --dry-run` with nobody at a terminal (an AI agent)
+  now prints the plan with `would_log_in: false` and `NEEDS_TERMINAL` in
+  `meta.would_be_blocked`, instead of failing: a dry run is never blocked.
+- `vpn down` (and its `--dry-run`) now says what the disconnect does to
+  the servers and conns that use the VPN: with a person's login they stop
+  answering until `komando vpn up NAME`; otherwise their next command
+  connects it again (new JSON field `affects`).
+- `vpn test` and `vpn up` of a SOCKS or HTTP proxy VPN without `--check`
+  now connect to the proxy itself and fail with `VPN_DOWN` when it does
+  not answer; they said ok for a dead proxy while `vpn status` said it was
+  down.
+- A VPN session no longer drops a connection that is still open when
+  `vpn_idle` (30m) passes: a `shell`, `logs --follow` or `tunnel` through
+  a WireGuard, OpenVPN, IPsec or SSL VPN session was cut after 30 minutes
+  because only new logins counted as use.
+- Security: `docker exec` and `logs --container` refuse a CONTAINER that
+  is not a container name or ID. One starting with `-` reached docker as an
+  option, so `docker exec web1 -- --privileged -u root api sh` ran a
+  privileged exec (a way out of the container) without
+  `--allow-dangerous`.
+- Security: `net dns` refuses a name that is not a host name or an
+  address. A name starting with `-` reached `dig` as an option, so
+  `net dns web1 --type MX -- -f/etc/passwd` read a file on the server
+  through a read-only command.
 - `user add` and `user rm` on a server without `useradd` or `userdel`
   (Alpine without the `shadow` package) now fail with `TOOL_MISSING`
   (exit 3) and the hint `komando pkg install TARGET shadow`, like
   `user lock` and `unlock`, instead of a generic remote failure (exit 5).
   The JSON result keeps its shape.
+- Menu and guided forms: Esc from the review screen goes back one
+  question at a time, and Esc on the first question now leaves the form
+  (nothing runs). Before, it went round to the review again, so Esc
+  never got you out; only q or Ctrl-C did.
+- Guided forms, lists that also take typing (a secret's name, a group,
+  servers): what you type is now a row of its own at the top, and Enter
+  takes it. Before, Enter took the first row that contained the text, so
+  typing a new secret name `db` saved over `db-pass`, and a name that is
+  part of another could not be typed. A typed answer also comes back as
+  typed when you change it from the review.
+- Guided forms can no longer put `--yes`, `--allow-dangerous` or
+  `--reveal` in a command, even if a command's form hints name one. No
+  form did; a test now checks every command's form for it.
+- `import --overwrite --dry-run` now lists a protected conn as skipped,
+  as the real run does, instead of "would add" plus a block the real run
+  never hit. A protected conn is skipped like a protected server.
+- Commands komando prints for you to copy quote every shell character
+  (`;`, `|`, `&`, `*`, `~`, line breaks) and an empty value (`''`). The
+  `config set` line an import gives for a differing setting is now
+  runnable as shown, and a value from an imported file cannot add a
+  second command to it.
+- `host rm` of a server others go through (`--via`) names every server
+  and conn that uses it, each with its `edit ... --unset via` command,
+  instead of one per try.
+- `key rm` names every server that still uses the key (with one
+  `host edit A B --key OTHER` line) and its text output says "removed key
+  NAME" instead of printing raw fields. JSON is unchanged.
+- `import` ends with the command that checks what came in (`next: komando
+  test ...`, JSON `next`), lists the names `--overwrite` replaced
+  (`replaced`), and its dry run no longer says "the rest is in" when a
+  server would be left out. A setting that differs shows `-` for an empty
+  value.
+- `import` now applies the TLS default `conn add` gives: a database URL
+  without TLS settings gets verified TLS (`sslmode=verify-full`,
+  `tls=true`, ...), and a clear-text `redis://`, `amqp://`, `nats://`,
+  `kafka://` or `http://` endpoint to another computer is skipped with the
+  `INSECURE_PROTOCOL` reason instead of being saved, so a password from a
+  `.env` or `.pgpass` file no longer crosses the network unencrypted.
+- `group add GROUP A B` and `group rm GROUP A B` take several targets, like
+  `host rm` and `host edit`, instead of failing with "too many arguments".
+- A server address that starts with `-` is refused (`host add`, `host
+  edit`, every import). `user@-oProxyCommand=...` was saved, and `host
+  ssh-command` could print it where `ssh` reads it as an option. A server
+  saved that way before gets an error from `host ssh-command` instead of
+  the line.
+- `export` no longer tells you to copy `sealed:...` "key files" for keys
+  komando made (they have no file): it says to run `komando key gen NAME`
+  on the other computer and deploy that key (JSON `keys_sealed`). The
+  import note for a missing key says the same.
+- Asked for a missing argument, `import` offers its sources and `config
+  get`/`config set` their settings as a list to pick from.
+
+- `db dump` and `db restore` name their argument `CONN` (it was
+  `DATABASE`), and no `db` usage line carries flags any more (`restore`,
+  `user add`/`passwd`, `grant`/`revoke`), so shell completion and pickers
+  offer your databases there. `db restore` without `--from` and `db grant`
+  or `revoke` without `--privileges`/`--role` now give a runnable example
+  in the hint.
+
+- `db kill --dry-run` now fills `meta.would_be_blocked` (a protected
+  conn, or `--session` without `--allow-dangerous`), as every other dry
+  run does; before, it skipped the check and looked allowed.
+
+- `komando db` shows five runnable examples and how to list, test,
+  change, rename and remove a database (`list kind:db`, `test`, `conn edit`,
+  `conn mv`, `conn rm`). The `db dump` question for `--to` is no longer
+  marked required: without it the backup is `CONN-<date>.sql.gz`.
+
+- `db dump --to FOLDER` saves `CONN-<date>.sql.gz` inside that folder
+  (it failed with `FILE_EXISTS`), and `--to -` is refused with a usage
+  error instead of creating a file named `-`.
+
+- `db` error hints name the conn you gave (`komando db schema prod-db
+  TABLE`), not a `CONN` placeholder, so the hint is the exact next
+  command.
+
+- `db restore` and `db user rm` typed without their arguments now hint a
+  runnable `--dry-run` example (the hint said only "see --help").
+- Google Cloud Storage: gcloud's own login is sent only to Google's
+  HTTPS endpoints (`*.googleapis.com`). A `gs://` conn with an emulator or
+  other `?endpoint=` used to send the person's gcloud token there too, in
+  clear over `http://`. A service account key with an `http://` endpoint
+  is refused with `INSECURE_PROTOCOL`.
+- Azure Blob: a SAS token with an `http://` endpoint is refused
+  (`INSECURE_PROTOCOL`): the token goes in every request as it is, so it
+  would travel unencrypted. The account key, which only signs, still works
+  with an emulator such as Azurite.
+- `storage rm --prefix` typed at a terminal without `--allow-dangerous`
+  now lists what would be deleted (the first 20 objects, the count and the
+  size) before asking to type the conn's name; it used to ask first, with
+  nothing shown. Agents and scripts are stopped as before, before anything
+  is listed.
+- S3: a bucket in another region than the conn's `region=` (or its
+  regional endpoint) now says which region it is in and how to fix the
+  conn (`conn edit NAME --url ...`), instead of a bare `STORAGE_ERROR:
+  AuthorizationHeaderMalformed` or `400 Bad Request`.
+- Storage errors name the conn in the command their hint suggests
+  (`komando conn test backups`, `komando storage ls backups`), not the
+  placeholder `NAME` or `CONN`.
+- `storage ls CONN db` on a bucket (S3, Google Cloud, Azure) lists what is
+  in the folder `db`, as on a file server; it used to list only the folder
+  itself (`DIR db/`).
+- `storage link` on an S3 conn with an AWS profile (SSO, an assumed role)
+  warns that the link ends when the temporary keys do, which can be long
+  before `expires_at`.
+- `komando storage --help` shows the whole journey (add, test, list,
+  edit, remove the conn) with examples; `storage add --help` has examples
+  for an AWS profile, MinIO, Google Cloud, Azure and SFTP; `storage rm
+  CONN` with no key names the next step, including `conn rm CONN` for
+  taking the storage itself out of komando's list.
+- S3, Google Cloud and Azure conns take `&ca=secret:NAME`, for an
+  endpoint whose certificate comes from a private CA (a company MinIO, a
+  TLS-inspecting proxy). There was no way to use one. A certificate that
+  does not verify is now `STORAGE_TLS` with that hint, not a generic
+  `STORAGE_ERROR`.
+- An `azblob://` URL with a SAS token in it (`?sv=...&sig=...`) is refused
+  as `URL_HAS_PASSWORD`, with the hint to store it in the vault, instead of
+  "unknown azblob URL option".
+- registry: Docker Hub's pull limit (HTTP 429) is now `REGISTRY_RATE_LIMIT`
+  (exit 5) with when to retry (Retry-After) and the hint to log in, instead
+  of a bare `REGISTRY_ERROR`.
+- registry: on Docker Hub, `nginx` means `library/nginx`, as with
+  `docker pull`; `registry ls dockerhub` without a repository says Docker
+  Hub and GHCR have no list of repositories (`REGISTRY_UNSUPPORTED`)
+  instead of a misleading `REGISTRY_AUTH`.
+- registry: repository, tag and digest names are checked against the OCI
+  grammar before they go into a URL or a token scope (`../`, `?` or a
+  second `:` gave requests to other endpoints); upper case gets the
+  lower-case name to use. `USAGE`, exit 2.
+- registry prune: one manifest read per image instead of per tag (Docker
+  Hub counts each read as a pull), and the help no longer says a
+  multi-platform index always stays: it has its first image's build date
+  and can go.
+- registry prune: past 1000 tags, `TOO_MANY_TAGS` no longer suggests
+  `--match` (every tag is still read, so it cannot help); build dates are
+  read only for images a matching tag may take.
+- registry ls, rm, prune and inspect read better at a terminal: a cut list
+  says to raise `-n`, an empty one says what fills it, `rm` names every
+  tag that goes with the image and warns when `latest` is one, `prune`
+  lists what goes and why the rest stays, and build dates are in local
+  time. JSON is unchanged.
+- registry rm: when the tags cannot be listed, `tags` is `[]` (was `null`)
+  with a `tags_note` saying other tags may point at the image.
+- import docker: a registry that only has a `credHelpers` entry (Amazon
+  ECR with `ecr-login`) is imported; Amazon ECR, Google (gcloud) and Azure
+  identity-token logins are added without docker's hours-long token, so
+  komando logs in with the cloud login each time instead of failing once
+  the token runs out; a credential helper name that is a path is not run,
+  and a helper gets 30 s.
+- `docker rm`, `docker prune` and other docker deletes at a terminal now
+  ask the person to type the server's name, like every other destructive
+  command, instead of accepting a bare `yes`; `docker prune --all` asks
+  once instead of twice.
+- `svc`, `pkg`, `user`, `cron`, `docker` and `recipe run` now say why
+  when sudo refuses before the command runs: `PERMISSION_DENIED` (sudo
+  wants a password komando does not have, or the user may not use sudo)
+  with the `host edit --sudo-ref` or `--user` command to run next, and
+  `TOOL_MISSING` when the server has no sudo (add `--no-sudo` as root),
+  instead of `COMMAND_FAILED` / `SVC_FAILED` with "read stderr".
+- `komando svc`, `pkg`, `user`, `docker`, `cron`, `net`, `cert` and
+  `recipe` alone now show the usual journey as examples. Examples, form
+  hints and docs write times as `30m` (not `-30m`), as komando takes them
+  everywhere; `user rm` shows a `--dry-run` first.
+- `pkg rm` reports itself as `pkg.rm` in JSON, the audit log, dry runs and
+  the Windows refusal (it said `pkg.remove` / `pkg remove`), and `pkg`
+  commands given no package give the usual `missing arguments; usage: ...`
+  error.
+- `reboot --dry-run` puts `would_be_blocked` in `data` too, like every
+  other dry run; `user add` and `user rm` show `user rm bob --remove-home`
+  in dry runs and the audit log instead of the shell script; `recipe list
+  --category` with an unknown category is a usage error that lists them,
+  not an empty list.
+- `docker start`, `stop`, `restart` and `rm` name their argument
+  `CONTAINER...` and `docker pull` `IMAGE...` (was `NAME...`) in help and
+  usage errors.
+- `user lock`, `unlock` and `rm` check USERNAME like `user add` does, so a
+  name starting with `-` is a usage error instead of an option of
+  `usermod` or `userdel`.
+- Ctrl-C ends `logs --follow` (and `svc logs`, `docker logs -f`) cleanly
+  with exit 0 and the lines so far, as `--timeout` does, instead of an
+  `interrupted` error with exit 1.
+- `pkg upgradable` reads the package index as root when sudo needs no
+  password, like `facts` and `pkg security`, so all three agree. On dnf and
+  yum the login user's own cache could list other updates (48 against 4
+  on Rocky 9).
+- `komando login aws --profile ROLE` now works for a profile that assumes a
+  role from an SSO profile (`role_arn` with `source_profile`): it logs in
+  to that SSO, as the role's commands need. The SSO token file is written
+  through a new private temporary file, so a file left at the old
+  temporary name (or a link there) never gets the token.
+- An AWS profile without SSO and without keys no longer says
+  `AWS_LOGIN_REQUIRED` with the hint `komando login aws`, which cannot help
+  it: it is `AWS_FAILED` and the hint says where the keys go. Ctrl-C while
+  komando talks to AWS is `CANCELLED`, not `AWS_FAILED`.
+- `komando login aws` run by an AI agent is now `NEEDS_PERSON` (exit 6)
+  with the hint "ask the user to run `komando login aws --profile NAME` in
+  their own terminal", like every other person-only step; a script without
+  a terminal still gets `NEEDS_TERMINAL`. `--dry-run` is never blocked: it
+  checks the profile and shows its SSO start URL and region, with
+  `meta.would_be_blocked` for an agent. komando opens only an `https://`
+  sign-in address in the browser.
+- `komando login gcp` and `komando login azure` say that the browser login
+  comes in a later release and what works today (application default
+  credentials, a service principal, or a key in `--password-ref`), for any
+  arguments, instead of a hint to store a "service account key" for Azure.
+- `komando import aws` names the right fix per profile: `komando login aws
+  --profile NAME` only for an SSO profile, the credentials file for a
+  profile without keys or SSO (it said "the login has expired" for both).
+- New page [Cloud logins](docs/features/cloud.md): `komando login aws`, the
+  `aws_profile` option, `komando import aws`, the AWS error codes and what
+  works for Google Cloud and Azure until their login comes. The agent
+  guide lists `AWS_LOGIN_REQUIRED`.
+- With `AWS_ENDPOINT_URL` set (LocalStack, moto), a profile that assumes a
+  role sent its AssumeRole call to the real AWS, signed with the source
+  access key: the AWS SDK leaves the role's STS client out of that
+  setting. komando now applies it to STS too (`AWS_ENDPOINT_URL_STS` still
+  wins).
+
+- `komando update` on Windows said there was no komando release for
+  Windows, although every release has `komando_windows_amd64.zip` and
+  `komando_windows_arm64.zip`. It now updates Windows too, and a test keeps
+  its list of platforms the same as the ones `make dist` builds.
+
+- Tab completion now turns on as the README and the installer say. In zsh,
+  `source <(komando completion zsh)` printed `command not found: compdef`
+  in every new terminal when `~/.zshrc` had not run `compinit` (a new
+  Mac's has not): the script now runs it when it is missing. For bash the
+  line is `eval "$(komando completion bash)"`, because the bash 3.2 of
+  macOS reads nothing from `source <(...)`. `komando completion SHELL
+  --help` gives these lines instead of the bash-completion package and
+  Homebrew paths.
+
+- Tab completion of a CONN offers only the conns the command works with:
+  `komando cache info <Tab>` lists caches, `komando db query <Tab>`
+  databases (groups, `all` and `kind:` as before). It listed every conn,
+  so a database could be picked for a cache command.
+
+- `make licenses` (and so `make dist`) stopped at "archive/tar does not
+  have module info" when Go ran a downloaded toolchain (go.mod's `go`
+  line newer than the installed Go): the script now hands go-licenses
+  Go's own GOROOT. Run on its own, it also covers the Windows builds.
+
+- The install line says what went wrong in words: a `KOMANDO_VERSION`
+  that does not exist, no connection, a missing `curl` or `tar`, a
+  checksum that does not match. It checks `KOMANDO_INSTALL_DIR` before it
+  downloads, and puts komando in place with a rename inside that folder,
+  never by writing into a komando that is running. On Windows (Git Bash)
+  it points to the `.zip` download; it no longer calls `komando` alone a
+  menu.
+- README: the Windows `.zip` is an install option, and `prompt` (now
+  `status --short`) is no longer listed as a command.
+
+### Fixed
+
+- `key gen`, `key rm` and `rename` help said keys komando makes live in
+  `~/.komando/keys`; they are kept in the sealed store, with no file, and
+  `host ssh-command` hands them to ssh-agent. `key rm --delete-file`
+  says it deletes the private key; servers.md and output.md (which listed
+  the retired `KEY_FILE_EXISTS`) say the same.
+- `group rm GROUP TARGET TARGET` (two or more targets) deleted the whole
+  group instead of taking just those targets out of it. Now it takes out
+  only the targets named; `group rm GROUP` alone still deletes the group
+  (and asks first when it has more than 3 members).
+- A Tailscale or Headscale VPN keeps its node state (the machine and node
+  private keys) sealed in store.db, not in a plain `tailscaled.state` file
+  under `~/.komando/vpn/`. `vpn rm` now also forgets that state
+  and folder, so a VPN added again under the same name never joins as the
+  old node.
+- An AI agent's `download`, `cp`, `storage download` and `sync` never put
+  the real text on this computer's disk: a text file is masked in memory
+  before it is written. Before, the unmasked bytes sat in the temporary
+  file until the download ended (and stayed there after a crash). A
+  binary or larger file that holds a value from komando's vault now stops
+  with SENSITIVE_FILE instead of being saved as is.
+- `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo`
+  follow a link only when root made it and it leads into a folder root
+  owns; any other link stops with IS_A_SYMLINK. Before, a link another
+  user planted (an app's `.env` to `/etc/sudoers.d/x`) had root write a
+  file of that user's choosing.
+- `key revoke --user` edits that user's authorized_keys as the user, with
+  a random temporary name. Before, root wrote a predictable temporary
+  file in the user's `.ssh`, so a link the user planted there sent their
+  own lines into a system file.
+- `vpn up` for an AI agent hands the VPN password to openconnect only when
+  openconnect and ocproxy sit in folders only root can change, or a
+  person says yes (SECRET_DESTINATION). Before, an agent could put its
+  own `openconnect` first in PATH and read the password it gets.
+- `user add --key` writes the key as that user, not as root. Before, a
+  user who linked `~/.ssh/authorized_keys` to a system file (such as
+  /etc/shadow) got a line appended to it and its ownership, and so root.
+- store.db zeroes the space a deleted record or an old key's copy leaves
+  behind. Before, a removed secret's sealed bytes stayed in the file, and
+  after `secret passphrase` they still opened with the old key.
+- A plain runtime.json beside the sealed store is no longer trusted: it
+  is read as empty. Before, a program that wrote one could point a server's held
+  login at its own socket and see every command, password and file sent
+  to that server.
+- `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo` no
+  longer write into a folder that a user other than root and the SSH user
+  can change (owned by that user, writable by a group other than root's,
+  by everyone, or by a user or group its access list (ACL) names): that
+  user could swap the file for a link while root
+  writes. They stop with SHARED_FOLDER_CONFLICT, whose hint says how to
+  write as that user instead. A link on the way to the file (not only the
+  file itself) is followed only when root made it. `fs cat --sudo`, a
+  `--sudo` download, `logs --file F --sudo` and the reads `fs replace
+  --sudo` makes do not read through a link made by a user other than root
+  and the SSH user (IS_A_SYMLINK), and `fs chmod --sudo` does not change
+  the mode of what such a link names. `logs --file F --sudo --follow` keeps
+  reading the file it opened, so after a log rotation run it again.
+- The approval window for an AI agent's `exec --script FILE`,
+  `job start --script FILE` and `exec --stdin-file FILE` shows the
+  file's SHA-256 and every line of it, numbered, long lines wrapped and
+  never cut. Before, it showed only the command line, so a person
+  allowed a script they never saw. A file that is not valid text, holds
+  bidi or zero-width characters, holds what looks like a password, key
+  or token, or is too long to show whole (more than 40 lines as shown,
+  or 16 KiB) gets no window, as for such a command line: masking
+  `pass=x|sh</tmp/s` as `pass=[hidden]`, or leaving out line 11, would
+  hide what runs. The agent is told to ask you to run it in your own
+  terminal.
+- On a Linux or BSD desktop the approval window needs the approval code
+  (`komando config approval-code`): on X11 another program can click
+  "Allow once" (xdotool), and on Wayland the agent, which sets komando's
+  environment, can point `WAYLAND_DISPLAY` at a compositor of its own
+  and click there. Without the code komando opens no window and the
+  agent is told to ask you to turn it on or to run the command in your
+  own terminal. macOS and Windows keep the plain window.
+- settings.md says plainly what protects the vault from a program that
+  runs as your own user and ignores komando's rules: only another OS
+  user or the signed Mac app. Key file, keychain and passphrase modes do
+  not.
+- `upload` over a file that is there keeps that file's mode unless
+  `--mode` is given. Before, it took the local file's mode, so a 0600
+  `.env` on the server became 0644 (readable by every server user). A
+  new file still gets the local file's mode.
+- A job's folder on the server (`~/.komando/jobs/ID`) is made 0700, and
+  its command, output and pid files 0600, whatever the server's umask.
+  Before, other server users could read a job's output. The job itself
+  still runs with the login's own umask.
+- `download`, `cp` from a server, `storage download` and `sync` down keep
+  the file's mode from the server but never make it writable by other
+  users here: a 0777 file is saved 0755, a 0666 one 0644.
+- `guide install`, `guide guard` and `guide uninstall` keep the old
+  agent settings file as `.bak`, or `.bak.<UTC time>` when a `.bak` is
+  there already, always 0600. Before, they wrote over your own
+  `settings.json.bak` and kept its mode (often 0644, while settings can
+  hold tokens).
+- An AI agent's `db dump --run-on HOST` and `db restore --run-on HOST`
+  need a person's yes (SECRET_DESTINATION) when HOST is not the conn's
+  own `--via` server: the conn's password goes there. Before, an agent
+  could send it to any server in the inventory.
+- A password komando reads from `env:`, `file:`, `op://`, `bw://`,
+  `kdbx:`, `vault:` or a cloud secret manager is hidden in its output as
+  `[hidden]` from then on, like a value from komando's own vault (also
+  its base64 and URL-encoded forms). Before, only values that looked like
+  a password were masked.
+- komando takes the password managers' unlock variables
+  (`KOMANDO_BW_PASSWORD`, `KOMANDO_BW_CLIENT_SECRET`,
+  `KOMANDO_KDBX_PASSWORD`, `KOMANDO_KDBX_KEYFILE`, `OP_CONNECT_TOKEN`,
+  `VAULT_TOKEN`, `BAO_TOKEN`) out of its environment when it starts, as it
+  already did with `KOMANDO_VAULT_PASS`. Before, every program it ran and
+  every background tunnel, VPN session and login inherited them, where
+  `ps eww` showed them for hours. Those background processes now get them
+  on their input, and an `env:` reference to one (`--password-ref
+  env:VAULT_TOKEN`) still works for a person.
 
 ## [0.12.0] - 2026-11-11
 
@@ -2837,7 +4232,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/sgnd/komando/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/sgnd/komando/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/sgnd/komando/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/sgnd/komando/compare/v0.9.0...v0.10.0

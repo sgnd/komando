@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sgnd/komando/internal/store"
@@ -107,7 +108,7 @@ func keychainOff() bool { return os.Getenv("KOMANDO_KEYCHAIN") == "off" }
 // KeychainTool says which tool keeps the key here, or why there is none.
 func KeychainTool() (string, error) {
 	if keychainOff() {
-		return "", errors.New("KOMANDO_KEYCHAIN=off: komando uses no keychain on this computer")
+		return "", errors.New("komando uses no keychain on this computer (KOMANDO_KEYCHAIN is off)")
 	}
 	switch keychainOS {
 	case "darwin":
@@ -127,6 +128,60 @@ func KeychainTool() (string, error) {
 		return "Windows Credential Manager", nil
 	}
 	return "", fmt.Errorf("no keychain support on %s", keychainOS)
+}
+
+// defaultKeychainTimeout bounds `security default-keychain`.
+var defaultKeychainTimeout = 3 * time.Second
+
+var (
+	defaultKCMu   sync.Mutex
+	defaultKCSeen = map[string]error{} // securityTool + HOME -> the answer
+)
+
+// macDefaultKeychain is nil unless komando would use the login keychain
+// on macOS and this user has no default keychain. `security
+// add-generic-password` without a keychain file then makes macOS show a
+// "Keychain Not Found" dialog on the person's screen (a changed HOME:
+// sudo -E, a sandbox, CI, a test run; or no login keychain), while
+// `security default-keychain` only exits 1, with no dialog. So komando
+// asks that first, once per process.
+func macDefaultKeychain() error {
+	if keychainOS != "darwin" || keychainFile() != "" {
+		return nil
+	}
+	home := os.Getenv("HOME")
+	id := securityTool + "\x00" + home
+	defaultKCMu.Lock()
+	defer defaultKCMu.Unlock()
+	if err, ok := defaultKCSeen[id]; ok {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), defaultKeychainTimeout)
+	defer cancel()
+	c := exec.CommandContext(ctx, securityTool, "default-keychain")
+	c.WaitDelay = time.Second
+	var err error
+	if out, rerr := c.CombinedOutput(); rerr != nil || len(bytes.TrimSpace(out)) == 0 {
+		err = fmt.Errorf("no default macOS keychain for this user (HOME=%s); open Keychain Access, or run komando with your usual HOME", home)
+	}
+	defaultKCSeen[id] = err
+	return err
+}
+
+// autoKeychainTool is KeychainTool for a keychain use komando makes on its
+// own (a new store's key, the store's change count) and for `secret
+// keychain`: on macOS it also needs a default keychain, so komando never
+// makes macOS show a dialog. A use nobody asked for then goes on without
+// the keychain.
+func autoKeychainTool() (string, error) {
+	tool, err := KeychainTool()
+	if err != nil {
+		return "", err
+	}
+	if err := macDefaultKeychain(); err != nil {
+		return "", err
+	}
+	return tool, nil
 }
 
 // ErrKeychainTaken: the keychain already holds another key under this
@@ -207,7 +262,7 @@ func keychainGetCtx(ctx context.Context) ([]byte, error) {
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("the vault key is not in the keychain (%s); unlock the keychain and try again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
+		return nil, fmt.Errorf("the vault key is not in the keychain (%s); unlock the keychain and run it again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
 	}
 	key, err := hex.DecodeString(strings.TrimSpace(string(b)))
 	if err != nil || len(key) != 32 {
@@ -253,7 +308,7 @@ func keychainHas(ctx context.Context) (bool, error) {
 		c = keychainCmdCtx(ctx, args...)
 	default:
 		if err := defaultCollectionUnlocked(ctx); err != nil {
-			return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%v); unlock the keychain (your keyring or KeePassXC) and try again", err)
+			return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%v); unlock the keychain (your keyring or KeePassXC) and run it again", err)
 		}
 		c = keychainCmdCtx(ctx, "search", "--all", "service", keychainService(), "account", keychainAccount)
 	}
@@ -274,7 +329,7 @@ func keychainHas(ctx context.Context) (bool, error) {
 	case err == nil:
 		err = errors.New("unexpected output")
 	}
-	return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%s); unlock the keychain and try again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
+	return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%s); unlock the keychain and run it again", strings.TrimSpace(firstLine(strings.TrimSpace(errb.String()), err.Error())))
 }
 
 // secretsDefault is the Secret Service's default collection, where
@@ -361,7 +416,7 @@ func run(c *exec.Cmd, stdin string) error {
 // stored in it: the new vault keeps its key in store.key, which `komando
 // doctor` points out.
 func keychainNewKey() ([]byte, bool) {
-	if _, err := KeychainTool(); err != nil {
+	if _, err := autoKeychainTool(); err != nil {
 		return nil, false
 	}
 	ctx := func() (context.Context, context.CancelFunc) {
@@ -424,7 +479,7 @@ func keychainAdopt(key []byte) error {
 	if has {
 		back, err := keychainGet()
 		if errors.Is(err, errNoKeychainKey) { // listed, but lookup finds nothing: locked
-			return errors.New("the keychain holds a vault key for this komando folder but keeps it locked; unlock the keychain and try again")
+			return errors.New("the keychain holds a vault key for this komando folder but keeps it locked; unlock the keychain and run it again")
 		}
 		if err != nil {
 			return err

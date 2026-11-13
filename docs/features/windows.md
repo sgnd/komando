@@ -3,19 +3,20 @@
 Manage Windows servers next to your Linux ones: run PowerShell, read and
 write files, copy files, and start and stop services. [All docs](README.md)
 
-## Quick start
+This page is about Windows servers that komando manages. To run komando
+itself on a Windows computer, see [Install on Windows](install.md#install-on-windows).
+
+## Add a Windows server
 
 ```bash
 komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
 komando test win1                                   # can komando log in? is it an administrator?
 komando facts win1                                  # Windows version, support, updates, ports
-komando exec win1 --read-only -- Get-Service W3SVC  # simple read commands
-komando svc restart win1 W3SVC --wait 10s           # Windows services
-komando fs cat win1 'C:\inetpub\wwwroot\web.config'
-komando upload win1 ./site.zip 'C:\deploy\'
 ```
 
-## Add a Windows server
+Typed alone at your terminal, `komando host add` asks for each part,
+including what the server runs and, for Windows, whether komando reaches it
+over OpenSSH or WinRM.
 
 komando reaches Windows over OpenSSH or WinRM. Both give the same
 commands; pick WinRM when the server already has it on, for example for
@@ -36,12 +37,11 @@ servers: a key (`--key`), a password (`--ask-password` or
 `--password-ref`), `--via` a bastion, `--protected`.
 
 ```bash
-komando host add win1 Administrator@10.0.0.9 --os windows --ask-password
-komando host add win4 deploy@corp.local@10.0.0.10 --os windows --key deploy --via bastion
+komando host add win3 deploy@corp.local@10.0.0.10 --os windows --key deploy --via bastion
 komando host edit win3 --os windows        # a server you added before
 ```
 
-A domain user is written `user@domain`, e.g.
+A domain user is written `user@domain`, for example
 `deploy@corp.local@10.0.0.10`.
 
 ### Over WinRM
@@ -52,7 +52,7 @@ never sends the password itself.
 
 ```bash
 komando host add win2 winrm://Administrator@10.0.0.9 --ask-password
-komando host add win3 'winrm://deploy@corp.local@win3.corp.local' --password-ref secret:win3 --via bastion
+komando host add win3 'winrm://deploy@corp.local@win3.corp.local' --password-ref secret:win3-pass --via bastion
 komando host edit win2 --address 'winrm://10.0.0.9?ca=secret:corp-ca'   # the server's certificate is from your own CA
 ```
 
@@ -61,15 +61,16 @@ Options go after `?`, joined with `&`:
 | Option | Means |
 |--------|-------|
 | `ca=secret:NAME` | the certificate comes from your own CA: store its PEM with `komando secret set NAME < ca.crt` (the check stays on) |
-| `auth=basic` | Basic login (local accounts only; HTTPS only) instead of NTLM |
+| `auth=basic` | Basic login (local accounts only) instead of NTLM; over plain HTTP (`tls=off`) it is refused (`WINRM_INSECURE`) |
 | `tls=skip-verify` | do not check the certificate (komando warns: anyone in between can pose as the server) |
 | `tls=off` | plain HTTP on port 5985: commands and output travel unencrypted, and the server must allow it |
 | `:PORT` | another port than 5986 (5985 with `tls=off`) |
 
 `--via` works: the connection goes through the bastion or VPN. WinRM
-carries commands only, so `shell`, tunnels, `host trust` and `login` need
-OpenSSH. To switch a server back to SSH: `komando host edit win2 --unset
-transport`. Kerberos is not supported yet: use NTLM with a domain user.
+carries commands only, so `shell`, tunnels, `host trust`, `login` and
+`host ssh-command` need OpenSSH. To switch a server back to SSH:
+`komando host edit win2 --unset transport`. Use NTLM with a domain user,
+over HTTPS (see [Limits](#limits) for what WinRM does not do).
 
 On the server, `winrm quickconfig -transport:https` (as an administrator)
 turns on WinRM over HTTPS.
@@ -91,6 +92,9 @@ PowerShell, `powershell.exe`, which every Windows Server has).
 
 ```bash
 komando exec win1 --read-only -- 'Get-Service | Where-Object Status -eq Running'
+```
+
+```bash
 komando exec win1 -e APP_ENV=prod -C 'C:\app' -- '.\migrate.exe'
 komando exec win1 --script ./deploy.ps1 --arg staging  # --arg values go to param( ) or $args
 ```
@@ -187,7 +191,7 @@ Paths are Windows paths: `C:\inetpub\app.config` or `C:/inetpub/app.config`.
 backslashes in single quotes in your shell.
 
 ```bash
-komando fs ls win1 'C:\inetpub\logs' -r --max 200
+komando fs list win1 'C:\inetpub\logs' -r --limit 200
 komando fs stat win1 'C:\app\web.config' --sha256
 komando fs cat win1 'C:\app\app.log' --tail 50
 komando fs write win1 'C:\app\web.config' --from ./web.config --backup --if-changed
@@ -195,12 +199,14 @@ komando upload os:windows ./tool.exe 'C:\tools\'
 komando download win1 'C:\app\app.log' --to ./logs/
 ```
 
-- `fs ls` leaves out hidden files unless `--all`.
+- `fs list` leaves out hidden files unless `--all`.
 - `fs write` writes a new file next to the old one, then swaps it in one
   step, so the file keeps its permissions (ACL). `--backup`, `-p`,
   `--append`, `--if-changed`, `--no-follow` and `--validate` work.
   `--validate` takes PowerShell, with `%s` for the new file, and runs in a
   PowerShell of its own: `--validate 'Test-Json (Get-Content %s -Raw)'`.
+  To undo, copy the `.bak` back with `komando exec win1 -- Copy-Item ...`;
+  `fs restore` does not work on Windows yet.
 - `upload`, `download` and `cp` copy single files. Folders (`-r`), `--sudo`,
   `--mode` and `--owner` do not work on Windows yet.
 
@@ -215,33 +221,59 @@ komando svc enable win1 MyApp --now           # start automatically, and start n
 
 The name is the service name (`W3SVC`) or its display name. `--failed`
 lists services that should start automatically but stopped with an error.
-`svc reload` has no Windows form.
+`svc reload`, `svc daemon-reload` and `svc logs` have no Windows form.
 
 ## What works on Windows
 
-| Works | Not yet (stops with `NOT_SUPPORTED`) |
+| Works | Not yet |
 |-------|--------------------------------------|
-| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `reboot` |
-| `fs ls`, `stat`, `cat`, `write` | `fs replace`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
-| `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload` |
+| `test`, `facts`, `exec` (also `--script`), `shell` | `pkg`, `user`, `cron`, `logs`, `docker`, `net`, `cert check`, `recipe run`, `reboot` |
+| `fs list`, `stat`, `cat`, `write` | `fs replace`, `fs restore`, `fs rm`, `mkdir`, `mv`, `chmod`, `sync` |
+| `upload`, `download`, `cp` (single files) | `job`, `cp -r`, `svc reload`, `svc daemon-reload`, `svc logs` |
 | `svc status`, `list`, `start`, `stop`, `restart`, `enable`, `disable` | `--sudo`, `--pty`, `--mode`, `--owner` |
 | `host trust`, `login`, `tunnel`, `--via` through a Windows server (SSH only) | `shell`, tunnels, `host trust` over WinRM |
 
-For the rest, run PowerShell with `exec`, for example
+A command that is not there yet stops with `NOT_SUPPORTED` before anything
+runs; `fs restore` stops with a usage error (`USAGE`) that names
+`Copy-Item`. Instead, run PowerShell with `exec`, for example
 `Get-WinEvent -LogName System -MaxEvents 50` for logs, or
 `Restart-Computer` (with `--allow-dangerous`) for a restart.
 
+## Limits
+
+- komando's PowerShell scripts are tested with PowerShell 7 on Linux, not
+  on a real Windows server: Windows PowerShell 5.1, Windows OpenSSH, WinRM
+  with NTLM, services and Windows Update have not been run there. Please
+  report anything that does not work.
+- WinRM logs in with a password only: `--key`, `--identity` and
+  `--proxy-command` are refused. Use `--via` to go through a bastion.
+- `fs write --backup` keeps a backup, but `fs restore` does not work on
+  Windows: copy the backup back with `komando exec SERVER -- Copy-Item ...`.
+- Kerberos, CredSSP, client certificates and WinRM's own message encryption
+  over plain HTTP are not supported.
+- WinRM carries commands only: `shell`, tunnels, `host trust`, `login` and
+  `host ssh-command` need OpenSSH.
+- Windows has no sudo: `--sudo` and `--pty` are refused.
+- A target that picks Windows and other servers at once is refused for
+  `exec` (`MIXED_OS`).
+- `--read-only` accepts only the small part of PowerShell listed above.
+- komando runs PowerShell without your profile (`-NoProfile`).
+
 ## Troubleshooting
 
-- **`POWERSHELL_FAILED`**: komando could log in but PowerShell did not
-  answer. Check that `powershell.exe` is on the login user's PATH.
+| Error code | What it means | What to do |
+|------------|---------------|------------|
+| `NOT_SUPPORTED` | the command does not work on Windows servers yet | run PowerShell with `komando exec SERVER -- ...`, or leave them out: `TARGET,!os:windows` |
+| `MIXED_OS` | the target picks Windows and other servers | run it twice, with `TARGET,os:windows` and `TARGET,!os:windows` |
+| `READ_ONLY_VIOLATION` | the PowerShell is not in the small part `--read-only` accepts | drop `--read-only`; a protected server then asks first |
+| `POWERSHELL_FAILED` | komando could log in but PowerShell did not answer | check that `powershell.exe` is on the login user's PATH |
+| `WINRM_TLS` | the server's WinRM certificate is not trusted | from your company's CA: add `?ca=secret:NAME` to the address |
+| `WINRM_INSECURE` | Basic login over plain HTTP would send the password unencrypted | use HTTPS, or NTLM (leave `auth=basic` out) |
+| `AUTH_FAILED` over WinRM | wrong user or password, or the user may not use WinRM | check them; Basic login works for local accounts only, and the user must be an administrator or in Remote Management Users |
+| `USAGE` from `fs restore` | `fs restore` does not work on Windows | `komando exec SERVER -- Copy-Item ...` |
+
 - **`pending updates unknown`** in `facts`: Windows does not let many remote
   logins search Windows Update. The last installed update is still shown.
-- **`WINRM_TLS`**: the server's certificate is not trusted. If it comes
-  from your company's CA, add `?ca=secret:NAME` to the address (above).
-- **`AUTH_FAILED` over WinRM**: check the user and password; Basic login
-  works for local accounts only, and the user must be allowed to use WinRM
-  (an administrator, or the Remote Management Users group).
 - **A command works in your own PowerShell but not through komando**:
   komando runs PowerShell without your profile (`-NoProfile`), so aliases
   and modules from your profile are not there.

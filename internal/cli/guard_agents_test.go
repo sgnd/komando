@@ -63,7 +63,8 @@ func TestGuardOtherAgents(t *testing.T) {
 func TestGuideInstallOtherAgents(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
+	setHome(t, t.TempDir())
 	for _, d := range []string{".cursor", ".gemini", ".codex"} {
 		os.MkdirAll(filepath.Join(home, d), 0o755)
 	}

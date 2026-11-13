@@ -1,117 +1,113 @@
 package cli
 
 import (
-	"io"
 	"os"
 	"strings"
 	"testing"
 	"time"
-	"unicode"
 
 	"github.com/sgnd/komando/internal/store"
 )
 
-func TestStatusLineFormat(t *testing.T) {
-	for _, c := range []struct {
-		s     statusLine
-		color bool
-		want  string
-	}{
-		{statusLine{What: "shell", Target: "web1"}, false, "komando: shell on web1"},
-		{statusLine{What: "shell", Target: "web1", Detail: "deploy@10.0.1.5", Route: []string{"vpn telkomsel", "bastion1"}}, false,
-			"komando: shell on web1 (deploy@10.0.1.5) via vpn telkomsel → bastion1"},
-		{statusLine{What: "shell", Target: "prod", Protected: true}, false, "komando: shell on prod · PROTECTED"},
-		{statusLine{What: "shell", Target: "prod", Protected: true}, true, "komando: shell on prod · \x1b[1;31mPROTECTED\x1b[0m"},
-		{statusLine{What: "psql", Target: "app-db", Detail: "read-only", Route: []string{"bastion1"}}, false,
-			"komando: psql on app-db (read-only) via bastion1"},
-		{statusLine{What: "following logs", Target: "web1, web2", Tail: "Ctrl-C stops"}, false,
-			"komando: following logs on web1, web2 (Ctrl-C stops)"},
-		// a name cannot smuggle escape sequences in
-		{statusLine{What: "shell", Target: "evil\x1b]0;pwned\x07\r\n", Detail: "a\u202eb"}, false, "komando: shell on evil]0;pwned (ab)"},
-	} {
-		if got := c.s.format(c.color); got != c.want {
-			t.Errorf("format(%+v, %v)\n got %q\nwant %q", c.s, c.color, got, c.want)
-		}
+func TestRunningStatusEmpty(t *testing.T) {
+	d := runningStatus(&store.State{Settings: store.DefaultSettings()})
+	if d.Vpns == nil || d.Tunnels == nil || d.Jobs == nil {
+		t.Errorf("empty lists must be [] in JSON, not null: %+v", d)
+	}
+	if got := d.Text(); got != "nothing running: no VPN sessions, server logins, tunnels or jobs\n" {
+		t.Errorf("text: %q", got)
 	}
 }
 
-func TestExitLine(t *testing.T) {
-	if got := exitLine("web1", 0, false, 12*time.Minute+4*time.Second); got != "komando: left web1 (exit 0, 12m)" {
-		t.Errorf("exit: %q", got)
-	}
-	if got := exitLine("web1", 3, false, 5*time.Second); got != "komando: left web1 (exit 3, 5s)" {
-		t.Errorf("exit 3: %q", got)
-	}
-	if got := exitLine("web1", 0, true, 3*time.Minute); got != "komando: connection to web1 lost after 3m" {
-		t.Errorf("lost: %q", got)
-	}
-}
+func TestRunningStatus(t *testing.T) {
+	saved := sessionAlive
+	defer func() { sessionAlive = saved }()
+	sessionAlive = func(s *store.VpnSession) bool { return s.PID == 100 }
 
-func TestStatusRoutes(t *testing.T) {
+	now := time.Now()
 	st := &store.State{
-		Hosts: map[string]*store.Host{
-			"bastion": {Name: "bastion", Address: "10.0.0.1", Via: "office"},
-			"web1":    {Name: "web1", Address: "10.0.1.5", Via: "bastion"},
-			"direct":  {Name: "direct", Address: "10.0.1.6"},
-			"broken":  {Name: "broken", Address: "10.0.1.7", Via: "a,b"},
+		Settings: store.DefaultSettings(), // vpn_idle 30m
+		Hosts:    map[string]*store.Host{"db1": {Name: "db1", Via: "office"}},
+		Vpns: map[string]*store.Vpn{
+			"office": {Name: "office", Kind: "openvpn"},
+			"old":    {Name: "old", Kind: "openvpn"},
+			"never":  {Name: "never", Kind: "wireguard"},
 		},
-		Vpns: map[string]*store.Vpn{"office": {Name: "office", Kind: "wireguard"}},
+		// office was used a second over 3m ago: the clock may not move
+		// while the test runs (Windows), and 27m left reads as 27m
+		Sessions: map[string]*store.VpnSession{
+			"office": {Vpn: "office", PID: 100, StartedAt: now.Add(-42 * time.Minute), LastUsed: now.Add(-3*time.Minute - time.Second)},
+			"old":    {Vpn: "old", PID: 200, StartedAt: now.Add(-time.Hour), LastUsed: now.Add(-time.Hour)}, // died
+		},
+		Tunnels: map[string]*store.Tunnel{
+			"t-up":   {ID: "t-up", Host: "bastion", Kind: "local", Spec: "5433:10.0.0.9:5432", Conn: "app-db", PID: os.Getpid(), StartedAt: now.Add(-2 * time.Hour)},
+			"t-dead": {ID: "t-dead", Host: "bastion", Kind: "local", Spec: "1:2:3", PID: 1 << 30, StartedAt: now},
+		},
+		Jobs: map[string]*store.Job{
+			"j-1": {ID: "j-1", Host: "web1", Command: "pg_dump app | gzip > /backup/app.sql.gz && echo done && echo \x1b[2J" + strings.Repeat("x", 40), StartedAt: now.Add(-15 * time.Minute)},
+		},
 	}
-	check := func(name string, got []string, want string) {
-		t.Helper()
-		if strings.Join(got, " → ") != want {
-			t.Errorf("%s: got %q, want %q", name, got, want)
+	d := runningStatus(st)
+	if len(d.Vpns) != 1 || d.Vpns[0].Name != "office" {
+		t.Fatalf("only live sessions: %+v", d.Vpns)
+	}
+	if got := d.Vpns[0].ClosesAt; !got.Equal(st.Sessions["office"].LastUsed.Add(30 * time.Minute)) {
+		t.Errorf("closes_at: %v", got)
+	}
+	if len(d.Vpns[0].UsedBy) != 1 || d.Vpns[0].UsedBy[0] != "db1" {
+		t.Errorf("used_by: %v", d.Vpns[0].UsedBy)
+	}
+	if len(d.Tunnels) != 1 || d.Tunnels[0].ID != "t-up" {
+		t.Errorf("only live tunnels: %+v", d.Tunnels)
+	}
+	if len(d.Jobs) != 1 {
+		t.Errorf("jobs: %+v", d.Jobs)
+	}
+
+	text := d.Text()
+	for _, want := range []string{
+		"vpn", "office", "used 3m ago, closes in 26m if unused", "42m",
+		"tunnel", "t-up", "→ app-db", "2h",
+		"job", "j-1", "web1: pg_dump app", "…", "15m",
+		"`komando job list --refresh`",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text misses %q:\n%s", want, text)
 		}
 	}
-	check("host through vpn and bastion", hostRoute(st, st.Hosts["web1"]), "vpn office → bastion")
-	check("direct host", hostRoute(st, st.Hosts["direct"]), "")
-	check("broken path shows as written", hostRoute(st, st.Hosts["broken"]), "a → b")
-	check("conn via host", connRoute(st, &store.Conn{Name: "db", Via: "web1"}), "vpn office → bastion → web1")
-	check("conn via vpn", connRoute(st, &store.Conn{Name: "db", Via: "office"}), "vpn office")
-	check("direct conn", connRoute(st, &store.Conn{Name: "db"}), "")
-}
+	if strings.Contains(text, "\x1b") || strings.Contains(text, "old") || strings.Contains(text, "t-dead") {
+		t.Errorf("text shows escapes or things that are not running:\n%s", text)
+	}
 
-// TestStatusOnlyForPeople: agents and scripts never see a status line.
-func TestStatusOnlyForPeople(t *testing.T) {
-	saved := interactive
-	defer func() { interactive = saved }()
-	for _, person := range []bool{false, true} {
-		interactive = func() bool { return person }
-		got := captureStderr(t, func() {
-			showStatus(statusLine{What: "shell", Target: "web1"})
-			showExit("web1", 0, false, time.Second)
-			noticef("vpn %s connected", "office")
-		})
-		if person != (got != "") {
-			t.Errorf("person=%v: stderr %q", person, got)
-		}
+	// vpn_idle 0: a session never closes by itself
+	st.Settings.VpnIdle = "0"
+	if d := runningStatus(st); !d.Vpns[0].ClosesAt.IsZero() {
+		t.Errorf("no idle limit, no closes_at: %v", d.Vpns[0].ClosesAt)
 	}
 }
 
-func captureStderr(t *testing.T, fn func()) string {
-	t.Helper()
-	r, w, err := os.Pipe()
-	if err != nil {
+// TestStatusCommand runs `komando status` itself: it works on an empty
+// home and changes nothing.
+func TestStatusCommand(t *testing.T) {
+	setHome(t, t.TempDir())
+	if err := store.Update(func(st *store.State) error {
+		st.Jobs["j-1"] = &store.Job{ID: "j-1", Host: "nowhere", Command: "sleep 1"}
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stderr
-	os.Stderr = w
-	fn()
-	os.Stderr = saved
-	w.Close()
-	b, _ := io.ReadAll(r)
-	return string(b)
-}
-
-func FuzzCleanText(f *testing.F) {
-	for _, s := range []string{"web1", "a\x1b[2Jb", "\u202ex", "日本 → 🚀", "\x9b31m"} {
-		f.Add(s)
+	before, _ := os.ReadFile(store.Path("state.json"))
+	rtBefore, _ := os.ReadFile(store.Path("runtime.json"))
+	root := newRoot()
+	root.SetArgs([]string{"-o", "json", "status"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("status: %v", err)
 	}
-	f.Fuzz(func(t *testing.T, s string) {
-		for _, r := range cleanText(s) {
-			if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) {
-				t.Fatalf("cleanText(%q) kept %U", s, r)
-			}
-		}
-	})
+	after, _ := os.ReadFile(store.Path("state.json"))
+	if string(before) != string(after) {
+		t.Error("status changed the state file")
+	}
+	if rtAfter, _ := os.ReadFile(store.Path("runtime.json")); string(rtBefore) != string(rtAfter) {
+		t.Error("status changed the runtime file")
+	}
 }

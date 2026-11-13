@@ -98,8 +98,8 @@ func oracleForm() formSpec {
 		{key: "by", label: "Named by", ask: "How is the database named?",
 			help: "Oracle 12c and later use a service name. Only old databases without services have just a SID.",
 			def:  func(*store.State, formAnswers) string { return "service" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "A service name", detail: "the usual case, like ORCLPDB1 or FREEPDB1", value: "service"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "A service name", detail: "the usual case, like ORCLPDB1 or FREEPDB1", value: "service"},
 					{label: "A SID", detail: "an old database without services, like ORCL", value: "sid"}}
 			}},
 		formWhen(formQ{key: "service", label: "Service name", ask: "What is the service name?", example: "ORCLPDB1",
@@ -150,8 +150,8 @@ func clickhouseForm() formSpec {
 		{key: "tls", label: "Encryption", ask: "Does the server use HTTPS (an encrypted connection)?",
 			help: "ClickHouse Cloud always does. Through a server, plain HTTP is usual: the SSH connection is encrypted already.",
 			def:  clickhouseTLSDefault,
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "Yes", detail: "HTTPS, port 8443, and its certificate is checked", value: "true"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "Yes", detail: "HTTPS, port 8443, and its certificate is checked", value: "true"},
 					{label: "Yes, do not check", detail: "HTTPS with a certificate the server made itself", value: "skip-verify"},
 					{label: "No", detail: "plain HTTP, port 8123; only inside a network you trust", value: "false"}}
 			}},
@@ -202,13 +202,13 @@ func snowflakeForm() formSpec {
 		{key: "login", label: "Login", ask: "How does this user log in?",
 			help: "Snowflake takes no passwords here: a key pair or a programmatic access token. Browser sign-in (SSO) does not work.",
 			def:  func(*store.State, formAnswers) string { return "keyfile" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				rows := []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				rows := []pickRow{
 					{label: "A private key file", detail: "key-pair login; Snowflake knows its public half (RSA_PUBLIC_KEY)", value: "keyfile"},
 					{label: "A programmatic access token", detail: "you paste it next, hidden; komando keeps it as a saved password", value: "token"},
 				}
 				if len(secretNames()) > 0 {
-					rows = append(rows, menuRow{label: "A key or token I saved in komando before", detail: "pick it from your saved passwords", value: "secret"})
+					rows = append(rows, pickRow{label: "A key or token I saved in komando before", detail: "pick it from your saved passwords", value: "secret"})
 				}
 				return rows
 			}},
@@ -347,8 +347,8 @@ func gcpLoginQ() formQ {
 	return formQ{key: "login", label: "Login", ask: "How does komando log in to Google Cloud?",
 		help: "No password: your Google login. A service account is a login for programs; its key is a JSON file you download once.",
 		def:  func(*store.State, formAnswers) string { return "gcloud" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{
 				{label: "Like gcloud on this computer", detail: "after gcloud auth application-default login", value: "gcloud"},
 				{label: "With a service account key file", detail: "the JSON file from IAM, Service accounts, Keys", value: "keyfile"},
 			}

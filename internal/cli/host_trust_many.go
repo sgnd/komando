@@ -16,10 +16,11 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// `host trust TARGET` pins the host keys of many servers. After a rebuild
-// of a group of servers (same addresses, new keys) every one of them is a
-// HOSTKEY_MISMATCH; --reset replaces them all after one yes that names
-// every server with its new key, instead of one yes per server.
+// `host trust TARGET` pins the host keys of one server or many, with one
+// answer shape: data.results, one row per server, and data.summary. After
+// a rebuild of a group of servers (same addresses, new keys) every one of
+// them is a HOSTKEY_MISMATCH; --reset replaces them all after one yes that
+// names every server with its new key, instead of one yes per server.
 
 // trustRow is one server's answer.
 type trustRow struct {
@@ -127,13 +128,17 @@ func approveReplacements(st *store.State, rows []*trustRow) error {
 		}
 	}
 	what := fmt.Sprintf("replacing the pinned host keys of %s: %s", countOf(len(names), "server"), strings.Join(parts, ", "))
+	if len(names) == 1 {
+		for _, r := range rows {
+			if r.Host == names[0] {
+				what = "replacing the pinned host key of " + r.Host + " (old " + strings.Join(r.OldFingerprint, ", ") + ", new " + r.Fingerprint + ")"
+			}
+		}
+	}
 	if len([]rune(what)) > approvalMaxLen {
 		what = fmt.Sprintf("replacing the pinned host keys of %s: %s", countOf(len(names), "server"), strings.Join(names, ", "))
 	}
-	if err := guardSafety(what); err != nil {
-		return err
-	}
-	return guardProtection("host", "replacing the pinned host key of", prot)
+	return replacePin(names, prot, what)
 }
 
 // pinTrustRows writes the pins: new keys are added, mismatches without
@@ -162,8 +167,24 @@ type trustData struct {
 	Summary fleetSummary `json:"summary"`
 }
 
-// trustMany is `host trust` for a target of several servers.
-func trustMany(ctx context.Context, st *store.State, hosts []*store.Host, reset bool) error {
+// Text is host trust's answer for a person: one line per server.
+func (d trustData) Text() string {
+	var b strings.Builder
+	for _, r := range d.Results {
+		switch {
+		case r.Error != nil:
+			fmt.Fprintf(&b, "%s: %s\n", r.Host, r.Error.Message)
+		case r.AlreadyPinned:
+			fmt.Fprintf(&b, "%s: its host key is pinned already (%s %s)\n", r.Host, r.KeyType, r.Fingerprint)
+		default:
+			fmt.Fprintf(&b, "pinned the host key of %s (%s %s)\n", r.Host, r.KeyType, r.Fingerprint)
+		}
+	}
+	return b.String()
+}
+
+// trustHosts is `host trust TARGET`.
+func trustHosts(ctx context.Context, st *store.State, hosts []*store.Host, reset bool) error {
 	if g.dryRun {
 		return trustDryRun(st, hosts, reset)
 	}
@@ -222,13 +243,29 @@ func trustDryRun(st *store.State, hosts []*store.Host, reset bool) error {
 				prot = append(prot, h.Name)
 			}
 		}
-		if err := guardSafety(fmt.Sprintf("replacing the pinned host keys of %s (keys may be replaced)", countOf(len(hosts), "server"))); err != nil {
-			return err
+		what := fmt.Sprintf("replacing the pinned host keys of %s (keys may be replaced)", countOf(len(hosts), "server"))
+		if len(hosts) == 1 {
+			what = "replacing the pinned host key of " + hosts[0].Name + " (a key may be replaced)"
 		}
-		if err := guardProtection("host", "replacing the pinned host key of", prot); err != nil {
+		if err := replacePin(hostNames(hosts), prot, what); err != nil {
 			return err
 		}
 	}
-	out.P.Print("host.trust", map[string]any{"results": res}, nil)
+	out.P.Print("host.trust", textAs{map[string]any{"results": res}, trustDryText(res)}, nil)
 	return nil
+}
+
+// trustDryText is a dry run's text: where each key would come from.
+func trustDryText(rows []map[string]any) out.Texter {
+	return textFn(func() string {
+		var b strings.Builder
+		for _, r := range rows {
+			fmt.Fprintf(&b, "would fetch the host key of %v (%v) from %v", r["host"], r["address"], r["would_fetch_from"])
+			if n, ok := r["would_remove_entries"].(int); ok && n > 0 {
+				fmt.Fprintf(&b, ", and remove %d pinned %s", n, map[bool]string{true: "key", false: "keys"}[n == 1])
+			}
+			b.WriteString("\n")
+		}
+		return b.String()
+	})
 }

@@ -38,18 +38,28 @@ func dbCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "db",
 		Aliases: []string{"sql"},
-		Short:   "Query databases safely: read-only by default, structured results",
+		Short:   "Databases: query safely, look at the schema, back up, restore",
 		Long: `Look at and query your databases. Add one with ` + "`komando db add`" + `.
 
 Without --write every query runs in a read-only transaction (SQL Server: one
 that is always rolled back), so nothing can change. With --write, try
 --dry-run first: it runs the SQL and rolls it back, showing how many rows
-would change.`,
+would change.
+
+Each database is a conn: list them with ` + "`komando list kind:db`" + `, check one with
+` + "`komando test TARGET`" + `, change it with ` + "`komando conn edit NAME`" + `, rename it with
+` + "`komando conn rename OLD NEW`" + ` and remove it with ` + "`komando conn rm TARGET`" + `.`,
+		Example: `  komando db add prod-db postgres://app@10.0.0.5:5432/shop --password-ref secret:shop-pw
+  komando db query prod-db "select id, email from users order by id desc limit 10"
+  komando db schema prod-db users
+  komando db dump prod-db --to prod.sql.gz
+  komando db restore staging-db --from prod.sql.gz --dry-run`,
 	}
-	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbGrantsCmd(), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
+	c.AddCommand(connAddCmdFor("db"), dbQueryCmd(), dbSchemaCmd(), dbExplainCmd(), dbInfoCmd(), dbActivityCmd(), dbLocksCmd(), dbSizesCmd(), dbKillCmd(), dbUserCmd(), dbGrantCmd(false), dbGrantCmd(true), dbShellCmd(), dbDumpCmd(), dbRestoreCmd())
 	var withTimeout func(*cobra.Command)
 	withTimeout = func(cmd *cobra.Command) {
 		for _, sub := range cmd.Commands() {
+			connHints(sub)
 			switch sub.Name() {
 			case "add", "dump", "restore": // dump and restore have no time limit of their own
 			default:
@@ -65,11 +75,34 @@ would change.`,
 	return c
 }
 
+// connHints makes the hints of a db command name the conn it was given:
+// `komando db schema CONN TABLE` becomes `komando db schema prod-db TABLE`,
+// so a hint is the exact next command for a person and an agent.
+func connHints(c *cobra.Command) {
+	if f := strings.Fields(c.Use); c.RunE == nil || len(f) < 2 || f[1] != "CONN" {
+		return
+	}
+	run := c.RunE
+	c.RunE = func(cmd *cobra.Command, args []string) error {
+		err := run(cmd, args)
+		var e *out.Error
+		if len(args) > 0 && errors.As(err, &e) {
+			e.Hint = connInHint.ReplaceAllStringFunc(e.Hint, func(m string) string {
+				return strings.TrimSuffix(m, "CONN") + argQ(args[0])
+			})
+		}
+		return err
+	}
+}
+
+// connInHint is CONN inside a komando db or conn command in a hint.
+var connInHint = regexp.MustCompile("`komando (?:db|conn) [a-z ]*?CONN\\b")
+
 type dbFlags struct {
 	write bool
 	limit int
 	args  []string
-	// table is csv or tsv: -o csv/-o tsv (or the old --csv/--tsv)
+	// table is csv or tsv: -o csv/-o tsv
 	table string
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
@@ -83,10 +116,9 @@ type dbFlags struct {
 func dbQueryCmd() *cobra.Command {
 	var f dbFlags
 	var file string
-	var csvFlag, tsvFlag bool
 	c := &cobra.Command{
 		Use:   "query CONN [SQL]",
-		Short: "Run SQL; read-only unless --write",
+		Short: "Run SQL (read only by default)",
 		Long: `Runs SQL on a database and prints the rows. Without --write it only reads:
 komando runs it in a read-only transaction, and stops it after 30s.`,
 		Annotations: map[string]string{tableOutput: "yes", helpNotes: `More about db query:
@@ -152,9 +184,7 @@ picks another database than the URL's.`},
 			default:
 				return out.Usage("give the SQL as an argument or with --file, not both")
 			}
-			if err := f.pickTable(cmd, csvFlag, tsvFlag); err != nil {
-				return err
-			}
+			f.pickTable(cmd)
 			if st, c, ok := mongoConn(args[0]); ok {
 				return runMongoQuery(cmd.Context(), "db.query", st, c, q, f)
 			}
@@ -163,40 +193,17 @@ picks another database than the URL's.`},
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
-	c.Flags().BoolVar(&csvFlag, "csv", false, "old name of -o csv")
-	c.Flags().BoolVar(&tsvFlag, "tsv", false, "old name of -o tsv")
-	_ = c.Flags().MarkHidden("csv")
-	_ = c.Flags().MarkHidden("tsv")
 	c.SetFlagErrorFunc(sqlFlagError)
 	return c
 }
 
-// pickTable sets f.table from -o csv/tsv or the old --csv/--tsv (which
-// say "use -o csv now" on stderr, for one release). Without --limit an
-// export has every row.
-func (f *dbFlags) pickTable(cmd *cobra.Command, csvFlag, tsvFlag bool) error {
+// pickTable sets f.table from -o csv/tsv. Without --limit an export has
+// every row.
+func (f *dbFlags) pickTable(cmd *cobra.Command) {
 	f.table = g.table
-	old := ""
-	switch {
-	case csvFlag && tsvFlag:
-		return out.Usage("pick one: -o csv or -o tsv")
-	case csvFlag:
-		old = "csv"
-	case tsvFlag:
-		old = "tsv"
-	}
-	if old != "" {
-		if cmd.Flags().Changed("output") && f.table != old {
-			return out.Usage("--%s and -o %s ask for two formats: use -o %s alone", old, g.output, old)
-		}
-		fmt.Fprintf(os.Stderr, "komando: use -o %s now; --%s goes away in the next release\n", old, old)
-		f.table = old
-		out.P.Format = "text" // errors to stderr, so stdout has only rows
-	}
 	if f.table != "" && !cmd.Flags().Changed("limit") {
 		f.limit = 0
 	}
-	return nil
 }
 
 // sqlFlagError explains the usual cause of an unknown flag here: SQL that
@@ -213,7 +220,7 @@ func (f *dbFlags) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&f.write, "write", false, "allow changes (runs in a normal transaction; combine with --dry-run to roll back)")
 	c.Flags().IntVarP(&f.limit, "limit", "n", 500, "the most rows to return per statement (0 = no limit; --max-output caps the size too)")
 	c.Flags().StringArrayVar(&f.args, "arg", nil, "value for a placeholder ($1 in postgres, ? in mysql/sqlite, @p1 in sqlserver, :1 in oracle, {p1:String} in clickhouse, ? in snowflake and bigquery); repeat in order")
-	c.Flags().StringVar(&f.maxBytes, "max-bytes", "", "BigQuery: the most a query may read, which BigQuery bills by (default 10GB; 0 = no cap)")
+	c.Flags().Var(&bytesFlag{text: &f.maxBytes}, "max-bytes", "BigQuery: the most a query may read, which BigQuery bills by, like 50GB (default 10GB; 0 = no cap)")
 }
 
 func dbExplainCmd() *cobra.Command {
@@ -333,7 +340,7 @@ type schemaData struct {
 
 func (d schemaData) Text() string {
 	if len(d.Tables) == 0 {
-		return "no tables found (the database is empty, or the conn's user cannot see them)\n"
+		return noneYet("tables", "", "the database is empty, or the conn's user cannot see them")
 	}
 	var sb strings.Builder
 	detailed := false
@@ -575,12 +582,12 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	}
 	if !f.write && plan.NeedsWrite() {
 		e := out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG",
-			"this SQL changes data; re-run with --write (try --write --dry-run first)",
+			"this SQL changes data; run it again with --write (try --write --dry-run first)",
 			"%s statement needs --write", plan.Risk)
 		if len(plan.RuleIDs) > 0 {
 			// say what the matched rule found, not a generic "changes data"
 			e.Message += fmt.Sprintf(" (and --allow-dangerous: %s)", strings.Join(plan.Reasons, "; "))
-			e.Hint = "this SQL " + strings.Join(plan.Reasons, "; ") + ": only if that is intended, confirm with the user and re-run with --write --allow-dangerous"
+			e.Hint = "this SQL " + strings.Join(plan.Reasons, "; ") + ": only if that is intended, confirm with the user and run it again with --write --allow-dangerous"
 		}
 		return fail(e)
 	}
@@ -599,7 +606,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 			res := &dbx.Result{Results: []dbx.StatementResult{}}
 			for _, s := range plan.Statements {
 				res.Results = append(res.Results, dbx.StatementResult{SQL: s.SQL, Keyword: s.Keyword, Risk: s.Risk.String(),
-					Skipped: "dry run: the real run would be blocked (meta.would_be_blocked), so nothing was executed"})
+					Skipped: "dry run: the real run would stop at a safety check, so nothing was run"})
 			}
 			rec["committed"] = false
 			audit(st, name, nil, "", true, rec)
@@ -648,7 +655,7 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		// a cut export would look whole in a file: refuse it instead
 		for _, r := range res.Results {
 			if r.Truncated == "bytes" {
-				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, e.g. --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`",
+				return out.Errf(out.ExitError, "OUTPUT_TRUNCATED", "raise --max-output (bytes, for example --max-output 104857600), or narrow the SQL with WHERE or LIMIT; a whole database copies with `komando db dump`",
 					"the rows are more than the output size cap (--max-output) allows; nothing was printed")
 			}
 		}
@@ -663,11 +670,19 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		}
 		for _, r := range res.Results {
 			if r.Truncated == "rows" {
-				fmt.Fprintf(os.Stderr, "komando: stopped at --limit %d rows per statement\n", f.limit)
+				fmt.Fprintf(os.Stderr, "Note: showing the first %d rows of each statement; raise --limit (0 shows all)\n", f.limit)
 				break
 			}
 		}
 		return nil
+	}
+	for _, r := range res.Results {
+		if r.Truncated == "rows" {
+			out.P.CutNoted() // the text says it under the table
+		}
+		if g.dryRun && r.Skipped != "" && !strings.HasPrefix(r.Skipped, "dry run: BigQuery checked") {
+			out.P.NotSimulated(r.Keyword + " statement: " + strings.TrimPrefix(r.Skipped, "dry run: "))
+		}
 	}
 	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
 	return nil

@@ -44,7 +44,7 @@ func newestRelease(ctx context.Context) (string, error) {
 		return "", releaseErr(err)
 	}
 	_ = resp.Body.Close()
-	hint := "try again later; the releases are at " + releaseSite + "/releases"
+	hint := "run it again later; the releases are at " + releaseSite + "/releases"
 	loc, err := resp.Location()
 	if err != nil {
 		return "", out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", hint,
@@ -116,7 +116,7 @@ func releaseErr(err error) error {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return err
 	}
-	hint := "check this computer's internet connection (and HTTPS_PROXY), then try again"
+	hint := "check this computer's internet connection (and HTTPS_PROXY), then run it again"
 	if asRoot() && os.Getenv("HTTPS_PROXY") == "" && os.Getenv("https_proxy") == "" {
 		hint = "check this computer's internet connection; behind a proxy, keep it for sudo: sudo --preserve-env=HTTPS_PROXY komando update"
 	}
@@ -156,7 +156,7 @@ func fetch(ctx context.Context, tag, name string, max int64, label string) ([]by
 		return nil, releaseErr(err)
 	}
 	defer resp.Body.Close()
-	bad := "nothing was changed; report it at " + releaseSite + "/issues"
+	bad := "report it at " + releaseSite + "/issues"
 	switch {
 	case resp.StatusCode == http.StatusNotFound && name == "checksums.txt":
 		return nil, out.Errf(out.ExitNotFound, "VERSION_NOT_FOUND", "pick a version from "+releaseSite+"/releases",
@@ -165,10 +165,10 @@ func fetch(ctx context.Context, tag, name string, max int64, label string) ([]by
 		return nil, out.Errf(out.ExitNotFound, "VERSION_NOT_FOUND", "pick another version from "+releaseSite+"/releases",
 			"komando %s has no %s", tag, name)
 	case resp.StatusCode != http.StatusOK:
-		return nil, out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", "GitHub did not answer as it should; try again in a few minutes",
+		return nil, out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", "GitHub did not answer as it should; run it again in a few minutes",
 			"downloading %s failed: HTTP %d", name, resp.StatusCode)
 	case resp.ContentLength > max:
-		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is %d bytes, more than komando accepts", name, resp.ContentLength)
+		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is %d bytes, more than komando accepts; nothing was changed", name, resp.ContentLength)
 	}
 	var body io.Reader = io.LimitReader(resp.Body, max+1)
 	if label != "" && term.IsTerminal(int(os.Stderr.Fd())) {
@@ -181,7 +181,7 @@ func fetch(ctx context.Context, tag, name string, max int64, label string) ([]by
 		return nil, releaseErr(err)
 	}
 	if int64(len(b)) > max {
-		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is more than %d bytes, more than komando accepts", name, max)
+		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is more than %d bytes, more than komando accepts; nothing was changed", name, max)
 	}
 	return b, nil
 }

@@ -12,7 +12,7 @@ import (
 )
 
 // hostKeyStore keeps the server host keys komando pinned, in the sealed
-// store (docs/design/sync-security.md section 16).
+// store.
 type hostKeyStore interface {
 	// view and update run fn with the pins locked against other komando
 	// processes; only update may change them. ctx bounds the wait for

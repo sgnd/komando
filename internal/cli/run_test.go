@@ -193,6 +193,7 @@ func TestScriptCommand(t *testing.T) {
 }
 
 func TestScriptCommandRunsLocally(t *testing.T) {
+	unixOnly(t, "runs the script command with sh")
 	for _, interp := range []string{"perl", "python3", "sh"} {
 		if _, err := exec.LookPath(interp); err != nil {
 			continue
@@ -214,7 +215,7 @@ func TestExecDataText(t *testing.T) {
 		{Host: "web3", Error: &out.Error{Code: "CONNECTION_REFUSED", Message: "web3: refused", Hint: "check that sshd runs on the server and listens on this port: komando host show web3"}},
 	}}
 	got := d.Text()
-	for _, want := range []string{"=== web1 [ok exit=0]\nout1\n[stderr] warn1\n", "=== web2 [FAILED exit=3]\nout2\n", "=== web3 [FAILED connection refused]\nerror [CONNECTION_REFUSED]: web3: refused\nhint: check that sshd runs"} {
+	for _, want := range []string{"=== web1 [ok, exit 0]\nout1\n[stderr] warn1\n", "=== web2 [failed: exit 3]\nout2\n", "=== web3 [failed: connection refused]\n  Error: web3: refused (code CONNECTION_REFUSED)\n  Hint: check that sshd runs"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("text misses %q:\n%s", want, got)
 		}
@@ -237,6 +238,7 @@ func TestFailReason(t *testing.T) {
 // runSh runs a generated fs script in dir with the local sh.
 func runSh(t *testing.T, dir, script string) (string, int) {
 	t.Helper()
+	unixOnly(t, "runs a server's sh script")
 	cmd := exec.Command("sh", "-c", script)
 	cmd.Dir = dir
 	o, err := cmd.CombinedOutput()
@@ -262,8 +264,8 @@ func TestFsScripts(t *testing.T) {
 	if o, code := runSh(t, dir, mvScript("a", "b", true)); code != 0 || !strings.Contains(o, "replaced") {
 		t.Errorf("mv --overwrite: %d %s", code, o)
 	}
-	if _, code := runSh(t, dir, mvScript("b", "d", false)); code != 0 {
-		t.Errorf("mv into a folder: exit %d", code)
+	if o, code := runSh(t, dir, mvScript("b", "d/", false)); code != 0 || !strings.Contains(o, "moved to: d/b\n") {
+		t.Errorf("mv into a folder: exit %d %q", code, o)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "d/b")); err != nil {
 		t.Error("mv into a folder did not land in it")
@@ -281,7 +283,14 @@ func TestFsScripts(t *testing.T) {
 	if _, code := runSh(t, dir, rmScript([]string{"d"}, true)); code != 0 {
 		t.Errorf("rm -r: exit %d", code)
 	}
-	if _, code := runSh(t, dir, chmodScript("0600", []string{"zzz"}, false)); code != fsExitNoSource {
+	// a change on one server says what it did: the text shows only stdout
+	if o, code := runSh(t, dir, mkdirScript([]string{"m/n", "m/o"})); code != 0 || o != "made: m/n\nmade: m/o\n" {
+		t.Errorf("mkdir: %d %q", code, o)
+	}
+	if o, code := runSh(t, dir, chmodScript("0700", []string{"m/n"}, false, false)); code != 0 || o != "mode 0700: m/n\n" {
+		t.Errorf("chmod: %d %q", code, o)
+	}
+	if _, code := runSh(t, dir, chmodScript("0600", []string{"zzz"}, false, false)); code != fsExitNoSource {
 		t.Errorf("chmod missing: exit %d", code)
 	}
 	if e := fsExitMap(fsExitIsFolder, "d is a folder"); e == nil || e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "--recursive") {
@@ -370,6 +379,7 @@ func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
 }
 
 func TestSyncLinksModesAndNewFolder(t *testing.T) {
+	unixOnly(t, "symbolic links and file modes")
 	g.dryRun = false
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "new")

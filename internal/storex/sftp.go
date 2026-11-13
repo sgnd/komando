@@ -117,7 +117,7 @@ func (b *sftpBucket) List(_ context.Context, prefix string, recursive bool, limi
 	return objs, false, nil
 }
 
-func (b *sftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, error) {
+func (b *sftpBucket) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
 	p, err := b.path(key)
 	if err != nil {
 		return 0, err
@@ -127,7 +127,7 @@ func (b *sftpBucket) Get(_ context.Context, key string, w io.Writer) (int64, err
 		return 0, sftpErr(err)
 	}
 	defer f.Close()
-	n, err := io.Copy(w, f)
+	n, err := io.Copy(CtxWriter(ctx, w), f)
 	return n, sftpErr(err)
 }
 
@@ -146,7 +146,7 @@ func (b *sftpBucket) Exists(_ context.Context, key string) (bool, error) {
 }
 
 // Put writes a temporary file (mode 0600) and renames it into place.
-func (b *sftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
+func (b *sftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _ string) error {
 	p, err := b.path(key)
 	if err != nil {
 		return err
@@ -160,7 +160,7 @@ func (b *sftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ 
 		return sftpErr(err)
 	}
 	_ = f.Chmod(0o600)
-	if _, err := io.Copy(f, r); err != nil {
+	if _, err := io.Copy(f, CtxReader(ctx, r)); err != nil {
 		f.Close()
 		_ = b.c.Remove(tmp)
 		return sftpErr(err)
@@ -192,8 +192,8 @@ func (b *sftpBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ 
 		}
 		if rerr := b.c.Rename(tmp, p); rerr != nil {
 			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
-				"the old file was removed; the new content is on the server as "+tmp+": rename it by hand",
-				"could not rename the upload into place: %v", rerr)
+				"the new content is on the server as "+tmp+": rename it by hand",
+				"could not rename the upload into place: %v; the old file was removed", rerr)
 		}
 	}
 	return nil
@@ -227,10 +227,12 @@ func sftpErr(err error) error {
 		return oe
 	}
 	switch {
+	case errors.Is(err, context.Canceled):
+		return err // Ctrl-C: komando says CANCELLED
 	case errors.Is(err, os.ErrNotExist):
-		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage ls CONN [FOLDER]`", "file not found")
+		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list files with `komando storage list CONN [PREFIX]`", "file not found")
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "the account may not write or read here; check the folder in the conn URL", "permission denied")
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "%v", err)
 }

@@ -196,7 +196,7 @@ func registryHostProblem(k registryKind, v string) string {
 
 func registryNameQ(k registryKind) formQ {
 	q := formNameQ("conn", "registry", cmp.Or(k.name, "harbor"))
-	q.help = "A short name you type later, like komando registry ls " + cmp.Or(k.name, "harbor") +
+	q.help = "A short name you type later, like komando registry list " + cmp.Or(k.name, "harbor") +
 		". Letters, digits, dot, dash, underscore."
 	q.def = func(st *store.State, a formAnswers) string {
 		base := k.name
@@ -232,13 +232,13 @@ func registryLoginQ(k registryKind) formQ {
 			}
 			return regToken
 		},
-		choices: func(_ *store.State, a formAnswers) []menuRow {
-			rows := []menuRow{
+		choices: func(_ *store.State, a formAnswers) []pickRow {
+			rows := []pickRow{
 				{label: "Type it when the command asks", detail: "hidden; komando keeps it as a saved password", value: regToken},
 				{label: "It is saved in komando already", detail: "a secret from komando secret set", value: regVault},
 			}
 			if k.id == regOwn {
-				rows = append(rows, menuRow{label: "No login", detail: "public images only", value: regNone})
+				rows = append(rows, pickRow{label: "No login", detail: "public images only", value: regNone})
 			}
 			return rows
 		}}
@@ -248,10 +248,10 @@ func registryLoginQ(k registryKind) formQ {
 // reference (secret:NAME, env:VAR, op://...); a pasted token is refused.
 func registrySecretQ(key, label, ask, help string) formQ {
 	return formQ{key: key, label: label, ask: ask, help: help, free: true, check: cacheSecretProblem,
-		choices: func(*store.State, formAnswers) []menuRow {
-			var rows []menuRow
+		choices: func(*store.State, formAnswers) []pickRow {
+			var rows []pickRow
 			for _, n := range secretNames() {
-				rows = append(rows, menuRow{label: n, detail: "saved password", value: n})
+				rows = append(rows, pickRow{label: n, detail: "saved password", value: n})
 			}
 			return rows
 		}}
@@ -261,10 +261,10 @@ func registryProfileQ() formQ {
 	return formQ{key: "profile", label: "AWS profile", ask: "Which AWS profile should komando log in with?", free: true,
 		help: "A profile from ~/.aws/config, the one the aws command uses. komando gets a fresh 12 hour login from it each time.",
 		def:  func(*store.State, formAnswers) string { return "default" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			var rows []menuRow
+		choices: func(*store.State, formAnswers) []pickRow {
+			var rows []pickRow
 			for _, p := range registryAWSProfiles() {
-				rows = append(rows, menuRow{label: p, value: p})
+				rows = append(rows, pickRow{label: p, value: p})
 			}
 			return rows
 		}}
@@ -299,8 +299,8 @@ func registryTLSQs(own func(formAnswers) bool) []formQ {
 	tls := formMore(formQ{key: "tls", label: "Certificate", ask: "How should komando check the registry's certificate?",
 		help: "Leave it checked unless the registry uses a certificate it made itself.",
 		def:  func(*store.State, formAnswers) string { return "" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Check it", detail: "the normal, safe choice", value: ""},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Check it", detail: "the normal, safe choice", value: ""},
 				{label: "Check it with my own CA certificate", detail: "store it first: komando secret set NAME < ca.crt", value: "ca"},
 				{label: "Do not check it", detail: "self-signed; anyone in between could read the token", value: "skip-verify"},
 				{label: "No encryption (plain http)", detail: "only inside a network you trust", value: "false"}}
@@ -426,15 +426,15 @@ func dockerConfigProblem(v string) string {
 	return ""
 }
 
-// The registry commands, asked from a menu task.
+// The registry commands: what a typed command asks for when it is missing.
 
 func init() {
 	conn := formArg{ask: "Which registry?", pick: "registry",
 		help: "A registry from your list. Add one first with Add, Images (registries)."}
 	image := formArg{ask: "Which image?", example: "acme/api:1.4.3",
-		help: "The repository and its tag, without the registry's address. komando registry ls shows them."}
+		help: "The repository and its tag, without the registry's address. komando registry list shows them."}
 	addFormHints(map[string]formHint{
-		"registry ls": {args: []formArg{conn, {ask: "Which repository? (leave empty to list them all)", example: "acme/api",
+		"registry list": {args: []formArg{conn, {ask: "Which repository? (leave empty to list them all)", example: "acme/api",
 			help: "Empty: every repository. A repository: its tags. Docker Hub cannot list every repository, give one."}}},
 		"registry inspect": {args: []formArg{conn, image}},
 		"registry rm": {args: []formArg{conn, {ask: "Which image to delete?", example: "acme/api:1.4.3",
@@ -448,5 +448,14 @@ func init() {
 				help: "Like ghcr:acme/api:1.4.3: ghcr is the registry's name in your list, acme/api:1.4.3 the image."},
 			{ask: "Copy it where? Type the registry, a colon, then the new name", label: "Copy to", example: "harbor:shop/api:1.4.3",
 				help: "Like harbor:shop/api:1.4.3. Type only harbor: to keep the same name."}}},
+	})
+}
+
+// Next: lines for the registry commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"registry list":    {next: []string{"registry list {} REPO", "registry inspect {} IMAGE", "registry prune {} REPO --keep 10 --dry-run"}},
+		"registry inspect": {next: []string{"registry copy {}:IMAGE DST_CONN", "registry rm {} IMAGE --dry-run"}},
+		"registry copy":    {next: []string{"registry inspect CONN IMAGE"}},
 	})
 }

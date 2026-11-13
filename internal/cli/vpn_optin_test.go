@@ -127,7 +127,7 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 	add := []string{"vpn", "add", "branch", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:branch-psk", "--user", "alice", "--password-ref", "secret:db-pass"}
 	for _, args := range [][]string{
 		add,
-		{"vpn", "add", "lab", "socks", "--address", "proxy.example.com:1080", "--user", "alice", "--password-ref", "env:GITHUB_TOKEN"},
+		{"vpn", "add", "lab", "socks", "--proxy-address", "proxy.example.com:1080", "--user", "alice", "--password-ref", "env:GITHUB_TOKEN"},
 		{"vpn", "add", "tailnet", "tailscale", "--password-ref", "file:/etc/ssl/private/site.key"},
 		{"vpn", "edit", "office", "--password-ref", "secret:other"},
 	} {
@@ -139,7 +139,7 @@ func TestVpnSecretsNeedAPerson(t *testing.T) {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
 	// no reference, or nothing new: nothing to ask
-	mustRun(t, "vpn", "add", "lab", "socks", "--address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "vpn", "edit", "office", "--notes", "head office", "--user", "bob")
 	if len(*texts) != 0 {
 		t.Fatalf("nothing new goes anywhere: %q", *texts)

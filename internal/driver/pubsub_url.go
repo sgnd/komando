@@ -13,7 +13,7 @@ import (
 var gcpProject = regexp.MustCompile(`^[a-z][a-z0-9-]{4,28}[a-z0-9]$`)
 
 // parsePubsub reads pubsub://PROJECT for Google Cloud Pub/Sub
-// (docs/design/queue.md). The conn is one project; topics and
+// (docs/features/queues.md). The conn is one project; topics and
 // subscriptions are given to each command. The login is gcloud's
 // application default credentials, or a service account key from
 // --password-ref, as for gs:// storage. Options:

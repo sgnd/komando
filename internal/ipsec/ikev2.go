@@ -599,7 +599,7 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 	}
 	n := int(binary.BigEndian.Uint32(raw[24:]))
 	if n > len(raw) || n < 28 {
-		return nil, errors.New("bad length")
+		return nil, errors.New("a message's length does not match")
 	}
 	raw = raw[:n]
 	m := &v2msg{exch: raw[18], flags: raw[19], id: binary.BigEndian.Uint32(raw[20:]), raw: raw}
@@ -627,7 +627,7 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 		fragNum, fragTotal = int(binary.BigEndian.Uint16(inner)), int(binary.BigEndian.Uint16(inner[2:]))
 		inner, hdrLen = inner[4:], hdrLen+4
 		if fragNum < 1 || fragNum > fragTotal || fragTotal > 64 {
-			return nil, errors.New("bad fragment number")
+			return nil, errors.New("a fragment number does not fit")
 		}
 	}
 	ek, ak := k.inKeys()
@@ -652,7 +652,7 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 	} else {
 		bs, icv := s.enc.blockSize(), s.integ.icv
 		if len(inner) < bs+bs+icv || (len(inner)-bs-icv)%bs != 0 {
-			return nil, errors.New("bad SK payload length")
+			return nil, errors.New("the encrypted payload's length does not match")
 		}
 		if !hmac.Equal(raw[len(raw)-icv:], s.integ.mac(ak, raw[:len(raw)-icv])) {
 			return nil, errors.New("IKE message failed its integrity check")
@@ -663,7 +663,7 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 		}
 	}
 	if len(plain) < 1 || int(plain[len(plain)-1])+1 > len(plain) {
-		return nil, errors.New("bad padding")
+		return nil, errors.New("the encrypted payload's padding is broken")
 	}
 	plain = plain[:len(plain)-1-int(plain[len(plain)-1])]
 	first := raw[28]

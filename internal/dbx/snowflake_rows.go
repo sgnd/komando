@@ -241,11 +241,11 @@ func sfFailure(status int, res *sfResult) error {
 
 // snowflakeErr maps a failed statement to an error code. Snowflake's
 // codes here come from its documentation and messages; none was checked
-// against a live account (docs/design/snowflake.md).
+// against a live account (docs/features/databases.md).
 func snowflakeErr(err error) error {
 	var e *sfError
 	if !errors.As(err, &e) {
-		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando conn test NAME` to check the account and the login", "%v", err)
+		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando test TARGET` to check the account and the login", "%v", err)
 	}
 	low := strings.ToLower(e.Msg)
 	switch {
@@ -254,7 +254,7 @@ func snowflakeErr(err error) error {
 	case strings.Contains(low, "does not have a current database"):
 		return out.Errf(out.ExitRemote, "DB_ERROR", "add the database to the conn URL: snowflake://USER@ACCOUNT/DATABASE/SCHEMA", "%s", e)
 	case e.Code == "003001" || strings.Contains(low, "insufficient privileges"):
-		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's role lacks this right; `komando db grants CONN ROLE` shows what it has, ?role= in the URL picks another", "%s", e)
+		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's role lacks this right; `komando db user show CONN ROLE` shows what it has, ?role= in the URL picks another", "%s", e)
 	case e.Code == "000630" || strings.Contains(low, "statement reached its statement or warehouse timeout"):
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "narrow the query (WHERE, LIMIT) or raise --timeout", "%s", e)
 	case e.Code == "000604":

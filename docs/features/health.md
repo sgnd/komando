@@ -3,31 +3,21 @@
 Find out what a server is, whether it is healthy, and what it can reach.
 [All docs](README.md)
 
-## Quick start
+## Learn what a server is
 
 ```bash
-komando facts web1                               # OS and its support, updates, Docker, ports, tools
-komando recipe run health @web                   # uptime, load, memory, disk, failed services
-komando recipe run disk all                      # disk use everywhere
-komando net check @web 10.0.0.5:5432             # can the web servers reach the database?
-komando net http web1 https://example.com        # does this URL answer from web1?
-komando cert check web1 https://example.com      # when do the certificates expire?
+komando facts web1
 ```
-
-## Learn what a server is
 
 Run `facts` first on a server you do not know. It reports the OS, CPU,
 memory, disk, load, IP addresses, the package manager, the init system and
 which tools are installed, so you (or your agent) know which commands fit.
-It also shows what needs attention:
-
-```bash
-komando facts web1
-komando facts @web
-```
+It also shows what needs attention. Typed alone at your terminal,
+`komando facts` asks for the server (from your list); `komando facts @web`
+looks at many at once.
 
 ```text
-● app3  Ubuntu 20.04.6 LTS · x86_64 · 4 cpu · 7.8 GB RAM · disk / 63% · load 0.12 · up 34d
+● web1  Ubuntu 20.04.6 LTS · x86_64 · 4 cpu · 7.8 GB RAM · disk / 63% · load 0.12 · up 34d
   support:   UNSUPPORTED: no security updates
   updates:   12 pending, security unknown · index 11d old · REBOOT REQUIRED · restart needed: nginx.service
   access:    user deploy · sudo without password · 1 failed units
@@ -94,17 +84,19 @@ Ubuntu, komando also asks `pro status` whether ESM is enabled.
 
 ## Check server health
 
-komando comes with 24 ready-made checks (built-in recipes). Run one on any
+komando comes with ready-made checks (built-in recipes). Run one on any
 target:
 
 ```bash
+komando recipe run health @web                    # uptime, load, memory, disk, failed services
 komando recipe list                               # all of them, with what they run
 komando recipe list --category security           # one category
-komando recipe run health @web
 komando recipe run top-mem web1
 komando recipe run big-dirs web1 --var path=/srv
 komando recipe run oom all --var since=-2h
 ```
+
+Typed alone, `komando recipe run` asks for the recipe, then the target.
 
 | Category (`--category`) | Recipes |
 |-------------------------|---------|
@@ -117,26 +109,27 @@ komando recipe run oom all --var since=-2h
 
 Some recipes have blanks with defaults, for example `big-dirs` takes
 `--var path=/srv --var depth=2`. `komando recipe list` shows each recipe's
-blanks.
+blanks. A time back from now is written with a minus (`since=-2h`), as
+journalctl reads it.
 
-Checks that have their own command are no longer recipes. For one
-release, `recipe run` with the old name says which command to use:
+Checks that have their own command are not recipes:
 
-| Old recipe | Use now |
-|------------|---------|
-| `ports` | `komando net ports TARGET --sudo` |
-| `dns` | `komando net dns TARGET NAME` |
-| `http-check` | `komando net http TARGET URL` |
-| `failed-units` | `komando svc list TARGET --failed` |
-| `journal-errors` | `komando logs TARGET -p err --since -1h --sudo` |
-| `updates` | `komando pkg upgradable TARGET` |
-| `security-updates` | `komando pkg security TARGET` |
-| `docker-overview` | `komando docker ps TARGET --all` |
-| `k8s-overview` | `komando cluster status CLUSTER` |
-| `mysql-status`, `postgres-status` | `komando db activity CONN` |
-| `redis-info` | `komando cache info CONN` |
-| `cert-expiry`, `certbot-certs` | `komando cert check` |
-| `docker-prune` | `komando docker prune TARGET --dry-run` |
+| Check | Command |
+|-------|---------|
+| listening ports | `komando net ports TARGET --sudo` |
+| a name in DNS | `komando net dns TARGET NAME` |
+| a URL answers | `komando net http TARGET URL` |
+| failed units | `komando svc list TARGET --failed` |
+| journal errors | `komando logs TARGET -p err --since 1h --sudo` |
+| pending updates | `komando pkg upgradable TARGET` |
+| security updates | `komando pkg security TARGET` |
+| containers | `komando docker ps TARGET --all` |
+| a Kubernetes cluster | `komando cluster status CLUSTER` |
+| database sessions | `komando db activity CONN` |
+| a cache | `komando cache info CONN` |
+| certificates | `komando cert check TARGET` |
+| Docker clean-up | `komando docker prune TARGET --dry-run` |
+
 To save your own checks, see [Recipes](commands.md#recipes-ready-made-and-saved-commands).
 
 ## Check TLS certificates
@@ -146,9 +139,14 @@ It only reads.
 
 ```bash
 komando cert check web1                               # the certificates web1's web servers use
-komando cert check @prod --warn 14d                   # flag what expires within 14 days
+```
+
+Typed alone, `komando cert check` asks for a server or a URL.
+
+```bash
+komando cert check @web --warn 14d                   # flag what expires within 14 days
 komando cert check https://shop.example.com           # the certificate the website sends
-komando cert check api.example.com:8443 intranet:443 --via bastion
+komando cert check api.example.com:8443 intranet.example.com:443 --via bastion
 komando cert check web1 --path /etc/ssl/private/site.pem
 ```
 
@@ -182,6 +180,11 @@ These checks run *from* your servers, so you see what they see:
 
 ```bash
 komando net check @web 10.0.0.5:5432 10.0.0.6:6379   # can each server open a TCP connection?
+```
+
+Typed alone, `komando net check` asks for the servers, then the addresses.
+
+```bash
 komando net http web1 https://example.com --expect 2xx
 komando net ports web1 --sudo                         # PROTO ADDRESS PORT PROCESS PID
 komando net dns web1 api.example.com
@@ -195,8 +198,6 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... n
 | `net http --expect 2xx` | the status is another one (`UNEXPECTED_STATUS`); `--expect 200` names one status | 5 |
 | `net dns` | the name does not resolve (`NXDOMAIN`) or has no records of that type (`NO_RECORDS`) | 3 |
 
-Good to know:
-
 - `net ports` uses `ss`, or `netstat` on small systems such as busybox. Add
   `--sudo` to see the process names.
 - `net dns` without `--type` shows the addresses the server would connect
@@ -205,3 +206,36 @@ Good to know:
   says which package installs it.
 - `net http` takes `http://` and `https://` URLs only. It reports the status,
   timing, the IP it reached and any redirect.
+
+## Limits
+
+- `facts` uses sudo only when it works without a password; it never asks
+  for one. Without root or passwordless sudo, only your own programs in
+  `ports` have names.
+- `facts` never refreshes a package index, so `updates` is as fresh as the
+  server's own index.
+- The support dates cover Ubuntu LTS, Debian, RHEL and its rebuilds, Alpine
+  and Amazon Linux; any other release is `unknown`.
+- `facts` keeps only names, never command lines or environments.
+- `cert check` reads files that need root only when sudo works without a
+  password; such files show as `unreadable` and do not fail the command.
+- `net check` gives up on a port after 5 seconds; `net http` after 15
+  seconds (or `--timeout`).
+- `net http` takes `http://` and `https://` URLs only.
+- `net dns --type` other than A and AAAA needs `dig` on the server.
+- Recipes with blanks refuse a `--var` value that starts with `-`, except a
+  number or a time back from now (see [Recipes](commands.md#recipes-ready-made-and-saved-commands)).
+
+## Troubleshooting
+
+| Error code | What it means | What to do |
+|------------|---------------|------------|
+| `RECIPE_NOT_FOUND` | no recipe of that name (exit 3) | see them with `komando recipe list`; some checks are commands (table above) |
+| `UNKNOWN_VAR` | `--var` names a blank the recipe does not have | check the blanks with `komando recipe list` |
+| `CERT_PROBLEMS` | a certificate expires within `--warn`, has expired, is not trusted, or certbot's last renewal failed (exit 1) | renew or replace the certificates the result marks |
+| `PORT_CLOSED` | `net check`: a port did not answer (exit 5) | the result says why (`refused`, `timeout`, `dns`, `unreachable`): check the address, firewall or service |
+| `NO_RESPONSE` | `net http`: nothing answered (exit 4) | check the URL, and that the server can reach it: `komando net check SERVER HOST:443` |
+| `UNEXPECTED_STATUS` | `net http --expect`: another status came back (exit 5) | check the URL and the service behind it |
+| `NXDOMAIN` | `net dns`: the name does not resolve from this server (exit 3) | check the name and the server's DNS (`/etc/resolv.conf`) |
+| `NO_RECORDS` | `net dns`: no records of that type (exit 3) | check the name and `--type` |
+| `TOOL_MISSING` | `net dns --type` needs `dig` on the server | install the package the error names |

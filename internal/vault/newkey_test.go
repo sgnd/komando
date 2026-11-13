@@ -3,6 +3,7 @@ package vault
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -154,7 +155,7 @@ func TestNewVaultKeychainOff(t *testing.T) {
 	if got := calls(); got != "" {
 		t.Errorf("the keychain was run:\n%s", got)
 	}
-	if _, err := KeyToKeychain(); err == nil || !strings.Contains(err.Error(), "KOMANDO_KEYCHAIN=off") {
+	if _, err := KeyToKeychain(); err == nil || !strings.Contains(err.Error(), "KOMANDO_KEYCHAIN is off") {
 		t.Errorf("secret keychain with the keychain off: %v", err)
 	}
 }
@@ -234,6 +235,7 @@ func scriptedSecretTool(t *testing.T, script string) (calls func() string) {
 // body (sh); an empty body removes the tool.
 func lockTool(t *testing.T, dir, name, body string) {
 	t.Helper()
+	unixOnly(t, "sh scripts play the Linux Secret Service tools (secret-tool, gdbus)")
 	p := filepath.Join(dir, name)
 	if body == "" {
 		_ = os.Remove(p)
@@ -422,4 +424,13 @@ func TestNewVaultKeychainSearchHangs(t *testing.T) {
   store) exit 0 ;;
 esac
 `)
+}
+
+// unixOnly skips a test on Windows, which cannot run the sh script that
+// plays a keychain tool; why says which.
+func unixOnly(t *testing.T, why string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix only: " + why)
+	}
 }

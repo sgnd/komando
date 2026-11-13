@@ -27,10 +27,10 @@ import (
 func clusterRmCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
-		Use:   "rm TARGET TYPE NAME",
-		Short: "Delete an object, service or stack (needs --allow-dangerous)",
-		Example: `  komando cluster rm prod-k8s pod api-7d9f-x2 --namespace shop --allow-dangerous
-  komando cluster rm swarm-manager service/web --allow-dangerous`,
+		Use:   "rm TARGET TYPE/NAME",
+		Short: "Delete an object, service or stack",
+		Example: `  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --allow-dangerous
+  komando cluster rm swarm1 service/web --allow-dangerous`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -61,6 +61,9 @@ func clusterRmCmd() *cobra.Command {
 				} else if err := swarmStackExists(cmd.Context(), t, name); err != nil {
 					return err // stack rm of a missing stack says "Nothing found" and exits 0
 				}
+				if err := confirmObject(nil, name, "removes "+kind+" "+name); err != nil {
+					return err
+				}
 				_, ran, err := swarmDo(cmd.Context(), "cluster.rm", t, line, nil, driver.RiskDestructive, "removes "+kind+" "+name)
 				if err != nil {
 					return err
@@ -71,6 +74,9 @@ func clusterRmCmd() *cobra.Command {
 				}
 				out.P.Print("cluster.rm", res, nil)
 				return nil
+			}
+			if err := confirmObject([]string{t.conn.Name}, name, "deletes "+typ+"/"+name+" from the cluster"); err != nil {
+				return err
 			}
 			return withKube(cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
@@ -242,7 +248,7 @@ func clusterRunCmd() *cobra.Command {
 	var write bool
 	c := &cobra.Command{
 		Use:   "run TARGET -- ARGS...",
-		Short: "Run any kubectl or docker command (read-only unless --write)",
+		Short: "Run any kubectl or docker command (read only by default)",
 		Long: `For Kubernetes, komando runs the kubectl command itself (no kubectl
 needed) and reaches the API through the conn's --via path: get (tables,
 wide, name, json, yaml, jsonpath, custom-columns, -w), describe, logs,
@@ -254,7 +260,7 @@ manager. Commands that change things need --write; delete, drain and other
 risky verbs also need --allow-dangerous.`,
 		Example: `  komando cluster run prod-k8s -- get pods -A -o wide
   komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
-  komando cluster run swarm-manager -- service ps web`,
+  komando cluster run swarm1 -- service ps web`,
 		Args: cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -268,7 +274,7 @@ risky verbs also need --allow-dangerous.`,
 			// The command must start with its verb: a leading flag could
 			// hide the real verb behind a flag value (-n get delete ...).
 			if strings.HasPrefix(args[1], "-") {
-				return out.Usage("start with the command (e.g. `-- get pods -n shop`); put flags after it")
+				return out.Usage("start with the command (for example `-- get pods -n shop`); put flags after it")
 			}
 			var risk driver.Risk
 			if t.host != nil {
@@ -284,17 +290,15 @@ risky verbs also need --allow-dangerous.`,
 				risk = driver.RiskDestructive
 			}
 			if risk > driver.RiskRead && !write {
-				if err := policyStop(out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; re-run with --write (try --dry-run first)",
+				if err := policyStop(out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; run it again with --write (try --dry-run first)",
 					"%q is not a read-only command", verb)); err != nil {
 					return err
 				}
 			}
 			if t.host != nil {
 				line := "docker " + quoteAll(args[1:])
-				if risk == driver.RiskDestructive && !dangerOK() {
-					if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}}); err != nil {
-						return err
-					}
+				if err := guardSwarmRun(st, t.host.Name, risk, verb); err != nil {
+					return err
 				}
 				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
@@ -378,11 +382,11 @@ func kubectlFailure(code int, stderr string) *out.Error {
 	// only the API's NotFound: `sh: foo: not found` from a command in a pod is the command's own failure
 	if strings.Contains(stderr, "Error from server (NotFound)") {
 		msg = strings.TrimPrefix(msg, "Error from server (NotFound): ")
-		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound,
-			Hint: "list what exists with `komando cluster ls TARGET TYPE`"}
+		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound, Thing: "k8s_object",
+			Hint: "list what exists with `komando cluster list TARGET TYPE`"}
 	}
 	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
-		Hint: "read stderr for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
+		Hint: "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
 }
 
 // importKubeconfig makes one k8s conn per context; each context's
@@ -427,6 +431,10 @@ func importKubeconfig(path string) (*importPlan, error) {
 		p.Conns = append(p.Conns, c)
 		if why := clash[n]; why != "" {
 			p.ConnNotes[c] = append(p.ConnNotes[c], why)
+		}
+		if x.Cluster.InsecureSkipTLSVerify && x.Cluster.CertificateAuthorityData == "" && x.Cluster.CertificateAuthority == "" {
+			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s does not check the server's certificate (insecure-skip-tls-verify): "+
+				"its login goes to whoever answers at %s; add the cluster's CA (certificate-authority-data) to the kubeconfig and import it again", n, u.Host))
 		}
 		if e := x.Plugin(); e != nil {
 			// a person imported it, or allowed it (guardKubeImport): agents
@@ -502,9 +510,9 @@ func kubeconfigConnNames(contexts []string) (names, clash map[string]string) {
 func guardKubeImport(name string, x *kube.Context) error {
 	if e := x.Plugin(); e != nil {
 		line := pluginLine(e)
-		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() {
+		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("context "+name+" logs in with `"+line+"`, which matches "+hits[0].Reason, name) {
 			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig (if this program is intended, --allow-dangerous lets it run)",
-				"context %s logs in with `%s`, which matches destructive rules: %s", name, line, hits[0].Reason))
+				"context %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig)", name, line, hits[0].Reason))
 		}
 		if isAgent() {
 			if err := guardSafety("letting context " + name + " run `" + line + "` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {
@@ -552,4 +560,14 @@ func nilData(v any) bool {
 		return r.IsNil()
 	}
 	return false
+}
+
+// guardSwarmRun is cluster run's stop for a destructive docker command on
+// a Swarm manager: a person types the server's name.
+func guardSwarmRun(st *store.State, host string, risk driver.Risk, verb string) error {
+	if risk != driver.RiskDestructive || dangerOK() {
+		return nil
+	}
+	askTypes([]string{host}, "servers")
+	return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
 }

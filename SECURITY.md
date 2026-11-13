@@ -26,7 +26,7 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
 - Passwords and keys live in an encrypted vault in `~/.komando/`. A new vault keeps its key in the OS keychain (the macOS keychain, the Secret Service on Linux), so a backup or a copy of the folder does not open it. Where there is no keychain, the key is a file beside the vault and `komando doctor` warns. An AI agent refers to a secret as `secret:NAME`. An agent komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set) never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server, conn or VPN), a person allows it in a window that names the secret and the place.
 - An AI agent's komando uses your usual data folder: another `KOMANDO_HOME` needs a person's yes.
 - Dangerous commands (`rm -rf /`, `reboot`, `DROP TABLE`, `FLUSHALL`, ...) are blocked unless a human allows them.
-- Protected servers and conns refuse changes without `--yes`. Database queries and cache commands only read unless you add `--write`. On a protected target `--read-only` skips `--yes` only for commands komando knows read; anything it does not recognise still needs `--yes`.
+- On a protected server or conn, komando asks a person before any change; an agent or a script needs `--yes`, which a person approves. Database queries and cache commands only read unless you add `--write`. On a protected target `--read-only` skips `--yes` only for commands komando knows read; anything it does not recognise still needs `--yes`.
 - Every value sent to a remote shell is quoted. A vault value given to a
   command (`-e DB_PASS=secret:NAME`) reaches it on its input, never on its
   command line, where other users of the server could read it.
@@ -34,10 +34,11 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
   time it trusts a key, it prints the fingerprint so you can compare it with
   the server's own, writes it to the audit log, and lists it in the JSON
   answer (`meta.host_keys_pinned`).
-- Database and cache conns: a new one that crosses the network on its own
-  checks the server's certificate unless its URL says otherwise
-  (`sslmode=verify-full`, `tls=true`), and a plain `redis://` or
-  `memcached://` one needs `?insecure=1`. `komando doctor` lists every
+- Database, cache, queue and storage conns: a new one that crosses the
+  network on its own checks the server's certificate unless its URL says
+  otherwise (`sslmode=verify-full`, `tls=true`), and a plain one
+  (`redis://`, `memcached://`, `amqp://`, `nats://`, an `http://`
+  endpoint) needs `?insecure=1`. `komando doctor` lists every
   conn that crosses the network without TLS that checks the server's
   certificate, with the line that fixes it.
 - VPNs: IKEv1 offers no 3DES and no DH group below 14, and the server can
@@ -52,11 +53,15 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
   - nothing written on the komando computer itself: no downloads there, no change to komando's servers, settings, rules, secrets or keys, and nothing at all, not even a read, on a sqlite file or a target at `localhost` or a loopback address;
   - optionally, only commands that read;
   - an audit log line for each command, with the key's name, even with the audit setting off.
+- At a person's terminal komando asks for what a command is missing. A
+  question never adds `--yes`, `--allow-dangerous`, `--reveal` or
+  `--write`: a change asks "Run it?", and a step that cannot be undone asks
+  for the target's name. Agents and scripts are never asked.
 - Everything is written to the audit log: `komando audit`.
 
 ## Supported versions
 
-Only the newest release gets fixes. `install.sh` always downloads the newest release, never `main`, and checks its checksum.
+Only the newest release gets fixes. `install.sh` downloads the newest release (or the one `KOMANDO_VERSION` names), never `main`, and checks its checksum.
 
 ## Check a download
 

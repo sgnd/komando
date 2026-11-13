@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
@@ -82,6 +81,26 @@ type exitCode int
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
 func Execute() int {
+	// no program komando starts inherits the secret stores' unlock values
+	vault.TakeUnlockEnv()
+	// a Windows console shows colour and line clearing only when asked
+	ok, restore := consoleVT(int(os.Stderr.Fd()))
+	defer restore()
+	vtOK = ok
+	return executeArgs(os.Args[1:])
+}
+
+// vtOK: the terminal on stderr reads escape sequences (colour, clearing a
+// line). Only an old Windows console does not.
+var vtOK = true
+
+// executeArgs runs komando with these arguments (os.Args[1:] for the real
+// program): one command, its envelope or text, and its exit code.
+func executeArgs(args []string) int {
+	// the store is closed when the command ends: a run inside a program
+	// that goes on (a test) leaves no file open, which Windows could then
+	// not remove
+	defer store.Close()
 	if Version == "dev" {
 		// `go install ...@v1.2.3` records the module version in the binary
 		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
@@ -93,11 +112,28 @@ func Execute() int {
 	if f, ok := outputFormat(os.Getenv("KOMANDO_OUTPUT")); ok {
 		out.P.Format = f
 	}
+	// a person at a terminal who left something out is asked for it first
+	// (prompter_fill.go); everyone else gets args as they are
+	filled, err := promptFill(args)
+	if err != nil {
+		var done fillDone
+		if errors.As(err, &done) {
+			return done.code
+		}
+		out.P.Format = "text"
+		return out.P.Fail("komando", promptStopped(err))
+	}
+	if !slices.Equal(filled, args) {
+		args = filled
+		os.Args = append([]string{os.Args[0]}, filled...) // what the audit and the approval window name
+	}
 	root := newRoot()
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	root.SetArgs(args)
+	ctx, cancel := signalContext()
 	defer cancel()
 	cmd, err := root.ExecuteContextC(ctx)
 	if err == nil {
+		promptNext()
 		return 0
 	}
 	var ec exitCode
@@ -149,10 +185,10 @@ func cancelled(c *call, oe *out.Error) {
 	if !c.sess.PersonSaidNo() || oe.Exit != out.ExitPolicy {
 		return
 	}
-	oe.Message = "cancelled: " + oe.Message
-	oe.Hint = "nothing was changed"
+	oe.Message = "cancelled: " + oe.Message + "; nothing was changed"
+	oe.Hint = "run it again to be asked again"
 	if c.wroteBefore() {
-		oe.Hint = "what this command saved before the question stays"
+		oe.Message = strings.TrimSuffix(oe.Message, "; nothing was changed") + "; what this command saved before the question stays"
 		return
 	}
 	oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
@@ -218,30 +254,51 @@ func usageErr(cmd *cobra.Command, err error) error {
 		}
 		return e
 	} else if ok {
-		e.Message = fmt.Sprintf("unknown command %q", name)
-		// not "pick Add something": the first-run menu, where a newcomer
-		// most likely is, has no such row
 		if name == "add" && !cmd.HasParent() {
+			e.Message = fmt.Sprintf("unknown command %q", name)
 			e.Hint = "add a server with `komando host add`, a database with `komando db add` or a VPN with `komando vpn add`; typed alone at a terminal, each one asks step by step"
 			return e
 		}
-		s := cmd.SuggestionsFor(name)
-		for _, c := range cmd.Commands() {
-			if slices.Contains(c.SuggestFor, name) { // an old name: only the command that does it now
-				s = []string{c.Name()}
-			}
+		var rest []string
+		if i := slices.Index(os.Args, name); i > 0 {
+			rest = os.Args[i+1:]
 		}
-		if len(s) > 0 {
-			e.Message += "; did you mean " + strings.Join(s, " or ") + "?"
-			e.Hint = "see `" + cmd.CommandPath() + " " + s[0] + " --help`"
-		} else {
-			e.Hint = "see `" + cmd.CommandPath() + " --help` for the list of commands"
+		return unknownCommandErr(cmd, name, rest)
+	}
+	// a flag value's own message and hint (flagHint), without pflag's
+	// "invalid argument ... for ... flag:" around it
+	if strings.HasPrefix(m, "invalid argument ") {
+		if head, own, ok := strings.Cut(m, " flag: "); ok {
+			name := head[strings.LastIndex(head, " ")+1:] // "--warn" or "-n, --namespace"
+			name = strings.Trim(name, `"`)
+			if len(name) == 3 { // a one-letter flag (cluster -n): its short spelling
+				name = name[1:]
+			}
+			msg, hint, hinted := strings.Cut(own, flagHintSep)
+			e.Message = name + ": " + msg
+			switch {
+			case hinted:
+				e.Hint = hint
+			case exampleWith(cmd, name) != "":
+				e.Hint = "for example: " + exampleWith(cmd, name)
+			}
+			return e
+		}
+	}
+	if rest, ok := strings.CutPrefix(m, "unknown shorthand flag: '"); ok && len(rest) > 1 {
+		_, word, _ := strings.Cut(rest, " in ")
+		if s := shorthandSuggest(cmd, rest[:1], strings.TrimSpace(word)); s != "" {
+			e.Message += "; " + s
 		}
 		return e
 	}
 	if flag, ok := strings.CutPrefix(m, "unknown flag: "); ok {
 		if s := closestFlag(cmd, strings.TrimLeft(flag, "-")); s != "" {
 			e.Message += "; did you mean --" + s + "?"
+			// a safety override is never handed out as a line to run
+			if name, _, _ := strings.Cut(flag, "="); !slices.Contains(safetyOverrides, s) {
+				suggest(e, name, "--"+s)
+			}
 		}
 		return e
 	}
@@ -294,50 +351,6 @@ func quotedAfter(m, prefix string) (string, bool) {
 	return s, err == nil
 }
 
-// closestFlag is the flag of cmd (its own or inherited) nearest to a
-// mistyped name, or "" when none is near enough to be a typo.
-func closestFlag(cmd *cobra.Command, typed string) string {
-	best, bestD := "", 3 // more than 2 typos is not a typo
-	var prefixed []string
-	visit := func(f *pflag.Flag) {
-		if f.Hidden || f.Deprecated != "" {
-			return
-		}
-		if d := editDistance(typed, f.Name); d < bestD {
-			best, bestD = f.Name, d
-		}
-		if len(typed) >= 3 && strings.HasPrefix(f.Name, typed) {
-			prefixed = append(prefixed, f.Name)
-		}
-	}
-	cmd.Flags().VisitAll(visit)
-	cmd.InheritedFlags().VisitAll(visit)
-	if best == "" && len(prefixed) == 1 {
-		best = prefixed[0] // --conn for --connect-timeout
-	}
-	return best
-}
-
-func firstExample(cmd *cobra.Command) string {
-	for _, l := range strings.Split(cmd.Example, "\n") {
-		if l = strings.TrimSpace(l); l != "" {
-			if i := strings.Index(l, "  #"); i > 0 {
-				l = strings.TrimSpace(l[:i])
-			}
-			// a typo is no reason to hand an AI agent a flag that skips a
-			// safety stop: the first example without one
-			if approvalFlag.MatchString(l) {
-				continue
-			}
-			return l
-		}
-	}
-	return ""
-}
-
-// approvalFlag: --yes, -y, --allow-dangerous or --reveal on a command line.
-var approvalFlag = regexp.MustCompile(`(^|\s)(--yes|-y|--allow-dangerous|--reveal)(\s|=|$)`)
-
 func isUsageErr(err error) bool {
 	m := err.Error()
 	for _, s := range []string{"unknown flag", "unknown command", "accepts ", "requires at least", "required flag", "invalid argument", "flag needs an argument", "unknown shorthand"} {
@@ -357,14 +370,9 @@ func envelopeName(c *cobra.Command) string {
 	return commandName(c)
 }
 
-func commandName(c *cobra.Command) string {
-	p := strings.TrimPrefix(c.CommandPath(), "komando")
-	p = strings.TrimSpace(p)
-	if p == "" {
-		return "komando"
-	}
-	return strings.ReplaceAll(p, " ", ".")
-}
+// commandName is c's ID (cmdid.go): what the envelopes, the audit log and
+// every table keyed by command use.
+func commandName(c *cobra.Command) string { return cmdID(c) }
 
 // vaultValues returns every vault secret by name, so output can hide them
 // (a remote .env, a log line). A vault that cannot be opened hides nothing.
@@ -389,13 +397,13 @@ var localReads = map[string]bool{
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true, "seal": true, "prompt": true,
-	"host.list": true, "conn.list": true, "vpn.list": true, "secret.get": true, "recipe.show": true,
+	"tunnel.list": true, "job.list": true, "status": true,
+	"host.list": true, "conn.list": true, "vpn.list": true, "secret.show": true,
 }
 
 // checkStoreWritable refuses to run a command that may change something
 // when the store (which holds the audit log) cannot be written: changes
-// must not happen without a record (docs/design/ux.md §6).
+// must not happen without a record (docs/design/principles.md, section 7).
 func checkStoreWritable(cmd *cobra.Command) error {
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
@@ -421,14 +429,11 @@ var leavesHome = map[string]bool{"update": true}
 
 func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)] && asRoot() }
 
-// startChecks are the last steps before every command: a folder that needs
-// `komando seal`, the data folder (guardHome), closing idle VPNs and
+// startChecks are the last steps before every command: the data folder
+// (guardHome), closing idle VPNs and
 // --host-key-policy off. The audit log needs no check: the store refuses a
 // change it cannot record.
 func startChecks(cmd *cobra.Command) error {
-	if err := checkNeedsSeal(cmd); err != nil {
-		return err
-	}
 	if err := guardHome(cmd); err != nil {
 		return err
 	}
@@ -469,17 +474,17 @@ func newRoot() *cobra.Command {
 			f, ok := outputFormat(g.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {
-					return out.Usage("KOMANDO_OUTPUT=%s: it must be auto, json or text", os.Getenv("KOMANDO_OUTPUT"))
+					return out.Usage("KOMANDO_OUTPUT=%s: it takes auto, json or text", os.Getenv("KOMANDO_OUTPUT"))
 				}
-				return out.Usage("--output must be auto, json or text (db query also takes csv and tsv)")
+				return out.Usage("--output takes auto, json or text (db query also takes csv and tsv)")
 			}
 			switch {
 			case g.parallel < 0:
-				return out.Usage("-P/--parallel must be 1 or more (0 means the setting, default 10)")
+				return out.Usage("-P/--parallel takes 1 or more (0 means the setting, default 10)")
 			case g.timeout < 0, g.connectTimeout < 0:
-				return out.Usage("--timeout and --connect-timeout must be positive, e.g. 30s or 5m")
+				return out.Usage("--timeout and --connect-timeout take a time more than 0, for example 30s or 5m")
 			case g.maxOutput < 0:
-				return out.Usage("--max-output must be a number of bytes, e.g. 1048576")
+				return out.Usage("--max-output takes a number of bytes, for example 1048576")
 			}
 			out.P.Format = f
 			out.P.Pretty = g.pretty
@@ -502,7 +507,7 @@ func newRoot() *cobra.Command {
 			// scripts see what the server sent (vault values are hidden for
 			// all). `secret get --reveal` is for people only: an agent is never
 			// asked and always sees [hidden]. A dry run never approves --reveal.
-			out.P.Mask = isAgent() && (commandName(cmd) == "secret.get" || g.dryRun || !revealOK())
+			out.P.Mask = isAgent() && (commandName(cmd) == "secret.show" || g.dryRun || !revealOK())
 			startPersonal(cmd)
 			if out.P.Mask && g.dryRun && g.reveal {
 				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
@@ -518,19 +523,40 @@ func newRoot() *cobra.Command {
 	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
 	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
 	pf.BoolVar(&g.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
-	pf.DurationVar(&g.timeout, "timeout", 0, "time limit per server (default: setting, 5m)")
-	pf.DurationVar(&g.connectTimeout, "connect-timeout", 0, "time to connect (default: setting, 15s)")
-	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting, 10)")
-	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting, accept-new)")
-	pf.IntVar(&g.maxOutput, "max-output", 0, "bytes kept per stream per server (default: setting, 256KiB)")
+	durVar(pf, &g.timeout, "timeout", 0, "time limit per server, like 30s or 1h (default: setting default_timeout, 5m)")
+	durVar(pf, &g.connectTimeout, "connect-timeout", 0, "time to connect, like 30s (default: setting connect_timeout, 15s)")
+	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting parallel, 10)")
+	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting host_key_policy, accept-new)")
+	g.maxOutput = 0
+	pf.Var(&bytesFlag{i: &g.maxOutput}, "max-output", "bytes kept per stream per server, like 1MiB (default: setting max_output_bytes, 256KiB)")
+	for flag, key := range map[string]string{"timeout": "default_timeout", "connect-timeout": "connect_timeout", "parallel": "parallel", "host-key-policy": "host_key_policy", "max-output": "max_output_bytes"} {
+		_ = pf.SetAnnotation(flag, defaultFrom, []string{"setting:" + key})
+	}
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
+	addCommands(root)
+	addHelpTopics(root) // and cobra's help command
+	root.InitDefaultCompletionCmd()
+	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
+	applyConventions(root)
+	useShortGlobals(root)
+	addCompletion(root)
+	stampIDs(root)
+	applyHelpStandard(root)
+	return root
+}
+
+// addCommands adds komando's commands to root under the groups of
+// `komando` alone (personHelp), so --help reads the same.
+func addCommands(root *cobra.Command) {
 	root.AddGroup(
-		&cobra.Group{ID: "inv", Title: "Inventory & credentials:"},
-		&cobra.Group{ID: "run", Title: "Remote execution:"},
-		&cobra.Group{ID: "data", Title: "Databases, caches, queues & storage:"},
-		&cobra.Group{ID: "ops", Title: "DevOps modules:"},
-		&cobra.Group{ID: "meta", Title: "Agent helpers & config:"},
+		&cobra.Group{ID: "servers", Title: "Servers:"},
+		&cobra.Group{ID: "data", Title: "Data:"},
+		&cobra.Group{ID: "platform", Title: "Platform:"},
+		&cobra.Group{ID: "inventory", Title: "Inventory:"},
+		&cobra.Group{ID: "access", Title: "Access:"},
+		&cobra.Group{ID: "overview", Title: "Overview:"},
+		&cobra.Group{ID: "setup", Title: "Setup:"},
 	)
 	add := func(group string, cmds ...*cobra.Command) {
 		for _, c := range cmds {
@@ -538,33 +564,30 @@ func newRoot() *cobra.Command {
 			root.AddCommand(c)
 		}
 	}
-	add("inv", listCmd(), testCmd(), importCmd(), exportCmd(), hostCmd(), connCmd(), vpnCmd(), groupCmd(), keyCmd(), secretCmd(), renameCmd(), loginCmd(), logoutCmd(), loginHolderCmd())
-	add("run", execCmd(), scriptCmd(), jobCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(), tunnelCmd(), shellCmd(), recipeCmd())
-	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd(), clusterCmd(), registryCmd())
-	add("ops", factsCmd(), svcCmd(), rebootCmd(), logsCmd(), dockerCmd(), pkgCmd(), netCmd(), userCmd(), cronCmd(), certCmd())
-	add("meta", statusCmd(), promptCmd(), schemaCmd(root), guideCmd(), auditCmd(), configCmd(), policyCmd(), doctorCmd(), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
-	root.InitDefaultHelpCmd()
-	root.InitDefaultCompletionCmd()
-	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
-	applyConventions(root)
-	useShortGlobals(root)
-	addCompletion(root)
-	return root
+	add("servers", execCmd(), logsCmd(), factsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
+		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
+	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
+	add("platform", clusterCmd(), registryCmd())
+	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
+	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
+	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
+	add("setup", configCmd(), policyCmd(), guideCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
+	addNounAliases(root)
 }
 
 // labelBuiltinCmds files cobra's own help and completion commands under
-// "meta" and gives them komando's wording; dropped old names suggest the
+// "setup" and gives them komando's wording; dropped old names suggest the
 // command that does it now.
 func labelBuiltinCmds(root *cobra.Command) {
-	suggestDroppedNames(root)
+	suggestHabitWords(root)
 	for _, c := range root.Commands() {
 		switch c.Name() {
 		case "help":
-			c.GroupID = "meta"
+			c.GroupID = "setup"
 			c.Short = "Show the help of a command"
 			c.Long = "Shows what a command does, its flags and examples: komando help db query\n(the same as komando db query --help)."
 		case "completion":
-			c.GroupID = "meta"
+			c.GroupID = "setup"
 			c.Short = "Print a tab-completion script for your shell"
 			c.Long = "Prints a script that lets Tab complete komando's commands, flags and names\nin bash, zsh, fish or PowerShell. Each one's help says how to load it:\nkomando completion zsh --help."
 			for _, sh := range c.Commands() {
@@ -585,11 +608,14 @@ const rootLong = `komando is one safe command line for
 ` + tagline + `,
 for people and AI agents alike.
 
-First steps:
-  komando                                  a menu of common tasks (in a terminal)
-  komando host add web1 ubuntu@203.0.113.10
-  komando test web1                        check that web1 answers
-  komando guide install                    let your AI agent use komando safely
+Start:
+  komando host add NAME USER@ADDRESS   add a server
+  komando conn add NAME URL            add a database, cache, queue, storage,
+                                       cluster or registry
+  komando import ssh-config            bring in the servers you already have
+  komando list                         see everything komando knows about
+  komando test TARGET                  check that it answers and lets you in
+  komando guide install                let your AI agent use komando safely
 
 Targets: a server or service name, a pattern (web-*), @group, tag:NAME,
 label:key=value, kind:KIND (host, db, cache, storage, postgres, ...),
@@ -608,17 +634,51 @@ const rootScriptNotes = `For scripts and AI agents:
               8 precondition or conflict.
   komando guide is the playbook for agents; komando schema lists every command.`
 
-// printFirstSteps is `komando` alone: the menu for a person at a terminal
-// (menu.go), else the first steps, not a wall of text (ux.md, section 10).
+// printFirstSteps is `komando` alone: the commands by group for a person at
+// a terminal, else the first steps, not a wall of text (ux.md, section 10).
 func printFirstSteps(cmd *cobra.Command, args []string) error {
 	if out.P.Format == "json" { // piped: one JSON envelope, never text
 		return out.Usage("komando needs a command").WithHint("read `komando guide` (the playbook for agents) or `komando schema` (every command)")
 	}
-	if menuWanted(cmd, args) {
-		return runMenu()
+	if promptable(outputFlag()) { // a person at a terminal: what komando does, by group
+		_, err := fmt.Fprint(cmd.OutOrStdout(), personHelp())
+		return err
 	}
 	_, err := fmt.Fprint(cmd.OutOrStdout(), firstSteps)
 	return err
+}
+
+// personHelp is `komando` alone for a person at a terminal: the commands
+// by what they work on, START first, a few examples, and how to learn more.
+func personHelp() string {
+	var b strings.Builder
+	b.WriteString("komando: one safe command line for " + tagline + "\n\n")
+	if st, err := loadState(); err == nil && len(st.Hosts) == 0 && len(st.Conns) == 0 && len(st.Vpns) == 0 {
+		b.WriteString("Nothing added yet: komando host add  or  komando import ssh-config\n\n")
+	}
+	for _, g := range [][2]string{
+		{"START", "host add · conn add · import ssh-config · list · test TARGET · guide install"},
+		{"SERVERS", "exec  logs  facts  fs  svc  job  docker  pkg  cron  user  reboot  shell"},
+		{"DATA", "db  cache  queue  storage"},
+		{"PLATFORM", "cluster  registry"},
+		{"INVENTORY", "host  conn  group  import  export  rename"},
+		{"ACCESS", "vpn  login  secret  key  tunnel"},
+		{"OVERVIEW", "status  audit  list  test  doctor"},
+		{"SETUP", "config  policy  guide  schema  completion"},
+	} {
+		fmt.Fprintf(&b, "%-12s %s\n", g[0], g[1])
+	}
+	b.WriteString(`
+EXAMPLES
+  $ komando host add web1 deploy@10.0.0.5
+  $ komando logs web1 --unit nginx --since 30m
+  $ komando db query prod-db "select now()"
+  $ komando fs replace web1 /etc/nginx/nginx.conf --old A --new B --backup --dry-run
+
+Leave out an argument at a terminal and komando asks for it.
+LEARN MORE   komando <command> --help · komando help safety|environment|exit-codes|output
+`)
+	return b.String()
 }
 
 // tagline is what komando works with, said the same way in `komando`
@@ -670,4 +730,13 @@ func outputFormat(v string) (string, bool) {
 // pseudo version).
 func isRelease(v string) bool {
 	return strings.HasPrefix(v, "v") && !strings.HasPrefix(v, "v0.0.0-") && !strings.Contains(v, "+")
+}
+
+// signalContext is cancelled by the first Ctrl-C (or SIGTERM), so the
+// command stops cleanly. After that komando stops catching them: a second
+// Ctrl-C ends it at once, as with kubectl and gh, when the clean stop hangs.
+func signalContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	context.AfterFunc(ctx, cancel)
+	return ctx, cancel
 }

@@ -78,8 +78,8 @@ func formNameProblem(st *store.State, kind, v string) string {
 		}
 		return "use letters, digits, dot, dash and underscore, starting with a letter or digit (at most 63)"
 	}
-	if kind == "host" && checkHostName(v) != nil {
-		return "komando login " + strings.ToLower(v) + " is the cloud login; pick another name, like " + strings.ToLower(v) + "-1"
+	if c := reservedCloud(v); c != "" && checkEntryName(kind, v) != nil {
+		return "komando login " + c + " is the cloud login; pick another name, like " + c + "-1"
 	}
 	if k, existing, ok := st.FindName(v); ok {
 		return fmt.Sprintf("%s is already a %s; pick another name, like %s", existing, formKindWord(k), formFreeName(st, v))
@@ -88,7 +88,7 @@ func formNameProblem(st *store.State, kind, v string) string {
 }
 
 func formKindWord(k string) string {
-	return map[string]string{"host": "server", "conn": "service", "vpn": "VPN"}[k]
+	return map[string]string{"host": "server", "conn": "conn", "vpn": "VPN"}[k]
 }
 
 // formFreeName is base with the first number after it that no server,
@@ -114,8 +114,8 @@ func formProtectQ(what string) formQ {
 	return formQ{key: "protected", label: "Production", ask: "Can a mistake on this " + what + " hurt real users or real data?",
 		help: "Production: komando asks you before every change, and an AI agent needs your yes in a window.",
 		def:  func(*store.State, formAnswers) string { return "yes" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Yes, protect it", detail: "komando asks you before every change", value: "yes"},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Yes, protect it", detail: "komando asks you before every change", value: "yes"},
 				{label: "No", detail: "a test machine, or only mine", value: "no"}}
 		}}
 }
@@ -128,13 +128,13 @@ func formViaQ(what string, advanced bool) formQ {
 		ask:  "How does this computer reach the " + what + "?",
 		help: "Pick a server when the " + what + " only answers on that server or inside its network.",
 		def:  func(*store.State, formAnswers) string { return "" },
-		choices: func(st *store.State, _ formAnswers) []menuRow {
-			rows := []menuRow{{label: "Directly", detail: "it answers on the network from here", value: ""}}
-			for _, n := range menuNames(st.Hosts, "host") {
-				rows = append(rows, menuRow{label: "Through " + n, detail: "the server " + n, value: n})
+		choices: func(st *store.State, _ formAnswers) []pickRow {
+			rows := []pickRow{{label: "Directly", detail: "it answers on the network from here", value: ""}}
+			for _, n := range pickNames(st.Hosts, "host") {
+				rows = append(rows, pickRow{label: "Through " + n, detail: "the server " + n, value: n})
 			}
-			for _, n := range menuNames(st.Vpns, "vpn") {
-				rows = append(rows, menuRow{label: "Through " + n, detail: "the VPN " + n, value: n})
+			for _, n := range pickNames(st.Vpns, "vpn") {
+				rows = append(rows, pickRow{label: "Through " + n, detail: "the VPN " + n, value: n})
 			}
 			return rows
 		}}
@@ -147,8 +147,8 @@ func formHasVia(st *store.State) bool { return len(st.Hosts)+len(st.Vpns) > 0 }
 func formYesNoQ(key, label, ask, help, def, yes, no string) formQ {
 	return formQ{key: key, label: label, ask: ask, help: help,
 		def: func(*store.State, formAnswers) string { return def },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Yes", detail: yes, value: "yes"}, {label: "No", detail: no, value: "no"}}
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Yes", detail: yes, value: "yes"}, {label: "No", detail: no, value: "no"}}
 		}}
 }
 
@@ -290,10 +290,10 @@ func serverForm() formSpec {
 				return formFileProblem(v)
 			}}, ssh),
 		formWhen(formQ{key: "key", label: "Key", ask: "Which of your komando keys?", show: func(a formAnswers) bool { return a["login"] == "keylist" },
-			choices: func(st *store.State, _ formAnswers) []menuRow {
-				var rows []menuRow
-				for _, n := range menuNames(st.Keys, "key") {
-					rows = append(rows, menuRow{label: n, value: n})
+			choices: func(st *store.State, _ formAnswers) []pickRow {
+				var rows []pickRow
+				for _, n := range pickNames(st.Keys, "key") {
+					rows = append(rows, pickRow{label: n, value: n})
 				}
 				return rows
 			}}, ssh),
@@ -375,14 +375,14 @@ func serverLoginDefault(*store.State, formAnswers) string {
 	return "password"
 }
 
-func serverLoginChoices(st *store.State, _ formAnswers) []menuRow {
-	rows := []menuRow{
+func serverLoginChoices(st *store.State, _ formAnswers) []pickRow {
+	rows := []pickRow{
 		{label: "My SSH key", detail: "the key in ~/.ssh or ssh-agent, as ssh uses it", value: "usual"},
 		{label: "A password", detail: "you type it next, hidden; komando keeps it as a saved password", value: "password"},
 		{label: "A key file", detail: "a file somewhere else, like a .pem from your cloud provider", value: "file"},
 	}
 	if len(st.Keys) > 0 {
-		rows = append(rows, menuRow{label: "A komando key", detail: "one from komando key list", value: "keylist"})
+		rows = append(rows, pickRow{label: "A komando key", detail: "one from komando key list", value: "keylist"})
 	}
 	return rows
 }
@@ -483,8 +483,8 @@ func dbTLSQ() formQ {
 	return formQ{key: "tls", label: "Encryption", ask: "How should the connection be encrypted?", advanced: true,
 		help: "Leave it to komando unless the server has no TLS or a certificate it made itself.",
 		def:  func(*store.State, formAnswers) string { return "" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "komando decides", detail: "checked TLS over a network, none on the same machine", value: ""},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "komando decides", detail: "checked TLS over a network, none on the same machine", value: ""},
 				{label: "Encrypt, do not check", detail: "for a certificate the server made itself", value: "nocheck"},
 				{label: "No encryption", detail: "only inside a network you trust", value: "off"}}
 		}}
@@ -531,8 +531,8 @@ func mongoForm() formSpec {
 		formNameQ("conn", "database", "shop-db"),
 		{key: "flavor", label: "Kind", ask: "Where does it run?",
 			def: func(*store.State, formAnswers) string { return "self" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "On a server", detail: "your own MongoDB, or one in Docker", value: "self"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "On a server", detail: "your own MongoDB, or one in Docker", value: "self"},
 					{label: "MongoDB Atlas", detail: "an address like cluster0.abcde.mongodb.net", value: "atlas"}}
 			}},
 		formWhen(formReachQ("database"), self),
@@ -602,12 +602,19 @@ func sqliteForm() formSpec {
 // The add commands use the hand-made forms above from every menu path.
 func init() {
 	addFormHints(map[string]formHint{
-		"host add": {form: func() []formGroup { return formGroupsFor("host") }},
-		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }},
-		"vpn add":  {form: func() []formGroup { return formGroupsFor("vpn") }},
+		"host add": {form: func() []formGroup { return formGroupsFor("host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
+		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }, next: []string{"test {}", "conn show {}"}},
+		"vpn add":  {form: func() []formGroup { return formGroupsFor("vpn") }, next: []string{"vpn up {}", "vpn test {}", "host add NAME USER@ADDRESS --via {}"}},
 	})
 	// db add, cache add, ...: conn add for one family, asked the same way.
+	next := map[string][]string{
+		"db add":      {"db info {}", "db query {} \"select 1\"", "db schema {}"},
+		"cache add":   {"cache info {}", "cache keys {}", "conn edit {} --protected"},
+		"queue add":   {"queue info {}", "queue list {}", "queue peek {} TOPIC"},
+		"storage add": {"storage list {}", "conn edit {} --protected"},
+		"cluster add": {"cluster status {}", "cluster list {} pods"}, "registry add": {"registry list {}", "registry list {} REPO"},
+	}
 	for cmd, label := range formFamilyAdd {
-		addFormHints(map[string]formHint{cmd: {form: func() []formGroup { return formGroupNamed(label) }}})
+		addFormHints(map[string]formHint{cmd: {form: func() []formGroup { return formGroupNamed(label) }, next: next[cmd]}})
 	}
 }

@@ -18,9 +18,9 @@ import (
 // from an agent. Agents should use exec / job instead.
 func shellCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "shell TARGET",
+		Use:     "shell SERVER",
 		Aliases: []string{"ssh", "connect"},
-		Short:   "Interactive login shell (for people; agents use exec or job)",
+		Short:   "Open a login shell on one server",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				// `ssh host command` runs a command in ssh; here that is exec
@@ -44,7 +44,7 @@ func runShell(ctx context.Context, target string) error {
 	if !interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
 			"agents and scripts use `komando exec` or `komando job start`",
-			"shell is interactive and needs a person at a terminal")
+			"shell needs a person at a terminal")
 	}
 	st, err := loadState()
 	if err != nil {
@@ -57,10 +57,9 @@ func runShell(ctx context.Context, target string) error {
 		return notOnWindows("an interactive shell over WinRM", []string{h.Name})
 	}
 	protected := protectedHost(st, h)
-	if protected && !yesOK() && !confirmYes(h.Name+" is protected. Open a shell on it anyway?") {
-		if err := policyStop(out.Errf(out.ExitPolicy, "PROTECTED_HOST",
-			"a shell on a protected server needs a person's yes: re-run with --yes after the user confirms",
-			"a shell on protected host %s can change anything", h.Name)); err != nil {
+	if protected && !yesOK() && !confirmYes(h.Name+" (protected): this opens a shell on it. Continue?") {
+		if err := policyStop(approvalErr("PROTECTED_HOST",
+			"a shell on protected server "+h.Name+" can change anything")); err != nil {
 			return err
 		}
 	}

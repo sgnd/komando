@@ -31,7 +31,7 @@ const winListDelete = `\b(get-childitem|gci|ls|dir|get-item|gi)\b[^;|\n]*\s` + w
 
 var winRules = []struct{ id, pattern, reason string }{
 	{"win-rm-root", `(?i)` + winDelete + `[^;|&\n]*` + winRecurse + `[^;|&\n]*\s` + winTop + `|(?i)` + winDelete + `[^;|&\n]*\s` + winTop + `([^;|&\n]*\s)?(-r(e(c(u(r(s(e)?)?)?)?)?)?|/s)\b|(?i)` + winListDelete,
-		"recursive delete of the system drive, a system folder or the users folder"},
+		"deletes the system drive, a system folder or the users folder recursively"},
 	{"win-format", `(?i)\b(format-volume|clear-disk|initialize-disk|remove-partition|set-disk\s[^;|]*-isoffline|diskpart)\b|(?i)(^|[;&|(]\s*)format(\.com)?\s+[a-z]:`,
 		"formats or wipes a disk"},
 	{"win-power", `(?i)\b(stop-computer|restart-computer)\b|(?i)\bshutdown(\.exe)?\s+[/-][srpgh]\b`, "powers off or restarts the server"},

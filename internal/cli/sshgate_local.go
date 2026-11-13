@@ -14,7 +14,7 @@ import (
 )
 
 // A command on a target that is this computer runs here: exec on localhost
-// is a shell, `logs --file`, `fs cat` and `fs ls` read any file here (a
+// is a shell, `logs --file`, `fs cat` and `fs list` read any file here (a
 // private key whose lines MaskSecrets cannot tell from data), a sqlite conn
 // is a file here (VACUUM INTO, ATTACH and db restore write any file), and a
 // database, cache or cluster at 127.0.0.1 runs programs or reads and writes
@@ -51,9 +51,10 @@ func gateRemoteSides(args []string) []string {
 	return res
 }
 
-// gateUseTargets are the arguments c's Use line names TARGET or CONN
-// (`logs TARGET`, `cat TARGET PATH`, `check TARGET...`, `[TARGET]`). It
-// stops at the first flag in the line: the words after it are no position.
+// gateUseTargets are the arguments c's Use line names TARGET, SERVER or
+// CONN, alone or as one choice (`logs TARGET`, `cat SERVER PATH`,
+// `check TARGET|URL...`, `[TARGET]`, `rm TARGET...`). It stops at the
+// first flag in the line: the words after it are no position.
 func gateUseTargets(c *cobra.Command, args []string) []string {
 	var res []string
 	for i, w := range strings.Fields(c.Use)[1:] {
@@ -63,11 +64,12 @@ func gateUseTargets(c *cobra.Command, args []string) []string {
 		w = strings.Trim(w, "[]")
 		variadic := strings.HasSuffix(w, "...")
 		w = strings.TrimSuffix(w, "...")
-		if j := strings.LastIndex(w, "|"); j >= 0 {
-			w = w[j+1:]
+		target := false
+		for _, alt := range strings.Split(w, "|") {
+			target = target || gateTargetWords[alt]
 		}
 		switch {
-		case w != "TARGET" && w != "CONN":
+		case !target:
 		case variadic:
 			return append(res, args[i:]...)
 		default:
@@ -76,6 +78,9 @@ func gateUseTargets(c *cobra.Command, args []string) []string {
 	}
 	return res
 }
+
+// gateTargetWords are the Use words that name where a command acts.
+var gateTargetWords = map[string]bool{"TARGET": true, "SERVER": true, "CONN": true}
 
 // gateLocalTarget says why c acts on this computer, or "", for every key.
 func gateLocalTarget(c *cobra.Command, name string) string {

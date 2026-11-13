@@ -4,12 +4,10 @@ package out
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"slices"
 	"sort"
@@ -37,7 +35,13 @@ type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Hint    string `json:"hint,omitempty"`
-	Exit    int    `json:"-"`
+	// Thing says which kind of item a code shared by several kinds is
+	// about (KEY_NOT_FOUND: ssh_key or cache_key), S-8.3; additive
+	Thing string `json:"thing,omitempty"`
+	// Suggestion is the word komando thinks was meant ("did you mean"),
+	// S-8.8; the hint has the whole command line with it; additive
+	Suggestion string `json:"suggestion,omitempty"`
+	Exit       int    `json:"-"`
 	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
 	// --reveal), so an AI agent is not told that adding one asks the user
 	Final bool `json:"-"`
@@ -45,6 +49,7 @@ type Error struct {
 	// text-mode wording for a person; JSON keeps Message and Hint
 	say, sayHint string
 	cancelled    bool
+	need         []string // more flags the real run needs (Need)
 }
 
 // Say sets the words a person reads in text mode. JSON is unchanged, so
@@ -82,6 +87,9 @@ func (e *Error) NoFlag() *Error { e.Final = true; return e }
 
 func (e *Error) WithHint(h string) *Error { e.Hint = h; return e }
 
+// About sets error.thing: which kind of item a shared code is about.
+func (e *Error) About(thing string) *Error { e.Thing = thing; return e }
+
 // MarshalJSON writes the error with a hint even when the code that made it
 // gave none: error.hint always says what to try next.
 func (e Error) MarshalJSON() ([]byte, error) {
@@ -115,29 +123,19 @@ func DefaultHint(exit int) string {
 	case ExitConnect:
 		return "check that it answers and accepts the login: `komando test TARGET`"
 	case ExitRemote:
-		return "read the message: it carries the server's own words about what failed; fix that, then run the command again"
+		return "read the message: it carries the server's own words about what failed; fix that, then run it again"
 	case ExitPolicy:
 		return "stop and tell the user what you want to do and why; `komando guide` explains the safety stops"
 	case ExitTimeout:
 		return "give it more time with --timeout (for example --timeout 30m), or run long work as a job: `komando job start TARGET -- COMMAND`"
 	case ExitConflict:
-		return "the state is not what the command expected: look at it again, then run the command again"
+		return "the state is not what the command expected: look at it again, then run it again"
 	}
 	return "read the message; `komando doctor` checks this computer's setup"
 }
 
 func Errf(exit int, code, hint, format string, a ...any) *Error {
 	return &Error{Code: code, Message: fmt.Sprintf(format, a...), Hint: hint, Exit: exit}
-}
-
-func NotFound(kind, name string) *Error {
-	word := kind // the code and the command keep kind; the prose says VPN
-	if kind == "vpn" {
-		word = "VPN"
-	}
-	return Errf(ExitNotFound, strings.ToUpper(kind)+"_NOT_FOUND",
-		fmt.Sprintf("run `komando %s list` to see available %ss", kind, word),
-		"%s %q not found", word, name)
 }
 
 // UsageHint is the hint a usage error gets when its command gives none.
@@ -161,7 +159,7 @@ type Envelope struct {
 // Contract is the version of komando's output contract: the envelope,
 // field names, error codes and exit codes. Within one contract, fields
 // and codes are only added, never renamed or removed; a breaking change
-// raises it (docs/design/ux.md, section 13).
+// raises it (docs/design/principles.md, section 5).
 const Contract = 1
 
 type Meta struct {
@@ -174,6 +172,10 @@ type Meta struct {
 	Skipped []Skipped `json:"skipped,omitempty"`
 	// WouldBeBlocked: under --dry-run, the safety stop the real run would hit
 	WouldBeBlocked *Error `json:"would_be_blocked,omitempty"`
+	// WouldNeed: under --dry-run, every approval flag the real run needs
+	// (--allow-dangerous and --yes for a delete on a protected server),
+	// sorted; would_be_blocked names only the first stop.
+	WouldNeed []string `json:"would_need,omitempty"`
 	// HostKeysPinned lists the servers whose host key this command trusted
 	// for the first time (host_key_policy accept-new). Nothing proved the
 	// key is the server's: compare the fingerprint with the server's own.
@@ -181,6 +183,13 @@ type Meta struct {
 	// Warnings are things that went wrong beside the result (an audit
 	// record that could not be written); they are on stderr too.
 	Warnings []string `json:"warnings,omitempty"`
+	// Truncated: a list stopped at --limit; more items are there
+	// (--limit 0 shows them all).
+	Truncated bool `json:"truncated,omitempty"`
+	// NotSimulated: under --dry-run, the steps the dry run could not try
+	// without making them (a MySQL DDL statement commits by itself); the
+	// rest of the preview holds, these were not checked.
+	NotSimulated []string `json:"not_simulated,omitempty"`
 }
 
 // HostKey is a server's host key, as komando pinned it.
@@ -207,9 +216,15 @@ type Printer struct {
 	W       io.Writer
 	skipped []Skipped
 	blocked *Error
+	need    []string // meta.would_need
 	pinned  []HostKey
 	warns   []string
 	mu      sync.Mutex // pinned, warns: connections run side by side
+
+	cutAt    int      // the --limit a list stopped at (Cut)
+	cut      bool     // meta.truncated
+	cutNoted bool     // the command's own text says it was cut
+	notSim   []string // meta.not_simulated
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -225,10 +240,14 @@ type Printer struct {
 	// covers that target.
 	Personal bool
 	once     sync.Once
+	hmu      sync.RWMutex // hide: AddValue may run beside a command's output
 	hide     []hidden
 }
 
-type hidden struct{ raw, json, label string }
+type hidden struct {
+	raw, json, label string
+	added            bool // by AddValue: forgotten when the next command starts (Reset)
+}
 
 // minSecret is the shortest value hidden: shorter ones would match
 // ordinary words and garble output.
@@ -239,28 +258,25 @@ func (p *Printer) load() {
 		if p.Secrets == nil {
 			return
 		}
+		p.hmu.Lock()
+		defer p.hmu.Unlock()
 		for name, v := range p.Secrets() {
-			if len(v) < minSecret {
-				continue
-			}
-			var b bytes.Buffer
-			enc := json.NewEncoder(&b)
-			enc.SetEscapeHTML(false)
-			_ = enc.Encode(v)
-			j := strings.TrimSuffix(strings.TrimSpace(b.String()), `"`)
-			label := "[secret:" + name + "]"
-			p.hide = append(p.hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: label})
-			// the same value as it often travels: base64 (HTTP basic auth,
-			// Kubernetes secrets) and URL-encoded (connection strings)
-			for _, enc := range []string{base64.StdEncoding.EncodeToString([]byte(v)), url.QueryEscape(v)} {
-				if enc != v {
-					p.hide = append(p.hide, hidden{raw: enc, json: enc, label: label})
-				}
-			}
+			p.addLocked(v, "[secret:"+name+"]", false)
 		}
-		// longest first, so a secret that contains another is hidden whole
-		sort.Slice(p.hide, func(i, j int) bool { return len(p.hide[i].raw) > len(p.hide[j].raw) })
 	})
+}
+
+// RedactExact hides only the exact values komando keeps secret, never
+// what merely looks like one: for text a person must see whole (the
+// approval window), where a pattern could hide more than a value.
+func (p *Printer) RedactExact(s string) string {
+	if p.NoRedact {
+		return s
+	}
+	for _, h := range p.hideList() {
+		s = strings.ReplaceAll(s, h.raw, h.label)
+	}
+	return s
 }
 
 // Redact hides secret values in plain text.
@@ -268,10 +284,7 @@ func (p *Printer) Redact(s string) string {
 	if p.NoRedact {
 		return s
 	}
-	p.load()
-	for _, h := range p.hide {
-		s = strings.ReplaceAll(s, h.raw, h.label)
-	}
+	s = p.RedactExact(s)
 	if p.Mask {
 		s = MaskSecrets(s)
 		if p.Personal {
@@ -285,8 +298,7 @@ func (p *Printer) redactJSON(b []byte) []byte {
 	if p.NoRedact {
 		return b
 	}
-	p.load()
-	for _, h := range p.hide {
+	for _, h := range p.hideList() {
 		b = bytes.ReplaceAll(b, []byte(h.json), []byte(h.label))
 	}
 	if p.Mask {
@@ -305,10 +317,18 @@ type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
-	pinned, warns := slices.Clone(p.pinned), slices.Clone(p.warns)
+	pinned, warns, cut, ns := slices.Clone(p.pinned), slices.Clone(p.warns), p.cut, slices.Clone(p.notSim)
 	p.mu.Unlock()
-	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked,
-		HostKeysPinned: pinned, Warnings: warns}
+	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
+		HostKeysPinned: pinned, Warnings: warns, Truncated: cut, NotSimulated: ns}
+}
+
+// NotSimulated records a step a dry run left out because trying it would
+// make it (meta.not_simulated).
+func (p *Printer) NotSimulated(what string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.notSim = append(p.notSim, what)
 }
 
 // HostKeyPinned records a host key trusted on first use, for
@@ -320,18 +340,44 @@ func (p *Printer) HostKeyPinned(k HostKey) {
 }
 
 // WouldBlock records, under --dry-run, the first safety stop the real run
-// would hit (meta.would_be_blocked).
+// would hit (meta.would_be_blocked), and the flag every stop needs
+// (meta.would_need).
 func (p *Printer) WouldBlock(e *Error) {
 	if p.blocked == nil {
 		p.blocked = e
 	}
+	for _, f := range e.Flags() {
+		if !slices.Contains(p.need, f) {
+			p.need = append(p.need, f)
+		}
+	}
+	slices.Sort(p.need)
+}
+
+// ApprovalFlag is the flag that lets a safety stop through (--yes,
+// --allow-dangerous, --reveal), or "" for a stop no flag lifts.
+func ApprovalFlag(e *Error) string {
+	if e == nil || e.Final || e.Exit != ExitPolicy {
+		return ""
+	}
+	switch e.Code {
+	case "POLICY_BLOCKED":
+		return "--allow-dangerous"
+	case "PROTECTED_HOST", "PROTECTED_TARGET", "SAFETY_SETTING", "OPEN_BIND", "SECRET_DESTINATION", "CONFIRM_REQUIRED":
+		return "--yes"
+	case "REVEAL_NEEDS_PERSON":
+		return "--reveal"
+	}
+	return ""
 }
 
 // Reset forgets what one command recorded (tests run many in one process).
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.blocked, p.skipped, p.pinned, p.warns = nil, nil, nil, nil
+	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.notSim = nil, nil, nil, nil, nil, nil
+	p.cut, p.cutNoted, p.cutAt = false, false, 0
+	p.forgetAdded()
 }
 
 // Warn records something that went wrong beside the result: it goes to
@@ -340,7 +386,7 @@ func (p *Printer) Warn(msg string) {
 	p.mu.Lock()
 	p.warns = append(p.warns, msg)
 	p.mu.Unlock()
-	fmt.Fprintln(os.Stderr, "warning: "+noteText(p.Redact(msg)))
+	fmt.Fprintln(os.Stderr, Marks("Warning: "+Wrap(noteText(p.Redact(msg)), len("Warning: "), StderrWidth())))
 }
 
 // Blocked is the stop WouldBlock recorded, or nil.
@@ -367,16 +413,20 @@ func (p *Printer) printSkipped() {
 	case n == 0:
 	case n <= 3:
 		for _, s := range p.skipped {
-			fmt.Fprintf(os.Stderr, "skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
+			fmt.Fprintf(os.Stderr, "Skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
 		}
 	default:
 		names := make([]string, n)
 		for i, s := range p.skipped {
 			names[i] = s.Name
 		}
-		fmt.Fprintf(os.Stderr, "skipped %d targets this command does not work with: %s (details with -o json)\n", n, strings.Join(names, ", "))
+		fmt.Fprintf(os.Stderr, "Skipped %d targets this command does not work with: %s (details with -o json)\n", n, strings.Join(names, ", "))
 	}
 }
+
+// OnGenericText, when set (by a test), hears each command whose -o text
+// came from the generic renderer, not a Text method of its own (S-9.7).
+var OnGenericText func(command string)
 
 // Print prints data. A non-nil softErr marks the envelope not-ok but still
 // carries data (e.g. multi-host exec with partial failures).
@@ -386,27 +436,31 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 		p.printSkipped()
 		if p.DryRun {
 			// a person must never read a preview as a result
-			fmt.Fprintln(os.Stderr, "dry run: nothing was changed")
+			fmt.Fprintln(os.Stderr, "Dry run: nothing was changed")
 			if p.blocked != nil {
-				fmt.Fprintf(os.Stderr, "without --dry-run this stops here: [%s] %s\n", p.blocked.Code, noteText(p.Redact(p.blocked.Message)))
+				fmt.Fprintf(os.Stderr, "Without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
 				p.hint(p.blocked.hintOrDefault())
 			}
 		}
 		if t, ok := data.(Texter); ok {
-			s := SafeText(p.Redact(t.Text()))
+			s := SafeText(p.Redact(t.Text())) // data: a file or a row is shown as it is
 			fmt.Fprint(p.W, s)
 			if s != "" && !strings.HasSuffix(s, "\n") {
 				fmt.Fprintln(p.W)
 			}
 		} else if data != nil {
+			if OnGenericText != nil {
+				OnGenericText(command)
+			}
 			s := renderText(data, p.DryRun)
 			fmt.Fprint(p.W, SafeText(p.Redact(s)))
 			if s == "" {
 				// an empty list would print nothing, and a person cannot tell
 				// "no results" from "did not run"; stderr keeps pipes clean
-				fmt.Fprintln(os.Stderr, "nothing to show")
+				fmt.Fprintln(os.Stderr, "Nothing to show")
 			}
 		}
+		p.printCut()
 		if softErr != nil {
 			p.printErr(softErr, false)
 		}
@@ -433,31 +487,26 @@ func (p *Printer) Fail(command string, err error) int {
 // to do, then the code and exit code for looking it up. stopped is true
 // when the command ended here (Fail), so a safety stop changed nothing.
 func (p *Printer) printErr(e *Error, stopped bool) {
-	msg := noteText(p.Redact(e.TextMessage()))
+	msg := Marks(noteText(p.Redact(e.TextMessage())))
 	if e.cancelled {
 		fmt.Fprintln(os.Stderr, msg)
 		return
 	}
-	if stopped && e.Exit == ExitPolicy {
-		msg = "Stopped: " + sentence(msg)
+	label := "Error: "
+	if strings.HasPrefix(msg, "Stopped") {
+		label = "" // a person's stop line (Say) is its own label (M-12)
+	} else if stopped && e.Exit == ExitPolicy {
+		// a one-line error is a fragment (M-3): the state joins it after
+		// a semicolon, and no full stop ends it
+		label = "Stopped: "
+		msg = strings.TrimRight(msg, " .")
 		if !strings.Contains(strings.ToLower(msg), "nothing was changed") {
-			msg += " Nothing was changed."
+			msg += "; nothing was changed"
 		}
-	} else {
-		msg = "Error: " + msg
 	}
-	fmt.Fprintln(os.Stderr, msg)
+	fmt.Fprintln(os.Stderr, label+Wrap(msg, len(label), StderrWidth()))
 	p.hint(e.TextHint())
 	fmt.Fprintf(hintW, "(code %s, exit %d)\n", e.Code, e.Exit)
-}
-
-// sentence ends s with a period unless it ends in punctuation already.
-func sentence(s string) string {
-	s = strings.TrimRight(s, " ")
-	if s == "" || strings.ContainsAny(s[len(s)-1:], ".!?:") {
-		return s
-	}
-	return s + "."
 }
 
 // hint prints an error's hint in text mode, hidden and made safe like the
@@ -465,7 +514,7 @@ func sentence(s string) string {
 // terminal escapes.
 func (p *Printer) hint(h string) {
 	if h != "" {
-		fmt.Fprintf(hintW, "hint: %s\n", noteText(p.Redact(h)))
+		fmt.Fprintf(hintW, "Hint: %s\n", Marks(Wrap(noteText(p.Redact(h)), len("Hint: "), StderrWidth())))
 	}
 }
 
@@ -508,10 +557,10 @@ func renderText(data any, dryRun bool) string {
 			return sb.String()
 		}
 		if h := headline(m, dryRun); h != "" {
-			// what happened comes first, in words; the record follows, and
-			// the command to run next comes last
+			// what happened comes first, in words; the record follows. The
+			// command to run next is data.next, and for a person the Next:
+			// line on stderr: nothing next goes to stdout (S-9.3)
 			sb.WriteString(h + "\n")
-			next, _ := m["next"].(string)
 			for _, k := range []string{"action", "changed", "name", "created_at", "updated_at", "next"} {
 				delete(m, k)
 			}
@@ -521,15 +570,15 @@ func renderText(data any, dryRun bool) string {
 				}
 			}
 			writeAny(&sb, m, "  ")
-			if next != "" {
-				sb.WriteString("next: " + next + "\n")
-			}
 			return sb.String()
 		}
 	}
 	writeAny(&sb, v, "")
 	return sb.String()
 }
+
+// Headline is headline, for a command's own Text method.
+func Headline(m map[string]any, dryRun bool) string { return headline(m, dryRun) }
 
 // headline says in words what a change did to a named item ("added web2",
 // "web2: nothing to change"), for results that carry an action or a
@@ -575,7 +624,7 @@ func writeResults(sb *strings.Builder, rs []any, summary any) {
 		}
 		status := "ok"
 		if m["ok"] == false {
-			status = "FAILED"
+			status = "failed"
 		}
 		fmt.Fprintf(sb, "● %v  %s\n", m["host"], status)
 		rest := map[string]any{}

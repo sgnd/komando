@@ -21,7 +21,7 @@ func clusterStatusCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "status TARGET [TYPE/NAME]",
-		Short: "Version, nodes and what is not healthy; or one rollout",
+		Short: "Show the version, the nodes and what is not healthy",
 		Long: `Without an object: the version, the nodes, and every problem (pods that do not
 run, workloads short of replicas, nodes that are not ready; on Swarm, services
 short of replicas with their tasks' errors). --namespace limits it to one
@@ -34,7 +34,7 @@ passes.`,
 		Example: `  komando cluster status prod-k8s
   komando cluster status @prod                  # every cluster in the group, at once
   komando cluster status prod-k8s deployment/api --namespace shop --wait
-  komando cluster status swarm-manager service/web --wait`,
+  komando cluster status swarm1 service/web --wait`,
 		Args: cobra.RangeArgs(1, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()

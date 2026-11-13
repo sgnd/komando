@@ -94,7 +94,7 @@ func azureClientToken(ctx context.Context, tenant string, form url.Values, resou
 	authority := azureAuthority
 	if h := os.Getenv("AZURE_AUTHORITY_HOST"); h != "" {
 		if !strings.HasPrefix(h, "https://") {
-			return "", fmt.Errorf("%w: AZURE_AUTHORITY_HOST must start with https://", ErrAzureLogin)
+			return "", fmt.Errorf("%w: AZURE_AUTHORITY_HOST has to start with https://", ErrAzureLogin)
 		}
 		authority = strings.TrimSuffix(h, "/")
 	}

@@ -16,7 +16,7 @@ if [ "$($K conn test admin-ch | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null
   CHC logs --tail 30 clickhouse 2>&1 | sed 's/^/    /'
   echo "  the ClickHouse checks are skipped (the server could not run here)"
   q $K conn rm admin-ch
-  $K secret rm ch-admin ch-ro >/dev/null 2>&1 || true
+  $K secret rm ch-admin ch-ro --allow-dangerous >/dev/null 2>&1 || true
   set -e
   return 0
 fi
@@ -47,7 +47,7 @@ q $K db grant admin-ch e2e_ro --privileges SELECT --on 'e2e_ch.*'
 q $K conn add ro-ch 'clickhouse://e2e_ro@clickhouse:8123/e2e_ch' --via bastion --password-ref secret:ch-ro
 check "clickhouse: the new user logs in with the vault password" 2 "$($K db query ro-ch 'select count() from orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "clickhouse: and may only read what was granted" False "$($K db query ro-ch --write "insert into orders (id) values (9)" | jget 'd["ok"]')"
-check "clickhouse db grants shows SELECT" True "$($K db grants admin-ch e2e_ro | jget 'any(g["object"] == "e2e_ch.*" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
+check "clickhouse db user show shows SELECT" True "$($K db user show admin-ch e2e_ro | jget 'any(g["object"] == "e2e_ch.*" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
 q $K conn rm ro-ch
 q $K db user rm admin-ch e2e_ro --allow-dangerous
 check "clickhouse db user rm removed it" False "$($K db user ls admin-ch | jget 'any(u["name"] == "e2e_ro" for u in d["data"]["users"])')"
@@ -56,5 +56,5 @@ check "no clickhouse password in the audit log" 0 "$(audit_text | grep -c -E 'Ad
 q $K conn rm shop-ch
 q $K db query admin-ch --write --allow-dangerous 'drop database e2e_ch'
 q $K conn rm admin-ch
-$K secret rm ch-admin ch-ro >/dev/null 2>&1 || true
+$K secret rm ch-admin ch-ro --allow-dangerous >/dev/null 2>&1 || true
 set -e

@@ -12,7 +12,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Windows servers (docs/design/windows.md). A command that knows how to
+// Windows servers (docs/features/windows.md). A command that knows how to
 // work on Windows marks its context with allowWindows before it reaches
 // the servers; fanout and withClient refuse a Windows server to every
 // other command, so no sh script is ever sent to PowerShell.
@@ -44,7 +44,7 @@ func windowsNames(hosts []*store.Host) []string {
 // servers yet. what names the command ("pkg upgrade").
 func notOnWindows(what string, names []string) *out.Error {
 	return out.Errf(out.ExitUsage, "NOT_SUPPORTED",
-		"run PowerShell with `komando exec "+names[0]+" -- ...` instead, or leave the Windows servers out of the target, e.g. TARGET,!os:windows ("+releaseSite+"/blob/main/docs/features/windows.md lists what works)",
+		"run PowerShell with `komando exec "+names[0]+" -- ...` instead, or leave the Windows servers out of the target, for example TARGET,!os:windows ("+releaseSite+"/blob/main/docs/features/windows.md lists what works)",
 		"%s does not work on Windows servers yet: %s", what, strings.Join(names, ", "))
 }
 
@@ -109,11 +109,11 @@ func targetWindows(target string) (bool, error) {
 	return sameOS(hosts)
 }
 
-// windowsRunCheck refuses what a Windows server cannot do in exec and
-// script: there is no sudo and no terminal, and other commands that run
+// windowsRunCheck refuses what a Windows server cannot do in exec (and
+// exec --script): there is no sudo and no terminal, and other commands that run
 // through runFleet (logs, pkg, cron, fs rm ...) are sh scripts.
 func windowsRunCheck(ctx context.Context, name string, hosts []*store.Host, o execOpts) (context.Context, error) {
-	supported := name == "exec" || name == "script"
+	supported := name == "exec"
 	ctx, err := windowsGate(ctx, name, hosts, supported)
 	if err != nil || len(windowsNames(hosts)) == 0 {
 		return ctx, err
@@ -123,7 +123,7 @@ func windowsRunCheck(ctx context.Context, name string, hosts []*store.Host, o ex
 	}
 	switch {
 	case o.sudo || o.sudoUser != "":
-		return ctx, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "Windows has no sudo: log in as a user with the rights the command needs (an administrator), e.g. `komando host edit "+hosts[0].Name+" --user Administrator`",
+		return ctx, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "Windows has no sudo: log in as a user with the rights the command needs (an administrator), for example `komando host edit "+hosts[0].Name+" --user Administrator`",
 			"--sudo does not work on Windows servers")
 	case o.pty:
 		return ctx, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "run it without --pty; for an interactive session a person uses `komando shell "+hosts[0].Name+"`",
@@ -170,7 +170,7 @@ func psScriptCall(body string, argv []string) string {
 
 // windowsScript is `komando exec --script` on Windows servers: the file is a
 // PowerShell script, and --arg values are its arguments.
-func windowsScript(ctx context.Context, name, target, file string, body []byte, interpreter string, argv []string, o execOpts, readOnly bool) error {
+func windowsScript(ctx context.Context, target, file string, body []byte, interpreter string, argv []string, o execOpts, readOnly bool) error {
 	if i := strings.ToLower(interpreter); i != "" && i != "powershell" && i != "pwsh" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "on Windows servers a script is PowerShell: leave --interpreter out",
 			"--interpreter %s does not work on Windows servers", interpreter)
@@ -187,7 +187,7 @@ func windowsScript(ctx context.Context, name, target, file string, body []byte, 
 		}
 	}
 	o.display = "script " + filepath.Base(file)
-	return runFleet(ctx, name, target, command, nil, o, mutating)
+	return runFleet(ctx, "exec", target, command, nil, o, mutating)
 }
 
 // testWindowsHost is testHost for a Windows server: who komando logs in

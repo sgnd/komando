@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -15,7 +16,7 @@ import (
 // refused, a person gets a private known_hosts copy, and a sealed key
 // stops it with a hint to use komando shell.
 func TestSSHCommandSealedHome(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	for _, a := range agentVars {
 		t.Setenv(a.env, "")
 		resetApproval()
@@ -29,8 +30,8 @@ func TestSSHCommandSealedHome(t *testing.T) {
 	if i < 0 || strings.Contains(cmd, store.Path("known_hosts")) {
 		t.Fatalf("command %q", cmd)
 	}
-	kh := strings.Fields(cmd[i+len("UserKnownHostsFile="):])[0]
-	if fi, err := os.Stat(kh); err != nil || fi.Mode().Perm() != 0o600 {
+	kh := strings.TrimRight(strings.Fields(cmd[i+len("UserKnownHostsFile="):])[0], "'") // a Windows path is quoted
+	if fi, err := os.Stat(kh); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("known_hosts copy %s: %v", kh, err)
 	}
 

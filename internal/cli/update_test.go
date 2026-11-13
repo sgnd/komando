@@ -2,8 +2,10 @@ package cli
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -68,12 +71,27 @@ func (f *fakeReleases) archive(tag string) []byte {
 	if s, ok := f.says[tag]; ok {
 		says = s
 	}
+	script := "#!/bin/sh\necho " + says + "\n"
+	if runtime.GOOS == "windows" { // a .zip with komando.exe, as the Makefile makes it
+		var b bytes.Buffer
+		zw := zip.NewWriter(&b)
+		files := []struct{ name, body string }{{"LICENSE", "license text\n"}, {"komando.exe", script}}
+		if f.noBinary {
+			files = files[:1]
+		}
+		for _, e := range files {
+			w, _ := zw.Create(e.name)
+			_, _ = w.Write([]byte(e.body))
+		}
+		_ = zw.Close()
+		return b.Bytes()
+	}
 	var b bytes.Buffer
 	zw := gzip.NewWriter(&b)
 	tw := tar.NewWriter(zw)
 	// like `tar -czf X -C dir .` in the Makefile: a ./ folder and ./ names
 	_ = tw.WriteHeader(&tar.Header{Name: "./", Typeflag: tar.TypeDir, Mode: 0o755})
-	files := []struct{ name, body string }{{"./LICENSE", "license text\n"}, {"./komando", "#!/bin/sh\necho " + says + "\n"}}
+	files := []struct{ name, body string }{{"./LICENSE", "license text\n"}, {"./komando", script}}
 	if f.noBinary {
 		files = files[:1]
 	}
@@ -108,7 +126,7 @@ func (f *fakeReleases) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "gateway timeout", http.StatusServiceUnavailable)
 		return
 	}
-	name := "komando_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz"
+	name := archiveName()
 	if r.URL.Path == "/releases/latest" {
 		select {
 		case <-time.After(f.slow):
@@ -149,8 +167,25 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	releasePlatforms = map[string]bool{platform(): true} // the tests run where no release is made, too
 	selfPath = func() (string, error) { return exe, nil }
 	asRoot = func() bool { return false }
+	if runtime.GOOS == "windows" {
+		// the stand-in komando is an sh script (echo VERSION), which Windows
+		// cannot run: read what it would print instead
+		savedRun := runVersion
+		runVersion = func(_ context.Context, file string) ([]byte, error) {
+			b, err := os.ReadFile(file)
+			if err != nil {
+				return nil, err
+			}
+			v, ok := strings.CutPrefix(string(b), "#!/bin/sh\necho ")
+			if !ok {
+				return nil, errors.New("not a program")
+			}
+			return []byte(v), nil
+		}
+		t.Cleanup(func() { runVersion = savedRun })
+	}
 	home = filepath.Join(t.TempDir(), "home")
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Cleanup(func() {
 		releaseSite, selfPath, Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot
@@ -221,7 +256,7 @@ func TestUpdateInstallsNewest(t *testing.T) {
 	if got := fileText(t, exe); !strings.Contains(got, "echo v0.7.0") {
 		t.Errorf("komando was not replaced: %q", got)
 	}
-	if fi, _ := os.Stat(exe); fi.Mode().Perm() != 0o755 {
+	if fi, _ := os.Stat(exe); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o755 {
 		t.Errorf("mode = %v, want 0755", fi.Mode().Perm())
 	}
 	onlyFile(t, exe)
@@ -316,7 +351,7 @@ func TestUpdateOlderNeedsYes(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.5.0", "v0.7.0"}}
 	exe, _ := updateLab(t, "v0.7.0", f)
 	e := updateFails(t, "v0.5.0")
-	if e.Code != "SAFETY_SETTING" || e.Exit != out.ExitPolicy || !strings.Contains(e.Message, "going back to the older komando v0.5.0") {
+	if e.Code != "SAFETY_SETTING" || e.Exit != out.ExitPolicy || !strings.Contains(e.Message, "going back to the older komando v0.5.0") || strings.Count(e.Message, "safety checks") != 1 {
 		t.Errorf("going back without --yes: %v (exit %d)", e, e.Exit)
 	}
 	if fileText(t, exe) != "old komando" || f.downloads.Load() != 0 {
@@ -401,7 +436,7 @@ func TestUpdateTimeout(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.7.0"}, slow: 5 * time.Second}
 	exe, _ := updateLab(t, "v0.6.0", f)
 	e := updateFails(t, "--timeout", "100ms")
-	if e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout || e.Message != "the update took longer than 100ms" || !strings.Contains(e.Hint, "nothing was changed") {
+	if e.Code != "TIMEOUT" || e.Exit != out.ExitTimeout || e.Message != "the update took longer than 100ms; nothing was changed" || !strings.Contains(e.Hint, "komando update --timeout") {
 		t.Errorf("got %v (exit %d, hint %q)", e, e.Exit, e.Hint)
 	}
 	if fileText(t, exe) != "old komando" {
@@ -442,6 +477,7 @@ func TestUpdateErrors(t *testing.T) {
 }
 
 func TestUpdateNotWritable(t *testing.T) {
+	unixOnly(t, "a folder made read-only with chmod (Windows folders ignore it)")
 	if os.Geteuid() == 0 {
 		t.Skip("root may write anywhere")
 	}
@@ -491,5 +527,47 @@ func TestUpdateRedirectStaysHTTPS(t *testing.T) {
 	many := make([]*http.Request, 10)
 	if err := httpsOnlyRedirect(req("https://example.com/x"), many); err == nil {
 		t.Error("too many redirects must be refused")
+	}
+}
+
+// update knows every platform `make dist` builds: a release has an archive
+// for each, so update must not say there is none (Windows did, while its
+// .zip was already in every release).
+func TestReleasePlatformsMatchMakefile(t *testing.T) {
+	mk, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var built []string
+	for _, line := range strings.Split(string(mk), "\n") {
+		if v, ok := strings.CutPrefix(line, "PLATFORMS := "); ok {
+			built = strings.Fields(v)
+		}
+	}
+	if len(built) == 0 {
+		t.Fatal("no PLATFORMS line in the Makefile")
+	}
+	got := mapKeys(releasePlatforms)
+	slices.Sort(got)
+	slices.Sort(built)
+	if !slices.Equal(got, built) {
+		t.Errorf("releasePlatforms = %v, make dist builds %v", got, built)
+	}
+}
+
+// `komando update web1` names a server, not a version: a usage error that
+// points at `pkg upgrade` (S-3.6, C-V16), before anything is fetched.
+func TestUpdateRefusesATarget(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1", "-g", "web")
+	mustRun(t, "conn", "add", "db1", "postgres://u@127.0.0.1:1/app")
+	for _, w := range []string{"web1", "WEB1", "db1", "@web"} {
+		e := wantCode(t, "USAGE", "update", w)
+		if e.Hint != "komando pkg upgrade "+w || !strings.Contains(e.Message, "not a komando version") {
+			t.Errorf("update %s: %+v", w, e)
+		}
+	}
+	if err := updateNotATarget("v0.6.0"); err != nil {
+		t.Errorf("a version: %v", err)
 	}
 }

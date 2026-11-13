@@ -78,7 +78,7 @@ func winrmOpts(h *store.Host) store.WinRMOpts {
 func winrmPassword(h *store.Host) (string, error) {
 	if h.PasswordRef == "" || h.User == "" {
 		return "", out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"WinRM logs in with a user and a password: `komando host edit "+h.Name+" --ask-password` (and the user in the address, e.g. winrm://Administrator@HOST)",
+			"WinRM logs in with a user and a password: `komando host edit "+h.Name+" --ask-password` (and the user in the address, for example winrm://Administrator@HOST)",
 			"%s has no user or password for WinRM", h.Name)
 	}
 	return vault.Resolve(h.PasswordRef)
@@ -143,7 +143,7 @@ func winrmErr(h *store.Host, err error) error {
 		return out.Errf(out.ExitConnect, "WINRM_TLS", "if the server's certificate comes from your own CA, store it with `komando secret set NAME < ca.crt` and add ?ca=secret:NAME to its winrm:// address (`komando host edit "+h.Name+" --address winrm://...`)",
 			"%s: the WinRM server's certificate cannot be trusted: %v", h.Name, err)
 	case errors.As(err, &fe):
-		return out.Errf(out.ExitRemote, "WINRM_ERROR", "read the message; `winrm quickconfig` on the server sets WinRM up, and the user must be allowed to use it (an administrator, or the Remote Management Users group)",
+		return out.Errf(out.ExitRemote, "WINRM_ERROR", "read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group)",
 			"%s: %v", h.Name, err)
 	case errors.As(err, &oe) && oe.Op == "dial":
 		return out.Errf(out.ExitConnect, "WINRM_UNREACHABLE", "check the address and that WinRM listens there (port 5986 for HTTPS, 5985 for HTTP) and the firewall lets you in",

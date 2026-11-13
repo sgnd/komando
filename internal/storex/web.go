@@ -51,14 +51,19 @@ func webErr(what string, resp *http.Response, err error) error {
 		switch {
 		case errors.As(err, &oe):
 			return oe
+		case errors.Is(err, context.Canceled):
+			return err // Ctrl-C: komando says CANCELLED
 		case errors.Is(err, context.DeadlineExceeded):
 			return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or leave it unset for large transfers", "storage did not answer in time")
 		}
+		if e := tlsErr(err, what); e != nil {
+			return e
+		}
 		var ne net.Error
 		if errors.As(err, &ne) || strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "no such host") {
-			return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando conn test NAME` to check reachability", "%v", err)
+			return out.Errf(out.ExitConnect, "STORAGE_CONNECT", "run `komando test TARGET` to check reachability", "%v", err)
 		}
-		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%v", err)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "%v", err)
 	}
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	msg := strings.TrimSpace(string(body))
@@ -67,12 +72,12 @@ func webErr(what string, resp *http.Response, err error) error {
 	}
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "object not found")
+		return out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "object not found")
 	case http.StatusUnauthorized, http.StatusForbidden:
 		return out.Errf(out.ExitConnect, "STORAGE_AUTH", "check the conn's user, key or token reference; it may lack permission for this action",
 			"%s: %s %s", what, resp.Status, msg)
 	}
-	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando conn test NAME` to check the conn", "%s: %s %s", what, resp.Status, msg)
+	return out.Errf(out.ExitRemote, "STORAGE_ERROR", "run `komando test TARGET` to check the conn", "%s: %s %s", what, resp.Status, msg)
 }
 
 // do sends req and returns the answer when its status is one of ok;

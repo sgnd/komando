@@ -2,7 +2,7 @@
 // (and what speaks its protocol: Redpanda, MSK, Confluent Cloud) through
 // franz-go, and the engines that register themselves from its subfolders
 // (RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub). Reading never
-// moves a consumer group or removes a message; see docs/design/queue.md.
+// moves a consumer group or removes a message; see docs/features/queues.md.
 package queuex
 
 import (
@@ -26,7 +26,9 @@ type DialFunc func(ctx context.Context, network, addr string) (net.Conn, error)
 // Queue is what the queue commands need from an engine.
 type Queue interface {
 	Info(ctx context.Context) (*Info, error)
-	Topics(ctx context.Context, pattern string, internal bool) ([]Topic, error)
+	// Topics lists the topics whose name matches pattern, sorted by name;
+	// limit > 0 keeps the first limit of them (and skips reading the rest).
+	Topics(ctx context.Context, pattern string, internal bool, limit int) ([]Topic, error)
 	Describe(ctx context.Context, topic string) (*TopicDetail, error)
 	Peek(ctx context.Context, o PeekOptions) (*PeekResult, error)
 	Groups(ctx context.Context) ([]Group, error)

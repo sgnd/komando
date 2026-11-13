@@ -56,7 +56,7 @@ func TestParseKafkaRefuses(t *testing.T) {
 		"kafka://b1:9092?ca=secret:x":                 "add tls=true",
 		"kafka://b1:9092?tls=skip-verify&ca=secret:x": "do not go together",
 		"kafka://b1:9092?ca=plain":                    "secret:NAME",
-		"kafka://b1:99999":                            "invalid port",
+		"kafka://b1:99999":                            "is not a number from 1 to 65535",
 		"kafka://b1:9092?group=x":                     "unknown kafka URL option",
 		"kafka://":                                    "needs a broker",
 	} {

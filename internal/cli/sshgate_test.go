@@ -182,7 +182,8 @@ func TestGateCheck(t *testing.T) {
 		{"cache run c --write SET a b", "", "SSH_GATE_READ_ONLY"},
 		{"cluster run k8s --write delete pod x", "", "SSH_GATE_READ_ONLY"},
 		{"pkg upgradable web --refresh", "", "SSH_GATE_READ_ONLY"},
-		{"pkg security web --apply", "", "SSH_GATE_READ_ONLY"},
+		{"pkg security web --refresh", "", "SSH_GATE_READ_ONLY"},
+		{"pkg upgrade web --security", "", "SSH_GATE_READ_ONLY"},
 		{"pkg security web", "", ""},
 		{"recipe run my-df web", "", ""},
 		{"recipe run my-clean web", "", "SSH_GATE_READ_ONLY"},
@@ -196,7 +197,6 @@ func TestGateCheck(t *testing.T) {
 		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
 		{"exec web --script ./check.sh", "", "SSH_GATE_READ_ONLY"},
 		{"exec web --script ./check.sh --read-only", "", ""},
-		{"script web ./check.sh", R, R}, // an old name: the key uses `exec --script`
 		{"job start web --read-only -- du -sh /var", "", ""},
 		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
@@ -207,7 +207,6 @@ func TestGateCheck(t *testing.T) {
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
-		{"host export", R, R}, // an old name: the key uses `export`
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
 		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
@@ -223,18 +222,17 @@ func TestGateCheck(t *testing.T) {
 		{"conn rm pg", R, R},
 		{"host edit web --port 2222", R, R},
 		{"host mv web web2", R, R},
-		{"host import --json x.json", R, R},
+		{"import komando x.json", R, R},
 		{"host trust web", R, R},
 		{"import", R, R},
 		{"vpn add office openvpn --config x.ovpn", R, R},
 		{"vpn edit office --notes x", R, R},
 		{"vpn up office", "", "SSH_GATE_READ_ONLY"},
 		{"group add web prod", R, R},
-		{"rename --prefix a b", R, R},
+		{"rename --starts-with a b", R, R},
 		{"config set audit off", R, R},
 		{"policy deny 'x'", R, R},
 		{"policy rm x", R, R},
-		{"prompt", R, R},
 		{"status --short", "", ""},
 		{"secret rm db", R, R},
 		{"secret keychain", R, R},
@@ -315,6 +313,8 @@ func TestGateLocalTargets(t *testing.T) {
 		"exec vpnd -- id":                                                         R, // through a VPN: may be this computer
 		"exec web -- id":                                                          "",
 		"fs write me /home/u/.bashrc":                                             R,
+		"fs restore me /home/u/.bashrc":                                           R,
+		"fs restore web /etc/nginx/nginx.conf":                                    "", // the undo of fs replace --backup
 		"svc restart lh sshd":                                                     R,
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
@@ -629,6 +629,7 @@ func TestGateAgentName(t *testing.T) {
 }
 
 func TestSSHGateLine(t *testing.T) {
+	unixOnly(t, "ssh-gate line writes an authorized_keys command= for a Unix shell; on Windows komando refuses it (SSH_GATE_PATH)")
 	invHome(t)
 	pub, _, _ := ed25519.GenerateKey(rand.Reader)
 	sp, _ := ssh.NewPublicKey(pub)
@@ -692,5 +693,26 @@ func TestSSHGateBareAtATerminal(t *testing.T) {
 	_, _, e = gateRun(t, "", "--name", "phone")
 	if e == nil || e.Code != "SSH_GATE_REFUSED" || lastAudit(t)["ssh_gate"] != "phone" {
 		t.Errorf("sshd, no command: %+v", e)
+	}
+}
+
+// A synonym (cluster info, group show, tunnel show, recipe show) gets the
+// gate's answer of the command it names, for a full key and a read-only
+// one: it carries that command's ID, so it is not refused as plumbing
+// (review F12).
+func TestGateSynonyms(t *testing.T) {
+	invHome(t)
+	gateInventory(t)
+	for syn, now := range map[string]string{
+		"cluster info k8s": "cluster status k8s",
+		"group show web":   "group list web",
+		"tunnel show t1":   "tunnel list",
+		"recipe show r1":   "recipe list",
+	} {
+		for _, ro := range []bool{false, true} {
+			if got, want := gateAnswer(t, syn, ro), gateAnswer(t, now, ro); got != want {
+				t.Errorf("%q (read-only %v): %q, want %q as for %q", syn, ro, got, want, now)
+			}
+		}
 	}
 }

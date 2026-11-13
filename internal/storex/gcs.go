@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -56,30 +57,51 @@ func OpenGCS(_ context.Context, t driver.Target, key string, dial DialFunc, time
 		b.base += "/" + t.Path
 	}
 	plain := webClient(dial, timeout, false)
-	onGoogle := t.Address == "storage.googleapis.com:443"
+	if err := trustCA(plain.Transport.(*http.Transport), t); err != nil {
+		return nil, err
+	}
 	var creds *google.Credentials
 	var err error
 	tctx := context.WithValue(context.Background(), oauth2.HTTPClient, plain) // tokens too go the conn's way
-	if key != "" {
+	switch {
+	case key != "" && !t.Secure:
+		// a key logs in to Google: its token must never travel unencrypted
+		return nil, out.Errf(out.ExitUsage, "INSECURE_PROTOCOL",
+			"use an https:// endpoint, or leave out --password-ref for an emulator that needs no login",
+			"gcs: the endpoint is http://, so the token of the service account key would travel unencrypted")
+	case key != "":
 		creds, err = google.CredentialsFromJSONWithType(tctx, []byte(key), google.ServiceAccount, gcsScope)
 		if err != nil {
 			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH", "the --password-ref of a gcs conn holds a service account key (the JSON file from the console)",
 				"gcs: the stored key is not a service account key: %v", err)
 		}
-	} else if creds, err = gcsDefaultCredentials(tctx); err != nil {
-		if onGoogle {
+	case gcsGoogleHost(t):
+		if creds, err = gcsDefaultCredentials(tctx); err != nil {
 			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH",
 				"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME` and pass --password-ref secret:NAME",
 				"gcs: no Google Cloud login: %v", err)
 		}
-		creds = nil // an emulator without a login
 	}
+	// otherwise an emulator or another service: gcloud's own login (found
+	// on this computer, not given for this conn) is never sent to it
 	b.c = plain
 	if creds != nil {
 		b.c = &http.Client{Transport: &oauth2.Transport{Source: creds.TokenSource, Base: plain.Transport}, CheckRedirect: plain.CheckRedirect}
 		b.signer = newGCSSigner(creds.JSON)
 	}
 	return b, nil
+}
+
+// gcsGoogleHost: the endpoint is Google's own, over HTTPS (the public
+// name, or a private one such as restricted.googleapis.com), so the login
+// gcloud keeps on this computer may go there.
+func gcsGoogleHost(t driver.Target) bool {
+	h, _, err := net.SplitHostPort(t.Address)
+	if err != nil {
+		h = t.Address
+	}
+	h = strings.ToLower(strings.TrimSuffix(h, "."))
+	return t.Secure && (h == "googleapis.com" || strings.HasSuffix(h, ".googleapis.com"))
 }
 
 // hostOf is the address for a URL: without the default port.
@@ -182,7 +204,7 @@ func (b *gcsBucket) Stat(ctx context.Context, rel string) (Object, error) {
 	resp, err := b.get(ctx, b.objectURL(full), http.StatusOK)
 	if err != nil {
 		if oe, ok := err.(*out.Error); ok && oe.Code == "OBJECT_NOT_FOUND" {
-			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage ls CONN [PREFIX]`", "%s not found", rel)
+			return Object{}, out.Errf(out.ExitNotFound, "OBJECT_NOT_FOUND", "list objects with `komando storage list CONN [PREFIX]`", "%s not found", rel)
 		}
 		return Object{}, err
 	}

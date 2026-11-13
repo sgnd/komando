@@ -10,6 +10,7 @@ import (
 func TestReadOwnKeyFromHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	if err := os.WriteFile(filepath.Join(home, "id"), []byte("X"), 0o600); err != nil {
 		t.Fatal(err)
 	}

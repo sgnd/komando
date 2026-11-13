@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"crypto/cipher"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -10,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // TestMain keeps every test away from the real keychain: a new vault
@@ -23,14 +24,12 @@ func TestMain(m *testing.M) {
 func freshHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 	os.Unsetenv("KOMANDO_VAULT_PASS")
 	passMu.Lock()
 	pass = ""
 	passMu.Unlock()
-	aeadMu.Lock()
-	aeadCache = map[string]cipher.AEAD{}
-	aeadMu.Unlock()
 }
 
 // roundTrip starts with the key in vault.key, then uses the keychain kc
@@ -265,6 +264,7 @@ func TestKeyToKeychainSameKey(t *testing.T) {
 // macOS: an item find-generic-password finds holds another key, so
 // `komando secret keychain` refuses and runs no add.
 func TestKeyToKeychainItemExistsMacOS(t *testing.T) {
+	unixOnly(t, "an sh script plays macOS's security tool")
 	freshHome(t)
 	keyFileVault(t)
 	dir := t.TempDir()
@@ -274,6 +274,7 @@ func TestKeyToKeychainItemExistsMacOS(t *testing.T) {
 	script := `#!/bin/sh
 echo "$1" >> "` + dir + `/calls"
 case "$1" in
+  default-keychain) echo '    "/Users/x/Library/Keychains/login.keychain-db"' ;;
   find-generic-password) for a in "$@"; do [ "$a" = -w ] && { echo ` + strings.Repeat("cd", 32) + `; exit 0; }; done
     echo 'keychain: "login.keychain-db"' ;;
   -i) cat >> "` + dir + `/added" ;;
@@ -289,4 +290,51 @@ esac
 		t.Error("security -i ran an add")
 	}
 	stillKeyFile(t)
+}
+
+// macOS with no default keychain for this user (a changed HOME, say):
+// `security add-generic-password` would make macOS show a "Keychain Not
+// Found" dialog. komando asks `security default-keychain` first; when it
+// fails, a new store keeps its key in store.key, the change count is
+// skipped, `secret keychain` gives a clear error, and no add ever runs.
+func TestNoDefaultMacKeychainNeverAdds(t *testing.T) {
+	unixOnly(t, "an sh script plays macOS's security tool")
+	freshHome(t)
+	t.Setenv("KOMANDO_KEYCHAIN", "")
+	dir := t.TempDir()
+	savedOS, savedSec := keychainOS, securityTool
+	keychainOS, securityTool = "darwin", filepath.Join(dir, "security")
+	t.Cleanup(func() { keychainOS, securityTool = savedOS, savedSec })
+	script := `#!/bin/sh
+echo "$1" >> "` + dir + `/calls"
+case "$1" in
+  default-keychain) echo 'security: SecKeychainCopyDefault: A default keychain could not be found.' >&2; exit 1 ;;
+  find-generic-password) exit 44 ;;
+  -i) cat >> "` + dir + `/added" ;;
+esac
+`
+	if err := os.WriteFile(securityTool, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, meta, err := storeMaster(nil, true)
+	if err != nil || meta["key_mode"] != "keyfile" {
+		t.Fatalf("a new store without a default keychain: %v %v", meta, err)
+	}
+	if _, _, err := genGet(); err == nil {
+		t.Error("genGet asked the keychain")
+	}
+	if err := genSet(7); err == nil {
+		t.Error("genSet wrote to the keychain")
+	}
+	genDel()
+	if _, err := KeyToKeychain(); err == nil || !strings.Contains(err.Error(), "no default macOS keychain") {
+		t.Errorf("secret keychain: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "added")); err == nil {
+		t.Error("security -i ran an add")
+	}
+	calls, _ := os.ReadFile(filepath.Join(dir, "calls"))
+	if got := strings.TrimSpace(string(calls)); got != "default-keychain" {
+		t.Errorf("security was run for more than default-keychain (once per process):\n%s", got)
+	}
 }

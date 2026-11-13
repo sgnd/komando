@@ -3,7 +3,7 @@
 // and tls:// conns. A queue here is a JetStream stream: ls lists streams,
 // describe shows one with its consumers, peek reads messages by their
 // sequence number (no consumer, nothing acknowledged, nothing removed),
-// send publishes to a subject a stream keeps. See docs/design/queue.md.
+// send publishes to a subject a stream keeps. See docs/features/queues.md.
 package nats
 
 import (

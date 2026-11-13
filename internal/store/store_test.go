@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -34,7 +35,7 @@ func TestWriteFileAtomic(t *testing.T) {
 	}
 	b, _ := os.ReadFile(p)
 	fi, _ := os.Stat(p)
-	if string(b) != `{"a":2}` || fi.Mode().Perm() != 0o640 {
+	if string(b) != `{"a":2}` || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o640 {
 		t.Fatalf("got %q mode %o", b, fi.Mode().Perm())
 	}
 	if left := tmpFiles(t, dir); left != nil {
@@ -60,6 +61,7 @@ func TestWriteFileAtomicCleansUpOnFailure(t *testing.T) {
 
 func TestLockSerializes(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	var mu sync.Mutex
 	inside, most := 0, 0
 	var wg sync.WaitGroup

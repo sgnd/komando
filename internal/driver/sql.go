@@ -23,18 +23,18 @@ type Rule struct {
 var sqlRules = []Rule{
 	{"sql-drop", "drops a database object or column"},
 	{"sql-truncate", "empties a table"},
-	{"sql-delete-no-where", "DELETE without WHERE removes every row"},
-	{"sql-update-no-where", "UPDATE without WHERE changes every row"},
+	{"sql-delete-no-where", "removes every row (DELETE without WHERE)"},
+	{"sql-update-no-where", "changes every row (UPDATE without WHERE)"},
 	{"sql-privileges", "changes users, roles or privileges"},
 	{"sql-program", "runs a program or native code on the database server (COPY ... PROGRAM, an extension, plugin or library, a function in C or an untrusted language)"},
 	{"sql-server-file", "reads or writes files on the database server"},
 	{"sql-kill", "kills sessions or shuts the server down"},
-	{"sql-vacuum-full", "VACUUM FULL locks and rewrites tables"},
+	{"sql-vacuum-full", "locks and rewrites tables (VACUUM FULL)"},
 	{"sql-server-config", "changes server-wide configuration"},
 	{"sql-session-config", "changes a setting whose name komando cannot see (set_config with a computed name)"},
 	{"sql-opaque", "runs code komando cannot inspect (DO, CALL, PREPARE/EXECUTE)"},
 	{"sql-remote", "reaches another server, which the read-only transaction does not cover (dblink, a database link, ClickHouse url() or s3())"},
-	{"db-restore", "restoring a backup can overwrite existing data"},
+	{"db-restore", "restores a backup, which can overwrite existing data"},
 }
 
 var dataRules = []Rule{

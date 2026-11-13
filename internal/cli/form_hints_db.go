@@ -12,7 +12,7 @@ func init() {
 // Answers several hints share.
 var (
 	dbConn = formArg{ask: "Which database?", pick: "db",
-		help: "A database from your list. Add one first with Add, Database."}
+		help: "A database from your list (`komando list kind:db`). Add one with `komando db add`."}
 	dbSQL = formArg{ask: "Which SQL should it run?", example: "select id, email from users order by id desc limit 10",
 		help: "One or more statements, ending with ; when there are several. On MongoDB: a JSON command like {\"find\": \"users\"}."}
 	dbWrite = formFlag{name: "write", ask: "May it change data?",
@@ -23,11 +23,11 @@ var (
 	dbLimit = formFlag{name: "limit", ask: "Show at most how many rows?",
 		help: "0 shows every row. Big results are cut anyway, so keep it small for a first look.", example: "100"}
 	dbUser = formArg{ask: "Which database user?", example: "app_ro",
-		help: "The user name inside the database, not your SSH user. `komando db user ls` shows them."}
-	dbFrom = formFlag{name: "from", ask: "MySQL only: from where does this user connect?",
+		help: "The user name inside the database, not your SSH user. `komando db user list` shows them."}
+	dbFrom = formFlag{name: "from-host", ask: "MySQL only: from where does this user connect?",
 		help:    "The account host, like 10.0.0.% or localhost. Leave empty for % (anywhere), or on PostgreSQL.",
 		example: "10.0.0.%"}
-	dbOn = formFlag{name: "on", ask: "Which server should run the backup tool?", pick: "server",
+	dbOn = formFlag{name: "run-on", ask: "Which server should run the backup tool?", pick: "server",
 		help: "A server that has pg_dump or mysqldump and can reach the database. Leave empty to use the server the database is reached through."}
 	dbPasswordRef = formFlag{name: "password-ref", ask: "Where is the password kept?", required: true,
 		example: "secret:app-ro-pass",
@@ -38,7 +38,7 @@ var (
 var dbLookHints = map[string]formHint{
 	"db query": {
 		args: []formArg{dbConn, {ask: "Which SQL should it run? (leave empty to read it from a file)",
-			example: dbSQL.example, help: dbSQL.help}},
+			example: dbSQL.example, help: dbSQL.help, need: func(a formAnswers) bool { return a["flag:file"] == "" }}},
 		flags: []formFlag{dbWrite,
 			{name: "file", ask: "Or read the SQL from which file on this computer?", example: "./migration.sql", local: true,
 				help: "Only when you left the SQL empty. A .sql file on this computer."},
@@ -67,11 +67,11 @@ var dbLookHints = map[string]formHint{
 		args:  []formArg{dbConn},
 		flags: []formFlag{{name: "limit", ask: "Show how many of the biggest tables and indexes?", example: "10"}},
 	},
-	"db grants": {
+	"db user show": {
 		args:  []formArg{dbConn, dbUser},
 		flags: []formFlag{dbFrom},
 	},
-	"db user ls": {args: []formArg{dbConn}},
+	"db user list": {args: []formArg{dbConn}},
 	"db shell": {
 		args: []formArg{{ask: "Which database?", pick: "db",
 			help: "You type SQL in it and see the rows. \\q leaves, \\? lists what else it knows."}},
@@ -89,12 +89,13 @@ var dbChangeHints = map[string]formHint{
 			help: "No stops only the running query and the program stays connected. Yes disconnects it."}},
 	},
 	"db dump": {
+		next: []string{"db restore {} --from FILE --dry-run"},
 		args: []formArg{{ask: "Which database should it back up?", pick: "db",
 			help: "A database you added to komando."}},
 		flags: []formFlag{
-			{name: "to", ask: "Save the backup to which file on this computer?", required: true, local: true,
+			{name: "to", ask: "Save the backup to which file on this computer?", local: true,
 				example: "./prod-2026-11-10.sql.gz",
-				help:    "A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it."},
+				help:    "A new file; it never overwrites one. Ending in .gz makes it smaller. Only you can read it. Left out: CONN-<date>.sql.gz in this folder."},
 			{name: "format", ask: "Which kind of backup?", choices: []string{"plain", "custom"},
 				help: "plain is SQL any database tool reads. custom is PostgreSQL's own archive (needs pg_dump on a server; no .gz then)."},
 			{name: "schema-only", ask: "Only the tables' shape, without the rows?",
@@ -109,7 +110,7 @@ var dbChangeHints = map[string]formHint{
 		flags: []formFlag{
 			{name: "from", ask: "Which backup file on this computer?", required: true, local: true, example: "./prod-2026-11-10.sql.gz",
 				help: "A file from `komando db dump`, pg_dump or mysqldump. A .gz file is read as it is."},
-			{name: "on", ask: "Which server should run pg_restore?", pick: "server",
+			{name: "run-on", ask: "Which server should run pg_restore?", pick: "server",
 				help: "Only for a PostgreSQL custom archive. Leave empty to use the server the database is reached through."}},
 	},
 }
@@ -157,4 +158,24 @@ func dbGrantHint(ask string, revoke bool) formHint {
 				help: roleHelp},
 			dbFrom},
 	}
+}
+
+// Next: lines for the database commands (db dump has its own above).
+func init() {
+	addFormHints(map[string]formHint{
+		"db query":       {next: []string{"db schema {} TABLE", "db query {} --write --dry-run \"update ...\"", "db dump {} --to backup.sql"}},
+		"db schema":      {next: []string{"db schema {} TABLE", "db query {} \"select * from TABLE limit 10\""}},
+		"db explain":     {next: []string{"db explain {} --analyze \"select ...\"", "db schema {} TABLE"}},
+		"db info":        {next: []string{"db sizes {}", "db activity {}"}},
+		"db activity":    {next: []string{"db locks {}", "db kill {} PID --dry-run"}},
+		"db locks":       {next: []string{"db kill {} PID --dry-run", "db activity {}"}},
+		"db kill":        {next: []string{"db activity {}"}},
+		"db sizes":       {next: []string{"db schema {} TABLE", "db dump {} --to backup.sql"}},
+		"db restore":     {next: []string{"db schema {}", "db query {} \"select count(*) from TABLE\""}},
+		"db user list":   {next: []string{"db user show {} USER", "db user add {} USER --password-ref secret:NAME"}},
+		"db user add":    {next: []string{"db grant {} USER --privileges SELECT --on all-tables:public", "db user show {} USER"}},
+		"db user passwd": {next: []string{"db user show {} USER"}},
+		"db grant":       {next: []string{"db user show {} USER"}},
+		"db revoke":      {next: []string{"db user show {} USER"}},
+	})
 }

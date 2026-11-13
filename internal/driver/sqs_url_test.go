@@ -41,11 +41,11 @@ func TestParseSQSRefuses(t *testing.T) {
 		"sqs://eu-west-1/orders":              "drop \"/orders\"",
 		"sqs://eu-west-1?queue=orders":        "unknown sqs URL option",
 		"sqs://eu-west-1?account=12":          "12-digit",
-		"sqs://eu-west-1?endpoint=ftp://x":    "endpoint must be a URL",
+		"sqs://eu-west-1?endpoint=ftp://x":    "endpoint is a URL",
 		"sqs://eu-west-1?endpoint=http://x/a": "server only",
 		"sqs://eu-west-1?insecure=yes":        "only be 1",
-		"sqs://AKIA@eu-west-1?secret_key=abc": "must not contain a password",
-		"sqs://AKIA:secret@eu-west-1":         "must not contain a password",
+		"sqs://AKIA@eu-west-1?secret_key=abc": "holds no password",
+		"sqs://AKIA:secret@eu-west-1":         "holds no password",
 	} {
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), want) {

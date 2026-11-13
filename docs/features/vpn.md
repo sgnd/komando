@@ -3,7 +3,7 @@
 Reach servers and databases that sit behind a VPN, even several VPNs at the
 same time, without switching between them. [All docs](README.md)
 
-## Quick start
+## Reach a server through a VPN
 
 ```bash
 komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
@@ -11,6 +11,16 @@ komando host add db1 admin@10.0.0.5 --via office    # a server inside the VPN
 komando exec db1 -- uptime                          # connects the VPN by itself
 komando test kind:vpn                               # do all VPNs work?
 komando vpn status                                  # which VPNs are up, and what uses them
+```
+
+At a terminal, `komando vpn add` typed alone asks step by step, starting
+with the VPN app your company uses.
+
+```text
+$ komando vpn status
+NAME     KIND           UP    SINCE   USED BY   DETAIL
+corp     globalprotect  yes   2h      web1      session running
+office   wireguard      -     -       db1       connects for each command
 ```
 
 ## Supported VPNs
@@ -26,44 +36,46 @@ komando vpn status                                  # which VPNs are up, and wha
 | `f5` | F5 BIG-IP SSL VPN | inside komando, experimental | no |
 | `pulse` | Pulse Secure / Ivanti Connect Secure | inside komando, experimental | no |
 | `l2tp` | L2TP/IPsec with a pre-shared key (Windows Server, MikroTik, strongSwan + xl2tpd, many routers) | inside komando | no |
-| `ipsec` (also `cisco`) | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
+| `ipsec` (also `cisco`, `xauth`) | Cisco-style IPsec: group name and password, then your login (XAUTH): Cisco ASA/IOS, MikroTik, strongSwan; the "IPSec" type of macOS and iOS | inside komando | no |
 | `ikev2` | IKEv2/IPsec, with a pre-shared key or a user login (EAP-MSCHAPv2) checked against the server's certificate | inside komando | no |
-| `socks` | a SOCKS5 proxy that is already running (`komando tunnel start bastion -D 1080`, a company proxy) | already running | no |
-| `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--password-ref` | already running | no |
+| `socks` | a SOCKS5 proxy that is already running (`komando tunnel start bastion -D 1080`, a company proxy); with a login: `--user` and `--password-ref` | already running | no |
+| `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--proxy-address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--password-ref` | already running | no |
 | `system` | a VPN set up in your computer's own settings | by your computer | yes |
 
-"Inside komando" means: no extra program, no Docker, no admin rights. The
-VPN is opened inside komando for that command only. Your computer's routes
-and DNS stay the same, so two VPNs that use the same addresses (both
-`10.0.0.0/8`) do not get in each other's way.
+"Inside komando" means: no extra program, no Docker, no admin rights.
+Your computer's routes and DNS stay the same, so two VPNs that use the
+same addresses (both `10.0.0.0/8`) do not get in each other's way. Names
+inside the VPN (`db.internal`) are looked up with the DNS servers the
+VPN's own configuration gives.
 
 ## Add a VPN
 
 A VPN that logs in with a password, pre-shared key or auth key reads it
 from the vault: store it first with `komando secret set NAME` (it asks for
-it, hidden), then name it in `--password-ref` or `--psk-ref`. The names
-below (`kantor`, `ts-authkey` ...) are such secrets. Or type it when you
-add the VPN: `--ask-password` stores it as `secret:NAME-pass`, and
+it, hidden), then name it in `--password-ref` or `--psk-ref`. Or type it
+when you add the VPN: `--ask-password` stores it as `secret:NAME-pass`, and
 `--ask-psk` stores a pre-shared key as `secret:NAME-psk`.
 
+Pick the line for your kind of VPN:
+
 ```bash
-komando secret set kantor                     # the VPN password, typed once (hidden)
 komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
-komando vpn add kantor openvpn --config kantor.ovpn --user budi --password-ref secret:kantor --check 10.8.0.1:22
-komando vpn add client-x globalprotect --portal vpn.client.com --user budi --password-ref secret:client-x --mfa
-komando vpn add client-y globalprotect --portal vpn.client.com   # signs in through a browser window at `vpn up`
-komando vpn add tailnet tailscale --password-ref secret:ts-authkey
-komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk --user budi --password-ref secret:kantor --check 10.1.0.5:22
-komando vpn add asa ipsec --server asa.client.com --id staff --psk-ref secret:asa-group --user budi --password-ref secret:asa
-komando vpn add cloud ikev2 --server vpn.example.com --user budi --password-ref secret:cloud --check 10.2.0.5:22
-komando vpn add corp system --service "Corp VPN" --check 10.20.0.1:443
-komando vpn add lab socks --address 127.0.0.1:1080
-komando vpn add office proxy --address proxy.corp.example:3128
+komando vpn add office openvpn --config office.ovpn --user alice --password-ref secret:office-pass --check 10.8.0.1:22
+komando vpn add office globalprotect --portal vpn.example.com --user alice --password-ref secret:office-pass --mfa
+komando vpn add office globalprotect --portal vpn.example.com     # signs in through a browser window at `vpn up`
+komando vpn add office tailscale --password-ref secret:ts-authkey
+komando vpn add office l2tp --server vpn.example.com --psk-ref secret:office-psk --user alice --password-ref secret:office-pass --check 10.1.0.5:22
+komando vpn add office ipsec --server asa.example.com --id staff --psk-ref secret:office-group --user alice --password-ref secret:office-pass
+komando vpn add office ikev2 --server vpn.example.com --user alice --password-ref secret:office-pass --check 10.2.0.5:22
+komando vpn add office system --service "Corp VPN" --check 10.20.0.1:443
+komando vpn add office socks --proxy-address 127.0.0.1:1080
+komando vpn add office proxy --proxy-address proxy.corp.example:3128
 ```
 
 - `--check host:port` is an address that answers only through the VPN.
   `komando test` and `komando vpn up` connect to it to prove the VPN works.
-  Always add one; `system` and `openvpn` VPNs need it.
+  Always add one; `system` and `openvpn` VPNs need it. Without one, a SOCKS
+  or HTTP proxy VPN is checked by connecting to the proxy itself.
 - `--config` takes the WireGuard `.conf` or OpenVPN `.ovpn` file. komando
   stores it in the vault, together with its keys. The original file
   still holds the private key, so delete it if you no longer need it.
@@ -71,7 +83,7 @@ komando vpn add office proxy --address proxy.corp.example:3128
   (WireGuard) or `NAME-config` (OpenVPN). If a secret of that name exists
   already, `vpn add` stops with `SECRET_EXISTS` and saves nothing, so it
   never replaces a secret that a server or a file uses. Pick another VPN
-  name, or move the secret away first (`komando secret mv`, or `komando
+  name, or move the secret away first (`komando secret rename`, or `komando
   secret rm` if an earlier VPN of that name left it). `--overwrite` may
   reuse the secrets of the VPN it replaces, when nothing else uses them,
   and a secret that nothing uses and that holds the same key already (the
@@ -93,72 +105,123 @@ komando vpn add office proxy --address proxy.corp.example:3128
   settings. With it, `komando vpn up` connects the VPN for you (macOS:
   `scutil`; Linux: NetworkManager). Without it, connect the VPN yourself;
   komando checks it with `--check`.
+- `vpn add` takes `--label` and `--protected` too.
 
 ## Use a VPN
 
 Put the VPN first in `--via`. A command that needs it connects it by itself:
 
 ```bash
-komando host add db1 admin@10.0.0.5 --via office                         # a server inside the VPN
-komando conn add app-db postgres://app@10.0.0.9/app --via office,bastion # VPN, then a bastion
+komando host add db1 admin@10.0.0.5 --via office                        # a server inside the VPN
+komando conn add prod-db postgres://app@10.0.0.9/app --via office,bastion # VPN, then a bastion
 komando exec db1 -- uptime
-komando tunnel start app-db                                              # open it in TablePlus, psql, ...
-komando tunnel start office -D 1080                                      # a SOCKS proxy on port 1080 that goes through the VPN
+komando tunnel start prod-db                                            # open it in TablePlus, psql, ...
+komando tunnel start office -D 1080                                     # a SOCKS proxy on port 1080 that goes through the VPN
 ```
 
-When a command connects a VPN by itself, it says so on one line:
+How long a VPN stays up depends on its kind:
 
-```text
-komando: vpn office connected; it stays up until unused for 30m (`komando vpn down office` stops it)
-```
+- **Session VPNs** (OpenVPN, AnyConnect and the other SSL VPNs, L2TP,
+  IPsec, IKEv2, Tailscale) run in the background once connected, and
+  later commands reuse the session. When a command connects one by
+  itself, it says so on one line:
 
-A VPN session that is unused for 30 minutes is closed (only connections
-that log in to its local proxy count as use). To change that:
+  ```text
+  komando: vpn corp connected; it stays up until unused for 30m (`komando vpn down corp` stops it)
+  ```
+
+- **WireGuard** connects for each command, so nothing stays running.
+  After `komando vpn up office`, a WireGuard VPN is kept up and reused
+  like a session, which saves a handshake on every command.
+- **SOCKS, HTTP proxy and `system`** VPNs are already running; komando
+  only uses them.
+
+A session that is unused for 30 minutes is closed. Use means a
+connection through it: one that stays open (a `shell`, `logs --follow`, a
+tunnel) counts for as long as it is open. To change that:
 `komando config set vpn_idle 1h` (`0` keeps it up until you stop it).
 
 ## VPNs that need a person (MFA, SSO)
 
 Add `--mfa` when the login needs a person: a one-time code, a push
-notification, a browser sign-in. Then a person connects it once:
+notification, a browser sign-in. komando sets this by itself for an SSL
+VPN (`anyconnect`, `globalprotect`, `fortinet`, `f5`, `pulse`) without
+`--password-ref`, a Tailscale VPN without an auth key, and an `openvpn`,
+`l2tp`, `ipsec` or `ikev2` VPN with `--user` but no `--password-ref`.
+Then a person connects it once:
 
 ```bash
-komando vpn up client-x       # log in here, MFA included
-komando exec app1 -- uptime   # later commands (and agents) reuse the session
-komando vpn down client-x     # or: komando vpn down --all
+komando vpn up corp           # log in here, MFA included
+komando exec web1 -- uptime   # later commands (and agents) reuse the session
+komando vpn down corp         # or: komando vpn down --all
 ```
 
-komando never answers MFA by itself. Tailscale without an auth key works the
-same way: `komando vpn up tailnet` shows the login page once, and the node
-stays logged in after that.
+Typed alone at a terminal, `komando vpn up` asks which VPN, with a list of
+yours to pick from.
+
+An AI agent never logs in. Without a session it gets `VPN_LOGIN_REQUIRED`
+(exit 4); the hint names `komando vpn up corp` for the person.
+`komando vpn up corp --dry-run` shows `would_connect: false` and
+`meta.would_be_blocked`. komando never answers MFA by itself.
+
+Tailscale without an auth key works the same way: `komando vpn up office`
+shows the login page once, and the node stays logged in after that.
+
+`vpn down` says what the disconnect does to the servers and conns that use
+the VPN:
+
+```text
+disconnected corp
+  web1 stop answering until a person runs `komando vpn up corp`
+```
+
+A VPN without a person's login is connected again by the next command that
+needs it (`--dry-run` shows the same list first; in JSON it is `affects`).
 
 ## Manage VPNs
 
 ```bash
-komando list kind:vpn                         # all VPNs (or: komando vpn list)
+komando vpn list                              # all VPNs
 komando vpn test office                       # does it connect? (same as komando test office)
 komando vpn show office                       # its settings and what uses it
 komando vpn edit office --check 10.0.0.6:22   # change a setting (see the list below)
 komando vpn status                            # which are up, since when, what uses them
-komando vpn mv office office-jkt              # rename; every --via path follows
-komando vpn rm office                         # remove (several names allowed)
+komando vpn rename office office-jkt          # rename; every --via path follows
+komando vpn rm office                         # remove (several names or a selector allowed)
+komando vpn edit tag:prod --protected         # mark VPNs protected (like host edit)
 ```
 
-- `vpn status`: a session VPN is up while its session runs, a SOCKS VPN when
-  its address answers, a `system` VPN when its `--check` address answers.
-  WireGuard connects for each command, so nothing stays running.
+- `vpn status`: a session VPN is up while its session runs; a SOCKS or
+  HTTP proxy VPN when its address answers; a `system` VPN when its
+  `--check` address answers. WireGuard connects for each command, unless
+  you ran `komando vpn up` for it: then it stays up like a session.
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
-  with `--dry-run`). Change those `--via` paths first. Its keys stay in the
-  vault until `komando secret rm`; a new WireGuard or OpenVPN VPN of the
-  same name needs them gone first, unless it is added from the same file.
-- `vpn edit` changes `--check`, `--address`, `--user`, `--password-ref`,
+  with `--dry-run`). Change those `--via` paths first. Its answer lists the
+  VPNs it removed (`removed`, always a list); `--dry-run` lists them as
+  `would_remove`. Its keys stay in the vault until `komando secret rm`; a
+  new WireGuard or OpenVPN VPN of the same name needs them gone first,
+  unless it is added from the same file.
+- `vpn edit` changes `--check`, `--proxy-address`, `--user`, `--password-ref`,
   `--portal`, `--server`, `--psk-ref`, `--id`, `--remote-id`, `--ca`,
-  `--service`, `--mfa`, `--notes`, and groups and tags: `-g` and `-t` add
-  one, as in `host edit`; `--rm-group` and `--rm-tag` take one away. An AI
-  agent that swaps or clears a VPN's `--ca` needs a person's yes
-  (`SAFETY_SETTING`): another CA lets another server get the VPN's login.
+  `--service`, `--mfa`, `--legacy-crypto`, `--allow-pap`, `--notes`,
+  `--label KEY=VALUE` (an empty value removes it), `--protected`, and
+  groups and tags: `--add-group` and `--add-tag` add one, `--rm-group` and
+  `--rm-tag` take one away. `--unset` clears `user`, `password-ref`,
+  `psk-ref`, `id`, `remote-id`, `ca`, `check` or `notes`; it does not take
+  `mfa` or `protected`. An AI agent that swaps or clears a VPN's `--ca`
+  needs a person's yes (`SAFETY_SETTING`): another CA lets another server
+  get the VPN's login.
+- `vpn edit` and `vpn rm` take several names or a selector (`@office`,
+  `tag:lab`), as `host edit` and `host rm` do.
+- A protected VPN (`--protected`) needs a person's yes before it is
+  changed, replaced or removed (`PROTECTED_TARGET`). At your terminal
+  komando asks you first; an AI agent or a script adds `--yes` after a
+  person agrees. Turning its protection off (`--protected=false`) or
+  turning `--mfa` off weakens a check, so it needs that yes too
+  (`SAFETY_SETTING`). See [Safety](safety.md#what-needs-a-yes).
 - To give a WireGuard or OpenVPN VPN a new config file, add it again with
   `--overwrite`.
-- `vpn mv` refuses a VPN that is up: run `komando vpn down NAME` first.
+- `vpn rename` refuses a VPN that is up: run `komando vpn down NAME` first.
   The vault secrets `vpn add` made under its name (`OLD-key`, `OLD-psk`,
   `OLD-config`, `OLD-pass`) move to the new name when only this VPN uses
   them, so a new VPN can take the old name.
@@ -196,17 +259,14 @@ certificates, a user name and password, or both.
   `compress stub-v2` are fine.
 - With `auth-user-pass` in the profile, give `--user` and either
   `--password-ref`, or `--mfa` to type the password (with a PIN or one-time
-  code, for Pritunl) at `komando vpn up`.
+  code, for Pritunl) at `komando vpn up`. Plain OpenVPN profiles exported
+  from Pritunl work.
 - Each session's local port needs a login only komando knows, so other users
   of your computer cannot use it.
 - komando reads the `.ovpn` and refuses anything it and OpenVPN could read
   differently (backslash escapes, stray quotes, over-long lines, odd inline
   tags). A profile that leans on one of those tricks is refused; write it
   in plain form instead.
-- The old `--os-mode` (the `openvpn` program run with sudo) is gone. A VPN
-  saved with it stops at `komando vpn up` with `VPN_OS_MODE_REMOVED`; add
-  it again with `komando vpn add NAME openvpn --config FILE.ovpn --check
-  HOST:PORT --overwrite` to use komando's own client.
 
 ## AnyConnect and the other SSL VPNs
 
@@ -216,20 +276,20 @@ the server offers it, and falls back to TLS when UDP is blocked.
 `fortinet`, `globalprotect`, `f5` and `pulse` also have their own clients in
 komando. `globalprotect` has been tried against a real Prisma Access portal
 and gateway, with the browser sign-in and Cloud Authentication Service
-below. Prisma Access gateways behind a load balancer and the HIP check
-(host information the gateway may ask for) are not built yet. `fortinet`,
-`f5` and `pulse` are still experimental: written to the vendors'
-protocols, but not yet tried against the vendors' own servers. komando
-uses these clients:
+below. `fortinet`, `f5` and `pulse` are experimental: written to the
+vendors' protocols, but not tried against the vendors' own servers.
+komando uses these clients:
 
 - when the `openconnect` program is not installed, or
 - always, when `KOMANDO_EXPERIMENTAL_VPN` names them
   (`KOMANDO_EXPERIMENTAL_VPN=fortinet,pulse`, or `all`).
 
 Otherwise, if `openconnect` is installed, komando runs it together with
-`ocproxy`. That also leaves your computer's network unchanged. A
-GlobalProtect VPN without `--user` always uses komando's own client: only
-that one does the browser sign-in below.
+`ocproxy`. That also leaves your computer's network unchanged. Both
+programs must be installed; when one is missing, `vpn up` stops with
+`VPN_CLIENT_MISSING` (exit 3) and says how to install it. A GlobalProtect
+VPN without `--user` always uses komando's own client: only that one does
+the browser sign-in below.
 
 ### GlobalProtect with a browser sign-in
 
@@ -239,8 +299,8 @@ portal uses Palo Alto's Cloud Authentication Service. Add such a VPN with
 only its portal, no user and no password:
 
 ```bash
-komando vpn add client-y globalprotect --portal vpn.client.com
-komando vpn up client-y
+komando vpn add corp globalprotect --portal vpn.example.com
+komando vpn up corp
 ```
 
 `komando vpn up` asks the portal how it logs in. For a browser sign-in it
@@ -258,17 +318,12 @@ the page.
   own. komando says so and shows it in the same window; whether you type
   your password again there is up to your company's sign-in.
 - To sign in only once, give a gateway's own address as `--portal`
-  (`komando vpn edit client-y --portal gw1.client.com`): komando then
+  (`komando vpn edit corp --portal gw1.example.com`): komando then
   skips the portal.
-- Not built yet: Prisma Access gateways behind a load balancer. Such a
-  gateway is refused with an error that names the portal's other
-  gateways; add one of those as the VPN's `--portal`.
 - With none of those browsers, the sign-in opens in your own browser. The
   last page has a link or button that opens GlobalProtect: copy that
   link's address (it starts with `globalprotectcallback:`) and paste it
   into the terminal.
-- Not built yet: the device report (HIP) some companies ask for. A VPN
-  that needs it connects but may let no traffic through.
 
 ## L2TP/IPsec, IPsec and IKEv2 details
 
@@ -288,11 +343,11 @@ computer where it already works:
 | `ikev2`, pre-shared key | server, local ID, pre-shared key | `--server`, `--id`, `--psk-ref` |
 
 ```bash
-komando secret set kantor-psk          # type the pre-shared key
-komando secret set kantor              # type your password
-komando vpn add kantor l2tp --server vpn.kantor.id --psk-ref secret:kantor-psk \
-  --user budi --password-ref secret:kantor --check 10.1.0.5:22
-komando test kantor
+komando secret set office-psk          # type the pre-shared key
+komando secret set office-pass         # type your password
+komando vpn add office l2tp --server vpn.example.com --psk-ref secret:office-psk \
+  --user alice --password-ref secret:office-pass --check 10.1.0.5:22
+komando test office
 ```
 
 - Without `--password-ref`, a person types the password at
@@ -303,9 +358,7 @@ komando test kantor
   and with a shared pre-shared key anyone who knows that key can pretend to
   be the server. A server that insists on PAP stops with an error that says
   so. If the server cannot do better and you accept that it gets your
-  password, allow PAP for that VPN only: `komando vpn edit kantor --allow-pap`.
-  A tunnel secret on the L2TP layer ("L2TP secret" or "challenge") is not
-  supported.
+  password, allow PAP for that VPN only: `komando vpn edit office --allow-pap`.
 - `ipsec` with a group name (`--id`) logs in with IKEv1 aggressive mode,
   like Cisco's own clients. Anyone who sees that login can guess the group
   password offline, and with it pretend to be the server. The session log
@@ -322,16 +375,17 @@ komando test kantor
   weak (a well-funded attacker can break them) and are not offered: a
   server that wants them stops with an error that says so. If its admin
   cannot change that, allow them for that VPN only:
-  `komando vpn edit kantor --legacy-crypto`. They then come after the
+  `komando vpn edit office --legacy-crypto`. They then come after the
   strong ones, and the session log warns when the server picks one. IKEv2:
   AES-GCM and AES-CBC with SHA-2 or SHA-1, DH groups 14, 19, 20, 31 (and 2
   for old servers). Single DES and MD5 are never used.
 - `--legacy-crypto` and `--allow-pap` make the login weaker, so turning
-  one on needs a person's yes: `--yes` from a person, and for an AI agent
-  also the person's click in komando's window. Turn them on when you add
-  the VPN (`komando vpn add old-office l2tp ... --legacy-crypto`) or later
-  with `komando vpn edit`; `--legacy-crypto=false` and `--allow-pap=false`
-  turn them off again. `komando doctor` lists every VPN that has one on.
+  one on needs a person's yes: at your terminal komando asks you first; an
+  AI agent or a script adds `--yes` after a person agrees. Turn them on
+  when you add the VPN (`komando vpn add office l2tp ... --legacy-crypto`)
+  or later with `komando vpn edit`; `--legacy-crypto=false` and
+  `--allow-pap=false` turn them off again. `komando doctor` lists every VPN
+  that has one on.
 - When a session ends by itself, `komando vpn status` shows why in
   `last_end`.
 - If the server does not answer, run `KOMANDO_IPSEC_DEBUG=1 komando vpn up
@@ -339,15 +393,37 @@ komando test kantor
   (sizes and types, never keys). Only sends and nothing received means UDP
   500 does not get through, or the server ignores komando's offer.
 
+## Limits
+
+- WireGuard uses the `MTU` line of its config file (1420 when there is
+  none). With VPNs stacked inside each other, lower it there.
+- `fortinet`, `f5` and `pulse` are experimental, and Pritunl's PIN or
+  one-time-code login has not been tried against a Pritunl server.
+- GlobalProtect: Prisma Access gateways behind a load balancer are not
+  supported. Such a gateway is refused with an error that names the
+  portal's other gateways; add one of those as the VPN's `--portal`.
+- GlobalProtect: the device report (HIP) some companies ask for is not
+  supported. A VPN that needs it connects but may let no traffic through.
+- `l2tp`: a tunnel secret on the L2TP layer ("L2TP secret" or "challenge")
+  is not supported.
+- Pulse/Ivanti: a server that asks for a client certificate (EAP-TTLS) or
+  for Host Checker is refused with a clear error. Traffic stays on TLS;
+  komando does not switch it to UDP (ESP).
+- A `system` VPN changes your computer's routes. `vpn up` compares the
+  routes before and after, and warns when two networks claim the same
+  addresses.
+
 ## Troubleshooting
 
-- `VPN_DOWN` means the VPN does not answer. The hint depends on the kind:
-  connect the `system` VPN, start the SOCKS proxy
-  (`komando tunnel start HOST -D ADDRESS`), or check a WireGuard endpoint
-  that sends no handshake.
-- `komando vpn up` on WireGuard connects to `--check` and fails if nothing
-  answers through the tunnel.
-- `komando vpn down` on a SOCKS VPN tells you which tunnel to stop.
-- A `system` VPN changes your computer's routes. `vpn up`
-  compares the routes before and after, and warns when two networks claim
-  the same addresses.
+| Code | What it means | What to do |
+|------|---------------|------------|
+| `VPN_DOWN` (exit 4) | the VPN does not answer | the hint depends on the kind: connect the `system` VPN; start the SOCKS proxy (`komando tunnel start bastion -D 1080`); check that the HTTP proxy answers and lets the port through (many company proxies allow only 443); check that a WireGuard endpoint is reachable and the keys match; for a session VPN, reconnect with `komando vpn down NAME` and `komando vpn up NAME` |
+| `VPN_DOWN` at `vpn up` on WireGuard | nothing answered at `--check` through the tunnel (no handshake yet) | check the endpoint and the keys (`komando vpn show office`) |
+| `VPN_LOGIN_REQUIRED` (exit 4) | the VPN needs a person's login and has no session | a person runs `komando vpn up NAME` |
+| `VPN_CLIENT_MISSING` (exit 3) | `openconnect` or `ocproxy` is not installed | install the program the message names |
+| `VPN_IN_USE` (exit 8) | `vpn rm` on a VPN still on a `--via` path | change those `--via` paths first |
+| `VPN_CONFIG` (exit 2) | the stored settings or config file are wrong | fix them with `komando vpn add NAME ... --overwrite` |
+| `OVPN_UNSUPPORTED` (exit 2) | the OpenVPN profile has an option komando's client does not support | change the profile; the message names the option |
+| `SECRET_EXISTS` (exit 8) | a vault secret with the VPN's name exists already | pick another VPN name, or move the secret away first |
+
+`komando vpn down` on a SOCKS VPN tells you which tunnel to stop.

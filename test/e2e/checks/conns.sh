@@ -42,6 +42,9 @@ $K db query pg --write "drop table t" >/dev/null; check "pg drop needs --allow-d
 set -e
 check "pg dry run rolls back" 2 "$($K db query pg --write --dry-run 'delete from t where id > 0' >/dev/null; $K db query pg 'select count(*) from t' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K db dump pg --to "$TMP/pg.sql.gz"
+mkdir -p "$TMP/dumps"
+check "db dump --to a folder names the file after the conn" True "$($K db dump pg --to "$TMP/dumps/" | jget 'd["data"]["file"].endswith("/pg-'"$(date +%F)"'.sql.gz")' || true)"
+check "a db hint names the conn" True "$($K db schema pg no_such_table | jget '"komando db schema pg" in d["error"]["hint"]' || true)"
 check "pg dump is private" 600 "$(stat -c %a "$TMP/pg.sql.gz" 2>/dev/null || stat -f %Lp "$TMP/pg.sql.gz")"
 q $K db query pg --write --allow-dangerous "drop table t; drop sequence s"
 q $K db restore pg --from "$TMP/pg.sql.gz" --allow-dangerous
@@ -56,6 +59,7 @@ for _ in $(seq 1 20); do PID=$($K db activity pg | jget '[s["pid"] for s in d["d
 check "db activity sees the slow query" True "$([ -n "$PID" ] && echo True || echo False)"
 check "db kill --dry-run names the query" True "$($K db kill pg "$PID" --dry-run | jget '"pg_sleep" in d["data"]["session"]["query"]')"
 check "db kill --session needs --allow-dangerous" POLICY_BLOCKED "$($K db kill pg "$PID" --session | jget 'd["error"]["code"]' || true)"
+check "db kill --session --dry-run says it would be blocked" POLICY_BLOCKED "$($K db kill pg "$PID" --session --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]' || true)"
 check "db kill cancels it" "cancel query" "$($K db kill pg "$PID" | jget 'd["data"]["done"]')"
 for _ in $(seq 1 10); do grep -q '"ok"' "$TMP/slow.json" 2>/dev/null && break; sleep 1; done
 check "the cancelled query stopped" False "$(jget 'd["ok"]' < "$TMP/slow.json")"
@@ -66,17 +70,17 @@ q $K db restore pg --from "$TMP/t2.dump" --allow-dangerous
 check "pg_restore brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K db dump pg --to "$TMP/schema.sql" --schema-only
 check "schema-only dump has no rows" 0 "$(grep -c "COPY public.t " "$TMP/schema.sql" || true)"
-# --on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
+# --run-on HOST: pg_dump/pg_restore run on a chosen server, whatever the conn's own path
 q $K conn add pg-on 'postgres://app@pg:5432/app?sslmode=disable' --password-ref secret:pg-pass
-check "custom dump without a server names --on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--on HOST" in d["error"]["message"]' || true)"
-check "dump --on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
-q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --on bastion
-check "dump --on writes a pg archive" PGDMP "$(head -c 5 "$TMP/on.dump")"
-check "dump --on from a server that cannot reach the database" CONN_UNREACHABLE "$($K db dump pg-on --to "$TMP/on2.sql" --on direct | jget 'd["error"]["code"]' || true)"
+check "custom dump without a server names --run-on" True "$($K db dump pg-on --to "$TMP/on0.dump" --format custom | jget '"--run-on HOST" in d["error"]["message"]' || true)"
+check "dump --run-on dry run says where and how" "bastion True" "$($K db dump pg-on --to "$TMP/on.dump" --format custom --run-on bastion --dry-run | jget 'd["data"]["runs_on"] + " " + str(d["data"]["low_priority"])')"
+q $K db dump pg-on --to "$TMP/on.dump" --format custom --table public.t2 --run-on bastion
+check "dump --run-on writes a pg archive" PGDMP "$(head -c 5 "$TMP/on.dump")"
+check "dump --run-on from a server that cannot reach the database" CONN_UNREACHABLE "$($K db dump pg-on --to "$TMP/on2.sql" --run-on direct | jget 'd["error"]["code"]' || true)"
 q $K db query pg --write --allow-dangerous "drop table t2"
-check "restore --on needs --allow-dangerous" POLICY_BLOCKED "$($K db restore pg-on --from "$TMP/on.dump" --on bastion | jget 'd["error"]["code"]' || true)"
-q $K db restore pg-on --from "$TMP/on.dump" --on bastion --allow-dangerous
-check "pg_restore --on brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
+check "restore --run-on needs --allow-dangerous" POLICY_BLOCKED "$($K db restore pg-on --from "$TMP/on.dump" --run-on bastion | jget 'd["error"]["code"]' || true)"
+q $K db restore pg-on --from "$TMP/on.dump" --run-on bastion --allow-dangerous
+check "pg_restore --run-on brings the table back" 1 "$($K db query pg 'select count(*) from t2' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "audit names where the dump ran" bastion "$($K audit -n 50 | jget '" ".join(sorted({e.get("runs_on", "") for e in d["data"]["entries"] if e.get("command") == "db.dump" and str(e.get("file", "")).endswith("/on.dump")}))')"
 q $K conn rm pg-on
 
@@ -114,7 +118,13 @@ check "memcached run reads" True "$($K cache run mc -- stats | jget 'any("curr_i
 set +e
 $K cache run mc -- flush_all >/dev/null; check "memcached flush_all blocked" 6 $?
 $K cache rm mc greeting >/dev/null; check "memcached rm needs --allow-dangerous" 6 $?
+# a newline in an argument would start a second command after the read
+$K cache run mc -- get $'greeting\r\nflush_all' >/dev/null; check "memcached run refuses a newline in a word" 2 $?
+$K cache run mc --write -- ' flush_all' x >/dev/null; check "memcached flush_all behind a space still needs --allow-dangerous" 6 $?
 set -e
+check "memcached keys survived the injection tries" "['greeting']" "$($K cache keys mc 'greet*' | jget 'd["data"]["keys"]')"
+check "memcached run takes GET in capitals" halo "$($K cache run mc -- GET greeting | jget 'd["data"]["reply"][0]["value"]')"
+check "memcached stats reset needs --write" WRITE_REQUIRES_FLAG "$($K cache run mc -- stats reset | jget 'd["error"]["code"]' || true)"
 check "memcached rm --dry-run names the key" "['greeting']" "$($K cache rm mc greeting --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm mc greeting --allow-dangerous
 check "memcached key gone" KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"

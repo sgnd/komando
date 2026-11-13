@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -163,7 +164,7 @@ func guardSensitiveCopy(remotePath string) error {
 		return nil
 	}
 	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-		revealHint("read it with `komando fs cat` instead (passwords, keys and tokens show as [hidden]); if the user wants the real file on this computer, re-run with --reveal"),
+		revealHint("read it with `komando fs cat` instead (passwords, keys and tokens show as [hidden]); if the user wants the real file on this computer, run it again with --reveal"),
 		"%s holds secrets; komando does not copy it to this computer for an AI agent", remotePath)
 }
 
@@ -289,7 +290,7 @@ func guardLocalRead(p string) error {
 	case revealOK():
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", revealHint("if the user wants komando to send this file, re-run with --reveal; komando asks the user in a window on their screen"),
+	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", revealHint("if the user wants komando to send this file, run it again with --reveal; komando asks the user in a window on their screen"),
 		"%s is %s; komando does not read it for an AI agent", p, why)
 }
 
@@ -339,11 +340,12 @@ func skipLocalSecret(p string) bool {
 	return true
 }
 
-// unlockVars are the variables that open the secret stores komando reads
-// (its vault, KeePass, Bitwarden, 1Password Connect, HashiCorp Vault).
-var unlockVars = map[string]bool{
-	"KOMANDO_VAULT_PASS": true, "KOMANDO_KDBX_PASSWORD": true, "KOMANDO_KDBX_KEYFILE": true,
-	"KOMANDO_BW_PASSWORD": true, "KOMANDO_BW_CLIENT_SECRET": true, "OP_CONNECT_TOKEN": true, "VAULT_TOKEN": true,
+// unlockVar reports whether name opens a secret store komando reads: its
+// vault (KOMANDO_VAULT_PASS) or one of vault.UnlockVars (KeePass,
+// Bitwarden, 1Password Connect, HashiCorp Vault / OpenBao). One list, the
+// one TakeUnlockEnv takes out of the environment.
+func unlockVar(name string) bool {
+	return name == "KOMANDO_VAULT_PASS" || slices.Contains(vault.UnlockVars, name)
 }
 
 // refGuard is vault.RefGuard: a secret: reference never reads a secret
@@ -370,7 +372,7 @@ func refGuard(kind, name string) error {
 				"the reference file:%s points at %s; komando does not send it for an AI agent", name, why).NoFlag()
 		}
 	case "env":
-		if unlockVars[name] {
+		if unlockVar(name) {
 			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "use secret:NAME; the user sets it up in their own terminal",
 				"the reference env:%s is the password of a secret store; komando does not send it for an AI agent", name).NoFlag()
 		}
@@ -384,4 +386,7 @@ func isSensitive(err error) bool {
 	return errors.As(err, &e) && e.Code == "SENSITIVE_FILE"
 }
 
-func init() { vault.RefGuard = refGuard }
+func init() {
+	vault.RefGuard = refGuard
+	vault.OnResolve = func(v string) { out.P.AddValue(v) } // hidden in output, as vault values are
+}

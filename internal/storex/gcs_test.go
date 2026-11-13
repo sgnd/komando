@@ -30,14 +30,16 @@ import (
 
 // fakeGCS is the part of the GCS JSON API komando uses, two items a page.
 type fakeGCS struct {
-	mu   sync.Mutex
-	objs map[string][]byte
+	mu      sync.Mutex
+	objs    map[string][]byte
+	sawAuth bool // a request came with an Authorization header
 }
 
 func (f *fakeGCS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if r.Header.Get("Authorization") != "Bearer tok" {
+	if r.Header.Get("Authorization") != "" {
+		f.sawAuth = true // an emulator: no login is sent to it
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -180,6 +182,34 @@ func TestGCS(t *testing.T) {
 	ob, _ := OpenGCS(ctx, other, "", nil, 10*time.Second)
 	if _, _, err := ob.List(ctx, "", false, 0); code(err) != "BUCKET_NOT_FOUND" {
 		t.Errorf("missing bucket: %v", err)
+	}
+	if f.sawAuth {
+		t.Error("gcloud's login went to an endpoint that is not Google's")
+	}
+}
+
+// gcloud's login (found on this computer) goes only to Google over HTTPS,
+// and a service account key's token never travels unencrypted.
+func TestGCSLoginStaysWithGoogle(t *testing.T) {
+	for raw, want := range map[string]bool{
+		"gs://media": true,
+		"gs://media?endpoint=https://restricted.googleapis.com":  true,
+		"gs://media?endpoint=https://storage-x.p.googleapis.com": true,
+		"gs://media?endpoint=http://storage.googleapis.com":      false,
+		"gs://media?endpoint=https://googleapis.com.evil.io":     false,
+		"gs://media?endpoint=https://fake-gcs:4443":              false,
+	} {
+		tg, err := driver.Parse(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if gcsGoogleHost(tg) != want {
+			t.Errorf("%s: Google's own: %v", raw, !want)
+		}
+	}
+	tg, _ := driver.Parse("gs://media?endpoint=http://fake-gcs:4443")
+	if _, err := OpenGCS(context.Background(), tg, `{"type":"service_account"}`, nil, time.Second); code(err) != "INSECURE_PROTOCOL" {
+		t.Errorf("a key over http: %v", err)
 	}
 }
 

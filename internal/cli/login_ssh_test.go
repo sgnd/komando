@@ -122,7 +122,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, logins := twoFactorSSHD(t)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
@@ -137,6 +137,11 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 		t.Fatalf("an agent without a login: %+v", e)
 	}
 	wantCode(t, "NEEDS_TERMINAL", "login", "web1")
+	// its dry run is never blocked: the plan says what the real run needs
+	d := mustRun(t, "login", "web1", "--dry-run")
+	if b, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); d["would_log_in"] != false || b["code"] != "NEEDS_TERMINAL" {
+		t.Fatalf("an agent's dry run: %v", d)
+	}
 
 	// a person logs in once, at a terminal
 	os.Unsetenv("KOMANDO_AGENT")
@@ -190,7 +195,7 @@ func TestLoginWrongCodeSaysWhy(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
@@ -216,7 +221,7 @@ func TestLoginCtrlCAtTheCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
@@ -226,7 +231,7 @@ func TestLoginCtrlCAtTheCode(t *testing.T) {
 	if code := p.exit(); code != out.ExitError {
 		t.Fatalf("exit %d, want %d; the screen:\n%s", code, out.ExitError, p.shown())
 	}
-	p.waitFor("interrupted")
+	p.waitFor("Stopped (Ctrl-C)")
 }
 
 func TestLoginForSetting(t *testing.T) {

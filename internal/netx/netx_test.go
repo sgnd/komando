@@ -6,6 +6,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +56,7 @@ default            192.168.100.1      UGScg                 en0
 }
 
 func TestDownHintsPerKind(t *testing.T) {
-	for kind, want := range map[string]string{"socks": "tunnel start HOST -D 127.0.0.1:1080", "system": "connect the VPN", "wireguard": "endpoint", "tailscale": "vpn up x"} {
+	for kind, want := range map[string]string{"socks": "tunnel start TARGET -D 127.0.0.1:1080", "system": "connect the VPN", "wireguard": "endpoint", "tailscale": "vpn up x"} {
 		h := DownHint(&store.Vpn{Name: "x", Kind: kind, Address: "127.0.0.1:1080"})
 		if !strings.Contains(h, want) || strings.Contains(h, "komando test x") {
 			t.Errorf("%s: %q", kind, h)
@@ -85,7 +86,7 @@ func TestBuiltinSSL(t *testing.T) {
 		t.Error("not an SSL VPN kind")
 	}
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "openconnect"), []byte("#!/bin/sh\n"), 0o755)
+	os.WriteFile(filepath.Join(dir, "openconnect"+exeExt), []byte("#!/bin/sh\n"), 0o755)
 	t.Setenv("PATH", dir)
 	if BuiltinSSL("pulse") || !BuiltinSSL("anyconnect") {
 		t.Error("with openconnect installed, only tested kinds are built in")
@@ -101,7 +102,7 @@ func TestBuiltinSSL(t *testing.T) {
 // openconnect is installed.
 func TestBuiltinSSLForBrowserSignIn(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "openconnect"), []byte("#!/bin/sh\n"), 0o755)
+	os.WriteFile(filepath.Join(dir, "openconnect"+exeExt), []byte("#!/bin/sh\n"), 0o755)
 	t.Setenv("PATH", dir)
 	t.Setenv("KOMANDO_EXPERIMENTAL_VPN", "")
 	if !BuiltinSSLFor(&store.Vpn{Kind: "globalprotect", Portal: "vpn.example.com"}) {
@@ -114,3 +115,6 @@ func TestBuiltinSSLForBrowserSignIn(t *testing.T) {
 		t.Error("fortinet without a user")
 	}
 }
+
+// exeExt ends a program's file name where PATH lookups need it (Windows).
+var exeExt = map[bool]string{true: ".exe"}[runtime.GOOS == "windows"]

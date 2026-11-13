@@ -4,7 +4,7 @@
 # here, and goccy/bigquery-emulator cannot do dry runs): a service account
 # login, TLS with a private CA, the dry run before every statement, the
 # byte cap, what needs --write never reaching the server. BigQuery's own
-# SQL is not checked here (docs/design/bigquery.md).
+# SQL is not checked here (docs/features/databases.md).
 set +e
 BQC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
 for _ in $(seq 1 60); do BQC exec -T bigquery test -s /e2e/sa.json 2>/dev/null && break; sleep 1; done
@@ -43,5 +43,5 @@ check "bigquery: a certificate from an unknown CA is refused" DB_CONNECT "$($K d
 check "no bigquery key in the audit log" 0 "$(audit_text | grep -c 'PRIVATE KEY' || true)"
 q $K conn rm bq
 q $K conn rm bq-noca
-$K secret rm bq-ca bq-sa >/dev/null 2>&1 || true
+$K secret rm bq-ca bq-sa --allow-dangerous >/dev/null 2>&1 || true
 set -e

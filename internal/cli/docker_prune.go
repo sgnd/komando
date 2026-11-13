@@ -80,7 +80,7 @@ read from docker on the server. The real run deletes and needs
 				return out.Usage("docker cannot combine --volumes with --older-than (volumes have no age filter); run them as two prunes")
 			}
 			pa := o.args()
-			if _, err := guardDocker(pa); err != nil {
+			if _, err := guardDocker(args[0], pa); err != nil {
 				return err
 			}
 			line := "docker " + strings.Join(pa, " ") // fixed words and a number: nothing to quote
@@ -90,7 +90,7 @@ read from docker on the server. The real run deletes and needs
 			return runDocker(cmd.Context(), "docker.prune", args[0], line, *sudo, true)
 		},
 	}
-	c.Flags().StringVar(&o.ageText, "older-than", "", "only what is older than this (30d, 12h)")
+	spanText(c.Flags(), &o.ageText, "older-than", "", true, "only what is older than this (like 30d, 12h)")
 	c.Flags().BoolVarP(&o.all, "all", "a", false, "every image no container uses, not only dangling ones")
 	c.Flags().BoolVar(&o.volumes, "volumes", false, "also unused anonymous volumes (their data is lost)")
 	return c
@@ -136,7 +136,7 @@ func (d prunePreviewData) Text() string {
 			b.WriteString("\n")
 		}
 		if r.Error != nil {
-			fmt.Fprintf(&b, "%s: error: %s\n", r.Host, r.Error.Message)
+			fmt.Fprintf(&b, "%s: failed: %s\n", r.Host, r.Error.Message)
 			continue
 		}
 		fmt.Fprintf(&b, "%s: %s would free about %s\n", r.Host, r.WouldRun, r.Total)

@@ -143,8 +143,8 @@ func (p *Pubsub) giveBack(ctx context.Context, name string, held []string) error
 		n := min(len(held), 500)
 		in := map[string]any{"ackIds": held[:n], "ackDeadlineSeconds": 0}
 		if err := p.call(ctx, http.MethodPost, p.path(ref{name: name}, "subscription")+":modifyAckDeadline", in, nil); err != nil {
-			return out.Errf(out.ExitRemote, "QUEUE_ERROR", "nothing is lost: Pub/Sub gives the messages out again once the subscription's ack deadline has passed",
-				"%s: could not give back the messages peek pulled: %v", name, err)
+			return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub gives the messages out again once the subscription's ack deadline has passed",
+				"%s: could not give back the messages peek pulled: %v; nothing is lost", name, err)
 		}
 		held = held[n:]
 	}

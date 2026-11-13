@@ -60,11 +60,11 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:rocky:supported:${E2E_SSH_ROCKY:-222
   if [ "$support" != supported ]; then
     check "$name: pkg security warns past end of life" True "$(psec "['warnings'] != [] and 'empty list' in d['data']['results'][0]['warnings'][-1]")"
   fi
-  check "$name: pkg security --apply --dry-run changes nothing" "True $secpk" \
-    "$($K pkg security "$host" --apply --dry-run | jget "str(d['meta'].get('dry_run') and not d['data']['applied'])") $(nupd --security)"
+  check "$name: pkg upgrade --security --dry-run changes nothing" "True $secpk" \
+    "$($K pkg upgrade "$host" --security --dry-run | jget "str(d['meta'].get('dry_run') and not d['data']['applied'])") $(nupd --security)"
   # the real run: installs only the security updates; afterwards rpm agrees and none are left
-  o=$($K pkg security "$host" --apply --timeout 15m || true)
-  check "$name: pkg security --apply works" True "$(jget "d['ok']" <<<"$o")"
+  o=$($K pkg upgrade "$host" --security --timeout 15m || true)
+  check "$name: pkg upgrade --security works" True "$(jget "d['ok']" <<<"$o")"
   if [ "$secpk" -gt 0 ]; then
     first=$(jget "d['data']['results'][0]['upgraded'][0]['name'] + ' ' + d['data']['results'][0]['upgraded'][0]['version']" <<<"$o")
     pkgname=${first% *}

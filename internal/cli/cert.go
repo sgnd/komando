@@ -42,8 +42,8 @@ func certCheckCmd() *cobra.Command {
 	var warn, via string
 	var paths []string
 	c := &cobra.Command{
-		Use:   "check TARGET...",
-		Short: "Certificate expiry on servers (certbot, nginx, haproxy, apache) and of websites",
+		Use:   "check TARGET|URL...",
+		Short: "Check when the certificates of servers and websites expire",
 		Long: `Reads certificates and says when they expire. It only reads.
 
 A server (or @group, tag:, ...): komando looks for the certificates the
@@ -83,7 +83,7 @@ exits 1 (code CERT_PROBLEMS), like ` + "`komando doctor`" + `.`,
 			return runCertCheck(cmd.Context(), args, certOpts{warn: w, warnText: warn, via: via, paths: paths})
 		},
 	}
-	c.Flags().StringVar(&warn, "warn", "30d", "flag certificates that expire within this time (30d, 72h)")
+	spanText(c.Flags(), &warn, "warn", "30d", true, "flag certificates that expire within this time (like 30d, 72h)")
 	c.Flags().StringVar(&via, "via", "", "reach websites through this server or VPN (a --via path)")
 	c.Flags().StringSliceVar(&paths, "path", nil, "also check this certificate file (or folder) on the servers")
 	return c
@@ -409,7 +409,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 // checked and flags that would do nothing for them.
 func certTargetsFit(ctx context.Context, hosts []*store.Host, urls []certURL, o certOpts) error {
 	if len(hosts)+len(urls) == 0 {
-		return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "give a server, a TLS conn or a website (https://NAME)", "nothing to check")
+		return out.Errf(out.ExitNotFound, "NO_MATCHING_TARGETS", "give a server, a TLS conn or a website (https://NAME): `komando cert check URL`", "nothing to check")
 	}
 	if _, err := windowsGate(ctx, "cert.check", hosts, false); err != nil {
 		return err
@@ -601,7 +601,7 @@ func parseCertDiscovery(s string) discovered {
 			d.notes = append(d.notes, "certbot is installed but no renewal timer or cron job was found")
 		}
 		if len(lines(m["certbot-live"])) == 0 && !d.root {
-			d.notes = append(d.notes, "certbot's certificates need root to read: allow passwordless sudo for the login user, or check the website with `komando cert check https://NAME`")
+			d.notes = append(d.notes, "certbot's certificates need root to read: allow passwordless sudo for the login user, or check the website with `komando cert check URL`")
 		}
 		d.certbot = cb
 	}

@@ -14,7 +14,7 @@ var (
 )
 
 // parseSQS reads sqs://[ACCESS_KEY_ID@]REGION for Amazon SQS
-// (docs/design/queue.md). The conn is one region of one AWS account;
+// (docs/features/queues.md). The conn is one region of one AWS account;
 // queues are given to each command. The login is the person's AWS one
 // (--option aws_profile, or the usual chain), or the access key ID in the
 // URL with the secret key from --password-ref. Options:

@@ -156,16 +156,16 @@ func latest(items []helmItem) []helmItem {
 	return res
 }
 
-// helmList is `cluster helm ls`.
+// helmList is `cluster helm list`.
 type helmList map[string]any
 
 func (l helmList) Text() string {
 	rels, _ := l["releases"].([]map[string]any)
 	if len(rels) == 0 {
 		if ns, ok := l["namespace"].(string); ok && ns != "" {
-			return "no Helm releases in namespace " + ns + " (-A looks in every namespace)\n"
+			return noneYet("Helm releases in namespace "+ns, "", "-A looks in every namespace")
 		}
-		return "no Helm releases\n"
+		return noneYet("Helm releases", "")
 	}
 	rows := make([][]string, len(rels))
 	for i, r := range rels {
@@ -178,12 +178,13 @@ func (l helmList) Text() string {
 func helmLsCmd() *cobra.Command {
 	var ns string
 	var all bool
+	var limit int
 	c := &cobra.Command{
-		Use:   "ls TARGET",
+		Use:   "list TARGET",
 		Short: "Helm releases: name, revision, status, chart and app version",
-		Example: `  komando cluster helm ls prod-k8s -A
-  komando cluster helm ls prod-k8s --namespace shop
-  komando cluster helm ls @prod -A              # every cluster in the group`,
+		Example: `  komando cluster helm list prod-k8s -A
+  komando cluster helm list prod-k8s --namespace shop
+  komando cluster helm list @prod -A              # every cluster in the group`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
@@ -197,7 +198,7 @@ func helmLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return readClusters(cmd.Context(), "cluster.helm.ls", st, ts, clusterRead{swarmNo: helmNoSwarm,
+			return readClusters(cmd.Context(), "cluster.helm.list", st, ts, clusterRead{swarmNo: helmNoSwarm,
 				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 					space := cmp.Or(ns, k.Namespace)
 					if all {
@@ -217,6 +218,7 @@ func helmLsCmd() *cobra.Command {
 						}
 						rels = append(rels, row)
 					}
+					rels = cutRows(rels, limit)
 					res := helmList{"conn": t.conn.Name, "count": len(rels), "releases": rels}
 					if !all {
 						res["namespace"] = space
@@ -226,10 +228,11 @@ func helmLsCmd() *cobra.Command {
 		},
 	}
 	nsFlags(c, &ns, &all, nil)
+	clusterLimitFlag(c, &limit, 0, "releases per cluster")
 	return c
 }
 
-const helmNoSwarm = "Helm is for Kubernetes; on Swarm, `cluster ls TARGET stacks` lists the stacks"
+const helmNoSwarm = "Helm is for Kubernetes; on Swarm, `cluster list TARGET stacks` lists the stacks"
 
 // helmRevisions reads every stored revision of one release, oldest first.
 func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]helmRelease, error) {
@@ -239,8 +242,8 @@ func helmRevisions(ctx context.Context, k *kube.Client, ns, release string) ([]h
 	}
 	if len(items) == 0 {
 		return nil, out.Errf(out.ExitNotFound, "HELM_RELEASE_NOT_FOUND",
-			"see the releases with `komando cluster helm ls TARGET -A`, and name the namespace with --namespace",
-			"no Helm release %q in namespace %q", release, ns)
+			"see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace",
+			"no Helm release named %q in namespace %q", release, ns)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].version < items[j].version })
 	revs := make([]helmRelease, 0, len(items))
@@ -356,6 +359,7 @@ func helmStatusCmd() *cobra.Command {
 
 func helmHistoryCmd() *cobra.Command {
 	var ns string
+	var limit int
 	c := &cobra.Command{
 		Use:     "history TARGET RELEASE",
 		Short:   "Every stored revision of a Helm release, oldest first",
@@ -368,11 +372,12 @@ func helmHistoryCmd() *cobra.Command {
 					rows[i] = map[string]any{"revision": r.Version, "updated": r.Info.LastDeployed, "status": r.Info.Status,
 						"chart": r.chart(), "app_version": r.Chart.Metadata.AppVersion, "description": r.Info.Description}
 				}
-				return helmHistory{"conn": t.conn.Name, "name": args[1], "namespace": revs[0].Namespace, "revisions": rows}, nil
+				return helmHistory{"conn": t.conn.Name, "name": args[1], "namespace": revs[0].Namespace, "revisions": cutLast(rows, limit)}, nil
 			})
 		},
 	}
 	nsFlags(c, &ns, nil, nil)
+	clusterLimitFlag(c, &limit, 0, "revisions, newest kept")
 	return c
 }
 
@@ -380,6 +385,9 @@ type helmHistory map[string]any
 
 func (h helmHistory) Text() string {
 	revs, _ := h["revisions"].([]map[string]any)
+	if len(revs) == 0 {
+		return noneYet("revisions", "")
+	}
 	rows := make([][]string, len(revs))
 	for i, r := range revs {
 		rows[i] = []string{fmt.Sprint(r["revision"]), fmt.Sprint(r["updated"]), fmt.Sprint(r["status"]),
@@ -394,7 +402,7 @@ func helmValuesCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "values TARGET RELEASE",
-		Short: "The values a Helm release was installed with (--all: with the chart's defaults)",
+		Short: "Show the values a Helm release was installed with",
 		Example: `  komando cluster helm values prod-k8s shop-api --namespace shop
   komando cluster helm values prod-k8s shop-api --namespace shop --all --revision 3`,
 		Args: cobra.ExactArgs(2),
@@ -422,7 +430,7 @@ func helmValuesCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().IntVar(&revision, "revision", 0, "this revision instead of the newest")
-	c.Flags().BoolVar(&all, "all", false, "the chart's default values too, as Helm merged them")
+	c.Flags().BoolVarP(&all, "all", "a", false, "the chart's default values too, as Helm merged them")
 	return c
 }
 
@@ -447,7 +455,7 @@ func mergeValues(base, over map[string]any) map[string]any {
 func clusterHelmCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "helm",
-		Short: "Helm releases, read-only: ls, status, history, values (no helm program needed)",
+		Short: "Helm releases, read only: see their state, history and values",
 		Long: `Reads the Helm releases stored in a Kubernetes cluster, without the helm
 program. It only reads: install, upgrade and rollback stay with helm. The
 kubeconfig's user needs to list Secrets where the releases are.`,

@@ -115,7 +115,7 @@ func winServices(rr *sshx.RunResult) ([]winService, *out.Error) {
 	var svcs []winService
 	js := winMarkers(rr.Stdout)["json"]
 	if js == "" || json.Unmarshal([]byte(js), &svcs) != nil {
-		return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "read stderr for the reason", "PowerShell gave no service list (exit code %d)", rr.ExitCode)
+		return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "read the error output (stderr) for the reason", "PowerShell gave no service list (exit code %d)", rr.ExitCode)
 	}
 	var missing []string
 	for _, s := range svcs {
@@ -137,7 +137,7 @@ func winSvcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.
 		return svcs, err
 	}
 	if winMarkers(rr.Stdout)["rc"] != "0" {
-		return svcs, out.Errf(out.ExitRemote, "SVC_FAILED", "the reason is in stderr; the service's own log is in the Windows event log: `komando exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
+		return svcs, out.Errf(out.ExitRemote, "SVC_FAILED", "the reason is in the error output (stderr); the service's own log is in the Windows event log: `komando exec TARGET --read-only -- Get-WinEvent -LogName System -MaxEvents 20`",
 			"%s failed", commandWord("svc."+action))
 	}
 	if wait > 0 {
@@ -183,7 +183,7 @@ func winSvcList(state string) func(*store.Host, *sshx.RunResult) (any, *out.Erro
 	return func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 		var svcs []winService
 		if err := json.Unmarshal([]byte(winMarkers(rr.Stdout)["json"]), &svcs); err != nil {
-			return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "read stderr for the reason", "PowerShell gave no service list (exit code %d)", rr.ExitCode)
+			return nil, out.Errf(out.ExitRemote, "COMMAND_FAILED", "read the error output (stderr) for the reason", "PowerShell gave no service list (exit code %d)", rr.ExitCode)
 		}
 		keep := []winService{}
 		for _, s := range svcs {

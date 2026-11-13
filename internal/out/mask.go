@@ -63,17 +63,55 @@ func MaskSecrets(s string) string {
 	s = pemBody.ReplaceAllString(s, "[hidden: private key]")
 	s = urlPw.ReplaceAllString(s, "${1}"+Hidden+"@")
 	s = bearer.ReplaceAllString(s, "${1}${2}"+Hidden)
-	s = assign.ReplaceAllStringFunc(s, func(m string) string {
-		sub := assign.FindStringSubmatch(m)
-		if sub[2] == ":" && strings.EqualFold(sub[1], "secret") || keepValue(sub[1], sub[3]) {
-			// secret:NAME is a komando reference, [secret:NAME] a hidden value
-			return m
-		}
-		return sub[1] + sub[2] + Hidden
-	})
+	s = maskAssign(s)
 	s = maskRedis(s)
 	s = tokens.ReplaceAllString(s, Hidden)
 	return pwHash.ReplaceAllString(s, Hidden)
+}
+
+// maskAssign hides the value of NAME=value, NAME: value and the like.
+func maskAssign(s string) string {
+	idx := assign.FindAllStringSubmatchIndex(s, -1)
+	if idx == nil {
+		return s
+	}
+	var b strings.Builder
+	last := 0
+	for _, m := range idx {
+		name, sep, v := s[m[2]:m[3]], s[m[4]:m[5]], s[m[6]:m[7]]
+		if sep == ":" && strings.EqualFold(name, "secret") || keepValue(name, v) || prose(s, m) {
+			// secret:NAME is a komando reference, [secret:NAME] a hidden value
+			continue
+		}
+		b.WriteString(s[last:m[6]])
+		b.WriteString(Hidden)
+		last = m[7]
+	}
+	b.WriteString(s[last:])
+	return b.String()
+}
+
+// pluralHeads are names that, before ": ", start a sentence or a list
+// rather than give a value: "Would re-encrypt 3 secrets: the vault's key".
+var pluralHeads = map[string]bool{"secrets": true, "passwords": true, "tokens": true, "keys": true, "credentials": true}
+
+// prose reports whether an assign match m in s is komando's own sentence,
+// not a value: a plural heading followed by ": ", a lowercase word and
+// more words on the same line ("3 secrets: the vault's key ..."). A value
+// alone on its line, or one with digits, capitals or symbols, stays hidden.
+func prose(s string, m []int) bool {
+	name, sep, v := s[m[2]:m[3]], s[m[4]:m[5]], s[m[6]:m[7]]
+	if !pluralHeads[strings.ToLower(name)] || !strings.HasPrefix(sep, ":") || !strings.HasSuffix(sep, " ") {
+		return false
+	}
+	for _, r := range v {
+		if r < 'a' || r > 'z' {
+			return false
+		}
+	}
+	rest := s[m[7]:]
+	more := strings.TrimLeft(rest, " ")
+	return len(more) < len(rest) && more != "" && more[0] != '\n' && more[0] != '\r'
 }
 
 // maskRedis hides passwords written the Redis way, with a space after the
@@ -106,7 +144,9 @@ func keepValue(name, v string) bool {
 	if notSecretKey.MatchString(name) {
 		return true
 	}
-	lv := strings.ToLower(v)
+	// a sentence goes on after the value: "KOMANDO_KEYCHAIN=off: komando
+	// keeps ..." (a value that only ends in ":" or "." is still checked whole)
+	lv := strings.TrimRight(strings.ToLower(v), ":.")
 	switch lv {
 	case "-", "true", "false", "yes", "no", "on", "off", "null", "none", "nil", "required", "optional", "string", "[", "bearer", "basic":
 		return true
@@ -273,8 +313,7 @@ func (p *Printer) View(s string) View {
 	if p.NoRedact {
 		return v
 	}
-	p.load()
-	for _, h := range p.hide {
+	for _, h := range p.hideList() {
 		v.hide(literal(v.Text, h.raw), h.label)
 	}
 	if !p.Mask {

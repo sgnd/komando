@@ -18,7 +18,7 @@ import (
 func TestQueuePubsubConn(t *testing.T) {
 	invHome(t)
 	wantCode(t, "INSECURE_PROTOCOL", "conn", "add", "p", "pubsub://my-project?endpoint=http://pubsub.example.com:8085")
-	mustRun(t, "conn", "add", "gcp", "pubsub://my-project")
+	mustRun(t, "conn", "add", "pubsub", "pubsub://my-project")
 	mustRun(t, "conn", "add", "local", "pubsub://test-project?endpoint=http://127.0.0.1:9")
 	mustRun(t, "host", "add", "office", "u@10.0.0.1")
 	mustRun(t, "conn", "add", "p-via", "pubsub://test-project?endpoint=http://pubsub:8085", "--via", "office")
@@ -29,7 +29,7 @@ func TestQueuePubsubConn(t *testing.T) {
 	if w := weakTLS("", "pubsub://test-project?endpoint=http://pubsub.example.com&insecure=1"); len(w) != 1 {
 		t.Errorf("weakTLS: %v", w)
 	}
-	if d := mustRun(t, "conn", "show", "gcp"); !strings.Contains(jsonOf(d), "my-project") {
+	if d := mustRun(t, "conn", "show", "pubsub"); !strings.Contains(jsonOf(d), "my-project") {
 		t.Errorf("conn show: %v", d)
 	}
 	t.Setenv("KOMANDO_TEST_PUBSUB_KEY", "{}")
@@ -83,7 +83,7 @@ func TestQueuePubsubLive(t *testing.T) {
 		t.Skip("set KOMANDO_E2E_PUBSUB to the Pub/Sub emulator's address")
 	}
 	invHome(t)
-	mustRun(t, "conn", "add", "gcp", "pubsub://test-project?endpoint="+endpoint)
+	mustRun(t, "conn", "add", "pubsub", "pubsub://test-project?endpoint="+endpoint)
 	const topic, sub = "komando-cli", "komando-cli-sub"
 	tg, _ := driver.Parse("pubsub://test-project?endpoint=" + endpoint)
 	cleanup := func() { // without --allow-dangerous: straight through the engine
@@ -94,44 +94,44 @@ func TestQueuePubsubLive(t *testing.T) {
 	}
 	cleanup()
 	t.Cleanup(cleanup)
-	if d := mustRun(t, "conn", "test", "gcp"); !strings.Contains(jsonOf(d), `"check":"login"`) {
+	if d := mustRun(t, "conn", "test", "pubsub"); !strings.Contains(jsonOf(d), `"check":"login"`) {
 		t.Errorf("conn test: %v", d)
 	}
-	if d := mustRun(t, "queue", "info", "gcp"); d["engine"] != "pubsub" || d["project"] != "test-project" {
+	if d := mustRun(t, "queue", "info", "pubsub"); d["engine"] != "pubsub" || d["project"] != "test-project" {
 		t.Errorf("info: %v", d)
 	}
-	if d := mustRun(t, "--dry-run", "queue", "create", "gcp", topic); d["dry_run"] != true {
+	if d := mustRun(t, "--dry-run", "queue", "create", "pubsub", topic); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
 	g.dryRun, store.DryRun = false, false
-	wantCode(t, "TOPIC_NOT_FOUND", "queue", "describe", "gcp", topic)
-	mustRun(t, "queue", "create", "gcp", topic)
-	wantCode(t, "TOPIC_EXISTS", "queue", "create", "gcp", topic)
-	mustRun(t, "queue", "create", "gcp", "subscriptions/"+sub, "--config", "topic="+topic, "--config", "ackDeadlineSeconds=20")
-	if d := mustRun(t, "queue", "send", "gcp", topic, "--value", `{"id": 1}`, "--header", "source=test", "--key", "k1"); d["id"] == nil {
+	wantCode(t, "TOPIC_NOT_FOUND", "queue", "describe", "pubsub", topic)
+	mustRun(t, "queue", "create", "pubsub", topic)
+	wantCode(t, "TOPIC_EXISTS", "queue", "create", "pubsub", topic)
+	mustRun(t, "queue", "create", "pubsub", "subscriptions/"+sub, "--config", "topic="+topic, "--config", "ackDeadlineSeconds=20")
+	if d := mustRun(t, "queue", "send", "pubsub", topic, "--value", `{"id": 1}`, "--header", "source=test", "--key", "k1"); d["id"] == nil {
 		t.Errorf("send: %v", d)
 	}
-	wantCode(t, "HIDDEN_VALUE", "queue", "send", "gcp", topic, "--value", "password=[hidden]")
+	wantCode(t, "HIDDEN_VALUE", "queue", "send", "pubsub", topic, "--value", "password=[hidden]")
 	for range 2 { // peek gives every message back
-		d := mustRun(t, "queue", "peek", "gcp", sub)
+		d := mustRun(t, "queue", "peek", "pubsub", sub)
 		if d["count"].(float64) != 1 || d["subscription"] != sub || !strings.Contains(jsonOf(d), `"ordering_key":"k1"`) {
 			t.Errorf("peek: %v", d)
 		}
 	}
-	if d := mustRun(t, "queue", "describe", "gcp", topic); !strings.Contains(jsonOf(d), `"ack_deadline_seconds":20`) {
+	if d := mustRun(t, "queue", "describe", "pubsub", topic); !strings.Contains(jsonOf(d), `"ack_deadline_seconds":20`) {
 		t.Errorf("describe: %v", d)
 	}
-	if d := mustRun(t, "queue", "groups", "gcp"); d["count"].(float64) < 1 {
+	if d := mustRun(t, "queue", "groups", "pubsub"); d["count"].(float64) < 1 {
 		t.Errorf("groups: %v", d)
 	}
-	wantCode(t, "NOT_SUPPORTED", "queue", "lag", "gcp", sub)
-	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "gcp", sub)
-	if d := mustRun(t, "--dry-run", "queue", "purge", "gcp", sub); d["messages"].(float64) != -1 {
+	wantCode(t, "NOT_SUPPORTED", "queue", "lag", "pubsub", sub)
+	wantCode(t, "POLICY_BLOCKED", "queue", "purge", "pubsub", sub)
+	if d := mustRun(t, "--dry-run", "queue", "purge", "pubsub", sub); d["messages"].(float64) != -1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
 	g.dryRun, store.DryRun = false, false
-	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "gcp", topic)
-	if d := mustRun(t, "--dry-run", "queue", "rm", "gcp", topic, "subscriptions/"+sub); !strings.Contains(jsonOf(d), `"exists":true`) {
+	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "pubsub", topic)
+	if d := mustRun(t, "--dry-run", "queue", "rm", "pubsub", topic, "subscriptions/"+sub); !strings.Contains(jsonOf(d), `"exists":true`) {
 		t.Errorf("dry-run rm: %v", d)
 	}
 }

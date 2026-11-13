@@ -13,32 +13,29 @@ different for each is in [RabbitMQ](#rabbitmq),
 [NATS JetStream](#nats-jetstream), [Amazon SQS](#amazon-sqs) and
 [Google Cloud Pub/Sub](#google-cloud-pubsub) below.
 
-## Quick start
-
-```bash
-komando secret set kafka-pass
-komando conn add events 'kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512' --password-ref secret:kafka-pass
-komando queue info events                     # brokers, controller, Kafka version
-komando queue ls events                       # topics, partitions, message counts
-komando queue peek events orders              # the newest 10 messages; no consumer group moves
-komando queue lag events billing              # how far a consumer group is behind
-```
-
-In Kafka a queue is a topic: messages are kept in order in its
-**partitions**, and a **consumer group** is an application that reads them
-and remembers how far it got (its committed offset). **Lag** is how many
-messages a group still has to read.
+In Kafka, messages are kept in order in a topic's **partitions**, and a
+**consumer group** is an application that reads them and remembers how far
+it got (its committed offset). **Lag** is how many messages a group still
+has to read.
 
 ## Add a Kafka cluster
+
+```bash
+komando queue add prod-kafka 'kafka://app@b1.example.com:9093,b2.example.com:9093?tls=true&sasl=scram-sha-512' --ask-password
+komando test prod-kafka                       # logs in and shows the Kafka version
+```
+
+Typed alone, `komando queue add` asks for each part step by step.
 
 The URL lists one or more brokers (`HOST:PORT`, comma-separated; the port
 defaults to 9092). One is enough: komando asks it for the others. The user
 is for the SASL login and its password goes in the vault, never in the URL:
 
 ```bash
-komando conn add events 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --password-ref secret:kafka-pass
-komando conn add events2 'kafka://app@kafka.internal:9093?tls=true&ca=secret:kafka-ca&sasl=plain' --ask-password
-komando conn add local kafka://broker1.internal:9092 --via web1          # no TLS, through an SSH server
+komando secret set kafka-pass
+komando queue add prod-kafka 'kafka://app@b1.example.com:9093?tls=true&sasl=scram-sha-512' --password-ref secret:kafka-pass
+komando queue add audit-kafka 'kafka://app@kafka.internal:9093?tls=true&ca=secret:kafka-ca&sasl=plain' --ask-password
+komando queue add staging-kafka kafka://broker1.internal:9092 --via web1          # no TLS, through an SSH server
 ```
 
 | Option | What it does |
@@ -51,36 +48,61 @@ komando conn add local kafka://broker1.internal:9092 --via web1          # no TL
 
 - `kafka://` without `tls=true`, straight over the network (no `--via`,
   not this computer), would send the login and the messages unencrypted,
-  so `conn add` refuses it with `INSECURE_PROTOCOL`: add `tls=true`, or
+  so `queue add` refuses it with `INSECURE_PROTOCOL`: add `tls=true`, or
   `--via`, or `?insecure=1` to accept it (for an AI agent that needs a
   person's yes).
 - A user without `sasl=`, or `sasl=` without a user, is refused: komando
   does not guess how the brokers want you to log in.
-- `komando conn test events` logs in and shows the Kafka version.
+
+At a terminal, a command with the conn or the topic left out asks for it,
+with a list of your queues. Typed alone, `komando queue peek` asks which
+queue, then which topic. An AI agent or a script gets `USAGE` (exit 2)
+with an example in the hint.
 
 ### Through a bastion or a VPN
 
 Kafka clients first ask a broker for the cluster's brokers, then connect to
 the addresses the brokers advertise. With `--via`, komando reaches
 every one of them through the bastion or the VPN, so names that only work
-inside the network still work. If `conn test` stops with
+inside the network still work. If `komando test` stops with
 `QUEUE_CONNECT`, check that the advertised addresses are reachable from the
 `--via` server (`komando queue info` lists them).
 
 ## Look at topics and groups
 
+```bash
+komando queue list prod-kafka                 # every topic, with partitions, replicas, messages
+```
+
+```text
+TOPIC         PARTITIONS  REPLICAS  MESSAGES
+orders        6           3         1824410
+orders-retry  3           3         212
+```
+
 These commands only read:
 
 ```bash
-komando queue info events                     # brokers (id, address, rack), controller, version
-komando queue ls events                       # every topic, with partitions, replicas, messages
-komando queue ls events 'orders-*'            # topics matching a pattern
-komando queue ls events --internal            # also __consumer_offsets and friends
-komando queue describe events orders          # partitions, offsets, settings, the groups reading it
-komando queue groups events                   # consumer groups: state, members, topics, lag
-komando queue lag events billing              # one group, per topic and partition
+komando queue info prod-kafka                 # brokers (id, address, rack), controller, version
+komando queue list prod-kafka 'orders-*'      # topics matching a pattern
+komando queue list prod-kafka --internal      # also __consumer_offsets and friends
+komando queue list prod-kafka -n 50           # only the first 50 by name
+komando queue describe prod-kafka orders      # partitions, offsets, settings, the groups reading it
+komando queue groups prod-kafka               # consumer groups: state, members, topics, lag
+komando queue lag prod-kafka billing          # one group, per topic and partition
 ```
 
+```text
+group: billing (Stable, 2 members), lag 37
+
+TOPIC   PARTITION  COMMITTED  END     LAG  CLIENT
+orders  0          304112     304140  28   billing-1
+orders  1          303980     303989  9    billing-2
+```
+
+- `queue list` shows at most 1000 topics (or queues, or streams), the first
+  by name; `-n` changes that. A longer list says so (`"truncated": true`,
+  and a line in the text) so you can narrow it with a pattern.
 - The message count is the end offset minus the start offset of each
   partition. On a compacted topic (`cleanup.policy=compact`) fewer messages
   may be left.
@@ -90,15 +112,20 @@ komando queue lag events billing              # one group, per topic and partiti
 ## Read messages
 
 ```bash
-komando queue peek events orders              # the newest 10 messages over all partitions
-komando queue peek events orders -n 50 --partition 2
-komando queue peek events orders --oldest -n 5   # the first ones still kept
+komando queue peek prod-kafka orders          # the newest 10 messages over all partitions
+komando queue peek prod-kafka orders -n 50 --partition 2
+komando queue peek prod-kafka orders --oldest -n 5   # the first ones still kept
+```
+
+```text
+# partition 2, offset 304139, 2026-11-13T09:14:02Z, key 42
+{"id": 42, "status": "paid"}
 ```
 
 `peek` reads straight from the partitions. It never joins a consumer
 group and never commits an offset, so no application's position moves
 and no message is removed. It stops once it has the messages that were
-there when it started; if nothing comes for `--wait` (5 seconds), it stops
+there when it started; if nothing comes for `--idle` (5 seconds), it stops
 and says some may be missing.
 
 - Values that are UTF-8 text are shown as they are; others come as base64
@@ -110,9 +137,13 @@ and says some may be missing.
 ## Send a message
 
 ```bash
-komando queue send events orders --value '{"id": 42, "status": "paid"}' --key 42
-komando queue send events orders --from ./order.json --header source=support
-komando queue send events orders --value test --dry-run   # checks the topic, sends nothing
+komando queue send prod-kafka orders --value '{"id": 42, "status": "paid"}' --key 42
+komando queue send prod-kafka orders --from ./order.json --header source=support
+komando queue send prod-kafka orders --value test --dry-run   # checks the topic, sends nothing
+```
+
+```text
+sent 28 B to orders, partition 2, offset 304140
 ```
 
 - The topic must exist (`TOPIC_NOT_FOUND`): komando never lets the brokers
@@ -121,26 +152,44 @@ komando queue send events orders --value test --dry-run   # checks the topic, se
   the same partition. `--partition N` picks one itself.
 - The value comes from `--value`, from `--from FILE` (`-` for stdin), or
   from data piped on stdin. Kafka takes about 1 MiB per message by default.
-- A protected conn needs `--yes`.
+- A protected conn asks a person at a terminal first; an AI agent or a
+  script adds `--yes` after a person agrees.
 - The audit log records the topic and the size, never the message.
 
 ## Create, delete and empty topics
 
 ```bash
-komando queue create events orders --partitions 6 --replicas 3 --dry-run
-komando queue create events orders --partitions 6 --replicas 3 --config retention.ms=604800000
-komando queue purge events orders-retry --dry-run         # how many messages would go
-komando queue purge events orders-retry --allow-dangerous # delete every message, keep the topic
-komando queue rm events old-orders --dry-run
-komando queue rm events old-orders --allow-dangerous      # delete the topic and its messages
+komando queue create prod-kafka orders --partitions 6 --replicas 3 --dry-run
+komando queue create prod-kafka orders --partitions 6 --replicas 3 --config retention.ms=604800000
+komando queue purge prod-kafka orders-retry --dry-run   # how many messages would go
+komando queue purge prod-kafka orders-retry             # delete every message, keep the topic
+komando queue rm prod-kafka old-orders --dry-run
+komando queue rm prod-kafka old-orders                  # delete the topic and its messages
+```
+
+```text
+would delete 212 messages from orders-retry (3 partitions); the topic stays
 ```
 
 - `create --dry-run` asks the brokers to check the topic without making it,
   so a bad setting or more replicas than brokers shows now.
 - Without `--partitions` and `--replicas` the brokers' defaults apply.
-- `purge` and `rm` cannot be undone, so they need `--allow-dangerous`
-  (rules `queue-purge` and `queue-delete` in `komando policy list`). Their
-  `--dry-run` lists what would go.
+- `purge` and `rm` cannot be undone (rules `queue-purge` and
+  `queue-delete` in `komando policy list`). Their `--dry-run` lists what
+  would go. At your terminal komando asks you first: it says what would
+  be deleted and asks for the topic's or queue's name (the count, when
+  several go).
+
+  ```
+  $ komando queue purge prod-kafka orders-retry
+  This deletes every message in orders-retry (it stays).
+  Type the name orders-retry to continue: orders-retry
+  ```
+
+  Anything else stops it and changes nothing. An AI agent or a script
+  gets `POLICY_BLOCKED` (exit 6) with the same reason, and adds
+  `--allow-dangerous` only after a person agrees. See
+  [Safety](safety.md#what-needs-a-yes).
 
 ## RabbitMQ
 
@@ -148,11 +197,11 @@ komando queue rm events old-orders --allow-dangerous      # delete the topic and
 
 ```bash
 komando secret set rabbit-pass
-komando conn add jobs 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --password-ref secret:rabbit-pass
-komando conn add jobs2 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --password-ref secret:rabbit-pass
-komando queue info jobs                       # version, cluster, nodes, totals
-komando queue ls jobs                         # queues: messages, ready, unacked, consumers
-komando queue peek jobs emails                # the first 10 messages; all of them go back
+komando queue add prod-rabbit 'amqps://app@rabbit.example.com:5671/%2F?management=15671' --password-ref secret:rabbit-pass
+komando queue add staging-rabbit 'amqp://app@rabbit.internal:5672/prod?management=15672' --via web1 --password-ref secret:rabbit-pass
+komando queue info prod-rabbit                       # version, cluster, nodes, totals
+komando queue list prod-rabbit                         # queues: messages, ready, unacked, consumers
+komando queue peek prod-rabbit emails                # the first 10 messages; all of them go back
 ```
 
 - `amqps://` is AMQP with TLS (port 5671 by default); `amqp://` has no
@@ -168,7 +217,7 @@ komando queue peek jobs emails                # the first 10 messages; all of th
 
 | Option | What it does |
 |---|---|
-| `management=PORT` | also use the management HTTP API on this port of the same host (HTTPS for `amqps://`), for `ls`, the nodes and the totals in `info`, and the details in `describe` |
+| `management=PORT` | also use the management HTTP API on this port of the same host (HTTPS for `amqps://`), for `queue list`, the nodes and the totals in `info`, and the details in `describe` |
 | `ca=secret:NAME` | `amqps://`: also trust your own CA (`komando secret set NAME < ca.pem`) |
 | `tls=skip-verify` | `amqps://` without checking the certificate (`komando doctor` warns; prefer `ca=`) |
 | `insecure=1` | accept `amqp://` across the network without TLS |
@@ -177,18 +226,18 @@ The management API is the `rabbitmq_management` plugin. It takes users
 with the `management`, `monitoring` or `administrator` tag; komando only
 reads from it. Without `?management=`, komando uses AMQP alone: `info`
 shows the server's version and `describe` shows how many messages wait and
-how many consumers a queue has, but `ls` cannot list queues
+how many consumers a queue has, but `queue list` cannot list queues
 (`NOT_SUPPORTED`).
 
 ### What each command does on RabbitMQ
 
 ```bash
-komando queue describe jobs emails            # type, state, messages, arguments, consumers
-komando queue peek jobs emails -n 5           # the first 5 messages; nothing is removed
-komando queue send jobs emails --value '{"to": "a@example.com"}' --header source=support
-komando queue create jobs emails --type quorum --config x-max-length=10000 --dry-run
-komando queue purge jobs emails --dry-run     # how many messages wait
-komando queue rm jobs emails --allow-dangerous
+komando queue describe prod-rabbit emails            # type, state, messages, arguments, consumers
+komando queue peek prod-rabbit emails -n 5           # the first 5 messages; nothing is removed
+komando queue send prod-rabbit emails --value '{"to": "a@example.com"}' --header source=support
+komando queue create prod-rabbit emails --type quorum --config x-max-length=10000 --dry-run
+komando queue purge prod-rabbit emails --dry-run     # how many messages wait
+komando queue rm prod-rabbit emails
 ```
 
 - **`peek` takes messages from the front of the queue and gives every one
@@ -204,14 +253,16 @@ komando queue rm jobs emails --allow-dangerous
     RabbitMQ 4.0, or the queue's own `x-delivery-limit` or policy) it drops
     a message or sends it to its dead-letter queue. So peek shows the count
     (`deliveries`) and stops with `DELIVERY_LIMIT_NEAR` once a message
-    has fewer than 3 deliveries left: do not peek that queue again. Only
+    has fewer than 3 deliveries left: do not peek that queue again. It
+    takes no message after that one, so the messages behind it are not
+    counted down too. Only
     the management API tells a queue's type and its own limit, so peek
     needs `?management=` in the conn's URL: without it (or when the
     management API fails) peek stops before it takes a message
     (`NOT_SUPPORTED`, or the management API's error).
   - A stream queue cannot be peeked this way (`NOT_SUPPORTED`).
-  - peek always reads from the front (`"from": "front"`); `--oldest`,
-    `--partition` and `--wait` are for Kafka.
+  - peek always reads from the front (`"from": "front"`), which is
+    already the oldest; `--partition` and `--idle` are for Kafka.
 - `send` puts the message straight into the queue (through the default
   exchange), as a persistent message, and waits until the server confirms
   it. `--header KEY=VALUE` sets its headers; there is no `--key` or
@@ -225,7 +276,8 @@ komando queue rm jobs emails --allow-dangerous
 - `purge` deletes the messages that wait (ready). Messages a consumer
   holds and has not acknowledged yet stay. `rm` deletes the queue and its
   messages, and cancels its consumers; `--dry-run` shows how many of each.
-  Both need `--allow-dangerous`.
+  Both cannot be undone, so they ask first, as for
+  [Kafka](#create-delete-and-empty-topics).
 - `groups` and `lag` answer `NOT_SUPPORTED`: RabbitMQ has no consumer
   groups. `describe` shows a queue's consumers, the messages waiting for
   them (ready) and those not acknowledged yet (unacked).
@@ -236,13 +288,13 @@ komando queue rm jobs emails --allow-dangerous
 
 ```bash
 komando secret set nats-pass
-komando conn add stream 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --password-ref secret:nats-pass
-komando conn add stream2 nats://nats.internal:4222 --via web1 --password-ref secret:nats-pass
+komando queue add prod-nats 'tls://app@nats1.example.com:4222,nats2.example.com:4222' --password-ref secret:nats-pass
+komando queue add staging-nats nats://nats.internal:4222 --via web1 --password-ref secret:nats-pass
 komando secret set ngs-creds < user.creds
-komando conn add cloud 'tls://connect.ngs.global?creds=secret:ngs-creds'
-komando queue info stream                     # version, server, the account's streams and limits
-komando queue ls stream                       # streams: subjects, messages, size, consumers
-komando queue peek stream ORDERS              # the newest 10 messages; none is taken away
+komando queue add ngs-nats 'tls://connect.ngs.global?creds=secret:ngs-creds'
+komando queue info prod-nats                     # version, server, the account's streams and limits
+komando queue list prod-nats                       # streams: subjects, messages, size, consumers
+komando queue peek prod-nats ORDERS              # the newest 10 messages; none is taken away
 ```
 
 - `tls://` is NATS with TLS; `nats://` has no TLS. The port is 4222 by
@@ -251,14 +303,16 @@ komando queue peek stream ORDERS              # the newest 10 messages; none is 
   you add `?insecure=1`.
 - List several servers of a cluster with commas. komando tries them in
   that order and talks only to the servers in the URL (with `--via`, all
-  of them are reached through the bastion or the VPN).
+  of them are reached through the bastion or the VPN). It tries each server
+  once and does not reconnect or follow the servers the cluster
+  advertises.
 - How komando logs in:
   - a user in the URL and `--password-ref`: user and password;
   - `--password-ref` without a user: the password is sent as a token;
   - `?creds=secret:NAME`: a `.creds` file (from `nsc`, NGS or Synadia
     Cloud) that you keep in the vault with `komando secret set NAME < user.creds`;
   - none of these: no login.
-- `komando conn test stream` logs in and shows the server's version.
+- `komando test prod-nats` logs in and shows the server's version.
 
 | Option | What it does |
 |---|---|
@@ -278,15 +332,15 @@ application's place in a stream: what it has been given and what it has
 acknowledged.
 
 ```bash
-komando queue describe stream ORDERS          # settings, limits, sequences, cluster, consumers
-komando queue groups stream                   # every consumer: pending, ack pending, waiting
-komando queue lag stream ORDERS/billing       # one consumer (the name alone works when only one stream has it)
-komando queue peek stream ORDERS -n 5         # the newest 5 messages
-komando queue peek stream ORDERS --oldest     # the first ones still kept
-komando queue send stream orders.new --value '{"id": 42}' --header source=support
-komando queue create stream ORDERS --config subjects='orders.>' --config max_age=7d --dry-run
-komando queue purge stream ORDERS --dry-run   # how many messages would go
-komando queue rm stream ORDERS --allow-dangerous
+komando queue describe prod-nats ORDERS          # settings, limits, sequences, cluster, consumers
+komando queue groups prod-nats                   # every consumer: pending, ack pending, waiting
+komando queue lag prod-nats ORDERS/billing       # one consumer (the name alone works when only one stream has it)
+komando queue peek prod-nats ORDERS -n 5         # the newest 5 messages
+komando queue peek prod-nats ORDERS --oldest     # the first ones still kept
+komando queue send prod-nats orders.new --value '{"id": 42}' --header source=support
+komando queue create prod-nats ORDERS --config subjects='orders.>' --config max_age=7d --dry-run
+komando queue purge prod-nats ORDERS --dry-run   # how many messages would go
+komando queue rm prod-nats ORDERS
 ```
 
 - **`peek` reads messages by their sequence number.** It makes no consumer
@@ -314,15 +368,16 @@ komando queue rm stream ORDERS --allow-dangerous
   the name and the settings only. A stream that is there already is
   `STREAM_EXISTS`.
 - `purge` deletes every message of a stream; the stream and its consumers
-  stay. `rm` deletes the stream, its messages and its consumers. Both need
-  `--allow-dangerous`.
+  stay. `rm` deletes the stream, its messages and its consumers. Both
+  cannot be undone, so they ask first, as for
+  [Kafka](#create-delete-and-empty-topics).
 - `groups` lists consumers. **Pending** is what a consumer has not been
   given yet (shown as its lag); **ack pending** is what it was given and
   has not acknowledged yet. `state` is `active` (a push consumer with a
   subscriber, or a pull consumer with requests waiting), `idle` or
   `paused`.
 - Key-value buckets (`KV_NAME`) and object stores (`OBJ_NAME`) are streams
-  too, and `ls` lists them.
+  too, and `queue list` lists them.
 - A server or account without JetStream: `info` says `jetstream: false`,
   and the other commands answer `NOT_SUPPORTED`.
 
@@ -335,14 +390,14 @@ each command, not in the URL. komando logs in with your AWS login, the
 same way as for S3 buckets and ECR registries, and needs no aws CLI:
 
 ```bash
-komando conn add aws sqs://eu-west-1 --option aws_profile=prod   # a profile in ~/.aws (SSO, a role, keys)
+komando queue add prod-sqs sqs://eu-west-1 --option aws_profile=prod   # a profile in ~/.aws (SSO, a role, keys)
 komando login aws --profile prod              # a person renews an SSO login when it runs out
-komando conn add aws2 sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
+komando queue add staging-sqs sqs://eu-west-1          # no profile: AWS_* variables, ~/.aws default, or the server's role
 komando secret set sqs-secret                  # or: keys of an IAM user
-komando conn add aws3 sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
-komando queue info aws                         # region, account, how many queues
-komando queue ls aws                           # queues: waiting, in flight, delayed, dead-letter queue
-komando queue peek aws orders                  # up to 10 messages; none is hidden or deleted
+komando queue add ops-sqs sqs://AKIAIOSFODNN7EXAMPLE@eu-west-1 --password-ref secret:sqs-secret
+komando queue info prod-sqs                         # region, account, how many queues
+komando queue list prod-sqs                           # queues: waiting, in flight, delayed, dead-letter queue
+komando queue peek prod-sqs orders                  # up to 10 messages; none is hidden or deleted
 ```
 
 - How komando logs in, in this order: the conn's `aws_profile` option
@@ -352,7 +407,7 @@ komando queue peek aws orders                  # up to 10 messages; none is hidd
   `AWS_PROFILE` variables, the default profile, an EC2 or ECS role).
 - An expired SSO login stops with `AWS_LOGIN_REQUIRED`: a person runs
   `komando login aws --profile NAME` once.
-- `komando conn test aws` logs in and lists one queue.
+- `komando test prod-sqs` logs in and lists one queue.
 
 | Option | What it does |
 |---|---|
@@ -367,13 +422,13 @@ temporary login's session token would travel unencrypted.
 ### What each command does on SQS
 
 ```bash
-komando queue describe aws orders             # counts, settings, dead-letter queue, tags
-komando queue send aws orders --value '{"id": 42}' --header source=support
-komando queue send aws orders.fifo --key customer-7 --value '{"id": 42}'
-komando queue create aws orders.fifo --config ContentBasedDeduplication=true --dry-run
-komando queue create aws jobs --config VisibilityTimeout=120 --config MessageRetentionPeriod=86400
-komando queue purge aws orders --dry-run      # about how many messages would go
-komando queue rm aws old-jobs --allow-dangerous
+komando queue describe prod-sqs orders             # counts, settings, dead-letter queue, tags
+komando queue send prod-sqs orders --value '{"id": 42}' --header source=support
+komando queue send prod-sqs orders.fifo --key customer-7 --value '{"id": 42}'
+komando queue create prod-sqs orders.fifo --config ContentBasedDeduplication=true --dry-run
+komando queue create prod-sqs jobs --config VisibilityTimeout=120 --config MessageRetentionPeriod=86400
+komando queue purge prod-sqs orders --dry-run      # about how many messages would go
+komando queue rm prod-sqs old-jobs
 ```
 
 - **`peek` receives messages with a visibility timeout of 0 and never
@@ -408,7 +463,8 @@ komando queue rm aws old-jobs --allow-dangerous
 - `purge` deletes every message, also those in flight, and keeps the queue;
   SQS allows one purge per queue every 60 seconds. `rm` deletes the queue;
   SQS needs 60 seconds before a queue of the same name can be made again.
-  Both need `--allow-dangerous`.
+  Both cannot be undone, so they ask first, as for
+  [Kafka](#create-delete-and-empty-topics).
 - `groups` and `lag` answer `NOT_SUPPORTED`: SQS has no consumer groups.
   `describe` shows how many messages are in flight.
 
@@ -421,14 +477,14 @@ subscription's name to each command, not in the URL. komando logs in the
 same way as for gs:// buckets and needs no gcloud or Google SDK:
 
 ```bash
-komando conn add gcp pubsub://my-project      # gcloud's login (application default credentials)
+komando queue add prod-pubsub pubsub://my-project      # gcloud's login (application default credentials)
 komando secret set pubsub-key < key.json      # or: a service account key
-komando conn add gcp2 pubsub://my-project --password-ref secret:pubsub-key
-komando conn add local 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
-komando queue info gcp                         # how many topics and subscriptions
-komando queue ls gcp                           # topics and how many subscriptions each has
-komando queue groups gcp                       # subscriptions: topic, delivery, ack deadline
-komando queue peek gcp billing                 # up to 10 messages of subscription billing; all given back
+komando queue add staging-pubsub pubsub://my-project --password-ref secret:pubsub-key
+komando queue add local-pubsub 'pubsub://test-project?endpoint=http://localhost:8085'   # the emulator: no login
+komando queue info prod-pubsub                         # how many topics and subscriptions
+komando queue list prod-pubsub                           # topics and how many subscriptions each has
+komando queue groups prod-pubsub                       # subscriptions: topic, delivery, ack deadline
+komando queue peek prod-pubsub billing                 # up to 10 messages of subscription billing; all given back
 ```
 
 - How komando logs in: the service account key in `--password-ref`, or
@@ -440,8 +496,9 @@ komando queue peek gcp billing                 # up to 10 messages of subscripti
   `roles/pubsub.publisher` to send, `roles/pubsub.editor` to create and
   delete.
 - A login only ever travels over HTTPS. The emulator (`http://`) takes
-  none, so komando sends none there.
-- `komando conn test gcp` logs in and lists one topic.
+  none, so komando sends none there: a key in `--password-ref` on an
+  `http://` endpoint is refused (`USAGE`).
+- `komando test prod-pubsub` logs in and lists one topic.
 
 | Option | What it does |
 |---|---|
@@ -475,13 +532,13 @@ answers `NOT_SUPPORTED`.
 ### What each command does on Pub/Sub
 
 ```bash
-komando queue describe gcp orders              # a topic and its subscriptions
-komando queue describe gcp subscriptions/billing
-komando queue send gcp orders --value '{"id": 42}' --header source=support --key customer-7
-komando queue create gcp orders --config messageRetentionDuration=7d --dry-run
-komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60
-komando queue purge gcp billing --dry-run      # empties subscription billing
-komando queue rm gcp subscriptions/billing old-orders --dry-run
+komando queue describe prod-pubsub orders              # a topic and its subscriptions
+komando queue describe prod-pubsub subscriptions/billing
+komando queue send prod-pubsub orders --value '{"id": 42}' --header source=support --key customer-7
+komando queue create prod-pubsub orders --config messageRetentionDuration=7d --dry-run
+komando queue create prod-pubsub subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60
+komando queue purge prod-pubsub billing --dry-run      # empties subscription billing
+komando queue rm prod-pubsub subscriptions/billing old-orders --dry-run
 ```
 
 - **`peek` pulls messages and gives every one back unacknowledged.** It
@@ -495,6 +552,8 @@ komando queue rm gcp subscriptions/billing old-orders --dry-run
   `maxDeliveryAttempts` deliveries Pub/Sub moves a message to the
   dead-letter topic, and a peek is a delivery. So peek stops with
   `DELIVERY_LIMIT_NEAR` once a message it showed has fewer than 3 left.
+  A subscription whose limit is 3 or less is refused before peek pulls
+  anything.
   Let the subscribers take the message, or peek a subscription of the
   dead-letter topic.
 - Push, BigQuery and Cloud Storage subscriptions are delivered by Pub/Sub
@@ -517,23 +576,47 @@ komando queue rm gcp subscriptions/billing old-orders --dry-run
 - `rm` deletes topics, or subscriptions written `subscriptions/NAME`.
   Deleting a topic does not delete its subscriptions: they keep their
   messages, cut off from the topic. Deleting a subscription deletes the
-  messages waiting in it. Both `purge` and `rm` need `--allow-dangerous`.
+  messages waiting in it. `purge` and `rm` cannot be undone, so they ask first, as for
+  [Kafka](#create-delete-and-empty-topics).
+
+## Check, change, rename or remove a queue conn
+
+A queue is a conn, so the conn commands work on it:
+
+```bash
+komando test prod-kafka                       # can komando reach it and log in?
+komando conn show prod-kafka                  # its URL, way in and password reference
+komando conn edit prod-kafka --protected      # every change then needs a person's yes
+komando conn rename prod-kafka orders-kafka
+komando conn rm prod-kafka                    # komando forgets it; the topics stay
+```
+
+## Limits
+
+- RabbitMQ: a vhost whose name holds `/` is written URL-encoded (`%2F`);
+  a path with a second `/` is refused.
+- RabbitMQ and NATS: `ca=` and `tls=skip-verify` cannot be used together.
+- NATS: a user in the URL and `creds=` together are refused: pick one.
+- SQS: komando does not read `AWS_ENDPOINT_URL` or `AWS_ENDPOINT_URL_SQS`:
+  the conn's URL says where it goes. Use `?endpoint=` for another server.
+- Pub/Sub: the URL has no user. Google logins have none, and a user is
+  refused. Topics of another project need a conn of their own.
+- Pub/Sub: an empty message with no `--header` is refused.
+- Pub/Sub: `pushEndpoint` must be an `https://` address.
+- komando has no command to rename, copy or back up a topic.
 
 ## Troubleshooting
 
-| Code | What to do |
+| Error | What it means and what to do |
 |---|---|
 | `QUEUE_CONNECT` | the brokers cannot be reached, or want TLS (`?tls=true`) or a login (`?sasl=`); with `--via`, the advertised addresses must be reachable from there |
 | `QUEUE_AUTH` | check the user, the `sasl=` mechanism and the password (`komando conn show NAME`); SQS: the AWS profile or keys; Pub/Sub: the service account key, or `gcloud auth application-default login` |
 | `AWS_LOGIN_REQUIRED`, `AWS_PROFILE_NOT_FOUND` | SQS: a person runs `komando login aws --profile NAME`, or fix the conn's `aws_profile` option |
 | `QUEUE_DENIED` | the user lacks a Kafka ACL for the topic, group or cluster, a RabbitMQ permission on the vhost or queue, a NATS permission on the subject or the JetStream API, an IAM permission for SQS (`sqs:ReceiveMessage`, ...), or a Pub/Sub role (`roles/pubsub.subscriber`, ...; or the Pub/Sub API is not enabled): ask the admin |
-| `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue ls`, `queue groups` or `queue describe` |
+| `TOPIC_NOT_FOUND`, `CONSUMER_GROUP_NOT_FOUND`, `PARTITION_NOT_FOUND` | check the name with `queue list`, `queue groups` or `queue describe` |
 | `TOPIC_EXISTS` | `queue create` of a topic that is there |
 | `QUEUE_NOT_FOUND`, `QUEUE_EXISTS` | RabbitMQ: no such queue in the conn's vhost, or one is there already; check the vhost in the URL's path. SQS: check the region (the URL's host) and, for another account's queue, `?account=` |
 | `SUBSCRIPTION_NOT_FOUND`, `SUBSCRIPTION_EXISTS` | Pub/Sub: no such subscription (`queue groups` lists them; peek takes a subscription, not a topic), or one is there already |
 | `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit, an SQS message close to its queue's `maxReceiveCount`, or a Pub/Sub message close to its subscription's `maxDeliveryAttempts`: stop peeking and let its consumers take the message |
-| `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue ls` and `queue groups` show the names |
-| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream; SQS: `groups`, `lag`, `peek --oldest`; Pub/Sub: `lag`, `peek --oldest`, peek of a push subscription); the hint says what works instead |
-
-The design behind these commands is in
-[docs/design/queue.md](../design/queue.md).
+| `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue list` and `queue groups` show the names |
+| `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `queue list` and `peek` without `?management=`, `peek` of a stream queue; NATS without JetStream; SQS: `groups`, `lag`, `peek --oldest`; Pub/Sub: `lag`, `peek --oldest`, peek of a push subscription; `peek --idle` on anything but Kafka; flags a kind does not have: `--partition`, `--key`, `--type`, `--internal`, `--partitions`, `--replicas`); the hint says what works instead |

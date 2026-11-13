@@ -78,7 +78,7 @@ func (r *Rabbit) Create(ctx context.Context, s queuex.TopicSpec, dryRun bool) (*
 		return nil, queuex.NotSupported("--partitions and --replicas", "rabbitmq", "a RabbitMQ queue has no partitions; for copies on several nodes use --type quorum")
 	}
 	if s.Type != "" && !queueTypes[s.Type] {
-		return nil, out.Usage("--type must be classic, quorum or stream, not %q", s.Type)
+		return nil, out.Usage("--type takes classic, quorum or stream, not %q", s.Type)
 	}
 	args := amqp.Table{}
 	for k, v := range s.Config {

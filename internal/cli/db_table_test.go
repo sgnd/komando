@@ -47,8 +47,7 @@ func TestDBQueryTableOutput(t *testing.T) {
 		{[]string{"-o", "csv"}, 601, "id,name"},
 		{[]string{"-o", "tsv"}, 601, "id\tname"},
 		{[]string{"-o", "csv", "--limit", "10"}, 11, "id,name"},
-		{[]string{"--csv"}, 601, "id,name"}, // the old name, for one release
-		{[]string{"--tsv", "-n", "3"}, 4, "id\tname"},
+		{[]string{"-o", "tsv", "-n", "3"}, 4, "id\tname"},
 	} {
 		s, e := tableRun(t, append(append([]string{"db", "query", "lite"}, c.args...), "select id, name from t order by id")...)
 		lines := strings.Split(strings.TrimSpace(s), "\n")
@@ -61,16 +60,8 @@ func TestDBQueryTableOutput(t *testing.T) {
 func TestDBQueryTableConflicts(t *testing.T) {
 	tableDB(t, 3)
 	q := "select id from t"
-	wantCode(t, "USAGE", "db", "query", "lite", "--csv", q)               // -o json (invRun) and --csv
-	wantCode(t, "USAGE", "db", "query", "lite", "-o", "text", "--tsv", q) // the last -o wins: text and --tsv
-	if _, e := tableRun(t, "db", "query", "lite", "--csv", "--tsv", q); e == nil || e.Code != "USAGE" {
-		t.Errorf("--csv --tsv: %+v", e)
-	}
-	if _, e := tableRun(t, "db", "query", "lite", "-o", "tsv", "--csv", q); e == nil || e.Code != "USAGE" {
-		t.Errorf("-o tsv --csv: %+v", e)
-	}
-	if s, e := tableRun(t, "db", "query", "lite", "-o", "csv", "--csv", q); e != nil || !strings.HasPrefix(s, "id\n") {
-		t.Errorf("-o csv --csv say the same: %q %+v", s, e)
+	if s, e := tableRun(t, "db", "query", "lite", "-o", "tsv", "-o", "csv", q); e != nil || !strings.HasPrefix(s, "id\n") {
+		t.Errorf("the last -o wins: %q %+v", s, e)
 	}
 	if _, e := tableRun(t, "list", "-o", "csv"); e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "db query") {
 		t.Errorf("-o csv elsewhere: %+v", e)

@@ -27,8 +27,8 @@ set +e; $K fs write direct $R/o --content x --owner nobody >/dev/null; check "--
 q $K fs write direct $R/b --content b
 set +e; $K fs mv direct $R/dl/ok $R/b >/dev/null; check "fs mv never replaces a file" 8 $?; set -e
 set +e; $K fs mv direct $R/nope $R/c >/dev/null; check "fs mv of a missing path -> 3" 3 $?; set -e
-set +e; $K fs rm direct $R/avail >/dev/null; check "fs rm of a folder needs -r -> 2" 2 $?; set -e
-check "fs rm of a missing path says so" True "$($K fs rm direct $R/nope -o text | grep -q 'not found' && echo True || echo False)"
+set +e; $K fs rm direct $R/avail --allow-dangerous >/dev/null; check "fs rm of a folder needs -r -> 2" 2 $?; set -e
+check "fs rm of a missing path says so" True "$($K fs rm direct $R/nope -o text --allow-dangerous | grep -q 'not found' && echo True || echo False)"
 check "fs cat of a folder" IS_A_DIRECTORY "$($K fs cat direct $R/avail | jget 'd["error"]["code"]' || true)"
 set +e; $K fs chmod direct $R/b 0644 >/dev/null; check "fs chmod with swapped args -> 2" 2 $?; set -e
 check "fs replace dry-run says would_change" True "$($K fs replace direct $R/b --old b --new c --dry-run | jget 'd["data"]["would_change"]')"
@@ -63,7 +63,7 @@ q $K job rm "$JR"
 
 # recipes, tunnels
 set +e; $K recipe run disk direct --var pth=/ >/dev/null; check "unknown recipe --var -> 2" 2 $?; set -e
-check "a retired recipe names its command" True "$($K recipe run certbot-certs direct | jget 'd["error"]["code"] == "RECIPE_NOT_FOUND" and "cert check" in d["error"]["hint"]' || true)"
+check "an unknown recipe" RECIPE_NOT_FOUND "$($K recipe run t-e2enope direct | jget 'd["error"]["code"]' || true)"
 TUN=$($K tunnel start direct -L 0:localhost:22)
 TP=$(echo "$TUN" | jget 'd["data"]["listen"].split(":")[1]')
 check "a port in use" PORT_IN_USE "$($K tunnel start direct -L "${TP}:localhost:22" | jget 'd["error"]["code"]' || true)"

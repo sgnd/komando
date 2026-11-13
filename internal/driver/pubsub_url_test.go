@@ -41,10 +41,10 @@ func TestParsePubsubRefuses(t *testing.T) {
 		"pubsub://me@my-project":                   "has no user",
 		"pubsub://my-project/topics/orders":        "drop \"/topics/orders\"",
 		"pubsub://my-project?topic=orders":         "unknown pubsub URL option",
-		"pubsub://my-project?endpoint=ftp://x":     "endpoint must be a URL",
+		"pubsub://my-project?endpoint=ftp://x":     "endpoint is a URL",
 		"pubsub://my-project?endpoint=http://x/v1": "server only",
 		"pubsub://my-project?insecure=yes":         "only be 1",
-		"pubsub://my-project?password=abc":         "must not contain a password",
+		"pubsub://my-project?password=abc":         "holds no password",
 	} {
 		_, err := Parse(raw)
 		if err == nil || !strings.Contains(err.Error(), want) {

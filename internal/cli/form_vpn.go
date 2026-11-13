@@ -112,7 +112,7 @@ func vpnUserQ(optional bool, help string) formQ {
 // or read from a password manager (--password-ref). def comes first. It is
 // asked only once there is a user name.
 func vpnPassQ(def string, canType bool) formQ {
-	rows := map[string]menuRow{
+	rows := map[string]pickRow{
 		"save": {label: "Save it now, hidden", detail: "the command asks for it without showing it and keeps it as a saved password", value: "save"},
 		"type": {label: "Type it each time I connect", detail: "komando vpn up asks for it; best when you also need a code from your phone", value: "type"},
 		"ref":  {label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"},
@@ -127,8 +127,8 @@ func vpnPassQ(def string, canType bool) formQ {
 		help: "The password is never shown and never written in the command.",
 		def:  func(*store.State, formAnswers) string { return def },
 		show: func(a formAnswers) bool { return a["user"] != "" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			var rs []menuRow
+		choices: func(*store.State, formAnswers) []pickRow {
+			var rs []pickRow
 			for _, k := range order {
 				rs = append(rs, rows[k])
 			}
@@ -156,8 +156,8 @@ func vpnRefQ(key, from string) formQ {
 func vpnPskQ(label, what, help string) formQ {
 	return formQ{key: "psk", label: label, ask: "How should komando get the " + what + "?", help: help,
 		def: func(*store.State, formAnswers) string { return "save" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Save it now, hidden", detail: "vpn add asks for it, hidden, and keeps it as a saved password", value: "save"},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Save it now, hidden", detail: "vpn add asks for it, hidden, and keeps it as a saved password", value: "save"},
 				{label: "It is in a password manager", detail: "1Password, Bitwarden, KeePass, or an environment variable", value: "ref"}}
 		}}
 }
@@ -168,8 +168,8 @@ func vpnMfaQ() formQ {
 	return formWhen(formQ{key: "mfa", label: "Extra sign-in step", ask: "After the password, does logging in need one more step?",
 		help: "With an extra step you connect it yourself with komando vpn up; later commands reuse that connection.",
 		def:  func(*store.State, formAnswers) string { return "no" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "No, just the password", detail: "komando connects it by itself", value: "no"},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "No, just the password", detail: "komando connects it by itself", value: "no"},
 				{label: "Yes, a code or a phone prompt", detail: "a code from an app or text message, a push to approve, or a browser sign-in", value: "yes"}}
 		}},
 		func(a formAnswers) bool { return a["user"] != "" && a["pass"] != "type" })
@@ -329,8 +329,8 @@ func tailscaleForm() formSpec {
 		{key: "login", label: "Login", ask: "How do you want to log in?",
 			help: "An auth key is made on the Tailscale admin page, under Settings, Keys. It starts with tskey-.",
 			def:  func(*store.State, formAnswers) string { return "browser" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "Sign in with my browser", detail: "komando vpn up shows a link; you sign in as in the Tailscale app", value: "browser"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "Sign in with my browser", detail: "komando vpn up shows a link; you sign in as in the Tailscale app", value: "browser"},
 					{label: "An auth key", detail: "komando secret set asks for it next, hidden; then komando connects by itself", value: "authkey"}}
 			}},
 		vpnCheckQ(false, "100.64.0.5:22"),
@@ -466,8 +466,8 @@ func ikev2Form() formSpec {
 		vpnServerQ(),
 		{key: "auth", label: "Login", ask: "How do you log in?",
 			def: func(*store.State, formAnswers) string { return "user" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "A user name and password", detail: "the server proves itself with a certificate", value: "user"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "A user name and password", detail: "the server proves itself with a certificate", value: "user"},
 					{label: "A shared secret", detail: "one pre-shared key (PSK) for everyone", value: "psk"}}
 			}},
 		formWhen(vpnPskQ("Shared secret", "shared secret (pre-shared key)", "Your admin gives it to you; it is often called PSK."), byPsk),
@@ -557,7 +557,7 @@ func vpnProxyForm(kind string) formSpec {
 		formMore(vpnPassQ("save", false)), formMore(vpnRefQ("ref", "pass")),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
-		args := []string{"vpn", "add", a["name"], kind, "--address", a["address"]}
+		args := []string{"vpn", "add", a["name"], kind, "--proxy-address", a["address"]}
 		if a["user"] != "" {
 			args = vpnPassArgs(append(args, "--user", a["user"]), a)
 		}

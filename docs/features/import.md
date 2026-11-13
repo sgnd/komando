@@ -3,7 +3,7 @@
 Bring in the servers and databases you already have, and move everything to
 another computer. [All docs](README.md)
 
-## Quick start
+## Import your servers
 
 ```bash
 komando import ssh-config --dry-run              # see what would be added first
@@ -11,6 +11,14 @@ komando import ssh-config                        # servers from ~/.ssh/config
 komando import env ./shop/.env --group shop      # DATABASE_URL, REDIS_URL, ... from a .env file
 komando export --to komando-backup.json          # save everything (no passwords)
 komando import komando komando-backup.json       # on the other computer
+```
+
+Typed alone, `komando import` asks for the source, then the file.
+
+The import ends with the command that checks what came in:
+
+```text
+Next: komando test @shop
 ```
 
 ## Import what you already have
@@ -28,7 +36,7 @@ usual place for that source.
 | `docker` | `~/.docker/config.json` (and credential helpers) | registry conns |
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP sites are listed, not added) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
-| `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied |
+| `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied ([Cloud logins](cloud.md#add-a-conn-for-every-s3-bucket)) |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
 | `komando` | a file from `komando export` | servers, conns, VPNs and recipes |
 | `csv` | a spreadsheet saved as CSV (no default: give the file) | servers, one per row; see [Add many servers from a spreadsheet](servers.md#add-many-servers-from-a-spreadsheet) |
@@ -41,8 +49,9 @@ komando import ssh-config ~/work/ssh_config --group work
 ```
 
 Flags: `-g`/`--group` adds everything imported to a group, and
-`--overwrite` replaces entries that already have the same name (a protected
-one also needs `--yes`). Without `--overwrite`, komando skips names it
+`--overwrite` replaces entries that already have the same name (on a
+protected one komando asks you first; an AI agent or a script adds `--yes`
+after a person agrees). Without `--overwrite`, komando skips names it
 already has.
 
 ### What happens to passwords
@@ -54,6 +63,15 @@ appear in komando's list, output or history.
 
 - Importing the same file again changes nothing. A different database that
   happens to have the same name gets the next free name (`shop-2`).
+- Conns get the same TLS default as `conn add`: a database URL that says
+  nothing about TLS gets TLS that checks the certificate (for example
+  `sslmode=verify-full`, said in a note), and a `redis://`, `amqp://` or
+  other clear-text URL to another computer is skipped unless it ends in
+  `?insecure=1`.
+- With `--overwrite`, the result lists what it replaced. Without a yes, a
+  protected server or conn is skipped, in the dry run too.
+- The result names the command that checks what came in in `data.next`,
+  and a person sees it on stderr: `Next: komando test @shop`.
 - Servers are checked like `host add` (ports, users, `--via`). A bad one is
   skipped, with the reason. A `csv` import is stricter: one bad row stops
   the whole import, and nothing is added.
@@ -62,7 +80,7 @@ appear in komando's list, output or history.
   pattern (its settings become defaults for the other servers), or an
   `Include` file that is missing. `HostName %h.example.com` is understood.
 - A `ProxyCommand` runs on this computer, so an AI agent needs a person's
-  yes (`--yes`) to import one. Without it, that server is left out with the
+  yes (`--yes` and the approval window) to import one. Without it, that server is left out with the
   reason, the other servers still come in, and the import ends with
   `IMPORT_INCOMPLETE` (exit 1).
 
@@ -111,7 +129,10 @@ fix those entries and import again (what is in already is skipped).
 
 Private keys are never in an export file either. When a server logs in with
 a key from `komando key`, `export` names the key (`keys_needed`) and its file
-(`key_files`): copy that file to the other computer yourself. The import
+(`key_files`): copy that file to the other computer yourself. A key
+komando made (`key gen`) is sealed in komando and has no file
+(`keys_sealed`): make a new one on the other computer with `komando key gen
+NAME` and put it on the servers with `komando key deploy`. The import
 still adds the server, says which key it needs, and leaves the key out until
 you bring it (ssh-agent or your default key may log in meanwhile):
 
@@ -136,7 +157,7 @@ Each dropped setting is listed in the result.
 ### Copy the folder (everything, with passwords)
 
 The vault's key must travel with it, so give the vault a passphrase first.
-A key in `vault.key` or in the system keychain does not travel: a copied
+A key in `store.key` or in the system keychain does not travel: a copied
 folder whose key stayed in the old computer's keychain cannot open its
 secrets.
 
@@ -150,3 +171,22 @@ komando doctor                                # the vault opens, the servers are
 On the new computer you can go back to a key file and move it into the
 keychain: `komando secret passphrase --off --yes`, then `komando secret
 keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
+
+## Limits
+
+- Passwords, private key files and keys komando made never travel in an
+  export file; set or copy them on the other computer.
+- An import changes no setting: it lists the ones that differ.
+- A copied folder opens its secrets only when the vault has a passphrase.
+- Termius and TablePlus have no open export format (see
+  [above](#coming-from-termius-or-tableplus)).
+
+## Troubleshooting
+
+| Error | What it means | What to do |
+|-------|---------------|------------|
+| `IMPORT_INCOMPLETE` (exit 1) | most things came in, some were refused (see `skipped`) | fix those entries in the file and import again; what is in already is skipped |
+| `USAGE` (exit 2) | an unknown source, or `komando` or `csv` without a file | the hint lists the sources and an example |
+| `FILE_EXISTS` (exit 8) | `export --to` a file that exists | add `--overwrite`, or pick another file |
+| `PROTECTED_HOST`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
+| `VAULT_LOCKED` (exit 1) | a copied folder whose vault has a passphrase, without `KOMANDO_VAULT_PASS` | set `KOMANDO_VAULT_PASS`; see [Secrets](secrets.md#troubleshooting) |

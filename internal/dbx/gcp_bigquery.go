@@ -115,7 +115,7 @@ func bqTokenErr(err error) error {
 	var ue *url.Error
 	if errors.As(err, &ue) || strings.Contains(msg, "cannot fetch token") {
 		return out.Errf(out.ExitConnect, "DB_CONNECT",
-			"Google's token endpoint (oauth2.googleapis.com) did not answer: check DNS and the network from this computer, or from the --via host if the conn has one",
+			"Google's token endpoint (oauth2.googleapis.com) did not answer: check DNS and the network from this computer, or from the --via server if the conn has one",
 			"bigquery: cannot fetch a Google token: %s", strings.Join(strings.Fields(msg), " "))
 	}
 	return err
@@ -151,7 +151,7 @@ func (c *bqConnector) connectErr(err error) error {
 func bigqueryErr(err error) error {
 	var e *bqError
 	if !errors.As(err, &e) {
-		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando conn test NAME` to check the project and the login", "%v", err)
+		return out.Errf(out.ExitRemote, "DB_ERROR", "run `komando test TARGET` to check the project and the login", "%v", err)
 	}
 	low := strings.ToLower(e.Msg)
 	switch {

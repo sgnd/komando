@@ -65,7 +65,7 @@ func KeyVaultResource(path string) string {
 func AzureSecret(ctx context.Context, path string) (string, error) {
 	parts := strings.Split(path, "/")
 	if len(parts) < 2 || len(parts) > 3 {
-		return "", fmt.Errorf("write azure-kv:VAULT/NAME, e.g. azure-kv:shop-vault/db-password")
+		return "", fmt.Errorf("write azure-kv:VAULT/NAME, for example azure-kv:shop-vault/db-password")
 	}
 	host, resource, err := keyVaultHost(parts[0])
 	if err != nil {

@@ -1,5 +1,4 @@
-// Package sealrow seals one record of komando's local store (design:
-// docs/design/sync-security.md section 16). A sealed row is
+// Package sealrow seals one record of komando's local store. A sealed row is
 //
 //	format (1 byte) | suite (1 byte) | nonce (12 bytes) | AES-256-GCM ciphertext
 //

@@ -14,7 +14,7 @@ var queueConn = formArg{ask: "Which message queue?", pick: "queue",
 var queueHints = map[string]formHint{
 	"queue info":   {args: []formArg{queueConn}},
 	"queue groups": {args: []formArg{queueConn}},
-	"queue ls": {args: []formArg{queueConn, {ask: "Only names like? (leave empty for all)", example: "orders-*",
+	"queue list": {args: []formArg{queueConn, {ask: "Only names like? (leave empty for all)", example: "orders-*",
 		help: "A pattern: * stands for any letters, so orders-* lists orders-eu, orders-us ..."}},
 		flags: []formFlag{{name: "internal", ask: "Kafka only: also list Kafka's own topics (__consumer_offsets ...)?"}}},
 	"queue describe": {args: []formArg{queueConn, {ask: "Which topic or queue?", example: "orders",
@@ -28,7 +28,7 @@ var queueHints = map[string]formHint{
 			{name: "oldest", ask: "The oldest messages still kept, not the newest?",
 				help: "Kafka and NATS only. RabbitMQ always reads from the front; SQS and Pub/Sub give no order."}}},
 	"queue send": {args: []formArg{queueConn, {ask: "Send to which topic or queue?", example: "orders",
-		help: "It must exist already. NATS: a subject, like orders.new. Pub/Sub: a topic."}},
+		help: "It has to exist already. NATS: a subject, like orders.new. Pub/Sub: a topic."}},
 		flags: []formFlag{
 			{name: "value", ask: "What is the message? (leave empty to read it from a file)", example: `{"id": 42, "status": "paid"}`,
 				help: "The text of the message, often JSON."},
@@ -49,4 +49,18 @@ var queueHints = map[string]formHint{
 		help: "Deletes every waiting message and keeps the topic or queue. Pub/Sub: a subscription. Cannot be undone: try it first."}}},
 	"queue rm": {args: []formArg{queueConn, {ask: "Delete which topics or queues? (several: separate them with spaces)", example: "old-orders",
 		help: "Deletes them with their messages. Pub/Sub: subscriptions/NAME for a subscription. Cannot be undone: try it first."}}},
+}
+
+// Next: lines for the queue commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"queue list":     {next: []string{"queue describe {} TOPIC", "queue peek {} TOPIC", "queue groups {}"}},
+		"queue describe": {next: []string{"queue peek {} TOPIC", "queue lag {} CONSUMER"}},
+		"queue peek":     {next: []string{"queue describe {} TOPIC", "queue send {} TOPIC --value V --dry-run"}},
+		"queue groups":   {next: []string{"queue lag {} CONSUMER"}},
+		"queue send":     {next: []string{"queue peek {} TOPIC -n 1"}},
+		"queue create":   {next: []string{"queue send {} TOPIC --value V --dry-run", "queue describe {} TOPIC"}},
+		"queue purge":    {next: []string{"queue list {}"}},
+		"queue rm":       {next: []string{"queue list {}"}},
+	})
 }

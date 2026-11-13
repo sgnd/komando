@@ -138,6 +138,7 @@ func TestSealedRuntimeOnly(t *testing.T) {
 func TestSealedAcrossProcesses(t *testing.T) {
 	if home := os.Getenv("STORE_CHILD_HOME"); home != "" {
 		t.Setenv("KOMANDO_HOME", home)
+		t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 		fakeKeys(t)
 		n := os.Getenv("STORE_CHILD_N")
 		for i := range 10 {
@@ -181,8 +182,8 @@ func TestSealedAcrossProcesses(t *testing.T) {
 }
 
 // On a sealed home runtime.json is sealed: the SOCKS login of a running
-// VPN cannot be read from it, a plain one from before is read and sealed
-// at its next write, and the prompt's reader opens it.
+// VPN cannot be read from it, a plain one is read as empty, and the
+// prompt's reader opens it.
 func TestSealedRuntimeFile(t *testing.T) {
 	sealedStore(t)
 	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
@@ -202,18 +203,12 @@ func TestSealedRuntimeFile(t *testing.T) {
 	if rt, err := ReadRuntime(); err != nil || rt.Sessions["office"] == nil {
 		t.Fatalf("ReadRuntime: %v", err)
 	}
-	// a plain file from before
+	// a plain file was not written by komando: read as empty
 	if err := os.WriteFile(runtimePath(), []byte(`{"jobs":{"j":{"id":"j"}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if s, err := Load(); err != nil || s.Jobs["j"] == nil {
-		t.Fatalf("plain file: %v", err)
-	}
-	if err := UpdateRuntime(func(s *State) error { s.Jobs["k"] = &Job{ID: "k"}; return nil }); err != nil {
-		t.Fatal(err)
-	}
-	if b, _ := os.ReadFile(runtimePath()); !strings.HasPrefix(string(b), string(runtimeMagic)) {
-		t.Fatal("a plain runtime.json was not sealed at its next write")
+	if s, err := Load(); err != nil || s.Jobs["j"] != nil {
+		t.Fatalf("a plain runtime.json was trusted: %v", err)
 	}
 	// a damaged sealed file is refused, not read as empty
 	if err := os.WriteFile(runtimePath(), append(append([]byte{}, runtimeMagic...), "junk"...), 0o600); err != nil {
@@ -221,6 +216,36 @@ func TestSealedRuntimeFile(t *testing.T) {
 	}
 	if _, err := Load(); err == nil {
 		t.Fatal("a damaged sealed runtime.json was accepted")
+	}
+}
+
+// A plain runtime.json put beside a sealed store is never trusted: it could
+// point a server's held login at a socket that is not komando's, which
+// would then see every command, password and file sent to that server.
+func TestForgedPlainRuntimeIgnored(t *testing.T) {
+	sealedStore(t)
+	update(t, func(s *State) { s.Hosts["prod"] = &Host{Name: "prod", Address: "10.0.0.1", User: "root"} })
+	forged := `{"ssh_logins":{"prod":{"host":"prod","target":"x","socket":"/tmp/evil.sock","token":"t","host_key":"k","until":"2099-01-01T00:00:00Z"}},` +
+		`"vpn_sessions":{"office":{"vpn":"office","pid":1,"socks":"127.0.0.1:9"}}}`
+	if err := os.WriteFile(runtimePath(), []byte(forged), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Logins["prod"] != nil || s.Sessions["office"] != nil {
+		t.Fatalf("a forged plain runtime.json was trusted: %+v %+v", s.Logins["prod"], s.Sessions["office"])
+	}
+	if rt, err := ReadRuntime(); err != nil || len(rt.Logins)+len(rt.Sessions) != 0 {
+		t.Fatalf("ReadRuntime trusted it: %v", err)
+	}
+	// the next runtime write seals over it
+	if err := UpdateRuntime(func(s *State) error { s.Jobs["k"] = &Job{ID: "k"}; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(runtimePath()); !strings.HasPrefix(string(b), string(runtimeMagic)) || strings.Contains(string(b), "evil") {
+		t.Fatalf("not sealed over: %q", b)
 	}
 }
 

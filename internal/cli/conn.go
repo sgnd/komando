@@ -39,8 +39,8 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 	case k != kind || existing != name:
 		return nameTaken(k, existing)
 	case !overwrite:
-		return out.Errf(out.ExitConflict, strings.ToUpper(kind)+"_EXISTS", fmt.Sprintf("use `komando %s edit` or pass --overwrite to replace it", kind),
-			"%s %q already exists", kind, name)
+		return out.Errf(out.ExitConflict, map[string]string{"host": "HOST_EXISTS", "conn": "CONN_EXISTS", "vpn": "VPN_EXISTS"}[kind], fmt.Sprintf("use `komando %s edit` or pass --overwrite to replace it", kind),
+			"%s %q already exists", out.KindWord(kind), name)
 	}
 	// replacing drops the protected mark, so it counts as changing it
 	if h, ok := s.Hosts[name]; ok && h.Protected {
@@ -49,12 +49,15 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 	if c, ok := s.Conns[name]; ok && c.Protected {
 		return guardProtection("conn", "replacing", []string{name})
 	}
+	if v, ok := s.Vpns[name]; ok && v.Protected {
+		return guardProtection("vpn", "replacing", []string{name})
+	}
 	return nil
 }
 
 func nameTaken(kind, name string) error {
 	return out.Errf(out.ExitConflict, "NAME_TAKEN", fmt.Sprintf("pick another name; servers, conns and VPNs share one name space (see `komando %s show %s`)", kind, name),
-		"name %q is already used by a %s", name, kind)
+		"name %q is already used by a %s", name, out.KindWord(kind))
 }
 
 type connFlags struct {
@@ -77,14 +80,14 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 		shortAlias(fl, "group", "g", "add-group")
 		shortAlias(fl, "tag", "t", "add-tag")
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove these tags")
-		fl.StringSliceVar(&f.labels, "label", nil, "set label KEY=VALUE (an empty value removes it)")
-		fl.StringSliceVar(&f.options, "option", nil, "set an option of this kind, KEY=VALUE (an empty value removes it)")
+		kvVar(fl, &f.labels, "label", "", "set label KEY=VALUE (an empty value removes it)")
+		kvVar(fl, &f.options, "option", "", "set an option of this kind, KEY=VALUE (an empty value removes it)")
 		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: via,password-ref,notes,protected")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
-		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, e.g. prod (comma-separated)")
-		fl.StringSliceVar(&f.labels, "label", nil, "label KEY=VALUE (repeatable)")
-		fl.StringSliceVar(&f.options, "option", nil, "an option of this kind, KEY=VALUE (repeatable)")
+		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, like prod (comma-separated)")
+		kvVar(fl, &f.labels, "label", "", "label KEY=VALUE (repeatable)")
+		kvVar(fl, &f.options, "option", "", "an option of this kind, KEY=VALUE (repeatable)")
 	}
 }
 
@@ -97,7 +100,7 @@ func checkConn(s *store.State, c *store.Conn) error {
 	c.Kind = t.Kind.Name
 	if t.Kind.File && !strings.HasPrefix(t.Path, "/") && !strings.HasPrefix(t.Path, "~/") && !filepath.IsAbs(t.Path) {
 		// a relative path would name a different file in every folder komando runs from
-		hint := "write the full path, e.g. " + t.Kind.Example + ", or ~/ for your home folder"
+		hint := "write the full path, for example " + t.Kind.Example + ", or ~/ for your home folder"
 		if abs, err := filepath.Abs(t.Path); err == nil {
 			hint = "write the full path; for the file in this folder: " + t.Kind.Name + "://" + filepath.ToSlash(abs)
 		}
@@ -113,7 +116,7 @@ func checkConn(s *store.State, c *store.Conn) error {
 	}
 	if r := c.PasswordRef; r != "" && !vault.ValidRef(r) {
 		return out.Errf(out.ExitUsage, "USAGE", "store the password with `komando secret set NAME` and pass --password-ref secret:NAME ("+vault.RefHelp()+")",
-			"invalid --password-ref: it takes a reference, not the password itself")
+			"--password-ref takes a reference, not the password itself")
 	}
 	return checkLabels(c.Groups, c.Tags, c.Labels)
 }
@@ -122,16 +125,16 @@ func connCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "conn",
 		Aliases: []string{"conns"},
-		Short:   "Manage databases, caches, queues, storage, clusters, registries",
+		Short:   "Conns (databases, caches, queues, ...): add, change, remove",
 		Long: `A conn is a database, cache, message queue, file storage, cluster or registry
 komando talks to directly. The kind comes from the URL scheme (` + "`komando conn kinds`" + `
 lists them). Passwords never go in the URL: store them with
 ` + "`komando secret set`" + ` and pass --password-ref. Use --via HOST when the
-resource is only reachable from a server.
+conn is only reachable from a server.
 
 Conns share names and selectors (@group, tag:x, glob, all) with servers.`,
 	}
-	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test"), connKindsCmd())
+	c.AddCommand(connAddCmd(), connEditCmd(), connMvCmd(), alias(listCmdFor("conn"), "list kind:conn", "List conns"), connShowCmd(), connRmCmd(), alias(testCmdFor("conn"), "test", "Check that conns answer and let you in"), connKindsCmd())
 	return c
 }
 
@@ -146,14 +149,14 @@ func connAddCmd() *cobra.Command {
   komando conn add local sqlite:///var/lib/app.db
   komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
   komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
-  komando conn add app-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
+  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
 		Args: formArgs(cobra.ExactArgs(2)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				return formOrUsage(cmd, "conn", "komando conn add app-db postgres://app@10.0.0.5/app --ask-password")
+				return formOrUsage(cmd, "conn", "komando conn add prod-db postgres://app@10.0.0.5/app --ask-password")
 			}
 			name := args[0]
-			if err := validName("conn", name); err != nil {
+			if err := checkEntryName("conn", name); err != nil {
 				return err
 			}
 			undoPw := func() {}
@@ -246,7 +249,7 @@ func connEditCmd() *cobra.Command {
 func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, askPw bool) error {
 	fl := cmd.Flags()
 	if len(changedFlags(cmd)) == 0 {
-		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, e.g. komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
+		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
@@ -393,8 +396,8 @@ func connShowCmd() *cobra.Command {
 
 func connRmCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "rm NAME|TARGET...",
-		Short: "Remove conns from the inventory (the resources are not touched)",
+		Use:   "rm TARGET...",
+		Short: "Remove conns (from komando only)",
 		Example: `  komando conn rm shop-2
   komando conn rm kind:redis --dry-run`,
 		Args: cobra.MinimumNArgs(1),
@@ -440,7 +443,7 @@ func connRmCmd() *cobra.Command {
 func connKindsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "kinds",
-		Short: "List the resource kinds komando knows and their URL schemes",
+		Short: "List the conn kinds komando knows and their URL schemes",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out.P.Print("conn.kinds", kindList{Kinds: driver.Kinds()}, nil)
@@ -526,41 +529,6 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 		return sshx.WithDeadlines(c), nil
 	}
 	return a, nil
-}
-
-// resolveVia turns a --via chain ("office,bastion,db1") into what to dial:
-// the last host, reached through the steps before it (sshx opens a VPN
-// first step itself), or, when the path is only a VPN, that VPN. A chain
-// given here replaces the last host's own --via; a single host keeps its own.
-func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
-	steps := viaChain(via)
-	if len(steps) == 0 {
-		return nil, nil, out.Usage("--via is empty: give server or VPN names, e.g. --via bastion")
-	}
-	for i, s := range steps {
-		if _, ok := st.Vpns[s]; ok {
-			if i > 0 {
-				return nil, nil, out.Errf(out.ExitUsage, "VIA_ORDER", "put the VPN first: --via "+s+","+steps[0],
-					"a VPN can only be the first step of a --via path")
-			}
-			continue
-		}
-		if _, ok := st.Hosts[s]; !ok {
-			return nil, nil, out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", "--via takes server and VPN names; see `komando list`",
-				"no server or VPN named %q", s)
-		}
-	}
-	last := steps[len(steps)-1]
-	if v, ok := st.Vpns[last]; ok {
-		return nil, v, nil
-	}
-	h := st.Hosts[last]
-	if len(steps) > 1 {
-		cp := *h
-		cp.Via = strings.Join(steps[:len(steps)-1], ",")
-		h = &cp
-	}
-	return h, nil, nil
 }
 
 func resolvePassword(c *store.Conn) (string, error) {
@@ -714,7 +682,7 @@ func unreachable(c *store.Conn, t driver.Target, err error) *out.Error {
 		_ = viaTimeout(c, e)
 		return e
 	}
-	hint := "check the address and port; if the service is only reachable from a server, set `komando conn edit " + c.Name + " --via HOST`"
+	hint := "check the address and port; if it is only reachable from a server, set `komando conn edit " + c.Name + " --via SERVER`"
 	if steps := viaChain(c.Via); len(steps) > 0 {
 		last := steps[len(steps)-1]
 		hint = "the address is resolved on " + last + "; check it from there with `komando net check " + last + " " + t.Address + "`"
@@ -750,8 +718,8 @@ func kindExample(raw string, err error) error {
 // same command, under the word a person looks for first. Typed alone at a
 // terminal, each opens the guided form for that kind only.
 var connAddKinds = map[string]struct{ what, form, example string }{
-	"db":       {"database", "Database", "komando db add shop-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
-	"cache":    {"cache", "Cache", "komando cache add cache1 redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
+	"db":       {"database", "Database", "komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password"},
+	"cache":    {"cache", "Cache", "komando cache add prod-redis redis://default@10.0.0.7:6379/0 --via web1 --ask-password"},
 	"queue":    {"message queue", "Message queues", "komando queue add orders kafka://10.0.0.8:9092 --via web1"},
 	"storage":  {"file storage", "File storage", "komando storage add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --ask-password"},
 	"cluster":  {"cluster", "Kubernetes", "komando cluster add prod-k8s k8s://api.cluster.example:6443 --password-ref secret:prod-kubeconfig"},
@@ -785,8 +753,8 @@ func addKindFits(family, raw, passwordRef string) error {
 func connAddCmdFor(kind string) *cobra.Command {
 	k := connAddKinds[kind]
 	c := connAddCmd()
-	c.Short = "Add " + article(k.what) + " " + k.what + " (same as conn add)"
-	c.Long = "Saves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
+	c.Short = "Add " + article(k.what) + " " + k.what
+	c.Long = "Same as `komando conn add NAME URL`, for " + article(k.what) + " " + k.what + ".\n\nSaves " + article(k.what) + " " + k.what + " under a short name. Typed alone at a terminal, it asks\nstep by step. The URL scheme sets the kind: `komando conn kinds` lists them."
 	c.Example = "  " + k.example
 	if kind == "cluster" {
 		c.Long += "\n\nA Kubernetes cluster usually comes in with `komando import kubeconfig FILE`\n(one conn per context). Here its kubeconfig must be in the vault already\n(--password-ref). A Docker Swarm manager is a server: `komando host add`."
@@ -801,9 +769,6 @@ func connAddCmdFor(kind string) *cobra.Command {
 		}
 		if len(args) > 0 {
 			return run(cmd, args)
-		}
-		if menuWanted(cmd, nil) {
-			return formCommand(formGroupNamed(formFamilyAdd[kind+" add"]))
 		}
 		return out.Errf(out.ExitUsage, "USAGE",
 			"for example: "+k.example+". A person can type `komando "+kind+" add` alone at a terminal to be asked step by step",

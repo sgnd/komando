@@ -1,44 +1,34 @@
 // Package vault stores secrets (passwords, key passphrases, tokens) encrypted
 // with AES-256-GCM, each bound to its name. The key is derived with scrypt
 // from $KOMANDO_VAULT_PASS when set (N=2^17, r=8, p=1: the OWASP minimum),
-// otherwise from the sealed store's key (sealed.go). An earlier komando kept
-// the vault in vault.json; `komando seal` reads it (move.go).
+// otherwise from the sealed store's key (sealed.go).
 package vault
 
 import (
 	"context"
-	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/scrypt"
-
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/store"
 )
 
+// file is the vault's secrets, as read from the sealed store.
 type file struct {
-	Version int               `json:"version"`
-	Salt    []byte            `json:"salt"`
-	Mode    string            `json:"mode"`               // keyfile | passphrase | keychain
-	ScryptN int               `json:"scrypt_n,omitempty"` // scrypt cost; 0 is the old 2^15
-	Entries map[string]*entry `json:"entries"`
+	Entries map[string]*entry
 }
-
-// legacyN is the scrypt cost of vaults of before that did not store it
-// (read by `komando seal`).
-const legacyN = 1 << 15
 
 // PassphraseN is the scrypt cost for passphrase vaults (OWASP Password
 // Storage Cheat Sheet: N=2^17, r=8, p=1). Tests lower it.
@@ -56,8 +46,6 @@ type Info struct {
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
-
-func vaultPath() string { return store.Path("vault.json") }
 
 var (
 	passMu sync.Mutex
@@ -77,6 +65,46 @@ func Passphrase() string {
 	return pass
 }
 
+// UnlockVars are the variables, besides KOMANDO_VAULT_PASS, that unlock
+// the secret stores komando reads (KeePass, Bitwarden, 1Password Connect,
+// HashiCorp Vault / OpenBao).
+var UnlockVars = []string{"KOMANDO_KDBX_PASSWORD", "KOMANDO_KDBX_KEYFILE", "KOMANDO_BW_PASSWORD",
+	"KOMANDO_BW_CLIENT_SECRET", "OP_CONNECT_TOKEN", "VAULT_TOKEN", "BAO_TOKEN"}
+
+// unlock holds the UnlockVars TakeUnlockEnv took (under passMu).
+var unlock = map[string]string{}
+
+func init() { cloud.UnlockEnv = unlockEnv }
+
+// TakeUnlockEnv takes KOMANDO_VAULT_PASS and the UnlockVars out of this
+// process's environment when komando starts, so no program it starts
+// (ssh, kubectl, a VPN client, a dump tool, a background tunnel) inherits
+// them: a long-running one would show them for hours (`ps eww`,
+// /proc/PID/environ). komando reads them from memory (cloud.UnlockEnv);
+// its own background processes get them on stdin (PassOnStdin).
+func TakeUnlockEnv() {
+	Passphrase()
+	passMu.Lock()
+	defer passMu.Unlock()
+	for _, n := range UnlockVars {
+		if v, ok := os.LookupEnv(n); ok {
+			unlock[n] = v
+			_ = os.Unsetenv(n)
+		}
+	}
+}
+
+// unlockEnv is cloud.UnlockEnv: the environment first (a variable set
+// after the start), then what TakeUnlockEnv took.
+func unlockEnv(name string) string {
+	if v, ok := os.LookupEnv(name); ok {
+		return v
+	}
+	passMu.Lock()
+	defer passMu.Unlock()
+	return unlock[name]
+}
+
 // SelfEnv is the environment for komando processes started by komando
 // that need the vault: a command the menu runs. A background process that
 // runs for long gets the passphrase on stdin instead (PassOnStdin): its
@@ -87,7 +115,61 @@ func SelfEnv() []string {
 	if p := Passphrase(); p != "" {
 		env = append(env, "KOMANDO_VAULT_PASS="+p)
 	}
+	passMu.Lock()
+	defer passMu.Unlock()
+	for _, n := range UnlockVars {
+		if v, ok := unlock[n]; ok {
+			env = append(env, n+"="+v)
+		}
+	}
 	return env
+}
+
+// handoffMark starts what Handoff gives when there is more than the
+// passphrase to hand over.
+const handoffMark = "komando-unlock 1\n"
+
+// Handoff is what a background komando process needs to open the secret
+// stores: the passphrase alone, or with the UnlockVars TakeUnlockEnv took,
+// handoffMark and one "NAME base64" line each. ReadPassStdin reads either.
+func Handoff() string {
+	p := Passphrase()
+	passMu.Lock()
+	defer passMu.Unlock()
+	if len(unlock) == 0 {
+		return p
+	}
+	var b strings.Builder
+	b.WriteString(handoffMark + "KOMANDO_VAULT_PASS " + base64.StdEncoding.EncodeToString([]byte(p)) + "\n")
+	for _, n := range UnlockVars {
+		if v, ok := unlock[n]; ok {
+			b.WriteString(n + " " + base64.StdEncoding.EncodeToString([]byte(v)) + "\n")
+		}
+	}
+	return b.String()
+}
+
+// takeHandoff uses what Handoff gave (passMu is held).
+func takeHandoff(s string) error {
+	rest, ok := strings.CutPrefix(s, handoffMark)
+	if !ok {
+		pass = s
+		return nil
+	}
+	for _, line := range strings.Split(strings.TrimSuffix(rest, "\n"), "\n") {
+		name, enc, _ := strings.Cut(line, " ")
+		v, err := base64.StdEncoding.DecodeString(enc)
+		if err != nil {
+			return fmt.Errorf("reading the vault passphrase from stdin: %w", err)
+		}
+		switch {
+		case name == "KOMANDO_VAULT_PASS":
+			pass = string(v)
+		case slices.Contains(UnlockVars, name):
+			unlock[name] = string(v)
+		}
+	}
+	return nil
 }
 
 // PassStdinFlag tells a komando process started with PassOnStdin to read
@@ -100,8 +182,8 @@ const PassStdinFlag = "--vault-pass-stdin"
 // to it on stdin, with PassStdinFlag added to its arguments. It comes last:
 // after what c.Stdin already holds (vpn serve's own lines), up to the end.
 func PassOnStdin(c *exec.Cmd) {
-	c.Env = os.Environ() // Passphrase took KOMANDO_VAULT_PASS out of it
-	if p := Passphrase(); p != "" {
+	c.Env = os.Environ() // TakeUnlockEnv took KOMANDO_VAULT_PASS and the UnlockVars out of it
+	if p := Handoff(); p != "" {
 		var in io.Reader = strings.NewReader(p)
 		if c.Stdin != nil {
 			in = io.MultiReader(c.Stdin, in)
@@ -120,8 +202,7 @@ func ReadPassStdin(r io.Reader) error {
 	}
 	passMu.Lock()
 	defer passMu.Unlock()
-	pass = string(b)
-	return nil
+	return takeHandoff(string(b))
 }
 
 func load() (*file, error) {
@@ -131,77 +212,9 @@ func load() (*file, error) {
 	return loadSealed()
 }
 
-var (
-	aeadMu    sync.Mutex
-	aeadCache = map[string]cipher.AEAD{} // scrypt is slow on purpose: once per process
-)
-
-func (f *file) aead() (cipher.AEAD, error) {
-	if f.Mode == modeSealed {
-		return sealedAEAD()
-	}
-	secret, err := f.key()
-	if err != nil {
-		return nil, err
-	}
-	return f.aeadFor(secret)
-}
-
-// key is what a vault of before (vault.json) derives its key from, by its
-// mode: the passphrase, the key in the keychain or the key in vault.key.
-// It only reads: `komando seal` opens such a vault to move it.
-func (f *file) key() ([]byte, error) {
-	switch f.Mode {
-	case "passphrase":
-		p := Passphrase()
-		if p == "" {
-			return nil, ErrLocked
-		}
-		return []byte(p), nil
-	case "keychain":
-		return keychainGet()
-	}
-	kp := store.Path("vault.key")
-	b, err := os.ReadFile(kp)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("%w: %s is missing but the vault holds %d secrets; restore it from a backup", ErrKey, kp, len(f.Entries))
-	}
-	if err != nil {
-		return nil, err
-	}
-	if len(b) < keyLen {
-		return nil, fmt.Errorf("%w: %s holds %d bytes, not %d (cut short?); restore it from a backup", ErrKey, kp, len(b), keyLen)
-	}
-	return b, nil
-}
-
-// aeadFor derives the AES key from secret with the vault's salt and scrypt
-// cost.
-func (f *file) aeadFor(secret []byte) (cipher.AEAD, error) {
-	n := f.ScryptN
-	if n == 0 {
-		n = legacyN
-	}
-	id := fmt.Sprintf("%s/%x/%d/%x", f.Mode, f.Salt, n, sha256.Sum256(secret))
-	aeadMu.Lock()
-	defer aeadMu.Unlock()
-	if a, ok := aeadCache[id]; ok {
-		return a, nil
-	}
-	key, err := scrypt.Key(secret, f.Salt, n, 8, 1, 32)
-	if err != nil {
-		return nil, err
-	}
-	blk, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	a, err := cipher.NewGCM(blk)
-	if err == nil {
-		aeadCache[id] = a
-	}
-	return a, err
-}
+// aead is the cipher of the vault's entries: a key made from the store's
+// master key (sealed.go).
+func (f *file) aead() (cipher.AEAD, error) { return sealedAEAD() }
 
 // keyLen is the size of a random vault key.
 const keyLen = 32
@@ -303,6 +316,23 @@ func Delete(name string) error {
 	})
 }
 
+// DeleteMany removes several secrets in one change of the vault: all of
+// them, or none when one is missing (an error that matches ErrNotFound and
+// ends with ": NAME").
+func DeleteMany(names []string) error {
+	return change(func(f *file) error {
+		for _, n := range names {
+			if _, ok := f.Entries[n]; !ok {
+				return fmt.Errorf("%w: %s", ErrNotFound, n)
+			}
+		}
+		for _, n := range names {
+			delete(f.Entries, n)
+		}
+		return nil
+	})
+}
+
 // ErrExists is returned by Copy and Rename when the new name is taken and
 // overwrite is false.
 var ErrExists = errors.New("secret already exists")
@@ -395,6 +425,11 @@ func ValidRef(ref string) bool {
 // secrets it must not have.
 var RefGuard func(kind, name string) error
 
+// OnResolve, when set, gets every value Resolve read. komando's CLI sets
+// it to hide the value in its output: a value from env:, file:, op://, a
+// cloud secret manager... is in no list komando keeps.
+var OnResolve func(value string)
+
 // RefHelp is the hint for an invalid reference.
 func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 
@@ -414,6 +449,14 @@ func RefHelp() string { return "use one of: " + strings.Join(Refs, ", ") }
 // komando talks to those services itself (internal/cloud); the login stays
 // with the person and komando never stores the values.
 func Resolve(ref string) (string, error) {
+	v, err := resolve(ref)
+	if err == nil && v != "" && OnResolve != nil {
+		OnResolve(v)
+	}
+	return v, err
+}
+
+func resolve(ref string) (string, error) {
 	switch {
 	case ref == "":
 		return "", nil
@@ -433,6 +476,12 @@ func Resolve(ref string) (string, error) {
 			}
 		}
 		v, ok := os.LookupEnv(name)
+		if !ok && slices.Contains(UnlockVars, name) {
+			// TakeUnlockEnv took it out of the environment at the start
+			passMu.Lock()
+			v, ok = unlock[name]
+			passMu.Unlock()
+		}
 		if !ok {
 			return "", fmt.Errorf("environment variable %s not set", name)
 		}
@@ -448,7 +497,7 @@ func Resolve(ref string) (string, error) {
 		return strings.TrimRight(string(b), "\r\n"), err
 	case strings.HasPrefix(ref, "op://"):
 		// only through 1Password Connect: the op CLI is closed source
-		// (docs/design/built-in.md)
+		// (docs/design/code-layout.md)
 		v, err := cloud.OnePassword(context.Background(), ref)
 		if errors.Is(err, cloud.ErrNoConnect) {
 			return "", fmt.Errorf("op:// needs 1Password Connect (set OP_CONNECT_HOST and OP_CONNECT_TOKEN); the op program is no longer used. Or use bw://, kdbx: or a komando secret")
@@ -461,7 +510,7 @@ func Resolve(ref string) (string, error) {
 	case strings.HasPrefix(ref, "vault:"):
 		path, field, ok := strings.Cut(strings.TrimPrefix(ref, "vault:"), "#")
 		if !ok || field == "" {
-			return "", fmt.Errorf("vault: references need #FIELD, e.g. vault:secret/shop#db_password")
+			return "", fmt.Errorf("vault: references need #FIELD, for example vault:secret/shop#db_password")
 		}
 		return cloud.VaultKV(context.Background(), path, field)
 	case strings.HasPrefix(ref, "aws-sm:"):
@@ -492,7 +541,7 @@ func Resolve(ref string) (string, error) {
 		}
 		return jsonKey(v, key)
 	}
-	return "", fmt.Errorf("invalid secret reference %q (%s)", ref, RefHelp())
+	return "", fmt.Errorf("%q is not a secret reference (%s)", ref, RefHelp())
 }
 
 func firstLine(s, fallback string) string {

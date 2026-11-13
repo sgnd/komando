@@ -5,6 +5,8 @@ package store
 
 import (
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,7 +37,7 @@ type Host struct {
 	Protected    bool              `json:"protected,omitempty"`
 	Notes        string            `json:"notes,omitempty"`
 	// OS is "windows" for a Windows server: commands are PowerShell, not
-	// sh. Empty: Linux or another Unix (docs/design/windows.md).
+	// sh. Empty: Linux or another Unix (docs/features/windows.md).
 	OS string `json:"os,omitempty"`
 	// Transport is "winrm" for a Windows server reached over WinRM, with
 	// its settings in WinRMOpts. Empty: SSH.
@@ -166,7 +168,7 @@ type Settings struct {
 	Audit            bool     `json:"audit"`
 	AuditSQL         string   `json:"audit_sql"`               // full | hash | off: how SQL text is kept in the audit log
 	VpnIdle          string   `json:"vpn_idle"`                // a VPN session unused this long is disconnected
-	LoginFor         string   `json:"login_for"`               // how long `komando login HOST` keeps a server's login
+	LoginFor         string   `json:"login_for"`               // how long `komando login SERVER` keeps a server's login
 	ApprovalCode     bool     `json:"approval_code,omitempty"` // the approval window asks for a TOTP code
 	AuditSyslog      string   `json:"audit_syslog,omitempty"`  // also send audit records to this log server (udp://, tcp://, tls://)
 	MaskPersonal     string   `json:"mask_personal,omitempty"` // protected | all | off: where AI agents see personal data hidden
@@ -188,7 +190,7 @@ func DefaultSettings() Settings {
 }
 
 // Vpn is a network komando opens inside its own process to reach targets
-// (docs/design/network.md). Keys live in the vault, referenced by KeyRef.
+// (docs/features/vpn.md). Keys live in the vault, referenced by KeyRef.
 type Vpn struct {
 	Name      string            `json:"name"`
 	Kind      string            `json:"kind"`                 // see netx.Kinds
@@ -205,6 +207,7 @@ type Vpn struct {
 	RemoteID  string            `json:"remote_id,omitempty"`  // ikev2: the server's identity (default: --server)
 	CA        string            `json:"ca,omitempty"`         // ikev2: PEM of the CA that signed the server certificate
 	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
+	Protected bool              `json:"protected,omitempty"`  // changing or removing it needs a person's yes
 	OSMode    bool              `json:"os_mode,omitempty"`    // removed OpenVPN OS mode; kept only so `vpn up` refuses such a VPN
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`
@@ -234,7 +237,7 @@ type VpnSession struct {
 	LastUsed  time.Time `json:"last_used"`
 }
 
-// SSHLogin is a server login a person made with `komando login HOST`, held
+// SSHLogin is a server login a person made with `komando login SERVER`, held
 // by a background komando process (sshx/held.go) on a Unix socket only this
 // user can open, and only for a client with Token.
 type SSHLogin struct {
@@ -257,7 +260,7 @@ type State struct {
 	Keys     map[string]*Key     `json:"keys"`
 	Snippets map[string]*Snippet `json:"snippets"`
 	// Runtime data (VPN sessions, logins, jobs, tunnels) lives in its own
-	// file (runtime.go); a state.json of before may hold it here.
+	// file (runtime.go); Load puts it here.
 	Runtime
 	Settings Settings `json:"settings"`
 
@@ -280,8 +283,50 @@ func Path(parts ...string) string { return filepath.Join(append([]string{Home()}
 // EnsureHome creates the state directory tree.
 func EnsureHome() error { return ensureHome() }
 
+// ensureHome makes komando's folder when it is missing, private to this
+// user: mode 0700, and on Windows an access list of its own (privateHome).
+// So does every folder above it that it has to make (KOMANDO_HOME=
+// C:\a\b\komando with no C:\a): one made with the access list of the
+// drive's root would let any user rename it and put a folder of their own
+// in its place. A new folder that cannot be made private is removed again,
+// so komando keeps nothing in it; doctor checks a folder that was already
+// there.
 func ensureHome() error {
-	return os.MkdirAll(Home(), 0o700)
+	h := Home()
+	made := missingFolders(h)
+	if err := os.MkdirAll(h, 0o700); err != nil {
+		return err
+	}
+	for _, d := range made {
+		if err := makePrivate(d); err != nil {
+			for i := len(made) - 1; i >= 0; i-- {
+				_ = os.Remove(made[i]) // only while it is still empty
+			}
+			return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", d, err)
+		}
+	}
+	return nil
+}
+
+// makePrivate is privateHome; tests replace it.
+var makePrivate = privateHome
+
+// missingFolders lists h and the folders above it that do not exist yet,
+// the topmost first.
+func missingFolders(h string) []string {
+	var made []string
+	for d := h; ; {
+		if _, err := os.Stat(d); !errors.Is(err, fs.ErrNotExist) {
+			break
+		}
+		made = append([]string{d}, made...)
+		up := filepath.Dir(d)
+		if up == d {
+			break
+		}
+		d = up
+	}
+	return made
 }
 
 func (s *State) init() {
@@ -356,9 +401,6 @@ func Update(fn func(s *State) error) error {
 // and returns the function that releases it. komando processes running at
 // the same time (parallel agents) wait for each other.
 func Lock(name string) (unlock func(), err error) {
-	if heldBySeal(name) {
-		return func() {}, nil // `komando seal` holds it for this process
-	}
 	if err := ensureHome(); err != nil {
 		return nil, err
 	}

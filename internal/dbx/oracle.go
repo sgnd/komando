@@ -68,7 +68,7 @@ func (c *oracleConnector) Driver() driver.Driver { return go_ora.NewDriver() }
 func oracleConfig(rawURL string, t kdriver.Target, password, appName string) (configurations.ConnectionConfig, *tls.Config, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return configurations.ConnectionConfig{}, nil, out.Usage("invalid oracle URL: %v", err)
+		return configurations.ConnectionConfig{}, nil, out.Usage("komando cannot read the oracle URL: %v", err)
 	}
 	o, err := kdriver.ParseOracleOptions(u.Query())
 	if err != nil {
@@ -82,7 +82,7 @@ func oracleConfig(rawURL string, t kdriver.Target, password, appName string) (co
 	}
 	cfg, err := go_ora.ParseConfig(dsn.String())
 	if err != nil {
-		return configurations.ConnectionConfig{}, nil, out.Usage("invalid oracle settings: %v", err)
+		return configurations.ConnectionConfig{}, nil, out.Usage("komando cannot use the oracle settings: %v", err)
 	}
 	cfg.Password = password
 	cfg.ProgramName = appName
@@ -190,7 +190,7 @@ func oracleErr(err error) error {
 	case 1031: // insufficient privileges
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user lacks this right; ask an admin to grant it, or use a conn with an admin user", "%s", msg)
 	case 1919: // role does not exist
-		return out.Errf(out.ExitRemote, "DB_ERROR", "check the role's name: `komando db user ls CONN` lists users and roles; names without \"quotes\" are upper case in Oracle", "%s", msg)
+		return out.Errf(out.ExitRemote, "DB_ERROR", "check the role's name: `komando db user list CONN` lists users and roles; names without \"quotes\" are upper case in Oracle", "%s", msg)
 	case 1749: // GRANT or REVOKE to or from oneself
 		return out.Errf(out.ExitRemote, "DB_ERROR", "a user cannot grant to or revoke from itself; name another user, or run it from a conn with another user", "%s", msg)
 	case 942: // table or view does not exist (also a missing grant on it)

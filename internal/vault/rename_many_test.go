@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // RenameMany moves every secret in one change, keeps each value and its
@@ -42,7 +44,7 @@ func TestRenameMany(t *testing.T) {
 	}
 
 	// refused, and the vault file stays byte for byte
-	vaultFile := func() []byte { b, _ := os.ReadFile(vaultPath()); return b }
+	vaultFile := func() []byte { b, _ := os.ReadFile(store.DBPath()); return b }
 	keep := vaultFile()
 	for name, pairs := range map[string]map[string]string{
 		"target exists":    {"acme-shop-db": "other"},

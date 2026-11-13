@@ -61,9 +61,9 @@ func TestShowSelectorHint(t *testing.T) {
 	if !strings.Contains(e.Hint, "`komando list 'web-*'`") {
 		t.Errorf("glob hint: %s", e.Hint)
 	}
-	// a plain typo keeps "did you mean"
+	// a plain typo gets a suggestion (S-8.8)
 	e = wantCode(t, "HOST_NOT_FOUND", "host", "show", "web2")
-	if !strings.Contains(e.Hint, `did you mean "web1"`) {
-		t.Errorf("typo hint: %s", e.Hint)
+	if e.Suggestion != "web1" || !strings.Contains(e.Hint, "web1") {
+		t.Errorf("typo: %+v", e)
 	}
 }

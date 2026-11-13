@@ -49,6 +49,15 @@ var shapeCases = [][]string{
 	{"host", "edit", "web", "--port", "2222", "--dry-run"},
 	{"exec", "web", "--dry-run", "--", "uptime"},
 	{"exec", "web", "--", "rm", "-rf", "/"},
+	// a dry run names what it would remove would_remove, never removed;
+	// vpn rm lists the VPNs it removed; host trust answers with results
+	// for one server or many
+	{"host", "rm", "web", "--dry-run"},
+	{"conn", "rm", "pg", "--dry-run"},
+	{"host", "trust", "web", "--dry-run"},
+	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
+	{"vpn", "rm", "lab", "--dry-run"},
+	{"vpn", "rm", "lab"},
 }
 
 // TestOutputShapes: agents parse komando's JSON, so a field may be added
@@ -59,7 +68,7 @@ var shapeCases = [][]string{
 //
 //	go test ./internal/cli -run TestOutputShapes -update-shapes
 func TestOutputShapes(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("PG_PASS", "s3cret")
 	defer func() { g.dryRun, store.DryRun = false, false }()

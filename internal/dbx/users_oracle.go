@@ -47,7 +47,7 @@ ORDER BY 1`))
 // oracleUserSQL is userSQL for Oracle.
 func oracleUserSQL(action string, u UserSpec) (stmt, shown string, err error) {
 	if u.Host != "" {
-		return "", "", out.Usage("--from is for MySQL; Oracle users are not tied to a host")
+		return "", "", out.Usage("--from-host is for MySQL; Oracle users are not tied to a host")
 	}
 	if err := checkOraUser(u.Name); err != nil {
 		return "", "", err
@@ -76,7 +76,7 @@ func oracleUserSQL(action string, u UserSpec) (stmt, shown string, err error) {
 			"if n > 0 then execute immediate " + oralit("drop user "+id) + "; else execute immediate " + oralit("drop role "+id) + "; end if; end;"
 		return s, s, nil
 	}
-	return "", "", out.Usage("unknown user action %q", action)
+	return "", "", out.Usage("komando has no user action %q (a bug: report it)", action)
 }
 
 // oraUserErr is userErr for Oracle's error numbers.
@@ -85,7 +85,7 @@ func oraUserErr(n int, msg, name string) error {
 	case 1920:
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case 1918, 1919:
-		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "user %s does not exist", name)
+		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user list CONN`", "no database user named %q", name)
 	case 1940:
 		return out.Errf(out.ExitConflict, "DB_USER_IN_USE", "end its sessions first: find them with `komando db activity CONN --all`, then `komando db kill CONN PID --session`", "%s", msg)
 	case 1922:
@@ -95,7 +95,7 @@ func oraUserErr(n int, msg, name string) error {
 	case 28003, 28007, 988:
 		return out.Errf(out.ExitRemote, "DB_ERROR", "the password does not meet the database's password rules; store another one in the vault", "%s", msg)
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql (password hidden)", "%s", msg)
+	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement komando sent is in the result, its password hidden (data.sql in -o json)", "%s", msg)
 }
 
 var oraObjPrivs = map[string]bool{"SELECT": true, "READ": true, "INSERT": true, "UPDATE": true, "DELETE": true, "ALTER": true,
@@ -117,7 +117,7 @@ var oraSchemaPrivs = map[string]string{"SELECT": "SELECT ANY TABLE", "READ": "RE
 // schema privileges); --role grants a role.
 func oracleGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 	if g.Host != "" {
-		return "", out.Usage("--from is for MySQL; Oracle users are not tied to a host")
+		return "", out.Usage("--from-host is for MySQL; Oracle users are not tied to a host")
 	}
 	if err := checkOraUser(g.User); err != nil {
 		return "", err
@@ -145,7 +145,7 @@ func oracleGrantSQL(ctx context.Context, db *sql.DB, g Grant) (string, error) {
 			p = oraSchemaPrivs[p]
 		case (typ == "schema" || typ == "all-tables") && strings.HasSuffix(p, " ANY TABLE") && oraSysPrivs[p]:
 		default:
-			return "", out.Usage("unknown privilege %q for --on %s", p, typ)
+			return "", out.Usage("%q is not a privilege komando grants for --on %s", p, typ)
 		}
 		privs = append(privs, p)
 	}
@@ -199,7 +199,7 @@ FROM dba_sys_privs WHERE grantee = :2
 UNION ALL
 SELECT 'role', granted_role, 'MEMBER' FROM dba_role_privs WHERE grantee = :3`, user, user, user))
 	if err != nil {
-		return nil, catalogErr(err, "db grants")
+		return nil, catalogErr(err, "db user show")
 	}
 	if more, err := lowerRows(rowsOf(ctx, db, `SELECT 'schema' AS on_type, schema AS object, privilege FROM dba_schema_privs WHERE grantee = :1`, user)); err == nil {
 		rows = append(rows, more...)

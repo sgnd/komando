@@ -188,8 +188,8 @@ func storeSelfSignedQ(show func(formAnswers) bool) formQ {
 
 // s3Providers are the services an S3 conn can point at; all but AWS and
 // "another" have an address komando builds from a region or an ID.
-func s3Providers(*store.State, formAnswers) []menuRow {
-	return []menuRow{
+func s3Providers(*store.State, formAnswers) []pickRow {
+	return []pickRow{
 		{label: "Amazon S3 (AWS)", detail: "no address needed", value: "aws"},
 		{label: "Cloudflare R2", detail: "needs your Cloudflare account ID", value: "r2"},
 		{label: "DigitalOcean Spaces", detail: "needs the region, like nyc3", value: "spaces"},
@@ -262,12 +262,12 @@ func s3RegionQ(key, provider string, optional bool, def, example, help string) f
 	return q
 }
 
-func s3Logins(_ *store.State, a formAnswers) []menuRow {
-	rows := []menuRow{{label: "An access key", detail: "an ID and a secret from the console; the secret is asked hidden", value: "key"}}
+func s3Logins(_ *store.State, a formAnswers) []pickRow {
+	rows := []pickRow{{label: "An access key", detail: "an ID and a secret from the console; the secret is asked hidden", value: "key"}}
 	if a["provider"] == "aws" {
-		rows = append(rows, menuRow{label: "My AWS login on this computer", detail: "a profile from ~/.aws/config, SSO too", value: "profile"})
+		rows = append(rows, pickRow{label: "My AWS login on this computer", detail: "a profile from ~/.aws/config, SSO too", value: "profile"})
 	}
-	return append(rows, menuRow{label: "No login", detail: "only for a public bucket anyone can read", value: "none"})
+	return append(rows, pickRow{label: "No login", detail: "only for a public bucket anyone can read", value: "none"})
 }
 
 func s3R2AccountProblem(_ *store.State, _ formAnswers, v string) string {
@@ -358,8 +358,8 @@ func gcsForm() formSpec {
 		{key: "login", label: "Login", ask: "How does komando log in?",
 			help: "A service account is a login for programs; its key is a JSON file you download once.",
 			def:  func(*store.State, formAnswers) string { return "gcloud" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{
 					{label: "Like gcloud on this computer", detail: "after gcloud auth application-default login", value: "gcloud"},
 					{label: "With a service account key file", detail: "the JSON file from the console; needed for share links", value: "keyfile"},
 				}
@@ -427,8 +427,8 @@ func azureForm() formSpec {
 		{key: "login", label: "Login", ask: "Which login do you have?",
 			help: "Paste either one when the command asks \"Password for\" with the name you gave; it stays hidden. Paste only the key or the token, not a connection string.",
 			def:  func(*store.State, formAnswers) string { return "key" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{
 					{label: "Account key", detail: "key1 or key2 from Security, Access keys; can make share links", value: "key"},
 					{label: "SAS token", detail: "from Shared access signature, starts with sv=; a read-only one keeps komando to reading", value: "sas"},
 				}
@@ -475,8 +475,8 @@ func sftpForm() formSpec {
 				}
 				return "password"
 			},
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{
 					{label: "My SSH key", detail: "from ssh-agent or ~/.ssh/id_ed25519, id_ecdsa, id_rsa", value: "key"},
 					{label: "A password", detail: "asked hidden when the command runs; saved as a saved password", value: "password"},
 				}
@@ -506,8 +506,8 @@ func ftpForm() formSpec {
 		{key: "encryption", label: "Encryption", ask: "Does the server support encryption (FTPS)?",
 			help: "Encryption keeps your password and files private on the way. If SFTP is offered too, prefer it.",
 			def:  func(*store.State, formAnswers) string { return "ftps" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{
 					{label: "Yes, or I am not sure", detail: "FTP with encryption (FTPS); try this first", value: "ftps"},
 					{label: "No, plain FTP only", detail: "the password and files travel unencrypted", value: "ftp"},
 				}
@@ -515,8 +515,8 @@ func ftpForm() formSpec {
 		formWhen(formQ{key: "plain", label: "Plain FTP", ask: "Send your password and files unencrypted?",
 			help: "Anyone on the network between you and the server can read them. Use it only when the server offers nothing else.",
 			def:  func(*store.State, formAnswers) string { return "no" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{
 					{label: "No, use FTPS", detail: "encrypted; komando test shows whether the server supports it", value: "no"},
 					{label: "Yes, unencrypted", detail: "plain FTP", value: "yes"},
 				}
@@ -563,8 +563,8 @@ func webdavForm() formSpec {
 		formWhen(formQ{key: "insecure", label: "No encryption", ask: "This address has no encryption (http://). Send the password unencrypted?",
 			help: "Anyone on the network between you and the server can read it. Try https:// first.",
 			def:  func(*store.State, formAnswers) string { return "no" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{
 					{label: "No, use https://", detail: "encrypted; komando test shows whether the server supports it", value: "no"},
 					{label: "Yes, unencrypted", detail: "plain http://", value: "yes"},
 				}
@@ -665,20 +665,20 @@ func smbUserQ() formQ {
 	return q
 }
 
-// The storage commands, asked from a menu task.
+// The storage commands: what a typed command asks for when it is missing.
 
 func init() {
-	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list. Add one first with Add, File storage."}
+	conn := formArg{ask: "Which file storage?", pick: "storage", help: "A bucket or file server from your list (komando list kind:storage). Add one first with komando storage add."}
 	key := func(ask, help, example string) formArg { return formArg{ask: ask, help: help, example: example} }
 	addFormHints(map[string]formHint{
-		"storage ls": {args: []formArg{conn,
+		"storage list": {args: []formArg{conn,
 			key("Which folder inside it?", "Empty lists the top. A folder ends in /, like db/2026-11/.", "db/")},
 			flags: []formFlag{{name: "recursive", ask: "List everything below it too, not only one level?"}}},
 		"storage cat": {args: []formArg{conn,
-			key("Which file?", "Its name inside the storage, as storage ls shows it.", "logs/app.log")},
+			key("Which file?", "Its name inside the storage, as storage list shows it.", "logs/app.log")},
 			flags: []formFlag{{name: "tail", ask: "Show only the last how many lines?", help: "Empty shows the whole file, up to 1 MiB.", example: "50"}}},
 		"storage download": {args: []formArg{conn,
-			key("Which file (or folder) to download?", "Its name inside the storage, as storage ls shows it. A folder ends in /.", "reports/q3.pdf")},
+			key("Which file (or folder) to download?", "Its name inside the storage, as storage list shows it. A folder ends in /.", "reports/q3.pdf")},
 			flags: []formFlag{
 				{name: "to", ask: "Where to save it on this computer?", help: "A file or a folder. Empty saves it in the current folder with its own name.", example: "~/Downloads/"},
 				{name: "recursive", ask: "Is it a folder? Download everything in it?"}}},
@@ -686,12 +686,23 @@ func init() {
 			key("Which file on this computer?", "Its path; ~/ means your home folder.", "./report.pdf"),
 			key("Where in the storage?", "Empty keeps its name, at the top. A folder ends in /, like reports/2026/.", "reports/2026/")}},
 		"storage rm": {args: []formArg{conn,
-			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage ls shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
+			key("Which files to delete? (several: separate them with spaces)", "Exact names as storage list shows them. Empty to delete a whole folder with the next question. Deleted files cannot be brought back: try it first.", "tmp/old.sql.gz")},
 			flags: []formFlag{
 				{name: "prefix", ask: "Delete everything in a folder?", help: "Empty when you named the files above. A folder ends in /, like daily/.", example: "daily/"},
 				{name: "older-than", ask: "Only files older than?", help: "With a folder: newer ones are kept. Like 30d (days) or 12h (hours).", example: "30d"}}},
 		"storage link": {args: []formArg{conn,
 			key("Which file to share?", "Its name inside the storage. Anyone with the link can download it until it ends.", "reports/q3.pdf")},
 			flags: []formFlag{{name: "expires", ask: "How long should the link work?", help: "Like 30m or 24h; at most 168h (7 days).", def: "1h"}}},
+	})
+}
+
+// Next: lines for the storage commands.
+func init() {
+	addFormHints(map[string]formHint{
+		"storage list":     {next: []string{"storage cat {} OBJECT --tail 50", "storage download {} OBJECT", "storage list {} PREFIX/ --recursive"}},
+		"storage cat":      {next: []string{"storage download {} OBJECT"}},
+		"storage upload":   {next: []string{"storage list {} PREFIX/", "storage link {} OBJECT --expires 24h"}},
+		"storage download": {next: []string{"storage list {}"}},
+		"storage rm":       {next: []string{"storage list {} --recursive"}},
 	})
 }

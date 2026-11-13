@@ -26,7 +26,7 @@ const viaNet = "komando-via"
 func openMySQL(rawURL string, t driver.Target, password string, dial DialFunc) (*sql.DB, error) {
 	u, err := url.Parse(driver.WithoutCA(rawURL))
 	if err != nil {
-		return nil, out.Usage("invalid mysql URL: %v", err)
+		return nil, out.Usage("komando cannot read the mysql URL: %v", err)
 	}
 	cfg := mysql.NewConfig()
 	cfg.User, cfg.Passwd, cfg.Addr, cfg.DBName = t.User, password, t.Address, t.Database
@@ -60,7 +60,7 @@ func openMySQL(rawURL string, t driver.Target, password string, dial DialFunc) (
 	}
 	conn, err := mysql.NewConnector(cfg)
 	if err != nil {
-		return nil, out.Usage("invalid mysql settings: %v", err)
+		return nil, out.Usage("komando cannot use the mysql settings: %v", err)
 	}
 	return sql.OpenDB(conn), nil
 }

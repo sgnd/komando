@@ -1,6 +1,5 @@
 // Package sealdb is komando's local store: one SQLite file whose records are
-// sealed rows (package sealrow). Design: docs/design/sync-security.md
-// section 16.
+// sealed rows (package sealrow).
 //
 // Readable columns are only a random ID, the type, the version, the change
 // time and the deletion marker. Everything else, names included, is sealed.
@@ -10,6 +9,8 @@
 // lock at its start (BEGIN IMMEDIATE) and waits up to BusyTimeout when
 // another writer holds it. The rollback journal keeps the store one file,
 // and every commit is flushed fully to disk (F_FULLFSYNC on macOS).
+// Freed space is zeroed (secure_delete), so a deleted record or one sealed
+// under an old key leaves no copy in the file.
 //
 // The deletion marker and the change time are also inside the seal, so
 // editing those columns makes the row fail to open. Audit entries are bound
@@ -165,6 +166,10 @@ func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
 		"synchronous(FULL)",
 		"fullfsync(ON)",
 		"foreign_keys(ON)",
+		// a deleted record, or one sealed again under a new key, is
+		// overwritten with zeros, not left in free space where the old
+		// key (a leaked key file, the reason for a new one) opens it
+		"secure_delete(ON)",
 	} {
 		q.Add("_pragma", p)
 	}
@@ -463,7 +468,12 @@ func (d *DB) Backup(ctx context.Context, dst string) error {
 // the store's sync settings.
 func syncFile(path string) error {
 	for _, p := range []string{path, filepath.Dir(path)} {
-		f, err := os.Open(p)
+		// the file opened for writing: Windows flushes no file opened to read
+		flag := os.O_RDWR
+		if p != path {
+			flag = os.O_RDONLY
+		}
+		f, err := os.OpenFile(p, flag, 0)
 		if err != nil {
 			return err
 		}

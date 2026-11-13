@@ -76,7 +76,7 @@ func (f *auditFilter) setWindow(since, until string, now time.Time) error {
 		}
 	}
 	if !f.since.IsZero() && !f.until.IsZero() && !f.since.Before(f.until) {
-		return out.Usage("--since (%s) must be before --until (%s)", f.since.Local().Format(time.DateTime), f.until.Local().Format(time.DateTime))
+		return out.Usage("--since (%s) is not before --until (%s)", f.since.Local().Format(time.DateTime), f.until.Local().Format(time.DateTime))
 	}
 	return nil
 }

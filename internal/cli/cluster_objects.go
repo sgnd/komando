@@ -22,13 +22,13 @@ func clusterLsCmd() *cobra.Command {
 	var all bool
 	var limit int
 	c := &cobra.Command{
-		Use:   "ls TARGET TYPE",
+		Use:   "list TARGET TYPE",
 		Short: "List pods, deployments, services, nodes ... (Swarm: services, tasks)",
-		Example: `  komando cluster ls prod-k8s pods --namespace shop
-  komando cluster ls prod-k8s deploy -A
-  komando cluster ls @prod nodes                # every cluster in the group
-  komando cluster ls swarm-manager services
-  komando cluster ls swarm-manager tasks -n 20`,
+		Example: `  komando cluster list prod-k8s pods --namespace shop
+  komando cluster list prod-k8s deploy -A
+  komando cluster list @prod nodes                # every cluster in the group
+  komando cluster list swarm1 services
+  komando cluster list swarm1 tasks --limit 20`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
@@ -52,7 +52,7 @@ func clusterLsCmd() *cobra.Command {
 				}
 				return swarmList(ctx, t, kind, selector, limit)
 			}
-			return readClusters(cmd.Context(), "cluster.ls", st, ts, clusterRead{swarm: swarm, kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
+			return readClusters(cmd.Context(), "cluster.list", st, ts, clusterRead{swarm: swarm, kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, args[1])
 				if err != nil {
 					return nil, err
@@ -86,6 +86,7 @@ func clusterLsCmd() *cobra.Command {
 					res["namespace"] = space
 				}
 				if list.Metadata.Continue != "" {
+					out.P.CutNoted()
 					res["truncated"] = true
 				}
 				return res, nil
@@ -93,18 +94,18 @@ func clusterLsCmd() *cobra.Command {
 		},
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "the most objects to show"})
-	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, e.g. app=api or 'tier in (web,api)'")
+	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, like app=api or 'tier in (web,api)'")
 	return c
 }
 
 func clusterGetCmd() *cobra.Command {
 	var ns string
 	c := &cobra.Command{
-		Use:   "get TARGET TYPE NAME",
-		Short: "Show one object in full (Secret values are hidden); TYPE/NAME works too",
-		Example: `  komando cluster get prod-k8s deployment api --namespace shop
+		Use:   "get TARGET TYPE/NAME",
+		Short: "Show one object in full, Secret values hidden",
+		Example: `  komando cluster get prod-k8s deployment/api --namespace shop
   komando cluster get prod-k8s deployment.apps/api --namespace shop
-  komando cluster get swarm-manager service/web`,
+  komando cluster get swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -169,9 +170,9 @@ func clusterRestartCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "restart TARGET TYPE/NAME",
-		Short: "Restart a deployment, statefulset or daemonset (rolling), or a Swarm service",
+		Short: "Restart a workload with a rolling restart, or a Swarm service",
 		Example: `  komando cluster restart prod-k8s deployment/api --namespace shop --wait
-  komando cluster restart swarm-manager service/web`,
+  komando cluster restart swarm1 service/web`,
 		Args: refArgs(1, 0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -258,14 +259,14 @@ func clusterScaleCmd() *cobra.Command {
 	var wait bool
 	c := &cobra.Command{
 		Use:   "scale TARGET TYPE/NAME REPLICAS",
-		Short: "Set the number of replicas (0 stops it: needs --allow-dangerous)",
+		Short: "Set the number of replicas",
 		Example: `  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
-  komando cluster scale swarm-manager service/web 4`,
+  komando cluster scale swarm1 service/web 4`,
 		Args: refArgs(1, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			n, err := strconv.Atoi(args[len(args)-1])
 			if err != nil || n < 0 {
-				return out.Usage("REPLICAS must be a number, 0 or more")
+				return out.Usage("REPLICAS takes a number, 0 or more")
 			}
 			st, err := loadState()
 			if err != nil {
@@ -288,6 +289,11 @@ func clusterScaleCmd() *cobra.Command {
 					return err
 				}
 				return swarmScale(cmd.Context(), t, typ, name, n, wait, risk)
+			}
+			if n == 0 {
+				if err := confirmObject([]string{t.conn.Name}, name, "stops every copy of "+typ+"/"+name+" (scale to 0)"); err != nil {
+					return err
+				}
 			}
 			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.scale", t, risk, map[string]any{"object": typ + "/" + name, "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
@@ -349,5 +355,10 @@ func swarmScale(ctx context.Context, t clusterTarget, typ, name string, n int, w
 		return nil
 	}
 	line := "docker service scale --detach " + sshx.Q(name+"="+strconv.Itoa(n))
+	if n == 0 {
+		if err := confirmObject(nil, name, "stops every copy of service/"+name+" (scale to 0)"); err != nil {
+			return err
+		}
+	}
 	return swarmChange(ctx, "cluster.scale", t, name, line, wait, false, risk, res)
 }

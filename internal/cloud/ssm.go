@@ -181,7 +181,7 @@ func decodeSSM(b []byte) (ssmMsg, error) {
 	}
 	n := binary.BigEndian.Uint32(b[116:])
 	if int(n) > len(b)-120 {
-		return ssmMsg{}, errors.New("bad payload length")
+		return ssmMsg{}, errors.New("the payload length does not match")
 	}
 	m := ssmMsg{typ: strings.TrimRight(string(b[4:36]), " \x00"), seq: int64(binary.BigEndian.Uint64(b[48:])),
 		flags: binary.BigEndian.Uint64(b[56:]), payType: binary.BigEndian.Uint32(b[112:]), payload: b[120 : 120+n]}

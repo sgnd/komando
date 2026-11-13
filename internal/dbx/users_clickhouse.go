@@ -55,7 +55,7 @@ ORDER BY name`)
 // name is one.
 func clickhouseUserSQL(ctx context.Context, db *sql.DB, action string, u UserSpec) (stmt, shown string, err error) {
 	if u.Host != "" {
-		return "", "", out.Usage("--from is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
+		return "", "", out.Usage("--from-host is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
 	}
 	id := chid(u.Name)
 	switch action {
@@ -76,7 +76,7 @@ func clickhouseUserSQL(ctx context.Context, db *sql.DB, action string, u UserSpe
 		s := "drop " + what + id
 		return s, s, nil
 	}
-	return "", "", out.Usage("unknown user action %q", action)
+	return "", "", out.Usage("komando has no user action %q (a bug: report it)", action)
 }
 
 // chUserErr is userErr for ClickHouse's error codes.
@@ -85,13 +85,13 @@ func chUserErr(n int, msg, name string) error {
 	case 493: // ACCESS_ENTITY_ALREADY_EXISTS
 		return out.Errf(out.ExitConflict, "DB_USER_EXISTS", "change its password with `komando db user passwd CONN "+name+" --password-ref secret:NAME`", "user %s already exists", name)
 	case 192, 511: // UNKNOWN_USER, UNKNOWN_ROLE
-		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user ls CONN`", "%s", msg)
+		return out.Errf(out.ExitNotFound, "DB_USER_NOT_FOUND", "list users with `komando db user list CONN`", "%s", msg)
 	case 497:
 		return out.Errf(out.ExitRemote, "DB_PRIVILEGE", "the conn's user needs the right to manage users (ClickHouse: access_management, or CREATE USER, ALTER USER, DROP USER and GRANT with grant option)", "%s", msg)
 	case 495: // ACCESS_STORAGE_READONLY
 		return out.Errf(out.ExitRemote, "DB_ERROR", "this user is defined in the server's users.xml, which SQL cannot change: edit that file on the server", "%s", msg)
 	}
-	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement is in data.sql (password hidden)", "%s", msg)
+	return out.Errf(out.ExitRemote, "DB_ERROR", "read the message; the statement komando sent is in the result, its password hidden (data.sql in -o json)", "%s", msg)
 }
 
 // chPrivs are the privileges db grant takes on ClickHouse.
@@ -104,7 +104,7 @@ var chPrivs = map[string]bool{"SELECT": true, "INSERT": true, "ALTER": true, "CR
 // or *.* as in MySQL, or database:DB, table:DB.TABLE, all-tables:DB.
 func clickhouseGrantSQL(_ context.Context, _ *sql.DB, g Grant) (string, error) {
 	if g.Host != "" {
-		return "", out.Usage("--from is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
+		return "", out.Usage("--from-host is for MySQL; a ClickHouse user lists the hosts it may connect from itself (HOST ...)")
 	}
 	verb, prep := "grant ", " to "
 	if g.Revoke {
@@ -123,7 +123,7 @@ func clickhouseGrantSQL(_ context.Context, _ *sql.DB, g Grant) (string, error) {
 	for _, p := range g.Privs {
 		p = strings.ToUpper(strings.Join(strings.Fields(p), " "))
 		if !chPrivs[p] {
-			return "", out.Usage("unknown privilege %q (ClickHouse: SELECT, INSERT, ALTER, CREATE, DROP, TRUNCATE, OPTIMIZE, SHOW, KILL QUERY, ...)", p)
+			return "", out.Usage("unknown privilege %q (known on ClickHouse: SELECT, INSERT, ALTER, CREATE, DROP, TRUNCATE, OPTIMIZE, SHOW, KILL QUERY, ...)", p)
 		}
 		if p == "DICTGET" {
 			p = "dictGet"

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -15,6 +16,7 @@ import (
 func keyfileHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 	passMu.Lock()
 	pass = ""
@@ -30,6 +32,7 @@ func TestParallelChangesKeepEverySecret(t *testing.T) {
 		t.Fatal(err)
 	}
 	// start again from nothing, so the workers also race to create vault.key
+	store.Close() // Windows cannot remove an open file
 	if err := os.RemoveAll(store.Home()); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +106,7 @@ func TestNewKeyFileNeverReplacesAKey(t *testing.T) {
 	if !bytes.Equal(second, first) || !bytes.Equal(onDisk, first) {
 		t.Fatal("newKeyFile replaced the key another process made")
 	}
-	if fi, _ := os.Stat(kp); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(kp); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("store.key mode %o", fi.Mode().Perm())
 	}
 	if left, _ := os.ReadDir(store.Home()); len(left) != 1 { // store.key

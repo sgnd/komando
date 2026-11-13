@@ -28,7 +28,7 @@ var digestRe = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 
 func checkDigest(d string) error {
 	if !digestRe.MatchString(d) {
-		return fmt.Errorf("unsupported or malformed digest %q", d)
+		return fmt.Errorf("komando cannot read the digest %q (sha256:<64 hex digits>)", d)
 	}
 	return nil
 }

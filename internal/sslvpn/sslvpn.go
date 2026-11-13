@@ -79,10 +79,10 @@ func portalURL(p string) (*url.URL, error) {
 	}
 	u, err := url.Parse(p)
 	if err != nil || u.Host == "" {
-		return nil, fmt.Errorf("bad portal %q", p)
+		return nil, fmt.Errorf("the portal %q is not a URL with a host", p)
 	}
 	if u.Scheme != "https" {
-		return nil, errors.New("the portal must be https")
+		return nil, errors.New("the portal address starts with https://")
 	}
 	if u.Path == "" {
 		u.Path = "/"

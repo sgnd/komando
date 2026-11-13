@@ -131,9 +131,9 @@ func (a *sfAuth) sign(s kdriver.SnowflakeConn) (string, time.Time, error) {
 
 // failed is the error for a login Snowflake refused.
 func (a *sfAuth) failed(s kdriver.SnowflakeConn, res *sfResult) error {
-	hint := "the conn's secret must be a programmatic access token (Snowflake's SQL API takes no passwords) or the user's private key (PEM) for key-pair login; check the account and user in the URL too (`komando conn show NAME`)"
+	hint := "the conn's secret is a programmatic access token (Snowflake's SQL API takes no passwords) or the user's private key (PEM) for key-pair login; check the account and user in the URL too (`komando conn show NAME`)"
 	if a.key != nil {
-		hint = "Snowflake must know this key's public half for the user: DESC USER " + s.User + " shows RSA_PUBLIC_KEY_FP, which should be " + a.fp +
+		hint = "Snowflake needs this key's public half for the user: DESC USER " + s.User + " shows RSA_PUBLIC_KEY_FP, which should be " + a.fp +
 			" (set it with ALTER USER ... SET RSA_PUBLIC_KEY); check the account and user in the URL too (`komando conn show NAME`)"
 	}
 	msg := strings.TrimSpace(res.Message)

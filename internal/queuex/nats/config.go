@@ -51,7 +51,7 @@ func setting(cfg *jetstream.StreamConfig, key, v string) error {
 			}
 		}
 		if len(cfg.Subjects) == 0 {
-			return out.Usage("--config subjects= needs at least one subject, e.g. subjects=orders.>")
+			return out.Usage("--config subjects= needs at least one subject, for example subjects=orders.>")
 		}
 	case "description":
 		cfg.Description = v
@@ -105,7 +105,7 @@ func choice(cfg *jetstream.StreamConfig, key, v string) error {
 	}
 	if !ok {
 		words := map[string]string{"storage": "file or memory", "retention": "limits, interest or workqueue", "discard": "old or new"}[key]
-		return out.Usage("--config %s must be %s, not %q", key, words, v)
+		return out.Usage("--config %s takes %s, not %q", key, words, v)
 	}
 	return nil
 }

@@ -22,7 +22,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Moving and changing the key of a sealed store (docs/design/phase0-s6.md).
+// Moving and changing the key of a sealed store.
 // Moving it between the keychain and store.key moves the same key; a new
 // passphrase, or leaving one, makes a new master key and seals the whole
 // store again in one write step. A new key is kept before the store uses
@@ -304,7 +304,7 @@ func resealSecrets(tx *sealdb.Tx, oldA, newA cipher.AEAD) (int, error) {
 // sealedKeyToKeychain is KeyToKeychain on a sealed home: the key in
 // store.key moves into the keychain.
 func sealedKeyToKeychain() (string, error) {
-	tool, err := KeychainTool()
+	tool, err := autoKeychainTool() // a clear error, never macOS's dialog
 	if err != nil {
 		return "", err
 	}

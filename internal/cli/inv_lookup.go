@@ -37,7 +37,7 @@ func foldMatch(n string, names []string) (string, bool) {
 func notFoundSuggest(kind, name string, names []string) *out.Error {
 	e := out.NotFound(kind, name)
 	if s := closest(name, names); s != "" {
-		e.Hint = fmt.Sprintf("did you mean %q? (%s)", s, e.Hint)
+		suggest(e, name, s)
 	}
 	return e
 }
@@ -106,7 +106,9 @@ func keyNotFound(s *store.State, name string) error {
 // on edit commands -g and -t add a group or tag, like on add.
 func shortAlias(fs *pflag.FlagSet, name, short, of string) {
 	f := fs.Lookup(of)
-	fs.AddFlag(&pflag.Flag{Name: name, Shorthand: short, Value: f.Value, DefValue: f.DefValue, Usage: "same as --" + of})
+	// hidden: on edit commands help shows --add-group/--add-tag only (S-5.13)
+	fs.AddFlag(&pflag.Flag{Name: name, Shorthand: short, Value: f.Value, DefValue: f.DefValue, Usage: "same as --" + of, Hidden: true,
+		Annotations: map[string][]string{flagAliasOf: {of}}})
 }
 
 // isSelector: arg is a selector (@group, glob, tag:, label:, kind:, all,
@@ -146,7 +148,7 @@ func pickHosts(s *store.State, args []string) ([]*store.Host, error) {
 			}
 		}
 		if n == 0 {
-			return nil, out.Errf(out.ExitNotFound, "HOST_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no servers in the inventory", a)
+			return nil, out.Errf(out.ExitNotFound, "HOST_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no servers in your list", a)
 		}
 	}
 	return res, nil
@@ -168,7 +170,7 @@ func rmConns(s *store.State, args []string) ([]*store.Conn, error) {
 				return nil, err
 			}
 			if cs = sel.Conns; len(cs) == 0 {
-				return nil, out.Errf(out.ExitNotFound, "CONN_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no conns", a)
+				return nil, out.Errf(out.ExitNotFound, "CONN_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no conns", a).About("selector")
 			}
 		}
 		for _, c := range cs {
@@ -189,17 +191,19 @@ type rmResult struct {
 	Note          string   `json:"note,omitempty"`
 }
 
-// MarshalJSON adds would_remove under --dry-run, so a preview does not
-// read as done; removed stays for scripts that read it (contract 1).
+// MarshalJSON names the list would_remove under --dry-run, so a preview
+// does not read as done.
 func (r rmResult) MarshalJSON() ([]byte, error) {
 	type plain rmResult
 	if !g.dryRun {
 		return json.Marshal(plain(r))
 	}
 	return json.Marshal(struct {
-		plain
-		WouldRemove []string `json:"would_remove"`
-	}{plain(r), r.Removed})
+		WouldRemove   []string `json:"would_remove"`
+		HostKeysKept  []string `json:"host_keys_kept,omitempty"`
+		SecretsUnused []string `json:"secrets_unused,omitempty"`
+		Note          string   `json:"note,omitempty"`
+	}{r.Removed, r.HostKeysKept, r.SecretsUnused, r.Note})
 }
 
 func (r rmResult) Text() string {

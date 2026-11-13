@@ -22,6 +22,8 @@ func TestCallerFrom(t *testing.T) {
 		{"ssh-gate names the key", map[string]string{GateEnv: "ops-ro", "CLAUDECODE": "1"}, false, Agent, "ssh-gate key ops-ro", ""},
 		{"a bad gate label is just an agent", map[string]string{GateEnv: "-x y"}, false, Agent, "An SSH key through ssh-gate", ""},
 		{"KOMANDO_ACTOR wins", map[string]string{"KOMANDO_ACTOR": "deploy-bot", "USER": "root"}, false, Script, "", "deploy-bot"},
+		{"Windows sets USERNAME only", map[string]string{"USERNAME": "budi"}, true, Person, "", "budi"},
+		{"USER before USERNAME", map[string]string{"USER": "ana", "USERNAME": "budi"}, true, Person, "", "ana"},
 	} {
 		got := CallerFrom(env(c.env), c.terminal)
 		if got.Kind != c.kind || got.Agent != c.agent || got.Actor != c.actor {

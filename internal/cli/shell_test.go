@@ -13,7 +13,7 @@ import (
 // fails before any network, so a test that gets past the checks stops there.
 func shellLab(t *testing.T, protected bool) {
 	t.Helper()
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	saved, savedG := interactive, g
 	t.Cleanup(func() { interactive, g = saved, savedG; resetApproval(); out.P.Reset() })
 	interactive = func() bool { return true }

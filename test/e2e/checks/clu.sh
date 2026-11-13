@@ -35,6 +35,9 @@ check "apply --namespace must match the file" USAGE "$($K cluster apply lab-k3s 
 check "apply --stack is for Swarm" USAGE "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" --stack x | jget 'd["error"]["code"]')"
 check "apply says created" "created created created" "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" | jget '" ".join(o["action"] for o in d["data"]["objects"])')"
 check "apply again says unchanged" "unchanged unchanged unchanged" "$($K cluster apply lab-k3s --file "$TMP/clu.yaml" | jget '" ".join(o["action"] for o in d["data"]["objects"])')"
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: t-ok, namespace: t-e2eclu}\n---\napiVersion: v1\nkind: ConfigMap\nmetadata: {name: Bad_Name, namespace: t-e2eclu}\n' >"$TMP/half.yaml"
+check "apply: a refused object stops the whole file" "K8S_INVALID True K8S_NOT_FOUND" \
+  "$($K cluster apply lab-k3s --file "$TMP/half.yaml" >"$TMP/o"; jget 'd["error"]["code"] + " " + str("nothing was applied" in d["error"]["message"])' <"$TMP/o") $($K cluster get lab-k3s cm t-ok --namespace t-e2eclu | jget 'd["error"]["code"]' || true)"
 sed 's/password: one/password: two/' "$TMP/clu.yaml" > "$TMP/clu2.yaml"
 check "a changed Secret value is a change, still hidden" "change True" \
   "$($K cluster apply lab-k3s --file "$TMP/clu2.yaml" --dry-run | jget 'd["data"]["changes"][1]["action"] + " " + str("two" not in json.dumps(d) and "(hidden, changed)" in d["data"]["changes"][1]["diff"])')"
@@ -42,7 +45,7 @@ $K cluster status lab-k3s deployment/web --namespace t-e2eclu --wait --timeout 9
 check "TYPE NAME, TYPE/NAME and group-qualified kinds" "web web web" \
   "$($K cluster get lab-k3s deployment web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]') $($K cluster get lab-k3s deploy/web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]') $($K cluster get lab-k3s deployment.apps/web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]')"
 check "status takes TYPE NAME" True "$($K cluster status lab-k3s deployment web --namespace t-e2eclu | jget 'd["data"]["rolled_out"]')"
-check "-n NAMESPACE explains --namespace" "2 True" "$($K cluster get lab-k3s deploy web -n t-e2eclu >"$TMP/o"; echo $?) $(jget '"--namespace t-e2eclu" in d["error"]["message"]' <"$TMP/o")"
+check "-n is --namespace on cluster get" web "$($K cluster get lab-k3s deploy web -n t-e2eclu | jget 'd["data"]["metadata"]["name"]')"
 check "-A lists every namespace" True "$($K cluster ls lab-k3s deploy -A | jget 'any(i["namespace"]=="t-e2eclu" for i in d["data"]["items"])')"
 check "ls text is a table" True "$($K cluster ls lab-k3s deploy --namespace t-e2eclu -o text | head -1 | grep -q '^NAME  *READY  *UP-TO-DATE  *AVAILABLE  *AGE' && echo True)"
 check "unknown kind suggests one" True "$($K cluster ls lab-k3s deploymnt | jget '"did you mean \"deployment\"" in d["error"]["message"]')"
@@ -70,11 +73,19 @@ check "helm status shows the notes" True "$($K cluster helm status lab-k3s demo 
 check "helm history lists both revisions, oldest first" "1 2" "$($K cluster helm history lab-k3s demo --namespace t-e2eclu | jget '" ".join(str(r["revision"]) for r in d["data"]["revisions"])')"
 check "helm values: what was set" 3 "$($K cluster helm values lab-k3s demo --namespace t-e2eclu | jget 'd["data"]["values"]["replicas"]')"
 check "helm values --all: with the chart's defaults" "3 demo" "$($K cluster helm values lab-k3s demo --namespace t-e2eclu --all | jget 'str(d["data"]["values"]["replicas"]) + " " + d["data"]["values"]["image"]')"
+# a field another manager owns stops apply (nothing applied); --force-conflicts takes it over
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: t-own, namespace: t-e2eclu}\ndata: {a: one}\n' >"$TMP/own.yaml"
+q $K cluster apply lab-k3s --file "$TMP/own.yaml"
+kc -n t-e2eclu patch configmap t-own --type merge -p '{"data":{"a":"two"}}' >/dev/null
+check "apply: a field another manager owns is K8S_CONFLICT naming it" "8 K8S_CONFLICT True True two" \
+  "$($K cluster apply lab-k3s --file "$TMP/own.yaml" >"$TMP/o"; echo $?) $(jget 'd["error"]["code"] + " " + str("kubectl-patch" in d["error"]["message"]) + " " + str("--force-conflicts" in d["error"]["hint"])' <"$TMP/o") $($K cluster get lab-k3s cm t-own --namespace t-e2eclu | jget 'd["data"]["data"]["a"]')"
+check "apply --force-conflicts takes the field over" "configured one" \
+  "$($K cluster apply lab-k3s --file "$TMP/own.yaml" --force-conflicts | jget 'd["data"]["objects"][0]["action"]') $($K cluster get lab-k3s cm t-own --namespace t-e2eclu | jget 'd["data"]["data"]["a"]')"
 check "scale to the same count is unchanged" "True 1" "$($K cluster scale lab-k3s deploy/web 1 --namespace t-e2eclu | jget 'str(d["data"]["unchanged"]) + " " + str(d["data"]["previous_replicas"])')"
 check "scale refuses pods" USAGE "$($K cluster scale lab-k3s pod/x 1 --namespace t-e2eclu | jget 'd["error"]["code"]')"
 check "a bad label selector is a usage error" 2 "$($K cluster ls lab-k3s pods -l 'app in (' --namespace t-e2eclu >/dev/null; echo $?)"
-check "rollback --to a missing revision lists them" True "$($K cluster rollback lab-k3s deploy/web --to 99 --namespace t-e2eclu | jget '"revision 99 not found; revisions: 1" in d["error"]["message"]')"
-check "rollback to the current revision is unchanged" True "$($K cluster rollback lab-k3s deploy/web --to 1 --namespace t-e2eclu | jget 'd["data"]["unchanged"]')"
+check "rollback --revision a missing revision lists them" True "$($K cluster rollback lab-k3s deploy/web --revision 99 --namespace t-e2eclu | jget '"revision 99 not found; revisions: 1" in d["error"]["message"]')"
+check "rollback to the current revision is unchanged" True "$($K cluster rollback lab-k3s deploy/web --revision 1 --namespace t-e2eclu | jget 'd["data"]["unchanged"]')"
 check "exec in a missing pod is not found" 3 "$($K cluster exec lab-k3s nopod --namespace t-e2eclu --read-only -- ls >/dev/null 2>&1; echo $?)"
 check "logs of a missing container is not found" 3 "$($K cluster logs lab-k3s deploy/web --namespace t-e2eclu -c nope >/dev/null; echo $?)"
 check "logs of a workload name the object and its pods" "deploy/web 1" "$($K cluster logs lab-k3s deploy/web --namespace t-e2eclu | jget 'd["data"]["object"] + " " + str(len(d["data"]["pods"]))')"
@@ -83,6 +94,20 @@ check "cluster run ends a watch at --timeout" 0 "$($K cluster run lab-k3s --time
 # kubectl's words stay in $TMP/fw.err to show why if it fails
 check "forward ends normally at --timeout" "0 True" "$($K cluster forward lab-k3s deploy/web :80 --namespace t-e2eclu --timeout 5s >"$TMP/o" 2>"$TMP/fw.err"; echo $?) $(jget 'd["ok"]' <"$TMP/o")"
 [ "$(jget 'd["ok"]' <"$TMP/o")" = True ] || { echo "  forward stderr:"; head -5 "$TMP/fw.err"; }
+# Ctrl-C ends a forward cleanly: exit 0, the local port is closed again
+$K cluster forward lab-k3s deploy/web 18096:80 --namespace t-e2eclu >"$TMP/fwi.out" 2>/dev/null &
+FW=$!
+for _ in $(seq 1 40); do (exec 3<>/dev/tcp/127.0.0.1/18096) 2>/dev/null && break; sleep 0.5; done
+kill -INT "$FW"; wait "$FW"; RC=$?
+check "forward: Ctrl-C ends it normally" "0 True" "$RC $(jget 'd["data"]["stopped"]' <"$TMP/fwi.out")"
+check "forward: the local port is closed after Ctrl-C" closed "$( (exec 3<>/dev/tcp/127.0.0.1/18096) 2>/dev/null && echo open || echo closed)"
+# a person deletes by typing the object's name; the cluster's name is not enough
+ptty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
+O=$(ptty 'lab-k3s\n' cluster rm lab-k3s deployment web --namespace t-e2eclu); RC=$?
+check "person: cluster rm asks for the object's name" 1 "$(grep -c 'Type the name web to continue' <<<"$O")"
+check "person: the cluster's name deletes nothing" "6 web" "$RC $($K cluster get lab-k3s deploy web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]')"
+O=$(ptty 'web\n' cluster rm lab-k3s deployment web --namespace t-e2eclu); RC=$?
+check "person: the object's name deletes it, asked once" "0 1 K8S_NOT_FOUND" "$RC $(grep -c 'Type the name' <<<"$O") $($K cluster get lab-k3s deploy web --namespace t-e2eclu | jget 'd["error"]["code"]' || true)"
 q $K cluster rm lab-k3s namespace t-e2eclu --allow-dangerous
 fi
 
@@ -98,7 +123,7 @@ q $K docker raw swarm1 -- tag "$CLU_IMG" t-e2eclu/busybox:2
 q $K cluster run swarm1 --write -- service create --detach --name t-e2eclu-web "$CLU_IMG" sleep 86400
 check "Swarm service rolls out" True "$($K cluster status swarm1 svc/t-e2eclu-web --wait --timeout 90s | jget 'd["data"]["rolled_out"]')"
 check "Swarm ls has items with ready" "1/1" "$($K cluster ls swarm1 svc | jget '[i["ready"] for i in d["data"]["items"] if i["name"]=="t-e2eclu-web"][0]')"
-check "Swarm ls tasks -n limits" 1 "$($K cluster ls swarm1 tasks -n 1 | jget 'len(d["data"]["items"])')"
+check "Swarm ls tasks -n limits" 1 "$($K cluster ls swarm1 tasks --limit 1 | jget 'len(d["data"]["items"])')"
 check "Swarm describe has a summary and tasks" "$CLU_IMG True" "$($K cluster describe swarm1 service t-e2eclu-web | jget 'd["data"]["summary"]["image"] + " " + str(len(d["data"]["tasks"]) > 0)')"
 check "Swarm scale to the same count is unchanged" True "$($K cluster scale swarm1 svc/t-e2eclu-web 1 | jget 'd["data"]["unchanged"]')"
 check "Swarm deploy --wait" "True $CLU_IMG" "$($K cluster deploy swarm1 svc/t-e2eclu-web --image t-e2eclu/busybox:2 --wait --timeout 90s | jget 'str(d["data"]["rolled_out"]) + " " + d["data"]["previous_image"]')"
@@ -111,7 +136,13 @@ check "docker raw: global flags do not hide rm" POLICY_BLOCKED "$($K docker raw 
 check "docker compose: down -v behind -p is checked" POLICY_BLOCKED "$($K docker compose swarm1 --dry-run -- -p proj down -v | jget 'd["meta"]["would_be_blocked"]["code"]')"
 check "docker raw refuses an unknown leading flag" USAGE "$($K docker raw swarm1 -- --weird x ps | jget 'd["error"]["code"]')"
 check "docker inspect of a missing object is not found" 3 "$($K docker inspect swarm1 nope >/dev/null; echo $?)"
-q $K cluster rm swarm1 service/t-e2eclu-web --allow-dangerous
+# a person removes a Swarm service by typing its name, not "yes"
+ptty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
+O=$(ptty 'yes\n' cluster rm swarm1 service/t-e2eclu-web); RC=$?
+check "person: Swarm rm asks for the service's name" 1 "$(grep -c 'Type the name t-e2eclu-web to continue' <<<"$O")"
+check "person: yes removes nothing" "6 True" "$RC $($K cluster ls swarm1 svc | jget 'any(i["name"]=="t-e2eclu-web" for i in d["data"]["items"])')"
+O=$(ptty 't-e2eclu-web\n' cluster rm swarm1 service/t-e2eclu-web); RC=$?
+check "person: the service's name removes it, asked once" "0 1 3" "$RC $(grep -c 'Type the name' <<<"$O") $($K cluster status swarm1 svc/t-e2eclu-web >/dev/null; echo $?)"
 q $K docker raw swarm1 --allow-dangerous -- rmi t-e2eclu/busybox:2
 fi
 

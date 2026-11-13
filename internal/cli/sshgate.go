@@ -51,12 +51,12 @@ var gateExec = syscall.Exec
 // A --read-only key runs what komando treats as a read (kinds.go): a
 // command of kind read, and one of kind depends only in its read form
 // (gateReadForm). A change, or a command added later without a kind, is
-// refused. A few reads still leave something on the komando computer or
-// hand out access (gateNotForReadKey); those are refused too.
+// refused; a change that hands out access says so (gateNotForReadKey).
 
 // gateReadForm: these read only with a flag (--read-only), or without one
 // (--write, --analyze, --apply, --refresh). Why the command as given may
-// change something, or "".
+// change something, or "". The checks read flag values, which an old
+// spelling of a flag shares (flag_alias.go), so every spelling counts.
 var gateReadForm = map[string]func(c *cobra.Command) string{
 	"exec":           needFlag("read-only"),
 	"job.start":      needFlag("read-only"),
@@ -67,11 +67,13 @@ var gateReadForm = map[string]func(c *cobra.Command) string{
 	"cluster.run":    noFlag("write"),
 	"db.explain":     noFlag("write", "analyze"), // --analyze runs the statement
 	"pkg.upgradable": noFlag("refresh"),          // refreshes the package index
-	"pkg.security":   noFlag("apply", "refresh"),
+	"pkg.security":   noFlag("refresh"),
 	"recipe.run":     gateRecipeWrites,
 }
 
-// gateNotForReadKey are reads a read-only key still does not run, and why.
+// gateNotForReadKey are commands a read-only key does not run, with a
+// better reason than "it changes something": they hand out access, so they
+// are of kind change (OD-13), and full keys run them (gateOnServers).
 var gateNotForReadKey = map[string]string{
 	"storage.link":    "it makes a link that opens the data without a login",
 	"cluster.forward": "it opens a port on the komando computer",
@@ -95,7 +97,7 @@ var gateOnServers = map[string]func(c *cobra.Command) string{
 	"exec": nil, "reboot": nil, "upload": nil, "recipe.run": nil,
 	"cp": gateLocalDst, "sync": gateLocalDst,
 	"job.start": nil, "job.kill": nil, "job.rm": nil,
-	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.rm": nil, "fs.write": nil,
+	"fs.chmod": nil, "fs.mkdir": nil, "fs.mv": nil, "fs.replace": nil, "fs.restore": nil, "fs.rm": nil, "fs.write": nil,
 	"svc.daemon-reload": nil, "svc.disable": nil, "svc.enable": nil, "svc.reload": nil,
 	"svc.restart": nil, "svc.start": nil, "svc.stop": nil,
 	"pkg.install": nil, "pkg.rm": nil, "pkg.security": nil, "pkg.update": nil, "pkg.upgradable": nil, "pkg.upgrade": nil,
@@ -109,6 +111,7 @@ var gateOnServers = map[string]func(c *cobra.Command) string{
 	"docker.restart": nil, "docker.rm": nil, "docker.start": nil, "docker.stop": nil,
 	"cluster.apply": nil, "cluster.deploy": nil, "cluster.exec": nil, "cluster.restart": nil,
 	"cluster.rm": nil, "cluster.rollback": nil, "cluster.run": gateKubectlCp, "cluster.scale": nil,
+	"cluster.forward": nil, "storage.link": nil, // hand out access; as before OD-13 made them changes
 	"vpn.up": nil, "vpn.down": nil,
 }
 
@@ -378,11 +381,9 @@ func gateRule(c *cobra.Command, name string, readOnly bool) (string, *out.Error)
 		return name, nil // it only prints the command's help
 	}
 	for p := c; p != nil; p = p.Parent() {
-		if now := p.Annotations[oldNameNote]; now != "" {
-			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "use `komando "+now+"`",
-				"komando %s is an old name", strings.ReplaceAll(name, ".", " "))
-		}
-		if p.Hidden {
+		// a synonym (cluster info) carries the ID of the command it names and
+		// gets that command's answer below; other hidden commands are plumbing
+		if p.Hidden && p.Annotations[synonymNote] == "" {
 			return name, out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
 				"komando %s is komando's own plumbing, not for a key", strings.ReplaceAll(name, ".", " "))
 		}
@@ -581,7 +582,7 @@ audit setting is off.`,
 				return cmd.Help()
 			}
 			if !gateLabel.MatchString(name) {
-				return out.Usage("--name must be 1 to 64 letters, digits, dots, dashes or underscores")
+				return out.Usage("--name takes 1 to 64 letters, digits, dots, dashes or underscores")
 			}
 			req, refused := parseGate(os.Getenv("SSH_ORIGINAL_COMMAND"))
 			runs := ""
@@ -630,7 +631,7 @@ func sshGateLineCmd() *cobra.Command {
 	var name string
 	var readOnly bool
 	c := &cobra.Command{
-		Use:   "line PUBLIC_KEY",
+		Use:   "line PUBLIC_KEY --name NAME",
 		Short: "Print the authorized_keys line that limits a key to komando",
 		Long: `Prints the line to add to ~/.ssh/authorized_keys on this computer, so the
 key runs komando through ssh-gate and nothing else. PUBLIC_KEY is the key's
@@ -641,7 +642,7 @@ this komando by its full path, as sshd does not search PATH.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !gateLabel.MatchString(name) {
-				return out.Usage("--name must be 1 to 64 letters, digits, dots, dashes or underscores")
+				return out.Usage("--name takes 1 to 64 letters, digits, dots, dashes or underscores")
 			}
 			key, err := gatePublicKey(args[0])
 			if err != nil {
@@ -649,7 +650,7 @@ this komando by its full path, as sshd does not search PATH.`,
 			}
 			self := komandoPath()
 			if !strings.HasPrefix(self, "/") {
-				return out.Errf(out.ExitError, "SSH_GATE_PATH", "run komando by its full path, e.g. /usr/local/bin/komando ssh-gate line ...",
+				return out.Errf(out.ExitError, "SSH_GATE_PATH", "run komando by its full path, for example /usr/local/bin/komando ssh-gate line ...",
 					"komando cannot tell its own full path, which the line needs")
 			}
 			command := gateShellQuote(self) + " ssh-gate --name " + name

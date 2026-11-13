@@ -18,8 +18,8 @@ func serverOSQ() formQ {
 	return formQ{key: "os", label: "System", ask: "What does the server run?",
 		help: "Windows servers run commands in PowerShell; everything else is treated like Linux.",
 		def:  func(*store.State, formAnswers) string { return "linux" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Linux", detail: "or another Unix, like FreeBSD", value: "linux"},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Linux", detail: "or another Unix, like FreeBSD", value: "linux"},
 				{label: "Windows", detail: "Windows Server, over OpenSSH or WinRM", value: "windows"}}
 		}}
 }
@@ -30,8 +30,8 @@ func serverTransportQ() formQ {
 		help: "Not sure? Ask whoever runs it. WinRM is often on already, as Ansible uses it; OpenSSH also gives shell and tunnels.",
 		show: func(a formAnswers) bool { return a["os"] == "windows" },
 		def:  func(*store.State, formAnswers) string { return "ssh" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "OpenSSH", detail: "built into Windows Server 2019 and later; a key or a password", value: "ssh"},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "OpenSSH", detail: "built into Windows Server 2019 and later; a key or a password", value: "ssh"},
 				{label: "WinRM", detail: "HTTPS on port 5986, a user and a password", value: "winrm"}}
 		}}
 }
@@ -46,8 +46,8 @@ func serverWinRMTLSQ() formQ {
 		help: "Pick the first unless komando test says the certificate is not trusted. A certificate from your company's CA: keep the first and see " + releaseSite + "/blob/main/docs/features/windows.md.",
 		show: serverWinRM,
 		def:  func(*store.State, formAnswers) string { return "" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "HTTPS, checked", detail: "port 5986; winrm quickconfig -transport:https turns it on", value: ""},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "HTTPS, checked", detail: "port 5986; winrm quickconfig -transport:https turns it on", value: ""},
 				{label: "HTTPS, certificate not checked", detail: "for a certificate the server made itself", value: "skip-verify"},
 				{label: "HTTP, unencrypted", detail: "port 5985; commands and output can be read on the way", value: "off"}}
 		}}

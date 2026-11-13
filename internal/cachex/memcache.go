@@ -64,7 +64,7 @@ func openMemcache(ctx context.Context, t driver.Target, password string, dial Di
 		}
 		if line != "STORED" {
 			m.Close()
-			return nil, out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference", "memcached refused the login: %s", line)
+			return nil, out.Errf(out.ExitConnect, "CACHE_AUTH", "check the user in the URL and the password reference (`komando conn show NAME`)", "memcached refused the login: %s", line)
 		}
 	}
 	if _, err := m.cmd(ctx, "version"); err != nil {
@@ -204,7 +204,7 @@ func (m *memcache) classicGet(ctx context.Context, key string, maxBytes int) (*V
 }
 
 func notFound(key string) error {
-	return out.Errf(out.ExitNotFound, "KEY_NOT_FOUND", "list keys with `komando cache keys CONN 'pattern*'`", "key %q does not exist", key)
+	return out.Errf(out.ExitNotFound, "KEY_NOT_FOUND", "list keys with `komando cache keys CONN 'pattern*'`", "no cache key named %q", key).About("cache_key")
 }
 
 // mcMaxRelative is the longest expiry memcached reads as seconds from now
@@ -366,10 +366,11 @@ func memcacheSummary(info map[string]map[string]string) Summary {
 // Run sends one command line (no data block: use `cache set` to store) and
 // returns the reply lines; values come with their data.
 func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
-	if len(args) == 0 {
-		return nil, out.Usage("give a memcached command, e.g. `stats` or `get KEY`")
+	args, err := MemcacheWords(args) // again here, so no caller can skip it
+	if err != nil {
+		return nil, err
 	}
-	if storeCmds[strings.ToLower(args[0])] {
+	if storeCmds[args[0]] {
 		return nil, out.Usage("%s needs a data block; use `komando cache set CONN KEY VALUE`", args[0])
 	}
 	if err := m.send(ctx, strings.Join(args, " ")); err != nil {
@@ -417,8 +418,40 @@ func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
 
 var storeCmds = set("set add replace append prepend cas ms")
 
+// MemcacheWords are the words memcached reads from a `cache run` line.
+// memcached splits a line at spaces and ends it at a newline, so the words
+// are re-split the same way here, before the command is rated: otherwise
+// "get" plus an argument holding "\r\nflush_all" is rated a read and sends
+// flush_all, " flush_all" is not seen as flush_all, and "mg" plus "key T30"
+// hides the touch flag. A control byte cannot be in a memcached command, so
+// a word with one is refused.
+func MemcacheWords(args []string) ([]string, error) {
+	for _, a := range args {
+		for i := 0; i < len(a); i++ {
+			if a[i] < ' ' || a[i] == 0x7f {
+				return nil, out.Usage("a memcached command line has no newlines or other control characters: %q", a)
+			}
+		}
+	}
+	words := strings.Fields(strings.Join(args, " "))
+	if len(words) == 0 {
+		return nil, out.Usage("give a memcached command, for example `stats` or `get KEY`")
+	}
+	if words[0] = strings.ToLower(words[0]); words[0] == "watch" {
+		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED",
+			"cache run sends one command and prints its reply; watch streams until the connection closes",
+			"watch waits for data that keeps coming, so cache run would never return")
+	}
+	return words, nil
+}
+
 // ClassifyMemcache rates a memcached command line.
 func ClassifyMemcache(args []string) driver.Verdict {
+	if strings.ContainsFunc(strings.Join(args, ""), func(r rune) bool { return r < ' ' || r == 0x7f }) {
+		// a newline would start a second command after the one rated here
+		return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"memcached-line"}, Reasons: []string{mcLineReason}}
+	}
+	args = strings.Fields(strings.Join(args, " ")) // the words memcached reads
 	if len(args) == 0 {
 		return driver.Verdict{Risk: driver.RiskRead}
 	}
@@ -431,6 +464,11 @@ func ClassifyMemcache(args []string) driver.Verdict {
 		return driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"memcached-server"}, Reasons: []string{"changes or stops the server"}}
 	case cmd == "delete" || cmd == "md":
 		return driver.DataDelete()
+	case cmd == "stats" && len(args) > 1 && (strings.EqualFold(args[1], "reset") ||
+		strings.EqualFold(args[1], "detail") && !(len(args) > 2 && strings.EqualFold(args[2], "dump"))):
+		// stats reset clears the counters and stats detail on|off switches
+		// per-prefix counting on the server; only stats detail dump reads
+		return driver.Verdict{Risk: driver.RiskWrite}
 	case cmd == "get" || cmd == "gets" || cmd == "stats" || cmd == "version" || cmd == "mn" || cmd == "me" || cmd == "lru_crawler":
 		return driver.Verdict{Risk: driver.RiskRead}
 	case cmd == "mg":
@@ -455,11 +493,14 @@ func mcErr(err error) error {
 	return out.Errf(out.ExitRemote, "CACHE_ERROR", "check the command and its arguments (memcached's protocol.txt)", "%s", err)
 }
 
+const mcLineReason = "holds a newline or another control character, which would start a second command (cache run refuses it)"
+
 // MemcacheRules are the rules ClassifyMemcache can report.
 func MemcacheRules() []driver.Rule {
 	r := []driver.Rule{
 		{ID: "memcached-flush", Reason: "deletes every key (flush_all)"},
 		{ID: "memcached-server", Reason: "changes or stops the server"},
+		{ID: "memcached-line", Reason: mcLineReason},
 	}
 	sort.Slice(r, func(i, j int) bool { return r[i].ID < r[j].ID })
 	return r

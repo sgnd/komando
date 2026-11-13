@@ -93,9 +93,10 @@ func (c *Client) CheckedTLS() bool {
 
 // Error is an error answer from the registry.
 type Error struct {
-	Status  int
-	Code    string
-	Message string
+	Status     int
+	Code       string
+	Message    string
+	RetryAfter string // the Retry-After header of a 429 or 503, as sent
 }
 
 func (e *Error) Error() string {
@@ -174,7 +175,7 @@ func (c *Client) Send(ctx context.Context, method string, u *url.URL, accept, co
 					Message string `json:"message"`
 				} `json:"errors"`
 			}
-			re := &Error{Status: resp.StatusCode, Code: http.StatusText(resp.StatusCode)}
+			re := &Error{Status: resp.StatusCode, Code: http.StatusText(resp.StatusCode), RetryAfter: resp.Header.Get("Retry-After")}
 			if json.Unmarshal(b, &e) == nil && len(e.Errors) > 0 {
 				re.Code, re.Message = e.Errors[0].Code, e.Errors[0].Message
 			}
@@ -229,7 +230,7 @@ func (c *Client) token(ctx context.Context, challenge, scope string) (string, er
 	}
 	realm, err := url.Parse(params["realm"])
 	if err != nil || realm.Host == "" {
-		return "", fmt.Errorf("bad auth challenge %q", challenge)
+		return "", fmt.Errorf("komando cannot read the registry's login challenge %q", challenge)
 	}
 	if realm.Scheme != "https" && c.Base.Scheme == "https" {
 		// the password would travel in clear to the token service
@@ -255,6 +256,10 @@ func (c *Client) token(ctx context.Context, challenge, scope string) (string, er
 		return "", err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return "", &Error{Status: resp.StatusCode, Code: "TOOMANYREQUESTS", Message: "the token service says too many requests",
+			RetryAfter: resp.Header.Get("Retry-After")}
+	}
 	if resp.StatusCode != 200 {
 		return "", &Error{Status: resp.StatusCode, Code: "UNAUTHORIZED", Message: "the token service refused the login"}
 	}

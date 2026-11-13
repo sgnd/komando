@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -64,9 +63,9 @@ func (d execData) Text() string {
 			}
 		}
 		if r.Error != nil && multi && r.Error.Code != "SKIPPED" {
-			fmt.Fprintf(&sb, "error [%s]: %s\n", r.Error.Code, r.Error.Message)
+			fmt.Fprintf(&sb, "  Error: %s (code %s)\n", r.Error.Message, r.Error.Code)
 			if r.Error.Hint != "" {
-				fmt.Fprintf(&sb, "hint: %s\n", r.Error.Hint)
+				fmt.Fprintf(&sb, "  Hint: %s\n", r.Error.Hint)
 			}
 		}
 	}
@@ -78,19 +77,19 @@ func hostStatus(r execHostResult) string {
 	case r.Error != nil && r.Error.Code == "SKIPPED":
 		return "skipped"
 	case r.OK && r.RunResult != nil:
-		return fmt.Sprintf("ok exit=%d", r.ExitCode)
+		return fmt.Sprintf("ok, exit %d", r.ExitCode)
 	case r.OK:
 		return "ok"
 	case r.Error != nil && r.Error.Code == "CONNECTION_LOST":
-		return "FAILED connection lost, outcome unknown"
+		return "failed: connection lost, outcome unknown"
 	case r.RunResult != nil && r.TimedOut:
-		return "FAILED timed out"
+		return "failed: timed out"
 	case r.RunResult != nil:
-		return fmt.Sprintf("FAILED exit=%d", r.ExitCode)
+		return fmt.Sprintf("failed: exit %d", r.ExitCode)
 	case r.Error != nil:
-		return "FAILED " + failReason(0, r.Error)
+		return "failed: " + failReason(0, r.Error)
 	}
-	return "FAILED"
+	return "failed"
 }
 
 type execOpts struct {
@@ -104,6 +103,9 @@ type execOpts struct {
 	failFast  bool
 	display   string // what output and the audit log show instead of a long generated script
 	recipe    string // recipe run: the recipe's name, in the result and the audit log
+	// jobScript: exec --script's flags for job start (--script FILE ...),
+	// so a timeout can name the job that runs the same script
+	jobScript string
 	// follow: a log follow (logs --follow). Reaching --timeout is how it
 	// ends, not a failure.
 	follow bool
@@ -173,7 +175,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 				if cmdStr != "" || len(args) > 1 {
 					return out.Usage("give a command or --script FILE, not both")
 				}
-				return runScript(cmd.Context(), "exec", args[0], so, o, readOnly)
+				return runScript(cmd.Context(), args[0], so, o, readOnly)
 			}
 			if so.interpreter != "" || len(so.args) > 0 {
 				return out.Usage("--interpreter and --arg go with --script FILE")
@@ -194,6 +196,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 				if err := hiddenInInput(o.stdinFile, stdin); err != nil {
 					return err
 				}
+				noteApprovalBody(scriptLabel("the input", o.stdinFile), stdin)
 				// the input may be a script (bash -s): the policy reads it
 				// like the command, as script does with its file
 				if err := guardBody(string(stdin)); err != nil {
@@ -248,127 +251,6 @@ func execReadOnly(target, command string, stdin []byte, o execOpts, readOnly boo
 	// the denylist passed; a protected target still needs --yes unless
 	// komando knows the command only reads (allowlist)
 	return readOnlyMutates(checked, o.env), nil
-}
-
-// scriptOpts are exec's --script flags.
-type scriptOpts struct {
-	file, interpreter string
-	args              []string
-}
-
-func (so *scriptOpts) bind(c *cobra.Command) {
-	c.Flags().StringVar(&so.interpreter, "interpreter", "", "with --script: the interpreter on the server (default: from the #! line, else sh)")
-	c.Flags().StringArrayVar(&so.args, "arg", nil, "with --script: an argument for the script, $1 ... (repeatable)")
-}
-
-// scriptCmd is the old name of `exec TARGET --script FILE`, kept for one
-// release (docs/design/ux.md, section 10).
-func scriptCmd() *cobra.Command {
-	var o execOpts
-	var so scriptOpts
-	var readOnly bool
-	c := &cobra.Command{
-		Use:  "script TARGET FILE",
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			so.file = args[1]
-			return runScript(cmd.Context(), "script", args[0], so, o, readOnly)
-		},
-	}
-	o.bind(c)
-	so.bind(c)
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the shell script only looks")
-	return oldName(c, "exec TARGET --script FILE")
-}
-
-// runScript runs a script from this computer on every server target picks:
-// the file goes to the interpreter as stdin, so nothing is left on disk.
-func runScript(ctx context.Context, name, target string, so scriptOpts, o execOpts, readOnly bool) error {
-	if o.stdinFile != "" || o.pty {
-		return out.Usage("--script sends the file as the script's input, so --stdin-file and --pty do not go with it; read other files inside the script")
-	}
-	body, err := readFileOrStdin(so.file)
-	if err != nil {
-		return localFileErr("FILE_NOT_FOUND", err, "")
-	}
-	if err := hiddenInInput(so.file, body); err != nil {
-		return err
-	}
-	argsList, interpreter := so.args, so.interpreter
-	if win, err := targetWindows(target); err != nil || win {
-		if err != nil {
-			return err
-		}
-		return windowsScript(ctx, name, target, so.file, body, interpreter, argsList, o, readOnly)
-	}
-	if interpreter == "" {
-		interpreter = shebangInterpreter(string(body))
-	}
-	command := scriptCommand(interpreter, argsList)
-	if err := guardBody(string(body)); err != nil {
-		return err
-	}
-	mutating := !readOnly
-	if readOnly {
-		// only a shell script can be checked: the interpreter must
-		// be a plain shell (python, or tee /etc/passwd, is not),
-		// and its arguments ($1 ...) are not seen by the check
-		if len(argsList) > 0 {
-			if err := readOnlyStop("--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
-				return err
-			}
-		} else if !stdinShell(command) {
-			if err := readOnlyStop("the interpreter " + interpreter + " is not a shell; only shell scripts can be --read-only"); err != nil {
-				return err
-			}
-		}
-		if err := checkReadOnlyEnv(string(body), o.env); err != nil {
-			return err
-		}
-		// a protected target still needs --yes unless komando knows
-		// every command in the script only reads (allowlist)
-		mutating = readOnlyMutates(string(body), o.env)
-	}
-	return runFleet(ctx, name, target, command, body, o, mutating)
-}
-
-// scriptCommand is how an interpreter reads a script from stdin, with
-// arguments: POSIX shells take "-s -- ARGS", the others "- ARGS" (perl,
-// python, ruby, node and php all read "-" as stdin).
-func scriptCommand(interpreter string, args []string) string {
-	base := interpreter
-	if f := strings.Fields(interpreter); len(f) > 0 {
-		base = path.Base(f[0])
-		if i := envProgram(f); i > 0 {
-			base = path.Base(f[i])
-		}
-	}
-	shell := false
-	for _, sh := range []string{"sh", "bash", "zsh", "dash", "ash", "ksh", "mksh", "busybox"} {
-		if base == sh {
-			shell = true
-		}
-	}
-	q := make([]string, len(args))
-	for i, a := range args {
-		q[i] = sshx.Q(a)
-	}
-	if shell {
-		if len(q) == 0 {
-			return interpreter + " -s"
-		}
-		return interpreter + " -s -- " + strings.Join(q, " ")
-	}
-	return strings.TrimSpace(interpreter + " - " + strings.Join(q, " "))
-}
-
-// guardBody applies the destructive-command policy to every line of a script.
-func guardBody(body string) error {
-	st, err := loadState()
-	if err != nil {
-		return err
-	}
-	return guard(st, nil, body, false)
 }
 
 // fleetDryRun is runFleet's --dry-run: what would run on each host. A
@@ -528,7 +410,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			}
 		}
 	} else {
-		results = fanout(ctx, st, hosts, run)
+		results = followEnded(ctx, follow, fanout(ctx, st, hosts, run))
 	}
 
 	data := execData{Recipe: o.recipe, Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && out.P.Format == "text"}
@@ -546,6 +428,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			}
 			// a lost connection keeps what the command printed before it broke
 			hr.RunResult, _ = r.Value.(*sshx.RunResult)
+			lostJobHint(hr.Error, jobStartLine(name, hr.Host, command, stdin, o))
 			worst = worse(worst, hr.Error.Exit)
 			fails = append(fails, hostFail{host: hr.Host, reason: failReason(0, hr.Error), err: hr.Error})
 		} else {
@@ -557,7 +440,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			hr.OK = hr.ExitCode == 0 && !hr.TimedOut
 			switch {
 			case hr.TimedOut:
-				hr.Error = out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout or use `komando job start` for long tasks", "command timed out after %s", req.Timeout)
+				hr.Error = execTimeoutErr(jobStartLine(name, hr.Host, command, stdin, o), req.Timeout)
 				worst = worse(worst, out.ExitTimeout)
 				fails = append(fails, hostFail{host: hr.Host, reason: "timed out", err: hr.Error})
 			case !hr.OK && o.exitMap != nil && o.exitMap(hr.RunResult) != nil:
@@ -578,15 +461,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		data.Results = append(data.Results, hr)
 	}
 	data.Summary.Total = len(results)
-	codes := map[string]int{}
-	for _, r := range data.Results {
-		if r.RunResult != nil {
-			codes[r.Host] = r.ExitCode
-		} else {
-			codes[r.Host] = -1
-		}
-	}
-	audit(st, name, hostNames(hosts), shown, data.Summary.Failed == 0, withRecipe(map[string]any{"exit_codes": codes, "sudo": req.Sudo}, o.recipe))
+	audit(st, name, hostNames(hosts), shown, data.Summary.Failed == 0, withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe))
 	if o.stream && out.P.Format != "text" {
 		out.P.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}
@@ -662,6 +537,19 @@ func (l *lineBuffer) flush() string {
 	s := string(l.buf)
 	l.buf = nil
 	return s
+}
+
+// exitCodes is each server's exit code for the audit log; -1 when the
+// command did not run there.
+func exitCodes(rs []execHostResult) map[string]int {
+	codes := map[string]int{}
+	for _, r := range rs {
+		codes[r.Host] = -1
+		if r.RunResult != nil {
+			codes[r.Host] = r.ExitCode
+		}
+	}
+	return codes
 }
 
 // runOne is the building block for module commands (svc, docker, pkg ...):

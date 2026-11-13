@@ -16,6 +16,7 @@ import (
 
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -35,7 +36,59 @@ For an agent, ` + "`fs replace`" + ` is the way to edit a config file: it fails 
 old text matches exactly once (or --all), and --backup keeps a .bak copy.`,
 	}
 	c.AddCommand(fsLsCmd(), fsStatCmd(), fsCatCmd(), fsWriteCmd(), fsReplaceCmd(), fsRmCmd(), fsMkdirCmd(), fsMvCmd(), fsChmodCmd(), fsRestoreCmd())
+	for _, sub := range c.Commands() {
+		if run := sub.RunE; run != nil && sub.Flags().Lookup("sudo") != nil {
+			sub.RunE = func(cmd *cobra.Command, args []string) error {
+				fsSudoRetry = sudoRetryHint(cmd, args)
+				return run(cmd, args)
+			}
+		}
+	}
 	return c
+}
+
+// fsSudoRetry is the hint of a permission error in the fs command running
+// now: the same command line with --sudo, to copy.
+var fsSudoRetry = "retry with --sudo"
+
+// sudoRetryHint is "retry with --sudo: `komando fs ... --sudo`", the
+// command as given plus --sudo. Approval flags are never in it; a long
+// --content (or one already with --sudo) keeps the short hint.
+func sudoRetryHint(cmd *cobra.Command, args []string) string {
+	const short = "retry with --sudo"
+	if on, _ := cmd.Flags().GetBool("sudo"); on {
+		return "it was refused even with --sudo (a read-only mount, or a protected file): `komando fs stat` shows its owner and mode"
+	}
+	parts := append(strings.Fields(cmd.CommandPath()), args...)
+	long := false
+	cmd.Flags().Visit(func(f *pflag.Flag) {
+		switch f.Name {
+		case "yes", "allow-dangerous", "reveal", "output":
+			return
+		}
+		v := f.Value.String()
+		if len(v) > 120 || strings.ContainsAny(v, "\n\r") {
+			long = true
+			return
+		}
+		if f.Value.Type() == "bool" {
+			if v == "true" {
+				parts = append(parts, "--"+f.Name)
+			}
+			return
+		}
+		if sv, ok := f.Value.(pflag.SliceValue); ok {
+			for _, one := range sv.GetSlice() {
+				parts = append(parts, "--"+f.Name, one)
+			}
+			return
+		}
+		parts = append(parts, "--"+f.Name, v)
+	})
+	if long {
+		return short
+	}
+	return short + ": `" + shellLine(append(parts, "--sudo")) + "`"
 }
 
 func sftpClient(c *sshx.Client) (*sftp.Client, error) {
@@ -70,7 +123,7 @@ func oneHost(ctx context.Context, target string, fn func(st *store.State, c *ssh
 }
 
 func fsErr(p string, err error) error {
-	return fsErrHint(p, err, "retry with --sudo")
+	return fsErrHint(p, err, fsSudoRetry)
 }
 
 // fsErrHint is fsErr for commands without --sudo: permHint says what to do
@@ -78,7 +131,7 @@ func fsErr(p string, err error) error {
 func fsErrHint(p string, err error, permHint string) error {
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "list the folder with `komando fs ls TARGET "+path.Dir(p)+"`", "%s: no such file or directory", p)
+		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "list the folder with `komando fs list TARGET "+path.Dir(p)+"`", "%s: no such file or directory", p)
 	case errors.Is(err, os.ErrPermission):
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", permHint, "%s: permission denied", p)
 	}
@@ -119,7 +172,7 @@ func fsLsCmd() *cobra.Command {
 	var recursive bool
 	var maxEntries int
 	c := &cobra.Command{
-		Use:   "ls TARGET [PATH]",
+		Use:   "list SERVER [PATH]",
 		Short: "List a folder on one server (default: the login user's home)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -128,11 +181,11 @@ func fsLsCmd() *cobra.Command {
 				arg = args[1]
 			}
 			if st, h := windowsOne(args[0]); h != nil {
-				return printed("fs.ls")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
+				return printed("fs.list")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
 			}
 			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
-				permHint := "fs ls reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
+				permHint := "fs list reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
 				r := lsResult{Path: dir, Entries: []fileInfo{}, recursive: recursive}
 				if fi, err := sc.Stat(dir); err != nil {
 					return nil, fsErrHint(dir, err, permHint)
@@ -157,8 +210,9 @@ func fsLsCmd() *cobra.Command {
 							}
 							continue
 						}
-						if len(r.Entries) >= maxEntries {
+						if maxEntries > 0 && len(r.Entries) >= maxEntries {
 							r.Truncated = true
+							out.P.CutNoted()
 							break
 						}
 						r.Entries = append(r.Entries, toInfo(path.Dir(w.Path()), w.Stat()))
@@ -172,8 +226,9 @@ func fsLsCmd() *cobra.Command {
 						if !all && strings.HasPrefix(fi.Name(), ".") {
 							continue
 						}
-						if len(r.Entries) >= maxEntries {
+						if maxEntries > 0 && len(r.Entries) >= maxEntries {
 							r.Truncated = true
+							out.P.CutNoted()
 							break
 						}
 						r.Entries = append(r.Entries, toInfo(dir, fi))
@@ -190,20 +245,20 @@ func fsLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.ls", res, nil)
+			out.P.Print("fs.list", res, nil)
 			return nil
 		},
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
-	c.Flags().IntVar(&maxEntries, "max", 1000, "the most entries to return")
+	limitFlag(c, &maxEntries, 1000, "entries")
 	return c
 }
 
 func fsStatCmd() *cobra.Command {
 	var hash bool
 	c := &cobra.Command{
-		Use:   "stat TARGET PATH",
+		Use:   "stat SERVER PATH",
 		Short: "Look up a path on one server (exists:false, not an error, when missing)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -251,9 +306,12 @@ func fsStatCmd() *cobra.Command {
 
 func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
 	if sudo {
-		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: "cat -- " + sshx.Q(p), Sudo: true, MaxOutput: int(limit), Timeout: 2 * time.Minute})
+		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sudoReadScript(p, "cat"), Sudo: true, MaxOutput: int(limit), Timeout: 2 * time.Minute})
 		if err != nil {
 			return nil, false, err
+		}
+		if r.ExitCode == sudoExitLink {
+			return nil, false, readLinkStop(p)
 		}
 		if r.ExitCode != 0 {
 			if strings.Contains(r.Stderr, "No such file") {
@@ -262,7 +320,7 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 			if strings.Contains(r.Stderr, "Is a directory") {
 				return nil, false, isADirectory(p)
 			}
-			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
+			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat SERVER PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 		}
 		return []byte(r.Stdout), r.StdoutTruncated, nil
 	}
@@ -290,9 +348,12 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
 	var b []byte
 	if sudo {
-		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: "tail -c " + strconv.FormatInt(limit+1, 10) + " -- " + sshx.Q(p), Sudo: true, MaxOutput: int(limit + 1), Timeout: 2 * time.Minute})
+		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sudoReadScript(p, "tail -c "+strconv.FormatInt(limit+1, 10)), Sudo: true, MaxOutput: int(limit + 1), Timeout: 2 * time.Minute})
 		if err != nil {
 			return nil, false, err
+		}
+		if r.ExitCode == sudoExitLink {
+			return nil, false, readLinkStop(p)
 		}
 		if r.ExitCode != 0 {
 			if strings.Contains(r.Stderr, "No such file") {
@@ -301,7 +362,7 @@ func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p strin
 			if strings.Contains(r.Stderr, "Is a directory") {
 				return nil, false, isADirectory(p)
 			}
-			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat TARGET PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
+			return nil, false, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat SERVER PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 		}
 		b = []byte(r.Stdout)
 	} else {
@@ -337,7 +398,7 @@ func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p strin
 }
 
 func isADirectory(p string) error {
-	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs ls TARGET "+p+"`", "%s is a folder, not a file", p)
+	return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "list it with `komando fs list TARGET "+p+"`", "%s is a folder, not a file", p)
 }
 
 type catResult struct {
@@ -362,13 +423,13 @@ func fsCatCmd() *cobra.Command {
 	var head, tail int
 	var numbered bool
 	c := &cobra.Command{
-		Use:     "cat TARGET PATH",
+		Use:     "cat SERVER PATH",
 		Aliases: []string{"read"},
-		Short:   "Read a file on one server (--head, --tail, --line-numbers)",
+		Short:   "Read a file on one server",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if maxBytes <= 0 {
-				return out.Usage("--max-bytes must be more than 0")
+				return out.Usage("--max-bytes takes a number more than 0")
 			}
 			var res any
 			var err error
@@ -399,13 +460,14 @@ func fsCatCmd() *cobra.Command {
 			}
 			out.P.Print("fs.cat", res, nil)
 			if r, ok := res.(catResult); ok && r.Truncated && out.P.Format == "text" {
-				fmt.Fprintf(os.Stderr, "note: output truncated at %s (raise --max-bytes, or use `komando download`)\n", humanBytes(maxBytes))
+				fmt.Fprintf(os.Stderr, "Note: showing the first %s; raise --max-bytes, or use `komando download`\n", humanBytes(maxBytes))
 			}
 			return nil
 		},
 	}
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read with sudo")
-	c.Flags().Int64Var(&maxBytes, "max-bytes", 1<<20, "the most bytes to read")
+	maxBytes = 1 << 20
+	c.Flags().Var(&bytesFlag{n: &maxBytes}, "max-bytes", "the most bytes to read, like 4MiB")
 	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
 	c.Flags().BoolVar(&numbered, "line-numbers", false, "start each line with its number")
@@ -481,25 +543,13 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 		Short: short,
 		Args:  cobra.MinimumNArgs(minArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fl := map[string]bool{}
+			fl := map[string]bool{"sudo": sudo}
 			for k, v := range vals {
 				fl[k] = *v
 			}
-			if strings.HasPrefix(use, "rm ") && fl["recursive"] && !dangerOK() && !confirmDangerous(args[:1], "rm --recursive deletes whole folders and everything in them") {
-				if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a folder and everything in it would be gone; confirm with the user, then add --allow-dangerous",
-					"rm --recursive deletes whole folders")); err != nil {
+			if strings.HasPrefix(use, "rm ") && len(args) > 1 {
+				if err := guardFsRm(args[0], args[1:], fl["recursive"]); err != nil {
 					return err
-				}
-			}
-			if strings.HasPrefix(use, "rm ") {
-				for _, p := range args[1:] {
-					if cp := path.Clean(p); (cp == "/" || cp == "." || cp == "~" || strings.Count(cp, "/") <= 1 && strings.HasPrefix(cp, "/")) && !dangerOK() &&
-						!confirmDangerous(args[:1], fmt.Sprintf("removing the top-level path %s", p)) {
-						if err := policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "only if this is intended: confirm with the user, then add --allow-dangerous",
-							"%q is a top-level path; komando does not remove it without --allow-dangerous", p)); err != nil {
-							return err
-						}
-					}
 				}
 			}
 			script, shown, err := build(args[1:], fl)
@@ -531,7 +581,7 @@ func quoteAll(a []string) string {
 }
 
 func fsRmCmd() *cobra.Command {
-	c := shellFsCmd("rm TARGET PATH...", "Remove files on servers (--recursive for folders; missing ones are reported)", 2, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("rm TARGET PATH...", "Remove files on servers", 2, func(a []string, f map[string]bool) (string, string, error) {
 		flags := "-f"
 		if f["recursive"] {
 			flags = "-rf"
@@ -546,13 +596,17 @@ komando exec for that).`
 }
 
 func fsMkdirCmd() *cobra.Command {
-	return shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents (like mkdir -p)", 2, func(a []string, _ map[string]bool) (string, string, error) {
+	c := shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents", 2, func(a []string, _ map[string]bool) (string, string, error) {
 		return mkdirScript(a), "mkdir -p -- " + rqAll(a), nil
 	}, nil)
+	// it always makes the parents; -p, typed from habit, changes nothing
+	c.Flags().BoolP("parents", "p", false, "make missing parents (always done)")
+	_ = c.Flags().MarkHidden("parents")
+	return c
 }
 
 func fsMvCmd() *cobra.Command {
-	c := shellFsCmd("mv TARGET SRC DST", "Move or rename a path on servers (replaces a file only with --overwrite)", 3, func(a []string, f map[string]bool) (string, string, error) {
+	c := shellFsCmd("mv TARGET SRC DST", "Move or rename a path on servers", 3, func(a []string, f map[string]bool) (string, string, error) {
 		if len(a) != 2 {
 			return "", "", out.Usage("give one SRC and one DST: komando fs mv TARGET SRC DST")
 		}
@@ -582,13 +636,13 @@ func fsChmodCmd() *cobra.Command {
 		if f["recursive"] {
 			r = "-R "
 		}
-		return chmodScript(a[0], a[1:], f["recursive"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
+		return chmodScript(a[0], a[1:], f["recursive"], f["sudo"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
 	}, map[string]string{"recursive": "change folders and everything in them"})
 }
 
 func checkValidate(v string) error {
 	if v != "" && !strings.Contains(v, "%s") {
-		return out.Usage("--validate needs %%s where the new file's path goes, e.g. --validate 'visudo -cf %%s'")
+		return out.Usage("--validate needs %%s where the new file's path goes, for example --validate 'visudo -cf %%s'")
 	}
 	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -120,7 +121,7 @@ func TestFileHoldsNoPlainText(t *testing.T) {
 	if bytes.Contains(b, []byte("prod-db")) {
 		t.Fatal("plain name in the file")
 	}
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
 	if _, err := os.Stat(path + "-wal"); err == nil {
@@ -236,7 +237,7 @@ func TestBackup(t *testing.T) {
 	if err := d.Backup(ctx, dst); err == nil {
 		t.Fatal("overwrote a backup")
 	}
-	if fi, _ := os.Stat(dst); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(dst); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("backup mode %v", fi.Mode().Perm())
 	}
 	c := open(t, dst)
@@ -379,7 +380,11 @@ func TestTamperedColumns(t *testing.T) {
 }
 
 func TestNestedAndOddPath(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "a#b?c%41")
+	name := "a#b?c%41"
+	if runtime.GOOS == "windows" {
+		name = "a#b c%41" // a Windows name holds no ?
+	}
+	dir := filepath.Join(t.TempDir(), name)
 	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -389,7 +394,7 @@ func TestNestedAndOddPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := open(t, path)
-	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
 	err := d.Update(ctx, func(tx *Tx) error {
@@ -407,10 +412,14 @@ func TestNestedAndOddPath(t *testing.T) {
 			t.Fatalf("stray file %s: the path was read as a URI", e.Name())
 		}
 	}
-	if err := d.Backup(ctx, filepath.Join(dir, "copy?x.db")); err != nil {
+	copyName := "copy?x.db" // ? would start a URI query if the path were read as one
+	if runtime.GOOS == "windows" {
+		copyName = "copy#x.db" // Windows refuses ? in a file name
+	}
+	if err := d.Backup(ctx, filepath.Join(dir, copyName)); err != nil {
 		t.Fatal(err)
 	}
-	c := open(t, filepath.Join(dir, "copy?x.db"))
+	c := open(t, filepath.Join(dir, copyName))
 	_ = c.View(ctx, func(tx *Tx) error { _, err := tx.List("server"); return err })
 }
 

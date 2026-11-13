@@ -29,7 +29,7 @@ func TestTextHintIsRedactedAndSafe(t *testing.T) {
 		buf.Reset()
 		run()
 		got := buf.String()
-		if !strings.HasPrefix(got, "hint: ") {
+		if !strings.HasPrefix(got, "Hint: ") {
 			t.Fatalf("%s: no hint printed: %q", name, got)
 		}
 		for _, bad := range []string{"Vault-Value-123", "hunter2abcdef", "\x1b", "\a", "\r"} {

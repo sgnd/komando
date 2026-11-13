@@ -53,7 +53,13 @@ var agentVars = func() []struct{ env, name string } {
 type call struct {
 	caller  engine.Caller
 	sess    *engine.Session
-	commits uint64 // store.Commits() when the call started
+	commits uint64   // store.Commits() when the call started
+	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
+
+	typed     *typedSpec // what this command's typed question asks for (askTypes)
+	typedProt []string   // protected targets a typed answer covered
+
+	body *approvalBody // a file the command sends, which the window shows
 
 	// ask opens the approval window; nil is askOnScreen. An app that runs
 	// calls side by side gives each its own.
@@ -177,6 +183,10 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 	if bad == "" {
 		bad = unshowable(line)
 	}
+	body := ""
+	if bad == "" && c.body != nil {
+		body, bad = c.body.shown()
+	}
 	if bad != "" {
 		sess.SetWhy("unshowable")
 		sess.SetUnshown(bad)
@@ -196,7 +206,7 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 			reasons = append(reasons, w)
 		}
 	}
-	text := fmt.Sprintf("%s %s:\n\n%s\n\n", c.caller.Agent, head, line)
+	text := fmt.Sprintf("%s %s:\n\n%s\n\n", c.caller.Agent, head, line) + body
 	if what != "" {
 		if unshowable(what) != "" {
 			what = strconv.QuoteToASCII(what)
@@ -208,20 +218,8 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 		text += "Why komando asks: " + w + "\n"
 	}
 	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
-	var allowed, shown bool
 	sess.SetGaveUp(false)
-	if secret := approvalCodeSecret(); secret != nil {
-		// a second factor: the code from the person's authenticator app
-		code, pressed, ok := askCodeOnScreen(text)
-		allowed, shown = pressed && len(secret) > 0 && codeOK(secret, code, time.Now()), ok
-		if pressed && !allowed {
-			sess.SetWhy("wrong-code")
-		}
-	} else if c.ask != nil {
-		allowed, shown = c.ask(text)
-	} else {
-		allowed, shown = askOnScreen(text)
-	}
+	allowed, shown := c.askPerson(text)
 	gaveUp := tookGaveUp(text)
 	sess.SetGaveUp(gaveUp)
 	switch {
@@ -236,6 +234,52 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 		sess.SetWhy("no-screen")
 	}
 	return sess.Window().Allowed
+}
+
+// askPerson opens the window: with a field for the code when the approval
+// code is on, and never a window a click alone allows where another
+// program can click it (a Linux or BSD desktop, clickForgeable): that
+// needs the code (why "needs-code").
+func (c *call) askPerson(text string) (allowed, shown bool) {
+	if secret := approvalCodeSecret(); secret != nil {
+		// a second factor: the code from the person's authenticator app
+		code, pressed, ok := askCodeOnScreen(text)
+		allowed = pressed && len(secret) > 0 && codeOK(secret, code, time.Now())
+		if pressed && !allowed {
+			c.sess.SetWhy("wrong-code")
+		}
+		return allowed, ok
+	}
+	if c.ask != nil {
+		return c.ask(text)
+	}
+	if clickForgeable() {
+		c.sess.SetWhy("needs-code")
+		return false, true
+	}
+	return askOnScreen(text)
+}
+
+// desktopOS is runtime.GOOS; tests set another.
+var desktopOS = runtime.GOOS
+
+// clickForgeable reports whether the click-only window would open on a
+// Linux or BSD desktop. On X11 any program of the user can press its
+// buttons (xdotool). On Wayland the window opens on the compositor that
+// WAYLAND_DISPLAY names, and the agent sets komando's environment: it can
+// start a compositor of its own, point WAYLAND_DISPLAY at it and press
+// "Allow once" there through that compositor's virtual pointer. So
+// neither gets a window a click alone allows: the person needs the
+// approval code, which no program can read off the screen.
+func clickForgeable() bool {
+	if os.Getenv("KOMANDO_NO_DIALOG") != "" || os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != "" {
+		return false // no window at all (askOnScreen)
+	}
+	switch desktopOS {
+	case "linux", "freebsd", "openbsd", "netbsd", "dragonfly":
+		return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
+	}
+	return false
 }
 
 var flagMeaning = map[string]string{
@@ -325,6 +369,7 @@ func hiddenArgs(args []string) string {
 // server is exactly when people need one.
 func policyStop(e *out.Error) error {
 	if g.dryRun {
+		stdApprovalHint(e)
 		out.P.WouldBlock(e)
 		return nil
 	}
@@ -334,7 +379,11 @@ func policyStop(e *out.Error) error {
 // approvalHint rewrites the hint of a safety stop for an AI agent: it tells
 // it how a person allows the command, or that the person said no.
 func approvalHint(e *out.Error) {
-	if e == nil || e.Exit != out.ExitPolicy || !isAgent() {
+	if e == nil || e.Exit != out.ExitPolicy {
+		return
+	}
+	if !isAgent() {
+		stdApprovalHint(e)
 		return
 	}
 	// "run it in a terminal, or add --yes in a script" is for a person; an
@@ -347,6 +396,8 @@ func approvalHint(e *out.Error) {
 		e.Hint = "nobody answered komando's window within 2 minutes (the user may be away); ask the user whether to try again, and do not retry before they say so"
 	case "wrong-code":
 		e.Hint = "the code typed in komando's window was wrong or missing; ask the user whether to try again"
+	case "needs-code":
+		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine()
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine()
 	case "unshowable":
@@ -360,6 +411,8 @@ func approvalHint(e *out.Error) {
 			// --write, leaving out --read-only and raising --max-bytes open no window
 			e.Hint += ". komando does not ask the user about this, so ask them first and go on only when they agree"
 			return
+		case stdApprovalHint(e):
+			return // the one approval hint (S-8.6)
 		case strings.Contains(e.Hint, "komando asks the user in a window"):
 			return // the hint says so already
 		}
@@ -373,10 +426,10 @@ func zenityTimedOut(err error) bool {
 	return errors.As(err, &ee) && ee.ExitCode() == 5
 }
 
-// askOnScreen shows a native window with Deny and "Allow once". shown is
-// false when no window could be shown (no screen, no dialog tool, a remote
-// session, or KOMANDO_NO_DIALOG=1). The tools are found in system folders
-// only, so a fake one earlier in PATH cannot answer for the person.
+// askOnScreen shows a native window with Deny and "Allow once" on macOS
+// and Windows. shown is false when no window could be shown (no screen, a
+// remote session, KOMANDO_NO_DIALOG=1, or a Linux or BSD desktop, where
+// askPerson asks for the approval code instead: clickForgeable).
 var askOnScreen = func(text string) (allowed, shown bool) {
 	if os.Getenv("KOMANDO_NO_DIALOG") != "" || os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != "" {
 		return false, false
@@ -398,19 +451,6 @@ end run`
 		answer := strings.TrimSpace(string(b))
 		noteGaveUp(text, answer == "gave up")
 		return answer == "Allow once", true
-	case "linux", "freebsd", "openbsd":
-		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
-			return false, false
-		}
-		if z := systemTool("zenity"); z != "" {
-			err := exec.CommandContext(ctx, z, "--question", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--default-cancel", "--no-markup", "--timeout=120").Run()
-			noteGaveUp(text, zenityTimedOut(err))
-			return err == nil, true
-		}
-		if k := systemTool("kdialog"); k != "" {
-			err := exec.CommandContext(ctx, k, "--title", "komando: allow?", "--warningyesno", text, "--yes-label", "Allow once", "--no-label", "Deny").Run()
-			return err == nil, true
-		}
 	case "windows":
 		_, allowed, gaveUp, shown := approvalWindow(text, false)
 		noteGaveUp(text, gaveUp)
@@ -434,9 +474,12 @@ func systemTool(name string) string {
 // character that does not show as itself (plainRune) is written as $'...'
 // with escapes (\n, \x1b, \u3164), which shells read back as the same
 // text, so a person sees every character and can run it as it is.
-func commandLine() string {
+func commandLine() string { return commandLineOf(os.Args[1:]) }
+
+// commandLineOf is commandLine for args.
+func commandLineOf(args []string) string {
 	parts := []string{"komando"}
-	for _, a := range os.Args[1:] {
+	for _, a := range args {
 		switch {
 		case needsEscapes(a):
 			a = ansiQuote(a)

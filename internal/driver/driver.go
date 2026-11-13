@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"net/url"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -208,14 +209,44 @@ var urlParsers = map[string]func(*url.URL, Target) (Target, error){
 // passwordParams are query parameters that would carry a password or key.
 var passwordParams = []string{"password", "pass", "pwd", "sslpassword", "secret", "secret_key", "secretkey", "aws_secret_access_key"}
 
+// goos is the system komando runs on; tests set it.
+var goos = runtime.GOOS
+
+// drivePath reports whether p starts with a Windows drive: C:\ or C:/.
+func drivePath(p string) bool {
+	return len(p) >= 3 && (p[0]|0x20 >= 'a' && p[0]|0x20 <= 'z') && p[1] == ':' && (p[2] == '\\' || p[2] == '/')
+}
+
+// parseDrivePath reads a file conn whose URL names a Windows path after
+// the scheme, sqlite://C:\data\app.db: a URL parser would read C: as a
+// host (and refuse the backslashes), so the path is taken as it is.
+func parseDrivePath(raw string) (Target, bool) {
+	scheme, rest, ok := strings.Cut(raw, "://")
+	if !ok || !drivePath(rest) {
+		return Target{}, false
+	}
+	rest, _, _ = strings.Cut(rest, "?") // as for sqlite:///path?x: no options; Windows names hold no ?
+	for _, k := range kinds {
+		for _, s := range k.Schemes {
+			if k.File && strings.EqualFold(scheme, s) {
+				return Target{Kind: k, Path: rest}, true
+			}
+		}
+	}
+	return Target{}, false
+}
+
 // Parse reads a conn URL such as postgres://app@db.internal:5432/app or
 // sqlite:///var/lib/app.db. The kind comes from the scheme. URLs that carry
 // a password are refused: passwords belong in the vault.
 func Parse(raw string) (Target, error) {
+	if t, ok := parseDrivePath(strings.TrimSpace(raw)); ok {
+		return t, nil
+	}
 	first, brokers := splitHostList(firstMongoHost(strings.TrimSpace(raw)))
 	u, err := url.Parse(first)
 	if err != nil || u.Scheme == "" {
-		return Target{}, out.Usage("invalid conn URL %q (expected e.g. postgres://user@host:5432/db)", raw)
+		return Target{}, out.Usage("komando cannot read the conn URL %q (for example postgres://user@host:5432/db)", raw)
 	}
 	var k Kind
 	found := false
@@ -232,7 +263,7 @@ func Parse(raw string) (Target, error) {
 	if _, has := u.User.Password(); has || hasPasswordParam(u.Query()) {
 		return Target{}, out.Errf(out.ExitUsage, "URL_HAS_PASSWORD",
 			"remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME",
-			"conn URLs must not contain a password")
+			"a conn URL holds no password")
 	}
 	t := Target{Kind: k}
 	if parse := urlParsers[k.Name]; parse != nil {
@@ -249,18 +280,21 @@ func Parse(raw string) (Target, error) {
 		if t.Path == "" {
 			t.Path = u.Path
 		}
+		if goos == "windows" && len(t.Path) > 1 && t.Path[0] == '/' && drivePath(t.Path[1:]) {
+			t.Path = t.Path[1:] // sqlite:///C:/data/app.db is C:/data/app.db
+		}
 		if t.Path == "" {
-			return Target{}, out.Usage("%s URL needs a file path, e.g. %s:///var/lib/app.db", k.Name, u.Scheme)
+			return Target{}, out.Usage("%s URL needs a file path, for example %s:///var/lib/app.db", k.Name, u.Scheme)
 		}
 		return t, nil
 	}
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("%s URL needs a host, e.g. %s://user@host:%d/db", k.Name, u.Scheme, k.DefaultPort)
+		return Target{}, out.Usage("%s URL needs a host, for example %s://user@host:%d/db", k.Name, u.Scheme, k.DefaultPort)
 	}
 	port := k.DefaultPort
 	if p := u.Port(); p != "" {
 		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 	}
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
@@ -289,7 +323,7 @@ func Parse(raw string) (Target, error) {
 			t.Database = "0"
 		}
 		if n, err := strconv.Atoi(t.Database); err != nil || n < 0 {
-			return Target{}, out.Usage("redis URL path must be a database number, e.g. redis://cache:6379/0")
+			return Target{}, out.Usage("the redis URL path is a database number, like redis://cache:6379/0")
 		}
 		if err := parseRedisTopology(u, &t); err != nil {
 			return Target{}, err
@@ -321,7 +355,7 @@ func parseRegistryOptions(q url.Values, t *Target) error {
 	default:
 		return out.Errf(out.ExitUsage, "USAGE",
 			"leave tls out to check the certificate; for a private CA add ?ca=secret:NAME; ?tls=skip-verify turns the check off; ?tls=false is plain HTTP",
-			"registry tls option must be skip-verify or false, not %q", t.TLS)
+			"the registry tls option takes skip-verify or false, not %q", t.TLS)
 	}
 	if t.CA == "" {
 		if q.Has("ca") {
@@ -333,7 +367,7 @@ func parseRegistryOptions(q url.Values, t *Target) error {
 	if !ok || name == "" {
 		return out.Errf(out.ExitUsage, "USAGE",
 			"store the CA certificate with `komando secret set NAME < ca.crt`, then use ?ca=secret:NAME",
-			"registry ca option must be secret:NAME, not %q", t.CA)
+			"the registry ca option takes secret:NAME, not %q", t.CA)
 	}
 	if t.TLS != "" {
 		return out.Usage("registry ca= and tls=%s do not go together: with ca= the certificate is checked against that CA", t.TLS)
@@ -363,8 +397,8 @@ func parseResolve(q url.Values, address string) (string, error) {
 	n, perr := strconv.Atoi(port)
 	if err != nil || perr != nil || n < 1 || n > 65535 {
 		return "", out.Errf(out.ExitUsage, "USAGE",
-			"give the IP address to connect to, e.g. ?resolve=203.0.113.10 or ?resolve=203.0.113.10:8443 (IPv6: ?resolve=[2001:db8::1]:443); TLS keeps using the name in the URL",
-			"resolve option must be an IP address or IP:PORT, not %q", v)
+			"give the IP address to connect to, for example ?resolve=203.0.113.10 or ?resolve=203.0.113.10:8443 (IPv6: ?resolve=[2001:db8::1]:443); TLS keeps using the name in the URL",
+			"the resolve option takes an IP address or IP:PORT, not %q", v)
 	}
 	return net.JoinHostPort(ip.String(), port), nil
 }
@@ -375,16 +409,16 @@ func parseResolve(q url.Values, address string) (string, error) {
 func parseFiles(u *url.URL, t Target) (Target, error) {
 	k := t.Kind
 	if u.Hostname() == "" {
-		return Target{}, out.Usage("%s URL needs a host, e.g. %s", k.Name, k.Example)
+		return Target{}, out.Usage("%s URL needs a host, for example %s", k.Name, k.Example)
 	}
 	if u.User.Username() == "" {
-		return Target{}, out.Usage("%s URL needs a user name, e.g. %s://deploy@host/folder", k.Name, u.Scheme)
+		return Target{}, out.Usage("%s URL needs a user name, for example %s://deploy@host/folder", k.Name, u.Scheme)
 	}
 	port := k.DefaultPort
 	if p := u.Port(); p != "" {
 		var err error
 		if port, err = strconv.Atoi(p); err != nil || port < 1 || port > 65535 {
-			return Target{}, out.Usage("invalid port %q in conn URL", p)
+			return Target{}, out.Usage("the port %q in the conn URL is not a number from 1 to 65535", p)
 		}
 	}
 	t.Address = net.JoinHostPort(u.Hostname(), strconv.Itoa(port))
@@ -398,7 +432,11 @@ func parseFiles(u *url.URL, t Target) (Target, error) {
 		switch {
 		case key == "tls" && k.Name == "ftps", key == "insecure" && k.Name == "ftp":
 		default:
-			return Target{}, out.Usage("unknown %s URL option %q", k.Name, key)
+			known := map[string]string{"ftps": "known: tls", "ftp": "known: insecure"}[k.Name]
+			if known == "" {
+				known = "it takes none"
+			}
+			return Target{}, out.Usage("the %s URL has an option komando does not know: %q (%s)", k.Name, key, known)
 		}
 	}
 	switch k.Name {
@@ -412,7 +450,7 @@ func parseFiles(u *url.URL, t Target) (Target, error) {
 		t.Secure = true
 		t.TLS = q.Get("tls")
 		if t.TLS != "" && t.TLS != "skip-verify" {
-			return Target{}, out.Usage("ftps tls option must be skip-verify (or left out to verify the certificate)")
+			return Target{}, out.Usage("the ftps tls option takes only skip-verify (leave it out to check the certificate)")
 		}
 	case "sftp":
 		t.Secure = true
@@ -420,7 +458,9 @@ func parseFiles(u *url.URL, t Target) (Target, error) {
 	return t, nil
 }
 
-// parseS3 reads s3://ACCESS_KEY_ID@bucket/prefix?endpoint=URL&region=R. The
+// parseS3 reads s3://ACCESS_KEY_ID@bucket/prefix?endpoint=URL&region=R
+// (&ca=secret:NAME for an endpoint whose certificate comes from a private
+// CA). The
 // endpoint defaults to AWS; any S3-compatible service (MinIO, R2, Wasabi,
 // Spaces) works with its own endpoint.
 func parseS3(u *url.URL, t Target) (Target, error) {
@@ -444,7 +484,7 @@ func parseS3(u *url.URL, t Target) (Target, error) {
 	}
 	e, err := url.Parse(endpoint)
 	if err != nil || e.Host == "" || (e.Scheme != "https" && e.Scheme != "http") {
-		return Target{}, out.Usage("s3 endpoint must be a URL like https://minio.internal:9000")
+		return Target{}, out.Usage("the s3 endpoint is a URL like https://minio.internal:9000")
 	}
 	t.Secure = e.Scheme == "https"
 	port := e.Port()
@@ -453,11 +493,14 @@ func parseS3(u *url.URL, t Target) (Target, error) {
 	}
 	t.Address = net.JoinHostPort(e.Hostname(), port)
 	for k := range q {
-		if k != "endpoint" && k != "region" && k != "resolve" {
-			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region, resolve)", k)
+		if k != "endpoint" && k != "region" && k != "resolve" && k != "ca" && k != "insecure" {
+			return Target{}, out.Usage("unknown s3 URL option %q (known: endpoint, region, resolve, ca, insecure)", k)
 		}
 	}
 	if t.Resolve, err = parseResolve(q, t.Address); err != nil {
+		return Target{}, err
+	}
+	if err := parseCA(q, &t); err != nil {
 		return Target{}, err
 	}
 	return t, nil

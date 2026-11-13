@@ -138,6 +138,24 @@ func TestErrorCodesDoc(t *testing.T) {
 	for _, c := range errorCodes {
 		fmt.Fprintf(&b, "| `%s` | %d | %s | %s |\n", c.Code, c.Exit, cell(c.Example), cell(c.Hint))
 	}
+	b.WriteString("\n## Codes shared by several things\n\n")
+	b.WriteString("These codes are given for more than one kind of item. `error.thing` says\n")
+	b.WriteString("which one (it is left out for the other codes). A later contract gives\n")
+	b.WriteString("each its own code; until then the code stays as it is.\n\n")
+	b.WriteString("| Code | `error.thing` | Codes it will split into |\n")
+	b.WriteString("|------|---------------|--------------------------|\n")
+	for _, c := range sharedCodes {
+		fmt.Fprintf(&b, "| `%s` | %s | %s |\n", c.Code, "`"+strings.Join(c.Things, "`, `")+"`", c.Split)
+	}
+	b.WriteString("\n## Codes that mean the same\n\n")
+	b.WriteString("Each row is codes that mean the same thing. All of them stay, since\n")
+	b.WriteString("scripts branch on them; new errors use the first one, and a later\n")
+	b.WriteString("contract keeps only that one.\n\n")
+	b.WriteString("| Codes | Use | Meaning |\n")
+	b.WriteString("|-------|-----|---------|\n")
+	for _, c := range sameAsCodes {
+		fmt.Fprintf(&b, "| %s | `%s` | %s |\n", "`"+strings.Join(c.Codes, "`, `")+"`", c.Survivor, cell(c.Note))
+	}
 	const path = "../../docs/features/error-codes.md"
 	if os.Getenv("KOMANDO_UPDATE_ERRCODES") != "" {
 		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
@@ -187,5 +205,74 @@ func TestDocsExit6Codes(t *testing.T) {
 		if !slices.Equal(got, want) {
 			t.Errorf("%s lists the exit-6 codes %v; the catalog has %v", file, got, want)
 		}
+	}
+}
+
+// agentDocs are what an AI agent reads: AGENTS.md, the guide and the skill
+// (skills/komando/SKILL.md is the same file).
+var agentDocs = []string{"../../AGENTS.md", "guide.md", "skill.md"}
+
+// C-D04: the agent docs name every command by its primary name (`secret
+// show`, `host rename`, `fs list`, `pkg upgrade --security`, `db dump
+// --run-on`), never a synonym, a hidden command or a hidden flag, and give
+// a command that hands words to another program its `--`. A synonym keeps
+// working, but an agent copies what it reads.
+func TestAgentDocsUsePrimaryNames(t *testing.T) {
+	root := newRoot()
+	for _, f := range agentDocs {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range exampleLine.FindAllStringSubmatch(string(b), -1) {
+			line := strings.TrimSpace(m[1])
+			head := line
+			if i := strings.Index(head, " -- "); i >= 0 {
+				head = head[:i]
+			}
+			words := strings.Fields(head)
+			cmd, _, err := root.Find(words)
+			if err != nil || cmd == root {
+				continue
+			}
+			key := strings.Fields(commandKey(cmd))
+			if len(words) < len(key) || !slices.Equal(words[:len(key)], key) {
+				t.Errorf("%s: `komando %s`: write `komando %s`, the primary name", f, line, strings.Join(key, " "))
+			}
+			if cmd.Hidden {
+				t.Errorf("%s: `komando %s`: a hidden command", f, line)
+			}
+			unquoted := exampleQuoted.ReplaceAllString(head, "''")
+			for _, fm := range exampleFlag.FindAllStringSubmatch(" "+unquoted, -1) {
+				for p := cmd; p != nil; p = p.Parent() {
+					if fl := p.Flags().Lookup(fm[1]); fl != nil {
+						if fl.Hidden && fm[1] != "help" {
+							t.Errorf("%s: `komando %s`: --%s is a hidden flag", f, line, fm[1])
+						}
+						break
+					}
+				}
+			}
+			// a passthrough command given words after its fixed arguments
+			// writes them after -- (S-4.4)
+			if n := passthroughFixed(cmd.Use); n >= 0 && !strings.Contains(line, " -- ") && !strings.Contains(line, "--script") &&
+				!strings.Contains(line, " -c ") && !strings.Contains(line, "--cmd") {
+				rest := words[len(key):]
+				pos := 0
+				for _, w := range rest {
+					if !strings.HasPrefix(w, "-") {
+						pos++
+					}
+				}
+				if pos > n && !strings.HasSuffix(line, "...") {
+					t.Errorf("%s: `komando %s`: put -- before the command for the server", f, line)
+				}
+			}
+		}
+	}
+	// the skill in the repository is the one komando installs
+	repo, _ := os.ReadFile("../../skills/komando/SKILL.md")
+	if string(repo) != skillText {
+		t.Error("skills/komando/SKILL.md differs from internal/cli/skill.md: copy skill.md over it")
 	}
 }

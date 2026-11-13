@@ -148,7 +148,7 @@ func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) 
 	}
 	if err != nil {
 		if explicit {
-			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path", "cannot read key %s: %v", path, err)
+			return nil, out.Errf(out.ExitConnect, "KEY_UNREADABLE", "check the key path (`komando key list` shows the keys komando knows)", "cannot read key %s: %v", path, err)
 		}
 		return nil, nil
 	}
@@ -410,7 +410,8 @@ func secretName(host, suffix string) string {
 func shellPath(p string) string {
 	prefix := ""
 	if home, _ := os.UserHomeDir(); home != "" && strings.HasPrefix(p, home+string(filepath.Separator)) {
-		prefix, p = "~/", p[len(home)+1:]
+		// ~/.ssh/id_ed25519 on Windows too, as OpenSSH's own docs write it
+		prefix, p = "~/", filepath.ToSlash(p[len(home)+1:])
 	} else if rest, ok := strings.CutPrefix(p, "~/"); ok {
 		prefix, p = "~/", rest
 	}
@@ -594,7 +595,7 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 	switch e.kind {
 	case askCode:
 		oe := out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"run `komando login HOST` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
+			"run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
 			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
 		oe.Hint = strings.Replace(oe.Hint, "HOST", name, 1) // a command to run as it is
 		return oe
@@ -651,7 +652,7 @@ func secretUnresolved(h *store.Host, err error) *out.Error {
 		return out.Errf(out.ExitError, "VAULT_LOCKED", "the person who set the passphrase exports KOMANDO_VAULT_PASS in the shell that runs komando (an AI agent asks the user; it never sees the passphrase)",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrKey):
-		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/vault.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
+		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrDecrypt):
 		return out.Errf(out.ExitError, "VAULT_DECRYPT", "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost",

@@ -47,9 +47,9 @@ func connectErr(t driver.Target, err error) error {
 		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "the endpoint's certificate could not be checked against this computer's CAs; check ?endpoint=",
 			"cannot connect to %s: %s", t.Address, msg)
 	case strings.Contains(msg, "not Pub/Sub JSON") || strings.Contains(msg, "server gave HTTP response to HTTPS client"):
-		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check ?endpoint=: it must be a Pub/Sub server (http:// for the emulator)", "cannot connect to %s: %s", t.Address, msg)
+		return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "check ?endpoint=: it names a Pub/Sub server (http:// for the emulator)", "cannot connect to %s: %s", t.Address, msg)
 	}
-	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando conn test NAME` to check reachability, or reach Pub/Sub --via a server that can",
+	return out.Errf(out.ExitConnect, "QUEUE_CONNECT", "run `komando test TARGET` to check reachability, or reach Pub/Sub --via a server that can",
 		"cannot connect to %s: %s", t.Address, msg)
 }
 
@@ -76,7 +76,7 @@ func opErr(err error, what string, missing func(string) error) error {
 	}
 	var api *apiError
 	if !errors.As(err, &api) {
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to Pub/Sub failed; run `komando conn test NAME`", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "the connection to Pub/Sub failed; run `komando test TARGET`", "%s: %v", what, err)
 	}
 	switch {
 	case api.HTTP == 404 && missing != nil:
@@ -86,7 +86,7 @@ func opErr(err error, what string, missing func(string) error) error {
 	case api.HTTP == 403:
 		return deniedErr(what + ": " + err.Error())
 	case api.HTTP == 429 || api.Status == "RESOURCE_EXHAUSTED":
-		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub is asking komando to slow down (or a quota is used up); try again in a moment", "%s: %v", what, err)
+		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub is asking komando to slow down (or a quota is used up); run it again in a moment", "%s: %v", what, err)
 	case api.HTTP == 400:
 		return out.Errf(out.ExitRemote, "QUEUE_ERROR", "Pub/Sub refused the request: check --config (Pub/Sub's setting names, such as ackDeadlineSeconds=60 or messageRetentionDuration=7d) and the message's --header names",
 			"%s: %v", what, err)
@@ -95,13 +95,13 @@ func opErr(err error, what string, missing func(string) error) error {
 }
 
 func topicNotFound(name string) error {
-	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue ls CONN`; a subscription is written subscriptions/NAME, and the project is the conn URL's host",
-		"topic %s does not exist", name)
+	return out.Errf(out.ExitNotFound, "TOPIC_NOT_FOUND", "list topics with `komando queue list CONN`; a subscription is written subscriptions/NAME, and the project is the conn URL's host",
+		"no topic named %q", name)
 }
 
 func subNotFound(name string) error {
 	return out.Errf(out.ExitNotFound, "SUBSCRIPTION_NOT_FOUND", "list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own",
-		"subscription %s does not exist", name)
+		"no subscription named %q", name)
 }
 
 func topicExists(name string) error {

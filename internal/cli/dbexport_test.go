@@ -80,7 +80,9 @@ func TestDBQueryDryRunCreatesNoFile(t *testing.T) {
 func TestConnAddRelativeFile(t *testing.T) {
 	invHome(t)
 	for _, u := range []string{"sqlite:relative.db", "sqlite:./a/b.db"} {
-		if e := wantCode(t, "USAGE", "conn", "add", "rel", u); !strings.Contains(e.Hint, "sqlite:///") {
+		abs, _ := filepath.Abs(strings.TrimPrefix(u, "sqlite:"))
+		// sqlite:///var/... here, sqlite://C:/... on Windows: both name the full path
+		if e := wantCode(t, "USAGE", "conn", "add", "rel", u); !strings.Contains(e.Hint, "sqlite://"+filepath.ToSlash(abs)) {
 			t.Errorf("%s: hint %q", u, e.Hint)
 		}
 	}
@@ -165,7 +167,7 @@ func TestDBHelpTimeout(t *testing.T) {
 		var b bytes.Buffer
 		c.SetOut(&b)
 		_ = c.Help()
-		want := map[bool]string{true: "default 30s", false: "default: setting, 5m"}[path[1] != "dump"]
+		want := map[bool]string{true: "default 30s", false: "default: setting default_timeout, 5m"}[path[1] != "dump"]
 		if !strings.Contains(b.String(), want) {
 			t.Errorf("%v help: no %q in\n%s", path, want, b.String())
 		}

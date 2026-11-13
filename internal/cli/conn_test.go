@@ -154,7 +154,7 @@ func TestSelectionPicksHostsAndConns(t *testing.T) {
 	if _, err := resolveSelection(st, "kind:nosuch"); err == nil || toErr(err).Code != "USAGE" {
 		t.Errorf("expected USAGE for an unknown kind, got %v", err)
 	}
-	if _, err := resolveSelection(st, "prod-bd"); err == nil || !strings.Contains(toErr(err).Hint, `"prod-db"`) {
+	if _, err := resolveSelection(st, "prod-bd"); err == nil || toErr(err).Suggestion != "prod-db" || !strings.Contains(toErr(err).Hint, "prod-db") {
 		t.Errorf("expected a did-you-mean hint, got %v", err)
 	}
 }

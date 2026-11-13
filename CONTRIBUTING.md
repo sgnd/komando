@@ -8,7 +8,7 @@ first pull request is merged, please sign the
 [Contributor License Agreement](CLA.md): a bot asks you on the pull request, and
 you sign once by writing a comment. You keep the copyright of what you wrote.
 
-komando is one command line for DevOps work, for people and their AI agents. It stays simple on purpose: one static binary, no windows, safe by default. The menu that `komando` alone opens for a person at a terminal only runs ordinary commands, the same ones you could type.
+komando is one command line for DevOps work, for people and their AI agents. It stays simple on purpose: one static binary, no menus or windows, safe by default. People and agents type the same commands; at a person's terminal komando only asks for what a command is missing.
 
 ## Report a bug or suggest a feature
 
@@ -23,7 +23,7 @@ A change fits when all of these are true:
 - It is safe by default: it only reads unless the user says otherwise.
 - It needs no new dependency, or the dependency is small and well kept.
 
-Bigger features start as a design note in [`docs/design/`](docs/design/) (for example [resources and `komando db`](docs/design/resources-and-db.md)). Open an issue first if you are not sure.
+For a bigger feature, open an issue first so the design can be agreed before the code. Every feature follows [docs/design/principles.md](docs/design/principles.md) and the [command standard](docs/design/command-standard.md).
 
 ## Build and test
 
@@ -41,7 +41,7 @@ make e2e      # real SSH tests in Docker (bastion + private target)
 
 ## Easiest first contribution: add a recipe
 
-Recipes are ready-made checks (`komando recipe list`). They live in one list in [`internal/cli/ops.go`](internal/cli/ops.go). Add an entry like:
+Recipes are ready-made checks (`komando recipe list`). They live in one list in [`internal/cli/recipe.go`](internal/cli/recipe.go). Add an entry like:
 
 ```go
 {Name: "swap-usage", Category: "system", Desc: "Processes using swap",
@@ -55,11 +55,11 @@ Recipes are ready-made checks (`komando recipe list`). They live in one list in 
 
 ## Add or change a command
 
-Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `db.go`, `cluster.go`, ...). Follow these rules. They are what makes komando usable by AI agents:
+Each command has its own files in `internal/cli/`, named for its noun (`host.go`, `db_dump.go`, `cluster_swarm.go`, ...). Where code goes and how packages and files are named is in [docs/design/code-layout.md](docs/design/code-layout.md), with every contributor rule in one list. Follow these rules. They are what makes komando usable by AI agents:
 
 1. **Print results only via `out.P.Print`.** It writes one JSON envelope when piped (agents) and readable text in a terminal (humans). Give a result type a `Text() string` method if the generic text view is not clear enough.
-2. **Never prompt an agent or a script.** Missing input is an error with a `hint`. A person at a terminal may be asked a yes/no question (see `confirmYes`), never anything a flag cannot answer.
-3. **Typed errors**: `out.Errf(exitCode, "UPPER_SNAKE_CODE", "hint: what to do next", "message")`. Reuse existing codes and exit codes (see `internal/out/out.go`).
+2. **Never prompt an agent or a script.** Missing input is an error with a `hint`. A person at a terminal is asked only for what a flag or argument can also give, through the prompter (`promptable` in `internal/cli/prompter.go` decides who may be asked). A question never adds `--yes`, `--allow-dangerous`, `--reveal` or `--write`.
+3. **Typed errors**: `out.Errf(exitCode, "UPPER_SNAKE_CODE", "hint: what to do next", "message")`, with every code listed in `internal/cli/errcodes.go`. Reuse existing codes and exit codes. The words follow [docs/design/message-style.md](docs/design/message-style.md).
 4. **Multi-host commands** return `data.results[]` + `data.summary` (use `fanout`, `probe` or `runFleet` in `common.go` / `exec.go`).
 5. **Safety**: anything that changes a server must call `guard(...)` with `mutating=true`, respect `--dry-run`, and call `audit(...)`.
 6. **Quote everything** sent to a remote shell with `sshx.Q`.
@@ -68,9 +68,7 @@ Each area has its own file in `internal/cli/` (`host.go`, `exec.go`, `fs.go`, `d
 9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
 10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.
 
-A new command needs a place in the menu: add a task for it in [`internal/cli/menu_tasks.go`](internal/cli/menu_tasks.go) (or, when the menu must never offer it, a line in `menuCLIOnly` saying why). `TestMenuEveryCommandHasAHome` fails until you do. The questions come from its `Use` line and its flags, and `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)); add the word there, or give the command a `formHint` with an `area`. A `formHint` in `internal/cli/form_hints_*.go` also makes the questions read better: which arguments come from a list, and which flags to ask first.
-
-The reasons behind rules 8 to 10, and what comes next, are in [docs/design/maintenance.md](docs/design/maintenance.md).
+A new command needs a form hint, so a person who leaves an argument out is asked for it well: add one in `internal/cli/form_hints_*.go` (which arguments come from a list, which flags to ask first, its `Next:` lines). `TestFormEveryCommandHasAHint` fails until you do, and `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)). A new kind of server or conn also needs an add form (`TestFormEveryKindHasAnAddForm`). What agents and scripts get must not change by accident: `TestAgentGolden` compares every command against a recording (`KOMANDO_GOLDEN_UPDATE=1` records it again, only on purpose).
 
 Update the docs in the same pull request:
 
@@ -105,7 +103,7 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
 
 `main` takes changes only through a pull request whose `Lint and unit tests`, `Security` and `End-to-end tests` checks pass (the "Protect main" ruleset), and that includes the release commit. A `git push origin main` is refused.
 
-1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the example output in [`docs/features/output.md`](docs/features/output.md) and in the menu samples in [`README.md`](README.md) and [`docs/features/commands.md`](docs/features/commands.md) too.
+1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the example output in [`docs/features/output.md`](docs/features/output.md) too.
 2. Commit it as `Release X.Y.Z` and open a pull request. When its checks pass, merge it with **Create a merge commit**.
 3. Tag the merged `main`, and only then push the tag:
 
@@ -115,7 +113,7 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
    ```
 
    Do not push the tag before the pull request is merged: the tag starts the release at once, from a commit that is not on `main` yet.
-4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux and macOS (amd64 and arm64), signs their build provenance and publishes the release. If a test fails, nothing is published:
+4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux, macOS and Windows (amd64 and arm64), signs their build provenance and publishes the release. If a test fails, nothing is published:
    - a test that fails now and then (the FTPS end-to-end test has): run the failed jobs again with `gh run rerun RUN_ID --failed`;
    - a real failure: fix it in a pull request, delete the tag (`git push origin :vX.Y.Z`), and tag the new `main` again.
 
@@ -123,7 +121,7 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
 
 - `gofmt`, `go vet` and `staticcheck` must pass (`make lint`).
 - Keep it simple. Prefer a small, obvious solution over a clever one.
-- Write for beginners: simple words, short sentences, a real example first. Many readers have never used a terminal.
+- Write docs for beginners, as [the feature guide](docs/features/README.md#writing-these-pages) says: simple words, short sentences, the command first.
 - New features get their own page in [`docs/features/`](docs/features/README.md); only the most important ones also get a line in `README.md`. Explain a new word in the [glossary](docs/features/glossary.md).
 
 This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).

@@ -12,7 +12,7 @@ import (
 	"github.com/sgnd/komando/internal/sealdb"
 )
 
-// Old-copy protection (docs/design/sync-security.md section 16): the
+// Old-copy protection: the
 // sealed store counts its changes (sealdb's generation), and a store whose
 // key is in the OS keychain keeps the same number there. The store is
 // written first, then the keychain:
@@ -123,7 +123,7 @@ func checkGeneration(d *sealdb.DB, meta map[string]string) (lookOnly bool, raise
 	case errors.Is(kerr, ErrKeychainSlow):
 		// look only, and opened again (and checked) on the next use
 		d.NoWrites = out.Errf(out.ExitError, "KEYCHAIN_SLOW",
-			"try again in a moment; if it keeps happening, run `komando doctor`",
+			"run it again in a moment; if it keeps happening, run `komando doctor`",
 			"nothing was changed: the keychain did not answer in time, so komando could not check that %s is the newest copy", Path(StoreFile))
 		return true, nil, nil
 	case kerr != nil || !ok:
@@ -170,7 +170,7 @@ func raiser(last uint64) func(uint64) {
 // still holds its change count: making a fresh store would silently drop
 // every pinned host key, rule and secret.
 func missingGuardedStore() error {
-	if GenerationKeeper.Get == nil || AllowOldCopy || isSealing() {
+	if GenerationKeeper.Get == nil || AllowOldCopy {
 		return nil
 	}
 	kept, ok, err := probeCount()

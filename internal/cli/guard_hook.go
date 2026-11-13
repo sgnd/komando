@@ -10,7 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -25,7 +27,7 @@ func guideGuardCmd() *cobra.Command {
 	var agent string
 	c := &cobra.Command{
 		Use:    "guard",
-		Short:  "Hook for AI agents: stop tool calls that would read secrets on this computer",
+		Short:  "Stop AI agent tool calls that would read secrets on this computer",
 		Hidden: true,
 		Args:   cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -126,13 +128,13 @@ func installGuardHook(path, komandoPath string, dryRun bool) (skillFile, error) 
 		return f, nil
 	}
 	if f.Action == "updated" {
-		f.Backup = path + ".bak"
+		f.Backup = settingsBackup(path)
 	}
 	if dryRun {
 		return f, nil
 	}
 	if f.Backup != "" {
-		if err := os.WriteFile(f.Backup, old, 0o600); err != nil {
+		if err := saveSettingsBackup(f.Backup, old); err != nil {
 			return f, err
 		}
 	}
@@ -140,6 +142,22 @@ func installGuardHook(path, komandoPath string, dryRun bool) (skillFile, error) 
 		return f, err
 	}
 	return f, store.WriteFileAtomic(path, buf.Bytes(), 0o600)
+}
+
+// settingsBackup is the name the old copy of an agent's settings file
+// gets: PATH.bak, or PATH.bak.<UTC time> when that is taken. A backup
+// there already (the user's own .bak too) is never written over.
+func settingsBackup(path string) string {
+	return backupName(path, time.Now(), func(p string) bool { _, err := os.Lstat(p); return err == nil })
+}
+
+// saveSettingsBackup writes it 0600 (settings files can hold tokens),
+// whatever mode a file of that name had before.
+func saveSettingsBackup(name string, old []byte) error {
+	if _, err := os.Lstat(name); err == nil {
+		return fmt.Errorf("%s appeared while komando wrote it; nothing was changed, run it again", name)
+	}
+	return store.WriteFileAtomic(name, old, 0o600)
 }
 
 func isGuardEntry(m map[string]any) bool {
@@ -179,12 +197,19 @@ func statOf(p string) os.FileInfo {
 	return fi
 }
 
+// shellQuote writes s as one shell word: as it is when every character is
+// plain, else in single quotes. An empty value is a pair of quotes (an argument, not
+// nothing), and ; | & < > ( ) * ? ~ # and line breaks are quoted too, so a
+// value read from a file cannot add a second command to a line komando
+// prints for a person to copy.
 func shellQuote(s string) string {
-	if strings.ContainsAny(s, " '\"$`\\") {
-		return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+	if s != "" && plainShellWord.MatchString(s) {
+		return s
 	}
-	return s
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
+
+var plainShellWord = regexp.MustCompile(`^[A-Za-z0-9_./:=@%+,-]+$`)
 
 // claudeGuard reads a Claude Code settings file: whether it has komando's
 // guard, and "" or what keeps that guard from running. A hook command

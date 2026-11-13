@@ -26,14 +26,15 @@ func mvFromRename(kind, from, to string, r renameResult) mvResult {
 
 func keyMvCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "mv OLD NEW",
-		Short: "Rename a key, and every server that uses it",
+		Use:     "rename OLD NEW",
+		Aliases: []string{"mv"}, // a plain synonym
+		Short:   "Rename a key, and every server that uses it",
 		Long: `Gives a key in komando's key list a new name; the servers that use it follow. A
 key komando made (key gen) lives in the sealed store, so no file moves; a key
 added from elsewhere (key add) stays where it is. Public keys already installed on servers keep their comment: they
 still work, since the key itself does not change.`,
-		Example: `  komando key mv deploy deploy-2026
-  komando key mv old-ci ci --dry-run`,
+		Example: `  komando key rename deploy deploy-2026
+  komando key rename old-ci ci --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			from, to := args[0], args[1]
@@ -58,9 +59,9 @@ still work, since the key itself does not change.`,
 			}
 			res := mvFromRename("key", from, to, r)
 			if res.Action == "renamed" {
-				audit(nil, "key.mv", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated), "moved": res.Moved})
+				audit(nil, "key.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated), "moved": res.Moved})
 			}
-			out.P.Print("key.mv", res, nil)
+			out.P.Print("key.rename", res, nil)
 			return nil
 		},
 	}
@@ -68,15 +69,16 @@ still work, since the key itself does not change.`,
 
 func groupMvCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "mv OLD NEW",
-		Short: "Rename a group on every server, conn and VPN in it",
+		Use:     "rename OLD NEW",
+		Aliases: []string{"mv"}, // a plain synonym
+		Short:   "Rename a group on every server, conn and VPN in it",
 		Long: `Gives a group a new name on every member. OLD matches in any case, like
 @OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge
 two groups, add the members with ` + "`komando group add NEW @OLD`" + ` and then run
 ` + "`komando group rm OLD`" + `. When a protected server or conn is in the group,
 renaming it needs --yes, once for all of them.`,
-		Example: `  komando group mv web frontend
-  komando group mv prod production --dry-run`,
+		Example: `  komando group rename web frontend
+  komando group rename prod production --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			from, to := strings.TrimPrefix(args[0], "@"), strings.TrimPrefix(args[1], "@")
@@ -119,9 +121,9 @@ renaming it needs --yes, once for all of them.`,
 			}
 			res := mvFromRename("group", from, to, r)
 			if res.Action == "renamed" {
-				audit(nil, "group.mv", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated)})
+				audit(nil, "group.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated)})
 			}
-			out.P.Print("group.mv", res, nil)
+			out.P.Print("group.rename", res, nil)
 			return nil
 		},
 	}

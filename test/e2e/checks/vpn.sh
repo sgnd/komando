@@ -2,7 +2,7 @@
 # VPNs: a SOCKS proxy (komando's own, through the bastion) and an OS VPN check.
 echo "==> VPNs"
 q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"
-q $K vpn add lab socks --address "127.0.0.1:$E2E_SOCKS" --check pg:5432
+q $K vpn add lab socks --proxy-address "127.0.0.1:$E2E_SOCKS" --check pg:5432
 check "status lists the running tunnel" True "$($K status | jget '"127.0.0.1:'"$E2E_SOCKS"'" in [t["spec"] for t in d["data"]["tunnels"]]')"
 check "status in text names it" 1 "$($K -o text status | grep -c '^tunnel ' || true)"
 check "status --short counts the tunnel" 1 "$($K status --short | grep -c 'tun:[1-9]' || true)"
