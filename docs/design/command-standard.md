@@ -327,6 +327,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--container` | `-c` | string | a container name | |
 | `--dir` | `-C` | string | the working folder | |
 | `--revision` | | int | a release or rollout revision | 0 = previous |
+| `--progress` | | bool | with `-o json`, progress as one JSON object per line on stderr (`upload`, `download`, `cp`, `sync`, `storage upload/download`); text mode keeps its own progress line | false |
 
 **S-5.2** Durations use one komando type (`Type() == "duration"`): Go units
 and `Nd` days. A bare integer is accepted only as `0`; every other span

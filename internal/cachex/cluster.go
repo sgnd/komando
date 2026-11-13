@@ -21,7 +21,7 @@ func clusterKeys(ctx context.Context, cc *redis.ClusterClient, pattern string, l
 	keys := []string{}
 	more := false
 	err := cc.ForEachMaster(ctx, func(ctx context.Context, node *redis.Client) error {
-		k, m, err := Keys(ctx, node, pattern, limit)
+		k, m, err := scanKeys(ctx, node, pattern, limit)
 		mu.Lock()
 		defer mu.Unlock()
 		keys = append(keys, k...)

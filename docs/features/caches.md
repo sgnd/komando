@@ -113,6 +113,21 @@ hit rate:  94.1% (1830211 hits, 114502 misses)
 ```
 
 `cache keys` uses `SCAN`, so it is safe on big caches. Never use `KEYS`.
+Each key shows its type and time to live, never its value:
+
+```text
+KEY        TYPE    TTL
+queue      list    2s
+session:1  string  1h
+session:2  hash    none
+```
+
+In JSON, `items` lists the same keys as `keys`, in the same order, each as
+`{"key", "type", "ttl_seconds"}`: `ttl_seconds` is -1 for no expiry and
+null when unknown, and `type` is null when the server refuses `TYPE` (an
+ACL without it). Redis reads `TYPE` and `PTTL` of the whole page in one
+round trip (one per master in a Cluster). On memcached every type is
+`string` and the time to live comes from the LRU crawler's listing.
 A `--limit` below 1 is a `USAGE` error. When more keys match, the list
 ends with `(first 100 keys; more match: narrow the pattern or raise
 --limit)`.

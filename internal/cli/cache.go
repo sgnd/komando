@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -170,6 +169,18 @@ type keyList struct {
 	Keys    []string `json:"keys"`
 	Count   int      `json:"count"`
 	More    bool     `json:"more"` // more keys match; narrow the pattern or raise --limit
+	// Items are the keys again with each one's type and time to live
+	// (never its value), in the same order.
+	Items []cachex.KeyInfo `json:"items"`
+}
+
+func newKeyList(conn, pattern string, items []cachex.KeyInfo, more bool) keyList {
+	slices.SortFunc(items, func(a, b cachex.KeyInfo) int { return strings.Compare(a.Key, b.Key) })
+	keys := make([]string, len(items))
+	for i, k := range items {
+		keys[i] = k.Key
+	}
+	return keyList{Conn: conn, Pattern: pattern, Keys: keys, Count: len(keys), More: more, Items: items}
 }
 
 func (l keyList) Text() string {
@@ -179,14 +190,32 @@ func (l keyList) Text() string {
 		}
 		return noneMatch("cache keys", cachex.Quote(l.Pattern))
 	}
-	var sb strings.Builder
-	for _, k := range l.Keys {
-		sb.WriteString(cachex.Quote(k) + "\n")
+	rows := make([][]string, len(l.Items))
+	for i, k := range l.Items {
+		typ := ""
+		if k.Type != nil {
+			typ = *k.Type
+		}
+		rows[i] = []string{cachex.Quote(k.Key), typ, ttlCell(k.TTL)}
 	}
+	var sb strings.Builder
+	sb.WriteString(dataTable([]string{"key", "type", "ttl"}, rows))
 	if l.More {
 		fmt.Fprintf(&sb, "(first %d keys; more match: narrow the pattern or raise --limit)\n", l.Count)
 	}
 	return sb.String()
+}
+
+// ttlCell is a key's time to live for people: "none" when it never
+// expires, empty when unknown.
+func ttlCell(ttl *int64) string {
+	switch {
+	case ttl == nil:
+		return ""
+	case *ttl < 0:
+		return "none"
+	}
+	return humanAge(time.Duration(*ttl) * time.Second)
 }
 
 func cacheKeysCmd() *cobra.Command {
@@ -208,15 +237,14 @@ func cacheKeysCmd() *cobra.Command {
 			}
 			return withCache(cmd.Context(), "cache.keys", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
-					keys, more, err := rc.Keys(cmd.Context(), pattern, limit)
+					items, more, err := rc.Keys(cmd.Context(), pattern, limit)
 					if err != nil {
 						return nil, err
 					}
-					sort.Strings(keys)
 					if more {
 						out.P.CutNoted()
 					}
-					return keyList{Conn: c.Name, Pattern: pattern, Keys: keys, Count: len(keys), More: more}, nil
+					return newKeyList(c.Name, pattern, items, more), nil
 				})
 		},
 	}

@@ -365,6 +365,9 @@ type cmdSchema struct {
 	// Confirm is what a run needs, from the rule table (S-7.7): the tier it
 	// always has first, then each it reaches only sometimes
 	Confirm []confirmSchema `json:"confirm,omitempty"`
+	// AddKinds are the kinds an add command takes (vpn add, conn add, db
+	// add, ...), each with the flags that go with it (schema_kinds.go)
+	AddKinds any `json:"add_kinds,omitempty"`
 }
 
 // newCmdSchema is c in `komando schema`.
@@ -379,6 +382,7 @@ func newCmdSchema(c *cobra.Command) cmdSchema {
 	if s.Runnable {
 		s.Confirm = confirmOf(c)
 	}
+	s.AddKinds = addKindsOf(c)
 	ownFlags(c).VisitAll(func(f *pflag.Flag) {
 		if f.Hidden || f.Name == "help" {
 			return

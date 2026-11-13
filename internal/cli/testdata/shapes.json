@@ -32,6 +32,276 @@
     },
     "ok": "bool"
   },
+  "cache keys mc": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "count": "number",
+      "items": [
+        {
+          "key": "string",
+          "ttl_seconds": "number",
+          "type": "string"
+        }
+      ],
+      "keys": [
+        "string"
+      ],
+      "more": "bool",
+      "pattern": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster describe prod deployment/api": {
+    "command": "string",
+    "data": {
+      "conditions": [
+        {
+          "message": "string",
+          "reason": "string",
+          "status": "string",
+          "type": "string"
+        }
+      ],
+      "conn": "string",
+      "detail": {
+        "conditions": [
+          {
+            "message": "string",
+            "reason": "string",
+            "status": "string",
+            "type": "string"
+          }
+        ],
+        "created_at": "string",
+        "events": [
+          {
+            "count": "number",
+            "last_seen_at": "string",
+            "message": "string",
+            "reason": "string",
+            "type": "string"
+          }
+        ],
+        "kind": "string",
+        "labels": {
+          "app": "string"
+        },
+        "name": "string",
+        "namespace": "string",
+        "status": "string"
+      },
+      "events": [
+        {
+          "count": "number",
+          "last": "string",
+          "last_age": "string",
+          "message": "string",
+          "object": "string",
+          "reason": "string",
+          "type": "string"
+        }
+      ],
+      "object": "string",
+      "pods": [
+        {
+          "age": "string",
+          "name": "string",
+          "namespace": "string",
+          "node": "string",
+          "ready": "string",
+          "restarts": "number",
+          "status": "string"
+        }
+      ],
+      "summary": {
+        "age": "string",
+        "available": "number",
+        "images": "string",
+        "name": "string",
+        "namespace": "string",
+        "ready": "string",
+        "selector": "string",
+        "updated": "number"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster describe prod pod/api-1": {
+    "command": "string",
+    "data": {
+      "conditions": [
+        {
+          "message": "string",
+          "reason": "string",
+          "status": "string",
+          "type": "string"
+        }
+      ],
+      "conn": "string",
+      "containers": [
+        {
+          "image": "string",
+          "message": "null",
+          "name": "string",
+          "ready": "bool",
+          "reason": "null",
+          "restarts": "number",
+          "state": "string"
+        }
+      ],
+      "detail": {
+        "conditions": [
+          {
+            "message": "string",
+            "reason": "string",
+            "status": "string",
+            "type": "string"
+          }
+        ],
+        "created_at": "string",
+        "events": [
+          {
+            "count": "number",
+            "last_seen_at": "string",
+            "message": "string",
+            "reason": "string",
+            "type": "string"
+          }
+        ],
+        "kind": "string",
+        "labels": {
+          "app": "string",
+          "tier": "string"
+        },
+        "name": "string",
+        "namespace": "string",
+        "status": "string"
+      },
+      "events": [
+        {
+          "count": "number",
+          "last": "string",
+          "last_age": "string",
+          "message": "string",
+          "object": "string",
+          "reason": "string",
+          "type": "string"
+        }
+      ],
+      "object": "string",
+      "summary": {
+        "age": "string",
+        "name": "string",
+        "namespace": "string",
+        "node": "string",
+        "ready": "string",
+        "restarts": "number",
+        "status": "string"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster describe prod secret/app-db": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "detail": {
+        "conditions": [],
+        "created_at": "string",
+        "events": [],
+        "kind": "string",
+        "labels": {
+          "app": "string"
+        },
+        "name": "string",
+        "namespace": "string",
+        "status": "string"
+      },
+      "events": [],
+      "object": "string",
+      "summary": {
+        "age": "string",
+        "keys": "number",
+        "name": "string",
+        "namespace": "string",
+        "type": "string"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster logs prod -l app=api": {
+    "command": "string",
+    "data": {
+      "lines": [
+        {
+          "container": "string",
+          "logged_at": "string",
+          "pod": "string",
+          "text": "string"
+        }
+      ],
+      "logs": "string",
+      "namespace": "string",
+      "object": "string",
+      "pods": [
+        "string"
+      ],
+      "truncated": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster logs prod api-1": {
+    "command": "string",
+    "data": {
+      "lines": [
+        {
+          "container": "string",
+          "logged_at": "string",
+          "pod": "string",
+          "text": "string"
+        }
+      ],
+      "logs": "string",
+      "namespace": "string",
+      "pod": "string",
+      "pods": [
+        "string"
+      ],
+      "truncated": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "config get parallel": {
     "command": "string",
     "data": {
@@ -581,6 +851,124 @@
           "sudo": "bool"
         }
       ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "schema conn add": {
+    "command": "string",
+    "data": {
+      "commands": [
+        {
+          "add_kinds": [
+            {
+              "default_port": "number",
+              "display_name": "string",
+              "family": "string",
+              "file": "bool",
+              "id": "string",
+              "one_of": [],
+              "optional": [
+                "string"
+              ],
+              "required": [],
+              "url_example": "string",
+              "url_note": "string",
+              "url_schemes": [
+                "string"
+              ]
+            }
+          ],
+          "confirm": [
+            {
+              "tier": "string"
+            }
+          ],
+          "example": "string",
+          "flags": [
+            {
+              "default": "string",
+              "name": "string",
+              "shorthand": "string",
+              "type": "string",
+              "usage": "string"
+            }
+          ],
+          "kind": "string",
+          "long": "string",
+          "path": "string",
+          "runnable": "bool",
+          "short": "string",
+          "usage": "string"
+        }
+      ],
+      "contract": "number",
+      "name": "string",
+      "version": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "schema vpn add": {
+    "command": "string",
+    "data": {
+      "commands": [
+        {
+          "add_kinds": [
+            {
+              "aliases": [],
+              "browser_note": "string",
+              "description": "string",
+              "display_name": "string",
+              "family": "string",
+              "flag_notes": {
+                "*": "string"
+              },
+              "id": "string",
+              "one_of": [],
+              "opens_browser": "bool",
+              "optional": [
+                "string"
+              ],
+              "required": [
+                "string"
+              ]
+            }
+          ],
+          "confirm": [
+            {
+              "tier": "string"
+            }
+          ],
+          "example": "string",
+          "flags": [
+            {
+              "default": "string",
+              "name": "string",
+              "shorthand": "string",
+              "type": "string",
+              "usage": "string"
+            }
+          ],
+          "kind": "string",
+          "long": "string",
+          "path": "string",
+          "runnable": "bool",
+          "short": "string",
+          "usage": "string"
+        }
+      ],
+      "contract": "number",
+      "name": "string",
+      "version": "string"
     },
     "meta": {
       "contract": "number",

@@ -212,13 +212,15 @@ type cpOpts struct {
 	recursive, sudo, mkdirs, overwrite bool
 	mode                               string
 	oneHost                            bool // one server: a big file shows progress at a terminal
+	progress                           bool // --progress: JSON lines on stderr with -o json
 }
 
 // transferProgress is a progress line on stderr for one big file going to
 // or from one server, at a person's terminal only: never for an AI agent,
-// never on stdout, and nil (no line) otherwise.
-func transferProgress(o cpOpts, name string, total int64) *progress {
-	if !o.oneHost || total < progressMin || isAgent() || !term.IsTerminal(int(os.Stderr.Fd())) {
+// never on stdout, never beside --progress's JSON lines, and nil (no line)
+// otherwise.
+func transferProgress(ctx context.Context, o cpOpts, name string, total int64) *progress {
+	if !o.oneHost || total < progressMin || progressFrom(ctx) != nil || isAgent() || !term.IsTerminal(int(os.Stderr.Fd())) {
 		return nil
 	}
 	return &progress{label: name, total: total}
@@ -234,6 +236,7 @@ func (o *cpOpts) bind(c *cobra.Command) {
 	o.bindUp(c, "upload: ")
 	c.Flags().Lookup("sudo").Usage = "single files with sudo: install as root (upload), read as root (download)"
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "download: replace files that already exist on this computer")
+	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
 }
 
 func (o *cpOpts) bindUp(c *cobra.Command, prefix string) {
@@ -298,33 +301,39 @@ download written the cp way: the same code, flags and results.
   komando cp ./db.sql.gz backups:2026/db.sql.gz`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srcT, srcP, srcRemote := splitArg(args[0])
-			dstT, dstP, dstRemote := splitArg(args[1])
-			switch {
-			case srcRemote && dstRemote:
-				for _, a := range []struct{ t, arg string }{{srcT, args[0]}, {dstT, args[1]}} {
-					if !knownTarget(a.t) {
-						return out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "if it is a file on this computer, write it as ./"+a.arg,
-							"%q is not a server or conn komando knows", a.t)
-					}
-				}
-				return out.Usage("komando cannot copy from one server straight to another: download, then upload")
-			case !srcRemote && !dstRemote:
-				return out.Usage("neither side is on a server: write one as TARGET:PATH (a local name with a colon is written ./name)")
-			case dstRemote:
-				if o.overwrite {
-					return out.Usage("--overwrite is for downloads; uploads always replace (the result says replaced)")
-				}
-				return colonHint(runUpload(cmd.Context(), cmd, dstT, srcP, dstP, false, o), args[1])
-			}
-			if o.mode != "" || o.mkdirs {
-				return out.Usage("--mode and -p are for uploads")
-			}
-			return colonHint(runDownload(cmd.Context(), cmd, srcT, srcP, dstP, false, o), args[0])
+			ctx, finish := startProgress(cmd.Context(), o.progress)
+			return finish(runCpArgs(ctx, cmd, args, o))
 		},
 	}
 	o.bind(c)
 	return c
+}
+
+// runCpArgs is cp: an upload or a download, by which side is TARGET:PATH.
+func runCpArgs(ctx context.Context, cmd *cobra.Command, args []string, o cpOpts) error {
+	srcT, srcP, srcRemote := splitArg(args[0])
+	dstT, dstP, dstRemote := splitArg(args[1])
+	switch {
+	case srcRemote && dstRemote:
+		for _, a := range []struct{ t, arg string }{{srcT, args[0]}, {dstT, args[1]}} {
+			if !knownTarget(a.t) {
+				return out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "if it is a file on this computer, write it as ./"+a.arg,
+					"%q is not a server or conn komando knows", a.t)
+			}
+		}
+		return out.Usage("komando cannot copy from one server straight to another: download, then upload")
+	case !srcRemote && !dstRemote:
+		return out.Usage("neither side is on a server: write one as TARGET:PATH (a local name with a colon is written ./name)")
+	case dstRemote:
+		if o.overwrite {
+			return out.Usage("--overwrite is for downloads; uploads always replace (the result says replaced)")
+		}
+		return colonHint(runUpload(ctx, cmd, dstT, srcP, dstP, false, o), args[1])
+	}
+	if o.mode != "" || o.mkdirs {
+		return out.Usage("--mode and -p are for uploads")
+	}
+	return colonHint(runDownload(ctx, cmd, srcT, srcP, dstP, false, o), args[0])
 }
 
 // runCp copies between this computer and the servers target picks, over
@@ -377,7 +386,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		out.P.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[up]}, nil)
 		return nil
 	}
-	res := fanout(allowWindows(ctx), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(allowWindows(ctx), st, hosts, cpProgress(ctx, local, up, len(hosts), func(ctx context.Context, c *sshx.Client) (any, error) {
 		if c.Host.Windows() {
 			return winCopy(ctx, c, local, remote, up, o, len(hosts) > 1)
 		}
@@ -398,7 +407,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 			}
 		}
 		return download(ctx, c, sc, rp, l, o)
-	})
+	}))
 	data := xferData{Results: []xferStats{}}
 	worst := 0
 	var fails []hostFail
@@ -484,8 +493,10 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		// a new one gets the local file's, unless --mode says
 		newMode := "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
 		// streamed: a multi-GB backup never sits in memory
-		var in io.Reader = storex.CtxReader(ctx, f)
-		if p := transferProgress(o, filepath.Base(src), fi.Size()); p != nil {
+		pp := progressFrom(ctx)
+		pp.start(src)
+		var in io.Reader = storex.CtxReader(ctx, pp.reader(f))
+		if p := transferProgress(ctx, o, filepath.Base(src), fi.Size()); p != nil {
 			defer p.done()
 			in = io.TeeReader(in, p)
 		}
@@ -493,6 +504,7 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		if err != nil {
 			return xferStats{}, err
 		}
+		pp.fileDone()
 		if t, ok := r["followed"].(string); ok {
 			dst = t
 		}
@@ -537,6 +549,7 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		if skipLocalSecret(p) {
 			return nil
 		}
+		progressFrom(ctx).start(filepath.ToSlash(rel))
 		n, err := putFile(ctx, sc, p, rp, info)
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -545,6 +558,7 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 			st.Errors = append(st.Errors, xferErr{Path: filepath.ToSlash(rel), Message: toErr(err).Message})
 			return nil
 		}
+		progressFrom(ctx).fileDone()
 		st.Files++
 		st.Bytes += n
 		return nil
@@ -566,7 +580,7 @@ func putFile(ctx context.Context, sc *sftp.Client, local, remote string, info os
 	if fi, err := sc.Stat(remote); err == nil && fi.Mode().IsRegular() {
 		mode = fi.Mode().Perm() // a file already there keeps its mode
 	}
-	err = sftpSide{sc: sc, root: path.Dir(remote)}.write(ctx, path.Base(remote), in, syncFile{Mode: mode, Mtime: info.ModTime()})
+	err = sftpSide{sc: sc, root: path.Dir(remote)}.write(ctx, path.Base(remote), progressFrom(ctx).reader(in), syncFile{Mode: mode, Mtime: info.ModTime()})
 	if err != nil {
 		return 0, err
 	}
@@ -577,4 +591,47 @@ func fileModeOctal(m os.FileMode) string {
 	const digits = "01234567"
 	p := uint32(m.Perm())
 	return string([]byte{digits[(p>>6)&7], digits[(p>>3)&7], digits[p&7]})
+}
+
+// cpProgress sets --progress's totals for runCp and returns its work for
+// one server: an upload knows the totals here; a download learns them from
+// each server, so each server's work gets its own part.
+func cpProgress(ctx context.Context, local string, up bool, hosts int, fn func(context.Context, *sshx.Client) (any, error)) func(context.Context, *sshx.Client) (any, error) {
+	pp := progressFrom(ctx)
+	if up {
+		files, bytes := localTotal(local, pp != nil)
+		pp.total(files*hosts, bytes*int64(hosts))
+		return fn
+	}
+	pp.eachServer(hosts) // each server's file or folder has its own size
+	return func(ctx context.Context, c *sshx.Client) (any, error) {
+		ctx, settle := progressServer(ctx)
+		defer settle()
+		return fn(ctx, c)
+	}
+}
+
+// localTotal is what an upload of local sends to one server: the file, or
+// the regular files in the folder that upload sends (count false: 0, 0,
+// without reading the folder).
+func localTotal(local string, count bool) (files int, bytes int64) {
+	fi, err := os.Stat(local)
+	if !count || err != nil {
+		return 0, 0
+	}
+	if !fi.IsDir() {
+		return 1, fi.Size()
+	}
+	root := local
+	if real, err := filepath.EvalSymlinks(local); err == nil {
+		root = real
+	}
+	_ = filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
+		if err == nil && info.Mode().IsRegular() && !skipLocalSecret(p) {
+			files++
+			bytes += info.Size()
+		}
+		return nil
+	})
+	return files, bytes
 }

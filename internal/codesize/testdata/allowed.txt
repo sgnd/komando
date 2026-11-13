@@ -10,7 +10,7 @@ func internal/cli/cluster_deploy.go clusterRollbackCmd 109
 func internal/cli/cluster_exec.go clusterForwardCmd 103
 func internal/cli/cluster_kctl_change.go kctlRun.create 240
 func internal/cli/cluster_kctl_explain.go kctlRun.explain 102
-func internal/cli/cluster_logs.go clusterLogsCmd 125
+func internal/cli/cluster_logs.go clusterLogsCmd 103
 func internal/cli/cluster_run.go clusterRunCmd 112
 func internal/cli/cluster_status.go summarize 115
 func internal/cli/db_dump.go runDump 135
@@ -25,7 +25,7 @@ func internal/cli/import.go applyImport 124
 func internal/cli/modules_run.go runOps 108
 func internal/cli/pkg_security.go pkgSecurity 113
 func internal/cli/tunnel.go tunnelStartCmd 141
-func internal/cli/vpn.go vpnAddCmd 249
+func internal/cli/vpn.go vpnAddCmd 226
 func internal/cli/vpn_session.go startSession 143
 func internal/cloud/bitwarden.go bwLoad 110
 func internal/dbx/dump_mysql.go dumpMySQL 102

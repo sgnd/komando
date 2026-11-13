@@ -111,6 +111,19 @@ Tiers are `read`, `change`, `dangerous` (`--allow-dangerous`), `safety`
 on a protected server or conn also needs a yes; the target decides that,
 so it is not listed. See [What needs a yes](safety.md#what-needs-a-yes).
 
+The add commands also list the kinds they take, under `add_kinds`, so a
+program can build its add forms from them. `komando schema vpn add` gives
+each VPN kind its `id`, `display_name`, `family` (`portal`, `config_file`,
+`server_psk`, `auth_key`, `system` or `proxy`), `aliases`, the flags it
+needs (`required`, and `one_of`: groups where one flag is enough), the
+flags it may take (`optional`), `flag_notes`, and `opens_browser`: whether
+`vpn up` opens a browser to sign in (`browser_note` says when).
+`komando schema conn add` (and `db add`, `cache add`, `queue add`,
+`storage add`, `cluster add`, `registry add` for their own kinds) gives
+each conn kind its `id`, `display_name`, `family`, `url_schemes`,
+`url_example`, `default_port` and the same flag lists. They come from the
+same table as `komando vpn add --help` and `komando conn kinds`.
+
 ## Troubleshooting
 
 The table below has the errors people meet most. Every code komando gives,

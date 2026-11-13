@@ -276,6 +276,23 @@ read, the rest are still copied; the result lists the failures under
   its progress on stderr (`app.tar.gz: 120.0 of 512.0 MB`). Nothing is
   shown when stderr is not a terminal, or for an AI agent; stdout never
   gets it.
+- A program that draws its own progress bar (an app, a script, an AI
+  agent) adds `--progress` to `upload`, `download`, `cp`, `sync` or
+  `storage upload/download` with `-o json`. The error output (stderr) then
+  gets one JSON object per line, at most about four a second, and a last
+  one when the command ends; the result on stdout stays as it is. A total
+  is `null` while komando cannot know it (a folder from a server is read
+  as it is copied). Lines on stderr that are not JSON (a warning) are not
+  progress: skip them. Without `-o json`, `--progress` changes nothing.
+
+  ```
+  {"event":"progress","file":"site/index.html","bytes_done":1048576,"bytes_total":4194304,"files_done":3,"files_total":12}
+  {"event":"done","file":"site/app.js","bytes_done":4194304,"bytes_total":4194304,"files_done":12,"files_total":12,"ok":true}
+  ```
+
+  `file` is the file being copied (inside a folder, its path in the
+  folder); the counts cover every server of the run. The lines hold names
+  and counts only, never what is in a file.
 - Ctrl-C stops a copy, or a sync, within a moment. The file being copied is
   not left behind, files already copied stay, and komando exits 1 with
   `CANCELLED`. Run the same command again to finish: `sync` sends only

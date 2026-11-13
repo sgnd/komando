@@ -42,6 +42,10 @@ office   wireguard      -     -       db1       connects for each command
 | `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--proxy-address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--password-ref` | already running | no |
 | `system` | a VPN set up in your computer's own settings | by your computer | yes |
 
+`komando vpn add --help` shows which flags go with each kind;
+`komando schema vpn add` lists the same for a program, under `add_kinds`
+(see [Reference: komando schema](output.md#reference-komando-schema)).
+
 "Inside komando" means: no extra program, no Docker, no admin rights.
 Your computer's routes and DNS stay the same, so two VPNs that use the
 same addresses (both `10.0.0.0/8`) do not get in each other's way. Names

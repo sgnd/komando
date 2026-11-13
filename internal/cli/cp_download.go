@@ -35,7 +35,9 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 	lfi, lerr := os.Stat(dst)
 	dstIsDir := lerr == nil && lfi.IsDir()
 	dstSlash := strings.HasSuffix(dst, string(os.PathSeparator)) || strings.HasSuffix(dst, "/")
+	pp := progressFrom(ctx)
 	if o.sudo {
+		pp.unknown() // sudo cat: the size is known once it is read
 		return sudoDownload(ctx, c, src, dst, dstIsDir || dstSlash, o.overwrite)
 	}
 	fi, err := sc.Stat(src)
@@ -57,8 +59,10 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			return xferStats{}, fsErrHint(src, err, downloadPermHint)
 		}
 		defer in.Close()
-		var watch io.Writer
-		if p := transferProgress(o, path.Base(src), fi.Size()); p != nil {
+		pp.total(1, fi.Size())
+		pp.start(src)
+		watch := pp.writer()
+		if p := transferProgress(ctx, o, path.Base(src), fi.Size()); p != nil {
 			defer p.done()
 			watch = p
 		}
@@ -66,11 +70,13 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 		if err != nil {
 			return xferStats{}, err // nothing was saved: never "downloaded 1 file"
 		}
+		pp.fileDone()
 		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 	}
 	if !o.recursive {
 		return xferStats{}, out.Usage("%s is a folder; add -r", src)
 	}
+	pp.unknown() // the folder is read as it is copied
 	return downloadFolder(ctx, sc, src, dst, dstIsDir, dstSlash, o)
 }
 
@@ -125,7 +131,8 @@ func downloadFolder(ctx context.Context, sc *sftp.Client, src, dst string, dstIs
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(fsErrHint(w.Path(), err, downloadPermHint)).Message})
 			continue
 		}
-		n, _, masked, err := fetchFile(ctx, in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite, nil)
+		progressFrom(ctx).start(rel)
+		n, _, masked, err := fetchFile(ctx, in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite, progressFrom(ctx).writer())
 		in.Close()
 		if ctx.Err() != nil {
 			return st, ctx.Err()
@@ -138,6 +145,7 @@ func downloadFolder(ctx context.Context, sc *sftp.Client, src, dst string, dstIs
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(err).Message})
 			continue
 		}
+		progressFrom(ctx).fileDone()
 		st.Files++
 		st.Bytes += n
 		st.Masked += count(masked)
@@ -204,10 +212,13 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return xferStats{}, err
 	}
-	n, sum, masked, err := fetchFile(ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite, nil)
+	pp := progressFrom(ctx)
+	pp.start(src)
+	n, sum, masked, err := fetchFile(ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite, pp.writer())
 	if err != nil {
 		return xferStats{}, err
 	}
+	pp.fileDone()
 	return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 }
 

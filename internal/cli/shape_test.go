@@ -58,6 +58,25 @@ var shapeCases = [][]string{
 	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
 	{"vpn", "rm", "lab", "--dry-run"},
 	{"vpn", "rm", "lab"},
+	// the kinds an app builds its add forms from
+	{"schema", "vpn", "add"},
+	{"schema", "conn", "add"},
+}
+
+// serverShapeCases read the fake memcached conn "mc".
+var serverShapeCases = [][]string{
+	{"cache", "keys", "mc"},
+}
+
+// clusterShapeCases run against a loopback Kubernetes API
+// (newDetailCluster), imported as conn prod after the cases above, so
+// those see the same inventory as before.
+var clusterShapeCases = [][]string{
+	{"cluster", "describe", "prod", "pod/api-1"},
+	{"cluster", "describe", "prod", "deployment/api"},
+	{"cluster", "describe", "prod", "secret/app-db"},
+	{"cluster", "logs", "prod", "api-1"},
+	{"cluster", "logs", "prod", "-l", "app=api"},
 }
 
 // TestOutputShapes: agents parse komando's JSON, so a field may be added
@@ -82,8 +101,24 @@ func TestOutputShapes(t *testing.T) {
 			t.Fatalf("setup %v: %v\n%s", setup, err, s)
 		}
 	}
+	// serverShapeCases then clusterShapeCases run last, against a fake
+	// memcached and a loopback Kubernetes API, so the conns they need are
+	// not in the inventory answers above
+	cases := append(append(append([][]string{}, shapeCases...), serverShapeCases...), clusterShapeCases...)
 	got := map[string]any{}
-	for _, args := range shapeCases {
+	kube := newDetailCluster(t)
+	for i, args := range cases {
+		if i == len(shapeCases) {
+			addr, _ := fakeMemcached(t)
+			if s, err := runCache(t, "-o", "json", "conn", "add", "mc", "memcached://"+addr); err != nil {
+				t.Fatalf("conn add mc: %v\n%s", err, s)
+			}
+		}
+		if i == len(shapeCases)+len(serverShapeCases) {
+			if s, err := runCache(t, "-o", "json", "import", "kubeconfig", kube.kubeconfig(t)); err != nil {
+				t.Fatalf("import kubeconfig: %v\n%s", err, s)
+			}
+		}
 		s := runShape(t, args)
 		g.dryRun, store.DryRun = false, false
 		var v any
@@ -116,7 +151,7 @@ func TestOutputShapes(t *testing.T) {
 	if err := json.Unmarshal(b, &want); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range shapeCases {
+	for _, args := range cases {
 		key := strings.Join(args, " ")
 		w, ok := want[key]
 		if !ok {
@@ -152,13 +187,14 @@ func runShape(t *testing.T, args []string) string {
 	return b.String()
 }
 
-// dataKeyed are fields whose keys are data, not field names. Today only
-// `recipe list`'s params (a recipe's blanks and their defaults): its shape
-// is "*" for any key, so a recipe with other blanks is not a change of the
-// output. The keys of a field listed here are not guarded, in any command:
-// a new field called params elsewhere needs another name, or to be left
-// out of this list.
-var dataKeyed = map[string]bool{"params": true}
+// dataKeyed are fields whose keys are data, not field names: `recipe
+// list`'s params (a recipe's blanks and their defaults) and the flag_notes
+// of `schema vpn add` (keyed by flag name). Their shape is "*" for any
+// key, so a recipe with other blanks, or a note on another flag, is not a
+// change of the output. The keys of a field listed here are not guarded,
+// in any command: a new field called params or flag_notes elsewhere needs
+// another name, or to be left out of this list.
+var dataKeyed = map[string]bool{"params": true, "flag_notes": true}
 
 // shapeOf replaces every value with its JSON type; arrays become one
 // element with the merged shape of all their elements. Maps keyed by
