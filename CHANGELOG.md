@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed for scripts and agents
+- `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; `data.path`, `data.changed` and the other fields moved into `data.results[0]` for one server. `fs write` stays one server.
+
 ### Fixed
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
