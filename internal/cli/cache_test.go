@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -173,8 +174,13 @@ func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
 						reply = "VERSION 1.6.39"
 					case f[0] == "mn":
 						reply = "MN"
-					case f[0] == "get" || f[0] == "stats":
+					case f[0] == "get":
 						reply = "END"
+					case f[0] == "stats":
+						reply = "STAT time 1731500100\r\nEND"
+					case f[0] == "lru_crawler":
+						reply = "key=s%3A1 exp=1731500130 la=1731500000 cas=1 fetch=no cls=1 size=60\r\n" +
+							"key=s%3A2 exp=-1 la=1731500000 cas=2 fetch=no cls=1 size=60\r\nEND"
 					case f[0] == "flush_all":
 						reply = "OK"
 					case f[0] == "mg":
@@ -283,5 +289,55 @@ func TestCacheRunClusterWide(t *testing.T) {
 	var e *out.Error
 	if _, err := runCache(t, "-o", "json", "cache", "run", "cl", "--", "DBSIZE"); !errors.As(err, &e) || e.Code != "CACHE_CONNECT" {
 		t.Errorf("DBSIZE is summed over the masters, so it is sent: %v", err)
+	}
+}
+
+// cache keys gives each key's type and time to live in items, next to the
+// plain keys list, and shows them as columns.
+func TestCacheKeysTypeAndTTL(t *testing.T) {
+	setHome(t, t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	addr, lines := fakeMemcached(t)
+	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
+		t.Fatal(err)
+	}
+	s, err := runCache(t, "-o", "json", "cache", "keys", "m", "s:*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res struct {
+		Data struct {
+			Keys  []string `json:"keys"`
+			Count int      `json:"count"`
+			Items []struct {
+				Key  string  `json:"key"`
+				Type *string `json:"type"`
+				TTL  *int64  `json:"ttl_seconds"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(s), &res); err != nil {
+		t.Fatalf("%v\n%s", err, s)
+	}
+	d := res.Data
+	if strings.Join(d.Keys, ",") != "s:1,s:2" || d.Count != 2 || len(d.Items) != 2 {
+		t.Fatalf("keys %v, items %+v", d.Keys, d.Items)
+	}
+	for i, want := range []int64{30, -1} {
+		it := d.Items[i]
+		if it.Key != d.Keys[i] || it.Type == nil || *it.Type != "string" || it.TTL == nil || *it.TTL != want {
+			t.Errorf("item %d: %+v, want ttl %d", i, it, want)
+		}
+	}
+	if !slices.Contains(lines(), "lru_crawler metadump all") {
+		t.Errorf("sent %q", lines())
+	}
+	text, err := runCache(t, "-o", "text", "cache", "keys", "m", "s:*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "KEY  TYPE    TTL\ns:1  string  30s\ns:2  string  none\n"
+	if text != want {
+		t.Errorf("text:\n%s\nwant:\n%s", text, want)
 	}
 }

@@ -280,15 +280,32 @@ func (m *memcache) Del(ctx context.Context, keys ...string) (int64, error) {
 }
 
 // Keys lists keys with `lru_crawler metadump all` and matches them like
-// a shell pattern (`session:*`).
-func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]string, bool, error) {
+// a shell pattern (`session:*`). A memcached value is always a string;
+// metadump gives each key's expiry as a time on the server's clock, so
+// `stats` goes in the same write for that clock: one round trip.
+func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]KeyInfo, bool, error) {
 	if pattern == "" {
 		pattern = "*"
 	}
-	if err := m.send(ctx, "lru_crawler metadump all"); err != nil {
+	if err := m.send(ctx, "stats\r\nlru_crawler metadump all"); err != nil {
 		return nil, false, mcErr(err)
 	}
-	keys, more := []string{}, false
+	now := int64(-1) // the server's clock; -1 = unknown
+	for {
+		line, err := m.line()
+		if err != nil {
+			return nil, false, mcErr(err)
+		}
+		if line == "END" {
+			break
+		}
+		if v, ok := strings.CutPrefix(line, "STAT time "); ok {
+			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+				now = n
+			}
+		}
+	}
+	keys, more := []KeyInfo{}, false
 	for {
 		line, err := m.line()
 		if err != nil {
@@ -301,23 +318,51 @@ func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]strin
 		if line == "END" {
 			return keys, more, nil
 		}
-		for _, f := range strings.Fields(line) {
-			k, ok := strings.CutPrefix(f, "key=")
-			if !ok {
-				continue
-			}
-			if d, err := url.QueryUnescape(k); err == nil {
-				k = d
-			}
-			if ok, _ := path.Match(pattern, k); ok {
-				if len(keys) >= limit {
-					more = true
-				} else {
-					keys = append(keys, k)
-				}
+		k, ok := metadumpKey(line, now)
+		if !ok {
+			continue
+		}
+		if ok, _ := path.Match(pattern, k.Key); ok {
+			if len(keys) >= limit {
+				more = true
+			} else {
+				keys = append(keys, k)
 			}
 		}
 	}
+}
+
+// metadumpKey reads one metadump line (`key=a%3Ab exp=-1 la=... size=63`)
+// at the server time now.
+func metadumpKey(line string, now int64) (KeyInfo, bool) {
+	var k KeyInfo
+	found := false
+	exp := ""
+	for _, f := range strings.Fields(line) {
+		if v, ok := strings.CutPrefix(f, "key="); ok {
+			if d, err := url.QueryUnescape(v); err == nil {
+				v = d
+			}
+			k.Key, found = v, true
+		} else if v, ok := strings.CutPrefix(f, "exp="); ok {
+			exp = v
+		}
+	}
+	if !found {
+		return k, false
+	}
+	typ := "string"
+	k.Type = &typ
+	if at, err := strconv.ParseInt(exp, 10, 64); err == nil {
+		switch {
+		case at == -1:
+			k.TTL = &at
+		case now >= 0:
+			ttl := max(at-now, 0)
+			k.TTL = &ttl
+		}
+	}
+	return k, true
 }
 
 // MemcacheSections are the sections `stats` takes ("" is the general one).

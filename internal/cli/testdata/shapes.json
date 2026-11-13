@@ -32,6 +32,31 @@
     },
     "ok": "bool"
   },
+  "cache keys mc": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "count": "number",
+      "items": [
+        {
+          "key": "string",
+          "ttl_seconds": "number",
+          "type": "string"
+        }
+      ],
+      "keys": [
+        "string"
+      ],
+      "more": "bool",
+      "pattern": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "config get parallel": {
     "command": "string",
     "data": {

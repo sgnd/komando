@@ -13,7 +13,7 @@ import (
 // Valkey) or memcached.
 type Store interface {
 	Get(ctx context.Context, key string, limit int64, maxBytes int) (*Value, error)
-	Keys(ctx context.Context, pattern string, limit int) ([]string, bool, error)
+	Keys(ctx context.Context, pattern string, limit int) ([]KeyInfo, bool, error)
 	Info(ctx context.Context, section string) (map[string]map[string]string, error)
 	Set(ctx context.Context, key, value string, ttl time.Duration) error
 	Exists(ctx context.Context, key string) (bool, error)
@@ -63,7 +63,7 @@ type redisStore struct{ c redis.UniversalClient }
 func (r redisStore) Get(ctx context.Context, key string, limit int64, maxBytes int) (*Value, error) {
 	return Get(ctx, r.c, key, limit, maxBytes)
 }
-func (r redisStore) Keys(ctx context.Context, pattern string, limit int) ([]string, bool, error) {
+func (r redisStore) Keys(ctx context.Context, pattern string, limit int) ([]KeyInfo, bool, error) {
 	return Keys(ctx, r.c, pattern, limit)
 }
 func (r redisStore) Info(ctx context.Context, section string) (map[string]map[string]string, error) {
