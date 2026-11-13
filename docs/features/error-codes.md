@@ -112,6 +112,7 @@ This page is made from the code (`komando schema` lists the same under
 | `KEYCHAIN_TAKEN` | 8 | …; the store still uses store.key, nothing was lost | put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then run it again |
 | `KEYSCAN_FAILED` | 4 | cannot fetch host key from …: … | check the address and port with `komando host show …` |
 | `KEY_EXISTS` | 8 | key … already exists | choose another name, or `komando key rm …` first |
+| `KEY_FAILED` | 1 | could not read key …: …; nothing was written | check the key with `komando key show …`, or leave out --with-keys |
 | `KEY_INVALID` | 2 | cannot parse …: … | give an OpenSSH or PEM private key file |
 | `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host edit … --key OTHER` |
 | `KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando key list` |
@@ -157,6 +158,7 @@ This page is made from the code (`komando schema` lists the same under
 | `PASSPHRASE_MISMATCH` | 2 | the two passphrases you typed differ; nothing was changed | run it again |
 | `PATH_NOT_FOUND` | 3 | … does not exist (or holds no files) | check the source path; nothing was changed |
 | `PERMISSION_DENIED` | 5 | cannot read … | add --sudo |
+| `PHONE_KEY_INVALID` | 2 | the key does not match the key check the phone shows; nothing was written | check that the key file came from the phone, then run `komando export --for-phone --to FILE` again and type the key check it shows |
 | `PKG_FAILED` | 5 | pkg … failed (exit …) | read the error output (stderr) for the package manager's message |
 | `POLICY_BLOCKED` | 6 | the command matches destructive rules [rm-rf]: deletes files recursively | check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
 | `PORT_CLOSED` | 5 | cannot connect to … | check the address, firewall or service on the other side |
@@ -203,6 +205,8 @@ This page is made from the code (`komando schema` lists the same under
 | `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster describe … service/…` |
 | `RULE_NOT_FOUND` | 3 | no custom deny rule named … | see the custom rules and their ids with `komando policy list` |
 | `SAFETY_SETTING` | 6 | … weakens komando's safety checks | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
+| `SEALED_FILE_INVALID` | 2 | … is damaged or cut short: komando cannot read it as a sealed file; nothing was imported | copy the file again whole, or make it again with `komando export --sealed --to FILE` |
+| `SEALED_FILE_UNSUPPORTED` | 2 | … is sealed for the iPhone app: only the phone whose key it was sealed to opens it; nothing was imported | on the old computer, make a file for this one with `komando export --sealed --to FILE` |
 | `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME |
 | `SECRET_INPUT_INVALID` | 2 | … the value of a secret in komando's vault; an AI agent never sends one (this was written to the audit log) | never type a secret's value: put {{secret:NAME}} where komando takes it (fs write, fs replace, -e), or ask the user to keep the value with `komando secret set NAME` and use that name |
