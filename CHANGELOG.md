@@ -7,6 +7,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Security
+- `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
+- The release can sign the macOS binaries with the project's Developer ID and have Apple notarize them, so Gatekeeper accepts them. Until the owner adds the signing secrets, macOS binaries stay unsigned and the release log says so.
+
 ### Added
 - SSH user certificates: a key's OpenSSH certificate (`KEY-cert.pub` next to the key file, as `ssh` uses it) is offered at login, then the key alone, so servers that trust an SSH certificate authority let komando in. `key add --cert FILE` and `key edit --cert FILE` (`--unset cert`) name one kept elsewhere or for a key komando made; a certificate for another key is refused (`KEY_INVALID`) and one that is not valid now is left out with a warning. Keys show `cert_path` when one is set.
 
