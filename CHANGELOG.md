@@ -7,6 +7,42 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-13
+
+### Highlights
+
+- **People type commands too.** The plain-language menu is gone. Type a
+  command like `komando db query`; komando asks only for what is missing,
+  with a list to pick from, shows the full command, and asks
+  `Run it? [y/N, d]` before a change. After it works, `Next:` names the
+  usual next step. AI agents see no change in how they are asked.
+- **One command standard.** `list` is the listing verb everywhere (`ls`
+  still works), flags and short letters mean one thing everywhere, and
+  removing something asks you to type its name. `komando schema` says what
+  each command needs before it runs (`confirm`).
+- **Remote commands go after `--`.** `komando exec web1 -- apt-get install
+  -y nginx`: words after `--` belong to the server, so apt's `-y` can no
+  longer be read as komando's `--yes`.
+- **Breaking for scripts: old names are removed, not kept.** For example
+  `recipe add --sudo` is `--needs-sudo`, `db dump --on` is `--run-on`,
+  `pkg security --apply` is `pkg upgrade --security`, `-n` in the cluster
+  commands is `--namespace`, and `secret rm`, `key rm --delete-file` and
+  `fs rm` need `--allow-dangerous`. `komando seal` is gone: a folder from
+  before 0.12 is no longer read. The full list is under "Changed for
+  scripts and agents" and "Removed".
+- **Safer.** Over 35 security fixes, among them: an AI agent could take a
+  VPN password through a program it placed in PATH; root could be made to
+  write through a link another user planted on the server; the approval
+  window now shows a whole script, and every Linux desktop needs the
+  approval code; password-manager tokens leave the environment; on Windows
+  komando's folder is yours alone.
+- **Clearer.** Every message follows one style (what happened, why, the
+  command to run next), and the documentation is rewritten for beginners,
+  with an install page for Windows too.
+- **Also:** `cluster apply` no longer takes over fields another tool owns
+  unless you add `--force-conflicts`, and SQL Server certificates with a
+  negative serial number are accepted.
+
 ### Changed for scripts and agents
 
 This release makes every command follow one standard. `meta.contract`
@@ -4189,7 +4225,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/sgnd/komando/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/sgnd/komando/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/sgnd/komando/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/sgnd/komando/compare/v0.9.0...v0.10.0
