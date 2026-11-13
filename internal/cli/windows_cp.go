@@ -32,10 +32,13 @@ func winCopy(ctx context.Context, c *sshx.Client, local, remote string, up bool,
 			return nil, localFileErr("PATH_NOT_FOUND", err, "")
 		}
 		defer f.Close()
-		m, err := winWrite(ctx, c, remote, f, winWriteOpts{mkdirs: o.mkdirs, intoDir: filepath.Base(local)})
+		pp := progressFrom(ctx)
+		pp.start(local)
+		m, err := winWrite(ctx, c, remote, pp.reader(f), winWriteOpts{mkdirs: o.mkdirs, intoDir: filepath.Base(local)})
 		if err != nil {
 			return nil, err
 		}
+		pp.fileDone()
 		return xferStats{Files: 1, Bytes: atoi64(m["bytes"]), Dest: m["path"], SHA256: m["sha256"], Replaced: m["replaced"] == "True"}, nil
 	}
 	dst := local
@@ -69,11 +72,15 @@ try {
   while (($k = $fs.Read($buf, 0, $buf.Length)) -gt 0) { [Console]::Out.WriteLine([Convert]::ToBase64String($buf, 0, $k)) }
   [Console]::Out.Flush()
 } finally { $fs.Close() }`)
+	pp := progressFrom(ctx)
+	pp.unknown() // the size comes with the file
+	pp.start(src)
 	w := &b64Sink{save: func(in io.Reader) (xferStats, error) {
-		n, sum, masked, err := fetchFile(ctx, in, dst, 0o644, time.Time{}, overwrite, nil)
+		n, sum, masked, err := fetchFile(ctx, in, dst, 0o644, time.Time{}, overwrite, pp.writer())
 		if err != nil {
 			return xferStats{}, err
 		}
+		pp.fileDone()
 		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 	}}
 	code, stderr, err := sshx.RunPS(ctx, c, script, nil, w)

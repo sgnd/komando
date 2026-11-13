@@ -457,6 +457,8 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 	if g.dryRun {
 		return res, nil
 	}
+	pp := progressFrom(ctx)
+	pp.total(res.Copied+res.Updated, res.Bytes)
 	for _, a := range acts {
 		if err := ctx.Err(); err != nil {
 			return res, err // Ctrl-C: what was copied so far stays
@@ -467,7 +469,8 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 			if err != nil {
 				return res, err
 			}
-			err = dst.write(ctx, a.Path, r, sf[a.Path])
+			pp.start(a.Path)
+			err = dst.write(ctx, a.Path, pp.reader(r), sf[a.Path])
 			r.Close()
 			if ctx.Err() != nil {
 				return res, ctx.Err()
@@ -475,6 +478,7 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 			if err != nil {
 				return res, fmt.Errorf("%s: %w", a.Path, err)
 			}
+			pp.fileDone()
 		case "delete":
 			if err := dst.remove(ctx, a.Path); err != nil {
 				return res, fmt.Errorf("%s: %w", a.Path, err)
@@ -527,6 +531,7 @@ func (r *syncResult) Text() string {
 
 func syncCmd() *cobra.Command {
 	var o syncOpts
+	var progress bool
 	c := &cobra.Command{
 		Use:   "sync SRC DST",
 		Short: "Copy a folder one way, sending only new and changed files",
@@ -543,32 +548,39 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
   komando sync web1:/var/log/app ./logs/web1`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			srcT, srcP, srcRemote := splitArg(args[0])
-			dstT, dstP, dstRemote := splitArg(args[1])
-			switch {
-			case srcRemote && dstRemote:
-				return out.Usage("both sides are remote; sync needs one folder on this computer (go remote to remote by way of a local folder)")
-			case !srcRemote && !dstRemote:
-				return out.Usage("neither side is remote: write one as TARGET:PATH (servers) or CONN:PREFIX (storage); a local name with a colon is written ./name")
-			}
-			if !srcRemote {
-				fi, err := os.Stat(srcP)
-				if err != nil {
-					return localFileErr("PATH_NOT_FOUND", err, "")
-				}
-				if !fi.IsDir() {
-					return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
-				}
-			}
-			if dstRemote {
-				return colonHint(syncUp(cmd.Context(), "sync", srcP, dstT, dstP, o), args[1])
-			}
-			return colonHint(syncDown(cmd.Context(), "sync", srcT, srcP, dstP, o), args[0])
+			ctx, finish := startProgress(cmd.Context(), progress)
+			return finish(runSyncArgs(ctx, args, o))
 		},
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
 	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
+	c.Flags().BoolVar(&progress, "progress", false, progressUsage)
 	return c
+}
+
+// runSyncArgs is sync: up or down, by which side is remote.
+func runSyncArgs(ctx context.Context, args []string, o syncOpts) error {
+	srcT, srcP, srcRemote := splitArg(args[0])
+	dstT, dstP, dstRemote := splitArg(args[1])
+	switch {
+	case srcRemote && dstRemote:
+		return out.Usage("both sides are remote; sync needs one folder on this computer (go remote to remote by way of a local folder)")
+	case !srcRemote && !dstRemote:
+		return out.Usage("neither side is remote: write one as TARGET:PATH (servers) or CONN:PREFIX (storage); a local name with a colon is written ./name")
+	}
+	if !srcRemote {
+		fi, err := os.Stat(srcP)
+		if err != nil {
+			return localFileErr("PATH_NOT_FOUND", err, "")
+		}
+		if !fi.IsDir() {
+			return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
+		}
+	}
+	if dstRemote {
+		return colonHint(syncUp(ctx, "sync", srcP, dstT, dstP, o), args[1])
+	}
+	return colonHint(syncDown(ctx, "sync", srcT, srcP, dstP, o), args[0])
 }
 
 // guardDelete: --delete removes files for good, like `storage rm`. A person
@@ -622,7 +634,10 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 	if err := guard(st, hosts, "", true); err != nil {
 		return err
 	}
+	progressFrom(ctx).eachServer(len(hosts)) // each server needs its own files
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		ctx, settle := progressServer(ctx)
+		defer settle()
 		sc, err := sftpClient(c)
 		if err != nil {
 			return nil, err

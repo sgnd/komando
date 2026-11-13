@@ -31,10 +31,10 @@ func TestStorageTransferIsUploadDownload(t *testing.T) {
 		}
 		return c
 	}
-	if got := flagNames(find("storage upload")); !slices.Equal(got, []string{"recursive"}) {
+	if got := flagNames(find("storage upload")); !slices.Equal(got, []string{"progress", "recursive"}) {
 		t.Errorf("storage upload flags: %v", got)
 	}
-	if got := flagNames(find("storage download")); !slices.Equal(got, []string{"overwrite", "recursive", "to"}) {
+	if got := flagNames(find("storage download")); !slices.Equal(got, []string{"overwrite", "progress", "recursive", "to"}) {
 		t.Errorf("storage download flags: %v", got)
 	}
 	for _, p := range []string{"storage upload", "storage download"} {

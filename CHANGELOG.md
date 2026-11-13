@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+- `--progress` on `upload`, `download`, `cp`, `sync` and `storage upload/download`: with `-o json`, komando writes how far the copy is to stderr, one JSON object per line, at most about four a second (`{"event":"progress","file":…,"bytes_done":…,"bytes_total":…,"files_done":…,"files_total":…}`), then one `{"event":"done",…,"ok":…}` line, so an app or agent can draw a progress bar. A total is `null` when komando cannot know it. The result on stdout is unchanged, and without `--progress` (or in text mode) nothing changes.
+
 ### Security
 - `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
 - The release can sign the macOS binaries with the project's Developer ID and have Apple notarize them, so Gatekeeper accepts them. Until the owner adds the signing secrets, macOS binaries stay unsigned and the release log says so.
