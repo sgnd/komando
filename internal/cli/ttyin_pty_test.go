@@ -82,7 +82,7 @@ func startPTYEnv(t *testing.T, env []string, args ...string) *ptyRun {
 	}
 	p := &ptyRun{t: t, master: m, tty: tty, report: filepath.Join(t.TempDir(), "report")}
 	p.cmd = exec.Command(os.Args[0], "-test.run=^TestPTYChild$")
-	p.cmd.Env = append(append(os.Environ(), "KOMANDO_PTY_ARGS="+strings.Join(args, "\x1f"), "KOMANDO_PTY_REPORT="+p.report, "KOMANDO_OUTPUT=text"), env...)
+	p.cmd.Env = append(append(environWithout("CI"), "KOMANDO_PTY_ARGS="+strings.Join(args, "\x1f"), "KOMANDO_PTY_REPORT="+p.report, "KOMANDO_OUTPUT=text"), env...)
 	// this process took the passphrase out of its environment; the child
 	// needs it for every command, as a person's own shell would give it
 	if pass := vault.Passphrase(); pass != "" {
@@ -272,4 +272,23 @@ func TestPTYOneLinePaste(t *testing.T) {
 			t.Errorf("%q: echo on %v, %d bytes left", typed, echo, left)
 		}
 	}
+}
+
+// environWithout is this process's environment without the named variables:
+// a PTY test plays a person at a terminal, which a CI job's CI=true would
+// turn into a script that is never asked anything.
+func environWithout(names ...string) []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		keep := true
+		for _, n := range names {
+			if strings.HasPrefix(kv, n+"=") {
+				keep = false
+			}
+		}
+		if keep {
+			env = append(env, kv)
+		}
+	}
+	return env
 }

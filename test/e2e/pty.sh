@@ -3,13 +3,17 @@
 
 # ptyrun INPUT CMD... runs CMD in a pseudo-terminal, as a person typing would:
 # INPUT is typed once a [y/N] question shows or after 3s. Prints what the
-# terminal showed and exits with CMD's exit code.
+# terminal showed and exits with CMD's exit code. CI is left out of CMD's
+# environment: a person at a terminal is not a CI job, and komando never
+# asks anything when CI is set (so CI's own CI=true would hide every question).
 ptyrun() {
   python3 -I - "$@" <<'PY'
 import os, pty, select, sys, time
 pid, fd = pty.fork()
 if pid == 0:
-    os.execvp(sys.argv[2], sys.argv[2:])
+    env = dict(os.environ)
+    env.pop("CI", None)
+    os.execvpe(sys.argv[2], sys.argv[2:], env)
 out, sent, start = b"", False, time.time()
 while time.time() - start < 30:
     if not sent and (b"[y/N]" in out or time.time() - start > 3):

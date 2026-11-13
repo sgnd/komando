@@ -277,7 +277,7 @@ func TestFormHostAddAtATerminal(t *testing.T) {
 	p.answer("a password was in it", "\r") // User [root]
 	p.answer("System [Linux]: ", "\r")
 	p.answer("Port [22]: ", "\r")
-	p.answer("Login [My SSH key]: ", "2\r") // A password
+	p.answer("Login [", "2\r") // A password (the default depends on ~/.ssh)
 	p.answer("Production [Yes, protect it]: ", "\r")
 	p.waitFor("$ komando host add web1 root@203.0.113.20 --ask-password --protected")
 	p.waitFor("$ komando test web1")
