@@ -426,10 +426,10 @@ func waitVerdict(s *jobStatus, waitTimeout time.Duration) *out.Error {
 	switch {
 	case s.State == "running":
 		return out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "it is still running: `komando job wait "+s.ID+"` waits again, `komando job logs "+s.ID+" --limit 50` shows its output so far", "job %s still running after %s", s.ID, waitTimeout)
-	case s.State == "killed" && s.TimedOut:
-		return out.Errf(out.ExitRemote, "JOB_KILLED", "it ran longer than job start --timeout allowed; start it again with a longer --timeout, or without one", "job %s was stopped by its --timeout", s.ID)
-	case s.State == "killed":
+	case s.State == "killed" && !s.TimedOut:
 		return out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", s.ID, s.Signal)
+	case s.State == "killed":
+		return out.Errf(out.ExitRemote, "JOB_KILLED", "it ran longer than job start --timeout allowed; start it again with a longer --timeout, or without one", "job %s was stopped by its --timeout", s.ID)
 	case s.State == "lost":
 		return out.Errf(out.ExitRemote, "JOB_LOST", "it stopped without an exit code (killed, or the server restarted): `komando job logs "+s.ID+" --limit 50` shows how far it got; start it again with `komando job start "+s.Host+" -- "+sshx.Q(s.Command)+"` if needed", "job %s lost", s.ID)
 	case s.ExitCode != nil && *s.ExitCode != 0:
