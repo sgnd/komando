@@ -185,6 +185,8 @@ var errorCodes = []errorCode{
 	{"REGISTRY_UNREACHABLE", 4, "the registry did not answer (address, TLS or --via path)", "check the conn with `komando test TARGET`"},
 	{"REGISTRY_UNSUPPORTED", 5, "… has no list of every repository", "name the repository: `komando registry list CONN REPO` (on Docker Hub, nginx means library/nginx)"},
 	{"RELEASES_UNREACHABLE", 4, "cannot reach komando's releases: …", "check this computer's internet connection (and HTTPS_PROXY), then run it again"},
+	{"RELEASE_SIGNATURE_INVALID", 2, "komando … is not signed with the komando project's key; nothing was changed", "do not install it another way, someone may have replaced the release's files: report it privately at …/security, and check again later with `komando update --dry-run`"},
+	{"RELEASE_SIGNATURE_NOT_FOUND", 3, "komando … has no signature, so komando cannot tell it comes from the komando project; nothing was changed", "releases up to … have no signature: to go back to one anyway, use the install line with KOMANDO_VERSION=… (…#install); to stay on a signed release, run `komando update`"},
 	{"REMOTE_ERROR", 1, "an error from outside komando with no more specific code (its words follow)", "run it again with -o json for the details; `komando doctor` checks this computer's setup"},
 	{"RENAME_FAILED", 1, "the vault cannot rename the VPN's secrets: …; nothing was renamed", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)"},
 	{"RESERVED_SECRET", 2, "secret … belongs to komando's approval code", "a person manages it with `komando config approval-code`"},
