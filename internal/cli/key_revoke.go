@@ -41,17 +41,22 @@ func revokeTarget(st *store.State, arg string) (blob, label string, k *store.Key
 
 func keyRevokeCmd() *cobra.Command {
 	var user string
+	var allUsers bool
 	c := &cobra.Command{
 		Use:   "revoke NAME TARGET",
 		Short: "Take a public key off servers' authorized_keys",
 		Long: `KEY is a key in komando's key list, a .pub file, or a public key line. Every line
 with that key is removed from ~/.ssh/authorized_keys of the login user, or
-of --user NAME (with sudo). The file keeps its owner and mode. Revoking the
+of --user NAME (with sudo), or of every user on the server with --all-users
+(with sudo: someone who left may have put the key in another account too;
+the dry run names each user whose file holds it). The file keeps its owner
+and mode, and is read and written as its user. Revoking the
 key komando itself logs in with needs --allow-dangerous: you would lock
 yourself out. --dry-run counts the lines it would remove.`,
 		Example: `  komando key revoke ~/keys/alice.pub @prod --dry-run
   komando key revoke "ssh-ed25519 AAAAC3Nz...xyz alice@laptop" @prod
-  komando key revoke old-deploy @web --user deploy`,
+  komando key revoke old-deploy @web --user deploy
+  komando key revoke ~/keys/alice.pub @prod --all-users --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -66,6 +71,9 @@ yourself out. --dry-run counts the lines it would remove.`,
 			if err != nil {
 				return err
 			}
+			if allUsers && user != "" {
+				return out.Usage("give --user NAME or --all-users, not both")
+			}
 			if k != nil && user == "" {
 				if err := guardRevokeSelf(st, hosts, k.Name); err != nil {
 					return err
@@ -78,13 +86,22 @@ yourself out. --dry-run counts the lines it would remove.`,
 				return out.Usage("%q cannot be a user name: use letters, digits and . _ -", user)
 			}
 			script := revokeScript(user, blob, g.dryRun)
+			if allUsers {
+				script = revokeAllScript(blob, g.dryRun)
+			}
 			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: user != "", Timeout: 30 * time.Second, MaxOutput: 4096})
+				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: user != "" || allUsers, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 				if err != nil {
 					return nil, err
 				}
+				if e := sudoProblem(c.Host.Name, r); e != nil && (user != "" || allUsers) {
+					return nil, e
+				}
 				if r.ExitCode != 0 {
 					return nil, out.Errf(out.ExitRemote, "REVOKE_FAILED", "run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys`", "%s", strings.TrimSpace(r.Stderr))
+				}
+				if allUsers {
+					return parseRevokeAll(r.Stdout), nil
 				}
 				n, _ := strconv.Atoi(strings.TrimSpace(r.Stdout))
 				return n, nil
@@ -109,19 +126,75 @@ yourself out. --dry-run counts the lines it would remove.`,
 						field = "would_remove"
 					}
 					r["ok"], r[field] = true, o.Value
+					if all, ok := o.Value.(revokedUsers); ok {
+						r[field], r["users"] = all.total(), all
+					}
 					data.Summary.OK++
 				}
 				data.Results = append(data.Results, r)
 			}
 			data.Summary.Total = len(res)
 			if !g.dryRun {
-				audit(st, "key.revoke", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": label, "user": user})
+				audit(st, "key.revoke", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": label, "user": user, "all_users": allUsers})
 			}
 			return finish("key.revoke", data, data.Summary, worst)
 		},
 	}
 	c.Flags().StringVar(&user, "user", "", "edit this user's authorized_keys instead of the login user's (uses sudo)")
+	c.Flags().BoolVar(&allUsers, "all-users", false, "edit every user's authorized_keys on the server (uses sudo)")
 	return c
+}
+
+// revokedUsers is what --all-users removed (or would remove) per user:
+// only the users whose file held the key, and those whose file could not
+// be changed (removed -1).
+type revokedUsers []revokedUser
+
+type revokedUser struct {
+	User    string `json:"user"`
+	Removed int    `json:"removed"` // -1: the file could not be read or changed
+}
+
+func (u revokedUsers) total() int {
+	n := 0
+	for _, r := range u {
+		n += max(r.Removed, 0)
+	}
+	return n
+}
+
+// parseRevokeAll reads revokeAllScript's lines "USER COUNT" (COUNT is
+// "err" when the user's file could not be changed).
+func parseRevokeAll(s string) revokedUsers {
+	res := revokedUsers{}
+	for _, l := range strings.Split(strings.TrimSpace(s), "\n") {
+		f := strings.Fields(l)
+		if len(f) != 2 {
+			continue
+		}
+		n, err := strconv.Atoi(f[1])
+		switch {
+		case err != nil:
+			n = -1
+		case n == 0:
+			continue
+		}
+		res = append(res, revokedUser{User: f[0], Removed: n})
+	}
+	return res
+}
+
+// revokeAllScript is revokeScript for every user that has an
+// authorized_keys file (getent passwd), run as root: each file is read
+// and written as its own user, as with --user. It prints "USER COUNT".
+func revokeAllScript(blob string, dry bool) string {
+	edit := revokeEdit(dry)
+	loop := `getent passwd | while IFS=: read -r u _ _ _ _ h _; do ` +
+		`case "$h" in /*) ;; *) continue ;; esac; [ "$h" != / ] && [ -f "$h/.ssh/authorized_keys" ] || continue; ` +
+		`if [ "$(id -un)" = "$u" ]; then n=$(sh -c "$1" sh "$h" "$2" 2>/dev/null); else n=$(su -s /bin/sh "$u" -c "$1" sh "$h" "$2" 2>/dev/null </dev/null); fi; ` +
+		`case "$n" in ''|*[!0-9]*) n=err ;; esac; echo "$u $n"; done`
+	// the edit and the key go as $1 and $2, never inside the loop's text
+	return "sh -c " + sshx.Q(loop) + " sh " + sshx.Q(edit) + " " + sshx.Q(blob)
 }
 
 // guardRevokeSelf stops key revoke of the key komando logs in to hosts
@@ -141,16 +214,22 @@ func guardRevokeSelf(st *store.State, hosts []*store.Host, key string) error {
 		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit TARGET --key OTHER`)"}})
 }
 
+// revokeEdit removes the key ($2) from $1/.ssh/authorized_keys and prints
+// how many lines held it (dry: only counts).
+func revokeEdit(dry bool) string {
+	edit := `f="$1/.ssh/authorized_keys"; [ -f "$f" ] || { echo 0; exit 0; }; n=$(grep -cF -- "$2" "$f" || true); `
+	if !dry {
+		edit += `if [ "$n" -gt 0 ]; then t=$(umask 077; mktemp "$f.XXXXXX") && { grep -vF -- "$2" "$f" > "$t" || true; } && cat "$t" > "$f"; rm -f "$t"; fi; `
+	}
+	return edit + `echo "$n"`
+}
+
 // revokeScript removes the key blob from authorized_keys and prints how
 // many lines held it (dry: only counts). With user it runs as root, but
 // the file belongs to that user, often the one leaving: it is read and
 // written as the user (su), never by root through a link they planted.
 func revokeScript(user, blob string, dry bool) string {
-	edit := `f="$1/.ssh/authorized_keys"; [ -f "$f" ] || { echo 0; exit 0; }; n=$(grep -cF -- "$2" "$f" || true); `
-	if !dry {
-		edit += `if [ "$n" -gt 0 ]; then t=$(umask 077; mktemp "$f.XXXXXX") && { grep -vF -- "$2" "$f" > "$t" || true; } && cat "$t" > "$f"; rm -f "$t"; fi; `
-	}
-	edit += `echo "$n"`
+	edit := revokeEdit(dry)
 	if user == "" {
 		return "sh -c " + sshx.Q(edit) + ` sh "$HOME" ` + sshx.Q(blob)
 	}
