@@ -25,6 +25,8 @@ its highlights; the sections below them give the details. Versions follow
 - A job's `--env` values and its input (`--script`, `--stdin-file`) now reach the command through a pipe from the job's private folder instead of being read from files there, so a command run as another user gets them too. With a sudo password, the job first asks sudo whether it needs one and deletes it unread when it does not.
 ### Added
 - `komando status` lists the AWS IAM Identity Center (SSO) logins of the profiles in `~/.aws/config`, with the profiles that share each one, when its token runs out and whether it renews itself (`data.aws_logins`). `komando logout aws --profile NAME` (or `--all`) ends one as `aws sso logout` does: AWS is told to end the token and the login in `~/.aws/sso/cache` is deleted. Before, `komando logout aws` was read as a server named aws.
+### Added
+- Docs: "Restore from a backup" in the import guide: which backups of `~/.komando` open on this computer and on a new one (passphrase, `store.key`, keychain), and what to do about `STORE_OLD_COPY` after a restore.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
