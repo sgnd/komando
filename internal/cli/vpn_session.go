@@ -164,6 +164,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if s := cur.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
 			return s, nil // another command started it meanwhile
 		}
+		sweepLogs("vpn", liveLogs(cur)) // logs of VPNs (some since removed) unused for a week
 	}
 	logFile := filepath.Join(dir, v.Name+".log")
 	password := ""
