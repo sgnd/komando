@@ -337,9 +337,14 @@ line itself:
 komando key revoke ~/keys/alice.pub @web --dry-run   # how many lines per server
 komando key revoke ~/keys/alice.pub @web
 komando key revoke old-deploy @web --user deploy     # another user's file (uses sudo)
+komando key revoke ~/keys/alice.pub @web --all-users --dry-run   # every user's file: who has it
 ```
 
-The `authorized_keys` file keeps its owner and mode. Revoking the key
+`--all-users` (with sudo) looks in the `authorized_keys` of every user on
+the server: someone who left may have put the key into another account
+too. The result lists each user whose file held it (`users`). The
+`authorized_keys` file keeps its owner and mode, and is read and written as
+its own user. Revoking the key
 komando itself logs in with needs `--allow-dangerous`, because you would
 lock yourself out.
 

@@ -209,6 +209,13 @@ $K key deploy leaver direct >/dev/null
 check "key revoke --dry-run counts" 1 "$($K key revoke leaver direct --dry-run | jget 'd["data"]["results"][0]["would_remove"]')"
 check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]["results"][0]["removed"]')"
 check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+# --all-users: the key in two accounts (agent and ops), each file changed as its user
+LEAVER=$($K key show leaver | jget 'd["data"]["public_key"]')
+q $K exec direct --sudo -- "for u in agent ops; do h=\$(getent passwd \$u | cut -d: -f6); mkdir -p \$h/.ssh; echo '$LEAVER' >> \$h/.ssh/authorized_keys; chown -R \$u \$h/.ssh; done"
+check "key revoke --all-users --dry-run names each user" "agent:1 ops:1" "$($K key revoke leaver direct --all-users --dry-run | jget '" ".join(u["user"]+":"+str(u["removed"]) for u in d["data"]["results"][0]["users"])')"
+check "key revoke --all-users removes it everywhere" 2 "$($K key revoke leaver direct --all-users | jget 'd["data"]["results"][0]["removed"]')"
+check "ops's file keeps its owner" ops "$($K exec direct --sudo -- 'stat -c %U ~ops/.ssh/authorized_keys' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "login still works after --all-users" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
 check "proxy command carries ssh" ok "$($K exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # pc logs in with a key komando made, sealed in the store: OpenSSH gets it
