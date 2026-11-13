@@ -9,7 +9,7 @@ GOVULNCHECK := v1.9.0
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 export PLATFORMS
 
-.PHONY: help build install test cover security fuzz e2e e2e-areas e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
+.PHONY: help build install test cover security fuzz e2e e2e-areas e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses bins dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -74,14 +74,30 @@ lint: ## gofmt + go vet + staticcheck
 licenses: ## Write dist/THIRD_PARTY_LICENSES (licenses of everything built into komando)
 	scripts/third-party-licenses.sh dist/THIRD_PARTY_LICENSES
 
-dist: ## Build release archives + checksums into ./dist
+# a release binary, as `make bins` and `make dist` build it
+GOBUILD = CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)"
+OUT ?= bins
+
+bins: ## Build release binaries into OUT/komando_OS_ARCH/ (OUT=bins; PLATFORMS picks which)
+	@for p in $(PLATFORMS); do \
+	  os=$${p%/*}; arch=$${p#*/}; name=komando_$${os}_$${arch}; \
+	  exe=komando; [ $$os = windows ] && exe=komando.exe; \
+	  echo "  $$name"; mkdir -p $(OUT)/$$name && \
+	  GOOS=$$os GOARCH=$$arch $(GOBUILD) -o $(OUT)/$$name/$$exe ./cmd/komando || exit 1; \
+	done
+
+dist: ## Build release archives + checksums into ./dist (SIGNED=DIR: take the binaries found in DIR, from `make bins`, instead of building them)
 	rm -rf dist && mkdir -p dist
 	scripts/third-party-licenses.sh dist/THIRD_PARTY_LICENSES
 	@for p in $(PLATFORMS); do \
 	  os=$${p%/*}; arch=$${p#*/}; name=komando_$${os}_$${arch}; \
 	  exe=komando; [ $$os = windows ] && exe=komando.exe; \
-	  echo "  $$name"; mkdir -p dist/$$name && \
-	  CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$$name/$$exe ./cmd/komando && \
+	  mkdir -p dist/$$name && \
+	  if [ -n "$(SIGNED)" ] && [ -f "$(SIGNED)/$$name/$$exe" ]; then \
+	    echo "  $$name (signed, from $(SIGNED))" && cp "$(SIGNED)/$$name/$$exe" dist/$$name/$$exe && chmod 755 dist/$$name/$$exe; \
+	  else \
+	    echo "  $$name" && GOOS=$$os GOARCH=$$arch $(GOBUILD) -o dist/$$name/$$exe ./cmd/komando; \
+	  fi && \
 	  cp LICENSE README.md dist/THIRD_PARTY_LICENSES dist/$$name/ && \
 	  if [ $$os = windows ]; then (cd dist/$$name && zip -qX ../$$name.zip *); \
 	  else tar -czf dist/$$name.tar.gz -C dist/$$name .; fi && rm -rf dist/$$name || exit 1; \
@@ -90,4 +106,4 @@ dist: ## Build release archives + checksums into ./dist
 	cd dist && (sha256sum *.tar.gz *.zip 2>/dev/null || shasum -a 256 *.tar.gz *.zip) > checksums.txt
 
 clean: ## Remove build output
-	rm -rf bin dist
+	rm -rf bin bins dist
