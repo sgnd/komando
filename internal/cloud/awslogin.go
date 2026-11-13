@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/ssocreds"
+	awssso "github.com/aws/aws-sdk-go-v2/service/sso"
 	"github.com/aws/aws-sdk-go-v2/service/ssooidc"
 	"github.com/aws/aws-sdk-go-v2/service/ssooidc/types"
 
@@ -190,4 +191,132 @@ func firstPtr(v ...*string) *string {
 		}
 	}
 	return nil
+}
+
+// ssoEndpoint points the SSO logout at a test server when set.
+var ssoEndpoint = ""
+
+// AWSLogin is an IAM Identity Center (SSO) login saved in the aws CLI's
+// cache (~/.aws/sso/cache): by komando login aws, aws sso login or an
+// SDK. It never holds the token itself.
+type AWSLogin struct {
+	Profiles   []string  `json:"profiles"`              // the ~/.aws/config profiles that use it
+	StartURL   string    `json:"sso_start_url"`         // the sign-in page
+	Region     string    `json:"sso_region"`            // where IAM Identity Center runs
+	Session    string    `json:"sso_session,omitempty"` // the [sso-session NAME] it belongs to
+	LoggedInAt time.Time `json:"logged_in_at,omitzero"` // when the token was saved
+	ExpiresAt  time.Time `json:"expires_at"`            // when the token runs out
+	// Renews: it has a refresh token, so the SDKs and komando get a new
+	// token after expires_at, for as long as the AWS session lasts
+	Renews bool   `json:"renews,omitempty"`
+	File   string `json:"-"`
+}
+
+// ssoCache is the part of a cache file komando reads.
+type ssoCache struct {
+	StartURL              string `json:"startUrl"`
+	Region                string `json:"region"`
+	AccessToken           string `json:"accessToken"`
+	ExpiresAt             string `json:"expiresAt"`
+	RefreshToken          string `json:"refreshToken"`
+	RegistrationExpiresAt string `json:"registrationExpiresAt"`
+}
+
+// readSSOCache reads the cache file of sso; ok is false when there is no
+// login that still works (no file, no token, run out and not renewable).
+func readSSOCache(sso AWSSSO, now time.Time) (AWSLogin, ssoCache, bool) {
+	path, err := ssocreds.StandardCachedTokenFilepath(sso.key)
+	if err != nil {
+		return AWSLogin{}, ssoCache{}, false
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return AWSLogin{}, ssoCache{}, false
+	}
+	var c ssoCache
+	if json.Unmarshal(b, &c) != nil || c.AccessToken == "" {
+		return AWSLogin{}, ssoCache{}, false
+	}
+	exp, _ := time.Parse(time.RFC3339, c.ExpiresAt)
+	reg, _ := time.Parse(time.RFC3339, c.RegistrationExpiresAt)
+	renews := c.RefreshToken != "" && now.Before(reg)
+	if !now.Before(exp) && !renews {
+		return AWSLogin{}, ssoCache{}, false
+	}
+	l := AWSLogin{Profiles: []string{sso.Profile}, StartURL: cmpOr(c.StartURL, sso.StartURL), Region: cmpOr(c.Region, sso.Region),
+		ExpiresAt: exp.UTC(), Renews: renews, File: path}
+	if sso.scopes != nil {
+		l.Session = sso.key // an sso-session: its cache file is named after it
+	}
+	if fi, err := os.Stat(path); err == nil {
+		l.LoggedInAt = fi.ModTime().UTC()
+	}
+	return l, c, true
+}
+
+func cmpOr(a, b string) string {
+	if a != "" {
+		return a
+	}
+	return b
+}
+
+// AWSSSOLogins are the SSO logins that still work among the given
+// profiles, one per cache file with every profile that uses it. It reads
+// only files on this computer.
+func AWSSSOLogins(ctx context.Context, profiles []string) []AWSLogin {
+	var ls []AWSLogin
+	at := map[string]int{}
+	now := time.Now()
+	for _, p := range profiles {
+		sso, err := AWSProfileSSO(ctx, p)
+		if err != nil {
+			continue
+		}
+		l, _, ok := readSSOCache(sso, now)
+		if !ok {
+			continue
+		}
+		if i, seen := at[l.File]; seen {
+			ls[i].Profiles = append(ls[i].Profiles, p)
+			continue
+		}
+		at[l.File] = len(ls)
+		l.Profiles = []string{p}
+		ls = append(ls, l)
+	}
+	return ls
+}
+
+// AWSSSOLogout ends the SSO login a profile uses, as `aws sso logout`
+// does: IAM Identity Center is told to end the token (revoked; best
+// effort, it needs the network), then its cache file is deleted. ok is
+// false when the profile has no login that still works.
+func AWSSSOLogout(ctx context.Context, profile string) (l AWSLogin, revoked, ok bool, err error) {
+	sso, err := AWSProfileSSO(ctx, profile)
+	if err != nil {
+		return AWSLogin{}, false, false, err
+	}
+	l, c, ok := readSSOCache(sso, time.Now())
+	if !ok {
+		return AWSLogin{}, false, false, nil
+	}
+	l.Profiles = []string{profile}
+	rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	client := sso.client()
+	_, lerr := client.Logout(rctx, &awssso.LogoutInput{AccessToken: aws.String(c.AccessToken)})
+	if err := os.Remove(l.File); err != nil && !os.IsNotExist(err) {
+		return l, lerr == nil, true, err
+	}
+	return l, lerr == nil, true, nil
+}
+
+// client is the SSO portal client of sso's region.
+func (s AWSSSO) client() *awssso.Client {
+	return awssso.New(awssso.Options{Region: s.Region}, func(o *awssso.Options) {
+		if ssoEndpoint != "" {
+			o.BaseEndpoint = aws.String(ssoEndpoint)
+		}
+	})
 }
