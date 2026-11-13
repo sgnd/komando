@@ -19,6 +19,11 @@ func TestToolSafe(t *testing.T) {
 	if toolSafe(p) {
 		t.Error("a program in a folder of this user counts as safe")
 	}
+	// a root-owned link to a file of this user is not safe: the target counts
+	link := filepath.Join(t.TempDir(), "sh")
+	if err := os.Symlink(p, link); err == nil && toolSafe(link) {
+		t.Error("a link to a program of this user counts as safe")
+	}
 }
 
 // An AI agent that puts its own openconnect first in PATH does not get the
