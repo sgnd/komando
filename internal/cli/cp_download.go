@@ -71,6 +71,12 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 	if !o.recursive {
 		return xferStats{}, out.Usage("%s is a folder; add -r", src)
 	}
+	return downloadFolder(ctx, sc, src, dst, dstIsDir, dstSlash, o)
+}
+
+// downloadFolder is download -r: the folder src (its contents with a
+// trailing /) into dst, as cpFolderRule says.
+func downloadFolder(ctx context.Context, sc *sftp.Client, src, dst string, dstIsDir, dstSlash bool, o cpOpts) (xferStats, error) {
 	contents := strings.HasSuffix(src, "/")
 	src = path.Clean(src)
 	dst = filepath.FromSlash(treeDest(filepath.ToSlash(filepath.Clean(dst)), path.Base(src), contents, dstIsDir, dstSlash))
