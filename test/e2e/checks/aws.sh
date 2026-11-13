@@ -56,6 +56,23 @@ check "login aws: an agent's dry run is not blocked" NEEDS_PERSON \
 O=$(ptyrun "" env NO_COLOR=1 TERM=dumb AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null "$K" -o text --dry-run login aws --profile e2e-sso | tr -d '\r')
 check "person: login aws --dry-run shows the SSO start page" 1 "$(grep -c 'sso_start_url: https://e2e-nowhere.awsapps.com/start' <<<"$O")"
 
+# storage list/rm --all-versions in a bucket with versioning (moto)
+VB="http://127.0.0.1:$E2E_MOTO/e2e-ver"
+curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$VB" >/dev/null
+curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$VB?versioning" \
+  -d '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>' >/dev/null
+for v in one two; do curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$VB/app.cfg" -d "$v" >/dev/null; done
+printf '[default]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/ver-credentials"
+VERENV=(env AWS_SHARED_CREDENTIALS_FILE="$TMP/ver-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true AWS_PROFILE=)
+q "${VERENV[@]}" $K conn add t-ver "s3://e2e-ver?endpoint=http://127.0.0.1:$E2E_MOTO&region=us-east-1" --option aws_profile=default
+q "${VERENV[@]}" $K storage rm t-ver app.cfg --allow-dangerous
+check "storage list --all-versions shows the old ones" 3 "$("${VERENV[@]}" $K storage list t-ver --all-versions | jget 'd["data"]["count"]')"
+check "storage rm --all-versions --dry-run counts them" 3 "$("${VERENV[@]}" $K storage rm t-ver app.cfg --all-versions --dry-run | jget 'd["data"]["count"]')"
+q "${VERENV[@]}" $K storage rm t-ver app.cfg --all-versions --allow-dangerous
+check "storage rm --all-versions leaves nothing" 0 "$("${VERENV[@]}" $K storage list t-ver --all-versions | jget 'd["data"]["count"]')"
+q $K conn rm t-ver
+rm -f "$TMP/ver-credentials"
+
 # a role assumed from static keys through STS (moto): komando's own STS
 # call gives the role's keys, which then list the bucket
 curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "http://127.0.0.1:$E2E_MOTO/e2e-sts" >/dev/null ||

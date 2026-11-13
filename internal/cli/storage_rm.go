@@ -21,13 +21,18 @@ import (
 func storageRmCmd() *cobra.Command {
 	var prefix, olderThan string
 	var limit int
+	var allVersions bool
 	c := &cobra.Command{
 		Use:   "rm CONN [OBJECT...]",
 		Short: "Delete objects by name or prefix",
 		Long: `Without --prefix, rm takes exact keys (no patterns). With --prefix it removes
 every object under that folder, or with --older-than only the ones older
 than that (30d, 12h): the usual cleanup of old backups. --dry-run lists them
-first; --max-remove (default 1000) refuses to go on when more would be removed.`,
+first; --max-remove (default 1000) refuses to go on when more would be removed.
+
+In an S3 bucket with versioning, rm leaves the old versions behind (and a
+delete marker): --all-versions removes every version of the keys too, so
+they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows them.`,
 		Example: `  komando storage rm backups tmp/old.sql.gz --allow-dangerous
   komando storage rm backups --prefix daily/ --older-than 30d --dry-run
   komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous`,
@@ -44,6 +49,9 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.`
 			}
 			if prefix != "" && len(keys) > 0 {
 				return out.Usage("give keys or --prefix, not both")
+			}
+			if allVersions && prefix != "" {
+				return out.Usage("--all-versions takes exact keys; list a folder's versions first with `komando storage list %s %s --all-versions`", args[0], prefix)
 			}
 			for _, k := range keys {
 				if strings.HasSuffix(k, "/") || strings.ContainsAny(k, "*?") {
@@ -65,6 +73,16 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.`
 			if prefix != "" {
 				// list first, even in a dry run: the answer is the list
 				return storageRmPrefix(cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
+			}
+			if allVersions {
+				rec["all_versions"] = true
+				return withStoragePreview(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
+					func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+						return rmAllVersions(ctx, c, s, keys, false)
+					},
+					func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+						return rmAllVersions(ctx, c, s, keys, true)
+					})
 			}
 			return withStoragePreview(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
@@ -99,6 +117,7 @@ first; --max-remove (default 1000) refuses to go on when more would be removed.`
 	spanText(c.Flags(), &olderThan, "older-than", "", true, "with --prefix: only objects older than this (like 30d, 12h, 90m)")
 	// a safety cap, not a list's --limit (S-5.1)
 	c.Flags().IntVar(&limit, "max-remove", 1000, "refuse when more than this many objects would be removed")
+	c.Flags().BoolVar(&allVersions, "all-versions", false, "S3: also remove every old version and delete marker of the keys, so they are really gone")
 	return c
 }
 

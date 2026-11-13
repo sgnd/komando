@@ -211,6 +211,21 @@ agrees. See [Safety](safety.md#what-needs-a-yes).
   is what you mean.
 - `--dry-run` lists the objects one per line with size and date.
 
+### Old versions (S3 versioning)
+
+A bucket with versioning keeps every overwritten or deleted object, and
+`rm` leaves those behind (S3 adds a delete marker). See them, and remove a
+key with every version:
+
+```bash
+komando storage list backups app/ --all-versions               # every version and delete marker
+komando storage rm backups app/config.json --all-versions --dry-run
+komando storage rm backups app/config.json --all-versions      # really gone
+```
+
+`--all-versions` takes exact keys and works on S3 and S3-compatible
+stores; it asks first like any `rm`.
+
 ## Add a Google Cloud or Azure bucket
 
 ```bash
@@ -332,8 +347,9 @@ komando conn rm backups                       # komando forgets it; the files st
   versioning or soft delete, Azure blob versioning or soft delete): `rm`
   removes the current object only. The provider keeps the old versions (S3
   adds a delete marker), they still cost storage, and they can be brought
-  back in the provider's console or CLI. komando does not list or remove
-  old versions; a lifecycle rule on the bucket does that.
+  back in the provider's console or CLI. On S3, `--all-versions` lists and
+  removes them (see [Old versions](#old-versions-s3-versioning)); on Google
+  Cloud and Azure komando does not, and a lifecycle rule on the bucket does.
 - File servers (WebDAV, FTPS, SFTP, FTP, SMB) have no temporary links:
   `storage link` is for S3, Google Cloud and Azure. gcloud's own login and
   an Azure SAS token cannot sign a link either.

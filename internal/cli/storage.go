@@ -281,7 +281,7 @@ func objectTable(objs []storex.Object) string {
 }
 
 func storageLsCmd() *cobra.Command {
-	var recursive bool
+	var recursive, allVersions bool
 	var limit int
 	c := &cobra.Command{
 		Use:   "list CONN [PREFIX]",
@@ -296,6 +296,9 @@ func storageLsCmd() *cobra.Command {
 			}
 			return withStorage(cmd.Context(), "storage.list", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+					if allVersions {
+						return listVersions(ctx, c, s, prefix, limit)
+					}
 					objs, more, err := s.List(ctx, prefix, recursive, limit)
 					if err != nil {
 						return nil, err
@@ -324,6 +327,7 @@ func storageLsCmd() *cobra.Command {
 	}
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "include everything below the prefix, not just one level")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
+	c.Flags().BoolVar(&allVersions, "all-versions", false, "S3: every version and delete marker under the prefix (a bucket with versioning keeps old ones)")
 	return c
 }
 
