@@ -40,7 +40,11 @@ type Host struct {
 	Labels       map[string]string `json:"labels,omitempty"`
 	Env          map[string]string `json:"env,omitempty"` // exported before every command
 	Protected    bool              `json:"protected,omitempty"`
-	Notes        string            `json:"notes,omitempty"`
+	// ForwardAgent lends the server this computer's ssh-agent while
+	// komando is connected (host edit --forward-agent; root there can use
+	// the keys in it meanwhile)
+	ForwardAgent bool   `json:"forward_agent,omitempty"`
+	Notes        string `json:"notes,omitempty"`
 	// OS is "windows" for a Windows server: commands are PowerShell, not
 	// sh. Empty: Linux or another Unix (docs/features/windows.md).
 	OS string `json:"os,omitempty"`

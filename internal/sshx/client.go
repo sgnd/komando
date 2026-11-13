@@ -49,6 +49,9 @@ type Client struct {
 	once  sync.Once
 	// silent: the keepalive got no answer and closed the connection
 	silent atomic.Bool
+	// fwdOnce sets up agent forwarding once per connection (Session)
+	fwdOnce sync.Once
+	fwdErr  error
 	// Win carries the commands of a Windows server reached over WinRM;
 	// such a Client has no SSH connection (Client is nil)
 	Win WinShell
