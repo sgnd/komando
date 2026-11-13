@@ -37,7 +37,7 @@ type hostFlags struct {
 	ssm                                                             bool
 	port                                                            int
 	groups, tags, labels, env                                       []string
-	protected                                                       bool
+	protected, forwardAgent                                         bool
 	addGroups, rmGroups, addTags, rmTags, unset                     []string
 }
 
@@ -65,7 +65,8 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove these tags")
 		kvVar(fl, &f.labels, "label", "", "set label KEY=VALUE (an empty value removes it)")
 		kvVar(fl, &f.env, "env", "e", "set KEY=VALUE, exported before every command (an empty value removes it; repeatable)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,os,transport (transport: back to SSH from WinRM)")
+		fl.BoolVar(&f.forwardAgent, "forward-agent", false, "lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first)")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,forward-agent,os,transport (transport: back to SSH from WinRM)")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, like prod (comma-separated)")
@@ -233,7 +234,8 @@ covers every server in the command.`,
   komando host edit db1 --protected              # production: ask before changes
   komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
   komando host edit web1 web2 web3 --user deploy
-  komando host edit vps1 --ask-password          # type a new password (hidden)`,
+  komando host edit vps1 --ask-password          # type a new password (hidden)
+  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runHostEdit(cmd, args, &f, askPw)
@@ -334,12 +336,19 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
-		"sudo-ref": "sudo-ref", "via": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "os": "os"},
+		"sudo-ref": "sudo-ref", "via": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "forward-agent": "forward-agent", "os": "os"},
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
 		return undo, err
 	}
 	if err := guardProxyCommand(f.proxyCommand, args...); err != nil {
 		return undo, err
+	}
+	if fl.Changed("forward-agent") && f.forwardAgent {
+		// a server that holds your agent can log in anywhere your keys open,
+		// as long as komando is connected to it: a person decides that
+		if err := guardSafety("lending your ssh-agent to " + strings.Join(args, ", ") + " (root there can use your keys while komando is connected)"); err != nil {
+			return undo, err
+		}
 	}
 	if !askPw {
 		return undo, nil
@@ -490,6 +499,9 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 	if fl.Changed("protected") {
 		h.Protected = f.protected
 	}
+	if fl.Changed("forward-agent") {
+		h.ForwardAgent = f.forwardAgent
+	}
 	h.Groups = dedupe(append(removeFold(h.Groups, f.rmGroups), f.addGroups...))
 	h.Tags = dedupe(append(removeFold(h.Tags, f.rmTags), f.addTags...))
 	if err := applyKV(&h.Labels, f.labels); err != nil {
@@ -523,12 +535,14 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 			h.Port = 0
 		case "protected":
 			h.Protected = false
+		case "forward-agent":
+			h.ForwardAgent = false
 		case "os":
 			h.OS = ""
 		case "transport": // back to SSH
 			h.Transport, h.WinRMOpts = "", nil
 		default:
-			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected, os, transport",
+			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected, forward-agent, os, transport",
 				"cannot unset %q", u)
 		}
 	}

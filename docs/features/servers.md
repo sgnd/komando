@@ -327,6 +327,25 @@ terminal you type the key's name; an AI agent or a script adds
 
 To replace a key everywhere, in order, see [Rotate keys and passwords](rotate.md).
 
+### Lend a jump host your ssh-agent
+
+Some work needs your keys on the server itself, for example a `git pull`
+there over SSH, or a hop that komando does not make. `--forward-agent`
+lends the server the keys in your ssh-agent while komando is connected, as
+`ssh -A` does:
+
+```bash
+komando host edit bastion --forward-agent        # asks first
+komando host edit bastion --unset forward-agent  # stop lending it
+```
+
+Anyone who is root on that server can use your keys while komando is
+connected to it, so it is off by default, set per server, and turning it
+on asks you first (`SAFETY_SETTING`; an AI agent needs your yes in the
+window). `host ssh-command` adds `-o ForwardAgent=yes` for such a server.
+Your agent holds only the keys you added to it (`ssh-add`); keys komando
+keeps sealed are never in it unless `host ssh-command` put them there.
+
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.
