@@ -86,6 +86,7 @@ func Execute() int {
 	// no program komando starts inherits the secret stores' unlock values
 	vault.TakeUnlockEnv()
 	noCoreDumps() // a crash writes no memory, secrets and all, to disk
+	noPeek()      // Linux: no process of the same user reads komando's memory
 	// a Windows console shows colour and line clearing only when asked
 	ok, restore := consoleVT(int(os.Stderr.Fd()))
 	defer restore()
