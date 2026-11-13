@@ -60,6 +60,11 @@ var shapeCases = [][]string{
 	{"vpn", "rm", "lab"},
 }
 
+// serverShapeCases read the fake memcached conn "mc".
+var serverShapeCases = [][]string{
+	{"cache", "keys", "mc"},
+}
+
 // TestOutputShapes: agents parse komando's JSON, so a field may be added
 // but never renamed, removed or given another type within one output
 // contract (out.Contract). This test keeps the shape of the answers above
@@ -82,8 +87,17 @@ func TestOutputShapes(t *testing.T) {
 			t.Fatalf("setup %v: %v\n%s", setup, err, s)
 		}
 	}
+	// serverShapeCases run last against a fake memcached, so the conn
+	// they need is not in the inventory answers above
+	cases := append(append([][]string{}, shapeCases...), serverShapeCases...)
 	got := map[string]any{}
-	for _, args := range shapeCases {
+	for i, args := range cases {
+		if i == len(shapeCases) {
+			addr, _ := fakeMemcached(t)
+			if s, err := runCache(t, "-o", "json", "conn", "add", "mc", "memcached://"+addr); err != nil {
+				t.Fatalf("conn add mc: %v\n%s", err, s)
+			}
+		}
 		s := runShape(t, args)
 		g.dryRun, store.DryRun = false, false
 		var v any
@@ -116,7 +130,7 @@ func TestOutputShapes(t *testing.T) {
 	if err := json.Unmarshal(b, &want); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range shapeCases {
+	for _, args := range cases {
 		key := strings.Join(args, " ")
 		w, ok := want[key]
 		if !ok {
