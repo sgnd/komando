@@ -1431,7 +1431,9 @@ How the code meets this (settled while building phase 0, 2026-11-10):
   change goes through one function. The sealed store replaces those
   insides.
 
-Moving existing users:
+Moving existing users (history: every internal home was moved, and
+`komando seal`, `seal --undo` and the readers of the old files were removed
+on 2026-11-13; a home without `store.db` now starts fresh):
 
 - Only a person at a terminal, or the desktop app, moves the folder to the
   new format (`komando seal`). komando works only on the sealed store: a

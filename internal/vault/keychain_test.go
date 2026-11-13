@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"crypto/cipher"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -28,9 +27,6 @@ func freshHome(t *testing.T) {
 	passMu.Lock()
 	pass = ""
 	passMu.Unlock()
-	aeadMu.Lock()
-	aeadCache = map[string]cipher.AEAD{}
-	aeadMu.Unlock()
 }
 
 // roundTrip starts with the key in vault.key, then uses the keychain kc

@@ -402,7 +402,7 @@ func schemaPath(args []string) []string {
 }
 
 // schemaFind is the command `komando schema` describes for args: a path,
-// an alias (fs ls), a command ID (secret.get, db.grants) or a hidden
+// an alias (fs ls), a command ID (secret.show, db.user.show) or a hidden
 // synonym, each resolved to the visible command it runs (S-9.8). nil when
 // there is none.
 func schemaFind(root *cobra.Command, args []string) *cobra.Command {

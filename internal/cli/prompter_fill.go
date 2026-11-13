@@ -27,7 +27,7 @@ import (
 
 // promptSkip are the commands never filled in: they are for shells,
 // scripts and agents, or print help.
-var promptSkip = []string{"help", "completion", "schema", "guide", "ssh-gate", "seal", "login-holder", "version"}
+var promptSkip = []string{"help", "completion", "schema", "guide", "ssh-gate", "login-holder", "version"}
 
 // fillDone: the command was handled while filling in (an add form ran its
 // commands); its exit code is in code.

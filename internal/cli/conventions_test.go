@@ -88,7 +88,7 @@ func TestChangeCommandsOwnText(t *testing.T) {
 		{"recipe", "add", "r1", "uptime", "--read-only"}, {"recipe", "rm", "r1"}, {"policy", "deny", "foo bar"},
 		{"config", "set", "default_timeout", "5m"}, {"rename", "db2", "db3"}, {"--dry-run", "host", "trust", "web2"},
 		{"--dry-run", "export", "--to", filepath.Join(t.TempDir(), "x.json")}, {"--dry-run", "secret", "rm", "s3"},
-		{"--dry-run", "seal"}, {"tunnel", "stop", "--all"}, {"host", "rm", "web2"}, {"conn", "rm", "db3"},
+		{"tunnel", "stop", "--all"}, {"host", "rm", "web2"}, {"conn", "rm", "db3"},
 		{"vpn", "rm", "off2"}, {"key", "rm", "k2"},
 	} {
 		line = strings.Join(a, " ")

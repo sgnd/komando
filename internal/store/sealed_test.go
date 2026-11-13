@@ -181,8 +181,8 @@ func TestSealedAcrossProcesses(t *testing.T) {
 }
 
 // On a sealed home runtime.json is sealed: the SOCKS login of a running
-// VPN cannot be read from it, a plain one from before is read and sealed
-// at its next write, and the prompt's reader opens it.
+// VPN cannot be read from it, a plain one is read as empty, and the
+// prompt's reader opens it.
 func TestSealedRuntimeFile(t *testing.T) {
 	sealedStore(t)
 	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
@@ -202,18 +202,12 @@ func TestSealedRuntimeFile(t *testing.T) {
 	if rt, err := ReadRuntime(); err != nil || rt.Sessions["office"] == nil {
 		t.Fatalf("ReadRuntime: %v", err)
 	}
-	// a plain file from before is read only by `komando seal`
+	// a plain file was not written by komando: read as empty
 	if err := os.WriteFile(runtimePath(), []byte(`{"jobs":{"j":{"id":"j"}}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := SealPlainRuntime(); err != nil {
-		t.Fatal(err)
-	}
-	if b, _ := os.ReadFile(runtimePath()); !strings.HasPrefix(string(b), string(runtimeMagic)) {
-		t.Fatal("a plain runtime.json was not sealed by the move")
-	}
-	if s, err := Load(); err != nil || s.Jobs["j"] == nil {
-		t.Fatalf("plain file of before: %v", err)
+	if s, err := Load(); err != nil || s.Jobs["j"] != nil {
+		t.Fatalf("a plain runtime.json was trusted: %v", err)
 	}
 	// a damaged sealed file is refused, not read as empty
 	if err := os.WriteFile(runtimePath(), append(append([]byte{}, runtimeMagic...), "junk"...), 0o600); err != nil {

@@ -56,7 +56,7 @@ func storeBusy(err error) error {
 		return err
 	}
 	return out.Errf(out.ExitConflict, "STORE_BUSY",
-		"another komando process is writing komando's store; a long `komando seal` or a stuck komando: wait for it to finish, then run it again",
+		"another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again",
 		"komando's store stayed busy for %s, so the server's host key could not be checked: %v", sealdb.BusyTimeout, err)
 }
 
@@ -72,8 +72,7 @@ type sealedTx struct {
 	revoked *sealedPin // the one record of revoked keys; nil until read
 }
 
-// revokedType is the record of host keys never to trust, for any server:
-// the @revoked lines of a known_hosts that `komando seal` moved.
+// revokedType is the record of host keys never to trust, for any server.
 const revokedType = "pinrevoked"
 
 func (t *sealedTx) revokedKeys() (*sealedPin, error) {
@@ -262,8 +261,7 @@ func (t *sealedTx) Replace(addr string, key ssh.PublicKey) error {
 }
 
 // RevokeHostKeys puts keys on the never-trust list: no server is reached
-// with them, and none can be pinned (`komando seal` carries a known_hosts
-// file's @revoked lines here).
+// with them, and none can be pinned.
 func RevokeHostKeys(keys []ssh.PublicKey) error {
 	if len(keys) == 0 {
 		return nil

@@ -207,7 +207,6 @@ registry.rm
 rename
 safety
 schema
-seal
 secret
 secret.check
 secret.cp

@@ -15,9 +15,8 @@ import (
 // section 16): it holds the SOCKS logins of running VPNs and the tokens of
 // kept server logins. It is sealed with the store's row key, bound to its
 // own ID and type, so it cannot be swapped with a store record. A plain
-// runtime.json is read only while `komando seal` moves a folder of before
-// (SealPlainRuntime): anywhere else it was put there by something other
-// than komando, and is read as empty. Trusted, it could point a server's
+// runtime.json was put there by something other than komando, and is read
+// as empty. Trusted, it could point a server's
 // held login at a socket of its own, which would then see every command,
 // password and file sent to that server.
 
@@ -70,18 +69,9 @@ func sealRuntime(plain []byte) ([]byte, error) {
 	return append(append([]byte{}, runtimeMagic...), sealed...), nil
 }
 
-// plainRuntimeOK is set while SealPlainRuntime reads a folder of before.
-var plainRuntimeOK bool
-
 func openRuntime(b []byte) ([]byte, error) {
 	rest, ok := bytes.CutPrefix(b, runtimeMagic)
 	if !ok {
-		sealMu.Lock()
-		plain := plainRuntimeOK || sealing
-		sealMu.Unlock()
-		if plain {
-			return b, nil // a folder of before: sealed at its next write
-		}
 		// never trusted: only running sessions are lost, found or made again
 		return []byte("{}"), nil
 	}
@@ -102,20 +92,6 @@ func openRuntime(b []byte) ([]byte, error) {
 		plain, err = k.Open(runtimeRow, rest)
 	}
 	return plain, err
-}
-
-// SealPlainRuntime seals a plain runtime.json of a folder of before
-// (`komando seal`), reading it as is. A person's command only.
-func SealPlainRuntime() error {
-	sealMu.Lock()
-	plainRuntimeOK = true
-	sealMu.Unlock()
-	defer func() {
-		sealMu.Lock()
-		plainRuntimeOK = false
-		sealMu.Unlock()
-	}()
-	return UpdateRuntime(func(*State) error { return nil })
 }
 
 // RuntimePIDs is what the shell prompt may know of a sealed home's

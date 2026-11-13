@@ -40,9 +40,6 @@ func securityChecks(st *store.State) []securityCheck {
 		add("permissions", false, false, "others can read "+strings.Join(loose, ", ")+": run "+privateFix())
 	}
 
-	if store.MixedHome() {
-		add("store", false, true, store.Path(store.StoreFile)+" holds this folder's data, but files of an older komando are beside it (state.json, vault.json, known_hosts or keys/): an older komando wrote them, and this komando does not read them")
-	}
 	if s, err := vault.Check(); err != nil {
 		add("vault", false, false, err.Error())
 	} else if !s.NoVaultYet {

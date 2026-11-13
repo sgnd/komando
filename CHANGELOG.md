@@ -603,8 +603,8 @@ instead.
   set` list each field as words (`password ref: secret:web1-pass`, was
   `password_ref`) and each warning as `warning: ...`; `secret rename/cp`
   (`renamed secret s1 to s2`), `secret rm`, `tunnel stop`, `host trust`
-  (`would fetch the host key of web1 ... and remove 1 pinned key`) and
-  `seal` on a sealed folder have a line of their own. JSON is unchanged.
+  (`would fetch the host key of web1 ... and remove 1 pinned key`) have
+  a line of their own. JSON is unchanged.
 
 - The skill, `komando guide` and AGENTS.md use each command's primary
   name (`secret show`, `host rename`, `fs list`, `storage list`, `pkg
@@ -622,8 +622,7 @@ instead.
 - Ctrl-C reads the same everywhere: `Stopped. Nothing was run.` at a
   question, `Stopped (Ctrl-C) before the end; what already ran stays as it
   is` while a command runs, and `Stopped (Ctrl-C); the login was not kept`
-  in `komando login`. A no at `seal`, `seal --undo` and `doctor
-  --accept-old-copy` says what stayed in the message and the command to
+  in `komando login`. A no at `doctor --accept-old-copy` says what stayed in the message and the command to
   run again in the hint (the hint said "nothing was changed in ...").
 - Status words in `-o text` are lower case: `ok, exit 0`, `failed: exit 3`,
   `failed: timed out`, `failed: <why>` (were `ok exit=0`, `FAILED ...`),
@@ -702,6 +701,17 @@ instead.
   `removed` too); `vpn rm` always lists the VPNs (one VPN was a string);
   `host trust NAME` answers with `data.results` and `data.summary`, as
   for several servers (one server was a flat object).
+- Homes from before 0.12 are no longer read: `komando seal` and `seal
+  --undo`, the `NEEDS_SEAL` and `SEAL_UNFINISHED` codes, and the readers
+  of `state.json`, a plain `runtime.json`, `vault.json` (with `vault.key`,
+  a keychain key or a passphrase, and the old scrypt cost), `known_hosts`,
+  `keys/` and a plain Tailscale `tailscaled.state` are gone (every
+  internal home has `store.db`). A home without `store.db` starts empty,
+  as a new install does; one that had a store (`store.key`,
+  `runtime.pids` or the keychain's change count) and lost `store.db`
+  still stops with `STATE_CORRUPT`, and the hint says to put `store.db`
+  back from a backup. `doctor` no longer warns about old files beside
+  `store.db`.
 - `meta.deprecated` and the code behind it: nothing uses an old spelling
   now, so no command sets it. `komando schema` no longer resolves old
   names (an alias, a command ID and a hidden synonym still resolve), and
@@ -890,7 +900,7 @@ instead.
 - `secret passphrase --dry-run` previews for an AI agent or a script too
   (what would change, how many secrets, whether the current key opens
   them) with `meta.would_be_blocked: NEEDS_PERSON`, as `secret keychain`
-  and `seal` do, instead of stopping: a dry run is never blocked.
+  does, instead of stopping: a dry run is never blocked.
 - `secret rm A B` removes every name in one change of the vault, or none:
   a failure part way no longer leaves some removed without an audit entry,
   and a reference another komando adds meanwhile is seen before the
@@ -1223,8 +1233,7 @@ instead.
   (and asks first when it has more than 3 members).
 - A Tailscale or Headscale VPN keeps its node state (the machine and node
   private keys) sealed in store.db, not in a plain `tailscaled.state` file
-  under `~/.komando/vpn/`. A file left by an earlier komando is moved in
-  and removed on the next `vpn up`. `vpn rm` now also forgets that state
+  under `~/.komando/vpn/`. `vpn rm` now also forgets that state
   and folder, so a VPN added again under the same name never joins as the
   old node.
 - An AI agent's `download`, `cp`, `storage download` and `sync` never put
@@ -1253,8 +1262,7 @@ instead.
   behind. Before, a removed secret's sealed bytes stayed in the file, and
   after `secret passphrase` they still opened with the old key.
 - A plain runtime.json beside the sealed store is no longer trusted: it
-  is read as empty (only `komando seal` reads one, from a folder of
-  before). Before, a program that wrote one could point a server's held
+  is read as empty. Before, a program that wrote one could point a server's held
   login at its own socket and see every command, password and file sent
   to that server.
 - `fs write`, `fs replace`, `fs restore` and `upload` with `--sudo` no

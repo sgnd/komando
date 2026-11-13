@@ -393,7 +393,7 @@ var localReads = map[string]bool{
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true, "seal": true,
+	"tunnel.list": true, "job.list": true, "status": true,
 	"host.list": true, "conn.list": true, "vpn.list": true, "secret.show": true,
 }
 
@@ -425,14 +425,11 @@ var leavesHome = map[string]bool{"update": true}
 
 func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)] && asRoot() }
 
-// startChecks are the last steps before every command: a folder that needs
-// `komando seal`, the data folder (guardHome), closing idle VPNs and
+// startChecks are the last steps before every command: the data folder
+// (guardHome), closing idle VPNs and
 // --host-key-policy off. The audit log needs no check: the store refuses a
 // change it cannot record.
 func startChecks(cmd *cobra.Command) error {
-	if err := checkNeedsSeal(cmd); err != nil {
-		return err
-	}
 	if err := guardHome(cmd); err != nil {
 		return err
 	}
@@ -570,7 +567,7 @@ func addCommands(root *cobra.Command) {
 	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
-	add("setup", configCmd(), policyCmd(), guideCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	add("setup", configCmd(), policyCmd(), guideCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }
 

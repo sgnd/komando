@@ -260,7 +260,7 @@ type State struct {
 	Keys     map[string]*Key     `json:"keys"`
 	Snippets map[string]*Snippet `json:"snippets"`
 	// Runtime data (VPN sessions, logins, jobs, tunnels) lives in its own
-	// file (runtime.go); a state.json of before may hold it here.
+	// file (runtime.go); Load puts it here.
 	Runtime
 	Settings Settings `json:"settings"`
 
@@ -376,9 +376,6 @@ func Update(fn func(s *State) error) error {
 // and returns the function that releases it. komando processes running at
 // the same time (parallel agents) wait for each other.
 func Lock(name string) (unlock func(), err error) {
-	if heldBySeal(name) {
-		return func() {}, nil // `komando seal` holds it for this process
-	}
 	if err := ensureHome(); err != nil {
 		return nil, err
 	}

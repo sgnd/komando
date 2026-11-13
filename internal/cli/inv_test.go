@@ -642,7 +642,7 @@ func TestPolicyDenyMatchesEverything(t *testing.T) {
 	mustRun(t, "policy", "deny", ".+")
 }
 
-// policy check --for: a kind it does not rate says which it does, MongoDB
+// policy check --conn-kind: a kind it does not rate says which it does, MongoDB
 // commands are rated, and a destructive verdict exits 6 like a blocked
 // shell command.
 func TestPolicyCheckFor(t *testing.T) {

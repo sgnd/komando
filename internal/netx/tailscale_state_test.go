@@ -24,9 +24,8 @@ func tsHome(t *testing.T) {
 	t.Cleanup(func() { store.KeySource = old })
 }
 
-// A Tailscale node's keys are sealed in the store: tsnet's plain state
-// file of an earlier komando is moved in and removed, and vpn rm forgets
-// them.
+// A Tailscale node's keys are sealed in the store, nothing in the folder
+// holds them in the clear, and vpn rm forgets them.
 func TestTailscaleStateSealed(t *testing.T) {
 	tsHome(t)
 	v := &store.Vpn{Name: "tnet", Kind: "tailscale", Rec: store.Rec{ID: "abc"}}
@@ -34,19 +33,12 @@ func TestTailscaleStateSealed(t *testing.T) {
 		t.Fatal(err)
 	}
 	priv := []byte(`{"PrivateMachineKey":"privkey:0011223344556677"}`)
-	plain := []byte(`{"_machinekey":"` + "cHJpdmtleTowMDExMjIzMzQ0NTU2Njc3" + `"}`)
-	if err := os.WriteFile(tsStateFile(v), plain, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := adoptTSStateFile(v); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(tsStateFile(v)); !os.IsNotExist(err) {
-		t.Fatal("the plain state file is still there")
-	}
 	s := &sealedTSState{id: tsStateID(v)}
+	if err := s.WriteState("_machinekey", []byte("privkey:0011223344556677")); err != nil {
+		t.Fatal(err)
+	}
 	if b, err := s.ReadState("_machinekey"); err != nil || string(b) != "privkey:0011223344556677" {
-		t.Fatalf("adopted: %q %v", b, err)
+		t.Fatalf("read: %q %v", b, err)
 	}
 	if err := s.WriteState("_profiles", priv); err != nil {
 		t.Fatal(err)
