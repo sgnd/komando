@@ -426,6 +426,7 @@ func logoutCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "logout [SERVER...]",
+		Args:  cobra.ArbitraryArgs, // server names; `aws` is the subcommand
 		Short: "End server logins kept by `komando login` (--all for every one)",
 		Long: `Ends what ` + "`komando login SERVER`" + ` keeps: the connection closes, and later
 commands to that server log in again (a two-factor server asks a person).
