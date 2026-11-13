@@ -203,7 +203,7 @@ func jobWrapper(start string, timeout time.Duration) string {
 	if timeout > 0 {
 		secs := strconv.Itoa(int((timeout + time.Second - 1) / time.Second))
 		watch = `( trap 'kill $t 2>/dev/null; exit 0' TERM; sleep ` + secs + ` & t=$!; wait $t; ` +
-			`kill -0 $w 2>/dev/null && { printf 'TERM timeout\n' > "$d/killed"; kill -TERM -- -$$ 2>/dev/null || kill -TERM $w; } ) & s=$!; `
+			`kill -0 $w 2>/dev/null && { printf 'TERM timeout\n' > "$d/killed"; kill -TERM -$$ 2>/dev/null || kill -TERM $w; } ) & s=$!; `
 		end += `kill $s 2>/dev/null; `
 	}
 	return `umask "$1"; ` + start + `; umask 077; ` + watch + end + `[ -f "$d/killed" ] || echo $c > "$d/exit"`

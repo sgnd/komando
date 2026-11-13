@@ -554,7 +554,7 @@ func jobKillScript(j *store.Job, sig string) string {
 	return `d="` + jobDir(j.ID) + `"; if [ -f "$d/exit" ]; then echo EXITED; exit 0; fi; ` +
 		`if ! ` + jobAlive(j.PID) + `; then if [ -f "$d/killed" ]; then echo KILLED; else echo GONE; fi; exit 0; fi; ` +
 		`printf '%s\n' ` + sshx.Q(sig) + ` > "$d/killed" 2>/dev/null; ` +
-		`kill -` + sig + ` -- -` + p + ` 2>/dev/null || kill -` + sig + ` ` + p
+		`kill -` + sig + ` -` + p + ` 2>/dev/null || kill -` + sig + ` ` + p
 }
 
 func validSignal(s string) bool {
