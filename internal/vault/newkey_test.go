@@ -235,9 +235,7 @@ func scriptedSecretTool(t *testing.T, script string) (calls func() string) {
 // body (sh); an empty body removes the tool.
 func lockTool(t *testing.T, dir, name, body string) {
 	t.Helper()
-	if runtime.GOOS == "windows" {
-		t.Skip("Unix only: sh scripts play the Linux Secret Service tools (secret-tool, gdbus)")
-	}
+	unixOnly(t, "sh scripts play the Linux Secret Service tools (secret-tool, gdbus)")
 	p := filepath.Join(dir, name)
 	if body == "" {
 		_ = os.Remove(p)
@@ -426,4 +424,13 @@ func TestNewVaultKeychainSearchHangs(t *testing.T) {
   store) exit 0 ;;
 esac
 `)
+}
+
+// unixOnly skips a test on Windows, which cannot run the sh script that
+// plays a keychain tool; why says which.
+func unixOnly(t *testing.T, why string) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix only: " + why)
+	}
 }

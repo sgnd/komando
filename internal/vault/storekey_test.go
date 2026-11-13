@@ -77,6 +77,7 @@ func TestStoreMasterPassphrase(t *testing.T) {
 
 // The keychain item a macOS stand-in returns opens a keychain-mode store.
 func TestStoreMasterKeychain(t *testing.T) {
+	unixOnly(t, "an sh script plays macOS's security tool")
 	freshHome(t)
 	t.Setenv("KOMANDO_KEYCHAIN", "")
 	dir := t.TempDir()

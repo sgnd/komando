@@ -264,6 +264,7 @@ func TestKeyToKeychainSameKey(t *testing.T) {
 // macOS: an item find-generic-password finds holds another key, so
 // `komando secret keychain` refuses and runs no add.
 func TestKeyToKeychainItemExistsMacOS(t *testing.T) {
+	unixOnly(t, "an sh script plays macOS's security tool")
 	freshHome(t)
 	keyFileVault(t)
 	dir := t.TempDir()
@@ -297,6 +298,7 @@ esac
 // fails, a new store keeps its key in store.key, the change count is
 // skipped, `secret keychain` gives a clear error, and no add ever runs.
 func TestNoDefaultMacKeychainNeverAdds(t *testing.T) {
+	unixOnly(t, "an sh script plays macOS's security tool")
 	freshHome(t)
 	t.Setenv("KOMANDO_KEYCHAIN", "")
 	dir := t.TempDir()
