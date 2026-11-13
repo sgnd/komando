@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -176,14 +177,18 @@ func isPublicKey(b []byte) bool {
 }
 
 func keyAddCmd() *cobra.Command {
-	var passRef string
+	var passRef, cert string
 	c := &cobra.Command{
 		Use:   "add NAME FILE",
 		Short: "Add a private key file you already have (komando keeps its path)",
 		Long: `Adds a private key file you already have to komando's key list; the file stays
 where it is. For a key with a passphrase, store the passphrase in the vault
-and pass --passphrase-ref secret:NAME.`,
+and pass --passphrase-ref secret:NAME.
+
+An OpenSSH user certificate next to the key (FILE-cert.pub) is used at
+login, as ssh does; --cert names one kept somewhere else.`,
 		Example: `  komando key add personal ~/.ssh/id_ed25519
+  komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub
   komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -233,6 +238,9 @@ and pass --passphrase-ref secret:NAME.`,
 			default:
 				return out.Errf(out.ExitUsage, "KEY_INVALID", "give an OpenSSH or PEM private key file", "cannot parse %s: %v", p, err)
 			}
+			if err := keyCert(k, cert, p, &res.Warnings); err != nil {
+				return err
+			}
 			if k.Type == ssh.KeyAlgoRSA && rsaBits(k.PublicKey) > 0 && rsaBits(k.PublicKey) < 2048 {
 				res.Warnings = append(res.Warnings, fmt.Sprintf("this RSA key has only %d bits; servers may refuse it: make a new one with `komando key gen`", rsaBits(k.PublicKey)))
 			}
@@ -257,7 +265,53 @@ and pass --passphrase-ref secret:NAME.`,
 		},
 	}
 	c.Flags().StringVar(&passRef, "passphrase-ref", "", "passphrase reference for encrypted keys (secret:NAME | env:VAR | ...)")
+	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)")
 	return c
+}
+
+// keyCert checks the user certificate key add or key edit names (cert) and
+// keeps its path in k; without one it notes a FILE-cert.pub next to the
+// key file (keyFile), which logins use as ssh does.
+func keyCert(k *store.Key, cert, keyFile string, warnings *[]string) error {
+	var pub ssh.PublicKey
+	if k.PublicKey != "" {
+		pub, _, _, _, _ = ssh.ParseAuthorizedKey([]byte(k.PublicKey))
+	}
+	path := cert
+	if path == "" {
+		if keyFile == "" {
+			return nil
+		}
+		path = keyFile + "-cert.pub"
+		if _, err := os.Stat(path); err != nil {
+			return nil
+		}
+	}
+	path, _ = filepath.Abs(expandHome(path))
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the key's certificate, for example ~/.ssh/id_ed25519-cert.pub", "%s: %v", path, errText(err))
+	}
+	c, err := sshx.ParseUserCert(b, pub)
+	if err != nil {
+		return out.Errf(out.ExitUsage, "KEY_INVALID", "give the OpenSSH user certificate (KEY-cert.pub) that was signed for this key", "%s: %v", path, err)
+	}
+	if cert != "" {
+		k.CertPath = path
+	}
+	if !sshx.CertCurrent(c, time.Now()) {
+		*warnings = append(*warnings, "the certificate "+filepath.Base(path)+" is not valid now (valid "+certWindow(c)+"): logins use the key alone until it is renewed")
+	}
+	return nil
+}
+
+// certWindow is a certificate's valid time in words.
+func certWindow(c *ssh.Certificate) string {
+	from := time.Unix(int64(c.ValidAfter), 0).UTC().Format(time.RFC3339)
+	if c.ValidBefore == ssh.CertTimeInfinity {
+		return "from " + from + ", no end"
+	}
+	return from + " to " + time.Unix(int64(c.ValidBefore), 0).UTC().Format(time.RFC3339)
 }
 
 // rsaBits is the size of an RSA public key line, or 0.
@@ -291,66 +345,94 @@ func cleanPubLine(pub ssh.PublicKey, comment string) string {
 }
 
 func keyEditCmd() *cobra.Command {
-	var passRef string
+	var passRef, cert string
 	var unset []string
 	c := &cobra.Command{
 		Use:   "edit NAME",
-		Short: "Change a key's passphrase reference",
+		Short: "Change a key's passphrase reference or certificate",
 		Long: `Sets where komando finds the passphrase of an encrypted key. Store the
 passphrase with ` + "`komando secret set NAME`" + ` first and pass secret:NAME;
---unset passphrase-ref clears it.`,
+--unset passphrase-ref clears it.
+
+--cert FILE gives the key an OpenSSH user certificate (for a key komando
+made, or one kept away from the key file); --unset cert goes back to
+FILE-cert.pub next to the key.`,
 		Example: `  komando secret set work-key-pass
   komando key edit work --passphrase-ref secret:work-key-pass
-  komando key edit work --unset passphrase-ref`,
+  komando key edit work --unset passphrase-ref
+  komando key edit deploy --cert ~/Downloads/deploy-cert.pub`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
 			for _, u := range unset {
-				if u != "passphrase-ref" {
-					return out.Usage("--unset takes passphrase-ref, not %q", u)
+				if u != "passphrase-ref" && u != "cert" {
+					return out.Usage("--unset takes passphrase-ref or cert, not %q", u)
 				}
 			}
+			unsetPass, unsetCert := slices.Contains(unset, "passphrase-ref"), slices.Contains(unset, "cert")
 			switch {
-			case fl.Changed("unset") && fl.Changed("passphrase-ref"):
+			case unsetPass && fl.Changed("passphrase-ref"):
 				return out.Usage("use --passphrase-ref or --unset passphrase-ref, not both")
-			case fl.Changed("unset"):
-				passRef = ""
-			case !fl.Changed("passphrase-ref"):
+			case unsetCert && fl.Changed("cert"):
+				return out.Usage("use --cert or --unset cert, not both")
+			case !fl.Changed("unset") && !fl.Changed("passphrase-ref") && !fl.Changed("cert"):
 				return out.Errf(out.ExitUsage, "USAGE", "for example komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
 			}
 			if err := checkPassphraseRef(passRef); err != nil {
 				return err
 			}
-			var k *store.Key
-			old := ""
-			err := store.Update(func(s *store.State) error {
-				var err error
-				if k, err = findKey(s, args[0]); err != nil {
-					return err
-				}
-				old = k.PassphraseRef
-				k.PassphraseRef = passRef
-				return nil
-			})
+			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			res := keyResult{Key: k, Action: "changed", Warnings: missingSecretWarnings(passRef)}
+			cur, err := findKey(st, args[0])
+			if err != nil {
+				return err
+			}
+			want := *cur
+			if fl.Changed("passphrase-ref") || unsetPass {
+				want.PassphraseRef = passRef
+			}
+			var warnings []string
 			switch {
-			case old == passRef:
+			case unsetCert:
+				want.CertPath = ""
+			case fl.Changed("cert"):
+				if err := keyCert(&want, cert, "", &warnings); err != nil {
+					return err
+				}
+			}
+			warnings = append(warnings, missingSecretWarnings(want.PassphraseRef)...)
+			res := keyResult{Key: &want, Action: "changed", Warnings: warnings}
+			switch {
+			case want.PassphraseRef == cur.PassphraseRef && want.CertPath == cur.CertPath:
 				res.Action = "unchanged"
 			case g.dryRun:
 				res.Action = "would_change"
 			}
 			if res.Action == "changed" {
-				audit(nil, "key.edit", nil, "", true, map[string]any{"key": k.Name, "old_passphrase_ref": old, "new_passphrase_ref": passRef})
+				err := store.Update(func(s *store.State) error {
+					k, err := findKey(s, args[0])
+					if err != nil {
+						return err
+					}
+					k.PassphraseRef, k.CertPath = want.PassphraseRef, want.CertPath
+					res.Key = k
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				audit(nil, "key.edit", nil, "", true, map[string]any{"key": cur.Name, "old_passphrase_ref": cur.PassphraseRef, "new_passphrase_ref": want.PassphraseRef,
+					"old_cert": cur.CertPath, "new_cert": want.CertPath})
 			}
 			out.P.Print("key.edit", res, nil)
 			return nil
 		},
 	}
 	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: secret:NAME | env:VAR | ...")
-	c.Flags().StringSliceVar(&unset, "unset", nil, "clear this setting: passphrase-ref")
+	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key")
+	c.Flags().StringSliceVar(&unset, "unset", nil, "clear this setting: passphrase-ref, cert")
 	return c
 }
 

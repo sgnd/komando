@@ -111,15 +111,18 @@ type Conn struct {
 }
 
 type Key struct {
-	Name          string    `json:"name"`
-	Path          string    `json:"path"`
-	Type          string    `json:"type,omitempty"`
-	PublicKey     string    `json:"public_key,omitempty"`
-	Fingerprint   string    `json:"fingerprint,omitempty"`
-	PassphraseRef string    `json:"passphrase_ref,omitempty"`
-	Managed       bool      `json:"managed"` // generated/stored by komando
-	CreatedAt     time.Time `json:"created_at"`
-	Rec           Rec       `json:"-"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	Type          string `json:"type,omitempty"`
+	PublicKey     string `json:"public_key,omitempty"`
+	Fingerprint   string `json:"fingerprint,omitempty"`
+	PassphraseRef string `json:"passphrase_ref,omitempty"`
+	// CertPath is an OpenSSH user certificate for the key (key add --cert);
+	// without it a key file's KEY-cert.pub next to it is used, as ssh does
+	CertPath  string    `json:"cert_path,omitempty"`
+	Managed   bool      `json:"managed"` // generated/stored by komando
+	CreatedAt time.Time `json:"created_at"`
+	Rec       Rec       `json:"-"`
 }
 
 type Snippet struct {

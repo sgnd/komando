@@ -327,6 +327,24 @@ terminal you type the key's name; an AI agent or a script adds
 
 To replace a key everywhere, in order, see [Rotate keys and passwords](rotate.md).
 
+### Keys with a certificate
+
+Where servers trust a certificate authority (SSH CA, `TrustedUserCAKeys`)
+instead of each key, komando logs in with the key's OpenSSH user
+certificate, as `ssh` does: `KEY-cert.pub` next to a key file (`key add`,
+`--identity`, `~/.ssh/id_*`) is offered first, then the key alone. For a
+certificate kept elsewhere, or for a key komando made, name it:
+
+```bash
+komando key add corp ~/.ssh/id_corp --cert ~/certs/id_corp-cert.pub
+komando key edit deploy --cert ~/Downloads/deploy-cert.pub   # --unset cert goes back to KEY-cert.pub
+```
+
+komando reads the certificate at each login, so a renewed file is used at
+once. A certificate for another key is refused (`KEY_INVALID`); one that is
+not valid now is left out (`key add` warns), and the key alone is offered.
+An ssh-agent that holds a certificate offers it too.
+
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.
@@ -607,6 +625,8 @@ told to use `komando exec` or `komando shell`.
   `azure`: `komando login aws` is the AWS login.
 - `--address` in `host edit` works on one server only.
 - A key file added with `key add` is never moved or deleted by komando.
+- Host certificates (`@cert-authority` in known_hosts) are not read yet:
+  komando pins each server's own host key.
 - `--ask-password`, `komando login`, `host ssh-command` and replacing a
   pinned host key (`host trust --reset`) need a person at a terminal.
 - `op://` reads 1Password only through a 1Password Connect server: the
