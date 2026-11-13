@@ -72,6 +72,7 @@ var importSources = []importSource{
 	{"putty", "", "SSH sessions from PuTTY (a .reg file: `reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg`)", importPuTTY},
 	{"mobaxterm", "", "SSH sessions from MobaXterm (a .mxtsessions file: right-click User sessions, Export all sessions to file)", importMobaXterm},
 	{"aws", "~/.aws/config", "an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied)", importAWS},
+	{"aws-ec2", "~/.aws/config", "a server per running EC2 instance of each AWS profile, in its region (read only, with the profile's login)", importAWSEC2},
 	{"dbeaver", "~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json", "databases from DBeaver (passwords set afterwards)", importDBeaver},
 	{"komando", "", "a file made by `komando export` (moving to another computer)", importKomando},
 	{"csv", "", "servers from a spreadsheet (CSV, first row names the columns: " + csvColumnList + ")", importCSV},
