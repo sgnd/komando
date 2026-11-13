@@ -20,7 +20,7 @@ func TestRenameOneEntry(t *testing.T) {
 		t.Fatal("a dry run renamed it")
 	}
 	code, text := runMain(t, "rename", "web1", "web-01")
-	if code != 0 || !strings.Contains(text, `"command":"host.mv"`) {
+	if code != 0 || !strings.Contains(text, `"command":"host.rename"`) {
 		t.Fatalf("rename web1: exit %d %s", code, text)
 	}
 	if st, _ := loadState(); st.Hosts["web-01"] == nil || st.Hosts["web1"] != nil {

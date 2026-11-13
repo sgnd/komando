@@ -52,7 +52,7 @@ func clusterLsCmd() *cobra.Command {
 				}
 				return swarmList(ctx, t, kind, selector, limit)
 			}
-			return readClusters(cmd.Context(), "cluster.ls", st, ts, clusterRead{swarm: swarm, kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
+			return readClusters(cmd.Context(), "cluster.list", st, ts, clusterRead{swarm: swarm, kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, args[1])
 				if err != nil {
 					return nil, err
@@ -95,7 +95,6 @@ func clusterLsCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "the most objects to show"})
 	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, like app=api or 'tier in (web,api)'")
-	withID(c, "cluster.ls") // `ls` before: a permanent synonym
 	return c
 }
 

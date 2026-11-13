@@ -93,8 +93,8 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 	return set
 }
 
-// secretGetCmd is `secret show` (`secret get` before, a permanent synonym;
-// the ID stays secret.get, so the agent mask line keys it as before).
+// secretGetCmd is `secret show` (`secret get` is a plain synonym); the
+// agent mask line keys on its ID, secret.show.
 func secretGetCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:     "show NAME",
@@ -136,11 +136,10 @@ login; 'komando secret check NAME' lets a person compare it.`,
 				res["value"] = v
 				audit(nil, "secret.reveal", nil, "", true, map[string]any{"secret": args[0]})
 			}
-			out.P.Print("secret.get", res, nil)
+			out.P.Print("secret.show", res, nil)
 			return nil
 		},
 	}
-	withID(get, "secret.get")
 	return get
 }
 

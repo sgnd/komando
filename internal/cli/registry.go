@@ -304,7 +304,7 @@ func registryLsCmd() *cobra.Command {
 					return err
 				}
 			}
-			return withRegistry(cmd.Context(), "registry.ls", args[0], driver.RiskRead, nil, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
+			return withRegistry(cmd.Context(), "registry.list", args[0], driver.RiskRead, nil, nil, func(ctx context.Context, c *store.Conn, r *registry.Client) (any, error) {
 				// one more than asked tells whether the list was cut
 				if len(args) == 1 {
 					repos, err := r.Catalog(ctx, limit+1)
@@ -325,7 +325,6 @@ func registryLsCmd() *cobra.Command {
 		},
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
-	withID(c, "registry.ls") // `ls` before: a permanent synonym
 	return c
 }
 

@@ -394,7 +394,7 @@ var localReads = map[string]bool{
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
 	"tunnel.list": true, "job.list": true, "status": true, "seal": true,
-	"host.list": true, "conn.list": true, "vpn.list": true, "secret.get": true,
+	"host.list": true, "conn.list": true, "vpn.list": true, "secret.show": true,
 }
 
 // checkStoreWritable refuses to run a command that may change something
@@ -506,7 +506,7 @@ func newRoot() *cobra.Command {
 			// scripts see what the server sent (vault values are hidden for
 			// all). `secret get --reveal` is for people only: an agent is never
 			// asked and always sees [hidden]. A dry run never approves --reveal.
-			out.P.Mask = isAgent() && (commandName(cmd) == "secret.get" || g.dryRun || !revealOK())
+			out.P.Mask = isAgent() && (commandName(cmd) == "secret.show" || g.dryRun || !revealOK())
 			startPersonal(cmd)
 			if out.P.Mask && g.dryRun && g.reveal {
 				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",

@@ -45,6 +45,7 @@ Values in `komando schema` that changed (field names are the same):
 | `kind` of `storage link` and `cluster forward` | `read` | `change` |
 | `shorthand` `-n` on `cluster events`, `cluster logs`, `cluster list` | `--limit` | `--namespace` (as on the other 17 cluster commands, which gain it) |
 | `path` and `usage` of renamed commands | `secret get`, `... ls`, `... mv`, `db grants`, `pkg security --apply` | `secret show`, `... list`, `... rename`, `db user show`, `pkg upgrade --security` |
+| `command` in the envelope and the audit log of renamed commands | `secret.get`, `fs.ls` (and the six other `.ls`), `host.mv` (and the five other `.mv`), `db.grants`, `pkg.security` for `pkg upgrade --security` | `secret.show`, `fs.list`, `host.rename`, `db.user.show`, `pkg.upgrade` |
 | `usage` argument words | `KEY` for several things, `HOST`, `NAME` | one meaning per word (`OBJECT`, `SETTING`, `SERVER`, `USER`, `JOB`, `TUNNEL`, `TYPE/NAME`, ...) |
 
 Synonyms (`ls`, `mv`, `get`, `keys`, plurals) stay for good, and
@@ -125,13 +126,13 @@ instead.
 - `fs write --value TEXT` works as another name for `--content`.
 - `komando rename OLD NEW` renames one entry of any kind: the server,
   conn, VPN, secret, key or group named OLD, through that kind's own
-  rename (same checks, same envelope, e.g. `host.mv`). When two kinds
+  rename (same checks, same envelope, e.g. `host.rename`). When two kinds
   share the name it names both commands (usage error); a name nothing
   has is a usage error, as before, whose hint shows `--starts-with`.
   `rename --starts-with OLD NEW` renames by prefix.
 - `komando schema NAME` describes the command a second name runs:
   an alias (`schema fs ls`), a command ID as the envelope writes it
-  (`schema secret.get`, `schema host.mv`) or a hidden synonym (`schema group show`). Before, hidden names gave
+  (`schema secret.show`, `schema host.rename`) or a hidden synonym (`schema group show`). Before, hidden names gave
   `COMMAND_NOT_FOUND`.
 - More names find the command you mean, each for good and silently:
   plurals and help words for every noun (`servers`, `server`,
@@ -419,20 +420,23 @@ instead.
   mix up with `cluster forward`) is gone: use `komando tunnel` (or `pf`).
 - `db user show CONN USER` shows what a database user may do (was
   `db grants`, one letter from `db grant`, which is gone); the envelope's
-  `command` stays `db.grants`.
+  `command` is `db.user.show` (was `db.grants`).
 - **`list` is the one listing verb**: `cluster list`, `cluster helm list`,
   `db user list`, `fs list`, `queue list`, `registry list` and
   `storage list` are the names in help, hints and docs. `ls` keeps
-  working on every list command for good, and the envelope's `command`
-  stays `fs.ls` and so on.
+  working on every list command for good. The envelope's `command` is
+  `fs.list` and so on (was `fs.ls`, `cluster.ls`, `cluster.helm.ls`,
+  `db.user.ls`, `queue.ls`, `registry.ls`, `storage.ls`).
 - `secret show NAME` is the name for checking a secret (it never prints
   the value to an agent); `secret get` keeps working for good. The
-  envelope's `command` stays `secret.get`, so an agent's output is
-  masked as before.
+  envelope's `command` is `secret.show` (was `secret.get`), and an
+  agent's output is masked as before.
 - **Renaming an item is `rename`**: `host rename`, `conn rename`,
   `vpn rename`, `key rename`, `secret rename` and `group rename OLD NEW`.
-  `mv` keeps working there for good and prints nothing extra; the
-  envelope's `command` stays `host.mv` and so on. `fs mv` is unchanged.
+  `mv` keeps working there for good and prints nothing extra. The
+  envelope's `command` is `host.rename` and so on (was `host.mv`,
+  `conn.mv`, `vpn.mv`, `key.mv`, `secret.mv`, `group.mv`). `fs mv` is
+  unchanged.
 - `cache get --limit` is listed as `int` in `komando schema` (was
   `int64`); the values it takes are the same.
 - `storage rm --prefix` names its safety cap `--max-remove` (default
@@ -498,11 +502,12 @@ instead.
   ssh gate's read-only keys included) sees the flag under either name. A
   test checks each spelling. A short alias such as `x` for `exec` prints
   nothing extra.
-- Every command now carries a stable ID (its dotted path, such as
-  `fs.ls`), and the envelopes, the audit log, personal-data hiding, the
-  ssh-gate tables and the other checks keyed by command use it. A command
-  that is renamed later keeps its ID, so no check can miss it under the
-  new name. A test lists every ID and fails if one disappears.
+- Every command now carries an ID (its dotted path, such as
+  `fs.list`), and the envelopes, the audit log, personal-data hiding, the
+  ssh-gate tables and the other checks keyed by command use it. A test
+  lists every ID and checks that every table key is one, so a rename that
+  forgets a table fails. Audit records written before keep the ID of
+  their time.
 - `komando --help` now lists the commands under the same headings as
   `komando` alone: Servers, Data, Platform, Access, Overview and Setup.
 - At a person's terminal, many more commands end with a `Next:` line of
@@ -683,6 +688,12 @@ instead.
 - `import komando` reads only the export file (`komando-export/1`, or the
   envelope `komando export` prints); a plain list of hosts or the
   `{"hosts": [...]}` that `host export` printed before 0.12 is refused.
+- Command IDs that kept a renamed command's old path: `host.mv`,
+  `conn.mv`, `vpn.mv`, `key.mv`, `secret.mv`, `group.mv`, `secret.get`,
+  `cluster.ls`, `cluster.helm.ls`, `db.user.ls`, `fs.ls`, `queue.ls`,
+  `registry.ls`, `storage.ls` and `db.grants` are now `host.rename` ...
+  `secret.show`, `cluster.list` ... `storage.list` and `db.user.show`, the
+  command's path.
 - `meta.deprecated` and the code behind it: nothing uses an old spelling
   now, so no command sets it. `komando schema` no longer resolves old
   names (an alias, a command ID and a hidden synonym still resolve), and

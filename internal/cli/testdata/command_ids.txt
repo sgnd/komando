@@ -21,12 +21,12 @@ cluster.forward
 cluster.get
 cluster.helm
 cluster.helm.history
-cluster.helm.ls
+cluster.helm.list
 cluster.helm.status
 cluster.helm.values
 cluster.history
+cluster.list
 cluster.logs
-cluster.ls
 cluster.restart
 cluster.rm
 cluster.rollback
@@ -49,7 +49,7 @@ conn.add
 conn.edit
 conn.kinds
 conn.list
-conn.mv
+conn.rename
 conn.rm
 conn.show
 conn.test
@@ -64,7 +64,6 @@ db.add
 db.dump
 db.explain
 db.grant
-db.grants
 db.info
 db.kill
 db.locks
@@ -76,9 +75,10 @@ db.shell
 db.sizes
 db.user
 db.user.add
-db.user.ls
+db.user.list
 db.user.passwd
 db.user.rm
+db.user.show
 docker
 docker.compose
 docker.exec
@@ -104,7 +104,7 @@ facts
 fs
 fs.cat
 fs.chmod
-fs.ls
+fs.list
 fs.mkdir
 fs.mv
 fs.replace
@@ -115,7 +115,7 @@ fs.write
 group
 group.add
 group.list
-group.mv
+group.rename
 group.rm
 guide
 guide.guard
@@ -126,7 +126,7 @@ host
 host.add
 host.edit
 host.list
-host.mv
+host.rename
 host.rm
 host.show
 host.ssh-command
@@ -147,7 +147,7 @@ key.deploy
 key.edit
 key.gen
 key.list
-key.mv
+key.rename
 key.revoke
 key.rm
 key.show
@@ -186,7 +186,7 @@ queue.describe
 queue.groups
 queue.info
 queue.lag
-queue.ls
+queue.list
 queue.peek
 queue.purge
 queue.rm
@@ -201,7 +201,7 @@ registry
 registry.add
 registry.copy
 registry.inspect
-registry.ls
+registry.list
 registry.prune
 registry.rm
 rename
@@ -211,13 +211,13 @@ seal
 secret
 secret.check
 secret.cp
-secret.get
 secret.keychain
 secret.list
-secret.mv
 secret.passphrase
+secret.rename
 secret.rm
 secret.set
+secret.show
 shell
 ssh-gate
 ssh-gate.line
@@ -227,7 +227,7 @@ storage.add
 storage.cat
 storage.download
 storage.link
-storage.ls
+storage.list
 storage.rm
 storage.upload
 svc
@@ -262,7 +262,7 @@ vpn.add
 vpn.down
 vpn.edit
 vpn.list
-vpn.mv
+vpn.rename
 vpn.rm
 vpn.serve
 vpn.show

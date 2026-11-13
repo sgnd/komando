@@ -181,7 +181,7 @@ func fsLsCmd() *cobra.Command {
 				arg = args[1]
 			}
 			if st, h := windowsOne(args[0]); h != nil {
-				return printed("fs.ls")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
+				return printed("fs.list")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
 			}
 			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
@@ -245,14 +245,13 @@ func fsLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.ls", res, nil)
+			out.P.Print("fs.list", res, nil)
 			return nil
 		},
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
 	limitFlag(c, &maxEntries, 1000, "entries")
-	withID(c, "fs.ls") // `ls` before: a permanent synonym
 	return c
 }
 

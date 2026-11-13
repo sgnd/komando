@@ -176,7 +176,7 @@ func queueLsCmd() *cobra.Command {
 			if len(args) == 2 {
 				pattern = args[1]
 			}
-			return withQueue(cmd.Context(), "queue.ls", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
+			return withQueue(cmd.Context(), "queue.list", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -196,7 +196,6 @@ func queueLsCmd() *cobra.Command {
 	}
 	c.Flags().BoolVar(&internal, "internal", false, "Kafka: also list its own topics (__consumer_offsets, ...)")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most topics (or queues, or streams) to show, the first by name")
-	withID(c, "queue.ls") // `ls` before: a permanent synonym
 	return c
 }
 

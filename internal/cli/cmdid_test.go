@@ -102,7 +102,7 @@ func TestTablesKeyedByID(t *testing.T) {
 	add("gateNeedsPerson", keysOf(gateNeedsPerson))
 	add("gateTargetArgs", keysOf(gateTargetArgs))
 	add("riskRows", riskRowIDs())
-	add("mask line", []string{"secret.get"})
+	add("mask line", []string{"secret.show"})
 	for name, keys := range tables {
 		for _, k := range keys {
 			check(name, k)
@@ -172,9 +172,9 @@ func TestWithIDSurvivesRename(t *testing.T) {
 	p := &cobra.Command{Use: "fs"}
 	r := &cobra.Command{Use: "komando"}
 	r.AddCommand(p)
-	p.AddCommand(withID(c, "fs.ls"))
+	p.AddCommand(withID(c, "fs.list"))
 	stampIDs(r)
-	if cmdID(c) != "fs.ls" || commandName(c) != "fs.ls" || idKey(c) != "fs ls" {
+	if cmdID(c) != "fs.list" || commandName(c) != "fs.list" || idKey(c) != "fs list" {
 		t.Fatalf("ID %q", cmdID(c))
 	}
 	if cmdID(p) != "fs" || cmdID(r) != "komando" {

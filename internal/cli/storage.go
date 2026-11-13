@@ -294,7 +294,7 @@ func storageLsCmd() *cobra.Command {
 			if len(args) == 2 {
 				prefix = args[1]
 			}
-			return withStorage(cmd.Context(), "storage.ls", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
+			return withStorage(cmd.Context(), "storage.list", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					objs, more, err := s.List(ctx, prefix, recursive, limit)
 					if err != nil {
@@ -324,7 +324,6 @@ func storageLsCmd() *cobra.Command {
 	}
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "include everything below the prefix, not just one level")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
-	withID(c, "storage.ls") // `ls` before: a permanent synonym
 	return c
 }
 

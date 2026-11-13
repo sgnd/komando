@@ -10,7 +10,7 @@ komando exec web1 -- uptime              # readable text in a terminal
 komando exec web1 -o json -- uptime      # one JSON object (what agents get)
 komando status                           # VPNs, tunnels and jobs still running
 komando schema exec                      # every flag of exec, machine-readable
-komando schema fs.ls                     # an alias or command ID: shows the command it runs (fs list)
+komando schema secret.show               # a command ID, as the envelope names it, or an alias (fs ls)
 komando schema                           # also every exit code and error code
 komando doctor                           # check the local setup
 ```

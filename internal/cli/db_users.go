@@ -39,7 +39,7 @@ func dbUserLsCmd() *cobra.Command {
 		Example: "  komando db user list prod-db",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.user.ls", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+			return readDB(cmd.Context(), "db.user.list", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Users(ctx, db, c.Kind, connTimeout(c))
 				if err != nil {
 					return nil, err
@@ -53,7 +53,6 @@ func dbUserLsCmd() *cobra.Command {
 		},
 	}
 	limitFlag(c, &limit, 0, "users")
-	withID(c, "db.user.ls") // `ls` before: a permanent synonym
 	return c
 }
 
@@ -236,7 +235,7 @@ func dbUserShowCmd() *cobra.Command {
 		Example: "  komando db user show prod-db app_ro",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.grants", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+			return readDB(cmd.Context(), "db.user.show", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Grants(ctx, db, c.Kind, args[1], host, connTimeout(c))
 				if err != nil {
 					return nil, err
@@ -249,7 +248,6 @@ func dbUserShowCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user connects from (the account host; default %)")
-	withID(c, "db.grants")
 	return c
 }
 
