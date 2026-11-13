@@ -219,11 +219,12 @@ var commandKinds = map[string]cmdKind{
 	"key rm":     changes,
 	"key show":   reads,
 
-	"list":      reads,
-	"login":     changes,
-	"login aws": changes,
-	"logout":    changes,
-	"logs":      reads,
+	"list":       reads,
+	"login":      changes,
+	"login aws":  changes,
+	"logout":     changes,
+	"logout aws": changes,
+	"logs":       reads,
 
 	"net":       reads,
 	"net check": reads,

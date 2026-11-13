@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"github.com/sgnd/komando/internal/cloud"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,6 +31,8 @@ func TestMain(m *testing.M) {
 	// from the keychain (vault.countOff); the tests that run as an agent
 	// must not ask the real one (internal/vault tests that rule)
 	vault.AgentCall = nil
+	// status never lists the AWS logins of whoever runs the tests
+	awsLogins = func() []cloud.AWSLogin { return nil }
 	// every command opens the sealed store with the passphrase: a cheap
 	// scrypt keeps the PTY children (this binary again) fast under -race
 	vault.PassphraseN = 1 << 10
