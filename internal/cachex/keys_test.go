@@ -256,26 +256,30 @@ func TestMetadumpKey(t *testing.T) {
 
 // The memcached list sends `stats` and the metadump in one write and reads
 // the server's clock from `stats`.
-func TestMemcacheKeysOneWrite(t *testing.T) {
+func TestMemcacheKeysThenClock(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer ln.Close()
-	writes := make(chan string, 1)
+	writes := make(chan string, 2)
 	go func() {
 		c, err := ln.Accept()
 		if err != nil {
 			return
 		}
 		defer c.Close()
-		buf := make([]byte, 4096)
-		n, _ := c.Read(buf)
-		writes <- string(buf[:n])
-		io.WriteString(c, "STAT pid 1\r\nSTAT time 1731500100\r\nEND\r\n"+
-			"key=s%3A1 exp=1731500130 la=1731500000 cas=1 fetch=no cls=1 size=60\r\n"+
+		r := bufio.NewReader(c)
+		// metadump first, on its own: the crawler takes over the connection
+		l1, _ := r.ReadString('\n')
+		writes <- l1
+		io.WriteString(c, "key=s%3A1 exp=1731500130 la=1731500000 cas=1 fetch=no cls=1 size=60\r\n"+
 			"key=s%3A2 exp=-1 la=1731500000 cas=2 fetch=no cls=1 size=60\r\n"+
 			"key=other exp=-1 la=1731500000 cas=3 fetch=no cls=1 size=60\r\nEND\r\n")
+		// then stats for the server's clock
+		l2, _ := r.ReadString('\n')
+		writes <- l2
+		io.WriteString(c, "STAT pid 1\r\nSTAT time 1731500100\r\nEND\r\n")
 	}()
 	c, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
@@ -287,7 +291,7 @@ func TestMemcacheKeysOneWrite(t *testing.T) {
 	if err != nil || more || len(got) != 2 || keyLine(got[0]) != "s:1 string 30" || keyLine(got[1]) != "s:2 string -1" {
 		t.Errorf("keys %v %v %v", got, more, err)
 	}
-	if w := <-writes; w != "stats\r\nlru_crawler metadump all\r\n" {
-		t.Errorf("one write with both commands, got %q", w)
+	if w1, w2 := <-writes, <-writes; w1 != "lru_crawler metadump all\r\n" || w2 != "stats\r\n" {
+		t.Errorf("metadump then stats, got %q then %q", w1, w2)
 	}
 }

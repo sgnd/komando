@@ -281,31 +281,19 @@ func (m *memcache) Del(ctx context.Context, keys ...string) (int64, error) {
 
 // Keys lists keys with `lru_crawler metadump all` and matches them like
 // a shell pattern (`session:*`). A memcached value is always a string;
-// metadump gives each key's expiry as a time on the server's clock, so
-// `stats` goes in the same write for that clock: one round trip.
+// metadump gives each key's expiry as a time on the server's clock, so a
+// `stats` after it reads that clock. The two go one after the other, not
+// in one write: the crawler takes over the connection for metadump, and a
+// real server (with a login) answered nothing when stats went first.
 func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]KeyInfo, bool, error) {
 	if pattern == "" {
 		pattern = "*"
 	}
-	if err := m.send(ctx, "stats\r\nlru_crawler metadump all"); err != nil {
+	if err := m.send(ctx, "lru_crawler metadump all"); err != nil {
 		return nil, false, mcErr(err)
 	}
-	now := int64(-1) // the server's clock; -1 = unknown
-	for {
-		line, err := m.line()
-		if err != nil {
-			return nil, false, mcErr(err)
-		}
-		if line == "END" {
-			break
-		}
-		if v, ok := strings.CutPrefix(line, "STAT time "); ok {
-			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-				now = n
-			}
-		}
-	}
-	keys, more := []KeyInfo{}, false
+	var lines []string
+	more := false
 	for {
 		line, err := m.line()
 		if err != nil {
@@ -316,8 +304,13 @@ func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]KeyIn
 			return nil, false, mcErr(err)
 		}
 		if line == "END" {
-			return keys, more, nil
+			break
 		}
+		lines = append(lines, line)
+	}
+	now := m.serverTime(ctx) // -1 = unknown
+	keys := []KeyInfo{}
+	for _, line := range lines {
 		k, ok := metadumpKey(line, now)
 		if !ok {
 			continue
@@ -327,6 +320,27 @@ func (m *memcache) Keys(ctx context.Context, pattern string, limit int) ([]KeyIn
 				more = true
 			} else {
 				keys = append(keys, k)
+			}
+		}
+	}
+	return keys, more, nil
+}
+
+// serverTime is the server's clock from `stats` (STAT time), or -1 when
+// it cannot be read; a TTL is then unknown, never a guess.
+func (m *memcache) serverTime(ctx context.Context) int64 {
+	if err := m.send(ctx, "stats"); err != nil {
+		return -1
+	}
+	now := int64(-1)
+	for {
+		line, err := m.line()
+		if err != nil || line == "END" {
+			return now
+		}
+		if v, ok := strings.CutPrefix(line, "STAT time "); ok {
+			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+				now = n
 			}
 		}
 	}
