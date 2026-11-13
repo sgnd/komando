@@ -302,8 +302,8 @@ use sudo, the command stops with `PERMISSION_DENIED` and a hint that names
 the fix (`komando host edit web1 --sudo-ref secret:web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)). A server with
 no sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same
-holds for `pkg`, `user`, `cron --user`, the `docker` commands that change
-something with `--sudo`, and recipes that use sudo.
+holds for `pkg`, `user`, `cron --user`, every `docker` command with
+`--sudo` (as root, leave out `--sudo`), and recipes that use sudo.
 
 ## Whole jobs, step by step
 

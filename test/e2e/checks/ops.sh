@@ -51,6 +51,10 @@ q $K host trust t-fixops-ns
 check "svc restart without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K svc restart t-fixops-ns ssh | jget "${r0}['error']['code']" || true)"
 check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref secret:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
 check "user add without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K user add t-fixops-ns t-fixopsx | jget "${r0}['error']['code']" || true)"
+for sub in ps stats images; do
+  check "docker $sub --sudo without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K docker $sub t-fixops-ns --sudo | jget "${r0}['error']['code']" || true)"
+done
+check "docker ps --sudo refused says to leave out --sudo as root" True "$($K docker ps t-fixops-ns --sudo | jget "'--user OTHER' in ${r0}['error']['hint'] or 'leave out --sudo' in ${r0}['error']['hint']" || true)"
 q $K host rm t-fixops-ns
 $K user rm direct t-fixopsns --remove-home --allow-dangerous >/dev/null 2>&1 || true
 q $K key rm t-fixops-k

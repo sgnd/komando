@@ -347,6 +347,13 @@ func errNoSystemd() *out.Error {
 // or the server has no sudo (a minimal image where you log in as root).
 // host names the server in the hint; "" leaves NAME (a group).
 func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
+	return sudoRefusal(host, "add --no-sudo", rr)
+}
+
+// sudoRefusal is sudoProblem with asRoot, what to do when the login user
+// is root: "add --no-sudo" where sudo is the default, "leave out --sudo"
+// where it is asked for (docker).
+func sudoRefusal(host, asRoot string, rr *sshx.RunResult) *out.Error {
 	if rr == nil || rr.ExitCode == 0 {
 		return nil
 	}
@@ -359,7 +366,7 @@ func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
 	case strings.Contains(e, "sudo: a password is required"), strings.Contains(e, "sudo: a terminal is required"),
 		strings.Contains(e, "no tty present and no askpass"):
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
-			"a person stores the sudo password with `komando secret set "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, add --no-sudo",
+			"a person stores the sudo password with `komando secret set "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, "+asRoot,
 			"sudo asks for a password komando does not have")
 	case strings.Contains(e, "is not in the sudoers file"), strings.Contains(e, "is not allowed to run sudo"),
 		strings.Contains(e, "may not run sudo"):
@@ -368,7 +375,7 @@ func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
 			"the login user may not use sudo")
 	case rr.ExitCode == 127 && (strings.Contains(e, "sudo: not found") || strings.Contains(e, "sudo: command not found")):
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING",
-			"when you log in as root, add --no-sudo; otherwise install sudo on the server",
+			"when you log in as root, "+asRoot+"; otherwise install sudo on the server",
 			"sudo is not installed on this server")
 	}
 	return nil

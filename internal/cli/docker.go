@@ -64,7 +64,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 			// the exit status travels in stdout so a missing object can say
 			// "not found" (exit 3) instead of a bare remote failure
 			line := "docker inspect " + sshx.Q(args[1]) + " 2>&1; echo \"" + exitMarker + "$?\""
-			return probe(cmd.Context(), "docker.inspect", args[0], line, sudo, func(_ *store.Host, s string) (any, error) {
+			return probe(cmd.Context(), "docker.inspect", args[0], line, sudo, dockerExit, func(_ *store.Host, s string) (any, error) {
 				body, code := splitExitMarker(s)
 				if code != 0 {
 					return nil, dockerErr(body, code)
@@ -158,12 +158,24 @@ var dockerNotFound = regexp.MustCompile(`(?i)no such (container|service|object|i
 // into a typed error (dockerErr). `docker exec` does not use it: there the
 // exit code is the container command's.
 func runDocker(ctx context.Context, name, target, command string, sudo, mutating bool) error {
-	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: orSudo(soleHost(target), func(rr *sshx.RunResult) *out.Error {
-		if rr.ExitCode == 0 {
-			return nil
+	host := soleHost(target)
+	return runFleet(ctx, name, target, command, nil, execOpts{sudo: sudo, exitMap: func(rr *sshx.RunResult) *out.Error {
+		return dockerExit(host, sudo, rr)
+	}}, mutating)
+}
+
+// dockerExit is why a docker command failed on host: sudo refused (with
+// --sudo), or docker's own error (dockerErr); nil when it worked.
+func dockerExit(host string, sudo bool, rr *sshx.RunResult) *out.Error {
+	if rr.ExitCode == 0 {
+		return nil
+	}
+	if sudo {
+		if e := sudoRefusal(host, "leave out --sudo", rr); e != nil {
+			return e
 		}
-		return dockerErr(rr.Stderr, rr.ExitCode)
-	})}, mutating)
+	}
+	return dockerErr(rr.Stderr, rr.ExitCode)
 }
 
 // dockerActionShorts are the help lines of docker start, stop, restart,
@@ -647,7 +659,7 @@ func dockerListCmds(sudo *bool) []*cobra.Command {
 			if all {
 				line += " -a"
 			}
-			return probe(cmd.Context(), "docker.ps", a[0], line+" --format '{{json .}}'", *sudo, dockerTableN(psLimit,
+			return probe(cmd.Context(), "docker.ps", a[0], line+" --format '{{json .}}'", *sudo, dockerExit, dockerTableN(psLimit,
 				[]string{"name", "image", "status", "ports", "created"}, []string{"Names", "Image", "Status", "Ports", "RunningFor"}, "Names"))
 		},
 	}
@@ -658,7 +670,7 @@ func dockerListCmds(sudo *bool) []*cobra.Command {
 		Short: "CPU, memory, network and disk use of running containers",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, a []string) error {
-			return probe(cmd.Context(), "docker.stats", a[0], "docker stats --no-stream --format '{{json .}}'", *sudo, dockerTableN(statsLimit,
+			return probe(cmd.Context(), "docker.stats", a[0], "docker stats --no-stream --format '{{json .}}'", *sudo, dockerExit, dockerTableN(statsLimit,
 				[]string{"name", "cpu", "memory", "mem%", "net i/o", "block i/o", "pids"}, []string{"Name", "CPUPerc", "MemUsage", "MemPerc", "NetIO", "BlockIO", "PIDs"}, "Name"))
 		},
 	}
@@ -668,7 +680,7 @@ func dockerListCmds(sudo *bool) []*cobra.Command {
 		Short: "Images on the server",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, a []string) error {
-			return probe(cmd.Context(), "docker.images", a[0], "docker images --format '{{json .}}'", *sudo, dockerTableN(imagesLimit,
+			return probe(cmd.Context(), "docker.images", a[0], "docker images --format '{{json .}}'", *sudo, dockerExit, dockerTableN(imagesLimit,
 				[]string{"repository", "tag", "id", "created", "size"}, []string{"Repository", "Tag", "ID", "CreatedSince", "Size"}, "Repository", "Tag"))
 		},
 	}
