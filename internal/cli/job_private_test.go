@@ -67,3 +67,54 @@ func TestJobFolderIsPrivate(t *testing.T) {
 		}
 	}
 }
+
+// A job whose sudo refuses before it starts (no rights, a wrong password)
+// left its env file (the host's env, vault values included) and its script
+// in the job folder: only the job itself removed them. The wrapper now
+// removes both when the job ends, whatever happened.
+func TestJobLeavesNoEnvWhenSudoRefuses(t *testing.T) {
+	srv := startFakeServer(t)
+	if err := store.Update(func(st *store.State) error {
+		st.Hosts["dev"].Env = map[string]string{"APP_TOKEN": "env-value-for-the-job"}
+		st.Hosts["prod"].Protected = false // the same server
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	srv.reply("4242\n")
+	script := filepath.Join(t.TempDir(), "job.sh")
+	os.WriteFile(script, []byte("echo hi\n"), 0o600)
+	if err := runRoot(t, "job", "start", "dev", "--sudo", "--script", script); err != nil {
+		t.Fatal(err)
+	}
+	e := srv.take()[0]
+
+	home := t.TempDir()
+	bin := t.TempDir()
+	os.WriteFile(filepath.Join(bin, "sudo"), []byte("#!/bin/sh\necho 'sudo: a password is required' >&2\nexit 1\n"), 0o700)
+	c := exec.Command("/bin/sh", "-c", e.cmd)
+	c.Dir, c.Env = home, []string{"HOME=" + home, "PATH=" + bin + ":/usr/bin:/bin"}
+	c.Stdin = strings.NewReader(e.stdin)
+	if b, err := c.CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, b)
+	}
+	dirs, _ := filepath.Glob(filepath.Join(home, ".komando", "jobs", "*"))
+	if len(dirs) != 1 {
+		t.Fatalf("job folders: %v", dirs)
+	}
+	d := dirs[0]
+	for end := time.Now().Add(10 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		if b, err := os.ReadFile(filepath.Join(d, "exit")); err == nil && len(b) > 0 {
+			break
+		}
+		if time.Now().After(end) {
+			t.Fatal("the job did not end")
+		}
+	}
+	time.Sleep(200 * time.Millisecond) // the wrapper's last step
+	for _, f := range []string{"env", "script"} {
+		if _, err := os.Stat(filepath.Join(d, f)); !os.IsNotExist(err) {
+			t.Errorf("%s stayed after sudo refused: %v", f, err)
+		}
+	}
+}

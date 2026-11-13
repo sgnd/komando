@@ -93,6 +93,7 @@ or a listed one is gone.
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
 | `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
 | `internal/storex` | object storage, FTP, SFTP, WebDAV and SMB behind one interface |
+| `internal/tmpclean` | the temporary files of one run, removed on a second Ctrl-C; old leftovers swept |
 | `internal/vault` | the encrypted secrets |
 | `internal/winrm` | komando's own WinRM client for Windows servers |
 

@@ -104,7 +104,7 @@ turn on the approval code.
 |----------|--------------|
 | `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`, on Windows `%USERPROFILE%\.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
 | `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `store.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see [below](#a-passphrase-instead-of-the-keychain)) |
-| `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain |
+| `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs); for an AI agent it does not turn off the store's change count, the old-copy check. On a Mac, a path to a keychain file to use instead of the login keychain |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |

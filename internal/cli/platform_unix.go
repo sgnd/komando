@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 // detachAttr makes a child process outlive this command and its terminal.
@@ -54,3 +55,23 @@ const exeSuffix = ""
 // swapExe puts the new program tmp where exe is. A rename is atomic, and a
 // komando running now keeps the old file.
 func swapExe(tmp, exe string) error { return os.Rename(tmp, exe) }
+
+// noCoreDumps keeps a crash of komando from writing its memory to a core
+// file: it holds vault values, the store's key and passwords as Go
+// strings, which cannot be wiped. Programs komando starts inherit it.
+func noCoreDumps() {
+	var l syscall.Rlimit
+	if syscall.Getrlimit(syscall.RLIMIT_CORE, &l) == nil && l.Cur != 0 {
+		l.Cur = 0
+		_ = syscall.Setrlimit(syscall.RLIMIT_CORE, &l)
+	}
+}
+
+// raise sends s to komando itself (its handler reset first): the process
+// ends of it, as it would have without a handler.
+func raise(s os.Signal) {
+	if sig, ok := s.(syscall.Signal); ok {
+		_ = syscall.Kill(os.Getpid(), sig)
+		time.Sleep(time.Second) // delivered at once; the caller's exit is the fallback
+	}
+}

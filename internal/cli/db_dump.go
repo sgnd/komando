@@ -21,6 +21,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // Backups always land on (and restore from) this computer. The database's
@@ -581,6 +582,7 @@ func writeAtomic(path string, fill func(tmp string) error) error {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder exists and is writable", "%v", err)
 	}
 	defer os.RemoveAll(dir)
+	defer tmpclean.Add(dir)()
 	tmp := filepath.Join(dir, "data")
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {

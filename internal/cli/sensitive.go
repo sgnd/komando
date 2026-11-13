@@ -57,6 +57,9 @@ func hiddenInLocal(p string) error {
 // --stdin-file, a script): it is a masked copy, and a command that writes
 // it out (cat > /etc/redis.conf) would put [hidden] where the real value is.
 func hiddenInInput(what string, b []byte) error {
+	if err := secretInBody(what, b); err != nil {
+		return err
+	}
 	if len(b) > hiddenScanMax || !out.HasHidden(string(b)) {
 		return nil
 	}
@@ -389,4 +392,5 @@ func isSensitive(err error) bool {
 func init() {
 	vault.RefGuard = refGuard
 	vault.OnResolve = func(v string) { out.P.AddValue(v) } // hidden in output, as vault values are
+	vault.AgentCall = isAgent                              // an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
 }

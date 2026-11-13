@@ -12,6 +12,7 @@ import (
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/sslvpn"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // sslLogin logs in to a built-in SSL VPN. With a person at the terminal
@@ -69,11 +70,13 @@ func (w *signInWindow) show(ctx context.Context, p sslvpn.BrowserPage) (string, 
 	}
 	target := p.URL
 	if target == "" {
+		tmpclean.Sweep(os.TempDir(), "komando-signin-", "")
 		dir, err := os.MkdirTemp("", "komando-signin-")
 		if err != nil {
 			return "", err
 		}
 		defer os.RemoveAll(dir)
+		defer tmpclean.Add(dir)()
 		target = filepath.Join(dir, "sign-in.html")
 		if err := os.WriteFile(target, []byte(p.HTML), 0o600); err != nil {
 			return "", err

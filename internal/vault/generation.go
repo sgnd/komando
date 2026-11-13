@@ -30,7 +30,7 @@ func genService() string { return keychainService() + " generation" }
 const genTimeout = 5 * time.Second
 
 func genGet() (uint64, bool, error) {
-	if _, err := autoKeychainTool(); err != nil {
+	if _, err := autoKeychainToolOff(countOff()); err != nil {
 		return 0, false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
@@ -83,7 +83,7 @@ func genGet() (uint64, bool, error) {
 }
 
 func genSet(n uint64) error {
-	if _, err := autoKeychainTool(); err != nil {
+	if _, err := autoKeychainToolOff(countOff()); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)

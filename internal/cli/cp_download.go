@@ -17,6 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/storex"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // Downloads from servers: one file or a folder over SFTP, one file as root
@@ -180,6 +181,7 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 		return 0, "", false, err
 	}
 	defer os.Remove(tmp.Name()) // no-op once it has been moved into place
+	defer tmpclean.Add(tmp.Name())()
 	h := sha256.New()
 	// the destination watches ctx: an SFTP source keeps reading in parallel
 	var w io.Writer = io.MultiWriter(tmp, h)

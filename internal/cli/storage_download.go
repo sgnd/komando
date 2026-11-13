@@ -14,6 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // downloadDest is where a download lands: to as given, inside it when it
@@ -163,6 +164,7 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder exists and is writable", "%v", err)
 	}
 	defer os.RemoveAll(dir)
+	defer tmpclean.Add(dir)()
 	tmp := filepath.Join(dir, "data")
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {

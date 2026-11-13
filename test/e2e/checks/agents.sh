@@ -16,6 +16,8 @@ check "an agent's preview of it reads no secret" "True SECRET_DESTINATION" "$(A 
 check "an agent with another KOMANDO_HOME needs a person" SAFETY_SETTING "$(CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" list | jget 'd["error"]["code"]' || true)"
 q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}'
 check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
+check "an agent's guess of a vault value is refused" SECRET_INPUT_INVALID "$(A exec direct --read-only -- echo opspass | jget 'd["error"]["code"]' || true)"
+check "the guess is in the audit log" True "$($K audit --limit 5 | jget '"SECRET_INPUT_INVALID" in json.dumps(d) and "opspass" not in json.dumps(d)')"
 check "agent cannot copy .env here" SENSITIVE_FILE "$(A download direct /home/agent/app/.env --to "$TMP/" | jget 'd["error"]["code"]' || true)"
 q A download direct /home/agent/app --to "$TMP/agentcopy" -r
 check "agent folder copy leaves .env behind" "False True" "$(python3 -c "import os; print(os.path.exists('$TMP/agentcopy/.env'), os.path.exists('$TMP/agentcopy/readme.txt'))")"

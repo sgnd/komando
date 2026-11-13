@@ -186,12 +186,17 @@ func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) e
 	return finishFleet("reboot", data, runSummary{fleetSummary: data.Summary, Skipped: len(data.Skipped), SkippedHosts: data.Skipped}, worst, fails)
 }
 
+// rebootOutput bounds what komando keeps of the boot mark and reboot
+// commands' output: a few lines, and a server that floods them must not
+// fill this computer's memory.
+const rebootOutput = 64 << 10
+
 func rebootOne(ctx context.Context, st *store.State, h *store.Host, wait time.Duration, sudo bool) rebootRow {
 	r := rebootRow{Host: h.Name}
 	fail := func(e *out.Error) rebootRow { r.Error = e; return r }
 	var before string
 	err := withClient(ctx, st, h, func(c *sshx.Client) error {
-		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: bootMark + "\n" + rebootNow, Sudo: sudo, Timeout: 30 * time.Second})
+		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: bootMark + "\n" + rebootNow, Sudo: sudo, Timeout: 30 * time.Second, MaxOutput: rebootOutput})
 		if err != nil {
 			return err
 		}
@@ -214,7 +219,7 @@ func rebootOne(ctx context.Context, st *store.State, h *store.Host, wait time.Du
 		}
 		var mark, since string
 		err := withClient(ctx, st, h, func(c *sshx.Client) error {
-			rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: bootMark + "; uptime -s 2>/dev/null", Timeout: 20 * time.Second})
+			rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: bootMark + "; uptime -s 2>/dev/null", Timeout: 20 * time.Second, MaxOutput: rebootOutput})
 			if err != nil {
 				return err
 			}

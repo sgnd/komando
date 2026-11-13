@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // The master key of the sealed store, kept the
@@ -116,6 +117,7 @@ func newKeyFile(kp string) ([]byte, error) {
 		return nil, err
 	}
 	defer os.Remove(tmp.Name())
+	defer tmpclean.Add(tmp.Name())() // it holds the key
 	_, err = tmp.Write(key)
 	if err == nil {
 		err = tmp.Sync()
