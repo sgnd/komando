@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -65,7 +66,8 @@ func TestExportSealedRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi, _ := os.Stat(file); fi.Mode().Perm() != 0o600 {
+	// Unix mode bits mean nothing on Windows (it shows 0666 for every file)
+	if fi, _ := os.Stat(file); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode %v", fi.Mode())
 	}
 	if strings.Contains(string(raw), "s3cret") || strings.Contains(string(raw), "web1") {
