@@ -24,6 +24,10 @@ check "mongo find as text is one document a line" 2 "$($K db query shop-mongo '{
 check "mongo delete-all is destructive" POLICY_BLOCKED "$($K db query shop-mongo --write '{"delete": "users", "deletes": [{"q": {}, "limit": 0}]}' | jget 'd["error"]["code"]')"
 check "mongo schema lists the collection" "['users']" "$($K db schema shop-mongo | jget '[c["name"] for c in d["data"]["collections"]]')"
 check "mongo info" standalone "$($K db info shop-mongo | jget 'd["data"]["role"]')"
+check "mongo explain shows the plan" True "$($K db explain shop-mongo '{"find": "users", "filter": {"plan": "pro"}}' | jget '"queryPlanner" in d["data"]["plan"]')"
+check "mongo explain --analyze has the numbers" True "$($K db explain shop-mongo --analyze '{"find": "users"}' | jget 'd["data"]["plan"]["executionStats"]["nReturned"] >= 2')"
+check "mongo explain of a write is refused" USAGE "$($K db explain shop-mongo '{"delete": "users", "deletes": [{"q": {}, "limit": 0}]}' | jget 'd["error"]["code"]' || true)"
+check "mongo activity lists operations" True "$($K db activity shop-mongo --all | jget 'd["data"]["count"] >= 1')"
 check "mongo dump says SQL only" NOT_SUPPORTED "$($K db dump shop-mongo --to "$TMP/m.dump" | jget 'd["error"]["code"]')"
 q $K db query shop-mongo --write --allow-dangerous '{"dropDatabase": 1}'
 q $K conn rm shop-mongo
