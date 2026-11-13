@@ -118,6 +118,18 @@ func TestSudoFollowOnlyRootsLinks(t *testing.T) {
 	if got, _, code := runFollow(t, filepath.Join(dl, "app"), nil); code != 0 || got != target {
 		t.Fatalf("root's folder link: %q %d", got, code)
 	}
+	// root's link to a folder that --mkdirs makes: the nearest folder
+	// there is root's, so it goes on
+	nl := filepath.Join(d, "new")
+	if err := os.Symlink(filepath.Join(d, "sites-available", "a", "b"), nl); err != nil {
+		t.Fatal(err)
+	}
+	if got, _, code := runFollow(t, filepath.Join(nl, "x"), nil); code != 0 || got != filepath.Join(d, "sites-available", "a", "b", "x") {
+		t.Fatalf("root's link to a new folder: %q %d", got, code)
+	}
+	if got, _, code := runFollow(t, filepath.Join(nl, "x"), notRoot(filepath.Dir(target))); code != sudoExitLink {
+		t.Fatalf("followed toward another user's folder: %q %d", got, code)
+	}
 	// --no-follow: a link at the path stops before anything else
 	if _, _, code := runAsRoot(t, "p='"+link+"'; "+sudoWriteScript("/nonexistent", true), nil); code != 95 {
 		t.Fatalf("--no-follow: %d", code)

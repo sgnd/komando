@@ -70,7 +70,11 @@ func sudoFolderScript(tmpQ string) string {
 // sudoWriteScript checks $p before root writes it, and sets $p to the
 // file root writes. With noFollow a link at $p stops with exit 95. Only
 // root's links are followed (exit 92 for any other), and only into a
-// folder root owns; the folder rule is sudoFolderScript.
+// folder root owns (for a folder --mkdirs makes, the nearest one there);
+// the folder rule is sudoFolderScript. The SSH user's own links are not
+// followed either, unlike for a read: komando's rules look at the path
+// given, and a link the agent made as that user would move a write as
+// root somewhere else.
 func sudoWriteScript(tmpQ string, noFollow bool) string {
 	stop := "{ rm -f " + tmpQ + "; exit 92; }"
 	var sb strings.Builder
@@ -79,7 +83,9 @@ func sudoWriteScript(tmpQ string, noFollow bool) string {
 		sb.WriteString(`if [ -L "$p" ]; then rm -f ` + tmpQ + `; exit 95; fi; `)
 	}
 	sb.WriteString(sudoWalkScript(stop))
-	sb.WriteString(`if [ "$f" = 1 ]; then [ "$(stat -c %u -- "$(dirname -- "$p")")" = 0 ] || ` + stop + `; fi; `)
+	// the folder the link led into, or (--mkdirs) the nearest one there
+	sb.WriteString(`if [ "$f" = 1 ]; then d=$(dirname -- "$p"); while [ ! -e "$d" ]; do d=$(dirname -- "$d"); done; ` +
+		`[ "$(stat -c %u -- "$d")" = 0 ] || ` + stop + `; fi; `)
 	sb.WriteString(sudoFolderScript(tmpQ))
 	return sb.String()
 }
