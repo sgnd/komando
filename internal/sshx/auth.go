@@ -283,12 +283,7 @@ func sameAgentKey(a, want ssh.PublicKey) bool {
 func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k lockedKey) *out.Error {
 	p := shellPath(k.path)
 	if k.sk {
-		why := "ssh-agent does not hold it"
-		if lk.agent == agentUnset || lk.agent == agentDown {
-			why = "no ssh-agent answers"
-		}
-		return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", "load it into ssh-agent with `ssh-add "+p+"` (touch the key when it blinks); komando then logs in through the agent",
-			"key %s is a security key (FIDO2), which only ssh-agent can use, and %s", p, why)
+		return lk.securityKeyNeeded(p)
 	}
 	var why, load string
 	switch lk.agent {
@@ -305,6 +300,17 @@ func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k locked
 		hint = storePassphrase(st, h, k)
 	}
 	return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", hint, "key %s is encrypted and %s", p, why)
+}
+
+// securityKeyNeeded is KEY_PASSPHRASE_REQUIRED for a security key (FIDO2)
+// ssh-agent does not hold: no passphrase helps, only ssh-add.
+func (lk *loginKeys) securityKeyNeeded(p string) *out.Error {
+	why := "ssh-agent does not hold it"
+	if lk.agent == agentUnset || lk.agent == agentDown {
+		why = "no ssh-agent answers"
+	}
+	hint := "load it into ssh-agent with `ssh-add " + p + "` (touch the key when it blinks); komando then logs in through the agent"
+	return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", hint, "key %s is a security key (FIDO2), which only ssh-agent can use, and %s", p, why)
 }
 
 // storePassphrase says how to keep an encrypted key's passphrase in the
