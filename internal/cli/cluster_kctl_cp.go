@@ -34,11 +34,16 @@ func (r *kctlRun) cp() error {
 	}
 	c := r.a.val("container")
 	if pod, rpath, ok := podOf(src); ok {
-		var tarball bytes.Buffer
+		tarball := &capBuffer{max: maxPodCopy}
 		var errb bytes.Buffer
 		rpath = path.Clean(rpath) // "/data/" is /data, "/x/.." is /
 		dir, base := path.Dir(rpath), path.Base(rpath)
-		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: &tarball, Stderr: &errb})
+		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: tarball, Stderr: &errb})
+		if tarball.over {
+			return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE",
+				"copy a smaller part, or pack it smaller in the pod first (cluster run TARGET --write -- exec POD -- gzip PATH)",
+				"%s:%s is more than %s; komando holds a copy from a pod in memory, and stopped", pod, rpath, humanBytes(maxPodCopy)))
+		}
 		if err != nil {
 			return kfail("%s %s", strings.TrimSpace(errb.String()), err)
 		}
@@ -60,13 +65,37 @@ func (r *kctlRun) cp() error {
 	return kfail("one of SRC or DST must be POD:PATH")
 }
 
+// maxPodCopy is the most a copy from a pod brings: the tar stream is held
+// in memory (untarTo checks every name before it writes any), so a pod
+// must not be able to fill this computer's memory.
+const maxPodCopy = 512 << 20
+
+// capBuffer is a bytes.Buffer that takes at most max bytes: past that it
+// stops the copy (the writer's error ends the stream) and says so.
+type capBuffer struct {
+	bytes.Buffer
+	max  int
+	over bool
+}
+
+func (b *capBuffer) Write(p []byte) (int, error) {
+	if b.Len()+len(p) > b.max {
+		b.over = true
+		return 0, errors.New("too large")
+	}
+	return b.Buffer.Write(p)
+}
+
 // untarTo writes the tar stream (made by tar in the container, so the
 // container picks every name in it) under dst; base is the copied name, so
 // a single file can land at dst itself. Every entry must be base or lie
 // under it, and land inside dst: one that does not is refused before
 // anything is written, as is one inside a .git folder. Links and devices
 // are skipped, like kubectl cp; a file gets the tar's mode without setuid,
-// setgid or world-write.
+// setgid or world-write. For an AI agent a file copies as an SFTP download
+// does (fetchMasked): a file that is a secret by name is refused, a text
+// file is masked before it is written, and a binary or larger one that
+// holds a vault value is refused; all of it before anything is written.
 func untarTo(tarball []byte, dst, base string) error {
 	root, err := filepath.Abs(dst)
 	if err != nil {
@@ -79,6 +108,8 @@ func untarTo(tarball []byte, dst, base string) error {
 	type entry struct {
 		target string
 		dir    bool
+		mode   os.FileMode
+		data   []byte
 	}
 	var plan []entry
 	tr := tar.NewReader(bytes.NewReader(tarball))
@@ -109,14 +140,23 @@ func untarTo(tarball []byte, dst, base string) error {
 		if link := symlinkOn(root, r); link != "" { // a link already there could lead out
 			return kfail("refusing %q: %s is a symbolic link", h.Name, link)
 		}
-		plan = append(plan, entry{target: target, dir: h.Typeflag == tar.TypeDir})
-	}
-	tr = tar.NewReader(bytes.NewReader(tarball))
-	for _, e := range plan {
-		h, err := tr.Next()
-		if err != nil {
-			return kfail("%v", err)
+		e := entry{target: target, dir: h.Typeflag == tar.TypeDir, mode: os.FileMode(h.Mode)}
+		if !e.dir {
+			if err := guardSensitiveCopy(h.Name); err != nil {
+				var stop *out.Error
+				errors.As(err, &stop)
+				return kstop(stop)
+			}
+			if e.data, err = io.ReadAll(tr); err != nil {
+				return kfail("%v", err)
+			}
+			if e.data, err = podFileMasked(h.Name, e.data); err != nil {
+				return err
+			}
 		}
+		plan = append(plan, e)
+	}
+	for _, e := range plan {
 		switch {
 		case e.target == "":
 		case e.dir:
@@ -127,7 +167,7 @@ func untarTo(tarball []byte, dst, base string) error {
 			if err := os.MkdirAll(filepath.Dir(e.target), 0o755); err != nil {
 				return kfail("%v", err)
 			}
-			mode := os.FileMode(h.Mode)&0o755 | 0o600 // as kubectl cp: never setuid, setgid or world-writable
+			mode := e.mode&0o755 | 0o600 // as kubectl cp: never setuid, setgid or world-writable
 			f, err := os.OpenFile(e.target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 			if err != nil {
 				return kfail("%v", err)
@@ -136,7 +176,7 @@ func untarTo(tarball []byte, dst, base string) error {
 				f.Close()
 				return kfail("%v", err)
 			}
-			_, err = io.Copy(f, tr)
+			_, err = f.Write(e.data)
 			f.Close()
 			if err != nil {
 				return kfail("%v", err)
@@ -144,6 +184,27 @@ func untarTo(tarball []byte, dst, base string) error {
 		}
 	}
 	return nil
+}
+
+// podFileMasked is a file from a pod as an AI agent may have it on this
+// computer (fetchMasked's rule): a text file komando reads whole with its
+// secret values [hidden]; a binary or larger one as it is, unless it holds
+// a vault value. People and scripts, and --reveal, get it as it is.
+func podFileMasked(name string, b []byte) ([]byte, error) {
+	if !out.P.Mask || revealOK() {
+		return b, nil
+	}
+	if len(b) <= hiddenScanMax && bytes.IndexByte(b, 0) < 0 {
+		return []byte(out.P.Redact(string(b))), nil
+	}
+	sc := out.P.NewValueScanner()
+	_, _ = sc.Write(b)
+	if sc.Found() {
+		return nil, kstop(out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+			revealHint("it is binary or larger than komando reads whole, so its secrets cannot be shown as [hidden]; if the user wants the real file on this computer, re-run with --reveal"),
+			"%s holds a value from komando's vault; komando does not copy it to this computer for an AI agent", name))
+	}
+	return b, nil
 }
 
 // gitPath: rel has a .git part (any case: macOS and Windows ignore it).
