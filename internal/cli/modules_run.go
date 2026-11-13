@@ -41,6 +41,9 @@ type opsSpec struct {
 	winParse func(h *store.Host, r *sshx.RunResult) (any, *out.Error)
 	// limit is --limit on a list: each server's rows stop there (0: all)
 	limit int
+	// after, when set, may finish a server's result through its connection
+	// (net dns without dig asks the server's resolver itself)
+	after func(ctx context.Context, c *sshx.Client, rr *sshx.RunResult) *sshx.RunResult
 }
 
 type opsRow struct {
@@ -161,7 +164,11 @@ func runOps(ctx context.Context, spec opsSpec) error {
 		} else if c.Host.Windows() {
 			cmd = spec.win
 		}
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOutput(st)})
+		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOutput(st)})
+		if err == nil && spec.after != nil && !c.Host.Windows() {
+			rr = spec.after(ctx, c, rr)
+		}
+		return rr, err
 	})
 	data := opsData{Command: shown, DryRun: g.dryRun, Results: []opsRow{}}
 	worst := 0

@@ -188,7 +188,7 @@ Typed alone, `komando net check` asks for the servers, then the addresses.
 komando net http web1 https://example.com --expect 2xx
 komando net ports web1 --sudo                         # PROTO ADDRESS PORT PROCESS PID
 komando net dns web1 api.example.com
-komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... need dig on the server
+komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... (with or without dig on the server)
 ```
 
 | Command | Fails when | Exit code |
@@ -202,8 +202,8 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... n
   `--sudo` to see the process names.
 - `net dns` without `--type` shows the addresses the server would connect
   to. `--type` takes A, AAAA, CNAME, MX, NS, TXT, SOA, SRV, PTR or CAA. A and
-  AAAA work everywhere; the others need `dig` on the server, and the error
-  says which package installs it.
+  AAAA work everywhere; the others use `dig` on the server, or, without it,
+  komando asks the server's resolver itself through the connection.
 - `net http` takes `http://` and `https://` URLs only. It reports the status,
   timing, the IP it reached and any redirect.
 
@@ -222,7 +222,10 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... n
 - `net check` gives up on a port after 5 seconds; `net http` after 15
   seconds (or `--timeout`).
 - `net http` takes `http://` and `https://` URLs only.
-- `net dns --type` other than A and AAAA needs `dig` on the server.
+- `net dns --type` other than A and AAAA uses `dig` on the server; without
+  it, komando asks the server's resolver (`/etc/resolv.conf`) itself over
+  TCP through the SSH connection, which needs TCP forwarding on the server
+  (`AllowTcpForwarding`, on by default).
 - Recipes with blanks refuse a `--var` value that starts with `-`, except a
   number or a time back from now (see [Recipes](commands.md#recipes-ready-made-and-saved-commands)).
 
@@ -238,4 +241,4 @@ komando net dns web1 example.com --type MX            # MX, TXT, CNAME, NS ... n
 | `UNEXPECTED_STATUS` | `net http --expect`: another status came back (exit 5) | check the URL and the service behind it |
 | `NXDOMAIN` | `net dns`: the name does not resolve from this server (exit 3) | check the name and the server's DNS (`/etc/resolv.conf`) |
 | `NO_RECORDS` | `net dns`: no records of that type (exit 3) | check the name and `--type` |
-| `TOOL_MISSING` | `net dns --type` needs `dig` on the server | install the package the error names |
+| `DIG_MISSING` | `net dns --type` found no `dig` on the server, and komando could not ask its resolver itself (no nameserver, or no TCP forwarding) | install the package the error names |

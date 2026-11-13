@@ -544,6 +544,9 @@ func netCmd() *cobra.Command {
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 					return dnsResult(args[1], rrType, rr.Stdout)
 				},
+				after: func(ctx context.Context, c *sshx.Client, rr *sshx.RunResult) *sshx.RunResult {
+					return dnsWithoutDig(ctx, c, args[1], rrType, rr)
+				},
 				text: dnsText})
 		},
 	}
