@@ -277,6 +277,9 @@ right now keeps working; the next command starts the new version.
   tries twice more. `--timeout` (default 10 minutes) limits the whole update.
 - It honours `HTTPS_PROXY`. `sudo` drops that variable; keep it with
   `sudo --preserve-env=HTTPS_PROXY komando update`.
+- `update` checks the checksum only, not the release's signed build
+  provenance. To check that on a downloaded file:
+  `gh attestation verify FILE --repo sgnd/komando`.
 
 | Error | What to do |
 |-------|------------|

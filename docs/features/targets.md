@@ -54,7 +54,8 @@ Each command uses what it can work with and tells you what it left out. For
 example, `komando exec @prod -- uptime` runs on the servers in `prod` and
 lists the databases under "skipped". `komando db query @prod "..."` does the
 opposite. If a target picks nothing the command can use, the error names the
-command to use instead.
+command to use instead. A target that picks nothing is an error, not an
+empty result.
 
 ## Groups, tags and labels
 
@@ -81,3 +82,11 @@ At a terminal, `group rm` ends with the way back:
 
 Group, tag and label names use letters, digits and `. _ -`, like server
 names, so every one can be written in a target.
+
+## Limits
+
+- A server, conn or VPN name uses letters, digits, `.`, `_` and `-`,
+  starts with a letter or digit, and is at most 63 characters long.
+- `all` cannot be a name, because as a target it means everything.
+- Servers, conns and VPNs share one list of names, and `Web1` and `web1`
+  are the same name.

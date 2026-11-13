@@ -232,6 +232,11 @@ line. Put `--` before it, or use `--file -`.
 | ClickHouse Array, Map, Tuple | JSON arrays and objects |
 | Snowflake NUMBER with a scale | text with every digit (`"12.50"`) |
 | Snowflake VARIANT, OBJECT, ARRAY | JSON values, arrays and objects |
+| Snowflake DATE, TIME, TIMESTAMP | text in the column's form: `TIMESTAMP_NTZ` without a zone, `TIMESTAMP_LTZ` in UTC, `TIMESTAMP_TZ` with its offset |
+| Snowflake BINARY | `{"base64": "..."}` |
+| BigQuery INT64 | a number |
+| BigQuery BYTES | `{"base64": "..."}` |
+| BigQuery DATE, TIME, DATETIME, GEOGRAPHY, INTERVAL | text, as BigQuery writes it |
 | BigQuery NUMERIC, BIGNUMERIC | text with every digit |
 | BigQuery TIMESTAMP | `"2026-11-09T13:04:05.123456Z"` (UTC) |
 | BigQuery STRUCT, ARRAY, JSON | JSON objects, arrays and values |
@@ -581,7 +586,9 @@ komando db kill sales 57 --session --allow-dangerous
 ```
 
 - **The URL.** The path is the database. A named instance
-  (`db\SQLEXPRESS`) is reached by its port: `sqlserver://app@db:49172/sales`.
+  (`db\SQLEXPRESS`) is reached by its port, not by its name:
+  `sqlserver://app@db:49172/sales`. The name needs the SQL Server Browser,
+  which answers over UDP, and `--via` carries only TCP.
   The options are `encrypt=` (`true`, `strict`, `false`, `disable`; see
   [Encryption](#encryption-tls)), `tls=skip-verify`, `ca=secret:NAME`,
   `applicationintent=readonly` (a readable replica of an availability
@@ -614,7 +621,10 @@ komando db kill sales 57 --session --allow-dangerous
   transaction: send them alone, with `--write`; a dry run only reports them.
 - `db explain` shows the plan with `SET SHOWPLAN_TEXT`: nothing runs, so it
   needs no `--write` for a change either. `--analyze` runs the query with
-  `SET STATISTICS PROFILE` and shows the real row counts.
+  `SET STATISTICS PROFILE` and shows the real row counts. Explaining a
+  stored procedure call (`EXEC`) still needs `--write` and
+  `--allow-dangerous`. The SQL may not turn `SHOWPLAN` settings on or off
+  itself.
 - `db activity`, `locks` and the sessions in `db info` need the
   `VIEW SERVER STATE` permission; without it a login sees only its own
   session.
@@ -651,8 +661,8 @@ komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
   old database without services: `oracle://app@db:1521?sid=ORCL`. The
   options are `tls=` (`true`, `skip-verify`, `false`; TCPS listens on its
   own port, often 2484) and `ca=secret:NAME` for a private CA (with
-  `tls=true`). Logins are user and password; wallets and Kerberos are not
-  supported.
+  `tls=true`). Logins are user and password; Oracle wallets, Kerberos and
+  operating-system logins are not supported.
 - **Without `--write` nothing changes.** komando starts every run with
   `SET TRANSACTION READ ONLY`, and checks after each statement that this
   transaction is still open.
@@ -679,7 +689,9 @@ komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
 - `COMMIT`, `ROLLBACK`, `SAVEPOINT`, `SET TRANSACTION` and
   `PRAGMA AUTONOMOUS_TRANSACTION` are refused anywhere, also inside a
   block. Names and text with letters outside ASCII must be quoted
-  (`"Straße"`, `'café'`). `q'[...]'` quotes work.
+  (`"Straße"`, `'café'`). `q'[...]'` quotes work. A `--` comment that
+  holds a control character or an unusual line break is refused, because
+  komando cannot be sure where Oracle ends it.
 - Calls to packages that reach other servers or files (`UTL_HTTP`,
   `UTL_FILE`, `DBMS_PIPE`, `DBMS_SCHEDULER`, ...) need `--write` and
   `--allow-dangerous`, and so does a call to any function that is not one
@@ -738,12 +750,16 @@ komando db kill events 8078617214407497              # the pid db activity shows
   out). The options are `tls=` (`true`, `skip-verify`, `false`) and
   `ca=secret:NAME` for a private CA (with `tls=true`). Without a port it is
   8443 with TLS and 8123 without. Ports 9000 and 9440 are ClickHouse's
-  native protocol, which komando does not speak: it says so.
+  native protocol, which komando does not speak: it says so. A server
+  that opens only the native port can still be reached: add `--via` a
+  server that can reach its port 8123 or 8443.
 - **Without `--write` nothing changes.** ClickHouse has no transactions,
   but it has its own read-only mode: every request komando sends without
   `--write`, and every query that returns rows, carries the setting
   `readonly=1`, and the server refuses writes, DDL and setting changes.
-  `SETTINGS` and `SET` in a read are refused for the same reason.
+  `SETTINGS` and `SET` in a read are refused for the same reason. Each
+  request is a session of its own, so a `SET` would not last anyway.
+  ClickHouse sessions and its experimental transactions are not used.
 - **A write cannot be rolled back.** `INSERT`, `ALTER`, `CREATE`,
   `OPTIMIZE` and every other statement that is not a read need `--write`,
   must be sent on their own, and a dry run only reports them. Destructive
@@ -754,11 +770,18 @@ komando db kill events 8078617214407497              # the pid db activity shows
   that reach other servers or the server's files. So the table functions
   and engines that do (`url()`, `s3()`, `remote()`, `mysql()`,
   `postgresql()`, `file()`, `executable()`, `Kafka`, ...) need `--write`
-  and `--allow-dangerous`, also inside `DESCRIBE` or `EXPLAIN`.
+  and `--allow-dangerous`, also inside `DESCRIBE` or `EXPLAIN`. Functions
+  the server's admin added as programs (executable user-defined functions)
+  run under `readonly=1` like any function: komando cannot tell them from
+  ClickHouse's own functions by name.
 - **A read-only user.** A user whose settings profile has `readonly = 1`
   may not send any setting, so komando sends none (its `--timeout` then
-  only stops the waiting, not the query). For a hard limit, give the conn
-  such a user with only `SELECT` grants.
+  only stops the waiting, not the query). A profile with `readonly = 2`
+  gets the timeout and the other settings, but komando does not send
+  `readonly` for it. For a hard limit, give the conn such a user with only
+  `SELECT` grants. A user whose settings profile reads queries as another
+  language (`dialect = 'kusto'` or `'prql'`) is refused
+  (`SQL_STRING_RULES`): komando checks ClickHouse SQL only.
 - Text in `$$...$$` and names or text with letters outside ASCII outside
   quotes are refused (`SQL_HIDDEN_CODE`): use `'...'` (with `\'` for a quote) and
   `` `...` ``. `FORMAT` and `INTO OUTFILE` are refused too: komando reads
@@ -809,7 +832,12 @@ komando db user show analytics APP_RO                 # its roles, and what each
     Snowflake must know the public half: `ALTER USER APP_RO SET
     RSA_PUBLIC_KEY = '...'`. Store the key without a passphrase (the vault
     encrypts it): `openssl pkcs8 -topk8 -nocrypt -in rsa_key.p8 | komando
-    secret set analytics-key`.
+    secret set analytics-key`. The key is an RSA key, PKCS#8
+    (`BEGIN PRIVATE KEY`) or PKCS#1 (`BEGIN RSA PRIVATE KEY`). A key with a
+    passphrase is refused; the error shows the `openssl` line that removes
+    it. When Snowflake refuses the key (`DB_AUTH`), the hint shows the
+    key's fingerprint: compare it with `RSA_PUBLIC_KEY_FP` in
+    `DESC USER APP_RO`.
   - **A programmatic access token** (`ALTER USER APP_RO ADD PROGRAMMATIC
     ACCESS TOKEN ...`), which Snowflake lets stand where a password goes.
 
@@ -820,7 +848,9 @@ komando db user show analytics APP_RO                 # its roles, and what each
   only statements it rates as reads, one per request, and asks Snowflake to
   run exactly one statement. A statement that is not a read (`INSERT`,
   `CREATE`, `COPY`, `CALL`, ...) needs `--write`, goes on its own, and a
-  dry run only reports it. Give the conn a role that may only read, so
+  dry run only reports it. A function that calls out of Snowflake (an
+  external function) is caught when it is created, not when it is called
+  by name. Give the conn a role that may only read, so
   a mistake in komando's checks cannot change anything either:
 
   ```sql
@@ -883,7 +913,9 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   dataset's location, or `US`). Other options: `ca=secret:NAME` (a proxy
   that inspects TLS) and `endpoint=URL` (an emulator, or a Private Service
   Connect address such as `https://bigquery-NAME.p.googleapis.com`). It is
-  HTTPS with the certificate checked; `tls=` is refused.
+  HTTPS with the certificate checked; `tls=` is refused. An `http://`
+  endpoint (an emulator) is allowed; `komando doctor` warns when it crosses
+  the network.
 - **Login.** The same as for `gs://` conns: gcloud's login (`gcloud auth
   application-default login`, `GOOGLE_APPLICATION_CREDENTIALS`, or the
   metadata server on Google Cloud), or a service account key (the JSON
@@ -913,6 +945,10 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   `bytes_processed`. `--dry-run` (with or without `--write`) is BigQuery's
   own dry run for every statement, also a `SELECT`: it shows what each
   would read and runs nothing. A run that times out cancels its job.
+  Sizes count in powers of 1024: `10GB` is 10 GiB, `200GB` is 200 GiB.
+  Every job komando starts is named `komando_` plus a random ID and has
+  the label `komando=<who ran it>`, so you can find komando's jobs and
+  their cost in BigQuery's job history.
 - **Placeholders** are `?`, and the `--arg` values go as `STRING`: BigQuery
   does not turn text into numbers by itself, so write `CAST(? AS INT64)`.
 - **Destructive** (`--allow-dangerous`): `DROP`, `TRUNCATE`,
@@ -985,6 +1021,66 @@ without `WHERE`) asks you to type the conn's name first, as `db query` does
 at the command line; anything else is `Not run.`. The shell is for people at
 a terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`,
 which returns JSON.
+
+## Limits
+
+**SQL Server**
+
+- Always Encrypted columns are not supported.
+- komando refuses a URL option it does not know. `TrustServerCertificate`
+  is refused too: write `tls=skip-verify` (with `encrypt=true`) instead.
+
+**Oracle**
+
+- komando refuses a URL option it does not know, and a service name with
+  characters other than letters, digits and `_ $ # . -`.
+- `db user add` and `db user passwd` refuse a password with a `"` or a line
+  break in it: Oracle cannot quote it.
+- `EXPLAIN PLAN` typed into `db query` is refused: use `db explain`.
+- A trigger `ON DATABASE` (a logon trigger can lock everyone out) needs
+  `--allow-dangerous`.
+
+**ClickHouse**
+
+- `tls=true` on port 8123 is refused: 8123 is plain HTTP, 8443 is HTTPS.
+- A backslash inside a quoted name (`` `\x75rl` ``) is refused, because
+  ClickHouse turns it into another letter.
+- `cluster()` and `Distributed` tables use clusters the admin set up, so
+  they count as reads.
+- komando does not use a proxy from `HTTPS_PROXY` and does not follow
+  redirects. To go through a host, use `--via`.
+
+**Snowflake**
+
+- komando's Snowflake client is built from Snowflake's documentation and
+  tested against a stand-in server, not against a real Snowflake account.
+  Please report anything that does not work.
+- `PUT` and `GET` (stage files to and from this computer) do not run:
+  Snowflake's SQL API does not take them. Use `COPY INTO` with a stage, or
+  Snowflake's own tools.
+- `SET` and `USE` count as reads: they change only the session of that one
+  request, which ends with it.
+- `db info` shows the database's size only when the conn names a
+  warehouse.
+- komando does not use a proxy from `HTTPS_PROXY` and does not follow
+  redirects. For a company proxy that inspects TLS, use `ca=secret:NAME`
+  and reach it through `--via` or a `proxy` VPN.
+
+**BigQuery**
+
+- komando's BigQuery client is built from Google's REST reference and
+  tested against a stand-in server, not against a real Google Cloud
+  project. Please report anything that does not work.
+- `db shell`, `db info`, `db activity` and `db sizes` always use the
+  default `--max-bytes` cap.
+- `db schema` lists at most 10,000 tables.
+- `db activity` shows the jobs that are not done from the last two days,
+  without komando's own.
+- A `MERGE` with `WHEN NOT MATCHED BY SOURCE` can change every row, so it
+  needs `--allow-dangerous`. A plain `MERGE ... WHEN MATCHED THEN UPDATE`
+  is a normal change.
+- `db explain` of a change needs no `--write`, but a statement that
+  reaches outside BigQuery (`EXTERNAL_QUERY`) keeps its rating.
 
 ## Troubleshooting
 

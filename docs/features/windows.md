@@ -61,15 +61,17 @@ Options go after `?`, joined with `&`:
 | Option | Means |
 |--------|-------|
 | `ca=secret:NAME` | the certificate comes from your own CA: store its PEM with `komando secret set NAME < ca.crt` (the check stays on) |
-| `auth=basic` | Basic login (local accounts only; HTTPS only) instead of NTLM |
+| `auth=basic` | Basic login (local accounts only) instead of NTLM; over plain HTTP (`tls=off`) it is refused (`WINRM_INSECURE`) |
 | `tls=skip-verify` | do not check the certificate (komando warns: anyone in between can pose as the server) |
 | `tls=off` | plain HTTP on port 5985: commands and output travel unencrypted, and the server must allow it |
 | `:PORT` | another port than 5986 (5985 with `tls=off`) |
 
 `--via` works: the connection goes through the bastion or VPN. WinRM
-carries commands only, so `shell`, tunnels, `host trust` and `login` need
-OpenSSH. To switch a server back to SSH: `komando host edit win2 --unset
-transport`. Kerberos is not supported yet: use NTLM with a domain user.
+carries commands only, so `shell`, tunnels, `host trust`, `login` and
+`host ssh-command` need OpenSSH. To switch a server back to SSH:
+`komando host edit win2 --unset transport`. Kerberos, CredSSP, client
+certificates and WinRM's own message encryption over plain HTTP are not
+supported yet: use NTLM with a domain user, over HTTPS.
 
 On the server, `winrm quickconfig -transport:https` (as an administrator)
 turns on WinRM over HTTPS.
@@ -230,6 +232,17 @@ lists services that should start automatically but stopped with an error.
 For the rest, run PowerShell with `exec`, for example
 `Get-WinEvent -LogName System -MaxEvents 50` for logs, or
 `Restart-Computer` (with `--allow-dangerous`) for a restart.
+
+## Limits
+
+- komando's PowerShell scripts are tested with PowerShell 7 on Linux, not
+  on a real Windows server: Windows PowerShell 5.1, Windows OpenSSH, WinRM
+  with NTLM, services and Windows Update have not been run there. Please
+  report anything that does not work.
+- WinRM logs in with a password only: `--key`, `--identity` and
+  `--proxy-command` are refused. Use `--via` to go through a bastion.
+- `fs write --backup` keeps a backup, but `fs restore` does not work on
+  Windows: copy the backup back with `komando exec SERVER -- Copy-Item ...`.
 
 ## Troubleshooting
 

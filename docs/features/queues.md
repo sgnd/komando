@@ -271,7 +271,9 @@ komando queue peek stream ORDERS              # the newest 10 messages; none is 
   you add `?insecure=1`.
 - List several servers of a cluster with commas. komando tries them in
   that order and talks only to the servers in the URL (with `--via`, all
-  of them are reached through the bastion or the VPN).
+  of them are reached through the bastion or the VPN). It tries each server
+  once and does not reconnect or follow the servers the cluster
+  advertises.
 - How komando logs in:
   - a user in the URL and `--password-ref`: user and password;
   - `--password-ref` without a user: the password is sent as a token;
@@ -460,7 +462,8 @@ komando queue peek pubsub billing                 # up to 10 messages of subscri
   `roles/pubsub.publisher` to send, `roles/pubsub.editor` to create and
   delete.
 - A login only ever travels over HTTPS. The emulator (`http://`) takes
-  none, so komando sends none there.
+  none, so komando sends none there: a key in `--password-ref` on an
+  `http://` endpoint is refused (`USAGE`).
 - `komando conn test pubsub` logs in and lists one topic.
 
 | Option | What it does |
@@ -515,6 +518,8 @@ komando queue rm pubsub subscriptions/billing old-orders --dry-run
   `maxDeliveryAttempts` deliveries Pub/Sub moves a message to the
   dead-letter topic, and a peek is a delivery. So peek stops with
   `DELIVERY_LIMIT_NEAR` once a message it showed has fewer than 3 left.
+  A subscription whose limit is 3 or less is refused before peek pulls
+  anything.
   Let the subscribers take the message, or peek a subscription of the
   dead-letter topic.
 - Push, BigQuery and Cloud Storage subscriptions are delivered by Pub/Sub
@@ -538,6 +543,19 @@ komando queue rm pubsub subscriptions/billing old-orders --dry-run
   Deleting a topic does not delete its subscriptions: they keep their
   messages, cut off from the topic. Deleting a subscription deletes the
   messages waiting in it. Both `purge` and `rm` need `--allow-dangerous`.
+
+## Limits
+
+- RabbitMQ: a vhost whose name holds `/` is written URL-encoded (`%2F`);
+  a path with a second `/` is refused.
+- RabbitMQ and NATS: `ca=` and `tls=skip-verify` cannot be used together.
+- NATS: a user in the URL and `creds=` together are refused: pick one.
+- SQS: komando does not read `AWS_ENDPOINT_URL` or `AWS_ENDPOINT_URL_SQS`:
+  the conn's URL says where it goes. Use `?endpoint=` for another server.
+- Pub/Sub: the URL has no user. Google logins have none, and a user is
+  refused. Topics of another project need a conn of their own.
+- Pub/Sub: an empty message with no `--header` is refused.
+- Pub/Sub: `pushEndpoint` must be an `https://` address.
 
 ## Troubleshooting
 

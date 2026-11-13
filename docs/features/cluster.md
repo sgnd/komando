@@ -319,6 +319,10 @@ manager.
   default).
 - Sessions have their own commands: `cluster forward` (port-forward) and
   `cluster shell` (`exec -it`).
+- `cluster run` knows kubectl's own commands, not kubectl plugins (krew).
+  `edit` is refused (get the YAML, change it, then `apply -f`), and of
+  `config` only `current-context` and `get-contexts` work. A command it
+  does not know gets a "did you mean".
 
 Supported kubectl commands:
 

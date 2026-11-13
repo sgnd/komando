@@ -35,7 +35,9 @@ komando vpn status                                  # which VPNs are up, and wha
 "Inside komando" means: no extra program, no Docker, no admin rights. The
 VPN is opened inside komando for that command only. Your computer's routes
 and DNS stay the same, so two VPNs that use the same addresses (both
-`10.0.0.0/8`) do not get in each other's way.
+`10.0.0.0/8`) do not get in each other's way. Names inside the VPN
+(`db.internal`) are looked up with the DNS servers the VPN's own
+configuration gives.
 
 ## Add a VPN
 
@@ -220,7 +222,9 @@ certificates, a user name and password, or both.
   `compress stub-v2` are fine.
 - With `auth-user-pass` in the profile, give `--user` and either
   `--password-ref`, or `--mfa` to type the password (with a PIN or one-time
-  code, for Pritunl) at `komando vpn up`.
+  code, for Pritunl) at `komando vpn up`. Plain OpenVPN profiles exported
+  from Pritunl work. Pritunl's PIN or one-time-code login has not been
+  tried against a Pritunl server.
 - Each session's local port needs a login only komando knows, so other users
   of your computer cannot use it.
 - komando reads the `.ovpn` and refuses anything it and OpenVPN could read
@@ -362,6 +366,14 @@ komando test kantor
   NAME`: the session log then lists every IKE message sent and received
   (sizes and types, never keys). Only sends and nothing received means UDP
   500 does not get through, or the server ignores komando's offer.
+
+## Limits
+
+- WireGuard uses the `MTU` line of its config file (1420 when there is
+  none). With VPNs stacked inside each other, lower it there.
+- Pulse/Ivanti: a server that asks for a client certificate (EAP-TTLS) or
+  for Host Checker is refused with a clear error. Traffic stays on TLS;
+  komando does not switch it to UDP (ESP).
 
 ## Troubleshooting
 
