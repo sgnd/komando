@@ -203,10 +203,51 @@ func describeObject(ctx context.Context, k *kube.Client, conn string, r kube.Res
 	if r.KindName() == "Service" && space != "" {
 		res["endpoints"] = endpoints(ctx, k, space, name)
 	}
-	if events, err := clusterEvents(ctx, k, space, r.KindName(), name, false, 20); err == nil {
+	events, err := clusterEvents(ctx, k, space, r.KindName(), name, false, 20)
+	if err == nil {
 		res["events"] = events
 	}
+	res["detail"] = objectDetail(r.KindName(), o, events)
 	return res, nil
+}
+
+// objectDetail is the object as a program reads it: kind, name,
+// namespace, one status word, when it was made, its labels, conditions
+// and events. It never holds a Secret's or a ConfigMap's data: only what
+// metadata and status say.
+func objectDetail(kind string, o map[string]any, events []map[string]any) map[string]any {
+	m, _ := o["metadata"].(map[string]any)
+	st, _ := o["status"].(map[string]any)
+	labels := map[string]string{}
+	if ls, ok := m["labels"].(map[string]any); ok {
+		for k, v := range ls {
+			labels[k] = str(v)
+		}
+	}
+	evs := make([]map[string]any, 0, len(events))
+	for _, e := range events {
+		evs = append(evs, map[string]any{"type": e["type"], "reason": e["reason"], "message": e["message"], "count": e["count"], "last_seen_at": e["last"]})
+	}
+	return map[string]any{
+		"kind": kind, "name": str(m["name"]), "namespace": str(m["namespace"]),
+		"status": objectStatus(kind, o), "created_at": str(m["creationTimestamp"]),
+		"labels": labels, "conditions": conditions(st), "events": evs,
+	}
+}
+
+// objectStatus is one word for the object's state: a pod's phase, "ready
+// x/y" for a workload, else the status its list row shows ("" when none).
+func objectStatus(kind string, o map[string]any) string {
+	st, _ := o["status"].(map[string]any)
+	if kind == "Pod" {
+		return str(st["phase"])
+	}
+	row := summarize(kind, o)
+	switch kind {
+	case "Deployment", "StatefulSet", "ReplicaSet", "DaemonSet":
+		return "ready " + str(row["ready"])
+	}
+	return str(row["status"])
 }
 
 // describeMore adds what `describe` shows beyond the `ls` row: images,

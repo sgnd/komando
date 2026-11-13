@@ -57,6 +57,251 @@
     },
     "ok": "bool"
   },
+  "cluster describe prod deployment/api": {
+    "command": "string",
+    "data": {
+      "conditions": [
+        {
+          "message": "string",
+          "reason": "string",
+          "status": "string",
+          "type": "string"
+        }
+      ],
+      "conn": "string",
+      "detail": {
+        "conditions": [
+          {
+            "message": "string",
+            "reason": "string",
+            "status": "string",
+            "type": "string"
+          }
+        ],
+        "created_at": "string",
+        "events": [
+          {
+            "count": "number",
+            "last_seen_at": "string",
+            "message": "string",
+            "reason": "string",
+            "type": "string"
+          }
+        ],
+        "kind": "string",
+        "labels": {
+          "app": "string"
+        },
+        "name": "string",
+        "namespace": "string",
+        "status": "string"
+      },
+      "events": [
+        {
+          "count": "number",
+          "last": "string",
+          "last_age": "string",
+          "message": "string",
+          "object": "string",
+          "reason": "string",
+          "type": "string"
+        }
+      ],
+      "object": "string",
+      "pods": [
+        {
+          "age": "string",
+          "name": "string",
+          "namespace": "string",
+          "node": "string",
+          "ready": "string",
+          "restarts": "number",
+          "status": "string"
+        }
+      ],
+      "summary": {
+        "age": "string",
+        "available": "number",
+        "images": "string",
+        "name": "string",
+        "namespace": "string",
+        "ready": "string",
+        "selector": "string",
+        "updated": "number"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster describe prod pod/api-1": {
+    "command": "string",
+    "data": {
+      "conditions": [
+        {
+          "message": "string",
+          "reason": "string",
+          "status": "string",
+          "type": "string"
+        }
+      ],
+      "conn": "string",
+      "containers": [
+        {
+          "image": "string",
+          "message": "null",
+          "name": "string",
+          "ready": "bool",
+          "reason": "null",
+          "restarts": "number",
+          "state": "string"
+        }
+      ],
+      "detail": {
+        "conditions": [
+          {
+            "message": "string",
+            "reason": "string",
+            "status": "string",
+            "type": "string"
+          }
+        ],
+        "created_at": "string",
+        "events": [
+          {
+            "count": "number",
+            "last_seen_at": "string",
+            "message": "string",
+            "reason": "string",
+            "type": "string"
+          }
+        ],
+        "kind": "string",
+        "labels": {
+          "app": "string",
+          "tier": "string"
+        },
+        "name": "string",
+        "namespace": "string",
+        "status": "string"
+      },
+      "events": [
+        {
+          "count": "number",
+          "last": "string",
+          "last_age": "string",
+          "message": "string",
+          "object": "string",
+          "reason": "string",
+          "type": "string"
+        }
+      ],
+      "object": "string",
+      "summary": {
+        "age": "string",
+        "name": "string",
+        "namespace": "string",
+        "node": "string",
+        "ready": "string",
+        "restarts": "number",
+        "status": "string"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster describe prod secret/app-db": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "detail": {
+        "conditions": [],
+        "created_at": "string",
+        "events": [],
+        "kind": "string",
+        "labels": {
+          "app": "string"
+        },
+        "name": "string",
+        "namespace": "string",
+        "status": "string"
+      },
+      "events": [],
+      "object": "string",
+      "summary": {
+        "age": "string",
+        "keys": "number",
+        "name": "string",
+        "namespace": "string",
+        "type": "string"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster logs prod -l app=api": {
+    "command": "string",
+    "data": {
+      "lines": [
+        {
+          "container": "string",
+          "logged_at": "string",
+          "pod": "string",
+          "text": "string"
+        }
+      ],
+      "logs": "string",
+      "namespace": "string",
+      "object": "string",
+      "pods": [
+        "string"
+      ],
+      "truncated": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "cluster logs prod api-1": {
+    "command": "string",
+    "data": {
+      "lines": [
+        {
+          "container": "string",
+          "logged_at": "string",
+          "pod": "string",
+          "text": "string"
+        }
+      ],
+      "logs": "string",
+      "namespace": "string",
+      "pod": "string",
+      "pods": [
+        "string"
+      ],
+      "truncated": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "config get parallel": {
     "command": "string",
     "data": {

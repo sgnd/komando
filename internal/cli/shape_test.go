@@ -68,6 +68,17 @@ var serverShapeCases = [][]string{
 	{"cache", "keys", "mc"},
 }
 
+// clusterShapeCases run against a loopback Kubernetes API
+// (newDetailCluster), imported as conn prod after the cases above, so
+// those see the same inventory as before.
+var clusterShapeCases = [][]string{
+	{"cluster", "describe", "prod", "pod/api-1"},
+	{"cluster", "describe", "prod", "deployment/api"},
+	{"cluster", "describe", "prod", "secret/app-db"},
+	{"cluster", "logs", "prod", "api-1"},
+	{"cluster", "logs", "prod", "-l", "app=api"},
+}
+
 // TestOutputShapes: agents parse komando's JSON, so a field may be added
 // but never renamed, removed or given another type within one output
 // contract (out.Contract). This test keeps the shape of the answers above
@@ -90,15 +101,22 @@ func TestOutputShapes(t *testing.T) {
 			t.Fatalf("setup %v: %v\n%s", setup, err, s)
 		}
 	}
-	// serverShapeCases run last against a fake memcached, so the conn
-	// they need is not in the inventory answers above
-	cases := append(append([][]string{}, shapeCases...), serverShapeCases...)
+	// serverShapeCases then clusterShapeCases run last, against a fake
+	// memcached and a loopback Kubernetes API, so the conns they need are
+	// not in the inventory answers above
+	cases := append(append(append([][]string{}, shapeCases...), serverShapeCases...), clusterShapeCases...)
 	got := map[string]any{}
+	kube := newDetailCluster(t)
 	for i, args := range cases {
 		if i == len(shapeCases) {
 			addr, _ := fakeMemcached(t)
 			if s, err := runCache(t, "-o", "json", "conn", "add", "mc", "memcached://"+addr); err != nil {
 				t.Fatalf("conn add mc: %v\n%s", err, s)
+			}
+		}
+		if i == len(shapeCases)+len(serverShapeCases) {
+			if s, err := runCache(t, "-o", "json", "import", "kubeconfig", kube.kubeconfig(t)); err != nil {
+				t.Fatalf("import kubeconfig: %v\n%s", err, s)
 			}
 		}
 		s := runShape(t, args)

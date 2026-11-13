@@ -156,11 +156,21 @@ func clusterGetCmd() *cobra.Command {
 // logText is the logs of one pod, or of the pods of a workload (object)
 // or a label selector.
 type logText struct {
-	Object    string   `json:"object,omitempty"` // deployment/api, or the -l selector
-	Pod       string   `json:"pod,omitempty"`    // when one pod was read
-	Namespace string   `json:"namespace"`
-	Logs      string   `json:"logs"`
-	Pods      []string `json:"pods"`
+	Object    string    `json:"object,omitempty"` // deployment/api, or the -l selector
+	Pod       string    `json:"pod,omitempty"`    // when one pod was read
+	Namespace string    `json:"namespace"`
+	Logs      string    `json:"logs"`
+	Pods      []string  `json:"pods"`
+	Lines     []logLine `json:"lines"`     // each line with its time and container
+	Truncated bool      `json:"truncated"` // the pod may have more lines than --limit
+}
+
+// logLine is one line of `cluster logs` for a program to read.
+type logLine struct {
+	LoggedAt  string `json:"logged_at"` // the API's time, RFC3339 UTC; "" when the line had none
+	Pod       string `json:"pod"`
+	Container string `json:"container"`
+	Text      string `json:"text"`
 }
 
 func (l logText) Text() string { return l.Logs }
