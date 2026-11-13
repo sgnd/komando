@@ -75,14 +75,7 @@ they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows 
 				return storageRmPrefix(cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
 			}
 			if allVersions {
-				rec["all_versions"] = true
-				return withStoragePreview(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
-					func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-						return rmAllVersions(ctx, c, s, keys, false)
-					},
-					func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-						return rmAllVersions(ctx, c, s, keys, true)
-					})
+				return storageRmVersions(cmd.Context(), args[0], keys, rec)
 			}
 			return withStoragePreview(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {

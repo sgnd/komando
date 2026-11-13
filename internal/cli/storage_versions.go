@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
@@ -128,6 +129,19 @@ func (d rmVersionsData) Text() string {
 		keys[v.Key] = true
 	}
 	return fmt.Sprintf("%s %d version%s of %s\n", verb, d.Count, plural(d.Count), strings.Join(mapKeys(keys), ", "))
+}
+
+// storageRmVersions is storage rm --all-versions: a preview under
+// --dry-run, else the same confirmation as rm, then every version goes.
+func storageRmVersions(ctx context.Context, conn string, keys []string, rec map[string]any) error {
+	rec["all_versions"] = true
+	return withStoragePreview(ctx, "storage.rm", conn, driver.DataDelete(), rec,
+		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+			return rmAllVersions(ctx, c, s, keys, false)
+		},
+		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
+			return rmAllVersions(ctx, c, s, keys, true)
+		})
 }
 
 // rmAllVersions removes every version of the keys (dry: lists them).
