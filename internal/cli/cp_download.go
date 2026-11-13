@@ -157,7 +157,7 @@ func linkInDest(root, rel string, dir bool) string {
 }
 
 func localLinkStop(rel, link string) error {
-	return out.Errf(out.ExitConflict, "UNSAFE_PATH", "remove the link, or copy into a folder without links",
+	return out.Errf(out.ExitRemote, "UNSAFE_PATH", "remove the link, or copy into a folder without links",
 		"%s would be written through %s, a symbolic link on this computer that can lead outside the folder; nothing was written through it", rel, link)
 }
 
