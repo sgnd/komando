@@ -8,57 +8,45 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Security
+
 - `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
 - The release can sign the macOS binaries with the project's Developer ID and have Apple notarize them, so Gatekeeper accepts them. Until the owner adds the signing secrets, macOS binaries stay unsigned and the release log says so.
 
-### Changed
-- `download -r` from a server keeps the files that are already on this computer and copies the rest, as `download -r` from storage does; it used to stop at the first one with `FILE_EXISTS`. The result says how many it kept (`kept`). `--overwrite` still replaces them.
-### Changed for scripts and agents
-- `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; For one server the fields moved: `data.path` is now `data.results[0].path`, `data.changed` is `data.results[0].changed`, `data.would_change` is `data.results[0].would_change`, and the same for `replacements`, `diff`, `backup`, `from` and `note`. Error codes stay the same (`NO_MATCH`, `BACKUP_NOT_FOUND` ...). `fs write` stays one server.
 ### Added
+
 - `job start --stdin-file FILE` gives the job's command FILE as its input, `job start --sudo-user USER` runs it as USER with `sudo -u` (both as in `exec`), and `job start --timeout 2h` stops the job after that long. A timed-out job is `killed` with `timed_out: true` in `job status`, and `job wait` says the timeout stopped it. When `exec` times out with `--sudo-user` or `--stdin-file FILE`, its hint now names the matching `job start` line.
-
-### Fixed
-- `job kill` on a server whose /bin/sh is dash (Debian, Ubuntu) stopped only the job's shell, not the commands it had started: dash refuses `kill -SIG -- -PGID`, and komando then fell back to the shell alone. It now signals the whole process group there too.
-
-### Changed
-- A job's `--env` values and its input (`--script`, `--stdin-file`) now reach the command through a pipe from the job's private folder instead of being read from files there, so a command run as another user gets them too. With a sudo password, the job first asks sudo whether it needs one and deletes it unread when it does not.
-### Added
 - `komando status` lists the AWS IAM Identity Center (SSO) logins of the profiles in `~/.aws/config`, with the profiles that share each one, when its token runs out and whether it renews itself (`data.aws_logins`). `komando logout aws --profile NAME` (or `--all`) ends one as `aws sso logout` does: AWS is told to end the token and the login in `~/.aws/sso/cache` is deleted. Before, `komando logout aws` was read as a server named aws.
-### Added
 - Docs: "Restore from a backup" in the import guide: which backups of `~/.komando` open on this computer and on a new one (passphrase, `store.key`, keychain), and what to do about `STORE_OLD_COPY` after a restore.
 - `registry rm` and its dry run check every tag of the repository (up to 10000) for other tags on the image it deletes; they read only the first 200. `registry prune` reads repositories of up to 10000 tags (it stopped above 1000 with `TOO_MANY_TAGS`), asking for the tags' digests 8 at a time.
-### Added
 - `key revoke --all-users` (with sudo) removes the key from the `authorized_keys` of every user on the server, not only the login user's or one `--user`'s: someone who left may have put it into another account. The dry run names each user whose file holds it (`users`), and each file is read and written as its own user.
 - `config set vpn_idle` to a longer time, or to `0` (never close), now counts as a safety setting like `login_for`: at a terminal komando asks first, and an AI agent needs a person's yes (`SAFETY_SETTING`). A VPN an agent can keep up for ever is a way into the network that nobody closes. A shorter time asks nothing.
-### Added
 - SSH user certificates: a key's OpenSSH certificate (`KEY-cert.pub` next to the key file, as `ssh` uses it) is offered at login, then the key alone, so servers that trust an SSH certificate authority let komando in. `key add --cert FILE` and `key edit --cert FILE` (`--unset cert`) name one kept elsewhere or for a key komando made; a certificate for another key is refused (`KEY_INVALID`) and one that is not valid now is left out with a warning. Keys show `cert_path` when one is set.
-### Added
 - A test now holds komando to the post-quantum SSH key exchange: with a server that offers `mlkem768x25519-sha256` (OpenSSH 9.9 and later), komando uses it first, so traffic recorded today cannot be read later with a quantum computer. The security standards page says so.
-### Added
 - A server's key and `--via` steps, and a conn's `--via` steps, now keep the record ID beside the name (`key_id`, `via_ids` in the JSON). The names stay what commands read and change; the IDs let a reference survive a rename made elsewhere, which sync between devices needs. An existing store gets the IDs at its next change.
-### Added
 - Docs: "What komando sends" in the README and SECURITY.md: nothing on its own (no statistics, crash reports or background update check); it connects only to what you added or named, AWS for `login aws`, and GitHub for `update`.
-### Added
 - `logs --container` (and `docker logs`) take `--since today`, `yesterday` and `now`, as the journal does: the server's own midnight or time, worked out on the server. They stopped with `USAGE` before.
 - `net dns --type MX` (and CNAME, NS, TXT, SOA, SRV, PTR, CAA) works on servers without `dig`: komando asks the server's own resolver from `/etc/resolv.conf` over TCP through the SSH connection and shows the records as `dig +short` does. `DIG_MISSING` stays for a server with no resolver listed or no TCP forwarding. A PTR question for an IP address now asks its reverse name.
-### Added
 - `sync --sudo` sends a folder to servers as root, for folders the SSH user cannot write (`/etc/nginx/conf.d`): each file is installed as `upload --sudo` installs one (staged privately, checked by root, never through a folder another user may change, `SHARED_FOLDER_CONFLICT`), with the source file's mode, so the next run sends nothing new. `--delete` removes as root too.
-### Added
 - `komando import mobaxterm FILE` adds MobaXterm's SSH sessions from an exported `.mxtsessions` file, with each session's folder as a group.
 - `komando import putty FILE` adds PuTTY's SSH sessions from a `.reg` file (`reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg`, UTF-16 or plain): user, address and port; a key file path is kept, a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do.
-### Added
 - MongoDB: `db explain` shows a read's plan (`queryPlanner`; `--analyze` runs it and adds `executionStats`), and `db activity` lists what runs now (`currentOp`; `--all` adds idle connections), in the same row shape as for SQL databases. They said `NOT_SUPPORTED` before.
-### Added
 - `komando import aws-ec2` adds a server for each running EC2 instance of each AWS profile in `~/.aws/config`, in the profile's region, read with the profile's own login (SSO and roles too; nothing is changed in AWS): named by its `Name` tag, grouped by region, labelled with its instance ID. An instance with no public address, a Windows one and the key pair to add are listed with what to do.
-### Added
 - `host edit --forward-agent` lends a server your ssh-agent while komando is connected, as `ssh -A` does (for a `git pull` over SSH on it, or a hop komando does not make). It is off by default and set per server; turning it on asks first (`SAFETY_SETTING`, a person's yes for an AI agent), because root there can use your keys meanwhile. `--unset forward-agent` takes it back; `host ssh-command` adds `-o ForwardAgent=yes` for such a server.
-### Added
 - Security keys (FIDO2: `ed25519-sk`, `ecdsa-sk`): `key add` takes their key file (the public key from `FILE.pub`), and a server that logs in with one uses the copy in ssh-agent, found by its public key, as `ssh` does; the device asks for a touch. Without the agent holding it, the error says to `ssh-add` it instead of calling the file broken.
-### Added
 - S3 versioning: `storage list --all-versions` shows every version and delete marker under a prefix, and `storage rm KEY --all-versions` removes a key with all its versions, so it is really gone (plain `rm` leaves them behind). It asks first like any `rm`; Google Cloud and Azure buckets say `NOT_SUPPORTED`.
 
+### Changed
+
+- `download -r` from a server keeps the files that are already on this computer and copies the rest, as `download -r` from storage does; it used to stop at the first one with `FILE_EXISTS`. The result says how many it kept (`kept`). `--overwrite` still replaces them.
+- A job's `--env` values and its input (`--script`, `--stdin-file`) now reach the command through a pipe from the job's private folder instead of being read from files there, so a command run as another user gets them too. With a sudo password, the job first asks sudo whether it needs one and deletes it unread when it does not.
+
+### Changed for scripts and agents
+
+- `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; For one server the fields moved: `data.path` is now `data.results[0].path`, `data.changed` is `data.results[0].changed`, `data.would_change` is `data.results[0].would_change`, and the same for `replacements`, `diff`, `backup`, `from` and `note`. Error codes stay the same (`NO_MATCH`, `BACKUP_NOT_FOUND` ...). `fs write` stays one server.
+
 ### Fixed
+
+- `job kill` on a server whose /bin/sh is dash (Debian, Ubuntu) stopped only the job's shell, not the commands it had started: dash refuses `kill -SIG -- -PGID`, and komando then fell back to the shell alone. It now signals the whole process group there too.
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
 - The ssh gate let a key run commands on this computer through a listed server that is this computer under another name: its LAN address, a DNS name, a public IP or a port forward. It now refuses a server at one of this computer's own network addresses, or whose pinned host key is this computer's own SSH host key, as it refuses `localhost`.
 - `doctor` checked only komando's folder and its main files for access by other users, not the `vpn/`, `login/` and `tunnels/` folders and the logs and state in them. It checks those too now, and the fix it names covers everything inside (`chmod -R go-rwx`).
