@@ -14,11 +14,15 @@ jobs:
   test:
     uses: ./.github/workflows/ci.yml
 
-  # The release, with an archive per platform, checksums.txt and signed build provenance.
+  # The release, with an archive per platform, checksums.txt, its signature
+  # (checksums.txt.sig) and signed build provenance.
   release:
     name: Release
     needs: test
     runs-on: ubuntu-latest
+    # holds the secret RELEASE_SIGNING_KEY; only v* tags may use it
+    # (CONTRIBUTING.md, "The release signing key")
+    environment: release
     permissions:
       contents: write     # create the release
       id-token: write     # sign the build provenance (Sigstore)
@@ -47,6 +51,13 @@ jobs:
           Check a download: `gh attestation verify FILE --repo sgnd/komando`
           EOF
       - run: make dist VERSION="$GITHUB_REF_NAME"
+      # `komando update` refuses a release whose checksums.txt is not signed
+      # with a key built into komando; this checks the signature with
+      # those keys before anything is published
+      - name: Sign checksums.txt
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: go run ./scripts/releasesig sign dist/checksums.txt
       # SLSA build provenance: anyone can check a download came from this
       # workflow with `gh attestation verify FILE --repo sgnd/komando`
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2

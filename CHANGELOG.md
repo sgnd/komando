@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Security
+- `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
+
 ### Fixed
 - On Windows, the hints for an encrypted key wrote it as `~/'.ssh\id_ed25519'`; they now write `~/.ssh/id_ed25519`.
 - On Windows, the AI agent guard (`komando guide guard`) let globs such as `cat ~/.komand?/vault.ke?` through, and reads of `/proc/*/environ` (which Cygwin and MSYS shells have): it split paths only by `/`.

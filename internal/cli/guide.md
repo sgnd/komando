@@ -74,6 +74,9 @@ every agent and person on this computer uses. When it stops with
 `NOT_WRITABLE` (komando is in a folder only root may change), ask the human
 to run `sudo komando update` in their terminal. Going back to an older
 version (`komando update v0.6.0`) needs their yes.
+`RELEASE_SIGNATURE_INVALID` or `RELEASE_SIGNATURE_NOT_FOUND` means komando
+cannot show that the release comes from the komando project: never install
+it another way; tell the human.
 
 ## 2. Targets
 

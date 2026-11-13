@@ -86,6 +86,7 @@ or a listed one is gone.
 | `internal/queuex/rabbitmq` | RabbitMQ |
 | `internal/queuex/sqs` | Amazon SQS |
 | `internal/registry` | container registries over the OCI Distribution API |
+| `internal/releasesig` | the signature of a release's checksums.txt (`komando update` checks it; `scripts/releasesig` signs) |
 | `internal/sealdb` | the local store file (SQLite of sealed rows) |
 | `internal/sealrow` | seals one record of the local store |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
