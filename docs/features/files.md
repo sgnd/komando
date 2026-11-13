@@ -316,6 +316,14 @@ komando sync backups:2026/ ./restore                               # from storag
   names.
 - Ctrl-C stops it within a moment; files already copied stay, and the
   next run sends the rest.
+- `--sudo` writes on the servers as root, for a folder the SSH user cannot
+  write (`komando sync ./conf.d web1:/etc/nginx/conf.d --sudo`): each file
+  goes in as `upload --sudo` puts one, staged in the SSH user's `/tmp`
+  (only they can read it), checked by root and installed with the source
+  file's mode, keeping the owner of a file that is there. A folder another
+  user may change stops it (`SHARED_FOLDER_CONFLICT`). The folder must be
+  readable by the SSH user, and `--sudo` is for a folder going to servers
+  (to read a file only root can read, use `download --sudo`).
 
 For a single file, use `komando upload` or `komando download`.
 

@@ -271,6 +271,51 @@ func (s sftpSide) remove(_ context.Context, rel string) error {
 	return fsErr(rel, s.sc.Remove(path.Join(s.root, rel)))
 }
 
+// sudoSftpSide is a folder on a server that sync --sudo writes as root:
+// it is listed as the SSH user (SFTP), and each file goes in as `upload
+// --sudo` puts one there (writeRemoteSudo): staged in the SSH user's /tmp
+// (0600), its path checked by root, never written through a folder
+// another user may change (SHARED_FOLDER_CONFLICT), an existing file
+// keeping its owner. The mode is the source file's, so the next sync
+// sees no change.
+type sudoSftpSide struct {
+	sftpSide
+	c *sshx.Client
+}
+
+func (s sudoSftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
+	if strings.Contains("/"+rel+"/", "/../") {
+		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "rename the file so it has no .. in its path", "path %q leads outside %s; nothing outside the folder was written", rel, s.root)
+	}
+	dst := path.Join(s.root, rel)
+	mode := ""
+	if f.Mode != 0 {
+		mode = fmt.Sprintf("%04o", f.Mode.Perm())
+	}
+	tmpName := fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst))
+	_, err := writeRemoteSudo(ctx, s.c, s.sc, dst, mode, tmpName, writeOpts{sudo: true, mkdirs: true}, map[string]any{},
+		func(w io.Writer) error { _, err := io.Copy(w, storex.CtxReader(ctx, r)); return err })
+	return err
+}
+
+func (s sudoSftpSide) remove(ctx context.Context, rel string) error {
+	if strings.Contains("/"+rel+"/", "/../") {
+		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "rename the file so it has no .. in its path", "path %q leads outside %s", rel, s.root)
+	}
+	p := path.Join(s.root, rel)
+	r, err := sshx.Run(ctx, s.c, sshx.RunRequest{Command: "rm -f -- " + sshx.Q(p), Sudo: true, Timeout: time.Minute, MaxOutput: 4096})
+	if err != nil {
+		return err
+	}
+	if e := sudoProblem(s.c.Host.Name, r); e != nil {
+		return e
+	}
+	if r.ExitCode != 0 {
+		return out.Errf(out.ExitRemote, "WRITE_FAILED", "look at it with `komando fs stat SERVER PATH`", "%s: %s", p, strings.TrimSpace(r.Stderr))
+	}
+	return nil
+}
+
 // Sync side: a prefix in a storage conn.
 
 type bucketSide struct {
@@ -328,6 +373,7 @@ func (b bucketSide) remove(ctx context.Context, rel string) error {
 
 type syncOpts struct {
 	delete, onlyNew bool
+	sudo            bool // servers: write and remove as root (sudoSftpSide)
 	exclude         []string
 }
 
@@ -535,9 +581,15 @@ func syncCmd() *cobra.Command {
 or a file server). Files that are new, a different size or file mode, or
 newer in SRC are copied; the rest are left alone. --delete also removes files SRC no longer has
 (that needs --allow-dangerous). --exclude skips names or paths (shell globs,
-repeatable). Try --dry-run first: it lists every file it would touch.`,
+repeatable). Try --dry-run first: it lists every file it would touch.
+
+--sudo writes on the servers as root, for a folder the SSH user cannot
+write (/etc/nginx): each file goes in as ` + "`upload --sudo`" + ` puts one, staged
+privately and checked by root, keeping the owner of a file that is there;
+the folder must still be readable by the SSH user.`,
 		Example: `  komando sync ./site @web:/var/www/site --exclude .git --dry-run
   komando sync ./site web1:/var/www/site --delete --allow-dangerous
+  komando sync ./nginx @web:/etc/nginx/conf.d --sudo --dry-run
   komando sync ./backups backups:2026/ --exclude '*.tmp'
   komando sync backups:2026/ ./restore
   komando sync web1:/var/log/app ./logs/web1`,
@@ -568,6 +620,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
 	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
+	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write on the servers as root, file by file as upload --sudo does (a folder here to servers)")
 	return c
 }
 
@@ -602,6 +655,9 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 		// --reveal, as syncDown leaves them there
 		src = newAgentLocalSide(ctx, local)
 	}
+	if storage && o.sudo {
+		return out.Usage("--sudo is for servers")
+	}
 	if storage {
 		v := driver.Verdict{Risk: driver.RiskWrite}
 		if o.delete {
@@ -628,7 +684,14 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 			return nil, err
 		}
 		defer sc.Close()
-		r, err := runSync(ctx, src, sftpSide{sc: sc, root: expandRemote(sc, remote)}, local, c.Host.Name+":"+remote, o)
+		var dst syncSide = sftpSide{sc: sc, root: expandRemote(sc, remote)}
+		if o.sudo {
+			if c.Host.Windows() {
+				return nil, out.Usage("--sudo is for Linux and other Unix servers; %s runs Windows", c.Host.Name)
+			}
+			dst = sudoSftpSide{sftpSide: sftpSide{sc: sc, root: expandRemote(sc, remote)}, c: c}
+		}
+		r, err := runSync(ctx, src, dst, local, c.Host.Name+":"+remote, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
@@ -639,6 +702,9 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 
 // syncDown fetches a folder from one server or a storage conn.
 func syncDown(ctx context.Context, name, target, remote, local string, o syncOpts) error {
+	if o.sudo {
+		return out.Usage("sync --sudo writes as root on servers (a folder here to a server); to read a file only root can read, use `komando download %s %s --sudo` per file", target, remote)
+	}
 	storage, err := fileTarget(target)
 	if err != nil {
 		return err

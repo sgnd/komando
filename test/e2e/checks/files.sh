@@ -68,6 +68,18 @@ ln -s releases/42 "$F/current"
 check "upload of a linked folder copies its files" 2 "$($K upload direct "$F/current" /tmp/e2efiles-site -r | jget 'd["data"]["results"][0]["files"]')"
 check "sync of a linked folder copies its files" 2 "$($K sync "$F/current" direct:/tmp/e2efiles-site2 | jget 'd["data"]["results"][0]["copied"]')"
 
+# sync --sudo: a folder only root may write, each file installed as root,
+# a second run sends nothing; a folder others may change is refused
+mkdir -p "$F/conf/sub"; echo a > "$F/conf/a.conf"; echo b > "$F/conf/sub/b.conf"; chmod 640 "$F/conf/a.conf"
+q $K exec direct --sudo -- 'mkdir -p /etc/e2esync && chmod 755 /etc/e2esync'
+check "sync --sudo without sudo is refused by the folder" True "$($K sync "$F/conf" direct:/etc/e2esync | jget 'd["ok"] == False' || true)"
+check "sync --sudo copies as root" 2 "$($K sync "$F/conf" direct:/etc/e2esync --sudo | jget 'd["data"]["results"][0]["copied"]')"
+check "sync --sudo keeps the mode" "640 root" "$($K exec direct --read-only -- 'stat -c "%a %U" /etc/e2esync/a.conf' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "sync --sudo a second time sends nothing" "0 0" "$($K sync "$F/conf" direct:/etc/e2esync --sudo | jget 'str(d["data"]["results"][0]["copied"])+" "+str(d["data"]["results"][0]["updated"])')"
+q $K exec direct --sudo -- 'mkdir -p /tmp/e2eshared && chmod 777 /tmp/e2eshared'
+check "sync --sudo into a folder others may change" SHARED_FOLDER_CONFLICT "$($K sync "$F/conf" direct:/tmp/e2eshared --sudo | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+q $K exec direct --sudo -- 'rm -rf /etc/e2esync /tmp/e2eshared'
+
 q $K exec direct -o text -- 'rm -rf /tmp/e2efiles* /tmp/.komando-*'
 rm -rf "$F"
 set -e

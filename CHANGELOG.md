@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+- `sync --sudo` sends a folder to servers as root, for folders the SSH user cannot write (`/etc/nginx/conf.d`): each file is installed as `upload --sudo` installs one (staged privately, checked by root, never through a folder another user may change, `SHARED_FOLDER_CONFLICT`), with the source file's mode, so the next run sends nothing new. `--delete` removes as root too.
+
 ### Fixed
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
