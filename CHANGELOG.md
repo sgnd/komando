@@ -8,6 +8,7 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
 - `reboot` kept all the output of its commands on the server: a server that flooded it could fill this computer's memory. It now keeps 64 KiB, and a test checks that every remote command komando runs bounds its output.
 - A `job start --sudo` that sudo refused before it began (no rights, a wrong password) left its env file, with the server's env values from the vault, and its script in the job folder on the server. Both are removed when the job ends, whatever happened.
 - `cluster run TARGET -- cp POD:PATH DST` wrote a pod's files to this computer as they were for an AI agent (a `.env`, a key, real secret values), and held any amount of data in memory. It now copies as `download` does: for an agent a file that is a secret by its name is refused (`SENSITIVE_FILE`), a text file is written with its secret values `[hidden]`, and a binary or larger file holding a vault value is refused, all before anything is written; for everyone a copy from a pod stops at 512 MiB (`FILE_TOO_LARGE`).

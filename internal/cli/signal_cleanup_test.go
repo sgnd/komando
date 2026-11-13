@@ -25,7 +25,7 @@ func TestSecondSignalRemovesTempFiles(t *testing.T) {
 	defer tmpclean.Add(tmp)()
 	stopped := make(chan struct{})
 	saved := hardStop
-	hardStop = func() { tmpclean.RemoveAll(); close(stopped) }
+	hardStop = func(os.Signal) { tmpclean.RemoveAll(); close(stopped) }
 	t.Cleanup(func() { hardStop = saved })
 
 	ctx, cancel := signalContext()

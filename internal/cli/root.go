@@ -85,6 +85,7 @@ func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 func Execute() int {
 	// no program komando starts inherits the secret stores' unlock values
 	vault.TakeUnlockEnv()
+	noCoreDumps() // a crash writes no memory, secrets and all, to disk
 	// a Windows console shows colour and line clearing only when asked
 	ok, restore := consoleVT(int(os.Stderr.Fd()))
 	defer restore()
@@ -760,8 +761,8 @@ func signalContext() (context.Context, context.CancelFunc) {
 			return
 		}
 		select {
-		case <-ch:
-			hardStop()
+		case s := <-ch:
+			hardStop(s)
 		case <-done:
 		}
 	}()
@@ -775,8 +776,12 @@ func signalContext() (context.Context, context.CancelFunc) {
 	}
 }
 
-// hardStop ends komando on a second signal; tests replace it.
-var hardStop = func() {
+// hardStop ends komando on a second signal s, after removing this run's
+// temporary files: it dies of s, so a shell that runs it (a loop) sees
+// the Ctrl-C too. Tests replace it.
+var hardStop = func(s os.Signal) {
 	tmpclean.RemoveAll()
-	os.Exit(130)
+	signal.Reset(s)
+	raise(s)
+	os.Exit(130) // where a signal cannot end the process (Windows)
 }
