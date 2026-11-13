@@ -23,10 +23,14 @@ type Host struct {
 	Port        int    `json:"port,omitempty"`
 	User        string `json:"user,omitempty"`
 	Key         string `json:"key,omitempty"`          // name of a key in the keychain
+	KeyID       string `json:"key_id,omitempty"`       // that key's record ID (refs.go)
 	Identity    string `json:"identity,omitempty"`     // path to a private key file
 	PasswordRef string `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
 	SudoRef     string `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
 	Via         string `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
+	// ViaIDs are the record IDs of Via's steps, in order ("" for a step
+	// that names no server or VPN); see refs.go
+	ViaIDs []string `json:"via_ids,omitempty"`
 	// ProxyCommand is a program on this computer whose stdin and stdout
 	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
 	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
@@ -36,7 +40,11 @@ type Host struct {
 	Labels       map[string]string `json:"labels,omitempty"`
 	Env          map[string]string `json:"env,omitempty"` // exported before every command
 	Protected    bool              `json:"protected,omitempty"`
-	Notes        string            `json:"notes,omitempty"`
+	// ForwardAgent lends the server this computer's ssh-agent while
+	// komando is connected (host edit --forward-agent; root there can use
+	// the keys in it meanwhile)
+	ForwardAgent bool   `json:"forward_agent,omitempty"`
+	Notes        string `json:"notes,omitempty"`
 	// OS is "windows" for a Windows server: commands are PowerShell, not
 	// sh. Empty: Linux or another Unix (docs/features/windows.md).
 	OS string `json:"os,omitempty"`
@@ -95,6 +103,7 @@ type Conn struct {
 	URL         string            `json:"url"`
 	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
 	Via         string            `json:"via,omitempty"`          // host used to reach the resource
+	ViaIDs      []string          `json:"via_ids,omitempty"`      // the record IDs of Via's steps (refs.go)
 	Groups      []string          `json:"groups,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
@@ -111,15 +120,18 @@ type Conn struct {
 }
 
 type Key struct {
-	Name          string    `json:"name"`
-	Path          string    `json:"path"`
-	Type          string    `json:"type,omitempty"`
-	PublicKey     string    `json:"public_key,omitempty"`
-	Fingerprint   string    `json:"fingerprint,omitempty"`
-	PassphraseRef string    `json:"passphrase_ref,omitempty"`
-	Managed       bool      `json:"managed"` // generated/stored by komando
-	CreatedAt     time.Time `json:"created_at"`
-	Rec           Rec       `json:"-"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	Type          string `json:"type,omitempty"`
+	PublicKey     string `json:"public_key,omitempty"`
+	Fingerprint   string `json:"fingerprint,omitempty"`
+	PassphraseRef string `json:"passphrase_ref,omitempty"`
+	// CertPath is an OpenSSH user certificate for the key (key add --cert);
+	// without it a key file's KEY-cert.pub next to it is used, as ssh does
+	CertPath  string    `json:"cert_path,omitempty"`
+	Managed   bool      `json:"managed"` // generated/stored by komando
+	CreatedAt time.Time `json:"created_at"`
+	Rec       Rec       `json:"-"`
 }
 
 type Snippet struct {

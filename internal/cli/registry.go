@@ -564,50 +564,6 @@ func credHelper(helper, server string) (string, string, error) {
 	return r.Username, r.Secret, nil
 }
 
-// pruneTags reads each tag's digest, and the build date of each image a
-// tag of the rule may take.
-func pruneTags(ctx context.Context, r *registry.Client, repo string, rule registry.PruneRule) ([]registry.TagInfo, error) {
-	const max = 1000
-	tags, err := r.Tags(ctx, repo, max+1)
-	if err != nil {
-		return nil, imageErr(ctx, r, repo, "", err)
-	}
-	if len(tags) > max {
-		return nil, out.Errf(out.ExitUsage, "TOO_MANY_TAGS", "komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE`",
-			"%s has more than %d tags", repo, max)
-	}
-	// a HEAD per tag for its digest, then one read per image:
-	// tags often share images, and Docker Hub counts every
-	// manifest read as a pull
-	infos := make([]registry.TagInfo, 0, len(tags))
-	built := map[string]time.Time{}
-	for _, t := range tags {
-		d, err := r.Digest(ctx, repo, t)
-		if err != nil {
-			return nil, err
-		}
-		if d == "" { // the registry did not say: read the manifest
-			m, err := r.Inspect(ctx, repo, t)
-			if err != nil {
-				return nil, err
-			}
-			d = m.Digest
-		}
-		// only an image a tag may go with needs its build date
-		cand := t != "latest" && (rule.Match == nil || rule.Match.MatchString(t))
-		if _, ok := built[d]; !ok && d != "" && cand {
-			m, err := r.Inspect(ctx, repo, d)
-			if err != nil {
-				return nil, err
-			}
-			ts, _ := time.Parse(time.RFC3339Nano, m.Created)
-			built[d] = ts
-		}
-		infos = append(infos, registry.TagInfo{Tag: t, Digest: d, Created: built[d]})
-	}
-	return infos, nil
-}
-
 // rmWhat says what `registry rm` takes: the image and every tag on it.
 // Tags come from the registry, so only names a tag may have are shown.
 func rmWhat(ctx context.Context, r *registry.Client, repo, ref string) string {
@@ -633,26 +589,6 @@ func rmWhat(ctx context.Context, r *registry.Client, repo, ref string) string {
 		s += ", and maybe more"
 	}
 	return s
-}
-
-// tagsOn lists the tags of repo that point at digest, checking at most 200
-// tags (one HEAD request each). more is true when the repo has more tags.
-func tagsOn(ctx context.Context, r *registry.Client, repo, digest string) (tags []string, checked int, more bool) {
-	const max = 200
-	all, err := r.Tags(ctx, repo, max+1)
-	if err != nil {
-		return nil, 0, false
-	}
-	if len(all) > max {
-		all, more = all[:max], true
-	}
-	tags = []string{}
-	for _, t := range all { // HEAD requests: Docker Hub does not count them as pulls
-		if d, err := r.Digest(ctx, repo, t); err == nil && d == digest {
-			tags = append(tags, t)
-		}
-	}
-	return tags, len(all), more
 }
 
 // imageErr says which image or repository is missing, and what is there

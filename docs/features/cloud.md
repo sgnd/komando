@@ -85,11 +85,25 @@ With a FILE, the conns keep only each profile's name: later commands read
 `~/.aws/config` (or `AWS_CONFIG_FILE`), so put the profiles there too, or
 they stop with `AWS_PROFILE_NOT_FOUND`.
 
-## End an AWS login
+## See and end an AWS login
 
-komando has no AWS logout: `komando logout` is for servers, and
-`komando status` lists only server logins. To end an AWS login early, run
-`aws sso logout`, or delete the profile's file in `~/.aws/sso/cache`.
+`komando status` lists the SSO logins of the profiles in `~/.aws/config`
+(made by `komando login aws`, `aws sso login` or an AWS SDK): the profiles
+that share each one and when its token runs out. A login with a refresh
+token (`renews: true`) gets a new token by itself after that, for as long
+as the AWS session lasts.
+
+```bash
+komando logout aws --profile prod   # end it now
+komando logout aws --all            # every SSO login of your profiles
+```
+
+`komando logout aws` does what `aws sso logout` does: it tells AWS to end
+the token and deletes the login in `~/.aws/sso/cache`, so komando, the AWS
+SDKs and the aws CLI all need `komando login aws` again. Profiles that share
+the login (one `sso-session`) are logged out together. When AWS cannot be
+reached, the login on this computer still ends (`revoked: false`); the token
+then runs out by itself. It never shows the token.
 
 ## Google Cloud and Azure
 
@@ -122,8 +136,6 @@ Registries on Google Cloud and Azure log in the same way: see
 
 - Only AWS has a `komando login`; Google Cloud and Azure use the logins
   above.
-- komando has no AWS logout and does not list AWS logins in
-  `komando status`.
 - `aws`, `gcp` and `azure` (any case) cannot be the name of a new server,
   conn or VPN, as `all` cannot: those words are the cloud logins.
 

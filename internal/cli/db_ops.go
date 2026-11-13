@@ -68,6 +68,9 @@ func dbActivityCmd() *cobra.Command {
   komando db activity prod-db --all`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(args[0]); ok {
+				return runMongoActivity(cmd.Context(), st, c, all, limit)
+			}
 			return readDB(cmd.Context(), "db.activity", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Activity(ctx, db, c.Kind, all, connTimeout(c))
 				if err != nil {

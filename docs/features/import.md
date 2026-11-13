@@ -36,7 +36,10 @@ usual place for that source.
 | `docker` | `~/.docker/config.json` (and credential helpers) | registry conns |
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP sites are listed, not added) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
+| `mobaxterm` | MobaXterm's exported sessions (`.mxtsessions`; no default: give the file) | servers (SSH sessions; a session's folder becomes a group; other session types are listed) |
+| `putty` | PuTTY's sessions exported from the Windows registry (no default: give the file, see below) | servers (SSH sessions; a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do) |
 | `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied ([Cloud logins](cloud.md#add-a-conn-for-every-s3-bucket)) |
+| `aws-ec2` | `~/.aws/config` (and `credentials`) | a server per running EC2 instance of each profile, in the profile's region, read with the profile's login (nothing is changed in AWS): named by its `Name` tag, in a group named after the region, labelled `aws-instance`. Instances with no public address, Windows ones and their key pairs are listed with what to do |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
 | `komando` | a file from `komando export` | servers, conns, VPNs and recipes |
 | `csv` | a spreadsheet saved as CSV (no default: give the file) | servers, one per row; see [Add many servers from a spreadsheet](servers.md#add-many-servers-from-a-spreadsheet) |
@@ -83,6 +86,37 @@ appear in komando's list, output or history.
   yes (`--yes` and the approval window) to import one. Without it, that server is left out with the
   reason, the other servers still come in, and the import ends with
   `IMPORT_INCOMPLETE` (exit 1).
+
+### Coming from PuTTY
+
+PuTTY keeps its sessions in the Windows registry. Export them to a file,
+then import that file (a dry run first lists what comes in):
+
+```bash
+reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg
+komando import putty putty.reg --dry-run
+komando import putty putty.reg
+```
+
+PuTTY keeps no passwords, so set them with `komando secret set` or use a
+key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
+`puttygen KEY.ppk -O private-openssh -o KEY`, then `komando key add NAME
+KEY`. A session that reaches its server through a proxy is listed too: set
+the way there with `komando host edit NAME --via JUMP`.
+
+### Coming from MobaXterm
+
+In MobaXterm, right-click **User sessions** and pick **Export all sessions
+to file**, then import that file:
+
+```bash
+komando import mobaxterm sessions.mxtsessions --dry-run
+komando import mobaxterm sessions.mxtsessions
+```
+
+SSH sessions come in with their host, port and user, and the folder a
+session sits in becomes a group. MobaXterm keeps passwords apart, so set
+them with `komando secret set` or use a key.
 
 ### Coming from Termius or TablePlus
 
@@ -172,12 +206,55 @@ On the new computer you can go back to a key file and move it into the
 keychain: `komando secret passphrase --off --yes`, then `komando secret
 keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
 
+### Restore from a backup (Time Machine, a new computer)
+
+A backup of `~/.komando` (Time Machine, a disk image, a copy) holds the
+store, but not always its key. `komando doctor` says where the key lives;
+check it before you need the backup:
+
+| Key lives in | The backup on this computer | The backup on a new computer |
+|---|---|---|
+| a passphrase | opens with the passphrase | opens with the passphrase |
+| `store.key` (inside the folder) | opens | opens, so treat the backup like the passwords themselves |
+| the OS keychain (the default) | opens: the keychain still has the key | does not open its secrets: the key stayed in the old computer's keychain |
+
+So for a backup you can take to a new computer, give the vault a
+passphrase first (`komando secret passphrase`), or keep an
+[export](#export-and-import-no-passwords) next to it and set the passwords
+again from your password manager.
+
+Put the folder back with komando running nothing (no VPN, tunnel or job
+started from it; `komando status` shows them), then:
+
+```bash
+komando doctor                                # the vault opens, the servers are there
+```
+
+When the key is in the keychain, the keychain also remembers how many
+changes the store had. A restored copy is older, so every command then
+stops with `STORE_OLD_COPY` (exit 6): its servers, rules, secrets or
+pinned host keys may be out of date, and an old copy put back by someone
+else looks the same. `komando doctor` and dry runs still work. If you put
+it back yourself, accept it in your own terminal (an AI agent cannot):
+
+```bash
+komando doctor --accept-old-copy
+```
+
+Then check what changed since the backup: servers or rules you added
+later, and host keys pinned since (`komando host trust` asks again for a
+server it no longer knows).
+
 ## Limits
 
 - Passwords, private key files and keys komando made never travel in an
   export file; set or copy them on the other computer.
 - An import changes no setting: it lists the ones that differ.
-- A copied folder opens its secrets only when the vault has a passphrase.
+- A copied folder opens its secrets on another computer only when the vault
+  has a passphrase (or its key is in `store.key`, inside the folder).
+- A backup put back on the same computer stops with `STORE_OLD_COPY` until
+  a person runs `komando doctor --accept-old-copy`, when the key is in the
+  keychain.
 - Termius and TablePlus have no open export format (see
   [above](#coming-from-termius-or-tableplus)).
 
@@ -189,4 +266,5 @@ keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
 | `USAGE` (exit 2) | an unknown source, or `komando` or `csv` without a file | the hint lists the sources and an example |
 | `FILE_EXISTS` (exit 8) | `export --to` a file that exists | add `--overwrite`, or pick another file |
 | `PROTECTED_HOST`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
+| `STORE_OLD_COPY` (exit 6) | a backup of the folder was put back; the keychain remembers a newer store | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
 | `VAULT_LOCKED` (exit 1) | a copied folder whose vault has a passphrase, without `KOMANDO_VAULT_PASS` | set `KOMANDO_VAULT_PASS`; see [Secrets](secrets.md#troubleshooting) |

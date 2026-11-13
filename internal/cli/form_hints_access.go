@@ -79,6 +79,8 @@ func init() {
 		"login": {form: loginForm},
 		"login aws": {flags: []formFlag{{name: "profile", ask: "Which AWS profile?", example: "prod",
 			help: "Its name in ~/.aws/config. Leave empty for the usual one. Your browser opens for the AWS sign-in."}}},
+		"logout aws": {flags: []formFlag{{name: "profile", ask: "Which AWS profile?", example: "prod",
+			help: "The profile in ~/.aws/config whose SSO login should end. Empty: AWS_PROFILE, else default."}}},
 		"logout": {args: []formArg{{ask: "From which servers? (leave empty with --all)", pick: "host", free: true,
 			help: "Ends the login `komando login` kept. Several: separate them with spaces."}},
 			flags: []formFlag{{name: "all", ask: "End every kept login instead?"}}},

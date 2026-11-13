@@ -3,10 +3,12 @@ package cli
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -35,10 +37,12 @@ type runningLogin struct {
 }
 
 type runningData struct {
-	Vpns    []runningVpn   `json:"vpns"`
-	Logins  []runningLogin `json:"logins"`
-	Tunnels []tunnelRow    `json:"tunnels"`
-	Jobs    []*store.Job   `json:"jobs"`
+	Vpns   []runningVpn   `json:"vpns"`
+	Logins []runningLogin `json:"logins"`
+	// AWS IAM Identity Center logins saved in ~/.aws/sso/cache
+	AWSLogins []cloud.AWSLogin `json:"aws_logins"`
+	Tunnels   []tunnelRow      `json:"tunnels"`
+	Jobs      []*store.Job     `json:"jobs"`
 }
 
 func statusCmd() *cobra.Command {
@@ -48,8 +52,8 @@ func statusCmd() *cobra.Command {
 		Short: "What komando left running: VPNs, logins, tunnels, jobs",
 		Long: `Lists what still runs after the command that started it ended: VPN
 sessions (from vpn up, or started by a command), server logins kept by
-` + "`komando login SERVER`" + `, tunnels, and the jobs
-started on servers. Nothing is contacted, so it is quick and works offline.
+` + "`komando login SERVER`" + `, AWS IAM Identity Center (SSO) logins of the profiles in
+~/.aws/config and when they end, tunnels, and the jobs started on servers. Nothing is contacted, so it is quick and works offline.
 A job is listed until ` + "`komando job rm`" + `; whether it still runs is known on
 its server: ` + "`komando job list --refresh`" + ` asks.
 
@@ -102,7 +106,7 @@ starship, in ~/.config/starship.toml:
 var sessionAlive = netx.SessionAlive
 
 func runningStatus(st *store.State) runningData {
-	d := runningData{Vpns: []runningVpn{}, Logins: []runningLogin{}, Tunnels: []tunnelRow{}, Jobs: []*store.Job{}}
+	d := runningData{Vpns: []runningVpn{}, Logins: []runningLogin{}, AWSLogins: append([]cloud.AWSLogin{}, awsLogins()...), Tunnels: []tunnelRow{}, Jobs: []*store.Job{}}
 	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 	for _, v := range st.SortedVpns() {
 		s := st.Sessions[v.Name]
@@ -135,8 +139,8 @@ func runningStatus(st *store.State) runningData {
 }
 
 func (d runningData) Text() string {
-	if len(d.Vpns)+len(d.Logins)+len(d.Tunnels)+len(d.Jobs) == 0 {
-		return "nothing running: no VPN sessions, server logins, tunnels or jobs\n"
+	if len(d.Vpns)+len(d.Logins)+len(d.AWSLogins)+len(d.Tunnels)+len(d.Jobs) == 0 {
+		return "nothing running: no VPN sessions, server or AWS logins, tunnels or jobs\n"
 	}
 	now := time.Now()
 	rows := [][]string{}
@@ -153,6 +157,13 @@ func (d runningData) Text() string {
 	}
 	for _, l := range d.Logins {
 		rows = append(rows, []string{"login", cleanText(l.Host), "kept for " + humanAge(l.Until.Sub(now)) + " more (`komando logout " + cleanText(l.Host) + "` ends it)", humanAge(now.Sub(l.Since))})
+	}
+	for _, l := range d.AWSLogins {
+		since := "-"
+		if !l.LoggedInAt.IsZero() {
+			since = humanAge(now.Sub(l.LoggedInAt))
+		}
+		rows = append(rows, []string{"aws", cleanText(strings.Join(l.Profiles, ",")), awsLoginRow(l, now), since})
 	}
 	for _, t := range d.Tunnels {
 		listen, to := tunnelEnds(t)

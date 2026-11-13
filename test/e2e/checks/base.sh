@@ -108,6 +108,21 @@ echo "==> fs"
 $K fs replace direct /etc/app/app.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup >/dev/null
 check "fs replace applied" "worker_connections 4096;" "$($K fs cat direct /etc/app/app.conf | jget 'd["data"]["content"].strip()')"
 set +e; $K fs replace direct /etc/app/app.conf --old 'missing' --new 'x' --sudo >/dev/null; check "fs replace no match -> 8" 8 $?; set -e
+# fs replace and fs restore on a group: each server has its own result
+q $K group add t-fsg bastion direct
+q $K exec @t-fsg -- 'printf "a=1\n" > /tmp/e2efsg.conf'
+check "fs replace @group dry run shows each server" "2 True" "$($K fs replace @t-fsg /tmp/e2efsg.conf --old a=1 --new a=2 --dry-run | jget 'str(len(d["data"]["results"]))+" "+str(all(r["would_change"] for r in d["data"]["results"]))')"
+check "fs replace @group changes every server" "2 0" "$($K fs replace @t-fsg /tmp/e2efsg.conf --old a=1 --new a=2 --backup | jget 'str(d["data"]["summary"]["ok"])+" "+str(d["data"]["summary"]["failed"])')"
+check "fs replace @group wrote both files" "a=2 a=2" "$($K exec @t-fsg --read-only -o text -- cat /tmp/e2efsg.conf | grep -o 'a=2' | tr '\n' ' ' | sed 's/ $//')"
+check "fs restore @group puts both back" "a=1 a=1" "$($K fs restore @t-fsg /tmp/e2efsg.conf >/dev/null; $K exec @t-fsg --read-only -o text -- cat /tmp/e2efsg.conf | grep -o 'a=1' | tr '\n' ' ' | sed 's/ $//')"
+q $K exec bastion -- 'printf "b=1\n" > /tmp/e2efsg.conf'
+set +e
+out=$($K fs replace @t-fsg /tmp/e2efsg.conf --old a=1 --new a=3); rc=$?
+set -e
+check "fs replace @group: a server without the text fails alone (8)" "8 PARTIAL_FAILURE NO_MATCH" "$rc $(echo "$out" | jget 'd["error"]["code"]+" "+[r for r in d["data"]["results"] if r["host"]=="bastion"][0]["error"]["code"]')"
+check "fs replace @group: the other server was changed" a=3 "$($K fs cat direct /tmp/e2efsg.conf | jget 'd["data"]["content"].strip()')"
+q $K exec @t-fsg -- 'rm -f /tmp/e2efsg.conf*'
+q $K group rm t-fsg
 $K fs write direct /home/agent/t/x.txt --content hello -p >/dev/null
 check "fs write idempotent" False "$($K fs write direct /home/agent/t/x.txt --content hello --if-changed | jget 'd["data"]["changed"]')"
 check "fs write dry-run shows the diff" True "$($K fs write direct /home/agent/t/x.txt --content hello2 --dry-run | jget '"+hello2" in d["data"]["diff"]')"
@@ -135,6 +150,13 @@ SJ=$($K job start ops --sudo --script "$TMP/who.sh" | jget 'd["data"]["jobs"][0]
 check "job start --script with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
 check "job start --script runs the script as root" root "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
 check "job start --script leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/script" | jget 'd["data"]["exists"]')"
+# job start --sudo-user and --stdin-file, with a sudo password: the env and
+# the input reach a command that runs as another user
+SJ=$($K job start ops --sudo-user agent -e GREETING=hi --stdin-file "$TMP/f" -- 'echo "$(whoami) $GREETING $(cat)"' | jget 'd["data"]["jobs"][0]["id"]')
+check "job start --sudo-user --stdin-file with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
+check "job --sudo-user gets the env and the input" "agent hi payload" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job --stdin-file leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/in" | jget 'd["data"]["exists"]')"
+check "job --sudo-user deletes the sudo password" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
 printf '#!/usr/bin/env bash\necho "got:$1:$2"\n' > "$TMP/args.sh"
 SJ=$($K job start direct --script "$TMP/args.sh" --arg 'a b' --arg c | jget 'd["data"]["jobs"][0]["id"]')
 $K job wait "$SJ" --interval 1s >/dev/null
@@ -144,6 +166,10 @@ check "job list shows the script, not its text" True "$($K job list | jget 'any(
 $K host edit direct --sudo-ref secret:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
+SJ=$($K job start direct --sudo --stdin-file "$TMP/f" -- 'cat' | jget 'd["data"]["jobs"][0]["id"]')
+$K job wait "$SJ" --interval 1s >/dev/null
+check "job: unasked sudo password not in its input" payload "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job: unasked sudo password is deleted unread" False "$($K fs stat direct ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
 $K host edit direct --unset sudo-ref >/dev/null
 $K host rm ops >/dev/null
 $K exec direct --sudo -- 'mkdir -m 700 /etc/private && install -m 600 /dev/null /etc/private/token' >/dev/null
@@ -157,6 +183,10 @@ echo "==> jobs"
 JID=$($K job start direct -- 'echo a; sleep 1; echo b' | jget 'd["data"]["jobs"][0]["id"]')
 check "job wait ok" exited "$($K job wait "$JID" --interval 1s | jget 'd["data"]["state"]')"
 check "job logs" "a b" "$($K job logs "$JID" | jget '" ".join(d["data"]["content"].split())')"
+JT=$($K job start direct --timeout 2s -- 'sleep 31; echo late' | jget 'd["data"]["jobs"][0]["id"]')
+check "job start --timeout stops the job" "killed True" "$($K job wait "$JT" --interval 1s | jget 'd["data"]["state"]+" "+str(d["data"]["timed_out"])' || true)"
+check "a timed-out job does not run on" "" "$($K job logs "$JT" | jget 'd["data"]["content"].strip()')"
+check "a timed-out job leaves no process" 0 "$($K exec direct --read-only -o text -- 'pgrep -fxc "sleep 31" || true')"
 J2=$($K job start direct -- 'exit 3' | jget 'd["data"]["jobs"][0]["id"]')
 set +e; $K job wait "$JID" "$J2" --interval 1s >/dev/null; check "job wait several: worst exit" 5 $?; set -e
 check "job wait several" 1 "$($K job wait "$JID" "$J2" --interval 1s | jget 'd["data"]["summary"]["ok"]' || true)"
@@ -179,6 +209,13 @@ $K key deploy leaver direct >/dev/null
 check "key revoke --dry-run counts" 1 "$($K key revoke leaver direct --dry-run | jget 'd["data"]["results"][0]["would_remove"]')"
 check "key revoke removes it" 1 "$($K key revoke leaver direct | jget 'd["data"]["results"][0]["removed"]')"
 check "other keys stay" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+# --all-users: the key in two accounts (agent and ops), each file changed as its user
+LEAVER=$($K key show leaver | jget 'd["data"]["public_key"]')
+q $K exec direct --sudo -- "for u in agent ops; do h=\$(getent passwd \$u | cut -d: -f6); mkdir -p \$h/.ssh; echo '$LEAVER' >> \$h/.ssh/authorized_keys; chown -R \$u \$h/.ssh; done"
+check "key revoke --all-users --dry-run names each user" "agent:1 ops:1" "$($K key revoke leaver direct --all-users --dry-run | jget '" ".join(u["user"]+":"+str(u["removed"]) for u in d["data"]["results"][0]["users"])')"
+check "key revoke --all-users removes it everywhere" 2 "$($K key revoke leaver direct --all-users | jget 'd["data"]["results"][0]["removed"]')"
+check "ops's file keeps its owner" ops "$($K exec direct --sudo -- 'stat -c %U ~ops/.ssh/authorized_keys' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "login still works after --all-users" ok "$($K exec direct -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 $K host add pc "agent@127.0.0.1" --port "$E2E_SSH_DIRECT" --key deploy --proxy-command 'nc %h %p' >/dev/null
 check "proxy command carries ssh" ok "$($K exec pc -- 'echo ok' | jget 'd["data"]["results"][0]["stdout"].strip()')"
 # pc logs in with a key komando made, sealed in the store: OpenSSH gets it

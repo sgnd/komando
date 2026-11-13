@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"regexp"
 	"strings"
 
@@ -9,17 +10,80 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
-	"github.com/sgnd/komando/internal/store"
 )
+
+// replaceEdit is one fs replace: the same edit for every server.
+type replaceEdit struct {
+	path, oldS, newS string
+	re               *regexp.Regexp
+	all              bool
+	o                writeOpts
+}
+
+// on makes the edit on one server.
+func (e replaceEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
+	sc, err := sftpClient(c)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+	p := expandRemote(sc, e.path)
+	b, trunc, err := readRemote(ctx, c, sc, p, e.o.sudo, 64<<20)
+	if err != nil {
+		return nil, err
+	}
+	if trunc {
+		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "for a bigger file: `komando download` it, edit it here, then `komando upload` it", "%s is larger than 64MiB, the most fs replace edits", p)
+	}
+	src := string(b)
+	pl, err := planReplace(out.P, src, e.oldS, e.newS, e.re, e.all, e.path)
+	if err != nil {
+		return nil, err
+	}
+	if !pl.changed {
+		res := fsChange{"path": p, "changed": false, "replacements": pl.n}
+		if pl.note != "" {
+			res["note"] = pl.note
+		}
+		return res, nil
+	}
+	res := fsChange{"path": p, "changed": true, "replacements": pl.n, "diff": unifiedDiff(pl.view, pl.shown, 3)}
+	if g.dryRun {
+		delete(res, "changed")
+		res["would_change"] = true
+		if t, err := resolveLink(sc, p); err == nil && t != p {
+			res["followed"] = t
+		}
+		return res, nil
+	}
+	w, err := writeRemote(ctx, c, sc, p, []byte(pl.updated), e.o)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range w {
+		res[k] = v
+	}
+	if pl.view != src {
+		// a hash of the real file would let a weak hidden value be
+		// guessed offline from the rest, which the agent saw
+		delete(res, "sha256")
+	}
+	return res, nil
+}
 
 func fsReplaceCmd() *cobra.Command {
 	var o writeOpts
 	var oldS, newS string
 	var all, isRegex bool
 	c := &cobra.Command{
-		Use:   "replace SERVER PATH --old TEXT --new TEXT",
-		Short: "Edit a file on one server by replacing exact text",
+		Use:   "replace TARGET PATH --old TEXT --new TEXT",
+		Short: "Edit a file on servers by replacing exact text",
+		Long: `Replaces --old with --new in PATH. On a group (@web) every server gets the
+same edit; each server's result says what changed there, and a server where
+--old is not found fails on its own (NO_MATCH) while the others are changed.
+Run it with --dry-run first to see each server's diff.`,
 		Example: `  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup
+  komando fs replace @web /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup --dry-run
   komando fs replace web1 /etc/ssh/sshd_config --regex --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,75 +115,33 @@ func fsReplaceCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			h, err := oneServer(st, args[0], "fs replace edits one server's file; run it per server, or use `komando exec "+args[0]+" -- sed ...` for many")
+			hosts, err := resolveTargets(st, args[0])
 			if err != nil {
 				return err
 			}
 			if err := checkValidate(o.validate); err != nil {
 				return err
 			}
-			if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
+			if err := guard(st, hosts, o.validate, true); err != nil {
 				return err
 			}
-			if newS, err = expandSecretRefs(newS, h.Name+":"+args[1], re != nil); err != nil {
+			if newS, err = expandSecretRefs(newS, args[0]+":"+args[1], re != nil); err != nil {
 				return err
 			}
-			var res fsChange
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-				sc, err := sftpClient(c)
-				if err != nil {
-					return err
+			e := replaceEdit{path: args[1], oldS: oldS, newS: newS, re: re, all: all, o: o}
+			data, err := runFsFleet(cmd.Context(), st, "fs.replace", args[1], hosts, e.on)
+			if n := data.changedWithBackup(); n > 0 && !g.dryRun {
+				s := ""
+				if o.sudo {
+					s = " --sudo"
 				}
-				defer sc.Close()
-				p := expandRemote(sc, args[1])
-				b, trunc, err := readRemote(cmd.Context(), c, sc, p, o.sudo, 64<<20)
-				if err != nil {
-					return err
+				where := countOf(n, "server")
+				if len(hosts) == 1 {
+					where = hosts[0].Name
 				}
-				if trunc {
-					return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "for a bigger file: `komando download` it, edit it here, then `komando upload` it", "%s is larger than 64MiB, the most fs replace edits", p)
-				}
-				src := string(b)
-				pl, err := planReplace(out.P, src, oldS, newS, re, all, args[1])
-				if err != nil {
-					return err
-				}
-				if !pl.changed {
-					res = fsChange{"path": p, "changed": false, "replacements": pl.n}
-					if pl.note != "" {
-						res["note"] = pl.note
-					}
-					return nil
-				}
-				res = fsChange{"path": p, "changed": true, "replacements": pl.n, "diff": unifiedDiff(pl.view, pl.shown, 3)}
-				if g.dryRun {
-					delete(res, "changed")
-					res["would_change"] = true
-					if t, err := resolveLink(sc, p); err == nil && t != p {
-						res["followed"] = t
-					}
-					return nil
-				}
-				w, err := writeRemote(cmd.Context(), c, sc, p, []byte(pl.updated), o)
-				if err != nil {
-					return err
-				}
-				for k, v := range w {
-					res[k] = v
-				}
-				if pl.view != src {
-					// a hash of the real file would let a weak hidden value be
-					// guessed offline from the rest, which the agent saw
-					delete(res, "sha256")
-				}
-				return nil
-			})
-			audit(st, "fs.replace", []string{h.Name}, "", err == nil, map[string]any{"path": args[1]})
-			if err != nil {
-				return err
+				textNote("Changed %s on %s. To undo: komando fs restore %s %s%s", args[1], where, args[0], argQ(args[1]), s)
 			}
-			printChange("fs.replace", h.Name, res, o.sudo)
-			return nil
+			return err
 		},
 	}
 	c.Flags().StringVar(&oldS, "old", "", "the text to find (a regular expression with --regex)")

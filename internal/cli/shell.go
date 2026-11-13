@@ -82,7 +82,7 @@ func runShell(ctx context.Context, target string) error {
 	code, lost := 0, false
 	// a Windows server over SSH gives its own shell (cmd or PowerShell)
 	err = withClient(allowWindows(ctx), st, h, func(c *sshx.Client) error {
-		sess, err := c.NewSession()
+		sess, err := c.Session()
 		if err != nil {
 			return err
 		}

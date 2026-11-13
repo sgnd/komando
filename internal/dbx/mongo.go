@@ -334,3 +334,77 @@ func MongoVersion(ctx context.Context, m *Mongo) string {
 	}
 	return fmt.Sprint(build["version"])
 }
+
+// MongoExplain is the plan MongoDB makes for cmd (find, aggregate, count,
+// distinct ...) in database db: queryPlanner, or with analyze
+// executionStats, which runs the read and reports what it did. The
+// caller lets only read commands through.
+func MongoExplain(ctx context.Context, m *Mongo, db string, cmd bson.D, analyze bool) (any, error) {
+	verbosity := "queryPlanner"
+	if analyze {
+		verbosity = "executionStats"
+	}
+	raw, err := m.C.Database(cmp.Or(db, m.DB)).RunCommand(ctx, bson.D{{Key: "explain", Value: cmd}, {Key: "verbosity", Value: verbosity}}).Raw()
+	if err != nil {
+		return nil, mongoErr(err)
+	}
+	return extJSON(raw), nil
+}
+
+// MongoActivity is what the server is doing now (currentOp), one row per
+// operation in the shape db activity shows for SQL: pid (opid), user,
+// database, running_seconds, state (the operation), query (the command).
+// all includes idle connections.
+func MongoActivity(ctx context.Context, m *Mongo, all bool) ([]map[string]any, error) {
+	cmd := bson.D{{Key: "currentOp", Value: true}}
+	if !all {
+		cmd = append(cmd, bson.E{Key: "active", Value: true})
+	}
+	var reply struct {
+		Inprog []bson.Raw `bson:"inprog"`
+	}
+	if err := m.C.Database("admin").RunCommand(ctx, cmd).Decode(&reply); err != nil {
+		return nil, mongoErr(err)
+	}
+	rows := []map[string]any{}
+	for _, op := range reply.Inprog {
+		var o struct {
+			OpID        any      `bson:"opid"`
+			Op          string   `bson:"op"`
+			NS          string   `bson:"ns"`
+			Secs        int64    `bson:"secs_running"`
+			Client      string   `bson:"client"`
+			Desc        string   `bson:"desc"`
+			Active      bool     `bson:"active"`
+			Command     bson.Raw `bson:"command"`
+			EffectUsers []struct {
+				User string `bson:"user"`
+				DB   string `bson:"db"`
+			} `bson:"effectiveUsers"`
+		}
+		if err := bson.Unmarshal(op, &o); err != nil {
+			continue
+		}
+		if o.Desc == "conn" && o.OpID == nil && !all {
+			continue
+		}
+		user := ""
+		if len(o.EffectUsers) > 0 {
+			user = o.EffectUsers[0].User
+		}
+		db, _, _ := strings.Cut(o.NS, ".")
+		state := o.Op
+		if !o.Active {
+			state = "idle"
+		}
+		query := ""
+		if len(o.Command) > 0 {
+			if b, err := bson.MarshalExtJSON(o.Command, false, false); err == nil {
+				query = string(b)
+			}
+		}
+		rows = append(rows, map[string]any{"pid": fmt.Sprint(o.OpID), "user": user, "database": db, "running_seconds": o.Secs,
+			"state": state, "client": o.Client, "query": query})
+	}
+	return rows, nil
+}

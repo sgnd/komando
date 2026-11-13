@@ -131,7 +131,7 @@ func (o *logOpts) source() string {
 		case o.container != "":
 			c := o.dockerLogs() + " --tail " + n + " -f"
 			if since != "" {
-				c += " --since " + sshx.Q(since)
+				c += " --since " + dockerTimeArg(since)
 			}
 			return c + " " + sshx.Q(o.container) + " 2>&1" + grep
 		case o.file != "":
@@ -156,10 +156,10 @@ func (o *logOpts) source() string {
 			c = o.dockerLogs()
 		}
 		if since != "" {
-			c += " --since " + sshx.Q(since)
+			c += " --since " + dockerTimeArg(since)
 		}
 		if until != "" {
-			c += " --until " + sshx.Q(until)
+			c += " --until " + dockerTimeArg(until)
 		}
 		c += " " + sshx.Q(o.container) + " 2>&1"
 		if grep != "" {
@@ -543,6 +543,9 @@ func netCmd() *cobra.Command {
 			return runOps(cmd.Context(), opsSpec{name: "net.dns", target: args[0], command: command, display: strings.TrimSpace("net dns " + args[1] + " " + strings.ToUpper(rrType)),
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 					return dnsResult(args[1], rrType, rr.Stdout)
+				},
+				after: func(ctx context.Context, c *sshx.Client, rr *sshx.RunResult) *sshx.RunResult {
+					return dnsWithoutDig(ctx, c, args[1], rrType, rr)
 				},
 				text: dnsText})
 		},

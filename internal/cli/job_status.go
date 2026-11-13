@@ -49,7 +49,12 @@ func fetchStatus(ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*
 			}
 		case strings.HasPrefix(lines[0], "KILLED"):
 			s.State = "killed"
-			s.Signal = strings.TrimSpace(strings.TrimPrefix(lines[0], "KILLED"))
+			// job kill writes the signal; job start --timeout "TERM timeout"
+			f := strings.Fields(strings.TrimPrefix(lines[0], "KILLED"))
+			if len(f) > 0 {
+				s.Signal = f[0]
+			}
+			s.TimedOut = len(f) > 1 && f[1] == "timeout"
 		default:
 			s.State = "lost"
 		}

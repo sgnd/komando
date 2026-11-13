@@ -120,7 +120,8 @@ func loadSealed(tx *sealdb.Tx) (*State, error) {
 	default:
 		return nil, fmt.Errorf("%d settings records: %w", len(rows), sealdb.ErrTampered)
 	}
-	s.init() // defaults for settings the record does not set
+	s.init()      // defaults for settings the record does not set
+	s.followIDs() // a rename made elsewhere reaches the references (refs.go)
 	return s, nil
 }
 
@@ -219,6 +220,7 @@ func (s *State) writeSealed(tx *sealdb.Tx, before map[string]recSnap, setBefore 
 	if err := s.bumpRecs(before); err != nil {
 		return err
 	}
+	s.followNames() // every reference's ID from its name, new records too (refs.go)
 	kept := map[string]bool{}
 	for _, r := range s.recs() {
 		kept[r.rec.ID] = true

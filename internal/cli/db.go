@@ -244,6 +244,9 @@ func dbExplainCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if c.Kind == "mongodb" {
+				return runMongoExplain(cmd.Context(), st, c, args[1], analyze)
+			}
 			var prefix string
 			switch c.Kind {
 			case "postgres":

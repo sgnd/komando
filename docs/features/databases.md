@@ -629,7 +629,7 @@ giving them the password:
 
 A MongoDB conn takes the same `db query`, with a command document in
 JSON instead of SQL: its first key names the command, as in `runCommand`.
-`db schema` and `db info` work too.
+`db schema`, `db info`, `db explain` and `db activity` work too.
 
 ```bash
 komando secret set shop-mongo-pass
@@ -640,6 +640,8 @@ komando db query shop-mongo --write '{"update": "orders", "updates": [{"q": {"_i
 komando db schema shop-mongo                      # collections, sizes, indexes
 komando db schema shop-mongo orders               # fields and their types, from a sample
 komando db info shop-mongo                        # version, primary or secondary, sizes
+komando db explain shop-mongo '{"find": "orders", "filter": {"status": "open"}}'   # the plan (--analyze: run it, with the numbers)
+komando db activity shop-mongo                    # what runs now (currentOp); --all for idle connections too
 ```
 
 - komando rates each command before it sends it, as it does SQL: `find`,
@@ -662,11 +664,13 @@ komando db info shop-mongo                        # version, primary or secondar
   others. `-o text` prints one document per line.
 - Every member of a replica set is reached through `--via`. A private CA
   works with `?tls=true&ca=secret:NAME`.
-- For SQL databases only: `db explain`, `dump`, `restore`, `activity`,
-  `locks`, `sizes`, `kill`, users and grants, and `db shell`. On MongoDB
-  they say so (`NOT_SUPPORTED`). Explain a query with
-  `db query '{"explain": {"find": "users", "filter": {}}, "verbosity": "queryPlanner"}'`;
-  for a backup, see [Back up and restore](#back-up-and-restore).
+- `db explain` takes a read (`find`, `aggregate`, `count`, `distinct`):
+  `queryPlanner`, or with `--analyze` `executionStats`, which runs the read.
+  A command that writes is refused.
+- For SQL databases only: `dump`, `restore`, `locks`, `sizes`, `kill`,
+  users and grants, and `db shell`. On MongoDB they say so
+  (`NOT_SUPPORTED`). For a backup, see
+  [Back up and restore](#back-up-and-restore).
 
 ## SQL Server
 

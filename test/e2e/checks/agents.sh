@@ -12,7 +12,7 @@ check "agent text output is masked" 0 "$(A exec direct --read-only -o text -- ca
 check "agent --reveal without a person stays masked" False "$(A fs cat direct /home/agent/app/.env --reveal | jget '"hunter22" in json.dumps(d)')"
 check "masked text is never written back" HIDDEN_VALUE "$(A fs write direct /home/agent/app/.env --content 'DB_PASSWORD=[hidden]' | jget 'd["error"]["code"]' || true)"
 check "an agent needs a person to send a vault secret" SECRET_DESTINATION "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' | jget 'd["error"]["code"]' || true)"
-check "an agent's preview of it reads no secret" "True SECRET_DESTINATION" "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' --dry-run | jget 'd["data"]["would_change"], d["meta"]["would_be_blocked"]["code"]')"
+check "an agent's preview of it reads no secret" "True SECRET_DESTINATION" "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' --dry-run | jget 'd["data"]["results"][0]["would_change"], d["meta"]["would_be_blocked"]["code"]')"
 check "an agent with another KOMANDO_HOME needs a person" SAFETY_SETTING "$(CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" list | jget 'd["error"]["code"]' || true)"
 q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}'
 check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"

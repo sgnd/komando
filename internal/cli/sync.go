@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"mime"
 	"os"
 	"path"
 	"path/filepath"
@@ -277,63 +276,11 @@ func (s sftpSide) remove(_ context.Context, rel string) error {
 	return fsErr(rel, s.sc.Remove(path.Join(s.root, rel)))
 }
 
-// Sync side: a prefix in a storage conn.
-
-type bucketSide struct {
-	b      storex.Bucket
-	prefix string // "" or "folder/" inside the conn
-}
-
-func (b bucketSide) key(rel string) string { return b.prefix + rel }
-
-func (b bucketSide) list(ctx context.Context) (map[string]syncFile, error) {
-	objs, more, err := b.b.List(ctx, b.prefix, true, 1_000_000)
-	if err != nil {
-		if toErr(err).Exit == out.ExitNotFound {
-			return map[string]syncFile{}, errSideMissing // SFTP/FTP: the folder is not there yet
-		}
-		return nil, err
-	}
-	if more {
-		return nil, out.Usage("more than a million objects under %q; sync a smaller prefix", b.prefix)
-	}
-	files := map[string]syncFile{}
-	for _, o := range objs {
-		rel := strings.TrimPrefix(o.Key, b.prefix)
-		// folder markers: the prefix itself, or a key ending in / (S3
-		// consoles create them); they hold no file
-		if o.Dir || rel == "" || strings.HasSuffix(rel, "/") || o.Key+"/" == b.prefix {
-			continue
-		}
-		files[rel] = syncFile{Size: o.Size, Mtime: o.Modified}
-	}
-	if len(files) == 0 {
-		return files, errSideMissing // nothing under the prefix: S3 has no empty folders
-	}
-	return files, nil
-}
-
-func (b bucketSide) open(ctx context.Context, rel string) (io.ReadCloser, error) {
-	pr, pw := io.Pipe()
-	go func() {
-		_, err := b.b.Get(ctx, b.key(rel), pw)
-		pw.CloseWithError(err)
-	}()
-	return pr, nil
-}
-
-func (b bucketSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
-	return b.b.Put(ctx, b.key(rel), r, f.Size, mime.TypeByExtension(path.Ext(rel)))
-}
-
-func (b bucketSide) remove(ctx context.Context, rel string) error {
-	return b.b.Remove(ctx, b.key(rel))
-}
-
 // Planning what to copy and delete.
 
 type syncOpts struct {
 	delete, onlyNew bool
+	sudo            bool // servers: write and remove as root (sudoSftpSide)
 	exclude         []string
 }
 
@@ -541,9 +488,15 @@ func syncCmd() *cobra.Command {
 or a file server). Files that are new, a different size or file mode, or
 newer in SRC are copied; the rest are left alone. --delete also removes files SRC no longer has
 (that needs --allow-dangerous). --exclude skips names or paths (shell globs,
-repeatable). Try --dry-run first: it lists every file it would touch.`,
+repeatable). Try --dry-run first: it lists every file it would touch.
+
+--sudo writes on the servers as root, for a folder the SSH user cannot
+write (/etc/nginx): each file goes in as ` + "`upload --sudo`" + ` puts one, staged
+privately and checked by root, keeping the owner of a file that is there;
+the SSH user still needs to read the folder.`,
 		Example: `  komando sync ./site @web:/var/www/site --exclude .git --dry-run
   komando sync ./site web1:/var/www/site --delete --allow-dangerous
+  komando sync ./nginx @web:/etc/nginx/conf.d --sudo --dry-run
   komando sync ./backups backups:2026/ --exclude '*.tmp'
   komando sync backups:2026/ ./restore
   komando sync web1:/var/log/app ./logs/web1`,
@@ -574,6 +527,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.`,
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
 	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
+	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write on the servers as root, file by file as upload --sudo does (a folder here to servers)")
 	return c
 }
 
@@ -608,6 +562,9 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 		// --reveal, as syncDown leaves them there
 		src = newAgentLocalSide(ctx, local)
 	}
+	if storage && o.sudo {
+		return out.Usage("--sudo is for servers")
+	}
 	if storage {
 		v := driver.Verdict{Risk: driver.RiskWrite}
 		if o.delete {
@@ -634,7 +591,14 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 			return nil, err
 		}
 		defer sc.Close()
-		r, err := runSync(ctx, src, sftpSide{sc: sc, root: expandRemote(sc, remote)}, local, c.Host.Name+":"+remote, o)
+		var dst syncSide = sftpSide{sc: sc, root: expandRemote(sc, remote)}
+		if o.sudo {
+			if c.Host.Windows() {
+				return nil, out.Usage("--sudo is for Linux and other Unix servers; %s runs Windows", c.Host.Name)
+			}
+			dst = sudoSftpSide{sftpSide: sftpSide{sc: sc, root: expandRemote(sc, remote)}, c: c}
+		}
+		r, err := runSync(ctx, src, dst, local, c.Host.Name+":"+remote, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
@@ -645,6 +609,9 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 
 // syncDown fetches a folder from one server or a storage conn.
 func syncDown(ctx context.Context, name, target, remote, local string, o syncOpts) error {
+	if o.sudo {
+		return out.Usage("sync --sudo writes as root on servers (a folder here to a server); to read a file only root can read, use `komando download %s %s --sudo` per file", target, remote)
+	}
 	storage, err := fileTarget(target)
 	if err != nil {
 		return err

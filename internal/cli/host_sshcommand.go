@@ -119,6 +119,9 @@ func hopOptions(st *store.State, h *store.Host, knownHosts string, agentOpts map
 	if h.EffectivePort() != 22 {
 		o = append(o, "-p", strconv.Itoa(h.EffectivePort()))
 	}
+	if h.ForwardAgent {
+		o = append(o, "-o", "ForwardAgent=yes") // as komando does for it (host edit --forward-agent)
+	}
 	if h.Identity != "" {
 		o = append(o, "-i", expandHome(h.Identity))
 	} else if a, ok := agentOpts[h.Key]; ok {

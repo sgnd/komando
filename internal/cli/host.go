@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -37,7 +36,7 @@ type hostFlags struct {
 	ssm                                                             bool
 	port                                                            int
 	groups, tags, labels, env                                       []string
-	protected                                                       bool
+	protected, forwardAgent                                         bool
 	addGroups, rmGroups, addTags, rmTags, unset                     []string
 }
 
@@ -65,7 +64,8 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 		fl.StringSliceVar(&f.rmTags, "rm-tag", nil, "remove these tags")
 		kvVar(fl, &f.labels, "label", "", "set label KEY=VALUE (an empty value removes it)")
 		kvVar(fl, &f.env, "env", "e", "set KEY=VALUE, exported before every command (an empty value removes it; repeatable)")
-		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,os,transport (transport: back to SSH from WinRM)")
+		fl.BoolVar(&f.forwardAgent, "forward-agent", false, "lend the server your ssh-agent while komando is connected (root there can use your keys then; asks first)")
+		fl.StringSliceVar(&f.unset, "unset", nil, "clear these settings: user,key,identity,password-ref,sudo-ref,via,proxy-command,notes,port,protected,forward-agent,os,transport (transport: back to SSH from WinRM)")
 	} else {
 		fl.StringSliceVarP(&f.groups, "group", "g", nil, "put it in these groups (comma-separated)")
 		fl.StringSliceVarP(&f.tags, "tag", "t", nil, "tags, like prod (comma-separated)")
@@ -233,7 +233,8 @@ covers every server in the command.`,
   komando host edit db1 --protected              # production: ask before changes
   komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
   komando host edit web1 web2 web3 --user deploy
-  komando host edit vps1 --ask-password          # type a new password (hidden)`,
+  komando host edit vps1 --ask-password          # type a new password (hidden)
+  komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runHostEdit(cmd, args, &f, askPw)
@@ -334,12 +335,19 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 		return undo, out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando host edit "+args[0]+" --user deploy (see --help)", "nothing to change")
 	}
 	if err := editConflicts(fl, f.unset, map[string]string{"user": "user", "key": "key", "identity": "identity", "password-ref": "password-ref",
-		"sudo-ref": "sudo-ref", "via": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "os": "os"},
+		"sudo-ref": "sudo-ref", "via": "via", "proxy-command": "proxy-command", "notes": "notes", "port": "port", "protected": "protected", "forward-agent": "forward-agent", "os": "os"},
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
 		return undo, err
 	}
 	if err := guardProxyCommand(f.proxyCommand, args...); err != nil {
 		return undo, err
+	}
+	if fl.Changed("forward-agent") && f.forwardAgent {
+		// a server that holds your agent can log in anywhere your keys open,
+		// as long as komando is connected to it: a person decides that
+		if err := guardSafety("lending your ssh-agent to " + strings.Join(args, ", ") + " (root there can use your keys while komando is connected)"); err != nil {
+			return undo, err
+		}
 	}
 	if !askPw {
 		return undo, nil
@@ -490,6 +498,9 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 	if fl.Changed("protected") {
 		h.Protected = f.protected
 	}
+	if fl.Changed("forward-agent") {
+		h.ForwardAgent = f.forwardAgent
+	}
 	h.Groups = dedupe(append(removeFold(h.Groups, f.rmGroups), f.addGroups...))
 	h.Tags = dedupe(append(removeFold(h.Tags, f.rmTags), f.addTags...))
 	if err := applyKV(&h.Labels, f.labels); err != nil {
@@ -523,12 +534,14 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 			h.Port = 0
 		case "protected":
 			h.Protected = false
+		case "forward-agent":
+			h.ForwardAgent = false
 		case "os":
 			h.OS = ""
 		case "transport": // back to SSH
 			h.Transport, h.WinRMOpts = "", nil
 		default:
-			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected, os, transport",
+			return out.Errf(out.ExitUsage, "USAGE", "--unset takes: user, key, identity, password-ref, sudo-ref, via, proxy-command, notes, port, protected, forward-agent, os, transport",
 				"cannot unset %q", u)
 		}
 	}
@@ -671,124 +684,6 @@ func hostShowCmd() *cobra.Command {
 				return err
 			}
 			out.P.Print("host.show", h, nil)
-			return nil
-		},
-	}
-}
-
-// keptHostKeys lists the removed servers (name -> address) whose key is
-// still pinned and whose address no server left in the inventory uses.
-// host rm never removes a pin by itself: rm plus add would then get past a
-// HOSTKEY_MISMATCH without a person's yes.
-func keptHostKeys(s *store.State, gone map[string]string) []string {
-	used := map[string]bool{}
-	for _, h := range s.Hosts {
-		used[trustAddr(h)] = true
-	}
-	var kept []string
-	for n, addr := range gone {
-		if !used[addr] && countPinned(addr) > 0 {
-			kept = append(kept, n)
-		}
-	}
-	sort.Strings(kept)
-	return kept
-}
-
-// hostsInUse stops host rm when a server or conn left in the inventory
-// reaches one of names through --via. It names every such user at once, so
-// one round of edits clears them all. Servers removed in the same command
-// (batch) do not count.
-func hostsInUse(s *store.State, names []string, batch map[string]bool) error {
-	var users, fixes []string
-	for _, n := range names {
-		for _, o := range s.SortedHosts() {
-			if !batch[o.Name] && slices.Contains(viaChain(o.Via), n) {
-				users = append(users, "server "+o.Name+viaNote(names, n))
-				fixes = append(fixes, "`komando host edit "+o.Name+" --unset via`")
-			}
-		}
-		for _, c := range s.SortedConns() {
-			if slices.Contains(viaChain(c.Via), n) {
-				users = append(users, "conn "+c.Name+viaNote(names, n))
-				fixes = append(fixes, "`komando conn edit "+c.Name+" --unset via`")
-			}
-		}
-	}
-	if len(users) == 0 {
-		return nil
-	}
-	hint := "change them first: " + strings.Join(fixes, ", ") + " (or --via OTHER), or remove them in the same command"
-	if len(names) == 1 {
-		return out.Errf(out.ExitConflict, "HOST_IN_USE", hint, "server %q is on the --via path of %s", names[0], strings.Join(users, ", "))
-	}
-	return out.Errf(out.ExitConflict, "HOST_IN_USE", hint, "these servers are on a --via path: %s", strings.Join(users, ", "))
-}
-
-// viaNote names the removed server a user goes through, when several are
-// removed at once.
-func viaNote(names []string, n string) string {
-	if len(names) == 1 {
-		return ""
-	}
-	return " (via " + n + ")"
-}
-
-func hostRmCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "rm TARGET...",
-		Short: "Remove servers (from komando only)",
-		Example: `  komando host rm web3
-  komando host rm @old --dry-run     # what a selector would remove
-  komando host rm 'tmp-*'`,
-		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			var names, kept, unused []string
-			err := store.Update(func(s *store.State) error {
-				var prot []string
-				batch := map[string]bool{}
-				hosts, err := pickHosts(s, args)
-				if err != nil {
-					return err
-				}
-				for _, h := range hosts {
-					names = append(names, h.Name)
-					batch[h.Name] = true
-					if h.Protected {
-						prot = append(prot, h.Name)
-					}
-				}
-				if err := hostsInUse(s, names, batch); err != nil {
-					return err
-				}
-				if err := guardProtection("host", "removing", prot); err != nil {
-					return err
-				}
-				gone := map[string]string{} // name -> address
-				var refs []string
-				for _, n := range names {
-					h := s.Hosts[n]
-					gone[n] = trustAddr(h)
-					refs = append(refs, h.PasswordRef, h.SudoRef, winrmCA(h))
-					for _, v := range h.Env {
-						refs = append(refs, v)
-					}
-					delete(s.Hosts, n)
-				}
-				kept = keptHostKeys(s, gone)
-				unused = unusedSecrets(s, refs)
-				return nil
-			})
-			if err != nil {
-				return err
-			}
-			audit(nil, "host.rm", names, "", true, nil)
-			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused}
-			if len(kept) > 0 {
-				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address has to show the same key. " +
-					"If it was rebuilt, add it again and replace the pin with `komando host trust NAME --reset` (a person confirms the new key)"
-			}
-			out.P.Print("host.rm", res, nil)
 			return nil
 		},
 	}

@@ -343,16 +343,30 @@ func relDuration(rel string) time.Duration {
 
 var logTimeLayouts = []string{"2006-01-02", "2006-01-02 15:04", "2006-01-02 15:04:05", "2006-01-02T15:04", "2006-01-02T15:04:05"}
 
+// dockerTimeArg is --since or --until for docker logs: today, yesterday
+// and now become the server's own midnight or time when the command runs
+// there (docker reads a time without a zone as the server's local time,
+// as journalctl does); any other time is passed as it is.
+func dockerTimeArg(v string) string {
+	switch v {
+	case "now":
+		return `"$(date +%Y-%m-%dT%H:%M:%S)"`
+	case "today":
+		return `"$(date +%Y-%m-%dT00:00:00)"`
+	case "yesterday":
+		// GNU and busybox date take -d @SECONDS, BSD date -r SECONDS
+		return `"$(y=$(( $(date +%s) - 86400 )); date -d "@$y" +%Y-%m-%dT00:00:00 2>/dev/null || date -r "$y" +%Y-%m-%dT00:00:00)"`
+	}
+	return sshx.Q(v)
+}
+
 func logTime(flag, v string, docker bool) (string, error) {
 	journalOnly := out.Usage("%s %s works with the journal; for a container give a time back from now (30m, 2h, 7d) or a date (2026-01-02T10:00:00)", flag, v)
 	switch {
 	case v == "":
 		return "", nil
 	case v == "today" || v == "yesterday" || v == "now":
-		if docker {
-			return "", journalOnly
-		}
-		return v, nil
+		return v, nil // a container's are worked out on the server (dockerTimeArg)
 	case relTimeRe.MatchString(v):
 		rel := strings.TrimPrefix(v, "-")
 		if !docker {

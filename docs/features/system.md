@@ -302,8 +302,8 @@ use sudo, the command stops with `PERMISSION_DENIED` and a hint that names
 the fix (`komando host edit web1 --sudo-ref secret:web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)). A server with
 no sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same
-holds for `pkg`, `user`, `cron --user`, the `docker` commands that change
-something with `--sudo`, and recipes that use sudo.
+holds for `pkg`, `user`, `cron --user`, every `docker` command with
+`--sudo` (as root, leave out `--sudo`), and recipes that use sudo.
 
 ## Whole jobs, step by step
 
@@ -344,7 +344,6 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
   own units (`systemctl --user`); use `komando exec` for those.
 - `svc` and `logs --unit` need systemd; a server without it (most
   containers) stops with `NO_SYSTEMD`.
-- `--since today` and `--since yesterday` do not work for containers.
 - On apt servers only, `pkg rm` and `pkg upgrade --security` check whether
   an essential package would go with another one; other package managers
   are not checked this way.
@@ -385,7 +384,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 | `-c`, `--container NAME` | Read this Docker container's log. |
 | `-n`, `--limit N` | The last N lines (default 200). |
 | `--grep REGEX` | Only lines that match (extended regex, any case). |
-| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
+| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). For a container, `today` and `yesterday` are the server's own midnight. |
 | `-p`, `--priority` | Journal priority and worse: `emerg` to `debug`, or 0-7. |
 | `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
 | `-s`, `--sudo` | Read the whole journal or a protected file. As root, komando does not read a file through a link another server user made (`IS_A_SYMLINK`), and `--follow` keeps reading the file it opened. |

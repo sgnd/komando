@@ -134,7 +134,7 @@ the pods that exist when it starts. --since takes a duration back from now
 					}
 					for _, line := range strings.SplitAfter(string(b), "\n") {
 						if line != "" {
-							sb.WriteString("[" + p + "] " + line)
+							sb.WriteString("[" + p + "] " + out.NoCR(line)) // no \r back over the name
 						}
 					}
 				}
@@ -297,6 +297,9 @@ func streamPods(ctx context.Context, k *kube.Client, space string, pods []string
 // person, an output event in JSON.
 func printLogLine(pod, prefix, line string) {
 	if out.P.Format == "text" {
+		if prefix != "" {
+			line = out.NoCR(line) // no \r back over the pod's name
+		}
 		fmt.Println(out.SafeText(out.P.Redact(prefix + line)))
 		return
 	}

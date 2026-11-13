@@ -185,7 +185,11 @@ Commands that change a cluster (`apply`, `deploy`, `restart`, `scale`,
 ### Helm releases (read-only)
 
 komando reads the Helm releases stored in the cluster, without the `helm`
-program. It only reads: install, upgrade and rollback stay with `helm`.
+program. It only reads: install, upgrade and rollback stay with `helm`. To
+change what runs from komando, `cluster deploy` sets a new image with a
+rollout you can wait for, and `cluster apply` applies manifests, for
+example the output of `helm template` (a server dry run checks them
+first).
 
 ```bash
 komando cluster helm list prod-k8s -A                                   # name, revision, status, chart, app version
@@ -391,7 +395,7 @@ is kubectl's namespace flag.
   server, so `cluster run swarm1 -- stack deploy -c FILE` and `compose up`
   are rated by their flags only.
 - Helm: komando reads releases only; install, upgrade and rollback stay
-  with `helm`.
+  with `helm` (`cluster deploy` and `cluster apply` change what runs).
 
 ## Troubleshooting
 

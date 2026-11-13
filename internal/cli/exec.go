@@ -363,7 +363,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 						continue
 					}
 					if len(hosts) > 1 {
-						line = "[" + host + "] " + line
+						line = "[" + host + "] " + out.NoCR(line) // no \r back over the name
 					}
 					fmt.Fprint(w, out.SafeText(line))
 				}
@@ -560,10 +560,16 @@ func runOne(ctx context.Context, name, target, command string, sudo, mutating bo
 }
 
 // probe runs a read-only command on all target hosts and lets parse turn
-// stdout into structured data.
-func probe(ctx context.Context, name, target, command string, sudo bool, parse func(h *store.Host, stdout string) (any, error)) error {
-	return probeText(ctx, name, target, command, sudo, parse, nil)
+// stdout into structured data. exitMap, when not nil, names why a server's
+// command failed (a sudo refusal, docker missing ...): see probeExit.
+func probe(ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error)) error {
+	return probeText(ctx, name, target, command, sudo, exitMap, parse, nil)
 }
+
+// probeExit is a probe's typed error for one server's failed command: host
+// is its name, sudo whether the probe ran with sudo; nil keeps the plain
+// remote failure.
+type probeExit func(host string, sudo bool, rr *sshx.RunResult) *out.Error
 
 // probeRow is one host's answer to a probe.
 type probeRow struct {
@@ -589,7 +595,7 @@ type probeTexter struct {
 func (p probeTexter) Text() string { return p.text(p.probeData) }
 
 // probeText is probe with a text layout of its own (nil: the generic one).
-func probeText(ctx context.Context, name, target, command string, sudo bool, parse func(h *store.Host, stdout string) (any, error), text func(probeData) string) error {
+func probeText(ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error), text func(probeData) string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -646,8 +652,13 @@ func probeText(ctx context.Context, name, target, command string, sudo bool, par
 				r.Stderr = strings.TrimSpace(rr.Stderr)
 				exit := out.ExitRemote
 				f := hostFail{host: r.Host, reason: fmt.Sprintf("exit %d", rr.ExitCode)}
+				if exitMap != nil && !rr.TimedOut {
+					if e := exitMap(o.Host.Name, sudo, rr); e != nil {
+						r.Error = e // the command said why: a sudo refusal, docker missing ...
+					}
+				}
 				if r.Error != nil && r.Error.Exit != 0 {
-					exit = r.Error.Exit // the parser named the problem (NXDOMAIN, closed port ...): its code wins
+					exit = r.Error.Exit // the parser or exitMap named the problem (NXDOMAIN, closed port ...): its code wins
 					f = hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error}
 				}
 				if rr.TimedOut {

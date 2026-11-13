@@ -64,7 +64,7 @@ not know? Set `KOMANDO_AGENT=1`.
    komando's own flags go before it. Without `--` it stops with `USAGE`
    and runs nothing.
 3. **Use the command made for the job.**
-   - Files: `komando fs replace SERVER PATH --old '...' --new '...' --backup`,
+   - Files: `komando fs replace TARGET PATH --old '...' --new '...' --backup`,
      never `sed -i` over `exec`.
    - Databases: query with `komando db query`. Back up with
      `komando db dump CONN --to FILE` (`--run-on HOST` runs `pg_dump` or
@@ -119,7 +119,7 @@ not know? Set `KOMANDO_AGENT=1`.
    - Passwords, keys and tokens in any output show as `[hidden]` or
      `[secret:NAME]`. That is expected; do not work around it.
    - To change a line with a hidden value, use
-     `komando fs replace SERVER PATH --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
+     `komando fs replace TARGET PATH --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
      (`{{secret:NAME}}` becomes the vault value on the server). Text that
      still holds `[hidden]` is never written (`HIDDEN_VALUE`).
    - Sending a secret somewhere (that `fs replace`, `--env K=secret:NAME`,

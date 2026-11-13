@@ -55,8 +55,9 @@ func TestExecConnectionLost(t *testing.T) {
 }
 
 // job start --sudo works with a sudo password: it goes as input to a
-// private file the job deletes, never on a command line, and the command
-// gets no input, so it cannot read it.
+// private file, never on a command line. The job first asks sudo whether
+// it needs one: when it does not, the file is deleted unread; when it
+// does, sudo reads it before the command starts, so the command never can.
 func TestJobStartSudoPassword(t *testing.T) {
 	srv := startFakeServer(t)
 	const pw = "hunter2-Sudo-pw"
@@ -81,7 +82,8 @@ func TestJobStartSudoPassword(t *testing.T) {
 	if e.stdin != pw+"\n" {
 		t.Fatalf("stdin = %q", e.stdin)
 	}
-	for _, want := range []string{`(umask 077; dd bs=1 count=16 of="$d/pw" 2>/dev/null)`, `{ rm -f "$d/pw"; sudo -S -p `, `exec </dev/null; uptime`, `; } < "$d/pw"`} {
+	for _, want := range []string{`(umask 077; dd bs=1 count=16 of="$d/pw" 2>/dev/null)`, `if sudo -n sh -c : 2>/dev/null; then rm -f "$d/pw"; `,
+		`{ cat "$d/pw"; rm -f "$d/pw"; `, `| sudo -S -p `} {
 		if !strings.Contains(e.cmd, want) {
 			t.Fatalf("command lacks %q:\n%s", want, e.cmd)
 		}
