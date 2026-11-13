@@ -71,8 +71,9 @@ komando update --dry-run   # is there a newer version? (changes nothing)
 komando update             # install the newest release
 ```
 
-`update` downloads the release for this computer, checks it against the
-release's checksums, runs the new program once to make sure it works here,
+`update` checks that the release is signed by the komando project,
+downloads the release for this computer, checks it against the release's
+signed checksums, runs the new program once to make sure it works here,
 and only then puts it in place. If anything fails, the old komando stays.
 Your servers, secrets and history in `~/.komando` stay as they are.
 
@@ -96,8 +97,17 @@ your AI agents get the skill of the new version. Until then
   replaced (`SOURCE_BUILD`): build it again instead. One built at a release
   tag (`go install ...@v0.13.0`) counts as that release.
 - Run as you, the update is written to the audit log like any other change.
-- `update` checks the download against the release's checksums. To check
-  the signed build provenance too, use `gh attestation verify` (see
+- `update` installs only a release signed with the komando project's key,
+  which is built into komando. The release workflow signs `checksums.txt`
+  (as `checksums.txt.sig`), so someone who replaced a release's files
+  cannot make `update` install them. An unsigned release stops with
+  `RELEASE_SIGNATURE_NOT_FOUND`, a wrong signature with
+  `RELEASE_SIGNATURE_INVALID`; nothing is changed. Do not work around either for a new release: report it
+  ([SECURITY.md](../../SECURITY.md)). Releases up to 0.13.0 have no
+  signature, so `komando update v0.13.0` stops too; to go back to one of
+  them, use the install line with `KOMANDO_VERSION=v0.13.0`.
+- To check the signed build provenance of a download as well, use
+  `gh attestation verify` (see
   [Other ways to install](#other-ways-to-install)).
 - It uses `HTTPS_PROXY`. `sudo` drops that variable; keep it with
   `sudo --preserve-env=HTTPS_PROXY komando update`.

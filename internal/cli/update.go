@@ -21,8 +21,8 @@ import (
 )
 
 // `komando update`: replace this komando with a release from GitHub. The
-// download (update_fetch.go) is checked like install.sh checks it, and put
-// in place by update_install.go.
+// download (update_fetch.go) is checked against the release's signed
+// checksums.txt, and put in place by update_install.go.
 
 // releasePlatforms are the archives a release has (Makefile, PLATFORMS;
 // a test keeps the two the same).
@@ -76,9 +76,11 @@ func updateCmd() *cobra.Command {
 		Use:   "update [VERSION]",
 		Short: "Update komando to the newest release",
 		Long: `Replaces this komando program with the newest release from GitHub, or with
-the VERSION you name. Like the install line, it checks the download against
-checksums.txt from the same release, and it tries the new program before it
-replaces the old one. If anything fails, the old komando stays as it was.
+the VERSION you name. It checks that the release is signed with the komando
+project's key (a release without that signature is refused), checks the
+download against the release's signed checksums.txt, and tries the new
+program before it replaces the old one. If anything fails, the old komando
+stays as it was.
 
 See whether there is a newer version, changing nothing: komando update --dry-run.
 
@@ -156,7 +158,8 @@ func runUpdate(ctx context.Context, want string) (updateResult, error) {
 	if c < 0 {
 		r.Action = "downgraded"
 	}
-	// before asking anything: the release exists and has this computer's archive
+	// before asking anything: the release exists, is signed, and has this
+	// computer's archive
 	sums, err := releaseSums(ctx, r.To)
 	if err != nil {
 		return r, err
