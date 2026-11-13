@@ -695,6 +695,10 @@ komando db kill sales 57 --session
   group) and `database=NAME` in place of the path. Logins are SQL Server
   logins (user and password); Windows and Entra ID logins are not
   supported.
+- **Its own certificate.** A certificate SQL Server made for itself may
+  have a negative serial number, which komando accepts; the chain and the
+  host name are still checked, so `encrypt=true` needs `ca=` or
+  `tls=skip-verify` for it as for any self-signed certificate.
 - **Without `--write` nothing stays.** SQL Server has no read-only
   transaction, so komando runs the SQL in a transaction that it always
   rolls back, and checks after each statement that this transaction is
