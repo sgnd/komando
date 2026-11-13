@@ -158,8 +158,10 @@ func pathIn(p, dir string) bool {
 // isProcEnviron: /proc/PID/environ, also /proc/self/task/1/environ, holds
 // the variables of a process, komando's vault passphrase among them.
 func isProcEnviron(p string) bool {
-	// with / on Windows too, where Cygwin and MSYS shells have /proc
-	p = path.Clean(filepath.ToSlash(p))
+	// with / on Windows too, where Cygwin and MSYS shells have /proc; a path
+	// made absolute there gains a drive (C:\proc\self\environ), which is
+	// left out so the check still sees /proc
+	p = path.Clean(filepath.ToSlash(strings.TrimPrefix(p, filepath.VolumeName(p))))
 	return strings.HasPrefix(p, "/proc/") && path.Base(p) == "environ"
 }
 
