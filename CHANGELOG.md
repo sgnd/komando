@@ -667,7 +667,8 @@ instead.
   "e.g.".
 - `komando doctor` names each check in words (`komando folder`, `audit
   log`, `servers`, `SSH keys`, `AI agent skill`, `VPN office needs
-  openconnect`) and wraps a long detail at 80 columns. `-o json` keeps
+  openconnect`) and, at a terminal, wraps a long detail at 80 columns (a
+  pipe or a script gets each check on one line). `-o json` keeps
   the check names (`state`, `audit_log`, ...).
 
 ### Removed

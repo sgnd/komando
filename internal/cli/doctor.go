@@ -30,12 +30,12 @@ type doctorReport struct {
 }
 
 // Text is a list like `brew doctor`: ✓ fine, ✗ to fix, ! worth a look.
-// A long detail wraps at 80 columns under the check's name (M-9), except
-// for an AI agent, which reads each check on one line.
+// A long detail wraps at 80 columns under the check's name (M-9) at a
+// terminal; an AI agent, a pipe or a script reads each check on one line.
 func (r doctorReport) Text() string {
 	var b strings.Builder
 	fails, warns := 0, 0
-	width := 80
+	width := out.StdoutWidth()
 	if isAgent() {
 		width = 0
 	}
