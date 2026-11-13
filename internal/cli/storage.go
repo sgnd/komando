@@ -586,9 +586,13 @@ func storageUpload(ctx context.Context, name, conn, file, key string) error {
 			}
 			defer f.Close()
 			ct := mime.TypeByExtension(filepath.Ext(file))
-			if err := s.Put(ctx, key, f, fi.Size(), ct); err != nil {
+			pp := progressFrom(ctx)
+			pp.total(1, fi.Size())
+			pp.start(file)
+			if err := s.Put(ctx, key, pp.reader(f), fi.Size(), ct); err != nil {
 				return nil, err
 			}
+			pp.fileDone()
 			return d, nil
 		},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {

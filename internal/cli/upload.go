@@ -82,9 +82,11 @@ An existing file at DEST is replaced (the result says replaced).
 			if len(args) == 3 {
 				dest = args[2]
 			}
-			return runUpload(cmd.Context(), cmd, args[0], args[1], dest, storageOnly, o)
+			ctx, finish := startProgress(cmd.Context(), o.progress)
+			return finish(runUpload(ctx, cmd, args[0], args[1], dest, storageOnly, o))
 		},
 	}
+	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
 	if storageOnly {
 		c.Use, c.Aliases = "upload CONN FILE [OBJECT]", []string{"put"}
 		c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "upload a folder (new and changed files, like komando sync)")
@@ -135,9 +137,11 @@ From storage, --to - writes the object to stdout.
   komando download backups reports/ -r --to ./reports`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDownload(cmd.Context(), cmd, args[0], args[1], to, storageOnly, o)
+			ctx, finish := startProgress(cmd.Context(), o.progress)
+			return finish(runDownload(ctx, cmd, args[0], args[1], to, storageOnly, o))
 		},
 	}
+	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
 	c.Flags().StringVar(&to, "to", "", "where to save it, or - for stdout from storage (default: the current folder)")
 	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "download a folder (servers) or every object under a prefix (storage)")
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "replace files that already exist on this computer")

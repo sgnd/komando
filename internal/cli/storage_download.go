@@ -124,6 +124,7 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 				_, err := s.Get(ctx, key, out.P.W)
 				return nil, err
 			}
+			pp := objectProgress(ctx, s, key)
 			var n int64
 			masked := false
 			fill := func(tmp string) error {
@@ -133,12 +134,16 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 				}
 				defer f.Close()
 				if !mask {
-					if n, err = s.Get(ctx, key, f); err != nil {
+					var w io.Writer = f
+					if pw := pp.writer(); pw != nil {
+						w = io.MultiWriter(f, pw)
+					}
+					if n, err = s.Get(ctx, key, w); err != nil {
 						return err
 					}
 					return f.Sync()
 				}
-				if n, masked, err = getMasked(ctx, s, key, f); err != nil {
+				if n, masked, err = getMasked(ctx, s, key, f, pp.writer()); err != nil {
 					return err
 				}
 				return f.Sync()
@@ -152,8 +157,25 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 			if err != nil {
 				return nil, err
 			}
+			pp.fileDone()
 			return downloadData{Conn: c.Name, Key: key, File: dest, Bytes: n, Replaces: exists, Masked: masked, RunsOn: "local"}, nil
 		})
+}
+
+// objectProgress starts --progress's count for one object, with its size
+// as the total: one more look at the object, made only with --progress.
+func objectProgress(ctx context.Context, s storex.Bucket, key string) *progressPart {
+	pp := progressFrom(ctx)
+	if pp == nil {
+		return nil
+	}
+	if o, err := s.Stat(ctx, key); err == nil {
+		pp.total(1, o.Size)
+	} else {
+		pp.unknown()
+	}
+	pp.start(key)
+	return pp
 }
 
 // writeReplacing is writeAtomic for --overwrite: the new file replaces the
@@ -181,13 +203,13 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 }
 
 // getMasked saves object key into f for an AI agent, masked before it
-// reaches the disk (fetchMasked).
-func getMasked(ctx context.Context, s storex.Bucket, key string, f *os.File) (int64, bool, error) {
+// reaches the disk (fetchMasked). watch, when not nil, sees every byte.
+func getMasked(ctx context.Context, s storex.Bucket, key string, f *os.File, watch io.Writer) (int64, bool, error) {
 	pr, pw := io.Pipe()
 	defer pr.Close()
 	go func() {
 		_, err := s.Get(ctx, key, pw)
 		pw.CloseWithError(err)
 	}()
-	return fetchMasked(ctx, pr, f, io.Discard, nil)
+	return fetchMasked(ctx, pr, f, io.Discard, watch)
 }
