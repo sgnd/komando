@@ -7,6 +7,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Security
+- `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
+- The release can sign the macOS binaries with the project's Developer ID and have Apple notarize them, so Gatekeeper accepts them. Until the owner adds the signing secrets, macOS binaries stay unsigned and the release log says so.
+
 ### Fixed
 - `doctor` checked only komando's folder and its main files for access by other users, not the `vpn/`, `login/` and `tunnels/` folders and the logs and state in them. It checks those too now, and the fix it names covers everything inside (`chmod -R go-rwx`).
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.

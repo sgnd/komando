@@ -17,6 +17,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/releasesig"
 )
 
 // releaseSite is where komando's releases are published (install.sh uses
@@ -125,11 +126,15 @@ func releaseErr(err error) error {
 
 func flatText(s string) string { return strings.Join(strings.Fields(s), " ") }
 
-// releaseSums is checksums.txt of release tag. It also shows that the
-// release exists and has an archive for this computer.
+// releaseSums is checksums.txt of release tag, once its signature shows
+// that the komando project made it. It also shows that the release exists
+// and has an archive for this computer.
 func releaseSums(ctx context.Context, tag string) ([]byte, error) {
 	sums, err := fetch(ctx, tag, "checksums.txt", maxChecksums, "")
 	if err != nil {
+		return nil, err
+	}
+	if err := checkSigned(ctx, tag, sums); err != nil {
 		return nil, err
 	}
 	if sumFor(sums, archiveName()) == "" {
@@ -137,6 +142,45 @@ func releaseSums(ctx context.Context, tag string) ([]byte, error) {
 			"komando %s has no download for %s", tag, platform())
 	}
 	return sums, nil
+}
+
+// checkSigned checks the release's signature of checksums.txt with the
+// public keys built into komando (internal/releasesig). checksums.txt
+// alone cannot show who made a release: whoever can replace the archives
+// can replace it too.
+func checkSigned(ctx context.Context, tag string, sums []byte) error {
+	sig, err := fetch(ctx, tag, releasesig.File, releasesig.MaxSize, "")
+	if err != nil {
+		return err
+	}
+	err = releasesig.Verify(sums, sig)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, releasesig.ErrNotSigned):
+		return unsignedErr(tag)
+	case errors.Is(err, releasesig.ErrBadSignature):
+		return out.Errf(out.ExitUsage, "RELEASE_SIGNATURE_INVALID", "do not install it another way, someone may have replaced the release's files: report it privately at "+releaseSite+"/security, and check again later with `komando update --dry-run`",
+			"komando %s is not signed with the komando project's key; nothing was changed", tag)
+	}
+	// a komando built without the public key, or with a broken one
+	return fmt.Errorf("cannot check komando %s: %w; nothing was changed", tag, err)
+}
+
+// lastUnsigned is the newest release made before releases were signed.
+const lastUnsigned = "v0.13.0"
+
+// unsignedErr refuses a release without a signature. An old release has
+// none, and a person can still install it by hand; a newer one without a
+// signature had it taken away.
+func unsignedErr(tag string) error {
+	if compareVersions(tag, lastUnsigned) <= 0 {
+		return out.Errf(out.ExitNotFound, "RELEASE_SIGNATURE_NOT_FOUND",
+			"releases up to "+strings.TrimPrefix(lastUnsigned, "v")+" have no signature: to go back to one anyway, use the install line with KOMANDO_VERSION="+tag+" ("+releaseSite+"#install); to stay on a signed release, run `komando update`",
+			"komando %s has no signature, so komando cannot tell it comes from the komando project; nothing was changed", tag)
+	}
+	return out.Errf(out.ExitNotFound, "RELEASE_SIGNATURE_NOT_FOUND", "do not install it another way, someone may have replaced the release's files: report it privately at "+releaseSite+"/security, and check again later with `komando update --dry-run`",
+		"komando %s has no signature, though every release after %s has one; nothing was changed", tag, lastUnsigned)
 }
 
 // archiveName is this computer's release archive: a .zip with komando.exe
@@ -161,6 +205,8 @@ func fetch(ctx context.Context, tag, name string, max int64, label string) ([]by
 	case resp.StatusCode == http.StatusNotFound && name == "checksums.txt":
 		return nil, out.Errf(out.ExitNotFound, "VERSION_NOT_FOUND", "pick a version from "+releaseSite+"/releases",
 			"there is no komando release %s", tag)
+	case resp.StatusCode == http.StatusNotFound && name == releasesig.File:
+		return nil, unsignedErr(tag)
 	case resp.StatusCode == http.StatusNotFound:
 		return nil, out.Errf(out.ExitNotFound, "VERSION_NOT_FOUND", "pick another version from "+releaseSite+"/releases",
 			"komando %s has no %s", tag, name)
