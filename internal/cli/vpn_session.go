@@ -62,6 +62,16 @@ func vpnDir() (string, error) {
 	return store.Path("vpn"), store.MkdirPrivate("vpn")
 }
 
+// vpnLogDir is vpnDir for a VPN that starts: it also removes the logs of
+// VPNs (some since removed) unused for a week.
+func vpnLogDir() (string, error) {
+	st, err := store.Load()
+	if err != nil {
+		return vpnDir()
+	}
+	return store.Path("vpn"), logDir("vpn", st)
+}
+
 func freePort() (int, error) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -149,7 +159,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	if err := clientMissing(v); err != nil {
 		return nil, err
 	}
-	dir, err := vpnDir()
+	dir, err := vpnLogDir()
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +174,6 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		if s := cur.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
 			return s, nil // another command started it meanwhile
 		}
-		sweepLogs("vpn", liveLogs(cur)) // logs of VPNs (some since removed) unused for a week
 	}
 	logFile := filepath.Join(dir, v.Name+".log")
 	password := ""
