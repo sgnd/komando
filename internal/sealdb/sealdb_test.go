@@ -412,10 +412,14 @@ func TestNestedAndOddPath(t *testing.T) {
 			t.Fatalf("stray file %s: the path was read as a URI", e.Name())
 		}
 	}
-	if err := d.Backup(ctx, filepath.Join(dir, "copy?x.db")); err != nil {
+	copyName := "copy?x.db" // ? would start a URI query if the path were read as one
+	if runtime.GOOS == "windows" {
+		copyName = "copy#x.db" // Windows refuses ? in a file name
+	}
+	if err := d.Backup(ctx, filepath.Join(dir, copyName)); err != nil {
 		t.Fatal(err)
 	}
-	c := open(t, filepath.Join(dir, "copy?x.db"))
+	c := open(t, filepath.Join(dir, copyName))
 	_ = c.View(ctx, func(tx *Tx) error { _, err := tx.List("server"); return err })
 }
 
