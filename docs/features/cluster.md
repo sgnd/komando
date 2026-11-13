@@ -357,7 +357,13 @@ is kubectl's namespace flag.
 - `delete -f FILE` deletes each object in the namespace its file names,
   and refuses a `-n` that says otherwise. An empty name is refused.
 - `cp POD:SRC DST` writes only inside DST, never into a `.git` folder, and
-  skips links and devices, like kubectl cp.
+  skips links and devices, like kubectl cp. It reads at most 512 MiB
+  (`FILE_TOO_LARGE`), and each file is written under a temporary name
+  first. For an AI agent it copies as `download` does: a file named like a
+  secret (`.env`, keys) stops it (`SENSITIVE_FILE`), or is left out of a
+  folder, unless the person allows `--reveal`; a text file is saved with
+  secret values as `[hidden]`; and a file that holds a value from the vault
+  but cannot be masked is refused.
 - On Swarm, `docker run`, `create` and `service create|update` that give a
   container the server (`--privileged`, `--cap-add`, devices, the host's
   network or processes, `--volumes-from`, a bind of `/`, the docker socket,

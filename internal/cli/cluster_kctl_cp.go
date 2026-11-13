@@ -3,6 +3,7 @@ package cli
 import (
 	"archive/tar"
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -34,15 +35,22 @@ func (r *kctlRun) cp() error {
 	}
 	c := r.a.val("container")
 	if pod, rpath, ok := podOf(src); ok {
-		var tarball bytes.Buffer
-		var errb bytes.Buffer
 		rpath = path.Clean(rpath) // "/data/" is /data, "/x/.." is /
+		if err := sensitiveCopyOK(rpath); err != nil {
+			return err // a file named like a secret, before anything is read (download does the same)
+		}
+		var errb bytes.Buffer
+		tarball := &capWriter{max: podCopyMax} // a pod cannot fill this computer's memory
 		dir, base := path.Dir(rpath), path.Base(rpath)
-		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: &tarball, Stderr: &errb})
+		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: tarball, Stderr: &errb})
+		if tarball.capped {
+			return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy less at a time (one file or a smaller folder), or pack it in the pod first and copy that",
+				"%s is larger than %s, the most a copy from a pod reads", rpath, humanBytes(podCopyMax)))
+		}
 		if err != nil {
 			return kfail("%s %s", strings.TrimSpace(errb.String()), err)
 		}
-		return untarTo(tarball.Bytes(), dst, base)
+		return untarTo(tarball.buf.Bytes(), dst, base)
 	}
 	if pod, rpath, ok := podOf(dst); ok {
 		var tarball bytes.Buffer
@@ -94,6 +102,11 @@ func untarTo(tarball []byte, dst, base string) error {
 			plan = append(plan, entry{}) // skipped, but keeps the count for pass two
 			continue
 		}
+		if h.Typeflag == tar.TypeReg && guardSensitiveCopy(h.Name) != nil {
+			out.P.Skip(out.Skipped{Name: h.Name, Kind: "file", Reason: "holds secrets; an AI agent needs --reveal, which the user allows, to copy it here"})
+			plan = append(plan, entry{})
+			continue
+		}
 		rel, ok := tarRel(h.Name, base)
 		target := filepath.Join(root, filepath.FromSlash(rel))
 		if ok && rel == "" && h.Typeflag == tar.TypeReg && first && dstIsDir {
@@ -128,22 +141,58 @@ func untarTo(tarball []byte, dst, base string) error {
 				return kfail("%v", err)
 			}
 			mode := os.FileMode(h.Mode)&0o755 | 0o600 // as kubectl cp: never setuid, setgid or world-writable
-			f, err := os.OpenFile(e.target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
-			if err != nil {
-				return kfail("%v", err)
-			}
-			if err := f.Chmod(mode); err != nil { // a file already there keeps no mode of its own
-				f.Close()
-				return kfail("%v", err)
-			}
-			_, err = io.Copy(f, tr)
-			f.Close()
-			if err != nil {
-				return kfail("%v", err)
+			if err := writePodFile(tr, e.target, mode); err != nil {
+				return kwrap(err)
 			}
 		}
 	}
 	return nil
+}
+
+// podCopyMax caps a copy from a pod, which is read through memory.
+const podCopyMax = 512 << 20
+
+// sensitiveCopyOK is guardSensitiveCopy with kctl's error shape.
+func sensitiveCopyOK(p string) error {
+	var stop *out.Error
+	if err := guardSensitiveCopy(p); errors.As(err, &stop) {
+		return kstop(stop)
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+// writePodFile saves one file of a copy from a pod as target, through a
+// temporary file next to it, so a stopped copy leaves no half file. For an
+// AI agent it is saved as download saves it (fetchMasked): a text file
+// with secret values as [hidden], and a file that holds a vault value and
+// cannot be masked is refused (SENSITIVE_FILE), nothing of it kept.
+func writePodFile(r io.Reader, target string, mode os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(target), ".komando-cp-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name()) // no-op once it has been moved into place
+	if out.P.Mask && !revealOK() {
+		_, _, err = fetchMasked(context.Background(), r, tmp, io.Discard, nil)
+	} else {
+		_, err = io.Copy(tmp, r)
+	}
+	if err == nil {
+		err = tmp.Chmod(mode)
+	}
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		var stop *out.Error
+		if errors.As(err, &stop) {
+			return kstop(stop)
+		}
+		return err
+	}
+	return os.Rename(tmp.Name(), target)
 }
 
 // gitPath: rel has a .git part (any case: macOS and Windows ignore it).

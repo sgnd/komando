@@ -8,6 +8,7 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- `cluster run -- cp POD:SRC DST` reached an AI agent without the checks `download` has: a file named like a secret was copied, secret values were saved as they are, and the whole copy was read into memory without a limit. Now a secret-named file stops the copy (`SENSITIVE_FILE`) or is left out of a folder, text files are saved with secret values as `[hidden]`, a file holding a vault value that cannot be masked is refused, and a copy above 512 MiB stops with `FILE_TOO_LARGE`. Each file is written under a temporary name first.
 - On Windows, the hints for an encrypted key wrote it as `~/'.ssh\id_ed25519'`; they now write `~/.ssh/id_ed25519`.
 - On Windows, the AI agent guard (`komando guide guard`) let globs such as `cat ~/.komand?/vault.ke?` through, and reads of `/proc/*/environ` (which Cygwin and MSYS shells have): it split paths only by `/`.
 - On Windows, `cluster run TARGET -- cp C:\data pod:/tmp` took `C:\data` for pod `C`: it copied from that pod instead of sending the folder, and so skipped the check that keeps komando's data and secret files on this computer for an AI agent. A path with a drive letter is a path on this computer, as kubectl cp reads it.
