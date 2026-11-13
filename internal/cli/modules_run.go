@@ -46,6 +46,15 @@ type opsSpec struct {
 	after func(ctx context.Context, c *sshx.Client, rr *sshx.RunResult) *sshx.RunResult
 }
 
+// run runs cmd on c, then the after step when the spec has one.
+func (spec opsSpec) run(ctx context.Context, c *sshx.Client, cmd string, timeout time.Duration, maxOut int) (*sshx.RunResult, error) {
+	rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOut})
+	if err == nil && spec.after != nil && !c.Host.Windows() {
+		rr = spec.after(ctx, c, rr)
+	}
+	return rr, err
+}
+
 type opsRow struct {
 	Host       string     `json:"host"`
 	OK         bool       `json:"ok"`
@@ -164,11 +173,7 @@ func runOps(ctx context.Context, spec opsSpec) error {
 		} else if c.Host.Windows() {
 			cmd = spec.win
 		}
-		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOutput(st)})
-		if err == nil && spec.after != nil && !c.Host.Windows() {
-			rr = spec.after(ctx, c, rr)
-		}
-		return rr, err
+		return spec.run(ctx, c, cmd, timeout, maxOutput(st))
 	})
 	data := opsData{Command: shown, DryRun: g.dryRun, Results: []opsRow{}}
 	worst := 0
