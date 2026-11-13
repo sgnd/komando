@@ -12,7 +12,9 @@ import (
 func platformChecks(func(name string, ok, warn bool, detail string)) {}
 
 // privateFix is the commands that make komando's folder and files private.
-func privateFix() string { return "chmod 700 " + store.Home() + " && chmod 600 on the files" }
+func privateFix() string {
+	return "chmod -R go-rwx " + store.Home() + " (only you may read and write komando's folder and everything in it)"
+}
 
 // looseFiles lists komando files that other users on this computer can read.
 func looseFiles() []string {
@@ -25,6 +27,17 @@ func looseFiles() []string {
 	check(store.Home())
 	for _, f := range []string{"runtime.json", "runtime.pids", store.StoreFile, store.StoreFile + "-journal", "store.key"} {
 		check(store.Path(f))
+	}
+	// the folders of VPN, login and tunnel logs and state, and what is in
+	// them: a log can hold addresses and errors, a VPN's state its session
+	for _, d := range []string{"vpn", "login", "tunnels"} {
+		check(store.Path(d))
+		ents, _ := os.ReadDir(store.Path(d))
+		for _, e := range ents {
+			if e.Type().IsRegular() || e.IsDir() {
+				check(store.Path(d, e.Name()))
+			}
+		}
 	}
 	return loose
 }
