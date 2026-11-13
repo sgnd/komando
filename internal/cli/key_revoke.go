@@ -106,34 +106,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 				n, _ := strconv.Atoi(strings.TrimSpace(r.Stdout))
 				return n, nil
 			})
-			data := struct {
-				Key     string           `json:"key"`
-				Results []map[string]any `json:"results"`
-				Summary fleetSummary     `json:"summary"`
-			}{Key: label}
-			worst := 0
-			for _, o := range res {
-				r := map[string]any{"host": o.Host.Name}
-				if o.Err != nil {
-					e := toErr(o.Err)
-					r["ok"], r["error"] = false, e
-					worst = worse(worst, e.Exit)
-					data.Summary.Failed++
-					data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
-				} else {
-					field := "removed"
-					if g.dryRun {
-						field = "would_remove"
-					}
-					r["ok"], r[field] = true, o.Value
-					if all, ok := o.Value.(revokedUsers); ok {
-						r[field], r["users"] = all.total(), all
-					}
-					data.Summary.OK++
-				}
-				data.Results = append(data.Results, r)
-			}
-			data.Summary.Total = len(res)
+			data, worst := revokeResults(label, res)
 			if !g.dryRun {
 				audit(st, "key.revoke", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": label, "user": user, "all_users": allUsers})
 			}
@@ -195,6 +168,43 @@ func revokeAllScript(blob string, dry bool) string {
 		`case "$n" in ''|*[!0-9]*) n=err ;; esac; echo "$u $n"; done`
 	// the edit and the key go as $1 and $2, never inside the loop's text
 	return "sh -c " + sshx.Q(loop) + " sh " + sshx.Q(edit) + " " + sshx.Q(blob)
+}
+
+// revokeData is key revoke's result: one row per server.
+type revokeData struct {
+	Key     string           `json:"key"`
+	Results []map[string]any `json:"results"`
+	Summary fleetSummary     `json:"summary"`
+}
+
+// revokeResults turns each server's outcome into its row, and the worst
+// exit code.
+func revokeResults(label string, res []outcome) (revokeData, int) {
+	data := revokeData{Key: label}
+	worst := 0
+	for _, o := range res {
+		r := map[string]any{"host": o.Host.Name}
+		if o.Err != nil {
+			e := toErr(o.Err)
+			r["ok"], r["error"] = false, e
+			worst = worse(worst, e.Exit)
+			data.Summary.Failed++
+			data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
+		} else {
+			field := "removed"
+			if g.dryRun {
+				field = "would_remove"
+			}
+			r["ok"], r[field] = true, o.Value
+			if all, ok := o.Value.(revokedUsers); ok {
+				r[field], r["users"] = all.total(), all
+			}
+			data.Summary.OK++
+		}
+		data.Results = append(data.Results, r)
+	}
+	data.Summary.Total = len(res)
+	return data, worst
 }
 
 // guardRevokeSelf stops key revoke of the key komando logs in to hosts
