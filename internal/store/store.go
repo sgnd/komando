@@ -23,10 +23,14 @@ type Host struct {
 	Port        int    `json:"port,omitempty"`
 	User        string `json:"user,omitempty"`
 	Key         string `json:"key,omitempty"`          // name of a key in the keychain
+	KeyID       string `json:"key_id,omitempty"`       // that key's record ID (refs.go)
 	Identity    string `json:"identity,omitempty"`     // path to a private key file
 	PasswordRef string `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
 	SudoRef     string `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
 	Via         string `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
+	// ViaIDs are the record IDs of Via's steps, in order ("" for a step
+	// that names no server or VPN); see refs.go
+	ViaIDs []string `json:"via_ids,omitempty"`
 	// ProxyCommand is a program on this computer whose stdin and stdout
 	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
 	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
@@ -95,6 +99,7 @@ type Conn struct {
 	URL         string            `json:"url"`
 	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
 	Via         string            `json:"via,omitempty"`          // host used to reach the resource
+	ViaIDs      []string          `json:"via_ids,omitempty"`      // the record IDs of Via's steps (refs.go)
 	Groups      []string          `json:"groups,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
 	Labels      map[string]string `json:"labels,omitempty"`
