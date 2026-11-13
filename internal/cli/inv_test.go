@@ -217,7 +217,7 @@ func TestInvTrustDryRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	d := mustRun(t, "host", "trust", "h", "--reset", "--dry-run")
-	if d["would_remove_entries"].(float64) != 1 || d["would_fetch_from"] != "the server directly" {
+	if r := trustRow0(d); r["would_remove_entries"].(float64) != 1 || r["would_fetch_from"] != "the server directly" {
 		t.Errorf("count: %v", d)
 	}
 	if pins, _ := sshx.PinnedKeys("10.0.0.1:22"); len(pins) != 1 {
@@ -484,7 +484,7 @@ func TestInvRmSelector(t *testing.T) {
 	mustRun(t, "host", "edit", "keep", "--unset", "via")
 	wantCode(t, "PROTECTED_HOST", "host", "rm", "@old")
 	d := mustRun(t, "host", "rm", "@old", "--dry-run")
-	if got := d["removed"].([]any); len(got) != 3 {
+	if got := d["would_remove"].([]any); len(got) != 3 || d["removed"] != nil {
 		t.Errorf("dry-run lists all: %v", got)
 	}
 	mustRun(t, "host", "rm", "tmp-*")

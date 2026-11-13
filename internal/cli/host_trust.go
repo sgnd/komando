@@ -2,15 +2,11 @@ package cli
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -99,82 +95,11 @@ the others are pinned.`,
 					return err // before anything is fetched, as the dry run says
 				}
 			}
-			if len(hosts) != 1 || hosts[0].Name != args[0] {
-				return trustMany(cmd.Context(), st, hosts, reset)
-			}
-			return trustOne(cmd.Context(), st, hosts[0], reset) // the answer keeps its old shape
+			return trustHosts(cmd.Context(), st, hosts, reset)
 		},
 	}
 	c.Flags().BoolVar(&reset, "reset", false, "replace the key pinned before (a person at a terminal only)")
 	return c
-}
-
-// trustOne is `host trust NAME` for one server named by its name.
-func trustOne(ctx context.Context, st *store.State, h *store.Host, reset bool) error {
-	addr := net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))
-	replacing := func(what string) error {
-		var prot []string
-		if protectedHost(st, h) {
-			prot = []string{h.Name}
-		}
-		return replacePin([]string{h.Name}, prot, "replacing the pinned host key of "+h.Name+" ("+what+")")
-	}
-	if g.dryRun {
-		res := map[string]any{"host": h.Name, "address": addr, "would_fetch_from": keyFetchPath(st, h)}
-		if reset {
-			n := countPinned(addr)
-			res["would_remove_entries"] = n
-			if n > 0 {
-				if err := replacing("a key may be replaced"); err != nil {
-					return err
-				}
-			}
-		}
-		out.P.Print("host.trust", textAs{res, trustText(res)}, nil)
-		return nil
-	}
-	key, err := sshx.FetchHostKey(ctx, st, h, sshOpts(st))
-	if err != nil {
-		return keyscanError(h, addr, err)
-	}
-	fp := ssh.FingerprintSHA256(key)
-	pins, err := sshx.PinnedKeys(addr)
-	if err != nil {
-		return err
-	}
-	same, other := false, []string{}
-	for _, k := range pins {
-		if sshx.SameKey(k, key) {
-			same = true
-		} else {
-			other = append(other, ssh.FingerprintSHA256(k))
-		}
-	}
-	if len(pins) == 0 {
-		if err := guardFirstPin(st, []string{h.Name + " " + fp}); err != nil {
-			return err
-		}
-	}
-	switch {
-	case len(other) > 0 && !same && !reset:
-		// never pin a second key next to the old one: both would be accepted
-		return sshx.HostKeyMismatch(h.Name, fp, other)
-	case len(other) > 0 && !same:
-		if err := replacing("old " + strings.Join(other, ", ") + ", new " + fp); err != nil {
-			return err
-		}
-	}
-	removed, err := sshx.PinHostKey(addr, key, reset)
-	if err != nil {
-		return err
-	}
-	res := map[string]any{"host": h.Name, "address": addr, "removed_entries": removed, "key_type": key.Type(), "fingerprint": fp}
-	if same && removed == 0 {
-		res["already_pinned"] = true
-	}
-	audit(st, "host.trust", []string{h.Name}, "", true, map[string]any{"reset": reset, "removed_entries": removed, "fingerprint": fp})
-	out.P.Print("host.trust", textAs{res, trustText(res)}, nil)
-	return nil
 }
 
 // replacePin is the one stop before a pinned host key is replaced (S-7.2
@@ -294,22 +219,4 @@ func guardFirstPin(st *store.State, what []string) error {
 		return nil
 	}
 	return guardSafety("pinning a first host key while host keys are strict (compare it with what the server's owner sees): " + strings.Join(what, ", "))
-}
-
-// trustText is host trust's text for one server: the key it pinned, or
-// where it would fetch it from.
-func trustText(res map[string]any) out.Texter {
-	return textFn(func() string {
-		switch {
-		case g.dryRun:
-			s := fmt.Sprintf("would fetch the host key of %v (%v) from %v", res["host"], res["address"], res["would_fetch_from"])
-			if n, ok := res["would_remove_entries"].(int); ok && n > 0 {
-				s += fmt.Sprintf(", and remove %d pinned %s", n, map[bool]string{true: "key", false: "keys"}[n == 1])
-			}
-			return s + "\n"
-		case res["already_pinned"] == true:
-			return fmt.Sprintf("%v: its host key is pinned already (%v %v)\n", res["host"], res["key_type"], res["fingerprint"])
-		}
-		return fmt.Sprintf("pinned the host key of %v (%v %v)\n", res["host"], res["key_type"], res["fingerprint"])
-	})
 }

@@ -9,10 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
-This release makes every command follow one standard. No JSON field is
-renamed or removed and `meta.contract` stays 1, so a script that reads
-JSON keeps working. What a script or an AI agent may notice is listed
-here; the sections below say more about each change.
+This release makes every command follow one standard. `meta.contract`
+stays 1. komando is used internally only, so a few answers changed shape
+instead of keeping an old one beside the new (listed below under
+"Removed"); every other JSON field of 0.12 is unchanged. What a script or
+an AI agent may notice is listed here; the sections below say more about
+each change.
 
 New fields, all additive (left out when they have nothing to say):
 
@@ -118,7 +120,8 @@ instead.
 - `vpn add/edit --label KEY=VALUE` and `--protected`, and `vpn edit
   --unset` (user, password-ref, psk-ref, id, remote-id, ca, check, notes),
   as on host and conn. `vpn edit` and `vpn rm` take several names or a
-  selector (`NAME|TARGET...`). A protected VPN needs `--yes` (a person's
+  selector (`NAME|TARGET...`); `vpn rm` lists the VPNs in `removed`
+  (`would_remove` under `--dry-run`), even for one. A protected VPN needs `--yes` (a person's
   yes) to be changed, replaced or removed (`PROTECTED_TARGET`);
   `--protected=false` and `--mfa=false` need it too (`SAFETY_SETTING`).
   `vpn edit` of several VPNs prints `{"vpns": [...], "changed": [...]}`;
@@ -694,6 +697,11 @@ instead.
   `registry.ls`, `storage.ls` and `db.grants` are now `host.rename` ...
   `secret.show`, `cluster.list` ... `storage.list` and `db.user.show`, the
   command's path.
+- Answers kept in an old shape beside the new one: under `--dry-run`,
+  `host rm`, `conn rm` and `key rm` print only `would_remove` (no longer
+  `removed` too); `vpn rm` always lists the VPNs (one VPN was a string);
+  `host trust NAME` answers with `data.results` and `data.summary`, as
+  for several servers (one server was a flat object).
 - `meta.deprecated` and the code behind it: nothing uses an old spelling
   now, so no command sets it. `komando schema` no longer resolves old
   names (an alias, a command ID and a hidden synonym still resolve), and

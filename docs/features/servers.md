@@ -575,7 +575,7 @@ server's own first:
 
 ```bash
 komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNKNOWN
-komando host trust web1                     # answer: key_type and fingerprint
+komando host trust web1                     # answer: data.results[0] has key_type and fingerprint
 ```
 
 `HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,

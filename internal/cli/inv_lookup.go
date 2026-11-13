@@ -191,17 +191,19 @@ type rmResult struct {
 	Note          string   `json:"note,omitempty"`
 }
 
-// MarshalJSON adds would_remove under --dry-run, so a preview does not
-// read as done; removed stays for scripts that read it (contract 1).
+// MarshalJSON names the list would_remove under --dry-run, so a preview
+// does not read as done.
 func (r rmResult) MarshalJSON() ([]byte, error) {
 	type plain rmResult
 	if !g.dryRun {
 		return json.Marshal(plain(r))
 	}
 	return json.Marshal(struct {
-		plain
-		WouldRemove []string `json:"would_remove"`
-	}{plain(r), r.Removed})
+		WouldRemove   []string `json:"would_remove"`
+		HostKeysKept  []string `json:"host_keys_kept,omitempty"`
+		SecretsUnused []string `json:"secrets_unused,omitempty"`
+		Note          string   `json:"note,omitempty"`
+	}{r.Removed, r.HostKeysKept, r.SecretsUnused, r.Note})
 }
 
 func (r rmResult) Text() string {

@@ -483,11 +483,13 @@ added stays on disk.`,
 			if err != nil {
 				return err
 			}
-			if g.dryRun {
-				res["would_remove"] = res["removed"] // "removed" stays for scripts that read it (contract 1)
+			name := res["removed"].(string)
+			if g.dryRun { // a preview does not read as done
+				res["would_remove"] = name
+				delete(res, "removed")
 			}
-			audit(nil, "key.rm", nil, "", true, map[string]any{"key": res["removed"], "file_deleted": res["file_deleted"]})
-			say := changeSay("remove", "key "+res["removed"].(string), "")
+			audit(nil, "key.rm", nil, "", true, map[string]any{"key": name, "file_deleted": res["file_deleted"]})
+			say := changeSay("remove", "key "+name, "")
 			if res["file_deleted"] == true {
 				say += "\nits private key was deleted"
 			} else if f, ok := res["would_delete_file"].(string); ok {
