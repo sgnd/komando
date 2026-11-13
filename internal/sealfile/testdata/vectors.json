@@ -1,0 +1,35 @@
+{
+  "about": "Known answers for the komando sealed file v1 (docs/design/sealed-file.md). aad is the first aad_length bytes of the file (magic, header length, header). Open each file and compare with content and check_phrase.",
+  "bip39_english_sha256": "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda",
+  "recipient": {
+    "private_key_hex": "f61f912304bb4c0d64588a82cc40fc418c6859dc6cdbce78eddb56a34c0d06c0",
+    "public_key_hex": "08202c1dd736ff4c226d5df836af875d11dae84cdb331964db3d9138ce5f807f",
+    "key_id": "ebe7c40501d20c8ef3ba7fdbce25d3e44c6b01e67ab6eeb22e072ff1cdb28ddb",
+    "info": "komando sealed file v1",
+    "aad_length": 305,
+    "file_base64": "S01EU0VBTDElAQAAeyJ2IjoxLCJtb2RlIjoicmVjaXBpZW50Iiwia2RmIjpudWxsLCJrZW0iOnsic3VpdGUiOiJYMjU1MTktU0hBMjU2LUFFUzI1NkdDTSIsImVuYyI6IkNMdWVSajhLMUY0WVFTaUdWYnVuNVJCak92eUMzTWV3YlN4NFZYaUZEVmc9Iiwia2V5X2lkIjoiZWJlN2M0MDUwMWQyMGM4ZWYzYmE3ZmRiY2UyNWQzZTQ0YzZiMDFlNjdhYjZlZWIyMmUwNzJmZjFjZGIyOGRkYiJ9LCJjb21wcmVzc2lvbiI6ImRlZmxhdGUiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNFQwOTozMDowMFoiLCJtYWRlX2J5Ijoia29tYW5kbyB0ZXN0In2TQvb1My+00QL42iuZkRhUwXW4qkGA+1/7xzjHInKwerGv7aavF9PijRkLy0gi0SPbFAvky+125Ns0WzjVjHflZJgNMLkck6zwwZ9uXUeYyUI6h6m+NS+5Qp/MQm1oA1gW/xmGH7LnDDj6YZMgg/uU/+2M",
+    "content": "{\"format\":\"komando-export/1\",\"hosts\":[{\"name\":\"web1\",\"address\":\"10.0.0.5\"}],\"secrets\":{\"web1-pass\":\"s3cret value\"}}",
+    "check_phrase": [
+      "fork",
+      "border",
+      "token",
+      "final",
+      "remain",
+      "code"
+    ]
+  },
+  "passphrase": {
+    "passphrase": "correct horse battery staple",
+    "aad_length": 236,
+    "file_base64": "S01EU0VBTDHgAAAAeyJ2IjoxLCJtb2RlIjoicGFzc3BocmFzZSIsImtkZiI6eyJuYW1lIjoic2NyeXB0IiwibiI6MTMxMDcyLCJyIjo4LCJwIjoxLCJzYWx0IjoiS3lUSHJzTkx5T1gxcW5zR2dOL1Nlc0tZaldrdjNFK0VnWFhWM21UZm02VT0ifSwia2VtIjpudWxsLCJjb21wcmVzc2lvbiI6ImRlZmxhdGUiLCJjcmVhdGVkX2F0IjoiMjAyNi0xMS0xNFQwOTozMDowMFoiLCJtYWRlX2J5Ijoia29tYW5kbyB0ZXN0In0B4nLPSW2CE/+9G+9r8GGCbRs/GE9IzoLde2Em7K93FW6KuqpFcHImfVYcFpdPpsVFRuZ+g6l7wBQzhuo3H8jEwqf8BKXLFaOzZIVZ1F4+USxo0MZGyB6G2ow0DJNNbvvcecXSc34DfB0pH77tfTaPwCmJ0qDXe7PSXsEIIWLr",
+    "content": "{\"format\":\"komando-export/1\",\"hosts\":[{\"name\":\"web1\",\"address\":\"10.0.0.5\"}],\"secrets\":{\"web1-pass\":\"s3cret value\"}}",
+    "check_phrase": [
+      "elite",
+      "shrug",
+      "nice",
+      "bright",
+      "powder",
+      "fee"
+    ]
+  }
+}
