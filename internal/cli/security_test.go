@@ -19,9 +19,7 @@ import (
 // is false). It returns how many windows were opened.
 func asAgent(t *testing.T, allow, shown bool) *int {
 	t.Helper()
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	n := new(int)
 	saved := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) {
@@ -41,19 +39,15 @@ func TestWhoIsAsking(t *testing.T) {
 	if tcl.isAgent() {
 		t.Fatal("tests run as a script")
 	}
-	t.Setenv("GEMINI_CLI", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
-	if tcl.caller.Agent != "Gemini CLI" {
-		t.Errorf("agentName = %q", tcl.caller.Agent)
+	setCallerEnv(t, "GEMINI_CLI", "1")
+	if tcl.caller().Agent != "Gemini CLI" {
+		t.Errorf("agentName = %q", tcl.caller().Agent)
 	}
 	// any value counts: `GEMINI_CLI=0 komando ...` and an empty value
 	// (`read GEMINI_CLI </dev/null`) must not switch the agent's safety
 	// stops off; only a variable that is not there is none
 	for _, v := range []string{"0", ""} {
-		t.Setenv("GEMINI_CLI", v)
-		resetApproval()
-		t.Cleanup(resetApproval)
+		setCallerEnv(t, "GEMINI_CLI", v)
 		if !tcl.isAgent() {
 			t.Errorf("GEMINI_CLI=%q is still an agent", v)
 		}

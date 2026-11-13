@@ -55,7 +55,7 @@ byte for byte.
 Inside `internal/cli`, `call` holds everything one command needs:
 
 - `io` (the `engine.Call`), `args` (the command line), `stdin`, `terminal`
-- `caller` and `sess` (`engine.Session`: the approvals)
+- the caller (`cl.caller()`) and `sess` (`engine.Session`: the approvals)
 - `out`: its own `out.Printer`, whose `W` and `Err` are the call's stdout
   and stderr
 - `flags`: the global flags; the command tree binds them (`newRoot(cl)`)
@@ -82,17 +82,24 @@ above are gone. There is no "current call" in a package variable.
   `os.Getenv`, `os.LookupEnv` or `os.Environ` except `processCall`.
   `cl.environ` is what a program the call starts gets: it leaves out
   `KOMANDO_VAULT_PASS` and the other unlock values
-  (`vault.StripUnlock`). `vault.TakeUnlockEnv` cleans only the process's
-  environment, and an app hands each call one of its own. A komando
-  process that needs the vault gets `vault.SelfEnv` or the values on its
-  stdin.
+  (`vault.StripUnlock`). It is never nil: an `exec.Cmd` whose `Env` is
+  nil inherits the process's whole environment, so a call with no
+  environment starts programs with none (a dump tool then gets no `PATH`
+  or `HOME`; an app hands in what its programs need).
+  `vault.TakeUnlockEnv` cleans only the process's environment, and an
+  app hands each call one of its own. A komando process that needs the
+  vault gets `vault.SelfEnv` or the values on its stdin.
 - Output goes to the call's writers only: `cl.out.W` and `cl.out.Err`.
   Nothing in `internal/cli` writes to `os.Stdout` or `os.Stderr`. Whether
   a person reads it is asked of the call's own writer
   (`isTerminal(cl.out.W)`, `isTerminal(cl.out.Err)`): `-o auto`, the
-  progress lines, the retry notes and the questions. For the komando
+  progress lines, the retry notes and the questions. The width lines
+  wrap at is the call's too (`out.WidthOf`): `cl.width()` asks the
+  call's stderr, `textWidth(cl)` its stdout; a writer that is no
+  terminal (a pipe, an app's writer) wraps nothing. For the komando
   program those writers are the process's stdout and stderr, so it
-  behaves as before. Followed lines from several pods or clusters
+  behaves as before, byte for byte. The notices of a built-in SSL VPN's
+  browser sign-in go to the call's stderr (`netx.SSLVPNLogin` takes it). Followed lines from several pods or clusters
   (`cluster logs --follow`, `cluster run`) take turns on the call's
   stdout (`call.liveMu`).
 - Types whose methods need the call keep it in a field set where they are
@@ -114,6 +121,14 @@ the caller is read again from the call's environment and the session
 starts empty. A call that runs two commands (a test) asks again for the
 second, as two processes did.
 
+By then the call is already running, and other calls' hooks read it
+from their own goroutines (below). So what a hook reads changes only
+under a lock: the caller is an atomic value (`cl.caller()`,
+`cl.setCaller`), the session is made once and reset in place under its
+own lock (`engine.Session.Reset`), and the printer's vault values are
+set with `out.Printer.SetSecrets`, which drops the old ones and loads
+the new ones on first use.
+
 ## What is still shared, and why
 
 The packages under the cli keep some state of their own. A call cannot
@@ -133,7 +148,12 @@ is not.
    an agent's `KOMANDO_KEYCHAIN=off` keeps the old-copy check. An agent's
    `--reveal` opens the store (is the approval code on?) before the
    command runs, so a call counted any later would open it as no
-   agent's. A value read for one call is hidden
+   agent's. What the hooks read of a call is safe to read while it runs
+   (see "One answer covers one command"); `TestHooksReadRunningCallsSafely`
+   checks it under `-race`. One gap is left: a host key pinned by a
+   connection whose context carries no call (none in a command today)
+   is written to the audit log of the first running call, which reads
+   that call's flags as it runs. A value read for one call is hidden
    in all of them; one agent among them makes a guard answer as for an
    agent; a person is asked at the terminal only while theirs is the only
    call. That is safe, not exact. Next step: these packages take a
@@ -148,10 +168,12 @@ is not.
 3. **The process's terminal.** Raw mode (the fd of `os.Stdin`), the PTY
    questions and Ctrl-C use the process's terminal. Only a call with
    `Terminal: true` asks questions; an app's calls never do. The
-   questions are drawn on the call's stderr. `out.StderrWidth`,
-   `out.StdoutWidth` and `out.UnicodeOK` (it reads `TERM` and `LANG`)
-   describe the process's terminal. sshx writes the "first connection"
-   note to `os.Stderr`.
+   questions are drawn on the call's stderr. The width lines wrap at is
+   the call's own (above); `out.UnicodeOK` (it reads `TERM` and `LANG`)
+   still describes the process's terminal. sshx writes the "first
+   connection" note to `os.Stderr`. Programs komando starts for itself
+   (the approval window, the browser, a credential helper, background
+   komando processes) get the process's environment.
 4. **The data folder.** `store.Home()` and the vault read `KOMANDO_HOME`,
    `env:` references and the unlock variables from the process's
    environment. An app's calls share one data folder, so this is right
@@ -188,7 +210,19 @@ is not.
   `vault.AgentCall`: the approval window and every read of the store's
   change count see an agent, and an old copy of the store stops with
   `STORE_OLD_COPY`.
-- `TestCallsApartAtOnce` (two agents) and `engine.TestSessionsApart` stay.
+- `TestHooksReadRunningCallsSafely` calls the hooks from one goroutine
+  over and over while agents' calls run their commands through
+  `RunCall`: under `-race`, nothing a hook reads is written without a
+  lock.
+- `TestCallEnvironForChildren`: a call with no environment starts a
+  program with an empty one, not the process's, and a call's own
+  environment loses its unlock values.
+- `TestWidthIsTheCalls`: an app's writers wrap nothing; stderr notes
+  ask the call's stderr, a text result its stdout.
+- `TestCallsApartAtOnce` (two agents), `engine.TestSessionsApart` and
+  `engine.TestSessionReset` stay.
 - All run under `go test -race`.
 - The tests share one call, `tcl` (`testcall_test.go`), as they shared the
-  package variables: they run one at a time.
+  package variables: they run one at a time. A test that sets an agent's
+  variable uses `setCallerEnv`, which reads `tcl`'s caller again after
+  the variable is restored, so the next test does not start as an agent.

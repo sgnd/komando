@@ -19,11 +19,11 @@ import (
 // (interactive) the login may ask them: a code, or a browser sign-in.
 func sslLogin(cl *call, ctx context.Context, v *store.Vpn, interactive bool) (string, error) {
 	if !interactive {
-		return netx.SSLVPNLogin(ctx, v, nil, nil)
+		return netx.SSLVPNLogin(ctx, v, nil, nil, nil)
 	}
 	w := &signInWindow{cl: cl}
 	defer w.close()
-	return netx.SSLVPNLogin(ctx, v, func(label string, secret bool) (string, error) { return loginPrompt(cl, label, secret) }, w.show)
+	return netx.SSLVPNLogin(ctx, v, func(label string, secret bool) (string, error) { return loginPrompt(cl, label, secret) }, w.show, cl.out.Err)
 }
 
 // signInWindow is the browser window of one VPN login. A login may sign

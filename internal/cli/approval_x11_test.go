@@ -28,7 +28,7 @@ func TestX11ApprovalNeedsCode(t *testing.T) {
 		t.Setenv("DISPLAY", display)
 		t.Setenv("WAYLAND_DISPLAY", wayland)
 		resetApproval()
-		tcl.caller = engine.Caller{Kind: engine.Agent, Agent: "Claude Code"}
+		tcl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "Claude Code"})
 		tcl.personAllowsFor("--yes", "")
 		return tcl
 	}

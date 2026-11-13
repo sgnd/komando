@@ -16,7 +16,7 @@ import (
 func TestApprovalWindowShowsScriptBody(t *testing.T) {
 	saved := tcl.args
 	t.Cleanup(func() { tcl.args = saved; tcl.flags.allowDangerous, tcl.flags.yes = false, false })
-	t.Setenv("CLAUDECODE", "1")
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	savedAsk := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }

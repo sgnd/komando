@@ -24,9 +24,7 @@ func TestAgentInputWithVaultValueRefused(t *testing.T) {
 	if err := vault.Set("db-pass", v); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 
 	for _, args := range [][]string{
 		{"secret", "show", v},

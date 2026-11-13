@@ -22,9 +22,7 @@ func TestSecretPassphraseNeedsPerson(t *testing.T) {
 	raw, _ := os.ReadFile(store.Path(store.StoreFile))
 	for _, agent := range []bool{false, true} {
 		if agent {
-			t.Setenv("KOMANDO_AGENT", "1")
-			resetApproval()
-			t.Cleanup(resetApproval)
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
 		}
 		for _, args := range [][]string{{"secret", "passphrase"}, {"secret", "passphrase", "--off", "--yes"}} {
 			e := wantCode(t, "NEEDS_PERSON", args...)

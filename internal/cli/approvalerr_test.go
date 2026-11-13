@@ -13,8 +13,7 @@ func TestApprovalErr(t *testing.T) {
 	for code, flag := range map[string]string{"POLICY_BLOCKED": "--allow-dangerous", "PROTECTED_HOST": "--yes", "PROTECTED_TARGET": "--yes",
 		"SAFETY_SETTING": "--yes", "SECRET_DESTINATION": "--yes", "OPEN_BIND": "--yes", "CONFIRM_REQUIRED": "--yes"} {
 		noAgent(t)
-		t.Setenv("CLAUDECODE", "1")
-		resetApproval()
+		setCallerEnv(t, "CLAUDECODE", "1")
 		e := approvalErr(tcl, code, "why")
 		if e.Message != "why" || e.Exit != 6 || e.Hint != approvalText(tcl, []string{flag}, true, false) {
 			t.Errorf("%s for an agent: %+v", code, e)

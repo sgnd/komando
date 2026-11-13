@@ -408,9 +408,7 @@ func TestUpdateOlderNeedsYes(t *testing.T) {
 func TestUpdateOlderAgentNeedsWindow(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.5.0", "v0.7.0"}}
 	exe, _ := updateLab(t, "v0.7.0", f)
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	savedArgs, savedAsk := tcl.args, askOnScreen
 	var texts []string
 	allow := false
@@ -589,9 +587,7 @@ func TestUpdateNotWritable(t *testing.T) {
 	if b, _ := m["would_be_blocked"].(map[string]any); b == nil || b["code"] != "NOT_WRITABLE" {
 		t.Errorf("dry run: meta = %v", m)
 	}
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if e := updateFails(t, "v0.7.0"); e.Hint != "ask the user to run `sudo "+exe+" update v0.7.0` in their own terminal: it needs their password" {
 		t.Errorf("agent hint: %q", e.Hint)
 	}

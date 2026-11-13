@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/term"
@@ -26,16 +27,23 @@ import (
 // The caller and the approvals are read again when a command starts
 // (begin): one answer covers one command, and the next command asks
 // again.
+//
+// The hooks of the lower packages (call_hooks.go) read every running call
+// from other goroutines: its caller, its session and its printer's hidden
+// values. A call is running from the first step of its command (execute),
+// so these change only under a lock: the caller is an atomic value, the
+// session is reset in place under its own lock (engine.Session.Reset),
+// and the printer's vault values are set with out.Printer.SetSecrets.
 type call struct {
 	io       engine.Call
 	args     []string // the command line: the program, then its words
 	terminal bool     // a person can answer at the terminal (engine.Call.Terminal)
 	stdin    io.Reader
 
-	caller engine.Caller
-	sess   *engine.Session
-	out    *out.Printer // with the call's stdout (W) and stderr (Err)
-	flags  globalFlags
+	who   atomic.Pointer[engine.Caller] // caller and setCaller
+	sess  *engine.Session               // made once (newCall), reset in place (begin)
+	out   *out.Printer                  // with the call's stdout (W) and stderr (Err)
+	flags globalFlags
 
 	commits uint64   // store.Commits() when the command started
 	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
@@ -91,6 +99,7 @@ func newCall(c engine.Call, args []string) *call {
 	}
 	cl.out = &out.Printer{Format: "json", W: stdout, Err: stderr, Version: Version, Start: time.Now(), Width: cl.width}
 	cl.fsSudoRetry = "retry with --sudo"
+	cl.sess = engine.NewSession()
 	cl.begin()
 	return cl
 }
@@ -102,30 +111,38 @@ func (eofReader) Read([]byte) (int, error) { return 0, io.EOF }
 
 // begin starts a command in the call (the root's PersistentPreRunE): the
 // caller is read again from the call's environment, and no answer given
-// so far counts.
+// so far counts. Other calls' hooks may read the caller and the session
+// at the same time, so both change under a lock.
 func (cl *call) begin() {
-	cl.caller = cl.io.Caller()
-	cl.sess = engine.NewSession()
+	cl.setCaller(cl.io.Caller())
+	cl.sess.Reset()
 	cl.commits = store.Commits()
 	cl.ttyYes, cl.typed, cl.typedProt, cl.body = nil, nil, nil, nil
 }
 
+// caller is who makes the call (engine.Caller).
+func (cl *call) caller() engine.Caller { return *cl.who.Load() }
+
+// setCaller makes c the call's caller.
+func (cl *call) setCaller(c engine.Caller) { cl.who.Store(&c) }
+
 // width is the column the call's stderr lines wrap at: none for an AI
-// agent, which reads each message on one line.
+// agent, which reads each message on one line, and none when the call's
+// stderr is no terminal (a pipe, an app's writer).
 func (cl *call) width() int {
 	if cl.isAgent() {
 		return 0
 	}
-	return out.StderrWidth()
+	return out.WidthOf(cl.out.Err)
 }
 
 // textWidth is the column a text result wraps at: none for an AI agent or
-// a pipe (out.StdoutWidth).
+// when the call's stdout is no terminal (a pipe, an app's writer).
 func textWidth(cl *call) int {
 	if cl.isAgent() {
 		return 0
 	}
-	return out.StdoutWidth()
+	return out.WidthOf(cl.out.W)
 }
 
 // isTerminal reports whether f is a terminal of this process: a call's
@@ -144,7 +161,9 @@ func (cl *call) lookupEnv(key string) (string, bool) { return cl.io.Lookup(key) 
 // environ is the call's environment for a program it starts, without the
 // secret stores' unlock values (vault.StripUnlock): no child inherits
 // them. A komando process that needs the vault gets vault.SelfEnv or the
-// values on its stdin (vault.PassOnStdin).
+// values on its stdin (vault.PassOnStdin). It is never nil: an exec.Cmd
+// whose Env is nil inherits the process's whole environment, so a call
+// with no environment starts programs with none.
 func (cl *call) environ() []string { return vault.StripUnlock(cl.io.Env()) }
 
 // treeCall is a call for a command tree that is only read (its

@@ -544,9 +544,7 @@ func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
 	if err := vault.Set("prod-kubeconfig", strings.Replace(kc, "echo ran", "echo ran2", 1)); err != nil || !strings.Contains(kc, "echo ran") {
 		t.Fatalf("vault: %v %q", err, kc)
 	}
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "/bin/sh -c") {
 		t.Errorf("an agent's read runs the program without a yes: %+v", e)
 	}
@@ -890,9 +888,7 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	unixOnly(t, "the kubeconfig's login program is a /bin/sh script")
 	invHome(t)
 	l := newLabCluster(t)
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	saved := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return true, true }
@@ -917,9 +913,7 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	if err := vault.Set("prod-kubeconfig", strings.Replace(kc, "touch", "touch -c", 1)); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	texts = nil
 	if _, e := cliRun(t, "--yes", "cluster", "run", "prod", "--write", "--", "scale", "deploy/api", "--replicas=3"); e != nil {
 		t.Fatalf("%+v", e)
@@ -958,9 +952,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 	kc, _ := vault.Get("prod-kubeconfig")
 	for _, changed := range []string{strings.Replace(kc, "echo", "id; echo", 1), strings.Replace(kc, l.srv.URL, "https://attacker.example:6443", 1)} {
 		vault.Set("prod-kubeconfig", changed)
-		t.Setenv("CLAUDECODE", "1")
-		resetApproval()
-		t.Cleanup(resetApproval)
+		setCallerEnv(t, "CLAUDECODE", "1")
 		if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "read-only commands too") {
 			t.Errorf("a changed kubeconfig runs without a yes: %+v", e)
 		}
@@ -980,9 +972,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 
 // A yes in a window that did not name an action does not cover it.
 func TestPersonAllowsForAsksAgain(t *testing.T) {
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	saved := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return true, true }

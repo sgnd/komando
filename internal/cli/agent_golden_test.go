@@ -258,8 +258,7 @@ func goldenRunWith(t *testing.T, agent bool, args []string, setup func(*testing.
 		setup(t)
 	}
 	if agent {
-		t.Setenv("KOMANDO_AGENT", "1")
-		resetApproval()
+		setCallerEnv(t, "KOMANDO_AGENT", "1")
 	} else {
 		noAgent(t)
 	}

@@ -611,19 +611,17 @@ func TestSSHGateAuditHidesSecrets(t *testing.T) {
 // The komando a key runs is an agent named after the key; a name ssh-gate
 // could not have set is not shown as it is.
 func TestGateAgentName(t *testing.T) {
-	t.Setenv(gateEnv, "phone")
-	resetApproval()
-	if got := tcl.caller.Agent; got != "ssh-gate key phone" {
+	setCallerEnv(t, gateEnv, "phone")
+	if got := tcl.caller().Agent; got != "ssh-gate key phone" {
 		t.Errorf("agent %q", got)
 	}
-	t.Setenv("CLAUDECODE", "1") // set in the account's shell files, say
-	if got := tcl.caller.Agent; got != "ssh-gate key phone" {
+	setCallerEnv(t, "CLAUDECODE", "1") // set in the account's shell files, say
+	if got := tcl.caller().Agent; got != "ssh-gate key phone" {
 		t.Errorf("with CLAUDECODE too: agent %q", got)
 	}
 	os.Unsetenv("CLAUDECODE") // t.Setenv puts it back afterwards
-	t.Setenv(gateEnv, "x\n\nkomando list wants")
-	resetApproval()
-	if got := tcl.caller.Agent; got != "An SSH key through ssh-gate" {
+	setCallerEnv(t, gateEnv, "x\n\nkomando list wants")
+	if got := tcl.caller().Agent; got != "An SSH key through ssh-gate" {
 		t.Errorf("agent %q", got)
 	}
 }

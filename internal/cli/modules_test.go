@@ -415,9 +415,7 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("KOMANDO_NO_DIALOG", "1")
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	defer func() { tcl.flags.dryRun, tcl.flags.allowDangerous = false, false }()
 	run := func(args ...string) error {
 		root := newRoot(tcl)
@@ -454,7 +452,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 	if e := toErr(run("recipe", "add", "du", "du -sh /srv", "--read-only", "--overwrite")); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("read-only over a normal recipe without --yes: %v", e)
 	}
-	t.Setenv("CLAUDECODE", "1") // an agent: the approval window asks
+	setCallerEnv(t, "CLAUDECODE", "1") // an agent: the approval window asks
 	saved := askOnScreen
 	defer func() { askOnScreen = saved; tcl.flags.yes = false; resetApproval() }()
 	lockFree := false
@@ -484,9 +482,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 func TestConfigSetAsksBeforeLocking(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	saved := askOnScreen
 	defer func() { askOnScreen = saved; tcl.flags.yes = false; resetApproval() }()
 	lockFree := false

@@ -15,9 +15,7 @@ import (
 // agent, and answers allow.
 func windowText(t *testing.T, allow bool) *[]string {
 	t.Helper()
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	saved := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) {
@@ -260,9 +258,7 @@ func TestImportCSV(t *testing.T) {
 	}
 
 	// an AI agent cannot point the import at komando's own folder
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	p := filepath.Join(os.Getenv("KOMANDO_HOME"), "x.csv")
 	os.WriteFile(p, []byte("name,address\nx,10.0.0.1\n"), 0o600)
 	wantCode(t, "SENSITIVE_FILE", "import", "csv", p)

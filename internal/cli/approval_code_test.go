@@ -36,9 +36,7 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 	if err := store.Update(func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	savedA, savedC := askOnScreen, askCodeOnScreen
 	defer func() { askOnScreen, askCodeOnScreen = savedA, savedC; tcl.flags.yes = false; resetApproval() }()
 	askOnScreen = func(*call, string) (bool, bool) { t.Error("the plain window was used"); return true, true }

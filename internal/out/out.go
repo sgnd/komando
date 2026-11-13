@@ -235,6 +235,8 @@ type Printer struct {
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
 	// one show [secret:NAME] instead. It is called once, on first use.
+	// Set it when making the printer; once others may use the printer
+	// (AddValue runs from other goroutines), change it with SetSecrets.
 	Secrets  func() map[string]string
 	NoRedact bool // `secret get --reveal`: a person asked for the value
 	// Mask also hides values that look like passwords, keys and tokens
@@ -245,8 +247,8 @@ type Printer struct {
 	// reads data from a target turns it on when the mask_personal setting
 	// covers that target.
 	Personal bool
-	once     sync.Once
-	hmu      sync.RWMutex // hide: AddValue may run beside a command's output
+	hmu      sync.RWMutex // Secrets, loaded, hide: AddValue may run beside a command's output
+	loaded   bool         // Secrets was called
 	hide     []hidden
 }
 
@@ -260,16 +262,34 @@ type hidden struct {
 const minSecret = 6
 
 func (p *Printer) load() {
-	p.once.Do(func() {
-		if p.Secrets == nil {
-			return
-		}
-		p.hmu.Lock()
-		defer p.hmu.Unlock()
-		for name, v := range p.Secrets() {
-			p.addLocked(v, "[secret:"+name+"]", false)
-		}
-	})
+	p.hmu.RLock()
+	loaded := p.loaded
+	p.hmu.RUnlock()
+	if loaded {
+		return
+	}
+	p.hmu.Lock()
+	defer p.hmu.Unlock()
+	if p.loaded {
+		return
+	}
+	p.loaded = true
+	if p.Secrets == nil {
+		return
+	}
+	for name, v := range p.Secrets() {
+		p.addLocked(v, "[secret:"+name+"]", false)
+	}
+}
+
+// SetSecrets makes f the printer's Secrets: the values of the one before
+// are no longer hidden as [secret:NAME], and f is called on first use.
+// It locks by itself, so it is safe while AddValue runs elsewhere.
+func (p *Printer) SetSecrets(f func() map[string]string) {
+	p.hmu.Lock()
+	defer p.hmu.Unlock()
+	p.Secrets, p.loaded = f, false
+	p.hide = slices.DeleteFunc(slices.Clone(p.hide), func(h hidden) bool { return !h.added })
 }
 
 // RedactExact hides only the exact values komando keeps secret, never

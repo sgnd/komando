@@ -21,9 +21,7 @@ import (
 // agent could use the tunnel without komando's checks or audit.
 func TestVpnUpHidesSocksLogin(t *testing.T) {
 	invHome(t)
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	const pass = "0123456789abcdef0123456789abcdef0123456789abcdef"
 	now := time.Now().UTC()
 	if err := store.Update(func(st *store.State) error {

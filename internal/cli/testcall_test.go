@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"testing"
 
 	"github.com/sgnd/komando/internal/store"
 )
@@ -16,6 +17,18 @@ var tcl = newCall(processCall(), nil)
 // the environment (a test that sets CLAUDECODE becomes an agent), and no
 // answer given so far counts.
 func resetApproval() { tcl.begin() }
+
+// setCallerEnv sets the environment variable key to value for the rest of
+// the test and reads tcl's caller again (a test that sets CLAUDECODE
+// becomes an agent). When the test ends, the variable is restored first
+// and the caller read again after it: cleanups run last-registered first,
+// so the one that reads the caller is registered before t.Setenv's.
+func setCallerEnv(t *testing.T, key, value string) {
+	t.Helper()
+	t.Cleanup(resetApproval)
+	t.Setenv(key, value)
+	resetApproval()
+}
 
 // testCall is a new call made like tcl, apart from it.
 func testCall() *call { return newCall(processCall(), nil) }

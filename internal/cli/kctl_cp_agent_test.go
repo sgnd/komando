@@ -27,7 +27,7 @@ func TestPodCopyAsADownload(t *testing.T) {
 	if err := vault.Set("db", v); err != nil {
 		t.Fatal(err)
 	}
-	tcl.out.Secrets = vaultValues
+	tcl.out.SetSecrets(vaultValues)
 	mk := func(files map[string]string) []byte {
 		var b bytes.Buffer
 		tw := tar.NewWriter(&b)

@@ -17,9 +17,7 @@ func TestHostEditForwardAgent(t *testing.T) {
 	if st := mustState(t); st.Hosts["jump1"].ForwardAgent {
 		t.Fatal("set without a yes")
 	}
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	wantCode(t, "SAFETY_SETTING", "host", "edit", "jump1", "--forward-agent")
 	mustRun(t, "host", "edit", "jump1", "--forward-agent=false")
 	mustRun(t, "host", "edit", "jump1", "--unset", "forward-agent")

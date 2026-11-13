@@ -138,8 +138,8 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 	l := &store.SSHLogin{Host: h.Name, Target: sshx.TargetOf(h), Token: randToken(24), LogFile: logFile,
 		StartedAt: time.Now().UTC(), Until: time.Now().Add(keep).UTC()}
 	c := holderCommand(self, h.Name)
-	if c.Env == nil {
-		c.Env = cl.environ() // without KOMANDO_VAULT_PASS and the like (vault.StripUnlock)
+	if c.Env == nil { // a test's holderCommand sets its own
+		c.Env = cl.environ() // the call's, unlock values out; never nil (nil inherits the process's)
 	}
 	c.Stderr = lf
 	c.SysProcAttr = detachAttr() // it outlives this command and its terminal

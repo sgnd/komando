@@ -42,9 +42,7 @@ func TestSSHCommandSealedHome(t *testing.T) {
 		t.Fatalf("sealed key, no ssh-agent: %+v", e)
 	}
 
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if _, e := invRun(t, "host", "ssh-command", "web1"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}
@@ -78,9 +76,7 @@ func TestSealedConfigAndDoctor(t *testing.T) {
 // Accepting an old copy is for a person at a terminal.
 func TestAcceptOldCopyNeedsAPerson(t *testing.T) {
 	invHome(t)
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if _, e := invRun(t, "doctor", "--accept-old-copy"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}

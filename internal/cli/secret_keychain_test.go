@@ -128,7 +128,7 @@ func TestSecretKeychainNeedsPerson(t *testing.T) {
 	for _, agent := range []bool{false, true} {
 		if agent {
 			atTerminal(t) // an agent never counts as a person, terminal or not
-			t.Setenv("KOMANDO_AGENT", "1")
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
 		}
 		e := wantCode(t, "NEEDS_PERSON", "secret", "keychain")
 		if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "own terminal") {

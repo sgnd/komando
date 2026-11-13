@@ -100,7 +100,9 @@ func TestStripUnlock(t *testing.T) {
 	if want := []string{"PATH=/usr/bin", "VAULT_TOKENS=kept", "HOME=/h"}; !slices.Equal(got, want) {
 		t.Fatalf("StripUnlock: %v, want %v", got, want)
 	}
-	if StripUnlock(nil) != nil {
-		t.Fatal("nil (the process's own environment) became an empty one")
+	// an exec.Cmd whose Env is nil inherits the whole process's
+	// environment, unlock values and all: a call with none gets none
+	if got := StripUnlock(nil); got == nil || len(got) != 0 {
+		t.Fatalf("StripUnlock(nil) = %#v, want an empty environment that is not nil", got)
 	}
 }

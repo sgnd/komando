@@ -630,7 +630,7 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 	if remote != "" {
 		rec["remote"] = remote
 	}
-	if a := cl.caller.Agent; a != "" {
+	if a := cl.caller().Agent; a != "" {
 		rec["agent"] = a // who typed it: an AI agent
 		if cl.sess.Allowed() {
 			rec["allowed_by_person"] = true // in komando's window
@@ -678,7 +678,7 @@ func osUser() string {
 
 // actor is the name the audit log gives whoever runs komando: KOMANDO_ACTOR,
 // else USER. For an AI agent it is a label (actor_claimed), not proof.
-func actor(cl *call) string { return cl.caller.Actor }
+func actor(cl *call) string { return cl.caller().Actor }
 
 // countOf writes "1 server", "2 servers": people read words, not "server(s)".
 func countOf(n int, noun string) string {

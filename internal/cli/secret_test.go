@@ -186,9 +186,7 @@ func TestSecretSetFromPipe(t *testing.T) {
 		t.Errorf("warning %q", w)
 	}
 	// secret get says so too, for an agent, without the value or its length
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	d = mustRun(t, "secret", "get", "p2")
 	if w, _ := d["warning"].(string); !strings.Contains(w, "space") {
 		t.Errorf("get: %v", d)
@@ -225,9 +223,7 @@ func TestSecretCheck(t *testing.T) {
 	}
 
 	// an agent could guess with it one try at a time
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	withStdin(t, "Hunter2 \n", func() {
 		if e := wantCode(t, "NEEDS_PERSON", "secret", "check", "vpn-pass"); e.Exit != out.ExitPolicy || strings.Contains(e.Hint, "add the flag") {
 			t.Errorf("no flag allows it: %+v", e)

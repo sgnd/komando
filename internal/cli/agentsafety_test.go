@@ -17,13 +17,13 @@ import (
 // (an empty one still names an agent).
 func noAgent(t *testing.T) {
 	t.Helper()
+	t.Cleanup(resetApproval) // before t.Setenv: reads the caller once the variables are restored
 	for _, a := range agentVars {
 		t.Setenv(a.env, "") // restored after the test
 		os.Unsetenv(a.env)
 		resetApproval()
 	}
 	resetApproval() // the caller is read when a call starts
-	t.Cleanup(resetApproval)
 }
 
 // An agent cannot opt out by changing its own variables: komando counts
@@ -31,25 +31,19 @@ func noAgent(t *testing.T) {
 // the shell lines that change them.
 func TestAgentCannotClearItsVariables(t *testing.T) {
 	for _, v := range []string{"0", "false", "1"} {
-		t.Setenv("CLAUDECODE", v)
-		resetApproval()
-		t.Cleanup(resetApproval)
-		if tcl.caller.Agent != "Claude Code" {
-			t.Errorf("CLAUDECODE=%s: agentName = %q", v, tcl.caller.Agent)
+		setCallerEnv(t, "CLAUDECODE", v)
+		if tcl.caller().Agent != "Claude Code" {
+			t.Errorf("CLAUDECODE=%s: agentName = %q", v, tcl.caller().Agent)
 		}
 	}
-	t.Setenv("CLAUDECODE", "")
-	resetApproval()
-	t.Cleanup(resetApproval)
-	if tcl.caller.Agent != "Claude Code" {
-		t.Errorf("CLAUDECODE empty: agentName = %q", tcl.caller.Agent)
+	setCallerEnv(t, "CLAUDECODE", "")
+	if tcl.caller().Agent != "Claude Code" {
+		t.Errorf("CLAUDECODE empty: agentName = %q", tcl.caller().Agent)
 	}
 	noAgent(t)
-	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
-	resetApproval()
-	t.Cleanup(resetApproval)
-	if tcl.caller.Agent != "Claude Code" {
-		t.Errorf("CLAUDECODE cleared, CLAUDE_CODE_ENTRYPOINT set: agentName = %q", tcl.caller.Agent)
+	setCallerEnv(t, "CLAUDE_CODE_ENTRYPOINT", "cli")
+	if tcl.caller().Agent != "Claude Code" {
+		t.Errorf("CLAUDECODE cleared, CLAUDE_CODE_ENTRYPOINT set: agentName = %q", tcl.caller().Agent)
 	}
 
 	home := "/Users/me"
@@ -587,9 +581,7 @@ func TestDryRunRevealStaysMasked(t *testing.T) {
 func TestApprovalWindowShowsEverything(t *testing.T) {
 	saved := tcl.args
 	t.Cleanup(func() { tcl.args = saved; tcl.flags.allowDangerous, tcl.flags.yes = false, false })
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	savedAsk := askOnScreen
 	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }

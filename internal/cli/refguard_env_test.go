@@ -13,7 +13,7 @@ import (
 // variables, and a person, stay allowed.
 func TestRefGuardEnvUnlockVars(t *testing.T) {
 	t.Cleanup(resetApproval)
-	tcl.caller = engine.Caller{Kind: engine.Agent, Agent: "Claude Code"}
+	tcl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "Claude Code"})
 	for _, n := range append([]string{"KOMANDO_VAULT_PASS"}, vault.UnlockVars...) {
 		if e := toErr(refGuard(tcl, "env", n)); e == nil || e.Code != "SENSITIVE_FILE" {
 			t.Errorf("agent env:%s: %v", n, e)

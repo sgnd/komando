@@ -31,7 +31,7 @@ func TestCallsApartAtOnce(t *testing.T) {
 	run := func(agent string, answer bool) result {
 		c := testCall()
 		c.args = []string{"komando", "host", "rm", "web1", "--yes"}
-		c.caller = engine.Caller{Kind: engine.Agent, Agent: agent}
+		c.setCaller(engine.Caller{Kind: engine.Agent, Agent: agent})
 		var r result
 		c.ask = func(text string) (bool, bool) {
 			r.asked++
@@ -91,17 +91,15 @@ func TestNewRootKeepsTheRunningCall(t *testing.T) {
 // The caller is read once per call: a later change to the environment
 // (a future app hands in its own caller) does not turn a call into another.
 func TestCallerFromTheCall(t *testing.T) {
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	if !tcl.isAgent() || tcl.caller.Agent == "" {
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	if !tcl.isAgent() || tcl.caller().Agent == "" {
 		t.Fatal("KOMANDO_AGENT=1 is not an agent")
 	}
 	os.Unsetenv("KOMANDO_AGENT")
 	if !tcl.isAgent() {
 		t.Fatal("the call's caller changed with the environment")
 	}
-	tcl.caller = engine.Caller{Kind: engine.Person}
-	t.Cleanup(resetApproval)
+	tcl.setCaller(engine.Caller{Kind: engine.Person})
 	if tcl.isAgent() {
 		t.Fatal("the call's own caller was not used")
 	}

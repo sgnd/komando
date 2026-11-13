@@ -12,7 +12,8 @@ type Call struct {
 	// audit log and the approval window show it.
 	Program string
 	// LookupEnv and Environ are the call's environment. The CLI passes
-	// os.LookupEnv and os.Environ; nil is an empty environment.
+	// os.LookupEnv and os.Environ; nil is an empty environment, also for
+	// the programs the call starts (a dump tool gets no PATH or HOME).
 	LookupEnv func(string) (string, bool)
 	Environ   func() []string
 	// Stdin, Stdout and Stderr are the call's input and output. Stdout

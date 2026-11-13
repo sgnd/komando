@@ -495,9 +495,10 @@ func newRoot(cl *call) *cobra.Command {
 			storeDryRun(cl.flags.dryRun)
 			cl.out.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
-			cl.out.Secrets = vaultValues
 			if leavesHomeNow(cmd) {
-				cl.out.Secrets = nil // its output holds no secrets, and the vault is in ~/.komando
+				cl.out.SetSecrets(nil) // its output holds no secrets, and the vault is in ~/.komando
+			} else {
+				cl.out.SetSecrets(vaultValues)
 			}
 			// AI agents see passwords, keys and tokens as [hidden]; people and
 			// scripts see what the server sent (vault values are hidden for

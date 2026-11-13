@@ -44,7 +44,7 @@ var agentVars = func() []struct{ env, name string } {
 // isAgent reports an AI agent (or an ssh-gate key) as the caller. A
 // variable that is there counts whatever its value: an agent told to run
 // `CLAUDECODE=0 komando ...` must not turn its own safety stops off.
-func (cl *call) isAgent() bool { return cl.caller.IsAgent() }
+func (cl *call) isAgent() bool { return cl.caller().IsAgent() }
 
 // wroteBefore reports whether this call already changed komando's store.
 func (cl *call) wroteBefore() bool { return store.Commits() != cl.commits }
@@ -86,7 +86,7 @@ func (cl *call) personAllows(flag string, why ...string) bool {
 // line alone does not show it. A yes given in a window that did not name
 // it does not cover it: the person is asked again, with it named.
 func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
-	if !cl.caller.IsAgent() || cl.flags.dryRun {
+	if !cl.caller().IsAgent() || cl.flags.dryRun {
 		return true
 	}
 	sess := cl.sess
@@ -127,7 +127,7 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 			reasons = append(reasons, w)
 		}
 	}
-	text := fmt.Sprintf("%s %s:\n\n%s\n\n", cl.caller.Agent, head, line) + body
+	text := fmt.Sprintf("%s %s:\n\n%s\n\n", cl.caller().Agent, head, line) + body
 	if what != "" {
 		if unshowable(what) != "" {
 			what = strconv.QuoteToASCII(what)

@@ -162,9 +162,7 @@ func TestSealedNeedsPerson(t *testing.T) {
 	}
 	for _, agent := range []bool{false, true} {
 		if agent {
-			t.Setenv("KOMANDO_AGENT", "1")
-			resetApproval()
-			t.Cleanup(resetApproval)
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
 		}
 		for _, args := range [][]string{{"export", "--sealed", "--to", file}, {"export", "--for-phone", "--to", file, "--yes"}, {"import", "komando", other}} {
 			if e := wantCode(t, "NEEDS_PERSON", args...); e.Exit != out.ExitPolicy || strings.Contains(e.Hint, "add the flag") {
