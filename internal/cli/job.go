@@ -110,32 +110,7 @@ without it a job has no time limit.`,
 				out.P.Print("job.start", plan, nil)
 				return nil
 			}
-			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-				s, err := startJob(ctx, c, sp)
-				if err != nil {
-					return nil, err
-				}
-				return s, nil
-			})
-			var data jobStarted
-			worst := 0
-			var fails []hostFail
-			for _, o := range res {
-				if o.Err != nil {
-					e := toErr(o.Err)
-					worst = worse(worst, e.Exit)
-					fails = append(fails, hostFail{host: o.Host.Name, reason: failReason(0, e), err: e})
-					data.Jobs = append(data.Jobs, started{Host: o.Host.Name, Error: e})
-					data.Summary.Failed++
-					data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
-					continue
-				}
-				data.Jobs = append(data.Jobs, o.Value.(started))
-				data.Summary.OK++
-			}
-			data.Summary.Total = len(res)
-			audit(st, "job.start", hostNames(hosts), sp.shown, data.Summary.Failed == 0, nil)
-			return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
+			return startJobs(cmd.Context(), st, hosts, sp)
 		},
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
@@ -149,6 +124,36 @@ without it a job has no time limit.`,
 	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
+}
+
+// startJobs starts sp on every server of hosts and prints one row each.
+func startJobs(ctx context.Context, st *store.State, hosts []*store.Host, sp jobSpec) error {
+	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		s, err := startJob(ctx, c, sp)
+		if err != nil {
+			return nil, err
+		}
+		return s, nil
+	})
+	var data jobStarted
+	worst := 0
+	var fails []hostFail
+	for _, o := range res {
+		if o.Err != nil {
+			e := toErr(o.Err)
+			worst = worse(worst, e.Exit)
+			fails = append(fails, hostFail{host: o.Host.Name, reason: failReason(0, e), err: e})
+			data.Jobs = append(data.Jobs, started{Host: o.Host.Name, Error: e})
+			data.Summary.Failed++
+			data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
+			continue
+		}
+		data.Jobs = append(data.Jobs, o.Value.(started))
+		data.Summary.OK++
+	}
+	data.Summary.Total = len(res)
+	audit(st, "job.start", hostNames(hosts), sp.shown, data.Summary.Failed == 0, nil)
+	return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
 }
 
 type jobStatus struct {
