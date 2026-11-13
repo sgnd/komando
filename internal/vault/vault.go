@@ -558,6 +558,12 @@ func resolve(ref string) (string, error) {
 			}
 		}
 		v, ok := os.LookupEnv(name)
+		if !ok && slices.Contains(UnlockVars, name) {
+			// TakeUnlockEnv took it out of the environment at the start
+			passMu.Lock()
+			v, ok = unlock[name]
+			passMu.Unlock()
+		}
 		if !ok {
 			return "", fmt.Errorf("environment variable %s not set", name)
 		}

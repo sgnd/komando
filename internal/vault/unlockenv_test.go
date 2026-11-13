@@ -64,3 +64,29 @@ func TestUnlockEnvNotInherited(t *testing.T) {
 		t.Errorf("Handoff: %q", h)
 	}
 }
+
+// O3: an env: reference to an unlock variable still resolves for a
+// person after TakeUnlockEnv took it out of the environment.
+func TestEnvRefToTakenUnlockVar(t *testing.T) {
+	reset := func() {
+		passMu.Lock()
+		pass, unlock = "", map[string]string{}
+		passMu.Unlock()
+	}
+	t.Cleanup(reset)
+	reset()
+	saved := RefGuard
+	t.Cleanup(func() { RefGuard = saved })
+	RefGuard = nil
+	t.Setenv("VAULT_TOKEN", "hvs.token-value")
+	t.Setenv("BAO_TOKEN", "bao-token-value")
+	TakeUnlockEnv()
+	for n, want := range map[string]string{"VAULT_TOKEN": "hvs.token-value", "BAO_TOKEN": "bao-token-value"} {
+		if v, err := resolve("env:" + n); err != nil || v != want {
+			t.Errorf("env:%s: %q %v", n, v, err)
+		}
+	}
+	if _, err := resolve("env:KOMANDO_NO_SUCH_VAR_X"); err == nil {
+		t.Error("an unset variable resolved")
+	}
+}

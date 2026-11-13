@@ -1290,7 +1290,8 @@ instead.
   already did with `KOMANDO_VAULT_PASS`. Before, every program it ran and
   every background tunnel, VPN session and login inherited them, where
   `ps eww` showed them for hours. Those background processes now get them
-  on their input.
+  on their input, and an `env:` reference to one (`--password-ref
+  env:VAULT_TOKEN`) still works for a person.
 
 ## [0.12.0] - 2026-11-11
 
