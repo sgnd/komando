@@ -15,6 +15,14 @@ its highlights; the sections below them give the details. Versions follow
 - `download -r` from a server keeps the files that are already on this computer and copies the rest, as `download -r` from storage does; it used to stop at the first one with `FILE_EXISTS`. The result says how many it kept (`kept`). `--overwrite` still replaces them.
 ### Changed for scripts and agents
 - `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; For one server the fields moved: `data.path` is now `data.results[0].path`, `data.changed` is `data.results[0].changed`, `data.would_change` is `data.results[0].would_change`, and the same for `replacements`, `diff`, `backup`, `from` and `note`. Error codes stay the same (`NO_MATCH`, `BACKUP_NOT_FOUND` ...). `fs write` stays one server.
+### Added
+- `job start --stdin-file FILE` gives the job's command FILE as its input, `job start --sudo-user USER` runs it as USER with `sudo -u` (both as in `exec`), and `job start --timeout 2h` stops the job after that long. A timed-out job is `killed` with `timed_out: true` in `job status`, and `job wait` says the timeout stopped it. When `exec` times out with `--sudo-user` or `--stdin-file FILE`, its hint now names the matching `job start` line.
+
+### Fixed
+- `job kill` on a server whose /bin/sh is dash (Debian, Ubuntu) stopped only the job's shell, not the commands it had started: dash refuses `kill -SIG -- -PGID`, and komando then fell back to the shell alone. It now signals the whole process group there too.
+
+### Changed
+- A job's `--env` values and its input (`--script`, `--stdin-file`) now reach the command through a pipe from the job's private folder instead of being read from files there, so a command run as another user gets them too. With a sudo password, the job first asks sudo whether it needs one and deletes it unread when it does not.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.

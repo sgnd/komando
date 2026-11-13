@@ -112,7 +112,7 @@ func TestJobLeavesNoEnvWhenSudoRefuses(t *testing.T) {
 		}
 	}
 	time.Sleep(200 * time.Millisecond) // the wrapper's last step
-	for _, f := range []string{"env", "script"} {
+	for _, f := range []string{"env", "in", "pw"} {
 		if _, err := os.Stat(filepath.Join(d, f)); !os.IsNotExist(err) {
 			t.Errorf("%s stayed after sudo refused: %v", f, err)
 		}
