@@ -131,7 +131,7 @@ func (o *logOpts) source() string {
 		case o.container != "":
 			c := o.dockerLogs() + " --tail " + n + " -f"
 			if since != "" {
-				c += " --since " + sshx.Q(since)
+				c += " --since " + dockerTimeArg(since)
 			}
 			return c + " " + sshx.Q(o.container) + " 2>&1" + grep
 		case o.file != "":
@@ -156,10 +156,10 @@ func (o *logOpts) source() string {
 			c = o.dockerLogs()
 		}
 		if since != "" {
-			c += " --since " + sshx.Q(since)
+			c += " --since " + dockerTimeArg(since)
 		}
 		if until != "" {
-			c += " --until " + sshx.Q(until)
+			c += " --until " + dockerTimeArg(until)
 		}
 		c += " " + sshx.Q(o.container) + " 2>&1"
 		if grep != "" {
