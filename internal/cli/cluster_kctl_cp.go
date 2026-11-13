@@ -22,7 +22,8 @@ func (r *kctlRun) cp() error {
 	}
 	src, dst := r.a.pos[0], r.a.pos[1]
 	podOf := func(s string) (string, string, bool) {
-		if strings.HasPrefix(s, "/") || strings.HasPrefix(s, ".") || !strings.Contains(s, ":") {
+		// C:\data on Windows is a path here, as kubectl cp takes it, not pod C
+		if strings.HasPrefix(s, "/") || strings.HasPrefix(s, ".") || !strings.Contains(s, ":") || filepath.VolumeName(s) != "" {
 			return "", "", false
 		}
 		p, path, _ := strings.Cut(s, ":")
