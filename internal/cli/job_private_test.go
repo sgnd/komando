@@ -15,7 +15,7 @@ import (
 
 // O12: a job's folder on the server and its files (command, output, pid)
 // are the SSH user's alone, whatever the server's umask; the job itself
-// still runs with that umask.
+// still runs with that umask, and its environment gains no variable.
 func TestJobFolderIsPrivate(t *testing.T) {
 	srv := startFakeServer(t)
 	// prod is the same server, protected: unprotect it for this change
@@ -23,7 +23,7 @@ func TestJobFolderIsPrivate(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv.reply("4242\n")
-	if err := runRoot(t, "job", "start", "dev", "--", "touch made"); err != nil {
+	if err := runRoot(t, "job", "start", "dev", "--", "touch made; env > envs"); err != nil {
 		t.Fatal(err)
 	}
 	e := srv.take()[0]
@@ -59,5 +59,11 @@ func TestJobFolderIsPrivate(t *testing.T) {
 	}
 	if m := mode(t, filepath.Join(home, "made")); m != 0o644 {
 		t.Errorf("the job's own file: %04o, want the login's umask (0644)", m)
+	}
+	b, _ := os.ReadFile(filepath.Join(home, "envs"))
+	for _, l := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(l, "u=") {
+			t.Errorf("the job's environment has %q", l)
+		}
 	}
 }
