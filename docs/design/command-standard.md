@@ -431,7 +431,7 @@ including common foreign shorthands (`-n` outside its scope, `-it`, `-L`,
 **S-5.17** An unknown command word gets help in this order:
 (1) a curated table of foreign words, each mapped to a full command for
 `error.hint`: `server` (alias), `delete`/`remove` → `komando host rm NAME`
-(or the noun in the next word), `get` → `komando list` / `komando show`,
+(or the noun in the next word), `get` → `komando list`,
 `ps` → `komando docker ps TARGET`, `kubectl` → `komando cluster run TARGET -- ...`,
 `psql`/`mysql` → `komando db query CONN`, `apt`/`yum` → `komando pkg`,
 `systemctl` → `komando svc`; (2) edit distance 1 for words of 4 letters or
