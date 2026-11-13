@@ -42,6 +42,8 @@ its highlights; the sections below them give the details. Versions follow
 ### Added
 - `logs --container` (and `docker logs`) take `--since today`, `yesterday` and `now`, as the journal does: the server's own midnight or time, worked out on the server. They stopped with `USAGE` before.
 - `net dns --type MX` (and CNAME, NS, TXT, SOA, SRV, PTR, CAA) works on servers without `dig`: komando asks the server's own resolver from `/etc/resolv.conf` over TCP through the SSH connection and shows the records as `dig +short` does. `DIG_MISSING` stays for a server with no resolver listed or no TCP forwarding. A PTR question for an IP address now asks its reverse name.
+### Added
+- `sync --sudo` sends a folder to servers as root, for folders the SSH user cannot write (`/etc/nginx/conf.d`): each file is installed as `upload --sudo` installs one (staged privately, checked by root, never through a folder another user may change, `SHARED_FOLDER_CONFLICT`), with the source file's mode, so the next run sends nothing new. `--delete` removes as root too.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
