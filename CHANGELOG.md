@@ -41,6 +41,7 @@ its highlights; the sections below them give the details. Versions follow
 - Docs: "What komando sends" in the README and SECURITY.md: nothing on its own (no statistics, crash reports or background update check); it connects only to what you added or named, AWS for `login aws`, and GitHub for `update`.
 ### Added
 - `logs --container` (and `docker logs`) take `--since today`, `yesterday` and `now`, as the journal does: the server's own midnight or time, worked out on the server. They stopped with `USAGE` before.
+- `net dns --type MX` (and CNAME, NS, TXT, SOA, SRV, PTR, CAA) works on servers without `dig`: komando asks the server's own resolver from `/etc/resolv.conf` over TCP through the SSH connection and shows the records as `dig +short` does. `DIG_MISSING` stays for a server with no resolver listed or no TCP forwarding. A PTR question for an IP address now asks its reverse name.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
