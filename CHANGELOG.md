@@ -8,6 +8,7 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- The ssh gate let a key run commands on this computer through a listed server that is this computer under another name: its LAN address, a DNS name, a public IP or a port forward. It now refuses a server at one of this computer's own network addresses, or whose pinned host key is this computer's own SSH host key, as it refuses `localhost`.
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
 - `reboot` kept all the output of its commands on the server: a server that flooded it could fill this computer's memory. It now keeps 64 KiB, and a test checks that every remote command komando runs bounds its output.

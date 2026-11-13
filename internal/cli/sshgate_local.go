@@ -5,11 +5,15 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -24,7 +28,9 @@ import (
 // (gateLocalAddr). A change whose target the gate cannot find is refused
 // too; a read with one it cannot find runs when the name is no loopback
 // address (a website for cert check, a typo that fails anyway). This
-// computer under another name cannot be told apart (safety.md).
+// computer under another name or address is found by its pinned host key,
+// which is one of this computer's own (gateSameHostKey), or by an address
+// that is one of this computer's network addresses (gateLocalAddr).
 //
 // gateTargetArgs reads the targets of the changes whose target is not where
 // their Use line says (gateUseTargets). Jobs were started through the gate;
@@ -115,6 +121,9 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			}
 			if why := gateAt(st, h.Address, h.Via, 0); why != "" {
 				return "the server " + h.Name + " is on this computer (" + why + ")"
+			}
+			if gateSameHostKey(h) {
+				return "the server " + h.Name + " is on this computer (its host key is this computer's own)"
 			}
 		}
 		for _, cn := range sel.Conns {
@@ -214,10 +223,63 @@ func gateLocalAddr(a string) bool {
 	me = normAddr(me)
 	short, _, _ := strings.Cut(me, ".")
 	if ip := net.ParseIP(a); ip != nil {
-		return ip.IsLoopback() || ip.IsUnspecified()
+		return ip.IsLoopback() || ip.IsUnspecified() || gateOwnIP(ip)
 	}
 	return a == "localhost" || strings.HasSuffix(a, ".localhost") || a != "" && (a == me || a == short) ||
 		a != "" && a[0] >= '0' && a[0] <= '9' && strings.Trim(a, "0123456789abcdefx.") == ""
+}
+
+// gateOwnIP: ip is an address of one of this computer's network
+// interfaces (its LAN address, say), so a server at it is this computer.
+func gateOwnIP(ip net.IP) bool {
+	if ip.IsLinkLocalUnicast() {
+		return false // fe80::1 is on every interface: its zone says which (gateLoopbackZone)
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, a := range addrs {
+		if n, ok := a.(*net.IPNet); ok && n.IP.Equal(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// sshdHostKeys are where this computer's own SSH server keeps its public
+// host keys; tests point them elsewhere.
+var sshdHostKeys = "/etc/ssh/ssh_host_*_key.pub"
+
+// gateSameHostKey: a key pinned for h is one of this computer's own SSH
+// host keys, so h is this computer under another name or address (a DNS
+// name, a public IP, a port forward). A server never reached has no pin
+// and is judged by its address alone.
+func gateSameHostKey(h *store.Host) bool {
+	files, _ := filepath.Glob(sshdHostKeys)
+	if len(files) == 0 {
+		return false
+	}
+	pins, err := sshx.PinnedKeys(net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())))
+	if err != nil || len(pins) == 0 {
+		return false
+	}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		own, _, _, _, err := ssh.ParseAuthorizedKey(b)
+		if err != nil {
+			continue
+		}
+		for _, p := range pins {
+			if sshx.SameKey(p, own) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // gateLoopbackZone: an IPv6 zone that is a loopback interface here (lo,
