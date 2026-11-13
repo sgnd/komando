@@ -60,6 +60,17 @@ var shapeCases = [][]string{
 	{"vpn", "rm", "lab"},
 }
 
+// clusterShapeCases run against a loopback Kubernetes API
+// (newDetailCluster), imported as conn prod after the cases above, so
+// those see the same inventory as before.
+var clusterShapeCases = [][]string{
+	{"cluster", "describe", "prod", "pod/api-1"},
+	{"cluster", "describe", "prod", "deployment/api"},
+	{"cluster", "describe", "prod", "secret/app-db"},
+	{"cluster", "logs", "prod", "api-1"},
+	{"cluster", "logs", "prod", "-l", "app=api"},
+}
+
 // TestOutputShapes: agents parse komando's JSON, so a field may be added
 // but never renamed, removed or given another type within one output
 // contract (out.Contract). This test keeps the shape of the answers above
@@ -83,7 +94,13 @@ func TestOutputShapes(t *testing.T) {
 		}
 	}
 	got := map[string]any{}
-	for _, args := range shapeCases {
+	kube := newDetailCluster(t)
+	for i, args := range append(shapeCases, clusterShapeCases...) {
+		if i == len(shapeCases) {
+			if s, err := runCache(t, "-o", "json", "import", "kubeconfig", kube.kubeconfig(t)); err != nil {
+				t.Fatalf("import kubeconfig: %v\n%s", err, s)
+			}
+		}
 		s := runShape(t, args)
 		g.dryRun, store.DryRun = false, false
 		var v any
@@ -116,7 +133,7 @@ func TestOutputShapes(t *testing.T) {
 	if err := json.Unmarshal(b, &want); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range shapeCases {
+	for _, args := range append(shapeCases, clusterShapeCases...) {
 		key := strings.Join(args, " ")
 		w, ok := want[key]
 		if !ok {

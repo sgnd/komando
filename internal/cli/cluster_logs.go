@@ -91,7 +91,10 @@ the pods that exist when it starts. --since takes a duration back from now
 				if err != nil {
 					return nil, err
 				}
-				q := url.Values{"tailLines": {strconv.Itoa(limit)}}
+				q := url.Values{}
+				if limit > 0 { // --limit 0 is every line
+					q.Set("tailLines", strconv.Itoa(limit))
+				}
 				if timestamps {
 					q.Set("timestamps", "true")
 				}
@@ -117,6 +120,13 @@ the pods that exist when it starts. --since takes a duration back from now
 				if len(pods) == 1 {
 					res.Pod = pods[0]
 				}
+				// JSON gets each line on its own, with its time: ask the
+				// API for times, and keep them in logs only when asked
+				lined := out.P.Format != "text"
+				if lined {
+					q.Set("timestamps", "true")
+					res.Lines = []logLine{}
+				}
 				many := len(pods) > 1
 				var sb strings.Builder
 				for _, p := range pods {
@@ -124,15 +134,28 @@ the pods that exist when it starts. --since takes a duration back from now
 					if err != nil {
 						if many {
 							fmt.Fprintf(&sb, "[%s] (no logs: %v)\n", p, err)
+							if lined {
+								res.Lines = append(res.Lines, logLine{Pod: p, Container: container, Text: fmt.Sprintf("(no logs: %v)", err)})
+							}
 							continue
 						}
 						return nil, err
 					}
+					text := string(b)
+					if lined {
+						var ls []logLine
+						ls, text = splitLogLines(text, p, logContainer(ctx, k, space, p, container), timestamps)
+						res.Lines = append(res.Lines, ls...)
+						if limit > 0 && len(ls) >= limit {
+							res.Truncated = true // the pod may have older lines
+							out.P.CutNoted()
+						}
+					}
 					if !many {
-						res.Logs = string(b)
+						res.Logs = text
 						return res, nil
 					}
-					for _, line := range strings.SplitAfter(string(b), "\n") {
+					for _, line := range strings.SplitAfter(text, "\n") {
 						if line != "" {
 							sb.WriteString("[" + p + "] " + out.NoCR(line)) // no \r back over the name
 						}
@@ -147,6 +170,54 @@ the pods that exist when it starts. --since takes a duration back from now
 	flagAlias(c, "tail", "limit") // kubectl's word: a permanent synonym
 	clusterLogFlags(c.Flags(), &container, &since, &selector, &previous, &timestamps, &follow)
 	return c
+}
+
+// splitLogLines splits what the API sent with timestamps=true into lines
+// with their times, and gives back the text as the user asked for it:
+// with the times only under --timestamps.
+func splitLogLines(raw, pod, container string, timestamps bool) ([]logLine, string) {
+	if raw == "" {
+		return nil, ""
+	}
+	var lines []logLine
+	var b strings.Builder
+	for _, line := range strings.SplitAfter(raw, "\n") {
+		if line == "" {
+			continue
+		}
+		body := strings.TrimSuffix(line, "\n")
+		at, text := "", body
+		if ts, rest, ok := strings.Cut(body, " "); ok {
+			if _, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+				at, text = ts, rest
+			}
+		}
+		lines = append(lines, logLine{LoggedAt: at, Pod: pod, Container: container, Text: text})
+		if timestamps {
+			b.WriteString(line)
+		} else {
+			b.WriteString(text + line[len(body):])
+		}
+	}
+	return lines, b.String()
+}
+
+// logContainer is the container whose logs were read: the one named with
+// -c, else the pod's only container ("" when that cannot be read).
+func logContainer(ctx context.Context, k *kube.Client, space, pod, named string) string {
+	if named != "" {
+		return named
+	}
+	var o map[string]any
+	if k.Get(ctx, "/api/v1/namespaces/"+url.PathEscape(space)+"/pods/"+url.PathEscape(pod), nil, &o) != nil {
+		return ""
+	}
+	spec, _ := o["spec"].(map[string]any)
+	if cs, _ := spec["containers"].([]any); len(cs) == 1 {
+		c, _ := cs[0].(map[string]any)
+		return str(c["name"])
+	}
+	return ""
 }
 
 // clusterLogFlags are cluster logs' own flags.

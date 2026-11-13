@@ -160,6 +160,13 @@ autoscaler targets. In text mode the tables look like kubectl's
 (`NAME READY STATUS RESTARTS AGE NODE` for pods). In JSON the same rows are
 under `data.items[]`, for Kubernetes and Swarm alike.
 
+In JSON, `cluster describe` of a Kubernetes object also gives
+`data.detail`, made for a program to read: `kind`, `name`, `namespace`,
+`status` (a pod's phase, `ready 2/3` for a workload), `created_at`,
+`labels`, `conditions[]` (`type`, `status`, `reason`, `message`) and
+`events[]` (`type`, `reason`, `message`, `count`, `last_seen_at`). It never
+holds a Secret's values.
+
 ### Many clusters at once
 
 `cluster status`, `cluster list`, `cluster events` and `cluster helm list`
@@ -223,6 +230,10 @@ then the pod or workload.
 - `-f` keeps reading new lines. Ctrl-C or `--timeout` ends it normally.
 - `--since` takes a duration (`10m`, `2h`) or a time (`2026-01-02T10:00:00Z`).
 - `--timestamps` starts each line with its time; `-c` picks a container.
+- In JSON, `data.lines[]` has each line on its own: `logged_at` (its time),
+  `pod`, `container` and `text`. `data.truncated` (and `meta.truncated`) is
+  true when a pod sent `--limit` lines, so it may have older ones.
+  `--limit 0` reads every line.
 
 ## Deploy a new version, and roll back
 
