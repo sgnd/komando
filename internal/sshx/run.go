@@ -65,13 +65,25 @@ type envVar struct {
 	secret     bool
 }
 
+// HostSecretEnv says whether the host's own env values that come from the
+// vault go into this command's environment; nil is yes. The cli says no for
+// an AI agent until a person has said yes: in the command's environment
+// the agent could read the value back in a form masking does not know
+// (printenv X | rev). extra (a command's --env) is checked where it is
+// given.
+var HostSecretEnv func(c *Client) bool
+
 // commandEnv is the host's env and extra, sorted by name. A value written
 // secret:NAME is read from the vault here, so it never passes through the
 // agent (and output hides vault values too).
 func commandEnv(c *Client, extra map[string]string) ([]envVar, error) {
 	env := map[string]string{}
 	if c != nil && c.Host != nil {
+		keep := HostSecretEnv == nil || HostSecretEnv(c)
 		for k, v := range c.Host.Env {
+			if !keep && strings.HasPrefix(v, "secret:") {
+				continue
+			}
 			env[k] = v
 		}
 	}
