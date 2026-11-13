@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -31,5 +32,27 @@ func TestFsFleetText(t *testing.T) {
 	}
 	if n := many.changedWithBackup(); n != 1 {
 		t.Errorf("changedWithBackup %d, want 1", n)
+	}
+}
+
+// The JSON of fs replace and fs restore, on one server or a group: one
+// result per server under data.results, and data.summary.
+func TestFsFleetJSONShape(t *testing.T) {
+	d := fsFleetData{Results: []fsChange{{"host": "web1", "ok": true, "path": "/etc/a.conf", "would_change": true, "replacements": 1, "diff": "-a\n+b\n"}},
+		Summary: fleetSummary{Total: 1, OK: 1}}
+	b, err := json.Marshal(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Results []map[string]any `json:"results"`
+		Summary map[string]any   `json:"summary"`
+	}
+	if err := json.Unmarshal(b, &v); err != nil {
+		t.Fatal(err)
+	}
+	r := v.Results[0]
+	if r["host"] != "web1" || r["ok"] != true || r["path"] != "/etc/a.conf" || r["would_change"] != true || v.Summary["total"] != float64(1) {
+		t.Errorf("shape: %s", b)
 	}
 }
