@@ -2661,83 +2661,83 @@ Error: missing arguments; usage: komando fs mv TARGET SRC DST
 ### komando -o json fs replace (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
 ### komando -o json fs replace (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
 ### komando -o json fs replace x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
 ### komando -o json fs replace x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.replace","error":{"code":"USAGE","message":"missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT","hint":"for example: komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs replace x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs replace SERVER PATH --old TEXT --new TEXT
+Error: missing arguments; usage: komando fs replace TARGET PATH --old TEXT --new TEXT
 ### komando -o json fs restore (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore SERVER PATH
+Error: missing arguments; usage: komando fs restore TARGET PATH
 ### komando -o json fs restore (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore SERVER PATH
+Error: missing arguments; usage: komando fs restore TARGET PATH
 ### komando -o json fs restore x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore x1 (agent text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore SERVER PATH
+Error: missing arguments; usage: komando fs restore TARGET PATH
 ### komando -o json fs restore x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore SERVER PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.restore","error":{"code":"USAGE","message":"missing arguments; usage: komando fs restore TARGET PATH","hint":"for example: komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs restore x1 (script text)
 exit 2
 --- stdout
 --- stderr
-Error: missing arguments; usage: komando fs restore SERVER PATH
+Error: missing arguments; usage: komando fs restore TARGET PATH
 ### komando -o json fs rm (agent json)
 exit 2
 --- stdout

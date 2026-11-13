@@ -80,9 +80,12 @@ komando fs replace web1 /etc/ssh/sshd_config --regex \
 `--all` replaces every match instead. `--regex` treats `--old` as a Go
 regular expression; `$1` in `--new` inserts a group.
 
-`fs replace`, `fs write` and `fs restore` change one server's file. For
-many servers, run them once per server (or copy one file to many with
-`komando upload`).
+On a group, `fs replace` makes the same edit on every server
+(`komando fs replace @web ... --dry-run` first shows each server's diff),
+and `fs restore @web PATH` puts back each server's own newest backup. Each
+server has its own result; one where `--old` is not found fails on its own
+(`NO_MATCH`) while the others are changed. `fs write` changes one server's
+file; to put one file on many servers use `komando upload`.
 
 ### Write a whole file
 
@@ -320,8 +323,8 @@ For a single file, use `komando upload` or `komando download`.
 
 ## Limits
 
-- `fs replace`, `fs write` and `fs restore` work on one server per run; a
-  target that picks several stops with an error.
+- `fs write` works on one server per run; a target that picks several
+  stops with an error (use `komando upload` for many).
 - `fs cat` reads at most `--max-bytes` (1 MiB by default) and refuses a
   binary file in `-o text`.
 - `fs list` shows up to 1000 entries unless `--limit` says otherwise.

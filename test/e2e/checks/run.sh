@@ -31,7 +31,7 @@ set +e; $K fs rm direct $R/avail --allow-dangerous >/dev/null; check "fs rm of a
 check "fs rm of a missing path says so" True "$($K fs rm direct $R/nope -o text --allow-dangerous | grep -q 'not found' && echo True || echo False)"
 check "fs cat of a folder" IS_A_DIRECTORY "$($K fs cat direct $R/avail | jget 'd["error"]["code"]' || true)"
 set +e; $K fs chmod direct $R/b 0644 >/dev/null; check "fs chmod with swapped args -> 2" 2 $?; set -e
-check "fs replace dry-run says would_change" True "$($K fs replace direct $R/b --old b --new c --dry-run | jget 'd["data"]["would_change"]')"
+check "fs replace dry-run says would_change" True "$($K fs replace direct $R/b --old b --new c --dry-run | jget 'd["data"]["results"][0]["would_change"]')"
 check "diff has real hunk headers" True "$($K fs write direct $R/b --content c --dry-run | jget 'd["data"]["diff"].startswith("@@ -1 +1 @@")')"
 
 # transfers
