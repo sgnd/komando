@@ -223,3 +223,30 @@ func TestLogsFileSudoFollowsNoOtherUsersLink(t *testing.T) {
 		t.Fatalf("follow: %q, shown %q", c, o.source())
 	}
 }
+
+// O5: fs chmod --sudo does not change, as root, the mode of what a link
+// another server user planted names.
+func TestSudoChmodFollowsNoOtherUsersLink(t *testing.T) {
+	d, _ := filepath.EvalSymlinks(t.TempDir())
+	secret := filepath.Join(d, "shadow")
+	_ = os.WriteFile(secret, []byte("x"), 0o600)
+	link := filepath.Join(d, "app.log")
+	if err := os.Symlink(secret, link); err != nil {
+		t.Fatal(err)
+	}
+	mode := func() os.FileMode { fi, _ := os.Stat(secret); return fi.Mode().Perm() }
+	_, stderr, code := runAsRoot(t, chmodScript("0644", []string{link}, false, true), notRoot(link))
+	if code != sudoExitLink || mode() != 0o600 {
+		t.Fatalf("another user's link followed: exit %d, mode %o", code, mode())
+	}
+	if e := fsExitMap(code, stderr); e == nil || e.Code != "IS_A_SYMLINK" || !strings.Contains(e.Message, link) {
+		t.Fatalf("error: %+v", e)
+	}
+	// root's link, or the SSH user's: followed
+	if got, _, code := runAsRoot(t, chmodScript("0640", []string{link}, false, true), nil); code != 0 || mode() != 0o640 || got != "mode 0640: "+link {
+		t.Fatalf("root's link: %q exit %d, mode %o", got, code, mode())
+	}
+	if _, _, code := runAsRoot(t, chmodScript("0600", []string{link, secret}, false, true), map[string]string{link: "1000 1000 777 deploy deploy"}); code != 0 || mode() != 0o600 {
+		t.Fatalf("the SSH user's link: exit %d, mode %o", code, mode())
+	}
+}

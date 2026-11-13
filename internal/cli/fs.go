@@ -545,7 +545,7 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 		Short: short,
 		Args:  cobra.MinimumNArgs(minArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fl := map[string]bool{}
+			fl := map[string]bool{"sudo": sudo}
 			for k, v := range vals {
 				fl[k] = *v
 			}
@@ -638,7 +638,7 @@ func fsChmodCmd() *cobra.Command {
 		if f["recursive"] {
 			r = "-R "
 		}
-		return chmodScript(a[0], a[1:], f["recursive"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
+		return chmodScript(a[0], a[1:], f["recursive"], f["sudo"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
 	}, map[string]string{"recursive": "change folders and everything in them"})
 }
 

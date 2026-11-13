@@ -162,7 +162,7 @@ They behave like the commands you know, with these safety differences:
   succeeds, like `rm -f`. A folder needs `--recursive` as well.
 - Paths are taken literally: `'/tmp/*.log'` is not a pattern. Use
   `komando exec` for that.
-- All of them take `--sudo`; `fs chmod -r` changes a whole folder.
+- All of them take `--sudo`; `fs chmod -r` changes a whole folder. `fs chmod --sudo` does not follow a link another server user made (`IS_A_SYMLINK`).
 
 ## Copy files
 

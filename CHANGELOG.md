@@ -1231,7 +1231,8 @@ instead.
   file itself) is followed only when root made it. `fs cat --sudo`, a
   `--sudo` download, `logs --file F --sudo` and the reads `fs replace
   --sudo` makes do not read through a link made by a user other than root
-  and the SSH user (IS_A_SYMLINK). `logs --file F --sudo --follow` keeps
+  and the SSH user (IS_A_SYMLINK), and `fs chmod --sudo` does not change
+  the mode of what such a link names. `logs --file F --sudo --follow` keeps
   reading the file it opened, so after a log rotation run it again.
 - The approval window for an AI agent's `exec --script FILE`,
   `job start --script FILE` and `exec --stdin-file FILE` shows the

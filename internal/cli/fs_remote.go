@@ -254,6 +254,8 @@ func fsExitMap(code int, stderr string) *out.Error {
 		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the path with `komando fs list TARGET FOLDER`", "%s", msg)
 	case fsExitDestExists:
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "add --overwrite to replace it", "%s", msg)
+	case sudoExitLink:
+		return out.Errf(out.ExitConflict, "IS_A_SYMLINK", "look at where it leads (`komando fs stat TARGET PATH`), then change that file by its own path, or run without --sudo", "%s", msg)
 	}
 	if strings.Contains(msg, "Permission denied") || strings.Contains(msg, "Operation not permitted") {
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", fsSudoRetry, "%s", msg)
@@ -324,7 +326,13 @@ func mvScript(src, dst string, overwrite bool) string {
 	return b.String()
 }
 
-func chmodScript(mode string, paths []string, recursive bool) string {
+// chmodScript changes the mode of paths. As root (asRoot, --sudo) each
+// path is first turned into its real path, following only links made by
+// root or the SSH user (as a read as root does): plain chmod follows a
+// link, so a link another server user planted (app.log -> /etc/shadow)
+// would have root change the mode of what it names. chmod -R itself never
+// follows a link it meets inside a folder.
+func chmodScript(mode string, paths []string, recursive, asRoot bool) string {
 	var b strings.Builder
 	for _, p := range paths {
 		b.WriteString("if [ ! -e " + rq(p) + " ]; then " + failWith(fsExitNoSource, p+": no such file or directory") + "; fi; ")
@@ -333,9 +341,17 @@ func chmodScript(mode string, paths []string, recursive bool) string {
 	if recursive {
 		r = "-R "
 	}
+	args := rqAll(paths)
+	if asRoot {
+		b.WriteString(`me=${SUDO_UID:-0}; ok="0 $me"; set --; `)
+		for _, p := range paths {
+			b.WriteString("p=" + rq(p) + "; " + sudoWalkScript(failWith(sudoExitLink, p+" is, or leads through, a link made by a user other than root and the SSH user: as root, komando does not follow it")) + `set -- "$@" "$p"; `)
+		}
+		args = `"$@"`
+	}
 	// -- before the mode: a mode like -w is not an option, and BSD chmod
 	// reads a -- after the mode as a file name
-	b.WriteString("chmod " + r + "-- " + sshx.Q(mode) + " " + rqAll(paths))
+	b.WriteString("chmod " + r + "-- " + sshx.Q(mode) + " " + args)
 	for _, p := range paths {
 		b.WriteString(" && " + say("mode "+mode+": "+p))
 	}
