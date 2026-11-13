@@ -55,13 +55,3 @@ func (p *Printer) printCut() {
 		fmt.Fprintf(os.Stderr, "Note: showing the first %d; --limit 0 shows all\n", n)
 	}
 }
-
-// UsedRetired records, for meta.deprecated, the first retired spelling the
-// command used and what replaces it.
-func (p *Printer) UsedRetired(used, now string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.deprecated == nil {
-		p.deprecated = &Deprecated{Used: used, Now: now}
-	}
-}

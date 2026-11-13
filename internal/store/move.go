@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"os"
-	"path/filepath"
 
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/sealrow"
@@ -96,18 +95,6 @@ func AuditAfter(n int64) ([][]byte, error) {
 		return err
 	})
 	return out, err
-}
-
-// LegacyKeyFiles are the private key files under keys/ (not the .pub).
-func LegacyKeyFiles() []string {
-	all, _ := filepath.Glob(Path("keys", "*"))
-	var out []string
-	for _, p := range all {
-		if filepath.Ext(p) != ".pub" {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 var archiveMagic = []byte("komando-archive-sealed-1\n")

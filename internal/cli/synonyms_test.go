@@ -4,38 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-
-	"github.com/spf13/cobra"
 )
-
-// TestOldNames: every old name is hidden, names a command that exists and
-// is not hidden, and has that command's kind (docs/design/ux.md, section 10).
-func TestOldNames(t *testing.T) {
-	root := newRoot()
-	found := map[string]bool{}
-	var walk func(c *cobra.Command)
-	walk = func(c *cobra.Command) {
-		if now := c.Annotations[oldNameNote]; now != "" {
-			found[commandKey(c)] = true
-			n, _, err := root.Find(strings.Fields(now))
-			switch {
-			case !c.Hidden:
-				t.Errorf("%s: an old name is hidden", commandKey(c))
-			case err != nil || n == c || n.Hidden:
-				t.Errorf("%s: says %q, which is not a command", commandKey(c), now)
-			case backgroundCmd(c):
-				t.Errorf("%s: an old name gets the checks of the new one", commandKey(c))
-			}
-			if _, ok := kindOf(c); !ok {
-				t.Errorf("%s: no kind", commandKey(c))
-			}
-		}
-		for _, s := range c.Commands() {
-			walk(s)
-		}
-	}
-	walk(root)
-}
 
 func TestExportKindHost(t *testing.T) {
 	invHome(t)
@@ -73,15 +42,13 @@ func TestHabitWordsSuggestTheCommand(t *testing.T) {
 	}
 }
 
-// A synonym (a cobra alias such as `x` for exec) is permanent and silent:
-// no stderr line and no meta.deprecated.
+// A synonym (a cobra alias such as `x` for exec) is silent: no stderr
+// line.
 func TestSynonymsPrintNothing(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	var d map[string]any
-	note := stderrOf(t, func() { d = mustRun(t, "--dry-run", "x", "web1", "--", "uptime") })
-	if m, _ := d["_meta"].(map[string]any); note != "" || m["deprecated"] != nil {
-		t.Errorf("x printed %q, meta %v", note, m)
+	if note := stderrOf(t, func() { mustRun(t, "--dry-run", "x", "web1", "--", "uptime") }); note != "" {
+		t.Errorf("x printed %q", note)
 	}
 }
 

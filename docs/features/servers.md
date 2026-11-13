@@ -617,7 +617,7 @@ an AI agent gets `NEEDS_PERSON`.
   `komando test`.
 - `komando test` tells you, per server, the login user and whether sudo
   works without a password. In JSON each result names its target in `host`,
-  like `exec` and `facts` (`name` holds the same value, for older scripts).
+  like `exec` and `facts`.
   `komando facts` reports the same sudo check, plus much more.
 - A proxy command runs on this computer, so an AI agent needs a person's yes
   to import one.

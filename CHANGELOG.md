@@ -24,8 +24,6 @@ New fields, all additive (left out when they have nothing to say):
 - `meta.would_need`: under `--dry-run`, the flags the real run needs
   (`--allow-dangerous`, `--yes`).
 - `meta.truncated`: `true` when a list stopped at its `--limit`.
-- `meta.deprecated`: `{used, now}` when an old flag or name was used; the
-  old one still works for now.
 - `meta.not_simulated`: under `--dry-run`, the steps the dry run could not
   try.
 - In `komando schema`: `confirm` on each command (its approval tiers and
@@ -49,9 +47,9 @@ Values in `komando schema` that changed (field names are the same):
 | `path` and `usage` of renamed commands | `secret get`, `... ls`, `... mv`, `db grants`, `pkg security --apply` | `secret show`, `... list`, `... rename`, `db user show`, `pkg upgrade --security` |
 | `usage` argument words | `KEY` for several things, `HOST`, `NAME` | one meaning per word (`OBJECT`, `SETTING`, `SERVER`, `USER`, `JOB`, `TUNNEL`, `TYPE/NAME`, ...) |
 
-The old names in the last two rows still work, and `komando schema OLD`
-describes the command they run. Synonyms (`ls`, `mv`, `get`, `keys`,
-plurals) stay for good. The retired flags are gone (komando is used
+Synonyms (`ls`, `mv`, `get`, `keys`, plurals) stay for good, and
+`komando schema` describes the command they run; `db grants` and `pkg
+security --apply` are gone. The retired flags are gone (komando is used
 internally only): `db dump/restore --on` (now `--run-on`), `--from` on
 `db user`, `db grant` and `db revoke` (`--from-host`), `fs list --max`
 (`--limit`), `fs restore --from` (`--copy`), `storage rm --limit` and
@@ -131,7 +129,7 @@ instead.
   share the name it names both commands (usage error); a name nothing
   has is a usage error, as before, whose hint shows `--starts-with`.
   `rename --starts-with OLD NEW` renames by prefix.
-- `komando schema OLD` describes the command an old or second name runs:
+- `komando schema NAME` describes the command a second name runs:
   an alias (`schema fs ls`), a command ID as the envelope writes it
   (`schema secret.get`, `schema host.mv`) or a hidden synonym (`schema group show`). Before, hidden names gave
   `COMMAND_NOT_FOUND`.
@@ -495,15 +493,11 @@ instead.
   `job start TARGET COMMAND` without `--` and `cache run CONN "GET k"`
   are refused too: write `job start TARGET -- COMMAND` and
   `cache run CONN -- "GET k"`.
-- A flag that gets a new name keeps its old name as a hidden spelling of
-  the same flag, so every safety check (the ssh gate's read-only keys
-  included) sees the flag under either name. A test checks each spelling.
-- An old name or flag that komando still accepts (`komando script`,
-  `db query --csv`) no longer prints "goes away in the next release":
-  it keeps working. It now says so on stderr only at a terminal, and JSON
-  output names it in a new `meta.deprecated` field (`used`, `now`), so
-  `2>&1 | jq` and AI agents see no new text. A short alias such as `x`
-  for `exec` prints nothing at all.
+- A flag synonym (`--tail`, `--to-revision`, `--value`, `-g`/`-t` on
+  edit) is a hidden spelling of the same flag, so every safety check (the
+  ssh gate's read-only keys included) sees the flag under either name. A
+  test checks each spelling. A short alias such as `x` for `exec` prints
+  nothing extra.
 - Every command now carries a stable ID (its dotted path, such as
   `fs.ls`), and the envelopes, the audit log, personal-data hiding, the
   ssh-gate tables and the other checks keyed by command use it. A command
@@ -608,9 +602,8 @@ instead.
   name (`secret show`, `host rename`, `fs list`, `storage list`, `pkg
   upgrade --security`, `db dump --run-on`, `rename --starts-with`) and
   teach the `--` before the words for another program on every command
-  that takes them. `komando doctor`, when an AI agent's skill is from
-  another komando version, names the old spellings it still teaches and
-  what to use now; run `komando guide install` again.
+  that takes them. `komando doctor` says when an AI agent's skill is from
+  another komando version; run `komando guide install` again.
 - komando's own lines on stderr start with a capital or a fixed label:
   `Hint:`, `Warning:`, `Note:`, `Dry run:`, `Skipped`, `Nothing to show`
   (were lower case). A stop reads `Stopped: <what>; nothing was changed`,
@@ -690,6 +683,11 @@ instead.
 - `import komando` reads only the export file (`komando-export/1`, or the
   envelope `komando export` prints); a plain list of hosts or the
   `{"hosts": [...]}` that `host export` printed before 0.12 is refused.
+- `meta.deprecated` and the code behind it: nothing uses an old spelling
+  now, so no command sets it. `komando schema` no longer resolves old
+  names (an alias, a command ID and a hidden synonym still resolve), and
+  `komando doctor` no longer lists the old spellings a stale AI agent
+  skill teaches (it still says the skill is from another version).
 - The menu that `komando` alone opened at a terminal, its task lists and
   the full-screen forms and review screen (owner decision 2026-11-12:
   person mode is commands). Everything it did is a command: `komando`

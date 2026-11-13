@@ -313,7 +313,7 @@ func formCmdSpec(cmd *cobra.Command) formSpec {
 	}
 	globals := cmd.Root().PersistentFlags()
 	cmd.Flags().VisitAll(func(f *pflag.Flag) { // its own flags and a parent's (docker --sudo)
-		if asked[f.Name] || f.Hidden || f.Deprecated != "" || slices.Contains(formNeverFlags, f.Name) ||
+		if asked[f.Name] || f.Hidden || slices.Contains(formNeverFlags, f.Name) ||
 			slices.Contains(h.hide, f.Name) || globals.Lookup(f.Name) != nil {
 			return
 		}

@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
@@ -21,8 +20,6 @@ import (
 // command, so a new command cannot drift from them.
 func TestConventions(t *testing.T) {
 	// one meaning per short flag: TestStandardShorthands (shorthand_test.go)
-	// old flag names that were renamed and then removed; they must not come back
-	retired := []string{"force", "param", "lines", "number", "host", "mutating", "jump", "rename", "wait-timeout"}
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		path := c.CommandPath()
@@ -52,11 +49,6 @@ func TestConventions(t *testing.T) {
 		if limit := map[bool]int{true: 64, false: 72}[c.Parent() == c.Root()]; len(c.Short) > limit {
 			t.Errorf("%s: Short is %d characters, over %d; move the detail to Long", path, len(c.Short), limit)
 		}
-		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
-			if slices.Contains(retired, f.Name) {
-				t.Errorf("%s --%s: retired flag name; use the new name (see CHANGELOG, Removed)", path, f.Name)
-			}
-		})
 		for _, sub := range c.Commands() {
 			walk(sub)
 		}

@@ -20,6 +20,14 @@ import (
 // `komando schema` can show that one (S-9.8).
 const synonymNote = "komando.synonym-of"
 
+// backgroundCmd reports whether cmd is hidden because komando itself runs
+// it (tunnel serve, vpn serve, the agent guard), not a synonym (cluster
+// info, tunnel show) a person or agent types: those get every check of the
+// command they name.
+func backgroundCmd(cmd *cobra.Command) bool {
+	return cmd.Hidden && cmd.Annotations[synonymNote] == ""
+}
+
 // addAliases adds permanent synonyms to c.
 func addAliases(c *cobra.Command, names ...string) *cobra.Command {
 	for _, n := range names {

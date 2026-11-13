@@ -55,15 +55,11 @@ func TestStandardRenamedIDs(t *testing.T) {
 	}
 }
 
-// Renaming through the old name works, prints the same command ID and is
-// a silent synonym: no meta.deprecated.
-func TestRenameOldVerbStillWorks(t *testing.T) {
+// mv is a synonym of rename and prints the same command ID.
+func TestRenameMvSynonym(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	d := mustRun(t, "host", "mv", "web1", "web-01")
-	if m := d["_meta"].(map[string]any); m["deprecated"] != nil {
-		t.Errorf("host mv is a permanent synonym, not a retired name: %v", m)
-	}
+	mustRun(t, "host", "mv", "web1", "web-01")
 	if d := mustRun(t, "host", "rename", "web-01", "web-02"); d["to"] != "web-02" {
 		t.Errorf("host rename: %v", d)
 	}

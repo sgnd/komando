@@ -17,9 +17,6 @@ import (
 // section 16); an earlier komando kept it under keys/. A key added from
 // elsewhere (key add) stays the person's own file at its path.
 
-// ManagedKeyPath is where a key komando makes under name is kept.
-func ManagedKeyPath(name string) string { return Path("keys", name) }
-
 // sealedKeyPrefix starts the Path of a key kept in the sealed store.
 const sealedKeyPrefix = "sealed:"
 

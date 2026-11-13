@@ -261,9 +261,7 @@ right now keeps working; the next command starts the new version.
   there ends up belonging to root.
 - Afterwards, run `komando guide install` (without `sudo`): the skill your
   AI agents read comes with komando and changes with it. Until then
-  `komando doctor` marks the skill as from another version, and names the
-  old spellings it still teaches (`pkg security --apply`, `--on HOST`)
-  with the ones to use now.
+  `komando doctor` marks the skill as from another version.
 - Going back to an older version needs a person's yes (for an AI agent:
   `--yes` and the "Allow once" window), because an older komando may lack
   safety checks the newer one has. Without a VERSION, `update` never goes

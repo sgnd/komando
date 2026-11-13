@@ -144,7 +144,7 @@ func TestFormEveryCommandHasAnArea(t *testing.T) {
 	walk = func(c *cobra.Command) {
 		for _, s := range c.Commands() {
 			walk(s)
-			if s.Runnable() && !s.Hidden && s.Deprecated == "" && s.Name() != "help" && formAreaOf(s) < 0 {
+			if s.Runnable() && !s.Hidden && s.Name() != "help" && formAreaOf(s) < 0 {
 				t.Errorf("%s is in no area of formAreas", commandKey(s))
 			}
 		}

@@ -166,8 +166,7 @@ scope given here (S-5.14 of the command standard).
 command tree and checks every letter against this table. A new short
 flag needs a row here first, with a well-known tool that uses the letter
 the same way. A letter that means something else on a command today is
-retired there with a usage error naming the new flag, unless every input
-that works today still means the same or fails.
+taken away there in the same change that gives it its new meaning.
 
 | Letter | Long flag | Scope | From |
 |---|---|---|---|
@@ -457,10 +456,13 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 - Shell completion completes host, conn, group, and tag names from the inventory.
 - `komando guide` (for agents) and `docs/features/` (for people, one file per feature) are always
   updated in the same commit as the feature.
-- Renaming a command or flag: the old name keeps working as an alias
-  for one minor release, with a warning on stderr, then it is removed.
+- Renaming a command or flag: while komando is used internally only
+  (owner rule 2026-11-13), the old name goes at once, and every caller
+  (docs, skill, tests, the apps) changes in the same commit. A plain
+  synonym people type (`ls`, `mv`, `get`, a plural) may stay as a cobra
+  alias; it is UX, not an old name.
 - `TestConventions` (`internal/cli/conventions_test.go`) guards part of
-  the naming rules: retired flag names, the `rm` and
+  the naming rules: the `rm` and
   `list`/`ls` aliases, an example on every command and the length of the
   one-line help. The verb list in section 1 is kept by review: no test
   checks it.
