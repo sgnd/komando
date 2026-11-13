@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"mime"
 	"os"
 	"path"
 	"path/filepath"
@@ -271,104 +270,6 @@ func (s sftpSide) remove(_ context.Context, rel string) error {
 	return fsErr(rel, s.sc.Remove(path.Join(s.root, rel)))
 }
 
-// sudoSftpSide is a folder on a server that sync --sudo writes as root:
-// it is listed as the SSH user (SFTP), and each file goes in as `upload
-// --sudo` puts one there (writeRemoteSudo): staged in the SSH user's /tmp
-// (0600), its path checked by root, never written through a folder
-// another user may change (SHARED_FOLDER_CONFLICT), an existing file
-// keeping its owner. The mode is the source file's, so the next sync
-// sees no change.
-type sudoSftpSide struct {
-	sftpSide
-	c *sshx.Client
-}
-
-func (s sudoSftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
-	if strings.Contains("/"+rel+"/", "/../") {
-		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "rename the file so it has no .. in its path", "path %q leads outside %s; nothing outside the folder was written", rel, s.root)
-	}
-	dst := path.Join(s.root, rel)
-	mode := ""
-	if f.Mode != 0 {
-		mode = fmt.Sprintf("%04o", f.Mode.Perm())
-	}
-	tmpName := fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst))
-	_, err := writeRemoteSudo(ctx, s.c, s.sc, dst, mode, tmpName, writeOpts{sudo: true, mkdirs: true}, map[string]any{},
-		func(w io.Writer) error { _, err := io.Copy(w, storex.CtxReader(ctx, r)); return err })
-	return err
-}
-
-func (s sudoSftpSide) remove(ctx context.Context, rel string) error {
-	if strings.Contains("/"+rel+"/", "/../") {
-		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "rename the file so it has no .. in its path", "path %q leads outside %s", rel, s.root)
-	}
-	p := path.Join(s.root, rel)
-	r, err := sshx.Run(ctx, s.c, sshx.RunRequest{Command: "rm -f -- " + sshx.Q(p), Sudo: true, Timeout: time.Minute, MaxOutput: 4096})
-	if err != nil {
-		return err
-	}
-	if e := sudoProblem(s.c.Host.Name, r); e != nil {
-		return e
-	}
-	if r.ExitCode != 0 {
-		return out.Errf(out.ExitRemote, "WRITE_FAILED", "look at it with `komando fs stat SERVER PATH`", "%s: %s", p, strings.TrimSpace(r.Stderr))
-	}
-	return nil
-}
-
-// Sync side: a prefix in a storage conn.
-
-type bucketSide struct {
-	b      storex.Bucket
-	prefix string // "" or "folder/" inside the conn
-}
-
-func (b bucketSide) key(rel string) string { return b.prefix + rel }
-
-func (b bucketSide) list(ctx context.Context) (map[string]syncFile, error) {
-	objs, more, err := b.b.List(ctx, b.prefix, true, 1_000_000)
-	if err != nil {
-		if toErr(err).Exit == out.ExitNotFound {
-			return map[string]syncFile{}, errSideMissing // SFTP/FTP: the folder is not there yet
-		}
-		return nil, err
-	}
-	if more {
-		return nil, out.Usage("more than a million objects under %q; sync a smaller prefix", b.prefix)
-	}
-	files := map[string]syncFile{}
-	for _, o := range objs {
-		rel := strings.TrimPrefix(o.Key, b.prefix)
-		// folder markers: the prefix itself, or a key ending in / (S3
-		// consoles create them); they hold no file
-		if o.Dir || rel == "" || strings.HasSuffix(rel, "/") || o.Key+"/" == b.prefix {
-			continue
-		}
-		files[rel] = syncFile{Size: o.Size, Mtime: o.Modified}
-	}
-	if len(files) == 0 {
-		return files, errSideMissing // nothing under the prefix: S3 has no empty folders
-	}
-	return files, nil
-}
-
-func (b bucketSide) open(ctx context.Context, rel string) (io.ReadCloser, error) {
-	pr, pw := io.Pipe()
-	go func() {
-		_, err := b.b.Get(ctx, b.key(rel), pw)
-		pw.CloseWithError(err)
-	}()
-	return pr, nil
-}
-
-func (b bucketSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
-	return b.b.Put(ctx, b.key(rel), r, f.Size, mime.TypeByExtension(path.Ext(rel)))
-}
-
-func (b bucketSide) remove(ctx context.Context, rel string) error {
-	return b.b.Remove(ctx, b.key(rel))
-}
-
 // Planning what to copy and delete.
 
 type syncOpts struct {
@@ -586,7 +487,7 @@ repeatable). Try --dry-run first: it lists every file it would touch.
 --sudo writes on the servers as root, for a folder the SSH user cannot
 write (/etc/nginx): each file goes in as ` + "`upload --sudo`" + ` puts one, staged
 privately and checked by root, keeping the owner of a file that is there;
-the folder must still be readable by the SSH user.`,
+the SSH user still needs to read the folder.`,
 		Example: `  komando sync ./site @web:/var/www/site --exclude .git --dry-run
   komando sync ./site web1:/var/www/site --delete --allow-dangerous
   komando sync ./nginx @web:/etc/nginx/conf.d --sudo --dry-run

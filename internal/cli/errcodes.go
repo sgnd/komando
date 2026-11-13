@@ -263,7 +263,7 @@ var errorCodes = []errorCode{
 	{"UNKNOWN_SETTING", 2, "komando has no setting named …", "see the settings with `komando config show`: …"},
 	{"UNKNOWN_VAR", 2, "recipe … has no blank named … (…)", "see the recipe with `komando recipe list`"},
 	{"UNSAFE_BACKUP", 6, "line … is a client command, not SQL: …", "the file contains a client command that could run programs or read files where the restore runs; remove that line if the file is not from a trusted dump"},
-	{"UNSAFE_PATH", 5, "server sent the path …, which leads outside …; nothing outside the folder was written", "check the server for odd file names"},
+	{"UNSAFE_PATH", 5, "path … leads outside …; nothing outside the folder was written", "rename the file so it has no .. in its path"},
 	{"UNSUPPORTED_PLATFORM", 8, "there is no komando release for …", "build komando from source: https://github.com/sgnd/komando#install"},
 	{"UPLOAD_NOT_RENAMED", 5, "could not rename the upload into place: …; the old file was removed", "the new content is on the server as …: rename it by hand"},
 	{"URL_HAS_PASSWORD", 2, "a conn URL holds no password", "remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME"},
