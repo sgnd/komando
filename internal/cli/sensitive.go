@@ -57,6 +57,9 @@ func hiddenInLocal(p string) error {
 // --stdin-file, a script): it is a masked copy, and a command that writes
 // it out (cat > /etc/redis.conf) would put [hidden] where the real value is.
 func hiddenInInput(what string, b []byte) error {
+	if err := secretInBody(what, b); err != nil {
+		return err
+	}
 	if len(b) > hiddenScanMax || !out.HasHidden(string(b)) {
 		return nil
 	}

@@ -200,6 +200,7 @@ var errorCodes = []errorCode{
 	{"SAFETY_SETTING", 6, "… weakens komando's safety checks", "check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},
 	{"SECRET_DESTINATION", 6, "an AI agent asked to send …; that needs a person's yes", "check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},
 	{"SECRET_EXISTS", 8, "secret … is used by … already; --ask-password and --ask-psk do not replace it", "use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME"},
+	{"SECRET_INPUT_INVALID", 2, "… the value of a secret in komando's vault; an AI agent never sends one (this was written to the audit log)", "never type a secret's value: put {{secret:NAME}} where komando takes it (fs write, fs replace, -e), or ask the user to keep the value with `komando secret set NAME` and use that name"},
 	{"SECRET_IN_ARGS", 2, "refusing a secret value on the command line: it would be saved in shell history", "run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it in (stdin)"},
 	{"SECRET_IN_USE", 8, "secret … is used by …", "point them at another secret first, for example `…`, or rename it with `komando secret rename`"},
 	{"SECRET_MISMATCH", 1, "the value is not the one stored in …", "if the stored one is wrong, store the right one with `komando secret set …`"},

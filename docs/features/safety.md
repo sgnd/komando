@@ -39,7 +39,7 @@ agrees (see [When you are at the terminal](#when-you-are-at-the-terminal)).
 | **Server identity** | If a server's fingerprint changes, komando refuses to connect (`HOSTKEY_MISMATCH`). |
 | **Safe edits** | File edits replace exactly the text you name, write the whole file at once (never half-written), and can keep a `.bak` backup. As root (`--sudo`), komando follows no link another server user made, and does not write into a folder another user can change, since that user could swap the file for a link while root writes (`SHARED_FOLDER_CONFLICT`). |
 | **Sealed vault** | Passwords are sealed with AES-256-GCM, with the key in the OS keychain (or, where there is none, in a file beside the store; `komando doctor` warns). Only names are ever shown. Only a person at a terminal can see a value (`secret show --reveal`). `secret rename` and `secret cp` rename and copy inside the vault, so a value never has to be shown or typed again. `secret check` lets a person compare a value without showing it. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). See [Secrets](secrets.md). |
-| **Secrets hidden in output** | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. |
+| **Secrets hidden in output** | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. So that this hiding cannot tell an AI agent which of its guesses is a secret, an agent's arguments, script or input that hold a vault value are refused before anything runs (`SECRET_INPUT_INVALID`, a dry run too) and written to the audit log. A guess the agent has a server decode first cannot be caught. |
 | **History** | Every action is in `komando audit` (see [below](#history)). |
 
 ## When you are at the terminal
@@ -423,6 +423,7 @@ what an agent or a script gets.
 | `SSH_GATE_PATH` | 1 | `komando ssh-gate line` cannot tell komando's full path, which the line needs. | Run it by its full path, such as `/usr/local/bin/komando ssh-gate line ...`. |
 | `SHARED_FOLDER_CONFLICT` | 8 | A write as root (`--sudo`) into a folder another server user can change. | Write the file as that user instead; the hint gives the `exec --sudo-user` command. |
 | `HIDDEN_VALUE` | 2 | The text holds `[hidden]` or `[secret:NAME]`. | Change one line with `fs replace`, using `{{secret:NAME}}`. |
+| `SECRET_INPUT_INVALID` | 2 | An AI agent's arguments, `--script`, `--stdin-file` or SQL file hold the value of a secret in the vault. Refused before anything runs, a dry run too, and written to the audit log. | The agent uses `{{secret:NAME}}`; a value you gave it goes in with `komando secret set NAME` first. |
 | `SECRET_IN_ARGS` | 2 | A secret value was given on the command line. | Run `komando secret set NAME` and type it after the prompt, or use `--from-env VAR` or a pipe. |
 | `HOSTKEY_MISMATCH` | 4 | The server's identity changed. | Never "fix" it blindly; see [Results and errors](output.md#troubleshooting). |
 | `AUDIT_UNAVAILABLE` | 1 | The audit log cannot be written, so nothing runs. | `komando doctor` shows why. |

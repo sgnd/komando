@@ -8,6 +8,7 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- Hiding vault values in output told an AI agent which of its guesses was a secret: `secret show GUESS` or `exec web1 -- echo GUESS` printed `[secret:NAME]` on a hit. An agent's arguments, flags, `--script`, `--stdin-file` and `db query --file` that hold a vault value are now refused before anything runs, a dry run too (`SECRET_INPUT_INVALID`, exit 2), and the refusal is written to the audit log. The message never says which secret matched.
 - An AI agent could switch off the old-copy check with `KOMANDO_KEYCHAIN=off`: komando then did not read the store's change count from the keychain, so an agent could move `store.db` and `store.key` aside (or put an old copy back) and work with a store that has no pinned host keys or protected servers. For an agent, `off` no longer covers the change count; a missing or older store stops with `STORE_OLD_COPY` as it does without `off`.
 - On Windows, the hints for an encrypted key wrote it as `~/'.ssh\id_ed25519'`; they now write `~/.ssh/id_ed25519`.
 - On Windows, the AI agent guard (`komando guide guard`) let globs such as `cat ~/.komand?/vault.ke?` through, and reads of `/proc/*/environ` (which Cygwin and MSYS shells have): it split paths only by `/`.

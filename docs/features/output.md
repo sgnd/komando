@@ -146,6 +146,7 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
+| `SECRET_INPUT_INVALID` | an AI agent's arguments, script or file hold the value of a secret in the vault (audited) | use `{{secret:NAME}}`; a value the user gave the agent goes in with `secret set` first |
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
 | `TARGET_NOT_FOUND`, `HOST_NOT_FOUND`, `CONN_NOT_FOUND`, `TARGET_EMPTY` | a typo in a name, group or tag (`exec` says `HOST_NOT_FOUND`, `test` and `list` say `TARGET_NOT_FOUND`: the same problem) | the hint suggests the closest match; `komando list` |
 | `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` | the vault cannot be opened: no passphrase, a wrong one, or its key is gone | see [Secrets](secrets.md#troubleshooting); `komando doctor` says which |
