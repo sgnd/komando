@@ -27,6 +27,7 @@ its highlights; the sections below them give the details. Versions follow
 - `komando status` lists the AWS IAM Identity Center (SSO) logins of the profiles in `~/.aws/config`, with the profiles that share each one, when its token runs out and whether it renews itself (`data.aws_logins`). `komando logout aws --profile NAME` (or `--all`) ends one as `aws sso logout` does: AWS is told to end the token and the login in `~/.aws/sso/cache` is deleted. Before, `komando logout aws` was read as a server named aws.
 ### Added
 - Docs: "Restore from a backup" in the import guide: which backups of `~/.komando` open on this computer and on a new one (passphrase, `store.key`, keychain), and what to do about `STORE_OLD_COPY` after a restore.
+- `registry rm` and its dry run check every tag of the repository (up to 10000) for other tags on the image it deletes; they read only the first 200. `registry prune` reads repositories of up to 10000 tags (it stopped above 1000 with `TOO_MANY_TAGS`), asking for the tags' digests 8 at a time.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
