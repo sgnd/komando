@@ -53,6 +53,10 @@ type importPlan struct {
 	// as a file from someone else must not turn a check off.
 	DenyRules []string
 	Settings  map[string]string
+	// From a sealed file (import_sealed.go): the secrets it stores in the
+	// vault whatever else is added, and the private keys it adds.
+	SealedSecrets map[string]string
+	SealedKeys    []sealedKey
 }
 
 type importSource struct {
@@ -145,6 +149,8 @@ func runImport(source, path string, groups []string, overwrite bool) error {
 		return out.Errf(out.ExitUsage, "USAGE", "for example: komando import "+src.Name+" "+map[string]string{"komando": "komando-backup.json", "csv": "servers.csv"}[src.Name],
 			"give the file to import")
 	}
+	importOverwrite = overwrite // a sealed file's secrets (import_sealed.go)
+	defer func() { importOverwrite, carriedSecrets = false, nil }()
 	plan, err := src.Parse(expandHome(path))
 	if err != nil {
 		return err
@@ -169,7 +175,8 @@ type importResult struct {
 	Conns    []string     `json:"conns"`
 	Vpns     []string     `json:"vpns"`
 	Recipes  []string     `json:"recipes"`
-	Secrets  []string     `json:"secrets"` // vault names stored (never values)
+	Secrets  []string     `json:"secrets"`        // vault names stored (never values)
+	Keys     []string     `json:"keys,omitempty"` // private keys from a sealed file, kept in komando's store
 	Skipped  []importSkip `json:"skipped"`
 	NotFound []string     `json:"not_imported"` // in the source, but not something komando imports
 	// DenyRules: deny rules added from the file; SettingsDiffer: settings
@@ -217,6 +224,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	}
 	// hosts are checked like host add; they land in st (not saved) so
 	// conns can use them with --via
+	sealedKeysInto(st, plan) // so its servers keep them (vetImportHosts)
 	prefetchTwinIPs(st, plan.Hosts)
 	v, err := vetImportHosts(st, plan.Hosts, overwrite, plan.OwnRefs)
 	if err != nil {
@@ -243,23 +251,14 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	if err != nil {
 		return err
 	}
-	var recipes []*store.Snippet
-	for _, r := range plan.Recipes {
-		if _, ok := st.Snippets[r.Name]; (ok && !overwrite) || builtinRecipe(r.Name) != nil {
-			res.Skipped = append(res.Skipped, importSkip{r.Name, "a recipe with this name exists"})
-			continue
-		}
-		recipes = append(recipes, r)
-	}
+	recipes := vetImportRecipes(st, plan, overwrite, &res)
 	for _, h := range hosts {
 		res.Hosts = append(res.Hosts, h.Name)
 	}
 	for _, c := range conns {
 		res.addConn(c, plan)
 	}
-	for _, r := range recipes {
-		res.Recipes = append(res.Recipes, r.Name)
-	}
+	res.Secrets, res.Keys = plan.sealedNames(res.Secrets)
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
 	res.replacedAndNext(existed, groups)
 	res.Action = "added"
@@ -291,6 +290,9 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 		}
 		for _, r := range recipes {
 			s.Snippets[r.Name] = r
+		}
+		if err := putSealedKeys(s, plan); err != nil {
+			return err
 		}
 		for _, v := range vpns {
 			v.CreatedAt, v.UpdatedAt = now, now
@@ -354,7 +356,7 @@ func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func
 			continue
 		}
 		name, ok := strings.CutPrefix(c.PasswordRef, "secret:")
-		if ok && !overwrite {
+		if ok && !overwrite && !carriedSecrets[name] {
 			if _, err := vault.Get(name); err == nil {
 				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
 				continue
@@ -390,21 +392,6 @@ func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
 		note := c.Name + ": set its password with `komando secret set " + c.Name + "-pass` and `komando conn edit " + c.Name + " --password-ref secret:" + c.Name + "-pass`"
 		r.NotFound, r.aboutAdded = append(r.NotFound, note), append(r.aboutAdded, note)
 	}
-}
-
-// entryNames are the names of the servers, conns and VPNs in st.
-func entryNames(st *store.State) map[string]bool {
-	n := map[string]bool{}
-	for k := range st.Hosts {
-		n[k] = true
-	}
-	for k := range st.Conns {
-		n[k] = true
-	}
-	for k := range st.Vpns {
-		n[k] = true
-	}
-	return n
 }
 
 // importSkipper says why an entry of kind is not added (or "").
@@ -474,6 +461,7 @@ func (r importResult) Text() string {
 	line("conns "+verb, r.Conns)
 	line("VPNs "+verb, r.Vpns)
 	line("recipes "+verb, r.Recipes)
+	line("keys "+verb, r.Keys)
 	if g.dryRun {
 		line("logins it would store in the vault", r.Secrets)
 	} else {

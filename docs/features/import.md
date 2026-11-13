@@ -126,10 +126,12 @@ databases, put their URLs in a `.env` file and run `komando import env FILE`.
 
 ## Move to another computer
 
-There are two ways. An export moves your servers, conns, VPNs, recipes,
+There are three ways. An export moves your servers, conns, VPNs, recipes,
 your own deny rules and settings, but no passwords and no key files: you
-set those again. Copying the folder moves everything, passwords included,
-once the vault has a passphrase.
+set those again. A [sealed export](#a-sealed-export-everything-with-passwords)
+moves the same with the passwords in one file that opens only with a
+passphrase you choose. Copying the folder moves everything, passwords
+included, once the vault has a passphrase.
 
 ### Export and import (no passwords)
 
@@ -187,6 +189,74 @@ these limits:
   again yourself with `komando recipe add NAME ... --read-only --overwrite`.
 
 Each dropped setting is listed in the result.
+
+### A sealed export (everything, with passwords)
+
+`--sealed` writes the export and the passwords its servers, conns and VPNs
+use into one sealed file. Only a person at a terminal can make one (an AI
+agent gets `NEEDS_PERSON`), and komando asks for a passphrase for the
+file, twice, hidden:
+
+```bash
+komando export --sealed --to move.kmdseal                # asks a passphrase (15+ characters)
+komando export --sealed --with-keys --to move.kmdseal    # and the private keys the servers use
+komando export @prod --sealed --to prod.kmdseal          # only what a target picks
+komando export --sealed --to move.kmdseal --dry-run      # what would be sealed; asks nothing
+```
+
+```text
+Choose a passphrase for the file: 15 or more characters (random words work).
+Passphrase (hidden):
+Type it again (hidden):
+sealed 2 servers, 1 conn, 2 secrets, 1 key into move.kmdseal (it opens with its passphrase)
+check phrase: kangaroo maximum crush write exit shock
+Next: komando import komando move.kmdseal (on the other computer; it asks for the passphrase)
+```
+
+The file is written with mode 0600; nothing in it is readable without the
+passphrase, and changing a byte stops it from opening. A secret a server
+names that is not in the vault is listed, and stays out. A security key
+(FIDO2) stays on its device.
+
+On the other computer, the same import reads it and asks for the
+passphrase once:
+
+```bash
+komando import komando move.kmdseal
+komando import komando move.kmdseal --overwrite   # also replace secrets that are here with another value (asks first)
+```
+
+The import keeps the limits of any export file (below). A password from the
+file goes into the vault when that name is not here yet. When the vault
+has that name with another value, it keeps its own, and the file's servers
+do not get it, unless you add `--overwrite` and say yes. A key from the
+file is kept in komando's store, as one `key gen` made; a key with a name
+that is here already is left out.
+
+A wrong passphrase, or a file changed after it was sealed, stops with
+`WRONG_PASSPHRASE`; a damaged file with `SEALED_FILE_INVALID`. Nothing is
+imported then.
+
+### Send everything to the iPhone app
+
+From Linux or Windows, with only an iPhone, `--for-phone` seals the file to
+a key the iPhone app makes for this one export. Only that phone opens it;
+the terminal cannot:
+
+```bash
+komando export --for-phone --to phone.kmdseal
+```
+
+komando asks for the key file the phone shared (or the key itself, as the
+phone shows it) and the key check the phone shows (64 letters and digits,
+spaces and dashes do not matter). A key that does not match the key check
+is refused (`PHONE_KEY_INVALID`), so a key file swapped on the way is
+caught. Then it prints a check phrase of six words: move the file to the
+phone any way you like, and check that the phone shows the same six words.
+If they differ, do not use the file. The phone reads servers, conns, VPNs,
+their passwords and, with `--with-keys`, the keys.
+
+The format is in [the sealed file design](../design/sealed-file.md).
 
 ### Copy the folder (everything, with passwords)
 
@@ -247,8 +317,11 @@ server it no longer knows).
 
 ## Limits
 
-- Passwords, private key files and keys komando made never travel in an
-  export file; set or copy them on the other computer.
+- Passwords, private key files and keys komando made never travel in a
+  plain export file; set or copy them on the other computer, or use a
+  [sealed export](#a-sealed-export-everything-with-passwords).
+- Only a person at a terminal makes or opens a sealed file. A file for the
+  phone opens only on that phone.
 - An import changes no setting: it lists the ones that differ.
 - A copied folder opens its secrets on another computer only when the vault
   has a passphrase (or its key is in `store.key`, inside the folder).

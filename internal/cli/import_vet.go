@@ -139,3 +139,33 @@ func orEmpty(s []string) []string {
 	}
 	return s
 }
+
+// vetImportRecipes picks the recipes an import adds: a name taken here
+// (without --overwrite) or by a built-in recipe is skipped.
+func vetImportRecipes(st *store.State, plan *importPlan, overwrite bool, res *importResult) []*store.Snippet {
+	var recipes []*store.Snippet
+	for _, r := range plan.Recipes {
+		if _, ok := st.Snippets[r.Name]; (ok && !overwrite) || builtinRecipe(r.Name) != nil {
+			res.Skipped = append(res.Skipped, importSkip{r.Name, "a recipe with this name exists"})
+			continue
+		}
+		recipes = append(recipes, r)
+		res.Recipes = append(res.Recipes, r.Name)
+	}
+	return recipes
+}
+
+// entryNames are the names of the servers, conns and VPNs in st.
+func entryNames(st *store.State) map[string]bool {
+	n := map[string]bool{}
+	for k := range st.Hosts {
+		n[k] = true
+	}
+	for k := range st.Conns {
+		n[k] = true
+	}
+	for k := range st.Vpns {
+		n[k] = true
+	}
+	return n
+}

@@ -88,6 +88,7 @@ or a listed one is gone.
 | `internal/registry` | container registries over the OCI Distribution API |
 | `internal/releasesig` | the signature of a release's checksums.txt (`komando update` checks it; `scripts/releasesig` signs) |
 | `internal/sealdb` | the local store file (SQLite of sealed rows) |
+| `internal/sealfile` | the sealed file of `export --sealed` and `export --for-phone` ([sealed-file.md](sealed-file.md)) |
 | `internal/sealrow` | seals one record of the local store |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |

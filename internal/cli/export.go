@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sealfile"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -49,6 +50,9 @@ func importKomando(path string) (*importPlan, error) {
 	if err != nil {
 		return nil, err
 	}
+	if sealfile.IsSealed(b) {
+		return importSealed(path, b)
+	}
 	var f exportFile
 	if err := json.Unmarshal(b, &f); err != nil || f.Format == "" {
 		var env struct {
@@ -63,6 +67,16 @@ func importKomando(path string) (*importPlan, error) {
 	if f.Format != exportFormat {
 		return nil, out.Usage("%s has format %q; this komando reads %s", path, f.Format, exportFormat)
 	}
+	p := planFromExport(f)
+	if len(f.Secrets) > 0 {
+		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando secret set NAME` for: "+strings.Join(f.Secrets, ", "))
+	}
+	return p, nil
+}
+
+// planFromExport is what an export document adds, with the limits for a
+// file that may come from someone else.
+func planFromExport(f exportFile) *importPlan {
 	p := newPlan()
 	p.Hosts, p.Conns, p.Recipes, p.Vpns = f.Hosts, f.Conns, f.Recipes, f.Vpns
 	p.DenyRules, p.Settings = f.DenyRules, f.Settings
@@ -105,10 +119,7 @@ func importKomando(path string) (*importPlan, error) {
 			p.Notes = append(p.Notes, r.Name+": imported as a change; mark it read-only yourself with `recipe add --read-only --overwrite`")
 		}
 	}
-	if len(f.Secrets) > 0 {
-		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando secret set NAME` for: "+strings.Join(f.Secrets, ", "))
-	}
-	return p, nil
+	return p
 }
 
 // dropForeignRef clears a ref from a file someone else may have written,
@@ -118,6 +129,9 @@ func importKomando(path string) (*importPlan, error) {
 // returns the note that says what was dropped, or "".
 func dropForeignRef(owner, what string, r *string) string {
 	name, ok := strings.CutPrefix(*r, "secret:")
+	if ok && carriedSecrets[name] {
+		return "" // a sealed file's own secret, with the file's value here
+	}
 	if *r == "" || (ok && name != "") {
 		if _, err := vault.Get(name); !ok || errors.Is(err, vault.ErrNotFound) {
 			return ""
@@ -161,94 +175,62 @@ func dropForeignHostRefs(h *store.Host) []string {
 
 const exportLong = `Saves your list to a file (komando-export/1, always JSON) that
 ` + "`komando import komando FILE`" + ` reads on another computer. Passwords and key
-files are never in it; it lists the secrets and keys to bring along. With a
+files are never in it (only in a sealed file); it lists the secrets and keys
+to bring along. With a
 TARGET (@prod, kind:host, web1,web2) only those servers, conns and VPNs are
 saved; without one also your recipes, deny rules and settings. Without --to
-it prints the same JSON.`
+it prints the same JSON.
+
+--sealed writes the same list with the passwords it uses into one sealed
+file, for moving to another computer: komando asks for a passphrase twice
+(15 or more characters), hidden, and the file opens only with it.
+--for-phone seals the file to the iPhone app's key instead: komando asks
+for the key file the phone shared and the key check the phone shows. Both
+print a check phrase of six words; the phone shows the same words for the
+file it got. --with-keys adds the private keys the servers use.
+
+Only a person at a terminal can make a sealed file: an AI agent gets
+NEEDS_PERSON, and a dry run says what would be sealed.`
 
 func exportCmd() *cobra.Command {
 	var to string
 	var overwrite bool
+	var seal exportSealOpts
 	c := &cobra.Command{
 		Use:   "export [TARGET]",
-		Short: "Save servers, conns, VPNs, recipes and settings (no passwords)",
+		Short: "Save servers, conns, VPNs, recipes and settings to a file",
 		Long:  exportLong,
 		Example: `  komando export --to komando-backup.json
   komando export @prod --to prod.json
   komando export kind:host --to servers.json
-  komando import komando komando-backup.json      # on the other computer`,
+  komando import komando komando-backup.json      # on the other computer
+  komando export --sealed --to move.kmdseal       # with passwords; asks a passphrase
+  komando export --for-phone --to phone.kmdseal   # for the iPhone app; asks for its key`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := seal.check(to); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns(), Vpns: st.SortedVpns()}
-			if len(args) == 1 {
-				if sel, err = resolveSelection(st, args[0]); err != nil {
-					return err
-				}
+			f, keyFiles, keysSealed, err := buildExport(st, args)
+			if err != nil {
+				return err
 			}
-			need := map[string]bool{}
-			f := exportFile{Format: exportFormat, Hosts: sel.Hosts, Conns: sel.Conns, Vpns: sel.Vpns, Recipes: []*store.Snippet{}, Secrets: []string{}, Keys: []string{}}
-			for _, v := range sel.Vpns {
-				for _, r := range []string{v.KeyRef, v.PSKRef} {
-					if n, ok := strings.CutPrefix(r, "secret:"); ok {
-						need[n] = true
-					}
-				}
-			}
-			keys := map[string]bool{}
-			for _, h := range sel.Hosts {
-				for _, r := range []string{h.PasswordRef, h.SudoRef, winrmCA(h)} {
-					if n, ok := strings.CutPrefix(r, "secret:"); ok {
-						need[n] = true
-					}
-				}
-				if k := st.Keys[h.Key]; k != nil {
-					keys[h.Key] = true
-					if n, ok := strings.CutPrefix(k.PassphraseRef, "secret:"); ok {
-						need[n] = true
-					}
-				}
-			}
-			var keyFiles, keysSealed []string // what to copy to the other computer, as the export does not
-			f.Keys, keyFiles, keysSealed = exportKeys(st, keys)
-			for _, c := range sel.Conns {
-				if n, ok := strings.CutPrefix(c.PasswordRef, "secret:"); ok {
-					need[n] = true
-				}
-				for _, r := range urlSecretRefs(c.URL) { // ?ca=secret:NAME
-					need[r.Name] = true
-				}
-			}
-			for n := range need {
-				f.Secrets = append(f.Secrets, n)
-			}
-			sort.Strings(f.Secrets)
-			if len(args) == 0 {
-				f.DenyRules = st.Settings.ExtraDenyPattern
-				f.Settings = map[string]string{}
-				for _, s := range settings {
-					f.Settings[s.Key] = s.get(&st.Settings)
-				}
-				for _, s := range st.Snippets {
-					f.Recipes = append(f.Recipes, s)
-				}
-				sort.Slice(f.Recipes, func(i, j int) bool { return f.Recipes[i].Name < f.Recipes[j].Name })
+			if seal.on() {
+				return runExportSealed(st, f, seal, to, overwrite)
 			}
 			if to == "" {
 				out.P.Print("export", f, nil)
 				return nil
 			}
-			if _, err := os.Stat(to); err == nil && !overwrite {
-				return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another file or pass --overwrite", "%s already exists", to)
-			}
-			b, _ := json.MarshalIndent(f, "", "  ")
-			if err := os.MkdirAll(filepath.Dir(to), 0o700); err != nil {
+			if err := exportTarget(to, overwrite); err != nil {
 				return err
 			}
-			if err := writeAtomic(to, func(tmp string) error { return os.WriteFile(tmp, append(b, '\n'), 0o600) }); err != nil {
+			b, _ := json.MarshalIndent(f, "", "  ")
+			if err := writeExport(to, append(b, '\n'), overwrite); err != nil {
 				return err
 			}
 			out.P.Print("export", exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
@@ -258,7 +240,91 @@ func exportCmd() *cobra.Command {
 	}
 	c.Flags().StringVar(&to, "to", "", "write to this file (0600) instead of printing")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace the file if it exists")
+	c.Flags().BoolVar(&seal.sealed, "sealed", false, "seal the file with a passphrase, with the passwords in it (a person at a terminal; needs --to)")
+	c.Flags().BoolVar(&seal.forPhone, "for-phone", false, "seal the file to the iPhone app's key, with the passwords in it (a person at a terminal; needs --to)")
+	c.Flags().BoolVar(&seal.withKeys, "with-keys", false, "with --sealed or --for-phone: also the private keys the servers use")
 	return c
+}
+
+// exportTarget checks that the export may write to: a file that is not
+// there yet (or --overwrite), in a folder that exists or is made.
+func exportTarget(to string, overwrite bool) error {
+	if _, err := os.Stat(to); err == nil && !overwrite {
+		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another file or pass --overwrite", "%s already exists", to)
+	}
+	return os.MkdirAll(filepath.Dir(to), 0o700)
+}
+
+// writeExport writes an export file (0600) as a whole: a reader never sees
+// half of it. With overwrite, the new file replaces the old one only once
+// it is written.
+func writeExport(to string, data []byte, overwrite bool) error {
+	fill := func(tmp string) error { return os.WriteFile(tmp, data, 0o600) }
+	if !overwrite {
+		return writeAtomic(to, fill)
+	}
+	next := to + ".komando-new"
+	_ = os.Remove(next)
+	if err := writeAtomic(next, fill); err != nil {
+		return err
+	}
+	return os.Rename(next, to)
+}
+
+// buildExport is the export document of what args picks (everything
+// without one), the key files to copy by hand and the keys komando made.
+func buildExport(st *store.State, args []string) (exportFile, []string, []string, error) {
+	sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns(), Vpns: st.SortedVpns()}
+	if len(args) == 1 {
+		var err error
+		if sel, err = resolveSelection(st, args[0]); err != nil {
+			return exportFile{}, nil, nil, err
+		}
+	}
+	need := map[string]bool{}
+	use := func(refs ...string) {
+		for _, r := range refs {
+			if n, ok := strings.CutPrefix(r, "secret:"); ok && n != "" {
+				need[n] = true
+			}
+		}
+	}
+	f := exportFile{Format: exportFormat, Hosts: sel.Hosts, Conns: sel.Conns, Vpns: sel.Vpns, Recipes: []*store.Snippet{}, Secrets: []string{}, Keys: []string{}}
+	for _, v := range sel.Vpns {
+		use(v.KeyRef, v.PSKRef, v.ConfigRef)
+	}
+	keys := map[string]bool{}
+	for _, h := range sel.Hosts {
+		use(h.PasswordRef, h.SudoRef, winrmCA(h))
+		for _, v := range h.Env {
+			use(v)
+		}
+		if k := st.Keys[h.Key]; k != nil {
+			keys[h.Key] = true
+			use(k.PassphraseRef)
+		}
+	}
+	var keyFiles, keysSealed []string // what to copy to the other computer, as the export does not
+	f.Keys, keyFiles, keysSealed = exportKeys(st, keys)
+	for _, c := range sel.Conns {
+		use(c.PasswordRef)
+		for _, r := range urlSecretRefs(c.URL) { // ?ca=secret:NAME
+			need[r.Name] = true
+		}
+	}
+	f.Secrets = append(f.Secrets, slices.Sorted(maps.Keys(need))...)
+	if len(args) == 0 {
+		f.DenyRules = st.Settings.ExtraDenyPattern
+		f.Settings = map[string]string{}
+		for _, s := range settings {
+			f.Settings[s.Key] = s.get(&st.Settings)
+		}
+		for _, s := range st.Snippets {
+			f.Recipes = append(f.Recipes, s)
+		}
+		sort.Slice(f.Recipes, func(i, j int) bool { return f.Recipes[i].Name < f.Recipes[j].Name })
+	}
+	return f, keyFiles, keysSealed, nil
 }
 
 // exportKeys are the keys the exported servers use, sorted: their files to
@@ -291,9 +357,21 @@ type exportResult struct {
 	// KeysSealed are keys komando made (key gen): sealed in store.db, so
 	// there is no file to copy; the other computer makes its own
 	KeysSealed []string `json:"keys_sealed,omitempty"`
+	// A sealed export (--sealed, --for-phone): how it opens (passphrase or
+	// recipient), the secrets and keys inside, the check phrase of the
+	// file, and for --for-phone the key_id of the phone's key.
+	Sealed        string   `json:"sealed,omitempty"`
+	SecretsInFile []string `json:"secrets_in_file,omitempty"`
+	KeysInFile    []string `json:"keys_in_file,omitempty"`
+	CheckPhrase   []string `json:"check_phrase,omitempty"`
+	PhoneKeyID    string   `json:"phone_key_id,omitempty"`
+	DryRun        bool     `json:"dry_run,omitempty"`
 }
 
 func (r exportResult) Text() string {
+	if r.Sealed != "" {
+		return r.sealedText()
+	}
 	var what []string
 	for _, c := range []struct {
 		n    int

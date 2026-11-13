@@ -780,9 +780,13 @@ var approvalMeanings = map[string]string{
 // order of the files would decide: renaming a file must not change what
 // the catalog shows (these are the texts 0.12.0 showed).
 var catalogSite = map[string]string{
-	"NO_FOLDER":       "cannot find the folder: …",
-	"RENAME_FAILED":   "the vault cannot rename the VPN's secrets: …; nothing was renamed",
-	"ROLLOUT_TIMEOUT": "not rolled out after … (replicas …)…",
+	"FILE_EXISTS":         "… already exists on this computer",
+	"PASSPHRASE_MISMATCH": "the two passphrases you typed differ; nothing was changed",
+	"WEAK_PASSPHRASE":     "…; nothing was changed",
+	"WRONG_PASSPHRASE":    "that passphrase does not open the vault; nothing was changed",
+	"NO_FOLDER":           "cannot find the folder: …",
+	"RENAME_FAILED":       "the vault cannot rename the VPN's secrets: …; nothing was renamed",
+	"ROLLOUT_TIMEOUT":     "not rolled out after … (replicas …)…",
 }
 
 // renamedFrom are codes given by renaming another error (e.Code =

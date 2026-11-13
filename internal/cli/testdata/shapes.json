@@ -531,6 +531,37 @@
     },
     "ok": "bool"
   },
+  "export --sealed --to never-written.kmdseal --dry-run": {
+    "command": "string",
+    "data": {
+      "conns": "number",
+      "deny_rules": "number",
+      "dry_run": "bool",
+      "file": "string",
+      "hosts": "number",
+      "keys_needed": [],
+      "recipes": "number",
+      "sealed": "string",
+      "secrets_in_file": [
+        "string"
+      ],
+      "secrets_needed": [],
+      "settings": "bool",
+      "vpns": "number"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string",
+      "would_be_blocked": {
+        "code": "string",
+        "hint": "string",
+        "message": "string"
+      }
+    },
+    "ok": "bool"
+  },
   "group list": {
     "command": "string",
     "data": {

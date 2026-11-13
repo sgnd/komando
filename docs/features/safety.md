@@ -198,6 +198,8 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `host ssh-command` | always | person |  |
 | `secret keychain` | without --off (moving the key into the keychain) | person |  |
 | `host trust` | with --reset, when a key is pinned | person |  |
+| `export` | with --sealed or --for-phone | person |  |
+| `import` | SOURCE komando, when the file is sealed (export --sealed): a person types its passphrase | person |  |
 | `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
 
 <!-- end of tiers -->

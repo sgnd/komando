@@ -177,6 +177,8 @@ var riskRows = []riskRow{
 	{id: "host.ssh-command", tier: tierPerson},
 	{id: "secret.keychain", when: func(w []string) bool { return !givesFlag("off")(w) }, cond: "without --off (moving the key into the keychain)", tier: tierPerson},
 	{id: "host.trust", when: anyWord("--reset", "--reset=true"), cond: "with --reset, when a key is pinned", tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
+	{id: "export", when: func(w []string) bool { return givesFlag("sealed")(w) || givesFlag("for-phone")(w) }, cond: "with --sealed or --for-phone", tier: tierPerson},
+	{id: "import", when: anyWord("komando"), cond: "SOURCE komando", tier: tierPerson, dynamic: "the file is sealed (export --sealed): a person types its passphrase"},
 
 	// a bulk change keeps its own confirm (CONFIRM_REQUIRED for an agent)
 	{id: "group.rm", when: func(w []string) bool { return len(riskArgs(w)) == 1 }, cond: "GROUP alone", tier: tierChange, bulk: "deleting a group of more than 3 members"},
