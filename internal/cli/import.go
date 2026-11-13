@@ -69,6 +69,7 @@ var importSources = []importSource{
 	{"docker", "~/.docker/config.json", "container registries you are logged in to", importDocker},
 	{"filezilla", "~/.config/filezilla/sitemanager.xml", "SFTP sites from FileZilla's Site Manager", importFileZilla},
 	{"rclone", "~/.config/rclone/rclone.conf", "SFTP remotes from rclone", importRclone},
+	{"putty", "", "SSH sessions from PuTTY (a .reg file: `reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg`)", importPuTTY},
 	{"aws", "~/.aws/config", "an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied)", importAWS},
 	{"dbeaver", "~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json", "databases from DBeaver (passwords set afterwards)", importDBeaver},
 	{"komando", "", "a file made by `komando export` (moving to another computer)", importKomando},

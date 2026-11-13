@@ -36,6 +36,7 @@ usual place for that source.
 | `docker` | `~/.docker/config.json` (and credential helpers) | registry conns |
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP sites are listed, not added) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
+| `putty` | PuTTY's sessions exported from the Windows registry (no default: give the file, see below) | servers (SSH sessions; a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do) |
 | `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied ([Cloud logins](cloud.md#add-a-conn-for-every-s3-bucket)) |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
 | `komando` | a file from `komando export` | servers, conns, VPNs and recipes |
@@ -83,6 +84,23 @@ appear in komando's list, output or history.
   yes (`--yes` and the approval window) to import one. Without it, that server is left out with the
   reason, the other servers still come in, and the import ends with
   `IMPORT_INCOMPLETE` (exit 1).
+
+### Coming from PuTTY
+
+PuTTY keeps its sessions in the Windows registry. Export them to a file,
+then import that file (a dry run first lists what comes in):
+
+```bash
+reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg
+komando import putty putty.reg --dry-run
+komando import putty putty.reg
+```
+
+PuTTY keeps no passwords, so set them with `komando secret set` or use a
+key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
+`puttygen KEY.ppk -O private-openssh -o KEY`, then `komando key add NAME
+KEY`. A session that reaches its server through a proxy is listed too: set
+the way there with `komando host edit NAME --via JUMP`.
 
 ### Coming from Termius or TablePlus
 
