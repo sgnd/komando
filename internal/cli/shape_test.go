@@ -58,6 +58,9 @@ var shapeCases = [][]string{
 	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
 	{"vpn", "rm", "lab", "--dry-run"},
 	{"vpn", "rm", "lab"},
+	// the kinds an app builds its add forms from
+	{"schema", "vpn", "add"},
+	{"schema", "conn", "add"},
 }
 
 // serverShapeCases read the fake memcached conn "mc".
@@ -166,13 +169,14 @@ func runShape(t *testing.T, args []string) string {
 	return b.String()
 }
 
-// dataKeyed are fields whose keys are data, not field names. Today only
-// `recipe list`'s params (a recipe's blanks and their defaults): its shape
-// is "*" for any key, so a recipe with other blanks is not a change of the
-// output. The keys of a field listed here are not guarded, in any command:
-// a new field called params elsewhere needs another name, or to be left
-// out of this list.
-var dataKeyed = map[string]bool{"params": true}
+// dataKeyed are fields whose keys are data, not field names: `recipe
+// list`'s params (a recipe's blanks and their defaults) and the flag_notes
+// of `schema vpn add` (keyed by flag name). Their shape is "*" for any
+// key, so a recipe with other blanks, or a note on another flag, is not a
+// change of the output. The keys of a field listed here are not guarded,
+// in any command: a new field called params or flag_notes elsewhere needs
+// another name, or to be left out of this list.
+var dataKeyed = map[string]bool{"params": true, "flag_notes": true}
 
 // shapeOf replaces every value with its JSON type; arrays become one
 // element with the merged shape of all their elements. Maps keyed by

@@ -9,6 +9,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 - `cache keys` gives each key's type and time to live, never its value: the JSON has `items` (`key`, `type`, `ttl_seconds`; -1 = no expiry, null = unknown) next to the unchanged `keys`, and the text shows KEY, TYPE and TTL columns. On Redis and Valkey, `TYPE` and `PTTL` for the whole page go in one round trip (one per master in a Cluster); on memcached the type is `string` and the time to live comes from the LRU crawler's listing, with the server's clock read in the same round trip.
+- `komando schema vpn add` and `komando schema conn add` (and `db add`, `cache add`, `queue add`, `storage add`, `cluster add`, `registry add`) list the kinds each takes under `add_kinds`: for a VPN its ID, display name, family (portal, config file, server and pre-shared key, auth key, system, proxy), the flags it needs and may take, and whether `vpn up` opens a browser to sign in; for a conn its ID, display name, family, URL schemes, an example URL and the same flag lists. An app can build its add forms from it. `vpn add --help` now shows its "Which flags go with which VPN kind" table from the same list, and `vpn add` refuses a flag the list does not give that kind, as it did before.
 
 ### Security
 

@@ -44,7 +44,6 @@ var (
 		"secret",
 		"tunnel",
 		"vpn",
-		"vpn add",
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{

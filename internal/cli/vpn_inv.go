@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"slices"
 	"strings"
@@ -426,10 +427,11 @@ func vpnRemove(check func(*store.State) error, names *[]string) (unused, warning
 	return unused, warnings, nil
 }
 
-// vpnUnusedFlags refuses a vpn add flag the kind does not use.
-func vpnUnusedFlags(kind string, used map[string]bool, given map[string]string) error {
-	for flag, val := range given {
-		if val != "" && !used[flag] {
+// vpnUnusedFlags refuses a vpn add flag the kind does not use
+// (vpnKindSpecs), the first by name.
+func vpnUnusedFlags(kind string, given map[string]string) error {
+	for _, flag := range slices.Sorted(maps.Keys(given)) {
+		if given[flag] != "" && !vpnTakes(kind, flag) {
 			return out.Usage("--%s is not used by %s VPNs", flag, kind)
 		}
 	}

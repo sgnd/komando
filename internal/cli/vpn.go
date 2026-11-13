@@ -41,7 +41,7 @@ connects it, using the login you saved:
 VPNs with --mfa need a person: run ` + "`komando vpn up NAME`" + ` once and later
 commands (and agents) reuse that session. komando never answers MFA.
 
-Kinds (also: pritunl = openvpn; cisco = ipsec):
+Kinds (` + vpnAliasLine() + `):
 ` + strings.Join(kinds, "\n"),
 	}
 	c.AddCommand(vpnAddCmd(), vpnShowCmd(), vpnEditCmd(), vpnMvCmd(), vpnRmCmd(), vpnUpCmd(), vpnDownCmd(), vpnStatusCmd(), vpnServeCmd(),
@@ -65,19 +65,7 @@ func vpnAddCmd() *cobra.Command {
 		Use:   "add NAME KIND",
 		Short: "Add a VPN",
 		Long: `Saves a VPN under a short name. Typed alone at a terminal, it asks step by
-step, starting with the VPN app your company uses.
-
-Which flags go with which VPN:
-  Every VPN                 --user, --password-ref or --ask-password, --check, --mfa,
-                            --protected, --label, -g, -t, --notes
-  WireGuard, OpenVPN        --config FILE (the .conf or .ovpn file)
-  GlobalProtect, Fortinet,  --portal (the VPN server or portal)
-  AnyConnect, Pulse, F5
-  L2TP, IPsec, IKEv2        --server, --psk-ref or --ask-psk; IPsec: --id;
-                            IKEv2: --id, --remote-id, --ca
-  Tailscale                 --password-ref (the auth key); Headscale: --server
-  System VPN                --service (its name in your computer's settings)
-  SOCKS or HTTP proxy       --proxy-address`,
+step, starting with the VPN app your company uses.`,
 		Example: `  komando vpn add office wireguard --config ~/Downloads/office.conf --check 10.0.0.5:22
   komando vpn add client-x globalprotect --portal vpn.client.com   # signs in through a browser window at vpn up
   komando vpn add office openvpn --config office.ovpn --user alice --password-ref secret:office --check 10.8.0.1:22
@@ -94,13 +82,7 @@ Which flags go with which VPN:
 			if len(args) == 0 {
 				return formOrUsage(cmd, "vpn", "komando vpn add office wireguard --config ~/Downloads/office.conf")
 			}
-			name, kind := args[0], strings.ToLower(args[1])
-			switch kind {
-			case "pritunl":
-				kind = "openvpn"
-			case "cisco", "xauth":
-				kind = "ipsec"
-			}
+			name, kind := args[0], vpnKindWord(args[1])
 			if err := checkEntryName("vpn", name); err != nil {
 				return err
 			}
@@ -119,9 +101,7 @@ Which flags go with which VPN:
 			if err := vpnAddFlagChecks(v, pskRef, inv.labels); err != nil {
 				return err
 			}
-			used := map[string]bool{}
 			need := func(flag string, ok bool) error {
-				used[flag] = true
 				if !ok {
 					if h := vpnFlagHint[flag]; h != "" {
 						return out.Errf(out.ExitUsage, "USAGE", h, "%s needs --%s", kind, flag)
@@ -160,7 +140,6 @@ Which flags go with which VPN:
 					v.PSKRef = "secret:" + name + "-psk"
 					secrets[name+"-psk"] = psk
 				}
-				used["password-ref"] = passwordRef == ""
 			case kind == "socks" || kind == "proxy":
 				if err = need("proxy-address", address != ""); err != nil {
 					return err
@@ -168,7 +147,6 @@ Which flags go with which VPN:
 				if v.Address, err = vpnAddress(kind, address); err != nil {
 					return err
 				}
-				used["user"], used["password-ref"] = true, true
 				if user != "" && passwordRef == "" {
 					return out.Usage("--user needs --password-ref (the proxy's password)")
 				}
@@ -176,9 +154,9 @@ Which flags go with which VPN:
 				if err = need("check", check != ""); err != nil {
 					return err
 				}
-				v.Service, used["service"] = service, true
+				v.Service = service
 			case kind == "tailscale":
-				v.Server, used["server"], used["password-ref"] = server, true, true
+				v.Server = server
 				if passwordRef == "" {
 					v.MFA = true // no auth key: a person logs in through the browser
 				}
@@ -190,7 +168,6 @@ Which flags go with which VPN:
 					return out.Usage("--portal takes a server name or URL")
 				}
 				v.Portal = portal
-				used["user"], used["password-ref"] = true, true
 				if passwordRef == "" {
 					v.MFA = true // without a stored password a person types it
 				}
@@ -198,7 +175,7 @@ Which flags go with which VPN:
 				if err = need("server", server != ""); err != nil {
 					return err
 				}
-				if err = vpnAddIPsec(v, used, server, pskRef, localID, remoteID, ca); err != nil {
+				if err = vpnAddIPsec(v, server, pskRef, localID, remoteID, ca); err != nil {
 					return err
 				}
 			case kind == "openvpn":
@@ -226,9 +203,8 @@ Which flags go with which VPN:
 				ovpnWarn = p.Warnings
 				v.ConfigRef = "secret:" + name + "-config"
 				secrets[name+"-config"] = text
-				used["user"], used["password-ref"] = true, true
 			}
-			if err := vpnUnusedFlags(kind, used, map[string]string{"config": config, "proxy-address": address, "portal": portal, "service": service,
+			if err := vpnUnusedFlags(kind, map[string]string{"config": config, "proxy-address": address, "portal": portal, "service": service,
 				"server": server, "user": user, "password-ref": passwordRef, "psk-ref": pskRef, "id": localID, "remote-id": remoteID, "ca": ca}); err != nil {
 				return err
 			}
@@ -303,6 +279,7 @@ Which flags go with which VPN:
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.BoolVar(&overwrite, "overwrite", false, "replace a VPN with the same name")
 	inv.bindInv(c, false)
+	c.Long += "\n\n" + vpnFlagTable(c)
 	return c
 }
 
@@ -327,13 +304,12 @@ func vpnShowCmd() *cobra.Command {
 }
 
 // vpnAddIPsec fills in an l2tp, ipsec or ikev2 VPN v from vpn add's flags
-// (v.User and v.KeyRef are set already) and marks in used the flags it
-// takes.
-func vpnAddIPsec(v *store.Vpn, used map[string]bool, server, pskRef, localID, remoteID, ca string) (err error) {
+// (v.User and v.KeyRef are set already).
+func vpnAddIPsec(v *store.Vpn, server, pskRef, localID, remoteID, ca string) (err error) {
 	if strings.HasPrefix(server, "-") || strings.Contains(server, "/") {
 		return out.Usage("--server takes a host name or address (host or host:port)")
 	}
-	v.Server, v.PSKRef, used["psk-ref"], used["user"], used["password-ref"] = server, pskRef, true, true, true
+	v.Server, v.PSKRef = server, pskRef
 	switch v.Kind {
 	case "l2tp":
 		if pskRef == "" || v.User == "" {
@@ -343,12 +319,12 @@ func vpnAddIPsec(v *store.Vpn, used map[string]bool, server, pskRef, localID, re
 		if pskRef == "" {
 			return out.Usage("ipsec needs --psk-ref (the group password) and usually --id (the group name) and --user")
 		}
-		v.LocalID, used["id"] = localID, true
+		v.LocalID = localID
 	case "ikev2":
 		if pskRef == "" && v.User == "" {
 			return out.Usage("ikev2 needs --psk-ref (a pre-shared key) or --user (an EAP login checked with the server's certificate)")
 		}
-		v.LocalID, v.RemoteID, used["id"], used["remote-id"], used["ca"] = localID, remoteID, true, true, true
+		v.LocalID, v.RemoteID = localID, remoteID
 		if v.CA, err = readVpnCA(ca); err != nil {
 			return err
 		}
@@ -369,7 +345,7 @@ func vpnAskPasswordRef(cmd *cobra.Command, name, kind string, askPw bool, ref *s
 	if cmd.Flags().Changed("password-ref") {
 		return out.Usage("use --ask-password or --password-ref, not both")
 	}
-	if oneOf(kind, "wireguard", "system", "tailscale") {
+	if !vpnTakes(kind, "ask-password") {
 		return out.Usage("--ask-password is not used by %s VPNs (a tailscale auth key: `komando secret set %s-authkey`, then --password-ref secret:%s-authkey)", kind, name, name)
 	}
 	*ref = "secret:" + name + "-pass"
@@ -385,8 +361,8 @@ func vpnAskPSKRef(cmd *cobra.Command, name, kind string, askPsk bool, ref *strin
 	if cmd.Flags().Changed("psk-ref") {
 		return out.Usage("use --ask-psk or --psk-ref, not both")
 	}
-	if !oneOf(kind, "l2tp", "ipsec", "ikev2") {
-		return out.Usage("--ask-psk is for l2tp, ipsec and ikev2 VPNs, not %s", kind)
+	if !vpnTakes(kind, "ask-psk") {
+		return out.Usage("--ask-psk is for %s VPNs, not %s", joinAnd(vpnKindsTaking("ask-psk")), kind)
 	}
 	*ref = "secret:" + name + "-psk"
 	return nil
