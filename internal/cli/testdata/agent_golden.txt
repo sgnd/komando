@@ -7673,7 +7673,7 @@ komando cluster forward kind=change confirm=[{"tier":"change"}]
   --namespace shorthand=n type=string
 ### komando schema host add (schema values)
 exit 0
-komando host add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when --proxy-command matches a destructive rule"}]
+komando host add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangerous","tier":"dangerous","when":"when --proxy-command matches a destructive rule"},{"flag":"--yes","tier":"safety","when":"with --proxy-command, when an AI agent runs it (the proxy command runs on this computer)"}]
   --address type=string
   --ask-password type=bool default=false
   --env shorthand=e type=stringArray default=[]

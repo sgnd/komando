@@ -51,6 +51,11 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"cron", "rm", "web1"}, []string{"backup", "backup"}, "cron rm web1 backup", []string{"This deletes the scheduled task.", "Type the name backup to continue"}},
 		{[]string{"pkg", "rm", "web1"}, []string{"nginx curl", "2"}, "pkg rm web1 nginx curl", []string{"This removes the packages.", "Type 2 (packages on web1) to continue"}},
 		{[]string{"svc", "stop", "web1"}, []string{"nginx", "y"}, "svc stop web1 nginx", []string{"Run it? [y/N, d = --dry-run first]"}},
+		// komando and csv have no usual file, so FILE is asked; the other
+		// sources read their usual file
+		{[]string{"import", "komando"}, []string{"backup.json", "y"}, "import komando backup.json", []string{"FILE: "}},
+		{[]string{"import", "csv"}, []string{"servers.csv", "y"}, "import csv servers.csv", []string{"FILE: "}},
+		{[]string{"import", "ssh-config"}, nil, "import ssh-config", nil},
 		// an alias, a plural noun or a global flag before the command is
 		// not counted as what goes
 		{[]string{"cron", "remove", "web1"}, []string{"backup", "backup"}, "cron remove web1 backup", []string{"Type the name backup to continue"}},

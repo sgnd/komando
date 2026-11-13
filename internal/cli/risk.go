@@ -79,6 +79,18 @@ func sshUnit(w []string) bool {
 	})
 }
 
+// givesValue: words set --name to a value that is not empty.
+func givesValue(name string) func([]string) bool {
+	return func(w []string) bool {
+		for i, s := range w {
+			if v, ok := strings.CutPrefix(s, "--"+name+"="); ok && v != "" || s == "--"+name && i+1 < len(w) && w[i+1] != "" {
+				return true
+			}
+		}
+		return false
+	}
+}
+
 // protectionOff: --protected=false (an edit that turns protection off).
 func protectionOff(w []string) bool { return slices.Contains(w, "--protected=false") }
 
@@ -141,6 +153,16 @@ var riskRows = []riskRow{
 	{id: "update", tier: tierSafety, dynamic: "it installs an older version"},
 	{id: "tunnel.start", tier: tierSafety, dynamic: "it listens on an open address (OPEN_BIND)"},
 	{id: "secret.keychain", tier: tierSafety, dynamic: "it turns the keychain off"},
+	// T3s an AI agent meets: a program, file or key this computer would
+	// trust from now on, or the agent guard itself (people and scripts are
+	// not stopped)
+	{id: "host.add", when: givesValue("proxy-command"), cond: "with --proxy-command", tier: tierSafety, dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
+	{id: "host.edit", when: givesValue("proxy-command"), cond: "with --proxy-command", tier: tierSafety, dynamic: "an AI agent runs it (the proxy command runs on this computer)"},
+	{id: "import", tier: tierSafety, dynamic: "an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out)"},
+	{id: "import", when: anyWord("kubeconfig"), cond: "SOURCE kubeconfig", tier: tierSafety, dynamic: "an AI agent imports a context whose login runs a program or sends a file of this computer"},
+	{id: "recipe.add", when: func(w []string) bool { return givesFlag("overwrite")(w) && givesFlag("read-only")(w) }, cond: "with --overwrite --read-only", tier: tierSafety, dynamic: "it makes an existing recipe read-only"},
+	{id: "host.trust", tier: tierSafety, dynamic: "an AI agent pins a first host key while host keys are strict"},
+	{id: "guide.uninstall", tier: tierSafety, dynamic: "it removes komando's guard from an AI agent's settings"},
 
 	// T4: only a person at a terminal.
 	{id: "config.approval-code", tier: tierPerson},
@@ -152,6 +174,8 @@ var riskRows = []riskRow{
 	{id: "login", tier: tierPerson},
 	{id: "login.aws", tier: tierPerson},
 	{id: "ssh-gate", tier: tierPerson},
+	{id: "host.ssh-command", tier: tierPerson},
+	{id: "secret.keychain", when: func(w []string) bool { return !givesFlag("off")(w) }, cond: "without --off (moving the key into the keychain)", tier: tierPerson},
 	{id: "host.trust", when: anyWord("--reset", "--reset=true"), cond: "with --reset, when a key is pinned", tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
 
 	// a bulk change keeps its own confirm (CONFIRM_REQUIRED for an agent)

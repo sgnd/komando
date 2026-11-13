@@ -179,6 +179,13 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `update` | when it installs an older version | safety | `--yes` |
 | `tunnel start` | when it listens on an open address (OPEN_BIND) | safety | `--yes` |
 | `secret keychain` | when it turns the keychain off | safety | `--yes` |
+| `host add` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
+| `host edit` | with --proxy-command, when an AI agent runs it (the proxy command runs on this computer) | safety | `--yes` |
+| `import` | when an AI agent imports a server with a proxy command (it runs on this computer; without --yes the server is left out) | safety | `--yes` |
+| `import` | SOURCE kubeconfig, when an AI agent imports a context whose login runs a program or sends a file of this computer | safety | `--yes` |
+| `recipe add` | with --overwrite --read-only, when it makes an existing recipe read-only | safety | `--yes` |
+| `host trust` | when an AI agent pins a first host key while host keys are strict | safety | `--yes` |
+| `guide uninstall` | when it removes komando's guard from an AI agent's settings | safety | `--yes` |
 | `config approval-code` | always | person |  |
 | `secret passphrase` | always | person |  |
 | `secret check` | always | person |  |
@@ -188,6 +195,8 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `login` | always | person |  |
 | `login aws` | always | person |  |
 | `ssh-gate` | always | person |  |
+| `host ssh-command` | always | person |  |
+| `secret keychain` | without --off (moving the key into the keychain) | person |  |
 | `host trust` | with --reset, when a key is pinned | person |  |
 | `group rm` | GROUP alone: deleting a group of more than 3 members (CONFIRM_REQUIRED) | change | `--yes` |
 

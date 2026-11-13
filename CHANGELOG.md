@@ -741,6 +741,19 @@ instead.
   is `komando test all` and `komando doctor`.
 
 ### Fixed
+- `komando schema` (`confirm`), the commands' Safety line and the tier
+  table in docs/features/safety.md now name every stop an AI agent meets:
+  `host ssh-command` and `secret keychain` (moving the key in) are for a
+  person only (`NEEDS_PERSON`); `--yes` (`SAFETY_SETTING`) for an agent's
+  `--proxy-command` on `host add` and `host edit`, a server with a proxy
+  command in `import`, a kubeconfig context whose login runs a program or
+  sends a file (`import kubeconfig`), `recipe add --overwrite --read-only`
+  on a recipe that was not read-only, a first host key pin under strict
+  host keys (`host trust`) and `guide uninstall`. The stops are unchanged;
+  an agent that planned from `confirm` met them unannounced.
+- `import komando` and `import csv` typed at a terminal without FILE ask
+  for it (they have no usual file); before, the run stopped with "give the
+  file to import".
 - SQL Server: a certificate with a negative serial number, which SQL
   Server makes for itself, failed with `x509: negative serial number`.
   komando now parses it (`x509negativeserial=1`); the chain and the host

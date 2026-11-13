@@ -1,5 +1,7 @@
 package cli
 
+import "slices"
+
 // The questions for your list (servers, conns, groups, import, export,
 // test), jobs and recipes, safety and audit, and setup. host add, conn add
 // and vpn add have hand-made forms (form_kinds.go).
@@ -145,7 +147,8 @@ var invListHints = map[string]formHint{
 			{ask: "What do you want to bring in?", example: "ssh-config", choices: importSourceNames(),
 				help: "One of: ssh-config, pgpass, mycnf, env, kubeconfig, docker, filezilla, rclone, aws, dbeaver, komando (a file from komando export), csv."},
 			{ask: "From which file? (leave empty for the usual place)", example: "./app/.env", local: true,
-				help: "Empty reads the usual file, like ~/.ssh/config. komando and csv need a file."},
+				help: "Empty reads the usual file, like ~/.ssh/config. komando and csv need a file.",
+				need: importNeedsFile},
 		},
 		flags: []formFlag{invImportGroup, invOverwrite},
 	},
@@ -317,4 +320,10 @@ func init() {
 		"audit":        {next: []string{"audit verify", "audit --failed"}},
 		"update":       {next: []string{"guide install", "version"}},
 	})
+}
+
+// importNeedsFile: the source has no usual file (komando, csv), so FILE is
+// asked when it is left out.
+func importNeedsFile(a formAnswers) bool {
+	return slices.ContainsFunc(importSources, func(s importSource) bool { return s.Name == a["arg0"] && s.Default == "" })
 }

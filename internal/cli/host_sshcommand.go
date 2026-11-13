@@ -21,7 +21,7 @@ import (
 func hostSSHArgsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ssh-command NAME",
-		Short: "Print the OpenSSH command that reaches a server the way komando does",
+		Short: "Print the OpenSSH command komando would use for a server",
 		Long: `Prints the ssh command that reaches the server with the same address, user, key,
 known_hosts file and --via path komando uses. A server behind --via servers gets
 a ProxyCommand per hop (ssh -W), so every hop uses its own key. A SOCKS VPN

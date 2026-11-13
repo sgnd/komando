@@ -1,13 +1,18 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh"
 )
 
 // No stop is lost (S-7.1): every gate row TestAgentGolden records has a
@@ -33,32 +38,35 @@ func TestStandardConfirmTable(t *testing.T) {
 			t.Errorf("no goldenGates line for %q", m[1])
 			continue
 		}
-		r := riskOfLine(args)
-		ok := true
-		switch code := m[3]; code {
-		case "POLICY_BLOCKED":
-			ok = r.tier == tierDangerous
-		case "PROTECTED_HOST", "PROTECTED_TARGET":
-			ok = r.tier >= tierChange
-		case "SAFETY_SETTING":
-			ok = r.tier == tierSafety
-		case "WRITE_REQUIRES_FLAG":
-			c, _, _ := newRoot().Find(args)
-			k, _ := kindOf(c)
-			ok = k.Kind == kindDepends
-		case "CONFIRM_REQUIRED":
-			ok = r.bulk != ""
-		case "NEEDS_PERSON":
-			ok = r.tier == tierPerson
-		default:
-			t.Errorf("%s: no rule for stop %s", m[1], code)
-		}
-		if !ok {
-			t.Errorf("%s stops with %s, but the rule table says %s (%+v)", m[1], m[3], r.tier, r)
-		}
+		stopHasRow(t, args, m[3])
 	}
 	if n != len(goldenGates) {
 		t.Errorf("%d recorded gate rows, %d in goldenGates", n, len(goldenGates))
+	}
+	// the stops only an AI agent meets, which the recording (made without
+	// an agent's window, in one shared home) cannot show: each still stops
+	// as written here, and has its row
+	for _, c := range agentStops {
+		t.Run(strings.Join(c.args, " "), func(t *testing.T) {
+			invHome(t)
+			noAgent(t)
+			if c.setup != nil {
+				c.setup(t)
+			}
+			asAgent(t, false, false) // no window: nobody says yes
+			d, e := invRun(t, c.args...)
+			if c.code == "" { // the command leaves the item out instead of stopping
+				if e != nil && e.Code != "IMPORT_INCOMPLETE" || !strings.Contains(fmt.Sprint(d["skipped"]), c.skipped) {
+					t.Fatalf("want it left out (%q), got %v %+v", c.skipped, d, e)
+				}
+				stopHasRow(t, c.args, "SAFETY_SETTING")
+				return
+			}
+			if e == nil || e.Code != c.code {
+				t.Fatalf("want %s, got %v %+v", c.code, d, e)
+			}
+			stopHasRow(t, c.args, c.code)
+		})
 	}
 	// every row is consistent: a T3 that holds at once says what goes; a
 	// dynamic row says when
@@ -70,6 +78,88 @@ func TestStandardConfirmTable(t *testing.T) {
 			t.Errorf("%s: a dynamic row has no fixed what", r.id)
 		}
 	}
+}
+
+// stopHasRow fails unless the rule table has a row for the stop code that
+// line meets: a row of that tier applies to the line, and any higher row
+// that applies is one the command decides at run time (dynamic), so
+// `komando schema` names the stop an agent plans for.
+func stopHasRow(t *testing.T, line []string, code string) {
+	t.Helper()
+	c, words, _ := lineWords(line)
+	if c == nil {
+		t.Errorf("%v: no command", line)
+		return
+	}
+	var rows []riskRow
+	for _, r := range riskRows {
+		if r.id == cmdID(c) && (r.when == nil || r.when(words)) {
+			rows = append(rows, r)
+		}
+	}
+	has := func(tr tier) bool {
+		for _, r := range rows {
+			if r.tier > tr && r.dynamic == "" {
+				return false // a fixed higher row would hide it
+			}
+		}
+		return slices.ContainsFunc(rows, func(r riskRow) bool { return r.tier == tr })
+	}
+	best := riskOf(c, words)
+	ok := true
+	switch code {
+	case "POLICY_BLOCKED":
+		ok = has(tierDangerous)
+	case "PROTECTED_HOST", "PROTECTED_TARGET":
+		ok = best.tier >= tierChange
+	case "SAFETY_SETTING":
+		ok = has(tierSafety)
+	case "WRITE_REQUIRES_FLAG":
+		k, _ := kindOf(c)
+		ok = k.Kind == kindDepends
+	case "CONFIRM_REQUIRED":
+		ok = best.bulk != ""
+	case "NEEDS_PERSON":
+		ok = has(tierPerson)
+	default:
+		t.Errorf("%v: no rule for stop %s", line, code)
+	}
+	if !ok {
+		t.Errorf("%v stops with %s, but the rule table has no such row for it (rows %+v)", line, code, rows)
+	}
+}
+
+// agentStop is a stop only an AI agent meets: setup runs as a script,
+// args as an agent whose window nobody answers. code is the stop; an empty
+// code means the command leaves the item out, saying skipped.
+type agentStop struct {
+	args          []string
+	setup         func(t *testing.T)
+	code, skipped string
+}
+
+var agentStops = []agentStop{
+	{args: []string{"host", "ssh-command", "web1"}, code: "NEEDS_PERSON",
+		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
+	{args: []string{"secret", "keychain"}, code: "NEEDS_PERSON"},
+	{args: []string{"host", "add", "px", "u@10.0.0.1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING"},
+	{args: []string{"host", "edit", "web1", "--proxy-command", "nc %h %p"}, code: "SAFETY_SETTING",
+		setup: func(t *testing.T) { mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") }},
+	{args: []string{"import", "ssh-config", "testdata/risk_proxy_ssh_config"}, skipped: "--yes"},
+	{args: []string{"import", "kubeconfig", "testdata/risk_exec_kubeconfig"}, code: "SAFETY_SETTING"},
+	{args: []string{"recipe", "add", "free-space", "df -h", "--overwrite", "--read-only"}, code: "SAFETY_SETTING",
+		setup: func(t *testing.T) { mustRun(t, "recipe", "add", "free-space", "df -h") }},
+	{args: []string{"host", "trust", "web1"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
+		key := new(atomic.Pointer[ssh.Signer])
+		s := trustSigner(t)
+		key.Store(&s)
+		mustRun(t, "host", "add", "web1", "root@127.0.0.1:"+strconv.Itoa(keySSHD(t, key)))
+		mustRun(t, "config", "set", "host_key_policy", "strict")
+	}},
+	{args: []string{"guide", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		mustRun(t, "guide", "install")
+	}},
 }
 
 // A person at a terminal now types the name for the commands that stop an
