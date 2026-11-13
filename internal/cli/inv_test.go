@@ -354,7 +354,7 @@ func TestInvConfig(t *testing.T) {
 	if e := wantCode(t, "UNKNOWN_SETTING", "config", "set", "paralel", "3"); !strings.Contains(e.Hint, "parallel") {
 		t.Errorf("hint %q", e.Hint)
 	}
-	mustRun(t, "config", "set", "vpn_idle", "0")
+	mustRun(t, "config", "set", "vpn_idle", "10m") // shorter: no yes needed (0 or longer is a safety setting)
 	d := mustRun(t, "config", "set", "parallel", "20")
 	if d["old"] != "10" || d["value"] != "20" {
 		t.Errorf("set: %v", d)
