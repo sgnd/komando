@@ -5,9 +5,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/spf13/cobra"
 )
 
 // host rm, and what it checks first.
