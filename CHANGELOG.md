@@ -47,6 +47,8 @@ its highlights; the sections below them give the details. Versions follow
 ### Added
 - `komando import mobaxterm FILE` adds MobaXterm's SSH sessions from an exported `.mxtsessions` file, with each session's folder as a group.
 - `komando import putty FILE` adds PuTTY's SSH sessions from a `.reg` file (`reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg`, UTF-16 or plain): user, address and port; a key file path is kept, a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do.
+### Added
+- MongoDB: `db explain` shows a read's plan (`queryPlanner`; `--analyze` runs it and adds `executionStats`), and `db activity` lists what runs now (`currentOp`; `--all` adds idle connections), in the same row shape as for SQL databases. They said `NOT_SUPPORTED` before.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.

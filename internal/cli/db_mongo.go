@@ -15,8 +15,9 @@ import (
 )
 
 // MongoDB conns are `db` conns: `db query` takes a command document
-// instead of SQL, and `db schema` and `db info` describe the database. The
-// SQL-only commands (dump, activity, users, ...) say so.
+// instead of SQL, `db schema` and `db info` describe the database, `db
+// explain` shows a read's plan and `db activity` what runs now. The
+// SQL-only commands (dump, sizes, users, ...) say so.
 
 // mongoConn is the conn expr picks, when it is a MongoDB conn.
 func mongoConn(expr string) (*store.State, *store.Conn, bool) {
@@ -184,6 +185,61 @@ func runMongoInfo(ctx context.Context, st *store.State, c *store.Conn) error {
 	}
 	res["conn"], res["kind"] = c.Name, c.Kind
 	out.P.Print("db.info", res, nil)
+	return nil
+}
+
+// mongoExplainData is db explain's answer for MongoDB: the plan document.
+type mongoExplainData struct {
+	Conn     string `json:"conn"`
+	Database string `json:"database"`
+	Command  string `json:"command"`
+	Plan     any    `json:"plan"`
+}
+
+func (d mongoExplainData) Text() string {
+	b, _ := json.MarshalIndent(d.Plan, "", "  ")
+	return string(b) + "\n"
+}
+
+// runMongoExplain asks MongoDB for the plan of a read command (find,
+// aggregate, count, distinct); --analyze runs it and adds what it did
+// (executionStats). A command that writes is refused: explain would not
+// show its plan without running parts of it.
+func runMongoExplain(ctx context.Context, st *store.State, c *store.Conn, text string, analyze bool) error {
+	cmd, db, err := dbx.ParseMongoCommand(text)
+	if err != nil {
+		return err
+	}
+	if v := dbx.ClassifyMongo(cmd); v.Risk > driver.RiskRead {
+		return out.Usage("db explain shows the plan of a read (find, aggregate, count, distinct); %s writes", cmd[0].Key)
+	}
+	m, closeM, err := openMongo(ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer closeM()
+	plan, err := dbx.MongoExplain(ctx, m, db, cmd, analyze)
+	audit(st, "db.explain", nil, "", err == nil, map[string]any{"conns": []string{c.Name}, "mongo_command": cmd[0].Key})
+	if err != nil {
+		return err
+	}
+	out.P.Print("db.explain", mongoExplainData{Conn: c.Name, Database: cmp.Or(db, m.DB), Command: cmd[0].Key, Plan: plan}, nil)
+	return nil
+}
+
+// runMongoActivity is db activity for MongoDB (currentOp).
+func runMongoActivity(ctx context.Context, st *store.State, c *store.Conn, all bool, limit int) error {
+	m, closeM, err := openMongo(ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer closeM()
+	rows, err := dbx.MongoActivity(ctx, m, all)
+	if err != nil {
+		return err
+	}
+	rows = cutRows(rows, limit)
+	out.P.Print("db.activity", activityData{Conn: c.Name, Count: len(rows), Sessions: rows}, nil)
 	return nil
 }
 
