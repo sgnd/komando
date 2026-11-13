@@ -306,6 +306,9 @@ func ensureHome() error {
 			return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", d, err)
 		}
 	}
+	if len(made) == 0 {
+		tightenHome(h)
+	}
 	return nil
 }
 

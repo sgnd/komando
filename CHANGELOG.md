@@ -8,6 +8,7 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
 - `reboot` kept all the output of its commands on the server: a server that flooded it could fill this computer's memory. It now keeps 64 KiB, and a test checks that every remote command komando runs bounds its output.
 - A `job start --sudo` that sudo refused before it began (no rights, a wrong password) left its env file, with the server's env values from the vault, and its script in the job folder on the server. Both are removed when the job ends, whatever happened.

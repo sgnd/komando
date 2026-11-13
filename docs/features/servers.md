@@ -595,7 +595,9 @@ with `SSH_AGENT_NEEDED`: start one with `eval "$(ssh-agent)"`, or use
 `komando shell SERVER`.
 
 Only a person at a terminal can run `host ssh-command`: it writes a copy of
-the pinned host keys for OpenSSH. An AI agent gets `NEEDS_PERSON` and is
+the pinned host keys for OpenSSH, in a private temporary folder
+(`komando-ssh-*`). A line printed more than a day ago may stop working: the
+next `host ssh-command` removes copies that old. An AI agent gets `NEEDS_PERSON` and is
 told to use `komando exec` or `komando shell`.
 
 ## Limits
