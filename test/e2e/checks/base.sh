@@ -135,6 +135,13 @@ SJ=$($K job start ops --sudo --script "$TMP/who.sh" | jget 'd["data"]["jobs"][0]
 check "job start --script with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
 check "job start --script runs the script as root" root "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
 check "job start --script leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/script" | jget 'd["data"]["exists"]')"
+# job start --sudo-user and --stdin-file, with a sudo password: the env and
+# the input reach a command that runs as another user
+SJ=$($K job start ops --sudo-user agent -e GREETING=hi --stdin-file "$TMP/f" -- 'echo "$(whoami) $GREETING $(cat)"' | jget 'd["data"]["jobs"][0]["id"]')
+check "job start --sudo-user --stdin-file with sudo password" exited "$($K job wait "$SJ" --interval 1s | jget 'd["data"]["state"]')"
+check "job --sudo-user gets the env and the input" "agent hi payload" "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job --stdin-file leaves no copy on the server" False "$($K fs stat ops ".komando/jobs/$SJ/in" | jget 'd["data"]["exists"]')"
+check "job --sudo-user deletes the sudo password" False "$($K fs stat ops ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
 printf '#!/usr/bin/env bash\necho "got:$1:$2"\n' > "$TMP/args.sh"
 SJ=$($K job start direct --script "$TMP/args.sh" --arg 'a b' --arg c | jget 'd["data"]["jobs"][0]["id"]')
 $K job wait "$SJ" --interval 1s >/dev/null
@@ -144,6 +151,10 @@ check "job list shows the script, not its text" True "$($K job list | jget 'any(
 $K host edit direct --sudo-ref secret:agent-pass >/dev/null
 check "unasked sudo password not leaked" False "$($K exec direct --script "$TMP/who.sh" --sudo | jget '"agentpass" in json.dumps(d)')"
 check "unasked sudo password not in stdin" payload "$($K exec direct --sudo --stdin-file "$TMP/f" -- cat | jget 'd["data"]["results"][0]["stdout"].strip()')"
+SJ=$($K job start direct --sudo --stdin-file "$TMP/f" -- 'cat' | jget 'd["data"]["jobs"][0]["id"]')
+$K job wait "$SJ" --interval 1s >/dev/null
+check "job: unasked sudo password not in its input" payload "$($K job logs "$SJ" | jget 'd["data"]["content"].strip()')"
+check "job: unasked sudo password is deleted unread" False "$($K fs stat direct ".komando/jobs/$SJ/pw" | jget 'd["data"]["exists"]')"
 $K host edit direct --unset sudo-ref >/dev/null
 $K host rm ops >/dev/null
 $K exec direct --sudo -- 'mkdir -m 700 /etc/private && install -m 600 /dev/null /etc/private/token' >/dev/null
@@ -157,6 +168,10 @@ echo "==> jobs"
 JID=$($K job start direct -- 'echo a; sleep 1; echo b' | jget 'd["data"]["jobs"][0]["id"]')
 check "job wait ok" exited "$($K job wait "$JID" --interval 1s | jget 'd["data"]["state"]')"
 check "job logs" "a b" "$($K job logs "$JID" | jget '" ".join(d["data"]["content"].split())')"
+JT=$($K job start direct --timeout 2s -- 'sleep 31; echo late' | jget 'd["data"]["jobs"][0]["id"]')
+check "job start --timeout stops the job" "killed True" "$($K job wait "$JT" --interval 1s | jget 'd["data"]["state"]+" "+str(d["data"]["timed_out"])' || true)"
+check "a timed-out job does not run on" "" "$($K job logs "$JT" | jget 'd["data"]["content"].strip()')"
+check "a timed-out job leaves no process" 0 "$($K exec direct --read-only -o text -- 'pgrep -fxc "sleep 31" || true')"
 J2=$($K job start direct -- 'exit 3' | jget 'd["data"]["jobs"][0]["id"]')
 set +e; $K job wait "$JID" "$J2" --interval 1s >/dev/null; check "job wait several: worst exit" 5 $?; set -e
 check "job wait several" 1 "$($K job wait "$JID" "$J2" --interval 1s | jget 'd["data"]["summary"]["ok"]' || true)"

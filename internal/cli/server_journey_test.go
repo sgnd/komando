@@ -56,18 +56,22 @@ func TestExecTimeoutNamesJobStart(t *testing.T) {
 	if got != want {
 		t.Fatalf("got  %s\nwant %s", got, want)
 	}
-	// job start has no input, pty or --sudo-user; module commands build
-	// their own scripts: no line to copy then
+	// --sudo-user and an input file go along
+	o = execOpts{sudoUser: "postgres", stdinFile: "./m.sql"}
+	if got, want := jobStartLine("exec", "db1", "psql app", []byte("x"), o), `komando job start db1 --sudo-user postgres --stdin-file ./m.sql -- 'psql app'`; got != want {
+		t.Errorf("got  %s\nwant %s", got, want)
+	}
+	// komando's own stdin cannot be sent again and job start has no pty;
+	// module commands build their own scripts: no line to copy then
 	for name, c := range map[string]struct {
 		name  string
 		stdin []byte
 		o     execOpts
 	}{
-		"stdin":     {"exec", []byte("x"), execOpts{}},
-		"pty":       {"exec", nil, execOpts{pty: true}},
-		"sudo-user": {"exec", nil, execOpts{sudoUser: "app"}},
-		"svc":       {"svc.restart", nil, execOpts{}},
-		"script":    {"exec", nil, execOpts{display: "./deploy.sh"}},
+		"stdin":  {"exec", []byte("x"), execOpts{stdinFile: "-"}},
+		"pty":    {"exec", nil, execOpts{pty: true}},
+		"svc":    {"svc.restart", nil, execOpts{}},
+		"script": {"exec", nil, execOpts{display: "./deploy.sh"}},
 	} {
 		if got := jobStartLine(c.name, "web1", "uptime", c.stdin, c.o); got != "" {
 			t.Errorf("%s: %q, want none", name, got)
@@ -133,8 +137,8 @@ func TestJobStartScript(t *testing.T) {
 }
 
 // job start --script: the script goes on the input after the sudo
-// password, into the job's private folder, and the job opens and removes
-// it; neither is on the command line.
+// password, into the job's private folder, and the job sends it to the
+// interpreter and removes it; neither is on the command line.
 func TestJobStartScriptOnTheWire(t *testing.T) {
 	srv := startFakeServer(t)
 	const pw = "hunter2-Sudo-pw"
@@ -164,7 +168,7 @@ func TestJobStartScriptOnTheWire(t *testing.T) {
 	if e.stdin != pw+"\n"+body {
 		t.Fatalf("stdin = %q", e.stdin)
 	}
-	for _, want := range []string{`(umask 077; cat > "$d/script")`, `{ rm -f "$2"; /bin/bash -s -- `, `; } < "$2"`, ` sh "$d/env" "$d/script"`} {
+	for _, want := range []string{`(umask 077; cat > "$d/in")`, `{ cat "$d/in"; rm -f "$d/in"; }`, `/bin/bash -s -- `} {
 		if !strings.Contains(e.cmd, want) {
 			t.Fatalf("command lacks %q:\n%s", want, e.cmd)
 		}

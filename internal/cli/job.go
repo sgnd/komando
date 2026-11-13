@@ -47,7 +47,8 @@ keeps running when the connection drops. Check on it with ` + "`job status`" + `
 func jobStartCmd() *cobra.Command {
 	var sudo, readOnly bool
 	var envs []string
-	var dir, cmdStr string
+	var dir, cmdStr, sudoUser, stdinFile string
+	var timeout time.Duration
 	var so scriptOpts
 	c := &cobra.Command{
 		Use:   "start TARGET -- COMMAND...",
@@ -58,17 +59,26 @@ the job IDs at once; the job keeps running when the connection drops.
 --script FILE runs a script from this computer as the job, like
 ` + "`exec --script`" + `: it goes to the interpreter (from its #! line, else sh;
 --interpreter to choose) and its copy on the server is removed as soon as
-the job has opened it. --arg values become $1, $2 ... .`,
+the job has opened it. --arg values become $1, $2 ... .
+
+--stdin-file FILE is the command's input ('-' for komando's own stdin), as
+in exec. --sudo-user USER runs it as USER with sudo -u. --timeout stops the
+job after that long (as job kill does; job status then says it timed out);
+without it a job has no time limit.`,
 		Example: `  komando job start db1 -- 'pg_dump app | gzip > /backup/app.sql.gz'
   komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
-  komando job start @web --script ./deploy.sh --arg v1.2.3 --sudo`,
+  komando job start @web --script ./deploy.sh --arg v1.2.3 --sudo
+  komando job start db1 --sudo-user postgres --stdin-file ./migrate.sql --timeout 2h -- 'psql app'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sp, err := jobWhat(args, cmdStr, so, readOnly, envs)
+			sp, err := jobWhat(args, cmdStr, so, stdinFile, readOnly, envs)
 			if err != nil {
 				return err
 			}
-			sp.sudo, sp.dir = sudo, dir
+			sp.sudo, sp.sudoUser, sp.dir, sp.timeout = sudo, sudoUser, dir, timeout
+			if timeout < 0 {
+				return out.Usage("--timeout takes a time more than 0, for example 30m or 2h")
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -85,8 +95,17 @@ the job has opened it. --arg values become $1, $2 ... .`,
 			}
 			if g.dryRun {
 				plan := map[string]any{"hosts": hostNames(hosts), "command": sp.shown}
-				if sp.body != nil {
-					plan["script_bytes"] = len(sp.body)
+				switch {
+				case so.file != "":
+					plan["script_bytes"] = len(sp.input)
+				case sp.input != nil:
+					plan["stdin_bytes"] = len(sp.input)
+				}
+				if sp.sudoUser != "" {
+					plan["sudo_user"] = sp.sudoUser
+				}
+				if sp.timeout > 0 {
+					plan["timeout_seconds"] = int((sp.timeout + time.Second - 1) / time.Second)
 				}
 				out.P.Print("job.start", plan, nil)
 				return nil
@@ -123,6 +142,9 @@ the job has opened it. --arg values become $1, $2 ... .`,
 	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer as the job ('-' = komando's stdin)")
 	so.bind(c)
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo (uses the server's --sudo-ref password if set)")
+	c.Flags().StringVar(&sudoUser, "sudo-user", "", "run as this user with sudo -u")
+	c.Flags().StringVar(&stdinFile, "stdin-file", "", "send this file on this computer as the command's input ('-' = komando's stdin)")
+	durVar(c.Flags(), &timeout, "timeout", 0, "stop the job after this long, like 2h (default: no limit)")
 	c.Flags().StringArrayVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
 	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
@@ -136,7 +158,8 @@ type jobStatus struct {
 	PID        int    `json:"pid"`
 	State      string `json:"state"` // running | exited | killed | lost
 	ExitCode   *int   `json:"exit_code,omitempty"`
-	Signal     string `json:"signal,omitempty"` // killed: the signal job kill sent
+	Signal     string `json:"signal,omitempty"`    // killed: the signal job kill sent
+	TimedOut   bool   `json:"timed_out,omitempty"` // killed: by job start --timeout
 	LogBytes   int64  `json:"log_bytes"`
 	StartedAt  string `json:"started_at"`
 	RuntimeSec int64  `json:"runtime_sec"`
@@ -398,6 +421,8 @@ func waitVerdict(s *jobStatus, waitTimeout time.Duration) *out.Error {
 	switch {
 	case s.State == "running":
 		return out.Errf(out.ExitTimeout, "WAIT_TIMEOUT", "it is still running: `komando job wait "+s.ID+"` waits again, `komando job logs "+s.ID+" --limit 50` shows its output so far", "job %s still running after %s", s.ID, waitTimeout)
+	case s.State == "killed" && s.TimedOut:
+		return out.Errf(out.ExitRemote, "JOB_KILLED", "it ran longer than job start --timeout allowed; start it again with a longer --timeout, or without one", "job %s was stopped by its --timeout", s.ID)
 	case s.State == "killed":
 		return out.Errf(out.ExitRemote, "JOB_KILLED", "it was stopped with `komando job kill`", "job %s was killed (%s)", s.ID, s.Signal)
 	case s.State == "lost":
@@ -699,6 +724,9 @@ func (s *jobStatus) describe() string {
 	case "running":
 		return "running for " + humanAge(time.Duration(s.RuntimeSec)*time.Second)
 	case "killed":
+		if s.TimedOut {
+			return "stopped by its --timeout after " + humanAge(time.Duration(s.RuntimeSec)*time.Second)
+		}
 		return "killed (" + s.Signal + ") after " + humanAge(time.Duration(s.RuntimeSec)*time.Second)
 	}
 	return "lost: the process ended without an exit code (server rebooted, or killed outside komando)"

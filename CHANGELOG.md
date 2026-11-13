@@ -7,6 +7,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+- `job start --stdin-file FILE` gives the job's command FILE as its input, `job start --sudo-user USER` runs it as USER with `sudo -u` (both as in `exec`), and `job start --timeout 2h` stops the job after that long. A timed-out job is `killed` with `timed_out: true` in `job status`, and `job wait` says the timeout stopped it. When `exec` times out with `--sudo-user` or `--stdin-file FILE`, its hint now names the matching `job start` line.
+
+### Changed
+- A job's `--env` values and its input (`--script`, `--stdin-file`) now reach the command through a pipe from the job's private folder instead of being read from files there, so a command run as another user gets them too. With a sudo password, the job first asks sudo whether it needs one and deletes it unread when it does not.
+
 ### Fixed
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
