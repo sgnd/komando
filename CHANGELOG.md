@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+- On Windows, a VPN's web sign-in stopped with "fork/exec ...: not supported by windows" when Chrome, Edge or Brave was installed: komando cannot give a browser its DevTools pipe there. The sign-in now opens in your own browser and you paste the address it ends on, as on a computer without one of those browsers.
+
 ## [0.13.0] - 2026-11-13
 
 ### Highlights

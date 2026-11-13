@@ -46,8 +46,12 @@ func (e *Stopped) Unwrap() error { return e.Err }
 type Page struct{ URL, HTML string }
 
 // Find returns a Chromium-family browser on this computer, "" when there
-// is none (Safari and Firefox cannot be watched this way).
+// is none (Safari and Firefox cannot be watched this way) or when komando
+// cannot watch one here (Windows, see canWatch).
 func Find() string {
+	if !canWatch {
+		return ""
+	}
 	if runtime.GOOS == "darwin" {
 		roots := []string{"/Applications"}
 		if home, err := os.UserHomeDir(); err == nil {
@@ -76,6 +80,12 @@ func Find() string {
 	}
 	return ""
 }
+
+// canWatch: komando can start a browser with the DevTools pipe on its
+// descriptors 3 and 4. Go hands a program extra descriptors on Unix only
+// (exec.Cmd.ExtraFiles), so on Windows the sign-in opens in the person's
+// own browser instead and they paste the answer.
+const canWatch = runtime.GOOS != "windows"
 
 // windowsBrowsers are where Chrome, Edge (on every Windows 10 and 11) and
 // Brave install themselves on Windows: for all users under Program Files,

@@ -110,7 +110,18 @@ func fakeBrowser(mode string) {
 	}
 }
 
+// needPipe skips a test that starts this program as the browser: the
+// DevTools pipe needs descriptors 3 and 4, which Go gives a program on Unix
+// only (Find says no browser on Windows for that reason).
+func needPipe(t *testing.T) {
+	t.Helper()
+	if !canWatch {
+		t.Skip("Unix only: the DevTools pipe goes on descriptors 3 and 4, which Go cannot give a program on Windows")
+	}
+}
+
 func TestSignIn(t *testing.T) {
+	needPipe(t)
 	self, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -163,6 +174,7 @@ func TestSignIn(t *testing.T) {
 // and the first one's answer, still in the browser's events, is not
 // taken for the second.
 func TestSignInTwice(t *testing.T) {
+	needPipe(t)
 	self, _ := os.Executable()
 	t.Setenv("KOMANDO_FAKE_BROWSER", "open")
 	w, err := Open(self)
@@ -183,6 +195,7 @@ func TestSignInTwice(t *testing.T) {
 // The person closes the window between two sign-ins: the second opens a
 // new one.
 func TestSignInReopens(t *testing.T) {
+	needPipe(t)
 	self, _ := os.Executable()
 	t.Setenv("KOMANDO_FAKE_BROWSER", "reopen")
 	w, err := Open(self)
@@ -201,6 +214,7 @@ func TestSignInReopens(t *testing.T) {
 
 // A sign-in that did not finish says where the window stood.
 func TestSignInStopped(t *testing.T) {
+	needPipe(t)
 	self, _ := os.Executable()
 	t.Setenv("KOMANDO_FAKE_BROWSER", "stall")
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
