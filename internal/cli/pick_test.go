@@ -92,6 +92,7 @@ func TestCommandLineQuoting(t *testing.T) {
 func TestFirstRunImport(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	cfg := filepath.Join(home, ".ssh", "config")
 	_, err := os.Open(cfg)
 	e := toErr(sshConfigErr(cfg, err))

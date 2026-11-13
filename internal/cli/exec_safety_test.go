@@ -57,6 +57,7 @@ func startFakeServer(t *testing.T) *fakeServer {
 	t.Helper()
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp) // os.UserHomeDir reads USERPROFILE on Windows
 	setHome(t, filepath.Join(tmp, ".komando"))
 	t.Setenv("SSH_AUTH_SOCK", "")
 	t.Setenv("KOMANDO_OUTPUT", "json")

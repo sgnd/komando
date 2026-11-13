@@ -98,6 +98,7 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 	invHome(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	_, priv, _ := ed25519.GenerateKey(rand.Reader)
 	const pass = "correct horse battery"
 	blk, err := ssh.MarshalPrivateKeyWithPassphrase(priv, "", []byte(pass))

@@ -13,6 +13,7 @@ func TestGuideUninstallStopsBeforeRemovingAnything(t *testing.T) {
 	invHome(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	noAgent(t)
 	mustRun(t, "guide", "install")
 	skill := filepath.Join(home, ".claude", "skills", "komando", "SKILL.md")

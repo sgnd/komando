@@ -225,7 +225,9 @@ func fakeBitwarden(t *testing.T, email, password string) *httptest.Server {
 }
 
 func TestBitwarden(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+	t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads USERPROFILE on Windows
 	srv := fakeBitwarden(t, "Dev@Example.com", "correct horse")
 	resetBW := func() { bwCache.Lock(); bwCache.items = nil; bwCache.Unlock() }
 	defer resetBW()

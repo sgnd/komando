@@ -328,6 +328,7 @@ func agentFiles(t *testing.T) (kh, home, proj string) {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	setHome(t, kh)
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	return kh, home, proj

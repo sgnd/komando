@@ -26,6 +26,7 @@ func awsEnv(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	for _, k := range []string{"AWS_PROFILE", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_REGION", "AWS_DEFAULT_REGION"} {
 		t.Setenv(k, "")
 	}
@@ -64,6 +65,7 @@ func TestVaultKV(t *testing.T) {
 	defer srv.Close()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Setenv("VAULT_ADDR", srv.URL)
 	t.Setenv("VAULT_TOKEN", "")
 	t.Setenv("BAO_TOKEN", "")
@@ -298,6 +300,7 @@ func TestGCPAccessTokenErrors(t *testing.T) {
 	defer func() { gcpCredentials = saved }()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Setenv("APPDATA", home)
 	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "")
 	gcpCredentials = func(context.Context) (*google.Credentials, error) {

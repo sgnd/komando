@@ -157,7 +157,9 @@ var agentStops = []agentStop{
 		mustRun(t, "config", "set", "host_key_policy", "strict")
 	}},
 	{args: []string{"guide", "uninstall"}, code: "SAFETY_SETTING", setup: func(t *testing.T) {
-		t.Setenv("HOME", t.TempDir())
+		fakeHome := t.TempDir()
+		t.Setenv("HOME", fakeHome)
+		t.Setenv("USERPROFILE", fakeHome) // os.UserHomeDir reads USERPROFILE on Windows
 		mustRun(t, "guide", "install")
 	}},
 }

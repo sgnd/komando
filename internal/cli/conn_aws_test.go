@@ -26,6 +26,7 @@ func TestECRRegion(t *testing.T) {
 func TestAWSCredentialsBuiltIn(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Setenv("PATH", "/nonexistent")
 	t.Setenv("AWS_CONFIG_FILE", filepath.Join(home, "config"))
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", filepath.Join(home, "credentials"))

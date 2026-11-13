@@ -80,6 +80,7 @@ func TestDoctorChecksTheAgentSkill(t *testing.T) {
 	invHome(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	t.Chdir(t.TempDir())
 	check := func() map[string]any {
 		t.Helper()
@@ -124,6 +125,7 @@ func TestGuideUninstall(t *testing.T) {
 	invHome(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir reads USERPROFILE on Windows
 	os.MkdirAll(filepath.Join(home, ".claude"), 0o755)
 	own := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"my-own-check"}]}]},"model":"x"}`
 	os.WriteFile(filepath.Join(home, ".claude", "settings.json"), []byte(own), 0o600)

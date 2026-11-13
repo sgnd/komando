@@ -41,6 +41,7 @@ func pwshServer(t *testing.T) {
 	realHome := os.Getenv("HOME") // the docker command finds its settings there
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
+	t.Setenv("USERPROFILE", tmp) // os.UserHomeDir reads USERPROFILE on Windows
 	setHome(t, filepath.Join(tmp, ".komando"))
 	t.Setenv("SSH_AUTH_SOCK", "")
 	t.Setenv("KOMANDO_OUTPUT", "json")
