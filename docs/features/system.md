@@ -118,7 +118,7 @@ komando logs web1 --container api --since 10m --timestamps
 | `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
 | `-p`, `--priority` | Journal priority and worse: `emerg` ... `debug`, or 0-7. |
 | `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
-| `-s`, `--sudo` | Read the whole journal or a protected file. |
+| `-s`, `--sudo` | Read the whole journal or a protected file. As root, komando does not read a file through a link another server user made (IS_A_SYMLINK), and `--follow` keeps reading the file it opened. |
 | `--timestamps` | Show when each container log line was written (with `--container` only; journal lines have their time already). |
 
 `komando svc logs TARGET UNIT` and `komando docker logs TARGET CONTAINER`

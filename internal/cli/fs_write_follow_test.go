@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/sshx"
 )
 
 // fakeStat is a stat stand-in for the root scripts: every path is root's
@@ -186,5 +188,38 @@ func TestSudoReadFollowsNoOtherUsersLink(t *testing.T) {
 	}
 	if got, _, code := runAsRoot(t, sudoReadScript(secret, "tail -c 5"), nil); code != 0 || got != "only" {
 		t.Fatalf("tail: %q %d", got, code)
+	}
+}
+
+// O5: logs --file F --sudo reads F as root through the same check as
+// fs cat --sudo: not through a link another server user made.
+func TestLogsFileSudoFollowsNoOtherUsersLink(t *testing.T) {
+	d, _ := filepath.EvalSymlinks(t.TempDir())
+	secret := filepath.Join(d, "shadow")
+	_ = os.WriteFile(secret, []byte("a\nroot-only\n"), 0o600)
+	log := filepath.Join(d, "app.log")
+	if err := os.Symlink(secret, log); err != nil {
+		t.Fatal(err)
+	}
+	for _, grep := range []string{"", "only"} {
+		o := &logOpts{file: log, lines: 1, sudo: true, grep: grep}
+		c, err := o.build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, _, code := runAsRoot(t, c, notRoot(log)); code != sudoExitLink || strings.Contains(got, "root-only") {
+			t.Fatalf("grep %q: another user's link read: %q %d", grep, got, code)
+		}
+		if _, perr := o.result(&sshx.RunResult{ExitCode: sudoExitLink}); perr == nil || perr.Code != "IS_A_SYMLINK" {
+			t.Fatalf("grep %q: error %+v", grep, perr)
+		}
+		if got, _, code := runAsRoot(t, c, nil); code != 0 || got != "root-only" {
+			t.Fatalf("grep %q: root's link: %q %d", grep, got, code)
+		}
+	}
+	// --follow keeps reading the file it opened, through the same check
+	o := &logOpts{file: log, lines: 1, sudo: true, follow: true}
+	if c, _ := o.build(); !strings.Contains(c, "exit 92") || !strings.Contains(c, "tail -n 1 -f <&3") || o.source() != "tail -n 1 -F -- '"+log+"'" {
+		t.Fatalf("follow: %q, shown %q", c, o.source())
 	}
 }

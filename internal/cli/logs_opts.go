@@ -1,6 +1,12 @@
 package cli
 
-import "github.com/spf13/cobra"
+import (
+	"strconv"
+
+	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/sshx"
+)
 
 // logOpts are the flags of `komando logs` and its aliases (svc logs,
 // docker logs).
@@ -39,9 +45,33 @@ func (o *logOpts) build() (string, error) {
 	if err := o.check(); err != nil {
 		return "", err
 	}
-	c := o.source()
+	c := o.runSource()
 	if o.follow {
 		return c, nil // followCheck checks the source before streaming
 	}
 	return o.preflight() + c, nil
+}
+
+// runSource is source as it runs: a log file read with --sudo is opened
+// through sudoReadScript, so root does not follow a link another server
+// user made (app.log -> /etc/shadow). With --follow it keeps reading the
+// file it opened (tail -f), as following by name would open the name
+// again as root without that check. source stays the plain command shown
+// in the output and the audit log.
+func (o *logOpts) runSource() string {
+	if !o.sudo || o.container != "" || o.file == "" {
+		return o.source()
+	}
+	n := strconv.Itoa(o.lines)
+	if o.follow {
+		c := sudoReadScript(o.file, "tail -n "+n+" -f")
+		if o.grep != "" {
+			c += " | grep --line-buffered -iE -- " + sshx.Q(o.grep)
+		}
+		return c
+	}
+	if o.grep != "" {
+		return sudoReadScript(o.file, "grep -iE -- "+sshx.Q(o.grep)) + " | tail -n " + n
+	}
+	return sudoReadScript(o.file, "tail -n "+n)
 }

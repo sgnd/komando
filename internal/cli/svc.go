@@ -429,7 +429,11 @@ func (o *logOpts) followCheck(ctx context.Context, target string, sudo bool) err
 		return err
 	}
 	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: pre + "true", Sudo: sudo, Timeout: 30 * time.Second, MaxOutput: 4096})
+		check := "true"
+		if o.sudo && o.file != "" {
+			check = sudoReadScript(o.file, "true") // a link root does not follow stops here
+		}
+		return sshx.Run(ctx, c, sshx.RunRequest{Command: pre + check, Sudo: sudo, Timeout: 30 * time.Second, MaxOutput: 4096})
 	})
 	for _, r := range res {
 		if r.Err != nil {
@@ -453,6 +457,9 @@ func (o *logOpts) result(rr *sshx.RunResult) (any, *out.Error) {
 		return "", out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "check the path, for example `komando fs list TARGET /var/log`", "%s does not exist", o.file)
 	case "no-read":
 		return "", out.Errf(out.ExitRemote, "PERMISSION_DENIED", "add --sudo", "cannot read %s", o.file)
+	}
+	if o.sudo && o.file != "" && o.container == "" && rr.ExitCode == sudoExitLink {
+		return "", toErr(readLinkStop(o.file))
 	}
 	if strings.Contains(rr.Stderr, "insufficient permissions") {
 		// journalctl as a plain user, as it says itself: only root and the

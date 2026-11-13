@@ -1229,9 +1229,10 @@ instead.
   writes. They stop with SHARED_FOLDER_CONFLICT, whose hint says how to
   write as that user instead. A link on the way to the file (not only the
   file itself) is followed only when root made it. `fs cat --sudo`, a
-  `--sudo` download and the reads `fs replace --sudo` makes do not read
-  through a link made by a user other than root and the SSH user
-  (IS_A_SYMLINK).
+  `--sudo` download, `logs --file F --sudo` and the reads `fs replace
+  --sudo` makes do not read through a link made by a user other than root
+  and the SSH user (IS_A_SYMLINK). `logs --file F --sudo --follow` keeps
+  reading the file it opened, so after a log rotation run it again.
 - The approval window for an AI agent's `exec --script FILE`,
   `job start --script FILE` and `exec --stdin-file FILE` shows the
   file's SHA-256 and every line of it, numbered, long lines wrapped and
