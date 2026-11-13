@@ -105,9 +105,25 @@ func keychainFile() string {
 // keychainOff: KOMANDO_KEYCHAIN=off, komando uses no keychain here.
 func keychainOff() bool { return os.Getenv("KOMANDO_KEYCHAIN") == "off" }
 
+// AgentCall reports that an AI agent makes this call; the cli sets it.
+var AgentCall func() bool
+
+// countOff is keychainOff for the store's change count (generation.go).
+// An agent's KOMANDO_KEYCHAIN=off does not count there: with it, an agent
+// could move store.db and store.key aside, or put an old copy back, and
+// komando would start or open that store without the old-copy check (no
+// pinned host keys, no protected flags). The count is a number, not a
+// secret, so reading it gives the agent nothing.
+func countOff() bool {
+	return keychainOff() && (AgentCall == nil || !AgentCall())
+}
+
 // KeychainTool says which tool keeps the key here, or why there is none.
-func KeychainTool() (string, error) {
-	if keychainOff() {
+func KeychainTool() (string, error) { return keychainTool(keychainOff()) }
+
+// keychainTool is KeychainTool with off given.
+func keychainTool(off bool) (string, error) {
+	if off {
 		return "", errors.New("komando uses no keychain on this computer (KOMANDO_KEYCHAIN is off)")
 	}
 	switch keychainOS {
@@ -173,8 +189,12 @@ func macDefaultKeychain() error {
 // keychain`: on macOS it also needs a default keychain, so komando never
 // makes macOS show a dialog. A use nobody asked for then goes on without
 // the keychain.
-func autoKeychainTool() (string, error) {
-	tool, err := KeychainTool()
+func autoKeychainTool() (string, error) { return autoKeychainToolOff(keychainOff()) }
+
+// autoKeychainToolOff is autoKeychainTool with off given (countOff for the
+// change count).
+func autoKeychainToolOff(off bool) (string, error) {
+	tool, err := keychainTool(off)
 	if err != nil {
 		return "", err
 	}

@@ -26,6 +26,10 @@ func TestMain(m *testing.M) {
 	// a new vault never puts its key in the login keychain of whoever runs
 	// the tests (secret_keychain_test.go uses stand-ins)
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
+	// an agent's KOMANDO_KEYCHAIN=off still reads the store's change count
+	// from the keychain (vault.countOff); the tests that run as an agent
+	// must not ask the real one (internal/vault tests that rule)
+	vault.AgentCall = nil
 	// every command opens the sealed store with the passphrase: a cheap
 	// scrypt keeps the PTY children (this binary again) fast under -race
 	vault.PassphraseN = 1 << 10

@@ -389,4 +389,5 @@ func isSensitive(err error) bool {
 func init() {
 	vault.RefGuard = refGuard
 	vault.OnResolve = func(v string) { out.P.AddValue(v) } // hidden in output, as vault values are
+	vault.AgentCall = isAgent                              // an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
 }
