@@ -17,6 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -232,6 +233,9 @@ func dialMessage(err error) string {
 	var op *net.OpError
 	if !errors.As(err, &op) || op.Op != "dial" || op.Addr == nil {
 		return err.Error()
+	}
+	if sshx.Refused(op.Err) { // Windows has its own words for it
+		return "cannot reach " + op.Addr.String() + ": connection refused"
 	}
 	why := op.Err
 	var sys *os.SyscallError
