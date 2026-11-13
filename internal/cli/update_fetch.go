@@ -7,14 +7,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/releasesig"
@@ -100,7 +97,7 @@ func send(cl *call, ctx context.Context, c *http.Client, method, u, what string)
 			_ = resp.Body.Close()
 		}
 		wait := time.Duration(try) * retryWait
-		if term.IsTerminal(int(os.Stderr.Fd())) {
+		if isTerminal(cl.out.Err) {
 			fmt.Fprintf(cl.out.Err, "%s: %s; trying again in %s\n", what, why, wait)
 		}
 		select {
@@ -217,7 +214,7 @@ func fetch(cl *call, ctx context.Context, tag, name string, max int64, label str
 		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is %d bytes, more than komando accepts; nothing was changed", name, resp.ContentLength)
 	}
 	var body io.Reader = io.LimitReader(resp.Body, max+1)
-	if label != "" && term.IsTerminal(int(os.Stderr.Fd())) {
+	if label != "" && isTerminal(cl.out.Err) {
 		p := &progress{cl: cl, label: label, total: resp.ContentLength}
 		defer p.done()
 		body = io.TeeReader(body, p)

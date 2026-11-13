@@ -592,7 +592,7 @@ audit setting is off.`,
 			if refused == nil {
 				var output string
 				runs, output, refused = gateCheck(req.args, readOnly)
-				if f, ok := outputFormat(output); ok && refused != nil && output != "" {
+				if f, ok := outputFormat(cl, output); ok && refused != nil && output != "" {
 					cl.out.Format = f // the refusal comes as the key asked for output
 				}
 			}

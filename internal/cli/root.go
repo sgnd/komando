@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
@@ -96,9 +95,13 @@ var vtOK = true
 // execute runs one command with these arguments in cl: its envelope or
 // text, and its exit code.
 func (cl *call) execute(ctx context.Context, args []string) int {
-	defer cl.leave() // the root counts it among the running calls once it is set up (call_hooks.go)
+	// the hooks of the lower packages answer for this call from its first
+	// step (call_hooks.go): the store and the vault may open in any of
+	// them, and an agent's call must count there before they do
+	cl.enter()
+	defer cl.leave()
 	// errors raised before flag parsing still need the right format
-	if f, ok := outputFormat(cl.getenv("KOMANDO_OUTPUT")); ok {
+	if f, ok := outputFormat(cl, cl.getenv("KOMANDO_OUTPUT")); ok {
 		cl.out.Format = f
 	}
 	// a person at a terminal who left something out is asked for it first
@@ -115,6 +118,16 @@ func (cl *call) execute(ctx context.Context, args []string) int {
 	if !slices.Equal(filled, args) {
 		args = filled
 		cl.args = append([]string{cl.args[0]}, filled...) // what the audit and the approval window name
+	}
+	// Ctrl-C stops the command only once the questions are answered: one
+	// at a question (or at a preview it offers) stops just that
+	if cl.signals != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = cl.signals(ctx)
+		defer cancel()
+	}
+	if ctx.Err() != nil { // stopped while the questions were asked
+		return cl.out.Fail("komando", promptStopped(ctx.Err()))
 	}
 	root := newRoot(cl)
 	root.SetArgs(args)
@@ -133,7 +146,7 @@ func (cl *call) execute(ctx context.Context, args []string) int {
 	}
 	// argument and flag errors come before PersistentPreRunE, which applies
 	// -o; apply it here so `-o text` (or a terminal) gets text for them too
-	if f, ok := outputFormat(outputFlag(cl)); ok {
+	if f, ok := outputFormat(cl, outputFlag(cl)); ok {
 		cl.out.Format = f
 	}
 	var oe *out.Error
@@ -460,7 +473,7 @@ func newRoot(cl *call) *cobra.Command {
 			if err := pickTableOutput(cmd); err != nil {
 				return err
 			}
-			f, ok := outputFormat(cl.flags.output)
+			f, ok := outputFormat(cl, cl.flags.output)
 			if !ok {
 				if !cmd.Flags().Changed("output") && cl.getenv("KOMANDO_OUTPUT") != "" {
 					return out.Usage("KOMANDO_OUTPUT=%s: it takes auto, json or text", cl.getenv("KOMANDO_OUTPUT"))
@@ -496,8 +509,6 @@ func newRoot(cl *call) *cobra.Command {
 				cl.out.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
 					"--reveal needs the user's yes"))
 			}
-			// from here the hooks of the lower packages answer for it too
-			cl.enter()
 			if err := startChecks(cmd); err != nil {
 				return err
 			}
@@ -707,14 +718,15 @@ func versionCmd() *cobra.Command {
 	}
 }
 
-// outputFormat resolves auto|json|text. "auto" (or empty) means text for a
-// human at a terminal and JSON for programs reading a pipe.
-func outputFormat(v string) (string, bool) {
+// outputFormat resolves auto|json|text for cl. "auto" (or empty) means
+// text when the call's stdout is a terminal (a person reads it) and JSON
+// for a pipe, a file or an app's writer.
+func outputFormat(cl *call, v string) (string, bool) {
 	switch v {
 	case "json", "text":
 		return v, true
 	case "", "auto":
-		if term.IsTerminal(int(os.Stdout.Fd())) {
+		if isTerminal(cl.out.W) {
 			return "text", true
 		}
 		return "json", true
@@ -734,8 +746,8 @@ func isRelease(v string) bool {
 // first removes the temporary files and folders this run made
 // (tmpclean), which the clean stop would have removed. A SIGHUP that was
 // ignored when komando started (nohup, a background holder) stays ignored.
-func signalContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
+func signalContext(parent context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(parent)
 	sigs := []os.Signal{os.Interrupt, syscall.SIGTERM}
 	if !signal.Ignored(syscall.SIGHUP) {
 		sigs = append(sigs, syscall.SIGHUP)

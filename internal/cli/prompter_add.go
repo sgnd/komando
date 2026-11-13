@@ -63,7 +63,7 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 	}
 	cmds := formBuild(st, sp, a)
 	for _, c := range cmds {
-		fmt.Fprintln(promptW, "$ komando "+pickCommandLine(c))
+		fmt.Fprintln(promptW(cl), "$ komando "+pickCommandLine(c))
 	}
 	self, err := os.Executable()
 	if err != nil {
@@ -89,12 +89,12 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 	}
 	if rm := formRemoveCmd(cmds); code != 0 && reason != "" && rm != nil {
 		name := rm[2]
-		fmt.Fprintf(promptW, "\n%s did not answer: %s\nIt stays in your list. What next:\n", name, reason)
+		fmt.Fprintf(promptW(cl), "\n%s did not answer: %s\nIt stays in your list. What next:\n", name, reason)
 		for _, l := range [][2]string{
 			{"komando " + rm[0] + " edit " + name, "change how komando reaches it"},
 			{"komando test " + name, "test it again"},
 			{"komando " + rm[0] + " rm " + name, "take it out of your list"}} {
-			fmt.Fprintf(promptW, "  %-*s  %s\n", len("komando "+rm[0]+" edit "+name), l[0], l[1])
+			fmt.Fprintf(promptW(cl), "  %-*s  %s\n", len("komando "+rm[0]+" edit "+name), l[0], l[1])
 		}
 	}
 	return fillDone{code: code}
@@ -162,7 +162,7 @@ func promptAddAsk(cl *call, st *store.State, sp formSpec, a formAnswers, i int) 
 		}
 		v, err := ask(cl, pq)
 		if clean, found := pastedSecret(v); q.addr && found {
-			fmt.Fprintln(promptW, "  ! a password was in it: komando took it out and kept nothing.\n    Pick A password below; komando then asks for it, hidden.")
+			fmt.Fprintln(promptW(cl), "  ! a password was in it: komando took it out and kept nothing.\n    Pick A password below; komando then asks for it, hidden.")
 			v = clean
 		}
 		return v, err

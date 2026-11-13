@@ -38,11 +38,11 @@ func promptGate(format string, agent bool, ci, termName string) bool {
 	return !agent && !ciOn && termName != "dumb" && (format == "" || format == "auto" || format == "text")
 }
 
-// promptW is where questions are drawn; promptRead reads one answer. Tests
-// stand in for both.
+// promptW is where cl's questions are drawn: the call's stderr.
+// promptRead reads one answer. Tests stand in for both.
 var (
-	promptW    io.Writer = os.Stderr
-	promptRead           = func(cl *call, label string) (string, error) { return promptLineIdle(cl, label, promptIdle) }
+	promptW    = func(cl *call) io.Writer { return cl.out.Err }
+	promptRead = func(cl *call, label string) (string, error) { return promptLineIdle(cl, label, promptIdle) }
 )
 
 // promptIdle: a question nobody answers for this long is given up, so a
@@ -65,7 +65,7 @@ func promptLineIdle(cl *call, label string, idle time.Duration) (string, error) 
 	case a := <-got:
 		return a.s, a.err
 	case <-time.After(idle):
-		fmt.Fprintln(promptW)
+		fmt.Fprintln(promptW(cl))
 		return "", errPromptCancel
 	}
 }
@@ -100,13 +100,13 @@ type promptQ struct {
 }
 
 // promptHelp prints a question's help, for ?.
-func promptHelp(q promptQ) {
+func promptHelp(cl *call, q promptQ) {
 	if q.help == "" {
-		fmt.Fprintln(promptW, "  (no more help: type the value, or press Ctrl-C to stop)")
+		fmt.Fprintln(promptW(cl), "  (no more help: type the value, or press Ctrl-C to stop)")
 		return
 	}
 	for _, l := range pickWrap(q.help, 76) {
-		fmt.Fprintln(promptW, "  "+l)
+		fmt.Fprintln(promptW(cl), "  "+l)
 	}
 }
 
@@ -126,7 +126,7 @@ func askText(cl *call, q promptQ) (string, error) {
 			return "", err
 		}
 		if v == "?" {
-			promptHelp(q)
+			promptHelp(cl, q)
 			continue
 		}
 		if v == "" {
@@ -142,7 +142,7 @@ func askText(cl *call, q promptQ) (string, error) {
 		if problem == "" {
 			return v, nil
 		}
-		fmt.Fprintln(promptW, "  ! "+problem)
+		fmt.Fprintln(promptW(cl), "  ! "+problem)
 		try++
 	}
 	return "", errPromptCancel
@@ -153,7 +153,7 @@ func askText(cl *call, q promptQ) (string, error) {
 // @web or tag:db, or a new name, is). Enter takes the default.
 func askPick(cl *call, q promptQ, rows []pickRow, free bool) (string, error) {
 	shown := rows
-	promptRows(shown)
+	promptRows(cl, shown)
 	shownDef := q.def
 	for _, r := range rows {
 		if r.value == q.def && q.def != "" {
@@ -171,7 +171,7 @@ func askPick(cl *call, q promptQ, rows []pickRow, free bool) (string, error) {
 		}
 		switch {
 		case v == "?":
-			promptHelp(q)
+			promptHelp(cl, q)
 			continue
 		case v == "" && q.def != "":
 			return q.def, nil
@@ -190,7 +190,7 @@ func askPick(cl *call, q promptQ, rows []pickRow, free bool) (string, error) {
 			if free {
 				if q.check != nil {
 					if p := q.check(v); p != "" {
-						fmt.Fprintln(promptW, "  ! "+p)
+						fmt.Fprintln(promptW(cl), "  ! "+p)
 						try++
 						continue
 					}
@@ -208,11 +208,11 @@ func askPick(cl *call, q promptQ, rows []pickRow, free bool) (string, error) {
 			}
 			if len(match) > 1 {
 				shown = match
-				promptRows(shown)
+				promptRows(cl, shown)
 				continue
 			}
 		}
-		fmt.Fprintln(promptW, "  ! type a number from the list (? explains it, Ctrl-C stops)")
+		fmt.Fprintln(promptW(cl), "  ! type a number from the list (? explains it, Ctrl-C stops)")
 		try++
 	}
 	return "", errPromptCancel
@@ -222,7 +222,7 @@ func askPick(cl *call, q promptQ, rows []pickRow, free bool) (string, error) {
 const promptMaxRows = 30
 
 // promptRows prints a numbered list, its names and details in columns.
-func promptRows(rows []pickRow) {
+func promptRows(cl *call, rows []pickRow) {
 	w := 0
 	for _, r := range rows[:min(len(rows), promptMaxRows)] {
 		w = max(w, displayWidth(r.label))
@@ -232,10 +232,10 @@ func promptRows(rows []pickRow) {
 		if r.detail != "" {
 			line += strings.Repeat(" ", w-displayWidth(r.label)+2) + cleanText(r.detail)
 		}
-		fmt.Fprintln(promptW, line)
+		fmt.Fprintln(promptW(cl), line)
 	}
 	if len(rows) > promptMaxRows {
-		fmt.Fprintf(promptW, "  ... %d more: type part of a name to narrow the list\n", len(rows)-promptMaxRows)
+		fmt.Fprintf(promptW(cl), "  ... %d more: type part of a name to narrow the list\n", len(rows)-promptMaxRows)
 	}
 }
 
@@ -295,10 +295,10 @@ func readMaskedLine(cl *call, label string, mask func(string) string) (string, e
 	draw := func() {
 		shown := label + mask(string(line))
 		if vtOK {
-			fmt.Fprint(promptW, "\r\x1b[2K"+shown)
+			fmt.Fprint(promptW(cl), "\r\x1b[2K"+shown)
 			return
 		}
-		fmt.Fprint(promptW, "\r"+maskedRedraw(shown, drawn))
+		fmt.Fprint(promptW(cl), "\r"+maskedRedraw(shown, drawn))
 		drawn = utf8.RuneCountInString(shown)
 	}
 	draw()
@@ -312,11 +312,11 @@ func readMaskedLine(cl *call, label string, mask func(string) string) (string, e
 		for len(b) > 0 {
 			switch c := b[0]; {
 			case c == 3: // Ctrl-C
-				fmt.Fprint(promptW, "\r\n")
+				fmt.Fprint(promptW(cl), "\r\n")
 				cl.interrupted = true
 				return "", interruptedErr()
 			case c == '\r' || c == '\n' || c == 4 && len(line) == 0:
-				fmt.Fprint(promptW, "\r\n")
+				fmt.Fprint(promptW(cl), "\r\n")
 				return string(line), nil
 			case c == 0x7f || c == 8:
 				if len(line) > 0 {

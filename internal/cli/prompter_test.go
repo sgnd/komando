@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -11,7 +12,8 @@ func promptFake(t *testing.T, answers ...string) *strings.Builder {
 	t.Helper()
 	var drawn strings.Builder
 	savedW, savedRead, savedOn := promptW, promptRead, tcl.promptOn
-	promptW, tcl.promptOn = &drawn, true
+	promptW = func(*call) io.Writer { return &drawn }
+	tcl.promptOn = true
 	promptRead = func(_ *call, label string) (string, error) {
 		drawn.WriteString(label)
 		if len(answers) == 0 {

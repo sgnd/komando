@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"golang.org/x/term"
@@ -61,6 +62,12 @@ type call struct {
 	promptConfirmed string              // what the person said yes to before the command ran (Run it?)
 	fillSeen        fillInfo            // what promptFill asked (prompter_next.go)
 	nextNow         []string            // the Next: lines the command worked out as it ran
+	liveMu          sync.Mutex          // one followed line at a time on stdout (printLogLine)
+
+	// signals arms Ctrl-C for the command once its questions are answered
+	// (execute); only the komando program sets it, an app passes its own
+	// context to RunCall
+	signals func(context.Context) (context.Context, context.CancelFunc)
 }
 
 // newCall is a call that runs with c, its command line program then args.
@@ -121,17 +128,24 @@ func textWidth(cl *call) int {
 	return out.StdoutWidth()
 }
 
-// isTerminal reports whether f is a terminal of this process.
+// isTerminal reports whether f is a terminal of this process: a call's
+// stdout or stderr is one only when the caller handed in the terminal's
+// file (processCall), never an app's writer.
 func isTerminal(f any) bool {
 	o, ok := f.(*os.File)
 	return ok && term.IsTerminal(int(o.Fd()))
 }
 
-// getenv, lookupEnv and environ read the call's environment, never the
-// process's: an app's calls each have their own.
+// getenv and lookupEnv read the call's environment, never the process's:
+// an app's calls each have their own.
 func (cl *call) getenv(key string) string            { return cl.io.Getenv(key) }
 func (cl *call) lookupEnv(key string) (string, bool) { return cl.io.Lookup(key) }
-func (cl *call) environ() []string                   { return cl.io.Env() }
+
+// environ is the call's environment for a program it starts, without the
+// secret stores' unlock values (vault.StripUnlock): no child inherits
+// them. A komando process that needs the vault gets vault.SelfEnv or the
+// values on its stdin (vault.PassOnStdin).
+func (cl *call) environ() []string { return vault.StripUnlock(cl.io.Env()) }
 
 // treeCall is a call for a command tree that is only read (its
 // commands, flags and help) and never run: it reads no environment and
@@ -184,9 +198,9 @@ func Execute() int {
 	vtOK = ok
 	// the store is closed when the program ends
 	defer store.Close()
-	ctx, cancel := signalContext()
-	defer cancel()
-	return RunCall(ctx, processCall(), os.Args[1:])
+	cl := newCall(processCall(), os.Args[1:])
+	cl.signals = signalContext
+	return cl.execute(context.Background(), os.Args[1:])
 }
 
 // processCall is the call the komando program makes: its own

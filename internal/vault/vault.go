@@ -94,6 +94,25 @@ func TakeUnlockEnv() {
 	}
 }
 
+// StripUnlock is env (KEY=value lines) without KOMANDO_VAULT_PASS and the
+// UnlockVars: the environment of a program a call starts. TakeUnlockEnv
+// cleans only the process's own environment; an app hands each call an
+// environment of its own, which may still hold them. nil stays nil.
+func StripUnlock(env []string) []string {
+	if env == nil {
+		return nil
+	}
+	kept := make([]string, 0, len(env))
+	for _, kv := range env {
+		name, _, _ := strings.Cut(kv, "=")
+		if name == "KOMANDO_VAULT_PASS" || slices.Contains(UnlockVars, name) {
+			continue
+		}
+		kept = append(kept, kv)
+	}
+	return kept
+}
+
 // unlockEnv is cloud.UnlockEnv: the environment first (a variable set
 // after the start), then what TakeUnlockEnv took.
 func unlockEnv(name string) string {

@@ -39,10 +39,10 @@ func promptNext(cl *call) {
 		return
 	}
 	if cl.fillSeen.prompted {
-		fmt.Fprintln(promptW, "Next time: komando "+pickCommandLine(cl.fillSeen.line))
+		fmt.Fprintln(promptW(cl), "Next time: komando "+pickCommandLine(cl.fillSeen.line))
 	}
 	if kind, ok := showKinds[cl.fillSeen.key]; ok && cl.fillSeen.first != "" {
-		showCommands(kind, cl.fillSeen.first)
+		showCommands(cl, kind, cl.fillSeen.first)
 	}
 	lines := cl.nextNow
 	if len(lines) == 0 {
@@ -52,7 +52,7 @@ func promptNext(cl *call) {
 		lines = lines[:3]
 	}
 	if len(lines) > 0 {
-		fmt.Fprintln(promptW, "Next: "+strings.Join(lines, " · "))
+		fmt.Fprintln(promptW(cl), "Next: "+strings.Join(lines, " · "))
 	}
 }
 
@@ -275,7 +275,7 @@ func itemKinds(st *store.State, kind, name string) []string {
 
 // showCommands prints the commands for one item after a show command, for
 // a person at the terminal, on stderr.
-func showCommands(kind, name string) {
+func showCommands(cl *call, kind, name string) {
 	st, err := loadState()
 	if err != nil {
 		return
@@ -287,8 +287,8 @@ func showCommands(kind, name string) {
 	if len(cmds) == 0 {
 		return
 	}
-	fmt.Fprintln(promptW, "\nCOMMANDS")
+	fmt.Fprintln(promptW(cl), "\nCOMMANDS")
 	for _, c := range cmds {
-		fmt.Fprintln(promptW, "  komando "+strings.ReplaceAll(c, "{}", name))
+		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(c, "{}", name))
 	}
 }

@@ -371,14 +371,17 @@ func streamPods(ctx context.Context, k *kube.Client, space string, pods []string
 	return lines, nil
 }
 
-// printLogLine prints one followed log line at once: the line for a
-// person, an output event in JSON.
+// printLogLine prints one followed log line at once to the call's stdout:
+// the line for a person, an output event in JSON. Lines of pods (and of
+// clusters) followed at the same time never run into each other.
 func printLogLine(cl *call, pod, prefix, line string) {
+	cl.liveMu.Lock()
+	defer cl.liveMu.Unlock()
 	if cl.out.Format == "text" {
 		if prefix != "" {
 			line = out.NoCR(line) // no \r back over the pod's name
 		}
-		fmt.Println(out.SafeText(cl.out.Redact(prefix + line)))
+		fmt.Fprintln(cl.out.W, out.SafeText(cl.out.Redact(prefix+line)))
 		return
 	}
 	cl.out.Event(map[string]any{"event": "output", "pod": pod, "data": line + "\n"})

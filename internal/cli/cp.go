@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -220,7 +219,7 @@ type cpOpts struct {
 // never on stdout, never beside --progress's JSON lines, and nil (no line)
 // otherwise.
 func transferProgress(cl *call, ctx context.Context, o cpOpts, name string, total int64) *progress {
-	if !o.oneHost || total < progressMin || progressFrom(ctx) != nil || cl.isAgent() || !term.IsTerminal(int(os.Stderr.Fd())) {
+	if !o.oneHost || total < progressMin || progressFrom(ctx) != nil || cl.isAgent() || !isTerminal(cl.out.Err) {
 		return nil
 	}
 	return &progress{cl: cl, label: name, total: total}

@@ -99,7 +99,7 @@ func promptFill(cl *call, args []string) ([]string, error) {
 	if v, ok := f.a["arg1"]; ok && len(cl.fillSeen.args) < 2 { // rename's NEW, asked
 		cl.fillSeen.args = []string{cl.fillSeen.first, v}
 	}
-	fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(pickCommandLine(filled)))
+	fmt.Fprintln(promptW(cl), "$ komando "+out.MaskSecrets(pickCommandLine(filled)))
 	if err := f.confirm(filled); err != nil {
 		return nil, err
 	}
@@ -250,10 +250,10 @@ func (f *fill) ask(i int) (string, error) {
 		}
 		switch {
 		case len(real) == 0:
-			fmt.Fprintf(promptW, "No %s yet: `%s`\n", k.noun, k.add)
+			fmt.Fprintf(promptW(f.cl), "No %s yet: `%s`\n", k.noun, k.add)
 			return "", errPromptCancel
 		case len(real) == 1 && len(rows) <= 2 && !promptProtected(f.st, real[0].value):
-			fmt.Fprintf(promptW, "Using %s (the only one of your %s)\n", real[0].value, k.noun)
+			fmt.Fprintf(promptW(f.cl), "Using %s (the only one of your %s)\n", real[0].value, k.noun)
 			return real[0].value, nil
 		}
 	}
@@ -365,7 +365,7 @@ func (f *fill) confirm(filled []string) error {
 		if len(items) == 0 {
 			items, of = targets, "targets"
 		}
-		fmt.Fprintln(promptW, "This "+r.typed+".")
+		fmt.Fprintln(promptW(f.cl), "This "+r.typed+".")
 		want, shown := typedAnswer(items, of)
 		ok, err := askTypeName(f.cl, want, shown)
 		if err != nil {
@@ -390,7 +390,7 @@ func (f *fill) confirm(filled []string) error {
 			return promptNo()
 		}
 		dry := formDry([][]string{filled})
-		fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(pickCommandLine(dry)))
+		fmt.Fprintln(promptW(f.cl), "$ komando "+out.MaskSecrets(pickCommandLine(dry)))
 		if self, err := os.Executable(); err == nil {
 			_, _ = pickRunOne(f.cl, self, dry)
 		}

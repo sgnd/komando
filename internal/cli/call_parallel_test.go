@@ -136,7 +136,7 @@ func TestPersonAndAgentApprovalsApart(t *testing.T) {
 	}()
 	wg.Wait()
 
-	if !person.isAgent() && person.caller.Kind != engine.Person {
+	if person.isAgent() || person.caller.Kind != engine.Person {
 		t.Fatalf("the person's call is a %v", person.caller.Kind)
 	}
 	if !agent.isAgent() {

@@ -39,6 +39,9 @@ func TestPTYChild(t *testing.T) {
 		os.Setenv("KOMANDO_AGENT", "1")
 	}
 	os.Args = append([]string{"komando"}, strings.Split(args, "\x1f")...)
+	// as in the komando program, its call is the only one running
+	// (TestMain counted tcl in for the other tests)
+	tcl.leave()
 	code := Execute()
 	// the terminal as komando leaves it (the test cannot look itself: the
 	// system takes the terminal away when this process ends)

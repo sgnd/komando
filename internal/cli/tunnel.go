@@ -464,7 +464,7 @@ func tunnelServeCmd() *cobra.Command {
 			fail := func(err error) error {
 				e := toErr(err)
 				b, _ := json.Marshal(serveErr{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit})
-				fmt.Printf("ERROR %s\n", b)
+				fmt.Fprintf(cl.out.W, "ERROR %s\n", b)
 				return exitCode(1)
 			}
 			st, err := serveState(cl, passStdin)
@@ -511,7 +511,7 @@ func tunnelServeCmd() *cobra.Command {
 			if err != nil {
 				return fail(err)
 			}
-			fmt.Printf("READY %s\n", ln.Addr().String())
+			fmt.Fprintf(cl.out.W, "READY %s\n", ln.Addr().String())
 			go func() { <-ctx.Done(); ln.Close() }()
 			for {
 				conn, err := ln.Accept()

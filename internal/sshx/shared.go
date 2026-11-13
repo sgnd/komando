@@ -39,9 +39,18 @@ var chains = struct {
 // chainLinger is how long an unused shared path stays open.
 var chainLinger = 5 * time.Second
 
-// chainKey names a path: its VPN and each jump host's identity.
-func chainKey(vpn *store.Vpn, hops []*store.Host) string {
+// chainKey names a path: how its host keys were checked, its VPN and
+// each jump host's identity. The check is part of it: a path dialed with
+// --host-key-policy off (or accept-new) is never handed to a command that
+// checks keys more strictly, which may run in the same process (an app).
+func chainKey(vpn *store.Vpn, hops []*store.Host, hostKeyPolicy string) string {
 	var b strings.Builder
+	switch hostKeyPolicy {
+	case "off", "strict":
+		b.WriteString("keys:" + hostKeyPolicy + "|")
+	default: // "" is the setting's default, accept-new
+		b.WriteString("keys:accept-new|")
+	}
 	if vpn != nil {
 		b.WriteString("vpn:" + vpn.Name + "|")
 	}
@@ -147,7 +156,7 @@ func openFirst(ctx context.Context, vpn *store.Vpn, o Options) (netx.Dialer, io.
 func openJumps(ctx context.Context, st *store.State, vpn *store.Vpn, jumps []*store.Host, o Options) (*sharedChain, error) {
 	jo := o
 	jo.scan = nil
-	return acquireChain(chainKey(vpn, jumps), func() ([]*ssh.Client, io.Closer, error) {
+	return acquireChain(chainKey(vpn, jumps, o.HostKeyPolicy), func() ([]*ssh.Client, io.Closer, error) {
 		first, vpnCloser, err := openFirst(ctx, vpn, o)
 		if err != nil {
 			return nil, nil, err

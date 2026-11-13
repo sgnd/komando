@@ -28,7 +28,7 @@ func vpnServeCmd() *cobra.Command {
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			fail := func(err error) error { fmt.Printf("ERROR %v\n", err); return exitCode(1) }
+			fail := func(err error) error { fmt.Fprintf(cl.out.W, "ERROR %v\n", err); return exitCode(1) }
 			socksUser, socksPass, err := serveStdin(cl.stdin, passwordStdin, passStdin)
 			if err != nil {
 				return fail(err)
@@ -52,7 +52,7 @@ func vpnServeCmd() *cobra.Command {
 			if err != nil {
 				return fail(err)
 			}
-			fmt.Printf("READY %s\n", ln.Addr())
+			fmt.Fprintf(cl.out.W, "READY %s\n", ln.Addr())
 			idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 			var use sessionUse
 			use.touch()
@@ -74,7 +74,7 @@ func vpnServeCmd() *cobra.Command {
 					<-ended.Done()
 					if e, ok := closer.(interface{ Err() error }); ok && e.Err() != nil {
 						// a timestamp like the log's other lines, and how long it ran
-						fmt.Printf("%s ENDED %v (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), e.Err(), time.Since(started).Round(time.Second))
+						fmt.Fprintf(cl.out.W, "%s ENDED %v (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), e.Err(), time.Since(started).Round(time.Second))
 					}
 					ln.Close()
 				}()

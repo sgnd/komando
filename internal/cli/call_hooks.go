@@ -83,14 +83,7 @@ func init() {
 		return nil
 	}
 	// an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
-	vault.AgentCall = func() bool {
-		for _, cl := range runningCalls() {
-			if cl.isAgent() {
-				return true
-			}
-		}
-		return false
-	}
+	vault.AgentCall = agentCallRunning
 	// a server's env values from the vault go along only when every
 	// running call may send them
 	sshx.HostSecretEnv = func(c *sshx.Client) bool {
@@ -146,6 +139,18 @@ func init() {
 		}
 		return startVpnFor(cl, ctx, name)
 	}
+}
+
+// agentCallRunning is vault.AgentCall: an AI agent's call is among the
+// running calls. A call counts from the first step of its command
+// (execute), before anything can open the store or the vault.
+func agentCallRunning() bool {
+	for _, cl := range runningCalls() {
+		if cl.isAgent() {
+			return true
+		}
+	}
+	return false
 }
 
 // storeMu guards storeDryRun.

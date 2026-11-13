@@ -86,7 +86,7 @@ starship, in ~/.config/starship.toml:
 		},
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if short {
-				fmt.Print(promptText(time.Now()))
+				fmt.Fprint(cl.out.W, promptText(time.Now()))
 				return nil
 			}
 			st, err := loadState()

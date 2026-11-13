@@ -587,12 +587,11 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 					}
 				}
 				// the inventory lookups pass their kind on to out.NotFound
-				// (after the call they run in, cl, when they take one)
+				// (after the call they run in, cl or a struct's cl such as
+				// c.cl, when they take one)
 				args := x.Args
-				if len(args) > 0 {
-					if id, ok := args[0].(*ast.Ident); ok && id.Name == "cl" {
-						args = args[1:]
-					}
+				if len(args) > 0 && callArg(args[0]) {
+					args = args[1:]
 				}
 				if id, ok := x.Fun.(*ast.Ident); ok && notFoundWrappers[id.Name] && len(args) >= 1 && lit(args[0]) != "" {
 					sites = append(sites, notFoundSite(path, lit(args[0])))
@@ -642,6 +641,18 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 		}
 	}
 	return sites
+}
+
+// callArg reports whether e is a call handed on as an argument: cl, or
+// a struct's call (c.cl, f.cl).
+func callArg(e ast.Expr) bool {
+	switch x := e.(type) {
+	case *ast.Ident:
+		return x.Name == "cl"
+	case *ast.SelectorExpr:
+		return x.Sel.Name == "cl"
+	}
+	return false
 }
 
 // notFoundWrappers are the lookups that hand their first argument, a

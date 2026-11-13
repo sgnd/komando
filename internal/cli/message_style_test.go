@@ -117,7 +117,7 @@ func styleTexts(t *testing.T) []styleText {
 }
 
 // stderrWriters are the writers that reach the person's stderr.
-var stderrWriters = map[string]bool{"os.Stderr": true, "promptW": true, "cmd.ErrOrStderr()": true, "c.ErrOrStderr()": true,
+var stderrWriters = map[string]bool{"os.Stderr": true, "promptW()": true, "cmd.ErrOrStderr()": true, "c.ErrOrStderr()": true,
 	// a call's stderr (call.go), also through the struct that keeps the call
 	"cl.out.Err": true, "w.cl.out.Err": true, "r.cl.out.Err": true, "p.cl.out.Err": true, "s.cl.out.Err": true, "pr.Stderr()": true,
 	// the printer's stderr (internal/out)

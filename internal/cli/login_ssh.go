@@ -139,7 +139,7 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 		StartedAt: time.Now().UTC(), Until: time.Now().Add(keep).UTC()}
 	c := holderCommand(self, h.Name)
 	if c.Env == nil {
-		c.Env = cl.environ() // vault.TakeUnlockEnv took KOMANDO_VAULT_PASS and the like out of it
+		c.Env = cl.environ() // without KOMANDO_VAULT_PASS and the like (vault.StripUnlock)
 	}
 	c.Stderr = lf
 	c.SysProcAttr = detachAttr() // it outlives this command and its terminal
