@@ -380,7 +380,11 @@ func TestTamperedColumns(t *testing.T) {
 }
 
 func TestNestedAndOddPath(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "a#b?c%41")
+	name := "a#b?c%41"
+	if runtime.GOOS == "windows" {
+		name = "a#b c%41" // a Windows name holds no ?
+	}
+	dir := filepath.Join(t.TempDir(), name)
 	if err := os.Mkdir(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}

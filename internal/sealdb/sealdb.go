@@ -468,7 +468,12 @@ func (d *DB) Backup(ctx context.Context, dst string) error {
 // the store's sync settings.
 func syncFile(path string) error {
 	for _, p := range []string{path, filepath.Dir(path)} {
-		f, err := os.Open(p)
+		// the file opened for writing: Windows flushes no file opened to read
+		flag := os.O_RDWR
+		if p != path {
+			flag = os.O_RDONLY
+		}
+		f, err := os.OpenFile(p, flag, 0)
 		if err != nil {
 			return err
 		}
