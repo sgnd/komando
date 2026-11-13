@@ -1234,10 +1234,12 @@ instead.
   (IS_A_SYMLINK).
 - The approval window for an AI agent's `exec --script FILE`,
   `job start --script FILE` and `exec --stdin-file FILE` shows the
-  file's SHA-256 and first 10 lines (secrets masked). Before, it showed
-  only the command line, so a person allowed a script they never saw. A
-  file that is not valid text, or holds bidi or zero-width characters,
-  gets no window, as for such a command line.
+  file's SHA-256 and first 10 lines. Before, it showed only the command
+  line, so a person allowed a script they never saw. A file that is not
+  valid text, holds bidi or zero-width characters, or holds what looks
+  like a password, key or token gets no window, as for such a command
+  line: masking `pass=x|sh</tmp/s` as `pass=[hidden]` would hide what
+  runs. The agent is told to ask you to run it in your own terminal.
 - On a Linux or BSD X11 desktop the approval window needs the approval
   code (`komando config approval-code`): another program there can click
   "Allow once" (xdotool). Without the code komando opens no window and
