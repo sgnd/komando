@@ -58,10 +58,13 @@ check "person: login aws --dry-run shows the SSO start page" 1 "$(grep -c 'sso_s
 
 # storage list/rm --all-versions in a bucket with versioning (moto)
 VB="http://127.0.0.1:$E2E_MOTO/e2e-ver"
-curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$VB" >/dev/null
-curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$VB?versioning" \
-  -d '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>' >/dev/null
-for v in one two; do curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$VB/app.cfg" -d "$v" >/dev/null; done
+# moto takes signed and unsigned requests; like e2e-sts above, try both
+mput() { curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$@" >/dev/null || curl -sf -X PUT "$@" >/dev/null; }
+mput "$VB" || echo "  (could not create the e2e-ver bucket in moto)"
+mput "$VB?versioning" -H 'Content-Type: application/xml' \
+  -d '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>' ||
+  echo "  (could not turn on versioning in moto)"
+for v in one two; do mput "$VB/app.cfg" -d "$v" || echo "  (could not put app.cfg in moto)"; done
 printf '[default]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/ver-credentials"
 VERENV=(env AWS_SHARED_CREDENTIALS_FILE="$TMP/ver-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true AWS_PROFILE=)
 q "${VERENV[@]}" $K conn add t-ver "s3://e2e-ver?endpoint=http://127.0.0.1:$E2E_MOTO&region=us-east-1" --option aws_profile=default
