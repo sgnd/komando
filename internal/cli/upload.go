@@ -124,9 +124,8 @@ func downloadCmdFor(storageOnly bool) *cobra.Command {
 where it lands: a file name, or a folder (existing, or ending in /); a
 folder per server when several are picked. A file that is already here is
 replaced only with --overwrite: without it, one file stops with FILE_EXISTS,
-a folder from servers stops at the first such file, and a folder from
-storage keeps them and copies the rest. --sudo reads one file as root (up
-to 512 MiB).
+and a folder keeps them (kept) and copies the rest. --sudo reads one file
+as root (up to 512 MiB).
 From storage, --to - writes the object to stdout.
 
 ` + downloadFolderRule,

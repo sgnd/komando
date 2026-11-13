@@ -258,10 +258,9 @@ read, the rest are still copied; the result lists the failures under
 ### What a copy replaces
 
 - Downloads never replace a file that is already on your computer. One
-  file stops with `FILE_EXISTS` (exit 8); a folder from a server stops at
-  the first file that is already here; a folder from storage keeps those
-  files and copies the rest. Add `--overwrite` when you mean to replace
-  them.
+  file stops with `FILE_EXISTS` (exit 8); a folder (`-r`), from a server or
+  from storage, keeps those files, copies the rest and says how many it
+  kept (`kept`). Add `--overwrite` when you mean to replace them.
 - Uploads replace the file on the server and say so (`replaced: true`).
 - Every file, both ways, is written under a temporary name first and moved
   into place when complete, so a broken connection never leaves half a
