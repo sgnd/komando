@@ -39,6 +39,8 @@ its highlights; the sections below them give the details. Versions follow
 - A server's key and `--via` steps, and a conn's `--via` steps, now keep the record ID beside the name (`key_id`, `via_ids` in the JSON). The names stay what commands read and change; the IDs let a reference survive a rename made elsewhere, which sync between devices needs. An existing store gets the IDs at its next change.
 ### Added
 - Docs: "What komando sends" in the README and SECURITY.md: nothing on its own (no statistics, crash reports or background update check); it connects only to what you added or named, AWS for `login aws`, and GitHub for `update`.
+### Added
+- `logs --container` (and `docker logs`) take `--since today`, `yesterday` and `now`, as the journal does: the server's own midnight or time, worked out on the server. They stopped with `USAGE` before.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
