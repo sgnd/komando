@@ -149,6 +149,15 @@ Help for one command: `komando <command> --help`.
 
 More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).
 
+## What komando sends
+
+Nothing on its own. komando has no usage statistics, no crash reports and
+no update check in the background. It connects only where you send it: the
+servers, databases, caches, queues, storage, clusters, registries and VPNs
+you added, the password manager or cloud you named in a password reference,
+and AWS when you run `komando login aws`. `komando update` asks GitHub for
+the newest release only when you run it.
+
 ## Something wrong?
 
 Every error has a code and a hint with the next step. `komando doctor`
