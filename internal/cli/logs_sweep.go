@@ -37,6 +37,16 @@ func sweepLogs(dir string, inUse map[string]bool) {
 	}
 }
 
+// logDir makes komando's folder dir (private) for a new log, and removes
+// the logs there that ended a week ago.
+func logDir(dir string, st *store.State) error {
+	if err := store.MkdirPrivate(dir); err != nil {
+		return err
+	}
+	sweepLogs(dir, liveLogs(st))
+	return nil
+}
+
 // liveLogs are the log files of the tunnels, logins and VPN sessions st
 // says are running (whether they still run or not: a log of one komando
 // has not yet seen end stays until its record goes).

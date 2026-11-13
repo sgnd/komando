@@ -191,10 +191,9 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			id := newID("t")
 			logPath := store.Path("tunnels", id+".log")
-			if err := store.MkdirPrivate("tunnels"); err != nil {
+			if err := logDir("tunnels", st); err != nil {
 				return err
 			}
-			sweepLogs("tunnels", liveLogs(st)) // logs of tunnels that ended a week ago
 			t := &store.Tunnel{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, LogFile: logPath, StartedAt: time.Now().UTC()}
 			if err := store.UpdateRuntime(func(s *store.State) error { s.Tunnels[id] = t; return nil }); err != nil {
 				return err
