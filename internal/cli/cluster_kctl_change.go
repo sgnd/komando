@@ -50,7 +50,7 @@ func (r *kctlRun) apply(diff bool) error {
 	if diff {
 		g.dryRun = true // diff is an apply the server only pretends to do
 	}
-	res, err := kubeApply(r.ctx, r.k, r.conn, docs, r.a.val("namespace"))
+	res, err := kubeApply(r.ctx, r.k, r.conn, docs, r.a.val("namespace"), r.a.bools["force-conflicts"])
 	g.dryRun = saved
 	if err != nil {
 		return err

@@ -278,9 +278,12 @@ komando cluster scale swarm1 service/web 4
   cluster refuses one object (a typo, an unknown field or kind), it stops
   there and nothing in the file is applied (`K8S_INVALID`, "nothing was
   applied: configmap/bad: ...").
-- `apply` uses server-side apply as `komando` and takes over fields another
-  tool set (an autoscaler's replicas, a `kubectl edit`). Leave those fields
-  out of the file.
+- `apply` uses server-side apply as `komando`. A field another tool owns
+  (an autoscaler's replicas, a `kubectl edit`) stops it with `K8S_CONFLICT`,
+  which names that tool and the fields, and nothing is applied. Leave those
+  fields out of the file, or add `--force-conflicts` to take them over (as
+  `kubectl apply --server-side --force-conflicts` does). It is still a
+  change: a protected cluster needs a person's yes, as without it.
 - `apply --dry-run` shows for each object whether it would be created,
   changed or stay the same, with a diff. Secret values never show: a changed
   value reads `(hidden, changed)`. Objects in a namespace that the same file

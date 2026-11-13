@@ -73,6 +73,14 @@ check "helm status shows the notes" True "$($K cluster helm status lab-k3s demo 
 check "helm history lists both revisions, oldest first" "1 2" "$($K cluster helm history lab-k3s demo --namespace t-e2eclu | jget '" ".join(str(r["revision"]) for r in d["data"]["revisions"])')"
 check "helm values: what was set" 3 "$($K cluster helm values lab-k3s demo --namespace t-e2eclu | jget 'd["data"]["values"]["replicas"]')"
 check "helm values --all: with the chart's defaults" "3 demo" "$($K cluster helm values lab-k3s demo --namespace t-e2eclu --all | jget 'str(d["data"]["values"]["replicas"]) + " " + d["data"]["values"]["image"]')"
+# a field another manager owns stops apply (nothing applied); --force-conflicts takes it over
+printf 'apiVersion: v1\nkind: ConfigMap\nmetadata: {name: t-own, namespace: t-e2eclu}\ndata: {a: one}\n' >"$TMP/own.yaml"
+q $K cluster apply lab-k3s --file "$TMP/own.yaml"
+kc -n t-e2eclu patch configmap t-own --type merge -p '{"data":{"a":"two"}}' >/dev/null
+check "apply: a field another manager owns is K8S_CONFLICT naming it" "8 K8S_CONFLICT True True two" \
+  "$($K cluster apply lab-k3s --file "$TMP/own.yaml" >"$TMP/o"; echo $?) $(jget 'd["error"]["code"] + " " + str("kubectl-patch" in d["error"]["message"]) + " " + str("--force-conflicts" in d["error"]["hint"])' <"$TMP/o") $($K cluster get lab-k3s cm t-own --namespace t-e2eclu | jget 'd["data"]["data"]["a"]')"
+check "apply --force-conflicts takes the field over" "configured one" \
+  "$($K cluster apply lab-k3s --file "$TMP/own.yaml" --force-conflicts | jget 'd["data"]["objects"][0]["action"]') $($K cluster get lab-k3s cm t-own --namespace t-e2eclu | jget 'd["data"]["data"]["a"]')"
 check "scale to the same count is unchanged" "True 1" "$($K cluster scale lab-k3s deploy/web 1 --namespace t-e2eclu | jget 'str(d["data"]["unchanged"]) + " " + str(d["data"]["previous_replicas"])')"
 check "scale refuses pods" USAGE "$($K cluster scale lab-k3s pod/x 1 --namespace t-e2eclu | jget 'd["error"]["code"]')"
 check "a bad label selector is a usage error" 2 "$($K cluster ls lab-k3s pods -l 'app in (' --namespace t-e2eclu >/dev/null; echo $?)"

@@ -69,7 +69,7 @@ var kBoolFlags = map[string]string{
 	"--delete-emptydir-data": "delete-emptydir-data", "--show-labels": "show-labels", "--no-headers": "no-headers",
 	"-i": "stdin", "--stdin": "stdin", "-t": "tty", "--tty": "tty", "--previous": "previous", "--rm": "rm",
 	"--wait": "wait", "-q": "quiet", "--quiet": "quiet", "-R": "recursive", "--recursive": "recursive",
-	"--server-side": "server-side", "--timestamps": "timestamps", "--all-containers": "all-containers",
+	"--server-side": "server-side", "--force-conflicts": "force-conflicts", "--timestamps": "timestamps", "--all-containers": "all-containers",
 	"--follow": "follow", "--show-kind": "show-kind", "--list": "list", "--ignore-not-found": "ignore-not-found",
 	"--prefix": "prefix", "--sort": "sort", "--no-headers=true": "no-headers", "--containers=true": "containers",
 	"--disable-eviction": "disable-eviction", "--namespaced": "namespaced", "--recursive=true": "recursive",

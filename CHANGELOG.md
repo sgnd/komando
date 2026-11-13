@@ -84,6 +84,7 @@ Exit and error codes that changed:
 | a person answers no to a filled-in command (a person only: no agent or script is asked, so the agent recording has no row for it) | exit 1 | `DECLINED`, exit 6 |
 | `forward ...`, `script`, `prompt`, `host import`, `host export`, `db grants` | ran | unknown command, `USAGE`, exit 2 (use `tunnel`, `exec --script`, `status --short`, `import`, `export`, `db user show`) |
 | `storage rm -n 10` and the other retired flags listed above | ran | unknown flag, `USAGE`, exit 2 |
+| `cluster apply` (and `cluster run -- apply`) on a field another field manager owns | took the field over (server-side apply with force) | `K8S_CONFLICT`, exit 8, naming that manager; nothing is applied; `--force-conflicts` takes it over |
 
 Text output (`-o text`) is not part of the contract, but agents read it:
 the `next:` lines moved to stderr (`data.next` is unchanged), tables say
@@ -98,6 +99,13 @@ instead.
 
 ### Added
 
+- `cluster apply --force-conflicts` (and `cluster run -- apply
+  --force-conflicts`) takes over fields another field manager owns, as
+  `kubectl apply --server-side --force-conflicts` does. Without it,
+  apply no longer takes them over: an autoscaler's replicas or a
+  `kubectl edit` stop it with `K8S_CONFLICT`, which names the manager
+  and the fields, and nothing is applied. A protected cluster still
+  needs a person's yes either way.
 - `error.suggestion` holds the name komando thinks you meant when a
   command, server, conn, group, secret, setting or flag is misspelled,
   and the hint is then the whole command line with it in place (`run it
