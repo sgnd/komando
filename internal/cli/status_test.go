@@ -33,8 +33,10 @@ func TestRunningStatus(t *testing.T) {
 			"old":    {Name: "old", Kind: "openvpn"},
 			"never":  {Name: "never", Kind: "wireguard"},
 		},
+		// office was used a second over 3m ago: the clock may not move
+		// while the test runs (Windows), and 27m left reads as 27m
 		Sessions: map[string]*store.VpnSession{
-			"office": {Vpn: "office", PID: 100, StartedAt: now.Add(-42 * time.Minute), LastUsed: now.Add(-3 * time.Minute)},
+			"office": {Vpn: "office", PID: 100, StartedAt: now.Add(-42 * time.Minute), LastUsed: now.Add(-3*time.Minute - time.Second)},
 			"old":    {Vpn: "old", PID: 200, StartedAt: now.Add(-time.Hour), LastUsed: now.Add(-time.Hour)}, // died
 		},
 		Tunnels: map[string]*store.Tunnel{
