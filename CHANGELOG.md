@@ -31,6 +31,8 @@ its highlights; the sections below them give the details. Versions follow
 ### Added
 - `key revoke --all-users` (with sudo) removes the key from the `authorized_keys` of every user on the server, not only the login user's or one `--user`'s: someone who left may have put it into another account. The dry run names each user whose file holds it (`users`), and each file is read and written as its own user.
 - `config set vpn_idle` to a longer time, or to `0` (never close), now counts as a safety setting like `login_for`: at a terminal komando asks first, and an AI agent needs a person's yes (`SAFETY_SETTING`). A VPN an agent can keep up for ever is a way into the network that nobody closes. A shorter time asks nothing.
+### Added
+- SSH user certificates: a key's OpenSSH certificate (`KEY-cert.pub` next to the key file, as `ssh` uses it) is offered at login, then the key alone, so servers that trust an SSH certificate authority let komando in. `key add --cert FILE` and `key edit --cert FILE` (`--unset cert`) name one kept elsewhere or for a key komando made; a certificate for another key is refused (`KEY_INVALID`) and one that is not valid now is left out with a warning. Keys show `cert_path` when one is set.
 
 ### Fixed
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
