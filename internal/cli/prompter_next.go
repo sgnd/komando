@@ -46,7 +46,7 @@ func promptNext() {
 		return
 	}
 	if fillSeen.prompted {
-		fmt.Fprintln(promptW, "Next time: komando "+menuCommandLine(fillSeen.line))
+		fmt.Fprintln(promptW, "Next time: komando "+pickCommandLine(fillSeen.line))
 	}
 	if kind, ok := showKinds[fillSeen.key]; ok && fillSeen.first != "" {
 		showCommands(kind, fillSeen.first)

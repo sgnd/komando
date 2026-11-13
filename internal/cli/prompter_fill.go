@@ -99,7 +99,7 @@ func promptFill(args []string) ([]string, error) {
 	if v, ok := f.a["arg1"]; ok && len(fillSeen.args) < 2 { // rename's NEW, asked
 		fillSeen.args = []string{fillSeen.first, v}
 	}
-	fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(menuCommandLine(filled)))
+	fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(pickCommandLine(filled)))
 	if err := f.confirm(filled); err != nil {
 		return nil, err
 	}
@@ -238,9 +238,9 @@ func (f *fill) ask(i int) (string, error) {
 	if q.choices == nil {
 		return askText(pq)
 	}
-	rows := slices.DeleteFunc(q.choices(f.st, f.a), func(r menuRow) bool { return r.value == "" })
+	rows := slices.DeleteFunc(q.choices(f.st, f.a), func(r pickRow) bool { return r.value == "" })
 	if k, ok := promptKinds[f.pick(q.key)]; ok && !q.optional {
-		var real []menuRow
+		var real []pickRow
 		for _, r := range rows {
 			if r.value != "all" && !strings.HasPrefix(r.value, "@") {
 				real = append(real, r)
@@ -388,9 +388,9 @@ func (f *fill) confirm(filled []string) error {
 			return promptNo()
 		}
 		dry := formDry([][]string{filled})
-		fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(menuCommandLine(dry)))
+		fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(pickCommandLine(dry)))
 		if self, err := os.Executable(); err == nil {
-			_, _ = menuRunOne(self, dry)
+			_, _ = pickRunOne(self, dry)
 		}
 	}
 }

@@ -82,7 +82,7 @@ func TestAskText(t *testing.T) {
 }
 
 func TestAskPick(t *testing.T) {
-	rows := []menuRow{{label: "db-pass", value: "db-pass"}, {label: "web-1", detail: "10.0.0.5", value: "web-1"}, {label: "web-2", detail: "10.0.0.6", value: "web-2"}}
+	rows := []pickRow{{label: "db-pass", value: "db-pass"}, {label: "web-1", detail: "10.0.0.5", value: "web-1"}, {label: "web-2", detail: "10.0.0.6", value: "web-2"}}
 	for _, c := range []struct {
 		answers []string
 		free    bool

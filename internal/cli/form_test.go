@@ -24,11 +24,11 @@ func formParse(t *testing.T, source string, args []string) *cobra.Command {
 		return nil
 	}
 	if err := cmd.ParseFlags(rest); err != nil {
-		t.Errorf("%s: `komando %s`: %v", source, menuCommandLine(args), err)
+		t.Errorf("%s: `komando %s`: %v", source, pickCommandLine(args), err)
 		return nil
 	}
 	if err := cmd.ValidateArgs(cmd.Flags().Args()); err != nil {
-		t.Errorf("%s: `komando %s`: %v", source, menuCommandLine(args), err)
+		t.Errorf("%s: `komando %s`: %v", source, pickCommandLine(args), err)
 	}
 	return cmd
 }
@@ -83,7 +83,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 				if dry := formDry(sp.build(st, a)); true {
 					if c := formParse(t, commandKey(s)+" (try)", dry); c != nil {
 						if f := c.Flags().Lookup("dry-run"); f == nil || !f.Changed {
-							t.Errorf("%s: Try it first runs `komando %s` for real", commandKey(s), menuCommandLine(dry))
+							t.Errorf("%s: Try it first runs `komando %s` for real", commandKey(s), pickCommandLine(dry))
 						}
 					}
 				}
@@ -106,7 +106,7 @@ func formNoApproval(t *testing.T, source string, line []string) {
 		}
 		name := strings.SplitN(strings.TrimLeft(w, "-"), "=", 2)[0]
 		if strings.HasPrefix(w, "--") && slices.Contains([]string{"yes", "allow-dangerous", "reveal", "dry-run"}, name) {
-			t.Errorf("%s: `komando %s` has %s", source, menuCommandLine(line), w)
+			t.Errorf("%s: `komando %s` has %s", source, pickCommandLine(line), w)
 		}
 	}
 }
@@ -250,7 +250,7 @@ func TestPastedSecret(t *testing.T) {
 
 func TestFormNameProblem(t *testing.T) {
 	st := testState()
-	for _, n := range menuNames(st.Hosts, "host")[:1] {
+	for _, n := range pickNames(st.Hosts, "host")[:1] {
 		p := formNameProblem(st, "host", strings.ToUpper(n))
 		if !strings.Contains(p, "already a server") || strings.Contains(p, "like "+n+",") {
 			t.Errorf("taken name %s: %q", n, p)
@@ -547,7 +547,7 @@ func TestFormPickKinds(t *testing.T) {
 		t.Errorf("SERVER picks %q", p) // one server (S-4.2)
 	}
 	st, _ := loadState()
-	names := func(rows []menuRow) (n []string) {
+	names := func(rows []pickRow) (n []string) {
 		for _, r := range rows {
 			n = append(n, r.value)
 		}

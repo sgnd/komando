@@ -17,7 +17,7 @@ func formCheckLine(t *testing.T, source string, line []string) {
 	t.Helper()
 	for _, w := range line {
 		if w == "--yes" || w == "--allow-dangerous" || w == "--reveal" {
-			t.Errorf("%s: `komando %s` has %s", source, menuCommandLine(line), w)
+			t.Errorf("%s: `komando %s` has %s", source, pickCommandLine(line), w)
 		}
 	}
 	cmd := formParse(t, source, line)

@@ -15,21 +15,21 @@ import (
 )
 
 // The lists a question picks from (servers, conns, VPNs, each with a short
-// detail), and how komando shows and runs a command line it built. They
-// were the menu's; the questions of a typed command use them now.
+// detail), and how komando shows and runs a command line it built, for
+// the questions of a typed command.
 
-// menuRow is one line a person can choose.
-type menuRow struct {
+// pickRow is one line a person can choose.
+type pickRow struct {
 	label, detail string
 	value         string // what choosing it gives back (an action or a name)
 }
 
-// menuNames is the names a list may offer, sorted. A name the inventory
+// pickNames is the names a list may offer, sorted. A name the inventory
 // would not accept today (a hand-edited state file, or "all" from before it
-// was refused) is left out: the menu passes the name as an argument, where
+// was refused) is left out: the answer goes in as an argument, where
 // one starting with - would be read as a flag and "all" would pick
 // everything.
-func menuNames[T any](m map[string]T, kind string) []string {
+func pickNames[T any](m map[string]T, kind string) []string {
 	var names []string
 	for n := range m {
 		if validName(kind, n) == nil {
@@ -40,47 +40,47 @@ func menuNames[T any](m map[string]T, kind string) []string {
 	return names
 }
 
-func menuHostRows(st *store.State) []menuRow {
-	var rows []menuRow
-	for _, n := range menuNames(st.Hosts, "host") {
-		rows = append(rows, menuRow{label: n, detail: menuHostDetail(st, st.Hosts[n]), value: n})
+func pickHostRows(st *store.State) []pickRow {
+	var rows []pickRow
+	for _, n := range pickNames(st.Hosts, "host") {
+		rows = append(rows, pickRow{label: n, detail: pickHostDetail(st, st.Hosts[n]), value: n})
 	}
 	return rows
 }
 
-// menuConnRows is the conns of one family ("db"), or all with "".
-func menuConnRows(st *store.State, family string) []menuRow {
-	var rows []menuRow
-	for _, n := range menuNames(st.Conns, "conn") {
+// pickConnRows is the conns of one family ("db"), or all with "".
+func pickConnRows(st *store.State, family string) []pickRow {
+	var rows []pickRow
+	for _, n := range pickNames(st.Conns, "conn") {
 		c := st.Conns[n]
 		if family != "" && connFamily(c) != family {
 			continue
 		}
-		rows = append(rows, menuRow{label: n, detail: menuConnDetail(st, c), value: n})
+		rows = append(rows, pickRow{label: n, detail: pickConnDetail(st, c), value: n})
 	}
 	return rows
 }
 
-func menuVpnRows(st *store.State) []menuRow {
-	var rows []menuRow
-	for _, n := range menuNames(st.Vpns, "vpn") {
+func pickVpnRows(st *store.State) []pickRow {
+	var rows []pickRow
+	for _, n := range pickNames(st.Vpns, "vpn") {
 		v := st.Vpns[n]
 		parts := []string{"vpn " + v.Kind}
-		if menuVpnUp(st, n) {
+		if pickVpnUp(st, n) {
 			parts = []string{"connected", "vpn " + v.Kind}
 		}
 		if w := vpnWhere(v); w != "-" {
 			parts = append(parts, w)
 		}
-		rows = append(rows, menuRow{label: n, detail: menuDetail(parts, v.Groups, v.Tags), value: n})
+		rows = append(rows, pickRow{label: n, detail: pickDetail(parts, v.Groups, v.Tags), value: n})
 	}
 	return rows
 }
 
-// menuHostDetail is whether the server is protected (first, so it is the
+// pickHostDetail is whether the server is protected (first, so it is the
 // last of the details a narrow screen cuts off), user@address[:port], the
 // way there and its groups and tags.
-func menuHostDetail(st *store.State, h *store.Host) string {
+func pickHostDetail(st *store.State, h *store.Host) string {
 	addr := h.Address
 	if h.User != "" {
 		addr = h.User + "@" + addr
@@ -89,21 +89,21 @@ func menuHostDetail(st *store.State, h *store.Host) string {
 		addr += fmt.Sprintf(":%d", h.Port)
 	}
 	var parts []string
-	if menuProtectedHost(st, h) {
+	if pickProtectedHost(st, h) {
 		parts = append(parts, "protected")
 	}
 	parts = append(parts, addr)
 	if h.Via != "" {
 		parts = append(parts, "via "+h.Via)
 	}
-	return menuDetail(parts, h.Groups, h.Tags)
+	return pickDetail(parts, h.Groups, h.Tags)
 }
 
-// menuConnDetail is protected, kind and where, as `komando list` shows
+// pickConnDetail is protected, kind and where, as `komando list` shows
 // them: never the URL itself, which may hold a user or a password.
-func menuConnDetail(st *store.State, c *store.Conn) string {
+func pickConnDetail(st *store.State, c *store.Conn) string {
 	var parts []string
-	if menuProtectedConn(st, c) {
+	if pickProtectedConn(st, c) {
 		parts = append(parts, "protected")
 	}
 	parts = append(parts, c.Kind)
@@ -113,15 +113,15 @@ func menuConnDetail(st *store.State, c *store.Conn) string {
 	if c.Via != "" {
 		parts = append(parts, "via "+c.Via)
 	}
-	return menuDetail(parts, c.Groups, c.Tags)
+	return pickDetail(parts, c.Groups, c.Tags)
 }
 
-// menuProtectedHost is protectedHost without asking DNS: the server's own
+// pickProtectedHost is protectedHost without asking DNS: the server's own
 // mark, or a protected server at the same address and port, written the
 // same way. protectedHost also looks names up (2s at most each), and the
 // list must draw at once; the question before the command still checks
 // everything.
-func menuProtectedHost(st *store.State, h *store.Host) bool {
+func pickProtectedHost(st *store.State, h *store.Host) bool {
 	if h.Protected {
 		return true
 	}
@@ -133,10 +133,10 @@ func menuProtectedHost(st *store.State, h *store.Host) bool {
 	return false
 }
 
-// menuProtectedConn is protectedConn the same way: the conn's own mark, or
+// pickProtectedConn is protectedConn the same way: the conn's own mark, or
 // a protected conn of the same family at the same address (or file, or
 // bucket), written the same way.
-func menuProtectedConn(st *store.State, c *store.Conn) bool {
+func pickProtectedConn(st *store.State, c *store.Conn) bool {
 	key := func(c *store.Conn) string {
 		t, err := driver.Parse(c.URL)
 		switch {
@@ -160,11 +160,11 @@ func menuProtectedConn(st *store.State, c *store.Conn) bool {
 	}
 	// an SFTP conn is an SSH server: protected when a protected host is it
 	h := sftpHost(c)
-	return h != nil && menuProtectedHost(st, h)
+	return h != nil && pickProtectedHost(st, h)
 }
 
-// menuDetail adds groups and tags, and cleans it all for the screen.
-func menuDetail(parts, groups, tags []string) string {
+// pickDetail adds groups and tags, and cleans it all for the screen.
+func pickDetail(parts, groups, tags []string) string {
 	for _, g := range groups {
 		parts = append(parts, "@"+g)
 	}
@@ -172,10 +172,10 @@ func menuDetail(parts, groups, tags []string) string {
 	return cleanText(strings.Join(parts, "  "))
 }
 
-// menuRunOne runs one komando command on this terminal: its exit code, -1
+// pickRunOne runs one komando command on this terminal: its exit code, -1
 // when a signal ended it.
-func menuRunOne(self string, args []string) (int, error) {
-	err := menuCommand(self, args).Run()
+func pickRunOne(self string, args []string) (int, error) {
+	err := pickCommand(self, args).Run()
 	var ee *exec.ExitError
 	switch {
 	case err == nil:
@@ -186,9 +186,9 @@ func menuRunOne(self string, args []string) (int, error) {
 	return 0, err
 }
 
-// menuCommandLine is args as a person would type them: a word a shell
+// pickCommandLine is args as a person would type them: a word a shell
 // would read differently is quoted, so the line can be copied.
-func menuCommandLine(args []string) string {
+func pickCommandLine(args []string) string {
 	words := make([]string, len(args))
 	for i, a := range args {
 		words[i] = a
@@ -202,28 +202,28 @@ func menuCommandLine(args []string) string {
 	return cleanText(strings.Join(words, " "))
 }
 
-// menuCommand is the komando command the menu runs, on this terminal. It
-// is not tied to a context: Ctrl-C stops the command, not the menu. Its
+// pickCommand is a komando command a question runs, on this terminal. It
+// is not tied to a context: Ctrl-C stops the command, not komando. Its
 // environment is komando's own (vault.SelfEnv): komando took
 // KOMANDO_VAULT_PASS out of its environment when it started, and the
 // command needs it to open a passphrase vault, as it would when typed. The
 // command takes it out again before it starts anything else.
-func menuCommand(self string, args []string) *exec.Cmd {
+func pickCommand(self string, args []string) *exec.Cmd {
 	c := exec.Command(self, args...)
 	c.Env = vault.SelfEnv()
 	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
 	return c
 }
 
-// menuVpnUp: komando keeps a session of this VPN up. The process is checked
+// pickVpnUp: komando keeps a session of this VPN up. The process is checked
 // by its pid only, as `komando status --short` does: the list must draw at once.
-func menuVpnUp(st *store.State, name string) bool {
+func pickVpnUp(st *store.State, name string) bool {
 	s := st.Sessions[name]
 	return s != nil && netx.Alive(s.PID)
 }
 
-// menuWrap cuts text into lines of at most width columns, between words.
-func menuWrap(text string, width int) []string {
+// pickWrap cuts text into lines of at most width columns, between words.
+func pickWrap(text string, width int) []string {
 	var lines []string
 	line := ""
 	for _, w := range strings.Fields(text) {
