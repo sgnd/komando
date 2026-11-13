@@ -1243,11 +1243,13 @@ instead.
   `pass=x|sh</tmp/s` as `pass=[hidden]`, or leaving out line 11, would
   hide what runs. The agent is told to ask you to run it in your own
   terminal.
-- On a Linux or BSD X11 desktop the approval window needs the approval
-  code (`komando config approval-code`): another program there can click
-  "Allow once" (xdotool). Without the code komando opens no window and
-  the agent is told to ask you to turn it on or to run the command in
-  your own terminal. On Wayland the window now opens on Wayland only.
+- On a Linux or BSD desktop the approval window needs the approval code
+  (`komando config approval-code`): on X11 another program can click
+  "Allow once" (xdotool), and on Wayland the agent, which sets komando's
+  environment, can point `WAYLAND_DISPLAY` at a compositor of its own
+  and click there. Without the code komando opens no window and the
+  agent is told to ask you to turn it on or to run the command in your
+  own terminal. macOS and Windows keep the plain window.
 - settings.md says plainly what protects the vault from a program that
   runs as your own user and ignores komando's rules: only another OS
   user or the signed Mac app. Key file, keychain and passphrase modes do

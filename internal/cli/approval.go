@@ -238,8 +238,8 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 
 // askPerson opens the window: with a field for the code when the approval
 // code is on, and never a window a click alone allows where another
-// program can click it (an X11 desktop, clickForgeable): that needs the
-// code (why "needs-code").
+// program can click it (a Linux or BSD desktop, clickForgeable): that
+// needs the code (why "needs-code").
 func (c *call) askPerson(text string) (allowed, shown bool) {
 	if secret := approvalCodeSecret(); secret != nil {
 		// a second factor: the code from the person's authenticator app
@@ -263,32 +263,23 @@ func (c *call) askPerson(text string) (allowed, shown bool) {
 // desktopOS is runtime.GOOS; tests set another.
 var desktopOS = runtime.GOOS
 
-// clickForgeable reports whether the click-only window would open on an
-// X11 desktop, where any program of the user can press its buttons
-// (xdotool). On Wayland the compositor keeps other programs' input away
-// from it; the window is then made to open on Wayland only (dialogEnv),
-// so a WAYLAND_DISPLAY set to pass this check does not move it to X11.
+// clickForgeable reports whether the click-only window would open on a
+// Linux or BSD desktop. On X11 any program of the user can press its
+// buttons (xdotool). On Wayland the window opens on the compositor that
+// WAYLAND_DISPLAY names, and the agent sets komando's environment: it can
+// start a compositor of its own, point WAYLAND_DISPLAY at it and press
+// "Allow once" there through that compositor's virtual pointer. So
+// neither gets a window a click alone allows: the person needs the
+// approval code, which no program can read off the screen.
 func clickForgeable() bool {
 	if os.Getenv("KOMANDO_NO_DIALOG") != "" || os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != "" {
 		return false // no window at all (askOnScreen)
 	}
 	switch desktopOS {
 	case "linux", "freebsd", "openbsd", "netbsd", "dragonfly":
-		return os.Getenv("DISPLAY") != "" && os.Getenv("WAYLAND_DISPLAY") == ""
+		return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
 	}
 	return false
-}
-
-// dialogEnv is the environment of the click-only window's program on a
-// Unix desktop: Wayland only, never the X11 display.
-func dialogEnv() []string {
-	var env []string
-	for _, kv := range os.Environ() {
-		if k, _, _ := strings.Cut(kv, "="); k != "DISPLAY" && k != "GDK_BACKEND" && k != "QT_QPA_PLATFORM" {
-			env = append(env, kv)
-		}
-	}
-	return append(env, "GDK_BACKEND=wayland", "QT_QPA_PLATFORM=wayland")
 }
 
 var flagMeaning = map[string]string{
@@ -406,7 +397,7 @@ func approvalHint(e *out.Error) {
 	case "wrong-code":
 		e.Hint = "the code typed in komando's window was wrong or missing; ask the user whether to try again"
 	case "needs-code":
-		e.Hint = "komando did not open its window: on this X11 desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine()
+		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine()
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine()
 	case "unshowable":
@@ -435,10 +426,10 @@ func zenityTimedOut(err error) bool {
 	return errors.As(err, &ee) && ee.ExitCode() == 5
 }
 
-// askOnScreen shows a native window with Deny and "Allow once". shown is
-// false when no window could be shown (no screen, no dialog tool, a remote
-// session, or KOMANDO_NO_DIALOG=1). The tools are found in system folders
-// only, so a fake one earlier in PATH cannot answer for the person.
+// askOnScreen shows a native window with Deny and "Allow once" on macOS
+// and Windows. shown is false when no window could be shown (no screen, a
+// remote session, KOMANDO_NO_DIALOG=1, or a Linux or BSD desktop, where
+// askPerson asks for the approval code instead: clickForgeable).
 var askOnScreen = func(text string) (allowed, shown bool) {
 	if os.Getenv("KOMANDO_NO_DIALOG") != "" || os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != "" {
 		return false, false
@@ -460,25 +451,6 @@ end run`
 		answer := strings.TrimSpace(string(b))
 		noteGaveUp(text, answer == "gave up")
 		return answer == "Allow once", true
-	case "linux", "freebsd", "openbsd":
-		if os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "" {
-			return false, false
-		}
-		if clickForgeable() || os.Getenv("WAYLAND_DISPLAY") == "" {
-			return false, false // X11: askPerson asks for the code instead
-		}
-		if z := systemTool("zenity"); z != "" {
-			cmd := exec.CommandContext(ctx, z, "--question", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--default-cancel", "--no-markup", "--timeout=120")
-			cmd.Env = dialogEnv()
-			err := cmd.Run()
-			noteGaveUp(text, zenityTimedOut(err))
-			return err == nil, true
-		}
-		if k := systemTool("kdialog"); k != "" {
-			cmd := exec.CommandContext(ctx, k, "--title", "komando: allow?", "--warningyesno", text, "--yes-label", "Allow once", "--no-label", "Deny")
-			cmd.Env = dialogEnv()
-			return cmd.Run() == nil, true
-		}
 	case "windows":
 		_, allowed, gaveUp, shown := approvalWindow(text, false)
 		noteGaveUp(text, gaveUp)
