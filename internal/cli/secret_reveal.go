@@ -39,9 +39,7 @@ func revealGate(cmdName, field, name, what string) (string, error) {
 		return "", e
 	}
 	if isAgent() {
-		return refuse(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
-			"ask a person to run `komando "+strings.ReplaceAll(cmdName, ".", " ")+" "+name+" --reveal` in a terminal; to use a secret in a command, reference it (secret:NAME) instead",
-			"--reveal only works for a person at a terminal"))
+		return refuse(needsHuman(cmdName, name, false))
 	}
 	if g.dryRun {
 		return "", nil
@@ -60,9 +58,23 @@ func revealGate(cmdName, field, name, what string) (string, error) {
 		return refuse(out.Errf(out.ExitPolicy, "DECLINED", "run it again to be asked again",
 			"not run: the person said no; nothing was changed").NoFlag())
 	}
-	return refuse(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
-		"komando could not ask in a window here (no screen, or a Linux or BSD desktop without the approval code); run `komando "+strings.ReplaceAll(cmdName, ".", " ")+" "+name+" --reveal` in a terminal",
-		"--reveal only works for a person at a terminal"))
+	return refuse(needsHuman(cmdName, name, true))
+}
+
+// needsHuman is REVEAL_NEEDS_HUMAN for cmdName (secret.show, key.show) and
+// name: for an AI agent, or where no window could ask (noScreen).
+func needsHuman(cmdName, name string, noScreen bool) *out.Error {
+	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
+		"ask a person to run `komando secret show "+name+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+name+") instead",
+		"--reveal only works for a person at a terminal")
+	run := "`komando " + strings.ReplaceAll(cmdName, ".", " ") + " " + name + " --reveal`"
+	switch {
+	case noScreen:
+		e.Hint = "komando could not ask in a window here (no screen, or a Linux or BSD desktop without the approval code); run " + run + " in a terminal"
+	case cmdName != "secret.show":
+		e.Hint = "ask a person to run " + run + " in a terminal; an AI agent never gets a private key"
+	}
+	return e
 }
 
 // askReveal asks the person in komando's window whether to show what. A

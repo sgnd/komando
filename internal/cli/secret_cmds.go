@@ -119,7 +119,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 			}
 			via := ""
 			if g.reveal {
-				// agents never see passwords (reveal.go); a person at a terminal can
+				// agents never see passwords (secret_reveal.go); a person at a terminal can
 				// still pipe the value, e.g. into pbcopy, and the Mac app asks in
 				// komando's window
 				if via, err = revealGate("secret.show", "secret", args[0], "secret:"+args[0]); err != nil {
