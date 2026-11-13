@@ -36,6 +36,7 @@ usual place for that source.
 | `docker` | `~/.docker/config.json` (and credential helpers) | registry conns |
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP sites are listed, not added) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
+| `mobaxterm` | MobaXterm's exported sessions (`.mxtsessions`; no default: give the file) | servers (SSH sessions; a session's folder becomes a group; other session types are listed) |
 | `putty` | PuTTY's sessions exported from the Windows registry (no default: give the file, see below) | servers (SSH sessions; a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do) |
 | `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied ([Cloud logins](cloud.md#add-a-conn-for-every-s3-bucket)) |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
@@ -101,6 +102,20 @@ key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
 `puttygen KEY.ppk -O private-openssh -o KEY`, then `komando key add NAME
 KEY`. A session that reaches its server through a proxy is listed too: set
 the way there with `komando host edit NAME --via JUMP`.
+
+### Coming from MobaXterm
+
+In MobaXterm, right-click **User sessions** and pick **Export all sessions
+to file**, then import that file:
+
+```bash
+komando import mobaxterm sessions.mxtsessions --dry-run
+komando import mobaxterm sessions.mxtsessions
+```
+
+SSH sessions come in with their host, port and user, and the folder a
+session sits in becomes a group. MobaXterm keeps passwords apart, so set
+them with `komando secret set` or use a key.
 
 ### Coming from Termius or TablePlus
 

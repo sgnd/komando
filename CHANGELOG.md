@@ -8,6 +8,7 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Added
+- `komando import mobaxterm FILE` adds MobaXterm's SSH sessions from an exported `.mxtsessions` file, with each session's folder as a group.
 - `komando import putty FILE` adds PuTTY's SSH sessions from a `.reg` file (`reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg`, UTF-16 or plain): user, address and port; a key file path is kept, a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do.
 
 ### Fixed
