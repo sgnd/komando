@@ -143,6 +143,7 @@ type xferStats struct {
 	SHA256   string     `json:"sha256,omitempty"`
 	Replaced bool       `json:"replaced,omitempty"` // an upload replaced a file that was there
 	Masked   int        `json:"masked,omitempty"`   // files saved with secret values shown as [hidden] (AI agents)
+	Kept     int        `json:"kept,omitempty"`     // a folder download: files already on this computer, left as they are
 	Skipped  []string   `json:"skipped,omitempty"`  // symbolic links and other non-files, not copied
 	Errors   []xferErr  `json:"errors,omitempty"`   // files that could not be copied (the rest were)
 	Error    *out.Error `json:"error,omitempty"`
@@ -186,6 +187,9 @@ func (d xferData) Text() string {
 		b.WriteString("\n")
 		if r.Masked > 0 {
 			fmt.Fprintf(&b, "%s%s saved with secret values shown as [hidden], as fs cat shows them\n", pre, countOf(r.Masked, "file"))
+		}
+		if r.Kept > 0 {
+			fmt.Fprintf(&b, "%skept %s already on this computer (--overwrite replaces them)\n", pre, countOf(r.Kept, "file"))
 		}
 		if len(r.Skipped) > 0 {
 			fmt.Fprintf(&b, "%sskipped %s (symbolic links or special files): %s\n", pre, countOf(len(r.Skipped), "file"), shortList(r.Skipped, 5))

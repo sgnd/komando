@@ -27,9 +27,10 @@ import (
 const downloadPermHint = "the SSH user cannot read it; for one file add --sudo, for a folder copy it to a readable place first with `komando exec --sudo`"
 
 // download copies src from the server to dst on this computer. Files that
-// already exist stay as they are unless overwrite is set, and every file is
-// written to a temporary name first, so an interrupted download never
-// leaves half a file behind.
+// already exist stay as they are unless overwrite is set: one file stops
+// with FILE_EXISTS, a folder keeps them (kept) and copies the rest. Every
+// file is written to a temporary name first, so an interrupted download
+// never leaves half a file behind.
 func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, o cpOpts) (xferStats, error) {
 	lfi, lerr := os.Stat(dst)
 	dstIsDir := lerr == nil && lfi.IsDir()
@@ -103,6 +104,13 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			out.P.Skip(out.Skipped{Name: w.Path(), Kind: "file", Reason: "holds secrets; an AI agent needs --reveal, which the user allows, to copy it here"})
 			continue
 		}
+		if !o.overwrite {
+			if lfi, err := os.Lstat(lp); err == nil {
+				// already here: kept, and the rest still come (as storage -r does)
+				keepLocal(&st, w.Path(), lp, lfi)
+				continue
+			}
+		}
 		in, err := sc.Open(w.Path())
 		if err != nil {
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(fsErrHint(w.Path(), err, downloadPermHint)).Message})
@@ -114,11 +122,11 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			return st, ctx.Err()
 		}
 		if err != nil {
-			e := toErr(err)
-			if e.Code == "FILE_EXISTS" {
-				return st, err // the same for every file: stop and say so
+			if lfi, lerr := os.Lstat(lp); lerr == nil && !o.overwrite && toErr(err).Code == "FILE_EXISTS" {
+				keepLocal(&st, w.Path(), lp, lfi) // made here while it was copied
+				continue
 			}
-			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: e.Message})
+			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(err).Message})
 			continue
 		}
 		st.Files++
@@ -126,6 +134,17 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 		st.Masked += count(masked)
 	}
 	return st, nil
+}
+
+// keepLocal counts a file of a folder download that is already on this
+// computer and stays as it is. A folder where the file would go is listed
+// as an error instead: the file is not here, and keeping it is not true.
+func keepLocal(st *xferStats, remote, local string, fi os.FileInfo) {
+	if fi.IsDir() {
+		st.Errors = append(st.Errors, xferErr{Path: remote, Message: local + " is a folder on this computer"})
+		return
+	}
+	st.Kept++
 }
 
 // sudoMaxBytes caps a --sudo download, which is read through memory.

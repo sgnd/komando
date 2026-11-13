@@ -62,6 +62,15 @@ check "refused download exits 8" 8 $?
 check "refused download does not say downloaded" 0 "$(echo "$out" | grep -c downloaded)"
 check "refused download keeps the file here" mine "$(cat "$F/a.txt")"
 
+# a folder download keeps the files already here and copies the rest
+q $K exec direct -o text -- 'mkdir -p /tmp/e2efiles-tree/sub && echo theirs > /tmp/e2efiles-tree/a.txt && echo b > /tmp/e2efiles-tree/sub/b.txt'
+mkdir -p "$F/tree"; echo mine > "$F/tree/a.txt"
+out=$($K download direct /tmp/e2efiles-tree/ -r --to "$F/tree")
+check "folder download goes on past a file here" "1 1" "$(echo "$out" | jget 'str(d["data"]["results"][0]["files"])+" "+str(d["data"]["results"][0]["kept"])')"
+check "folder download keeps the file here" mine "$(cat "$F/tree/a.txt")"
+check "folder download copies the rest" b "$(cat "$F/tree/sub/b.txt")"
+check "folder download --overwrite replaces it" theirs "$($K download direct /tmp/e2efiles-tree/ -r --to "$F/tree" --overwrite >/dev/null; cat "$F/tree/a.txt")"
+
 # a folder given as a symbolic link is copied as the folder it names
 mkdir -p "$F/releases/42/css"; echo i > "$F/releases/42/index.html"; echo c > "$F/releases/42/css/a.css"
 ln -s releases/42 "$F/current"

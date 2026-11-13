@@ -110,6 +110,48 @@ func TestDownloadExistingCountsNothing(t *testing.T) {
 	}
 }
 
+// A folder download keeps the files already here and copies the rest, as
+// storage -r does; it used to stop at the first one with FILE_EXISTS.
+func TestFolderDownloadKeepsExistingFiles(t *testing.T) {
+	sc := localSFTP(t)
+	src := filepath.Join(t.TempDir(), "site")
+	_ = os.MkdirAll(filepath.Join(src, "css"), 0o755)
+	_ = os.MkdirAll(filepath.Join(src, "img"), 0o755)
+	for _, f := range []string{"a.txt", "b.txt", "css/c.css", "img/logo"} {
+		_ = os.WriteFile(filepath.Join(src, f), []byte("new"), 0o644)
+	}
+	dst := filepath.Join(t.TempDir(), "site")
+	_ = os.MkdirAll(filepath.Join(dst, "img", "logo"), 0o755) // a folder where a file goes
+	_ = os.WriteFile(filepath.Join(dst, "a.txt"), []byte("mine"), 0o644)
+	st, err := download(context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Files != 2 || st.Kept != 1 || len(st.Errors) != 1 {
+		t.Errorf("stats %+v, want 2 files, 1 kept, 1 error", st)
+	}
+	if read(t, filepath.Join(dst, "a.txt")) != "mine" {
+		t.Error("a.txt here was replaced")
+	}
+	if read(t, filepath.Join(dst, "css", "c.css")) != "new" {
+		t.Error("css/c.css not downloaded after the kept file")
+	}
+	if got := (xferData{Results: []xferStats{st}}).Text(); !strings.Contains(got, "kept 1 file already on this computer (--overwrite replaces them)") {
+		t.Errorf("text %q", got)
+	}
+
+	st, err = download(context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true, overwrite: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Kept != 0 || read(t, filepath.Join(dst, "a.txt")) != "new" {
+		t.Errorf("--overwrite: stats %+v, a.txt %q", st, read(t, filepath.Join(dst, "a.txt")))
+	}
+	if l := leftovers(t, dst); len(l) > 0 {
+		t.Errorf("temporary files left: %v", l)
+	}
+}
+
 // A folder given as a symbolic link (./current -> releases/42) is copied
 // as the folder it names; it used to send nothing ("skipped 1 file: .")
 // and still say ok.
