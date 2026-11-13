@@ -157,19 +157,28 @@ func writeRemoteSudo(ctx context.Context, c *sshx.Client, sc *sftp.Client, p, mo
 		_ = sc.Remove(tmp)
 		return nil, out.Errf(out.ExitRemote, "WRITE_FAILED", "check that the folder is writable and has free space: `komando exec TARGET --read-only -- df -h`", "%s", strings.TrimSpace(r.Stderr))
 	}
-	f4 := strings.SplitN(strings.TrimSpace(r.Stdout), " ", 4)
-	if len(f4) == 4 {
-		mode = fmt.Sprintf("%04s", f4[0])
-		res["replaced"] = f4[1] == "1"
-		if f4[3] != p {
-			res["followed"] = f4[3]
-		}
-		if o.backup && f4[2] != "-" {
-			res["backup"] = f4[3] + "." + f4[2]
-		}
-	}
-	res["mode"] = mode
+	res["mode"] = sudoInstallResult(r.Stdout, mode, o, res)
 	return res, nil
+}
+
+// sudoInstallResult reads the line sudoInstallScript prints ("MODE
+// REPLACED BACKUP-SUFFIX FOLLOWED PATH") into res and returns the mode.
+// followed is set only when a link was followed: the walk always turns
+// the path into its real one, so a relative or non-canonical path
+// (notes.txt, /etc//app/x) differs from it with no link involved.
+func sudoInstallResult(stdout, mode string, o writeOpts, res map[string]any) string {
+	f := strings.SplitN(strings.TrimSpace(stdout), " ", 5)
+	if len(f) != 5 {
+		return mode
+	}
+	res["replaced"] = f[1] == "1"
+	if f[3] == "1" {
+		res["followed"] = f[4]
+	}
+	if o.backup && f[2] != "-" {
+		res["backup"] = f[4] + "." + f[2]
+	}
+	return fmt.Sprintf("%04s", f[0])
 }
 
 // sudoInstallScript is the root side of writeRemoteSudo.
@@ -211,6 +220,6 @@ func sudoInstallScript(p, mode, tmp string, o writeOpts) string {
 		}
 		sb.WriteString(" " + sshx.Q(tmp) + ` "$p"; `)
 	}
-	sb.WriteString("rm -f " + sshx.Q(tmp) + `; printf '%s %s %s %s\n' "$m" "$r" "$k" "$p"`)
+	sb.WriteString("rm -f " + sshx.Q(tmp) + `; printf '%s %s %s %s %s\n' "$m" "$r" "$k" "${f:-0}" "$p"`)
 	return sb.String()
 }

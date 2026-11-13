@@ -250,3 +250,33 @@ func TestSudoChmodFollowsNoOtherUsersLink(t *testing.T) {
 		t.Fatalf("the SSH user's link: exit %d, mode %o", code, mode())
 	}
 }
+
+// O5: a write as root names `followed` only when a link was followed, not
+// for a relative or non-canonical path the walk made absolute.
+func TestSudoWriteFollowedOnlyForALink(t *testing.T) {
+	d, _ := filepath.EvalSymlinks(t.TempDir())
+	_ = os.MkdirAll(filepath.Join(d, "app"), 0o755)
+	real := filepath.Join(d, "app", "notes.txt")
+	_ = os.WriteFile(real, []byte("x"), 0o644)
+	_ = os.Symlink(real, filepath.Join(d, "current"))
+	if !strings.Contains(sudoInstallScript("x", "", "/tmp/t", writeOpts{}), `"${f:-0}" "$p"`) {
+		t.Fatal("the install script does not say whether a link was followed")
+	}
+	for _, tc := range []struct{ p, followed string }{
+		{"app/notes.txt", ""},
+		{d + "//app/./notes.txt", ""},
+		{d + "/app/../app/notes.txt", ""},
+		{d + "/current", real},
+	} {
+		got, se, code := runAsRoot(t, "cd '"+d+"'; p='"+tc.p+"'; "+sudoWriteScript("/nonexistent", false)+`printf '644 1 bak %s %s\n' "${f:-0}" "$p"`, nil)
+		if code != 0 {
+			t.Fatalf("%s: exit %d %s", tc.p, code, se)
+		}
+		res := map[string]any{}
+		mode := sudoInstallResult(got, "", writeOpts{backup: true}, res)
+		f, _ := res["followed"].(string)
+		if mode != "0644" || f != tc.followed || res["backup"] != real+".bak" {
+			t.Errorf("%s: mode %q, %v", tc.p, mode, res)
+		}
+	}
+}
