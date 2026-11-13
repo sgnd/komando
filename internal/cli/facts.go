@@ -576,7 +576,7 @@ data.results[].data.warnings first.`,
 		Example: "  komando facts web1\n  komando facts @prod -o json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return probeText(cmd.Context(), "facts", args[0], factsScript, false, parseFacts, factsText)
+			return probeText(cmd.Context(), "facts", args[0], factsScript, false, nil, parseFacts, factsText)
 		},
 	}
 }

@@ -553,6 +553,30 @@ func TestSudoProblem(t *testing.T) {
 	}
 }
 
+// docker ps, stats and images (probes) and the other docker commands name a
+// sudo refusal under --sudo like the modules do; as root, the fix is to
+// leave out --sudo (docker has no --no-sudo). Without --sudo the same
+// stderr is docker's own error.
+func TestDockerSudoRefusal(t *testing.T) {
+	refused := &sshx.RunResult{Stderr: "sudo: a password is required\n", ExitCode: 1}
+	e := dockerExit("web1", true, refused)
+	if e == nil || e.Code != "PERMISSION_DENIED" || !strings.Contains(e.Hint, "leave out --sudo") || strings.Contains(e.Hint, "--no-sudo") {
+		t.Errorf("refused: %+v", e)
+	}
+	if e := dockerExit("web1", true, &sshx.RunResult{Stderr: "sh: 1: sudo: not found", ExitCode: 127}); e == nil || e.Code != "TOOL_MISSING" || !strings.Contains(e.Hint, "leave out --sudo") {
+		t.Errorf("no sudo: %+v", e)
+	}
+	if e := dockerExit("web1", false, &sshx.RunResult{ExitCode: 127}); e == nil || e.Code != "DOCKER_MISSING" {
+		t.Errorf("no docker: %+v", e)
+	}
+	if e := dockerExit("web1", true, &sshx.RunResult{Stderr: "Error: No such container: x", ExitCode: 1}); e == nil || e.Code != "NOT_FOUND" {
+		t.Errorf("docker error under --sudo: %+v", e)
+	}
+	if e := dockerExit("web1", true, &sshx.RunResult{}); e != nil {
+		t.Errorf("worked: %+v", e)
+	}
+}
+
 // pkg rm is pkg.rm everywhere (envelope, audit, Windows refusal), not the
 // package managers' "remove", and a missing package is the usual usage
 // error that names the Use line.
