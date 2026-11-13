@@ -46,6 +46,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A symbolic link inside the folder a `download -r` or a `sync` from a server or storage writes into was followed: a file could land wherever the link leads, outside the folder, and `sync --delete` could remove a file there. komando now stops at such a link (`UNSAFE_PATH`) and writes nothing through it; a file that is itself a link is replaced, never written through.
 - `job kill` on a server whose /bin/sh is dash (Debian, Ubuntu) stopped only the job's shell, not the commands it had started: dash refuses `kill -SIG -- -PGID`, and komando then fell back to the shell alone. It now signals the whole process group there too.
 - A server could hide text in its output on your terminal (`ESC[8m`), make a line read in another order than it runs with bidi overrides (`U+202E`), or print over the `[web1]` name in front of its lines with a carriage return (`exec` on several servers, `cluster logs` of several pods). These now show as `\e[8m`, `\u202e` and `\r`. Colours and progress bars on one server stay as they were.
 - The ssh gate let a key run commands on this computer through a listed server that is this computer under another name: its LAN address, a DNS name, a public IP or a port forward. It now refuses a server at one of this computer's own network addresses, or whose pinned host key is this computer's own SSH host key, as it refuses `localhost`.

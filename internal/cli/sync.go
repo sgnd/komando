@@ -147,6 +147,9 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "check the source for odd file names", "the source sent the path %q, which leads outside %s; nothing outside the folder was written", rel, l.root)
 	}
 	dst := filepath.Join(l.root, filepath.FromSlash(rel))
+	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
+		return localLinkStop(rel, link)
+	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
@@ -182,6 +185,9 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 }
 
 func (l localSide) remove(_ context.Context, rel string) error {
+	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
+		return localLinkStop(rel, link) // --delete never removes a file outside the folder
+	}
 	return os.Remove(filepath.Join(l.root, filepath.FromSlash(rel)))
 }
 
