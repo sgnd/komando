@@ -13,8 +13,7 @@ import (
 )
 
 // The private key files of SSH keys. A key komando made (key gen,
-// Managed) is kept in the sealed store (docs/design/sync-security.md
-// section 16); an earlier komando kept it under keys/. A key added from
+// Managed) is kept in the sealed store; an earlier komando kept it under keys/. A key added from
 // elsewhere (key add) stays the person's own file at its path.
 
 // ManagedKeyPath is where a key komando makes under name is kept.

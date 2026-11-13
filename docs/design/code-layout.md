@@ -1,19 +1,16 @@
 # Code layout
 
-Status: **approved, 2026-11-12**. This page is the one place for the rules
-a contributor (a person or an AI agent) follows when adding code: what goes
-where, how packages and files are named, and the rules every change keeps.
-Tests check most of them; the "Checked by" column says which.
-
-The reasons behind the size and safety rules, and the plan for what comes
-next, are in [maintenance.md](maintenance.md). The reasons behind "built in
-only" are in [built-in.md](built-in.md).
+This page is the one place for the rules a contributor (a person or an AI
+agent) follows when adding code: what goes where, how packages and files
+are named, and the rules every change keeps. Tests check most of them; the
+"Checked by" column says which. The product rules behind them are in
+[principles.md](principles.md).
 
 ## The rules in short
 
 | Rule | Checked by |
 |---|---|
-| **Built in only.** A feature works with the komando binary alone: no Docker, no other program to install on this computer. Programs the operating system already has, and programs on the server, are fine ([built-in.md](built-in.md)). | review |
+| **Built in only.** A feature works with the komando binary alone: no Docker, no other program to install on this computer. Programs the operating system already has, and programs on the server, are fine ([principles.md](principles.md#15-technical-rules)). | review |
 | **Own version** where no suitable open library exists: komando writes the client itself, as its own Go package. | review |
 | **Open source only.** Libraries are MIT, BSD, ISC or Apache (MPL only unchanged, as a library). No GPL or LGPL code, not even copied or translated. No prebuilt blobs. | review |
 | **Pure Go.** `CGO_ENABLED=0`; a library that needs cgo does not qualify. | `make dist` |
@@ -55,8 +52,7 @@ conflict and gains nothing. A new package follows the rule.
 cobra nor komando's global state (the inventory, the guards, the audit
 log), and the logic is more than a file or two. The command itself (flags,
 guard, audit, output) stays in `internal/cli`. Moving a whole area out of
-`internal/cli` is planned one area at a time ([maintenance.md](maintenance.md),
-next steps).
+`internal/cli` happens one area at a time.
 
 Every package is listed here; `internal/layout` fails when one is missing
 or a listed one is gone.

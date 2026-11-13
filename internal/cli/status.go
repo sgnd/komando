@@ -14,7 +14,7 @@ import (
 
 // komando status lists what komando left running: VPN sessions and tunnels
 // on this computer, and the jobs it started on servers. It contacts nothing
-// (docs/design/session-status.md): sessions and tunnels are checked here,
+// (docs/features/commands.md): sessions and tunnels are checked here,
 // and jobs are only listed, because whether one still runs is known on its
 // server (`job list --refresh` asks).
 

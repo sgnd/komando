@@ -2,7 +2,7 @@
 // (and what speaks its protocol: Redpanda, MSK, Confluent Cloud) through
 // franz-go, and the engines that register themselves from its subfolders
 // (RabbitMQ, NATS JetStream, Amazon SQS, Google Cloud Pub/Sub). Reading never
-// moves a consumer group or removes a message; see docs/design/queue.md.
+// moves a consumer group or removes a message; see docs/features/queues.md.
 package queuex
 
 import (

@@ -10,7 +10,7 @@ import (
 )
 
 // parseAMQP reads amqp://user@host:5672/vhost and amqps:// (TLS, port
-// 5671) for RabbitMQ (docs/design/queue.md). The path is the virtual host,
+// 5671) for RabbitMQ (docs/features/queues.md). The path is the virtual host,
 // URL-encoded ("%2F" or nothing is the default vhost "/"). Options:
 //
 //	?management=15672    also use the management HTTP API on this port of

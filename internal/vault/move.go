@@ -13,8 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Moving a folder of before into the sealed store (komando seal,
-// docs/design/sync-security.md section 16).
+// Moving a folder of before into the sealed store (komando seal).
 
 // Secret is one secret with its value, for the move.
 type Secret struct {

@@ -573,7 +573,7 @@ func resolve(ref string) (string, error) {
 		return strings.TrimRight(string(b), "\r\n"), err
 	case strings.HasPrefix(ref, "op://"):
 		// only through 1Password Connect: the op CLI is closed source
-		// (docs/design/built-in.md)
+		// (docs/design/code-layout.md)
 		v, err := cloud.OnePassword(context.Background(), ref)
 		if errors.Is(err, cloud.ErrNoConnect) {
 			return "", fmt.Errorf("op:// needs 1Password Connect (set OP_CONNECT_HOST and OP_CONNECT_TOKEN); the op program is no longer used. Or use bw://, kdbx: or a komando secret")

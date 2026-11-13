@@ -19,7 +19,7 @@ import (
 // (also after a comma or !); CONN gets conns; NAME under
 // host/conn/vpn/key/secret/recipe gets those names; GROUP gets groups; the
 // settings of `config get/set` and their values; --key, --via and --target
-// get keys, servers and VPNs, and targets (docs/design/ux.md, section 10).
+// get keys, servers and VPNs, and targets (docs/design/principles.md, section 11).
 func addCompletion(c *cobra.Command) {
 	for _, sub := range c.Commands() {
 		addCompletion(sub)

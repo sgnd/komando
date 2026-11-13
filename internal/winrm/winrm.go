@@ -3,7 +3,7 @@
 // MS-WSMV), over HTTPS or HTTP, with NTLM or Basic login. It is what
 // Ansible's winrm connection speaks. It only runs commands: WinRM has no
 // file transfer or tunnels (komando sends files through the command's
-// input and output, see docs/design/windows.md).
+// input and output, see docs/features/windows.md).
 package winrm
 
 import (

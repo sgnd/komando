@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// Old spellings come in two kinds (docs/design/ux.md, section 10):
+// Old spellings come in two kinds (docs/design/principles.md, section 11):
 //
 //   - synonyms (ls, mv, get, plural nouns, server, database): cobra
 //     Aliases on the command itself. They are permanent and print nothing;

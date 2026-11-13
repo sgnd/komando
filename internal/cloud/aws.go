@@ -1,6 +1,6 @@
 // Package cloud holds komando's own clients for cloud and secret-manager
 // APIs, so no vendor CLI (aws, gcloud, vault) has to be installed
-// (docs/design/built-in.md). Logins stay with the person: komando reads the
+// (docs/design/code-layout.md). Logins stay with the person: komando reads the
 // credentials they already have and never stores them.
 package cloud
 

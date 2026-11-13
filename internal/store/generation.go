@@ -12,7 +12,7 @@ import (
 	"github.com/sgnd/komando/internal/sealdb"
 )
 
-// Old-copy protection (docs/design/sync-security.md section 16): the
+// Old-copy protection: the
 // sealed store counts its changes (sealdb's generation), and a store whose
 // key is in the OS keychain keeps the same number there. The store is
 // written first, then the keychain:

@@ -17,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// TestConventions checks the naming rules of docs/design/ux.md on every
+// TestConventions checks the naming rules of docs/design/command-standard.md on every
 // command, so a new command cannot drift from them.
 func TestConventions(t *testing.T) {
 	// one meaning per short flag: TestStandardShorthands (shorthand_test.go)

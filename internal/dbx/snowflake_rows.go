@@ -241,7 +241,7 @@ func sfFailure(status int, res *sfResult) error {
 
 // snowflakeErr maps a failed statement to an error code. Snowflake's
 // codes here come from its documentation and messages; none was checked
-// against a live account (docs/design/snowflake.md).
+// against a live account (docs/features/databases.md).
 func snowflakeErr(err error) error {
 	var e *sfError
 	if !errors.As(err, &e) {

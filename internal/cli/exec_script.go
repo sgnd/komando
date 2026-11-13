@@ -24,7 +24,7 @@ func (so *scriptOpts) bind(c *cobra.Command) {
 }
 
 // scriptCmd is the old name of `exec TARGET --script FILE`, kept for one
-// release (docs/design/ux.md, section 10).
+// release (docs/design/principles.md, section 11).
 func scriptCmd() *cobra.Command {
 	var o execOpts
 	var so scriptOpts

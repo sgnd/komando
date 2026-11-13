@@ -5,7 +5,7 @@
 // password reference, or else gcloud's application default credentials;
 // the emulator needs none. It registers itself with queuex for pubsub://
 // conns. Pub/Sub keeps messages in subscriptions: peek pulls from one and
-// gives every message back unacknowledged. See docs/design/queue.md.
+// gives every message back unacknowledged. See docs/features/queues.md.
 package pubsub
 
 import (

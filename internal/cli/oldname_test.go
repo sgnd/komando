@@ -9,7 +9,7 @@ import (
 )
 
 // TestOldNames: every old name is hidden, names a command that exists and
-// is not hidden, and has that command's kind (docs/design/ux.md, section 10).
+// is not hidden, and has that command's kind (docs/design/principles.md, section 11).
 func TestOldNames(t *testing.T) {
 	root := newRoot()
 	found := map[string]bool{}

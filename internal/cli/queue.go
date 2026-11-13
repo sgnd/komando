@@ -17,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Queue commands (docs/design/queue.md), for Kafka, RabbitMQ, NATS
+// Queue commands (docs/features/queues.md), for Kafka, RabbitMQ, NATS
 // JetStream, Amazon SQS and Google Cloud Pub/Sub: reading never moves a
 // consumer group or removes a message; send and create change, so
 // protected conns need --yes; rm and purge delete messages, so they also

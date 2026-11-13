@@ -4,7 +4,7 @@
 # here): key-pair and token logins, TLS with a private CA, placeholders,
 # what needs --write never reaching the server, a dry run that only
 # reports a write. Snowflake's own SQL is not checked here
-# (docs/design/snowflake.md).
+# (docs/features/databases.md).
 set +e
 SFC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
 for _ in $(seq 1 60); do SFC exec -T snowflake test -s /e2e/user.key 2>/dev/null && break; sleep 1; done

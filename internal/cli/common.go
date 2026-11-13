@@ -29,7 +29,7 @@ import (
 func loadState() (*store.State, error) { return store.Load() }
 
 // rmAliases are the other words people type for rm. Every rm command
-// accepts them (docs/design/ux.md, section 1).
+// accepts them (docs/design/command-standard.md, S-3.1).
 var rmAliases = []string{"remove", "delete", "del"}
 
 // groupOnly marks a group of commands (`komando db`): run on its own it
@@ -115,7 +115,7 @@ const aliasOf = "alias_of"
 // alias marks c as the per-area spelling of a shared command (`host list`
 // for `list kind:host`), with short as what it does. It keeps working and
 // says so in its help, so there is one implementation and one name to
-// learn (docs/design/ux.md, section 11).
+// learn (docs/design/principles.md, section 12).
 func alias(c *cobra.Command, shared, short string) *cobra.Command {
 	if c.Annotations == nil {
 		c.Annotations = map[string]string{}
@@ -518,8 +518,8 @@ func sftpHost(c *store.Conn) *store.Host {
 
 // interactive is true when a human sits at a terminal: stdin and stderr are
 // both terminals and no AI agent runs komando. Agents and scripts never
-// are, so they still need --yes and --allow-dangerous (docs/design/ux.md,
-// section 6).
+// are, so they still need --yes and --allow-dangerous (docs/design/principles.md,
+// section 7).
 var interactive = func() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent() && !ciRun()
 }

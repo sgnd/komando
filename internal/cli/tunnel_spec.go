@@ -40,7 +40,7 @@ type tunnelSpec struct {
 
 // guardBind asks for --yes before a tunnel listens on anything but this
 // computer's loopback (or, for -R, the server's): other machines on the
-// network could then use it, without a login (docs/design/network.md).
+// network could then use it, without a login (docs/features/vpn.md).
 func guardBind(t tunnelSpec) error {
 	host, _, err := net.SplitHostPort(t.BindAddr)
 	if err != nil || host == "localhost" {

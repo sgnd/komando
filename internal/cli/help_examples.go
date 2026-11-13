@@ -2,7 +2,7 @@ package cli
 
 // examples gives a real example to the commands whose definition has
 // none, so every command shows one in --help and in a usage error
-// (docs/design/ux.md, section 10). A command that sets its own Example
+// (docs/design/principles.md, section 11). A command that sets its own Example
 // keeps it. TestConventions fails when a command has neither.
 var examples = map[string]string{
 	// the groups: the usual journey, in order

@@ -16,7 +16,7 @@ import (
 // terminal who leaves something out is asked them (prompter_fill.go,
 // prompter_add.go); the answers build an ordinary komando command line,
 // shown before it runs. Passwords are never asked here: the command asks
-// them itself, hidden (--ask-password) (docs/design/ux.md, section 10).
+// them itself, hidden (--ask-password) (docs/design/principles.md, section 11).
 
 // formAnswers are the answers so far, by question key.
 type formAnswers map[string]string

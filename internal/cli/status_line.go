@@ -15,7 +15,7 @@ import (
 )
 
 // Session status lines tell a person at the terminal where they are typing
-// (docs/design/session-status.md). They go to stderr, only when a person is
+// (docs/features/commands.md). They go to stderr, only when a person is
 // at the terminal, so agents, pipes and JSON output see nothing new.
 
 // statusLine is one line: komando: WHAT on TARGET (DETAIL) via ROUTE · PROTECTED (TAIL)

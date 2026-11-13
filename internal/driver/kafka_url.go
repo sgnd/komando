@@ -14,7 +14,7 @@ import (
 var kafkaSASL = []string{"plain", "scram-sha-256", "scram-sha-512"}
 
 // parseKafka reads kafka://user@broker1:9092,broker2:9092?tls=true&sasl=
-// scram-sha-512 (docs/design/queue.md). brokers are the hosts the URL
+// scram-sha-512 (docs/features/queues.md). brokers are the hosts the URL
 // lists, as splitHostList found them; Address is the first.
 func parseKafka(u *url.URL, t Target, brokers []string) (Target, error) {
 	if len(brokers) == 0 || u.Hostname() == "" {

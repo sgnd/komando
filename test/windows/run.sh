@@ -2,7 +2,7 @@
 # Runs komando's PowerShell for real: the opt-in tests in
 # internal/cli/windows_pwsh_test.go against PowerShell 7 in a container of
 # their own (a random name, removed afterwards). It does not use the shared
-# e2e lab. PowerShell 7 on Linux is not Windows: see docs/design/windows.md.
+# e2e lab. PowerShell 7 on Linux is not Windows: see docs/features/windows.md.
 #
 #   make e2e-windows
 set -euo pipefail

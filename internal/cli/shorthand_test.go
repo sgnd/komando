@@ -77,7 +77,7 @@ func TestShorthandDidYouMean(t *testing.T) {
 }
 
 // TestStandardShorthands walks the tree and checks every short letter
-// against the reserved table (docs/design/ux.md, section 3; S-5.14 and
+// against the reserved table (docs/design/command-standard.md, S-5.14 and
 // S-5.15): one meaning per letter within its scope, and none at all for
 // the flags that must be typed in full.
 func TestStandardShorthands(t *testing.T) {

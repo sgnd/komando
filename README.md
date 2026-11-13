@@ -288,8 +288,8 @@ Then ask in your own words: *"Why is web1 slow?"*, *"Update all servers"*,
 
 Every task, step by step, one page per feature:
 **[docs/features](docs/features/README.md)**. Help for any command:
-`komando <command> --help`. What comes next: the
-[roadmap](docs/design/vision.md).
+`komando <command> --help`. The rules komando follows:
+[docs/design/principles.md](docs/design/principles.md).
 
 ## Safety, in one minute
 

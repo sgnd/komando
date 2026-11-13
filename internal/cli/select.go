@@ -19,7 +19,7 @@ import (
 // Selectors pick hosts and conns together: `@prod` is everything in the
 // prod group, servers and databases alike. Commands that look (list, test,
 // group) use everything picked. Commands that act use what they can work
-// with and report the rest in meta.skipped (docs/design/ux.md, section 2).
+// with and report the rest in meta.skipped (docs/design/principles.md, section 3).
 
 // selection is what a selector expression picked, each part sorted by name.
 type selection struct {

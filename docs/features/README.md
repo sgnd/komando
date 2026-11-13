@@ -63,5 +63,5 @@ reference is `komando schema`.
 - Update the page in the same commit as the feature, together with
   `komando guide` (`internal/cli/guide.md`), the agent skill
   (`internal/cli/skill.md`, copied to `skills/komando/SKILL.md`) and `CHANGELOG.md`.
-- The rules for commands and flags are in [docs/design/ux.md](../design/ux.md).
+- The rules for commands and flags are in the [command standard](../design/command-standard.md); the words of messages in [message-style.md](../design/message-style.md).
 - Write in plain English.

@@ -23,7 +23,7 @@ import (
 // `komando cluster` works the same on Kubernetes (a k8s conn: the API is
 // called directly, through --via and VPNs) and Docker Swarm (a manager
 // server: docker runs there over SSH). Verbs that exist in both engines
-// sit directly under `cluster` (docs/design/vision.md).
+// sit directly under `cluster` (docs/design/principles.md).
 
 type clusterTarget struct {
 	conn *store.Conn // Kubernetes

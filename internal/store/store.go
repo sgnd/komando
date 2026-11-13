@@ -37,7 +37,7 @@ type Host struct {
 	Protected    bool              `json:"protected,omitempty"`
 	Notes        string            `json:"notes,omitempty"`
 	// OS is "windows" for a Windows server: commands are PowerShell, not
-	// sh. Empty: Linux or another Unix (docs/design/windows.md).
+	// sh. Empty: Linux or another Unix (docs/features/windows.md).
 	OS string `json:"os,omitempty"`
 	// Transport is "winrm" for a Windows server reached over WinRM, with
 	// its settings in WinRMOpts. Empty: SSH.
@@ -190,7 +190,7 @@ func DefaultSettings() Settings {
 }
 
 // Vpn is a network komando opens inside its own process to reach targets
-// (docs/design/network.md). Keys live in the vault, referenced by KeyRef.
+// (docs/features/vpn.md). Keys live in the vault, referenced by KeyRef.
 type Vpn struct {
 	Name      string            `json:"name"`
 	Kind      string            `json:"kind"`                 // see netx.Kinds

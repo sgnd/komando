@@ -97,7 +97,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 }
 
 // formNoApproval: a form's line never carries a flag that approves or
-// shows something for the person (docs/design/ux.md, section 10).
+// shows something for the person (docs/design/principles.md, section 11).
 func formNoApproval(t *testing.T, source string, line []string) {
 	t.Helper()
 	for _, w := range line {

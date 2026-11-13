@@ -1,6 +1,5 @@
 // Package sealdb is komando's local store: one SQLite file whose records are
-// sealed rows (package sealrow). Design: docs/design/sync-security.md
-// section 16.
+// sealed rows (package sealrow).
 //
 // Readable columns are only a random ID, the type, the version, the change
 // time and the deletion marker. Everything else, names included, is sealed.

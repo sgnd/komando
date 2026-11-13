@@ -1,5 +1,5 @@
 // Package netx opens the networks komando reaches targets through
-// (docs/design/network.md). WireGuard, SOCKS, HTTP proxies, L2TP, IPsec,
+// (docs/features/vpn.md). WireGuard, SOCKS, HTTP proxies, L2TP, IPsec,
 // IKEv2, Tailscale, OpenVPN and AnyConnect run inside komando, in user
 // space, so the computer's routes are not changed. Only the openconnect
 // family (globalprotect, fortinet, pulse, f5) uses an outside client when

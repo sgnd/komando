@@ -23,7 +23,7 @@ A change fits when all of these are true:
 - It is safe by default: it only reads unless the user says otherwise.
 - It needs no new dependency, or the dependency is small and well kept.
 
-Bigger features start as a design note in [`docs/design/`](docs/design/) (for example [resources and `komando db`](docs/design/resources-and-db.md)). Open an issue first if you are not sure.
+For a bigger feature, open an issue first so the design can be agreed before the code. Every feature follows [docs/design/principles.md](docs/design/principles.md) and the [command standard](docs/design/command-standard.md).
 
 ## Build and test
 
@@ -68,9 +68,7 @@ Each command has its own files in `internal/cli/`, named for its noun (`host.go`
 9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
 10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.
 
-A new command needs a place in the menu: add a task for it in [`internal/cli/menu_tasks.go`](internal/cli/menu_tasks.go) (or, when the menu must never offer it, a line in `menuCLIOnly` saying why). `TestMenuEveryCommandHasAHome` fails until you do. The questions come from its `Use` line and its flags, and `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)); add the word there, or give the command a `formHint` with an `area`. A `formHint` in `internal/cli/form_hints_*.go` also makes the questions read better: which arguments come from a list, and which flags to ask first.
-
-The reasons behind rules 8 to 10, and what comes next, are in [docs/design/maintenance.md](docs/design/maintenance.md).
+A new command needs a form hint, so a person who leaves an argument out is asked for it well: add one in `internal/cli/form_hints_*.go` (which arguments come from a list, which flags to ask first, its `Next:` lines). `TestFormEveryCommandHasAHint` fails until you do, and `TestFormEveryCommandHasAnArea` fails when its first word is in no area of `formAreas` ([`internal/cli/form_cmd.go`](internal/cli/form_cmd.go)). A new kind of server or conn also needs an add form (`TestFormEveryKindHasAnAddForm`). What agents and scripts get must not change by accident: `TestAgentGolden` compares every command against a recording (`KOMANDO_GOLDEN_UPDATE=1` records it again, only on purpose).
 
 Update the docs in the same pull request:
 

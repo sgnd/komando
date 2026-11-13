@@ -16,7 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// On a sealed home (docs/design/phase0-s6.md) each secret is a record of
+// On a sealed home each secret is a record of
 // the store, of type "secret". Inside it the value is still sealed by the
 // vault as before, bound to its name, with a key made from the store's
 // master key under its own label, so the store's row key never opens a

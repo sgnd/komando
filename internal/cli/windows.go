@@ -12,7 +12,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Windows servers (docs/design/windows.md). A command that knows how to
+// Windows servers (docs/features/windows.md). A command that knows how to
 // work on Windows marks its context with allowWindows before it reaches
 // the servers; fanout and withClient refuse a Windows server to every
 // other command, so no sh script is ever sent to PowerShell.

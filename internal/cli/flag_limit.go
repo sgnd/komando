@@ -11,7 +11,7 @@ import (
 )
 
 // Every list command has -n/--limit: the most items to show
-// (docs/design/ux.md section 3, S-5.8). A command keeps the default it had;
+// (docs/design/command-standard.md, S-5.8). A command keeps the default it had;
 // one that had none starts at 0, no limit. A list that stops at the limit
 // sets meta.truncated, and in text mode one stderr line says so.
 

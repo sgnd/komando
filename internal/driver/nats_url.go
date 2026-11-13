@@ -8,7 +8,7 @@ import (
 )
 
 // parseNATS reads nats://user@host:4222,host2:4222 and tls:// (TLS) for
-// NATS with JetStream (docs/design/queue.md). hosts are the servers the
+// NATS with JetStream (docs/features/queues.md). hosts are the servers the
 // URL lists, as splitHostList found them; Address is the first. Options:
 //
 //	?creds=secret:NAME   log in with the .creds file (a user JWT and its

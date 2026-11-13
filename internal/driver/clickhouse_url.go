@@ -11,7 +11,7 @@ import (
 
 // ClickHouse ports: komando speaks ClickHouse's HTTP interface, 8123
 // plain and 8443 with TLS. 9000 and 9440 are the native protocol, which
-// komando does not speak (docs/design/clickhouse.md).
+// komando does not speak (docs/features/databases.md).
 const (
 	clickhouseHTTP  = 8123
 	clickhouseHTTPS = 8443

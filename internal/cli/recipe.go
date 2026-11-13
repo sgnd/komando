@@ -156,7 +156,7 @@ func (l recipeList) Text() string {
 
 // A recipe is a saved command with {{blanks}}. The built-in ones (health,
 // disk, oom, ...) and the ones people save live in one list, under one
-// command (docs/design/ux.md, section 11).
+// command (docs/design/principles.md, section 12).
 
 type recipeRow struct {
 	Name     string            `json:"name"`

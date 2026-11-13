@@ -185,7 +185,7 @@ const (
 // sudo wrapping. Exposed so --dry-run can show exactly what would run.
 // sudoPass is the sudo password Run feeds on request, or nil. Values from
 // the vault are not in it: Run sends them on the command's input.
-// On a Windows server cmd is the PowerShell script (docs/design/windows.md).
+// On a Windows server cmd is the PowerShell script (docs/features/windows.md).
 func BuildCommand(c *Client, r RunRequest) (cmd string, sudoPass []byte, err error) {
 	if isWindows(c) {
 		cmd, _, err = windowsScript(c, r)

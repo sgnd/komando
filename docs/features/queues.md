@@ -572,6 +572,3 @@ komando queue rm pubsub subscriptions/billing old-orders --dry-run
 | `DELIVERY_LIMIT_NEAR` | a message of a RabbitMQ quorum queue is close to its delivery limit, an SQS message close to its queue's `maxReceiveCount`, or a Pub/Sub message close to its subscription's `maxDeliveryAttempts`: stop peeking and let its consumers take the message |
 | `STREAM_NOT_FOUND`, `STREAM_EXISTS`, `CONSUMER_NOT_FOUND` | NATS: no such stream (for `send`: no stream keeps that subject), one is there already, or no such consumer; `queue list` and `queue groups` show the names |
 | `NOT_SUPPORTED` | the engine cannot do this (RabbitMQ: `groups`, `lag`, `ls` and `peek` without `?management=`; NATS without JetStream; SQS: `groups`, `lag`, `peek --oldest`; Pub/Sub: `lag`, `peek --oldest`, peek of a push subscription); the hint says what works instead |
-
-The design behind these commands is in
-[docs/design/queue.md](../design/queue.md).

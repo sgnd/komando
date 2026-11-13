@@ -118,7 +118,7 @@ login; 'komando secret check NAME' lets a person compare it.`,
 			}
 			reveal := g.reveal
 			if reveal && !interactive() {
-				// agents never see passwords (docs/design/vision.md); a person at
+				// agents never see passwords (docs/design/principles.md); a person at
 				// a terminal can still pipe the value, e.g. into pbcopy
 				return out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
 					"ask a person to run `komando secret show "+args[0]+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+args[0]+") instead",

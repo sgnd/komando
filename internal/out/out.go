@@ -159,7 +159,7 @@ type Envelope struct {
 // Contract is the version of komando's output contract: the envelope,
 // field names, error codes and exit codes. Within one contract, fields
 // and codes are only added, never renamed or removed; a breaking change
-// raises it (docs/design/ux.md, section 13).
+// raises it (docs/design/principles.md, section 5).
 const Contract = 1
 
 type Meta struct {

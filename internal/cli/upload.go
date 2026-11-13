@@ -14,7 +14,7 @@ import (
 // `komando upload` and `download` move files between this computer and any
 // target that stores files: servers (SFTP) or storage conns. `cp` and
 // `storage upload/download` are the same thing spelled per area
-// (docs/design/ux.md, section 11).
+// (docs/design/principles.md, section 12).
 
 // fileTarget says whether a target is servers or one storage conn.
 func fileTarget(expr string) (storage bool, err error) {

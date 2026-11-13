@@ -14,7 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/sealrow"
 )
 
-// The sealed store (docs/design/phase0-s6.md): one SQLite file, store.db,
+// The sealed store: one SQLite file, store.db,
 // whose records are sealed. It is the only place komando keeps its data;
 // the files of an earlier komando are only read by `komando seal`.
 

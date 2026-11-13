@@ -5,7 +5,7 @@
 // carry their own keys; conns that log in with an AWS profile (SSO, roles)
 // are opened by the CLI with OpenKeys. Reading never removes or hides a
 // message: peek receives with a visibility timeout of 0 and never deletes.
-// See docs/design/queue.md.
+// See docs/features/queues.md.
 package sqs
 
 import (

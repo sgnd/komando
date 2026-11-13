@@ -11,8 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/sealrow"
 )
 
-// runtime.json is sealed too (docs/design/sync-security.md
-// section 16): it holds the SOCKS logins of running VPNs and the tokens of
+// runtime.json is sealed too: it holds the SOCKS logins of running VPNs and the tokens of
 // kept server logins. It is sealed with the store's row key, bound to its
 // own ID and type, so it cannot be swapped with a store record. A plain
 // runtime.json is read only while `komando seal` moves a folder of before

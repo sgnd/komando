@@ -11,7 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// Windows servers over WinRM (docs/design/windows.md). The address says
+// Windows servers over WinRM (docs/features/windows.md). The address says
 // it: winrm://[user@]host[:port][?auth=basic&tls=skip-verify|off&ca=secret:NAME].
 
 // isWinRMAddress reports an address written winrm://...

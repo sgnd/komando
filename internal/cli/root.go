@@ -417,7 +417,7 @@ var localReads = map[string]bool{
 
 // checkStoreWritable refuses to run a command that may change something
 // when the store (which holds the audit log) cannot be written: changes
-// must not happen without a record (docs/design/ux.md §6).
+// must not happen without a record (docs/design/principles.md, section 7).
 func checkStoreWritable(cmd *cobra.Command) error {
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")

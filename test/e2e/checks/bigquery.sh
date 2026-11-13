@@ -4,7 +4,7 @@
 # here, and goccy/bigquery-emulator cannot do dry runs): a service account
 # login, TLS with a private CA, the dry run before every statement, the
 # byte cap, what needs --write never reaching the server. BigQuery's own
-# SQL is not checked here (docs/design/bigquery.md).
+# SQL is not checked here (docs/features/databases.md).
 set +e
 BQC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
 for _ in $(seq 1 60); do BQC exec -T bigquery test -s /e2e/sa.json 2>/dev/null && break; sleep 1; done

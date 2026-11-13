@@ -21,8 +21,7 @@ import (
 )
 
 // `komando seal` moves a komando folder of before (state.json, vault.json,
-// known_hosts, audit.jsonl, keys/) into one sealed store, store.db
-// (docs/design/sync-security.md section 16, "Moving existing users").
+// known_hosts, audit.jsonl, keys/) into one sealed store, store.db.
 //
 // A person at a terminal only. The move holds every lock of the files of
 // before from start to end, so no other komando writes them meanwhile, and

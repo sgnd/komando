@@ -20,7 +20,7 @@ import (
 
 // `komando vpn` keeps the networks that targets are reached through. A VPN
 // is used by putting its name first in a --via path; komando opens it inside
-// its own process for that command only (docs/design/network.md).
+// its own process for that command only (docs/features/vpn.md).
 
 func vpnCmd() *cobra.Command {
 	var kinds []string

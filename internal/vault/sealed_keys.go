@@ -22,7 +22,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Moving and changing the key of a sealed store (docs/design/phase0-s6.md).
+// Moving and changing the key of a sealed store.
 // Moving it between the keychain and store.key moves the same key; a new
 // passphrase, or leaving one, makes a new master key and seals the whole
 // store again in one write step. A new key is kept before the store uses

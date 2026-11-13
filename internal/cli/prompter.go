@@ -21,7 +21,7 @@ import (
 // `CONN (database):` with a numbered list of the databases komando knows,
 // `--old:` for a flag. Nobody else is ever asked: an AI agent, a script, a
 // pipe, CI, TERM=dumb and JSON output get the usage error they always got
-// (docs/design/ux.md, section 10).
+// (docs/design/principles.md, section 11).
 
 // promptable says whether komando may ask: stdin, stdout and stderr are
 // terminals, no AI agent runs it, it is not CI, the terminal is not dumb

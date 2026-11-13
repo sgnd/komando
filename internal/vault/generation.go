@@ -14,7 +14,7 @@ import (
 )
 
 // The generation number of a sealed store, kept in the OS keychain beside
-// the store's key (docs/design/sync-security.md section 16): an old copy
+// the store's key: an old copy
 // of the store put back (a restore from backup, or an attacker's) has a
 // lower number than the keychain, and komando stops instead of quietly
 // using old servers, rules and pins. It is a second keychain item of this
