@@ -157,6 +157,31 @@ Set it up once, in a terminal in this repository (Go and `gh` installed, `gh aut
 
 To change the key (it leaked, or you lost it): make a new one, add its public key to `Keys` beside the old one, and release that komando signed with the old key. Then put both private keys in the secret, one per line (each adds a signature), so komandos that know either key update. Once most people run a komando with the new key, remove the old one from `Keys` and from the secret. A leaked key that must stop working at once: remove it from `Keys` and the secret right away; komandos that know only that key must reinstall with the install line.
 
+### macOS signing
+
+The release signs the macOS binaries with the project's Developer ID and has Apple notarize them ([`scripts/macos-sign.sh`](scripts/macos-sign.sh), on a macOS runner with Apple's own `codesign` and `notarytool`). Until the secrets below exist, the release goes out with unsigned macOS binaries and the log says so. Set them once, all six, as secrets of the environment `release` (a part of them stops the release):
+
+1. In the Apple Developer account (paid membership): Certificates → **+** → **Developer ID Application**. Make the request on your Mac with Keychain Access (Certificate Assistant → Request a Certificate From a Certificate Authority, saved to disk), upload it, download the certificate and open it so it lands in your keychain.
+2. In Keychain Access, right-click that certificate (with its private key) → Export → `devid.p12`, with a strong password. Then:
+
+   ```bash
+   base64 -i devid.p12 | gh secret set MACOS_CERT_P12 --env release --repo sgnd/komando
+   gh secret set MACOS_CERT_PASSWORD --env release --repo sgnd/komando
+   gh secret set APPLE_TEAM_ID --env release --repo sgnd/komando
+   ```
+
+   `gh secret set` without input asks for the value (the .p12 password; the 10-character team ID from Membership details).
+3. In App Store Connect → Users and Access → Integrations → App Store Connect API: make a key with the **Developer** role and download `AuthKey_XXXX.p8` (only once). Then:
+
+   ```bash
+   base64 -i AuthKey_XXXX.p8 | gh secret set NOTARY_KEY_P8 --env release --repo sgnd/komando
+   gh secret set NOTARY_KEY_ID --env release --repo sgnd/komando
+   gh secret set NOTARY_ISSUER_ID --env release --repo sgnd/komando
+   ```
+
+   The key ID is in the key's row, the issuer ID above the list.
+4. Keep `devid.p12`, its password and the `.p8` in a password manager, then delete the files.
+
 ## Writing
 
 - `gofmt`, `go vet` and `staticcheck` must pass (`make lint`).

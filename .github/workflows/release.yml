@@ -14,11 +14,49 @@ jobs:
   test:
     uses: ./.github/workflows/ci.yml
 
+  # The macOS binaries, signed with the project's Developer ID and notarized
+  # by Apple, so Gatekeeper accepts them. Without the secrets it signs
+  # nothing and says so; the release then carries unsigned macOS binaries.
+  macos:
+    name: Sign macOS binaries
+    needs: test
+    runs-on: macos-latest
+    timeout-minutes: 45
+    # the Developer ID secrets live here too; only v* tags may use them
+    environment: release
+    outputs:
+      signed: ${{ steps.sign.outputs.signed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - run: make bins VERSION="$GITHUB_REF_NAME" PLATFORMS="darwin/amd64 darwin/arm64" OUT=signed
+      - name: Sign and notarize
+        id: sign
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: scripts/macos-sign.sh signed
+      - if: steps.sign.outputs.signed == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: macos-signed
+          path: signed/
+          if-no-files-found: error
+          retention-days: 1
+
   # The release, with an archive per platform, checksums.txt, its signature
   # (checksums.txt.sig) and signed build provenance.
   release:
     name: Release
-    needs: test
+    needs: [test, macos]
     runs-on: ubuntu-latest
     # holds the secret RELEASE_SIGNING_KEY; only v* tags may use it
     # (CONTRIBUTING.md, "The release signing key")
@@ -50,7 +88,13 @@ jobs:
 
           Check a download: `gh attestation verify FILE --repo sgnd/komando`
           EOF
-      - run: make dist VERSION="$GITHUB_REF_NAME"
+      - if: needs.macos.outputs.signed == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: macos-signed
+          path: signed
+      # the signed macOS binaries replace the ones make dist would build
+      - run: make dist VERSION="$GITHUB_REF_NAME" SIGNED=signed
       # `komando update` refuses a release whose checksums.txt is not signed
       # with a key built into komando; this checks the signature with
       # those keys before anything is published
