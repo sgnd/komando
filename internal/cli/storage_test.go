@@ -259,35 +259,22 @@ func TestStorageJourneyCommands(t *testing.T) {
 	mustRun(t, "conn", "rm", "bk")
 }
 
-// C-F03: storage rm's cap is --max-remove; --limit and -n, its old names,
-// still set it for this release and are noted in meta.deprecated.
+// C-F03: storage rm's cap is --max-remove, with no short form, so it is
+// not taken for a list's --limit.
 func TestStorageRmMaxRemove(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb"}}
 	withMemBucket(t, m)
 	defer func() { g.dryRun = false }()
-	for _, cap := range [][]string{{"--max-remove", "1"}, {"--limit", "1"}, {"-n", "1"}, {"-n1"}} {
-		out.P.Reset()
-		e := wantCode(t, "TOO_MANY", append([]string{"storage", "rm", "bk", "--prefix", "daily/", "--dry-run"}, cap...)...)
-		if !strings.Contains(e.Message, "more than --max-remove 1") || !strings.Contains(e.Hint, "raise --max-remove") {
-			t.Errorf("%v: %+v", cap, e)
-		}
-		d := metaDeprecated()
-		switch cap[0] {
-		case "--max-remove":
-			if d != nil {
-				t.Errorf("--max-remove noted: %+v", d)
-			}
-		default:
-			if used := strings.TrimSuffix(cap[0], "1"); d == nil || d.Used != used || d.Now != "--max-remove" {
-				t.Errorf("%v: meta.deprecated %+v", cap, d)
-			}
-		}
+	out.P.Reset()
+	e := wantCode(t, "TOO_MANY", "storage", "rm", "bk", "--prefix", "daily/", "--dry-run", "--max-remove", "1")
+	if !strings.Contains(e.Message, "more than --max-remove 1") || !strings.Contains(e.Hint, "raise --max-remove") {
+		t.Errorf("--max-remove 1: %+v", e)
 	}
 	if len(m.objs) != 2 {
 		t.Errorf("a dry run removed objects: %v", m.objs)
 	}
 	c, _, _ := newRoot().Find([]string{"storage", "rm"})
-	if f := c.Flags().ShorthandLookup("n"); f == nil || !f.Hidden || c.Flags().Lookup("max-remove").Shorthand != "" {
-		t.Errorf("-n is a hidden old spelling: %+v", f)
+	if c.Flags().ShorthandLookup("n") != nil || c.Flags().Lookup("limit") != nil || c.Flags().Lookup("max-remove").Shorthand != "" {
+		t.Error("storage rm has -n or --limit, or a short --max-remove")
 	}
 }

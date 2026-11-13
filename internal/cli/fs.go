@@ -252,7 +252,6 @@ func fsLsCmd() *cobra.Command {
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
 	limitFlag(c, &maxEntries, 1000, "entries")
-	retiredFlag(c, "max", "limit")
 	withID(c, "fs.ls") // `ls` before: a permanent synonym
 	return c
 }

@@ -174,7 +174,6 @@ func (e *vpnEditFlags) bind(c *cobra.Command) {
 	f := c.Flags()
 	f.StringVar(&e.check, "check", "", "host:port reachable only through this VPN")
 	f.StringVar(&e.address, "proxy-address", "", "SOCKS: host:port of the proxy; proxy: host:port or http(s)://host:port")
-	withRetiredAddress(c)
 	f.StringVar(&e.service, "service", "", "System VPN: its name in your computer's settings")
 	f.StringVar(&e.server, "server", "", "L2TP, IPsec, IKEv2: the VPN server")
 	f.StringVar(&e.portal, "portal", "", "GlobalProtect, Fortinet, AnyConnect, Pulse, F5: the VPN server or portal")

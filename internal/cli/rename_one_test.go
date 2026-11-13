@@ -7,7 +7,7 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// `komando rename OLD NEW` without --prefix renames the one entry named OLD
+// `komando rename OLD NEW` without --starts-with renames the one entry named OLD
 // through its own command; two kinds of one name, or none, are refused
 // with the commands to use (C-V23).
 func TestRenameOneEntry(t *testing.T) {
@@ -48,9 +48,9 @@ func TestRenameOneEntry(t *testing.T) {
 	if !strings.Contains(e.Hint, "komando rename --starts-with nope x --dry-run") {
 		t.Errorf("none: %+v", e)
 	}
-	wantCode(t, "USAGE", "rename", "web-01", "web-02", "--notes")
-	// --prefix keeps the prefix rename
-	if d := mustRun(t, "--dry-run", "rename", "--prefix", "web-", "site-"); d["count"] == nil {
-		t.Errorf("--prefix: %v", d)
+	wantCode(t, "USAGE", "rename", "web-01", "web-02", "--in-notes")
+	// --starts-with keeps the prefix rename
+	if d := mustRun(t, "--dry-run", "rename", "--starts-with", "web-", "site-"); d["count"] == nil {
+		t.Errorf("--starts-with: %v", d)
 	}
 }

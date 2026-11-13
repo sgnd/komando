@@ -106,7 +106,7 @@ func TestDumpOnHost(t *testing.T) {
 	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--dry-run"); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
 		t.Fatalf("custom without a server: %+v", e)
 	}
-	d, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--on", "dev", "--dry-run")
+	d, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "a.dump"), "--format", "custom", "--run-on", "dev", "--dry-run")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -118,20 +118,20 @@ func TestDumpOnHost(t *testing.T) {
 		t.Error("a dry run connected to the server")
 	}
 	// only inventory servers: the password goes there
-	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "b.dump"), "--format", "custom", "--on", "deploy@127.0.0.1", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "b.dump"), "--format", "custom", "--run-on", "deploy@127.0.0.1", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("ad-hoc --on: want a usage error, got %+v", e)
 	}
-	if _, e := run("db", "dump", "lite", "--to", filepath.Join(dir, "c.db"), "--on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := run("db", "dump", "lite", "--to", filepath.Join(dir, "c.db"), "--run-on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("sqlite --on: want a usage error, got %+v", e)
 	}
-	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "d.sql"), "--on", "dev", "--table=--file=/tmp/x", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e := run("db", "dump", "pg", "--to", filepath.Join(dir, "d.sql"), "--run-on", "dev", "--table=--file=/tmp/x", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("--table option: want a usage error, got %+v", e)
 	}
 
 	// the real run: the fake server answers with the "dump"
 	srv.reply("PGDMP archive bytes")
 	to := filepath.Join(dir, "prod.dump")
-	if _, e = run("db", "dump", "pg", "--to", to, "--format", "custom", "--on", "dev"); e != nil {
+	if _, e = run("db", "dump", "pg", "--to", to, "--format", "custom", "--run-on", "dev"); e != nil {
 		t.Fatal(e)
 	}
 	if b, _ := os.ReadFile(to); string(b) != "PGDMP archive bytes" {
@@ -157,7 +157,7 @@ func TestDumpOnHost(t *testing.T) {
 	}
 
 	// restore: an archive goes to pg_restore on --on, behind the same gate
-	d, e = run("db", "restore", "pg", "--from", to, "--on", "dev", "--dry-run")
+	d, e = run("db", "restore", "pg", "--from", to, "--run-on", "dev", "--dry-run")
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -167,14 +167,14 @@ func TestDumpOnHost(t *testing.T) {
 	if blocked := fmt.Sprint(d["_meta"].(map[string]any)["would_be_blocked"]); !strings.Contains(blocked, "db-restore") {
 		t.Errorf("restore: would_be_blocked %s", blocked)
 	}
-	if _, e = run("db", "restore", "pg", "--from", to, "--on", "dev"); e == nil || e.Code != "POLICY_BLOCKED" {
+	if _, e = run("db", "restore", "pg", "--from", to, "--run-on", "dev"); e == nil || e.Code != "POLICY_BLOCKED" {
 		t.Errorf("restore without --allow-dangerous: %+v", e)
 	}
 	if _, e = run("db", "restore", "pg", "--from", to); e == nil || !strings.Contains(e.Message, "--run-on HOST") {
 		t.Errorf("archive restore without a server: %+v", e)
 	}
 	srv.reply()
-	if _, e = run("db", "restore", "pg", "--from", to, "--on", "dev", "--allow-dangerous"); e != nil {
+	if _, e = run("db", "restore", "pg", "--from", to, "--run-on", "dev", "--allow-dangerous"); e != nil {
 		t.Fatal(e)
 	}
 	ex = srv.take()
@@ -187,7 +187,7 @@ func TestDumpOnHost(t *testing.T) {
 	// plain SQL is never sent to psql: --on does not apply
 	plain := filepath.Join(dir, "p.sql")
 	_ = os.WriteFile(plain, []byte("SELECT 1;\n"), 0o600)
-	if _, e = run("db", "restore", "pg", "--from", plain, "--on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
+	if _, e = run("db", "restore", "pg", "--from", plain, "--run-on", "dev", "--dry-run"); e == nil || e.Exit != out.ExitUsage {
 		t.Errorf("plain SQL with --on: want a usage error, got %+v", e)
 	}
 }

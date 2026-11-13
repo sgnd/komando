@@ -648,26 +648,26 @@ func TestPolicyDenyMatchesEverything(t *testing.T) {
 func TestPolicyCheckFor(t *testing.T) {
 	invHome(t)
 	for _, k := range []string{"bogus", "sql"} {
-		if e := wantCode(t, "USAGE", "policy", "check", "--for", k, "x"); !strings.Contains(e.Message, "not a kind komando rates") || !strings.Contains(e.Hint, "postgres") {
+		if e := wantCode(t, "USAGE", "policy", "check", "--conn-kind", k, "x"); !strings.Contains(e.Message, "not a kind komando rates") || !strings.Contains(e.Hint, "postgres") {
 			t.Errorf("%s: %+v", k, e)
 		}
 	}
-	if d := mustRun(t, "policy", "check", "--for", "postgres", "select 1"); d["risk"] != "read" {
+	if d := mustRun(t, "policy", "check", "--conn-kind", "postgres", "select 1"); d["risk"] != "read" {
 		t.Errorf("read: %v", d)
 	}
-	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "postgres", "drop table users"); e.Exit != out.ExitPolicy {
+	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--conn-kind", "postgres", "drop table users"); e.Exit != out.ExitPolicy {
 		t.Errorf("drop: exit %d", e.Exit)
 	}
-	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "mongodb", `{"dropDatabase": 1}`); !strings.Contains(e.Message, "mongo-drop") {
+	if e := wantCode(t, "POLICY_BLOCKED", "policy", "check", "--conn-kind", "mongodb", `{"dropDatabase": 1}`); !strings.Contains(e.Message, "mongo-drop") {
 		t.Errorf("mongodb: %+v", e)
 	}
-	if d := mustRun(t, "policy", "check", "--for", "MongoDB", `{"find": "users"}`); d["risk"] != "read" {
+	if d := mustRun(t, "policy", "check", "--conn-kind", "MongoDB", `{"find": "users"}`); d["risk"] != "read" {
 		t.Errorf("mongodb find: %v", d)
 	}
-	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", "FLUSHALL")
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--conn-kind", "redis", "FLUSHALL")
 	// split as cache run splits it, so both rate a quoted command the same
-	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", `"FLUSHALL"`)
-	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--for", "redis", `FLUSHALL ASYNC`)
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--conn-kind", "redis", `"FLUSHALL"`)
+	wantCode(t, "POLICY_BLOCKED", "policy", "check", "--conn-kind", "redis", `FLUSHALL ASYNC`)
 }
 
 // policy deny and rm say "would" in a dry run, and show the pattern as

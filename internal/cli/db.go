@@ -102,7 +102,7 @@ type dbFlags struct {
 	write bool
 	limit int
 	args  []string
-	// table is csv or tsv: -o csv/-o tsv (or the old --csv/--tsv)
+	// table is csv or tsv: -o csv/-o tsv
 	table string
 	// mariaAnalyze: the SQL starts with EXPLAIN ANALYZE, which MariaDB
 	// spells ANALYZE
@@ -116,7 +116,6 @@ type dbFlags struct {
 func dbQueryCmd() *cobra.Command {
 	var f dbFlags
 	var file string
-	var csvFlag, tsvFlag bool
 	c := &cobra.Command{
 		Use:   "query CONN [SQL]",
 		Short: "Run SQL (read only by default)",
@@ -185,9 +184,7 @@ picks another database than the URL's.`},
 			default:
 				return out.Usage("give the SQL as an argument or with --file, not both")
 			}
-			if err := f.pickTable(cmd, csvFlag, tsvFlag); err != nil {
-				return err
-			}
+			f.pickTable(cmd)
 			if st, c, ok := mongoConn(args[0]); ok {
 				return runMongoQuery(cmd.Context(), "db.query", st, c, q, f)
 			}
@@ -196,40 +193,17 @@ picks another database than the URL's.`},
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
-	c.Flags().BoolVar(&csvFlag, "csv", false, "old name of -o csv")
-	c.Flags().BoolVar(&tsvFlag, "tsv", false, "old name of -o tsv")
-	_ = c.Flags().MarkHidden("csv")
-	_ = c.Flags().MarkHidden("tsv")
 	c.SetFlagErrorFunc(sqlFlagError)
 	return c
 }
 
-// pickTable sets f.table from -o csv/tsv or the retired --csv/--tsv
-// (retiredName). Without --limit an
-// export has every row.
-func (f *dbFlags) pickTable(cmd *cobra.Command, csvFlag, tsvFlag bool) error {
+// pickTable sets f.table from -o csv/tsv. Without --limit an export has
+// every row.
+func (f *dbFlags) pickTable(cmd *cobra.Command) {
 	f.table = g.table
-	old := ""
-	switch {
-	case csvFlag && tsvFlag:
-		return out.Usage("pick one: -o csv or -o tsv")
-	case csvFlag:
-		old = "csv"
-	case tsvFlag:
-		old = "tsv"
-	}
-	if old != "" {
-		if cmd.Flags().Changed("output") && f.table != old {
-			return out.Usage("--%s and -o %s ask for two formats: use -o %s alone", old, g.output, old)
-		}
-		retiredName("--"+old, "-o "+old)
-		f.table = old
-		out.P.Format = "text" // errors to stderr, so stdout has only rows
-	}
 	if f.table != "" && !cmd.Flags().Changed("limit") {
 		f.limit = 0
 	}
-	return nil
 }
 
 // sqlFlagError explains the usual cause of an unknown flag here: SQL that

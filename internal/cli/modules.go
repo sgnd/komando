@@ -597,24 +597,14 @@ func cronCmd() *cobra.Command {
 		Long:  cronLong,
 	}
 	var user string
-	var sudo bool
 	c.PersistentFlags().StringVar(&user, "user", "", "crontab of this user (uses sudo)")
-	c.PersistentFlags().BoolVarP(&sudo, "sudo", "s", false, "use root's crontab (through sudo)")
-	_ = c.PersistentFlags().MarkHidden("sudo") // retired: --user root is the same
-	noted := false
 	ct := func() string {
 		if user != "" {
 			return "crontab -u " + sshx.Q(user)
 		}
 		return "crontab"
 	}
-	useSudo := func() bool {
-		if sudo && !noted {
-			noted = true
-			retiredName("--sudo", "--user root")
-		}
-		return sudo || user != ""
-	}
+	useSudo := func() bool { return user != "" }
 	// readCron puts the current crontab in $cur; "no crontab" (busybox: "can't
 	// open ...: No such file") is empty, any other error (no permission,
 	// busybox not suid) stops before a write could replace the whole crontab

@@ -116,7 +116,6 @@ func dbUserChangeCmd(action string) *cobra.Command {
 		c.Flags().StringVar(&ref, "password-ref", "", "the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ...")
 	}
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user may connect from (the account host; default %, anywhere)")
-	retiredFlag(c, "from", "from-host")
 	if action == "add" {
 		c.Flags().BoolVar(&noLogin, "no-login", false, "a role that cannot log in (a group to grant to users)")
 	}
@@ -225,7 +224,6 @@ IAM). --dry-run shows the statement.`,
 	c.Flags().StringVar(&on, "on", "", "what the privileges are on (see above)")
 	c.Flags().StringVar(&role, "role", "", map[bool]string{false: "make the user a member of this role", true: "take the user out of this role"}[revoke])
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user connects from (the account host; default %)")
-	retiredFlag(c, "from", "from-host")
 	return c
 }
 
@@ -251,7 +249,6 @@ func dbUserShowCmd() *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user connects from (the account host; default %)")
-	retiredFlag(c, "from", "from-host")
 	withID(c, "db.grants")
 	return c
 }

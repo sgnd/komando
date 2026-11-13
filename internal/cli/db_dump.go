@@ -184,7 +184,6 @@ holds your data: it is created readable only by you.`,
 	c.Flags().BoolVar(&o.schemaOnly, "schema-only", false, "tables, indexes and functions, no rows")
 	c.Flags().StringArrayVar(&o.tables, "table", nil, "only this table (repeatable; SCHEMA.TABLE on PostgreSQL)")
 	c.Flags().StringVar(&on, "run-on", "", "run pg_dump or mysqldump on this server (default: the database's --via server)")
-	retiredFlag(c, "on", "run-on")
 	return c
 }
 
@@ -227,7 +226,6 @@ MySQL runs the statements in order and stops at the first error.`,
 	}
 	c.Flags().StringVar(&from, "from", "", "SQL file on this computer")
 	c.Flags().StringVar(&on, "run-on", "", "run pg_restore for a PostgreSQL archive on this server (default: the database's --via server)")
-	retiredFlag(c, "on", "run-on")
 	return c
 }
 

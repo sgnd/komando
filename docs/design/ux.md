@@ -184,7 +184,7 @@ that works today still means the same or fails.
 | `-f` | `--follow` on the log streamers (`logs`, `svc logs`, `docker logs`, `cluster logs`); `--file` elsewhere | | tail, kubectl apply |
 | `-g` | `--group` | add, edit and import | |
 | `-l` | `--selector` | cluster | kubectl |
-| `-n` | `--namespace` in cluster (a number is refused: `--limit N`, or `--namespace=N`); `--limit` elsewhere; on `storage rm` the retired spelling of `--max-remove` | | kubectl, head |
+| `-n` | `--namespace` in cluster (a number is refused: `--limit N`, or `--namespace=N`); `--limit` elsewhere; `storage rm` has none (its cap is `--max-remove`) | | kubectl, head |
 | `-p` | `--parents` on writers (`cp`, `upload`, `fs write`, `fs replace`; a no-op on `fs mkdir`); `--priority` on journal readers | | mkdir, journalctl |
 | `-r` | `--recursive` | everywhere | cp |
 | `-s` | `--sudo` | everywhere | |

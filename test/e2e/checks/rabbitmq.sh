@@ -26,7 +26,7 @@ check "rabbitmq groups is not for RabbitMQ" NOT_SUPPORTED "$($K queue groups job
 check "rabbitmq purge needs --allow-dangerous" POLICY_BLOCKED "$($K queue purge jobs e2e-emails | jget 'd["error"]["code"]')"
 check "rabbitmq rm needs --allow-dangerous" POLICY_BLOCKED "$($K queue rm jobs e2e-emails | jget 'd["error"]["code"]')"
 check "rabbitmq purge --dry-run counts" 2 "$($K --dry-run queue purge jobs e2e-emails | jget 'd["data"]["messages"]')"
-check "rabbitmq peek --wait is for Kafka" NOT_SUPPORTED "$($K queue peek jobs e2e-emails --wait 2s | jget 'd["error"]["code"]')"
+check "rabbitmq peek --idle is for Kafka" NOT_SUPPORTED "$($K queue peek jobs e2e-emails --idle 2s | jget 'd["error"]["code"]')"
 # the management API's counts lag a few seconds behind a give-back
 ready() { for _ in $(seq 1 15); do r=$($K queue describe jobs e2e-emails | jget 'd["data"]["ready"]'); [ "$r" = 2 ] && break; sleep 1; done; echo "$r"; }
 check "rabbitmq peek took nothing" 2 "$(ready)"

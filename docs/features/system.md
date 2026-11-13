@@ -338,4 +338,4 @@ komando cron list db1 --user www-data        # another user's crontab (uses sudo
   `@weekly`, `@monthly`, `@yearly`, `@reboot`. It is checked before anything
   is written.
 - `%` in the command is escaped for you.
-- `--sudo` edits root's crontab.
+- `--user root` edits root's crontab.

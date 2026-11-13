@@ -104,8 +104,8 @@ check "net ports on busybox (netstat)" True "$($K net ports swarm1 | jget "any(r
 # vpn: status sees a working SOCKS proxy, dry-run makes the real checks
 set +e
 $K vpn rm lab --dry-run >/dev/null; check "vpn rm --dry-run sees VPN_IN_USE" 8 $?
-$K vpn add lab socks --address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees VPN_EXISTS" 8 $?
-$K vpn add direct socks --address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees NAME_TAKEN" 8 $?
+$K vpn add lab socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees VPN_EXISTS" 8 $?
+$K vpn add direct socks --proxy-address 127.0.0.1:1 --dry-run >/dev/null; check "vpn add --dry-run sees NAME_TAKEN" 8 $?
 set -e
 check "vpn status: stopped SOCKS proxy is down" False "$($K vpn status | jget '[v["up"] for v in d["data"]["vpns"] if v["name"] == "lab"][0]')"
 q $K tunnel start bastion -D "127.0.0.1:$E2E_SOCKS"

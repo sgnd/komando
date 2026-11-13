@@ -228,7 +228,7 @@ func TestGateCheck(t *testing.T) {
 		{"vpn edit office --notes x", R, R},
 		{"vpn up office", "", "SSH_GATE_READ_ONLY"},
 		{"group add web prod", R, R},
-		{"rename --prefix a b", R, R},
+		{"rename --starts-with a b", R, R},
 		{"config set audit off", R, R},
 		{"policy deny 'x'", R, R},
 		{"policy rm x", R, R},

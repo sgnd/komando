@@ -279,7 +279,7 @@ func TestNeedsPersonLogin(t *testing.T) {
 // of a kind that has them.
 func TestVpnEditFlags(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "v1", "socks", "--address", "127.0.0.1:1080", "-g", "a", "-t", "x")
+	mustRun(t, "vpn", "add", "v1", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "a", "-t", "x")
 	mustRun(t, "vpn", "edit", "v1", "-g", "b", "-t", "y")
 	st, _ := store.Load()
 	if v := st.Vpns["v1"]; strings.Join(v.Groups, ",") != "a,b" || strings.Join(v.Tags, ",") != "x,y" {
@@ -362,9 +362,9 @@ func TestVpnTestProxyMustAnswer(t *testing.T) {
 			c.Close()
 		}
 	}()
-	mustRun(t, "vpn", "add", "deadsocks", "socks", "--address", deadAddr)
-	mustRun(t, "vpn", "add", "deadproxy", "proxy", "--address", deadAddr)
-	mustRun(t, "vpn", "add", "livesocks", "socks", "--address", live.Addr().String())
+	mustRun(t, "vpn", "add", "deadsocks", "socks", "--proxy-address", deadAddr)
+	mustRun(t, "vpn", "add", "deadproxy", "proxy", "--proxy-address", deadAddr)
+	mustRun(t, "vpn", "add", "livesocks", "socks", "--proxy-address", live.Addr().String())
 	wantCode(t, "VPN_DOWN", "vpn", "up", "deadsocks")
 	wantCode(t, "VPN_DOWN", "vpn", "up", "deadproxy")
 	d, _ := invRun(t, "vpn", "test", "deadproxy")

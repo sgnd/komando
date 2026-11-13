@@ -327,7 +327,6 @@ func recipeAddCmd() *cobra.Command {
 	}
 	c.Flags().StringVar(&desc, "desc", "", "what the recipe does, in a few words (shown in recipe list)")
 	c.Flags().BoolVar(&sudo, "needs-sudo", false, "the recipe runs with sudo")
-	retiredFlag(c, "sudo", "needs-sudo")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "the recipe only reads, so protected servers don't need --yes")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a recipe with the same name")
 	return c

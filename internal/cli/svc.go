@@ -219,8 +219,8 @@ func svcListTable(data any) string {
 // `logs`, so it takes exactly the flags of `logs` (ux.md section 11: one
 // implementation).
 func logsAlias(use, name, source string) *cobra.Command {
-	// the logs flag that does nothing for this source: a journal unit has no
-	// --timestamps choice, a container log no priority
+	// the logs flag that does nothing for this source is not there: a
+	// journal unit has no --timestamps choice, a container log no priority
 	idle := map[string]string{"unit": "timestamps", "container": "priority"}
 	var lo logOpts
 	c := &cobra.Command{
@@ -232,16 +232,12 @@ func logsAlias(use, name, source string) *cobra.Command {
 			if cmd.Flags().Changed(source) {
 				return out.Usage("give the %s once: as the second word or with --%s, not both", source, source)
 			}
-			if f := idle[source]; cmd.Flags().Changed(f) {
-				// it does nothing here: accepted for one release, and noted
-				retiredName("--"+f, "leave it out: it does nothing on "+cmd.CommandPath())
-			}
 			_ = cmd.Flags().Set(source, args[1])
 			return runLogs(cmd.Context(), name, args[0], &lo, lo.sudo)
 		},
 	}
-	lo.bind(c)
-	for _, f := range []string{"unit", "file", "container", idle[source]} {
+	lo.bind(c, idle[source])
+	for _, f := range []string{"unit", "file", "container"} {
 		_ = c.Flags().MarkHidden(f)
 	}
 	return c

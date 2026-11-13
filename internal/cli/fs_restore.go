@@ -184,5 +184,4 @@ func argQ(s string) string {
 func fsRestoreFlags(c *cobra.Command, sudo *bool, from *string) {
 	c.Flags().BoolVarP(sudo, "sudo", "s", false, "read and write with sudo (for files root owns)")
 	c.Flags().StringVar(from, "copy", "", "the backup copy to put back, a path on the server (default: the newest PATH.bak)")
-	retiredFlag(c, "from", "copy")
 }

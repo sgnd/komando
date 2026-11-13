@@ -284,7 +284,6 @@ Values that are not UTF-8 text are shown as base64.`,
 	c.Flags().BoolVar(&oldest, "oldest", false, "the first messages still kept, not the newest")
 	optIntVar(c.Flags(), &partition, "partition", "Kafka: only this partition, numbered from 0 (default: every partition)")
 	durVar(c.Flags(), &wait, "idle", 5*time.Second, "Kafka: stop when no message came for this long")
-	retiredFlag(c, "wait", "idle")
 	return c
 }
 

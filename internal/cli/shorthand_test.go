@@ -104,8 +104,7 @@ func TestStandardShorthands(t *testing.T) {
 		"f": {"follow": func(p string) bool { return in(p, logStreamers...) }, "file": func(p string) bool { return !in(p, logStreamers...) }},
 		"g": {"group": editOrAdd},
 		"l": {"selector": cluster},
-		"n": {"namespace": cluster, "limit": func(p string) bool { return !cluster(p) && !in(p, "storage rm") },
-			"n": func(p string) bool { return in(p, "storage rm") }}, // the retired -n of --max-remove (S-5.14 allow-list)
+		"n": {"namespace": cluster, "limit": func(p string) bool { return !cluster(p) && !in(p, "storage rm") }},
 		"p": {"parents": func(p string) bool { return in(p, "cp", "upload", "fs write", "fs replace", "fs mkdir") },
 			"priority": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }},
 		"r": {"recursive": nil}, "s": {"sudo": nil},
