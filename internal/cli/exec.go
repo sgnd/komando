@@ -363,7 +363,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 						continue
 					}
 					if len(hosts) > 1 {
-						line = "[" + host + "] " + line
+						line = "[" + host + "] " + out.NoCR(line) // no \r back over the name
 					}
 					fmt.Fprint(w, out.SafeText(line))
 				}

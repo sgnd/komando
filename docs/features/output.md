@@ -25,6 +25,16 @@ each one gets a block headed `=== web1 [ok, exit 0]` (or `[failed: exit 1]`,
 `[skipped]` ...). Use JSON when you need each server's exit code or error
 as data.
 
+Text from servers, databases and pods is made safe for your terminal
+first: colours stay, but escape sequences that move the cursor, set the
+window title or write the clipboard, hidden text (`ESC[8m`), other control
+characters and bidi overrides (`U+202E`, which shows text in another order
+than it runs) are printed as `\e`, `\xNN` and `\u202e`. A carriage return
+stays, so progress bars work, except on a line that starts with a server's
+or pod's name (`[web1] ...`): there it shows as `\r`, so a server cannot
+print over the name. JSON keeps the bytes as they are, escaped the JSON
+way.
+
 ```json
 {
   "ok": false,
