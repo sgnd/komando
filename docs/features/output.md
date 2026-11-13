@@ -215,8 +215,7 @@ when = true
 ```
 
 It only reads komando's state file (no network, nothing written, never an
-error, no JSON), so it is safe to run on every prompt. `komando prompt` is
-its old name and keeps working. It is a quick hint: a VPN
+error, no JSON), so it is safe to run on every prompt. It is a quick hint: a VPN
 that crashed a moment ago can still show until the next komando command.
 `komando status` is the full check.
 

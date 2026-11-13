@@ -23,29 +23,9 @@ func (so *scriptOpts) bind(c *cobra.Command) {
 	c.Flags().StringArrayVar(&so.args, "arg", nil, "with --script: an argument for the script, $1 ... (repeatable)")
 }
 
-// scriptCmd is the old name of `exec TARGET --script FILE`, kept for one
-// release (docs/design/ux.md, section 10).
-func scriptCmd() *cobra.Command {
-	var o execOpts
-	var so scriptOpts
-	var readOnly bool
-	c := &cobra.Command{
-		Use:  "script TARGET FILE",
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			so.file = args[1]
-			return runScript(cmd.Context(), "script", args[0], so, o, readOnly)
-		},
-	}
-	o.bind(c)
-	so.bind(c)
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the shell script only looks")
-	return oldName(c, "exec TARGET --script FILE")
-}
-
 // runScript runs a script from this computer on every server target picks:
 // the file goes to the interpreter as stdin, so nothing is left on disk.
-func runScript(ctx context.Context, name, target string, so scriptOpts, o execOpts, readOnly bool) error {
+func runScript(ctx context.Context, target string, so scriptOpts, o execOpts, readOnly bool) error {
 	if o.stdinFile != "" || o.pty {
 		return out.Usage("--script sends the file as the script's input, so --stdin-file and --pty do not go with it; read other files inside the script")
 	}
@@ -62,7 +42,7 @@ func runScript(ctx context.Context, name, target string, so scriptOpts, o execOp
 		if err != nil {
 			return err
 		}
-		return windowsScript(ctx, name, target, so.file, body, interpreter, argsList, o, readOnly)
+		return windowsScript(ctx, target, so.file, body, interpreter, argsList, o, readOnly)
 	}
 	if interpreter == "" {
 		interpreter = shebangInterpreter(string(body))
@@ -84,7 +64,7 @@ func runScript(ctx context.Context, name, target string, so scriptOpts, o execOp
 			return err
 		}
 	}
-	return runFleet(ctx, name, target, command, body, o, mutating)
+	return runFleet(ctx, "exec", target, command, body, o, mutating)
 }
 
 // scriptReadOnly is --read-only for a script (exec --script, job start

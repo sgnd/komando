@@ -411,7 +411,7 @@ var localReads = map[string]bool{
 	"audit": true, "list": true, "config.show": true, "policy.list": true, "policy.check": true,
 	"conn.kinds": true, "conn.show": true, "host.show": true, "vpn.show": true, "key.list": true,
 	"key.show": true, "secret.list": true, "group.list": true, "recipe.list": true, "vpn.status": true,
-	"tunnel.list": true, "job.list": true, "status": true, "seal": true, "prompt": true,
+	"tunnel.list": true, "job.list": true, "status": true, "seal": true,
 	"host.list": true, "conn.list": true, "vpn.list": true, "secret.get": true,
 }
 
@@ -582,14 +582,14 @@ func addCommands(root *cobra.Command) {
 			root.AddCommand(c)
 		}
 	}
-	add("servers", execCmd(), scriptCmd(), logsCmd(), factsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
+	add("servers", execCmd(), logsCmd(), factsCmd(), fsCmd(), uploadCmd(), downloadCmd(), cpCmd(), syncCmd(),
 		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
-	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd(), forwardCmd())
+	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
-	add("setup", configCmd(), policyCmd(), guideCmd(), promptCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
+	add("setup", configCmd(), policyCmd(), guideCmd(), schemaCmd(root), sealCmd(), updateCmd(), versionCmd(), sshGateCmd())
 	addNounAliases(root)
 }
 

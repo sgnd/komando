@@ -125,8 +125,6 @@ help
 host
 host.add
 host.edit
-host.export
-host.import
 host.list
 host.mv
 host.rm
@@ -181,7 +179,6 @@ policy.check
 policy.deny
 policy.list
 policy.rm
-prompt
 queue
 queue.add
 queue.create
@@ -210,7 +207,6 @@ registry.rm
 rename
 safety
 schema
-script
 seal
 secret
 secret.check

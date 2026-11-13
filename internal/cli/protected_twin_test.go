@@ -58,12 +58,12 @@ func TestProtectedTwinsWhateverTheOrder(t *testing.T) {
 		t.Errorf("db1 is prod: %v", d)
 	}
 
-	// host import marks a second name for a protected server protected, as host add does
+	// import ssh-config marks a second name for a protected server protected, as host add does
 	cfg := filepath.Join(t.TempDir(), "config")
 	if err := os.WriteFile(cfg, []byte("Host alias3\n  HostName 127.0.0.1\n  User root\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	mustRun(t, "host", "import", "--ssh-config", cfg)
+	mustRun(t, "import", "ssh-config", cfg)
 	st, err := store.Load()
 	if err != nil {
 		t.Fatal(err)

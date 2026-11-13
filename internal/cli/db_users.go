@@ -27,7 +27,7 @@ gets a SCRAM-SHA-256 verifier komando computes, so the password itself never
 reaches the server or its logs. Adding a user or changing a password is a
 change (a production database asks first); removing one needs --allow-dangerous.`,
 	}
-	c.AddCommand(dbUserLsCmd(), dbGrantsCmd(false), dbUserChangeCmd("add"), dbUserChangeCmd("passwd"), dbUserChangeCmd("rm"))
+	c.AddCommand(dbUserLsCmd(), dbUserShowCmd(), dbUserChangeCmd("add"), dbUserChangeCmd("passwd"), dbUserChangeCmd("rm"))
 	return c
 }
 
@@ -229,10 +229,8 @@ IAM). --dry-run shows the statement.`,
 	return c
 }
 
-// dbGrantsCmd is `db user show CONN USER`; with old, the hidden retired
-// `db grants CONN USER` (one letter from `db grant`). Both have the ID
-// db.grants.
-func dbGrantsCmd(old bool) *cobra.Command {
+// dbUserShowCmd is `db user show CONN USER`.
+func dbUserShowCmd() *cobra.Command {
 	var host string
 	c := &cobra.Command{
 		Use:     "show CONN USER",
@@ -255,10 +253,6 @@ func dbGrantsCmd(old bool) *cobra.Command {
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user connects from (the account host; default %)")
 	retiredFlag(c, "from", "from-host")
 	withID(c, "db.grants")
-	if old {
-		c.Use = "grants CONN USER"
-		return oldName(c, "db user show")
-	}
 	return c
 }
 

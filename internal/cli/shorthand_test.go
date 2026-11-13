@@ -112,9 +112,9 @@ func TestStandardShorthands(t *testing.T) {
 		"t": {"tag": editOrAdd},
 		"u": {"unit": func(p string) bool { return in(p, "logs", "svc logs", "docker logs") }}, // the logs family
 		"b": {"bits": func(p string) bool { return in(p, "key gen") }},
-		"D": {"dynamic": func(p string) bool { return in(p, "tunnel start", "forward start") }},
-		"L": {"local": func(p string) bool { return in(p, "tunnel start", "forward start") }},
-		"R": {"remote": func(p string) bool { return in(p, "tunnel start", "forward start") }},
+		"D": {"dynamic": func(p string) bool { return in(p, "tunnel start") }},
+		"L": {"local": func(p string) bool { return in(p, "tunnel start") }},
+		"R": {"remote": func(p string) bool { return in(p, "tunnel start") }},
 	}
 	never := []string{"allow-dangerous", "reveal", "write", "dry-run", "port", "user", "label"}
 	root := newRoot()

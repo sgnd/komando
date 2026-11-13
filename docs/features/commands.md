@@ -211,8 +211,7 @@ The interpreter comes from the script's `#!` line, or from `--interpreter`
 (otherwise `sh`). `--arg` values reach the script as `$1`, `sys.argv[1]`,
 `$ARGV[0]` and so on, for sh, bash, python, perl, ruby and node alike.
 The script is sent as the interpreter's input, so `--stdin-file` and
-`--pty` do not go with `--script`. `komando script TARGET FILE` is the old
-name: it still works in this release and says to use `exec --script`.
+`--pty` do not go with `--script`.
 Through `env` (`#!/usr/bin/env -S bash -e`), the program after env's own
 options is the interpreter, with its arguments. A script that holds a value
 komando hid (`[hidden]`) is refused (`HIDDEN_VALUE`), as is such a file

@@ -145,17 +145,17 @@ func TestScriptInputFlagsAndHiddenValues(t *testing.T) {
 	masked := filepath.Join(dir, "masked.conf")
 	_ = os.WriteFile(masked, []byte("requirepass [hidden]\n"), 0o600)
 
-	d := mustRun(t, "script", "web2", s, "--dry-run", "--arg", "a b")
+	d := mustRun(t, "exec", "web2", "--script", s, "--dry-run", "--arg", "a b")
 	if cmd := wouldRun(t, d)["remote_command"]; cmd != "bash -e -s -- 'a b'" {
 		t.Errorf("remote_command %v", cmd)
 	}
 	for _, flag := range []string{"--stdin-file=" + in, "--pty"} {
-		if _, e := invRun(t, "script", "web2", s, flag, "--dry-run"); e == nil {
-			t.Errorf("script %s was taken", flag)
+		if _, e := invRun(t, "exec", "web2", "--script", s, flag, "--dry-run"); e == nil {
+			t.Errorf("exec --script %s was taken", flag)
 		}
 	}
 	for _, args := range [][]string{
-		{"script", "web2", masked, "--dry-run"},
+		{"exec", "web2", "--script", masked, "--dry-run"},
 		{"exec", "web2", "--stdin-file", masked, "--dry-run", "--", "cat > /etc/redis.conf"},
 	} {
 		if _, e := invRun(t, args...); e == nil || e.Code != "HIDDEN_VALUE" {

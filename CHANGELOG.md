@@ -60,8 +60,8 @@ and `-n` (`--max-remove`), `vpn add/edit --address` (`--proxy-address`),
 `rename --prefix`, `--notes`, `--labels` (`--starts-with`,
 `--in-notes`, `--in-labels`), `recipe add --sudo` (`--needs-sudo`),
 `queue peek --wait` (`--idle`), `cluster rollback --to` (`--revision`),
-`policy check --for` (`--conn-kind`), `pkg security --apply` (`pkg
-upgrade --security`) and the top-level `forward` (`tunnel`).
+`policy check --for` (`--conn-kind`) and `pkg security --apply` (`pkg
+upgrade --security`).
 
 Exit and error codes that changed:
 
@@ -76,7 +76,8 @@ Exit and error codes that changed:
 | `storage link`, `cluster forward` through a read-only ssh-gate key | ran | `SSH_GATE_READ_ONLY`, exit 6 |
 | `host trust --reset` (or a changed key) from an agent or a script | `SAFETY_SETTING`, exit 6, lifted by `--yes` | `NEEDS_PERSON`, exit 6; no flag lifts it |
 | a person answers no to a filled-in command (a person only: no agent or script is asked, so the agent recording has no row for it) | exit 1 | `DECLINED`, exit 6 |
-| `forward ...`, `storage rm -n 10` | ran | still run now, with `meta.deprecated`; in a later release `forward` is an unknown command and `-n` a `USAGE` error |
+| `forward ...`, `script`, `prompt`, `host import`, `host export`, `db grants` | ran | unknown command, `USAGE`, exit 2 (use `tunnel`, `exec --script`, `status --short`, `import`, `export`, `db user show`) |
+| `storage rm -n 10` | ran | still runs now, with `meta.deprecated`; in a later release `-n` is a `USAGE` error |
 
 Text output (`-o text`) is not part of the contract, but agents read it:
 the `next:` lines moved to stderr (`data.next` is unchanged), tables say
@@ -127,8 +128,7 @@ instead.
   `rename --prefix OLD NEW` is unchanged.
 - `komando schema OLD` describes the command an old or second name runs:
   an alias (`schema fs ls`), a command ID as the envelope writes it
-  (`schema secret.get`, `schema host.mv`), an old name (`schema script`)
-  or a hidden synonym (`schema group show`). Before, hidden names gave
+  (`schema secret.get`, `schema host.mv`) or a hidden synonym (`schema group show`). Before, hidden names gave
   `COMMAND_NOT_FOUND`.
 - More names find the command you mean, each for good and silently:
   plurals and help words for every noun (`servers`, `server`,
@@ -420,13 +420,10 @@ instead.
   copy `fs restore` puts back is `--copy PATH`. The old `--from` there
   still works in this release and is noted in `meta.deprecated`.
 - The top-level `komando forward` (another name for `tunnel`, easy to
-  mix up with `cluster forward`) is retired: `forward start/list/stop`
-  still work in this release and are noted in `meta.deprecated`; use
-  `komando tunnel` (or `pf`). It is hidden from help.
+  mix up with `cluster forward`) is gone: use `komando tunnel` (or `pf`).
 - `db user show CONN USER` shows what a database user may do (was
-  `db grants`, one letter from `db grant`). `db grants` still works in
-  this release, is noted in `meta.deprecated`, and is hidden from help;
-  the envelope's `command` stays `db.grants`.
+  `db grants`, one letter from `db grant`, which is gone); the envelope's
+  `command` stays `db.grants`.
 - **`list` is the one listing verb**: `cluster list`, `cluster helm list`,
   `db user list`, `fs list`, `queue list`, `registry list` and
   `storage list` are the names in help, hints and docs. `ls` keeps
@@ -672,6 +669,11 @@ instead.
 
 ### Removed
 
+- The old command names `forward` (now `tunnel`), `script` (`exec
+  --script`), `prompt` (`status --short`), `host import` (`import
+  ssh-config` or `import komando`), `host export` (`export`) and `db
+  grants` (`db user show`). komando is used internally only, so a renamed
+  command no longer keeps its old name; each is now an unknown command.
 - The menu that `komando` alone opened at a terminal, its task lists and
   the full-screen forms and review screen (owner decision 2026-11-12:
   person mode is commands). Everything it did is a command: `komando`

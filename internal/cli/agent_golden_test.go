@@ -179,8 +179,6 @@ var goldenExtra = [][]string{
 	{"cluster", "logs", "x1", "x2", "-n", "50"},
 	// C-F03: storage rm -n is --max-remove for one release (noted), then USAGE
 	{"storage", "rm", "x1", "--prefix", "a/", "-n", "10", "--dry-run"},
-	// C-V17: the top-level forward is a retired name for one release (noted)
-	{"forward", "list"},
 }
 
 // goldenGateKeys are the command lines a read-only ssh-gate key sends

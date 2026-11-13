@@ -30,7 +30,7 @@ var personalCmds = map[string]bool{
 	"cron list":   true,
 	"db activity": true, "db explain": true, "db locks": true, "db query": true,
 	"docker exec": true, "docker inspect": true, "docker logs": true, "docker raw": true,
-	"download": true, "exec": true, "script": true, "recipe run": true,
+	"download": true, "exec": true, "recipe run": true,
 	"fs cat": true, "fs ls": true,
 	"job logs": true, "job status": true, "job wait": true,
 	"logs": true, "svc logs": true, "svc status": true,

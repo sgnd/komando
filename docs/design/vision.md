@@ -173,7 +173,7 @@ komando export [--to FILE]          # the whole inventory, without secrets
 
 The rules: imported secrets **always go into the vault**, `--dry-run` shows
 what will be created, and existing entries are not overwritten except with
-`--overwrite`. `host import` is now an old name of it.
+`--overwrite`.
 
 ## Technical rules
 

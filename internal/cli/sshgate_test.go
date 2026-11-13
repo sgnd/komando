@@ -196,7 +196,6 @@ func TestGateCheck(t *testing.T) {
 		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
 		{"exec web --script ./check.sh", "", "SSH_GATE_READ_ONLY"},
 		{"exec web --script ./check.sh --read-only", "", ""},
-		{"script web ./check.sh", R, R}, // an old name: the key uses `exec --script`
 		{"job start web --read-only -- du -sh /var", "", ""},
 		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
@@ -207,7 +206,6 @@ func TestGateCheck(t *testing.T) {
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
-		{"host export", R, R}, // an old name: the key uses `export`
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
 		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
@@ -223,7 +221,7 @@ func TestGateCheck(t *testing.T) {
 		{"conn rm pg", R, R},
 		{"host edit web --port 2222", R, R},
 		{"host mv web web2", R, R},
-		{"host import --json x.json", R, R},
+		{"import komando x.json", R, R},
 		{"host trust web", R, R},
 		{"import", R, R},
 		{"vpn add office openvpn --config x.ovpn", R, R},
@@ -234,7 +232,6 @@ func TestGateCheck(t *testing.T) {
 		{"config set audit off", R, R},
 		{"policy deny 'x'", R, R},
 		{"policy rm x", R, R},
-		{"prompt", R, R},
 		{"status --short", "", ""},
 		{"secret rm db", R, R},
 		{"secret keychain", R, R},

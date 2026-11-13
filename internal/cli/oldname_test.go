@@ -35,20 +35,15 @@ func TestOldNames(t *testing.T) {
 		}
 	}
 	walk(root)
-	for _, k := range []string{"host import", "host export", "prompt"} {
-		if !found[k] {
-			t.Errorf("%s is not an old name", k)
-		}
-	}
 }
 
-func TestHostExportIsExport(t *testing.T) {
+func TestExportKindHost(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "-g", "prod")
 	mustRun(t, "host", "add", "db1", "u@10.0.0.2")
-	d := mustRun(t, "host", "export", "@prod")
+	d := mustRun(t, "export", "@prod")
 	if d["format"] != exportFormat || len(d["hosts"].([]any)) != 1 {
-		t.Errorf("host export @prod: %v", d)
+		t.Errorf("export @prod: %v", d)
 	}
 	d = mustRun(t, "export", "kind:host")
 	if len(d["hosts"].([]any)) != 2 {

@@ -105,7 +105,6 @@ func TestImportedHostsCannotUseLocalSecrets(t *testing.T) {
 		args []string
 	}{
 		{"import komando", `{"format":"komando-export/1","hosts":` + hosts + `}`, []string{"import", "komando"}},
-		{"host import --json", `{"hosts":` + hosts + `}`, []string{"host", "import", "--json"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)

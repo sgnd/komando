@@ -6218,26 +6218,6 @@ exit 3
 --- stdout
 --- stderr
 Error: No file storage named "x1".
-### komando -o json forward list (agent json)
-exit 0
---- stdout
-{"ok":true,"command":"tunnel.list","data":{"count":0,"tunnels":[]},"meta":{"contract":1,"version":"V","duration_ms":0,"deprecated":{"used":"komando forward list","now":"komando tunnel list"}}}
---- stderr
-### komando -o text forward list (agent text)
-exit 0
---- stdout
-no tunnels yet: `komando tunnel start TARGET -L SPEC`
---- stderr
-### komando -o json forward list (script json)
-exit 0
---- stdout
-{"ok":true,"command":"tunnel.list","data":{"count":0,"tunnels":[]},"meta":{"contract":1,"version":"V","duration_ms":0,"deprecated":{"used":"komando forward list","now":"komando tunnel list"}}}
---- stderr
-### komando -o text forward list (script text)
-exit 0
---- stdout
-no tunnels yet: `komando tunnel start TARGET -L SPEC`
---- stderr
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout

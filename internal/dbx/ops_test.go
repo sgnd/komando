@@ -55,7 +55,7 @@ func TestSQLiteInfoSizesAndForeignKeys(t *testing.T) {
 
 // SQLite has no sessions and no users; each stop says the one that applies.
 func TestNotSupportedHint(t *testing.T) {
-	for what, word := range map[string]string{"db user": "no users", "db grants": "no users", "db kill": "no sessions", "db activity": "no sessions"} {
+	for what, word := range map[string]string{"db user": "no users", "db user show": "no users", "db kill": "no sessions", "db activity": "no sessions"} {
 		var e *out.Error
 		if err := NotSupported("sqlite", what); !errors.As(err, &e) || !strings.Contains(e.Hint, word) || !strings.HasPrefix(e.Message, what+" ") {
 			t.Errorf("%s: %v", what, err)

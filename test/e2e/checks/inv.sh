@@ -60,7 +60,6 @@ printf '%s\n' '{"hosts":[{"name":"t-e2einv5","address":"10.9.9.5","proxy_command
 check "import komando drops a proxy command" True "$(A import komando "$TMP/inv-hosts.json" --dry-run | jget '"proxy_command" in str(d["data"]["not_imported"])')"
 $K export target >"$TMP/inv-target.json"
 check "overwrite of a protected host is skipped" target "$($K import komando "$TMP/inv-target.json" --overwrite | jget 'd["data"]["skipped"][0]["name"]')"
-check "old name host import still works" target "$($K host import --json "$TMP/inv-target.json" --dry-run 2>/dev/null | jget 'd["data"]["skipped"][0]["name"]')"
 
 # groups
 q $K group add t-e2einvg direct

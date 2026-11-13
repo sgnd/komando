@@ -88,7 +88,7 @@ func TestPromptNeverBreaks(t *testing.T) {
 // checks (which close idle VPN sessions and need the audit log) are
 // skipped, and runtime.pids stays byte for byte the same.
 func TestPromptCommandChangesNothing(t *testing.T) {
-	for _, args := range [][]string{{"status", "--short"}, {"prompt"}} {
+	for _, args := range [][]string{{"status", "--short"}} {
 		st := &store.State{
 			Settings: store.DefaultSettings(),
 			Sessions: map[string]*store.VpnSession{"stale": {Vpn: "stale", PID: 1 << 30}},

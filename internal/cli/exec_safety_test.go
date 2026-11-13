@@ -213,20 +213,20 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"read-only SQL as input", []string{"exec", "prod", "--read-only", "--stdin-file", report, "--", "psql app"}, "", "select count(*) from t where n > 5;\n"},
 		{"read-only SQL input with a shell escape", []string{"exec", "prod", "--read-only", "--stdin-file", escape, "--", "psql app"}, "READ_ONLY_VIOLATION", ""},
 		{"script arguments after --", []string{"exec", "prod", "--read-only", "--stdin-file", positional, "--", "bash -s -- -delete"}, "READ_ONLY_VIOLATION", ""},
-		{"script --arg", []string{"script", "prod", positional, "--read-only", "--arg", "-delete"}, "READ_ONLY_VIOLATION", ""},
-		{"script with #!/bin/bash", []string{"script", "prod", shebang, "--read-only"}, "", bashScript},
-		{"script with #!/usr/bin/env bash", []string{"script", "prod", envBang, "--read-only"}, "", envScript},
+		{"script --arg", []string{"exec", "prod", "--script", positional, "--read-only", "--arg", "-delete"}, "READ_ONLY_VIOLATION", ""},
+		{"script with #!/bin/bash", []string{"exec", "prod", "--script", shebang, "--read-only"}, "", bashScript},
+		{"script with #!/usr/bin/env bash", []string{"exec", "prod", "--script", envBang, "--read-only"}, "", envScript},
 		{"bash -s with #!/bin/bash", []string{"exec", "prod", "--read-only", "--stdin-file", shebang, "--", "bash -s"}, "", bashScript},
 		{"bash -s with #!/usr/bin/env bash", []string{"exec", "prod", "--read-only", "--stdin-file", envBang, "--", "bash -s"}, "", envScript},
 		{"env value that runs code", []string{"exec", "prod", "--read-only", "-e", "PS4=$(rm -rf /data)", "--", "bash -xc :"}, "READ_ONLY_VIOLATION", ""},
 		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "DIR=/var/log", "--", "find $DIR -name '*.gz'"}, "", ""},
 		{"read-only, input piped into a shell", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "cat | sh"}, "READ_ONLY_VIOLATION", ""},
 		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_HOST", ""},
-		{"interpreter tee", []string{"script", "prod", "--read-only", "--interpreter", "tee /etc/passwd", benign}, "READ_ONLY_VIOLATION", ""},
-		{"interpreter with -c", []string{"script", "prod", "--read-only", "--interpreter", `sh -c "systemctl stop nginx" #`, benign}, "READ_ONLY_VIOLATION", ""},
-		{"interpreter python", []string{"script", "prod", "--read-only", "--interpreter", "python3", benign}, "READ_ONLY_VIOLATION", ""},
-		{"read-only shell script", []string{"script", "prod", "--read-only", "--interpreter", "bash -eu", benign}, "", "uptime\ndf -h /\n"},
-		{"read-only script that writes", []string{"script", "prod", "--read-only", writes}, "READ_ONLY_VIOLATION", ""},
+		{"interpreter tee", []string{"exec", "prod", "--read-only", "--interpreter", "tee /etc/passwd", "--script", benign}, "READ_ONLY_VIOLATION", ""},
+		{"interpreter with -c", []string{"exec", "prod", "--read-only", "--interpreter", `sh -c "systemctl stop nginx" #`, "--script", benign}, "READ_ONLY_VIOLATION", ""},
+		{"interpreter python", []string{"exec", "prod", "--read-only", "--interpreter", "python3", "--script", benign}, "READ_ONLY_VIOLATION", ""},
+		{"read-only shell script", []string{"exec", "prod", "--read-only", "--interpreter", "bash -eu", "--script", benign}, "", "uptime\ndf -h /\n"},
+		{"read-only script that writes", []string{"exec", "prod", "--read-only", "--script", writes}, "READ_ONLY_VIOLATION", ""},
 		{"env value turns find into a delete", []string{"exec", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
 		{"job: env value", []string{"job", "start", "prod", "--read-only", "-e", "X=-delete", "--", "find /srv $X"}, "READ_ONLY_VIOLATION", ""},
 		// --read-only is an allowlist on a protected target: a command
@@ -730,7 +730,7 @@ func TestDryRunReportsInputStops(t *testing.T) {
 		code string
 	}{
 		{[]string{"--dry-run", "exec", "dev", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED"},
-		{[]string{"--dry-run", "script", "dev", evil}, "POLICY_BLOCKED"},
+		{[]string{"--dry-run", "exec", "dev", "--script", evil}, "POLICY_BLOCKED"},
 		{[]string{"--dry-run", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION"},
 	}
 	for _, c := range cases {

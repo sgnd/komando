@@ -489,10 +489,10 @@ Current overlaps, and the decision:
 | `svc logs`, `docker logs`, `logs --unit/--container` | ✅ only `logs`; `svc logs` and `docker logs` are aliases that call it |
 | `ops run` (built-in recipes) and `snippet run` (your own recipes) | ✅ one `recipe` (a word that is easier to understand); the old names `ops` and `snippet` are gone |
 | `cp` (server) and `storage upload/download` | ✅ `upload`/`download` for servers (SFTP) and storage; `cp` and `storage upload/download` call them |
-| `script` and `exec` | ✅ `exec --script FILE`; `script` is an old name for one release |
+| `script` and `exec` | ✅ `exec --script FILE`; `script` is gone |
 | `group add/rm` and `edit --add-group/--rm-group` | keep both (many vs one), same code |
-| `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are old names for one release |
-| `prompt` and `status` | ✅ `status --short`; `prompt` is an old name for one release |
+| `host import/export` and `import ssh-config\|komando`, `export` | ✅ only `import` and `export` (one file format, komando-export/1); `host import/export` are gone |
+| `prompt` and `status` | ✅ `status --short`; `prompt` is gone |
 
 ## 12. Every native CLI feature can be used
 

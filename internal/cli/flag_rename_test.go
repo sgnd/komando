@@ -16,7 +16,6 @@ var flagRenames = []struct {
 	{[]string{"db", "grant"}, "from-host", "from", false},
 	{[]string{"db", "revoke"}, "from-host", "from", false},
 	{[]string{"db", "user", "show"}, "from-host", "from", false},
-	{[]string{"db", "grants"}, "from-host", "from", false},
 	{[]string{"db", "user", "add"}, "from-host", "from", false},
 	{[]string{"db", "user", "passwd"}, "from-host", "from", false},
 	{[]string{"db", "user", "rm"}, "from-host", "from", false},

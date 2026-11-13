@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // findCmd finds the command komando runs for args, through aliases.
@@ -162,7 +164,6 @@ func TestSchemaResolvesOldNames(t *testing.T) {
 		{[]string{"host.mv"}, "komando host rename"},
 		{[]string{"group", "show"}, "komando group list"},
 		{[]string{"cluster", "info"}, "komando cluster status"},
-		{[]string{"script"}, "komando exec"},
 		{[]string{"servers"}, "komando host"},
 	} {
 		d := mustRun(t, append([]string{"schema"}, c.args...)...)
@@ -175,22 +176,18 @@ func TestSchemaResolvesOldNames(t *testing.T) {
 	wantCode(t, "COMMAND_NOT_FOUND", "schema", "tunnel", "serve") // komando's own background command
 }
 
-// `db grants` (one letter from `db grant`) is `db user show` now: the old
-// name is hidden, still works, is noted in meta.deprecated, and both keep
-// the ID db.grants (C-V15).
+// `db user show` has the ID db.grants; `db grants` is no command (C-V15).
 func TestDbUserShowReplacesGrants(t *testing.T) {
 	invHome(t)
-	root := newRoot()
-	show, old := findCmd(t, root, "db", "user", "show"), findCmd(t, root, "db", "grants")
-	if cmdID(show) != "db.grants" || cmdID(old) != "db.grants" || show.Hidden || !old.Hidden {
-		t.Fatalf("ids %s %s, hidden %v %v", cmdID(show), cmdID(old), show.Hidden, old.Hidden)
+	show := findCmd(t, newRoot(), "db", "user", "show")
+	if cmdID(show) != "db.grants" || show.Hidden {
+		t.Fatalf("id %s, hidden %v", cmdID(show), show.Hidden)
 	}
-	code, text := runMain(t, "db", "grants", "nope", "app_ro")
-	if code == 0 || !strings.Contains(text, `"command":"db.grants"`) || !strings.Contains(text, `"deprecated":{"used":"komando db grants","now":"komando db user show"}`) {
-		t.Errorf("db grants: exit %d %s", code, text)
+	if code, _ := runMain(t, "db", "grants", "nope", "app_ro"); code != out.ExitUsage {
+		t.Errorf("db grants: exit %d", code)
 	}
-	code, text = runMain(t, "db", "user", "show", "nope", "app_ro")
-	if code == 0 || strings.Contains(text, "deprecated") {
+	code, text := runMain(t, "db", "user", "show", "nope", "app_ro")
+	if code == 0 || !strings.Contains(text, `"command":"db.grants"`) {
 		t.Errorf("db user show: exit %d %s", code, text)
 	}
 	d := mustRun(t, "schema", "db.grants")
@@ -200,23 +197,13 @@ func TestDbUserShowReplacesGrants(t *testing.T) {
 }
 
 // The top-level `forward` (another name for tunnel, which read like
-// `cluster forward`) is retired: it still works for one release and is
-// noted in meta.deprecated; `pf` stays a silent synonym (C-V17).
-func TestForwardRetired(t *testing.T) {
+// `cluster forward`) is gone; `pf` stays a synonym (C-V17).
+func TestForwardGone(t *testing.T) {
 	invHome(t)
-	code, text := runMain(t, "forward", "list")
-	if code != 0 || !strings.Contains(text, `"command":"tunnel.list"`) ||
-		!strings.Contains(text, `"deprecated":{"used":"komando forward list","now":"komando tunnel list"}`) {
-		t.Errorf("forward list: exit %d %s", code, text)
+	if code, _ := runMain(t, "forward", "list"); code != out.ExitUsage {
+		t.Errorf("forward list: exit %d", code)
 	}
-	if code, text := runMain(t, "pf", "list"); code != 0 || strings.Contains(text, "deprecated") {
+	if code, text := runMain(t, "pf", "list"); code != 0 || !strings.Contains(text, `"command":"tunnel.list"`) {
 		t.Errorf("pf list: exit %d %s", code, text)
-	}
-	if findCmd(t, newRoot(), "forward").IsAvailableCommand() {
-		t.Error("forward must be hidden")
-	}
-	d := mustRun(t, "schema", "forward", "start")
-	if p := d["commands"].([]any)[0].(map[string]any)["path"]; p != "komando tunnel start" {
-		t.Errorf("schema forward start: %v", p)
 	}
 }
