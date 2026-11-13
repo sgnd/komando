@@ -197,6 +197,12 @@ instead.
 
 ### Changed
 
+- The docs are rewritten for beginners: every feature page starts with the
+  most common task as a command, shows what komando asks when something
+  is left out, and ends with its limits and troubleshooting. The README is
+  short, installing (also on Windows) has its own page, and the rules
+  komando follows are in `docs/design/principles.md` and the command
+  standard. Design notes and reviews left the repository.
 - Commands named in hints, help and Next: lines use the words of the
   command they name: `komando test TARGET` (was `test CONN` and `test
   NAME`; komando fills in the name you gave, a VPN's too), `komando
