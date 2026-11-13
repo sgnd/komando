@@ -118,8 +118,12 @@ func unsafeFolder(p, stderr string) error {
 	case "acl":
 		by, as = "a user or group its access list (ACL) names", "the user who should own the file"
 	}
+	user := "USER"
+	if who == "user" && owner != "" {
+		user = owner
+	}
 	return out.Errf(out.ExitConflict, "SHARED_FOLDER_CONFLICT",
-		"write it as "+as+" instead, for example `komando exec TARGET --sudo-user USER --stdin-file FILE -- sh -c 'cat > PATH'`",
+		"write it as "+as+" instead, for example `komando exec TARGET --sudo-user "+user+" --stdin-file FILE -- sh -c 'cat > \"$0\"' "+sshx.Q(p)+"`",
 		"%s can be changed by %s, not only by root and the SSH user: as root, komando does not write %s there (that user could swap it for a link while root writes)", dir, by, p)
 }
 

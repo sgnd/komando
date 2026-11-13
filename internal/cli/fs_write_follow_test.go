@@ -171,7 +171,8 @@ func TestSudoWriteRefusesSharedFolder(t *testing.T) {
 		}
 	}
 	e := toErr(unsafeFolder(file, sudoFolderMark+"user www-data www-data "+app+"\n"))
-	if e.Code != "SHARED_FOLDER_CONFLICT" || !strings.Contains(e.Message, app) || !strings.Contains(e.Hint, "--sudo-user") {
+	if e.Code != "SHARED_FOLDER_CONFLICT" || !strings.Contains(e.Message, app) || !strings.Contains(e.Hint, "--sudo-user www-data ") ||
+		!strings.Contains(e.Hint, file) || strings.Contains(e.Hint, "PATH") {
 		t.Fatalf("error: %+v", e)
 	}
 	if e := toErr(unsafeFolder(file, sudoFolderMark+"acl root root "+app+"\n")); !strings.Contains(e.Message, "access list (ACL)") {
