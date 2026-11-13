@@ -630,6 +630,7 @@
   "status": {
     "command": "string",
     "data": {
+      "aws_logins": [],
       "jobs": [],
       "logins": [],
       "tunnels": [],

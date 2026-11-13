@@ -286,7 +286,7 @@ with it goes every tag on that image: 1.9, latest
 latest is one of them: docker pull without a tag stops working
 ```
 
-komando checks the first 200 tags of the repository; with more,
+komando checks every tag of the repository (up to 10000); with more,
 `tags_note` says others may point at the image too.
 
 Deleting cannot be undone. At your terminal komando asks you first: it
@@ -334,11 +334,11 @@ any image.
 
 - Docker Hub and GHCR have no list of every repository: name one.
 - `list` shows at most 1000 entries unless you raise `--limit`.
-- `rm` and its dry run check the first 200 tags of a repository for other
-  tags on the same image.
-- `prune` reads each tag's digest, then each image once, and stops with
-  `TOO_MANY_TAGS` above 1000 tags (`--match` does not lift it, since every
-  tag is read): delete some first with `registry rm`.
+- `rm` and its dry run check every tag of a repository, up to 10000, for
+  other tags on the same image.
+- `prune` reads each tag's digest (8 at a time), then each image once, and
+  stops with `TOO_MANY_TAGS` above 10000 tags (`--match` does not lift it,
+  since every tag is read): delete some first with `registry rm`.
 - A registry with deletes turned off (a `registry:2` without
   `REGISTRY_STORAGE_DELETE_ENABLED=true`) answers `rm` and `prune` with
   `REGISTRY_UNSUPPORTED`.

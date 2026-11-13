@@ -228,6 +228,8 @@ Typed alone, `komando job start` asks for the server, then the command.
 ```bash
 komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
 komando job start @web --script ./migrate.sh --arg v2   # a script from this computer
+komando job start db1 --sudo-user postgres --stdin-file ./fix.sql -- 'psql app'   # as another user, with input
+komando job start web1 --timeout 2h -- ./reindex.sh   # stopped if it runs longer than 2 hours
 komando job status JOB               # running, exited or lost; exit code; last lines
 komando job logs JOB                 # output so far
 komando job wait JOB --timeout 30m   # wait until it ends
@@ -249,13 +251,24 @@ Good to know:
   job (`data.jobs`) and a summary; the exit code is the worst one.
 - `job start --script FILE` runs a script from this computer as the job,
   with `--arg` and `--interpreter` as in `exec --script`. Its copy waits in
-  the job's private folder and is removed the moment the job opens it.
+  the job's private folder and is removed the moment it is sent to the
+  interpreter.
+- `job start --stdin-file FILE` gives the command FILE as its input (`-`
+  for komando's own stdin), and `--sudo-user USER` runs it as USER with
+  `sudo -u`, as in `exec`. The job's `--env` values and its input go to the
+  command through a pipe, so a command run as another user gets them too.
+- `job start --timeout 2h` stops the job after 2 hours, as `job kill`
+  does; `job status` then says `killed` with `timed_out: true`, and
+  `job wait` names the timeout. Without `--timeout` a job has no time
+  limit. (`job start` has no `--pty`: a job runs without a terminal.)
 - When `exec` times out or loses its connection, its hint is the
   `komando job start ...` line that runs the same thing as a job.
 - `job start --sudo` uses the server's `--sudo-ref` password when it has
-  one. The password is sent as input (never on a command line), waits in a
-  private file only the job's user can read, and the job deletes it the
-  moment it starts. The command itself gets no input, so it cannot read it.
+  one. The password is sent as input (never on a command line) and waits
+  in a private file only the job's user can read. The job first asks sudo
+  whether it needs a password: when it does not, the file is deleted
+  unread; when it does, sudo reads it before the command starts. Either
+  way the command can never read it.
 - `job kill` on a job that already ended does nothing. A job started with
   `--sudo` needs `job kill --sudo`.
 - `job rm` refuses a running job: kill it first, or add `--kill`.
@@ -408,6 +421,7 @@ komando status
 KIND    NAME                   DETAIL                                             SINCE
 vpn     office                 used 3m ago, closes in 26m if unused               42m
 login   web1                   kept for 7h more (`komando logout web1` ends it)   1h
+aws     dev,ops                SSO login, kept for 3h more (`komando logout aws --profile dev` ends it)   1h
 tunnel  t1108-195255-ab12cd34  127.0.0.1:5433 → prod-db                            2h
 job     j1108-193010-9f8e7d6c  web1: tar czf /backup/www.tgz /var/www             15m
 jobs run on their servers: `komando job list --refresh` shows which still run

@@ -140,17 +140,22 @@ func guardBody(body string) error {
 }
 
 // jobStartLine is the job start command that runs what exec ran on host,
-// with the same --sudo, --dir and --env, and --script for a script. job
-// start takes no other input, pty or --sudo-user, so a run with one of
-// those gets "", and so does any command but exec: module commands build
-// their own scripts.
+// with the same --sudo, --sudo-user, --dir, --env and --stdin-file, and
+// --script for a script. Input from komando's own stdin cannot be sent
+// again, and job start has no pty, so a run with one of those gets "",
+// and so does any command but exec: module commands build their own
+// scripts.
 func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
-	if name != "exec" || stdin != nil && o.jobScript == "" || o.pty || o.sudoUser != "" || o.display != "" {
+	piped := stdin != nil && o.jobScript == "" && (o.stdinFile == "" || o.stdinFile == "-")
+	if name != "exec" || piped || o.pty || o.display != "" {
 		return ""
 	}
 	parts := []string{"komando", "job", "start", host}
 	if o.sudo {
 		parts = append(parts, "--sudo")
+	}
+	if o.sudoUser != "" {
+		parts = append(parts, "--sudo-user", o.sudoUser)
 	}
 	if o.dir != "" {
 		parts = append(parts, "--dir", o.dir)
@@ -160,6 +165,9 @@ func jobStartLine(name, host, command string, stdin []byte, o execOpts) string {
 	}
 	if o.jobScript != "" {
 		return shellLine(parts) + " " + o.jobScript
+	}
+	if o.stdinFile != "" {
+		parts = append(parts, "--stdin-file", o.stdinFile)
 	}
 	return shellLine(parts) + " -- " + sshx.Q(command)
 }

@@ -159,6 +159,7 @@ login.aws
 login.azure
 login.gcp
 logout
+logout.aws
 logs
 net
 net.check

@@ -1,17 +1,18 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
 	"sort"
 	"strings"
 
+	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // fsRestoreCmd puts back the newest backup that fs write or fs replace
@@ -21,14 +22,16 @@ func fsRestoreCmd() *cobra.Command {
 	var sudo bool
 	var from string
 	c := &cobra.Command{
-		Use:   "restore SERVER PATH",
+		Use:   "restore TARGET PATH",
 		Short: "Undo a file edit by putting back its backup copy",
 		Long: `Puts back the newest backup of PATH that fs write or fs replace --backup
 made (PATH.bak, or PATH.bak.<UTC time> when there are several). The file as
 it is now is kept as a new backup first, so you can undo the restore too.
-Add --dry-run to see the change without making it.`,
+On a group (@web) each server puts back its own newest backup. Add --dry-run
+to see the change without making it.`,
 		Example: `  komando fs restore web1 /etc/nginx/nginx.conf --sudo --dry-run
   komando fs restore web1 /etc/nginx/nginx.conf --sudo
+  komando fs restore @web /etc/nginx/nginx.conf --sudo --dry-run
   komando fs restore web1 /etc/nginx/nginx.conf --copy /etc/nginx/nginx.conf.bak --sudo`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -36,85 +39,100 @@ Add --dry-run to see the change without making it.`,
 			if err != nil {
 				return err
 			}
-			h, err := oneServer(st, args[0], "fs restore puts back one server's file; run it per server")
+			hosts, err := resolveTargets(st, args[0])
 			if err != nil {
 				return err
 			}
-			if h.Windows() {
-				return out.Usage("fs restore does not work on Windows servers yet; copy the backup back with `komando exec %s -- Copy-Item ...`", h.Name)
+			if w := windowsNames(hosts); len(w) > 0 {
+				return out.Usage("fs restore does not work on Windows servers yet (%s); copy the backup back with `komando exec %s -- Copy-Item ...`", strings.Join(w, ", "), w[0])
 			}
-			if err := guard(st, []*store.Host{h}, "", true); err != nil {
+			if err := guard(st, hosts, "", true); err != nil {
 				return err
 			}
-			var res fsChange
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-				sc, err := sftpClient(c)
-				if err != nil {
-					return err
-				}
-				defer sc.Close()
-				p := expandRemote(sc, args[1])
-				b := from
-				if b == "" {
-					ents, err := sc.ReadDir(path.Dir(p))
-					if err != nil {
-						return fsErr(path.Dir(p), err)
-					}
-					names := make([]string, 0, len(ents))
-					for _, e := range ents {
-						names = append(names, e.Name())
-					}
-					n := newestBackup(path.Base(p), names)
-					if n == "" {
-						return out.Errf(out.ExitNotFound, "BACKUP_NOT_FOUND", "komando keeps a backup only when you edit with --backup; give another copy with --copy PATH",
-							"no backup of %s found (looked for %s.bak)", p, path.Base(p))
-					}
-					b = path.Join(path.Dir(p), n)
-				}
-				old, trunc, err := readRemote(cmd.Context(), c, sc, b, sudo, 64<<20)
-				if err != nil {
-					return err
-				}
-				if trunc {
-					return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it back with `komando exec TARGET -- cp BACKUP PATH`", "%s is larger than 64MiB, the most fs restore reads", b)
-				}
-				cur, _, cerr := readRemote(cmd.Context(), c, sc, p, sudo, 64<<20)
-				if cerr != nil && toErr(cerr).Code != "PATH_NOT_FOUND" {
-					return cerr
-				}
-				a, z := string(cur), string(old)
-				if out.P.Mask {
-					a, z = out.P.View(a).Text, out.P.View(z).Text
-				}
-				res = fsChange{"path": p, "from": b, "diff": unifiedDiff(a, z, 3)}
-				if g.dryRun {
-					res["would_change"] = string(cur) != string(old)
-					return nil
-				}
-				w, err := writeRemote(cmd.Context(), c, sc, p, old, writeOpts{sudo: sudo, backup: cerr == nil})
-				if err != nil {
-					return err
-				}
-				for k, v := range w {
-					res[k] = v
-				}
-				delete(res, "sha256") // the backup may hold a value komando hides
-				res["changed"] = true
-				return nil
-			})
-			audit(st, "fs.restore", []string{h.Name}, "", err == nil, map[string]any{"path": args[1]})
-			if err != nil {
-				return err
-			}
-			out.P.Print("fs.restore", res, nil)
+			r := restoreEdit{path: args[1], from: from, sudo: sudo}
+			data, err := runFsFleet(cmd.Context(), st, "fs.restore", args[1], hosts, r.on)
 			if !g.dryRun {
-				textNote("Put back %s on %s from %s.", res["path"], h.Name, res["from"])
+				for _, row := range data.Results {
+					if row["changed"] == true {
+						textNote("Put back %s on %s from %s.", row["path"], row["host"], row["from"])
+					}
+				}
 			}
-			return nil
+			return err
 		},
 	}
 	fsRestoreFlags(c, &sudo, &from)
 	return c
+}
+
+// restoreEdit is one fs restore: the same path on every server.
+type restoreEdit struct {
+	path, from string
+	sudo       bool
+}
+
+// on puts back the backup on one server.
+func (r restoreEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
+	sc, err := sftpClient(c)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+	p := expandRemote(sc, r.path)
+	b := r.from
+	if b == "" {
+		if b, err = findBackup(sc, p); err != nil {
+			return nil, err
+		}
+	}
+	old, trunc, err := readRemote(ctx, c, sc, b, r.sudo, 64<<20)
+	if err != nil {
+		return nil, err
+	}
+	if trunc {
+		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it back with `komando exec TARGET -- cp BACKUP PATH`", "%s is larger than 64MiB, the most fs restore reads", b)
+	}
+	cur, _, cerr := readRemote(ctx, c, sc, p, r.sudo, 64<<20)
+	if cerr != nil && toErr(cerr).Code != "PATH_NOT_FOUND" {
+		return nil, cerr
+	}
+	a, z := string(cur), string(old)
+	if out.P.Mask {
+		a, z = out.P.View(a).Text, out.P.View(z).Text
+	}
+	res := fsChange{"path": p, "from": b, "diff": unifiedDiff(a, z, 3)}
+	if g.dryRun {
+		res["would_change"] = string(cur) != string(old)
+		return res, nil
+	}
+	w, err := writeRemote(ctx, c, sc, p, old, writeOpts{sudo: r.sudo, backup: cerr == nil})
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range w {
+		res[k] = v
+	}
+	delete(res, "sha256") // the backup may hold a value komando hides
+	res["changed"] = true
+	return res, nil
+}
+
+// findBackup is the newest backup of p next to it.
+func findBackup(sc *sftp.Client, p string) (string, error) {
+	ents, err := sc.ReadDir(path.Dir(p))
+	if err != nil {
+		return "", fsErr(path.Dir(p), err)
+	}
+	names := make([]string, 0, len(ents))
+	for _, e := range ents {
+		names = append(names, e.Name())
+	}
+	n := newestBackup(path.Base(p), names)
+	if n == "" {
+		return "", out.Errf(out.ExitNotFound, "BACKUP_NOT_FOUND", "komando keeps a backup only when you edit with --backup; give another copy with --copy PATH",
+			"no backup of %s found (looked for %s.bak)", p, path.Base(p))
+	}
+	return path.Join(path.Dir(p), n), nil
 }
 
 // newestBackup picks the newest backup of base among names: the

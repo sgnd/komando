@@ -61,7 +61,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DELETE_FAILED` | 1 | cannot delete …: … | check the file's permissions |
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
 | `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
-| `DIG_MISSING` | 3 | … records need dig, which is not installed on this server | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it |
+| `DIG_MISSING` | 3 | … records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se… | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it |
 | `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
 | `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `DOCKER_MISSING` | 3 | docker not found | install Docker on the server, or pick another server |
@@ -255,7 +255,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TOOL_MISSING` | 3 | curl is not installed | install curl on the server |
 | `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --run-on HOST |
 | `TOO_MANY` | 8 | … objects match, more than --max-remove … | narrow --prefix or --older-than, or raise --max-remove above … after checking the list |
-| `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 1000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE` |
+| `TOO_MANY_TAGS` | 2 | … has more than … tags | komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE` |
 | `TOPIC_EXISTS` | 8 | topic … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `TOPIC_NOT_FOUND` | 3 | no topic named … | list topics with `komando queue list CONN` |
 | `TUNNEL_FAILED` | 4 | the server refused the port forwarding (AllowTcpForwarding, address) | check that the server allows forwarding (AllowTcpForwarding in sshd_config) and that the address is right |
@@ -268,7 +268,7 @@ This page is made from the code (`komando schema` lists the same under
 | `UNKNOWN_SETTING` | 2 | komando has no setting named … | see the settings with `komando config show`: … |
 | `UNKNOWN_VAR` | 2 | recipe … has no blank named … (…) | see the recipe with `komando recipe list` |
 | `UNSAFE_BACKUP` | 6 | line … is a client command, not SQL: … | the file contains a client command that could run programs or read files where the restore runs; remove that line if the file is not from a trusted dump |
-| `UNSAFE_PATH` | 5 | server sent the path …, which leads outside …; nothing outside the folder was written | check the server for odd file names |
+| `UNSAFE_PATH` | 5 | path … leads outside …; nothing outside the folder was written | rename the file so it has no .. in its path |
 | `UNSUPPORTED_PLATFORM` | 8 | there is no komando release for … | build komando from source: https://github.com/sgnd/komando#install |
 | `UPLOAD_NOT_RENAMED` | 5 | could not rename the upload into place: …; the old file was removed | the new content is on the server as …: rename it by hand |
 | `URL_HAS_PASSWORD` | 2 | a conn URL holds no password | remove the password from the URL, store it with `komando secret set NAME`, then pass --password-ref secret:NAME |

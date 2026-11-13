@@ -229,7 +229,8 @@ func dnsCommand(name, typ string) (string, error) {
 	case "AAAA":
 		c += "else getent ahostsv6 " + q + " | awk '{print $1}' | sort -u\n"
 	default:
-		c += "else echo '#komando:no-dig'\n"
+		// no dig: komando asks the server's resolver itself (dnsWithoutDig)
+		c += "else echo '#komando:no-dig'; grep -i '^nameserver' /etc/resolv.conf 2>/dev/null\n"
 	}
 	return c + "fi", nil
 }
@@ -237,7 +238,7 @@ func dnsCommand(name, typ string) (string, error) {
 func dnsResult(name, typ, s string) (any, *out.Error) {
 	if marker(s) == "no-dig" {
 		return nil, out.Errf(out.ExitNotFound, "DIG_MISSING", "install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it",
-			"%s records need dig, which is not installed on this server", strings.ToUpper(typ))
+			"%s records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the server does not forward TCP for it)", strings.ToUpper(typ))
 	}
 	var recs []string
 	for _, l := range strings.Split(s, "\n") {

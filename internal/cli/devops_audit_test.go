@@ -230,7 +230,7 @@ func TestLogsFlagsChecked(t *testing.T) {
 		{"logs", "web1", "--unit", "nginx", "--timestamps"},
 		{"logs", "web1", "--file", "rel/path"},
 		{"logs", "web1", "--unit", "nginx", "--since", "bogus"},
-		{"logs", "web1", "--container", "api", "--since", "today"},
+		{"logs", "web1", "--container", "api", "--since", "2 hours ago"},
 	} {
 		wantCode(t, "USAGE", append(args, "--dry-run")...)
 	}
@@ -284,7 +284,19 @@ func TestLogTimeForContainers(t *testing.T) {
 	if got, _ := logTime("--since", "1w", false); got != "-1w" {
 		t.Errorf("journal: got %q", got)
 	}
-	if _, err := logTime("--since", "today", true); err == nil {
-		t.Error("today for a container")
+	// today, yesterday and now are the server's own midnight or time
+	for _, v := range []string{"today", "yesterday", "now"} {
+		if got, err := logTime("--since", v, true); err != nil || got != v {
+			t.Errorf("%s for a container: %q %v", v, got, err)
+		}
+	}
+	src := (&logOpts{container: "api", lines: 50, since: "yesterday", until: "today"}).source()
+	for _, want := range []string{`--since "$(y=$(( $(date +%s) - 86400 ))`, `--until "$(date +%Y-%m-%dT00:00:00)"`} {
+		if !strings.Contains(src, want) {
+			t.Errorf("docker logs line lacks %q:\n%s", want, src)
+		}
+	}
+	if _, err := logTime("--since", "2 hours ago", true); err == nil {
+		t.Error("an \"ago\" time is the journal's only")
 	}
 }

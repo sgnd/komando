@@ -126,6 +126,9 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 	if err := store.MkdirPrivate("login"); err != nil {
 		return nil, err
 	}
+	if cur, err := store.Load(); err == nil {
+		sweepLogs("login", liveLogs(cur)) // logs of logins (some since removed) unused for a week
+	}
 	logFile := filepath.Join(dir, safeFileName(h.Name)+".log")
 	lf, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
@@ -426,12 +429,15 @@ func logoutCmd() *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "logout [SERVER...]",
+		Args:  cobra.ArbitraryArgs, // server names; `aws` is the subcommand
 		Short: "End server logins kept by `komando login` (--all for every one)",
 		Long: `Ends what ` + "`komando login SERVER`" + ` keeps: the connection closes, and later
 commands to that server log in again (a two-factor server asks a person).
-` + "`komando status`" + ` lists the logins that are kept.`,
+` + "`komando status`" + ` lists the logins that are kept. ` + "`komando logout aws`" + ` ends an
+AWS IAM Identity Center (SSO) login.`,
 		Example: `  komando logout web1
-  komando logout --all`,
+  komando logout --all
+  komando logout aws --profile prod`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -486,7 +492,8 @@ commands to that server log in again (a two-factor server asks a person).
 			return nil
 		},
 	}
-	c.Flags().BoolVar(&all, "all", false, "end every kept login")
+	c.Flags().BoolVar(&all, "all", false, "end every kept server login")
+	c.AddCommand(logoutAWSCmd())
 	return c
 }
 

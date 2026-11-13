@@ -382,13 +382,16 @@ More limits:
   Kubernetes conn, the conn's URL, not the server in its stored
   kubeconfig). A key cannot name a target itself: `u@HOST` or an IP that
   is not in your list is refused (`SSH_GATE_REFUSED`), because it could be
-  this computer's own address. But a listed server, conn or cluster that
-  is this same computer under another name or address (its LAN IP, a DNS
-  name, a tunnel or port forward that leads back here) cannot be told
-  apart, and any key, read-only too, would read files or get a shell here
-  through it (`exec THAT-HOST --read-only -- 'nc -e /bin/sh ...'`). Do
-  not list this computer in komando that way: `--read-only` does not make
-  it safe.
+  this computer's own address. A listed server at one of this computer's
+  own network addresses (its LAN IP), or one whose pinned host key is this
+  computer's own SSH host key (`/etc/ssh/ssh_host_*_key.pub`: a DNS name,
+  a public IP or a port forward that leads back here), is refused like
+  `localhost`. What komando still cannot tell apart: a conn or cluster
+  that leads back here under another name, and a server here that has no
+  pinned key yet or runs its own SSH server with other keys. Through such
+  a target any key, read-only too, would read files or get a shell here
+  (`exec THAT-HOST --read-only -- 'nc -e /bin/sh ...'`). Do not list this
+  computer in komando that way: `--read-only` does not make it safe.
 - Secrets are never accepted as command arguments, because they would land
   in your shell history (`SECRET_IN_ARGS`). `komando secret set NAME` asks
   for the value after the prompt appears; see [Secrets](secrets.md#save-one).

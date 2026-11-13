@@ -9,6 +9,7 @@ var (
 		"db schema",
 		"docker stats",
 		"login aws",
+		"logout aws", // login aws's other half: aws names the cloud, not a verb
 		"policy deny",
 		"storage cat",
 		"storage link",

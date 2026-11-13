@@ -43,6 +43,9 @@ type lockedKey struct {
 	path    string
 	keyName string        // the keychain key (--key); "" for --identity
 	pub     ssh.PublicKey // nil when unknown: not in the file, no .pub
+	// sk: a security key (FIDO2: sk-ssh-ed25519, sk-ecdsa), which only
+	// ssh-agent can sign with (the key asks for a touch); no passphrase helps
+	sk bool
 }
 
 // loginKeys is what the key files and ssh-agent gave for one login.
@@ -65,7 +68,7 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	explicit := func(path, passRef string, k *store.Key) error {
 		s, err := lk.keyFile(path, passRef, k, true)
 		if s != nil {
-			signers = append(signers, s)
+			signers = append(signers, CertSigners(s, certPathFor(path, k))...)
 		}
 		return err
 	}
@@ -96,8 +99,9 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	if h.Key == "" && h.Identity == "" {
 		home, _ := os.UserHomeDir()
 		for _, n := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
-			if s, _ := lk.keyFile(filepath.Join(home, ".ssh", n), "", nil, false); s != nil {
-				signers = append(signers, s)
+			p := filepath.Join(home, ".ssh", n)
+			if s, _ := lk.keyFile(p, "", nil, false); s != nil {
+				signers = append(signers, CertSigners(s, p+"-cert.pub")...)
 			}
 		}
 	}
@@ -122,6 +126,68 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 		return nil, agentConn, lk.noAuth(st, h)
 	}
 	return methods, agentConn, nil
+}
+
+// certPathFor is where a key's user certificate is: the one key add
+// --cert named, else KEY-cert.pub next to a key file (as ssh looks for
+// it). A key komando keeps sealed has none unless --cert named one.
+func certPathFor(path string, k *store.Key) string {
+	if k != nil && k.CertPath != "" {
+		return k.CertPath
+	}
+	if strings.HasPrefix(path, "sealed:") {
+		return ""
+	}
+	return expand(path) + "-cert.pub"
+}
+
+// CertSigners is s, after it the same key with its OpenSSH user
+// certificate from certPath when there is one that belongs to s and has
+// not run out: the server picks what it trusts, as with ssh (the
+// certificate first). A certificate that is missing, unreadable, for
+// another key or out of date is left out.
+func CertSigners(s ssh.Signer, certPath string) []ssh.Signer {
+	if certPath == "" {
+		return []ssh.Signer{s}
+	}
+	b, err := os.ReadFile(expand(certPath))
+	if err != nil {
+		return []ssh.Signer{s}
+	}
+	cert, err := ParseUserCert(b, s.PublicKey())
+	if err != nil || !CertCurrent(cert, time.Now()) {
+		return []ssh.Signer{s}
+	}
+	cs, err := ssh.NewCertSigner(cert, s)
+	if err != nil {
+		return []ssh.Signer{s}
+	}
+	return []ssh.Signer{cs, s}
+}
+
+// ParseUserCert reads an OpenSSH user certificate (KEY-cert.pub) and
+// checks that it is for pub.
+func ParseUserCert(b []byte, pub ssh.PublicKey) (*ssh.Certificate, error) {
+	k, _, _, _, err := ssh.ParseAuthorizedKey(b)
+	if err != nil {
+		return nil, err
+	}
+	cert, ok := k.(*ssh.Certificate)
+	switch {
+	case !ok:
+		return nil, errors.New("not an SSH certificate")
+	case cert.CertType != ssh.UserCert:
+		return nil, errors.New("a host certificate, not a user certificate")
+	case pub != nil && !SameKey(cert.Key, pub):
+		return nil, errors.New("the certificate is for another key")
+	}
+	return cert, nil
+}
+
+// CertCurrent: now lies in the certificate's valid time.
+func CertCurrent(cert *ssh.Certificate, now time.Time) bool {
+	u := uint64(now.Unix())
+	return u >= cert.ValidAfter && (cert.ValidBefore == ssh.CertTimeInfinity || u < cert.ValidBefore)
 }
 
 // personFor is Ask for the login to h, or nil when no person can be asked.
@@ -175,12 +241,27 @@ func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) 
 		s, err = ssh.ParsePrivateKeyWithPassphrase(b, []byte(pass))
 	}
 	if err != nil {
+		if pub := publicPart(path, nil, k); explicit && IsSecurityKey(pub) {
+			// a FIDO2 key: ssh-agent signs with it, found by its public key
+			name := ""
+			if k != nil {
+				name = k.Name
+			}
+			lk.locked = append(lk.locked, lockedKey{path: path, keyName: name, pub: pub, sk: true})
+			return nil, nil
+		}
 		if explicit {
 			return nil, out.Errf(out.ExitUsage, "KEY_INVALID", "check that "+path+" is a private key in OpenSSH or PEM format, and that its passphrase ref is right", "cannot parse key %s: %v", path, err)
 		}
 		return nil, nil
 	}
 	return s, nil
+}
+
+// IsSecurityKey: pub is a FIDO2 security key's (sk-ssh-ed25519@openssh.com,
+// sk-ecdsa-sha2-nistp256@openssh.com), which only ssh-agent can sign with.
+func IsSecurityKey(pub ssh.PublicKey) bool {
+	return pub != nil && strings.HasPrefix(pub.Type(), "sk-")
 }
 
 // publicPart is an encrypted key's public key: from the key file itself
@@ -264,6 +345,9 @@ func sameAgentKey(a, want ssh.PublicKey) bool {
 // ssh-agent does not hold: load it there, or store its passphrase.
 func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k lockedKey) *out.Error {
 	p := shellPath(k.path)
+	if k.sk {
+		return lk.securityKeyNeeded(p)
+	}
 	var why, load string
 	switch lk.agent {
 	case agentUnset:
@@ -279,6 +363,17 @@ func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k locked
 		hint = storePassphrase(st, h, k)
 	}
 	return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", hint, "key %s is encrypted and %s", p, why)
+}
+
+// securityKeyNeeded is KEY_PASSPHRASE_REQUIRED for a security key (FIDO2)
+// ssh-agent does not hold: no passphrase helps, only ssh-add.
+func (lk *loginKeys) securityKeyNeeded(p string) *out.Error {
+	why := "ssh-agent does not hold it"
+	if lk.agent == agentUnset || lk.agent == agentDown {
+		why = "no ssh-agent answers"
+	}
+	hint := "load it into ssh-agent with `ssh-add " + p + "` (touch the key when it blinks); komando then logs in through the agent"
+	return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", hint, "key %s is a security key (FIDO2), which only ssh-agent can use, and %s", p, why)
 }
 
 // storePassphrase says how to keep an encrypted key's passphrase in the

@@ -23,6 +23,12 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
 
 ## How komando keeps you safe
 
+- komando sends nothing on its own: no usage statistics, no crash reports,
+  no background update check. It connects only to what you added or named
+  (servers, conns, clusters, registries, VPNs, a password manager or cloud
+  in a password reference), to AWS for `komando login aws`, and to GitHub
+  when you run `komando update`.
+
 - Passwords and keys live in an encrypted vault in `~/.komando/`. A new vault keeps its key in the OS keychain (the macOS keychain, the Secret Service on Linux), so a backup or a copy of the folder does not open it. Where there is no keychain, the key is a file beside the vault and `komando doctor` warns. An AI agent refers to a secret as `secret:NAME`. An agent komando recognises (Claude Code, Codex, Cursor, Gemini CLI, or any agent with `KOMANDO_AGENT=1` set) never sees the values. When an agent sends a secret somewhere (into a file on a server, a command's environment, or as the password of a new or moved server, conn or VPN), a person allows it in a window that names the secret and the place.
 - An AI agent's komando uses your usual data folder: another `KOMANDO_HOME` needs a person's yes.
 - Dangerous commands (`rm -rf /`, `reboot`, `DROP TABLE`, `FLUSHALL`, ...) are blocked unless a human allows them.

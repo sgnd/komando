@@ -69,8 +69,13 @@ func TestMongoLive(t *testing.T) {
 	if info := mustRun(t, "db", "info", "shop"); info["role"] != "standalone" || info["database"] != "shop_e2e" || info["collections"] == nil {
 		t.Errorf("info: %v", info)
 	}
-	for _, args := range [][]string{{"db", "sizes", "shop"}, {"db", "activity", "shop"}, {"db", "explain", "shop", `{"find": "users"}`}} {
-		wantCode(t, "NOT_SUPPORTED", args...)
+	wantCode(t, "NOT_SUPPORTED", "db", "sizes", "shop")
+	if d := mustRun(t, "db", "explain", "shop", `{"find": "users", "filter": {"plan": "pro"}}`); d["plan"] == nil || d["command"] != "find" {
+		t.Errorf("explain: %v", d)
+	}
+	wantCode(t, "USAGE", "db", "explain", "shop", `{"delete": "users", "deletes": [{"q": {}, "limit": 0}]}`)
+	if d := mustRun(t, "db", "activity", "shop", "--all"); d["sessions"] == nil {
+		t.Errorf("activity: %v", d)
 	}
 	mustRun(t, "db", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
 	mustRun(t, "conn", "edit", "shop", "--protected")

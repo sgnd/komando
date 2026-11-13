@@ -102,6 +102,9 @@ $K docker exec swarm1 -- --privileged -u root t-fixops id >/dev/null; check "doc
 set -e
 check "net check says why" refused "$($K net check direct 127.0.0.1:1 | jget "${r0}['data'][0]['reason']" || true)"
 check "net dns --type A" True "$($K net dns direct localhost --type A | jget "'127.0.0.1' in ${r0}['data']['records']")"
+# direct has no dig: komando asks the server's resolver itself (Docker's at
+# 127.0.0.11), so an MX question gets the resolver's answer, not DIG_MISSING
+check "net dns --type MX without dig asks the resolver" True "$($K net dns direct bastion --type MX | jget "${r0}.get('error', {}).get('code') in (None, 'NO_RECORDS')" || true)"
 check "net ports has pid with sudo" True "$($K net ports direct --sudo | jget "any(r.get('process') == 'sshd' and r.get('pid', 0) > 0 for r in ${r0}['data'])")"
 check "net ports on busybox (netstat)" True "$($K net ports swarm1 | jget "any(r['port'] == 22 for r in ${r0}['data'])")"
 

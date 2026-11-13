@@ -87,7 +87,7 @@ var formFsHints = map[string]formHint{
 				help: "Yes makes komando ask you to confirm first, since it cannot be undone."},
 			formFsSudo("Needed for files owned by root or another user."),
 		}},
-	"fs replace": {next: []string{"fs restore {} PATH --dry-run", "fs cat {} PATH"}, args: []formArg{formFsServer,
+	"fs replace": {next: []string{"fs restore {} PATH --dry-run", "fs cat {} PATH"}, args: []formArg{formFsServers,
 		{ask: "Which file do you want to edit?", example: "/etc/nginx/nginx.conf",
 			help: "The full path of the file on the server."}},
 		flags: []formFlag{
@@ -111,7 +111,7 @@ var formFsHints = map[string]formHint{
 			formFsSudo("Needed for system files, like most files under /etc."),
 			formFsBackup,
 		}},
-	"fs restore": {args: []formArg{formFsServer,
+	"fs restore": {args: []formArg{formFsServers,
 		{ask: "Which file should go back to how it was?", example: "/etc/nginx/nginx.conf",
 			help: "The file you changed, not its .bak copy. Try it first to see the difference."}},
 		flags: []formFlag{

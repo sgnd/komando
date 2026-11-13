@@ -327,6 +327,60 @@ terminal you type the key's name; an AI agent or a script adds
 
 To replace a key everywhere, in order, see [Rotate keys and passwords](rotate.md).
 
+### Keys with a certificate
+
+Where servers trust a certificate authority (SSH CA, `TrustedUserCAKeys`)
+instead of each key, komando logs in with the key's OpenSSH user
+certificate, as `ssh` does: `KEY-cert.pub` next to a key file (`key add`,
+`--identity`, `~/.ssh/id_*`) is offered first, then the key alone. For a
+certificate kept elsewhere, or for a key komando made, name it:
+
+```bash
+komando key add corp ~/.ssh/id_corp --cert ~/certs/id_corp-cert.pub
+komando key edit deploy --cert ~/Downloads/deploy-cert.pub   # --unset cert goes back to KEY-cert.pub
+```
+
+komando reads the certificate at each login, so a renewed file is used at
+once. A certificate for another key is refused (`KEY_INVALID`); one that is
+not valid now is left out (`key add` warns), and the key alone is offered.
+An ssh-agent that holds a certificate offers it too.
+
+### Lend a jump host your ssh-agent
+
+Some work needs your keys on the server itself, for example a `git pull`
+there over SSH, or a hop that komando does not make. `--forward-agent`
+lends the server the keys in your ssh-agent while komando is connected, as
+`ssh -A` does:
+
+```bash
+komando host edit bastion --forward-agent        # asks first
+komando host edit bastion --unset forward-agent  # stop lending it
+```
+
+Anyone who is root on that server can use your keys while komando is
+connected to it, so it is off by default, set per server, and turning it
+on asks you first (`SAFETY_SETTING`; an AI agent needs your yes in the
+window). `host ssh-command` adds `-o ForwardAgent=yes` for such a server.
+Your agent holds only the keys you added to it (`ssh-add`); keys komando
+keeps sealed are never in it unless `host ssh-command` put them there.
+
+### Security keys (FIDO2)
+
+A key on a security key (YubiKey, SoloKey, made with `ssh-keygen -t
+ed25519-sk` or `-t ecdsa-sk`) is signed by the device, so komando uses it
+through ssh-agent, as `ssh` does:
+
+```bash
+ssh-add ~/.ssh/id_ed25519_sk                     # touch the key when it blinks
+komando key add yubikey ~/.ssh/id_ed25519_sk     # reads the public key from id_ed25519_sk.pub
+komando host edit web1 --key yubikey
+```
+
+At each login the key asks for a touch. Without ssh-agent holding it, the
+server fails with `KEY_PASSPHRASE_REQUIRED` and the hint says to `ssh-add`
+it. Keep `id_ed25519_sk.pub` next to the key file: komando finds the key in
+the agent by it.
+
 ## Remove a key from servers
 
 When someone leaves, or a key is replaced, remove it everywhere at once.
@@ -337,9 +391,14 @@ line itself:
 komando key revoke ~/keys/alice.pub @web --dry-run   # how many lines per server
 komando key revoke ~/keys/alice.pub @web
 komando key revoke old-deploy @web --user deploy     # another user's file (uses sudo)
+komando key revoke ~/keys/alice.pub @web --all-users --dry-run   # every user's file: who has it
 ```
 
-The `authorized_keys` file keeps its owner and mode. Revoking the key
+`--all-users` (with sudo) looks in the `authorized_keys` of every user on
+the server: someone who left may have put the key into another account
+too. The result lists each user whose file held it (`users`). The
+`authorized_keys` file keeps its owner and mode, and is read and written as
+its own user. Revoking the key
 komando itself logs in with needs `--allow-dangerous`, because you would
 lock yourself out.
 
@@ -607,6 +666,8 @@ told to use `komando exec` or `komando shell`.
   `azure`: `komando login aws` is the AWS login.
 - `--address` in `host edit` works on one server only.
 - A key file added with `key add` is never moved or deleted by komando.
+- Host certificates (`@cert-authority` in known_hosts) are not read yet:
+  komando pins each server's own host key.
 - `--ask-password`, `komando login`, `host ssh-command` and replacing a
   pinned host key (`host trust --reset`) need a person at a terminal.
 - `op://` reads 1Password only through a 1Password Connect server: the

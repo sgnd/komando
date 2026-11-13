@@ -304,7 +304,7 @@ func runPOSIX(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) 
 	if err != nil {
 		return nil, err
 	}
-	sess, err := c.NewSession()
+	sess, err := c.Session()
 	if err != nil {
 		if c.lost() {
 			return nil, lostError(c, false)
@@ -557,7 +557,7 @@ func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io
 	if isWindows(c) { // cmd is sh; Windows streams use RunPS
 		return -1, "", fmt.Errorf("%s is a Windows server: this command needs a Linux shell there", c.Host.Name)
 	}
-	sess, err := c.NewSession()
+	sess, err := c.Session()
 	if err != nil {
 		return -1, "", err
 	}
