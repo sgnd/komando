@@ -1,17 +1,15 @@
 package cli
 
 import (
-	"context"
-	"io"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
 )
 
-// `pkg upgrade --security` is the security rollout `pkg security --apply`
-// was: the same stops, the ID pkg.security, a read-only gate key refuses
-// it, and --apply still works, noted in meta.deprecated (C-V18).
+// `pkg upgrade --security` installs the security updates: a protected
+// server needs --yes, a dry run shows the stop, the envelope and the audit
+// say pkg.upgrade, and a read-only gate key refuses it (C-V18).
 func TestPkgUpgradeSecurity(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
@@ -20,16 +18,21 @@ func TestPkgUpgradeSecurity(t *testing.T) {
 		t.Errorf("exit %d", e.Exit)
 	}
 	code, text := runMain(t, "pkg", "upgrade", "web1", "--security", "--dry-run")
-	if !strings.Contains(text, `"command":"pkg.security"`) || !strings.Contains(text, "would_be_blocked") { // the closed port fails then
+	if !strings.Contains(text, `"command":"pkg.upgrade"`) || !strings.Contains(text, "would_be_blocked") { // the closed port fails then
 		t.Errorf("dry run: exit %d %s", code, text)
 	}
 	code, text = runMain(t, "pkg", "upgrade", "web1", "--security")
-	if code != out.ExitPolicy || !strings.Contains(text, `"command":"pkg.security"`) {
+	if code != out.ExitPolicy || !strings.Contains(text, `"command":"pkg.upgrade"`) {
 		t.Errorf("stop: exit %d %s", code, text)
 	}
-	code, text = runMain(t, "pkg", "security", "web1", "--apply", "--dry-run")
-	if !strings.Contains(text, `"deprecated":{"used":"komando pkg security --apply","now":"komando pkg upgrade TARGET --security"}`) {
-		t.Errorf("--apply: exit %d %s", code, text)
+	d := mustRun(t, "audit", "--failed", "-n", "0")
+	for _, e := range d["entries"].([]any) {
+		if m := e.(map[string]any); m["command"] != "pkg.upgrade" {
+			t.Errorf("audit: %v", m)
+		}
+	}
+	if d["count"] != float64(2) { // the two stops above; the dry run is not a record
+		t.Errorf("audit: %v", d["entries"])
 	}
 	wantCode(t, "USAGE", "pkg", "upgrade", "web1", "nginx", "--security")
 	wantCode(t, "USAGE", "pkg", "upgrade", "web1", "--keep-going")
@@ -38,33 +41,6 @@ func TestPkgUpgradeSecurity(t *testing.T) {
 	}
 	if r := riskOfLine([]string{"pkg", "upgrade", "web1", "--security"}); r.tier != tierDangerous {
 		t.Errorf("risk: %+v", r)
-	}
-	if f := findCmd(t, newRoot(), "pkg", "security").Flags().Lookup("apply"); f == nil || !f.Hidden {
-		t.Error("pkg security --apply must be hidden")
-	}
-}
-
-// A --security run names itself pkg.security for that run only: the
-// command keeps its own ID in the tree, so a plain `pkg upgrade` on the
-// same tree is never read as pkg.security (whose read form a read-only
-// ssh-gate key may run).
-func TestPkgUpgradeSecurityKeepsID(t *testing.T) {
-	invHome(t)
-	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
-	c := findCmd(t, newRoot(), "pkg", "upgrade")
-	if err := c.ParseFlags([]string{"--security"}); err != nil {
-		t.Fatal(err)
-	}
-	c.SetContext(context.Background())
-	saved := out.P.W
-	out.P.W = io.Discard
-	_ = c.RunE(c, []string{"web1"}) // the closed port fails
-	out.P.W = saved
-	if id := cmdID(c); id != "pkg.upgrade" {
-		t.Errorf("after a --security run the command's ID is %q", id)
-	}
-	if code, text := runMain(t, "pkg", "upgrade", "web1", "--security"); !strings.Contains(text, `"command":"pkg.security"`) {
-		t.Errorf("the run still names pkg.security: exit %d %s", code, text)
 	}
 }
 

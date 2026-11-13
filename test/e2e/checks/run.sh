@@ -63,7 +63,7 @@ q $K job rm "$JR"
 
 # recipes, tunnels
 set +e; $K recipe run disk direct --var pth=/ >/dev/null; check "unknown recipe --var -> 2" 2 $?; set -e
-check "a retired recipe names its command" True "$($K recipe run certbot-certs direct | jget 'd["error"]["code"] == "RECIPE_NOT_FOUND" and "cert check" in d["error"]["hint"]' || true)"
+check "an unknown recipe" RECIPE_NOT_FOUND "$($K recipe run t-e2enope direct | jget 'd["error"]["code"]' || true)"
 TUN=$($K tunnel start direct -L 0:localhost:22)
 TP=$(echo "$TUN" | jget 'd["data"]["listen"].split(":")[1]')
 check "a port in use" PORT_IN_USE "$($K tunnel start direct -L "${TP}:localhost:22" | jget 'd["error"]["code"]' || true)"

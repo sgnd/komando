@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 
@@ -132,28 +131,6 @@ func proxyCommandSkip(cmd string) string {
 		return "its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms"
 	}
 	return ""
-}
-
-// parseHostsJSON reads a list of hosts: `komando export` output (the
-// envelope or its data), as older `host export` printed it, or a plain list.
-func parseHostsJSON(b []byte) ([]*store.Host, bool) {
-	var list []*store.Host
-	if json.Unmarshal(b, &list) == nil {
-		return list, true
-	}
-	var doc struct {
-		Hosts []*store.Host `json:"hosts"`
-		Data  *struct {
-			Hosts []*store.Host `json:"hosts"`
-		} `json:"data"`
-	}
-	if json.Unmarshal(b, &doc) != nil {
-		return nil, false
-	}
-	if doc.Hosts == nil && doc.Data != nil {
-		return doc.Data.Hosts, true
-	}
-	return doc.Hosts, doc.Hosts != nil
 }
 
 func orEmpty(s []string) []string {

@@ -154,7 +154,7 @@ How commands use the selector result:
 | filter the inventory | `--target SELECTOR` | replaces `--host` in `audit` and `job list` |
 | root rights | `--sudo` / `--no-sudo` | see the sudo rule below |
 | raw command changes nothing | `--read-only` | see the polarity rules |
-| time | `--since`, `--until`, `--ttl`, `--expires`, `--wait`, `--warn`, `--older-than`, `--interval`, `--timeout` | one duration type: Go format (`10m`, `2h`) or days (`7d`); a bare number only as `0`. `--since`/`--until` also take `today`, `yesterday` or a date. `svc`/`reboot --wait 10` (bare seconds) is a retired shape that still works |
+| time | `--since`, `--until`, `--ttl`, `--expires`, `--wait`, `--warn`, `--older-than`, `--interval`, `--timeout` | one duration type: Go format (`10m`, `2h`) or days (`7d`); a bare number only as `0`. `--since`/`--until` also take `today`, `yesterday` or a date. `--wait 10` (no unit) is a usage error that names `10s` |
 | size | `--max-bytes`, `--max-output` | one bytes type: bytes, or `KB`/`MB`/`GB`/`KiB`/`MiB`/`GiB`, where KB = KiB = 1024 |
 | KEY=VALUE | `-e, --env`, `--label`, `--option`, `--var`, `--header` | one pair per use, repeatable, never split on commas; a second `KEY=` after a comma is a usage error |
 
@@ -312,7 +312,6 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `cache run` | when the cache command deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
 | `db query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
 | `db explain` | with --analyze, when the SQL deletes data | dangerous | `--allow-dangerous` |
-| `pkg security` | with --apply, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
 | `pkg upgrade` | with --security, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
 | `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
 | `host edit` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |

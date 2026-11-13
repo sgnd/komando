@@ -240,7 +240,7 @@ var commandKinds = map[string]cmdKind{
 	"pkg install":    changes,
 	"pkg installed":  reads,
 	"pkg rm":         changes,
-	"pkg security":   dependsOn("only lists unless --apply"),
+	"pkg security":   dependsOn("only reads, unless --refresh updates the package index first"),
 	"pkg update":     changes,
 	"pkg upgradable": dependsOn("only reads, unless --refresh updates the package index first"),
 	"pkg upgrade":    changes,

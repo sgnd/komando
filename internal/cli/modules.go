@@ -102,7 +102,7 @@ func svcActionCmd(action string) *cobra.Command {
 	switch action {
 	case "start", "restart", "reload":
 		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"
-		c.Flags().Var(&durFlag{d: &wait, seconds: true, name: "wait"}, "wait", "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not")
+		c.Flags().Var(&durFlag{d: &wait}, "wait", "wait up to this long (like 10s, 2m) for the units to be active; fail if they are not")
 	case "enable", "disable":
 		verb := map[string]string{"enable": "start", "disable": "stop"}[action]
 		c.Flags().BoolVar(&now, "now", false, "also "+verb+" the units now (systemctl "+action+" --now)")

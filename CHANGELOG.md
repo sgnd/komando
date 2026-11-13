@@ -51,9 +51,7 @@ Values in `komando schema` that changed (field names are the same):
 
 The old names in the last two rows still work, and `komando schema OLD`
 describes the command they run. Synonyms (`ls`, `mv`, `get`, `keys`,
-plurals) stay for good. `pkg security --apply` (`pkg upgrade
---security`) still works for at least one more release and sets
-`meta.deprecated`. The retired flags are gone (komando is used
+plurals) stay for good. The retired flags are gone (komando is used
 internally only): `db dump/restore --on` (now `--run-on`), `--from` on
 `db user`, `db grant` and `db revoke` (`--from-host`), `fs list --max`
 (`--limit`), `fs restore --from` (`--copy`), `storage rm --limit` and
@@ -63,9 +61,12 @@ internally only): `db dump/restore --on` (now `--run-on`), `--from` on
 `cron --sudo`/`-s` (`--user root`), `queue peek --wait` (`--idle`),
 `cluster rollback --to` (`--revision`), `policy check --for`
 (`--conn-kind`), `db query --csv`/`--tsv` (`-o csv`/`-o tsv`),
-`key gen --overwrite`, and `docker logs --priority` and `svc logs
+`key gen --overwrite`, `pkg security --apply` and `--keep-going` (`pkg
+upgrade --security`), and `docker logs --priority` and `svc logs
 --timestamps`, which did nothing there. Each is an unknown flag
-(`USAGE`, exit 2).
+(`USAGE`, exit 2). A bare number of seconds for `svc --wait` and
+`reboot --wait` (`--wait 10`) and `-1` for queue `--partition`,
+`--partitions` and `--replicas` are usage errors too.
 
 Exit and error codes that changed:
 
@@ -382,10 +383,9 @@ instead.
 - **Security updates are installed with `komando pkg upgrade TARGET
   --security`** (with `--keep-going` and `--refresh`): the same rollout
   as before, one server at a time with a check before and after, the
-  same stops, and `pkg.security` in the envelope and the audit log.
-  `pkg security` now only looks; `pkg security --apply` still works for at
-  least two releases (the agent skill cites it), is hidden from help and
-  is noted in `meta.deprecated`.
+  same stops, and `pkg.upgrade` in the envelope and the audit log (was
+  `pkg.security`). `pkg security` now only looks; `pkg security --apply`
+  is gone.
 - `vpn add/edit --proxy-address` is the address of a SOCKS or HTTP proxy
   VPN (was `--address`, which on `host add` is the server's address), and
   `policy check --conn-kind KIND` rates a statement for a conn kind (was
@@ -456,7 +456,7 @@ instead.
 - `queue peek/send --partition` and `queue create --partitions/--replicas`
   no longer show `-1` as their default: their help says "default: the
   broker's", and `komando schema` lists no default for them. Leaving them
-  out, or giving `-1` as before, still means the broker decides.
+  out means the broker decides; `-1` is a usage error.
 - Every size flag reads sizes the same way: `--max-output`, and
   `--max-bytes` on `fs cat`, `storage cat`, `job logs`, `db query` and
   `db explain`, take bytes or `256KiB`, `10MB`, `1GB` (KB = KiB = 1024).
@@ -467,9 +467,8 @@ instead.
   reads it the same way: `30s`, `10m`, `2h` or `7d`, and `0`. Days now
   work everywhere, a time below 0 is refused while the flags are read, and
   `komando schema` lists these flags with type `duration` and short
-  defaults (`10m`, not `10m0s`). The bare number of seconds that
-  `svc restart --wait 10` and `reboot --wait 600` took still works and is
-  noted in `meta.deprecated`.
+  defaults (`10m`, not `10m0s`). `svc restart --wait 10` and `reboot
+  --wait 600` need a unit now (`10s`, `600s`).
 - One rule table now says what a command needs before it runs; the
   stops stay in the commands, and a test checks each recorded stop
   against the table. At a terminal, a command komando asked you to fill in asks you to type the
@@ -678,6 +677,19 @@ instead.
   `queue peek --wait`, `cluster rollback --to`, `policy check --for`,
   `db query --csv`/`--tsv`, `key gen --overwrite`, `docker logs
   --priority` and `svc logs --timestamps`. Each is an unknown flag now.
+- `pkg security --apply` and `--keep-going`: `pkg upgrade TARGET
+  --security` installs the security updates and audits as `pkg.upgrade`.
+  A bare number of seconds for `svc` and `reboot --wait`, and `-1` for
+  queue `--partition`, `--partitions` and `--replicas`.
+- `recipe run` of a built-in recipe removed in 0.12 (`ports`, `dns`,
+  `failed-units` ...) no longer names the command that replaced it; it is
+  `RECIPE_NOT_FOUND` like any unknown recipe. Typing `ops`, `snippet`,
+  `snippets`, `diag` or `policy allow` no longer suggests the command
+  that took the name; `inspect` and `systemd` still suggest `facts` and
+  `svc`.
+- `import komando` reads only the export file (`komando-export/1`, or the
+  envelope `komando export` prints); a plain list of hosts or the
+  `{"hosts": [...]}` that `host export` printed before 0.12 is refused.
 - The menu that `komando` alone opened at a terminal, its task lists and
   the full-screen forms and review screen (owner decision 2026-11-12:
   person mode is commands). Everything it did is a command: `komando`

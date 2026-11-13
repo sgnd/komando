@@ -60,13 +60,12 @@ func TestExportTextIsTheFile(t *testing.T) {
 	}
 }
 
-// TestDroppedNamesSuggestTheNewOne: a removed old name says which command
-// does it now.
-func TestDroppedNamesSuggestTheNewOne(t *testing.T) {
+// TestHabitWordsSuggestTheCommand: a word from another tool's habit says
+// which command does that job.
+func TestHabitWordsSuggestTheCommand(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir()) // never the person's own folder
 	for _, c := range []struct{ args, want string }{
-		{"ops", "recipe"}, {"snippet", "recipe"}, {"snippets", "recipe"}, {"diag", "recipe"},
-		{"inspect", "facts"}, {"systemd", "svc"}, {"policy allow", "rm"},
+		{"inspect", "facts"}, {"systemd", "svc"},
 	} {
 		if e := usageFor(t, strings.Fields(c.args)...); !strings.HasSuffix(e.Message, "did you mean "+c.want+"?") {
 			t.Errorf("%s: %s", c.args, e.Message)

@@ -67,7 +67,7 @@ var gateReadForm = map[string]func(c *cobra.Command) string{
 	"cluster.run":    noFlag("write"),
 	"db.explain":     noFlag("write", "analyze"), // --analyze runs the statement
 	"pkg.upgradable": noFlag("refresh"),          // refreshes the package index
-	"pkg.security":   noFlag("apply", "refresh"),
+	"pkg.security":   noFlag("refresh"),
 	"recipe.run":     gateRecipeWrites,
 }
 

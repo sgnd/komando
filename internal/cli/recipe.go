@@ -169,36 +169,8 @@ type recipeRow struct {
 	Params   map[string]string `json:"params,omitempty"`
 }
 
-// retiredRecipes are built-in recipes a command has replaced; a run of one
-// names the command instead (a saved recipe of the same name still wins).
-// The ones removed in 0.12 answer this way for one release.
-var retiredRecipes = map[string]string{
-	"cert-expiry":   "komando cert check https://NAME:PORT --via TARGET",
-	"certbot-certs": "komando cert check TARGET",
-	"docker-prune":  "komando docker prune TARGET --dry-run",
-
-	"ports":            "komando net ports TARGET --sudo",
-	"dns":              "komando net dns TARGET NAME",
-	"http-check":       "komando net http TARGET URL",
-	"failed-units":     "komando svc list TARGET --failed",
-	"journal-errors":   "komando logs TARGET -p err --since 1h --sudo",
-	"updates":          "komando pkg upgradable TARGET",
-	"security-updates": "komando pkg security TARGET",
-	"docker-overview":  "komando docker ps TARGET --all",
-	"k8s-overview":     "komando cluster status CLUSTER",
-	"mysql-status":     "komando db activity CONN",
-	"postgres-status":  "komando db activity CONN",
-	"redis-info":       "komando cache info CONN",
-}
-
 // recipeNotFound is the error for a recipe that is not there.
-func recipeNotFound(name string) *out.Error {
-	if cmd, ok := retiredRecipes[name]; ok {
-		return out.Errf(out.ExitNotFound, "RECIPE_NOT_FOUND", "use `"+cmd+"`",
-			"the recipe %q was replaced by a command", name)
-	}
-	return out.NotFound("recipe", name)
-}
+func recipeNotFound(name string) *out.Error { return out.NotFound("recipe", name) }
 
 func builtinRecipe(name string) *recipe {
 	for i := range recipes {

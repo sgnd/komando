@@ -104,7 +104,7 @@ func spellingAnswer(t *testing.T, id, flag, alias string) string {
 func TestAliasSpellingReachesGate(t *testing.T) {
 	for _, c := range []struct{ id, flag string }{
 		{"pkg.upgradable", "--refresh"}, {"db.query", "--write"}, {"cache.run", "--write"},
-		{"cluster.run", "--write"}, {"db.explain", "--analyze"}, {"pkg.security", "--apply"},
+		{"cluster.run", "--write"}, {"db.explain", "--analyze"}, {"pkg.security", "--refresh"},
 	} {
 		if got := spellingAnswer(t, c.id, c.flag, "old-spelling"); got != "SSH_GATE_READ_ONLY" {
 			t.Errorf("%s under a hidden spelling of %s: %q, want SSH_GATE_READ_ONLY", c.id, c.flag, got)

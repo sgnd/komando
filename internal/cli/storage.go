@@ -495,7 +495,7 @@ through --via, only people who can reach that address can use the link.
 		},
 	}
 	expires = time.Hour
-	c.Flags().Var(&durFlag{d: &expires, positive: true, name: "expires"}, "expires", "how long the link works, like 30m, 24h or 7d (at most 7d)")
+	c.Flags().Var(&durFlag{d: &expires, positive: true}, "expires", "how long the link works, like 30m, 24h or 7d (at most 7d)")
 	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, like https://files.example.com (when komando reaches the storage through --via)")
 	return c
 }
