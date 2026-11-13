@@ -52,11 +52,11 @@ func TestQueueRabbitLive(t *testing.T) {
 		t.Errorf("info: %v", d)
 	}
 	invRun(t, "queue", "rm", "jobs", "komando-cli", "--allow-dangerous") // left by an earlier run
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 	if d := mustRun(t, "--dry-run", "queue", "create", "jobs", "komando-cli", "--type", "quorum"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	wantCode(t, "QUEUE_NOT_FOUND", "queue", "describe", "jobs", "komando-cli")
 	wantCode(t, "NOT_SUPPORTED", "queue", "create", "jobs", "komando-cli", "--partitions", "3")
 	mustRun(t, "queue", "create", "jobs", "komando-cli", "--type", "quorum", "--config", "x-max-length=100")
@@ -77,10 +77,10 @@ func TestQueueRabbitLive(t *testing.T) {
 	if d := mustRun(t, "--dry-run", "queue", "purge", "jobs", "komando-cli"); d["messages"].(float64) != 1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	mustRun(t, "queue", "purge", "jobs", "komando-cli", "--allow-dangerous")
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "jobs", "komando-cli")
 	mustRun(t, "queue", "rm", "jobs", "komando-cli", "--allow-dangerous")
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 }

@@ -61,8 +61,8 @@ func (d downloadData) Text() string {
 
 // storageDownloadTo saves one object to a local file, - (stdout), or a
 // folder; an existing file is replaced only with overwrite.
-func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrite bool) error {
-	if err := guardSensitiveCopy(key); err != nil {
+func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string, overwrite bool) error {
+	if err := guardSensitiveCopy(cl, key); err != nil {
 		return err
 	}
 	if strings.HasSuffix(key, "/") {
@@ -72,7 +72,7 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 		return err
 	}
 	toStdout := to == "-"
-	if toStdout && out.P.Format != "text" {
+	if toStdout && cl.out.Format != "text" {
 		return out.Usage("--to - writes the file itself to stdout, where JSON output goes too; add -o text, or give a file name")
 	}
 	dest := downloadDest(to, key)
@@ -88,9 +88,9 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 			exists = true
 		}
 	}
-	return withStorage(ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
+	return withStorage(cl, ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-			if g.dryRun { // a download changes this computer: check, write nothing
+			if cl.flags.dryRun { // a download changes this computer: check, write nothing
 				o, err := s.Stat(ctx, key)
 				if err != nil {
 					return nil, err
@@ -101,7 +101,7 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 				}
 				return downloadData{Conn: c.Name, Key: key, File: file, Bytes: o.Size, Replaces: exists, DryRun: true, RunsOn: "local"}, nil
 			}
-			mask := out.P.Mask && !revealOK()
+			mask := cl.out.Mask && !cl.revealOK()
 			if toStdout && mask {
 				// an AI agent reads it here: shown as fs cat shows text
 				var b bytes.Buffer
@@ -115,13 +115,13 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 				}
 				text := b.String()
 				if bytes.IndexByte(b.Bytes(), 0) < 0 {
-					text = out.P.Redact(text)
+					text = cl.out.Redact(text)
 				}
-				_, err = io.WriteString(out.P.W, text)
+				_, err = io.WriteString(cl.out.W, text)
 				return nil, err
 			}
 			if toStdout {
-				_, err := s.Get(ctx, key, out.P.W)
+				_, err := s.Get(ctx, key, cl.out.W)
 				return nil, err
 			}
 			pp := objectProgress(ctx, s, key)
@@ -143,7 +143,7 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 					}
 					return f.Sync()
 				}
-				if n, masked, err = getMasked(ctx, s, key, f, pp.writer()); err != nil {
+				if n, masked, err = getMasked(cl, ctx, s, key, f, pp.writer()); err != nil {
 					return err
 				}
 				return f.Sync()
@@ -204,12 +204,12 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 
 // getMasked saves object key into f for an AI agent, masked before it
 // reaches the disk (fetchMasked). watch, when not nil, sees every byte.
-func getMasked(ctx context.Context, s storex.Bucket, key string, f *os.File, watch io.Writer) (int64, bool, error) {
+func getMasked(cl *call, ctx context.Context, s storex.Bucket, key string, f *os.File, watch io.Writer) (int64, bool, error) {
 	pr, pw := io.Pipe()
 	defer pr.Close()
 	go func() {
 		_, err := s.Get(ctx, key, pw)
 		pw.CloseWithError(err)
 	}()
-	return fetchMasked(ctx, pr, f, io.Discard, watch)
+	return fetchMasked(cl, ctx, pr, f, io.Discard, watch)
 }

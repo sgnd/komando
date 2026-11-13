@@ -86,12 +86,12 @@ type queueFn func(st *store.State, c *store.Conn, q queuex.Queue) (any, error)
 
 // withQueue opens the conn's client, runs fn, and audits the action. A
 // change is checked by guardConns first; fn itself honours --dry-run.
-func withQueue(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn queueFn) error {
+func withQueue(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn queueFn) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "queue")
+	c, err := singleConn(cl, st, connExpr, "queue")
 	if err != nil {
 		return err
 	}
@@ -101,23 +101,23 @@ func withQueue(ctx context.Context, name, connExpr string, v driver.Verdict, rec
 	rec["conns"], rec["risk"] = []string{c.Name}, v.Risk.String()
 	fail := func(err error) error {
 		rec["error"] = toErr(err).Code
-		audit(st, name, nil, "", false, rec)
+		audit(cl, st, name, nil, "", false, rec)
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
 	}
-	a, err := openAccess(ctx, st, c)
+	a, err := openAccess(cl, ctx, st, c)
 	if err != nil {
 		return fail(err)
 	}
 	defer a.Close()
-	timeout := dbTimeout()
+	timeout := dbTimeout(cl)
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	q, err := openQueue(cctx, c, a, timeout)
+	q, err := openQueue(cl, cctx, c, a, timeout)
 	if err != nil {
 		return fail(viaTimeout(c, err))
 	}
@@ -126,14 +126,15 @@ func withQueue(ctx context.Context, name, connExpr string, v driver.Verdict, rec
 	if err != nil {
 		return fail(err)
 	}
-	audit(st, name, nil, "", true, rec)
-	out.P.Print(name, data, nil)
+	audit(cl, st, name, nil, "", true, rec)
+	cl.out.Print(name, data, nil)
 	return nil
 }
 
 // queueCtx is the command's context with the --timeout limit.
 func queueCtx(cmd *cobra.Command) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(cmd.Context(), dbTimeout())
+	cl := callOf(cmd)
+	return context.WithTimeout(cmd.Context(), dbTimeout(cl))
 }
 
 func queueInfoCmd() *cobra.Command {
@@ -142,8 +143,8 @@ func queueInfoCmd() *cobra.Command {
 		Short:   "Server summary: version, brokers or nodes, topic, queue or stream count",
 		Example: `  komando queue info prod-kafka`,
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withQueue(cmd.Context(), "queue.info", args[0], driver.Verdict{}, nil,
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return withQueue(cl, cmd.Context(), "queue.info", args[0], driver.Verdict{}, nil,
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -153,7 +154,7 @@ func queueInfoCmd() *cobra.Command {
 					}
 					return queueInfo{Conn: c.Name, Info: inf}, nil
 				})
-		},
+		}),
 	}
 }
 
@@ -168,7 +169,7 @@ func queueLsCmd() *cobra.Command {
   komando queue list prod-kafka --internal
   komando queue list prod-kafka -n 50`,
 		Args: cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if limit < 1 {
 				return out.Usage("--limit takes 1 or more")
 			}
@@ -176,7 +177,7 @@ func queueLsCmd() *cobra.Command {
 			if len(args) == 2 {
 				pattern = args[1]
 			}
-			return withQueue(cmd.Context(), "queue.list", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
+			return withQueue(cl, cmd.Context(), "queue.list", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -187,12 +188,12 @@ func queueLsCmd() *cobra.Command {
 					}
 					cut := len(ts) > limit
 					if cut {
-						out.P.CutNoted()
+						cl.out.CutNoted()
 					}
 					ts = queuex.First(ts, limit)
 					return queueTopics{Conn: c.Name, Topics: ts, Count: len(ts), Truncated: cut, kind: c.Kind}, nil
 				})
-		},
+		}),
 	}
 	c.Flags().BoolVar(&internal, "internal", false, "Kafka: also list its own topics (__consumer_offsets, ...)")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most topics (or queues, or streams) to show, the first by name")
@@ -205,8 +206,8 @@ func queueDescribeCmd() *cobra.Command {
 		Short:   "One topic, queue or stream: messages, settings, and who reads it",
 		Example: `  komando queue describe prod-kafka orders`,
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withQueue(cmd.Context(), "queue.describe", args[0], driver.Verdict{}, map[string]any{"topic": args[1]},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return withQueue(cl, cmd.Context(), "queue.describe", args[0], driver.Verdict{}, map[string]any{"topic": args[1]},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -216,7 +217,7 @@ func queueDescribeCmd() *cobra.Command {
 					}
 					return queueTopic{Conn: c.Name, TopicDetail: d}, nil
 				})
-		},
+		}),
 	}
 }
 
@@ -258,26 +259,26 @@ Values that are not UTF-8 text are shown as base64.`,
   komando queue peek prod-kafka orders -n 50 --partition 2
   komando queue peek prod-kafka orders --oldest -n 5`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if limit < 1 || limit > 10000 {
 				return out.Usage("--limit takes 1 to 10000")
 			}
 			o := queuex.PeekOptions{Topic: args[1], Limit: limit, Oldest: oldest, Partition: int32(partition), Wait: wait}
-			return withQueue(cmd.Context(), "queue.peek", args[0], driver.Verdict{}, map[string]any{"topic": args[1], "limit": limit},
+			return withQueue(cl, cmd.Context(), "queue.peek", args[0], driver.Verdict{}, map[string]any{"topic": args[1], "limit": limit},
 				func(st *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					if flagChanged(cmd, "idle") && c.Kind != "kafka" {
 						return nil, queuex.NotSupported("--idle", c.Kind, "only a Kafka peek waits for messages to arrive; drop --idle")
 					}
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					o.MaxBytes = maxOutput(st)
+					o.MaxBytes = maxOutput(cl, st)
 					p, err := q.Peek(ctx, o)
 					if err != nil {
 						return nil, err
 					}
 					return queuePeek{Conn: c.Name, PeekResult: p}, nil
 				})
-		},
+		}),
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 10, "how many messages")
 	c.Flags().BoolVar(&oldest, "oldest", false, "the first messages still kept, not the newest")
@@ -293,8 +294,8 @@ func queueGroupsCmd() *cobra.Command {
 		Short:   "List Kafka consumer groups, NATS consumers or Pub/Sub subscriptions",
 		Example: `  komando queue groups prod-kafka`,
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withQueue(cmd.Context(), "queue.groups", args[0], driver.Verdict{}, nil,
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return withQueue(cl, cmd.Context(), "queue.groups", args[0], driver.Verdict{}, nil,
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -302,10 +303,10 @@ func queueGroupsCmd() *cobra.Command {
 					if err != nil {
 						return nil, err
 					}
-					gs = cutRows(gs, limit)
+					gs = cutRows(cl, gs, limit)
 					return queueGroups{Conn: c.Name, Groups: gs, Count: len(gs), kind: c.Kind}, nil
 				})
-		},
+		}),
 	}
 	limitFlag(c, &limit, 0, "groups")
 	return c
@@ -318,8 +319,8 @@ func queueLagCmd() *cobra.Command {
 		Example: `  komando queue lag prod-kafka billing
   komando queue lag stream ORDERS/billing`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return withQueue(cmd.Context(), "queue.lag", args[0], driver.Verdict{}, map[string]any{"group": args[1]},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return withQueue(cl, cmd.Context(), "queue.lag", args[0], driver.Verdict{}, map[string]any{"group": args[1]},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
@@ -329,6 +330,6 @@ func queueLagCmd() *cobra.Command {
 					}
 					return queueLag{Conn: c.Name, GroupLag: l}, nil
 				})
-		},
+		}),
 	}
 }

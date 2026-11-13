@@ -12,7 +12,7 @@ import (
 // an example that names a command or flag komando does not have teaches
 // people something wrong.
 func TestExamplesParse(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		for _, line := range strings.Split(c.Example, "\n") {
@@ -45,7 +45,7 @@ func TestExamplesParse(t *testing.T) {
 // journey as examples, and the times in them are written as komando takes
 // them everywhere (30m, not -30m).
 func TestOpsGroupsShowAJourney(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, g := range []string{"svc", "pkg", "user", "docker", "cron", "net", "cert", "recipe"} {
 		c, _, err := root.Find([]string{g})
 		if err != nil {

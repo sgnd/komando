@@ -25,13 +25,13 @@ func auditHome(t *testing.T) string {
 // rawRun runs komando and returns its last JSON line.
 func rawRun(t *testing.T, args ...string) map[string]any {
 	t.Helper()
-	g.dryRun, g.yes = false, false
-	root := newRoot()
+	tcl.flags.dryRun, tcl.flags.yes = false, false
+	root := newRoot(tcl)
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
-	defer func() { out.P.W = saved }()
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	defer func() { tcl.out.W = saved }()
 	_ = root.Execute()
 	lines := bytes.Split(bytes.TrimSpace(buf.Bytes()), []byte("\n"))
 	var env map[string]any
@@ -190,15 +190,15 @@ func TestStorageFolderDest(t *testing.T) {
 
 func TestSyncDeleteDryRunSaysBlocked(t *testing.T) {
 	invHome(t)
-	out.P.Reset()
-	g.dryRun = true
-	if err := guardDelete(syncOpts{delete: true}, "web1:/srv"); err != nil {
+	tcl.out.Reset()
+	tcl.flags.dryRun = true
+	if err := guardDelete(tcl, syncOpts{delete: true}, "web1:/srv"); err != nil {
 		t.Fatalf("a dry run goes on: %v", err)
 	}
-	if b := out.P.Blocked(); b == nil || b.Code != "POLICY_BLOCKED" {
+	if b := tcl.out.Blocked(); b == nil || b.Code != "POLICY_BLOCKED" {
 		t.Errorf("would_be_blocked: %+v", b)
 	}
-	out.P.Reset()
+	tcl.out.Reset()
 }
 
 func TestTunnelChecks(t *testing.T) {
@@ -259,18 +259,18 @@ func TestFsCatTailReadsTheEnd(t *testing.T) {
 	}
 	b.WriteString("the last line\n")
 	_ = os.WriteFile(p, []byte(b.String()), 0o600)
-	got, trunc, err := readRemoteEnd(context.Background(), nil, sc, p, false, 200)
+	got, trunc, err := readRemoteEnd(tcl, context.Background(), nil, sc, p, false, 200)
 	if err != nil || !trunc {
 		t.Fatalf("trunc %v err %v", trunc, err)
 	}
 	if !strings.HasSuffix(string(got), "the last line\n") || !strings.HasPrefix(string(got), "line ") || len(got) > 200 {
 		t.Errorf("not the end, or a cut first line: %q", got)
 	}
-	r, _ := catContent("web1", p, got, trunc, 0, 1, false)
+	r, _ := catContent(tcl, "web1", p, got, trunc, 0, 1, false)
 	if r.Content != "the last line\n" {
 		t.Errorf("--tail 1: %q", r.Content)
 	}
-	small, trunc, _ := readRemoteEnd(context.Background(), nil, sc, p, false, 1<<20)
+	small, trunc, _ := readRemoteEnd(tcl, context.Background(), nil, sc, p, false, 1<<20)
 	if trunc || string(small) != b.String() {
 		t.Errorf("a small file is read whole")
 	}

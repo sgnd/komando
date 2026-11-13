@@ -25,7 +25,7 @@ func TestStandardDurations(t *testing.T) {
 		}
 	}
 	// every span flag in the tree has the one type, and shows its default short
-	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+	walkLeaves(newRoot(tcl), func(path string, f *pflag.Flag) {
 		switch f.Name {
 		case "timeout", "connect-timeout", "interval", "expires", "ttl", "older-than", "warn", "idle":
 		case "wait":
@@ -93,7 +93,7 @@ func walkLeaves(root *cobra.Command, fn func(path string, f *pflag.Flag)) {
 // S-5.3: one byte-size type; KB = KiB = 1024.
 func TestStandardBytes(t *testing.T) {
 	n := 0
-	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+	walkLeaves(newRoot(tcl), func(path string, f *pflag.Flag) {
 		if f.Name != "max-bytes" && f.Name != "max-output" {
 			return
 		}
@@ -129,7 +129,7 @@ func TestStandardBytes(t *testing.T) {
 // S-5.7: an unset optional number shows no default, never -1, and -1 is
 // not a value one can give.
 func TestStandardNoMinusOneDefault(t *testing.T) {
-	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+	walkLeaves(newRoot(tcl), func(path string, f *pflag.Flag) {
 		if f.DefValue == "-1" {
 			t.Errorf("%s --%s shows default -1", path, f.Name)
 		}
@@ -149,7 +149,7 @@ func TestStandardDefaultFrom(t *testing.T) {
 	for _, s := range settings {
 		keys[s.Key] = true
 	}
-	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+	walkLeaves(newRoot(tcl), func(path string, f *pflag.Flag) {
 		fs := newFlagSchema(f)
 		inText := strings.Contains(f.Usage, "(default: setting")
 		if inText != (fs.DefaultFrom != "") {
@@ -170,7 +170,7 @@ func TestStandardDefaultFrom(t *testing.T) {
 // second KEY= after a comma is a usage error, never one value.
 func TestStandardKeyValue(t *testing.T) {
 	n := 0
-	walkLeaves(newRoot(), func(path string, f *pflag.Flag) {
+	walkLeaves(newRoot(tcl), func(path string, f *pflag.Flag) {
 		switch {
 		case f.Name == "label" || f.Name == "option" || f.Name == "env" && strings.HasPrefix(path, "komando host "):
 			n++

@@ -40,21 +40,21 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 	resetApproval()
 	t.Cleanup(resetApproval)
 	savedA, savedC := askOnScreen, askCodeOnScreen
-	defer func() { askOnScreen, askCodeOnScreen = savedA, savedC; g.yes = false; resetApproval() }()
-	askOnScreen = func(string) (bool, bool) { t.Error("the plain window was used"); return true, true }
+	defer func() { askOnScreen, askCodeOnScreen = savedA, savedC; tcl.flags.yes = false; resetApproval() }()
+	askOnScreen = func(*call, string) (bool, bool) { t.Error("the plain window was used"); return true, true }
 	for typed, want := range map[string]bool{"": false, "123456": false, "now": true} {
 		resetApproval()
 		code := typed
 		if typed == "now" {
 			code = totp(secret, time.Now().Unix()/30)
 		}
-		askCodeOnScreen = func(string) (string, bool, bool) { return code, true, true }
-		g.yes = true
-		if got := yesOK(); got != want {
+		askCodeOnScreen = func(*call, string) (string, bool, bool) { return code, true, true }
+		tcl.flags.yes = true
+		if got := tcl.yesOK(); got != want {
 			t.Errorf("code %q: allowed %v, want %v", typed, got, want)
 		}
-		if !want && cur().sess.Window().Why != "wrong-code" {
-			t.Errorf("code %q: why %q", typed, cur().sess.Window().Why)
+		if !want && tcl.sess.Window().Why != "wrong-code" {
+			t.Errorf("code %q: why %q", typed, tcl.sess.Window().Why)
 		}
 	}
 }

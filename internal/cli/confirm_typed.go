@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -19,7 +18,7 @@ type typedSpec struct {
 // askTypes tells this command's typed question what goes away: the items
 // (keys, files, secrets) and what they are. Without it the question asks
 // for the target (the server or conn) a whole-target step changes.
-func askTypes(items []string, of string) { cur().typed = &typedSpec{items, of} }
+func askTypes(cl *call, items []string, of string) { cl.typed = &typedSpec{items, of} }
 
 // maxTypedName is the longest name a person is asked to type; a longer
 // one, or several, is asked as a count.
@@ -56,19 +55,19 @@ func dangerLine(reason string) string {
 // confirmDangerous asks a person at the terminal to confirm a step that
 // cannot be undone by typing what goes (typedAnswer), so a reflex "y" is
 // not enough.
-func confirmDangerous(names []string, reason string) bool {
-	return confirmDangerousOn(names, nil, reason)
+func confirmDangerous(cl *call, names []string, reason string) bool {
+	return confirmDangerousOn(cl, names, nil, reason)
 }
 
 // confirmDangerousOn is confirmDangerous on targets names, prot of which
 // are protected: one typed question covers the protection too (S-7.4),
 // so confirmProtected does not ask again about them.
-func confirmDangerousOn(names, prot []string, reason string) bool {
-	if g.dryRun || !interactive() {
+func confirmDangerousOn(cl *call, names, prot []string, reason string) bool {
+	if cl.flags.dryRun || !cl.interactive() {
 		return false
 	}
-	askedAbout = names
-	c := cur()
+	cl.askedAbout = names
+	c := cl
 	items, of := names, "the number of targets"
 	if c.typed != nil {
 		items, of = c.typed.items, c.typed.of
@@ -77,21 +76,21 @@ func confirmDangerousOn(names, prot []string, reason string) bool {
 	if want != "" && c.sess.DangerConfirmed(want) {
 		return true // the person typed it in this command already: one question per command (S-7.4)
 	}
-	fmt.Fprintln(os.Stderr, dangerLine(reason))
+	fmt.Fprintln(cl.out.Err, dangerLine(reason))
 	if want == "" { // never "yes": with nothing to name, a person passes the flag
-		sayLine(os.Stderr, "There is no name for you to type here. If you mean it, run it again with --allow-dangerous.")
+		sayLine(cl, "There is no name for you to type here. If you mean it, run it again with --allow-dangerous.")
 		c.sess.SaidNo(true)
 		return false
 	}
 	if len(prot) > 0 {
-		fmt.Fprintf(os.Stderr, "%s (protected): your answer covers that too.\n", strings.Join(prot, ", "))
+		fmt.Fprintf(cl.out.Err, "%s (protected): your answer covers that too.\n", strings.Join(prot, ", "))
 	}
-	ok := ask("Type "+shown+" to continue: ") == want
+	ok := ask(cl, "Type "+shown+" to continue: ") == want
 	c.sess.SaidNo(!ok)
 	if ok {
 		c.sess.ConfirmDanger(want)
 		c.typedProt = append(c.typedProt, prot...)
-		ttyYes("typed " + want + ": " + reason)
+		ttyYes(cl, "typed "+want+": "+reason)
 	}
 	return ok
 }

@@ -40,25 +40,23 @@ var personalCmds = map[string]bool{
 	"user list": true,
 }
 
-// personalCmd: this command, run by an AI agent, may hide personal data.
-var personalCmd bool
-
 // startPersonal decides, before a command runs, whether it may hide
 // personal data; notePersonal then turns it on per target.
 func startPersonal(cmd *cobra.Command) {
-	out.P.Personal = false
-	personalCmd = out.P.Mask && personalCmds[idKey(cmd)]
+	cl := callOf(cmd)
+	cl.out.Personal = false
+	cl.personalCmd = cl.out.Mask && personalCmds[idKey(cmd)]
 }
 
 // notePersonal turns on personal data masking when the command works on a
 // target the mask_personal setting covers.
-func notePersonal(st *store.State, hosts []*store.Host, conns []*store.Conn) {
-	if !personalCmd || out.P.Personal {
+func notePersonal(cl *call, st *store.State, hosts []*store.Host, conns []*store.Conn) {
+	if !cl.personalCmd || cl.out.Personal {
 		return
 	}
 	for _, c := range conns {
 		if strings.EqualFold(c.Options["mask_personal"], "on") || c.Options["mask_columns"] != "" {
-			out.P.Personal = true
+			cl.out.Personal = true
 			return
 		}
 	}
@@ -66,18 +64,18 @@ func notePersonal(st *store.State, hosts []*store.Host, conns []*store.Conn) {
 	case "off":
 		return
 	case "all":
-		out.P.Personal = len(hosts)+len(conns) > 0
+		cl.out.Personal = len(hosts)+len(conns) > 0
 		return
 	}
 	for _, h := range hosts {
 		if protectedHost(st, h) {
-			out.P.Personal = true
+			cl.out.Personal = true
 			return
 		}
 	}
 	for _, c := range conns {
 		if protectedConn(st, c) {
-			out.P.Personal = true
+			cl.out.Personal = true
 			return
 		}
 	}
@@ -86,8 +84,8 @@ func notePersonal(st *store.State, hosts []*store.Host, conns []*store.Conn) {
 // maskColumns hides whole values of the conn's mask_columns (names,
 // addresses, birth dates: personal data no pattern finds) in query
 // results, when personal data is hidden for this command.
-func maskColumns(c *store.Conn, res *dbx.Result) {
-	if !out.P.Mask || !out.P.Personal || c.Options["mask_columns"] == "" {
+func maskColumns(cl *call, c *store.Conn, res *dbx.Result) {
+	if !cl.out.Mask || !cl.out.Personal || c.Options["mask_columns"] == "" {
 		return
 	}
 	want := map[string]bool{}

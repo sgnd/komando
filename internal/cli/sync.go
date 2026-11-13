@@ -52,7 +52,10 @@ type syncSide interface {
 
 // Sync side: a folder on this computer.
 
-type localSide struct{ root string }
+type localSide struct {
+	cl   *call // the call it works for
+	root string
+}
 
 func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	files := map[string]syncFile{}
@@ -100,8 +103,8 @@ type agentLocalSide struct {
 	secret map[string]bool
 }
 
-func newAgentLocalSide(ctx context.Context, root string) agentLocalSide {
-	l := agentLocalSide{localSide: localSide{root: root}, secret: map[string]bool{}}
+func newAgentLocalSide(cl *call, ctx context.Context, root string) agentLocalSide {
+	l := agentLocalSide{localSide: localSide{cl: cl, root: root}, secret: map[string]bool{}}
 	files, _ := l.localSide.list(ctx) // an error shows when the sync lists it
 	rels := make([]string, 0, len(files))
 	for rel, f := range files {
@@ -111,7 +114,7 @@ func newAgentLocalSide(ctx context.Context, root string) agentLocalSide {
 	}
 	sort.Strings(rels)
 	for _, rel := range rels {
-		if skipLocalSecret(filepath.Join(root, filepath.FromSlash(rel))) {
+		if skipLocalSecret(cl, filepath.Join(root, filepath.FromSlash(rel))) {
 			l.secret[rel] = true
 		}
 	}
@@ -160,8 +163,8 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	defer os.Remove(tmp.Name())
 	defer tmpclean.Add(tmp.Name())()
 	// the destination watches ctx: an SFTP source keeps reading in parallel
-	if out.P.Mask && !revealOK() {
-		_, _, err = fetchMasked(ctx, r, tmp, io.Discard, nil) // as download does: secret values as [hidden]
+	if l.cl.out.Mask && !l.cl.revealOK() {
+		_, _, err = fetchMasked(l.cl, ctx, r, tmp, io.Discard, nil) // as download does: secret values as [hidden]
 	} else {
 		_, err = io.Copy(storex.CtxWriter(ctx, tmp), r)
 	}
@@ -194,6 +197,7 @@ func (l localSide) remove(_ context.Context, rel string) error {
 // Sync side: a folder on a server, over SFTP.
 
 type sftpSide struct {
+	cl   *call // the call it works for
 	sc   *sftp.Client
 	root string
 }
@@ -231,7 +235,7 @@ const syncPermHint = "sync reads and writes as the SSH user; fix the owner or pe
 func (s sftpSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 	f, err := s.sc.Open(path.Join(s.root, rel))
 	if err != nil {
-		return nil, fsErr(rel, err)
+		return nil, fsErr(s.cl, rel, err)
 	}
 	return f, nil
 }
@@ -242,12 +246,12 @@ func (s sftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile
 	}
 	dst := path.Join(s.root, rel)
 	if err := s.sc.MkdirAll(path.Dir(dst)); err != nil {
-		return fsErr(path.Dir(dst), err)
+		return fsErr(s.cl, path.Dir(dst), err)
 	}
 	tmp := path.Join(path.Dir(dst), fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst)))
 	o, err := s.sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 	if err != nil {
-		return fsErr(dst, err) // the file the person named, not the temporary one
+		return fsErr(s.cl, dst, err) // the file the person named, not the temporary one
 	}
 	_, err = io.Copy(o, storex.CtxReader(ctx, r))
 	if cerr := o.Close(); err == nil {
@@ -266,14 +270,14 @@ func (s sftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile
 	if err := s.sc.PosixRename(tmp, dst); err != nil {
 		if err2 := s.sc.Rename(tmp, dst); err2 != nil {
 			s.sc.Remove(tmp)
-			return fsErr(dst, err)
+			return fsErr(s.cl, dst, err)
 		}
 	}
 	return nil
 }
 
 func (s sftpSide) remove(_ context.Context, rel string) error {
-	return fsErr(rel, s.sc.Remove(path.Join(s.root, rel)))
+	return fsErr(s.cl, rel, s.sc.Remove(path.Join(s.root, rel)))
 }
 
 // Planning what to copy and delete.
@@ -357,7 +361,7 @@ func planSync(src, dst map[string]syncFile, o syncOpts) []syncAction {
 }
 
 // runSync plans and (unless dry-run) carries out one sync.
-func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o syncOpts) (*syncResult, error) {
+func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName string, o syncOpts) (*syncResult, error) {
 	sf, err := src.list(ctx)
 	if errors.Is(err, errSideMissing) {
 		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path; nothing was changed", "%s does not exist (or holds no files)", srcName)
@@ -370,7 +374,7 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 	if err != nil && !newFolder {
 		return nil, err
 	}
-	res := &syncResult{Src: srcName, Dst: dstName, DryRun: g.dryRun, Actions: []syncAction{}, NewFolder: newFolder}
+	res := &syncResult{Src: srcName, Dst: dstName, DryRun: cl.flags.dryRun, Actions: []syncAction{}, NewFolder: newFolder}
 	files := 0
 	for rel, f := range sf {
 		switch {
@@ -407,7 +411,7 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 	if len(acts) > shown {
 		res.Actions, res.More = acts[:shown], true
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		return res, nil
 	}
 	pp := progressFrom(ctx)
@@ -506,10 +510,10 @@ the SSH user still needs to read the folder.`,
   komando sync backups:2026/ ./restore
   komando sync web1:/var/log/app ./logs/web1`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, finish := startProgress(cmd.Context(), progress)
-			return finish(runSyncArgs(ctx, args, o))
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			ctx, finish := startProgress(cl, cmd.Context(), progress)
+			return finish(runSyncArgs(cl, ctx, args, o))
+		}),
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
 	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
@@ -520,9 +524,9 @@ the SSH user still needs to read the folder.`,
 }
 
 // runSyncArgs is sync: up or down, by which side is remote.
-func runSyncArgs(ctx context.Context, args []string, o syncOpts) error {
-	srcT, srcP, srcRemote := splitArg(args[0])
-	dstT, dstP, dstRemote := splitArg(args[1])
+func runSyncArgs(cl *call, ctx context.Context, args []string, o syncOpts) error {
+	srcT, srcP, srcRemote := splitArg(cl, args[0])
+	dstT, dstP, dstRemote := splitArg(cl, args[1])
 	switch {
 	case srcRemote && dstRemote:
 		return out.Usage("both sides are remote; sync needs one folder on this computer (go remote to remote by way of a local folder)")
@@ -539,41 +543,41 @@ func runSyncArgs(ctx context.Context, args []string, o syncOpts) error {
 		}
 	}
 	if dstRemote {
-		return colonHint(syncUp(ctx, "sync", srcP, dstT, dstP, o), args[1])
+		return colonHint(syncUp(cl, ctx, "sync", srcP, dstT, dstP, o), args[1])
 	}
-	return colonHint(syncDown(ctx, "sync", srcT, srcP, dstP, o), args[0])
+	return colonHint(syncDown(cl, ctx, "sync", srcT, srcP, dstP, o), args[0])
 }
 
 // guardDelete: --delete removes files for good, like `storage rm`. A person
 // at the terminal confirms by typing the destination.
 // Under --dry-run the stop goes to meta.would_be_blocked.
-func guardDelete(o syncOpts, dst string) error {
-	if o.delete && !dangerOK() && !confirmDangerous([]string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
-		return policyStop(approvalErr("POLICY_BLOCKED",
+func guardDelete(cl *call, o syncOpts, dst string) error {
+	if o.delete && !cl.dangerOK() && !confirmDangerous(cl, []string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
+		return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 			"--delete removes files in the destination that the source does not have"))
 	}
 	return nil
 }
 
 // syncUp sends a local folder to servers or to a storage conn.
-func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts) error {
-	storage, err := fileTarget(target)
+func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o syncOpts) error {
+	storage, err := fileTarget(cl, target)
 	if err != nil {
 		return err
 	}
-	if err := guardDelete(o, target+":"+remote); err != nil {
+	if err := guardDelete(cl, o, target+":"+remote); err != nil {
 		return err
 	}
-	if err := guardLocalRead(local); err != nil {
+	if err := guardLocalRead(cl, local); err != nil {
 		return err
 	}
-	var src syncSide = localSide{root: local}
-	if isAgent() {
+	var src syncSide = localSide{cl: cl, root: local}
+	if cl.isAgent() {
 		// each file is checked as cp -r does: komando's own data and private
 		// keys stay here even under a folder that holds them (sync ~ web:),
 		// and files that are secrets by name too, unless the user allows
 		// --reveal, as syncDown leaves them there
-		src = newAgentLocalSide(ctx, local)
+		src = newAgentLocalSide(cl, ctx, local)
 	}
 	if storage && o.sudo {
 		return out.Usage("--sudo is for servers")
@@ -583,23 +587,23 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 		if o.delete {
 			v = driver.DataDelete()
 		}
-		return syncStorage(ctx, name, target, v, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
-			return runSync(ctx, src, bucketSide{b: b, prefix: folderKey(remote)}, local, c.Name+":"+remote, o)
+		return syncStorage(cl, ctx, name, target, v, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+			return runSync(cl, ctx, src, bucketSide{b: b, prefix: folderKey(remote)}, local, c.Name+":"+remote, o)
 		})
 	}
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
-	if err := guard(st, hosts, "", true); err != nil {
+	if err := guard(cl, st, hosts, "", true); err != nil {
 		return err
 	}
 	progressFrom(ctx).eachServer(len(hosts)) // each server needs its own files
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		ctx, settle := progressServer(ctx)
 		defer settle()
 		sc, err := sftpClient(c)
@@ -607,89 +611,89 @@ func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts)
 			return nil, err
 		}
 		defer sc.Close()
-		var dst syncSide = sftpSide{sc: sc, root: expandRemote(sc, remote)}
+		var dst syncSide = sftpSide{cl: cl, sc: sc, root: expandRemote(sc, remote)}
 		if o.sudo {
 			if c.Host.Windows() {
 				return nil, out.Usage("--sudo is for Linux and other Unix servers; %s runs Windows", c.Host.Name)
 			}
-			dst = sudoSftpSide{sftpSide: sftpSide{sc: sc, root: expandRemote(sc, remote)}, c: c}
+			dst = sudoSftpSide{sftpSide: sftpSide{cl: cl, sc: sc, root: expandRemote(sc, remote)}, c: c}
 		}
-		r, err := runSync(ctx, src, dst, local, c.Host.Name+":"+remote, o)
+		r, err := runSync(cl, ctx, src, dst, local, c.Host.Name+":"+remote, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
 		return r, err
 	})
-	return finishSync(st, name, hosts, res, local, target+":"+remote)
+	return finishSync(cl, st, name, hosts, res, local, target+":"+remote)
 }
 
 // syncDown fetches a folder from one server or a storage conn.
-func syncDown(ctx context.Context, name, target, remote, local string, o syncOpts) error {
+func syncDown(cl *call, ctx context.Context, name, target, remote, local string, o syncOpts) error {
 	if o.sudo {
 		return out.Usage("sync --sudo writes as root on servers (a folder here to a server); to read a file only root can read, use `komando download %s %s --sudo` per file", target, remote)
 	}
-	storage, err := fileTarget(target)
+	storage, err := fileTarget(cl, target)
 	if err != nil {
 		return err
 	}
-	if err := guardDelete(o, local); err != nil {
+	if err := guardDelete(cl, o, local); err != nil {
 		return err
 	}
-	if isAgent() && !revealOK() {
+	if cl.isAgent() && !cl.revealOK() {
 		// files that are secrets by name stay where they are (sensitive.go)
 		o.exclude = append(o.exclude, sensitiveGlobs...)
 	}
-	dst := localSide{root: local}
+	dst := localSide{cl: cl, root: local}
 	if storage {
-		return syncStorage(ctx, name, target, driver.Verdict{}, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
-			return runSync(ctx, bucketSide{b: b, prefix: folderKey(remote)}, dst, c.Name+":"+remote, local, o)
+		return syncStorage(cl, ctx, name, target, driver.Verdict{}, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+			return runSync(cl, ctx, bucketSide{b: b, prefix: folderKey(remote)}, dst, c.Name+":"+remote, local, o)
 		})
 	}
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	h, err := oneServer(st, target, "sync downloads from one server; name one, for example `komando sync SERVER:"+remote+" "+local+"`")
+	h, err := oneServer(cl, st, target, "sync downloads from one server; name one, for example `komando sync SERVER:"+remote+" "+local+"`")
 	if err != nil {
 		return err
 	}
-	res := fanout(ctx, st, []*store.Host{h}, func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(cl, ctx, st, []*store.Host{h}, func(ctx context.Context, c *sshx.Client) (any, error) {
 		sc, err := sftpClient(c)
 		if err != nil {
 			return nil, err
 		}
 		defer sc.Close()
-		r, err := runSync(ctx, sftpSide{sc: sc, root: expandRemote(sc, remote)}, dst, c.Host.Name+":"+remote, local, o)
+		r, err := runSync(cl, ctx, sftpSide{cl: cl, sc: sc, root: expandRemote(sc, remote)}, dst, c.Host.Name+":"+remote, local, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
 		return r, err
 	})
-	return finishSync(st, name, []*store.Host{h}, res, target+":"+remote, local)
+	return finishSync(cl, st, name, []*store.Host{h}, res, target+":"+remote, local)
 }
 
 // syncStorage runs a sync against one storage conn. Unlike other storage
 // changes, a dry run still reads both sides, so it can list the files.
-func syncStorage(ctx context.Context, name, connExpr string, v driver.Verdict, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
+func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "storage")
+	c, err := singleConn(cl, st, connExpr, "storage")
 	if err != nil {
 		return err
 	}
-	if v.Risk > driver.RiskRead && !g.dryRun {
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+	if v.Risk > driver.RiskRead && !cl.flags.dryRun {
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
 		}
 	}
-	if g.timeout > 0 {
+	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
-	b, err := openBucket(ctx, st, c)
+	b, err := openBucket(cl, ctx, st, c)
 	if err != nil {
 		return err
 	}
@@ -701,12 +705,12 @@ func syncStorage(ctx context.Context, name, connExpr string, v driver.Verdict, f
 		rec["copied"], rec["updated"], rec["deleted"] = r.Copied, r.Updated, r.Deleted
 	}
 	if v.Risk > driver.RiskRead || (r != nil && !r.DryRun) {
-		audit(st, name, nil, "", err == nil, rec)
+		audit(cl, st, name, nil, "", err == nil, rec)
 	}
 	if err != nil {
 		return toErr(err)
 	}
-	out.P.Print(name, data, nil)
+	cl.out.Print(name, data, nil)
 	return nil
 }
 
@@ -748,7 +752,7 @@ func (f syncFleet) Text() string {
 	return sb.String()
 }
 
-func finishSync(st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string) error {
+func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string) error {
 	data := syncFleet{Results: []any{}}
 	worst := 0
 	var fails []hostFail
@@ -766,8 +770,8 @@ func finishSync(st *store.State, name string, hosts []*store.Host, res []outcome
 		data.Summary.OK++
 		data.Results = append(data.Results, o.Value)
 	}
-	if !g.dryRun {
-		audit(st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
+	if !cl.flags.dryRun {
+		audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
 	}
-	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

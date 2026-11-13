@@ -27,9 +27,9 @@ func vpnServeCmd() *cobra.Command {
 		Use:    "serve NAME",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fail := func(err error) error { fmt.Printf("ERROR %v\n", err); return exitCode(1) }
-			socksUser, socksPass, err := serveStdin(os.Stdin, passwordStdin, passStdin)
+			socksUser, socksPass, err := serveStdin(cl.stdin, passwordStdin, passStdin)
 			if err != nil {
 				return fail(err)
 			}
@@ -43,7 +43,7 @@ func vpnServeCmd() *cobra.Command {
 			}
 			ctx := cmd.Context()
 			started := time.Now()
-			d, closer, err := netx.OpenDirect(ctx, v, sshOpts(st).ConnectTimeout)
+			d, closer, err := netx.OpenDirect(ctx, v, sshOpts(cl, st).ConnectTimeout)
 			if err != nil {
 				return fail(err)
 			}
@@ -79,8 +79,8 @@ func vpnServeCmd() *cobra.Command {
 					ln.Close()
 				}()
 			}
-			cm := &connMgr{ctx: ctx, st: st, vpnDial: d}
-			logger := log.New(os.Stdout, "", log.LstdFlags)
+			cm := &connMgr{cl: cl, ctx: ctx, st: st, vpnDial: d}
+			logger := log.New(cl.out.W, "", log.LstdFlags)
 			// only a client that logged in keeps the session from going
 			// idle, for as long as its connection stays open
 			acceptLoop(ln, logger, func(c net.Conn) {
@@ -96,7 +96,7 @@ func vpnServeCmd() *cobra.Command {
 				return nil
 			})
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&passwordStdin, "password-stdin", false, "read the SOCKS login and a typed VPN password from stdin")
 	c.Flags().BoolVar(&passStdin, strings.TrimPrefix(vault.PassStdinFlag, "--"), false, "then read the vault passphrase from stdin (vpn up passes it)")

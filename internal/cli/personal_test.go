@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // personalDB is a SQLite file with one customer, reached as a protected
@@ -86,12 +84,12 @@ func TestPersonalMaskColumns(t *testing.T) {
 
 	// CSV goes through the same masking
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
-	root := newRoot()
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	root := newRoot(tcl)
 	root.SetArgs([]string{"db", "query", "prod", "-o", "csv", "select email, card from users"})
 	err := root.Execute()
-	out.P.W = saved
+	tcl.out.W = saved
 	if err != nil || !strings.Contains(buf.String(), "[hidden: email],[hidden: card]") || strings.Contains(buf.String(), "ada@") {
 		t.Errorf("CSV for an agent: %q %v", buf.String(), err)
 	}

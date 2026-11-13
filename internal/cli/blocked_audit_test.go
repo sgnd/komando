@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"testing"
 
@@ -13,13 +12,13 @@ import (
 // the exit code and what it printed.
 func runMain(t *testing.T, args ...string) (int, string) {
 	t.Helper()
-	g.dryRun, g.yes, g.allowDangerous = false, false, false
-	saved, savedW := os.Args, out.P.W
+	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+	saved, savedW := tcl.args, tcl.out.W
 	var buf bytes.Buffer
-	out.P.W = &buf
-	os.Args = append([]string{"komando", "-o", "json"}, args...)
-	defer func() { os.Args, out.P.W = saved, savedW }()
-	return Execute(), buf.String()
+	tcl.out.W = &buf
+	tcl.args = append([]string{"komando", "-o", "json"}, args...)
+	defer func() { tcl.args, tcl.out.W = saved, savedW }()
+	return executeArgs(tcl.args[1:]), buf.String()
 }
 
 // Every blocked attempt is a line in the audit log, once, also where the

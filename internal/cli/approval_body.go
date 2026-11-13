@@ -31,8 +31,8 @@ const (
 )
 
 // noteApprovalBody tells the approval window of this command what it sends.
-func noteApprovalBody(label string, body []byte) {
-	cur().body = &approvalBody{label: label, body: body}
+func noteApprovalBody(cl *call, label string, body []byte) {
+	cl.body = &approvalBody{label: label, body: body}
 }
 
 // scriptLabel names a file the command reads: "-" is komando's stdin.
@@ -52,7 +52,7 @@ func scriptLabel(kind, file string) string {
 // secret on the screen. Values komando keeps secret show as [hidden]
 // (hiddenInInput refuses them in the file already). So is a body too
 // long to show whole. The SHA-256 is of the body as sent.
-func (b *approvalBody) shown() (text, bad string) {
+func (b *approvalBody) shown(cl *call) (text, bad string) {
 	if len(b.body) > bodyMaxBytes {
 		return "", fmt.Sprintf("%s is %d bytes, more than the %d the window shows whole", b.label, len(b.body), bodyMaxBytes)
 	}
@@ -70,7 +70,7 @@ func (b *approvalBody) shown() (text, bad string) {
 	var shown []string
 	numW := len(strconv.Itoa(len(lines)))
 	for i, l := range lines {
-		for j, piece := range bodyLine(l) {
+		for j, piece := range bodyLine(cl, l) {
 			num := strconv.Itoa(i + 1)
 			if j > 0 {
 				num = "" // a wrapped piece of the line above
@@ -97,10 +97,10 @@ func (b *approvalBody) shown() (text, bad string) {
 // most bodyWrap characters: komando's own secrets hidden, its indent kept
 // short, and written with escapes ($'...') when a character in it would
 // not show as itself. A wrapped piece keeps the indent.
-func bodyLine(l string) []string {
+func bodyLine(cl *call, l string) []string {
 	l = strings.TrimSuffix(l, "\r")
 	l = strings.ReplaceAll(l, "\t", "  ")
-	l = out.P.RedactExact(l)
+	l = cl.out.RedactExact(l)
 	rest := strings.TrimLeft(l, " ")
 	indent := strings.Repeat(" ", min(len(l)-len(rest), maxSpaces))
 	if needsEscapes(rest) {

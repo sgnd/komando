@@ -23,8 +23,8 @@ func invHome(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	t.Cleanup(func() {
-		g.dryRun, g.yes, g.allowDangerous, store.DryRun = false, false, false, false
-		out.P.Format = "json"
+		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous, store.DryRun = false, false, false, false
+		tcl.out.Format = "json"
 	})
 }
 
@@ -32,17 +32,17 @@ func invHome(t *testing.T) {
 func invRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	t.Helper()
 	closeStoreAtEnd(t)
-	g.dryRun, g.yes, store.DryRun = false, false, false
-	root := newRoot()
+	tcl.flags.dryRun, tcl.flags.yes, store.DryRun = false, false, false
+	root := newRoot(tcl)
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
-	defer func() { out.P.W = saved }()
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	defer func() { tcl.out.W = saved }()
 	cmd, err := root.ExecuteC()
 	var oe *out.Error
 	if err != nil && !errors.As(err, &oe) && isUsageErr(err) {
-		err = usageErr(cmd, err) // as Execute does: a flag or argument error is USAGE
+		err = usageErr(tcl, cmd, err) // as Execute does: a flag or argument error is USAGE
 	}
 	var env struct {
 		Data  map[string]any `json:"data"`
@@ -287,7 +287,7 @@ func TestInvCleanPubLine(t *testing.T) {
 	st, _ := loadState()
 	f := filepath.Join(t.TempDir(), "x.pub")
 	os.WriteFile(f, []byte(st.Keys["k"].PublicKey+" a\rb\n"), 0o600)
-	_, line, err := deployKey(st, f)
+	_, line, err := deployKey(tcl, st, f)
 	if err != nil || strings.ContainsAny(line, "\r\n") {
 		t.Errorf("line %q, %v", line, err)
 	}
@@ -394,7 +394,7 @@ func TestInvSelectors(t *testing.T) {
 		"WEB-1":          "web-1",
 		"127.0.0.1:3323": "127.0.0.1:3323",
 	} {
-		hs, err := resolveTargets(st, expr)
+		hs, err := resolveTargets(tcl, st, expr)
 		if err != nil {
 			t.Errorf("%s: %v", expr, err)
 			continue
@@ -403,7 +403,7 @@ func TestInvSelectors(t *testing.T) {
 			t.Errorf("%s: got %s want %s", expr, got, want)
 		}
 	}
-	_, err := resolveSelection(st, "@wbe")
+	_, err := resolveSelection(tcl, st, "@wbe")
 	if e := toErr(err); !strings.Contains(e.Message, `no group named "wbe"`) || !strings.Contains(e.Hint, "@web") {
 		t.Errorf("group not found: %+v", e)
 	}
@@ -415,7 +415,7 @@ func TestInvSSHCommand(t *testing.T) {
 	st.Keys["k"] = &store.Key{Name: "k", Path: "/keys/k"}
 	st.Hosts["b"] = &store.Host{Name: "b", Address: "10.0.0.1", Port: 2222, User: "jump", Key: "k"}
 	st.Hosts["t"] = &store.Host{Name: "t", Address: "10.0.0.2", User: "app", Key: "k", Via: "b"}
-	parts, err := sshCommandFor(st, st.Hosts["t"])
+	parts, err := sshCommandFor(tcl, st, st.Hosts["t"])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -428,12 +428,12 @@ func TestInvSSHCommand(t *testing.T) {
 	}
 	st.Vpns["v"] = &store.Vpn{Name: "v", Kind: "socks", Address: "127.0.0.1:1080"}
 	st.Hosts["b"].Via = "v"
-	parts, _ = sshCommandFor(st, st.Hosts["t"])
+	parts, _ = sshCommandFor(tcl, st, st.Hosts["t"])
 	if line = strings.Join(parts, " "); !strings.Contains(line, "nc -X 5 -x 127.0.0.1:1080 %%h %%p") {
 		t.Errorf("socks first hop, escaped once for nesting: %s", line)
 	}
 	st.Vpns["v"].Kind = "wireguard"
-	if _, err := sshCommandFor(st, st.Hosts["t"]); toErr(err).Code != "VPN_NOT_FOR_OPENSSH" {
+	if _, err := sshCommandFor(tcl, st, st.Hosts["t"]); toErr(err).Code != "VPN_NOT_FOR_OPENSSH" {
 		t.Errorf("wireguard: %v", err)
 	}
 }
@@ -459,7 +459,7 @@ func TestInvDoctorInventory(t *testing.T) {
 	invHome(t)
 	st := &store.State{Hosts: map[string]*store.Host{}, Keys: map[string]*store.Key{}, Conns: map[string]*store.Conn{}, Vpns: map[string]*store.Vpn{}}
 	st.Hosts["a"] = &store.Host{Name: "a", Address: "x", Port: 99999, Via: "nosuch", PasswordRef: "hunter2", ProxyCommand: "nc %h %p"}
-	cs := inventoryChecks(st)
+	cs := inventoryChecks(tcl, st)
 	var fails, warns int
 	for _, c := range cs {
 		if c.Warning {
@@ -595,12 +595,12 @@ func TestExportTextIsImportable(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@192.0.2.10")
 	textOut := func(args ...string) []byte {
 		t.Helper()
-		root := newRoot()
+		root := newRoot(tcl)
 		root.SetArgs(append([]string{"-o", "text"}, args...))
 		var buf bytes.Buffer
-		saved := out.P.W
-		out.P.W = &buf
-		defer func() { out.P.W = saved; out.P.Format = "json" }()
+		saved := tcl.out.W
+		tcl.out.W = &buf
+		defer func() { tcl.out.W = saved; tcl.out.Format = "json" }()
 		if err := root.Execute(); err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
@@ -608,7 +608,7 @@ func TestExportTextIsImportable(t *testing.T) {
 	}
 	f := filepath.Join(t.TempDir(), "exp.json")
 	os.WriteFile(f, textOut("export"), 0o600)
-	if p, err := importKomando(f); err != nil || len(p.Hosts) != 1 {
+	if p, err := importKomando(tcl, f); err != nil || len(p.Hosts) != 1 {
 		t.Errorf("export -o text: %v %v", p, err)
 	}
 }
@@ -675,20 +675,19 @@ func TestPolicyCheckFor(t *testing.T) {
 // policy deny and rm say "would" in a dry run, and show the pattern as
 // written, not Go-quoted.
 func TestPolicyChangeText(t *testing.T) {
-	t.Cleanup(func() { g.dryRun = false })
+	t.Cleanup(func() { tcl.flags.dryRun = false })
 	yes := true
 	for _, tc := range []struct {
 		dry  bool
 		p    policyChange
 		want string
 	}{
-		{false, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}.denied(), "added the deny rule a\\s+b as " + policy.CustomID(`a\s+b`) + " (1 custom rule now)\n"},
-		{true, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}.denied(), "would add the deny rule a\\s+b as " + policy.CustomID(`a\s+b`) + " (dry run; 1 custom rule then)\n"},
+		{false, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}.denied(tcl), "added the deny rule a\\s+b as " + policy.CustomID(`a\s+b`) + " (1 custom rule now)\n"},
+		{true, policyChange{Custom: []string{`a\s+b`}, Added: &yes, pattern: `a\s+b`}.denied(tcl), "would add the deny rule a\\s+b as " + policy.CustomID(`a\s+b`) + " (dry run; 1 custom rule then)\n"},
 		{false, policyChange{Custom: []string{}, Removed: `a\s+b`}, "removed the deny rule a\\s+b (0 custom rules left)\n"},
 		{true, policyChange{Custom: []string{}, Removed: `a\s+b`}, "would remove the deny rule a\\s+b (dry run; 0 custom rules left then)\n"},
 	} {
-		g.dryRun = tc.dry
-		if got := tc.p.Text(); got != tc.want {
+		if got := tc.p.TextFor(&out.Printer{DryRun: tc.dry}); got != tc.want {
 			t.Errorf("got %q, want %q", got, tc.want)
 		}
 	}

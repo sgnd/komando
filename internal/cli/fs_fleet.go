@@ -22,7 +22,7 @@ type fsFleetData struct {
 
 // Text is each server's change; with several servers each starts with
 // its name, and a failed one says why.
-func (d fsFleetData) Text() string {
+func (d fsFleetData) TextFor(p *out.Printer) string {
 	var b strings.Builder
 	many := len(d.Results) > 1
 	for _, r := range d.Results {
@@ -35,7 +35,7 @@ func (d fsFleetData) Text() string {
 			}
 			continue
 		}
-		t := r.Text()
+		t := r.TextFor(p)
 		if many {
 			t = fmt.Sprint(r["host"]) + ": " + t
 		}
@@ -46,8 +46,8 @@ func (d fsFleetData) Text() string {
 
 // runFsFleet runs edit on every server of hosts (in parallel, as exec
 // does), then prints the results and audits name with path.
-func runFsFleet(ctx context.Context, st *store.State, name, path string, hosts []*store.Host, edit func(ctx context.Context, c *sshx.Client) (fsChange, error)) (fsFleetData, error) {
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) { return edit(ctx, c) })
+func runFsFleet(cl *call, ctx context.Context, st *store.State, name, path string, hosts []*store.Host, edit func(ctx context.Context, c *sshx.Client) (fsChange, error)) (fsFleetData, error) {
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) { return edit(ctx, c) })
 	data := fsFleetData{Results: []fsChange{}}
 	worst := 0
 	var fails []hostFail
@@ -72,8 +72,8 @@ func runFsFleet(ctx context.Context, st *store.State, name, path string, hosts [
 		data.Results = append(data.Results, row)
 	}
 	data.Summary.Total = len(res)
-	audit(st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"path": path})
-	return data, finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"path": path})
+	return data, finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }
 
 // changedWithBackup is how many servers fs replace changed with a backup

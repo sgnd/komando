@@ -79,12 +79,12 @@ func hostRmCmd() *cobra.Command {
   komando host rm @old --dry-run     # what a selector would remove
   komando host rm 'tmp-*'`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var names, kept, unused []string
 			err := store.Update(func(s *store.State) error {
 				var prot []string
 				batch := map[string]bool{}
-				hosts, err := pickHosts(s, args)
+				hosts, err := pickHosts(cl, s, args)
 				if err != nil {
 					return err
 				}
@@ -98,7 +98,7 @@ func hostRmCmd() *cobra.Command {
 				if err := hostsInUse(s, names, batch); err != nil {
 					return err
 				}
-				if err := guardProtection("host", "removing", prot); err != nil {
+				if err := guardProtection(cl, "host", "removing", prot); err != nil {
 					return err
 				}
 				gone := map[string]string{} // name -> address
@@ -119,14 +119,14 @@ func hostRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "host.rm", names, "", true, nil)
-			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused}
+			audit(cl, nil, "host.rm", names, "", true, nil)
+			res := rmResult{Removed: names, HostKeysKept: kept, SecretsUnused: unused, dryRun: cl.flags.dryRun}
 			if len(kept) > 0 {
 				res.Note = "the pinned host keys of " + strings.Join(kept, ", ") + " stay in komando's known_hosts, so a server added again at the same address has to show the same key. " +
 					"If it was rebuilt, add it again and replace the pin with `komando host trust NAME --reset` (a person confirms the new key)"
 			}
-			out.P.Print("host.rm", res, nil)
+			cl.out.Print("host.rm", res, nil)
 			return nil
-		},
+		}),
 	}
 }

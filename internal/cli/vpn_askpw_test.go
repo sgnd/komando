@@ -32,11 +32,11 @@ func TestVpnAddAskPassword(t *testing.T) {
 	}
 
 	// a person
-	saved, savedInteractive := readPassword, interactive
-	t.Cleanup(func() { readPassword, interactive = saved, savedInteractive })
-	interactive = func() bool { return true }
+	saved, savedInteractive := readPassword, tcl.terminal
+	t.Cleanup(func() { readPassword, tcl.terminal = saved, savedInteractive })
+	tcl.terminal = true
 	asked := 0
-	readPassword = func(label string) (string, error) {
+	readPassword = func(_ *call, label string) (string, error) {
 		asked++
 		if !strings.HasPrefix(label, "Password for ") {
 			t.Errorf("question: %q", label)
@@ -73,7 +73,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 
 	// a failed add takes back the secret it made: here the name is taken
 	// while the person types
-	readPassword = func(string) (string, error) {
+	readPassword = func(*call, string) (string, error) {
 		err := store.Update(func(s *store.State) error {
 			s.Hosts["bad"] = &store.Host{Name: "bad", Address: "10.0.0.9"}
 			return nil
@@ -88,7 +88,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 	}
 
 	// a dry run asks nothing and stores nothing
-	readPassword = func(string) (string, error) { asked++; return "x", nil }
+	readPassword = func(*call, string) (string, error) { asked++; return "x", nil }
 	mustRun(t, socks("dry1", "--dry-run")...)
 	if _, err := vault.Get("dry1-pass"); err == nil || asked != 0 {
 		t.Errorf("dry run asked %d times or stored the secret", asked)
@@ -101,11 +101,11 @@ func TestVpnAddAskPassword(t *testing.T) {
 func TestVpnAddAskPasswordOverwriteRefused(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	saved, savedInteractive := readPassword, interactive
-	t.Cleanup(func() { readPassword, interactive = saved, savedInteractive })
-	interactive = func() bool { return true }
+	saved, savedInteractive := readPassword, tcl.terminal
+	t.Cleanup(func() { readPassword, tcl.terminal = saved, savedInteractive })
+	tcl.terminal = true
 	asked := 0
-	readPassword = func(string) (string, error) { asked++; return "Old-Vpn-1", nil }
+	readPassword = func(*call, string) (string, error) { asked++; return "Old-Vpn-1", nil }
 	socks := func(extra ...string) []string {
 		return append([]string{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
 	}
@@ -129,7 +129,7 @@ func TestVpnAddAskPasswordOverwriteRefused(t *testing.T) {
 	keep("refused before asking")
 
 	// refused after the person typed: the name became a server's meanwhile
-	readPassword = func(string) (string, error) {
+	readPassword = func(*call, string) (string, error) {
 		err := store.Update(func(s *store.State) error {
 			delete(s.Vpns, "lab")
 			s.Hosts["lab"] = &store.Host{Name: "lab", Address: "10.0.0.9"}

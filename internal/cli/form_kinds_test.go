@@ -40,9 +40,9 @@ func formCheckLine(t *testing.T, source string, line []string) {
 // as formSample gives them), builds lines komando takes.
 func TestFormAddEveryChoiceBuilds(t *testing.T) {
 	for _, st := range []*store.State{testState(), {Hosts: map[string]*store.Host{}}} {
-		for _, g := range formGroups() {
+		for _, g := range formGroups(tcl) {
 			for _, k := range g.kinds {
-				sp := k.spec()
+				sp := k.spec(tcl)
 				for i, q := range sp.qs {
 					if q.choices == nil {
 						continue
@@ -76,10 +76,10 @@ func TestFormAddEveryChoiceBuilds(t *testing.T) {
 // formKindSpec finds one kind's form by its group and label.
 func formKindSpec(t *testing.T, group, label string) formSpec {
 	t.Helper()
-	for _, g := range formGroups() {
+	for _, g := range formGroups(tcl) {
 		for _, k := range g.kinds {
 			if g.label == group && k.label == label {
-				return k.spec()
+				return k.spec(tcl)
 			}
 		}
 	}
@@ -198,13 +198,13 @@ func TestFormNewKindChecks(t *testing.T) {
 			t.Errorf("%q: %q, want %q", c.v, p, c.want)
 		}
 	}
-	sp := clickhouseForm()
+	sp := clickhouseForm(tcl)
 	for _, q := range sp.qs {
 		if q.key == "port" && !strings.Contains(q.check(nil, formAnswers{}, "9000"), "native") {
 			t.Error("ClickHouse port 9000 is taken")
 		}
 	}
-	host := sqlServerForm().qs[2]
+	host := sqlServerForm(tcl).qs[2]
 	if p := host.check(nil, formAnswers{}, `db\SQLEXPRESS`); !strings.Contains(p, "named instance") {
 		t.Errorf("named instance: %q", p)
 	}
@@ -214,7 +214,7 @@ func TestFormNewKindChecks(t *testing.T) {
 // rest; the jump host, the one-time code, group and notes wait under More
 // options.
 func TestFormServerOrder(t *testing.T) {
-	sp := serverForm()
+	sp := serverForm(tcl)
 	var keys []string
 	for _, q := range sp.qs[:3] {
 		keys = append(keys, q.key)
@@ -239,7 +239,7 @@ func TestFormServerOrder(t *testing.T) {
 // Every family add (db add, cache add ...) opens one Add group.
 func TestFormFamilyAddGroups(t *testing.T) {
 	for cmd, label := range formFamilyAdd {
-		if gs := formGroupNamed(label); len(gs) != 1 || len(gs[0].kinds) == 0 {
+		if gs := formGroupNamed(tcl, label); len(gs) != 1 || len(gs[0].kinds) == 0 {
 			t.Errorf("%s: no Add group %q", cmd, label)
 		}
 	}
@@ -265,9 +265,9 @@ func TestFormDestructive(t *testing.T) {
 
 // Forms never say vault or conn to a person.
 func TestFormNoJargon(t *testing.T) {
-	for _, g := range formGroups() {
+	for _, g := range formGroups(tcl) {
 		for _, k := range g.kinds {
-			sp := k.spec()
+			sp := k.spec(tcl)
 			for _, q := range sp.qs {
 				text := q.ask + " " + q.help
 				if q.choices != nil {
@@ -288,9 +288,9 @@ func TestFormNoJargon(t *testing.T) {
 // The production question is asked of every kind, servers too: its Yes
 // default must take effect without opening More options.
 func TestFormProtectAskedEverywhere(t *testing.T) {
-	for _, g := range formGroups() {
+	for _, g := range formGroups(tcl) {
 		for _, k := range g.kinds {
-			for _, q := range k.spec().qs {
+			for _, q := range k.spec(tcl).qs {
 				if q.key == "protected" && q.advanced {
 					t.Errorf("%s > %s: Production is under More options", g.label, k.label)
 				}

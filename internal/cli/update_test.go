@@ -226,7 +226,7 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Cleanup(func() {
 		releaseSite, selfPath, Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot
-		g.dryRun, g.yes, g.timeout, store.DryRun = false, false, 0, false
+		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.timeout, store.DryRun = false, false, 0, false
 	})
 	return exe, home
 }
@@ -411,12 +411,12 @@ func TestUpdateOlderAgentNeedsWindow(t *testing.T) {
 	t.Setenv("KOMANDO_AGENT", "1")
 	resetApproval()
 	t.Cleanup(resetApproval)
-	savedArgs, savedAsk := os.Args, askOnScreen
+	savedArgs, savedAsk := tcl.args, askOnScreen
 	var texts []string
 	allow := false
-	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return allow, true }
-	t.Cleanup(func() { os.Args, askOnScreen = savedArgs, savedAsk; resetApproval() })
-	os.Args = []string{"komando", "update", "v0.5.0", "--yes"}
+	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return allow, true }
+	t.Cleanup(func() { tcl.args, askOnScreen = savedArgs, savedAsk; resetApproval() })
+	tcl.args = []string{"komando", "update", "v0.5.0", "--yes"}
 	if e := updateFails(t, "v0.5.0", "--yes"); e.Code != "SAFETY_SETTING" || e.Exit != out.ExitPolicy {
 		t.Errorf("denied: %v", e)
 	}

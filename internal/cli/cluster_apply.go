@@ -44,11 +44,11 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
   komando cluster apply prod-k8s --file app.yaml
   komando cluster apply swarm1 --file compose.yml --stack shop`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if file == "" {
 				return out.Usage("give the YAML with --file")
 			}
-			b, err := readFileOrStdin(file)
+			b, err := readFileOrStdin(cl, file)
 			if err != nil {
 				return localFileErr("FILE_NOT_FOUND", err, "")
 			}
@@ -56,7 +56,7 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -70,7 +70,7 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 				if forceConflicts {
 					return out.Usage("--force-conflicts is for Kubernetes; Swarm has no field managers")
 				}
-				return swarmApply(cmd.Context(), t, stack, b)
+				return swarmApply(cl, cmd.Context(), t, stack, b)
 			}
 			if stack != "" {
 				return out.Usage("--stack is for Swarm; Kubernetes objects take their namespace from the file or --namespace")
@@ -92,10 +92,10 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			if forceConflicts {
 				extra["force_conflicts"] = true
 			}
-			return withKube(cmd.Context(), "cluster.apply", t, driver.RiskWrite, extra, func(ctx context.Context, k *kube.Client) (any, error) {
-				return kubeApply(ctx, k, t.conn.Name, docs, ns, forceConflicts)
+			return withKube(cl, cmd.Context(), "cluster.apply", t, driver.RiskWrite, extra, func(ctx context.Context, k *kube.Client) (any, error) {
+				return kubeApply(cl, ctx, k, t.conn.Name, docs, ns, forceConflicts)
 			})
-		},
+		}),
 	}
 	c.Flags().StringVarP(&file, "file", "f", "", "YAML file ('-' for stdin)")
 	c.Flags().StringVar(&stack, "stack", "", "Swarm: the stack name")
@@ -110,9 +110,9 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 // field it does not know, an unknown kind) stops it before anything
 // changes, instead of half the file being applied. Without force a field
 // another manager owns stops it (K8S_CONFLICT); force takes it over.
-func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, force bool) (any, error) {
-	if !g.dryRun {
-		if _, err := applyPass(ctx, k, conn, docs, ns, true, force); err != nil {
+func kubeApply(cl *call, ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, force bool) (any, error) {
+	if !cl.flags.dryRun {
+		if _, err := applyPass(cl, ctx, k, conn, docs, ns, true, force); err != nil {
 			var oe *out.Error
 			if errors.As(err, &oe) {
 				oe.Message = "nothing was applied: " + oe.Message
@@ -121,11 +121,11 @@ func kubeApply(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc,
 			return nil, fmt.Errorf("nothing was applied: %w", err)
 		}
 	}
-	return applyPass(ctx, k, conn, docs, ns, g.dryRun, force)
+	return applyPass(cl, ctx, k, conn, docs, ns, cl.flags.dryRun, force)
 }
 
 // applyPass applies docs once, as a server dry run (dry) or for real.
-func applyPass(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, dry, force bool) (applyData, error) {
+func applyPass(cl *call, ctx context.Context, k *kube.Client, conn string, docs []kubeDoc, ns string, dry, force bool) (applyData, error) {
 	q := url.Values{"fieldManager": {"komando"}}
 	if force {
 		q.Set("force", "true")
@@ -174,7 +174,7 @@ func applyPass(ctx context.Context, k *kube.Client, conn string, docs []kubeDoc,
 		if d.Kind == "Namespace" && before == nil {
 			creates[d.Name] = true
 		}
-		c := diffObject(name, before, after)
+		c := diffObject(cl, name, before, after)
 		c.Namespace = space
 		if !dry {
 			c.Diff = ""
@@ -241,7 +241,7 @@ type objectChange struct {
 	Note      string `json:"note,omitempty"`
 }
 
-func diffObject(name string, before, after []byte) objectChange {
+func diffObject(cl *call, name string, before, after []byte) objectChange {
 	c := objectChange{Object: name, Action: "change"}
 	parse := func(b []byte) map[string]any {
 		var o map[string]any
@@ -271,7 +271,7 @@ func diffObject(name string, before, after []byte) objectChange {
 		return c
 	}
 	hideSecretValues(old, upd) // Secret values never reach the output, not even in a diff
-	if out.P.Mask {
+	if cl.out.Mask {
 		hideSecretEnv(old)
 		hideSecretEnv(upd)
 	}
@@ -321,23 +321,23 @@ func yamlText(o map[string]any) string {
 
 // swarmApply deploys a compose file as a stack; --dry-run checks the file
 // with `docker stack config` and names the services it would make.
-func swarmApply(ctx context.Context, t clusterTarget, stack string, file []byte) error {
+func swarmApply(cl *call, ctx context.Context, t clusterTarget, stack string, file []byte) error {
 	line := "docker stack deploy --detach=true -c - " + sshx.Q(stack) + " 2>&1"
-	if g.dryRun {
+	if cl.flags.dryRun {
 		st, err := loadState()
 		if err != nil {
 			return err
 		}
-		if err := guard(st, []*store.Host{t.host}, line, true); err != nil {
+		if err := guard(cl, st, []*store.Host{t.host}, line, true); err != nil {
 			return err
 		}
 		res := map[string]any{"host": t.host.Name, "stack": stack, "dry_run": true, "would_run": line}
-		cfg, err := swarmExec(ctx, st, t, "docker stack config -c - 2>&1", file)
+		cfg, err := swarmExec(cl, ctx, st, t, "docker stack config -c - 2>&1", file)
 		if err != nil {
 			msg := toErr(err).Message
 			if strings.Contains(msg, "unknown command") || strings.Contains(msg, "is not a docker command") {
 				res["checked"] = false // docker before 23 has no stack config
-				out.P.Print("cluster.apply", res, nil)
+				cl.out.Print("cluster.apply", res, nil)
 				return nil
 			}
 			return out.Usage("the compose file is not valid: %s", msg)
@@ -352,10 +352,10 @@ func swarmApply(ctx context.Context, t clusterTarget, stack string, file []byte)
 		}
 		sort.Strings(svcs)
 		res["checked"], res["would_apply"] = true, svcs
-		out.P.Print("cluster.apply", res, nil)
+		cl.out.Print("cluster.apply", res, nil)
 		return nil
 	}
-	s, _, err := swarmDo(ctx, "cluster.apply", t, line, file, driver.RiskWrite, line)
+	s, _, err := swarmDo(cl, ctx, "cluster.apply", t, line, file, driver.RiskWrite, line)
 	if err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ func swarmApply(ctx context.Context, t clusterTarget, stack string, file []byte)
 			objs = append(objs, map[string]string{"object": f[1] + "/" + f[2], "action": act})
 		}
 	}
-	out.P.Print("cluster.apply", map[string]any{"host": t.host.Name, "stack": stack, "objects": objs, "output": s}, nil)
+	cl.out.Print("cluster.apply", map[string]any{"host": t.host.Name, "stack": stack, "objects": objs, "output": s}, nil)
 	return nil
 }
 

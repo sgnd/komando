@@ -37,9 +37,9 @@ func keyfileHome(t *testing.T) []byte {
 // atTerminal makes the test run as a person at a terminal.
 func atTerminal(t *testing.T) {
 	t.Helper()
-	saved := interactive
-	interactive = func() bool { return true }
-	t.Cleanup(func() { interactive = saved })
+	saved := tcl.terminal
+	tcl.terminal = true
+	t.Cleanup(func() { tcl.terminal = saved })
 }
 
 // keyStays: store.key still holds key, and the vault still opens with it.

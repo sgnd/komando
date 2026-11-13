@@ -205,7 +205,7 @@ func TestDoctorVaultKey(t *testing.T) {
 			t.Fatal(err)
 		}
 		m := map[string]securityCheck{}
-		for _, c := range securityChecks(st) {
+		for _, c := range securityChecks(tcl, st) {
 			m[c.Name] = c
 		}
 		return m

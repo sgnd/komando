@@ -17,7 +17,7 @@ import (
 
 // clusterEvents reads events, oldest first, optionally for one object or
 // only warnings.
-func clusterEvents(ctx context.Context, k *kube.Client, space, kind, name string, warnings bool, limit int) ([]map[string]any, error) {
+func clusterEvents(cl *call, ctx context.Context, k *kube.Client, space, kind, name string, warnings bool, limit int) ([]map[string]any, error) {
 	var fs []string
 	if warnings {
 		fs = append(fs, "type=Warning")
@@ -54,7 +54,7 @@ func clusterEvents(ctx context.Context, k *kube.Client, space, kind, name string
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return str(rows[i]["last"]) < str(rows[j]["last"]) })
 	if limit > 0 && len(rows) > limit {
-		out.P.Cut(limit)
+		cl.out.Cut(limit)
 		rows = rows[len(rows)-limit:]
 	}
 	return rows, nil
@@ -71,7 +71,7 @@ func clusterEventsCmd() *cobra.Command {
   komando cluster events @prod --warnings -A    # problems in every cluster of the group
   komando cluster events prod-k8s --for deployment/api --namespace shop`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
 				return err
 			}
@@ -79,11 +79,11 @@ func clusterEventsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ts, err := resolveClusters(st, args[0])
+			ts, err := resolveClusters(cl, st, args[0])
 			if err != nil {
 				return err
 			}
-			return readClusters(cmd.Context(), "cluster.events", st, ts, clusterRead{
+			return readClusters(cl, cmd.Context(), "cluster.events", st, ts, clusterRead{
 				swarmNo: "events are a Kubernetes view; on Swarm, `cluster list TARGET tasks` shows failed tasks and their errors",
 				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 					kind, name := "", ""
@@ -102,13 +102,13 @@ func clusterEventsCmd() *cobra.Command {
 					if all {
 						space = ""
 					}
-					rows, err := clusterEvents(ctx, k, space, kind, name, warnings, limit)
+					rows, err := clusterEvents(cl, ctx, k, space, kind, name, warnings, limit)
 					if err != nil {
 						return nil, err
 					}
 					return eventList{"conn": t.conn.Name, "namespace": space, "count": len(rows), "events": rows}, nil
 				}})
-		},
+		}),
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 100, "the most events to show (the newest)"})
 	c.Flags().BoolVar(&warnings, "warnings", false, "only Warning events")
@@ -125,12 +125,12 @@ func clusterDescribeCmd() *cobra.Command {
   komando cluster describe prod-k8s deployment/api --namespace shop
   komando cluster describe swarm1 service/web`,
 		Args: refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -145,14 +145,14 @@ func clusterDescribeCmd() *cobra.Command {
 				if swarmKind(typ) != "service" {
 					return out.Usage("on Swarm, describe works for services (its tasks and their errors)")
 				}
-				res, err := swarmDescribe(cmd.Context(), t, name)
+				res, err := swarmDescribe(cl, cmd.Context(), t, name)
 				if err != nil {
 					return err
 				}
-				out.P.Print("cluster.describe", res, nil)
+				cl.out.Print("cluster.describe", res, nil)
 				return nil
 			}
-			return withKube(cmd.Context(), "cluster.describe", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, cmd.Context(), "cluster.describe", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -161,9 +161,9 @@ func clusterDescribeCmd() *cobra.Command {
 				if r.IsNamespaced() {
 					space = cmp.Or(ns, k.Namespace)
 				}
-				return describeObject(ctx, k, t.conn.Name, r, name, space)
+				return describeObject(cl, ctx, k, t.conn.Name, r, name, space)
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	return c
@@ -171,7 +171,7 @@ func clusterDescribeCmd() *cobra.Command {
 
 // describeObject is one object in short: its summary, conditions, pods or
 // containers, endpoints and recent events.
-func describeObject(ctx context.Context, k *kube.Client, conn string, r kube.ResourceType, name, space string) (describeData, error) {
+func describeObject(cl *call, ctx context.Context, k *kube.Client, conn string, r kube.ResourceType, name, space string) (describeData, error) {
 	var o map[string]any
 	if err := k.Get(ctx, r.ObjectPath(space, name), nil, &o); err != nil {
 		return nil, err
@@ -203,7 +203,7 @@ func describeObject(ctx context.Context, k *kube.Client, conn string, r kube.Res
 	if r.KindName() == "Service" && space != "" {
 		res["endpoints"] = endpoints(ctx, k, space, name)
 	}
-	events, err := clusterEvents(ctx, k, space, r.KindName(), name, false, 20)
+	events, err := clusterEvents(cl, ctx, k, space, r.KindName(), name, false, 20)
 	if err == nil {
 		res["events"] = events
 	}

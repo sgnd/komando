@@ -109,9 +109,9 @@ const sqliteRestoreHint = "stop the programs that use the database, then copy th
 
 // restoreNote is how to load back the backup to of conn: db restore,
 // or for a SQLite file, which db restore does not take, a copy.
-func restoreNote(conn, to string) string {
+func restoreNote(cl *call, conn, to string) string {
 	if st, err := loadState(); err == nil {
-		if c, err := singleConn(st, conn, "db"); err == nil {
+		if c, err := singleConn(cl, st, conn, "db"); err == nil {
 			if t, err := driver.Parse(c.URL); err == nil && t.Kind.File {
 				return fmt.Sprintf("stop the programs that use it, then copy %s over %s", argQ(to), argQ(dbx.SQLitePath(t)))
 			}
@@ -139,11 +139,11 @@ func defaultDumpFile(conn, format string, now time.Time) string {
 // offerBackup asks a person at a terminal whether to save the database as
 // it is now before a restore (default yes). Agents and scripts are never
 // asked; the help and the dry run tell them to run db dump first.
-var offerBackup = func(ctx context.Context, conn string) error {
-	if !interactive() {
+var offerBackup = func(cl *call, ctx context.Context, conn string) error {
+	if !cl.interactive() {
 		return nil
 	}
-	a, err := readAnswer("Save a copy of "+conn+" as it is now first, so you can go back? [Y/n] ", false)
+	a, err := readAnswer(cl, "Save a copy of "+conn+" as it is now first, so you can go back? [Y/n] ", false)
 	if err != nil {
 		return err
 	}
@@ -154,9 +154,9 @@ var offerBackup = func(ctx context.Context, conn string) error {
 	if _, err := os.Stat(to); err == nil {
 		to = strings.TrimSuffix(to, ".sql.gz") + time.Now().Format("-150405") + ".sql.gz"
 	}
-	if err := runDump(ctx, conn, to, "", dumpOpts{format: "plain"}); err != nil {
+	if err := runDump(cl, ctx, conn, to, "", dumpOpts{format: "plain"}); err != nil {
 		return err
 	}
-	textNote("Saved %s. To go back later: komando db restore %s --from %s --allow-dangerous", to, argQ(conn), argQ(to))
+	textNote(cl, "Saved %s. To go back later: komando db restore %s --from %s --allow-dangerous", to, argQ(conn), argQ(to))
 	return nil
 }

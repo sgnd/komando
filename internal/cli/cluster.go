@@ -31,8 +31,8 @@ type clusterTarget struct {
 	host *store.Host // Swarm manager
 }
 
-func resolveCluster(st *store.State, expr string) (clusterTarget, error) {
-	sel, err := resolveSelection(st, expr)
+func resolveCluster(cl *call, st *store.State, expr string) (clusterTarget, error) {
+	sel, err := resolveSelection(cl, st, expr)
 	if err != nil {
 		return clusterTarget{}, err
 	}
@@ -54,12 +54,12 @@ func resolveCluster(st *store.State, expr string) (clusterTarget, error) {
 }
 
 // kubeClient opens the API of a k8s conn through its --via path.
-func kubeClient(ctx context.Context, st *store.State, c *store.Conn) (*kube.Client, func(), error) {
-	x, err := kubeContext(c)
+func kubeClient(cl *call, ctx context.Context, st *store.State, c *store.Conn) (*kube.Client, func(), error) {
+	x, err := kubeContext(cl, c)
 	if err != nil {
 		return nil, nil, err
 	}
-	a, err := openAccess(ctx, st, c)
+	a, err := openAccess(cl, ctx, st, c)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -77,7 +77,7 @@ func kubeClient(ctx context.Context, st *store.State, c *store.Conn) (*kube.Clie
 
 // kubeContext reads the conn's kubeconfig from the vault and checks its
 // login program (guardKubePlugin), without connecting to anything.
-func kubeContext(c *store.Conn) (*kube.Context, error) {
+func kubeContext(cl *call, c *store.Conn) (*kube.Context, error) {
 	kc, err := resolvePassword(c)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func kubeContext(c *store.Conn) (*kube.Context, error) {
 	if ns := c.Options["namespace"]; ns != "" {
 		x.Namespace = ns
 	}
-	if err := guardKubePlugin(c, x); err != nil {
+	if err := guardKubePlugin(cl, c, x); err != nil {
 		return nil, err
 	}
 	return x, nil
@@ -102,8 +102,8 @@ func kubeContext(c *store.Conn) (*kube.Context, error) {
 // dryRunKubeCheck is for a dry run that stops before it connects (cluster
 // exec, shell, forward): what the real run would need for the conn's
 // login program still lands in meta.would_be_blocked.
-func dryRunKubeCheck(c *store.Conn) error {
-	if _, err := kubeContext(c); err != nil && !errors.Is(err, errDryRunStopped) {
+func dryRunKubeCheck(cl *call, c *store.Conn) error {
+	if _, err := kubeContext(cl, c); err != nil && !errors.Is(err, errDryRunStopped) {
 		return err
 	}
 	return nil
@@ -122,35 +122,35 @@ var errDryRunStopped = errors.New("dry run stopped before a step that needs a pe
 // trusted this very program for the conn (Conn.TrustedPlugin, set only by
 // an import a person made or allowed). The plugin runs only after that.
 // People and scripts wired it themselves.
-func guardKubePlugin(c *store.Conn, x *kube.Context) error {
+func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 	e := x.Plugin()
 	if e == nil {
 		return nil
 	}
 	line := pluginLine(e)
-	if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("the kubeconfig of conn "+c.Name+" logs in with `"+line+"`, which matches "+hits[0].Reason, c.Name) {
+	if hits := policy.Check(line, nil); len(hits) > 0 && !cl.dangerOK() && !policyAsk(cl, "the kubeconfig of conn "+c.Name+" logs in with `"+line+"`, which matches "+hits[0].Reason, c.Name) {
 		stop := out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig of this conn (if this program is intended, --allow-dangerous lets it run)",
 			"the kubeconfig of conn %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig of this conn)", c.Name, line, hits[0].Reason)
-		if g.dryRun {
-			out.P.WouldBlock(stop)
+		if cl.flags.dryRun {
+			cl.out.WouldBlock(stop)
 			return errDryRunStopped
 		}
 		return stop
 	}
-	if !isAgent() || c.TrustedPlugin != "" && c.TrustedPlugin == pluginTrust(line, x.Cluster.Server) {
+	if !cl.isAgent() || c.TrustedPlugin != "" && c.TrustedPlugin == pluginTrust(line, x.Cluster.Server) {
 		return nil
 	}
 	what := "the kubeconfig of conn " + c.Name + " runs `" + line + "` on this computer to log in"
-	stop := approvalErr("SAFETY_SETTING",
+	stop := approvalErr(cl, "SAFETY_SETTING",
 		what+"; a program on this computer is outside the agent guard's view, so an AI agent needs a person's yes each time, read-only commands too (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)")
-	if g.dryRun { // a dry run never runs it: --yes is not asked for here
-		if !g.yes {
-			out.P.WouldBlock(stop)
+	if cl.flags.dryRun { // a dry run never runs it: --yes is not asked for here
+		if !cl.flags.yes {
+			cl.out.WouldBlock(stop)
 		}
 		return errDryRunStopped
 	}
-	if cur().sess.SafetyApproved(what) || g.yes && personAllowsFor("--yes", what) {
-		cur().sess.ApproveSafety(what)
+	if cl.sess.SafetyApproved(what) || cl.flags.yes && cl.personAllowsFor("--yes", what) {
+		cl.sess.ApproveSafety(what)
 		return nil
 	}
 	return stop
@@ -258,29 +258,29 @@ type ownLimitKey struct{}
 
 // kubeDeadline gives one cluster's work the --timeout ("time limit per
 // server"), unless the command keeps its own time.
-func kubeDeadline(ctx context.Context, st *store.State) (context.Context, context.CancelFunc) {
+func kubeDeadline(cl *call, ctx context.Context, st *store.State) (context.Context, context.CancelFunc) {
 	if ctx.Value(ownLimitKey{}) != nil {
 		return context.WithCancel(ctx)
 	}
-	return context.WithTimeout(ctx, cmdTimeout(st))
+	return context.WithTimeout(ctx, cmdTimeout(cl, st))
 }
 
 // withKube runs fn on a k8s conn after the safety check for risk.
-func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Risk, extra map[string]any,
+func withKube(cl *call, ctx context.Context, name string, t clusterTarget, risk driver.Risk, extra map[string]any,
 	fn func(ctx context.Context, k *kube.Client) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
 	// under --dry-run every stop only lands in meta.would_be_blocked
-	if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{name}}); err != nil {
+	if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{name}}); err != nil {
 		return err
 	}
-	ctx, cancel := kubeDeadline(ctx, st)
+	ctx, cancel := kubeDeadline(cl, ctx, st)
 	defer cancel()
-	k, done, err := kubeClient(ctx, st, t.conn)
+	k, done, err := kubeClient(cl, ctx, st, t.conn)
 	if errors.Is(err, errDryRunStopped) {
-		out.P.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true}, nil)
+		cl.out.Print(name, map[string]any{"conn": t.conn.Name, "dry_run": true}, nil)
 		return nil
 	}
 	if err != nil {
@@ -297,16 +297,16 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 		rec["error"] = toErr(err).Code
 	}
 	if risk > driver.RiskRead {
-		audit(st, name, nil, "", err == nil, rec)
+		audit(cl, st, name, nil, "", err == nil, rec)
 	}
 	if err != nil && !nilData(res) {
-		out.P.Print(name, res, softErr(err)) // what happened before it failed (a rollout that timed out)
+		cl.out.Print(name, res, softErr(err)) // what happened before it failed (a rollout that timed out)
 		return exitFor(err)
 	}
 	if err != nil {
 		return err
 	}
-	out.P.Print(name, res, nil)
+	cl.out.Print(name, res, nil)
 	return nil
 }
 
@@ -318,13 +318,13 @@ func withKube(ctx context.Context, name string, t clusterTarget, risk driver.Ris
 // same name (askTypes), so the person is asked once; a wrong one stops here and nothing
 // changes. Agents and scripts are unchanged: they use --allow-dangerous,
 // and a dry run never asks.
-func confirmObject(names []string, obj, reason string) error {
-	if g.allowDangerous || g.dryRun || !interactive() {
+func confirmObject(cl *call, names []string, obj, reason string) error {
+	if cl.flags.allowDangerous || cl.flags.dryRun || !cl.interactive() {
 		return nil
 	}
-	askTypes([]string{obj}, "objects")
-	if !confirmDangerous(names, reason) {
-		return policyStop(approvalErr("POLICY_BLOCKED",
+	askTypes(cl, []string{obj}, "objects")
+	if !confirmDangerous(cl, names, reason) {
+		return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 			"the command matches destructive rules [cluster]: "+reason).Say(dangerSay([]string{reason}), dangerHint))
 	}
 	return nil

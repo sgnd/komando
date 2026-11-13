@@ -39,17 +39,14 @@ old text matches exactly once (or --all), and --backup keeps a .bak copy.`,
 	for _, sub := range c.Commands() {
 		if run := sub.RunE; run != nil && sub.Flags().Lookup("sudo") != nil {
 			sub.RunE = func(cmd *cobra.Command, args []string) error {
-				fsSudoRetry = sudoRetryHint(cmd, args)
+				cl := callOf(cmd)
+				cl.fsSudoRetry = sudoRetryHint(cmd, args)
 				return run(cmd, args)
 			}
 		}
 	}
 	return c
 }
-
-// fsSudoRetry is the hint of a permission error in the fs command running
-// now: the same command line with --sudo, to copy.
-var fsSudoRetry = "retry with --sudo"
 
 // sudoRetryHint is "retry with --sudo: `komando fs ... --sudo`", the
 // command as given plus --sudo. Approval flags are never in it; a long
@@ -100,17 +97,17 @@ func sftpClient(c *sshx.Client) (*sftp.Client, error) {
 }
 
 // oneHost resolves target, dials it and runs fn with both ssh and sftp.
-func oneHost(ctx context.Context, target string, fn func(st *store.State, c *sshx.Client, sc *sftp.Client) (any, error)) (any, error) {
+func oneHost(cl *call, ctx context.Context, target string, fn func(st *store.State, c *sshx.Client, sc *sftp.Client) (any, error)) (any, error) {
 	st, err := loadState()
 	if err != nil {
 		return nil, err
 	}
-	h, err := singleHost(st, target)
+	h, err := singleHost(cl, st, target)
 	if err != nil {
 		return nil, err
 	}
 	var res any
-	err = withClient(ctx, st, h, func(c *sshx.Client) error {
+	err = withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 		sc, err := sftpClient(c)
 		if err != nil {
 			return err
@@ -122,8 +119,8 @@ func oneHost(ctx context.Context, target string, fn func(st *store.State, c *ssh
 	return res, err
 }
 
-func fsErr(p string, err error) error {
-	return fsErrHint(p, err, fsSudoRetry)
+func fsErr(cl *call, p string, err error) error {
+	return fsErrHint(p, err, cl.fsSudoRetry)
 }
 
 // fsErrHint is fsErr for commands without --sudo: permHint says what to do
@@ -175,15 +172,15 @@ func fsLsCmd() *cobra.Command {
 		Use:   "list SERVER [PATH]",
 		Short: "List a folder on one server (default: the login user's home)",
 		Args:  cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			arg := ""
 			if len(args) == 2 {
 				arg = args[1]
 			}
-			if st, h := windowsOne(args[0]); h != nil {
-				return printed("fs.list")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
+			if st, h := windowsOne(cl, args[0]); h != nil {
+				return printed(cl, "fs.list")(winFsLs(cl, cmd.Context(), st, h, arg, all, recursive, maxEntries))
 			}
-			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
+			res, err := oneHost(cl, cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
 				permHint := "fs list reads as the SSH user; list it as root with `komando exec " + args[0] + " --sudo -- ls -la " + sshx.Q(dir) + "`"
 				r := lsResult{Path: dir, Entries: []fileInfo{}, recursive: recursive}
@@ -212,7 +209,7 @@ func fsLsCmd() *cobra.Command {
 						}
 						if maxEntries > 0 && len(r.Entries) >= maxEntries {
 							r.Truncated = true
-							out.P.CutNoted()
+							cl.out.CutNoted()
 							break
 						}
 						r.Entries = append(r.Entries, toInfo(path.Dir(w.Path()), w.Stat()))
@@ -228,7 +225,7 @@ func fsLsCmd() *cobra.Command {
 						}
 						if maxEntries > 0 && len(r.Entries) >= maxEntries {
 							r.Truncated = true
-							out.P.CutNoted()
+							cl.out.CutNoted()
 							break
 						}
 						r.Entries = append(r.Entries, toInfo(dir, fi))
@@ -245,9 +242,9 @@ func fsLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.list", res, nil)
+			cl.out.Print("fs.list", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
@@ -261,11 +258,11 @@ func fsStatCmd() *cobra.Command {
 		Use:   "stat SERVER PATH",
 		Short: "Look up a path on one server (exists:false, not an error, when missing)",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if st, h := windowsOne(args[0]); h != nil {
-				return printed("fs.stat")(winFsStat(cmd.Context(), st, h, args[1], hash))
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if st, h := windowsOne(cl, args[0]); h != nil {
+				return printed(cl, "fs.stat")(winFsStat(cl, cmd.Context(), st, h, args[1], hash))
 			}
-			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
+			res, err := oneHost(cl, cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				p := expandRemote(sc, args[1])
 				fi, err := sc.Lstat(p)
 				if errors.Is(err, os.ErrNotExist) {
@@ -296,15 +293,15 @@ func fsStatCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.stat", res, nil)
+			cl.out.Print("fs.stat", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&hash, "sha256", false, "also compute sha256")
 	return c
 }
 
-func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
+func readRemote(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
 	if sudo {
 		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sudoReadScript(p, "cat"), Sudo: true, MaxOutput: int(limit), Timeout: 2 * time.Minute})
 		if err != nil {
@@ -315,7 +312,7 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 		}
 		if r.ExitCode != 0 {
 			if strings.Contains(r.Stderr, "No such file") {
-				return nil, false, fsErr(p, os.ErrNotExist)
+				return nil, false, fsErr(cl, p, os.ErrNotExist)
 			}
 			if strings.Contains(r.Stderr, "Is a directory") {
 				return nil, false, isADirectory(p)
@@ -329,12 +326,12 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 	}
 	f, err := sc.Open(p)
 	if err != nil {
-		return nil, false, fsErr(p, err)
+		return nil, false, fsErr(cl, p, err)
 	}
 	defer f.Close()
 	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
-		return nil, false, fsErr(p, err)
+		return nil, false, fsErr(cl, p, err)
 	}
 	if int64(len(b)) > limit {
 		return b[:limit], true, nil
@@ -345,7 +342,7 @@ func readRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, 
 // readRemoteEnd is readRemote for the end of the file (fs cat --tail): the
 // last limit bytes. When the file is longer, the first line read is cut
 // short, so it is left out, and trunc is true.
-func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
+func readRemoteEnd(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, sudo bool, limit int64) ([]byte, bool, error) {
 	var b []byte
 	if sudo {
 		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: sudoReadScript(p, "tail -c "+strconv.FormatInt(limit+1, 10)), Sudo: true, MaxOutput: int(limit + 1), Timeout: 2 * time.Minute})
@@ -357,7 +354,7 @@ func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p strin
 		}
 		if r.ExitCode != 0 {
 			if strings.Contains(r.Stderr, "No such file") {
-				return nil, false, fsErr(p, os.ErrNotExist)
+				return nil, false, fsErr(cl, p, os.ErrNotExist)
 			}
 			if strings.Contains(r.Stderr, "Is a directory") {
 				return nil, false, isADirectory(p)
@@ -368,23 +365,23 @@ func readRemoteEnd(ctx context.Context, c *sshx.Client, sc *sftp.Client, p strin
 	} else {
 		fi, err := sc.Stat(p)
 		if err != nil {
-			return nil, false, fsErr(p, err)
+			return nil, false, fsErr(cl, p, err)
 		}
 		if fi.IsDir() {
 			return nil, false, isADirectory(p)
 		}
 		f, err := sc.Open(p)
 		if err != nil {
-			return nil, false, fsErr(p, err)
+			return nil, false, fsErr(cl, p, err)
 		}
 		defer f.Close()
 		if from := fi.Size() - limit - 1; from > 0 {
 			if _, err := f.Seek(from, io.SeekStart); err != nil {
-				return nil, false, fsErr(p, err)
+				return nil, false, fsErr(cl, p, err)
 			}
 		}
 		if b, err = io.ReadAll(io.LimitReader(f, limit+1)); err != nil {
-			return nil, false, fsErr(p, err)
+			return nil, false, fsErr(cl, p, err)
 		}
 	}
 	if int64(len(b)) <= limit {
@@ -427,28 +424,28 @@ func fsCatCmd() *cobra.Command {
 		Aliases: []string{"read"},
 		Short:   "Read a file on one server",
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if maxBytes <= 0 {
 				return out.Usage("--max-bytes takes a number more than 0")
 			}
 			var res any
 			var err error
-			if st, h := windowsOne(args[0]); h != nil {
-				res, err = winFsCat(cmd.Context(), st, h, args[1], sudo, maxBytes, head, tail, numbered)
+			if st, h := windowsOne(cl, args[0]); h != nil {
+				res, err = winFsCat(cl, cmd.Context(), st, h, args[1], sudo, maxBytes, head, tail, numbered)
 			} else {
-				res, err = oneHost(cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
+				res, err = oneHost(cl, cmd.Context(), args[0], func(_ *store.State, c *sshx.Client, sc *sftp.Client) (any, error) {
 					p := expandRemote(sc, args[1])
 					read, fromEnd := readRemote, tail > 0 && head == 0
 					if fromEnd {
 						read = readRemoteEnd
 					}
-					b, trunc, err := read(cmd.Context(), c, sc, p, sudo, maxBytes)
+					b, trunc, err := read(cl, cmd.Context(), c, sc, p, sudo, maxBytes)
 					if err != nil {
 						return nil, err
 					}
 					// where the last lines of a long file start is not known
 					num := numbered && !(fromEnd && trunc)
-					r, err := catContent(args[0], p, b, trunc, head, tail, num)
+					r, err := catContent(cl, args[0], p, b, trunc, head, tail, num)
 					if num != numbered {
 						r.Note = strings.TrimSpace(r.Note + " The file is larger than --max-bytes, so these last lines have no line numbers; raise --max-bytes to number them.")
 					}
@@ -458,12 +455,12 @@ func fsCatCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.cat", res, nil)
-			if r, ok := res.(catResult); ok && r.Truncated && out.P.Format == "text" {
-				fmt.Fprintf(os.Stderr, "Note: showing the first %s; raise --max-bytes, or use `komando download`\n", humanBytes(maxBytes))
+			cl.out.Print("fs.cat", res, nil)
+			if r, ok := res.(catResult); ok && r.Truncated && cl.out.Format == "text" {
+				fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes, or use `komando download`\n", humanBytes(maxBytes))
 			}
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "read with sudo")
 	maxBytes = 1 << 20
@@ -477,15 +474,15 @@ func fsCatCmd() *cobra.Command {
 // catContent is fs cat's result for the file p of target, read as b. A
 // --tail of b counts as the file's end only when b was read from the end
 // (readRemoteEnd) or is the whole file.
-func catContent(target, p string, b []byte, trunc bool, head, tail int, numbered bool) (catResult, error) {
+func catContent(cl *call, target, p string, b []byte, trunc bool, head, tail int, numbered bool) (catResult, error) {
 	sum := hex.EncodeToString(func() []byte { h := sha256.Sum256(b); return h[:] }())
 	r := catResult{Path: p, Bytes: len(b), Truncated: trunc}
 	binary := bytes.IndexByte(b, 0) >= 0
 	text := string(b)
-	if out.P.Mask && !binary {
+	if cl.out.Mask && !binary {
 		// mask the whole file before --head/--tail cut it: what marks a
 		// value as secret can sit outside the lines shown
-		text = out.P.View(text).Text
+		text = cl.out.View(text).Text
 		if text != string(b) {
 			// the hash of the real file would let a weak hidden value be
 			// guessed offline from the rest
@@ -498,7 +495,7 @@ func catContent(target, p string, b []byte, trunc bool, head, tail int, numbered
 		r.SHA256 = sum
 	}
 	if binary {
-		if out.P.Format == "text" {
+		if cl.out.Format == "text" {
 			// printing a placeholder would make `fs cat ... > file` a corrupt copy
 			return catResult{}, out.Errf(out.ExitError, "BINARY_FILE", "save it with `komando download "+target+" "+p+"`",
 				"%s is a binary file; fs cat shows text only", p)
@@ -542,13 +539,13 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 		Use:   use,
 		Short: short,
 		Args:  cobra.MinimumNArgs(minArgs),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fl := map[string]bool{"sudo": sudo}
 			for k, v := range vals {
 				fl[k] = *v
 			}
 			if strings.HasPrefix(use, "rm ") && len(args) > 1 {
-				if err := guardFsRm(args[0], args[1:], fl["recursive"]); err != nil {
+				if err := guardFsRm(cl, args[0], args[1:], fl["recursive"]); err != nil {
 					return err
 				}
 			}
@@ -556,8 +553,8 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 			if err != nil {
 				return err
 			}
-			return runFleet(cmd.Context(), "fs."+strings.Fields(use)[0], args[0], script, nil, execOpts{sudo: sudo, display: shown, exitMap: func(rr *sshx.RunResult) *out.Error { return fsExitMap(rr.ExitCode, rr.Stderr) }}, true)
-		},
+			return runFleet(cl, cmd.Context(), "fs."+strings.Fields(use)[0], args[0], script, nil, execOpts{sudo: sudo, display: shown, exitMap: func(rr *sshx.RunResult) *out.Error { return fsExitMap(cl, rr.ExitCode, rr.Stderr) }}, true)
+		}),
 	}
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "run with sudo")
 	for name, help := range boolFlags {

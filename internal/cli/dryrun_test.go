@@ -13,9 +13,9 @@ import (
 func TestDryRunChangesNothing(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }() // flags are package globals
+	defer func() { tcl.flags.dryRun, store.DryRun = false, false }() // flags are package globals
 	run := func(args ...string) error {
-		root := newRoot()
+		root := newRoot(tcl)
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}

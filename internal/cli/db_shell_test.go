@@ -69,7 +69,7 @@ func TestSQLShell(t *testing.T) {
 
 	run := func(write bool, lines ...string) string {
 		tm := &scriptTerm{lines: lines}
-		sh := &sqlShell{db: db, st: st, conn: c, kind: "sqlite", write: write, term: tm}
+		sh := &sqlShell{cl: tcl, db: db, st: st, conn: c, kind: "sqlite", write: write, term: tm}
 		sh.reopen = func(bool) error { return nil } // the same SQLite file
 		sh.run(context.Background())
 		return tm.out.String()
@@ -115,10 +115,10 @@ func TestSQLShell(t *testing.T) {
 
 func TestDBShellDryRunContactsNothing(t *testing.T) {
 	setHome(t, t.TempDir())
-	saved, savedG := interactive, g
-	defer func() { interactive, g = saved, savedG }()
-	interactive = func() bool { return true }
-	g.dryRun = true
+	saved, savedG := tcl.terminal, tcl.flags
+	defer func() { tcl.terminal, tcl.flags = saved, savedG }()
+	tcl.terminal = true
+	tcl.flags.dryRun = true
 	err := store.Update(func(st *store.State) error {
 		st.Conns["far"] = &store.Conn{Name: "far", Kind: "postgres", URL: "postgres://app@10.255.255.1/app", Via: "no-such-host"}
 		return nil
@@ -127,16 +127,16 @@ func TestDBShellDryRunContactsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	// the --via host does not exist: any attempt to open it would fail
-	if err := runDBShell(context.Background(), "far", false); err != nil {
+	if err := runDBShell(tcl, context.Background(), "far", false); err != nil {
 		t.Fatalf("dry run tried to connect: %v", err)
 	}
 }
 
 func TestDBShellNeedsTerminal(t *testing.T) {
-	saved := interactive
-	defer func() { interactive = saved }()
-	interactive = func() bool { return false }
-	if err := runDBShell(context.Background(), "x", false); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
+	saved := tcl.terminal
+	defer func() { tcl.terminal = saved }()
+	tcl.terminal = false
+	if err := runDBShell(tcl, context.Background(), "x", false); err == nil || toErr(err).Code != "NEEDS_TERMINAL" {
 		t.Errorf("want NEEDS_TERMINAL, got %v", err)
 	}
 }
@@ -173,10 +173,10 @@ func TestDumpOpts(t *testing.T) {
 	arch, plain := filepath.Join(dir, "a.dump"), filepath.Join(dir, "a.sql")
 	os.WriteFile(arch, []byte("PGDMP\x01\x0e"), 0o600)
 	os.WriteFile(plain, []byte("-- SQL"), 0o600)
-	if ok, _ := isPgArchive(arch); !ok {
+	if ok, _ := isPgArchive(tcl, arch); !ok {
 		t.Error("PGDMP file not recognised")
 	}
-	if ok, _ := isPgArchive(plain); ok {
+	if ok, _ := isPgArchive(tcl, plain); ok {
 		t.Error("plain SQL taken for an archive")
 	}
 }

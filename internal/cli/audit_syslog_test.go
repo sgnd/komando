@@ -56,7 +56,7 @@ func TestAuditGoesToSyslog(t *testing.T) {
 		}
 	}()
 	run := func(args ...string) error {
-		root := newRoot()
+		root := newRoot(tcl)
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}

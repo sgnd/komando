@@ -14,13 +14,13 @@ import (
 // csvRun runs komando and returns what it wrote to stdout and the error.
 func csvRun(t *testing.T, args ...string) (string, *out.Error) {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	root.SilenceErrors, root.SilenceUsage = true, true
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
-	defer func() { out.P.W = saved }()
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	defer func() { tcl.out.W = saved }()
 	if err := root.Execute(); err != nil {
 		var ec exitCode
 		if errors.As(err, &ec) {
@@ -50,7 +50,7 @@ func TestDBQueryCSVExportsEveryRow(t *testing.T) {
 	if s, e = csvRun(t, "db", "query", "lite", "-o", "csv", "--max-output", "1024", q); e == nil || e.Exit != out.ExitError || strings.Contains(s, "{") {
 		t.Errorf("cut by --max-output: %+v\n%s", e, s)
 	}
-	out.P.Format = "json"
+	tcl.out.Format = "json"
 	if d := mustRun(t, "db", "query", "lite", q); d["results"].([]any)[0].(map[string]any)["truncated"] != "rows" {
 		t.Errorf("JSON keeps the 500-row default: %v", d["results"])
 	}
@@ -112,10 +112,10 @@ func TestDumpRestoreNote(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "lite", "sqlite:///var/lib/app.db")
 	mustRun(t, "conn", "add", "pg", "postgres://x@127.0.0.1/x")
-	if n := restoreNote("lite", "b.db"); strings.Contains(n, "db restore") || !strings.Contains(n, "/var/lib/app.db") {
+	if n := restoreNote(tcl, "lite", "b.db"); strings.Contains(n, "db restore") || !strings.Contains(n, "/var/lib/app.db") {
 		t.Errorf("sqlite: %s", n)
 	}
-	if n := restoreNote("pg", "b.sql.gz"); !strings.Contains(n, "komando db restore pg --from b.sql.gz") {
+	if n := restoreNote(tcl, "pg", "b.sql.gz"); !strings.Contains(n, "komando db restore pg --from b.sql.gz") {
 		t.Errorf("postgres: %s", n)
 	}
 }
@@ -138,7 +138,7 @@ func TestDBKillSQLite(t *testing.T) {
 func TestStorageLinkExpiresDays(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "s3l", "s3://AKIAEXAMPLE@b?region=eu-west-1&endpoint=http://127.0.0.1:9")
-	defer func() { g.dryRun = false }()
+	defer func() { tcl.flags.dryRun = false }()
 	mustRun(t, "storage", "link", "s3l", "a.txt", "--expires", "7d", "--dry-run")
 	if e := wantCode(t, "USAGE", "storage", "link", "s3l", "a.txt", "--expires", "8d", "--dry-run"); !strings.Contains(e.Message, "7d") {
 		t.Errorf("8d: %s", e.Message)
@@ -158,7 +158,7 @@ func TestConnAddKindExample(t *testing.T) {
 
 // db commands stop a query after 30s, not the global 5m; their help says so.
 func TestDBHelpTimeout(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, path := range [][]string{{"db", "query"}, {"db", "user", "ls"}, {"db", "dump"}} {
 		c, _, err := root.Find(path)
 		if err != nil {

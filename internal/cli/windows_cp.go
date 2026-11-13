@@ -18,7 +18,7 @@ import (
 
 // winCopy is runCp's work on one Windows server: one file each way.
 // Folders (-r), --sudo and --mode have no Windows form yet.
-func winCopy(ctx context.Context, c *sshx.Client, local, remote string, up bool, o cpOpts, many bool) (any, error) {
+func winCopy(cl *call, ctx context.Context, c *sshx.Client, local, remote string, up bool, o cpOpts, many bool) (any, error) {
 	switch {
 	case o.recursive:
 		return nil, notOnWindows("copying folders (-r)", []string{c.Host.Name})
@@ -48,13 +48,13 @@ func winCopy(ctx context.Context, c *sshx.Client, local, remote string, up bool,
 			return nil, err
 		}
 	}
-	return winDownload(ctx, c, remote, dst, o.overwrite)
+	return winDownload(cl, ctx, c, remote, dst, o.overwrite)
 }
 
 // winDownload saves the file src of a Windows server as dst (a folder:
 // the file keeps its name in it).
-func winDownload(ctx context.Context, c *sshx.Client, src, dst string, overwrite bool) (xferStats, error) {
-	if err := guardSensitiveCopy(strings.ReplaceAll(src, `\`, "/")); err != nil {
+func winDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string, overwrite bool) (xferStats, error) {
+	if err := guardSensitiveCopy(cl, strings.ReplaceAll(src, `\`, "/")); err != nil {
 		return xferStats{}, err
 	}
 	if fi, err := os.Stat(dst); (err == nil && fi.IsDir()) || strings.HasSuffix(dst, string(os.PathSeparator)) || strings.HasSuffix(dst, "/") {
@@ -76,7 +76,7 @@ try {
 	pp.unknown() // the size comes with the file
 	pp.start(src)
 	w := &b64Sink{save: func(in io.Reader) (xferStats, error) {
-		n, sum, masked, err := fetchFile(ctx, in, dst, 0o644, time.Time{}, overwrite, pp.writer())
+		n, sum, masked, err := fetchFile(cl, ctx, in, dst, 0o644, time.Time{}, overwrite, pp.writer())
 		if err != nil {
 			return xferStats{}, err
 		}

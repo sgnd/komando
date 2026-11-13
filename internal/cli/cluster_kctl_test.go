@@ -16,7 +16,7 @@ import (
 // runKctl runs one kubectl-style command and returns its exit code with
 // what kubectl would have printed.
 func runKctl(ctx context.Context, k *kube.Client, conn string, args []string) (code int, stdout, stderr string) {
-	code, stdout, stderr, _ = runKctlLive(ctx, k, conn, args, nil)
+	code, stdout, stderr, _ = runKctlLive(tcl, ctx, k, conn, args, nil)
 	return code, stdout, stderr
 }
 
@@ -201,11 +201,11 @@ func TestKctlWrite(t *testing.T) {
 		t.Errorf("overwrite: %d %q", code, se)
 	}
 	// --dry-run reaches the server as dryRun=All
-	saved := g.dryRun
-	g.dryRun = true
+	saved := tcl.flags.dryRun
+	tcl.flags.dryRun = true
 	f.writes = nil
 	_, so, _ := run("scale", "deploy/web", "--replicas=0")
-	g.dryRun = saved
+	tcl.flags.dryRun = saved
 	if !strings.Contains(so, "(server dry run)") || !strings.Contains(strings.Join(f.writes, ""), " All ") {
 		t.Errorf("dry run: %q %v", so, f.writes)
 	}

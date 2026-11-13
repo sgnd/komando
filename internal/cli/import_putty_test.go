@@ -56,7 +56,7 @@ func regFile(t *testing.T, text string) string {
 // the port from its hex dword, a key file path kept); a .ppk key, a proxy
 // and a telnet session are reported; Default Settings is skipped.
 func TestImportPuTTY(t *testing.T) {
-	p, err := importPuTTY(regFile(t, puttyReg))
+	p, err := importPuTTY(tcl, regFile(t, puttyReg))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestImportPuTTY(t *testing.T) {
 	// a plain (UTF-8) .reg file works too
 	plain := filepath.Join(t.TempDir(), "plain.reg")
 	os.WriteFile(plain, []byte(puttyReg), 0o600)
-	if p, err := importPuTTY(plain); err != nil || len(p.Hosts) != 2 {
+	if p, err := importPuTTY(tcl, plain); err != nil || len(p.Hosts) != 2 {
 		t.Errorf("plain: %v %v", err, p)
 	}
 }

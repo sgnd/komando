@@ -22,7 +22,7 @@ func writeTemp(t *testing.T, name, body string) string {
 }
 
 func TestImportPgpass(t *testing.T) {
-	p, err := importPgpass(writeTemp(t, "pgpass", "db.lan:5432:shop:app:se\\:cret\n*:*:*:x:y\n10.0.0.5:5432:shop:ro:pw\n"))
+	p, err := importPgpass(tcl, writeTemp(t, "pgpass", "db.lan:5432:shop:app:se\\:cret\n*:*:*:x:y\n10.0.0.5:5432:shop:ro:pw\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func TestImportPgpass(t *testing.T) {
 }
 
 func TestImportEnv(t *testing.T) {
-	p, err := importEnv(writeTemp(t, ".env", "export DATABASE_URL=postgres://app:pw@db:5432/app\nREDIS_URL='redis://default:rpw@cache:6379/0'\nSENTRY_URL=https://x@s/1\nPLAIN=1\nMONGO_URI=mongodb+srv://app@c.mongodb.net/shop\nAPI_URI=https://x/y\n"))
+	p, err := importEnv(tcl, writeTemp(t, ".env", "export DATABASE_URL=postgres://app:pw@db:5432/app\nREDIS_URL='redis://default:rpw@cache:6379/0'\nSENTRY_URL=https://x@s/1\nPLAIN=1\nMONGO_URI=mongodb+srv://app@c.mongodb.net/shop\nAPI_URI=https://x/y\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestImportEnv(t *testing.T) {
 }
 
 func TestImportMycnf(t *testing.T) {
-	p, err := importMycnf(writeTemp(t, "my.cnf", "[client]\nuser=root\npassword=\"top\"\nhost=db\ndatabase=shop\n[mysqld]\ndatadir=/x\n[client_reports]\nuser=ro\nsocket=/tmp/s\n"))
+	p, err := importMycnf(tcl, writeTemp(t, "my.cnf", "[client]\nuser=root\npassword=\"top\"\nhost=db\ndatabase=shop\n[mysqld]\ndatadir=/x\n[client_reports]\nuser=ro\nsocket=/tmp/s\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestImportKomandoIsDefensive(t *testing.T) {
 		"conns":[{"name":"newdb","url":"postgres://a@h/d","password_ref":"secret:newdb-pass"}],
 		"vpns":[{"name":"v","kind":"anyconnect","portal":"--script=/tmp/x"}],
 		"recipes":[{"name":"wipe","command":"rm -rf /srv","read_only":true}]}`)
-	p, err := importKomando(file)
+	p, err := importKomando(tcl, file)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func TestImportedHostsCannotUseLocalSecrets(t *testing.T) {
 }
 
 func TestImportFileZillaRcloneDBeaver(t *testing.T) {
-	fz, err := importFileZilla(writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
+	fz, err := importFileZilla(tcl, writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
 <Server><Host>web.example</Host><Port>2222</Port><Protocol>1</Protocol><User>deploy</User><Pass encoding="base64">czNjcmV0</Pass><Name>Web</Name></Server>
 <Folder><Server><Host>ftp.example</Host><Port>21</Port><Protocol>0</Protocol><User>x</User><Name>Old FTP</Name></Server></Folder>
 </Servers></FileZilla3>`))
@@ -149,14 +149,14 @@ func TestImportFileZillaRcloneDBeaver(t *testing.T) {
 	if len(fz.Hosts) != 1 || fz.Hosts[0].Name != "web" || fz.Hosts[0].Port != 2222 || fz.Secrets["web-pass"] != "s3cret" || len(fz.Notes) != 1 {
 		t.Errorf("filezilla: %+v %v %v", fz.Hosts, len(fz.Secrets), fz.Notes)
 	}
-	rc, err := importRclone(writeTemp(t, "rclone.conf", "[box]\ntype = sftp\nhost = box.lan\nuser = me\nkey_file = ~/.ssh/id_ed25519\n\n[b2]\ntype = b2\naccount = x\n"))
+	rc, err := importRclone(tcl, writeTemp(t, "rclone.conf", "[box]\ntype = sftp\nhost = box.lan\nuser = me\nkey_file = ~/.ssh/id_ed25519\n\n[b2]\ntype = b2\naccount = x\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(rc.Hosts) != 1 || rc.Hosts[0].Address != "box.lan" || len(rc.Notes) != 1 {
 		t.Errorf("rclone: %+v %v", rc.Hosts, rc.Notes)
 	}
-	db, err := importDBeaver(writeTemp(t, "data-sources.json", `{"connections":{
+	db, err := importDBeaver(tcl, writeTemp(t, "data-sources.json", `{"connections":{
 		"postgres-1":{"name":"Shop prod","provider":"postgresql","configuration":{"host":"db.lan","port":"5432","database":"shop","user":"app"}},
 		"x":{"name":"Mongo","provider":"mongodb","configuration":{}}}}`))
 	if err != nil {
@@ -166,7 +166,7 @@ func TestImportFileZillaRcloneDBeaver(t *testing.T) {
 		t.Errorf("dbeaver: %+v", db.Conns)
 	}
 	// an Oracle connection by SID, and one by service name
-	ora, err := importDBeaver(writeTemp(t, "data-sources.json", `{"connections":{
+	ora, err := importDBeaver(tcl, writeTemp(t, "data-sources.json", `{"connections":{
 		"oracle-1":{"name":"Old ERP","provider":"oracle","configuration":{"host":"erp.lan","port":"1521","database":"ORCL","user":"app",
 			"provider-properties":{"@dbeaver-sid-service@":"SID"}}},
 		"oracle-2":{"name":"New ERP","provider":"oracle","configuration":{"host":"erp.lan","port":"1521","database":"ERPPDB","user":"app",

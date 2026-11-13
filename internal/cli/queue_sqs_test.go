@@ -115,7 +115,7 @@ func TestQueueSQSLive(t *testing.T) {
 	if d := mustRun(t, "--dry-run", "queue", "create", "sqs", name, "--config", "VisibilityTimeout=60"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	wantCode(t, "QUEUE_NOT_FOUND", "queue", "describe", "sqs", name)
 	mustRun(t, "queue", "create", "sqs", name, "--config", "VisibilityTimeout=60")
 	wantCode(t, "QUEUE_EXISTS", "queue", "create", "sqs", name)
@@ -141,7 +141,7 @@ func TestQueueSQSLive(t *testing.T) {
 	if d := mustRun(t, "--dry-run", "queue", "purge", "sqs", name); d["messages"].(float64) != 1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "sqs", name)
 	if d := mustRun(t, "--dry-run", "queue", "rm", "sqs", name); !strings.Contains(jsonOf(d), `"exists":true`) {
 		t.Errorf("dry-run rm: %v", d)

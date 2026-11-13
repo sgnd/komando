@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows 
   komando storage rm backups --prefix daily/ --older-than 30d --dry-run
   komando storage rm backups --prefix daily/ --older-than 30d --allow-dangerous`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			keys := args[1:]
 			if prefix == "" && olderThan != "" {
 				return out.Usage("--older-than goes with --prefix (use --prefix / for the whole conn)")
@@ -69,15 +68,15 @@ they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows 
 				}
 			}
 			rec := map[string]any{"keys": keys, "prefix": prefix, "older_than": olderThan}
-			askTypes(keys, "files in "+args[0])
+			askTypes(cl, keys, "files in "+args[0])
 			if prefix != "" {
 				// list first, even in a dry run: the answer is the list
-				return storageRmPrefix(cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
+				return storageRmPrefix(cl, cmd.Context(), args[0], folderKey(prefix), age, limit, rec)
 			}
 			if allVersions {
-				return storageRmVersions(cmd.Context(), args[0], keys, rec)
+				return storageRmVersions(cl, cmd.Context(), args[0], keys, rec)
 			}
-			return withStoragePreview(cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
+			return withStoragePreview(cl, cmd.Context(), "storage.rm", args[0], driver.DataDelete(), rec,
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					done, err := removeKeys(ctx, s, keys)
 					rec["deleted"] = done
@@ -104,7 +103,7 @@ they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows 
 					p.Count = len(p.WouldDelete)
 					return p, nil
 				})
-		},
+		}),
 	}
 	c.Flags().StringVar(&prefix, "prefix", "", "remove everything under this folder (like daily/; / for the whole conn)")
 	spanText(c.Flags(), &olderThan, "older-than", "", true, "with --prefix: only objects older than this (like 30d, 12h, 90m)")
@@ -164,25 +163,25 @@ func (p rmPlan) Text() string {
 
 // storageRmPrefix lists what is under prefix (and older than age), shows
 // it in a dry run, and removes it otherwise.
-func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Duration, limit int, rec map[string]any) error {
+func storageRmPrefix(cl *call, ctx context.Context, connExpr, prefix string, age time.Duration, limit int, rec map[string]any) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "storage")
+	c, err := singleConn(cl, st, connExpr, "storage")
 	if err != nil {
 		return err
 	}
 	// a person at the terminal sees what goes before typing the name; an
 	// agent, a script or --allow-dangerous are stopped (or let through)
 	// before anything is listed, as for every destructive command
-	person := !g.dryRun && !g.allowDangerous && interactive()
+	person := !cl.flags.dryRun && !cl.flags.allowDangerous && cl.interactive()
 	if !person {
-		if err := guardConns(st, []*store.Conn{c}, driver.DataDelete()); err != nil {
+		if err := guardConns(cl, st, []*store.Conn{c}, driver.DataDelete()); err != nil {
 			return err // under --dry-run this only records the stop
 		}
 	}
-	b, err := openBucket(ctx, st, c)
+	b, err := openBucket(cl, ctx, st, c)
 	if err != nil {
 		return namedHint(err, c.Name)
 	}
@@ -211,33 +210,33 @@ func storageRmPrefix(ctx context.Context, connExpr, prefix string, age time.Dura
 	p.Count = len(keys)
 	if len(keys) > limit {
 		p.Keys, p.objs = keys[:limit], p.objs[:limit]
-		out.P.Print("storage.rm", p, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --max-remove above %d after checking the list", len(keys)),
+		cl.out.Print("storage.rm", p, out.Errf(out.ExitConflict, "TOO_MANY", fmt.Sprintf("narrow --prefix or --older-than, or raise --max-remove above %d after checking the list", len(keys)),
 			"%d objects match, more than --max-remove %d", len(keys), limit))
 		return exitCode(out.ExitConflict)
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		p.WouldDelete, p.DryRun = keys, true
-		out.P.Print("storage.rm", p, nil)
+		cl.out.Print("storage.rm", p, nil)
 		return nil
 	}
 	if person && len(keys) > 0 {
-		fmt.Fprint(os.Stderr, rmPreview(p))
+		fmt.Fprint(cl.out.Err, rmPreview(p))
 		v := driver.DataDelete()
 		v.Reasons = []string{fmt.Sprintf("deletes %d object%s (%s) %s for good, unless the bucket keeps old versions",
 			len(keys), plural(len(keys)), humanBytes(p.Bytes), p.where())}
-		askTypes(keys, "objects "+p.where())
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+		askTypes(cl, keys, "objects "+p.where())
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
 		}
 	}
 	done, err := removeKeys(ctx, b, keys)
 	rec["conns"], rec["deleted"] = []string{c.Name}, len(done)
-	audit(st, "storage.rm", nil, "", err == nil, rec)
+	audit(cl, st, "storage.rm", nil, "", err == nil, rec)
 	if err != nil {
 		return namedHint(err, c.Name)
 	}
 	p.Deleted = done
-	out.P.Print("storage.rm", p, nil)
+	cl.out.Print("storage.rm", p, nil)
 	return nil
 }
 

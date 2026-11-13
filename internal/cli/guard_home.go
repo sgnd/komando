@@ -30,8 +30,8 @@ var defaultHome = func() string {
 
 // otherHome is $KOMANDO_HOME when it names another folder than
 // ~/.komando, or "".
-func otherHome() string {
-	h := os.Getenv("KOMANDO_HOME")
+func otherHome(cl *call) string {
+	h := cl.getenv("KOMANDO_HOME")
 	if h == "" || sameDir(h, defaultHome()) {
 		return ""
 	}
@@ -62,16 +62,17 @@ var homeFree = map[string]bool{"komando": true, "help": true, "completion": true
 // background processes a checked command starts (tunnel serve, vpn serve)
 // and the agent guard, which the agent's tool runs before every call.
 func guardHome(cmd *cobra.Command) error {
+	cl := callOf(cmd)
 	top, _, _ := strings.Cut(commandName(cmd), ".")
-	if !isAgent() || backgroundCmd(cmd) || homeFree[top] {
+	if !cl.isAgent() || backgroundCmd(cmd) || homeFree[top] {
 		return nil
 	}
-	h := otherHome()
+	h := otherHome(cl)
 	if h == "" {
 		return nil
 	}
 	what := "KOMANDO_HOME=" + h + ": komando's data from this folder, not from " + defaultHome()
-	return agentYes("SAFETY_SETTING", "KOMANDO_HOME points komando at "+h+", not at "+defaultHome()+
+	return agentYes(cl, "SAFETY_SETTING", "KOMANDO_HOME points komando at "+h+", not at "+defaultHome()+
 		": its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent needs a person's yes to use it",
 		what, "that folder's servers, protection, deny rules, pinned host keys and audit log are not the usual ones")
 }

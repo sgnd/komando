@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/user"
@@ -17,7 +16,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -74,6 +72,7 @@ func applyConventions(c *cobra.Command) {
 		}
 		c.Annotations[groupOnly] = "true" // it runs nothing (ssh-gate counts on it)
 		c.RunE = func(cmd *cobra.Command, args []string) error {
+			cl := callOf(cmd)
 			names := []string{}
 			for _, sub := range cmd.Commands() {
 				if sub.IsAvailableCommand() {
@@ -82,13 +81,13 @@ func applyConventions(c *cobra.Command) {
 			}
 			has := "`" + cmd.CommandPath() + "` has: " + strings.Join(names, ", ")
 			if len(args) == 0 {
-				if out.P.Format == "json" {
+				if cl.out.Format == "json" {
 					// piped: one JSON envelope, never help text (ux.md, section 4)
 					return out.Usage("%s needs a command", cmd.CommandPath()).WithHint(has)
 				}
 				return cmd.Help()
 			}
-			e := unknownCommandErr(cmd, args[0], args[1:])
+			e := unknownCommandErr(cl, cmd, args[0], args[1:])
 			if e.Suggestion == "" {
 				e.Hint = has
 			}
@@ -139,38 +138,38 @@ func dur(flag time.Duration, setting string, def time.Duration) time.Duration {
 	return def
 }
 
-func cmdTimeout(st *store.State) time.Duration {
-	return dur(g.timeout, st.Settings.DefaultTimeout, 5*time.Minute)
+func cmdTimeout(cl *call, st *store.State) time.Duration {
+	return dur(cl.flags.timeout, st.Settings.DefaultTimeout, 5*time.Minute)
 }
 
-func sshOpts(st *store.State) sshx.Options {
-	p := g.hostKeyPolicy
+func sshOpts(cl *call, st *store.State) sshx.Options {
+	p := cl.flags.hostKeyPolicy
 	if p == "" {
 		p = st.Settings.HostKeyPolicy
 	}
-	return sshx.Options{ConnectTimeout: dur(g.connectTimeout, st.Settings.ConnectTimeout, 15*time.Second), HostKeyPolicy: p}
+	return sshx.Options{ConnectTimeout: dur(cl.flags.connectTimeout, st.Settings.ConnectTimeout, 15*time.Second), HostKeyPolicy: p}
 }
 
-func maxOutput(st *store.State) int {
-	if g.maxOutput > 0 {
-		return g.maxOutput
+func maxOutput(cl *call, st *store.State) int {
+	if cl.flags.maxOutput > 0 {
+		return cl.flags.maxOutput
 	}
 	return st.Settings.MaxOutputBytes
 }
 
-func parallelism(st *store.State) int {
-	if g.parallel > 0 {
-		return g.parallel
+func parallelism(cl *call, st *store.State) int {
+	if cl.flags.parallel > 0 {
+		return cl.flags.parallel
 	}
 	return st.Settings.Parallel
 }
 
-// sayLine writes one message of komando's own on w (stderr) as one line:
+// sayLine writes one message of komando's own on the call's stderr as one line:
 // a pipe, a script or an AI agent reads it whole, and a person at a
-// terminal sees it wrapped (out.Wrap at out.StderrWidth), as errors,
+// terminal sees it wrapped (out.Wrap at the call's width), as errors,
 // hints and warnings are. Never put a line break in msg to fit a width.
-func sayLine(w io.Writer, msg string) {
-	_, _ = fmt.Fprintln(w, out.Wrap(msg, 0, out.StderrWidth()))
+func sayLine(cl *call, msg string) {
+	_, _ = fmt.Fprintln(cl.out.Err, out.Wrap(msg, 0, cl.width()))
 }
 
 func toErr(err error) *out.Error {
@@ -257,11 +256,11 @@ type outcome struct {
 
 // fanout dials each host (parallel, bounded) and runs fn on it. A Windows
 // server is dialed only for a command that allowed it (allowWindows).
-func fanout(ctx context.Context, st *store.State, hosts []*store.Host, fn func(ctx context.Context, c *sshx.Client) (any, error)) []outcome {
+func fanout(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, fn func(ctx context.Context, c *sshx.Client) (any, error)) []outcome {
 	res := make([]outcome, len(hosts))
-	sem := make(chan struct{}, max(1, parallelism(st)))
+	sem := make(chan struct{}, max(1, parallelism(cl, st)))
 	var wg sync.WaitGroup
-	opts := sshOpts(st)
+	opts := sshOpts(cl, st)
 	opts.WinRM = windowsAllowed(ctx) // the command runs only PowerShell there
 	for i, h := range hosts {
 		wg.Add(1)
@@ -287,11 +286,11 @@ func fanout(ctx context.Context, st *store.State, hosts []*store.Host, fn func(c
 	return res
 }
 
-func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *sshx.Client) error) error {
+func withClient(cl *call, ctx context.Context, st *store.State, h *store.Host, fn func(c *sshx.Client) error) error {
 	if err := refuseWindows(ctx, h); err != nil {
 		return err
 	}
-	o := sshOpts(st)
+	o := sshOpts(cl, st)
 	o.WinRM = windowsAllowed(ctx)
 	c, err := sshx.Dial(ctx, st, h, o)
 	if err != nil {
@@ -302,7 +301,7 @@ func withClient(ctx context.Context, st *store.State, h *store.Host, fn func(c *
 }
 
 // guard enforces the safety policy before anything mutating runs.
-func guard(st *store.State, hosts []*store.Host, command string, mutating bool) error {
+func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutating bool) error {
 	names := hostNames(hosts)
 	var prot []string
 	if mutating {
@@ -319,16 +318,16 @@ func guard(st *store.State, hosts []*store.Host, command string, mutating bool) 
 		for i, h := range hits {
 			ids[i], reasons[i] = h.ID, h.Reason
 		}
-		if len(hits) > 0 && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(names, prot, hits[0].Reason) {
+		if len(hits) > 0 && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
 			// a dry run goes on to the protection check, so meta.would_need names both flags
-			if err := policyStop(approvalErr("POLICY_BLOCKED",
+			if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 				fmt.Sprintf("the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protNeed(prot)...).Say(dangerSay(reasons), dangerHint)); err != nil {
 				return err
 			}
 		}
 	}
-	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(prot) {
-		return policyStop(approvalErr("PROTECTED_HOST",
+	if len(prot) > 0 && !cl.yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(cl, prot) {
+		return cl.policyStop(approvalErr(cl, "PROTECTED_HOST",
 			fmt.Sprintf("this changes protected %s: %s", nouns(len(prot), "server"), strings.Join(prot, ", "))).Say(protectedSay(prot, "server"), protectedHint))
 	}
 	return nil
@@ -364,7 +363,7 @@ func connsWhy(names []string) string {
 // guardConns is guard for conns. The driver classifies the operation first;
 // destructive needs --allow-dangerous, and any change to a protected conn
 // needs --yes. Exit code and codes match guard so agents handle both alike.
-func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
+func guardConns(cl *call, st *store.State, conns []*store.Conn, v driver.Verdict) error {
 	names := make([]string, len(conns))
 	for i, c := range conns {
 		names[i] = c.Name
@@ -377,14 +376,14 @@ func guardConns(st *store.State, conns []*store.Conn, v driver.Verdict) error {
 			}
 		}
 	}
-	if v.Risk >= driver.RiskDestructive && !dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(names, prot, strings.Join(v.Reasons, "; ")) {
-		if err := policyStop(approvalErr("POLICY_BLOCKED",
+	if v.Risk >= driver.RiskDestructive && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(cl, names, prot, strings.Join(v.Reasons, "; ")) {
+		if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 			fmt.Sprintf("the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), protNeed(prot)...).Say(dangerSay(v.Reasons), dangerHint)); err != nil {
 			return err
 		}
 	}
-	if len(prot) > 0 && !yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(prot) {
-		return policyStop(approvalErr("PROTECTED_TARGET",
+	if len(prot) > 0 && !cl.yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(cl, prot) {
+		return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			fmt.Sprintf("a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", "))).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
 	}
 	return nil
@@ -525,69 +524,63 @@ func sftpHost(c *store.Conn) *store.Host {
 	return &store.Host{Name: c.Name, Address: hostname, Port: p, User: t.User, PasswordRef: c.PasswordRef, Via: c.Via}
 }
 
-// interactive is true when a human sits at a terminal: stdin and stderr are
-// both terminals and no AI agent runs komando. Agents and scripts never
-// are, so they still need --yes and --allow-dangerous (docs/design/principles.md,
-// section 7).
-var interactive = func() bool {
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd())) && !isAgent() && !ciRun()
-}
+// interactive is true when a person sits at the call's terminal (stdin
+// and stderr are one) and no AI agent or CI job makes the call. Agents and
+// scripts never are, so they still need --yes and --allow-dangerous
+// (docs/design/principles.md, section 7).
+func (cl *call) interactive() bool { return cl.terminal && !cl.isAgent() && !ciRun(cl) }
 
 // ask prints question on stderr and reads one line from the terminal.
 // Ctrl-C or Ctrl-D gives an empty answer, which every question takes as no.
-func ask(question string) string {
-	line, _ := readAnswer(question, false)
+func ask(cl *call, question string) string {
+	line, _ := readAnswer(cl, question, false)
 	return strings.TrimSpace(line)
 }
 
 // confirmYes asks a [y/N] question at the terminal. The answer covers this
 // question only; it does not turn on --yes for later checks.
-func confirmYes(question string) bool {
-	if g.dryRun || !interactive() {
+func confirmYes(cl *call, question string) bool {
+	if cl.flags.dryRun || !cl.interactive() {
 		return false
 	}
-	a := strings.ToLower(ask(question + " [y/N] "))
+	a := strings.ToLower(ask(cl, question+" [y/N] "))
 	ok := a == "y" || a == "yes"
-	cur().sess.SaidNo(!ok)
+	cl.sess.SaidNo(!ok)
 	if ok {
-		ttyYes(question)
+		ttyYes(cl, question)
 	}
 	return ok
 }
 
-// askedAbout: the targets of the last yes/no question, so a "no" can say
-// where nothing was changed.
-var askedAbout []string
-
 // guardSafety: changes that weaken komando's own safety checks (no audit
 // log, no host key check, fewer deny rules) need --yes, so an agent cannot
 // switch them off by itself.
-func guardSafety(what string) error {
-	if cur().sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
+func guardSafety(cl *call, what string) error {
+	if cl.sess.SafetyApproved(what) { // asked already in this command (before the state was locked)
 		return nil
 	}
-	if g.yes && personAllowsFor("--yes", what) || confirmYes("This turns off a komando safety check: "+what+". Continue?") {
-		cur().sess.ApproveSafety(what)
+	if cl.flags.yes && cl.personAllowsFor("--yes", what) || confirmYes(cl, "This turns off a komando safety check: "+what+". Continue?") {
+		cl.sess.ApproveSafety(what)
 		return nil
 	}
-	return policyStop(approvalErr("SAFETY_SETTING", what+" weakens komando's safety checks").
+	return cl.policyStop(approvalErr(cl, "SAFETY_SETTING", what+" weakens komando's safety checks").
 		Say(what+" turns off one of komando's safety checks, so komando asks first", "Run it again in a terminal to answer the question, or add --yes in a script if you are sure."))
 }
 
 // guardProtection stops a way around protection: removing a protected
 // target from the inventory, or turning its protection off, would let the
 // next command skip --yes, so it needs --yes itself. kind is host or conn.
-func guardProtection(kind, action string, names []string) error {
-	return guardProtectionWhy(kind, action, names, "")
+func guardProtection(cl *call, kind, action string, names []string) error {
+	return guardProtectionWhy(cl, kind, action, names, "")
 }
 
 // guardProtectionWhy is guardProtection that says more in the approval
 // window (why), e.g. every server a command of several changes.
-func guardProtectionWhy(kind, action string, names []string, why string) error {
+func guardProtectionWhy(cl *call, kind, action string, names []string, why string) error {
 	if len(names) == 0 {
 		return nil
 	}
-	asked := func() bool { return confirmProtected(names) }
+	asked := func() bool { return confirmProtected(cl, names) }
 	word := map[string]string{"vpn": "VPN"}[kind]
 	if word == "" {
 		word = kind
@@ -595,13 +588,13 @@ func guardProtectionWhy(kind, action string, names []string, why string) error {
 	if why == "" {
 		why = fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))
 	} else {
-		asked = func() bool { return confirmYes(why + ". Continue?") }
+		asked = func() bool { return confirmYes(cl, why+". Continue?") }
 	}
-	if yesOK(why) || asked() {
+	if cl.yesOK(why) || asked() {
 		return nil
 	}
 	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind]
-	return policyStop(approvalErr(code, fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
+	return cl.policyStop(approvalErr(cl, code, fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
 }
 
 func hostNames(hs []*store.Host) []string {
@@ -613,23 +606,23 @@ func hostNames(hs []*store.Host) []string {
 }
 
 // audit adds one record per action to the sealed store's audit log.
-func audit(st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
+func audit(cl *call, st *store.State, command string, hosts []string, remote string, ok bool, extra map[string]any) {
 	if st != nil && !st.Settings.Audit {
 		return
 	}
 	if st == nil { // always recorded (turning the audit off, too); read where else it goes
 		if s, err := store.Load(); err == nil {
-			auditSyslog = s.Settings.AuditSyslog
+			cl.auditSyslog = s.Settings.AuditSyslog
 		}
 	} else {
-		auditSyslog = st.Settings.AuditSyslog
+		cl.auditSyslog = st.Settings.AuditSyslog
 	}
 	rec := map[string]any{
 		"ts":      time.Now().UTC().Format(time.RFC3339Nano),
 		"command": command,
 		"ok":      ok,
-		"dry_run": g.dryRun,
-		"actor":   actor(),
+		"dry_run": cl.flags.dryRun,
+		"actor":   actor(cl),
 	}
 	if hosts != nil {
 		rec["hosts"] = hosts
@@ -637,31 +630,31 @@ func audit(st *store.State, command string, hosts []string, remote string, ok bo
 	if remote != "" {
 		rec["remote"] = remote
 	}
-	if a := agentName(); a != "" {
+	if a := cl.caller.Agent; a != "" {
 		rec["agent"] = a // who typed it: an AI agent
-		if allowedByPerson() {
+		if cl.sess.Allowed() {
 			rec["allowed_by_person"] = true // in komando's window
 		}
 		// the agent's environment can give KOMANDO_ACTOR any name, so it
 		// is the name it claims; the computer account comes from the system
-		if os.Getenv("KOMANDO_ACTOR") != "" {
+		if cl.getenv("KOMANDO_ACTOR") != "" {
 			rec["actor_claimed"] = true
 		}
 		rec["os_user"] = osUser()
 	}
-	if c := cur(); len(c.ttyYes) > 0 || promptConfirmed != "" {
+	if c := cl; len(c.ttyYes) > 0 || cl.promptConfirmed != "" {
 		rec["confirm"] = "tty" // a person said yes at the terminal
-		rec["confirmed"] = append(slices.Clone(c.ttyYes), slices.DeleteFunc([]string{promptConfirmed}, func(s string) bool { return s == "" })...)
+		rec["confirmed"] = append(slices.Clone(c.ttyYes), slices.DeleteFunc([]string{cl.promptConfirmed}, func(s string) bool { return s == "" })...)
 	}
 	for k, v := range extra {
 		rec[k] = v
 	}
 	if rec["blocked"] != nil {
-		blockAudited = true
+		cl.blockAudited = true
 	}
-	if err := appendAudit(rec); err != nil {
+	if err := appendAudit(cl, rec); err != nil {
 		// the action ran (or was refused); its record is missing: say so
-		out.P.Warn(fmt.Sprintf("the audit log could not record %s: %v", command, err))
+		cl.out.Warn(fmt.Sprintf("the audit log could not record %s: %v", command, err))
 	}
 }
 
@@ -685,7 +678,7 @@ func osUser() string {
 
 // actor is the name the audit log gives whoever runs komando: KOMANDO_ACTOR,
 // else USER. For an AI agent it is a label (actor_claimed), not proof.
-func actor() string { return cur().caller.Actor }
+func actor(cl *call) string { return cl.caller.Actor }
 
 // countOf writes "1 server", "2 servers": people read words, not "server(s)".
 func countOf(n int, noun string) string {
@@ -720,7 +713,7 @@ type fleetSummary struct {
 }
 
 // finish prints a multi-host result and converts failures into an exit code.
-func finish(command string, data any, sum fleetSummary, worstExit int) error {
+func finish(cl *call, command string, data any, sum fleetSummary, worstExit int) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: failedOf(sum.Failed, sum.Total) + ": " + strings.Join(sum.FailedHosts, ", "),
@@ -730,7 +723,7 @@ func finish(command string, data any, sum fleetSummary, worstExit int) error {
 			soft.Message = "server " + sum.FailedHosts[0] + " failed"
 		}
 	}
-	out.P.Print(command, data, soft)
+	cl.out.Print(command, data, soft)
 	if soft != nil {
 		return exitCode(worstExit)
 	}

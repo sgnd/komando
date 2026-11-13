@@ -184,7 +184,7 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 		// a stop a flag lifts gets the one approval hint (S-8.6, C-C10):
 		// the catalog shows the agent variant, as TestAgentGolden pins it
 		if f := out.ApprovalFlag(&out.Error{Code: code, Exit: out.ExitPolicy}); f != "" && f != "--reveal" {
-			c.Hint = approvalText([]string{f}, true, false)
+			c.Hint = approvalText(tcl, []string{f}, true, false)
 			if m, ok := approvalMeanings[code]; ok {
 				c.Example = m
 			}
@@ -587,8 +587,15 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 					}
 				}
 				// the inventory lookups pass their kind on to out.NotFound
-				if id, ok := x.Fun.(*ast.Ident); ok && notFoundWrappers[id.Name] && len(x.Args) >= 1 && lit(x.Args[0]) != "" {
-					sites = append(sites, notFoundSite(path, lit(x.Args[0])))
+				// (after the call they run in, cl, when they take one)
+				args := x.Args
+				if len(args) > 0 {
+					if id, ok := args[0].(*ast.Ident); ok && id.Name == "cl" {
+						args = args[1:]
+					}
+				}
+				if id, ok := x.Fun.(*ast.Ident); ok && notFoundWrappers[id.Name] && len(args) >= 1 && lit(args[0]) != "" {
+					sites = append(sites, notFoundSite(path, lit(args[0])))
 				}
 			}
 			s := sinkOf(n, path, wrappers)

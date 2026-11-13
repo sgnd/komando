@@ -37,11 +37,11 @@ func (d lsData) Text() string {
 
 // listed is registry list's result; a person's Next: line names the
 // command for one of its items (a repository's tags, a tag's details).
-func listed(m map[string]any) lsData {
+func listed(cl *call, m map[string]any) lsData {
 	if repo, ok := m["repo"].(string); ok {
-		sayNext("komando registry inspect " + fmt.Sprint(m["conn"]) + " " + repo + ":TAG")
+		sayNext(cl, "komando registry inspect "+fmt.Sprint(m["conn"])+" "+repo+":TAG")
 	} else {
-		sayNext("komando registry list " + fmt.Sprint(m["conn"]) + " REPO")
+		sayNext(cl, "komando registry list "+fmt.Sprint(m["conn"])+" REPO")
 	}
 	return lsData(m)
 }

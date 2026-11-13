@@ -40,7 +40,7 @@ func TestQueueKafka(t *testing.T) {
 	if d := mustRun(t, "--dry-run", "queue", "create", "events", "orders", "--partitions", "2", "--replicas", "1"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	if d := mustRun(t, "queue", "ls", "events"); d["count"].(float64) != 0 {
 		t.Fatalf("a dry-run create made a topic: %v", d)
 	}
@@ -104,19 +104,19 @@ func TestQueueKafka(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "queue", "ls", "events", "-n", "0")
 	mustRun(t, "queue", "rm", "events", "audit", "--allow-dangerous")
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 	if d := mustRun(t, "--dry-run", "queue", "purge", "events", "orders"); d["messages"].(float64) != 2 || !strings.Contains(jsonOf(d), "POLICY_BLOCKED") {
 		t.Errorf("dry-run purge: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	mustRun(t, "queue", "purge", "events", "orders", "--allow-dangerous")
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 	if d := mustRun(t, "queue", "peek", "events", "orders"); d["count"].(float64) != 0 {
 		t.Errorf("peek after purge: %v", d)
 	}
 	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "events", "orders")
 	mustRun(t, "queue", "rm", "events", "orders", "--allow-dangerous")
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 
 	if e := wantCode(t, "NO_MATCHING_TARGETS", "cache", "info", "events"); !strings.Contains(e.Hint, "komando queue") {
 		t.Errorf("hint: %s", e.Hint)

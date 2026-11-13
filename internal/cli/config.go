@@ -16,7 +16,7 @@ import (
 type setting struct {
 	Key, Values, Help string
 	get               func(s *store.Settings) string
-	set               func(st *store.State, v string) error
+	set               func(cl *call, st *store.State, v string) error
 }
 
 // minOutputBytes: below this, error messages and hints no longer fit.
@@ -48,14 +48,14 @@ func intAtLeast(key, v string, minV int) (int, error) {
 var settings = []setting{
 	{"host_key_policy", "accept-new | strict | off", "how server identity is checked: accept-new pins a new server's key, strict needs `host trust` first, off checks nothing (needs --yes)",
 		func(s *store.Settings) string { return s.HostKeyPolicy },
-		func(st *store.State, v string) error {
+		func(cl *call, st *store.State, v string) error {
 			v = strings.ToLower(v)
 			if v != "accept-new" && v != "strict" && v != "off" {
 				return out.Errf(out.ExitUsage, "USAGE", "use accept-new (the default), strict or off", "host_key_policy %q is not accept-new, strict or off", v)
 			}
 			rank := map[string]int{"off": 0, "accept-new": 1, "": 1, "strict": 2}
 			if rank[v] < rank[st.Settings.HostKeyPolicy] {
-				if err := guardSafety("loosening server identity checks to " + v); err != nil {
+				if err := guardSafety(cl, "loosening server identity checks to "+v); err != nil {
 					return err
 				}
 			}
@@ -64,7 +64,7 @@ var settings = []setting{
 		}},
 	{"default_user", "a login name", "user for servers that have none (empty: your own user name)",
 		func(s *store.Settings) string { return s.DefaultUser },
-		func(st *store.State, v string) error {
+		func(cl *call, st *store.State, v string) error {
 			if v != "" {
 				if err := validUser(v); err != nil {
 					return err
@@ -75,37 +75,37 @@ var settings = []setting{
 		}},
 	{"default_timeout", "duration > 0", "how long a remote command may run (--timeout overrides it)",
 		func(s *store.Settings) string { return s.DefaultTimeout },
-		func(st *store.State, v string) (err error) {
+		func(cl *call, st *store.State, v string) (err error) {
 			st.Settings.DefaultTimeout, err = positiveDur("default_timeout", v, false)
 			return err
 		}},
 	{"connect_timeout", "duration > 0", "how long connecting may take (--connect-timeout overrides it)",
 		func(s *store.Settings) string { return s.ConnectTimeout },
-		func(st *store.State, v string) (err error) {
+		func(cl *call, st *store.State, v string) (err error) {
 			st.Settings.ConnectTimeout, err = positiveDur("connect_timeout", v, false)
 			return err
 		}},
 	{"parallel", "1 or more", "how many servers a command works on at once (-P overrides it)",
 		func(s *store.Settings) string { return strconv.Itoa(s.Parallel) },
-		func(st *store.State, v string) (err error) {
+		func(cl *call, st *store.State, v string) (err error) {
 			st.Settings.Parallel, err = intAtLeast("parallel", v, 1)
 			return err
 		}},
 	{"max_output_bytes", "1024 or more", "output kept per stream and server, in bytes (--max-output overrides it)",
 		func(s *store.Settings) string { return strconv.Itoa(s.MaxOutputBytes) },
-		func(st *store.State, v string) (err error) {
+		func(cl *call, st *store.State, v string) (err error) {
 			st.Settings.MaxOutputBytes, err = intAtLeast("max_output_bytes", v, minOutputBytes)
 			return err
 		}},
 	{"audit", "on | off", "keep the audit log (turning it off needs --yes)",
 		func(s *store.Settings) string { return map[bool]string{true: "on", false: "off"}[s.Audit] },
-		func(st *store.State, v string) error {
+		func(cl *call, st *store.State, v string) error {
 			on, ok := map[string]bool{"true": true, "on": true, "1": true, "false": false, "off": false, "0": false}[strings.ToLower(v)]
 			if !ok {
 				return out.Errf(out.ExitUsage, "USAGE", "use on or off", "audit %q is not on or off", v)
 			}
 			if !on && st.Settings.Audit {
-				if err := guardSafety("turning off the audit log"); err != nil {
+				if err := guardSafety(cl, "turning off the audit log"); err != nil {
 					return err
 				}
 			}
@@ -114,13 +114,13 @@ var settings = []setting{
 		}},
 	{"audit_sql", "full | hash | off", "how SQL text is kept in the audit log: hash keeps a SHA-256 so repeated queries can be matched (off needs --yes)",
 		func(s *store.Settings) string { return s.AuditSQL },
-		func(st *store.State, v string) error {
+		func(cl *call, st *store.State, v string) error {
 			v = strings.ToLower(v)
 			if v != "full" && v != "hash" && v != "off" {
 				return out.Errf(out.ExitUsage, "USAGE", "use full (the default), hash or off", "audit_sql %q is not full, hash or off", v)
 			}
 			if v == "off" && st.Settings.AuditSQL != "off" {
-				if err := guardSafety("leaving SQL out of the audit log"); err != nil {
+				if err := guardSafety(cl, "leaving SQL out of the audit log"); err != nil {
 					return err
 				}
 			}
@@ -134,7 +134,7 @@ var settings = []setting{
 			}
 			return s.AuditSyslog
 		},
-		func(st *store.State, v string) error {
+		func(cl *call, st *store.State, v string) error {
 			if strings.EqualFold(v, "off") {
 				v = ""
 			}
@@ -143,7 +143,7 @@ var settings = []setting{
 			}
 			if v != st.Settings.AuditSyslog {
 				// where the audit goes, or that it stops going there: a person decides
-				if err := guardSafety("sending the audit log to " + cmp.Or(v, "no log server")); err != nil {
+				if err := guardSafety(cl, "sending the audit log to "+cmp.Or(v, "no log server")); err != nil {
 					return err
 				}
 			}
@@ -152,7 +152,7 @@ var settings = []setting{
 		}},
 	{"mask_personal", "protected | all | off", "where AI agents see email addresses, phone numbers, card numbers and IBANs hidden: on protected servers and conns (the default), on all, or nowhere (less needs --yes)",
 		func(s *store.Settings) string { return s.MaskPersonal },
-		func(st *store.State, v string) error {
+		func(cl *call, st *store.State, v string) error {
 			v = strings.ToLower(v)
 			rank := map[string]int{"off": 0, "protected": 1, "all": 2}
 			n, ok := rank[v]
@@ -160,7 +160,7 @@ var settings = []setting{
 				return out.Errf(out.ExitUsage, "USAGE", "use protected (the default), all or off", "mask_personal %q is not protected, all or off", v)
 			}
 			if n < rank[st.Settings.MaskPersonal] {
-				if err := guardSafety("showing AI agents more personal data (mask_personal " + v + ")"); err != nil {
+				if err := guardSafety(cl, "showing AI agents more personal data (mask_personal "+v+")"); err != nil {
 					return err
 				}
 			}
@@ -169,14 +169,14 @@ var settings = []setting{
 		}},
 	{"login_for", "duration", "how long `komando login SERVER` keeps a server's login for later commands (an AI agent's too)",
 		func(s *store.Settings) string { return s.LoginFor },
-		func(st *store.State, v string) (err error) {
+		func(cl *call, st *store.State, v string) (err error) {
 			v, err = positiveDur("login_for", v, false)
 			if err != nil {
 				return err
 			}
 			now, _ := parseDur(st.Settings.LoginFor)
 			if d, _ := parseDur(v); d > now {
-				if err := guardSafety("keeping server logins longer (login_for " + v + ")"); err != nil {
+				if err := guardSafety(cl, "keeping server logins longer (login_for "+v+")"); err != nil {
 					return err
 				}
 			}
@@ -185,7 +185,7 @@ var settings = []setting{
 		}},
 	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn up` is closed after this long unused",
 		func(s *store.Settings) string { return s.VpnIdle },
-		func(st *store.State, v string) (err error) {
+		func(cl *call, st *store.State, v string) (err error) {
 			if v, err = positiveDur("vpn_idle", v, true); err != nil {
 				return err
 			}
@@ -198,7 +198,7 @@ var settings = []setting{
 				if d == 0 {
 					what = "keeping unused VPNs up until they are stopped (vpn_idle 0)"
 				}
-				if err := guardSafety(what); err != nil {
+				if err := guardSafety(cl, what); err != nil {
 					return err
 				}
 			}
@@ -215,7 +215,7 @@ func settingKeys() []string {
 	return k
 }
 
-func findSetting(key string) (*setting, error) {
+func findSetting(cl *call, key string) (*setting, error) {
 	for i := range settings {
 		if settings[i].Key == strings.ToLower(strings.ReplaceAll(key, "-", "_")) {
 			return &settings[i], nil
@@ -223,7 +223,7 @@ func findSetting(key string) (*setting, error) {
 	}
 	e := out.Errf(out.ExitUsage, "UNKNOWN_SETTING", "see the settings with `komando config show`: "+strings.Join(settingKeys(), ", "), "komando has no setting named %q", key)
 	if c := closest(key, settingKeys()); c != "" {
-		suggest(e, key, c)
+		suggest(cl, e, key, c)
 	}
 	return nil, e
 }
@@ -293,7 +293,7 @@ func configCmd() *cobra.Command {
 		Use:   "show",
 		Short: "Show settings, their defaults and file locations",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -303,17 +303,17 @@ func configCmd() *cobra.Command {
 			for _, s := range settings {
 				res.Keys = append(res.Keys, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
 			}
-			out.P.Print("config.show", res, nil)
+			cl.out.Print("config.show", res, nil)
 			return nil
-		},
+		}),
 	})
 	c.AddCommand(&cobra.Command{
 		Use:     "get SETTING",
 		Short:   "Print one setting",
 		Example: "  komando config get parallel\n  komando config get host_key_policy -o text",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			s, err := findSetting(args[0])
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			s, err := findSetting(cl, args[0])
 			if err != nil {
 				return err
 			}
@@ -321,9 +321,9 @@ func configCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("config.get", configValue{Key: s.Key, Value: s.get(&st.Settings), Default: s.get(&def)}, nil)
+			cl.out.Print("config.get", configValue{Key: s.Key, Value: s.get(&st.Settings), Default: s.get(&def)}, nil)
 			return nil
-		},
+		}),
 	})
 	set := &cobra.Command{
 		Use:   "set SETTING VALUE",
@@ -334,8 +334,8 @@ func configCmd() *cobra.Command {
   komando config set host_key_policy strict
   komando config set audit_sql hash`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			s, err := findSetting(args[0])
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			s, err := findSetting(cl, args[0])
 			if err != nil {
 				return err
 			}
@@ -343,13 +343,13 @@ func configCmd() *cobra.Command {
 			// validate and ask a person (a safety change) on a copy first:
 			// the state file stays unlocked while someone answers
 			if st0, err := loadState(); err == nil {
-				if err := s.set(st0, strings.TrimSpace(args[1])); err != nil {
+				if err := s.set(cl, st0, strings.TrimSpace(args[1])); err != nil {
 					return err
 				}
 			}
 			err = store.Update(func(st *store.State) error {
 				old := s.get(&st.Settings)
-				if err := s.set(st, strings.TrimSpace(args[1])); err != nil {
+				if err := s.set(cl, st, strings.TrimSpace(args[1])); err != nil {
 					return err
 				}
 				res = configValue{Key: s.Key, Value: s.get(&st.Settings), Default: s.get(&def), Old: old}
@@ -358,17 +358,18 @@ func configCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "config.set", nil, "", true, map[string]any{"key": res.Key, "old": res.Old, "new": res.Value})
-			out.P.Print("config.set", configSet{res}, nil)
+			audit(cl, nil, "config.set", nil, "", true, map[string]any{"key": res.Key, "old": res.Old, "new": res.Value})
+			cl.out.Print("config.set", configSet{res}, nil)
 			return nil
-		},
+		}),
 	}
 	// `config set parallel -3`: say what is wrong with the value, not
 	// "unknown shorthand flag"
 	set.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
+		cl := callOf(cmd)
 		if strings.Contains(err.Error(), "shorthand flag") || strings.Contains(err.Error(), "unknown flag") {
 			for _, a := range cmd.Flags().Args() {
-				if s, e := findSetting(a); e == nil {
+				if s, e := findSetting(cl, a); e == nil {
 					return out.Errf(out.ExitUsage, "USAGE", "a value starting with - goes after --: komando config set "+s.Key+" -- VALUE ("+s.Key+" takes "+s.Values+")",
 						"%v", err)
 				}

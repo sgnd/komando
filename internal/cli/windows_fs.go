@@ -26,12 +26,12 @@ import (
 // windowsOne is the server target picks when it is one Windows server;
 // h is nil otherwise (the command takes its usual path and reports any
 // problem with the target itself).
-func windowsOne(target string) (*store.State, *store.Host) {
+func windowsOne(cl *call, target string) (*store.State, *store.Host) {
 	st, err := loadState()
 	if err != nil {
 		return nil, nil
 	}
-	h, err := singleHost(st, target)
+	h, err := singleHost(cl, st, target)
 	if err != nil || !h.Windows() {
 		return nil, nil
 	}
@@ -88,11 +88,11 @@ func (e winEntry) info() fileInfo {
 
 // winRun runs a komando file script on h and reads its markers. A marker
 // that says the path is missing, a folder or refused is its error.
-func winRun(ctx context.Context, st *store.State, h *store.Host, p, script string, maxOut int) (map[string]string, error) {
+func winRun(cl *call, ctx context.Context, st *store.State, h *store.Host, p, script string, maxOut int) (map[string]string, error) {
 	var rr *sshx.RunResult
-	err := withClient(allowWindows(ctx), st, h, func(c *sshx.Client) error {
+	err := withClient(cl, allowWindows(ctx), st, h, func(c *sshx.Client) error {
 		var err error
-		rr, err = sshx.Run(ctx, c, sshx.RunRequest{Command: script, Timeout: cmdTimeout(st), MaxOutput: maxOut})
+		rr, err = sshx.Run(ctx, c, sshx.RunRequest{Command: script, Timeout: cmdTimeout(cl, st), MaxOutput: maxOut})
 		return err
 	})
 	if err != nil {
@@ -132,7 +132,7 @@ func hasKey(m map[string]string, k string) bool { _, ok := m[k]; return ok }
 
 // winFsLs is fs list on a Windows server. Hidden files are left out unless
 // --all, as dotfiles are on Linux.
-func winFsLs(ctx context.Context, st *store.State, h *store.Host, p string, all, recursive bool, maxEntries int) (any, error) {
+func winFsLs(cl *call, ctx context.Context, st *store.State, h *store.Host, p string, all, recursive bool, maxEntries int) (any, error) {
 	first := "" // --limit 0: every entry
 	if maxEntries > 0 {
 		first = " | Select-Object -First " + strconv.Itoa(maxEntries+1)
@@ -143,7 +143,7 @@ if ($i.PSIsContainer) { $items = @(Get-ChildItem -LiteralPath $p -Force:$`+strco
 $rows = foreach ($f in $items) { `+winRow+` }
 mark ('path=' + $p)
 mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
-	m, err := winRun(ctx, st, h, p, script, 64<<20)
+	m, err := winRun(cl, ctx, st, h, p, script, 64<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +155,7 @@ mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
 	for _, e := range es {
 		if maxEntries > 0 && len(r.Entries) >= maxEntries {
 			r.Truncated = true
-			out.P.CutNoted()
+			cl.out.CutNoted()
 			break
 		}
 		r.Entries = append(r.Entries, e.info())
@@ -165,7 +165,7 @@ mark ('json=' + (ConvertTo-Json -Compress -InputObject @($rows)))`)
 }
 
 // winFsStat is fs stat on a Windows server.
-func winFsStat(ctx context.Context, st *store.State, h *store.Host, p string, hash bool) (any, error) {
+func winFsStat(cl *call, ctx context.Context, st *store.State, h *store.Host, p string, hash bool) (any, error) {
 	sum := ""
 	if hash {
 		sum = "\nif (-not $f.PSIsContainer) { mark ('sha256=' + (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLower()) }"
@@ -173,7 +173,7 @@ func winFsStat(ctx context.Context, st *store.State, h *store.Host, p string, ha
 	script := winPath(p) + winCatch(`if (-not (Test-Path -LiteralPath $p)) { mark 'missing'; mark ('path=' + $p); exit 0 }
 $f = Get-Item -LiteralPath $p -Force
 mark ('json=' + (ConvertTo-Json -Compress -InputObject (`+winRow+`)))`+sum)
-	m, err := winRun(ctx, st, h, p, script, 1<<20)
+	m, err := winRun(cl, ctx, st, h, p, script, 1<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ mark ('json=' + (ConvertTo-Json -Compress -InputObject (`+winRow+`)))`+sum)
 
 // winReadFile reads up to limit bytes of a file on a Windows server; trunc
 // says the file is longer. p comes back absolute.
-func winReadFile(ctx context.Context, st *store.State, h *store.Host, p string, limit int64) (b []byte, abs string, trunc bool, err error) {
+func winReadFile(cl *call, ctx context.Context, st *store.State, h *store.Host, p string, limit int64) (b []byte, abs string, trunc bool, err error) {
 	script := winPath(p) + winCatch(`if (Test-Path -LiteralPath $p -PathType Container) { mark 'dir'; exit 0 }
 if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { mark 'not-found'; exit 0 }
 $fs = [IO.File]::Open($p, 'Open', 'Read', 'ReadWrite')
@@ -206,7 +206,7 @@ try {
   mark ('path=' + $p)
   mark ('data=' + [Convert]::ToBase64String($buf, 0, $r))
 } finally { $fs.Close() }`)
-	m, err := winRun(ctx, st, h, p, script, int(limit*4/3)+(1<<16))
+	m, err := winRun(cl, ctx, st, h, p, script, int(limit*4/3)+(1<<16))
 	if err != nil {
 		return nil, p, false, err
 	}
@@ -341,22 +341,22 @@ func winBase(p string) string {
 }
 
 // printed prints a command's result, or returns its error.
-func printed(command string) func(any, error) error {
+func printed(cl *call, command string) func(any, error) error {
 	return func(res any, err error) error {
 		if err != nil {
 			return err
 		}
-		out.P.Print(command, res, nil)
+		cl.out.Print(command, res, nil)
 		return nil
 	}
 }
 
 // winFsCat is fs cat on a Windows server.
-func winFsCat(ctx context.Context, st *store.State, h *store.Host, p string, sudo bool, maxBytes int64, head, tail int, numbered bool) (any, error) {
+func winFsCat(cl *call, ctx context.Context, st *store.State, h *store.Host, p string, sudo bool, maxBytes int64, head, tail int, numbered bool) (any, error) {
 	if sudo {
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "Windows has no sudo: log in as a user that may read the file", "--sudo does not work on Windows servers")
 	}
-	b, abs, trunc, err := winReadFile(ctx, st, h, p, maxBytes)
+	b, abs, trunc, err := winReadFile(cl, ctx, st, h, p, maxBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -365,13 +365,13 @@ func winFsCat(ctx context.Context, st *store.State, h *store.Host, p string, sud
 		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "raise --max-bytes, or save it with `komando download`",
 			"%s is larger than --max-bytes (%s), so --tail cannot show its last lines", abs, humanBytes(maxBytes))
 	}
-	return catContent(h.Name, abs, b, trunc, head, tail, numbered)
+	return catContent(cl, h.Name, abs, b, trunc, head, tail, numbered)
 }
 
 // winFsWrite is fs write on a Windows server, after the content was read
 // and checked for [hidden] values: the same safety steps, then
 // winWrite. --append and --if-changed read the file first, as on Linux.
-func winFsWrite(ctx context.Context, st *store.State, h *store.Host, p string, data []byte, o writeOpts, appendMode, ifChanged bool) error {
+func winFsWrite(cl *call, ctx context.Context, st *store.State, h *store.Host, p string, data []byte, o writeOpts, appendMode, ifChanged bool) error {
 	if o.sudo || o.mode != "" || o.owner != "" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "Windows has no sudo or file modes: leave --sudo, --mode and --owner out; the new file keeps the old one's permissions (ACL)",
 			"--sudo, --mode and --owner do not work on Windows servers")
@@ -379,18 +379,18 @@ func winFsWrite(ctx context.Context, st *store.State, h *store.Host, p string, d
 	if err := checkValidate(o.validate); err != nil {
 		return err
 	}
-	if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
+	if err := guard(cl, st, []*store.Host{h}, o.validate, true); err != nil {
 		return err
 	}
-	data, err := expandSecretRefsBytes(data, h.Name+":"+p)
+	data, err := expandSecretRefsBytes(cl, data, h.Name+":"+p)
 	if err != nil {
 		return err
 	}
 	var old []byte
 	exists := true
-	if appendMode || ifChanged || g.dryRun {
+	if appendMode || ifChanged || cl.flags.dryRun {
 		var trunc bool
-		old, _, trunc, err = winReadFile(ctx, st, h, p, 64<<20)
+		old, _, trunc, err = winReadFile(cl, ctx, st, h, p, 64<<20)
 		switch {
 		case err != nil && toErr(err).Code == "PATH_NOT_FOUND":
 			old, exists, err = nil, false, nil
@@ -403,27 +403,27 @@ func winFsWrite(ctx context.Context, st *store.State, h *store.Host, p string, d
 	if appendMode {
 		data = append(old, data...)
 	}
-	if g.dryRun {
-		res := fsChange{"host": h.Name, "path": p, "bytes": len(data), "append": appendMode, "would_change": !exists || !sameForAgent(old, data)}
+	if cl.flags.dryRun {
+		res := fsChange{"host": h.Name, "path": p, "bytes": len(data), "append": appendMode, "would_change": !exists || !sameForAgent(cl, old, data)}
 		if !exists {
 			res["exists"] = false
 		}
 		if utf8Text(old) && utf8Text(data) {
 			res["diff"] = unifiedDiff(string(old), string(data), 3)
 		}
-		out.P.Print("fs.write", res, nil)
+		cl.out.Print("fs.write", res, nil)
 		return nil
 	}
-	if ifChanged && exists && sameForAgent(old, data) {
-		out.P.Print("fs.write", fsChange{"path": p, "changed": false}, nil)
+	if ifChanged && exists && sameForAgent(cl, old, data) {
+		cl.out.Print("fs.write", fsChange{"path": p, "changed": false}, nil)
 		return nil
 	}
 	var m map[string]string
-	err = withClient(allowWindows(ctx), st, h, func(c *sshx.Client) error {
+	err = withClient(cl, allowWindows(ctx), st, h, func(c *sshx.Client) error {
 		m, err = winWrite(ctx, c, p, bytes.NewReader(data), winWriteOpts{backup: o.backup, mkdirs: o.mkdirs, noFollow: o.noFollow, validate: o.validate})
 		return err
 	})
-	audit(st, "fs.write", []string{h.Name}, "", err == nil, map[string]any{"path": p})
+	audit(cl, st, "fs.write", []string{h.Name}, "", err == nil, map[string]any{"path": p})
 	if err != nil {
 		return err
 	}
@@ -431,10 +431,10 @@ func winFsWrite(ctx context.Context, st *store.State, h *store.Host, p string, d
 	if b := m["backup"]; b != "" {
 		res["backup"] = b
 	}
-	if out.P.Mask && out.P.View(string(data)).Text != string(data) {
+	if cl.out.Mask && cl.out.View(string(data)).Text != string(data) {
 		delete(res, "sha256") // see fs replace
 	}
-	out.P.Print("fs.write", res, nil)
+	cl.out.Print("fs.write", res, nil)
 	return nil
 }
 

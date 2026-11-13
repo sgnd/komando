@@ -5,7 +5,6 @@ import (
 	"cmp"
 	"fmt"
 	"net/url"
-	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -61,7 +60,7 @@ type importPlan struct {
 
 type importSource struct {
 	Name, Default, Desc string
-	Parse               func(path string) (*importPlan, error)
+	Parse               func(cl *call, path string) (*importPlan, error)
 }
 
 var importSources = []importSource{
@@ -109,13 +108,13 @@ for them. Try --dry-run first to see what would be added.`,
   komando import env ./app/.env --group shop
   komando import komando backup.json`,
 		Args: cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			path := ""
 			if len(args) == 2 {
 				path = args[1]
 			}
-			return runImport(args[0], path, groups, overwrite)
-		},
+			return runImport(cl, args[0], path, groups, overwrite)
+		}),
 	}
 	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "add everything imported to these groups")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace servers, conns and recipes with the same name")
@@ -124,7 +123,7 @@ for them. Try --dry-run first to see what would be added.`,
 
 // runImport is `komando import SOURCE [FILE]`; an empty path is the
 // source's usual file.
-func runImport(source, path string, groups []string, overwrite bool) error {
+func runImport(cl *call, source, path string, groups []string, overwrite bool) error {
 	var src *importSource
 	for i := range importSources {
 		if importSources[i].Name == source {
@@ -141,7 +140,7 @@ func runImport(source, path string, groups []string, overwrite bool) error {
 	}
 	if path == "" {
 		path = src.Default
-		if env := os.Getenv("KUBECONFIG"); src.Name == "kubeconfig" && env != "" {
+		if env := cl.getenv("KUBECONFIG"); src.Name == "kubeconfig" && env != "" {
 			path = env // the files kubectl reads, a:b merged as kubectl merges them
 		}
 	}
@@ -149,13 +148,13 @@ func runImport(source, path string, groups []string, overwrite bool) error {
 		return out.Errf(out.ExitUsage, "USAGE", "for example: komando import "+src.Name+" "+map[string]string{"komando": "komando-backup.json", "csv": "servers.csv"}[src.Name],
 			"give the file to import")
 	}
-	importOverwrite = overwrite // a sealed file's secrets (import_sealed.go)
-	defer func() { importOverwrite, carriedSecrets = false, nil }()
-	plan, err := src.Parse(expandHome(path))
+	cl.importOverwrite = overwrite // a sealed file's secrets (import_sealed.go)
+	defer func() { cl.importOverwrite, cl.carriedSecrets = false, nil }()
+	plan, err := src.Parse(cl, expandHome(path))
 	if err != nil {
 		return err
 	}
-	return applyImport(src.Name, path, plan, groups, overwrite)
+	return applyImport(cl, src.Name, path, plan, groups, overwrite)
 }
 
 // importProtectedSkip is why an import with --overwrite leaves a protected
@@ -195,11 +194,12 @@ type importResult struct {
 	// (what was left out of it): the text output does not call them "not
 	// imported". JSON keeps them in not_imported.
 	aboutAdded []string
+	dryRun     bool // the import was a dry run: the text says "would add"
 }
 
-func applyImport(source, file string, plan *importPlan, groups []string, overwrite bool) error {
+func applyImport(cl *call, source, file string, plan *importPlan, groups []string, overwrite bool) error {
 	res := importResult{Source: source, File: file, Hosts: []string{}, Conns: []string{}, Vpns: []string{}, Recipes: []string{},
-		Secrets: []string{}, Skipped: []importSkip{}, NotFound: plan.Notes}
+		Secrets: []string{}, Skipped: []importSkip{}, NotFound: plan.Notes, dryRun: cl.flags.dryRun}
 	if res.NotFound == nil {
 		res.NotFound = []string{}
 	}
@@ -209,7 +209,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	}
 	existed := entryNames(st) // before this import puts anything in st
 	// decide first, so secrets are stored only for what is really added
-	skip := importSkipper(st, overwrite)
+	skip := importSkipper(cl, st, overwrite)
 	var vpns []*store.Vpn
 	for _, v := range plan.Vpns {
 		if r := skip("vpn", v.Name); r != "" {
@@ -226,7 +226,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	// conns can use them with --via
 	sealedKeysInto(st, plan) // so its servers keep them (vetImportHosts)
 	prefetchTwinIPs(st, plan.Hosts)
-	v, err := vetImportHosts(st, plan.Hosts, overwrite, plan.OwnRefs)
+	v, err := vetImportHosts(cl, st, plan.Hosts, overwrite, plan.OwnRefs)
 	if err != nil {
 		return err
 	}
@@ -247,7 +247,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	}
 	res.Skipped = append(res.Skipped, v.Invalid...)
 	res.NotFound, res.aboutAdded = append(res.NotFound, v.Notes...), v.Notes // each note in v.Notes is about a server in v.Add
-	conns, err := vetImportConns(st, plan, overwrite, skip, &res)
+	conns, err := vetImportConns(cl, st, plan, overwrite, skip, &res)
 	if err != nil {
 		return err
 	}
@@ -260,12 +260,12 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	}
 	res.Secrets, res.Keys = plan.sealedNames(res.Secrets)
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
-	res.replacedAndNext(existed, groups)
+	res.replacedAndNext(cl, existed, groups)
 	res.Action = "added"
-	incomplete := importIncomplete(len(v.Invalid))
-	if g.dryRun {
+	incomplete := importIncomplete(cl, len(v.Invalid))
+	if cl.flags.dryRun {
 		res.Action = "would_add"
-		out.P.Print("import", res, toErr(incomplete))
+		cl.out.Print("import", res, toErr(incomplete))
 		if incomplete != nil {
 			return exitCode(1)
 		}
@@ -308,9 +308,9 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 	if err != nil {
 		return err
 	}
-	audit(st, "import", append(append([]string{}, res.Hosts...), res.Conns...), "", true,
+	audit(cl, st, "import", append(append([]string{}, res.Hosts...), res.Conns...), "", true,
 		map[string]any{"source": source, "file": file, "secrets": len(res.Secrets), "deny_rules": res.DenyRules})
-	out.P.Print("import", res, toErr(incomplete))
+	cl.out.Print("import", res, toErr(incomplete))
 	if incomplete != nil {
 		return exitCode(1)
 	}
@@ -323,7 +323,7 @@ func applyImport(source, file string, plan *importPlan, groups []string, overwri
 // env: or file: reference), or whose URL turns its network protection
 // down, needs a person's yes; the import's own passwords go to the
 // address they came with.
-func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func(kind, name string) string, res *importResult) ([]*store.Conn, error) {
+func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool, skip func(kind, name string) string, res *importResult) ([]*store.Conn, error) {
 	var conns []*store.Conn
 	var sends, weak []string
 	for _, c := range plan.Conns {
@@ -356,7 +356,7 @@ func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func
 			continue
 		}
 		name, ok := strings.CutPrefix(c.PasswordRef, "secret:")
-		if ok && !overwrite && !carriedSecrets[name] {
+		if ok && !overwrite && !cl.carriedSecrets[name] {
 			if _, err := vault.Get(name); err == nil {
 				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
 				continue
@@ -376,7 +376,7 @@ func vetImportConns(st *store.State, plan *importPlan, overwrite bool, skip func
 		}
 		conns = append(conns, c)
 	}
-	return conns, guardSends(sends, weak)
+	return conns, guardSends(cl, sends, weak)
 }
 
 // addConn records a conn the import adds: its name, the password stored
@@ -395,7 +395,7 @@ func (r *importResult) addConn(c *store.Conn, plan *importPlan) {
 }
 
 // importSkipper says why an entry of kind is not added (or "").
-func importSkipper(st *store.State, overwrite bool) func(kind, name string) string {
+func importSkipper(cl *call, st *store.State, overwrite bool) func(kind, name string) string {
 	return func(kind, name string) string {
 		if err := checkEntryName(kind, name); err != nil {
 			return toErr(err).Message
@@ -403,10 +403,10 @@ func importSkipper(st *store.State, overwrite bool) func(kind, name string) stri
 		// a protected conn is skipped like a protected server (vetImportHosts),
 		// so a dry run lists it as skipped, as the real run does, and the
 		// rest of the file still comes in
-		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !yesOK() {
+		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !cl.yesOK() {
 			return importProtectedSkip
 		}
-		if err := checkNewName(st, kind, name, overwrite); err != nil {
+		if err := checkNewName(cl, st, kind, name, overwrite); err != nil {
 			return toErr(err).Message
 		}
 		return ""
@@ -415,7 +415,7 @@ func importSkipper(st *store.State, overwrite bool) func(kind, name string) stri
 
 // replacedAndNext fills in what the import replaces (names that existed
 // before it) and the command that tests what it adds.
-func (r *importResult) replacedAndNext(existed map[string]bool, groups []string) {
+func (r *importResult) replacedAndNext(cl *call, existed map[string]bool, groups []string) {
 	added := slices.Concat(r.Hosts, r.Conns, r.Vpns)
 	for _, n := range added {
 		if existed[n] {
@@ -423,8 +423,8 @@ func (r *importResult) replacedAndNext(existed map[string]bool, groups []string)
 		}
 	}
 	r.Next = importNext(added, groups)
-	if r.Next != "" && !g.dryRun {
-		sayNext(r.Next)
+	if r.Next != "" && !cl.flags.dryRun {
+		sayNext(cl, r.Next)
 	}
 }
 
@@ -450,7 +450,7 @@ func (r importResult) Text() string {
 		}
 	}
 	verb := "added"
-	if g.dryRun {
+	if r.dryRun {
 		verb = "would add"
 	}
 	added := slices.Concat(r.Hosts, r.Conns, r.Vpns, r.Recipes)
@@ -462,12 +462,12 @@ func (r importResult) Text() string {
 	line("VPNs "+verb, r.Vpns)
 	line("recipes "+verb, r.Recipes)
 	line("keys "+verb, r.Keys)
-	if g.dryRun {
+	if r.dryRun {
 		line("logins it would store in the vault", r.Secrets)
 	} else {
 		line("logins stored in the vault", r.Secrets)
 	}
-	if g.dryRun {
+	if r.dryRun {
 		line("of these it would replace", r.Replaced)
 	} else {
 		line("of these replaced (the old settings are gone)", r.Replaced)
@@ -577,15 +577,15 @@ func (p *importPlan) addConn(name, raw, note string) {
 	p.Conns = append(p.Conns, &store.Conn{Name: name, URL: clean, PasswordRef: ref})
 }
 
-func readSource(path string) ([]byte, error) {
-	b, err := readImportFile(path)
+func readSource(cl *call, path string) ([]byte, error) {
+	b, err := readImportFile(cl, path)
 	if err != nil {
 		return nil, localFileErr("FILE_NOT_FOUND", err, "give the file's path after the source name")
 	}
 	return b, nil
 }
 
-func importSSHConfig(path string) (*importPlan, error) {
+func importSSHConfig(_ *call, path string) (*importPlan, error) {
 	hosts, notes, err := parseSSHConfig(path)
 	if err != nil {
 		return nil, err
@@ -598,8 +598,8 @@ func importSSHConfig(path string) (*importPlan, error) {
 
 // importPgpass reads host:port:database:user:password lines. Lines with a
 // wildcard match many databases, so they cannot become one conn.
-func importPgpass(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importPgpass(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -645,8 +645,8 @@ func splitPgpass(line string) []string {
 }
 
 // importMycnf reads [client] style sections of a MySQL option file.
-func importMycnf(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importMycnf(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -707,8 +707,8 @@ func importMycnf(path string) (*importPlan, error) {
 // importEnv picks the values of a .env file that are conn URLs
 // (postgres://, mysql://, redis://, s3://, ...). Other lines are ignored;
 // *_URL values that are not conns are reported.
-func importEnv(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importEnv(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -770,11 +770,11 @@ func importRulesAndSettings(st *store.State, plan *importPlan) (rules []string, 
 // importIncomplete: servers komando refused make the import fail (exit 1),
 // not a quiet skip; a name that exists already does not (importing again
 // is safe).
-func importIncomplete(refused int) error {
+func importIncomplete(cl *call, refused int) error {
 	if refused == 0 {
 		return nil
 	}
-	if !g.dryRun {
+	if !cl.flags.dryRun {
 		return out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "fix them in the source and import again: the rest is in, and importing again skips it",
 			"%s not imported (see skipped)", map[bool]string{true: "1 server was", false: strconv.Itoa(refused) + " servers were"}[refused == 1])
 	}

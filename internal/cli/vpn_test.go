@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/netx"
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -36,14 +35,14 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"vpn", "up", "office"}, {"vpn", "up", "office", "--dry-run"}} {
-		g.dryRun, g.yes, store.DryRun = false, false, false
-		root := newRoot()
+		tcl.flags.dryRun, tcl.flags.yes, store.DryRun = false, false, false
+		root := newRoot(tcl)
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		var buf bytes.Buffer
-		saved := out.P.W
-		out.P.W = &buf
+		saved := tcl.out.W
+		tcl.out.W = &buf
 		err := root.Execute()
-		out.P.W = saved
+		tcl.out.W = saved
 		if err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
@@ -94,7 +93,7 @@ func TestSocksHandshakeDeadline(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				socks5Auth(server, &connMgr{}, logger, c.user, c.pass, nil)
+				socks5Auth(server, &connMgr{cl: tcl}, logger, c.user, c.pass, nil)
 				server.Close()
 			}()
 			go io.Copy(io.Discard, client)
@@ -112,7 +111,7 @@ func TestSocksHandshakeDeadline(t *testing.T) {
 	t.Run("open stream stays", func(t *testing.T) {
 		far, near := net.Pipe()
 		go func() { io.Copy(far, far) }() // the target echoes
-		cm := &connMgr{ctx: context.Background(), st: &store.State{}, vpnDial: func(context.Context, string, string) (net.Conn, error) { return near, nil }}
+		cm := &connMgr{cl: tcl, ctx: context.Background(), st: &store.State{}, vpnDial: func(context.Context, string, string) (net.Conn, error) { return near, nil }}
 		client, server := net.Pipe()
 		defer client.Close()
 		go func() { socks5Auth(server, cm, logger, "", "", nil); server.Close() }()
@@ -154,7 +153,7 @@ func TestSocksLoginMarksUse(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				socks5Auth(server, &connMgr{}, logger, "u", "p", func() { used.Store(true) })
+				socks5Auth(server, &connMgr{cl: tcl}, logger, "u", "p", func() { used.Store(true) })
 				server.Close()
 			}()
 			go io.Copy(io.Discard, client)
@@ -306,7 +305,7 @@ func TestVpnEditFlags(t *testing.T) {
 // An alias names the command it stands for in every envelope, its
 // errors too.
 func TestAliasEnvelopeName(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for path, want := range map[string]string{"vpn test": "test", "host list": "list", "vpn add": "vpn.add"} {
 		c, _, err := root.Find(strings.Fields(path))
 		if err != nil {
@@ -409,7 +408,7 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
-	g.dryRun, store.DryRun = false, false // left on by the dry run above
+	tcl.flags.dryRun, store.DryRun = false, false // left on by the dry run above
 	if err := store.UpdateRuntime(func(st *store.State) error {
 		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), StartedAt: now, LastUsed: now}
 		return nil

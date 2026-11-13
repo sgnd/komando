@@ -39,12 +39,12 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 		Example: `  komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
   komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
 		Args: cobra.MinimumNArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -53,25 +53,25 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 			}
 			inner := strings.Join(args[2:], " ")
 			// the policy sees the command as typed, like `exec` on servers
-			if err := guard(st, nil, inner, false); err != nil {
+			if err := guard(cl, st, nil, inner, false); err != nil {
 				return err
 			}
-			risk, err := clusterExecRisk(args[2:], readOnly)
+			risk, err := clusterExecRisk(cl, args[2:], readOnly)
 			if err != nil {
 				return err
 			}
-			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-exec"}, Reasons: []string{"exec in " + args[1]}}); err != nil {
+			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-exec"}, Reasons: []string{"exec in " + args[1]}}); err != nil {
 				return err
 			}
-			if g.dryRun {
-				if err := dryRunKubeCheck(t.conn); err != nil { // the login program, as the real run would
+			if cl.flags.dryRun {
+				if err := dryRunKubeCheck(cl, t.conn); err != nil { // the login program, as the real run would
 					return err
 				}
-				out.P.Print("cluster.exec", map[string]any{"conn": t.conn.Name, "pod": args[1], "container": container,
+				cl.out.Print("cluster.exec", map[string]any{"conn": t.conn.Name, "pod": args[1], "container": container,
 					"command": args[2:], "would_run": "exec " + args[1] + " -- " + inner}, nil)
 				return nil
 			}
-			k, done, err := kubeClient(cmd.Context(), st, t.conn)
+			k, done, err := kubeClient(cl, cmd.Context(), st, t.conn)
 			if err != nil {
 				return err
 			}
@@ -83,9 +83,9 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 			}
 			var stdout, stderr bytes.Buffer
 			ctx := cmd.Context()
-			if g.timeout > 0 {
+			if cl.flags.timeout > 0 {
 				var cancel context.CancelFunc
-				ctx, cancel = context.WithTimeout(ctx, g.timeout)
+				ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 				defer cancel()
 			}
 			err = k.Exec(ctx, kube.ExecOptions{Namespace: space, Pod: pod, Container: container, Command: args[2:], Stdout: &stdout, Stderr: &stderr})
@@ -95,28 +95,28 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 			case errors.As(err, &ee):
 				code = ee.Code
 			case errors.Is(err, context.DeadlineExceeded):
-				return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "the command in %s did not end within %s", pod, g.timeout)
+				return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "the command in %s did not end within %s", pod, cl.flags.timeout)
 			case err != nil:
 				return kubeErr(err)
 			}
 			if risk > driver.RiskRead {
-				audit(st, "cluster.exec", nil, inner, code == 0, map[string]any{"conns": []string{t.conn.Name}, "pod": pod, "risk": risk.String()})
+				audit(cl, st, "cluster.exec", nil, inner, code == 0, map[string]any{"conns": []string{t.conn.Name}, "pod": pod, "risk": risk.String()})
 			}
 			fail := kubectlFailure(code, stderr.String())
-			if out.P.Format == "text" {
-				fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(stdout.String())))
-				fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(stderr.String())))
+			if cl.out.Format == "text" {
+				fmt.Fprint(cl.out.W, out.SafeText(cl.out.Redact(stdout.String())))
+				fmt.Fprint(cl.out.Err, out.SafeText(cl.out.Redact(stderr.String())))
 				if fail != nil {
 					return exitCode(fail.Exit)
 				}
 				return nil
 			}
-			out.P.Print("cluster.exec", map[string]any{"conn": t.conn.Name, "pod": pod, "exit_code": code, "stdout": stdout.String(), "stderr": stderr.String()}, fail)
+			cl.out.Print("cluster.exec", map[string]any{"conn": t.conn.Name, "pod": pod, "exit_code": code, "stdout": stdout.String(), "stderr": stderr.String()}, fail)
 			if fail != nil {
 				return exitCode(fail.Exit)
 			}
 			return nil
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
@@ -168,15 +168,15 @@ Anything can be typed inside, so a protected cluster asks first.`,
 		Example: `  komando cluster shell prod-k8s deploy/api --namespace shop
   komando cluster shell prod-k8s api-7d9f-x2 -c api -- /bin/ash`,
 		Args: cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !interactive() {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if !cl.interactive() {
 				return out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "agents and scripts use `komando cluster exec`", "cluster shell needs a person at a terminal")
 			}
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -187,17 +187,17 @@ Anything can be typed inside, so a protected cluster asks first.`,
 			if len(command) == 0 {
 				command = []string{"sh", "-c", "command -v bash >/dev/null 2>&1 && exec bash || exec sh"}
 			}
-			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-shell"}, Reasons: []string{"shell in " + args[1]}}); err != nil {
+			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-shell"}, Reasons: []string{"shell in " + args[1]}}); err != nil {
 				return err
 			}
-			if g.dryRun {
-				if err := dryRunKubeCheck(t.conn); err != nil { // the login program, as the real run would
+			if cl.flags.dryRun {
+				if err := dryRunKubeCheck(cl, t.conn); err != nil { // the login program, as the real run would
 					return err
 				}
-				out.P.Print("cluster.shell", map[string]any{"conn": t.conn.Name, "pod": args[1], "container": container, "command": command, "dry_run": true}, nil)
+				cl.out.Print("cluster.shell", map[string]any{"conn": t.conn.Name, "pod": args[1], "container": container, "command": command, "dry_run": true}, nil)
 				return nil
 			}
-			k, done, err := kubeClient(cmd.Context(), st, t.conn)
+			k, done, err := kubeClient(cl, cmd.Context(), st, t.conn)
 			if err != nil {
 				return err
 			}
@@ -207,8 +207,8 @@ Anything can be typed inside, so a protected cluster asks first.`,
 			if err != nil {
 				return kubeErr(err)
 			}
-			showStatus(statusLine{What: "shell", Target: t.conn.Name, Detail: space + "/" + pod, Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn)})
-			audit(st, "cluster.shell", nil, "", true, map[string]any{"conns": []string{t.conn.Name}, "pod": pod})
+			showStatus(cl, statusLine{What: "shell", Target: t.conn.Name, Detail: space + "/" + pod, Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn)})
+			audit(cl, st, "cluster.shell", nil, "", true, map[string]any{"conns": []string{t.conn.Name}, "pod": pod})
 			fd := int(os.Stdin.Fd())
 			old, err := term.MakeRaw(fd)
 			if err != nil {
@@ -232,21 +232,21 @@ Anything can be typed inside, so a protected cluster asks first.`,
 			}()
 			started := time.Now()
 			err = k.Exec(context.WithoutCancel(cmd.Context()), kube.ExecOptions{Namespace: space, Pod: pod, Container: container, Command: command,
-				Stdin: os.Stdin, Stdout: os.Stdout, TTY: true, Resize: resize})
+				Stdin: cl.stdin, Stdout: cl.out.W, TTY: true, Resize: resize})
 			stopResize()
 			term.Restore(fd, old)
 			var ee *kube.ExitError
 			switch {
 			case errors.As(err, &ee):
-				showExit(pod, ee.Code, false, time.Since(started))
+				showExit(cl, pod, ee.Code, false, time.Since(started))
 				return exitCode(ee.Code)
 			case err != nil:
-				showExit(pod, 0, true, time.Since(started))
+				showExit(cl, pod, 0, true, time.Since(started))
 				return kubeErr(err)
 			}
-			showExit(pod, 0, false, time.Since(started))
+			showExit(cl, pod, 0, false, time.Since(started))
 			return nil
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
@@ -266,7 +266,7 @@ komando forwards to the pod's port behind it.`,
   komando cluster forward prod-k8s deploy/db 15432:5432 --namespace shop
   komando cluster forward prod-k8s svc/api :80 --namespace shop   # any free local port`,
 		Args: cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			local, remote, ok := strings.Cut(args[2], ":")
 			if !ok {
 				local, remote = args[2], args[2]
@@ -284,7 +284,7 @@ komando forwards to the pod's port behind it.`,
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -296,25 +296,25 @@ komando forwards to the pod's port behind it.`,
 			}
 			// raw access to a pod's port gets around every check komando
 			// makes on commands (like cluster shell): a protected cluster asks
-			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-forward"},
+			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"cluster-forward"},
 				Reasons: []string{"forward to " + args[1] + ":" + remote}}); err != nil {
 				return err
 			}
-			if g.dryRun {
-				if err := dryRunKubeCheck(t.conn); err != nil { // the login program, as the real run would
+			if cl.flags.dryRun {
+				if err := dryRunKubeCheck(cl, t.conn); err != nil { // the login program, as the real run would
 					return err
 				}
-				out.P.Print("cluster.forward", map[string]any{"conn": t.conn.Name, "object": args[1], "local": "127.0.0.1:" + local, "remote": remote,
+				cl.out.Print("cluster.forward", map[string]any{"conn": t.conn.Name, "object": args[1], "local": "127.0.0.1:" + local, "remote": remote,
 					"would_run": "port-forward --address 127.0.0.1 " + args[1] + " " + local + ":" + remote}, nil)
 				return nil
 			}
 			ctx := cmd.Context()
-			if g.timeout > 0 {
+			if cl.flags.timeout > 0 {
 				var cancel context.CancelFunc
-				ctx, cancel = context.WithTimeout(ctx, g.timeout)
+				ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 				defer cancel()
 			}
-			k, done, err := kubeClient(ctx, st, t.conn)
+			k, done, err := kubeClient(cl, ctx, st, t.conn)
 			if err != nil {
 				return err
 			}
@@ -331,9 +331,9 @@ komando forwards to the pod's port behind it.`,
 			}
 			defer ln.Close()
 			go func() { <-ctx.Done(); ln.Close() }()
-			audit(st, "cluster.forward", nil, "", true, map[string]any{"conns": []string{t.conn.Name}, "object": args[1], "pod": pod, "port": port,
+			audit(cl, st, "cluster.forward", nil, "", true, map[string]any{"conns": []string{t.conn.Name}, "object": args[1], "pod": pod, "port": port,
 				"local": ln.Addr().String(), "risk": driver.RiskWrite.String()})
-			showStatus(statusLine{What: "forwarding " + ln.Addr().String() + " → " + args[1] + ":" + remote, Target: t.conn.Name,
+			showStatus(cl, statusLine{What: "forwarding " + ln.Addr().String() + " → " + args[1] + ":" + remote, Target: t.conn.Name,
 				Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn), Tail: "Ctrl-C stops"})
 			conns := 0
 			for {
@@ -344,14 +344,14 @@ komando forwards to the pod's port behind it.`,
 				conns++
 				go func() {
 					if err := k.PortForward(ctx, space, pod, port, c); err != nil && ctx.Err() == nil {
-						fmt.Fprintf(os.Stderr, "komando: forward: %v\n", cleanText(err.Error()))
+						fmt.Fprintf(cl.out.Err, "komando: forward: %v\n", cleanText(err.Error()))
 					}
 				}()
 			}
-			out.P.Print("cluster.forward", map[string]any{"conn": t.conn.Name, "local": ln.Addr().String(), "pod": pod, "port": port,
+			cl.out.Print("cluster.forward", map[string]any{"conn": t.conn.Name, "local": ln.Addr().String(), "pod": pod, "port": port,
 				"connections": conns, "stopped": true}, nil)
 			return nil
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	return c

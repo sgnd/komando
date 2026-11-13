@@ -199,7 +199,7 @@ func s3Providers(*store.State, formAnswers) []pickRow {
 	}
 }
 
-func s3Form() formSpec {
+func s3Form(_ *call) formSpec {
 	is := func(p string) func(formAnswers) bool { return func(a formAnswers) bool { return a["provider"] == p } }
 	return formSpec{title: "Add an S3 bucket", qs: []formQ{
 		formNameQ("conn", "bucket", "backups"),
@@ -351,7 +351,7 @@ func s3Build(_ *store.State, a formAnswers) [][]string {
 
 // Google Cloud Storage.
 
-func gcsForm() formSpec {
+func gcsForm(_ *call) formSpec {
 	return formSpec{title: "Add a Google Cloud Storage bucket", qs: []formQ{
 		formNameQ("conn", "bucket", "media"),
 		storeBucketQ("the Cloud Storage page of the Google Cloud console"),
@@ -410,7 +410,7 @@ func gcsKeyProblem(v string) string {
 
 // Azure Blob Storage.
 
-func azureForm() formSpec {
+func azureForm(_ *call) formSpec {
 	return formSpec{title: "Add an Azure Blob Storage container", qs: []formQ{
 		formNameQ("conn", "container", "files"),
 		{key: "account", label: "Account", ask: "What is the storage account's name?", example: "mystorageacct",
@@ -462,7 +462,7 @@ func azureAccountProblem(_ *store.State, _ formAnswers, v string) string {
 
 // SFTP.
 
-func sftpForm() formSpec {
+func sftpForm(cl *call) formSpec {
 	return formSpec{title: "Add an SFTP file server", qs: []formQ{
 		formNameQ("conn", "file server", "site"),
 		storeHostQ("sftp", "files.example.com"),
@@ -470,7 +470,7 @@ func sftpForm() formSpec {
 		{key: "login", label: "Login", ask: "How do you log in?",
 			help: "Not sure? Pick password: your hosting panel shows it.",
 			def: func(st *store.State, a formAnswers) string {
-				if serverLoginDefault(st, a) == "usual" {
+				if serverLoginDefault(cl, st, a) == "usual" {
 					return "key"
 				}
 				return "password"
@@ -497,7 +497,7 @@ func sftpForm() formSpec {
 
 // FTP and FTPS.
 
-func ftpForm() formSpec {
+func ftpForm(_ *call) formSpec {
 	plain := func(a formAnswers) bool { return a["encryption"] == "ftp" && a["plain"] == "yes" }
 	return formSpec{title: "Add an FTP file server", qs: []formQ{
 		formNameQ("conn", "file server", "site"),
@@ -548,7 +548,7 @@ func ftpForm() formSpec {
 
 // WebDAV.
 
-func webdavForm() formSpec {
+func webdavForm(_ *call) formSpec {
 	isHTTP := func(a formAnswers) bool { return strings.HasPrefix(strings.ToLower(a["address"]), "http://") }
 	return formSpec{title: "Add a WebDAV folder", qs: []formQ{
 		formNameQ("conn", "folder", "cloud"),
@@ -619,7 +619,7 @@ func webdavUserDefault(_ *store.State, a formAnswers) string {
 
 // SMB.
 
-func smbForm() formSpec {
+func smbForm(_ *call) formSpec {
 	return formSpec{title: "Add a Windows share (SMB)", qs: []formQ{
 		formNameQ("conn", "share", "team"),
 		storeHostQ("smb", "fileserver.corp.lan"),

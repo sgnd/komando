@@ -61,7 +61,7 @@ func parseCertURL(st *store.State, s string) (addr, serverName string, ok bool, 
 }
 
 // certDialer is the way to the website: through the --via path, or direct.
-func certDialer(ctx context.Context, st *store.State, via string) (netx.Dialer, io.Closer, error) {
+func certDialer(cl *call, ctx context.Context, st *store.State, via string) (netx.Dialer, io.Closer, error) {
 	if via == "" {
 		d := &net.Dialer{}
 		return d.DialContext, nil, nil
@@ -71,11 +71,11 @@ func certDialer(ctx context.Context, st *store.State, via string) (netx.Dialer, 
 		return nil, nil, err
 	}
 	if vpn != nil {
-		return netx.Open(ctx, vpn, sshOpts(st).ConnectTimeout)
+		return netx.Open(ctx, vpn, sshOpts(cl, st).ConnectTimeout)
 	}
-	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+	cctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
 	defer cancel()
-	c, err := sshx.Dial(cctx, st, h, sshOpts(st))
+	c, err := sshx.Dial(cctx, st, h, sshOpts(cl, st))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -88,15 +88,15 @@ func certDialer(ctx context.Context, st *store.State, via string) (netx.Dialer, 
 	}, c, nil
 }
 
-func checkServedCert(ctx context.Context, st *store.State, u certURL) (certInfo, error) {
-	dial, closer, err := certDialer(ctx, st, u.via)
+func checkServedCert(cl *call, ctx context.Context, st *store.State, u certURL) (certInfo, error) {
+	dial, closer, err := certDialer(cl, ctx, st, u.via)
 	if err != nil {
 		return certInfo{}, err
 	}
 	if closer != nil {
 		defer closer.Close()
 	}
-	return servedCert(ctx, dial, u.address, u.serverName, sshOpts(st).ConnectTimeout, u.via)
+	return servedCert(ctx, dial, u.address, u.serverName, sshOpts(cl, st).ConnectTimeout, u.via)
 }
 
 // servedCert connects, reads the chain the server sends and verifies it

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -77,8 +76,9 @@ func reservedSecret(name string) error {
 // from --from-env VAR, from a pipe, or typed hidden at the terminal. name is
 // the secret's name, for the hint when there is no value.
 func secretInput(cmd *cobra.Command, name, label string) (string, error) {
+	cl := callOf(cmd)
 	if fromEnv, _ := cmd.Flags().GetString("from-env"); fromEnv != "" {
-		v, ok := os.LookupEnv(fromEnv)
+		v, ok := cl.lookupEnv(fromEnv)
 		if !ok {
 			return "", out.Errf(out.ExitUsage, "USAGE", "export "+fromEnv+" first, or pipe the value in (stdin)", "env %s not set", fromEnv)
 		}
@@ -89,7 +89,7 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 		}
 		return v, nil
 	}
-	b, err := readStdinIfPiped(maxStdinValue, "the value")
+	b, err := readStdinIfPiped(cl, maxStdinValue, "the value")
 	if err != nil {
 		return "", err
 	}
@@ -105,8 +105,8 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 	// a person at a terminal: ask with hidden input. An AI agent is never
 	// asked, also when it runs komando under a terminal: it would wait for
 	// an answer nobody gives.
-	if !interactive() {
-		if isAgent() {
+	if !cl.interactive() {
+		if cl.isAgent() {
 			// A password only the user knows is typed by the user. Sending
 			// the agent back to --from-env or stdin would make it ask for
 			// the password in the chat, where it stays in the transcript.
@@ -116,7 +116,7 @@ func secretInput(cmd *cobra.Command, name, label string) (string, error) {
 		}
 		return "", out.Usage("no value: use --from-env VAR or pipe the value in (stdin)")
 	}
-	v, err := readHidden(label)
+	v, err := readHidden(cl, label)
 	if err != nil {
 		return "", err
 	}
@@ -244,7 +244,7 @@ are not changed.`
 		Long:    long + "\n\nWhen NEW exists already, --overwrite replaces its value; when a protected\nserver or conn uses NEW, that also needs --yes.",
 		Example: example,
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			from, to := args[0], args[1]
 			if err := validName("secret", to); err != nil {
 				return err
@@ -259,7 +259,7 @@ are not changed.`
 			}
 			have := secretNames()
 			if !slices.Contains(have, from) {
-				return notFoundSuggest("secret", from, have)
+				return notFoundSuggest(cl, "secret", from, have)
 			}
 			st, err := loadState()
 			if err != nil {
@@ -270,20 +270,20 @@ are not changed.`
 				return secretExists(from, to)
 			}
 			if replaced {
-				if prot := protectedUsers(st, secretUsers(st, to)); len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
-					if err := policyStop(approvalErr("PROTECTED_TARGET",
+				if prot := protectedUsers(st, secretUsers(st, to)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+					if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 						"secret "+to+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
 						return err
 					}
 				}
 			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
-			if g.dryRun {
+			if cl.flags.dryRun {
 				res[map[bool]string{true: "would_move", false: "would_copy"}[move]] = true
 				if move {
 					res["would_update"] = orEmpty(secretUsers(st, from))
 				}
-				out.P.Print(command, textAs{res, secretCopyText(move, res)}, nil)
+				cl.out.Print(command, textAs{res, secretCopyText(cl, move, res)}, nil)
 				return nil
 			}
 			var updated []string
@@ -296,21 +296,21 @@ are not changed.`
 			if move {
 				rec["updated"] = orEmpty(updated)
 			}
-			audit(nil, command, nil, "", err == nil, rec)
+			audit(cl, nil, command, nil, "", err == nil, rec)
 			switch {
 			case errors.Is(err, vault.ErrExists): // made by another komando meanwhile
 				return secretExists(from, to)
 			case errors.Is(err, vault.ErrNotFound):
-				return notFoundSuggest("secret", from, secretNames())
+				return notFoundSuggest(cl, "secret", from, secretNames())
 			case err != nil:
 				return err
 			}
 			if move {
 				res["updated"] = orEmpty(updated)
 			}
-			out.P.Print(command, textAs{res, secretCopyText(move, res)}, nil)
+			cl.out.Print(command, textAs{res, secretCopyText(cl, move, res)}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace NEW when it exists (what uses NEW then gets the value of OLD)")
 	if move {
@@ -525,16 +525,16 @@ Only a person at a terminal moves the key in: the keychain may ask them to
 unlock it, and an AI agent or a script cannot answer that.`,
 		Example: "  komando secret keychain\n  komando secret keychain --off --yes",
 		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !off && (isAgent() || !interactive()) {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if !off && (cl.isAgent() || !cl.interactive()) {
 				// an unlock prompt nobody answers would keep komando waiting
-				err := policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando secret keychain` in their own terminal",
+				err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando secret keychain` in their own terminal",
 					"only a person at a terminal can move the vault key into the keychain: it may ask them to unlock it"))
 				if err != nil {
 					return err
 				}
 			}
-			if g.dryRun {
+			if cl.flags.dryRun {
 				tool, err := vault.KeychainTool()
 				res := map[string]any{"dry_run": true, "would": map[bool]string{false: "move the vault key into the keychain", true: "move the vault key back into store.key"}[off]}
 				if err != nil {
@@ -542,32 +542,32 @@ unlock it, and an AI agent or a script cannot answer that.`,
 				} else {
 					res["keychain"] = tool
 				}
-				out.P.Print("secret.keychain", res, nil)
+				cl.out.Print("secret.keychain", res, nil)
 				return nil
 			}
 			if off {
-				if err := guardSafety("moving the vault key out of the keychain into a file"); err != nil {
+				if err := guardSafety(cl, "moving the vault key out of the keychain into a file"); err != nil {
 					return err
 				}
 				err := vault.KeyToFile()
-				audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "file"})
+				audit(cl, nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "file"})
 				if err != nil {
 					return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain on this computer (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring", "%v", err)
 				}
-				out.P.Print("secret.keychain", map[string]any{"key": "store.key"}, nil)
+				cl.out.Print("secret.keychain", map[string]any{"key": "store.key"}, nil)
 				return nil
 			}
 			tool, err := vault.KeyToKeychain()
-			audit(nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
+			audit(cl, nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
 			if errors.Is(err, vault.ErrKeychainTaken) {
 				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then run it again", "%v; the store still uses store.key, nothing was lost", err)
 			}
 			if err != nil {
 				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring", "%v; the store still uses store.key, nothing was lost", err)
 			}
-			out.P.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
+			cl.out.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&off, "off", false, "move the key back into store.key (needs --yes)")
 	return c
@@ -588,8 +588,8 @@ func secretInUse(name string, users []string) error {
 
 // secretSetAction says what secret set did, or would do under --dry-run,
 // for the text headline ("stored db-pass", "would replace db-pass").
-func secretSetAction(replaced bool) string {
-	if g.dryRun {
+func secretSetAction(cl *call, replaced bool) string {
+	if cl.flags.dryRun {
 		return map[bool]string{false: "would_store", true: "would_replace"}[replaced]
 	}
 	return map[bool]string{false: "stored", true: "replaced"}[replaced]
@@ -597,10 +597,10 @@ func secretSetAction(replaced bool) string {
 
 // secretCopyText is secret rename's and secret cp's text: what moved
 // where, and what follows the new name.
-func secretCopyText(move bool, res map[string]any) out.Texter {
+func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
 	return textFn(func() string {
 		verb := map[bool]string{true: "renamed", false: "copied"}[move]
-		if g.dryRun {
+		if cl.flags.dryRun {
 			verb = map[bool]string{true: "would rename", false: "would copy"}[move]
 		}
 		s := fmt.Sprintf("%s secret %v to %v", verb, res["from"], res["to"])
@@ -608,11 +608,11 @@ func secretCopyText(move bool, res map[string]any) out.Texter {
 			s += " (its old value replaced)"
 		}
 		users, _ := res["updated"].([]string)
-		if g.dryRun {
+		if cl.flags.dryRun {
 			users, _ = res["would_update"].([]string)
 		}
 		if len(users) > 0 {
-			s += "\n  " + map[bool]string{true: "would point at ", false: "now points at "}[g.dryRun] + res["ref"].(string) + ": " + strings.Join(users, ", ")
+			s += "\n  " + map[bool]string{true: "would point at ", false: "now points at "}[cl.flags.dryRun] + res["ref"].(string) + ": " + strings.Join(users, ", ")
 		}
 		return s + "\n"
 	})

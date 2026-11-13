@@ -103,7 +103,9 @@ func TestSSHCommandSealedKeyGoesToAgent(t *testing.T) {
 	invHome(t)
 	ring := &recordingAgent{ExtendedAgent: agent.NewKeyring().(agent.ExtendedAgent)}
 	saved := openAgent
-	openAgent = func() (agent.ExtendedAgent, string, func(), error) { return ring, "/tmp/agent.sock", func() {}, nil }
+	openAgent = func(*call) (agent.ExtendedAgent, string, func(), error) {
+		return ring, "/tmp/agent.sock", func() {}, nil
+	}
 	t.Cleanup(func() { openAgent = saved })
 
 	mustRun(t, "key", "gen", "k1")

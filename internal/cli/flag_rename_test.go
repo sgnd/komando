@@ -23,7 +23,7 @@ var flagSynonyms = []struct {
 }
 
 func TestFlagSynonyms(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, r := range flagSynonyms {
 		c := findCmd(t, root, r.path...)
 		now, old := c.Flags().Lookup(r.now), c.Flags().Lookup(r.old)
@@ -40,7 +40,7 @@ func TestFlagSynonyms(t *testing.T) {
 // docker logs has no journal priority and svc logs no --timestamps
 // choice: those flags are not there (C-F13); logs keeps both.
 func TestLogsIdleFlagsGone(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for path, flag := range map[string]string{"docker logs": "priority", "svc logs": "timestamps"} {
 		if f := findCmd(t, root, strings.Fields(path)...).Flags().Lookup(flag); f != nil {
 			t.Errorf("%s has --%s", path, flag)
@@ -55,7 +55,7 @@ func TestLogsIdleFlagsGone(t *testing.T) {
 
 // cron reads root's crontab with --user root; it has no --sudo (C-F19).
 func TestCronUserRoot(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	if f := findCmd(t, root, "cron", "list").InheritedFlags().Lookup("sudo"); f != nil {
 		t.Errorf("cron has --sudo: %+v", f)
 	}

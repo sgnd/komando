@@ -28,8 +28,8 @@ import (
 // importFileZilla reads FileZilla's sitemanager.xml. SFTP sites become
 // servers (their password goes to the vault); FTP sites are reported until
 // komando's storage speaks FTP.
-func importFileZilla(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importFileZilla(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -99,8 +99,8 @@ func (s fzServer) password() string {
 
 // importRclone reads rclone.conf. sftp remotes become servers; others are
 // reported (rclone passwords are obscured, so a stored one is noted).
-func importRclone(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importRclone(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -154,8 +154,8 @@ func parseINI(text string) (map[string]map[string]string, []string) {
 // MariaDB, SQL Server, Oracle, ClickHouse, Snowflake and SQLite connections become conns (an
 // Oracle one by SID gets ?sid=); DBeaver keeps passwords in a
 // separate encrypted file, so they are set afterwards.
-func importDBeaver(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importDBeaver(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -216,8 +216,8 @@ func importDBeaver(path string) (*importPlan, error) {
 // next to it) and adds one storage conn per S3 bucket each profile can see.
 // The conns use the profile (aws_profile), so no key is copied: komando
 // reads the person's current login each time, SSO and roles included.
-func importAWS(path string) (*importPlan, error) {
-	profiles, credsFile, err := awsImportProfiles(path)
+func importAWS(cl *call, path string) (*importPlan, error) {
+	profiles, credsFile, err := awsImportProfiles(cl, path)
 	if err != nil {
 		return nil, err
 	}
@@ -266,12 +266,12 @@ func importAWS(path string) (*importPlan, error) {
 
 // awsImportProfiles are the profiles of the AWS config file path (and the
 // credentials file next to it, or AWS_SHARED_CREDENTIALS_FILE), in order.
-func awsImportProfiles(path string) (profiles []string, credsFile string, err error) {
-	b, err := readSource(path)
+func awsImportProfiles(cl *call, path string) (profiles []string, credsFile string, err error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, "", err
 	}
-	credsFile = os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	credsFile = cl.getenv("AWS_SHARED_CREDENTIALS_FILE")
 	if credsFile == "" {
 		credsFile = filepath.Join(filepath.Dir(path), "credentials")
 	}

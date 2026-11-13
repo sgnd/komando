@@ -27,21 +27,21 @@ func secretHome(t *testing.T) {
 // which names the secret and the file.
 func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	secretHome(t)
-	defer func() { g.yes, g.dryRun = false, false }()
+	defer func() { tcl.flags.yes, tcl.flags.dryRun = false, false }()
 
 	// a person or a script: no window (askOnScreen panics)
-	got, err := expandSecretRefs("DB={{secret:db-pass}}", "web1:/etc/app.env", false)
+	got, err := expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false)
 	if err != nil || got != "DB=pa$$1word" {
 		t.Fatalf("script: %q %v", got, err)
 	}
-	if got, _ := expandSecretRefs("x={{ secret:db-pass }}", "web1:/f", true); got != "x=pa$$$$1word" {
+	if got, _ := expandSecretRefs(tcl, "x={{ secret:db-pass }}", "web1:/f", true); got != "x=pa$$$$1word" {
 		t.Errorf("a regexp replacement gets $$ for each $: %q", got)
 	}
-	if got, _ := expandSecretRefs("no reference here", "web1:/f", false); got != "no reference here" {
+	if got, _ := expandSecretRefs(tcl, "no reference here", "web1:/f", false); got != "no reference here" {
 		t.Errorf("text without a reference: %q", got)
 	}
 	// the approval code's key never goes, for anyone
-	if _, err := expandSecretRefs("{{secret:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
+	if _, err := expandSecretRefs(tcl, "{{secret:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("reserved secret: %v", err)
 	}
 
@@ -52,17 +52,17 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	wantCode(t, "SECRET_DESTINATION", "fs", "write", "web1", "/etc/app.env", "--value", "DB={{secret:db-pass}}") // the synonym: the same stop
 	wantCode(t, "SECRET_DESTINATION", "fs", "replace", "web1", "/etc/app.env", "--old", "DB=[hidden]", "--new", "DB={{secret:db-pass}}")
 	wantCode(t, "RESERVED_SECRET", "fs", "write", "web1", "/etc/app.env", "--content", "{{secret:"+approvalSecret+"}}")
-	if _, err := expandSecretRefs("DB={{secret:db-pass}}", "web1:/etc/app.env", false); toErr(err).Code != "SECRET_DESTINATION" || toErr(err).Exit != out.ExitPolicy {
+	if _, err := expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false); toErr(err).Code != "SECRET_DESTINATION" || toErr(err).Exit != out.ExitPolicy {
 		t.Fatalf("agent without --yes: %v", err)
 	}
 	if len(*texts) != 0 {
 		t.Fatal("no flag, no window")
 	}
-	if _, err := expandSecretRefs("{{secret:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
+	if _, err := expandSecretRefs(tcl, "{{secret:"+approvalSecret+"}}", "web1:/f", false); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("agent, reserved secret: %v", err)
 	}
-	g.yes = true
-	got, err = expandSecretRefs("DB={{secret:db-pass}}", "web1:/etc/app.env", false)
+	tcl.flags.yes = true
+	got, err = expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/etc/app.env", false)
 	if err != nil || got != "DB=pa$$1word" {
 		t.Fatalf("agent, allowed: %q %v", got, err)
 	}
@@ -73,17 +73,17 @@ func TestSecretRefsInTextNeedAPerson(t *testing.T) {
 	// a person who says no
 	windowText(t, false)
 	resetApproval()
-	if _, err := expandSecretRefs("{{secret:db-pass}}", "web1:/f", false); toErr(err).Code != "SECRET_DESTINATION" {
+	if _, err := expandSecretRefs(tcl, "{{secret:db-pass}}", "web1:/f", false); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("denied: %v", err)
 	}
 
 	// a dry run never asks and reads no secret: the reference stays
-	g.yes, g.dryRun = false, true
+	tcl.flags.yes, tcl.flags.dryRun = false, true
 	resetApproval()
-	out.P.Reset()
-	got, err = expandSecretRefs("DB={{secret:db-pass}}", "web1:/f", false)
-	if err != nil || got != "DB={{secret:db-pass}}" || out.P.Blocked() == nil {
-		t.Errorf("agent dry run: %q %v blocked=%v", got, err, out.P.Blocked())
+	tcl.out.Reset()
+	got, err = expandSecretRefs(tcl, "DB={{secret:db-pass}}", "web1:/f", false)
+	if err != nil || got != "DB={{secret:db-pass}}" || tcl.out.Blocked() == nil {
+		t.Errorf("agent dry run: %q %v blocked=%v", got, err, tcl.out.Blocked())
 	}
 }
 
@@ -92,15 +92,15 @@ func TestEnvSecretNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "host", "add", "web1", "deploy@10.255.255.1")
 	hosts := []*store.Host{{Name: "web1"}}
-	if _, err := parseEnvTo([]string{"DB=secret:db-pass"}, hosts); err != nil {
+	if _, err := parseEnvTo(tcl, []string{"DB=secret:db-pass"}, hosts); err != nil {
 		t.Fatalf("script: %v", err)
 	}
 	texts := windowText(t, true)
-	if env, err := parseEnvTo([]string{"PLAIN=1"}, hosts); err != nil || env["PLAIN"] != "1" {
+	if env, err := parseEnvTo(tcl, []string{"PLAIN=1"}, hosts); err != nil || env["PLAIN"] != "1" {
 		t.Fatalf("a plain value: %v %v", env, err)
 	}
 	wantCode(t, "SECRET_DESTINATION", "exec", "web1", "-e", "DB=secret:db-pass", "--", "true")
-	if _, err := parseEnvTo([]string{"K=secret:" + approvalSecret}, hosts); toErr(err).Code != "RESERVED_SECRET" {
+	if _, err := parseEnvTo(tcl, []string{"K=secret:" + approvalSecret}, hosts); toErr(err).Code != "RESERVED_SECRET" {
 		t.Fatalf("reserved: %v", err)
 	}
 	d := mustRun(t, "exec", "web1", "-e", "DB=secret:db-pass", "--dry-run", "--", "true")
@@ -296,13 +296,13 @@ func TestAgentOtherHome(t *testing.T) {
 	}
 	for _, h := range []string{usual, usual + "/", link} {
 		setHome(t, h)
-		if otherHome() != "" {
+		if otherHome(tcl) != "" {
 			t.Errorf("KOMANDO_HOME=%s is the usual folder", h)
 		}
 	}
 	mustRun(t, "list")
 	t.Setenv("KOMANDO_HOME", "")
-	if otherHome() != "" {
+	if otherHome(tcl) != "" {
 		t.Error("no KOMANDO_HOME, no other folder")
 	}
 	if len(*texts) != 1 {

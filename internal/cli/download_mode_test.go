@@ -19,14 +19,14 @@ func TestDownloadModeNotWorldWritable(t *testing.T) {
 		{0o777, 0o755}, {0o666, 0o644}, {0o640, 0o640}, {0o444, 0o644}, {0o700, 0o700},
 	} {
 		dst := filepath.Join(dir, "f"+c.there.String())
-		if _, _, _, err := fetchFile(context.Background(), strings.NewReader("x"), dst, c.there, time.Time{}, true, nil); err != nil {
+		if _, _, _, err := fetchFile(tcl, context.Background(), strings.NewReader("x"), dst, c.there, time.Time{}, true, nil); err != nil {
 			t.Fatal(err)
 		}
 		if m := mode(t, dst); m != c.here {
 			t.Errorf("download of %04o: %04o, want %04o", c.there, m, c.here)
 		}
 		rel := "s" + c.there.String()
-		if err := (localSide{root: dir}).write(context.Background(), rel, strings.NewReader("x"), syncFile{Mode: c.there}); err != nil {
+		if err := (localSide{cl: tcl, root: dir}).write(context.Background(), rel, strings.NewReader("x"), syncFile{Mode: c.there}); err != nil {
 			t.Fatal(err)
 		}
 		if m := mode(t, filepath.Join(dir, rel)); m != c.here {

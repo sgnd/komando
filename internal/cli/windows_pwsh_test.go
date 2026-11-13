@@ -15,7 +15,6 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -73,9 +72,9 @@ func pwshServer(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	savedW := out.P.W
-	out.P.W = io.Discard
-	t.Cleanup(func() { out.P.W = savedW })
+	savedW := tcl.out.W
+	tcl.out.W = io.Discard
+	t.Cleanup(func() { tcl.out.W = savedW })
 }
 
 // bridgePwsh runs each exec as `docker exec -i BOX pwsh ARGS`.

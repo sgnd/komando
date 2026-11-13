@@ -40,7 +40,7 @@ func TestEveryCommandHasKind(t *testing.T) {
 			walk(sub)
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 	for key := range commandKinds {
 		if !seen[key] {
 			t.Errorf("commandKinds has %q, but there is no such command: remove it", key)

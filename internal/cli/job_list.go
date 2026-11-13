@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -20,16 +19,16 @@ func jobListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List the jobs komando started (--refresh asks the servers)",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
 			var names map[string]bool
 			if target != "" {
-				names = targetNames(st, target)
+				names = targetNames(cl, st, target)
 				// a name that is no longer in the inventory still finds its jobs
-				if _, err := resolveSelection(st, target); err != nil {
+				if _, err := resolveSelection(cl, st, target); err != nil {
 					known := false
 					for _, j := range st.Jobs {
 						known = known || names[j.Host]
@@ -46,9 +45,9 @@ func jobListCmd() *cobra.Command {
 				}
 			}
 			sort.Slice(jobs, func(a, b int) bool { return jobs[a].StartedAt.After(jobs[b].StartedAt) })
-			jobs = cutRows(jobs, limit) // newest first: the cut drops the oldest
+			jobs = cutRows(cl, jobs, limit) // newest first: the cut drops the oldest
 			if !refresh {
-				out.P.Print("job.list", jobList{Count: len(jobs), Jobs: jobs}, nil)
+				cl.out.Print("job.list", jobList{Count: len(jobs), Jobs: jobs}, nil)
 				return nil
 			}
 			rows := []any{}
@@ -59,7 +58,7 @@ func jobListCmd() *cobra.Command {
 					continue
 				}
 				var s *jobStatus
-				err := withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
+				err := withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
 					var e error
 					s, e = fetchStatus(cmd.Context(), c, j, 0)
 					return e
@@ -70,9 +69,9 @@ func jobListCmd() *cobra.Command {
 				}
 				rows = append(rows, s)
 			}
-			out.P.Print("job.list", jobList{Count: len(rows), Jobs: rows}, nil)
+			cl.out.Print("job.list", jobList{Count: len(rows), Jobs: rows}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&target, "target", "", "only jobs on these servers (a selector, like @web)")
 	c.Flags().BoolVar(&refresh, "refresh", false, "ask each server for the job's current state")

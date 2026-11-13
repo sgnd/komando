@@ -24,17 +24,17 @@ func TestAskPassword(t *testing.T) {
 	// an agent
 	asAgent(t, false, false)
 	e = wantCode(t, "NEEDS_PERSON", "host", "add", "vps1", "root@10.0.0.20", "--ask-password")
-	if !strings.Contains(e.Hint, "ask the user to run `komando") || !strings.Contains(e.Hint, "never ask for a password in the chat") { // the command line is os.Args
+	if !strings.Contains(e.Hint, "ask the user to run `komando") || !strings.Contains(e.Hint, "never ask for a password in the chat") { // the command line is tcl.args
 		t.Errorf("agent hint: %q", e.Hint)
 	}
 	noAgent(t)
 
 	// a person
-	saved, savedInteractive := readPassword, interactive
-	t.Cleanup(func() { readPassword, interactive = saved, savedInteractive })
-	interactive = func() bool { return true }
+	saved, savedInteractive := readPassword, tcl.terminal
+	t.Cleanup(func() { readPassword, tcl.terminal = saved, savedInteractive })
+	tcl.terminal = true
 	asked := 0
-	readPassword = func(label string) (string, error) {
+	readPassword = func(_ *call, label string) (string, error) {
 		asked++
 		if !strings.Contains(label, "vps1") {
 			t.Errorf("question: %q", label)
@@ -50,7 +50,7 @@ func TestAskPassword(t *testing.T) {
 	}
 	wantCode(t, "USAGE", "host", "edit", "vps1", "--ask-password", "--password-ref", "env:X")
 	// a new password for the same server replaces its own secret
-	readPassword = func(string) (string, error) { return "Typed-Pass-2", nil }
+	readPassword = func(*call, string) (string, error) { return "Typed-Pass-2", nil }
 	mustRun(t, "host", "edit", "vps1", "--ask-password")
 	if v, _ := vault.Get("vps1-pass"); v != "Typed-Pass-2" {
 		t.Errorf("edit did not store the new password: %q", v)
@@ -78,7 +78,7 @@ func TestAskPassword(t *testing.T) {
 	}
 	// a dry run asks nothing and stores nothing
 	asked = 0
-	readPassword = func(string) (string, error) { asked++; return "x", nil }
+	readPassword = func(*call, string) (string, error) { asked++; return "x", nil }
 	mustRun(t, "host", "add", "dry1", "root@10.0.0.40", "--ask-password", "--dry-run")
 	if _, err := vault.Get("dry1-pass"); err == nil || asked != 0 {
 		t.Errorf("dry run asked %d times or stored the secret", asked)
@@ -131,8 +131,8 @@ func TestRmNamesUnusedSecrets(t *testing.T) {
 func TestChangeTextInWords(t *testing.T) {
 	added := true
 	for got, want := range map[string]string{
-		policyChange{Custom: []string{"a", "b"}, Added: &added, pattern: "b"}.denied().Text():                                      "added the deny rule b as " + policy.CustomID("b") + " (2 custom rules now)\n",
-		policyChange{Custom: []string{"a"}, Removed: "b"}.Text():                                                                   "removed the deny rule b (1 custom rule left)\n",
+		policyChange{Custom: []string{"a", "b"}, Added: &added, pattern: "b"}.denied(tcl).TextFor(tcl.out):                         "added the deny rule b as " + policy.CustomID("b") + " (2 custom rules now)\n",
+		policyChange{Custom: []string{"a"}, Removed: "b"}.TextFor(tcl.out):                                                         "removed the deny rule b (1 custom rule left)\n",
 		exportResult{File: "f.json", Hosts: 2, Conns: 1, SecretsNeeded: []string{"p"}}.Text():                                      "saved 2 servers, 1 conn to f.json (no passwords)\nset again on the other computer: p (`komando secret set NAME`)\n",
 		renderedText(t, map[string]any{"name": "app-db-pass", "action": "stored", "replaced": false, "ref": "secret:app-db-pass"}): "stored app-db-pass\n  ref: secret:app-db-pass\n",
 	} {

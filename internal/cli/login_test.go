@@ -153,13 +153,13 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 // sshx words the HOSTKEY_MISMATCH hint for a person only when interactive()
 // says one is at the terminal.
 func TestHostKeyHintFollowsInteractive(t *testing.T) {
-	saved := interactive
-	defer func() { interactive = saved }()
-	interactive = func() bool { return true }
+	saved := tcl.terminal
+	defer func() { tcl.terminal = saved }()
+	tcl.terminal = true
 	if !strings.Contains(sshx.HostKeyMismatch("web1", "SHA256:x", nil).Hint, "compare this fingerprint") {
 		t.Error("a person gets the agent's hint")
 	}
-	interactive = func() bool { return false }
+	tcl.terminal = false
 	if !strings.Contains(sshx.HostKeyMismatch("web1", "SHA256:x", nil).Hint, "report this to the user") {
 		t.Error("an agent or a script gets the person's hint")
 	}
@@ -170,7 +170,7 @@ func TestHostKeyHintFollowsInteractive(t *testing.T) {
 // subcommands, in any case.
 func TestLoginCloudNamesReserved(t *testing.T) {
 	var subs []string
-	for _, c := range loginCmd().Commands() {
+	for _, c := range loginCmd(tcl).Commands() {
 		subs = append(subs, c.Name())
 	}
 	slices.Sort(subs)

@@ -17,9 +17,9 @@ func withStdin(t *testing.T, s string, fn func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stdin
-	defer func() { os.Stdin = saved; r.Close() }()
-	os.Stdin = r
+	saved := tcl.stdin
+	defer func() { tcl.stdin = saved; r.Close() }()
+	tcl.stdin = r
 	w.WriteString(s)
 	w.Close()
 	fn()
@@ -270,9 +270,9 @@ func TestSecretSetWithoutValueSendsAgentToUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stdin
-	os.Stdin = devnull
-	t.Cleanup(func() { os.Stdin = saved; devnull.Close() })
+	saved := tcl.stdin
+	tcl.stdin = devnull
+	t.Cleanup(func() { tcl.stdin = saved; devnull.Close() })
 
 	if e := wantCode(t, "USAGE", "secret", "set", "web1-pass"); !strings.Contains(e.Message, "--from-env") {
 		t.Errorf("script: %+v", e)

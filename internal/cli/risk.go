@@ -249,7 +249,7 @@ func riskOfLine(line []string) riskRow {
 // are not among them. pos is the positional arguments before any --. c is
 // nil when line names no command.
 func lineWords(line []string) (c *cobra.Command, words, pos []string) {
-	root := newRoot()
+	root := newRoot(treeCall())
 	c, rest, err := root.Find(line)
 	if err != nil || c == root {
 		return nil, nil, nil

@@ -106,11 +106,12 @@ func hostAddCmd() *cobra.Command {
 }
 
 func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bool) error {
+	cl := callOf(cmd)
 	name := args[0]
 	if err := checkHostName(name); err != nil {
 		return err
 	}
-	if err := guardProxyCommand(f.proxyCommand, name); err != nil {
+	if err := guardProxyCommand(cl, f.proxyCommand, name); err != nil {
 		return err
 	}
 	undoPw := func() {}
@@ -156,19 +157,19 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	res := hostResult{Host: h}
 	replaced := false
 	err = store.Update(func(s *store.State) error {
-		if err := checkNewName(s, "host", name, force); err != nil {
+		if err := checkNewName(cl, s, "host", name, force); err != nil {
 			return err
 		}
 		_, replaced = s.Hosts[name]
 		if h.Key != "" {
 			if _, ok := s.Keys[h.Key]; !ok {
-				return keyNotFound(s, h.Key)
+				return keyNotFound(cl, s, h.Key)
 			}
 		}
-		if err := checkHost(s, h); err != nil {
+		if err := checkHost(cl, s, h); err != nil {
 			return err
 		}
-		if err := guardHostSends([]*store.Host{h}, s.Hosts); err != nil {
+		if err := guardHostSends(cl, []*store.Host{h}, s.Hosts); err != nil {
 			return err // s.Hosts holds the server it replaces, if any
 		}
 		if twin := protectedTwinHost(s, h); twin != "" && !h.Protected {
@@ -182,18 +183,18 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 		undoPw()
 		return err
 	}
-	res.Action = addVerb(replaced)
+	res.Action = addVerb(cl, replaced)
 	res.Warnings = append(append(res.Warnings, missingSecretWarnings(h.PasswordRef, h.SudoRef)...), winrmWarnings(h)...)
 	res.Next = "komando test " + name
-	audit(nil, "host.add", []string{name}, "", true, map[string]any{"action": res.Action})
-	out.P.Print("host.add", res, nil)
+	audit(cl, nil, "host.add", []string{name}, "", true, map[string]any{"action": res.Action})
+	cl.out.Print("host.add", res, nil)
 	return nil
 }
 
 // addVerb says what an add did, or would do under --dry-run.
-func addVerb(replaced bool) string {
+func addVerb(cl *call, replaced bool) string {
 	v := map[bool]string{false: "added", true: "replaced"}[replaced]
-	if g.dryRun {
+	if cl.flags.dryRun {
 		v = map[bool]string{false: "would_add", true: "would_replace"}[replaced]
 	}
 	return v
@@ -246,6 +247,7 @@ covers every server in the command.`,
 }
 
 func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) error {
+	cl := callOf(cmd)
 	fl := cmd.Flags()
 	undoPw, err := hostEditChecks(cmd, args, f, askPw)
 	if err != nil {
@@ -255,11 +257,11 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 	var many hostEditResult
 	single := false
 	err = store.Update(func(s *store.State) error {
-		hosts, err := pickHosts(s, args)
+		hosts, err := pickHosts(cl, s, args)
 		if err != nil {
 			return err
 		}
-		_, ferr := findHost(s, args[0])
+		_, ferr := findHost(cl, s, args[0])
 		single = len(args) == 1 && ferr == nil
 		if !single {
 			if fl.Changed("address") {
@@ -282,17 +284,17 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 			}
 			if h.Key != "" {
 				if _, ok := s.Keys[h.Key]; !ok {
-					return keyNotFound(s, h.Key)
+					return keyNotFound(cl, s, h.Key)
 				}
 			}
 			edits = append(edits, edit{h, before})
 		}
-		if err := guardHostEdit(hosts, olds, single); err != nil {
+		if err := guardHostEdit(cl, hosts, olds, single); err != nil {
 			return err
 		}
 		for _, e := range edits {
 			h := e.h
-			if err := checkHost(s, h); err != nil {
+			if err := checkHost(cl, s, h); err != nil {
 				return editErr(err, h.Name, single)
 			}
 			var warnings []string
@@ -329,6 +331,7 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 // hostEditChecks are host edit's checks before it changes anything, and
 // --ask-password; undo takes back a secret it stored when the edit fails.
 func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) (undo func(), err error) {
+	cl := callOf(cmd)
 	fl := cmd.Flags()
 	undo = func() {}
 	if len(changedFlags(cmd)) == 0 {
@@ -339,13 +342,13 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
 		return undo, err
 	}
-	if err := guardProxyCommand(f.proxyCommand, args...); err != nil {
+	if err := guardProxyCommand(cl, f.proxyCommand, args...); err != nil {
 		return undo, err
 	}
 	if fl.Changed("forward-agent") && f.forwardAgent {
 		// a server that holds your agent can log in anywhere your keys open,
 		// as long as komando is connected to it: a person decides that
-		if err := guardSafety("lending your ssh-agent to " + strings.Join(args, ", ") + " (root there can use your keys while komando is connected)"); err != nil {
+		if err := guardSafety(cl, "lending your ssh-agent to "+strings.Join(args, ", ")+" (root there can use your keys while komando is connected)"); err != nil {
 			return undo, err
 		}
 	}
@@ -365,22 +368,23 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 
 // printHostEdit prints what host edit changed: one server, or many.
 func printHostEdit(cmd *cobra.Command, args []string, single bool, res hostResult, many hostEditResult) error {
+	cl := callOf(cmd)
 	fl := cmd.Flags()
 	if single {
 		if fl.Changed("password-ref") || fl.Changed("sudo-ref") {
 			res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef, res.SudoRef)...)
 		}
 		if *res.Changed {
-			audit(nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
+			audit(cl, nil, "host.edit", []string{res.Name}, "", true, map[string]any{"flags": changedFlags(cmd)})
 		}
-		out.P.Print("host.edit", res, nil)
+		cl.out.Print("host.edit", res, nil)
 		return nil
 	}
 	if len(many.Changed) > 0 {
-		audit(nil, "host.edit", many.Changed, "", true, map[string]any{"flags": changedFlags(cmd), "targets": args})
+		audit(cl, nil, "host.edit", many.Changed, "", true, map[string]any{"flags": changedFlags(cmd), "targets": args})
 	}
 	many.Changed, many.Unchanged = orEmpty(many.Changed), orEmpty(many.Unchanged)
-	out.P.Print("host.edit", many, nil)
+	cl.out.Print("host.edit", many, nil)
 	return nil
 }
 
@@ -393,9 +397,9 @@ type hostEditResult struct {
 	Warnings  []string      `json:"warnings,omitempty"`
 }
 
-func (r hostEditResult) Text() string {
+func (r hostEditResult) TextFor(pr *out.Printer) string {
 	verb := "changed"
-	if g.dryRun {
+	if pr.DryRun {
 		verb = "would change"
 	}
 	var sb strings.Builder
@@ -431,7 +435,7 @@ func editErr(err error, name string, single bool) error {
 // For an AI agent the same window also asks about the secrets the edit
 // sends to a new place (guardHostSends). olds holds each server's settings
 // before the edit.
-func guardHostEdit(hosts []*store.Host, olds map[string]*store.Host, single bool) error {
+func guardHostEdit(cl *call, hosts []*store.Host, olds map[string]*store.Host, single bool) error {
 	var names, off, login []string
 	for _, h := range hosts {
 		o := olds[h.Name]
@@ -458,15 +462,15 @@ func guardHostEdit(hosts []*store.Host, olds map[string]*store.Host, single bool
 		why = fmt.Sprintf("this edit changes %d servers: %s (protected: %s)", len(all), strings.Join(all, ", "), strings.Join(names, ", "))
 	}
 	if len(names) == 0 {
-		return guardHostSends(hosts, olds)
+		return guardHostSends(cl, hosts, olds)
 	}
-	if err := guardHostSends(hosts, olds, why); err != nil {
+	if err := guardHostSends(cl, hosts, olds, why); err != nil {
 		return err
 	}
 	if single {
-		return guardProtection("host", action, names)
+		return guardProtection(cl, "host", action, names)
 	}
-	return guardProtectionWhy("host", action, names, why)
+	return guardProtectionWhy(cl, "host", action, names, why)
 }
 
 func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
@@ -606,16 +610,16 @@ const ssmProxy = "aws ssm start-session --target %h --document-name AWS-StartSSH
 // connects, outside the agent guard's view. It passes the policy filter, and
 // from an AI agent it needs a person's yes (--yes, then the window). --ssm
 // sets komando's own command and needs neither.
-func guardProxyCommand(cmd string, names ...string) error {
+func guardProxyCommand(cl *call, cmd string, names ...string) error {
 	if cmd == "" {
 		return nil
 	}
-	if hits := policy.Check(cmd, nil); len(hits) > 0 && !dangerOK() && !policyAsk("--proxy-command `"+cmd+"` matches "+hits[0].Reason, names...) {
-		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, for example `aws ssm start-session ...`; if this one is intended, --allow-dangerous lets it through",
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !cl.dangerOK() && !policyAsk(cl, "--proxy-command `"+cmd+"` matches "+hits[0].Reason, names...) {
+		return cl.policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a proxy command only carries the connection, for example `aws ssm start-session ...`; if this one is intended, --allow-dangerous lets it through",
 			"--proxy-command matches destructive rules: %s (a proxy command only carries the connection, for example `aws ssm start-session ...`)", hits[0].Reason))
 	}
-	if isAgent() {
-		return guardSafety("running `" + cmd + "` on this computer whenever komando connects (--proxy-command)")
+	if cl.isAgent() {
+		return guardSafety(cl, "running `"+cmd+"` on this computer whenever komando connects (--proxy-command)")
 	}
 	return nil
 }
@@ -674,17 +678,17 @@ func hostShowCmd() *cobra.Command {
 		Use:   "show NAME",
 		Short: "Show all settings of a server (secrets as references, never values)",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			h, err := findHost(st, args[0])
+			h, err := findHost(cl, st, args[0])
 			if err != nil {
 				return err
 			}
-			out.P.Print("host.show", h, nil)
+			cl.out.Print("host.show", h, nil)
 			return nil
-		},
+		}),
 	}
 }

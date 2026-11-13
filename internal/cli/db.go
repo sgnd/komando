@@ -168,17 +168,17 @@ picks another database than the URL's.`},
   komando db query prod-db -o csv "select * from orders" > orders.csv
   komando db query bq "select count(*) from shop.orders" --max-bytes 50GB   # BigQuery`,
 		Args: cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var q string
 			switch {
 			case len(args) == 2 && file == "":
 				q = args[1]
 			case len(args) == 1 && file != "":
-				b, err := readFileOrStdin(file)
+				b, err := readFileOrStdin(cl, file)
 				if err != nil {
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
-				if err := secretInBody(file, b); err != nil {
+				if err := secretInBody(cl, file, b); err != nil {
 					return err
 				}
 				q = string(b)
@@ -188,11 +188,11 @@ picks another database than the URL's.`},
 				return out.Usage("give the SQL as an argument or with --file, not both")
 			}
 			f.pickTable(cmd)
-			if st, c, ok := mongoConn(args[0]); ok {
-				return runMongoQuery(cmd.Context(), "db.query", st, c, q, f)
+			if st, c, ok := mongoConn(cl, args[0]); ok {
+				return runMongoQuery(cl, cmd.Context(), "db.query", st, c, q, f)
 			}
-			return runSQL(cmd.Context(), "db.query", args[0], q, f)
-		},
+			return runSQL(cl, cmd.Context(), "db.query", args[0], q, f)
+		}),
 	}
 	f.bind(c)
 	c.Flags().StringVarP(&file, "file", "f", "", "read SQL from a file ('-' for stdin)")
@@ -203,7 +203,8 @@ picks another database than the URL's.`},
 // pickTable sets f.table from -o csv/tsv. Without --limit an export has
 // every row.
 func (f *dbFlags) pickTable(cmd *cobra.Command) {
-	f.table = g.table
+	cl := callOf(cmd)
+	f.table = cl.flags.table
 	if f.table != "" && !cmd.Flags().Changed("limit") {
 		f.limit = 0
 	}
@@ -235,17 +236,17 @@ func dbExplainCmd() *cobra.Command {
 		Example: `  komando db explain prod-db "select * from orders where user_id = 42"
   komando db explain prod-db --analyze "select count(*) from orders"`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			c, err := singleConn(st, args[0], "db")
+			c, err := singleConn(cl, st, args[0], "db")
 			if err != nil {
 				return err
 			}
 			if c.Kind == "mongodb" {
-				return runMongoExplain(cmd.Context(), st, c, args[1], analyze)
+				return runMongoExplain(cl, cmd.Context(), st, c, args[1], analyze)
 			}
 			var prefix string
 			switch c.Kind {
@@ -295,8 +296,8 @@ func dbExplainCmd() *cobra.Command {
 				_, err := driver.ClassifySQL(c.Kind, args[1])
 				return err
 			}
-			return runSQL(cmd.Context(), "db.explain", args[0], prefix+strings.TrimSpace(args[1]), f)
-		},
+			return runSQL(cl, cmd.Context(), "db.explain", args[0], prefix+strings.TrimSpace(args[1]), f)
+		}),
 	}
 	f.bind(c)
 	c.SetFlagErrorFunc(sqlFlagError)
@@ -311,31 +312,31 @@ func dbSchemaCmd() *cobra.Command {
 		Example: `  komando db schema prod-db
   komando db schema prod-db users public.orders`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			c, err := singleConn(st, args[0], "db")
+			c, err := singleConn(cl, st, args[0], "db")
 			if err != nil {
 				return err
 			}
 			if c.Kind == "mongodb" {
-				return runMongoSchema(cmd.Context(), st, c, args[1:])
+				return runMongoSchema(cl, cmd.Context(), st, c, args[1:])
 			}
-			db, closeDB, err := openDB(cmd.Context(), st, c, true)
+			db, closeDB, err := openDB(cl, cmd.Context(), st, c, true)
 			if err != nil {
 				return err
 			}
 			defer closeDB()
-			tables, err := dbx.Schema(cmd.Context(), db, c.Kind, args[1:], connTimeout(c))
-			audit(st, "db.schema", nil, "", err == nil, map[string]any{"conns": []string{c.Name}})
+			tables, err := dbx.Schema(cmd.Context(), db, c.Kind, args[1:], connTimeout(cl, c))
+			audit(cl, st, "db.schema", nil, "", err == nil, map[string]any{"conns": []string{c.Name}})
 			if err != nil {
 				return err
 			}
-			out.P.Print("db.schema", schemaData{Conn: c.Name, Tables: tables}, nil)
+			cl.out.Print("db.schema", schemaData{Conn: c.Name, Tables: tables}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -412,18 +413,18 @@ func qualified(t dbx.Table) string {
 }
 
 // dbTimeout is --timeout, or 30s without it.
-func dbTimeout() time.Duration {
-	if g.timeout > 0 {
-		return g.timeout
+func dbTimeout(cl *call) time.Duration {
+	if cl.flags.timeout > 0 {
+		return cl.flags.timeout
 	}
 	return dbDefaultTimeout
 }
 
 // connTimeout is dbTimeout with the conn's own statement_timeout option
 // (`conn edit NAME --option statement_timeout=10s`); --timeout still wins.
-func connTimeout(c *store.Conn) time.Duration {
-	if g.timeout > 0 {
-		return g.timeout
+func connTimeout(cl *call, c *store.Conn) time.Duration {
+	if cl.flags.timeout > 0 {
+		return cl.flags.timeout
 	}
 	if v := c.Options["statement_timeout"]; v != "" {
 		if d, err := time.ParseDuration(v); err == nil && d > 0 {
@@ -438,12 +439,12 @@ func connTimeout(c *store.Conn) time.Duration {
 
 // openDB connects to c, through its --via host when set. The returned
 // function closes the database and the SSH connection.
-func openDB(ctx context.Context, st *store.State, c *store.Conn, readOnly bool) (*sql.DB, func(), error) {
-	a, err := openAccess(ctx, st, c)
+func openDB(cl *call, ctx context.Context, st *store.State, c *store.Conn, readOnly bool) (*sql.DB, func(), error) {
+	a, err := openAccess(cl, ctx, st, c)
 	if err != nil {
 		return nil, nil, err
 	}
-	if a.Target.Kind.Name == "sqlite" && !readOnly && g.dryRun {
+	if a.Target.Kind.Name == "sqlite" && !readOnly && cl.flags.dryRun {
 		// a --write run creates a missing file; a dry run must not
 		if _, err := os.Stat(dbx.SQLitePath(a.Target)); errors.Is(err, fs.ErrNotExist) {
 			a.Close()
@@ -452,9 +453,9 @@ func openDB(ctx context.Context, st *store.State, c *store.Conn, readOnly bool) 
 				"cannot open %s: the file does not exist, and a dry run does not create it", a.Target.Path)
 		}
 	}
-	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+	cctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
 	defer cancel()
-	db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, readOnly, "komando/"+actor())
+	db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, readOnly, "komando/"+actor(cl))
 	if err != nil {
 		a.Close()
 		return nil, nil, viaTimeout(c, err)
@@ -553,12 +554,12 @@ func plural(n int) string {
 }
 
 // runSQL classifies, guards, runs and audits one SQL text on one conn.
-func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error {
+func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFlags) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "db")
+	c, err := singleConn(cl, st, connExpr, "db")
 	if err != nil {
 		return err
 	}
@@ -580,7 +581,7 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	}
 	fail := func(err error) error {
 		rec["error"] = toErr(err).Code
-		audit(st, name, nil, "", false, rec)
+		audit(cl, st, name, nil, "", false, rec)
 		return err
 	}
 	if err := refuseHiddenSQL(f.write, query, f.args); err != nil {
@@ -602,10 +603,10 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 		// so a protected conn asks even for SQL rated read (as db shell does)
 		v := plan.Verdict
 		v.Risk = max(v.Risk, driver.RiskWrite)
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if g.dryRun && out.P.Blocked() != nil {
+		if cl.flags.dryRun && cl.out.Blocked() != nil {
 			// the real run would stop here: run nothing, since the
 			// rollback of a dry run does not undo every statement (a
 			// killed session, COPY ... PROGRAM, code inside DO)
@@ -615,12 +616,12 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 					Skipped: "dry run: the real run would stop at a safety check, so nothing was run"})
 			}
 			rec["committed"] = false
-			audit(st, name, nil, "", true, rec)
-			out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: true, Result: res}, nil)
+			audit(cl, st, name, nil, "", true, rec)
+			cl.out.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: true, Result: res}, nil)
 			return nil
 		}
 	}
-	db, closeDB, err := openDB(ctx, st, c, !f.write)
+	db, closeDB, err := openDB(cl, ctx, st, c, !f.write)
 	if err != nil {
 		return fail(err)
 	}
@@ -636,8 +637,8 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	for i, a := range f.args {
 		args[i] = a
 	}
-	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: g.dryRun, Limit: f.limit,
-		MaxBytes: maxOutput(st), Timeout: connTimeout(c), Args: args, Showplan: f.showplan, MaxBilled: f.maxBilled(c.Kind)})
+	res, err := dbx.Run(ctx, db, c.Kind, plan, dbx.Options{Write: f.write, DryRun: cl.flags.dryRun, Limit: f.limit,
+		MaxBytes: maxOutput(cl, st), Timeout: connTimeout(cl, c), Args: args, Showplan: f.showplan, MaxBilled: f.maxBilled(c.Kind)})
 	if err != nil {
 		return fail(err)
 	}
@@ -649,14 +650,14 @@ func runSQL(ctx context.Context, name, connExpr, query string, f dbFlags) error 
 	}
 	rec["rows_affected"] = affected
 	rec["committed"] = res.Committed
-	audit(st, name, nil, "", true, rec)
-	return printQuery(name, c, plan, f, res)
+	audit(cl, st, name, nil, "", true, rec)
+	return printQuery(cl, name, c, plan, f, res)
 }
 
 // printQuery shows a query's result, with the conn's mask_columns hidden
 // when personal data is.
-func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res *dbx.Result) error {
-	maskColumns(c, res)
+func printQuery(cl *call, name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res *dbx.Result) error {
+	maskColumns(cl, c, res)
 	if f.table != "" {
 		// a cut export would look whole in a file: refuse it instead
 		for _, r := range res.Results {
@@ -671,12 +672,12 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 		if err := writeDelimited(&b, res, f.table == "tsv"); err != nil {
 			return err
 		}
-		if _, err := io.WriteString(out.P.W, out.P.Redact(b.String())); err != nil {
+		if _, err := io.WriteString(cl.out.W, cl.out.Redact(b.String())); err != nil {
 			return err
 		}
 		for _, r := range res.Results {
 			if r.Truncated == "rows" {
-				fmt.Fprintf(os.Stderr, "Note: showing the first %d rows of each statement; raise --limit (0 shows all)\n", f.limit)
+				fmt.Fprintf(cl.out.Err, "Note: showing the first %d rows of each statement; raise --limit (0 shows all)\n", f.limit)
 				break
 			}
 		}
@@ -684,13 +685,13 @@ func printQuery(name string, c *store.Conn, plan driver.SQLPlan, f dbFlags, res 
 	}
 	for _, r := range res.Results {
 		if r.Truncated == "rows" {
-			out.P.CutNoted() // the text says it under the table
+			cl.out.CutNoted() // the text says it under the table
 		}
-		if g.dryRun && r.Skipped != "" && !strings.HasPrefix(r.Skipped, "dry run: BigQuery checked") {
-			out.P.NotSimulated(r.Keyword + " statement: " + strings.TrimPrefix(r.Skipped, "dry run: "))
+		if cl.flags.dryRun && r.Skipped != "" && !strings.HasPrefix(r.Skipped, "dry run: BigQuery checked") {
+			cl.out.NotSimulated(r.Keyword + " statement: " + strings.TrimPrefix(r.Skipped, "dry run: "))
 		}
 	}
-	out.P.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: g.dryRun, Result: res}, nil)
+	cl.out.Print(name, queryData{Conn: c.Name, Risk: plan.Risk.String(), Write: f.write, DryRun: cl.flags.dryRun, Result: res}, nil)
 	return nil
 }
 

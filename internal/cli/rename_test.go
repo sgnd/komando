@@ -515,7 +515,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	// a protected entry still needs a person: no screen, so it is refused
 	mustRun(t, "host", "add", "lab-p", "u@10.0.0.3", "--protected")
 	saved := askOnScreen
-	askOnScreen = func(string) (bool, bool) { return false, false } // no screen
+	askOnScreen = func(*call, string) (bool, bool) { return false, false } // no screen
 	t.Cleanup(func() { askOnScreen = saved })
 	keep := homeFiles(t)
 	wantCode(t, "PROTECTED_HOST", "rename", "--starts-with", "lab-", "test-", "--yes")

@@ -18,8 +18,8 @@ const ec2ImportMax = 5000
 // named by its Name tag (else its instance ID), put in a group named
 // after the region, and labelled with its instance ID. An instance with
 // no public address, or a Windows one, is listed with what to do.
-func importAWSEC2(path string) (*importPlan, error) {
-	profiles, credsFile, err := awsImportProfiles(path)
+func importAWSEC2(cl *call, path string) (*importPlan, error) {
+	profiles, credsFile, err := awsImportProfiles(cl, path)
 	if err != nil {
 		return nil, err
 	}

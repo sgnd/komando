@@ -31,7 +31,7 @@ value starts or ends with one, so a stray space copied with a password is
 noticed. At the terminal, paste or type the value after the prompt appears.`,
 		Example: "  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  pbpaste | komando secret set vpn-pass",
 		Args:    cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := validName("secret", args[0]); err != nil {
 				return err
 			}
@@ -47,10 +47,10 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			}
 			v, err := secretInput(cmd, args[0], "Paste or type the value for "+args[0]+", then press Enter (it stays hidden): ")
 			var oe *out.Error
-			if err != nil && g.dryRun && errors.As(err, &oe) && oe.Code == "NEEDS_PERSON" {
+			if err != nil && cl.flags.dryRun && errors.As(err, &oe) && oe.Code == "NEEDS_PERSON" {
 				// a dry run is never blocked: it says whether NAME would be
 				// replaced, and that the real run needs the user
-				err = policyStop(oe)
+				err = cl.policyStop(oe)
 			}
 			if err != nil {
 				return err
@@ -65,29 +65,29 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			_, gerr := vault.Get(args[0])
 			replaced := gerr == nil
 			if replaced {
-				if prot := protectedUsers(st, secretUsers(st, args[0])); len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
-					if err := policyStop(approvalErr("PROTECTED_TARGET",
+				if prot := protectedUsers(st, secretUsers(st, args[0])); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+					if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 						"secret "+args[0]+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
 						return err
 					}
 				}
 			}
-			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": secretSetAction(replaced)}
+			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": secretSetAction(cl, replaced)}
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
 			}
-			if g.dryRun {
+			if cl.flags.dryRun {
 				res["would_set"] = true
-				out.P.Print("secret.set", textAs{res, textFn(func() string { return changeText(res) })}, nil)
+				cl.out.Print("secret.set", textAs{res, textFn(func() string { return changeText(cl.out, res) })}, nil)
 				return nil
 			}
 			if err := vault.Set(args[0], v); err != nil {
 				return err
 			}
-			audit(nil, "secret.set", nil, "", true, map[string]any{"secret": args[0], "replaced": replaced})
-			out.P.Print("secret.set", textAs{res, textFn(func() string { return changeText(res) })}, nil)
+			audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": args[0], "replaced": replaced})
+			cl.out.Print("secret.set", textAs{res, textFn(func() string { return changeText(cl.out, res) })}, nil)
 			return nil
-		},
+		}),
 	}
 	set.Flags().String("from-env", "", "read the value from this environment variable")
 	return set
@@ -108,16 +108,16 @@ login; 'komando secret check NAME' lets a person compare it.`,
 		Example: `  komando secret show db-pass
   komando secret show db-pass --reveal | pbcopy   # a person, at a terminal`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			v, err := vault.Get(args[0])
 			if err == vault.ErrNotFound {
-				return notFoundSuggest("secret", args[0], secretNames())
+				return notFoundSuggest(cl, "secret", args[0], secretNames())
 			}
 			if err != nil {
 				return err
 			}
-			reveal := g.reveal
-			if reveal && !interactive() {
+			reveal := cl.flags.reveal
+			if reveal && !cl.interactive() {
 				// agents never see passwords (docs/design/principles.md); a person at
 				// a terminal can still pipe the value, e.g. into pbcopy
 				return out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
@@ -132,13 +132,13 @@ login; 'komando secret check NAME' lets a person compare it.`,
 				res["warning"] = w
 			}
 			if reveal {
-				out.P.NoRedact = true // the person asked for this value
+				cl.out.NoRedact = true // the person asked for this value
 				res["value"] = v
-				audit(nil, "secret.reveal", nil, "", true, map[string]any{"secret": args[0]})
+				audit(cl, nil, "secret.reveal", nil, "", true, map[string]any{"secret": args[0]})
 			}
-			out.P.Print("secret.show", res, nil)
+			cl.out.Print("secret.show", res, nil)
 			return nil
-		},
+		}),
 	}
 	return get
 }
@@ -157,15 +157,15 @@ Only a person can run it: for an AI agent, a yes/no answer about a value it
 picks would be a way to guess the secret one try at a time.`,
 		Example: "  komando secret check vpn-pass            # type or paste it after the prompt\n  pbpaste | komando secret check vpn-pass",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if isAgent() {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if cl.isAgent() {
 				return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 					"ask the user to run `komando secret check "+args[0]+"` in their own terminal; `komando secret show "+args[0]+"` says whether the value starts or ends with a space",
 					"only a person can check a secret's value: for an AI agent it would be a way to guess it")
 			}
 			stored, err := vault.Get(args[0])
 			if err == vault.ErrNotFound {
-				return notFoundSuggest("secret", args[0], secretNames())
+				return notFoundSuggest(cl, "secret", args[0], secretNames())
 			}
 			if err != nil {
 				return err
@@ -175,18 +175,18 @@ picks would be a way to guess the secret one try at a time.`,
 				return err
 			}
 			match := subtle.ConstantTimeCompare([]byte(stored), []byte(given)) == 1
-			audit(nil, "secret.check", nil, "", true, map[string]any{"secret": args[0], "match": match})
+			audit(cl, nil, "secret.check", nil, "", true, map[string]any{"secret": args[0], "match": match})
 			res := map[string]any{"name": args[0], "match": match}
 			if match {
-				out.P.Print("secret.check", res, nil)
+				cl.out.Print("secret.check", res, nil)
 				return nil
 			}
 			res["difference"] = secretDiff(stored, given)
-			out.P.Print("secret.check", res, &out.Error{Code: "SECRET_MISMATCH", Exit: out.ExitError,
+			cl.out.Print("secret.check", res, &out.Error{Code: "SECRET_MISMATCH", Exit: out.ExitError,
 				Message: "the value is not the one stored in " + args[0],
 				Hint:    "if the stored one is wrong, store the right one with `komando secret set " + args[0] + "`"})
 			return exitCode(out.ExitError)
-		},
+		}),
 	}
 	check.Flags().String("from-env", "", "read the value to compare from this environment variable")
 	return check
@@ -199,7 +199,7 @@ func secretListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List secret names, when they changed and what uses them",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			l, err := vault.List()
 			if err != nil {
 				return err
@@ -208,14 +208,14 @@ func secretListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			l = cutRows(l, limit)
+			l = cutRows(cl, l, limit)
 			res := secretList{Count: len(l), Secrets: []secretRow{}}
 			for _, i := range l {
 				res.Secrets = append(res.Secrets, secretRow{Name: i.Name, UpdatedAt: i.UpdatedAt, UsedBy: orEmpty(secretUsers(st, i.Name))})
 			}
-			out.P.Print("secret.list", res, nil)
+			cl.out.Print("secret.list", res, nil)
 			return nil
-		},
+		}),
 	}
 	limitFlag(list, &limit, 0, "secrets")
 	return list
@@ -229,7 +229,7 @@ func secretRmCmd() *cobra.Command {
 		Example: `  komando secret rm old-pass
   komando secret rm a-pass b-pass --dry-run`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -240,18 +240,18 @@ func secretRmCmd() *cobra.Command {
 					return err
 				}
 				if !slices.Contains(have, n) {
-					return notFoundSuggest("secret", n, have)
+					return notFoundSuggest(cl, "secret", n, have)
 				}
 				if users := secretUsers(st, n); len(users) > 0 {
 					return secretInUse(n, users)
 				}
 			}
 			// a deleted secret has no copy: T3 (OD-7)
-			if err := guardLocalDelete(dedupe(args), "secrets", "deletes the saved "+nouns(len(dedupe(args)), "secret")+" "+joinAnd(dedupe(args))+" for good"); err != nil {
+			if err := guardLocalDelete(cl, dedupe(args), "secrets", "deletes the saved "+nouns(len(dedupe(args)), "secret")+" "+joinAnd(dedupe(args))+" for good"); err != nil {
 				return err
 			}
-			if g.dryRun {
-				out.P.Print("secret.rm", textAs{map[string]any{"would_remove": args}, textFn(func() string {
+			if cl.flags.dryRun {
+				cl.out.Print("secret.rm", textAs{map[string]any{"would_remove": args}, textFn(func() string {
 					return "would remove " + nouns(len(args), "secret") + " " + joinAnd(args) + " for good\n"
 				})}, nil)
 				return nil
@@ -268,9 +268,9 @@ func secretRmCmd() *cobra.Command {
 				}
 				return vault.DeleteMany(args)
 			})
-			audit(nil, "secret.rm", nil, "", err == nil, map[string]any{"secrets": args})
+			audit(cl, nil, "secret.rm", nil, "", err == nil, map[string]any{"secrets": args})
 			if errors.Is(err, vault.ErrNotFound) { // removed by another komando meanwhile
-				return notFoundSuggest("secret", strings.TrimPrefix(err.Error(), vault.ErrNotFound.Error()+": "), secretNames())
+				return notFoundSuggest(cl, "secret", strings.TrimPrefix(err.Error(), vault.ErrNotFound.Error()+": "), secretNames())
 			}
 			if err != nil {
 				return err
@@ -279,11 +279,11 @@ func secretRmCmd() *cobra.Command {
 			if len(args) == 1 {
 				removed = args[0] // one name prints as a string, several as a list
 			}
-			out.P.Print("secret.rm", textAs{map[string]any{"removed": removed}, textFn(func() string {
+			cl.out.Print("secret.rm", textAs{map[string]any{"removed": removed}, textFn(func() string {
 				return "removed " + nouns(len(args), "secret") + " " + joinAnd(args) + "\n"
 			})}, nil)
 			return nil
-		},
+		}),
 	}
 	return rm
 }

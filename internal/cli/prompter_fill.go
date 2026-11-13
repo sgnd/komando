@@ -37,13 +37,13 @@ func (f fillDone) Error() string { return "exit " + strconv.Itoa(f.code) }
 
 // promptFill is args with what was missing asked and added, or args as
 // they are. Its error is a cancel at a question (or fillDone).
-func promptFill(args []string) ([]string, error) {
-	promptConfirmed, fillSeen, nextNow = "", fillInfo{}, nil
-	if !promptable(outputFlag()) {
+func promptFill(cl *call, args []string) ([]string, error) {
+	cl.promptConfirmed, cl.fillSeen, cl.nextNow = "", fillInfo{}, nil
+	if !promptable(cl, outputFlag(cl)) {
 		return args, nil
 	}
-	fillSeen.person = true
-	scratch := newRoot() // its flags are parsed here; the real run parses its own
+	cl.fillSeen.person = true
+	scratch := newRoot(cl) // its flags are parsed here; the real run parses its own
 	cmd, rest, err := scratch.Find(args)
 	if err != nil || cmd == scratch || !cmd.Runnable() || slices.Contains(promptSkip, strings.Fields(commandKey(cmd))[0]) {
 		return args, nil
@@ -59,9 +59,9 @@ func promptFill(args []string) ([]string, error) {
 	if h, _ := cmd.Flags().GetBool("help"); h {
 		return args, nil
 	}
-	fillSeen.key = commandKey(cmd)
+	cl.fillSeen.key = commandKey(cmd)
 	if pos := cmd.Flags().Args(); len(pos) > 0 {
-		fillSeen.first, fillSeen.args = pos[0], pos
+		cl.fillSeen.first, cl.fillSeen.args = pos[0], pos
 	}
 	if cmd.Hidden {
 		return args, nil
@@ -70,8 +70,8 @@ func promptFill(args []string) ([]string, error) {
 	if err != nil {
 		return args, nil
 	}
-	promptOn = true
-	defer func() { promptOn = false }()
+	cl.promptOn = true
+	defer func() { cl.promptOn = false }()
 	if formAddCmd(cmd) && len(cmd.Flags().Args()) == 0 {
 		local := false
 		cmd.LocalFlags().Visit(func(*pflag.Flag) { local = true })
@@ -92,12 +92,12 @@ func promptFill(args []string) ([]string, error) {
 		f.a[f.sp.qs[i].key] = v
 	}
 	filled := f.argv(args)
-	fillSeen.prompted, fillSeen.line = true, filled
-	if fillSeen.first == "" && len(f.missing) > 0 && f.sp.qs[f.missing[0]].key == "arg0" {
-		fillSeen.first = f.a["arg0"]
+	cl.fillSeen.prompted, cl.fillSeen.line = true, filled
+	if cl.fillSeen.first == "" && len(f.missing) > 0 && f.sp.qs[f.missing[0]].key == "arg0" {
+		cl.fillSeen.first = f.a["arg0"]
 	}
-	if v, ok := f.a["arg1"]; ok && len(fillSeen.args) < 2 { // rename's NEW, asked
-		fillSeen.args = []string{fillSeen.first, v}
+	if v, ok := f.a["arg1"]; ok && len(cl.fillSeen.args) < 2 { // rename's NEW, asked
+		cl.fillSeen.args = []string{cl.fillSeen.first, v}
 	}
 	fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(pickCommandLine(filled)))
 	if err := f.confirm(filled); err != nil {
@@ -109,6 +109,7 @@ func promptFill(args []string) ([]string, error) {
 // fill is one command being filled in: its questions, the answers given on
 // the command line and asked, and which questions are still missing.
 type fill struct {
+	cl      *call // the call it works for
 	st      *store.State
 	cmd     *cobra.Command
 	key     string
@@ -121,7 +122,8 @@ type fill struct {
 }
 
 func newFill(st *store.State, cmd *cobra.Command) *fill {
-	f := &fill{st: st, cmd: cmd, key: commandKey(cmd), h: formHints[commandKey(cmd)],
+	cl := callOf(cmd)
+	f := &fill{cl: cl, st: st, cmd: cmd, key: commandKey(cmd), h: formHints[commandKey(cmd)],
 		uses: formUseArgs(cmd.Use, cmd.Flags()), sp: formCmdSpec(cmd), a: formAnswers{}, given: map[string]bool{}}
 	pos, dash := cmd.Flags().Args(), cmd.Flags().ArgsLenAtDash()
 	before, after := pos, []string(nil)
@@ -236,7 +238,7 @@ func (f *fill) ask(i int) (string, error) {
 		pq.check = func(v string) string { return q.check(f.st, f.a, v) }
 	}
 	if q.choices == nil {
-		return askText(pq)
+		return askText(f.cl, pq)
 	}
 	rows := slices.DeleteFunc(q.choices(f.st, f.a), func(r pickRow) bool { return r.value == "" })
 	if k, ok := promptKinds[f.pick(q.key)]; ok && !q.optional {
@@ -255,7 +257,7 @@ func (f *fill) ask(i int) (string, error) {
 			return real[0].value, nil
 		}
 	}
-	return askPick(pq, rows, q.free)
+	return askPick(f.cl, pq, rows, q.free)
 }
 
 // promptProtected: name is a protected server or service, which is never
@@ -365,24 +367,24 @@ func (f *fill) confirm(filled []string) error {
 		}
 		fmt.Fprintln(promptW, "This "+r.typed+".")
 		want, shown := typedAnswer(items, of)
-		ok, err := askTypeName(want, shown)
+		ok, err := askTypeName(f.cl, want, shown)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			return promptNo()
 		}
-		promptConfirmed = "typed " + want + ": " + r.typed
+		f.cl.promptConfirmed = "typed " + want + ": " + r.typed
 		return nil
 	}
 	for {
-		v, err := askRun()
+		v, err := askRun(f.cl)
 		if err != nil {
 			return err
 		}
 		switch v {
 		case "y":
-			promptConfirmed = "Run it?"
+			f.cl.promptConfirmed = "Run it?"
 			return nil
 		case "n":
 			return promptNo()
@@ -390,7 +392,7 @@ func (f *fill) confirm(filled []string) error {
 		dry := formDry([][]string{filled})
 		fmt.Fprintln(promptW, "$ komando "+out.MaskSecrets(pickCommandLine(dry)))
 		if self, err := os.Executable(); err == nil {
-			_, _ = pickRunOne(self, dry)
+			_, _ = pickRunOne(f.cl, self, dry)
 		}
 	}
 }
@@ -412,7 +414,3 @@ func promptStopped(err error) error {
 	}
 	return (&out.Error{Code: "CANCELLED", Message: "interrupted; nothing was run", Hint: "run it again", Exit: out.ExitError}).Cancel("Stopped. Nothing was run.")
 }
-
-// promptConfirmed is what the person said yes to before the command ran
-// (Run it?, the name typed); the audit records it as confirm: tty.
-var promptConfirmed string

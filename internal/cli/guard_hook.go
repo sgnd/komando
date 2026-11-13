@@ -30,16 +30,16 @@ func guideGuardCmd() *cobra.Command {
 		Short:  "Stop AI agent tool calls that would read secrets on this computer",
 		Hidden: true,
 		Args:   cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if agent != "" && agent != "claude" {
-				b, err := io.ReadAll(io.LimitReader(os.Stdin, 4<<20))
+				b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
 				home, herr := os.UserHomeDir()
 				d := allow()
 				if err == nil && herr == nil {
-					d = guardAgent(agent, b, home)
+					d = guardAgent(cl, agent, b, home)
 				}
 				if a := guardAnswer(agent, d); a != nil {
-					os.Stdout.Write(a)
+					cl.out.W.Write(a)
 				}
 				return nil
 			}
@@ -48,7 +48,7 @@ func guideGuardCmd() *cobra.Command {
 				Input map[string]any `json:"tool_input"`
 				Cwd   string         `json:"cwd"`
 			}
-			b, err := io.ReadAll(io.LimitReader(os.Stdin, 4<<20))
+			b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
 			if err != nil || json.Unmarshal(b, &call) != nil {
 				return nil
 			}
@@ -56,16 +56,16 @@ func guideGuardCmd() *cobra.Command {
 			if err != nil {
 				return nil
 			}
-			d := checkTool(call.Tool, call.Input, home, hookCwd(call.Cwd))
+			d := checkTool(cl, call.Tool, call.Input, home, hookCwd(call.Cwd))
 			if !d.Deny {
 				return nil
 			}
-			return json.NewEncoder(os.Stdout).Encode(map[string]any{"hookSpecificOutput": map[string]any{
+			return json.NewEncoder(cl.out.W).Encode(map[string]any{"hookSpecificOutput": map[string]any{
 				"hookEventName":            "PreToolUse",
 				"permissionDecision":       "deny",
 				"permissionDecisionReason": "komando guard: " + d.Reason,
 			}})
-		},
+		}),
 	}
 	c.Flags().StringVar(&agent, "for", "", "the harness: claude (default), cursor, gemini or codex")
 	return c

@@ -28,7 +28,7 @@ type formHint struct {
 	flags []formFlag // asked in this order; every other flag waits under More options
 	hide  []string   // flags never offered here, besides formNeverFlags
 	// form is a hand-made form used instead (host add, conn add, vpn add)
-	form func() []formGroup
+	form func(cl *call) []formGroup
 	// skip: nobody is ever asked its questions (ssh-gate: sshd runs it)
 	skip bool
 	// always are flags every line gets (rename --starts-with)

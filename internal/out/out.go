@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -206,14 +205,21 @@ type Skipped struct {
 	Reason string `json:"reason"`
 }
 
-// Printer is configured once by the root command.
+// Printer prints one call's output. Each call has its own (no two calls
+// share one), set up by the root command.
 type Printer struct {
 	Format  string // json | text
 	Pretty  bool
 	Version string
 	Start   time.Time
 	DryRun  bool
-	W       io.Writer
+	W       io.Writer // stdout: the envelope, or the text
+	// Err is stderr: notes, warnings, hints and, in text mode, errors.
+	// nil writes them nowhere.
+	Err io.Writer
+	// Width is the column a person's stderr lines wrap at, 0 for none (a
+	// pipe, an AI agent). nil wraps nothing.
+	Width   func() int
 	skipped []Skipped
 	blocked *Error
 	need    []string // meta.would_need
@@ -310,10 +316,29 @@ func (p *Printer) redactJSON(b []byte) []byte {
 	return b
 }
 
-var P = &Printer{Format: "json", W: os.Stdout, Start: time.Now()}
+// Stderr is where the printer's stderr lines go.
+func (p *Printer) Stderr() io.Writer {
+	if p.Err == nil {
+		return io.Discard
+	}
+	return p.Err
+}
+
+// width is the column stderr lines wrap at.
+func (p *Printer) width() int {
+	if p.Width == nil {
+		return 0
+	}
+	return p.Width()
+}
 
 // Texter lets a result type provide a human rendering for -o text.
 type Texter interface{ Text() string }
+
+// PrinterTexter is a Texter whose text depends on the printer that prints
+// it: its dry run ("would write" instead of "wrote"), or its stderr and
+// what it hides, for the lines a result sends there.
+type PrinterTexter interface{ TextFor(p *Printer) string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
@@ -386,7 +411,7 @@ func (p *Printer) Warn(msg string) {
 	p.mu.Lock()
 	p.warns = append(p.warns, msg)
 	p.mu.Unlock()
-	fmt.Fprintln(os.Stderr, Marks("Warning: "+Wrap(noteText(p.Redact(msg)), len("Warning: "), StderrWidth())))
+	fmt.Fprintln(p.Stderr(), Marks("Warning: "+Wrap(noteText(p.Redact(msg)), len("Warning: "), p.width())))
 }
 
 // Blocked is the stop WouldBlock recorded, or nil.
@@ -413,14 +438,14 @@ func (p *Printer) printSkipped() {
 	case n == 0:
 	case n <= 3:
 		for _, s := range p.skipped {
-			fmt.Fprintf(os.Stderr, "Skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
+			fmt.Fprintf(p.Stderr(), "Skipped %s (%s): %s\n", s.Name, s.Kind, s.Reason)
 		}
 	default:
 		names := make([]string, n)
 		for i, s := range p.skipped {
 			names[i] = s.Name
 		}
-		fmt.Fprintf(os.Stderr, "Skipped %d targets this command does not work with: %s (details with -o json)\n", n, strings.Join(names, ", "))
+		fmt.Fprintf(p.Stderr(), "Skipped %d targets this command does not work with: %s (details with -o json)\n", n, strings.Join(names, ", "))
 	}
 }
 
@@ -436,13 +461,19 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 		p.printSkipped()
 		if p.DryRun {
 			// a person must never read a preview as a result
-			fmt.Fprintln(os.Stderr, "Dry run: nothing was changed")
+			fmt.Fprintln(p.Stderr(), "Dry run: nothing was changed")
 			if p.blocked != nil {
-				fmt.Fprintf(os.Stderr, "Without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
+				fmt.Fprintf(p.Stderr(), "Without --dry-run this stops here: [%s] %s\n", p.blocked.Code, Marks(noteText(p.Redact(p.blocked.Message))))
 				p.hint(p.blocked.hintOrDefault())
 			}
 		}
-		if t, ok := data.(Texter); ok {
+		if t, ok := data.(PrinterTexter); ok {
+			s := SafeText(p.Redact(t.TextFor(p))) // data: a file or a row is shown as it is
+			fmt.Fprint(p.W, s)
+			if s != "" && !strings.HasSuffix(s, "\n") {
+				fmt.Fprintln(p.W)
+			}
+		} else if t, ok := data.(Texter); ok {
 			s := SafeText(p.Redact(t.Text())) // data: a file or a row is shown as it is
 			fmt.Fprint(p.W, s)
 			if s != "" && !strings.HasSuffix(s, "\n") {
@@ -457,7 +488,7 @@ func (p *Printer) Print(command string, data any, softErr *Error) {
 			if s == "" {
 				// an empty list would print nothing, and a person cannot tell
 				// "no results" from "did not run"; stderr keeps pipes clean
-				fmt.Fprintln(os.Stderr, "Nothing to show")
+				fmt.Fprintln(p.Stderr(), "Nothing to show")
 			}
 		}
 		p.printCut()
@@ -489,7 +520,7 @@ func (p *Printer) Fail(command string, err error) int {
 func (p *Printer) printErr(e *Error, stopped bool) {
 	msg := Marks(noteText(p.Redact(e.TextMessage())))
 	if e.cancelled {
-		fmt.Fprintln(os.Stderr, msg)
+		fmt.Fprintln(p.Stderr(), msg)
 		return
 	}
 	label := "Error: "
@@ -504,9 +535,9 @@ func (p *Printer) printErr(e *Error, stopped bool) {
 			msg += "; nothing was changed"
 		}
 	}
-	fmt.Fprintln(os.Stderr, label+Wrap(msg, len(label), StderrWidth()))
+	fmt.Fprintln(p.Stderr(), label+Wrap(msg, len(label), p.width()))
 	p.hint(e.TextHint())
-	fmt.Fprintf(hintW, "(code %s, exit %d)\n", e.Code, e.Exit)
+	fmt.Fprintf(p.Stderr(), "(code %s, exit %d)\n", e.Code, e.Exit)
 }
 
 // hint prints an error's hint in text mode, hidden and made safe like the
@@ -514,12 +545,9 @@ func (p *Printer) printErr(e *Error, stopped bool) {
 // terminal escapes.
 func (p *Printer) hint(h string) {
 	if h != "" {
-		fmt.Fprintf(hintW, "Hint: %s\n", Marks(Wrap(noteText(p.Redact(h)), len("Hint: "), StderrWidth())))
+		fmt.Fprintf(p.Stderr(), "Hint: %s\n", Marks(Wrap(noteText(p.Redact(h)), len("Hint: "), p.width())))
 	}
 }
-
-// hintW is where hints go (tests read it).
-var hintW io.Writer = os.Stderr
 
 func (p *Printer) writeJSON(v any) {
 	var b bytes.Buffer

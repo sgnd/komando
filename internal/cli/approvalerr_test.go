@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
@@ -16,16 +15,16 @@ func TestApprovalErr(t *testing.T) {
 		noAgent(t)
 		t.Setenv("CLAUDECODE", "1")
 		resetApproval()
-		e := approvalErr(code, "why")
-		if e.Message != "why" || e.Exit != 6 || e.Hint != approvalText([]string{flag}, true, false) {
+		e := approvalErr(tcl, code, "why")
+		if e.Message != "why" || e.Exit != 6 || e.Hint != approvalText(tcl, []string{flag}, true, false) {
 			t.Errorf("%s for an agent: %+v", code, e)
 		}
 		noAgent(t)
-		if e := approvalErr(code, "why"); !strings.HasPrefix(e.Hint, "check with --dry-run, then run it again with "+flag+": `komando ") {
+		if e := approvalErr(tcl, code, "why"); !strings.HasPrefix(e.Hint, "check with --dry-run, then run it again with "+flag+": `komando ") {
 			t.Errorf("%s for a script: %q", code, e.Hint)
 		}
 	}
-	e := approvalErr("POLICY_BLOCKED", "why", "--yes")
+	e := approvalErr(tcl, "POLICY_BLOCKED", "why", "--yes")
 	if !strings.Contains(e.Hint, "--allow-dangerous and --yes") {
 		t.Errorf("a protected target's stop names one flag: %q", e.Hint)
 	}
@@ -39,8 +38,8 @@ func TestApprovalErr(t *testing.T) {
 func TestApprovalHintHidesSecrets(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	saved := os.Args
-	t.Cleanup(func() { os.Args = saved })
+	saved := tcl.args
+	t.Cleanup(func() { tcl.args = saved })
 	for _, c := range []struct {
 		args []string
 		line string // the line the hint repeats, or "" for none
@@ -54,8 +53,8 @@ func TestApprovalHintHidesSecrets(t *testing.T) {
 		{[]string{"fs", "write", "prod1", "/tmp/x", "--content=S3cret"}, ""},
 		{[]string{"host", "add", "x", "u@h", "--env", "DB_PASSWORD=S3cret"}, ""},
 	} {
-		os.Args = append([]string{"komando"}, c.args...)
-		h := approvalText([]string{"--allow-dangerous"}, false, false)
+		tcl.args = append([]string{"komando"}, c.args...)
+		h := approvalText(tcl, []string{"--allow-dangerous"}, false, false)
 		if strings.Contains(h, "S3cret") {
 			t.Errorf("%v: the hint holds the secret: %q", c.args, h)
 		}

@@ -86,10 +86,10 @@ func groupMembersOf(st *store.State, group string) []string {
 	return dedupe(names)
 }
 
-func groupNotFound(st *store.State, group string) error {
+func groupNotFound(cl *call, st *store.State, group string) error {
 	e := out.Errf(out.ExitNotFound, "GROUP_NOT_FOUND", "run `komando group list` to see groups", "no group named %q", group)
 	if s := closest(group, mapKeys(allGroups(st).Groups)); s != "" {
-		suggest(e, group, s)
+		suggest(cl, e, group, s)
 	}
 	return e
 }
@@ -114,7 +114,7 @@ A group exists while something is in it.`,
 		Example: `  komando group list
   komando group list web`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -123,16 +123,16 @@ A group exists while something is in it.`,
 				group := strings.TrimPrefix(args[0], "@")
 				m := groupMembersOf(st, group)
 				if len(m) == 0 {
-					return groupNotFound(st, group)
+					return groupNotFound(cl, st, group)
 				}
-				out.P.Print("group.list", groupMembers{Group: group, Members: cutRows(m, limit)}, nil)
+				cl.out.Print("group.list", groupMembers{Group: group, Members: cutRows(cl, m, limit)}, nil)
 				return nil
 			}
 			l := allGroups(st)
-			l.Groups, l.Tags = cutMap(l.Groups, limit), cutMap(l.Tags, limit)
-			out.P.Print("group.list", l, nil)
+			l.Groups, l.Tags = cutMap(cl, l.Groups, limit), cutMap(cl, l.Tags, limit)
+			cl.out.Print("group.list", l, nil)
 			return nil
-		},
+		}),
 	}
 	limitFlag(list, &limit, 0, "groups and tags each, or members of GROUP")
 	c.AddCommand(list, synonymWrapper(list, "show GROUP", "group.list", "group list GROUP", cobra.ExactArgs(1)))
@@ -148,7 +148,7 @@ func groupAddCmd() *cobra.Command {
   komando group add web web3 web4
   komando group add prod 'tag:live,!staging-*'`,
 		Args: cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
 			if err := validLabelName("group", group); err != nil {
 				return err
@@ -156,7 +156,7 @@ func groupAddCmd() *cobra.Command {
 			res := map[string]any{"group": group}
 			var added []string
 			err := store.Update(func(s *store.State) error {
-				sel, err := resolveSelection(s, strings.Join(args[1:], ","))
+				sel, err := resolveSelection(cl, s, strings.Join(args[1:], ","))
 				if err != nil {
 					return err
 				}
@@ -194,10 +194,10 @@ func groupAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "group.add", added, "", true, map[string]any{"group": group})
-			out.P.Print("group.add", textAs{res, textBlob(changeSay("add", joinAnd(added), "to @"+group))}, nil)
+			audit(cl, nil, "group.add", added, "", true, map[string]any{"group": group})
+			cl.out.Print("group.add", textAs{res, textBlob(changeSay(cl, "add", joinAnd(added), "to @"+group))}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -212,17 +212,17 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
   komando group rm old-batch --dry-run   # who would leave it
   komando group rm old-batch --yes`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
 			removed := []string{}
 			err := store.Update(func(s *store.State) error {
 				members := groupMembersOf(s, group)
 				if len(members) == 0 {
-					return groupNotFound(s, group)
+					return groupNotFound(cl, s, group)
 				}
 				pick := map[string]bool{}
 				if len(args) >= 2 {
-					sel, err := resolveSelection(s, strings.Join(args[1:], ","))
+					sel, err := resolveSelection(cl, s, strings.Join(args[1:], ","))
 					if err != nil {
 						return err
 					}
@@ -239,8 +239,8 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 					for _, m := range members {
 						pick[m] = true
 					}
-					if len(members) > manyMembers && !yesOK() && !confirmYes(fmt.Sprintf("Delete group %s from %d entries?", group, len(members))) {
-						if err := policyStop(out.Errf(out.ExitPolicy, "CONFIRM_REQUIRED", "check the members with `komando group list "+group+"`, then run it again with --yes",
+					if len(members) > manyMembers && !cl.yesOK() && !confirmYes(cl, fmt.Sprintf("Delete group %s from %d entries?", group, len(members))) {
+						if err := cl.policyStop(out.Errf(out.ExitPolicy, "CONFIRM_REQUIRED", "check the members with `komando group list "+group+"`, then run it again with --yes",
 							"deleting group %s takes %d entries out of it", group, len(members))); err != nil {
 							return err
 						}
@@ -271,17 +271,17 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 			if err != nil {
 				return err
 			}
-			audit(nil, "group.rm", removed, "", true, map[string]any{"group": group, "whole_group": len(args) == 1})
+			audit(cl, nil, "group.rm", removed, "", true, map[string]any{"group": group, "whole_group": len(args) == 1})
 			key := "removed"
-			if g.dryRun {
+			if cl.flags.dryRun {
 				key = "would_remove"
 			}
-			say := changeSay("remove", joinAnd(removed), "from @"+group)
+			say := changeSay(cl, "remove", joinAnd(removed), "from @"+group)
 			if len(args) == 1 {
-				say = changeSay("remove", "group @"+group, "from "+cmp.Or(joinAnd(removed), "nothing"))
+				say = changeSay(cl, "remove", "group @"+group, "from "+cmp.Or(joinAnd(removed), "nothing"))
 			}
-			out.P.Print("group.rm", textAs{map[string]any{"group": group, key: removed}, textBlob(say)}, nil)
+			cl.out.Print("group.rm", textAs{map[string]any{"group": group, key: removed}, textBlob(say)}, nil)
 			return nil
-		},
+		}),
 	}
 }

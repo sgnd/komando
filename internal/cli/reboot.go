@@ -22,16 +22,16 @@ func svcDaemonReloadCmd() *cobra.Command {
 		Short:   "Reload systemd unit files and say which units still need it",
 		Example: "  komando fs write web1 /etc/systemd/system/app.service --from app.service --sudo\n  komando svc daemon-reload web1\n  komando svc restart web1 app",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			command := noSystemd + "systemctl daemon-reload >&2; rc=$?\n" +
 				// units whose files changed after the reload still say so
 				"for u in $(systemctl list-units --all --no-legend --plain --type=service | awk '{print $1}'); do " +
 				"[ \"$(systemctl show -p NeedDaemonReload --value -- \"$u\" 2>/dev/null)\" = yes ] && echo \"stale=$u\"; done\n" +
 				"echo \"#komando:rc=$rc\"; exit 0"
-			return runOps(cmd.Context(), opsSpec{name: "svc.daemon-reload", target: args[0], command: command, display: "svc daemon-reload",
+			return runOps(cl, cmd.Context(), opsSpec{name: "svc.daemon-reload", target: args[0], command: command, display: "svc daemon-reload",
 				sudo: !noSudo, mutating: true,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return daemonReloadResult(rr) }})
-		},
+		}),
 	}
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "run without sudo")
 	return c
@@ -112,12 +112,12 @@ A reboot is a destructive action: it needs --allow-dangerous (and --yes or
 the approval for protected servers). Try --dry-run first.`,
 		Example: "  komando reboot web1 --dry-run\n  komando reboot @web --allow-dangerous --wait 10m",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if wait <= 0 {
 				return out.Usage("--wait takes a time more than 0")
 			}
-			return reboot(cmd.Context(), args[0], wait, !noSudo)
-		},
+			return reboot(cl, cmd.Context(), args[0], wait, !noSudo)
+		}),
 	}
 	wait = 5 * time.Minute
 	c.Flags().Var(&durFlag{d: &wait}, "wait", "how long each server may take to come back (like 10m, 1h)")
@@ -129,12 +129,12 @@ the approval for protected servers). Try --dry-run first.`,
 // the answer (the boot mark) gets back first.
 const rebootNow = "nohup sh -c 'sleep 2; systemctl reboot || /sbin/reboot || reboot' >/dev/null 2>&1 &\n"
 
-func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) error {
+func reboot(cl *call, ctx context.Context, target string, wait time.Duration, sudo bool) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
@@ -143,8 +143,8 @@ func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) e
 	if _, err := windowsGate(ctx, "reboot", hosts, false); err != nil {
 		return err
 	}
-	guardErr := guard(st, hosts, "systemctl reboot", true)
-	if g.dryRun {
+	guardErr := guard(cl, st, hosts, "systemctl reboot", true)
+	if cl.flags.dryRun {
 		plans := []map[string]any{}
 		for _, h := range hosts {
 			plans = append(plans, map[string]any{"host": h.Name, "address": h.Address, "remote_command": "systemctl reboot", "sudo": sudo, "wait": wait.String()})
@@ -152,23 +152,23 @@ func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) e
 		res := map[string]any{"would_run": plans, "order": "one server at a time"}
 		if guardErr != nil {
 			res["would_be_blocked"] = toErr(guardErr)
-		} else if b := out.P.Blocked(); b != nil {
+		} else if b := cl.out.Blocked(); b != nil {
 			res["would_be_blocked"] = b // the same place as the other commands' dry runs
 		}
-		out.P.Print("reboot", res, nil)
+		cl.out.Print("reboot", res, nil)
 		return nil
 	}
 	if guardErr != nil {
-		audit(st, "reboot", hostNames(hosts), "systemctl reboot", false, map[string]any{"blocked": toErr(guardErr).Code})
+		audit(cl, st, "reboot", hostNames(hosts), "systemctl reboot", false, map[string]any{"blocked": toErr(guardErr).Code})
 		return guardErr
 	}
 	data := rebootData{Results: []rebootRow{}}
 	var fails []hostFail
 	worst := 0
 	for i, h := range hosts {
-		r := rebootOne(ctx, st, h, wait, sudo)
+		r := rebootOne(cl, ctx, st, h, wait, sudo)
 		data.Results = append(data.Results, r)
-		audit(st, "reboot", []string{h.Name}, "systemctl reboot", r.OK, nil)
+		audit(cl, st, "reboot", []string{h.Name}, "systemctl reboot", r.OK, nil)
 		if r.OK {
 			data.Summary.OK++
 			continue
@@ -183,7 +183,7 @@ func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) e
 		break
 	}
 	data.Summary.Total = len(hosts)
-	return finishFleet("reboot", data, runSummary{fleetSummary: data.Summary, Skipped: len(data.Skipped), SkippedHosts: data.Skipped}, worst, fails)
+	return finishFleet(cl, "reboot", data, runSummary{fleetSummary: data.Summary, Skipped: len(data.Skipped), SkippedHosts: data.Skipped}, worst, fails)
 }
 
 // rebootOutput bounds what komando keeps of the boot mark and reboot
@@ -191,11 +191,11 @@ func reboot(ctx context.Context, target string, wait time.Duration, sudo bool) e
 // fill this computer's memory.
 const rebootOutput = 64 << 10
 
-func rebootOne(ctx context.Context, st *store.State, h *store.Host, wait time.Duration, sudo bool) rebootRow {
+func rebootOne(cl *call, ctx context.Context, st *store.State, h *store.Host, wait time.Duration, sudo bool) rebootRow {
 	r := rebootRow{Host: h.Name}
 	fail := func(e *out.Error) rebootRow { r.Error = e; return r }
 	var before string
-	err := withClient(ctx, st, h, func(c *sshx.Client) error {
+	err := withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: bootMark + "\n" + rebootNow, Sudo: sudo, Timeout: 30 * time.Second, MaxOutput: rebootOutput})
 		if err != nil {
 			return err
@@ -218,7 +218,7 @@ func rebootOne(ctx context.Context, st *store.State, h *store.Host, wait time.Du
 			return fail(toErr(ctx.Err()))
 		}
 		var mark, since string
-		err := withClient(ctx, st, h, func(c *sshx.Client) error {
+		err := withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 			rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: bootMark + "; uptime -s 2>/dev/null", Timeout: 20 * time.Second, MaxOutput: rebootOutput})
 			if err != nil {
 				return err

@@ -14,7 +14,7 @@ import (
 // add, conn edit, key gen): what happened first, in words, then each field
 // as words ("password ref: secret:web1-pass", not password_ref), warnings
 // last. The command to run next is data.next and the Next: line.
-func changeText(data any) string {
+func changeText(p *out.Printer, data any) string {
 	b, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Sprint(data)
@@ -24,7 +24,7 @@ func changeText(data any) string {
 		return string(b)
 	}
 	var sb strings.Builder
-	if h := out.Headline(m, g.dryRun); h != "" {
+	if h := out.Headline(m, p.DryRun); h != "" {
 		sb.WriteString(h + "\n")
 	}
 	warnings, _ := m["warnings"].([]any)
@@ -86,6 +86,6 @@ type textFn func() string
 
 func (f textFn) Text() string { return f() }
 
-func (r hostResult) Text() string { return changeText(r) }
-func (r connResult) Text() string { return changeText(r) }
-func (r keyResult) Text() string  { return changeText(r) }
+func (r hostResult) TextFor(p *out.Printer) string { return changeText(p, r) }
+func (r connResult) TextFor(p *out.Printer) string { return changeText(p, r) }
+func (r keyResult) TextFor(p *out.Printer) string  { return changeText(p, r) }

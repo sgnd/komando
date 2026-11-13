@@ -171,7 +171,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	if l := st.Logins["web1"]; l == nil || time.Until(l.Until) < 7*time.Hour {
 		t.Fatalf("login record %+v", l)
 	}
-	if rows := runningStatus(st).Logins; len(rows) != 1 || rows[0].Host != "web1" {
+	if rows := runningStatus(tcl, st).Logins; len(rows) != 1 || rows[0].Host != "web1" {
 		t.Errorf("status: %+v", rows)
 	}
 

@@ -104,10 +104,10 @@ func TestRegistryResolve(t *testing.T) {
 
 	// registry.test does not resolve anywhere: every connection must go to the IP
 	c := conn("registry://me@registry.test:" + port + "?ca=secret:reg-ca&resolve=127.0.0.1")
-	if r := testConn(ctx, st, c); !r.OK || r.Check != "login" {
+	if r := testConn(tcl, ctx, st, c); !r.OK || r.Check != "login" {
 		t.Fatalf("conn test: %+v %+v", r, r.Error)
 	}
-	rg, closeRG, err := openRegistry(ctx, st, c)
+	rg, closeRG, err := openRegistry(tcl, ctx, st, c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestRegistryResolve(t *testing.T) {
 		"registry://me@127.0.0.1:" + port + "?ca=secret:reg-ca":                       x509.HostnameError{}, // why resolve is needed: no IP on the certificate
 		"registry://me@registry.test:" + port + "?ca=secret:reg-ca&resolve=127.0.0.1": nil,
 	} {
-		rg, closeRG, err := openRegistry(ctx, st, conn(url))
+		rg, closeRG, err := openRegistry(tcl, ctx, st, conn(url))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -241,7 +241,7 @@ func TestS3ResolveConnTest(t *testing.T) {
 	st := testConnState()
 	c := &store.Conn{Name: "minio", Kind: "s3", URL: "s3://KEY@backups?endpoint=https://minio.test:" + port + "&resolve=127.0.0.1"}
 	st.Conns[c.Name] = c
-	if r := testConn(context.Background(), st, c); !r.OK || r.Check != "tcp" {
+	if r := testConn(tcl, context.Background(), st, c); !r.OK || r.Check != "tcp" {
 		t.Fatalf("conn test: %+v %+v", r, r.Error)
 	}
 }

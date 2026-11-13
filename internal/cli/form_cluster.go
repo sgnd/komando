@@ -31,7 +31,7 @@ const kubeconfigSteps = "AWS: aws eks update-kubeconfig --name CLUSTER. Google: 
 	"Azure: az aks get-credentials -g GROUP -n CLUSTER. DigitalOcean: Download Config File on the cluster's page. " +
 	"k3s: copy /etc/rancher/k3s/k3s.yaml from the server."
 
-func kubeconfigForm() formSpec {
+func kubeconfigForm(_ *call) formSpec {
 	return formSpec{title: "Add Kubernetes clusters", qs: []formQ{
 		{key: "file", label: "File", ask: "Where is your kubeconfig file?",
 			help:    "The file kubectl uses. Every cluster in it is added, named after its context. No file yet? " + kubeconfigSteps,
@@ -155,8 +155,8 @@ func kubeconfigAddsAs(st *store.State, name string, overwrite bool) bool {
 
 // swarmForm is the server form for a swarm manager, ending with cluster
 // status (which logs in and asks docker) instead of a plain test.
-func swarmForm() formSpec {
-	sp := serverForm()
+func swarmForm(cl *call) formSpec {
+	sp := serverForm(cl)
 	sp.title = "Add a Docker Swarm"
 	sp.qs[0] = formNameQ("host", "swarm manager", "swarm1")
 	sp.qs[1].ask = "What is the address of a manager server of the swarm?"

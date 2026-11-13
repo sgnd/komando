@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"os"
 	"regexp"
 	"strings"
 
@@ -65,7 +64,7 @@ func acrResource(host string) string {
 // or Google Artifact Registry and Container Registry. Without any Google
 // credentials, a Google registry is used without a login, so public
 // images there stay readable.
-func cloudRegistryLogin(ctx context.Context, c *store.Conn, host string, rc *registry.Client) error {
+func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host string, rc *registry.Client) error {
 	if c.PasswordRef != "" {
 		return nil
 	}
@@ -102,7 +101,7 @@ func cloudRegistryLogin(ctx context.Context, c *store.Conn, host string, rc *reg
 		if err != nil {
 			return azureErr(host, res, err)
 		}
-		if err := rc.ACRLogin(ctx, tok, cmp.Or(os.Getenv("AZURE_TENANT_ID"), cloud.AzureTenant(tok))); err != nil {
+		if err := rc.ACRLogin(ctx, tok, cmp.Or(cl.getenv("AZURE_TENANT_ID"), cloud.AzureTenant(tok))); err != nil {
 			var re *registry.Error
 			if errors.As(err, &re) && (re.Status == 401 || re.Status == 403) {
 				return out.Errf(out.ExitConnect, "REGISTRY_AUTH",

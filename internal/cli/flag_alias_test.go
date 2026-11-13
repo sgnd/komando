@@ -16,7 +16,7 @@ var gateReadFlags = []string{"read-only", "write", "analyze", "refresh", "to", "
 // and the ssh gate gives the same answer for every spelling of each flag
 // it reads (S-5.18).
 func TestStandardAliasSpelling(t *testing.T) {
-	for _, c := range allCommands(newRoot()) {
+	for _, c := range allCommands(newRoot(tcl)) {
 		c.Flags().VisitAll(func(f *pflag.Flag) {
 			a := f.Annotations[flagAliasOf]
 			if a == nil {
@@ -34,7 +34,7 @@ func TestStandardAliasSpelling(t *testing.T) {
 		})
 	}
 	n := 0
-	for _, c := range allCommands(newRoot()) {
+	for _, c := range allCommands(newRoot(tcl)) {
 		id := cmdID(c)
 		_, read := gateReadForm[id]
 		_, saves := gateSavesHere[id]
@@ -69,11 +69,11 @@ func wrapsValue(v, base pflag.Value) bool {
 // flag (and value), from a fresh tree; extra adds a spelling first.
 func spellingAnswer(t *testing.T, id, flag, alias string) string {
 	t.Helper()
-	saved := g
-	g = globalFlags{}
-	defer func() { g = saved }()
+	saved := tcl.flags
+	tcl.flags = globalFlags{}
+	defer func() { tcl.flags = saved }()
 	var c *cobra.Command
-	for _, x := range allCommands(newRoot()) {
+	for _, x := range allCommands(newRoot(tcl)) {
 		if cmdID(x) == id {
 			c = x
 		}

@@ -277,14 +277,14 @@ func TestWinSvcScriptQuoting(t *testing.T) {
 func TestWindowsSelectorsAndHosts(t *testing.T) {
 	st := testState()
 	st.Hosts["win-1"] = &store.Host{Name: "win-1", Address: "w.lan", OS: store.OSWindows}
-	hs, err := resolveTargets(st, "os:windows")
+	hs, err := resolveTargets(tcl, st, "os:windows")
 	if err != nil || len(hs) != 1 || hs[0].Name != "win-1" {
 		t.Errorf("os:windows = %v %v", hostNames(hs), err)
 	}
-	if hs, _ := resolveTargets(st, "all,!os:windows"); len(hs) != 4 {
+	if hs, _ := resolveTargets(tcl, st, "all,!os:windows"); len(hs) != 4 {
 		t.Errorf("all,!os:windows = %v", hostNames(hs))
 	}
-	if _, err := resolveTargets(st, "os:mac"); err == nil {
+	if _, err := resolveTargets(tcl, st, "os:mac"); err == nil {
 		t.Error("os:mac must be refused")
 	}
 	if _, err := sameOS(st.SortedHosts()); errCode(err) != "MIXED_OS" {

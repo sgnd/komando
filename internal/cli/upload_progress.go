@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"os"
 	"sync"
 	"time"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // --progress: with -o json, upload, download, cp, sync and storage
@@ -43,6 +40,7 @@ type progressEvent struct {
 
 // xferProgress counts one command's transfer: every server and file in it.
 type xferProgress struct {
+	cl       *call // the call it works for
 	mu       sync.Mutex
 	w        io.Writer
 	last     time.Time
@@ -77,11 +75,11 @@ func progressFrom(ctx context.Context) *progressPart {
 // startProgress turns --progress on for one command run: with -o json and
 // a real run, the returned ctx carries it and finish writes the done line.
 // Otherwise ctx is returned as it is and nothing is written.
-func startProgress(ctx context.Context, on bool) (context.Context, func(error) error) {
-	if !on || out.P.Format == "text" || g.dryRun {
+func startProgress(cl *call, ctx context.Context, on bool) (context.Context, func(error) error) {
+	if !on || cl.out.Format == "text" || cl.flags.dryRun {
 		return ctx, func(err error) error { return err }
 	}
-	ctx, p := withProgress(ctx, os.Stderr)
+	ctx, p := withProgress(cl, ctx, cl.out.Err)
 	return ctx, func(err error) error {
 		p.done(err == nil)
 		return err
@@ -89,8 +87,8 @@ func startProgress(ctx context.Context, on bool) (context.Context, func(error) e
 }
 
 // withProgress is ctx carrying a new progress count, written to w.
-func withProgress(ctx context.Context, w io.Writer) (context.Context, *xferProgress) {
-	p := &xferProgress{w: w, parts: 1}
+func withProgress(cl *call, ctx context.Context, w io.Writer) (context.Context, *xferProgress) {
+	p := &xferProgress{cl: cl, w: w, parts: 1}
 	return context.WithValue(ctx, progressKey{}, &progressPart{p: p}), p
 }
 
@@ -258,7 +256,7 @@ func (p *xferProgress) write(event string, ok *bool) {
 		return
 	}
 	e := progressEvent{Event: event, File: p.file, BytesDone: p.bytes, FilesDone: p.files, OK: ok}
-	e.File = out.P.Redact(e.File) // a name never shows a secret value
+	e.File = p.cl.out.Redact(e.File) // a name never shows a secret value
 	if !p.noTotal && p.got >= p.parts {
 		b, f := p.totBytes, p.totFiles
 		e.BytesTotal, e.FilesTotal = &b, &f

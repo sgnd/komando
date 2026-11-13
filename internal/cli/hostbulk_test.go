@@ -20,7 +20,7 @@ func windowText(t *testing.T, allow bool) *[]string {
 	t.Cleanup(resetApproval)
 	var texts []string
 	saved := askOnScreen
-	askOnScreen = func(text string) (bool, bool) {
+	askOnScreen = func(_ *call, text string) (bool, bool) {
 		texts = append(texts, text)
 		return allow, true
 	}

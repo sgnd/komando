@@ -12,12 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
 func TestGuardBind(t *testing.T) {
-	g.yes = false
+	tcl.flags.yes = false
 	for spec, open := range map[string]bool{
 		"8080:db:5432":           false,
 		"127.0.0.1:8080:db:5432": false,
@@ -29,14 +28,14 @@ func TestGuardBind(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", spec, err)
 		}
-		if err := guardBind(ts); (err != nil) != open {
+		if err := guardBind(tcl, ts); (err != nil) != open {
 			t.Errorf("%s: guardBind = %v, want blocked=%v", spec, err, open)
 		}
 	}
-	g.yes = true
-	defer func() { g.yes = false }()
+	tcl.flags.yes = true
+	defer func() { tcl.flags.yes = false }()
 	ts, _ := parseTunnel("dynamic", "0.0.0.0:1080")
-	if err := guardBind(ts); err != nil {
+	if err := guardBind(tcl, ts); err != nil {
 		t.Errorf("--yes must allow an open bind: %v", err)
 	}
 }
@@ -82,14 +81,14 @@ func TestTunnelStartCtrlC(t *testing.T) {
 	t.Cleanup(func() { tunnelServeCommand = saved })
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(500*time.Millisecond, cancel)
-	root := newRoot()
+	root := newRoot(tcl)
 	root.SetArgs([]string{"-o", "json", "tunnel", "start", "web1", "-L", "0:localhost:80"})
 	var buf bytes.Buffer
-	savedW := out.P.W
-	out.P.W = &buf
+	savedW := tcl.out.W
+	tcl.out.W = &buf
 	t0 := time.Now()
-	err := root.ExecuteContext(ctx)
-	out.P.W = savedW
+	err := root.ExecuteContext(withCall(ctx, tcl))
+	tcl.out.W = savedW
 	if e := toErr(err); e == nil || e.Code != "CANCELLED" {
 		t.Fatalf("want CANCELLED, got %v", err)
 	}
@@ -107,7 +106,7 @@ func TestTunnelStartCtrlC(t *testing.T) {
 // TestParseTunnelIPv6: IPv6 addresses go in brackets, as with ssh; an open
 // IPv6 bind ([::]) still needs a person's yes, the loopback ([::1]) not.
 func TestParseTunnelIPv6(t *testing.T) {
-	g.yes = false
+	tcl.flags.yes = false
 	for _, c := range []struct {
 		kind, spec, bind, target string
 		open                     bool
@@ -125,7 +124,7 @@ func TestParseTunnelIPv6(t *testing.T) {
 		if ts.BindAddr != c.bind || ts.TargetAddr != c.target {
 			t.Errorf("%s: bind %q target %q", c.spec, ts.BindAddr, ts.TargetAddr)
 		}
-		if err := guardBind(ts); (err != nil) != c.open {
+		if err := guardBind(tcl, ts); (err != nil) != c.open {
 			t.Errorf("%s: guardBind = %v, want blocked=%v", c.spec, err, c.open)
 		}
 	}
@@ -204,7 +203,7 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := len(runningStatus(st).Tunnels); n != 0 {
+	if n := len(runningStatus(tcl, st).Tunnels); n != 0 {
 		t.Errorf("status lists another program's pid as a running tunnel (%d)", n)
 	}
 	if r := runningServes(); slices.Contains(r, "tunnel t-old") {

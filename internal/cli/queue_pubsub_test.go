@@ -103,7 +103,7 @@ func TestQueuePubsubLive(t *testing.T) {
 	if d := mustRun(t, "--dry-run", "queue", "create", "pubsub", topic); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	wantCode(t, "TOPIC_NOT_FOUND", "queue", "describe", "pubsub", topic)
 	mustRun(t, "queue", "create", "pubsub", topic)
 	wantCode(t, "TOPIC_EXISTS", "queue", "create", "pubsub", topic)
@@ -129,7 +129,7 @@ func TestQueuePubsubLive(t *testing.T) {
 	if d := mustRun(t, "--dry-run", "queue", "purge", "pubsub", sub); d["messages"].(float64) != -1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "pubsub", topic)
 	if d := mustRun(t, "--dry-run", "queue", "rm", "pubsub", topic, "subscriptions/"+sub); !strings.Contains(jsonOf(d), `"exists":true`) {
 		t.Errorf("dry-run rm: %v", d)

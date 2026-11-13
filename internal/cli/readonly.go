@@ -719,9 +719,9 @@ func stdinShell(command string) bool {
 }
 
 // checkReadOnly is the --read-only promise check, as a safety stop.
-func checkReadOnly(command string) error {
+func checkReadOnly(cl *call, command string) error {
 	if w := readOnlyViolation(command); w != "" {
-		return readOnlyStop(w)
+		return readOnlyStop(cl, w)
 	}
 	return nil
 }
@@ -731,12 +731,12 @@ func checkReadOnly(command string) error {
 // find / $X deletes), each word of a value quoted the way the shell splits
 // it. A variable that runs code (BASH_ENV, PS4, LD_PRELOAD) breaks the
 // promise whatever the command.
-func checkReadOnlyEnv(command string, env []string) error {
+func checkReadOnlyEnv(cl *call, command string, env []string) error {
 	filled, bad := readOnlyFill(command, env)
 	if bad != "" {
-		return readOnlyStop(bad)
+		return readOnlyStop(cl, bad)
 	}
-	return checkReadOnly(filled)
+	return checkReadOnly(cl, filled)
 }
 
 // readOnlyFill fills command's $VAR from the -e values, each word quoted the
@@ -786,7 +786,7 @@ func readOnlyMutates(command string, env []string) bool {
 	return readOnlyAllowlist(filled) != ""
 }
 
-func readOnlyStop(what string) error {
-	return policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "it changes something, so it is not --read-only: tell the user what it changes, then run it without --read-only (a protected server also needs --yes)",
+func readOnlyStop(cl *call, what string) error {
+	return cl.policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "it changes something, so it is not --read-only: tell the user what it changes, then run it without --read-only (a protected server also needs --yes)",
 		"--read-only, but the command changes something (%s)", what))
 }

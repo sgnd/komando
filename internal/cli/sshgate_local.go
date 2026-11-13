@@ -35,22 +35,22 @@ import (
 // gateTargetArgs reads the targets of the changes whose target is not where
 // their Use line says (gateUseTargets). Jobs were started through the gate;
 // VPNs are no target.
-var gateTargetArgs = map[string]func(args []string) []string{
+var gateTargetArgs = map[string]func(cl *call, args []string) []string{
 	"recipe.run": argAt(1), "key.deploy": argAt(1), "key.revoke": argAt(1),
 	"cp": gateRemoteSides, "sync": gateRemoteSides, "registry.copy": gateRemoteSides,
 	"job.kill": argAt(-1), "job.rm": argAt(-1), "vpn.up": argAt(-1), "vpn.down": argAt(-1),
 }
 
 // argAt reads argument i as the target (none when i < 0).
-func argAt(i int) func(args []string) []string {
-	return func(a []string) []string { return a[min(max(i, 0), len(a)):min(max(i+1, 0), len(a))] }
+func argAt(i int) func(cl *call, args []string) []string {
+	return func(_ *call, a []string) []string { return a[min(max(i, 0), len(a)):min(max(i+1, 0), len(a))] }
 }
 
 // gateRemoteSides are the TARGET of each TARGET:PATH (CONN:IMAGE) argument.
-func gateRemoteSides(args []string) []string {
+func gateRemoteSides(cl *call, args []string) []string {
 	var res []string
 	for _, a := range args {
-		if t, _, remote := splitArg(a); remote {
+		if t, _, remote := splitArg(cl, a); remote {
 			res = append(res, t)
 		}
 	}
@@ -90,13 +90,14 @@ var gateTargetWords = map[string]bool{"TARGET": true, "SERVER": true, "CONN": tr
 
 // gateLocalTarget says why c acts on this computer, or "", for every key.
 func gateLocalTarget(c *cobra.Command, name string) string {
+	cl := callOf(c)
 	args := c.Flags().Args()
 	_, change := gateOnServers[name]
 	targets := gateUseTargets(c, args)
 	if f, ok := gateTargetArgs[name]; ok {
-		targets = f(args)
+		targets = f(cl, args)
 	} else if change && len(targets) == 0 {
-		targets = argAt(0)(args)
+		targets = argAt(0)(cl, args)
 	}
 	if len(targets) == 0 {
 		return ""
@@ -106,7 +107,7 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 		return "the inventory could not be read"
 	}
 	for _, e := range targets {
-		sel, err := resolveSelection(st, e)
+		sel, err := resolveSelection(cl, st, e)
 		if err != nil {
 			if change || gateLocalAddr(gateArgHost(e)) {
 				return fmt.Sprintf("the gate cannot tell where %q is", e)
@@ -119,7 +120,7 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 			if st.Hosts[h.Name] != h {
 				return fmt.Sprintf("%q is not in the inventory; a key runs commands only on servers a person added", e)
 			}
-			if why := gateAt(st, h.Address, h.Via, 0); why != "" {
+			if why := gateAt(cl, st, h.Address, h.Via, 0); why != "" {
 				return "the server " + h.Name + " is on this computer (" + why + ")"
 			}
 			if gateSameHostKey(h) {
@@ -132,7 +133,7 @@ func gateLocalTarget(c *cobra.Command, name string) string {
 				return cn.Name + " is a file on this computer (or its URL cannot be read)"
 			}
 			for _, a := range append(append([]string{t.Address, t.Resolve}, t.Sentinels...), gateURLHosts(cn.URL)...) {
-				if why := gateAt(st, a, cn.Via, 0); why != "" {
+				if why := gateAt(cl, st, a, cn.Via, 0); why != "" {
 					return cn.Name + " is on this computer (" + why + ")"
 				}
 			}
@@ -191,7 +192,7 @@ func gateURLHosts(raw string) []string {
 }
 
 // gateAt says why addr, reached through via, may be this computer, or "".
-func gateAt(st *store.State, addr, via string, depth int) string {
+func gateAt(cl *call, st *store.State, addr, via string, depth int) string {
 	if !gateLocalAddr(addr) {
 		return ""
 	}
@@ -200,11 +201,11 @@ func gateAt(st *store.State, addr, via string, depth int) string {
 		return addr
 	}
 	last := steps[len(steps)-1]
-	h, err := findHost(st, last)
+	h, err := findHost(cl, st, last)
 	if err != nil || depth > 8 {
 		return addr + " through " + last // a VPN, or not found
 	}
-	return gateAt(st, h.Address, h.Via, depth+1)
+	return gateAt(cl, st, h.Address, h.Via, depth+1)
 }
 
 // gateLocalAddr: a name or address, with or without a port, is this

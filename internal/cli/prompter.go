@@ -27,9 +27,8 @@ import (
 // terminals, no AI agent runs it, it is not CI, the terminal is not dumb
 // and the output is text (format is what -o or KOMANDO_OUTPUT asked for).
 // Every question checks it; no command looks at the terminal on its own.
-var promptable = func(format string) bool {
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd())) &&
-		term.IsTerminal(int(os.Stderr.Fd())) && promptGate(format, isAgent(), os.Getenv("CI"), os.Getenv("TERM"))
+var promptable = func(cl *call, format string) bool {
+	return cl.terminal && isTerminal(cl.out.W) && promptGate(format, cl.isAgent(), cl.getenv("CI"), cl.getenv("TERM"))
 }
 
 // promptGate is promptable without the terminal checks, so tests can try
@@ -39,15 +38,11 @@ func promptGate(format string, agent bool, ci, termName string) bool {
 	return !agent && !ciOn && termName != "dumb" && (format == "" || format == "auto" || format == "text")
 }
 
-// promptOn is set once promptable said yes for this command; a question
-// asked without it is a bug (a test fails on it at once).
-var promptOn bool
-
 // promptW is where questions are drawn; promptRead reads one answer. Tests
 // stand in for both.
 var (
 	promptW    io.Writer = os.Stderr
-	promptRead           = func(label string) (string, error) { return promptLineIdle(label, promptIdle) }
+	promptRead           = func(cl *call, label string) (string, error) { return promptLineIdle(cl, label, promptIdle) }
 )
 
 // promptIdle: a question nobody answers for this long is given up, so a
@@ -59,13 +54,13 @@ const promptIdle = 10 * time.Minute
 var errPromptCancel = errors.New("cancelled at a question")
 
 // promptLineIdle reads one line from the terminal, or gives up after idle.
-func promptLineIdle(label string, idle time.Duration) (string, error) {
+func promptLineIdle(cl *call, label string, idle time.Duration) (string, error) {
 	type answer struct {
 		s   string
 		err error
 	}
 	got := make(chan answer, 1)
-	go func() { s, err := readAnswer(label, false); got <- answer{s, err} }()
+	go func() { s, err := readAnswer(cl, label, false); got <- answer{s, err} }()
 	select {
 	case a := <-got:
 		return a.s, a.err
@@ -75,14 +70,18 @@ func promptLineIdle(label string, idle time.Duration) (string, error) {
 	}
 }
 
-func promptLine(label string) (string, error) {
-	if !promptOn {
+func promptLine(cl *call, label string) (string, error) {
+	if !cl.promptOn {
 		if testing.Testing() {
 			panic("a question was asked without a person at a terminal")
 		}
 		return "", out.Usage("komando cannot ask here: give every argument on the command line")
 	}
-	s, err := promptRead(label)
+	read := promptRead
+	if mask := cl.promptMask; mask != nil {
+		read = func(cl *call, label string) (string, error) { return promptReadMasked(cl, label, mask) }
+	}
+	s, err := read(cl, label)
 	if err != nil {
 		if errors.Is(err, errPromptCancel) {
 			return "", err
@@ -116,13 +115,13 @@ const promptTries = 3
 
 // askText asks for a typed value: Enter takes the default, ? shows the
 // help, a wrong answer says why and asks again.
-func askText(q promptQ) (string, error) {
+func askText(cl *call, q promptQ) (string, error) {
 	label := q.label
 	if q.def != "" {
 		label += " [" + q.def + "]"
 	}
 	for try := 0; try < promptTries; {
-		v, err := promptLine(label + ": ")
+		v, err := promptLine(cl, label+": ")
 		if err != nil {
 			return "", err
 		}
@@ -152,7 +151,7 @@ func askText(q promptQ) (string, error) {
 // askPick asks for one of rows by its number, or its value typed; other
 // text narrows the list (free: it is taken as typed, as a selector like
 // @web or tag:db, or a new name, is). Enter takes the default.
-func askPick(q promptQ, rows []pickRow, free bool) (string, error) {
+func askPick(cl *call, q promptQ, rows []pickRow, free bool) (string, error) {
 	shown := rows
 	promptRows(shown)
 	shownDef := q.def
@@ -166,7 +165,7 @@ func askPick(q promptQ, rows []pickRow, free bool) (string, error) {
 		if shownDef != "" {
 			label += " [" + shownDef + "]"
 		}
-		v, err := promptLine(label + ": ")
+		v, err := promptLine(cl, label+": ")
 		if err != nil {
 			return "", err
 		}
@@ -242,8 +241,8 @@ func promptRows(rows []pickRow) {
 
 // askRun asks whether a command that komando filled in runs: y runs it,
 // d runs it with --dry-run first (and asks again), anything else is no.
-func askRun() (string, error) {
-	v, err := promptLine("Run it? [y/N, d = --dry-run first]: ")
+func askRun(cl *call) (string, error) {
+	v, err := promptLine(cl, "Run it? [y/N, d = --dry-run first]: ")
 	if err != nil {
 		return "", err
 	}
@@ -258,8 +257,8 @@ func askRun() (string, error) {
 
 // askTypeName asks the person to type want (shown as typedAnswer shows it)
 // to go on with something that cannot be undone; a wrong answer is a no.
-func askTypeName(want, shown string) (bool, error) {
-	v, err := promptLine("Type " + shown + " to continue: ")
+func askTypeName(cl *call, want, shown string) (bool, error) {
+	v, err := promptLine(cl, "Type "+shown+" to continue: ")
 	if err != nil {
 		return false, err
 	}
@@ -272,24 +271,23 @@ var promptReadMasked = readMaskedLine
 
 // askMasked is askText for a line that may hold a pasted password: the
 // screen shows it through mask, never as typed.
-func askMasked(q promptQ, mask func(string) string) (string, error) {
-	if !promptOn {
-		return askText(q) // askText says what is wrong
+func askMasked(cl *call, q promptQ, mask func(string) string) (string, error) {
+	if !cl.promptOn {
+		return askText(cl, q) // askText says what is wrong
 	}
-	saved := promptRead
-	promptRead = func(label string) (string, error) { return promptReadMasked(label, mask) }
-	defer func() { promptRead = saved }()
-	return askText(q)
+	cl.promptMask = mask
+	defer func() { cl.promptMask = nil }()
+	return askText(cl, q)
 }
 
 // readMaskedLine reads a line in raw mode, drawing it through mask after
 // every key or paste. Ctrl-C stops (as at any question), Ctrl-U clears,
 // Backspace takes one character back; other control keys are ignored.
-func readMaskedLine(label string, mask func(string) string) (string, error) {
+func readMaskedLine(cl *call, label string, mask func(string) string) (string, error) {
 	fd := int(os.Stdin.Fd())
 	old, err := term.MakeRaw(fd)
 	if err != nil {
-		return readAnswer(label, false)
+		return readAnswer(cl, label, false)
 	}
 	defer func() { _ = term.Restore(fd, old) }()
 	var line []rune
@@ -306,7 +304,7 @@ func readMaskedLine(label string, mask func(string) string) (string, error) {
 	draw()
 	buf := make([]byte, 4096)
 	for {
-		n, err := os.Stdin.Read(buf)
+		n, err := cl.stdin.Read(buf)
 		if err != nil {
 			return "", err
 		}
@@ -315,7 +313,7 @@ func readMaskedLine(label string, mask func(string) string) (string, error) {
 			switch c := b[0]; {
 			case c == 3: // Ctrl-C
 				fmt.Fprint(promptW, "\r\n")
-				interrupted = true
+				cl.interrupted = true
 				return "", interruptedErr()
 			case c == '\r' || c == '\n' || c == 4 && len(line) == 0:
 				fmt.Fprint(promptW, "\r\n")

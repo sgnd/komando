@@ -3,7 +3,6 @@
 package cli
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -21,9 +20,9 @@ func TestSecretSetAgentUnderPTYNeverAsks(t *testing.T) {
 	}
 	defer m.Close()
 	defer tty.Close()
-	savedIn, savedErr := os.Stdin, os.Stderr
-	os.Stdin, os.Stderr = tty, tty
-	t.Cleanup(func() { os.Stdin, os.Stderr = savedIn, savedErr })
+	savedIn, savedErr := tcl.stdin, tcl.out.Err
+	tcl.stdin, tcl.out.Err = tty, tty
+	t.Cleanup(func() { tcl.stdin, tcl.out.Err = savedIn, savedErr })
 	asAgent(t, true, true)
 
 	type result struct {

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"sort"
 	"strings"
@@ -34,32 +33,32 @@ to see the change without making it.`,
   komando fs restore @web /etc/nginx/nginx.conf --sudo --dry-run
   komando fs restore web1 /etc/nginx/nginx.conf --copy /etc/nginx/nginx.conf.bak --sudo`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			hosts, err := resolveTargets(st, args[0])
+			hosts, err := resolveTargets(cl, st, args[0])
 			if err != nil {
 				return err
 			}
 			if w := windowsNames(hosts); len(w) > 0 {
 				return out.Usage("fs restore does not work on Windows servers yet (%s); copy the backup back with `komando exec %s -- Copy-Item ...`", strings.Join(w, ", "), w[0])
 			}
-			if err := guard(st, hosts, "", true); err != nil {
+			if err := guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
-			r := restoreEdit{path: args[1], from: from, sudo: sudo}
-			data, err := runFsFleet(cmd.Context(), st, "fs.restore", args[1], hosts, r.on)
-			if !g.dryRun {
+			r := restoreEdit{cl: cl, path: args[1], from: from, sudo: sudo}
+			data, err := runFsFleet(cl, cmd.Context(), st, "fs.restore", args[1], hosts, r.on)
+			if !cl.flags.dryRun {
 				for _, row := range data.Results {
 					if row["changed"] == true {
-						textNote("Put back %s on %s from %s.", row["path"], row["host"], row["from"])
+						textNote(cl, "Put back %s on %s from %s.", row["path"], row["host"], row["from"])
 					}
 				}
 			}
 			return err
-		},
+		}),
 	}
 	fsRestoreFlags(c, &sudo, &from)
 	return c
@@ -67,6 +66,7 @@ to see the change without making it.`,
 
 // restoreEdit is one fs restore: the same path on every server.
 type restoreEdit struct {
+	cl         *call // the call it works for
 	path, from string
 	sudo       bool
 }
@@ -81,31 +81,31 @@ func (r restoreEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 	p := expandRemote(sc, r.path)
 	b := r.from
 	if b == "" {
-		if b, err = findBackup(sc, p); err != nil {
+		if b, err = findBackup(r.cl, sc, p); err != nil {
 			return nil, err
 		}
 	}
-	old, trunc, err := readRemote(ctx, c, sc, b, r.sudo, 64<<20)
+	old, trunc, err := readRemote(r.cl, ctx, c, sc, b, r.sudo, 64<<20)
 	if err != nil {
 		return nil, err
 	}
 	if trunc {
 		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy it back with `komando exec TARGET -- cp BACKUP PATH`", "%s is larger than 64MiB, the most fs restore reads", b)
 	}
-	cur, _, cerr := readRemote(ctx, c, sc, p, r.sudo, 64<<20)
+	cur, _, cerr := readRemote(r.cl, ctx, c, sc, p, r.sudo, 64<<20)
 	if cerr != nil && toErr(cerr).Code != "PATH_NOT_FOUND" {
 		return nil, cerr
 	}
 	a, z := string(cur), string(old)
-	if out.P.Mask {
-		a, z = out.P.View(a).Text, out.P.View(z).Text
+	if r.cl.out.Mask {
+		a, z = r.cl.out.View(a).Text, r.cl.out.View(z).Text
 	}
 	res := fsChange{"path": p, "from": b, "diff": unifiedDiff(a, z, 3)}
-	if g.dryRun {
+	if r.cl.flags.dryRun {
 		res["would_change"] = string(cur) != string(old)
 		return res, nil
 	}
-	w, err := writeRemote(ctx, c, sc, p, old, writeOpts{sudo: r.sudo, backup: cerr == nil})
+	w, err := writeRemote(r.cl, ctx, c, sc, p, old, writeOpts{sudo: r.sudo, backup: cerr == nil})
 	if err != nil {
 		return nil, err
 	}
@@ -118,10 +118,10 @@ func (r restoreEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 }
 
 // findBackup is the newest backup of p next to it.
-func findBackup(sc *sftp.Client, p string) (string, error) {
+func findBackup(cl *call, sc *sftp.Client, p string) (string, error) {
 	ents, err := sc.ReadDir(path.Dir(p))
 	if err != nil {
-		return "", fsErr(path.Dir(p), err)
+		return "", fsErr(cl, path.Dir(p), err)
 	}
 	names := make([]string, 0, len(ents))
 	for _, e := range ents {
@@ -165,29 +165,29 @@ func backupKey(n string) string {
 
 // textNote prints one line for a person after a command's output (text
 // mode only, on stderr): JSON output and pipes stay the same.
-func textNote(format string, a ...any) {
-	if out.P.Format != "text" {
+func textNote(cl *call, format string, a ...any) {
+	if cl.out.Format != "text" {
 		return
 	}
-	fmt.Fprintln(os.Stderr, out.SafeText(out.P.Redact(fmt.Sprintf(format, a...))))
+	fmt.Fprintln(cl.out.Err, out.SafeText(cl.out.Redact(fmt.Sprintf(format, a...))))
 }
 
 // undoNote is the line after fs write or fs replace --backup.
 // printChange prints the result of a file change, then the undo line.
-func printChange(command, host string, res fsChange, sudo bool) {
-	out.P.Print(command, res, nil)
-	undoNote(host, res, sudo)
+func printChange(cl *call, command, host string, res fsChange, sudo bool) {
+	cl.out.Print(command, res, nil)
+	undoNote(cl, host, res, sudo)
 }
 
-func undoNote(host string, res fsChange, sudo bool) {
-	if g.dryRun || res["backup"] == nil || res["changed"] != true {
+func undoNote(cl *call, host string, res fsChange, sudo bool) {
+	if cl.flags.dryRun || res["backup"] == nil || res["changed"] != true {
 		return
 	}
 	s := ""
 	if sudo {
 		s = " --sudo"
 	}
-	textNote("Changed %s on %s. To undo: komando fs restore %s %s%s", res["path"], host, host, argQ(fmt.Sprint(res["path"])), s)
+	textNote(cl, "Changed %s on %s. To undo: komando fs restore %s %s%s", res["path"], host, host, argQ(fmt.Sprint(res["path"])), s)
 }
 
 // argQ quotes s for a shell only when it needs it, so a plain path reads plainly.

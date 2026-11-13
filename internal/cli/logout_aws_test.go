@@ -17,7 +17,7 @@ func TestStatusShowsAWSLogins(t *testing.T) {
 	saved := awsLogins
 	defer func() { awsLogins = saved }()
 	now := time.Now()
-	awsLogins = func() []cloud.AWSLogin {
+	awsLogins = func(*call) []cloud.AWSLogin {
 		return []cloud.AWSLogin{{Profiles: []string{"dev", "ops"}, StartURL: "https://corp.awsapps.com/start", Region: "eu-west-1",
 			Session: "corp", LoggedInAt: now.Add(-time.Hour), ExpiresAt: now.Add(3 * time.Hour)}}
 	}
@@ -26,7 +26,7 @@ func TestStatusShowsAWSLogins(t *testing.T) {
 	if len(ls) != 1 || ls[0].(map[string]any)["sso_session"] != "corp" || ls[0].(map[string]any)["expires_at"] == nil {
 		t.Fatalf("status: %v", d)
 	}
-	txt := runningStatus(mustState(t)).Text()
+	txt := runningStatus(tcl, mustState(t)).Text()
 	if !strings.Contains(txt, "aws") || !strings.Contains(txt, "dev,ops") || !strings.Contains(txt, "`komando logout aws --profile dev` ends it") {
 		t.Errorf("text:\n%s", txt)
 	}

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -18,9 +17,9 @@ import (
 // message names no secret.
 func TestAgentInputWithVaultValueRefused(t *testing.T) {
 	invHome(t)
-	saved := out.P
-	out.P = &out.Printer{Format: "json", W: os.Stdout, Start: time.Now()} // the vault values are read once per printer
-	t.Cleanup(func() { out.P = saved })
+	saved := tcl.out
+	tcl.out = &out.Printer{Format: "json", W: tcl.out.W, Start: time.Now()} // the vault values are read once per printer
+	t.Cleanup(func() { tcl.out = saved })
 	const v = "Tr0ub4dor-guess-77"
 	if err := vault.Set("db-pass", v); err != nil {
 		t.Fatal(err)
@@ -41,7 +40,7 @@ func TestAgentInputWithVaultValueRefused(t *testing.T) {
 			t.Errorf("%v: the message names the secret: %q", args, e.Message)
 		}
 	}
-	if err := hiddenInInput("run.sh", []byte("#!/bin/sh\necho '"+v+"'\n")); err == nil || !strings.Contains(err.Error(), "SECRET_INPUT_INVALID") && toErr(err).Code != "SECRET_INPUT_INVALID" {
+	if err := hiddenInInput(tcl, "run.sh", []byte("#!/bin/sh\necho '"+v+"'\n")); err == nil || !strings.Contains(err.Error(), "SECRET_INPUT_INVALID") && toErr(err).Code != "SECRET_INPUT_INVALID" {
 		t.Errorf("a script with the value: %v", err)
 	}
 	// a guess that is no secret goes on as before

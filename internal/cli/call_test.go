@@ -29,7 +29,8 @@ func TestCallsApartAtOnce(t *testing.T) {
 		said         *call
 	}
 	run := func(agent string, answer bool) result {
-		c := newCall()
+		c := testCall()
+		c.args = []string{"komando", "host", "rm", "web1", "--yes"}
 		c.caller = engine.Caller{Kind: engine.Agent, Agent: agent}
 		var r result
 		c.ask = func(text string) (bool, bool) {
@@ -56,9 +57,6 @@ func TestCallsApartAtOnce(t *testing.T) {
 		}
 		return r
 	}
-	saved := os.Args
-	defer func() { os.Args = saved }()
-	os.Args = []string{"komando", "host", "rm", "web1", "--yes"}
 
 	var yes, no result
 	var wg sync.WaitGroup
@@ -82,10 +80,10 @@ func TestCallsApartAtOnce(t *testing.T) {
 // ssh-gate) leaves the running command's call alone.
 func TestNewRootKeepsTheRunningCall(t *testing.T) {
 	resetApproval()
-	c := cur()
+	c := tcl
 	c.sess.SaidNo(true)
-	newRoot()
-	if cur() != c || !cur().sess.PersonSaidNo() {
+	newRoot(tcl)
+	if tcl != c || !tcl.sess.PersonSaidNo() {
 		t.Fatal("newRoot replaced the running command's answers")
 	}
 }
@@ -95,18 +93,16 @@ func TestNewRootKeepsTheRunningCall(t *testing.T) {
 func TestCallerFromTheCall(t *testing.T) {
 	t.Setenv("KOMANDO_AGENT", "1")
 	resetApproval()
-	if !isAgent() || agentName() == "" {
+	if !tcl.isAgent() || tcl.caller.Agent == "" {
 		t.Fatal("KOMANDO_AGENT=1 is not an agent")
 	}
 	os.Unsetenv("KOMANDO_AGENT")
-	if !isAgent() {
+	if !tcl.isAgent() {
 		t.Fatal("the call's caller changed with the environment")
 	}
-	c := newCall()
-	c.caller = engine.Caller{Kind: engine.Person}
-	active.Store(c)
+	tcl.caller = engine.Caller{Kind: engine.Person}
 	t.Cleanup(resetApproval)
-	if isAgent() {
+	if tcl.isAgent() {
 		t.Fatal("the call's own caller was not used")
 	}
 }
@@ -115,7 +111,7 @@ func TestCallerFromTheCall(t *testing.T) {
 // person said no.
 func TestCancelledWording(t *testing.T) {
 	invHome(t)
-	c := newCall()
+	c := testCall()
 	c.sess.SaidNo(true)
 	e := &out.Error{Code: "PROTECTED_HOST", Message: "web1 is protected", Exit: out.ExitPolicy}
 	cancelled(c, e)

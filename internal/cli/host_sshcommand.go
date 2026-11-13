@@ -33,24 +33,24 @@ hour, and the line picks it by its public key.`,
 		Example: `  komando host ssh-command web1
   $(komando host ssh-command web1 -o text)      # open a shell with OpenSSH`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			h, err := singleHost(st, args[0])
+			h, err := singleHost(cl, st, args[0])
 			if err != nil {
 				return err
 			} else if h.WinRM() {
 				return notOnWindows("an ssh command for a WinRM server", []string{h.Name})
 			}
-			parts, err := sshCommandFor(st, h)
+			parts, err := sshCommandFor(cl, st, h)
 			if err != nil {
 				return err
 			}
-			out.P.Print("host.ssh-command", sshCmdResult{Argv: parts, Command: shellLine(parts)}, nil)
+			cl.out.Print("host.ssh-command", sshCmdResult{Argv: parts, Command: shellLine(parts)}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -175,8 +175,8 @@ func vpnProxy(st *store.State, v *store.Vpn) (string, error) {
 // keys komando made are sealed and OpenSSH reads files: the pins of the
 // path go to a known_hosts copy in a private temporary folder, for a person
 // only, and a sealed key goes to the running ssh-agent (agentKeys).
-func sealedSSHFiles(st *store.State, hops []*store.Host) (string, map[string][]string, error) {
-	if isAgent() {
+func sealedSSHFiles(cl *call, st *store.State, hops []*store.Host) (string, map[string][]string, error) {
+	if cl.isAgent() {
 		return "", nil, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"use `komando exec` or `komando shell`; a person who wants OpenSSH runs `komando host ssh-command` in their own terminal",
 			"host ssh-command writes a copy of the pinned host keys for OpenSSH, so only a person at a terminal can run it here")
@@ -194,12 +194,12 @@ func sealedSSHFiles(st *store.State, hops []*store.Host) (string, map[string][]s
 	if err != nil {
 		return "", nil, err
 	}
-	keys, err := agentKeys(st, hops, dir)
+	keys, err := agentKeys(cl, st, hops, dir)
 	return kh, keys, err
 }
 
 // sshCommandFor builds the ssh argv for h.
-func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
+func sshCommandFor(cl *call, st *store.State, h *store.Host) ([]string, error) {
 	vpn, hops, err := sshPath(st, h, map[string]bool{})
 	if err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func sshCommandFor(st *store.State, h *store.Host) ([]string, error) {
 				"server %s has an address or user that starts with -, which ssh would read as an option", hop.Name)
 		}
 	}
-	kh, ak, err := sealedSSHFiles(st, hops)
+	kh, ak, err := sealedSSHFiles(cl, st, hops)
 	if err != nil {
 		return nil, err
 	}

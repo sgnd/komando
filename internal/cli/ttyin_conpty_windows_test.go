@@ -40,9 +40,8 @@ func TestConPTYChild(t *testing.T) {
 		os.Exit(91)
 	}
 	os.Stdin, os.Stdout, os.Stderr = in, con, con
-	out.P.W, promptW = con, con
-	interactive = func() bool { return true }
-	promptable = func(f string) bool { return promptGate(f, isAgent(), "", "xterm") }
+	promptW = con
+	promptable = func(cl *call, f string) bool { return promptGate(f, cl.isAgent(), "", "xterm") }
 	os.Args = append([]string{"komando"}, strings.Split(args, "\x1f")...)
 	code := Execute()
 	// how komando leaves the console: echo and line mode on again, and

@@ -43,7 +43,7 @@ func TestSnowflakeConns(t *testing.T) {
 }
 
 func TestSnowflakeImport(t *testing.T) {
-	p, err := importDBeaver(writeTemp(t, "data-sources.json", `{"connections":{
+	p, err := importDBeaver(tcl, writeTemp(t, "data-sources.json", `{"connections":{
 		"snowflake-1":{"name":"Warehouse","provider":"snowflake","configuration":{"host":"myorg-acct.snowflakecomputing.com","port":"443","database":"ANALYTICS","user":"app"}}}}`))
 	if err != nil {
 		t.Fatal(err)

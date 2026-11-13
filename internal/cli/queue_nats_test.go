@@ -96,11 +96,11 @@ func TestQueueNatsLive(t *testing.T) {
 		t.Errorf("info: %v", d)
 	}
 	invRun(t, "queue", "rm", "stream", "KOMANDO_CLI", "--allow-dangerous") // left by an earlier run
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 	if d := mustRun(t, "--dry-run", "queue", "create", "stream", "KOMANDO_CLI", "--config", "subjects=cli.>"); d["dry_run"] != true {
 		t.Errorf("dry-run create: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	wantCode(t, "STREAM_NOT_FOUND", "queue", "describe", "stream", "KOMANDO_CLI")
 	wantCode(t, "NOT_SUPPORTED", "queue", "create", "stream", "KOMANDO_CLI", "--partitions", "3")
 	mustRun(t, "queue", "create", "stream", "KOMANDO_CLI", "--config", "subjects=cli.>", "--config", "max_age=1h")
@@ -128,10 +128,10 @@ func TestQueueNatsLive(t *testing.T) {
 	if d := mustRun(t, "--dry-run", "queue", "purge", "stream", "KOMANDO_CLI"); d["messages"].(float64) != 1 {
 		t.Errorf("dry-run purge: %v", d)
 	}
-	g.dryRun, store.DryRun = false, false
+	tcl.flags.dryRun, store.DryRun = false, false
 	mustRun(t, "queue", "purge", "stream", "KOMANDO_CLI", "--allow-dangerous")
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 	wantCode(t, "POLICY_BLOCKED", "queue", "rm", "stream", "KOMANDO_CLI")
 	mustRun(t, "queue", "rm", "stream", "KOMANDO_CLI", "--allow-dangerous")
-	g.allowDangerous = false
+	tcl.flags.allowDangerous = false
 }

@@ -39,8 +39,8 @@ func asPerson(t *testing.T, answer func(stderr string) string, fn func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	savedIn, savedErr, savedInteractive := os.Stdin, os.Stderr, interactive
-	os.Stdin, os.Stderr, interactive = inR, errW, func() bool { return true }
+	savedIn, savedErr, savedInteractive := tcl.stdin, tcl.out.Err, tcl.terminal
+	tcl.stdin, tcl.out.Err, tcl.terminal = inR, errW, true
 	done := make(chan struct{})
 	go func() { // the person reads the screen, then types at the question
 		defer close(done)
@@ -62,7 +62,7 @@ func asPerson(t *testing.T, answer func(stderr string) string, fn func()) {
 		}
 	}()
 	defer func() {
-		os.Stdin, os.Stderr, interactive = savedIn, savedErr, savedInteractive
+		tcl.stdin, tcl.out.Err, tcl.terminal = savedIn, savedErr, savedInteractive
 		errW.Close()
 		<-done
 		inR.Close()
