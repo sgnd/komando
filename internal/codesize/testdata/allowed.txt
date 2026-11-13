@@ -17,8 +17,7 @@ func internal/cli/db_dump.go runDump 135
 func internal/cli/exec.go runFleet 179
 func internal/cli/facts.go parseFactsAt 106
 func internal/cli/facts_text.go writeFactsHost 126
-func internal/cli/fs_replace.go fsReplaceCmd 117
-func internal/cli/fs_write.go writeRemoteFrom 199
+func internal/cli/fs_write.go writeRemoteFrom 108
 func internal/cli/guard_shell.go checkAgentVars 113
 func internal/cli/guard_shell.go checkShellDepth 112
 func internal/cli/host_sshconfig.go parseSSHConfig 126
