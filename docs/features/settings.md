@@ -144,7 +144,7 @@ komando keeps your data sealed in one file:
 | `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
 | `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the store's key) |
 | `runtime.pids` | only the process IDs of komando's own background work, so it can tell whether they still run without opening the store |
-| `vpn/`, `tunnels/` | VPN and tunnel logs, and the state of built-in VPN clients |
+| `vpn/`, `tunnels/`, `login/` | VPN, tunnel and server login logs (one that nothing running uses is removed after a week), and the state of built-in VPN clients |
 
 Copy `store.db` only with komando running nothing, or a copy taken during a
 change may be broken. Back this folder up and keep it private.

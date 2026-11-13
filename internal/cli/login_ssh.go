@@ -126,6 +126,9 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 	if err := store.MkdirPrivate("login"); err != nil {
 		return nil, err
 	}
+	if cur, err := store.Load(); err == nil {
+		sweepLogs("login", liveLogs(cur)) // logs of logins (some since removed) unused for a week
+	}
 	logFile := filepath.Join(dir, safeFileName(h.Name)+".log")
 	lf, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
