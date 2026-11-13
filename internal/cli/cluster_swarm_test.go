@@ -184,7 +184,7 @@ func TestClusterDashN(t *testing.T) {
 			}
 		}
 		for _, args := range [][]string{{"-n", "50"}, {"-n50"}, {"-n=7"}} {
-			cmd := newRoot(tcl)
+			cmd := newRoot(treeCall())
 			found, _, _ := cmd.Find(strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando ")))
 			if err := found.ParseFlags(args); err == nil || !strings.Contains(err.Error(), "is a count, but") {
 				t.Errorf("%s %v: %v", c.CommandPath(), args, err)
@@ -206,7 +206,7 @@ func TestClusterDashN(t *testing.T) {
 // when the command has no flag args need.
 func clusterParse(t *testing.T, path string, args []string) *cobra.Command {
 	t.Helper()
-	found, _, _ := newRoot(tcl).Find(strings.Fields(strings.TrimPrefix(path, "komando ")))
+	found, _, _ := newRoot(treeCall()).Find(strings.Fields(strings.TrimPrefix(path, "komando ")))
 	if strings.HasPrefix(args[0], "-A") && found.Flags().Lookup("all-namespaces") == nil {
 		return nil
 	}

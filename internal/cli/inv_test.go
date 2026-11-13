@@ -34,6 +34,7 @@ func invRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	closeStoreAtEnd(t)
 	tcl.flags.dryRun, tcl.flags.yes, store.DryRun = false, false, false
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	var buf bytes.Buffer
 	saved := tcl.out.W
@@ -596,6 +597,7 @@ func TestExportTextIsImportable(t *testing.T) {
 	textOut := func(args ...string) []byte {
 		t.Helper()
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "text"}, args...))
 		var buf bytes.Buffer
 		saved := tcl.out.W

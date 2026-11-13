@@ -21,7 +21,8 @@ func fillTest(t *testing.T) {
 	mustRun(t, "conn", "add", "cache1", "redis://127.0.0.1:6379")
 	saved := promptable
 	promptable = func(*call, string) bool { return true }
-	t.Cleanup(func() { promptable, tcl.promptConfirmed = saved, "" })
+	// promptFill parses the line's flags in tcl (--dry-run ...)
+	t.Cleanup(func() { promptable, tcl.promptConfirmed = saved, ""; endCommand() })
 }
 
 // What is missing is asked by its real name, added to the line, and the

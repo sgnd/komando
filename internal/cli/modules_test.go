@@ -320,7 +320,7 @@ func TestCronParsing(t *testing.T) {
 
 func TestRunOpsTextBlocks(t *testing.T) {
 	d := opsData{Results: []opsRow{{Host: "a", OK: true, text: "x\n"}, {Host: "b", Stderr: "boom"}}, Summary: fleetSummary{Total: 2, OK: 1, Failed: 1}}
-	s := d.TextFor(tcl.out)
+	s := d.TextFor(realRun())
 	if !strings.Contains(s, "● a  ok\n  x\n") || !strings.Contains(s, "● b  failed\n  | boom\n") {
 		t.Fatalf("text:\n%s", s)
 	}
@@ -419,6 +419,7 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 	defer func() { tcl.flags.dryRun, tcl.flags.allowDangerous = false, false }()
 	run := func(args ...string) error {
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}
@@ -443,6 +444,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	run := func(args ...string) error {
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}
@@ -497,6 +499,7 @@ func TestConfigSetAsksBeforeLocking(t *testing.T) {
 		return true, true
 	}
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"-o", "json", "config", "set", "audit_sql", "off", "--yes"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)

@@ -124,6 +124,7 @@ func TestAgentSafetySettingThroughCommand(t *testing.T) {
 	setHome(t, t.TempDir())
 	run := func(args ...string) error {
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		root.SetOut(&strings.Builder{})
 		saved := tcl.out.W
@@ -151,6 +152,7 @@ func TestAgentOutputIsMasked(t *testing.T) {
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	run := func(args ...string) error {
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		saved := tcl.out.W
 		tcl.out.W = &strings.Builder{}

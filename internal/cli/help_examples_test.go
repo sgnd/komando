@@ -12,7 +12,7 @@ import (
 // an example that names a command or flag komando does not have teaches
 // people something wrong.
 func TestExamplesParse(t *testing.T) {
-	root := newRoot(tcl)
+	root := newRoot(treeCall()) // a tree of its own: the examples' flags are not tcl's
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		for _, line := range strings.Split(c.Example, "\n") {

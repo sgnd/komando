@@ -85,7 +85,8 @@ above are gone. There is no "current call" in a package variable.
   (`vault.StripUnlock`). It is never nil: an `exec.Cmd` whose `Env` is
   nil inherits the process's whole environment, so a call with no
   environment starts programs with none (a dump tool then gets no `PATH`
-  or `HOME`; an app hands in what its programs need).
+  or `HOME`; an app hands in what its programs need). Two programs a
+  command starts do not get it yet (item 3 of "What is still shared").
   `vault.TakeUnlockEnv` cleans only the process's environment, and an
   app hands each call one of its own. A komando process that needs the
   vault gets `vault.SelfEnv` or the values on its stdin.
@@ -119,7 +120,11 @@ above are gone. There is no "current call" in a package variable.
 `call.begin` runs when a command starts (the root's `PersistentPreRunE`):
 the caller is read again from the call's environment and the session
 starts empty. A call that runs two commands (a test) asks again for the
-second, as two processes did.
+second, as two processes did. Before that, `newRoot` starts the global
+flags from their defaults and resets the printer (`out.Printer.Reset`):
+what the last command set on it (`DryRun`, `Pretty`, `Mask`, `Personal`,
+`NoRedact`) is not the next one's, and `execute` chooses the output
+format again from `json`.
 
 By then the call is already running, and other calls' hooks read it
 from their own goroutines (below). So what a hook reads changes only
@@ -150,10 +155,15 @@ is not.
    command runs, so a call counted any later would open it as no
    agent's. What the hooks read of a call is safe to read while it runs
    (see "One answer covers one command"); `TestHooksReadRunningCallsSafely`
-   checks it under `-race`. One gap is left: a host key pinned by a
-   connection whose context carries no call (none in a command today)
-   is written to the audit log of the first running call, which reads
-   that call's flags as it runs. A value read for one call is hidden
+   checks it under `-race`. Two gaps are left. A host key pinned by a
+   connection whose context carries no call (`sshx.HostKeyPinned` with
+   such a context; no dial in komando does that today) is written to the
+   audit log of the first running call, which reads that call's flags as
+   it runs, so that read races. And `newRoot` starts each command with
+   `out.Printer.Reset`, which forgets the values `AddValue` hid: a value
+   another call's `vault.OnResolve` added to this call after it entered
+   but before it reached `newRoot` is dropped, and this call no longer
+   hides it. A value read for one call is hidden
    in all of them; one agent among them makes a guard answer as for an
    agent; a person is asked at the terminal only while theirs is the only
    call. That is safe, not exact. Next step: these packages take a
@@ -173,7 +183,15 @@ is not.
    still describes the process's terminal. sshx writes the "first
    connection" note to `os.Stderr`. Programs komando starts for itself
    (the approval window, the browser, a credential helper, background
-   komando processes) get the process's environment.
+   komando processes) get the process's environment. So do two programs
+   a command starts: a kubeconfig's exec credential plugin
+   (`internal/kube/kube.go`, `cmd.Env = os.Environ()`) and `openconnect`
+   for a VPN (`internal/cli/vpn_session.go`, whose `Env` is nil, so it
+   inherits the process's). Both should take the call's `cl.environ`.
+   A call with `Terminal: true` must hand in a `Stderr` that is safe for
+   writes from several goroutines: `netx.LockBusy` writes its notice
+   ("another komando command is connecting vpn ...") to every running
+   call's stderr from the goroutine of the call that waits.
 4. **The data folder.** `store.Home()` and the vault read `KOMANDO_HOME`,
    `env:` references and the unlock variables from the process's
    environment. An app's calls share one data folder, so this is right
@@ -211,9 +229,10 @@ is not.
   change count see an agent, and an old copy of the store stops with
   `STORE_OLD_COPY`.
 - `TestHooksReadRunningCallsSafely` calls the hooks from one goroutine
-  over and over while agents' calls run their commands through
-  `RunCall`: under `-race`, nothing a hook reads is written without a
-  lock.
+  over and over while a person's calls and agents' calls run `version`,
+  `list` and `secret list` (which open the store) through `RunCall`:
+  under `-race`, nothing a hook reads is written without a lock. It
+  fails if the hooks never ran while both kinds of call were running.
 - `TestCallEnvironForChildren`: a call with no environment starts a
   program with an empty one, not the process's, and a call's own
   environment loses its unlock values.
@@ -226,3 +245,12 @@ is not.
   package variables: they run one at a time. A test that sets an agent's
   variable uses `setCallerEnv`, which reads `tcl`'s caller again after
   the variable is restored, so the next test does not start as an agent.
+  It is for every variable the caller is read from (the agent
+  variables, `KOMANDO_ACTOR`, `USER`, `USERNAME`). `executeArgs` ends
+  each command with `endCommand`: the global flags and the printer's
+  settings are off again, so a test that calls komando's code with `tcl`
+  and runs no command does not see an earlier test's `--dry-run`. A test
+  that runs `newRoot(tcl)` itself registers `t.Cleanup(endCommand)`; one
+  that only parses a line builds `newRoot(treeCall())`, whose flags are
+  not `tcl`'s. A result's `TextFor` in a test that runs no command takes
+  `realRun()`, a printer of its own. `go test -shuffle=on` finds a test that depends on the order.

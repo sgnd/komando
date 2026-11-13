@@ -15,6 +15,7 @@ import (
 func csvRun(t *testing.T, args ...string) (string, *out.Error) {
 	t.Helper()
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	root.SilenceErrors, root.SilenceUsage = true, true
 	var buf bytes.Buffer

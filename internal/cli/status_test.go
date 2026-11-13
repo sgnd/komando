@@ -99,6 +99,7 @@ func TestStatusCommand(t *testing.T) {
 	before, _ := os.ReadFile(store.Path("state.json"))
 	rtBefore, _ := os.ReadFile(store.Path("runtime.json"))
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"-o", "json", "status"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("status: %v", err)

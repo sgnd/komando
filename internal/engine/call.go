@@ -14,6 +14,11 @@ type Call struct {
 	// LookupEnv and Environ are the call's environment. The CLI passes
 	// os.LookupEnv and os.Environ; nil is an empty environment, also for
 	// the programs the call starts (a dump tool gets no PATH or HOME).
+	// Some programs still get the process's environment, whatever the
+	// call's: a kubeconfig's exec credential plugin (internal/kube), the
+	// openconnect a VPN runs (internal/cli/vpn_session.go), and the ones
+	// komando starts for itself (the approval window, the browser, a
+	// credential helper, background komando processes).
 	LookupEnv func(string) (string, bool)
 	Environ   func() []string
 	// Stdin, Stdout and Stderr are the call's input and output. Stdout
@@ -23,7 +28,10 @@ type Call struct {
 	Stdout io.Writer
 	Stderr io.Writer
 	// Terminal: a person can answer questions at the process's terminal
-	// (stdin and stderr are one). An app's calls have no terminal.
+	// (stdin and stderr are one). An app's calls have no terminal. When
+	// Terminal is true, Stderr must be safe for writes from several
+	// goroutines at once: another call's goroutine may write a notice to
+	// it (netx.LockBusy: a VPN is being connected elsewhere).
 	Terminal bool
 	// Ask opens the approval window for an agent's --yes,
 	// --allow-dangerous or --reveal; nil opens komando's own window on

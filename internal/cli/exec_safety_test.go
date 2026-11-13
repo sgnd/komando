@@ -170,6 +170,7 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 func runRoot(t *testing.T, args ...string) error {
 	t.Helper()
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"--host-key-policy", "accept-new"}, args...))
 	root.SilenceErrors, root.SilenceUsage = true, true
 	_, err := root.ExecuteContextC(withCall(context.Background(), tcl))

@@ -71,6 +71,7 @@ func TestGuideInstallOtherAgents(t *testing.T) {
 	os.WriteFile(filepath.Join(home, ".gemini", "settings.json"), []byte(`{"theme":"dark","hooks":{"BeforeTool":[{"matcher":"x","hooks":[{"type":"command","command":"mine"}]}]}}`), 0o600)
 	run := func() {
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs([]string{"-o", "json", "guide", "install"})
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)

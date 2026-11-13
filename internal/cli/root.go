@@ -100,7 +100,9 @@ func (cl *call) execute(ctx context.Context, args []string) int {
 	// them, and an agent's call must count there before they do
 	cl.enter()
 	defer cl.leave()
-	// errors raised before flag parsing still need the right format
+	// errors raised before flag parsing still need the right format; the
+	// command before in this call does not choose it
+	cl.out.Format = "json"
 	if f, ok := outputFormat(cl, cl.getenv("KOMANDO_OUTPUT")); ok {
 		cl.out.Format = f
 	}
@@ -457,8 +459,9 @@ func startChecks(cmd *cobra.Command) error {
 // recorded is forgotten.
 func newRoot(cl *call) *cobra.Command {
 	cl.out.Reset()
+	cl.flags = globalFlags{} // the flags below bind to it with their defaults
 	cl.askedAbout, cl.blockAudited, cl.interrupted = nil, false, false
-	cl.personalCmd, cl.fsSudoRetry = false, "retry with --sudo"
+	cl.personalCmd, cl.fsSudoRetry, cl.auditSyslog = false, "retry with --sudo", ""
 	root := &cobra.Command{
 		Use:           "komando",
 		Short:         "One safe CLI for servers, databases, caches, storage, clusters",

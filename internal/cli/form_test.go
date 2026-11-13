@@ -17,7 +17,7 @@ import (
 // exists, its flags exist and parse, its arguments fit the command.
 func formParse(t *testing.T, source string, args []string) *cobra.Command {
 	t.Helper()
-	root := newRoot(tcl)
+	root := newRoot(treeCall())
 	cmd, rest, err := root.Find(args)
 	if err != nil || cmd == root || !cmd.Runnable() {
 		t.Errorf("%s: `komando %s`: no such command", source, strings.Join(args, " "))

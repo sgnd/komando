@@ -17,12 +17,7 @@ import (
 // stops it with a hint to use komando shell.
 func TestSSHCommandSealedHome(t *testing.T) {
 	setHome(t, t.TempDir())
-	for _, a := range agentVars {
-		t.Setenv(a.env, "")
-		resetApproval()
-		os.Unsetenv(a.env)
-		resetApproval()
-	}
+	noAgent(t)
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	d := mustRun(t, "host", "ssh-command", "web1")
 	cmd, _ := d["command"].(string)

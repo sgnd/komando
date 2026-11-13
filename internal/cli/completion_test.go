@@ -14,6 +14,7 @@ func completionScript(t *testing.T, shell string, flags ...string) string {
 	t.Helper()
 	return captureOutput(t, func() error { // cobra's own scripts go to tcl.out.W
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"completion", shell}, flags...))
 		root.SilenceErrors, root.SilenceUsage = true, true
 		return root.Execute()
@@ -111,6 +112,7 @@ func TestConnCompletionByFamily(t *testing.T) {
 	} {
 		got := captureOutput(t, func() error {
 			root := newRoot(tcl)
+			t.Cleanup(endCommand) // the next test starts with none of this command's flags
 			root.SetArgs(append([]string{"__complete"}, c.args...))
 			return root.Execute()
 		})

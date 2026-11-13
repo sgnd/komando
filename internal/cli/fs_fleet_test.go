@@ -12,7 +12,7 @@ import (
 // failed one says why, and one server reads as before (no name).
 func TestFsFleetText(t *testing.T) {
 	one := fsFleetData{Results: []fsChange{{"host": "web1", "ok": true, "path": "/etc/a.conf", "changed": true, "replacements": 1, "backup": "/etc/a.conf.bak"}}}
-	if got := one.TextFor(tcl.out); !strings.HasPrefix(got, "replaced 1 match(es) in /etc/a.conf\nbackup: /etc/a.conf.bak\n") {
+	if got := one.TextFor(realRun()); !strings.HasPrefix(got, "replaced 1 match(es) in /etc/a.conf\nbackup: /etc/a.conf.bak\n") {
 		t.Errorf("one server: %q", got)
 	}
 	many := fsFleetData{Results: []fsChange{
@@ -20,7 +20,7 @@ func TestFsFleetText(t *testing.T) {
 		{"host": "web2", "ok": false, "error": out.Errf(out.ExitConflict, "NO_MATCH", "read the file", "--old text not found in /etc/a.conf")},
 		{"host": "web3", "ok": true, "path": "/etc/a.conf", "changed": false, "replacements": 0},
 	}}
-	got := many.TextFor(tcl.out)
+	got := many.TextFor(realRun())
 	for _, want := range []string{
 		"web1: replaced 1 match(es) in /etc/a.conf\n",
 		"web2: failed: --old text not found in /etc/a.conf (NO_MATCH)\n  Hint: read the file\n",

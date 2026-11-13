@@ -16,6 +16,7 @@ func TestDryRunChangesNothing(t *testing.T) {
 	defer func() { tcl.flags.dryRun, store.DryRun = false, false }() // flags are package globals
 	run := func(args ...string) error {
 		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}

@@ -314,7 +314,7 @@ func TestAgentOtherHome(t *testing.T) {
 // account as facts, and marks KOMANDO_ACTOR as the name it claims.
 func TestAuditActorClaimed(t *testing.T) {
 	invHome(t)
-	t.Setenv("KOMANDO_ACTOR", "alice")
+	setCallerEnv(t, "KOMANDO_ACTOR", "alice")
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	mustRun(t, "host", "add", "web2", "deploy@10.0.0.2")

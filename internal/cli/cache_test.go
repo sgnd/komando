@@ -20,6 +20,7 @@ import (
 func runCache(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(args)
 	var b strings.Builder
 	saved := tcl.out.W

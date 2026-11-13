@@ -252,46 +252,6 @@ type Printer struct {
 	hide     []hidden
 }
 
-type hidden struct {
-	raw, json, label string
-	added            bool // by AddValue: forgotten when the next command starts (Reset)
-}
-
-// minSecret is the shortest value hidden: shorter ones would match
-// ordinary words and garble output.
-const minSecret = 6
-
-func (p *Printer) load() {
-	p.hmu.RLock()
-	loaded := p.loaded
-	p.hmu.RUnlock()
-	if loaded {
-		return
-	}
-	p.hmu.Lock()
-	defer p.hmu.Unlock()
-	if p.loaded {
-		return
-	}
-	p.loaded = true
-	if p.Secrets == nil {
-		return
-	}
-	for name, v := range p.Secrets() {
-		p.addLocked(v, "[secret:"+name+"]", false)
-	}
-}
-
-// SetSecrets makes f the printer's Secrets: the values of the one before
-// are no longer hidden as [secret:NAME], and f is called on first use.
-// It locks by itself, so it is safe while AddValue runs elsewhere.
-func (p *Printer) SetSecrets(f func() map[string]string) {
-	p.hmu.Lock()
-	defer p.hmu.Unlock()
-	p.Secrets, p.loaded = f, false
-	p.hide = slices.DeleteFunc(slices.Clone(p.hide), func(h hidden) bool { return !h.added })
-}
-
 // RedactExact hides only the exact values komando keeps secret, never
 // what merely looks like one: for text a person must see whole (the
 // approval window), where a pattern could hide more than a value.
@@ -416,12 +376,17 @@ func ApprovalFlag(e *Error) string {
 	return ""
 }
 
-// Reset forgets what one command recorded (tests run many in one process).
+// Reset forgets what one command recorded and set, so the next command
+// in the same call starts as a new printer does (a call may run many
+// commands: tests, an app). Format, W, Err and Width are the call's and
+// stay.
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.notSim = nil, nil, nil, nil, nil, nil
 	p.cut, p.cutNoted, p.cutAt = false, false, 0
+	p.DryRun, p.Pretty, p.Mask, p.Personal, p.NoRedact = false, false, false, false, false
+	p.Start = time.Now()
 	p.forgetAdded()
 }
 

@@ -14,6 +14,7 @@ import (
 func usageFor(t *testing.T, args ...string) *out.Error {
 	t.Helper()
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(args)
 	root.SetOut(&bytes.Buffer{})
 	cmd, err := root.ExecuteC()
@@ -62,6 +63,7 @@ func TestTypoSuggestions(t *testing.T) {
 func TestFirstSteps(t *testing.T) {
 	invHome(t)
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"-o", "text"})
 	var buf bytes.Buffer
 	root.SetOut(&buf)

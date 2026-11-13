@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -38,6 +39,22 @@ func testCall() *call { return newCall(processCall(), nil) }
 func executeArgs(args []string) int {
 	defer store.Close()
 	defer tcl.enter() // still running for the hooks (TestMain)
+	defer endCommand()
 	tcl.args = append([]string{"komando"}, args...)
 	return tcl.execute(context.Background(), args)
+}
+
+// realRun is the printer of a real run, not a dry run, for a result's
+// TextFor in a test that runs no command: tcl.out keeps what the last
+// command of an earlier test set on it until the next command starts.
+func realRun() *out.Printer { return &out.Printer{} }
+
+// endCommand leaves tcl as it is between two commands: the global flags
+// and the printer's settings of the command just run (--dry-run, masking
+// ...) are not in effect for code a later test calls without running a
+// command. What the command recorded (tcl.out.Blocked ...) stays for the
+// test to read; the next command forgets it (newRoot).
+func endCommand() {
+	tcl.flags = globalFlags{}
+	tcl.out.DryRun, tcl.out.Pretty, tcl.out.Mask, tcl.out.Personal, tcl.out.NoRedact = false, false, false, false, false
 }

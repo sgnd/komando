@@ -66,7 +66,7 @@ func TestShorthandDidYouMean(t *testing.T) {
 			t.Errorf("%v suggests an approval flag: %q", c.args, e.Message)
 		}
 	}
-	c, _, _ := newRoot(tcl).Find([]string{"fs", "ls"})
+	c, _, _ := newRoot(treeCall()).Find([]string{"fs", "ls"})
 	_ = c.ParseFlags(nil)
 	if s := shorthandSuggest(c, "y", "-y"); s != "" {
 		t.Errorf("-y on fs ls suggests %q", s)

@@ -19,6 +19,7 @@ func tableRun(t *testing.T, args ...string) (string, *out.Error) {
 	tcl.out.W = &buf
 	defer func() { tcl.out.W = saved }()
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
 		return buf.String(), toErr(err)

@@ -81,6 +81,7 @@ func TestPersonalMaskColumns(t *testing.T) {
 	saved := tcl.out.W
 	tcl.out.W = &buf
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"db", "query", "prod", "-o", "csv", "select email, card from users"})
 	err := root.Execute()
 	tcl.out.W = saved

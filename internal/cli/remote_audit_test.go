@@ -27,6 +27,7 @@ func rawRun(t *testing.T, args ...string) map[string]any {
 	t.Helper()
 	tcl.flags.dryRun, tcl.flags.yes = false, false
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	var buf bytes.Buffer
 	saved := tcl.out.W
@@ -191,6 +192,7 @@ func TestStorageFolderDest(t *testing.T) {
 func TestSyncDeleteDryRunSaysBlocked(t *testing.T) {
 	invHome(t)
 	tcl.out.Reset()
+	t.Cleanup(func() { tcl.flags.dryRun = false; tcl.out.Reset() })
 	tcl.flags.dryRun = true
 	if err := guardDelete(tcl, syncOpts{delete: true}, "web1:/srv"); err != nil {
 		t.Fatalf("a dry run goes on: %v", err)
@@ -198,7 +200,6 @@ func TestSyncDeleteDryRunSaysBlocked(t *testing.T) {
 	if b := tcl.out.Blocked(); b == nil || b.Code != "POLICY_BLOCKED" {
 		t.Errorf("would_be_blocked: %+v", b)
 	}
-	tcl.out.Reset()
 }
 
 func TestTunnelChecks(t *testing.T) {

@@ -185,6 +185,7 @@ func textRun(t *testing.T, args ...string) (string, error) {
 	t.Helper()
 	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
 	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))
 	var buf bytes.Buffer
 	saved := tcl.out.W
