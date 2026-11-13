@@ -32,7 +32,21 @@ check "Ctrl-C stops a sync" 1 "$(sigint $K sync "$F/dir" direct:/tmp/e2efiles-sy
 check "Ctrl-C leaves no temporary file on the server" 0 "$(leftovers)"
 
 q $K exec direct -o text -- 'head -c 300000000 /dev/zero > /tmp/e2efiles-big.bin'
-check "Ctrl-C stops a download" 1 "$(sigint $K download direct /tmp/e2efiles-big.bin --to "$F/got.bin" -o text)"
+# sigint_when GLOB CMD...: like sigint, but the SIGINT goes as soon as a file
+# matching GLOB shows (the copy has started), so a fast machine cannot finish
+# the whole copy before it
+sigint_when() {
+  local glob=$1; shift
+  "$@" >"$F/out" 2>&1 &
+  local pid=$! n=0
+  while ! compgen -G "$glob" >/dev/null && kill -0 "$pid" 2>/dev/null && [ $n -lt 200 ]; do sleep 0.02; n=$((n + 1)); done
+  kill -INT "$pid" 2>/dev/null
+  n=0
+  while kill -0 "$pid" 2>/dev/null && [ $n -lt 30 ]; do sleep 0.5; n=$((n + 1)); done
+  if kill -0 "$pid" 2>/dev/null; then kill -9 "$pid"; wait "$pid" 2>/dev/null; echo "999"; return; fi
+  wait "$pid"; echo "$?"
+}
+check "Ctrl-C stops a download" 1 "$(sigint_when "$F/.komando-*" $K download direct /tmp/e2efiles-big.bin --to "$F/got.bin" -o text)"
 check "Ctrl-C download leaves nothing here" 0 "$(find "$F" -maxdepth 1 \( -name got.bin -o -name '.komando-*' \) | wc -l | tr -d ' ')"
 
 # a big file shows progress on stderr at a terminal, never in a pipe

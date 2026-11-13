@@ -43,7 +43,9 @@ cut = args.index("--")
 keys = [k.encode().decode("unicode_escape").encode("latin-1") for k in args[:cut]]
 pid, fd = pty.fork()
 if pid == 0:
-    os.execvp(args[cut + 1], args[cut + 1:])
+    env = dict(os.environ)
+    env.pop("CI", None)  # a person at a terminal, not a CI job (see ptyrun)
+    os.execvpe(args[cut + 1], args[cut + 1:], env)
 out, start, last = b"", time.time(), time.time()
 while time.time() - start < 60:
     if keys and time.time() - last > 1.5:
