@@ -138,6 +138,7 @@ func TestSealedRuntimeOnly(t *testing.T) {
 func TestSealedAcrossProcesses(t *testing.T) {
 	if home := os.Getenv("STORE_CHILD_HOME"); home != "" {
 		t.Setenv("KOMANDO_HOME", home)
+		t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 		fakeKeys(t)
 		n := os.Getenv("STORE_CHILD_N")
 		for i := range 10 {

@@ -16,7 +16,7 @@ import (
 func writePromptState(t *testing.T, st *store.State) string {
 	t.Helper()
 	home := t.TempDir()
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	var p store.RuntimePIDs
 	for _, v := range st.Sessions {
 		p.Vpns = append(p.Vpns, store.VpnPID{PID: v.PID, LastUsed: v.LastUsed})
@@ -66,7 +66,7 @@ func TestPromptText(t *testing.T) {
 // not create komando's folder.
 func TestPromptNeverBreaks(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "none")
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	if got := promptText(time.Now()); got != "" {
 		t.Errorf("no state: %q", got)
 	}
@@ -128,7 +128,7 @@ func TestPromptIsQuick(t *testing.T) {
 // The prompt counts from runtime.pids, without names and without opening
 // the store.
 func TestPromptSealed(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	p := store.RuntimePIDs{Vpns: []store.VpnPID{{PID: os.Getpid(), LastUsed: time.Now()}}, Tunnels: []int{os.Getpid()}}
 	b, _ := json.Marshal(&p)
 	if err := os.WriteFile(store.Path("runtime.pids"), b, 0o600); err != nil {

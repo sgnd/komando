@@ -67,7 +67,7 @@ func TestImportMycnf(t *testing.T) {
 }
 
 func TestImportKomandoIsDefensive(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "x")
 	if err := vault.Set("prod-db-pass", "s3cret"); err != nil {
 		t.Fatal(err)

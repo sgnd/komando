@@ -16,6 +16,7 @@ import (
 func keyfileHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 	passMu.Lock()
 	pass = ""
@@ -31,6 +32,7 @@ func TestParallelChangesKeepEverySecret(t *testing.T) {
 		t.Fatal(err)
 	}
 	// start again from nothing, so the workers also race to create vault.key
+	store.Close() // Windows cannot remove an open file
 	if err := os.RemoveAll(store.Home()); err != nil {
 		t.Fatal(err)
 	}

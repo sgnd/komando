@@ -20,7 +20,7 @@ import (
 // invHome gives a test its own komando home and vault.
 func invHome(t *testing.T) {
 	t.Helper()
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	t.Cleanup(func() {
 		g.dryRun, g.yes, g.allowDangerous, store.DryRun = false, false, false, false
@@ -31,6 +31,7 @@ func invHome(t *testing.T) {
 // invRun runs komando and returns the envelope's data, or the error.
 func invRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	t.Helper()
+	closeStoreAtEnd(t)
 	g.dryRun, g.yes, store.DryRun = false, false, false
 	root := newRoot()
 	root.SetArgs(append([]string{"-o", "json"}, args...))

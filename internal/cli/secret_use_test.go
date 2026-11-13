@@ -295,7 +295,7 @@ func TestAgentOtherHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, h := range []string{usual, usual + "/", link} {
-		t.Setenv("KOMANDO_HOME", h)
+		setHome(t, h)
 		if otherHome() != "" {
 			t.Errorf("KOMANDO_HOME=%s is the usual folder", h)
 		}

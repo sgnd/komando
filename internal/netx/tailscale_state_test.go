@@ -16,6 +16,7 @@ import (
 func tsHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
 	old := store.KeySource
 	store.KeySource = func(map[string]string, bool) ([]byte, map[string]string, error) {

@@ -41,6 +41,23 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// setHome makes dir this test's komando home. The sealed store is closed
+// when the test ends, before t.TempDir removes the folder: Windows cannot
+// remove a file that is still open.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("KOMANDO_HOME", dir)
+	closeStoreAtEnd(t)
+}
+
+// closeStoreAtEnd closes the sealed store when the test ends. Cleanups run
+// last-registered first, so one registered after t.TempDir runs before
+// the folder is removed.
+func closeStoreAtEnd(t *testing.T) {
+	t.Helper()
+	t.Cleanup(store.Close)
+}
+
 // unixOnly skips a test on Windows: it needs what only a Unix computer has
 // here (file modes, a POSIX shell, a Unix program, or a local stand-in
 // for a Unix server); why says which.

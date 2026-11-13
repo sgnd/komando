@@ -57,7 +57,7 @@ func startFakeServer(t *testing.T) *fakeServer {
 	t.Helper()
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
-	t.Setenv("KOMANDO_HOME", filepath.Join(tmp, ".komando"))
+	setHome(t, filepath.Join(tmp, ".komando"))
 	t.Setenv("SSH_AUTH_SOCK", "")
 	t.Setenv("KOMANDO_OUTPUT", "json")
 

@@ -14,6 +14,7 @@ import (
 func TestPrivateHomeWindows(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "komando")
 	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	if err := MkdirPrivate("vpn"); err != nil {
 		t.Fatal(err)
 	}
@@ -58,6 +59,7 @@ func TestPrivateHomeWindows(t *testing.T) {
 func TestEnsureHomeKeepsOldFolderWindows(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	before, err := windows.GetNamedSecurityInfo(home, windows.SE_FILE_OBJECT, windows.DACL_SECURITY_INFORMATION)
 	if err != nil {
 		t.Fatal(err)

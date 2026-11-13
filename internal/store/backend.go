@@ -220,8 +220,10 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 	return remember(home, path, d, master, lookOnly)
 }
 
-// closeDBs closes every open store (tests that change the home).
-func closeDBs() {
+// Close closes every store this process has open; the next DB opens it
+// again. A command calls it when it ends, and a test before its folder is
+// removed: Windows cannot remove a file that is still open.
+func Close() {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	for h, o := range dbOpen {
@@ -229,6 +231,9 @@ func closeDBs() {
 		delete(dbOpen, h)
 	}
 }
+
+// closeDBs closes every open store (tests that change the home).
+func closeDBs() { Close() }
 
 // MasterKey returns this home's sealed store master key, for keys made from
 // it under other labels (the vault's entries). ErrNoStore when there is no

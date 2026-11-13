@@ -27,7 +27,7 @@ func TestTOTPVectors(t *testing.T) {
 // With an approval code on, an agent's --yes needs the right code typed in
 // the window; a click alone, or a wrong code, is not enough.
 func TestApprovalNeedsTheCode(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long")
 	secret := []byte("12345678901234567890")
 	if err := vault.Set(approvalSecret, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(secret)); err != nil {

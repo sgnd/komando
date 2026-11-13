@@ -14,7 +14,7 @@ import (
 // and click there, so komando opens no click-only window on a Linux or
 // BSD desktop: the person needs the approval code.
 func TestX11ApprovalNeedsCode(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_NO_DIALOG", "")
 	t.Setenv("SSH_CONNECTION", "")
 	t.Setenv("SSH_TTY", "")

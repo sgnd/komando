@@ -9,7 +9,7 @@ import (
 // vpn status explains how the last session ended: the reason with its
 // time, and for the IPsec kinds the log's last lines.
 func TestLastSessionEnd(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	dir, err := vpnDir()
 	if err != nil {
 		t.Fatal(err)

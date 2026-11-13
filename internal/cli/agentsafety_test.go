@@ -271,7 +271,7 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	t.Setenv("KOMANDO_HOME", kh)
+	setHome(t, kh)
 	if err := os.WriteFile(filepath.Join(proj, "credentials.json"), []byte("{}"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func agentFiles(t *testing.T) (kh, home, proj string) {
 		t.Fatal(err)
 	}
 	t.Setenv("HOME", home)
-	t.Setenv("KOMANDO_HOME", kh)
+	setHome(t, kh)
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	return kh, home, proj
 }

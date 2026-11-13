@@ -307,6 +307,7 @@ func TestSealedKeyFileChangeStoppedHalfway(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	store.Close() // Windows cannot replace an open file
 	os.WriteFile(store.DBPath()+".tmp", b, 0o600)
 	if err := os.Rename(store.DBPath()+".tmp", store.DBPath()); err != nil {
 		t.Fatal(err)

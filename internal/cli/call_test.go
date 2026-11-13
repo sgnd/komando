@@ -17,7 +17,7 @@ import (
 // person allows one and denies the other, and neither sees the other's
 // answer (run with -race).
 func TestCallsApartAtOnce(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	var inside sync.WaitGroup
 	inside.Add(2)
 	both := make(chan struct{})

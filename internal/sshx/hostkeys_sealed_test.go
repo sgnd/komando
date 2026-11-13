@@ -36,6 +36,7 @@ func newHostKey(t *testing.T) ssh.PublicKey {
 func pinHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 }
@@ -181,6 +182,7 @@ func TestPinsOfMissingStore(t *testing.T) {
 	if _, err := PinHostKey("web:22", newHostKey(t), false); err != nil {
 		t.Fatal(err)
 	}
+	store.Close() // as a new process finds it; Windows cannot move an open file
 	if err := os.Rename(store.DBPath(), store.DBPath()+".gone"); err != nil {
 		t.Fatal(err)
 	}

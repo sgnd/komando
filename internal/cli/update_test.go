@@ -185,7 +185,7 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 		t.Cleanup(func() { runVersion = savedRun })
 	}
 	home = filepath.Join(t.TempDir(), "home")
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Cleanup(func() {
 		releaseSite, selfPath, Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot

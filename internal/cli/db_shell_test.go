@@ -55,7 +55,7 @@ func TestStatementDone(t *testing.T) {
 // TestSQLShell drives the shell on a SQLite file: reads, multi-line input,
 // the read-only guard, expanded rows and meta commands.
 func TestSQLShell(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	path := filepath.Join(t.TempDir(), "app.db")
 	c := &store.Conn{Name: "app", Kind: "sqlite", URL: "sqlite://" + path}
 	st := &store.State{Settings: store.DefaultSettings()}
@@ -114,7 +114,7 @@ func TestSQLShell(t *testing.T) {
 }
 
 func TestDBShellDryRunContactsNothing(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	saved, savedG := interactive, g
 	defer func() { interactive, g = saved, savedG }()
 	interactive = func() bool { return true }

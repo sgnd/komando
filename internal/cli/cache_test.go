@@ -36,7 +36,7 @@ func runCache(t *testing.T, args ...string) (string, error) {
 // The conn has no server: a command that got as far as connecting fails
 // with CACHE_CONNECT.
 func TestCacheRunScriptsNeedApproval(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	defer func() { g.dryRun, store.DryRun = false, false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
@@ -87,7 +87,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 	if addr == "" || pw == "" {
 		t.Skip("set KOMANDO_E2E_REDIS=host:port and KOMANDO_E2E_REDIS_PASSWORD")
 	}
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("KOMANDO_TEST_REDIS_PW", pw) // an env: reference, which the vault redaction does not know
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://"+addr+"/0", "--password-ref", "env:KOMANDO_TEST_REDIS_PW"); err != nil {
@@ -111,7 +111,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 // A command in one quoted argument is read as words, so "get foo" is the
 // read GET, and MONITOR, which never returns, is refused before connecting.
 func TestCacheRunQuotedCommand(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	defer func() { g.dryRun, store.DryRun = false, false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
@@ -199,7 +199,7 @@ func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
 // flush_all from the --allow-dangerous rule, and "mg" with "key T30" in one
 // argument is a touch (a write).
 func TestCacheRunMemcachedLineInjection(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	defer func() { g.dryRun, store.DryRun = false, false }()
 	addr, lines := fakeMemcached(t)
@@ -245,7 +245,7 @@ func TestCacheRunMemcachedLineInjection(t *testing.T) {
 // --limit 0 used to list nothing yet say more keys match (cache keys) or
 // quietly show 100 items (cache get); it is a usage error before connecting.
 func TestCacheLimitMustBePositive(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
@@ -267,7 +267,7 @@ func TestCacheLimitMustBePositive(t *testing.T) {
 // reach one master only; cache run refuses them before any approval or
 // connection (the conn has no server).
 func TestCacheRunClusterWide(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	defer func() { g.dryRun, store.DryRun = false, false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "cl", "redis://127.0.0.1:1?cluster=1"); err != nil {

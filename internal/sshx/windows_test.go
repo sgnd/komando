@@ -53,6 +53,7 @@ func TestEncodePS(t *testing.T) {
 
 func TestWindowsScript(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	c := &Client{Host: &store.Host{Name: "win1", OS: store.OSWindows, Env: map[string]string{"APP": "it's"}}}
 	script, in, err := windowsScript(c, RunRequest{Command: "Get-Service", Dir: `C:\app's`, Env: map[string]string{"MODE": "x"}})
 	if err != nil {
@@ -159,6 +160,7 @@ func servePS(raw net.Conn, cfg *ssh.ServerConfig) {
 
 func TestRunWindowsOverSSH(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	c := &Client{Client: psSSHD(t), Host: &store.Host{Name: "win1", OS: store.OSWindows}}
 	r, err := Run(context.Background(), c, RunRequest{Command: "Get-Date", Stdin: []byte("data\n"), Timeout: 10 * time.Second, MaxOutput: 1 << 20})
 	if err != nil {

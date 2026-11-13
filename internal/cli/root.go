@@ -97,6 +97,10 @@ var vtOK = true
 // executeArgs runs komando with these arguments (os.Args[1:] for the real
 // program): one command, its envelope or text, and its exit code.
 func executeArgs(args []string) int {
+	// the store is closed when the command ends: a run inside a program
+	// that goes on (a test) leaves no file open, which Windows could then
+	// not remove
+	defer store.Close()
 	if Version == "dev" {
 		// `go install ...@v1.2.3` records the module version in the binary
 		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {

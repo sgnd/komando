@@ -32,7 +32,7 @@ func TestExportTextIsTheFile(t *testing.T) {
 // TestHabitWordsSuggestTheCommand: a word from another tool's habit says
 // which command does that job.
 func TestHabitWordsSuggestTheCommand(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir()) // never the person's own folder
+	setHome(t, t.TempDir()) // never the person's own folder
 	for _, c := range []struct{ args, want string }{
 		{"inspect", "facts"}, {"systemd", "svc"},
 	} {

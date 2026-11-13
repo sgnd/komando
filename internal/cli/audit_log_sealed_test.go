@@ -93,7 +93,7 @@ func TestAuditUnwritable(t *testing.T) {
 	ro := t.TempDir()
 	os.Chmod(ro, 0o500)
 	t.Cleanup(func() { os.Chmod(ro, 0o700) })
-	t.Setenv("KOMANDO_HOME", filepath.Join(ro, "home"))
+	setHome(t, filepath.Join(ro, "home"))
 	out.P.Reset()
 	audit(nil, "test.unwritable", nil, "", true, nil)
 	var buf bytes.Buffer

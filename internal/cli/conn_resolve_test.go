@@ -57,7 +57,7 @@ func TestPinDial(t *testing.T) {
 // connect to the IP, the token request to the same host does too, and TLS
 // still sends and checks the name, against the ca= secret.
 func TestRegistryResolve(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "a passphrase long enough for tests")
 	caPEM, leaf := testRegistryCert(t, "registry.test")
 	if err := vault.Set("reg-ca", string(caPEM)); err != nil {
@@ -164,7 +164,7 @@ func TestRegistryResolve(t *testing.T) {
 // `registry ls` work, every connection goes to the IP, the name is still
 // sent, and nothing in the output pushes ca=.
 func TestRegistryResolveSkipVerify(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "a passphrase long enough for tests")
 	_, leaf := testRegistryCert(t, "registry.test")
 	if err := vault.Set("reg-pw", "s3cret"); err != nil {

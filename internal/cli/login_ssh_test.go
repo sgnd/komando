@@ -122,7 +122,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, logins := twoFactorSSHD(t)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
@@ -195,7 +195,7 @@ func TestLoginWrongCodeSaysWhy(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)
@@ -221,7 +221,7 @@ func TestLoginCtrlCAtTheCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv("KOMANDO_HOME", home)
+	setHome(t, home)
 	t.Setenv("KOMANDO_HOLDER_FROM_TESTS", "1")
 	port, _ := twoFactorSSHD(t)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port)

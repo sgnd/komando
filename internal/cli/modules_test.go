@@ -412,7 +412,7 @@ func TestDaemonReloadResult(t *testing.T) {
 // reboot is destructive: blocked without --allow-dangerous, and --dry-run
 // says so without touching a server.
 func TestRebootNeedsAllowDangerous(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("KOMANDO_NO_DIALOG", "1")
 	t.Setenv("CLAUDECODE", "1")
@@ -441,7 +441,7 @@ func TestRebootNeedsAllowDangerous(t *testing.T) {
 // person is asked on the screen, and that happens while the state file is
 // free, so other komando commands do not wait for the answer.
 func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	run := func(args ...string) error {
 		root := newRoot()
@@ -482,7 +482,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 
 // config set asks about a safety change before locking the state, too.
 func TestConfigSetAsksBeforeLocking(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("CLAUDECODE", "1")
 	resetApproval()
@@ -557,7 +557,7 @@ func TestSudoProblem(t *testing.T) {
 // package managers' "remove", and a missing package is the usual usage
 // error that names the Use line.
 func TestPkgRmIsPkgRm(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	if err := store.Update(func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
@@ -584,7 +584,7 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 // dry run; user add/rm show the command, not the shell script; a recipe
 // category typo is a usage error, not an empty list.
 func TestOpsDryRunShapes(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	if err := store.Update(func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
@@ -631,7 +631,7 @@ func TestDockerUseNamesTheArgument(t *testing.T) {
 // docker exec --privileged gets the server's devices and capabilities,
 // past the check of the command.
 func TestDockerContainerIsNeverAnOption(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	if err := store.Update(func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
@@ -661,7 +661,7 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 
 // USERNAME is checked for every user command, not only add.
 func TestUserNamesAreChecked(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	if err := store.Update(func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}

@@ -127,7 +127,7 @@ func TestAgentFlagsNeedAPerson(t *testing.T) {
 }
 
 func TestAgentSafetySettingThroughCommand(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	run := func(args ...string) error {
 		root := newRoot()
 		root.SetArgs(append([]string{"-o", "json"}, args...))
@@ -153,7 +153,7 @@ func TestAgentSafetySettingThroughCommand(t *testing.T) {
 }
 
 func TestAgentOutputIsMasked(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	run := func(args ...string) error {
 		root := newRoot()
@@ -345,7 +345,7 @@ func TestInstallGuardHook(t *testing.T) {
 }
 
 func TestAuditRecordsTheAgent(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	_ = os.MkdirAll(store.Home(), 0o700)
 	asAgent(t, true, true)
 	g.yes = true
@@ -390,7 +390,7 @@ func TestLooseFiles(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("file modes: Windows uses access lists (internal/store TestPrivateHomeWindows)")
 	}
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	_ = os.Chmod(store.Home(), 0o700)
 	if err := os.WriteFile(store.Path("store.key"), []byte("k"), 0o644); err != nil {
 		t.Fatal(err)

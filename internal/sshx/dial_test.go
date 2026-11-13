@@ -162,6 +162,7 @@ func dialHome(t *testing.T) string {
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
 	t.Setenv("HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("SSH_AUTH_SOCK", "")
 	return home
 }

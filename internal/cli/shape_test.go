@@ -68,7 +68,7 @@ var shapeCases = [][]string{
 //
 //	go test ./internal/cli -run TestOutputShapes -update-shapes
 func TestOutputShapes(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("PG_PASS", "s3cret")
 	defer func() { g.dryRun, store.DryRun = false, false }()

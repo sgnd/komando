@@ -11,7 +11,7 @@ import (
 // TestDryRunChangesNothing runs inventory commands with --dry-run and checks
 // that the state file and the key folder stay as they were.
 func TestDryRunChangesNothing(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	defer func() { g.dryRun, store.DryRun = false, false }() // flags are package globals
 	run := func(args ...string) error {

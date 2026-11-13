@@ -87,7 +87,7 @@ func TestRunningStatus(t *testing.T) {
 // TestStatusCommand runs `komando status` itself: it works on an empty
 // home and changes nothing.
 func TestStatusCommand(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	if err := store.Update(func(st *store.State) error {
 		st.Jobs["j-1"] = &store.Job{ID: "j-1", Host: "nowhere", Command: "sleep 1"}
 		return nil

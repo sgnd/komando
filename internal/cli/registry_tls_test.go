@@ -26,7 +26,7 @@ func TestRegistryCertErrors(t *testing.T) {
 }
 
 func TestRegistryTLSOptions(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "a passphrase long enough for tests")
 	tg, _ := driver.Parse("registry://me@r.lan?tls=skip-verify")
 	if tc, err := registryTLS(tg); err != nil || !tc.SkipVerify || tc.Plain {

@@ -16,7 +16,7 @@ import (
 // refused, a person gets a private known_hosts copy, and a sealed key
 // stops it with a hint to use komando shell.
 func TestSSHCommandSealedHome(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	for _, a := range agentVars {
 		t.Setenv(a.env, "")
 		resetApproval()

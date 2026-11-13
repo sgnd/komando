@@ -61,6 +61,7 @@ func TestWriteFileAtomicCleansUpOnFailure(t *testing.T) {
 
 func TestLockSerializes(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	var mu sync.Mutex
 	inside, most := 0, 0
 	var wg sync.WaitGroup

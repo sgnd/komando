@@ -50,6 +50,7 @@ func TestEnsureHomeMakesParentsPrivate(t *testing.T) {
 	base := t.TempDir()
 	home := filepath.Join(base, "a", "b", "komando")
 	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	saved := makePrivate
 	t.Cleanup(func() { makePrivate = saved })
 	var got []string
@@ -73,6 +74,7 @@ func TestEnsureHomeMakesParentsPrivate(t *testing.T) {
 
 	home = filepath.Join(base, "c", "d", "komando")
 	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	makePrivate = func(d string) error {
 		if d == filepath.Join(base, "c", "d") {
 			return errors.New("no access lists here")
@@ -92,6 +94,7 @@ func TestEnsureHomeMakesParentsPrivate(t *testing.T) {
 func TestMkdirPrivateMakesHome(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "komando")
 	t.Setenv("KOMANDO_HOME", home)
+	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	if err := MkdirPrivate("vpn"); err != nil {
 		t.Fatal(err)
 	}

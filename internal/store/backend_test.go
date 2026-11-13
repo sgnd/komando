@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -116,6 +117,9 @@ func TestDBCreateRace(t *testing.T) {
 
 // A store file replaced while open (a restore) is opened again.
 func TestDBReopensReplacedFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows cannot remove or replace a file while it is open, so a store is never replaced under an open handle there")
+	}
 	sealedHome(t)
 	fakeKeys(t)
 	d, err := DB(true)

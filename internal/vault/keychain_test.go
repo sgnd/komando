@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // TestMain keeps every test away from the real keychain: a new vault
@@ -22,6 +24,7 @@ func TestMain(m *testing.M) {
 func freshHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("KOMANDO_HOME", t.TempDir())
+	t.Cleanup(store.Close) // before the folder goes: Windows cannot remove an open file
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 	os.Unsetenv("KOMANDO_VAULT_PASS")
 	passMu.Lock()

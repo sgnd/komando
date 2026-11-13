@@ -27,7 +27,7 @@ func TestSyslogTarget(t *testing.T) {
 // Each audit record goes to the log server as RFC 5424 with the JSON line,
 // over UDP and TCP (octet counting).
 func TestAuditGoesToSyslog(t *testing.T) {
-	t.Setenv("KOMANDO_HOME", t.TempDir())
+	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
