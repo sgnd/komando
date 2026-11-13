@@ -181,7 +181,7 @@ func fsLsCmd() *cobra.Command {
 				arg = args[1]
 			}
 			if st, h := windowsOne(args[0]); h != nil {
-				return printed("fs.ls")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
+				return printed("fs.list")(winFsLs(cmd.Context(), st, h, arg, all, recursive, maxEntries))
 			}
 			res, err := oneHost(cmd.Context(), args[0], func(_ *store.State, _ *sshx.Client, sc *sftp.Client) (any, error) {
 				dir := expandRemote(sc, arg)
@@ -245,15 +245,13 @@ func fsLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("fs.ls", res, nil)
+			out.P.Print("fs.list", res, nil)
 			return nil
 		},
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include dotfiles")
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "list the folders inside too")
 	limitFlag(c, &maxEntries, 1000, "entries")
-	retiredFlag(c, "max", "limit")
-	withID(c, "fs.ls") // `ls` before: a permanent synonym
 	return c
 }
 
@@ -545,7 +543,7 @@ func shellFsCmd(use, short string, minArgs int, build func(args []string, flags 
 		Short: short,
 		Args:  cobra.MinimumNArgs(minArgs),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fl := map[string]bool{}
+			fl := map[string]bool{"sudo": sudo}
 			for k, v := range vals {
 				fl[k] = *v
 			}
@@ -638,7 +636,7 @@ func fsChmodCmd() *cobra.Command {
 		if f["recursive"] {
 			r = "-R "
 		}
-		return chmodScript(a[0], a[1:], f["recursive"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
+		return chmodScript(a[0], a[1:], f["recursive"], f["sudo"]), "chmod " + r + sshx.Q(a[0]) + " -- " + rqAll(a[1:]), nil
 	}, map[string]string{"recursive": "change folders and everything in them"})
 }
 

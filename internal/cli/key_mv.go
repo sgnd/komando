@@ -25,9 +25,9 @@ func mvFromRename(kind, from, to string, r renameResult) mvResult {
 }
 
 func keyMvCmd() *cobra.Command {
-	return withID(&cobra.Command{
+	return &cobra.Command{
 		Use:     "rename OLD NEW",
-		Aliases: []string{"mv"}, // a permanent synonym; the ID stays key.mv
+		Aliases: []string{"mv"}, // a plain synonym
 		Short:   "Rename a key, and every server that uses it",
 		Long: `Gives a key in komando's key list a new name; the servers that use it follow. A
 key komando made (key gen) lives in the sealed store, so no file moves; a key
@@ -59,18 +59,18 @@ still work, since the key itself does not change.`,
 			}
 			res := mvFromRename("key", from, to, r)
 			if res.Action == "renamed" {
-				audit(nil, "key.mv", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated), "moved": res.Moved})
+				audit(nil, "key.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated), "moved": res.Moved})
 			}
-			out.P.Print("key.mv", res, nil)
+			out.P.Print("key.rename", res, nil)
 			return nil
 		},
-	}, "key.mv")
+	}
 }
 
 func groupMvCmd() *cobra.Command {
-	return withID(&cobra.Command{
+	return &cobra.Command{
 		Use:     "rename OLD NEW",
-		Aliases: []string{"mv"}, // a permanent synonym; the ID stays group.mv
+		Aliases: []string{"mv"}, // a plain synonym
 		Short:   "Rename a group on every server, conn and VPN in it",
 		Long: `Gives a group a new name on every member. OLD matches in any case, like
 @OLD. When NEW is a group already, nothing changes (GROUP_EXISTS): to merge
@@ -121,10 +121,10 @@ renaming it needs --yes, once for all of them.`,
 			}
 			res := mvFromRename("group", from, to, r)
 			if res.Action == "renamed" {
-				audit(nil, "group.mv", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated)})
+				audit(nil, "group.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated)})
 			}
-			out.P.Print("group.mv", res, nil)
+			out.P.Print("group.rename", res, nil)
 			return nil
 		},
-	}, "group.mv")
+	}
 }

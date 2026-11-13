@@ -86,7 +86,6 @@ func newSigner(typ string, bits int) (crypto.Signer, error) {
 func keyGenCmd() *cobra.Command {
 	var typ, comment string
 	var bits int
-	var overwrite bool
 	c := &cobra.Command{
 		Use:   "gen NAME",
 		Short: "Make a new SSH key pair (ed25519 by default)",
@@ -163,8 +162,6 @@ bits.`,
 	c.Flags().StringVar(&typ, "type", "ed25519", "ed25519 | rsa | ecdsa")
 	c.Flags().IntVarP(&bits, "bits", "b", 0, "key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521")
 	c.Flags().StringVarP(&comment, "comment", "C", "", "public key comment (default komando-NAME)")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "no longer needed: keys komando makes live in the sealed store")
-	_ = c.Flags().MarkHidden("overwrite")
 	return c
 }
 
@@ -486,11 +483,13 @@ added stays on disk.`,
 			if err != nil {
 				return err
 			}
-			if g.dryRun {
-				res["would_remove"] = res["removed"] // "removed" stays for scripts that read it (contract 1)
+			name := res["removed"].(string)
+			if g.dryRun { // a preview does not read as done
+				res["would_remove"] = name
+				delete(res, "removed")
 			}
-			audit(nil, "key.rm", nil, "", true, map[string]any{"key": res["removed"], "file_deleted": res["file_deleted"]})
-			say := changeSay("remove", "key "+res["removed"].(string), "")
+			audit(nil, "key.rm", nil, "", true, map[string]any{"key": name, "file_deleted": res["file_deleted"]})
+			say := changeSay("remove", "key "+name, "")
 			if res["file_deleted"] == true {
 				say += "\nits private key was deleted"
 			} else if f, ok := res["would_delete_file"].(string); ok {

@@ -111,7 +111,7 @@ func TestConnMv(t *testing.T) {
 
 func TestVpnMv(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "lab", "socks", "--address", "127.0.0.1:1080")
+	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
 	mustRun(t, "host", "add", "h1", "u@10.0.0.1", "--via", "lab")
 	mustRun(t, "host", "add", "h2", "u@10.0.0.2", "--via", "lab,h1")
 	d := mustRun(t, "vpn", "mv", "lab", "office")

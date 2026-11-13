@@ -127,10 +127,10 @@ func queuePasswordQ(show func(formAnswers) bool) formQ {
 	return formWhen(formQ{key: "password", label: "Password", ask: "How does komando get the password?",
 		help: "Either way it never shows here. With Confluent Cloud the password is the API secret.",
 		def:  func(*store.State, formAnswers) string { return "ask" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			rows := []menuRow{{label: "I type it next", detail: "hidden; komando keeps it as a saved password", value: "ask"}}
+		choices: func(*store.State, formAnswers) []pickRow {
+			rows := []pickRow{{label: "I type it next", detail: "hidden; komando keeps it as a saved password", value: "ask"}}
 			if len(secretNames()) > 0 {
-				rows = append(rows, menuRow{label: "I saved it in komando before", detail: "pick it from your saved passwords", value: "secret"})
+				rows = append(rows, pickRow{label: "I saved it in komando before", detail: "pick it from your saved passwords", value: "secret"})
 			}
 			return rows
 		}}, show)
@@ -182,8 +182,8 @@ func kafkaForm() formSpec {
 				}
 				return "none"
 			},
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "Yes, a user and a password", detail: "SASL", value: "sasl"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "Yes, a user and a password", detail: "SASL", value: "sasl"},
 					{label: "No login", detail: "common inside a private network", value: "none"}}
 			}},
 		formWhen(formQ{key: "user", label: "User", ask: "Which user do you log in as?", example: "app",
@@ -191,8 +191,8 @@ func kafkaForm() formSpec {
 		formWhen(formQ{key: "sasl", label: "Login method", ask: "Which login method do the brokers want?",
 			help: "Shown in the cluster's client settings as sasl.mechanism. Confluent Cloud uses PLAIN.",
 			def:  func(*store.State, formAnswers) string { return "scram-sha-512" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "SCRAM-SHA-512", detail: "the usual for MSK, Aiven, Redpanda", value: "scram-sha-512"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "SCRAM-SHA-512", detail: "the usual for MSK, Aiven, Redpanda", value: "scram-sha-512"},
 					{label: "SCRAM-SHA-256", value: "scram-sha-256"},
 					{label: "PLAIN", detail: "Confluent Cloud; only with TLS", value: "plain"}}
 			}}, sasl),
@@ -288,13 +288,13 @@ func natsForm() formSpec {
 		{key: "login", label: "Login", ask: "How do you log in?",
 			help: "Whoever runs the server gave you one of these.",
 			def:  func(*store.State, formAnswers) string { return "user" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				rows := []menuRow{{label: "A user and a password", value: "user"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				rows := []pickRow{{label: "A user and a password", value: "user"},
 					{label: "A token", detail: "one secret without a user", value: "token"}}
 				if len(secretNames()) > 0 {
-					rows = append(rows, menuRow{label: "A .creds file I saved in komando before", detail: "from nsc or Synadia Cloud", value: "creds"})
+					rows = append(rows, pickRow{label: "A .creds file I saved in komando before", detail: "from nsc or Synadia Cloud", value: "creds"})
 				}
-				return append(rows, menuRow{label: "No login", value: "none"})
+				return append(rows, pickRow{label: "No login", value: "none"})
 			}},
 		formWhen(formQ{key: "user", label: "User", ask: "Which user do you log in as?", example: "app", check: cacheUserProblem}, login("user")),
 		queuePasswordQ(pw),
@@ -339,8 +339,8 @@ func sqsForm() formSpec {
 		{key: "login", label: "Login", ask: "How does komando log in to AWS?",
 			help: "No aws CLI needed. Safest is a login that can reach only these queues.",
 			def:  func(*store.State, formAnswers) string { return "profile" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{
 					{label: "A profile from ~/.aws/config", detail: "SSO, a role or keys, as the aws CLI uses them", value: "profile"},
 					{label: "The usual AWS login", detail: "AWS_* variables, the default profile, or this server's role", value: "chain"},
 					{label: "An access key of an IAM user", detail: "an ID and a secret; the secret is asked hidden", value: "key"},

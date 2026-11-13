@@ -260,7 +260,7 @@ type State struct {
 	Keys     map[string]*Key     `json:"keys"`
 	Snippets map[string]*Snippet `json:"snippets"`
 	// Runtime data (VPN sessions, logins, jobs, tunnels) lives in its own
-	// file (runtime.go); a state.json of before may hold it here.
+	// file (runtime.go); Load puts it here.
 	Runtime
 	Settings Settings `json:"settings"`
 
@@ -285,23 +285,48 @@ func EnsureHome() error { return ensureHome() }
 
 // ensureHome makes komando's folder when it is missing, private to this
 // user: mode 0700, and on Windows an access list of its own (privateHome).
-// A new folder that cannot be made private is removed again, so komando
-// keeps nothing in it; doctor checks a folder that was already there.
+// So does every folder above it that it has to make (KOMANDO_HOME=
+// C:\a\b\komando with no C:\a): one made with the access list of the
+// drive's root would let any user rename it and put a folder of their own
+// in its place. A new folder that cannot be made private is removed again,
+// so komando keeps nothing in it; doctor checks a folder that was already
+// there.
 func ensureHome() error {
 	h := Home()
-	_, err := os.Stat(h)
-	fresh := errors.Is(err, fs.ErrNotExist)
+	made := missingFolders(h)
 	if err := os.MkdirAll(h, 0o700); err != nil {
 		return err
 	}
-	if !fresh {
-		return nil
-	}
-	if err := privateHome(h); err != nil {
-		_ = os.Remove(h) // only while it is still empty
-		return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", h, err)
+	for _, d := range made {
+		if err := makePrivate(d); err != nil {
+			for i := len(made) - 1; i >= 0; i-- {
+				_ = os.Remove(made[i]) // only while it is still empty
+			}
+			return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", d, err)
+		}
 	}
 	return nil
+}
+
+// makePrivate is privateHome; tests replace it.
+var makePrivate = privateHome
+
+// missingFolders lists h and the folders above it that do not exist yet,
+// the topmost first.
+func missingFolders(h string) []string {
+	var made []string
+	for d := h; ; {
+		if _, err := os.Stat(d); !errors.Is(err, fs.ErrNotExist) {
+			break
+		}
+		made = append([]string{d}, made...)
+		up := filepath.Dir(d)
+		if up == d {
+			break
+		}
+		d = up
+	}
+	return made
 }
 
 func (s *State) init() {
@@ -376,9 +401,6 @@ func Update(fn func(s *State) error) error {
 // and returns the function that releases it. komando processes running at
 // the same time (parallel agents) wait for each other.
 func Lock(name string) (unlock func(), err error) {
-	if heldBySeal(name) {
-		return func() {}, nil // `komando seal` holds it for this process
-	}
 	if err := ensureHome(); err != nil {
 		return nil, err
 	}

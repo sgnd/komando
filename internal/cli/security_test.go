@@ -392,10 +392,10 @@ func TestLooseFiles(t *testing.T) {
 	}
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	_ = os.Chmod(store.Home(), 0o700)
-	if err := os.WriteFile(store.Path("vault.key"), []byte("k"), 0o644); err != nil {
+	if err := os.WriteFile(store.Path("store.key"), []byte("k"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if l := looseFiles(); len(l) != 1 || !strings.HasSuffix(l[0], "vault.key") {
+	if l := looseFiles(); len(l) != 1 || !strings.HasSuffix(l[0], "store.key") {
 		t.Errorf("loose: %v", l)
 	}
 }

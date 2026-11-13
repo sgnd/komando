@@ -303,7 +303,7 @@ Which flags go with which VPN:
 	f.StringVar(&notes, "notes", "", "free-form notes")
 	f.BoolVar(&overwrite, "overwrite", false, "replace a VPN with the same name")
 	inv.bindInv(c, false)
-	return withRetiredAddress(c)
+	return c
 }
 
 func vpnShowCmd() *cobra.Command {
@@ -694,11 +694,4 @@ func (t vpnChangeText) Text() string {
 		b.WriteString("warning: " + w + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
-}
-
-// withRetiredAddress keeps --address on vpn add and edit as a retired
-// spelling of --proxy-address (C-F21).
-func withRetiredAddress(c *cobra.Command) *cobra.Command {
-	retiredFlag(c, "address", "proxy-address")
-	return c
 }

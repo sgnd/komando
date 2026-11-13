@@ -170,7 +170,7 @@ func raiser(last uint64) func(uint64) {
 // still holds its change count: making a fresh store would silently drop
 // every pinned host key, rule and secret.
 func missingGuardedStore() error {
-	if GenerationKeeper.Get == nil || AllowOldCopy || isSealing() {
+	if GenerationKeeper.Get == nil || AllowOldCopy {
 		return nil
 	}
 	kept, ok, err := probeCount()

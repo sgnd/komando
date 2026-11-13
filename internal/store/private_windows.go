@@ -107,8 +107,11 @@ func LooseFiles() []string {
 }
 
 // PrivateFix is the commands that make komando's folder private again on
-// Windows: an access list of its own on the folder, then every file and
-// folder inside takes it over.
+// Windows: the folder's access list set whole (/reset drops every entry
+// written on it, /inheritance:r every entry taken from above, then this
+// user and SYSTEM are given full control), then every file and folder
+// inside takes it over. /inheritance:r with /grant:r alone keeps an entry
+// someone wrote for another account.
 func PrivateFix() string {
 	user, err := userSID()
 	if err != nil {
@@ -117,6 +120,6 @@ func PrivateFix() string {
 		user = "*" + user
 	}
 	h := Home()
-	return fmt.Sprintf(`icacls "%s" /inheritance:r /grant:r "%s:(OI)(CI)F" "*%s:(OI)(CI)F", then icacls "%s" /reset /T /C`,
-		h, user, sidSystem, filepath.Join(h, "*"))
+	return fmt.Sprintf(`icacls "%s" /reset, then icacls "%s" /inheritance:r /grant:r "%s:(OI)(CI)F" "*%s:(OI)(CI)F", then icacls "%s" /reset /T /C`,
+		h, h, user, sidSystem, filepath.Join(h, "*"))
 }

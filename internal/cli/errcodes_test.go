@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -163,6 +164,14 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 			}
 		}
 		c := pickSite(ss)
+		if want, ok := catalogSite[code]; ok {
+			i := slices.IndexFunc(ss, func(s codeSite) bool { return s.message == want })
+			if i < 0 {
+				mixed = append(mixed, fmt.Sprintf("catalogSite: no site of %s gives the message %q", code, want))
+			} else {
+				c.Example, c.Hint = ss[i].message, ss[i].hint
+			}
+		}
 		if m, ok := meanings[code]; ok && letters(c.Example) < 4 {
 			c.Example = m
 		}
@@ -764,6 +773,16 @@ var approvalMeanings = map[string]string{
 	"SECRET_DESTINATION": "an AI agent asked to send …; that needs a person's yes",
 	"OPEN_BIND":          "the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer)",
 	"CONFIRM_REQUIRED":   "deleting group … takes … entries out of it",
+}
+
+// catalogSite picks, by its message, the call site whose message and hint
+// `komando schema` shows for a code whose sites tie in pickSite, where the
+// order of the files would decide: renaming a file must not change what
+// the catalog shows (these are the texts 0.12.0 showed).
+var catalogSite = map[string]string{
+	"NO_FOLDER":       "cannot find the folder: …",
+	"RENAME_FAILED":   "the vault cannot rename the VPN's secrets: …; nothing was renamed",
+	"ROLLOUT_TIMEOUT": "not rolled out after … (replicas …)…",
 }
 
 // renamedFrom are codes given by renaming another error (e.Code =

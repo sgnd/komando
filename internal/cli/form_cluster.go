@@ -47,8 +47,8 @@ func kubeconfigForm() formSpec {
 			help: "Production: komando asks you before every change, and an AI agent needs your yes in a window. " +
 				"A cluster already in your list keeps its own setting.",
 			def: func(*store.State, formAnswers) string { return "yes" },
-			choices: func(*store.State, formAnswers) []menuRow {
-				return []menuRow{{label: "Yes, protect them", detail: "komando asks you before every change", value: "yes"},
+			choices: func(*store.State, formAnswers) []pickRow {
+				return []pickRow{{label: "Yes, protect them", detail: "komando asks you before every change", value: "yes"},
 					{label: "No", detail: "test clusters, or only mine", value: "no"}}
 			}},
 		formGroupQ(),

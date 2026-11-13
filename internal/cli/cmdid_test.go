@@ -42,10 +42,9 @@ func treeIDs(t *testing.T) map[string]*cobra.Command {
 	return ids
 }
 
-// A command ID never changes and never goes away (S-1.6): every ID in
-// testdata/command_ids.txt is still in the tree, and a new command is added
-// there. KOMANDO_GOLDEN_UPDATE=1 writes the file again (only on purpose: an
-// ID that disappears means a rename that forgot withID).
+// Every ID in testdata/command_ids.txt is in the tree, and every command's
+// ID is in the file. KOMANDO_GOLDEN_UPDATE=1 writes the file again (only on
+// purpose: a rename or a removal changes it, with every table keyed by ID).
 func TestCommandIDsStable(t *testing.T) {
 	ids := treeIDs(t)
 	var got []string
@@ -70,7 +69,7 @@ func TestCommandIDsStable(t *testing.T) {
 	want := strings.Fields(string(b))
 	for _, id := range want {
 		if _, ok := ids[id]; !ok {
-			t.Errorf("command ID %q is gone: a renamed command keeps its ID (withID(c, %q)); a removed one stays as a hidden alias", id, id)
+			t.Errorf("command ID %q is gone: update testdata/command_ids.txt and every table keyed by ID on purpose", id)
 		}
 	}
 	for _, id := range got {
@@ -103,7 +102,7 @@ func TestTablesKeyedByID(t *testing.T) {
 	add("gateNeedsPerson", keysOf(gateNeedsPerson))
 	add("gateTargetArgs", keysOf(gateTargetArgs))
 	add("riskRows", riskRowIDs())
-	add("mask line", []string{"secret.get"})
+	add("mask line", []string{"secret.show"})
 	for name, keys := range tables {
 		for _, k := range keys {
 			check(name, k)
@@ -173,9 +172,9 @@ func TestWithIDSurvivesRename(t *testing.T) {
 	p := &cobra.Command{Use: "fs"}
 	r := &cobra.Command{Use: "komando"}
 	r.AddCommand(p)
-	p.AddCommand(withID(c, "fs.ls"))
+	p.AddCommand(withID(c, "fs.list"))
 	stampIDs(r)
-	if cmdID(c) != "fs.ls" || commandName(c) != "fs.ls" || idKey(c) != "fs ls" {
+	if cmdID(c) != "fs.list" || commandName(c) != "fs.list" || idKey(c) != "fs list" {
 		t.Fatalf("ID %q", cmdID(c))
 	}
 	if cmdID(p) != "fs" || cmdID(r) != "komando" {

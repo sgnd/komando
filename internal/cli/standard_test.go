@@ -76,7 +76,7 @@ func TestStandardTopLevel(t *testing.T) {
 		"list", "test", "exec", "shell", "logs", "cp", "upload", "download", "sync", "facts", "reboot", "status",
 		"login", "logout", "import", "export", "rename",
 		// about komando
-		"audit", "doctor", "schema", "guide", "update", "version", "seal", "completion", "help", "ssh-gate",
+		"audit", "doctor", "schema", "guide", "update", "version", "completion", "help", "ssh-gate",
 	}
 	var got []string
 	for _, c := range root.Commands() {

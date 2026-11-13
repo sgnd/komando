@@ -23,7 +23,6 @@ import (
 // value by itself.
 
 const (
-	modeSealed     = "sealed"
 	secretType     = "secret"
 	vaultHKDFLabel = "komando vault entries v1"
 )
@@ -37,7 +36,7 @@ type sealedEntry struct {
 
 // loadSealedTx reads the secrets of tx into a file.
 func loadSealedTx(tx *sealdb.Tx) (*file, error) {
-	f := &file{Version: 1, Mode: modeSealed, Entries: map[string]*entry{}}
+	f := &file{Entries: map[string]*entry{}}
 	rows, err := tx.List(secretType)
 	if err != nil {
 		return nil, err
@@ -58,7 +57,7 @@ func loadSealedTx(tx *sealdb.Tx) (*file, error) {
 func loadSealed() (*file, error) {
 	d, err := store.DB(false)
 	if errors.Is(err, store.ErrNoStore) {
-		return &file{Version: 1, Mode: modeSealed, Entries: map[string]*entry{}}, nil
+		return &file{Entries: map[string]*entry{}}, nil
 	}
 	if err != nil {
 		return nil, err

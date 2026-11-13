@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/user"
@@ -162,6 +163,14 @@ func parallelism(st *store.State) int {
 		return g.parallel
 	}
 	return st.Settings.Parallel
+}
+
+// sayLine writes one message of komando's own on w (stderr) as one line:
+// a pipe, a script or an AI agent reads it whole, and a person at a
+// terminal sees it wrapped (out.Wrap at out.StderrWidth), as errors,
+// hints and warnings are. Never put a line break in msg to fit a width.
+func sayLine(w io.Writer, msg string) {
+	_, _ = fmt.Fprintln(w, out.Wrap(msg, 0, out.StderrWidth()))
 }
 
 func toErr(err error) *out.Error {

@@ -24,7 +24,7 @@ Unsure about a word? See the [glossary](glossary.md).
 |---------|-----------------|----------|
 | [Install, update, remove](install.md) | install komando on macOS, Linux or Windows, update it, tab completion, remove it | `update`, `completion` |
 | [Servers](servers.md) | add servers, log in with keys, passwords or your password manager | `host`, `key`, `secret`, `login` |
-| [Secrets](secrets.md) | save passwords and tokens once, use them as secret:NAME, read them from Vault, cloud secret managers, 1Password, Bitwarden or KeePass | `secret`, `seal` |
+| [Secrets](secrets.md) | save passwords and tokens once, use them as secret:NAME, read them from Vault, cloud secret managers, 1Password, Bitwarden or KeePass | `secret` |
 | [Windows servers](windows.md) | run PowerShell, files, copies and services on Windows servers | `host add --os windows`, `exec`, `svc` |
 | [Moving in and moving computers](import.md) | import ssh config, .pgpass, my.cnf, .env; export to another computer | `import`, `export` |
 | [Targets](targets.md) | pick what a command works on: one name, a group, a tag, everything | `list`, `test`, `group` |

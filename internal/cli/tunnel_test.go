@@ -152,7 +152,7 @@ func TestAllWithNames(t *testing.T) {
 // "put the VPN first", and a,b,a was accepted.
 func TestViaTwice(t *testing.T) {
 	invHome(t)
-	mustRun(t, "vpn", "add", "office", "socks", "--address", "127.0.0.1:1")
+	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "127.0.0.1:1")
 	mustRun(t, "host", "add", "bastion", "u@10.0.0.1")
 	mustRun(t, "host", "add", "b2", "u@10.0.0.3")
 	e := wantCode(t, "VIA_CYCLE", "host", "add", "app", "u@10.0.0.2", "--via", "office,office")

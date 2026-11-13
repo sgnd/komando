@@ -287,10 +287,10 @@ func TestFsScripts(t *testing.T) {
 	if o, code := runSh(t, dir, mkdirScript([]string{"m/n", "m/o"})); code != 0 || o != "made: m/n\nmade: m/o\n" {
 		t.Errorf("mkdir: %d %q", code, o)
 	}
-	if o, code := runSh(t, dir, chmodScript("0700", []string{"m/n"}, false)); code != 0 || o != "mode 0700: m/n\n" {
+	if o, code := runSh(t, dir, chmodScript("0700", []string{"m/n"}, false, false)); code != 0 || o != "mode 0700: m/n\n" {
 		t.Errorf("chmod: %d %q", code, o)
 	}
-	if _, code := runSh(t, dir, chmodScript("0600", []string{"zzz"}, false)); code != fsExitNoSource {
+	if _, code := runSh(t, dir, chmodScript("0600", []string{"zzz"}, false, false)); code != fsExitNoSource {
 		t.Errorf("chmod missing: exit %d", code)
 	}
 	if e := fsExitMap(fsExitIsFolder, "d is a folder"); e == nil || e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "--recursive") {

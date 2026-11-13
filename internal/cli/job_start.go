@@ -120,9 +120,10 @@ func startJob(ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) 
 	default:
 		inner = "sh -c " + sshx.Q(inner) + shArgs
 	}
-	// the job runs with the login's own umask ($u); its folder and files
+	// the job runs with the login's own umask, given to the wrapper as $1
+	// so the job's environment gains no variable; its folder and files
 	// (the command, its output, the pid) are the SSH user's alone
-	wrapper := "( umask \"$u\"; " + inner + " ); echo $? > \"$d/exit\""
+	wrapper := "( umask \"$1\"; " + inner + " ); echo $? > \"$d/exit\""
 	envFile := ""
 	if exports != "" {
 		envFile = sshx.SaveInput(len(exports), `"$d/env"`) + ` && `
@@ -132,8 +133,8 @@ func startJob(ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) 
 		scriptFile = `(umask 077; cat > "$d/script") && `
 	}
 	script := `u=$(umask); umask 077; d="` + jobDir(id) + `"; mkdir -p "$d" && chmod 700 "$d" && ` + envFile + pwFile + scriptFile + `printf '%s\n' ` + sshx.Q(sp.shown) + ` > "$d/cmd" && date -u +%s > "$d/started"; ` +
-		`export d u; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & ` +
-		`else nohup sh -c ` + sshx.Q(wrapper) + ` > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
+		`export d; if command -v setsid >/dev/null 2>&1; then setsid nohup sh -c ` + sshx.Q(wrapper) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & ` +
+		`else nohup sh -c ` + sshx.Q(wrapper) + ` sh "$u" > "$d/out.log" 2>&1 < /dev/null & fi; echo $! > "$d/pid"; echo $!`
 	input := append(append([]byte(exports), pw...), sp.body...)
 	r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Stdin: input, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 	if err != nil {

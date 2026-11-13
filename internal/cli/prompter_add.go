@@ -61,7 +61,7 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 	}
 	cmds := formBuild(st, sp, a)
 	for _, c := range cmds {
-		fmt.Fprintln(promptW, "$ komando "+menuCommandLine(c))
+		fmt.Fprintln(promptW, "$ komando "+pickCommandLine(c))
 	}
 	self, err := os.Executable()
 	if err != nil {
@@ -79,7 +79,7 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 			promptConfirmed = "Run it?"
 			break
 		}
-		_, _ = menuRunOne(self, formDry(cmds))
+		_, _ = pickRunOne(self, formDry(cmds))
 	}
 	code, reason, err := formRunAll(self, cmds)
 	if err != nil {
@@ -106,9 +106,9 @@ func promptAddKind(groups []formGroup) (formSpec, error) {
 	}
 	g := groups[0]
 	if len(groups) > 1 {
-		var rows []menuRow
+		var rows []pickRow
 		for _, x := range groups {
-			rows = append(rows, menuRow{label: x.label, detail: x.detail, value: x.label})
+			rows = append(rows, pickRow{label: x.label, detail: x.detail, value: x.label})
 		}
 		v, err := askPick(promptQ{label: "KIND"}, rows, false)
 		if err != nil {
@@ -119,9 +119,9 @@ func promptAddKind(groups []formGroup) (formSpec, error) {
 	if len(g.kinds) == 1 {
 		return g.kinds[0].spec(), nil
 	}
-	var rows []menuRow
+	var rows []pickRow
 	for _, k := range g.kinds {
-		rows = append(rows, menuRow{label: k.label, detail: k.detail, value: k.label})
+		rows = append(rows, pickRow{label: k.label, detail: k.detail, value: k.label})
 	}
 	v, err := askPick(promptQ{label: "KIND", help: g.ask}, rows, false)
 	if err != nil {
@@ -168,7 +168,7 @@ func promptAddAsk(st *store.State, sp formSpec, a formAnswers, i int) (string, e
 	pq.check = check
 	rows := q.choices(st, a)
 	if !q.optional {
-		rows = slices.DeleteFunc(slices.Clone(rows), func(r menuRow) bool { return r.value == "" && !formEmptyRow(st, q, a) })
+		rows = slices.DeleteFunc(slices.Clone(rows), func(r pickRow) bool { return r.value == "" && !formEmptyRow(st, q, a) })
 	}
 	if pq.def == "" && formEmptyRow(st, q, a) {
 		pq.optional = true // its list has a row for no answer ("Directly")

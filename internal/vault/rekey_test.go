@@ -35,8 +35,16 @@ func passHome(t *testing.T, p string) {
 	t.Cleanup(func() { PassphraseN = n; usePass("") })
 }
 
+// vaultView is the vault in the store, with the store's key settings.
+type vaultView struct {
+	file
+	Mode    string
+	Salt    []byte
+	ScryptN int
+}
+
 // vaultFile is the vault in the store, with the store's key settings.
-func vaultFile(t *testing.T) file {
+func vaultFile(t *testing.T) vaultView {
 	t.Helper()
 	f, err := loadSealed()
 	if err != nil {
@@ -46,9 +54,9 @@ func vaultFile(t *testing.T) file {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Mode, f.Salt = m["key_mode"], []byte(m["salt"])
-	f.ScryptN, _ = strconv.Atoi(m["scrypt_n"])
-	return *f
+	v := vaultView{file: *f, Mode: m["key_mode"], Salt: []byte(m["salt"])}
+	v.ScryptN, _ = strconv.Atoi(m["scrypt_n"])
+	return v
 }
 
 // vaultBytes is the store file as it is on disk.

@@ -50,7 +50,7 @@ q $K db grant shop-mssql sales_ro --privileges SELECT --on schema:dbo
 q $K conn add ro-mssql 'sqlserver://sales_ro@mssql:1433/e2e_sales' --via bastion --password-ref secret:mssql-ro
 check "sqlserver: the new user logs in with the vault password" 2 "$($K db query ro-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "sqlserver: and may only read what was granted" False "$($K db query ro-mssql --write "insert into dbo.orders (item) values (N'x')" | jget 'd["ok"]')"
-check "sqlserver db grants shows SELECT on dbo" True "$($K db grants shop-mssql sales_ro | jget 'any(g["object"] == "dbo" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
+check "sqlserver db user show shows SELECT on dbo" True "$($K db user show shop-mssql sales_ro | jget 'any(g["object"] == "dbo" and "SELECT" in g["privileges"] for g in d["data"]["grants"])')"
 q $K db user rm shop-mssql sales_ro --allow-dangerous
 check "sqlserver db user rm removed it" False "$($K db user ls shop-mssql | jget 'any(u["name"] == "sales_ro" for u in d["data"]["users"])')"
 check "sqlserver dump is not supported yet" NOT_SUPPORTED "$($K db dump shop-mssql --to "$TMP/s.sql" | jget 'd["error"]["code"]')"

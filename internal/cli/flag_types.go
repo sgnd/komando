@@ -31,10 +31,6 @@ const flagHintSep = "\nhint: "
 // so a form asks again with the flag's own words.
 type valueChecker interface{ check(s string) error }
 
-// retiredShaper is a flag value that was given in a retired shape (a bare
-// number of seconds); noteRetiredFlags notes it with retiredName.
-type retiredShaper interface{ retiredShape() (used, now string) }
-
 // parseSpan reads a span: Go units (90s, 10m, 1h30m) or whole days (7d). A
 // bare number is accepted only as 0; every other span needs a unit, so 30
 // is never 30 seconds or 30 days. A negative span is refused.
@@ -78,9 +74,6 @@ type durFlag struct {
 	d        *time.Duration
 	text     *string // when set: the span as typed, for results that echo it
 	positive bool    // 0 is refused (an age, a warning window)
-	seconds  bool    // a bare number is seconds: the retired shape of svc/reboot --wait
-	name     string
-	used     string // the retired shape given, for meta.deprecated
 }
 
 func (v *durFlag) String() string {
@@ -100,12 +93,6 @@ func (v *durFlag) Set(s string) error {
 	if err != nil {
 		return err
 	}
-	v.used = ""
-	if v.seconds {
-		if n, aerr := strconv.Atoi(strings.TrimSpace(s)); aerr == nil && n > 0 {
-			v.used = s
-		}
-	}
 	*v.d = d
 	if v.text != nil {
 		*v.text = s
@@ -114,11 +101,6 @@ func (v *durFlag) Set(s string) error {
 }
 
 func (v *durFlag) parse(s string) (time.Duration, error) {
-	if v.seconds {
-		if n, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && n >= 0 {
-			return time.Duration(n) * time.Second, nil
-		}
-	}
 	d, err := parseSpan(s)
 	if err == nil && v.positive && d == 0 {
 		err = fmt.Errorf("give a time of more than 0, like 30d, 12h or 90m")
@@ -128,17 +110,10 @@ func (v *durFlag) parse(s string) (time.Duration, error) {
 
 func (v *durFlag) check(s string) error { _, err := v.parse(s); return err }
 
-func (v *durFlag) retiredShape() (used, now string) {
-	if v.used == "" {
-		return "", ""
-	}
-	return "--" + v.name + " " + v.used, "--" + v.name + " " + v.used + "s"
-}
-
 // durVar adds a span flag that holds a time.Duration.
 func durVar(fs *pflag.FlagSet, p *time.Duration, name string, def time.Duration, usage string) *durFlag {
 	*p = def
-	v := &durFlag{d: p, name: name}
+	v := &durFlag{d: p}
 	fs.Var(v, name, usage)
 	return v
 }
@@ -149,7 +124,7 @@ func durVar(fs *pflag.FlagSet, p *time.Duration, name string, def time.Duration,
 func spanText(fs *pflag.FlagSet, p *string, name, def string, positive bool, usage string) {
 	*p = def
 	var d time.Duration
-	fs.Var(&durFlag{d: &d, text: p, positive: positive, name: name}, name, usage)
+	fs.Var(&durFlag{d: &d, text: p, positive: positive}, name, usage)
 }
 
 // bytesFlag is every byte-size flag (Type "bytes"): --max-bytes and
@@ -214,7 +189,7 @@ func (v *optInt) Type() string { return "int" }
 
 func (v *optInt) Set(s string) error {
 	n, err := strconv.Atoi(strings.TrimSpace(s))
-	if err != nil || n < -1 { // -1, the old way to write "left out", still means that
+	if err != nil || n < 0 {
 		return fmt.Errorf("give a whole number of 0 or more (got %q)", s)
 	}
 	*v.p = n

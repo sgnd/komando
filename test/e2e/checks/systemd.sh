@@ -26,10 +26,10 @@ else
   check "svc status MainPID = systemctl" "$(pid)" "$($K svc status t-sysd t-svc | jget 'str(d["data"]["results"][0]["data"][0].get("main_pid") or d["data"]["results"][0]["data"][0].get("pid"))')"
   q $K svc stop t-sysd t-svc
   check "svc stop = systemctl is-active" "inactive inactive" "$(sys systemctl is-active t-svc || true) $(state)"
-  q $K svc start t-sysd t-svc --wait 10
+  q $K svc start t-sysd t-svc --wait 10s
   check "svc start --wait = systemctl is-active" "active active" "$(sys systemctl is-active t-svc) $(state)"
   before=$(pid)
-  q $K svc restart t-sysd t-svc --wait 10
+  q $K svc restart t-sysd t-svc --wait 10s
   check "svc restart gives a new process (systemctl MainPID)" True "$([ "$(pid)" != "$before" ] && [ "$(pid)" != 0 ] && echo True || echo False)"
   before=$(pid)
   q $K svc reload t-sysd t-svc

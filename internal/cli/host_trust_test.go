@@ -81,10 +81,21 @@ func trustLab(t *testing.T) (addr string, key *atomic.Pointer[ssh.Signer], real,
 	addr = net.JoinHostPort("127.0.0.1", strconv.Itoa(port))
 	mustRun(t, "host", "add", "prod1", "root@"+addr, "--protected")
 	d := mustRun(t, "host", "trust", "prod1")
-	if d["fingerprint"] != ssh.FingerprintSHA256(real.PublicKey()) {
+	if trustRow0(d)["fingerprint"] != ssh.FingerprintSHA256(real.PublicKey()) {
 		t.Fatalf("first pin: %v", d)
 	}
 	return addr, key, real, impostor
+}
+
+// trustRow0 is the first server's row of a host trust answer: one server
+// or many, it is data.results.
+func trustRow0(d map[string]any) map[string]any {
+	rows, _ := d["results"].([]any)
+	if len(rows) == 0 {
+		return nil
+	}
+	r, _ := rows[0].(map[string]any)
+	return r
 }
 
 // host trust compares the key it fetched with the pinned one: the same key
@@ -101,7 +112,7 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 	}
 
 	d := mustRun(t, "host", "trust", "prod1")
-	if d["already_pinned"] != true {
+	if trustRow0(d)["already_pinned"] != true {
 		t.Errorf("same key again: %v", d)
 	}
 	onlyPin("same key again", realFP)
@@ -137,7 +148,7 @@ func TestHostTrustNeverRepinsSilently(t *testing.T) {
 
 	personTypes(t, "y") // a person at the terminal replaces it (OD-9)
 	d = mustRun(t, "host", "trust", "prod1", "--reset")
-	if d["fingerprint"] != impFP || d["removed_entries"].(float64) != 1 {
+	if r := trustRow0(d); r["fingerprint"] != impFP || r["removed_entries"].(float64) != 1 {
 		t.Errorf("--reset by a person: %v", d)
 	}
 	onlyPin("--reset by a person", impFP)

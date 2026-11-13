@@ -47,7 +47,7 @@ func (w *signInWindow) show(ctx context.Context, p sslvpn.BrowserPage) (string, 
 	defer cancel()
 	if exe := browserx.Find(); exe != "" {
 		if w.b == nil {
-			fmt.Fprintln(os.Stderr, "komando: a browser window opens for the sign-in. Finish it there (password,\n  one-time code); the window closes by itself.")
+			sayLine(os.Stderr, "komando: a browser window opens for the sign-in. Finish it there (password, one-time code); the window closes by itself.")
 			var err error
 			if w.b, err = browserx.Open(exe); err != nil {
 				return "", err

@@ -27,6 +27,22 @@ var StderrWidth = func() int {
 	return w
 }
 
+// StdoutWidth is StderrWidth for stdout: the width a text result is laid
+// out at for a person at a terminal, and 0 (no wrapping) when stdout is a
+// pipe or a file, so `komando doctor -o text | grep` reads each line
+// whole. Tests replace it.
+var StdoutWidth = func() int {
+	fd := int(os.Stdout.Fd())
+	if !term.IsTerminal(fd) {
+		return 0
+	}
+	w, _, err := term.GetSize(fd)
+	if err != nil || w <= 0 || w > maxTextWidth {
+		return maxTextWidth
+	}
+	return w
+}
+
 // Wrap fills text into lines of at most width columns: the first line
 // starts after a label of labelWidth columns, later lines with a hanging
 // indent of two spaces. It breaks only at spaces, never inside a

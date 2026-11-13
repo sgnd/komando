@@ -35,7 +35,7 @@ type formQ struct {
 	// def is what Enter takes when nothing is typed (nil: nothing)
 	def func(st *store.State, a formAnswers) string
 	// choices makes it a list to pick from instead of a line to type
-	choices func(st *store.State, a formAnswers) []menuRow
+	choices func(st *store.State, a formAnswers) []pickRow
 	// show: asked only while it says true (nil: always)
 	show func(a formAnswers) bool
 	// when: asked only while the inventory allows it (nil: always), like
@@ -111,7 +111,7 @@ func formDry(cmds [][]string) []string {
 // formEmptyRow: q's list has a row for no answer ("Directly"), so having
 // none is a choice already made.
 func formEmptyRow(st *store.State, q formQ, a formAnswers) bool {
-	return q.choices != nil && slices.ContainsFunc(q.choices(st, a), func(r menuRow) bool { return r.value == "" })
+	return q.choices != nil && slices.ContainsFunc(q.choices(st, a), func(r pickRow) bool { return r.value == "" })
 }
 
 // pastedSecret takes the password out of user:password@host or

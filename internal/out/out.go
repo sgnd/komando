@@ -183,9 +183,6 @@ type Meta struct {
 	// Warnings are things that went wrong beside the result (an audit
 	// record that could not be written); they are on stderr too.
 	Warnings []string `json:"warnings,omitempty"`
-	// The retired flag or argument shape the command used (it still
-	// works), and how to write it today (meta.deprecated).
-	Deprecated *Deprecated `json:"deprecated,omitempty"`
 	// Truncated: a list stopped at --limit; more items are there
 	// (--limit 0 shows them all).
 	Truncated bool `json:"truncated,omitempty"`
@@ -193,12 +190,6 @@ type Meta struct {
 	// without making them (a MySQL DDL statement commits by itself); the
 	// rest of the preview holds, these were not checked.
 	NotSimulated []string `json:"not_simulated,omitempty"`
-}
-
-// Deprecated names a retired spelling and the one that replaces it.
-type Deprecated struct {
-	Used string `json:"used"`
-	Now  string `json:"now"`
 }
 
 // HostKey is a server's host key, as komando pinned it.
@@ -230,11 +221,10 @@ type Printer struct {
 	warns   []string
 	mu      sync.Mutex // pinned, warns: connections run side by side
 
-	deprecated *Deprecated
-	cutAt      int      // the --limit a list stopped at (Cut)
-	cut        bool     // meta.truncated
-	cutNoted   bool     // the command's own text says it was cut
-	notSim     []string // meta.not_simulated
+	cutAt    int      // the --limit a list stopped at (Cut)
+	cut      bool     // meta.truncated
+	cutNoted bool     // the command's own text says it was cut
+	notSim   []string // meta.not_simulated
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -276,14 +266,25 @@ func (p *Printer) load() {
 	})
 }
 
-// Redact hides secret values in plain text.
-func (p *Printer) Redact(s string) string {
+// RedactExact hides only the exact values komando keeps secret, never
+// what merely looks like one: for text a person must see whole (the
+// approval window), where a pattern could hide more than a value.
+func (p *Printer) RedactExact(s string) string {
 	if p.NoRedact {
 		return s
 	}
 	for _, h := range p.hideList() {
 		s = strings.ReplaceAll(s, h.raw, h.label)
 	}
+	return s
+}
+
+// Redact hides secret values in plain text.
+func (p *Printer) Redact(s string) string {
+	if p.NoRedact {
+		return s
+	}
+	s = p.RedactExact(s)
 	if p.Mask {
 		s = MaskSecrets(s)
 		if p.Personal {
@@ -316,10 +317,10 @@ type Texter interface{ Text() string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
-	pinned, warns, dep, cut, ns := slices.Clone(p.pinned), slices.Clone(p.warns), p.deprecated, p.cut, slices.Clone(p.notSim)
+	pinned, warns, cut, ns := slices.Clone(p.pinned), slices.Clone(p.warns), p.cut, slices.Clone(p.notSim)
 	p.mu.Unlock()
 	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
-		HostKeysPinned: pinned, Warnings: warns, Deprecated: dep, Truncated: cut, NotSimulated: ns}
+		HostKeysPinned: pinned, Warnings: warns, Truncated: cut, NotSimulated: ns}
 }
 
 // NotSimulated records a step a dry run left out because trying it would
@@ -374,7 +375,7 @@ func ApprovalFlag(e *Error) string {
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.deprecated, p.notSim = nil, nil, nil, nil, nil, nil, nil
+	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.notSim = nil, nil, nil, nil, nil, nil
 	p.cut, p.cutNoted, p.cutAt = false, false, 0
 	p.forgetAdded()
 }

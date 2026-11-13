@@ -102,7 +102,7 @@ func TestSecretMvUpdatesEveryReference(t *testing.T) {
 
 	// the audit names the secrets, never the value
 	b := []byte(auditText(t))
-	if !strings.Contains(string(b), `"secret.mv"`) || strings.Contains(string(b), "the-value") {
+	if !strings.Contains(string(b), `"secret.rename"`) || strings.Contains(string(b), "the-value") {
 		t.Errorf("audit: %s", b)
 	}
 

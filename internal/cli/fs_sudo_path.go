@@ -48,15 +48,21 @@ func sudoWalkScript(stop string) string {
 // sudoFolderScript stops with exit 93 when the folder $p goes into, or a
 // folder above it, can be changed by a user other than root and the SSH
 // user ($me): owned by another user, writable by a group other than
-// root's, or writable by everyone. A folder above with the sticky bit
+// root's, writable by everyone, or writable by a user or group its
+// access list (POSIX ACL) names. A folder above with the sticky bit
 // (/tmp) is fine: no one can move the folder under it that root or $me
 // owns. The folder itself never is: anyone could make the file first.
+// Without getfacl, any access list (a mode ending in + in ls -l) stops.
 func sudoFolderScript(tmpQ string) string {
 	return `d=$(dirname -- "$p"); while [ ! -e "$d" ]; do d=$(dirname -- "$d"); done; c=; ` +
 		`while :; do set -- $(stat -c '%u %g %a' -- "$d"); w=; ` +
 		`case $1 in 0|"$me") ;; *) w=user;; esac; ` +
 		`if [ "$2" != 0 ] && [ $((0$3 & 020)) != 0 ]; then w=group; fi; ` +
 		`if [ $((0$3 & 02)) != 0 ] && { [ -z "$c" ] || [ $((0$3 & 01000)) = 0 ]; }; then w=everyone; fi; ` +
+		`if [ -z "$w" ] && { [ -z "$c" ] || [ $((0$3 & 01000)) = 0 ]; }; then ` +
+		`if command -v getfacl >/dev/null 2>&1; then ` +
+		`getfacl -cn -- "$d" 2>/dev/null | grep -E '^(user|group):[0-9]+:.w' | grep -Ev "^(user:($me|0)|group:0):" | grep -q . && w=acl; ` +
+		`else case $(ls -ld -- "$d") in ??????????+*) w=acl;; esac; fi; fi; ` +
 		`if [ -n "$w" ]; then printf '\036komando-folder %s %s %s\n' "$w" "$(stat -c '%U %G' -- "$d")" "$d" >&2; rm -f ` + tmpQ + `; exit 93; fi; ` +
 		`[ "$d" = / ] && break; c=1; d=$(dirname -- "$d"); done; `
 }
@@ -64,7 +70,11 @@ func sudoFolderScript(tmpQ string) string {
 // sudoWriteScript checks $p before root writes it, and sets $p to the
 // file root writes. With noFollow a link at $p stops with exit 95. Only
 // root's links are followed (exit 92 for any other), and only into a
-// folder root owns; the folder rule is sudoFolderScript.
+// folder root owns (for a folder --mkdirs makes, the nearest one there);
+// the folder rule is sudoFolderScript. The SSH user's own links are not
+// followed either, unlike for a read: komando's rules look at the path
+// given, and a link the agent made as that user would move a write as
+// root somewhere else.
 func sudoWriteScript(tmpQ string, noFollow bool) string {
 	stop := "{ rm -f " + tmpQ + "; exit 92; }"
 	var sb strings.Builder
@@ -73,7 +83,9 @@ func sudoWriteScript(tmpQ string, noFollow bool) string {
 		sb.WriteString(`if [ -L "$p" ]; then rm -f ` + tmpQ + `; exit 95; fi; `)
 	}
 	sb.WriteString(sudoWalkScript(stop))
-	sb.WriteString(`if [ "$f" = 1 ]; then [ "$(stat -c %u -- "$(dirname -- "$p")")" = 0 ] || ` + stop + `; fi; `)
+	// the folder the link led into, or (--mkdirs) the nearest one there
+	sb.WriteString(`if [ "$f" = 1 ]; then d=$(dirname -- "$p"); while [ ! -e "$d" ]; do d=$(dirname -- "$d"); done; ` +
+		`[ "$(stat -c %u -- "$d")" = 0 ] || ` + stop + `; fi; `)
 	sb.WriteString(sudoFolderScript(tmpQ))
 	return sb.String()
 }
@@ -109,9 +121,15 @@ func unsafeFolder(p, stderr string) error {
 		by, as = "the group "+group, "a user of the group "+group
 	case "everyone":
 		by, as = "every user", "the user who should own the file"
+	case "acl":
+		by, as = "a user or group its access list (ACL) names", "the user who should own the file"
+	}
+	user := "USER"
+	if who == "user" && owner != "" {
+		user = owner
 	}
 	return out.Errf(out.ExitConflict, "SHARED_FOLDER_CONFLICT",
-		"write it as "+as+" instead, for example `komando exec TARGET --sudo-user USER --stdin-file FILE -- sh -c 'cat > PATH'`",
+		"write it as "+as+" instead, for example `komando exec TARGET --sudo-user "+user+" --stdin-file FILE -- sh -c 'cat > \"$0\"' "+sshx.Q(p)+"`",
 		"%s can be changed by %s, not only by root and the SSH user: as root, komando does not write %s there (that user could swap it for a link while root writes)", dir, by, p)
 }
 
@@ -157,19 +175,28 @@ func writeRemoteSudo(ctx context.Context, c *sshx.Client, sc *sftp.Client, p, mo
 		_ = sc.Remove(tmp)
 		return nil, out.Errf(out.ExitRemote, "WRITE_FAILED", "check that the folder is writable and has free space: `komando exec TARGET --read-only -- df -h`", "%s", strings.TrimSpace(r.Stderr))
 	}
-	f4 := strings.SplitN(strings.TrimSpace(r.Stdout), " ", 4)
-	if len(f4) == 4 {
-		mode = fmt.Sprintf("%04s", f4[0])
-		res["replaced"] = f4[1] == "1"
-		if f4[3] != p {
-			res["followed"] = f4[3]
-		}
-		if o.backup && f4[2] != "-" {
-			res["backup"] = f4[3] + "." + f4[2]
-		}
-	}
-	res["mode"] = mode
+	res["mode"] = sudoInstallResult(r.Stdout, mode, o, res)
 	return res, nil
+}
+
+// sudoInstallResult reads the line sudoInstallScript prints ("MODE
+// REPLACED BACKUP-SUFFIX FOLLOWED PATH") into res and returns the mode.
+// followed is set only when a link was followed: the walk always turns
+// the path into its real one, so a relative or non-canonical path
+// (notes.txt, /etc//app/x) differs from it with no link involved.
+func sudoInstallResult(stdout, mode string, o writeOpts, res map[string]any) string {
+	f := strings.SplitN(strings.TrimSpace(stdout), " ", 5)
+	if len(f) != 5 {
+		return mode
+	}
+	res["replaced"] = f[1] == "1"
+	if f[3] == "1" {
+		res["followed"] = f[4]
+	}
+	if o.backup && f[2] != "-" {
+		res["backup"] = f[4] + "." + f[2]
+	}
+	return fmt.Sprintf("%04s", f[0])
 }
 
 // sudoInstallScript is the root side of writeRemoteSudo.
@@ -211,6 +238,6 @@ func sudoInstallScript(p, mode, tmp string, o writeOpts) string {
 		}
 		sb.WriteString(" " + sshx.Q(tmp) + ` "$p"; `)
 	}
-	sb.WriteString("rm -f " + sshx.Q(tmp) + `; printf '%s %s %s %s\n' "$m" "$r" "$k" "$p"`)
+	sb.WriteString("rm -f " + sshx.Q(tmp) + `; printf '%s %s %s %s %s\n' "$m" "$r" "$k" "${f:-0}" "$p"`)
 	return sb.String()
 }

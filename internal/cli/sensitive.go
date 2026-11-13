@@ -7,6 +7,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -339,11 +340,12 @@ func skipLocalSecret(p string) bool {
 	return true
 }
 
-// unlockVars are the variables that open the secret stores komando reads
-// (its vault, KeePass, Bitwarden, 1Password Connect, HashiCorp Vault).
-var unlockVars = map[string]bool{
-	"KOMANDO_VAULT_PASS": true, "KOMANDO_KDBX_PASSWORD": true, "KOMANDO_KDBX_KEYFILE": true,
-	"KOMANDO_BW_PASSWORD": true, "KOMANDO_BW_CLIENT_SECRET": true, "OP_CONNECT_TOKEN": true, "VAULT_TOKEN": true,
+// unlockVar reports whether name opens a secret store komando reads: its
+// vault (KOMANDO_VAULT_PASS) or one of vault.UnlockVars (KeePass,
+// Bitwarden, 1Password Connect, HashiCorp Vault / OpenBao). One list, the
+// one TakeUnlockEnv takes out of the environment.
+func unlockVar(name string) bool {
+	return name == "KOMANDO_VAULT_PASS" || slices.Contains(vault.UnlockVars, name)
 }
 
 // refGuard is vault.RefGuard: a secret: reference never reads a secret
@@ -370,7 +372,7 @@ func refGuard(kind, name string) error {
 				"the reference file:%s points at %s; komando does not send it for an AI agent", name, why).NoFlag()
 		}
 	case "env":
-		if unlockVars[name] {
+		if unlockVar(name) {
 			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "use secret:NAME; the user sets it up in their own terminal",
 				"the reference env:%s is the password of a secret store; komando does not send it for an AI agent", name).NoFlag()
 		}

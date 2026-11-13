@@ -581,7 +581,7 @@ Error: missing arguments; usage: komando cluster helm history TARGET RELEASE
 ### komando -o json cluster helm list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.helm.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster helm list TARGET","hint":"for example: komando cluster helm list prod-k8s -A"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.helm.list","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster helm list TARGET","hint":"for example: komando cluster helm list prod-k8s -A"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster helm list (agent text)
 exit 2
@@ -591,7 +591,7 @@ Error: missing arguments; usage: komando cluster helm list TARGET
 ### komando -o json cluster helm list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.helm.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster helm list TARGET","hint":"for example: komando cluster helm list prod-k8s -A"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.helm.list","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster helm list TARGET","hint":"for example: komando cluster helm list prod-k8s -A"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster helm list (script text)
 exit 2
@@ -721,7 +721,7 @@ Error: missing arguments; usage: komando cluster history TARGET TYPE/NAME
 ### komando -o json cluster list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.list","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster list (agent text)
 exit 2
@@ -731,7 +731,7 @@ Error: missing arguments; usage: komando cluster list TARGET TYPE
 ### komando -o json cluster list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.list","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster list (script text)
 exit 2
@@ -741,7 +741,7 @@ Error: missing arguments; usage: komando cluster list TARGET TYPE
 ### komando -o json cluster list x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.list","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster list x1 (agent text)
 exit 2
@@ -751,7 +751,7 @@ Error: missing arguments; usage: komando cluster list TARGET TYPE
 ### komando -o json cluster list x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.list","error":{"code":"USAGE","message":"missing arguments; usage: komando cluster list TARGET TYPE","hint":"for example: komando cluster list prod-k8s pods --namespace shop"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster list x1 (script text)
 exit 2
@@ -1141,7 +1141,7 @@ Error: missing arguments; usage: komando conn edit NAME
 ### komando -o json conn rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rename (agent text)
 exit 2
@@ -1151,7 +1151,7 @@ Error: missing arguments; usage: komando conn rename OLD NEW
 ### komando -o json conn rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rename (script text)
 exit 2
@@ -1161,7 +1161,7 @@ Error: missing arguments; usage: komando conn rename OLD NEW
 ### komando -o json conn rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rename x1 (agent text)
 exit 2
@@ -1171,7 +1171,7 @@ Error: missing arguments; usage: komando conn rename OLD NEW
 ### komando -o json conn rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"conn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"conn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando conn rename OLD NEW","hint":"for example: komando conn rename shop shop-prod"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text conn rename x1 (script text)
 exit 2
@@ -1781,7 +1781,7 @@ Error: missing arguments; usage: komando db user add CONN USER --password-ref RE
 ### komando -o json db user list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando db user list CONN","hint":"for example: komando db user list prod-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.list","error":{"code":"USAGE","message":"missing arguments; usage: komando db user list CONN","hint":"for example: komando db user list prod-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user list (agent text)
 exit 2
@@ -1791,7 +1791,7 @@ Error: missing arguments; usage: komando db user list CONN
 ### komando -o json db user list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.user.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando db user list CONN","hint":"for example: komando db user list prod-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.list","error":{"code":"USAGE","message":"missing arguments; usage: komando db user list CONN","hint":"for example: komando db user list prod-db"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user list (script text)
 exit 2
@@ -1881,7 +1881,7 @@ Error: missing arguments; usage: komando db user rm CONN USER
 ### komando -o json db user show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.grants","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.show","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user show (agent text)
 exit 2
@@ -1891,7 +1891,7 @@ Error: missing arguments; usage: komando db user show CONN USER
 ### komando -o json db user show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.grants","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.show","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user show (script text)
 exit 2
@@ -1901,7 +1901,7 @@ Error: missing arguments; usage: komando db user show CONN USER
 ### komando -o json db user show x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.grants","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.show","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user show x1 (agent text)
 exit 2
@@ -1911,7 +1911,7 @@ Error: missing arguments; usage: komando db user show CONN USER
 ### komando -o json db user show x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"db.grants","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.user.show","error":{"code":"USAGE","message":"missing arguments; usage: komando db user show CONN USER","hint":"for example: komando db user show prod-db app_ro"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text db user show x1 (script text)
 exit 2
@@ -2561,7 +2561,7 @@ Error: missing arguments; usage: komando fs chmod TARGET MODE PATH...
 ### komando -o json fs list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list SERVER [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.list","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list SERVER [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs list (agent text)
 exit 2
@@ -2571,7 +2571,7 @@ Error: missing arguments; usage: komando fs list SERVER [PATH]
 ### komando -o json fs list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"fs.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list SERVER [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.list","error":{"code":"USAGE","message":"missing arguments; usage: komando fs list SERVER [PATH]","hint":"for example: komando fs list web1 /var/www"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs list (script text)
 exit 2
@@ -2901,7 +2901,7 @@ Error: missing arguments; usage: komando group add GROUP TARGET...
 ### komando -o json group rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename (agent text)
 exit 2
@@ -2911,7 +2911,7 @@ Error: missing arguments; usage: komando group rename OLD NEW
 ### komando -o json group rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename (script text)
 exit 2
@@ -2921,7 +2921,7 @@ Error: missing arguments; usage: komando group rename OLD NEW
 ### komando -o json group rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename x1 (agent text)
 exit 2
@@ -2931,7 +2931,7 @@ Error: missing arguments; usage: komando group rename OLD NEW
 ### komando -o json group rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"group.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"group.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando group rename OLD NEW","hint":"for example: komando group rename web frontend"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text group rename x1 (script text)
 exit 2
@@ -3001,7 +3001,7 @@ Error: missing arguments; usage: komando host edit TARGET...
 ### komando -o json host rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rename (agent text)
 exit 2
@@ -3011,7 +3011,7 @@ Error: missing arguments; usage: komando host rename OLD NEW
 ### komando -o json host rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rename (script text)
 exit 2
@@ -3021,7 +3021,7 @@ Error: missing arguments; usage: komando host rename OLD NEW
 ### komando -o json host rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rename x1 (agent text)
 exit 2
@@ -3031,7 +3031,7 @@ Error: missing arguments; usage: komando host rename OLD NEW
 ### komando -o json host rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"host.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando host rename OLD NEW","hint":"for example: komando host rename web1 web-01"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rename x1 (script text)
 exit 2
@@ -3401,7 +3401,7 @@ Error: missing arguments; usage: komando key gen NAME
 ### komando -o json key rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rename (agent text)
 exit 2
@@ -3411,7 +3411,7 @@ Error: missing arguments; usage: komando key rename OLD NEW
 ### komando -o json key rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rename (script text)
 exit 2
@@ -3421,7 +3421,7 @@ Error: missing arguments; usage: komando key rename OLD NEW
 ### komando -o json key rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rename x1 (agent text)
 exit 2
@@ -3431,7 +3431,7 @@ Error: missing arguments; usage: komando key rename OLD NEW
 ### komando -o json key rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"key.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"key.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando key rename OLD NEW","hint":"for example: komando key rename deploy deploy-2026"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text key rename x1 (script text)
 exit 2
@@ -4101,7 +4101,7 @@ Error: missing arguments; usage: komando queue lag CONN CONSUMER
 ### komando -o json queue list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando queue list CONN [PATTERN]","hint":"for example: komando queue list prod-kafka"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.list","error":{"code":"USAGE","message":"missing arguments; usage: komando queue list CONN [PATTERN]","hint":"for example: komando queue list prod-kafka"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue list (agent text)
 exit 2
@@ -4111,7 +4111,7 @@ Error: missing arguments; usage: komando queue list CONN [PATTERN]
 ### komando -o json queue list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"queue.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando queue list CONN [PATTERN]","hint":"for example: komando queue list prod-kafka"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"queue.list","error":{"code":"USAGE","message":"missing arguments; usage: komando queue list CONN [PATTERN]","hint":"for example: komando queue list prod-kafka"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text queue list (script text)
 exit 2
@@ -4501,7 +4501,7 @@ Error: missing arguments; usage: komando registry inspect CONN IMAGE
 ### komando -o json registry list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando registry list CONN [REPO]","hint":"for example: komando registry list harbor"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.list","error":{"code":"USAGE","message":"missing arguments; usage: komando registry list CONN [REPO]","hint":"for example: komando registry list harbor"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry list (agent text)
 exit 2
@@ -4511,7 +4511,7 @@ Error: missing arguments; usage: komando registry list CONN [REPO]
 ### komando -o json registry list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"registry.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando registry list CONN [REPO]","hint":"for example: komando registry list harbor"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"registry.list","error":{"code":"USAGE","message":"missing arguments; usage: komando registry list CONN [REPO]","hint":"for example: komando registry list harbor"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text registry list (script text)
 exit 2
@@ -4701,7 +4701,7 @@ Error: missing arguments; usage: komando secret cp OLD NEW
 ### komando -o json secret rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret rename (agent text)
 exit 2
@@ -4711,7 +4711,7 @@ Error: missing arguments; usage: komando secret rename OLD NEW
 ### komando -o json secret rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret rename (script text)
 exit 2
@@ -4721,7 +4721,7 @@ Error: missing arguments; usage: komando secret rename OLD NEW
 ### komando -o json secret rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret rename x1 (agent text)
 exit 2
@@ -4731,7 +4731,7 @@ Error: missing arguments; usage: komando secret rename OLD NEW
 ### komando -o json secret rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando secret rename OLD NEW","hint":"for example: komando secret rename vpn-password office-vpn-pass --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret rename x1 (script text)
 exit 2
@@ -4781,7 +4781,7 @@ Error: missing arguments; usage: komando secret set NAME
 ### komando -o json secret show (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.get","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.show","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret show (agent text)
 exit 2
@@ -4791,7 +4791,7 @@ Error: missing arguments; usage: komando secret show NAME
 ### komando -o json secret show (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"secret.get","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"secret.show","error":{"code":"USAGE","message":"missing arguments; usage: komando secret show NAME","hint":"for example: komando secret show db-pass"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text secret show (script text)
 exit 2
@@ -4981,7 +4981,7 @@ Error: missing arguments; usage: komando storage link CONN OBJECT
 ### komando -o json storage list (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando storage list CONN [PREFIX]","hint":"for example: komando storage list backups"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.list","error":{"code":"USAGE","message":"missing arguments; usage: komando storage list CONN [PREFIX]","hint":"for example: komando storage list backups"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage list (agent text)
 exit 2
@@ -4991,7 +4991,7 @@ Error: missing arguments; usage: komando storage list CONN [PREFIX]
 ### komando -o json storage list (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.ls","error":{"code":"USAGE","message":"missing arguments; usage: komando storage list CONN [PREFIX]","hint":"for example: komando storage list backups"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.list","error":{"code":"USAGE","message":"missing arguments; usage: komando storage list CONN [PREFIX]","hint":"for example: komando storage list backups"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage list (script text)
 exit 2
@@ -5761,7 +5761,7 @@ Error: missing arguments; usage: komando vpn edit TARGET...
 ### komando -o json vpn rename (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rename (agent text)
 exit 2
@@ -5771,7 +5771,7 @@ Error: missing arguments; usage: komando vpn rename OLD NEW
 ### komando -o json vpn rename (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rename (script text)
 exit 2
@@ -5781,7 +5781,7 @@ Error: missing arguments; usage: komando vpn rename OLD NEW
 ### komando -o json vpn rename x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rename x1 (agent text)
 exit 2
@@ -5791,7 +5791,7 @@ Error: missing arguments; usage: komando vpn rename OLD NEW
 ### komando -o json vpn rename x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"vpn.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"vpn.rename","error":{"code":"USAGE","message":"missing arguments; usage: komando vpn rename OLD NEW","hint":"for example: komando vpn rename office office-jkt"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text vpn rename x1 (script text)
 exit 2
@@ -6141,7 +6141,7 @@ Error: --env: A=...,B=... holds 2 KEY=VALUE pairs; repeat --env for each KEY=VAL
 ### komando -o json cluster ls x1 pods -n 50 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.list","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster ls x1 pods -n 50 (agent text)
 exit 2
@@ -6151,7 +6151,7 @@ Error: -n: 50 is a count, but -n is --namespace in cluster commands
 ### komando -o json cluster ls x1 pods -n 50 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"cluster.ls","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cluster.list","error":{"code":"USAGE","message":"-n: 50 is a count, but -n is --namespace in cluster commands","hint":"`--limit 50`, or `--namespace=50` for a namespace named 50"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cluster ls x1 pods -n 50 (script text)
 exit 2
@@ -6199,45 +6199,25 @@ exit 2
 --- stderr
 Error: -n: 50 is a count, but -n is --namespace in cluster commands
 ### komando -o json storage rm x1 --prefix a/ -n 10 --dry-run (agent json)
-exit 3
+exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"CONN_NOT_FOUND","message":"no server, conn or VPN named \"x1\"","hint":"run `komando list` to see servers, conns and VPNs"},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"deprecated":{"used":"-n","now":"--max-remove"}}}
+{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"unknown shorthand flag: 'n' in -n","hint":"see `komando storage rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm x1 --prefix a/ -n 10 --dry-run (agent text)
-exit 3
+exit 2
 --- stdout
 --- stderr
-Error: No file storage named "x1".
+Error: unknown shorthand flag: 'n' in -n
 ### komando -o json storage rm x1 --prefix a/ -n 10 --dry-run (script json)
-exit 3
+exit 2
 --- stdout
-{"ok":false,"command":"storage.rm","error":{"code":"CONN_NOT_FOUND","message":"no server, conn or VPN named \"x1\"","hint":"run `komando list` to see servers, conns and VPNs"},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"deprecated":{"used":"-n","now":"--max-remove"}}}
+{"ok":false,"command":"storage.rm","error":{"code":"USAGE","message":"unknown shorthand flag: 'n' in -n","hint":"see `komando storage rm --help`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage rm x1 --prefix a/ -n 10 --dry-run (script text)
-exit 3
+exit 2
 --- stdout
 --- stderr
-Error: No file storage named "x1".
-### komando -o json forward list (agent json)
-exit 0
---- stdout
-{"ok":true,"command":"tunnel.list","data":{"count":0,"tunnels":[]},"meta":{"contract":1,"version":"V","duration_ms":0,"deprecated":{"used":"komando forward list","now":"komando tunnel list"}}}
---- stderr
-### komando -o text forward list (agent text)
-exit 0
---- stdout
-no tunnels yet: `komando tunnel start TARGET -L SPEC`
---- stderr
-### komando -o json forward list (script json)
-exit 0
---- stdout
-{"ok":true,"command":"tunnel.list","data":{"count":0,"tunnels":[]},"meta":{"contract":1,"version":"V","duration_ms":0,"deprecated":{"used":"komando forward list","now":"komando tunnel list"}}}
---- stderr
-### komando -o text forward list (script text)
-exit 0
---- stdout
-no tunnels yet: `komando tunnel start TARGET -L SPEC`
---- stderr
+Error: unknown shorthand flag: 'n' in -n
 ### komando -o json exec web1 -- rm -rf / (agent json, gate inventory)
 exit 6
 --- stdout
@@ -7461,7 +7441,7 @@ Stopped: this can delete or break things (deletes /tmp/x on web1 for good), so k
 ### komando -o json host trust prod1 --reset --dry-run (agent json, release note)
 exit 0
 --- stdout
-{"ok":true,"command":"host.trust","data":{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
+{"ok":true,"command":"host.trust","data":{"results":[{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1}]},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
 --- stderr
 ### komando -o text host trust prod1 --reset --dry-run (agent text, release note)
 exit 0
@@ -7473,7 +7453,7 @@ Without --dry-run this stops here: [NEEDS_PERSON] replacing the pinned host key 
 ### komando -o json host trust prod1 --reset --dry-run (script json, release note)
 exit 0
 --- stdout
-{"ok":true,"command":"host.trust","data":{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
+{"ok":true,"command":"host.trust","data":{"results":[{"address":"127.0.0.2:1","host":"prod1","would_fetch_from":"the server directly","would_remove_entries":1}]},"meta":{"contract":1,"version":"V","duration_ms":0,"dry_run":true,"would_be_blocked":{"code":"NEEDS_PERSON","message":"replacing the pinned host key of prod1 (a key may be replaced): only a person at a terminal replaces a pinned host key (a changed key may be an attack)","hint":"report it to the user: once they have checked the new key another way, they run `komando host trust prod1 --reset` in their own terminal"}}}
 --- stderr
 ### komando -o text host trust prod1 --reset --dry-run (script text, release note)
 exit 0

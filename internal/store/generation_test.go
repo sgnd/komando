@@ -209,30 +209,6 @@ func TestNewStoreCountNotSaved(t *testing.T) {
 	}
 }
 
-// A store set aside takes a journal left by a write with it, and the copy
-// set aside still opens with everything in it.
-func TestRemoveStoreKeepsItWhole(t *testing.T) {
-	keychainStore(t)
-	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
-	if err := RemoveStore("store.db.aside"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(Path(StoreFile)); !os.IsNotExist(err) {
-		t.Fatal("store.db still there")
-	}
-	if _, err := os.Stat(Path("store.db.aside-journal")); err == nil {
-		t.Fatal("a finished write left a journal")
-	}
-	if err := os.Rename(Path("store.db.aside"), Path(StoreFile)); err != nil {
-		t.Fatal(err)
-	}
-	AllowOldCopy = true // its count left the keychain with it
-	st, err := Load()
-	if err != nil || st.Hosts["a"] == nil {
-		t.Fatalf("the store set aside lost data: %v", err)
-	}
-}
-
 // A keyfile-era backup put back after the key moved to the keychain: the
 // store says "file", but the keychain holds a count, so it is an old copy.
 func TestKeyfileBackupAfterKeychainIsStopped(t *testing.T) {

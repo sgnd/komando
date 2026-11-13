@@ -294,7 +294,7 @@ func storageLsCmd() *cobra.Command {
 			if len(args) == 2 {
 				prefix = args[1]
 			}
-			return withStorage(cmd.Context(), "storage.ls", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
+			return withStorage(cmd.Context(), "storage.list", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					objs, more, err := s.List(ctx, prefix, recursive, limit)
 					if err != nil {
@@ -324,7 +324,6 @@ func storageLsCmd() *cobra.Command {
 	}
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "include everything below the prefix, not just one level")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
-	withID(c, "storage.ls") // `ls` before: a permanent synonym
 	return c
 }
 
@@ -495,7 +494,7 @@ through --via, only people who can reach that address can use the link.
 		},
 	}
 	expires = time.Hour
-	c.Flags().Var(&durFlag{d: &expires, positive: true, name: "expires"}, "expires", "how long the link works, like 30m, 24h or 7d (at most 7d)")
+	c.Flags().Var(&durFlag{d: &expires, positive: true}, "expires", "how long the link works, like 30m, 24h or 7d (at most 7d)")
 	c.Flags().StringVar(&endpoint, "endpoint", "", "sign the link for this address, like https://files.example.com (when komando reaches the storage through --via)")
 	return c
 }

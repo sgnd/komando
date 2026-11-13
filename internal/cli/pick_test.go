@@ -65,7 +65,7 @@ func TestCommandKeepsVaultPass(t *testing.T) {
 	if _, ok := os.LookupEnv("KOMANDO_VAULT_PASS"); ok {
 		t.Fatal("Passphrase left the variable in the environment")
 	}
-	c := menuCommand("/bin/true", []string{"list"})
+	c := pickCommand("/bin/true", []string{"list"})
 	if !slices.Contains(c.Env, "KOMANDO_VAULT_PASS=test") {
 		t.Error("a command komando runs does not get the vault passphrase")
 	}
@@ -83,8 +83,8 @@ func TestCommandLineQuoting(t *testing.T) {
 		`host add web1 'it'\''s'`:       {"host", "add", "web1", "it's"},
 	}
 	for want, args := range cases {
-		if got := menuCommandLine(args); got != want {
-			t.Errorf("menuCommandLine(%q) = %q, want %q", args, got, want)
+		if got := pickCommandLine(args); got != want {
+			t.Errorf("pickCommandLine(%q) = %q, want %q", args, got, want)
 		}
 	}
 }

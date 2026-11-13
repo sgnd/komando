@@ -129,6 +129,24 @@
     },
     "ok": "bool"
   },
+  "conn rm pg --dry-run": {
+    "command": "string",
+    "data": {
+      "secrets_unused": [
+        "string"
+      ],
+      "would_remove": [
+        "string"
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "conn show pg": {
     "command": "string",
     "data": {
@@ -315,6 +333,21 @@
     },
     "ok": "bool"
   },
+  "host rm web --dry-run": {
+    "command": "string",
+    "data": {
+      "would_remove": [
+        "string"
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "host show nope": {
     "command": "string",
     "error": {
@@ -361,6 +394,25 @@
     },
     "meta": {
       "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "host trust web --dry-run": {
+    "command": "string",
+    "data": {
+      "results": [
+        {
+          "address": "string",
+          "host": "string",
+          "would_fetch_from": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },
@@ -616,6 +668,28 @@
     },
     "ok": "bool"
   },
+  "vpn add lab socks --proxy-address 127.0.0.1:1080": {
+    "command": "string",
+    "data": {
+      "next": "string",
+      "notes": [
+        "string"
+      ],
+      "vpn": {
+        "address": "string",
+        "created_at": "string",
+        "kind": "string",
+        "name": "string",
+        "updated_at": "string"
+      }
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "vpn list": {
     "command": "string",
     "data": {
@@ -624,6 +698,35 @@
     },
     "meta": {
       "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "vpn rm lab": {
+    "command": "string",
+    "data": {
+      "removed": [
+        "string"
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "vpn rm lab --dry-run": {
+    "command": "string",
+    "data": {
+      "would_remove": [
+        "string"
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -65,7 +66,7 @@ func TestVpnLabelsProtectedUnset(t *testing.T) {
 	}
 	mustRun(t, "vpn", "add", "sso", "socks", "--proxy-address", "127.0.0.1:1083", "--mfa")
 	wantCode(t, "SAFETY_SETTING", "vpn", "edit", "sso", "--mfa=false")
-	if d := mustRun(t, "vpn", "rm", "sso"); d["removed"] != "sso" {
+	if d := mustRun(t, "vpn", "rm", "sso"); fmt.Sprint(d["removed"]) != "[sso]" {
 		t.Errorf("rm one: %v", d)
 	}
 }

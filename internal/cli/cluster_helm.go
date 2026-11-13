@@ -198,7 +198,7 @@ func helmLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return readClusters(cmd.Context(), "cluster.helm.ls", st, ts, clusterRead{swarmNo: helmNoSwarm,
+			return readClusters(cmd.Context(), "cluster.helm.list", st, ts, clusterRead{swarmNo: helmNoSwarm,
 				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 					space := cmp.Or(ns, k.Namespace)
 					if all {
@@ -229,7 +229,6 @@ func helmLsCmd() *cobra.Command {
 	}
 	nsFlags(c, &ns, &all, nil)
 	clusterLimitFlag(c, &limit, 0, "releases per cluster")
-	withID(c, "cluster.helm.ls") // `ls` before: a permanent synonym
 	return c
 }
 

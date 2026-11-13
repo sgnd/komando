@@ -144,7 +144,7 @@ func TestWindowsScriptArgs(t *testing.T) {
 	srv := startWindowsServer(t)
 	f := filepath.Join(t.TempDir(), "check.ps1")
 	_ = os.WriteFile(f, []byte("Write-Output $args[0]\n"), 0o600)
-	_ = captureOutput(t, func() error { return runRoot(t, "script", "win", f, "--arg", "a'b") })
+	_ = captureOutput(t, func() error { return runRoot(t, "exec", "win", "--script", f, "--arg", "a'b") })
 	execs := srv.take()
 	if len(execs) != 1 || !strings.Contains(psScript(t, execs[0]), "& ([scriptblock]::Create('Write-Output $args[0]\n"+sshx.PSTrailer+"')) 'a''b'\n") {
 		t.Fatalf("execs = %v", execs)
@@ -154,13 +154,13 @@ func TestWindowsScriptArgs(t *testing.T) {
 	// outside that block
 	_ = os.WriteFile(f, []byte("param([string]$Stage)\nWrite-Output $Stage\n"), 0o600)
 	_ = captureOutput(t, func() error {
-		return runRoot(t, "script", "win", f, "-e", "A=1", "-C", `C:\app`, "--arg", "staging", "--arg", "-x")
+		return runRoot(t, "exec", "win", "--script", f, "-e", "A=1", "-C", `C:\app`, "--arg", "staging", "--arg", "-x")
 	})
 	execs = srv.take()
 	if s := psScript(t, execs[0]); !strings.Contains(s, "\n& ([scriptblock]::Create('param([string]$Stage)\n") || !strings.Contains(s, "')) 'staging' '-x'\n") {
 		t.Fatalf("param script:\n%s", s)
 	}
-	if got := errCode(runRoot(t, "script", "win", f, "--interpreter", "python3")); got != "NOT_SUPPORTED" {
+	if got := errCode(runRoot(t, "exec", "win", "--script", f, "--interpreter", "python3")); got != "NOT_SUPPORTED" {
 		t.Errorf("--interpreter python3 on Windows: %s", got)
 	}
 }

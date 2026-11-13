@@ -1,11 +1,8 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-
-	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
@@ -136,65 +133,9 @@ func proxyCommandSkip(cmd string) string {
 	return ""
 }
 
-// parseHostsJSON reads a list of hosts: `komando export` output (the
-// envelope or its data), as older `host export` printed it, or a plain list.
-func parseHostsJSON(b []byte) ([]*store.Host, bool) {
-	var list []*store.Host
-	if json.Unmarshal(b, &list) == nil {
-		return list, true
-	}
-	var doc struct {
-		Hosts []*store.Host `json:"hosts"`
-		Data  *struct {
-			Hosts []*store.Host `json:"hosts"`
-		} `json:"data"`
-	}
-	if json.Unmarshal(b, &doc) != nil {
-		return nil, false
-	}
-	if doc.Hosts == nil && doc.Data != nil {
-		return doc.Data.Hosts, true
-	}
-	return doc.Hosts, doc.Hosts != nil
-}
-
-// hostImportCmd is the old name of `import ssh-config [FILE]` (--ssh-config)
-// and `import komando FILE` (--json), kept for one release.
-func hostImportCmd() *cobra.Command {
-	var sshConfig, jsonFile string
-	var groups []string
-	var overwrite bool
-	c := &cobra.Command{
-		Use:  "import",
-		Args: cobra.NoArgs,
-		PreRun: func(cmd *cobra.Command, _ []string) {
-			if jsonFile != "" { // the note names the command that does it now
-				cmd.Annotations[oldNameNote] = "import komando " + jsonFile
-			}
-		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if jsonFile != "" {
-				return runImport("komando", jsonFile, groups, overwrite)
-			}
-			return runImport("ssh-config", sshConfig, groups, overwrite)
-		},
-	}
-	c.Flags().StringVar(&sshConfig, "ssh-config", "", "OpenSSH config file (default ~/.ssh/config)")
-	c.Flags().StringVar(&jsonFile, "json", "", "a file made by komando export (- for stdin)")
-	c.Flags().StringSliceVarP(&groups, "group", "g", nil, "put the imported servers in these groups")
-	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace servers that have the same name (protected ones also need --yes)")
-	c.MarkFlagsMutuallyExclusive("ssh-config", "json")
-	return oldName(c, "import ssh-config")
-}
-
 func orEmpty(s []string) []string {
 	if s == nil {
 		return []string{}
 	}
 	return s
-}
-
-// hostExportCmd is the old name of `komando export [TARGET]`.
-func hostExportCmd() *cobra.Command {
-	return oldName(exportCmd(), "export")
 }

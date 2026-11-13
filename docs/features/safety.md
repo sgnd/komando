@@ -165,7 +165,6 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `cache run` | when the cache command deletes data (FLUSHALL, ...) | dangerous | `--allow-dangerous` |
 | `db query` | when the SQL deletes data (DROP, DELETE without WHERE, ...) | dangerous | `--allow-dangerous` |
 | `db explain` | with --analyze, when the SQL deletes data | dangerous | `--allow-dangerous` |
-| `pkg security` | with --apply, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
 | `pkg upgrade` | with --security, when an update would remove a package the server needs | dangerous | `--allow-dangerous` |
 | `key revoke` | when it is the key komando logs in with | dangerous | `--allow-dangerous` |
 | `host edit` | when --proxy-command matches a destructive rule | dangerous | `--allow-dangerous` |

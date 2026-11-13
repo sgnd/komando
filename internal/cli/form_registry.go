@@ -232,13 +232,13 @@ func registryLoginQ(k registryKind) formQ {
 			}
 			return regToken
 		},
-		choices: func(_ *store.State, a formAnswers) []menuRow {
-			rows := []menuRow{
+		choices: func(_ *store.State, a formAnswers) []pickRow {
+			rows := []pickRow{
 				{label: "Type it when the command asks", detail: "hidden; komando keeps it as a saved password", value: regToken},
 				{label: "It is saved in komando already", detail: "a secret from komando secret set", value: regVault},
 			}
 			if k.id == regOwn {
-				rows = append(rows, menuRow{label: "No login", detail: "public images only", value: regNone})
+				rows = append(rows, pickRow{label: "No login", detail: "public images only", value: regNone})
 			}
 			return rows
 		}}
@@ -248,10 +248,10 @@ func registryLoginQ(k registryKind) formQ {
 // reference (secret:NAME, env:VAR, op://...); a pasted token is refused.
 func registrySecretQ(key, label, ask, help string) formQ {
 	return formQ{key: key, label: label, ask: ask, help: help, free: true, check: cacheSecretProblem,
-		choices: func(*store.State, formAnswers) []menuRow {
-			var rows []menuRow
+		choices: func(*store.State, formAnswers) []pickRow {
+			var rows []pickRow
 			for _, n := range secretNames() {
-				rows = append(rows, menuRow{label: n, detail: "saved password", value: n})
+				rows = append(rows, pickRow{label: n, detail: "saved password", value: n})
 			}
 			return rows
 		}}
@@ -261,10 +261,10 @@ func registryProfileQ() formQ {
 	return formQ{key: "profile", label: "AWS profile", ask: "Which AWS profile should komando log in with?", free: true,
 		help: "A profile from ~/.aws/config, the one the aws command uses. komando gets a fresh 12 hour login from it each time.",
 		def:  func(*store.State, formAnswers) string { return "default" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			var rows []menuRow
+		choices: func(*store.State, formAnswers) []pickRow {
+			var rows []pickRow
 			for _, p := range registryAWSProfiles() {
-				rows = append(rows, menuRow{label: p, value: p})
+				rows = append(rows, pickRow{label: p, value: p})
 			}
 			return rows
 		}}
@@ -299,8 +299,8 @@ func registryTLSQs(own func(formAnswers) bool) []formQ {
 	tls := formMore(formQ{key: "tls", label: "Certificate", ask: "How should komando check the registry's certificate?",
 		help: "Leave it checked unless the registry uses a certificate it made itself.",
 		def:  func(*store.State, formAnswers) string { return "" },
-		choices: func(*store.State, formAnswers) []menuRow {
-			return []menuRow{{label: "Check it", detail: "the normal, safe choice", value: ""},
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Check it", detail: "the normal, safe choice", value: ""},
 				{label: "Check it with my own CA certificate", detail: "store it first: komando secret set NAME < ca.crt", value: "ca"},
 				{label: "Do not check it", detail: "self-signed; anyone in between could read the token", value: "skip-verify"},
 				{label: "No encryption (plain http)", detail: "only inside a network you trust", value: "false"}}

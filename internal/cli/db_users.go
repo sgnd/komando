@@ -27,7 +27,7 @@ gets a SCRAM-SHA-256 verifier komando computes, so the password itself never
 reaches the server or its logs. Adding a user or changing a password is a
 change (a production database asks first); removing one needs --allow-dangerous.`,
 	}
-	c.AddCommand(dbUserLsCmd(), dbGrantsCmd(false), dbUserChangeCmd("add"), dbUserChangeCmd("passwd"), dbUserChangeCmd("rm"))
+	c.AddCommand(dbUserLsCmd(), dbUserShowCmd(), dbUserChangeCmd("add"), dbUserChangeCmd("passwd"), dbUserChangeCmd("rm"))
 	return c
 }
 
@@ -39,7 +39,7 @@ func dbUserLsCmd() *cobra.Command {
 		Example: "  komando db user list prod-db",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.user.ls", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+			return readDB(cmd.Context(), "db.user.list", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Users(ctx, db, c.Kind, connTimeout(c))
 				if err != nil {
 					return nil, err
@@ -53,7 +53,6 @@ func dbUserLsCmd() *cobra.Command {
 		},
 	}
 	limitFlag(c, &limit, 0, "users")
-	withID(c, "db.user.ls") // `ls` before: a permanent synonym
 	return c
 }
 
@@ -116,7 +115,6 @@ func dbUserChangeCmd(action string) *cobra.Command {
 		c.Flags().StringVar(&ref, "password-ref", "", "the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ...")
 	}
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user may connect from (the account host; default %, anywhere)")
-	retiredFlag(c, "from", "from-host")
 	if action == "add" {
 		c.Flags().BoolVar(&noLogin, "no-login", false, "a role that cannot log in (a group to grant to users)")
 	}
@@ -225,14 +223,11 @@ IAM). --dry-run shows the statement.`,
 	c.Flags().StringVar(&on, "on", "", "what the privileges are on (see above)")
 	c.Flags().StringVar(&role, "role", "", map[bool]string{false: "make the user a member of this role", true: "take the user out of this role"}[revoke])
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user connects from (the account host; default %)")
-	retiredFlag(c, "from", "from-host")
 	return c
 }
 
-// dbGrantsCmd is `db user show CONN USER`; with old, the hidden retired
-// `db grants CONN USER` (one letter from `db grant`). Both have the ID
-// db.grants.
-func dbGrantsCmd(old bool) *cobra.Command {
+// dbUserShowCmd is `db user show CONN USER`.
+func dbUserShowCmd() *cobra.Command {
 	var host string
 	c := &cobra.Command{
 		Use:     "show CONN USER",
@@ -240,7 +235,7 @@ func dbGrantsCmd(old bool) *cobra.Command {
 		Example: "  komando db user show prod-db app_ro",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.grants", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+			return readDB(cmd.Context(), "db.user.show", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Grants(ctx, db, c.Kind, args[1], host, connTimeout(c))
 				if err != nil {
 					return nil, err
@@ -253,12 +248,6 @@ func dbGrantsCmd(old bool) *cobra.Command {
 		},
 	}
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user connects from (the account host; default %)")
-	retiredFlag(c, "from", "from-host")
-	withID(c, "db.grants")
-	if old {
-		c.Use = "grants CONN USER"
-		return oldName(c, "db user show")
-	}
 	return c
 }
 

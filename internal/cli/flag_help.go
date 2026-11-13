@@ -18,7 +18,7 @@ func closestFlag(cmd *cobra.Command, typed string) string {
 	best, bestD := "", 3 // more than 2 typos is not a typo
 	var prefixed []string
 	visit := func(f *pflag.Flag) {
-		if f.Hidden || f.Deprecated != "" {
+		if f.Hidden {
 			return
 		}
 		if d := editDistance(typed, f.Name); d < bestD {
@@ -57,7 +57,7 @@ func shorthandSuggest(cmd *cobra.Command, letter, word string) string {
 	var near []string
 	visit := func(f *pflag.Flag) {
 		// never an approval flag: a typo is no reason to hand one out
-		if !f.Hidden && f.Deprecated == "" && strings.HasPrefix(f.Name, strings.ToLower(letter)) && !approvalFlag.MatchString("--"+f.Name) && !slices.Contains(near, "--"+f.Name) {
+		if !f.Hidden && strings.HasPrefix(f.Name, strings.ToLower(letter)) && !approvalFlag.MatchString("--"+f.Name) && !slices.Contains(near, "--"+f.Name) {
 			near = append(near, "--"+f.Name)
 		}
 	}

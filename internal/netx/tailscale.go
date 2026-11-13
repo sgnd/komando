@@ -33,9 +33,6 @@ func newTailscale(v *store.Vpn) (*tsnet.Server, error) {
 	if err := store.MkdirPrivate("vpn", v.Name+"-tailscale"); err != nil {
 		return nil, err
 	}
-	if err := adoptTSStateFile(v); err != nil {
-		return nil, err
-	}
 	quiet := func(string, ...any) {}
 	return &tsnet.Server{
 		Dir:        TailscaleDir(v),

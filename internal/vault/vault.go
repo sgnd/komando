@@ -1,16 +1,13 @@
 // Package vault stores secrets (passwords, key passphrases, tokens) encrypted
 // with AES-256-GCM, each bound to its name. The key is derived with scrypt
 // from $KOMANDO_VAULT_PASS when set (N=2^17, r=8, p=1: the OWASP minimum),
-// otherwise from the sealed store's key (sealed.go). An earlier komando kept
-// the vault in vault.json; `komando seal` reads it (move.go).
+// otherwise from the sealed store's key (sealed.go).
 package vault
 
 import (
 	"context"
-	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -24,23 +21,14 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/crypto/scrypt"
-
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/store"
 )
 
+// file is the vault's secrets, as read from the sealed store.
 type file struct {
-	Version int               `json:"version"`
-	Salt    []byte            `json:"salt"`
-	Mode    string            `json:"mode"`               // keyfile | passphrase | keychain
-	ScryptN int               `json:"scrypt_n,omitempty"` // scrypt cost; 0 is the old 2^15
-	Entries map[string]*entry `json:"entries"`
+	Entries map[string]*entry
 }
-
-// legacyN is the scrypt cost of vaults of before that did not store it
-// (read by `komando seal`).
-const legacyN = 1 << 15
 
 // PassphraseN is the scrypt cost for passphrase vaults (OWASP Password
 // Storage Cheat Sheet: N=2^17, r=8, p=1). Tests lower it.
@@ -58,8 +46,6 @@ type Info struct {
 	Name      string    `json:"name"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
-
-func vaultPath() string { return store.Path("vault.json") }
 
 var (
 	passMu sync.Mutex
@@ -226,77 +212,9 @@ func load() (*file, error) {
 	return loadSealed()
 }
 
-var (
-	aeadMu    sync.Mutex
-	aeadCache = map[string]cipher.AEAD{} // scrypt is slow on purpose: once per process
-)
-
-func (f *file) aead() (cipher.AEAD, error) {
-	if f.Mode == modeSealed {
-		return sealedAEAD()
-	}
-	secret, err := f.key()
-	if err != nil {
-		return nil, err
-	}
-	return f.aeadFor(secret)
-}
-
-// key is what a vault of before (vault.json) derives its key from, by its
-// mode: the passphrase, the key in the keychain or the key in vault.key.
-// It only reads: `komando seal` opens such a vault to move it.
-func (f *file) key() ([]byte, error) {
-	switch f.Mode {
-	case "passphrase":
-		p := Passphrase()
-		if p == "" {
-			return nil, ErrLocked
-		}
-		return []byte(p), nil
-	case "keychain":
-		return keychainGet()
-	}
-	kp := store.Path("vault.key")
-	b, err := os.ReadFile(kp)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("%w: %s is missing but the vault holds %d secrets; restore it from a backup", ErrKey, kp, len(f.Entries))
-	}
-	if err != nil {
-		return nil, err
-	}
-	if len(b) < keyLen {
-		return nil, fmt.Errorf("%w: %s holds %d bytes, not %d (cut short?); restore it from a backup", ErrKey, kp, len(b), keyLen)
-	}
-	return b, nil
-}
-
-// aeadFor derives the AES key from secret with the vault's salt and scrypt
-// cost.
-func (f *file) aeadFor(secret []byte) (cipher.AEAD, error) {
-	n := f.ScryptN
-	if n == 0 {
-		n = legacyN
-	}
-	id := fmt.Sprintf("%s/%x/%d/%x", f.Mode, f.Salt, n, sha256.Sum256(secret))
-	aeadMu.Lock()
-	defer aeadMu.Unlock()
-	if a, ok := aeadCache[id]; ok {
-		return a, nil
-	}
-	key, err := scrypt.Key(secret, f.Salt, n, 8, 1, 32)
-	if err != nil {
-		return nil, err
-	}
-	blk, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-	a, err := cipher.NewGCM(blk)
-	if err == nil {
-		aeadCache[id] = a
-	}
-	return a, err
-}
+// aead is the cipher of the vault's entries: a key made from the store's
+// master key (sealed.go).
+func (f *file) aead() (cipher.AEAD, error) { return sealedAEAD() }
 
 // keyLen is the size of a random vault key.
 const keyLen = 32
@@ -558,6 +476,12 @@ func resolve(ref string) (string, error) {
 			}
 		}
 		v, ok := os.LookupEnv(name)
+		if !ok && slices.Contains(UnlockVars, name) {
+			// TakeUnlockEnv took it out of the environment at the start
+			passMu.Lock()
+			v, ok = unlock[name]
+			passMu.Unlock()
+		}
 		if !ok {
 			return "", fmt.Errorf("environment variable %s not set", name)
 		}

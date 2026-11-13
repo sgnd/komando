@@ -446,13 +446,12 @@ func (d pkgSecData) Text() string {
 	return sb.String()
 }
 
-// pkgSecTimeout is how long --apply waits for each server by default: a
+// pkgSecTimeout is how long --security waits for each server by default: a
 // patch round with a new kernel takes minutes, more than the usual 5m
 // command timeout allows on a slow mirror.
 const pkgSecTimeout = 30 * time.Minute
 
-// pkgSecRollout is how `pkg upgrade --security` (and the retired
-// `pkg security --apply`) installs the updates.
+// pkgSecRollout is how `pkg upgrade --security` installs the updates.
 const pkgSecRollout = `--security installs only the security updates, one server at a time. On
 apt servers komando uses unattended-upgrade when it is installed (it picks
 security origins only and follows the server's own settings), otherwise
@@ -472,7 +471,7 @@ Other package managers (apk, zypper, pacman) are listed in meta.skipped:
 use ` + "`komando pkg upgrade`" + ` without --security there.`
 
 func pkgSecurityCmd(noSudo *bool) *cobra.Command {
-	var apply, refresh, keepGoing bool
+	var refresh bool
 	c := &cobra.Command{
 		Use:   "security TARGET",
 		Short: "Pending security updates and the state of each server",
@@ -483,32 +482,20 @@ pending updates, whether a reboot is required, and services that run old
 code.
 
 To install them: ` + "`komando pkg upgrade TARGET --security`" + `, one server at a
-time with a check before and after each. --apply here is the old way to
-say that; it still works in this release.`,
+time with a check before and after each.`,
 		Example: "  komando pkg security @swarm --refresh\n  komando pkg upgrade @swarm --security --dry-run\n  komando pkg upgrade @swarm --security",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if keepGoing && !apply {
-				return out.Usage("--keep-going goes with `komando pkg upgrade TARGET --security`")
-			}
-			if apply {
-				retiredName("komando pkg security --apply", "komando pkg upgrade TARGET --security")
-			}
-			return pkgSecurity(cmd.Context(), args[0], apply, refresh, keepGoing, !*noSudo)
+			return pkgSecurity(cmd.Context(), args[0], false, refresh, false, !*noSudo)
 		},
 	}
-	c.Flags().BoolVar(&apply, "apply", false, "old way to install them: use komando pkg upgrade TARGET --security")
 	c.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update)")
-	c.Flags().BoolVar(&keepGoing, "keep-going", false, "with --apply: go on to the next server after a failure or an unexpected change")
-	_ = c.Flags().MarkHidden("apply")
-	_ = c.Flags().MarkHidden("keep-going")
 	return c
 }
 
 // pkgUpgradeSecurity gives `pkg upgrade` (made by pkgCmd) --security: it
-// installs only the security updates through the same rollout as
-// `pkg security --apply` did, and keeps that command's ID, pkg.security,
-// in the envelope and the audit log (C-V18).
+// installs only the security updates, one server at a time (pkgSecurity
+// with apply), as pkg.upgrade in the envelope and the audit log (C-V18).
 func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 	var security, refresh, keepGoing bool
 	plain := c.RunE
@@ -524,7 +511,6 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 		if len(args) > 1 {
 			return out.Usage("--security installs every pending security update; it takes no package names (see them with `komando pkg security %s`)", args[0])
 		}
-		runsAs(cmd, "pkg.security") // the same command as pkg security --apply was, for this run
 		return pkgSecurity(cmd.Context(), args[0], true, refresh, keepGoing, !*noSudo)
 	}
 	c.Flags().BoolVar(&security, "security", false, "install only the security updates, one server at a time")
@@ -533,6 +519,9 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 	return c
 }
 
+// pkgSecurity lists the pending security updates (pkg security), or with
+// apply installs them (pkg upgrade --security), which then audits and
+// prints as pkg.upgrade.
 func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, sudo bool) error {
 	st, err := loadState()
 	if err != nil {
@@ -542,9 +531,9 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 	if err != nil {
 		return err
 	}
-	display := "pkg security"
+	id, display := "pkg.security", "pkg security"
 	if apply {
-		display += " --apply"
+		id, display = "pkg.upgrade", "pkg upgrade --security"
 	}
 	change := apply && !g.dryRun
 	// an essential package may go only with --allow-dangerous, asked before
@@ -554,7 +543,7 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 	if apply {
 		// protected servers need --yes; a dry run records the stop as would_be_blocked
 		if gerr := guard(st, hosts, script, true); gerr != nil {
-			audit(st, "pkg.security", hostNames(hosts), display, false, map[string]any{"blocked": toErr(gerr).Code})
+			audit(st, id, hostNames(hosts), display, false, map[string]any{"blocked": toErr(gerr).Code})
 			return gerr
 		}
 	}
@@ -599,7 +588,7 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 			if r.unsupported != "" {
 				continue
 			}
-			audit(st, "pkg.security", []string{h.Name}, display, r.OK, map[string]any{"upgraded": len(r.Upgraded), "unexpected": r.Unexpected})
+			audit(st, id, []string{h.Name}, display, r.OK, map[string]any{"upgraded": len(r.Upgraded), "unexpected": r.Unexpected})
 			if !r.OK && !keepGoing {
 				for _, rest := range hosts[i+1:] {
 					notRun = append(notRun, rest.Name)
@@ -642,7 +631,7 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 			"komando picks security updates on apt and dnf/yum servers only; %s uses %s", rows[0].Host, rows[0].unsupported)
 	}
 	if !change && !g.dryRun {
-		audit(st, "pkg.security", hostNames(hosts), display, len(fails) == 0, nil)
+		audit(st, id, hostNames(hosts), display, len(fails) == 0, nil)
 	}
-	return finishFleet("pkg.security", data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return finishFleet(id, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

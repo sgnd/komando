@@ -84,7 +84,7 @@ This page is made from the code (`komando schema` lists the same under
 | `HELM_REVISION_NOT_FOUND` | 3 | … has no revision … | see the revisions with `komando cluster helm history TARGET RELEASE` |
 | `HIDDEN_VALUE` | 2 | …/… holds a value komando hid from you ([hidden] or (hidden)); sending it would write that text over the real value | leave the hidden entries out of the file (or use valueFrom.secretKeyRef), or change only what you need with `cluster run TARGET --write -- set image\|patch ...` |
 | `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset` |
-| `HOSTKEY_REVOKED` | 4 | … shows the revoked host key … | this key was revoked (an @revoked line of your known_hosts, moved by `komando seal`): treat the server as compromised and tell its owner; nothing was sent |
+| `HOSTKEY_REVOKED` | 4 | … shows the revoked host key … | this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`; nothing was sent |
 | `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes) |
 | `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host trust` for it in their own terminal |
 | `HOST_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
@@ -123,7 +123,6 @@ This page is made from the code (`komando schema` lists the same under
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
 | `NAME_TAKEN` | 8 | the rename clashes: …; nothing was renamed | pick other names, or rename or remove what is in the way first |
 | `NEEDS_PERSON` | 6 | setting up the approval code shows its secret, so only a person at a terminal can do it | a person runs `komando config approval-code` in their own terminal |
-| `NEEDS_SEAL` | 1 | … holds the files of an earlier komando (state.json, vault.json, known_hosts or keys/); this komando reads them only to move them | a person runs `komando seal` in their own terminal to move this folder into the sealed store; an AI agent cannot, so ask the user |
 | `NEEDS_TERMINAL` | 2 | cluster shell needs a person at a terminal | agents and scripts use `komando cluster exec` |
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando secret list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |
@@ -134,7 +133,7 @@ This page is made from the code (`komando schema` lists the same under
 | `NOT_WRITABLE` | 8 | cannot replace …: …: …; nothing was changed | make … writable, or install komando in another folder with the install line (KOMANDO_INSTALL_DIR=DIR) |
 | `NO_AUTH` | 4 | no authentication method available for …: it has no key or password, and … | start ssh-agent, then run … |
 | `NO_CERTIFICATE` | 5 | … sent no certificate | check that … is the TLS port of the site |
-| `NO_FOLDER` | 1 | cannot find the folder to install into: … | set HOME, or run it from the project folder |
+| `NO_FOLDER` | 1 | cannot find the folder: … | set HOME, or run it from the project folder |
 | `NO_JOURNAL` | 3 | journald has no log files on this server | the service may log to a file: `komando logs TARGET --file /var/log/...` |
 | `NO_MATCH` | 8 | --old text not found in … | read the file with `komando fs cat TARGET …` and copy the exact text (whitespace matters) |
 | `NO_MATCHING_TARGETS` | 3 | nothing to check | give a server, a TLS conn or a website (https://NAME): `komando cert check URL` |
@@ -190,7 +189,7 @@ This page is made from the code (`komando schema` lists the same under
 | `REGISTRY_UNSUPPORTED` | 5 | … has no list of every repository | name the repository: `komando registry list CONN REPO` (on Docker Hub, nginx means library/nginx) |
 | `RELEASES_UNREACHABLE` | 4 | cannot reach komando's releases: … | check this computer's internet connection (and HTTPS_PROXY), then run it again |
 | `REMOTE_ERROR` | 1 | an error from outside komando with no more specific code (its words follow) | run it again with -o json for the details; `komando doctor` checks this computer's setup |
-| `RENAME_FAILED` | 1 | the vault cannot rename the secrets: …; nothing was renamed | check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS) |
+| `RENAME_FAILED` | 1 | the vault cannot rename the VPN's secrets: …; nothing was renamed | check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS) |
 | `RESERVED_SECRET` | 2 | secret … belongs to komando's approval code | a person manages it with `komando config approval-code` |
 | `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando db restore … --from …` |
 | `RESTORE_UNSUPPORTED` | 2 | line … switches to another database: … | the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn |
@@ -199,10 +198,9 @@ This page is made from the code (`komando schema` lists the same under
 | `REVISION_NOT_FOUND` | 3 | no earlier revision to go back to | see the revisions with `komando cluster history TARGET TYPE/NAME` |
 | `REVOKE_FAILED` | 5 | the key could not be removed from a server's authorized_keys | run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys` |
 | `ROLLOUT_FAILED` | 5 | pods stuck for … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
-| `ROLLOUT_TIMEOUT` | 7 | not rolled out after …: … | see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back |
+| `ROLLOUT_TIMEOUT` | 7 | not rolled out after … (replicas …)… | see the tasks with `komando cluster describe … service/…` |
 | `RULE_NOT_FOUND` | 3 | no custom deny rule named … | see the custom rules and their ids with `komando policy list` |
 | `SAFETY_SETTING` | 6 | … weakens komando's safety checks | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
-| `SEAL_UNFINISHED` | 1 | komando now uses the sealed store, but these files of before could not be replaced: … | fix what stops it, then run `komando seal` again: it finishes the job |
 | `SECRET_DESTINATION` | 6 | an AI agent asked to send …; that needs a person's yes | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `SECRET_EXISTS` | 8 | secret … is used by … already; --ask-password and --ask-psk do not replace it | use it with --… …, or store this one under another name: `komando secret set NAME`, then --… secret:NAME |
 | `SECRET_IN_ARGS` | 2 | refusing a secret value on the command line: it would be saved in shell history | run `komando secret set …` and type it (hidden), use --from-env VAR, or pipe it in (stdin) |
@@ -215,7 +213,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SENSITIVE_FILE` | 6 | … is …; komando does not read it for an AI agent | ask the user for the one value you need |
 | `SESSION_NOT_FOUND` | 3 | no session … | list sessions with `komando db activity CONN --all` |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
-| `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user USER --stdin-file FILE -- sh -c 'cat > PATH'` |
+| `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |
 | `SOURCE_BUILD` | 8 | this komando was built from source (version …), so update does not replace it | build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install |
 | `SOURCE_EMPTY` | 3 | … has no files to sync, so --delete would remove everything in … | check the source path; nothing was deleted |
@@ -229,12 +227,12 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_GATE_REFUSED` | 6 | komando … needs a person at a terminal on this computer; a key cannot run it | a person runs it in a terminal on the komando computer itself |
 | `SSH_GATE_SYNTAX` | 2 | an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it) | send one komando command; put an argument with ; \| & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes) |
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
-| `STATE_CORRUPT` | 1 | corrupt state file …: … | the file is empty or broken, most likely cut short by a crash or power loss; ask the user to restore it from a backup (Time Machine or similar) before sealing |
+| `STATE_CORRUPT` | 1 | … does not open with the store's key | the file holds only running VPN sessions, logins, jobs and tunnels: move it away, then connect again (a VPN started before the store's key changed is ended by `komando vpn down`) |
 | `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME |
 | `STORAGE_CONNECT` | 4 | komando could not reach the bucket or file server | run `komando test TARGET` to check reachability |
 | `STORAGE_ERROR` | 5 | the file is in use | another program has the file open; close it there and run it again |
 | `STORAGE_TLS` | 4 | the storage server's TLS certificate does not verify: … | if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL |
-| `STORE_BUSY` | 8 | komando's store stayed busy for …, so the server's host key could not be checked: … | another komando process is writing komando's store; a long `komando seal` or a stuck komando: wait for it to finish, then run it again |
+| `STORE_BUSY` | 8 | komando's store stayed busy for …, so the server's host key could not be checked: … | another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again |
 | `STORE_KEY_CHANGED` | 1 | …: … | run it again: another komando changed the store's key while this one ran |
 | `STORE_NEWER` | 1 | … was made by a newer komando | a newer komando made or changed this store; update this one: `komando update` |
 | `STORE_OLD_COPY` | 6 | … …: servers, rules, secrets or pinned host keys may be old | if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain |

@@ -1,6 +1,8 @@
 package store
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -37,6 +39,51 @@ func TestStrangers(t *testing.T) {
 				t.Fatalf("strangers = %q, want %q", got, c.want)
 			}
 		})
+	}
+}
+
+// O17: every folder ensureHome makes, the ones above komando's folder
+// too, is made private (on Windows, a parent made with the drive root's
+// access list lets any user rename it); a folder that was there is left
+// as it is, and when one cannot be made private all it made goes again.
+func TestEnsureHomeMakesParentsPrivate(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "a", "b", "komando")
+	t.Setenv("KOMANDO_HOME", home)
+	saved := makePrivate
+	t.Cleanup(func() { makePrivate = saved })
+	var got []string
+	makePrivate = func(d string) error { got = append(got, d); return nil }
+	if err := EnsureHome(); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.Join(base, "a"), filepath.Join(base, "a", "b"), home}
+	if !slices.Equal(got, want) {
+		t.Fatalf("made private: %q, want %q", got, want)
+	}
+	for _, d := range want {
+		if fi, err := os.Stat(d); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o700 {
+			t.Errorf("%s: %v %v", d, fi.Mode(), err)
+		}
+	}
+	got = nil
+	if err := EnsureHome(); err != nil || len(got) != 0 {
+		t.Fatalf("a folder that is there: %q %v", got, err)
+	}
+
+	home = filepath.Join(base, "c", "d", "komando")
+	t.Setenv("KOMANDO_HOME", home)
+	makePrivate = func(d string) error {
+		if d == filepath.Join(base, "c", "d") {
+			return errors.New("no access lists here")
+		}
+		return nil
+	}
+	if err := EnsureHome(); err == nil {
+		t.Fatal("a folder that cannot be made private was kept")
+	}
+	if _, err := os.Stat(filepath.Join(base, "c")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("the folders it made are still there: %v", err)
 	}
 }
 

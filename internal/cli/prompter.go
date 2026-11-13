@@ -106,7 +106,7 @@ func promptHelp(q promptQ) {
 		fmt.Fprintln(promptW, "  (no more help: type the value, or press Ctrl-C to stop)")
 		return
 	}
-	for _, l := range menuWrap(q.help, 76) {
+	for _, l := range pickWrap(q.help, 76) {
 		fmt.Fprintln(promptW, "  "+l)
 	}
 }
@@ -152,7 +152,7 @@ func askText(q promptQ) (string, error) {
 // askPick asks for one of rows by its number, or its value typed; other
 // text narrows the list (free: it is taken as typed, as a selector like
 // @web or tag:db, or a new name, is). Enter takes the default.
-func askPick(q promptQ, rows []menuRow, free bool) (string, error) {
+func askPick(q promptQ, rows []pickRow, free bool) (string, error) {
 	shown := rows
 	promptRows(shown)
 	shownDef := q.def
@@ -198,7 +198,7 @@ func askPick(q promptQ, rows []menuRow, free bool) (string, error) {
 				}
 				return v, nil
 			}
-			var match []menuRow
+			var match []pickRow
 			for _, r := range rows {
 				if strings.Contains(strings.ToLower(r.label+" "+r.detail), strings.ToLower(v)) {
 					match = append(match, r)
@@ -223,7 +223,7 @@ func askPick(q promptQ, rows []menuRow, free bool) (string, error) {
 const promptMaxRows = 30
 
 // promptRows prints a numbered list, its names and details in columns.
-func promptRows(rows []menuRow) {
+func promptRows(rows []pickRow) {
 	w := 0
 	for _, r := range rows[:min(len(rows), promptMaxRows)] {
 		w = max(w, displayWidth(r.label))

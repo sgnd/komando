@@ -161,7 +161,7 @@ func TestDumpOnHostCA(t *testing.T) {
 
 	srv.reply("PGDMP archive bytes")
 	to := filepath.Join(dir, "app.dump")
-	if _, e := run("db", "dump", "pg", "--to", to, "--format", "custom", "--on", "dev"); e != nil {
+	if _, e := run("db", "dump", "pg", "--to", to, "--format", "custom", "--run-on", "dev"); e != nil {
 		t.Fatal(e)
 	}
 	ex := srv.take()
@@ -186,7 +186,7 @@ func TestDumpOnHostCA(t *testing.T) {
 
 	// an archive restore sends the CA ahead of the archive
 	srv.reply()
-	if _, e := run("db", "restore", "pg", "--from", to, "--on", "dev", "--allow-dangerous"); e != nil {
+	if _, e := run("db", "restore", "pg", "--from", to, "--run-on", "dev", "--allow-dangerous"); e != nil {
 		t.Fatal(e)
 	}
 	ex = srv.take()
@@ -204,7 +204,7 @@ func TestDumpOnHostCA(t *testing.T) {
 		"mysqldump from 11.4.2-MariaDB, client 10.19 for debian-linux-gnu (x86_64)\n": "--ssl-verify-server-cert",
 	} {
 		srv.reply(version)
-		if _, e := run("db", "dump", "shop", "--to", filepath.Join(dir, "shop"+flag[6:9]+".sql"), "--on", "dev"); e != nil {
+		if _, e := run("db", "dump", "shop", "--to", filepath.Join(dir, "shop"+flag[6:9]+".sql"), "--run-on", "dev"); e != nil {
 			t.Fatal(e)
 		}
 		ex = srv.take()
@@ -223,7 +223,7 @@ func TestDumpOnHostCA(t *testing.T) {
 	}
 
 	// a CA that is not in the vault stops before the server is reached
-	if _, e := run("db", "dump", "lost", "--to", filepath.Join(dir, "lost.dump"), "--format", "custom", "--on", "dev"); e == nil || e.Code != "SECRET_NOT_FOUND" {
+	if _, e := run("db", "dump", "lost", "--to", filepath.Join(dir, "lost.dump"), "--format", "custom", "--run-on", "dev"); e == nil || e.Code != "SECRET_NOT_FOUND" {
 		t.Errorf("missing CA: %+v", e)
 	}
 	if ex := srv.take(); len(ex) != 0 {

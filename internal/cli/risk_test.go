@@ -85,7 +85,7 @@ func TestRiskPersonGains(t *testing.T) {
 		}
 	}
 	for _, line := range []string{
-		"svc stop web1 nginx", "sync ./site web1:/var/www", "exec web1 -- uptime", "pkg security web1 --apply",
+		"svc stop web1 nginx", "sync ./site web1:/var/www", "exec web1 -- uptime", "pkg upgrade web1 --security",
 		"host edit web1 --port 2222", "group rm web web1",
 	} {
 		if r := riskOfLine(strings.Fields(line)); r.typedWhat() != "" {

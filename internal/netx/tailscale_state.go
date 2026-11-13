@@ -1,9 +1,7 @@
 package netx
 
 import (
-	"encoding/json"
 	"os"
-	"path/filepath"
 	"sync"
 
 	"tailscale.com/ipn"
@@ -47,33 +45,6 @@ func (s *sealedTSState) WriteState(id ipn.StateKey, bs []byte) error {
 		return store.SetVPNState(s.id, map[string][]byte{string(id): nil})
 	}
 	return store.SetVPNState(s.id, map[string][]byte{string(id): append([]byte{}, bs...)})
-}
-
-// tsStateFile is the plain state file of an earlier komando.
-func tsStateFile(v *store.Vpn) string { return filepath.Join(TailscaleDir(v), "tailscaled.state") }
-
-// adoptTSStateFile moves the plain state file of an earlier komando into
-// the store, then overwrites and removes it.
-func adoptTSStateFile(v *store.Vpn) error {
-	p := tsStateFile(v)
-	b, err := os.ReadFile(p)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	var m map[string][]byte // tsnet's FileStore: a JSON object of base64 values
-	if err := json.Unmarshal(b, &m); err != nil {
-		return err
-	}
-	if len(m) > 0 {
-		if err := store.SetVPNState(tsStateID(v), m); err != nil {
-			return err
-		}
-	}
-	_ = os.WriteFile(p, make([]byte, len(b)), 0o600)
-	return os.Remove(p)
 }
 
 // ForgetTailscale removes a VPN's node state and folder (vpn rm).

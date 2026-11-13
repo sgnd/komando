@@ -4,8 +4,6 @@ package cli
 
 import (
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/sgnd/komando/internal/store"
 )
@@ -25,14 +23,8 @@ func looseFiles() []string {
 		}
 	}
 	check(store.Home())
-	for _, f := range []string{"state.json", "runtime.json", "runtime.pids", "vault.json", "vault.key", "audit.jsonl", "known_hosts", store.StoreFile, store.StoreFile + "-journal", "store.key"} {
+	for _, f := range []string{"runtime.json", "runtime.pids", store.StoreFile, store.StoreFile + "-journal", "store.key"} {
 		check(store.Path(f))
-	}
-	keys, _ := filepath.Glob(store.Path("keys", "*"))
-	for _, k := range keys {
-		if !strings.HasSuffix(k, ".pub") {
-			check(k)
-		}
 	}
 	return loose
 }

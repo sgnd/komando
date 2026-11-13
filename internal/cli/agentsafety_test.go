@@ -509,7 +509,7 @@ func TestLocalReadCommandsForAgents(t *testing.T) {
 	for _, args := range [][]string{
 		{"exec", "web", "--read-only", "--stdin-file", key, "--", "base64"},
 		{"exec", "web", "--read-only", "--stdin-file", filepath.Join(proj, "link", "vault.key"), "--", "base64"},
-		{"script", "web", filepath.Join(home, ".ssh", "id_ed25519")},
+		{"exec", "web", "--script", filepath.Join(home, ".ssh", "id_ed25519")},
 		{"cp", filepath.Join(home, ".ssh", "id_ed25519"), "web:/tmp/k"},
 		{"cp", "-r", kh, "web:/tmp/k"},
 		{"sync", kh, "web:/tmp/k"},

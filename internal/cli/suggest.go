@@ -17,6 +17,24 @@ import (
 // that reads only the hint can run it. A person reads the "did you mean"
 // in the message.
 
+// habitWords are words people type from another tool's habit, by the
+// command that does that job (its path under komando): typing one
+// suggests that command.
+var habitWords = map[string][]string{
+	"facts": {"inspect"}, // docker inspect
+	"svc":   {"systemd"},
+}
+
+// suggestHabitWords lets each command in habitWords suggest itself for its
+// words (unknownCommandErr then names only that command).
+func suggestHabitWords(root *cobra.Command) {
+	for path, words := range habitWords {
+		if c, _, err := root.Find(strings.Fields(path)); err == nil && c != root {
+			c.SuggestFor = append(c.SuggestFor, words...)
+		}
+	}
+}
+
 // suggest records right as the suggestion for wrong: error.suggestion, and
 // a hint with the command line it gives.
 func suggest(e *out.Error, wrong, right string) *out.Error {
@@ -184,7 +202,7 @@ func unknownCommandErr(cmd *cobra.Command, word string, rest []string) *out.Erro
 	}
 	near := nearWords(word, commandNames(cmd))
 	for _, c := range cmd.Commands() {
-		if slices.Contains(c.SuggestFor, word) { // an old name: only the command that does it now
+		if slices.Contains(c.SuggestFor, word) { // a habit word: only the command that does that job
 			near = []string{c.Name()}
 		}
 	}
