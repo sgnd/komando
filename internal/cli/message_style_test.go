@@ -60,6 +60,8 @@ type styleText struct {
 	// message of a hint, when one call gives both
 	pair string
 	call string // the call that takes it: out.Errf, Say, ...
+	// wrapped: printed through sayLine, which wraps it at a terminal only
+	wrapped bool
 }
 
 func (s styleText) key() string {
@@ -162,6 +164,13 @@ func fileTexts(fset *token.FileSet, rel string, f *ast.File) []styleText {
 			case strings.HasSuffix(name, ".Warn") || name == "Warn":
 				if len(args) == 1 {
 					add(args[0], roleWarn, nil)
+				}
+			case name == "sayLine":
+				if len(args) == 2 && stderrWriters[exprName(args[0])] {
+					add(args[1], roleStderr, nil)
+					if len(res) > 0 && res[len(res)-1].line == fset.Position(args[1].Pos()).Line {
+						res[len(res)-1].wrapped = true
+					}
 				}
 			case name == "fmt.Fprintf" || name == "fmt.Fprintln" || name == "fmt.Fprint" || name == "io.WriteString":
 				if len(args) >= 2 && stderrWriters[exprName(args[0])] {
@@ -468,8 +477,17 @@ func TestUnknownNamesWayOut(t *testing.T) {
 
 // M-9: a line komando lays out itself fits in 80 columns; the printer
 // wraps errors, hints and warnings and keeps a backticked command whole.
+// A message printed through sayLine is wrapped the same way, at a
+// terminal only: it is measured unwrapped and is one line, so a pipe, a
+// script or an agent reads it whole.
 func TestTextWidth(t *testing.T) {
 	styleCheck(t, "M-9", []textRole{roleStderr}, allowWidth, func(s styleText) string {
+		if s.wrapped {
+			if strings.Contains(s.text, "\n") || strings.Contains(s.text, "\r") {
+				return "a line break in a message sayLine wraps: write it as one line"
+			}
+			return ""
+		}
 		for _, l := range strings.Split(s.text, "\n") {
 			if n := utf8.RuneCountInString(strings.ReplaceAll(l, "{x}", "")); n > 80 {
 				return fmt.Sprintf("a line of %d columns", n)

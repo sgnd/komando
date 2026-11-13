@@ -79,7 +79,7 @@ func confirmDangerousOn(names, prot []string, reason string) bool {
 	}
 	fmt.Fprintln(os.Stderr, dangerLine(reason))
 	if want == "" { // never "yes": with nothing to name, a person passes the flag
-		fmt.Fprintln(os.Stderr, "There is no name for you to type here. If you mean it, run it again with\n--allow-dangerous.")
+		sayLine(os.Stderr, "There is no name for you to type here. If you mean it, run it again with --allow-dangerous.")
 		c.sess.SaidNo(true)
 		return false
 	}

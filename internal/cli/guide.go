@@ -3,7 +3,6 @@ package cli
 import (
 	_ "embed"
 	"errors"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -78,7 +77,7 @@ part. Piped (as an agent reads it), it prints the whole playbook as JSON.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !interactive() && !isAgent() {
 				// a note on stderr: stdout stays one JSON envelope
-				_, _ = io.WriteString(cmd.ErrOrStderr(), "Note: this AI agent is not one komando knows. Set KOMANDO_AGENT=1 in its\n  environment, so passwords stay [hidden] and --yes asks a person.\n")
+				sayLine(cmd.ErrOrStderr(), "Note: this AI agent is not one komando knows. Set KOMANDO_AGENT=1 in its environment, so passwords stay [hidden] and --yes asks a person.")
 			}
 			text := guideText
 			switch {

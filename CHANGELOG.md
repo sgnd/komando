@@ -622,7 +622,7 @@ instead.
   `Hint:`, `Warning:`, `Note:`, `Dry run:`, `Skipped`, `Nothing to show`
   (were lower case). A stop reads `Stopped: <what>; nothing was changed`,
   every cut list or output says `Note: showing the first N; ...`, and at
-  a terminal errors, hints and warnings wrap at 80 columns without
+  a terminal errors, hints, warnings and notes wrap at 80 columns without
   breaking a backticked command. An AI agent and a pipe still get each on
   one line.
 - Ctrl-C reads the same everywhere: `Stopped. Nothing was run.` at a
