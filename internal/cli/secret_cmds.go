@@ -101,8 +101,9 @@ func secretGetCmd() *cobra.Command {
 		Aliases: []string{"get"},
 		Short:   "Show that a secret exists, its value hidden",
 		Long: `Says whether the secret exists and what uses it, without its value. A person
-at a terminal can add --reveal to print it; AI agents never get the value
-(they reference it as secret:NAME instead). A warning says when the value
+at a terminal can add --reveal to print it; from a program without a terminal
+(the Komando Mac app), komando first asks the person in its own window. AI
+agents never get the value (they reference it as secret:NAME instead). A warning says when the value
 starts or ends with a space, tab or line break, a common cause of a failing
 login; 'komando secret check NAME' lets a person compare it.`,
 		Example: `  komando secret show db-pass
@@ -116,13 +117,14 @@ login; 'komando secret check NAME' lets a person compare it.`,
 			if err != nil {
 				return err
 			}
-			reveal := g.reveal
-			if reveal && !interactive() {
-				// agents never see passwords (docs/design/principles.md); a person at
-				// a terminal can still pipe the value, e.g. into pbcopy
-				return out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
-					"ask a person to run `komando secret show "+args[0]+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+args[0]+") instead",
-					"--reveal only works for a person at a terminal")
+			via := ""
+			if g.reveal {
+				// agents never see passwords (reveal.go); a person at a terminal can
+				// still pipe the value, e.g. into pbcopy, and the Mac app asks in
+				// komando's window
+				if via, err = revealGate("secret.show", "secret", args[0], "secret:"+args[0]); err != nil {
+					return err
+				}
 			}
 			res := map[string]any{"name": args[0], "exists": true, "ref": "secret:" + args[0]}
 			if st, err := loadState(); err == nil {
@@ -131,10 +133,10 @@ login; 'komando secret check NAME' lets a person compare it.`,
 			if w := valueWarning(args[0], v); w != "" {
 				res["warning"] = w
 			}
-			if reveal {
+			if via != "" {
 				out.P.NoRedact = true // the person asked for this value
 				res["value"] = v
-				audit(nil, "secret.reveal", nil, "", true, map[string]any{"secret": args[0]})
+				revealAudit("secret.reveal", "secret", args[0], via)
 			}
 			out.P.Print("secret.show", res, nil)
 			return nil

@@ -130,8 +130,8 @@ not know? Set `KOMANDO_AGENT=1`.
      IBANs, columns the human named) shows as `[hidden: KIND]`. Work with
      ids and counts, never write it back, and ask the human if a task needs
      a real value.
-   - `secret show --reveal` is for people only (`REVEAL_NEEDS_HUMAN`), and so
-     is `secret check` (`NEEDS_PERSON`). For a password only the human
+   - `secret show --reveal` and `key show --reveal` are for people only
+     (`REVEAL_NEEDS_HUMAN`), and so is `secret check` (`NEEDS_PERSON`). For a password only the human
      knows, ask them to run `komando secret set NAME` in their own terminal
      (it asks for it hidden). Never ask for a password in the chat.
    - Rename or copy a secret with `komando secret rename OLD NEW` or

@@ -79,9 +79,35 @@ komando secret check web1-pass     # type the value you think it is: match or ho
 
 `secret check` never shows either value: it says whether they match, or
 whether they differ only in spaces at the ends, only in upper and lower
-case, or in length. Only a person can run it. A person at a terminal can
-print a value with `komando secret show NAME --reveal` (for example piped
-into `pbcopy`).
+case, or in length. Only a person can run it.
+
+## See a value again
+
+```bash
+komando secret show web1-pass --reveal            # print it (a person, at a terminal)
+komando secret show web1-pass --reveal | pbcopy   # or copy it
+komando key show deploy --reveal > deploy.key     # the private key of a key komando made
+```
+
+- **At a terminal** komando prints the value: you typed the command.
+- **From a program without a terminal**, such as the Komando Mac app,
+  komando first asks you in its own window, naming the secret, the command
+  and the programs that started it ("Started from: Komando"). It shows the
+  value only after **Allow once**; with `komando config approval-code` on,
+  the window also asks for the 6-digit code. A Linux or BSD desktop gets
+  that window only with the approval code, and with no screen it stops
+  with `REVEAL_NEEDS_HUMAN`: run it in a terminal.
+- **An AI agent never gets a value or a private key**, not even with your
+  yes: komando refuses with `REVEAL_NEEDS_HUMAN` and opens no window. The
+  agent uses `secret:NAME` in a command instead. A key through `ssh-gate`
+  (the iPhone and iPad app) is refused too.
+- A dry run shows no value and asks nobody.
+- Every value shown goes in the audit log, as `secret.reveal` or
+  `key.reveal`, with how you allowed it (`via`: `terminal` or `window`) and
+  the programs that started komando (`started_from`); every refusal goes
+  there too, with the secret's or key's name. The value never does.
+- `key show --reveal` prints only keys komando made (`key gen`), which it
+  keeps in its sealed store; for a key added from a file it names that file.
 
 ## Rename, copy and remove
 
@@ -149,7 +175,7 @@ An agent never sees a value: output shows `[secret:NAME]` or `[hidden]`.
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
 | use a secret | `secret:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
 | rename, copy, remove | `secret rename`, `secret cp`, `secret rm` | |
-| read or compare a value | asks the user (`secret show --reveal`, `secret check`) | `REVEAL_NEEDS_HUMAN`, `NEEDS_PERSON` |
+| read or compare a value | asks the user (`secret show --reveal`, `key show --reveal`, `secret check`) | `REVEAL_NEEDS_HUMAN`, `NEEDS_PERSON` |
 
 The agent never asks for a password in the chat: the hint names the
 command the user runs in their own terminal.

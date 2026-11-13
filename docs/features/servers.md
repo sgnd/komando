@@ -302,7 +302,8 @@ komando key gen deploy                           # ed25519; --type rsa|ecdsa, -b
 komando key deploy deploy @web --set-default     # install it, then log in with it
 komando key deploy ~/.ssh/id_ed25519.pub web1    # a .pub file works too
 komando key list                                 # NAME TYPE FINGERPRINT USED BY
-komando key show deploy                          # the public part (never the private key)
+komando key show deploy                          # the public part
+komando key show deploy --reveal                 # a person: the private key of a key komando made
 ```
 
 Keys made with `key gen` are sealed in komando's store (`store.db`); they

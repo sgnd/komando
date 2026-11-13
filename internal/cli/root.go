@@ -508,9 +508,10 @@ func newRoot() *cobra.Command {
 			}
 			// AI agents see passwords, keys and tokens as [hidden]; people and
 			// scripts see what the server sent (vault values are hidden for
-			// all). `secret get --reveal` is for people only: an agent is never
-			// asked and always sees [hidden]. A dry run never approves --reveal.
-			out.P.Mask = isAgent() && (commandName(cmd) == "secret.show" || g.dryRun || !revealOK())
+			// all). `secret show --reveal` and `key show --reveal` are for
+			// people only (reveal.go): an agent is never asked and always sees
+			// [hidden]. A dry run never approves --reveal.
+			out.P.Mask = isAgent() && (revealNever[commandName(cmd)] || g.dryRun || !revealOK())
 			startPersonal(cmd)
 			if out.P.Mask && g.dryRun && g.reveal {
 				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
