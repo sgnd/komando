@@ -1,46 +1,20 @@
 # Databases
 
-Add PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, ClickHouse, Snowflake,
-BigQuery, SQLite and MongoDB databases, then query, inspect, back up and
-restore them safely. [All docs](README.md)
-
-## Quick start
-
-```bash
-komando secret set app-db-pass                              # type the password once
-komando conn add app-db postgres://app@10.0.0.5:5432/app \
-  --via web1 --password-ref secret:app-db-pass --protected
-komando db schema app-db                                    # what tables are there?
-komando db query app-db "select id, email from users order by id desc limit 10"
-komando db dump app-db --to app-2026-11-02.sql.gz           # back up to this computer
-```
-
-Queries only read unless you add `--write`.
-
-## A database from start to end
-
-Every step is a command; a person and an AI agent type the same ones.
-
-```bash
-komando db add app-db postgres://app@10.0.0.5:5432/app --password-ref secret:app-db-pass
-komando test app-db                                  # can komando log in?
-komando db query app-db "select count(*) from users"
-komando db query app-db --write --dry-run "update users set plan = 'pro' where id = 42"
-komando db dump app-db --to backups/                 # backups/app-db-<date>.sql.gz
-komando db restore app-db --from backups/app-db-2026-11-12.sql.gz --dry-run
-komando conn edit app-db --protected                 # changes then need a person's yes
-komando conn rename app-db shop-db                       # rename; every reference follows
-komando conn rm shop-db                              # komando forgets it; the database stays
-```
-
-`komando list kind:db` lists your databases. A command's error always ends
-with a hint that names the next command to run, with your conn in it.
+Query, inspect, back up and restore PostgreSQL, MySQL/MariaDB, SQL Server,
+Oracle, ClickHouse, Snowflake, BigQuery, SQLite and MongoDB databases
+safely. [All docs](README.md)
 
 ## Add a database
 
-A conn is a database, cache, queue, storage bucket, cluster or registry
-that komando knows about, the way a host entry is a server it knows about. The kind comes from the
-start of the URL:
+```bash
+komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password --protected
+komando test prod-db                         # can komando reach it and log in?
+```
+
+Typed alone, `komando db add` asks for each part step by step.
+
+komando calls a database a **conn** (see the [glossary](glossary.md)).
+The kind comes from the start of the URL:
 
 | Kind | URL example |
 |------|-------------|
@@ -57,107 +31,86 @@ start of the URL:
 `komando conn kinds` lists every kind, including caches, queues, storage,
 clusters and registries.
 
-Never put the password in the URL; komando refuses it. Store it in the
-vault, or point at your password manager (see [Servers](servers.md)):
+Never put the password in the URL; komando refuses it. `--ask-password`
+asks for it (hidden) and keeps it in the vault as `secret:prod-db-pass`.
+Or store it first, or point at your password manager (see
+[Secrets](secrets.md)):
 
 ```bash
-komando secret set app-db-pass
-komando conn add app-db postgres://app@10.0.0.5:5432/app \
-  --via web1 --password-ref secret:app-db-pass --protected
-```
-
-Or in one step at your terminal: `--ask-password` asks for it (hidden) and
-stores it as `secret:app-db-pass`:
-
-```bash
-komando conn add app-db postgres://app@10.0.0.5:5432/app --via web1 --ask-password --protected
+komando secret set prod-db-pass
+komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
 ```
 
 `--via web1` means "the database is only reachable from web1". komando
 connects through web1 over SSH by itself: there is no tunnel to start and no
 port opens on your computer. `--via` can also be a chain or a VPN (see
-[Tunnels](tunnels.md) and [VPNs](vpn.md)).
+[Tunnels](tunnels.md) and [VPNs](vpn.md)). A conn that goes straight over
+the network should use TLS: see [Encryption (TLS)](#encryption-tls).
+
+At a terminal, a command with the database or the SQL left out asks for
+it, with a list of your databases, then prints the full command. Typed
+alone, `komando db query` asks which database, then the SQL. An AI agent
+or a script gets `USAGE` (exit 2) with an example in the hint. Every error
+ends with a hint that names the next command to run, with your conn in it.
+
+### Check, change, rename or remove a database conn
 
 ```bash
-komando list kind:conn                       # all conns
-komando test kind:conn                       # reachable? does the password work?
-komando conn show app-db                     # its settings (passwords stay references)
-komando conn edit app-db --add-tag critical
-komando conn rm old-db                       # only forgets it; the database is untouched
+komando list kind:db                         # your databases
+komando test kind:db                         # reachable? does the password work?
+komando conn show prod-db                    # its settings (passwords stay references)
+komando conn edit prod-db --add-tag critical
+komando conn edit prod-db --protected        # every change then needs a person's yes
+komando conn rename prod-db shop-db          # every reference follows
+komando conn rm staging-db                   # komando forgets it; the database is untouched
 ```
 
 - Conns use the same targets as servers (`@group`, `tag:prod`, `*-db`,
   `all`). See [Targets](targets.md).
-- Hosts and conns share one set of names: a host and a conn cannot both be
-  called `db1`. Names ignore upper and lower case, so `DB1` is the same name.
-- A host that a conn uses in `--via` cannot be removed until the conn is
+- Servers and conns share one set of names: a server and a conn cannot both
+  be called `db1`. Names ignore upper and lower case, so `DB1` is the same
+  name.
+- A server that a conn uses in `--via` cannot be removed until the conn is
   changed.
 
-### Encryption (TLS)
+## Look at tables
 
-A conn that goes straight over the network (no `--via`, not to this
-computer) should use TLS that checks the server's certificate. Otherwise
-anyone on the network path can read the data, and can trick the login into
-giving them the password:
+```bash
+komando db schema prod-db                    # list tables
+komando db schema prod-db users orders       # columns, types, indexes, foreign keys, checks
+```
 
-| Kind | Checked TLS | Encrypted, certificate not checked | No encryption |
-|------|-------------|------------------------------------|---------------|
-| PostgreSQL | `?sslmode=verify-full` | `?sslmode=require` | `?sslmode=disable` |
-| MySQL / MariaDB | `?tls=true` | `?tls=skip-verify` | `?tls=false` |
-| SQL Server | `?encrypt=true` (or `strict`) | `?encrypt=true&tls=skip-verify` | `?encrypt=disable` |
-| Oracle | `?tls=true` (TCPS) | `?tls=skip-verify` | `?tls=false` |
-| ClickHouse | `?tls=true` (HTTPS, port 8443) | `?tls=skip-verify` | `?tls=false` (port 8123) |
-| Snowflake | always (HTTPS) | not offered | not offered |
-| BigQuery | always (HTTPS) | not offered | an `http://` endpoint (an emulator) |
+Typed alone, `komando db schema` asks which database, then which tables.
 
-- Without a setting, a Postgres conn uses TLS when the server offers it,
-  but does not check the certificate and goes on without TLS when told to.
-  A MySQL conn without `tls=` is not encrypted, and the MySQL 8 login then
-  encrypts the password with a key the server sends over that same plain
-  connection, which someone in between can swap. A SQL Server conn without
-  `encrypt=` (or with `encrypt=false`) encrypts only the login, and
-  without `encrypt=` does not check the certificate either. An Oracle conn
-  without `tls=true` uses no TLS; Oracle's own network encryption, when the
-  server turns it on, encrypts but does not prove who the server is. A
-  ClickHouse conn without `tls=true` is plain HTTP.
-- New conns check by default. When `conn add` (or `conn edit --url`)
-  saves such a conn and its URL does not say how to use TLS, komando adds
-  `sslmode=verify-full` (Postgres), `tls=true` (MySQL, Oracle, ClickHouse,
-  whose port 8123 becomes 8443) or `encrypt=true` (SQL Server) and says so in
-  `warnings`. A URL that names a setting keeps it, and a conn through
-  `--via` or to this computer is left as written. If the server has no TLS
-  or a certificate from its own CA, the first connection's hint says what
-  to do (the rows below).
-- Conns saved before keep working as they are. `komando doctor` warns
-  about every conn without checked TLS and prints the
-  `komando conn edit NAME --url ...` line that fixes it.
-- A server whose certificate comes from a private CA (your company's, or a
-  cloud's own, such as Amazon RDS or Azure Database): store the CA and name
-  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle, ClickHouse,
-  Snowflake and BigQuery (a proxy that inspects TLS). The certificate is
-  then fully checked: signed by that CA and naming the server, also with
-  `sslmode=require`, and never without TLS:
+```text
+TABLE   TYPE   ROWS (EST.)
+orders  table  18230
+users   table  1204
+```
 
-  ```bash
-  komando secret set rds-ca < global-bundle.pem
-  komando conn add orders 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --password-ref secret:orders-pass
-  ```
-
-  For Postgres a file on this computer works too:
-  `?sslrootcert=/path/to/ca.pem`.
-- When TLS stops a connection (the certificate does not check out, or the
-  server has no TLS), the hint says what to do and names the weaker setting
-  with what it costs.
-- Through `--via`, the traffic is inside SSH up to the `--via` server.
+- `db schema` shows tables in the order you name them, and marks
+  `auto_increment` and `generated always as identity` columns.
+- Tables in the `public` schema show without it; others as
+  `schema.table`.
 
 ## Run a query
 
 ```bash
-komando db schema app-db                     # list tables
-komando db schema app-db users orders        # columns, types, indexes, foreign keys, checks
-komando db query app-db "select id, email from users order by id desc limit 10"
-komando db explain app-db "select * from orders where user_id = 42"
-komando db query app-db --file report.sql    # SQL from a file (--file - reads stdin)
+komando db query prod-db "select id, email from users order by id desc limit 2"
+```
+
+```text
+id    email
+1204  ana@example.com
+1203  budi@example.com
+(2 rows)
+```
+
+Queries only read unless you add `--write` (see [Change data](#change-data)).
+
+```bash
+komando db explain prod-db "select * from orders where user_id = 42"
+komando db query prod-db --file report.sql   # SQL from a file (--file - reads stdin)
 ```
 
 Use `--arg` for values instead of pasting them into the SQL. The
@@ -167,7 +120,7 @@ BigQuery (where the values go as `STRING`), and `{p1:String}`,
 `{p2:UInt64}` in ClickHouse (named `p1`, `p2`, with a type):
 
 ```bash
-komando db query app-db "select * from users where email = $1" --arg bob@example.com
+komando db query prod-db "select * from users where email = $1" --arg bob@example.com
 ```
 
 The number of `--arg` values must match the placeholders (`USAGE`, exit 2).
@@ -175,11 +128,13 @@ In Oracle SQL each placeholder takes its own `--arg`, also a name used
 twice (`where a = :1 or b = :1` takes two); in a PL/SQL block a name used
 twice takes one.
 
+### Export rows to CSV or TSV
+
 For spreadsheets and scripts, `-o csv` or `-o tsv` prints the rows
 instead of JSON or a table. NULL is an empty field, binary is `\x` hex:
 
 ```bash
-komando db query app-db -o csv "select id, email from users" > users.csv
+komando db query prod-db -o csv "select id, email from users" > users.csv
 ```
 
 A CSV or TSV export has every row, unless you give `--limit` (komando
@@ -187,8 +142,9 @@ then says on stderr when it stopped there). If the rows are more than
 `--max-output` bytes, komando prints nothing and fails with
 `OUTPUT_TRUNCATED` (exit 1), so a file is never cut without you knowing:
 raise `--max-output`, or for a whole database use `komando db dump`.
-Errors go to stderr, so the file holds only rows. `--csv` and `--tsv`
-are the old names; they still work in this release and say to use `-o`.
+Errors go to stderr, so the file holds only rows.
+
+### How much comes back, and how long it may run
 
 Otherwise a query returns at most 500 rows (`--limit`, `0` for no limit)
 and `--max-output` bytes. A cut result says which cap it hit:
@@ -197,7 +153,7 @@ and `--max-output` bytes. A cut result says which cap it hit:
 more, or give one conn its own limit:
 
 ```bash
-komando conn edit app-db --option statement_timeout=10s
+komando conn edit prod-db --option statement_timeout=10s
 ```
 
 `--timeout` on the command line always wins.
@@ -208,40 +164,14 @@ columns that hold other personal data (names, addresses) to hide them
 whole, for the agent: see [Personal data](safety.md#personal-data).
 
 ```bash
-komando conn edit app-db --option 'mask_columns=full_name address birth_date'
+komando conn edit prod-db --option 'mask_columns=full_name address birth_date'
 ```
 
 SQL that starts with a `-- comment` looks like a flag to the command
 line. Put `--` before it, or use `--file -`.
 
-### How values come back (JSON)
-
-| Column type | Value |
-|-------------|-------|
-| date | `"2024-02-29"` |
-| timestamp / datetime (no time zone) | `"2024-02-29 10:11:12.5"`, no `Z` |
-| timestamptz | `"2024-02-29T08:00:00Z"` (an instant, in UTC) |
-| MySQL zero dates | `"0000-00-00 00:00:00"`, as stored |
-| binary (bytea, blob) | `{"base64": "..."}`, also when empty; text output shows `\x` hex like psql |
-| integers too big for JSON (over 2^53) | strings; the whole column is then strings |
-| money, xml and other types | text, with the type named in `columns` |
-| SQL Server decimal, money | text with every digit (`"12.50"`) |
-| SQL Server uniqueidentifier | `"6F9619FF-8B86-D011-B42D-00C04FC964FF"` |
-| Oracle DATE (it holds a time of day too) | `"2026-11-09 13:04:05"` |
-| ClickHouse Decimal, Int128 and wider | text with every digit (`"12.50"`) |
-| ClickHouse Array, Map, Tuple | JSON arrays and objects |
-| Snowflake NUMBER with a scale | text with every digit (`"12.50"`) |
-| Snowflake VARIANT, OBJECT, ARRAY | JSON values, arrays and objects |
-| Snowflake DATE, TIME, TIMESTAMP | text in the column's form: `TIMESTAMP_NTZ` without a zone, `TIMESTAMP_LTZ` in UTC, `TIMESTAMP_TZ` with its offset |
-| Snowflake BINARY | `{"base64": "..."}` |
-| BigQuery INT64 | a number |
-| BigQuery BYTES | `{"base64": "..."}` |
-| BigQuery DATE, TIME, DATETIME, GEOGRAPHY, INTERVAL | text, as BigQuery writes it |
-| BigQuery NUMERIC, BIGNUMERIC | text with every digit |
-| BigQuery TIMESTAMP | `"2026-11-09T13:04:05.123456Z"` (UTC) |
-| BigQuery STRUCT, ARRAY, JSON | JSON objects, arrays and values |
-
-In text output, tables line up, also with CJK characters and emoji.
+In text output, tables line up, also with CJK characters and emoji. How
+each column type looks in JSON is in [Reference](#how-values-come-back-json).
 
 ## Change data
 
@@ -253,20 +183,29 @@ Changing data takes two steps. First a dry run: the SQL really runs, you
 see how many rows it touches, and then everything is rolled back.
 
 ```bash
-komando db query app-db --write --dry-run "update users set plan = 'pro' where id = 42"
-komando db query app-db --write "update users set plan = 'pro' where id = 42"
+komando db query prod-db --write --dry-run "update users set plan = 'pro' where id = 42"
+komando db query prod-db --write "update users set plan = 'pro' where id = 42"
+```
+
+```text
+1 row affected
+dry run: rolled back, nothing changed
 ```
 
 The seatbelts:
 
-- A protected conn also needs `--yes` with `--write`, whatever the SQL is.
-- Destructive SQL needs `--allow-dangerous`: `DROP`, `TRUNCATE`, `DELETE` or
-  `UPDATE` without `WHERE`, privilege changes, code that reaches the
-  server's operating system (`CREATE EXTENSION`, a function in C or
-  `plpython3u`, `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`, SQL Server
-  `CREATE ASSEMBLY`), and a few more.
-  `komando policy list` shows them all; `komando policy check --conn-kind postgres "..."`
-  tests a query.
+- A protected conn asks before every `--write`, whatever the SQL is.
+- Destructive SQL is stopped: `DROP`, `TRUNCATE`, `DELETE` or `UPDATE`
+  without `WHERE`, privilege changes, code that reaches the server's
+  operating system (`CREATE EXTENSION`, a function in C or `plpython3u`,
+  `LOAD`, MySQL `INSTALL PLUGIN` and `SONAME`, SQL Server
+  `CREATE ASSEMBLY`), and a few more. `komando policy list` shows them
+  all; `komando policy check --conn-kind postgres "..."` tests a query.
+- At your terminal komando asks you first (a protected conn: a yes;
+  destructive SQL: you type the conn's name); an AI agent or a script adds
+  `--yes` (or `--allow-dangerous`) after a person agrees. Without it, it
+  gets `PROTECTED_TARGET` or `POLICY_BLOCKED` (exit 6). See
+  [Safety](safety.md#what-needs-a-yes).
 - A few admin functions that a read-only transaction does not stop (ending
   sessions, reading server files, `dblink`) are blocked by komando's own
   checks.
@@ -300,96 +239,62 @@ The seatbelts:
 These checks catch mistakes. For real limits, give komando a database user
 with only the rights it needs.
 
-## Check on a database
-
-```bash
-komando db info app-db                   # version, uptime, size, connections, primary or replica
-komando db activity app-db               # what runs now: pid, user, how long, the query (--all adds idle ones)
-komando db locks app-db                  # who waits, and the session holding the lock
-komando db sizes app-db -n 10            # databases, biggest tables and indexes
-komando db explain app-db --analyze "select ..."   # real timings (MariaDB: ANALYZE)
-```
-
-Stop a slow query:
-
-```bash
-komando db kill app-db 4821 --dry-run    # which query it would stop
-komando db kill app-db 4821              # cancel the query; the client stays connected
-komando db kill app-db 4821 --session --allow-dangerous   # end the whole connection
-```
-
-- Text output shows sizes (`7.5 MiB`) and durations (`3h`). JSON keeps the
-  raw numbers (`size_bytes`, `running_seconds`).
-- `db schema` shows tables in the order you name them, and marks
-  `auto_increment` and `generated always as identity` columns.
-- SQLite has no server sessions, so `activity`, `locks` and `kill` do not
-  apply to it.
-- SQL Server can only end a whole session (`KILL`), so `db kill` needs
-  `--session` there.
-- On Oracle the PID is the session's SID (`db activity` shows it, with
-  its serial#).
-- On ClickHouse the PID is a number `db activity` makes from the query's
-  `query_id`; `db kill` stops that query, and there is no `--session` or
-  `db locks`.
-- On Snowflake, too, the PID is a number `db activity` makes from the query
-  ID; `db kill` cancels the query (`SYSTEM$CANCEL_QUERY`), and `--session`
-  ends its session. There is no `db locks`.
-- On BigQuery the PID is a number `db activity` makes from the job ID;
-  `db kill` cancels the job. There is no `--session` or `db locks`.
-
-## Users and grants
-
-```bash
-komando secret set app-ro-pass                              # the password goes to the vault first
-komando db user add app-db app_ro --password-ref secret:app-ro-pass
-komando db grant app-db app_ro --privileges SELECT --on all-tables:public
-komando db user show app-db app_ro                             # what it may do now
-komando db user list app-db                                   # all users and roles
-komando db user passwd app-db app_ro --password-ref secret:app-ro-pass-2   # rotate (the conn's own user: also conn edit, see rotate.md)
-komando db revoke app-db app_ro --privileges SELECT --on all-tables:public
-komando db user rm app-db app_ro --allow-dangerous
-komando db grant shop-db app --privileges SELECT,INSERT --on 'shop.*' --from-host '10.0.%'   # MySQL
-```
-
-- Passwords come only from a secret reference. They are never typed on a
-  command line, shown, or written to the audit log (`--dry-run` and the
-  answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that
-  komando computes, so the password never reaches the server or its logs.
-  For an AI agent, the password needs a person's yes (`--yes`, then the
-  window, `SECRET_DESTINATION`): the conn could be a server the agent set up.
-- `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
-  `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
-  and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from-host` sets the account host).
-  For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
-  for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user list` and
-  `db user show` read; adding, changing and granting are not available. On
-  BigQuery, users and rights are Google Cloud IAM, so these commands are
-  not available.
-- Adding users and grants are changes (`--yes` on protected conns).
-  Removing a user also needs `--allow-dangerous`.
-
 ## Back up and restore
 
 ```bash
-komando db dump app-db                                  # app-db-<date>.sql.gz in this folder
-komando db dump app-db --to backups/                    # the same name, inside backups/
-komando db dump app-db --to app-2026-11-02.sql.gz      # plain SQL, compressed (.gz)
-komando db dump app-db --to app.dump --format custom   # PostgreSQL archive, for pg_restore
-komando db dump app-db --to orders.sql --table public.orders   # one table (repeatable)
-komando db dump app-db --to schema.sql --schema-only   # no rows
-komando db restore staging-db --from app-2026-11-02.sql.gz --dry-run    # checks the file, changes nothing
-komando db restore staging-db --from app-2026-11-02.sql.gz --allow-dangerous
-komando db restore staging-db --from app.dump --allow-dangerous   # an archive: pg_restore on the conn's --via server
-komando db dump app-db --to app.dump --format custom --run-on db1      # pg_dump runs on the server db1
-komando db restore staging-db --from app.dump --run-on db1 --allow-dangerous   # pg_restore runs on db1
+komando db dump prod-db --to backups/
 ```
+
+```text
+prod-db: backups/prod-db-2026-11-13.sql.gz (48.2 MiB)
+```
+
+Typed alone, `komando db dump` asks which database to back up, then
+which file to save it to.
+
+Which kinds komando can back up itself:
+
+| Kind | `db dump` / `db restore` | Instead |
+|------|--------------------------|---------|
+| PostgreSQL | yes | |
+| MySQL / MariaDB | yes | |
+| SQLite | `dump` copies the database file; no `restore` | stop the app, then copy the file back |
+| MongoDB | no | `mongodump` on a server, with `komando exec` |
+| SQL Server | no | `BACKUP DATABASE ... TO DISK` with `db query --write`, then `komando download` the `.bak` file |
+| Oracle | no | Data Pump (`expdp`, `impdp`) or RMAN with `komando exec`, then `komando download` |
+| ClickHouse | no | `BACKUP TABLE ... TO Disk('backups', 'name.zip')` (or `S3(...)`) with `db query --write` |
+| Snowflake | no | `COPY INTO @stage`, Time Travel or `CLONE` |
+| BigQuery | no | `EXPORT DATA` to Cloud Storage, or table snapshots |
+
+A "no" kind answers `NOT_SUPPORTED`, with this hint. The backup SQL in
+the "Instead" column needs `--allow-dangerous` too. For a big job, use
+`komando job` instead of `komando exec`. For a few rows,
+`komando db query CONN -o csv` is a copy on this computer.
+
+```bash
+komando db dump prod-db                                   # prod-db-<date>.sql.gz in this folder
+komando db dump prod-db --to prod-2026-11-02.sql.gz       # plain SQL, compressed (.gz)
+komando db dump prod-db --to prod.dump --format custom    # PostgreSQL archive, for pg_restore
+komando db dump prod-db --to orders.sql --table public.orders   # one table (repeatable)
+komando db dump prod-db --to schema.sql --schema-only     # no rows
+komando db restore staging-db --from prod-2026-11-02.sql.gz --dry-run   # checks the file, changes nothing
+komando db restore staging-db --from prod-2026-11-02.sql.gz
+komando db restore staging-db --from prod.dump            # an archive: pg_restore on the conn's --via server
+komando db dump prod-db --to prod.dump --format custom --run-on db1     # pg_dump runs on the server db1
+komando db restore staging-db --from prod.dump --run-on db1             # pg_restore runs on db1
+```
+
+A restore can overwrite data. At your terminal komando asks you first;
+an AI agent or a script adds `--allow-dangerous` (and `--yes` on a
+protected conn) after a person agrees. See [Restore safely](#restore-safely).
 
 ### Where the backup goes, and who makes it
 
 The backup always goes to a file on this computer, readable only by you.
 An existing file is never overwritten. Without `--to` it is
-`CONN-<date>.sql.gz` (SQLite: `CONN-<date>.db`) in this folder; `--to` a
-folder puts that name inside it.
+`CONN-<date>.sql.gz` in this folder (`--format custom`:
+`CONN-<date>.dump`; SQLite: `CONN-<date>.db`); `--to` a folder puts that
+name inside it.
 
 `pg_dump` or `mysqldump` runs on a server that has it: the one you name with
 `--run-on HOST`, else the last server of the conn's `--via` path. Otherwise (a
@@ -433,19 +338,19 @@ plain SQL itself) but a server you manage has `pg_dump` and can reach the
 database, often the database server itself:
 
 ```bash
-komando db dump prod-db --to prod.dump --format custom --run-on db1 --dry-run   # where and what would run
+komando db dump prod-db --to prod.dump --format custom --run-on db1 --dry-run
 komando db dump prod-db --to prod.dump --format custom --run-on db1
 ```
 
-- `HOST` is a server from your inventory (a name or a selector that picks
+- `HOST` is a server from your list (a name or a selector that picks
   exactly one); komando reaches it the usual way, through its own `--via`.
-  The conn's password goes to it, so a `user@address` that is not in the
-  inventory is refused, and for an AI agent a server other than the conn's
+  The conn's password goes to it, so a `user@address` that is not in your
+  list is refused, and for an AI agent a server other than the conn's
   own `--via` server needs your yes (`SECRET_DESTINATION`).
 - The tool there connects to the conn URL's address as that server sees
   it. When the database only listens on `127.0.0.1` on that server, add a
   second conn for that address reached through it
-  (`komando conn add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --password-ref ...`)
+  (`komando db add prod-db-local postgres://app@127.0.0.1:5432/app --via db1 --password-ref secret:prod-db-pass`)
   and dump that one; `CONN_UNREACHABLE` says this when it happens.
 - A dump runs at low priority (`nice -n 10`, plus `ionice -c3` where the
   server has it), so the server keeps serving its users. `low_priority` in
@@ -459,8 +364,7 @@ komando db dump prod-db --to prod.dump --format custom --run-on db1
   missing or old tool there is an error, while a `--via` server without a
   usable tool falls back to komando's own plain SQL dump.
 - `db restore --run-on HOST` runs `pg_restore` there for an archive, streaming
-  the file to it over SSH. It has the same gate as any restore
-  (`--allow-dangerous`, plus `--yes` on a protected conn). Plain SQL is
+  the file to it over SSH. It asks the same as any restore. Plain SQL is
   always restored by komando itself, so `--run-on` with a SQL file is refused.
 - PostgreSQL 17 tools write `SET transaction_timeout`, which servers before
   17 do not know. komando's own restore of plain SQL skips that line on such
@@ -490,14 +394,21 @@ Plain SQL that psql and mysql can also read:
   left out silently.
 - `--format custom` needs `pg_dump` on a server (`--run-on HOST`, or the conn's
   `--via` server).
+- For SQLite, `dump` copies the database file (`--to backup.db`); a `.gz`
+  name, `--format`, `--schema-only`, `--table` and `--run-on` are refused.
 
 ### Restore safely
 
-- A restore can overwrite data, so it needs `--allow-dangerous` (and `--yes`
-  on a protected conn).
+- A restore can overwrite data. At your terminal komando first offers to
+  save the database as it is now (`Save a copy of staging-db as it is now
+  first, so you can go back? [Y/n]`), then asks you to type the conn's
+  name instead of `--allow-dangerous`. Scripts and AI agents get no
+  question: run `komando db dump CONN` first yourself, then add
+  `--allow-dangerous` (and `--yes` on a protected conn) after a person
+  agrees.
 - PostgreSQL restores run in one transaction: if anything fails, nothing
   changes. MySQL runs the statements in order and stops at the first error;
-  what ran before it stays.
+  what ran before it stays (`RESTORE_FAILED`).
 - komando reads the whole file before sending anything, the way psql and
   mysql would read it. A file with client commands that could run programs
   or read files (`\!`, `system`, `\i`) is refused (`UNSAFE_BACKUP`), and so
@@ -518,14 +429,201 @@ Plain SQL that psql and mysql can also read:
   `sql-privileges`.
 - `--table` takes table names only; a value that starts with `-` is
   refused.
+- `db restore` does not take a SQLite file: stop the programs that use the
+  database, then copy the backup over the database file.
+- Big databases take time: `dump` and `restore` have no timeout unless you
+  pass `--timeout`.
 
-### SQLite and big databases
+## Check on a database
 
-For SQLite, `dump` copies the database file (`--to backup.db`). To restore,
-stop the app and copy the file back.
+```bash
+komando db info prod-db                   # version, uptime, size, connections, primary or replica
+komando db activity prod-db               # what runs now: pid, user, how long, the query (--all adds idle ones)
+komando db locks prod-db                  # who waits, and the session holding the lock
+komando db sizes prod-db -n 10            # databases, biggest tables and indexes
+komando db explain prod-db --analyze "select ..."   # real timings (MariaDB: ANALYZE)
+```
 
-Big databases take time: `dump` and `restore` have no timeout unless you
-pass `--timeout`.
+```text
+conn:    prod-db
+kind:    postgres
+uptime:  12d
+size:    7.5 GiB
+```
+
+(The full answer also has the version, the connections and whether it is
+a primary or a replica.)
+
+Stop a slow query:
+
+```bash
+komando db kill prod-db 4821 --dry-run    # which query it would stop
+komando db kill prod-db 4821              # cancel the query; the client stays connected
+komando db kill prod-db 4821 --session    # end the whole connection
+```
+
+Ending a whole connection is destructive: at your terminal komando asks
+you first; an AI agent or a script adds `--allow-dangerous` after a person
+agrees.
+
+- Text output shows sizes (`7.5 MiB`) and durations (`3h`). JSON keeps the
+  raw numbers (`size_bytes`, `running_seconds`).
+- SQLite has no server sessions, so `activity`, `locks` and `kill` do not
+  apply to it.
+- SQL Server can only end a whole session (`KILL`), so `db kill` needs
+  `--session` there.
+- On Oracle the PID is the session's SID (`db activity` shows it, with
+  its serial#).
+- On ClickHouse the PID is a number `db activity` makes from the query's
+  `query_id`; `db kill` stops that query, and there is no `--session` or
+  `db locks`.
+- On Snowflake, too, the PID is a number `db activity` makes from the query
+  ID; `db kill` cancels the query (`SYSTEM$CANCEL_QUERY`), and `--session`
+  ends its session. There is no `db locks`.
+- On BigQuery the PID is a number `db activity` makes from the job ID;
+  `db kill` cancels the job. There is no `--session` or `db locks`.
+
+## Users and grants
+
+```bash
+komando secret set app-ro-pass                                  # the password goes to the vault first
+komando db user add prod-db app_ro --password-ref secret:app-ro-pass
+komando db grant prod-db app_ro --privileges SELECT --on all-tables:public
+komando db user show prod-db app_ro                             # what it may do now
+komando db user list prod-db                                    # all users and roles
+komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2
+komando db revoke prod-db app_ro --privileges SELECT --on all-tables:public
+komando db user rm prod-db app_ro
+komando db grant staging-db app --privileges SELECT,INSERT --on 'shop.*' --from-host '10.0.%'   # a MySQL conn
+```
+
+Typed alone, `komando db user add` asks which database, the user, then
+where the password is kept. To change the password of the conn's own
+user, see [Rotate passwords](rotate.md).
+
+- Passwords come only from a secret reference. They are never typed on a
+  command line, shown, or written to the audit log (`--dry-run` and the
+  answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that
+  komando computes, so the password never reaches the server or its logs.
+  For an AI agent, the password needs a person's yes (`--yes`, then the
+  window, `SECRET_DESTINATION`): the conn could be a server the agent set up.
+- `--on` takes `database:NAME`, `schema:NAME`, `table:[SCHEMA.]TABLE` or
+  `all-tables:SCHEMA` on PostgreSQL (`--role ROLE` grants a role instead),
+  and `DB.*`, `DB.TABLE` or `*.*` on MySQL (`--from-host` sets the account host).
+  For SQL Server see [SQL Server](#sql-server), for Oracle [Oracle](#oracle),
+  for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user list` and
+  `db user show` read; adding, changing and granting are not available. On
+  BigQuery, users and rights are Google Cloud IAM, so these commands are
+  not available.
+- Adding users and grants are changes: a protected conn asks first.
+  Removing a user is destructive: at your terminal you type the user's
+  name; an AI agent or a script adds `--allow-dangerous` after a person
+  agrees. A user that still owns objects or has sessions is not removed
+  (`DB_USER_IN_USE`).
+
+## Interactive SQL shell (for people)
+
+```bash
+komando db shell staging-db           # komando's own SQL shell; starts read-only
+komando db shell staging-db --write   # allow changes
+komando db shell prod-db              # a protected conn asks first
+```
+
+`db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
+SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and SQLite, so nothing
+else needs to be installed. It connects through the conn's `--via` path,
+and every statement gets the same checks as
+`db query`: read-only unless you started it with `--write`, destructive
+statements only after you type the conn's name, and each one is written
+to the audit log. A statement ends with `;` (an Oracle PL/SQL block: a
+line with only `/`) and runs in its own transaction.
+
+```text
+staging-db> select id, name
+         -> from users limit 2;
+ id | name
+----+------
+  1 | ana
+  2 | budi
+(2 rows)
+staging-db> \q
+```
+
+| Command | What it does |
+|---------|--------------|
+| `\q` | quit |
+| `\write` | allow changes for the rest of the shell (it asks first, also on a protected conn); `\write` again goes back to read-only |
+| `\?` | list the commands |
+| `\d [TABLE]` | list tables, or show one table |
+| `\l` / `\dn` / `\du` | databases / schemas / roles |
+| `\x` | expanded rows (or end a statement with `\G`) |
+| `\timing` | show how long each statement takes |
+| `\i FILE` | run SQL from a file |
+
+Up and down arrows recall earlier lines. The read-only mode is the
+database's own (a read-only transaction): `\write` connects again with
+changes allowed. A destructive statement (`DROP`, `TRUNCATE`, a `DELETE`
+without `WHERE`) asks you to type the conn's name first, as `db query` does
+at the command line; anything else is `Not run.`. The shell is for people at
+a terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`,
+which returns JSON. MongoDB has no `db shell`.
+
+## Encryption (TLS)
+
+A conn that goes straight over the network (no `--via`, not to this
+computer) should use TLS that checks the server's certificate. Otherwise
+anyone on the network path can read the data, and can trick the login into
+giving them the password:
+
+| Kind | Checked TLS | Encrypted, certificate not checked | No encryption |
+|------|-------------|------------------------------------|---------------|
+| PostgreSQL | `?sslmode=verify-full` | `?sslmode=require` | `?sslmode=disable` |
+| MySQL / MariaDB | `?tls=true` | `?tls=skip-verify` | `?tls=false` |
+| SQL Server | `?encrypt=true` (or `strict`) | `?encrypt=true&tls=skip-verify` | `?encrypt=disable` |
+| Oracle | `?tls=true` (TCPS) | `?tls=skip-verify` | `?tls=false` |
+| ClickHouse | `?tls=true` (HTTPS, port 8443) | `?tls=skip-verify` | `?tls=false` (port 8123) |
+| Snowflake | always (HTTPS) | not offered | not offered |
+| BigQuery | always (HTTPS) | not offered | an `http://` endpoint (an emulator) |
+
+- Without a setting, a Postgres conn uses TLS when the server offers it,
+  but does not check the certificate and goes on without TLS when told to.
+  A MySQL conn without `tls=` is not encrypted, and the MySQL 8 login then
+  encrypts the password with a key the server sends over that same plain
+  connection, which someone in between can swap. A SQL Server conn without
+  `encrypt=` (or with `encrypt=false`) encrypts only the login, and
+  without `encrypt=` does not check the certificate either. An Oracle conn
+  without `tls=true` uses no TLS; Oracle's own network encryption, when the
+  server turns it on, encrypts but does not prove who the server is. A
+  ClickHouse conn without `tls=true` is plain HTTP.
+- komando checks by default. When `db add` (or `conn edit --url`) saves
+  such a conn and its URL does not say how to use TLS, komando adds
+  `sslmode=verify-full` (Postgres), `tls=true` (MySQL, Oracle, ClickHouse,
+  whose port 8123 becomes 8443) or `encrypt=true` (SQL Server) and says so in
+  `warnings`. A URL that names a setting keeps it, and a conn through
+  `--via` or to this computer is left as written. If the server has no TLS
+  or a certificate from its own CA, the first connection's hint says what
+  to do (the rows below).
+- A conn whose URL turns the check off keeps working. `komando doctor`
+  warns about every conn without checked TLS and prints the
+  `komando conn edit NAME --url ...` line that fixes it.
+- A server whose certificate comes from a private CA (your company's, or a
+  cloud's own, such as Amazon RDS or Azure Database): store the CA and name
+  it with `?ca=`, for Postgres, MySQL, SQL Server, Oracle, ClickHouse,
+  Snowflake and BigQuery (a proxy that inspects TLS). The certificate is
+  then fully checked: signed by that CA and naming the server, also with
+  `sslmode=require`, and never without TLS:
+
+  ```bash
+  komando secret set rds-ca < global-bundle.pem
+  komando db add prod-db 'postgres://app@orders.abc123.eu-west-1.rds.amazonaws.com/orders?ca=secret:rds-ca' --password-ref secret:prod-db-pass
+  ```
+
+  For Postgres a file on this computer works too:
+  `?sslrootcert=/path/to/ca.pem`.
+- When TLS stops a connection (the certificate does not check out, or the
+  server has no TLS), the hint says what to do and names the weaker setting
+  with what it costs.
+- Through `--via`, the traffic is inside SSH up to the `--via` server.
 
 ## MongoDB
 
@@ -535,7 +633,7 @@ JSON instead of SQL: its first key names the command, as in `runCommand`.
 
 ```bash
 komando secret set shop-mongo-pass
-komando conn add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via bastion --password-ref secret:shop-mongo-pass
+komando db add shop-mongo 'mongodb://app@db1.internal,db2.internal/shop?replicaSet=rs0&authSource=admin' --via web1 --password-ref secret:shop-mongo-pass
 komando db query shop-mongo '{"find": "orders", "filter": {"status": "open"}, "sort": {"_id": -1}, "limit": 10}'
 komando db query shop-mongo '{"aggregate": "orders", "pipeline": [{"$group": {"_id": "$status", "n": {"$sum": 1}}}], "cursor": {}}'
 komando db query shop-mongo --write '{"update": "orders", "updates": [{"q": {"_id": {"$oid": "5f1d7f1b2c3a4b5c6d7e8f90"}}, "u": {"$set": {"status": "paid"}}}]}'
@@ -547,9 +645,9 @@ komando db info shop-mongo                        # version, primary or secondar
 - komando rates each command before it sends it, as it does SQL: `find`,
   `aggregate`, `count`, `distinct` and the other reads run as they are. A
   command that changes data, or one komando does not know as a read, needs
-  `--write`; a protected conn also needs `--yes`. A `delete` or a multi-document
-  `update` with an empty filter, `drop`, `dropDatabase`, user and role
-  changes and `shutdown` also need `--allow-dangerous`. An `aggregate` with
+  `--write`; a protected conn also asks first. A `delete` or a
+  multi-document `update` with an empty filter, `drop`, `dropDatabase`,
+  user and role changes and `shutdown` are destructive. An `aggregate` with
   `$out` or `$merge` writes.
 - MongoDB has no read-only transaction, so the rating is what keeps a read
   a read. For a hard guarantee, give the conn a user with only the `read`
@@ -564,9 +662,11 @@ komando db info shop-mongo                        # version, primary or secondar
   others. `-o text` prints one document per line.
 - Every member of a replica set is reached through `--via`. A private CA
   works with `?tls=true&ca=secret:NAME`.
-- For SQL databases only: `db dump`, `restore`, `activity`, `locks`,
-  `sizes`, `kill`, users and grants, and `db shell`. On MongoDB they say so
-  (`NOT_SUPPORTED`); run `mongodump` on a server with `komando exec`.
+- For SQL databases only: `db explain`, `dump`, `restore`, `activity`,
+  `locks`, `sizes`, `kill`, users and grants, and `db shell`. On MongoDB
+  they say so (`NOT_SUPPORTED`). Explain a query with
+  `db query '{"explain": {"find": "users", "filter": {}}, "verbosity": "queryPlanner"}'`;
+  for a backup, see [Back up and restore](#back-up-and-restore).
 
 ## SQL Server
 
@@ -575,14 +675,14 @@ commands as PostgreSQL and MySQL, in T-SQL:
 
 ```bash
 komando secret set sales-pass
-komando conn add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --password-ref secret:sales-pass
+komando db add sales 'sqlserver://app@db.internal:1433/sales?encrypt=true' --password-ref secret:sales-pass
 komando db query sales "select top (10) id, email from dbo.users order by id desc"
 komando db query sales "select * from dbo.users where email = @p1" --arg bob@example.com
 komando db query sales --write --dry-run "update dbo.users set plan = 'pro' where id = 42"
 komando db schema sales dbo.orders                  # columns, identity, indexes, foreign keys, checks
 komando db explain sales "select * from dbo.orders where user_id = 42"   # the plan; nothing runs
 komando db info sales
-komando db kill sales 57 --session --allow-dangerous
+komando db kill sales 57 --session
 ```
 
 - **The URL.** The path is the database. A named instance
@@ -603,8 +703,8 @@ komando db kill sales 57 --session --allow-dangerous
   - a change anywhere in the text counts, so `select 1 delete from t` is a
     `DELETE` without `WHERE`;
   - a first word that is not a T-SQL statement is the name of a procedure
-    that SQL Server runs (`sp_who`), so it needs `--write` and
-    `--allow-dangerous`, like `EXEC`;
+    that SQL Server runs (`sp_who`), so it needs `--write` and is
+    destructive, like `EXEC`;
   - `BEGIN`, `COMMIT`, `ROLLBACK`, `SAVE TRANSACTION` and
     `SET IMPLICIT_TRANSACTIONS` are refused anywhere, so `BEGIN ... END`
     blocks and `TRY ... CATCH` belong in a stored procedure;
@@ -622,9 +722,8 @@ komando db kill sales 57 --session --allow-dangerous
 - `db explain` shows the plan with `SET SHOWPLAN_TEXT`: nothing runs, so it
   needs no `--write` for a change either. `--analyze` runs the query with
   `SET STATISTICS PROFILE` and shows the real row counts. Explaining a
-  stored procedure call (`EXEC`) still needs `--write` and
-  `--allow-dangerous`. The SQL may not turn `SHOWPLAN` settings on or off
-  itself.
+  stored procedure call (`EXEC`) still needs `--write` and is destructive.
+  The SQL may not turn `SHOWPLAN` settings on or off itself.
 - `db activity`, `locks` and the sessions in `db info` need the
   `VIEW SERVER STATE` permission; without it a login sees only its own
   session.
@@ -634,10 +733,7 @@ komando db kill sales 57 --session --allow-dangerous
   conn's), `schema:NAME`, `all-tables:SCHEMA` (the same) or
   `table:[SCHEMA.]TABLE`, and `--role db_datareader` (any database role)
   adds the user to a role.
-- **Backups.** `db dump` and `db restore` are not available for SQL Server
-  yet (`NOT_SUPPORTED`). SQL Server's own `BACKUP DATABASE ... TO DISK`
-  writes a `.bak` file on the database server (with `--write` and
-  `--allow-dangerous`); `komando download` then fetches it from that server.
+- **Backups:** see [Back up and restore](#back-up-and-restore).
 
 ## Oracle
 
@@ -646,14 +742,14 @@ same `db` commands, in Oracle SQL:
 
 ```bash
 komando secret set erp-pass
-komando conn add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --password-ref secret:erp-pass
+komando db add erp 'oracle://app@db.internal:1521/ERPPDB?tls=true' --password-ref secret:erp-pass
 komando db query erp "select id, email from app.users order by id desc fetch first 10 rows only"
 komando db query erp "select * from app.users where email = :1" --arg bob@example.com
 komando db query erp --write --dry-run "update app.users set plan = 'pro' where id = 42"
 komando db schema erp app.orders                   # columns, identity, indexes, foreign keys, checks
 komando db explain erp "select * from app.orders where user_id = 42"   # EXPLAIN PLAN; nothing runs
 komando db info erp
-komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
+komando db kill erp 371 --session                  # 371 is the SID
 ```
 
 - **The URL.** The path is the service name, often a pluggable database
@@ -670,12 +766,12 @@ komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
   `TRUNCATE`, `COMMENT`, ...). So it always needs `--write`, must be sent on
   its own, and a dry run only reports it. `ALTER SESSION` is not DDL.
 - **PL/SQL.** A block (`BEGIN ... END;`, `DECLARE ...`) and `WITH FUNCTION`
-  run code komando cannot follow: they need `--write` and
-  `--allow-dangerous`, and a dry run skips them. A block runs to the end of
-  the text or to a line with only `/`, as in SQL*Plus:
+  run code komando cannot follow: they need `--write`, are destructive, and
+  a dry run skips them. A block runs to the end of the text or to a line
+  with only `/`, as in SQL*Plus:
 
   ```bash
-  komando db query erp --write --allow-dangerous -f - <<'SQL'
+  komando db query erp --write -f - <<'SQL'
   begin
     app.close_month(date '2026-10-31');
   end;
@@ -693,13 +789,13 @@ komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
   holds a control character or an unusual line break is refused, because
   komando cannot be sure where Oracle ends it.
 - Calls to packages that reach other servers or files (`UTL_HTTP`,
-  `UTL_FILE`, `DBMS_PIPE`, `DBMS_SCHEDULER`, ...) need `--write` and
-  `--allow-dangerous`, and so does a call to any function that is not one
-  of Oracle's own (`app.close_month(1)`, `pkg.f(x)`): it can commit on its
+  `UTL_FILE`, `DBMS_PIPE`, `DBMS_SCHEDULER`, ...) need `--write` and are
+  destructive, and so is a call to any function that is not one of
+  Oracle's own (`app.close_month(1)`, `pkg.f(x)`): it can commit on its
   own (an autonomous transaction), even in a `SELECT`. A name across a
   database link (`orders@prodlink`) and an inline external table
   (`FROM EXTERNAL (...)`, which reads files on the database server and with
-  a `PREPROCESSOR` runs a program there) need the same. A function called
+  a `PREPROCESSOR` runs a program there) count the same. A function called
   without `()` looks like a column, so komando cannot see it: for a hard
   limit, give the conn a user with only `SELECT` (or `READ`) grants.
 - `db explain` uses `EXPLAIN PLAN` and `DBMS_XPLAN`: nothing runs, so it
@@ -722,20 +818,18 @@ komando db kill erp 371 --session --allow-dangerous   # 371 is the SID
   `EXECUTE`, ...), `--on database` (system privileges such as
   `CREATE TABLE` or `SELECT ANY TABLE`), `--on schema:NAME` (Oracle 23ai:
   `SELECT` becomes `SELECT ANY TABLE ON SCHEMA`), and `--role NAME`.
-- **Backups.** `db dump` and `db restore` are not available for Oracle
-  (`NOT_SUPPORTED`): Data Pump (`expdp`, `impdp`) and RMAN run on the
-  database server and write there. Run them with `komando exec` (or a
-  `komando job` for a big one), then fetch the file with `komando download`.
+- **Backups:** see [Back up and restore](#back-up-and-restore).
 
 ## ClickHouse
 
 ClickHouse conns (23.3 and later) take the same `db` commands, in
-ClickHouse SQL. komando speaks ClickHouse's HTTP interface (port 8443 with TLS, 8123 without) with its own client, so
-nothing else needs to be installed:
+ClickHouse SQL. komando speaks ClickHouse's HTTP interface (port 8443 with
+TLS, 8123 without) with its own client, so nothing else needs to be
+installed:
 
 ```bash
 komando secret set events-pass
-komando conn add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --password-ref secret:events-pass
+komando db add events 'clickhouse://app@ch.internal:8443/analytics?tls=true' --password-ref secret:events-pass
 komando db query events "select event, count() from hits where day = today() group by event order by 2 desc limit 10"
 komando db query events "select * from hits where user_id = {p1:UInt64} limit 10" --arg 42
 komando db query events --write "insert into notes (id, text) values (1, 'hello')"
@@ -763,14 +857,14 @@ komando db kill events 8078617214407497              # the pid db activity shows
 - **A write cannot be rolled back.** `INSERT`, `ALTER`, `CREATE`,
   `OPTIMIZE` and every other statement that is not a read need `--write`,
   must be sent on their own, and a dry run only reports them. Destructive
-  ones need `--allow-dangerous` as usual: `DROP`, `TRUNCATE`, `DETACH`,
-  `ALTER ... DROP` or `CLEAR`, `SYSTEM`, `KILL QUERY`, users, roles,
-  quotas and grants, `BACKUP` and `FREEZE`.
+  ones, as usual: `DROP`, `TRUNCATE`, `DETACH`, `ALTER ... DROP` or
+  `CLEAR`, `SYSTEM`, `KILL QUERY`, users, roles, quotas and grants,
+  `BACKUP` and `FREEZE`.
 - **Reading from elsewhere.** `readonly=1` lets reads through, also reads
   that reach other servers or the server's files. So the table functions
   and engines that do (`url()`, `s3()`, `remote()`, `mysql()`,
   `postgresql()`, `file()`, `executable()`, `Kafka`, ...) need `--write`
-  and `--allow-dangerous`, also inside `DESCRIBE` or `EXPLAIN`. Functions
+  and are destructive, also inside `DESCRIBE` or `EXPLAIN`. Functions
   the server's admin added as programs (executable user-defined functions)
   run under `readonly=1` like any function: komando cannot tell them from
   ClickHouse's own functions by name.
@@ -796,10 +890,7 @@ komando db kill events 8078617214407497              # the pid db activity shows
   `table:DB.TABLE` (`SELECT`, `INSERT`, `ALTER`, `CREATE`, `DROP`,
   `TRUNCATE`, `OPTIMIZE`, `SHOW`, `KILL QUERY`, ...), and `--role NAME`.
   Users defined in the server's `users.xml` cannot be changed with SQL.
-- **Backups.** `db dump` and `db restore` are not available for
-  ClickHouse (`NOT_SUPPORTED`). Its own `BACKUP TABLE ... TO Disk('backups',
-  'name.zip')` (or `S3(...)`) writes the backup on the server, with
-  `--write` and `--allow-dangerous`.
+- **Backups:** see [Back up and restore](#back-up-and-restore).
 
 ## Snowflake
 
@@ -809,14 +900,13 @@ needs to be installed:
 
 ```bash
 komando secret set analytics-key < rsa_key.p8      # the user's private key (key-pair login)
-komando conn add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' \
-  --password-ref secret:analytics-key
+komando db add analytics 'snowflake://APP_RO@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=REPORTING&role=ANALYST_RO' --password-ref secret:analytics-key
 komando db query analytics "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
 komando db schema analytics public.orders          # columns, primary key, clustering key
 komando db explain analytics "select * from orders where id = 42"
 komando db activity analytics                      # running and queued queries
 komando db kill analytics 4387013457812345         # the pid db activity shows
-komando db user show analytics APP_RO                 # its roles, and what each role may do
+komando db user show analytics APP_RO              # its roles, and what each role may do
 ```
 
 - **The URL.** The account goes where other kinds have a host: the
@@ -841,7 +931,7 @@ komando db user show analytics APP_RO                 # its roles, and what each
   - **A programmatic access token** (`ALTER USER APP_RO ADD PROGRAMMATIC
     ACCESS TOKEN ...`), which Snowflake lets stand where a password goes.
 
-  Browser sign-in (SSO) and OAuth are not supported in this version.
+  Browser sign-in (SSO) and OAuth are not supported.
 - **Read-only is komando's check, not Snowflake's.** Snowflake has no
   read-only mode komando can switch on, and each statement is a session of
   its own, so nothing can be rolled back. Without `--write` komando sends
@@ -865,7 +955,7 @@ komando db user show analytics APP_RO                 # its roles, and what each
   ```
 
   and name it in the URL (`?role=ANALYST_RO`).
-- **Destructive** (`--allow-dangerous`): `DROP`, `TRUNCATE`,
+- **Destructive:** `DROP`, `TRUNCATE`,
   `CREATE OR REPLACE` (it drops what had the name), users, roles, grants
   and policies, warehouses, integrations, shares and `ALTER ACCOUNT`,
   stage files (`PUT`, `GET`, `REMOVE`, `COPY INTO @stage`), URLs and
@@ -878,16 +968,16 @@ komando db user show analytics APP_RO                 # its roles, and what each
   text with letters outside ASCII outside quotes are refused
   (`SQL_HIDDEN_CODE`).
 - **A warehouse.** Most queries need one: give it with `?warehouse=`.
-  `SELECT 1` and `SHOW` do not, so `conn test` works without one.
+  `SELECT 1` and `SHOW` do not, so `komando test` works without one.
 - `db schema`, `db sizes` and `db activity` read the URL's database
   (`INFORMATION_SCHEMA`); activity shows the queries the conn's role may
   see. `db explain` is `EXPLAIN` (not run); `--analyze` is not available.
   Unquoted names are upper case, so `db schema analytics orders` finds
   `ORDERS`.
-- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore`
-  (Snowflake unloads with `COPY INTO @stage`, and keeps copies with Time
-  Travel and `CLONE`), `db user add`, `passwd` and `rm`, `db grant` and
-  `revoke` (send the SQL with `db query --write`), and `db locks`.
+- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore` (see
+  [Back up and restore](#back-up-and-restore)), `db user add`, `passwd`
+  and `rm`, `db grant` and `revoke` (send the SQL with `db query --write`),
+  and `db locks`.
 
 ## BigQuery
 
@@ -896,7 +986,7 @@ BigQuery's REST API with its own client (not the Google Cloud SDK), so
 nothing else needs to be installed:
 
 ```bash
-komando conn add warehouse 'bigquery://my-project/analytics?location=EU'   # gcloud's login
+komando db add warehouse 'bigquery://my-project/analytics?location=EU'   # gcloud's login
 komando db query warehouse --dry-run "select * from orders where placed > '2026-01-01'"  # what it would read
 komando db query warehouse "select region, sum(total) from orders where placed > ? group by 1" --arg 2026-01-01
 komando db query warehouse "select * from logs.events" --max-bytes 200GB   # allow a bigger read
@@ -923,7 +1013,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
 
   ```bash
   komando secret set warehouse-key < key.json
-  komando conn add warehouse 'bigquery://my-project/analytics' --password-ref secret:warehouse-key
+  komando db add warehouse 'bigquery://my-project/analytics' --password-ref secret:warehouse-key
   ```
 
   gcloud's login is only sent to Google's own hosts
@@ -942,16 +1032,16 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   read more than `--max-bytes` (default `10GB`; `0` is no cap) does not run
   (`DB_BYTES_LIMIT`), and every job carries that cap
   (`maximumBytesBilled`), so BigQuery stops it as well. Each result says
-  `bytes_processed`. `--dry-run` (with or without `--write`) is BigQuery's
-  own dry run for every statement, also a `SELECT`: it shows what each
-  would read and runs nothing. A run that times out cancels its job.
-  Sizes count in powers of 1024: `10GB` is 10 GiB, `200GB` is 200 GiB.
-  Every job komando starts is named `komando_` plus a random ID and has
-  the label `komando=<who ran it>`, so you can find komando's jobs and
-  their cost in BigQuery's job history.
+  `bytes_processed` (text: `(BigQuery read 1.2 GiB)`). `--dry-run` (with
+  or without `--write`) is BigQuery's own dry run for every statement, also
+  a `SELECT`: it shows what each would read and runs nothing. A run that
+  times out cancels its job. Sizes count in powers of 1024: `10GB` is
+  10 GiB, `200GB` is 200 GiB. Every job komando starts is named `komando_`
+  plus a random ID and has the label `komando=<who ran it>`, so you can
+  find komando's jobs and their cost in BigQuery's job history.
 - **Placeholders** are `?`, and the `--arg` values go as `STRING`: BigQuery
   does not turn text into numbers by itself, so write `CAST(? AS INT64)`.
-- **Destructive** (`--allow-dangerous`): `DROP`, `TRUNCATE`,
+- **Destructive:** `DROP`, `TRUNCATE`,
   `CREATE OR REPLACE` (it drops what had the name), `LOAD DATA OVERWRITE`,
   `GRANT` and `REVOKE`, row access policies, reservations, capacity
   commitments and project or organization options, `EXPORT DATA` (it writes
@@ -971,56 +1061,9 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   available. `db activity` reads `region-LOCATION.INFORMATION_SCHEMA.JOBS`
   (seeing other people's jobs needs `bigquery.jobs.listAll`) and `db
   sizes` reads `INFORMATION_SCHEMA.TABLE_STORAGE`.
-- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore`
-  (`EXPORT DATA` writes tables to Cloud Storage, and table snapshots keep
-  copies inside BigQuery), `db user`, `db grant`, `revoke` and `grants`
-  (Google Cloud IAM), and `db locks`.
-
-## Interactive SQL shell (for people)
-
-```bash
-komando db shell staging-db           # komando's own SQL shell; starts read-only
-komando db shell staging-db --write   # allow changes
-komando db shell app-db --yes         # any shell on a protected conn needs --yes
-```
-
-`db shell` is komando's own SQL shell for PostgreSQL, MySQL/MariaDB,
-SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and SQLite, so nothing
-else needs to be installed. It connects through the conn's `--via` path,
-and every statement gets the same checks as
-`db query`: read-only unless you started it with `--write`, destructive
-statements only with `--allow-dangerous`, and each one is written to the
-audit log. A statement ends with `;` and runs in its own transaction.
-
-```text
-app-db> select id, name
-     -> from users limit 2;
- id | name
-----+------
-  1 | ana
-  2 | budi
-(2 rows)
-app-db> \q
-```
-
-| Command | What it does |
-|---------|--------------|
-| `\q` | quit |
-| `\write` | allow changes for the rest of the shell (it asks first, also on a protected conn); `\write` again goes back to read-only |
-| `\?` | list the commands |
-| `\d [TABLE]` | list tables, or show one table |
-| `\l` / `\dn` / `\du` | databases / schemas / roles |
-| `\x` | expanded rows (or end a statement with `\G`) |
-| `\timing` | show how long each statement takes |
-| `\i FILE` | run SQL from a file |
-
-Up and down arrows recall earlier lines. The read-only mode is the
-database's own (a read-only transaction): `\write` connects again with
-changes allowed. A destructive statement (`DROP`, `TRUNCATE`, a `DELETE`
-without `WHERE`) asks you to type the conn's name first, as `db query` does
-at the command line; anything else is `Not run.`. The shell is for people at
-a terminal: agents and scripts get `NEEDS_TERMINAL` and use `db query`,
-which returns JSON.
+- **Not available** (`NOT_SUPPORTED`): `db dump` and `db restore` (see
+  [Back up and restore](#back-up-and-restore)), `db user`, `db grant` and
+  `revoke` (Google Cloud IAM), and `db locks`.
 
 ## Limits
 
@@ -1037,8 +1080,8 @@ which returns JSON.
 - `db user add` and `db user passwd` refuse a password with a `"` or a line
   break in it: Oracle cannot quote it.
 - `EXPLAIN PLAN` typed into `db query` is refused: use `db explain`.
-- A trigger `ON DATABASE` (a logon trigger can lock everyone out) needs
-  `--allow-dangerous`.
+- A trigger `ON DATABASE` (a logon trigger can lock everyone out) is
+  destructive.
 
 **ClickHouse**
 
@@ -1048,7 +1091,7 @@ which returns JSON.
 - `cluster()` and `Distributed` tables use clusters the admin set up, so
   they count as reads.
 - komando does not use a proxy from `HTTPS_PROXY` and does not follow
-  redirects. To go through a host, use `--via`.
+  redirects. To go through a server, use `--via`.
 
 **Snowflake**
 
@@ -1077,23 +1120,60 @@ which returns JSON.
 - `db activity` shows the jobs that are not done from the last two days,
   without komando's own.
 - A `MERGE` with `WHEN NOT MATCHED BY SOURCE` can change every row, so it
-  needs `--allow-dangerous`. A plain `MERGE ... WHEN MATCHED THEN UPDATE`
-  is a normal change.
+  is destructive. A plain `MERGE ... WHEN MATCHED THEN UPDATE` is a normal
+  change.
 - `db explain` of a change needs no `--write`, but a statement that
   reaches outside BigQuery (`EXTERNAL_QUERY`) keeps its rating.
 
 ## Troubleshooting
 
-| Error | Exit | Meaning |
-|-------|------|---------|
-| `DB_AUTH` | 4 | wrong user name or password |
-| `DB_NOT_FOUND` | 3 | the database does not exist |
-| `DB_PRIVILEGE` | 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) |
-| `DB_BYTES_LIMIT` | 6 | a BigQuery query would read more than `--max-bytes` (default 10GB), so it did not run |
-| `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it |
-| `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run |
-| `TOOL_TOO_OLD` | 5 | `pg_dump` is older than the database server, or `pg_restore` older than the archive |
-| `CONN_UNREACHABLE` | 4 | the tool cannot reach the database from the server it runs on |
-| `NEEDS_TERMINAL` | 2 | `db shell` was run without a terminal; use `db query` |
+| Error | Exit | What it means | What to do |
+|-------|------|---------------|------------|
+| `DB_AUTH` | 4 | wrong user name or password | check them with `komando conn show CONN`; fix with `komando conn edit CONN --password-ref ...` |
+| `DB_NOT_FOUND` | 3 | the database does not exist | check the path in the conn URL |
+| `DB_PRIVILEGE` | 5 | the conn's user lacks a right (for example to see lock waits in `db locks`, or to manage users) | ask the database admin for the right |
+| `DB_BYTES_LIMIT` | 6 | a BigQuery query would read more than `--max-bytes` (default 10GB), so it did not run | narrow the query, or raise `--max-bytes` after a person agrees |
+| `NOT_SUPPORTED` | 2 | the command does not work for this kind: `dump` and `restore` on SQL Server, Oracle, ClickHouse, Snowflake, BigQuery and MongoDB; `--analyze` on Oracle, ClickHouse, Snowflake and BigQuery; SQL commands on MongoDB | the hint says what to use instead |
+| `OUTPUT_TRUNCATED` | 1 | a CSV or TSV export is bigger than `--max-output`; nothing was printed | raise `--max-output`, narrow the SQL, or use `komando db dump` |
+| `SQL_HIDDEN_CODE` | 2 | SQL komando cannot read the way the server does | rewrite it as the hint says |
+| `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object; the message names it | dump with `--run-on HOST` (pg_dump), or dump the other tables with `--table` |
+| `TOOL_MISSING` | 3 | `pg_dump`, `mysqldump` or `pg_restore` is not installed where it should run | install it there, or pick another server with `--run-on` |
+| `TOOL_TOO_OLD` | 5 | `pg_dump` is older than the database server, or `pg_restore` older than the archive | install the package the hint names |
+| `CONN_UNREACHABLE` | 4 | the tool cannot reach the database from the server it runs on | add a conn for the address that server sees (see [`--run-on`](#run-the-dump-on-a-server-you-choose---run-on-host)) |
+| `UNSAFE_BACKUP` | 6 | the backup file has client commands (`\!`, `system`, `\i`) or SQL komando cannot follow | remove that line if the file is not from a trusted dump |
+| `RESTORE_UNSUPPORTED` | 2 | the file switches databases (`\connect`) | dump the one database without `--create` |
+| `RESTORE_FAILED` | 5 | the restore stopped at a line; PostgreSQL changed nothing, MySQL kept what ran before | fix the file, then restore it again |
+| `DB_USER_IN_USE` | 8 | the user owns objects or has sessions | end its sessions (`komando db activity CONN --all`, then `komando db kill CONN PID --session`) |
+| `NEEDS_TERMINAL` | 2 | `db shell` was run without a terminal | use `db query` |
 
 `db dump` and `db restore` report the same connection errors as `db query`.
+Every code is in [Error codes](error-codes.md).
+
+## Reference
+
+### How values come back (JSON)
+
+| Column type | Value |
+|-------------|-------|
+| date | `"2024-02-29"` |
+| timestamp / datetime (no time zone) | `"2024-02-29 10:11:12.5"`, no `Z` |
+| timestamptz | `"2024-02-29T08:00:00Z"` (an instant, in UTC) |
+| MySQL zero dates | `"0000-00-00 00:00:00"`, as stored |
+| binary (bytea, blob) | `{"base64": "..."}`, also when empty; text output shows `\x` hex like psql |
+| integers too big for JSON (over 2^53) | strings; the whole column is then strings |
+| money, xml and other types | text, with the type named in `columns` |
+| SQL Server decimal, money | text with every digit (`"12.50"`) |
+| SQL Server uniqueidentifier | `"6F9619FF-8B86-D011-B42D-00C04FC964FF"` |
+| Oracle DATE (it holds a time of day too) | `"2026-11-09 13:04:05"` |
+| ClickHouse Decimal, Int128 and wider | text with every digit (`"12.50"`) |
+| ClickHouse Array, Map, Tuple | JSON arrays and objects |
+| Snowflake NUMBER with a scale | text with every digit (`"12.50"`) |
+| Snowflake VARIANT, OBJECT, ARRAY | JSON values, arrays and objects |
+| Snowflake DATE, TIME, TIMESTAMP | text in the column's form: `TIMESTAMP_NTZ` without a zone, `TIMESTAMP_LTZ` in UTC, `TIMESTAMP_TZ` with its offset |
+| Snowflake BINARY | `{"base64": "..."}` |
+| BigQuery INT64 | a number |
+| BigQuery BYTES | `{"base64": "..."}` |
+| BigQuery DATE, TIME, DATETIME, GEOGRAPHY, INTERVAL | text, as BigQuery writes it |
+| BigQuery NUMERIC, BIGNUMERIC | text with every digit |
+| BigQuery TIMESTAMP | `"2026-11-09T13:04:05.123456Z"` (UTC) |
+| BigQuery STRUCT, ARRAY, JSON | JSON objects, arrays and values |

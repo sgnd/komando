@@ -21,14 +21,15 @@ under a pseudo-terminal and komando does not know your agent, set
 1. Use `komando` for all server work. Do not call `ssh` or `scp` directly.
 2. At the start of a session, run `komando guide` and follow it (piped, it
    prints the whole playbook; `komando guide TOPIC` prints one part). Run
-   `komando schema <command>` when unsure about flags.
-3. Look before you change: `komando list`, `komando test <target>`,
-   `komando facts <target>`, then read logs, config and status. To read a
+   `komando schema COMMAND` when unsure about flags.
+3. Look before you change: `komando list`, `komando test TARGET`,
+   `komando facts TARGET`, then read logs, config and status. To read a
    command's output, add `-o text`. Keep JSON when you branch on each
    server's exit code or error, or need to know whether output was cut
    (`stdout_truncated`).
 4. Before any change, run it once with `--dry-run`. A dry run is never
-   blocked; `meta.would_be_blocked` says what the real run would need.
+   blocked; `meta.would_need` lists the flags the real run would need
+   (`meta.would_be_blocked` says why).
    Declare read-only shell commands with `--read-only`. `db query`,
    `cache run` and `cluster run` are the other way round: they only read
    unless you add `--write`. A command that hands words to another
@@ -55,8 +56,8 @@ under a pseudo-terminal and komando does not know your agent, set
    person at a terminal can run those. If they deny it, do not retry.
 8. Never "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
-   `komando vpn up <name>`. For a server that asks for a two-factor code,
-   ask them to run `komando login <host>` once; your commands then use it.
+   `komando vpn up NAME`. For a server that asks for a two-factor code,
+   ask them to run `komando login SERVER` once; your commands then use it.
 9. Secrets stay hidden from agents. Output shows `[hidden]` or
    `[secret:NAME]`, and personal data on protected targets shows as
    `[hidden: email]` (or phone, card, iban, column). Never write such a
@@ -83,7 +84,7 @@ komando guide install            # teach Claude Code, Codex, Cursor and Gemini C
 export KOMANDO_AGENT=1           # only for an agent komando does not know (not Claude Code, Codex, Cursor, Gemini CLI)
 export KOMANDO_ACTOR=claude      # the name shown in `komando audit` (add it to ~/.zshrc or ~/.bashrc)
 komando list                     # check that your servers are there
-komando host edit <prod-host> --protected   # production: changes need a person's yes
+komando host edit web1 --protected   # production: changes need a person's yes
 ```
 
-To add servers yourself, run `komando` alone and pick Add.
+To add a server yourself, type `komando host add` at your terminal: it asks for each part, one line at a time.

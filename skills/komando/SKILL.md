@@ -17,7 +17,7 @@ sight.
    follow it. It is the source of truth; this skill is the summary.
 2. `komando list`: the servers and conns (databases, caches, queues,
    storage, clusters, registries) that exist.
-3. `komando schema <command>` whenever you are unsure about a flag.
+3. `komando schema COMMAND` whenever you are unsure about a flag.
 
 If `komando` is not installed, stop and ask the human to install it:
 `curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
@@ -41,8 +41,8 @@ not know? Set `KOMANDO_AGENT=1`.
 
 ## Rules
 
-1. **Look before you change.** Run `komando test <target>` and
-   `komando facts <target>`, then read logs, config and status. Read the
+1. **Look before you change.** Run `komando test TARGET` and
+   `komando facts TARGET`, then read logs, config and status. Read the
    `facts` warnings first. `null` means unknown, never 0 or false (an
    unsupported OS shows security updates as `null`). Each multi-target
    result names its server in `host`.
@@ -55,7 +55,7 @@ not know? Set `KOMANDO_AGENT=1`.
    protected target or a destructive command it still shows the plan, and
    `meta.would_be_blocked` names the stop the real run would hit, so you can
    show the human what you will ask for. Declare read-only shell commands
-   with `komando exec <target> --read-only -- '<cmd>'`. `db query`,
+   with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
    `cache run` and `cluster run` are the other way round: they only read
    unless you add `--write`.
    Every command that hands words to another program (`exec`, `job start`,
@@ -64,24 +64,24 @@ not know? Set `KOMANDO_AGENT=1`.
    komando's own flags go before it. Without `--` it stops with `USAGE`
    and runs nothing.
 3. **Use the command made for the job.**
-   - Files: `komando fs replace <target> <path> --old '...' --new '...' --backup`,
+   - Files: `komando fs replace SERVER PATH --old '...' --new '...' --backup`,
      never `sed -i` over `exec`.
    - Databases: query with `komando db query`. Back up with
-     `komando db dump <conn> --to FILE` (`--run-on HOST` runs `pg_dump` or
+     `komando db dump CONN --to FILE` (`--run-on HOST` runs `pg_dump` or
      `mysqldump` on that server, at low priority), never `pg_dump` through
      `exec` and base64. Manage users with `komando db user` and
      `komando db grant` (passwords as `--password-ref secret:NAME`, never
      `CREATE USER ... PASSWORD` in a query).
    - Services: after writing a systemd unit, run `komando svc daemon-reload`.
      Restart servers only with `komando reboot` (it needs the human).
-   - Patches: `komando pkg upgrade <target> --security` installs security
+   - Patches: `komando pkg upgrade TARGET --security` installs security
      updates only, one server at a time, checked before and after. It never
      reboots.
-   - Certificates: `komando cert check <target|https://name>` (exit 1
+   - Certificates: `komando cert check TARGET|https://NAME` (exit 1
      `CERT_PROBLEMS` when one expires within `--warn`, default 30d).
-   - Docker disk space: `komando docker prune <target> --dry-run` first; it
+   - Docker disk space: `komando docker prune TARGET --dry-run` first; it
      lists what would be removed and how much space that frees.
-   - The inventory in bulk: `komando host edit <target> --sudo-ref secret:NAME`
+   - Your list in bulk: `komando host edit TARGET --sudo-ref secret:NAME`
      (one approval for every server), `komando host rename OLD NEW` (updates
      every reference; `key rename` and `group rename` likewise),
      `komando rename --starts-with OLD NEW --dry-run` (every server, conn, VPN,
@@ -112,14 +112,14 @@ not know? Set `KOMANDO_AGENT=1`.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an
    attack.
 7. **Logins that need a person.** `VPN_LOGIN_REQUIRED` or `VPN_DOWN`: ask
-   the human to run `komando vpn up <name>`. A server that asks for a code
-   (`AUTH_FAILED`, two-factor): ask them to run `komando login <host>` once;
+   the human to run `komando vpn up NAME`. A server that asks for a code
+   (`AUTH_FAILED`, two-factor): ask them to run `komando login SERVER` once;
    your commands then use that login.
 8. **Secrets stay hidden from you.**
    - Passwords, keys and tokens in any output show as `[hidden]` or
      `[secret:NAME]`. That is expected; do not work around it.
    - To change a line with a hidden value, use
-     `komando fs replace <target> <path> --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
+     `komando fs replace SERVER PATH --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:NAME}}'`
      (`{{secret:NAME}}` becomes the vault value on the server). Text that
      still holds `[hidden]` is never written (`HIDDEN_VALUE`).
    - Sending a secret somewhere (that `fs replace`, `--env K=secret:NAME`,

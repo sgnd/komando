@@ -24,9 +24,8 @@ Rules that cannot change because of the contract:
 - **Error codes and exit codes stay** within output contract 1. Fixes to
   them are recorded for contract 2. Every new exit-code path on an existing
   command is listed in the release note with a TestAgentGolden row.
-- **Command IDs never change** (S-1.6). The ID in a success envelope, an
-  error envelope, the audit log and every name-keyed table is the same
-  string before and after a rename.
+- **One command, one ID** (S-1.6). The success envelope, the error
+  envelope, the audit log and every name-keyed table use the same string.
 - **No legacy.** A rename is clean: the old name stops working, and every
   caller (help, examples, guide, skill, docs, tests) changes in the same
   change. Only plain synonyms stay (S-1.7).
@@ -75,15 +74,16 @@ cloud login. Guide topics may never be
 named `install` or `uninstall`. [schema: no subcommand name equals a guide
 topic; code: validName refuses the reserved words]
 
-**S-1.6** Every command carries a stable ID annotation: its dotted path at
-the time it was added (`fs.ls`, `secret.get`, `host.mv`, `pkg.security`).
+**S-1.6** Every command carries an ID: its dotted path by primary names
+(`fs.list`, `secret.show`, `host.rename`, `pkg.security`). A rename
+changes the ID with the name, in the same change.
 `commandName` returns it. The success envelope, the error envelope, the
 audit log, `audit --command`, `commandKinds`, the gate tables
 (`gateOnServers`, `gateReadForm`), `personalCmds`, `localReads`,
-`leavesHome` and the masking checks are all keyed by it. A wrapper or alias
+`leavesHome` and the masking checks are all keyed by it. A wrapper
 command (S-1.8) carries the ID of the command it runs.
-[code: every key in every name-keyed table resolves to a command ID; for
-each renamed command the error and success envelope IDs are equal]
+[code: every key in every name-keyed table resolves to a command ID; the
+error and success envelope of a command carry the same ID]
 
 **S-1.7** Synonyms. A few plain synonyms are hidden cobra `Aliases` and
 print nothing: `ls` for `list`, `rm` words (`remove`, `delete`, `del`),

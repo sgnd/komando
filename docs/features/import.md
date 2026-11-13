@@ -3,7 +3,7 @@
 Bring in the servers and databases you already have, and move everything to
 another computer. [All docs](README.md)
 
-## Quick start
+## Import your servers
 
 ```bash
 komando import ssh-config --dry-run              # see what would be added first
@@ -11,6 +11,14 @@ komando import ssh-config                        # servers from ~/.ssh/config
 komando import env ./shop/.env --group shop      # DATABASE_URL, REDIS_URL, ... from a .env file
 komando export --to komando-backup.json          # save everything (no passwords)
 komando import komando komando-backup.json       # on the other computer
+```
+
+Typed alone, `komando import` asks for the source, then the file.
+
+The import ends with the command that checks what came in:
+
+```text
+Next: komando test @shop
 ```
 
 ## Import what you already have
@@ -41,8 +49,9 @@ komando import ssh-config ~/work/ssh_config --group work
 ```
 
 Flags: `-g`/`--group` adds everything imported to a group, and
-`--overwrite` replaces entries that already have the same name (a protected
-one also needs `--yes`). Without `--overwrite`, komando skips names it
+`--overwrite` replaces entries that already have the same name (on a
+protected one komando asks you first; an AI agent or a script adds `--yes`
+after a person agrees). Without `--overwrite`, komando skips names it
 already has.
 
 ### What happens to passwords
@@ -59,9 +68,8 @@ appear in komando's list, output or history.
   `sslmode=verify-full`, said in a note), and a `redis://`, `amqp://` or
   other clear-text URL to another computer is skipped unless it ends in
   `?insecure=1`.
-- With `--overwrite`, the result lists what it replaced. A protected server
-  or conn is skipped (`--yes` after the person agrees replaces it), in the
-  dry run too.
+- With `--overwrite`, the result lists what it replaced. Without a yes, a
+  protected server or conn is skipped, in the dry run too.
 - The result names the command that checks what came in in `data.next`,
   and a person sees it on stderr: `Next: komando test @shop`.
 - Servers are checked like `host add` (ports, users, `--via`). A bad one is
@@ -72,7 +80,7 @@ appear in komando's list, output or history.
   pattern (its settings become defaults for the other servers), or an
   `Include` file that is missing. `HostName %h.example.com` is understood.
 - A `ProxyCommand` runs on this computer, so an AI agent needs a person's
-  yes (`--yes`) to import one. Without it, that server is left out with the
+  yes (`--yes` and the approval window) to import one. Without it, that server is left out with the
   reason, the other servers still come in, and the import ends with
   `IMPORT_INCOMPLETE` (exit 1).
 
@@ -163,3 +171,22 @@ komando doctor                                # the vault opens, the servers are
 On the new computer you can go back to a key file and move it into the
 keychain: `komando secret passphrase --off --yes`, then `komando secret
 keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
+
+## Limits
+
+- Passwords, private key files and keys komando made never travel in an
+  export file; set or copy them on the other computer.
+- An import changes no setting: it lists the ones that differ.
+- A copied folder opens its secrets only when the vault has a passphrase.
+- Termius and TablePlus have no open export format (see
+  [above](#coming-from-termius-or-tableplus)).
+
+## Troubleshooting
+
+| Error | What it means | What to do |
+|-------|---------------|------------|
+| `IMPORT_INCOMPLETE` (exit 1) | most things came in, some were refused (see `skipped`) | fix those entries in the file and import again; what is in already is skipped |
+| `USAGE` (exit 2) | an unknown source, or `komando` or `csv` without a file | the hint lists the sources and an example |
+| `FILE_EXISTS` (exit 8) | `export --to` a file that exists | add `--overwrite`, or pick another file |
+| `PROTECTED_HOST`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
+| `VAULT_LOCKED` (exit 1) | a copied folder whose vault has a passphrase, without `KOMANDO_VAULT_PASS` | set `KOMANDO_VAULT_PASS`; see [Secrets](secrets.md#troubleshooting) |

@@ -2,16 +2,7 @@
 
 komando talks to AWS itself, with no aws CLI: it uses the profiles in
 your `~/.aws/config`, and a person renews an SSO login with one command.
-Google Cloud and Azure logins come in a later release.
-
-## Quick start
-
-```bash
-komando login aws --profile prod                                   # a person signs in once in the browser
-komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
-komando storage list backups                                         # uses the login until it runs out
-komando import aws                                                 # or: a storage conn per S3 bucket of each profile
-```
+[All docs](README.md)
 
 ## Log in to AWS IAM Identity Center (SSO)
 
@@ -20,7 +11,9 @@ For a profile in `~/.aws/config` that uses SSO (`sso_session` or
 (`role_arn` with `source_profile`):
 
 ```bash
-komando login aws --profile prod
+komando login aws --profile prod                                   # a person signs in once in the browser
+komando conn add backups 's3://my-bucket/db?region=eu-west-1' --option aws_profile=prod
+komando storage list backups                                       # uses the login until it runs out
 ```
 
 komando shows a code and opens the AWS sign-in page in your browser.
@@ -35,6 +28,12 @@ and the aws CLI all use it.
   nothing.
 - A profile with keys in `~/.aws/credentials` needs no login. Running
   `komando login aws` for it says so (`AWS_FAILED`).
+- Cloud logins are lower case: `komando login AWS` stops with `USAGE`
+  and points to `komando login aws`.
+- komando opens only an `https://` sign-in address in the browser. On a
+  machine without a browser, open the printed address on any device.
+- Ctrl-C while komando waits for the sign-in stops it (`CANCELLED`); the
+  old login, if any, stays as it was.
 
 **AI agents** cannot log in: the sign-in happens in a person's browser.
 An agent gets `NEEDS_PERSON` (exit 6) with the hint *ask the user to run
@@ -82,21 +81,19 @@ note saying what fixes it: `komando login aws --profile NAME` for an SSO
 profile, the credentials file for the others. Then run the import again.
 See [Moving in](import.md).
 
-## When a login runs out
+With a FILE, the conns keep only each profile's name: later commands read
+`~/.aws/config` (or `AWS_CONFIG_FILE`), so put the profiles there too, or
+they stop with `AWS_PROFILE_NOT_FOUND`.
 
-| Code | What happened | What to do |
-|---|---|---|
-| `AWS_LOGIN_REQUIRED` (exit 4) | the SSO login of the profile ran out, or was never made | a person runs `komando login aws --profile NAME`, the command in the hint |
-| `AWS_FAILED` (exit 4) | the profile has no SSO and gave no keys, or the role it assumes was refused | the hint says which: add the keys to `~/.aws/credentials`, or check the role and its source profile |
-| `AWS_PROFILE_NOT_FOUND` (exit 3) | the profile is not in `~/.aws/config` or `~/.aws/credentials` | add it, or fix the conn's `--option aws_profile` |
-| `NEEDS_PERSON` (exit 6) | an AI agent ran `komando login aws` | the person runs it in their own terminal |
+## End an AWS login
+
+komando has no AWS logout: `komando logout` is for servers, and
+`komando status` lists only server logins. To end an AWS login early, run
+`aws sso logout`, or delete the profile's file in `~/.aws/sso/cache`.
 
 ## Google Cloud and Azure
 
-`komando login gcp` and `komando login azure` are not built yet. They
-need komando's own sign-in app at Google and at Microsoft; komando never
-borrows the gcloud or az one. Until then they say so (`USAGE`, exit 2)
-and name what works today:
+Google Cloud and Azure sign-in are not available yet. What works instead:
 
 - **Google Cloud**: your application default credentials
   (`GOOGLE_APPLICATION_CREDENTIALS`, or the file gcloud saved), or a
@@ -118,15 +115,24 @@ and name what works today:
   komando conn add files azblob://mystorageacct@uploads --password-ref secret:blob-key
   ```
 
-## Good to know
+Registries on Google Cloud and Azure log in the same way: see
+[Container registries](registry.md).
 
+## Limits
+
+- Only AWS has a `komando login`; Google Cloud and Azure use the logins
+  above.
+- komando has no AWS logout and does not list AWS logins in
+  `komando status`.
 - `aws`, `gcp` and `azure` (any case) cannot be the name of a new server,
-  conn or VPN, as `all` cannot: `komando login aws` is the cloud login.
-  An entry that has such a name from an older komando keeps working; then
-  `komando login aws` still logs in to AWS and says on stderr how to
-  rename the entry (`komando host rename aws NEW`), and `komando doctor`
-  warns about it.
-- komando opens only an `https://` sign-in address in the browser. On a
-  machine without a browser, open the printed address on any device.
-- Ctrl-C while komando waits for the sign-in stops it (`CANCELLED`); the
-  old login, if any, stays as it was.
+  conn or VPN, as `all` cannot: those words are the cloud logins.
+
+## Troubleshooting
+
+| Code | What happened | What to do |
+|---|---|---|
+| `AWS_LOGIN_REQUIRED` (exit 4) | the SSO login of the profile ran out, or was never made | a person runs `komando login aws --profile NAME`, the command in the hint |
+| `AWS_FAILED` (exit 4) | the profile has no SSO and gave no keys, or the role it assumes was refused | the hint says which: add the keys to `~/.aws/credentials`, or check the role and its source profile |
+| `AWS_PROFILE_NOT_FOUND` (exit 3) | the profile is not in `~/.aws/config` or `~/.aws/credentials` | add it, or fix the conn's `--option aws_profile` |
+| `NEEDS_PERSON` (exit 6) | an AI agent ran `komando login aws` | the person runs it in their own terminal |
+| `CANCELLED` (exit 1) | Ctrl-C while waiting for the sign-in | run it again; the old login is unchanged |

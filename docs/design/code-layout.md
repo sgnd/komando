@@ -16,7 +16,7 @@ are named, and the rules every change keeps. Tests check most of them; the
 | **Pure Go.** `CGO_ENABLED=0`; a library that needs cgo does not qualify. | `make dist` |
 | **One need, one command.** Two commands may not do the same job. | `TestStandard*` |
 | **Every command says whether it reads or changes things** (`commandKinds` in `internal/cli/kinds.go`). | `TestEveryCommandHasKind` |
-| **Command IDs never change** (`internal/cli/testdata/command_ids.txt`). | `TestCommandIDsStable` |
+| **Command IDs change only on purpose**, together with the command name (`internal/cli/testdata/command_ids.txt`). | `TestCommandIDsStable` |
 | **The JSON answers keep their shape.** Fields are added, never renamed or removed. | `TestOutputShapes`, `TestAgentGolden` |
 | **Functions up to 100 lines, files up to 800.** Split instead of growing. | `internal/codesize` |
 | **Coverage does not drop** below `test/coverage-floor.txt`. | `make cover` |
