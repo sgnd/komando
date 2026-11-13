@@ -48,7 +48,7 @@ func TestPrivateHomeWindows(t *testing.T) {
 	if len(loose) != 1 || !strings.HasPrefix(loose[0], f+" (") || !strings.Contains(loose[0], "Users") {
 		t.Fatalf("LooseFiles = %q, want only %s with Users", loose, f)
 	}
-	if fix := PrivateFix(); !strings.Contains(fix, "icacls \""+home+"\" /inheritance:r") || !strings.Contains(fix, "/reset /T") {
+	if fix := PrivateFix(); !strings.HasPrefix(fix, "icacls \""+home+"\" /reset, then icacls \""+home+"\" /inheritance:r") || !strings.Contains(fix, "/reset /T") {
 		t.Fatalf("PrivateFix = %q", fix)
 	}
 }

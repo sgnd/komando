@@ -682,7 +682,7 @@ instead.
   is `komando test all` and `komando doctor`.
 
 ### Fixed
-- On Windows, komando's folder (`KOMANDO_HOME`) gets an access list of its own when komando makes it: only you and SYSTEM may open it and everything inside. A folder made under `C:\` used to let every user of the computer read it, since file modes do nothing on Windows. `komando doctor` now reads the access lists there and names any file others may open, with the `icacls` commands that fix it.
+- On Windows, komando's folder (`KOMANDO_HOME`) gets an access list of its own when komando makes it, as does every folder above it that komando has to make: only you and SYSTEM may open it and everything inside. A folder made under `C:\` used to let every user of the computer read it, since file modes do nothing on Windows. `komando doctor` now reads the access lists there and names any file others may open, with the `icacls` commands that fix it (they set the folder's access list whole, so no entry for another account stays).
 - On Windows, komando knew no running VPN session, tunnel or `komando login` as its own: it asked `ps` which program a process runs, and Windows has no `ps`. It now asks Windows, so `vpn status`, `tunnel list` and `status` see them and `vpn down` stops them.
 - On Windows, `login aws` and a VPN's web sign-in open your browser (they printed the address only), and a VPN sign-in that komando watches finds Chrome, Edge or Brave where Windows installs them.
 - On Windows, a server's `--proxy-command` runs in cmd.exe; it called `/bin/sh`, which Windows does not have. `%h`, `%r` and `%n` go in bare or in double quotes, and a server whose address, user or name holds `%`, `"` or a line break stops with `PROXY_FAILED` instead of running.
