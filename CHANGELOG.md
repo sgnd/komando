@@ -8,6 +8,7 @@ its highlights; the sections below them give the details. Versions follow
 ## [Unreleased]
 
 ### Fixed
+- On Windows, the hints for an encrypted key wrote it as `~/'.ssh\id_ed25519'`; they now write `~/.ssh/id_ed25519`.
 - On Windows, the AI agent guard (`komando guide guard`) let globs such as `cat ~/.komand?/vault.ke?` through, and reads of `/proc/*/environ` (which Cygwin and MSYS shells have): it split paths only by `/`.
 - On Windows, `cluster run TARGET -- cp C:\data pod:/tmp` took `C:\data` for pod `C`: it copied from that pod instead of sending the folder, and so skipped the check that keeps komando's data and secret files on this computer for an AI agent. A path with a drive letter is a path on this computer, as kubectl cp reads it.
 - On Windows, a server, cluster or registry that refuses the connection is `CONNECTION_REFUSED` ("connection refused") as on other systems, not `CONNECT_FAILED` or `KEYSCAN_FAILED` with Windows' own words; `test --wait` and `host trust` tell it apart again.

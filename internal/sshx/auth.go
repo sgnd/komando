@@ -410,7 +410,8 @@ func secretName(host, suffix string) string {
 func shellPath(p string) string {
 	prefix := ""
 	if home, _ := os.UserHomeDir(); home != "" && strings.HasPrefix(p, home+string(filepath.Separator)) {
-		prefix, p = "~/", p[len(home)+1:]
+		// ~/.ssh/id_ed25519 on Windows too, as OpenSSH's own docs write it
+		prefix, p = "~/", filepath.ToSlash(p[len(home)+1:])
 	} else if rest, ok := strings.CutPrefix(p, "~/"); ok {
 		prefix, p = "~/", rest
 	}
