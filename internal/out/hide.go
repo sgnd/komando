@@ -67,3 +67,19 @@ func (p *Printer) forgetAdded() {
 	defer p.hmu.Unlock()
 	p.hide = slices.DeleteFunc(slices.Clone(p.hide), func(h hidden) bool { return h.added })
 }
+
+// HoldsVaultValue reports whether s holds a value from the vault
+// (Printer.Secrets), raw, never what only looks like a secret. komando
+// refuses such input from an AI agent: masking each exact value would
+// otherwise tell it which of its guesses is a secret.
+func (p *Printer) HoldsVaultValue(s string) bool {
+	if p.NoRedact || len(s) < minSecret {
+		return false
+	}
+	for _, h := range p.hideList() {
+		if !h.added && strings.Contains(s, h.raw) {
+			return true
+		}
+	}
+	return false
+}

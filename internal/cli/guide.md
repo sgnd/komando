@@ -409,6 +409,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 1    | ERROR, FILE_ERROR, WRITE_FAILED (a file on this computer) | read `error.message` and `error.hint` |
 | 2    | USAGE                             | fix the flags (`komando schema COMMAND`); a group alone (`komando db`) is USAGE and the hint lists its sub-commands |
 | 2    | HIDDEN_VALUE                      | never write `[hidden]` text back; put `{{secret:NAME}}` in its place (fs replace) or leave hidden entries out, as `error.hint` says |
+| 2    | SECRET_INPUT_INVALID              | your arguments or file hold a secret's value; never type or guess one: use `{{secret:NAME}}`, or ask the human to store it with `secret set` |
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; for a typo, `error.suggestion` is the closest name and the hint the command line with it |
 | 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (for example `db` for a database) |

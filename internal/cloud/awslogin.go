@@ -14,6 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ssocreds"
 	"github.com/aws/aws-sdk-go-v2/service/ssooidc"
 	"github.com/aws/aws-sdk-go-v2/service/ssooidc/types"
+
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // ssoOIDCEndpoint points the SSO login at a test server when set.
@@ -162,10 +164,12 @@ func writeTokenFile(path string, b []byte) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
+	tmpclean.Sweep(dir, ".komando-", ".tmp")       // a run killed before its rename
 	f, err := os.CreateTemp(dir, ".komando-*.tmp") // mode 0600
 	if err != nil {
 		return err
 	}
+	defer tmpclean.Add(f.Name())()
 	_, err = f.Write(b)
 	if cerr := f.Close(); err == nil {
 		err = cerr

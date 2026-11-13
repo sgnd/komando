@@ -49,7 +49,7 @@ The flags you will use most:
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [Use a password](#use-a-password)). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Mark a production server (see [Protect a production server](#protect-a-production-server)). |
-| `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. |
+| `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=secret:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` or `job start` only when the agent adds `--yes` and you allow it in komando's window. |
 | `--notes TEXT` | Free notes; agents see them in `host show`. |
 | `--port N` | The SSH port (default 22); same as `:N` after the address. |
 | `--overwrite` | Replace a server that already has this name. |
@@ -595,7 +595,9 @@ with `SSH_AGENT_NEEDED`: start one with `eval "$(ssh-agent)"`, or use
 `komando shell SERVER`.
 
 Only a person at a terminal can run `host ssh-command`: it writes a copy of
-the pinned host keys for OpenSSH. An AI agent gets `NEEDS_PERSON` and is
+the pinned host keys for OpenSSH, in a private temporary folder
+(`komando-ssh-*`). A line printed more than a day ago may stop working: the
+next `host ssh-command` removes copies that old. An AI agent gets `NEEDS_PERSON` and is
 told to use `komando exec` or `komando shell`.
 
 ## Limits

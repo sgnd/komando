@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -85,12 +87,70 @@ func parseEnvTo(pairs []string, hosts []*store.Host) (map[string]string, error) 
 	if err != nil {
 		return nil, err
 	}
+	if err := guardHostEnv(hosts, env); err != nil {
+		return nil, err
+	}
 	refs := envSecretRefs(env)
 	if len(refs) == 0 {
 		return env, nil
 	}
 	return env, guardSecretUse(refs, "the command's environment on "+strings.Join(hostNames(hosts), ", "))
 }
+
+// A server's own env (host edit --env K=secret:NAME) goes into each
+// command komando runs there. In an AI agent's command the agent could
+// read the value back in a form masking does not know (printenv K | rev),
+// so for an agent those values are left out (sshx.HostSecretEnv) until a
+// person says yes: the agent adds --yes to exec or job start, and
+// komando's window names the secrets and the servers. Plain env values
+// still go.
+
+// hostEnvKey is the approval that lets host h's vault env go out in this call.
+func hostEnvKey(h *store.Host) string { return "env of server " + h.Name }
+
+// guardHostEnv: for an agent, the vault values of the hosts' own env go to
+// this command only with --yes and a person's yes; without --yes they are
+// left out, with a warning. env is the command's own --env: a name it sets
+// is not the host's.
+func guardHostEnv(hosts []*store.Host, env map[string]string) error {
+	if !isAgent() {
+		return nil
+	}
+	var refs, names []string
+	for _, h := range hosts {
+		var hr []string
+		for _, k := range slices.Sorted(maps.Keys(h.Env)) {
+			if _, own := env[k]; !own && strings.HasPrefix(h.Env[k], "secret:") {
+				hr = append(hr, h.Env[k])
+			}
+		}
+		if len(hr) > 0 {
+			refs, names = append(refs, hr...), append(names, h.Name)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	if !g.yes {
+		out.P.Warn(fmt.Sprintf("the server's env values from the vault (%s on %s) were left out: an AI agent's command gets them only with --yes and the user's yes", strings.Join(dedupe(refs), ", "), strings.Join(names, ", ")))
+		return nil
+	}
+	if err := guardSecretUse(refs, "the command's environment on "+strings.Join(names, ", ")+" (the server's own env)"); err != nil {
+		return err
+	}
+	for _, h := range hosts {
+		cur().sess.ApproveSafety(hostEnvKey(h))
+	}
+	return nil
+}
+
+// hostSecretEnv is sshx.HostSecretEnv: yes for people and scripts, and
+// for an agent only after guardHostEnv's yes.
+func hostSecretEnv(c *sshx.Client) bool {
+	return !isAgent() || c.Host == nil || cur().sess.SafetyApproved(hostEnvKey(c.Host))
+}
+
+func init() { sshx.HostSecretEnv = hostSecretEnv }
 
 // secretPlace is what a server or conn sends on every connection: its
 // references (refs) and the place they go to (dest).

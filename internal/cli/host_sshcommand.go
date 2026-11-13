@@ -11,6 +11,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // `host ssh-command` prints the OpenSSH command that reaches a host the way
@@ -181,6 +182,7 @@ func sealedSSHFiles(st *store.State, hops []*store.Host) (string, map[string][]s
 	for _, h := range hops {
 		addrs = append(addrs, net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())))
 	}
+	tmpclean.Sweep(os.TempDir(), "komando-ssh-", "") // copies for commands printed more than a day ago
 	dir, err := os.MkdirTemp("", "komando-ssh-")
 	if err != nil {
 		return "", nil, err

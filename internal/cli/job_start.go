@@ -123,7 +123,9 @@ func startJob(ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) 
 	// the job runs with the login's own umask, given to the wrapper as $1
 	// so the job's environment gains no variable; its folder and files
 	// (the command, its output, the pid) are the SSH user's alone
-	wrapper := "( umask \"$1\"; " + inner + " ); echo $? > \"$d/exit\""
+	// the env file (vault values) and the script go when the job ends, also
+	// when sudo refused it before the job could read and remove them
+	wrapper := "( umask \"$1\"; " + inner + " ); echo $? > \"$d/exit\"; rm -f \"$d/env\" \"$d/script\""
 	envFile := ""
 	if exports != "" {
 		envFile = sshx.SaveInput(len(exports), `"$d/env"`) + ` && `
