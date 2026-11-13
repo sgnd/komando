@@ -219,6 +219,9 @@ func (c closeBoth) Close() error {
 	return err
 }
 
+// Unwrap is the bucket inside.
+func (c closeBoth) Unwrap() storex.Bucket { return c.Bucket }
+
 // TemporaryKeys passes through to the bucket inside (S3 only).
 func (c closeBoth) TemporaryKeys() bool { return temporaryKeys(c.Bucket) }
 

@@ -16,6 +16,13 @@ import (
 
 // versioned is s as a bucket that keeps versions, or NOT_SUPPORTED.
 func versioned(c *store.Conn, s storex.Bucket) (storex.Versioned, error) {
+	for {
+		w, ok := s.(interface{ Unwrap() storex.Bucket })
+		if !ok {
+			break
+		}
+		s = w.Unwrap() // the bucket inside closeBoth and the like
+	}
 	v, ok := s.(storex.Versioned)
 	if !ok {
 		return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "leave out --all-versions: only S3 buckets (and S3-compatible stores) keep versions komando can see",
