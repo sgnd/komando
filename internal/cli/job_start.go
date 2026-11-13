@@ -206,5 +206,7 @@ func jobWrapper(start string, timeout time.Duration) string {
 			`kill -0 $w 2>/dev/null && { printf 'TERM timeout\n' > "$d/killed"; kill -TERM -$$ 2>/dev/null || kill -TERM $w; } ) & s=$!; `
 		end += `kill $s 2>/dev/null; `
 	}
-	return `umask "$1"; ` + start + `; umask 077; ` + watch + end + `[ -f "$d/killed" ] || echo $c > "$d/exit"`
+	// the env (vault values), the input and the sudo password go once the
+	// job ends, also when sudo refused it before they were sent and deleted
+	return `umask "$1"; ` + start + `; umask 077; ` + watch + end + `[ -f "$d/killed" ] || echo $c > "$d/exit"; rm -f "$d/env" "$d/in" "$d/pw"`
 }
