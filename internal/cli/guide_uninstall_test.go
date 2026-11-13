@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -75,18 +77,19 @@ func TestClaudeGuardChecksTheProgram(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "settings.json")
 	write := func(cmd string) {
-		os.WriteFile(p, []byte(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":`+cmd+`}]}]}}`), 0o600)
+		c, _ := json.Marshal(cmd) // a Windows path's \ is escaped, as guide install writes it
+		os.WriteFile(p, []byte(`{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":`+string(c)+`}]}]}}`), 0o600)
 	}
 	self, _ := os.Executable()
-	write(`"/nonexistent/komando guide guard"`)
+	write("/nonexistent/komando guide guard")
 	if found, problem := claudeGuard(p); !found || !strings.Contains(problem, "/nonexistent/komando does not exist") {
 		t.Errorf("missing program: %v %q", found, problem)
 	}
-	write(`"` + self + ` guide guard"`)
+	write(shellQuote(self) + " guide guard")
 	if found, problem := claudeGuard(p); !found || problem != "" {
 		t.Errorf("this program: %v %q", found, problem)
 	}
-	write(`"komando-nowhere-here guide guard"`)
+	write("komando-nowhere-here guide guard")
 	if _, problem := claudeGuard(p); !strings.Contains(problem, "not in PATH") {
 		t.Errorf("not in PATH: %q", problem)
 	}
@@ -112,7 +115,11 @@ func TestGuideInstallProjectUsesThePathName(t *testing.T) {
 		t.Skip(err)
 	}
 	bin := t.TempDir()
-	if err := os.Symlink(self, filepath.Join(bin, "komando")); err != nil {
+	name := "komando"
+	if runtime.GOOS == "windows" {
+		name += ".exe" // PATH finds a program there by its extension
+	}
+	if err := os.Symlink(self, filepath.Join(bin, name)); err != nil {
 		t.Skip(err)
 	}
 	t.Setenv("PATH", bin)

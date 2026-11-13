@@ -420,7 +420,8 @@ func TestInvSSHCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 	line := strings.Join(parts, " ")
-	for _, want := range []string{"ProxyCommand=ssh -o UserKnownHostsFile=", "-p 2222 -i /keys/k -W 10.0.0.2:22 jump@10.0.0.1", "app@10.0.0.2"} {
+	// the known_hosts path is quoted when it needs it (a Windows path)
+	for _, want := range []string{"ProxyCommand=ssh -o ", "UserKnownHostsFile=", "-p 2222 -i /keys/k -W 10.0.0.2:22 jump@10.0.0.1", "app@10.0.0.2"} {
 		if !strings.Contains(line, want) {
 			t.Errorf("missing %q in %s", want, line)
 		}

@@ -30,7 +30,7 @@ func TestSSHCommandSealedHome(t *testing.T) {
 	if i < 0 || strings.Contains(cmd, store.Path("known_hosts")) {
 		t.Fatalf("command %q", cmd)
 	}
-	kh := strings.Fields(cmd[i+len("UserKnownHostsFile="):])[0]
+	kh := strings.TrimRight(strings.Fields(cmd[i+len("UserKnownHostsFile="):])[0], "'") // a Windows path is quoted
 	if fi, err := os.Stat(kh); err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("known_hosts copy %s: %v", kh, err)
 	}

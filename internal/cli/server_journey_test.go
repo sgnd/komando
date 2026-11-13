@@ -120,7 +120,7 @@ func TestJobStartScript(t *testing.T) {
 	wantCode(t, "USAGE", "job", "start", "web1", "--script", script, "--", "uptime")
 	wantCode(t, "USAGE", "job", "start", "web1", "--arg", "v1", "--", "uptime")
 	d := mustRun(t, "job", "start", "web1", "--script", script, "--arg", "v 1", "--dry-run")
-	if d["command"] != "--script "+script+" --arg 'v 1'" || d["script_bytes"] != float64(27) {
+	if d["command"] != "--script "+shellLine([]string{script})+" --arg 'v 1'" || d["script_bytes"] != float64(27) { // a Windows path is quoted
 		t.Errorf("dry run: %v", d)
 	}
 	// the script is read by the policy like exec --script reads it
@@ -174,7 +174,7 @@ func TestJobStartScriptOnTheWire(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, j := range st.Jobs {
-		if j.Command != "--script "+script+" --arg v1" {
+		if j.Command != "--script "+shellLine([]string{script})+" --arg v1" { // a Windows path is quoted
 			t.Errorf("job command: %q", j.Command)
 		}
 	}
