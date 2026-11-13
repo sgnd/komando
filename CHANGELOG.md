@@ -7,6 +7,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+- A server's key and `--via` steps, and a conn's `--via` steps, now keep the record ID beside the name (`key_id`, `via_ids` in the JSON). The names stay what commands read and change; the IDs let a reference survive a rename made elsewhere, which sync between devices needs. An existing store gets the IDs at its next change.
+
 ### Fixed
 - A komando folder that was already there with others' access (after a copy, an unzip or a chmod) stayed readable by them; komando now makes its own folder (one that holds `store.db` or `store.key`) private again (0700) on Linux, macOS and BSD. The `komando-ssh-*` folders `host ssh-command` leaves in the temporary folder are removed by the next run once they are a day old.
 - komando could leave a core file when it crashed, holding vault values and the store's key (Go strings cannot be wiped). It now turns core files off for itself (and the programs it starts) on Linux, macOS and BSD.
