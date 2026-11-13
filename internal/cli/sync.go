@@ -22,6 +22,7 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // `komando sync` copies a folder one way: from this computer to servers or
@@ -155,6 +156,7 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 		return err
 	}
 	defer os.Remove(tmp.Name())
+	defer tmpclean.Add(tmp.Name())()
 	// the destination watches ctx: an SFTP source keeps reading in parallel
 	if out.P.Mask && !revealOK() {
 		_, _, err = fetchMasked(ctx, r, tmp, io.Discard, nil) // as download does: secret values as [hidden]

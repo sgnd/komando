@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -735,11 +737,46 @@ func isRelease(v string) bool {
 	return strings.HasPrefix(v, "v") && !strings.HasPrefix(v, "v0.0.0-") && !strings.Contains(v, "+")
 }
 
-// signalContext is cancelled by the first Ctrl-C (or SIGTERM), so the
-// command stops cleanly. After that komando stops catching them: a second
-// Ctrl-C ends it at once, as with kubectl and gh, when the clean stop hangs.
+// signalContext is cancelled by the first Ctrl-C (or SIGTERM, or SIGHUP:
+// the terminal closed), so the command stops cleanly. A second one ends
+// komando at once, as with kubectl and gh, when the clean stop hangs: it
+// first removes the temporary files and folders this run made
+// (tmpclean), which the clean stop would have removed. A SIGHUP that was
+// ignored when komando started (nohup, a background holder) stays ignored.
 func signalContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	context.AfterFunc(ctx, cancel)
-	return ctx, cancel
+	ctx, cancel := context.WithCancel(context.Background())
+	sigs := []os.Signal{os.Interrupt, syscall.SIGTERM}
+	if !signal.Ignored(syscall.SIGHUP) {
+		sigs = append(sigs, syscall.SIGHUP)
+	}
+	ch := make(chan os.Signal, 2)
+	signal.Notify(ch, sigs...)
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ch:
+			cancel()
+		case <-done:
+			return
+		}
+		select {
+		case <-ch:
+			hardStop()
+		case <-done:
+		}
+	}()
+	var once sync.Once
+	return ctx, func() {
+		once.Do(func() {
+			cancel()
+			signal.Stop(ch)
+			close(done)
+		})
+	}
+}
+
+// hardStop ends komando on a second signal; tests replace it.
+var hardStop = func() {
+	tmpclean.RemoveAll()
+	os.Exit(130)
 }

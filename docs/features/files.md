@@ -277,7 +277,10 @@ read, the rest are still copied; the result lists the failures under
 - Ctrl-C stops a copy, or a sync, within a moment. The file being copied is
   not left behind, files already copied stay, and komando exits 1 with
   `CANCELLED`. Run the same command again to finish: `sync` sends only
-  what is still missing.
+  what is still missing. Closing the terminal stops it the same way. A
+  second Ctrl-C ends komando at once, and still removes the half-copied
+  file (and any other temporary file or sign-in browser profile this run
+  made).
 - For a copy that may take longer than a few minutes, or over a shaky
   link, run it on the server as a job: `komando job start`.
 

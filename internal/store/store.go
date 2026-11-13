@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/flock"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 type Host struct {
@@ -425,6 +426,7 @@ func WriteFileAtomic(path string, b []byte, mode os.FileMode) (err error) {
 	if err != nil {
 		return err
 	}
+	defer tmpclean.Add(tmp.Name())()
 	defer func() {
 		if err != nil {
 			tmp.Close()
