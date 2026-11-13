@@ -61,7 +61,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DELETE_FAILED` | 1 | cannot delete …: … | check the file's permissions |
 | `DELIVERY_LIMIT_NEAR` | 8 | subscription … moves a message to its dead-letter topic after … deliveries, and peek would count as one | do not peek this subscription: every delivery counts, and a message delivered too often goes to the dead-letter topic. Peek a subscription of the dead-letter topic instead, or raise maxDeliveryAttempts |
 | `DEPLOY_FAILED` | 5 | key deploy could not add the key to the server's authorized_keys (the server's words follow) | check that ~/.ssh is writable there: `komando fs stat SERVER ~/.ssh` |
-| `DIG_MISSING` | 3 | … records need dig, which is not installed on this server | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it |
+| `DIG_MISSING` | 3 | … records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the se… | install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it |
 | `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
 | `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `DOCKER_MISSING` | 3 | docker not found | install Docker on the server, or pick another server |
