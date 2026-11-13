@@ -200,8 +200,8 @@ func (e *vpnEditFlags) bind(c *cobra.Command) {
 // They weaken the VPN's login, so turning one on needs a person's yes
 // (guardSafety); turning it off does not.
 func vpnOptIns(v *store.Vpn, changed func(string) bool, legacy, pap bool) error {
-	for flag, kinds := range map[string][]string{"legacy-crypto": {"l2tp", "ipsec"}, "allow-pap": {"l2tp"}} {
-		if changed(flag) && !oneOf(v.Kind, kinds...) {
+	for _, flag := range []string{"allow-pap", "legacy-crypto"} {
+		if changed(flag) && !vpnTakes(v.Kind, flag) {
 			return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
 		}
 	}

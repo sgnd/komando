@@ -589,6 +589,124 @@
     },
     "ok": "bool"
   },
+  "schema conn add": {
+    "command": "string",
+    "data": {
+      "commands": [
+        {
+          "add_kinds": [
+            {
+              "default_port": "number",
+              "display_name": "string",
+              "family": "string",
+              "file": "bool",
+              "id": "string",
+              "one_of": [],
+              "optional": [
+                "string"
+              ],
+              "required": [],
+              "url_example": "string",
+              "url_note": "string",
+              "url_schemes": [
+                "string"
+              ]
+            }
+          ],
+          "confirm": [
+            {
+              "tier": "string"
+            }
+          ],
+          "example": "string",
+          "flags": [
+            {
+              "default": "string",
+              "name": "string",
+              "shorthand": "string",
+              "type": "string",
+              "usage": "string"
+            }
+          ],
+          "kind": "string",
+          "long": "string",
+          "path": "string",
+          "runnable": "bool",
+          "short": "string",
+          "usage": "string"
+        }
+      ],
+      "contract": "number",
+      "name": "string",
+      "version": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "schema vpn add": {
+    "command": "string",
+    "data": {
+      "commands": [
+        {
+          "add_kinds": [
+            {
+              "aliases": [],
+              "browser_note": "string",
+              "description": "string",
+              "display_name": "string",
+              "family": "string",
+              "flag_notes": {
+                "*": "string"
+              },
+              "id": "string",
+              "one_of": [],
+              "opens_browser": "bool",
+              "optional": [
+                "string"
+              ],
+              "required": [
+                "string"
+              ]
+            }
+          ],
+          "confirm": [
+            {
+              "tier": "string"
+            }
+          ],
+          "example": "string",
+          "flags": [
+            {
+              "default": "string",
+              "name": "string",
+              "shorthand": "string",
+              "type": "string",
+              "usage": "string"
+            }
+          ],
+          "kind": "string",
+          "long": "string",
+          "path": "string",
+          "runnable": "bool",
+          "short": "string",
+          "usage": "string"
+        }
+      ],
+      "contract": "number",
+      "name": "string",
+      "version": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "secret get pg-pass": {
     "command": "string",
     "data": {
