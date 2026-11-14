@@ -494,7 +494,8 @@ So komando keeps the way in your hands:
   server, turns one to `--login ask`, changes its address, port, user,
   `--via` path, proxy command or WinRM transport, or changes a server or
   VPN on its way (a jump host's address, a VPN's server; also through
-  `vpn add --overwrite` or an import) stops with `NEEDS_PERSON`. No flag
+  `vpn add --overwrite`, an import, or replacing the secret that holds an
+  OpenVPN profile) stops with `NEEDS_PERSON`. No flag
   lifts it: run that command in your own terminal if you want it. A dry
   run is never blocked and names the stop in `meta.would_be_blocked`.
   Other edits (tags, notes, groups) go on.
