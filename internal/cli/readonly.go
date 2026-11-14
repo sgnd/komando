@@ -79,6 +79,8 @@ var argChecks = map[string]func(cmd string, args []string, input bool) string{
 	"sort": sortWrite, "uniq": uniqWrite, "openssl": opensslWrite, "date": dateWrite,
 	"hostname": hostnameWrite, "dmesg": dmesgWrite, "less": lessWrite,
 	"redis-cli": redisCliWrite, "valkey-cli": redisCliWrite, "keydb-cli": redisCliWrite,
+	"xxd": xxdWrite, "yq": yqWrite, "xmllint": xmllintWrite, "fuser": fuserWrite, "ss": ssWrite,
+	"arp": arpWrite, "sar": sarWrite,
 }
 
 // argSensitive: the arguments of cmd decide what it does, so an argument
