@@ -97,6 +97,24 @@ func (d *Device) Delete(id RecordID) (WriteRef, error) {
 	return d.change(&Change{Kind: kindRecord, Record: id, Type: d.typeOf(id), Delete: true})
 }
 
+// KeepName is the person's pick in a name clash: keep this record under
+// the name. It writes the record's name again, so the change waits with
+// the line "replaces prod-db (deleted)" for the other holders, and the
+// person's yes on that screen deletes them (SS 8.1). That yes is never
+// implied by editing. To keep both, the person renames one instead
+// (Update with a new name), which waits like any rename.
+func (d *Device) KeepName(id RecordID) (WriteRef, error) {
+	r := d.data.records[id]
+	if r == nil || !r.Exists || r.Deleted {
+		return WriteRef{}, ErrNoRecord
+	}
+	name := r.Fields["name"].Value
+	if !slices.ContainsFunc(d.data.clashes(), func(c NameClash) bool { return c.Type == r.Type && c.Name == name }) {
+		return WriteRef{}, fmt.Errorf("%w: %q is held by this record only", ErrBadWrite, name)
+	}
+	return d.Update(id, Field{Name: "name", Value: name})
+}
+
 func (d *Device) typeOf(id RecordID) string {
 	if r := d.data.records[id]; r != nil {
 		return r.Type

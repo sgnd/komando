@@ -326,8 +326,34 @@ func (d *Device) observe(c HLC) {
 	}
 }
 
-// Get returns a record's agreed fields.
+// Get returns a record's agreed fields. A record in a name clash is still
+// here by its ID: a link by ID is not ambiguous, and nothing disappears
+// until a person picks (SS 8.1).
 func (d *Device) Get(id RecordID) (map[string]string, bool) { return d.data.get(id) }
+
+// Find is how a command picks a target by name: the one agreed, live
+// record of typ that holds name. When two or more hold it (NameClashes),
+// none is picked until a person picks one (ErrNameTaken).
+func (d *Device) Find(typ, name string) (RecordID, error) {
+	var found []RecordID
+	for id, r := range d.data.records {
+		if r.Type == typ && r.Exists && !r.Deleted && r.Fields["name"].Value == name {
+			found = append(found, id)
+		}
+	}
+	switch len(found) {
+	case 0:
+		return RecordID{}, ErrNoRecord
+	case 1:
+		return found[0], nil
+	}
+	return RecordID{}, ErrNameTaken
+}
+
+// NameClashes lists the names two or more agreed records of one type
+// hold, each shown as "waiting: name taken" (SS 8.1, decided by the owner
+// 2026-11-14).
+func (d *Device) NameClashes() []NameClash { return d.data.clashes() }
 
 // Records counts the agreed, live records.
 func (d *Device) Records() int { return d.data.count() }

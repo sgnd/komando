@@ -32,6 +32,8 @@ var (
 	ErrListConflict    = errors.New("komandosync: another device added a list entry first")
 	ErrListUnchecked   = errors.New("komandosync: could not check for removed devices before sealing a secret")
 	ErrBadSnapshot     = errors.New("komandosync: snapshot refused")
+	ErrNoRecord        = errors.New("komandosync: no live record of this type holds this name")
+	ErrNameTaken       = errors.New("komandosync: two or more records hold this name; a person picks one first")
 )
 
 // protocolErrors are the answers of a check that ran. A list that fails

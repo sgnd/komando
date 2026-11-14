@@ -206,7 +206,10 @@ check("pairing code", pc26 + String(crockford[pcSum & 31]) == pc["code"]!)
 let sn = v["snapshot"] as! [String: String]
 let snHeader = hex(sn["Header"]!)
 check("snapshot state hash", hx(sum("komando-sync/1 snapshot state", [hex(sn["State"]!)])) == sn["StateHash"]!)
-check("snapshot header ends with the state hash", hx(snHeader.suffix(32)) == sn["StateHash"]!)
+// The header: version 1, suite 1, then Base after KeyGen (finding 57).
+var snBuilt = Data([1, 0, 1])
+for k in ["Account", "Signer", "Num", "ListNum", "ListHash", "KeyGen", "Base", "Heads", "StateHash"] { snBuilt += hex(sn[k]!) }
+check("snapshot header", hx(snBuilt) == sn["Header"]!)
 var snInfo = Data("komando-sync/1 record".utf8)
 snInfo.append(0)
 snInfo.append(Data(SHA256.hash(data: snHeader)))

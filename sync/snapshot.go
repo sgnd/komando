@@ -40,6 +40,7 @@ type Snapshot struct {
 	ListNum  uint32
 	ListHash Hash
 	KeyGen   uint32 // the generation in force at ListNum
+	Base     Hash   // the snapshot its signer builds on, zero for none
 	Heads    []Head // the writes the state holds, sorted by device
 	State    Hash   // the hash of the state's one byte form
 	Body     sealed // that state, sealed under the vault key of KeyGen, bound to the header
@@ -56,6 +57,7 @@ func (s *Snapshot) header() []byte {
 	e.u32(s.ListNum)
 	e.raw(s.ListHash[:])
 	e.u32(s.KeyGen)
+	e.raw(s.Base[:])
 	e.u32(uint32(len(s.Heads)))
 	for _, h := range s.Heads {
 		e.raw(h.Device[:])
@@ -87,6 +89,7 @@ func ParseSnapshot(b []byte) (*Snapshot, error) {
 	s.ListNum = d.u32()
 	d.fixed(s.ListHash[:])
 	s.KeyGen = d.u32()
+	d.fixed(s.Base[:])
 	for range d.count(4096) {
 		var h Head
 		d.fixed(h.Device[:])
@@ -134,7 +137,7 @@ func (d *Device) MakeSnapshot() (*Snapshot, error) {
 	}
 	s := &Snapshot{
 		Account: d.account, Signer: d.id, Num: d.snapNum + 1,
-		ListNum: d.head, ListHash: d.headHash, KeyGen: gen,
+		ListNum: d.head, ListHash: d.headHash, KeyGen: gen, Base: d.baseHash,
 	}
 	state := d.data
 	for _, id := range slices.SortedFunc(maps.Keys(d.applied), cmpDevice) {
@@ -260,7 +263,7 @@ func (d *Device) fits(s *Snapshot) bool {
 }
 
 // judge compares a snapshot with this device's merged state at the writes
-// it names.
+// it names, built on the base the snapshot names (stateOf).
 func (d *Device) judge(s *Snapshot) int {
 	if !d.fits(s) {
 		return snapUnfit
@@ -284,12 +287,80 @@ func (d *Device) judge(s *Snapshot) int {
 			return snapNotYet
 		}
 	}
-	m := d.stateAt(heads)
+	m, j := d.stateOf(s, 0)
+	if j != snapMatches {
+		return j
+	}
 	got := sum(labelSnapState, m.encode(heads))
 	if subtle.ConstantTimeCompare(got[:], s.State[:]) != 1 {
 		return snapMismatch
 	}
 	return snapMatches
+}
+
+// maxBaseChain bounds how many snapshots back stateOf follows bases.
+const maxBaseChain = 16
+
+// stateOf is the merged state at the writes s holds, built the way every
+// device builds it: on the snapshot s names as its base, with the list of
+// applied name changes pruned there (finding 57), and that base built the
+// same way, back to the base this device builds on. A device one
+// snapshot behind still judges a newer snapshot correctly. The answer is
+// snapNotYet when the chain does not reach this device's base (a base
+// that is not on the server, or one older than this device's own: its
+// signer makes a newer one), and snapMismatch when a base in the chain
+// is not what the writes give.
+func (d *Device) stateOf(s *Snapshot, depth int) (*mergeState, int) {
+	if s.Base == d.baseHash {
+		return d.stateAt(s.headMap()), snapMatches
+	}
+	if s.Base == (Hash{}) || depth >= maxBaseChain {
+		return nil, snapNotYet
+	}
+	b := d.findSnapshot(s.Base)
+	if b == nil {
+		return nil, snapNotYet
+	}
+	m, j := d.stateOf(b, depth+1)
+	if j != snapMatches {
+		return nil, j
+	}
+	bh := b.headMap()
+	got := sum(labelSnapState, m.encode(bh))
+	if subtle.ConstantTimeCompare(got[:], b.State[:]) != 1 || !covers(s, b) {
+		return nil, snapMismatch
+	}
+	m.pruneDone()
+	heads := s.headMap()
+	var rep Report
+	for _, st := range d.log {
+		if n := st.w.Seq; n > bh[st.w.Writer].Seq && n <= heads[st.w.Writer].Seq {
+			d.applyTo(m, st.w, st.c, &rep)
+		}
+	}
+	return m, snapMatches
+}
+
+// findSnapshot is the checked snapshot with hash h, from this device or
+// the server; nil when there is none.
+func (d *Device) findSnapshot(h Hash) *Snapshot {
+	for _, s := range []*Snapshot{d.snap, d.baseSnap} {
+		if s != nil && s.Hash() == h {
+			return s
+		}
+	}
+	for _, id := range slices.SortedFunc(maps.Keys(d.list.Ever), cmpDevice) {
+		log, err := d.snapshotLog(id)
+		if err != nil {
+			return nil
+		}
+		for _, s := range log {
+			if s.Hash() == h && d.checkSnapshot(s) == nil {
+				return s
+			}
+		}
+	}
+	return nil
 }
 
 // stateAt merges again, from the base, only the writes up to heads.
@@ -328,6 +399,9 @@ func (d *Device) checkSnapshots(rep *Report) error {
 			d.snap = nil
 		}
 	}
+	// Build on the judged snapshot once every device named it, so a newer
+	// snapshot built on it is judged in this sync, not the next.
+	d.rebase()
 	for _, id := range slices.SortedFunc(maps.Keys(d.list.Members), cmpDevice) {
 		log, err := d.snapshotLog(id)
 		if err != nil {
@@ -338,8 +412,8 @@ func (d *Device) checkSnapshots(rep *Report) error {
 		}
 		s := log[0] // only the newest of each device is judged
 		h := s.Hash()
-		if d.refused[h] || (d.snap != nil && (h == d.snap.Hash() || !covers(s, d.snap))) {
-			continue
+		if d.refused[h] || (d.snap != nil && (h == d.snap.Hash() || d.snap.Base == h || !covers(s, d.snap))) {
+			continue // the one held, the one it builds on, or older
 		}
 		if err := d.checkSnapshot(s); err != nil {
 			return err
@@ -381,7 +455,11 @@ func (d *Device) rebase() {
 		return
 	}
 	heads := d.snap.headMap()
-	base, err := decodeState(d.stateAt(heads).encode(heads))
+	m, j := d.stateOf(d.snap, 0)
+	if j != snapMatches {
+		return // judged at this sync: cannot happen
+	}
+	base, err := decodeState(m.encode(heads))
 	if err != nil {
 		return // cannot happen: encode and decode are one form
 	}
@@ -408,6 +486,7 @@ func (d *Device) installBase(s *Snapshot, base *mergeState) {
 			d.applied[id] = h
 		}
 	}
+	base.pruneDone()
 	d.base, d.baseHeads, d.baseHash, d.baseSnap, d.snap = base, heads, s.Hash(), s, s
 	d.log = nil
 	d.data = d.baseData()
@@ -544,190 +623,3 @@ func common(sums []*Summary, of func(*Summary) Hash) Hash {
 func (d *Device) SnapshotToPrune() *Snapshot { return d.baseSnap }
 
 func cmpDevice(a, b DeviceID) int { return bytes.Compare(a[:], b[:]) }
-
-// encode is the one byte form of the state at heads, the same on every
-// device that merged the same writes: records by ID with their fields by
-// name, waiting changes by write, and the approvals whose change is not
-// among the writes yet. A deleted record keeps only its type and its
-// name: its marker goes, its deletion stays final.
-func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
-	var e enc
-	ids := slices.SortedFunc(maps.Keys(m.records), func(a, b RecordID) int { return bytes.Compare(a[:], b[:]) })
-	e.u32(uint32(len(ids)))
-	for _, id := range ids {
-		r := m.records[id]
-		e.raw(id[:])
-		e.str(r.Type)
-		e.bool(r.Exists)
-		e.bool(r.Deleted)
-		names := slices.Sorted(maps.Keys(r.Fields))
-		if r.Deleted {
-			names = slices.DeleteFunc(names, func(n string) bool { return n != "name" })
-		}
-		e.u32(uint32(len(names)))
-		for _, n := range names {
-			f := r.Fields[n]
-			e.str(n)
-			e.str(f.Value)
-			encodeClock(&e, f.Clock)
-		}
-	}
-	refs := slices.SortedFunc(maps.Keys(m.waiting), cmpRef)
-	e.u32(uint32(len(refs)))
-	for _, ref := range refs {
-		w := m.waiting[ref]
-		encodeRef(&e, ref)
-		e.raw(w.Record[:])
-		e.str(w.Type)
-		e.bool(w.Create)
-		e.bool(w.Delete)
-		e.u32(uint32(len(w.Fields)))
-		for _, f := range w.Fields {
-			e.str(f.Name)
-			e.str(f.Value)
-		}
-		encodeClock(&e, w.Clock)
-	}
-	var ok []WriteRef
-	for ref := range m.approved {
-		if ref.Seq > heads[ref.Writer].Seq {
-			ok = append(ok, ref)
-		}
-	}
-	slices.SortFunc(ok, cmpRef)
-	e.u32(uint32(len(ok)))
-	for _, ref := range ok {
-		encodeRef(&e, ref)
-		e.u32(uint32(len(m.replaces[ref])))
-		for _, id := range m.replaces[ref] {
-			e.raw(id[:])
-		}
-	}
-	// Approved changes that set a name and applied, with the union of
-	// their approvals' old holders: a yes that arrives later deletes the
-	// holders it adds on every device, rebuilt from a snapshot or not.
-	done := slices.SortedFunc(maps.Keys(m.done), cmpRef)
-	e.u32(uint32(len(done)))
-	for _, ref := range done {
-		w := m.done[ref]
-		encodeRef(&e, ref)
-		e.raw(w.Record[:])
-		e.str(w.Type)
-		e.u32(uint32(len(m.replaces[ref])))
-		for _, id := range m.replaces[ref] {
-			e.raw(id[:])
-		}
-	}
-	return e.b
-}
-
-func encodeRef(e *enc, r WriteRef) {
-	e.raw(r.Writer[:])
-	e.u64(r.Seq)
-	e.raw(r.Hash[:])
-}
-
-func encodeClock(e *enc, c HLC) {
-	e.u64(uint64(c.Wall))
-	e.u32(c.Count)
-	e.raw(c.Dev[:])
-}
-
-func decodeRef(d *dec) WriteRef {
-	var r WriteRef
-	d.fixed(r.Writer[:])
-	r.Seq = d.u64()
-	d.fixed(r.Hash[:])
-	return r
-}
-
-func decodeClock(d *dec) HLC {
-	c := HLC{Wall: int64(d.u64()), Count: d.u32()}
-	d.fixed(c.Dev[:])
-	return c
-}
-
-// decodeState reads what encode wrote.
-func decodeState(b []byte) (*mergeState, error) {
-	d := dec{b: b}
-	m := newMergeState()
-	for range d.count(1 << 20) {
-		var id RecordID
-		d.fixed(id[:])
-		r := &record{Type: d.str(), Exists: d.bool(), Deleted: d.bool(), Fields: map[string]fieldVal{}}
-		for range d.count(4096) {
-			n := d.str()
-			r.Fields[n] = fieldVal{Value: d.str(), Clock: decodeClock(&d)}
-		}
-		m.records[id] = r
-	}
-	for range d.count(1 << 20) {
-		ref := decodeRef(&d)
-		w := &waiting{Ref: ref}
-		d.fixed(w.Record[:])
-		w.Type = d.str()
-		w.Create = d.bool()
-		w.Delete = d.bool()
-		for range d.count(4096) {
-			w.Fields = append(w.Fields, Field{Name: d.str(), Value: d.str()})
-		}
-		w.Clock = decodeClock(&d)
-		m.waiting[ref] = w
-	}
-	for range d.count(1 << 20) {
-		ref := decodeRef(&d)
-		m.approved[ref] = true
-		var ids []RecordID
-		for range d.count(4096) {
-			var id RecordID
-			d.fixed(id[:])
-			ids = append(ids, id)
-		}
-		if len(ids) > 0 {
-			m.replaces[ref] = ids
-		}
-	}
-	for range d.count(1 << 20) {
-		ref := decodeRef(&d)
-		w := &waiting{Ref: ref}
-		d.fixed(w.Record[:])
-		w.Type = d.str()
-		m.done[ref] = w
-		var ids []RecordID
-		for range d.count(4096) {
-			var id RecordID
-			d.fixed(id[:])
-			ids = append(ids, id)
-		}
-		if len(ids) > 0 {
-			m.replaces[ref] = ids
-		}
-	}
-	if err := d.done(); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// clone is a deep copy.
-func (m *mergeState) clone() *mergeState {
-	c := newMergeState()
-	for id, r := range m.records {
-		c.records[id] = &record{Type: r.Type, Fields: maps.Clone(r.Fields), Exists: r.Exists, Deleted: r.Deleted}
-	}
-	for ref, w := range m.waiting {
-		cw := *w
-		cw.Fields = slices.Clone(w.Fields)
-		c.waiting[ref] = &cw
-	}
-	maps.Copy(c.approved, m.approved)
-	for ref, ids := range m.replaces {
-		c.replaces[ref] = slices.Clone(ids)
-	}
-	for ref, w := range m.done {
-		cw := *w
-		c.done[ref] = &cw
-	}
-	maps.Copy(c.markers, m.markers)
-	return c
-}

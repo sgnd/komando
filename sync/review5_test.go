@@ -302,3 +302,258 @@ func TestFloorNeverGoesBelowAConfirmedSnapshot(t *testing.T) {
 		t.Fatalf("the new Mac took apart a confirmed snapshot: protected %q, dropped %v", got, c.DroppedWrites())
 	}
 }
+
+// createApproved makes a record with the person's yes, collected while
+// editing (AutoApprove) or on the waiting screen.
+func createApproved(t *testing.T, d *Device, typ string, fields ...Field) RecordID {
+	t.Helper()
+	id, err := d.Create(typ, fields...)
+	must(t, err)
+	if _, ok := d.Get(id); !ok {
+		must(t, d.Approve(waitingFor(t, d, id).Ref))
+	}
+	return id
+}
+
+func sameData(t *testing.T, devs ...*Device) {
+	t.Helper()
+	for _, d := range devs[1:] {
+		if string(d.data.encode(nil)) != string(devs[0].data.encode(nil)) {
+			t.Fatalf("%s and %s hold different data after the same writes", devs[0].Name, d.Name)
+		}
+	}
+}
+
+// Finding 61, decided by the owner 2026-11-14: A and B are offline and
+// each make a server named prod-db with a yes that replaces nothing. After
+// syncing, both servers are marked "name taken" on every device, neither
+// is picked by name and neither disappears. The person keeps A's on B;
+// that yes deletes B's server everywhere and the name works again.
+func TestTwoNewcomersWithOneNameWaitForAPick(t *testing.T) {
+	w := newWorld(t)
+	a, _ := w.account("A")
+	b := w.pair(a, "B", true)
+	c := w.pair(a, "C", true)
+	w.syncAll(a, b, c)
+	sa := createApproved(t, a, TypeServer, field("name", "prod-db"), field("address", "10.0.0.5"))
+	sb := createApproved(t, b, TypeServer, field("name", "prod-db"), field("address", "10.0.0.6"))
+	w.syncAll(c, b, a) // C reads both in one sync, A and B each saw their own first
+
+	want := slices.SortedFunc(slices.Values([]RecordID{sa, sb}), cmpRecord)
+	for _, d := range []*Device{a, b, c} {
+		cl := d.NameClashes()
+		if len(cl) != 1 || cl[0].Type != TypeServer || cl[0].Name != "prod-db" || !slices.Equal(cl[0].Records, want) {
+			t.Fatalf("%s: clashes %+v, want both servers under prod-db", d.Name, cl)
+		}
+		if got := cl[0].Line(); got != "waiting: name taken: prod-db (2 server records)" {
+			t.Fatalf("%s: line %q", d.Name, got)
+		}
+		_, err := d.Find(TypeServer, "prod-db")
+		wantErr(t, err, ErrNameTaken)
+		for _, id := range want {
+			if _, ok := d.Get(id); !ok {
+				t.Fatalf("%s: a server in the clash disappeared", d.Name)
+			}
+		}
+	}
+	sameData(t, a, b, c)
+
+	ref, err := b.KeepName(sa)
+	must(t, err)
+	wt := waitingFor(t, b, sa)
+	if wt.Ref != ref || !slices.Equal(wt.ReplacesIDs, []RecordID{sb}) || wt.ReplacesLine() != "replaces prod-db (deleted)" {
+		t.Fatalf("the pick does not wait with the replaces line: %+v", wt)
+	}
+	if len(b.NameClashes()) != 1 {
+		t.Fatal("the clash ended before the person's yes")
+	}
+	must(t, b.Approve(ref))
+	w.syncAll(a, b, c)
+	for _, d := range []*Device{a, b, c} {
+		if got, err := d.Find(TypeServer, "prod-db"); err != nil || got != sa {
+			t.Fatalf("%s: prod-db finds %x, %v; want A's server", d.Name, got[:4], err)
+		}
+		if r := d.data.records[sb]; r == nil || !r.Deleted {
+			t.Fatalf("%s: the server the person did not keep is not deleted", d.Name)
+		}
+		if len(d.NameClashes()) != 0 || len(d.Waiting()) != 0 {
+			t.Fatalf("%s: still clashes %v or waits %v", d.Name, d.NameClashes(), d.Waiting())
+		}
+	}
+	sameData(t, a, b, c)
+}
+
+// Finding 61: the person keeps both by renaming one; that rename waits
+// like any rename, and once agreed each name finds its own server. A
+// record outside a clash cannot be "kept", and records of another type
+// or deleted ones never clash.
+func TestNameTakenEndsWithARename(t *testing.T) {
+	w := newWorld(t)
+	a, _ := w.account("A")
+	b := w.pair(a, "B", true)
+	w.syncAll(a, b)
+	sa := createApproved(t, a, TypeServer, field("name", "prod-db"))
+	sb := createApproved(t, b, TypeServer, field("name", "prod-db"))
+	_, err := a.Create(TypeNote, field("name", "prod-db"))
+	must(t, err)
+	_, err = b.Create(TypeNote, field("name", "prod-db"))
+	must(t, err)
+	w.syncAll(a, b)
+	if cl := a.NameClashes(); len(cl) != 1 || cl[0].Type != TypeServer {
+		t.Fatalf("clashes %+v, want the servers only (notes hold no name)", cl)
+	}
+	a.AutoApprove = false
+	ref, err := a.Update(sb, field("name", "prod-db-2"))
+	must(t, err)
+	if len(a.NameClashes()) != 1 {
+		t.Fatal("a waiting rename ended the clash")
+	}
+	must(t, a.Approve(ref))
+	w.syncAll(a, b)
+	for _, d := range []*Device{a, b} {
+		if got, err := d.Find(TypeServer, "prod-db"); err != nil || got != sa {
+			t.Fatalf("%s: prod-db: %v", d.Name, err)
+		}
+		if got, err := d.Find(TypeServer, "prod-db-2"); err != nil || got != sb {
+			t.Fatalf("%s: prod-db-2: %v", d.Name, err)
+		}
+		if len(d.NameClashes()) != 0 {
+			t.Fatalf("%s: still clashes", d.Name)
+		}
+	}
+	_, err = a.KeepName(sa)
+	wantErr(t, err, ErrBadWrite)
+	_, err = a.Find(TypeServer, "web")
+	wantErr(t, err, ErrNoRecord)
+	sameData(t, a, b)
+}
+
+// snapState opens a snapshot's sealed state as d can.
+func snapState(t *testing.T, d *Device, s *Snapshot) *mergeState {
+	t.Helper()
+	plain, err := openRecord(d.vaultKeys[s.KeyGen], s.header(), s.Body)
+	must(t, err)
+	m, err := decodeState(plain)
+	must(t, err)
+	return m
+}
+
+// Finding 57, decided by the owner 2026-11-14: the list of applied name
+// changes is pruned at every snapshot every current device named. The
+// second snapshot holds only the name change made after the first, every
+// device holds the same data, and a new device that starts from it does
+// too.
+func TestSnapshotPrunesAppliedNameChanges(t *testing.T) {
+	w := newWorld(t)
+	a, _ := w.account("A")
+	b := w.pair(a, "B", true)
+	c := w.pair(a, "C", true)
+	w.syncAll(a, b, c)
+	s1 := createApproved(t, a, TypeServer, field("name", "prod-db"))
+	w.syncAll(a, b, c)
+	s2, err := b.Create(TypeServer, field("name", "prod-db"))
+	must(t, err)
+	if wt := waitingFor(t, b, s2); !slices.Equal(wt.ReplacesIDs, []RecordID{s1}) {
+		t.Fatal("setup: the newcomer should replace the old holder")
+	} else {
+		must(t, b.Approve(wt.Ref))
+	}
+	w.syncAll(a, b, c)
+
+	snap1, err := a.MakeSnapshot()
+	must(t, err)
+	if n := len(snapState(t, a, snap1).done); n != 2 {
+		t.Fatalf("setup: the first snapshot holds %d applied name changes, want 2", n)
+	}
+	w.syncAll(a, b, c)
+	for _, d := range []*Device{a, b, c} {
+		if p := d.SnapshotToPrune(); p == nil || p.Hash() != snap1.Hash() {
+			t.Fatalf("setup: %s should build on the first snapshot", d.Name)
+		}
+		if len(d.data.done) != 0 {
+			t.Fatalf("%s: the list was not pruned at the confirmed snapshot (%d)", d.Name, len(d.data.done))
+		}
+	}
+	sameData(t, a, b, c)
+
+	createApproved(t, c, TypeServer, field("name", "web"))
+	w.syncAll(a, b, c)
+	snap2, err := b.MakeSnapshot()
+	must(t, err)
+	if snap2.Base != snap1.Hash() {
+		t.Fatal("the second snapshot does not name the one it builds on")
+	}
+	if n := len(snapState(t, b, snap2).done); n != 1 {
+		t.Fatalf("the second snapshot holds %d applied name changes, want only the one made after the first", n)
+	}
+	w.syncAll(a, b, c)
+	for _, d := range []*Device{a, b, c} {
+		if p := d.SnapshotToPrune(); p == nil || p.Hash() != snap2.Hash() {
+			t.Fatalf("%s did not take the second snapshot", d.Name)
+		}
+		if len(d.data.done) != 0 {
+			t.Fatalf("%s: the list was not pruned at the second snapshot", d.Name)
+		}
+	}
+	nd := w.pair(a, "new Mac", true)
+	if nd.baseHash != snap2.Hash() {
+		t.Fatal("setup: the new device should start from the second snapshot")
+	}
+	w.syncAll(a, b, c, nd)
+	sameData(t, a, b, c, nd)
+}
+
+// Finding 57: each snapshot names the one it builds on, and is judged on
+// that base. A does not see that C named the first snapshot yet, so it
+// does not build on it, while C already made a second one on it. States
+// built on two bases differ in the pruned list, so A builds the second
+// snapshot's state on the first, pruned there, and takes it instead of
+// refusing an honest snapshot.
+func TestSnapshotOnANewerBaseIsJudgedOnIt(t *testing.T) {
+	w := newWorld(t)
+	a, _ := w.account("A")
+	b := w.pair(a, "B", true)
+	c := w.pair(a, "C", true)
+	w.syncAll(a, b, c)
+	s1 := createApproved(t, a, TypeServer, field("name", "prod-db"))
+	w.syncAll(a, b, c)
+	s2, err := b.Create(TypeServer, field("name", "prod-db"))
+	must(t, err)
+	must(t, b.Approve(waitingFor(t, b, s2).Ref))
+	w.syncAll(a, b, c)
+	if _, ok := a.Get(s1); ok {
+		t.Fatal("setup: the old holder should be deleted")
+	}
+
+	snap1, err := a.MakeSnapshot()
+	must(t, err)
+	shown := len(mustRead(t, w, logSummaries(c.ID())))
+	for _, d := range []*Device{a, b, c} {
+		_, err := d.Sync()
+		must(t, err)
+	}
+	if c.baseHash != snap1.Hash() || a.baseHash == snap1.Hash() {
+		t.Fatal("setup: C should build on the first snapshot, A not yet")
+	}
+	snap2, err := c.MakeSnapshot()
+	must(t, err)
+	w.srv.OnRead = func(by DeviceID, log string, items [][]byte) [][]byte {
+		if by == a.ID() && log == logSummaries(c.ID()) {
+			return items[:shown]
+		}
+		return items
+	}
+	rep, err := a.Sync()
+	must(t, err)
+	if rep.Refused != 0 || a.snap == nil || a.snap.Hash() != snap2.Hash() || a.baseHash == snap1.Hash() {
+		t.Fatal("A did not take an honest snapshot built on a base it does not build on yet")
+	}
+	w.srv.OnRead = nil
+	w.syncAll(a, b, c)
+	for _, d := range []*Device{a, b, c} {
+		if p := d.SnapshotToPrune(); p == nil || p.Hash() != snap2.Hash() {
+			t.Fatalf("%s did not take the second snapshot", d.Name)
+		}
+	}
+	sameData(t, a, b, c)
+}

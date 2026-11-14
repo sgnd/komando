@@ -15,21 +15,24 @@ the text could not be built as written.
 
 ## The answer
 
-**Go, but the format is not frozen yet.** Everything up to finding 55 is
-decided by the owner (2026-11-14), written into SS 6.2, 7.2, 8.1 and 9,
-built here and tested. A review of those decisions found five faults in
-the code and five places where SS or this document was behind (findings
-57 to 66). The code faults are fixed, each with a test that fails
-without its fix. One fix changes the format: a snapshot's state now
-keeps, for each applied change that set a name, the old holders its
-yeses named (finding 57). What follows directly from a decided rule is
-written into SS. Two points block the freeze (SS 21):
+**Go. Nothing is open; the format can be frozen.** Everything up to
+finding 55 is decided by the owner (2026-11-14), written into SS 6.2,
+7.2, 8.1 and 9, built here and tested. A review of those decisions found
+five faults in the code and five places where SS or this document was
+behind (findings 57 to 66). The code faults are fixed, each with a test
+that fails without its fix. What follows directly from a decided rule is
+written into SS. The last three points were settled on 2026-11-14 (SS
+21 is empty):
 
-- **Finding 61, two newcomers take one free name at once:** a new rule is
-  needed; recommended, owner to confirm.
-- **Finding 56, Go 1.26:** the owner approved the download, but the run
-  has not happened. No Go 1.26 toolchain is on this machine; every
-  recorded run used Go 1.27.3 or 1.27.4.
+- **Finding 61, two newcomers take one free name at once:** decided by
+  the owner: both are shown as "waiting: name taken" and neither is found
+  by name until a person picks one. Built and tested.
+- **Finding 57, the list of applied name changes:** decided by the owner:
+  it is pruned at every snapshot every current device named. Built and
+  tested. Format change: a snapshot names the snapshot it builds on
+  (`Base`).
+- **Finding 56, Go 1.26:** run. Under Go 1.26.0 `go vet` passes, `go test
+  -race` passes, and the vectors check out in Swift.
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
@@ -140,11 +143,11 @@ a third review. They are decided as well and built (above).
 | Key transport | `keys.go`, `keyring.go` | HPKE with X-Wing (`crypto/hpke.MLKEM768X25519`, KEM ID 0x647a), HKDF-SHA256, AES-256-GCM. The `info` value binds account, generation and receiver |
 | Device list | `list.go`, `listcheck.go` | The signed hash chain, checked from entry 1 by every device. Account ID = hash of entry 1 |
 | Writes and summaries | `write.go`, `sync.go` | Each write is sealed, signed by the sync key, numbered and chained to the device's previous write, and names the newest list entry. Each sync ends with a signed summary |
-| Merging | `merge.go` | Field by field, newest hybrid clock wins; deletion is final; the stricter-values table; changes that wait apply only with a signed yes, which also deletes the old holder of a name it takes |
+| Merging | `merge.go` | Field by field, newest hybrid clock wins; deletion is final; the stricter-values table; changes that wait apply only with a signed yes, which also deletes the old holder of a name it takes; two agreed records of one type that hold one name are both shown as "waiting: name taken" and are not found by name until a person picks one (`NameClashes`, `Find`, `KeepName`) |
 | Pairing | `pair.go` | QR or 27 characters (26 for the one-time 128-bit secret, 1 check), 10 minutes, one try |
 | Recovery kit | `kit.go`, `shamir.go`, `recover.go`, `admin.go` | 256-bit key as 56 letters with a check, typed back before sync starts, up to 3 kits, 2-of-3 paper (own Shamir over GF(256)), recovery on a new device, recovery step on a listed device, kit replacement and an authority key signed in with the kit: each waits 24 hours while another device is listed |
 | Removed devices | `removal.go` | Which writes of a removed device count: floor, cut from summaries of listed devices, only what applies by itself between them; merging again without the rest; stricter values written again; a list of dropped writes for the person |
-| Snapshots | `snapshot.go` | A signed, sealed copy of the merged state at a set of writes; judged by every device, confirmed when every current device names it in a summary, then the older writes go; a new device starts from it |
+| Snapshots | `snapshot.go`, `state.go` | A signed, sealed copy of the merged state at a set of writes, naming the snapshot it builds on; judged by every device on that base, confirmed when every current device names it in a summary, then the older writes go and the list of applied name changes is pruned; a new device starts from it |
 | Hostile server | `server.go` | Stores blobs and logs. Read hooks let a test drop, reorder, replay, roll back, fork per device and swap anything. Write hooks let it drop a store or a delete while saying it was done |
 
 ### The constructions chosen
@@ -292,10 +295,11 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`cd sync && go test -race ./...`: 128 tests and subtests pass, 0
-fail (90 top-level tests); statement coverage 87.9%. The same run passes
-under Go 1.27.3 (the default toolchain here) and Go 1.27.4. All table-driven where
-there is a table.
+`cd sync && go test -race ./...`: 132 tests and subtests pass, 0
+fail (94 top-level tests); statement coverage 87.9%. The same run passes
+under Go 1.27.3 (the default toolchain here) and under Go 1.26.0
+(`GOTOOLCHAIN=go1.26.0`, finding 56), and earlier runs passed under Go
+1.27.4. All table-driven where there is a table.
 
 | Hostile server does this | The device reports |
 |---|---|
@@ -372,8 +376,8 @@ state.
 
 **Vectors.** `testdata/vectors.json` (record sealing, Padmé, key IDs, kit
 letters and derived keys, paper parts, HPKE X-Wing, the fixed signature
-form, a list entry's bytes and hash, the pairing code, a snapshot, a deny
-rule's ID, an approval's signed bytes, and the frozen layouts: a summary
+form, a list entry's bytes and hash, the pairing code, a snapshot (its header
+with `Base`), a deny rule's ID, an approval's signed bytes, and the frozen layouts: a summary
 with `Prev`, `Snap` and `Base`, a write's header, signed bytes and hash,
 a change body with `Target`, a deny rule written again and its ID, and a
 snapshot state with a deleted record, a waiting change, approvals and an
@@ -388,8 +392,10 @@ prototype and only pins regressions. Two outside checks stand behind it:
   hash, a deny rule's ID and the bytes an approval signs. It builds each
   layout from its fields, never from given bytes: the summary, the write
   (header, seal, signed bytes, hash), the change body, the deny rule
-  written again, and the snapshot state, sorting and filtering as the
-  format says. It prints 42 checks, all ok (macOS 27, Swift 6.4.2).
+  written again, the snapshot header (with `Base` after `KeyGen`) and
+  the snapshot state, sorting and filtering as the
+  format says. It prints 42 checks, all ok (macOS 27, Swift 6.4.2); the snapshot
+  header check replaced the one that only compared the header's end.
 - `external_test.go` checks the building blocks against published
   vectors: RFC 5869 cases 1 and 3 for HKDF, and the draft-ietf-hpke-pq
   vector for X-Wing (`DeriveKeyPair`, decapsulation, the HKDF-SHA256 key
@@ -652,9 +658,8 @@ check is `go vet`'s `stdversion` analyzer, which knows when each standard
 library name was added and refuses any newer than the module's Go
 version: it passes at 1.26.0, and at 1.25.0 it flags `crypto/hpke`
 ("requires go1.26 or later"). So nothing newer than Go 1.26 is used, and
-nothing older is enough. Not done: a build with a Go 1.26 toolchain (it
-is not installed, and the re-test does not download one). Test:
-`TestLowestGoVersion`.
+nothing older is enough. A build and test run with Go 1.26.0 itself
+passed later (finding 56). Test: `TestLowestGoVersion`.
 
 ### 20. Clarify: a device that comes back
 
@@ -1056,7 +1061,9 @@ write. It then listed findings 31 to 36 with their recommendations. After
 the owner's decisions it said nothing is open, and that the format can be
 frozen once this re-test passes. The re-test passed, but its review found
 findings 45 to 56. The owner decided them the same day and SS now states
-them; SS 21 keeps only the Go 1.26 check and finding 61 open.
+them; SS 21 then kept only the Go 1.26 check and finding 61 open. Both
+were settled on 2026-11-14 (findings 56 and 61), and SS 21 now lists
+nothing open.
 
 ## Findings of the freeze re-test (2026-11-14)
 
@@ -1120,7 +1127,7 @@ ten faults in the code and three gaps in SS. Each code fault is fixed
 with a test in `review4_test.go` that fails without the fix (checked by
 undoing each fix in a copy). Decided and built: the owner decided
 findings 45 to 55 on 2026-11-14, and SS 6.2, 7.2, 8.1 and 9 state them.
-Finding 56 (the Go 1.26 run) is still open.
+Finding 56 (the Go 1.26 run) stayed open until the run passed (below).
 
 ### 45. Wrong: a snapshot raised a removed device's floor past a waiting removal (fixed in code)
 
@@ -1248,7 +1255,7 @@ follow SS alone. **Decided by the owner 2026-11-14 and done: write 39 to 54 into
 6.2, 8.1 and 9, including the summary's layout (`Prev`, `Snap`, `Base`),
 before the format is frozen. Until then SS 21 lists them as open.**
 
-### 56. Gap: Go 1.26 was not tried (open)
+### 56. Gap: Go 1.26 was not tried (done: it passes)
 
 SS 7.2 said the re-test builds with Go 1.26. Only `go.mod` names
 `go 1.26.0`, and `go vet` of Go 1.27 checks the standard library calls
@@ -1261,15 +1268,24 @@ check is open.** The owner approved the download on 2026-11-14. A try was
 blocked before it fetched anything: the module cache holds only an empty
 lock file for go1.26.0. So the run has not happened. The recorded runs
 used Go 1.27.3 (the default toolchain in this worktree) and Go 1.27.4
-(cached); SS 7.2 now says so.
+(cached).
+
+**Done 2026-11-14, with the owner's approval of the download:** in
+`sync/`, `GOTOOLCHAIN=go1.26.0 go version` gives go1.26.0 darwin/arm64;
+`go vet ./...` passes; `go test -race -count=1 ./...` passes;
+`swift testdata/crosscheck.swift testdata/vectors.json` gives every check
+ok. After findings 57 and 61 were built, the same runs pass again under
+Go 1.26.0 and Go 1.27.3 (132 tests and subtests, 42 Swift checks).
+Recorded in SS 7.2, 18 and 21.
 
 ## Findings of the review of the owner's freeze decisions (2026-11-14)
 
 A review attacked the code built from the decisions above and checked it
 against SS. Each code fault is fixed with a test in `review5_test.go`
 that fails on the code before its fix. What follows directly from a
-decided rule is written into SS and marked "follows from"; the one point
-that needs a new rule is in SS 21, "recommended, owner to confirm".
+decided rule is written into SS and marked "follows from". The two points
+that needed a new rule (findings 57's growing list and 61) were decided
+by the owner on 2026-11-14 and are built.
 
 ### 57. Wrong: two yeses for one newcomer left devices with different data (fixed in code, format change)
 
@@ -1290,6 +1306,37 @@ longer listed.** Tests: `TestTwoApprovalsOfOneNewcomerAgree`,
 `TestLateApprovalAddsAHolderInAnyOrder` (six orders, two through a
 snapshot). Written into SS 8.1 and 9 as following from the decided rule
 and from order-free merging.
+
+The list of applied name changes then grew by one entry per approved new
+name or rename and was never pruned. **Decided by the owner 2026-11-14:
+prune it at every snapshot every current device has named, keeping the
+result identical on all devices.** Built so:
+
+- A device empties the list when it builds on a snapshot every current
+  device named, and a new device does when it starts from one. So a
+  snapshot's state holds only the name changes since the snapshot its
+  signer builds on. Only types that hold names are listed (not notes,
+  device records or deny rules).
+- A yes that arrives later for a pruned change deletes nothing more. If
+  the holders it names still hold the name, finding 61's rule shows them
+  as "waiting: name taken" on every device, so nothing disappears and
+  nothing is used by an ambiguous name.
+- States built on two different snapshots can differ in the pruned list,
+  so a snapshot now names the snapshot it builds on (`Snapshot.Base`,
+  in its signed header after `KeyGen`: a format change). A device judges
+  it on that base: when it does not build on that base yet, it builds
+  the state the same way, from its own base through each named base,
+  pruned at each, and checks each base's state hash on the way. A base it
+  cannot reach (not on the server, or older than its own) leaves the
+  snapshot waiting, never refused with an alert; its signer makes a newer
+  one. A device never goes back from a snapshot to the one it builds on.
+
+Tests: `TestSnapshotPrunesAppliedNameChanges` (the second snapshot holds
+one entry, not three; all devices and a new one hold the same data),
+`TestSnapshotOnANewerBaseIsJudgedOnIt` (a device that does not build on
+the first snapshot yet takes an honest second one built on it). Each
+fails under its mutation: no pruning at the base, no pruning while
+judging, judging without the base, and going back to the base.
 
 ### 58. Wrong: a stricter value was written over a newer yes read in the same sync (fixed in code)
 
@@ -1325,16 +1372,38 @@ lowered cut.** Tests: `TestCutGoesDownWhenItsSignerIsRemoved`,
 `TestFloorNeverGoesBelowAConfirmedSnapshot`. Each fails under its
 mutation (checked). Written into SS 6.2 as following from finding 40.
 
-### 61. Gap: two newcomers can take one free name at once (open)
+### 61. Gap: two newcomers can take one free name at once (decided and built)
 
 A and B are offline and each make a server named prod-db. Neither sees
 another holder, so each yes replaces nothing, and after syncing both are
 live with one name. SS 8.1 says two records never hold one name, and
-commands pick targets by name. **Recommended, owner to confirm: when two
-agreed records of one type hold one name, the one whose creating write
-sorts first (writer ID, then number) keeps it; the other is shown as
-"waiting: name taken" and is not used by name until a person renames or
-deletes one.** In SS 21. Not built.
+commands pick targets by name. The recommendation was that the record
+whose creating write sorts first keeps the name. **Decided by the owner
+2026-11-14 otherwise: both are marked "name taken" and wait until the
+person picks one; nothing disappears silently.** Built so:
+
+- A clash is two or more agreed, live records of one name-holding type
+  with one name. It is read from the merged records alone, so every
+  device that holds the same writes shows the same clash, in any order
+  (`NameClashes`, shown as "waiting: name taken: prod-db (2 server
+  records)").
+- No record in a clash is found by name (`Find` answers
+  `ErrNameTaken`). Each stays readable by its ID, since a link by ID is
+  not ambiguous, and nothing is deleted.
+- The person's pick is an ordinary change under SS 8.1. "Keep this one"
+  (`KeepName`) writes the kept record's name again, so the change waits
+  with "replaces prod-db (deleted)" for the others, and the person's yes
+  on that screen deletes them. That yes is never implied by editing
+  (finding 51). Renaming or deleting one waits like any rename or delete.
+- Two people who each keep a different one, on two devices at once, both
+  approve a deleting yes; both records are then deleted, as each screen
+  said. That is the rule of finding 57, not a new one.
+
+Tests: `TestTwoNewcomersWithOneNameWaitForAPick` (three devices, both
+servers waiting on all of them, the pick deletes the other everywhere),
+`TestNameTakenEndsWithARename` (a rename keeps both; notes with one name
+never clash). Each fails when the clash check or the refusal in `Find` is
+undone. The existing name rules still pass.
 
 ### 62. Gap: the vectors did not pin the frozen layouts (fixed)
 
@@ -1389,9 +1458,9 @@ Updated from a fresh run (above).
   so a real service must keep the chain of summaries from before each
   removal up to now. SS 15 now says the service never deletes summaries
   (finding 64). Snapshots drop writes, not summaries.
-- A snapshot's state keeps every applied change that set a name (finding
-  57). That list grows by one small entry per approved new name or
-  rename and is never pruned.
+- A snapshot's state keeps the applied changes that set a name since the
+  snapshot it builds on (finding 57); the list is pruned at every
+  snapshot every current device named.
 - A snapshot is one sealed blob of the whole state. A real service would
   split it into parts so that a device fetches it in pieces.
 - Pruning is a test hook (`MemServer.PruneWrites`). A device judges a
@@ -1404,7 +1473,8 @@ Updated from a fresh run (above).
 
 ## Sizes and timings
 
-Apple M2, Go 1.27 (1.27.3 or 1.27.4: the run did not record which), `go test -bench . -benchtime=2s` (the two joins:
+Apple M2, Go 1.27 (1.27.3 or 1.27.4: the run did not record which; not
+run again after findings 57 and 61), `go test -bench . -benchtime=2s` (the two joins:
 `-benchtime=1x`, best of three runs, on a busier machine than before).
 
 | Operation | Time |

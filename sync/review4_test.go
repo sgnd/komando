@@ -36,7 +36,7 @@ func uncappedSnapshot(t *testing.T, d *Device) *Snapshot {
 	t.Helper()
 	gen := d.list.GenAt[d.head-1]
 	s := &Snapshot{Account: d.account, Signer: d.id, Num: d.snapNum + 1,
-		ListNum: d.head, ListHash: d.headHash, KeyGen: gen}
+		ListNum: d.head, ListHash: d.headHash, KeyGen: gen, Base: d.baseHash}
 	for _, id := range slices.SortedFunc(maps.Keys(d.applied), cmpDevice) {
 		s.Heads = append(s.Heads, d.applied[id])
 	}

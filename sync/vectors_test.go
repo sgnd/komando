@@ -264,11 +264,14 @@ func layouts(v *vectors) {
 }
 
 // snapshotVector: the state's one byte form, its hash, the header that
-// binds the seal and is signed, the seal (the record seal with the header
-// as its place) and the snapshot's hash.
+// binds the seal and is signed (with its fields, numbers as big-endian
+// hex, Heads as its count and entries), the seal (the record seal with
+// the header as its place) and the snapshot's hash.
 type snapshotVector struct {
 	VaultKey, Seed, Header, State, StateHash string
 	Commit, Ciphertext, Hash                 string
+	Account, Signer, Num, ListNum, ListHash  string
+	KeyGen, Base, Heads                      string
 }
 
 type recordVector struct {
@@ -358,13 +361,16 @@ func deterministic(t *testing.T) vectors {
 	m.records[rid] = &record{Type: TypeServer, Exists: true, Fields: map[string]fieldVal{
 		"address": {Value: "10.0.0.5", Clock: HLC{Wall: 1_700_000_000_000, Count: 1, Dev: DeviceID(seq(30, 16))}}}}
 	snap := &Snapshot{Account: Hash(seq(50, 32)), Signer: DeviceID(seq(30, 16)), Num: 1, ListNum: 4,
-		ListHash: Hash(seq(90, 32)), KeyGen: 2, Heads: []Head{{Device: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))}}}
+		ListHash: Hash(seq(90, 32)), KeyGen: 2, Base: Hash(seq(150, 32)),
+		Heads: []Head{{Device: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))}}}
 	state := m.encode(snap.headMap())
 	snap.State = sum(labelSnapState, state)
 	snap.Body = sealRecordSeed(seq(0, 32), snap.header(), state, [32]byte(seq(170, 32)))
 	sh := snap.Hash()
 	v.Snapshot = snapshotVector{hx(seq(0, 32)), hx(snap.Body.Seed[:]), hx(snap.header()), hx(state), hx(snap.State[:]),
-		hx(snap.Body.Commit[:]), hx(snap.Body.CT), hx(sh[:])}
+		hx(snap.Body.Commit[:]), hx(snap.Body.CT), hx(sh[:]),
+		hx(snap.Account[:]), hx(snap.Signer[:]), fmt.Sprintf("%016x", snap.Num), fmt.Sprintf("%08x", snap.ListNum),
+		hx(snap.ListHash[:]), fmt.Sprintf("%08x", snap.KeyGen), hx(snap.Base[:]), hx(snapHeads(snap.Heads))}
 	did := denyID(DeviceID(seq(30, 16)), 7)
 	v.DenyID = map[string]string{"writer": hx(seq(30, 16)), "seq": "0000000000000007", "id": hx(did[:])}
 	target := WriteRef{Writer: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))}
@@ -373,6 +379,17 @@ func deterministic(t *testing.T) vectors {
 		"bytes": hx(approvalBytes(Hash(seq(50, 32)), target, []RecordID{rid}))}
 	layouts(&v)
 	return v
+}
+
+func snapHeads(hs []Head) []byte {
+	var e enc
+	e.u32(uint32(len(hs)))
+	for _, h := range hs {
+		e.raw(h.Device[:])
+		e.u64(h.Seq)
+		e.raw(h.Hash[:])
+	}
+	return e.b
 }
 
 func TestVectors(t *testing.T) {

@@ -1,6 +1,8 @@
 package komandosync
 
 import (
+	"cmp"
+	"fmt"
 	"maps"
 	"slices"
 )
@@ -173,7 +175,7 @@ func (m *mergeState) applyWaiting(w *waiting) {
 	if w.Delete {
 		m.markDeleted(w.Record, w.Ref)
 	}
-	if setsName(w) {
+	if setsName(w) && namesHeld(w.Type) { // a note, device or deny rule holds no name
 		m.done[w.Ref] = &waiting{Ref: w.Ref, Record: w.Record, Type: w.Type}
 		m.deleteHolders(w)
 	}
@@ -335,6 +337,52 @@ func (m *mergeState) nameHolders(name string, self RecordID, typ string) []Recor
 		}
 	}
 	return slices.SortedFunc(maps.Keys(held), cmpRecord)
+}
+
+// NameClash is a name that two or more agreed, live records of one type
+// hold. Two devices offline at once can each take a free name, and
+// neither yes replaces anything, because neither saw the other record.
+// Decided by the owner 2026-11-14 (SS 8.1): every record in a clash is
+// shown as "waiting: name taken" and no command picks any of them by that
+// name until a person picks one (KeepName), renames one or deletes one.
+// Nothing disappears by itself. A clash is read from the merged records
+// alone, so every device that holds the same writes shows the same clash.
+type NameClash struct {
+	Type    string
+	Name    string
+	Records []RecordID // sorted
+}
+
+// Line is the screen's line for a clash: "waiting: name taken: prod-db
+// (2 server records)".
+func (c NameClash) Line() string {
+	return fmt.Sprintf("waiting: name taken: %s (%d %s records)", c.Name, len(c.Records), c.Type)
+}
+
+// clashes lists every name held by two or more agreed, live records of
+// one type, sorted by type, then name.
+func (m *mergeState) clashes() []NameClash {
+	type key struct{ typ, name string }
+	held := map[key][]RecordID{}
+	for id, r := range m.records {
+		n, ok := r.Fields["name"]
+		if !r.Exists || r.Deleted || !ok || n.Value == "" || !namesHeld(r.Type) {
+			continue
+		}
+		k := key{r.Type, n.Value}
+		held[k] = append(held[k], id)
+	}
+	var out []NameClash
+	for k, ids := range held {
+		if len(ids) > 1 {
+			slices.SortFunc(ids, cmpRecord)
+			out = append(out, NameClash{Type: k.typ, Name: k.name, Records: ids})
+		}
+	}
+	slices.SortFunc(out, func(a, b NameClash) int {
+		return cmp.Or(cmp.Compare(a.Type, b.Type), cmp.Compare(a.Name, b.Name))
+	})
+	return out
 }
 
 func cmpRef(a, b WriteRef) int {
