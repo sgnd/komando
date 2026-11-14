@@ -7,21 +7,55 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-14
+
+### Highlights
+
+- **The apps can run several commands at once.** Inside, each command now
+  runs as a call of its own, with its own output, flags, approvals and
+  environment, so the Mac and iPhone apps can run a person's command and an
+  AI agent's command side by side in one process.
+- **See a secret or key again from the Mac app.** `secret show --reveal` and
+  `key show --reveal` from a program without a terminal ask the person in
+  komando's own window and show the value only after **Allow once**. An AI
+  agent still never gets a value.
+- **Signed releases.** This is the first release whose `checksums.txt` is
+  signed with the komando project's key. `komando update` checks that
+  signature before it downloads anything, so someone who replaced a
+  release's files cannot make it install them. Releases up to 0.13.0 are
+  unsigned: go back to one with the install line.
+- **Your store is safer.** A dry run never makes a new, empty store where
+  `store.db` went missing, a keychain that cannot answer stops changes
+  instead of guessing, and every store leaves a `store.made` marker that
+  shows the folder had one.
+- **Move everything in one sealed file.** `komando export --sealed` puts
+  your servers, secrets and (with `--with-keys`) private keys in one file
+  locked with a passphrase, and `export --for-phone` seals it for the
+  iPhone app.
+- **More for apps and scripts.** `cache keys` shows each key's type and time
+  to live, `--progress` writes how far a copy is as JSON lines,
+  `cluster describe` and `cluster logs` give structured detail, and
+  `komando schema` lists the kinds each `add` takes.
+- **More ways in.** SSH certificates, security keys (FIDO2), agent
+  forwarding per server, post-quantum key exchange, and imports from PuTTY,
+  MobaXterm and AWS EC2.
+- **The paid boundary is written down and tested.** komando's own code
+  never checks a plan, account or licence; a test fails if the binary links
+  the sync library or a Komando Cloud client. Plus over 20 fixes, many for
+  safety, among them links in a download folder and hidden terminal text.
+
+### Changed for scripts and agents
+
+- `AGENTS.md` has a new rule 11, the paid boundary: an agent that changes komando's own code never adds a plan, account or licence check, and gives a paid service only a neutral, open capability (an open format, a signature check, a local socket). The old rules 11 and 12 are now 12 and 13. A new test (`internal/boundary`) fails when the komando binary links the sync library or a Komando Cloud client, or names a komando-owned address (any scheme, or a bare host name) other than the release site.
+- `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; For one server the fields moved: `data.path` is now `data.results[0].path`, `data.changed` is `data.results[0].changed`, `data.would_change` is `data.results[0].would_change`, and the same for `replacements`, `diff`, `backup`, `from` and `note`. Error codes stay the same (`NO_MATCH`, `BACKUP_NOT_FOUND` ...). `fs write` stays one server.
+
 ### Added
+
 - See a secret again from the Komando Mac app: `secret show NAME --reveal` from a program without a terminal now asks the person in komando's own window (with the approval code when it is on) instead of stopping, and shows the value only after **Allow once**. The window names the secret, the command and the programs that started komando. At a terminal nothing changes; an AI agent, and a key through `ssh-gate`, still never get a value and get no window. A Linux or BSD desktop gets the window only with the approval code.
 - `key show NAME --reveal` prints the private key of a key komando made (kept in its sealed store, with no file), for a person only, under the same rules; for a key added from a file it names the file.
 - Every value shown is in the audit log with how the person allowed it (`via`: `terminal` or `window`) and the programs that started komando (`started_from`), and every refused `--reveal` with the secret's or key's name.
-
-### Security
-
-- `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
-- The release can sign the macOS binaries with the project's Developer ID and have Apple notarize them, so Gatekeeper accepts them. Until the owner adds the signing secrets, macOS binaries stay unsigned and the release log says so.
-
-### Added
-
 - `komando export --sealed --to FILE` moves everything, passwords included, in one sealed file: komando asks a person at the terminal for a passphrase twice (15 or more characters, hidden), seals the export and the secrets its records use with scrypt and AES-256-GCM, and prints a six-word check phrase. `--with-keys` adds the private keys the servers use. `komando import komando FILE` asks for the passphrase and puts the secrets into the vault, never over one that is there with another value unless `--overwrite` and the person says yes. `komando export --for-phone --to FILE` seals the same to the iPhone app's one-time key (HPKE, X25519 and AES-256-GCM), after checking the key against the key check the phone shows. Only a person makes or opens a sealed file: an AI agent gets `NEEDS_PERSON`; a dry run says what would be sealed. New codes: `SEALED_FILE_INVALID`, `SEALED_FILE_UNSUPPORTED`, `PHONE_KEY_INVALID`, `KEY_FAILED`. The format is in `docs/design/sealed-file.md`, with test vectors in `internal/sealfile/testdata/vectors.json`.
 - `export` lists the secrets of a VPN's config and a server's environment variables in `secrets_needed` too, and `export --overwrite` replaces the file as its help says (it stopped with `FILE_EXISTS`).
-
 - `cache keys` gives each key's type and time to live, never its value: the JSON has `items` (`key`, `type`, `ttl_seconds`; -1 = no expiry, null = unknown) next to the unchanged `keys`, and the text shows KEY, TYPE and TTL columns. On Redis and Valkey, `TYPE` and `PTTL` for the whole page go in one round trip (one per master in a Cluster); on memcached the type is `string` and the time to live comes from the LRU crawler's listing, with the server's clock read in the same round trip.
 - `komando schema vpn add` and `komando schema conn add` (and `db add`, `cache add`, `queue add`, `storage add`, `cluster add`, `registry add`) list the kinds each takes under `add_kinds`: for a VPN its ID, display name, family (portal, config file, server and pre-shared key, auth key, system, proxy), the flags it needs and may take, and whether `vpn up` opens a browser to sign in; for a conn its ID, display name, family, URL schemes, an example URL and the same flag lists. An app can build its add forms from it. `vpn add --help` now shows its "Which flags go with which VPN kind" table from the same list, and `vpn add` refuses a flag the list does not give that kind, as it did before.
 - `--progress` on `upload`, `download`, `cp`, `sync` and `storage upload/download`: with `-o json`, komando writes how far the copy is to stderr, one JSON object per line, at most about four a second (`{"event":"progress","file":…,"bytes_done":…,"bytes_total":…,"files_done":…,"files_total":…}`), then one `{"event":"done",…,"ok":…}` line, so an app or agent can draw a progress bar. A total is `null` when komando cannot know it. The result on stdout is unchanged, and without `--progress` (or in text mode) nothing changes.
@@ -51,10 +85,7 @@ its highlights; the sections below them give the details. Versions follow
 
 - `download -r` from a server keeps the files that are already on this computer and copies the rest, as `download -r` from storage does; it used to stop at the first one with `FILE_EXISTS`. The result says how many it kept (`kept`). `--overwrite` still replaces them.
 - A job's `--env` values and its input (`--script`, `--stdin-file`) now reach the command through a pipe from the job's private folder instead of being read from files there, so a command run as another user gets them too. With a sudo password, the job first asks sudo whether it needs one and deletes it unread when it does not.
-
-### Changed for scripts and agents
-
-- `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; For one server the fields moved: `data.path` is now `data.results[0].path`, `data.changed` is `data.results[0].changed`, `data.would_change` is `data.results[0].would_change`, and the same for `replacements`, `diff`, `backup`, `from` and `note`. Error codes stay the same (`NO_MATCH`, `BACKUP_NOT_FOUND` ...). `fs write` stays one server.
+- Inside the engine (no change you can see): each command now runs as a call of its own, with its own output, flags, approvals and environment, instead of package-wide ones. A dry run previews only its own command's changes to the store and the vault, and only doctor or a dry run may look at an old copy of the store, never a command running beside it. `cli.RunCall` runs one command for an `engine.Call` (its environment, input, output and approval window), so the Mac and iPhone apps can run a person's command and an AI agent's command at the same time in one process. A call that still holds the store after another call opened it again (the file was replaced, or its key changed) gets `STORE_CONFLICT` ("run it again") instead of a raw database error, and such handles are closed once nothing uses them, so a long-running process keeps no pile of them. The plan, and what the lower packages still share, is in `docs/design/engine-per-call.md`.
 
 ### Fixed
 
@@ -81,6 +112,13 @@ its highlights; the sections below them give the details. Versions follow
 - On Windows, `cluster run TARGET -- cp C:\data pod:/tmp` took `C:\data` for pod `C`: it copied from that pod instead of sending the folder, and so skipped the check that keeps komando's data and secret files on this computer for an AI agent. A path with a drive letter is a path on this computer, as kubectl cp reads it.
 - On Windows, a server, cluster or registry that refuses the connection is `CONNECTION_REFUSED` ("connection refused") as on other systems, not `CONNECT_FAILED` or `KEYSCAN_FAILED` with Windows' own words; `test --wait` and `host trust` tell it apart again.
 - On Windows, a VPN's web sign-in stopped with "fork/exec ...: not supported by windows" when Chrome, Edge or Brave was installed: komando cannot give a browser its DevTools pipe there. The sign-in now opens in your own browser and you paste the address it ends on, as on a computer without one of those browsers.
+
+### Security
+
+- `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
+- A dry run no longer starts an empty store where `store.db` went missing while the keychain still remembers its change count. Its audit record made a new, empty store and set the keychain's count down to it, so the next plain command ran on the empty store, without its servers, rules, secrets and pinned host keys. Now no command makes a store there: a dry run reads it as missing, and every command stops with `STORE_OLD_COPY` until store.db is put back or a person runs `komando doctor --accept-old-copy`. When the keychain cannot say whether it remembers a count for the folder (locked, or no answer in time), an AI agent's command makes no store (`STORE_OLD_COPY`, or `KEYCHAIN_SLOW`), and nobody's command does in a folder that had a store. Every store now leaves `store.made` in its folder and keeps it there, also a store whose key is in the keychain (it has no `store.key`); a store made by an older komando gets it the next time it is opened. With it, `store.key`, `runtime.pids` and the other files listed in `docs/features/settings.md` show that a folder had a store; the lock files a refused command leaves do not. A person or a script in a folder that never had a store still gets one, with its key in `store.key` and a note on stderr that the key file alone guards it. A keychain that says it has no count, or a computer with no keychain, starts a new store as before. A dry run or doctor looking at an older copy of the store can no longer write into it either (a dry run's audit record now says it could not be written there).
+- A store whose key is in `store.key` or a passphrase is no longer changed while the keychain cannot say whether it remembers a newer count for the folder (locked, or no answer in time). It may be a backup from before `komando secret keychain`, and each change would raise its count until it passed for the newest copy. Such a store is read; a change stops with `KEYCHAIN_FAILED` (or `KEYCHAIN_SLOW`) and nothing is changed. Unlock the keychain and run it again; on a computer with no working keychain, a person sets `KOMANDO_KEYCHAIN=off`. An AI agent's `KOMANDO_KEYCHAIN` set to a keychain file is no longer used, for the store's key or its change count: an agent's call keeps both in the login keychain, so a path cannot hide the count, and a store's key and count are never split between two keychains. A person's keychain file works as before for the person; a store whose key is in it is not opened by an agent's call.
+- The release can sign the macOS binaries with the project's Developer ID and have Apple notarize them, so Gatekeeper accepts them. Until the owner adds the signing secrets, macOS binaries stay unsigned and the release log says so.
 
 ## [0.13.0] - 2026-11-13
 
@@ -4300,7 +4338,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/sgnd/komando/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/sgnd/komando/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/sgnd/komando/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/sgnd/komando/compare/v0.10.0...v0.11.0

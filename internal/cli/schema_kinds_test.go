@@ -96,7 +96,7 @@ func TestSchemaVpnAddKinds(t *testing.T) {
 // vpnAddFlags are vpn add's flags.
 func vpnAddFlags(t *testing.T) *pflag.FlagSet {
 	t.Helper()
-	c, _, err := newRoot().Find([]string{"vpn", "add"})
+	c, _, err := newRoot(tcl).Find([]string{"vpn", "add"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,7 +203,7 @@ func TestVpnAddKindsMatchTheCommand(t *testing.T) {
 // flag a kind takes is in it, and no line is wider than the help.
 func TestVpnAddHelpTable(t *testing.T) {
 	var c *cobra.Command
-	c, _, _ = newRoot().Find([]string{"vpn", "add"})
+	c, _, _ = newRoot(tcl).Find([]string{"vpn", "add"})
 	_, table, ok := strings.Cut(c.Long, "Which flags go with which VPN kind:")
 	if !ok {
 		t.Fatalf("no table in vpn add's help:\n%s", c.Long)

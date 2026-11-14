@@ -18,7 +18,7 @@ import (
 func TestDocExamplesExist(t *testing.T) {
 	files, _ := filepath.Glob("../../docs/features/*.md")
 	files = append(files, "../../README.md", "../../AGENTS.md", "../../CONTRIBUTING.md", "../../SECURITY.md", "guide.md", "skill.md")
-	root := newRoot()
+	root := newRoot(tcl)
 	checked := 0
 	for _, f := range files {
 		b, err := os.ReadFile(f)
@@ -36,7 +36,7 @@ func TestDocExamplesExist(t *testing.T) {
 // which `komando CMD --help` shows. A wrong flag there misleads people and
 // agents just as much as one in the docs.
 func TestHelpExamplesExist(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	checked := 0
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
@@ -218,7 +218,7 @@ var agentDocs = []string{"../../AGENTS.md", "guide.md", "skill.md"}
 // a command that hands words to another program its `--`. A synonym keeps
 // working, but an agent copies what it reads.
 func TestAgentDocsUsePrimaryNames(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, f := range agentDocs {
 		b, err := os.ReadFile(f)
 		if err != nil {

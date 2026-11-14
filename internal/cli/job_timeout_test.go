@@ -13,7 +13,7 @@ import (
 // the signal alone, and job wait names the --timeout, not job kill.
 func TestJobStatusTimedOut(t *testing.T) {
 	srv := startFakeServer(t)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Jobs["j1"] = &store.Job{ID: "j1", Host: "dev", Command: "sleep 99", PID: 7, StartedAt: time.Now()}
 		return nil
 	}); err != nil {

@@ -70,9 +70,9 @@ func cell(v any) string {
 	return fmt.Sprint(v)
 }
 
-func svcStatus(ctx context.Context, target string, units []string) error {
+func svcStatus(cl *call, ctx context.Context, target string, units []string) error {
 	command := noSystemd + "systemctl show --no-pager -p " + strings.Join(svcProps, ",") + " -- " + quoteAll(units)
-	return runOps(ctx, opsSpec{name: "svc.status", target: target, command: command, display: "svc status " + strings.Join(units, " "),
+	return runOps(cl, ctx, opsSpec{name: "svc.status", target: target, command: command, display: "svc status " + strings.Join(units, " "),
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			u, err := svcResult(rr)
 			return u, err
@@ -141,12 +141,12 @@ func svcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.Err
 	return units, nil
 }
 
-func svcAction(ctx context.Context, action, target string, units []string, sudo, now bool, wait int) error {
+func svcAction(cl *call, ctx context.Context, action, target string, units []string, sudo, now bool, wait int) error {
 	display := "svc " + action + " " + strings.Join(units, " ")
 	if now && (action == "enable" || action == "disable") {
 		display = "svc " + action + " --now " + strings.Join(units, " ")
 	}
-	return runOps(ctx, opsSpec{name: "svc." + action, target: target, command: svcScript(action, units, now, wait), display: display,
+	return runOps(cl, ctx, opsSpec{name: "svc." + action, target: target, command: svcScript(action, units, now, wait), display: display,
 		sudo: sudo, mutating: true, timeoutAtLeast: time.Duration(wait+30) * time.Second,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcActionResult(action, wait, rr) },
 		text:  svcTable, win: winSvcScript(action, units, now, wait),
@@ -178,7 +178,7 @@ func svcListCmd() *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List the service units of servers",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			command := noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager"
 			if failed {
 				if state != "" && state != "failed" {
@@ -189,10 +189,10 @@ func svcListCmd() *cobra.Command {
 			if state != "" {
 				command += " --state=" + sshx.Q(state)
 			}
-			return runOps(cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command, limit: limit,
+			return runOps(cl, cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command, limit: limit,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcListResult(rr) }, text: svcListTable,
 				win: winSvcListScript, winParse: winSvcList(state)})
-		},
+		}),
 	}
 	c.Flags().StringVar(&state, "state", "", "only units in this state, such as running or failed")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed units (the same as --state failed)")
@@ -228,13 +228,13 @@ func logsAlias(use, name, source string) *cobra.Command {
 		Short: map[string]string{"unit": "Read a service unit's logs", "container": "Read a container's logs"}[source],
 		Long:  "Same as `komando logs TARGET --" + source + " " + strings.ToUpper(source) + "`.",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed(source) {
 				return out.Usage("give the %s once: as the second word or with --%s, not both", source, source)
 			}
 			_ = cmd.Flags().Set(source, args[1])
-			return runLogs(cmd.Context(), name, args[0], &lo, lo.sudo)
-		},
+			return runLogs(cl, cmd.Context(), name, args[0], &lo, lo.sudo)
+		}),
 	}
 	lo.bind(c, idle[source])
 	for _, f := range []string{"unit", "file", "container"} {
@@ -425,7 +425,7 @@ func (o *logOpts) preflight() string {
 // followCheck runs the source check before --follow starts streaming, so a
 // missing file or journal stops with its own code (exit 3) instead of a
 // stream that never shows anything.
-func (o *logOpts) followCheck(ctx context.Context, target string, sudo bool) error {
+func (o *logOpts) followCheck(cl *call, ctx context.Context, target string, sudo bool) error {
 	pre := o.preflight()
 	if pre == "" {
 		return nil
@@ -434,11 +434,11 @@ func (o *logOpts) followCheck(ctx context.Context, target string, sudo bool) err
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		check := "true"
 		if o.sudo && o.file != "" {
 			check = sudoReadScript(o.file, "true") // a link root does not follow stops here
@@ -490,9 +490,9 @@ func (o *logOpts) result(rr *sshx.RunResult) (any, *out.Error) {
 }
 
 // followLogs streams a log command until Ctrl-C (or --timeout, if given).
-func followLogs(ctx context.Context, target, command string, sudo bool) error {
-	if g.timeout == 0 {
-		g.timeout = 24 * time.Hour // the person stops it with Ctrl-C
+func followLogs(cl *call, ctx context.Context, target, command string, sudo bool) error {
+	if cl.flags.timeout == 0 {
+		cl.flags.timeout = 24 * time.Hour // the person stops it with Ctrl-C
 	}
-	return runFleet(ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
+	return runFleet(cl, ctx, "logs", target, command, nil, execOpts{sudo: sudo, stream: true, follow: true}, false)
 }

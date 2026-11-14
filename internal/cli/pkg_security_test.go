@@ -41,7 +41,7 @@ linux-image-6.8.0-90-generic	-	6.8.0-90.91
 `
 
 func TestPkgSecAptList(t *testing.T) {
-	r := pkgSecParse("web1", &sshx.RunResult{Stdout: aptSecList}, false, false)
+	r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: aptSecList}, false, false)
 	if !r.OK || r.PackageManager != "apt" || r.Count != 3 || r.Security[1].Name != "bash" || r.Security[1].From != "5.1-6ubuntu1" || r.Security[1].Version != "5.1-6ubuntu1.1" {
 		t.Fatalf("row: %+v", r)
 	}
@@ -52,17 +52,17 @@ func TestPkgSecAptList(t *testing.T) {
 		t.Errorf("index age %q, warnings %v", r.IndexAge, r.Warnings)
 	}
 	stale := strings.Replace(aptSecList, "2557", "200000", 1)
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: stale}, false, false); len(r.Warnings) != 1 || !strings.Contains(r.Warnings[0], "--refresh") {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: stale}, false, false); len(r.Warnings) != 1 || !strings.Contains(r.Warnings[0], "--refresh") {
 		t.Errorf("stale index: %v", r.Warnings)
 	}
 	withRm := strings.Replace(aptSecList, "#komando:removes\n", "#komando:removes\nopenssh-server\n", 1)
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: withRm}, false, false); len(r.Warnings) != 1 || !strings.Contains(r.Warnings[0], "openssh-server") {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: withRm}, false, false); len(r.Warnings) != 1 || !strings.Contains(r.Warnings[0], "openssh-server") {
 		t.Errorf("essential removal: %v", r.Warnings)
 	}
 }
 
 func TestPkgSecAptApply(t *testing.T) {
-	r := pkgSecParse("web1", &sshx.RunResult{Stdout: aptSecApply}, true, false)
+	r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: aptSecApply}, true, false)
 	if !r.OK || r.Error != nil || r.Method != "apt-get" || len(r.Upgraded) != 4 || r.Upgraded[2].Name != "libc6:arm64" || r.Upgraded[2].From != "2.35-0ubuntu3.1" {
 		t.Fatalf("row: %+v", r)
 	}
@@ -76,7 +76,7 @@ func TestPkgSecAptApply(t *testing.T) {
 		t.Errorf("changes: %v", r.Changes)
 	}
 	nothing := strings.Replace(aptSecList, "#komando:removes\n", "#komando:nothing\n", 1)
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: nothing}, true, false); !r.OK || r.Method != "" || r.After == nil {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: nothing}, true, false); !r.OK || r.Method != "" || r.After == nil {
 		t.Errorf("nothing to do: %+v", r)
 	}
 }
@@ -94,7 +94,7 @@ func slicesHas(s []string, v string) bool {
 func TestPkgSecUnexpectedChange(t *testing.T) {
 	s := strings.Replace(aptSecApply, "#komando:before\n", "#komando:before\ncontainers=12\nfailed=old.service\n", 1)
 	s = strings.Replace(s, "#komando:after\n", "#komando:after\ncontainers=10\nfailed=docker.service\nreboot=yes\nreboot_pkg=libc6\nsvc=containerd.service\n", 1)
-	r := pkgSecParse("web1", &sshx.RunResult{Stdout: s}, true, false)
+	r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: s}, true, false)
 	if r.OK || r.Error == nil || r.Error.Code != "UNEXPECTED_CHANGE" || r.Error.Exit != out.ExitConflict || !strings.Contains(r.Error.Hint, "--keep-going") {
 		t.Fatalf("row: %+v %+v", r, r.Error)
 	}
@@ -114,28 +114,28 @@ func TestPkgSecUnexpectedChange(t *testing.T) {
 	// more containers is fine
 	ok := strings.Replace(aptSecApply, "#komando:before\n", "#komando:before\ncontainers=3\n", 1)
 	ok = strings.Replace(ok, "#komando:after\n", "#komando:after\ncontainers=4\n", 1)
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: ok}, true, false); !r.OK {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: ok}, true, false); !r.OK {
 		t.Errorf("more containers: %+v", r.Error)
 	}
 }
 
 func TestPkgSecFailures(t *testing.T) {
 	ess := strings.Replace(aptSecList, "#komando:removes\n", "#komando:removes\nopenssh-server\n#komando:essential\nopenssh-server\n", 1)
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: ess}, true, false); r.Error == nil || r.Error.Code != "POLICY_BLOCKED" || r.Error.Exit != out.ExitPolicy || len(r.Upgraded) != 0 {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: ess}, true, false); r.Error == nil || r.Error.Code != "POLICY_BLOCKED" || r.Error.Exit != out.ExitPolicy || len(r.Upgraded) != 0 {
 		t.Errorf("essential: %+v", r.Error)
 	}
 	failed := strings.Replace(aptSecApply, "#komando:rc\n0\n", "#komando:rc\n100\n", 1)
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: failed}, true, false); r.Error == nil || r.Error.Code != "PKG_FAILED" || !strings.Contains(r.Error.Message, "100") {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: failed}, true, false); r.Error == nil || r.Error.Code != "PKG_FAILED" || !strings.Contains(r.Error.Message, "100") {
 		t.Errorf("failed: %+v", r.Error)
 	}
 	cut := aptSecList + "#komando:method\napt-get\n"
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: cut, TimedOut: true}, true, false); r.Error == nil || r.Error.Code != "TIMEOUT" || !strings.Contains(r.Error.Hint, "keeps running") {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: cut, TimedOut: true}, true, false); r.Error == nil || r.Error.Code != "TIMEOUT" || !strings.Contains(r.Error.Hint, "keeps running") {
 		t.Errorf("timeout: %+v", r.Error)
 	}
-	if r := pkgSecParse("web1", &sshx.RunResult{Stdout: "#komando:unsupported\napk\n"}, false, false); r.unsupported != "apk" {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: "#komando:unsupported\napk\n"}, false, false); r.unsupported != "apk" {
 		t.Errorf("unsupported: %+v", r)
 	}
-	if r := pkgSecParse("web1", &sshx.RunResult{ExitCode: 1, Stderr: "sudo: a password is required"}, false, false); r.Error == nil || r.Error.Code != "PKG_FAILED" {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{ExitCode: 1, Stderr: "sudo: a password is required"}, false, false); r.Error == nil || r.Error.Code != "PKG_FAILED" {
 		t.Errorf("no output: %+v", r.Error)
 	}
 }
@@ -164,7 +164,7 @@ svc=sshd.service
 openssl-libs.x86_64	1:3.0.7-17.el9	1:3.0.7-18.el9_2
 curl.x86_64	7.76.1-26.el9	7.76.1-26.el9_3.2
 `
-	r := pkgSecParse("rh1", &sshx.RunResult{Stdout: s}, true, false)
+	r := pkgSecParse(tcl, "rh1", &sshx.RunResult{Stdout: s}, true, false)
 	if !r.OK || r.Count != 2 || r.Security[0].Name != "openssl-libs" || len(r.Upgraded) != 2 || !r.RebootRequired || r.IndexAge != "" {
 		t.Fatalf("row: %+v", r)
 	}
@@ -215,9 +215,9 @@ func TestPkgSecGates(t *testing.T) {
 }
 
 func TestPkgSecText(t *testing.T) {
-	list := pkgSecParse("web1", &sshx.RunResult{Stdout: aptSecList}, false, false)
+	list := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: aptSecList}, false, false)
 	s := strings.Replace(aptSecApply, "#komando:after\n", "#komando:after\nreboot=yes\nsvc=containerd.service\n", 1)
-	applied := pkgSecParse("web2", &sshx.RunResult{Stdout: s}, true, false)
+	applied := pkgSecParse(tcl, "web2", &sshx.RunResult{Stdout: s}, true, false)
 	txt := pkgSecData{Results: []pkgSecRow{list}}.Text()
 	if !strings.Contains(txt, "web1  3 security updates (apt)") || !strings.Contains(txt, "bash") {
 		t.Errorf("list text:\n%s", txt)

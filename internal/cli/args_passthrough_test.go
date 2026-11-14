@@ -16,10 +16,9 @@ import (
 // nothing, for agents, scripts and people alike (S-4.4).
 func TestStandardPassthrough(t *testing.T) {
 	invHome(t)
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	var want []string
-	for _, c := range allCommands(newRoot()) {
+	for _, c := range allCommands(newRoot(tcl)) {
 		if !c.Runnable() || c.Hidden || !strings.Contains(c.Use, "...") {
 			continue
 		}

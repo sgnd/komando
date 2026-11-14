@@ -23,7 +23,6 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/releasesig"
-	"github.com/sgnd/komando/internal/store"
 )
 
 func TestReleaseTags(t *testing.T) {
@@ -226,7 +225,7 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Cleanup(func() {
 		releaseSite, selfPath, Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot
-		g.dryRun, g.yes, g.timeout, store.DryRun = false, false, 0, false
+		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.timeout = false, false, 0
 	})
 	return exe, home
 }
@@ -408,15 +407,13 @@ func TestUpdateOlderNeedsYes(t *testing.T) {
 func TestUpdateOlderAgentNeedsWindow(t *testing.T) {
 	f := &fakeReleases{newest: "v0.7.0", tags: []string{"v0.5.0", "v0.7.0"}}
 	exe, _ := updateLab(t, "v0.7.0", f)
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
-	savedArgs, savedAsk := os.Args, askOnScreen
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	savedArgs, savedAsk := tcl.args, askOnScreen
 	var texts []string
 	allow := false
-	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return allow, true }
-	t.Cleanup(func() { os.Args, askOnScreen = savedArgs, savedAsk; resetApproval() })
-	os.Args = []string{"komando", "update", "v0.5.0", "--yes"}
+	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return allow, true }
+	t.Cleanup(func() { tcl.args, askOnScreen = savedArgs, savedAsk; resetApproval() })
+	tcl.args = []string{"komando", "update", "v0.5.0", "--yes"}
 	if e := updateFails(t, "v0.5.0", "--yes"); e.Code != "SAFETY_SETTING" || e.Exit != out.ExitPolicy {
 		t.Errorf("denied: %v", e)
 	}
@@ -589,9 +586,7 @@ func TestUpdateNotWritable(t *testing.T) {
 	if b, _ := m["would_be_blocked"].(map[string]any); b == nil || b["code"] != "NOT_WRITABLE" {
 		t.Errorf("dry run: meta = %v", m)
 	}
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if e := updateFails(t, "v0.7.0"); e.Hint != "ask the user to run `sudo "+exe+" update v0.7.0` in their own terminal: it needs their password" {
 		t.Errorf("agent hint: %q", e.Hint)
 	}

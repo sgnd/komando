@@ -32,7 +32,7 @@ import (
 
 // checkNewName is the name check for add: the name may be replaced only by
 // the same type with exactly the same name (with --overwrite).
-func checkNewName(s *store.State, kind, name string, overwrite bool) error {
+func checkNewName(cl *call, s *store.State, kind, name string, overwrite bool) error {
 	k, existing, ok := s.FindName(name)
 	switch {
 	case !ok:
@@ -45,13 +45,13 @@ func checkNewName(s *store.State, kind, name string, overwrite bool) error {
 	}
 	// replacing drops the protected mark, so it counts as changing it
 	if h, ok := s.Hosts[name]; ok && h.Protected {
-		return guardProtection("host", "replacing", []string{name})
+		return guardProtection(cl, "host", "replacing", []string{name})
 	}
 	if c, ok := s.Conns[name]; ok && c.Protected {
-		return guardProtection("conn", "replacing", []string{name})
+		return guardProtection(cl, "conn", "replacing", []string{name})
 	}
 	if v, ok := s.Vpns[name]; ok && v.Protected {
-		return guardProtection("vpn", "replacing", []string{name})
+		return guardProtection(cl, "vpn", "replacing", []string{name})
 	}
 	return nil
 }
@@ -152,7 +152,7 @@ func connAddCmd() *cobra.Command {
   komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
   komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
 		Args: formArgs(cobra.ExactArgs(2)),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return formOrUsage(cmd, "conn", "komando conn add prod-db postgres://app@10.0.0.5/app --ask-password")
 			}
@@ -187,8 +187,8 @@ func connAddCmd() *cobra.Command {
 			cn.CreatedAt, cn.UpdatedAt = now, now
 			res := connResult{Conn: cn}
 			replaced := false
-			err = store.Update(func(s *store.State) error {
-				if err := checkNewName(s, "conn", name, force); err != nil {
+			err = store.Update(cl.storeWrite(), func(s *store.State) error {
+				if err := checkNewName(cl, s, "conn", name, force); err != nil {
 					return err
 				}
 				old := s.Conns[name]
@@ -199,7 +199,7 @@ func connAddCmd() *cobra.Command {
 				if err := secureConnURL(cn, &res); err != nil {
 					return err
 				}
-				if err := guardConnSends(old, cn); err != nil {
+				if err := guardConnSends(cl, old, cn); err != nil {
 					return err
 				}
 				if twin := protectedTwinConn(s, cn); twin != "" && !cn.Protected {
@@ -213,13 +213,13 @@ func connAddCmd() *cobra.Command {
 				undoPw()
 				return err
 			}
-			res.Action = addVerb(replaced)
+			res.Action = addVerb(cl, replaced)
 			res.Warnings = append(res.Warnings, missingSecretWarnings(cn.PasswordRef)...)
 			res.Next = "komando test " + name
-			audit(nil, "conn.add", nil, "", true, map[string]any{"conns": []string{name}, "action": res.Action})
-			out.P.Print("conn.add", res, nil)
+			audit(cl, nil, "conn.add", nil, "", true, map[string]any{"conns": []string{name}, "action": res.Action})
+			cl.out.Print("conn.add", res, nil)
 			return nil
-		},
+		}),
 	}
 	f.bind(c, false)
 	askPasswordFlag(c, &askPw)
@@ -248,6 +248,7 @@ func connEditCmd() *cobra.Command {
 }
 
 func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, askPw bool) error {
+	cl := callOf(cmd)
 	fl := cmd.Flags()
 	if len(changedFlags(cmd)) == 0 {
 		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
@@ -266,8 +267,8 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 		undoPw = undo
 	}
 	var res connResult
-	err := store.Update(func(s *store.State) error {
-		cn, err := findConn(s, args[0])
+	err := store.Update(cl.storeWrite(), func(s *store.State) error {
+		cn, err := findConn(cl, s, args[0])
 		if err != nil {
 			return err
 		}
@@ -310,7 +311,7 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 		if err := checkConn(s, cn); err != nil {
 			return err
 		}
-		if err := guardConnEdit(&old, cn, &res); err != nil {
+		if err := guardConnEdit(cl, &old, cn, &res); err != nil {
 			return err
 		}
 		if !cn.Protected {
@@ -335,9 +336,9 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 		res.Warnings = append(res.Warnings, missingSecretWarnings(res.PasswordRef)...)
 	}
 	if *res.Changed {
-		audit(nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}, "flags": changedFlags(cmd)})
+		audit(cl, nil, "conn.edit", nil, "", true, map[string]any{"conns": []string{res.Name}, "flags": changedFlags(cmd)})
 	}
-	out.P.Print("conn.edit", res, nil)
+	cl.out.Print("conn.edit", res, nil)
 	return nil
 }
 
@@ -347,7 +348,7 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 // turn its network protection down (guardConnSends); one window asks about
 // all of it. A new URL first gets the secure default (secureConnURL), noted
 // on res.
-func guardConnEdit(old, cn *store.Conn, res *connResult) error {
+func guardConnEdit(cl *call, old, cn *store.Conn, res *connResult) error {
 	if cn.URL != old.URL {
 		if err := secureConnURL(cn, res); err != nil {
 			return err
@@ -364,11 +365,11 @@ func guardConnEdit(old, cn *store.Conn, res *connResult) error {
 	for _, a := range actions {
 		why = append(why, a+" protected conn: "+cn.Name)
 	}
-	if err := guardConnSends(old, cn, why...); err != nil {
+	if err := guardConnSends(cl, old, cn, why...); err != nil {
 		return err
 	}
 	for _, a := range actions {
-		if err := guardProtection("conn", a, []string{cn.Name}); err != nil {
+		if err := guardProtection(cl, "conn", a, []string{cn.Name}); err != nil {
 			return err
 		}
 	}
@@ -380,18 +381,18 @@ func connShowCmd() *cobra.Command {
 		Use:   "show NAME",
 		Short: "Show all settings of a conn (secrets as references, never values)",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			c, err := findConn(st, args[0])
+			c, err := findConn(cl, st, args[0])
 			if err != nil {
 				return err
 			}
-			out.P.Print("conn.show", c, nil)
+			cl.out.Print("conn.show", c, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -402,12 +403,12 @@ func connRmCmd() *cobra.Command {
 		Example: `  komando conn rm shop-2
   komando conn rm kind:redis --dry-run`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var names, unused []string
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				var prot []string
 				names = nil
-				conns, err := rmConns(s, args)
+				conns, err := rmConns(cl, s, args)
 				if err != nil {
 					return err
 				}
@@ -417,7 +418,7 @@ func connRmCmd() *cobra.Command {
 						prot = append(prot, c.Name)
 					}
 				}
-				if err := guardProtection("conn", "removing", prot); err != nil {
+				if err := guardProtection(cl, "conn", "removing", prot); err != nil {
 					return err
 				}
 				var refs []string
@@ -434,10 +435,10 @@ func connRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "conn.rm", nil, "", true, map[string]any{"conns": names})
-			out.P.Print("conn.rm", rmResult{Removed: names, SecretsUnused: unused}, nil)
+			audit(cl, nil, "conn.rm", nil, "", true, map[string]any{"conns": names})
+			cl.out.Print("conn.rm", rmResult{Removed: names, SecretsUnused: unused, dryRun: cl.flags.dryRun}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -446,10 +447,10 @@ func connKindsCmd() *cobra.Command {
 		Use:   "kinds",
 		Short: "List the conn kinds komando knows and their URL schemes",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			out.P.Print("conn.kinds", kindList{Kinds: driver.Kinds()}, nil)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
+			cl.out.Print("conn.kinds", kindList{Kinds: driver.Kinds()}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -489,7 +490,7 @@ func (a *access) Close() {
 	}
 }
 
-func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, error) {
+func openAccess(cl *call, ctx context.Context, st *store.State, c *store.Conn) (*access, error) {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
 		return nil, err
@@ -510,16 +511,16 @@ func openAccess(ctx context.Context, st *store.State, c *store.Conn) (*access, e
 		return nil, err
 	}
 	if vpn != nil {
-		d, closer, err := netx.Open(ctx, vpn, sshOpts(st).ConnectTimeout)
+		d, closer, err := netx.Open(ctx, vpn, sshOpts(cl, st).ConnectTimeout)
 		if err != nil {
 			return nil, err
 		}
 		a.Dial, a.vpn = d, closer
 		return a, nil
 	}
-	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+	cctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
 	defer cancel()
-	if a.ssh, err = sshx.Dial(cctx, st, h, sshOpts(st)); err != nil {
+	if a.ssh, err = sshx.Dial(cctx, st, h, sshOpts(cl, st)); err != nil {
 		return nil, err
 	}
 	a.Dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -558,7 +559,7 @@ type connTestResult struct {
 	Error     *out.Error `json:"error,omitempty"`
 }
 
-func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResult {
+func testConn(cl *call, ctx context.Context, st *store.State, c *store.Conn) connTestResult {
 	r := connTestResult{Conn: c.Name, Kind: c.Kind, Via: c.Via}
 	fail := func(err error) connTestResult {
 		r.OK, r.Error = false, toErr(err)
@@ -568,7 +569,7 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 		r.Where = t.Where()
 	}
 	t0 := time.Now()
-	a, err := openAccess(ctx, st, c)
+	a, err := openAccess(cl, ctx, st, c)
 	if err != nil {
 		return fail(err)
 	}
@@ -580,7 +581,7 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 		}
 	} else {
 		r.Check = "tcp"
-		dctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+		dctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
 		defer cancel()
 		dial := a.Dial
 		if dial == nil {
@@ -593,7 +594,7 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 		nc.Close()
 	}
 	// reaching the port is not enough: log in like the real commands do
-	if err := loginCheck(ctx, st, c, a, &r); err != nil {
+	if err := loginCheck(cl, ctx, st, c, a, &r); err != nil {
 		return fail(err)
 	}
 	r.OK, r.LatencyMS = true, time.Since(t0).Milliseconds()
@@ -603,15 +604,15 @@ func testConn(ctx context.Context, st *store.State, c *store.Conn) connTestResul
 // loginCheck logs in to db, cache, queue and registry conns with their stored
 // password and reads the server version where that is cheap. Other kinds
 // keep the reachability check (`cluster status` logs in to clusters).
-func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, r *connTestResult) error {
-	cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+func loginCheck(cl *call, ctx context.Context, st *store.State, c *store.Conn, a *access, r *connTestResult) error {
+	cctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
 	defer cancel()
 	switch a.Target.Kind.Family {
 	case "db":
 		if a.Target.Kind.Name == "mongodb" {
-			return mongoLogin(cctx, c, a, r)
+			return mongoLogin(cl, cctx, c, a, r)
 		}
-		db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, true, "komando/"+actor())
+		db, err := dbx.Open(cctx, c.URL, a.Target, a.Password, a.Dial, true, "komando/"+actor(cl))
 		if err != nil {
 			return viaTimeout(c, err)
 		}
@@ -626,7 +627,7 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 			_ = db.QueryRowContext(cctx, q).Scan(&r.Version)
 		}
 	case "cache":
-		rc, err := cachex.OpenStore(cctx, a.Target, a.Password, a.Dial, sshOpts(st).ConnectTimeout)
+		rc, err := cachex.OpenStore(cctx, a.Target, a.Password, a.Dial, sshOpts(cl, st).ConnectTimeout)
 		if err != nil {
 			return err
 		}
@@ -639,7 +640,7 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 			r.Version = cachex.SummarizeFor(a.Target.Kind.Name, info).Version
 		}
 	case "queue":
-		q, err := openQueue(cctx, c, a, sshOpts(st).ConnectTimeout)
+		q, err := openQueue(cl, cctx, c, a, sshOpts(cl, st).ConnectTimeout)
 		if err != nil {
 			return viaTimeout(c, err)
 		}
@@ -648,7 +649,7 @@ func loginCheck(ctx context.Context, st *store.State, c *store.Conn, a *access, 
 			r.Version = inf.Version
 		}
 	case "registry":
-		rg, closeFn, err := openRegistry(cctx, st, c)
+		rg, closeFn, err := openRegistry(cl, cctx, st, c)
 		if err != nil {
 			return err
 		}

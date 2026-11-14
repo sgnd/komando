@@ -44,13 +44,13 @@ func validateFailed(stderr string) error {
 }
 
 // writeRemote writes data atomically (temp file + rename) and returns info.
-func writeRemote(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, data []byte, o writeOpts) (map[string]any, error) {
-	return writeRemoteFrom(ctx, c, sc, p, bytes.NewReader(data), o)
+func writeRemote(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, data []byte, o writeOpts) (map[string]any, error) {
+	return writeRemoteFrom(cl, ctx, c, sc, p, bytes.NewReader(data), o)
 }
 
 // writeRemoteFrom is writeRemote for a stream: the content goes to the
 // server as it is read, so files of any size never sit in memory.
-func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, src io.Reader, o writeOpts) (map[string]any, error) {
+func writeRemoteFrom(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, p string, src io.Reader, o writeOpts) (map[string]any, error) {
 	res := map[string]any{"path": p}
 	h := sha256.New()
 	copyIn := func(f io.Writer) error {
@@ -69,13 +69,13 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 	}
 	tmpName := fmt.Sprintf(".komando-%d-%s", time.Now().UnixNano(), path.Base(p))
 	if o.sudo {
-		return writeRemoteSudo(ctx, c, sc, p, mode, tmpName, o, res, copyIn)
+		return writeRemoteSudo(cl, ctx, c, sc, p, mode, tmpName, o, res, copyIn)
 	}
 	if fi, err := sc.Lstat(p); err == nil && fi.Mode()&os.ModeSymlink != 0 {
 		if o.noFollow {
 			return nil, isASymlink(p)
 		}
-		t, err := resolveLink(sc, p)
+		t, err := resolveLink(cl, sc, p)
 		if err != nil {
 			return nil, err
 		}
@@ -85,7 +85,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 	dir := path.Dir(p)
 	if o.mkdirs {
 		if err := sc.MkdirAll(dir); err != nil {
-			return nil, fsErr(dir, err)
+			return nil, fsErr(cl, dir, err)
 		}
 	} else if fi, err := sc.Stat(dir); err != nil && errors.Is(err, os.ErrNotExist) {
 		return nil, folderMissing(dir)
@@ -107,7 +107,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 	// exclusive: never write into a file, or through a link, already there
 	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 	if err != nil {
-		return nil, fsErr(dir, err)
+		return nil, fsErr(cl, dir, err)
 	}
 	// only the SSH user may read the content while it goes in (it can be a
 	// secret); the final mode is set before the file goes into place
@@ -120,7 +120,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 		got, err = chmodOpen(f, tmp, os.FileMode(perm))
 	}
 	if cerr := f.Close(); err == nil && cerr != nil {
-		err = fsErr(tmp, cerr)
+		err = fsErr(cl, tmp, cerr)
 	}
 	if err != nil {
 		sc.Remove(tmp)
@@ -138,7 +138,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 	}
 	// after --validate, so a rejected edit leaves no backup behind
 	if o.backup && statErr == nil {
-		b, err := backupRemote(sc, p, time.Now())
+		b, err := backupRemote(cl, sc, p, time.Now())
 		if err != nil {
 			sc.Remove(tmp)
 			return nil, err
@@ -148,7 +148,7 @@ func writeRemoteFrom(ctx context.Context, c *sshx.Client, sc *sftp.Client, p str
 	if err := sc.PosixRename(tmp, p); err != nil {
 		if err2 := sc.Rename(tmp, p); err2 != nil {
 			sc.Remove(tmp)
-			return nil, fsErr(p, err)
+			return nil, fsErr(cl, p, err)
 		}
 	}
 	res["mode"] = mode
@@ -218,15 +218,15 @@ func chmodOpen(f *sftp.File, p string, mode os.FileMode) (os.FileMode, error) {
 // and returns its path. The backup is created exclusively, so a file or a
 // link already under the name is never written to, and only the SSH user
 // can read it until it is complete; then it gets p's mode.
-func backupRemote(sc *sftp.Client, p string, now time.Time) (string, error) {
+func backupRemote(cl *call, sc *sftp.Client, p string, now time.Time) (string, error) {
 	in, err := sc.Open(p)
 	if err != nil {
-		return "", fsErr(p, err)
+		return "", fsErr(cl, p, err)
 	}
 	defer in.Close()
 	fi, err := in.Stat()
 	if err != nil {
-		return "", fsErr(p, err)
+		return "", fsErr(cl, p, err)
 	}
 	taken := func(n string) bool { _, err := sc.Lstat(n); return err == nil }
 	for try := 0; ; try++ {
@@ -236,7 +236,7 @@ func backupRemote(sc *sftp.Client, p string, now time.Time) (string, error) {
 			if try < 3 && taken(b) {
 				continue // made by someone else a moment ago
 			}
-			return "", fsErr(b, err)
+			return "", fsErr(cl, b, err)
 		}
 		_, err = chmodOpen(o, b, 0o600)
 		if err == nil {
@@ -250,7 +250,7 @@ func backupRemote(sc *sftp.Client, p string, now time.Time) (string, error) {
 		}
 		if err != nil {
 			sc.Remove(b)
-			return "", fsErr(b, err)
+			return "", fsErr(cl, b, err)
 		}
 		return b, nil
 	}
@@ -258,7 +258,7 @@ func backupRemote(sc *sftp.Client, p string, now time.Time) (string, error) {
 
 // fsWriteInput is what fs write puts in the file: --content, --from FILE,
 // or stdin; one of them, never a value komando hid.
-func fsWriteInput(contentSet bool, content, from string) ([]byte, error) {
+func fsWriteInput(cl *call, contentSet bool, content, from string) ([]byte, error) {
 	var data []byte
 	var err error
 	switch {
@@ -267,11 +267,11 @@ func fsWriteInput(contentSet bool, content, from string) ([]byte, error) {
 	case contentSet:
 		data = []byte(content)
 	case from != "":
-		if data, err = readFileOrStdin(from); err != nil {
+		if data, err = readFileOrStdin(cl, from); err != nil {
 			return nil, err
 		}
 	default:
-		if data, err = readStdinIfPiped(0, "the content"); err != nil {
+		if data, err = readStdinIfPiped(cl, 0, "the content"); err != nil {
 			return nil, err
 		}
 		if data == nil {
@@ -294,8 +294,8 @@ func fsWriteCmd() *cobra.Command {
 		Example: `  komando fs write web1 /etc/app/env --content 'PORT=8080' --sudo --backup
   komando fs write web1 /srv/app/config.yml --from ./config.yml --if-changed`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			data, err := fsWriteInput(flagChanged(cmd, "content"), content, from)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			data, err := fsWriteInput(cl, flagChanged(cmd, "content"), content, from)
 			if err != nil {
 				return err
 			}
@@ -306,26 +306,26 @@ func fsWriteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			h, err := oneServer(st, args[0], "to put one file on many servers use `komando upload "+args[0]+" FILE PATH`")
+			h, err := oneServer(cl, st, args[0], "to put one file on many servers use `komando upload "+args[0]+" FILE PATH`")
 			if err != nil {
 				return err
 			} else if h.Windows() {
-				return winFsWrite(cmd.Context(), st, h, args[1], data, o, appendMode, ifChanged)
+				return winFsWrite(cl, cmd.Context(), st, h, args[1], data, o, appendMode, ifChanged)
 			}
 			if err := checkValidate(o.validate); err != nil {
 				return err
 			}
-			if err := guard(st, []*store.Host{h}, o.validate, true); err != nil {
+			if err := guard(cl, st, []*store.Host{h}, o.validate, true); err != nil {
 				return err
 			}
-			if data, err = expandSecretRefsBytes(data, h.Name+":"+args[1]); err != nil {
+			if data, err = expandSecretRefsBytes(cl, data, h.Name+":"+args[1]); err != nil {
 				return err
 			}
-			if g.dryRun {
-				return fsWritePreview(cmd.Context(), st, h, args[1], data, appendMode, o)
+			if cl.flags.dryRun {
+				return fsWritePreview(cl, cmd.Context(), st, h, args[1], data, appendMode, o)
 			}
 			var res fsChange
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
+			err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
 				sc, err := sftpClient(c)
 				if err != nil {
 					return err
@@ -333,7 +333,7 @@ func fsWriteCmd() *cobra.Command {
 				defer sc.Close()
 				p := expandRemote(sc, args[1])
 				if appendMode || ifChanged {
-					old, trunc, rerr := readRemote(cmd.Context(), c, sc, p, o.sudo, 64<<20)
+					old, trunc, rerr := readRemote(cl, cmd.Context(), c, sc, p, o.sudo, 64<<20)
 					if rerr != nil && toErr(rerr).Code != "PATH_NOT_FOUND" {
 						return rerr
 					}
@@ -343,28 +343,28 @@ func fsWriteCmd() *cobra.Command {
 						}
 						data = append(old, data...)
 					}
-					if ifChanged && rerr == nil && sameForAgent(old, data) {
+					if ifChanged && rerr == nil && sameForAgent(cl, old, data) {
 						res = fsChange{"path": p, "changed": false}
 						return nil
 					}
 				}
-				w, err := writeRemote(cmd.Context(), c, sc, p, data, o)
+				w, err := writeRemote(cl, cmd.Context(), c, sc, p, data, o)
 				if w != nil {
 					res = fsChange(w)
 					res["changed"] = true
-					if out.P.Mask && out.P.View(string(data)).Text != string(data) {
+					if cl.out.Mask && cl.out.View(string(data)).Text != string(data) {
 						delete(res, "sha256") // see fs replace
 					}
 				}
 				return err
 			})
-			audit(st, "fs.write", []string{h.Name}, "", err == nil, map[string]any{"path": args[1]})
+			audit(cl, st, "fs.write", []string{h.Name}, "", err == nil, map[string]any{"path": args[1]})
 			if err != nil {
 				return err
 			}
-			printChange("fs.write", h.Name, res, o.sudo)
+			printChange(cl, "fs.write", h.Name, res, o.sudo)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&content, "content", "", "the content, written as given")
 	flagAlias(c, "value", "content") // a permanent synonym
@@ -377,9 +377,9 @@ func fsWriteCmd() *cobra.Command {
 
 // fsWritePreview is fs write --dry-run: it reads the current file (only
 // reads) so the preview shows the change.
-func fsWritePreview(ctx context.Context, st *store.State, h *store.Host, p0 string, data []byte, appendMode bool, o writeOpts) error {
+func fsWritePreview(cl *call, ctx context.Context, st *store.State, h *store.Host, p0 string, data []byte, appendMode bool, o writeOpts) error {
 	res := fsChange{"host": h.Name, "path": p0, "bytes": len(data), "append": appendMode, "sudo": o.sudo}
-	err := withClient(ctx, st, h, func(c *sshx.Client) error {
+	err := withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 		sc, err := sftpClient(c)
 		if err != nil {
 			return err
@@ -387,13 +387,13 @@ func fsWritePreview(ctx context.Context, st *store.State, h *store.Host, p0 stri
 		defer sc.Close()
 		p := expandRemote(sc, p0)
 		res["path"] = p
-		if t, err := resolveLink(sc, p); err == nil && t != p {
+		if t, err := resolveLink(cl, sc, p); err == nil && t != p {
 			if o.noFollow {
 				return isASymlink(p)
 			}
 			res["followed"] = t
 		}
-		old, trunc, rerr := readRemote(ctx, c, sc, p, o.sudo, 1<<20)
+		old, trunc, rerr := readRemote(cl, ctx, c, sc, p, o.sudo, 1<<20)
 		switch {
 		case rerr != nil && toErr(rerr).Code == "PATH_NOT_FOUND":
 			old, res["exists"] = nil, false
@@ -407,14 +407,14 @@ func fsWritePreview(ctx context.Context, st *store.State, h *store.Host, p0 stri
 		if appendMode {
 			updated = append(append([]byte(nil), old...), data...)
 		}
-		res["would_change"] = !sameForAgent(old, updated)
+		res["would_change"] = !sameForAgent(cl, old, updated)
 		res["diff"] = unifiedDiff(string(old), string(updated), 3)
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	out.P.Print("fs.write", res, nil)
+	cl.out.Print("fs.write", res, nil)
 	return nil
 }
 

@@ -9,7 +9,7 @@ import (
 )
 
 // platformChecks: macOS and Linux need no notes beyond the shared ones.
-func platformChecks(func(name string, ok, warn bool, detail string)) {}
+func platformChecks(*call, func(name string, ok, warn bool, detail string)) {}
 
 // privateFix is the commands that make komando's folder and files private.
 func privateFix() string {

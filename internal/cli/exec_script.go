@@ -25,24 +25,24 @@ func (so *scriptOpts) bind(c *cobra.Command) {
 
 // runScript runs a script from this computer on every server target picks:
 // the file goes to the interpreter as stdin, so nothing is left on disk.
-func runScript(ctx context.Context, target string, so scriptOpts, o execOpts, readOnly bool) error {
+func runScript(cl *call, ctx context.Context, target string, so scriptOpts, o execOpts, readOnly bool) error {
 	if o.stdinFile != "" || o.pty {
 		return out.Usage("--script sends the file as the script's input, so --stdin-file and --pty do not go with it; read other files inside the script")
 	}
-	body, err := readFileOrStdin(so.file)
+	body, err := readFileOrStdin(cl, so.file)
 	if err != nil {
 		return localFileErr("FILE_NOT_FOUND", err, "")
 	}
-	if err := hiddenInInput(so.file, body); err != nil {
+	if err := hiddenInInput(cl, so.file, body); err != nil {
 		return err
 	}
-	noteApprovalBody(scriptLabel("the script", so.file), body)
+	noteApprovalBody(cl, scriptLabel("the script", so.file), body)
 	argsList, interpreter := so.args, so.interpreter
-	if win, err := targetWindows(target); err != nil || win {
+	if win, err := targetWindows(cl, target); err != nil || win {
 		if err != nil {
 			return err
 		}
-		return windowsScript(ctx, target, so.file, body, interpreter, argsList, o, readOnly)
+		return windowsScript(cl, ctx, target, so.file, body, interpreter, argsList, o, readOnly)
 	}
 	if interpreter == "" {
 		interpreter = shebangInterpreter(string(body))
@@ -55,35 +55,35 @@ func runScript(ctx context.Context, target string, so scriptOpts, o execOpts, re
 		}
 		o.jobScript = shellLine(append(js, scriptArgsShown(argsList)...))
 	}
-	if err := guardBody(string(body)); err != nil {
+	if err := guardBody(cl, string(body)); err != nil {
 		return err
 	}
 	mutating := !readOnly
 	if readOnly {
-		if mutating, err = scriptReadOnly(string(body), interpreter, argsList, o.env); err != nil {
+		if mutating, err = scriptReadOnly(cl, string(body), interpreter, argsList, o.env); err != nil {
 			return err
 		}
 	}
-	return runFleet(ctx, "exec", target, command, body, o, mutating)
+	return runFleet(cl, ctx, "exec", target, command, body, o, mutating)
 }
 
 // scriptReadOnly is --read-only for a script (exec --script, job start
 // --script): a script that changes something is refused, and mutating says
 // whether a protected target still needs --yes.
-func scriptReadOnly(body, interpreter string, args, env []string) (mutating bool, err error) {
+func scriptReadOnly(cl *call, body, interpreter string, args, env []string) (mutating bool, err error) {
 	// only a shell script can be checked: the interpreter must be a plain
 	// shell (python, or tee /etc/passwd, is not), and its arguments ($1
 	// ...) are not seen by the check
 	if len(args) > 0 {
-		if err := readOnlyStop("--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
+		if err := readOnlyStop(cl, "--arg values fill in $1 ... when the script runs; put them in the script instead"); err != nil {
 			return true, err
 		}
 	} else if !stdinShell(scriptCommand(interpreter, nil)) {
-		if err := readOnlyStop("the interpreter " + interpreter + " is not a shell; only shell scripts can be --read-only"); err != nil {
+		if err := readOnlyStop(cl, "the interpreter "+interpreter+" is not a shell; only shell scripts can be --read-only"); err != nil {
 			return true, err
 		}
 	}
-	if err := checkReadOnlyEnv(body, env); err != nil {
+	if err := checkReadOnlyEnv(cl, body, env); err != nil {
 		return true, err
 	}
 	// a protected target still needs --yes unless komando knows every
@@ -131,12 +131,12 @@ func scriptCommand(interpreter string, args []string) string {
 }
 
 // guardBody applies the destructive-command policy to every line of a script.
-func guardBody(body string) error {
+func guardBody(cl *call, body string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	return guard(st, nil, body, false)
+	return guard(cl, st, nil, body, false)
 }
 
 // jobStartLine is the job start command that runs what exec ran on host,

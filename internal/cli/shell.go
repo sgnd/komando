@@ -32,16 +32,16 @@ func shellCmd() *cobra.Command {
 			}
 			return cobra.ExactArgs(1)(cmd, args)
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShell(cmd.Context(), args[0])
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return runShell(cl, cmd.Context(), args[0])
+		}),
 	}
 }
 
 // runShell opens the login shell. Like db shell it is for a person only, and
 // once inside anything can be typed, so a protected host needs a yes first.
-func runShell(ctx context.Context, target string) error {
-	if !interactive() {
+func runShell(cl *call, ctx context.Context, target string) error {
+	if !cl.interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
 			"agents and scripts use `komando exec` or `komando job start`",
 			"shell needs a person at a terminal")
@@ -50,22 +50,22 @@ func runShell(ctx context.Context, target string) error {
 	if err != nil {
 		return err
 	}
-	h, err := singleHost(st, target)
+	h, err := singleHost(cl, st, target)
 	if err != nil {
 		return err
 	} else if h.WinRM() {
 		return notOnWindows("an interactive shell over WinRM", []string{h.Name})
 	}
 	protected := protectedHost(st, h)
-	if protected && !yesOK() && !confirmYes(h.Name+" (protected): this opens a shell on it. Continue?") {
-		if err := policyStop(approvalErr("PROTECTED_HOST",
+	if protected && !cl.yesOK() && !confirmYes(cl, h.Name+" (protected): this opens a shell on it. Continue?") {
+		if err := cl.policyStop(approvalErr(cl, "PROTECTED_HOST",
 			"a shell on protected server "+h.Name+" can change anything")); err != nil {
 			return err
 		}
 	}
-	if g.dryRun { // before any VPN or SSH contact
-		audit(st, "shell", []string{h.Name}, "", true, nil)
-		out.P.Print("shell", map[string]any{"host": h.Name, "address": h.Address, "user": h.User, "via": h.Via, "protected": protected, "dry_run": true}, nil)
+	if cl.flags.dryRun { // before any VPN or SSH contact
+		audit(cl, st, "shell", []string{h.Name}, "", true, nil)
+		cl.out.Print("shell", map[string]any{"host": h.Name, "address": h.Address, "user": h.User, "via": h.Via, "protected": protected, "dry_run": true}, nil)
 		return nil
 	}
 	who := h.Address
@@ -75,20 +75,20 @@ func runShell(ctx context.Context, target string) error {
 	if who == h.Name {
 		who = "" // an ad-hoc user@address target says it already
 	}
-	showStatus(statusLine{What: "shell", Target: h.Name, Detail: who, Route: hostRoute(st, h), Protected: protected})
+	showStatus(cl, statusLine{What: "shell", Target: h.Name, Detail: who, Route: hostRoute(st, h), Protected: protected})
 	fd := int(os.Stdin.Fd())
-	audit(st, "shell", []string{h.Name}, "", true, nil)
+	audit(cl, st, "shell", []string{h.Name}, "", true, nil)
 	var started time.Time
 	code, lost := 0, false
 	// a Windows server over SSH gives its own shell (cmd or PowerShell)
-	err = withClient(allowWindows(ctx), st, h, func(c *sshx.Client) error {
+	err = withClient(cl, allowWindows(ctx), st, h, func(c *sshx.Client) error {
 		sess, err := c.Session()
 		if err != nil {
 			return err
 		}
 		defer sess.Close()
 		w, hgt, _ := term.GetSize(fd)
-		t := os.Getenv("TERM")
+		t := cl.getenv("TERM")
 		if t == "" {
 			t = "xterm-256color"
 		}
@@ -100,7 +100,7 @@ func runShell(ctx context.Context, target string) error {
 			return err
 		}
 		defer term.Restore(fd, old)
-		sess.Stdin, sess.Stdout, sess.Stderr = os.Stdin, os.Stdout, os.Stderr
+		sess.Stdin, sess.Stdout, sess.Stderr = cl.stdin, cl.out.W, cl.out.Err
 		winch := make(chan os.Signal, 1)
 		defer notifyResize(fd, winch)()
 		go func() {
@@ -124,7 +124,7 @@ func runShell(ctx context.Context, target string) error {
 	})
 	// after the callback: the terminal is out of raw mode again
 	if !started.IsZero() {
-		showExit(h.Name, code, lost, time.Since(started))
+		showExit(cl, h.Name, code, lost, time.Since(started))
 	}
 	return err
 }

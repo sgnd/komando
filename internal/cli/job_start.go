@@ -30,7 +30,7 @@ type jobSpec struct {
 // jobWhat reads job start's command or --script into a jobSpec, with the
 // checks exec does: hidden values, deny rules and --read-only. stdinFile
 // is --stdin-file, the command's input.
-func jobWhat(args []string, cmdStr string, so scriptOpts, stdinFile string, readOnly bool, envs []string) (jobSpec, error) {
+func jobWhat(cl *call, args []string, cmdStr string, so scriptOpts, stdinFile string, readOnly bool, envs []string) (jobSpec, error) {
 	sp := jobSpec{mutating: !readOnly}
 	if so.file != "" {
 		if cmdStr != "" || len(args) > 1 {
@@ -40,25 +40,25 @@ func jobWhat(args []string, cmdStr string, so scriptOpts, stdinFile string, read
 			return sp, out.Usage("--script sends the file as the script's input, so --stdin-file does not go with it; read other files inside the script")
 		}
 		var err error
-		if sp.input, err = readFileOrStdin(so.file); err != nil {
+		if sp.input, err = readFileOrStdin(cl, so.file); err != nil {
 			return sp, localFileErr("FILE_NOT_FOUND", err, "")
 		}
-		if err := hiddenInInput(so.file, sp.input); err != nil {
+		if err := hiddenInInput(cl, so.file, sp.input); err != nil {
 			return sp, err
 		}
-		noteApprovalBody(scriptLabel("the script", so.file), sp.input)
-		if err := guardBody(string(sp.input)); err != nil {
+		noteApprovalBody(cl, scriptLabel("the script", so.file), sp.input)
+		if err := guardBody(cl, string(sp.input)); err != nil {
 			return sp, err
 		}
 		interpreter := cmp.Or(so.interpreter, shebangInterpreter(string(sp.input)))
-		if win, err := targetWindows(args[0]); err != nil || win {
+		if win, err := targetWindows(cl, args[0]); err != nil || win {
 			if err == nil {
 				err = out.Usage("job start --script runs on Linux and other Unix servers; on Windows use `komando exec TARGET --script FILE`")
 			}
 			return sp, err
 		}
 		if readOnly {
-			if sp.mutating, err = scriptReadOnly(string(sp.input), interpreter, so.args, envs); err != nil {
+			if sp.mutating, err = scriptReadOnly(cl, string(sp.input), interpreter, so.args, envs); err != nil {
 				return sp, err
 			}
 		}
@@ -79,19 +79,19 @@ func jobWhat(args []string, cmdStr string, so scriptOpts, stdinFile string, read
 		return sp, out.Usage("no command given: komando job start TARGET -- COMMAND (or --script FILE)")
 	}
 	if stdinFile != "" {
-		if sp.input, err = readFileOrStdin(stdinFile); err != nil {
+		if sp.input, err = readFileOrStdin(cl, stdinFile); err != nil {
 			return sp, localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
 		}
-		if err := hiddenInInput(stdinFile, sp.input); err != nil {
+		if err := hiddenInInput(cl, stdinFile, sp.input); err != nil {
 			return sp, err
 		}
-		noteApprovalBody(scriptLabel("the input", stdinFile), sp.input)
+		noteApprovalBody(cl, scriptLabel("the input", stdinFile), sp.input)
 		// the input may be a script (bash -s): the policy reads it
-		if err := guardBody(string(sp.input)); err != nil {
+		if err := guardBody(cl, string(sp.input)); err != nil {
 			return sp, err
 		}
 	}
-	sp.mutating, err = execReadOnly(args[0], sp.command, sp.input, execOpts{stdinFile: stdinFile, env: envs}, readOnly)
+	sp.mutating, err = execReadOnly(cl, args[0], sp.command, sp.input, execOpts{stdinFile: stdinFile, env: envs}, readOnly)
 	if err != nil {
 		return sp, err
 	}
@@ -108,7 +108,7 @@ func jobWhat(args []string, cmdStr string, so scriptOpts, stdinFile string, read
 // each once sent. So a command run as another user (--sudo-user) gets
 // them too, and none of it is ever on a command line (ps shows those to
 // every user on the server).
-func startJob(ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) {
+func startJob(cl *call, ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) {
 	id := newID("j")
 	exports, err := sshx.EnvExports(c, sp.env)
 	if err != nil {
@@ -150,7 +150,7 @@ func startJob(ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) 
 		return started{}, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
 	}
 	j := &store.Job{ID: id, Host: c.Host.Name, Command: sp.shown, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
-	if err := store.UpdateRuntime(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
+	if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
 		return started{}, err
 	}
 	return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil

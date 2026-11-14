@@ -27,11 +27,11 @@ func redact(o map[string]any) {
 	}
 }
 
-// maskObject hides from an AI agent (out.P.Mask) what output masking
+// maskObject hides from an AI agent (cl.out.Mask) what output masking
 // cannot see once an object is printed whole: a Secret's values, and the
 // values of env vars named like secrets (hideSecretEnv).
-func maskObject(o map[string]any) {
-	if !out.P.Mask {
+func maskObject(cl *call, o map[string]any) {
+	if !cl.out.Mask {
 		return
 	}
 	redact(o)

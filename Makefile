@@ -20,8 +20,9 @@ build: ## Build ./bin/komando
 install: ## Install komando into $GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/komando
 
+# -timeout: internal/cli alone takes minutes, near Go's default 10m limit
 test: ## Fast unit tests (and the sync library in sync/)
-	go test ./...
+	go test -timeout 30m ./...
 	$(MAKE) test-sync
 
 test-sync: ## Vet and race-test the sync library in sync/ (its own go.mod, so the root go test skips it)

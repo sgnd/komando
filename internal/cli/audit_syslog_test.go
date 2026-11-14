@@ -56,7 +56,8 @@ func TestAuditGoesToSyslog(t *testing.T) {
 		}
 	}()
 	run := func(args ...string) error {
-		root := newRoot()
+		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}

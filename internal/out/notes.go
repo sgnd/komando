@@ -2,7 +2,6 @@ package out
 
 import (
 	"fmt"
-	"os"
 	"slices"
 )
 
@@ -52,6 +51,6 @@ func (p *Printer) printCut() {
 	cut, noted, n := p.cut, p.cutNoted, p.cutAt
 	p.mu.Unlock()
 	if cut && !noted && n > 0 {
-		fmt.Fprintf(os.Stderr, "Note: showing the first %d; --limit 0 shows all\n", n)
+		fmt.Fprintf(p.Stderr(), "Note: showing the first %d; --limit 0 shows all\n", n)
 	}
 }

@@ -282,7 +282,7 @@ func pkgSecLists(r *pkgSecRow, sec map[string]string, refreshed bool) {
 
 // pkgSecParse reads one server's script output. apply says whether the
 // script was asked to change anything.
-func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecRow {
+func pkgSecParse(cl *call, host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecRow {
 	r := pkgSecRow{Host: host, Security: []pkgUpgrade{}, DurationMS: rr.DurationMS}
 	sec := sections(rr.Stdout)
 	fail := func(e *out.Error) pkgSecRow {
@@ -319,7 +319,7 @@ func pkgSecParse(host string, rr *sshx.RunResult, apply, refreshed bool) pkgSecR
 	r.Before = &before
 	r.RebootRequired = before.RebootRequired
 	if e, ok := sec["essential"]; ok {
-		return fail(approvalErr("POLICY_BLOCKED",
+		return fail(approvalErr(cl, "POLICY_BLOCKED",
 			"the security updates would remove "+strings.Join(strings.Fields(e), ", ")+", which can lock you out of the server or break it; nothing was changed"))
 	}
 	if _, ok := sec["nothing"]; ok {
@@ -485,9 +485,9 @@ To install them: ` + "`komando pkg upgrade TARGET --security`" + `, one server a
 time with a check before and after each.`,
 		Example: "  komando pkg security @swarm --refresh\n  komando pkg upgrade @swarm --security --dry-run\n  komando pkg upgrade @swarm --security",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return pkgSecurity(cmd.Context(), args[0], false, refresh, false, !*noSudo)
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return pkgSecurity(cl, cmd.Context(), args[0], false, refresh, false, !*noSudo)
+		}),
 	}
 	c.Flags().BoolVar(&refresh, "refresh", false, "refresh the package index first (like apt-get update)")
 	return c
@@ -502,6 +502,7 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 	c.Long = "Without --security: upgrades every package, or the given ones (--dry-run\nlists what would change).\n\n" + pkgSecRollout
 	c.Example = "  komando pkg upgrade web1 --dry-run   # see what would change first\n  komando pkg upgrade web1 openssl\n  komando pkg upgrade @web --security --dry-run\n  komando pkg upgrade @web --security"
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		cl := callOf(cmd)
 		if !security {
 			if refresh || keepGoing {
 				return out.Usage("--refresh and --keep-going go with --security")
@@ -511,7 +512,7 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 		if len(args) > 1 {
 			return out.Usage("--security installs every pending security update; it takes no package names (see them with `komando pkg security %s`)", args[0])
 		}
-		return pkgSecurity(cmd.Context(), args[0], true, refresh, keepGoing, !*noSudo)
+		return pkgSecurity(cl, cmd.Context(), args[0], true, refresh, keepGoing, !*noSudo)
 	}
 	c.Flags().BoolVar(&security, "security", false, "install only the security updates, one server at a time")
 	c.Flags().BoolVar(&refresh, "refresh", false, "with --security: refresh the package index first")
@@ -522,12 +523,12 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 // pkgSecurity lists the pending security updates (pkg security), or with
 // apply installs them (pkg upgrade --security), which then audits and
 // prints as pkg.upgrade.
-func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, sudo bool) error {
+func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, keepGoing, sudo bool) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
@@ -535,24 +536,24 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 	if apply {
 		id, display = "pkg.upgrade", "pkg upgrade --security"
 	}
-	change := apply && !g.dryRun
+	change := apply && !cl.flags.dryRun
 	// an essential package may go only with --allow-dangerous, asked before
 	// anything runs (the script stops on the server when it would happen)
-	guardEssential := !g.allowDangerous || (change && !dangerOK("the security updates may remove a package the server needs", targetsWhy(st, hosts)))
+	guardEssential := !cl.flags.allowDangerous || (change && !cl.dangerOK("the security updates may remove a package the server needs", targetsWhy(st, hosts)))
 	script := pkgSecScript(change, refresh, guardEssential)
 	if apply {
 		// protected servers need --yes; a dry run records the stop as would_be_blocked
-		if gerr := guard(st, hosts, script, true); gerr != nil {
-			audit(st, id, hostNames(hosts), display, false, map[string]any{"blocked": toErr(gerr).Code})
+		if gerr := guard(cl, st, hosts, script, true); gerr != nil {
+			audit(cl, st, id, hostNames(hosts), display, false, map[string]any{"blocked": toErr(gerr).Code})
 			return gerr
 		}
 	}
-	timeout := cmdTimeout(st)
-	if change && g.timeout == 0 {
+	timeout := cmdTimeout(cl, st)
+	if change && cl.flags.timeout == 0 {
 		timeout = max(timeout, pkgSecTimeout)
 	}
 	run := func(ctx context.Context, c *sshx.Client) (*sshx.RunResult, error) {
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: sudo, Timeout: timeout, MaxOutput: maxOutput(st)})
+		return sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: sudo, Timeout: timeout, MaxOutput: maxOutput(cl, st)})
 	}
 	data := pkgSecData{Applied: change, Results: []pkgSecRow{}}
 	if apply {
@@ -564,20 +565,20 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 	var rows []pkgSecRow
 	var notRun []string
 	if !change {
-		for _, o := range fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) { return run(ctx, c) }) {
+		for _, o := range fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) { return run(ctx, c) }) {
 			if o.Err != nil {
 				rows = append(rows, pkgSecRow{Host: o.Host.Name, Security: []pkgUpgrade{}, Error: toErr(o.Err)})
 				continue
 			}
-			rows = append(rows, pkgSecParse(o.Host.Name, o.Value.(*sshx.RunResult), false, refresh))
+			rows = append(rows, pkgSecParse(cl, o.Host.Name, o.Value.(*sshx.RunResult), false, refresh))
 		}
 	} else {
 		for i, h := range hosts {
 			var r pkgSecRow
-			err := withClient(ctx, st, h, func(c *sshx.Client) error {
+			err := withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 				rr, err := run(ctx, c)
 				if err == nil {
-					r = pkgSecParse(h.Name, rr, true, refresh)
+					r = pkgSecParse(cl, h.Name, rr, true, refresh)
 				}
 				return err
 			})
@@ -588,7 +589,7 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 			if r.unsupported != "" {
 				continue
 			}
-			audit(st, id, []string{h.Name}, display, r.OK, map[string]any{"upgraded": len(r.Upgraded), "unexpected": r.Unexpected})
+			audit(cl, st, id, []string{h.Name}, display, r.OK, map[string]any{"upgraded": len(r.Upgraded), "unexpected": r.Unexpected})
 			if !r.OK && !keepGoing {
 				for _, rest := range hosts[i+1:] {
 					notRun = append(notRun, rest.Name)
@@ -601,13 +602,13 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 	var fails []hostFail
 	for _, r := range rows {
 		if r.unsupported != "" {
-			out.P.Skip(out.Skipped{Name: r.Host, Kind: "host", Reason: r.unsupported + ": komando picks security updates on apt and dnf/yum servers only; use `komando pkg upgrade` here"})
+			cl.out.Skip(out.Skipped{Name: r.Host, Kind: "host", Reason: r.unsupported + ": komando picks security updates on apt and dnf/yum servers only; use `komando pkg upgrade` here"})
 			continue
 		}
-		if apply && g.dryRun && r.Error == nil && !g.allowDangerous {
+		if apply && cl.flags.dryRun && r.Error == nil && !cl.flags.allowDangerous {
 			for _, p := range r.WouldRemove {
 				if essentialPkg(p) {
-					out.P.WouldBlock(approvalErr("POLICY_BLOCKED",
+					cl.out.WouldBlock(approvalErr(cl, "POLICY_BLOCKED",
 						"on "+r.Host+" the security updates would remove "+p+", which can lock you out of the server or break it"))
 					break
 				}
@@ -630,8 +631,8 @@ func pkgSecurity(ctx context.Context, target string, apply, refresh, keepGoing, 
 		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "use `komando pkg upgrade TARGET` on these servers",
 			"komando picks security updates on apt and dnf/yum servers only; %s uses %s", rows[0].Host, rows[0].unsupported)
 	}
-	if !change && !g.dryRun {
-		audit(st, id, hostNames(hosts), display, len(fails) == 0, nil)
+	if !change && !cl.flags.dryRun {
+		audit(cl, st, id, hostNames(hosts), display, len(fails) == 0, nil)
 	}
-	return finishFleet(id, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return finishFleet(cl, id, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

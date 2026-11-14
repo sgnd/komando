@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,11 +46,11 @@ func trustAddr(h *store.Host) string {
 
 // fetchTrustRows fetches every server's key, a few at a time, and compares
 // it with what is pinned. Nothing is written.
-func fetchTrustRows(ctx context.Context, st *store.State, hosts []*store.Host) []*trustRow {
+func fetchTrustRows(cl *call, ctx context.Context, st *store.State, hosts []*store.Host) []*trustRow {
 	rows := make([]*trustRow, len(hosts))
-	sem := make(chan struct{}, max(1, parallelism(st)))
+	sem := make(chan struct{}, max(1, parallelism(cl, st)))
 	var wg sync.WaitGroup
-	opts := sshOpts(st)
+	opts := sshOpts(cl, st)
 	for i, h := range hosts {
 		rows[i] = &trustRow{Host: h.Name, Address: trustAddr(h), h: h}
 		wg.Add(1)
@@ -103,7 +102,7 @@ func shortFP(fp string) string {
 // approveReplacements asks once for every server whose pinned key would be
 // replaced: a person at the terminal sees the full table first; an AI
 // agent's person sees each server with its new key in the window.
-func approveReplacements(st *store.State, rows []*trustRow) error {
+func approveReplacements(cl *call, st *store.State, rows []*trustRow) error {
 	var names, parts []string
 	var prot []string
 	for _, r := range rows {
@@ -119,11 +118,11 @@ func approveReplacements(st *store.State, rows []*trustRow) error {
 	if len(names) == 0 {
 		return nil
 	}
-	if interactive() && !g.dryRun {
-		fmt.Fprintln(os.Stderr, "These servers show a different host key than the one pinned:")
+	if cl.interactive() && !cl.flags.dryRun {
+		fmt.Fprintln(cl.out.Err, "These servers show a different host key than the one pinned:")
 		for _, r := range rows {
 			if r.Error == nil && r.mismatch() {
-				fmt.Fprintf(os.Stderr, "  %-24s old %s\n  %-24s new %s\n", r.Host, strings.Join(r.OldFingerprint, ", "), "", r.Fingerprint)
+				fmt.Fprintf(cl.out.Err, "  %-24s old %s\n  %-24s new %s\n", r.Host, strings.Join(r.OldFingerprint, ", "), "", r.Fingerprint)
 			}
 		}
 	}
@@ -138,7 +137,7 @@ func approveReplacements(st *store.State, rows []*trustRow) error {
 	if len([]rune(what)) > approvalMaxLen {
 		what = fmt.Sprintf("replacing the pinned host keys of %s: %s", countOf(len(names), "server"), strings.Join(names, ", "))
 	}
-	return replacePin(names, prot, what)
+	return replacePin(cl, names, prot, what)
 }
 
 // pinTrustRows writes the pins: new keys are added, mismatches without
@@ -184,22 +183,22 @@ func (d trustData) Text() string {
 }
 
 // trustHosts is `host trust TARGET`.
-func trustHosts(ctx context.Context, st *store.State, hosts []*store.Host, reset bool) error {
-	if g.dryRun {
-		return trustDryRun(st, hosts, reset)
+func trustHosts(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, reset bool) error {
+	if cl.flags.dryRun {
+		return trustDryRun(cl, st, hosts, reset)
 	}
-	rows := fetchTrustRows(ctx, st, hosts)
+	rows := fetchTrustRows(cl, ctx, st, hosts)
 	var first []string
 	for _, r := range rows {
 		if r.Error == nil && !r.same && len(r.OldFingerprint) == 0 {
 			first = append(first, r.Host+" "+r.Fingerprint)
 		}
 	}
-	if err := guardFirstPin(st, first); err != nil {
+	if err := guardFirstPin(cl, st, first); err != nil {
 		return err
 	}
 	if reset {
-		if err := approveReplacements(st, rows); err != nil {
+		if err := approveReplacements(cl, st, rows); err != nil {
 			return err
 		}
 	}
@@ -216,15 +215,15 @@ func trustHosts(ctx context.Context, st *store.State, hosts []*store.Host, reset
 			continue
 		}
 		data.Summary.OK++
-		audit(st, "host.trust", []string{r.Host}, "", true, map[string]any{"reset": reset, "removed_entries": r.RemovedEntries, "fingerprint": r.Fingerprint})
+		audit(cl, st, "host.trust", []string{r.Host}, "", true, map[string]any{"reset": reset, "removed_entries": r.RemovedEntries, "fingerprint": r.Fingerprint})
 	}
 	data.Summary.Total = len(rows)
-	return finishFleet("host.trust", data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return finishFleet(cl, "host.trust", data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }
 
 // trustDryRun fetches nothing and changes nothing: it says how each key
 // would be fetched and, with --reset, how many pinned entries would go.
-func trustDryRun(st *store.State, hosts []*store.Host, reset bool) error {
+func trustDryRun(cl *call, st *store.State, hosts []*store.Host, reset bool) error {
 	var res []map[string]any
 	pinned := 0
 	for _, h := range hosts {
@@ -247,11 +246,11 @@ func trustDryRun(st *store.State, hosts []*store.Host, reset bool) error {
 		if len(hosts) == 1 {
 			what = "replacing the pinned host key of " + hosts[0].Name + " (a key may be replaced)"
 		}
-		if err := replacePin(hostNames(hosts), prot, what); err != nil {
+		if err := replacePin(cl, hostNames(hosts), prot, what); err != nil {
 			return err
 		}
 	}
-	out.P.Print("host.trust", textAs{map[string]any{"results": res}, trustDryText(res)}, nil)
+	cl.out.Print("host.trust", textAs{map[string]any{"results": res}, trustDryText(res)}, nil)
 	return nil
 }
 

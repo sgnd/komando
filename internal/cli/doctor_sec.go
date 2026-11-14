@@ -26,14 +26,14 @@ type securityCheck struct {
 	Detail  string `json:"detail"`
 }
 
-func securityChecks(st *store.State) []securityCheck {
+func securityChecks(cl *call, st *store.State) []securityCheck {
 	var cs []securityCheck
 	add := func(name string, ok, warn bool, detail string) {
 		cs = append(cs, securityCheck{Name: "security:" + name, OK: ok || warn, Warning: warn && !ok, Detail: detail})
 	}
 
 	// komando's folder and files: this user only (ASVS 14.1, CWE-276)
-	platformChecks(add)
+	platformChecks(cl, add)
 	if loose := looseFiles(); len(loose) == 0 {
 		add("permissions", true, false, store.Home()+" is private to you")
 	} else {

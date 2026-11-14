@@ -66,22 +66,22 @@ type sealedContent struct {
 	KeyPassphraseRefs map[string]string `json:"key_passphrase_refs,omitempty"`
 }
 
-func runExportSealed(st *store.State, f exportFile, o exportSealOpts, to string, overwrite bool) error {
+func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, to string, overwrite bool) error {
 	if _, err := os.Stat(to); err == nil && !overwrite {
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another file or pass --overwrite", "%s already exists", to)
 	}
-	if isAgent() || !interactive() {
+	if cl.isAgent() || !cl.interactive() {
 		// a dry run is never blocked: it says what would be sealed, and
 		// that the real run needs a person (policyStop records it)
-		if err := policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-			"ask the user to run `"+commandLine()+"` in their own terminal; never ask for the passphrase in the chat",
+		if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+			"ask the user to run `"+commandLine(cl)+"` in their own terminal; never ask for the passphrase in the chat",
 			"only a person at a terminal can make a sealed file: it holds the passwords")); err != nil {
 			return err
 		}
 	}
 	res := exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
 		DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, Sealed: o.mode(), SecretsNeeded: []string{}, KeysNeeded: []string{}}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		res.DryRun, res.SecretsInFile = true, []string{}
 		for _, n := range f.Secrets { // which are there, never their values
 			if _, err := vault.Get(n); errors.Is(err, vault.ErrNotFound) {
@@ -95,7 +95,7 @@ func runExportSealed(st *store.State, f exportFile, o exportSealOpts, to string,
 		} else {
 			res.KeysNeeded = f.Keys
 		}
-		out.P.Print("export", res, nil)
+		cl.out.Print("export", res, nil)
 		return nil
 	}
 	c, err := sealContent(st, f, o.withKeys, &res)
@@ -109,7 +109,7 @@ func runExportSealed(st *store.State, f exportFile, o exportSealOpts, to string,
 	made := sealfile.Made{By: "komando " + Version}
 	var file []byte
 	if o.forPhone {
-		pub, err := askPhoneKey()
+		pub, err := askPhoneKey(cl)
 		if err != nil {
 			return err
 		}
@@ -119,7 +119,7 @@ func runExportSealed(st *store.State, f exportFile, o exportSealOpts, to string,
 			return err
 		}
 	} else {
-		pass, err := askFilePassphrase()
+		pass, err := askFilePassphrase(cl)
 		if err != nil {
 			return err
 		}
@@ -134,12 +134,12 @@ func runExportSealed(st *store.State, f exportFile, o exportSealOpts, to string,
 		return err
 	}
 	res.CheckPhrase = sealfile.CheckPhrase(file)
-	audit(nil, "export.sealed", nil, "", true, map[string]any{"file": to, "mode": res.Sealed, "hosts": res.Hosts, "conns": res.Conns,
+	audit(cl, nil, "export.sealed", nil, "", true, map[string]any{"file": to, "mode": res.Sealed, "hosts": res.Hosts, "conns": res.Conns,
 		"vpns": res.Vpns, "recipes": res.Recipes, "secrets": len(res.SecretsInFile), "keys": len(res.KeysInFile)})
 	if !o.forPhone {
-		sayNext("komando import komando " + to + " (on the other computer; it asks for the passphrase)")
+		sayNext(cl, "komando import komando "+to+" (on the other computer; it asks for the passphrase)")
 	}
-	out.P.Print("export", res, nil)
+	cl.out.Print("export", res, nil)
 	return nil
 }
 
@@ -191,16 +191,16 @@ func sealContent(st *store.State, f exportFile, withKeys bool, res *exportResult
 }
 
 // askFilePassphrase asks for the sealed file's passphrase twice, hidden.
-func askFilePassphrase() (string, error) {
-	fmt.Fprintf(os.Stderr, "Choose a passphrase for the file: %d or more characters (random words work).\n", vault.MinPassphrase)
-	p1, err := readPassword("Passphrase (hidden): ")
+func askFilePassphrase(cl *call) (string, error) {
+	fmt.Fprintf(cl.out.Err, "Choose a passphrase for the file: %d or more characters (random words work).\n", vault.MinPassphrase)
+	p1, err := readPassword(cl, "Passphrase (hidden): ")
 	if err != nil {
 		return "", err
 	}
 	if why := newPassphraseProblem(p1); why != "" {
 		return "", out.Errf(out.ExitUsage, "WEAK_PASSPHRASE", "run it again with another passphrase", "%s; nothing was written", why)
 	}
-	p2, err := readPassword("Type it again (hidden): ")
+	p2, err := readPassword(cl, "Type it again (hidden): ")
 	if err != nil {
 		return "", err
 	}
@@ -214,9 +214,9 @@ func askFilePassphrase() (string, error) {
 // file, or the key as text) and for the key check the phone shows, and
 // returns the key only when the two match: a key file swapped on the way
 // does not match what the phone shows.
-func askPhoneKey() ([]byte, error) {
-	fmt.Fprintln(os.Stderr, "The iPhone app makes a key for this export: a key file and a key check.")
-	ans, err := readPhoneAnswer("Key file from the phone (or the key as text): ", false)
+func askPhoneKey(cl *call) ([]byte, error) {
+	fmt.Fprintln(cl.out.Err, "The iPhone app makes a key for this export: a key file and a key check.")
+	ans, err := readPhoneAnswer(cl, "Key file from the phone (or the key as text): ", false)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func askPhoneKey() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	check, err := readPhoneAnswer("Key check the phone shows: ", false)
+	check, err := readPhoneAnswer(cl, "Key check the phone shows: ", false)
 	if err != nil {
 		return nil, err
 	}

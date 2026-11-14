@@ -59,7 +59,7 @@ func TestSynonymsPrintNothing(t *testing.T) {
 // ssh-gate does not refuse it as plumbing.
 func TestSynonymsGetEveryCheck(t *testing.T) {
 	n := 0
-	for _, c := range allCommands(newRoot()) {
+	for _, c := range allCommands(newRoot(tcl)) {
 		if c.Annotations[synonymNote] == "" {
 			continue
 		}

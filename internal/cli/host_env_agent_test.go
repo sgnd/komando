@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -16,7 +15,7 @@ import (
 // (with a warning) unless it adds --yes and the person allows it.
 func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 	invHome(t)
-	if err := vault.Set("tok", "host-env-token-5531"); err != nil {
+	if err := vault.Set(store.Save(), "tok", "host-env-token-5531"); err != nil {
 		t.Fatal(err)
 	}
 	h := &store.Host{Name: "web1", Address: "10.0.0.1", User: "deploy", Env: map[string]string{"API_TOKEN": "secret:tok", "REGION": "eu"}}
@@ -29,7 +28,7 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 		}
 		return strings.Contains(cmd, "read -r API_TOKEN"), cmd
 	}
-	t.Cleanup(func() { g.yes = false })
+	t.Cleanup(func() { tcl.flags.yes = false })
 
 	// a person or a script: as before
 	noAgent(t)
@@ -39,9 +38,9 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 
 	// an agent without --yes: left out, with a warning; plain values stay
 	n := asAgent(t, true, true)
-	out.P.Reset()
-	g.yes = false
-	if err := guardHostEnv([]*store.Host{h}, nil); err != nil {
+	tcl.out.Reset()
+	tcl.flags.yes = false
+	if err := guardHostEnv(tcl, []*store.Host{h}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if ok, cmd := sends(); ok || !strings.Contains(cmd, "REGION") {
@@ -51,14 +50,14 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 		t.Fatal("asked without --yes")
 	}
 	// the command's own --env names the variable: not the host's to send
-	if err := guardHostEnv([]*store.Host{h}, map[string]string{"API_TOKEN": "x"}); err != nil {
+	if err := guardHostEnv(tcl, []*store.Host{h}, map[string]string{"API_TOKEN": "x"}); err != nil {
 		t.Fatal(err)
 	}
 
 	// an agent with --yes whom the person refuses: stopped
 	asAgent(t, false, true)
-	g.yes = true
-	if err := guardHostEnv([]*store.Host{h}, nil); toErr(err).Code != "SECRET_DESTINATION" {
+	tcl.flags.yes = true
+	if err := guardHostEnv(tcl, []*store.Host{h}, nil); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("refused: %v", err)
 	}
 	if ok, _ := sends(); ok {
@@ -67,8 +66,8 @@ func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 
 	// an agent with --yes whom the person allows: sent, asked once
 	n = asAgent(t, true, true)
-	g.yes = true
-	if err := guardHostEnv([]*store.Host{h}, nil); err != nil {
+	tcl.flags.yes = true
+	if err := guardHostEnv(tcl, []*store.Host{h}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if ok, _ := sends(); !ok || *n != 1 {

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -61,7 +60,7 @@ func TestSealedAudit(t *testing.T) {
 func TestAuditListNewest(t *testing.T) {
 	invHome(t)
 	for i := range 12 {
-		audit(nil, fmt.Sprintf("test.c%02d", i), nil, "", true, nil)
+		audit(tcl, nil, fmt.Sprintf("test.c%02d", i), nil, "", true, nil)
 	}
 	d := mustRun(t, "audit", "-n", "3")
 	es := d["entries"].([]any)
@@ -94,13 +93,13 @@ func TestAuditUnwritable(t *testing.T) {
 	os.Chmod(ro, 0o500)
 	t.Cleanup(func() { os.Chmod(ro, 0o700) })
 	setHome(t, filepath.Join(ro, "home"))
-	out.P.Reset()
-	audit(nil, "test.unwritable", nil, "", true, nil)
+	tcl.out.Reset()
+	audit(tcl, nil, "test.unwritable", nil, "", true, nil)
 	var buf bytes.Buffer
-	w := out.P.W
-	out.P.W = &buf
-	out.P.Print("x", map[string]any{}, nil)
-	out.P.W = w
+	w := tcl.out.W
+	tcl.out.W = &buf
+	tcl.out.Print("x", map[string]any{}, nil)
+	tcl.out.W = w
 	if !strings.Contains(buf.String(), "the audit log could not record test.unwritable") {
 		t.Fatalf("no warning in meta: %s", buf.String())
 	}

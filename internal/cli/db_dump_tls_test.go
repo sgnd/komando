@@ -34,7 +34,7 @@ func TestPgDumpTLSRoots(t *testing.T) {
 	tool := dumpTool{passwordEnv: "PGPASSWORD", pkg: "postgresql-client", libpq: true}
 	args := func(url string) []string {
 		t.Helper()
-		got, err := toolTLSArgs(context.Background(), st, &store.Conn{Name: "pg", URL: url}, nil, tool, []string{"pg_dump", "--dbname", url, "--schema-only"})
+		got, err := toolTLSArgs(tcl, context.Background(), st, &store.Conn{Name: "pg", URL: url}, nil, tool, []string{"pg_dump", "--dbname", url, "--schema-only"})
 		if err != nil {
 			t.Fatal(err)
 		}

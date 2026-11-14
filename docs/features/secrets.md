@@ -153,7 +153,11 @@ where there is no keychain tool, and on a Mac whose user has no default
 keychain (a changed `HOME`): the key then goes into `store.key`, and
 `komando doctor` says so. It never makes macOS ask where to keep it.
 An AI agent's `KOMANDO_KEYCHAIN=off` still lets komando read and raise the
-change count: an agent cannot switch off the old-copy check that way.
+change count: an agent cannot switch off the old-copy check that way. Nor
+can an agent point komando at another keychain: its `KOMANDO_KEYCHAIN`
+path (a keychain file on a Mac) is not used, so its calls keep the key and
+the count in the login keychain. A store whose key is in your own keychain
+file is opened only by your commands.
 
 These commands change where the key is, so only a person at a terminal runs
 them (`NEEDS_PERSON` for an AI agent or a script); `--dry-run` previews them
@@ -207,3 +211,4 @@ command the user runs in their own terminal.
 | `VAULT_DECRYPT` (exit 1) | `KOMANDO_VAULT_PASS` is not this vault's passphrase | set the right one; nothing was lost. `komando doctor` says which mode is in use |
 | `VAULT_KEY` (exit 1) | the key is missing: `store.key` is gone, or the keychain item is on another computer | restore `~/.komando/store.key` from a backup, or run `komando secret keychain` on the computer whose keychain holds the key |
 | `KEYCHAIN_SLOW` (exit 1) | the keychain did not answer in time, so nothing was changed | run it again in a moment; `komando doctor` if it keeps happening |
+| `KEYCHAIN_FAILED` (exit 5) | the keychain could not be read, so komando could not check that the store is the newest copy; nothing was changed | a person unlocks the keychain (an AI agent asks the user), then run it again; on a computer with no working keychain, a person sets `KOMANDO_KEYCHAIN=off` |

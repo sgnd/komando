@@ -24,14 +24,14 @@ func TestDestinationLinksAreNotFollowed(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(dst, "sub")); err != nil {
 		t.Fatal(err)
 	}
-	_, err := download(context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true, overwrite: true})
+	_, err := download(tcl, context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true, overwrite: true})
 	if e := toErr(err); e == nil || e.Code != "UNSAFE_PATH" || !strings.Contains(e.Message, "symbolic link") {
 		t.Fatalf("download: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(outside, "x.conf")); err == nil {
 		t.Fatal("download wrote through the link")
 	}
-	l := localSide{root: dst}
+	l := localSide{cl: tcl, root: dst}
 	if err := l.write(context.Background(), "sub/x.conf", strings.NewReader("s"), syncFile{}); toErr(err).Code != "UNSAFE_PATH" {
 		t.Errorf("sync write: %v", err)
 	}

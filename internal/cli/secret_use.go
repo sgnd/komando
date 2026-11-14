@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -29,21 +28,21 @@ import (
 // agentYes is a stop for AI agents only. An agent needs --yes and a
 // person's "Allow once" in komando's window, which shows what, then why.
 // One answer covers the command.
-func agentYes(code, msg, what string, why ...string) error {
-	if !isAgent() || cur().sess.SafetyApproved(what) {
+func agentYes(cl *call, code, msg, what string, why ...string) error {
+	if !cl.isAgent() || cl.sess.SafetyApproved(what) {
 		return nil
 	}
-	if g.yes && personAllowsFor("--yes", what, why...) {
-		cur().sess.ApproveSafety(what)
+	if cl.flags.yes && cl.personAllowsFor("--yes", what, why...) {
+		cl.sess.ApproveSafety(what)
 		return nil
 	}
-	return policyStop(approvalErr(code, msg))
+	return cl.policyStop(approvalErr(cl, code, msg))
 }
 
 // guardSecretUse stops an AI agent from sending the secrets refs (written
 // as references: secret:NAME, env:VAR, vault:PATH#FIELD, ...) to where
 // without a person's yes. A reserved secret never goes, for anyone.
-func guardSecretUse(refs []string, where string) error {
+func guardSecretUse(cl *call, refs []string, where string) error {
 	refs = dedupe(refs)
 	if len(refs) == 0 {
 		return nil
@@ -52,7 +51,7 @@ func guardSecretUse(refs []string, where string) error {
 		return err
 	}
 	what := fmt.Sprintf("%s %s, sent to %s", nouns(len(refs), "the secret"), strings.Join(refs, ", "), where)
-	return agentYes("SECRET_DESTINATION", "an AI agent asked to send "+what+"; that needs a person's yes", what)
+	return agentYes(cl, "SECRET_DESTINATION", "an AI agent asked to send "+what+"; that needs a person's yes", what)
 }
 
 // reservedRefs refuses a reference to a secret komando keeps for itself.
@@ -82,19 +81,19 @@ func envSecretRefs(env map[string]string) []string {
 // parseEnvTo is parseEnv for a command's --env on hosts: a value that names
 // a vault secret goes into that command's environment there, so for an AI
 // agent it needs a person's yes (guardSecretUse).
-func parseEnvTo(pairs []string, hosts []*store.Host) (map[string]string, error) {
+func parseEnvTo(cl *call, pairs []string, hosts []*store.Host) (map[string]string, error) {
 	env, err := parseEnv(pairs)
 	if err != nil {
 		return nil, err
 	}
-	if err := guardHostEnv(hosts, env); err != nil {
+	if err := guardHostEnv(cl, hosts, env); err != nil {
 		return nil, err
 	}
 	refs := envSecretRefs(env)
 	if len(refs) == 0 {
 		return env, nil
 	}
-	return env, guardSecretUse(refs, "the command's environment on "+strings.Join(hostNames(hosts), ", "))
+	return env, guardSecretUse(cl, refs, "the command's environment on "+strings.Join(hostNames(hosts), ", "))
 }
 
 // A server's own env (host edit --env K=secret:NAME) goes into each
@@ -112,8 +111,8 @@ func hostEnvKey(h *store.Host) string { return "env of server " + h.Name }
 // this command only with --yes and a person's yes; without --yes they are
 // left out, with a warning. env is the command's own --env: a name it sets
 // is not the host's.
-func guardHostEnv(hosts []*store.Host, env map[string]string) error {
-	if !isAgent() {
+func guardHostEnv(cl *call, hosts []*store.Host, env map[string]string) error {
+	if !cl.isAgent() {
 		return nil
 	}
 	var refs, names []string
@@ -131,26 +130,24 @@ func guardHostEnv(hosts []*store.Host, env map[string]string) error {
 	if len(names) == 0 {
 		return nil
 	}
-	if !g.yes {
-		out.P.Warn(fmt.Sprintf("the server's env values from the vault (%s on %s) were left out: an AI agent's command gets them only with --yes and the user's yes", strings.Join(dedupe(refs), ", "), strings.Join(names, ", ")))
+	if !cl.flags.yes {
+		cl.out.Warn(fmt.Sprintf("the server's env values from the vault (%s on %s) were left out: an AI agent's command gets them only with --yes and the user's yes", strings.Join(dedupe(refs), ", "), strings.Join(names, ", ")))
 		return nil
 	}
-	if err := guardSecretUse(refs, "the command's environment on "+strings.Join(names, ", ")+" (the server's own env)"); err != nil {
+	if err := guardSecretUse(cl, refs, "the command's environment on "+strings.Join(names, ", ")+" (the server's own env)"); err != nil {
 		return err
 	}
 	for _, h := range hosts {
-		cur().sess.ApproveSafety(hostEnvKey(h))
+		cl.sess.ApproveSafety(hostEnvKey(h))
 	}
 	return nil
 }
 
 // hostSecretEnv is sshx.HostSecretEnv: yes for people and scripts, and
 // for an agent only after guardHostEnv's yes.
-func hostSecretEnv(c *sshx.Client) bool {
-	return !isAgent() || c.Host == nil || cur().sess.SafetyApproved(hostEnvKey(c.Host))
+func hostSecretEnv(cl *call, c *sshx.Client) bool {
+	return !cl.isAgent() || c.Host == nil || cl.sess.SafetyApproved(hostEnvKey(c.Host))
 }
-
-func init() { sshx.HostSecretEnv = hostSecretEnv }
 
 // secretPlace is what a server or conn sends on every connection: its
 // references (refs) and the place they go to (dest).
@@ -304,7 +301,7 @@ func weakTLS(oldURL, newURL string) []string {
 // (sends) and every setting that turns a conn's network protection down
 // (weak): an AI agent needs a person's yes for them. why says what else the
 // window's answer covers (a change to a protected server).
-func guardSends(sends, weak []string, why ...string) error {
+func guardSends(cl *call, sends, weak []string, why ...string) error {
 	empty := func(s string) bool { return s == "" }
 	sends, weak = slices.DeleteFunc(sends, empty), slices.DeleteFunc(weak, empty)
 	var parts []string
@@ -322,12 +319,12 @@ func guardSends(sends, weak []string, why ...string) error {
 	if len(sends) == 0 {
 		code = "SAFETY_SETTING"
 	}
-	return agentYes(code, "an AI agent asked for a change that "+strings.TrimPrefix(what, "this change ")+"; that needs a person's yes", what, why...)
+	return agentYes(cl, code, "an AI agent asked for a change that "+strings.TrimPrefix(what, "this change ")+"; that needs a person's yes", what, why...)
 }
 
 // guardConnSends is guardSends for a conn an add or edit leaves as now
 // (old is nil for a new one).
-func guardConnSends(old, now *store.Conn, why ...string) error {
+func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 	var before *secretPlace
 	oldURL := ""
 	if old != nil {
@@ -342,12 +339,12 @@ func guardConnSends(old, now *store.Conn, why ...string) error {
 	for _, w := range weakTLS(oldURL, now.URL) {
 		weak = append(weak, now.Name+": "+w)
 	}
-	return guardSends([]string{line}, weak, why...)
+	return guardSends(cl, []string{line}, weak, why...)
 }
 
 // guardHostSends is guardSends for servers an add, edit or import leaves
 // as now; olds holds each one's settings before, by name (none: new).
-func guardHostSends(now []*store.Host, olds map[string]*store.Host, why ...string) error {
+func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, why ...string) error {
 	var lines []string
 	for _, h := range now {
 		var before *secretPlace
@@ -361,7 +358,7 @@ func guardHostSends(now []*store.Host, olds map[string]*store.Host, why ...strin
 		}
 		lines = append(lines, line)
 	}
-	return guardSends(lines, nil, why...)
+	return guardSends(cl, lines, nil, why...)
 }
 
 // vpnPlace: a VPN's login (its password or auth key, and its pre-shared
@@ -391,7 +388,7 @@ func vpnPlace(v *store.Vpn, servers string) secretPlace {
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
 // is the VPN before (nil: a new one). servers is as for vpnPlace: an
 // OpenVPN VPN added again with a new profile may have new servers.
-func guardVpnSends(old, now *store.Vpn, servers string) error {
+func guardVpnSends(cl *call, old, now *store.Vpn, servers string) error {
 	var before *secretPlace
 	if old != nil {
 		p := vpnPlace(old, "")
@@ -406,5 +403,5 @@ func guardVpnSends(old, now *store.Vpn, servers string) error {
 	if old != nil && old.CA != "" && now.CA != old.CA {
 		weak = append(weak, "vpn "+now.Name+" no longer checks its server against the CA certificate it had")
 	}
-	return guardSends([]string{line}, weak)
+	return guardSends(cl, []string{line}, weak)
 }

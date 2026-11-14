@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -20,8 +19,6 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
-	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 // Who is asking decides how komando's safety stops open (docs/features/safety.md):
@@ -44,103 +41,29 @@ var agentVars = func() []struct{ env, name string } {
 	return out
 }()
 
-// call is one command's run: who calls (engine.Caller, read once from the
-// environment when the command starts) and its approvals
-// (engine.Session): one answer covers the command, and the next command
-// asks again. Each command that runs gets its own, in its context;
-// building a command tree (newRoot, as the guided forms and ssh-gate do
-// inside a running command) makes none and replaces none.
-type call struct {
-	caller  engine.Caller
-	sess    *engine.Session
-	commits uint64   // store.Commits() when the call started
-	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
-
-	typed     *typedSpec // what this command's typed question asks for (askTypes)
-	typedProt []string   // protected targets a typed answer covered
-
-	body *approvalBody // a file the command sends, which the window shows
-
-	// ask opens the approval window; nil is askOnScreen. An app that runs
-	// calls side by side gives each its own.
-	ask func(text string) (allowed, shown bool)
-}
-
-func newCall() *call {
-	terminal := term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd()))
-	return &call{
-		caller:  engine.CallerFrom(os.LookupEnv, terminal),
-		sess:    engine.NewSession(),
-		commits: store.Commits(),
-	}
-}
-
-type callKey struct{}
-
-func withCall(ctx context.Context, c *call) context.Context {
-	return context.WithValue(ctx, callKey{}, c)
-}
-
-// callFrom is the call a command carries, or nil.
-func callFrom(ctx context.Context) *call {
-	if ctx == nil {
-		return nil
-	}
-	c, _ := ctx.Value(callKey{}).(*call)
-	return c
-}
-
-// active is the call of the command this CLI process runs. The code under
-// a command that has no context at hand (isAgent, the confirm questions)
-// reads it through cur.
-var active atomic.Pointer[call]
-
-// startCall gives cmd, which is about to run, a call of its own.
-func startCall(cmd *cobra.Command) *call {
-	c := newCall()
-	cmd.SetContext(withCall(cmd.Context(), c))
-	active.Store(c)
-	return c
-}
-
-// cur is the running command's call (a fresh one before any command ran).
-func cur() *call {
-	if c := active.Load(); c != nil {
-		return c
-	}
-	active.CompareAndSwap(nil, newCall())
-	return active.Load()
-}
-
-// resetApproval starts a new call: the answers given so far stop counting.
-func resetApproval() { active.Store(newCall()) }
-
-// agentName is the AI agent running komando, or "" for a person or a
-// script (engine.AgentName). A variable that is there counts whatever its
-// value: an agent told to run `CLAUDECODE=0 komando ...` must not turn its
-// own safety stops off.
-func agentName() string { return cur().caller.Agent }
-
-func isAgent() bool { return cur().caller.IsAgent() }
-
-func allowedByPerson() bool { return cur().sess.Allowed() }
+// isAgent reports an AI agent (or an ssh-gate key) as the caller. A
+// variable that is there counts whatever its value: an agent told to run
+// `CLAUDECODE=0 komando ...` must not turn its own safety stops off.
+func (cl *call) isAgent() bool { return cl.caller().IsAgent() }
 
 // wroteBefore reports whether this call already changed komando's store.
-func (c *call) wroteBefore() bool { return store.Commits() != c.commits }
+func (cl *call) wroteBefore() bool { return store.Commits() != cl.commits }
 
 // yesOK reports whether --yes counts. dangerOK and revealOK do the same for
 // --allow-dangerous and --reveal. Call them only where the flag would let
 // something through, so an agent's window appears only when it matters.
 // why, when given, says what the stop is about (the matched rule, the
 // targets); the window shows it on its own line.
-func yesOK(why ...string) bool { return g.yes && personAllows("--yes", why...) }
-func dangerOK(why ...string) bool {
-	return g.allowDangerous && personAllows("--allow-dangerous", why...)
+func (cl *call) yesOK(why ...string) bool { return cl.flags.yes && cl.personAllows("--yes", why...) }
+func (cl *call) dangerOK(why ...string) bool {
+	return cl.flags.allowDangerous && cl.personAllows("--allow-dangerous", why...)
 }
 
 // revealOK never counts under --dry-run: a preview still prints what it
 // reads, and a dry run never asks the person, so it stays masked.
-func revealOK() bool { return g.reveal && !g.dryRun && personAllows("--reveal") }
+func (cl *call) revealOK() bool {
+	return cl.flags.reveal && !cl.flags.dryRun && cl.personAllows("--reveal")
+}
 
 // approvalMaxLen is the longest command line the window shows. A longer one
 // is not cut (the hidden part could be the one that matters): the agent is
@@ -154,21 +77,19 @@ const approvalMaxLen = 500
 // Under --dry-run nothing the flag lets through runs, so no window opens and
 // the preview goes on. The callers that act under --dry-run (output masking,
 // see revealOK) must not count on this.
-func personAllows(flag string, why ...string) bool { return personAllowsFor(flag, "", why...) }
+func (cl *call) personAllows(flag string, why ...string) bool {
+	return cl.personAllowsFor(flag, "", why...)
+}
 
 // personAllowsFor is personAllows that names in the window what the flag
 // lets through (a program that runs on this computer), when the command
 // line alone does not show it. A yes given in a window that did not name
 // it does not cover it: the person is asked again, with it named.
-func personAllowsFor(flag, what string, why ...string) bool {
-	return cur().personAllowsFor(flag, what, why...)
-}
-
-func (c *call) personAllowsFor(flag, what string, why ...string) bool {
-	if !c.caller.IsAgent() || g.dryRun {
+func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
+	if !cl.caller().IsAgent() || cl.flags.dryRun {
 		return true
 	}
-	sess := c.sess
+	sess := cl.sess
 	sess.Lock()
 	defer sess.Unlock()
 	if w := sess.Window(); w.Asked && (what == "" || sess.Shown(what) || !w.Allowed) {
@@ -178,14 +99,14 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 	if what != "" {
 		sess.MarkShown(what)
 	}
-	line := commandLine()
-	bad := hiddenArgs(os.Args[1:])
+	line := commandLine(cl)
+	bad := hiddenArgs(cl.args[1:])
 	if bad == "" {
 		bad = unshowable(line)
 	}
 	body := ""
-	if bad == "" && c.body != nil {
-		body, bad = c.body.shown()
+	if bad == "" && cl.body != nil {
+		body, bad = cl.body.shown(cl)
 	}
 	if bad != "" {
 		sess.SetWhy("unshowable")
@@ -206,7 +127,7 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 			reasons = append(reasons, w)
 		}
 	}
-	text := fmt.Sprintf("%s %s:\n\n%s\n\n", c.caller.Agent, head, line) + body
+	text := fmt.Sprintf("%s %s:\n\n%s\n\n", cl.caller().Agent, head, line) + body
 	if what != "" {
 		if unshowable(what) != "" {
 			what = strconv.QuoteToASCII(what)
@@ -219,7 +140,7 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 	}
 	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
 	sess.SetGaveUp(false)
-	allowed, shown := c.askPerson(text)
+	allowed, shown := cl.askPerson(text)
 	gaveUp := tookGaveUp(text)
 	sess.SetGaveUp(gaveUp)
 	switch {
@@ -240,24 +161,24 @@ func (c *call) personAllowsFor(flag, what string, why ...string) bool {
 // code is on, and never a window a click alone allows where another
 // program can click it (a Linux or BSD desktop, clickForgeable): that
 // needs the code (why "needs-code").
-func (c *call) askPerson(text string) (allowed, shown bool) {
+func (cl *call) askPerson(text string) (allowed, shown bool) {
 	if secret := approvalCodeSecret(); secret != nil {
 		// a second factor: the code from the person's authenticator app
-		code, pressed, ok := askCodeOnScreen(text)
+		code, pressed, ok := askCodeOnScreen(cl, text)
 		allowed = pressed && len(secret) > 0 && codeOK(secret, code, time.Now())
 		if pressed && !allowed {
-			c.sess.SetWhy("wrong-code")
+			cl.sess.SetWhy("wrong-code")
 		}
 		return allowed, ok
 	}
-	if c.ask != nil {
-		return c.ask(text)
+	if cl.ask != nil {
+		return cl.ask(text)
 	}
-	if clickForgeable() {
-		c.sess.SetWhy("needs-code")
+	if clickForgeable(cl) {
+		cl.sess.SetWhy("needs-code")
 		return false, true
 	}
-	return askOnScreen(text)
+	return askOnScreen(cl, text)
 }
 
 // desktopOS is runtime.GOOS; tests set another.
@@ -271,13 +192,13 @@ var desktopOS = runtime.GOOS
 // "Allow once" there through that compositor's virtual pointer. So
 // neither gets a window a click alone allows: the person needs the
 // approval code, which no program can read off the screen.
-func clickForgeable() bool {
-	if os.Getenv("KOMANDO_NO_DIALOG") != "" || os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != "" {
+func clickForgeable(cl *call) bool {
+	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return false // no window at all (askOnScreen)
 	}
 	switch desktopOS {
 	case "linux", "freebsd", "openbsd", "netbsd", "dragonfly":
-		return os.Getenv("DISPLAY") != "" || os.Getenv("WAYLAND_DISPLAY") != ""
+		return cl.getenv("DISPLAY") != "" || cl.getenv("WAYLAND_DISPLAY") != ""
 	}
 	return false
 }
@@ -367,10 +288,10 @@ func hiddenArgs(args []string) string {
 // stop: the command goes on to show its plan, and meta.would_be_blocked
 // says the real run would stop here. A preview of a change on a protected
 // server is exactly when people need one.
-func policyStop(e *out.Error) error {
-	if g.dryRun {
-		stdApprovalHint(e)
-		out.P.WouldBlock(e)
+func (cl *call) policyStop(e *out.Error) error {
+	if cl.flags.dryRun {
+		stdApprovalHint(cl, e)
+		cl.out.WouldBlock(e)
 		return nil
 	}
 	return e
@@ -378,18 +299,18 @@ func policyStop(e *out.Error) error {
 
 // approvalHint rewrites the hint of a safety stop for an AI agent: it tells
 // it how a person allows the command, or that the person said no.
-func approvalHint(e *out.Error) {
+func approvalHint(cl *call, e *out.Error) {
 	if e == nil || e.Exit != out.ExitPolicy {
 		return
 	}
-	if !isAgent() {
-		stdApprovalHint(e)
+	if !cl.isAgent() {
+		stdApprovalHint(cl, e)
 		return
 	}
 	// "run it in a terminal, or add --yes in a script" is for a person; an
 	// agent reading -o text gets the same advice as in JSON
 	e.PlainHint()
-	switch cur().sess.Window().Why {
+	switch cl.sess.Window().Why {
 	case "denied":
 		e.Hint = "the user clicked Deny in komando's window; do not retry. Ask the user what they want instead"
 	case "no-answer":
@@ -397,11 +318,11 @@ func approvalHint(e *out.Error) {
 	case "wrong-code":
 		e.Hint = "the code typed in komando's window was wrong or missing; ask the user whether to try again"
 	case "needs-code":
-		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine()
+		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
 	case "no-screen":
-		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine()
+		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "unshowable":
-		e.Hint = "komando did not ask the user in its window, because " + cur().sess.Window().Unshown +
+		e.Hint = "komando did not ask the user in its window, because " + cl.sess.Window().Unshown +
 			". Make the command shorter (put a long script in a file for `komando exec --script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
 		switch {
@@ -411,7 +332,7 @@ func approvalHint(e *out.Error) {
 			// --write, leaving out --read-only and raising --max-bytes open no window
 			e.Hint += ". komando does not ask the user about this, so ask them first and go on only when they agree"
 			return
-		case stdApprovalHint(e):
+		case stdApprovalHint(cl, e):
 			return // the one approval hint (S-8.6)
 		case strings.Contains(e.Hint, "komando asks the user in a window"):
 			return // the hint says so already
@@ -430,8 +351,8 @@ func zenityTimedOut(err error) bool {
 // and Windows. shown is false when no window could be shown (no screen, a
 // remote session, KOMANDO_NO_DIALOG=1, or a Linux or BSD desktop, where
 // askPerson asks for the approval code instead: clickForgeable).
-var askOnScreen = func(text string) (allowed, shown bool) {
-	if os.Getenv("KOMANDO_NO_DIALOG") != "" || os.Getenv("SSH_CONNECTION") != "" || os.Getenv("SSH_TTY") != "" {
+var askOnScreen = func(cl *call, text string) (allowed, shown bool) {
+	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return false, false
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
@@ -474,7 +395,7 @@ func systemTool(name string) string {
 // character that does not show as itself (plainRune) is written as $'...'
 // with escapes (\n, \x1b, \u3164), which shells read back as the same
 // text, so a person sees every character and can run it as it is.
-func commandLine() string { return commandLineOf(os.Args[1:]) }
+func commandLine(cl *call) string { return commandLineOf(cl.args[1:]) }
 
 // commandLineOf is commandLine for args.
 func commandLineOf(args []string) string {

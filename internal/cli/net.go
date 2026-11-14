@@ -79,6 +79,7 @@ func netCheckText(data any) string {
 }
 
 func netCheckRun(cmd *cobra.Command, args []string) error {
+	cl := callOf(cmd)
 	var sb strings.Builder
 	sb.WriteString(netCheckFn)
 	for _, hp := range args[1:] {
@@ -94,7 +95,7 @@ func netCheckRun(cmd *cobra.Command, args []string) error {
 		}
 		sb.WriteString("chk " + sshx.Q(h) + " " + p + " " + sshx.Q(hp) + "\n")
 	}
-	return runOps(cmd.Context(), opsSpec{name: "net.check", target: args[0], command: sb.String(), display: "net check " + strings.Join(args[1:], " "),
+	return runOps(cl, cmd.Context(), opsSpec{name: "net.check", target: args[0], command: sb.String(), display: "net check " + strings.Join(args[1:], " "),
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			rows, err := parseNetCheck(rr.Stdout)
 			return rows, err
@@ -182,7 +183,8 @@ func netPortsText(data any) string {
 }
 
 func netPortsRun(cmd *cobra.Command, target string, sudo bool, limit int) error {
-	return runOps(cmd.Context(), opsSpec{name: "net.ports", target: target, command: netPortsScript, display: "net ports", sudo: sudo, limit: limit,
+	cl := callOf(cmd)
+	return runOps(cl, cmd.Context(), opsSpec{name: "net.ports", target: target, command: netPortsScript, display: "net ports", sudo: sudo, limit: limit,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			rows, err := parsePorts(rr.Stdout)
 			if err != nil {

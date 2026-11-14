@@ -282,7 +282,7 @@ func TestClusterSelectorSkipsPlainServers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts, err := resolveClusters(st, "all")
+	ts, err := resolveClusters(tcl, st, "all")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,10 +293,10 @@ func TestClusterSelectorSkipsPlainServers(t *testing.T) {
 	if strings.Join(names, ",") != "prod,sw1" {
 		t.Errorf("all: %v", names)
 	}
-	if ts, err := resolveClusters(st, "prod,web1"); err != nil || len(ts) != 2 {
+	if ts, err := resolveClusters(tcl, st, "prod,web1"); err != nil || len(ts) != 2 {
 		t.Errorf("a named server counts: %v %v", ts, err)
 	}
-	if ts, err := resolveClusters(st, "web1"); err != nil || len(ts) != 1 {
+	if ts, err := resolveClusters(tcl, st, "web1"); err != nil || len(ts) != 1 {
 		t.Errorf("one server alone counts: %v %v", ts, err)
 	}
 }

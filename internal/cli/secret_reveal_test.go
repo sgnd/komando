@@ -1,11 +1,8 @@
 package cli
 
 import (
-	"os"
 	"strings"
 	"testing"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // revealWindow stands in for komando's window: it counts the windows,
@@ -16,16 +13,16 @@ func revealWindow(t *testing.T, allow, shown bool) (n *int, text *string) {
 	t.Helper()
 	noAgent(t)
 	n, text = new(int), new(string)
-	savedAsk, savedOS, savedFrom, savedInteractive := askOnScreen, desktopOS, startedFrom, interactive
-	askOnScreen = func(s string) (bool, bool) {
+	savedAsk, savedOS, savedFrom, savedTerminal := askOnScreen, desktopOS, startedFrom, tcl.terminal
+	askOnScreen = func(_ *call, s string) (bool, bool) {
 		*n++
 		*text = s
 		return allow && shown, shown
 	}
-	desktopOS, startedFrom = "darwin", func() string { return "Komando ← launchd" }
-	interactive = func() bool { return false }
+	desktopOS, startedFrom = "darwin", func(*call) string { return "Komando ← launchd" }
+	tcl.terminal = false
 	t.Cleanup(func() {
-		askOnScreen, desktopOS, startedFrom, interactive = savedAsk, savedOS, savedFrom, savedInteractive
+		askOnScreen, desktopOS, startedFrom, tcl.terminal = savedAsk, savedOS, savedFrom, savedTerminal
 		resetApproval()
 	})
 	return n, text
@@ -39,7 +36,7 @@ func revealHome(t *testing.T) {
 	t.Setenv("SSH_TTY", "")
 	t.Setenv("KOMANDO_SECRET", "s3cret-value-long")
 	mustRun(t, "secret", "set", "db-pass", "--from-env", "KOMANDO_SECRET")
-	t.Cleanup(func() { g.reveal = false; out.P.NoRedact = false; out.P.Mask = false })
+	t.Cleanup(endCommand)
 }
 
 // The Mac app runs komando without a terminal: komando shows the value
@@ -47,9 +44,9 @@ func revealHome(t *testing.T) {
 func TestRevealFromAnAppAsksInTheWindow(t *testing.T) {
 	revealHome(t)
 	n, text := revealWindow(t, true, true)
-	savedArgs := os.Args
-	os.Args = []string{"komando", "secret", "show", "db-pass", "--reveal"} // what the window quotes
-	t.Cleanup(func() { os.Args = savedArgs })
+	savedArgs := tcl.args
+	tcl.args = []string{"komando", "secret", "show", "db-pass", "--reveal"} // what the window quotes
+	t.Cleanup(func() { tcl.args = savedArgs })
 	d := mustRun(t, "secret", "show", "db-pass", "--reveal")
 	if d["value"] != "s3cret-value-long" || *n != 1 {
 		t.Fatalf("value %v after %d windows", d["value"], *n)
@@ -104,7 +101,7 @@ func TestRevealNoClickWindowOnLinux(t *testing.T) {
 func TestRevealAtATerminal(t *testing.T) {
 	revealHome(t)
 	n, _ := revealWindow(t, false, true)
-	interactive = func() bool { return true }
+	tcl.terminal = true // a person at a terminal (TestMain unsets CI)
 	if d := mustRun(t, "secret", "show", "db-pass", "--reveal"); d["value"] != "s3cret-value-long" || *n != 0 {
 		t.Fatalf("value %v after %d windows", d["value"], *n)
 	}

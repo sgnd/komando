@@ -102,7 +102,7 @@ func tunnelShowCmd() *cobra.Command {
 		Short:  "Same as `komando tunnel list`, for one tunnel",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -112,9 +112,9 @@ func tunnelShowCmd() *cobra.Command {
 				return out.NotFound("tunnel", args[0])
 			}
 			row := tunnelRow{Tunnel: t, Alive: tunnelAlive(t), Listen: tunnelListen(t)}
-			out.P.Print("tunnel.list", tunnelList{Count: 1, Tunnels: []tunnelRow{row}}, nil)
+			cl.out.Print("tunnel.list", tunnelList{Count: 1, Tunnels: []tunnelRow{row}}, nil)
 			return nil
-		},
+		}),
 	}
 	withID(c, "tunnel.list")
 	c.Annotations[synonymNote] = "tunnel list"
@@ -128,7 +128,7 @@ func recipeShowCmd() *cobra.Command {
 		Short:  "Same as `komando recipe list`, for one recipe",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -137,9 +137,9 @@ func recipeShowCmd() *cobra.Command {
 			if !ok {
 				return recipeNotFound(args[0])
 			}
-			out.P.Print("recipe.list", recipeList{Count: 1, Recipes: []recipeRow{r}}, nil)
+			cl.out.Print("recipe.list", recipeList{Count: 1, Recipes: []recipeRow{r}}, nil)
 			return nil
-		},
+		}),
 	}
 	withID(c, "recipe.list")
 	c.Annotations[synonymNote] = "recipe list"

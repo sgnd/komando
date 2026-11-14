@@ -70,8 +70,8 @@ without it a job has no time limit.`,
   komando job start @web --script ./deploy.sh --arg v1.2.3 --sudo
   komando job start db1 --sudo-user postgres --stdin-file ./migrate.sql --timeout 2h -- 'psql app'`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			sp, err := jobWhat(args, cmdStr, so, stdinFile, readOnly, envs)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			sp, err := jobWhat(cl, args, cmdStr, so, stdinFile, readOnly, envs)
 			if err != nil {
 				return err
 			}
@@ -83,17 +83,17 @@ without it a job has no time limit.`,
 			if err != nil {
 				return err
 			}
-			hosts, err := resolveTargets(st, args[0])
+			hosts, err := resolveTargets(cl, st, args[0])
 			if err != nil {
 				return err
 			}
-			if err := guard(st, hosts, sp.command, sp.mutating); err != nil {
+			if err := guard(cl, st, hosts, sp.command, sp.mutating); err != nil {
 				return err
 			}
-			if sp.env, err = parseEnvTo(envs, hosts); err != nil {
+			if sp.env, err = parseEnvTo(cl, envs, hosts); err != nil {
 				return err
 			}
-			if g.dryRun {
+			if cl.flags.dryRun {
 				plan := map[string]any{"hosts": hostNames(hosts), "command": sp.shown}
 				switch {
 				case so.file != "":
@@ -107,11 +107,11 @@ without it a job has no time limit.`,
 				if sp.timeout > 0 {
 					plan["timeout_seconds"] = int((sp.timeout + time.Second - 1) / time.Second)
 				}
-				out.P.Print("job.start", plan, nil)
+				cl.out.Print("job.start", plan, nil)
 				return nil
 			}
-			return startJobs(cmd.Context(), st, hosts, sp)
-		},
+			return startJobs(cl, cmd.Context(), st, hosts, sp)
+		}),
 	}
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
 	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer as the job ('-' = komando's stdin)")
@@ -127,9 +127,9 @@ without it a job has no time limit.`,
 }
 
 // startJobs starts sp on every server of hosts and prints one row each.
-func startJobs(ctx context.Context, st *store.State, hosts []*store.Host, sp jobSpec) error {
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-		s, err := startJob(ctx, c, sp)
+func startJobs(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, sp jobSpec) error {
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		s, err := startJob(cl, ctx, c, sp)
 		if err != nil {
 			return nil, err
 		}
@@ -152,8 +152,8 @@ func startJobs(ctx context.Context, st *store.State, hosts []*store.Host, sp job
 		data.Summary.OK++
 	}
 	data.Summary.Total = len(res)
-	audit(st, "job.start", hostNames(hosts), sp.shown, data.Summary.Failed == 0, nil)
-	return finishFleet("job.start", data.withNext(), runSummary{fleetSummary: data.Summary}, worst, fails)
+	audit(cl, st, "job.start", hostNames(hosts), sp.shown, data.Summary.Failed == 0, nil)
+	return finishFleet(cl, "job.start", data.withNext(cl), runSummary{fleetSummary: data.Summary}, worst, fails)
 }
 
 type jobStatus struct {
@@ -171,7 +171,7 @@ type jobStatus struct {
 	Tail       string `json:"tail,omitempty"`
 }
 
-func lookupJob(id string) (*store.State, *store.Job, *store.Host, error) {
+func lookupJob(cl *call, id string) (*store.State, *store.Job, *store.Host, error) {
 	st, err := loadState()
 	if err != nil {
 		return nil, nil, nil, err
@@ -186,7 +186,7 @@ func lookupJob(id string) (*store.State, *store.Job, *store.Host, error) {
 			return nil, nil, nil, out.NotFound("host", j.Host)
 		}
 	}
-	notePersonal(st, []*store.Host{h}, nil) // a job's output is data from h
+	notePersonal(cl, st, []*store.Host{h}, nil) // a job's output is data from h
 	return st, j, h, nil
 }
 
@@ -204,22 +204,22 @@ func jobStatusCmd() *cobra.Command {
 		Aliases: []string{"show"},
 		Short:   "Show a job's state, exit code, run time and last lines",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			st, j, h, err := lookupJob(args[0])
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			st, j, h, err := lookupJob(cl, args[0])
 			if err != nil {
 				return err
 			}
 			var s *jobStatus
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-				s, err = fetchStatus(cmd.Context(), c, j, tail)
+			err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
+				s, err = fetchStatus(cl, cmd.Context(), c, j, tail)
 				return err
 			})
 			if err != nil {
 				return err
 			}
-			out.P.Print("job.status", s, nil)
+			cl.out.Print("job.status", s, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().IntVar(&tail, "tail", 20, "also show the last N lines of output (0 = none)")
 	return c
@@ -245,20 +245,20 @@ func jobLogsCmd() *cobra.Command {
 		Use:   "logs JOB",
 		Short: "Read a job's output, piece by piece or its last lines",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if offset < 0 {
 				return out.Usage("--offset takes 0 or more (it is a byte position; use --limit N for the last lines)")
 			}
 			if limit <= 0 {
 				return out.Usage("--max-bytes takes a number more than 0")
 			}
-			st, j, h, err := lookupJob(args[0])
+			st, j, h, err := lookupJob(cl, args[0])
 			if err != nil {
 				return err
 			}
 			var res jobLogs
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-				s, err := fetchStatus(cmd.Context(), c, j, 0)
+			err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
+				s, err := fetchStatus(cl, cmd.Context(), c, j, 0)
 				if err != nil {
 					return err
 				}
@@ -286,9 +286,9 @@ func jobLogsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out.P.Print("job.logs", res, nil)
+			cl.out.Print("job.logs", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().Int64Var(&offset, "offset", 0, "byte offset to read from (use next_offset from the previous call)")
 	limit = 256 << 10
@@ -314,18 +314,18 @@ group of servers) to wait for all of them at once.`,
 		Example: `  komando job wait j1103-101500-ab12cd34 --timeout 30m
   komando job wait j1103-101500-ab12cd34 j1103-101500-ef56ab78`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			deadline := time.Now().Add(waitTimeout)
 			if len(args) == 1 {
-				s, err := waitJob(cmd.Context(), args[0], deadline, interval, tail)
+				s, err := waitJob(cl, cmd.Context(), args[0], deadline, interval, tail)
 				if err != nil {
 					return err
 				}
 				if e := waitVerdict(s, waitTimeout); e != nil {
-					out.P.Print("job.wait", s, e)
+					cl.out.Print("job.wait", s, e)
 					return exitCode(e.Exit)
 				}
-				out.P.Print("job.wait", s, nil)
+				cl.out.Print("job.wait", s, nil)
 				return nil
 			}
 			st, err := loadState()
@@ -333,7 +333,7 @@ group of servers) to wait for all of them at once.`,
 				return err
 			}
 			rows := make([]waitRow, len(args))
-			sem := make(chan struct{}, max(1, parallelism(st)))
+			sem := make(chan struct{}, max(1, parallelism(cl, st)))
 			var wg sync.WaitGroup
 			for i, id := range args {
 				wg.Add(1)
@@ -341,7 +341,7 @@ group of servers) to wait for all of them at once.`,
 					defer wg.Done()
 					sem <- struct{}{}
 					defer func() { <-sem }()
-					s, err := waitJob(cmd.Context(), id, deadline, interval, tail)
+					s, err := waitJob(cl, cmd.Context(), id, deadline, interval, tail)
 					rows[i] = waitRow{ID: id, Status: s, Error: toErr(err)}
 					if err == nil {
 						rows[i].Error = waitVerdict(s, waitTimeout)
@@ -364,8 +364,8 @@ group of servers) to wait for all of them at once.`,
 				fails = append(fails, hostFail{host: r.ID, reason: failReason(0, r.Error), err: r.Error})
 			}
 			data.Summary.Total = len(rows)
-			return finishFleet("job.wait", data, runSummary{fleetSummary: data.Summary}, worst, fails)
-		},
+			return finishFleet(cl, "job.wait", data, runSummary{fleetSummary: data.Summary}, worst, fails)
+		}),
 	}
 	durVar(c.Flags(), &interval, "interval", 3*time.Second, "how often to check")
 	// its own --timeout: the global one's default (5m, per server) is not this one's
@@ -377,8 +377,8 @@ group of servers) to wait for all of them at once.`,
 // waitJob polls one job until it ends or the deadline passes. A long wait
 // outlives SSH connections (a NAT, a firewall or a shaky VPN drops them):
 // it connects again and keeps waiting, like kubectl wait.
-func waitJob(ctx context.Context, id string, deadline time.Time, interval time.Duration, tail int) (*jobStatus, error) {
-	st, j, h, err := lookupJob(id)
+func waitJob(cl *call, ctx context.Context, id string, deadline time.Time, interval time.Duration, tail int) (*jobStatus, error) {
+	st, j, h, err := lookupJob(cl, id)
 	if err != nil {
 		return nil, err
 	}
@@ -393,10 +393,10 @@ func waitJob(ctx context.Context, id string, deadline time.Time, interval time.D
 	}
 	for {
 		var done bool
-		err = withClient(ctx, st, h, func(c *sshx.Client) error {
+		err = withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 			for {
 				var ferr error
-				if s, ferr = fetchStatus(ctx, c, j, tail); ferr != nil {
+				if s, ferr = fetchStatus(cl, ctx, c, j, tail); ferr != nil {
 					return ferr
 				}
 				if s.State != "running" || time.Now().After(deadline) {
@@ -453,7 +453,7 @@ type jobWaited struct {
 
 // fleetHint: the jobs still running can be waited for again, in one
 // command; the others say in data.jobs why they failed.
-func (d jobWaited) fleetHint() string {
+func (d jobWaited) fleetHint(cl *call) string {
 	var running []string
 	for _, r := range d.Jobs {
 		if r.Error != nil && r.Error.Code == "WAIT_TIMEOUT" {
@@ -461,7 +461,7 @@ func (d jobWaited) fleetHint() string {
 		}
 	}
 	hint := "each job's state and error are listed with it (data.jobs in -o json)"
-	if out.P.Format == "text" {
+	if cl.out.Format == "text" {
 		hint = "each job's state is above"
 	}
 	if len(running) > 0 {
@@ -495,32 +495,32 @@ func jobKillCmd() *cobra.Command {
 		Aliases: []string{"stop"},
 		Short:   "Stop a job: send a signal to its process group (default TERM)",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			sig = strings.TrimPrefix(strings.ToUpper(sig), "SIG")
 			if !validSignal(sig) {
 				return out.Usage("unknown --signal %q (use TERM, KILL, INT, HUP, QUIT, USR1, USR2 or a number)", sig)
 			}
-			st, j, h, err := lookupJob(args[0])
+			st, j, h, err := lookupJob(cl, args[0])
 			if err != nil {
 				return err
 			}
-			if err := guard(st, []*store.Host{h}, "", true); err != nil {
+			if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
 				return err
 			}
 			script := jobKillScript(j, sig)
-			if g.dryRun {
-				out.P.Print("job.kill", map[string]any{"job": j.ID, "host": h.Name, "would_run": script}, nil)
+			if cl.flags.dryRun {
+				cl.out.Print("job.kill", map[string]any{"job": j.ID, "host": h.Name, "would_run": script}, nil)
 				return nil
 			}
 			var r *sshx.RunResult
-			err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
+			err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
 				r, err = sshx.Run(cmd.Context(), c, sshx.RunRequest{Command: script, Sudo: sudo, Timeout: 30 * time.Second, MaxOutput: 4096})
 				return err
 			})
 			if err != nil {
 				return err
 			}
-			audit(st, "job.kill", []string{h.Name}, script, r.ExitCode == 0, map[string]any{"job": j.ID})
+			audit(cl, st, "job.kill", []string{h.Name}, script, r.ExitCode == 0, map[string]any{"job": j.ID})
 			if r.ExitCode != 0 {
 				hint := "check `komando job status " + j.ID + "`"
 				if strings.Contains(r.Stderr, "not permitted") && !sudo {
@@ -537,9 +537,9 @@ func jobKillCmd() *cobra.Command {
 			case "GONE":
 				res.State, res.Note = "gone", "the process was no longer running; nothing to do"
 			}
-			out.P.Print("job.kill", res, nil)
+			cl.out.Print("job.kill", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&sig, "signal", "TERM", "signal name or number (TERM, KILL, INT, HUP ...)")
 	c.Flags().BoolVarP(&sudo, "sudo", "s", false, "send the signal with sudo (for jobs started with --sudo)")
@@ -590,22 +590,22 @@ func jobRmCmd() *cobra.Command {
 		Use:   "rm JOB...",
 		Short: "Forget jobs and delete their logs on the server",
 		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			removed := []string{}
 			for _, id := range args {
-				st, j, h, err := lookupJob(id)
+				st, j, h, err := lookupJob(cl, id)
 				if err != nil {
 					return err
 				}
 				if force {
 					// --kill may stop it, the change job kill is: a protected
 					// server asks first
-					if err := guard(st, []*store.Host{h}, "", true); err != nil {
+					if err := guard(cl, st, []*store.Host{h}, "", true); err != nil {
 						return err
 					}
 				}
-				err = withClient(cmd.Context(), st, h, func(c *sshx.Client) error {
-					s, err := fetchStatus(cmd.Context(), c, j, 0)
+				err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
+					s, err := fetchStatus(cl, cmd.Context(), c, j, 0)
 					if err != nil {
 						return err
 					}
@@ -614,13 +614,13 @@ func jobRmCmd() *cobra.Command {
 							return out.Errf(out.ExitConflict, "JOB_RUNNING", "stop it first with `komando job kill "+id+"`, or pass --kill to stop and remove it",
 								"job %s is still running", id)
 						}
-						if !g.dryRun {
+						if !cl.flags.dryRun {
 							script := jobKillScript(j, "TERM")
 							r, err := sshx.Run(cmd.Context(), c, sshx.RunRequest{Command: script, Timeout: 30 * time.Second, MaxOutput: 4096})
 							if err != nil {
 								return err
 							}
-							audit(st, "job.kill", []string{h.Name}, script, r.ExitCode == 0, map[string]any{"job": j.ID})
+							audit(cl, st, "job.kill", []string{h.Name}, script, r.ExitCode == 0, map[string]any{"job": j.ID})
 							if r.ExitCode != 0 {
 								// still running: keep the record, or nothing finds it again
 								return out.Errf(out.ExitRemote, "KILL_FAILED", "it runs as another user (started with --sudo?): `komando job kill "+id+" --sudo`, then `komando job rm "+id+"`",
@@ -628,7 +628,7 @@ func jobRmCmd() *cobra.Command {
 							}
 						}
 					}
-					if !keepRemote && !g.dryRun {
+					if !keepRemote && !cl.flags.dryRun {
 						_, _, err := sshx.Output(cmd.Context(), c, `rm -rf "`+jobDir(j.ID)+`"`, 30*time.Second)
 						return err
 					}
@@ -638,18 +638,18 @@ func jobRmCmd() *cobra.Command {
 					return err
 				}
 				// an unreachable server: the record goes anyway (its logs stay there)
-				if err := store.UpdateRuntime(func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
+				if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
 					return err
 				}
 				removed = append(removed, id)
 			}
-			if g.dryRun {
-				out.P.Print("job.rm", map[string]any{"would_remove": removed}, nil)
+			if cl.flags.dryRun {
+				cl.out.Print("job.rm", map[string]any{"would_remove": removed}, nil)
 				return nil
 			}
-			out.P.Print("job.rm", map[string]any{"removed": removed}, nil)
+			cl.out.Print("job.rm", map[string]any{"removed": removed}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&keepRemote, "keep-remote", false, "keep the job's log folder on the server")
 	c.Flags().BoolVar(&force, "kill", false, "kill a running job first, then remove it")
@@ -673,8 +673,8 @@ type jobStarted struct {
 }
 
 // fleetHint: why each server did not start its job is in data.jobs.
-func (d jobStarted) fleetHint() string {
-	if out.P.Format == "text" {
+func (d jobStarted) fleetHint(cl *call) string {
+	if cl.out.Format == "text" {
 		return "each server's error is above"
 	}
 	return "each server's error is listed with its job (data.jobs in -o json)"
@@ -693,15 +693,15 @@ func (d jobStarted) ids() []string {
 
 // withNext adds the commands that follow, when a job started, with the
 // real IDs: job wait takes them all at once, status and logs one each.
-func (d jobStarted) withNext() jobStarted {
+func (d jobStarted) withNext(cl *call) jobStarted {
 	ids := d.ids()
 	switch {
 	case len(ids) == 1:
 		d.Next = "komando job status " + ids[0] + "  |  komando job logs " + ids[0] + " --offset 0  |  komando job wait " + ids[0]
-		sayNext("komando job logs "+ids[0]+" --limit 20", "komando job wait "+ids[0], "komando job status "+ids[0])
+		sayNext(cl, "komando job logs "+ids[0]+" --limit 20", "komando job wait "+ids[0], "komando job status "+ids[0])
 	case len(ids) > 1:
 		d.Next = "komando job wait " + strings.Join(ids, " ") + "  |  komando job status <id>  |  komando job logs <id> --offset <next_offset>"
-		sayNext("komando job wait "+strings.Join(ids, " "), "komando job logs JOB --limit 20", "komando job status JOB")
+		sayNext(cl, "komando job wait "+strings.Join(ids, " "), "komando job logs JOB --limit 20", "komando job status JOB")
 	}
 	return d
 }

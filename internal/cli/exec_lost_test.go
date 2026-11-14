@@ -61,10 +61,10 @@ func TestExecConnectionLost(t *testing.T) {
 func TestJobStartSudoPassword(t *testing.T) {
 	srv := startFakeServer(t)
 	const pw = "hunter2-Sudo-pw"
-	if err := vault.Set("dev-sudo", pw); err != nil {
+	if err := vault.Set(store.Save(), "dev-sudo", pw); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(func(st *store.State) error { st.Hosts["dev"].SudoRef = "secret:dev-sudo"; return nil }); err != nil {
+	if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["dev"].SudoRef = "secret:dev-sudo"; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	srv.reply("4242\n")
@@ -94,7 +94,7 @@ func TestJobStartSudoPassword(t *testing.T) {
 // the worst exit code.
 func TestJobWaitSeveral(t *testing.T) {
 	srv := startFakeServer(t)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		for _, id := range []string{"j1", "j2"} {
 			st.Jobs[id] = &store.Job{ID: id, Host: "dev", Command: "x", PID: 7, StartedAt: time.Now()}
 		}

@@ -90,7 +90,7 @@ func TestWriteStagesPrivately(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := &peekReader{dir: dir, parts: []string{"DB_PASSWORD=", "s3cret\n"}}
-	res, err := writeRemoteFrom(context.Background(), nil, sc, p, r, writeOpts{})
+	res, err := writeRemoteFrom(tcl, context.Background(), nil, sc, p, r, writeOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestWriteFailsWhenModeIsRefused(t *testing.T) {
 	if err := os.WriteFile(p, []byte("DB_PASSWORD=old\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	_, err := writeRemote(context.Background(), nil, sc, p, []byte("DB_PASSWORD=new\n"), writeOpts{backup: true})
+	_, err := writeRemote(tcl, context.Background(), nil, sc, p, []byte("DB_PASSWORD=new\n"), writeOpts{backup: true})
 	if e, ok := err.(*out.Error); !ok || e.Code != "CHMOD_FAILED" || !strings.Contains(e.Hint, "does not allow setting file modes") {
 		t.Fatalf("got %v, want CHMOD_FAILED", err)
 	}
@@ -172,7 +172,7 @@ func TestWriteWorksWhenModesCannotBeSetButFilesArePrivate(t *testing.T) {
 		if err := os.WriteFile(p, []byte("old\n"), c.was); err != nil {
 			t.Fatal(err)
 		}
-		res, err := writeRemote(context.Background(), nil, sc, p, []byte("new\n"), writeOpts{backup: true})
+		res, err := writeRemote(tcl, context.Background(), nil, sc, p, []byte("new\n"), writeOpts{backup: true})
 		if err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
@@ -196,7 +196,7 @@ func TestBackupNeverOverwrites(t *testing.T) {
 	}
 	write := func(content string) map[string]any {
 		t.Helper()
-		res, err := writeRemote(context.Background(), nil, sc, p, []byte(content), writeOpts{backup: true})
+		res, err := writeRemote(tcl, context.Background(), nil, sc, p, []byte(content), writeOpts{backup: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -227,7 +227,7 @@ func TestBackupNeverOverwrites(t *testing.T) {
 	if err := os.Symlink(victim, q+".bak"); err != nil {
 		t.Fatal(err)
 	}
-	res, err := writeRemote(context.Background(), nil, sc, q, []byte("new\n"), writeOpts{backup: true})
+	res, err := writeRemote(tcl, context.Background(), nil, sc, q, []byte("new\n"), writeOpts{backup: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -425,18 +425,18 @@ func TestReplaceRotationRunsTwice(t *testing.T) {
 // fs write: for an AI agent, a file with a hidden value always counts as
 // changed, so --if-changed and would_change never confirm a guessed file.
 func TestSameForAgent(t *testing.T) {
-	saved := out.P.Mask
-	defer func() { out.P.Mask = saved }()
+	saved := tcl.out.Mask
+	defer func() { tcl.out.Mask = saved }()
 	old := []byte("DB_PASSWORD=hunter2xyz\n")
-	out.P.Mask = false
-	if !sameForAgent(old, old) || sameForAgent(old, []byte("x")) {
+	tcl.out.Mask = false
+	if !sameForAgent(tcl, old, old) || sameForAgent(tcl, old, []byte("x")) {
 		t.Fatal("a person compares bytes")
 	}
-	out.P.Mask = true
-	if sameForAgent(old, old) || sameForAgent(old, []byte("DB_PASSWORD=wrongguess\n")) {
+	tcl.out.Mask = true
+	if sameForAgent(tcl, old, old) || sameForAgent(tcl, old, []byte("DB_PASSWORD=wrongguess\n")) {
 		t.Fatal("an agent learned whether its guess was right")
 	}
-	if !sameForAgent([]byte("PORT=8080\n"), []byte("PORT=8080\n")) {
+	if !sameForAgent(tcl, []byte("PORT=8080\n"), []byte("PORT=8080\n")) {
 		t.Fatal("a file with nothing hidden compares as before")
 	}
 }
@@ -444,28 +444,28 @@ func TestSameForAgent(t *testing.T) {
 // fs cat for an AI agent: the whole file is masked before --head/--tail
 // cut it, and the hash of a file with a hidden value is left out.
 func TestCatMasksBeforeCutting(t *testing.T) {
-	saved := out.P.Mask
-	defer func() { out.P.Mask = saved }()
+	saved := tcl.out.Mask
+	defer func() { tcl.out.Mask = saved }()
 	key := "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAA\nQUJDREVGR0hJSktMTU5PUFFS\n-----END OPENSSH PRIVATE KEY-----\n"
-	out.P.Mask = true
+	tcl.out.Mask = true
 	for _, c := range []struct {
 		head, tail int
 		numbered   bool
 	}{{0, 2, false}, {0, 2, true}, {3, 0, false}, {3, 1, true}} {
-		r, err := catContent("web1", "/k", []byte("x\n"+key), false, c.head, c.tail, c.numbered)
+		r, err := catContent(tcl, "web1", "/k", []byte("x\n"+key), false, c.head, c.tail, c.numbered)
 		if err != nil || strings.Contains(r.Content, "b3Bl") || strings.Contains(r.Content, "QUJD") || r.SHA256 != "" {
 			t.Errorf("head %d tail %d: %+v %v", c.head, c.tail, r, err)
 		}
 	}
-	r, _ := catContent("web1", "/k", []byte("x\n"+key), false, 0, 0, false)
+	r, _ := catContent(tcl, "web1", "/k", []byte("x\n"+key), false, 0, 0, false)
 	if r.Content != "x\n[hidden: private key]\n" || r.Note == "" {
 		t.Errorf("whole file: %+v", r)
 	}
-	if r, _ := catContent("web1", "/c", []byte("PORT=8080\n"), false, 0, 0, false); r.SHA256 == "" {
+	if r, _ := catContent(tcl, "web1", "/c", []byte("PORT=8080\n"), false, 0, 0, false); r.SHA256 == "" {
 		t.Error("nothing hidden: the hash stays")
 	}
-	out.P.Mask = false
-	if r, _ := catContent("web1", "/k", []byte(key), false, 0, 2, false); r.SHA256 == "" || !strings.Contains(r.Content, "QUJD") {
+	tcl.out.Mask = false
+	if r, _ := catContent(tcl, "web1", "/k", []byte(key), false, 0, 2, false); r.SHA256 == "" || !strings.Contains(r.Content, "QUJD") {
 		t.Errorf("a person reads the file as it is: %+v", r)
 	}
 }

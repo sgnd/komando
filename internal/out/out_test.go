@@ -79,6 +79,20 @@ func TestHostKeysPinnedMeta(t *testing.T) {
 	}
 }
 
+// Reset starts the next command as a new printer: what one command set
+// (--dry-run, --pretty, masking, --reveal) is not the next one's.
+func TestResetForgetsCommandSettings(t *testing.T) {
+	var b bytes.Buffer
+	p := &Printer{Format: "text", W: &b, DryRun: true, Pretty: true, Mask: true, Personal: true, NoRedact: true}
+	p.Reset()
+	if p.DryRun || p.Pretty || p.Mask || p.Personal || p.NoRedact {
+		t.Errorf("after Reset: %+v", p)
+	}
+	if p.Format != "text" || p.W != &b || p.Start.IsZero() {
+		t.Errorf("Reset dropped the call's own fields: %+v", p)
+	}
+}
+
 // A preview never says it changed something.
 func TestHeadlineDryRun(t *testing.T) {
 	m := func() map[string]any { return map[string]any{"name": "web2", "changed": true, "user": "zz"} }

@@ -30,7 +30,7 @@ func clusterLsCmd() *cobra.Command {
   komando cluster list swarm1 services
   komando cluster list swarm1 tasks --limit 20`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
 				return err
 			}
@@ -38,7 +38,7 @@ func clusterLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ts, err := resolveClusters(st, args[0])
+			ts, err := resolveClusters(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -50,9 +50,9 @@ func clusterLsCmd() *cobra.Command {
 				if kind == "" {
 					return nil, out.Usage("Swarm lists services (svc), tasks, nodes or stacks; %q is none of them", args[1])
 				}
-				return swarmList(ctx, t, kind, selector, limit)
+				return swarmList(cl, ctx, t, kind, selector, limit)
 			}
-			return readClusters(cmd.Context(), "cluster.list", st, ts, clusterRead{swarm: swarm, kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
+			return readClusters(cl, cmd.Context(), "cluster.list", st, ts, clusterRead{swarm: swarm, kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, args[1])
 				if err != nil {
 					return nil, err
@@ -86,12 +86,12 @@ func clusterLsCmd() *cobra.Command {
 					res["namespace"] = space
 				}
 				if list.Metadata.Continue != "" {
-					out.P.CutNoted()
+					cl.out.CutNoted()
 					res["truncated"] = true
 				}
 				return res, nil
 			}})
-		},
+		}),
 	}
 	nsFlags(c, &ns, &all, &limitOpt{&limit, 500, "the most objects to show"})
 	c.Flags().StringVarP(&selector, "selector", "l", "", "only objects with these labels, like app=api or 'tier in (web,api)'")
@@ -107,12 +107,12 @@ func clusterGetCmd() *cobra.Command {
   komando cluster get prod-k8s deployment.apps/api --namespace shop
   komando cluster get swarm1 service/web`,
 		Args: refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -124,14 +124,14 @@ func clusterGetCmd() *cobra.Command {
 				if err := noNamespace(t, ns); err != nil {
 					return err
 				}
-				res, err := swarmGet(cmd.Context(), t, typ, name)
+				res, err := swarmGet(cl, cmd.Context(), t, typ, name)
 				if err != nil {
 					return err
 				}
-				out.P.Print("cluster.get", res, nil)
+				cl.out.Print("cluster.get", res, nil)
 				return nil
 			}
-			return withKube(cmd.Context(), "cluster.get", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, cmd.Context(), "cluster.get", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -141,13 +141,13 @@ func clusterGetCmd() *cobra.Command {
 					return nil, err
 				}
 				redact(o)
-				maskObject(o)
+				maskObject(cl, o)
 				if m, ok := o["metadata"].(map[string]any); ok {
 					delete(m, "managedFields")
 				}
 				return o, nil
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	return c
@@ -184,12 +184,12 @@ func clusterRestartCmd() *cobra.Command {
 		Example: `  komando cluster restart prod-k8s deployment/api --namespace shop --wait
   komando cluster restart swarm1 service/web`,
 		Args: refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -204,13 +204,13 @@ func clusterRestartCmd() *cobra.Command {
 				if swarmKind(typ) != "service" {
 					return out.Usage("on Swarm, restart works on services (service/NAME)")
 				}
-				if _, err := swarmInspect(cmd.Context(), t, name); err != nil {
+				if _, err := swarmInspect(cl, cmd.Context(), t, name); err != nil {
 					return err
 				}
-				return swarmChange(cmd.Context(), "cluster.restart", t, name, "docker service update --force --detach "+sshx.Q(name), wait, false, driver.RiskWrite,
+				return swarmChange(cl, cmd.Context(), "cluster.restart", t, name, "docker service update --force --detach "+sshx.Q(name), wait, false, driver.RiskWrite,
 					map[string]any{"restarted": "service/" + name})
 			}
-			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.restart", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, ownTimeLimit(cmd.Context(), wait), "cluster.restart", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -220,17 +220,17 @@ func clusterRestartCmd() *cobra.Command {
 				}
 				patch := fmt.Sprintf(`{"spec":{"template":{"metadata":{"annotations":{"kubectl.kubernetes.io/restartedAt":%q}}}}}`, time.Now().UTC().Format(time.RFC3339))
 				q := url.Values{}
-				if g.dryRun {
+				if cl.flags.dryRun {
 					q.Set("dryRun", "All")
 				}
 				space := cmp.Or(ns, k.Namespace)
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, []byte(patch), "application/strategic-merge-patch+json"); err != nil {
 					return nil, err
 				}
-				res := map[string]any{"conn": t.conn.Name, "restarted": kindRef(r, name), "namespace": space, "dry_run": g.dryRun}
-				return withRollout(ctx, k, r, space, name, wait, res)
+				res := map[string]any{"conn": t.conn.Name, "restarted": kindRef(r, name), "namespace": space, "dry_run": cl.flags.dryRun}
+				return withRollout(cl, ctx, k, r, space, name, wait, res)
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().BoolVar(&wait, "wait", false, "wait until the restart has rolled out (--timeout, default 5m)")
@@ -243,11 +243,11 @@ func kindRef(r kube.ResourceType, name string) string {
 }
 
 // withRollout adds the rollout to res when wait is set (and it is no dry run).
-func withRollout(ctx context.Context, k *kube.Client, r kube.ResourceType, space, name string, wait bool, res map[string]any) (any, error) {
-	if !wait || g.dryRun {
+func withRollout(cl *call, ctx context.Context, k *kube.Client, r kube.ResourceType, space, name string, wait bool, res map[string]any) (any, error) {
+	if !wait || cl.flags.dryRun {
 		return res, nil
 	}
-	ro, err := waitRollout(ctx, k, r, space, name, rolloutWait())
+	ro, err := waitRollout(ctx, k, r, space, name, rolloutWait(cl))
 	res["rollout"] = ro
 	if err != nil {
 		return res, err
@@ -273,7 +273,7 @@ func clusterScaleCmd() *cobra.Command {
 		Example: `  komando cluster scale prod-k8s deployment/api 3 --namespace shop --wait
   komando cluster scale swarm1 service/web 4`,
 		Args: refArgs(1, 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			n, err := strconv.Atoi(args[len(args)-1])
 			if err != nil || n < 0 {
 				return out.Usage("REPLICAS takes a number, 0 or more")
@@ -282,7 +282,7 @@ func clusterScaleCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -298,14 +298,14 @@ func clusterScaleCmd() *cobra.Command {
 				if err := noNamespace(t, ns); err != nil {
 					return err
 				}
-				return swarmScale(cmd.Context(), t, typ, name, n, wait, risk)
+				return swarmScale(cl, cmd.Context(), t, typ, name, n, wait, risk)
 			}
 			if n == 0 {
-				if err := confirmObject([]string{t.conn.Name}, name, "stops every copy of "+typ+"/"+name+" (scale to 0)"); err != nil {
+				if err := confirmObject(cl, []string{t.conn.Name}, name, "stops every copy of "+typ+"/"+name+" (scale to 0)"); err != nil {
 					return err
 				}
 			}
-			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.scale", t, risk, map[string]any{"object": typ + "/" + name, "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, ownTimeLimit(cmd.Context(), wait), "cluster.scale", t, risk, map[string]any{"object": typ + "/" + name, "replicas": n}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -323,22 +323,22 @@ func clusterScaleCmd() *cobra.Command {
 					return nil, err
 				}
 				res := map[string]any{"conn": t.conn.Name, "scaled": kindRef(r, name), "replicas": n, "previous_replicas": cur.Spec.Replicas,
-					"namespace": space, "dry_run": g.dryRun}
+					"namespace": space, "dry_run": cl.flags.dryRun}
 				if cur.Spec.Replicas == n {
 					res["unchanged"] = true
-					return withRollout(ctx, k, r, space, name, wait, res)
+					return withRollout(cl, ctx, k, r, space, name, wait, res)
 				}
 				q := url.Values{}
-				if g.dryRun {
+				if cl.flags.dryRun {
 					q.Set("dryRun", "All")
 				}
 				body := fmt.Sprintf(`{"spec":{"replicas":%d}}`, n)
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name)+"/scale", q, []byte(body), "application/merge-patch+json"); err != nil {
 					return nil, err
 				}
-				return withRollout(ctx, k, r, space, name, wait, res)
+				return withRollout(cl, ctx, k, r, space, name, wait, res)
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().BoolVar(&wait, "wait", false, "wait until every replica is ready (--timeout, default 5m)")
@@ -346,11 +346,11 @@ func clusterScaleCmd() *cobra.Command {
 }
 
 // swarmScale sets a replicated service's replica count.
-func swarmScale(ctx context.Context, t clusterTarget, typ, name string, n int, wait bool, risk driver.Risk) error {
+func swarmScale(cl *call, ctx context.Context, t clusterTarget, typ, name string, n int, wait bool, risk driver.Risk) error {
 	if swarmKind(typ) != "service" {
 		return out.Usage("on Swarm, scale works on services (service/NAME)")
 	}
-	ins, err := swarmInspect(ctx, t, name)
+	ins, err := swarmInspect(cl, ctx, t, name)
 	if err != nil {
 		return err
 	}
@@ -361,14 +361,14 @@ func swarmScale(ctx context.Context, t clusterTarget, typ, name string, n int, w
 	res := map[string]any{"host": t.host.Name, "scaled": "service/" + name, "replicas": n, "previous_replicas": prev}
 	if prev == n {
 		res["unchanged"] = true
-		out.P.Print("cluster.scale", res, nil)
+		cl.out.Print("cluster.scale", res, nil)
 		return nil
 	}
 	line := "docker service scale --detach " + sshx.Q(name+"="+strconv.Itoa(n))
 	if n == 0 {
-		if err := confirmObject(nil, name, "stops every copy of service/"+name+" (scale to 0)"); err != nil {
+		if err := confirmObject(cl, nil, name, "stops every copy of service/"+name+" (scale to 0)"); err != nil {
 			return err
 		}
 	}
-	return swarmChange(ctx, "cluster.scale", t, name, line, wait, false, risk, res)
+	return swarmChange(cl, ctx, "cluster.scale", t, name, line, wait, false, risk, res)
 }

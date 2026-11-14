@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/sgnd/komando/internal/out"
@@ -50,9 +49,9 @@ func failReason(code int, e *out.Error) string {
 
 // finishFleet prints a multi-host result and turns failures into the exit
 // code: worst is the worst exit of the failed hosts.
-func finishFleet(command string, data any, sum runSummary, worst int, fails []hostFail) error {
+func finishFleet(cl *call, command string, data any, sum runSummary, worst int, fails []hostFail) error {
 	if len(fails) == 0 {
-		out.P.Print(command, data, nil)
+		cl.out.Print(command, data, nil)
 		return nil
 	}
 	soft := &out.Error{Exit: worst}
@@ -60,11 +59,11 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 		// data that is not per-host results (jobs) says itself where to look
 		// and what to run next, for a person and an agent alike
 		if h, ok := data.(fleetHinter); ok && sum.Total > 1 {
-			if hint := h.fleetHint(); hint != "" {
+			if hint := h.fleetHint(cl); hint != "" {
 				soft.Hint = hint
 			}
 		}
-		out.P.Print(command, data, soft)
+		cl.out.Print(command, data, soft)
 	}()
 	if sum.Total == 1 {
 		f := fails[0]
@@ -75,7 +74,7 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 			soft.Message = withHost(f.host, f.err.Message)
 			soft.Hint = f.err.Hint
 		}
-		if soft.Hint == "" && out.P.Format != "text" {
+		if soft.Hint == "" && cl.out.Format != "text" {
 			soft.Hint = "each server's result has its exit code and error output (data.results in -o json)"
 		}
 	} else {
@@ -88,7 +87,7 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 		if sum.Skipped > 0 {
 			soft.Message += fmt.Sprintf("; %d skipped by --fail-fast: %s", sum.Skipped, strings.Join(sum.SkippedHosts, ", "))
 		}
-		if out.P.Format != "text" {
+		if cl.out.Format != "text" {
 			soft.Hint = "each server's result has its exit code and error output (data.results in -o json)"
 		}
 	}
@@ -97,12 +96,12 @@ func finishFleet(command string, data any, sum runSummary, worst int, fails []ho
 
 // fleetHinter is data whose closing hint is its own: job start and job
 // wait return jobs, not data.results.
-type fleetHinter interface{ fleetHint() string }
+type fleetHinter interface{ fleetHint(cl *call) string }
 
 // truncationNotes tells a person, on stderr, that output was cut. JSON
 // readers have stdout_truncated / stderr_truncated.
-func truncationNotes(rs []execHostResult, limit int, many bool) {
-	if out.P.Format != "text" {
+func truncationNotes(cl *call, rs []execHostResult, limit int, many bool) {
+	if cl.out.Format != "text" {
 		return
 	}
 	for _, r := range rs {
@@ -113,7 +112,7 @@ func truncationNotes(rs []execHostResult, limit int, many bool) {
 		if many {
 			who = " from " + r.Host
 		}
-		sayLine(os.Stderr, "Note: showing the first "+humanBytes(int64(limit))+" of the output"+who+"; raise --max-output, or run it with `komando job start` or `komando download` for big output")
+		sayLine(cl, "Note: showing the first "+humanBytes(int64(limit))+" of the output"+who+"; raise --max-output, or run it with `komando job start` or `komando download` for big output")
 	}
 }
 

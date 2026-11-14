@@ -44,7 +44,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 	invHome(t)
 	setSecret(t, "reg-ca", "-----BEGIN CERTIFICATE-----")
 	const url = "registry://deploy@registry.lan?ca=secret:reg-ca"
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Conns = map[string]*store.Conn{"reg": {Name: "reg", Kind: "registry", URL: url, Protected: true}}
 		return nil
 	}); err != nil {
@@ -83,12 +83,12 @@ func TestSecretRefInConnURL(t *testing.T) {
 	}
 
 	// doctor: quiet while the secret is there, a warning once it is gone
-	for _, c := range inventoryChecks(st) {
+	for _, c := range inventoryChecks(tcl, st) {
 		if c.Name == "conn:reg" {
 			t.Errorf("doctor: %+v", c)
 		}
 	}
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Conns["reg"].URL = "registry://deploy@registry.lan?ca=secret:nope"
 		return nil
 	}); err != nil {
@@ -96,13 +96,13 @@ func TestSecretRefInConnURL(t *testing.T) {
 	}
 	st, _ = loadState()
 	found := false
-	for _, c := range inventoryChecks(st) {
+	for _, c := range inventoryChecks(tcl, st) {
 		if c.Name == "conn:reg" && c.Warning && strings.Contains(c.Detail, "ca secret:nope is not in the vault") {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("doctor does not warn about the missing CA secret: %+v", inventoryChecks(st))
+		t.Errorf("doctor does not warn about the missing CA secret: %+v", inventoryChecks(tcl, st))
 	}
 }
 

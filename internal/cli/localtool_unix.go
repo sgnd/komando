@@ -12,7 +12,7 @@ import (
 // folder above it belong to root and no one else can write them. A link on
 // the way (Linux's /bin/sh, or /bin itself) must belong to root too, and the
 // file it leads to is checked the same way.
-func toolSafe(p string) bool {
+func toolSafe(_ *call, p string) bool {
 	real, err := filepath.EvalSymlinks(p)
 	if err != nil {
 		return false

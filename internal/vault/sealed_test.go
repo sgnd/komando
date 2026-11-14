@@ -25,35 +25,35 @@ func TestSealedVault(t *testing.T) {
 		t.Fatalf("check before: %+v %v", s, err)
 	}
 	for k, v := range map[string]string{"db": "s3cret-value", "api": "tok-123", "old": "x"} {
-		if err := Set(k, v); err != nil {
+		if err := Set(store.Save(), k, v); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if v, err := Get("db"); err != nil || v != "s3cret-value" {
 		t.Fatalf("get %q %v", v, err)
 	}
-	if err := Set("db", "changed"); err != nil {
+	if err := Set(store.Save(), "db", "changed"); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ := Get("db"); v != "changed" {
 		t.Fatalf("after change %q", v)
 	}
-	if err := Delete("old"); err != nil {
+	if err := Delete(store.Save(), "old"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := Get("old"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("deleted: %v", err)
 	}
-	if err := Copy("api", "api2", false); err != nil {
+	if err := Copy(store.Save(), "api", "api2", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Rename("api2", "api3", false); err != nil {
+	if err := Rename(store.Save(), "api2", "api3", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Rename("api", "db", false); !errors.Is(err, ErrExists) {
+	if err := Rename(store.Save(), "api", "db", false); !errors.Is(err, ErrExists) {
 		t.Fatalf("rename onto a name: %v", err)
 	}
-	if err := RenameMany(map[string]string{"api3": "api4"}); err != nil {
+	if err := RenameMany(store.Save(), map[string]string{"api3": "api4"}); err != nil {
 		t.Fatal(err)
 	}
 	l, _ := List()
@@ -95,7 +95,7 @@ func TestSealedVaultParallel(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := Set(fmt.Sprintf("s%d", i), "v"); err != nil {
+			if err := Set(store.Save(), fmt.Sprintf("s%d", i), "v"); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -110,13 +110,13 @@ func TestSealedVaultParallel(t *testing.T) {
 // server change keeps both.
 func TestSealedVaultBesideInventory(t *testing.T) {
 	sealedVault(t)
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["web"] = &store.Host{Name: "web", PasswordRef: "secret:db"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set("db", "pw"); err != nil {
+	if err := Set(store.Save(), "db", "pw"); err != nil {
 		t.Fatal(err)
 	}
 	st, err := store.Load()
@@ -136,25 +136,25 @@ func TestSealedKeyChanges(t *testing.T) {
 	n := PassphraseN
 	PassphraseN = 1 << 10
 	t.Cleanup(func() { PassphraseN = n })
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["web"] = &store.Host{Name: "web"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set("db", "pw-1"); err != nil {
+	if err := Set(store.Save(), "db", "pw-1"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.UpdateRuntime(func(s *store.State) error {
+	if err := store.UpdateRuntime(store.Save(), func(s *store.State) error {
 		s.Jobs["j1"] = &store.Job{ID: "j1"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ChangeKey("", "short"); !errors.Is(err, ErrShortPassphrase) {
+	if _, err := ChangeKey(store.Save(), "", "short"); !errors.Is(err, ErrShortPassphrase) {
 		t.Fatalf("short: %v", err)
 	}
-	if _, err := ChangeKey("", ""); !errors.Is(err, ErrNoPassphrase) {
+	if _, err := ChangeKey(store.Save(), "", ""); !errors.Is(err, ErrNoPassphrase) {
 		t.Fatalf("no passphrase: %v", err)
 	}
 	both := func(step string) {
@@ -166,7 +166,7 @@ func TestSealedKeyChanges(t *testing.T) {
 			t.Fatalf("%s: inventory or runtime %v", step, err)
 		}
 	}
-	r, err := ChangeKey("", "first passphrase, long")
+	r, err := ChangeKey(store.Save(), "", "first passphrase, long")
 	if err != nil || r.From != "keyfile" || r.To != "passphrase" || r.Secrets != 1 || r.Removed != "store.key" {
 		t.Fatalf("to passphrase: %+v %v", r, err)
 	}
@@ -177,7 +177,7 @@ func TestSealedKeyChanges(t *testing.T) {
 	if err := Opens("wrong passphrase entirely"); !errors.Is(err, ErrWrongKey) {
 		t.Fatalf("wrong passphrase opens: %v", err)
 	}
-	r, err = ChangeKey("first passphrase, long", "second passphrase, long")
+	r, err = ChangeKey(store.Save(), "first passphrase, long", "second passphrase, long")
 	if err != nil || r.To != "passphrase" {
 		t.Fatalf("new passphrase: %+v %v", r, err)
 	}
@@ -185,7 +185,7 @@ func TestSealedKeyChanges(t *testing.T) {
 	if err := Opens("first passphrase, long"); !errors.Is(err, ErrWrongKey) {
 		t.Fatalf("the old passphrase still opens: %v", err)
 	}
-	r, err = ChangeKey("", "")
+	r, err = ChangeKey(store.Save(), "", "")
 	if err != nil || r.To != "keyfile" {
 		t.Fatalf("to key file: %+v %v", r, err)
 	}
@@ -223,7 +223,7 @@ esac
 func TestSealedKeyToKeychainAndBack(t *testing.T) {
 	sealedVault(t)
 	fakeKeychainFiles(t)
-	if err := Set("db", "pw"); err != nil { // a key file store
+	if err := Set(store.Save(), "db", "pw"); err != nil { // a key file store
 		t.Fatal(err)
 	}
 	t.Setenv("KOMANDO_KEYCHAIN", "")
@@ -256,7 +256,7 @@ func TestSealedKeyToKeychainAndBack(t *testing.T) {
 func TestSealedKeyToKeychainCountFails(t *testing.T) {
 	sealedVault(t)
 	fakeKeychainFiles(t)
-	if err := Set("db", "pw"); err != nil {
+	if err := Set(store.Save(), "db", "pw"); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("KOMANDO_KEYCHAIN", "")
@@ -282,17 +282,17 @@ func TestSealedKeyFileChangeStoppedHalfway(t *testing.T) {
 	n := PassphraseN
 	PassphraseN = 1 << 10
 	t.Cleanup(func() { PassphraseN = n })
-	if err := Set("db", "pw"); err != nil {
+	if err := Set(store.Save(), "db", "pw"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ChangeKey("", "a passphrase, long enough"); err != nil {
+	if _, err := ChangeKey(store.Save(), "", "a passphrase, long enough"); err != nil {
 		t.Fatal(err)
 	}
 	// stopped before the commit: a store.key.new nobody uses
 	if err := os.WriteFile(newKeyFilePath(), make([]byte, 32), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ChangeKey("a passphrase, long enough", ""); err != nil {
+	if _, err := ChangeKey(store.Save(), "a passphrase, long enough", ""); err != nil {
 		t.Fatalf("a leftover store.key.new blocks the change: %v", err)
 	}
 	if _, err := os.Stat(newKeyFilePath()); !os.IsNotExist(err) {

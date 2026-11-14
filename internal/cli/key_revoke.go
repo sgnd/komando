@@ -58,7 +58,7 @@ yourself out. --dry-run counts the lines it would remove.`,
   komando key revoke old-deploy @web --user deploy
   komando key revoke ~/keys/alice.pub @prod --all-users --dry-run`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -67,7 +67,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 			if err != nil {
 				return err
 			}
-			hosts, err := resolveTargets(st, args[1])
+			hosts, err := resolveTargets(cl, st, args[1])
 			if err != nil {
 				return err
 			}
@@ -75,21 +75,21 @@ yourself out. --dry-run counts the lines it would remove.`,
 				return out.Usage("give --user NAME or --all-users, not both")
 			}
 			if k != nil && user == "" {
-				if err := guardRevokeSelf(st, hosts, k.Name); err != nil {
+				if err := guardRevokeSelf(cl, st, hosts, k.Name); err != nil {
 					return err
 				}
 			}
-			if err := guard(st, hosts, "", true); err != nil {
+			if err := guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
 			if user != "" && !nameRe.MatchString(user) {
 				return out.Usage("%q cannot be a user name: use letters, digits and . _ -", user)
 			}
-			script := revokeScript(user, blob, g.dryRun)
+			script := revokeScript(user, blob, cl.flags.dryRun)
 			if allUsers {
-				script = revokeAllScript(blob, g.dryRun)
+				script = revokeAllScript(blob, cl.flags.dryRun)
 			}
-			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+			res := fanout(cl, cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 				r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: user != "" || allUsers, Timeout: 30 * time.Second, MaxOutput: 64 << 10})
 				if err != nil {
 					return nil, err
@@ -106,12 +106,12 @@ yourself out. --dry-run counts the lines it would remove.`,
 				n, _ := strconv.Atoi(strings.TrimSpace(r.Stdout))
 				return n, nil
 			})
-			data, worst := revokeResults(label, res)
-			if !g.dryRun {
-				audit(st, "key.revoke", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": label, "user": user, "all_users": allUsers})
+			data, worst := revokeResults(cl, label, res)
+			if !cl.flags.dryRun {
+				audit(cl, st, "key.revoke", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": label, "user": user, "all_users": allUsers})
 			}
-			return finish("key.revoke", data, data.Summary, worst)
-		},
+			return finish(cl, "key.revoke", data, data.Summary, worst)
+		}),
 	}
 	c.Flags().StringVar(&user, "user", "", "edit this user's authorized_keys instead of the login user's (uses sudo)")
 	c.Flags().BoolVar(&allUsers, "all-users", false, "edit every user's authorized_keys on the server (uses sudo)")
@@ -179,7 +179,7 @@ type revokeData struct {
 
 // revokeResults turns each server's outcome into its row, and the worst
 // exit code.
-func revokeResults(label string, res []outcome) (revokeData, int) {
+func revokeResults(cl *call, label string, res []outcome) (revokeData, int) {
 	data := revokeData{Key: label}
 	worst := 0
 	for _, o := range res {
@@ -192,7 +192,7 @@ func revokeResults(label string, res []outcome) (revokeData, int) {
 			data.Summary.FailedHosts = append(data.Summary.FailedHosts, o.Host.Name)
 		} else {
 			field := "removed"
-			if g.dryRun {
+			if cl.flags.dryRun {
 				field = "would_remove"
 			}
 			r["ok"], r[field] = true, o.Value
@@ -209,18 +209,18 @@ func revokeResults(label string, res []outcome) (revokeData, int) {
 
 // guardRevokeSelf stops key revoke of the key komando logs in to hosts
 // with: that locks komando out. A person types the key's name.
-func guardRevokeSelf(st *store.State, hosts []*store.Host, key string) error {
+func guardRevokeSelf(cl *call, st *store.State, hosts []*store.Host, key string) error {
 	var self []string
 	for _, h := range hosts {
 		if h.Key == key {
 			self = append(self, h.Name)
 		}
 	}
-	if len(self) == 0 || dangerOK() {
+	if len(self) == 0 || cl.dangerOK() {
 		return nil
 	}
-	askTypes([]string{key}, "keys")
-	return guardConns(st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
+	askTypes(cl, []string{key}, "keys")
+	return guardConns(cl, st, nil, driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"key-revoke-self"},
 		Reasons: []string{"komando logs in to " + strings.Join(self, ", ") + " with this key; switch them first (`komando host edit TARGET --key OTHER`)"}})
 }
 

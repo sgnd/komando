@@ -90,3 +90,19 @@ func TestEnvRefToTakenUnlockVar(t *testing.T) {
 		t.Error("an unset variable resolved")
 	}
 }
+
+// A call's own environment (an app hands each call one) may still hold
+// the unlock values TakeUnlockEnv took out of the process's: StripUnlock
+// takes them out of what a program the call starts gets.
+func TestStripUnlock(t *testing.T) {
+	env := []string{"PATH=/usr/bin", "KOMANDO_VAULT_PASS=p", "VAULT_TOKEN=t", "KOMANDO_BW_PASSWORD=b", "VAULT_TOKENS=kept", "HOME=/h"}
+	got := StripUnlock(env)
+	if want := []string{"PATH=/usr/bin", "VAULT_TOKENS=kept", "HOME=/h"}; !slices.Equal(got, want) {
+		t.Fatalf("StripUnlock: %v, want %v", got, want)
+	}
+	// an exec.Cmd whose Env is nil inherits the whole process's
+	// environment, unlock values and all: a call with none gets none
+	if got := StripUnlock(nil); got == nil || len(got) != 0 {
+		t.Fatalf("StripUnlock(nil) = %#v, want an empty environment that is not nil", got)
+	}
+}

@@ -10,7 +10,7 @@ import (
 )
 
 func TestRunningStatusEmpty(t *testing.T) {
-	d := runningStatus(&store.State{Settings: store.DefaultSettings()})
+	d := runningStatus(tcl, &store.State{Settings: store.DefaultSettings()})
 	if d.Vpns == nil || d.AWSLogins == nil || d.Tunnels == nil || d.Jobs == nil {
 		t.Errorf("empty lists must be [] in JSON, not null: %+v", d)
 	}
@@ -47,7 +47,7 @@ func TestRunningStatus(t *testing.T) {
 			"j-1": {ID: "j-1", Host: "web1", Command: "pg_dump app | gzip > /backup/app.sql.gz && echo done && echo \x1b[2J" + strings.Repeat("x", 40), StartedAt: now.Add(-15 * time.Minute)},
 		},
 	}
-	d := runningStatus(st)
+	d := runningStatus(tcl, st)
 	if len(d.Vpns) != 1 || d.Vpns[0].Name != "office" {
 		t.Fatalf("only live sessions: %+v", d.Vpns)
 	}
@@ -81,7 +81,7 @@ func TestRunningStatus(t *testing.T) {
 
 	// vpn_idle 0: a session never closes by itself
 	st.Settings.VpnIdle = "0"
-	if d := runningStatus(st); !d.Vpns[0].ClosesAt.IsZero() {
+	if d := runningStatus(tcl, st); !d.Vpns[0].ClosesAt.IsZero() {
 		t.Errorf("no idle limit, no closes_at: %v", d.Vpns[0].ClosesAt)
 	}
 }
@@ -90,7 +90,7 @@ func TestRunningStatus(t *testing.T) {
 // home and changes nothing.
 func TestStatusCommand(t *testing.T) {
 	setHome(t, t.TempDir())
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Jobs["j-1"] = &store.Job{ID: "j-1", Host: "nowhere", Command: "sleep 1"}
 		return nil
 	}); err != nil {
@@ -98,7 +98,8 @@ func TestStatusCommand(t *testing.T) {
 	}
 	before, _ := os.ReadFile(store.Path("state.json"))
 	rtBefore, _ := os.ReadFile(store.Path("runtime.json"))
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"-o", "json", "status"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("status: %v", err)

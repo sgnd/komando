@@ -45,13 +45,13 @@ func (f exportFile) Text() string {
 	return string(b) + "\n"
 }
 
-func importKomando(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importKomando(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}
 	if sealfile.IsSealed(b) {
-		return importSealed(path, b)
+		return importSealed(cl, path, b)
 	}
 	var f exportFile
 	if err := json.Unmarshal(b, &f); err != nil || f.Format == "" {
@@ -67,7 +67,7 @@ func importKomando(path string) (*importPlan, error) {
 	if f.Format != exportFormat {
 		return nil, out.Usage("%s has format %q; this komando reads %s", path, f.Format, exportFormat)
 	}
-	p := planFromExport(f)
+	p := planFromExport(cl, f)
 	if len(f.Secrets) > 0 {
 		p.Notes = append(p.Notes, "passwords are not in export files; set them with `komando secret set NAME` for: "+strings.Join(f.Secrets, ", "))
 	}
@@ -76,7 +76,7 @@ func importKomando(path string) (*importPlan, error) {
 
 // planFromExport is what an export document adds, with the limits for a
 // file that may come from someone else.
-func planFromExport(f exportFile) *importPlan {
+func planFromExport(cl *call, f exportFile) *importPlan {
 	p := newPlan()
 	p.Hosts, p.Conns, p.Recipes, p.Vpns = f.Hosts, f.Conns, f.Recipes, f.Vpns
 	p.DenyRules, p.Settings = f.DenyRules, f.Settings
@@ -86,7 +86,7 @@ func planFromExport(f exportFile) *importPlan {
 	// and nothing may skip a safety check.
 	// Hosts get the same check in vetImportHosts, for every import.
 	ref := func(owner, what string, r *string) {
-		if note := dropForeignRef(owner, what, r); note != "" {
+		if note := dropForeignRef(cl, owner, what, r); note != "" {
 			p.Notes = append(p.Notes, note)
 		}
 	}
@@ -127,9 +127,9 @@ func planFromExport(f exportFile) *importPlan {
 // (the user sets it after importing). A ref to an existing secret or to a
 // file would send this computer's password to the file author's server. It
 // returns the note that says what was dropped, or "".
-func dropForeignRef(owner, what string, r *string) string {
+func dropForeignRef(cl *call, owner, what string, r *string) string {
 	name, ok := strings.CutPrefix(*r, "secret:")
-	if ok && carriedSecrets[name] {
+	if ok && cl.carriedSecrets[name] {
 		return "" // a sealed file's own secret, with the file's value here
 	}
 	if *r == "" || (ok && name != "") {
@@ -145,18 +145,18 @@ func dropForeignRef(owner, what string, r *string) string {
 // dropForeignHostRefs applies dropForeignRef to an imported host's password
 // and sudo refs, its WinRM CA, and its env values that name a secret
 // (komando puts those into every command it runs there).
-func dropForeignHostRefs(h *store.Host) []string {
+func dropForeignHostRefs(cl *call, h *store.Host) []string {
 	var notes []string
 	for _, r := range []struct {
 		what string
 		ref  *string
 	}{{"password_ref", &h.PasswordRef}, {"sudo_ref", &h.SudoRef}} {
-		if n := dropForeignRef(h.Name, r.what, r.ref); n != "" {
+		if n := dropForeignRef(cl, h.Name, r.what, r.ref); n != "" {
 			notes = append(notes, n)
 		}
 	}
 	if h.WinRMOpts != nil {
-		if n := dropForeignRef(h.Name, "winrm.ca", &h.WinRMOpts.CA); n != "" {
+		if n := dropForeignRef(cl, h.Name, "winrm.ca", &h.WinRMOpts.CA); n != "" {
 			notes = append(notes, n)
 		}
 	}
@@ -165,7 +165,7 @@ func dropForeignHostRefs(h *store.Host) []string {
 		if !strings.HasPrefix(v, "secret:") {
 			continue // a plain value
 		}
-		if n := dropForeignRef(h.Name, "env "+k, &v); n != "" {
+		if n := dropForeignRef(cl, h.Name, "env "+k, &v); n != "" {
 			notes = append(notes, n)
 			delete(h.Env, k)
 		}
@@ -207,7 +207,7 @@ func exportCmd() *cobra.Command {
   komando export --sealed --to move.kmdseal       # with passwords; asks a passphrase
   komando export --for-phone --to phone.kmdseal   # for the iPhone app; asks for its key`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := seal.check(to); err != nil {
 				return err
 			}
@@ -215,15 +215,15 @@ func exportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			f, keyFiles, keysSealed, err := buildExport(st, args)
+			f, keyFiles, keysSealed, err := buildExport(cl, st, args)
 			if err != nil {
 				return err
 			}
 			if seal.on() {
-				return runExportSealed(st, f, seal, to, overwrite)
+				return runExportSealed(cl, st, f, seal, to, overwrite)
 			}
 			if to == "" {
-				out.P.Print("export", f, nil)
+				cl.out.Print("export", f, nil)
 				return nil
 			}
 			if err := exportTarget(to, overwrite); err != nil {
@@ -233,10 +233,10 @@ func exportCmd() *cobra.Command {
 			if err := writeExport(to, append(b, '\n'), overwrite); err != nil {
 				return err
 			}
-			out.P.Print("export", exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
+			cl.out.Print("export", exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
 				DenyRules: len(f.DenyRules), Settings: len(f.Settings) > 0, SecretsNeeded: f.Secrets, KeysNeeded: f.Keys, KeyFiles: keyFiles, KeysSealed: keysSealed}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&to, "to", "", "write to this file (0600) instead of printing")
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace the file if it exists")
@@ -273,11 +273,11 @@ func writeExport(to string, data []byte, overwrite bool) error {
 
 // buildExport is the export document of what args picks (everything
 // without one), the key files to copy by hand and the keys komando made.
-func buildExport(st *store.State, args []string) (exportFile, []string, []string, error) {
+func buildExport(cl *call, st *store.State, args []string) (exportFile, []string, []string, error) {
 	sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns(), Vpns: st.SortedVpns()}
 	if len(args) == 1 {
 		var err error
-		if sel, err = resolveSelection(st, args[0]); err != nil {
+		if sel, err = resolveSelection(cl, st, args[0]); err != nil {
 			return exportFile{}, nil, nil, err
 		}
 	}

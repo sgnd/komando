@@ -70,7 +70,8 @@ func addCompletion(c *cobra.Command) {
 	if !known {
 		return
 	}
-	c.ValidArgsFunction = func(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	c.ValidArgsFunction = func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cl := callOf(cmd)
 		i := len(args)
 		if i >= len(kinds) {
 			if !variadic {
@@ -83,7 +84,7 @@ func addCompletion(c *cobra.Command) {
 			return keepTargets(targetCompletions(toComplete), targetKinds(c)), cobra.ShellCompDirectiveNoFileComp | cobra.ShellCompDirectiveNoSpace
 		case "setting-value":
 			if len(args) > 0 {
-				if s, err := findSetting(args[0]); err == nil {
+				if s, err := findSetting(cl, args[0]); err == nil {
 					return settingValues(s), cobra.ShellCompDirectiveNoFileComp
 				}
 			}

@@ -41,7 +41,7 @@ type tunnelSpec struct {
 // guardBind asks for --yes before a tunnel listens on anything but this
 // computer's loopback (or, for -R, the server's): other machines on the
 // network could then use it, without a login (docs/features/vpn.md).
-func guardBind(t tunnelSpec) error {
+func guardBind(cl *call, t tunnelSpec) error {
 	host, _, err := net.SplitHostPort(t.BindAddr)
 	if err != nil || host == "localhost" {
 		return nil
@@ -49,14 +49,14 @@ func guardBind(t tunnelSpec) error {
 	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 		return nil
 	}
-	if yesOK() {
+	if cl.yesOK() {
 		return nil
 	}
 	where := "this computer"
 	if t.Kind == "remote" {
 		where = "the server"
 	}
-	return policyStop(approvalErr("OPEN_BIND",
+	return cl.policyStop(approvalErr(cl, "OPEN_BIND",
 		fmt.Sprintf("the tunnel would listen on %s of %s, open to its network (the default 127.0.0.1 keeps it to that computer)", host, where)))
 }
 

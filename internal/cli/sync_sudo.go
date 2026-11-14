@@ -35,7 +35,7 @@ func (s sudoSftpSide) write(ctx context.Context, rel string, r io.Reader, f sync
 		mode = fmt.Sprintf("%04o", f.Mode.Perm())
 	}
 	tmpName := fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst))
-	_, err := writeRemoteSudo(ctx, s.c, s.sc, dst, mode, tmpName, writeOpts{sudo: true, mkdirs: true}, map[string]any{},
+	_, err := writeRemoteSudo(s.cl, ctx, s.c, s.sc, dst, mode, tmpName, writeOpts{sudo: true, mkdirs: true}, map[string]any{},
 		func(w io.Writer) error { _, err := io.Copy(w, storex.CtxReader(ctx, r)); return err })
 	return err
 }

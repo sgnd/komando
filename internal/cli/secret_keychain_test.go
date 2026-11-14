@@ -24,7 +24,7 @@ func keyfileHome(t *testing.T) []byte {
 	invHome(t)
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 	vault.ReadPassStdin(strings.NewReader("")) // forget one read earlier
-	if err := vault.Set("db-pass", "s3cret"); err != nil {
+	if err := vault.Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	key, err := os.ReadFile(store.Path("store.key"))
@@ -37,9 +37,9 @@ func keyfileHome(t *testing.T) []byte {
 // atTerminal makes the test run as a person at a terminal.
 func atTerminal(t *testing.T) {
 	t.Helper()
-	saved := interactive
-	interactive = func() bool { return true }
-	t.Cleanup(func() { interactive = saved })
+	saved := tcl.terminal
+	tcl.terminal = true
+	t.Cleanup(func() { tcl.terminal = saved })
 }
 
 // keyStays: store.key still holds key, and the vault still opens with it.
@@ -128,7 +128,7 @@ func TestSecretKeychainNeedsPerson(t *testing.T) {
 	for _, agent := range []bool{false, true} {
 		if agent {
 			atTerminal(t) // an agent never counts as a person, terminal or not
-			t.Setenv("KOMANDO_AGENT", "1")
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
 		}
 		e := wantCode(t, "NEEDS_PERSON", "secret", "keychain")
 		if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "own terminal") {

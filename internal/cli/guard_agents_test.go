@@ -31,7 +31,7 @@ func TestGuardOtherAgents(t *testing.T) {
 		{"codex", `{"hook_event_name":"PreToolUse","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Add File: src/x.go\n+package x\n*** End Patch"}}`, false},
 		{"gemini", `not json`, false},
 	} {
-		d := guardAgent(c.agent, []byte(c.in), home)
+		d := guardAgent(tcl, c.agent, []byte(c.in), home)
 		if d.Deny != c.deny {
 			t.Errorf("%s %s: deny %v (%s)", c.agent, c.in, d.Deny, d.Reason)
 		}
@@ -70,7 +70,8 @@ func TestGuideInstallOtherAgents(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(home, ".gemini", "settings.json"), []byte(`{"theme":"dark","hooks":{"BeforeTool":[{"matcher":"x","hooks":[{"type":"command","command":"mine"}]}]}}`), 0o600)
 	run := func() {
-		root := newRoot()
+		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs([]string{"-o", "json", "guide", "install"})
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)

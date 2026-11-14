@@ -28,17 +28,19 @@ func formAddCmd(cmd *cobra.Command) bool {
 
 // formAddGroups are the add forms an add command offers.
 func formAddGroups(cmd *cobra.Command) []formGroup {
+	cl := callOf(cmd)
 	k := commandKey(cmd)
 	if g := formFamilyAdd[k]; g != "" {
-		return formGroupNamed(g)
+		return formGroupNamed(cl, g)
 	}
-	return formGroupsFor(strings.Fields(k)[0])
+	return formGroupsFor(cl, strings.Fields(k)[0])
 }
 
 // promptAdd asks an add command's questions, shows the lines, asks Run it?
 // and runs them here. It ends with fillDone and the exit code (or a cancel).
 func promptAdd(st *store.State, cmd *cobra.Command) error {
-	sp, err := promptAddKind(formAddGroups(cmd))
+	cl := callOf(cmd)
+	sp, err := promptAddKind(cl, formAddGroups(cmd))
 	if err != nil {
 		return err
 	}
@@ -53,7 +55,7 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 			}
 			continue // a rarer option: its default, or typed on the command line later
 		}
-		v, err := promptAddAsk(st, sp, a, i)
+		v, err := promptAddAsk(cl, st, sp, a, i)
 		if err != nil {
 			return err
 		}
@@ -61,14 +63,14 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 	}
 	cmds := formBuild(st, sp, a)
 	for _, c := range cmds {
-		fmt.Fprintln(promptW, "$ komando "+pickCommandLine(c))
+		fmt.Fprintln(promptW(cl), "$ komando "+pickCommandLine(c))
 	}
 	self, err := os.Executable()
 	if err != nil {
 		return err
 	}
 	for {
-		v, err := askRun()
+		v, err := askRun(cl)
 		if err != nil {
 			return err
 		}
@@ -76,23 +78,23 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 			return promptNo()
 		}
 		if v == "y" {
-			promptConfirmed = "Run it?"
+			cl.promptConfirmed = "Run it?"
 			break
 		}
-		_, _ = pickRunOne(self, formDry(cmds))
+		_, _ = pickRunOne(cl, self, formDry(cmds))
 	}
-	code, reason, err := formRunAll(self, cmds)
+	code, reason, err := formRunAll(cl, self, cmds)
 	if err != nil {
 		return err
 	}
 	if rm := formRemoveCmd(cmds); code != 0 && reason != "" && rm != nil {
 		name := rm[2]
-		fmt.Fprintf(promptW, "\n%s did not answer: %s\nIt stays in your list. What next:\n", name, reason)
+		fmt.Fprintf(promptW(cl), "\n%s did not answer: %s\nIt stays in your list. What next:\n", name, reason)
 		for _, l := range [][2]string{
 			{"komando " + rm[0] + " edit " + name, "change how komando reaches it"},
 			{"komando test " + name, "test it again"},
 			{"komando " + rm[0] + " rm " + name, "take it out of your list"}} {
-			fmt.Fprintf(promptW, "  %-*s  %s\n", len("komando "+rm[0]+" edit "+name), l[0], l[1])
+			fmt.Fprintf(promptW(cl), "  %-*s  %s\n", len("komando "+rm[0]+" edit "+name), l[0], l[1])
 		}
 	}
 	return fillDone{code: code}
@@ -100,7 +102,7 @@ func promptAdd(st *store.State, cmd *cobra.Command) error {
 
 // promptAddKind asks what to add when the command offers more than one
 // kind: a database, then which one.
-func promptAddKind(groups []formGroup) (formSpec, error) {
+func promptAddKind(cl *call, groups []formGroup) (formSpec, error) {
 	if len(groups) == 0 {
 		return formSpec{}, errPromptCancel
 	}
@@ -110,29 +112,29 @@ func promptAddKind(groups []formGroup) (formSpec, error) {
 		for _, x := range groups {
 			rows = append(rows, pickRow{label: x.label, detail: x.detail, value: x.label})
 		}
-		v, err := askPick(promptQ{label: "KIND"}, rows, false)
+		v, err := askPick(cl, promptQ{label: "KIND"}, rows, false)
 		if err != nil {
 			return formSpec{}, err
 		}
 		g = groups[slices.IndexFunc(groups, func(x formGroup) bool { return x.label == v })]
 	}
 	if len(g.kinds) == 1 {
-		return g.kinds[0].spec(), nil
+		return g.kinds[0].spec(cl), nil
 	}
 	var rows []pickRow
 	for _, k := range g.kinds {
 		rows = append(rows, pickRow{label: k.label, detail: k.detail, value: k.label})
 	}
-	v, err := askPick(promptQ{label: "KIND", help: g.ask}, rows, false)
+	v, err := askPick(cl, promptQ{label: "KIND", help: g.ask}, rows, false)
 	if err != nil {
 		return formSpec{}, err
 	}
-	return g.kinds[slices.IndexFunc(g.kinds, func(k formKind) bool { return k.label == v })].spec(), nil
+	return g.kinds[slices.IndexFunc(g.kinds, func(k formKind) bool { return k.label == v })].spec(cl), nil
 }
 
 // promptAddAsk asks one question of an add form: its short name, with an
 // example, the question and its help on ?.
-func promptAddAsk(st *store.State, sp formSpec, a formAnswers, i int) (string, error) {
+func promptAddAsk(cl *call, st *store.State, sp formSpec, a formAnswers, i int) (string, error) {
 	q := sp.qs[i]
 	label, def := q.label, formDefault(st, q, a)
 	if q.example != "" && q.choices == nil && def == "" {
@@ -154,13 +156,13 @@ func promptAddAsk(st *store.State, sp formSpec, a formAnswers, i int) (string, e
 		}
 		ask := askText
 		if q.addr { // a pasted user:password@ is never drawn
-			ask = func(pq promptQ) (string, error) {
-				return askMasked(pq, func(s string) string { c, _ := pastedSecret(s); return c })
+			ask = func(cl *call, pq promptQ) (string, error) {
+				return askMasked(cl, pq, func(s string) string { c, _ := pastedSecret(s); return c })
 			}
 		}
-		v, err := ask(pq)
+		v, err := ask(cl, pq)
 		if clean, found := pastedSecret(v); q.addr && found {
-			fmt.Fprintln(promptW, "  ! a password was in it: komando took it out and kept nothing.\n    Pick A password below; komando then asks for it, hidden.")
+			fmt.Fprintln(promptW(cl), "  ! a password was in it: komando took it out and kept nothing.\n    Pick A password below; komando then asks for it, hidden.")
 			v = clean
 		}
 		return v, err
@@ -173,5 +175,5 @@ func promptAddAsk(st *store.State, sp formSpec, a formAnswers, i int) (string, e
 	if pq.def == "" && formEmptyRow(st, q, a) {
 		pq.optional = true // its list has a row for no answer ("Directly")
 	}
-	return askPick(pq, rows, q.free)
+	return askPick(cl, pq, rows, q.free)
 }

@@ -24,7 +24,7 @@ func TestDoctorConnHygiene(t *testing.T) {
 	// on the protected server, not protected itself
 	st.Conns["redis"] = &store.Conn{Name: "redis", Kind: "redis", URL: "redis://10.0.0.1:6379", Labels: map[string]string{"host": "prd"}}
 	got := map[string]string{}
-	for _, c := range inventoryChecks(st) {
+	for _, c := range inventoryChecks(tcl, st) {
 		if c.Warning {
 			got[c.Name] += c.Detail + "\n"
 		}

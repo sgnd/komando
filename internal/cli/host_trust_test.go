@@ -295,9 +295,9 @@ func TestHostTrustGroup(t *testing.T) {
 		t.Fatal(err)
 	}
 	// closed before t.TempDir's cleanup: Windows cannot remove an open file
-	savedStderr := os.Stderr
-	t.Cleanup(func() { os.Stderr = savedStderr; _ = screen.Close() })
-	os.Stderr = screen
+	savedStderr := tcl.out.Err
+	t.Cleanup(func() { tcl.out.Err = savedStderr; _ = screen.Close() })
+	tcl.out.Err = screen
 	d = mustRun(t, "host", "trust", "@lab", "--reset")
 	shown, _ := os.ReadFile(screen.Name())
 	if text := string(shown); strings.Count(text, "[y/N]") != 1 ||

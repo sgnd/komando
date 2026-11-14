@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/sftp"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -84,23 +83,23 @@ func digitsThenColon(s string) int {
 
 // splitArg is splitRemote that knows the inventory: "a:b.txt" is a local
 // file when it exists here and "a" is no target komando knows.
-func splitArg(s string) (target, p string, ok bool) {
+func splitArg(cl *call, s string) (target, p string, ok bool) {
 	t, p, ok := splitRemote(s)
 	if !ok {
 		return t, p, ok
 	}
-	if _, err := os.Lstat(s); err == nil && !knownTarget(t) {
+	if _, err := os.Lstat(s); err == nil && !knownTarget(cl, t) {
 		return "", s, false
 	}
 	return t, p, ok
 }
 
-func knownTarget(t string) bool {
+func knownTarget(cl *call, t string) bool {
 	st, err := loadState()
 	if err != nil {
 		return true
 	}
-	_, err = resolveSelection(st, t)
+	_, err = resolveSelection(cl, st, t)
 	return err == nil
 }
 
@@ -219,11 +218,11 @@ type cpOpts struct {
 // or from one server, at a person's terminal only: never for an AI agent,
 // never on stdout, never beside --progress's JSON lines, and nil (no line)
 // otherwise.
-func transferProgress(ctx context.Context, o cpOpts, name string, total int64) *progress {
-	if !o.oneHost || total < progressMin || progressFrom(ctx) != nil || isAgent() || !term.IsTerminal(int(os.Stderr.Fd())) {
+func transferProgress(cl *call, ctx context.Context, o cpOpts, name string, total int64) *progress {
+	if !o.oneHost || total < progressMin || progressFrom(ctx) != nil || cl.isAgent() || !isTerminal(cl.out.Err) {
 		return nil
 	}
-	return &progress{label: name, total: total}
+	return &progress{cl: cl, label: name, total: total}
 }
 
 // progressMin is the smallest file that shows progress: smaller ones are
@@ -300,10 +299,10 @@ download written the cp way: the same code, flags and results.
   komando cp @web:/etc/nginx/nginx.conf ./configs/
   komando cp ./db.sql.gz backups:2026/db.sql.gz`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx, finish := startProgress(cmd.Context(), o.progress)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
 			return finish(runCpArgs(ctx, cmd, args, o))
-		},
+		}),
 	}
 	o.bind(c)
 	return c
@@ -311,12 +310,13 @@ download written the cp way: the same code, flags and results.
 
 // runCpArgs is cp: an upload or a download, by which side is TARGET:PATH.
 func runCpArgs(ctx context.Context, cmd *cobra.Command, args []string, o cpOpts) error {
-	srcT, srcP, srcRemote := splitArg(args[0])
-	dstT, dstP, dstRemote := splitArg(args[1])
+	cl := callOf(cmd)
+	srcT, srcP, srcRemote := splitArg(cl, args[0])
+	dstT, dstP, dstRemote := splitArg(cl, args[1])
 	switch {
 	case srcRemote && dstRemote:
 		for _, a := range []struct{ t, arg string }{{srcT, args[0]}, {dstT, args[1]}} {
-			if !knownTarget(a.t) {
+			if !knownTarget(cl, a.t) {
 				return out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "if it is a file on this computer, write it as ./"+a.arg,
 					"%q is not a server or conn komando knows", a.t)
 			}
@@ -338,7 +338,7 @@ func runCpArgs(ctx context.Context, cmd *cobra.Command, args []string, o cpOpts)
 
 // runCp copies between this computer and the servers target picks, over
 // SFTP: local to remote when up is true, else remote to local.
-func runCp(ctx context.Context, name, target, remote, local string, up bool, o cpOpts) error {
+func runCp(cl *call, ctx context.Context, name, target, remote, local string, up bool, o cpOpts) error {
 	// checks that need no server come first
 	if up {
 		fi, err := os.Stat(local)
@@ -357,7 +357,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
@@ -366,29 +366,29 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		src, dst = dst, src
 	}
 	if up {
-		if err := guardLocalRead(local); err != nil {
+		if err := guardLocalRead(cl, local); err != nil {
 			return err
 		}
 		if err := hiddenInLocal(local); err != nil {
 			return err
 		}
-		if err := guard(st, hosts, "", true); err != nil {
+		if err := guard(cl, st, hosts, "", true); err != nil {
 			return err
 		}
-	} else if err := guardSensitiveCopy(remote); err != nil {
+	} else if err := guardSensitiveCopy(cl, remote); err != nil {
 		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
 	}
 	o.oneHost = len(hosts) == 1
-	if g.dryRun {
+	if cl.flags.dryRun {
 		if err := downloadExists(local, remote, !up && !o.overwrite && !o.recursive && len(hosts) == 1); err != nil {
 			return err // the real run would stop here
 		}
-		out.P.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[up]}, nil)
+		cl.out.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[up]}, nil)
 		return nil
 	}
-	res := fanout(allowWindows(ctx), st, hosts, cpProgress(ctx, local, up, len(hosts), func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(cl, allowWindows(ctx), st, hosts, cpProgress(cl, ctx, local, up, len(hosts), func(ctx context.Context, c *sshx.Client) (any, error) {
 		if c.Host.Windows() {
-			return winCopy(ctx, c, local, remote, up, o, len(hosts) > 1)
+			return winCopy(cl, ctx, c, local, remote, up, o, len(hosts) > 1)
 		}
 		sc, err := sftpClient(c)
 		if err != nil {
@@ -397,7 +397,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		defer sc.Close()
 		rp := expandRemote(sc, remote)
 		if up {
-			return upload(ctx, c, sc, local, rp, o)
+			return upload(cl, ctx, c, sc, local, rp, o)
 		}
 		l := local
 		if len(hosts) > 1 {
@@ -406,7 +406,7 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 				return nil, err
 			}
 		}
-		return download(ctx, c, sc, rp, l, o)
+		return download(cl, ctx, c, sc, rp, l, o)
 	}))
 	data := xferData{Results: []xferStats{}}
 	worst := 0
@@ -435,8 +435,8 @@ func runCp(ctx context.Context, name, target, remote, local string, up bool, o c
 		data.Results = append(data.Results, s)
 	}
 	data.Summary.Total = len(res)
-	audit(st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
-	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
+	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }
 
 // downloadExists is the FILE_EXISTS a single-file download of remote to
@@ -472,7 +472,7 @@ func treeDest(dst, srcBase string, contents, dstIsDir, dstSlash bool) string {
 	return dst
 }
 
-func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, o cpOpts) (xferStats, error) {
+func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, o cpOpts) (xferStats, error) {
 	fi, err := os.Stat(src)
 	if err != nil {
 		return xferStats{}, err
@@ -496,11 +496,11 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		pp := progressFrom(ctx)
 		pp.start(src)
 		var in io.Reader = storex.CtxReader(ctx, pp.reader(f))
-		if p := transferProgress(ctx, o, filepath.Base(src), fi.Size()); p != nil {
+		if p := transferProgress(cl, ctx, o, filepath.Base(src), fi.Size()); p != nil {
 			defer p.done()
 			in = io.TeeReader(in, p)
 		}
-		r, err := writeRemoteFrom(ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: o.mode, newMode: newMode})
+		r, err := writeRemoteFrom(cl, ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: o.mode, newMode: newMode})
 		if err != nil {
 			return xferStats{}, err
 		}
@@ -537,7 +537,7 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 		rp := path.Join(dst, filepath.ToSlash(rel))
 		if info.IsDir() {
 			if err := sc.MkdirAll(rp); err != nil {
-				return fsErr(rp, err)
+				return fsErr(cl, rp, err)
 			}
 			_ = sc.Chmod(rp, info.Mode().Perm())
 			return nil
@@ -546,11 +546,11 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 			st.Skipped = append(st.Skipped, filepath.ToSlash(rel))
 			return nil
 		}
-		if skipLocalSecret(p) {
+		if skipLocalSecret(cl, p) {
 			return nil
 		}
 		progressFrom(ctx).start(filepath.ToSlash(rel))
-		n, err := putFile(ctx, sc, p, rp, info)
+		n, err := putFile(cl, ctx, sc, p, rp, info)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -570,7 +570,7 @@ func upload(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst strin
 // unless a file is there already (that one keeps its own). It
 // is written as sync writes it, under a temporary name moved into place,
 // so a broken or interrupted upload never leaves half a file behind.
-func putFile(ctx context.Context, sc *sftp.Client, local, remote string, info os.FileInfo) (int64, error) {
+func putFile(cl *call, ctx context.Context, sc *sftp.Client, local, remote string, info os.FileInfo) (int64, error) {
 	in, err := os.Open(local)
 	if err != nil {
 		return 0, err
@@ -580,7 +580,7 @@ func putFile(ctx context.Context, sc *sftp.Client, local, remote string, info os
 	if fi, err := sc.Stat(remote); err == nil && fi.Mode().IsRegular() {
 		mode = fi.Mode().Perm() // a file already there keeps its mode
 	}
-	err = sftpSide{sc: sc, root: path.Dir(remote)}.write(ctx, path.Base(remote), progressFrom(ctx).reader(in), syncFile{Mode: mode, Mtime: info.ModTime()})
+	err = sftpSide{cl: cl, sc: sc, root: path.Dir(remote)}.write(ctx, path.Base(remote), progressFrom(ctx).reader(in), syncFile{Mode: mode, Mtime: info.ModTime()})
 	if err != nil {
 		return 0, err
 	}
@@ -596,10 +596,10 @@ func fileModeOctal(m os.FileMode) string {
 // cpProgress sets --progress's totals for runCp and returns its work for
 // one server: an upload knows the totals here; a download learns them from
 // each server, so each server's work gets its own part.
-func cpProgress(ctx context.Context, local string, up bool, hosts int, fn func(context.Context, *sshx.Client) (any, error)) func(context.Context, *sshx.Client) (any, error) {
+func cpProgress(cl *call, ctx context.Context, local string, up bool, hosts int, fn func(context.Context, *sshx.Client) (any, error)) func(context.Context, *sshx.Client) (any, error) {
 	pp := progressFrom(ctx)
 	if up {
-		files, bytes := localTotal(local, pp != nil)
+		files, bytes := localTotal(cl, local, pp != nil)
 		pp.total(files*hosts, bytes*int64(hosts))
 		return fn
 	}
@@ -614,7 +614,7 @@ func cpProgress(ctx context.Context, local string, up bool, hosts int, fn func(c
 // localTotal is what an upload of local sends to one server: the file, or
 // the regular files in the folder that upload sends (count false: 0, 0,
 // without reading the folder).
-func localTotal(local string, count bool) (files int, bytes int64) {
+func localTotal(cl *call, local string, count bool) (files int, bytes int64) {
 	fi, err := os.Stat(local)
 	if !count || err != nil {
 		return 0, 0
@@ -627,7 +627,7 @@ func localTotal(local string, count bool) (files int, bytes int64) {
 		root = real
 	}
 	_ = filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
-		if err == nil && info.Mode().IsRegular() && !skipLocalSecret(p) {
+		if err == nil && info.Mode().IsRegular() && !skipLocalSecret(cl, p) {
 			files++
 			bytes += info.Size()
 		}

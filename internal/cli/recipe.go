@@ -210,7 +210,7 @@ func recipeListCmd() *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List built-in and saved recipes",
 		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if err := checkRecipeCategory(category); err != nil {
 				return err
 			}
@@ -231,10 +231,10 @@ func recipeListCmd() *cobra.Command {
 			}
 			// by name; the category column says which are your own ("saved")
 			sort.SliceStable(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
-			rows = cutRows(rows, limit)
-			out.P.Print("recipe.list", recipeList{Count: len(rows), Recipes: rows}, nil)
+			rows = cutRows(cl, rows, limit)
+			cl.out.Print("recipe.list", recipeList{Count: len(rows), Recipes: rows}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&category, "category", "", "only this category (or \"saved\" for your own)")
 	limitFlag(c, &limit, 0, "recipes")
@@ -250,7 +250,7 @@ func recipeAddCmd() *cobra.Command {
 		Example: `  komando recipe add deploy-app 'cd /srv/{{app}} && git pull && systemctl restart {{app}}' --needs-sudo
   komando recipe add disk-usage 'df -h {{path=/}}' --read-only`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := validName("recipe", args[0]); err != nil {
 				return err
 			}
@@ -259,7 +259,7 @@ func recipeAddCmd() *cobra.Command {
 			}
 			s := &store.Snippet{Name: args[0], Command: args[1], Description: desc, Sudo: sudo, ReadOnly: readOnly, CreatedAt: time.Now().UTC()}
 			if s.ReadOnly {
-				if err := checkReadOnly(s.Command); err != nil {
+				if err := checkReadOnly(cl, s.Command); err != nil {
 					return err
 				}
 			}
@@ -273,12 +273,12 @@ func recipeAddCmd() *cobra.Command {
 			}
 			approved := false
 			if st0, err := loadState(); err == nil && overwrite && makesReadOnly(st0) {
-				if err := guardSafety("marking the existing recipe " + s.Name + " read-only"); err != nil {
+				if err := guardSafety(cl, "marking the existing recipe "+s.Name+" read-only"); err != nil {
 					return err
 				}
 				approved = true
 			}
-			err := store.Update(func(st *store.State) error {
+			err := store.Update(cl.storeWrite(), func(st *store.State) error {
 				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
 					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "see it with `komando recipe show NAME`, or pass --overwrite to replace it", "recipe %q exists", s.Name)
 				}
@@ -292,10 +292,10 @@ func recipeAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			audit(nil, "recipe.add", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
-			out.P.Print("recipe.add", textAs{s, textBlob(changeSay("save", "recipe "+s.Name, ""))}, nil)
+			audit(cl, nil, "recipe.add", nil, s.Command, true, map[string]any{"recipe": s.Name, "read_only": s.ReadOnly})
+			cl.out.Print("recipe.add", textAs{s, textBlob(changeSay(cl, "save", "recipe "+s.Name, ""))}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&desc, "desc", "", "what the recipe does, in a few words (shown in recipe list)")
 	c.Flags().BoolVar(&sudo, "needs-sudo", false, "the recipe runs with sudo")
@@ -309,11 +309,11 @@ func recipeRmCmd() *cobra.Command {
 		Use:   "rm NAME",
 		Short: "Remove a saved recipe (from komando only)",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if builtinRecipe(args[0]) != nil {
 				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "built-in recipes cannot be removed", "%q is a built-in recipe", args[0])
 			}
-			err := store.Update(func(st *store.State) error {
+			err := store.Update(cl.storeWrite(), func(st *store.State) error {
 				if _, ok := st.Snippets[args[0]]; !ok {
 					return recipeNotFound(args[0])
 				}
@@ -323,14 +323,14 @@ func recipeRmCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			say := textBlob(changeSay("remove", "recipe "+args[0], ""))
-			if g.dryRun {
-				out.P.Print("recipe.rm", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
+			say := textBlob(changeSay(cl, "remove", "recipe "+args[0], ""))
+			if cl.flags.dryRun {
+				cl.out.Print("recipe.rm", textAs{map[string]any{"would_remove": args[0]}, say}, nil)
 				return nil
 			}
-			out.P.Print("recipe.rm", textAs{map[string]any{"removed": args[0]}, say}, nil)
+			cl.out.Print("recipe.rm", textAs{map[string]any{"removed": args[0]}, say}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -342,7 +342,7 @@ func recipeRunCmd() *cobra.Command {
 		Short:   "Run a recipe on servers",
 		Example: "  komando recipe run health @web\n  komando recipe run disk web1\n  komando recipe run deploy-app @web --var app=shop",
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -350,7 +350,7 @@ func recipeRunCmd() *cobra.Command {
 			r, ok := findRecipe(st, args[0])
 			if !ok {
 				e := recipeNotFound(args[0])
-				if _, swapped := findRecipe(st, args[1]); swapped && knownTarget(args[0]) {
+				if _, swapped := findRecipe(st, args[1]); swapped && knownTarget(cl, args[0]) {
 					e.Hint = "the recipe name goes first, then the target: `komando recipe run " + args[1] + " " + args[0] + "`"
 				}
 				return e
@@ -371,8 +371,8 @@ func recipeRunCmd() *cobra.Command {
 			// that clearly writes, or that komando cannot confirm only
 			// reads, runs as a change, so a protected server asks for --yes
 			mutating := !r.ReadOnly || readOnlyMutates(command, nil)
-			return runFleet(cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name, exitMap: orSudo(soleHost(args[1]), nil)}, mutating)
-		},
+			return runFleet(cl, cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name, exitMap: orSudo(soleHost(cl, args[1]), nil)}, mutating)
+		}),
 	}
 	c.Flags().StringArrayVar(&vars, "var", nil, "fill in a blank: NAME=VALUE (repeatable)")
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo even if the recipe asks for it")

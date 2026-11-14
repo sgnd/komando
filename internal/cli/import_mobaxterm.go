@@ -13,8 +13,8 @@ import (
 // session sits in (SubRep) becomes a group. Other session types are
 // listed. MobaXterm keeps passwords apart (encrypted with its master
 // password), so none are imported.
-func importMobaXterm(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importMobaXterm(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}

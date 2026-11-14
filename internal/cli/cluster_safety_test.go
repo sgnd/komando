@@ -210,9 +210,9 @@ func TestClusterRunDryRunSendsNothingReal(t *testing.T) {
 // kctl itself never sends a TokenRequest under --dry-run.
 func TestKctlCreateTokenDryRun(t *testing.T) {
 	l := newLabCluster(t)
-	saved := g.dryRun
-	g.dryRun = true
-	defer func() { g.dryRun = saved }()
+	saved := tcl.flags.dryRun
+	tcl.flags.dryRun = true
+	defer func() { tcl.flags.dryRun = saved }()
 	code, so, se := runKctl(context.Background(), l.client(t), "lab", []string{"create", "token", "bot"})
 	if code == 0 || strings.Contains(so, "eyJ") || !strings.Contains(se, "cannot be dry-run") || l.seen("/token") != 0 {
 		t.Errorf("create token dry run: %d %q %q %v", code, so, se, l.reqs)
@@ -224,8 +224,8 @@ func TestKctlCreateTokenDryRun(t *testing.T) {
 func TestKctlGetMasksForAgents(t *testing.T) {
 	l := newLabCluster(t)
 	k := l.client(t)
-	saved := out.P.Mask
-	defer func() { out.P.Mask = saved }()
+	saved := tcl.out.Mask
+	defer func() { tcl.out.Mask = saved }()
 	leaks := []string{"Sup3rS3cretPw", base64.StdEncoding.EncodeToString([]byte("app_admin")), base64.StdEncoding.EncodeToString([]byte("postgres://app:Pr0dPw@db/app"))}
 	for _, args := range [][]string{
 		{"get", "secrets", "-o", "json"},
@@ -235,7 +235,7 @@ func TestKctlGetMasksForAgents(t *testing.T) {
 		{"get", "deploy", "api", "-o", "json"},
 		{"get", "deploy", "api", "-o", "jsonpath={.spec.template.spec.containers[0].env[0].value}"},
 	} {
-		out.P.Mask = true
+		tcl.out.Mask = true
 		_, so, se := runKctl(context.Background(), k, "lab", args)
 		for _, s := range leaks {
 			if strings.Contains(so, s) {
@@ -247,7 +247,7 @@ func TestKctlGetMasksForAgents(t *testing.T) {
 		}
 	}
 	// a person sees what they asked for
-	out.P.Mask = false
+	tcl.out.Mask = false
 	if _, so, _ := runKctl(context.Background(), k, "lab", []string{"get", "deploy", "api", "-o", "yaml"}); !strings.Contains(so, "Sup3rS3cretPw") {
 		t.Errorf("unmasked output changed: %s", so)
 	}
@@ -331,7 +331,7 @@ func TestUntarToStaysInside(t *testing.T) {
 		{filepath.Join(root, "out"), "f", mk(ent{"f", "a"}, ent{"f/../../evil", "evil"})},
 	}
 	for i, c := range bad {
-		if err := untarTo(c.tarball, c.dst, c.base); err == nil {
+		if err := untarTo(tcl, c.tarball, c.dst, c.base); err == nil {
 			t.Errorf("case %d (%s): accepted", i, c.dst)
 		}
 	}
@@ -343,7 +343,7 @@ func TestUntarToStaysInside(t *testing.T) {
 	})
 	// a link already under DST does not lead out either
 	os.Symlink(filepath.Join(root, "home"), filepath.Join(root, "out", "sub"))
-	if err := untarTo(mk(ent{"app/", ""}, ent{"app/sub/.zshrc", "evil"}), filepath.Join(root, "out"), "app"); err == nil {
+	if err := untarTo(tcl, mk(ent{"app/", ""}, ent{"app/sub/.zshrc", "evil"}), filepath.Join(root, "out"), "app"); err == nil {
 		t.Error("followed a symbolic link out of DST")
 	}
 	if _, err := os.Stat(filepath.Join(root, "home", ".zshrc")); err == nil {
@@ -352,21 +352,21 @@ func TestUntarToStaysInside(t *testing.T) {
 	os.Remove(filepath.Join(root, "out", "sub"))
 
 	// what kubectl cp does normally still works
-	if err := untarTo(mk(ent{"report.txt", "r"}), ".", "report.txt"); err != nil {
+	if err := untarTo(tcl, mk(ent{"report.txt", "r"}), ".", "report.txt"); err != nil {
 		t.Errorf("cp POD:/report.txt . : %v", err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(work, "report.txt")); string(b) != "r" {
 		t.Errorf("single file into the cwd: %q", b)
 	}
 	dst := filepath.Join(root, "out", "copy")
-	if err := untarTo(mk(ent{"data/", ""}, ent{"data/a/b.txt", "b"}), dst, "data"); err != nil {
+	if err := untarTo(tcl, mk(ent{"data/", ""}, ent{"data/a/b.txt", "b"}), dst, "data"); err != nil {
 		t.Errorf("folder copy: %v", err)
 	}
 	fi, err := os.Stat(filepath.Join(dst, "a", "b.txt"))
 	if err != nil || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o755 {
 		t.Errorf("folder copy: %v %v (the mode is kept, as kubectl cp does)", fi, err)
 	}
-	if err := untarTo(mk(ent{"x", "1"}), filepath.Join(root, "out", "renamed.txt"), "x"); err != nil {
+	if err := untarTo(tcl, mk(ent{"x", "1"}), filepath.Join(root, "out", "renamed.txt"), "x"); err != nil {
 		t.Errorf("cp POD:/x DST-FILE: %v", err)
 	}
 
@@ -375,7 +375,7 @@ func TestUntarToStaysInside(t *testing.T) {
 	os.MkdirAll(filepath.Join(repo, ".git"), 0o755)
 	os.WriteFile(filepath.Join(repo, ".git", "config"), []byte("[core]\n"), 0o644)
 	for _, c := range []struct{ base, name string }{{"src", "src/.git/config"}, {"src", "src/sub/.GIT/hooks/pre-commit"}, {".git", ".git"}} {
-		if err := untarTo(mk(ent{c.name, "[core]\n\tfsmonitor = evil\n"}), repo, c.base); err == nil {
+		if err := untarTo(tcl, mk(ent{c.name, "[core]\n\tfsmonitor = evil\n"}), repo, c.base); err == nil {
 			t.Errorf("%s: wrote into .git", c.name)
 		}
 	}
@@ -390,7 +390,7 @@ func TestUntarToStaysInside(t *testing.T) {
 	tw.WriteHeader(&tar.Header{Name: "run.sh", Typeflag: tar.TypeReg, Mode: 0o6646, Size: 3})
 	tw.Write([]byte("new"))
 	tw.Close()
-	if err := untarTo(b.Bytes(), run, "run.sh"); err != nil {
+	if err := untarTo(tcl, b.Bytes(), run, "run.sh"); err != nil {
 		t.Fatal(err)
 	}
 	if fi, _ := os.Stat(run); runtime.GOOS != "windows" && fi.Mode() != 0o644 {
@@ -458,7 +458,7 @@ func TestScaleRatedByNumber(t *testing.T) {
 		"create -n kube-system token admin":           driver.RiskDestructive,
 		"create --namespace=x clusterrolebinding a b": driver.RiskDestructive,
 	} {
-		if got := classifyKubectl(strings.Fields(cmd)); got != want {
+		if got := classifyKubectl(tcl, strings.Fields(cmd)); got != want {
 			t.Errorf("kubectl %s: %v, want %v", cmd, got, want)
 		}
 	}
@@ -541,12 +541,10 @@ func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
 	// then the kubeconfig in the vault changes (an agent's secret set):
 	// the person did not trust that program
 	kc, _ := vault.Get("prod-kubeconfig")
-	if err := vault.Set("prod-kubeconfig", strings.Replace(kc, "echo ran", "echo ran2", 1)); err != nil || !strings.Contains(kc, "echo ran") {
+	if err := vault.Set(store.Save(), "prod-kubeconfig", strings.Replace(kc, "echo ran", "echo ran2", 1)); err != nil || !strings.Contains(kc, "echo ran") {
 		t.Fatalf("vault: %v %q", err, kc)
 	}
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "/bin/sh -c") {
 		t.Errorf("an agent's read runs the program without a yes: %+v", e)
 	}
@@ -608,7 +606,7 @@ func TestKubePluginRules(t *testing.T) {
 	}
 	// a destructive program is refused for everyone
 	x.User.Exec = &kube.ExecAuth{Command: "sh", Args: []string{"-c", "rm -rf /"}}
-	if err := guardKubePlugin(&store.Conn{Name: "c"}, x); err == nil || toErr(err).Code != "POLICY_BLOCKED" {
+	if err := guardKubePlugin(tcl, &store.Conn{Name: "c"}, x); err == nil || toErr(err).Code != "POLICY_BLOCKED" {
 		t.Errorf("destructive login program: %v", err)
 	}
 }
@@ -652,7 +650,7 @@ func TestKctlFollowLogs(t *testing.T) {
 	got := map[string]int{}
 	first := time.Time{}
 	start := time.Now()
-	code, so, se, _ := runKctlLive(ctx, k, "lab", []string{"logs", "-l", "app=api", "-f", "--prefix"}, func(pod, prefix, line string) {
+	code, so, se, _ := runKctlLive(tcl, ctx, k, "lab", []string{"logs", "-l", "app=api", "-f", "--prefix"}, func(pod, prefix, line string) {
 		mu.Lock()
 		defer mu.Unlock()
 		if first.IsZero() {
@@ -780,12 +778,12 @@ func TestClassifyDockerMoreHostEscapes(t *testing.T) {
 
 // `get secret -o yaml` prints values only when they are not hidden.
 func TestGetSecretValuesRating(t *testing.T) {
-	saved := out.P.Mask
-	defer func() { out.P.Mask = saved }()
+	saved := tcl.out.Mask
+	defer func() { tcl.out.Mask = saved }()
 	args := strings.Fields("get secret app-db -o yaml")
 	for mask, want := range map[bool]driver.Risk{true: driver.RiskRead, false: driver.RiskDestructive} {
-		out.P.Mask = mask
-		if got := classifyKubectl(args); got != want {
+		tcl.out.Mask = mask
+		if got := classifyKubectl(tcl, args); got != want {
 			t.Errorf("masked=%v: %v, want %v", mask, got, want)
 		}
 	}
@@ -890,12 +888,10 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	unixOnly(t, "the kubeconfig's login program is a /bin/sh script")
 	invHome(t)
 	l := newLabCluster(t)
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	saved := askOnScreen
-	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return true, true }
+	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return true, true }
 	t.Cleanup(func() { askOnScreen = saved; resetApproval() })
 	marker := filepath.Join(t.TempDir(), "ran")
 	plugin := "    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: /bin/sh\n      args: [\"-c\", \"touch " + marker +
@@ -914,12 +910,10 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := vault.Set("prod-kubeconfig", strings.Replace(kc, "touch", "touch -c", 1)); err != nil {
+	if err := vault.Set(store.Save(), "prod-kubeconfig", strings.Replace(kc, "touch", "touch -c", 1)); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	texts = nil
 	if _, e := cliRun(t, "--yes", "cluster", "run", "prod", "--write", "--", "scale", "deploy/api", "--replicas=3"); e != nil {
 		t.Fatalf("%+v", e)
@@ -957,10 +951,8 @@ func TestTrustedKubePlugin(t *testing.T) {
 	noAgent(t)
 	kc, _ := vault.Get("prod-kubeconfig")
 	for _, changed := range []string{strings.Replace(kc, "echo", "id; echo", 1), strings.Replace(kc, l.srv.URL, "https://attacker.example:6443", 1)} {
-		vault.Set("prod-kubeconfig", changed)
-		t.Setenv("CLAUDECODE", "1")
-		resetApproval()
-		t.Cleanup(resetApproval)
+		vault.Set(store.Save(), "prod-kubeconfig", changed)
+		setCallerEnv(t, "CLAUDECODE", "1")
 		if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "read-only commands too") {
 			t.Errorf("a changed kubeconfig runs without a yes: %+v", e)
 		}
@@ -980,15 +972,13 @@ func TestTrustedKubePlugin(t *testing.T) {
 
 // A yes in a window that did not name an action does not cover it.
 func TestPersonAllowsForAsksAgain(t *testing.T) {
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	saved := askOnScreen
-	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return true, true }
+	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return true, true }
 	t.Cleanup(func() { askOnScreen = saved; resetApproval() })
 	resetApproval()
-	if !personAllows("--yes") || !personAllowsFor("--yes", "runs `x`") || !personAllowsFor("--yes", "runs `x`") || !personAllows("--allow-dangerous") {
+	if !tcl.personAllows("--yes") || !tcl.personAllowsFor("--yes", "runs `x`") || !tcl.personAllowsFor("--yes", "runs `x`") || !tcl.personAllows("--allow-dangerous") {
 		t.Fatal("allowed")
 	}
 	if len(texts) != 2 || strings.Contains(texts[0], "runs `x`") || !strings.Contains(texts[1], "runs `x`") {
@@ -997,8 +987,8 @@ func TestPersonAllowsForAsksAgain(t *testing.T) {
 	// once denied, nothing else is asked
 	resetApproval()
 	texts = nil
-	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return false, true }
-	if personAllows("--yes") || personAllowsFor("--yes", "runs `y`") || len(texts) != 1 {
+	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }
+	if tcl.personAllows("--yes") || tcl.personAllowsFor("--yes", "runs `y`") || len(texts) != 1 {
 		t.Errorf("after a no: %q", texts)
 	}
 }

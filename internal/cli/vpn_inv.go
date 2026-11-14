@@ -42,7 +42,7 @@ func (e *vpnEditFlags) bindInv(c *cobra.Command, edit bool) {
 
 // pickVpns turns rm and edit arguments (names or selectors) into VPNs,
 // each once, in order.
-func pickVpns(s *store.State, args []string) ([]*store.Vpn, error) {
+func pickVpns(cl *call, s *store.State, args []string) ([]*store.Vpn, error) {
 	var res []*store.Vpn
 	seen := map[string]bool{}
 	for _, a := range args {
@@ -51,7 +51,7 @@ func pickVpns(s *store.State, args []string) ([]*store.Vpn, error) {
 			if !isSelector(a) {
 				return nil, out.NotFound("vpn", a)
 			}
-			sel, err := resolveSelection(s, a)
+			sel, err := resolveSelection(cl, s, a)
 			if err != nil {
 				return nil, err
 			}
@@ -97,13 +97,13 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
   komando vpn edit office -g jakarta --rm-group old --label site=jkt
   komando vpn edit @office --protected --dry-run`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := vpnEditChecks(cmd, &e); err != nil {
 				return err
 			}
 			var res []*store.Vpn
 			apply := func(s *store.State) error {
-				vs, err := pickVpns(s, args)
+				vs, err := pickVpns(cl, s, args)
 				if err != nil {
 					return err
 				}
@@ -114,27 +114,27 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 					if err := applyVpnEdit(cmd, &e, &v); err != nil {
 						return editErr(err, v.Name, len(vs) == 1)
 					}
-					if err := vpnOptIns(&v, cmd.Flags().Changed, e.legacyCrypto, e.allowPAP); err != nil {
+					if err := vpnOptIns(cl, &v, cmd.Flags().Changed, e.legacyCrypto, e.allowPAP); err != nil {
 						return err
 					}
-					if err := guardVpnSends(old, &v, ""); err != nil {
+					if err := guardVpnSends(cl, old, &v, ""); err != nil {
 						return err
 					}
 					v.UpdatedAt = time.Now().UTC()
 					olds[v.Name], res = old, append(res, &v)
 				}
-				if err := guardVpnEdit(olds, res); err != nil {
+				if err := guardVpnEdit(cl, olds, res); err != nil {
 					return err
 				}
 				for _, v := range res {
-					if !g.dryRun {
+					if !cl.flags.dryRun {
 						s.Vpns[v.Name] = v
 					}
 				}
 				return nil
 			}
 			return runVpnEdit(cmd, args, apply, &res)
-		},
+		}),
 	}
 	e.bind(c)
 	e.bindInv(c, true)
@@ -144,7 +144,8 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 // runVpnEdit runs apply (in a dry run on the state as it is) and prints
 // what changed: one VPN as before ({"vpn": ...}), several as a list.
 func runVpnEdit(cmd *cobra.Command, args []string, apply func(*store.State) error, res *[]*store.Vpn) error {
-	if g.dryRun {
+	cl := callOf(cmd)
+	if cl.flags.dryRun {
 		st, err := loadState()
 		if err != nil {
 			return err
@@ -153,16 +154,16 @@ func runVpnEdit(cmd *cobra.Command, args []string, apply func(*store.State) erro
 			return err
 		}
 		if len(*res) == 1 && len(args) == 1 && !isSelector(args[0]) {
-			out.P.Print("vpn.edit", textAs{map[string]any{"would_change": (*res)[0]}, vpnChangeText{verb: "would change", v: (*res)[0]}}, nil)
+			cl.out.Print("vpn.edit", textAs{map[string]any{"would_change": (*res)[0]}, vpnChangeText{verb: "would change", v: (*res)[0]}}, nil)
 			return nil
 		}
-		out.P.Print("vpn.edit", textAs{map[string]any{"would_change": *res}, vpnManyText{"would change", *res}}, nil)
+		cl.out.Print("vpn.edit", textAs{map[string]any{"would_change": *res}, vpnManyText{"would change", *res}}, nil)
 		return nil
 	}
-	if err := store.Update(apply); err != nil {
+	if err := store.Update(cl.storeWrite(), apply); err != nil {
 		return err
 	}
-	audit(nil, "vpn.edit", vpnNames(*res), "", true, map[string]any{"flags": changedFlags(cmd)})
+	audit(cl, nil, "vpn.edit", vpnNames(*res), "", true, map[string]any{"flags": changedFlags(cmd)})
 	if len(*res) == 1 && len(args) == 1 && !isSelector(args[0]) {
 		v := (*res)[0]
 		data := map[string]any{"vpn": v}
@@ -170,10 +171,10 @@ func runVpnEdit(cmd *cobra.Command, args []string, apply func(*store.State) erro
 		if len(w) > 0 {
 			data["warnings"] = w
 		}
-		out.P.Print("vpn.edit", textAs{data, vpnChangeText{verb: "changed", v: v, warnings: w}}, nil)
+		cl.out.Print("vpn.edit", textAs{data, vpnChangeText{verb: "changed", v: v, warnings: w}}, nil)
 		return nil
 	}
-	out.P.Print("vpn.edit", textAs{map[string]any{"vpns": *res, "changed": vpnNames(*res)}, vpnManyText{"changed", *res}}, nil)
+	cl.out.Print("vpn.edit", textAs{map[string]any{"vpns": *res, "changed": vpnNames(*res)}, vpnManyText{"changed", *res}}, nil)
 	return nil
 }
 
@@ -304,17 +305,17 @@ func applyVpnFields(f *pflag.FlagSet, e *vpnEditFlags, v *store.Vpn) error {
 // guardVpnEdit asks once about what the edit weakens or touches: turning
 // protection or --mfa off (a safety setting), and any other change to a
 // protected VPN (--yes, as for a protected server's login).
-func guardVpnEdit(olds map[string]*store.Vpn, now []*store.Vpn) error {
+func guardVpnEdit(cl *call, olds map[string]*store.Vpn, now []*store.Vpn) error {
 	var prot []string
 	for _, v := range now {
 		o := olds[v.Name]
 		if o.Protected && !v.Protected {
-			if err := guardSafety("turning off the protection of VPN " + v.Name); err != nil {
+			if err := guardSafety(cl, "turning off the protection of VPN "+v.Name); err != nil {
 				return err
 			}
 		}
 		if o.MFA && !v.MFA {
-			if err := guardSafety("turning off --mfa of VPN " + v.Name + " (komando could then connect it without a person)"); err != nil {
+			if err := guardSafety(cl, "turning off --mfa of VPN "+v.Name+" (komando could then connect it without a person)"); err != nil {
 				return err
 			}
 		}
@@ -322,7 +323,7 @@ func guardVpnEdit(olds map[string]*store.Vpn, now []*store.Vpn) error {
 			prot = append(prot, v.Name)
 		}
 	}
-	return guardProtection("vpn", "changing", prot)
+	return guardProtection(cl, "vpn", "changing", prot)
 }
 
 // vpnChanged: anything but the time it was changed differs.
@@ -339,11 +340,11 @@ func vpnRmCmd() *cobra.Command {
 		Example: `  komando vpn rm old-office
   komando vpn rm @lab --dry-run       # what a selector would remove`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			// all or nothing, like host rm: a VPN in use stops the whole call
 			var names []string
 			check := func(s *store.State) error {
-				vs, err := pickVpns(s, args)
+				vs, err := pickVpns(cl, s, args)
 				if err != nil {
 					return err
 				}
@@ -357,9 +358,9 @@ func vpnRmCmd() *cobra.Command {
 						prot = append(prot, v.Name)
 					}
 				}
-				return guardProtection("vpn", "removing", prot)
+				return guardProtection(cl, "vpn", "removing", prot)
 			}
-			if g.dryRun { // the same checks as the real removal
+			if cl.flags.dryRun { // the same checks as the real removal
 				st, err := loadState()
 				if err != nil {
 					return err
@@ -367,14 +368,14 @@ func vpnRmCmd() *cobra.Command {
 				if err := check(st); err != nil {
 					return err
 				}
-				out.P.Print("vpn.rm", map[string]any{"would_remove": names}, nil)
+				cl.out.Print("vpn.rm", map[string]any{"would_remove": names}, nil)
 				return nil
 			}
-			unused, warnings, err := vpnRemove(check, &names)
+			unused, warnings, err := vpnRemove(cl, check, &names)
 			if err != nil {
 				return err
 			}
-			audit(nil, "vpn.rm", names, "", true, nil)
+			audit(cl, nil, "vpn.rm", names, "", true, nil)
 			res := map[string]any{"removed": names}
 			if len(unused) > 0 {
 				res["secrets_unused"] = unused
@@ -382,17 +383,17 @@ func vpnRmCmd() *cobra.Command {
 			if len(warnings) > 0 {
 				res["warnings"] = warnings
 			}
-			out.P.Print("vpn.rm", textAs{res, rmResult{Removed: names, SecretsUnused: unused}}, nil)
+			cl.out.Print("vpn.rm", textAs{res, rmResult{Removed: names, SecretsUnused: unused, dryRun: cl.flags.dryRun}}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
 // vpnRemove takes the VPNs check picks out of the state (disconnecting
 // any that is up) and says which of their vault secrets nothing uses now.
-func vpnRemove(check func(*store.State) error, names *[]string) (unused, warnings []string, err error) {
+func vpnRemove(cl *call, check func(*store.State) error, names *[]string) (unused, warnings []string, err error) {
 	var gone []*store.Vpn
-	err = store.Update(func(s *store.State) error {
+	err = store.Update(cl.storeWrite(), func(s *store.State) error {
 		if err := check(s); err != nil {
 			return err
 		}

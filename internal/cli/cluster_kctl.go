@@ -28,6 +28,7 @@ import (
 // "error: ..." / "Error from server (...)" on stderr).
 
 type kctlRun struct {
+	cl             *call // the call it works for
 	k              *kube.Client
 	conn           string
 	stdout, stderr bytes.Buffer
@@ -185,8 +186,8 @@ func kwrap(err error) error {
 // what kubectl would have printed. It hands a followed log's lines to live
 // as they come (nil: they go to stdout, up to maxFollowBytes). stop is the safety
 // stop that ended the command before it sent anything, if one did.
-func runKctlLive(ctx context.Context, k *kube.Client, conn string, args []string, live func(pod, prefix, line string)) (code int, stdout, stderr string, stop *out.Error) {
-	r := &kctlRun{k: k, conn: conn, ctx: ctx, live: live}
+func runKctlLive(cl *call, ctx context.Context, k *kube.Client, conn string, args []string, live func(pod, prefix, line string)) (code int, stdout, stderr string, stop *out.Error) {
+	r := &kctlRun{cl: cl, k: k, conn: conn, ctx: ctx, live: live}
 	a, err := parseKargs(args)
 	if err == nil {
 		r.a = a
@@ -455,7 +456,7 @@ func (r *kctlRun) get() error {
 			o["apiVersion"], o["kind"] = kr.r.APIVersion(), kr.r.Kind
 			// an agent sees no Secret value or secret env value, even though
 			// the whole object leaves here as one string of text
-			maskObject(o)
+			maskObject(r.cl, o)
 			all = append(all, o)
 		}
 	}
@@ -755,7 +756,7 @@ func (r *kctlRun) readFiles() ([]kubeDoc, error) {
 	}
 	var docs []kubeDoc
 	for _, f := range files {
-		b, err := readManifest(f, r.a.bools["recursive"])
+		b, err := readManifest(r.cl, f, r.a.bools["recursive"])
 		if err != nil {
 			return nil, kwrap(err)
 		}

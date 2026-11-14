@@ -14,16 +14,16 @@ import (
 )
 
 // readDB opens a db conn read-only, runs fn and prints its answer.
-func readDB(ctx context.Context, name, connExpr string, fn func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error)) error {
+func readDB(cl *call, ctx context.Context, name, connExpr string, fn func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "db")
+	c, err := singleConn(cl, st, connExpr, "db")
 	if err != nil {
 		return err
 	}
-	db, closeDB, err := openDB(ctx, st, c, true)
+	db, closeDB, err := openDB(cl, ctx, st, c, true)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func readDB(ctx context.Context, name, connExpr string, fn func(ctx context.Cont
 	if err != nil {
 		return err
 	}
-	out.P.Print(name, res, nil)
+	cl.out.Print(name, res, nil)
 	return nil
 }
 
@@ -42,19 +42,19 @@ func dbInfoCmd() *cobra.Command {
 		Short:   "Show the version, size, connections and the replica role",
 		Example: "  komando db info prod-db",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if st, c, ok := mongoConn(args[0]); ok {
-				return runMongoInfo(cmd.Context(), st, c)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(cl, args[0]); ok {
+				return runMongoInfo(cl, cmd.Context(), st, c)
 			}
-			return readDB(cmd.Context(), "db.info", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
-				res, err := dbx.Info(ctx, db, c.Kind, connTimeout(c))
+			return readDB(cl, cmd.Context(), "db.info", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+				res, err := dbx.Info(ctx, db, c.Kind, connTimeout(cl, c))
 				if err != nil {
 					return nil, err
 				}
 				res["conn"], res["kind"] = c.Name, c.Kind
 				return dbInfoData(res), nil
 			})
-		},
+		}),
 	}
 }
 
@@ -67,19 +67,19 @@ func dbActivityCmd() *cobra.Command {
 		Example: `  komando db activity prod-db
   komando db activity prod-db --all`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if st, c, ok := mongoConn(args[0]); ok {
-				return runMongoActivity(cmd.Context(), st, c, all, limit)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(cl, args[0]); ok {
+				return runMongoActivity(cl, cmd.Context(), st, c, all, limit)
 			}
-			return readDB(cmd.Context(), "db.activity", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
-				rows, err := dbx.Activity(ctx, db, c.Kind, all, connTimeout(c))
+			return readDB(cl, cmd.Context(), "db.activity", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+				rows, err := dbx.Activity(ctx, db, c.Kind, all, connTimeout(cl, c))
 				if err != nil {
 					return nil, err
 				}
-				rows = cutRows(rows, limit)
+				rows = cutRows(cl, rows, limit)
 				return activityData{Conn: c.Name, Count: len(rows), Sessions: rows}, nil
 			})
-		},
+		}),
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "include idle sessions")
 	limitFlag(c, &limit, 0, "sessions")
@@ -93,16 +93,16 @@ func dbLocksCmd() *cobra.Command {
 		Short:   "Sessions waiting for a lock, and the session that holds it",
 		Example: "  komando db locks prod-db",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.locks", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
-				rows, err := dbx.Locks(ctx, db, c.Kind, connTimeout(c))
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return readDB(cl, cmd.Context(), "db.locks", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+				rows, err := dbx.Locks(ctx, db, c.Kind, connTimeout(cl, c))
 				if err != nil {
 					return nil, err
 				}
-				rows = cutRows(rows, limit)
+				rows = cutRows(cl, rows, limit)
 				return locksData{Conn: c.Name, Count: len(rows), Waits: rows}, nil
 			})
-		},
+		}),
 	}
 	limitFlag(c, &limit, 0, "waiting sessions")
 	return c
@@ -115,16 +115,16 @@ func dbSizesCmd() *cobra.Command {
 		Short:   "Databases, and the biggest tables and indexes",
 		Example: "  komando db sizes prod-db -n 10",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.sizes", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
-				res, err := dbx.Sizes(ctx, db, c.Kind, limit, connTimeout(c))
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return readDB(cl, cmd.Context(), "db.sizes", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+				res, err := dbx.Sizes(ctx, db, c.Kind, limit, connTimeout(cl, c))
 				if err != nil {
 					return nil, err
 				}
 				res["conn"], res["kind"] = c.Name, c.Kind
 				return sizesData(res), nil
 			})
-		},
+		}),
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 20, "how many tables and indexes")
 	return c
@@ -149,7 +149,7 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
   komando db kill prod-db 4821
   komando db kill prod-db 4821 --session --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			pid, err := strconv.ParseInt(args[1], 10, 64)
 			if err != nil || pid <= 0 {
 				return out.Usage("PID takes a session number from `komando db activity`")
@@ -158,7 +158,7 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 			if err != nil {
 				return err
 			}
-			c, err := singleConn(st, args[0], "db")
+			c, err := singleConn(cl, st, args[0], "db")
 			if err != nil {
 				return err
 			}
@@ -176,10 +176,10 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-kill-session"}, Reasons: []string{"ends session " + args[1] + " (its client loses the connection)"}}
 			}
 			// under --dry-run guardConns stops nothing: it fills meta.would_be_blocked
-			if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+			if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 				return err
 			}
-			db, closeDB, err := openDB(cmd.Context(), st, c, false)
+			db, closeDB, err := openDB(cl, cmd.Context(), st, c, false)
 			if err != nil {
 				return err
 			}
@@ -189,18 +189,18 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 				return err
 			}
 			action := map[bool]string{true: "end session", false: "cancel query"}[session]
-			if g.dryRun {
-				out.P.Print("db.kill", map[string]any{"conn": c.Name, "would": action, "session": s, "dry_run": true}, nil)
+			if cl.flags.dryRun {
+				cl.out.Print("db.kill", map[string]any{"conn": c.Name, "would": action, "session": s, "dry_run": true}, nil)
 				return nil
 			}
 			err = dbx.Kill(cmd.Context(), db, c.Kind, pid, session)
-			audit(st, "db.kill", nil, "", err == nil, map[string]any{"conns": []string{c.Name}, "pid": pid, "action": action})
+			audit(cl, st, "db.kill", nil, "", err == nil, map[string]any{"conns": []string{c.Name}, "pid": pid, "action": action})
 			if err != nil {
 				return err
 			}
-			out.P.Print("db.kill", map[string]any{"conn": c.Name, "done": action, "session": s}, nil)
+			cl.out.Print("db.kill", map[string]any{"conn": c.Name, "done": action, "session": s}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&session, "session", false, "end the whole connection, not just its query")
 	return c

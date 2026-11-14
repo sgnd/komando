@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -18,7 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-func readAllStdin() ([]byte, error) { return io.ReadAll(os.Stdin) }
+func readAllStdin(cl *call) ([]byte, error) { return io.ReadAll(cl.stdin) }
 
 type execHostResult struct {
 	Host string `json:"host"`
@@ -40,7 +39,7 @@ type execData struct {
 // Text is the output the way ssh shows it: one server prints its stdout
 // and stderr as they are; several get a "=== host [status]" block each,
 // with their stderr inside, marked [stderr].
-func (d execData) Text() string {
+func (d execData) TextFor(pr *out.Printer) string {
 	var sb strings.Builder
 	multi := len(d.Results) > 1
 	for _, r := range d.Results {
@@ -58,7 +57,7 @@ func (d execData) Text() string {
 						sb.WriteString("[stderr] " + strings.TrimRight(line, "\n") + "\n")
 					}
 				} else if r.Error == nil || r.Error.Message != strings.TrimSpace(r.Stderr) { // else the closing line says it
-					fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(r.Stderr)))
+					fmt.Fprint(pr.Stderr(), out.SafeText(pr.Redact(r.Stderr)))
 				}
 			}
 		}
@@ -170,12 +169,12 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
   komando exec db1 --script ./backup.py --interpreter python3
   cat deploy.sh | komando exec web1 --stdin-file - -- 'bash -s'`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if so.file != "" {
 				if cmdStr != "" || len(args) > 1 {
 					return out.Usage("give a command or --script FILE, not both")
 				}
-				return runScript(cmd.Context(), args[0], so, o, readOnly)
+				return runScript(cl, cmd.Context(), args[0], so, o, readOnly)
 			}
 			if so.interpreter != "" || len(so.args) > 0 {
 				return out.Usage("--interpreter and --arg go with --script FILE")
@@ -190,25 +189,25 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 			var stdin []byte
 			if o.stdinFile != "" {
 				var err error
-				if stdin, err = readFileOrStdin(o.stdinFile); err != nil {
+				if stdin, err = readFileOrStdin(cl, o.stdinFile); err != nil {
 					return localFileErr("FILE_NOT_FOUND", err, "check the --stdin-file path")
 				}
-				if err := hiddenInInput(o.stdinFile, stdin); err != nil {
+				if err := hiddenInInput(cl, o.stdinFile, stdin); err != nil {
 					return err
 				}
-				noteApprovalBody(scriptLabel("the input", o.stdinFile), stdin)
+				noteApprovalBody(cl, scriptLabel("the input", o.stdinFile), stdin)
 				// the input may be a script (bash -s): the policy reads it
 				// like the command, as script does with its file
-				if err := guardBody(string(stdin)); err != nil {
+				if err := guardBody(cl, string(stdin)); err != nil {
 					return err
 				}
 			}
-			mutating, err := execReadOnly(args[0], command, stdin, o, readOnly)
+			mutating, err := execReadOnly(cl, args[0], command, stdin, o, readOnly)
 			if err != nil {
 				return err
 			}
-			return runFleet(cmd.Context(), "exec", args[0], command, stdin, o, mutating)
-		},
+			return runFleet(cl, cmd.Context(), "exec", args[0], command, stdin, o, mutating)
+		}),
 	}
 	o.bind(c)
 	o.bindInput(c)
@@ -222,15 +221,15 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 // execReadOnly is exec's --read-only check: a command that changes
 // something is refused, and mutating says whether a protected target still
 // needs --yes. A Windows target is checked as PowerShell.
-func execReadOnly(target, command string, stdin []byte, o execOpts, readOnly bool) (mutating bool, err error) {
+func execReadOnly(cl *call, target, command string, stdin []byte, o execOpts, readOnly bool) (mutating bool, err error) {
 	if !readOnly {
 		return true, nil
 	}
-	if win, err := targetWindows(target); err != nil || win {
+	if win, err := targetWindows(cl, target); err != nil || win {
 		if err != nil {
 			return true, err
 		}
-		return psReadOnlyCheck(command)
+		return psReadOnlyCheck(cl, command)
 	}
 	// bash -s alone runs its input, so the input is checked as its script;
 	// any other command is checked itself, and its input is data (a CSV
@@ -238,13 +237,13 @@ func execReadOnly(target, command string, stdin []byte, o execOpts, readOnly boo
 	checked := command
 	if o.stdinFile != "" && stdinShell(command) {
 		checked = string(stdin)
-		if err := checkReadOnlyEnv(checked, o.env); err != nil {
+		if err := checkReadOnlyEnv(cl, checked, o.env); err != nil {
 			return true, err
 		}
-	} else if err := checkReadOnlyEnv(command, o.env); err != nil {
+	} else if err := checkReadOnlyEnv(cl, command, o.env); err != nil {
 		return true, err
 	} else if w := sqlInputWrite(command, stdin); w != "" {
-		if err := readOnlyStop(w); err != nil {
+		if err := readOnlyStop(cl, w); err != nil {
 			return true, err
 		}
 	}
@@ -256,7 +255,7 @@ func execReadOnly(target, command string, stdin []byte, o execOpts, readOnly boo
 // fleetDryRun is runFleet's --dry-run: what would run on each host. A
 // command that cannot be built (a secret that is not in the vault) fails
 // the dry run, as it would fail the real one.
-func fleetDryRun(name string, hosts []*store.Host, req sshx.RunRequest, o execOpts, stdinBytes int, guardErr error) error {
+func fleetDryRun(cl *call, name string, hosts []*store.Host, req sshx.RunRequest, o execOpts, stdinBytes int, guardErr error) error {
 	plans := []map[string]any{}
 	for _, h := range hosts {
 		full, _, err := sshx.BuildCommand(&sshx.Client{Host: h}, req)
@@ -274,10 +273,10 @@ func fleetDryRun(name string, hosts []*store.Host, req sshx.RunRequest, o execOp
 	}
 	if guardErr != nil {
 		res["would_be_blocked"] = toErr(guardErr)
-	} else if b := out.P.Blocked(); b != nil {
+	} else if b := cl.out.Blocked(); b != nil {
 		res["would_be_blocked"] = b
 	}
-	out.P.Print(name, res, nil)
+	cl.out.Print(name, res, nil)
 	return nil
 }
 
@@ -290,12 +289,12 @@ func withRecipe(rec map[string]any, recipe string) map[string]any {
 }
 
 // runFleet executes command on all hosts matching target and prints results.
-func runFleet(ctx context.Context, name, target, command string, stdin []byte, o execOpts, mutating bool) error {
+func runFleet(cl *call, ctx context.Context, name, target, command string, stdin []byte, o execOpts, mutating bool) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
@@ -306,20 +305,20 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 	if o.display != "" {
 		shown = o.display
 	}
-	guardErr := guard(st, hosts, command, mutating)
-	if guardErr != nil && !g.dryRun {
-		audit(st, name, hostNames(hosts), shown, false, withRecipe(map[string]any{"blocked": toErr(guardErr).Code}, o.recipe))
+	guardErr := guard(cl, st, hosts, command, mutating)
+	if guardErr != nil && !cl.flags.dryRun {
+		audit(cl, st, name, hostNames(hosts), shown, false, withRecipe(map[string]any{"blocked": toErr(guardErr).Code}, o.recipe))
 		return guardErr
 	}
-	env, err := parseEnvTo(o.env, hosts)
+	env, err := parseEnvTo(cl, o.env, hosts)
 	if err != nil {
 		return err
 	}
 	req := sshx.RunRequest{Command: command, Sudo: o.sudo || o.sudoUser != "", SudoUser: o.sudoUser, Env: env, Dir: o.dir,
-		Stdin: stdin, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st), PTY: o.pty}
+		Stdin: stdin, Timeout: cmdTimeout(cl, st), MaxOutput: maxOutput(cl, st), PTY: o.pty}
 
-	if g.dryRun {
-		return fleetDryRun(name, hosts, req, o, len(stdin), guardErr)
+	if cl.flags.dryRun {
+		return fleetDryRun(cl, name, hosts, req, o, len(stdin), guardErr)
 	}
 
 	follow := o.follow || (o.stream && name == "logs") // logs --follow
@@ -331,7 +330,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		for _, h := range hosts {
 			s.Protected = s.Protected || protectedHost(st, h)
 		}
-		showStatus(s)
+		showStatus(cl, s)
 	}
 	var mu sync.Mutex
 	var failed bool
@@ -353,12 +352,12 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 			if text == "" {
 				return
 			}
-			if out.P.Format == "text" { // a person: plain lines, marked by server when there are several
-				w := os.Stdout
+			if cl.out.Format == "text" { // a person: plain lines, marked by server when there are several
+				w := cl.out.W
 				if stream == "stderr" {
-					w = os.Stderr
+					w = cl.out.Err
 				}
-				for _, line := range strings.SplitAfter(out.P.Redact(text), "\n") {
+				for _, line := range strings.SplitAfter(cl.out.Redact(text), "\n") {
 					if line == "" {
 						continue
 					}
@@ -369,7 +368,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 				}
 				return
 			}
-			out.P.Event(map[string]any{"event": "output", "host": host, "stream": stream, "data": text})
+			cl.out.Event(map[string]any{"event": "output", "host": host, "stream": stream, "data": text})
 		}
 		if o.stream {
 			r.Stream = func(stream string, chunk []byte) {
@@ -395,7 +394,7 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		return res, err
 	}
 	var results []outcome
-	if o.failFast && parallelism(st) <= 1 {
+	if o.failFast && parallelism(cl, st) <= 1 {
 		// one at a time, in name order, and nobody is dialled after a failure
 		ordered := append([]*store.Host(nil), hosts...)
 		sort.SliceStable(ordered, func(i, j int) bool { return ordered[i].Name < ordered[j].Name })
@@ -404,16 +403,16 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 				results = append(results, outcome{Host: h, Err: out.Errf(out.ExitError, "SKIPPED", "run without --fail-fast to reach every server", "skipped: another server failed first, and --fail-fast is on")})
 				continue
 			}
-			results = append(results, fanout(ctx, st, []*store.Host{h}, run)...)
+			results = append(results, fanout(cl, ctx, st, []*store.Host{h}, run)...)
 			if r := results[len(results)-1]; r.Err != nil {
 				failed = true
 			}
 		}
 	} else {
-		results = followEnded(ctx, follow, fanout(ctx, st, hosts, run))
+		results = followEnded(ctx, follow, fanout(cl, ctx, st, hosts, run))
 	}
 
-	data := execData{Recipe: o.recipe, Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && out.P.Format == "text"}
+	data := execData{Recipe: o.recipe, Command: shown, Results: make([]execHostResult, 0, len(results)), streamed: o.stream && cl.out.Format == "text"}
 	worst := 0
 	var fails []hostFail
 	for _, r := range results {
@@ -461,12 +460,12 @@ func runFleet(ctx context.Context, name, target, command string, stdin []byte, o
 		data.Results = append(data.Results, hr)
 	}
 	data.Summary.Total = len(results)
-	audit(st, name, hostNames(hosts), shown, data.Summary.Failed == 0, withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe))
-	if o.stream && out.P.Format != "text" {
-		out.P.Event(map[string]any{"event": "done", "summary": data.Summary})
+	audit(cl, st, name, hostNames(hosts), shown, data.Summary.Failed == 0, withRecipe(map[string]any{"exit_codes": exitCodes(data.Results), "sudo": req.Sudo}, o.recipe))
+	if o.stream && cl.out.Format != "text" {
+		cl.out.Event(map[string]any{"event": "done", "summary": data.Summary})
 	}
-	err = finishFleet(name, data, data.Summary, worst, fails)
-	truncationNotes(data.Results, req.MaxOutput, len(results) > 1)
+	err = finishFleet(cl, name, data, data.Summary, worst, fails)
+	truncationNotes(cl, data.Results, req.MaxOutput, len(results) > 1)
 	return err
 }
 
@@ -554,16 +553,16 @@ func exitCodes(rs []execHostResult) map[string]int {
 
 // runOne is the building block for module commands (svc, docker, pkg ...):
 // run a fixed command on a target, honouring policy and dry-run.
-func runOne(ctx context.Context, name, target, command string, sudo, mutating bool) error {
+func runOne(cl *call, ctx context.Context, name, target, command string, sudo, mutating bool) error {
 	o := execOpts{sudo: sudo}
-	return runFleet(ctx, name, target, command, nil, o, mutating)
+	return runFleet(cl, ctx, name, target, command, nil, o, mutating)
 }
 
 // probe runs a read-only command on all target hosts and lets parse turn
 // stdout into structured data. exitMap, when not nil, names why a server's
 // command failed (a sudo refusal, docker missing ...): see probeExit.
-func probe(ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error)) error {
-	return probeText(ctx, name, target, command, sudo, exitMap, parse, nil)
+func probe(cl *call, ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error)) error {
+	return probeText(cl, ctx, name, target, command, sudo, exitMap, parse, nil)
 }
 
 // probeExit is a probe's typed error for one server's failed command: host
@@ -595,12 +594,12 @@ type probeTexter struct {
 func (p probeTexter) Text() string { return p.text(p.probeData) }
 
 // probeText is probe with a text layout of its own (nil: the generic one).
-func probeText(ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error), text func(probeData) string) error {
+func probeText(cl *call, ctx context.Context, name, target, command string, sudo bool, exitMap probeExit, parse func(h *store.Host, stdout string) (any, error), text func(probeData) string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
@@ -608,22 +607,22 @@ func probeText(ctx context.Context, name, target, command string, sudo bool, exi
 	if ctx, err = windowsGate(ctx, name, hosts, onWindows); err != nil {
 		return err
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		plan := map[string]any{"hosts": hostNames(hosts), "would_run": command}
 		if win := windowsNames(hosts); len(win) == len(hosts) {
 			plan["would_run"] = winCommand
 		} else if len(win) > 0 {
 			plan["would_run_on_windows"] = winCommand
 		}
-		out.P.Print(name, plan, nil)
+		cl.out.Print(name, plan, nil)
 		return nil
 	}
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		cmd := command
 		if c.Host.Windows() {
 			cmd = winCommand
 		}
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: sudo, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st)})
+		return sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: sudo, Timeout: cmdTimeout(cl, st), MaxOutput: maxOutput(cl, st)})
 	})
 	data := probeData{Results: []probeRow{}}
 	worst := 0
@@ -679,10 +678,10 @@ func probeText(ctx context.Context, name, target, command string, sudo bool, exi
 		data.Results = append(data.Results, r)
 	}
 	data.Summary.Total = len(res)
-	audit(st, name, hostNames(hosts), command, data.Summary.Failed == 0, nil)
+	audit(cl, st, name, hostNames(hosts), command, data.Summary.Failed == 0, nil)
 	var shown any = data
 	if text != nil {
 		shown = probeTexter{data, text}
 	}
-	return finishFleet(name, shown, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return finishFleet(cl, name, shown, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

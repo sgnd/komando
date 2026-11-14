@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -18,28 +17,27 @@ func TestX11ApprovalNeedsCode(t *testing.T) {
 	t.Setenv("KOMANDO_NO_DIALOG", "")
 	t.Setenv("SSH_CONNECTION", "")
 	t.Setenv("SSH_TTY", "")
-	saved, savedOS, savedAsk := os.Args, desktopOS, askOnScreen
-	t.Cleanup(func() { os.Args, desktopOS, askOnScreen = saved, savedOS, savedAsk; resetApproval() })
-	os.Args = []string{"komando", "host", "rm", "web1", "--yes"}
+	saved, savedOS, savedAsk := tcl.args, desktopOS, askOnScreen
+	t.Cleanup(func() { tcl.args, desktopOS, askOnScreen = saved, savedOS, savedAsk; resetApproval() })
+	tcl.args = []string{"komando", "host", "rm", "web1", "--yes"}
 	clicked := 0
-	askOnScreen = func(string) (bool, bool) { clicked++; return true, true }
+	askOnScreen = func(*call, string) (bool, bool) { clicked++; return true, true }
 
 	ask := func(goos, display, wayland string) *call {
 		desktopOS = goos
 		t.Setenv("DISPLAY", display)
 		t.Setenv("WAYLAND_DISPLAY", wayland)
-		c := newCall()
-		c.caller = engine.Caller{Kind: engine.Agent, Agent: "Claude Code"}
-		active.Store(c)
-		c.personAllowsFor("--yes", "")
-		return c
+		resetApproval()
+		tcl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "Claude Code"})
+		tcl.personAllowsFor("--yes", "")
+		return tcl
 	}
 	c := ask("linux", ":0", "")
 	if c.sess.Allowed() || clicked != 0 || c.sess.Window().Why != "needs-code" {
 		t.Fatalf("X11: allowed %v, clicked %d, why %q", c.sess.Allowed(), clicked, c.sess.Window().Why)
 	}
 	e := out.Errf(out.ExitPolicy, "PROTECTED_HOST", "add --yes", "web1 is protected")
-	approvalHint(e)
+	approvalHint(tcl, e)
 	if !strings.Contains(e.Hint, "komando config approval-code") {
 		t.Errorf("hint: %q", e.Hint)
 	}

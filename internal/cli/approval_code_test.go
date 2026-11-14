@@ -30,31 +30,29 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long")
 	secret := []byte("12345678901234567890")
-	if err := vault.Set(approvalSecret, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(secret)); err != nil {
+	if err := vault.Set(store.Save(), approvalSecret, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(secret)); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
+	if err := store.Update(store.Save(), func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	savedA, savedC := askOnScreen, askCodeOnScreen
-	defer func() { askOnScreen, askCodeOnScreen = savedA, savedC; g.yes = false; resetApproval() }()
-	askOnScreen = func(string) (bool, bool) { t.Error("the plain window was used"); return true, true }
+	defer func() { askOnScreen, askCodeOnScreen = savedA, savedC; tcl.flags.yes = false; resetApproval() }()
+	askOnScreen = func(*call, string) (bool, bool) { t.Error("the plain window was used"); return true, true }
 	for typed, want := range map[string]bool{"": false, "123456": false, "now": true} {
 		resetApproval()
 		code := typed
 		if typed == "now" {
 			code = totp(secret, time.Now().Unix()/30)
 		}
-		askCodeOnScreen = func(string) (string, bool, bool) { return code, true, true }
-		g.yes = true
-		if got := yesOK(); got != want {
+		askCodeOnScreen = func(*call, string) (string, bool, bool) { return code, true, true }
+		tcl.flags.yes = true
+		if got := tcl.yesOK(); got != want {
 			t.Errorf("code %q: allowed %v, want %v", typed, got, want)
 		}
-		if !want && cur().sess.Window().Why != "wrong-code" {
-			t.Errorf("code %q: why %q", typed, cur().sess.Window().Why)
+		if !want && tcl.sess.Window().Why != "wrong-code" {
+			t.Errorf("code %q: why %q", typed, tcl.sess.Window().Why)
 		}
 	}
 }

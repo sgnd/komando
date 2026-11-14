@@ -25,23 +25,13 @@ import (
 // with another value is replaced only with --overwrite and the person's
 // yes.
 
-// carriedSecrets are, while a sealed file is imported, the secrets it
-// brings whose value here is the file's (added, the same already, or
-// replaced): a reference to one of them is the file's own, so
-// dropForeignRef keeps it. nil otherwise.
-var carriedSecrets map[string]bool
-
-// importOverwrite is the import's --overwrite, for a sealed file's
-// secrets.
-var importOverwrite bool
-
 // sealedKey is a private key a sealed file adds, kept in the store.
 type sealedKey struct {
 	key     *store.Key
 	private []byte
 }
 
-func importSealed(path string, b []byte) (*importPlan, error) {
+func importSealed(cl *call, path string, b []byte) (*importPlan, error) {
 	h, err := sealfile.ReadHeader(b)
 	if err != nil {
 		return nil, sealedFileErr(path, err)
@@ -50,17 +40,17 @@ func importSealed(path string, b []byte) (*importPlan, error) {
 		return nil, out.Errf(out.ExitUsage, "SEALED_FILE_UNSUPPORTED", "on the old computer, make a file for this one with `komando export --sealed --to FILE`",
 			"%s is sealed for the iPhone app: only the phone whose key it was sealed to opens it; nothing was imported", path)
 	}
-	if isAgent() || !interactive() {
-		e := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `"+commandLine()+"` in their own terminal; never ask for the passphrase in the chat",
+	if cl.isAgent() || !cl.interactive() {
+		e := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `"+commandLine(cl)+"` in their own terminal; never ask for the passphrase in the chat",
 			"%s is sealed: only a person at a terminal can open it with its passphrase", path)
-		if err := policyStop(e); err != nil {
+		if err := cl.policyStop(e); err != nil {
 			return nil, err
 		}
 		p := newPlan() // a dry run: what is inside shows only once it is open
 		p.Notes = append(p.Notes, path+": sealed; what it holds shows when a person opens it with its passphrase")
 		return p, nil
 	}
-	pass, err := readPassword("Passphrase of " + filepath.Base(path) + " (hidden): ")
+	pass, err := readPassword(cl, "Passphrase of "+filepath.Base(path)+" (hidden): ")
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +63,7 @@ func importSealed(path string, b []byte) (*importPlan, error) {
 		return nil, sealedFileErr(path, sealfile.ErrUnsupported)
 	}
 	p := newPlan()
-	if err := sealedSecrets(p, c.SecretValues); err != nil {
+	if err := sealedSecrets(cl, p, c.SecretValues); err != nil {
 		return nil, err
 	}
 	var missing []string
@@ -82,12 +72,12 @@ func importSealed(path string, b []byte) (*importPlan, error) {
 			missing = append(missing, n)
 		}
 	}
-	np := planFromExport(c.exportFile)
+	np := planFromExport(cl, c.exportFile)
 	np.SealedSecrets, np.Notes = p.SealedSecrets, append(p.Notes, np.Notes...)
 	if len(missing) > 0 {
 		np.Notes = append(np.Notes, "secrets the file does not hold (set them with `komando secret set NAME`): "+strings.Join(missing, ", "))
 	}
-	return np, sealedKeys(np, c)
+	return np, sealedKeys(cl, np, c)
 }
 
 // sealedFileErr is the error for a sealed file that does not open.
@@ -108,7 +98,7 @@ func sealedFileErr(path string, err error) error {
 // that is not here is added, the same value here is left as it is, and
 // another value here is kept unless --overwrite and the person says yes.
 // It sets carriedSecrets.
-func sealedSecrets(p *importPlan, vals map[string]string) error {
+func sealedSecrets(cl *call, p *importPlan, vals map[string]string) error {
 	carried, differ := map[string]bool{}, []string{}
 	p.SealedSecrets = map[string]string{}
 	for _, n := range slices.Sorted(maps.Keys(vals)) {
@@ -125,7 +115,7 @@ func sealedSecrets(p *importPlan, vals map[string]string) error {
 			return err
 		case have == v:
 			carried[n] = true
-		case importOverwrite:
+		case cl.importOverwrite:
 			differ = append(differ, n)
 		default:
 			p.Notes = append(p.Notes, "secret "+n+": kept the value here, which differs from the file's (--overwrite replaces it after you agree)")
@@ -133,9 +123,9 @@ func sealedSecrets(p *importPlan, vals map[string]string) error {
 	}
 	if len(differ) > 0 {
 		switch {
-		case g.dryRun:
+		case cl.flags.dryRun:
 			p.Notes = append(p.Notes, "differ here, and the import asks before it replaces them: "+strings.Join(differ, ", "))
-		case confirmYes(fmt.Sprintf("This replaces %s here with the file's: %s. Continue?", countOf(len(differ), "secret"), strings.Join(differ, ", "))):
+		case confirmYes(cl, fmt.Sprintf("This replaces %s here with the file's: %s. Continue?", countOf(len(differ), "secret"), strings.Join(differ, ", "))):
 			for _, n := range differ {
 				p.SealedSecrets[n], carried[n] = vals[n], true
 				p.Notes = append(p.Notes, "secret "+n+": replaced with the file's value")
@@ -144,13 +134,13 @@ func sealedSecrets(p *importPlan, vals map[string]string) error {
 			p.Notes = append(p.Notes, "kept the values here (not replaced): "+strings.Join(differ, ", "))
 		}
 	}
-	carriedSecrets = carried
+	cl.carriedSecrets = carried
 	return nil
 }
 
 // sealedKeys plans the private keys of the file. A key whose name is here
 // already is left out: the servers that name it use the one here.
-func sealedKeys(p *importPlan, c sealedContent) error {
+func sealedKeys(cl *call, p *importPlan, c sealedContent) error {
 	if len(c.KeyTexts) == 0 {
 		return nil
 	}
@@ -181,7 +171,7 @@ func sealedKeys(p *importPlan, c sealedContent) error {
 			continue
 		}
 		ref := c.KeyPassphraseRefs[n]
-		if note := dropForeignRef("key "+n, "passphrase_ref", &ref); note != "" {
+		if note := dropForeignRef(cl, "key "+n, "passphrase_ref", &ref); note != "" {
 			p.Notes = append(p.Notes, note)
 		}
 		line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))

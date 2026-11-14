@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/store"
 )
 
 var updateShapes = flag.Bool("update-shapes", false, "rewrite testdata/shapes.json from what the commands print now")
@@ -91,7 +90,7 @@ func TestOutputShapes(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("PG_PASS", "s3cret")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	for _, setup := range [][]string{
 		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
 		{"secret", "set", "pg-pass", "--from-env", "PG_PASS"},
@@ -121,7 +120,7 @@ func TestOutputShapes(t *testing.T) {
 			}
 		}
 		s := runShape(t, args)
-		g.dryRun, store.DryRun = false, false
+		tcl.flags.dryRun = false
 		var v any
 		if err := json.Unmarshal([]byte(s), &v); err != nil {
 			t.Errorf("%v: not JSON: %v\n%s", args, err, s)
@@ -174,16 +173,17 @@ func TestOutputShapes(t *testing.T) {
 // included (Execute prints that one, not the command).
 func runShape(t *testing.T, args []string) string {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	root.SilenceErrors, root.SilenceUsage = true, true
 	var b strings.Builder
-	saved := out.P.W
-	out.P.W = &b
-	defer func() { out.P.W = saved; out.P.Reset() }()
+	saved := tcl.out.W
+	tcl.out.W = &b
+	defer func() { tcl.out.W = saved; tcl.out.Reset() }()
 	var ec exitCode // the command printed its own answer already, like in Execute
 	if cmd, err := root.ExecuteC(); err != nil && !errors.As(err, &ec) {
-		out.P.Fail(commandName(cmd), toErr(err))
+		tcl.out.Fail(commandName(cmd), toErr(err))
 	}
 	return b.String()
 }

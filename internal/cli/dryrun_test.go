@@ -13,9 +13,10 @@ import (
 func TestDryRunChangesNothing(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }() // flags are package globals
+	defer func() { tcl.flags.dryRun = false }()
 	run := func(args ...string) error {
-		root := newRoot()
+		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		return root.Execute()
 	}
@@ -51,7 +52,6 @@ func TestDryRunChangesNothing(t *testing.T) {
 	if _, err := os.Stat(store.Path("keys", "k1")); !os.IsNotExist(err) {
 		t.Errorf("key gen --dry-run wrote a key file: %v", err)
 	}
-	store.DryRun = false
 }
 
 // A removal's preview says would_remove; removed stays for contract 1.

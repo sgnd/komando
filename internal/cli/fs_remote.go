@@ -59,8 +59,8 @@ func rqAll(ps []string) string {
 
 // oneServer is singleHost with a hint that fits the command when the
 // target picks several servers.
-func oneServer(st *store.State, target, manyHint string) (*store.Host, error) {
-	hs, err := resolveTargets(st, target)
+func oneServer(cl *call, st *store.State, target, manyHint string) (*store.Host, error) {
+	hs, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func lsMode(e fileInfo) string {
 // sentence plus the diff for a person.
 type fsChange map[string]any
 
-func (r fsChange) Text() string {
+func (r fsChange) TextFor(pr *out.Printer) string {
 	var b strings.Builder
 	p := fmt.Sprint(r["path"])
 	if f, ok := r["followed"]; ok {
@@ -150,7 +150,7 @@ func (r fsChange) Text() string {
 		if n, ok := r["note"]; ok {
 			b.WriteString(fmt.Sprint(n) + "\n")
 		}
-	case g.dryRun:
+	case pr.DryRun:
 		if r["exists"] == false {
 			b.WriteString("would create " + p + "\n")
 		} else if isReplace {
@@ -181,7 +181,7 @@ func (r fsChange) Text() string {
 
 // resolveLink follows a symlink chain to the file it names (which may not
 // exist yet), so a write changes the target and keeps the link.
-func resolveLink(sc *sftp.Client, p string) (string, error) {
+func resolveLink(cl *call, sc *sftp.Client, p string) (string, error) {
 	cur := p
 	for i := 0; i < 40; i++ {
 		fi, err := sc.Lstat(cur)
@@ -190,7 +190,7 @@ func resolveLink(sc *sftp.Client, p string) (string, error) {
 		}
 		t, err := sc.ReadLink(cur)
 		if err != nil {
-			return "", fsErr(cur, err)
+			return "", fsErr(cl, cur, err)
 		}
 		if !path.IsAbs(t) {
 			t = path.Join(path.Dir(cur), t)
@@ -243,7 +243,7 @@ const (
 )
 
 // fsExitMap turns those exit codes into typed errors.
-func fsExitMap(code int, stderr string) *out.Error {
+func fsExitMap(cl *call, code int, stderr string) *out.Error {
 	msg := strings.TrimSpace(stderr)
 	switch code {
 	case fsExitIsFolder:
@@ -258,7 +258,7 @@ func fsExitMap(code int, stderr string) *out.Error {
 		return out.Errf(out.ExitConflict, "IS_A_SYMLINK", "look at where it leads (`komando fs stat TARGET PATH`), then change that file by its own path, or run without --sudo", "%s", msg)
 	}
 	if strings.Contains(msg, "Permission denied") || strings.Contains(msg, "Operation not permitted") {
-		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", fsSudoRetry, "%s", msg)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", cl.fsSudoRetry, "%s", msg)
 	}
 	return nil
 }

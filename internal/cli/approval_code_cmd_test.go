@@ -39,8 +39,8 @@ func asPerson(t *testing.T, answer func(stderr string) string, fn func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	savedIn, savedErr, savedInteractive := os.Stdin, os.Stderr, interactive
-	os.Stdin, os.Stderr, interactive = inR, errW, func() bool { return true }
+	savedIn, savedErr, savedInteractive := tcl.stdin, tcl.out.Err, tcl.terminal
+	tcl.stdin, tcl.out.Err, tcl.terminal = inR, errW, true
 	done := make(chan struct{})
 	go func() { // the person reads the screen, then types at the question
 		defer close(done)
@@ -62,7 +62,7 @@ func asPerson(t *testing.T, answer func(stderr string) string, fn func()) {
 		}
 	}()
 	defer func() {
-		os.Stdin, os.Stderr, interactive = savedIn, savedErr, savedInteractive
+		tcl.stdin, tcl.out.Err, tcl.terminal = savedIn, savedErr, savedInteractive
 		errW.Close()
 		<-done
 		inR.Close()
@@ -94,9 +94,7 @@ func TestApprovalCodeNeedsPerson(t *testing.T) {
 	if e := wantCode(t, "NEEDS_PERSON", "config", "approval-code"); e.Exit != out.ExitPolicy {
 		t.Errorf("script: exit %d", e.Exit)
 	}
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	wantCode(t, "NEEDS_PERSON", "config", "approval-code")
 	if approvalCodeOn(t) {
 		t.Error("turned on")
@@ -135,10 +133,10 @@ func TestApprovalCodeOn(t *testing.T) {
 // Turning it off needs --yes and removes the secret.
 func TestApprovalCodeOff(t *testing.T) {
 	invHome(t)
-	if err := vault.Set(approvalSecret, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"); err != nil {
+	if err := vault.Set(store.Save(), approvalSecret, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
+	if err := store.Update(store.Save(), func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if e := wantCode(t, "SAFETY_SETTING", "config", "approval-code", "--off"); e.Exit != out.ExitPolicy {

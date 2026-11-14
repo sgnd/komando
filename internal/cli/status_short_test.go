@@ -95,7 +95,8 @@ func TestPromptCommandChangesNothing(t *testing.T) {
 		}
 		p := writePromptState(t, st)
 		before, _ := os.ReadFile(p)
-		root := newRoot()
+		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(args)
 		if err := root.Execute(); err != nil {
 			t.Fatalf("%v: %v", args, err)

@@ -42,7 +42,7 @@ attributes and --key is the ordering key.`,
   komando queue send prod-kafka orders --from ./order.json --header source=support
   komando queue send prod-kafka orders --value test --dry-run`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			data, err := queueValue(cmd, value, from)
 			if err != nil {
 				return err
@@ -63,17 +63,17 @@ attributes and --key is the ordering key.`,
 				m.Key = []byte(key)
 			}
 			rec := map[string]any{"topic": args[1], "bytes": len(data)} // the message itself may be personal data
-			return withQueue(cmd.Context(), "queue.send", args[0], queueRisk(""), rec,
+			return withQueue(cl, cmd.Context(), "queue.send", args[0], queueRisk(""), rec,
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					s, err := q.Send(ctx, m, g.dryRun)
+					s, err := q.Send(ctx, m, cl.flags.dryRun)
 					if err != nil {
 						return nil, err
 					}
 					return queueSent{Conn: c.Name, Sent: s}, nil
 				})
-		},
+		}),
 	}
 	c.Flags().StringVar(&value, "value", "", "the message")
 	c.Flags().StringVar(&from, "from", "", "read the message from this file ('-' for stdin)")
@@ -85,6 +85,7 @@ attributes and --key is the ordering key.`,
 
 // queueValue reads the message: --value, --from FILE ('-' stdin), or stdin.
 func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
+	cl := callOf(cmd)
 	var data []byte
 	var err error
 	switch {
@@ -93,11 +94,11 @@ func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
 	case cmd.Flags().Changed("value"):
 		data = []byte(value)
 	case from != "":
-		if data, err = readFileOrStdin(from); err != nil {
+		if data, err = readFileOrStdin(cl, from); err != nil {
 			return nil, err
 		}
 	default:
-		if data, err = readStdinIfPiped(maxQueueMessage, "the message"); err != nil {
+		if data, err = readStdinIfPiped(cl, maxQueueMessage, "the message"); err != nil {
 			return nil, err
 		}
 		if data == nil {
@@ -137,7 +138,7 @@ func queueCreateCmd() *cobra.Command {
   komando queue create gcp orders --config messageRetentionDuration=7d
   komando queue create gcp subscriptions/billing --config topic=orders --config ackDeadlineSeconds=60`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			cfg, err := parseKV(configs)
 			if err != nil {
 				return err
@@ -146,17 +147,17 @@ func queueCreateCmd() *cobra.Command {
 				return out.Usage("--partitions and --replicas take 1 or more (leave them out for the broker's default)")
 			}
 			s := queuex.TopicSpec{Topic: args[1], Partitions: int32(partitions), Replicas: int16(replicas), Type: typ, Config: cfg}
-			return withQueue(cmd.Context(), "queue.create", args[0], queueRisk(""), map[string]any{"topic": args[1], "partitions": partitions, "replicas": replicas},
+			return withQueue(cl, cmd.Context(), "queue.create", args[0], queueRisk(""), map[string]any{"topic": args[1], "partitions": partitions, "replicas": replicas},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					r, err := q.Create(ctx, s, g.dryRun)
+					r, err := q.Create(ctx, s, cl.flags.dryRun)
 					if err != nil {
 						return nil, err
 					}
 					return queueCreated{Conn: c.Name, Created: r}, nil
 				})
-		},
+		}),
 	}
 	optIntVar(c.Flags(), &partitions, "partitions", "Kafka: how many partitions (default: the broker's)")
 	optIntVar(c.Flags(), &replicas, "replicas", "copies of each message. Kafka: copies of each partition; NATS: copies of the stream (default: the broker's; NATS: 1)")
@@ -172,20 +173,20 @@ func queueRmCmd() *cobra.Command {
 		Example: `  komando queue rm prod-kafka old-orders --dry-run
   komando queue rm prod-kafka old-orders --allow-dangerous`,
 		Args: cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			topics := args[1:]
-			askTypes(topics, "topics or queues in "+args[0])
-			return withQueue(cmd.Context(), "queue.rm", args[0], queueRisk("queue-delete", topics...), map[string]any{"topics": topics},
+			askTypes(cl, topics, "topics or queues in "+args[0])
+			return withQueue(cl, cmd.Context(), "queue.rm", args[0], queueRisk("queue-delete", topics...), map[string]any{"topics": topics},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					d, err := q.Delete(ctx, topics, g.dryRun)
+					d, err := q.Delete(ctx, topics, cl.flags.dryRun)
 					if err != nil {
 						return nil, err
 					}
-					return queueDeleted{Conn: c.Name, Topics: d, DryRun: g.dryRun, kind: c.Kind}, nil
+					return queueDeleted{Conn: c.Name, Topics: d, DryRun: cl.flags.dryRun, kind: c.Kind}, nil
 				})
-		},
+		}),
 	}
 }
 
@@ -196,19 +197,19 @@ func queuePurgeCmd() *cobra.Command {
 		Example: `  komando queue purge prod-kafka orders-retry --dry-run
   komando queue purge prod-kafka orders-retry --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			askTypes(args[1:], "topics or queues in "+args[0])
-			return withQueue(cmd.Context(), "queue.purge", args[0], queueRisk("queue-purge", args[1]), map[string]any{"topic": args[1]},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			askTypes(cl, args[1:], "topics or queues in "+args[0])
+			return withQueue(cl, cmd.Context(), "queue.purge", args[0], queueRisk("queue-purge", args[1]), map[string]any{"topic": args[1]},
 				func(_ *store.State, c *store.Conn, q queuex.Queue) (any, error) {
 					ctx, cancel := queueCtx(cmd)
 					defer cancel()
-					p, err := q.Purge(ctx, args[1], g.dryRun)
+					p, err := q.Purge(ctx, args[1], cl.flags.dryRun)
 					if err != nil {
 						return nil, err
 					}
 					return queuePurged{Conn: c.Name, Purged: p}, nil
 				})
-		},
+		}),
 	}
 }
 

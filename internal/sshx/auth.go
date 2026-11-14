@@ -190,9 +190,10 @@ func CertCurrent(cert *ssh.Certificate, now time.Time) bool {
 	return u >= cert.ValidAfter && (cert.ValidBefore == ssh.CertTimeInfinity || u < cert.ValidBefore)
 }
 
-// personFor is Ask for the login to h, or nil when no person can be asked.
+// personFor is the question for the login to h, or nil when no person can
+// be asked.
 func personFor(h *store.Host) func(text string, hidden bool) (string, error) {
-	ask := Ask
+	ask := ask()
 	if ask == nil {
 		return nil
 	}
@@ -440,7 +441,7 @@ func (lk *loginKeys) noAuth(st *store.State, h *store.Host) *out.Error {
 	default:
 		why, hint = "the ssh-agent at SSH_AUTH_SOCK does not answer", loginWay(st, h)
 	}
-	if lk.skipped == "" && Ask == nil && !adhoc(st, h) {
+	if lk.skipped == "" && ask() == nil && !adhoc(st, h) {
 		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
 	}
 	return out.Errf(out.ExitConnect, "NO_AUTH", hint, "no authentication method available for %s: it has no key or password, and %s", h.Name, why)
@@ -469,7 +470,7 @@ func adhoc(st *store.State, h *store.Host) bool {
 // logs in the same way and would fail too.
 func authFailedHint(st *store.State, h *store.Host) string {
 	hint := authFailedCheck(st, h)
-	if Ask == nil && !adhoc(st, h) {
+	if ask() == nil && !adhoc(st, h) {
 		// no person here (an AI agent, a script): one can log in once for it
 		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
 	}
@@ -519,15 +520,25 @@ func shellPath(p string) string {
 	return prefix + p
 }
 
-// Ask, when set, asks the person at the terminal what a login wants that
+// Asker, when set, gives the question for the person at the terminal, or
+// nil when nobody can be asked. The question asks what a login wants that
 // komando cannot answer by itself: the password when none is stored, a
 // one-time code (a two-factor login), or any other question the server
 // asks, the way ssh does. host is the server's name in komando; text is
-// the server's own words (Ask makes them safe to show); hidden is false
-// only when the server lets the answer show. The cli sets it only for a
-// person at a terminal: AI agents, scripts and background processes have
-// no one to ask, so they get NO_AUTH or AUTH_FAILED with a hint instead.
-var Ask func(host, text string, hidden bool) (string, error)
+// the server's own words (the question makes them safe to show); hidden
+// is false only when the server lets the answer show. The cli gives one
+// only for a person at a terminal: AI agents, scripts and background
+// processes have no one to ask, so they get NO_AUTH or AUTH_FAILED with a
+// hint instead.
+var Asker func() func(host, text string, hidden bool) (string, error)
+
+// ask is the question for the person at the terminal, or nil.
+func ask() func(host, text string, hidden bool) (string, error) {
+	if Asker == nil {
+		return nil
+	}
+	return Asker()
+}
 
 // passwordLogin answers the server's login questions. The stored password
 // goes out at most once per login (the password method and
@@ -685,7 +696,7 @@ func (e *unanswered) Error() string { return "the server asks " + strconv.Quote(
 // authFailed is the AUTH_FAILED error that quotes the question.
 func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 	name := h.Name
-	// Ask was not set: no person at a terminal (an AI agent, a script, a
+	// Asker gave no question: no person at a terminal (an AI agent, a script, a
 	// background process). A person who runs the command is asked.
 	switch e.kind {
 	case askCode:

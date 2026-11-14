@@ -1,6 +1,7 @@
 package out
 
 import (
+	"io"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -11,36 +12,26 @@ import (
 // maxTextWidth is the widest line komando lays out for a person (M-9).
 const maxTextWidth = 80
 
-// StderrWidth is the width komando wraps its own stderr lines at (errors,
-// hints, warnings): min(terminal width, 80) when stderr is a terminal, 0
-// (no wrapping) when it is a pipe or a file, so an AI agent or a script
-// reads each message on one line. Tests replace it.
-var StderrWidth = func() int {
-	fd := int(os.Stderr.Fd())
+// WidthOf is the width komando lays out lines written to w at (errors,
+// hints, warnings on stderr; a text result on stdout): min(terminal
+// width, 80) when w is a terminal, 0 (no wrapping) for anything else (a
+// pipe, a file, an app's writer), so an AI agent, a script or
+// `komando doctor -o text | grep` reads each line whole. A call asks it of
+// its own writers, never the process's. Tests replace it.
+var WidthOf = func(w io.Writer) int {
+	f, ok := w.(*os.File)
+	if !ok {
+		return 0
+	}
+	fd := int(f.Fd())
 	if !term.IsTerminal(fd) {
 		return 0
 	}
-	w, _, err := term.GetSize(fd)
-	if err != nil || w <= 0 || w > maxTextWidth {
+	n, _, err := term.GetSize(fd)
+	if err != nil || n <= 0 || n > maxTextWidth {
 		return maxTextWidth
 	}
-	return w
-}
-
-// StdoutWidth is StderrWidth for stdout: the width a text result is laid
-// out at for a person at a terminal, and 0 (no wrapping) when stdout is a
-// pipe or a file, so `komando doctor -o text | grep` reads each line
-// whole. Tests replace it.
-var StdoutWidth = func() int {
-	fd := int(os.Stdout.Fd())
-	if !term.IsTerminal(fd) {
-		return 0
-	}
-	w, _, err := term.GetSize(fd)
-	if err != nil || w <= 0 || w > maxTextWidth {
-		return maxTextWidth
-	}
-	return w
+	return n
 }
 
 // Wrap fills text into lines of at most width columns: the first line

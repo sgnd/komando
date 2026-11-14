@@ -26,6 +26,16 @@ type Session struct {
 // NewSession is a fresh call's state.
 func NewSession() *Session { return &Session{} }
 
+// Reset forgets every answer, as NewSession starts: the next command of
+// the call asks again. It locks by itself, so it is safe while other
+// goroutines read the session.
+func (s *Session) Reset() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.asked, s.allowed, s.why, s.unshown, s.gaveUp = false, false, "", "", false
+	s.shown, s.safetyApproved, s.dangerConfirmed, s.personSaidNo = nil, nil, nil, false
+}
+
 // Window is a snapshot of the approval window's state.
 type Window struct {
 	Asked, Allowed bool

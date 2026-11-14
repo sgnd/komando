@@ -35,7 +35,7 @@ func TestSuggestedCommandsParse(t *testing.T) {
 	}
 	// a hint, a show command and a suggestion name real commands, and a
 	// suggestion never brings in an approval
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, keys := range [][]string{mapKeys(formHints), mapKeys(showKinds)} {
 		for _, key := range keys {
 			if c, _, err := root.Find(strings.Fields(key)); err != nil || commandKey(c) != key {
@@ -112,20 +112,20 @@ func TestPersonHelp(t *testing.T) {
 // and what usually comes next; nobody else sees anything.
 func TestPromptNext(t *testing.T) {
 	invHome(t)
-	nextNow = nil
+	tcl.nextNow = nil
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	drawn := promptFake(t)
-	fillSeen = fillInfo{person: true, key: "db add", first: "app-db", prompted: true, line: []string{"db", "add", "app-db", "postgres://app@10.0.0.9/app"}}
-	defer func() { fillSeen = fillInfo{} }()
-	promptNext()
+	tcl.fillSeen = fillInfo{person: true, key: "db add", first: "app-db", prompted: true, line: []string{"db", "add", "app-db", "postgres://app@10.0.0.9/app"}}
+	defer func() { tcl.fillSeen = fillInfo{} }()
+	promptNext(tcl)
 	for _, want := range []string{"Next time: komando db add app-db postgres://app@10.0.0.9/app", "Next: komando db info app-db · komando db query app-db"} {
 		if !strings.Contains(drawn.String(), want) {
 			t.Errorf("%q not in:\n%s", want, drawn)
 		}
 	}
 	drawn.Reset()
-	fillSeen = fillInfo{person: true, key: "conn show", first: "app-db"}
-	promptNext()
+	tcl.fillSeen = fillInfo{person: true, key: "conn show", first: "app-db"}
+	promptNext(tcl)
 	if !strings.Contains(drawn.String(), "COMMANDS\n  komando db query app-db \"select 1\"") {
 		t.Errorf("show: %s", drawn)
 	}
@@ -141,22 +141,22 @@ func TestPromptNext(t *testing.T) {
 		{"recipe show", "health", "komando recipe run health TARGET", "conn "},
 	} {
 		drawn.Reset()
-		fillSeen = fillInfo{person: true, key: c.key, first: c.first}
-		promptNext()
+		tcl.fillSeen = fillInfo{person: true, key: c.key, first: c.first}
+		promptNext(tcl)
 		if !strings.Contains(drawn.String(), c.want) || strings.Contains(drawn.String(), c.not) {
 			t.Errorf("%s %s: %s", c.key, c.first, drawn)
 		}
 	}
 	// a Next: line that needs the first argument is left out without one
 	drawn.Reset()
-	fillSeen = fillInfo{person: true, key: "vpn down"}
-	promptNext()
+	tcl.fillSeen = fillInfo{person: true, key: "vpn down"}
+	promptNext(tcl)
 	if got := drawn.String(); !strings.Contains(got, "Next: komando vpn status\n") {
 		t.Errorf("vpn down alone: %q", got)
 	}
 	drawn.Reset()
-	fillSeen = fillInfo{key: "db add", first: "app-db", prompted: true}
-	promptNext()
+	tcl.fillSeen = fillInfo{key: "db add", first: "app-db", prompted: true}
+	promptNext(tcl)
 	if drawn.Len() > 0 {
 		t.Errorf("printed for someone who is not a person at a terminal: %s", drawn)
 	}
@@ -165,11 +165,11 @@ func TestPromptNext(t *testing.T) {
 // A person told there is nothing yet is given the add command to type,
 // never a menu that is gone.
 func TestAddHintForAPerson(t *testing.T) {
-	saved := interactive
-	interactive = func() bool { return true }
-	defer func() { interactive = saved }()
+	saved := tcl.terminal
+	tcl.terminal = true
+	defer func() { tcl.terminal = saved }()
 	for family, want := range map[string]string{"db": "komando db add", "host": "komando host add", "vpn": "komando vpn add"} {
-		if h := addHint(family, ""); !strings.Contains(h, want) || strings.Contains(h, "pick Add") {
+		if h := addHint(tcl, family, ""); !strings.Contains(h, want) || strings.Contains(h, "pick Add") {
 			t.Errorf("%s: %q", family, h)
 		}
 	}
@@ -178,7 +178,7 @@ func TestAddHintForAPerson(t *testing.T) {
 // `komando --help` groups the commands as `komando` alone does, so a
 // person finds each one under the same heading in both.
 func TestHelpGroupsMatchPersonHelp(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	title := map[string]string{}
 	for _, g := range root.Groups() {
 		title[g.ID] = strings.ToUpper(strings.TrimSuffix(g.Title, ":"))
@@ -225,10 +225,10 @@ func TestNextOnlyOnStderr(t *testing.T) {
 	// a command that worked out its next lines puts them in the Next: line
 	invHome(t)
 	drawn := promptFake(t)
-	fillSeen = fillInfo{person: true, key: "job start", first: "web1"}
-	defer func() { fillSeen, nextNow = fillInfo{}, nil }()
-	jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}}}.withNext()
-	promptNext()
+	tcl.fillSeen = fillInfo{person: true, key: "job start", first: "web1"}
+	defer func() { tcl.fillSeen, tcl.nextNow = fillInfo{}, nil }()
+	jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}}}.withNext(tcl)
+	promptNext(tcl)
 	if got := drawn.String(); got != "Next: komando job logs j1 --limit 20 · komando job wait j1 · komando job status j1\n" {
 		t.Errorf("job start: %q", got)
 	}
@@ -238,7 +238,7 @@ func TestNextOnlyOnStderr(t *testing.T) {
 // or its verb: add -> test, show; edit -> show, test; rename -> show NEW;
 // rm -> list. Each line is a command that parses.
 func TestStandardNextPerVerb(t *testing.T) {
-	for _, c := range allCommands(newRoot()) {
+	for _, c := range allCommands(newRoot(tcl)) {
 		if !c.Runnable() || c.Hidden {
 			continue
 		}

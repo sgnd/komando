@@ -31,7 +31,7 @@ func (r *kctlRun) describe() error {
 			return err
 		}
 		for _, o := range objs {
-			d, err := describeObject(r.ctx, r.k, r.conn, kr.r, meta(o, "name"), cmp.Or(meta(o, "namespace"), r.space(kr.r)))
+			d, err := describeObject(r.cl, r.ctx, r.k, r.conn, kr.r, meta(o, "name"), cmp.Or(meta(o, "namespace"), r.space(kr.r)))
 			if err != nil {
 				return err
 			}
@@ -170,7 +170,7 @@ func (r *kctlRun) events() error {
 	if r.a.bools["all-namespaces"] {
 		space = ""
 	}
-	evs, err := clusterEvents(r.ctx, r.k, space, "", "", false, 500)
+	evs, err := clusterEvents(r.cl, r.ctx, r.k, space, "", "", false, 500)
 	if err != nil {
 		return err
 	}
@@ -519,7 +519,7 @@ func (r *kctlRun) rollout(sub string) error {
 	q := r.dryQuery()
 	switch sub {
 	case "status":
-		wait := rolloutWait()
+		wait := rolloutWait(r.cl)
 		if t := r.a.val("timeout"); t != "" {
 			if d, err := time.ParseDuration(t); err == nil {
 				wait = d

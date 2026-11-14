@@ -48,7 +48,7 @@ func TestTransferStopsOnCancel(t *testing.T) {
 		}
 	}
 
-	_, err := upload(ctx, nil, sc, big, old, cpOpts{})
+	_, err := upload(tcl, ctx, nil, sc, big, old, cpOpts{})
 	cancelled("upload", err)
 	if read(t, old) != "old" {
 		t.Error("upload: the file on the server was changed")
@@ -56,7 +56,7 @@ func TestTransferStopsOnCancel(t *testing.T) {
 
 	// one file of a folder upload: written to a temporary name first
 	info, _ := os.Stat(big)
-	_, err = putFile(ctx, sc, big, old, info)
+	_, err = putFile(tcl, ctx, sc, big, old, info)
 	cancelled("folder upload file", err)
 	if read(t, old) != "old" {
 		t.Error("folder upload: the file on the server was cut")
@@ -65,16 +65,16 @@ func TestTransferStopsOnCancel(t *testing.T) {
 	dir := filepath.Join(here, "site")
 	_ = os.MkdirAll(dir, 0o755)
 	_ = os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0o644)
-	_, err = upload(ctx, nil, sc, dir, filepath.Join(there, "site"), cpOpts{recursive: true})
+	_, err = upload(tcl, ctx, nil, sc, dir, filepath.Join(there, "site"), cpOpts{recursive: true})
 	cancelled("folder upload", err)
 
-	_, err = download(ctx, nil, sc, old, filepath.Join(here, "got.bin"), cpOpts{})
+	_, err = download(tcl, ctx, nil, sc, old, filepath.Join(here, "got.bin"), cpOpts{})
 	cancelled("download", err)
 	if _, err := os.Stat(filepath.Join(here, "got.bin")); err == nil {
 		t.Error("download: a file was left on this computer")
 	}
 
-	_, err = runSync(ctx, localSide{root: dir}, sftpSide{sc: sc, root: filepath.Join(there, "synced")}, "src", "dst", syncOpts{})
+	_, err = runSync(tcl, ctx, localSide{cl: tcl, root: dir}, sftpSide{sc: sc, root: filepath.Join(there, "synced")}, "src", "dst", syncOpts{})
 	cancelled("sync", err)
 	if _, err := os.Stat(filepath.Join(there, "synced", "a.txt")); err == nil {
 		t.Error("sync: copied after Ctrl-C")
@@ -95,7 +95,7 @@ func TestDownloadExistingCountsNothing(t *testing.T) {
 	_ = os.WriteFile(src, []byte("new"), 0o644)
 	dst := filepath.Join(t.TempDir(), "a.txt")
 	_ = os.WriteFile(dst, []byte("mine"), 0o644)
-	st, err := download(context.Background(), nil, sc, src, dst, cpOpts{})
+	st, err := download(tcl, context.Background(), nil, sc, src, dst, cpOpts{})
 	if e := toErr(err); err == nil || e.Code != "FILE_EXISTS" {
 		t.Fatalf("err %v", err)
 	}
@@ -123,7 +123,7 @@ func TestFolderDownloadKeepsExistingFiles(t *testing.T) {
 	dst := filepath.Join(t.TempDir(), "site")
 	_ = os.MkdirAll(filepath.Join(dst, "img", "logo"), 0o755) // a folder where a file goes
 	_ = os.WriteFile(filepath.Join(dst, "a.txt"), []byte("mine"), 0o644)
-	st, err := download(context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true})
+	st, err := download(tcl, context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestFolderDownloadKeepsExistingFiles(t *testing.T) {
 		t.Errorf("text %q", got)
 	}
 
-	st, err = download(context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true, overwrite: true})
+	st, err = download(tcl, context.Background(), nil, sc, src+"/", dst, cpOpts{recursive: true, overwrite: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestFolderThroughSymlink(t *testing.T) {
 	if err := os.Symlink(real, link); err != nil {
 		t.Fatal(err)
 	}
-	st, err := upload(context.Background(), nil, sc, link, filepath.Join(there, "site"), cpOpts{recursive: true})
+	st, err := upload(tcl, context.Background(), nil, sc, link, filepath.Join(there, "site"), cpOpts{recursive: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +178,7 @@ func TestFolderThroughSymlink(t *testing.T) {
 		t.Error("css/a.css not uploaded")
 	}
 
-	files, err := localSide{root: link}.list(context.Background())
+	files, err := localSide{cl: tcl, root: link}.list(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

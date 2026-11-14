@@ -97,7 +97,7 @@ func wantCounts(t *testing.T, what string, e map[string]any, bytesDone, bytesTot
 func TestProgressThrottle(t *testing.T) {
 	clock := useFakeClock(t)
 	var buf bytes.Buffer
-	ctx, p := withProgress(context.Background(), &buf)
+	ctx, p := withProgress(tcl, context.Background(), &buf)
 	pp := progressFrom(ctx)
 	pp.total(2, 400)
 	pp.start("a.txt")
@@ -135,7 +135,7 @@ func TestProgressThrottle(t *testing.T) {
 func TestProgressTotalsAcrossServers(t *testing.T) {
 	clock := useFakeClock(t)
 	var buf bytes.Buffer
-	ctx, p := withProgress(context.Background(), &buf)
+	ctx, p := withProgress(tcl, context.Background(), &buf)
 	progressFrom(ctx).eachServer(2)
 	ctxA, settleA := progressServer(ctx)
 	ctxB, settleB := progressServer(ctx)
@@ -158,7 +158,7 @@ func TestProgressTotalsAcrossServers(t *testing.T) {
 	}
 
 	buf.Reset()
-	ctx, p = withProgress(context.Background(), &buf)
+	ctx, p = withProgress(tcl, context.Background(), &buf)
 	progressFrom(ctx).unknown()
 	progressFrom(ctx).start("logs/a.log")
 	p.done(true)
@@ -170,7 +170,7 @@ func TestProgressTotalsAcrossServers(t *testing.T) {
 func TestProgressReaderSeeks(t *testing.T) {
 	useFakeClock(t)
 	var buf bytes.Buffer
-	ctx, p := withProgress(context.Background(), &buf)
+	ctx, p := withProgress(tcl, context.Background(), &buf)
 	r := progressFrom(ctx).reader(bytes.NewReader([]byte("0123456789")))
 	if _, err := io.ReadAll(r); err != nil {
 		t.Fatal(err)
@@ -200,11 +200,11 @@ func TestProgressReaderSeeks(t *testing.T) {
 // A file name never shows a vault value.
 func TestProgressHidesSecretsInNames(t *testing.T) {
 	useFakeClock(t)
-	saved := out.P
-	out.P = &out.Printer{Format: "json", W: io.Discard, Secrets: func() map[string]string { return map[string]string{"tok": "s3cr3t-v4lue-42"} }}
-	t.Cleanup(func() { out.P = saved })
+	saved := tcl.out
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Secrets: func() map[string]string { return map[string]string{"tok": "s3cr3t-v4lue-42"} }}
+	t.Cleanup(func() { tcl.out = saved })
 	var buf bytes.Buffer
-	ctx, p := withProgress(context.Background(), &buf)
+	ctx, p := withProgress(tcl, context.Background(), &buf)
 	progressFrom(ctx).start("dump-s3cr3t-v4lue-42.sql")
 	p.done(true)
 	if strings.Contains(buf.String(), "s3cr3t-v4lue-42") || !strings.Contains(buf.String(), "[secret:tok]") {
@@ -215,7 +215,7 @@ func TestProgressHidesSecretsInNames(t *testing.T) {
 // sync counts every file it copies, with totals from its plan.
 func TestProgressSync(t *testing.T) {
 	useFakeClock(t)
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	src, dst := t.TempDir(), t.TempDir()
 	writeTree(t, src, map[string]string{"a.txt": "12345", "dir/b.txt": "123", "same.txt": "s"})
 	writeTree(t, dst, map[string]string{"same.txt": "s"})
@@ -223,8 +223,8 @@ func TestProgressSync(t *testing.T) {
 	os.Chtimes(filepath.Join(dst, "same.txt"), time.Now(), time.Now())
 	os.Chtimes(filepath.Join(src, "same.txt"), old, old)
 	var buf bytes.Buffer
-	ctx, p := withProgress(context.Background(), &buf)
-	r, err := runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{})
+	ctx, p := withProgress(tcl, context.Background(), &buf)
+	r, err := runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if err != nil || r.Copied != 2 {
 		t.Fatalf("%+v %v", r, err)
 	}
@@ -247,10 +247,10 @@ func TestProgressSFTP(t *testing.T) {
 	remote := t.TempDir()
 
 	var buf bytes.Buffer
-	ctx, p := withProgress(context.Background(), &buf)
-	files, size := localTotal(local, true)
+	ctx, p := withProgress(tcl, context.Background(), &buf)
+	files, size := localTotal(tcl, local, true)
 	progressFrom(ctx).total(files, size)
-	st, err := upload(ctx, nil, sc, local, filepath.Join(remote, "site"), cpOpts{recursive: true})
+	st, err := upload(tcl, ctx, nil, sc, local, filepath.Join(remote, "site"), cpOpts{recursive: true})
 	if err != nil || st.Files != 2 {
 		t.Fatalf("upload: %+v %v", st, err)
 	}
@@ -258,10 +258,10 @@ func TestProgressSFTP(t *testing.T) {
 	wantCounts(t, "folder upload", lastDone(t, progressLines(t, buf.String())), 11, 11, 2, 2)
 
 	buf.Reset()
-	ctx, p = withProgress(context.Background(), &buf)
+	ctx, p = withProgress(tcl, context.Background(), &buf)
 	progressFrom(ctx).eachServer(1)
 	sctx, settle := progressServer(ctx)
-	if _, err := download(sctx, nil, sc, filepath.Join(remote, "site", "index.html"), t.TempDir()+"/", cpOpts{}); err != nil {
+	if _, err := download(tcl, sctx, nil, sc, filepath.Join(remote, "site", "index.html"), t.TempDir()+"/", cpOpts{}); err != nil {
 		t.Fatal(err)
 	}
 	settle()
@@ -274,8 +274,8 @@ func TestProgressSFTP(t *testing.T) {
 	}
 
 	buf.Reset()
-	ctx, p = withProgress(context.Background(), &buf)
-	if _, err := download(ctx, nil, sc, filepath.Join(remote, "site"), t.TempDir(), cpOpts{recursive: true}); err != nil {
+	ctx, p = withProgress(tcl, context.Background(), &buf)
+	if _, err := download(tcl, ctx, nil, sc, filepath.Join(remote, "site"), t.TempDir(), cpOpts{recursive: true}); err != nil {
 		t.Fatal(err)
 	}
 	p.done(true)
@@ -284,10 +284,10 @@ func TestProgressSFTP(t *testing.T) {
 	// cp to two servers: an upload's totals count each server; a download
 	// knows them once both servers have told their size
 	buf.Reset()
-	ctx, p = withProgress(context.Background(), &buf)
+	ctx, p = withProgress(tcl, context.Background(), &buf)
 	one := filepath.Join(local, "index.html")
-	up := cpProgress(ctx, one, true, 2, func(ctx context.Context, _ *sshx.Client) (any, error) {
-		return upload(ctx, nil, sc, one, remote+"/", cpOpts{})
+	up := cpProgress(tcl, ctx, one, true, 2, func(ctx context.Context, _ *sshx.Client) (any, error) {
+		return upload(tcl, ctx, nil, sc, one, remote+"/", cpOpts{})
 	})
 	for i := 0; i < 2; i++ {
 		if _, err := up(ctx, nil); err != nil {
@@ -298,13 +298,13 @@ func TestProgressSFTP(t *testing.T) {
 	wantCounts(t, "file upload to two servers", lastDone(t, progressLines(t, buf.String())), 10, 10, 2, 2)
 
 	buf.Reset()
-	ctx, p = withProgress(context.Background(), &buf)
+	ctx, p = withProgress(tcl, context.Background(), &buf)
 	n := 0
-	down := cpProgress(ctx, "", false, 2, func(ctx context.Context, _ *sshx.Client) (any, error) {
+	down := cpProgress(tcl, ctx, "", false, 2, func(ctx context.Context, _ *sshx.Client) (any, error) {
 		if n++; n == 1 {
 			return nil, errors.New("web1 could not connect")
 		}
-		return download(ctx, nil, sc, filepath.Join(remote, "index.html"), t.TempDir()+"/", cpOpts{})
+		return download(tcl, ctx, nil, sc, filepath.Join(remote, "index.html"), t.TempDir()+"/", cpOpts{})
 	})
 	_, _ = down(ctx, nil)
 	if _, err := down(ctx, nil); err != nil {
@@ -368,7 +368,7 @@ func TestProgressStorageCommands(t *testing.T) {
 		t.Errorf("-o text: %s", said)
 	}
 	for _, path := range [][]string{{"upload"}, {"download"}, {"cp"}, {"sync"}, {"storage", "upload"}, {"storage", "download"}} {
-		c, _, err := newRoot().Find(path)
+		c, _, err := newRoot(tcl).Find(path)
 		if err != nil || c.Flags().Lookup("progress") == nil {
 			t.Errorf("%v has no --progress", path)
 		}

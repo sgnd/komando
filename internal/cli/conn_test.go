@@ -36,7 +36,7 @@ func TestResolveSelectionConns(t *testing.T) {
 		"dev-db,prod-db": "dev-db,prod-db",
 	}
 	for expr, want := range cases {
-		sel, err := resolveSelection(st, expr)
+		sel, err := resolveSelection(tcl, st, expr)
 		if err != nil {
 			t.Errorf("%s: %v", expr, err)
 			continue
@@ -49,7 +49,7 @@ func TestResolveSelectionConns(t *testing.T) {
 			t.Errorf("%s: got %s want %s", expr, got, want)
 		}
 	}
-	if _, err := resolveSelection(st, "@nope"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
+	if _, err := resolveSelection(tcl, st, "@nope"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
 		t.Errorf("expected TARGET_EMPTY, got %v", err)
 	}
 }
@@ -74,11 +74,11 @@ func TestGuardConns(t *testing.T) {
 		{"destructive on protected, only --allow-dangerous", []*store.Conn{prod}, destructive, false, true, "PROTECTED_TARGET"},
 		{"destructive on protected, both flags", []*store.Conn{prod}, destructive, true, true, ""},
 	}
-	saved := g
-	defer func() { g = saved }()
+	saved := tcl.flags
+	defer func() { tcl.flags = saved }()
 	for _, c := range cases {
-		g.yes, g.allowDangerous = c.yes, c.allow
-		err := guardConns(nil, c.conns, c.v)
+		tcl.flags.yes, tcl.flags.allowDangerous = c.yes, c.allow
+		err := guardConns(tcl, nil, c.conns, c.v)
 		got := ""
 		if err != nil {
 			got = toErr(err).Code
@@ -142,7 +142,7 @@ func TestSelectionPicksHostsAndConns(t *testing.T) {
 		"all,!kind:db,!tag:prod": "dev-1",
 	}
 	for expr, want := range cases {
-		sel, err := resolveSelection(st, expr)
+		sel, err := resolveSelection(tcl, st, expr)
 		if err != nil {
 			t.Errorf("%s: %v", expr, err)
 			continue
@@ -151,10 +151,10 @@ func TestSelectionPicksHostsAndConns(t *testing.T) {
 			t.Errorf("%s: got %s want %s", expr, got, want)
 		}
 	}
-	if _, err := resolveSelection(st, "kind:nosuch"); err == nil || toErr(err).Code != "USAGE" {
+	if _, err := resolveSelection(tcl, st, "kind:nosuch"); err == nil || toErr(err).Code != "USAGE" {
 		t.Errorf("expected USAGE for an unknown kind, got %v", err)
 	}
-	if _, err := resolveSelection(st, "prod-bd"); err == nil || toErr(err).Suggestion != "prod-db" || !strings.Contains(toErr(err).Hint, "prod-db") {
+	if _, err := resolveSelection(tcl, st, "prod-bd"); err == nil || toErr(err).Suggestion != "prod-db" || !strings.Contains(toErr(err).Hint, "prod-db") {
 		t.Errorf("expected a did-you-mean hint, got %v", err)
 	}
 }
@@ -162,24 +162,24 @@ func TestSelectionPicksHostsAndConns(t *testing.T) {
 func TestActionCommandsUseWhatTheyCan(t *testing.T) {
 	st := testConnState()
 	// exec @db runs on the server and skips the databases
-	if hs, err := resolveTargets(st, "@db"); err != nil || len(hs) != 1 || hs[0].Name != "db-1" {
+	if hs, err := resolveTargets(tcl, st, "@db"); err != nil || len(hs) != 1 || hs[0].Name != "db-1" {
 		t.Errorf("@db for servers: %v %v", hostNames(hs), err)
 	}
 	// db query kind:postgres finds the one database
-	if c, err := singleConn(st, "kind:postgres", "db"); err != nil || c.Name != "prod-db" {
+	if c, err := singleConn(tcl, st, "kind:postgres", "db"); err != nil || c.Name != "prod-db" {
 		t.Errorf("kind:postgres for db: %v %v", c, err)
 	}
 	// two databases in @db: db query needs exactly one
-	if _, err := singleConn(st, "@db", "db"); err == nil || toErr(err).Code != "USAGE" {
+	if _, err := singleConn(tcl, st, "@db", "db"); err == nil || toErr(err).Code != "USAGE" {
 		t.Errorf("expected USAGE for two databases, got %v", err)
 	}
 	// only servers picked: the hint says to use exec
-	_, err := singleConn(st, "@web", "db")
+	_, err := singleConn(tcl, st, "@web", "db")
 	if e := toErr(err); err == nil || e.Code != "NO_MATCHING_TARGETS" || !strings.Contains(e.Hint, "komando exec") {
 		t.Errorf("expected NO_MATCHING_TARGETS with an exec hint, got %v", err)
 	}
 	// a database given to a cache command points to `komando db`
-	_, err = singleConn(st, "prod-db", "cache")
+	_, err = singleConn(tcl, st, "prod-db", "cache")
 	if e := toErr(err); err == nil || e.Code != "NO_MATCHING_TARGETS" || !strings.Contains(e.Hint, "komando db") {
 		t.Errorf("expected a hint to use komando db, got %v", err)
 	}
@@ -188,7 +188,7 @@ func TestActionCommandsUseWhatTheyCan(t *testing.T) {
 func TestProtectionFollowsTheAddress(t *testing.T) {
 	st := testConnState()
 	st.Hosts["web-1"].Protected = true
-	m, err := matchSelector(st, "root@web-1.lan:22")
+	m, err := matchSelector(tcl, st, "root@web-1.lan:22")
 	if err != nil || len(m.Hosts) != 1 {
 		t.Fatalf("ad-hoc host: %v %v", m.Hosts, err)
 	}
@@ -206,7 +206,7 @@ func TestProtectionFollowsTheAddress(t *testing.T) {
 	if protectedConn(st, &store.Conn{Name: "x", Kind: "postgres", URL: "postgres://app@10.0.0.6/app"}) {
 		t.Error("a different server is not protected")
 	}
-	if err := guardConns(st, []*store.Conn{alias}, driver.Verdict{Risk: driver.RiskWrite}); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
+	if err := guardConns(tcl, st, []*store.Conn{alias}, driver.Verdict{Risk: driver.RiskWrite}); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
 		t.Errorf("expected PROTECTED_TARGET for the alias, got %v", err)
 	}
 }
@@ -266,7 +266,7 @@ func TestClusterRunClassification(t *testing.T) {
 		"get pods -o yaml":                           driver.RiskRead,
 	}
 	for cmd, want := range k {
-		if got := classifyKubectl(strings.Fields(cmd)); got != want {
+		if got := classifyKubectl(tcl, strings.Fields(cmd)); got != want {
 			t.Errorf("kubectl %s: %v, want %v", cmd, got, want)
 		}
 	}
@@ -323,7 +323,7 @@ func TestCheckOVPN(t *testing.T) {
 
 func TestLabelWithoutValue(t *testing.T) {
 	st := testConnState()
-	sel, err := resolveSelection(st, "label:dc")
+	sel, err := resolveSelection(tcl, st, "label:dc")
 	if err != nil || len(sel.Hosts) != 3 {
 		t.Fatalf("label:dc must pick the 3 hosts that have the label, got %v %v", hostNames(sel.Hosts), err)
 	}
@@ -355,7 +355,7 @@ func TestFamilyAddWrongKind(t *testing.T) {
 // "keychain" means the OS keychain (`secret keychain`), never the SSH key
 // list.
 func TestKeychainIsNotKey(t *testing.T) {
-	if c, _, err := newRoot().Find([]string{"keychain"}); err == nil && c.Name() == "key" {
+	if c, _, err := newRoot(tcl).Find([]string{"keychain"}); err == nil && c.Name() == "key" {
 		t.Error("`komando keychain` opens the SSH key list")
 	}
 }

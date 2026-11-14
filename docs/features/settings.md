@@ -104,7 +104,7 @@ turn on the approval code.
 |----------|--------------|
 | `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`, on Windows `%USERPROFILE%\.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
 | `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `store.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see [below](#a-passphrase-instead-of-the-keychain)) |
-| `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs); for an AI agent it does not turn off the store's change count, the old-copy check. On a Mac, a path to a keychain file to use instead of the login keychain |
+| `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain, for the store's key and its change count. An AI agent cannot move the keychain: its `off` does not move the change count (the old-copy check), and its path is not used at all, so an agent's call keeps the key and the count in the login keychain. A store whose key is in your own keychain file is opened only by your commands, not an agent's. The other way round, a store an agent made keeps its key in the login keychain, so your commands with `KOMANDO_KEYCHAIN` set to a file do not find it there |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
 | `KOMANDO_OUTPUT` | default output: `json` or `text` |
 | `KOMANDO_AGENT`, `AI_AGENT` | mark the caller as an AI agent, for agents komando does not know by their own variables: output hides secrets and `--yes`, `--allow-dangerous` and `--reveal` need a person to allow them (see [Safety](safety.md#seatbelts-for-ai-agents)). Any value counts, also `0` or empty |
@@ -142,6 +142,7 @@ komando keeps your data sealed in one file:
 |------|----------|
 | `store.db` | servers, conns, VPNs, keys, recipes, settings, secrets, remembered server fingerprints and the history of every action, each record sealed (AES-256-GCM). Only a random ID, the kind, a version and the time of a change can be read without the key |
 | `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
+| `store.made` | a note that this folder has had a store. komando writes it with the store and keeps it, so a lost `store.db` is noticed (below). It holds no secret |
 | `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the store's key) |
 | `runtime.pids` | only the process IDs of komando's own background work, so it can tell whether they still run without opening the store |
 | `vpn/`, `tunnels/`, `login/` | VPN, tunnel and server login logs (one that nothing running uses is removed after a week), and the state of built-in VPN clients |
@@ -149,19 +150,34 @@ komando keeps your data sealed in one file:
 Copy `store.db` only with komando running nothing, or a copy taken during a
 change may be broken. Back this folder up and keep it private.
 
-komando reads only `store.db`. A folder that had a store (`store.key` or
-`runtime.pids` is there, or the keychain keeps its change count) but lost
+komando reads only `store.db`. A folder that had a store but lost
 `store.db` stops with `STATE_CORRUPT` until you put `store.db` back from a
-backup.
+backup. These show it had one: `store.made`, `store.key` or
+`store.key.new`, `store.db-journal`, `runtime.pids`, a sealed
+`runtime.json`, or a change count the keychain keeps for the folder.
+Every store leaves `store.made`, also one whose key is in the keychain
+(it has no `store.key`); a store made by an older komando gets it the
+next time komando opens it. The lock files do not count: a command that
+was refused leaves them too.
 
 When the store's key is in the OS keychain, the keychain also remembers
 how many changes the store has had. An older copy of `store.db` put back
 (from a backup, or by someone) stops every command with `STORE_OLD_COPY`,
 because its servers, rules, secrets or pinned host keys may be old.
-`komando doctor` and dry runs still work. If you restored the folder on
-purpose, run `komando doctor --accept-old-copy` in your own terminal. With
-the key in `store.key` or a passphrase there is nothing to compare with,
-and `komando doctor` says so.
+`komando doctor` and dry runs still work, and only look: they write
+nothing into the old copy, and never start a new store where `store.db`
+is missing. If you restored the folder on purpose, run
+`komando doctor --accept-old-copy` in your own terminal.
+
+With the key in `store.key` or a passphrase, the store is compared only
+when the keychain keeps a count for this folder: then it is a backup from
+before `komando secret keychain`. When the keychain cannot say whether it
+keeps one (locked, or no answer), komando reads such a store but changes
+nothing (`KEYCHAIN_FAILED`, or `KEYCHAIN_SLOW`): it may be that backup.
+Unlock the keychain and run it again. On a computer with no working
+keychain, a person sets `KOMANDO_KEYCHAIN=off` (an AI agent's `off` still
+asks the keychain). Where the keychain answers that it keeps no count,
+there is nothing to compare with, and `komando doctor` says so.
 
 ### Where the vault's key lives
 
@@ -204,6 +220,36 @@ Where the keychain cannot keep the key or cannot tell, the key goes into
 - a Windows computer without Credential Manager;
 - an item for this folder that stays locked, a container, or a keychain
   that does not answer within a few seconds.
+
+Before komando makes a new store, it asks the keychain whether it still
+remembers a change count for this folder: then the folder had a store that
+was removed, and komando does not start an empty one in its place
+(`STORE_OLD_COPY`, as for an old copy above). When the keychain says it
+has no count, or there is no keychain at all (no `secret-tool`, no
+Credential Manager, `KOMANDO_KEYCHAIN=off`), the new store starts as
+above.
+
+When the keychain cannot say (a keychain locked over SSH, no default
+keychain for this `HOME`, no desktop session for `secret-tool`, or no
+answer within a second):
+
+- A person or a script in a folder that never had a store (none of the
+  files listed under
+  [Where komando keeps its data](#where-komando-keeps-its-data),
+  `store.made` among them) gets the new store all the same. Its key goes
+  into `store.key`, never the keychain, and komando prints one note on
+  stderr: the store is guarded by its key file only. The command that made it goes on. Later commands only
+  read while the keychain cannot be read; on a computer with no working
+  keychain, set `KOMANDO_KEYCHAIN=off`.
+- An AI agent's command makes no store: `STORE_OLD_COPY`, or
+  `KEYCHAIN_SLOW` when the keychain did not answer in time. Ask a person to
+  run the command once in their own terminal.
+- In a folder that had a store (`store.made`, `store.key` or another of
+  those files), nobody's command makes one, whoever runs it. Put
+  `store.db` back from a backup. To start an empty store on purpose once
+  the keychain answers, a person runs `komando doctor --accept-old-copy`
+  (when the keychain remembers the store's count), or moves the folder
+  aside.
 
 A vault whose key is in `store.key` keeps it there until you move it: run
 `komando secret keychain`. Nothing is re-encrypted, so it works before or
@@ -285,7 +331,7 @@ To update komando itself, see [Install, update, remove](install.md#update).
 | Error | What it means | What to do |
 |-------|---------------|------------|
 | `SAFETY_SETTING` (exit 6) | the change turns one of komando's checks off | at your terminal komando asks first; an AI agent or a script adds `--yes` after a person agrees |
-| `STORE_OLD_COPY` (exit 6) | an older copy of `store.db` was put back | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
+| `STORE_OLD_COPY` (exit 6) | an older copy of `store.db` was put back, `store.db` is missing while the keychain remembers its change count, or the keychain cannot say whether it does | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
 | `STATE_CORRUPT` (exit 1) | `store.db` is missing in a folder that had a store, or does not open with the key; or `runtime.json` does not open | for `store.db`: put the folder back from a backup, then `komando doctor --accept-old-copy` in your own terminal; for `runtime.json`: move it away and connect again (it holds only running VPNs, logins, jobs and tunnels) |
 | `KEYCHAIN_SLOW` (exit 1) | the keychain did not answer in time, so nothing was changed | run it again in a moment; `komando doctor` if it keeps happening |
 | `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` (exit 1) | the vault does not open | see [Secrets](secrets.md#troubleshooting) |

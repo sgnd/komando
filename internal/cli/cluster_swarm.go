@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -35,11 +34,11 @@ esac
 
 // swarmExec runs script on the manager and returns stdout. Failures come
 // back as errors with an exit code that fits (not found, not a manager).
-func swarmExec(ctx context.Context, st *store.State, t clusterTarget, script string, stdin []byte) (string, error) {
+func swarmExec(cl *call, ctx context.Context, st *store.State, t clusterTarget, script string, stdin []byte) (string, error) {
 	var res *sshx.RunResult
-	err := withClient(ctx, st, t.host, func(c *sshx.Client) error {
+	err := withClient(cl, ctx, st, t.host, func(c *sshx.Client) error {
 		var err error
-		res, err = sshx.Run(ctx, c, sshx.RunRequest{Command: swarmPreamble + script, Stdin: stdin, Timeout: cmdTimeout(st), MaxOutput: maxOutput(st)})
+		res, err = sshx.Run(ctx, c, sshx.RunRequest{Command: swarmPreamble + script, Stdin: stdin, Timeout: cmdTimeout(cl, st), MaxOutput: maxOutput(cl, st)})
 		return err
 	})
 	if err != nil {
@@ -137,7 +136,7 @@ func swarmFilter(selector string) string {
 }
 
 // swarmList reads one kind of Swarm object as {host, type, count, items}.
-func swarmList(ctx context.Context, t clusterTarget, kind, selector string, limit int) (kubeList, error) {
+func swarmList(cl *call, ctx context.Context, t clusterTarget, kind, selector string, limit int) (kubeList, error) {
 	if selector != "" && kind != "service" && kind != "node" {
 		return nil, out.Usage("on Swarm, --selector works for services and nodes")
 	}
@@ -149,7 +148,7 @@ func swarmList(ctx context.Context, t clusterTarget, kind, selector string, limi
 	var items []map[string]any
 	switch kind {
 	case "service":
-		s, err := swarmExec(ctx, st, t, "ids=$(docker service ls -q"+f+"); [ -z \"$ids\" ] && exit 0\n"+
+		s, err := swarmExec(cl, ctx, st, t, "ids=$(docker service ls -q"+f+"); [ -z \"$ids\" ] && exit 0\n"+
 			"docker service ls"+f+" --format '{{json .}}'; echo --; docker service inspect $ids --format '{{json .}}'", nil)
 		if err != nil {
 			return nil, err
@@ -157,19 +156,19 @@ func swarmList(ctx context.Context, t clusterTarget, kind, selector string, limi
 		p := swarmSections(s, 2)
 		items = swarmServices(jsonLines(p[0]), jsonLines(p[1]))
 	case "task":
-		s, err := swarmExec(ctx, st, t, "ids=$(docker service ls -q); [ -z \"$ids\" ] || docker service ps $ids --no-trunc --format '{{json .}}'", nil)
+		s, err := swarmExec(cl, ctx, st, t, "ids=$(docker service ls -q); [ -z \"$ids\" ] || docker service ps $ids --no-trunc --format '{{json .}}'", nil)
 		if err != nil {
 			return nil, err
 		}
 		items = swarmTasks(jsonLines(s))
 	case "node":
-		s, err := swarmExec(ctx, st, t, "docker node ls"+f+" --format '{{json .}}'", nil)
+		s, err := swarmExec(cl, ctx, st, t, "docker node ls"+f+" --format '{{json .}}'", nil)
 		if err != nil {
 			return nil, err
 		}
 		items = swarmNodes(jsonLines(s))
 	case "stack":
-		s, err := swarmExec(ctx, st, t, "docker stack ls --format '{{json .}}'", nil)
+		s, err := swarmExec(cl, ctx, st, t, "docker stack ls --format '{{json .}}'", nil)
 		if err != nil {
 			return nil, err
 		}
@@ -186,7 +185,7 @@ func swarmList(ctx context.Context, t clusterTarget, kind, selector string, limi
 	res := kubeList{"host": t.host.Name, "type": strings.ToUpper(kind[:1]) + kind[1:], "count": len(items), "items": items}
 	if limit > 0 && len(items) > limit {
 		res["items"], res["count"], res["truncated"] = items[:limit], limit, true
-		out.P.CutNoted()
+		cl.out.CutNoted()
 	}
 	return res, nil
 }
@@ -247,12 +246,12 @@ func swarmNodes(ls []map[string]any) []map[string]any {
 
 // Swarm status.
 
-func swarmStatus(ctx context.Context, t clusterTarget) (statusData, error) {
+func swarmStatus(cl *call, ctx context.Context, t clusterTarget) (statusData, error) {
 	st, err := loadState()
 	if err != nil {
 		return nil, err
 	}
-	s, err := swarmExec(ctx, st, t, `docker version --format '{{.Server.Version}}'; echo --
+	s, err := swarmExec(cl, ctx, st, t, `docker version --format '{{.Server.Version}}'; echo --
 docker node ls --format '{{json .}}'; echo --
 docker service ls --format '{{json .}}'; echo --
 ids=$(docker service ls -q); [ -z "$ids" ] || docker service ps $ids --no-trunc --format '{{json .}}'`, nil)
@@ -310,13 +309,13 @@ func swarmHealth(host, version string, nodes, services, tasks []map[string]any) 
 
 // Swarm describe, get and logs.
 
-func swarmDescribe(ctx context.Context, t clusterTarget, name string) (any, error) {
+func swarmDescribe(cl *call, ctx context.Context, t clusterTarget, name string) (any, error) {
 	st, err := loadState()
 	if err != nil {
 		return nil, err
 	}
 	q := sshx.Q(name)
-	s, err := swarmExec(ctx, st, t, "docker service inspect "+q+" --format '{{json .}}'; echo --; docker service ps "+q+
+	s, err := swarmExec(cl, ctx, st, t, "docker service inspect "+q+" --format '{{json .}}'; echo --; docker service ps "+q+
 		" --no-trunc --format '{{json .}}'; echo --; docker service ls --filter "+sshx.Q("name="+name)+" --format '{{json .}}'", nil)
 	if err != nil {
 		return nil, err
@@ -383,7 +382,7 @@ func scalarNum(v any) any {
 }
 
 // swarmGet is `cluster get` on Swarm: the object's full inspect JSON.
-func swarmGet(ctx context.Context, t clusterTarget, typ, name string) (any, error) {
+func swarmGet(cl *call, ctx context.Context, t clusterTarget, typ, name string) (any, error) {
 	kind := swarmKind(typ)
 	if kind == "" {
 		if oneOf(strings.ToLower(typ), "network", "volume", "secret", "config") {
@@ -403,7 +402,7 @@ func swarmGet(ctx context.Context, t clusterTarget, typ, name string) (any, erro
 	if kind == "task" {
 		line = "docker inspect --type task " + sshx.Q(name) + " --format '{{json .}}' 2>/dev/null || docker service ps " + sshx.Q(name) + " -q --no-trunc | head -1 | xargs -r docker inspect --type task --format '{{json .}}'"
 	}
-	s, err := swarmExec(ctx, st, t, line, nil)
+	s, err := swarmExec(cl, ctx, st, t, line, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -425,7 +424,7 @@ func (l swarmLogsData) Text() string { return l.Logs }
 
 // swarmLogs reads a service's logs, or with follow prints new lines until
 // Ctrl-C or --timeout, which both end it normally (exit 0).
-func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, since string, follow, timestamps bool) error {
+func swarmLogs(cl *call, ctx context.Context, t clusterTarget, service string, limit int, since string, follow, timestamps bool) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -440,19 +439,19 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 	// the service must exist: docker service logs would wait forever
 	line = "docker service inspect " + sshx.Q(service) + " --format '{{.ID}}' >/dev/null || exit 1\n" + line
 	if !follow {
-		s, err := swarmExec(ctx, st, t, line+" "+sshx.Q(service)+" 2>&1", nil)
+		s, err := swarmExec(cl, ctx, st, t, line+" "+sshx.Q(service)+" 2>&1", nil)
 		if err != nil {
 			return err
 		}
-		out.P.Print("cluster.logs", swarmLogsData{Host: t.host.Name, Object: "service/" + service, Logs: s}, nil)
+		cl.out.Print("cluster.logs", swarmLogsData{Host: t.host.Name, Object: "service/" + service, Logs: s}, nil)
 		return nil
 	}
-	if g.timeout > 0 {
+	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
-	showStatus(statusLine{What: "following logs of service/" + service, Target: t.host.Name, Route: hostRoute(st, t.host),
+	showStatus(cl, statusLine{What: "following logs of service/" + service, Target: t.host.Name, Route: hostRoute(st, t.host),
 		Protected: protectedHost(st, t.host), Tail: "Ctrl-C stops"})
 	lines := 0
 	var res *sshx.RunResult
@@ -461,13 +460,13 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 		if text == "" {
 			return
 		}
-		if out.P.Format == "text" {
-			fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(text)))
+		if cl.out.Format == "text" {
+			fmt.Fprint(cl.out.W, out.SafeText(cl.out.Redact(text)))
 			return
 		}
-		out.P.Event(map[string]any{"event": "output", "object": "service/" + service, "data": text})
+		cl.out.Event(map[string]any{"event": "output", "object": "service/" + service, "data": text})
 	}
-	err = withClient(ctx, st, t.host, func(c *sshx.Client) error {
+	err = withClient(cl, ctx, st, t.host, func(c *sshx.Client) error {
 		var err error
 		res, err = sshx.Run(ctx, c, sshx.RunRequest{Command: swarmPreamble + line + " -f " + sshx.Q(service) + " 2>&1", MaxOutput: 1 << 20,
 			Stream: func(stream string, chunk []byte) {
@@ -488,8 +487,8 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 	if err != nil {
 		return err
 	}
-	if out.P.Format != "text" {
-		out.P.Print("cluster.logs", map[string]any{"host": t.host.Name, "object": "service/" + service, "lines": lines, "followed": true}, nil)
+	if cl.out.Format != "text" {
+		cl.out.Print("cluster.logs", map[string]any{"host": t.host.Name, "object": "service/" + service, "lines": lines, "followed": true}, nil)
 	}
 	return nil
 }
@@ -499,41 +498,41 @@ func swarmLogs(ctx context.Context, t clusterTarget, service string, limit int, 
 // swarmDo runs a change on the manager after the safety checks: risky
 // changes need --allow-dangerous, protected servers --yes. Under --dry-run
 // it runs nothing and returns ran=false.
-func swarmDo(ctx context.Context, name string, t clusterTarget, line string, stdin []byte, risk driver.Risk, why string) (string, bool, error) {
+func swarmDo(cl *call, ctx context.Context, name string, t clusterTarget, line string, stdin []byte, risk driver.Risk, why string) (string, bool, error) {
 	st, err := loadState()
 	if err != nil {
 		return "", false, err
 	}
-	if risk >= driver.RiskDestructive && !dangerOK() {
-		if cur().typed == nil {
-			askTypes([]string{t.host.Name}, "servers") // the whole cluster: its manager's name
+	if risk >= driver.RiskDestructive && !cl.dangerOK() {
+		if cl.typed == nil {
+			askTypes(cl, []string{t.host.Name}, "servers") // the whole cluster: its manager's name
 		}
-		if err := guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{name}, Reasons: []string{why}}); err != nil {
+		if err := guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{name}, Reasons: []string{why}}); err != nil {
 			return "", false, err
 		}
 	}
-	if err := guard(st, []*store.Host{t.host}, line, true); err != nil {
+	if err := guard(cl, st, []*store.Host{t.host}, line, true); err != nil {
 		return "", false, err
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		return "", false, nil
 	}
-	s, err := swarmExec(ctx, st, t, line, stdin)
+	s, err := swarmExec(cl, ctx, st, t, line, stdin)
 	rec := map[string]any{"risk": risk.String()}
 	if err != nil {
 		rec["error"] = toErr(err).Code
 	}
-	audit(st, name, []string{t.host.Name}, line, err == nil, rec)
+	audit(cl, st, name, []string{t.host.Name}, line, err == nil, rec)
 	return s, true, err
 }
 
 // swarmInspect reads one field set of a service (and so checks it exists).
-func swarmInspect(ctx context.Context, t clusterTarget, service string) (map[string]any, error) {
+func swarmInspect(cl *call, ctx context.Context, t clusterTarget, service string) (map[string]any, error) {
 	st, err := loadState()
 	if err != nil {
 		return nil, err
 	}
-	s, err := swarmExec(ctx, st, t, "docker service inspect "+sshx.Q(service)+" --format '{{json .}}'", nil)
+	s, err := swarmExec(cl, ctx, st, t, "docker service inspect "+sshx.Q(service)+" --format '{{json .}}'", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -566,26 +565,26 @@ func serviceReplicas(spec any) int {
 
 // swarmChange makes a service change and with wait follows the rollout to
 // its end, printing one answer for both. res is what the command reports.
-func swarmChange(ctx context.Context, name string, t clusterTarget, service, line string, wait, rollback bool, risk driver.Risk, res map[string]any) error {
+func swarmChange(cl *call, ctx context.Context, name string, t clusterTarget, service, line string, wait, rollback bool, risk driver.Risk, res map[string]any) error {
 	res["host"] = t.host.Name
 	why := line
 	if risk >= driver.RiskDestructive {
 		why = "stops every copy of " + service + " (scale to 0)"
 	}
-	_, ran, err := swarmDo(ctx, name, t, line, nil, risk, why)
+	_, ran, err := swarmDo(cl, ctx, name, t, line, nil, risk, why)
 	if err != nil {
 		return err
 	}
 	if !ran {
 		res["dry_run"], res["would_run"] = true, line
-		out.P.Print(name, res, nil)
+		cl.out.Print(name, res, nil)
 		return nil
 	}
 	if !wait {
-		out.P.Print(name, res, nil)
+		cl.out.Print(name, res, nil)
 		return nil
 	}
-	ro, werr := swarmWait(ctx, t, service, rolloutWait(), rollback)
+	ro, werr := swarmWait(cl, ctx, t, service, rolloutWait(cl), rollback)
 	if ro == nil {
 		return werr
 	}
@@ -594,13 +593,13 @@ func swarmChange(ctx context.Context, name string, t clusterTarget, service, lin
 			res[k] = v
 		}
 	}
-	out.P.Print(name, res, softErr(werr))
+	cl.out.Print(name, res, softErr(werr))
 	return exitFor(werr)
 }
 
 // swarmWait polls a Swarm service until its update (or rollback) is done
 // and all replicas run. It returns the last state it saw.
-func swarmWait(ctx context.Context, t clusterTarget, service string, wait time.Duration, rollback bool) (map[string]any, error) {
+func swarmWait(cl *call, ctx context.Context, t clusterTarget, service string, wait time.Duration, rollback bool) (map[string]any, error) {
 	st, err := loadState()
 	if err != nil {
 		return nil, err
@@ -610,7 +609,7 @@ func swarmWait(ctx context.Context, t clusterTarget, service string, wait time.D
 	cmd := "docker service inspect " + q + " --format '{{json .UpdateStatus}}'; echo --; docker service ls --filter " + sshx.Q("name="+service) +
 		" --format '{{json .}}'; echo --; docker service ps " + q + " --no-trunc --format '{{json .}}'"
 	for {
-		s, err := swarmExec(ctx, st, t, cmd, nil)
+		s, err := swarmExec(cl, ctx, st, t, cmd, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -703,12 +702,12 @@ func stuckTasks(tasks []map[string]any) string {
 }
 
 // swarmStackExists fails with not found (3) when no service belongs to stack.
-func swarmStackExists(ctx context.Context, t clusterTarget, stack string) error {
+func swarmStackExists(cl *call, ctx context.Context, t clusterTarget, stack string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	s, err := swarmExec(ctx, st, t, "docker stack services -q "+sshx.Q(stack)+" 2>/dev/null; true", nil)
+	s, err := swarmExec(cl, ctx, st, t, "docker stack services -q "+sshx.Q(stack)+" 2>/dev/null; true", nil)
 	if err != nil {
 		return err
 	}

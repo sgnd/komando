@@ -23,6 +23,7 @@ are named, and the rules every change keeps. Tests check most of them; the
 | **Every command runs once end to end** (`test/e2e/checks/coverage.sh`). | `make e2e` |
 | **Messages follow [message-style.md](message-style.md).** | `message_style_test.go` |
 | **Packages and files are named as below.** | `internal/layout` |
+| **The paid boundary.** No plan, account or licence check in any command. The binary never links the sync library or a Komando Cloud client, and names no komando-owned address except the release site ([principles.md](principles.md#15-technical-rules)). | review, `internal/boundary` |
 
 ## Packages
 
@@ -68,6 +69,7 @@ or a listed one is gone.
 | Package | What it is |
 |---|---|
 | `cmd/komando` | `main`: starts `internal/cli` |
+| `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
 | `internal/cli` | every command: flags, safety checks, audit and output |
@@ -139,6 +141,7 @@ a reason; `internal/layout` reads this table.
 | `approval` | the person's approval: the window, the code, the hints |
 | `args` | the argument words of a command, and the words after `--` |
 | `ask` | asking a person for a password or a login answer |
+| `call` | one command's run (`RunCall`): its printer, flags, approvals and environment, and the hooks of the packages under the cli ([engine-per-call.md](engine-per-call.md)) |
 | `cmdid` | the stable command IDs |
 | `common` | small helpers nearly every command uses (state, timeouts, fan-out, audit) |
 | `confirm` | yes/no and typed confirmations |

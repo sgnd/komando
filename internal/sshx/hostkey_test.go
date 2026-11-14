@@ -20,7 +20,7 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 	var note bytes.Buffer
 	var got []NewHostKey
 	oldNote, oldHook := hostKeyNote, HostKeyPinned
-	hostKeyNote, HostKeyPinned = &note, func(k NewHostKey) { got = append(got, k) }
+	hostKeyNote, HostKeyPinned = &note, func(_ context.Context, k NewHostKey) { got = append(got, k) }
 	t.Cleanup(func() { hostKeyNote, HostKeyPinned = oldNote, oldHook })
 	key := newSigner(t).PublicKey()
 	addr := &net.TCPAddr{IP: net.IPv4(10, 0, 0, 5), Port: 22}
