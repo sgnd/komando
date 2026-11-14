@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Removed
+
+- The reader for sealed stores from before the record index (a change
+  count with no index beside it). No released komando wrote that form,
+  only development builds in the hours before 0.12.0. A store in that
+  form now stops with "changed outside komando".
+
 ### Fixed
 
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
