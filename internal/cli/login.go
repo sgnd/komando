@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"os/exec"
 	"runtime"
 	"slices"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -125,6 +125,9 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 			if stop != nil && !cl.flags.dryRun {
 				return stop
 			}
+			if err := canOpenPages(cl); err != nil {
+				return err
+			}
 			sso, err := cloud.AWSProfileSSO(cmd.Context(), profile)
 			if err != nil {
 				return awsErr(profile, err)
@@ -152,16 +155,34 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 	return c
 }
 
-// openBrowser opens url with the operating system's own opener. When there
-// is none (a server), the person opens the printed address themselves.
+// openBrowser opens url in the app that runs the call (engine.Call.OpenURL),
+// else with the operating system's own opener. When there is none (a
+// server, a device that starts no programs), the person opens the printed
+// address themselves.
 func openBrowser(ctx context.Context, url string) {
 	if !strings.HasPrefix(url, "https://") { // only a web page, never a file or an app
 		return
 	}
-	argv := browserOpener(runtime.GOOS, url)
-	if _, err := exec.LookPath(argv[0]); err == nil {
-		_ = exec.CommandContext(ctx, argv[0], argv[1:]...).Start()
+	if cl := callFrom(ctx); cl != nil && cl.io.OpenURL != nil {
+		_ = cl.io.OpenURL(url)
+		return
 	}
+	argv := browserOpener(runtime.GOOS, url)
+	if _, err := engine.LookPath(argv[0]); err == nil {
+		if c, err := engine.StartProgram(ctx, argv[0], argv[1:]...); err == nil {
+			_ = c.Start()
+		}
+	}
+}
+
+// canOpenPages is nil when a sign-in page can be opened for cl: through
+// the app's own hook (engine.Call.OpenURL), or a browser this device can
+// start.
+func canOpenPages(cl *call) error {
+	if cl.io.OpenURL != nil {
+		return nil
+	}
+	return engine.Require(engine.NeedProgram, "a browser for the sign-in page")
 }
 
 // browserOpener is the command that opens url in the person's own browser

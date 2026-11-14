@@ -8,7 +8,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -176,7 +176,7 @@ func isGuardEntry(m map[string]any) bool {
 // is this program (it survives upgrades), else this program's own path.
 func komandoPath() string {
 	self, _ := os.Executable()
-	if p, err := exec.LookPath("komando"); err == nil {
+	if p, err := engine.LookPath("komando"); err == nil {
 		if a, b := statOf(p), statOf(self); a != nil && b != nil && os.SameFile(a, b) {
 			if abs, err := filepath.Abs(p); err == nil {
 				return abs
@@ -250,7 +250,7 @@ func claudeGuard(path string) (found bool, problem string) {
 // guardProgramProblem says why the program a hook names cannot run, or "".
 func guardProgramProblem(prog string) string {
 	if !strings.Contains(prog, "/") {
-		if _, err := exec.LookPath(prog); err != nil {
+		if _, err := engine.LookPath(prog); err != nil {
 			return "its command " + prog + " is not in PATH"
 		}
 		return ""

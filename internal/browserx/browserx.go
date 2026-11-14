@@ -22,6 +22,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/tmpclean"
 )
 
@@ -76,7 +77,7 @@ func Find() string {
 		}
 	}
 	for _, name := range []string{"google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "brave-browser"} {
-		if p, err := exec.LookPath(name); err == nil {
+		if p, err := engine.LookPath(name); err == nil {
 			return p
 		}
 	}
@@ -215,8 +216,15 @@ func launch(exe, dir string) (*browser, error) {
 	}
 	// mock keychain and basic password store: an empty profile must not ask
 	// for the person's keychain
-	cmd := exec.Command(exe, "--remote-debugging-pipe", "--user-data-dir="+dir, "--no-first-run",
+	cmd, err := engine.StartProgram(nil, exe, "--remote-debugging-pipe", "--user-data-dir="+dir, "--no-first-run",
 		"--no-default-browser-check", "--use-mock-keychain", "--password-store=basic", "about:blank")
+	if err != nil {
+		toBrowser.Close()
+		write.Close()
+		read.Close()
+		fromBrowser.Close()
+		return nil, err
+	}
 	cmd.ExtraFiles = []*os.File{toBrowser, fromBrowser}
 	err = cmd.Start()
 	toBrowser.Close()

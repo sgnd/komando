@@ -77,7 +77,7 @@ func TestTunnelStartCtrlC(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:2")
 	var child *exec.Cmd
 	saved := tunnelServeCommand
-	tunnelServeCommand = func(string, []string) *exec.Cmd { child = sleeperCmd(); return child }
+	tunnelServeCommand = func(string, []string) (*exec.Cmd, error) { child = sleeperCmd(); return child, nil }
 	t.Cleanup(func() { tunnelServeCommand = saved })
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(500*time.Millisecond, cancel)

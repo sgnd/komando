@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/sgnd/komando/internal/engine"
 )
 
 // Alive reports whether a process exists.
@@ -37,7 +38,11 @@ func Terminate(pid int) error {
 func programName(pid int) (string, error) {
 	b, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/comm")
 	if err != nil {
-		if b, err = exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output(); err != nil {
+		c, err := engine.StartProgram(nil, "ps", "-p", strconv.Itoa(pid), "-o", "comm=")
+		if err != nil {
+			return "", err
+		}
+		if b, err = c.Output(); err != nil {
 			return "", err
 		}
 	}

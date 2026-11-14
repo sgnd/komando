@@ -2,12 +2,12 @@ package cli
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -125,7 +125,10 @@ var startedFrom = func(cl *call) string {
 	var names []string
 	pid := os.Getppid()
 	for i := 0; i < 4 && pid > 1; i++ {
-		c := exec.Command(ps, "-o", "ppid=", "-o", "comm=", "-p", strconv.Itoa(pid))
+		c, err := engine.StartProgram(nil, ps, "-o", "ppid=", "-o", "comm=", "-p", strconv.Itoa(pid))
+		if err != nil {
+			break
+		}
 		c.Env = cl.environ() // the call's, unlock values out; never nil (nil inherits the process's)
 		b, err := c.Output()
 		if err != nil {

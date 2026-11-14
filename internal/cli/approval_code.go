@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -93,7 +94,11 @@ set r to display dialog (item 1 of argv) with title "komando: allow?" default an
 if gave up of r then return "gave up"
 return (button returned of r) & linefeed & (text returned of r)
 end run`
-		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
+		c, err := engine.StartProgram(ctx, "/usr/bin/osascript", "-e", script, text)
+		if err != nil {
+			return "", false, false
+		}
+		b, err := c.Output()
 		var ee *exec.ExitError
 		if err != nil && !errors.As(err, &ee) {
 			return "", false, false
@@ -106,12 +111,20 @@ end run`
 			return "", false, false
 		}
 		if z := systemTool("zenity"); z != "" {
-			b, err := exec.CommandContext(ctx, z, "--entry", "--hide-text", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--no-markup", "--timeout=120").Output()
+			c, err := engine.StartProgram(ctx, z, "--entry", "--hide-text", "--title=komando: allow?", "--text="+text, "--ok-label=Allow once", "--cancel-label=Deny", "--no-markup", "--timeout=120")
+			if err != nil {
+				return "", false, false
+			}
+			b, err := c.Output()
 			noteGaveUp(text, zenityTimedOut(err))
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
 		if k := systemTool("kdialog"); k != "" {
-			b, err := exec.CommandContext(ctx, k, "--title", "komando: allow?", "--password", text).Output()
+			c, err := engine.StartProgram(ctx, k, "--title", "komando: allow?", "--password", text)
+			if err != nil {
+				return "", false, false
+			}
+			b, err := c.Output()
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
 	case "windows":

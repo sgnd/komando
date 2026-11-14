@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 	"unicode"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sslvpn"
 	"github.com/sgnd/komando/internal/store"
@@ -41,7 +41,7 @@ func BuiltinSSL(kind string) bool {
 			return true
 		}
 	}
-	_, err := exec.LookPath("openconnect")
+	_, err := engine.LookPath("openconnect")
 	return err != nil
 }
 

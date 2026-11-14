@@ -98,11 +98,11 @@ func TestHolderChild(t *testing.T) {
 // KOMANDO_HOLDER_FROM_TESTS) start its background process from this test
 // binary.
 func holderFromTests() {
-	holderCommand = func(self, name string) *exec.Cmd {
+	holderCommand = func(self, name string) (*exec.Cmd, error) {
 		// self, not os.Args[0]: the pty child renames itself komando
 		c := exec.Command(self, "-test.run=^TestHolderChild$")
 		c.Env = append(os.Environ(), "KOMANDO_HOLDER_ARGS=login-holder\x1f"+name)
-		return c
+		return c, nil
 	}
 }
 

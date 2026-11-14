@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -633,12 +633,18 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 		return err
 	}
 	if h == nil {
-		if _, err := exec.LookPath(argv[0]); err != nil {
+		if _, err := engine.LookPath(argv[0]); err != nil {
+			if notHere(err) {
+				return err
+			}
 			return out.Errf(out.ExitNotFound, "TOOL_MISSING",
 				fmt.Sprintf("install %s on this computer, or run it on a server that has it (--run-on HOST)", tool.pkg),
 				"%s is not installed here", argv[0])
 		}
-		p := exec.CommandContext(ctx, argv[0], argv[1:]...)
+		p, err := engine.StartProgram(ctx, argv[0], argv[1:]...)
+		if err != nil {
+			return err
+		}
 		p.Env = append(cl.environ(), tool.passwordEnv+"="+password)
 		var stderr strings.Builder
 		p.Stdin, p.Stdout, p.Stderr = stdin, stdout, &limitWriter{w: &stderr, n: 64 << 10}

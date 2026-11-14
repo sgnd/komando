@@ -6,14 +6,12 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"syscall"
 	"time"
-
-	"github.com/sgnd/komando/internal/engine"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -46,7 +44,7 @@ const gateEnv = engine.GateEnv
 var gateLabel = engine.GateLabel
 
 // gateExec replaces this process with the command; tests swap it.
-var gateExec = syscall.Exec
+var gateExec = engine.ReplaceProcess
 
 // A --read-only key runs what komando treats as a read (kinds.go): a
 // command of kind read, and one of kind depends only in its read form

@@ -240,7 +240,11 @@ func scriptedSecretTool(t *testing.T, script string) (calls func() string) {
 // newKeyTimeout) should cut short.
 func warmUp(t *testing.T) {
 	t.Helper()
-	if err := keychainCmd("warm-up").Run(); err != nil {
+	c, err := keychainCmdCtx(context.Background(), "warm-up")
+	if err == nil {
+		err = c.Run()
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 }

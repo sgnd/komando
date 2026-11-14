@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -64,14 +65,19 @@ func systemTool(name string) string {
 	return ""
 }
 
-// keychainCmd runs the keychain tool of this system with args.
-func keychainCmd(args ...string) *exec.Cmd {
-	return keychainCmdCtx(context.Background(), args...)
+// keychainCmdCtx is the keychain tool of this system with args, stopped
+// when ctx ends.
+func keychainCmdCtx(ctx context.Context, args ...string) (*exec.Cmd, error) {
+	return keychainNow().cmd(ctx, args...)
 }
 
-// keychainCmdCtx is keychainCmd, stopped when ctx ends.
-func keychainCmdCtx(ctx context.Context, args ...string) *exec.Cmd {
-	return keychainNow().cmd(ctx, args...)
+// runTool runs the keychain tool with args and stdin (run).
+func runTool(ctx context.Context, stdin string, args ...string) error {
+	c, err := keychainCmdCtx(ctx, args...)
+	if err != nil {
+		return err
+	}
+	return run(c, stdin)
 }
 
 // keychainAt is where this system's keychain tools are, read once from
@@ -93,14 +99,17 @@ func keychainNow() keychainAt {
 }
 
 // cmd runs the keychain tool with args, stopped when ctx ends.
-func (at keychainAt) cmd(ctx context.Context, args ...string) *exec.Cmd {
+func (at keychainAt) cmd(ctx context.Context, args ...string) (*exec.Cmd, error) {
 	tool := at.security
 	if at.os != "darwin" {
 		tool = at.secretTool
 	}
-	c := exec.CommandContext(ctx, tool, args...)
+	c, err := engine.StartProgram(ctx, tool, args...)
+	if err != nil {
+		return nil, err
+	}
 	c.WaitDelay = time.Second // a child holding the pipes must not keep komando waiting
-	return c
+	return c, nil
 }
 
 // newKeyTimeout bounds each keychain call when a new vault makes its key:
@@ -223,9 +232,11 @@ func (at keychainAt) macDefault(kc string) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), at.defaultTimeout)
 	defer cancel()
-	c := exec.CommandContext(ctx, at.security, "default-keychain")
+	c, err := engine.StartProgram(ctx, at.security, "default-keychain")
+	if err != nil {
+		return err
+	}
 	c.WaitDelay = time.Second
-	var err error
 	if out, rerr := c.CombinedOutput(); rerr != nil || len(bytes.TrimSpace(out)) == 0 {
 		err = fmt.Errorf("no default macOS keychain for this user (HOME=%s); open Keychain Access, or run komando with your usual HOME", home)
 	}
@@ -273,9 +284,9 @@ func keychainPutCtx(ctx context.Context, key []byte) error {
 		if kc := keychainFile(); kc != "" {
 			line += fmt.Sprintf(" %q", kc)
 		}
-		return run(keychainCmdCtx(ctx, "-i"), line+"\n")
+		return runTool(ctx, line+"\n", "-i")
 	case "linux":
-		return run(keychainCmdCtx(ctx, "store", "--label="+keychainService(), "service", keychainService(), "account", keychainAccount), v)
+		return runTool(ctx, v, "store", "--label="+keychainService(), "service", keychainService(), "account", keychainAccount)
 	case "windows":
 		return credWrite(keychainService(), keychainAccount, []byte(v))
 	}
@@ -309,16 +320,16 @@ func keychainGetCtx(ctx context.Context) ([]byte, error) {
 		}
 		return key, nil
 	}
-	var c *exec.Cmd
-	switch keychainOS {
-	case "darwin":
-		args := []string{"find-generic-password", "-a", keychainAccount, "-s", keychainService(), "-w"}
+	args := []string{"lookup", "service", keychainService(), "account", keychainAccount}
+	if keychainOS == "darwin" {
+		args = []string{"find-generic-password", "-a", keychainAccount, "-s", keychainService(), "-w"}
 		if kc := keychainFile(); kc != "" {
 			args = append(args, kc)
 		}
-		c = keychainCmdCtx(ctx, args...)
-	default:
-		c = keychainCmdCtx(ctx, "lookup", "service", keychainService(), "account", keychainAccount)
+	}
+	c, err := keychainCmdCtx(ctx, args...)
+	if err != nil {
+		return nil, err
 	}
 	var errb bytes.Buffer
 	c.Stderr = &errb
@@ -367,23 +378,26 @@ func keychainHas(ctx context.Context) (bool, error) {
 		}
 		return true, nil
 	}
-	var c *exec.Cmd
+	var args []string
 	switch keychainOS {
 	case "darwin":
-		args := []string{"find-generic-password", "-a", keychainAccount, "-s", keychainService()}
+		args = []string{"find-generic-password", "-a", keychainAccount, "-s", keychainService()}
 		if kc := keychainFile(); kc != "" {
 			args = append(args, kc)
 		}
-		c = keychainCmdCtx(ctx, args...)
 	default:
 		if err := defaultCollectionUnlocked(ctx); err != nil {
 			return false, fmt.Errorf("cannot tell whether the keychain holds a vault key for this komando folder (%v); unlock the keychain (your keyring or KeePassXC) and run it again", err)
 		}
-		c = keychainCmdCtx(ctx, "search", "--all", "service", keychainService(), "account", keychainAccount)
+		args = []string{"search", "--all", "service", keychainService(), "account", keychainAccount}
+	}
+	c, err := keychainCmdCtx(ctx, args...)
+	if err != nil {
+		return false, err
 	}
 	var outb, errb bytes.Buffer
 	c.Stdout, c.Stderr = &outb, &errb
-	err := c.Run()
+	err = c.Run()
 	found, quiet := len(bytes.TrimSpace(outb.Bytes())) > 0, errb.Len() == 0
 	var ee *exec.ExitError
 	switch {
@@ -423,11 +437,14 @@ func defaultCollectionUnlocked(ctx context.Context) error {
 	} else {
 		return errors.New("neither gdbus nor busctl is installed to ask whether the keychain is locked")
 	}
-	c := exec.CommandContext(ctx, tool, args...)
+	c, err := engine.StartProgram(ctx, tool, args...)
+	if err != nil {
+		return err
+	}
 	c.WaitDelay = time.Second
 	var outb, errb bytes.Buffer
 	c.Stdout, c.Stderr = &outb, &errb
-	err := c.Run()
+	err = c.Run()
 	got := strings.TrimSpace(outb.String())
 	switch {
 	case ctx.Err() != nil:
@@ -449,12 +466,12 @@ func keychainDel() error {
 		if kc := keychainFile(); kc != "" {
 			args = append(args, kc)
 		}
-		return run(keychainCmd(args...), "")
+		return runTool(context.Background(), "", args...)
 	case "linux":
 		if _, err := KeychainTool(); err != nil {
 			return err
 		}
-		return run(keychainCmd("clear", "service", keychainService(), "account", keychainAccount), "")
+		return runTool(context.Background(), "", "clear", "service", keychainService(), "account", keychainAccount)
 	case "windows":
 		return credDelete(keychainService())
 	}

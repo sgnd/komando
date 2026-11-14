@@ -10,7 +10,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +20,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -790,7 +790,7 @@ func builtinSSM(h *store.Host) bool {
 			return true
 		}
 	}
-	_, e1 := exec.LookPath("aws")
-	_, e2 := exec.LookPath("session-manager-plugin")
+	_, e1 := engine.LookPath("aws")
+	_, e2 := engine.LookPath("session-manager-plugin")
 	return e1 != nil || e2 != nil
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -55,7 +56,9 @@ IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,
 
 // tunnelServeCommand is the background `komando tunnel serve ID` process
 // (self is komando); tests put a stand-in here.
-var tunnelServeCommand = func(self string, args []string) *exec.Cmd { return exec.Command(self, args...) }
+var tunnelServeCommand = func(self string, args []string) (*exec.Cmd, error) {
+	return engine.StartProgram(nil, self, args...)
+}
 
 // tunnelInfo is a started (or, under --dry-run, planned) tunnel.
 type tunnelInfo struct {
@@ -213,7 +216,11 @@ point your database app or psql at the local address it prints. With a server, g
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}
-			p := tunnelServeCommand(self, pargs)
+			p, err := tunnelServeCommand(self, pargs)
+			if err != nil {
+				lf.Close()
+				return err
+			}
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
 			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long

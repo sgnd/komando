@@ -16,7 +16,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/sgnd/komando/internal/engine"
-
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -364,7 +363,11 @@ set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"
 if gave up of r then return "gave up"
 return button returned of r
 end run`
-		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
+		c, err := engine.StartProgram(ctx, "/usr/bin/osascript", "-e", script, text)
+		if err != nil {
+			return false, false
+		}
+		b, err := c.Output()
 		var ee *exec.ExitError
 		if err != nil && !errors.As(err, &ee) {
 			return false, false

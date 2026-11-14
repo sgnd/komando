@@ -119,7 +119,11 @@ func TestKeychainToolsNotFromPath(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "ran")); err == nil {
 		t.Fatal("a tool from PATH was run")
 	}
-	if got := keychainCmd("x").Path; got != securityTool {
+	if c, err := keychainCmdCtx(context.Background(), "x"); err != nil || c.Path != securityTool {
+		got := ""
+		if c != nil {
+			got = c.Path
+		}
 		t.Errorf("macOS runs %s, want %s", got, securityTool)
 	}
 }

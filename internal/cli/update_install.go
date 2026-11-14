@@ -12,13 +12,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/tmpclean"
 )
@@ -176,7 +176,11 @@ func ownLikeFolder(file, dir string) error {
 // runVersion runs file --version and gives what it printed. The update
 // tests on Windows replace it: a script cannot stand in for a program there.
 var runVersion = func(ctx context.Context, file string) ([]byte, error) {
-	return exec.CommandContext(ctx, file, "--version").Output()
+	c, err := engine.StartProgram(ctx, file, "--version")
+	if err != nil {
+		return nil, err
+	}
+	return c.Output()
 }
 
 // tryBinary runs the new program once (--version) before it replaces the

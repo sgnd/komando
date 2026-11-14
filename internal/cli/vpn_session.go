@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -106,7 +107,10 @@ func vpnClients(v *store.Vpn) []string {
 
 func clientMissing(v *store.Vpn) error {
 	for _, bin := range vpnClients(v) {
-		if _, err := exec.LookPath(bin); err != nil {
+		if _, err := engine.LookPath(bin); err != nil {
+			if notHere(err) {
+				return err
+			}
 			return out.Errf(out.ExitNotFound, "VPN_CLIENT_MISSING", installHint(bin),
 				"%s VPNs need the %s program, which is not installed", v.Kind, bin)
 		}
@@ -374,7 +378,11 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if err != nil {
 		return 0, "", err
 	}
-	pid, err := background(serveCommand(self, name, password, s), logFile)
+	sc, err := serveCommand(self, name, password, s)
+	if err != nil {
+		return 0, "", err
+	}
+	pid, err := background(sc, logFile)
 	if err != nil {
 		return 0, "", err
 	}
@@ -408,24 +416,35 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 // a new SOCKS login, kept in s, and the typed password go to it on stdin,
 // then the vault passphrase, never in its environment: it runs for long
 // (serveStdin reads them).
-var serveCommand = func(self, name, password string, s *store.VpnSession) *exec.Cmd {
-	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
+var serveCommand = func(self, name, password string, s *store.VpnSession) (*exec.Cmd, error) {
+	c, err := engine.StartProgram(nil, self, "vpn", "serve", name, "--password-stdin")
+	if err != nil {
+		return nil, err
+	}
 	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
 	c.Stdin = strings.NewReader("SOCKS " + s.SocksUser + " " + s.SocksPass + "\n" + password + "\n")
 	vault.PassOnStdin(c)
-	return c
+	return c, nil
 }
 
 // systemVPN connects or disconnects a VPN configured in the OS settings.
 func systemVPN(cl *call, v *store.Vpn, up bool) error {
-	var c *exec.Cmd
+	if err := engine.Require(engine.NeedSystemVPN, "the system's VPN settings"); err != nil {
+		return err
+	}
+	var name string
+	var args []string
 	switch runtime.GOOS {
 	case "darwin":
-		c = exec.Command("scutil", "--nc", map[bool]string{true: "start", false: "stop"}[up], v.Service)
+		name, args = "scutil", []string{"--nc", map[bool]string{true: "start", false: "stop"}[up], v.Service}
 	case "linux":
-		c = exec.Command("nmcli", "connection", map[bool]string{true: "up", false: "down"}[up], "id", v.Service)
+		name, args = "nmcli", []string{"connection", map[bool]string{true: "up", false: "down"}[up], "id", v.Service}
 	default:
 		return out.Usage("connect %s from your computer's settings; komando checks it with --check", v.Name)
+	}
+	c, err := engine.StartProgram(nil, name, args...)
+	if err != nil {
+		return err
 	}
 	c.Stdin, c.Stdout, c.Stderr = cl.stdin, cl.out.Err, cl.out.Err
 	if err := c.Run(); err != nil {
@@ -777,5 +796,5 @@ func openconnectCmd(cl *call, ctx context.Context, v *store.Vpn, protocol, pidFi
 	if !interactive {
 		args = append(args, "--non-inter", "--passwd-on-stdin")
 	}
-	return exec.CommandContext(ctx, ocBin, append(args, "--", v.Portal)...), nil
+	return engine.StartProgram(ctx, ocBin, append(args, "--", v.Portal)...)
 }

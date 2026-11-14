@@ -80,13 +80,15 @@ func AgentName(lookup func(string) (string, bool)) string {
 	return ""
 }
 
-// CallerFrom is the caller an environment lookup describes. terminal says
-// whether a person could answer at a terminal (stdin and stderr are one).
-func CallerFrom(lookup func(string) (string, bool), terminal bool) Caller {
+// CallerFrom is the caller an environment lookup describes. person says
+// whether a person makes the call: one at a terminal (stdin and stderr are
+// one), or one an app vouches for (Call.Person). An agent variable wins
+// over it.
+func CallerFrom(lookup func(string) (string, bool), person bool) Caller {
 	c := Caller{Kind: Script}
 	if a := AgentName(lookup); a != "" {
 		c.Kind, c.Agent = Agent, a
-	} else if terminal {
+	} else if person {
 		c.Kind = Person
 	}
 	if a, _ := lookup("KOMANDO_ACTOR"); a != "" {

@@ -3,10 +3,11 @@ package netx
 import (
 	"fmt"
 	"net/netip"
-	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/sgnd/komando/internal/engine"
 )
 
 // Route is one IPv4 entry of the computer's routing table.
@@ -19,20 +20,19 @@ type Route struct {
 // Only VPNs that change the computer's network (system VPNs) need it: the
 // in-process and container kinds never add routes.
 func Routes() ([]Route, error) {
-	var out []byte
-	var err error
+	name, args, parse := "ip", []string{"-4", "route"}, parseIPRoute
 	if runtime.GOOS == "darwin" {
-		out, err = exec.Command("netstat", "-rn", "-f", "inet").Output()
-		if err != nil {
-			return nil, err
-		}
-		return parseNetstat(string(out)), nil
+		name, args, parse = "netstat", []string{"-rn", "-f", "inet"}, parseNetstat
 	}
-	out, err = exec.Command("ip", "-4", "route").Output()
+	c, err := engine.StartProgram(nil, name, args...)
 	if err != nil {
 		return nil, err
 	}
-	return parseIPRoute(string(out)), nil
+	out, err := c.Output()
+	if err != nil {
+		return nil, err
+	}
+	return parse(string(out)), nil
 }
 
 // parseNetstat reads macOS `netstat -rn -f inet`, whose destinations are

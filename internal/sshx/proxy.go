@@ -2,6 +2,7 @@ package sshx
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -95,6 +97,15 @@ func dialProxy(h *store.Host) (*proxyConn, error) {
 	if err != nil {
 		return nil, proxyValueRefused(h, err)
 	}
+	cmd, err := proxyCommand(line)
+	if err != nil {
+		var nh *engine.NotHereError
+		if errors.As(err, &nh) {
+			nh.What = "the proxy command of " + h.Name
+			nh.Hint = "reach " + h.Name + " through a jump server instead (`komando host edit " + h.Name + " --via JUMP`): komando connects through it itself"
+		}
+		return nil, err
+	}
 	inR, inW, err := os.Pipe()
 	if err != nil {
 		return nil, err
@@ -105,7 +116,7 @@ func dialProxy(h *store.Host) (*proxyConn, error) {
 		inW.Close()
 		return nil, err
 	}
-	c := &proxyConn{cmd: proxyCommand(line), r: outR, w: inW, stderr: &bytes.Buffer{},
+	c := &proxyConn{cmd: cmd, r: outR, w: inW, stderr: &bytes.Buffer{},
 		addr: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))}
 	c.cmd.Stdin, c.cmd.Stdout, c.cmd.Stderr = inR, outW, &limitedWriter{buf: c.stderr, max: 8 << 10}
 	if err := c.cmd.Start(); err != nil {

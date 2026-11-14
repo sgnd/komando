@@ -31,6 +31,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/proxyx"
 )
 
@@ -368,7 +369,15 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 		c.token = tok
 		return tok, nil
 	}
-	cmd := exec.CommandContext(ctx, e.Command, e.Args...)
+	cmd, err := engine.StartProgram(ctx, e.Command, e.Args...)
+	if err != nil {
+		var nh *engine.NotHereError
+		if errors.As(err, &nh) {
+			nh.What = "the kubeconfig's credential plugin " + e.Command
+			nh.Hint = "use a kubeconfig with a token or a client certificate on this device, or run it on a computer with komando"
+		}
+		return "", err
+	}
 	cmd.Env = os.Environ()
 	for _, kv := range e.Env {
 		cmd.Env = append(cmd.Env, kv.Name+"="+kv.Value)

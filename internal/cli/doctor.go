@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -232,11 +232,11 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			add("keys", true, countOf(len(st.Keys), "SSH key"))
 			sock := cl.getenv("SSH_AUTH_SOCK")
 			add("ssh_agent", sock != "", map[bool]string{true: sock, false: "not running (optional)"}[sock != ""])
-			_, sshErr := exec.LookPath("ssh")
+			_, sshErr := engine.LookPath("ssh")
 			add("openssh_client", sshErr == nil, "optional; komando has a built-in SSH client")
 			for _, v := range st.SortedVpns() { // programs the registered VPNs need
 				for _, bin := range vpnClients(v) {
-					_, err := exec.LookPath(bin)
+					_, err := engine.LookPath(bin)
 					add("vpn:"+v.Name+":"+bin, err == nil, map[bool]string{true: "installed", false: installHint(bin)}[err == nil])
 				}
 			}

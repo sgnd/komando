@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -137,7 +138,10 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 	defer lf.Close()
 	l := &store.SSHLogin{Host: h.Name, Target: sshx.TargetOf(h), Token: randToken(24), LogFile: logFile,
 		StartedAt: time.Now().UTC(), Until: time.Now().Add(keep).UTC()}
-	c := holderCommand(self, h.Name)
+	c, err := holderCommand(self, h.Name)
+	if err != nil {
+		return nil, err
+	}
 	if c.Env == nil { // a test's holderCommand sets its own
 		c.Env = cl.environ() // the call's, unlock values out; never nil (nil inherits the process's)
 	}
@@ -219,8 +223,8 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 
 // holderCommand is the background process for a login to name; tests
 // run it in their own binary.
-var holderCommand = func(self, name string) *exec.Cmd {
-	return exec.Command(self, "login-holder", name)
+var holderCommand = func(self, name string) (*exec.Cmd, error) {
+	return engine.StartProgram(nil, self, "login-holder", name)
 }
 
 type holderError struct {

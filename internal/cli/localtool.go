@@ -2,8 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"os/exec"
 	"path/filepath"
+
+	"github.com/sgnd/komando/internal/engine"
 )
 
 // localTool finds the program name on this computer for a step that hands
@@ -14,7 +15,7 @@ import (
 // secrets only with a person's yes: an agent that puts a fake pg_dump
 // first in PATH would otherwise be handed the password it may not read.
 func localTool(cl *call, name string, refs []string) (string, error) {
-	p, err := exec.LookPath(name)
+	p, err := engine.LookPath(name)
 	if err != nil {
 		return "", err
 	}

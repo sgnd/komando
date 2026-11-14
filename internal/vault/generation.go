@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -68,15 +69,16 @@ func genRead(at keychainAt, kc, service string) (uint64, bool, error) {
 		}
 		b = v
 	default:
-		var c *exec.Cmd
+		args := []string{"lookup", "service", service, "account", keychainAccount}
 		if at.os == "darwin" {
-			args := []string{"find-generic-password", "-a", keychainAccount, "-s", service, "-w"}
+			args = []string{"find-generic-password", "-a", keychainAccount, "-s", service, "-w"}
 			if kc != "" {
 				args = append(args, kc)
 			}
-			c = at.cmd(ctx, args...)
-		} else {
-			c = at.cmd(ctx, "lookup", "service", service, "account", keychainAccount)
+		}
+		c, err := at.cmd(ctx, args...)
+		if err != nil {
+			return 0, false, err
 		}
 		var errb bytes.Buffer
 		c.Stderr = &errb
@@ -118,11 +120,11 @@ func genSet(n uint64) error {
 		if kc != "" {
 			line += fmt.Sprintf(" %q", kc)
 		}
-		return run(keychainCmdCtx(ctx, "-i"), line+"\n")
+		return runTool(ctx, line+"\n", "-i")
 	case "windows":
 		return credWrite(genService(), keychainAccount, []byte(v))
 	default:
-		return run(keychainCmdCtx(ctx, "store", "--label="+genService(), "service", genService(), "account", keychainAccount), v)
+		return runTool(ctx, v, "store", "--label="+genService(), "service", genService(), "account", keychainAccount)
 	}
 }
 
@@ -141,8 +143,8 @@ func genDel() {
 		if kc != "" {
 			args = append(args, kc)
 		}
-		_ = run(keychainCmd(args...), "")
+		_ = runTool(context.Background(), "", args...)
 	default:
-		_ = run(keychainCmd("clear", "service", genService(), "account", keychainAccount), "")
+		_ = runTool(context.Background(), "", "clear", "service", genService(), "account", keychainAccount)
 	}
 }

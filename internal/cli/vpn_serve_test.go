@@ -22,7 +22,10 @@ func TestVpnServeGetsPassphraseOnStdin(t *testing.T) {
 	want := vault.Passphrase()
 	t.Cleanup(func() { netx.SessionSecret = "" })
 	s := &store.VpnSession{}
-	c := serveCommand("/usr/local/bin/komando", "office", "typed-password", s)
+	c, err := serveCommand("/usr/local/bin/komando", "office", "typed-password", s)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, e := range c.Env {
 		if strings.HasPrefix(e, "KOMANDO_VAULT_PASS=") {
 			t.Fatal("the passphrase is in vpn serve's environment")
@@ -38,7 +41,11 @@ func TestVpnServeGetsPassphraseOnStdin(t *testing.T) {
 		t.Errorf("read %q %q %q, passphrase %q: %v", user, pass, netx.SessionSecret, vault.Passphrase(), err)
 	}
 	// no typed password: the second line is empty
-	user, _, err = serveStdin(serveCommand("komando", "office", "", s).Stdin, true, true)
+	c, err = serveCommand("komando", "office", "", s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	user, _, err = serveStdin(c.Stdin, true, true)
 	if err != nil || user != s.SocksUser || netx.SessionSecret != "" || vault.Passphrase() != want {
 		t.Errorf("without a typed password: %q %q %v", user, netx.SessionSecret, err)
 	}

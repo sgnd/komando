@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -240,7 +240,7 @@ func hookProgram(project bool) (prog, note string) {
 	if !project {
 		return prog, ""
 	}
-	if p, err := exec.LookPath("komando"); err == nil && filepath.IsAbs(prog) {
+	if p, err := engine.LookPath("komando"); err == nil && filepath.IsAbs(prog) {
 		if a, b := statOf(p), statOf(prog); a != nil && b != nil && os.SameFile(a, b) {
 			return "komando", ""
 		}

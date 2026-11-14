@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os/exec"
 	"regexp"
 	"sort"
 	"strconv"
@@ -22,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
 	"github.com/sgnd/komando/internal/store"
@@ -548,7 +548,10 @@ func credHelper(helper, server string) (string, string, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second) // a helper may wait for a click
 	defer cancel()
-	c := exec.CommandContext(ctx, "docker-credential-"+helper, "get")
+	c, err := engine.StartProgram(ctx, "docker-credential-"+helper, "get")
+	if err != nil {
+		return "", "", err
+	}
 	c.Stdin = strings.NewReader(server)
 	b, err := c.Output()
 	if err != nil {
