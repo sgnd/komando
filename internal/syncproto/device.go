@@ -182,6 +182,15 @@ func (d *Device) nextEntry(b Body) *Entry {
 // appendEntry stores an entry only if no other device added one first,
 // then checks the list again with it.
 func (d *Device) appendEntry(en *Entry) error {
+	// Check it as every other device will, before anyone can see it: a
+	// bad entry on the server would stop every device.
+	if en.Num > 1 {
+		d.seen[en.Hash()] = d.now()
+		entries := append(slices.Clip(d.list.Entries), en)
+		if _, err := checkChain(entries, d.clockView(entries)); err != nil {
+			return err
+		}
+	}
 	err := d.srv.AppendAt(d.id, logList, int(en.Num-1), en.Marshal())
 	if errors.Is(err, errConflict) {
 		return ErrListConflict

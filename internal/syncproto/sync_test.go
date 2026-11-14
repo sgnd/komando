@@ -249,7 +249,7 @@ func TestConcurrentListAppendLosesCleanly(t *testing.T) {
 	c := w.pair(a, "C", true)
 	w.syncAll(a, b, c)
 	// b starts an entry on the head it knows; a adds one first.
-	en := b.nextEntry(Body{Action: ActCancel, Ref: 1})
+	en := b.nextEntry(Body{Action: ActReplaceAuthority, AuthOf: c.ID(), NewAuth: pubBytes(mustSigner(t).Public())})
 	must(t, en.signEntry(b.keys.Authority, RoleAuthority, b.ID(), 0))
 	must(t, a.Remove(c.ID()))
 	wantErr(t, b.appendEntry(en), ErrListConflict)

@@ -1,9 +1,6 @@
 package syncproto
 
-import (
-	"bytes"
-	"slices"
-)
+import "bytes"
 
 // The format and suite numbers. One suite number names the whole set of
 // algorithms; there is no other (SS 7.2).
@@ -253,8 +250,10 @@ func ParseSummary(b []byte) (*Summary, error) {
 	if err := d.done(); err != nil {
 		return nil, err
 	}
-	if !slices.IsSortedFunc(s.Heads, func(a, b Head) int { return bytes.Compare(a.Device[:], b.Device[:]) }) {
-		return nil, ErrBadWrite
+	for i := 1; i < len(s.Heads); i++ {
+		if bytes.Compare(s.Heads[i-1].Device[:], s.Heads[i].Device[:]) >= 0 {
+			return nil, ErrBadWrite // one canonical form: sorted, each device once
+		}
 	}
 	return s, nil
 }
