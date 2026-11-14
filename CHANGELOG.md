@@ -37,6 +37,9 @@ its highlights; the sections below them give the details. Versions follow
   `fn_get_audit_file`, `fn_trace_gettable`, `fn_dump_dblog`) need
   `--write`, as `OPENQUERY` and `OPENROWSET` did: a path can be
   `\\HOST\share`, a connection to any host.
+- `db query` on Oracle: `xmltype()`, `XMLPARSE` and `createxml()` of text
+  the query builds need `--write`: a DTD in it can name a URL the parser
+  fetches. `xmltype(column)` stays a read.
 
 ### Added
 
