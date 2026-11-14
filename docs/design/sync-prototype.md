@@ -329,6 +329,10 @@ two lists of parts never hash the same way.
 **Record IDs.** 12 random bytes and a 4-byte tag of the record type. A
 write that names another type for an ID is refused by every device.
 
+## Format frozen
+
+On 2026-11-14 the owner froze the sync format as version 1, at this commit's parent `b32968b`. Finding 57 is settled by keeping no list of applied name changes: each yes carries the records it deletes. A later change to the record, list, summary or snapshot layout needs a new format version.
+
 ## What the tests show
 
 `cd sync && go test -race ./...`: 141 tests and subtests pass, 0
