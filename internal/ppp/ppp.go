@@ -88,6 +88,7 @@ type Peer struct {
 	addr     netip.Addr
 	dns      []netip.Addr
 	ms       *MSCHAPv2
+	answered bool // a CHAP challenge got our answer
 	papTries int
 	lastIPCP []byte
 	v6Sent   bool
@@ -261,6 +262,12 @@ func (p *Peer) lcp(code, id byte, data []byte) error {
 		if len(nak) > 0 {
 			return p.send(LCP, packet(cfgNak, id, nak))
 		}
+		if p.authSeen && p.auth != 0 && auth == 0 && !p.authDone {
+			// the login the server asked for, dropped before it checked
+			// out: the link must not come up without it
+			p.send(LCP, packet(termRequest, p.nextID(), []byte("the login was dropped")))
+			return p.failWith(&AuthError{Msg: "the VPN server dropped the login it asked for, before it was done; not going on without it"})
+		}
 		logIt := !p.authSeen || p.auth != auth || p.chapAlg != alg
 		p.auth, p.chapAlg, p.lcpAcked, p.authSeen = auth, alg, true, true
 		switch {
@@ -341,6 +348,9 @@ func (p *Peer) papRequest() error {
 func (p *Peer) pap(code byte, data []byte) error {
 	switch code {
 	case 2: // ack
+		if p.auth != PAP || p.papTries == 0 {
+			return nil // no PAP login was sent
+		}
 		p.authDone = true
 		p.logf("PPP: login accepted (PAP)")
 		return p.next()
@@ -397,9 +407,15 @@ func (p *Peer) chap(code, id byte, data []byte) error {
 			value = h.Sum(nil)
 		}
 		d := append([]byte{byte(len(value))}, value...)
+		p.answered = true
 		return p.send(CHAP, packet(2, id, append(d, p.user...)))
 	case 3: // success
+		if p.auth != CHAP || !p.answered || (p.chapAlg == 0x81 && p.ms == nil) {
+			return nil // a success before our answer proves nothing
+		}
 		if p.ms != nil {
+			// MS-CHAPv2's success carries the server's proof that it
+			// knows the password too
 			if err := p.ms.VerifySuccess(data); err != nil {
 				return p.failWith(err)
 			}
@@ -497,6 +513,9 @@ func (p *Peer) ipcpRequest() error {
 }
 
 func (p *Peer) ipcp(code, id byte, data []byte) error {
+	if !p.authDone && code != termRequest {
+		return nil // no network before the login (RFC 1661 3.5)
+	}
 	switch code {
 	case cfgRequest:
 		// the server's own address: accept it; refuse compression
@@ -531,6 +550,9 @@ func (p *Peer) ipcp(code, id byte, data []byte) error {
 		p.lastIPCP = packet(cfgRequest, p.nextID(), opt(3, p.addr.AsSlice()))
 		return p.send(IPCP, p.lastIPCP)
 	case cfgAck:
+		if !p.ipcpSent {
+			return nil // an answer to nothing komando asked
+		}
 		if p.addr.IsUnspecified() {
 			return p.failWith(errors.New("the VPN gave no address (IPCP)"))
 		}
