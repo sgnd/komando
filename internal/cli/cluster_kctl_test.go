@@ -197,7 +197,7 @@ func TestKctlWrite(t *testing.T) {
 		}
 	}
 	// label refuses to change a value without --overwrite
-	if code, _, se := run("label", "deploy", "web", "app=other"); code != 1 || !strings.Contains(se, "--overwrite is false") {
+	if code, _, se := run("label", "deploy", "web", "app=other"); code != 1 || !strings.Contains(se, "add --overwrite to replace it") {
 		t.Errorf("overwrite: %d %q", code, se)
 	}
 	// --dry-run reaches the server as dryRun=All
