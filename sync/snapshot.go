@@ -603,6 +603,21 @@ func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
 			e.raw(id[:])
 		}
 	}
+	// Approved changes that set a name and applied, with the union of
+	// their approvals' old holders: a yes that arrives later deletes the
+	// holders it adds on every device, rebuilt from a snapshot or not.
+	done := slices.SortedFunc(maps.Keys(m.done), cmpRef)
+	e.u32(uint32(len(done)))
+	for _, ref := range done {
+		w := m.done[ref]
+		encodeRef(&e, ref)
+		e.raw(w.Record[:])
+		e.str(w.Type)
+		e.u32(uint32(len(m.replaces[ref])))
+		for _, id := range m.replaces[ref] {
+			e.raw(id[:])
+		}
+	}
 	return e.b
 }
 
@@ -672,6 +687,22 @@ func decodeState(b []byte) (*mergeState, error) {
 			m.replaces[ref] = ids
 		}
 	}
+	for range d.count(1 << 20) {
+		ref := decodeRef(&d)
+		w := &waiting{Ref: ref}
+		d.fixed(w.Record[:])
+		w.Type = d.str()
+		m.done[ref] = w
+		var ids []RecordID
+		for range d.count(4096) {
+			var id RecordID
+			d.fixed(id[:])
+			ids = append(ids, id)
+		}
+		if len(ids) > 0 {
+			m.replaces[ref] = ids
+		}
+	}
 	if err := d.done(); err != nil {
 		return nil, err
 	}
@@ -692,6 +723,10 @@ func (m *mergeState) clone() *mergeState {
 	maps.Copy(c.approved, m.approved)
 	for ref, ids := range m.replaces {
 		c.replaces[ref] = slices.Clone(ids)
+	}
+	for ref, w := range m.done {
+		cw := *w
+		c.done[ref] = &cw
 	}
 	maps.Copy(c.markers, m.markers)
 	return c

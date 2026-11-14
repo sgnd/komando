@@ -15,16 +15,21 @@ the text could not be built as written.
 
 ## The answer
 
-**Go, but the format is not frozen yet.** Every point SS 21 left open and
-every finding up to 38 is decided by the owner (2026-11-14), written into
-SS, built here and tested again (the freeze re-test, below). A review of
-that re-test then found ten faults in the code and three gaps in SS
-(findings 45 to 56). The code faults are fixed, each with a test. Two of
-the fixes change the format: each summary now names the hash of the one
-before it, and a deny rule written again names the write it comes from.
-The format can be frozen once the owner confirms the recommendations in
-SS 21 (findings 39 to 56, which SS does not state yet), and once the
-tests pass under a real Go 1.26 toolchain (finding 56).
+**Go, but the format is not frozen yet.** Everything up to finding 55 is
+decided by the owner (2026-11-14), written into SS 6.2, 7.2, 8.1 and 9,
+built here and tested. A review of those decisions found five faults in
+the code and five places where SS or this document was behind (findings
+57 to 66). The code faults are fixed, each with a test that fails
+without its fix. One fix changes the format: a snapshot's state now
+keeps, for each applied change that set a name, the old holders its
+yeses named (finding 57). What follows directly from a decided rule is
+written into SS. Two points block the freeze (SS 21):
+
+- **Finding 61, two newcomers take one free name at once:** a new rule is
+  needed; recommended, owner to confirm.
+- **Finding 56, Go 1.26:** the owner approved the download, but the run
+  has not happened. No Go 1.26 toolchain is on this machine; every
+  recorded run used Go 1.27.3 or 1.27.4.
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
@@ -69,7 +74,8 @@ unless named):
 - **Finding 31:** text only (SS 6.2); nothing to build.
 
 Each of these tests fails on the code without its rule (checked by
-undoing each rule in a copy: 15 undone rules, 15 failing tests).
+undoing each rule in a copy: 15 undone rules, 15 failing tests). The
+rules of findings 40 and 43 had no test then; finding 60 adds three.
 
 ### How it got here
 
@@ -286,8 +292,9 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`cd sync && go test -race ./...`: 109 tests and subtests pass, 0
-fail (74 top-level tests); statement coverage 86.4%. All table-driven where
+`cd sync && go test -race ./...`: 128 tests and subtests pass, 0
+fail (90 top-level tests); statement coverage 87.9%. The same run passes
+under Go 1.27.3 (the default toolchain here) and Go 1.27.4. All table-driven where
 there is a table.
 
 | Hostile server does this | The device reports |
@@ -366,7 +373,11 @@ state.
 **Vectors.** `testdata/vectors.json` (record sealing, Padmé, key IDs, kit
 letters and derived keys, paper parts, HPKE X-Wing, the fixed signature
 form, a list entry's bytes and hash, the pairing code, a snapshot, a deny
-rule's ID, an approval's signed bytes) is computed by the
+rule's ID, an approval's signed bytes, and the frozen layouts: a summary
+with `Prev`, `Snap` and `Base`, a write's header, signed bytes and hash,
+a change body with `Target`, a deny rule written again and its ID, and a
+snapshot state with a deleted record, a waiting change, approvals and an
+applied change that set a name) is computed by the
 prototype and only pins regressions. Two outside checks stand behind it:
 
 - `testdata/crosscheck.swift` recomputes every value in it with Apple
@@ -374,8 +385,11 @@ prototype and only pins regressions. Two outside checks stand behind it:
   sealing, X-Wing keys from their seeds, HPKE with exactly this suite
   (X-Wing, HKDF-SHA256, AES-256-GCM), P-256 keys and signatures, Shamir
   over GF(256) and the letters, and the snapshot's state hash, seal and
-  hash, a deny rule's ID and the bytes an approval signs. All 31 checks
-  pass (macOS 27, Swift 6.4.2).
+  hash, a deny rule's ID and the bytes an approval signs. It builds each
+  layout from its fields, never from given bytes: the summary, the write
+  (header, seal, signed bytes, hash), the change body, the deny rule
+  written again, and the snapshot state, sorting and filtering as the
+  format says. It prints 42 checks, all ok (macOS 27, Swift 6.4.2).
 - `external_test.go` checks the building blocks against published
   vectors: RFC 5869 cases 1 and 3 for HKDF, and the draft-ietf-hpke-pq
   vector for X-Wing (`DeriveKeyPair`, decapsulation, the HKDF-SHA256 key
@@ -1041,15 +1055,17 @@ SS 21 still said the prototype drops everything after the recorded last
 write. It then listed findings 31 to 36 with their recommendations. After
 the owner's decisions it said nothing is open, and that the format can be
 frozen once this re-test passes. The re-test passed, but its review found
-findings 45 to 56, so SS 21 lists those as open again.
+findings 45 to 56. The owner decided them the same day and SS now states
+them; SS 21 keeps only the Go 1.26 check and finding 61 open.
 
 ## Findings of the freeze re-test (2026-11-14)
 
-Building the decisions above raised no new fault in SS. Six places need
-one more sentence so that two builders make the same choice. Each is
-built as recommended here; SS is not changed.
+Building the decisions above raised no new fault in SS. Six places
+needed one more sentence so that two builders make the same choice. Each
+is built as recommended here. Decided and built: the owner decided all
+six on 2026-11-14, and SS 6.2, 7.2, 8.1 and 9 state them.
 
-### 39. Clarify: what makes a deny rule "new"
+### 39. Clarify: what makes a deny rule "new" (decided and built)
 
 SS 8.1: "a new deny rule applies by itself; an edit or delete of one
 waits." A write that says "create" for an existing deny rule's ID is an
@@ -1058,7 +1074,7 @@ pattern, and a writer picks its own clock, so no order of "creates" can
 be trusted. **Recommended: bind a deny rule's ID to the write that makes
 it (above, "Deny rule IDs"); any other "create" of that ID is refused.**
 
-### 40. Clarify: a cut can go down
+### 40. Clarify: a cut can go down (decided and built)
 
 "A summary counts toward the cut only while its signer is still on the
 list" means a cut can go down when that signer is removed later. Every
@@ -1067,14 +1083,14 @@ again, shows what it dropped, and writes again any stricter value. While
 the signer is listed, a cut it set stays, even if the server hides its
 summary later. **Recommended: say both in SS 6.2.**
 
-### 41. Clarify: what a snapshot keeps of a deleted record
+### 41. Clarify: what a snapshot keeps of a deleted record (decided and built)
 
 Deletion markers go with a snapshot (SS 9), but deletion is final and a
 deletion marker holds a name (SS 8.1). The prototype keeps, for a deleted
 record, its type and its name field, and drops the rest. **Recommended:
 say so in SS 9.**
 
-### 42. Clarify: which snapshot a summary names
+### 42. Clarify: which snapshot a summary names (decided and built)
 
 To accept a newer snapshot while building on an older one, each summary
 names two: the newest one its signer accepted, and the one it builds on.
@@ -1082,7 +1098,7 @@ A new device takes the one every other current device names as newest,
 or else the one they all build on, so it never needs writes the service
 already dropped. **Recommended: say so in SS 9.**
 
-### 43. Clarify: a floor below a confirmed snapshot
+### 43. Clarify: a floor below a confirmed snapshot (decided and built)
 
 A removal records the last write it accepted. A confirmed snapshot holds
 writes every current device agreed on before. If a removal names an
@@ -1090,7 +1106,7 @@ older write than the snapshot holds, the snapshot wins: those writes stay
 as they are. An honest remover has confirmed the snapshot, so its
 recorded write is never older. **Recommended: say so in SS 6.2.**
 
-### 44. Clarify: a device takes back its own acceptance
+### 44. Clarify: a device takes back its own acceptance (decided and built)
 
 A device that accepted a snapshot judges it again at every sync until it
 builds on it. A removal that changes what the writes give (finding 35)
@@ -1102,8 +1118,9 @@ SS 9.**
 A review attacked the re-tested code and checked it against SS. It found
 ten faults in the code and three gaps in SS. Each code fault is fixed
 with a test in `review4_test.go` that fails without the fix (checked by
-undoing each fix in a copy). Each gap is recommended in SS 21, "owner to
-confirm". Findings 45 to 48 and 52 change what SS 6.2 and 9 must say.
+undoing each fix in a copy). Decided and built: the owner decided
+findings 45 to 55 on 2026-11-14, and SS 6.2, 7.2, 8.1 and 9 state them.
+Finding 56 (the Go 1.26 run) is still open.
 
 ### 45. Wrong: a snapshot raised a removed device's floor past a waiting removal (fixed in code)
 
@@ -1180,7 +1197,7 @@ ID, never a device record or a note.** The line stays "replaces prod-db
 On a device with Face ID, editing collects the person's yes (SS 8.1).
 Creating a second server named prod-db therefore deleted the first in the
 same edit; the person never saw "replaces prod-db (deleted)".
-**Recommended, owner to confirm: a yes that deletes something is never
+**Decided by the owner 2026-11-14: a yes that deletes something is never
 implied. A change with a replaces line waits on every device, also the
 one that made it, until the person says yes on that screen.** Built so.
 Test: `TestAutoApproveNeverImpliesADeletingYes`.
@@ -1202,7 +1219,7 @@ two equal rules, never N. Test: `TestRewrittenDenyRuleIsOneRule`.
 ### 53. Gap: a record that applies by itself could take a held name (built as recommended)
 
 SS 8.1 says a held name cannot be taken. A note, and a new deny rule,
-apply at once, with no name check. **Recommended, owner to confirm:
+apply at once, with no name check. **Decided by the owner 2026-11-14:
 names are unique per record type, and only for types whose new record
 waits for a person (servers, secrets, rules, and the like). Notes, device
 records and deny rules hold no name and take none.** Built so (with
@@ -1227,20 +1244,132 @@ SS 21 said "Nothing open; the format can be frozen". Findings 39 to 44
 record, the two snapshots in each summary, a floor below a confirmed
 snapshot, taking back an acceptance) are built but not in SS, and the
 summary and snapshot layouts depend on them. A second builder could not
-follow SS alone. **Recommended, owner to confirm: write 39 to 54 into SS
+follow SS alone. **Decided by the owner 2026-11-14 and done: write 39 to 54 into SS
 6.2, 8.1 and 9, including the summary's layout (`Prev`, `Snap`, `Base`),
 before the format is frozen. Until then SS 21 lists them as open.**
 
-### 56. Gap: Go 1.26 was not tried
+### 56. Gap: Go 1.26 was not tried (open)
 
-SS 7.2 says the re-test builds with Go 1.26. Only `go.mod` names
-`go 1.26.0`, and `go vet` of Go 1.27.4 checks the standard library calls
+SS 7.2 said the re-test builds with Go 1.26. Only `go.mod` names
+`go 1.26.0`, and `go vet` of Go 1.27 checks the standard library calls
 against it. That check does not catch a change in how `crypto/hpke`
 behaves between 1.26 and 1.27. No Go 1.26 toolchain is on this machine,
 and fetching one is a download. **Recommended, owner to confirm: allow
 fetching Go 1.26.x (`GOTOOLCHAIN=go1.26.0 go test ./...` in `sync/`) and
 run the tests and the vectors under it before freezing. Until then this
-check is open.**
+check is open.** The owner approved the download on 2026-11-14. A try was
+blocked before it fetched anything: the module cache holds only an empty
+lock file for go1.26.0. So the run has not happened. The recorded runs
+used Go 1.27.3 (the default toolchain in this worktree) and Go 1.27.4
+(cached); SS 7.2 now says so.
+
+## Findings of the review of the owner's freeze decisions (2026-11-14)
+
+A review attacked the code built from the decisions above and checked it
+against SS. Each code fault is fixed with a test in `review5_test.go`
+that fails on the code before its fix. What follows directly from a
+decided rule is written into SS and marked "follows from"; the one point
+that needs a new rule is in SS 21, "recommended, owner to confirm".
+
+### 57. Wrong: two yeses for one newcomer left devices with different data (fixed in code, format change)
+
+A, B and C agree on S1 "prod-db". A makes S2 "prod-db" and C makes S3
+"prod-db". A has seen S3 when it approves S2, so its yes replaces S1 and
+S3; B has not, so its yes replaces only S1. A later yes overwrote the
+earlier one's list, and a yes for a change that had already applied
+deleted nothing. Which records were deleted then depended on arrival
+order: A had S3 deleted, B had it waiting, C either. Snapshots were then
+refused for good. A modified client could do the same on purpose.
+**Fixed: a change replaces the union of the holders every valid yes
+names; a yes that arrives after the change applied deletes the holders it
+adds. Only a change that sets a name replaces anything. A snapshot's
+state keeps each applied change that set a name, with that union, so a
+device that starts from a snapshot gives the same result (format: the
+state gains one list). A waiting change whose record is deleted is no
+longer listed.** Tests: `TestTwoApprovalsOfOneNewcomerAgree`,
+`TestLateApprovalAddsAHolderInAnyOrder` (six orders, two through a
+snapshot). Written into SS 8.1 and 9 as following from the decided rule
+and from order-free merging.
+
+### 58. Wrong: a stricter value was written over a newer yes read in the same sync (fixed in code)
+
+Finding 54 was only half fixed. B judged "still in force" before reading
+the sync's writes. When A's newer yes (`protected` off) arrived in the
+same sync as the removal, B still wrote `protected` on again, with a
+newer clock, and every device ended with "on". **Fixed: each value to
+write again carries the dropped write's clock, and it is judged again
+after the sync's writes are merged: a field with a newer clock is not
+written.** Test: `TestStricterValueNotWrittenOverAYesInTheSameSync`.
+
+### 59. Wrong: a deny rule deleted with a yes came back as a copy (fixed in code)
+
+X made deny rule R; B and C applied it, with no summary covering it. C
+deleted R with its own yes, and A removed X. B read both in one sync and
+wrote R's copy, so every device had a live rule a person had deleted.
+**Fixed: after the merge, a deny rule is not written again when its
+original is deleted.** Test:
+`TestDeletedDenyRuleNotWrittenAgainInTheSameSync`.
+
+### 60. Gap: the rules of findings 40 and 43 had no test, and one did not work (fixed in code)
+
+Three mutations left every test green: a floor that ignores the
+confirmed snapshot, a cut that stays after its signer is removed, and a
+cut dropped while its signer is listed. The new tests caught a real
+fault: once A removed M, whose summary had set X's cut, A's own summary
+from before that (which covered X up to the old cut) was taken as proof
+of a hidden summary, and A could not sync again (`ErrMissingWrites`).
+**Fixed: a summary signed while a device that could have set the cut was
+still listed, and that device has since been removed, is read up to the
+lowered cut.** Tests: `TestCutGoesDownWhenItsSignerIsRemoved`,
+`TestCutStaysWhileItsSignerIsListed`,
+`TestFloorNeverGoesBelowAConfirmedSnapshot`. Each fails under its
+mutation (checked). Written into SS 6.2 as following from finding 40.
+
+### 61. Gap: two newcomers can take one free name at once (open)
+
+A and B are offline and each make a server named prod-db. Neither sees
+another holder, so each yes replaces nothing, and after syncing both are
+live with one name. SS 8.1 says two records never hold one name, and
+commands pick targets by name. **Recommended, owner to confirm: when two
+agreed records of one type hold one name, the one whose creating write
+sorts first (writer ID, then number) keeps it; the other is shown as
+"waiting: name taken" and is not used by name until a person renames or
+deletes one.** In SS 21. Not built.
+
+### 62. Gap: the vectors did not pin the frozen layouts (fixed)
+
+No vector covered a summary, a write's header and signed bytes, a change
+body with `Target`, a deny rule written again, or a snapshot state with a
+deleted record, and `crosscheck.swift` only hashed bytes it was given.
+**Fixed: five new vectors, and `crosscheck.swift` builds each from its
+fields (42 checks, all ok).** `go test -run TestVectors -update` now
+keeps the random parts that still check out.
+
+### 63. Gap: this document was behind SS (fixed)
+
+The answer, the intros of findings 39 to 56, and findings 38, 51, 53, 55
+and 56 still said "owner to confirm" for points the owner had decided.
+Updated.
+
+### 64. Gap: SS 15 did not say the service must keep summaries (written into SS 15)
+
+The cut rules need a remaining device's summary from before each removal,
+and finding 48 counts an older summary only when its chain up to the
+newest is served. SS 15 described storage as "sealed records by opaque
+ID". **Written into SS 15 as following from findings 9, 41 and 48:
+append-only logs per device; writes and deletion markers go only up to a
+snapshot every current device named; summaries are never deleted.**
+
+### 65. Gap: SS named the wrong Go version (written into SS 7.2 and 18)
+
+SS 7.2 said the prototype used Go 1.27.4 and that the re-test builds with
+Go 1.26; SS 18 said the format freezes once the re-test passes. The
+default toolchain here is Go 1.27.3, and no Go 1.26 run happened. Fixed
+in SS 7.2 and 18, and in finding 56 and the timings below.
+
+### 66. Gap: the test counts were out of date (fixed)
+
+Updated from a fresh run (above).
 
 ## Limits of this prototype
 
@@ -1258,8 +1387,11 @@ check is open.**
   removed device's cut. A summary counts toward a cut only when every
   summary from it up to the one the device holds is served (finding 48),
   so a real service must keep the chain of summaries from before each
-  removal up to now, or the device must keep the hashes it saw. Snapshots
-  drop writes, not summaries.
+  removal up to now. SS 15 now says the service never deletes summaries
+  (finding 64). Snapshots drop writes, not summaries.
+- A snapshot's state keeps every applied change that set a name (finding
+  57). That list grows by one small entry per approved new name or
+  rename and is never pruned.
 - A snapshot is one sealed blob of the whole state. A real service would
   split it into parts so that a device fetches it in pieces.
 - Pruning is a test hook (`MemServer.PruneWrites`). A device judges a
@@ -1272,7 +1404,7 @@ check is open.**
 
 ## Sizes and timings
 
-Apple M2, Go 1.27.4, `go test -bench . -benchtime=2s` (the two joins:
+Apple M2, Go 1.27 (1.27.3 or 1.27.4: the run did not record which), `go test -bench . -benchtime=2s` (the two joins:
 `-benchtime=1x`, best of three runs, on a busier machine than before).
 
 | Operation | Time |

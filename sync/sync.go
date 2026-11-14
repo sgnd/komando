@@ -168,6 +168,19 @@ func (d *Device) readSummaries() (map[DeviceID]Head, map[DeviceID]*Summary, erro
 	return target, best, nil
 }
 
+// cutSignerGone reports whether a device whose summary could have set
+// dev's cut was still listed at list entry listNum and has been removed
+// since. Its summary no longer counts, so the cut may now be lower than
+// what a summary naming that entry covers (SS 6.2, finding 40).
+func (d *Device) cutSignerGone(dev DeviceID, listNum uint32) bool {
+	for _, other := range d.list.RemInfo[dev].Remaining {
+		if _, removed := d.list.Removed[other]; removed && d.list.RemInfo[other].At > listNum {
+			return true
+		}
+	}
+	return false
+}
+
 // pastHold reports whether a summary or write names a list entry this
 // device holds back on its own clock. Devices that already waited have
 // moved on; their newer summaries and writes wait here with the hold,
@@ -190,8 +203,9 @@ func (d *Device) mergeSummary(s *Summary, target map[DeviceID]Head) error {
 			if c := d.cuts[h.Device]; h.Seq > c.Seq {
 				// A summary from after the removal holds only writes that
 				// a summary from before it showed: the server holds that
-				// one back.
-				if s.ListNum >= d.list.RemInfo[h.Device].At {
+				// one back. Unless a device that could have set the cut
+				// then was removed since: the cut went down without it.
+				if s.ListNum >= d.list.RemInfo[h.Device].At && !d.cutSignerGone(h.Device, s.ListNum) {
 					return fmt.Errorf("%w: a summary covers writes of a removed device that no summary from before the removal shows", ErrMissingWrites)
 				}
 				h = c

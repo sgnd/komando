@@ -232,4 +232,105 @@ let ap = v["approval_bytes"] as! [String: String]
 let apBytes = hex(ap["account"]!) + hex(ap["writer"]!) + hex(ap["seq"]!) + hex(ap["hash"]!) + u32(1) + hex(ap["replaces"]!)
 check("approval bytes", hx(apBytes) == ap["bytes"]!)
 
+// Layouts, built from their fields: numbers big-endian, strings and byte
+// strings with a 4-byte length, lists with a 4-byte count.
+typealias Obj = [String: Any]
+func cat(_ parts: [Data]) -> Data { parts.reduce(Data(), +) }
+func H(_ o: Obj, _ k: String) -> Data { hex(o[k] as! String) }
+func I(_ o: Obj, _ k: String) -> Int { o[k] as! Int }
+func S(_ o: Obj, _ k: String) -> String { o[k] as! String }
+func u8(_ n: Int) -> Data { Data([UInt8(n & 255)]) }
+func u16(_ n: Int) -> Data { Data([UInt8(n >> 8 & 255), UInt8(n & 255)]) }
+func u64(_ n: Int) -> Data { cat([u32(n >> 32), u32(n & 0xFFFF_FFFF)]) }
+func str(_ s: String) -> Data { cat([u32(s.utf8.count), Data(s.utf8)]) }
+func flag(_ o: Obj, _ k: String) -> Data { u8(o[k] as! Bool ? 1 : 0) }
+func fieldPairs(_ o: Obj, _ k: String) -> Data {
+    let fs = o[k] as! [[String]]
+    return cat([u32(fs.count)] + fs.map { cat([str($0[0]), str($0[1])]) })
+}
+func idList(_ o: Obj, _ k: String) -> Data {
+    let ids = o[k] as! [String]
+    return cat([u32(ids.count)] + ids.map(hex))
+}
+func ref(_ o: Obj, _ w: String = "Writer", _ q: String = "Seq", _ h: String = "Hash") -> Data { cat([H(o, w), u64(I(o, q)), H(o, h)]) }
+func heads(_ o: Obj, _ k: String) -> Data {
+    let hs = o[k] as! [Obj]
+    return cat([u32(hs.count)] + hs.map { ref($0, "Device") })
+}
+func clock(_ o: Obj) -> Data { cat([u64(I(o, "Wall")), u32(I(o, "Count")), H(o, "Dev")]) }
+func byRef(_ a: Obj, _ b: Obj) -> Bool {
+    let x = H(a, "Writer"), y = H(b, "Writer")
+    return x != y ? x.lexicographicallyPrecedes(y) : I(a, "Seq") < I(b, "Seq")
+}
+
+// A summary: Prev after Num, Snap and Base after the heads (SS 9).
+let sm = v["summary"] as! Obj
+let smBytes = cat([H(sm, "Account"), H(sm, "Signer"), u64(I(sm, "Num")), H(sm, "Prev"), u32(I(sm, "KeyGen")),
+                   u32(I(sm, "ListNum")), H(sm, "ListHash"), u32(I(sm, "MinClient")), heads(sm, "Heads"),
+                   H(sm, "Snap"), H(sm, "Base")])
+check("summary signed bytes", hx(smBytes) == S(sm, "SignedBytes"))
+check("summary hash", hx(sum("komando-sync/1 summary hash", [smBytes])) == S(sm, "Hash"))
+
+// A deny rule written again: its ID is bound to the dropped write and the
+// rule's fields.
+let da = v["deny_rule_written_again_id"] as! Obj
+let daRnd = sum("komando-sync/1 deny rule written again", [cat([ref(da), fieldPairs(da, "Fields")])]).prefix(12)
+let daTag = sum("komando-sync/1 record type", [Data("deny".utf8), daRnd]).prefix(4)
+check("deny rule written again id", hx(daRnd + daTag) == S(da, "ID"))
+
+// A sealed body's plaintext, with Target after the fields.
+let cv = v["change_deny_written_again"] as! Obj
+let cvBytes = cat([u8(I(cv, "Kind")), H(cv, "Record"), str(S(cv, "Type")), flag(cv, "Create"), flag(cv, "Delete"),
+                   fieldPairs(cv, "Fields"), ref(cv, "TargetWriter", "TargetSeq", "TargetHash"),
+                   idList(cv, "Replaces"), H(cv, "Approval")])
+check("change bytes", hx(cvBytes) == S(cv, "Bytes"))
+check("change names the deny rule written again", S(cv, "Record") == S(da, "ID"))
+
+// A write: the header is the seal's place; the change above is its body.
+let wv = v["write"] as! Obj
+let wvHeader = cat([u8(1), u16(1), H(wv, "Account"), H(wv, "Vault"), H(wv, "Writer"), u64(I(wv, "Seq")), H(wv, "Prev"),
+                    u32(I(wv, "ListNum")), H(wv, "ListHash"), u32(I(wv, "KeyGen")), u64(I(wv, "Wall")), u32(I(wv, "Count"))])
+check("write header", hx(wvHeader) == S(wv, "Header"))
+var wvInfo = Data("komando-sync/1 record".utf8)
+wvInfo.append(0)
+wvInfo.append(Data(SHA256.hash(data: wvHeader)))
+let wvOkm = hkdf(hex(rs["VaultKey"]!), salt: H(wv, "Seed"), info: wvInfo, 64)
+check("write commit", hx(wvOkm.suffix(32)) == S(wv, "Commit"))
+var wvPadded = u32(cvBytes.count) + cvBytes
+wvPadded.append(Data(count: padme(4 + cvBytes.count) - wvPadded.count))
+let wvBox = try AES.GCM.seal(wvPadded, using: SymmetricKey(data: wvOkm.prefix(32)), nonce: AES.GCM.Nonce(data: Data(count: 12)), authenticating: wvHeader)
+let wvCT = wvBox.ciphertext + wvBox.tag
+check("write ciphertext", hx(wvCT) == S(wv, "Ciphertext"))
+let wvSigned = cat([wvHeader, H(wv, "Seed"), wvOkm.suffix(32), u32(wvCT.count), wvCT])
+check("write signed bytes", hx(wvSigned) == S(wv, "SignedBytes"))
+check("write hash", hx(sum("komando-sync/1 write hash", [wvSigned])) == S(wv, "Hash"))
+
+// A snapshot's state: records sorted by ID, a deleted one keeps only its
+// name; waiting changes by write; approvals only past the heads; then the
+// applied changes that set a name.
+let st = v["snapshot_state"] as! Obj
+var stHeads: [String: Int] = [:]
+for h in st["Heads"] as! [Obj] { stHeads[S(h, "Device")] = I(h, "Seq") }
+let recs = (st["Records"] as! [Obj]).sorted { H($0, "ID").lexicographicallyPrecedes(H($1, "ID")) }
+var stBytes = u32(recs.count)
+for r in recs {
+    let deleted = r["Deleted"] as! Bool
+    let fs = (r["Fields"] as! [Obj]).filter { !deleted || S($0, "Name") == "name" }
+        .sorted { S($0, "Name").utf8.lexicographicallyPrecedes(S($1, "Name").utf8) }
+    stBytes += cat([H(r, "ID"), str(S(r, "Type")), flag(r, "Exists"), flag(r, "Deleted"), u32(fs.count)])
+    for f in fs { stBytes += cat([str(S(f, "Name")), str(S(f, "Value")), clock(f)]) }
+}
+let wts = (st["Waiting"] as! [Obj]).sorted(by: byRef)
+stBytes += u32(wts.count)
+for w in wts {
+    stBytes += cat([ref(w), H(w, "Record"), str(S(w, "Type")), flag(w, "Create"), flag(w, "Delete"), fieldPairs(w, "Fields"), clock(w)])
+}
+let aps = (st["Approved"] as! [Obj]).filter { I($0, "Seq") > (stHeads[S($0, "Writer")] ?? 0) }.sorted(by: byRef)
+stBytes += u32(aps.count)
+for a in aps { stBytes += cat([ref(a), idList(a, "Replaces")]) }
+let dns = (st["Done"] as! [Obj]).sorted(by: byRef)
+stBytes += u32(dns.count)
+for d in dns { stBytes += cat([ref(d), H(d, "Record"), str(S(d, "Type")), idList(d, "Replaces")]) }
+check("snapshot state bytes", hx(stBytes) == S(st, "Bytes"))
+
 exit(failed ? 1 : 0)

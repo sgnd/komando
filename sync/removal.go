@@ -216,25 +216,33 @@ func (d *Device) dropRevoked(rep *Report) error {
 	}
 	old, held := d.log, d.data
 	d.log, d.data = nil, d.baseData()
-	var strict []*Change
+	var strict []rewriteTodo
 	for _, s := range old {
 		if last, ok := drop[s.w.Writer]; ok && s.w.Seq > last {
 			d.countRevoked(s.w.Ref(), rep)
 			d.noteDropped(s.w.Ref())
 			if c := inForce(held, s.w, s.c, stricterPart(s.w, s.c)); c != nil {
-				strict = append(strict, c)
+				strict = append(strict, rewriteTodo{c: c, clock: s.w.Clock, orig: s.c.Record})
 			}
 			continue
 		}
 		d.applyChange(s.w, s.c, rep)
 		d.log = append(d.log, s)
 	}
-	for _, c := range strict {
-		if c = d.notYetHere(c); c != nil {
-			d.rewrite = append(d.rewrite, c)
+	for _, t := range strict {
+		if d.stillDue(t) != nil {
+			d.rewrite = append(d.rewrite, t)
 		}
 	}
 	return nil
+}
+
+// rewriteTodo is a stricter value, or a deny rule, to write again: c,
+// with the clock of the dropped write and the record it changed.
+type rewriteTodo struct {
+	c     *Change
+	clock HLC
+	orig  RecordID
 }
 
 // keptPastFloor is what counts of a removed device's change between its
@@ -322,13 +330,24 @@ func inForce(held *mergeState, w *Write, orig, c *Change) *Change {
 	return &Change{Kind: kindRecord, Record: c.Record, Type: c.Type, Fields: keep}
 }
 
-// notYetHere is the part of a stricter change the merged data does not
-// hold yet. A deny rule written again is here once any device wrote it,
-// or once its deletion is (deletion is final).
-func (d *Device) notYetHere(c *Change) *Change {
+// stillDue is the part of a stricter change to write again that the
+// merged data still calls for. It is judged again after every merge,
+// because writes read in the same sync as a removal count too:
+//
+//   - a deny rule: not when its copy is here already, once any device
+//     wrote it, or deleted; nor when the original rule was deleted (a
+//     person's yes deleted it, and deletion is final);
+//   - a rule field: not when the field holds the value already, nor when
+//     a write newer than the dropped one set it, a person's yes for
+//     example (SS 6.2: "already applied ... keeps").
+func (d *Device) stillDue(t rewriteTodo) *Change {
+	c := t.c
 	rec := d.data.records[c.Record]
 	if c.Type == TypeDeny {
 		if rec != nil && (rec.Exists || rec.Deleted) {
+			return nil
+		}
+		if o := d.data.records[t.orig]; o != nil && o.Deleted {
 			return nil
 		}
 		return c
@@ -338,7 +357,7 @@ func (d *Device) notYetHere(c *Change) *Change {
 	}
 	var keep []Field
 	for _, f := range c.Fields {
-		if rec.Fields[f.Name].Value != f.Value {
+		if cur := rec.Fields[f.Name]; cur.Value != f.Value && !t.clock.Less(cur.Clock) {
 			keep = append(keep, f)
 		}
 	}
@@ -350,13 +369,14 @@ func (d *Device) notYetHere(c *Change) *Change {
 
 // writeAgain writes the stricter values this device kept from past a cut
 // as its own writes (SS 6.2, decided 2026-11-14). They apply by themselves
-// on every device.
+// on every device. It runs after the sync's writes are merged.
 func (d *Device) writeAgain() (int, error) {
 	todo := d.rewrite
 	d.rewrite = nil
 	n := 0
-	for _, c := range todo {
-		if c = d.notYetHere(c); c == nil {
+	for _, t := range todo {
+		c := d.stillDue(t)
+		if c == nil {
 			continue
 		}
 		if _, err := d.change(c); err != nil {

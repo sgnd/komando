@@ -41,7 +41,7 @@ type Device struct {
 	dropped    map[WriteRef]*dropNote
 	keptAgain  map[WriteRef]bool // dropped writes a raised cut keeps after all; true once a person confirmed
 	revoked    map[WriteRef]bool // dropped writes already counted in a Report
-	rewrite    []*Change         // stricter values kept from past a cut, to write again as this device's own
+	rewrite    []rewriteTodo     // stricter values kept from past a cut, to write again as this device's own
 
 	// The list can move forward outside Sync (a secret write, a removal,
 	// a pairing). Sync alerts on everything since the first such move it

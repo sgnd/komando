@@ -48,7 +48,8 @@ type mergeState struct {
 	records  map[RecordID]*record
 	waiting  map[WriteRef]*waiting
 	approved map[WriteRef]bool
-	replaces map[WriteRef][]RecordID // per approved change: the old holders of its name, deleted with it
+	replaces map[WriteRef][]RecordID // per approved change: the union of its approvals' old holders, deleted with it
+	done     map[WriteRef]*waiting   // approved changes that set a name and have applied
 	markers  map[RecordID]WriteRef
 }
 
@@ -58,6 +59,7 @@ func newMergeState() *mergeState {
 		waiting:  map[WriteRef]*waiting{},
 		approved: map[WriteRef]bool{},
 		replaces: map[WriteRef][]RecordID{},
+		done:     map[WriteRef]*waiting{},
 		markers:  map[RecordID]WriteRef{},
 	}
 }
@@ -141,15 +143,22 @@ func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 
 // approve records a verified yes and applies the change if it is here.
 // replaces names the old holders of the change's name; they are deleted
-// in the same yes (SS 8.1, decided 2026-11-14).
+// in the same yes (SS 8.1, decided 2026-11-14). Several devices may
+// approve one change, each naming the holders it saw: the change replaces
+// the union of them. A yes that arrives after the change applied deletes
+// the holders it adds, so the result never depends on arrival order.
 func (m *mergeState) approve(ref WriteRef, replaces []RecordID) {
 	m.approved[ref] = true
-	if len(replaces) > 0 {
-		m.replaces[ref] = replaces
+	all := slices.Concat(m.replaces[ref], replaces)
+	slices.SortFunc(all, cmpRecord)
+	if all = slices.Compact(all); len(all) > 0 {
+		m.replaces[ref] = all
 	}
 	if w := m.waiting[ref]; w != nil {
 		delete(m.waiting, ref)
 		m.applyWaiting(w)
+	} else if w := m.done[ref]; w != nil {
+		m.deleteHolders(w)
 	}
 }
 
@@ -164,15 +173,31 @@ func (m *mergeState) applyWaiting(w *waiting) {
 	if w.Delete {
 		m.markDeleted(w.Record, w.Ref)
 	}
-	// A yes deletes only old holders of the newcomer's own type: never a
-	// device's own record, which no write deletes, nor a record of
-	// another type a modified client named (SS 8.1).
+	if setsName(w) {
+		m.done[w.Ref] = &waiting{Ref: w.Ref, Record: w.Record, Type: w.Type}
+		m.deleteHolders(w)
+	}
+}
+
+// deleteHolders deletes the old holders of the name an approved change
+// takes. Only a change that sets a name replaces anything, and a yes
+// deletes only old holders of the newcomer's own type: never a device's
+// own record, which no write deletes, nor a record of another type a
+// modified client named (SS 8.1).
+func (m *mergeState) deleteHolders(w *waiting) {
 	for _, id := range m.replaces[w.Ref] {
 		if id != w.Record && namesHeld(w.Type) && hasType(id, w.Type) {
 			m.markDeleted(id, w.Ref)
 		}
 	}
 }
+
+// setsName reports whether a waiting change sets a record's name.
+func setsName(w *waiting) bool {
+	return slices.ContainsFunc(w.Fields, func(f Field) bool { return f.Name == "name" })
+}
+
+func cmpRecord(a, b RecordID) int { return slices.Compare(a[:], b[:]) }
 
 // markDeleted makes a record's deletion final. The record may not be here
 // yet: a placeholder takes its type from its first write.
@@ -258,6 +283,9 @@ func (m *mergeState) list() []Waiting {
 	for _, ref := range slices.SortedFunc(maps.Keys(m.waiting), cmpRef) {
 		w := m.waiting[ref]
 		rec := m.records[w.Record]
+		if rec.Deleted {
+			continue // deletion is final: there is nothing left to agree to
+		}
 		v := Waiting{Ref: ref, Record: w.Record, Type: w.Type, Create: w.Create, Delete: w.Delete}
 		for _, f := range w.Fields {
 			v.Changes = append(v.Changes, FieldChange{Name: f.Name, Old: rec.Fields[f.Name].Value, New: f.Value})
@@ -306,7 +334,7 @@ func (m *mergeState) nameHolders(name string, self RecordID, typ string) []Recor
 			}
 		}
 	}
-	return slices.SortedFunc(maps.Keys(held), func(a, b RecordID) int { return slices.Compare(a[:], b[:]) })
+	return slices.SortedFunc(maps.Keys(held), cmpRecord)
 }
 
 func cmpRef(a, b WriteRef) int {
