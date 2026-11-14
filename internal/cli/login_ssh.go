@@ -164,7 +164,11 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 	// the token, how long to keep the login, the vault passphrase and the
 	// other secret stores' unlock values go on its input, never in its
 	// arguments or environment
-	fmt.Fprintf(stdin, "TOKEN %s\nUNTIL %d\nPASS %s\n", l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
+	ticket, err := newSpawnTicket()
+	if err != nil {
+		return fail(err)
+	}
+	fmt.Fprintf(stdin, "%sTOKEN %s\nUNTIL %d\nPASS %s\n", ticket, l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
 	var cancelled error
 	in := bufio.NewReader(stdout)
 	for {
@@ -271,6 +275,9 @@ func loginHolderCmd() *cobra.Command {
 				return exitCode(1)
 			}
 			in := bufio.NewReader(cl.stdin)
+			if err := takeSpawnTicket(in, "login-holder", "login "+args[0]); err != nil {
+				return fail(err)
+			}
 			token, until, err := holderStdin(in)
 			if err != nil {
 				return fail(err)
@@ -390,8 +397,8 @@ func holdUntil(ctx context.Context, c *sshx.Client, until time.Time) string {
 	}
 }
 
-// holderStdin reads what startHolder sends first: the socket's token, the
-// end time and the vault passphrase.
+// holderStdin reads what startHolder sends after the ticket: the socket's
+// token, the end time and the vault passphrase.
 func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 	for _, want := range []string{"TOKEN", "UNTIL", "PASS"} {
 		line, rerr := in.ReadString('\n')

@@ -29,6 +29,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `vpn serve`, `tunnel serve` and `login-holder`, the background
+  processes `vpn up`, `tunnel start` and `login` start, now run only
+  when one of those commands started them. Run by hand, an AI agent got a
+  SOCKS port into an `--mfa` VPN that `vpn up` refuses it, a tunnel or a
+  held login without its checks, and no audit record. They now stop with
+  `NEEDS_PERSON`.
+- IKEv2 VPNs read only the IKE_SA_INIT response unencrypted. A forged
+  plaintext Delete or CREATE_CHILD_SA from anyone on the path could end
+  the tunnel or move its traffic to an SA of their choosing.
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
 - Three places where commands running side by side in one process (the
   apps) could answer for the wrong command. A connection with no command

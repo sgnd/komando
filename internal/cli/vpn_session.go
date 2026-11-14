@@ -371,7 +371,11 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if err != nil {
 		return 0, "", err
 	}
-	pid, err := background(serveCommand(self, name, password, s), logFile)
+	ticket, err := newSpawnTicket()
+	if err != nil {
+		return 0, "", err
+	}
+	pid, err := background(serveCommand(self, name, ticket, password, s), logFile)
 	if err != nil {
 		return 0, "", err
 	}
@@ -402,13 +406,13 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 }
 
 // serveCommand is the `komando vpn serve NAME` process (self is komando):
-// a new SOCKS login, kept in s, and the typed password go to it on stdin,
-// then the vault passphrase, never in its environment: it runs for long
-// (serveStdin reads them).
-var serveCommand = func(self, name, password string, s *store.VpnSession) *exec.Cmd {
+// the ticket line (newSpawnTicket), a new SOCKS login, kept in s, and the
+// typed password go to it on stdin, then the vault passphrase, never in
+// its environment: it runs for long (serveStdin reads them).
+var serveCommand = func(self, name, ticket, password string, s *store.VpnSession) *exec.Cmd {
 	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
 	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
-	c.Stdin = strings.NewReader("SOCKS " + s.SocksUser + " " + s.SocksPass + "\n" + password + "\n")
+	c.Stdin = strings.NewReader(ticket + "SOCKS " + s.SocksUser + " " + s.SocksPass + "\n" + password + "\n")
 	vault.PassOnStdin(c)
 	return c
 }

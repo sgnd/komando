@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +23,7 @@ func TestVpnServeGetsPassphraseOnStdin(t *testing.T) {
 	want := vault.Passphrase()
 	t.Cleanup(func() { netx.SessionSecret = "" })
 	s := &store.VpnSession{}
-	c := serveCommand("/usr/local/bin/komando", "office", "typed-password", s)
+	c := serveCommand("/usr/local/bin/komando", "office", "TICKET t\n", "typed-password", s)
 	for _, e := range c.Env {
 		if strings.HasPrefix(e, "KOMANDO_VAULT_PASS=") {
 			t.Fatal("the passphrase is in vpn serve's environment")
@@ -33,12 +34,16 @@ func TestVpnServeGetsPassphraseOnStdin(t *testing.T) {
 	}
 	t.Setenv("KOMANDO_VAULT_PASS", "not-the-passphrase-sent")
 	vault.Passphrase() // vpn serve starts without the real one
-	user, pass, err := serveStdin(c.Stdin, true, true)
+	in := bufio.NewReader(c.Stdin)
+	if line, _ := in.ReadString('\n'); line != "TICKET t\n" {
+		t.Fatalf("the first line is %q, not the ticket", line)
+	}
+	user, pass, err := serveStdin(in, true, true)
 	if err != nil || user != s.SocksUser || pass != s.SocksPass || netx.SessionSecret != "typed-password" || vault.Passphrase() != want {
 		t.Errorf("read %q %q %q, passphrase %q: %v", user, pass, netx.SessionSecret, vault.Passphrase(), err)
 	}
 	// no typed password: the second line is empty
-	user, _, err = serveStdin(serveCommand("komando", "office", "", s).Stdin, true, true)
+	user, _, err = serveStdin(serveCommand("komando", "office", "", "", s).Stdin, true, true)
 	if err != nil || user != s.SocksUser || netx.SessionSecret != "" || vault.Passphrase() != want {
 		t.Errorf("without a typed password: %q %q %v", user, netx.SessionSecret, err)
 	}
@@ -78,7 +83,7 @@ func TestSessionUseOpenConnIsNotIdle(t *testing.T) {
 func TestSpawnServeCtrlC(t *testing.T) {
 	invHome(t)
 	saved := serveCommand
-	serveCommand = func(string, string, string, *store.VpnSession) *exec.Cmd { return sleeperCmd() }
+	serveCommand = func(string, string, string, string, *store.VpnSession) *exec.Cmd { return sleeperCmd() }
 	t.Cleanup(func() { serveCommand = saved })
 	ctx, cancel := context.WithCancel(context.Background())
 	time.AfterFunc(300*time.Millisecond, cancel)

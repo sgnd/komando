@@ -213,8 +213,12 @@ point your database app or psql at the local address it prints. With a server, g
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}
+			ticket, err := newSpawnTicket()
+			if err != nil {
+				return err
+			}
 			p := tunnelServeCommand(self, pargs)
-			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
+			p.Stdout, p.Stderr, p.Stdin = lf, lf, strings.NewReader(ticket)
 			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long
 			if err := p.Start(); err != nil {
@@ -467,7 +471,11 @@ func tunnelServeCmd() *cobra.Command {
 				fmt.Fprintf(cl.out.W, "ERROR %s\n", b)
 				return exitCode(1)
 			}
-			st, err := serveState(cl, passStdin)
+			in := bufio.NewReader(cl.stdin)
+			if err := takeSpawnTicket(in, "tunnel serve", "tunnel start"); err != nil {
+				return fail(err)
+			}
+			st, err := serveState(in, passStdin)
 			if err != nil {
 				return fail(err)
 			}
@@ -556,9 +564,9 @@ func tunnelServeCmd() *cobra.Command {
 
 // serveState is tunnel serve's inventory, after the vault passphrase from
 // stdin when tunnel start sent one (vault.PassOnStdin).
-func serveState(cl *call, passStdin bool) (*store.State, error) {
+func serveState(in io.Reader, passStdin bool) (*store.State, error) {
 	if passStdin {
-		if err := vault.ReadPassStdin(cl.stdin); err != nil {
+		if err := vault.ReadPassStdin(in); err != nil {
 			return nil, err
 		}
 	}
