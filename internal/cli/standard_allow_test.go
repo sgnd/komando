@@ -72,7 +72,6 @@ var (
 		"host show",
 		"job status",
 		"key list",
-		"key show",
 		"net check",
 		"net http",
 		"net ports",

@@ -509,11 +509,27 @@ func keyListCmd() *cobra.Command {
 	return c
 }
 
+// keyShown is `key show`: the key, and with --reveal the private key of
+// one komando keeps in its sealed store.
+type keyShown struct {
+	*store.Key
+	PrivateKey string `json:"private_key,omitempty"`
+}
+
 func keyShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
-		Short: "Show a key's public part (never the private key)",
-		Args:  cobra.ExactArgs(1),
+		Short: "Show a key's public part, or a person its private key",
+		Long: `Shows a key's type, fingerprint and public part. A person at a terminal can
+add --reveal to print the private key of a key komando made (it is kept in
+komando's sealed store, with no file), for example to keep a copy in a
+password manager; from a program without a terminal (the Komando Mac app),
+komando first asks the person in its own window. A key added with ` + "`key add`" + `
+is a file you have already: --reveal names its path. AI agents never get a
+private key.`,
+		Example: `  komando key show deploy
+  komando key show deploy --reveal > deploy.key   # a person, at a terminal`,
+		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
@@ -523,7 +539,23 @@ func keyShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cl.out.Print("key.show", k, nil)
+			res := keyShown{Key: k}
+			if cl.flags.reveal {
+				if !store.SealedKey(k) && !cl.isAgent() {
+					cl.out.Warn("komando keeps only the path of " + k.Name + ": its private key is the file " + k.Path)
+				} else if via, err := revealGate(cl, "key.show", "key", k.Name, "the private key of "+k.Name); err != nil {
+					return err
+				} else if via != "" {
+					priv, err := store.ReadPrivateKey(k)
+					if err != nil {
+						return err
+					}
+					cl.out.NoRedact = true // the person asked for this key
+					res.PrivateKey = string(priv)
+					revealAudit(cl, "key.reveal", "key", k.Name, via)
+				}
+			}
+			cl.out.Print("key.show", res, nil)
 			return nil
 		}),
 	}

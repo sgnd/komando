@@ -7,6 +7,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+- See a secret again from the Komando Mac app: `secret show NAME --reveal` from a program without a terminal now asks the person in komando's own window (with the approval code when it is on) instead of stopping, and shows the value only after **Allow once**. The window names the secret, the command and the programs that started komando. At a terminal nothing changes; an AI agent, and a key through `ssh-gate`, still never get a value and get no window. A Linux or BSD desktop gets the window only with the approval code.
+- `key show NAME --reveal` prints the private key of a key komando made (kept in its sealed store, with no file), for a person only, under the same rules; for a key added from a file it names the file.
+- Every value shown is in the audit log with how the person allowed it (`via`: `terminal` or `window`) and the programs that started komando (`started_from`), and every refused `--reveal` with the secret's or key's name.
+
 ### Security
 
 - `komando update` checks that a release comes from the komando project, not only that its files match its `checksums.txt`: someone able to replace a release's files could replace `checksums.txt` too. The release workflow now signs `checksums.txt` with the project's Ed25519 key (`checksums.txt.sig`), and komando checks it with the public key built in, before anything is downloaded or asked (in `--dry-run` too). A release without that signature stops with `RELEASE_SIGNATURE_NOT_FOUND`, a wrong one with `RELEASE_SIGNATURE_INVALID`; nothing is changed. Releases up to 0.13.0 are unsigned: to go back to one, use the install line with `KOMANDO_VERSION`.
@@ -52,6 +57,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- `AGENTS.md` has a new rule 11, the paid boundary: an agent that changes komando's own code never adds a plan, account or licence check, and gives a paid service only a neutral, open capability (an open format, a signature check, a local socket). The old rules 11 and 12 are now 12 and 13. A new test (`internal/boundary`) fails when the komando binary links the sync library or a Komando Cloud client, or names a komando-owned address (any scheme, or a bare host name) other than the release site.
 - `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; For one server the fields moved: `data.path` is now `data.results[0].path`, `data.changed` is `data.results[0].changed`, `data.would_change` is `data.results[0].would_change`, and the same for `replacements`, `diff`, `backup`, `from` and `note`. Error codes stay the same (`NO_MATCH`, `BACKUP_NOT_FOUND` ...). `fs write` stays one server.
 
 ### Fixed
