@@ -826,11 +826,15 @@ func TestApplyRefusesHiddenValues(t *testing.T) {
 	if code, _, se := runKctl(context.Background(), l.client(t), "lab", []string{"diff", "-f", file}); strings.Contains(se, "komando hid") {
 		t.Errorf("diff: %d %q", code, se)
 	}
-	// a Secret redacted by cluster get, "(hidden)", is refused as well
-	sec := filepath.Join(t.TempDir(), "s.yaml")
-	os.WriteFile(sec, []byte("apiVersion: v1\nkind: Secret\nmetadata:\n  name: app-db\nstringData:\n  password: (hidden)\n"), 0o600)
-	if _, e := cliRun(t, "cluster", "run", "prod", "--write", "--", "apply", "-f", sec); e == nil || e.Code != "HIDDEN_VALUE" {
-		t.Errorf("(hidden) Secret: %+v", e)
+	// a Secret redacted by cluster get ([hidden]), a value pasted from a
+	// dry-run diff ([hidden, changed], [hidden, new]) and "(hidden)" from a
+	// file an earlier version saved are refused as well
+	for _, marker := range []string{"'[hidden]'", "'[hidden, changed]'", "'[hidden, new]'", "(hidden)", "(hidden, changed)"} {
+		sec := filepath.Join(t.TempDir(), "s.yaml")
+		os.WriteFile(sec, []byte("apiVersion: v1\nkind: Secret\nmetadata:\n  name: app-db\nstringData:\n  password: "+marker+"\n"), 0o600)
+		if _, e := cliRun(t, "cluster", "run", "prod", "--write", "--", "apply", "-f", sec); e == nil || e.Code != "HIDDEN_VALUE" {
+			t.Errorf("%s Secret: %+v", marker, e)
+		}
 	}
 }
 

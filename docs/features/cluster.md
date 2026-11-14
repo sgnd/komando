@@ -301,7 +301,7 @@ komando cluster scale swarm1 service/web 4
   change: a protected cluster needs a person's yes, as without it.
 - `apply --dry-run` shows for each object whether it would be created,
   changed or stay the same, with a diff. Secret values never show: a changed
-  value reads `(hidden, changed)`. Objects in a namespace that the same file
+  value reads `[hidden, changed]`. Objects in a namespace that the same file
   creates are reported as created too. `--file -` reads from stdin.
 - An object whose namespace in the file differs from `--namespace` is
   refused, as kubectl does.
