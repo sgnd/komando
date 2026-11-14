@@ -270,6 +270,12 @@ func loginHolderCmd() *cobra.Command {
 				say("ERROR " + string(b))
 				return exitCode(1)
 			}
+			if cl.isAgent() {
+				// its questions go to whoever started it: an agent would
+				// answer them as the person, and accept a new host key
+				return fail(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando login "+args[0]+"` in their own terminal",
+					"login-holder is the background process of `komando login`, which only a person runs").NoFlag())
+			}
 			in := bufio.NewReader(cl.stdin)
 			token, until, err := holderStdin(in)
 			if err != nil {
