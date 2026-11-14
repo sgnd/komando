@@ -604,13 +604,22 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 	raw = raw[:n]
 	m := &v2msg{exch: raw[18], flags: raw[19], id: binary.BigEndian.Uint32(raw[20:]), raw: raw}
 	next := raw[16]
+	k.mu.Lock()
+	defer k.mu.Unlock()
 	if next != pSK && next != pSKF {
+		// Only the IKE_SA_INIT response travels in the clear. Anything
+		// else unencrypted is unauthenticated: a spoofed Delete would end
+		// the tunnel, a spoofed request would move the message ids.
+		if m.exch != exSAInit || m.flags&flagResp == 0 {
+			return nil, errors.New("an unencrypted message other than the IKE_SA_INIT response")
+		}
+		if k.skD != nil {
+			return nil, nil // a late retransmit of the IKE_SA_INIT response
+		}
 		ps, err := parseChain(next, raw[28:])
 		m.ps = ps
 		return m, err
 	}
-	k.mu.Lock()
-	defer k.mu.Unlock()
 	if k.skD == nil {
 		return nil, errors.New("encrypted message before the keys")
 	}
