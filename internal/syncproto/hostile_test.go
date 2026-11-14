@@ -272,6 +272,7 @@ func TestServerNeverSeesPlaintextOrKeys(t *testing.T) {
 	must(t, err)
 	_, err = b.Create(TypeSecret, field("name", "prod-db-pass"), field("value", secrets[1]))
 	must(t, err)
+	w.syncAll(a, b, c)
 	_, err = c.Update(id, field("command", secrets[2]))
 	must(t, err)
 	w.syncAll(a, b, c)

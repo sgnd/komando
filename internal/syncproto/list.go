@@ -19,7 +19,7 @@ const (
 	ActRecoveryStep                       // the kit on a listed device: remove, new key, new kits
 	ActTakeover                           // the kit on a new device (only inside Pending)
 	ActPending                            // a change that waits
-	ActApply                              // the waited change takes effect
+	ActApply                              // the waited change takes effect; it carries the new key
 	ActCancel                             // the waited change is dropped
 )
 
@@ -90,6 +90,9 @@ const (
 	RoleJoinAuth                     // a new device proves its authority key
 	RoleNewKit                       // a new kit binds itself to this place (Index into Kits)
 	RoleRequester                    // the device that asked for a pending change applies it
+	RoleAuthAsk                      // a device's sync key asks for its new authority key (over authAskBytes)
+	RoleAuthProof                    // the new authority key proves itself (over authAskBytes)
+	RoleDevice                       // a listed device's sync key (a recovery step names its device)
 )
 
 // EntrySig is one signature on an entry.
@@ -252,6 +255,18 @@ func joinSigs(keys *DeviceKeys, rec *DeviceRecord, idx uint8) ([]EntrySig, error
 		out = append(out, EntrySig{Role: RoleJoinAuth, Device: id, Index: idx, Sig: a})
 	}
 	return out, nil
+}
+
+// authAskBytes is what a device signs to ask for a new authority key, with
+// its sync key and with the new key. It names the key it replaces, so an
+// old request cannot be replayed once the key changed again.
+func authAskBytes(account Hash, dev DeviceID, oldAuth, newAuth []byte) []byte {
+	var e enc
+	e.raw(account[:])
+	e.raw(dev[:])
+	e.bytes(oldAuth)
+	e.bytes(newAuth)
+	return e.b
 }
 
 // newKitSig is a new kit's signature over the hash of the entry before and

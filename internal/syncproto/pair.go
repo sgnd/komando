@@ -1,6 +1,9 @@
 package syncproto
 
 import (
+	"crypto/hkdf"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -13,6 +16,7 @@ import (
 type Joiner struct {
 	dev     *Device
 	secret  []byte
+	reqHash Hash // the request box it posted; the reply names it
 	created time.Time
 	used    bool
 }
@@ -42,7 +46,10 @@ func StartJoin(dev *Device) (*Joiner, string, error) {
 		e.u8(uint8(s.Role))
 		e.raw(s.Sig[:])
 	}
+	// The new device seals its request once per secret, so a key from the
+	// secret alone is used once.
 	box := oneTimeBox(derive(j.secret, labelPairReq, 32), []byte(labelPairReq), e.b)
+	j.reqHash = sum(labelPairReq, box)
 	if err := dev.srv.Put(dev.id, mailbox(j.secret)+"/req", box); err != nil {
 		return nil, "", err
 	}
@@ -98,7 +105,13 @@ func (d *Device) AcceptJoin(code string, confirm func(name string) bool) error {
 	if age := d.now().Sub(req.created); age > PairingWindow || age < -PairingWindow {
 		return ErrPairingExpired
 	}
-	// One try: the request is gone once read with the right code.
+	// One try: this device answers a code once, whatever the server does,
+	// and the request is gone once read with the right code.
+	tag := sum(labelPairBox, secret)
+	if d.answered[tag] {
+		return ErrPairingUsed
+	}
+	d.answered[tag] = true
 	if err := d.srv.Put(d.id, mailbox(secret)+"/req", nil); err != nil {
 		return err
 	}
@@ -134,8 +147,42 @@ func (d *Device) AcceptJoin(code string, confirm func(name string) bool) error {
 	e.u32(d.head)
 	e.raw(d.headHash[:])
 	e.bytes(d.summaries[d.id].Marshal())
-	reply := oneTimeBox(derive(secret, labelPairReply, 32), []byte(labelPairReply), e.b)
+	reply, err := sealPairReply(secret, sum(labelPairReq, box), e.b)
+	if err != nil {
+		return err
+	}
 	return d.srv.Put(d.id, mailbox(secret)+"/reply", reply)
+}
+
+// sealPairReply seals a pairing reply under a key from the secret, 32
+// fresh random bytes and the hash of the request it answers. A server that
+// gets a code answered twice (by two devices it shows different lists)
+// still never sees two replies under one key and nonce, and a reply cannot
+// be moved to another request.
+func sealPairReply(secret []byte, reqHash Hash, payload []byte) ([]byte, error) {
+	var salt [32]byte
+	if _, err := rand.Read(salt[:]); err != nil {
+		return nil, err
+	}
+	key, aad := pairReplyKey(secret, salt[:], reqHash)
+	return append(salt[:], oneTimeBox(key, aad, payload)...), nil
+}
+
+func openPairReply(secret []byte, reqHash Hash, box []byte) ([]byte, error) {
+	if len(box) < 32 {
+		return nil, ErrOpen
+	}
+	key, aad := pairReplyKey(secret, box[:32], reqHash)
+	return oneTimeOpen(key, aad, box[32:])
+}
+
+func pairReplyKey(secret, salt []byte, reqHash Hash) (key, aad []byte) {
+	aad = append([]byte(labelPairReply+"\x00"), reqHash[:]...)
+	k, err := hkdf.Key(sha256.New, secret, salt, string(aad), 32)
+	if err != nil {
+		panic(err)
+	}
+	return k, aad
 }
 
 // sealCurrentTo seals the current account key to one device.
@@ -170,7 +217,7 @@ func (j *Joiner) Finish() (*Device, error) {
 	}
 	j.used = true
 	defer clear(j.secret)
-	p, err := oneTimeOpen(derive(j.secret, labelPairReply, 32), []byte(labelPairReply), box)
+	p, err := openPairReply(j.secret, j.reqHash, box)
 	if err != nil {
 		return nil, ErrCheckCode
 	}

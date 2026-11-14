@@ -32,11 +32,11 @@ type Device struct {
 	ownHash   Hash
 	newest    map[DeviceID]Head
 	sumNum    map[DeviceID]uint64
-	kitToType *Kit // set until the person types part of the kit back
+	kitToType *Kit          // set until the person types part of the kit back
+	answered  map[Hash]bool // pairing codes this device answered: one try each
 
-	acctKeys    map[uint32][]byte
-	vaultKeys   map[uint32][]byte
-	pendingKeys map[uint32]genKeys
+	acctKeys  map[uint32][]byte
+	vaultKeys map[uint32][]byte
 
 	list      *ListState
 	applied   map[DeviceID]Head
@@ -57,8 +57,8 @@ type Device struct {
 func NewDevice(name string, keys *DeviceKeys, srv Server, now func() time.Time) *Device {
 	d := &Device{
 		Name: name, keys: keys, srv: srv, now: now, AutoApprove: true,
-		seen: map[Hash]time.Time{}, newest: map[DeviceID]Head{}, sumNum: map[DeviceID]uint64{},
-		acctKeys: map[uint32][]byte{}, vaultKeys: map[uint32][]byte{}, pendingKeys: map[uint32]genKeys{},
+		seen: map[Hash]time.Time{}, answered: map[Hash]bool{}, newest: map[DeviceID]Head{}, sumNum: map[DeviceID]uint64{},
+		acctKeys: map[uint32][]byte{}, vaultKeys: map[uint32][]byte{},
 		applied: map[DeviceID]Head{}, hashes: map[DeviceID][]Hash{}, summaries: map[DeviceID]*Summary{},
 		data: newMergeState(),
 	}
@@ -66,7 +66,7 @@ func NewDevice(name string, keys *DeviceKeys, srv Server, now func() time.Time) 
 	if keys.Authority != nil {
 		d.rec.AuthPub = pubBytes(keys.Authority.Public())
 	}
-	d.infoSalt = randomBytes(16)
+	d.infoSalt = randomBytes(infoSaltSize)
 	d.rec.InfoHash = deviceInfoHash(d.infoSalt, name)
 	d.id = d.rec.ID()
 	d.hlc.Dev = d.id
@@ -152,12 +152,11 @@ func (d *Device) writeInfo() error {
 	return err
 }
 
-// idRecord is the record ID of a device's name record.
+// idRecord is the record ID of a device's name record. Only that device
+// writes it (recordFits).
 func idRecord(id DeviceID) RecordID {
-	var r RecordID
 	h := sum(labelInfo, id[:])
-	copy(r[:], h[:])
-	return r
+	return recordID(TypeDevice, [12]byte(h[:12]))
 }
 
 // DeviceName is a listed device's name from its sealed record, only when
@@ -169,7 +168,7 @@ func (d *Device) DeviceName(id DeviceID) (string, bool) {
 		return "", false
 	}
 	salt, err := hex.DecodeString(f["salt"])
-	if err != nil || deviceInfoHash(salt, f["name"]) != rec.InfoHash {
+	if err != nil || len(salt) != infoSaltSize || deviceInfoHash(salt, f["name"]) != rec.InfoHash {
 		return "", false
 	}
 	return f["name"], true

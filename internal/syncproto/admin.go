@@ -17,7 +17,7 @@ func (d *Device) Remove(targets ...DeviceID) error {
 		return err
 	}
 	rs := d.removals(targets)
-	if d.selfYoung(rs) {
+	if d.selfYoung(targets) {
 		return ErrYoungDevice
 	}
 	g, err := newGen(d.list.Gen.Gen + 1)
@@ -43,7 +43,8 @@ func (d *Device) startGen(en *Entry, g genKeys) error {
 
 // selfYoung is the 7-day rule on this device's own clock, counted from
 // when it first saw the entry that added it (or signed in its authority).
-func (d *Device) selfYoung(rs []Removal) bool {
+// A target is older when it was first listed before that entry.
+func (d *Device) selfYoung(targets []DeviceID) bool {
 	me := d.list.Members[d.id]
 	if me == nil || me.AddedAt == 1 {
 		return false
@@ -51,8 +52,8 @@ func (d *Device) selfYoung(rs []Removal) bool {
 	if d.now().Sub(d.seen[d.list.Hashes[me.AddedAt-1]]) >= WaitYoung {
 		return false
 	}
-	for _, r := range rs {
-		if t := d.list.Members[r.Device]; t != nil && r.Device != d.id && t.AddedAt < me.AddedAt {
+	for _, t := range targets {
+		if d.list.Members[t] != nil && t != d.id && d.list.FirstAt[t] < me.AddedAt {
 			return true
 		}
 	}
@@ -75,16 +76,7 @@ func (d *Device) RemoveLater(targets ...DeviceID) (uint32, error) {
 	if err := d.refreshList(); err != nil {
 		return 0, err
 	}
-	g, err := newGen(d.list.Gen.Gen + 1)
-	if err != nil {
-		return 0, err
-	}
-	inner := Body{Action: ActRemove, Removes: d.removals(targets), Key: &g.KeyGen}
-	num, err := d.pending(inner, nil)
-	if err == nil {
-		d.pendingKeys[num] = g
-	}
-	return num, err
+	return d.pending(Body{Action: ActRemove, Removes: d.removals(targets)}, nil)
 }
 
 // pending appends a Pending entry signed by this device's authority key.
@@ -106,6 +98,8 @@ func (d *Device) pending(inner Body, extra func(*Entry) error) (uint32, error) {
 
 // ApplyPending applies this device's waiting change once its own clock
 // says the wait is over. Other devices check the wait on their own clocks.
+// The new account key is made now, not when the change was asked for, so
+// a key change during the wait does not strand it.
 func (d *Device) ApplyPending(num uint32) error {
 	if err := d.refreshList(); err != nil {
 		return err
@@ -125,10 +119,22 @@ func (d *Device) ApplyPending(num uint32) error {
 		return fmt.Errorf("%w: until %s", ErrWaiting, until.Format(time.RFC3339))
 	}
 	en := d.nextEntry(Body{Action: ActApply, Ref: num})
+	newKey := len(d.list.Kits) > 0
+	if p.Inner.Action == ActRemove {
+		newKey = len(d.list.stillListed(p.Inner.Removes)) > 0
+	}
+	var g genKeys
+	if newKey {
+		var err error
+		if g, err = newGen(d.list.Gen.Gen + 1); err != nil {
+			return err
+		}
+		en.Body.Key = &g.KeyGen
+	}
 	if err := en.signEntry(d.keys.Authority, RoleRequester, d.id, 0); err != nil {
 		return err
 	}
-	if g, ok := d.pendingKeys[num]; ok {
+	if newKey {
 		return d.startGen(en, g)
 	}
 	if err := d.appendEntry(en); err != nil {
@@ -214,16 +220,9 @@ func (d *Device) ReplaceLostKits(n int) ([]*Kit, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	g, err := newGen(d.list.Gen.Gen + 1)
-	if err != nil {
-		return nil, 0, err
-	}
-	num, err := d.pending(Body{Action: ActSetKits, Kits: recs, Key: &g.KeyGen}, func(en *Entry) error {
+	num, err := d.pending(Body{Action: ActSetKits, Kits: recs}, func(en *Entry) error {
 		return addNewKitSigs(en, kits)
 	})
-	if err == nil {
-		d.pendingKeys[num] = g
-	}
 	return kits, num, err
 }
 
@@ -272,17 +271,55 @@ func (d *Device) sealCurrentToKits() error {
 	return nil
 }
 
-// SignInAuthority lets another device's new authority key count, after
-// its face or finger changed (SS 6.1). A device never signs this for
-// itself; the new key counts as a device added today for the 7-day rule.
-func (d *Device) SignInAuthority(target DeviceID, newAuth []byte) error {
+// AuthRequest is a device asking for its new authority key to count, after
+// its face or finger changed (SS 6.1). The device's sync key signs it, and
+// the new key proves itself. The app carries it to another device, as a QR
+// code or sealed through the server.
+type AuthRequest struct {
+	Device  DeviceID
+	NewAuth []byte
+	Ask     Sig // by the device's sync key
+	Proof   Sig // by the new authority key
+}
+
+// AskAuthority makes the request for newKey and starts using it here. It
+// counts on other devices only once another device signs it in.
+func (d *Device) AskAuthority(newKey Signer) (*AuthRequest, error) {
+	if err := d.refreshList(); err != nil {
+		return nil, err
+	}
+	me := d.list.Members[d.id]
+	if me == nil {
+		return nil, ErrRemoved
+	}
+	r := &AuthRequest{Device: d.id, NewAuth: pubBytes(newKey.Public())}
+	msg := authAskBytes(d.account, d.id, me.Rec.AuthPub, r.NewAuth)
+	var err error
+	if r.Ask, err = sign(d.keys.Sync, labelAuthAsk, msg); err != nil {
+		return nil, err
+	}
+	if r.Proof, err = sign(newKey, labelAuthAsk, msg); err != nil {
+		return nil, err
+	}
+	d.UseAuthority(newKey)
+	return r, nil
+}
+
+// SignInAuthority lets another device's new authority key count. A device
+// never signs this for itself; the new key counts as a device added today
+// for the 7-day rule, and every device shows an alert.
+func (d *Device) SignInAuthority(r *AuthRequest) error {
 	if d.keys.Authority == nil {
 		return ErrNoAuthority
 	}
 	if err := d.refreshList(); err != nil {
 		return err
 	}
-	en := d.nextEntry(Body{Action: ActReplaceAuthority, AuthOf: target, NewAuth: newAuth})
+	if d.selfYoung([]DeviceID{r.Device}) {
+		return ErrYoungDevice
+	}
+	en := d.nextEntry(Body{Action: ActReplaceAuthority, AuthOf: r.Device, NewAuth: r.NewAuth})
+	en.Sigs = []EntrySig{{Role: RoleAuthAsk, Device: r.Device, Sig: r.Ask}, {Role: RoleAuthProof, Device: r.Device, Sig: r.Proof}}
 	if err := en.signEntry(d.keys.Authority, RoleAuthority, d.id, 0); err != nil {
 		return err
 	}

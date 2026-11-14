@@ -192,26 +192,46 @@ func (k *Kit) CheckTyped(answers [2]string) bool {
 }
 
 // Paper splits the kit into three parts, any two of which give it back
-// (spec 5.4: the 2-of-3 paper kit). Each part is 56 letters: its number,
-// its share of the key, and a 2-byte check.
+// (spec 5.4: the 2-of-3 paper kit). Each part is 60 letters: its number,
+// a 2-byte kit ID (so parts of two kits are never mixed), its share of the
+// key, and a 2-byte check.
 func (k *Kit) Paper() ([3]string, error) {
 	var out [3]string
 	shares, err := shamirSplit(k.key[:], 3, 2)
 	if err != nil {
 		return out, err
 	}
+	id := k.paperID()
 	for i, s := range shares {
-		out[i] = groups(encode32(checked(labelShareCheck, append([]byte{byte(i + 1)}, s...), 2)))
+		payload := append([]byte{byte(i + 1), id[0], id[1]}, s...)
+		out[i] = groups(encode32(checked(labelShareCheck, payload, 2)))
 	}
 	return out, nil
 }
 
-// KitFromPaper puts a kit back together from two or three parts.
+// paperID names the kit on its paper parts: 16 bits of a labelled hash of
+// the key, enough to tell two kits apart, too few to help a guesser.
+func (k *Kit) paperID() [2]byte {
+	h := sum(labelKitID, k.key[:])
+	return [2]byte{h[0], h[1]}
+}
+
+const paperPartBytes = 1 + 2 + 32 + 2
+
+type paperPart struct {
+	x     byte
+	id    [2]byte
+	share []byte
+}
+
+// KitFromPaper puts a kit back together from two or three parts. Parts of
+// another kit (an old paper kit kept by mistake) are left out; any two
+// parts of one kit are enough, and the result is checked against the kit
+// ID they carry.
 func KitFromPaper(parts ...string) (*Kit, error) {
-	var xs []byte
-	var shares [][]byte
+	var ps []paperPart
 	for _, p := range parts {
-		b, err := decode32(p, 35)
+		b, err := decode32(p, paperPartBytes)
 		if err != nil {
 			return nil, err
 		}
@@ -219,12 +239,25 @@ func KitFromPaper(parts ...string) (*Kit, error) {
 		if !ok {
 			return nil, ErrKitTypo
 		}
-		xs = append(xs, payload[0])
-		shares = append(shares, payload[1:])
+		ps = append(ps, paperPart{x: payload[0], id: [2]byte(payload[1:3]), share: payload[3:]})
 	}
-	key, err := shamirCombine(xs, shares)
-	if err != nil {
-		return nil, err
+	for i := range ps {
+		for j := i + 1; j < len(ps); j++ {
+			if ps[i].id != ps[j].id || ps[i].x == ps[j].x {
+				continue
+			}
+			key, err := shamirCombine([]byte{ps[i].x, ps[j].x}, [][]byte{ps[i].share, ps[j].share})
+			if err != nil {
+				return nil, err
+			}
+			k, err := KitFromKey([32]byte(key))
+			if err != nil {
+				return nil, err
+			}
+			if k.paperID() == ps[i].id {
+				return k, nil
+			}
+		}
 	}
-	return KitFromKey([32]byte(key))
+	return nil, ErrKitParts
 }

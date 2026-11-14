@@ -276,8 +276,12 @@ func (r *DeviceRecord) valid() bool {
 	return err == nil
 }
 
+// infoSaltSize is the size of the salt in a device's name record.
+const infoSaltSize = 16
+
 // deviceInfoHash pins a device's sealed name record. The salt stops the
-// server from confirming a guessed name ("Budi's iPhone").
+// server from confirming a guessed name ("Budi's iPhone"). sum puts each
+// part's length in front, so salt and name cannot trade bytes.
 func deviceInfoHash(salt []byte, name string) Hash {
 	return sum(labelInfo, salt, []byte(name))
 }

@@ -249,11 +249,14 @@ func TestConcurrentListAppendLosesCleanly(t *testing.T) {
 	c := w.pair(a, "C", true)
 	w.syncAll(a, b, c)
 	// b starts an entry on the head it knows; a adds one first.
-	en := b.nextEntry(Body{Action: ActReplaceAuthority, AuthOf: c.ID(), NewAuth: pubBytes(mustSigner(t).Public())})
+	req, err := c.AskAuthority(mustSigner(t))
+	must(t, err)
+	en := b.nextEntry(Body{Action: ActReplaceAuthority, AuthOf: c.ID(), NewAuth: req.NewAuth})
+	en.Sigs = []EntrySig{{Role: RoleAuthAsk, Device: c.ID(), Sig: req.Ask}, {Role: RoleAuthProof, Device: c.ID(), Sig: req.Proof}}
 	must(t, en.signEntry(b.keys.Authority, RoleAuthority, b.ID(), 0))
 	must(t, a.Remove(c.ID()))
 	wantErr(t, b.appendEntry(en), ErrListConflict)
-	_, err := b.Sync()
+	_, err = b.Sync()
 	must(t, err)
 	if b.List().Members[c.ID()] != nil {
 		t.Fatal("b missed a's removal")

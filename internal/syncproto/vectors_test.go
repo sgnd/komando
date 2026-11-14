@@ -19,6 +19,13 @@ const vectorsFile = "testdata/vectors.json"
 // Swift side, or a reviewer's) must match byte for byte. Values made with
 // randomness (HPKE encapsulation, ECDSA nonces) are checked by opening and
 // verifying them; everything else must come out exactly the same.
+//
+// This file only pins the prototype against regressions: its values come
+// from the prototype's own code. Two outside checks stand behind them:
+// testdata/crosscheck.swift recomputes every value with Apple CryptoKit, a
+// separate implementation, and external_test.go checks the building blocks
+// against published vectors (RFC 5869, draft-ietf-hpke-pq X-Wing, FIPS-197
+// for GF(256) in crypto_test.go).
 type vectors struct {
 	Note        string            `json:"note"`
 	Record      recordVector      `json:"record_seal"`
@@ -39,6 +46,7 @@ type recordVector struct {
 
 type kitVector struct {
 	Key, Letters, SignPub, SealPub string
+	SealSeed                       string // the X-Wing seed DeriveKeyPair gives
 	Challenge                      [2]int
 }
 
@@ -48,9 +56,9 @@ type shamirVector struct {
 }
 
 type hpkeVector struct {
-	KEMID                 int
-	IKM, PublicKey, Info  string
-	Plaintext, Ciphertext string
+	KEMID                      int
+	IKM, Seed, PublicKey, Info string
+	Plaintext, Ciphertext      string
 }
 
 type sigVector struct {
@@ -80,7 +88,7 @@ func seq(start, n int) []byte {
 // deterministic computes every vector that has one right answer.
 func deterministic(t *testing.T) vectors {
 	var v vectors
-	v.Note = "komando sync prototype, suite 1. See docs/design/sync-prototype.md. Hex unless said."
+	v.Note = "komando sync prototype, suite 1. Regression values from the prototype, recomputed by crosscheck.swift (Apple CryptoKit). See docs/design/sync-prototype.md. Hex unless said."
 	vk, place, plain := seq(0, 32), []byte("komando test place"), []byte("prod-db 10.0.0.5")
 	s := sealRecordSeed(vk, place, plain, [32]byte(seq(32, 32)))
 	v.Record = recordVector{hx(vk), hx(s.Seed[:]), hx(place), hx(plain), hx(s.Commit[:]), hx(s.CT)}
@@ -93,13 +101,18 @@ func deterministic(t *testing.T) vectors {
 	k, err := KitFromKey([32]byte(seq(96, 32)))
 	must(t, err)
 	r := k.Record()
-	v.Kit = kitVector{hx(k.key[:]), k.Letters(), hx(r.SignPub), hx(r.SealPub), k.Challenge()}
+	seed, err := k.seal.Bytes()
+	must(t, err)
+	v.Kit = kitVector{hx(k.key[:]), k.Letters(), hx(r.SignPub), hx(r.SealPub), hx(seed), k.Challenge()}
 	v.Shamir.Secret = hx(k.key[:])
 	v.HPKE = hpkeVector{KEMID: xwingKEMID, IKM: hx(seq(128, 32)), Info: hx(infoDevice(Hash{1}, 1, DeviceID{2})),
 		Plaintext: hx(seq(160, 32))}
 	sk, err := xwing.DeriveKeyPair(seq(128, 32))
 	must(t, err)
 	v.HPKE.PublicKey = hx(sk.PublicKey().Bytes())
+	hs, err := sk.Bytes()
+	must(t, err)
+	v.HPKE.Seed = hx(hs)
 	priv, err := ecdsa.ParseRawPrivateKey(elliptic.P256(), seq(1, 32))
 	must(t, err)
 	v.Signature = sigVector{Scalar: hx(seq(1, 32)), PublicKey: hx(pubBytes(&priv.PublicKey)), Label: labelWrite,

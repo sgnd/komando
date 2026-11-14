@@ -3,6 +3,7 @@ package syncproto
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -10,6 +11,8 @@ type member struct {
 	Rec DeviceRecord
 	// AddedAt is the entry that added the device, or that last replaced
 	// its authority key (which counts as a device added that day, SS 6.1).
+	// It limits what the device may do; how old it is to others is
+	// ListState.FirstAt.
 	AddedAt uint32
 }
 
@@ -50,6 +53,7 @@ type ListState struct {
 	Auth     map[DeviceID][]authSpan
 	Gen      KeyGen
 	Gens     map[uint32]KeyGen
+	GenAt    []uint32 // GenAt[n-1]: the generation in force after entry n
 	Kits     []KitRecord
 	Pending  map[uint32]*pendingChange
 	Hold     *Hold
@@ -117,6 +121,7 @@ func checkChain(entries []*Entry, cv clockView) (*ListState, error) {
 		h := en.Hash()
 		st.Hashes = append(st.Hashes, h)
 		st.Entries = append(st.Entries, en)
+		st.GenAt = append(st.GenAt, st.Gen.Gen)
 		st.Head, st.HeadHash = en.Num, h
 	}
 	return st, nil
@@ -160,6 +165,8 @@ func usedFields(b *Body) int {
 }
 
 // shapes: for each action, the fields it needs and the fields it may have.
+// A pending change holds only its intent; its apply carries the new key,
+// made when it applies, so a key change during the wait never strands it.
 var shapes = map[Action][2]int{
 	ActCreate:           {fDevices | fKey, fDevices | fKey},
 	ActSetKits:          {fKits, fKits | fKey},
@@ -167,26 +174,32 @@ var shapes = map[Action][2]int{
 	ActRemove:           {fRemoves | fKey, fRemoves | fKey},
 	ActReplaceAuthority: {fAuth, fAuth},
 	ActRecoveryStep:     {fKey | fKits, fKey | fKits | fRemoves},
-	ActTakeover:         {fDevices | fRemoves | fKey | fKits, fDevices | fRemoves | fKey | fKits},
 	ActPending:          {fInner, fInner},
-	ActApply:            {fRef, fRef | fRemoves},
+	ActApply:            {fRef, fRef | fRemoves | fKey},
 	ActCancel:           {fRef, fRef},
+}
+
+// innerShapes are the changes a Pending entry may hold.
+var innerShapes = map[Action][2]int{
+	ActTakeover: {fDevices | fRemoves | fKits, fDevices | fRemoves | fKits},
+	ActSetKits:  {fKits, fKits},
+	ActRemove:   {fRemoves, fRemoves},
 }
 
 // checkShape refuses a body with a field its action does not use, a
 // missing field, or an action in the wrong place.
 func checkShape(b *Body, inner bool) error {
-	s, ok := shapes[b.Action]
+	table := shapes
+	if inner {
+		table = innerShapes
+	}
+	s, ok := table[b.Action]
 	if !ok {
-		return fmt.Errorf("%w: unknown action", ErrChainBroken)
+		return fmt.Errorf("%w: unknown action or action not allowed here", ErrChainBroken)
 	}
 	f := usedFields(b)
 	if f&s[0] != s[0] || f&^s[1] != 0 {
 		return fmt.Errorf("%w: fields do not fit the action", ErrChainBroken)
-	}
-	waits := b.Action == ActTakeover || b.Action == ActSetKits || b.Action == ActRemove
-	if (inner && !waits) || (!inner && b.Action == ActTakeover) {
-		return fmt.Errorf("%w: action not allowed here", ErrChainBroken)
 	}
 	if b.Action == ActPending {
 		return checkShape(b.Inner, true)
@@ -238,14 +251,19 @@ func (st *ListState) apply(en *Entry, cv clockView) (*Hold, error) {
 		if !ok {
 			return nil, ErrNotAuthorized
 		}
-		if !st.kitSigned(en) && st.youngRemovesOlder(signer, b.Removes, en.Num, cv) {
+		if !st.kitSigned(en) && st.youngActsOnOlder(signer, removed(b.Removes), en.Num, cv) {
 			return nil, ErrYoungDevice
 		}
 		return nil, st.applyRemoval(b.Removes, b.Key, &signer)
 	case ActReplaceAuthority:
-		return nil, st.applyReplaceAuth(en, b)
+		return nil, st.applyReplaceAuth(en, b, cv)
 	case ActRecoveryStep:
-		if !st.kitSigned(en) || !newKitsSigned(en, b) {
+		// The kit is used on a device already on the list (SS 6.4): that
+		// device's sync key signs too, and it does not remove itself. A kit
+		// alone, on a device that is not listed, only gets the 24-hour
+		// takeover.
+		dev, ok := st.syncSigner(en)
+		if !ok || !st.kitSigned(en) || !newKitsSigned(en, b) || slices.Contains(removed(b.Removes), dev) {
 			return nil, ErrNotAuthorized
 		}
 		if err := st.applyRemoval(b.Removes, b.Key, nil); err != nil {
@@ -261,7 +279,9 @@ func (st *ListState) apply(en *Entry, cv clockView) (*Hold, error) {
 		if p == nil || p.Done {
 			return nil, fmt.Errorf("%w: nothing waiting at entry %d", ErrChainBroken, b.Ref)
 		}
-		if _, ok := st.authSigner(en); !ok && !st.kitSigned(en) {
+		// Only a listed authority key cancels (SS 6.4: "any device"). Never
+		// a kit: the kit a lost-kit replacement ends must not block it.
+		if _, ok := st.authSigner(en); !ok {
 			return nil, ErrNotAuthorized
 		}
 		p.Done, p.Cancelled = true, true
@@ -283,14 +303,26 @@ func (st *ListState) applyAdd(en *Entry, b *Body) error {
 	return nil
 }
 
-func (st *ListState) applyReplaceAuth(en *Entry, b *Body) error {
+// applyReplaceAuth signs in a device's new authority key (SS 6.1). The
+// device itself asks, with its sync key, and the new key proves itself;
+// another listed authority key or the kit signs it in. A young signer
+// cannot do this for an older device, as with a removal.
+func (st *ListState) applyReplaceAuth(en *Entry, b *Body, cv clockView) error {
 	m := st.Members[b.AuthOf]
 	if m == nil || parsePub(b.NewAuth) == nil {
 		return ErrNotAuthorized
 	}
+	msg := authAskBytes(st.Account, b.AuthOf, m.Rec.AuthPub, b.NewAuth)
+	if !sigOver(en, RoleAuthAsk, b.AuthOf, m.Rec.SyncPub, msg) || !sigOver(en, RoleAuthProof, b.AuthOf, b.NewAuth, msg) {
+		return fmt.Errorf("%w: the device itself asks for a new authority key", ErrNotAuthorized)
+	}
 	signer, ok := st.authSigner(en)
-	if (!ok || signer == b.AuthOf) && !st.kitSigned(en) {
+	kit := st.kitSigned(en)
+	if (!ok || signer == b.AuthOf) && !kit {
 		return fmt.Errorf("%w: a new authority key is signed in by another device or the kit", ErrNotAuthorized)
+	}
+	if !kit && st.youngActsOnOlder(signer, []DeviceID{b.AuthOf}, en.Num, cv) {
+		return ErrYoungDevice
 	}
 	st.closeAuth(b.AuthOf, en.Num)
 	m.Rec.AuthPub = append([]byte{}, b.NewAuth...)
@@ -360,21 +392,42 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 		}
 		rec := in.Devices[0]
 		st.addMember(rec, en.Num)
-		if err := st.applyRemoval(removes, in.Key, nil); err != nil {
+		if err := st.applyRemoval(removes, b.Key, nil); err != nil {
 			return nil, err
 		}
 		st.Kits = in.Kits
 	case ActSetKits:
-		if err := st.applyKits(in); err != nil {
+		kb := *in
+		kb.Key = b.Key
+		if err := st.applyKits(&kb); err != nil {
 			return nil, err
 		}
 	case ActRemove:
-		if err := st.applyRemoval(in.Removes, in.Key, &p.ReqDevice); err != nil {
+		// A device another entry removed during the wait is gone already.
+		rs := st.stillListed(in.Removes)
+		if len(rs) == 0 {
+			if b.Key != nil {
+				return nil, fmt.Errorf("%w: nothing left to remove", ErrChainBroken)
+			}
+			break
+		}
+		if err := st.applyRemoval(rs, b.Key, &p.ReqDevice); err != nil {
 			return nil, err
 		}
 	}
 	p.Done = true
 	return nil, nil
+}
+
+// stillListed keeps the removals of devices that are still listed.
+func (st *ListState) stillListed(rs []Removal) []Removal {
+	var out []Removal
+	for _, r := range rs {
+		if st.Members[r.Device] != nil {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // applyKits sets the kit set. Replacing kits starts a new account key
@@ -417,10 +470,12 @@ func (st *ListState) applyRemoval(rs []Removal, key *KeyGen, signer *DeviceID) e
 	return nil
 }
 
-// youngRemovesOlder is the 7-day rule (SS 6.2), on this device's clock:
-// the gap between first seeing the signer's entry and first seeing this
-// one.
-func (st *ListState) youngRemovesOlder(signer DeviceID, rs []Removal, at uint32, cv clockView) bool {
+// youngActsOnOlder is the 7-day rule (SS 6.2), on this device's clock:
+// the gap between first seeing the signer's entry (its addition, or its
+// newest authority key) and first seeing this one. A target is older when
+// it was first listed before that entry; a new authority key never makes
+// its device younger in the eyes of others.
+func (st *ListState) youngActsOnOlder(signer DeviceID, targets []DeviceID, at uint32, cv clockView) bool {
 	s := st.Members[signer]
 	if s.AddedAt <= cv.trustUpTo || at <= cv.trustUpTo {
 		return false
@@ -428,12 +483,20 @@ func (st *ListState) youngRemovesOlder(signer DeviceID, rs []Removal, at uint32,
 	if cv.seen(at).Sub(cv.seen(s.AddedAt)) >= WaitYoung {
 		return false
 	}
-	for _, r := range rs {
-		if t := st.Members[r.Device]; t != nil && r.Device != signer && t.AddedAt < s.AddedAt {
+	for _, t := range targets {
+		if st.Members[t] != nil && t != signer && st.FirstAt[t] < s.AddedAt {
 			return true
 		}
 	}
 	return false
+}
+
+func removed(rs []Removal) []DeviceID {
+	out := make([]DeviceID, len(rs))
+	for i, r := range rs {
+		out[i] = r.Device
+	}
+	return out
 }
 
 func (st *ListState) addMember(rec DeviceRecord, at uint32) {
@@ -467,6 +530,32 @@ func (st *ListState) authSigner(en *Entry) (DeviceID, bool) {
 		}
 	}
 	return DeviceID{}, false
+}
+
+// syncSigner finds a listed device whose sync key signed the entry.
+func (st *ListState) syncSigner(en *Entry) (DeviceID, bool) {
+	for _, s := range en.Sigs {
+		m := st.Members[s.Device]
+		if s.Role == RoleDevice && m != nil && st.sigBy(en, RoleDevice, s.Device, m.Rec.SyncPub) {
+			return s.Device, true
+		}
+	}
+	return DeviceID{}, false
+}
+
+// sigOver reports whether pub, in the given role for dev, signed msg (not
+// the entry) under labelAuthAsk.
+func sigOver(en *Entry, role SigRole, dev DeviceID, pub, msg []byte) bool {
+	k := parsePub(pub)
+	if k == nil {
+		return false
+	}
+	for _, s := range en.Sigs {
+		if s.Role == role && s.Device == dev && verifySig(k, labelAuthAsk, msg, s.Sig) {
+			return true
+		}
+	}
+	return false
 }
 
 // sigBy reports whether pub, in the given role for dev, signed the entry.

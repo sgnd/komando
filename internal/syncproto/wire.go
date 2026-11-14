@@ -35,6 +35,9 @@ const (
 	labelPairBox    = "komando-sync/1 pairing mailbox"
 	labelPairReq    = "komando-sync/1 pairing request"
 	labelPairReply  = "komando-sync/1 pairing reply"
+	labelRecordType = "komando-sync/1 record type"
+	labelAuthAsk    = "komando-sync/1 new authority key"
+	labelKitID      = "komando-sync/1 kit id"
 )
 
 // Hash is a SHA-256 value.
@@ -47,12 +50,14 @@ type DeviceID [16]byte
 // bodies.
 type RecordID [16]byte
 
-// sum is SHA-256(label || 0 || parts...).
+// sum is SHA-256(label || 0 || parts...), each part with its 4-byte
+// length in front, so two lists of parts never hash the same way.
 func sum(label string, parts ...[]byte) Hash {
 	h := sha256.New()
 	h.Write([]byte(label))
 	h.Write([]byte{0})
 	for _, p := range parts {
+		h.Write(binary.BigEndian.AppendUint32(nil, uint32(len(p))))
 		h.Write(p)
 	}
 	var out Hash

@@ -17,8 +17,9 @@ type Report struct {
 	Applied    int   // writes checked, opened and merged
 	Duplicates int   // writes served again (a replay): ignored
 	Revoked    int   // writes by a removed device after its last accepted write: dropped
-	Rejected   int   // approvals that did not verify: dropped
+	Rejected   int   // approvals that do not verify, record changes recordFits refuses: dropped
 	Deferred   int   // writes stamped in the future: kept for later
+	Held       int   // writes and summaries naming list entries past a hold: read again after it
 	Hold       *Hold // the list waits on this device's clock
 	Alerts     []string
 }
@@ -149,12 +150,23 @@ func (d *Device) readSummaries() (map[DeviceID]Head, map[DeviceID]*Summary, erro
 			}
 			continue
 		}
+		if d.pastHold(top.ListNum) {
+			continue // read again once the hold is over
+		}
 		if err := d.mergeSummary(top, target); err != nil {
 			return nil, nil, err
 		}
 		best[id] = top
 	}
 	return target, best, nil
+}
+
+// pastHold reports whether a summary or write names a list entry this
+// device holds back on its own clock. Devices that already waited have
+// moved on; their newer summaries and writes wait here with the hold,
+// instead of failing the whole sync.
+func (d *Device) pastHold(listNum uint32) bool {
+	return d.list.Hold != nil && listNum > d.head
 }
 
 // mergeSummary checks a summary against the list and folds its heads into
@@ -246,6 +258,10 @@ func (d *Device) readDeviceWrites(id DeviceID, items [][]byte, rep *Report) ([]s
 		if removed && w.Seq == limit && h != r.LastHash {
 			return nil, fmt.Errorf("%w: last accepted write of a removed device differs", ErrFork)
 		}
+		if d.pastHold(w.ListNum) {
+			rep.Held++ // this one and the rest of the log, after the hold
+			break
+		}
 		c, err := d.checkAndOpen(w)
 		if err != nil {
 			return nil, err
@@ -287,6 +303,12 @@ func (d *Device) checkAndOpen(w *Write) (*Change, error) {
 	}
 	if !verifySig(parsePub(rec.SyncPub), labelWrite, w.signedBytes(), w.Sig) {
 		return nil, ErrBadSignature
+	}
+	// A write is sealed under the generation in force at the list entry it
+	// names. (A device the server holds on an old entry still writes
+	// under the old key: see finding 25 in sync-prototype.md.)
+	if w.KeyGen != d.list.GenAt[w.ListNum-1] {
+		return nil, fmt.Errorf("%w: sealed under key generation %d, entry %d has %d", ErrBadWrite, w.KeyGen, w.ListNum, d.list.GenAt[w.ListNum-1])
 	}
 	vk := d.vaultKeys[w.KeyGen]
 	if vk == nil {
@@ -421,6 +443,16 @@ func (d *Device) alerts(before uint32) []string {
 	}
 	if h := d.list.Hold; h != nil {
 		out = append(out, fmt.Sprintf("entry %d waits until %s: %s", h.Entry, h.Until.Format(time.RFC3339), h.Reason))
+	}
+	for _, en := range d.list.Entries[min(int(before), len(d.list.Entries)):] {
+		if en.Body.Action != ActReplaceAuthority {
+			continue
+		}
+		who := "another device"
+		if en.Body.AuthOf == d.id {
+			who = "this device; if you did not ask for it, someone holds this device's keys"
+		}
+		out = append(out, fmt.Sprintf("entry %d: a new authority key was signed in for %s", en.Num, who))
 	}
 	return out
 }

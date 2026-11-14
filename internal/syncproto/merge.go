@@ -76,7 +76,8 @@ func appliesItself(typ string, f Field) bool {
 	return false
 }
 
-// apply takes in one record change. Merging is commutative: the same set
+// apply takes in one record change that recordFits accepted, so its type
+// is the one fixed in the record ID. Merging is commutative: the same set
 // of writes and approvals gives the same state in any order.
 func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 	rec := m.records[c.Record]
@@ -85,8 +86,9 @@ func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 		m.records[c.Record] = rec
 	}
 	w := &waiting{Ref: ref, Record: c.Record, Type: rec.Type, Create: c.Create, Delete: c.Delete, Clock: clock}
-	// Notes apply by themselves; a device's name record is pinned by the
-	// hash in the signed list entry a person already agreed to.
+	// Notes apply by themselves; a device's name record is written only by
+	// that device (recordFits) and pinned by the hash in the signed list
+	// entry a person already agreed to.
 	auto := rec.Type == TypeNote || rec.Type == TypeDevice
 	if auto {
 		w.Fields = c.Fields

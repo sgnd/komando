@@ -2,6 +2,7 @@ package syncproto
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -170,10 +171,11 @@ func TestAuthorityKeyAfterFaceIDChange(t *testing.T) {
 	w.syncAll(a, b)
 
 	// Face ID changed on B: its old authority key is gone; it makes a new
-	// one, which it cannot sign in itself.
+	// one and asks for it, but cannot sign it in itself.
 	newKey := mustSigner(t)
-	b.UseAuthority(newKey)
-	wantErr(t, b.SignInAuthority(b.ID(), pubBytes(newKey.Public())), ErrNotAuthorized)
+	req, err := b.AskAuthority(newKey)
+	must(t, err)
+	wantErr(t, b.SignInAuthority(req), ErrNotAuthorized)
 
 	id, err := a.Create(TypeServer, field("name", "db"), field("address", "10.0.0.5"))
 	must(t, err)
@@ -188,9 +190,12 @@ func TestAuthorityKeyAfterFaceIDChange(t *testing.T) {
 		t.Fatalf("approval by an unlisted authority key: rejected=%d", rep.Rejected)
 	}
 
-	must(t, a.SignInAuthority(b.ID(), pubBytes(newKey.Public())))
-	_, err = b.Sync()
+	must(t, a.SignInAuthority(req))
+	rep, err = b.Sync()
 	must(t, err)
+	if !strings.Contains(strings.Join(rep.Alerts, "\n"), "new authority key was signed in for this device") {
+		t.Fatalf("B was not told its authority key changed: %v", rep.Alerts)
+	}
 	must(t, b.Approve(ref))
 	w.syncAll(a, b)
 	if got := value(t, a, id, "address"); got != "10.0.0.6" {

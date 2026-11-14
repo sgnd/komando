@@ -22,6 +22,7 @@ var (
 	ErrKitNotConfirmed = errors.New("syncproto: type part of the recovery kit back before sync starts")
 	ErrKitUnknown      = errors.New("syncproto: this recovery kit is not a current kit of this account")
 	ErrKitTypo         = errors.New("syncproto: the recovery kit letters have a typo")
+	ErrKitParts        = errors.New("syncproto: no two of these paper parts belong to one kit")
 	ErrWaiting         = errors.New("syncproto: the change is still waiting")
 	ErrCancelled       = errors.New("syncproto: the change was cancelled from another device")
 	ErrNoAuthority     = errors.New("syncproto: this device has no authority key")

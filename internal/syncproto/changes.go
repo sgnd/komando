@@ -1,15 +1,41 @@
 package syncproto
 
-import "crypto/rand"
+import (
+	"crypto/rand"
+	"crypto/subtle"
+)
 
 // Create adds a record. Unless it is a note it waits for a person's yes,
 // because a new server or conn changes who is reached (SS 8.1).
 func (d *Device) Create(typ string, fields ...Field) (RecordID, error) {
-	var id RecordID
-	if _, err := rand.Read(id[:]); err != nil {
-		return id, err
+	var rnd [12]byte
+	if _, err := rand.Read(rnd[:]); err != nil {
+		return RecordID{}, err
 	}
-	return d.create(typ, id, fields)
+	return d.create(typ, recordID(typ, rnd), fields)
+}
+
+// recordID is 12 random bytes and a 4-byte tag of the record type. The
+// type is fixed when the ID is made: a write that names another type for
+// the ID is refused, so no writer can turn a server into a note and skip
+// the person's yes, and merging never depends on which write came first.
+func recordID(typ string, rnd [12]byte) RecordID {
+	var id RecordID
+	copy(id[:12], rnd[:])
+	h := sum(labelRecordType, []byte(typ), rnd[:])
+	copy(id[12:], h[:4])
+	return id
+}
+
+// recordFits reports whether writer may make change c: the type matches
+// the one fixed in the record ID, and a device record is written only by
+// that device and never deleted (it ends with the device's removal).
+func recordFits(writer DeviceID, c *Change) bool {
+	want := recordID(c.Type, [12]byte(c.Record[:12]))
+	if c.Type == "" || subtle.ConstantTimeCompare(want[:], c.Record[:]) != 1 {
+		return false
+	}
+	return c.Type != TypeDevice || (c.Record == idRecord(writer) && !c.Delete)
 }
 
 func (d *Device) create(typ string, id RecordID, fields []Field) (RecordID, error) {
@@ -38,6 +64,9 @@ func (d *Device) typeOf(id RecordID) string {
 // change writes a record change and, on a device with an authority key,
 // the person's yes with it.
 func (d *Device) change(c *Change) (WriteRef, error) {
+	if !recordFits(d.id, c) {
+		return WriteRef{}, ErrBadWrite
+	}
 	w, err := d.write(c)
 	if err != nil {
 		return WriteRef{}, err
@@ -102,6 +131,10 @@ func (d *Device) write(c *Change) (*Write, error) {
 // writer's authority key valid at the write's list entry signed it.
 func (d *Device) applyChange(w *Write, c *Change, rep *Report) {
 	if c.Kind == kindRecord {
+		if !recordFits(w.Writer, c) {
+			rep.Rejected++
+			return
+		}
 		d.data.apply(w.Ref(), c, w.Clock)
 		return
 	}

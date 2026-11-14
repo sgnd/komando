@@ -16,7 +16,6 @@ type Recovery struct {
 	Info RecoveryInfo
 	kit  *Kit
 	num  uint32
-	gen  genKeys
 	kits []*Kit
 }
 
@@ -93,16 +92,11 @@ func (d *Device) recoveryInfo() RecoveryInfo {
 // puts it on the list as a waiting change.
 func (r *Recovery) Begin(newKits int) error {
 	d := r.Dev
-	g, err := newGen(d.list.Gen.Gen + 1)
-	if err != nil {
-		return err
-	}
 	kits, recs, err := makeKits(newKits)
 	if err != nil {
 		return err
 	}
-	inner := Body{Action: ActTakeover, Devices: []DeviceRecord{d.rec}, Removes: d.removals(d.memberIDs()),
-		Key: &g.KeyGen, Kits: recs}
+	inner := Body{Action: ActTakeover, Devices: []DeviceRecord{d.rec}, Removes: d.removals(d.memberIDs()), Kits: recs}
 	en := d.nextEntry(Body{Action: ActPending, Inner: &inner})
 	js, err := joinSigs(d.keys, &d.rec, 0)
 	if err != nil {
@@ -119,7 +113,7 @@ func (r *Recovery) Begin(newKits int) error {
 	if err := d.appendEntry(en); err != nil {
 		return err
 	}
-	r.num, r.gen, r.kits = en.Num, g, kits
+	r.num, r.kits = en.Num, kits
 	return nil
 }
 
@@ -148,13 +142,17 @@ func (r *Recovery) Finish() ([]*Kit, error) {
 		return nil, fmt.Errorf("%w: until %s", ErrWaiting, until.Format(time.RFC3339))
 	}
 	// Writes the old devices made during the wait are kept: the apply
-	// names their newest writes.
-	en := d.nextEntry(Body{Action: ActApply, Ref: r.num, Removes: d.removals(d.memberIDs())})
+	// names their newest writes. The new key is made now.
+	g, err := newGen(d.list.Gen.Gen + 1)
+	if err != nil {
+		return nil, err
+	}
+	en := d.nextEntry(Body{Action: ActApply, Ref: r.num, Removes: d.removals(d.memberIDs()), Key: &g.KeyGen})
 	if err := en.signEntry(d.keys.Authority, RoleRequester, d.id, 0); err != nil {
 		return nil, err
 	}
 	d.joined = true
-	if err := d.startGen(en, r.gen); err != nil {
+	if err := d.startGen(en, g); err != nil {
 		return nil, err
 	}
 	return r.kits, d.writeInfo()
@@ -162,8 +160,9 @@ func (r *Recovery) Finish() ([]*Kit, error) {
 
 // RecoveryStep is the kit used on a device already on the list, such as a
 // Mac without Touch ID after the iPhone was lost (SS 6.4): the recovery
-// key signs one entry that removes the chosen devices, starts a new
-// account key and makes new kits. It applies at once and ends the old kit.
+// key and this device's sync key sign one entry that removes the chosen
+// devices, starts a new account key and makes new kits. It applies at
+// once and ends the old kit.
 func (d *Device) RecoveryStep(kit *Kit, remove []DeviceID, newKits int) ([]*Kit, error) {
 	if err := d.refreshList(); err != nil {
 		return nil, err
@@ -185,6 +184,9 @@ func (d *Device) RecoveryStep(kit *Kit, remove []DeviceID, newKits int) ([]*Kit,
 		return nil, err
 	}
 	if err := en.signEntry(kit.signer(), RoleKit, DeviceID{}, uint8(idx)); err != nil {
+		return nil, err
+	}
+	if err := en.signEntry(d.keys.Sync, RoleDevice, d.id, 0); err != nil {
 		return nil, err
 	}
 	return kits, d.startGen(en, g)

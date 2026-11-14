@@ -145,13 +145,18 @@ func (s *MemServer) AllBytes() [][]byte {
 	return out
 }
 
-// Hostile is a server that lies. Each hook sees what the honest server
-// would answer and returns what the device gets instead: it can drop,
-// reorder, replay, roll back, fork per device and substitute.
+// Hostile is a server that lies. Each read hook sees what the honest
+// server would answer and returns what the device gets instead: it can
+// drop, reorder, replay, roll back, fork per device and substitute. Each
+// write hook sees what a device stores and returns false to drop it while
+// telling the device it was stored (a delete that never happens, an
+// append to a fork the hook keeps itself).
 type Hostile struct {
 	*MemServer
-	OnRead func(by DeviceID, log string, items [][]byte) [][]byte
-	OnGet  func(by DeviceID, name string, data []byte) []byte
+	OnRead     func(by DeviceID, log string, items [][]byte) [][]byte
+	OnGet      func(by DeviceID, name string, data []byte) []byte
+	OnPut      func(from DeviceID, name string, data []byte) bool
+	OnAppendAt func(from DeviceID, log string, at int, item []byte) bool
 }
 
 // NewHostile wraps a fresh store.
@@ -173,4 +178,20 @@ func (h *Hostile) Get(by DeviceID, name string) ([]byte, error) {
 		return b, err
 	}
 	return h.OnGet(by, name, b), nil
+}
+
+// Put implements Server, through OnPut.
+func (h *Hostile) Put(from DeviceID, name string, data []byte) error {
+	if h.OnPut != nil && !h.OnPut(from, name, data) {
+		return nil
+	}
+	return h.MemServer.Put(from, name, data)
+}
+
+// AppendAt implements Server, through OnAppendAt.
+func (h *Hostile) AppendAt(from DeviceID, log string, at int, item []byte) error {
+	if h.OnAppendAt != nil && !h.OnAppendAt(from, log, at, item) {
+		return nil
+	}
+	return h.MemServer.AppendAt(from, log, at, item)
 }

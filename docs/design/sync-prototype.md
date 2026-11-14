@@ -13,33 +13,56 @@ the text could not be built as written.
 
 ## The answer
 
-**Go, with changes to the text before the record format is frozen.**
+**Go for the core of the design. No-go for freezing the format until the
+must-change list below is in SS and re-tested here.**
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
 drops, reorders, replays, rolls back, forks and swaps, and each ends in a
 named error, never in silently changed data. Removed devices cannot read
-later writes, and their later writes are dropped. Recovery with the kit
-works, including the 24-hour wait and its cancel. Everything is in Go's
-standard library: X-Wing is in `crypto/hpke`, so there is no gap there.
+later writes, and their later writes are dropped. A kit on a new device
+takes the account over only after the 24-hour wait, and a live device can
+cancel it. Everything is in Go's standard library: X-Wing is in
+`crypto/hpke`, so there is no gap there.
 
-But the text is wrong in one place that matters for security (finding 1),
-and it leaves the waits and the removal rules too loose to build two
-compatible clients from (findings 2 to 7). Those must be fixed in SS
-before the format is published. The rest are clarifications.
+A review on 2026-11-14 found that the first version of this prototype, and
+the text it was built from, let the waits and the "a person agreed" rule
+(SS 8.1) be skipped. A device added today, or the kit alone, could swap an
+older device's authority key at once. The kit alone could remove devices
+and take the kit slot at once. A device without Touch ID could relabel a
+server as a note on newly joined devices. The prototype now closes each of
+these (findings 22 to 30), and a test shows each attack fails. Three of
+them are design choices SS must make; the prototype only shows one way
+(findings 22, 25 and 26).
 
 Must change before the format is frozen:
 
 1. Replacing a recovery kit must start a new account key (finding 1).
-2. The device list needs "pending", "apply" and "cancel" entries, and a
-   rule for what a device does when a wait fails on its own clock
-   (findings 2 and 3).
+2. The device list needs "pending", "apply" and "cancel" entries. The
+   apply carries the new key. Only a listed authority key cancels, never
+   a kit. A device whose clock says "too early" holds the list and keeps
+   syncing up to the hold (findings 2, 3, 24, 27 and 28).
 3. Say plainly what the 24-hour wait protects and what it does not
    (findings 4 and 5).
 4. A takeover's apply names the final last writes; a removal makes every
-   device merge again without the dropped writes (findings 6 and 7).
+   device merge again without the dropped writes (findings 6 and 7), but
+   never undoes a stricter rule or an approval that way (finding 26).
 5. Drop "records are re-encrypted right away", and design snapshots
    instead (findings 8 and 9).
+6. A new authority key needs the device's own request, signed by its sync
+   key and by the new key. The 7-day rule applies to the device that signs
+   it in, and "older" is counted from when a device was first listed
+   (finding 23).
+7. Anything the kit signs that removes an authority device, replaces the
+   kits or signs in an authority key waits 24 hours, cancellable by a
+   listed authority key. A recovery step needs a listed device's own
+   signature (finding 22).
+8. A record's type is fixed in its ID when it is made. A device record is
+   written only by its own device (finding 29).
+9. Say what happens to writes sealed under an old key generation after a
+   removal (finding 25).
+10. The pairing reply uses a fresh key per answer and names the request it
+    answers; each device answers a code once (finding 30).
 
 ## What was built
 
@@ -54,7 +77,7 @@ Must change before the format is frozen:
 | Merging | `merge.go` | Field by field, newest hybrid clock wins; deletion is final; changes that wait apply only with a signed yes |
 | Pairing | `pair.go` | QR or 26 characters, one-time 128-bit secret, 10 minutes, one try |
 | Recovery kit | `kit.go`, `shamir.go`, `recover.go` | 256-bit key as 56 letters with a check, typed back before sync starts, up to 3 kits, 2-of-3 paper (own Shamir over GF(256)), recovery on a new device with the 24-hour wait, recovery step on a listed device |
-| Hostile server | `server.go` | Stores blobs and logs. Hooks let a test drop, reorder, replay, roll back, fork per device and swap anything |
+| Hostile server | `server.go` | Stores blobs and logs. Read hooks let a test drop, reorder, replay, roll back, fork per device and swap anything. Write hooks let it drop a store or a delete while saying it was done |
 
 ### The constructions chosen
 
@@ -91,17 +114,27 @@ It is only used by teams, which this prototype does not build.
 **Letters.** Crockford's base32 (no I, L, O, U; O reads as 0, I and L as
 1). A kit is key plus a 3-byte check: 56 characters in 14 groups of four.
 A typo is caught by the check (tested at every position). A paper part is its
-number, its 32-byte share and a 2-byte check: also 56 characters. The
-person types two groups back before sync starts.
+number, a 2-byte kit ID, its 32-byte share and a 2-byte check: 60
+characters in 15 groups. The kit ID keeps parts of an old kit out: any two
+parts of one kit give it back, and the result is checked against the ID.
+The person types two groups back before sync starts.
 
 **Pairing.** The new device seals its keys and name under a key derived
 from the secret. The AEAD tag is the check code. The reply comes back
-under another key from the same secret.
+under a key from the secret, 32 fresh random bytes sent with it, and the
+hash of the request it answers.
+
+**Hashes.** Every labelled hash puts each part's length in front of it, so
+two lists of parts never hash the same way.
+
+**Record IDs.** 12 random bytes and a 4-byte tag of the record type. A
+write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`go test -race ./internal/syncproto/...`: 76 tests and subtests pass, 0
-fail; statement coverage 86%. All table-driven where there is a table.
+`go test -race ./internal/syncproto/...`: 90 tests and subtests pass, 0
+fail (55 top-level tests); statement coverage 86.5%. All table-driven where
+there is a table.
 
 | Hostile server does this | The device reports |
 |---|---|
@@ -128,6 +161,18 @@ fail; statement coverage 86%. All table-driven where there is a table.
 | Swaps the pairing request or makes up the reply | `ErrCheckCode` |
 | Enrols a new device into an account it made up | `ErrAccountMismatch` |
 | Hides a waiting takeover until it is applied | the live device holds the list for its own 24 hours and shows it (finding 4) |
+| Answers one pairing code from two devices (a forked list, a delete it ignores) | two replies under different keys; the same device answers once (`ErrPairingUsed`) |
+| Serves a device that missed a wait the apply at once | `Report.Hold` and an alert; sync goes on up to the hold (finding 27) |
+
+| A listed or captured key tries this | The devices report |
+|---|---|
+| A device without Touch ID relabels a server as a note | change dropped (`Report.Rejected`) on every device, old and new |
+| Another device deletes or renames a device's name record | change dropped |
+| A device added today swaps an older device's authority key | `ErrNotAuthorized` (no request from that device) or `ErrYoungDevice` |
+| The kit alone signs in a new authority key | `ErrNotAuthorized` |
+| The kit alone, on a device that is not listed, uses the recovery step | `ErrNotAuthorized` |
+| The kit cancels a lost-kit replacement | `ErrNotAuthorized` |
+| A write sealed under another key generation than its list entry has | `ErrBadWrite` |
 
 After every failed check the device's data is unchanged. A whole account
 life (three devices, secrets, approvals, a removal) leaves no plaintext,
@@ -142,10 +187,25 @@ Touch ID cannot turn sync on, add or remove devices; a removed device
 cannot open the new key or new writes; its later writes are dropped; a
 device that joins after two key changes still reads generation-1 records;
 the 7-day rule with its cancellable "remove later"; Face ID changes; all
-recovery paths; the 2-of-3 paper kit; known-answer vectors in
-`testdata/vectors.json` (record sealing, Padmé, key IDs, kit letters and
-derived keys, paper parts, HPKE X-Wing, the fixed signature form, a list
-entry's bytes and hash, the pairing code).
+recovery paths; the 2-of-3 paper kit, also with a part of another kit;
+merging the same writes in either order gives the same state.
+
+**Vectors.** `testdata/vectors.json` (record sealing, Padmé, key IDs, kit
+letters and derived keys, paper parts, HPKE X-Wing, the fixed signature
+form, a list entry's bytes and hash, the pairing code) is computed by the
+prototype and only pins regressions. Two outside checks stand behind it:
+
+- `testdata/crosscheck.swift` recomputes every value in it with Apple
+  CryptoKit, a separate implementation: HKDF and AES-256-GCM for record
+  sealing, X-Wing keys from their seeds, HPKE with exactly this suite
+  (X-Wing, HKDF-SHA256, AES-256-GCM), P-256 keys and signatures, Shamir
+  over GF(256) and the letters. All 24 checks pass (macOS 27, Swift 6.4).
+- `external_test.go` checks the building blocks against published
+  vectors: RFC 5869 cases 1 and 3 for HKDF, and the draft-ietf-hpke-pq
+  vector for X-Wing (`DeriveKeyPair`, decapsulation, the HKDF-SHA256 key
+  schedule; that vector uses ChaCha20-Poly1305, since no published vector
+  has X-Wing with AES-256-GCM). GF(256) is checked against FIPS-197 in
+  `crypto_test.go`.
 
 ## Findings: where the text is wrong, ambiguous or unbuildable
 
@@ -191,9 +251,12 @@ SS uses waits in three places (24-hour kit add, 7-day lost kit, 7-day
 rule) and says "any device can cancel". A linear signed chain cannot undo
 an entry. The list needs three more actions, which the prototype adds:
 
-- **pending**: holds the change, signed as that change would be;
+- **pending**: holds the change, signed as that change would be, but no
+  new key;
 - **apply**: by the device that asked, after the wait on its own clock;
-- **cancel**: by any listed authority key or a current kit.
+  it carries the new key, made then (finding 28);
+- **cancel**: by any listed authority key. Never by a kit: a stolen kit
+  would block the lost-kit replacement that ends it (finding 24).
 
 Order in the chain decides: a cancel before the apply wins. Each device
 holds an apply until its own clock has counted the full wait from when it
@@ -245,10 +308,12 @@ Anything it signs after that is dropped by everyone." The remover only
 knows what it has seen. Another device may already have applied newer
 writes of the removed device. As written, devices end with different data
 forever. The prototype keeps every applied change and merges again
-without the dropped ones (merging is order-free, so this is exact).
+without the dropped ones. Merging is order-free once a record's type is
+fixed in its ID (finding 29; `TestMergeIsOrderFree`), so this is exact.
 `TestRemovalDropsWritesAlreadyApplied` shows the devices end equal. **Add:
 "a device that applied writes past the recorded last write merges again
-without them."**
+without them."** But see finding 26: which writes count must not be left
+to the remover alone.
 
 ### 8. Wrong to build: "records are re-encrypted right away"
 
@@ -278,14 +343,19 @@ SS 6.2 and 8.2: the device's name and SSH key sit in a sealed record whose
 hash is fixed in the list entry. Any re-encryption changes the sealed
 bytes. The prototype fixes a salted hash of the plaintext instead (the
 salt stops the server from confirming a guessed name like "Budi's
-iPhone"). **Say "a salted hash of the record's content".**
+iPhone"). The salt is exactly 16 bytes and each part is hashed with its
+length, so no device can move bytes from the salt into the name. **Say "a
+salted hash of the record's content", with that layout.**
 
 ### 11. Gap: "signed by A's authority key, and by B"
 
 SS 6.2. B cannot sign the entry itself without an extra round trip: it
 does not know the account or the entry when it asks to join. The
 prototype has B sign its own keys (proof of possession), and the entry
-carries that signature. **Say so in SS 6.2, or add the round trip.**
+carries that signature. Those signatures are not tied to an account, so
+B must trust the account only from a reply sealed under the pairing
+secret, and that reply must never reuse a key (finding 30). **Say so in
+SS 6.2, or add the round trip.**
 
 ### 12. Gap: the kit's public sealing key is not on the list
 
@@ -341,8 +411,9 @@ keeps the old record.**
 ### 18. Clarify: pairing details
 
 - "One try" is not defined. The prototype: the request is gone once the
-  existing device opens it with the right code; the new device accepts
-  one reply. A typo is reported as a check-code mismatch and does not burn
+  existing device opens it with the right code, each device answers a
+  code once whatever the server does, and the new device accepts one
+  reply. A typo is reported as a check-code mismatch and does not burn
   the try.
 - 26 characters of base32 hold 130 bits: the 128-bit secret and 2 spare
   bits, so there is almost no typo check. A 27th character would give one.
@@ -371,6 +442,165 @@ A server that holds back everything one device wrote, its summaries
 included, cannot be seen by another device alone. Comparing signed
 summaries side by side catches it, and sync then stays stopped until the
 server delivers. This matches SS 4 and 9.
+
+## Review findings of 2026-11-14
+
+A crypto review, a hostile-server review and a spec review attacked the
+first version. Each finding below was reproduced on that version. Code
+errors are fixed, each with a test that fails without the fix (checked by
+undoing each fix in a copy). Problems in the text are recorded here with a
+recommended resolution.
+
+### 22. Wrong: the kit can act at once, with no wait
+
+SS 6.1 lets the recovery key sign in a new authority key. SS 6.4 lets a
+kit step on a listed device remove devices and replace the kits at once.
+Neither waits. In the first version a thief with only the kit could split
+a takeover into steps that each apply at once: remove one device, sign in
+its own key as another device's authority key, add its own device with
+that key, remove the last device. The owner's devices were out within one
+minute, and the thief held the only kits. A quieter form added the thief's
+device and pushed an address change that other devices applied at once.
+
+The prototype now refuses both paths for a kit alone. A new authority key
+needs the device's own request (finding 23). A recovery step needs the
+signature of the listed device's sync key, and that device cannot remove
+itself. The kit alone, on a new device, gets only the 24-hour takeover.
+
+What is left is SS's own design: the kit together with a listed device
+without Touch ID can still remove every authority device and replace the
+kits at once. That is the stolen-Mac-plus-kit case.
+
+**Change SS 6.1 and 6.4: anything the kit signs that removes a device
+with an authority key while another authority device is listed, replaces
+the kits, or signs in an authority key is a pending change. It waits 24
+hours, and any listed authority key can cancel it. A newly signed-in
+authority key signs no list entries until its own wait is over. Every
+device shows an alert for a new authority key, above all the device it
+names. Say in SS 4 what a captured kit can do at once: read everything.**
+
+### 23. Wrong: another device's authority key could be swapped without it (fixed in code)
+
+SS 6.1: "another device signs the new key in." Nothing says the device
+whose key changes must ask. In the first version any authority device,
+even one added that day, could put any key in as an older device's
+authority key. That also reset the older device's age, so the young
+device could then remove it at once, and the 7-day rule and every cancel
+were bypassed.
+
+The prototype now: the device asks with an `AuthRequest`, signed by its
+sync key and by the new key. The request names the key it replaces, so it
+cannot be replayed. The device that signs it in obeys the 7-day rule. How
+old a device is to others is counted from when it was first listed; a new
+authority key only limits what that device itself may do for 7 days.
+Every device shows an alert. **Add this to SS 6.1 and 6.2.**
+
+### 24. Wrong: a kit could cancel the lost-kit replacement (fixed in code)
+
+The first version let a current kit sign a cancel. A thief with the kit
+then cancelled every lost-kit replacement, and every new key generation
+stayed sealed to the thief's kit. SS 6.4 says "any device can cancel".
+The prototype now accepts a cancel only from a listed authority key.
+**Say "any listed device with an authority key; never a kit".**
+
+### 25. Gap: writes sealed under an old key after a removal
+
+A removal starts a new key generation. A device that has not seen the
+removal yet still seals under the old key, and the removed device can
+open those writes with its old key. A server can keep a device on the old
+list for as long as it hides newer entries. So the promise of SS 6.2 and
+7.1 holds only for devices that have synced since the removal.
+
+The prototype now refuses a write whose key generation differs from the
+one in force at the list entry it names. That stops a client that keeps
+the old key on purpose, but not a device held on an old entry.
+
+**Change SS 7.1: say that writes under a superseded generation are
+readable by the removed device. Recommended: before sealing a write that
+holds a secret, a device refreshes the list and warns when it cannot.
+Accept writes under a superseded generation with an alert, and have the
+writer seal them again under the newest generation once it catches up.**
+
+### 26. Wrong: a removal can undo stricter rules and approvals
+
+Finding 7 has every device drop the removed device's writes after the
+last write the remover saw. The remover may be behind. In the review, B
+set `protected=true` on a server (that applies at once), and A applied it.
+C, which had not synced, removed B at an older write. A then dropped B's
+write, and the server was no longer protected: a looser rule nobody
+approved. Approvals B signed are dropped the same way, and a remover can
+name write 0 and erase everything the device ever wrote.
+
+**Change SS 6.2. Recommended: accept the removed device's writes up to
+the newest write that any remaining device covered in a signed summary
+naming a list entry before the removal. Never take back a stricter value
+that applied by itself. Show anything dropped to a person to confirm.**
+The prototype still does what finding 7 says.
+
+### 27. Gap: a hold stopped sync for the whole wait (fixed in code)
+
+The first version held the list before an apply entry, but other devices
+had moved on: their summaries and writes named newer entries. So a device
+that missed a wait failed every sync for the whole wait with an error that
+blamed the server (`ErrListBehind`), and showed no alert. The prototype
+now keeps syncing everything that names entries up to the hold, keeps the
+rest for later (`Report.Held`), and returns the hold with its alert.
+**Say in SS 6.2: a held device keeps syncing up to the hold and shows it;
+it is not an attack.**
+
+### 28. Gap: a waiting change fixed its key too early (fixed in code)
+
+The first version put the new key generation in the pending entry. Any
+other key change during the wait (a removal, a recovery step) left the
+pending change unable to apply, and its alert stayed for good. Anyone who
+could start a generation could block a lost-kit replacement. The pending
+entry now holds only the intent (devices, kits); the apply entry carries
+the new key, made when it applies. A removal whose device another entry
+already removed applies as done, with no new key. **Use this form in
+finding 3's list entries.**
+
+### 29. Wrong: a record's type came from the first write seen (fixed in code)
+
+Each write names its record's type inside the sealed body. The first
+version took the type from whichever write a device opened first, and a
+new device opens logs in device-ID order. A Mac without Touch ID could
+write "this server is a note, address 203.0.113.9". Old devices held it
+as waiting; a newly paired device applied it at once. The SS 8.1 rule was
+skipped, and devices kept different data for good. Any device could also
+delete or rename another device's name record.
+
+The prototype now fixes the type in the record ID (a 4-byte tag of the
+type), refuses a write whose type does not fit, and lets only a device
+write its own device record, never delete it. Merging is then order-free
+(`TestMergeIsOrderFree`). **Add to SS 7.2 and 8.1: a record's type is
+fixed when it is made and bound to its ID.**
+
+### 30. Wrong to build: the pairing reply reused a key (fixed in code)
+
+The reply was sealed under a key from the secret alone, with a zero
+nonce. That is safe only if one device answers once. "One try" rested on
+the server deleting the request. A server that ignores the delete and
+shows a second device a forked list gets the code answered twice: two
+replies under one key and nonce, with plaintext the server mostly knows.
+It can then forge a reply naming an account it made up. The new device's
+join signatures are not tied to an account (finding 11), so they can be
+replayed into that fake list.
+
+The prototype now seals the reply under a key from the secret, 32 fresh
+random bytes and the hash of the request, and each device answers a code
+once. **Say so in SS 6.3.**
+
+### Other review points
+
+- **Paper kit parts** now carry a kit ID (above). Before, three parts with
+  one from an old kit gave a wrong key and looked like a lost kit.
+- **Hashes** of several parts now put each part's length in front. Before,
+  a device could move bytes from the salt of another device's name record
+  into its name and keep the pinned hash.
+- **Vectors** now have outside checks (above). Before, every vector came
+  from the prototype's own code.
+- **Hostile server** now has write hooks, so tests can model a server that
+  ignores a delete or keeps a fork.
 
 ## Limits of this prototype
 
@@ -420,4 +650,5 @@ go test -race ./internal/syncproto/...
 go test ./internal/syncproto/ -run XXX -bench .
 go test ./internal/syncproto/ -run TestSizes -v
 go test ./internal/syncproto/ -run TestVectors -update   # only for a change you meant
+swift internal/syncproto/testdata/crosscheck.swift internal/syncproto/testdata/vectors.json
 ```
