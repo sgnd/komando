@@ -58,6 +58,7 @@ type Device struct {
 	base      *mergeState         // the state of the snapshot this device builds on; nil: none
 	baseHeads map[DeviceID]Head   // the writes that snapshot holds
 	baseHash  Hash                // the hash of that snapshot
+	baseSnap  *Snapshot           // that snapshot: every current device named it, so writes it holds may go
 	snap      *Snapshot           // the newest snapshot this device accepted; its summaries name it
 	snapNum   uint64              // this device's own snapshots, counted
 	refused   map[Hash]bool       // snapshots that did not match this device's data

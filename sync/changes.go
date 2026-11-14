@@ -44,6 +44,10 @@ func recordFits(writer DeviceID, seq uint64, c *Change) bool {
 	if c.Type == "" || subtle.ConstantTimeCompare(want[:], c.Record[:]) != 1 {
 		return false
 	}
+	if c.Target != (WriteRef{}) {
+		// Only a deny rule written again names a write (removal.go).
+		return c.Type == TypeDeny && c.Create && !c.Delete && c.Record == denyAgainID(c.Target, c.Fields)
+	}
 	switch c.Type {
 	case TypeDevice:
 		return c.Record == idRecord(writer) && !c.Delete
@@ -51,6 +55,24 @@ func recordFits(writer DeviceID, seq uint64, c *Change) bool {
 		return !c.Create || c.Record == denyID(writer, seq)
 	}
 	return true
+}
+
+// denyAgainID is the ID of a removed device's deny rule written again
+// from past its cut (SS 6.2). It is bound to the dropped write and to the
+// rule's fields, so every device that writes it again writes the same
+// record with the same fields, and one rule results, not one per device.
+func denyAgainID(t WriteRef, fields []Field) RecordID {
+	var e enc
+	e.raw(t.Writer[:])
+	e.u64(t.Seq)
+	e.raw(t.Hash[:])
+	e.u32(uint32(len(fields)))
+	for _, f := range fields {
+		e.str(f.Name)
+		e.str(f.Value)
+	}
+	h := sum(labelDenyAgain, e.b)
+	return recordID(TypeDeny, [12]byte(h[:12]))
 }
 
 // denyID is the ID of the deny rule that write seq of writer makes.
@@ -98,10 +120,22 @@ func (d *Device) change(c *Change) (WriteRef, error) {
 		return WriteRef{}, err
 	}
 	ref := w.Ref()
-	if _, waits := d.data.waiting[ref]; waits && d.AutoApprove && d.keys.Authority != nil {
+	if _, waits := d.data.waiting[ref]; waits && d.AutoApprove && d.keys.Authority != nil && len(d.replacesOf(ref)) == 0 {
 		return ref, d.Approve(ref)
 	}
 	return ref, nil
+}
+
+// replacesOf is the old holders of the name a waiting change takes. A yes
+// that deletes them is never implied by editing: the change waits until
+// the person has seen "replaces prod-db (deleted)" (SS 8.1).
+func (d *Device) replacesOf(ref WriteRef) []RecordID {
+	for _, w := range d.data.list() {
+		if w.Ref == ref {
+			return w.ReplacesIDs
+		}
+	}
+	return nil
 }
 
 // refreshBeforeSecret refreshes the list before a secret is sealed, so a
@@ -131,12 +165,7 @@ func (d *Device) Approve(ref WriteRef) error {
 	if d.keys.Authority == nil {
 		return ErrNoAuthority
 	}
-	var replaces []RecordID
-	for _, w := range d.data.list() {
-		if w.Ref == ref {
-			replaces = w.ReplacesIDs
-		}
-	}
+	replaces := d.replacesOf(ref)
 	sig, err := sign(d.keys.Authority, labelApproval, approvalBytes(d.account, ref, replaces))
 	if err != nil {
 		return err

@@ -407,6 +407,9 @@ func (d *Device) summary() (*Summary, error) {
 		Account: d.account, Signer: d.id, Num: d.sumNum[d.id] + 1, KeyGen: d.list.Gen.Gen,
 		ListNum: d.head, ListHash: d.headHash, MinClient: minClient,
 	}
+	if prev := d.summaries[d.id]; prev != nil {
+		s.Prev = prev.Hash()
+	}
 	if d.snap != nil {
 		s.Snap = d.snap.Hash()
 	}

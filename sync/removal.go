@@ -43,10 +43,20 @@ func (d *Device) floorOf(id DeviceID) Head {
 	return f
 }
 
-// summaryLog reads a device's summary log. It refuses a log whose named
-// list entry goes down as the summary number goes up (SS 6.2): an honest
-// device never names an older entry than before, so a stolen sync key
-// cannot backdate a summary to before a removal.
+// summaryLog reads a device's summary log, sorted by number. Each
+// summary names the hash of the one before it, so a signer's summaries
+// form one chain (SS 6.2, 9). It refuses:
+//
+//   - two different summaries with one number, or a summary that does not
+//     follow the one before it (ErrFork): a stolen sync key cannot slip
+//     in a summary beside an old one;
+//   - a log whose named list entry goes down as the number goes up, also
+//     against the newest summary of this signer this device holds, which
+//     the server may hide (ErrRollback): an honest device never names an
+//     older entry than before, so a stolen sync key cannot backdate a
+//     summary to before a removal;
+//   - a summary with the number of the one this device holds that is not
+//     that one (ErrFork).
 func (d *Device) summaryLog(id DeviceID) ([]*Summary, error) {
 	items, err := d.srv.Read(d.id, logSummaries(id))
 	if err != nil {
@@ -60,22 +70,64 @@ func (d *Device) summaryLog(id DeviceID) ([]*Summary, error) {
 		}
 		out = append(out, s)
 	}
-	sorted := slices.SortedFunc(slices.Values(out), func(a, b *Summary) int {
-		switch {
-		case a.Num < b.Num:
-			return -1
-		case a.Num > b.Num:
-			return 1
+	slices.SortStableFunc(out, func(a, b *Summary) int { return cmpU64(a.Num, b.Num) })
+	mine := d.summaries[id]
+	for i, s := range out {
+		if mine != nil {
+			switch {
+			case s.Num == mine.Num && s.Hash() != mine.Hash():
+				return nil, fmt.Errorf("%w: summary %d of %x is not the one this device holds", ErrFork, s.Num, id[:4])
+			case s.Num > mine.Num && s.ListNum < mine.ListNum:
+				return nil, fmt.Errorf("%w: summary %d of %x names list entry %d after summary %d named %d",
+					ErrRollback, s.Num, id[:4], s.ListNum, mine.Num, mine.ListNum)
+			}
 		}
-		return 0
-	})
-	for i := 1; i < len(sorted); i++ {
-		if sorted[i].Num > sorted[i-1].Num && sorted[i].ListNum < sorted[i-1].ListNum {
+		if i == 0 {
+			continue
+		}
+		p := out[i-1]
+		switch {
+		case s.Num == p.Num:
+			if s.Hash() != p.Hash() {
+				return nil, fmt.Errorf("%w: two different summaries %d of %x", ErrFork, s.Num, id[:4])
+			}
+		case s.Num == p.Num+1 && s.Prev != p.Hash():
+			return nil, fmt.Errorf("%w: summary %d of %x does not follow summary %d", ErrFork, s.Num, id[:4], p.Num)
+		}
+		if s.ListNum < p.ListNum {
 			return nil, fmt.Errorf("%w: summary %d of %x names list entry %d after summary %d named %d",
-				ErrRollback, sorted[i].Num, id[:4], sorted[i].ListNum, sorted[i-1].Num, sorted[i-1].ListNum)
+				ErrRollback, s.Num, id[:4], s.ListNum, p.Num, p.ListNum)
 		}
 	}
-	return out, nil
+	return slices.CompactFunc(out, func(a, b *Summary) bool { return a.Num == b.Num }), nil
+}
+
+// chainedTo reports whether log holds every summary from s up to the one
+// this device holds of that signer, so s is in its chain. A summary the
+// server could have slipped in beside an old one, with the ones after it
+// hidden, does not count toward a cut.
+func (d *Device) chainedTo(log []*Summary, s *Summary) bool {
+	mine := d.summaries[s.Signer]
+	if mine == nil || s.Num >= mine.Num {
+		return true
+	}
+	next := s.Num
+	for _, x := range log {
+		if x.Num == next+1 {
+			next = x.Num
+		}
+	}
+	return next >= mine.Num
+}
+
+func cmpU64(a, b uint64) int {
+	switch {
+	case a < b:
+		return -1
+	case a > b:
+		return 1
+	}
+	return 0
 }
 
 // computeCuts finds each removed device's cut. Only a summary whose signer
@@ -100,7 +152,7 @@ func (d *Device) computeCuts() error {
 			var top *Summary
 			var topHead Head
 			for _, s := range log {
-				if h := headOf(s, id); s.ListNum < info.At && h.Seq > topHead.Seq {
+				if h := headOf(s, id); s.ListNum < info.At && h.Seq > topHead.Seq && d.chainedTo(log, s) {
 					top, topHead = s, h
 				}
 			}
@@ -162,14 +214,14 @@ func (d *Device) dropRevoked(rep *Report) error {
 	if !again {
 		return nil
 	}
-	old := d.log
+	old, held := d.log, d.data
 	d.log, d.data = nil, d.baseData()
 	var strict []*Change
 	for _, s := range old {
 		if last, ok := drop[s.w.Writer]; ok && s.w.Seq > last {
 			d.countRevoked(s.w.Ref(), rep)
 			d.noteDropped(s.w.Ref())
-			if c := stricterPart(s.c); c != nil {
+			if c := inForce(held, s.w, s.c, stricterPart(s.w, s.c)); c != nil {
 				strict = append(strict, c)
 			}
 			continue
@@ -213,14 +265,16 @@ func keptPastFloor(c *Change) *Change {
 	return &Change{Kind: kindRecord, Record: c.Record, Type: c.Type, Fields: keep}
 }
 
-// stricterPart is the part of a change that only tightens: stricter rule
-// values, or a new deny rule. Nil when there is none.
-func stricterPart(c *Change) *Change {
+// stricterPart is the part of write w's change that only tightens:
+// stricter rule values, or a new deny rule, which is written again under
+// the ID denyAgainID gives. Nil when there is none.
+func stricterPart(w *Write, c *Change) *Change {
 	if c.Kind != kindRecord || c.Delete {
 		return nil
 	}
 	if c.Type == TypeDeny && c.Create {
-		return &Change{Kind: kindRecord, Type: TypeDeny, Create: true, Fields: c.Fields}
+		ref := w.Ref()
+		return &Change{Kind: kindRecord, Record: denyAgainID(ref, c.Fields), Type: TypeDeny, Create: true, Fields: c.Fields, Target: ref}
 	}
 	if c.Create {
 		return nil
@@ -237,14 +291,48 @@ func stricterPart(c *Change) *Change {
 	return &Change{Kind: kindRecord, Record: c.Record, Type: c.Type, Fields: keep}
 }
 
-// notYetHere is the part of a stricter change the merged data does not
-// hold yet. A new deny rule is always written again, under a new ID: its
-// old ID is bound to the removed device's write.
-func (d *Device) notYetHere(c *Change) *Change {
+// inForce is the part of c, the stricter part of write w's change orig,
+// that was in force in the merged data before merging again (held): the
+// field still had the dropped write's value and clock, or the deny rule
+// was still there. A value a newer write replaced, a person's yes for
+// example, is not written again (SS 6.2: "already applied ... keeps").
+func inForce(held *mergeState, w *Write, orig, c *Change) *Change {
+	if c == nil {
+		return nil
+	}
 	if c.Type == TypeDeny {
+		if r := held.records[orig.Record]; r == nil || !r.Exists || r.Deleted {
+			return nil
+		}
 		return c
 	}
+	r := held.records[c.Record]
+	if r == nil || r.Deleted {
+		return nil
+	}
+	var keep []Field
+	for _, f := range c.Fields {
+		if r.Fields[f.Name] == (fieldVal{Value: f.Value, Clock: w.Clock}) {
+			keep = append(keep, f)
+		}
+	}
+	if len(keep) == 0 {
+		return nil
+	}
+	return &Change{Kind: kindRecord, Record: c.Record, Type: c.Type, Fields: keep}
+}
+
+// notYetHere is the part of a stricter change the merged data does not
+// hold yet. A deny rule written again is here once any device wrote it,
+// or once its deletion is (deletion is final).
+func (d *Device) notYetHere(c *Change) *Change {
 	rec := d.data.records[c.Record]
+	if c.Type == TypeDeny {
+		if rec != nil && (rec.Exists || rec.Deleted) {
+			return nil
+		}
+		return c
+	}
 	if rec == nil || rec.Deleted {
 		return nil
 	}
@@ -268,14 +356,10 @@ func (d *Device) writeAgain() (int, error) {
 	d.rewrite = nil
 	n := 0
 	for _, c := range todo {
-		if c.Type != TypeDeny {
-			if c = d.notYetHere(c); c == nil {
-				continue
-			}
-			if _, err := d.change(c); err != nil {
-				return n, err
-			}
-		} else if _, err := d.Create(TypeDeny, c.Fields...); err != nil {
+		if c = d.notYetHere(c); c == nil {
+			continue
+		}
+		if _, err := d.change(c); err != nil {
 			return n, err
 		}
 		n++

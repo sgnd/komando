@@ -17,6 +17,7 @@ const (
 	labelWrite      = "komando-sync/1 write"
 	labelWriteHash  = "komando-sync/1 write hash"
 	labelSummary    = "komando-sync/1 summary"
+	labelSumHash    = "komando-sync/1 summary hash"
 	labelApproval   = "komando-sync/1 approval"
 	labelDeviceID   = "komando-sync/1 device id"
 	labelKeyID      = "komando-sync/1 key id"
@@ -42,6 +43,7 @@ const (
 	labelSnapshot   = "komando-sync/1 snapshot"
 	labelSnapHash   = "komando-sync/1 snapshot hash"
 	labelSnapState  = "komando-sync/1 snapshot state"
+	labelDenyAgain  = "komando-sync/1 deny rule written again"
 )
 
 // Hash is a SHA-256 value.

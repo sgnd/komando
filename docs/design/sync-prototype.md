@@ -15,12 +15,16 @@ the text could not be built as written.
 
 ## The answer
 
-**Go. The format can be frozen.** Every point SS 21 left open and every
-finding up to 38 is decided by the owner (2026-11-14), written into SS,
-built here and tested again (the freeze re-test, below). The re-test
-found no new fault in SS; it found six places where one more sentence in
-SS would stop two builders from choosing differently (findings 39 to 44).
-None changes a decision; each is built as recommended.
+**Go, but the format is not frozen yet.** Every point SS 21 left open and
+every finding up to 38 is decided by the owner (2026-11-14), written into
+SS, built here and tested again (the freeze re-test, below). A review of
+that re-test then found ten faults in the code and three gaps in SS
+(findings 45 to 56). The code faults are fixed, each with a test. Two of
+the fixes change the format: each summary now names the hash of the one
+before it, and a deny rule written again names the write it comes from.
+The format can be frozen once the owner confirms the recommendations in
+SS 21 (findings 39 to 56, which SS does not state yet), and once the
+tests pass under a real Go 1.26 toolchain (finding 56).
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
@@ -208,13 +212,21 @@ removed device's approvals and waiting changes are dropped on every
 device and listed in `DroppedWrites`. Past the cut, everything is dropped
 and listed. This rule reads only the list and the change, so every device
 does the same. A device that had applied a stricter value from past the
-cut writes it again as its own write (`Report.Rewritten`).
+cut writes it again as its own write (`Report.Rewritten`), but only when
+that write was still the one in force on it (finding 54). A deny rule is
+written again under one ID bound to the dropped write, so every device
+writes the same rule (finding 52).
 
 A cut that a listed device's summary set stays when the server later
 hides that summary. Once that device is removed too, the cut is found
 again without it, so every device agrees whatever it saw before; a device
-that applied more merges again. A device refuses a summary log whose list
-entry goes down as the summary number goes up (`ErrRollback`). A summary
+that applied more merges again. Each summary names the hash of its
+signer's summary before it. A device refuses a summary log whose list
+entry goes down as the summary number goes up, also against the summary
+of that signer it holds (`ErrRollback`), and two summaries with one
+number or a broken chain (`ErrFork`). An old summary counts toward a cut
+only when its chain up to the one the device holds is served (findings
+47 and 48). A summary
 signed after the removal that covers more than the cut means the server
 holds back the summary that shows it: `ErrMissingWrites`.
 
@@ -235,22 +247,32 @@ header = format, suite, account, signer, number, list entry and its hash,
 body   = record seal of state, place = header
 ```
 
-Another device takes a snapshot only when its own merged state at those
-writes has the same hash; otherwise it refuses it (`Report.Refused` and an
-alert) and keeps the writes. Each summary names the newest snapshot its
+While a removal of a device waits, and for a snapshot naming a list
+entry from before a device's removal, a snapshot holds nothing of that
+device past the write the removal records (finding 45). Another device
+takes a snapshot only when it keeps to that and its own merged state at
+those writes has the same hash; otherwise it refuses it
+(`Report.Refused` and an alert) and keeps the writes. Each summary names the newest snapshot its
 signer accepted and the one it builds on. When every current device names
 one snapshot, each device builds on it: its state becomes the base, the
 writes it holds leave the device's log, and the service may drop them
 (`SnapshotToPrune`, `MemServer.PruneWrites`). A new device takes the
 snapshot every other current device names (or else the one they all
 build on), checks its state against the signed hash, and reads only the
-writes after it.
+writes after it. It does so only when each of those summaries names a
+list entry at or after the newest one about a removal, and the snapshot
+keeps to the caps above; otherwise it reads from write 1 (finding 46).
 
 **Deny rule IDs.** A new deny rule applies by itself, its edit or delete
 waits. "New" needs an identity no other write can claim: a deny rule's ID
 is `recordID("deny", first 12 bytes of H(label, writer, write number))`,
 so only the write that makes it can create it. A second "create" of that
-ID from any other write is refused like a wrong type.
+ID from any other write is refused like a wrong type. The one other
+"create" allowed is a deny rule written again from past a removed
+device's cut: its write names the dropped write (`Change.Target`), and
+its ID is `recordID("deny", first 12 bytes of H(label, dropped write,
+fields))`, so every device that writes it again writes the same rule
+(finding 52).
 
 **Approvals.** The authority key signs the change it agrees to and the
 sorted IDs of the old holders of the name it takes. Applying the yes
@@ -312,7 +334,8 @@ there is a table.
 | The kit and a listed device replace the kits, remove a device or sign in a key at once while another device is listed | `ErrNotAuthorized`; only as a 24-hour pending change |
 | The kit cancels a lost-kit replacement | `ErrNotAuthorized` |
 | A write sealed under another key generation than its list entry has | `ErrBadWrite` |
-| A stolen sync key backdates a summary to before a removal | `ErrRollback` (the summary log names an earlier list entry) |
+| A stolen sync key backdates a summary to before a removal | `ErrRollback` (the summary log, or the summary this device holds, names a later list entry), even when the server hides the newer summary |
+| A stolen sync key signs a summary with the number of an old one | `ErrFork` (two summaries with one number, or one that does not follow the one before it); with the rest of the chain hidden, it does not count toward a cut |
 | A stolen sync key of a removed device signs a summary that covers a removed device's writes | ignored: only summaries of listed devices count |
 | A device makes a second "create" of an existing deny rule's ID | change dropped (`Report.Rejected`) |
 | An approval whose list of old holders was changed | approval dropped (`Report.Rejected`) |
@@ -1016,8 +1039,9 @@ count. (Resealing went with finding 33.) Test:
 
 SS 21 still said the prototype drops everything after the recorded last
 write. It then listed findings 31 to 36 with their recommendations. After
-the owner's decisions it says nothing is open, and that the format can be
-frozen once this re-test passes. It has passed.
+the owner's decisions it said nothing is open, and that the format can be
+frozen once this re-test passes. The re-test passed, but its review found
+findings 45 to 56, so SS 21 lists those as open again.
 
 ## Findings of the freeze re-test (2026-11-14)
 
@@ -1073,6 +1097,151 @@ builds on it. A removal that changes what the writes give (finding 35)
 makes it differ, and the device stops naming it. **Recommended: say so in
 SS 9.**
 
+## Findings of the review of the freeze re-test (2026-11-14)
+
+A review attacked the re-tested code and checked it against SS. It found
+ten faults in the code and three gaps in SS. Each code fault is fixed
+with a test in `review4_test.go` that fails without the fix (checked by
+undoing each fix in a copy). Each gap is recommended in SS 21, "owner to
+confirm". Findings 45 to 48 and 52 change what SS 6.2 and 9 must say.
+
+### 45. Wrong: a snapshot raised a removed device's floor past a waiting removal (fixed in code)
+
+A young iPhone asks to remove the stolen iPad X; the removal waits 7
+days. During the wait X moves prod-db and approves it itself. An honest
+device makes a snapshot, every device names it and builds on it. When
+the removal applies, the floor rose to the snapshot, so X's yes was kept
+for good and never shown. **Fixed: while a removal of a device waits, and
+for a snapshot naming a list entry from before that device's removal, a
+snapshot holds nothing of it past the write the removal records.** An
+honest device's snapshot stops there; one that holds more is never
+taken, without an alert (it may be honest and early). Test:
+`TestSnapshotStopsAtAWaitingRemoval`. **Recommended for SS 9 and 6.2.**
+
+### 46. Wrong: a new device started from a snapshot the others took back (fixed in code)
+
+The server showed a new Mac only summaries from before the removal,
+naming a snapshot that held X's yes. The Mac built on it, and its floor
+rose to it, so it kept 203.0.113.9 for good while the others showed
+10.0.0.5, with no alert. **Fixed: a new device starts from a snapshot only
+when every other member's newest summary names a list entry at or after
+the newest entry that removes a device, asks for a removal, or applies
+or cancels one, and only when the snapshot passes the caps of finding
+45. Otherwise it reads from write 1** (and stops with `ErrMissingWrites`
+if those writes are gone). The cap check alone stops the attack; the
+list-entry check is a second wall for a cut that goes down later. Test:
+`TestNewDeviceSkipsASnapshotFromBeforeARemoval`. **Recommended for SS 9.**
+
+### 47. Wrong: hiding the newer summary bypassed the backdated-summary refusal (fixed in code)
+
+The check compared only neighbours in the served log. A held M's summary
+k, which names the removal. The thief signed k+1 naming the entry before
+it, and the server hid k. **Fixed: each summary is also checked against
+the newest summary of its signer this device holds. A later one that
+names an earlier list entry is `ErrRollback`; one with the same number
+that differs is `ErrFork`.** Test:
+`TestBackdatedSummaryRefusedWhenTheNewerIsHidden`.
+
+### 48. Wrong: a summary with the number of an old one raised the cut (fixed in code, format change)
+
+Summaries were not chained, so a thief with M's sync key could sign a
+second summary with the number of M's honest summary from before the
+removal, naming the same entry and covering X's late note. **Fixed: a
+summary names the hash of its signer's summary before it (`Prev`, 32
+bytes; summary 1 names zero), so each signer's summaries form one chain.
+Two different summaries with one number, or one that does not follow the
+one before it, are `ErrFork`. A summary older than the one this device
+holds counts toward a cut only when every summary from it up to that one
+is served.** Test: `TestSummaryBesideAnOldOneIsRefused` (beside the old
+one, in its place, and with the chain after it hidden). **Recommended
+for SS 9's description of a summary.**
+
+### 49. Wrong: SnapshotToPrune offered a snapshot not every device named (fixed in code)
+
+After building on s1, a device accepted a newer s2 and offered s2 for
+pruning, though no other device had named it. **Fixed: the device keeps
+the snapshot it builds on and offers only that one.** Test:
+`TestSnapshotToPruneIsTheConfirmedOne`.
+
+### 50. Wrong: approving a newcomer could delete a device's own record (fixed in code)
+
+A server named "iPhone" listed the iPhone's device record as the old
+holder of its name. The yes deleted that record, which no write may
+delete, and the device's name was gone for good. A modified client could
+also list any record in Replaces. **Fixed: names are held per type, and
+only by types whose new record waits (finding 53). A yes deletes only
+old holders of the newcomer's own type, read from the type tag in each
+ID, never a device record or a note.** The line stays "replaces prod-db
+(deleted)": the old holder is always of the same type. Test:
+`TestApprovalNeverDeletesADeviceRecord`.
+
+### 51. Gap: editing implied a yes that deletes (built as recommended)
+
+On a device with Face ID, editing collects the person's yes (SS 8.1).
+Creating a second server named prod-db therefore deleted the first in the
+same edit; the person never saw "replaces prod-db (deleted)".
+**Recommended, owner to confirm: a yes that deletes something is never
+implied. A change with a replaces line waits on every device, also the
+one that made it, until the person says yes on that screen.** Built so.
+Test: `TestAutoApproveNeverImpliesADeletingYes`.
+
+### 52. Wrong: a deny rule from past the cut was written again once per device (fixed in code, format change)
+
+Each device that had applied the removed device's deny rule wrote it
+again under a new ID, so N devices made N copies. **Fixed: a deny rule
+written again has an ID bound to the dropped write and to the rule's
+fields, and its write names the dropped write (`Change.Target`, until now
+used only by approvals). Every device that writes it again writes the
+same record with the same fields. Its fields take a zero clock, so a
+later copy never undoes an edit made with a yes in between. A device that
+already holds it, or its deletion, does not write it.** If a later
+summary raises the cut, the original rule comes back beside the copy:
+two equal rules, never N. Test: `TestRewrittenDenyRuleIsOneRule`.
+**Recommended for SS 6.2 and 8.1.**
+
+### 53. Gap: a record that applies by itself could take a held name (built as recommended)
+
+SS 8.1 says a held name cannot be taken. A note, and a new deny rule,
+apply at once, with no name check. **Recommended, owner to confirm:
+names are unique per record type, and only for types whose new record
+waits for a person (servers, secrets, rules, and the like). Notes, device
+records and deny rules hold no name and take none.** Built so (with
+finding 50).
+
+### 54. Wrong: writing a stricter value again undid a newer yes (fixed in code)
+
+X turned `protected` on. B pulled it, then turned it off with a person's
+yes. A removed X with no summary covering X's write. B compared only with
+the state after merging again, saw "off", and wrote "on" again, undoing
+the newer yes. **Fixed: a stricter value is written again only when the
+merged data before merging again still held it with the dropped write's
+clock, so the removed device's write was the one in force; a deny rule
+only when it was still there.** Test:
+`TestStricterValueReplacedByAYesIsNotWrittenAgain`. **Recommended for SS
+6.2.**
+
+### 55. Gap: SS 21 said nothing was open while SS lacked findings 39 to 44
+
+SS 21 said "Nothing open; the format can be frozen". Findings 39 to 44
+(deny rule IDs, a cut that goes down, what a snapshot keeps of a deleted
+record, the two snapshots in each summary, a floor below a confirmed
+snapshot, taking back an acceptance) are built but not in SS, and the
+summary and snapshot layouts depend on them. A second builder could not
+follow SS alone. **Recommended, owner to confirm: write 39 to 54 into SS
+6.2, 8.1 and 9, including the summary's layout (`Prev`, `Snap`, `Base`),
+before the format is frozen. Until then SS 21 lists them as open.**
+
+### 56. Gap: Go 1.26 was not tried
+
+SS 7.2 says the re-test builds with Go 1.26. Only `go.mod` names
+`go 1.26.0`, and `go vet` of Go 1.27.4 checks the standard library calls
+against it. That check does not catch a change in how `crypto/hpke`
+behaves between 1.26 and 1.27. No Go 1.26 toolchain is on this machine,
+and fetching one is a download. **Recommended, owner to confirm: allow
+fetching Go 1.26.x (`GOTOOLCHAIN=go1.26.0 go test ./...` in `sync/`) and
+run the tests and the vectors under it before freezing. Until then this
+check is open.**
+
 ## Limits of this prototype
 
 - No teams, member lists or team vaults (SS 12), no approvals on the
@@ -1086,8 +1255,11 @@ SS 9.**
 - The email code the server asks for before a recovery and the email that
   announces a kit step (SS 6.4) are server work, not built.
 - A device reads every summary of every remaining device to find a
-  removed device's cut. A real service would keep, per removal, only the
-  newest summary from before it. Snapshots drop writes, not summaries.
+  removed device's cut. A summary counts toward a cut only when every
+  summary from it up to the one the device holds is served (finding 48),
+  so a real service must keep the chain of summaries from before each
+  removal up to now, or the device must keep the hashes it saw. Snapshots
+  drop writes, not summaries.
 - A snapshot is one sealed blob of the whole state. A real service would
   split it into parts so that a device fetches it in pieces.
 - Pruning is a test hook (`MemServer.PruneWrites`). A device judges a
@@ -1121,7 +1293,7 @@ Apple M2, Go 1.27.4, `go test -bench . -benchtime=2s` (the two joins:
 | Entry adding the first kit | 1,532 bytes |
 | Entry adding a device | 1,715 bytes |
 | A write (a 3-field server record) | 579 bytes (288 sealed) |
-| A summary naming 2 devices (and two snapshots) | 344 bytes |
+| A summary naming 2 devices (and two snapshots, and the summary before it) | 376 bytes |
 | A snapshot of 1,000 server records | 226 KB |
 | 1,000 records on the server after pruning to that snapshot | about 0.23 MB |
 | Account key sealed to a device (X-Wing HPKE) | 1,168 bytes |

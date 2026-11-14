@@ -131,7 +131,9 @@ type Change struct {
 	Fields []Field
 	// An approval: the write agreed to, the old holders of its name that
 	// the same yes deletes (SS 8.1), and the approver's authority key
-	// signature over both ("a person agreed").
+	// signature over both ("a person agreed"). A deny rule written again
+	// from past a removed device's cut names the dropped write as Target
+	// (SS 6.2); every other record change leaves it zero.
 	Target   WriteRef
 	Replaces []RecordID
 	Approval Sig
@@ -220,6 +222,7 @@ type Summary struct {
 	Account   Hash
 	Signer    DeviceID
 	Num       uint64
+	Prev      Hash // the hash of the signer's summary Num-1; zero for summary 1
 	KeyGen    uint32
 	ListNum   uint32
 	ListHash  Hash
@@ -235,6 +238,7 @@ func (s *Summary) signedBytes() []byte {
 	e.raw(s.Account[:])
 	e.raw(s.Signer[:])
 	e.u64(s.Num)
+	e.raw(s.Prev[:])
 	e.u32(s.KeyGen)
 	e.u32(s.ListNum)
 	e.raw(s.ListHash[:])
@@ -250,6 +254,10 @@ func (s *Summary) signedBytes() []byte {
 	return e.b
 }
 
+// Hash covers the signed content, never the signature. The signer's next
+// summary names it, so each signer's summaries form one chain.
+func (s *Summary) Hash() Hash { return sum(labelSumHash, s.signedBytes()) }
+
 // Marshal is the summary as stored.
 func (s *Summary) Marshal() []byte { return append(s.signedBytes(), s.Sig[:]...) }
 
@@ -260,6 +268,7 @@ func ParseSummary(b []byte) (*Summary, error) {
 	d.fixed(s.Account[:])
 	d.fixed(s.Signer[:])
 	s.Num = d.u64()
+	d.fixed(s.Prev[:])
 	s.KeyGen = d.u32()
 	s.ListNum = d.u32()
 	d.fixed(s.ListHash[:])

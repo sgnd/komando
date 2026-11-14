@@ -118,18 +118,7 @@ func TestKeptAgainIsShown(t *testing.T) {
 
 	// A summary signed with M's sync key, naming the entry from before the
 	// removal, covers X's late writes.
-	s := &Summary{Account: m.account, Signer: m.id, Num: m.sumNum[m.id] + 1, KeyGen: 1,
-		ListNum: oldNum, ListHash: oldHash, MinClient: minClient}
-	for id, h := range m.applied {
-		if id != x.id {
-			s.Heads = append(s.Heads, h)
-		}
-	}
-	s.Heads = append(s.Heads, x.applied[x.id])
-	slices.SortFunc(s.Heads, func(p, q Head) int { return strings.Compare(string(p.Device[:]), string(q.Device[:])) })
-	s.Sig, err = sign(m.keys.Sync, labelSummary, s.signedBytes())
-	must(t, err)
-	must(t, w.srv.Append(m.id, logSummaries(m.id), s.Marshal()))
+	forgeSummary(t, w, m, x, oldNum, oldHash)
 	rep, err := a.Sync()
 	must(t, err)
 	if len(a.KeptAgain()) != 1 || !slices.ContainsFunc(rep.Alerts, func(al string) bool { return strings.Contains(al, "now kept") }) {

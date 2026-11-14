@@ -106,6 +106,12 @@ func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 	if rec.Type == "" { // a placeholder an approval's "replaces" made
 		rec.Type = c.Type
 	}
+	if c.Target != (WriteRef{}) {
+		// A deny rule written again: several devices may write it, with
+		// the same fields. Their own clocks must not count, or the last
+		// of them would undo an edit made with a yes in between.
+		clock = HLC{}
+	}
 	w := &waiting{Ref: ref, Record: c.Record, Type: rec.Type, Create: c.Create, Delete: c.Delete, Clock: clock}
 	// Notes apply by themselves; a device's name record is written only by
 	// that device (recordFits) and pinned by the hash in the signed list
@@ -158,8 +164,11 @@ func (m *mergeState) applyWaiting(w *waiting) {
 	if w.Delete {
 		m.markDeleted(w.Record, w.Ref)
 	}
+	// A yes deletes only old holders of the newcomer's own type: never a
+	// device's own record, which no write deletes, nor a record of
+	// another type a modified client named (SS 8.1).
 	for _, id := range m.replaces[w.Ref] {
-		if id != w.Record {
+		if id != w.Record && namesHeld(w.Type) && hasType(id, w.Type) {
 			m.markDeleted(id, w.Ref)
 		}
 	}
@@ -253,7 +262,7 @@ func (m *mergeState) list() []Waiting {
 		for _, f := range w.Fields {
 			v.Changes = append(v.Changes, FieldChange{Name: f.Name, Old: rec.Fields[f.Name].Value, New: f.Value})
 			if f.Name == "name" {
-				if ids := m.nameHolders(f.Value, w.Record); len(ids) > 0 {
+				if ids := m.nameHolders(f.Value, w.Record, w.Type); len(ids) > 0 {
 					v.Replaces, v.ReplacesIDs = f.Value, ids
 				}
 			}
@@ -263,17 +272,32 @@ func (m *mergeState) list() []Waiting {
 	return out
 }
 
-// nameHolders lists the other records that hold the name: agreed,
-// waiting or deleted (SS 8.1), sorted.
-func (m *mergeState) nameHolders(name string, self RecordID) []RecordID {
+// namesHeld reports whether names of a record type are held (SS 8.1):
+// only for types whose new record waits for a person. A note, a device's
+// own record and a deny rule apply by themselves, so they can neither
+// wait for a name nor hold one.
+func namesHeld(typ string) bool {
+	return typ != TypeNote && typ != TypeDevice && typ != TypeDeny
+}
+
+// hasType reports whether a record ID carries the tag of typ.
+func hasType(id RecordID, typ string) bool { return recordID(typ, [12]byte(id[:12])) == id }
+
+// nameHolders lists the other records of the same type that hold the
+// name: agreed, waiting or deleted (SS 8.1), sorted. Names are held per
+// type: a server and a note, or a server and a device, may share one.
+func (m *mergeState) nameHolders(name string, self RecordID, typ string) []RecordID {
+	if !namesHeld(typ) {
+		return nil
+	}
 	held := map[RecordID]bool{}
 	for id, r := range m.records {
-		if id != self && r.Fields["name"].Value == name {
+		if id != self && r.Fields["name"].Value == name && hasType(id, typ) {
 			held[id] = true
 		}
 	}
 	for _, w := range m.waiting {
-		if w.Record == self {
+		if w.Record == self || !hasType(w.Record, typ) {
 			continue
 		}
 		for _, f := range w.Fields {

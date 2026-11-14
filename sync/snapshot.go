@@ -20,7 +20,11 @@ import (
 //   - Writes older than the snapshot go only once every current device has
 //     signed a summary naming it (SnapshotToPrune). Each device then builds
 //     on the snapshot instead of those writes.
-//   - A new device starts from that snapshot, then the writes after it.
+//   - A new device starts from that snapshot, then the writes after it,
+//     when the summaries naming it come after every removal.
+//   - While a removal of a device waits, and in a snapshot from before a
+//     device's removal, nothing of that device past the write the removal
+//     records is held (snapCap): those writes are judged by the removal.
 //
 // It is the one place where old records are sealed again under the newest
 // key (SS 7.1): the state is sealed under the vault key of the generation
@@ -132,10 +136,21 @@ func (d *Device) MakeSnapshot() (*Snapshot, error) {
 		Account: d.account, Signer: d.id, Num: d.snapNum + 1,
 		ListNum: d.head, ListHash: d.headHash, KeyGen: gen,
 	}
+	state := d.data
 	for _, id := range slices.SortedFunc(maps.Keys(d.applied), cmpDevice) {
-		s.Heads = append(s.Heads, d.applied[id])
+		h := d.applied[id]
+		if c, ok := d.snapCap(id, s.ListNum); ok && h.Seq > c {
+			// A removal of this device waits: the snapshot stops at the
+			// write it records (SS 6.2, 9).
+			h, state = Head{Device: id, Seq: c, Hash: d.hashAt(id, c, nil)}, nil
+		}
+		s.Heads = append(s.Heads, h)
 	}
-	plain := d.data.encode(s.headMap())
+	heads := s.headMap()
+	if state == nil {
+		state = d.stateAt(heads)
+	}
+	plain := state.encode(heads)
 	s.State = sum(labelSnapState, plain)
 	body, err := sealRecord(vk, s.header(), plain)
 	if err != nil {
@@ -200,11 +215,56 @@ const (
 	snapNotYet   = iota // this device does not hold all its writes yet, or holds a newer base
 	snapMatches         // its state is this device's state at its writes
 	snapMismatch        // it differs: refused, the writes are kept
+	snapUnfit           // it holds writes of a removed device past its floor: never taken
 )
+
+// snapCap is the newest write of dev that a snapshot naming list entry
+// listNum may hold (SS 6.2, 9). While a removal of dev waits, and for a
+// snapshot from before dev's removal, that is the write the removal
+// records (or the snapshot this device builds on, if later: finding 43).
+// Writes past it are judged by the removal rules, which a state made
+// before the removal applied did not follow; once in a base, no rule
+// could take them apart. ok is false when there is no cap.
+func (d *Device) snapCap(dev DeviceID, listNum uint32) (uint64, bool) {
+	c, ok := uint64(0), false
+	low := func(seq uint64) {
+		seq = max(seq, d.baseHeads[dev].Seq)
+		if !ok || seq < c {
+			c, ok = seq, true
+		}
+	}
+	if r, removed := d.list.Removed[dev]; removed && listNum < d.list.RemInfo[dev].At {
+		low(r.LastSeq)
+	}
+	for _, p := range d.list.Pending {
+		if p.Done {
+			continue
+		}
+		for _, r := range p.Inner.Removes {
+			if r.Device == dev {
+				low(r.LastSeq)
+			}
+		}
+	}
+	return c, ok
+}
+
+// fits reports whether a snapshot holds no write past a cap.
+func (d *Device) fits(s *Snapshot) bool {
+	for _, h := range s.Heads {
+		if c, ok := d.snapCap(h.Device, s.ListNum); ok && h.Seq > c {
+			return false
+		}
+	}
+	return true
+}
 
 // judge compares a snapshot with this device's merged state at the writes
 // it names.
 func (d *Device) judge(s *Snapshot) int {
+	if !d.fits(s) {
+		return snapUnfit
+	}
 	heads := s.headMap()
 	for id, b := range d.baseHeads {
 		if heads[id].Seq < b.Seq {
@@ -262,9 +322,11 @@ func covers(b, a *Snapshot) bool {
 // covers it is judged and, when it matches, accepted. One that differs is
 // refused and shown; the writes stay.
 func (d *Device) checkSnapshots(rep *Report) error {
-	if d.snap != nil && d.snap.Hash() != d.baseHash && d.judge(d.snap) == snapMismatch {
-		d.refused[d.snap.Hash()] = true
-		d.snap = nil
+	if d.snap != nil && d.snap.Hash() != d.baseHash {
+		if j := d.judge(d.snap); j == snapMismatch || j == snapUnfit {
+			d.refused[d.snap.Hash()] = true
+			d.snap = nil
+		}
 	}
 	for _, id := range slices.SortedFunc(maps.Keys(d.list.Members), cmpDevice) {
 		log, err := d.snapshotLog(id)
@@ -288,6 +350,10 @@ func (d *Device) checkSnapshots(rep *Report) error {
 		case snapMismatch:
 			d.refused[h] = true
 			rep.Refused++
+		case snapUnfit:
+			// Made before this device saw a removal, or by a device that
+			// ignores the caps: not an error to alert on, never taken.
+			d.refused[h] = true
 		}
 	}
 	return nil
@@ -342,7 +408,7 @@ func (d *Device) installBase(s *Snapshot, base *mergeState) {
 			d.applied[id] = h
 		}
 	}
-	d.base, d.baseHeads, d.baseHash, d.snap = base, heads, s.Hash(), s
+	d.base, d.baseHeads, d.baseHash, d.baseSnap, d.snap = base, heads, s.Hash(), s, s
 	d.log = nil
 	d.data = d.baseData()
 	var rep Report
@@ -387,6 +453,12 @@ func (d *Device) startFromSnapshot() error {
 		if top.Account != d.account || top.Signer != id || !verifySig(parsePub(m.Rec.SyncPub), labelSummary, top.signedBytes(), top.Sig) {
 			return fmt.Errorf("%w: summary of %x", ErrBadSignature, id[:4])
 		}
+		if top.ListNum < d.lastRemovalEntry() {
+			// A summary from before a removal, or before a removal was
+			// asked for, judged the snapshot it names without that
+			// removal: the others may take it back. Read from write 1.
+			return nil
+		}
 		tops = append(tops, top)
 	}
 	want := common(tops, func(s *Summary) Hash { return s.Snap })
@@ -407,6 +479,9 @@ func (d *Device) startFromSnapshot() error {
 			}
 			if err := d.checkSnapshot(s); err != nil {
 				return err
+			}
+			if !d.fits(s) {
+				return nil // read from write 1
 			}
 			vk := d.vaultKeys[s.KeyGen]
 			if vk == nil {
@@ -431,6 +506,25 @@ func (d *Device) startFromSnapshot() error {
 	return fmt.Errorf("%w: the snapshot every device names is not on the server", ErrMissingWrites)
 }
 
+// lastRemovalEntry is the newest list entry that removes a device, asks
+// for a removal that waits, or applies or cancels one; 0 when there is
+// none.
+func (d *Device) lastRemovalEntry() uint32 {
+	var n uint32
+	for _, en := range d.list.Entries {
+		b := &en.Body
+		switch {
+		case len(b.Removes) > 0, b.Inner != nil && len(b.Inner.Removes) > 0:
+			n = en.Num
+		case b.Action == ActApply || b.Action == ActCancel:
+			if p := d.list.Pending[b.Ref]; p != nil && len(p.Inner.Removes) > 0 {
+				n = en.Num
+			}
+		}
+	}
+	return n
+}
+
 // common is the one value every summary gives, or zero.
 func common(sums []*Summary, of func(*Summary) Hash) Hash {
 	var h Hash
@@ -447,12 +541,7 @@ func common(sums []*Summary, of func(*Summary) Hash) Hash {
 // SnapshotToPrune is the snapshot this device builds on: every current
 // device signed a summary naming it, so the writes it holds may go from
 // the server (SS 9). Nil when there is none.
-func (d *Device) SnapshotToPrune() *Snapshot {
-	if d.base == nil {
-		return nil
-	}
-	return d.snap
-}
+func (d *Device) SnapshotToPrune() *Snapshot { return d.baseSnap }
 
 func cmpDevice(a, b DeviceID) int { return bytes.Compare(a[:], b[:]) }
 

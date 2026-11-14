@@ -17,6 +17,9 @@ func forgeSummary(t *testing.T, w *world, dev, extra *Device, num uint32, hash H
 	t.Helper()
 	s := &Summary{Account: dev.account, Signer: dev.id, Num: dev.sumNum[dev.id] + 1, KeyGen: 1,
 		ListNum: num, ListHash: hash, MinClient: minClient}
+	if prev := dev.summaries[dev.id]; prev != nil {
+		s.Prev = prev.Hash()
+	}
 	for id, h := range dev.applied {
 		if id != extra.id {
 			s.Heads = append(s.Heads, h)
@@ -360,11 +363,8 @@ func TestSnapshots(t *testing.T) {
 	if _, ok := c.Get(gone); ok {
 		t.Fatal("a deleted record came back from the snapshot")
 	}
-	if ids := c.data.nameHolders("old-note", RecordID{}); !slices.Equal(ids, []RecordID{gone}) {
-		t.Fatalf("the deleted record's name is no longer held: %v", ids)
-	}
-	if f := c.data.records[gone].Fields; len(f) != 1 {
-		t.Fatalf("a deleted record kept more than its name: %v", f)
+	if f := c.data.records[gone].Fields; len(f) != 1 || f["name"].Value != "old-note" {
+		t.Fatalf("a deleted record did not keep its name and only that: %v", f)
 	}
 }
 
