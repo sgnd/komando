@@ -678,6 +678,7 @@ var hostKeyNote io.Writer = os.Stderr
 // and how to check it, and passes it on to HostKeyPinned.
 func pinnedOnFirstUse(ctx context.Context, name, hostname string, key ssh.PublicKey) {
 	k := keyNote(name, hostname, key)
+	k.key = nil // the note says what it is; the key itself stays in sshx
 	fmt.Fprintf(hostKeyNote, "komando: first connection to %s (%s): trusted its %s host key %s\n"+
 		"komando: compare it with the server's own (on the server: ssh-keygen -lf /etc/ssh/ssh_host_%s_key.pub); if this key ever changes, komando refuses the server\n",
 		name, hostname, k.Type, k.Fingerprint, keyFileType(k.Type))
