@@ -138,22 +138,22 @@ func (d *Device) change(c *Change) (WriteRef, error) {
 		return WriteRef{}, err
 	}
 	ref := w.Ref()
-	if _, waits := d.data.waiting[ref]; waits && d.AutoApprove && d.keys.Authority != nil && len(d.replacesOf(ref)) == 0 {
+	if w, waits := d.waitingOf(ref); waits && d.AutoApprove && d.keys.Authority != nil && w.Replaces == "" {
 		return ref, d.Approve(ref)
 	}
 	return ref, nil
 }
 
-// replacesOf is the old holders of the name a waiting change takes. A yes
-// that deletes them is never implied by editing: the change waits until
+// waitingOf is the waiting change ref as the screen shows it. A yes that
+// takes a held name is never implied by editing: the change waits until
 // the person has seen "replaces prod-db (deleted)" (SS 8.1).
-func (d *Device) replacesOf(ref WriteRef) []RecordID {
+func (d *Device) waitingOf(ref WriteRef) (Waiting, bool) {
 	for _, w := range d.data.list() {
 		if w.Ref == ref {
-			return w.ReplacesIDs
+			return w, true
 		}
 	}
-	return nil
+	return Waiting{}, false
 }
 
 // refreshBeforeSecret refreshes the list before a secret is sealed, so a
@@ -183,12 +183,17 @@ func (d *Device) Approve(ref WriteRef) error {
 	if d.keys.Authority == nil {
 		return ErrNoAuthority
 	}
-	replaces := d.replacesOf(ref)
-	sig, err := sign(d.keys.Authority, labelApproval, approvalBytes(d.account, ref, replaces))
+	w, ok := d.waitingOf(ref)
+	if !ok {
+		return ErrNotWaiting
+	}
+	c := &Change{Kind: kindApproval, Record: w.Record, Type: w.Type, Target: ref, Replaces: w.ReplacesIDs, Withdraws: w.Withdraws}
+	sig, err := sign(d.keys.Authority, labelApproval, approvalBytes(d.account, c))
 	if err != nil {
 		return err
 	}
-	_, err = d.write(&Change{Kind: kindApproval, Target: ref, Replaces: replaces, Approval: sig})
+	c.Approval = sig
+	_, err = d.write(c)
 	return err
 }
 
@@ -249,9 +254,10 @@ func (d *Device) applyTo(m *mergeState, w *Write, c *Change, rep *Report) {
 		return
 	}
 	pub := parsePub(d.list.authKeyAt(w.Writer, w.ListNum))
-	if pub == nil || !verifySig(pub, labelApproval, approvalBytes(d.account, c.Target, c.Replaces), c.Approval) {
+	if pub == nil || recordID(c.Type, [12]byte(c.Record[:12])) != c.Record ||
+		!verifySig(pub, labelApproval, approvalBytes(d.account, c), c.Approval) {
 		rep.Rejected++
 		return
 	}
-	m.approve(c.Target, c.Replaces)
+	m.approve(c.Target, c.Record, c.Type, c.Replaces, c.Withdraws)
 }

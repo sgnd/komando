@@ -2,6 +2,7 @@ package komandosync
 
 import (
 	"bytes"
+	"cmp"
 	"maps"
 	"slices"
 )
@@ -10,9 +11,10 @@ import (
 
 // encode is the one byte form of the state at heads, the same on every
 // device that merged the same writes: records by ID with their fields by
-// name, waiting changes by write, and the approvals whose change is not
-// among the writes yet. A deleted record keeps only its type and its
-// name: its marker goes, its deletion stays final.
+// name, waiting changes by write, the yeses whose change is not among the
+// writes yet, and the waiting changes a yes set aside. A deleted record
+// keeps only its type and its name: its marker goes, its deletion stays
+// final.
 func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
 	var e enc
 	ids := slices.SortedFunc(maps.Keys(m.records), func(a, b RecordID) int { return bytes.Compare(a[:], b[:]) })
@@ -51,35 +53,37 @@ func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
 		}
 		encodeClock(&e, w.Clock)
 	}
-	var ok []WriteRef
-	for ref := range m.approved {
-		if ref.Seq > heads[ref.Writer].Seq {
-			ok = append(ok, ref)
+	// Yeses whose change is not among the writes yet, with the record each
+	// names.
+	var ok []approval
+	for ap := range m.approved {
+		if ap.Ref.Seq > heads[ap.Ref.Writer].Seq {
+			ok = append(ok, ap)
 		}
 	}
-	slices.SortFunc(ok, cmpRef)
+	slices.SortFunc(ok, func(a, b approval) int {
+		return cmp.Or(cmpRef(a.Ref, b.Ref), cmpRecord(a.Record, b.Record))
+	})
 	e.u32(uint32(len(ok)))
-	for _, ref := range ok {
-		encodeRef(&e, ref)
-		e.u32(uint32(len(m.replaces[ref])))
-		for _, id := range m.replaces[ref] {
-			e.raw(id[:])
+	for _, ap := range ok {
+		encodeRef(&e, ap.Ref)
+		e.raw(ap.Record[:])
+	}
+	// Waiting changes a yes set aside, while they can still matter: the
+	// change waits here, or is not among the writes yet.
+	var out []withdrawal
+	for wd := range m.withdrawn {
+		if m.waiting[wd.Ref] != nil || wd.Ref.Seq > heads[wd.Ref.Writer].Seq {
+			out = append(out, wd)
 		}
 	}
-	// Approved changes that set a name and applied, with the union of
-	// their approvals' old holders: a yes that arrives later deletes the
-	// holders it adds on every device, rebuilt from a snapshot or not.
-	done := slices.SortedFunc(maps.Keys(m.done), cmpRef)
-	e.u32(uint32(len(done)))
-	for _, ref := range done {
-		w := m.done[ref]
-		encodeRef(&e, ref)
-		e.raw(w.Record[:])
-		e.str(w.Type)
-		e.u32(uint32(len(m.replaces[ref])))
-		for _, id := range m.replaces[ref] {
-			e.raw(id[:])
-		}
+	slices.SortFunc(out, func(a, b withdrawal) int {
+		return cmp.Or(cmpRef(a.Ref, b.Ref), cmp.Compare(a.Type, b.Type))
+	})
+	e.u32(uint32(len(out)))
+	for _, wd := range out {
+		encodeRef(&e, wd.Ref)
+		e.str(wd.Type)
 	}
 	return e.b
 }
@@ -138,54 +142,19 @@ func decodeState(b []byte) (*mergeState, error) {
 		m.waiting[ref] = w
 	}
 	for range d.count(1 << 20) {
-		ref := decodeRef(&d)
-		m.approved[ref] = true
-		var ids []RecordID
-		for range d.count(4096) {
-			var id RecordID
-			d.fixed(id[:])
-			ids = append(ids, id)
-		}
-		if len(ids) > 0 {
-			m.replaces[ref] = ids
-		}
+		ap := approval{Ref: decodeRef(&d)}
+		d.fixed(ap.Record[:])
+		m.approved[ap] = true
 	}
 	for range d.count(1 << 20) {
-		ref := decodeRef(&d)
-		w := &waiting{Ref: ref}
-		d.fixed(w.Record[:])
-		w.Type = d.str()
-		m.done[ref] = w
-		var ids []RecordID
-		for range d.count(4096) {
-			var id RecordID
-			d.fixed(id[:])
-			ids = append(ids, id)
-		}
-		if len(ids) > 0 {
-			m.replaces[ref] = ids
-		}
+		wd := withdrawal{Ref: decodeRef(&d)}
+		wd.Type = d.str()
+		m.withdrawn[wd] = true
 	}
 	if err := d.done(); err != nil {
 		return nil, err
 	}
 	return m, nil
-}
-
-// pruneDone empties the list of applied changes that set a name, with
-// the old holders their yeses named (decided by the owner 2026-11-14,
-// finding 57). It runs on the state of every snapshot a device builds on,
-// which every current device has named, so the list holds only the
-// changes since the last such snapshot and never grows without end. A yes
-// that arrives later for a pruned change deletes nothing more; if its
-// holders still hold the name, the clash shows as "waiting: name taken"
-// on every device (SS 8.1). Every device builds on the same snapshots and
-// prunes the same list, so all of them end with the same data.
-func (m *mergeState) pruneDone() {
-	for ref := range m.done {
-		delete(m.replaces, ref)
-	}
-	clear(m.done)
 }
 
 // clone is a deep copy.
@@ -200,13 +169,7 @@ func (m *mergeState) clone() *mergeState {
 		c.waiting[ref] = &cw
 	}
 	maps.Copy(c.approved, m.approved)
-	for ref, ids := range m.replaces {
-		c.replaces[ref] = slices.Clone(ids)
-	}
-	for ref, w := range m.done {
-		cw := *w
-		c.done[ref] = &cw
-	}
+	maps.Copy(c.withdrawn, m.withdrawn)
 	maps.Copy(c.markers, m.markers)
 	return c
 }

@@ -15,24 +15,38 @@ the text could not be built as written.
 
 ## The answer
 
-**Go. Nothing is open; the format can be frozen.** Everything up to
-finding 55 is decided by the owner (2026-11-14), written into SS 6.2,
-7.2, 8.1 and 9, built here and tested. A review of those decisions found
-five faults in the code and five places where SS or this document was
-behind (findings 57 to 66). The code faults are fixed, each with a test
-that fails without its fix. What follows directly from a decided rule is
-written into SS. The last three points were settled on 2026-11-14 (SS
-21 is empty):
+**Go, after one confirmation by the owner; then the format can be
+frozen.** Everything up to finding 55 is decided by the owner
+(2026-11-14), written into SS 6.2, 7.2, 8.1 and 9, built here and tested.
+A review of those decisions found five faults in the code and five
+places where SS or this document was behind (findings 57 to 66). The
+code faults are fixed, each with a test that fails without its fix. What
+follows directly from a decided rule is written into SS. Three points
+were settled on 2026-11-14:
 
 - **Finding 61, two newcomers take one free name at once:** decided by
   the owner: both are shown as "waiting: name taken" and neither is found
   by name until a person picks one. Built and tested.
 - **Finding 57, the list of applied name changes:** decided by the owner:
   it is pruned at every snapshot every current device named. Built and
-  tested. Format change: a snapshot names the snapshot it builds on
-  (`Base`).
+  tested, then found wrong (finding 67): after the pruning a late yes
+  deleted nothing, while a device that had not built on the snapshot yet
+  deleted, and later brought the record back. **Fixed so that there is
+  no list:** a yes now names its change's record and acts from what it
+  names alone, so nothing has to be kept to judge a late yes, and the
+  snapshot no longer names the one it builds on. This meets the
+  decision's aim (nothing grows, every device gives the same result) but
+  not its wording. **Owner to confirm** (SS 21).
 - **Finding 56, Go 1.26:** run. Under Go 1.26.0 `go vet` passes, `go test
   -race` passes, and the vectors check out in Swift.
+
+A review of those builds (findings 67 to 69) found the late-yes fault
+above, that this document and SS 21 said "nothing open" while it stood,
+and that two newcomers approved at once, each yes naming the other, were
+both deleted with nothing shown. A yes now sets aside a change that
+still waits for the same name instead of deleting it, so both stay and
+show as "waiting: name taken" (finding 61's rule). Each is fixed with a
+test that fails without the fix, and written into SS 7.2, 8.1 and 9.
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
@@ -143,11 +157,11 @@ a third review. They are decided as well and built (above).
 | Key transport | `keys.go`, `keyring.go` | HPKE with X-Wing (`crypto/hpke.MLKEM768X25519`, KEM ID 0x647a), HKDF-SHA256, AES-256-GCM. The `info` value binds account, generation and receiver |
 | Device list | `list.go`, `listcheck.go` | The signed hash chain, checked from entry 1 by every device. Account ID = hash of entry 1 |
 | Writes and summaries | `write.go`, `sync.go` | Each write is sealed, signed by the sync key, numbered and chained to the device's previous write, and names the newest list entry. Each sync ends with a signed summary |
-| Merging | `merge.go` | Field by field, newest hybrid clock wins; deletion is final; the stricter-values table; changes that wait apply only with a signed yes, which also deletes the old holder of a name it takes; two agreed records of one type that hold one name are both shown as "waiting: name taken" and are not found by name until a person picks one (`NameClashes`, `Find`, `KeepName`) |
+| Merging | `merge.go` | Field by field, newest hybrid clock wins; deletion is final; the stricter-values table; changes that wait apply only with a signed yes that names their record; the yes also deletes the agreed old holders of the name it takes and sets aside other waiting changes for that name, from what it names alone; two agreed records of one type that hold one name are both shown as "waiting: name taken" and are not found by name until a person picks one (`NameClashes`, `Find`, `KeepName`) |
 | Pairing | `pair.go` | QR or 27 characters (26 for the one-time 128-bit secret, 1 check), 10 minutes, one try |
 | Recovery kit | `kit.go`, `shamir.go`, `recover.go`, `admin.go` | 256-bit key as 56 letters with a check, typed back before sync starts, up to 3 kits, 2-of-3 paper (own Shamir over GF(256)), recovery on a new device, recovery step on a listed device, kit replacement and an authority key signed in with the kit: each waits 24 hours while another device is listed |
 | Removed devices | `removal.go` | Which writes of a removed device count: floor, cut from summaries of listed devices, only what applies by itself between them; merging again without the rest; stricter values written again; a list of dropped writes for the person |
-| Snapshots | `snapshot.go`, `state.go` | A signed, sealed copy of the merged state at a set of writes, naming the snapshot it builds on; judged by every device on that base, confirmed when every current device names it in a summary, then the older writes go and the list of applied name changes is pruned; a new device starts from it |
+| Snapshots | `snapshot.go`, `state.go` | A signed, sealed copy of the merged state at a set of writes; judged by every device, confirmed when every current device names it in a summary, then the older writes go; of two snapshots of the same writes every device takes the one with the smaller hash; a new device starts from it |
 | Hostile server | `server.go` | Stores blobs and logs. Read hooks let a test drop, reorder, replay, roll back, fork per device and swap anything. Write hooks let it drop a store or a delete while saying it was done |
 
 ### The constructions chosen
@@ -283,9 +297,12 @@ its ID is `recordID("deny", first 12 bytes of H(label, dropped write,
 fields))`, so every device that writes it again writes the same rule
 (finding 52).
 
-**Approvals.** The authority key signs the change it agrees to and the
-sorted IDs of the old holders of the name it takes. Applying the yes
-applies the change and deletes those holders in the same step.
+**Approvals.** The authority key signs the change it agrees to, that
+change's record, the sorted IDs of the old holders of the name it takes
+(agreed records and deletion markers), and the sorted references of the
+other waiting changes for that name. Merging the yes deletes those
+holders and sets those waiting changes aside, from the yes alone, and
+applies the change when it is here and names that record.
 
 **Hashes.** Every labelled hash puts each part's length in front of it, so
 two lists of parts never hash the same way.
@@ -295,8 +312,8 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`cd sync && go test -race ./...`: 132 tests and subtests pass, 0
-fail (94 top-level tests); statement coverage 87.9%. The same run passes
+`cd sync && go test -race ./...`: 136 tests and subtests pass, 0
+fail (98 top-level tests); statement coverage 88.4%. The same run passes
 under Go 1.27.3 (the default toolchain here) and under Go 1.26.0
 (`GOTOOLCHAIN=go1.26.0`, finding 56), and earlier runs passed under Go
 1.27.4. All table-driven where there is a table.
@@ -376,12 +393,13 @@ state.
 
 **Vectors.** `testdata/vectors.json` (record sealing, Padmé, key IDs, kit
 letters and derived keys, paper parts, HPKE X-Wing, the fixed signature
-form, a list entry's bytes and hash, the pairing code, a snapshot (its header
-with `Base`), a deny rule's ID, an approval's signed bytes, and the frozen layouts: a summary
+form, a list entry's bytes and hash, the pairing code, a snapshot and
+its header, a deny rule's ID, an approval's signed bytes (with its
+record and a change it sets aside), and the frozen layouts: a summary
 with `Prev`, `Snap` and `Base`, a write's header, signed bytes and hash,
-a change body with `Target`, a deny rule written again and its ID, and a
-snapshot state with a deleted record, a waiting change, approvals and an
-applied change that set a name) is computed by the
+a change body with `Target` and `Withdraws`, a deny rule written again
+and its ID, and a snapshot state with a deleted record, a waiting
+change, yeses past the heads and waiting changes set aside) is computed by the
 prototype and only pins regressions. Two outside checks stand behind it:
 
 - `testdata/crosscheck.swift` recomputes every value in it with Apple
@@ -392,7 +410,7 @@ prototype and only pins regressions. Two outside checks stand behind it:
   hash, a deny rule's ID and the bytes an approval signs. It builds each
   layout from its fields, never from given bytes: the summary, the write
   (header, seal, signed bytes, hash), the change body, the deny rule
-  written again, the snapshot header (with `Base` after `KeyGen`) and
+  written again, the snapshot header and
   the snapshot state, sorting and filtering as the
   format says. It prints 42 checks, all ok (macOS 27, Swift 6.4.2); the snapshot
   header check replaced the one that only compared the header's end.
@@ -1275,7 +1293,8 @@ used Go 1.27.3 (the default toolchain in this worktree) and Go 1.27.4
 `go vet ./...` passes; `go test -race -count=1 ./...` passes;
 `swift testdata/crosscheck.swift testdata/vectors.json` gives every check
 ok. After findings 57 and 61 were built, the same runs pass again under
-Go 1.26.0 and Go 1.27.3 (132 tests and subtests, 42 Swift checks).
+Go 1.26.0 and Go 1.27.3 (132 tests and subtests, 42 Swift checks), and
+again after findings 67 to 69 (136 tests and subtests, 42 Swift checks).
 Recorded in SS 7.2, 18 and 21.
 
 ## Findings of the review of the owner's freeze decisions (2026-11-14)
@@ -1305,12 +1324,14 @@ state gains one list). A waiting change whose record is deleted is no
 longer listed.** Tests: `TestTwoApprovalsOfOneNewcomerAgree`,
 `TestLateApprovalAddsAHolderInAnyOrder` (six orders, two through a
 snapshot). Written into SS 8.1 and 9 as following from the decided rule
-and from order-free merging.
+and from order-free merging. **Replaced by finding 67:** a yes now acts
+from what it names alone, and the list below is gone.
 
 The list of applied name changes then grew by one entry per approved new
 name or rename and was never pruned. **Decided by the owner 2026-11-14:
 prune it at every snapshot every current device has named, keeping the
-result identical on all devices.** Built so:
+result identical on all devices.** Built so (replaced by finding 67,
+which keeps no list):
 
 - A device empties the list when it builds on a snapshot every current
   device named, and a new device does when it starts from one. So a
@@ -1331,12 +1352,9 @@ result identical on all devices.** Built so:
   snapshot waiting, never refused with an alert; its signer makes a newer
   one. A device never goes back from a snapshot to the one it builds on.
 
-Tests: `TestSnapshotPrunesAppliedNameChanges` (the second snapshot holds
-one entry, not three; all devices and a new one hold the same data),
-`TestSnapshotOnANewerBaseIsJudgedOnIt` (a device that does not build on
-the first snapshot yet takes an honest second one built on it). Each
-fails under its mutation: no pruning at the base, no pruning while
-judging, judging without the base, and going back to the base.
+Tests then: `TestSnapshotPrunesAppliedNameChanges` (removed with the
+list) and `TestSnapshotOnANewerBaseIsJudgedOnIt` (kept as
+`TestDeviceOneSnapshotBehindTakesANewerOne`).
 
 ### 58. Wrong: a stricter value was written over a newer yes read in the same sync (fixed in code)
 
@@ -1397,7 +1415,10 @@ person picks one; nothing disappears silently.** Built so:
   (finding 51). Renaming or deleting one waits like any rename or delete.
 - Two people who each keep a different one, on two devices at once, both
   approve a deleting yes; both records are then deleted, as each screen
-  said. That is the rule of finding 57, not a new one.
+  said. Both were agreed records, and a deletion is final, so no rule
+  can keep both once one yes has applied somewhere. Two newcomers that
+  still waited are different: since finding 69 neither yes deletes the
+  other, and both stay as "name taken".
 
 Tests: `TestTwoNewcomersWithOneNameWaitForAPick` (three devices, both
 servers waiting on all of them, the pick deletes the other everywhere),
@@ -1440,6 +1461,92 @@ in SS 7.2 and 18, and in finding 56 and the timings below.
 
 Updated from a fresh run (above).
 
+## Findings of the review of the builds of findings 57 and 61 (2026-11-14)
+
+A review attacked the code built for findings 57 and 61. Each fault is
+fixed with a test in `review6_test.go` that fails on the code before its
+fix, or under the mutation named.
+
+### 67. Wrong: pruning the list of applied name changes brought a deleted record back (fixed in code, format change)
+
+S1 "prod-db" is agreed. A makes S2 "prod-db". C, which has not read S2,
+makes S3 "prod-db" and approves it: S3 is live, S1 deleted. A reads S3.
+B, which has not read S3, approves S2 naming S1 only, and makes a
+snapshot. A then approves S2 naming S1 and S3, after the snapshot's
+heads. A device that had not built on the snapshot yet still held S2 in
+the list and deleted S3. Once every device named the snapshot, each
+device built on it: the list was pruned, A's yes was merged again
+against the pruned state, deleted nothing, and S3 came back. A new
+device that started from the snapshot never deleted it. So a deletion
+was not final, and devices showed different data while some had built
+on the snapshot and some had not. A pruned list cannot be fixed by
+pruning less: a yes, or a modified client's yes, can come at any time.
+
+**Fixed: a yes acts from what it names alone, never from the state it
+arrives in.** It names its change's record and type, the old holders it
+deletes and the waiting changes it sets aside (finding 69), and all of
+it is signed with the authority key. Merged, it deletes the holders of
+its record's type it names, whether its change still waits, has
+applied, has not arrived yet or lies inside a snapshot; the change
+applies only with a yes that names its record. Since no state is
+consulted, nothing has to be kept to judge a late yes: the list of
+applied name changes is gone, and so is `Snapshot.Base`, which existed
+only because states built on two snapshots could differ in that list.
+The owner's decision on finding 57 (prune at every confirmed snapshot,
+identical on all devices) is met in its aim, nothing grows and every
+device gives the same result, but not in its wording: **owner to
+confirm** (SS 21). Format changes: an approval's body and signed bytes
+gain the record and `Withdraws`; the snapshot header loses `Base`; the
+snapshot state keeps each yes past the heads with its record, and the
+waiting changes set aside, instead of the list.
+
+Without `Base`, two snapshots of the same writes (one built on the
+other with no write between) made devices go back and forth, and no
+snapshot was ever confirmed. **Fixed: of two snapshots of the same
+writes, which hold the same state, every device takes the one with the
+smaller hash.**
+
+Tests: `TestLateYesAfterASnapshotDeletesTheSame` (A saw S3 live: S3 is
+deleted on every device, before and after building on the snapshot, and
+on a new device that starts from it, and never comes back),
+`TestLateYesForAWaitingNewcomerAfterASnapshot` (A saw S3 still waiting:
+S2 and S3 both stay as "name taken" everywhere, nothing deleted comes
+back), `TestAYesActsOnlyForTheRecordItNames` (a yes naming another
+record approves nothing; a secret's yes neither deletes a server nor
+sets aside a server's change; both orders),
+`TestTwoSnapshotsOfTheSameWritesSettleOnOne` (fails without the smaller
+hash rule). `TestLateApprovalAddsAHolderInAnyOrder` now runs eight
+orders, four through a snapshot. Written into SS 7.2, 8.1 and 9 as
+following from the decided rules and order-free merging.
+
+### 68. Gap: this document and SS 21 said nothing was open (fixed)
+
+"Nothing is open; the format can be frozen" stood while finding 67 did.
+Corrected here and in SS 9, 18 and 21: one confirmation is open.
+
+### 69. Wrong: two newcomers approved at once, each yes naming the other, were both deleted (fixed in code)
+
+S1 "prod-db" is deleted. A and B each make a server named prod-db and
+read each other's while both wait. Each screen shows "replaces prod-db
+(deleted)" and lists the other one, and each person says yes. Each yes
+deleted the other's newcomer, so both were gone on every device and
+nothing was shown, against finding 61's "nothing disappears silently".
+With final deletions and order-free merging, two yeses that delete each
+other's records cannot be undone once one has applied, so the fix is in
+what a yes does to a holder that still waits. **Fixed: a yes deletes the
+agreed records and deletion markers that hold the name; another change
+that still waits for the name was never agreed, so the yes sets it
+aside (`Withdraws`): it is no longer asked about. If it has its own yes,
+it applies too, and both records show as "waiting: name taken" under
+finding 61's rule.** The screen line stays "replaces prod-db
+(deleted)", and a yes that sets something aside is never implied by
+editing (finding 51). Two agreed records that each person keeps at once
+(finding 61) are still both deleted: both were agreed, and each screen
+said so. Test: `TestTwoWaitingNewcomersApprovedAtOnceBothStay`;
+`TestTwoApprovalsOfOneNewcomerAgree` now expects S3, which only A's yes
+named while it waited, to be set aside rather than deleted. Written into
+SS 8.1 as following from finding 61's decision.
+
 ## Limits of this prototype
 
 - No teams, member lists or team vaults (SS 12), no approvals on the
@@ -1458,9 +1565,10 @@ Updated from a fresh run (above).
   so a real service must keep the chain of summaries from before each
   removal up to now. SS 15 now says the service never deletes summaries
   (finding 64). Snapshots drop writes, not summaries.
-- A snapshot's state keeps the applied changes that set a name since the
-  snapshot it builds on (finding 57); the list is pruned at every
-  snapshot every current device named.
+- A snapshot's state keeps every waiting change, also one a yes set
+  aside, as it keeps every deleted record's name: a change set aside
+  can still apply if its own yes arrives. Like waiting changes before
+  finding 67, these grow with the changes that are never approved.
 - A snapshot is one sealed blob of the whole state. A real service would
   split it into parts so that a device fetches it in pieces.
 - Pruning is a test hook (`MemServer.PruneWrites`). A device judges a
@@ -1473,28 +1581,27 @@ Updated from a fresh run (above).
 
 ## Sizes and timings
 
-Apple M2, Go 1.27 (1.27.3 or 1.27.4: the run did not record which; not
-run again after findings 57 and 61), `go test -bench . -benchtime=2s` (the two joins:
-`-benchtime=1x`, best of three runs, on a busier machine than before).
+Apple M2, Go 1.27.3, run again after findings 67 to 69, `go test -bench .
+-benchtime=2s` (the two joins: `-benchtime=1x`, best of three runs).
 
 | Operation | Time |
 |---|---|
-| Seal a 1 KiB record (HKDF, AES-256-GCM, Padmé) | 2.2 µs |
+| Seal a 1 KiB record (HKDF, AES-256-GCM, Padmé) | 2.1 µs |
 | Open a 1 KiB record | 1.7 µs |
 | Sign, P-256 fixed form (software) | 23 µs |
-| Verify, P-256 | 55 µs |
-| Seal a key to a device, HPKE X-Wing | 114 µs |
-| Open it | 83 µs |
-| New device joins and checks 1,000 records (2,000 writes) from write 1 | 191 ms (258 ms in the re-test run) |
-| New device joins from a confirmed snapshot of the same 1,000 records | 9 ms |
-| A device holding 1,000 records pulls one change | 2.6 ms |
+| Verify, P-256 | 56 µs |
+| Seal a key to a device, HPKE X-Wing | 116 µs |
+| Open it | 84 µs |
+| New device joins and checks 1,000 records (2,000 writes) from write 1 | 184 ms |
+| New device joins from a confirmed snapshot of the same 1,000 records | 6.6 ms |
+| A device holding 1,000 records pulls one change | 2.8 ms |
 
 | Thing | Size |
 |---|---|
 | List entry 1 (first device, account key 1) | 2,955 bytes |
 | Entry adding the first kit | 1,532 bytes |
 | Entry adding a device | 1,715 bytes |
-| A write (a 3-field server record) | 579 bytes (288 sealed) |
+| A write (a 3-field server record) | 595 bytes (304 sealed) |
 | A summary naming 2 devices (and two snapshots, and the summary before it) | 376 bytes |
 | A snapshot of 1,000 server records | 226 KB |
 | 1,000 records on the server after pruning to that snapshot | about 0.23 MB |

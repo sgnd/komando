@@ -34,6 +34,7 @@ var (
 	ErrBadSnapshot     = errors.New("komandosync: snapshot refused")
 	ErrNoRecord        = errors.New("komandosync: no live record of this type holds this name")
 	ErrNameTaken       = errors.New("komandosync: two or more records hold this name; a person picks one first")
+	ErrNotWaiting      = errors.New("komandosync: no change waits for a yes under this write")
 )
 
 // protocolErrors are the answers of a check that ran. A list that fails

@@ -99,8 +99,15 @@ type changeVector struct {
 	TargetSeq      uint64
 	TargetHash     string
 	Replaces       []string
+	Withdraws      []refVector
 	Approval       string
 	Bytes          string
+}
+
+type refVector struct {
+	Writer string
+	Seq    uint64
+	Hash   string
 }
 
 type denyAgainVector struct {
@@ -113,15 +120,16 @@ type denyAgainVector struct {
 
 // stateVector: the one byte form of the merged data a snapshot seals.
 // Records are sorted by ID; a deleted record keeps only its name. Waiting
-// changes and the applied changes that set a name are sorted by write;
-// approvals are kept only for writes past the heads.
+// changes are sorted by write. Yeses are kept only for writes past the
+// heads, sorted by write, then record; waiting changes a yes set aside
+// only while they wait or are past the heads, sorted by write, then type.
 type stateVector struct {
-	Heads    []headVector
-	Records  []stateRecord
-	Waiting  []stateWaiting
-	Approved []stateApproved
-	Done     []stateDone
-	Bytes    string
+	Heads     []headVector
+	Records   []stateRecord
+	Waiting   []stateWaiting
+	Approved  []stateApproved
+	Withdrawn []stateWithdrawn
+	Bytes     string
 }
 
 type stateField struct {
@@ -150,18 +158,17 @@ type stateWaiting struct {
 }
 
 type stateApproved struct {
-	Writer   string
-	Seq      uint64
-	Hash     string
-	Replaces []string
+	Writer string
+	Seq    uint64
+	Hash   string
+	Record string
 }
 
-type stateDone struct {
-	Writer       string
-	Seq          uint64
-	Hash         string
-	Record, Type string
-	Replaces     []string
+type stateWithdrawn struct {
+	Writer string
+	Seq    uint64
+	Hash   string
+	Type   string
 }
 
 func hxs[T ~[16]byte](ids []T) []string {
@@ -204,7 +211,7 @@ func layouts(v *vectors) {
 	v.DenyAgainID = denyAgainVector{hx(dev2[:]), 3, hx(target.Hash[:]), pairs(fields), hx(again[:])}
 	c := &Change{Kind: kindRecord, Record: again, Type: TypeDeny, Create: true, Fields: fields, Target: target}
 	v.Change = changeVector{c.Kind, hx(c.Record[:]), c.Type, c.Create, c.Delete, pairs(fields), hx(dev2[:]), 3,
-		hx(target.Hash[:]), hxs(c.Replaces), hx(c.Approval[:]), hx(c.marshal())}
+		hx(target.Hash[:]), hxs(c.Replaces), []refVector{}, hx(c.Approval[:]), hx(c.marshal())}
 
 	w := &Write{Account: Hash(seq(50, 32)), Vault: [16]byte(seq(180, 16)), Writer: dev, Seq: 8, Prev: Hash(seq(130, 32)),
 		ListNum: 4, ListHash: Hash(seq(90, 32)), KeyGen: 2, Clock: HLC{Wall: 1_700_000_000_000, Count: 3, Dev: dev}}
@@ -214,9 +221,10 @@ func layouts(v *vectors) {
 		hx(w.ListHash[:]), w.KeyGen, w.Clock.Wall, w.Clock.Count, hx(w.Body.Seed[:]), hx(w.Body.Commit[:]),
 		hx(w.Body.CT), hx(w.header()), hx(w.signedBytes()), hx(wh[:])}
 
-	// A live server, its deleted old holder, a waiting edit, an approval
-	// for a write past the heads, one at the heads (left out), and an
-	// applied newcomer that replaced the old holder.
+	// A live server, its deleted old holder, a waiting edit, two yeses for
+	// a write past the heads, one at the heads (left out), and waiting
+	// changes a yes set aside: one that waits here, one past the heads and
+	// one at the heads that no longer waits (left out).
 	srv, old := recordID(TypeServer, [12]byte(seq(1, 12))), recordID(TypeServer, [12]byte(seq(20, 12)))
 	clk := HLC{Wall: 1_700_000_000_000, Count: 1, Dev: dev}
 	ref := func(d DeviceID, n uint64, b int) WriteRef { return WriteRef{Writer: d, Seq: n, Hash: Hash(seq(b, 32))} }
@@ -227,12 +235,12 @@ func layouts(v *vectors) {
 		"name": {"prod-db", clk}, "address": {"10.0.0.6", HLC{Wall: 1_700_000_000_500, Count: 0, Dev: dev2}}}}
 	m.waiting[ref(dev2, 3, 140)] = &waiting{Ref: ref(dev2, 3, 140), Record: srv, Type: TypeServer,
 		Fields: []Field{{"address", "203.0.113.9"}}, Clock: HLC{Wall: 1_700_000_001_000, Count: 2, Dev: dev2}}
-	m.approved[ref(dev2, 4, 160)] = true
-	m.replaces[ref(dev2, 4, 160)] = []RecordID{old}
-	m.approved[ref(dev, 6, 120)] = true
-	m.approved[ref(dev, 7, 130)] = true
-	m.replaces[ref(dev, 7, 130)] = []RecordID{old}
-	m.done[ref(dev, 7, 130)] = &waiting{Ref: ref(dev, 7, 130), Record: srv, Type: TypeServer}
+	m.approved[approval{ref(dev2, 4, 160), srv}] = true
+	m.approved[approval{ref(dev2, 4, 160), old}] = true
+	m.approved[approval{ref(dev, 6, 120), srv}] = true
+	m.withdrawn[withdrawal{ref(dev2, 3, 140), TypeServer}] = true
+	m.withdrawn[withdrawal{ref(dev2, 5, 190), TypeSecret}] = true
+	m.withdrawn[withdrawal{ref(dev, 5, 110), TypeServer}] = true
 	hm := map[DeviceID]Head{}
 	for _, h := range heads {
 		hm[h.Device] = h
@@ -255,11 +263,15 @@ func layouts(v *vectors) {
 	st.Waiting = []stateWaiting{{hx(dev2[:]), 3, hx(seq(140, 32)), hx(srv[:]), TypeServer, false, false,
 		pairs(wt.Fields), wt.Clock.Wall, wt.Clock.Count, hx(wt.Clock.Dev[:])}}
 	st.Approved = []stateApproved{
-		{hx(dev2[:]), 4, hx(seq(160, 32)), hxs([]RecordID{old})},
-		{hx(dev[:]), 6, hx(seq(120, 32)), []string{}},
-		{hx(dev[:]), 7, hx(seq(130, 32)), hxs([]RecordID{old})},
+		{hx(dev2[:]), 4, hx(seq(160, 32)), hx(srv[:])},
+		{hx(dev[:]), 6, hx(seq(120, 32)), hx(srv[:])},
+		{hx(dev2[:]), 4, hx(seq(160, 32)), hx(old[:])},
 	}
-	st.Done = []stateDone{{hx(dev[:]), 7, hx(seq(130, 32)), hx(srv[:]), TypeServer, hxs([]RecordID{old})}}
+	st.Withdrawn = []stateWithdrawn{
+		{hx(dev2[:]), 5, hx(seq(190, 32)), TypeSecret},
+		{hx(dev[:]), 5, hx(seq(110, 32)), TypeServer},
+		{hx(dev2[:]), 3, hx(seq(140, 32)), TypeServer},
+	}
 	v.State = st
 }
 
@@ -271,7 +283,7 @@ type snapshotVector struct {
 	VaultKey, Seed, Header, State, StateHash string
 	Commit, Ciphertext, Hash                 string
 	Account, Signer, Num, ListNum, ListHash  string
-	KeyGen, Base, Heads                      string
+	KeyGen, Heads                            string
 }
 
 type recordVector struct {
@@ -361,7 +373,7 @@ func deterministic(t *testing.T) vectors {
 	m.records[rid] = &record{Type: TypeServer, Exists: true, Fields: map[string]fieldVal{
 		"address": {Value: "10.0.0.5", Clock: HLC{Wall: 1_700_000_000_000, Count: 1, Dev: DeviceID(seq(30, 16))}}}}
 	snap := &Snapshot{Account: Hash(seq(50, 32)), Signer: DeviceID(seq(30, 16)), Num: 1, ListNum: 4,
-		ListHash: Hash(seq(90, 32)), KeyGen: 2, Base: Hash(seq(150, 32)),
+		ListHash: Hash(seq(90, 32)), KeyGen: 2,
 		Heads: []Head{{Device: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))}}}
 	state := m.encode(snap.headMap())
 	snap.State = sum(labelSnapState, state)
@@ -370,13 +382,17 @@ func deterministic(t *testing.T) vectors {
 	v.Snapshot = snapshotVector{hx(seq(0, 32)), hx(snap.Body.Seed[:]), hx(snap.header()), hx(state), hx(snap.State[:]),
 		hx(snap.Body.Commit[:]), hx(snap.Body.CT), hx(sh[:]),
 		hx(snap.Account[:]), hx(snap.Signer[:]), fmt.Sprintf("%016x", snap.Num), fmt.Sprintf("%08x", snap.ListNum),
-		hx(snap.ListHash[:]), fmt.Sprintf("%08x", snap.KeyGen), hx(snap.Base[:]), hx(snapHeads(snap.Heads))}
+		hx(snap.ListHash[:]), fmt.Sprintf("%08x", snap.KeyGen), hx(snapHeads(snap.Heads))}
 	did := denyID(DeviceID(seq(30, 16)), 7)
 	v.DenyID = map[string]string{"writer": hx(seq(30, 16)), "seq": "0000000000000007", "id": hx(did[:])}
-	target := WriteRef{Writer: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))}
+	yes := &Change{Kind: kindApproval, Record: RecordID(seq(40, 16)), Type: TypeServer,
+		Target:    WriteRef{Writer: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))},
+		Replaces:  []RecordID{rid},
+		Withdraws: []WriteRef{{Writer: DeviceID(seq(60, 16)), Seq: 3, Hash: Hash(seq(140, 32))}}}
 	v.Approval = map[string]string{"account": hx(seq(50, 32)), "writer": hx(seq(30, 16)), "seq": "0000000000000007",
-		"hash": hx(seq(130, 32)), "replaces": hx(seq(10, 16)),
-		"bytes": hx(approvalBytes(Hash(seq(50, 32)), target, []RecordID{rid}))}
+		"hash": hx(seq(130, 32)), "record": hx(seq(40, 16)), "replaces": hx(seq(10, 16)),
+		"withdraw_writer": hx(seq(60, 16)), "withdraw_seq": "0000000000000003", "withdraw_hash": hx(seq(140, 32)),
+		"bytes": hx(approvalBytes(Hash(seq(50, 32)), yes))}
 	layouts(&v)
 	return v
 }

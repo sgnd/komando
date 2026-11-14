@@ -258,9 +258,11 @@ func TestApprovingANewcomerDeletesTheOldHolder(t *testing.T) {
 	}
 
 	// A yes whose list of old holders was swapped for another record.
-	sig, err := sign(phone.keys.Authority, labelApproval, approvalBytes(phone.account, ws[0].Ref, ws[0].ReplacesIDs))
+	yes := &Change{Kind: kindApproval, Record: ws[0].Record, Type: ws[0].Type, Target: ws[0].Ref, Replaces: ws[0].ReplacesIDs}
+	sig, err := sign(phone.keys.Authority, labelApproval, approvalBytes(phone.account, yes))
 	must(t, err)
-	_, err = phone.write(&Change{Kind: kindApproval, Target: ws[0].Ref, Replaces: []RecordID{other}, Approval: sig})
+	yes.Replaces, yes.Approval = []RecordID{other}, sig
+	_, err = phone.write(yes)
 	must(t, err)
 	rep, err := mini.Sync()
 	must(t, err)

@@ -129,14 +129,18 @@ type Change struct {
 	Create bool
 	Delete bool
 	Fields []Field
-	// An approval: the write agreed to, the old holders of its name that
-	// the same yes deletes (SS 8.1), and the approver's authority key
-	// signature over both ("a person agreed"). A deny rule written again
-	// from past a removed device's cut names the dropped write as Target
-	// (SS 6.2); every other record change leaves it zero.
-	Target   WriteRef
-	Replaces []RecordID
-	Approval Sig
+	// An approval: the write agreed to (Target) and its record (Record,
+	// with Type), the old holders of its name that the same yes deletes
+	// (Replaces: agreed records and deletion markers), the waiting changes
+	// for that name it sets aside (Withdraws, SS 8.1), and the approver's
+	// authority key signature over all of them ("a person agreed"). A deny
+	// rule written again from past a removed device's cut names the
+	// dropped write as Target (SS 6.2); every other record change leaves
+	// it zero.
+	Target    WriteRef
+	Replaces  []RecordID
+	Withdraws []WriteRef
+	Approval  Sig
 }
 
 func (c *Change) marshal() []byte {
@@ -157,6 +161,10 @@ func (c *Change) marshal() []byte {
 	e.u32(uint32(len(c.Replaces)))
 	for _, id := range c.Replaces {
 		e.raw(id[:])
+	}
+	e.u32(uint32(len(c.Withdraws)))
+	for _, r := range c.Withdraws {
+		encodeRef(&e, r)
 	}
 	e.raw(c.Approval[:])
 	return e.b
@@ -180,6 +188,9 @@ func parseChange(b []byte) (*Change, error) {
 		d.fixed(id[:])
 		c.Replaces = append(c.Replaces, id)
 	}
+	for range d.count(4096) {
+		c.Withdraws = append(c.Withdraws, decodeRef(&d))
+	}
 	d.fixed(c.Approval[:])
 	if err := d.done(); err != nil {
 		return nil, err
@@ -192,20 +203,30 @@ func parseChange(b []byte) (*Change, error) {
 			return nil, ErrBadWrite // one canonical form: sorted, each record once
 		}
 	}
+	for i := 1; i < len(c.Withdraws); i++ {
+		if cmpRef(c.Withdraws[i-1], c.Withdraws[i]) >= 0 {
+			return nil, ErrBadWrite // the same: sorted, each write once
+		}
+	}
 	return c, nil
 }
 
 // approvalBytes is what an approver's authority key signs: the change it
-// agrees to and the old holders of its name that the same yes deletes.
-func approvalBytes(account Hash, t WriteRef, replaces []RecordID) []byte {
+// agrees to and that change's record, the old holders of its name that
+// the same yes deletes, and the waiting changes for that name it sets
+// aside.
+func approvalBytes(account Hash, c *Change) []byte {
 	var e enc
 	e.raw(account[:])
-	e.raw(t.Writer[:])
-	e.u64(t.Seq)
-	e.raw(t.Hash[:])
-	e.u32(uint32(len(replaces)))
-	for _, id := range replaces {
+	encodeRef(&e, c.Target)
+	e.raw(c.Record[:])
+	e.u32(uint32(len(c.Replaces)))
+	for _, id := range c.Replaces {
 		e.raw(id[:])
+	}
+	e.u32(uint32(len(c.Withdraws)))
+	for _, r := range c.Withdraws {
+		encodeRef(&e, r)
 	}
 	return e.b
 }

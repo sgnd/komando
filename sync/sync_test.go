@@ -187,9 +187,11 @@ func TestForgedApprovalsAreDropped(t *testing.T) {
 	must(t, err)
 	// The Mac signs an "approval" with its sync key: it has no authority
 	// key, so every device drops it.
-	sig, err := sign(mini.keys.Sync, labelApproval, approvalBytes(mini.account, ref, nil))
+	yes := &Change{Kind: kindApproval, Record: id, Type: TypeServer, Target: ref}
+	sig, err := sign(mini.keys.Sync, labelApproval, approvalBytes(mini.account, yes))
 	must(t, err)
-	_, err = mini.write(&Change{Kind: kindApproval, Target: ref, Approval: sig})
+	yes.Approval = sig
+	_, err = mini.write(yes)
 	must(t, err)
 	rep, err := phone.Sync()
 	must(t, err)

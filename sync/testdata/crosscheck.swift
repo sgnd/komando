@@ -206,9 +206,9 @@ check("pairing code", pc26 + String(crockford[pcSum & 31]) == pc["code"]!)
 let sn = v["snapshot"] as! [String: String]
 let snHeader = hex(sn["Header"]!)
 check("snapshot state hash", hx(sum("komando-sync/1 snapshot state", [hex(sn["State"]!)])) == sn["StateHash"]!)
-// The header: version 1, suite 1, then Base after KeyGen (finding 57).
+// The header: version 1, suite 1, then its fields in order.
 var snBuilt = Data([1, 0, 1])
-for k in ["Account", "Signer", "Num", "ListNum", "ListHash", "KeyGen", "Base", "Heads", "StateHash"] { snBuilt += hex(sn[k]!) }
+for k in ["Account", "Signer", "Num", "ListNum", "ListHash", "KeyGen", "Heads", "StateHash"] { snBuilt += hex(sn[k]!) }
 check("snapshot header", hx(snBuilt) == sn["Header"]!)
 var snInfo = Data("komando-sync/1 record".utf8)
 snInfo.append(0)
@@ -229,10 +229,13 @@ let dn = v["deny_rule_id"] as! [String: String]
 let dnRnd = sum("komando-sync/1 deny rule id", [hex(dn["writer"]!), hex(dn["seq"]!)]).prefix(12)
 check("deny rule id", hx(dnRnd + sum("komando-sync/1 record type", [Data("deny".utf8), dnRnd]).prefix(4)) == dn["id"]!)
 
-// An approval signs the change it agrees to and the old holders of its
-// name that the same yes deletes.
+// An approval signs the change it agrees to and its record, the old
+// holders of its name that the same yes deletes, and the waiting changes
+// for that name it sets aside.
 let ap = v["approval_bytes"] as! [String: String]
-let apBytes = hex(ap["account"]!) + hex(ap["writer"]!) + hex(ap["seq"]!) + hex(ap["hash"]!) + u32(1) + hex(ap["replaces"]!)
+let apParts: [Data] = [hex(ap["account"]!), hex(ap["writer"]!), hex(ap["seq"]!), hex(ap["hash"]!), hex(ap["record"]!),
+                       u32(1), hex(ap["replaces"]!), u32(1), hex(ap["withdraw_writer"]!), hex(ap["withdraw_seq"]!), hex(ap["withdraw_hash"]!)]
+let apBytes = apParts.reduce(Data(), +)
 check("approval bytes", hx(apBytes) == ap["bytes"]!)
 
 // Layouts, built from their fields: numbers big-endian, strings and byte
@@ -260,6 +263,10 @@ func heads(_ o: Obj, _ k: String) -> Data {
     let hs = o[k] as! [Obj]
     return cat([u32(hs.count)] + hs.map { ref($0, "Device") })
 }
+func refList(_ o: Obj, _ k: String) -> Data {
+    let rs = o[k] as! [Obj]
+    return cat([u32(rs.count)] + rs.map { ref($0) })
+}
 func clock(_ o: Obj) -> Data { cat([u64(I(o, "Wall")), u32(I(o, "Count")), H(o, "Dev")]) }
 func byRef(_ a: Obj, _ b: Obj) -> Bool {
     let x = H(a, "Writer"), y = H(b, "Writer")
@@ -285,7 +292,7 @@ check("deny rule written again id", hx(daRnd + daTag) == S(da, "ID"))
 let cv = v["change_deny_written_again"] as! Obj
 let cvBytes = cat([u8(I(cv, "Kind")), H(cv, "Record"), str(S(cv, "Type")), flag(cv, "Create"), flag(cv, "Delete"),
                    fieldPairs(cv, "Fields"), ref(cv, "TargetWriter", "TargetSeq", "TargetHash"),
-                   idList(cv, "Replaces"), H(cv, "Approval")])
+                   idList(cv, "Replaces"), refList(cv, "Withdraws"), H(cv, "Approval")])
 check("change bytes", hx(cvBytes) == S(cv, "Bytes"))
 check("change names the deny rule written again", S(cv, "Record") == S(da, "ID"))
 
@@ -309,8 +316,9 @@ check("write signed bytes", hx(wvSigned) == S(wv, "SignedBytes"))
 check("write hash", hx(sum("komando-sync/1 write hash", [wvSigned])) == S(wv, "Hash"))
 
 // A snapshot's state: records sorted by ID, a deleted one keeps only its
-// name; waiting changes by write; approvals only past the heads; then the
-// applied changes that set a name.
+// name; waiting changes by write; yeses only past the heads, by write and
+// record; then waiting changes a yes set aside, while they wait or are
+// past the heads, by write and type.
 let st = v["snapshot_state"] as! Obj
 var stHeads: [String: Int] = [:]
 for h in st["Heads"] as! [Obj] { stHeads[S(h, "Device")] = I(h, "Seq") }
@@ -328,12 +336,18 @@ stBytes += u32(wts.count)
 for w in wts {
     stBytes += cat([ref(w), H(w, "Record"), str(S(w, "Type")), flag(w, "Create"), flag(w, "Delete"), fieldPairs(w, "Fields"), clock(w)])
 }
-let aps = (st["Approved"] as! [Obj]).filter { I($0, "Seq") > (stHeads[S($0, "Writer")] ?? 0) }.sorted(by: byRef)
+func pastHeads(_ o: Obj) -> Bool { I(o, "Seq") > (stHeads[S(o, "Writer")] ?? 0) }
+let aps = (st["Approved"] as! [Obj]).filter(pastHeads).sorted {
+    byRef($0, $1) || (!byRef($1, $0) && H($0, "Record").lexicographicallyPrecedes(H($1, "Record")))
+}
 stBytes += u32(aps.count)
-for a in aps { stBytes += cat([ref(a), idList(a, "Replaces")]) }
-let dns = (st["Done"] as! [Obj]).sorted(by: byRef)
-stBytes += u32(dns.count)
-for d in dns { stBytes += cat([ref(d), H(d, "Record"), str(S(d, "Type")), idList(d, "Replaces")]) }
+for a in aps { stBytes += cat([ref(a), H(a, "Record")]) }
+let waits = Set(wts.map { hx(ref($0)) })
+let wds = (st["Withdrawn"] as! [Obj]).filter { pastHeads($0) || waits.contains(hx(ref($0))) }.sorted {
+    byRef($0, $1) || (!byRef($1, $0) && S($0, "Type").utf8.lexicographicallyPrecedes(S($1, "Type").utf8))
+}
+stBytes += u32(wds.count)
+for d in wds { stBytes += cat([ref(d), str(S(d, "Type"))]) }
 check("snapshot state bytes", hx(stBytes) == S(st, "Bytes"))
 
 exit(failed ? 1 : 0)

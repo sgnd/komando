@@ -22,10 +22,11 @@ func waitingFor(t *testing.T, d *Device, rec RecordID) Waiting {
 }
 
 // Finding 57: A, B and C agree on S1 "prod-db". A makes S2 "prod-db"; C
-// makes S3 "prod-db". A has seen S3 when it approves S2, and B has not:
-// A's yes replaces S1 and S3, B's yes only S1. The change replaces the
-// union, whatever order the yeses arrive in, so all three devices hold
-// the same data, and S3 is no longer asked about.
+// makes S3 "prod-db". A has seen S3 waiting when it approves S2, and B
+// has not: A's yes replaces S1 and sets S3 aside, B's yes replaces S1.
+// Whatever order the yeses arrive in, all three devices hold the same
+// data, and S3 is no longer asked about (finding 69: set aside, not
+// deleted, since no one agreed to it).
 func TestTwoApprovalsOfOneNewcomerAgree(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
@@ -47,8 +48,8 @@ func TestTwoApprovalsOfOneNewcomerAgree(t *testing.T) {
 		must(t, err)
 	}
 	wa, wb := waitingFor(t, a, s2), waitingFor(t, b, s2)
-	if len(wa.ReplacesIDs) != 2 || len(wb.ReplacesIDs) != 1 {
-		t.Fatalf("setup: A replaces %d, B replaces %d", len(wa.ReplacesIDs), len(wb.ReplacesIDs))
+	if !slices.Equal(wa.ReplacesIDs, []RecordID{s1}) || len(wa.Withdraws) != 1 || !slices.Equal(wb.ReplacesIDs, []RecordID{s1}) || len(wb.Withdraws) != 0 {
+		t.Fatalf("setup: A replaces %d and sets aside %d, B replaces %d", len(wa.ReplacesIDs), len(wa.Withdraws), len(wb.ReplacesIDs))
 	}
 	must(t, a.Approve(wa.Ref))
 	must(t, b.Approve(wb.Ref))
@@ -57,13 +58,11 @@ func TestTwoApprovalsOfOneNewcomerAgree(t *testing.T) {
 		if _, ok := d.Get(s2); !ok {
 			t.Fatalf("%s: the approved newcomer is not live", d.Name)
 		}
-		for _, old := range []RecordID{s1, s3} {
-			if r := d.data.records[old]; r == nil || !r.Deleted {
-				t.Fatalf("%s: an old holder named by one of the yeses is not deleted", d.Name)
-			}
+		if !gone(d, s1) {
+			t.Fatalf("%s: the old holder the yeses named is not deleted", d.Name)
 		}
-		if slices.ContainsFunc(d.Waiting(), func(x Waiting) bool { return x.Record == s3 }) {
-			t.Fatalf("%s: a deleted record is still waiting for a yes", d.Name)
+		if _, ok := d.Get(s3); ok || slices.ContainsFunc(d.Waiting(), func(x Waiting) bool { return x.Record == s3 }) {
+			t.Fatalf("%s: the newcomer A's yes set aside is live or still asked about", d.Name)
 		}
 	}
 	if string(a.data.encode(nil)) != string(b.data.encode(nil)) || string(a.data.encode(nil)) != string(c.data.encode(nil)) {
@@ -73,7 +72,9 @@ func TestTwoApprovalsOfOneNewcomerAgree(t *testing.T) {
 
 // Finding 57, merge level: a later yes adds an old holder after the
 // change applied. Applied live, or after the state went through a
-// snapshot, it deletes that holder; any order gives the same state.
+// snapshot, it deletes that holder; any order gives the same state. A
+// yes acts from what it names alone (finding 67), so a yes that arrives
+// before its change, after it or after a snapshot gives the same result.
 func TestLateApprovalAddsAHolderInAnyOrder(t *testing.T) {
 	id := func(b byte) RecordID { return recordID(TypeServer, [12]byte{b}) }
 	s1, s2, s3 := id(1), id(2), id(3)
@@ -87,13 +88,13 @@ func TestLateApprovalAddsAHolderInAnyOrder(t *testing.T) {
 		for i, s := range []RecordID{s1, s3} {
 			r := ref(byte(10 + i))
 			m.apply(r, create(s, "10.0.0.5"), HLC{Wall: 1})
-			m.approve(r, nil)
+			m.approve(r, s, TypeServer, nil, nil)
 		}
 		return m
 	}
 	write := func(m *mergeState) *mergeState { m.apply(ref(2), create(s2, "10.0.0.6"), HLC{Wall: 2}); return m }
-	yesA := func(m *mergeState) *mergeState { m.approve(ref(2), []RecordID{s1, s3}); return m }
-	yesB := func(m *mergeState) *mergeState { m.approve(ref(2), []RecordID{s1}); return m }
+	yesA := func(m *mergeState) *mergeState { m.approve(ref(2), s2, TypeServer, []RecordID{s1, s3}, nil); return m }
+	yesB := func(m *mergeState) *mergeState { m.approve(ref(2), s2, TypeServer, []RecordID{s1}, nil); return m }
 	heads := map[DeviceID]Head{}
 	for _, b := range []byte{2, 10, 11} {
 		heads[DeviceID{b}] = Head{Seq: 1}
@@ -110,6 +111,8 @@ func TestLateApprovalAddsAHolderInAnyOrder(t *testing.T) {
 		{yesB, write, yesA},
 		{write, yesB, snap, yesA},
 		{yesB, write, snap, yesA},
+		{write, snap, yesA, yesB},
+		{yesA, snap, write, yesB},
 	}
 	var want []byte
 	for i, o := range orders {
@@ -428,88 +431,11 @@ func TestNameTakenEndsWithARename(t *testing.T) {
 	sameData(t, a, b)
 }
 
-// snapState opens a snapshot's sealed state as d can.
-func snapState(t *testing.T, d *Device, s *Snapshot) *mergeState {
-	t.Helper()
-	plain, err := openRecord(d.vaultKeys[s.KeyGen], s.header(), s.Body)
-	must(t, err)
-	m, err := decodeState(plain)
-	must(t, err)
-	return m
-}
-
-// Finding 57, decided by the owner 2026-11-14: the list of applied name
-// changes is pruned at every snapshot every current device named. The
-// second snapshot holds only the name change made after the first, every
-// device holds the same data, and a new device that starts from it does
-// too.
-func TestSnapshotPrunesAppliedNameChanges(t *testing.T) {
-	w := newWorld(t)
-	a, _ := w.account("A")
-	b := w.pair(a, "B", true)
-	c := w.pair(a, "C", true)
-	w.syncAll(a, b, c)
-	s1 := createApproved(t, a, TypeServer, field("name", "prod-db"))
-	w.syncAll(a, b, c)
-	s2, err := b.Create(TypeServer, field("name", "prod-db"))
-	must(t, err)
-	if wt := waitingFor(t, b, s2); !slices.Equal(wt.ReplacesIDs, []RecordID{s1}) {
-		t.Fatal("setup: the newcomer should replace the old holder")
-	} else {
-		must(t, b.Approve(wt.Ref))
-	}
-	w.syncAll(a, b, c)
-
-	snap1, err := a.MakeSnapshot()
-	must(t, err)
-	if n := len(snapState(t, a, snap1).done); n != 2 {
-		t.Fatalf("setup: the first snapshot holds %d applied name changes, want 2", n)
-	}
-	w.syncAll(a, b, c)
-	for _, d := range []*Device{a, b, c} {
-		if p := d.SnapshotToPrune(); p == nil || p.Hash() != snap1.Hash() {
-			t.Fatalf("setup: %s should build on the first snapshot", d.Name)
-		}
-		if len(d.data.done) != 0 {
-			t.Fatalf("%s: the list was not pruned at the confirmed snapshot (%d)", d.Name, len(d.data.done))
-		}
-	}
-	sameData(t, a, b, c)
-
-	createApproved(t, c, TypeServer, field("name", "web"))
-	w.syncAll(a, b, c)
-	snap2, err := b.MakeSnapshot()
-	must(t, err)
-	if snap2.Base != snap1.Hash() {
-		t.Fatal("the second snapshot does not name the one it builds on")
-	}
-	if n := len(snapState(t, b, snap2).done); n != 1 {
-		t.Fatalf("the second snapshot holds %d applied name changes, want only the one made after the first", n)
-	}
-	w.syncAll(a, b, c)
-	for _, d := range []*Device{a, b, c} {
-		if p := d.SnapshotToPrune(); p == nil || p.Hash() != snap2.Hash() {
-			t.Fatalf("%s did not take the second snapshot", d.Name)
-		}
-		if len(d.data.done) != 0 {
-			t.Fatalf("%s: the list was not pruned at the second snapshot", d.Name)
-		}
-	}
-	nd := w.pair(a, "new Mac", true)
-	if nd.baseHash != snap2.Hash() {
-		t.Fatal("setup: the new device should start from the second snapshot")
-	}
-	w.syncAll(a, b, c, nd)
-	sameData(t, a, b, c, nd)
-}
-
-// Finding 57: each snapshot names the one it builds on, and is judged on
-// that base. A does not see that C named the first snapshot yet, so it
-// does not build on it, while C already made a second one on it. States
-// built on two bases differ in the pruned list, so A builds the second
-// snapshot's state on the first, pruned there, and takes it instead of
-// refusing an honest snapshot.
-func TestSnapshotOnANewerBaseIsJudgedOnIt(t *testing.T) {
+// A device one snapshot behind takes an honest newer one. A does not see
+// that C named the first snapshot yet, so it does not build on it, while
+// C already made a second one on it. A merges the second snapshot's
+// writes from its own base and takes it instead of refusing it.
+func TestDeviceOneSnapshotBehindTakesANewerOne(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
 	b := w.pair(a, "B", true)
@@ -535,6 +461,8 @@ func TestSnapshotOnANewerBaseIsJudgedOnIt(t *testing.T) {
 	if c.baseHash != snap1.Hash() || a.baseHash == snap1.Hash() {
 		t.Fatal("setup: C should build on the first snapshot, A not yet")
 	}
+	_, err = c.Create(TypeNote, field("text", "after the first snapshot"))
+	must(t, err)
 	snap2, err := c.MakeSnapshot()
 	must(t, err)
 	w.srv.OnRead = func(by DeviceID, log string, items [][]byte) [][]byte {

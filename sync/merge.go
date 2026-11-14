@@ -47,22 +47,35 @@ type waiting struct {
 // clock wins, deletion is final, and a waiting change applies only once
 // approved (SS 8.1, 9).
 type mergeState struct {
-	records  map[RecordID]*record
-	waiting  map[WriteRef]*waiting
-	approved map[WriteRef]bool
-	replaces map[WriteRef][]RecordID // per approved change: the union of its approvals' old holders, deleted with it
-	done     map[WriteRef]*waiting   // approved changes that set a name and have applied
-	markers  map[RecordID]WriteRef
+	records   map[RecordID]*record
+	waiting   map[WriteRef]*waiting
+	approved  map[approval]bool   // each verified yes: the write and the record it names
+	withdrawn map[withdrawal]bool // waiting changes a yes set aside, by the type of its record
+	markers   map[RecordID]WriteRef
+}
+
+// approval is one yes as the merge keeps it: a change applies only when a
+// yes names its write and its record.
+type approval struct {
+	Ref    WriteRef
+	Record RecordID
+}
+
+// withdrawal is a waiting change for a name that a yes for another record
+// of Type set aside: it is no longer asked about, unless a yes of its own
+// approves it (SS 8.1, finding 69).
+type withdrawal struct {
+	Ref  WriteRef
+	Type string
 }
 
 func newMergeState() *mergeState {
 	return &mergeState{
-		records:  map[RecordID]*record{},
-		waiting:  map[WriteRef]*waiting{},
-		approved: map[WriteRef]bool{},
-		replaces: map[WriteRef][]RecordID{},
-		done:     map[WriteRef]*waiting{},
-		markers:  map[RecordID]WriteRef{},
+		records:   map[RecordID]*record{},
+		waiting:   map[WriteRef]*waiting{},
+		approved:  map[approval]bool{},
+		withdrawn: map[withdrawal]bool{},
+		markers:   map[RecordID]WriteRef{},
 	}
 }
 
@@ -136,31 +149,41 @@ func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 	if !w.Create && !w.Delete && len(w.Fields) == 0 {
 		return
 	}
-	if auto || m.approved[ref] {
+	if auto || m.approved[approval{ref, c.Record}] {
 		m.applyWaiting(w)
 		return
 	}
 	m.waiting[ref] = w
 }
 
-// approve records a verified yes and applies the change if it is here.
-// replaces names the old holders of the change's name; they are deleted
-// in the same yes (SS 8.1, decided 2026-11-14). Several devices may
-// approve one change, each naming the holders it saw: the change replaces
-// the union of them. A yes that arrives after the change applied deletes
-// the holders it adds, so the result never depends on arrival order.
-func (m *mergeState) approve(ref WriteRef, replaces []RecordID) {
-	m.approved[ref] = true
-	all := slices.Concat(m.replaces[ref], replaces)
-	slices.SortFunc(all, cmpRecord)
-	if all = slices.Compact(all); len(all) > 0 {
-		m.replaces[ref] = all
+// approve records a verified yes for the change ref makes to record, of
+// type typ, and applies the change if it is here. The same yes deletes
+// the old holders of the name it lists (replaces: agreed records and
+// deletion markers, decided by the owner 2026-11-14) and sets aside the
+// waiting changes for that name it lists (withdraws, finding 69). Both
+// are read from the yes alone, never from the state the yes arrives in,
+// so a yes has the same effect whether its change is waiting, applied,
+// not here yet or inside a snapshot (finding 67), and the result never
+// depends on arrival order. A yes deletes only old holders of its own
+// record's type: never a device's own record, which no write deletes,
+// nor a record of another type a modified client named (SS 8.1).
+func (m *mergeState) approve(ref WriteRef, record RecordID, typ string, replaces []RecordID, withdraws []WriteRef) {
+	m.approved[approval{ref, record}] = true
+	if namesHeld(typ) {
+		for _, id := range replaces {
+			if id != record && hasType(id, typ) {
+				m.markDeleted(id, ref)
+			}
+		}
+		for _, r := range withdraws {
+			if r != ref {
+				m.withdrawn[withdrawal{r, typ}] = true
+			}
+		}
 	}
-	if w := m.waiting[ref]; w != nil {
+	if w := m.waiting[ref]; w != nil && w.Record == record {
 		delete(m.waiting, ref)
 		m.applyWaiting(w)
-	} else if w := m.done[ref]; w != nil {
-		m.deleteHolders(w)
 	}
 }
 
@@ -175,28 +198,6 @@ func (m *mergeState) applyWaiting(w *waiting) {
 	if w.Delete {
 		m.markDeleted(w.Record, w.Ref)
 	}
-	if setsName(w) && namesHeld(w.Type) { // a note, device or deny rule holds no name
-		m.done[w.Ref] = &waiting{Ref: w.Ref, Record: w.Record, Type: w.Type}
-		m.deleteHolders(w)
-	}
-}
-
-// deleteHolders deletes the old holders of the name an approved change
-// takes. Only a change that sets a name replaces anything, and a yes
-// deletes only old holders of the newcomer's own type: never a device's
-// own record, which no write deletes, nor a record of another type a
-// modified client named (SS 8.1).
-func (m *mergeState) deleteHolders(w *waiting) {
-	for _, id := range m.replaces[w.Ref] {
-		if id != w.Record && namesHeld(w.Type) && hasType(id, w.Type) {
-			m.markDeleted(id, w.Ref)
-		}
-	}
-}
-
-// setsName reports whether a waiting change sets a record's name.
-func setsName(w *waiting) bool {
-	return slices.ContainsFunc(w.Fields, func(f Field) bool { return f.Name == "name" })
 }
 
 func cmpRecord(a, b RecordID) int { return slices.Compare(a[:], b[:]) }
@@ -264,11 +265,16 @@ type Waiting struct {
 	Delete  bool
 	Changes []FieldChange
 	// Replaces is a name another record, waiting change or deletion
-	// marker holds, and ReplacesIDs are those holders. Approving the
-	// change deletes them in the same signed yes, so two records never
-	// hold one name (SS 8.1).
+	// marker holds. Approving the change deletes ReplacesIDs, the agreed
+	// records and deletion markers that hold it, in the same signed yes,
+	// so two records never hold one name by a yes (SS 8.1). It sets aside
+	// Withdraws, the other waiting changes for the name: they are no
+	// longer asked about, unless a yes of their own approves them, and
+	// then both records stay and show as "waiting: name taken" (finding
+	// 69).
 	Replaces    string
 	ReplacesIDs []RecordID
+	Withdraws   []WriteRef
 }
 
 // ReplacesLine is the screen's line for a newcomer that takes a held
@@ -285,15 +291,15 @@ func (m *mergeState) list() []Waiting {
 	for _, ref := range slices.SortedFunc(maps.Keys(m.waiting), cmpRef) {
 		w := m.waiting[ref]
 		rec := m.records[w.Record]
-		if rec.Deleted {
-			continue // deletion is final: there is nothing left to agree to
+		if rec.Deleted || m.withdrawn[withdrawal{ref, w.Type}] {
+			continue // deleted or set aside: there is nothing left to agree to
 		}
 		v := Waiting{Ref: ref, Record: w.Record, Type: w.Type, Create: w.Create, Delete: w.Delete}
 		for _, f := range w.Fields {
 			v.Changes = append(v.Changes, FieldChange{Name: f.Name, Old: rec.Fields[f.Name].Value, New: f.Value})
 			if f.Name == "name" {
-				if ids := m.nameHolders(f.Value, w.Record, w.Type); len(ids) > 0 {
-					v.Replaces, v.ReplacesIDs = f.Value, ids
+				if ids, refs := m.nameHolders(f.Value, w.Record, w.Type); len(ids)+len(refs) > 0 {
+					v.Replaces, v.ReplacesIDs, v.Withdraws = f.Value, ids, refs
 				}
 			}
 		}
@@ -313,12 +319,15 @@ func namesHeld(typ string) bool {
 // hasType reports whether a record ID carries the tag of typ.
 func hasType(id RecordID, typ string) bool { return recordID(typ, [12]byte(id[:12])) == id }
 
-// nameHolders lists the other records of the same type that hold the
-// name: agreed, waiting or deleted (SS 8.1), sorted. Names are held per
-// type: a server and a note, or a server and a device, may share one.
-func (m *mergeState) nameHolders(name string, self RecordID, typ string) []RecordID {
+// nameHolders lists who else of the same type holds the name (SS 8.1):
+// the agreed or deleted records whose name it is, sorted, and the
+// waiting changes that set it and are still asked about, sorted. A
+// record in the first list is not repeated in the second. Names are held
+// per type: a server and a note, or a server and a device, may share
+// one.
+func (m *mergeState) nameHolders(name string, self RecordID, typ string) ([]RecordID, []WriteRef) {
 	if !namesHeld(typ) {
-		return nil
+		return nil, nil
 	}
 	held := map[RecordID]bool{}
 	for id, r := range m.records {
@@ -326,17 +335,20 @@ func (m *mergeState) nameHolders(name string, self RecordID, typ string) []Recor
 			held[id] = true
 		}
 	}
-	for _, w := range m.waiting {
-		if w.Record == self || !hasType(w.Record, typ) {
+	var claims []WriteRef
+	for ref, w := range m.waiting {
+		if w.Record == self || held[w.Record] || !hasType(w.Record, typ) || m.withdrawn[withdrawal{ref, w.Type}] {
 			continue
 		}
-		for _, f := range w.Fields {
-			if f.Name == "name" && f.Value == name {
-				held[w.Record] = true
-			}
+		if r := m.records[w.Record]; r != nil && r.Deleted {
+			continue
+		}
+		if slices.ContainsFunc(w.Fields, func(f Field) bool { return f.Name == "name" && f.Value == name }) {
+			claims = append(claims, ref)
 		}
 	}
-	return slices.SortedFunc(maps.Keys(held), cmpRecord)
+	slices.SortFunc(claims, cmpRef)
+	return slices.SortedFunc(maps.Keys(held), cmpRecord), claims
 }
 
 // NameClash is a name that two or more agreed, live records of one type

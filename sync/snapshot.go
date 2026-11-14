@@ -40,7 +40,6 @@ type Snapshot struct {
 	ListNum  uint32
 	ListHash Hash
 	KeyGen   uint32 // the generation in force at ListNum
-	Base     Hash   // the snapshot its signer builds on, zero for none
 	Heads    []Head // the writes the state holds, sorted by device
 	State    Hash   // the hash of the state's one byte form
 	Body     sealed // that state, sealed under the vault key of KeyGen, bound to the header
@@ -57,7 +56,6 @@ func (s *Snapshot) header() []byte {
 	e.u32(s.ListNum)
 	e.raw(s.ListHash[:])
 	e.u32(s.KeyGen)
-	e.raw(s.Base[:])
 	e.u32(uint32(len(s.Heads)))
 	for _, h := range s.Heads {
 		e.raw(h.Device[:])
@@ -89,7 +87,6 @@ func ParseSnapshot(b []byte) (*Snapshot, error) {
 	s.ListNum = d.u32()
 	d.fixed(s.ListHash[:])
 	s.KeyGen = d.u32()
-	d.fixed(s.Base[:])
 	for range d.count(4096) {
 		var h Head
 		d.fixed(h.Device[:])
@@ -137,7 +134,7 @@ func (d *Device) MakeSnapshot() (*Snapshot, error) {
 	}
 	s := &Snapshot{
 		Account: d.account, Signer: d.id, Num: d.snapNum + 1,
-		ListNum: d.head, ListHash: d.headHash, KeyGen: gen, Base: d.baseHash,
+		ListNum: d.head, ListHash: d.headHash, KeyGen: gen,
 	}
 	state := d.data
 	for _, id := range slices.SortedFunc(maps.Keys(d.applied), cmpDevice) {
@@ -263,7 +260,7 @@ func (d *Device) fits(s *Snapshot) bool {
 }
 
 // judge compares a snapshot with this device's merged state at the writes
-// it names, built on the base the snapshot names (stateOf).
+// it names.
 func (d *Device) judge(s *Snapshot) int {
 	if !d.fits(s) {
 		return snapUnfit
@@ -287,80 +284,11 @@ func (d *Device) judge(s *Snapshot) int {
 			return snapNotYet
 		}
 	}
-	m, j := d.stateOf(s, 0)
-	if j != snapMatches {
-		return j
-	}
-	got := sum(labelSnapState, m.encode(heads))
+	got := sum(labelSnapState, d.stateAt(heads).encode(heads))
 	if subtle.ConstantTimeCompare(got[:], s.State[:]) != 1 {
 		return snapMismatch
 	}
 	return snapMatches
-}
-
-// maxBaseChain bounds how many snapshots back stateOf follows bases.
-const maxBaseChain = 16
-
-// stateOf is the merged state at the writes s holds, built the way every
-// device builds it: on the snapshot s names as its base, with the list of
-// applied name changes pruned there (finding 57), and that base built the
-// same way, back to the base this device builds on. A device one
-// snapshot behind still judges a newer snapshot correctly. The answer is
-// snapNotYet when the chain does not reach this device's base (a base
-// that is not on the server, or one older than this device's own: its
-// signer makes a newer one), and snapMismatch when a base in the chain
-// is not what the writes give.
-func (d *Device) stateOf(s *Snapshot, depth int) (*mergeState, int) {
-	if s.Base == d.baseHash {
-		return d.stateAt(s.headMap()), snapMatches
-	}
-	if s.Base == (Hash{}) || depth >= maxBaseChain {
-		return nil, snapNotYet
-	}
-	b := d.findSnapshot(s.Base)
-	if b == nil {
-		return nil, snapNotYet
-	}
-	m, j := d.stateOf(b, depth+1)
-	if j != snapMatches {
-		return nil, j
-	}
-	bh := b.headMap()
-	got := sum(labelSnapState, m.encode(bh))
-	if subtle.ConstantTimeCompare(got[:], b.State[:]) != 1 || !covers(s, b) {
-		return nil, snapMismatch
-	}
-	m.pruneDone()
-	heads := s.headMap()
-	var rep Report
-	for _, st := range d.log {
-		if n := st.w.Seq; n > bh[st.w.Writer].Seq && n <= heads[st.w.Writer].Seq {
-			d.applyTo(m, st.w, st.c, &rep)
-		}
-	}
-	return m, snapMatches
-}
-
-// findSnapshot is the checked snapshot with hash h, from this device or
-// the server; nil when there is none.
-func (d *Device) findSnapshot(h Hash) *Snapshot {
-	for _, s := range []*Snapshot{d.snap, d.baseSnap} {
-		if s != nil && s.Hash() == h {
-			return s
-		}
-	}
-	for _, id := range slices.SortedFunc(maps.Keys(d.list.Ever), cmpDevice) {
-		log, err := d.snapshotLog(id)
-		if err != nil {
-			return nil
-		}
-		for _, s := range log {
-			if s.Hash() == h && d.checkSnapshot(s) == nil {
-				return s
-			}
-		}
-	}
-	return nil
 }
 
 // stateAt merges again, from the base, only the writes up to heads.
@@ -385,6 +313,21 @@ func covers(b, a *Snapshot) bool {
 		}
 	}
 	return true
+}
+
+// after reports whether b comes after a: it holds every write a holds and
+// more, or the same writes and a smaller hash. Two snapshots of the same
+// writes hold the same state, so every device settles on one of them and
+// never goes back to the other.
+func after(b, a *Snapshot) bool {
+	if !covers(b, a) {
+		return false
+	}
+	if !covers(a, b) {
+		return true
+	}
+	hb, ha := b.Hash(), a.Hash()
+	return bytes.Compare(hb[:], ha[:]) < 0
 }
 
 // checkSnapshots runs in each sync. The snapshot this device accepted is
@@ -412,8 +355,8 @@ func (d *Device) checkSnapshots(rep *Report) error {
 		}
 		s := log[0] // only the newest of each device is judged
 		h := s.Hash()
-		if d.refused[h] || (d.snap != nil && (h == d.snap.Hash() || d.snap.Base == h || !covers(s, d.snap))) {
-			continue // the one held, the one it builds on, or older
+		if d.refused[h] || (d.snap != nil && !after(s, d.snap)) {
+			continue // the one held, or not after it
 		}
 		if err := d.checkSnapshot(s); err != nil {
 			return err
@@ -455,11 +398,7 @@ func (d *Device) rebase() {
 		return
 	}
 	heads := d.snap.headMap()
-	m, j := d.stateOf(d.snap, 0)
-	if j != snapMatches {
-		return // judged at this sync: cannot happen
-	}
-	base, err := decodeState(m.encode(heads))
+	base, err := decodeState(d.stateAt(heads).encode(heads))
 	if err != nil {
 		return // cannot happen: encode and decode are one form
 	}
@@ -486,7 +425,6 @@ func (d *Device) installBase(s *Snapshot, base *mergeState) {
 			d.applied[id] = h
 		}
 	}
-	base.pruneDone()
 	d.base, d.baseHeads, d.baseHash, d.baseSnap, d.snap = base, heads, s.Hash(), s, s
 	d.log = nil
 	d.data = d.baseData()

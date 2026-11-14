@@ -36,7 +36,7 @@ func uncappedSnapshot(t *testing.T, d *Device) *Snapshot {
 	t.Helper()
 	gen := d.list.GenAt[d.head-1]
 	s := &Snapshot{Account: d.account, Signer: d.id, Num: d.snapNum + 1,
-		ListNum: d.head, ListHash: d.headHash, KeyGen: gen, Base: d.baseHash}
+		ListNum: d.head, ListHash: d.headHash, KeyGen: gen}
 	for _, id := range slices.SortedFunc(maps.Keys(d.applied), cmpDevice) {
 		s.Heads = append(s.Heads, d.applied[id])
 	}
@@ -328,11 +328,13 @@ func TestApprovalNeverDeletesADeviceRecord(t *testing.T) {
 	other, err := m.Create(TypeServer, field("name", "web"), field("address", "10.0.0.9"))
 	must(t, err)
 	w.syncAll(a, b, m)
-	ref := a.Waiting()[0].Ref
+	wt := a.Waiting()[0]
 	replaces := slices.SortedFunc(slices.Values([]RecordID{idRecord(b.ID()), note}), func(p, q RecordID) int { return slices.Compare(p[:], q[:]) })
-	sig, err := sign(a.keys.Authority, labelApproval, approvalBytes(a.account, ref, replaces))
+	yes := &Change{Kind: kindApproval, Record: wt.Record, Type: wt.Type, Target: wt.Ref, Replaces: replaces}
+	sig, err := sign(a.keys.Authority, labelApproval, approvalBytes(a.account, yes))
 	must(t, err)
-	_, err = a.write(&Change{Kind: kindApproval, Target: ref, Replaces: replaces, Approval: sig})
+	yes.Approval = sig
+	_, err = a.write(yes)
 	must(t, err)
 	w.syncAll(a, b, m)
 	for _, d := range []*Device{a, b, m} {
