@@ -319,7 +319,8 @@ check("write hash", hx(sum("komando-sync/1 write hash", [wvSigned])) == S(wv, "H
 // name; waiting changes by write; yeses only past the heads, by write and
 // record, each with its type, the holders it deletes (sorted) and the
 // waiting changes it sets aside (by write); then waiting changes a yes
-// set aside, while they wait or are past the heads, by write and type.
+// set aside, while they wait or are past the heads, by write and type;
+// then the writes that did not count, by writer and number.
 let st = v["snapshot_state"] as! Obj
 var stHeads: [String: Int] = [:]
 for h in st["Heads"] as! [Obj] { stHeads[S(h, "Device")] = I(h, "Seq") }
@@ -353,6 +354,9 @@ let wds = (st["Withdrawn"] as! [Obj]).filter { pastHeads($0) || waits.contains(h
 }
 stBytes += u32(wds.count)
 for d in wds { stBytes += cat([ref(d), str(S(d, "Type"))]) }
+let uns = (st["Uncounted"] as! [Obj]).sorted(by: byRef)
+stBytes += u32(uns.count)
+for u in uns { stBytes += cat([H(u, "Writer"), u64(I(u, "Seq"))]) }
 check("snapshot state bytes", hx(stBytes) == S(st, "Bytes"))
 
 exit(failed ? 1 : 0)

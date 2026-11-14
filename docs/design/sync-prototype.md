@@ -56,8 +56,16 @@ It also found that a record whose creation still waited was deleted
 rather than set aside. **Fixed: a yes acts once its change has arrived
 and counts; a yes for a dropped change takes nothing away; a record
 whose creation waits is set aside.** Each has a test that fails without
-its fix, and SS 6.2, 8.1, 9 and 21 say so. The one confirmation above
-is still open.
+its fix, and SS 6.2, 8.1, 9 and 21 say so.
+
+Round 3 (findings 73 and 74) found that the round 2 claim "a yes for a
+dropped change takes nothing away" failed once a confirmed snapshot held
+the dropped change: a device that built on that snapshot let a late yes
+delete the agreed record for good. **Fixed: whether a change counted is
+kept with the change, and a snapshot's state lists the writes that did
+not count, so building on a snapshot leaves what each device holds as it
+was.** The test fails without the fix, and SS 6.2, 8.1, 9 and 21 say so.
+The one confirmation above is still open, so the format is not frozen.
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
@@ -1307,7 +1315,8 @@ ok. After findings 57 and 61 were built, the same runs pass again under
 Go 1.26.0 and Go 1.27.3 (132 tests and subtests, 42 Swift checks), and
 again after findings 67 to 69 (136 tests and subtests, 42 Swift checks),
 and again after findings 70 to 72 (139 tests and subtests, 42 Swift
-checks).
+checks), and again after findings 73 and 74 (141 tests and subtests, 42
+Swift checks).
 Recorded in SS 7.2, 18 and 21.
 
 ## Findings of the review of the owner's freeze decisions (2026-11-14)
@@ -1583,8 +1592,10 @@ device's waiting change past its floor is ignored on every device, and
 a yes that waited for such a change is dropped when the removal is
 read. A device that applied the yes before it saw the removal merges
 again without it (the existing rule: it applied writes past the floor).
-Each device tracks only the newest write it merged from each device, so
-nothing grows with the data. Format change: in a snapshot's state, each
+Each device tracked only the newest write it merged from each device.
+**Not whole:** this judged "has its change counted" from that newest
+write and from the floor, which a confirmed snapshot raises; finding 73
+shows the case it missed and how it is fixed. Format change: in a snapshot's state, each
 yes whose change is not among its writes gains its type, the holders it
 deletes and the waiting changes it sets aside (vectors updated, Swift
 check included). Tests: `TestYesForADroppedNewcomerTakesNothing` (S1 stays
@@ -1616,6 +1627,52 @@ has not yet confirmed that keeping no list meets the decision on finding
 kept only until that change arrives, or is dropped when that change can
 never count.
 
+## Findings of round 3 of the review of findings 67 to 69 (2026-11-14)
+
+Each fault is fixed with a test in `review8_test.go` that fails on the
+code before its fix.
+
+### 73. Wrong: building on a snapshot gave a dropped newcomer's yes its power back (fixed in code, format change)
+
+The finding 70 fix judged whether a yes's change counted from the newest
+write merged from its writer and from the removed device's floor. A
+confirmed snapshot raises the floor to the writes it holds (SS 6.2), also
+past a write whose waiting part was dropped. S1 "prod-db" is agreed. X
+writes S2 "prod-db" as X:2, and B reads it. A, which never saw S2,
+removes X with floor X:1, then reads X:2 through B's summary and drops
+its waiting change. A's snapshot holds X up to 2. B, which has not read
+the removal, approves S2 (replaces S1). A first ignored the yes. Once A
+built on the confirmed snapshot, X's floor was 2 and X:2 was among the
+merged writes, so the yes counted and deleted S1 on A and then on B, for
+good, while S2 never applied. Building on a snapshot changed what a
+device held, and a stolen device's dropped newcomer still took the
+agreed record. **Fixed: whether a change counted is kept with the
+change.** When a removed device's write past its floor arrives and its
+waiting part is dropped, the merged state marks it as not counted and
+drops any yes that waited for it. A yes for a write marked so acts
+never, in any order. A snapshot's state lists these writes by writer
+and number, so a device that builds on it still knows. A yes is matched
+to its change by writer and number, as before. Format change: a
+snapshot's state ends with the writes that did not count (vectors
+updated, Swift check included). The list is never pruned; it holds only
+removed devices' writes between their floor and their cut. Tests:
+`TestRebaseKeepsAYesForADroppedNewcomerIdle` (the case above, end to
+end: S1 stays live and S2 never applies on A and B, with the same data,
+and what each device holds is the same just before and just after it
+builds on the snapshot), `TestSnapshotKeepsWhichWritesDidNotCount` (a
+yes for a write that did not count acts never, merged directly or after
+a snapshot). Written into SS 6.2, 8.1 and 9 as following from the
+decided rules.
+
+### 74. Gap: SS 21 and this document said finding 70 was fixed in every case (fixed)
+
+SS 21 and the summary above said "a yes for a dropped change takes
+nothing away" after round 2. Finding 73 shows that was false once a
+confirmed snapshot raised the floor. Both now say so and record the
+round 3 fix. SS 21 still has one open item: the owner has not yet
+confirmed that keeping no list of applied name changes meets the
+decision on finding 57. Until then the format is not frozen.
+
 ## Limits of this prototype
 
 - No teams, member lists or team vaults (SS 12), no approvals on the
@@ -1640,7 +1697,9 @@ never count.
   finding 67, these grow with the changes that are never approved.
   A yes whose change has not arrived is kept, with what it names, until
   that change arrives, or until a removal shows the change never counts
-  (finding 70).
+  (finding 70). The writes that did not count are kept, by writer and
+  number, and never pruned (finding 73); they are only removed devices'
+  writes between floor and cut.
 - A snapshot is one sealed blob of the whole state. A real service would
   split it into parts so that a device fetches it in pieces.
 - Pruning is a test hook (`MemServer.PruneWrites`). A device judges a

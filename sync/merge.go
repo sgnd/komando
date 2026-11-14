@@ -53,6 +53,7 @@ type mergeState struct {
 	withdrawn map[withdrawal]bool   // waiting changes a yes set aside, by the type of its record
 	pending   map[approval]*yesActs // what a yes deletes and sets aside, until its change arrives
 	heads     map[DeviceID]uint64   // the newest write of each device merged here
+	uncounted map[writeAt]bool      // merged writes whose waiting part never counts (SS 6.2)
 	markers   map[RecordID]WriteRef
 }
 
@@ -74,6 +75,20 @@ func (y *yesActs) add(replaces []RecordID, withdraws []WriteRef) {
 	y.Withdraws = slices.Concat(y.Withdraws, withdraws)
 	slices.SortFunc(y.Withdraws, cmpRef)
 	y.Withdraws = slices.Compact(y.Withdraws)
+}
+
+// writeAt is a write by its writer and number. A yes is matched to its
+// change by these alone, as heads are, so a yes that names a write
+// by another hash acts the same in any order.
+type writeAt struct {
+	Writer DeviceID
+	Seq    uint64
+}
+
+func at(r WriteRef) writeAt { return writeAt{r.Writer, r.Seq} }
+
+func cmpWriteAt(a, b writeAt) int {
+	return cmp.Or(slices.Compare(a.Writer[:], b.Writer[:]), cmp.Compare(a.Seq, b.Seq))
 }
 
 // approval is one yes as the merge keeps it: a change applies only when a
@@ -99,6 +114,7 @@ func newMergeState() *mergeState {
 		withdrawn: map[withdrawal]bool{},
 		pending:   map[approval]*yesActs{},
 		heads:     map[DeviceID]uint64{},
+		uncounted: map[writeAt]bool{},
 		markers:   map[RecordID]WriteRef{},
 	}
 }
@@ -190,11 +206,17 @@ func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 // applied or lies inside a snapshot (finding 67). It acts once its change
 // has arrived and counts, never before: a change that never counts, such
 // as a removed device's waiting change past its floor, takes nothing away
-// (SS 6.2, 8.1; finding 70). So the result never depends on arrival
-// order. A yes deletes only old holders of its own record's type: never a
+// (SS 6.2, 8.1; finding 70). Whether a change counted is kept with the
+// change (uncounted), never read from the newest write merged or from a
+// floor, so a snapshot that holds a dropped change, and raises the floor
+// past it, gives its yes no power (finding 73). So the result never
+// depends on arrival order or on the snapshot a device builds on. A yes deletes only old holders of its own record's type: never a
 // device's own record, which no write deletes, nor a record of another
 // type a modified client named (SS 8.1).
 func (m *mergeState) approve(ref WriteRef, record RecordID, typ string, replaces []RecordID, withdraws []WriteRef) {
+	if m.uncounted[at(ref)] {
+		return // its change never counts, so the yes neither applies nor takes anything away
+	}
 	ap := approval{ref, record}
 	m.approved[ap] = true
 	if ref.Seq <= m.heads[ref.Writer] {
@@ -213,17 +235,23 @@ func (m *mergeState) approve(ref WriteRef, record RecordID, typ string, replaces
 	}
 }
 
-// arrive records that write ref has been merged here. When its change
-// counts, the yeses that waited for it act now.
+// arrive records that write ref has been merged here, and whether its
+// change counts whole. When it counts, the yeses that waited for it act
+// now. When it does not (a removed device's write past its floor), it is
+// kept as uncounted and the yeses for it are dropped: they never act.
 func (m *mergeState) arrive(ref WriteRef, counts bool) {
 	m.heads[ref.Writer] = max(m.heads[ref.Writer], ref.Seq)
 	if !counts {
-		return
+		m.uncounted[at(ref)] = true
 	}
 	for ap, y := range m.pending {
-		if ap.Ref.Writer == ref.Writer && ap.Ref.Seq == ref.Seq {
+		if at(ap.Ref) == at(ref) {
 			delete(m.pending, ap)
-			m.act(ap.Ref, ap.Record, y)
+			if counts {
+				m.act(ap.Ref, ap.Record, y)
+			} else {
+				delete(m.approved, ap)
+			}
 		}
 	}
 }

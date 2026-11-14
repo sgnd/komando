@@ -123,13 +123,21 @@ type denyAgainVector struct {
 // changes are sorted by write. Yeses are kept only for writes past the
 // heads, sorted by write, then record; waiting changes a yes set aside
 // only while they wait or are past the heads, sorted by write, then type.
+// The writes that did not count come last, by writer and number.
 type stateVector struct {
 	Heads     []headVector
 	Records   []stateRecord
 	Waiting   []stateWaiting
 	Approved  []stateApproved
 	Withdrawn []stateWithdrawn
+	Uncounted []stateAt
 	Bytes     string
+}
+
+// stateAt is a write that did not count, by its writer and number.
+type stateAt struct {
+	Writer string
+	Seq    uint64
 }
 
 type stateField struct {
@@ -238,7 +246,8 @@ func layouts(v *vectors) {
 	// a write past the heads (one that deletes two holders and sets two
 	// waiting changes aside), one at the heads (left out), and waiting
 	// changes a yes set aside: one that waits here, one past the heads and
-	// one at the heads that no longer waits (left out).
+	// one at the heads that no longer waits (left out), and two writes
+	// that did not count.
 	srv, old := recordID(TypeServer, [12]byte(seq(1, 12))), recordID(TypeServer, [12]byte(seq(20, 12)))
 	clk := HLC{Wall: 1_700_000_000_000, Count: 1, Dev: dev}
 	ref := func(d DeviceID, n uint64, b int) WriteRef { return WriteRef{Writer: d, Seq: n, Hash: Hash(seq(b, 32))} }
@@ -262,6 +271,8 @@ func layouts(v *vectors) {
 	m.withdrawn[withdrawal{ref(dev2, 3, 140), TypeServer}] = true
 	m.withdrawn[withdrawal{ref(dev2, 5, 190), TypeSecret}] = true
 	m.withdrawn[withdrawal{ref(dev, 5, 110), TypeServer}] = true
+	m.uncounted[writeAt{dev2, 2}] = true
+	m.uncounted[writeAt{dev, 7}] = true
 	hm := map[DeviceID]Head{}
 	for _, h := range heads {
 		hm[h.Device] = h
@@ -295,6 +306,7 @@ func layouts(v *vectors) {
 		{hx(dev[:]), 5, hx(seq(110, 32)), TypeServer},
 		{hx(dev2[:]), 3, hx(seq(140, 32)), TypeServer},
 	}
+	st.Uncounted = []stateAt{{hx(dev2[:]), 2}, {hx(dev[:]), 7}}
 	v.State = st
 }
 

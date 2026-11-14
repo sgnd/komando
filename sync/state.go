@@ -12,8 +12,8 @@ import (
 // encode is the one byte form of the state at heads, the same on every
 // device that merged the same writes: records by ID with their fields by
 // name, waiting changes by write, the yeses whose change is not among the
-// writes yet with what each deletes and sets aside, and the waiting
-// changes a yes set aside. A deleted record
+// writes yet with what each deletes and sets aside, the waiting changes
+// a yes set aside, and the writes that did not count. A deleted record
 // keeps only its type and its name: its marker goes, its deletion stays
 // final.
 func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
@@ -97,6 +97,14 @@ func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
 		encodeRef(&e, wd.Ref)
 		e.str(wd.Type)
 	}
+	// Writes that did not count: a yes for one, read after the snapshot,
+	// acts never, though the write is among the snapshot's writes.
+	un := slices.SortedFunc(maps.Keys(m.uncounted), cmpWriteAt)
+	e.u32(uint32(len(un)))
+	for _, w := range un {
+		e.raw(w.Writer[:])
+		e.u64(w.Seq)
+	}
 	return e.b
 }
 
@@ -173,6 +181,12 @@ func decodeState(b []byte) (*mergeState, error) {
 		wd.Type = d.str()
 		m.withdrawn[wd] = true
 	}
+	for range d.count(1 << 20) {
+		var w writeAt
+		d.fixed(w.Writer[:])
+		w.Seq = d.u64()
+		m.uncounted[w] = true
+	}
 	if err := d.done(); err != nil {
 		return nil, err
 	}
@@ -197,5 +211,6 @@ func (m *mergeState) clone() *mergeState {
 	maps.Copy(c.heads, m.heads)
 	maps.Copy(c.withdrawn, m.withdrawn)
 	maps.Copy(c.markers, m.markers)
+	maps.Copy(c.uncounted, m.uncounted)
 	return c
 }
