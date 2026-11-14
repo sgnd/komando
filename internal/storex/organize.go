@@ -81,7 +81,7 @@ func renameOver(rename func(from, to string) error, remove func(p string) error,
 // stays where it was.
 func copyFailed(store, src, dst, why string) error {
 	return out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("run it again: `komando storage mv CONN %s %s`", arg(src), arg(dst)),
-		"%s: %s; %q was kept", store, why, src)
+		"the copy on the server (%s) ended badly: %s; %q was kept", store, why, src)
 }
 
 // entry is what a file server says about rel, as a Lookup answer.

@@ -119,7 +119,7 @@ var errorCodes = []errorCode{
 	{"KUBECONFIG", 2, "conn …: …", "import it again with `komando import kubeconfig`"},
 	{"LOGIN_FAILED", 4, "the login to … ended early (…)", "a person reads the whole log in …"},
 	{"MIXED_OS", 2, "the target picks Windows servers (…) and other servers (…)", "a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh)"},
-	{"MOVE_FAILED", 5, "gcs: the copy did not finish and gave no token to go on; … was kept", "run it again: `komando storage mv CONN SRC DST`"},
+	{"MOVE_FAILED", 5, "the copy on the server (…) ended badly: …; … was kept", "run it again: `komando storage mv CONN … …`"},
 	{"NAME_TAKEN", 8, "the rename clashes: …; nothing was renamed", "pick other names, or rename or remove what is in the way first"},
 	{"NEEDS_PERSON", 6, "setting up the approval code shows its secret, so only a person at a terminal can do it", "a person runs `komando config approval-code` in their own terminal"},
 	{"NEEDS_TERMINAL", 2, "cluster shell needs a person at a terminal", "agents and scripts use `komando cluster exec`"},
