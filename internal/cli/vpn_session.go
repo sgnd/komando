@@ -140,16 +140,13 @@ func needsPersonLogin(v *store.Vpn) bool {
 	if v.MFA {
 		return true
 	}
-	ownClient := v.Kind == "openvpn" && !v.OSMode || oneOf(v.Kind, "l2tp", "ipsec", "ikev2")
+	ownClient := v.Kind == "openvpn" || oneOf(v.Kind, "l2tp", "ipsec", "ikev2")
 	return ownClient && v.KeyRef == "" && v.User != ""
 }
 
 // startSession connects v in the background and records the session.
 // interactive means a person is at the terminal for the login (and MFA).
 func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, interactive bool) (*store.VpnSession, error) {
-	if err := osModeGone(v); err != nil {
-		return nil, err
-	}
 	if v.MFA && !interactive {
 		return nil, netx.LoginRequired(v)
 	}
@@ -457,9 +454,6 @@ func vpnUpCmd() *cobra.Command {
 			if !ok {
 				return out.NotFound("vpn", args[0])
 			}
-			if err := osModeGone(v); err != nil {
-				return err
-			}
 			if s := netx.LiveSession(cmd.Context(), v); s != nil {
 				cl.out.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
 				return nil
@@ -739,18 +733,6 @@ func randToken(n int) string {
 		panic(err)
 	}
 	return hex.EncodeToString(b)
-}
-
-// osModeGone refuses an OpenVPN saved with the removed --os-mode (which ran
-// the openvpn program as root): it is never quietly run another way. Adding
-// it again checks its profile against komando's own client.
-func osModeGone(v *store.Vpn) error {
-	if !v.OSMode {
-		return nil
-	}
-	return out.Errf(out.ExitUsage, "VPN_OS_MODE_REMOVED",
-		"add it again with komando's own client: `komando vpn add "+v.Name+" openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in)",
-		"VPN %s uses OpenVPN OS mode (--os-mode), which komando no longer has", v.Name)
 }
 
 // openconnectCmd is the openconnect command of v, with ocproxy giving its

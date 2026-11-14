@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Removed
+
+- The refusal for an OpenVPN saved with the old OS mode (`--os-mode`,
+  removed earlier): `VPN_OS_MODE_REMOVED` is gone, and `vpn show` no
+  longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
+  --overwrite` before updating.
+
 ### Fixed
 
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.

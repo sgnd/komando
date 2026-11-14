@@ -293,7 +293,6 @@ var errorCodes = []errorCode{
 	{"VPN_LOGIN_REQUIRED", 4, "VPN … is not connected and needs a person to log in", "ask a person to run `komando vpn up …` (it needs their login); then run it again"},
 	{"VPN_NOT_FOR_OPENSSH", 2, "VPN … (…) runs inside komando; OpenSSH cannot use it", "use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via"},
 	{"VPN_NOT_FOUND", 3, "no VPN named …", "see them with `komando vpn list`"},
-	{"VPN_OS_MODE_REMOVED", 2, "VPN … uses OpenVPN OS mode (--os-mode), which komando no longer has", "add it again with komando's own client: `komando vpn add … openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in)"},
 	{"VPN_STOP_FAILED", 1, "could not disconnect …: …", "run `komando vpn down …` again; if it still fails, end process … yourself"},
 	{"WAIT_TIMEOUT", 7, "job … still running after …", "it is still running: `komando job wait …` waits again, `komando job logs … --limit 50` shows its output so far"},
 	{"WEAK_PASSPHRASE", 2, "…; nothing was changed", "run it again with another passphrase"},

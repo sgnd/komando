@@ -286,11 +286,10 @@ func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
 
 func TestNeedsPersonLogin(t *testing.T) {
 	for v, want := range map[*store.Vpn]bool{
-		{Kind: "wireguard"}:                           false,
-		{Kind: "globalprotect", MFA: true}:            true,
-		{Kind: "l2tp", User: "budi"}:                  true,
-		{Kind: "l2tp", User: "budi", KeyRef: "x"}:     false,
-		{Kind: "openvpn", User: "budi", OSMode: true}: false,
+		{Kind: "wireguard"}:                       false,
+		{Kind: "globalprotect", MFA: true}:        true,
+		{Kind: "l2tp", User: "budi"}:              true,
+		{Kind: "l2tp", User: "budi", KeyRef: "x"}: false,
 	} {
 		if needsPersonLogin(v) != want {
 			t.Errorf("%+v: want %v", *v, want)
