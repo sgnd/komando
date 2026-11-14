@@ -243,12 +243,23 @@ depends on who asks and on the folder:
   process made is the newest copy, so it is not compared; its next opens
   are (below).
 - An AI agent's call never gets one: `KEYCHAIN_SLOW` or `STORE_OLD_COPY`.
-  Nil `store.AgentCaller` counts as an agent.
+  Nil `store.AgentCaller` counts as an agent, and so does the vault's
+  hook when `vault.AgentCall` is unset (`AgentCall == nil ||
+  AgentCall()`).
 - A folder with a trace of a store gets none, whoever asks. The traces
-  (`storeTrace`) are `store.key`, `store.key.new`, `store.db-journal`,
-  `runtime.pids` and a sealed `runtime.json`. The lock files are not:
-  komando makes `.store.lock` before it makes a store, so a refused
-  attempt leaves one behind. The audit log is inside `store.db`.
+  (`storeTrace`) are `store.made`, `store.key`, `store.key.new`,
+  `store.db-journal`, `runtime.pids` and a sealed `runtime.json`.
+  `store.made` is the one every store leaves: a store whose key is in the
+  keychain has no `store.key`, and with `store.db` gone its folder would
+  hold only lock files. `createDB` writes it before it moves the new
+  `store.db` into place (a crash in between leaves a store that is
+  noticed when lost, not one that looks like none) and removes it only
+  with a store it did not keep. `openDB` writes it for a store made
+  before komando wrote it. `AcceptOldCopy` removes it when a person starts
+  an empty store on purpose. A refused attempt never writes it. The lock
+  files are not traces: komando makes `.store.lock` before it makes a
+  store, so a refused attempt leaves one behind, in this run or an
+  earlier one. The audit log is inside `store.db`.
 
 The hint of such a stop first says to put `store.db` back from a backup;
 a fresh start (a person's terminal, or `KOMANDO_KEYCHAIN=off`) is offered
@@ -264,14 +275,39 @@ keychain cannot say whether it keeps one (`checkGeneration`: anything but
 caller that may look. A write would raise its change count until it
 passed for the newest copy. A person on a computer with no working
 keychain sets `KOMANDO_KEYCHAIN=off`; an agent's `off` is ignored for the
-count (`vault.countOff`), and so is an agent's `KOMANDO_KEYCHAIN` path
-(`vault.countKeychainFile`): pointed at a new, empty keychain file, it
-would find no count and let an empty store start over a guarded one.
+count (`vault.countOff`). An agent's `KOMANDO_KEYCHAIN` path is ignored
+for the key and the count alike (`vault.keychainFile`): pointed at a new,
+empty keychain file, it would find no count and let an empty store start
+over a guarded one, and a path used for one and not the other would split
+a store's key from its count. An agent cannot redirect the keychain; a
+store whose key is in a person's keychain file is not opened by an
+agent's call (the key error says why).
 
 How long a slow keychain is left alone is kept per home
 (`slowUntil`), and a late answer marks the home that was asked, never
 the one in use by then. So one test's slow stand-in keychain never
-makes the next test's home slow.
+makes the next test's home slow. The probe that stops waiting
+(`probeCount`) reads everything its goroutine uses before it starts it:
+the home, and the read itself from `GenerationKeep.Ask` (the vault's
+`genAsk` reads who asks, which keychain and tool, and the item's name).
+The goroutine may run on for a few seconds after the probe gave up, and
+reads no hook or setting a test puts back meanwhile.
+
+**Known limits, not from this change.** These were there before, and
+stay for a change of their own:
+
+- `sealdb`'s `Close` closes the database without taking `d.mu`. At the
+  end of a process a step still running on another goroutine may meet a
+  closed database.
+- A write after `store.db` was renamed over (a restore while a command
+  runs) can stop with SQLite's raw `SQLITE_READONLY_DBMOVED`, not a
+  komando error that says what happened.
+- On Linux, `secret-tool` talks to the Secret Service at the agent's
+  `DBUS_SESSION_BUS_ADDRESS`: an agent can point it at a bus of its own,
+  which answers what the agent wants (no count, say).
+- Keychain items made through `/usr/bin/security` carry no `-T` list, so
+  any process of the same user can read the key or reset the change count
+  through `security` too.
 
 ## What is still shared, and why
 
@@ -391,12 +427,23 @@ is not.
   a person's first store is made in a key file with one note, and the
   next run only reads; an agent's call is refused, and so is a person's in
   a folder with `store.key`, `runtime.pids` or a sealed `runtime.json`
-  left. A lock file or a plain `runtime.json` is no trace.
+  left. A lock file or a plain `runtime.json` is no trace, and an agent's
+  refused attempt leaves none: a person's first store is made after it.
+  `TestKeychainStoreGoneKeychainCannotAnswer` (store and vault): a store
+  whose key is in the keychain, `store.db` removed, and a keychain that is
+  locked, slow or hangs: nobody's call (a person's, a script's, an
+  agent's, or one with no hook) starts an empty store, as `store.made`
+  is left. `TestStoreMadeWrittenOnOpen`: a store made before `store.made`
+  gets it when opened.
 - `TestKeyfileStoreKeychainCannotAnswer`: a key file store beside a locked
   or slow keychain is read, takes no write (a look neither), and is caught
   as an old copy once the keychain answers.
   `TestAgentKeychainPathKeepsCount` (vault): an agent's keychain file
-  path does not hide the count.
+  path does not hide the count. `TestAgentKeychainPathNotUsed`: a
+  person's store in a keychain file keeps its key and count there, and an
+  agent's call with the same path neither opens it nor writes anything;
+  an agent's new store keeps both its key and its count in the default
+  keychain, none in its path.
 - `TestRetiredHandles` and `TestRetiredHandlesBounded`: a handle whose
   file was replaced takes no write (`STORE_CONFLICT`) but still reads; a
   busy one is kept, an idle one is closed once its grace is over, and a

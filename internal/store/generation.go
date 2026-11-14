@@ -30,6 +30,11 @@ import (
 // GenerationKeep reads and writes the number in the keychain.
 type GenerationKeep struct {
 	Get func() (n uint64, ok bool, err error)
+	// Ask, when set, reads now every setting Get reads and returns a Get
+	// that reads none later: probeCount calls it before it starts the
+	// goroutine it may stop waiting for. A keeper that sets Get alone
+	// leaves it nil.
+	Ask func() func() (n uint64, ok bool, err error)
 	Set func(n uint64) error
 	Del func() // the store went aside (a failed move, an undo)
 }
@@ -100,9 +105,14 @@ func probeCount() (uint64, bool, error) {
 		ok  bool
 		err error
 	}
-	home := Home()
+	// everything the goroutine uses is read here: it may run on after
+	// this call stopped waiting, while the hooks and settings change
+	home, get := Home(), GenerationKeeper.Get
+	if GenerationKeeper.Ask != nil {
+		get = GenerationKeeper.Ask()
+	}
 	ch := make(chan answer, 1)
-	go func() { k, ok, err := keptCountOf(home); ch <- answer{k, ok, err} }()
+	go func() { k, ok, err := keptCountWith(home, get); ch <- answer{k, ok, err} }()
 	select {
 	case a := <-ch:
 		return a.k, a.ok, a.err
@@ -312,6 +322,10 @@ func AcceptOldCopy(want uint64) (from uint64, err error) {
 		if GenerationKeeper.Del != nil {
 			GenerationKeeper.Del()
 		}
+		// nor does the folder's trace of the old store stop the new one
+		if err := os.Remove(Path(storeMade)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return from, err
+		}
 		return from, nil
 	}
 	d, err := openOldCopy()
@@ -414,17 +428,18 @@ func keychainSlowUntil() time.Time {
 
 // keptCount asks GenerationKeeper.Get, unless the keychain was slow for
 // this home less than a minute ago.
-func keptCount() (uint64, bool, error) { return keptCountOf(Home()) }
+func keptCount() (uint64, bool, error) { return keptCountWith(Home(), GenerationKeeper.Get) }
 
-// keptCountOf is keptCount for home, the home in use when it was asked.
-func keptCountOf(home string) (uint64, bool, error) {
+// keptCountWith is keptCount for home, the home in use when it was asked,
+// with get, the keeper's Get at that time.
+func keptCountWith(home string, get func() (uint64, bool, error)) (uint64, bool, error) {
 	slowMu.Lock()
 	skip := time.Now().Before(slowUntil[home])
 	slowMu.Unlock()
 	if skip {
 		return 0, false, ErrKeychainSlow
 	}
-	k, ok, err := GenerationKeeper.Get()
+	k, ok, err := get()
 	if errors.Is(err, ErrKeychainSlow) {
 		markKeychainSlow(home)
 	}

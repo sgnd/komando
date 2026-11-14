@@ -260,6 +260,9 @@ func openDB(ctx context.Context, home, path string, meta map[string]string, oldO
 	if err != nil {
 		return openStore{}, err
 	}
+	// a store made before komando wrote store.made gets it now; a folder
+	// komando cannot write to goes on without it
+	_, _ = markStoreMade()
 	return checkAndRemember(home, path, d, meta, master, oldOK, false)
 }
 
@@ -352,32 +355,11 @@ func createDB(ctx context.Context, home, path string) (openStore, error) {
 	if err != nil {
 		return openStore{}, err
 	}
-	// made under a temporary name and moved into place with its settings,
-	// so no process ever opens a store without its key mode
-	tmp := path + ".new"
-	_ = os.Remove(tmp)
-	d, err := sealdb.Create(ctx, tmp, k)
-	if err == nil {
-		err = d.Update(ctx, func(tx *sealdb.Tx) error {
-			for key, v := range meta {
-				if err := tx.SetMeta(key, v); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
-		if cerr := d.Close(); err == nil {
-			err = cerr
-		}
-	}
-	if err == nil {
-		err = os.Rename(tmp, path)
-	}
+	marked, err := writeNewStore(ctx, path, k, meta)
 	if err != nil {
-		os.Remove(tmp)
 		return openStore{}, err
 	}
-	d, err = sealdb.Open(ctx, path, k)
+	d, err := sealdb.Open(ctx, path, k)
 	if err != nil {
 		return openStore{}, err
 	}
@@ -400,10 +382,53 @@ func createDB(ctx context.Context, home, path string) (openStore, error) {
 			// copy on the next run: start again next time instead
 			d.Close()
 			os.Remove(path)
+			if marked {
+				os.Remove(Path(storeMade))
+			}
 			return openStore{}, fmt.Errorf("could not save the store's change count in the keychain: %w", gerr)
 		}
 	}
 	return checkAndRemember(home, path, d, meta, master, false, false)
+}
+
+// writeNewStore makes the store at path with key k and its readable
+// settings meta: under a temporary name, moved into place with its
+// settings, so no process ever opens a store without its key mode. The
+// folder's lasting trace (storeMade) goes first: a crash after the move
+// must not leave a store that, once store.db is lost, looks like none
+// (missingStore found no trace, so this call writes it). marked: it wrote
+// storeMade; on an error nothing is left.
+func writeNewStore(ctx context.Context, path string, k *sealrow.Key, meta map[string]string) (marked bool, err error) {
+	tmp := path + ".new"
+	_ = os.Remove(tmp)
+	d, err := sealdb.Create(ctx, tmp, k)
+	if err == nil {
+		err = d.Update(ctx, func(tx *sealdb.Tx) error {
+			for key, v := range meta {
+				if err := tx.SetMeta(key, v); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if cerr := d.Close(); err == nil {
+			err = cerr
+		}
+	}
+	if err == nil {
+		marked, err = markStoreMade()
+	}
+	if err == nil {
+		err = os.Rename(tmp, path)
+	}
+	if err != nil {
+		os.Remove(tmp)
+		if marked {
+			os.Remove(Path(storeMade))
+		}
+		return false, err
+	}
+	return marked, nil
 }
 
 // newStoreNote is the note for a store made beside a keychain that could

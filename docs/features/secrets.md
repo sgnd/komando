@@ -127,7 +127,11 @@ where there is no keychain tool, and on a Mac whose user has no default
 keychain (a changed `HOME`): the key then goes into `store.key`, and
 `komando doctor` says so. It never makes macOS ask where to keep it.
 An AI agent's `KOMANDO_KEYCHAIN=off` still lets komando read and raise the
-change count: an agent cannot switch off the old-copy check that way.
+change count: an agent cannot switch off the old-copy check that way. Nor
+can an agent point komando at another keychain: its `KOMANDO_KEYCHAIN`
+path (a keychain file on a Mac) is not used, so its calls keep the key and
+the count in the login keychain. A store whose key is in your own keychain
+file is opened only by your commands.
 
 These commands change where the key is, so only a person at a terminal runs
 them (`NEEDS_PERSON` for an AI agent or a script); `--dry-run` previews them

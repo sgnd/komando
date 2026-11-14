@@ -71,9 +71,32 @@ func keychainCmd(args ...string) *exec.Cmd {
 
 // keychainCmdCtx is keychainCmd, stopped when ctx ends.
 func keychainCmdCtx(ctx context.Context, args ...string) *exec.Cmd {
-	tool := securityTool
-	if keychainOS != "darwin" {
-		tool = systemTool("secret-tool")
+	return keychainNow().cmd(ctx, args...)
+}
+
+// keychainAt is where this system's keychain tools are, read once from
+// the settings tests change (keychainOS, securityTool, toolDirs,
+// defaultKeychainTimeout). A keychain call its caller may stop waiting
+// for (the store's probe of its change count) reads them before it
+// starts, never while it runs.
+type keychainAt struct {
+	os, security, secretTool string
+	defaultTimeout           time.Duration
+}
+
+func keychainNow() keychainAt {
+	at := keychainAt{os: keychainOS, security: securityTool, defaultTimeout: defaultKeychainTimeout}
+	if at.os != "darwin" {
+		at.secretTool = systemTool("secret-tool")
+	}
+	return at
+}
+
+// cmd runs the keychain tool with args, stopped when ctx ends.
+func (at keychainAt) cmd(ctx context.Context, args ...string) *exec.Cmd {
+	tool := at.security
+	if at.os != "darwin" {
+		tool = at.secretTool
 	}
 	c := exec.CommandContext(ctx, tool, args...)
 	c.WaitDelay = time.Second // a child holding the pipes must not keep komando waiting
@@ -100,12 +123,24 @@ var newKeyContext = func() (context.Context, context.CancelFunc) {
 var errNoKeychainKey = errors.New("the vault key is not in the keychain")
 
 // keychainFile is a keychain file to use instead of the login keychain
-// (macOS; KOMANDO_KEYCHAIN, for tests and separate keychains).
+// (macOS; KOMANDO_KEYCHAIN, for tests and a person's separate keychain),
+// for the store's key and its change count alike. An AI agent's path is
+// not used for either: pointed at a new, empty keychain file it would find
+// no count, and komando would start an empty store over one the agent
+// moved aside. An agent's call uses the default keychain, as its "off"
+// does for the count (countOff), so the key and the count of a store are
+// always in one keychain.
 func keychainFile() string {
-	if keychainOff() {
+	if keychainOff() || agentCall() {
 		return ""
 	}
 	return os.Getenv("KOMANDO_KEYCHAIN")
+}
+
+// agentKeychainPath reports an AI agent's call with KOMANDO_KEYCHAIN set
+// to a keychain file, which komando does not use (keychainFile).
+func agentKeychainPath() bool {
+	return agentCall() && !keychainOff() && os.Getenv("KOMANDO_KEYCHAIN") != ""
 }
 
 // keychainOff: KOMANDO_KEYCHAIN=off, komando uses no keychain here.
@@ -114,27 +149,20 @@ func keychainOff() bool { return os.Getenv("KOMANDO_KEYCHAIN") == "off" }
 // AgentCall reports that an AI agent makes this call; the cli sets it.
 var AgentCall func() bool
 
+// agentCall asks AgentCall for the keychain's settings. Unset, the
+// caller's own settings count: the tests and programs that set no hook
+// keep KOMANDO_KEYCHAIN=off, and must never reach the login keychain.
+// store.AgentCaller, which decides who may start a store beside a keychain
+// that cannot be read, counts an unset hook as an agent instead.
+func agentCall() bool { return AgentCall != nil && AgentCall() }
+
 // countOff is keychainOff for the store's change count (generation.go).
 // An agent's KOMANDO_KEYCHAIN=off does not count there: with it, an agent
 // could move store.db and store.key aside, or put an old copy back, and
 // komando would start or open that store without the old-copy check (no
 // pinned host keys, no protected flags). The count is a number, not a
 // secret, so reading it gives the agent nothing.
-func countOff() bool {
-	return keychainOff() && (AgentCall == nil || !AgentCall())
-}
-
-// countKeychainFile is keychainFile for the store's change count. An
-// agent's KOMANDO_KEYCHAIN path counts no more than its "off" (countOff):
-// pointed at a new, empty keychain file it would find no count, and
-// komando would start an empty store over one the agent moved aside. An
-// agent's call reads and keeps the count in the default keychain.
-func countKeychainFile() string {
-	if AgentCall != nil && AgentCall() {
-		return ""
-	}
-	return keychainFile()
-}
+func countOff() bool { return keychainOff() && !agentCall() }
 
 // KeychainTool says which tool keeps the key here, or why there is none.
 func KeychainTool() (string, error) { return keychainTool(keychainOff()) }
@@ -179,20 +207,23 @@ var (
 // sudo -E, a sandbox, CI, a test run; or no login keychain), while
 // `security default-keychain` only exits 1, with no dialog. So komando
 // asks that first, once per process.
-func macDefaultKeychain(kc string) error {
-	if keychainOS != "darwin" || kc != "" {
+func macDefaultKeychain(kc string) error { return keychainNow().macDefault(kc) }
+
+// macDefault is macDefaultKeychain with the tools at.
+func (at keychainAt) macDefault(kc string) error {
+	if at.os != "darwin" || kc != "" {
 		return nil
 	}
 	home := os.Getenv("HOME")
-	id := securityTool + "\x00" + home
+	id := at.security + "\x00" + home
 	defaultKCMu.Lock()
 	defer defaultKCMu.Unlock()
 	if err, ok := defaultKCSeen[id]; ok {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultKeychainTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), at.defaultTimeout)
 	defer cancel()
-	c := exec.CommandContext(ctx, securityTool, "default-keychain")
+	c := exec.CommandContext(ctx, at.security, "default-keychain")
 	c.WaitDelay = time.Second
 	var err error
 	if out, rerr := c.CombinedOutput(); rerr != nil || len(bytes.TrimSpace(out)) == 0 {
@@ -210,7 +241,7 @@ func macDefaultKeychain(kc string) error {
 func autoKeychainTool() (string, error) { return autoKeychainToolFor(keychainOff(), keychainFile()) }
 
 // autoKeychainToolFor is autoKeychainTool with off and the keychain file
-// given (countOff and countKeychainFile for the change count).
+// given (countOff and keychainFile for the change count).
 func autoKeychainToolFor(off bool, kc string) (string, error) {
 	tool, err := keychainTool(off)
 	if err != nil {

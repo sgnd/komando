@@ -46,6 +46,9 @@ func storeMaster(meta map[string]string, create bool) ([]byte, map[string]string
 		return k, nil, err
 	case "keychain":
 		k, err := keychainGet()
+		if err != nil && agentKeychainPath() {
+			return nil, nil, fmt.Errorf("%w; an AI agent's KOMANDO_KEYCHAIN path is not used (its calls use the default keychain): if this store's key is in that keychain file, a person runs the command in their own terminal", err)
+		}
 		if err != nil {
 			return nil, nil, err
 		}

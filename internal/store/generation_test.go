@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 )
@@ -365,7 +366,9 @@ func TestMissingStoreKeychainCannotAnswer(t *testing.T) {
 						t.Fatalf("look %v: a new home: %v", look, err)
 					}
 					Close()
+					// a new home again for the next round, not a lost store
 					os.Remove(Path(StoreFile))
+					os.Remove(Path(storeMade))
 					continue
 				}
 				var oe *out.Error
@@ -574,10 +577,25 @@ func TestFirstStoreKeychainCannotBeRead(t *testing.T) {
 				if len(notes) != 0 || set != 0 {
 					t.Fatalf("notes %q, count set %d times", notes, set)
 				}
+				if _, err := os.Stat(Path(storeMade)); !os.IsNotExist(err) {
+					t.Fatalf("a refused attempt left %s: %v", storeMade, err)
+				}
+				if !tc.agent {
+					return
+				}
+				// the agent's refused attempt left the lock files, and no
+				// trace: a person's first store is made after it
+				AgentCaller = func() bool { return false }
+				if err := Update(Save(), func(s *State) error { s.Hosts["web"] = &Host{Name: "web"}; return nil }); err != nil {
+					t.Fatalf("a person's first store after an agent's refused attempt: %v", err)
+				}
 				return
 			}
 			if err != nil {
 				t.Fatal(err)
+			}
+			if _, err := os.Stat(Path(storeMade)); err != nil {
+				t.Errorf("the new store left no %s: %v", storeMade, err)
 			}
 			if asked["key_mode"] != "keyfile" {
 				t.Errorf("the new key was not kept out of the keychain: %v", asked)
@@ -590,5 +608,101 @@ func TestFirstStoreKeychainCannotBeRead(t *testing.T) {
 				t.Errorf("the count was set %d times", set)
 			}
 		})
+	}
+}
+
+// The attack on a store whose key is in the keychain (it has no
+// store.key): store.db is removed, and the keychain is locked, slow or
+// hangs, so it cannot say whether it remembers the store's change count.
+// The folder still holds store.made, which the store left when it was
+// made, so nobody's call starts an empty store in its place: not a
+// person's, a script's or an agent's, nor one with no caller hook.
+func TestKeychainStoreGoneKeychainCannotAnswer(t *testing.T) {
+	saved := probeAnswer
+	probeAnswer = 100 * time.Millisecond
+	t.Cleanup(func() { probeAnswer = saved })
+	for name, tc := range map[string]struct {
+		get  func(release <-chan struct{}) (uint64, bool, error)
+		code string
+	}{
+		"locked": {func(<-chan struct{}) (uint64, bool, error) { return 0, false, errors.New("locked") }, "STORE_OLD_COPY"},
+		"slow":   {func(<-chan struct{}) (uint64, bool, error) { return 0, false, ErrKeychainSlow }, "KEYCHAIN_SLOW"},
+		"hangs": {func(release <-chan struct{}) (uint64, bool, error) {
+			<-release
+			return 0, false, errors.New("gave up")
+		}, "KEYCHAIN_SLOW"},
+	} {
+		for _, who := range []string{"person", "script", "agent", "no hook"} {
+			t.Run(name+"/"+who, func(t *testing.T) {
+				kept := keychainStore(t)
+				update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web", Protected: true} })
+				if *kept == 0 {
+					t.Fatal("no count")
+				}
+				if _, err := os.Stat(Path("store.key")); !os.IsNotExist(err) {
+					t.Fatalf("a keychain store with store.key: %v", err)
+				}
+				Close()
+				if err := os.Remove(DBPath()); err != nil {
+					t.Fatal(err)
+				}
+				release := make(chan struct{})
+				t.Cleanup(func() { close(release) })
+				set := 0
+				GenerationKeeper = GenerationKeep{
+					Get: func() (uint64, bool, error) { return tc.get(release) },
+					Set: func(uint64) error { set++; return nil },
+					Del: func() {},
+				}
+				savedAgent, savedNotice := AgentCaller, Notice
+				t.Cleanup(func() { AgentCaller, Notice = savedAgent, savedNotice })
+				switch who {
+				case "agent":
+					AgentCaller = func() bool { return true }
+				case "no hook":
+					AgentCaller = nil
+				default: // a person and a script are both no agent
+					AgentCaller = func() bool { return false }
+				}
+				var notes []string
+				Notice = func(msg string) { notes = append(notes, msg) }
+				for _, create := range []func() error{
+					func() error {
+						return Update(Save(), func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
+					},
+					func() error { _, err := DB(true); return err },
+					CheckWritable,
+				} {
+					err := create()
+					var oe *out.Error
+					if !errors.As(err, &oe) || oe.Code != tc.code || !strings.Contains(oe.Message, storeMade) || !strings.HasPrefix(oe.Hint, "put store.db back") {
+						t.Fatalf("an empty store over a lost one: %v", err)
+					}
+				}
+				if _, err := os.Stat(DBPath()); !os.IsNotExist(err) {
+					t.Fatalf("a store was made: %v", err)
+				}
+				if len(notes) != 0 || set != 0 {
+					t.Fatalf("notes %q, count set %d times", notes, set)
+				}
+			})
+		}
+	}
+}
+
+// A store made before komando wrote store.made gets it when it is opened.
+func TestStoreMadeWrittenOnOpen(t *testing.T) {
+	keychainStore(t)
+	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+	Close()
+	if err := os.Remove(Path(storeMade)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(Path(storeMade))
+	if err != nil || !strings.Contains(string(b), "put store.db back") {
+		t.Fatalf("%s: %q %v", storeMade, b, err)
 	}
 }

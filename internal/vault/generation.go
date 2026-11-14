@@ -21,8 +21,10 @@ import (
 // home, holding a number, not a secret.
 
 func init() {
-	store.GenerationKeeper = store.GenerationKeep{Get: genGet, Set: genSet, Del: genDel}
-	store.AgentCaller = func() bool { return AgentCall != nil && AgentCall() }
+	store.GenerationKeeper = store.GenerationKeep{Get: genGet, Ask: genAsk, Set: genSet, Del: genDel}
+	// an unset hook counts as an agent: a store starts beside a keychain
+	// that cannot be read only for a caller known to be a person or a script
+	store.AgentCaller = func() bool { return AgentCall == nil || AgentCall() }
 }
 
 // genService names this home's generation item.
@@ -30,22 +32,34 @@ func genService() string { return keychainService() + " generation" }
 
 const genTimeout = 5 * time.Second
 
-func genGet() (uint64, bool, error) {
+func genGet() (uint64, bool, error) { return genAsk()() }
+
+// genAsk reads now everything genGet uses (who asks, which keychain and
+// tool, this home's item name) and gives the read itself, which uses only
+// that: the store's probe runs it on a goroutine it may stop waiting for,
+// and that goroutine must read no setting changed after it started.
+func genAsk() func() (uint64, bool, error) {
 	// no keychain here at all: no count is kept. A keychain that is there
 	// but cannot be used (no default keychain for this HOME) may hold one.
 	if _, err := keychainTool(countOff()); err != nil {
-		return 0, false, store.NoKeychain{Err: err}
+		return func() (uint64, bool, error) { return 0, false, store.NoKeychain{Err: err} }
 	}
-	kc := countKeychainFile()
-	if err := macDefaultKeychain(kc); err != nil {
+	at, kc, service := keychainNow(), keychainFile(), genService()
+	return func() (uint64, bool, error) { return genRead(at, kc, service) }
+}
+
+// genRead reads the count of item service with the tools at, from the
+// keychain file kc ("" for the default keychain).
+func genRead(at keychainAt, kc, service string) (uint64, bool, error) {
+	if err := at.macDefault(kc); err != nil {
 		return 0, false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
 	defer cancel()
 	var b []byte
-	switch keychainOS {
+	switch at.os {
 	case "windows":
-		v, err := credRead(genService())
+		v, err := credRead(service)
 		if errors.Is(err, errNoKeychainKey) {
 			return 0, false, nil
 		}
@@ -55,14 +69,14 @@ func genGet() (uint64, bool, error) {
 		b = v
 	default:
 		var c *exec.Cmd
-		if keychainOS == "darwin" {
-			args := []string{"find-generic-password", "-a", keychainAccount, "-s", genService(), "-w"}
+		if at.os == "darwin" {
+			args := []string{"find-generic-password", "-a", keychainAccount, "-s", service, "-w"}
 			if kc != "" {
 				args = append(args, kc)
 			}
-			c = keychainCmdCtx(ctx, args...)
+			c = at.cmd(ctx, args...)
 		} else {
-			c = keychainCmdCtx(ctx, "lookup", "service", genService(), "account", keychainAccount)
+			c = at.cmd(ctx, "lookup", "service", service, "account", keychainAccount)
 		}
 		var errb bytes.Buffer
 		c.Stderr = &errb
@@ -70,7 +84,7 @@ func genGet() (uint64, bool, error) {
 		var ee *exec.ExitError
 		if err != nil && ctx.Err() == nil && errors.As(err, &ee) {
 			code := ee.ExitCode()
-			if (keychainOS == "darwin" && code == 44) || (keychainOS != "darwin" && code == 1 && len(bytes.TrimSpace(out)) == 0 && errb.Len() == 0) {
+			if (at.os == "darwin" && code == 44) || (at.os != "darwin" && code == 1 && len(bytes.TrimSpace(out)) == 0 && errb.Len() == 0) {
 				return 0, false, nil
 			}
 		}
@@ -90,7 +104,7 @@ func genGet() (uint64, bool, error) {
 }
 
 func genSet(n uint64) error {
-	kc := countKeychainFile()
+	kc := keychainFile()
 	if _, err := autoKeychainToolFor(countOff(), kc); err != nil {
 		return err
 	}
@@ -115,7 +129,7 @@ func genSet(n uint64) error {
 // genDel removes the generation item: the store's key left the keychain,
 // so there is nothing to compare with.
 func genDel() {
-	kc := countKeychainFile()
+	kc := keychainFile()
 	if _, err := autoKeychainToolFor(keychainOff(), kc); err != nil {
 		return
 	}

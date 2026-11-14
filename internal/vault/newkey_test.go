@@ -369,6 +369,60 @@ esac
 	}
 }
 
+// The attack on a store whose key is in the keychain: it has no
+// store.key, so once store.db is removed and the keychain is locked or
+// hangs, only store.made (left when the store was made) shows the folder
+// had a store. Nobody's call starts an empty store there: not a person's
+// or a script's (no agent), nor an agent's.
+func TestKeychainStoreGoneKeychainCannotAnswer(t *testing.T) {
+	for name, tc := range map[string]struct{ script, code string }{
+		"locked": {`case "$1" in
+  lookup) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
+  store) exit 0 ;;
+esac
+`, "STORE_OLD_COPY"},
+		"hangs": {"exec sleep 30\n", "KEYCHAIN_SLOW"},
+	} {
+		for _, who := range []string{"person or script", "agent"} {
+			t.Run(name+"/"+who, func(t *testing.T) {
+				freshHome(t)
+				keychainStandIn(t, false)
+				savedAgent, savedNotice := AgentCall, store.Notice
+				t.Cleanup(func() { AgentCall, store.Notice = savedAgent, savedNotice })
+				AgentCall = func() bool { return false }
+				if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
+					t.Fatal(err)
+				}
+				if m := modeOnDisk(t); m != "keychain" {
+					t.Fatalf("mode %q, want keychain", m)
+				}
+				noKeyFile(t)
+				store.Close()
+				if err := os.Remove(store.DBPath()); err != nil {
+					t.Fatal(err)
+				}
+				calls := scriptedSecretTool(t, tc.script)
+				AgentCall = func() bool { return who == "agent" }
+				var notes []string
+				store.Notice = func(msg string) { notes = append(notes, msg) }
+				err := Set(store.Save(), "other", "v")
+				if err == nil || !strings.Contains(err.Error(), tc.code) || !strings.Contains(err.Error(), "store.made") {
+					t.Fatalf("an empty store over a lost one: %v", err)
+				}
+				if _, serr := os.Stat(store.DBPath()); !os.IsNotExist(serr) {
+					t.Errorf("a store was made: %v", serr)
+				}
+				if strings.Contains(calls(), "store") {
+					t.Errorf("something was stored in the keychain:\n%s", calls())
+				}
+				if len(notes) != 0 {
+					t.Errorf("notes %q", notes)
+				}
+			})
+		}
+	}
+}
+
 // A keychain tool that never answers (an unlock prompt nobody sees, a slow
 // D-Bus) does not hang the first secret: past newKeyTimeout the new vault
 // keeps its key in vault.key. Here the store's change count is known to
@@ -516,13 +570,18 @@ esac
 // A search that never answers is "cannot tell" too, once its time is up.
 // Only the search is cut short: its time is up when the stand-in says the
 // search started, never by the clock, so a slow first lookup on a busy
-// computer is not cut short in its place.
+// computer is not cut short in its place. A call that starts after the
+// search (a store, were komando to go on) is never cut short: a store
+// would then run to its end and be seen.
 func TestNewVaultKeychainSearchHangs(t *testing.T) {
 	signal := filepath.Join(t.TempDir(), "searching")
 	saved := newKeyContext
 	t.Cleanup(func() { newKeyContext = saved })
 	newKeyContext = func() (context.Context, context.CancelFunc) {
 		ctx, cancel := context.WithCancel(context.Background())
+		if _, err := os.Stat(signal); err == nil {
+			return ctx, cancel // after the search: its own time
+		}
 		go func() {
 			for ctx.Err() == nil {
 				if _, err := os.Stat(signal); err == nil {

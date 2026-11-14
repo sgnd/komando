@@ -11,13 +11,39 @@ import (
 // DBPath is the file of this home's sealed store.
 func DBPath() string { return Path(StoreFile) }
 
-// storeTraces are the files only a store leaves in its folder: its key
-// file (and one being changed), SQLite's journal of store.db, and the
-// runtime files kept beside it. The audit log is inside store.db. The
+// storeMade is the file komando writes in its folder when it makes a
+// store there (createDB), and when it opens a store made before komando
+// wrote it (openDB). It stays for the life of the folder: komando removes
+// it only with a store it made and did not keep (createDB), and when a
+// person starts an empty store on purpose (AcceptOldCopy). It is the one
+// trace every store leaves, a store whose key is in the keychain too
+// (that one has no store.key). A refused attempt never writes it: only a
+// store that was made or opened does.
+const storeMade = "store.made"
+
+// storeMadeNote is what storeMade holds, for a person who finds it.
+const storeMadeNote = "komando made a store in this folder. While this file is here, komando does not start an empty store where store.db went missing: put store.db back from a backup.\n"
+
+// markStoreMade writes storeMade when it is not there; made: this call
+// wrote it.
+func markStoreMade() (made bool, err error) {
+	p := Path(storeMade)
+	if _, err := os.Lstat(p); err == nil {
+		return false, nil
+	}
+	if err := WriteFileAtomic(p, []byte(storeMadeNote), 0o600); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// storeTraces are the files only a store leaves in its folder: storeMade,
+// its key file (and one being changed), SQLite's journal of store.db, and
+// the runtime files kept beside it. The audit log is inside store.db. The
 // lock files are not traces: komando makes .store.lock before it makes a
 // store, and an attempt that was refused leaves it behind. Nor is
 // store.db.new: a store being made, never moved into place.
-var storeTraces = []string{"store.key", "store.key.new", StoreFile + "-journal", "runtime.pids"}
+var storeTraces = []string{storeMade, "store.key", "store.key.new", StoreFile + "-journal", "runtime.pids"}
 
 // storeTrace names a file that shows this home had a store, or "". A
 // runtime.json counts only when it is sealed (with the store's key): a
