@@ -107,6 +107,33 @@ func BenchmarkSync1000Records(b *testing.B) {
 	b.ReportMetric(float64(stored), "server-bytes")
 }
 
+// BenchmarkSync1000RecordsFromSnapshot is the same join after a snapshot
+// every device named: the server dropped the writes it holds, and the new
+// device starts from it (SS 9).
+func BenchmarkSync1000RecordsFromSnapshot(b *testing.B) {
+	w, a := syncWorld(b, 1000)
+	snap, err := a.MakeSnapshot()
+	must(b, err)
+	_, err = a.Sync()
+	must(b, err)
+	if a.SnapshotToPrune() == nil {
+		b.Fatal("the snapshot was not confirmed")
+	}
+	w.srv.PruneWrites(snap.Heads)
+	var stored int
+	for _, it := range w.srv.AllBytes() {
+		stored += len(it)
+	}
+	for b.Loop() {
+		d := w.pair(a, "iPhone", true)
+		if d.base == nil || d.Records() < 1001 {
+			b.Fatalf("%d records", d.Records())
+		}
+	}
+	b.ReportMetric(float64(len(snap.Marshal())), "snapshot-bytes")
+	b.ReportMetric(float64(stored), "server-bytes")
+}
+
 // TestSizes logs the sizes the design doc quotes (go test -v -run TestSizes).
 func TestSizes(t *testing.T) {
 	w := newWorld(t)

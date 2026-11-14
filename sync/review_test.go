@@ -84,7 +84,16 @@ func TestMergeIsOrderFree(t *testing.T) {
 	must(t, err)
 	_, err = m.write(&Change{Kind: kindRecord, Record: idRecord(a.ID()), Type: TypeDevice, Delete: true})
 	must(t, err)
+	_, err = m.Create(TypeDeny, field("pattern", "rm -rf *"))
+	must(t, err)
+	_, err = m.Create(TypeServer, field("name", "prod-db"), field("address", "10.0.0.7"))
+	must(t, err)
 	w.syncAll(a, m)
+	for _, wt := range a.Waiting() {
+		if wt.Replaces != "" {
+			must(t, a.Approve(wt.Ref)) // deletes the old prod-db in the same yes
+		}
+	}
 
 	state := func(log []staged) string {
 		d := &Device{data: newMergeState(), list: a.list, account: a.account}
@@ -100,7 +109,7 @@ func TestMergeIsOrderFree(t *testing.T) {
 			}
 			b.WriteString("\n")
 		}
-		return fmt.Sprintf("%swaiting %d", b.String(), len(d.Waiting()))
+		return fmt.Sprintf("%swaiting %d\n%x", b.String(), len(d.Waiting()), d.data.encode(nil))
 	}
 	fwd := state(a.log)
 	back := slices.Clone(a.log)
@@ -131,7 +140,16 @@ func TestDeviceRecordOnlyByItsDevice(t *testing.T) {
 	must(t, err)
 	_, err = m.write(&Change{Kind: kindRecord, Record: idRecord(a.ID()), Type: TypeDevice, Delete: true})
 	must(t, err)
+	_, err = m.Create(TypeDeny, field("pattern", "rm -rf *"))
+	must(t, err)
+	_, err = m.Create(TypeServer, field("name", "prod-db"), field("address", "10.0.0.7"))
+	must(t, err)
 	w.syncAll(a, m)
+	for _, wt := range a.Waiting() {
+		if wt.Replaces != "" {
+			must(t, a.Approve(wt.Ref)) // deletes the old prod-db in the same yes
+		}
+	}
 	if name, ok := a.DeviceName(a.ID()); !ok || name != "Budi's old MacBook" {
 		t.Fatalf("A's name: %q %v", name, ok)
 	}

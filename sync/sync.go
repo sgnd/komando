@@ -21,7 +21,8 @@ type Report struct {
 	Deferred   int   // writes stamped in the future: kept for later
 	Held       int   // writes and summaries naming list entries past a hold: read again after it
 	OldKey     int   // writes sealed under a key generation this device already knew was replaced (SS 7.1)
-	Resealed   int   // own writes sealed again under the newest generation (SS 7.1)
+	Rewritten  int   // stricter values kept from past a removed device's cut, written again as this device's own (SS 6.2)
+	Refused    int   // snapshots that did not match this device's data: refused, the writes kept (SS 9)
 	Hold       *Hold // the list waits on this device's clock
 	Alerts     []string
 }
@@ -43,50 +44,28 @@ func (d *Device) Sync() (*Report, error) {
 	if err != nil {
 		return nil, err
 	}
-	if d.resealDue {
-		if rep.Resealed, err = d.reseal(d.resealFrom); err != nil {
-			return nil, err
-		}
-		d.resealDue = false
+	if rep.Rewritten, err = d.writeAgain(); err != nil {
+		return nil, err
+	}
+	if err := d.checkSnapshots(rep); err != nil {
+		return nil, err
 	}
 	if err := d.publishSummary(); err != nil {
 		return nil, err
 	}
+	d.rebase()
 	before := d.head
 	if d.alertDue {
 		before, d.alertDue = d.alertFrom, false
 	}
 	rep.Alerts = d.alerts(before)
+	if rep.Refused > 0 {
+		rep.Alerts = append(rep.Alerts, fmt.Sprintf("%d snapshots did not match this device's data; they were refused and the writes are kept", rep.Refused))
+	}
 	if rep.OldKey > 0 {
 		rep.Alerts = append(rep.Alerts, fmt.Sprintf("%d changes were sealed under a key from before a removal; a removed device can read them", rep.OldKey))
 	}
 	return rep, nil
-}
-
-// reseal is the writer catching up (SS 7.1, decided 2026-11-14): its own
-// writes that name the list entry it held before another device's key
-// change reached it, or a later one, sealed under a generation that is now
-// replaced, are written again under the newest generation. A device cannot
-// know when the server got the key change, so "the writes made while it
-// was behind" are taken as those that name the newest entry it held (see
-// finding 33 in sync-prototype.md). The list can reach the device outside
-// Sync, so heldHead is kept from that moment (finding 37). A reseal names
-// the write it copies and changes nothing in the merged data.
-func (d *Device) reseal(heldHead uint32) (int, error) {
-	var old []staged
-	for _, s := range d.log {
-		if s.w.Writer == d.id && s.c.Kind == kindRecord && s.w.ListNum >= heldHead && s.w.KeyGen < d.list.Gen.Gen {
-			old = append(old, s)
-		}
-	}
-	for _, s := range old {
-		c := *s.c
-		c.Kind, c.Target = kindReseal, s.w.Ref()
-		if _, err := d.write(&c); err != nil {
-			return 0, err
-		}
-	}
-	return len(old), nil
 }
 
 // pull is Sync without signing a summary: check everything, then merge.
@@ -94,10 +73,15 @@ func (d *Device) pull() (*Report, error) {
 	rep := &Report{}
 	// A device that already holds a signed state alerts on writes sealed
 	// under a generation it knew was replaced (SS 7.1). A device catching
-	// up from nothing does not: all of history is new to it.
+	// up from nothing does not: all of history is new to it. When the list
+	// moved outside Sync, what it knew is the generation at the entry it
+	// held before that move (SS 6.3).
 	knownGen := uint32(0)
 	if d.list != nil && d.summaries[d.id] != nil {
 		knownGen = d.list.Gen.Gen
+		if d.alertDue && d.alertFrom > 0 {
+			knownGen = d.list.GenAt[d.alertFrom-1]
+		}
 	}
 	if err := d.refreshList(); err != nil {
 		return nil, err
@@ -110,6 +94,9 @@ func (d *Device) pull() (*Report, error) {
 		return nil, err
 	}
 	if err := d.loadKeys(); err != nil {
+		return nil, err
+	}
+	if err := d.startFromSnapshot(); err != nil {
 		return nil, err
 	}
 	target, best, err := d.readSummaries()
@@ -136,211 +123,20 @@ func (d *Device) pull() (*Report, error) {
 	return rep, nil
 }
 
-// computeCuts finds, for each removed device, its newest write that
-// counts (SS 6.2, decided 2026-11-14): the newest write of it that any
-// remaining device covered in a signed summary naming a list entry from
-// before the removal. The last write the removal records is the floor, not
-// the cut. A cut never goes down: a summary that was shown once was
-// checked once.
-func (d *Device) computeCuts() error {
-	for id, r := range d.list.Removed {
-		best := Head{Device: id, Seq: r.LastSeq, Hash: r.LastHash}
-		info := d.list.RemInfo[id]
-		for _, other := range info.Remaining {
-			items, err := d.srv.Read(d.id, logSummaries(other))
-			if err != nil {
-				return err
-			}
-			var top *Summary
-			var topHead Head
-			for _, it := range items {
-				s, err := ParseSummary(it)
-				if err != nil {
-					return fmt.Errorf("%w: summary of %x", ErrBadSignature, other[:4])
-				}
-				if h := headOf(s, id); s.ListNum < info.At && h.Seq > topHead.Seq {
-					top, topHead = s, h
-				}
-			}
-			if top == nil || topHead.Seq <= best.Seq {
-				continue
-			}
-			if top.Account != d.account || top.Signer != other ||
-				!verifySig(parsePub(d.list.Ever[other].SyncPub), labelSummary, top.signedBytes(), top.Sig) {
-				return fmt.Errorf("%w: summary of %x", ErrBadSignature, other[:4])
-			}
-			if top.ListNum == 0 || d.list.Hashes[top.ListNum-1] != top.ListHash {
-				return fmt.Errorf("%w: a summary names another list entry %d", ErrFork, top.ListNum)
-			}
-			best = topHead
-		}
-		if prev, ok := d.cuts[id]; ok {
-			switch {
-			case prev.Seq > best.Seq:
-				best = prev
-			case prev.Seq == best.Seq && prev.Hash != best.Hash:
-				return fmt.Errorf("%w: two different writes %d of a removed device", ErrFork, best.Seq)
-			}
-		}
-		// A write this device dropped and showed as not kept is kept
-		// after all: the person is told again (finding 36).
-		for ref := range d.dropped {
-			if ref.Writer == id && ref.Seq <= best.Seq {
-				delete(d.dropped, ref)
-				d.keptAgain[ref] = false
-			}
-		}
-		d.cuts[id] = best
-	}
-	return nil
-}
-
-// dropRevoked handles a removal whose cut is below what this device
-// already applied: it applied writes no remaining device had confirmed
-// before the removal. It merges again without them; merging is
-// order-free, so the result is what a device that never saw them holds.
-// Two things are never taken back (SS 6.2): a stricter value that applied
-// by itself, and an approval the removed device signed.
-func (d *Device) dropRevoked(rep *Report) error {
-	drop := map[DeviceID]uint64{}
-	for id := range d.list.Removed {
-		c := d.cuts[id]
-		if d.newest[id].Seq > c.Seq {
-			d.newest[id] = c
-		}
-		if d.applied[id].Seq <= c.Seq {
-			continue
-		}
-		if c.Seq > 0 && d.hashAt(id, c.Seq, nil) != c.Hash {
-			return fmt.Errorf("%w: the last write that counts of a removed device differs", ErrFork)
-		}
-		drop[id] = c.Seq
-		d.applied[id] = c
-		d.hashes[id] = d.hashes[id][:c.Seq]
-	}
-	if len(drop) == 0 {
-		return nil
-	}
-	old := d.log
-	d.log, d.data = nil, newMergeState()
-	for _, s := range old {
-		if last, ok := drop[s.w.Writer]; ok && s.w.Seq > last {
-			d.countRevoked(s.w.Ref(), rep)
-			kept := keptAfterRemoval(s.c)
-			if kept != s.c {
-				d.noteDropped(s.w.Ref())
-			}
-			if kept == nil {
-				continue
-			}
-			s = staged{s.w, kept}
-		}
-		d.applyChange(s.w, s.c, rep)
-		d.log = append(d.log, s)
-	}
-	return nil
-}
-
-// keptAfterRemoval is what stays of an applied change of a removed device
-// past its cut: an approval whole, and of a record change only the
-// stricter values that applied by themselves. Nil when nothing stays.
-func keptAfterRemoval(c *Change) *Change {
-	if c.Kind == kindApproval {
-		return c
-	}
-	if c.Kind != kindRecord || c.Create || c.Delete {
-		return nil
-	}
-	var keep []Field
-	for _, f := range c.Fields {
-		if stricter(c.Type, f) {
-			keep = append(keep, f)
-		}
-	}
-	if len(keep) == 0 {
-		return nil
-	}
-	if len(keep) == len(c.Fields) {
-		return c
-	}
-	return &Change{Kind: kindRecord, Record: c.Record, Type: c.Type, Fields: keep}
-}
-
-// countRevoked counts a dropped write once, however often it is served,
-// and reports whether this was the first time.
-func (d *Device) countRevoked(ref WriteRef, rep *Report) bool {
-	if d.revoked[ref] {
-		return false
-	}
-	d.revoked[ref] = true
-	rep.Revoked++
-	return true
-}
-
-// noteDropped keeps a dropped write of a removed device for the person to
-// see and confirm (SS 6.2: never dropped silently).
-func (d *Device) noteDropped(ref WriteRef) {
-	if _, seen := d.dropped[ref]; !seen {
-		d.dropped[ref] = false
-	}
-}
-
-// DroppedWrites lists the writes of removed devices that were not kept and
-// that the person has not confirmed yet.
-func (d *Device) DroppedWrites() []WriteRef {
-	var out []WriteRef
-	for ref, confirmed := range d.dropped {
-		if c, ok := d.cuts[ref.Writer]; !confirmed && ok && ref.Seq > c.Seq {
-			out = append(out, ref)
-		}
-	}
-	slices.SortFunc(out, cmpRef)
-	return out
-}
-
-// KeptAgain lists the writes of removed devices that were shown as not
-// kept and are now kept, because a signed summary from before the removal
-// covers them, and that the person has not confirmed yet.
-func (d *Device) KeptAgain() []WriteRef {
-	var out []WriteRef
-	for ref, confirmed := range d.keptAgain {
-		if !confirmed {
-			out = append(out, ref)
-		}
-	}
-	slices.SortFunc(out, cmpRef)
-	return out
-}
-
-// ConfirmDropped records that the person saw the dropped writes and the
-// writes kept again.
-func (d *Device) ConfirmDropped() {
-	for ref := range d.dropped {
-		d.dropped[ref] = true
-	}
-	for ref := range d.keptAgain {
-		d.keptAgain[ref] = true
-	}
-}
-
 // readSummaries takes the newest valid summary of every listed device and
 // merges them with the newest state this device remembers.
 func (d *Device) readSummaries() (map[DeviceID]Head, map[DeviceID]*Summary, error) {
 	target := maps.Clone(d.newest)
 	best := map[DeviceID]*Summary{}
 	for id, m := range d.list.Members {
-		items, err := d.srv.Read(d.id, logSummaries(id))
+		log, err := d.summaryLog(id)
 		if err != nil {
 			return nil, nil, err
 		}
 		// Only the newest counts, so only it is verified; a bad one stops
 		// sync rather than falling back to an older one.
 		var top *Summary
-		for _, it := range items {
-			s, err := ParseSummary(it)
-			if err != nil {
-				return nil, nil, fmt.Errorf("%w: summary of %x", ErrBadSignature, id[:4])
-			}
+		for _, s := range log {
 			if top == nil || s.Num > top.Num {
 				top = s
 			}
@@ -420,8 +216,18 @@ func (d *Device) readWrites(rep *Report) ([]staged, error) {
 	if err != nil {
 		return nil, err
 	}
-	if uint64(len(own)) < d.ownSeq {
-		return nil, fmt.Errorf("%w: own writes missing", ErrRollback)
+	// Own writes a confirmed snapshot holds may be gone; the newest must
+	// be there.
+	if d.ownSeq > d.baseHeads[d.id].Seq {
+		var top uint64
+		for _, it := range own {
+			if w, err := ParseWrite(it); err == nil && w.Writer == d.id && w.Hash() == d.hashAt(d.id, w.Seq, nil) {
+				top = max(top, w.Seq)
+			}
+		}
+		if top < d.ownSeq {
+			return nil, fmt.Errorf("%w: own writes missing", ErrRollback)
+		}
 	}
 	var stage []staged
 	ids := slices.SortedFunc(maps.Keys(d.list.Ever), func(a, b DeviceID) int { return bytes.Compare(a[:], b[:]) })
@@ -462,6 +268,9 @@ func (d *Device) readDeviceWrites(id DeviceID, items [][]byte, rep *Report) ([]s
 			rep.Duplicates++ // served twice in one answer: a replay
 		}
 		prev = max(prev, w.Seq)
+		if w.Seq < d.baseHeads[id].Seq {
+			continue // held by the snapshot this device builds on
+		}
 		if w.Seq <= cur.Seq {
 			if w.Seq == 0 || d.hashAt(id, w.Seq, out) != h {
 				return nil, fmt.Errorf("%w: write %d of %x changed", ErrFork, w.Seq, id[:4])
@@ -497,8 +306,12 @@ func (d *Device) readDeviceWrites(id DeviceID, items [][]byte, rep *Report) ([]s
 // hashAt is the hash of a device's write seq, from what is applied or
 // staged.
 func (d *Device) hashAt(id DeviceID, seq uint64, stage []staged) Hash {
-	if hs := d.hashes[id]; seq >= 1 && seq <= uint64(len(hs)) {
-		return hs[seq-1]
+	b := d.baseHeads[id]
+	if seq >= 1 && seq == b.Seq {
+		return b.Hash
+	}
+	if hs := d.hashes[id]; seq > b.Seq && seq-b.Seq <= uint64(len(hs)) {
+		return hs[seq-b.Seq-1]
 	}
 	for _, s := range stage {
 		if s.w.Writer == id && s.w.Seq == seq {
@@ -553,7 +366,7 @@ func (d *Device) checkComplete(target map[DeviceID]Head, stage []staged) error {
 		if last[dev].Seq < h.Seq {
 			return fmt.Errorf("%w: %x has write %d, this device got %d", ErrMissingWrites, dev[:4], h.Seq, last[dev].Seq)
 		}
-		if h.Seq > 0 && d.hashAt(dev, h.Seq, stage) != h.Hash {
+		if h.Seq > 0 && h.Seq >= d.baseHeads[dev].Seq && d.hashAt(dev, h.Seq, stage) != h.Hash {
 			return fmt.Errorf("%w: write %d of %x is not the one summarised", ErrFork, h.Seq, dev[:4])
 		}
 	}
@@ -594,6 +407,10 @@ func (d *Device) summary() (*Summary, error) {
 		Account: d.account, Signer: d.id, Num: d.sumNum[d.id] + 1, KeyGen: d.list.Gen.Gen,
 		ListNum: d.head, ListHash: d.headHash, MinClient: minClient,
 	}
+	if d.snap != nil {
+		s.Snap = d.snap.Hash()
+	}
+	s.Base = d.baseHash
 	for _, id := range slices.SortedFunc(maps.Keys(d.applied), func(a, b DeviceID) int { return bytes.Compare(a[:], b[:]) }) {
 		s.Heads = append(s.Heads, d.applied[id])
 	}

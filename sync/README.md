@@ -13,9 +13,12 @@ standard library's `sync` package in the files that import it.
 ## Status
 
 **This is a prototype.** It answers one question: does the sync design work
-as written? The format is not frozen and will change. Do not build on it
-yet. What was built, the test results and the open design problems are in
+as written? The freeze re-test passed, so the format can be frozen, but it
+is not frozen yet. Do not build on it until it is. What was built, the
+test results and the design findings are in
 [docs/design/sync-prototype.md](../docs/design/sync-prototype.md).
+
+It needs Go 1.26 or later, the first Go with `crypto/hpke`.
 
 ## Not part of the komando CLI
 

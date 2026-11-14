@@ -119,6 +119,25 @@ func (s *MemServer) SetLog(log string, items [][]byte) {
 	s.logs[log] = items
 }
 
+// PruneWrites drops every write the heads name and every older one, as
+// the service may once every current device signed a summary naming the
+// snapshot that holds them (SS 9). The write header is in the clear, so
+// the service needs no key for it.
+func (s *MemServer) PruneWrites(heads []Head) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, h := range heads {
+		name := logWrites(h.Device)
+		var keep [][]byte
+		for _, it := range s.logs[name] {
+			if w, err := ParseWrite(it); err != nil || w.Seq > h.Seq {
+				keep = append(keep, it)
+			}
+		}
+		s.logs[name] = keep
+	}
+}
+
 // Names lists every log and blob name.
 func (s *MemServer) Names() []string {
 	s.mu.Lock()

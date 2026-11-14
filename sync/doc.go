@@ -31,6 +31,10 @@
 //   - Changes that wait for a person (merge.go): a change that moves a
 //     secret, changes what runs, who is reached or what protects applies
 //     only with an authority key's signed yes.
+//   - Removed devices (removal.go): which of their writes count, from the
+//     list and the signed summaries of listed devices.
+//   - Snapshots (snapshot.go): the signed, sealed state at a summary, after
+//     which older writes can go; a new device starts from one.
 //   - Recovery kits (kit.go, shamir.go, recover.go): a 256-bit key as
 //     letters, a 2-of-3 paper split, and the 24-hour wait.
 //   - A hostile in-memory server (server.go) for the tests.

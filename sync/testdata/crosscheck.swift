@@ -201,4 +201,35 @@ var pcSum = 0
 for (i, c) in pc26.enumerated() { pcSum += (2 * i + 1) * crockford.firstIndex(of: c)! }
 check("pairing code", pc26 + String(crockford[pcSum & 31]) == pc["code"]!)
 
+// Snapshot: the state's hash, the record seal with the header as its
+// place, and the hash over the header and the sealed body.
+let sn = v["snapshot"] as! [String: String]
+let snHeader = hex(sn["Header"]!)
+check("snapshot state hash", hx(sum("komando-sync/1 snapshot state", [hex(sn["State"]!)])) == sn["StateHash"]!)
+check("snapshot header ends with the state hash", hx(snHeader.suffix(32)) == sn["StateHash"]!)
+var snInfo = Data("komando-sync/1 record".utf8)
+snInfo.append(0)
+snInfo.append(Data(SHA256.hash(data: snHeader)))
+let snOkm = hkdf(hex(sn["VaultKey"]!), salt: hex(sn["Seed"]!), info: snInfo, 64)
+check("snapshot commit", hx(snOkm.suffix(32)) == sn["Commit"]!)
+let snPlain = hex(sn["State"]!)
+var snPadded = u32(snPlain.count) + snPlain
+snPadded.append(Data(count: padme(4 + snPlain.count) - snPadded.count))
+let snBox = try AES.GCM.seal(snPadded, using: SymmetricKey(data: snOkm.prefix(32)), nonce: AES.GCM.Nonce(data: Data(count: 12)), authenticating: snHeader)
+let snCT = snBox.ciphertext + snBox.tag
+check("snapshot ciphertext", hx(snCT) == sn["Ciphertext"]!)
+check("snapshot hash", hx(sum("komando-sync/1 snapshot hash", [snHeader + hex(sn["Seed"]!) + hex(sn["Commit"]!) + u32(snCT.count) + snCT])) == sn["Hash"]!)
+
+// A deny rule's ID: 12 bytes bound to the write that makes it, then the
+// 4-byte tag of its type.
+let dn = v["deny_rule_id"] as! [String: String]
+let dnRnd = sum("komando-sync/1 deny rule id", [hex(dn["writer"]!), hex(dn["seq"]!)]).prefix(12)
+check("deny rule id", hx(dnRnd + sum("komando-sync/1 record type", [Data("deny".utf8), dnRnd]).prefix(4)) == dn["id"]!)
+
+// An approval signs the change it agrees to and the old holders of its
+// name that the same yes deletes.
+let ap = v["approval_bytes"] as! [String: String]
+let apBytes = hex(ap["account"]!) + hex(ap["writer"]!) + hex(ap["seq"]!) + hex(ap["hash"]!) + u32(1) + hex(ap["replaces"]!)
+check("approval bytes", hx(apBytes) == ap["bytes"]!)
+
 exit(failed ? 1 : 0)

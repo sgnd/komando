@@ -92,7 +92,9 @@ func TestReplacedKitEndsItsRecoveryStep(t *testing.T) {
 
 // A write that was dropped and confirmed as dropped comes back when a
 // signed summary from before the removal raises the cut. The person is
-// told, and confirms again (SS 6.2: never silently).
+// told, and confirms again (SS 6.2: never silently). Only what applies by
+// itself comes back: X's address change and its own yes to it stay
+// dropped (finding 35).
 func TestKeptAgainIsShown(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
@@ -103,12 +105,14 @@ func TestKeptAgainIsShown(t *testing.T) {
 	w.syncAll(a, m, x)
 	oldNum, oldHash := m.head, m.headHash
 	must(t, a.Remove(x.ID()))
-	_, err = x.Update(srv, field("address", "203.0.113.9"))
+	note, err := x.Create(TypeNote, field("text", "late"))
+	must(t, err)
+	_, err = x.Update(srv, field("address", "203.0.113.9")) // and X's yes with it
 	must(t, err)
 	_, err = a.Sync()
 	must(t, err)
-	if len(a.DroppedWrites()) == 0 {
-		t.Fatal("the late write was not shown as dropped")
+	if len(a.DroppedWrites()) != 3 {
+		t.Fatalf("the late writes were not shown as dropped: %v", a.DroppedWrites())
 	}
 	a.ConfirmDropped()
 
@@ -128,8 +132,14 @@ func TestKeptAgainIsShown(t *testing.T) {
 	must(t, w.srv.Append(m.id, logSummaries(m.id), s.Marshal()))
 	rep, err := a.Sync()
 	must(t, err)
-	if len(a.KeptAgain()) == 0 || !slices.ContainsFunc(rep.Alerts, func(al string) bool { return strings.Contains(al, "now kept") }) {
+	if len(a.KeptAgain()) != 1 || !slices.ContainsFunc(rep.Alerts, func(al string) bool { return strings.Contains(al, "now kept") }) {
 		t.Fatalf("writes shown as not kept came back without a word: kept again %v, alerts %v", a.KeptAgain(), rep.Alerts)
+	}
+	if _, ok := a.Get(note); !ok {
+		t.Fatal("the note a summary covers was not kept")
+	}
+	if got := value(t, a, srv, "address"); got != "10.0.0.5" {
+		t.Fatalf("a removed device's approval past its floor applied: address %q", got)
 	}
 	a.ConfirmDropped()
 	if len(a.KeptAgain()) != 0 {
@@ -138,37 +148,18 @@ func TestKeptAgainIsShown(t *testing.T) {
 }
 
 // The list moves forward outside Sync, here when B saves a secret. B's
-// next Sync still seals its note from before the removal again under the
-// newest key, and still shows a new device (SS 6.3, 7.1).
-func TestListRefreshOutsideSyncStillAlertsAndReseals(t *testing.T) {
+// next Sync still shows a new device, and still alerts on writes under the
+// old key counted from the entry it held before the move (SS 6.3, 7.1).
+func TestListRefreshOutsideSyncStillAlerts(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
 	b := w.pair(a, "B", true)
 	c := w.pair(a, "C", false)
 	w.syncAll(a, b, c)
-	held := len(mustRead(t, w, logList))
-	w.srv.OnRead = func(by DeviceID, log string, items [][]byte) [][]byte {
-		if by == b.ID() && log == logList {
-			return items[:held]
-		}
-		return items
-	}
-	must(t, a.Remove(c.ID()))
-	_, err := b.Create(TypeNote, field("text", "written while behind"))
-	must(t, err)
-	w.srv.OnRead = nil
-	_, err = b.Create(TypeSecret, field("name", "db-pass"), field("value", "s3cret"))
+	w.pair(a, "D", false)
+	_, err := b.Create(TypeSecret, field("name", "api-key"), field("value", "x"))
 	must(t, err)
 	rep, err := b.Sync()
-	must(t, err)
-	if rep.Resealed != 1 {
-		t.Fatalf("resealed %d writes, want the 1 note written while behind", rep.Resealed)
-	}
-
-	w.pair(a, "D", false)
-	_, err = b.Create(TypeSecret, field("name", "api-key"), field("value", "x"))
-	must(t, err)
-	rep, err = b.Sync()
 	must(t, err)
 	if !slices.ContainsFunc(rep.Alerts, func(al string) bool { return strings.Contains(al, "A new device was added") }) {
 		t.Fatalf("the new device was not shown: %v", rep.Alerts)

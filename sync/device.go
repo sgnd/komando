@@ -32,26 +32,35 @@ type Device struct {
 	ownHash    Hash
 	newest     map[DeviceID]Head
 	sumNum     map[DeviceID]uint64
-	kitToType  *Kit              // set until the person types part of the kit back
-	answered   map[Hash]bool     // pairing codes this device answered: one try each
-	kitsAtRisk bool              // this device cancelled a recovery-key step
-	cuts       map[DeviceID]Head // per removed device, its newest write that counts
-	dropped    map[WriteRef]bool // dropped writes of removed devices; true once a person confirmed
+	kitToType  *Kit                  // set until the person types part of the kit back
+	answered   map[Hash]bool         // pairing codes this device answered: one try each
+	kitsAtRisk bool                  // this device cancelled a recovery-key step
+	cuts       map[DeviceID]Head     // per removed device, its newest write that counts
+	cutBy      map[DeviceID]DeviceID // per removed device, whose summary set its cut
+	ruled      map[DeviceID]bool     // removed devices whose rules the merged data follows
+	dropped    map[WriteRef]*dropNote
 	keptAgain  map[WriteRef]bool // dropped writes a raised cut keeps after all; true once a person confirmed
 	revoked    map[WriteRef]bool // dropped writes already counted in a Report
+	rewrite    []*Change         // stricter values kept from past a cut, to write again as this device's own
 
 	// The list can move forward outside Sync (a secret write, a removal,
-	// a pairing). Sync alerts on, and seals again, everything since the
-	// first such move it has not handled yet (SS 6.3, 7.1).
-	alertFrom, resealFrom uint32
-	alertDue, resealDue   bool
+	// a pairing). Sync alerts on everything since the first such move it
+	// has not handled yet (SS 6.3, 7.1).
+	alertFrom uint32
+	alertDue  bool
 
 	acctKeys  map[uint32][]byte
 	vaultKeys map[uint32][]byte
 
 	list      *ListState
 	applied   map[DeviceID]Head
-	hashes    map[DeviceID][]Hash
+	hashes    map[DeviceID][]Hash // per device, the hashes of its writes after baseHeads
+	base      *mergeState         // the state of the snapshot this device builds on; nil: none
+	baseHeads map[DeviceID]Head   // the writes that snapshot holds
+	baseHash  Hash                // the hash of that snapshot
+	snap      *Snapshot           // the newest snapshot this device accepted; its summaries name it
+	snapNum   uint64              // this device's own snapshots, counted
+	refused   map[Hash]bool       // snapshots that did not match this device's data
 	summaries map[DeviceID]*Summary
 	data      *mergeState
 	log       []staged // every applied change, to merge again without some
@@ -76,7 +85,8 @@ func NewDevice(name string, keys *DeviceKeys, srv Server, now func() time.Time) 
 		seen: map[Hash]time.Time{}, answered: map[Hash]bool{}, newest: map[DeviceID]Head{}, sumNum: map[DeviceID]uint64{},
 		acctKeys: map[uint32][]byte{}, vaultKeys: map[uint32][]byte{},
 		applied: map[DeviceID]Head{}, hashes: map[DeviceID][]Hash{}, summaries: map[DeviceID]*Summary{},
-		data: newMergeState(), cuts: map[DeviceID]Head{}, dropped: map[WriteRef]bool{}, keptAgain: map[WriteRef]bool{}, revoked: map[WriteRef]bool{},
+		data: newMergeState(), cuts: map[DeviceID]Head{}, cutBy: map[DeviceID]DeviceID{}, ruled: map[DeviceID]bool{},
+		dropped: map[WriteRef]*dropNote{}, keptAgain: map[WriteRef]bool{}, revoked: map[WriteRef]bool{}, baseHeads: map[DeviceID]Head{}, refused: map[Hash]bool{},
 	}
 	d.rec = DeviceRecord{SyncPub: pubBytes(keys.Sync.Public()), UnwrapPub: keys.Unwrap.PublicKey()}
 	if keys.Authority != nil {
@@ -279,9 +289,6 @@ func (d *Device) loadList(own bool) error {
 		if st.Head > d.head && !d.alertDue {
 			d.alertFrom, d.alertDue = d.head, true
 		}
-		if st.Gen.Gen > d.list.Gen.Gen && !d.resealDue {
-			d.resealFrom, d.resealDue = d.head, true
-		}
 	}
 	d.list, d.head, d.headHash = st, st.Head, st.HeadHash
 	if d.joined && st.Members[d.id] == nil {
@@ -367,4 +374,13 @@ func headOf(s *Summary, dev DeviceID) Head {
 		}
 	}
 	return Head{}
+}
+
+// baseData is a fresh merge state to merge every write again on: the
+// state of the snapshot this device builds on, or empty.
+func (d *Device) baseData() *mergeState {
+	if d.base == nil {
+		return newMergeState()
+	}
+	return d.base.clone()
 }

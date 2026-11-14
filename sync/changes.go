@@ -3,6 +3,7 @@ package komandosync
 import (
 	"crypto/rand"
 	"crypto/subtle"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"slices"
@@ -11,6 +12,9 @@ import (
 // Create adds a record. Unless it is a note it waits for a person's yes,
 // because a new server or conn changes who is reached (SS 8.1).
 func (d *Device) Create(typ string, fields ...Field) (RecordID, error) {
+	if typ == TypeDeny {
+		return d.create(typ, denyID(d.id, d.ownSeq+1), fields)
+	}
 	var rnd [12]byte
 	if _, err := rand.Read(rnd[:]); err != nil {
 		return RecordID{}, err
@@ -30,15 +34,29 @@ func recordID(typ string, rnd [12]byte) RecordID {
 	return id
 }
 
-// recordFits reports whether writer may make change c: the type matches
-// the one fixed in the record ID, and a device record is written only by
-// that device and never deleted (it ends with the device's removal).
-func recordFits(writer DeviceID, c *Change) bool {
+// recordFits reports whether write seq of writer may make change c: the
+// type matches the one fixed in the record ID; a device record is written
+// only by that device and never deleted (it ends with the device's
+// removal); and a deny rule is made only by the write its ID names, so a
+// later "create" can never pass off an edit of it as a new rule.
+func recordFits(writer DeviceID, seq uint64, c *Change) bool {
 	want := recordID(c.Type, [12]byte(c.Record[:12]))
 	if c.Type == "" || subtle.ConstantTimeCompare(want[:], c.Record[:]) != 1 {
 		return false
 	}
-	return c.Type != TypeDevice || (c.Record == idRecord(writer) && !c.Delete)
+	switch c.Type {
+	case TypeDevice:
+		return c.Record == idRecord(writer) && !c.Delete
+	case TypeDeny:
+		return !c.Create || c.Record == denyID(writer, seq)
+	}
+	return true
+}
+
+// denyID is the ID of the deny rule that write seq of writer makes.
+func denyID(writer DeviceID, seq uint64) RecordID {
+	h := sum(labelDenyID, writer[:], binary.BigEndian.AppendUint64(nil, seq))
+	return recordID(TypeDeny, [12]byte(h[:12]))
 }
 
 func (d *Device) create(typ string, id RecordID, fields []Field) (RecordID, error) {
@@ -67,7 +85,7 @@ func (d *Device) typeOf(id RecordID) string {
 // change writes a record change and, on a device with an authority key,
 // the person's yes with it.
 func (d *Device) change(c *Change) (WriteRef, error) {
-	if !recordFits(d.id, c) {
+	if !recordFits(d.id, d.ownSeq+1, c) {
 		return WriteRef{}, ErrBadWrite
 	}
 	if c.Type == TypeSecret {
@@ -106,16 +124,24 @@ func (d *Device) refreshBeforeSecret() error {
 }
 
 // Approve signs "a person agreed" to a waiting change with the authority
-// key (Face ID or Touch ID every time) and writes it.
+// key (Face ID or Touch ID every time) and writes it. A change that takes
+// a held name is shown as "replaces prod-db (deleted)", and the same yes
+// deletes the old holders (SS 8.1).
 func (d *Device) Approve(ref WriteRef) error {
 	if d.keys.Authority == nil {
 		return ErrNoAuthority
 	}
-	sig, err := sign(d.keys.Authority, labelApproval, approvalBytes(d.account, ref))
+	var replaces []RecordID
+	for _, w := range d.data.list() {
+		if w.Ref == ref {
+			replaces = w.ReplacesIDs
+		}
+	}
+	sig, err := sign(d.keys.Authority, labelApproval, approvalBytes(d.account, ref, replaces))
 	if err != nil {
 		return err
 	}
-	_, err = d.write(&Change{Kind: kindApproval, Target: ref, Approval: sig})
+	_, err = d.write(&Change{Kind: kindApproval, Target: ref, Replaces: replaces, Approval: sig})
 	return err
 }
 
@@ -154,45 +180,31 @@ func (d *Device) write(c *Change) (*Write, error) {
 	return w, nil
 }
 
-// applyChange merges an opened change. An approval counts only when the
-// writer's authority key valid at the write's list entry signed it.
-func (d *Device) applyChange(w *Write, c *Change, rep *Report) {
+// applyChange merges an opened change. A removed device's change past its
+// floor keeps only what applies by itself (removal.go). An approval counts
+// only when the writer's authority key valid at the write's list entry
+// signed it.
+func (d *Device) applyChange(w *Write, c *Change, rep *Report) { d.applyTo(d.data, w, c, rep) }
+
+// applyTo is applyChange into m: the live data, or a state rebuilt to
+// check a snapshot.
+func (d *Device) applyTo(m *mergeState, w *Write, c *Change, rep *Report) {
+	if c = d.pastFloor(w, c, rep); c == nil {
+		return
+	}
 	switch c.Kind {
 	case kindRecord:
-		if !recordFits(w.Writer, c) {
+		if !recordFits(w.Writer, w.Seq, c) {
 			rep.Rejected++
 			return
 		}
-		d.data.apply(w.Ref(), c, w.Clock)
-		return
-	case kindReseal:
-		// A copy changes nothing; one that does not match its own
-		// writer's earlier write is refused.
-		if !d.resealMatches(w, c) {
-			rep.Rejected++
-		}
+		m.apply(w.Ref(), c, w.Clock)
 		return
 	}
 	pub := parsePub(d.list.authKeyAt(w.Writer, w.ListNum))
-	if pub == nil || !verifySig(pub, labelApproval, approvalBytes(d.account, c.Target), c.Approval) {
+	if pub == nil || !verifySig(pub, labelApproval, approvalBytes(d.account, c.Target, c.Replaces), c.Approval) {
 		rep.Rejected++
 		return
 	}
-	d.data.approve(c.Target)
-}
-
-// resealMatches reports whether a reseal copies an earlier record change
-// of its own writer exactly.
-func (d *Device) resealMatches(w *Write, c *Change) bool {
-	if c.Target.Writer != w.Writer || c.Target.Seq >= w.Seq {
-		return false
-	}
-	for _, s := range d.log {
-		if s.w.Writer == w.Writer && s.w.Seq == c.Target.Seq {
-			orig := *s.c
-			orig.Kind, orig.Target = kindReseal, c.Target
-			return s.c.Kind == kindRecord && s.w.Hash() == c.Target.Hash && slices.Equal(orig.marshal(), c.marshal())
-		}
-	}
-	return false
+	m.approve(c.Target, c.Replaces)
 }

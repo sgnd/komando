@@ -165,8 +165,9 @@ func TestSecretWriteRefreshesTheList(t *testing.T) {
 
 // A server holds B on the list from before a removal. B's secret goes out
 // under the old key, which the removed device can open: every device
-// accepts it with an alert. Once B catches up it seals the write again
-// under the newest key (SS 7.1).
+// accepts it with an alert. Once B catches up it does not seal the write
+// again one by one: that takes nothing back, so only a snapshot seals old
+// records again (SS 7.1, decided 2026-11-14; finding 33).
 func TestWriteUnderASupersededKey(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
@@ -196,26 +197,29 @@ func TestWriteUnderASupersededKey(t *testing.T) {
 	}
 
 	w.srv.OnRead = nil
-	rep, err = b.Sync()
+	seq := b.ownSeq
+	_, err = b.Sync()
 	must(t, err)
-	last := b.log[len(b.log)-1]
-	if rep.Resealed != 1 || last.c.Kind != kindReseal || last.w.KeyGen != 2 {
-		t.Fatalf("B did not seal it again: resealed %d", rep.Resealed)
+	if b.ownSeq != seq {
+		t.Fatalf("B wrote %d writes on catching up; old writes are sealed again only in a snapshot", b.ownSeq-seq)
 	}
-	rep, err = a.Sync()
-	must(t, err)
-	if rep.Rejected != 0 || rep.OldKey != 0 || value(t, a, id, "value") != "s3cret" {
-		t.Fatalf("A: rejected %d, old-key %d", rep.Rejected, rep.OldKey)
+	// The kind of write that sealed one write again is gone from the
+	// format: every device refuses it.
+	if _, err := parseChange(append([]byte{3}, (&Change{}).marshal()[1:]...)); err == nil {
+		t.Fatal("a per-write \"sealed again\" body was accepted")
 	}
 
-	// A reseal that does not copy its writer's earlier write is refused.
-	bad := *last.c
-	bad.Fields = []Field{field("value", "changed")}
-	_, err = b.write(&bad)
+	// The next snapshot seals the old record under the newest key.
+	_, err = a.Sync()
 	must(t, err)
-	rep, err = a.Sync()
+	snap, err := a.MakeSnapshot()
 	must(t, err)
-	if rep.Rejected != 1 || value(t, a, id, "value") != "s3cret" {
-		t.Fatalf("a changed reseal: rejected %d, value %q", rep.Rejected, value(t, a, id, "value"))
+	if snap.KeyGen != a.List().Gen.Gen || snap.KeyGen != 2 {
+		t.Fatalf("the snapshot is sealed under generation %d", snap.KeyGen)
+	}
+	for _, vk := range c.vaultKeys {
+		if _, err := openRecord(vk, snap.header(), snap.Body); err == nil {
+			t.Fatal("the removed device opened the snapshot")
+		}
 	}
 }

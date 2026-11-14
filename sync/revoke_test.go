@@ -281,9 +281,10 @@ func TestRemovalKeepsWritesASummaryCovered(t *testing.T) {
 
 // B applied two writes of C that no remaining device confirmed in a
 // summary before the removal: one makes a server protected, which applies
-// by itself, the other is a note. A removal at an older write drops the
-// note and shows it to the person, but never takes the stricter value
-// back (SS 6.2).
+// by itself, the other is a note. A removal at an older write drops both
+// on every device and shows them to the person. B had applied the
+// stricter value, so it writes it again as its own write, and every
+// device ends with it (SS 6.2, decided 2026-11-14; finding 32).
 func TestRemovalNeverTakesBackAStricterValue(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
@@ -304,16 +305,13 @@ func TestRemovalNeverTakesBackAStricterValue(t *testing.T) {
 	must(t, a.Remove(c.ID()))
 	rep, err := b.Sync()
 	must(t, err)
-	if rep.Revoked != 2 {
-		t.Fatalf("revoked %d, want 2", rep.Revoked)
+	if rep.Revoked != 2 || rep.Rewritten != 1 {
+		t.Fatalf("revoked %d, written again %d; want 2 and 1", rep.Revoked, rep.Rewritten)
 	}
 	if _, ok := b.Get(note); ok {
 		t.Fatal("B kept a write no summary covered")
 	}
-	if value(t, b, srv, "protected") != "true" {
-		t.Fatal("the removal took a stricter value back")
-	}
-	if got := b.DroppedWrites(); len(got) != 1 || got[0].Seq != c.ownSeq {
+	if got := b.DroppedWrites(); len(got) != 2 || got[1].Seq != c.ownSeq {
 		t.Fatalf("dropped writes shown: %v", got)
 	}
 	if !strings.Contains(strings.Join(rep.Alerts, "\n"), "were not kept") {
@@ -322,5 +320,11 @@ func TestRemovalNeverTakesBackAStricterValue(t *testing.T) {
 	b.ConfirmDropped()
 	if len(b.DroppedWrites()) != 0 {
 		t.Fatal("confirmed writes still shown")
+	}
+	w.syncAll(a, b)
+	for _, d := range []*Device{a, b} {
+		if value(t, d, srv, "protected") != "true" {
+			t.Fatalf("%s: the removal took a stricter value back", d.Name)
+		}
 	}
 }

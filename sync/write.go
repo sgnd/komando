@@ -119,7 +119,6 @@ type Field struct {
 const (
 	kindRecord   uint8 = 1
 	kindApproval uint8 = 2
-	kindReseal   uint8 = 3 // an own record change sealed again under a newer key generation (Target names it)
 )
 
 // Change is the opened body of a write.
@@ -130,9 +129,11 @@ type Change struct {
 	Create bool
 	Delete bool
 	Fields []Field
-	// An approval: the write agreed to and the approver's authority key
-	// signature over it (SS 8.1: "a person agreed").
+	// An approval: the write agreed to, the old holders of its name that
+	// the same yes deletes (SS 8.1), and the approver's authority key
+	// signature over both ("a person agreed").
 	Target   WriteRef
+	Replaces []RecordID
 	Approval Sig
 }
 
@@ -151,6 +152,10 @@ func (c *Change) marshal() []byte {
 	e.raw(c.Target.Writer[:])
 	e.u64(c.Target.Seq)
 	e.raw(c.Target.Hash[:])
+	e.u32(uint32(len(c.Replaces)))
+	for _, id := range c.Replaces {
+		e.raw(id[:])
+	}
 	e.raw(c.Approval[:])
 	return e.b
 }
@@ -168,23 +173,38 @@ func parseChange(b []byte) (*Change, error) {
 	d.fixed(c.Target.Writer[:])
 	c.Target.Seq = d.u64()
 	d.fixed(c.Target.Hash[:])
+	for range d.count(4096) {
+		var id RecordID
+		d.fixed(id[:])
+		c.Replaces = append(c.Replaces, id)
+	}
 	d.fixed(c.Approval[:])
 	if err := d.done(); err != nil {
 		return nil, err
 	}
-	if c.Kind != kindRecord && c.Kind != kindApproval && c.Kind != kindReseal {
+	if c.Kind != kindRecord && c.Kind != kindApproval {
 		return nil, ErrBadWrite
+	}
+	for i := 1; i < len(c.Replaces); i++ {
+		if bytes.Compare(c.Replaces[i-1][:], c.Replaces[i][:]) >= 0 {
+			return nil, ErrBadWrite // one canonical form: sorted, each record once
+		}
 	}
 	return c, nil
 }
 
-// approvalBytes is what an approver's authority key signs.
-func approvalBytes(account Hash, t WriteRef) []byte {
+// approvalBytes is what an approver's authority key signs: the change it
+// agrees to and the old holders of its name that the same yes deletes.
+func approvalBytes(account Hash, t WriteRef, replaces []RecordID) []byte {
 	var e enc
 	e.raw(account[:])
 	e.raw(t.Writer[:])
 	e.u64(t.Seq)
 	e.raw(t.Hash[:])
+	e.u32(uint32(len(replaces)))
+	for _, id := range replaces {
+		e.raw(id[:])
+	}
 	return e.b
 }
 
@@ -205,6 +225,8 @@ type Summary struct {
 	ListHash  Hash
 	MinClient uint32
 	Heads     []Head // sorted by device
+	Snap      Hash   // the newest snapshot the signer accepted (SS 9); zero: none
+	Base      Hash   // the snapshot the signer builds on; zero: none
 	Sig       Sig
 }
 
@@ -223,6 +245,8 @@ func (s *Summary) signedBytes() []byte {
 		e.u64(h.Seq)
 		e.raw(h.Hash[:])
 	}
+	e.raw(s.Snap[:])
+	e.raw(s.Base[:])
 	return e.b
 }
 
@@ -247,6 +271,8 @@ func ParseSummary(b []byte) (*Summary, error) {
 		d.fixed(h.Hash[:])
 		s.Heads = append(s.Heads, h)
 	}
+	d.fixed(s.Snap[:])
+	d.fixed(s.Base[:])
 	d.fixed(s.Sig[:])
 	if err := d.done(); err != nil {
 		return nil, err

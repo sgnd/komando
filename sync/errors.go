@@ -31,6 +31,7 @@ var (
 	ErrBadWrite        = errors.New("komandosync: write refused")
 	ErrListConflict    = errors.New("komandosync: another device added a list entry first")
 	ErrListUnchecked   = errors.New("komandosync: could not check for removed devices before sealing a secret")
+	ErrBadSnapshot     = errors.New("komandosync: snapshot refused")
 )
 
 // protocolErrors are the answers of a check that ran. A list that fails

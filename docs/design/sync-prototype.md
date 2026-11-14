@@ -15,18 +15,59 @@ the text could not be built as written.
 
 ## The answer
 
-**Go for the core of the design, and for SS as now written in sections 6
-to 9. No-go for freezing the format until the points still open in SS 21
-and findings 31 to 36 below are settled and tested here again.**
+**Go. The format can be frozen.** Every point SS 21 left open and every
+finding up to 38 is decided by the owner (2026-11-14), written into SS,
+built here and tested again (the freeze re-test, below). The re-test
+found no new fault in SS; it found six places where one more sentence in
+SS would stop two builders from choosing differently (findings 39 to 44).
+None changes a decision; each is built as recommended.
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
 drops, reorders, replays, rolls back, forks and swaps, and each ends in a
 named error, never in silently changed data. Removed devices cannot read
 later writes, and only their writes that a remaining device confirmed
-count. Every recovery-key step waits 24 hours while another device is
-listed, and a live device can cancel it. Everything is in Go's standard
-library: X-Wing is in `crypto/hpke`, so there is no gap there.
+count; past the recorded last write, only what applies by itself. Every
+recovery-key step waits 24 hours while another device is listed, and a
+live device can cancel it. History no longer grows without end: a signed
+snapshot that every device confirmed lets the older writes go, and a new
+device starts from it. Everything is in Go's standard library, from Go
+1.26 on: X-Wing is in `crypto/hpke`, so there is no gap there.
+
+What the freeze re-test built, one test or more each (`freeze_test.go`
+unless named):
+
+- **Finding 35, which writes of a removed device count:** past the floor
+  only what applies by itself is kept; its approvals and waiting changes
+  are dropped on every device and shown; a summary counts only while its
+  signer is listed; a summary log whose list entry goes down is refused
+  (`TestHeldSummaryCannotBringInAnApproval`,
+  `TestRemovedSignerSummaryDoesNotCount`, `TestBackdatedSummaryIsRefused`,
+  and `TestKeptAgainIsShown` for finding 36).
+- **Finding 32, never take back:** a device that applied a stricter value
+  from past the cut writes it again as its own write; an approval past
+  the cut is dropped and shown (`TestRemovalNeverTakesBackAStricterValue`,
+  `TestApprovalPastTheCutIsDropped`).
+- **Finding 33, sealing again:** the per-write "sealed again" write is
+  gone from the format; old writes are sealed under the newest key only
+  in a snapshot; the alert on old-key writes stays
+  (`TestWriteUnderASupersededKey`).
+- **Finding 9, snapshots:** made, judged, refused when they differ,
+  confirmed, pruned, and a new device starts from one (`TestSnapshots`).
+- **Finding 16, the stricter-values table:** `protected` on, `approval`
+  required, "never use AI here" on, and a new deny rule apply by
+  themselves; everything else waits (`TestStricterValuesTable`).
+- **Finding 17, the old holder of a name:** approving the newcomer deletes
+  the old holder in the same signed yes, shown as "replaces prod-db
+  (deleted)" (`TestApprovingANewcomerDeletesTheOldHolder`).
+- **Finding 19, lowest Go version:** `go.mod` names Go 1.26.0
+  (`TestLowestGoVersion`).
+- **Finding 31:** text only (SS 6.2); nothing to build.
+
+Each of these tests fails on the code without its rule (checked by
+undoing each rule in a copy: 15 undone rules, 15 failing tests).
+
+### How it got here
 
 A review on 2026-11-14 found that the first version of this prototype, and
 the text it was built from, let the waits and the "a person agreed" rule
@@ -39,11 +80,12 @@ design choices that were left open (2026-11-14), and SS now has them:
   sync key. The kit alone gets only the takeover.
 - **Finding 25, writes under a replaced key:** refresh the list before
   sealing a secret and ask when it cannot; accept such writes with an
-  alert; the writer seals them again once it catches up.
+  alert; the writer seals them again once it catches up (later replaced
+  by finding 33: only a snapshot seals again).
 - **Finding 26, which writes of a removed device count:** those up to the
   newest write a remaining device covered in a signed summary from before
   the removal. A stricter value is never taken back. Anything dropped is
-  shown to a person.
+  shown to a person (later narrowed by findings 32 and 35).
 - **Finding 18, pairing code:** 27 characters, the last one a check.
 
 The prototype now follows all four, each with a test. It also follows
@@ -75,19 +117,8 @@ follows them:
 10. The pairing reply uses a fresh key per answer and names the request it
     answers; each device answers a code once (finding 30).
 
-Still open before the format is frozen:
-
-- From SS 21: the snapshot form (finding 9), the stricter value of each
-  field (finding 16), the old holder of a name (finding 17) and the lowest
-  Go version (finding 19).
-- New here: a young device that skips the wait blocks every other device
-  for 7 days (finding 31); "never take back a stricter value" and "never
-  drop an approval" can leave devices different (finding 32); SS does not
-  say which writes the writer seals again (finding 33).
-- From the third review: a held or backdated summary raises the cut of a
-  removed device and brings in its approvals (finding 35, the most
-  serious); approvals among writes kept again (finding 36). Findings 34
-  and 37 are fixed in code.
+Findings 31 to 38 came after that, from building the updated SS and from
+a third review. They are decided as well and built (above).
 
 ## What was built
 
@@ -99,10 +130,11 @@ Still open before the format is frozen:
 | Key transport | `keys.go`, `keyring.go` | HPKE with X-Wing (`crypto/hpke.MLKEM768X25519`, KEM ID 0x647a), HKDF-SHA256, AES-256-GCM. The `info` value binds account, generation and receiver |
 | Device list | `list.go`, `listcheck.go` | The signed hash chain, checked from entry 1 by every device. Account ID = hash of entry 1 |
 | Writes and summaries | `write.go`, `sync.go` | Each write is sealed, signed by the sync key, numbered and chained to the device's previous write, and names the newest list entry. Each sync ends with a signed summary |
-| Merging | `merge.go` | Field by field, newest hybrid clock wins; deletion is final; changes that wait apply only with a signed yes |
+| Merging | `merge.go` | Field by field, newest hybrid clock wins; deletion is final; the stricter-values table; changes that wait apply only with a signed yes, which also deletes the old holder of a name it takes |
 | Pairing | `pair.go` | QR or 27 characters (26 for the one-time 128-bit secret, 1 check), 10 minutes, one try |
 | Recovery kit | `kit.go`, `shamir.go`, `recover.go`, `admin.go` | 256-bit key as 56 letters with a check, typed back before sync starts, up to 3 kits, 2-of-3 paper (own Shamir over GF(256)), recovery on a new device, recovery step on a listed device, kit replacement and an authority key signed in with the kit: each waits 24 hours while another device is listed |
-| Removed devices | `sync.go` | Which writes of a removed device count, from signed summaries; merging again without the rest; a list of dropped writes for the person |
+| Removed devices | `removal.go` | Which writes of a removed device count: floor, cut from summaries of listed devices, only what applies by itself between them; merging again without the rest; stricter values written again; a list of dropped writes for the person |
+| Snapshots | `snapshot.go` | A signed, sealed copy of the merged state at a set of writes; judged by every device, confirmed when every current device names it in a summary, then the older writes go; a new device starts from it |
 | Hostile server | `server.go` | Stores blobs and logs. Read hooks let a test drop, reorder, replay, roll back, fork per device and swap anything. Write hooks let it drop a store or a delete while saying it was done |
 
 ### The constructions chosen
@@ -165,14 +197,64 @@ existing device before it reads anything from the server or uses the try
 caught too; the rest show as a check-code mismatch, which does not use
 the try either.
 
-**Which writes of a removed device count.** For each removed device, its
-cut is the newest of: the last write the removal records (the floor), and
-its newest write that a device still listed after the removal covered in
-a signed summary naming an earlier list entry. Every device reads all
-summaries of the remaining devices for this, checks the signature of the
-one it uses, and never lowers a cut it found once. A summary signed after
-the removal that covers more than the cut means the server holds back
-the summary that shows it: `ErrMissingWrites`.
+**Which writes of a removed device count.** Each removed device has a
+floor and a cut. The floor is the last write the removal records (or the
+newest write of it that a confirmed snapshot holds, if later). The cut is
+the newest write of it that a device **still listed** covered in a signed
+summary naming a list entry from before the removal. Up to the floor,
+every write stays. Between floor and cut, only what applies by itself
+stays: a note, a description, a stricter value, a new deny rule; the
+removed device's approvals and waiting changes are dropped on every
+device and listed in `DroppedWrites`. Past the cut, everything is dropped
+and listed. This rule reads only the list and the change, so every device
+does the same. A device that had applied a stricter value from past the
+cut writes it again as its own write (`Report.Rewritten`).
+
+A cut that a listed device's summary set stays when the server later
+hides that summary. Once that device is removed too, the cut is found
+again without it, so every device agrees whatever it saw before; a device
+that applied more merges again. A device refuses a summary log whose list
+entry goes down as the summary number goes up (`ErrRollback`). A summary
+signed after the removal that covers more than the cut means the server
+holds back the summary that shows it: `ErrMissingWrites`.
+
+**Snapshots.** A snapshot names the list entry, the key generation in
+force there, the writes it holds (one head per device, as a summary) and
+the hash of the state's one byte form. The state is sealed with the
+record seal, bound to that header, under the vault key of that
+generation: the newest the signer had, so it is the one place old records
+are sealed again under the newest key. The signer's sync key signs header
+and sealed body.
+
+```
+state  = records by ID (type, agreed, deleted, fields by name with value
+         and clock; a deleted record keeps only its name), waiting changes
+         by write, approvals whose change is not among the writes yet
+header = format, suite, account, signer, number, list entry and its hash,
+         key generation, heads, SHA-256 label hash of state
+body   = record seal of state, place = header
+```
+
+Another device takes a snapshot only when its own merged state at those
+writes has the same hash; otherwise it refuses it (`Report.Refused` and an
+alert) and keeps the writes. Each summary names the newest snapshot its
+signer accepted and the one it builds on. When every current device names
+one snapshot, each device builds on it: its state becomes the base, the
+writes it holds leave the device's log, and the service may drop them
+(`SnapshotToPrune`, `MemServer.PruneWrites`). A new device takes the
+snapshot every other current device names (or else the one they all
+build on), checks its state against the signed hash, and reads only the
+writes after it.
+
+**Deny rule IDs.** A new deny rule applies by itself, its edit or delete
+waits. "New" needs an identity no other write can claim: a deny rule's ID
+is `recordID("deny", first 12 bytes of H(label, writer, write number))`,
+so only the write that makes it can create it. A second "create" of that
+ID from any other write is refused like a wrong type.
+
+**Approvals.** The authority key signs the change it agrees to and the
+sorted IDs of the old holders of the name it takes. Applying the yes
+applies the change and deletes those holders in the same step.
 
 **Hashes.** Every labelled hash puts each part's length in front of it, so
 two lists of parts never hash the same way.
@@ -182,8 +264,8 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`cd sync && go test -race ./...`: 101 tests and subtests pass, 0
-fail (66 top-level tests); statement coverage 86.9%. All table-driven where
+`cd sync && go test -race ./...`: 109 tests and subtests pass, 0
+fail (74 top-level tests); statement coverage 86.4%. All table-driven where
 there is a table.
 
 | Hostile server does this | The device reports |
@@ -215,7 +297,9 @@ there is a table.
 | Serves a device that missed a wait the apply at once | `Report.Hold` and an alert; sync goes on up to the hold (finding 27) |
 | Shows a device a young device's direct removal of an older one | `Report.Hold` until 7 days after the young device was listed, on this device's clock; never a refusal (finding 2) |
 | Hides a remaining device's summary from before a removal | `ErrMissingWrites`, from that device's summary after the removal |
-| Keeps a device on the list from before a removal | its writes are accepted with an alert (`Report.OldKey`); it seals them again once it catches up (`Report.Resealed`) |
+| Keeps a device on the list from before a removal | its writes are accepted with an alert (`Report.OldKey`); they are sealed under the newest key in the next snapshot |
+| Holds a device back so its summary covers a removed device's late approval | the approval and the change it agrees to are dropped on every device and shown (`DroppedWrites`) |
+| Serves a snapshot that differs from the merged state | refused (`Report.Refused`, an alert); the writes are kept |
 | Does not answer when a device reads the list before sealing a secret | `ErrListUnchecked`, unless the person says "save anyway" |
 
 | A listed or captured key tries this | The devices report |
@@ -228,7 +312,10 @@ there is a table.
 | The kit and a listed device replace the kits, remove a device or sign in a key at once while another device is listed | `ErrNotAuthorized`; only as a 24-hour pending change |
 | The kit cancels a lost-kit replacement | `ErrNotAuthorized` |
 | A write sealed under another key generation than its list entry has | `ErrBadWrite` |
-| A "sealed again" write that does not copy its writer's earlier write | change dropped (`Report.Rejected`) |
+| A stolen sync key backdates a summary to before a removal | `ErrRollback` (the summary log names an earlier list entry) |
+| A stolen sync key of a removed device signs a summary that covers a removed device's writes | ignored: only summaries of listed devices count |
+| A device makes a second "create" of an existing deny rule's ID | change dropped (`Report.Rejected`) |
+| An approval whose list of old holders was changed | approval dropped (`Report.Rejected`) |
 | A one-character typo in the pairing code | `ErrPairingTypo`, before the server is asked and before the try is used |
 
 After every failed check the device's data is unchanged. A whole account
@@ -241,9 +328,10 @@ descriptions and stricter rules apply at once; approvals signed by a sync
 key, by a device without Touch ID or by an authority key not yet signed in
 are dropped; the kit must be typed back before sync starts; a Mac without
 Touch ID cannot turn sync on, add or remove devices; a removed device
-cannot open the new key or new writes; its writes that a remaining
-device confirmed before the removal are kept, the rest dropped and shown
-to the person, and a stricter value it set is not taken back; a device
+cannot open the new key or new writes; of its writes that a remaining
+device confirmed before the removal, those that apply by themselves are
+kept, the rest dropped and shown to the person, and a stricter value it
+set is written again by a device that applied it; a device
 that joins after two key changes still reads generation-1 records; the
 7-day rule with its cancellable "remove later" and "sign in later"; Face
 ID changes; every kit step waiting 24 hours, applied after the wait or
@@ -254,14 +342,17 @@ state.
 
 **Vectors.** `testdata/vectors.json` (record sealing, Padmé, key IDs, kit
 letters and derived keys, paper parts, HPKE X-Wing, the fixed signature
-form, a list entry's bytes and hash, the pairing code) is computed by the
+form, a list entry's bytes and hash, the pairing code, a snapshot, a deny
+rule's ID, an approval's signed bytes) is computed by the
 prototype and only pins regressions. Two outside checks stand behind it:
 
 - `testdata/crosscheck.swift` recomputes every value in it with Apple
   CryptoKit, a separate implementation: HKDF and AES-256-GCM for record
   sealing, X-Wing keys from their seeds, HPKE with exactly this suite
   (X-Wing, HKDF-SHA256, AES-256-GCM), P-256 keys and signatures, Shamir
-  over GF(256) and the letters. All 24 checks pass (macOS 27, Swift 6.4).
+  over GF(256) and the letters, and the snapshot's state hash, seal and
+  hash, a deny rule's ID and the bytes an approval signs. All 31 checks
+  pass (macOS 27, Swift 6.4.2).
 - `external_test.go` checks the building blocks against published
   vectors: RFC 5869 cases 1 and 3 for HKDF, and the draft-ietf-hpke-pq
   vector for X-Wing (`DeriveKeyPair`, decapsulation, the HKDF-SHA256 key
@@ -403,6 +494,14 @@ new device takes 0.19 s to check them on an M2. That grows without end.
 point, signed by a device, after which older writes can go.** It is also
 the place where re-encryption (finding 8) and marker dropping can happen.
 
+**Decided and built** (SS 9): signed by one device's sync key; every
+other device accepts it only when it matches its own merged state at the
+writes it names; older writes go once every current device has signed a
+summary naming it; a new device starts from the newest one. "Snapshots"
+above has the form. With 1,000 records a new device now joins in about
+10 ms instead of about 0.3 s, and the server holds 0.23 MB instead of
+1 MB (sizes below). Test: `TestSnapshots`.
+
 ### 10. Gap: the list fixes "the hash of the sealed record", which changes
 
 SS 6.2 and 8.2: the device's name and SSH key sit in a sealed record whose
@@ -467,12 +566,25 @@ judges it from the new value alone (`protected=true`, `approval=required`
 apply at once; their opposites wait). **List, per field, which values are
 stricter.**
 
+**Decided and built** (SS 8.1): a fixed table. `protected` on, `approval`
+required, "never use AI here" on (`never_ai`), and a new deny rule (its
+own record type) apply by themselves; anything not in the table waits,
+also a value of a table field other than its stricter one. Test:
+`TestStricterValuesTable`. See finding 39 for what "new" means for a
+deny rule.
+
 ### 17. Clarify: a name held by another record
 
 SS 8.1: the newcomer "waits and is shown as replaces prod-db". The
 prototype shows it. SS does not say what happens to the old holder once
 the newcomer is approved. **Say whether approving it deletes, renames or
 keeps the old record.**
+
+**Decided and built** (SS 8.1): approving the newcomer deletes the old
+holder in the same signed yes. The screen says "replaces prod-db
+(deleted)" (`Waiting.ReplacesLine`). The yes signs the old holders' IDs
+with the change, so nobody can swap which record it deletes. Test:
+`TestApprovingANewcomerDeletesTheOldHolder`.
 
 ### 18. Clarify: pairing details
 
@@ -495,6 +607,17 @@ keeps the old record.**
 no extra code. `golang.org/x/crypto` is not needed at all. The format
 should name the lowest Go version with `crypto/hpke` (1.26, to be checked
 against the release notes); this was built with Go 1.27.4.
+
+**Decided and built** (SS 7.2): Go 1.26 is the lowest. `sync/go.mod` says
+`go 1.26.0`, and the module still builds and passes on the installed Go
+1.27.4. The installed toolchain has no release notes or API lists, so the
+check is `go vet`'s `stdversion` analyzer, which knows when each standard
+library name was added and refuses any newer than the module's Go
+version: it passes at 1.26.0, and at 1.25.0 it flags `crypto/hpke`
+("requires go1.26 or later"). So nothing newer than Go 1.26 is used, and
+nothing older is enough. Not done: a build with a Go 1.26 toolchain (it
+is not installed, and the re-test does not download one). Test:
+`TestLowestGoVersion`.
 
 ### 20. Clarify: a device that comes back
 
@@ -609,7 +732,8 @@ catching up, the writer writes a copy of each such write under the newest
 generation: a "sealed again" write that names the write it copies and
 changes nothing in the merged data; a copy that differs is dropped. Tests:
 `TestSecretWriteRefreshesTheList`, `TestWriteUnderASupersededKey`. What
-"such writes" means is finding 33.
+"such writes" means is finding 33, which replaced the "sealed again"
+write with the snapshot.
 
 ### 26. Wrong: a removal can undo stricter rules and approvals
 
@@ -710,6 +834,11 @@ would have given them 7 days to cancel. This is the same limit as finding
 modified client, and the hold makes it visible, not stopped.
 **Recommended: say so in SS 6.2, as SS 4 already does for the kit wait.**
 
+**Decided** (SS 6.2): SS now says plainly that a modified client on a
+young device can skip the waiting change, and other devices can only hold
+it for 7 days. Text only; the hold was already built
+(`TestYoungDeviceCannotRemoveOlder`).
+
 ### 32. Gap: "never take back" can leave devices different
 
 The cut is set by signed summaries, so every device that sees the same
@@ -725,6 +854,11 @@ says (`TestRemovalNeverTakesBackAStricterValue`). **Recommended: the
 device that keeps a stricter value writes it again as its own write, so
 every device gets it; an approval past the cut is dropped like any other
 write and shown to the person, who can approve again.**
+
+**Decided and built** (SS 6.2), as recommended. Tests:
+`TestRemovalNeverTakesBackAStricterValue` (every device ends protected),
+`TestApprovalPastTheCutIsDropped` (the device that had applied the yes
+merges again without it and shows it; a fresh yes applies).
 
 ### 33. Clarify: which writes the writer seals again
 
@@ -744,6 +878,13 @@ on a device that already held a signed state and already knew the newer
 key. **Recommended: say which writes, as above, and say that sealing
 again is not a way to take a write back. Or drop it and leave re-sealing
 to the snapshot (finding 9).**
+
+**Decided and built** (SS 7.1): sealing again happens only in a snapshot.
+The per-write "sealed again" kind is gone from the format (a body of that
+kind is refused), and so is `Report.Resealed`. The alert on writes under
+an old key stays; when the list moved outside a sync, it counts from the
+generation at the entry the device held before that move (finding 37).
+Test: `TestWriteUnderASupersededKey`.
 
 ### Other review points
 
@@ -829,6 +970,13 @@ The stronger choice, counting a summary only when its signer's next
 summary names the removal and covers no more writes, stops the cut from
 growing while a device is held, but needs that device to sync again.
 
+**Decided and built** (SS 4 and 6.2), the recommended rule, not the
+stronger choice. The prototype does not add the "kept from a removed
+device after it was removed" line: SS keeps only "anything dropped is
+shown". Tests: `TestHeldSummaryCannotBringInAnApproval` (case 1),
+`TestRemovedSignerSummaryDoesNotCount` (case 2),
+`TestBackdatedSummaryIsRefused`.
+
 ### 36. Wrong: a dropped write the person confirmed came back silently (fixed in code, approvals open)
 
 A removes X. X's late change and its approval are dropped, the alert says
@@ -845,6 +993,11 @@ would split them (a later summary of another device covers them).
 Test: `TestKeptAgainIsShown`. Approvals among them still apply; keeping
 them out needs the rule recommended in finding 35.
 
+**Settled by finding 35.** Approvals and waiting changes among writes kept
+again stay dropped; only what applies by itself comes back.
+`TestKeptAgainIsShown` now checks that a removed device's address change
+and its own yes stay out while its note comes back.
+
 ### 37. Gap: a list refresh outside Sync lost alerts and resealing (fixed in code)
 
 Sync took "what is new" from the list entry it held when it started. Many
@@ -855,16 +1008,70 @@ key alert (SS 6.1), and did not seal again the writes made while behind
 (SS 7.1).
 
 The device now remembers the list entry it held before the first move it
-has not handled yet, one for alerts and one for resealing, and Sync works
-from those. Its own new entries do not count. Resealing now takes the own
-writes under a replaced generation that name that entry or a later one.
-Test: `TestListRefreshOutsideSyncStillAlertsAndReseals`.
+has not handled yet, and Sync alerts from it. Its own new entries do not
+count. (Resealing went with finding 33.) Test:
+`TestListRefreshOutsideSyncStillAlerts`.
 
 ### 38. SS 21 was out of date
 
 SS 21 still said the prototype drops everything after the recorded last
-write. It now says the rule is built, and lists findings 31 to 36 with
-their recommendations.
+write. It then listed findings 31 to 36 with their recommendations. After
+the owner's decisions it says nothing is open, and that the format can be
+frozen once this re-test passes. It has passed.
+
+## Findings of the freeze re-test (2026-11-14)
+
+Building the decisions above raised no new fault in SS. Six places need
+one more sentence so that two builders make the same choice. Each is
+built as recommended here; SS is not changed.
+
+### 39. Clarify: what makes a deny rule "new"
+
+SS 8.1: "a new deny rule applies by itself; an edit or delete of one
+waits." A write that says "create" for an existing deny rule's ID is an
+edit in disguise: with the newest clock it would replace the rule's
+pattern, and a writer picks its own clock, so no order of "creates" can
+be trusted. **Recommended: bind a deny rule's ID to the write that makes
+it (above, "Deny rule IDs"); any other "create" of that ID is refused.**
+
+### 40. Clarify: a cut can go down
+
+"A summary counts toward the cut only while its signer is still on the
+list" means a cut can go down when that signer is removed later. Every
+device then finds the same, lower cut; one that applied more merges
+again, shows what it dropped, and writes again any stricter value. While
+the signer is listed, a cut it set stays, even if the server hides its
+summary later. **Recommended: say both in SS 6.2.**
+
+### 41. Clarify: what a snapshot keeps of a deleted record
+
+Deletion markers go with a snapshot (SS 9), but deletion is final and a
+deletion marker holds a name (SS 8.1). The prototype keeps, for a deleted
+record, its type and its name field, and drops the rest. **Recommended:
+say so in SS 9.**
+
+### 42. Clarify: which snapshot a summary names
+
+To accept a newer snapshot while building on an older one, each summary
+names two: the newest one its signer accepted, and the one it builds on.
+A new device takes the one every other current device names as newest,
+or else the one they all build on, so it never needs writes the service
+already dropped. **Recommended: say so in SS 9.**
+
+### 43. Clarify: a floor below a confirmed snapshot
+
+A removal records the last write it accepted. A confirmed snapshot holds
+writes every current device agreed on before. If a removal names an
+older write than the snapshot holds, the snapshot wins: those writes stay
+as they are. An honest remover has confirmed the snapshot, so its
+recorded write is never older. **Recommended: say so in SS 6.2.**
+
+### 44. Clarify: a device takes back its own acceptance
+
+A device that accepted a snapshot judges it again at every sync until it
+builds on it. A removal that changes what the writes give (finding 35)
+makes it differ, and the device stops naming it. **Recommended: say so in
+SS 9.**
 
 ## Limits of this prototype
 
@@ -880,13 +1087,21 @@ their recommendations.
   announces a kit step (SS 6.4) are server work, not built.
 - A device reads every summary of every remaining device to find a
   removed device's cut. A real service would keep, per removal, only the
-  newest summary from before it.
+  newest summary from before it. Snapshots drop writes, not summaries.
+- A snapshot is one sealed blob of the whole state. A real service would
+  split it into parts so that a device fetches it in pieces.
+- Pruning is a test hook (`MemServer.PruneWrites`). A device judges a
+  snapshot by merging again from its base, which is fine for thousands of
+  records and would want a running hash for many more.
+- One device that never syncs keeps every write on the server: by design,
+  older writes go only once every current device named the snapshot.
 - The device's clock check against the server before pushing (SS 9) is
   not built; far-future writes are held as SS says.
 
 ## Sizes and timings
 
-Apple M2, Go 1.27.4, `go test -bench . -benchtime=2s`.
+Apple M2, Go 1.27.4, `go test -bench . -benchtime=2s` (the two joins:
+`-benchtime=1x`, best of three runs, on a busier machine than before).
 
 | Operation | Time |
 |---|---|
@@ -896,7 +1111,8 @@ Apple M2, Go 1.27.4, `go test -bench . -benchtime=2s`.
 | Verify, P-256 | 55 µs |
 | Seal a key to a device, HPKE X-Wing | 114 µs |
 | Open it | 83 µs |
-| New device joins and checks 1,000 records (2,000 writes) from write 1 | 191 ms |
+| New device joins and checks 1,000 records (2,000 writes) from write 1 | 191 ms (258 ms in the re-test run) |
+| New device joins from a confirmed snapshot of the same 1,000 records | 9 ms |
 | A device holding 1,000 records pulls one change | 2.6 ms |
 
 | Thing | Size |
@@ -905,7 +1121,9 @@ Apple M2, Go 1.27.4, `go test -bench . -benchtime=2s`.
 | Entry adding the first kit | 1,532 bytes |
 | Entry adding a device | 1,715 bytes |
 | A write (a 3-field server record) | 579 bytes (288 sealed) |
-| A summary naming 2 devices | 280 bytes |
+| A summary naming 2 devices (and two snapshots) | 344 bytes |
+| A snapshot of 1,000 server records | 226 KB |
+| 1,000 records on the server after pruning to that snapshot | about 0.23 MB |
 | Account key sealed to a device (X-Wing HPKE) | 1,168 bytes |
 | 1,000 records on the server, everything included | about 1 MB |
 

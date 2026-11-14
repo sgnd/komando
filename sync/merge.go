@@ -7,11 +7,13 @@ import (
 
 // The record types the prototype knows. "note" applies by itself; every
 // other type holds fields that can move a secret, change what runs or who
-// is reached.
+// is reached. A deny rule is its own record: a new one applies by itself,
+// an edit or a delete of one waits (SS 8.1).
 const (
 	TypeServer = "server"
 	TypeSecret = "secret"
 	TypeRule   = "rule"
+	TypeDeny   = "deny"
 	TypeNote   = "note"
 	TypeDevice = "device"
 )
@@ -46,6 +48,7 @@ type mergeState struct {
 	records  map[RecordID]*record
 	waiting  map[WriteRef]*waiting
 	approved map[WriteRef]bool
+	replaces map[WriteRef][]RecordID // per approved change: the old holders of its name, deleted with it
 	markers  map[RecordID]WriteRef
 }
 
@@ -54,32 +57,41 @@ func newMergeState() *mergeState {
 		records:  map[RecordID]*record{},
 		waiting:  map[WriteRef]*waiting{},
 		approved: map[WriteRef]bool{},
+		replaces: map[WriteRef][]RecordID{},
 		markers:  map[RecordID]WriteRef{},
 	}
 }
 
-// appliesItself is SS 8.1's short list: notes and descriptions, and a
-// stricter rule. Stricter is decided from the new value alone, so the
-// result never depends on the order writes arrive in.
-func appliesItself(typ string, f Field) bool {
-	if typ == TypeNote {
-		return true
-	}
-	switch f.Name {
-	case "note", "description":
-		return true
-	case "protected":
-		return f.Value == "true"
-	case "approval":
-		return f.Value == "required"
-	}
-	return false
+// stricterValues is the table of SS 8.1 (decided by the owner
+// 2026-11-14): each rule field has one value that applies by itself; its
+// other values wait. It is fixed with the format. A new deny rule, the
+// table's last line, is a record type (TypeDeny), not a field.
+var stricterValues = map[string]string{
+	"protected": "true",     // protected: on
+	"approval":  "required", // approval: required
+	"never_ai":  "true",     // "Never use AI here": on
 }
 
-// stricter is a value that only tightens a rule (SS 8.1), judged from the
-// new value alone. A removal never takes such a value back (SS 6.2).
+// stricter reports whether f sets a rule field to its one stricter value.
+// It is judged from the new value alone, so the result never depends on
+// the order writes arrive in.
 func stricter(typ string, f Field) bool {
-	return typ != TypeNote && typ != TypeDevice && appliesItself(typ, f) && f.Name != "note" && f.Name != "description"
+	v, ok := stricterValues[f.Name]
+	return ok && v == f.Value && typ != TypeNote && typ != TypeDevice
+}
+
+// appliesItself is SS 8.1's "applies by itself" list for one field of an
+// edit: notes and descriptions, and a stricter value from the table.
+// Anything else waits.
+func appliesItself(typ string, f Field) bool {
+	return typ == TypeNote || f.Name == "note" || f.Name == "description" || stricter(typ, f)
+}
+
+// wholeAppliesItself reports whether a whole change applies by itself: a
+// note, a device's own record, or a new deny rule (never its edit or
+// delete).
+func wholeAppliesItself(typ string, c *Change) bool {
+	return typ == TypeNote || typ == TypeDevice || (typ == TypeDeny && c.Create && !c.Delete)
 }
 
 // apply takes in one record change that recordFits accepted, so its type
@@ -88,14 +100,18 @@ func stricter(typ string, f Field) bool {
 func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 	rec := m.records[c.Record]
 	if rec == nil {
-		rec = &record{Type: c.Type, Fields: map[string]fieldVal{}}
+		rec = &record{Fields: map[string]fieldVal{}}
 		m.records[c.Record] = rec
+	}
+	if rec.Type == "" { // a placeholder an approval's "replaces" made
+		rec.Type = c.Type
 	}
 	w := &waiting{Ref: ref, Record: c.Record, Type: rec.Type, Create: c.Create, Delete: c.Delete, Clock: clock}
 	// Notes apply by themselves; a device's name record is written only by
 	// that device (recordFits) and pinned by the hash in the signed list
-	// entry a person already agreed to.
-	auto := rec.Type == TypeNote || rec.Type == TypeDevice
+	// entry a person already agreed to; a new deny rule only restricts,
+	// and its ID is bound to the write that makes it (recordFits).
+	auto := wholeAppliesItself(rec.Type, c)
 	if auto {
 		w.Fields = c.Fields
 	} else {
@@ -118,8 +134,13 @@ func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 }
 
 // approve records a verified yes and applies the change if it is here.
-func (m *mergeState) approve(ref WriteRef) {
+// replaces names the old holders of the change's name; they are deleted
+// in the same yes (SS 8.1, decided 2026-11-14).
+func (m *mergeState) approve(ref WriteRef, replaces []RecordID) {
 	m.approved[ref] = true
+	if len(replaces) > 0 {
+		m.replaces[ref] = replaces
+	}
 	if w := m.waiting[ref]; w != nil {
 		delete(m.waiting, ref)
 		m.applyWaiting(w)
@@ -135,8 +156,28 @@ func (m *mergeState) applyWaiting(w *waiting) {
 		setField(rec, f, w.Clock)
 	}
 	if w.Delete {
+		m.markDeleted(w.Record, w.Ref)
+	}
+	for _, id := range m.replaces[w.Ref] {
+		if id != w.Record {
+			m.markDeleted(id, w.Ref)
+		}
+	}
+}
+
+// markDeleted makes a record's deletion final. The record may not be here
+// yet: a placeholder takes its type from its first write.
+func (m *mergeState) markDeleted(id RecordID, by WriteRef) {
+	rec := m.records[id]
+	if rec == nil {
+		rec = &record{Fields: map[string]fieldVal{}}
+		m.records[id] = rec
+	}
+	if !rec.Deleted {
 		rec.Deleted = true
-		m.markers[w.Record] = w.Ref
+		m.markers[id] = by
+	} else if cur := m.markers[id]; cmpRef(by, cur) < 0 {
+		m.markers[id] = by // the same marker whichever order
 	}
 }
 
@@ -180,13 +221,27 @@ type FieldChange struct {
 // Waiting is a change that waits for a person's yes, as the screen shows
 // it.
 type Waiting struct {
-	Ref      WriteRef
-	Record   RecordID
-	Type     string
-	Create   bool
-	Delete   bool
-	Changes  []FieldChange
-	Replaces string // a name another record, waiting change or deletion marker holds
+	Ref     WriteRef
+	Record  RecordID
+	Type    string
+	Create  bool
+	Delete  bool
+	Changes []FieldChange
+	// Replaces is a name another record, waiting change or deletion
+	// marker holds, and ReplacesIDs are those holders. Approving the
+	// change deletes them in the same signed yes, so two records never
+	// hold one name (SS 8.1).
+	Replaces    string
+	ReplacesIDs []RecordID
+}
+
+// ReplacesLine is the screen's line for a newcomer that takes a held
+// name: "replaces prod-db (deleted)". Empty when it takes none.
+func (w Waiting) ReplacesLine() string {
+	if w.Replaces == "" {
+		return ""
+	}
+	return "replaces " + w.Replaces + " (deleted)"
 }
 
 func (m *mergeState) list() []Waiting {
@@ -197,8 +252,10 @@ func (m *mergeState) list() []Waiting {
 		v := Waiting{Ref: ref, Record: w.Record, Type: w.Type, Create: w.Create, Delete: w.Delete}
 		for _, f := range w.Fields {
 			v.Changes = append(v.Changes, FieldChange{Name: f.Name, Old: rec.Fields[f.Name].Value, New: f.Value})
-			if f.Name == "name" && m.nameHeld(f.Value, w.Record) {
-				v.Replaces = f.Value
+			if f.Name == "name" {
+				if ids := m.nameHolders(f.Value, w.Record); len(ids) > 0 {
+					v.Replaces, v.ReplacesIDs = f.Value, ids
+				}
 			}
 		}
 		out = append(out, v)
@@ -206,12 +263,13 @@ func (m *mergeState) list() []Waiting {
 	return out
 }
 
-// nameHeld reports whether another record holds the name: agreed, waiting
-// or deleted (SS 8.1).
-func (m *mergeState) nameHeld(name string, self RecordID) bool {
+// nameHolders lists the other records that hold the name: agreed,
+// waiting or deleted (SS 8.1), sorted.
+func (m *mergeState) nameHolders(name string, self RecordID) []RecordID {
+	held := map[RecordID]bool{}
 	for id, r := range m.records {
 		if id != self && r.Fields["name"].Value == name {
-			return true
+			held[id] = true
 		}
 	}
 	for _, w := range m.waiting {
@@ -220,11 +278,11 @@ func (m *mergeState) nameHeld(name string, self RecordID) bool {
 		}
 		for _, f := range w.Fields {
 			if f.Name == "name" && f.Value == name {
-				return true
+				held[w.Record] = true
 			}
 		}
 	}
-	return false
+	return slices.SortedFunc(maps.Keys(held), func(a, b RecordID) int { return slices.Compare(a[:], b[:]) })
 }
 
 func cmpRef(a, b WriteRef) int {

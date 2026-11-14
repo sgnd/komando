@@ -37,6 +37,17 @@ type vectors struct {
 	Signature   sigVector         `json:"ecdsa_p256_fixed_form"`
 	Entry       entryVector       `json:"list_entry"`
 	PairingCode map[string]string `json:"pairing_code"`
+	Snapshot    snapshotVector    `json:"snapshot"`
+	DenyID      map[string]string `json:"deny_rule_id"`
+	Approval    map[string]string `json:"approval_bytes"`
+}
+
+// snapshotVector: the state's one byte form, its hash, the header that
+// binds the seal and is signed, the seal (the record seal with the header
+// as its place) and the snapshot's hash.
+type snapshotVector struct {
+	VaultKey, Seed, Header, State, StateHash string
+	Commit, Ciphertext, Hash                 string
 }
 
 type recordVector struct {
@@ -120,6 +131,25 @@ func deterministic(t *testing.T) vectors {
 	en := Entry{Num: 2, Prev: Hash(seq(200, 32)), Body: Body{Action: ActSetKits, Kits: []KitRecord{r}}}
 	v.Entry = entryVector{hx(en.signedBytes()), hx(func() []byte { h := en.Hash(); return h[:] }())}
 	v.PairingCode = map[string]string{"secret": hx(seq(5, 16)), "code": pairCode(seq(5, 16))}
+
+	m := newMergeState()
+	rid := RecordID(seq(10, 16))
+	m.records[rid] = &record{Type: TypeServer, Exists: true, Fields: map[string]fieldVal{
+		"address": {Value: "10.0.0.5", Clock: HLC{Wall: 1_700_000_000_000, Count: 1, Dev: DeviceID(seq(30, 16))}}}}
+	snap := &Snapshot{Account: Hash(seq(50, 32)), Signer: DeviceID(seq(30, 16)), Num: 1, ListNum: 4,
+		ListHash: Hash(seq(90, 32)), KeyGen: 2, Heads: []Head{{Device: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))}}}
+	state := m.encode(snap.headMap())
+	snap.State = sum(labelSnapState, state)
+	snap.Body = sealRecordSeed(seq(0, 32), snap.header(), state, [32]byte(seq(170, 32)))
+	sh := snap.Hash()
+	v.Snapshot = snapshotVector{hx(seq(0, 32)), hx(snap.Body.Seed[:]), hx(snap.header()), hx(state), hx(snap.State[:]),
+		hx(snap.Body.Commit[:]), hx(snap.Body.CT), hx(sh[:])}
+	did := denyID(DeviceID(seq(30, 16)), 7)
+	v.DenyID = map[string]string{"writer": hx(seq(30, 16)), "seq": "0000000000000007", "id": hx(did[:])}
+	target := WriteRef{Writer: DeviceID(seq(30, 16)), Seq: 7, Hash: Hash(seq(130, 32))}
+	v.Approval = map[string]string{"account": hx(seq(50, 32)), "writer": hx(seq(30, 16)), "seq": "0000000000000007",
+		"hash": hx(seq(130, 32)), "replaces": hx(seq(10, 16)),
+		"bytes": hx(approvalBytes(Hash(seq(50, 32)), target, []RecordID{rid}))}
 	return v
 }
 

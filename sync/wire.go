@@ -38,6 +38,10 @@ const (
 	labelRecordType = "komando-sync/1 record type"
 	labelAuthAsk    = "komando-sync/1 new authority key"
 	labelKitID      = "komando-sync/1 kit id"
+	labelDenyID     = "komando-sync/1 deny rule id"
+	labelSnapshot   = "komando-sync/1 snapshot"
+	labelSnapHash   = "komando-sync/1 snapshot hash"
+	labelSnapState  = "komando-sync/1 snapshot state"
 )
 
 // Hash is a SHA-256 value.
