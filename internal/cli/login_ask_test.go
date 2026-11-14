@@ -415,6 +415,31 @@ func TestLoginAskForWay(t *testing.T) {
 	}
 }
 
+// An OpenVPN VPN's profile is a vault secret: replacing it moves the VPN
+// as an edit would, so for an AI agent it is NEEDS_PERSON while the VPN is
+// on the way to a login-ask server.
+func TestLoginAskVpnProfileSecretNeedsPerson(t *testing.T) {
+	secretHome(t)
+	profile := filepath.Join(t.TempDir(), "office.ovpn")
+	if err := os.WriteFile(profile, []byte(testProfile), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "vpn", "add", "office", "openvpn", "--config", profile, "--check", "10.8.0.1:22", "--user", "alice", "--password-ref", "secret:db-pass")
+	mustRun(t, "host", "add", "web1", "u@10.8.0.5", "--login", "ask", "--via", "office")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	t.Setenv("EVIL", "remote 203.0.113.66 1194")
+	e := wantCode(t, "NEEDS_PERSON", "secret", "set", "office-config", "--from-env", "EVIL")
+	if !strings.Contains(e.Message, "profile of VPN office") || !strings.Contains(e.Message, "server web1") {
+		t.Errorf("%+v", e)
+	}
+	t.Setenv("OTHER", "x")
+	mustRun(t, "secret", "set", "other-thing", "--from-env", "OTHER")
+	wantCode(t, "NEEDS_PERSON", "secret", "cp", "other-thing", "office-config", "--overwrite")
+	if v, _ := vault.Get("office-config"); strings.Contains(v, "203.0.113.66") || v == "x" {
+		t.Error("the profile was replaced")
+	}
+}
+
 // hostPlaceChanges counts each setting that moves a typed password, and
 // connPlaceChanges a conn's URL and way.
 func TestLoginPlaceChanges(t *testing.T) {

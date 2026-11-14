@@ -170,3 +170,28 @@ func importVpnPlaces(cl *call, st *store.State, vpns []*store.Vpn) error {
 	}
 	return loginPlaceStop(cl, replacing)
 }
+
+// secretPlaceChanges: secret name holds the whole profile of a VPN
+// (OpenVPN's .ovpn, ConfigRef), so setting it changes where that VPN
+// connects, as a vpn edit would, for the login-ask servers and conns on
+// its way.
+func secretPlaceChanges(s *store.State, name string) []string {
+	var what []string
+	for _, n := range sortedVpnNames(s) {
+		if s.Vpns[n].ConfigRef == "secret:"+name {
+			for _, w := range vpnPlaceChanges(s, n, true) {
+				what = append(what, "secret "+name+" is the profile of VPN "+n+": "+w)
+			}
+		}
+	}
+	return what
+}
+
+func sortedVpnNames(s *store.State) []string {
+	names := make([]string, 0, len(s.Vpns))
+	for n := range s.Vpns {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}

@@ -270,6 +270,9 @@ are not changed.`
 			if replaced && !overwrite {
 				return secretExists(from, to)
 			}
+			if err := loginPlaceStop(cl, secretPlaceChanges(st, to)); err != nil {
+				return err
+			}
 			if replaced {
 				if prot := protectedUsers(st, secretUsers(st, to)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
 					if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
