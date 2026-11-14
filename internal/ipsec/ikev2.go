@@ -677,28 +677,10 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 	plain = plain[:len(plain)-1-int(plain[len(plain)-1])]
 	first := raw[28]
 	if fragTotal > 1 {
-		key := m.id
-		if m.flags&flagResp == 0 {
-			key |= 1 << 31 // requests and responses may share an id
-		}
-		f := k.frags[key]
-		if f == nil || f.total != fragTotal {
-			f = &fragSet{total: fragTotal, parts: map[int][]byte{}}
-			k.frags[key] = f
-		}
-		if fragNum == 1 {
-			f.next = first
-		}
-		f.parts[fragNum] = plain
-		if len(f.parts) < f.total {
+		var whole bool
+		if first, plain, whole = k.reassemble(m, fragNum, fragTotal, first, plain); !whole {
 			return nil, nil
 		}
-		delete(k.frags, key)
-		plain = nil
-		for i := 1; i <= f.total; i++ {
-			plain = append(plain, f.parts[i]...)
-		}
-		first = f.next
 	}
 	ps, err := parseChain(first, plain)
 	if err != nil {

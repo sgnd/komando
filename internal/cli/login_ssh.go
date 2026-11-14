@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -161,14 +162,9 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 		_ = c.Wait()
 		return nil, e
 	}
-	// the token, how long to keep the login, the vault passphrase and the
-	// other secret stores' unlock values go on its input, never in its
-	// arguments or environment
-	ticket, err := newSpawnTicket("login-holder", h.Name)
-	if err != nil {
+	if err := holderHello(stdin, l); err != nil {
 		return fail(err)
 	}
-	fmt.Fprintf(stdin, "%sTOKEN %s\nUNTIL %d\nPASS %s\n", ticket, l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
 	var cancelled error
 	in := bufio.NewReader(stdout)
 	for {
@@ -219,6 +215,19 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 			return fail(&out.Error{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit, Final: e.Final})
 		}
 	}
+}
+
+// holderHello sends the holder of l what it needs first, on its input,
+// never in its arguments or environment: the ticket (guard_spawn.go), the
+// socket's token, how long to keep the login, the vault passphrase and
+// the other secret stores' unlock values.
+func holderHello(stdin io.Writer, l *store.SSHLogin) error {
+	ticket, err := newSpawnTicket("login-holder", l.Host)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdin, "%sTOKEN %s\nUNTIL %d\nPASS %s\n", ticket, l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
+	return err
 }
 
 // holderCommand is the background process for a login to name; tests
