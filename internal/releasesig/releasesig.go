@@ -32,7 +32,9 @@ const MaxSize = 4 << 10
 // key, add the new one here, release that komando signed with the old
 // key, then sign later releases with the new key (and both, for a while,
 // so a komando that knows only the old key still updates).
-var Keys = []string{}
+var Keys = []string{
+	"GO75zZSPgMzciJXLqfbDrefUFaNQo3sfAZJx1NWxv2k=", // 2026-11-14, the first release key
+}
 
 var (
 	// ErrNoKeys means this komando was built without a public key.
