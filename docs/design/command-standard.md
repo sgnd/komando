@@ -364,7 +364,8 @@ no default, never `-1`. [schema: no default "-1"; no default "1h0m0s"-style]
 
 **S-5.8** Every list command has `--limit` (S-5.1 defaults). A run that
 stops at the limit sets the additive `meta.truncated: true` and, in text
-mode, prints one stderr line `showing N of more; use --limit 0 for all`.
+mode, prints one stderr line `Note: showing the first N; --limit 0 shows all`
+(or the command's own cut note in its output).
 [schema: every leaf whose verb is list/ls (or a list tool word) has --limit;
 code: truncation sets the field]
 

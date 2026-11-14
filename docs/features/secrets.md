@@ -1,7 +1,9 @@
 # Secrets
 
 Save a password, key passphrase or token once, then point to it as
-`secret:NAME` instead of typing it. komando never prints a saved value.
+`secret:NAME` instead of typing it. komando shows a saved value only to a
+person who asks with `--reveal` (`secret show`, `key show`), at a terminal
+or after "Allow once" in komando's window, and never to an AI agent.
 
 ## Save a password and use it
 

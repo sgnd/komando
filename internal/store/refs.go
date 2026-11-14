@@ -5,7 +5,7 @@ import "strings"
 // References between records: a server names its key (Key) and the
 // servers or VPNs on its way (Via, on servers and conns). Each name has
 // the record's ID beside it (KeyID, ViaIDs), so a reference survives a
-// rename made somewhere else (a future sync between devices): the
+// rename made somewhere else: the
 // name is what people and commands read and change; the ID is what a
 // rename cannot break.
 //
