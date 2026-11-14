@@ -10,6 +10,15 @@ its highlights; the sections below them give the details. Versions follow
 ### Fixed
 
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
+- Three places where commands running side by side in one process (the
+  apps) could answer for the wrong command. A connection with no command
+  behind it could pin a new server's host key and report it in another
+  running command's output and audit log; it now refuses to pin and says
+  so. A secret one command read could be shown in another command's
+  output if it was read just as that command started; it now stays
+  hidden for the whole command. And a login to a jump host that one
+  command opened could carry another command's servers, an AI agent's
+  after a person's say; now each command opens its own.
 
 ## [0.14.0] - 2026-11-14
 

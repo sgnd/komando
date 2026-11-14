@@ -229,6 +229,10 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		c, err = handshake(ctx, pc, addr, cfg, o.ConnectTimeout)
 		if err != nil {
 			pc.Close()
+			var pr *pinRefused
+			if errors.As(err, &pr) {
+				return nil, pr.err
+			}
 			ce := classify(st, hop, err)
 			if tail := pc.stderrTail(); tail != "" {
 				if ce.Code != "CONNECT_FAILED" {
@@ -248,7 +252,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		c, err = dialVia(ctx, prev, addr, cfg, o.ConnectTimeout)
 	}
 	if err != nil {
-		return nil, classify(st, hop, err)
+		return nil, hopErr(st, hop, err)
 	}
 	return c, nil
 }
@@ -574,6 +578,29 @@ type NewHostKey struct {
 // waits: it must be quick.
 var HostKeyPinned func(ctx context.Context, k NewHostKey)
 
+// MayPin, when set, is asked before a new server's key is pinned on first
+// use, with the context of the Dial. An error refuses the pin, and the
+// connection with it: the CLI refuses a context that carries no command,
+// since the pin would belong to no command's output and audit log.
+var MayPin func(ctx context.Context) error
+
+// pinRefused carries MayPin's error through the SSH handshake: the dial
+// gives it as it is (hopErr), not as a connection error.
+type pinRefused struct{ err error }
+
+func (p *pinRefused) Error() string { return p.err.Error() }
+func (p *pinRefused) Unwrap() error { return p.err }
+
+// hopErr is the error of a hop that failed: MayPin's refusal as it is,
+// anything else as classify names it.
+func hopErr(st *store.State, h *store.Host, err error) error {
+	var pr *pinRefused
+	if errors.As(err, &pr) {
+		return pr.err
+	}
+	return classify(st, h, err)
+}
+
 // hostKeyNote is where the line about a newly pinned key goes.
 var hostKeyNote io.Writer = os.Stderr
 
@@ -620,6 +647,11 @@ func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallb
 				return &hostKeyChanged{offered: key, err: ke0}
 			}
 			return known
+		}
+		if policy != "strict" && MayPin != nil {
+			if err := MayPin(ctx); err != nil {
+				return &pinRefused{err}
+			}
 		}
 		var err error
 		pinned := false

@@ -379,7 +379,8 @@ func ApprovalFlag(e *Error) string {
 // Reset forgets what one command recorded and set, so the next command
 // in the same call starts as a new printer does (a call may run many
 // commands: tests, an app). Format, W, Err and Width are the call's and
-// stay.
+// stay, and so do the values AddValue hid: another running command may
+// have added one already (ForgetAdded).
 func (p *Printer) Reset() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -387,7 +388,6 @@ func (p *Printer) Reset() {
 	p.cut, p.cutNoted, p.cutAt = false, false, 0
 	p.DryRun, p.Pretty, p.Mask, p.Personal, p.NoRedact = false, false, false, false, false
 	p.Start = time.Now()
-	p.forgetAdded()
 }
 
 // Warn records something that went wrong beside the result: it goes to

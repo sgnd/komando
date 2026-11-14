@@ -52,7 +52,7 @@ func TestAddValueThenVault(t *testing.T) {
 	if got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v))); got != "a=[secret:db] b=[secret:db]" {
 		t.Errorf("Redact: %q", got)
 	}
-	p.forgetAdded()
+	p.ForgetAdded()
 	if got := p.Redact(v); got != "[secret:db]" {
 		t.Errorf("the next command forgot a vault value: %q", got)
 	}

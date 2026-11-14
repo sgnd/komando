@@ -15,11 +15,12 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// Servers behind the same jump hosts share one connection to them: `exec
-// -P 10` through a bastion logs in to the bastion once and opens a channel
-// per server, so the bastion's MaxStartups and its login logs see one
-// client, as with OpenSSH's ControlMaster. The shared path stays open a
-// few seconds after its last server closes, for the next one in a fleet.
+// Servers behind the same jump hosts share one connection to them within
+// one command: `exec -P 10` through a bastion logs in to the bastion once
+// and opens a channel per server, so the bastion's MaxStartups and its
+// login logs see one client, as with OpenSSH's ControlMaster. The shared
+// path stays open a few seconds after its last server closes, for the
+// next one in a fleet. Another command never uses it (ChainOwner).
 
 type sharedChain struct {
 	key     string
@@ -33,18 +34,34 @@ type sharedChain struct {
 var chains = struct {
 	sync.Mutex
 	m       map[string]*sharedChain
-	dialing map[string]*sync.Mutex
-}{m: map[string]*sharedChain{}, dialing: map[string]*sync.Mutex{}}
+	dialing map[string]*dialLock
+}{m: map[string]*sharedChain{}, dialing: map[string]*dialLock{}}
+
+// dialLock lets one dial of a path run at a time; users counts the dials
+// that hold or wait for it, and the last one takes it out of the map (each
+// command has keys of its own, so the map would grow in a long-lived app).
+type dialLock struct {
+	sync.Mutex
+	users int
+}
 
 // chainLinger is how long an unused shared path stays open.
 var chainLinger = 5 * time.Second
 
-// chainKey names a path: how its host keys were checked, its VPN and
-// each jump host's identity. The check is part of it: a path dialed with
-// --host-key-policy off (or accept-new) is never handed to a command that
-// checks keys more strictly, which may run in the same process (an app).
-func chainKey(vpn *store.Vpn, hops []*store.Host, hostKeyPolicy string) string {
+// ChainOwner, when set, names the command a path through jump hosts is
+// opened for, from the context of the Dial. A path is shared only within
+// one owner: a path one command opened (a person's, who answered a login
+// question or approved a VPN) never serves another command in the same
+// process (an app), which may be an AI agent's or carry other approvals.
+var ChainOwner func(ctx context.Context) string
+
+// chainKey names a path: whose it is (ChainOwner), how its host keys were
+// checked, its VPN and each jump host's identity. The check is part of
+// it: a path dialed with --host-key-policy off (or accept-new) is never
+// handed to a command that checks keys more strictly.
+func chainKey(owner string, vpn *store.Vpn, hops []*store.Host, hostKeyPolicy string) string {
 	var b strings.Builder
+	b.WriteString("owner:" + strconv.Quote(owner) + "|")
 	switch hostKeyPolicy {
 	case "off", "strict":
 		b.WriteString("keys:" + hostKeyPolicy + "|")
@@ -65,12 +82,20 @@ func acquireChain(key string, open func() ([]*ssh.Client, io.Closer, error)) (*s
 	chains.Lock()
 	mu := chains.dialing[key]
 	if mu == nil {
-		mu = &sync.Mutex{}
+		mu = &dialLock{}
 		chains.dialing[key] = mu
 	}
+	mu.users++
 	chains.Unlock()
 	mu.Lock() // one dial per path at a time; the others wait and share it
-	defer mu.Unlock()
+	defer func() {
+		mu.Unlock()
+		chains.Lock()
+		if mu.users--; mu.users == 0 {
+			delete(chains.dialing, key)
+		}
+		chains.Unlock()
+	}()
 	chains.Lock()
 	if c := chains.m[key]; c != nil && !c.dead {
 		c.refs++
@@ -156,7 +181,11 @@ func openFirst(ctx context.Context, vpn *store.Vpn, o Options) (netx.Dialer, io.
 func openJumps(ctx context.Context, st *store.State, vpn *store.Vpn, jumps []*store.Host, o Options) (*sharedChain, error) {
 	jo := o
 	jo.scan = nil
-	return acquireChain(chainKey(vpn, jumps, o.HostKeyPolicy), func() ([]*ssh.Client, io.Closer, error) {
+	owner := ""
+	if ChainOwner != nil {
+		owner = ChainOwner(ctx)
+	}
+	return acquireChain(chainKey(owner, vpn, jumps, o.HostKeyPolicy), func() ([]*ssh.Client, io.Closer, error) {
 		first, vpnCloser, err := openFirst(ctx, vpn, o)
 		if err != nil {
 			return nil, nil, err

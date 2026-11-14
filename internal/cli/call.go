@@ -50,6 +50,11 @@ type call struct {
 	// it is atomic.
 	oldCopy atomic.Bool
 
+	// command numbers the command running in the call (enter), unique in
+	// the process: a path through jump hosts is shared only within one
+	// command (sshx.ChainOwner). 0: no command runs in it.
+	command atomic.Uint64
+
 	commits uint64   // store.Commits() when the command started
 	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
 

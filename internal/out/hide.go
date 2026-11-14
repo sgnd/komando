@@ -12,7 +12,7 @@ import (
 
 type hidden struct {
 	raw, json, label string
-	added            bool // by AddValue: forgotten when the next command starts (Reset)
+	added            bool // by AddValue: forgotten when the next command starts (ForgetAdded)
 }
 
 // minSecret is the shortest value hidden: shorter ones would match
@@ -113,9 +113,11 @@ func (p *Printer) hideList() []hidden {
 	return p.hide
 }
 
-// forgetAdded drops what AddValue added: a value one command read is not
-// hidden in the next one's output (tests run many in one process).
-func (p *Printer) forgetAdded() {
+// ForgetAdded drops what AddValue added: a value one command read is not
+// hidden in the next one's output (tests run many in one process). The
+// CLI calls it before the command counts as running, never while it runs:
+// another command's secret added after that must stay hidden.
+func (p *Printer) ForgetAdded() {
 	p.hmu.Lock()
 	defer p.hmu.Unlock()
 	p.hide = slices.DeleteFunc(slices.Clone(p.hide), func(h hidden) bool { return h.added })
