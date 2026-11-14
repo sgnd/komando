@@ -35,6 +35,13 @@ Rules that cannot change because of the contract:
   No new flag may do what they do, and no change may let an agent skip a
   stop it gets today (S-7.1).
 
+One more line for every review:
+
+- **No plan, account or service check in any command.** A command never
+  asks whether someone paid and never asks Komando Cloud whether something
+  is allowed (the paid boundary, [principles.md](principles.md#15-technical-rules)).
+  [review]
+
 ---
 
 ## 1. Grammar

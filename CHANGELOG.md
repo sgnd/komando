@@ -54,6 +54,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- `AGENTS.md` has a new rule 11, the paid boundary: an agent that changes komando's own code never adds a plan, account or licence check, and gives a paid service only a neutral, open capability (an open format, a signature check, a local socket). The old rules 11 and 12 are now 12 and 13. A new test (`internal/boundary`) fails when the komando binary links the sync library or a Komando Cloud client, or names a komando-owned address (any scheme, or a bare host name) other than the release site.
 - `fs replace` and `fs restore` take a TARGET: on a group (`@web`) every server gets the same edit, or puts back its own newest backup. Their JSON is now one result per server, as `fs rm` and `exec` give: `data.results[]` (`host`, `ok`, `path`, `changed` or `would_change`, `replacements`, `diff`, `backup`, `error`) and `data.summary`; For one server the fields moved: `data.path` is now `data.results[0].path`, `data.changed` is `data.results[0].changed`, `data.would_change` is `data.results[0].would_change`, and the same for `replacements`, `diff`, `backup`, `from` and `note`. Error codes stay the same (`NO_MATCH`, `BACKUP_NOT_FOUND` ...). `fs write` stays one server.
 
 ### Fixed
