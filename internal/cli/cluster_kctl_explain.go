@@ -14,14 +14,14 @@ import (
 // explain TYPE[.FIELD.PATH] [--recursive].
 func (r *kctlRun) explain() error {
 	if len(r.a.pos) == 0 {
-		return kfail("you must specify the type of resource to explain")
+		return kfail("name the type of resource to explain, for example `explain pods`")
 	}
 	typ, fieldPath, _ := strings.Cut(r.a.pos[0], ".")
 	rt, err := r.k.Resource(r.ctx, typ)
 	if err != nil {
 		// TYPE.GROUP spellings: deployments.apps.spec is ambiguous, try
 		// the first two parts as the type
-		return kindErr(err, "the server doesn't have a resource type %q", typ)
+		return kindErr(err, "the cluster has no resource type %q", typ)
 	}
 	var index struct {
 		Paths map[string]struct {

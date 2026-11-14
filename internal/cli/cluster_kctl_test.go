@@ -153,13 +153,13 @@ func TestKctlRead(t *testing.T) {
 	if code, _, se := run("get", "deploy", "nope"); code != 1 || !strings.Contains(se, `Error from server (NotFound): deployments.apps "nope" not found`) {
 		t.Errorf("not found: %d %q", code, se)
 	}
-	if code, _, se := run("get", "widgets"); code != 1 || !strings.Contains(se, `doesn't have a resource type "widgets"`) {
+	if code, _, se := run("get", "widgets"); code != 1 || !strings.Contains(se, `has no resource type "widgets"`) {
 		t.Errorf("unknown type: %d %q", code, se)
 	}
 	if code, so, _ := run("auth", "can-i", "get", "pods"); code != 0 || so != "yes\n" {
 		t.Errorf("can-i yes: %d %q", code, so)
 	}
-	if code, _, se := run("frobnicate"); code != 1 || !strings.Contains(se, "unknown command") {
+	if code, _, se := run("frobnicate"); code != 1 || !strings.Contains(se, "is not a command") {
 		t.Errorf("unknown verb: %d %q", code, se)
 	}
 	if code, _, se := run("port-forward", "x"); code != 1 || !strings.Contains(se, "komando cluster forward") {

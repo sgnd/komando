@@ -183,7 +183,7 @@ func (r *kctlRun) create(sub string) error {
 	case "deployment", "deploy":
 		image := r.a.val("image")
 		if image == "" {
-			return kfail("required flag(s) \"image\" not set")
+			return kfail("create deployment needs --image")
 		}
 		replicas, _ := strconv.Atoi(cmp.Or(r.a.val("replicas"), "1"))
 		labels := map[string]any{"app": name}
@@ -203,7 +203,7 @@ func (r *kctlRun) create(sub string) error {
 		if from := r.a.val("from"); from != "" {
 			t, cj, _ := strings.Cut(from, "/")
 			if !oneOf(strings.ToLower(t), "cronjob", "cronjobs", "cj") {
-				return kfail("--from must be cronjob/NAME")
+				return kfail("--from takes cronjob/NAME")
 			}
 			var o map[string]any
 			if err := r.k.Get(r.ctx, "/apis/batch/v1/namespaces/"+url.PathEscape(ns)+"/cronjobs/"+url.PathEscape(cj), nil, &o); err != nil {
@@ -282,7 +282,7 @@ func (r *kctlRun) create(sub string) error {
 		} else if ro := r.a.val("role"); ro != "" && sub == "rolebinding" {
 			ref["kind"], ref["name"] = "Role", ro
 		} else {
-			return kfail("exactly one of clusterrole or role must be specified")
+			return kfail("give --clusterrole NAME (or --role NAME for a rolebinding)")
 		}
 		var subjects []any
 		for _, u := range r.a.vals["user-subject"] {
@@ -294,7 +294,7 @@ func (r *kctlRun) create(sub string) error {
 		for _, sa := range r.a.vals["serviceaccount"] {
 			sns, sname, ok := strings.Cut(sa, ":")
 			if !ok {
-				return kfail("serviceaccount must be <namespace>:<name>")
+				return kfail("--serviceaccount takes NAMESPACE:NAME")
 			}
 			subjects = append(subjects, map[string]any{"kind": "ServiceAccount", "namespace": sns, "name": sname})
 		}
@@ -316,7 +316,7 @@ func (r *kctlRun) create(sub string) error {
 		if d := r.a.val("duration"); d != "" {
 			dd, err := time.ParseDuration(d)
 			if err != nil {
-				return kfail("invalid --duration %q", d)
+				return kfail("--duration %q is not a duration (for example 1h or 30m)", d)
 			}
 			spec["expirationSeconds"] = int(dd.Seconds())
 		}
@@ -360,7 +360,7 @@ func (r *kctlRun) fromSources() (map[string]any, map[string]any, error) {
 	for _, l := range r.a.vals["from-literal"] {
 		k, v, ok := strings.Cut(l, "=")
 		if !ok {
-			return nil, nil, kfail("invalid literal source %s, expected key=value", l)
+			return nil, nil, kfail("--from-literal %s is not KEY=VALUE", l)
 		}
 		data[k] = v
 	}
@@ -461,7 +461,7 @@ func (r *kctlRun) delete() error {
 			if rt.Namespaced {
 				// the object's own namespace, as kubectl (and apply -f) use it
 				if n := r.a.val("namespace"); n != "" && d.Namespace != "" && n != d.Namespace {
-					return kfail("the namespace from the provided object %q does not match the namespace %q. You must pass '--namespace=%s' to perform this operation.", d.Namespace, n, d.Namespace)
+					return kfail("the object's namespace %q does not match the namespace %q; to work in %[1]q, add --namespace=%[1]s", d.Namespace, n)
 				}
 				space = cmp.Or(d.Namespace, r.ns())
 			}
@@ -475,7 +475,7 @@ func (r *kctlRun) delete() error {
 		for _, kr := range refs {
 			if len(kr.names) == 0 {
 				if r.a.val("selector") == "" && r.a.val("field-selector") == "" && !r.a.bools["all"] {
-					return kfail("resource(s) were provided, but no name was specified")
+					return kfail("name the objects too: TYPE NAME, TYPE/NAME, -l SELECTOR or --all")
 				}
 				objs, err := r.getObjects(kr)
 				if err != nil {
@@ -496,7 +496,7 @@ func (r *kctlRun) delete() error {
 	}
 	for _, t := range targets {
 		if t.name == "" { // ObjectPath without a name is the whole collection
-			return kfail("resource name may not be empty")
+			return kfail("the resource name is empty")
 		}
 	}
 	for _, t := range targets {
@@ -537,7 +537,7 @@ func (r *kctlRun) one() (kube.ResourceType, string, error) {
 		return kube.ResourceType{}, "", kfail("%s needs exactly one TYPE NAME (or TYPE/NAME)", r.a.verb)
 	}
 	if refs[0].names[0] == "" {
-		return kube.ResourceType{}, "", kfail("resource name may not be empty")
+		return kube.ResourceType{}, "", kfail("the resource name is empty")
 	}
 	return refs[0].r, refs[0].names[0], nil
 }
@@ -549,7 +549,7 @@ func (r *kctlRun) patch() error {
 	}
 	p := r.a.val("patch")
 	if p == "" {
-		return kfail("must specify --patch or -p")
+		return kfail("give the patch with --patch or -p")
 	}
 	if y, err := yamlToJSON([]byte(p)); err == nil {
 		p = string(y)
@@ -557,7 +557,7 @@ func (r *kctlRun) patch() error {
 	ct := map[string]string{"": "application/strategic-merge-patch+json", "strategic": "application/strategic-merge-patch+json",
 		"merge": "application/merge-patch+json", "json": "application/json-patch+json"}[r.a.val("type")]
 	if ct == "" {
-		return kfail("--type must be one of [json merge strategic]")
+		return kfail("--type takes json, merge or strategic")
 	}
 	path := rt.ObjectPath(r.space(rt), name)
 	if sub := r.a.val("subresource"); sub != "" {
@@ -589,7 +589,7 @@ func (r *kctlRun) labelAnnotate() error {
 		}
 	}
 	if len(changes) == 0 {
-		return kfail("at least one %s update is required", strings.TrimSuffix(field, "s"))
+		return kfail("give at least one %s to change (KEY=VALUE, or KEY- to remove it)", strings.TrimSuffix(field, "s"))
 	}
 	refs, err := r.refs(objPos)
 	if err != nil {
@@ -611,7 +611,7 @@ func (r *kctlRun) labelAnnotate() error {
 				}
 				k, v, _ := strings.Cut(c, "=")
 				if old, ok := cur[k]; ok && str(old) != v && !r.a.bools["overwrite"] {
-					return kfail("'%s' already has a value (%s), and --overwrite is false", k, str(old))
+					return kfail("%s already has a value (%s); add --overwrite to replace it", k, str(old))
 				}
 				set[k] = v
 			}
@@ -635,7 +635,7 @@ func (r *kctlRun) scale() error {
 	// the 0 that `cluster run` rated (scalesToZero)
 	n, err := strconv.Atoi(r.a.val("replicas"))
 	if err != nil || n < 0 {
-		return kfail("--replicas=COUNT is required, and COUNT must be greater than or equal to 0")
+		return kfail("scale needs --replicas=COUNT, with COUNT 0 or more")
 	}
 	body := []byte(`{"spec":{"replicas":` + strconv.Itoa(n) + `}}`)
 	if _, err := r.k.Do(r.ctx, "PATCH", rt.ObjectPath(r.space(rt), name)+"/scale", r.dryQuery(), body, "application/merge-patch+json"); err != nil {
