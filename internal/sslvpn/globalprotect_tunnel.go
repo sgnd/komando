@@ -96,11 +96,11 @@ func GlobalProtectTunnel(ctx context.Context, o Options, s GPSession) (Tunnel, e
 // gpRekey is when to set the tunnel up again: a minute before the
 // gateway's own timeout ends it, as the GlobalProtect app does.
 func gpRekey(timeout string) time.Duration {
-	n, err := strconv.Atoi(strings.TrimSpace(timeout))
-	if err != nil || n <= 120 {
+	d, ok := seconds(timeout, 7*24*3600)
+	if !ok || d <= 120*time.Second {
 		return 0
 	}
-	return time.Duration(n-60) * time.Second
+	return d - time.Minute
 }
 
 func (t *gpTun) getconfig(ctx context.Context) (gpConfig, error) {

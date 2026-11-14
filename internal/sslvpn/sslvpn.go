@@ -22,6 +22,7 @@ import (
 	"net/http/cookiejar"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -177,6 +178,17 @@ type base struct {
 	once sync.Once
 	mu   sync.Mutex
 	err  error
+}
+
+// seconds reads a count of seconds a server sent, kept to 1..most: a
+// huge number must not overflow a Duration and panic a ticker or make it
+// spin.
+func seconds(v string, most int) (time.Duration, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return time.Duration(min(n, most)) * time.Second, true
 }
 
 func newBase() base {

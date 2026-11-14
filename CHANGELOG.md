@@ -44,6 +44,10 @@ its highlights; the sections below them give the details. Versions follow
   with the server's hash. Hash checks are constant-time.
 - An IPsec server given as an IPv6 address now gets a clear error
   (komando's IPsec client speaks IPv4) instead of a crash.
+- Three crashes on what an SSL VPN server sends: Pulse ESP keys cut
+  short, a DPD interval or GlobalProtect timeout too large for a
+  duration, and an IPv6 address for PPP (F5, Fortinet), which carries
+  only IPv4.
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
 - Three places where commands running side by side in one process (the
   apps) could answer for the wrong command. A connection with no command
