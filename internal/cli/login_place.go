@@ -158,3 +158,15 @@ func vpnWayChanged(a, b *store.Vpn) bool {
 	}
 	return vpnChanged(&x, &y)
 }
+
+// importVpnPlaces stops an AI agent's import that replaces a VPN on the
+// way to a login-ask server or conn (loginPlaceStop).
+func importVpnPlaces(cl *call, st *store.State, vpns []*store.Vpn) error {
+	var replacing []string
+	for _, v := range vpns {
+		if o, ok := st.Vpns[v.Name]; ok {
+			replacing = append(replacing, vpnPlaceChanges(st, v.Name, vpnWayChanged(o, v))...)
+		}
+	}
+	return loginPlaceStop(cl, replacing)
+}

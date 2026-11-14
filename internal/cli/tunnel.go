@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -189,9 +188,7 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				ln.Close()
 			}
-			// the background process asks nobody: the passwords of the
-			// login-ask servers on the way are typed now (login_ask.go)
-			logins, err := pathLogins(cl, st, h)
+			logins, err := pathLogins(cl, st, h) // tunnel serve asks nobody: typed now
 			if err != nil {
 				return err
 			}
@@ -212,21 +209,8 @@ point your database app or psql at the local address it prints. With a server, g
 			if err != nil {
 				return err
 			}
-			pargs := []string{"tunnel", "serve", id}
-			if cl.flags.hostKeyPolicy != "" {
-				pargs = append(pargs, "--host-key-policy", cl.flags.hostKeyPolicy)
-				if cl.flags.hostKeyPolicy == "off" {
-					pargs = append(pargs, "--yes") // checked by this command already
-				}
-			}
-			if len(logins) > 0 {
-				pargs = append(pargs, loginsStdinFlag)
-			}
-			p := tunnelServeCommand(self, pargs)
-			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
-			if len(logins) > 0 {
-				p.Stdin = loginsInput(logins)
-			}
+			p := tunnelServeProcess(cl, self, id, logins)
+			p.Stdout, p.Stderr = lf, lf
 			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long
 			if err := p.Start(); err != nil {
@@ -473,19 +457,9 @@ func tunnelServeCmd() *cobra.Command {
 		Args:   cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			logger := log.New(cl.out.W, "", log.LstdFlags)
-			fail := func(err error) error {
-				e := toErr(err)
-				b, _ := json.Marshal(serveErr{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit})
-				fmt.Fprintf(cl.out.W, "ERROR %s\n", b)
-				return exitCode(1)
-			}
-			cl.logins.background = true // nobody to ask: only what tunnel start typed
-			if loginsStdin {
-				in := bufio.NewReader(cl.stdin)
-				if err := readLogins(cl, in); err != nil {
-					return fail(err)
-				}
-				cl.stdin = in
+			fail := func(err error) error { return serveFail(cl, err) }
+			if err := serveLogins(cl, loginsStdin); err != nil {
+				return fail(err)
 			}
 			st, err := serveState(cl, passStdin)
 			if err != nil {

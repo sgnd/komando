@@ -143,30 +143,7 @@ func init() {
 		}
 		return func(host, text string, hidden bool) (string, error) { return askSSH(cl, host, text, hidden) }
 	}
-	// a server whose login is "ask": a person types its password for the
-	// command that connects (login_ask.go)
-	sshx.LoginPassword = func(ctx context.Context, q sshx.LoginAsk) (string, func(), error) {
-		cl := callFrom(ctx)
-		if cl == nil {
-			cl = soleCall()
-		}
-		if cl == nil {
-			return "", nil, sshx.AskLoginNeedsPerson(q.Host, agentCallRunning())
-		}
-		return cl.loginPassword(q)
-	}
-	// the first connection to a login-ask server goes on only when a
-	// person sees the new host key (login_ask.go)
-	sshx.AskLoginNewKey = func(ctx context.Context, h *store.Host, k sshx.NewHostKey) error {
-		cl := callFrom(ctx)
-		if cl == nil {
-			cl = soleCall()
-		}
-		if cl == nil {
-			return sshx.AskLoginNewKeyNeedsPerson(h, k, agentCallRunning())
-		}
-		return cl.loginNewKey(h, k)
-	}
+	loginAskHooks()
 	// a note of the store (a new store beside a keychain that could not be
 	// read) goes to the stderr of every running call
 	store.Notice = storeNotice
@@ -255,4 +232,28 @@ func oldCopyAllowed() bool {
 		}
 	}
 	return len(calls) > 0
+}
+
+// loginAskHooks lets sshx ask for the password of a server whose login is
+// "ask", and decide on its first connection (login_ask.go), always for the
+// call whose context the connection carries: none gives NEEDS_PERSON.
+func loginAskHooks() {
+	// a server whose login is "ask": a person types its password for the
+	// command that connects (login_ask.go)
+	sshx.LoginPassword = func(ctx context.Context, q sshx.LoginAsk) (string, func(), error) {
+		cl := callFrom(ctx)
+		if cl == nil {
+			return "", nil, sshx.AskLoginNeedsPerson(q.Host, agentCallRunning())
+		}
+		return cl.loginPassword(q)
+	}
+	// the first connection to a login-ask server goes on only when a
+	// person sees the new host key (login_ask.go)
+	sshx.AskLoginNewKey = func(ctx context.Context, h *store.Host, k sshx.NewHostKey) error {
+		cl := callFrom(ctx)
+		if cl == nil {
+			return sshx.AskLoginNewKeyNeedsPerson(h, k, agentCallRunning())
+		}
+		return cl.loginNewKey(h, k)
+	}
 }

@@ -116,8 +116,8 @@ not know? Set `KOMANDO_AGENT=1`.
    (`AUTH_FAILED`, two-factor): ask them to run `komando login SERVER` once;
    your commands then use that login. A server or conn added with
    `--login ask` (`host show` or `conn show` says `login: ask`) has no
-   stored password: komando asks the human to type it in its own window,
-   and you never see it. Every command that connects asks, even
+   stored password, so komando asks the human to type it in its own
+   window, and you never see it. Every command that connects asks, even
    `komando test`. If that gives `NEEDS_PERSON` (no screen, or a first
    connection) or `DECLINED` (they cancelled), do not retry: ask them to
    run `komando login SERVER` (for a conn: the command itself) in their
