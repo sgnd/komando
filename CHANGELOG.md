@@ -41,7 +41,10 @@ its highlights; the sections below them give the details. Versions follow
 - IKEv1 (L2TP/IPsec, Cisco IPsec) moves an exchange on only after the
   server's hash checks out, so a forged message no longer breaks the
   real one after it, and an error in a quick mode answer counts only
-  with the server's hash. Hash checks are constant-time.
+  with the server's hash. Hash checks are constant-time. Cisco IPsec's
+  mode config fails on an answer without the server's hash, or one that
+  is not a REPLY or SET, instead of going on with no address and
+  crashing in quick mode.
 - An IPsec server given as an IPv6 address now gets a clear error
   (komando's IPsec client speaks IPv4) instead of a crash.
 - Three crashes on what an SSL VPN server sends: Pulse ESP keys cut

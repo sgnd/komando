@@ -770,6 +770,9 @@ func (k *ikeV1) quickMode(ctx context.Context) error {
 }
 
 func (k *ikeV1) quickOnce(ctx context.Context, pfs bool) error {
+	if k.tun && !k.s.Address.Is4() {
+		return errors.New("quick mode: mode config gave no IPv4 address")
+	}
 	mid := newMID()
 	spi := random(4)
 	encap := k.encapT

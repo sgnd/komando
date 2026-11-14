@@ -163,7 +163,11 @@ func (k *ikeV1) modeConfig(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("mode config: %v", err)
 	}
-	_, err = k.takeConfig(m)
+	ok, err := k.takeConfig(m)
+	if err == nil && !ok {
+		// an answer without the server's hash, or not a REPLY or SET
+		err = errors.New("mode config: the server's answer is not a valid reply")
+	}
 	return err
 }
 

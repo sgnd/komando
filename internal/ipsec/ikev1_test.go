@@ -232,3 +232,59 @@ func TestIPsecNoIPv6Panic(t *testing.T) {
 	k.s.Address = netip.MustParseAddr("2001:db8::2")
 	k.quickIDs()
 }
+
+// Mode config that gets an answer without the server's hash, or one that
+// is not a REPLY or SET, fails: it used to succeed with no address, and
+// quick mode then panicked on the zero address.
+func TestIKEv1ModeConfigNeedsAVerifiedReply(t *testing.T) {
+	a, b := v1Pair(t)
+	srv, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	tr, err := newTransport(context.Background(), srv.LocalAddr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tr.end(errors.New("test over"))
+	a.t, a.tun, a.s = tr, true, &Session{}
+	answer := func(ps []v1Payload, signed bool) error {
+		done := make(chan error, 1)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		go func() { done <- a.modeConfig(ctx) }()
+		for {
+			a.mu.Lock()
+			var mid uint32
+			var ch chan v1msg
+			for mid, ch = range a.pending {
+			}
+			a.mu.Unlock()
+			if ch != nil {
+				if signed {
+					_, rest := encodeChain(ps)
+					ps = append([]v1Payload{{typ: plHash, body: b.hash1(mid, rest)}}, ps...)
+				}
+				first, body := encodeChain(ps)
+				parsed, _ := parseChain(first, body)
+				ch <- v1msg{exch: exTxn, mid: mid, ps: parsed, enc: true}
+				return <-done
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	reply := []v1Payload{attrPayload(cfgRep, 1, attrTLV(cfgIP4Addr, []byte{10, 9, 8, 7}))}
+	if err := answer(reply, false); err == nil {
+		t.Fatal("an unsigned reply was taken")
+	}
+	if err := answer([]v1Payload{attrPayload(cfgAck, 1, nil)}, true); err == nil {
+		t.Fatal("a signed ACK was taken as the configuration")
+	}
+	if err := a.quickOnce(context.Background(), false); err == nil || !strings.Contains(err.Error(), "no IPv4 address") {
+		t.Fatalf("quick mode without an address: %v", err)
+	}
+	if err := answer(reply, true); err != nil || a.s.Address.String() != "10.9.8.7" {
+		t.Fatalf("the signed reply: %v %v", err, a.s.Address)
+	}
+}
