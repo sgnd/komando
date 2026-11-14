@@ -432,14 +432,28 @@ func funcRule(name string) (string, bool) {
 		return id, true
 	}
 	switch {
-	case strings.HasPrefix(name, "DBLINK"):
-		return "sql-remote", true
+	case strings.HasPrefix(name, "DBLINK"), name == "HTTP", strings.HasPrefix(name, "HTTP_"):
+		return "sql-remote", true // dblink; pgsql-http fetches a URL
+	case strings.HasPrefix(name, "PG_BACKGROUND_"):
+		return "sql-opaque", true // runs SQL in a worker, outside komando's read-only transaction
 	case strings.HasPrefix(name, "PG_STAT_RESET"), strings.HasPrefix(name, "PG_REPLICATION_ORIGIN_"):
 		return "sql-server-config", true
 	case strings.HasPrefix(name, "PG_LS_"): // pg_ls_dir, pg_ls_waldir, pg_ls_tmpdir, ...: list server directories
 		return "sql-server-file", true
 	}
 	return "", false
+}
+
+// remoteSchemas hold functions that reach another service: aws_s3 and
+// aws_lambda (RDS, Aurora), aws_commons, net (pg_net: HTTP requests).
+var remoteSchemas = map[string]bool{"AWS_S3": true, "AWS_LAMBDA": true, "AWS_COMMONS": true, "NET": true}
+
+// nameOf is a token's name, bare or "quoted".
+func nameOf(t token) string {
+	if t.ident != "" {
+		return t.ident
+	}
+	return t.word
 }
 
 // writeFuncs change data. The read-only transaction refuses them, but
@@ -731,6 +745,8 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 			}
 			if id, ok := funcRule(name); ok {
 				flag(id)
+			} else if i >= 2 && ts[i-1].punct == '.' && remoteSchemas[nameOf(ts[i-2])] {
+				flag("sql-remote")
 			}
 			if writeFuncs[name] {
 				risk = max(risk, RiskWrite)
