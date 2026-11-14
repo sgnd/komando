@@ -177,8 +177,16 @@ func hostPlace(h *store.Host) secretPlace {
 	}
 	if h.WinRM() {
 		dest = "WinRM " + dest
-		if o := h.WinRMOpts; o != nil && o.TLS != "" {
-			dest += " (tls=" + o.TLS + ")"
+		if o := h.WinRMOpts; o != nil {
+			var set []string
+			for _, kv := range [][2]string{{"tls", o.TLS}, {"ca", o.CA}, {"auth", o.Auth}} {
+				if kv[1] != "" {
+					set = append(set, kv[0]+"="+kv[1])
+				}
+			}
+			if len(set) > 0 {
+				dest += " (" + strings.Join(set, ", ") + ")"
+			}
 		}
 	}
 	if h.Via != "" {

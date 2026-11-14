@@ -267,19 +267,8 @@ are not changed.`
 				return err
 			}
 			replaced := slices.Contains(have, to)
-			if replaced && !overwrite {
-				return secretExists(from, to)
-			}
-			if err := loginPlaceStop(cl, secretPlaceChanges(st, to)); err != nil {
+			if err := secretCopyStops(cl, st, from, to, replaced, overwrite); err != nil {
 				return err
-			}
-			if replaced {
-				if prot := protectedUsers(st, secretUsers(st, to)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
-					if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
-						"secret "+to+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
-						return err
-					}
-				}
 			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
 			if cl.flags.dryRun {
@@ -620,4 +609,24 @@ func secretCopyText(cl *call, move bool, res map[string]any) out.Texter {
 		}
 		return s + "\n"
 	})
+}
+
+// secretCopyStops are the stops before secret cp/mv writes to: a name
+// taken without --overwrite, a secret on the way to a login-ask server or
+// conn (loginPlaceStop), and one a protected entry uses.
+func secretCopyStops(cl *call, st *store.State, from, to string, replaced, overwrite bool) error {
+	if replaced && !overwrite {
+		return secretExists(from, to)
+	}
+	if err := loginPlaceStop(cl, secretPlaceChanges(st, to)); err != nil {
+		return err
+	}
+	if !replaced {
+		return nil
+	}
+	if prot := protectedUsers(st, secretUsers(st, to)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+		return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
+			"secret "+to+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there"))
+	}
+	return nil
 }

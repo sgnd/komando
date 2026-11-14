@@ -23,8 +23,8 @@ import (
 // driver reads the URL (connPlaces), plus every setting of the URL except
 // the few that move nothing (connURLSettings). Any other change of the URL
 // is a new place: an AI agent's gets SECRET_DESTINATION for a conn with a
-// stored password, and it fails closed for a setting komando does not
-// know.
+// stored password and NEEDS_PERSON for a login-ask conn, and it fails
+// closed for a setting komando does not know.
 
 // connSafeSettings are URL settings that change neither where a login goes
 // nor how the server is checked.

@@ -492,7 +492,8 @@ So komando keeps the way in your hands:
 
 - **Only you set where it goes.** An AI agent that adds a `--login ask`
   server, turns one to `--login ask`, changes its address, port, user,
-  `--via` path, proxy command or WinRM transport, or changes a server or
+  `--via` path, proxy command, WinRM transport or its `tls=`, `ca=` or
+  `auth=`, changes `default_user` while the server has no user, or changes a server or
   VPN on its way (a jump host's address, a VPN's server; also through
   `vpn add --overwrite`, an import, or replacing the secret that holds an
   OpenVPN profile) stops with `NEEDS_PERSON`. No flag
@@ -783,7 +784,15 @@ told to use `komando exec` or `komando shell`.
   or CI job reaches it only through a `komando login` a person started,
   and its first connection needs a person at a terminal. A WinRM server
   has no `komando login`. Only a person changes where it goes, or a
-  server or VPN on its way.
+  server or VPN on its way, or `default_user` while a login-ask server
+  has no user of its own.
+- What `--login ask` cannot stop. komando knows an AI agent only by its
+  environment (`CLAUDECODE`, `KOMANDO_AGENT` and the like); a program that
+  hides them is treated as a person. Any program of your user can draw a
+  window that looks like komando's, replace the komando binary, or read
+  the memory of a running komando. Type the password only into a window
+  that a command you expected opened, and keep agents away from your
+  account's files if that matters.
   On Windows, komando's password window is its approval window, so its
   buttons read Deny and "Allow once", and spaces around the password are
   dropped.

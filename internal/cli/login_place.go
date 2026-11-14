@@ -171,16 +171,34 @@ func importVpnPlaces(cl *call, st *store.State, vpns []*store.Vpn) error {
 	return loginPlaceStop(cl, replacing)
 }
 
-// secretPlaceChanges: secret name holds the whole profile of a VPN
-// (OpenVPN's .ovpn, ConfigRef), so setting it changes where that VPN
-// connects, as a vpn edit would, for the login-ask servers and conns on
-// its way.
+// secretPlaceChanges: secret name is part of the way to a login-ask
+// server or conn, so setting it moves that way as an edit would: the
+// profile or key of a VPN on its way (OpenVPN's .ovpn, a Tailscale auth
+// key, a WireGuard or IPsec key), the CA of a WinRM server, or a secret
+// the conn's URL names (its CA, a NATS creds file).
 func secretPlaceChanges(s *store.State, name string) []string {
+	ref := "secret:" + name
 	var what []string
 	for _, n := range sortedVpnNames(s) {
-		if s.Vpns[n].ConfigRef == "secret:"+name {
+		v := s.Vpns[n]
+		if v.ConfigRef == ref || v.KeyRef == ref || v.PSKRef == ref {
 			for _, w := range vpnPlaceChanges(s, n, true) {
-				what = append(what, "secret "+name+" is the profile of VPN "+n+": "+w)
+				what = append(what, "secret "+name+" is a key or profile of VPN "+n+": "+w)
+			}
+		}
+	}
+	for _, h := range s.SortedHosts() {
+		if h.AskLogin() && h.WinRMOpts != nil && h.WinRMOpts.CA == ref {
+			what = append(what, "secret "+name+" is the CA that tells login-ask server "+h.Name+" from an impostor")
+		}
+	}
+	for _, c := range sortedConns(s) {
+		if !c.AskLogin() {
+			continue
+		}
+		for _, r := range urlSecretRefs(c.URL) {
+			if r.Name == name {
+				what = append(what, "secret "+name+" is the "+r.Option+" of login-ask conn "+c.Name)
 			}
 		}
 	}
@@ -194,4 +212,23 @@ func sortedVpnNames(s *store.State) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// defaultUserChanges: default_user is the account a login-ask server with
+// no user of its own logs in as, so changing it changes where its typed
+// password goes.
+func defaultUserChanges(s *store.State, v string) []string {
+	if v == s.Settings.DefaultUser {
+		return nil
+	}
+	var names []string
+	for _, h := range s.SortedHosts() {
+		if h.AskLogin() && h.User == "" {
+			names = append(names, h.Name)
+		}
+	}
+	if len(names) == 0 {
+		return nil
+	}
+	return []string{"default_user is the account login-ask " + nouns(len(names), "server") + " " + strings.Join(names, ", ") + " log in as"}
 }

@@ -54,6 +54,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Where a conn's password goes now counts every setting of its URL, read as its driver reads it: Postgres `host=`, `port=`, `hostaddr=`, `service=`, `sslrootcert=` and fallback hosts, Redis `sentinels=`, MongoDB seed hosts, RabbitMQ `management=`, CA and TLS settings. Only settings that move nothing (`connect_timeout`, `application_name`, timeouts) are left out. An AI agent's other change of a conn URL gets `SECRET_DESTINATION` for a stored password (it could move the login before) and `NEEDS_PERSON` for a `--login ask` conn; the approval window shows the settings. komando no longer reads `PG*` environment variables for a Postgres conn, and `db dump`/`db restore` run their tools without `PG*` and `MYSQL*` variables. A WinRM server's `ca=` and `auth=` count as where its password goes too.
+- An AI agent's `config set default_user` gets `NEEDS_PERSON` while a `--login ask` server has no user of its own; replacing a secret on the way to a login-ask server or conn (a VPN's key or profile, a WinRM or conn CA) does too.
+
 - An AI agent that changes the user or the transport (WinRM, its `tls=`) of a server with a stored password now needs a person's yes (`SECRET_DESTINATION`), as it did for the address, port and `--via`: the password goes there.
 
 ### Fixed
