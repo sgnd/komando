@@ -49,6 +49,9 @@ type resumeDst interface {
 	resumeEnd
 	// canAppend says whether more can be added to the end of a file there
 	canAppend() bool
+	// notLink refuses a symbolic link: --continue writes in place, and
+	// never through a link to another file
+	notLink() error
 	// appendAt writes r, n bytes, at off, the file's length now (0: a
 	// new file)
 	appendAt(ctx context.Context, off, n int64, r io.Reader) error
@@ -70,6 +73,9 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 	}
 	if !ok {
 		return resumed{}, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path", "%s does not exist; nothing was changed", src.where())
+	}
+	if err := dst.notLink(); err != nil {
+		return resumed{}, err
 	}
 	ds, _, err := dst.size(ctx)
 	if err != nil {
@@ -225,6 +231,17 @@ func (l localEnd) openAt(_ context.Context, off int64) (io.ReadCloser, error) {
 
 func (localEnd) canAppend() bool { return true }
 
+func (l localEnd) notLink() error {
+	if fi, err := os.Lstat(l.path); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		return linkRefused(l.path)
+	}
+	return nil
+}
+
+func linkRefused(where string) error {
+	return out.Usage("%s is a symbolic link; --continue writes only to a plain file (copy it without --continue, or name the file the link points to)", where)
+}
+
 func (l localEnd) appendAt(_ context.Context, off, _ int64, r io.Reader) error {
 	f, err := os.OpenFile(l.path, os.O_WRONLY|os.O_CREATE, l.perm)
 	if err != nil {
@@ -332,6 +349,13 @@ func (s serverEnd) openAt(_ context.Context, off int64) (io.ReadCloser, error) {
 
 func (serverEnd) canAppend() bool { return true }
 
+func (s serverEnd) notLink() error {
+	if fi, err := s.sc.Lstat(s.path); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		return linkRefused(s.where())
+	}
+	return nil
+}
+
 func (s serverEnd) appendAt(_ context.Context, off, _ int64, r io.Reader) error {
 	if off == 0 {
 		dir := path.Dir(s.path)
@@ -412,6 +436,10 @@ func (c cancelReader) Close() error {
 }
 
 func (e bucketEnd) canAppend() bool { return storex.CanAppend(e.b) }
+
+// notLink: a storage conn shows no links (an SFTP conn's Append writes
+// the path it names, as its uploads do).
+func (bucketEnd) notLink() error { return nil }
 
 func (e bucketEnd) appendAt(ctx context.Context, off, n int64, r io.Reader) error {
 	if off == 0 && !e.canAppend() {

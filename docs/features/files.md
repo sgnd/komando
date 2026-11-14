@@ -281,7 +281,8 @@ komando cp web1:/var/backups/db.sql.gz web2:/var/backups/ --continue
   then checks the whole file against the source. The result says how much
   was there already (`continued_from_bytes`) and the file's `sha256`.
 - With `--continue` the file is written in place, not under a temporary
-  name, so a copy that stops again can be continued again.
+  name, so a copy that stops again can be continued again. It never
+  writes through a symbolic link (`USAGE`): name the file itself.
 - A destination that is longer than the source, or differs from it,
   stops with `RESUME_CONFLICT` (exit 8) and is not touched. Copy it again
   without `--continue` (a download needs `--overwrite` to replace it).

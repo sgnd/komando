@@ -218,6 +218,7 @@ func (m *memEnd) openAt(_ context.Context, off int64) (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(m.b[off:])), nil
 }
 func (*memEnd) canAppend() bool { return true }
+func (*memEnd) notLink() error  { return nil }
 func (m *memEnd) appendAt(_ context.Context, _, _ int64, r io.Reader) error {
 	b, err := io.ReadAll(r)
 	if m.corrupt && len(b) > 0 {
@@ -350,5 +351,31 @@ func TestContinueForAgents(t *testing.T) {
 	clean := make([]byte, hiddenScanMax+10)
 	if _, err := continueDownload(tcl, ctx, &memEnd{name: "web1:/clean.bin", b: clean}, dst, 0o644, "dump.bin"); err != nil {
 		t.Fatalf("large clean file: %v", err)
+	}
+}
+
+// --continue writes in place, so it never writes through a symbolic link
+// (here or on the server): the file the link points to stays as it is.
+func TestContinueRefusesASymlink(t *testing.T) {
+	sc := localSFTP(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	data := payload(1000)
+	src := filepath.Join(dir, "src.bin")
+	writeFile(t, src, data)
+	target := filepath.Join(dir, "precious")
+	writeFile(t, target, data[:10])
+	link := filepath.Join(dir, "link.bin")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := download(tcl, ctx, nil, sc, src, link, cpOpts{resume: true}); toErr(err).Code != "USAGE" {
+		t.Errorf("download to a link: %v", err)
+	}
+	if _, err := upload(tcl, ctx, nil, sc, src, link, cpOpts{resume: true}); toErr(err).Code != "USAGE" {
+		t.Errorf("upload to a link: %v", err)
+	}
+	if got := readBytes(t, target); !bytes.Equal(got, data[:10]) {
+		t.Errorf("the linked file changed: %d bytes", len(got))
 	}
 }
