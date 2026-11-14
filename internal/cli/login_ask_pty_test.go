@@ -59,7 +59,7 @@ func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 		t.Fatalf("unknown key: %d windows, %+v", len(*texts), e)
 	}
 	_, _, key := passwordSSHD(t, "x")
-	trustSSHD(t, "2", key)
+	trustSSHD(t, "web1", "2", key)
 	got := filepath.Join(t.TempDir(), "stdin")
 	var args []string
 	var env []string

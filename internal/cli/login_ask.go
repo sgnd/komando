@@ -265,7 +265,10 @@ func loginWindowText(cl *call, q sshx.LoginAsk) string {
 		text += ". The command is hidden here: it has text this window cannot show.\n\n"
 	}
 	if k := q.NewKey; k != nil {
-		if k.Unchecked {
+		if k.NotMet {
+			text += "WARNING: first login to " + name + " at " + cleanText(q.Addr) + " with a typed password. Its host key " + cleanText(k.Fingerprint) +
+				" was pinned before, but nobody has logged in to " + name + " with it. Type the password only if you expected " + name + " there.\n\n"
+		} else if k.Unchecked {
 			text += "WARNING: komando does not check who answers at " + cleanText(q.Addr) + " (" + cleanText(k.Type) + "): an impostor there would get your password.\n\n"
 		} else {
 			text += "WARNING: first connection to " + cleanText(q.Addr) + ". komando trusted its host key " + cleanText(k.Fingerprint) +
@@ -344,12 +347,12 @@ func pathLogins(cl *call, st *store.State, h *store.Host) (map[string]string, er
 	policy := sshOpts(cl, st).HostKeyPolicy
 	for _, hop := range sshx.AskHops(st, h) {
 		q := sshx.LoginAskFor(st, hop)
-		pins, err := sshx.PinnedKeys(q.Addr)
+		met, err := sshx.LoginMet(hop, q.Addr)
 		if err != nil {
 			return nil, err
 		}
-		if len(pins) == 0 || policy == "off" {
-			k := sshx.NewHostKey{Host: hop.Name, Address: q.Addr, Unchecked: policy == "off"}
+		if !met || policy == "off" {
+			k := sshx.NewHostKey{Host: hop.Name, Address: q.Addr, Unchecked: policy == "off", NotMet: policy != "off"}
 			return nil, sshx.AskLoginNewKeyNeedsPerson(hop, k, cl.isAgent())
 		}
 		pw, _, err := cl.loginPassword(q)

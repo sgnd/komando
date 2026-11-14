@@ -118,11 +118,16 @@ func forwardTCPIP(nch ssh.NewChannel) {
 	ch.Close()
 }
 
-// trustSSHD pins a test server's host key, as a person's first connection
-// would: an AI agent's command never trusts a login-ask server's new key.
-func trustSSHD(t *testing.T, port string, key ssh.PublicKey) {
+// trustSSHD pins a test server's host key and notes that a person logged
+// in to login-ask server name with it, as a person's first connection
+// does: an AI agent's command never trusts a login-ask server's new key.
+func trustSSHD(t *testing.T, name, port string, key ssh.PublicKey) {
 	t.Helper()
-	if _, err := sshx.PinHostKey(net.JoinHostPort("127.0.0.1", port), key, false); err != nil {
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sshx.MarkLoginMet(st.Hosts[name], net.JoinHostPort("127.0.0.1", port), key); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -434,8 +439,8 @@ func TestLoginAskScriptNeedsPerson(t *testing.T) {
 	invHome(t)
 	noAgent(t)
 	port, tries, key := passwordSSHD(t, "pw-123456")
-	trustSSHD(t, port, key)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
+	trustSSHD(t, "web1", port, key)
 	e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
 	if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "`komando login web1`") {
 		t.Errorf("%+v", e)
@@ -468,9 +473,53 @@ func TestLoginAskFirstConnectionNeedsPerson(t *testing.T) {
 		t.Errorf("the new key was pinned: %v", pins)
 	}
 	// once a person has met it, the agent's command asks in the window
-	trustSSHD(t, port, key)
+	trustSSHD(t, "web1", port, key)
 	if _, err := runCache(t, "-o", "json", "exec", "web1", "--read-only", "--", "uptime"); err != nil || len(*texts) != 1 {
 		t.Errorf("after the pin: %v, %d windows", err, len(*texts))
+	}
+}
+
+// A pinned key is not enough: an AI agent can pin whatever answers at an
+// address through any server it adds there (host trust, or a connection),
+// so a typed password goes to a login-ask server's key only after a
+// person logged in to that server with it. The agent gets NEEDS_PERSON;
+// a person's login (here: an app's window, which warns) notes it, and the
+// agent's next command asks in the window.
+func TestLoginAskPinAloneNeedsPerson(t *testing.T) {
+	invHome(t)
+	const pw = "pin-Pa55"
+	port, tries, _ := passwordSSHD(t, pw)
+	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	mustRun(t, "host", "add", "other", "u@127.0.0.1:"+port)
+	mustRun(t, "host", "trust", "other")
+	if pins, _ := sshx.PinnedKeys(net.JoinHostPort("127.0.0.1", port)); len(pins) != 1 {
+		t.Fatalf("pins: %v", pins)
+	}
+	texts := loginWindow(t, pw, true, true)
+	e := wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")
+	if !strings.Contains(e.Message, "nobody has logged in to web1") || len(*texts) != 0 || tries.Load() != 0 {
+		t.Fatalf("%+v; %d windows, %d passwords", e, len(*texts), tries.Load())
+	}
+
+	noAgent(t)
+	var asked []string
+	tcl.io.AskPassword = func(text string) (string, bool, bool) { asked = append(asked, text); return pw, true, true }
+	if _, err := runCache(t, "-o", "json", "exec", "web1", "--read-only", "--", "uptime"); err != nil {
+		t.Fatal(err)
+	}
+	tcl.io.AskPassword = nil
+	if len(asked) != 1 || !strings.Contains(asked[0], "WARNING: first login to web1") {
+		t.Fatalf("app window: %q", asked)
+	}
+	setCallerEnv(t, "CLAUDECODE", "1")
+	if _, err := runCache(t, "-o", "json", "exec", "web1", "--read-only", "--", "uptime"); err != nil || len(*texts) != 1 || strings.Contains((*texts)[0], "WARNING") {
+		t.Errorf("after a person's login: %v, %q", err, *texts)
+	}
+	// a rename keeps it: the login is noted by the server's record
+	mustRun(t, "host", "rename", "web1", "web9")
+	if _, err := runCache(t, "-o", "json", "exec", "web9", "--read-only", "--", "uptime"); err != nil {
+		t.Errorf("after a rename: %v", err)
 	}
 }
 
@@ -482,10 +531,10 @@ func TestLoginAskAgentWindow(t *testing.T) {
 	const pw = "typed-Pa55word"
 	port1, tries1, key1 := passwordSSHD(t, pw)
 	port2, tries2, key2 := passwordSSHD(t, pw)
-	trustSSHD(t, port1, key1)
-	trustSSHD(t, port2, key2)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port1, "--login", "ask", "--group", "web")
 	mustRun(t, "host", "add", "web2", "u@127.0.0.1:"+port2, "--login", "ask", "--group", "web")
+	trustSSHD(t, "web1", port1, key1)
+	trustSSHD(t, "web2", port2, key2)
 	setCallerEnv(t, "CLAUDECODE", "1")
 	texts := loginWindow(t, pw, true, true)
 
@@ -527,17 +576,17 @@ func TestLoginAskFleetAsksOncePerHost(t *testing.T) {
 	invHome(t)
 	const pw = "fleet-Pa55"
 	bport, _, bkey := passwordSSHD(t, pw)
-	trustSSHD(t, bport, bkey)
 	mustRun(t, "host", "add", "bastion", "u@127.0.0.1:"+bport, "--login", "ask")
+	trustSSHD(t, "bastion", bport, bkey)
 	tries := map[string]*atomic.Int32{}
 	for _, n := range []string{"web1", "web2", "web3"} {
 		port, tr, key := passwordSSHD(t, pw)
-		trustSSHD(t, port, key)
 		args := []string{"host", "add", n, "u@127.0.0.1:" + port, "--login", "ask", "--group", "web"}
 		if n != "web3" {
 			args = append(args, "--via", "bastion")
 		}
 		mustRun(t, args...)
+		trustSSHD(t, n, port, key)
 		tries[n] = tr
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
@@ -570,8 +619,8 @@ func TestLoginAskFleetAsksOncePerHost(t *testing.T) {
 func TestLoginAskAgentStops(t *testing.T) {
 	invHome(t)
 	port, tries, key := passwordSSHD(t, "right-password")
-	trustSSHD(t, port, key)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
+	trustSSHD(t, "web1", port, key)
 	setCallerEnv(t, "CLAUDECODE", "1")
 
 	loginWindow(t, "", false, false)
@@ -614,8 +663,8 @@ func TestLoginAskAgentStops(t *testing.T) {
 func TestLoginAskGateNeedsPerson(t *testing.T) {
 	invHome(t)
 	port, _, key := passwordSSHD(t, "pw")
-	trustSSHD(t, port, key)
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
+	trustSSHD(t, "web1", port, key)
 	setCallerEnv(t, engine.GateEnv, "phone")
 	texts := loginWindow(t, "pw", true, true)
 	wantCode(t, "NEEDS_PERSON", "exec", "web1", "--read-only", "--", "uptime")

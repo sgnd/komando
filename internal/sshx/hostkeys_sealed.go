@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"slices"
 	"strings"
 
 	"golang.org/x/crypto/ssh"
@@ -27,6 +28,39 @@ const pinType = "pin"
 type pinRecord struct {
 	Addr string   `json:"addr"`
 	Keys []string `json:"keys"`
+	// Logins are the login-ask servers a person logged in to at Addr
+	// with a password they typed, as "ID SHA256:fingerprint" of the key
+	// that answered (loginEntry): a pin alone, which an AI agent's
+	// connection to any server at this address can make, never lets a
+	// typed password go there without a person.
+	Logins []string `json:"logins,omitempty"`
+}
+
+// loginEntry is a pinRecord.Logins entry.
+func loginEntry(id string, key ssh.PublicKey) string { return id + " " + ssh.FingerprintSHA256(key) }
+
+func (t *sealedTx) LoginMet(addr, id string, key ssh.PublicKey) (bool, error) {
+	idx, err := t.index()
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(idx[knownhosts.Normalize(addr)].rec.Logins, loginEntry(id, key)), nil
+}
+
+func (t *sealedTx) MarkLogin(addr, id string, key ssh.PublicKey) error {
+	idx, err := t.index()
+	if err != nil {
+		return err
+	}
+	p := idx[knownhosts.Normalize(addr)]
+	if !slices.ContainsFunc(p.rec.Keys, func(line string) bool { k, ok := parsePinLine(line); return ok && SameKey(k, key) }) {
+		return errors.New("sshx: a login is noted only for a pinned key")
+	}
+	e := loginEntry(id, key)
+	if slices.Contains(p.rec.Logins, e) {
+		return nil
+	}
+	return t.put(addr, p.rec.Keys, append(slices.Clone(p.rec.Logins), e))
 }
 
 func (sealedHostKeys) view(ctx context.Context, fn func(hostKeyTx) error) error {
@@ -209,7 +243,7 @@ func (t *sealedTx) Pins(addr string) ([]ssh.PublicKey, int, error) {
 	return keys, len(p.rec.Keys), nil
 }
 
-func (t *sealedTx) put(addr string, keys []string) error {
+func (t *sealedTx) put(addr string, keys, logins []string) error {
 	if t.tx == nil {
 		return errors.New("sshx: no store to pin in")
 	}
@@ -218,7 +252,7 @@ func (t *sealedTx) put(addr string, keys []string) error {
 		return err
 	}
 	norm := knownhosts.Normalize(addr)
-	rec := pinRecord{Addr: norm, Keys: keys}
+	rec := pinRecord{Addr: norm, Keys: keys, Logins: logins}
 	b, err := json.Marshal(rec)
 	if err != nil {
 		return err
@@ -246,8 +280,9 @@ func (t *sealedTx) Add(addr string, key ssh.PublicKey) error {
 	if err != nil {
 		return err
 	}
-	keys := append([]string{}, idx[knownhosts.Normalize(addr)].rec.Keys...)
-	return t.put(addr, append(keys, pinLine(key)))
+	p := idx[knownhosts.Normalize(addr)]
+	keys := append([]string{}, p.rec.Keys...)
+	return t.put(addr, append(keys, pinLine(key)), p.rec.Logins)
 }
 
 func (t *sealedTx) Replace(addr string, key ssh.PublicKey) error {
@@ -257,7 +292,7 @@ func (t *sealedTx) Replace(addr string, key ssh.PublicKey) error {
 		}
 		return errRevoked(key)
 	}
-	return t.put(addr, []string{pinLine(key)})
+	return t.put(addr, []string{pinLine(key)}, nil)
 }
 
 // RevokeHostKeys puts keys on the never-trust list: no server is reached

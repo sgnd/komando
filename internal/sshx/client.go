@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -196,7 +197,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	if c := useHeld(ctx, st, hop, o); c != nil {
 		return c, nil // a jump host a person logged in to with `komando login`
 	}
-	cfg, agentConn, err := clientConfig(ctx, st, hop, o)
+	cfg, q, agentConn, err := clientConfig(ctx, st, hop, o)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +255,71 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	if err != nil {
 		return nil, hopErr(st, hop, err)
 	}
+	if err := loginMet(ctx, hop, q); err != nil {
+		c.Close()
+		return nil, err
+	}
 	return c, nil
+}
+
+// LoginID is what login-ask server h is known by in the host keys'
+// logins (and the password window's cool-down): its record ID, which a
+// rename keeps, or its name.
+func LoginID(h *store.Host) string {
+	if h.Rec.ID != "" {
+		return h.Rec.ID
+	}
+	return "name:" + h.Name
+}
+
+// loginMet notes, after a login to login-ask server h, that a person
+// logged in with the key it offered for the first time (q.NewKey): only
+// a person's connection gets that far (askLoginNewKey).
+func loginMet(ctx context.Context, h *store.Host, q *LoginAsk) error {
+	if q == nil || !h.AskLogin() || q.NewKey == nil || q.NewKey.Unchecked || q.NewKey.key == nil {
+		return nil
+	}
+	k := q.NewKey
+	return HostKeys().update(ctx, func(t hostKeyTx) error { return t.MarkLogin(k.Address, LoginID(h), k.key) })
+}
+
+// LoginMet reports that a person logged in to login-ask server h at addr
+// with a key pinned there now: a connection there needs nobody to see a
+// new key first.
+func LoginMet(h *store.Host, addr string) (bool, error) {
+	met := false
+	err := HostKeys().view(context.Background(), func(t hostKeyTx) error {
+		keys, _, err := t.Pins(addr)
+		if err != nil {
+			return err
+		}
+		for _, k := range keys {
+			if ok, err := t.LoginMet(addr, LoginID(h), k); err != nil || ok {
+				met = ok
+				return err
+			}
+		}
+		return nil
+	})
+	return met, err
+}
+
+// MarkLoginMet pins key for addr and notes that a person logged in to
+// login-ask server h there, as their first connection does (for tests,
+// and for nothing an agent reaches).
+func MarkLoginMet(h *store.Host, addr string, key ssh.PublicKey) error {
+	return HostKeys().update(context.Background(), func(t hostKeyTx) error {
+		keys, _, err := t.Pins(addr)
+		if err != nil {
+			return err
+		}
+		if !slices.ContainsFunc(keys, func(k ssh.PublicKey) bool { return SameKey(k, key) }) {
+			if err := t.Add(addr, key); err != nil {
+				return err
+			}
+		}
+		return t.MarkLogin(addr, LoginID(h), key)
+	})
 }
 
 // keepaliveNS is how often an open connection is asked for a sign of life,
@@ -525,7 +590,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 
 // clientConfig is the login for one hop. The ssh-agent connection it opens
 // (or nil) is the caller's to close once the handshake is over.
-func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
+func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, *LoginAsk, io.Closer, error) {
 	if o.scan != nil {
 		// FetchHostKey: no login, so no keys, agent or vault secrets are used
 		scan := o.scan
@@ -537,7 +602,7 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 				return errKeyScanned
 			},
 			Timeout: o.ConnectTimeout,
-		}, nil, nil
+		}, nil, nil, nil
 	}
 	// a login-ask server's password goes to this user at this address; the
 	// host key check notes a key it trusts on first use (q.NewKey)
@@ -545,18 +610,18 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 	user := q.User
 	hkc, err := hostKeyCallback(ctx, h, o.HostKeyPolicy, &q)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	auths, agentConn, err := authMethods(ctx, st, h, o.ConnectTimeout, &q)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	return &ssh.ClientConfig{
 		User:            user,
 		Auth:            auths,
 		HostKeyCallback: hkc,
 		Timeout:         o.ConnectTimeout,
-	}, agentConn, nil
+	}, &q, agentConn, nil
 }
 
 // NewHostKey is a host key komando pinned the first time it reached a
@@ -570,6 +635,11 @@ type NewHostKey struct {
 	// Unchecked: host_key_policy off, so the key was not checked at all
 	// (only a login-ask server's connection is told; nothing is pinned)
 	Unchecked bool `json:"-"`
+	// NotMet: the key is pinned, but no person ever logged in to this
+	// login-ask server with it (a pin alone may come from an AI agent's
+	// connection to another server at the same address)
+	NotMet bool `json:"-"`
+	key    ssh.PublicKey
 }
 
 // HostKeyPinned, when set, is told about every key pinned on first use
@@ -618,7 +688,7 @@ func pinnedOnFirstUse(ctx context.Context, name, hostname string, key ssh.Public
 
 // keyNote is the NewHostKey of key at hostname for server name.
 func keyNote(name, hostname string, key ssh.PublicKey) NewHostKey {
-	return NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key)}
+	return NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key), key: key}
 }
 
 // keyFileType is the name part of the server's key file for a key type:
@@ -664,6 +734,9 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 			return verr
 		}
 		var ke0 *knownhosts.KeyError
+		if known == nil && ask {
+			return loginKnownKey(ctx, h, hostname, key, q)
+		}
 		if !errors.As(known, &ke0) || len(ke0.Want) > 0 {
 			if errors.As(known, &ke0) {
 				return &hostKeyChanged{offered: key, err: ke0}
@@ -714,6 +787,33 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 		}
 		return err
 	}, nil
+}
+
+// loginKnownKey is the check of a pinned key offered by login-ask server
+// h: a pin alone does not let a typed password go there (anyone's
+// connection to that address may have made it); a person must have
+// logged in to h with it, or decide now (askLoginNewKey).
+func loginKnownKey(ctx context.Context, h *store.Host, hostname string, key ssh.PublicKey, q *LoginAsk) error {
+	met := false
+	if err := HostKeys().view(ctx, func(t hostKeyTx) error {
+		var err error
+		met, err = t.LoginMet(hostname, LoginID(h), key)
+		return err
+	}); err != nil {
+		return err
+	}
+	if met {
+		return nil
+	}
+	k := keyNote(h.Name, hostname, key)
+	k.NotMet = true
+	if err := askLoginNewKey(ctx, h, k); err != nil {
+		return &pinRefused{err}
+	}
+	fmt.Fprintf(hostKeyNote, "komando: first login to %s at %s with a typed password: its %s host key %s was pinned before, but nobody has logged in to %s with it\n",
+		h.Name, hostname, k.Type, k.Fingerprint, h.Name)
+	q.NewKey = &k
+	return nil
 }
 
 // SameKey reports whether a and b are the same public key.

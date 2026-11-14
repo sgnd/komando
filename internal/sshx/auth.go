@@ -679,6 +679,8 @@ func AskLoginNewKeyNeedsPerson(h *store.Host, k NewHostKey, agent bool) *out.Err
 	name := h.Name
 	what := fmt.Sprintf("komando has not met %s at %s before (its %s host key %s is not trusted yet)", name, k.Address, k.Type, k.Fingerprint)
 	switch {
+	case k.NotMet:
+		what = fmt.Sprintf("nobody has logged in to %s at %s with a typed password yet (a pinned host key alone may come from any connection to that address)", name, k.Address)
 	case k.Unchecked && k.Fingerprint == "" && k.Type != "":
 		what = fmt.Sprintf("nothing checks who answers for %s at %s (%s)", name, k.Address, k.Type)
 	case k.Fingerprint == "" && !k.Unchecked:
