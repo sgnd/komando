@@ -212,9 +212,9 @@ func shortList(l []string, n int) string {
 type cpOpts struct {
 	recursive, sudo, mkdirs, overwrite bool
 	mode                               string
-	oneHost                            bool // one server: a big file shows progress at a terminal
-	progress                           bool // --progress: JSON lines on stderr with -o json
-	resume                             bool // --continue: go on with a file that was cut off
+	oneHost                            bool  // one server: a big file shows progress at a terminal
+	progress                           bool  // --progress: JSON lines on stderr with -o json
+	resume                             bool  // --continue: go on with a file that was cut off
 	size                               int64 // --size: the bytes an upload from stdin must send
 	sized                              bool  // --size was given
 }

@@ -123,7 +123,7 @@ var gateSavesHere = map[string]func(c *cobra.Command) string{
 		}
 		return "it saves files on this computer (--to - streams one instead)"
 	},
-	"db.dump":  func(*cobra.Command) string { return "it saves a file on this computer" },
+	"db.dump": func(*cobra.Command) string { return "it saves a file on this computer" },
 	"storage.download": func(c *cobra.Command) string {
 		if to, _ := c.Flags().GetString("to"); to == "-" {
 			return "" // to the key's own output
