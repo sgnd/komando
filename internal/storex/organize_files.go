@@ -54,7 +54,7 @@ func (b *sftpBucket) Mkdir(ctx context.Context, rel string) (bool, error) {
 
 // Move renames on the server. A plain SFTP rename never replaces dst; with
 // Overwrite, the posix-rename extension does it in one step, and a server
-// without it gets the old file removed first.
+// without it gets the old file moved aside first (renameOver).
 func (b *sftpBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Moved, error) {
 	m, err := checkMove(ctx, b, src, dst, o, "")
 	if err != nil || o.DryRun {
@@ -72,20 +72,7 @@ func (b *sftpBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Mov
 	if err := b.c.PosixRename(ps, pd); err == nil {
 		return m, nil
 	}
-	if err := b.c.Remove(pd); err != nil {
-		return m, sftpErr(err)
-	}
-	if err := b.c.Rename(ps, pd); err != nil {
-		return m, renameAfterRemove(s, d, err)
-	}
-	return m, nil
-}
-
-// renameAfterRemove: the old dst is gone (as asked) but src did not take
-// its place.
-func renameAfterRemove(s, d string, err error) error {
-	return out.Errf(out.ExitRemote, "MOVE_FAILED", "move it again: `komando storage mv CONN "+arg(s)+" "+arg(d)+"`",
-		"removed the old %q to replace it, then could not rename %q to it (%v); %q is still there", d, s, err, s)
+	return m, renameOver(b.c.Rename, b.c.Remove, sftpErr, ps, pd, s, d)
 }
 
 func (b *sftpBucket) Mode(_ context.Context, rel string) (fs.FileMode, error) {
@@ -183,7 +170,8 @@ func (b *ftpBucket) Mkdir(ctx context.Context, rel string) (bool, error) {
 }
 
 // Move renames on the server (RNFR, RNTO). With Overwrite, a server that
-// does not rename over a file gets the old one removed first.
+// does not rename over a file gets the old one moved aside first
+// (renameOver).
 func (b *ftpBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Moved, error) {
 	m, err := checkMove(ctx, b, src, dst, o, "")
 	if err != nil || o.DryRun {
@@ -199,13 +187,7 @@ func (b *ftpBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Move
 	if err == nil || !m.Replaced {
 		return m, ftpErr(err, driver.Target{})
 	}
-	if derr := b.c.Delete(pd); derr != nil {
-		return m, ftpErr(err, driver.Target{})
-	}
-	if err := b.c.Rename(ps, pd); err != nil {
-		return m, renameAfterRemove(s, d, err)
-	}
-	return m, nil
+	return m, renameOver(b.c.Rename, b.c.Delete, func(err error) error { return ftpErr(err, driver.Target{}) }, ps, pd, s, d)
 }
 
 func (r *ftpReconnect) Lookup(ctx context.Context, rel string) (Object, bool, error) {
@@ -326,7 +308,7 @@ func (b *smbBucket) Mkdir(ctx context.Context, rel string) (bool, error) {
 
 // Move renames on the share. SMB never renames over a file: with
 // Overwrite the old one is moved aside first, and back if the rename
-// fails, so dst is never lost to a failed move.
+// fails, so dst is never lost to a failed move (renameOver).
 func (b *smbBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Moved, error) {
 	m, err := checkMove(ctx, b, src, dst, o, "")
 	if err != nil || o.DryRun {
@@ -348,19 +330,5 @@ func (b *smbBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Move
 		}
 		return m, smbErr(err)
 	}
-	old := path.Join(path.Dir(pd), ".komando-old-"+path.Base(pd))
-	_ = share.Remove(old) // left by a move or upload that was cut off
-	if err := share.Rename(pd, old); err != nil {
-		return m, smbErr(err)
-	}
-	if err := share.Rename(ps, pd); err != nil {
-		if rerr := share.Rename(old, pd); rerr != nil {
-			aside := path.Join(path.Dir(d), path.Base(old))
-			return m, out.Errf(out.ExitRemote, "MOVE_FAILED", "put the old file back: `komando storage mv CONN "+arg(aside)+" "+arg(d)+"`",
-				"could not rename %q to %q (%v), nor put the old %q back from %q (%v)", s, d, err, d, aside, rerr)
-		}
-		return m, smbErr(err)
-	}
-	_ = share.Remove(old)
-	return m, nil
+	return m, renameOver(share.Rename, share.Remove, smbErr, ps, pd, s, d)
 }

@@ -196,7 +196,7 @@ func (b *gcsBucket) copyObject(ctx context.Context, src, dst string, overwrite b
 			return nil
 		}
 		if token = r.RewriteToken; token == "" {
-			return out.Errf(out.ExitRemote, "MOVE_FAILED", "run it again: `komando storage mv CONN SRC DST`", "gcs: the copy did not finish and gave no token to go on; %q was kept", src)
+			return copyFailed("gcs", src, dst, "the copy did not finish and gave no token to go on")
 		}
 	}
 }
@@ -312,7 +312,7 @@ func (b *azBucket) copyObject(ctx context.Context, src, dst string, overwrite bo
 		status = resp.Header.Get("X-Ms-Copy-Status")
 	}
 	if status != "" && status != "success" {
-		return out.Errf(out.ExitRemote, "MOVE_FAILED", "run it again: `komando storage mv CONN SRC DST`", "azure: the copy ended %s; %q was kept", status, src)
+		return copyFailed("azure", src, dst, "the copy ended "+status)
 	}
 	return nil
 }

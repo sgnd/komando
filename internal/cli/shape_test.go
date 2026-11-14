@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -12,6 +13,8 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/storex"
 )
 
 var updateShapes = flag.Bool("update-shapes", false, "rewrite testdata/shapes.json from what the commands print now")
@@ -83,6 +86,16 @@ var clusterShapeCases = [][]string{
 	{"cluster", "logs", "prod", "-l", "app=api"},
 }
 
+// storageShapeCases run last, against an S3 conn "bk" whose bucket is in
+// memory (memBucket).
+var storageShapeCases = [][]string{
+	{"storage", "mkdir", "bk", "reports/2026", "--dry-run"},
+	{"storage", "mkdir", "bk", "reports/2026"},
+	{"storage", "mv", "bk", "a.txt", "archive/", "--dry-run"},
+	{"storage", "mv", "bk", "a.txt", "archive/"},
+	{"storage", "chmod", "bk", "0640", "archive/a.txt"},
+}
+
 // TestOutputShapes: agents parse komando's JSON, so a field may be added
 // but never renamed, removed or given another type within one output
 // contract (out.Contract). This test keeps the shape of the answers above
@@ -108,7 +121,7 @@ func TestOutputShapes(t *testing.T) {
 	// serverShapeCases then clusterShapeCases run last, against a fake
 	// memcached and a loopback Kubernetes API, so the conns they need are
 	// not in the inventory answers above
-	cases := append(append(append([][]string{}, shapeCases...), serverShapeCases...), clusterShapeCases...)
+	cases := append(append(append(append([][]string{}, shapeCases...), serverShapeCases...), clusterShapeCases...), storageShapeCases...)
 	got := map[string]any{}
 	kube := newDetailCluster(t)
 	for i, args := range cases {
@@ -122,6 +135,15 @@ func TestOutputShapes(t *testing.T) {
 			if s, err := runCache(t, "-o", "json", "import", "kubeconfig", kube.kubeconfig(t)); err != nil {
 				t.Fatalf("import kubeconfig: %v\n%s", err, s)
 			}
+		}
+		if i == len(cases)-len(storageShapeCases) {
+			if s, err := runCache(t, "-o", "json", "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1"); err != nil {
+				t.Fatalf("conn add bk: %v\n%s", err, s)
+			}
+			m := &memBucket{objs: map[string]string{"a.txt": "a"}}
+			saved := openBucket
+			openBucket = func(*call, context.Context, *store.State, *store.Conn) (storex.Bucket, error) { return m, nil }
+			t.Cleanup(func() { openBucket = saved })
 		}
 		s := runShape(t, args)
 		tcl.flags.dryRun = false

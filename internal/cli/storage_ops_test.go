@@ -183,3 +183,15 @@ type keepOpen struct{ storex.Bucket }
 
 func (keepOpen) Close() error            { return nil }
 func (k keepOpen) Unwrap() storex.Bucket { return k.Bucket }
+
+// A path with . or // in it stops before the conn is contacted.
+func TestStorageOpsRefuseDotPaths(t *testing.T) {
+	m := &memBucket{objs: map[string]string{"a.txt": "a"}}
+	withMemBucket(t, m)
+	wantCode(t, "USAGE", "storage", "mv", "bk", ".", "x")
+	wantCode(t, "USAGE", "storage", "mv", "bk", "a.txt", "./b.txt")
+	wantCode(t, "USAGE", "storage", "mkdir", "bk", "a//b")
+	if len(m.objs) != 1 {
+		t.Errorf("changed: %v", m.objs)
+	}
+}

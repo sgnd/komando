@@ -1134,6 +1134,86 @@
     },
     "ok": "bool"
   },
+  "storage chmod bk 0640 archive/a.txt": {
+    "command": "string",
+    "error": {
+      "code": "code STORAGE_UNSUPPORTED",
+      "hint": "string",
+      "message": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage mkdir bk reports/2026": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "created": "bool",
+      "path": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage mkdir bk reports/2026 --dry-run": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "created": "bool",
+      "dry_run": "bool",
+      "path": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage mv bk a.txt archive/": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "dst": "string",
+      "method": "string",
+      "replaced": "bool",
+      "size_bytes": "number",
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "storage mv bk a.txt archive/ --dry-run": {
+    "command": "string",
+    "data": {
+      "conn": "string",
+      "dry_run": "bool",
+      "dst": "string",
+      "method": "string",
+      "replaced": "bool",
+      "size_bytes": "number",
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "tunnel list": {
     "command": "string",
     "data": {

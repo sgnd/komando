@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"path"
 	"regexp"
 	"strings"
 
@@ -48,7 +49,39 @@ func cleanRel(rel string) (string, error) {
 	if err := CheckKey(r); err != nil {
 		return "", err
 	}
+	if r == "." || path.Clean(r) != r {
+		return "", out.Usage("write %q without . or // in it", rel)
+	}
 	return r, nil
+}
+
+// renameOver replaces the file at pd with ps by renames only: the old file
+// goes aside first (.komando-old-NAME) and comes back when the rename
+// fails, so a failed --overwrite never loses it. s and d name them in
+// messages; wrap turns the store's own errors into komando's.
+func renameOver(rename func(from, to string) error, remove func(p string) error, wrap func(error) error, ps, pd, s, d string) error {
+	old := path.Join(path.Dir(pd), ".komando-old-"+path.Base(pd))
+	_ = remove(old) // left by a move or upload that was cut off
+	if err := rename(pd, old); err != nil {
+		return wrap(err)
+	}
+	if err := rename(ps, pd); err != nil {
+		if rerr := rename(old, pd); rerr != nil {
+			aside := path.Join(path.Dir(d), path.Base(old))
+			return out.Errf(out.ExitRemote, "MOVE_FAILED", "put the old file back: `komando storage mv CONN "+arg(aside)+" "+arg(d)+"`",
+				"could not rename %q to %q (%v), nor put the old %q back from %q (%v)", s, d, err, d, aside, rerr)
+		}
+		return wrap(err)
+	}
+	_ = remove(old)
+	return nil
+}
+
+// copyFailed is the error for a server-side copy that ended badly; src
+// stays where it was.
+func copyFailed(store, src, dst, why string) error {
+	return out.Errf(out.ExitRemote, "MOVE_FAILED", fmt.Sprintf("run it again: `komando storage mv CONN %s %s`", arg(src), arg(dst)),
+		"%s: %s; %q was kept", store, why, src)
 }
 
 // entry is what a file server says about rel, as a Lookup answer.

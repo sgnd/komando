@@ -425,3 +425,81 @@ func TestArg(t *testing.T) {
 		}
 	}
 }
+
+// renameOver replaces a file by renames only: the old file goes aside
+// first and comes back when the rename fails, so a failed --overwrite
+// never loses it. SFTP (without posix-rename), FTP and SMB use it.
+func TestRenameOverKeepsTheOldFile(t *testing.T) {
+	files := map[string]string{}
+	failFrom := ""
+	rename := func(from, to string) error {
+		if from == failFrom {
+			return errors.New("boom")
+		}
+		if _, ok := files[to]; ok {
+			return os.ErrExist
+		}
+		files[to] = files[from]
+		delete(files, from)
+		return nil
+	}
+	remove := func(p string) error { delete(files, p); return nil }
+	wrap := func(err error) error { return err }
+
+	files["/r/a.txt"], files["/r/b.txt"] = "new", "old"
+	if err := renameOver(rename, remove, wrap, "/r/a.txt", "/r/b.txt", "a.txt", "b.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files["/r/b.txt"] != "new" {
+		t.Errorf("after the rename: %v", files)
+	}
+
+	files = map[string]string{"/r/a.txt": "new", "/r/b.txt": "old"}
+	failFrom = "/r/a.txt"
+	if err := renameOver(rename, remove, wrap, "/r/a.txt", "/r/b.txt", "a.txt", "b.txt"); err == nil {
+		t.Fatal("a failed rename succeeded")
+	}
+	if len(files) != 2 || files["/r/b.txt"] != "old" || files["/r/a.txt"] != "new" {
+		t.Errorf("the old file is back: %v", files)
+	}
+
+	// neither the rename nor the way back works: the error says where it is
+	files = map[string]string{"/r/a.txt": "new", "/r/b.txt": "old"}
+	n := 0
+	rename2 := func(from, to string) error {
+		if n++; n > 1 {
+			return errors.New("boom")
+		}
+		return rename(from, to)
+	}
+	failFrom = ""
+	err := renameOver(rename2, remove, wrap, "/r/a.txt", "/r/b.txt", "a.txt", "b.txt")
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Code != "MOVE_FAILED" || !strings.Contains(oe.Hint, "komando storage mv CONN .komando-old-b.txt b.txt") {
+		t.Errorf("both renames fail: %v", err)
+	}
+	if files["/r/.komando-old-b.txt"] != "old" {
+		t.Errorf("the old file is kept aside: %v", files)
+	}
+}
+
+// A path is written plainly: ".", "a/./b" and "a//b" stop before anything
+// is contacted, so mv never moves the conn's own folder.
+func TestCleanRelRefusesDotPaths(t *testing.T) {
+	for _, bad := range []string{".", "./a", "a/.", "a/./b", "a//b"} {
+		if _, err := cleanRel(bad); code(err) != "USAGE" {
+			t.Errorf("cleanRel(%q): %v", bad, err)
+		}
+	}
+	if r, err := cleanRel("/a/b/"); err != nil || r != "a/b" {
+		t.Errorf("cleanRel: %q %v", r, err)
+	}
+}
+
+// When a copy on the server ends badly, the hint is the command to run
+// again, with the real names.
+func TestCopyFailedHintNamesTheFiles(t *testing.T) {
+	if h := copyFailed("gcs", "db/a b.gz", "x/a.gz", "the copy did not finish").(*out.Error).Hint; h != "run it again: `komando storage mv CONN 'db/a b.gz' x/a.gz`" {
+		t.Errorf("hint: %s", h)
+	}
+}

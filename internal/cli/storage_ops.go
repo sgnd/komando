@@ -53,6 +53,9 @@ func storagePath(p string) (string, error) {
 	if err := storex.CheckKey(r); err != nil {
 		return "", err
 	}
+	if r == "." || path.Clean(r) != r {
+		return "", out.Usage("write %q without . or // in it", p)
+	}
 	return r, nil
 }
 
