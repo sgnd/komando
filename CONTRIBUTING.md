@@ -103,7 +103,13 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
 
 `main` takes changes only through a pull request whose `Lint and unit tests`, `Security` and `End-to-end tests` checks pass (the "Protect main" ruleset), and that includes the release commit. A `git push origin main` is refused.
 
-1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the example output in [`docs/features/output.md`](docs/features/output.md) too.
+Pick the version number from what `## [Unreleased]` holds:
+
+- **Patch** (0.14.0 → 0.14.1): the release only fixes bugs (only `### Fixed` or `### Security` fixes).
+- **Minor** (0.14.x → 0.15.0): it adds a feature or changes behaviour that people, scripts or agents can notice: anything under `### Added`, `### Changed`, `### Changed for scripts and agents` or `### Removed`, a new error code, or a new field in the JSON output.
+- **1.0.0**: when the commands and the JSON output are settled, around the public release of the free Mac and iPhone apps. From then on, a change that breaks scripts needs 2.0.0.
+
+1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the examples in [`docs/features/install.md`](docs/features/install.md) too, but not the lines that name the last unsigned release (0.13.0).
 2. Commit it as `Release X.Y.Z` and open a pull request. When its checks pass, merge it with **Create a merge commit**.
 3. Tag the merged `main`, and only then push the tag:
 
