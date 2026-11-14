@@ -9,7 +9,7 @@ GOVULNCHECK := v1.9.0
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 export PLATFORMS
 
-.PHONY: help build install test cover security fuzz e2e e2e-areas e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses bins dist clean
+.PHONY: help build install test test-sync cover security fuzz e2e e2e-areas e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses bins dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -21,8 +21,12 @@ install: ## Install komando into $GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/komando
 
 # -timeout: internal/cli alone takes minutes, near Go's default 10m limit
-test: ## Fast unit tests
+test: ## Fast unit tests (and the sync library in sync/)
 	go test -timeout 30m ./...
+	$(MAKE) test-sync
+
+test-sync: ## Vet and race-test the sync library in sync/ (its own go.mod, so the root go test skips it)
+	cd sync && go vet ./... && go test -race ./...
 
 cover: ## Unit tests, and each package's coverage against its floor (test/coverage-floor.txt)
 	test/coverage.sh
@@ -71,6 +75,7 @@ lint: ## gofmt + go vet + staticcheck
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
 	go vet ./...
 	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK) ./...
+	cd sync && go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK) ./...
 
 licenses: ## Write dist/THIRD_PARTY_LICENSES (licenses of everything built into komando)
 	scripts/third-party-licenses.sh dist/THIRD_PARTY_LICENSES
