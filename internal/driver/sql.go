@@ -445,8 +445,8 @@ func funcRule(name string) (string, bool) {
 }
 
 // remoteSchemas hold functions that reach another service: aws_s3 and
-// aws_lambda (RDS, Aurora), aws_commons, net (pg_net: HTTP requests).
-var remoteSchemas = map[string]bool{"AWS_S3": true, "AWS_LAMBDA": true, "AWS_COMMONS": true, "NET": true}
+// aws_lambda (RDS, Aurora), aws_commons. (pg_net's net.http_* are HTTP_.)
+var remoteSchemas = map[string]bool{"AWS_S3": true, "AWS_LAMBDA": true, "AWS_COMMONS": true}
 
 // nameOf is a token's name, bare or "quoted".
 func nameOf(t token) string {
