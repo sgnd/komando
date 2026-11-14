@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // goldenGateHome is a komando home with the gate rows' inventory, made
@@ -58,8 +59,13 @@ func goldenGateSetup(t *testing.T) {
 		if _, err := sshx.PinHostKey("127.0.0.2:1", pub, false); err != nil {
 			t.Fatal(err)
 		}
-		// ask1 is a login-ask server komando has met; ask2 one it has not
-		if _, err := sshx.PinHostKey("127.0.0.21:1", pub, false); err != nil {
+		// ask1 is a login-ask server a person has logged in to; ask2 one
+		// komando has not met
+		st, err := store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := sshx.MarkLoginMet(st.Hosts["ask1"], "127.0.0.21:1", pub); err != nil {
 			t.Fatal(err)
 		}
 		goldenGateHome = filepath.Join(os.TempDir(), "komando-golden-gates-"+filepath.Base(home))

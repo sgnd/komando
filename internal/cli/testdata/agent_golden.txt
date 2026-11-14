@@ -9270,6 +9270,7 @@ komando conn add kind=change confirm=[{"tier":"change"}]
   --ask-password type=bool default=false
   --group shorthand=g type=stringSlice default=[]
   --label type=stringArray default=[]
+  --login type=string
   --notes type=string
   --option type=stringArray default=[]
   --overwrite type=bool default=false

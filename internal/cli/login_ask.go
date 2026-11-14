@@ -394,7 +394,8 @@ func pathLogins(cl *call, st *store.State, h *store.Host) (map[string]string, er
 			return nil, err
 		}
 		if !met || policy == "off" {
-			k := sshx.NewHostKey{Host: hop.Name, Address: q.Addr, Unchecked: policy == "off", NotMet: policy != "off"}
+			pins, _ := sshx.PinnedKeys(q.Addr)
+			k := sshx.NewHostKey{Host: hop.Name, Address: q.Addr, Unchecked: policy == "off", NotMet: policy != "off" && len(pins) > 0}
 			return nil, sshx.AskLoginNewKeyNeedsPerson(hop, k, cl.isAgent())
 		}
 		pw, _, err := cl.loginPassword(q)
