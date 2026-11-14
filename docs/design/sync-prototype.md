@@ -331,8 +331,8 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`cd sync && go test -race ./...`: 139 tests and subtests pass, 0
-fail (101 top-level tests); statement coverage 88.7%. The same run passes
+`cd sync && go test -race ./...`: 141 tests and subtests pass, 0
+fail (103 top-level tests); statement coverage 88.7%. The same run passes
 under Go 1.27.3 (the default toolchain here) and under Go 1.26.0
 (`GOTOOLCHAIN=go1.26.0`, finding 56), and earlier runs passed under Go
 1.27.4. All table-driven where there is a table.
