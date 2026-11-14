@@ -392,18 +392,51 @@ func (s *State) init() {
 	}
 }
 
-// DryRun makes Update apply fn to a copy that is never saved. The CLI sets
-// it for --dry-run, so a command shows the result of its change (and its
-// validation errors) without making it.
-var DryRun bool
+// Write says what a change does: Save() makes it; Preview() (a command's
+// --dry-run) applies it to a copy that is never saved, so the command
+// shows the result of its change (and its validation errors) without
+// making it. Each command passes its own, so a dry run never turns
+// another command's change into a preview. A struct, not a bool, so a
+// bare true or false does not compile: every change names Save() or
+// Preview(). Functions, not variables, so no code can set one to the
+// other; the zero Write names neither, and a change with it stops
+// (Check).
+type Write struct{ how writeHow }
 
-// ErrDryRun is returned by writes that cannot be simulated (the vault).
+type writeHow uint8
+
+const (
+	writeUnset writeHow = iota
+	writeSave
+	writePreview
+)
+
+// Save is the Write that makes a change.
+func Save() Write { return Write{writeSave} }
+
+// Preview is the Write that only previews a change (--dry-run).
+func Preview() Write { return Write{writePreview} }
+
+// Check is nil for Save() and Preview(), and an error for the zero Write,
+// which names neither.
+func (w Write) Check() error {
+	if w.how == writeUnset {
+		return errors.New("store: a change that says neither Save nor Preview; nothing was changed")
+	}
+	return nil
+}
+
+// ErrDryRun is returned by writes that cannot be previewed (the vault).
 var ErrDryRun = errors.New("this command cannot preview its change; nothing was changed")
 
 // Update reads the inventory, applies fn and writes what changed, in one
-// write step of the store. Safe for concurrent komando processes (parallel agents).
-func Update(fn func(s *State) error) error {
-	if DryRun {
+// write step of the store; with Preview() it only applies fn to a copy.
+// Safe for concurrent komando processes (parallel agents).
+func Update(w Write, fn func(s *State) error) error {
+	if err := w.Check(); err != nil {
+		return err
+	}
+	if w == Preview() {
 		s, err := Load()
 		if err != nil {
 			return err

@@ -40,7 +40,7 @@ type textRole string
 const (
 	roleMsg    textRole = "message" // error.message, a Go error's text
 	roleHint   textRole = "hint"    // error.hint
-	roleWarn   textRole = "warning" // out.P.Warn
+	roleWarn   textRole = "warning" // cl.out.Warn
 	roleStderr textRole = "stderr"  // a line komando writes on stderr for itself
 	roleAsk    textRole = "ask"     // a question
 	roleHelpQ  textRole = "help"    // the help under a question
@@ -117,7 +117,11 @@ func styleTexts(t *testing.T) []styleText {
 }
 
 // stderrWriters are the writers that reach the person's stderr.
-var stderrWriters = map[string]bool{"os.Stderr": true, "promptW": true, "hintW": true, "cmd.ErrOrStderr()": true, "c.ErrOrStderr()": true}
+var stderrWriters = map[string]bool{"os.Stderr": true, "promptW()": true, "cmd.ErrOrStderr()": true, "c.ErrOrStderr()": true,
+	// a call's stderr (call.go), also through the struct that keeps the call
+	"cl.out.Err": true, "w.cl.out.Err": true, "r.cl.out.Err": true, "p.cl.out.Err": true, "s.cl.out.Err": true, "pr.Stderr()": true,
+	// the printer's stderr (internal/out)
+	"p.Stderr()": true}
 
 var flagFunc = regexp.MustCompile(`^(String|Bool|Int|Int64|Uint|Duration|Float64|StringSlice|StringArray|StringToString|Count|Var)(Var)?P?$`)
 
@@ -166,7 +170,7 @@ func fileTexts(fset *token.FileSet, rel string, f *ast.File) []styleText {
 					add(args[0], roleWarn, nil)
 				}
 			case name == "sayLine":
-				if len(args) == 2 && stderrWriters[exprName(args[0])] {
+				if len(args) == 2 { // sayLine(cl, msg) writes on the call's stderr
 					add(args[1], roleStderr, nil)
 					if len(res) > 0 && res[len(res)-1].line == fset.Position(args[1].Pos()).Line {
 						res[len(res)-1].wrapped = true

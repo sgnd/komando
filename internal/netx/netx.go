@@ -73,6 +73,19 @@ func KindNames() []string {
 // connect without a human (no MFA). Open calls it on demand.
 var StartSession func(ctx context.Context, name string) error
 
+// WriteFor is set by the CLI: how the runtime record (a session's last
+// use, a dead session gone) changes for the command ctx belongs to:
+// store.Preview() under its --dry-run, so a preview writes nothing. Nil:
+// store.Save().
+var WriteFor func(ctx context.Context) store.Write
+
+func writeFor(ctx context.Context) store.Write {
+	if WriteFor == nil {
+		return store.Save()
+	}
+	return WriteFor(ctx)
+}
+
 // LoginRequired is the error for a VPN that needs a human to log in.
 func LoginRequired(v *store.Vpn) error {
 	return out.Errf(out.ExitConnect, "VPN_LOGIN_REQUIRED", "ask a person to run `komando vpn up "+v.Name+"` (it needs their login); then run it again",
@@ -81,7 +94,10 @@ func LoginRequired(v *store.Vpn) error {
 
 // LiveSession returns the VPN's background session if it is running and
 // not idle for longer than the vpn_idle setting. An idle one is stopped.
-func LiveSession(v *store.Vpn) *store.VpnSession {
+// It marks the session used, unless the command of ctx only previews
+// (WriteFor).
+func LiveSession(ctx context.Context, v *store.Vpn) *store.VpnSession {
+	w := writeFor(ctx)
 	st, err := store.Load()
 	if err != nil {
 		return nil
@@ -95,10 +111,10 @@ func LiveSession(v *store.Vpn) *store.VpnSession {
 		return !SessionAlive(x) || (idle > 0 && time.Since(x.LastUsed) > idle)
 	}
 	if stale(s) {
-		stopIfStale(v.Name, s, stale)
+		stopIfStale(w, v.Name, s, stale)
 		return nil
 	}
-	_ = store.UpdateRuntime(func(st *store.State) error {
+	_ = store.UpdateRuntime(w, func(st *store.State) error {
 		if x := st.Sessions[v.Name]; x != nil && sameSession(x, s) {
 			x.LastUsed = time.Now().UTC()
 		}
@@ -150,7 +166,7 @@ func ReapIdle() {
 	stale := func(x *store.VpnSession) bool { return time.Since(x.LastUsed) > idle }
 	for name, s := range st.Sessions {
 		if stale(s) {
-			stopIfStale(name, s, stale)
+			stopIfStale(store.Save(), name, s, stale)
 		}
 	}
 }
@@ -186,8 +202,8 @@ func socksDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dial
 
 // sessionDialer dials through a running session and keeps the session's
 // LastUsed fresh while the caller holds it (a long `logs --follow` must not
-// look idle), until the closer is closed.
-func sessionDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dialer, io.Closer, error) {
+// look idle), until the closer is closed; w: Preview keeps it as it is.
+func sessionDialer(w store.Write, v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Dialer, io.Closer, error) {
 	var d Dialer = (&net.Dialer{Timeout: timeout}).DialContext
 	if s.Socks != "" {
 		var err error
@@ -204,7 +220,7 @@ func sessionDialer(v *store.Vpn, s *store.VpnSession, timeout time.Duration) (Di
 			case <-stop:
 				return
 			case <-t.C:
-				_ = store.UpdateRuntime(func(st *store.State) error {
+				_ = store.UpdateRuntime(w, func(st *store.State) error {
 					if x := st.Sessions[v.Name]; x != nil && sameSession(x, s) {
 						x.LastUsed = time.Now().UTC()
 					}
@@ -253,8 +269,10 @@ func Lock(name string) (unlock func(), err error) {
 var LockBusy func(name string)
 
 // stopIfStale stops and forgets a session under the VPN's lock, only if
-// the stored entry is still the one that was found stale.
-func stopIfStale(name string, s *store.VpnSession, stale func(*store.VpnSession) bool) {
+// the stored entry is still the one that was found stale. With Preview the
+// stopped session stays in the runtime record (the next command finds it
+// dead and forgets it).
+func stopIfStale(w store.Write, name string, s *store.VpnSession, stale func(*store.VpnSession) bool) {
 	unlock, err := Lock(name)
 	if err != nil {
 		return
@@ -269,7 +287,7 @@ func stopIfStale(name string, s *store.VpnSession, stale func(*store.VpnSession)
 		return
 	}
 	if StopSession(cur) == nil {
-		_ = store.UpdateRuntime(func(st *store.State) error {
+		_ = store.UpdateRuntime(w, func(st *store.State) error {
 			if x := st.Sessions[name]; x != nil && sameSession(x, cur) {
 				delete(st.Sessions, name)
 			}
@@ -285,8 +303,8 @@ func (nopCloser) Close() error { return nil }
 // Open starts v (or reuses its background session) and returns a dialer
 // through it. Close the closer when done.
 func Open(ctx context.Context, v *store.Vpn, timeout time.Duration) (Dialer, io.Closer, error) {
-	if s := LiveSession(v); s != nil {
-		return sessionDialer(v, s, timeout)
+	if s := LiveSession(ctx, v); s != nil {
+		return sessionDialer(writeFor(ctx), v, s, timeout)
 	}
 	if Kinds[v.Kind].Session {
 		if v.MFA || StartSession == nil {
@@ -295,11 +313,11 @@ func Open(ctx context.Context, v *store.Vpn, timeout time.Duration) (Dialer, io.
 		if err := StartSession(ctx, v.Name); err != nil {
 			return nil, nil, err
 		}
-		s := LiveSession(v)
+		s := LiveSession(ctx, v)
 		if s == nil {
 			return nil, nil, Down(v, fmt.Errorf("the session did not start"))
 		}
-		return sessionDialer(v, s, timeout)
+		return sessionDialer(writeFor(ctx), v, s, timeout)
 	}
 	return OpenDirect(ctx, v, timeout)
 }

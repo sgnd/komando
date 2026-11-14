@@ -45,18 +45,18 @@ block, run scripts or reconfigure the server also need --allow-dangerous.`,
 type cacheFn func(st *store.State, c *store.Conn, rc cachex.Store) (any, error)
 
 // withCache opens the conn's client, runs fn, and audits the action.
-func withCache(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn cacheFn) error {
-	return withCachePreview(ctx, name, connExpr, v, rec, fn, nil)
+func withCache(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn cacheFn) error {
+	return withCachePreview(cl, ctx, name, connExpr, v, rec, fn, nil)
 }
 
 // withCachePreview is withCache with a dry-run preview: for a change,
 // --dry-run runs preview (which only reads) instead of fn.
-func withCachePreview(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn, preview cacheFn) error {
+func withCachePreview(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn, preview cacheFn) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "cache")
+	c, err := singleConn(cl, st, connExpr, "cache")
 	if err != nil {
 		return err
 	}
@@ -66,28 +66,28 @@ func withCachePreview(ctx context.Context, name, connExpr string, v driver.Verdi
 	rec["conns"], rec["risk"] = []string{c.Name}, v.Risk.String()
 	fail := func(err error) error {
 		rec["error"] = toErr(err).Code
-		audit(st, name, nil, "", false, rec)
+		audit(cl, st, name, nil, "", false, rec)
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if g.dryRun {
+		if cl.flags.dryRun {
 			if preview == nil {
-				audit(st, name, nil, "", true, rec)
-				out.P.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: redis cannot roll back"}, nil)
+				audit(cl, st, name, nil, "", true, rec)
+				cl.out.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: redis cannot roll back"}, nil)
 				return nil
 			}
 			fn = preview
 		}
 	}
-	a, err := openAccess(ctx, st, c)
+	a, err := openAccess(cl, ctx, st, c)
 	if err != nil {
 		return fail(err)
 	}
 	defer a.Close()
-	timeout := dbTimeout()
+	timeout := dbTimeout(cl)
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	rc, err := cachex.OpenStore(cctx, a.Target, a.Password, a.Dial, timeout)
@@ -99,8 +99,8 @@ func withCachePreview(ctx context.Context, name, connExpr string, v driver.Verdi
 	if err != nil {
 		return fail(err)
 	}
-	audit(st, name, nil, "", true, rec)
-	out.P.Print(name, data, nil)
+	audit(cl, st, name, nil, "", true, rec)
+	cl.out.Print(name, data, nil)
 	return nil
 }
 
@@ -115,12 +115,12 @@ func connKind(c *store.Conn) string {
 
 // cacheKind is the kind of the cache conn expr names, before connecting
 // (to check a section or rate a command); "" when it is not known yet.
-func cacheKind(expr string) string {
+func cacheKind(cl *call, expr string) string {
 	st, err := loadState()
 	if err != nil {
 		return ""
 	}
-	c, err := singleConn(st, expr, "cache")
+	c, err := singleConn(cl, st, expr, "cache")
 	if err != nil {
 		return ""
 	}
@@ -128,12 +128,12 @@ func cacheKind(expr string) string {
 }
 
 // cacheIsCluster: the cache conn expr names is a Redis Cluster (?cluster=1).
-func cacheIsCluster(expr string) bool {
+func cacheIsCluster(cl *call, expr string) bool {
 	st, err := loadState()
 	if err != nil {
 		return false
 	}
-	c, err := singleConn(st, expr, "cache")
+	c, err := singleConn(cl, st, expr, "cache")
 	if err != nil {
 		return false
 	}
@@ -149,15 +149,15 @@ func cacheGetCmd() *cobra.Command {
 		Example: `  komando cache get prod-redis session:42
   komando cache get prod-redis leaderboard --limit 10`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if limit < 1 {
 				return out.Usage("--limit is the most items to show: 1 or more")
 			}
-			return withCache(cmd.Context(), "cache.get", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
+			return withCache(cl, cmd.Context(), "cache.get", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
 				func(st *store.State, _ *store.Conn, rc cachex.Store) (any, error) {
-					return rc.Get(cmd.Context(), args[1], int64(limit), maxOutput(st))
+					return rc.Get(cmd.Context(), args[1], int64(limit), maxOutput(cl, st))
 				})
-		},
+		}),
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 100, "the most items to show of a hash, list, set or sorted set")
 	return c
@@ -227,7 +227,7 @@ func cacheKeysCmd() *cobra.Command {
 		Example: `  komando cache keys prod-redis 'session:*'
   komando cache keys prod-redis --limit 1000`,
 		Args: cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if limit < 1 {
 				return out.Usage("--limit is the most keys to return: 1 or more")
 			}
@@ -235,18 +235,18 @@ func cacheKeysCmd() *cobra.Command {
 			if len(args) == 2 {
 				pattern = args[1]
 			}
-			return withCache(cmd.Context(), "cache.keys", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
+			return withCache(cl, cmd.Context(), "cache.keys", args[0], driver.Verdict{}, map[string]any{"pattern": pattern},
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
 					items, more, err := rc.Keys(cmd.Context(), pattern, limit)
 					if err != nil {
 						return nil, err
 					}
 					if more {
-						out.P.CutNoted()
+						cl.out.CutNoted()
 					}
 					return newKeyList(c.Name, pattern, items, more), nil
 				})
-		},
+		}),
 	}
 	c.Flags().IntVarP(&limit, "limit", "n", 100, "the most keys to return")
 	return c
@@ -265,18 +265,18 @@ commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
   komando cache info prod-redis memory
   komando cache info prod-redis --all`,
 		Args: cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			section := ""
 			if len(args) == 2 {
 				section = strings.ToLower(args[1])
-				if secs := cachex.SectionsFor(cacheKind(args[0])); !slices.Contains(secs, section) {
+				if secs := cachex.SectionsFor(cacheKind(cl, args[0])); !slices.Contains(secs, section) {
 					return out.Usage("unknown INFO section %q; pick one of: %s", args[1], strings.Join(secs, ", "))
 				}
 				if all {
 					return out.Usage("give a SECTION or --all, not both")
 				}
 			}
-			return withCache(cmd.Context(), "cache.info", args[0], driver.Verdict{}, nil,
+			return withCache(cl, cmd.Context(), "cache.info", args[0], driver.Verdict{}, nil,
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
 					info, err := rc.Info(cmd.Context(), section)
 					if err != nil {
@@ -290,7 +290,7 @@ commandstats, keyspace, ...) or --all shows the raw INFO fields.`,
 					}
 					return cacheInfo{Conn: c.Name, Info: info}, nil
 				})
-		},
+		}),
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "every field of the default INFO sections")
 	return c
@@ -365,7 +365,7 @@ func cacheSetCmd() *cobra.Command {
   komando cache set prod-redis maintenance true --ttl 30m
   komando cache set prod-redis report:weekly done --ttl 7d`,
 		Args: cobra.ExactArgs(3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ttl, err := parseTTL(ttlFlag)
 			if err != nil {
 				return err
@@ -381,7 +381,7 @@ func cacheSetCmd() *cobra.Command {
 				}
 				return res
 			}
-			return withCachePreview(cmd.Context(), "cache.set", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1]},
+			return withCachePreview(cl, cmd.Context(), "cache.set", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1]},
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
 					if err := rc.Set(cmd.Context(), args[1], args[2], ttl); err != nil {
 						return nil, err
@@ -397,7 +397,7 @@ func cacheSetCmd() *cobra.Command {
 					res.Replaces, res.DryRun = &replaces, true
 					return res, nil
 				})
-		},
+		}),
 	}
 	spanText(c.Flags(), &ttlFlag, "ttl", "", false, "expire the key after this long (like 30m, 24h, 7d); 0 or left out: never")
 	return c
@@ -444,10 +444,10 @@ func cacheRmCmd() *cobra.Command {
 		Example: `  komando cache rm prod-redis session:42 session:43 --dry-run
   komando cache rm prod-redis session:42 session:43 --allow-dangerous`,
 		Args: cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			keys := args[1:]
-			askTypes(keys, "keys in "+args[0])
-			return withCachePreview(cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
+			askTypes(cl, keys, "keys in "+args[0])
+			return withCachePreview(cl, cmd.Context(), "cache.rm", args[0], driver.DataDelete(), map[string]any{"keys": keys},
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
 					n, err := rc.Del(cmd.Context(), keys...)
 					if err != nil {
@@ -470,7 +470,7 @@ func cacheRmCmd() *cobra.Command {
 					}
 					return p, nil
 				})
-		},
+		}),
 	}
 }
 
@@ -516,12 +516,12 @@ func cacheRunCmd() *cobra.Command {
   komando cache run prod-redis --write -- EXPIRE session:42 3600
   komando cache run prod-redis -- "GET feature:dark-mode"   # one quoted line works too`,
 		Args: cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			command, err := cachex.SplitCommand(args[1:])
 			if err != nil {
 				return err
 			}
-			kind := cacheKind(args[0])
+			kind := cacheKind(cl, args[0])
 			if kind == "memcached" {
 				if command, err = cachex.MemcacheWords(command); err != nil {
 					return err
@@ -530,7 +530,7 @@ func cacheRunCmd() *cobra.Command {
 				if err := cachex.OneReply(command); err != nil {
 					return err
 				}
-				if cacheIsCluster(args[0]) {
+				if cacheIsCluster(cl, args[0]) {
 					if err := cachex.ClusterWideProblem(command); err != nil {
 						return err
 					}
@@ -548,7 +548,7 @@ func cacheRunCmd() *cobra.Command {
 					e.Hint = runHint(strings.ToUpper(command[0]), v)
 				}
 				rec["error"], rec["conns"] = e.Code, []string{args[0]}
-				audit(st, "cache.run", nil, "", false, rec)
+				audit(cl, st, "cache.run", nil, "", false, rec)
 				return e
 			}
 			if write {
@@ -556,20 +556,20 @@ func cacheRunCmd() *cobra.Command {
 					return err
 				}
 			}
-			return withCache(cmd.Context(), "cache.run", args[0], v, rec,
+			return withCache(cl, cmd.Context(), "cache.run", args[0], v, rec,
 				func(_ *store.State, c *store.Conn, rc cachex.Store) (any, error) {
 					res, err := rc.Run(cmd.Context(), command)
 					if err != nil {
 						return nil, err
 					}
-					if out.P.Mask {
+					if cl.out.Mask {
 						// CONFIG GET requirepass, ACL LIST ...: reads that show
 						// passwords the output masking cannot recognize
 						res = cachex.HideSecrets(command, res)
 					}
 					return cacheReply{Conn: c.Name, Risk: v.Risk.String(), Reply: res}, nil
 				})
-		},
+		}),
 	}
 	c.Flags().BoolVar(&write, "write", false, "allow commands that change data")
 	return c

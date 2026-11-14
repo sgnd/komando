@@ -33,25 +33,25 @@ var revealNever = map[string]bool{"secret.show": true, "key.show": true}
 // secret:db-pass): "terminal" or "window". It is "" in a dry run, which
 // shows no value and asks nobody. cmdName and field name the audit line
 // of a refusal (secret.show, "secret": NAME).
-func revealGate(cmdName, field, name, what string) (string, error) {
+func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 	refuse := func(e *out.Error) (string, error) {
-		audit(nil, cmdName, nil, "", false, map[string]any{field: name, "blocked": e.Code, "message": e.Message})
+		audit(cl, nil, cmdName, nil, "", false, map[string]any{field: name, "blocked": e.Code, "message": e.Message})
 		return "", e
 	}
-	if isAgent() {
+	if cl.isAgent() {
 		return refuse(needsHuman(cmdName, name, false))
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		return "", nil
 	}
-	if interactive() {
+	if cl.interactive() {
 		return "terminal", nil
 	}
-	allowed, shown := askReveal(what)
+	allowed, shown := askReveal(cl, what)
 	switch {
 	case allowed:
 		return "window", nil
-	case shown && cur().sess.Window().Why == "no-answer":
+	case shown && cl.sess.Window().Why == "no-answer":
 		return refuse(out.Errf(out.ExitPolicy, "DECLINED", "nobody answered komando's window within 2 minutes; run it again to be asked again",
 			"not run: the person said no; nothing was changed").NoFlag())
 	case shown:
@@ -80,29 +80,31 @@ func needsHuman(cmdName, name string, noScreen bool) *out.Error {
 // askReveal asks the person in komando's window whether to show what. A
 // Linux or BSD desktop gets no click-only window (clickForgeable): there
 // another program could press "Allow once", so it needs the approval code.
-func askReveal(what string) (allowed, shown bool) {
-	c := cur()
-	if c.ask == nil && clickForgeable() && approvalCodeSecret() == nil {
+func askReveal(cl *call, what string) (allowed, shown bool) {
+	if cl.ask == nil && clickForgeable(cl) && approvalCodeSecret() == nil {
 		return false, false
 	}
-	line := commandLine()
+	line := commandLine(cl)
 	if unshowable(line) != "" {
 		line = strconv.QuoteToASCII(line)
 	}
 	text := "A program wants komando to show the value of " + what + ":\n\n" + line + "\n\n"
-	if from := startedFrom(); from != "" {
+	if from := startedFrom(cl); from != "" {
 		text += "Started from: " + from + "\n\n"
 	}
 	text += "Show it once? Allow this only if you asked for it just now: the value goes to the program that asked."
-	c.sess.SetAsked(false)
-	c.sess.SetGaveUp(false)
-	allowed, shown = c.askPerson(text)
+	sess := cl.sess
+	sess.Lock()
+	defer sess.Unlock()
+	sess.SetAsked(false)
+	sess.SetGaveUp(false)
+	allowed, shown = cl.askPerson(text)
 	gaveUp := tookGaveUp(text)
 	switch {
 	case shown && gaveUp:
-		c.sess.SetWhy("no-answer")
-	case shown && !allowed && c.sess.Window().Why == "":
-		c.sess.SetWhy("denied")
+		sess.SetWhy("no-answer")
+	case shown && !allowed && sess.Window().Why == "":
+		sess.SetWhy("denied")
 	}
 	return allowed, shown
 }
@@ -110,8 +112,9 @@ func askReveal(what string) (allowed, shown bool) {
 // startedFrom names the programs that started komando, nearest first
 // ("zsh ← iTerm2", "Komando"), so the window and the audit log say who
 // asked. A program names itself, so this is a hint for the person, not
-// proof. It is "" where it cannot be read (Windows).
-var startedFrom = func() string {
+// proof. It is "" where it cannot be read (Windows). A test seam: tests
+// set another.
+var startedFrom = func(cl *call) string {
 	if runtime.GOOS == "windows" {
 		return ""
 	}
@@ -122,7 +125,9 @@ var startedFrom = func() string {
 	var names []string
 	pid := os.Getppid()
 	for i := 0; i < 4 && pid > 1; i++ {
-		b, err := exec.Command(ps, "-o", "ppid=", "-o", "comm=", "-p", strconv.Itoa(pid)).Output()
+		c := exec.Command(ps, "-o", "ppid=", "-o", "comm=", "-p", strconv.Itoa(pid))
+		c.Env = cl.environ() // the call's, unlock values out; never nil (nil inherits the process's)
+		b, err := c.Output()
 		if err != nil {
 			break
 		}
@@ -144,10 +149,10 @@ var startedFrom = func() string {
 
 // revealAudit records a value shown to a person: what, how they allowed
 // it, and who started komando. Never the value.
-func revealAudit(cmdName, field, name, via string) {
+func revealAudit(cl *call, cmdName, field, name, via string) {
 	rec := map[string]any{field: name, "via": via}
-	if from := startedFrom(); from != "" {
+	if from := startedFrom(cl); from != "" {
 		rec["started_from"] = from
 	}
-	audit(nil, cmdName, nil, "", true, rec)
+	audit(cl, nil, cmdName, nil, "", true, rec)
 }

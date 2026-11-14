@@ -11,9 +11,7 @@ import (
 // person's yes; a shorter time is fine for anyone.
 func TestVpnIdleIsASafetySetting(t *testing.T) {
 	invHome(t)
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	mustRun(t, "config", "set", "vpn_idle", "10m") // shorter than 30m
 	for _, v := range []string{"0", "off", "2h"} {
 		if e := wantCode(t, "SAFETY_SETTING", "config", "set", "vpn_idle", v); e.Exit != out.ExitPolicy {

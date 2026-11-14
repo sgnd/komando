@@ -94,16 +94,16 @@ func startFakeServer(t *testing.T) *fakeServer {
 	if err := os.WriteFile(keyPath, pem.EncodeToMemory(blk), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["prod"] = &store.Host{Name: "prod", Address: "127.0.0.1", Port: s.port, User: "deploy", Identity: keyPath, Protected: true}
 		st.Hosts["dev"] = &store.Host{Name: "dev", Address: "localhost", Port: s.port, User: "deploy", Identity: keyPath}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	savedW := out.P.W
-	out.P.W = io.Discard
-	t.Cleanup(func() { out.P.W = savedW })
+	savedW := tcl.out.W
+	tcl.out.W = io.Discard
+	t.Cleanup(func() { tcl.out.W = savedW })
 	return s
 }
 
@@ -169,10 +169,11 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 
 func runRoot(t *testing.T, args ...string) error {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"--host-key-policy", "accept-new"}, args...))
 	root.SilenceErrors, root.SilenceUsage = true, true
-	_, err := root.ExecuteContextC(context.Background())
+	_, err := root.ExecuteContextC(withCall(context.Background(), tcl))
 	return err
 }
 
@@ -295,7 +296,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 	// a saved read-only recipe that does not keep the promise once filled
 	// in (or under a stricter check than when it was saved) runs as a
 	// change: a protected server needs --yes, and then it runs
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Snippets["peek"] = &store.Snippet{Name: "peek", Command: "cat {{f}}", ReadOnly: true}
 		st.Snippets["finder"] = &store.Snippet{Name: "finder", Command: "find /data/app -name {{n}} -exec {{x}} {} +", ReadOnly: true}
 		st.Snippets["procs"] = &store.Snippet{Name: "procs", Command: "ps aux | python3 -c 'import sys'", ReadOnly: true}
@@ -383,21 +384,21 @@ func TestStreamRedactsSplitSecrets(t *testing.T) {
 	}
 }
 
-// captureOutput collects what komando prints, both through out.P and on
-// stdout and stderr (the text stream).
+// captureOutput collects what komando prints on the test call's stdout
+// and stderr (the text stream).
 func captureOutput(t *testing.T, run func() error) string {
 	t.Helper()
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	savedOut, savedErr, savedW := os.Stdout, os.Stderr, out.P.W
-	os.Stdout, os.Stderr, out.P.W = w, w, w
+	savedOut, savedErr := tcl.out.W, tcl.out.Err
+	tcl.out.W, tcl.out.Err = w, w
 	done := make(chan string)
 	go func() { b, _ := io.ReadAll(r); done <- string(b) }()
 	err = run()
 	_ = w.Close()
-	os.Stdout, os.Stderr, out.P.W = savedOut, savedErr, savedW
+	tcl.out.W, tcl.out.Err = savedOut, savedErr
 	got := <-done
 	if err != nil {
 		t.Logf("run: %v", err)
@@ -451,7 +452,7 @@ func TestLineBuffer(t *testing.T) {
 // policy list, and every command is blocked until it is fixed.
 func TestInvalidDenyPatternReported(t *testing.T) {
 	startFakeServer(t)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Settings.ExtraDenyPattern = []string{`kubectl\s+delete(`}
 		return nil
 	}); err != nil {
@@ -462,7 +463,7 @@ func TestInvalidDenyPatternReported(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
-	for _, c := range securityChecks(st) {
+	for _, c := range securityChecks(tcl, st) {
 		if c.Name == "security:deny_rule:"+policy.CustomID(`kubectl\s+delete(`) {
 			found = !c.OK && strings.Contains(c.Detail, "not a regular expression komando can read")
 		}
@@ -735,7 +736,7 @@ func TestDryRunReportsInputStops(t *testing.T) {
 		{[]string{"--dry-run", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION"},
 	}
 	for _, c := range cases {
-		out.P.Reset()
+		tcl.out.Reset()
 		var err error
 		got := captureOutput(t, func() error { err = runRoot(t, c.args...); return err })
 		if err != nil {
@@ -748,7 +749,7 @@ func TestDryRunReportsInputStops(t *testing.T) {
 			t.Errorf("%v: the server ran it", c.args)
 		}
 	}
-	out.P.Reset()
+	tcl.out.Reset()
 }
 
 // A line that only mentions a key header (a log, a grep) holds the

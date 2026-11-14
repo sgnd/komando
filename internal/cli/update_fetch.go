@@ -7,14 +7,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/releasesig"
@@ -37,12 +34,12 @@ const (
 // newestRelease reads the newest release's tag from where GitHub sends
 // /releases/latest (a redirect to /releases/tag/vX.Y.Z), which needs no
 // API token and has no rate limit.
-func newestRelease(ctx context.Context) (string, error) {
+func newestRelease(cl *call, ctx context.Context) (string, error) {
 	c := updateClient()
 	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	resp, err := send(ctx, c, http.MethodHead, releaseSite+"/releases/latest", "the newest release")
+	resp, err := send(cl, ctx, c, http.MethodHead, releaseSite+"/releases/latest", "the newest release")
 	if err != nil {
-		return "", releaseErr(err)
+		return "", releaseErr(cl, err)
 	}
 	_ = resp.Body.Close()
 	hint := "run it again later; the releases are at " + releaseSite + "/releases"
@@ -80,7 +77,7 @@ func httpsOnlyRedirect(req *http.Request, via []*http.Request) error {
 // send sends one request, and again (up to three tries) when the network
 // fails on the way or the server answers 5xx: GitHub's downloads do that
 // now and then (HTTP 504). what names the file in the note on stderr.
-func send(ctx context.Context, c *http.Client, method, u, what string) (*http.Response, error) {
+func send(cl *call, ctx context.Context, c *http.Client, method, u, what string) (*http.Response, error) {
 	for try := 1; ; try++ {
 		req, err := http.NewRequestWithContext(ctx, method, u, nil)
 		if err != nil {
@@ -100,8 +97,8 @@ func send(ctx context.Context, c *http.Client, method, u, what string) (*http.Re
 			_ = resp.Body.Close()
 		}
 		wait := time.Duration(try) * retryWait
-		if term.IsTerminal(int(os.Stderr.Fd())) {
-			fmt.Fprintf(os.Stderr, "%s: %s; trying again in %s\n", what, why, wait)
+		if isTerminal(cl.out.Err) {
+			fmt.Fprintf(cl.out.Err, "%s: %s; trying again in %s\n", what, why, wait)
 		}
 		select {
 		case <-ctx.Done():
@@ -113,12 +110,12 @@ func send(ctx context.Context, c *http.Client, method, u, what string) (*http.Re
 
 // releaseErr turns a failed request into komando's error. A timeout and
 // Ctrl-C stay as they are: updateErr says them in words.
-func releaseErr(err error) error {
+func releaseErr(cl *call, err error) error {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return err
 	}
 	hint := "check this computer's internet connection (and HTTPS_PROXY), then run it again"
-	if asRoot() && os.Getenv("HTTPS_PROXY") == "" && os.Getenv("https_proxy") == "" {
+	if asRoot() && cl.getenv("HTTPS_PROXY") == "" && cl.getenv("https_proxy") == "" {
 		hint = "check this computer's internet connection; behind a proxy, keep it for sudo: sudo --preserve-env=HTTPS_PROXY komando update"
 	}
 	return out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", hint, "cannot reach komando's releases: %s", flatText(err.Error()))
@@ -129,12 +126,12 @@ func flatText(s string) string { return strings.Join(strings.Fields(s), " ") }
 // releaseSums is checksums.txt of release tag, once its signature shows
 // that the komando project made it. It also shows that the release exists
 // and has an archive for this computer.
-func releaseSums(ctx context.Context, tag string) ([]byte, error) {
-	sums, err := fetch(ctx, tag, "checksums.txt", maxChecksums, "")
+func releaseSums(cl *call, ctx context.Context, tag string) ([]byte, error) {
+	sums, err := fetch(cl, ctx, tag, "checksums.txt", maxChecksums, "")
 	if err != nil {
 		return nil, err
 	}
-	if err := checkSigned(ctx, tag, sums); err != nil {
+	if err := checkSigned(cl, ctx, tag, sums); err != nil {
 		return nil, err
 	}
 	if sumFor(sums, archiveName()) == "" {
@@ -148,8 +145,8 @@ func releaseSums(ctx context.Context, tag string) ([]byte, error) {
 // public keys built into komando (internal/releasesig). checksums.txt
 // alone cannot show who made a release: whoever can replace the archives
 // can replace it too.
-func checkSigned(ctx context.Context, tag string, sums []byte) error {
-	sig, err := fetch(ctx, tag, releasesig.File, releasesig.MaxSize, "")
+func checkSigned(cl *call, ctx context.Context, tag string, sums []byte) error {
+	sig, err := fetch(cl, ctx, tag, releasesig.File, releasesig.MaxSize, "")
 	if err != nil {
 		return err
 	}
@@ -194,10 +191,10 @@ func archiveName() string {
 
 // fetch downloads one release file, up to max bytes. label, when set, shows
 // progress on a terminal.
-func fetch(ctx context.Context, tag, name string, max int64, label string) ([]byte, error) {
-	resp, err := send(ctx, updateClient(), http.MethodGet, releaseSite+"/releases/download/"+tag+"/"+name, name)
+func fetch(cl *call, ctx context.Context, tag, name string, max int64, label string) ([]byte, error) {
+	resp, err := send(cl, ctx, updateClient(), http.MethodGet, releaseSite+"/releases/download/"+tag+"/"+name, name)
 	if err != nil {
-		return nil, releaseErr(err)
+		return nil, releaseErr(cl, err)
 	}
 	defer resp.Body.Close()
 	bad := "report it at " + releaseSite + "/issues"
@@ -217,14 +214,14 @@ func fetch(ctx context.Context, tag, name string, max int64, label string) ([]by
 		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is %d bytes, more than komando accepts; nothing was changed", name, resp.ContentLength)
 	}
 	var body io.Reader = io.LimitReader(resp.Body, max+1)
-	if label != "" && term.IsTerminal(int(os.Stderr.Fd())) {
-		p := &progress{label: label, total: resp.ContentLength}
+	if label != "" && isTerminal(cl.out.Err) {
+		p := &progress{cl: cl, label: label, total: resp.ContentLength}
 		defer p.done()
 		body = io.TeeReader(body, p)
 	}
 	b, err := io.ReadAll(body)
 	if err != nil {
-		return nil, releaseErr(err)
+		return nil, releaseErr(cl, err)
 	}
 	if int64(len(b)) > max {
 		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is more than %d bytes, more than komando accepts; nothing was changed", name, max)
@@ -234,6 +231,7 @@ func fetch(ctx context.Context, tag, name string, max int64, label string) ([]by
 
 // progress shows a download on stderr, at most a few times a second.
 type progress struct {
+	cl        *call // the call it works for
 	label     string
 	total, n  int64
 	last      time.Time
@@ -248,9 +246,9 @@ func (p *progress) Write(b []byte) (int, error) {
 	p.last = time.Now()
 	mb := func(n int64) string { return strconv.FormatFloat(float64(n)/(1<<20), 'f', 1, 64) }
 	if p.total > 0 {
-		fmt.Fprintf(os.Stderr, "\r%s: %s of %s MB", p.label, mb(p.n), mb(p.total))
+		fmt.Fprintf(p.cl.out.Err, "\r%s: %s of %s MB", p.label, mb(p.n), mb(p.total))
 	} else {
-		fmt.Fprintf(os.Stderr, "\r%s: %s MB", p.label, mb(p.n))
+		fmt.Fprintf(p.cl.out.Err, "\r%s: %s MB", p.label, mb(p.n))
 	}
 	p.wroteLine = true
 	return len(b), nil
@@ -258,6 +256,6 @@ func (p *progress) Write(b []byte) (int, error) {
 
 func (p *progress) done() {
 	if p.wroteLine {
-		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(p.cl.out.Err)
 	}
 }

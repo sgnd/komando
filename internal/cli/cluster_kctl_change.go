@@ -24,14 +24,14 @@ import (
 
 func (r *kctlRun) dryQuery() url.Values {
 	q := url.Values{"fieldManager": {"komando"}}
-	if g.dryRun {
+	if r.cl.flags.dryRun {
 		q.Set("dryRun", "All")
 	}
 	return q
 }
 
 func (r *kctlRun) dryNote() string {
-	if g.dryRun {
+	if r.cl.flags.dryRun {
 		return " (server dry run)"
 	}
 	return ""
@@ -46,12 +46,12 @@ func (r *kctlRun) apply(diff bool) error {
 	if err != nil {
 		return err
 	}
-	saved := g.dryRun
+	saved := r.cl.flags.dryRun
 	if diff {
-		g.dryRun = true // diff is an apply the server only pretends to do
+		r.cl.flags.dryRun = true // diff is an apply the server only pretends to do
 	}
-	res, err := kubeApply(r.ctx, r.k, r.conn, docs, r.a.val("namespace"), r.a.bools["force-conflicts"])
-	g.dryRun = saved
+	res, err := kubeApply(r.cl, r.ctx, r.k, r.conn, docs, r.a.val("namespace"), r.a.bools["force-conflicts"])
+	r.cl.flags.dryRun = saved
 	if err != nil {
 		return err
 	}
@@ -159,8 +159,8 @@ func (r *kctlRun) create(sub string) error {
 			}
 			obj["type"], obj["data"] = cmp.Or(r.a.val("type"), "Opaque"), enc
 		case "tls":
-			crt, err1 := readLocalFile(r.a.val("cert"))
-			key, err2 := readLocalFile(r.a.val("key"))
+			crt, err1 := readLocalFile(r.cl, r.a.val("cert"))
+			key, err2 := readLocalFile(r.cl, r.a.val("key"))
 			if err := errors.Join(err1, err2); isSensitive(err) {
 				return err
 			}
@@ -307,7 +307,7 @@ func (r *kctlRun) create(sub string) error {
 		if len(r.a.pos) < 2 {
 			return kfail("create token needs a service account NAME")
 		}
-		if g.dryRun {
+		if r.cl.flags.dryRun {
 			// a TokenRequest is not stored anywhere to dry-run: do not count
 			// on the server to sign nothing, never send one
 			return kfail("create token cannot be dry-run: it would make a real token")
@@ -369,7 +369,7 @@ func (r *kctlRun) fromSources() (map[string]any, map[string]any, error) {
 		if !ok {
 			p, k = f, filepath.Base(f)
 		}
-		if err := localReadOK(expandHome(p)); err != nil {
+		if err := localReadOK(r.cl, expandHome(p)); err != nil {
 			return nil, nil, err
 		}
 		b, err := os.ReadFile(expandHome(p))
@@ -513,7 +513,7 @@ func (r *kctlRun) delete() error {
 			from = " from " + t.space + " namespace" // which copy went, as kubectl says it
 		}
 		fmt.Fprintf(&r.stdout, "%s %q deleted%s%s\n", kindQual(t.rt), t.name, from, r.dryNote())
-		if w, set := r.a.bools["wait"]; (!set || w) && !g.dryRun {
+		if w, set := r.a.bools["wait"]; (!set || w) && !r.cl.flags.dryRun {
 			// kubectl waits for the object to go; a finalizer can hold it,
 			// so the wait ends after a minute (the delete itself is done)
 			wctx, cancel := context.WithTimeout(r.ctx, time.Minute)

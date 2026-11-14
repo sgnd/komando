@@ -27,6 +27,7 @@ type doctorReport struct {
 	Inventory []securityCheck `json:"inventory"`
 	Security  []securityCheck `json:"security"`
 	optional  map[string]bool
+	width     int // the column a long detail wraps at, 0 for none
 }
 
 // Text is a list like `brew doctor`: ✓ fine, ✗ to fix, ! worth a look.
@@ -35,10 +36,7 @@ type doctorReport struct {
 func (r doctorReport) Text() string {
 	var b strings.Builder
 	fails, warns := 0, 0
-	width := out.StdoutWidth()
-	if isAgent() {
-		width = 0
-	}
+	width := r.width
 	line := func(mark, name, detail string) {
 		head := mark + " " + doctorLabel(name)
 		b.WriteString(head)
@@ -83,7 +81,7 @@ func (r doctorReport) Text() string {
 // inventoryChecks finds settings komando would fail on later: bad ports,
 // broken --via paths, missing files and secrets, plain-text passphrases,
 // weak keys. Proxy commands are listed so a person knows they run here.
-func inventoryChecks(st *store.State) []securityCheck {
+func inventoryChecks(cl *call, st *store.State) []securityCheck {
 	var cs []securityCheck
 	fail := func(name, detail string) { cs = append(cs, securityCheck{Name: name, Detail: detail}) }
 	warn := func(name, detail string) {
@@ -107,7 +105,7 @@ func inventoryChecks(st *store.State) []securityCheck {
 		if err := validPort(h.Port); err != nil {
 			fail(name, toErr(err).Message)
 		}
-		if err := checkHostVia(st, h); err != nil {
+		if err := checkHostVia(cl, st, h); err != nil {
 			fail(name, toErr(err).Message)
 		}
 		if h.Identity != "" {
@@ -210,17 +208,17 @@ passphrases, weak keys, proxy commands, and conns that share a protected
 password, repeat another conn or belong to a protected server without being
 protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if acceptOld {
-				return acceptOldCopy()
+				return acceptOldCopy(cl)
 			}
-			defer lookAtOldCopy()() // doctor must be able to say what is wrong
-			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}}
+			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
+			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}
 			add := func(name string, ok bool, detail string) { r.Checks = append(r.Checks, doctorCheck{name, ok, detail}) }
 			st, err := loadState()
 			add("state", err == nil, store.Home())
 			if err != nil {
-				out.P.Print("doctor", r, toErr(err))
+				cl.out.Print("doctor", r, toErr(err))
 				return exitCode(1)
 			}
 			if st.Settings.Audit {
@@ -232,7 +230,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			add("hosts", len(st.Hosts) > 0, hostDetail)
 			add("keys", true, countOf(len(st.Keys), "SSH key"))
-			sock := os.Getenv("SSH_AUTH_SOCK")
+			sock := cl.getenv("SSH_AUTH_SOCK")
 			add("ssh_agent", sock != "", map[bool]string{true: sock, false: "not running (optional)"}[sock != ""])
 			_, sshErr := exec.LookPath("ssh")
 			add("openssh_client", sshErr == nil, "optional; komando has a built-in SSH client")
@@ -264,8 +262,8 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 					add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
 				}
 			}
-			r.Inventory = inventoryChecks(st)
-			r.Security = securityChecks(st)
+			r.Inventory = inventoryChecks(cl, st)
+			r.Security = securityChecks(cl, st)
 			ok := true
 			for _, c := range r.Checks {
 				if !c.OK && !r.optional[c.Name] {
@@ -284,12 +282,12 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			if !ok {
 				soft = out.Errf(out.ExitError, "DOCTOR_FAILED", "fix the checks marked ✗ (ok: false in -o json), then run `komando doctor` again", "some checks failed")
 			}
-			out.P.Print("doctor", r, soft)
+			cl.out.Print("doctor", r, soft)
 			if soft != nil {
 				return exitCode(1)
 			}
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&acceptOld, "accept-old-copy", false, "use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only)")
 	return c

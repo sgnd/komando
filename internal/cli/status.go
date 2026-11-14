@@ -10,7 +10,6 @@ import (
 
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/netx"
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -85,18 +84,18 @@ starship, in ~/.config/starship.toml:
 			}
 			return cmd.Root().PersistentPreRunE(cmd, args)
 		},
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if short {
-				fmt.Print(promptText(time.Now()))
+				fmt.Fprint(cl.out.W, promptText(time.Now()))
 				return nil
 			}
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			out.P.Print("status", runningStatus(st), nil)
+			cl.out.Print("status", runningStatus(cl, st), nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&short, "short", false, "one line for your shell prompt, like vpn:1 tun:2 (no JSON, never fails)")
 	return c
@@ -105,8 +104,8 @@ starship, in ~/.config/starship.toml:
 // sessionAlive is netx.SessionAlive; tests replace it.
 var sessionAlive = netx.SessionAlive
 
-func runningStatus(st *store.State) runningData {
-	d := runningData{Vpns: []runningVpn{}, Logins: []runningLogin{}, AWSLogins: append([]cloud.AWSLogin{}, awsLogins()...), Tunnels: []tunnelRow{}, Jobs: []*store.Job{}}
+func runningStatus(cl *call, st *store.State) runningData {
+	d := runningData{Vpns: []runningVpn{}, Logins: []runningLogin{}, AWSLogins: append([]cloud.AWSLogin{}, awsLogins(cl)...), Tunnels: []tunnelRow{}, Jobs: []*store.Job{}}
 	idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 	for _, v := range st.SortedVpns() {
 		s := st.Sessions[v.Name]

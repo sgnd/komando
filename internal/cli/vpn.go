@@ -78,7 +78,7 @@ step, starting with the VPN app your company uses.`,
   komando vpn add lab socks --proxy-address 127.0.0.1:1080
   komando vpn add office proxy --proxy-address proxy.corp.example:3128   # a company HTTP proxy`,
 		Args: formArgs(cobra.ExactArgs(2)),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return formOrUsage(cmd, "vpn", "komando vpn add office wireguard --config ~/Downloads/office.conf")
 			}
@@ -213,15 +213,15 @@ step, starting with the VPN app your company uses.`,
 			warnings := append(refWarnings(notStored(v.KeyRef, secrets, askPw), notStored(v.PSKRef, secrets, askPsk)), ovpnWarn...)
 			// the name and the VPN's vault secrets, and what needs a person: a weaker login, a secret sent to a new place
 			check := func(s *store.State) error {
-				if err := vpnAddCheck(s, name, secrets, overwrite); err != nil {
+				if err := vpnAddCheck(cl, s, name, secrets, overwrite); err != nil {
 					return err
 				}
-				if err := vpnOptIns(v, cmd.Flags().Changed, legacyCrypto, allowPAP); err != nil {
+				if err := vpnOptIns(cl, v, cmd.Flags().Changed, legacyCrypto, allowPAP); err != nil {
 					return err
 				}
-				return guardVpnSends(s.Vpns[name], v, ovpnServers)
+				return guardVpnSends(cl, s.Vpns[name], v, ovpnServers)
 			}
-			if g.dryRun { // the same checks the real add makes
+			if cl.flags.dryRun { // the same checks the real add makes
 				st, err := loadState()
 				if err != nil {
 					return err
@@ -233,18 +233,18 @@ step, starting with the VPN app your company uses.`,
 				if len(warnings) > 0 {
 					res["warnings"] = warnings
 				}
-				out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "would add", v: v, warnings: warnings}}, nil)
+				cl.out.Print("vpn.add", textAs{res, vpnChangeText{verb: "would add", v: v, warnings: warnings}}, nil)
 				return nil
 			}
 			undoPw, err := vpnAskPassword(cmd, name, askPw, askPsk, check)
 			if err != nil {
 				return err
 			}
-			if err := vpnAddSave(v, secrets, overwrite, check); err != nil {
+			if err := vpnAddSave(cl, v, secrets, overwrite, check); err != nil {
 				undoPw()
 				return err
 			}
-			audit(nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
+			audit(cl, nil, "vpn.add", []string{name}, "", true, map[string]any{"kind": kind, "mfa": v.MFA})
 			res := map[string]any{"vpn": v, "next": "komando vpn up " + name}
 			if notes := vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])); len(notes) > 0 {
 				res["notes"] = notes
@@ -252,9 +252,9 @@ step, starting with the VPN app your company uses.`,
 			if len(warnings) > 0 {
 				res["warnings"] = warnings
 			}
-			out.P.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])), warnings: warnings}}, nil)
+			cl.out.Print("vpn.add", textAs{res, vpnChangeText{verb: "added", v: v, notes: vpnAddNotes(v, config, ovpnHasKeys(secrets[name+"-config"])), warnings: warnings}}, nil)
 			return nil
-		},
+		}),
 	}
 	f := c.Flags()
 	f.StringVar(&config, "config", "", "WireGuard: the .conf file; OpenVPN: the .ovpn file (both kept in the vault)")
@@ -288,7 +288,7 @@ func vpnShowCmd() *cobra.Command {
 		Use:   "show NAME",
 		Short: "Show a VPN (saved keys are never shown)",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -297,9 +297,9 @@ func vpnShowCmd() *cobra.Command {
 			if !ok {
 				return out.NotFound("vpn", args[0])
 			}
-			out.P.Print("vpn.show", map[string]any{"vpn": v, "used_by": vpnUsers(st, v.Name)}, nil)
+			cl.out.Print("vpn.show", map[string]any{"vpn": v, "used_by": vpnUsers(st, v.Name)}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -394,11 +394,12 @@ func notStored(ref string, secrets map[string]string, asked bool) string {
 // where its secrets go) passes on the state as it is now, so a person is
 // not asked for a secret the add then refuses. undo takes them back.
 func vpnAskPassword(cmd *cobra.Command, name string, askPw, askPsk bool, check func(*store.State) error) (func(), error) {
+	cl := callOf(cmd)
 	none := func() {}
 	if !askPw && !askPsk {
 		return none, nil
 	}
-	if !interactive() { // nobody to ask: NEEDS_PERSON or NEEDS_TERMINAL says so first, nothing is stored
+	if !cl.interactive() { // nobody to ask: NEEDS_PERSON or NEEDS_TERMINAL says so first, nothing is stored
 		first := askPasswordSecret
 		if askPsk {
 			first = askPSKSecret
@@ -435,6 +436,7 @@ func vpnAskPassword(cmd *cobra.Command, name string, askPw, askPsk bool, check f
 // Its undo removes a secret that was new, and puts the old value back in
 // one it replaced (vpn add --overwrite), so a refused add changes nothing.
 func vpnAskSecret(cmd *cobra.Command, name string, a askSecret) (func(), error) {
+	cl := callOf(cmd)
 	sec := name + "-" + a.suffix
 	old, getErr := vault.Get(sec)
 	_, undo, err := askSecretNow(cmd, "vpn", name, a)
@@ -444,21 +446,21 @@ func vpnAskSecret(cmd *cobra.Command, name string, a askSecret) (func(), error) 
 	if getErr != nil { // it was new: askSecretNow's undo removes it
 		return undo, nil
 	}
-	return func() { _ = vault.Set(sec, old) }, nil
+	return func() { _ = vault.Set(cl.storeWrite(), sec, old) }, nil
 }
 
 // vpnAddSave stores a checked VPN v: its own vault secrets, then v.
-func vpnAddSave(v *store.Vpn, secrets map[string]string, overwrite bool, check func(*store.State) error) error {
-	if err := store.Update(check); err != nil {
+func vpnAddSave(cl *call, v *store.Vpn, secrets map[string]string, overwrite bool, check func(*store.State) error) error {
+	if err := store.Update(cl.storeWrite(), check); err != nil {
 		return err
 	}
 	for n, val := range secrets {
-		if err := vault.Set(n, val); err != nil {
+		if err := vault.Set(cl.storeWrite(), n, val); err != nil {
 			return err
 		}
 	}
-	return store.Update(func(s *store.State) error {
-		if err := checkNewName(s, "vpn", v.Name, overwrite); err != nil {
+	return store.Update(cl.storeWrite(), func(s *store.State) error {
+		if err := checkNewName(cl, s, "vpn", v.Name, overwrite); err != nil {
 			return err
 		}
 		s.Vpns[v.Name] = v
@@ -548,10 +550,10 @@ func vpnWhere(v *store.Vpn) string {
 
 // testVpn opens the VPN and, when it has --check, connects to that address
 // through it.
-func testVpn(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
+func testVpn(cl *call, ctx context.Context, st *store.State, v *store.Vpn) targetTest {
 	r := targetTest{Host: v.Name, Kind: "vpn"}
 	t0 := time.Now()
-	timeout := sshOpts(st).ConnectTimeout
+	timeout := sshOpts(cl, st).ConnectTimeout
 	dial, closer, err := netx.Open(ctx, v, timeout)
 	if err != nil {
 		r.Error = toErr(err)

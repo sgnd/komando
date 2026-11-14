@@ -40,10 +40,11 @@ func TestConPTYChild(t *testing.T) {
 		os.Exit(91)
 	}
 	os.Stdin, os.Stdout, os.Stderr = in, con, con
-	out.P.W, promptW = con, con
-	interactive = func() bool { return true }
-	promptable = func(f string) bool { return promptGate(f, isAgent(), "", "xterm") }
+	promptable = func(cl *call, f string) bool { return promptGate(f, cl.isAgent(), "", "xterm") }
 	os.Args = append([]string{"komando"}, strings.Split(args, "\x1f")...)
+	// as in the komando program, its call is the only one running
+	// (TestMain counted tcl in for the other tests)
+	tcl.leave()
 	code := Execute()
 	// how komando leaves the console: echo and line mode on again, and
 	// nothing typed left for the shell

@@ -16,8 +16,8 @@ import (
 // a UTF-16 file). SSH sessions become servers; telnet, serial and raw ones,
 // proxies and PuTTY's own key files (.ppk) are reported with what to do.
 // PuTTY keeps no passwords, so none are imported.
-func importPuTTY(path string) (*importPlan, error) {
-	b, err := readSource(path)
+func importPuTTY(cl *call, path string) (*importPlan, error) {
+	b, err := readSource(cl, path)
 	if err != nil {
 		return nil, err
 	}

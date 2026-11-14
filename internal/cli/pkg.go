@@ -116,10 +116,10 @@ type pkgChange struct {
 }
 
 // pkgChangeResult compares the listings before and after the action.
-func pkgChangeResult(action string, pkgs []string, rr *sshx.RunResult) (any, *out.Error) {
+func pkgChangeResult(cl *call, action string, pkgs []string, rr *sshx.RunResult) (any, *out.Error) {
 	sec := sections(rr.Stdout)
 	if ess, ok := sec["essential"]; ok {
-		return pkgChange{Packages: []pkgRow{}}, approvalErr("POLICY_BLOCKED",
+		return pkgChange{Packages: []pkgRow{}}, approvalErr(cl, "POLICY_BLOCKED",
 			fmt.Sprintf("removing %s would also remove %s, which can lock you out of the server or break it; nothing was removed", strings.Join(pkgs, " "), strings.Join(strings.Fields(ess), ", ")))
 	}
 	before, after := pkgVersions(sec["before"]), pkgVersions(sec["after"])
@@ -276,8 +276,8 @@ type pkgUpgradable struct {
 const staleIndex = 24 * time.Hour
 
 // cutTo cuts the package list (limiter).
-func (d pkgUpgradable) cutTo(n int) any {
-	d.Packages = cutRows(d.Packages, n)
+func (d pkgUpgradable) cutTo(cl *call, n int) any {
+	d.Packages = cutRows(cl, d.Packages, n)
 	d.Count = len(d.Packages)
 	return d
 }
@@ -342,7 +342,7 @@ func pkgSimulateResult(rr *sshx.RunResult) (any, *out.Error) {
 }
 
 // runPkg runs the pkg actions komando reads the result of.
-func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, refresh bool, limit int) error {
+func runPkg(cl *call, ctx context.Context, action, target string, pkgs []string, sudo, refresh bool, limit int) error {
 	// the package managers call it remove; the command is pkg rm
 	verb := map[string]string{"remove": "rm"}[action]
 	if verb == "" {
@@ -352,7 +352,7 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 	q := sshx.Q(strings.Join(pkgs, " "))
 	switch action {
 	case "installed":
-		return runOps(ctx, opsSpec{name: "pkg.installed", target: target, command: "ACTION=installed PKGS=" + q + "; " + pkgShell, display: display, limit: limit,
+		return runOps(cl, ctx, opsSpec{name: "pkg.installed", target: target, command: "ACTION=installed PKGS=" + q + "; " + pkgShell, display: display, limit: limit,
 			parse: func(h *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 				if rr.ExitCode != 0 {
 					return nil, pkgFailure(action, rr, nil)
@@ -382,18 +382,20 @@ func runPkg(ctx context.Context, action, target string, pkgs []string, sudo, ref
 		if refresh {
 			command = "ACTION=update PKGS=''; (" + pkgShell + ") >/dev/null; " + command
 		}
-		return runOps(ctx, opsSpec{name: "pkg.upgradable", target: target, command: command, display: display, sudo: sudo, limit: limit,
+		return runOps(cl, ctx, opsSpec{name: "pkg.upgradable", target: target, command: command, display: display, sudo: sudo, limit: limit,
 			parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgUpgradableResult(rr, refresh) },
 			text:  pkgUpgradableText})
 	}
-	spec := opsSpec{name: "pkg." + verb, target: target, command: pkgChangeScript(action, pkgs, action == "remove" && !dangerOK()), display: display, sudo: sudo, mutating: true,
-		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgChangeResult(action, pkgs, rr) },
-		text:  pkgChangeText}
-	if action == "upgrade" && g.dryRun {
+	spec := opsSpec{name: "pkg." + verb, target: target, command: pkgChangeScript(action, pkgs, action == "remove" && !cl.dangerOK()), display: display, sudo: sudo, mutating: true,
+		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+			return pkgChangeResult(cl, action, pkgs, rr)
+		},
+		text: pkgChangeText}
+	if action == "upgrade" && cl.flags.dryRun {
 		// a dry run asks the package manager what it would upgrade
 		spec.preview = "ACTION=simulate PKGS=" + q + "; " + pkgShell
 		spec.parse = func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgSimulateResult(rr) }
 		spec.text = func(data any) string { return pkgUpgradesText(data.(pkgWouldUpgrade).WouldUpgrade) }
 	}
-	return runOps(ctx, spec)
+	return runOps(cl, ctx, spec)
 }

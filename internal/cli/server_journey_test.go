@@ -16,22 +16,22 @@ import (
 // every ID, a refused fs edit → the same line with --sudo.
 
 func TestJobStartNextHasTheIDs(t *testing.T) {
-	one := jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}}, Summary: fleetSummary{Total: 1, OK: 1}}.withNext()
+	one := jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}}, Summary: fleetSummary{Total: 1, OK: 1}}.withNext(tcl)
 	if !strings.Contains(one.Next, "komando job wait j1") || strings.Contains(one.Next, "<id>") {
 		t.Errorf("one job: %q", one.Next)
 	}
 	many := jobStarted{Jobs: []started{{ID: "j1", Host: "web1", OK: true}, {Host: "web2", Error: &out.Error{Code: "AUTH_FAILED"}}, {ID: "j3", Host: "web3", OK: true}},
-		Summary: fleetSummary{Total: 3, OK: 2, Failed: 1}}.withNext()
+		Summary: fleetSummary{Total: 3, OK: 2, Failed: 1}}.withNext(tcl)
 	if !strings.Contains(many.Next, "komando job wait j1 j3") {
 		t.Errorf("several jobs: %q", many.Next)
 	}
 	if txt := many.Text(); strings.Contains(txt, "komando job") {
 		t.Errorf("several jobs, text names a next command on stdout:\n%s", txt)
 	}
-	if len(nextNow) == 0 || nextNow[0] != "komando job wait j1 j3" {
-		t.Errorf("several jobs, Next: %q", nextNow)
+	if len(tcl.nextNow) == 0 || tcl.nextNow[0] != "komando job wait j1 j3" {
+		t.Errorf("several jobs, Next: %q", tcl.nextNow)
 	}
-	if h := many.fleetHint(); strings.Contains(h, "data.results") {
+	if h := many.fleetHint(tcl); strings.Contains(h, "data.results") {
 		t.Errorf("job start hint points at data.results: %q", h)
 	}
 }
@@ -43,7 +43,7 @@ func TestJobWaitHintWaitsAgain(t *testing.T) {
 		{ID: "j3", Error: &out.Error{Code: "JOB_FAILED"}},
 		{ID: "j4", Error: &out.Error{Code: "WAIT_TIMEOUT"}},
 	}}
-	h := d.fleetHint()
+	h := d.fleetHint(tcl)
 	if !strings.Contains(h, "`komando job wait j1 j4`") || strings.Contains(h, "data.results") || strings.Contains(h, "job start") {
 		t.Errorf("hint: %q", h)
 	}
@@ -142,11 +142,11 @@ func TestJobStartScript(t *testing.T) {
 func TestJobStartScriptOnTheWire(t *testing.T) {
 	srv := startFakeServer(t)
 	const pw = "hunter2-Sudo-pw"
-	if err := vault.Set("dev-sudo", pw); err != nil {
+	if err := vault.Set(store.Save(), "dev-sudo", pw); err != nil {
 		t.Fatal(err)
 	}
 	// prod is the same server, protected: unprotect it for this change
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["dev"].SudoRef, st.Hosts["prod"].Protected = "secret:dev-sudo", false
 		return nil
 	}); err != nil {
@@ -188,7 +188,7 @@ func TestJobStartScriptOnTheWire(t *testing.T) {
 // protected server it asks first, before komando even connects.
 func TestJobRmKillProtected(t *testing.T) {
 	srv := startFakeServer(t)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Jobs["j9"] = &store.Job{ID: "j9", Host: "prod", Command: "sleep 99", PID: 7}
 		return nil
 	}); err != nil {

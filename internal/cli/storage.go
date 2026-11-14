@@ -69,18 +69,18 @@ type storageFn func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, e
 
 // withStorage resolves the conn, applies the seatbelts for v, runs fn and
 // audits the action. Dry runs of changes stop before contacting the server.
-func withStorage(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn storageFn) error {
-	return withStoragePreview(ctx, name, connExpr, v, rec, fn, nil)
+func withStorage(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn storageFn) error {
+	return withStoragePreview(cl, ctx, name, connExpr, v, rec, fn, nil)
 }
 
 // withStoragePreview is withStorage with a dry-run preview: for a change,
 // --dry-run runs preview (which only reads) instead of fn.
-func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn, preview storageFn) error {
+func withStoragePreview(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn, preview storageFn) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "storage")
+	c, err := singleConn(cl, st, connExpr, "storage")
 	if err != nil {
 		return err
 	}
@@ -88,28 +88,28 @@ func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Ver
 	fail := func(err error) error {
 		err = namedHint(err, c.Name)
 		rec["error"] = toErr(err).Code
-		audit(st, name, nil, "", false, rec)
+		audit(cl, st, name, nil, "", false, rec)
 		return err
 	}
 	if v.Risk > driver.RiskRead {
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if g.dryRun {
+		if cl.flags.dryRun {
 			if preview == nil {
-				audit(st, name, nil, "", true, rec)
-				out.P.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: the change would be allowed"}, nil)
+				audit(cl, st, name, nil, "", true, rec)
+				cl.out.Print(name, map[string]any{"conn": c.Name, "risk": v.Risk.String(), "dry_run": true, "note": "nothing sent: the change would be allowed"}, nil)
 				return nil
 			}
 			fn = preview
 		}
 	}
-	if g.timeout > 0 {
+	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
-	s, err := openBucket(ctx, st, c)
+	s, err := openBucket(cl, ctx, st, c)
 	if err != nil {
 		return fail(err)
 	}
@@ -118,9 +118,9 @@ func withStoragePreview(ctx context.Context, name, connExpr string, v driver.Ver
 	if err != nil {
 		return fail(err)
 	}
-	audit(st, name, nil, "", true, rec)
+	audit(cl, st, name, nil, "", true, rec)
 	if data != nil {
-		out.P.Print(name, data, nil)
+		cl.out.Print(name, data, nil)
 	}
 	return nil
 }
@@ -149,7 +149,7 @@ func namedHint(err error, conn string) error {
 
 // openBucket connects to a storage conn of any kind (a variable so tests
 // can give a bucket in memory).
-var openBucket = func(ctx context.Context, st *store.State, c *store.Conn) (storex.Bucket, error) {
+var openBucket = func(cl *call, ctx context.Context, st *store.State, c *store.Conn) (storex.Bucket, error) {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
 		return nil, err
@@ -158,9 +158,9 @@ var openBucket = func(ctx context.Context, st *store.State, c *store.Conn) (stor
 		// an SFTP server is an SSH host without a shell: dial it like one, so
 		// host keys, keys/agent and the --via chain work exactly as for hosts
 		h := sftpHost(c)
-		cctx, cancel := context.WithTimeout(ctx, sshOpts(st).ConnectTimeout)
+		cctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
 		defer cancel()
-		sc, err := sshx.Dial(cctx, st, h, sshOpts(st))
+		sc, err := sshx.Dial(cctx, st, h, sshOpts(cl, st))
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +171,7 @@ var openBucket = func(ctx context.Context, st *store.State, c *store.Conn) (stor
 		}
 		return storex.NewSFTP(cl, t.Prefix, sc.Close), nil
 	}
-	a, err := openAccess(ctx, st, c)
+	a, err := openAccess(cl, ctx, st, c)
 	if err != nil {
 		return nil, err
 	}
@@ -185,20 +185,20 @@ var openBucket = func(ctx context.Context, st *store.State, c *store.Conn) (stor
 				a.Close()
 				return nil, cerr
 			}
-			b, err = storex.OpenS3Creds(a.Target, cr.AccessKeyID, cr.SecretAccessKey, cr.SessionToken, a.Dial, dbTimeout())
+			b, err = storex.OpenS3Creds(a.Target, cr.AccessKeyID, cr.SecretAccessKey, cr.SessionToken, a.Dial, dbTimeout(cl))
 		} else {
-			b, err = storex.OpenS3(a.Target, a.Password, a.Dial, dbTimeout())
+			b, err = storex.OpenS3(a.Target, a.Password, a.Dial, dbTimeout(cl))
 		}
 	case "webdav":
-		b, err = storex.OpenWebDAV(a.Target, a.Password, a.Dial, dbTimeout())
+		b, err = storex.OpenWebDAV(a.Target, a.Password, a.Dial, dbTimeout(cl))
 	case "gcs":
-		b, err = storex.OpenGCS(ctx, a.Target, a.Password, a.Dial, dbTimeout())
+		b, err = storex.OpenGCS(ctx, a.Target, a.Password, a.Dial, dbTimeout(cl))
 	case "azblob":
-		b, err = storex.OpenAzure(a.Target, a.Password, a.Dial, dbTimeout())
+		b, err = storex.OpenAzure(a.Target, a.Password, a.Dial, dbTimeout(cl))
 	case "smb":
-		b, err = storex.OpenSMB(ctx, a.Target, a.Password, a.Dial, dbTimeout())
+		b, err = storex.OpenSMB(ctx, a.Target, a.Password, a.Dial, dbTimeout(cl))
 	default: // ftp, ftps
-		b, err = storex.OpenFTP(ctx, a.Target, a.Password, a.Dial, dbTimeout())
+		b, err = storex.OpenFTP(ctx, a.Target, a.Password, a.Dial, dbTimeout(cl))
 	}
 	if err != nil {
 		a.Close()
@@ -292,15 +292,15 @@ func storageLsCmd() *cobra.Command {
 		Example: `  komando storage list backups
   komando storage list backups db/2026-11/ --recursive`,
 		Args: cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			prefix := ""
 			if len(args) == 2 {
 				prefix = args[1]
 			}
-			return withStorage(cmd.Context(), "storage.list", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
+			return withStorage(cl, cmd.Context(), "storage.list", args[0], driver.Verdict{}, map[string]any{"prefix": prefix},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					if allVersions {
-						return listVersions(ctx, c, s, prefix, limit)
+						return listVersions(cl, ctx, c, s, prefix, limit)
 					}
 					objs, more, err := s.List(ctx, prefix, recursive, limit)
 					if err != nil {
@@ -322,11 +322,11 @@ func storageLsCmd() *cobra.Command {
 						return nil, storex.FolderNotFound(prefix)
 					}
 					if more {
-						out.P.CutNoted()
+						cl.out.CutNoted()
 					}
 					return objectList{Conn: c.Name, Prefix: prefix, Objects: objs, Count: len(objs), More: more}, nil
 				})
-		},
+		}),
 	}
 	c.Flags().BoolVarP(&recursive, "recursive", "r", false, "include everything below the prefix, not just one level")
 	c.Flags().IntVarP(&limit, "limit", "n", 1000, "the most entries to show")
@@ -343,7 +343,7 @@ func storageCatCmd() *cobra.Command {
 		Example: `  komando storage cat backups logs/app-2026-11-02.log --tail 50
   komando storage cat config prod/app.env`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
 			if fl.Changed("head") && fl.Changed("tail") {
 				return out.Usage("pick one of --head and --tail")
@@ -354,7 +354,7 @@ func storageCatCmd() *cobra.Command {
 			if maxBytes < 1 {
 				return out.Usage("--max-bytes takes 1 or more")
 			}
-			return withStorage(cmd.Context(), "storage.cat", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
+			return withStorage(cl, cmd.Context(), "storage.cat", args[0], driver.Verdict{}, map[string]any{"key": args[1]},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					w := &capWriter{max: maxBytes}
 					if tail > 0 {
@@ -380,12 +380,12 @@ func storageCatCmd() *cobra.Command {
 					case tail > 0 && len(lines) > tail:
 						lines = lines[len(lines)-tail:]
 					}
-					if w.capped && out.P.Format == "text" {
-						fmt.Fprintf(os.Stderr, "Note: showing the first %s; raise --max-bytes or download it\n", humanBytes(w.max))
+					if w.capped && cl.out.Format == "text" {
+						fmt.Fprintf(cl.out.Err, "Note: showing the first %s; raise --max-bytes or download it\n", humanBytes(w.max))
 					}
 					return catData{Conn: c.Name, Key: args[1], Content: strings.Join(lines, ""), Truncated: truncated}, nil
 				})
-		},
+		}),
 	}
 	c.Flags().IntVar(&head, "head", 0, "only the first N lines")
 	c.Flags().IntVar(&tail, "tail", 0, "only the last N lines")
@@ -453,7 +453,7 @@ through --via, only people who can reach that address can use the link.
   komando storage link backups reports/q3.pdf --expires 7d
   komando storage link backups reports/q3.pdf --endpoint https://files.example.com`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if expires <= 0 || expires > 7*24*time.Hour {
 				return out.Usage("--expires takes 1s to 7d (168h)")
 			}
@@ -466,7 +466,7 @@ through --via, only people who can reach that address can use the link.
 				pub = u
 			}
 			// a link opens data to anyone who has it: treat it like a change
-			return withStorage(cmd.Context(), "storage.link", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1], "expires": expires.String()},
+			return withStorage(cl, cmd.Context(), "storage.link", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1], "expires": expires.String()},
 				func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 					var u *url.URL
 					var err error
@@ -493,12 +493,12 @@ through --via, only people who can reach that address can use the link.
 						w := "the link is signed with temporary AWS keys (profile " + awsProfile(c) + "), so it stops working when they expire, which can be before expires_at; for a link that lasts, give the conn an access key of its own (--password-ref)"
 						d.Warning = strings.TrimPrefix(d.Warning+"; "+w, "; ")
 					}
-					if d.Warning != "" && out.P.Format == "text" {
-						fmt.Fprintln(os.Stderr, "Warning: "+d.Warning)
+					if d.Warning != "" && cl.out.Format == "text" {
+						fmt.Fprintln(cl.out.Err, "Warning: "+d.Warning)
 					}
 					return d, nil
 				})
-		},
+		}),
 	}
 	expires = time.Hour
 	c.Flags().Var(&durFlag{d: &expires, positive: true}, "expires", "how long the link works, like 30m, 24h or 7d (at most 7d)")
@@ -555,7 +555,7 @@ func (d uploadData) Text() string {
 }
 
 // storageUpload uploads one local file; key defaults to the file's name.
-func storageUpload(ctx context.Context, name, conn, file, key string) error {
+func storageUpload(cl *call, ctx context.Context, name, conn, file, key string) error {
 	key = uploadKey(file, key)
 	if err := storex.CheckKey(key); err != nil {
 		return err
@@ -564,7 +564,7 @@ func storageUpload(ctx context.Context, name, conn, file, key string) error {
 	if err != nil || fi.IsDir() {
 		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give a regular file (folders go with -r: `komando upload CONN DIR KEY -r`)", "cannot upload %s", file)
 	}
-	if err := guardLocalRead(file); err != nil {
+	if err := guardLocalRead(cl, file); err != nil {
 		return err
 	}
 	if err := hiddenInLocal(file); err != nil {
@@ -574,7 +574,7 @@ func storageUpload(ctx context.Context, name, conn, file, key string) error {
 		replaced, err := s.Exists(ctx, key)
 		return uploadData{Conn: c.Name, File: file, Key: key, Bytes: fi.Size(), Replaced: replaced}, err
 	}
-	return withStoragePreview(ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
+	return withStoragePreview(cl, ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 			d, err := data(c, s, ctx)
 			if err != nil {

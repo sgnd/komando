@@ -53,7 +53,7 @@ func TestConventions(t *testing.T) {
 			walk(sub)
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 }
 
 // genericText are the change commands whose -o text still comes from the

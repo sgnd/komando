@@ -32,9 +32,9 @@ Only the destination changes: a protected destination needs --yes.`,
   komando registry copy ghcr:org/app:1.4.2 harbor:
   komando registry copy reg:app:latest reg:app:stable`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRegistryCopy(cmd.Context(), args[0], args[1])
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return runRegistryCopy(cl, cmd.Context(), args[0], args[1])
+		}),
 	}
 }
 
@@ -72,7 +72,7 @@ func (d copyData) Text() string {
 	return s
 }
 
-func runRegistryCopy(ctx context.Context, from, to string) error {
+func runRegistryCopy(cl *call, ctx context.Context, from, to string) error {
 	srcName, srcImage, ok := strings.Cut(from, ":")
 	if !ok || srcImage == "" || strings.Contains(srcName, "/") {
 		return out.Usage("write the source as CONN:IMAGE, for example ghcr:org/app:1.4.2 (%q has no registry conn in front)", from)
@@ -107,45 +107,45 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 	if err != nil {
 		return err
 	}
-	src, err := singleConn(st, srcName, "registry")
+	src, err := singleConn(cl, st, srcName, "registry")
 	if err != nil {
 		return err
 	}
-	dst, err := singleConn(st, dstName, "registry")
+	dst, err := singleConn(cl, st, dstName, "registry")
 	if err != nil {
 		return err
 	}
 	data := copyData{From: src.Name + ":" + srcRepo + refSep(srcRef) + srcRef, To: dst.Name + ":" + dstRepo + ":" + dstRef}
 	rec := map[string]any{"conns": []string{src.Name, dst.Name}, "from": data.From, "to": data.To, "risk": "write"}
-	if err := guardConns(st, []*store.Conn{dst}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
-		if g.dryRun {
-			out.P.Print("registry.copy", map[string]any{"from": data.From, "to": data.To, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
+	if err := guardConns(cl, st, []*store.Conn{dst}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
+		if cl.flags.dryRun {
+			cl.out.Print("registry.copy", map[string]any{"from": data.From, "to": data.To, "dry_run": true, "would_be_blocked": toErr(err)}, nil)
 			return nil
 		}
 		return err
 	}
-	if g.timeout > 0 { // a big image may take long: only a --timeout given ends it
+	if cl.flags.timeout > 0 { // a big image may take long: only a --timeout given ends it
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
-	sc, closeSrc, err := openRegistry(ctx, st, src)
+	sc, closeSrc, err := openRegistry(cl, ctx, st, src)
 	if err != nil {
 		return err
 	}
 	defer closeSrc()
-	dc, closeDst, err := openRegistry(ctx, st, dst)
+	dc, closeDst, err := openRegistry(cl, ctx, st, dst)
 	if err != nil {
 		return err
 	}
 	defer closeDst()
 	srcRepo, dstRepo = sc.Repo(srcRepo), dc.Repo(dstRepo) // Docker Hub: nginx is library/nginx
-	if g.dryRun {
+	if cl.flags.dryRun {
 		if err := copyDryRun(ctx, &data, sc, srcRepo, srcRef, dc, dstRepo, dstRef); err != nil {
 			return err
 		}
-		audit(st, "registry.copy", nil, "", true, rec)
-		out.P.Print("registry.copy", data, nil)
+		audit(cl, st, "registry.copy", nil, "", true, rec)
+		cl.out.Print("registry.copy", data, nil)
 		return nil
 	}
 	res, err := registry.Copy(ctx, sc, srcRepo, srcRef, dc, dstRepo, dstRef)
@@ -155,13 +155,13 @@ func runRegistryCopy(ctx context.Context, from, to string) error {
 		}
 		err = registryErr(err)
 		rec["error"] = toErr(err).Code
-		audit(st, "registry.copy", nil, "", false, rec)
+		audit(cl, st, "registry.copy", nil, "", false, rec)
 		return err
 	}
 	data.CopyResult = res
 	rec["digest"], rec["bytes"] = res.Digest, res.Bytes
-	audit(st, "registry.copy", nil, "", true, rec)
-	out.P.Print("registry.copy", data, nil)
+	audit(cl, st, "registry.copy", nil, "", true, rec)
+	cl.out.Print("registry.copy", data, nil)
 	return nil
 }
 

@@ -3,7 +3,6 @@ package cli
 import (
 	"bytes"
 	"errors"
-	"os"
 	"strings"
 	"testing"
 
@@ -14,7 +13,8 @@ import (
 // people see: one line, a suggestion, and a hint for the command meant.
 func usageFor(t *testing.T, args ...string) *out.Error {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(args)
 	root.SetOut(&bytes.Buffer{})
 	cmd, err := root.ExecuteC()
@@ -22,7 +22,7 @@ func usageFor(t *testing.T, args ...string) *out.Error {
 		t.Fatalf("%v: want an error", args)
 	}
 	if isUsageErr(err) {
-		err = usageErr(cmd, err)
+		err = usageErr(tcl, cmd, err)
 	}
 	var e *out.Error
 	if !errors.As(err, &e) {
@@ -32,14 +32,14 @@ func usageFor(t *testing.T, args ...string) *out.Error {
 }
 
 func TestTypoSuggestions(t *testing.T) {
-	saved := os.Args
-	t.Cleanup(func() { os.Args = saved })
-	os.Args = []string{"komando", "exce", "web1"}
+	saved := tcl.args
+	t.Cleanup(func() { tcl.args = saved })
+	tcl.args = []string{"komando", "exce", "web1"}
 	e := usageFor(t, "exce", "web1")
 	if e.Message != `unknown command "exce"; did you mean exec?` || e.Hint != "run it again with exec: `komando exec web1`" || e.Suggestion != "exec" {
 		t.Errorf("command typo: %q / %q", e.Message, e.Hint)
 	}
-	os.Args = saved
+	tcl.args = saved
 	if strings.Contains(e.Message, "\n") {
 		t.Errorf("one line: %q", e.Message)
 	}
@@ -62,7 +62,8 @@ func TestTypoSuggestions(t *testing.T) {
 
 func TestFirstSteps(t *testing.T) {
 	invHome(t)
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"-o", "text"})
 	var buf bytes.Buffer
 	root.SetOut(&buf)

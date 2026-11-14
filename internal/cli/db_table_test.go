@@ -13,12 +13,13 @@ import (
 // tableRun runs komando without -o json and returns what it printed.
 func tableRun(t *testing.T, args ...string) (string, *out.Error) {
 	t.Helper()
-	g.dryRun, g.yes, g.maxOutput = false, false, 0
+	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.maxOutput = false, false, 0
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
-	defer func() { out.P.W = saved }()
-	root := newRoot()
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	defer func() { tcl.out.W = saved }()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
 		return buf.String(), toErr(err)

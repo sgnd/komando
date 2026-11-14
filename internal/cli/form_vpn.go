@@ -34,8 +34,8 @@ func vpnForms() []formKind {
 		{"Cisco IPsec", "other: an older Cisco VPN with a group name and a group password", ipsecForm},
 		{"IKEv2", "other: a server with a shared secret, or a user name and password", ikev2Form},
 		{"A VPN on this computer", "other: one already set up in your computer's network settings", systemVpnForm},
-		{"SOCKS proxy", "other: one already running, like komando tunnel start HOST -D 1080", func() formSpec { return vpnProxyForm("socks") }},
-		{"HTTP proxy", "other: your company's web proxy", func() formSpec { return vpnProxyForm("proxy") }},
+		{"SOCKS proxy", "other: one already running, like komando tunnel start HOST -D 1080", func(cl *call) formSpec { return vpnProxyForm("socks") }},
+		{"HTTP proxy", "other: your company's web proxy", func(cl *call) formSpec { return vpnProxyForm("proxy") }},
 	}
 }
 
@@ -241,7 +241,7 @@ func vpnFileText(p string) string {
 
 // WireGuard, OpenVPN, Tailscale.
 
-func wireguardForm() formSpec {
+func wireguardForm(_ *call) formSpec {
 	return formSpec{title: "Add a WireGuard VPN", qs: []formQ{
 		vpnNameQ("office", "-key", "-psk"),
 		{key: "config", label: "File", ask: "Where is the WireGuard file?", example: "~/Downloads/office.conf",
@@ -269,7 +269,7 @@ func wireguardFileProblem(v string) string {
 	return ""
 }
 
-func openvpnForm() formSpec {
+func openvpnForm(_ *call) formSpec {
 	needsUser := func(a formAnswers) bool { return ovpnNeedsUser(a["config"]) }
 	return formSpec{title: "Add an OpenVPN VPN", qs: []formQ{
 		vpnNameQ("office", "-config", "-pass"),
@@ -323,7 +323,7 @@ func ovpnNeedsUser(path string) bool {
 	return err == nil && p.AuthUserPass
 }
 
-func tailscaleForm() formSpec {
+func tailscaleForm(_ *call) formSpec {
 	return formSpec{title: "Add Tailscale", qs: []formQ{
 		vpnNameQ("tailnet", "-authkey"),
 		{key: "login", label: "Login", ask: "How do you want to log in?",
@@ -364,7 +364,7 @@ func vpnPortalKind(kind, product, detail string) formKind {
 	if c := netx.Kinds[kind].Client; len(c) > 0 {
 		detail += "; needs the " + strings.Join(c, " and ") + " programs"
 	}
-	return formKind{label: product, detail: detail, spec: func() formSpec { return vpnPortalForm(kind, product) }}
+	return formKind{label: product, detail: detail, spec: func(cl *call) formSpec { return vpnPortalForm(kind, product) }}
 }
 
 func vpnPortalForm(kind, product string) formSpec {
@@ -403,7 +403,7 @@ func vpnPortalForm(kind, product string) formSpec {
 
 // IPsec: L2TP, Cisco IPsec, IKEv2.
 
-func l2tpForm() formSpec {
+func l2tpForm(_ *call) formSpec {
 	return formSpec{title: "Add an L2TP/IPsec VPN", qs: []formQ{
 		vpnNameQ("office", "-psk", "-pass"),
 		vpnServerQ(),
@@ -430,7 +430,7 @@ func l2tpForm() formSpec {
 	}}
 }
 
-func ipsecForm() formSpec {
+func ipsecForm(_ *call) formSpec {
 	return formSpec{title: "Add a Cisco IPsec VPN", qs: []formQ{
 		vpnNameQ("office", "-psk", "-pass"),
 		vpnServerQ(),
@@ -458,7 +458,7 @@ func ipsecForm() formSpec {
 	}}
 }
 
-func ikev2Form() formSpec {
+func ikev2Form(_ *call) formSpec {
 	byUser := func(a formAnswers) bool { return a["auth"] != "psk" }
 	byPsk := func(a formAnswers) bool { return a["auth"] == "psk" }
 	return formSpec{title: "Add an IKEv2 VPN", qs: []formQ{
@@ -518,7 +518,7 @@ func ikev2Build(_ *store.State, a formAnswers) [][]string {
 
 // VPNs komando does not run itself.
 
-func systemVpnForm() formSpec {
+func systemVpnForm(_ *call) formSpec {
 	return formSpec{title: "Add a VPN on this computer", qs: []formQ{
 		vpnNameQ("corp"),
 		vpnCheckQ(true, "10.20.0.1:443"),

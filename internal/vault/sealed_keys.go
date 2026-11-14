@@ -98,12 +98,15 @@ func sealedOpens(oldPass string) error {
 }
 
 // sealedChangeKey is ChangeKey on a sealed home.
-func sealedChangeKey(oldPass, newPass string) (KeyChange, error) {
+func sealedChangeKey(w store.Write, oldPass, newPass string) (KeyChange, error) {
 	var res KeyChange
 	if newPass != "" && utf8.RuneCountInString(newPass) < MinPassphrase {
 		return res, ErrShortPassphrase
 	}
-	if store.DryRun {
+	if err := w.Check(); err != nil {
+		return res, err
+	}
+	if w == store.Preview() {
 		return res, store.ErrDryRun
 	}
 	meta, err := storeMeta()

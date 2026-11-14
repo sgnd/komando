@@ -26,7 +26,7 @@ type hostVet struct {
 // --allow-dangerous) the host is only left out, so the rest still comes
 // in; a person who says no in the window stops the whole import. Hosts
 // that pass are put into s.
-func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
+func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
 	var v hostVet
 	var cand []*store.Host
 	later := map[*store.Host][]string{} // what changed on a host; said only if it is added
@@ -47,7 +47,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 			case !overwrite:
 				v.Existing = append(v.Existing, h.Name)
 				continue
-			case old.Protected && !yesOK():
+			case old.Protected && !cl.yesOK():
 				v.Protected = append(v.Protected, h.Name)
 				continue
 			}
@@ -60,7 +60,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 			}
 		}
 		if !ownRefs {
-			later[h] = append(later[h], dropForeignHostRefs(h)...)
+			later[h] = append(later[h], dropForeignHostRefs(cl, h)...)
 		}
 		if h.Key != "" {
 			if _, ok := s.Keys[h.Key]; !ok {
@@ -79,11 +79,11 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 			v.Invalid = append(v.Invalid, importSkip{h.Name, toErr(err).Message})
 			continue
 		}
-		if r := proxyCommandSkip(h.ProxyCommand); r != "" {
+		if r := proxyCommandSkip(cl, h.ProxyCommand); r != "" {
 			v.Invalid = append(v.Invalid, importSkip{h.Name, r})
 			continue
 		}
-		if err := guardProxyCommand(h.ProxyCommand, h.Name); err != nil {
+		if err := guardProxyCommand(cl, h.ProxyCommand, h.Name); err != nil {
 			return v, err
 		}
 		cand = append(cand, h)
@@ -96,7 +96,7 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		s.Hosts[h.Name] = h
 	}
 	for _, h := range cand {
-		if err := checkHost(s, h); err != nil {
+		if err := checkHost(cl, s, h); err != nil {
 			if old, ok := prev[h.Name]; ok {
 				s.Hosts[h.Name] = old
 			} else {
@@ -114,20 +114,20 @@ func vetImportHosts(s *store.State, hosts []*store.Host, overwrite, ownRefs bool
 		}
 		v.Add = append(v.Add, h)
 	}
-	return v, guardHostSends(v.Add, prev)
+	return v, guardHostSends(cl, v.Add, prev)
 }
 
 // proxyCommandSkip says why an import leaves out a host whose proxy
 // command guardProxyCommand would stop and no flag asks to let through.
 // With the flag, guardProxyCommand asks the person instead.
-func proxyCommandSkip(cmd string) string {
+func proxyCommandSkip(cl *call, cmd string) string {
 	if cmd == "" {
 		return ""
 	}
-	if hits := policy.Check(cmd, nil); len(hits) > 0 && !g.allowDangerous {
+	if hits := policy.Check(cmd, nil); len(hits) > 0 && !cl.flags.allowDangerous {
 		return "its proxy command matches destructive rules (" + hits[0].Reason + "): import it again with --allow-dangerous once the user confirms it is intended"
 	}
-	if isAgent() && !g.yes {
+	if cl.isAgent() && !cl.flags.yes {
 		return "its proxy command runs on this computer, so an AI agent needs the user's yes: import it again with --yes after the user confirms"
 	}
 	return ""

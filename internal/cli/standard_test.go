@@ -67,7 +67,7 @@ func allowCheck(t *testing.T, rule string, got map[string]string, allow []string
 // S-1.4, S-1.4a: the top-level names are a closed list; ssh-gate's
 // --name and --read-only are frozen.
 func TestStandardTopLevel(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	want := []string{
 		// nouns (S-2.1)
 		"host", "conn", "vpn", "group", "secret", "key", "recipe", "policy", "job", "tunnel", "config",
@@ -100,7 +100,7 @@ func TestStandardTopLevel(t *testing.T) {
 
 // S-1.6: every command carries its stable ID.
 func TestStandardStableIDs(t *testing.T) {
-	for _, c := range allCommands(newRoot()) {
+	for _, c := range allCommands(newRoot(tcl)) {
 		if c.Runnable() && c.Annotations[cmdIDNote] == "" {
 			t.Errorf("S-1.6: %s has no ID", c.CommandPath())
 		}
@@ -111,7 +111,7 @@ func TestStandardStableIDs(t *testing.T) {
 // word.
 func TestStandardPathShape(t *testing.T) {
 	got := map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		if isGroup(c) {
 			continue
 		}
@@ -128,7 +128,7 @@ func TestStandardPathShape(t *testing.T) {
 
 // S-2.1: each noun has its plural and its help word as aliases.
 func TestStandardNounAliases(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for noun, aliases := range map[string][]string{
 		"host": {"hosts", "server", "servers"}, "conn": {"conns"}, "vpn": {"vpns"}, "group": {"groups"},
 		"secret": {"secrets"}, "key": {"keys"}, "recipe": {"recipes"}, "policy": {"policies"}, "job": {"jobs"},
@@ -167,7 +167,7 @@ var (
 // S-3.1, S-3.3: every leaf verb is in the verb table or a tool word.
 func TestStandardVerbs(t *testing.T) {
 	got := map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		if isGroup(c) || c.Parent() == c.Root() {
 			continue
 		}
@@ -183,7 +183,7 @@ func TestStandardPairs(t *testing.T) {
 	pairs := [][2]string{{"start", "stop"}, {"up", "down"}, {"login", "logout"}, {"grant", "revoke"},
 		{"lock", "unlock"}, {"install", "uninstall"}, {"enable", "disable"}}
 	got := map[string]string{}
-	for _, c := range append([]*cobra.Command{newRoot()}, visibleCmds(newRoot())...) {
+	for _, c := range append([]*cobra.Command{newRoot(tcl)}, visibleCmds(newRoot(tcl))...) {
 		if !isGroup(c) && c.Parent() != nil {
 			continue
 		}
@@ -208,7 +208,7 @@ func TestStandardPairs(t *testing.T) {
 
 // S-3.4: in a family noun the only conn-level verb is add.
 func TestStandardFamilyVerbs(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, fam := range []string{"db", "cache", "queue", "storage", "cluster", "registry"} {
 		for _, s := range findCmd(t, root, fam).Commands() {
 			if !s.Hidden && slices.Contains([]string{"edit", "rename", "test", "show"}, s.Name()) {
@@ -222,7 +222,7 @@ func TestStandardFamilyVerbs(t *testing.T) {
 // --write and --read-only.
 func TestStandardReadNoWriteFlag(t *testing.T) {
 	got := map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		if f := c.LocalFlags().Lookup("apply"); f != nil && !f.Hidden {
 			t.Errorf("S-5.9: %s shows --apply; use --write", c.CommandPath())
 		}
@@ -255,7 +255,7 @@ var useToken = regexp.MustCompile(`[A-Z][A-Z_]*(/[A-Z]+)?`)
 // list.
 func TestStandardUseGrammar(t *testing.T) {
 	got := map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		if c.Name() == "help" {
 			continue // cobra's own
 		}
@@ -292,7 +292,7 @@ func TestStandardUseGrammar(t *testing.T) {
 // check, listed in requiredByCode).
 func TestStandardRequiredInUse(t *testing.T) {
 	inUse := regexp.MustCompile(`(?:^|\s)--([a-z-]+) [A-Z_]+`)
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		shown := map[string]bool{}
 		for _, m := range inUse.FindAllStringSubmatch(c.Use, -1) {
 			shown[m[1]] = true
@@ -317,7 +317,7 @@ var requiredByCode = []string{"db restore --from", "db user add --password-ref",
 // S-5.1, S-5.6: one type per flag name, except the S-5.1 exceptions.
 func TestStandardFlagTypes(t *testing.T) {
 	types := map[string]map[string][]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
 			if f.Hidden {
 				return
@@ -340,7 +340,7 @@ func TestStandardFlagTypes(t *testing.T) {
 // S-5.4, S-5.11: a shared flag has one usage text.
 func TestStandardSinceUntil(t *testing.T) {
 	texts := map[string]map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
 			if f.Hidden || !slices.Contains([]string{"since", "until", "sudo", "no-sudo", "namespace", "protected"}, f.Name) {
 				return
@@ -363,7 +363,7 @@ func TestStandardSinceUntil(t *testing.T) {
 // S-5.5: never both --X and --no-X on one command.
 func TestStandardNegatives(t *testing.T) {
 	got := map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		c.Flags().VisitAll(func(f *pflag.Flag) {
 			if pos, ok := strings.CutPrefix(f.Name, "no-"); ok && !f.Hidden {
 				if p := c.Flags().Lookup(pos); p != nil && !p.Hidden {
@@ -378,7 +378,7 @@ func TestStandardNegatives(t *testing.T) {
 // S-5.7: defaults are the real ones, durations in short form, never -1.
 func TestStandardDefaults(t *testing.T) {
 	long := regexp.MustCompile(`^\d+h\d+m\d+s$|^\d+m\d+s$|^0s$`)
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		c.LocalFlags().VisitAll(func(f *pflag.Flag) {
 			if f.DefValue == "-1" || long.MatchString(f.DefValue) {
 				t.Errorf("S-5.7: %s --%s shows the default %q", c.CommandPath(), f.Name, f.DefValue)
@@ -389,7 +389,7 @@ func TestStandardDefaults(t *testing.T) {
 
 // S-5.13: edit commands show --add-X/--rm-X, not --group/--tag.
 func TestStandardEditFlags(t *testing.T) {
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		if c.Name() != "edit" {
 			continue
 		}
@@ -409,7 +409,7 @@ func TestStandardShort(t *testing.T) {
 	flagWord := regexp.MustCompile(`(^|\s)--?[a-zA-Z]`)
 	got := map[string]string{}
 	seen := map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		s, p := c.Short, cmdPathOf(c)
 		limit := 72
 		if c.Parent() == c.Root() {
@@ -472,7 +472,7 @@ func TestStandardShort(t *testing.T) {
 // its first paragraph; no Long line is wider than 76 columns.
 func TestStandardLong(t *testing.T) {
 	got := map[string]string{}
-	for _, c := range visibleCmds(newRoot()) {
+	for _, c := range visibleCmds(newRoot(tcl)) {
 		k, ok := kindOf(c)
 		if ok && (k.Kind == kindChange || k.Kind == kindDepends) && c.Runnable() {
 			paras := strings.Split(c.Long, "\n\n")
@@ -496,7 +496,7 @@ var sampleNames = []string{"web1", "web2", "db1", "@web", "prod-db", "staging-db
 // S-6.6..S-6.9: example counts, a dry-run line per change command,
 // approval lines after their dry run and marked, sample names, English.
 func TestStandardExamples(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	got := map[string]string{}
 	names := map[string]string{}
 	for _, c := range visibleCmds(root) {
@@ -593,7 +593,7 @@ var (
 // and Next: lines names a real command, and its UPPERCASE words are that
 // command's Use words (a flag's value may be any word).
 func TestStandardReferences(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	got := map[string]string{}
 	check := func(where, ref string) {
 		words := shellWords(strings.ReplaceAll(ref, "\n", " "))
@@ -649,7 +649,7 @@ func TestStandardReferences(t *testing.T) {
 
 // S-10.1: each inventory kind's journey verbs resolve (an alias counts).
 func TestStandardJourneys(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for kind, verbs := range map[string][]string{
 		"host":   {"add", "test", "show", "list", "edit", "rename", "rm"},
 		"conn":   {"add", "test", "show", "list", "edit", "rename", "rm"},

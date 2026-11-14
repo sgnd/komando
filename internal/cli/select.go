@@ -30,7 +30,7 @@ type selection struct {
 
 // resolveSelection expands a selector expression ("@web,tag:prod,!web-2")
 // over hosts and conns. It fails when nothing matches.
-func resolveSelection(st *store.State, expr string) (selection, error) {
+func resolveSelection(cl *call, st *store.State, expr string) (selection, error) {
 	type item struct {
 		h *store.Host
 		c *store.Conn
@@ -47,7 +47,7 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 	}
 	items, err := resolveExpr(expr, func(sel string) ([]item, error) {
 		var res []item
-		m, err := matchSelector(st, sel)
+		m, err := matchSelector(cl, st, sel)
 		for _, h := range m.Hosts {
 			res = append(res, item{h: h})
 		}
@@ -91,11 +91,11 @@ func resolveSelection(st *store.State, expr string) (selection, error) {
 		}
 		e := out.Errf(out.ExitNotFound, "TARGET_EMPTY", hint, "%s", msg)
 		if near != "" {
-			suggest(e, strings.TrimSpace(expr), near)
+			suggest(cl, e, strings.TrimSpace(expr), near)
 		}
 		return sel, e
 	}
-	notePersonal(st, sel.Hosts, sel.Conns)
+	notePersonal(cl, st, sel.Hosts, sel.Conns)
 	return sel, nil
 }
 
@@ -142,7 +142,7 @@ func resolveExpr[T any](expr string, match func(sel string) ([]T, error), name f
 
 // matchSelector applies one selector (no commas, no "!") to hosts, conns
 // and VPNs.
-func matchSelector(st *store.State, sel string) (selection, error) {
+func matchSelector(cl *call, st *store.State, sel string) (selection, error) {
 	if k, ok := strings.CutPrefix(sel, "kind:"); ok {
 		return matchKind(st, k)
 	}
@@ -167,7 +167,7 @@ func matchSelector(st *store.State, sel string) (selection, error) {
 		return selection{Vpns: []*store.Vpn{v}}, nil
 	}
 	if n, ok := foldMatch(sel, allNames(st)); ok { // Web1 for web1
-		return matchSelector(st, n)
+		return matchSelector(cl, st, n)
 	}
 	if looksAdhoc(sel) {
 		if h, err := sshx.ParseAdhoc(sel); err == nil && validPort(h.Port) == nil {
@@ -175,7 +175,7 @@ func matchSelector(st *store.State, sel string) (selection, error) {
 			return selection{Hosts: []*store.Host{h}}, nil
 		}
 	}
-	return selection{}, targetNotFound(st, sel)
+	return selection{}, targetNotFound(cl, st, sel)
 }
 
 // bracketedAdhoc is the ad-hoc server an IPv6 address in brackets names
@@ -319,11 +319,11 @@ func matchPattern[T any](items []T, attrs func(T) selAttrs, sel string) (res []T
 
 // targetNotFound is the error for an unknown name, with a "did you mean"
 // when a host, conn, group or tag is spelled almost the same.
-func targetNotFound(st *store.State, sel string) error {
+func targetNotFound(cl *call, st *store.State, sel string) error {
 	names := allNames(st)
 	e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "run `komando list` to see servers, conns and VPNs", "no server, conn or VPN named %q", sel)
 	if s := closest(sel, names); s != "" {
-		suggest(e, sel, s)
+		suggest(cl, e, sel, s)
 	}
 	return e
 }
@@ -433,9 +433,9 @@ func useFor(h *store.Host, c *store.Conn) string {
 
 // skipVpns reports the VPNs a selector picked; no command acts on a VPN
 // directly, they are used through --via.
-func skipVpns(vs []*store.Vpn) {
+func skipVpns(cl *call, vs []*store.Vpn) {
 	for _, v := range vs {
-		out.P.Skip(out.Skipped{Name: v.Name, Kind: "vpn", Reason: "a VPN: use it in a --via path"})
+		cl.out.Skip(out.Skipped{Name: v.Name, Kind: "vpn", Reason: "a VPN: use it in a --via path"})
 	}
 }
 
@@ -451,8 +451,8 @@ func renameNotFound(err error, code string) error {
 
 // resolveTargets is resolveSelection for commands that work on servers.
 // Conns the selector picked are reported as skipped.
-func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
-	sel, err := resolveSelection(st, expr)
+func resolveTargets(cl *call, st *store.State, expr string) ([]*store.Host, error) {
+	sel, err := resolveSelection(cl, st, expr)
 	if err != nil {
 		return nil, renameNotFound(err, "HOST_NOT_FOUND")
 	}
@@ -460,9 +460,9 @@ func resolveTargets(st *store.State, expr string) ([]*store.Host, error) {
 		return nil, noMatch(expr, "servers", selection{Conns: sel.Conns, Vpns: sel.Vpns})
 	}
 	for _, c := range sel.Conns {
-		out.P.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
+		cl.out.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
 	}
-	skipVpns(sel.Vpns)
+	skipVpns(cl, sel.Vpns)
 	return sel.Hosts, nil
 }
 
@@ -497,9 +497,9 @@ func noMatch(expr, want string, sel selection) *out.Error {
 // also look at history (audit, jobs) of servers and conns removed since, so
 // when the selector matches nothing in the inventory its parts are used as
 // plain names.
-func targetNames(st *store.State, expr string) map[string]bool {
+func targetNames(cl *call, st *store.State, expr string) map[string]bool {
 	names := map[string]bool{}
-	if sel, err := resolveSelection(st, expr); err == nil {
+	if sel, err := resolveSelection(cl, st, expr); err == nil {
 		for _, h := range sel.Hosts {
 			names[h.Name] = true
 		}
@@ -531,8 +531,8 @@ func viaChain(via string) []string {
 }
 
 // singleHost resolves a selector that must pick exactly one server.
-func singleHost(st *store.State, expr string) (*store.Host, error) {
-	hs, err := resolveTargets(st, expr)
+func singleHost(cl *call, st *store.State, expr string) (*store.Host, error) {
+	hs, err := resolveTargets(cl, st, expr)
 	if err != nil {
 		return nil, err
 	}
@@ -545,8 +545,8 @@ func singleHost(st *store.State, expr string) (*store.Host, error) {
 // singleConn resolves a selector that must pick exactly one conn of the
 // family the command works with (db, cache, storage). Other targets the
 // selector picked are reported as skipped.
-func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
-	sel, err := resolveSelection(st, expr)
+func singleConn(cl *call, st *store.State, expr, family string) (*store.Conn, error) {
+	sel, err := resolveSelection(cl, st, expr)
 	if err != nil {
 		return nil, renameNotFound(err, "CONN_NOT_FOUND")
 	}
@@ -574,9 +574,9 @@ func singleConn(st *store.State, expr, family string) (*store.Conn, error) {
 			expr, len(match), family, strings.Join(names, ", "))
 	}
 	for _, s := range skip {
-		out.P.Skip(s)
+		cl.out.Skip(s)
 	}
-	skipVpns(sel.Vpns)
+	skipVpns(cl, sel.Vpns)
 	t, err := driver.Parse(match[0].URL)
 	if err != nil {
 		return nil, err

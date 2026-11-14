@@ -13,12 +13,6 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-func init() {
-	// HOSTKEY_MISMATCH tells a person how to check and re-trust the key;
-	// an agent or a script is told to report it
-	sshx.PersonAtTerminal = func() bool { return interactive() }
-}
-
 // Host connectivity tests.
 
 type testResult struct {
@@ -81,22 +75,22 @@ the others are pinned.`,
   komando host trust @web                 # pin new servers; changed keys are refused
   komando host trust @web --reset         # after rebuilding the whole group: one yes`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			hosts, err := resolveTargets(st, args[0])
+			hosts, err := resolveTargets(cl, st, args[0])
 			if err != nil {
 				return err
 			}
-			if reset && !g.dryRun && (isAgent() || !interactive()) {
-				if err := pinsNeedAPerson(st, hosts); err != nil {
+			if reset && !cl.flags.dryRun && (cl.isAgent() || !cl.interactive()) {
+				if err := pinsNeedAPerson(cl, st, hosts); err != nil {
 					return err // before anything is fetched, as the dry run says
 				}
 			}
-			return trustHosts(cmd.Context(), st, hosts, reset)
-		},
+			return trustHosts(cl, cmd.Context(), st, hosts, reset)
+		}),
 	}
 	c.Flags().BoolVar(&reset, "reset", false, "replace the key pinned before (a person at a terminal only)")
 	return c
@@ -107,21 +101,21 @@ the others are pinned.`,
 // person at a terminal replaces one, after one question that says what
 // changes and which of the servers are protected. An AI agent or a script
 // gets NEEDS_PERSON, which no flag lifts; a dry run records it and goes on.
-func replacePin(names, prot []string, what string) error {
-	if isAgent() || !interactive() {
-		return policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+func replacePin(cl *call, names, prot []string, what string) error {
+	if cl.isAgent() || !cl.interactive() {
+		return cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"report it to the user: once they have checked the new key another way, they run `komando host trust "+strings.Join(names, ",")+" --reset` in their own terminal",
 			"%s: only a person at a terminal replaces a pinned host key (a changed key may be an attack)", what).NoFlag())
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		return nil
 	}
-	askedAbout = names
+	cl.askedAbout = names
 	q := what + ". Replace it?"
 	if len(prot) > 0 {
 		q = strings.Join(prot, ", ") + " (protected): " + q
 	}
-	if !confirmYes(q) {
+	if !confirmYes(cl, q) {
 		return promptNo()
 	}
 	return nil
@@ -130,7 +124,7 @@ func replacePin(names, prot []string, what string) error {
 // pinsNeedAPerson stops an AI agent or a script that asks --reset for
 // servers with a pinned key: --reset is there to replace one, which only a
 // person does (OD-9). Servers with no pin yet go on (a first pin).
-func pinsNeedAPerson(st *store.State, hosts []*store.Host) error {
+func pinsNeedAPerson(cl *call, st *store.State, hosts []*store.Host) error {
 	var names, prot []string
 	for _, h := range hosts {
 		if countPinned(trustAddr(h)) > 0 {
@@ -143,7 +137,7 @@ func pinsNeedAPerson(st *store.State, hosts []*store.Host) error {
 	if len(names) == 0 {
 		return nil
 	}
-	return replacePin(names, prot, "replacing the pinned host key of "+joinAnd(names))
+	return replacePin(cl, names, prot, "replacing the pinned host key of "+joinAnd(names))
 }
 
 // countPinned counts the pins for addr, as PinHostKey would replace them,
@@ -214,9 +208,9 @@ func keyFetchPath(st *store.State, h *store.Host) string {
 // person's yes, and the window shows each server's fingerprint to compare
 // with what the server's owner sees. Under accept-new the first login pins
 // it anyway. what is "NAME SHA256:..." per server.
-func guardFirstPin(st *store.State, what []string) error {
-	if len(what) == 0 || !isAgent() || (st.Settings.HostKeyPolicy != "strict" && g.hostKeyPolicy != "strict") {
+func guardFirstPin(cl *call, st *store.State, what []string) error {
+	if len(what) == 0 || !cl.isAgent() || (st.Settings.HostKeyPolicy != "strict" && cl.flags.hostKeyPolicy != "strict") {
 		return nil
 	}
-	return guardSafety("pinning a first host key while host keys are strict (compare it with what the server's owner sees): " + strings.Join(what, ", "))
+	return guardSafety(cl, "pinning a first host key while host keys are strict (compare it with what the server's owner sees): "+strings.Join(what, ", "))
 }

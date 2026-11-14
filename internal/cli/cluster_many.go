@@ -100,8 +100,8 @@ func (t clusterTarget) engine() string {
 
 // resolveClusters is resolveCluster for read commands: every Kubernetes
 // conn and Swarm manager the selector picks, in its order.
-func resolveClusters(st *store.State, expr string) ([]clusterTarget, error) {
-	sel, err := resolveSelection(st, expr)
+func resolveClusters(cl *call, st *store.State, expr string) ([]clusterTarget, error) {
+	sel, err := resolveSelection(cl, st, expr)
 	if err != nil {
 		return nil, err
 	}
@@ -110,14 +110,14 @@ func resolveClusters(st *store.State, expr string) ([]clusterTarget, error) {
 		if connFamily(c) == "cluster" {
 			ts = append(ts, clusterTarget{conn: c})
 		} else {
-			out.P.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
+			cl.out.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: useFor(nil, c)})
 		}
 	}
 	for _, h := range sel.Hosts {
 		if len(sel.Hosts) == 1 && len(ts) == 0 || swarmManager(expr, h) {
 			ts = append(ts, clusterTarget{host: h})
 		} else {
-			out.P.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: "a server: name it, or tag it swarm (`komando host edit " + h.Name + " --add-tag swarm`), to read it as a Swarm manager"})
+			cl.out.Skip(out.Skipped{Name: h.Name, Kind: "host", Reason: "a server: name it, or tag it swarm (`komando host edit " + h.Name + " --add-tag swarm`), to read it as a Swarm manager"})
 		}
 	}
 	if len(ts) == 0 {
@@ -144,7 +144,7 @@ func swarmManager(expr string, h *store.Host) bool {
 
 // readClusters runs r on each cluster. One cluster prints its own
 // result; several print a row each and fail softly when some fail.
-func readClusters(ctx context.Context, name string, st *store.State, ts []clusterTarget, r clusterRead) error {
+func readClusters(cl *call, ctx context.Context, name string, st *store.State, ts []clusterTarget, r clusterRead) error {
 	if len(ts) == 1 {
 		t := ts[0]
 		if t.host != nil {
@@ -155,15 +155,15 @@ func readClusters(ctx context.Context, name string, st *store.State, ts []cluste
 			if err != nil {
 				return err
 			}
-			out.P.Print(name, res, nil)
+			cl.out.Print(name, res, nil)
 			return nil
 		}
-		return withKube(ctx, name, t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+		return withKube(cl, ctx, name, t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 			return r.kube(ctx, t, k)
 		})
 	}
 	rows := make([]clusterRow, len(ts))
-	sem := make(chan struct{}, max(1, parallelism(st)))
+	sem := make(chan struct{}, max(1, parallelism(cl, st)))
 	var wg sync.WaitGroup
 	for i, t := range ts {
 		wg.Add(1)
@@ -171,7 +171,7 @@ func readClusters(ctx context.Context, name string, st *store.State, ts []cluste
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			rows[i] = readOne(ctx, st, t, r)
+			rows[i] = readOne(cl, ctx, st, t, r)
 		}()
 	}
 	wg.Wait()
@@ -192,7 +192,7 @@ func readClusters(ctx context.Context, name string, st *store.State, ts []cluste
 			Message: failedOf(m.Summary.Failed, m.Summary.Total) + ": " + strings.Join(m.Summary.FailedClusters, ", "),
 			Hint:    "each cluster's result above has its own error (data.results in -o json)"}
 	}
-	out.P.Print(name, m, soft)
+	cl.out.Print(name, m, soft)
 	if soft != nil {
 		return exitCode(worst)
 	}
@@ -200,9 +200,9 @@ func readClusters(ctx context.Context, name string, st *store.State, ts []cluste
 }
 
 // readOne is one cluster's row of readClusters.
-func readOne(ctx context.Context, st *store.State, t clusterTarget, r clusterRead) clusterRow {
+func readOne(cl *call, ctx context.Context, st *store.State, t clusterTarget, r clusterRead) clusterRow {
 	row := clusterRow{Cluster: t.name(), Engine: t.engine()}
-	ctx, cancel := kubeDeadline(ctx, st)
+	ctx, cancel := kubeDeadline(cl, ctx, st)
 	defer cancel()
 	var v any
 	var err error
@@ -214,7 +214,7 @@ func readOne(ctx context.Context, st *store.State, t clusterTarget, r clusterRea
 	default:
 		var k *kube.Client
 		var done func()
-		k, done, err = kubeClient(ctx, st, t.conn)
+		k, done, err = kubeClient(cl, ctx, st, t.conn)
 		if errors.Is(err, errDryRunStopped) {
 			row.OK, row.Data = true, map[string]any{"dry_run": true}
 			return row

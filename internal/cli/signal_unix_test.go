@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -15,7 +16,7 @@ import (
 // command, and a clean stop that hangs must not swallow every later one.
 func TestSecondInterruptEndsKomando(t *testing.T) {
 	if os.Getenv("KOMANDO_TEST_SIGNAL_CHILD") == "1" {
-		ctx, cancel := signalContext()
+		ctx, cancel := signalContext(context.Background())
 		defer cancel()
 		_ = syscall.Kill(os.Getpid(), syscall.SIGINT)
 		select {

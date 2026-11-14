@@ -20,8 +20,9 @@ build: ## Build ./bin/komando
 install: ## Install komando into $GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/komando
 
+# -timeout: internal/cli alone takes minutes, near Go's default 10m limit
 test: ## Fast unit tests
-	go test ./...
+	go test -timeout 30m ./...
 
 cover: ## Unit tests, and each package's coverage against its floor (test/coverage-floor.txt)
 	test/coverage.sh

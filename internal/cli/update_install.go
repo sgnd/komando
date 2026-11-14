@@ -26,9 +26,9 @@ import (
 // installRelease downloads tag's archive for this computer, checks it
 // against sums (its release's checksums.txt), and puts its komando where
 // exe is. On any failure exe stays as it was.
-func installRelease(ctx context.Context, tag, exe string, sums []byte) error {
+func installRelease(cl *call, ctx context.Context, tag, exe string, sums []byte) error {
 	archive := archiveName()
-	data, err := fetch(ctx, tag, archive, maxArchive, "Downloading komando "+tag)
+	data, err := fetch(cl, ctx, tag, archive, maxArchive, "Downloading komando "+tag)
 	if err != nil {
 		return err
 	}

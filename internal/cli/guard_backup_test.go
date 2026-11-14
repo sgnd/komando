@@ -35,7 +35,7 @@ func TestGuardSettingsBackupIsNew(t *testing.T) {
 	if read(t, f.Backup) != `{"env":{"TOKEN":"abc"}}`+"\n" || mode(t, f.Backup) != 0o600 {
 		t.Fatalf("backup %q: mode %04o", read(t, f.Backup), mode(t, f.Backup))
 	}
-	r, err := removeGuard(path, false)
+	r, err := removeGuard(tcl, path, false)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"slices"
 	"strings"
 
@@ -18,7 +17,7 @@ import (
 // stdApprovalHint sets e's hint to the approval hint when a flag lifts e,
 // and says whether it did. --reveal keeps its own hint: it never counts in
 // a dry run.
-func stdApprovalHint(e *out.Error) bool {
+func stdApprovalHint(cl *call, e *out.Error) bool {
 	if e == nil || e.Exit != out.ExitPolicy || e.Final {
 		return false
 	}
@@ -26,16 +25,16 @@ func stdApprovalHint(e *out.Error) bool {
 	if len(flags) == 0 || slices.Contains(flags, "--reveal") {
 		return false
 	}
-	e.Hint = approvalText(flags, isAgent(), g.dryRun)
+	e.Hint = approvalText(cl, flags, cl.isAgent(), cl.flags.dryRun)
 	return true
 }
 
 // approvalText is the hint for flags: for an AI agent or not, in a dry
 // run or not.
-func approvalText(flags []string, agent, dry bool) string {
+func approvalText(cl *call, flags []string, agent, dry bool) string {
 	f := joinAnd(flags)
 	const window = " (komando then asks them in a window on their screen)"
-	args := os.Args[1:]
+	args := cl.args[1:]
 	switch {
 	case agent && dry:
 		return "ask the user; once they agree, run it again without --dry-run and with " + f + window
@@ -122,8 +121,8 @@ func protNeed(prot []string) []string {
 // would happen; need adds the other flags the real run needs (--yes on a
 // protected target). The hint is the one approval hint for every one of
 // those flags, for an agent or a script, as approvalHint gives at exit.
-func approvalErr(code, why string, need ...string) *out.Error {
+func approvalErr(cl *call, code, why string, need ...string) *out.Error {
 	e := out.Errf(out.ExitPolicy, code, "", "%s", why).Need(need...)
-	e.Hint = approvalText(e.Flags(), isAgent(), g.dryRun)
+	e.Hint = approvalText(cl, e.Flags(), cl.isAgent(), cl.flags.dryRun)
 	return e
 }

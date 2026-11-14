@@ -40,7 +40,7 @@ func policyCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List built-in and custom rules",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -59,13 +59,13 @@ func policyCmd() *cobra.Command {
 				custom = append(custom, r)
 			}
 			n := limit // each kind of rule stops at --limit
-			out.P.Print("policy.list", policyList{"builtin": cutRows(rules, n), "custom": cutRows(st.Settings.ExtraDenyPattern, n), "custom_rules": cutRows(custom, n),
-				"sql": cutRows(rulesByID(driver.SQLRules()), n), "redis": cutRows(rulesByID(cachex.Rules()), n), "memcached": cutRows(rulesByID(cachex.MemcacheRules()), n),
-				"mongodb": cutRows(rulesByID(dbx.MongoRules()), n), "queue": cutRows(rulesByID(queuePolicyRules()), n), "data": cutRows(rulesByID(driver.DataRules()), n),
+			cl.out.Print("policy.list", policyList{"builtin": cutRows(cl, rules, n), "custom": cutRows(cl, st.Settings.ExtraDenyPattern, n), "custom_rules": cutRows(cl, custom, n),
+				"sql": cutRows(cl, rulesByID(driver.SQLRules()), n), "redis": cutRows(cl, rulesByID(cachex.Rules()), n), "memcached": cutRows(cl, rulesByID(cachex.MemcacheRules()), n),
+				"mongodb": cutRows(cl, rulesByID(dbx.MongoRules()), n), "queue": cutRows(cl, rulesByID(queuePolicyRules()), n), "data": cutRows(cl, rulesByID(driver.DataRules()), n),
 				"note": "these rules catch common accidents; they are not a security boundary. Protected servers and conns also need --yes for any change. " +
 					"SQL without --write also runs in a read-only transaction, so the database itself refuses writes."}, nil)
 			return nil
-		},
+		}),
 	}
 	limitFlag(list, &limit, 0, "rules of each kind")
 	c.AddCommand(list)
@@ -76,7 +76,7 @@ func policyCmd() *cobra.Command {
 		Short:   "Add a custom deny pattern (Go regexp)",
 		Example: `  komando policy deny 'kubectl\s+delete'`,
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			pat := args[0]
 			if strings.TrimSpace(pat) == "" {
 				return out.Errf(out.ExitUsage, "USAGE", `give a regular expression, for example 'kubectl\s+delete'`, "empty pattern: it would match every command")
@@ -89,7 +89,7 @@ func policyCmd() *cobra.Command {
 			}
 			var pats []string
 			added := false
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				added = !slices.Contains(s.Settings.ExtraDenyPattern, pat)
 				if added {
 					s.Settings.ExtraDenyPattern = append(s.Settings.ExtraDenyPattern, pat)
@@ -101,11 +101,11 @@ func policyCmd() *cobra.Command {
 				return err
 			}
 			if added {
-				audit(nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
+				audit(cl, nil, "policy.deny", nil, "", true, map[string]any{"pattern": pat})
 			}
-			out.P.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}.denied(), nil)
+			cl.out.Print("policy.deny", policyChange{Custom: pats, Added: &added, pattern: pat}.denied(cl), nil)
 			return nil
-		},
+		}),
 	})
 	c.AddCommand(policyRmCmd())
 	return c
@@ -123,7 +123,7 @@ func policyCheckCmd() *cobra.Command {
   komando policy check --conn-kind postgres 'delete from users'
   komando policy check --conn-kind redis FLUSHALL`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -160,30 +160,30 @@ func policyCheckCmd() *cobra.Command {
 			}
 			if rated != nil {
 				if v.Risk != driver.RiskDestructive {
-					out.P.Print("policy.check", rated, nil)
+					cl.out.Print("policy.check", rated, nil)
 					return nil
 				}
 				why := "destructive"
 				if len(v.RuleIDs) > 0 {
 					why = "blocked by [" + strings.Join(v.RuleIDs, ",") + "]"
 				}
-				out.P.Print("policy.check", rated, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "komando would refuse to run it without --allow-dangerous", "%s", why))
+				cl.out.Print("policy.check", rated, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "komando would refuse to run it without --allow-dangerous", "%s", why))
 				return exitCode(out.ExitPolicy)
 			}
 			hits := policy.Check(strings.Join(args, " "), st.Settings.ExtraDenyPattern)
 			res := policyCheck{Blocked: len(hits) > 0, Matches: hits}
 			if !res.Blocked {
-				out.P.Print("policy.check", res, nil)
+				cl.out.Print("policy.check", res, nil)
 				return nil
 			}
 			ids := make([]string, len(hits))
 			for i, h := range hits {
 				ids[i] = h.ID
 			}
-			out.P.Print("policy.check", res, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "komando would refuse to run it without --allow-dangerous",
+			cl.out.Print("policy.check", res, out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "komando would refuse to run it without --allow-dangerous",
 				"blocked by [%s]", strings.Join(ids, ",")))
 			return exitCode(out.ExitPolicy)
-		},
+		}),
 	}
 	check.Flags().StringVar(&kind, "conn-kind", "", "rate the argument for a conn kind instead: "+strings.Join(policyCheckKinds(), ", ")+" (a command document as JSON)")
 	return check
@@ -206,7 +206,7 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 		Example: `  komando policy rm 'kubectl\s+delete'
   komando policy rm custom-1a2b3c4d`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			arg := args[0]
 			for _, r := range policy.Rules() {
 				if r.ID == arg {
@@ -216,7 +216,7 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 			}
 			var pats []string
 			removed := ""
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				list := s.Settings.ExtraDenyPattern
 				i := slices.Index(list, arg)
 				if i < 0 {
@@ -230,7 +230,7 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 					return out.Errf(out.ExitNotFound, "RULE_NOT_FOUND", hint, "no custom deny rule named %q", arg)
 				}
 				removed = list[i]
-				if err := guardSafety("removing the deny rule " + removed); err != nil {
+				if err := guardSafety(cl, "removing the deny rule "+removed); err != nil {
 					return err
 				}
 				s.Settings.ExtraDenyPattern = slices.Delete(slices.Clone(list), i, i+1)
@@ -240,10 +240,10 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 			if err != nil {
 				return err
 			}
-			audit(nil, "policy.rm", nil, "", true, map[string]any{"pattern": removed})
-			out.P.Print("policy.rm", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
+			audit(cl, nil, "policy.rm", nil, "", true, map[string]any{"pattern": removed})
+			cl.out.Print("policy.rm", policyChange{Custom: orEmpty(pats), Removed: removed}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -304,25 +304,25 @@ type policyChange struct {
 
 // denied is policy deny's result: the rule's id and the commands that
 // follow, check and rm.
-func (p policyChange) denied() policyChange {
+func (p policyChange) denied(cl *call) policyChange {
 	p.ID = policy.CustomID(p.pattern)
 	p.Next = "komando policy check 'COMMAND' says whether it blocks a command  |  komando policy rm " + p.ID + " removes it"
-	if !g.dryRun {
-		sayNext("komando policy check 'COMMAND'", "komando policy rm "+p.ID)
+	if !cl.flags.dryRun {
+		sayNext(cl, "komando policy check 'COMMAND'", "komando policy rm "+p.ID)
 	}
 	return p
 }
 
-func (p policyChange) Text() string {
+func (p policyChange) TextFor(pr *out.Printer) string {
 	n := countOf(len(p.Custom), "custom rule")
 	switch {
-	case p.Added != nil && *p.Added && g.dryRun:
+	case p.Added != nil && *p.Added && pr.DryRun:
 		return fmt.Sprintf("would add the deny rule %s as %s (dry run; %s then)\n", p.pattern, p.ID, n)
 	case p.Added != nil && *p.Added:
 		return fmt.Sprintf("added the deny rule %s as %s (%s now)\n", p.pattern, p.ID, n)
 	case p.Added != nil:
 		return fmt.Sprintf("the deny rule %s is there already, as %s (%s)\n", p.pattern, p.ID, n)
-	case g.dryRun:
+	case pr.DryRun:
 		return fmt.Sprintf("would remove the deny rule %s (dry run; %s left then)\n", p.Removed, n)
 	}
 	return fmt.Sprintf("removed the deny rule %s (%s left)\n", p.Removed, n)

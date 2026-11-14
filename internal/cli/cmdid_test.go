@@ -30,7 +30,7 @@ func allCommands(root *cobra.Command) []*cobra.Command {
 func treeIDs(t *testing.T) map[string]*cobra.Command {
 	t.Helper()
 	ids := map[string]*cobra.Command{}
-	for _, c := range allCommands(newRoot()) {
+	for _, c := range allCommands(newRoot(tcl)) {
 		if strings.ContainsAny(c.Name(), ". ") {
 			t.Errorf("%q: a command name has no dot or space (IDs are dotted paths)", c.CommandPath())
 		}
@@ -121,7 +121,7 @@ func keysOf[V any](m map[string]V) []string {
 // A command typed by any of its names has the same ID: the masking, the
 // ssh-gate tables and the envelopes see one command.
 func TestAliasesKeepID(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	n := 0
 	for _, c := range allCommands(root) {
 		if !c.HasParent() || len(c.Aliases) == 0 {
@@ -136,12 +136,12 @@ func TestAliasesKeepID(t *testing.T) {
 			}
 			n++
 			if personalCmds[idKey(c)] {
-				out.P.Mask = true
+				tcl.out.Mask = true
 				startPersonal(got)
-				if !personalCmd {
+				if !tcl.personalCmd {
 					t.Errorf("%s typed as %q: personal data is not hidden for an agent", c.CommandPath(), a)
 				}
-				out.P.Mask, personalCmd = false, false
+				tcl.out.Mask, tcl.personalCmd = false, false
 			}
 			name, _, _ := gateCheck(append(slices.Clone(parent), a), true)
 			if name != cmdID(c) {

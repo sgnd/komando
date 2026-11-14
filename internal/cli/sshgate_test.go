@@ -118,7 +118,7 @@ func gateInventory(t *testing.T) {
 		"pghostaddr": "postgres://u@db.example.com/x?hostaddr=127.0.0.1", "pgsocket": "postgres://u@db.example.com/x?host=/var/run/postgresql",
 		"pglist": "postgres://u@10.0.0.6,127.0.0.1/x", "mongolist": "mongodb://u@10.0.0.8,localhost:27017/x",
 	}
-	err := store.Update(func(st *store.State) error {
+	err := store.Update(store.Save(), func(st *store.State) error {
 		for n, h := range hosts {
 			h.Name, h.User = n, "u"
 			st.Hosts[n] = &h
@@ -141,8 +141,8 @@ func TestGateCheck(t *testing.T) {
 	gateInventory(t)
 	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
 	mustRun(t, "recipe", "add", "my-clean", "rm -rf /tmp/cache")
-	g.yes = true // the gate's own flags come back after it read the key's
-	defer func() { g.yes = false }()
+	tcl.flags.yes = true // the gate's own flags come back after it read the key's
+	defer func() { tcl.flags.yes = false }()
 	const R = "SSH_GATE_REFUSED"
 	cases := []struct {
 		line           string
@@ -258,8 +258,8 @@ func TestGateCheck(t *testing.T) {
 			t.Errorf("%q --read-only: %q, want %q", c.line, got, c.readOnly)
 		}
 	}
-	if !g.yes || g.reveal {
-		t.Errorf("the gate's own flags changed: %+v", g)
+	if !tcl.flags.yes || tcl.flags.reveal {
+		t.Errorf("the gate's own flags changed: %+v", tcl.flags)
 	}
 }
 
@@ -412,7 +412,7 @@ func TestGateReadsExist(t *testing.T) {
 			walk(sub)
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 	for n := range gateReadForm {
 		if !names[n] {
 			t.Errorf("gateReadForm names %q, which is no command", n)
@@ -446,7 +446,7 @@ func TestGateReadsExist(t *testing.T) {
 // gateOnServers.
 func TestGateFailsClosed(t *testing.T) {
 	invHome(t)
-	root := newRoot()
+	root := newRoot(tcl)
 	c := &cobra.Command{Use: "brand-new", Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(c)
 	commandKinds["brand-new"] = changes
@@ -490,9 +490,9 @@ func TestSSHGateNoWritesHere(t *testing.T) {
 // With the audit setting off, a key's command is still in the log.
 func TestSSHGateAuditAlways(t *testing.T) {
 	invHome(t)
-	g.yes = true
+	tcl.flags.yes = true
 	mustRun(t, "config", "set", "audit", "off", "--yes")
-	g.yes = false
+	tcl.flags.yes = false
 	ran, _, e := gateRun(t, "komando list", "--name", "phone")
 	if ran == nil {
 		t.Fatalf("did not run: %+v", e)
@@ -611,19 +611,17 @@ func TestSSHGateAuditHidesSecrets(t *testing.T) {
 // The komando a key runs is an agent named after the key; a name ssh-gate
 // could not have set is not shown as it is.
 func TestGateAgentName(t *testing.T) {
-	t.Setenv(gateEnv, "phone")
-	resetApproval()
-	if got := agentName(); got != "ssh-gate key phone" {
+	setCallerEnv(t, gateEnv, "phone")
+	if got := tcl.caller().Agent; got != "ssh-gate key phone" {
 		t.Errorf("agent %q", got)
 	}
-	t.Setenv("CLAUDECODE", "1") // set in the account's shell files, say
-	if got := agentName(); got != "ssh-gate key phone" {
+	setCallerEnv(t, "CLAUDECODE", "1") // set in the account's shell files, say
+	if got := tcl.caller().Agent; got != "ssh-gate key phone" {
 		t.Errorf("with CLAUDECODE too: agent %q", got)
 	}
 	os.Unsetenv("CLAUDECODE") // t.Setenv puts it back afterwards
-	t.Setenv(gateEnv, "x\n\nkomando list wants")
-	resetApproval()
-	if got := agentName(); got != "An SSH key through ssh-gate" {
+	setCallerEnv(t, gateEnv, "x\n\nkomando list wants")
+	if got := tcl.caller().Agent; got != "An SSH key through ssh-gate" {
 		t.Errorf("agent %q", got)
 	}
 }

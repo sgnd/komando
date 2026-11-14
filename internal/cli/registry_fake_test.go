@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
 )
 
@@ -184,15 +183,16 @@ func (m *memRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // textRun runs komando with -o text and returns what it printed.
 func textRun(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	g.dryRun, g.yes, g.allowDangerous = false, false, false
-	root := newRoot()
+	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
+	saved := tcl.out.W
+	tcl.out.W = &buf
 	root.SetOut(&buf)
 	root.SetErr(&buf)
-	defer func() { out.P.W, out.P.Format = saved, "json" }()
+	defer func() { tcl.out.W, tcl.out.Format = saved, "json" }()
 	err := root.Execute()
 	return buf.String(), err
 }
@@ -299,8 +299,8 @@ func TestRegistryText(t *testing.T) {
 	}
 	// the Next: line a person gets on stderr names a command for one item
 	for args, want := range map[string]string{"registry ls mem shop/api": "komando registry inspect mem shop/api:TAG", "registry ls mem": "komando registry list mem REPO"} {
-		if _, err := textRun(t, strings.Fields(args)...); err != nil || !slices.Equal(nextNow, []string{want}) {
-			t.Errorf("%s: Next: %q, %v", args, nextNow, err)
+		if _, err := textRun(t, strings.Fields(args)...); err != nil || !slices.Equal(tcl.nextNow, []string{want}) {
+			t.Errorf("%s: Next: %q, %v", args, tcl.nextNow, err)
 		}
 	}
 }
@@ -325,7 +325,7 @@ func TestImportDockerRegistries(t *testing.T) {
 	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := importDocker(path)
+	p, err := importDocker(tcl, path)
 	if err != nil {
 		t.Fatal(err)
 	}

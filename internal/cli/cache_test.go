@@ -13,18 +13,18 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // runCache runs komando in this process and returns what it printed.
 func runCache(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(args)
 	var b strings.Builder
-	saved := out.P.W
-	out.P.W = &b
-	defer func() { out.P.W = saved; out.P.Reset() }()
+	saved := tcl.out.W
+	tcl.out.W = &b
+	defer func() { tcl.out.W = saved; tcl.out.Reset() }()
 	err := root.Execute()
 	return b.String(), err
 }
@@ -39,7 +39,7 @@ func runCache(t *testing.T, args ...string) (string, error) {
 func TestCacheRunScriptsNeedApproval(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestCacheRunScriptsNeedApproval(t *testing.T) {
 		if err != nil || !strings.Contains(s, "nothing sent") || !strings.Contains(s, "POLICY_BLOCKED") {
 			t.Errorf("%s --write --dry-run: %v\n%s", command[0], err, s)
 		}
-		g.dryRun, store.DryRun = false, false
+		tcl.flags.dryRun = false
 	}
 }
 
@@ -95,7 +95,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	asAgent(t, false, true)
-	defer func() { out.P.Mask = false }()
+	defer func() { tcl.out.Mask = false }()
 	for _, format := range []string{"json", "text"} {
 		for _, param := range []string{"requirepass", "masterauth", "*"} {
 			s, err := runCache(t, "-o", format, "cache", "run", "c", "--", "CONFIG", "GET", param)
@@ -114,7 +114,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 func TestCacheRunQuotedCommand(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
 func TestCacheRunMemcachedLineInjection(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	addr, lines := fakeMemcached(t)
 	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
 		t.Fatal(err)
@@ -275,7 +275,7 @@ func TestCacheLimitMustBePositive(t *testing.T) {
 func TestCacheRunClusterWide(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "cl", "redis://127.0.0.1:1?cluster=1"); err != nil {
 		t.Fatal(err)
 	}

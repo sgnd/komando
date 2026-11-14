@@ -199,7 +199,7 @@ func (e *vpnEditFlags) bind(c *cobra.Command) {
 // vpnOptIns sets --legacy-crypto and --allow-pap on v (vpn add and edit).
 // They weaken the VPN's login, so turning one on needs a person's yes
 // (guardSafety); turning it off does not.
-func vpnOptIns(v *store.Vpn, changed func(string) bool, legacy, pap bool) error {
+func vpnOptIns(cl *call, v *store.Vpn, changed func(string) bool, legacy, pap bool) error {
 	for _, flag := range []string{"allow-pap", "legacy-crypto"} {
 		if changed(flag) && !vpnTakes(v.Kind, flag) {
 			return out.Usage("--%s is not used by %s VPNs", flag, v.Kind)
@@ -207,7 +207,7 @@ func vpnOptIns(v *store.Vpn, changed func(string) bool, legacy, pap bool) error 
 	}
 	if changed("legacy-crypto") {
 		if legacy && !v.LegacyCrypto {
-			if err := guardSafety("allowing old, weak IKEv1 ciphers (3DES, DH groups 2 and 5) for VPN " + v.Name); err != nil {
+			if err := guardSafety(cl, "allowing old, weak IKEv1 ciphers (3DES, DH groups 2 and 5) for VPN "+v.Name); err != nil {
 				return err
 			}
 		}
@@ -215,7 +215,7 @@ func vpnOptIns(v *store.Vpn, changed func(string) bool, legacy, pap bool) error 
 	}
 	if changed("allow-pap") {
 		if pap && !v.AllowPAP {
-			if err := guardSafety("letting VPN " + v.Name + " log in with PAP, which hands the server your password itself"); err != nil {
+			if err := guardSafety(cl, "letting VPN "+v.Name+" log in with PAP, which hands the server your password itself"); err != nil {
 				return err
 			}
 		}

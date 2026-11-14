@@ -78,7 +78,7 @@ func cmpPrefix(p string) string {
 }
 
 // listVersions is storage list --all-versions.
-func listVersions(ctx context.Context, c *store.Conn, s storex.Bucket, prefix string, limit int) (any, error) {
+func listVersions(cl *call, ctx context.Context, c *store.Conn, s storex.Bucket, prefix string, limit int) (any, error) {
 	v, err := versioned(c, s)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func listVersions(ctx context.Context, c *store.Conn, s storex.Bucket, prefix st
 		return nil, err
 	}
 	if more {
-		out.P.CutNoted()
+		cl.out.CutNoted()
 	}
 	return versionList{Conn: c.Name, Prefix: prefix, Count: len(vs), More: more, Versions: vs}, nil
 }
@@ -133,9 +133,9 @@ func (d rmVersionsData) Text() string {
 
 // storageRmVersions is storage rm --all-versions: a preview under
 // --dry-run, else the same confirmation as rm, then every version goes.
-func storageRmVersions(ctx context.Context, conn string, keys []string, rec map[string]any) error {
+func storageRmVersions(cl *call, ctx context.Context, conn string, keys []string, rec map[string]any) error {
 	rec["all_versions"] = true
-	return withStoragePreview(ctx, "storage.rm", conn, driver.DataDelete(), rec,
+	return withStoragePreview(cl, ctx, "storage.rm", conn, driver.DataDelete(), rec,
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 			return rmAllVersions(ctx, c, s, keys, false)
 		},

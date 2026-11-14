@@ -7,14 +7,20 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
-// readStdinIfPiped reads stdin when it is a pipe or a file (nil when it is
-// a terminal), up to limit bytes (see readLimited).
-func readStdinIfPiped(limit int64, what string) ([]byte, error) {
-	fi, err := os.Stdin.Stat()
-	if err != nil || fi.Mode()&os.ModeCharDevice != 0 {
+// readStdinIfPiped reads the call's stdin when it is a pipe or a file (nil
+// when it is a terminal, or the call has no input), up to limit bytes (see
+// readLimited).
+func readStdinIfPiped(cl *call, limit int64, what string) ([]byte, error) {
+	switch in := cl.stdin.(type) {
+	case eofReader:
 		return nil, nil
+	case *os.File:
+		fi, err := in.Stat()
+		if err != nil || fi.Mode()&os.ModeCharDevice != 0 {
+			return nil, nil
+		}
 	}
-	return readLimited(os.Stdin, limit, what)
+	return readLimited(cl.stdin, limit, what)
 }
 
 // maxStdinValue is the most komando reads from stdin for one value (a

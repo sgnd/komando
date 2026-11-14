@@ -108,7 +108,7 @@ is given.`,
   komando audit --actor claude --since 7d        # what Claude Code did this week
   komando audit verify               # was the log changed outside komando?`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if limit < 0 {
 				return out.Errf(out.ExitUsage, "USAGE", "-n takes how many of the newest entries to show; 0 shows all", "-n takes 0 or more, not %d", limit)
 			}
@@ -124,7 +124,7 @@ is given.`,
 				if err != nil {
 					return err
 				}
-				flt.names = targetNames(st, target)
+				flt.names = targetNames(cl, st, target)
 			}
 			// without a filter only the newest records are read
 			var from int64
@@ -149,23 +149,23 @@ is given.`,
 			})
 			if errors.Is(err, sealdb.ErrTampered) {
 				// the records before the broken one are still shown
-				out.P.Warn(fmt.Sprintf("the audit log is broken after the %d records shown: %v; run `komando audit verify`", len(all), err))
+				cl.out.Warn(fmt.Sprintf("the audit log is broken after the %d records shown: %v; run `komando audit verify`", len(all), err))
 			} else if err != nil {
 				return err
 			}
 			if from > 0 && len(all) >= limit {
-				out.P.Cut(limit) // older records were not read
+				cl.out.Cut(limit) // older records were not read
 			}
-			all = cutLast(all, limit)
+			all = cutLast(cl, all, limit)
 			var given []string
 			for _, f := range []string{"target", "command", "failed", "actor", "since", "until"} {
 				if cmd.Flags().Changed(f) {
 					given = append(given, "--"+f)
 				}
 			}
-			out.P.Print("audit", auditList{Count: len(all), Entries: all, filters: given}, nil)
+			cl.out.Print("audit", auditList{Count: len(all), Entries: all, filters: given}, nil)
 			return nil
-		},
+		}),
 	}
 	c.AddCommand(auditVerifyCmd())
 	c.Flags().IntVarP(&limit, "limit", "n", 50, "the newest N entries (0 = all; with --since or --until, all unless given)")

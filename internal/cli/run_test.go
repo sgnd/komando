@@ -128,8 +128,8 @@ func TestReadOnlyViolation(t *testing.T) {
 			t.Errorf("%q: got %q, want %q", cmd, got, want)
 		}
 	}
-	g.dryRun = false
-	err := checkReadOnly("rm -rf /tmp/x")
+	tcl.flags.dryRun = false
+	err := checkReadOnly(tcl, "rm -rf /tmp/x")
 	if e := toErr(err); e == nil || e.Code != "READ_ONLY_VIOLATION" || e.Exit != out.ExitPolicy {
 		t.Errorf("checkReadOnly: %v", err)
 	}
@@ -214,14 +214,14 @@ func TestExecDataText(t *testing.T) {
 		{Host: "web2", RunResult: &sshx.RunResult{ExitCode: 3, Stdout: "out2"}},
 		{Host: "web3", Error: &out.Error{Code: "CONNECTION_REFUSED", Message: "web3: refused", Hint: "check that sshd runs on the server and listens on this port: komando host show web3"}},
 	}}
-	got := d.Text()
+	got := d.TextFor(realRun())
 	for _, want := range []string{"=== web1 [ok, exit 0]\nout1\n[stderr] warn1\n", "=== web2 [failed: exit 3]\nout2\n", "=== web3 [failed: connection refused]\n  Error: web3: refused (code CONNECTION_REFUSED)\n  Hint: check that sshd runs"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("text misses %q:\n%s", want, got)
 		}
 	}
 	d.streamed = true
-	if strings.Contains(d.Text(), "out1") {
+	if strings.Contains(d.TextFor(realRun()), "out1") {
 		t.Error("streamed output must not be printed again")
 	}
 }
@@ -293,7 +293,7 @@ func TestFsScripts(t *testing.T) {
 	if _, code := runSh(t, dir, chmodScript("0600", []string{"zzz"}, false, false)); code != fsExitNoSource {
 		t.Errorf("chmod missing: exit %d", code)
 	}
-	if e := fsExitMap(fsExitIsFolder, "d is a folder"); e == nil || e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "--recursive") {
+	if e := fsExitMap(tcl, fsExitIsFolder, "d is a folder"); e == nil || e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "--recursive") {
 		t.Errorf("exit map: %+v", e)
 	}
 }
@@ -355,16 +355,16 @@ func TestCheckVars(t *testing.T) {
 }
 
 func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	dst := t.TempDir()
 	writeTree(t, dst, map[string]string{"keep.txt": "mine"})
 	ctx := context.Background()
-	_, err := runSync(ctx, localSide{filepath.Join(dst, "nope")}, localSide{dst}, "src", "dst", syncOpts{delete: true})
+	_, err := runSync(tcl, ctx, localSide{tcl, filepath.Join(dst, "nope")}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 	if toErr(err).Code != "PATH_NOT_FOUND" {
 		t.Fatalf("missing source: %v", err)
 	}
 	empty := t.TempDir()
-	_, err = runSync(ctx, localSide{empty}, localSide{dst}, "src", "dst", syncOpts{delete: true})
+	_, err = runSync(tcl, ctx, localSide{tcl, empty}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 	if toErr(err).Code != "SOURCE_EMPTY" {
 		t.Fatalf("empty source with --delete: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
 		t.Fatal("the destination lost a file")
 	}
 	// a file as the source
-	_, err = runSync(ctx, localSide{filepath.Join(dst, "keep.txt")}, localSide{empty}, "src", "dst", syncOpts{})
+	_, err = runSync(tcl, ctx, localSide{tcl, filepath.Join(dst, "keep.txt")}, localSide{tcl, empty}, "src", "dst", syncOpts{})
 	if toErr(err).Code != "NOT_A_FOLDER" {
 		t.Errorf("file source: %v", err)
 	}
@@ -380,7 +380,7 @@ func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
 
 func TestSyncLinksModesAndNewFolder(t *testing.T) {
 	unixOnly(t, "symbolic links and file modes")
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "new")
 	writeTree(t, src, map[string]string{"a.sh": "echo"})
@@ -388,21 +388,21 @@ func TestSyncLinksModesAndNewFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	r, err := runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{})
+	r, err := runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if err != nil || r.Copied != 1 || !r.NewFolder || len(r.Skipped) != 1 || r.Skipped[0] != "link" {
 		t.Fatalf("first sync: %+v %v", r, err)
 	}
 	os.Chmod(filepath.Join(src, "a.sh"), 0o755)
-	r, _ = runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{})
+	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if r.Updated != 1 {
 		t.Errorf("a mode change must be synced: %+v", r)
 	}
 	if fi, _ := os.Stat(filepath.Join(dst, "a.sh")); fi.Mode().Perm() != 0o755 {
 		t.Errorf("mode not applied: %v", fi.Mode())
 	}
-	g.dryRun = true
-	defer func() { g.dryRun = false }()
-	r, _ = runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{})
+	tcl.flags.dryRun = true
+	defer func() { tcl.flags.dryRun = false }()
+	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if !strings.Contains(r.Text(), "would copy 0, update 0, delete 0") {
 		t.Errorf("dry-run grammar: %s", r.Text())
 	}
@@ -437,10 +437,10 @@ func (f *fakeBucket) Link(context.Context, string, time.Duration) (*url.URL, err
 func (f *fakeBucket) Close() error { return nil }
 
 func TestSyncSkipsFolderMarkers(t *testing.T) {
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	b := &fakeBucket{objs: []storex.Object{{Key: "tree"}, {Key: "tree/"}, {Key: "tree/sub/"}, {Key: "tree/a.txt", Size: 11}}}
 	dst := t.TempDir()
-	r, err := runSync(context.Background(), bucketSide{b: b, prefix: "tree/"}, localSide{dst}, "b:tree", dst, syncOpts{})
+	r, err := runSync(tcl, context.Background(), bucketSide{b: b, prefix: "tree/"}, localSide{tcl, dst}, "b:tree", dst, syncOpts{})
 	if err != nil || r.Copied != 1 {
 		t.Fatalf("markers: %+v %v", r, err)
 	}

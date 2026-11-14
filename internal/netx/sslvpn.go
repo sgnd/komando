@@ -58,9 +58,11 @@ func sslOptions(v *store.Vpn, password string, prompt func(string, bool) (string
 
 // SSLVPNLogin logs in at the terminal and returns the session cookie.
 // browser shows a sign-in page to the person (GlobalProtect with SAML);
-// nil, like a nil prompt, means nobody is there.
+// nil, like a nil prompt, means nobody is there. notices gets what the
+// browser sign-in tells the person (the stderr of the command that logs
+// in); nil writes them nowhere.
 func SSLVPNLogin(ctx context.Context, v *store.Vpn, prompt func(label string, secret bool) (string, error),
-	browser func(context.Context, sslvpn.BrowserPage) (string, error)) (string, error) {
+	browser func(context.Context, sslvpn.BrowserPage) (string, error), notices io.Writer) (string, error) {
 	password := ""
 	if v.KeyRef != "" {
 		var err error
@@ -75,14 +77,7 @@ func SSLVPNLogin(ctx context.Context, v *store.Vpn, prompt func(label string, se
 	}
 	o := sslOptions(v, password, prompt)
 	if o.Browser = browser; browser != nil {
-		o.Notice = func(s string) { // the text holds what a server wrote
-			fmt.Fprintln(os.Stderr, "komando: "+strings.Map(func(r rune) rune {
-				if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) {
-					return -1
-				}
-				return r
-			}, s))
-		}
+		o.Notice = signInNotice(notices)
 	}
 	switch v.Kind {
 	case "anyconnect":
@@ -104,6 +99,23 @@ func SSLVPNLogin(ctx context.Context, v *store.Vpn, prompt func(label string, se
 	return "", fmt.Errorf("%s is not built in", v.Kind)
 }
 
+// signInNotice writes what a browser sign-in tells the person to w, one
+// line each, without control characters: the text holds what a server
+// wrote. A nil w writes nothing.
+func signInNotice(w io.Writer) func(string) {
+	return func(s string) {
+		if w == nil {
+			return
+		}
+		fmt.Fprintln(w, "komando: "+strings.Map(func(r rune) rune {
+			if unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) {
+				return -1
+			}
+			return r
+		}, s))
+	}
+}
+
 func openSSLVPN(ctx context.Context, v *store.Vpn, timeout time.Duration) (Dialer, io.Closer, error) {
 	cookie := SessionSecret
 	ctx, cancel := context.WithTimeout(ctx, max(timeout, 60*time.Second))
@@ -113,7 +125,7 @@ func openSSLVPN(ctx context.Context, v *store.Vpn, timeout time.Duration) (Diale
 			return nil, nil, LoginRequired(v)
 		}
 		var err error
-		if cookie, err = SSLVPNLogin(ctx, v, nil, nil); err != nil {
+		if cookie, err = SSLVPNLogin(ctx, v, nil, nil, nil); err != nil {
 			return nil, nil, err
 		}
 	}

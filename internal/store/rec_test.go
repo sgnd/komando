@@ -23,7 +23,7 @@ func recOf(t *testing.T, kind, name string) Rec {
 
 func update(t *testing.T, fn func(s *State)) {
 	t.Helper()
-	if err := Update(func(s *State) error { fn(s); return nil }); err != nil {
+	if err := Update(Save(), func(s *State) error { fn(s); return nil }); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -105,10 +105,9 @@ func TestRecDryRun(t *testing.T) {
 	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
 	a := recOf(t, KindHost, "a")
-	DryRun = true
-	defer func() { DryRun = false }()
-	update(t, func(s *State) { s.Hosts["a"].Address = "x" })
-	DryRun = false
+	if err := Update(Preview(), func(s *State) error { s.Hosts["a"].Address = "x"; return nil }); err != nil {
+		t.Fatal(err)
+	}
 	if recOf(t, KindHost, "a") != a {
 		t.Fatal("dry run changed the record")
 	}

@@ -21,7 +21,7 @@ func devopsHome(t *testing.T) {
 	t.Setenv("KOMANDO_NO_DIALOG", "1")
 	mustRun(t, "host", "add", "web1", "deploy@10.255.255.1")
 	mustRun(t, "host", "add", "web2", "ops@10.255.255.2")
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["win1"] = &store.Host{Name: "win1", Address: "10.255.255.3", User: "Administrator", OS: store.OSWindows}
 		return nil
 	}); err != nil {
@@ -112,14 +112,14 @@ func TestNetHTTPChecksURLAndExpect(t *testing.T) {
 	if !statusMatches(204, "2XX") || statusMatches(301, "2xx") {
 		t.Error("2XX must match like 2xx")
 	}
-	defer func(d time.Duration) { g.timeout = d }(g.timeout)
-	g.timeout = 0
-	if curlSeconds() != 15 {
+	defer func(d time.Duration) { tcl.flags.timeout = d }(tcl.flags.timeout)
+	tcl.flags.timeout = 0
+	if curlSeconds(tcl) != 15 {
 		t.Error("curl's default limit is 15s")
 	}
-	g.timeout = 5 * time.Second
-	if curlSeconds() != 4 {
-		t.Errorf("--timeout 5s: curl -m %d", curlSeconds())
+	tcl.flags.timeout = 5 * time.Second
+	if curlSeconds(tcl) != 4 {
+		t.Errorf("--timeout 5s: curl -m %d", curlSeconds(tcl))
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 // (a folder in PATH it can write, Homebrew's bin, ~/.local/bin) gets the
 // secrets only with a person's yes: an agent that puts a fake pg_dump
 // first in PATH would otherwise be handed the password it may not read.
-func localTool(name string, refs []string) (string, error) {
+func localTool(cl *call, name string, refs []string) (string, error) {
 	p, err := exec.LookPath(name)
 	if err != nil {
 		return "", err
@@ -28,9 +28,9 @@ func localTool(name string, refs []string) (string, error) {
 		}
 	}
 	real, err := filepath.EvalSymlinks(p)
-	if len(given) > 0 && (err != nil || !toolSafe(p) || !toolSafe(real)) {
+	if len(given) > 0 && (err != nil || !toolSafe(cl, p) || !toolSafe(cl, real)) {
 		where := fmt.Sprintf("%s on this computer (a program any program of yours can replace)", p)
-		if err := guardSecretUse(given, where); err != nil {
+		if err := guardSecretUse(cl, given, where); err != nil {
 			return "", err
 		}
 	}

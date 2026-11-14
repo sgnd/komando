@@ -277,7 +277,7 @@ func TestSudoChmodFollowsNoOtherUsersLink(t *testing.T) {
 	if code != sudoExitLink || mode() != 0o600 {
 		t.Fatalf("another user's link followed: exit %d, mode %o", code, mode())
 	}
-	if e := fsExitMap(code, stderr); e == nil || e.Code != "IS_A_SYMLINK" || !strings.Contains(e.Message, link) {
+	if e := fsExitMap(tcl, code, stderr); e == nil || e.Code != "IS_A_SYMLINK" || !strings.Contains(e.Message, link) {
 		t.Fatalf("error: %+v", e)
 	}
 	// root's link, or the SSH user's: followed

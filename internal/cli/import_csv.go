@@ -45,8 +45,8 @@ func csvHeader(h string) string {
 	return csvColumns[h]
 }
 
-func importCSV(path string) (*importPlan, error) {
-	b, err := readFileOrStdin(path)
+func importCSV(cl *call, path string) (*importPlan, error) {
+	b, err := readFileOrStdin(cl, path)
 	if err != nil {
 		return nil, localFileErr("FILE_NOT_FOUND", err, "give the path of a CSV file after `csv`, or - for stdin")
 	}

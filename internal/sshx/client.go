@@ -569,22 +569,23 @@ type NewHostKey struct {
 }
 
 // HostKeyPinned, when set, is told about every key pinned on first use
-// (for the output and the audit log). It is called after the pin is saved,
-// while the connection waits: it must be quick.
-var HostKeyPinned func(NewHostKey)
+// (for the output and the audit log), with the context of the Dial that
+// pinned it. It is called after the pin is saved, while the connection
+// waits: it must be quick.
+var HostKeyPinned func(ctx context.Context, k NewHostKey)
 
 // hostKeyNote is where the line about a newly pinned key goes.
 var hostKeyNote io.Writer = os.Stderr
 
 // pinnedOnFirstUse tells the person, on stderr, which key was just pinned
 // and how to check it, and passes it on to HostKeyPinned.
-func pinnedOnFirstUse(name, hostname string, key ssh.PublicKey) {
+func pinnedOnFirstUse(ctx context.Context, name, hostname string, key ssh.PublicKey) {
 	k := NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key)}
 	fmt.Fprintf(hostKeyNote, "komando: first connection to %s (%s): trusted its %s host key %s\n"+
 		"komando: compare it with the server's own (on the server: ssh-keygen -lf /etc/ssh/ssh_host_%s_key.pub); if this key ever changes, komando refuses the server\n",
 		name, hostname, k.Type, k.Fingerprint, keyFileType(k.Type))
 	if HostKeyPinned != nil {
-		HostKeyPinned(k)
+		HostKeyPinned(ctx, k)
 	}
 }
 
@@ -645,7 +646,7 @@ func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallb
 			return lockErr
 		}
 		if pinned {
-			pinnedOnFirstUse(name, hostname, key)
+			pinnedOnFirstUse(ctx, name, hostname, key)
 		}
 		return err
 	}, nil

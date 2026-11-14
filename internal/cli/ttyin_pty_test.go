@@ -32,16 +32,16 @@ func TestPTYChild(t *testing.T) {
 	if !ok {
 		t.Skip("the pty tests run it")
 	}
-	interactive = func() bool { return true }
 	switch os.Getenv("KOMANDO_PTY_AS") {
 	case "person": // whatever TERM and CI the tests run with
-		promptable = func(f string) bool { return promptGate(f, isAgent(), "", "xterm") }
+		promptable = func(cl *call, f string) bool { return promptGate(f, cl.isAgent(), "", "xterm") }
 	case "agent": // TestMain took the agent variables away
 		os.Setenv("KOMANDO_AGENT", "1")
-		resetApproval()
-		interactive = func() bool { return false } // as the real one says for an agent
 	}
 	os.Args = append([]string{"komando"}, strings.Split(args, "\x1f")...)
+	// as in the komando program, its call is the only one running
+	// (TestMain counted tcl in for the other tests)
+	tcl.leave()
 	code := Execute()
 	// the terminal as komando leaves it (the test cannot look itself: the
 	// system takes the terminal away when this process ends)

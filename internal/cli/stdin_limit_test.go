@@ -15,9 +15,9 @@ func TestSecretSetStdinOverLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stdin
-	os.Stdin = r
-	t.Cleanup(func() { os.Stdin = saved; r.Close() })
+	saved := tcl.stdin
+	tcl.stdin = r
+	t.Cleanup(func() { tcl.stdin = saved; r.Close() })
 	go func() {
 		chunk := bytes.Repeat([]byte("x"), 64<<10)
 		for i := 0; i < 32; i++ { // 2 MiB, or until komando stops reading

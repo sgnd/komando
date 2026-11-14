@@ -15,15 +15,20 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// never wait for a confirmation prompt, even when run from a terminal
-	interactive = func() bool { return false }
+	// never wait for a confirmation prompt, even when run from a terminal;
+	// a test that plays a person at a terminal sets it, whatever CI says
+	tcl.terminal = false
+	os.Unsetenv("CI")
+	// the hooks of the lower packages (call_hooks.go) answer for tcl also when
+	// a test calls komando's code without running a command
+	tcl.enter()
 	// tests run as a script, even inside an AI agent's shell; the ones about
 	// agents set the variables themselves
 	for _, a := range agentVars {
 		os.Unsetenv(a.env)
 		resetApproval()
 	}
-	askOnScreen = func(string) (bool, bool) { panic("a test opened an approval window") }
+	askOnScreen = func(*call, string) (bool, bool) { panic("a test opened an approval window") }
 	// a new vault never puts its key in the login keychain of whoever runs
 	// the tests (secret_keychain_test.go uses stand-ins)
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
@@ -32,7 +37,7 @@ func TestMain(m *testing.M) {
 	// must not ask the real one (internal/vault tests that rule)
 	vault.AgentCall = nil
 	// status never lists the AWS logins of whoever runs the tests
-	awsLogins = func() []cloud.AWSLogin { return nil }
+	awsLogins = func(*call) []cloud.AWSLogin { return nil }
 	// every command opens the sealed store with the passphrase: a cheap
 	// scrypt keeps the PTY children (this binary again) fast under -race
 	vault.PassphraseN = 1 << 10
@@ -123,7 +128,7 @@ func TestResolveTargets(t *testing.T) {
 		"root@1.2.3.4:2222": "root@1.2.3.4:2222",
 	}
 	for expr, want := range cases {
-		hs, err := resolveTargets(st, expr)
+		hs, err := resolveTargets(tcl, st, expr)
 		if err != nil {
 			t.Errorf("%s: %v", expr, err)
 			continue
@@ -132,10 +137,10 @@ func TestResolveTargets(t *testing.T) {
 			t.Errorf("%s: got %s want %s", expr, got, want)
 		}
 	}
-	if _, err := resolveTargets(st, "nope"); err == nil || toErr(err).Code != "HOST_NOT_FOUND" {
+	if _, err := resolveTargets(tcl, st, "nope"); err == nil || toErr(err).Code != "HOST_NOT_FOUND" {
 		t.Errorf("expected HOST_NOT_FOUND, got %v", err)
 	}
-	if _, err := resolveTargets(st, "@missing"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
+	if _, err := resolveTargets(tcl, st, "@missing"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
 		t.Errorf("expected TARGET_EMPTY, got %v", err)
 	}
 }

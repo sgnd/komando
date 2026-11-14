@@ -575,8 +575,8 @@ A value komando cannot read is null ("unknown"), never 0 or false; read
 data.results[].data.warnings first.`,
 		Example: "  komando facts web1\n  komando facts @prod -o json",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return probeText(cmd.Context(), "facts", args[0], factsScript, false, nil, parseFacts, factsText)
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return probeText(cl, cmd.Context(), "facts", args[0], factsScript, false, nil, parseFacts, factsText)
+		}),
 	}
 }

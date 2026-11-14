@@ -24,9 +24,9 @@ const sealPass = "a sealed file passphrase"
 // hidden answers, in order.
 func sealPerson(t *testing.T, typed ...string) {
 	t.Helper()
-	savedI, savedR := interactive, readPassword
-	interactive = func() bool { return true }
-	readPassword = func(string) (string, error) {
+	savedI, savedR := tcl.terminal, readPassword
+	tcl.terminal = true
+	readPassword = func(*call, string) (string, error) {
 		if len(typed) == 0 {
 			t.Fatal("komando asked for more than the test typed")
 		}
@@ -34,7 +34,7 @@ func sealPerson(t *testing.T, typed ...string) {
 		typed = typed[1:]
 		return s, nil
 	}
-	t.Cleanup(func() { interactive, readPassword = savedI, savedR; resetApproval() })
+	t.Cleanup(func() { tcl.terminal, readPassword = savedI, savedR; resetApproval() })
 }
 
 // sealLab is a list with two servers, a conn, a key komando made and
@@ -162,9 +162,7 @@ func TestSealedNeedsPerson(t *testing.T) {
 	}
 	for _, agent := range []bool{false, true} {
 		if agent {
-			t.Setenv("KOMANDO_AGENT", "1")
-			resetApproval()
-			t.Cleanup(resetApproval)
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
 		}
 		for _, args := range [][]string{{"export", "--sealed", "--to", file}, {"export", "--for-phone", "--to", file, "--yes"}, {"import", "komando", other}} {
 			if e := wantCode(t, "NEEDS_PERSON", args...); e.Exit != out.ExitPolicy || strings.Contains(e.Hint, "add the flag") {
@@ -281,7 +279,7 @@ func phoneAnswers(t *testing.T, key, check string) {
 	t.Helper()
 	saved := readPhoneAnswer
 	answers := []string{key, check}
-	readPhoneAnswer = func(string, bool) (string, error) {
+	readPhoneAnswer = func(*call, string, bool) (string, error) {
 		s := answers[0]
 		answers = answers[1:]
 		return s, nil

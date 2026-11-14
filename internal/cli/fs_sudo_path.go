@@ -135,17 +135,17 @@ func unsafeFolder(p, stderr string) error {
 
 // writeRemoteSudo is writeRemoteFrom with --sudo: the content is staged in
 // the SSH user's /tmp (0600), then root checks the path and installs it.
-func writeRemoteSudo(ctx context.Context, c *sshx.Client, sc *sftp.Client, p, mode, tmpName string, o writeOpts, res map[string]any, copyIn func(io.Writer) error) (map[string]any, error) {
+func writeRemoteSudo(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, p, mode, tmpName string, o writeOpts, res map[string]any, copyIn func(io.Writer) error) (map[string]any, error) {
 	tmp := path.Join("/tmp", tmpName)
 	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 	if err != nil {
-		return nil, fsErr(tmp, err)
+		return nil, fsErr(cl, tmp, err)
 	}
 	// only the SSH user may read the staged content (it can be a secret)
 	if err := f.Chmod(0o600); err != nil {
 		f.Close()
 		sc.Remove(tmp)
-		return nil, fsErr(tmp, err)
+		return nil, fsErr(cl, tmp, err)
 	}
 	if err := copyIn(f); err != nil {
 		f.Close()

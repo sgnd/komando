@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"os/user"
 	"path"
 	"path/filepath"
@@ -34,7 +33,7 @@ func deny(format string, a ...any) guardDecision {
 // Claude Code sends them (Read, Edit, Write, MultiEdit, NotebookEdit, Grep,
 // Glob, Bash). cwd is the agent's working folder, from the hook input, or
 // "" when it is not known: relative paths are read from it.
-func checkTool(tool string, in map[string]any, home, cwd string) guardDecision {
+func checkTool(cl *call, tool string, in map[string]any, home, cwd string) guardDecision {
 	str := func(k string) string { s, _ := in[k].(string); return s }
 	switch tool {
 	case "Read", "Edit", "Write", "MultiEdit", "NotebookEdit":
@@ -42,11 +41,11 @@ func checkTool(tool string, in map[string]any, home, cwd string) guardDecision {
 		if p == "" {
 			p = str("notebook_path")
 		}
-		if why := secretWord(p, home, cwd, false); why != "" {
+		if why := secretWord(cl, p, home, cwd, false); why != "" {
 			return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", p, why, viaKomando(why))
 		}
 	case "Grep", "Glob":
-		if why := secretWord(str("path"), home, cwd, false); why != "" {
+		if why := secretWord(cl, str("path"), home, cwd, false); why != "" {
 			return deny("%s is %s; ask the user if you need something from it", str("path"), why)
 		}
 		if g := str("glob"); g != "" && sensitiveName(g) {
@@ -62,17 +61,17 @@ func checkTool(tool string, in map[string]any, home, cwd string) guardDecision {
 		if dir == "" {
 			break
 		}
-		if p := guardPathAt(dir, home, cwd); holdsProtected(p, home) {
+		if p := guardPathAt(cl, dir, home, cwd); holdsProtected(cl, p, home) {
 			return deny("%s holds komando's data and private keys, and a search of it reads them; search a project folder instead", dir)
 		}
 		if g := str("glob"); g != "" && !filepath.IsAbs(g) {
 			// Grep reads what the glob picks: path/.komando/* reads komando's data
-			if why := secretWord(filepath.Join(dir, g), home, cwd, true); why != "" {
+			if why := secretWord(cl, filepath.Join(dir, g), home, cwd, true); why != "" {
 				return deny("%s in %s matches %s; leave it out of the search", g, dir, why)
 			}
 		}
 	case "Bash":
-		return checkShell(str("command"), home, cwd)
+		return checkShell(cl, str("command"), home, cwd)
 	}
 	return allow()
 }
@@ -85,16 +84,16 @@ func viaKomando(why string) string {
 }
 
 // secretPath says why a path on this computer is off limits, or "".
-func secretPath(p, home string) string {
+func secretPath(cl *call, p, home string) string {
 	if p == "" {
 		return ""
 	}
-	p = guardPath(p, home)
+	p = guardPath(cl, p, home)
 	if isProcEnviron(p) {
 		return procEnv
 	}
 	komandoDirs := []string{filepath.Join(home, ".komando")}
-	if h := os.Getenv("KOMANDO_HOME"); h != "" {
+	if h := cl.getenv("KOMANDO_HOME"); h != "" {
 		komandoDirs = append(komandoDirs, h)
 	}
 	for _, d := range komandoDirs {
@@ -168,12 +167,12 @@ func isProcEnviron(p string) bool {
 // holdsProtected reports whether the folder p holds one of the folders
 // secretPath guards (p is the home folder, /Users or /): a recursive read
 // of p reads them too.
-func holdsProtected(p, home string) bool {
+func holdsProtected(cl *call, p, home string) bool {
 	if !filepath.IsAbs(p) {
 		return false
 	}
 	for _, q := range []string{filepath.Clean(p), realPath(p)} {
-		for _, d := range protectedDirs(home) {
+		for _, d := range protectedDirs(cl, home) {
 			if caseFoldFS {
 				q, d = strings.ToLower(q), strings.ToLower(d)
 			}
@@ -190,24 +189,24 @@ func holdsProtected(p, home string) bool {
 // shell expands the word (it has unquoted *, ?, [ or {): it is then off
 // limits when it could match a protected path (`~/.komand?/vault.ke?`),
 // whether or not the file is there yet.
-func secretWord(w, home, cwd string, glob bool) string {
+func secretWord(cl *call, w, home, cwd string, glob bool) string {
 	if w == "" {
 		return ""
 	}
 	if glob {
-		return secretGlob(w, home, cwd)
+		return secretGlob(cl, w, home, cwd)
 	}
-	p := guardPathAt(w, home, cwd)
-	if why := secretPath(p, home); why != "" {
+	p := guardPathAt(cl, w, home, cwd)
+	if why := secretPath(cl, p, home); why != "" {
 		return why
 	}
 	if real := realPath(p); real != p {
-		if why := secretPath(real, home); why != "" {
+		if why := secretPath(cl, real, home); why != "" {
 			return why
 		}
 	}
 	if filepath.IsAbs(p) {
-		return hardLinkSecret(p, home)
+		return hardLinkSecret(cl, p, home)
 	}
 	return ""
 }
@@ -232,8 +231,8 @@ func realPath(p string) string {
 
 // guardPathAt is guardPath, with a relative path joined to cwd when cwd is
 // known.
-func guardPathAt(w, home, cwd string) string {
-	p := guardPath(w, home)
+func guardPathAt(cl *call, w, home, cwd string) string {
+	p := guardPath(cl, w, home)
 	if !filepath.IsAbs(p) && cwd != "" {
 		p = filepath.Join(cwd, p)
 	}
@@ -245,9 +244,9 @@ func wordHasGlob(w string) bool { return strings.ContainsAny(w, "*?[{") }
 // secretGlob: a glob is off limits when a file it matches here is, or when
 // it could name a protected folder or something in it: `~/.komand?`,
 // `~/.ss?/id_*` and `.komando/keys/*` (from the home folder) all count.
-func secretGlob(w, home, cwd string) string {
+func secretGlob(cl *call, w, home, cwd string) string {
 	for _, pat := range expandBraces(w, 0) {
-		p := guardPathAt(pat, home, cwd)
+		p := guardPathAt(cl, pat, home, cwd)
 		if last := filepath.Base(p); strings.HasPrefix(last, ".") {
 			for _, n := range []string{".env", ".env.local", ".env.production", ".pgpass", ".my.cnf", ".netrc", ".git-credentials", ".htpasswd", ".npmrc", ".pypirc"} {
 				if ok, _ := filepath.Match(last, n); ok {
@@ -270,15 +269,15 @@ func secretGlob(w, home, cwd string) string {
 				if isCredentialStore(f, home) && filepath.Base(p) == "*" {
 					continue // `du -sh ~/*/*` names ~/Library/Keychains, it does not read it
 				}
-				if why := secretPath(realPath(f), home); why != "" {
+				if why := secretPath(cl, realPath(f), home); why != "" {
 					return why
 				}
 			}
 		}
-		for _, d := range protectedDirs(home) {
+		for _, d := range protectedDirs(cl, home) {
 			for _, q := range []string{p, realPath(p)} {
 				if c, ok := globUnder(q, d, home); ok {
-					if why := secretPath(c, home); why != "" {
+					if why := secretPath(cl, c, home); why != "" {
 						return why
 					}
 				}
@@ -302,9 +301,9 @@ func isCredentialStore(p, home string) bool {
 }
 
 // protectedDirs are the folders secretPath guards as a whole.
-func protectedDirs(home string) []string {
+func protectedDirs(cl *call, home string) []string {
 	dirs := []string{filepath.Join(home, ".komando"), filepath.Join(home, ".ssh"), filepath.Join(home, ".docker")}
-	if h := os.Getenv("KOMANDO_HOME"); h != "" {
+	if h := cl.getenv("KOMANDO_HOME"); h != "" {
 		dirs = append(dirs, filepath.Clean(h))
 	}
 	for _, d := range credentialStores {
@@ -384,9 +383,9 @@ func expandBraces(w string, depth int) []string {
 	return all
 }
 
-func guardPath(p, home string) string {
+func guardPath(cl *call, p, home string) string {
 	p = strings.Trim(p, `"'`)
-	kh := os.Getenv("KOMANDO_HOME")
+	kh := cl.getenv("KOMANDO_HOME")
 	if kh == "" {
 		kh = filepath.Join(home, ".komando")
 	}

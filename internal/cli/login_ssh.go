@@ -37,18 +37,18 @@ import (
 // `komando logout SERVER` ends it sooner. See sshx/held.go.
 
 // loginHost runs `komando login SERVER`.
-func loginHost(ctx context.Context, name string) error {
+func loginHost(cl *call, ctx context.Context, name string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	h, err := findHost(st, name)
+	h, err := findHost(cl, st, name)
 	if err != nil {
 		return err
 	}
 	needsPerson := out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
 		"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
-	if !interactive() && !g.dryRun {
+	if !cl.interactive() && !cl.flags.dryRun {
 		return needsPerson
 	}
 	keep, _ := time.ParseDuration(st.Settings.LoginFor)
@@ -56,29 +56,29 @@ func loginHost(ctx context.Context, name string) error {
 		keep = 8 * time.Hour
 	}
 	if l := sshx.HeldFor(st, h); l != nil && heldAlive(l) {
-		out.P.Print("login.host", loginResult{Host: h.Name, Until: l.Until, Already: true}, nil)
+		cl.out.Print("login.host", loginResult{Host: h.Name, Until: l.Until, Already: true}, nil)
 		return nil
 	}
-	if g.dryRun { // never blocked: what the real run would need is in would_be_blocked
+	if cl.flags.dryRun { // never blocked: what the real run would need is in would_be_blocked
 		res := map[string]any{"host": h.Name, "would_log_in": true, "keeps_it_for": keep.String()}
-		if !interactive() {
+		if !cl.interactive() {
 			res["would_log_in"] = false
-			out.P.WouldBlock(needsPerson)
+			cl.out.WouldBlock(needsPerson)
 		}
-		out.P.Print("login.host", res, nil)
+		cl.out.Print("login.host", res, nil)
 		return nil
 	}
 	endLogin(st.Logins[h.Name]) // an old one (expired, or for an older address)
-	l, err := startHolder(h, keep)
+	l, err := startHolder(cl, h, keep)
 	if err != nil {
 		return err
 	}
-	if err := store.UpdateRuntime(func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
+	if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
 		endLogin(l)
 		return err
 	}
-	audit(st, "login.host", []string{h.Name}, "", true, map[string]any{"until": l.Until})
-	out.P.Print("login.host", loginResult{Host: h.Name, Until: l.Until}, nil)
+	audit(cl, st, "login.host", []string{h.Name}, "", true, map[string]any{"until": l.Until})
+	cl.out.Print("login.host", loginResult{Host: h.Name, Until: l.Until}, nil)
 	return nil
 }
 
@@ -117,7 +117,7 @@ func endLogin(l *store.SSHLogin) {
 
 // startHolder starts `komando login-holder NAME` and relays its login's
 // questions to the person here until it says READY (or why not).
-func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
+func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 	self, err := os.Executable()
 	if err != nil {
 		return nil, err
@@ -138,8 +138,8 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 	l := &store.SSHLogin{Host: h.Name, Target: sshx.TargetOf(h), Token: randToken(24), LogFile: logFile,
 		StartedAt: time.Now().UTC(), Until: time.Now().Add(keep).UTC()}
 	c := holderCommand(self, h.Name)
-	if c.Env == nil {
-		c.Env = os.Environ() // vault.TakeUnlockEnv took KOMANDO_VAULT_PASS and the like out of it
+	if c.Env == nil { // a test's holderCommand sets its own
+		c.Env = cl.environ() // the call's, unlock values out; never nil (nil inherits the process's)
 	}
 	c.Stderr = lf
 	c.SysProcAttr = detachAttr() // it outlives this command and its terminal
@@ -190,7 +190,7 @@ func startHolder(h *store.Host, keep time.Duration) (*store.SSHLogin, error) {
 			hidden, b64, _ := strings.Cut(rest, " ")
 			text, _ := base64.StdEncoding.DecodeString(b64)
 			hb, _ := base64.StdEncoding.DecodeString(host)
-			a, err := askSSH(string(hb), string(text), hidden == "1")
+			a, err := askSSH(cl, string(hb), string(text), hidden == "1")
 			if err != nil {
 				cancelled = err
 				fmt.Fprintln(stdin, "CANCEL")
@@ -255,10 +255,10 @@ func loginHolderCmd() *cobra.Command {
 		Use:    "login-holder NAME",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP) // `login` exits once it is up
 			var outMu sync.Mutex
-			say := func(s string) { outMu.Lock(); fmt.Fprintln(os.Stdout, s); outMu.Unlock() }
+			say := func(s string) { outMu.Lock(); fmt.Fprintln(cl.out.W, s); outMu.Unlock() }
 			fail := func(err error) error {
 				e := holderError{Code: "LOGIN_FAILED", Message: err.Error(), Exit: out.ExitConnect}
 				var oe *out.Error
@@ -266,11 +266,11 @@ func loginHolderCmd() *cobra.Command {
 					e = holderError{Code: oe.Code, Message: oe.Message, Hint: oe.Hint, Exit: oe.Exit, Final: oe.Final}
 				}
 				b, _ := json.Marshal(e)
-				fmt.Fprintf(os.Stderr, "%s ERROR %s\n", time.Now().Format("2006/01/02 15:04:05"), e.Message)
+				fmt.Fprintf(cl.out.Err, "%s ERROR %s\n", time.Now().Format("2006/01/02 15:04:05"), e.Message)
 				say("ERROR " + string(b))
 				return exitCode(1)
 			}
-			in := bufio.NewReader(os.Stdin)
+			in := bufio.NewReader(cl.stdin)
 			token, until, err := holderStdin(in)
 			if err != nil {
 				return fail(err)
@@ -279,16 +279,17 @@ func loginHolderCmd() *cobra.Command {
 			if err != nil {
 				return fail(err)
 			}
-			h, err := findHost(st, args[0])
+			h, err := findHost(cl, st, args[0])
 			if err != nil {
 				return fail(err)
 			}
-			sshx.Ask = relayAsk(in, say)
+			relay := relayAsk(in, say)
+			sshx.Asker = func() func(host, text string, hidden bool) (string, error) { return relay }
 			ctx := cmd.Context()
-			o := sshOpts(st)
+			o := sshOpts(cl, st)
 			o.Fresh = true
 			c, err := sshx.Dial(ctx, st, h, o)
-			sshx.Ask = nil // logged in: nobody is asked again
+			sshx.Asker = nil // logged in: nobody is asked again
 			if err != nil {
 				return fail(err)
 			}
@@ -299,25 +300,25 @@ func loginHolderCmd() *cobra.Command {
 			}
 			defer os.Remove(sock)
 			say("READY " + sock + " " + base64.StdEncoding.EncodeToString(ssh.MarshalAuthorizedKey(signer.PublicKey())))
-			os.Stdout = os.Stderr // `login` stops reading now
+			cl.out.W = cl.out.Err // `login` stops reading now
 			started := time.Now()
-			fmt.Fprintf(os.Stderr, "%s READY logged in to %s until %s\n", started.Format("2006/01/02 15:04:05"), h.Name, until.Local().Format("15:04"))
+			fmt.Fprintf(cl.out.Err, "%s READY logged in to %s until %s\n", started.Format("2006/01/02 15:04:05"), h.Name, until.Local().Format("15:04"))
 			go sshx.ServeHeld(ln, c.Client, token, signer, nil)
 			why := holdUntil(ctx, c, until)
 			ln.Close()
-			fmt.Fprintf(os.Stderr, "%s ENDED %s (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), why, time.Since(started).Round(time.Second))
-			_ = store.UpdateRuntime(func(s *store.State) error {
+			fmt.Fprintf(cl.out.Err, "%s ENDED %s (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), why, time.Since(started).Round(time.Second))
+			_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				if x := s.Logins[h.Name]; x != nil && x.PID == os.Getpid() { // not a newer login's record
 					delete(s.Logins, h.Name)
 				}
 				return nil
 			})
 			return nil
-		},
+		}),
 	}
 }
 
-// relayAsk is sshx.Ask in the holder: each question goes to `login` on
+// relayAsk is the question sshx.Asker gives in the holder: each question goes to `login` on
 // the output, and its answer comes back on the input. After a cancel every
 // later question ends the same way.
 func relayAsk(in *bufio.Reader, say func(string)) func(host, text string, hidden bool) (string, error) {
@@ -425,7 +426,7 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 	return token, until, nil
 }
 
-func logoutCmd() *cobra.Command {
+func logoutCmd(cl *call) *cobra.Command {
 	var all bool
 	c := &cobra.Command{
 		Use:   "logout [SERVER...]",
@@ -438,7 +439,7 @@ AWS IAM Identity Center (SSO) login.`,
 		Example: `  komando logout web1
   komando logout --all
   komando logout aws --profile prod`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -454,19 +455,19 @@ AWS IAM Identity Center (SSO) login.`,
 			}
 			for _, n := range names {
 				// a login of a server removed since still ends
-				if _, err := findHost(st, n); err != nil && st.Logins[n] == nil {
+				if _, err := findHost(cl, st, n); err != nil && st.Logins[n] == nil {
 					return err
 				}
 			}
-			if g.dryRun {
-				out.P.Print("logout", map[string]any{"would_log_out": names}, nil)
+			if cl.flags.dryRun {
+				cl.out.Print("logout", map[string]any{"would_log_out": names}, nil)
 				return nil
 			}
 			done, none := []string{}, []string{}
 			for _, n := range names {
 				l := st.Logins[n]
 				if l == nil {
-					if h, err := findHost(st, n); err == nil && st.Logins[h.Name] != nil {
+					if h, err := findHost(cl, st, n); err == nil && st.Logins[h.Name] != nil {
 						n, l = h.Name, st.Logins[h.Name]
 					}
 				}
@@ -477,7 +478,7 @@ AWS IAM Identity Center (SSO) login.`,
 				}
 				endLogin(l)
 			}
-			if err := store.UpdateRuntime(func(s *store.State) error {
+			if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				for _, n := range append(append([]string{}, done...), none...) {
 					delete(s.Logins, n)
 				}
@@ -486,14 +487,14 @@ AWS IAM Identity Center (SSO) login.`,
 				return err
 			}
 			if len(done) > 0 {
-				audit(st, "logout", done, "", true, nil)
+				audit(cl, st, "logout", done, "", true, nil)
 			}
-			out.P.Print("logout", logoutData{LoggedOut: done, NotLoggedIn: none}, nil)
+			cl.out.Print("logout", logoutData{LoggedOut: done, NotLoggedIn: none}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&all, "all", false, "end every kept server login")
-	c.AddCommand(logoutAWSCmd())
+	c.AddCommand(logoutAWSCmd(cl))
 	return c
 }
 

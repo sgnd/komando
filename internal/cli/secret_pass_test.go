@@ -22,9 +22,7 @@ func TestSecretPassphraseNeedsPerson(t *testing.T) {
 	raw, _ := os.ReadFile(store.Path(store.StoreFile))
 	for _, agent := range []bool{false, true} {
 		if agent {
-			t.Setenv("KOMANDO_AGENT", "1")
-			resetApproval()
-			t.Cleanup(resetApproval)
+			setCallerEnv(t, "KOMANDO_AGENT", "1")
 		}
 		for _, args := range [][]string{{"secret", "passphrase"}, {"secret", "passphrase", "--off", "--yes"}} {
 			e := wantCode(t, "NEEDS_PERSON", args...)
@@ -205,7 +203,7 @@ func TestDoctorVaultKey(t *testing.T) {
 			t.Fatal(err)
 		}
 		m := map[string]securityCheck{}
-		for _, c := range securityChecks(st) {
+		for _, c := range securityChecks(tcl, st) {
 			m[c.Name] = c
 		}
 		return m

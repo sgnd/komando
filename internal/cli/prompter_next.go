@@ -27,39 +27,32 @@ type fillInfo struct {
 	line     []string
 }
 
-var fillSeen fillInfo
-
-// nextNow are the Next: lines a command worked out while it ran (the IDs
-// of the jobs it started, the group an import made). They take the place
-// of its formHint's list. Agents read the same in data.next.
-var nextNow []string
-
 // sayNext sets the Next: lines a person sees after this command, each a
 // whole `komando ...` line. Nothing next is ever printed on stdout (S-9.3).
-func sayNext(lines ...string) { nextNow = lines }
+func sayNext(cl *call, lines ...string) { cl.nextNow = lines }
 
 // promptNext prints Next time: and Next: for a person, after a run that
 // ended well. A Next: line with {} needs the command's first argument.
 // Next: is one line on stderr, at most three commands (S-9.3).
-func promptNext() {
-	if !fillSeen.person || fillSeen.key == "" {
+func promptNext(cl *call) {
+	if !cl.fillSeen.person || cl.fillSeen.key == "" {
 		return
 	}
-	if fillSeen.prompted {
-		fmt.Fprintln(promptW, "Next time: komando "+pickCommandLine(fillSeen.line))
+	if cl.fillSeen.prompted {
+		fmt.Fprintln(promptW(cl), "Next time: komando "+pickCommandLine(cl.fillSeen.line))
 	}
-	if kind, ok := showKinds[fillSeen.key]; ok && fillSeen.first != "" {
-		showCommands(kind, fillSeen.first)
+	if kind, ok := showKinds[cl.fillSeen.key]; ok && cl.fillSeen.first != "" {
+		showCommands(cl, kind, cl.fillSeen.first)
 	}
-	lines := nextNow
+	lines := cl.nextNow
 	if len(lines) == 0 {
-		lines = nextLines(fillSeen.key, fillSeen.first, fillSeen.args)
+		lines = nextLines(cl.fillSeen.key, cl.fillSeen.first, cl.fillSeen.args)
 	}
 	if len(lines) > 3 {
 		lines = lines[:3]
 	}
 	if len(lines) > 0 {
-		fmt.Fprintln(promptW, "Next: "+strings.Join(lines, " · "))
+		fmt.Fprintln(promptW(cl), "Next: "+strings.Join(lines, " · "))
 	}
 }
 
@@ -169,7 +162,7 @@ func verbNext(key string) []string {
 }
 
 // nextRoot is the command tree verbNext reads.
-var nextRoot = sync.OnceValue(newRoot)
+var nextRoot = sync.OnceValue(func() *cobra.Command { return newRoot(treeCall()) })
 
 // cmdByKey is the command whose key is key, or nil (an alias does not count).
 func cmdByKey(root *cobra.Command, key string) *cobra.Command {
@@ -282,7 +275,7 @@ func itemKinds(st *store.State, kind, name string) []string {
 
 // showCommands prints the commands for one item after a show command, for
 // a person at the terminal, on stderr.
-func showCommands(kind, name string) {
+func showCommands(cl *call, kind, name string) {
 	st, err := loadState()
 	if err != nil {
 		return
@@ -294,8 +287,8 @@ func showCommands(kind, name string) {
 	if len(cmds) == 0 {
 		return
 	}
-	fmt.Fprintln(promptW, "\nCOMMANDS")
+	fmt.Fprintln(promptW(cl), "\nCOMMANDS")
 	for _, c := range cmds {
-		fmt.Fprintln(promptW, "  komando "+strings.ReplaceAll(c, "{}", name))
+		fmt.Fprintln(promptW(cl), "  komando "+strings.ReplaceAll(c, "{}", name))
 	}
 }

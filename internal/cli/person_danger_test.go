@@ -20,10 +20,10 @@ func personTypes(t *testing.T, answer string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	savedIn, savedErr, savedInteractive := os.Stdin, os.Stderr, interactive
-	os.Stdin, os.Stderr, interactive = r, devnull, func() bool { return true }
+	savedIn, savedErr, savedInteractive := tcl.stdin, tcl.out.Err, tcl.terminal
+	tcl.stdin, tcl.out.Err, tcl.terminal = r, devnull, true
 	t.Cleanup(func() {
-		os.Stdin, os.Stderr, interactive = savedIn, savedErr, savedInteractive
+		tcl.stdin, tcl.out.Err, tcl.terminal = savedIn, savedErr, savedInteractive
 		r.Close()
 		devnull.Close()
 		resetApproval()
@@ -48,7 +48,7 @@ func TestDangerousAsksAPerson(t *testing.T) {
 			mustRun(t, "host", "add", "web1", "u@127.0.0.1:1") // nothing listens: the command fails after the question
 			personTypes(t, "web1")
 			_, e := invRun(t, tc.args...)
-			if e == nil || e.Code != "POLICY_BLOCKED" || !cur().sess.PersonSaidNo() {
+			if e == nil || e.Code != "POLICY_BLOCKED" || !tcl.sess.PersonSaidNo() {
 				t.Fatalf("a wrong name stops it: %+v", e)
 			}
 			personTypes(t, tc.answer)

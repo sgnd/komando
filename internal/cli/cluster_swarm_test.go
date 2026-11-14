@@ -155,7 +155,7 @@ func TestLimitValue(t *testing.T) {
 // number given as -n (the old count on events, logs, ls) is refused,
 // and --namespace=N still names a namespace N.
 func TestClusterDashN(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	n := 0
 	for _, c := range allCommands(root) {
 		ns := c.Flags().Lookup("namespace")
@@ -184,7 +184,7 @@ func TestClusterDashN(t *testing.T) {
 			}
 		}
 		for _, args := range [][]string{{"-n", "50"}, {"-n50"}, {"-n=7"}} {
-			cmd := newRoot()
+			cmd := newRoot(treeCall())
 			found, _, _ := cmd.Find(strings.Fields(strings.TrimPrefix(c.CommandPath(), "komando ")))
 			if err := found.ParseFlags(args); err == nil || !strings.Contains(err.Error(), "is a count, but") {
 				t.Errorf("%s %v: %v", c.CommandPath(), args, err)
@@ -206,7 +206,7 @@ func TestClusterDashN(t *testing.T) {
 // when the command has no flag args need.
 func clusterParse(t *testing.T, path string, args []string) *cobra.Command {
 	t.Helper()
-	found, _, _ := newRoot().Find(strings.Fields(strings.TrimPrefix(path, "komando ")))
+	found, _, _ := newRoot(treeCall()).Find(strings.Fields(strings.TrimPrefix(path, "komando ")))
 	if strings.HasPrefix(args[0], "-A") && found.Flags().Lookup("all-namespaces") == nil {
 		return nil
 	}
@@ -316,17 +316,17 @@ func TestPickRollback(t *testing.T) {
 func TestDiffObjectSecret(t *testing.T) {
 	before := []byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"s","resourceVersion":"1"},"data":{"a":"b25l","b":"eA=="}}`)
 	after := []byte(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"s","resourceVersion":"2"},"data":{"a":"dHdv","b":"eA==","c":"eQ=="}}`)
-	c := diffObject("secret/s", before, after)
+	c := diffObject(tcl, "secret/s", before, after)
 	if c.Action != "change" {
 		t.Fatalf("a changed Secret value is a change, got %s", c.Action)
 	}
 	if strings.Contains(c.Diff, "dHdv") || strings.Contains(c.Diff, "b25l") || !strings.Contains(c.Diff, "+  a: (hidden, changed)") || !strings.Contains(c.Diff, "+  c: (hidden, new)") {
 		t.Errorf("diff:\n%s", c.Diff)
 	}
-	if c := diffObject("secret/s", before, before); c.Action != "none" {
+	if c := diffObject(tcl, "secret/s", before, before); c.Action != "none" {
 		t.Errorf("same values: %s", c.Action)
 	}
-	d := diffObject("deployment/d", []byte(`{"kind":"Deployment","spec":{"template":{"spec":{"x":1}}}}`), []byte(`{"kind":"Deployment","spec":{"template":{"spec":{"x":2}}}}`))
+	d := diffObject(tcl, "deployment/d", []byte(`{"kind":"Deployment","spec":{"template":{"spec":{"x":1}}}}`), []byte(`{"kind":"Deployment","spec":{"template":{"spec":{"x":2}}}}`))
 	if !strings.Contains(d.Diff, "\n-      x: 1") {
 		t.Errorf("diff uses 2-space YAML:\n%s", d.Diff)
 	}

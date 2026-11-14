@@ -28,9 +28,14 @@ func key(t testing.TB, fill byte) *sealrow.Key {
 	return k
 }
 
+// open opens the store at path, made first when it is not there.
 func open(t *testing.T, path string) *DB {
 	t.Helper()
-	d, err := Open(ctx, path, key(t, 1))
+	openOrCreate := Open
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		openOrCreate = Create
+	}
+	d, err := openOrCreate(ctx, path, key(t, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -389,15 +394,20 @@ func TestNestedAndOddPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "store.db")
-	// an existing file with a wide mode is narrowed
-	if err := os.WriteFile(path, nil, 0o644); err != nil {
+	// an existing store with a wide mode is narrowed
+	made, err := Create(ctx, path, key(t, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	made.Close()
+	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	d := open(t, path)
 	if fi, _ := os.Stat(path); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("mode %v", fi.Mode().Perm())
 	}
-	err := d.Update(ctx, func(tx *Tx) error {
+	err = d.Update(ctx, func(tx *Tx) error {
 		if _, err := tx.Put("server", "", []byte("a")); err != nil {
 			return err
 		}
@@ -650,5 +660,77 @@ func TestGeneration(t *testing.T) {
 	_ = d.Update(ctx, func(tx *Tx) error { _, _ = tx.Put("server", "", nil); return errors.New("no") })
 	if g3, _ := d.Generation(ctx); g3 != g1+1 {
 		t.Fatalf("a failed step counted: %d", g3)
+	}
+}
+
+// Open never makes a store: a missing file stays missing, an empty one
+// stays empty. Only Create makes one, and never over a file.
+func TestOpenNeverCreates(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "store.db")
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a missing store: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("Open made a file: %v", err)
+	}
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrNotStore) {
+		t.Fatalf("an empty file: %v", err)
+	}
+	if fi, err := os.Stat(path); err != nil || fi.Size() != 0 {
+		t.Fatalf("Open wrote into an empty file: %v", err)
+	}
+	if _, err := Create(ctx, path, key(t, 1)); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("Create over a file: %v", err)
+	}
+	os.Remove(path)
+	d, err := Create(ctx, path, key(t, 1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	d = open(t, path)
+	if _, err := d.Generation(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// StopWrites stops writes, never reads; CloseIdle closes only a handle
+// with no step running, and every later step gets its error; a closed
+// handle's step gets ErrClosed, never a raw database error.
+func TestStopWritesAndCloseIdle(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	stop := errors.New("stopped")
+	d.StopWrites(stop)
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("x")) }); !errors.Is(err, stop) {
+		t.Fatalf("a write: %v", err)
+	}
+	if _, err := d.Generation(ctx); err != nil {
+		t.Fatalf("a read: %v", err)
+	}
+	gone := errors.New("gone")
+	inStep, release, done := make(chan struct{}), make(chan struct{}), make(chan error, 1)
+	go func() { done <- d.View(ctx, func(*Tx) error { close(inStep); <-release; return nil }) }()
+	<-inStep
+	if d.CloseIdle(gone) {
+		t.Fatal("closed with a step running")
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if !d.CloseIdle(gone) {
+		t.Fatal("an idle handle was not closed")
+	}
+	if _, err := d.Generation(ctx); !errors.Is(err, gone) {
+		t.Fatalf("a read after CloseIdle: %v", err)
+	}
+	d2 := open(t, filepath.Join(t.TempDir(), "store.db"))
+	d2.Close()
+	if _, err := d2.Generation(ctx); !errors.Is(err, ErrClosed) {
+		t.Fatalf("a read after Close: %v", err)
 	}
 }

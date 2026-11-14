@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // personalDB is a SQLite file with one customer, reached as a protected
@@ -43,9 +41,7 @@ func TestPersonalHiddenFromAgentOnProtected(t *testing.T) {
 	if got := customer(t, "prod"); !same(got, shown) {
 		t.Errorf("a person sees the data: %v", got)
 	}
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if got := customer(t, "prod"); !same(got, hidden) {
 		t.Errorf("an agent on a protected conn: %v", got)
 	}
@@ -63,9 +59,7 @@ func TestPersonalHiddenFromAgentOnProtected(t *testing.T) {
 	}
 	os.Unsetenv("KOMANDO_AGENT") // a person turns it off
 	mustRun(t, "config", "set", "mask_personal", "off", "--yes")
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if got := customer(t, "prod"); !same(got, shown) {
 		t.Errorf("setting off: %v", got)
 	}
@@ -75,9 +69,7 @@ func TestPersonalHiddenFromAgentOnProtected(t *testing.T) {
 func TestPersonalMaskColumns(t *testing.T) {
 	personalDB(t)
 	mustRun(t, "conn", "edit", "dev", "--option", "mask_columns=Name  card")
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	got := strs(customer(t, "dev"))
 	want := []string{"1", "[hidden: column]", "[hidden: email]", "[hidden: phone]", "[hidden: column]"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
@@ -86,12 +78,13 @@ func TestPersonalMaskColumns(t *testing.T) {
 
 	// CSV goes through the same masking
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
-	root := newRoot()
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"db", "query", "prod", "-o", "csv", "select email, card from users"})
 	err := root.Execute()
-	out.P.W = saved
+	tcl.out.W = saved
 	if err != nil || !strings.Contains(buf.String(), "[hidden: email],[hidden: card]") || strings.Contains(buf.String(), "ada@") {
 		t.Errorf("CSV for an agent: %q %v", buf.String(), err)
 	}
@@ -99,9 +92,7 @@ func TestPersonalMaskColumns(t *testing.T) {
 
 func TestPersonalHiddenValueNotWritten(t *testing.T) {
 	personalDB(t)
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	wantCode(t, "HIDDEN_VALUE", "db", "query", "dev", "--write", "update users set email = '[hidden: email]' where id = 1")
 	wantCode(t, "HIDDEN_VALUE", "db", "query", "dev", "--write", "--arg", "[hidden: phone]", "update users set phone = ? where id = 1")
 	os.Unsetenv("KOMANDO_AGENT")
@@ -114,9 +105,7 @@ func TestPersonalHiddenValueNotWritten(t *testing.T) {
 func TestPersonalOnlyForDataCommands(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "admin@web1.example.com", "--protected")
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	for _, args := range [][]string{{"host", "show", "web1"}, {"list"}} {
 		b, _ := json.Marshal(mustRun(t, args...))
 		if strings.Contains(string(b), "[hidden") || !strings.Contains(string(b), "web1.example.com") {

@@ -132,6 +132,7 @@ a reason; `internal/layout` reads this table.
 | `approval` | the person's approval: the window, the code, the hints |
 | `args` | the argument words of a command, and the words after `--` |
 | `ask` | asking a person for a password or a login answer |
+| `call` | one command's run (`RunCall`): its printer, flags, approvals and environment, and the hooks of the packages under the cli ([engine-per-call.md](engine-per-call.md)) |
 | `cmdid` | the stable command IDs |
 | `common` | small helpers nearly every command uses (state, timeouts, fan-out, audit) |
 | `confirm` | yes/no and typed confirmations |

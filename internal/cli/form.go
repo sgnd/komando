@@ -56,7 +56,7 @@ type formSpec struct {
 // formKind is one row of the "what is it?" lists.
 type formKind struct {
 	label, detail string
-	spec          func() formSpec
+	spec          func(cl *call) formSpec
 }
 
 // formGroup is a row of the first list: Server, Database, Cache, ...

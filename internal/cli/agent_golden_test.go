@@ -14,8 +14,6 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // Agents and scripts see no change when a person at a terminal is asked
@@ -148,7 +146,7 @@ func goldenCases(t *testing.T) [][]string {
 			}
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 	if len(cases) < 150 {
 		t.Fatalf("only %d cases", len(cases))
 	}
@@ -260,18 +258,17 @@ func goldenRunWith(t *testing.T, agent bool, args []string, setup func(*testing.
 		setup(t)
 	}
 	if agent {
-		t.Setenv("KOMANDO_AGENT", "1")
-		resetApproval()
+		setCallerEnv(t, "KOMANDO_AGENT", "1")
 	} else {
 		noAgent(t)
 	}
 	home := os.Getenv("KOMANDO_HOME")
-	savedArgs, savedOut, savedErr, savedIn := os.Args, os.Stdout, os.Stderr, os.Stdin
+	savedArgs, savedOut, savedErr, savedIn := tcl.args, tcl.out.W, tcl.out.Err, tcl.stdin
 	outR, outW, _ := os.Pipe()
 	errR, errW, _ := os.Pipe()
 	inR, inW, _ := os.Pipe()
 	inW.Close()
-	os.Args, os.Stdout, os.Stderr, os.Stdin = append([]string{"komando"}, args...), outW, errW, inR
+	tcl.args, tcl.out.W, tcl.out.Err, tcl.stdin = append([]string{"komando"}, args...), outW, errW, inR
 	got := make(chan [2]string)
 	go func() {
 		var o, e bytes.Buffer
@@ -281,10 +278,8 @@ func goldenRunWith(t *testing.T, agent bool, args []string, setup func(*testing.
 		<-done
 		got <- [2]string{o.String(), e.String()}
 	}()
-	out.P.W = outW
 	code := executeArgs(args)
-	os.Args, os.Stdout, os.Stderr, os.Stdin = savedArgs, savedOut, savedErr, savedIn
-	out.P.W = savedOut
+	tcl.args, tcl.out.W, tcl.out.Err, tcl.stdin = savedArgs, savedOut, savedErr, savedIn
 	outW.Close()
 	errW.Close()
 	inR.Close()

@@ -20,8 +20,8 @@ import (
 
 // awsConfigProfiles are the profile names in ~/.aws/config (or
 // AWS_CONFIG_FILE), in the file's order.
-func awsConfigProfiles() []string {
-	path := os.Getenv("AWS_CONFIG_FILE")
+func awsConfigProfiles(cl *call) []string {
+	path := cl.getenv("AWS_CONFIG_FILE")
 	if path == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -48,8 +48,8 @@ func awsConfigProfiles() []string {
 
 // awsLogins is every SSO login of the profiles in ~/.aws/config that still
 // works; tests replace it.
-var awsLogins = func() []cloud.AWSLogin {
-	return cloud.AWSSSOLogins(context.Background(), awsConfigProfiles())
+var awsLogins = func(cl *call) []cloud.AWSLogin {
+	return cloud.AWSSSOLogins(context.Background(), awsConfigProfiles(cl))
 }
 
 // awsLoginRow is the detail of a status row for l.
@@ -91,7 +91,7 @@ func (d awsLogoutData) Text() string {
 	return sb.String()
 }
 
-func logoutAWSCmd() *cobra.Command {
+func logoutAWSCmd(cl *call) *cobra.Command {
 	var profile string
 	var all bool
 	c := &cobra.Command{
@@ -105,21 +105,21 @@ Profiles that share the login (one sso-session) are logged out together.
 		Example: `  komando logout aws --profile prod
   komando logout aws --all`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			profiles := []string{profile}
 			switch {
 			case all && cmd.Flags().Changed("profile"):
 				return out.Usage("give --profile or --all, not both")
 			case all:
 				profiles = nil
-				for _, l := range awsLogins() {
+				for _, l := range awsLogins(cl) {
 					profiles = append(profiles, l.Profiles[0])
 				}
 			case profile == "":
 				profiles = []string{"default"}
 			}
-			if g.dryRun {
-				out.P.Print("logout.aws", map[string]any{"would_log_out": profiles}, nil)
+			if cl.flags.dryRun {
+				cl.out.Print("logout.aws", map[string]any{"would_log_out": profiles}, nil)
 				return nil
 			}
 			d := awsLogoutData{LoggedOut: []awsLoggedOut{}}
@@ -135,13 +135,13 @@ Profiles that share the login (one sso-session) are logged out together.
 				}
 			}
 			if len(d.LoggedOut) > 0 {
-				audit(nil, "logout.aws", nil, "", true, map[string]any{"profiles": profiles})
+				audit(cl, nil, "logout.aws", nil, "", true, map[string]any{"profiles": profiles})
 			}
-			out.P.Print("logout.aws", d, nil)
+			cl.out.Print("logout.aws", d, nil)
 			return nil
-		},
+		}),
 	}
-	c.Flags().StringVar(&profile, "profile", os.Getenv("AWS_PROFILE"), "profile in ~/.aws/config (default: AWS_PROFILE, else default)")
+	c.Flags().StringVar(&profile, "profile", cl.getenv("AWS_PROFILE"), "profile in ~/.aws/config (default: AWS_PROFILE, else default)")
 	c.Flags().BoolVar(&all, "all", false, "end every AWS SSO login")
 	return c
 }

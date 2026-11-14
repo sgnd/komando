@@ -68,7 +68,7 @@ exits 1 (code CERT_PROBLEMS), like ` + "`komando doctor`" + `.`,
   komando cert check https://intranet.local --via bastion
   komando cert check web1 --path /etc/ssl/private/site.pem`,
 		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			w, err := parseAge(warn, "--warn")
 			if err != nil {
 				e := toErr(err)
@@ -80,8 +80,8 @@ exits 1 (code CERT_PROBLEMS), like ` + "`komando doctor`" + `.`,
 					return out.Usage("--path takes an absolute path on the server (got %q)", p)
 				}
 			}
-			return runCertCheck(cmd.Context(), args, certOpts{warn: w, warnText: warn, via: via, paths: paths})
-		},
+			return runCertCheck(cl, cmd.Context(), args, certOpts{warn: w, warnText: warn, via: via, paths: paths})
+		}),
 	}
 	spanText(c.Flags(), &warn, "warn", "30d", true, "flag certificates that expire within this time (like 30d, 72h)")
 	c.Flags().StringVar(&via, "via", "", "reach websites through this server or VPN (a --via path)")
@@ -228,7 +228,7 @@ type certURL struct {
 	via        string
 }
 
-func runCertCheck(ctx context.Context, args []string, o certOpts) error {
+func runCertCheck(cl *call, ctx context.Context, args []string, o certOpts) error {
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -248,7 +248,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 			urls = append(urls, certURL{target: a, kind: "url", address: addr, serverName: sn, via: o.via})
 			continue
 		}
-		sel, err := resolveSelection(st, a)
+		sel, err := resolveSelection(cl, st, a)
 		if err != nil {
 			e := toErr(err)
 			if !strings.Contains(a, ".") || e.Exit != out.ExitNotFound {
@@ -270,7 +270,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 			seen["c:"+c.Name] = true
 			t, err := driver.Parse(c.URL)
 			if err != nil || !t.Secure || t.Address == "" {
-				out.P.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: "does not use TLS (or its URL has no address)"})
+				cl.out.Skip(out.Skipped{Name: c.Name, Kind: c.Kind, Reason: "does not use TLS (or its URL has no address)"})
 				continue
 			}
 			host, _, _ := net.SplitHostPort(t.Address)
@@ -280,12 +280,12 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 			}
 			urls = append(urls, certURL{target: c.Name, kind: "conn", address: t.DialAddress(), serverName: host, via: v})
 		}
-		skipVpns(sel.Vpns)
+		skipVpns(cl, sel.Vpns)
 	}
 	if err := certTargetsFit(ctx, hosts, urls, o); err != nil {
 		return err
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		plan := map[string]any{"hosts": hostNames(hosts), "warn": o.warnText}
 		if len(hosts) > 0 {
 			plan["would_read"] = append([]string{"certbot, nginx, haproxy and apache certificate files (CERTIFICATE blocks only)"}, o.paths...)
@@ -297,14 +297,14 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 		if conns != nil {
 			plan["would_connect"] = conns
 		}
-		out.P.Print("cert.check", plan, nil)
+		cl.out.Print("cert.check", plan, nil)
 		return nil
 	}
 
 	data := certData{Warn: o.warnText, WarnDays: int(o.warn.Hours() / 24), Results: []certTarget{}}
-	maxOut := max(maxOutput(st), 4<<20)
-	for _, oc := range fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-		return checkHostCerts(ctx, c, o, cmdTimeout(st), maxOut)
+	maxOut := max(maxOutput(cl, st), 4<<20)
+	for _, oc := range fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		return checkHostCerts(ctx, c, o, cmdTimeout(cl, st), maxOut)
 	}) {
 		r := certTarget{Target: oc.Host.Name, Kind: "host", Certs: []certInfo{}}
 		if oc.Err != nil {
@@ -320,7 +320,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 	}
 	urlRes := make([]certTarget, len(urls))
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, max(1, parallelism(st)))
+	sem := make(chan struct{}, max(1, parallelism(cl, st)))
 	for i, u := range urls {
 		wg.Add(1)
 		go func(i int, u certURL) {
@@ -328,7 +328,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 			r := certTarget{Target: u.target, Kind: u.kind, Certs: []certInfo{}}
-			ci, err := checkServedCert(ctx, st, u)
+			ci, err := checkServedCert(cl, ctx, st, u)
 			if err != nil {
 				r.Error = toErr(err)
 			} else {
@@ -382,9 +382,9 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 			bad = append(bad, r.Target)
 		}
 	}
-	audit(st, "cert.check", names, "", len(bad) == 0, nil)
+	audit(cl, st, "cert.check", names, "", len(bad) == 0, nil)
 	if len(bad) == 0 {
-		out.P.Print("cert.check", data, nil)
+		cl.out.Print("cert.check", data, nil)
 		return nil
 	}
 	if problems {
@@ -401,7 +401,7 @@ func runCertCheck(ctx context.Context, args []string, o certOpts) error {
 			soft.Code, soft.Message, soft.Hint = e.Code, withHost(data.Results[0].Target, e.Message), e.Hint
 		}
 	}
-	out.P.Print("cert.check", data, soft)
+	cl.out.Print("cert.check", data, soft)
 	return exitCode(worst)
 }
 

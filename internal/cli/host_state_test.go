@@ -68,7 +68,7 @@ func TestPkgSecSupport(t *testing.T) {
 		t.Errorf("rocky 9: %+v %q", sup, w)
 	}
 	out := "#komando:pm\nyum\n#komando:os\nos=amzn\nos_version=2\nos_pretty=Amazon Linux 2\n#komando:before\npending=0\nsecurity=0\n#komando:security\n"
-	r := pkgSecParse("al2", &sshx.RunResult{Stdout: out}, false, false)
+	r := pkgSecParse(tcl, "al2", &sshx.RunResult{Stdout: out}, false, false)
 	if !r.OK || r.OSSupport == nil || r.OSSupport.Status != "unsupported" || len(r.Warnings) != 1 {
 		t.Errorf("row: %+v", r)
 	}

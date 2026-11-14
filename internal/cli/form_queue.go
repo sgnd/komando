@@ -165,7 +165,7 @@ func queueUser(u string) string {
 
 // Kafka.
 
-func kafkaForm() formSpec {
+func kafkaForm(_ *call) formSpec {
 	sasl := func(a formAnswers) bool { return a["login"] == "sasl" }
 	return formSpec{title: "Add a Kafka cluster", qs: []formQ{
 		formNameQ("conn", "Kafka cluster", "events"),
@@ -218,7 +218,7 @@ func kafkaForm() formSpec {
 
 // RabbitMQ.
 
-func rabbitForm() formSpec {
+func rabbitForm(_ *call) formSpec {
 	login := func(a formAnswers) bool { return a["user"] != "" }
 	return formSpec{title: "Add a RabbitMQ server", qs: []formQ{
 		formNameQ("conn", "RabbitMQ server", "jobs"),
@@ -275,7 +275,7 @@ func rabbitForm() formSpec {
 
 // NATS.
 
-func natsForm() formSpec {
+func natsForm(_ *call) formSpec {
 	login := func(v string) func(formAnswers) bool { return func(a formAnswers) bool { return a["login"] == v } }
 	pw := func(a formAnswers) bool { return a["login"] == "user" || a["login"] == "token" }
 	return formSpec{title: "Add a NATS server", qs: []formQ{
@@ -330,7 +330,7 @@ func natsForm() formSpec {
 
 // Amazon SQS.
 
-func sqsForm() formSpec {
+func sqsForm(_ *call) formSpec {
 	return formSpec{title: "Add Amazon SQS queues", qs: []formQ{
 		formNameQ("conn", "SQS region", "sqs"),
 		{key: "region", label: "Region", ask: "Which AWS region are the queues in?", example: "eu-west-1",
@@ -405,7 +405,7 @@ func queueEndpointQ(example, help string) formQ {
 
 // Google Pub/Sub.
 
-func pubsubForm() formSpec {
+func pubsubForm(_ *call) formSpec {
 	return formSpec{title: "Add Google Cloud Pub/Sub", qs: []formQ{
 		formNameQ("conn", "Pub/Sub project", "pubsub"),
 		{key: "project", label: "Project", ask: "Which Google Cloud project are the topics in?", example: "my-project",

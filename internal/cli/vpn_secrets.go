@@ -14,8 +14,8 @@ import (
 // vpnAddCheck is what `vpn add` checks before it writes anything, in a
 // dry run too: the name is free (or --overwrite replaces the VPN of that
 // name), and no vault secret the VPN keeps its keys in is taken.
-func vpnAddCheck(s *store.State, name string, secrets map[string]string, overwrite bool) error {
-	if err := checkNewName(s, "vpn", name, overwrite); err != nil {
+func vpnAddCheck(cl *call, s *store.State, name string, secrets map[string]string, overwrite bool) error {
+	if err := checkNewName(cl, s, "vpn", name, overwrite); err != nil {
 		return err
 	}
 	return checkVpnSecrets(s, name, secrets, overwrite)

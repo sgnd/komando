@@ -94,6 +94,24 @@ func TakeUnlockEnv() {
 	}
 }
 
+// StripUnlock is env (KEY=value lines) without KOMANDO_VAULT_PASS and the
+// UnlockVars: the environment of a program a call starts. TakeUnlockEnv
+// cleans only the process's own environment; an app hands each call an
+// environment of its own, which may still hold them. It is never nil,
+// also for no env: an exec.Cmd whose Env is nil inherits the process's
+// whole environment, unlock values and all.
+func StripUnlock(env []string) []string {
+	kept := make([]string, 0, len(env))
+	for _, kv := range env {
+		name, _, _ := strings.Cut(kv, "=")
+		if name == "KOMANDO_VAULT_PASS" || slices.Contains(UnlockVars, name) {
+			continue
+		}
+		kept = append(kept, kv)
+	}
+	return kept
+}
+
 // unlockEnv is cloud.UnlockEnv: the environment first (a variable set
 // after the start), then what TakeUnlockEnv took.
 func unlockEnv(name string) string {
@@ -221,9 +239,13 @@ const keyLen = 32
 
 // change loads the vault, applies fn and writes what changed, in one write
 // step of the store, so komando processes running at the same time
-// (parallel agents) never drop each other's secrets.
-func change(fn func(f *file) error) error {
-	if store.DryRun {
+// (parallel agents) never drop each other's secrets. A preview (a dry
+// run) cannot be made of a vault change: it stops with store.ErrDryRun.
+func change(w store.Write, fn func(f *file) error) error {
+	if err := w.Check(); err != nil {
+		return err
+	}
+	if w == store.Preview() {
 		return store.ErrDryRun
 	}
 	return changeSealed(fn)
@@ -245,8 +267,8 @@ const MinPassphrase = 15
 
 func Check() (Strength, error) { return sealedStrength() }
 
-func Set(name, value string) error {
-	return change(func(f *file) error {
+func Set(w store.Write, name, value string) error {
+	return change(w, func(f *file) error {
 		a, err := f.aead()
 		if err != nil {
 			return err
@@ -306,8 +328,8 @@ func Get(name string) (string, error) {
 	return string(pt), nil
 }
 
-func Delete(name string) error {
-	return change(func(f *file) error {
+func Delete(w store.Write, name string) error {
+	return change(w, func(f *file) error {
 		if _, ok := f.Entries[name]; !ok {
 			return ErrNotFound
 		}
@@ -319,8 +341,8 @@ func Delete(name string) error {
 // DeleteMany removes several secrets in one change of the vault: all of
 // them, or none when one is missing (an error that matches ErrNotFound and
 // ends with ": NAME").
-func DeleteMany(names []string) error {
-	return change(func(f *file) error {
+func DeleteMany(w store.Write, names []string) error {
+	return change(w, func(f *file) error {
 		for _, n := range names {
 			if _, ok := f.Entries[n]; !ok {
 				return fmt.Errorf("%w: %s", ErrNotFound, n)
@@ -340,16 +362,20 @@ var ErrExists = errors.New("secret already exists")
 // Copy stores the value of from under the name to as well. The value is
 // decrypted and sealed again inside the vault (each value is bound to its
 // name) and never leaves this package.
-func Copy(from, to string, overwrite bool) error { return copyEntry(from, to, overwrite, false) }
+func Copy(w store.Write, from, to string, overwrite bool) error {
+	return copyEntry(w, from, to, overwrite, false)
+}
 
 // Rename moves the value of from to the name to, in one change of the vault.
-func Rename(from, to string, overwrite bool) error { return copyEntry(from, to, overwrite, true) }
+func Rename(w store.Write, from, to string, overwrite bool) error {
+	return copyEntry(w, from, to, overwrite, true)
+}
 
-func copyEntry(from, to string, overwrite, move bool) error {
+func copyEntry(w store.Write, from, to string, overwrite, move bool) error {
 	if from == to {
 		return errors.New("the old and the new name are the same")
 	}
-	return change(func(f *file) error {
+	return change(w, func(f *file) error {
 		if _, ok := f.Entries[from]; !ok {
 			return ErrNotFound
 		}

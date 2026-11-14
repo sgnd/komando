@@ -19,7 +19,7 @@ import (
 func TestJobFolderIsPrivate(t *testing.T) {
 	srv := startFakeServer(t)
 	// prod is the same server, protected: unprotect it for this change
-	if err := store.Update(func(st *store.State) error { st.Hosts["prod"].Protected = false; return nil }); err != nil {
+	if err := store.Update(store.Save(), func(st *store.State) error { st.Hosts["prod"].Protected = false; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	srv.reply("4242\n")
@@ -74,7 +74,7 @@ func TestJobFolderIsPrivate(t *testing.T) {
 // removes both when the job ends, whatever happened.
 func TestJobLeavesNoEnvWhenSudoRefuses(t *testing.T) {
 	srv := startFakeServer(t)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["dev"].Env = map[string]string{"APP_TOKEN": "env-value-for-the-job"}
 		st.Hosts["prod"].Protected = false // the same server
 		return nil

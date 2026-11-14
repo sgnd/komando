@@ -14,6 +14,7 @@ import (
 
 // replaceEdit is one fs replace: the same edit for every server.
 type replaceEdit struct {
+	cl               *call // the call it works for
 	path, oldS, newS string
 	re               *regexp.Regexp
 	all              bool
@@ -28,7 +29,7 @@ func (e replaceEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 	}
 	defer sc.Close()
 	p := expandRemote(sc, e.path)
-	b, trunc, err := readRemote(ctx, c, sc, p, e.o.sudo, 64<<20)
+	b, trunc, err := readRemote(e.cl, ctx, c, sc, p, e.o.sudo, 64<<20)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +37,7 @@ func (e replaceEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 		return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "for a bigger file: `komando download` it, edit it here, then `komando upload` it", "%s is larger than 64MiB, the most fs replace edits", p)
 	}
 	src := string(b)
-	pl, err := planReplace(out.P, src, e.oldS, e.newS, e.re, e.all, e.path)
+	pl, err := planReplace(e.cl.out, src, e.oldS, e.newS, e.re, e.all, e.path)
 	if err != nil {
 		return nil, err
 	}
@@ -48,15 +49,15 @@ func (e replaceEdit) on(ctx context.Context, c *sshx.Client) (fsChange, error) {
 		return res, nil
 	}
 	res := fsChange{"path": p, "changed": true, "replacements": pl.n, "diff": unifiedDiff(pl.view, pl.shown, 3)}
-	if g.dryRun {
+	if e.cl.flags.dryRun {
 		delete(res, "changed")
 		res["would_change"] = true
-		if t, err := resolveLink(sc, p); err == nil && t != p {
+		if t, err := resolveLink(e.cl, sc, p); err == nil && t != p {
 			res["followed"] = t
 		}
 		return res, nil
 	}
-	w, err := writeRemote(ctx, c, sc, p, []byte(pl.updated), e.o)
+	w, err := writeRemote(e.cl, ctx, c, sc, p, []byte(pl.updated), e.o)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +87,7 @@ Run it with --dry-run first to see each server's diff.`,
   komando fs replace @web /etc/nginx/nginx.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup --dry-run
   komando fs replace web1 /etc/ssh/sshd_config --regex --old '(?m)^#?PasswordAuthentication .*$' --new 'PasswordAuthentication no' --sudo`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if oldS == "" {
 				return out.Usage("give the text to replace with --old, and its replacement with --new")
 			}
@@ -100,7 +101,7 @@ Run it with --dry-run first to see each server's diff.`,
 				if re, err = regexp.Compile(oldS); err != nil {
 					return out.Usage("--old is not a valid Go regular expression: %v", err)
 				}
-			case strings.Contains(oldS, out.Hidden) && !out.P.Mask:
+			case strings.Contains(oldS, out.Hidden) && !cl.out.Mask:
 				// a line an AI agent saw masked: [hidden] stands for the value
 				// (an agent's own run finds it as it is, in out.View)
 				if re, err = regexp.Compile(hiddenPattern(oldS)); err != nil {
@@ -115,22 +116,22 @@ Run it with --dry-run first to see each server's diff.`,
 			if err != nil {
 				return err
 			}
-			hosts, err := resolveTargets(st, args[0])
+			hosts, err := resolveTargets(cl, st, args[0])
 			if err != nil {
 				return err
 			}
 			if err := checkValidate(o.validate); err != nil {
 				return err
 			}
-			if err := guard(st, hosts, o.validate, true); err != nil {
+			if err := guard(cl, st, hosts, o.validate, true); err != nil {
 				return err
 			}
-			if newS, err = expandSecretRefs(newS, args[0]+":"+args[1], re != nil); err != nil {
+			if newS, err = expandSecretRefs(cl, newS, args[0]+":"+args[1], re != nil); err != nil {
 				return err
 			}
-			e := replaceEdit{path: args[1], oldS: oldS, newS: newS, re: re, all: all, o: o}
-			data, err := runFsFleet(cmd.Context(), st, "fs.replace", args[1], hosts, e.on)
-			if n := data.changedWithBackup(); n > 0 && !g.dryRun {
+			e := replaceEdit{cl: cl, path: args[1], oldS: oldS, newS: newS, re: re, all: all, o: o}
+			data, err := runFsFleet(cl, cmd.Context(), st, "fs.replace", args[1], hosts, e.on)
+			if n := data.changedWithBackup(); n > 0 && !cl.flags.dryRun {
 				s := ""
 				if o.sudo {
 					s = " --sudo"
@@ -139,10 +140,10 @@ Run it with --dry-run first to see each server's diff.`,
 				if len(hosts) == 1 {
 					where = hosts[0].Name
 				}
-				textNote("Changed %s on %s. To undo: komando fs restore %s %s%s", args[1], where, args[0], argQ(args[1]), s)
+				textNote(cl, "Changed %s on %s. To undo: komando fs restore %s %s%s", args[1], where, args[0], argQ(args[1]), s)
 			}
 			return err
-		},
+		}),
 	}
 	c.Flags().StringVar(&oldS, "old", "", "the text to find (a regular expression with --regex)")
 	c.Flags().StringVar(&newS, "new", "", "the text to put in its place ($1 for a group with --regex)")
@@ -156,8 +157,8 @@ Run it with --dry-run first to see each server's diff.`,
 // a file with a value komando hides always counts as changed (and is
 // written again), so --if-changed and would_change never confirm that the
 // content the agent wrote guessed the hidden value.
-func sameForAgent(old, data []byte) bool {
-	if out.P.Mask && out.P.View(string(old)).Masked() {
+func sameForAgent(cl *call, old, data []byte) bool {
+	if cl.out.Mask && cl.out.View(string(old)).Masked() {
 		return false
 	}
 	return bytes.Equal(old, data)

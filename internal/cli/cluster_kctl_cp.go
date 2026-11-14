@@ -47,11 +47,11 @@ func (r *kctlRun) cp() error {
 		if err != nil {
 			return kfail("%s %s", strings.TrimSpace(errb.String()), err)
 		}
-		return untarTo(tarball.Bytes(), dst, base)
+		return untarTo(r.cl, tarball.Bytes(), dst, base)
 	}
 	if pod, rpath, ok := podOf(dst); ok {
 		var tarball bytes.Buffer
-		if err := tarFrom(src, path.Base(rpath), &tarball); err != nil {
+		if err := tarFrom(r.cl, src, path.Base(rpath), &tarball); err != nil {
 			return kwrap(err)
 		}
 		var errb bytes.Buffer
@@ -96,7 +96,7 @@ func (b *capBuffer) Write(p []byte) (int, error) {
 // does (fetchMasked): a file that is a secret by name is refused, a text
 // file is masked before it is written, and a binary or larger one that
 // holds a vault value is refused; all of it before anything is written.
-func untarTo(tarball []byte, dst, base string) error {
+func untarTo(cl *call, tarball []byte, dst, base string) error {
 	root, err := filepath.Abs(dst)
 	if err != nil {
 		return kfail("%v", err)
@@ -142,7 +142,7 @@ func untarTo(tarball []byte, dst, base string) error {
 		}
 		e := entry{target: target, dir: h.Typeflag == tar.TypeDir, mode: os.FileMode(h.Mode)}
 		if !e.dir {
-			if err := guardSensitiveCopy(h.Name); err != nil {
+			if err := guardSensitiveCopy(cl, h.Name); err != nil {
 				var stop *out.Error
 				errors.As(err, &stop)
 				return kstop(stop)
@@ -150,7 +150,7 @@ func untarTo(tarball []byte, dst, base string) error {
 			if e.data, err = io.ReadAll(tr); err != nil {
 				return kfail("%v", err)
 			}
-			if e.data, err = podFileMasked(h.Name, e.data); err != nil {
+			if e.data, err = podFileMasked(cl, h.Name, e.data); err != nil {
 				return err
 			}
 		}
@@ -190,18 +190,18 @@ func untarTo(tarball []byte, dst, base string) error {
 // computer (fetchMasked's rule): a text file komando reads whole with its
 // secret values [hidden]; a binary or larger one as it is, unless it holds
 // a vault value. People and scripts, and --reveal, get it as it is.
-func podFileMasked(name string, b []byte) ([]byte, error) {
-	if !out.P.Mask || revealOK() {
+func podFileMasked(cl *call, name string, b []byte) ([]byte, error) {
+	if !cl.out.Mask || cl.revealOK() {
 		return b, nil
 	}
 	if len(b) <= hiddenScanMax && bytes.IndexByte(b, 0) < 0 {
-		return []byte(out.P.Redact(string(b))), nil
+		return []byte(cl.out.Redact(string(b))), nil
 	}
-	sc := out.P.NewValueScanner()
+	sc := cl.out.NewValueScanner()
 	_, _ = sc.Write(b)
 	if sc.Found() {
 		return nil, kstop(out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			revealHint("it is binary or larger than komando reads whole, so its secrets cannot be shown as [hidden]; if the user wants the real file on this computer, re-run with --reveal"),
+			revealHint(cl, "it is binary or larger than komando reads whole, so its secrets cannot be shown as [hidden]; if the user wants the real file on this computer, re-run with --reveal"),
 			"%s holds a value from komando's vault; komando does not copy it to this computer for an AI agent", name))
 	}
 	return b, nil
@@ -222,9 +222,9 @@ func gitPath(rel string) bool {
 // pod), where `get` would hand it back in full. It is guardLocalRead
 // (komando's own folder always; a secret file unless the person allows
 // --reveal) with kctl's error shape.
-func localReadOK(p string) error {
+func localReadOK(cl *call, p string) error {
 	var stop *out.Error
-	if err := guardLocalRead(p); errors.As(err, &stop) {
+	if err := guardLocalRead(cl, p); errors.As(err, &stop) {
 		return kstop(stop)
 	} else if err != nil {
 		return err
@@ -274,7 +274,7 @@ func tarRel(name, base string) (string, bool) {
 	return rel, rel == "" || filepath.IsLocal(filepath.FromSlash(rel))
 }
 
-func tarFrom(src, name string, w io.Writer) error {
+func tarFrom(cl *call, src, name string, w io.Writer) error {
 	tw := tar.NewWriter(w)
 	src = filepath.Clean(expandHome(src))
 	err := filepath.Walk(src, func(p string, fi os.FileInfo, err error) error {
@@ -294,7 +294,7 @@ func tarFrom(src, name string, w io.Writer) error {
 			return err
 		}
 		if fi.Mode().IsRegular() {
-			if err := localReadOK(p); err != nil {
+			if err := localReadOK(cl, p); err != nil {
 				return err
 			}
 			f, err := os.Open(p)

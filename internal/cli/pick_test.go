@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -19,7 +20,7 @@ func TestImportVetHosts(t *testing.T) {
 	// --overwrite with a copy that is refused (its --via does not exist)
 	// keeps the server it would have replaced
 	s := &store.State{Hosts: map[string]*store.Host{"web1": {Name: "web1", Address: "10.0.0.1", User: "u"}}}
-	v, err := vetImportHosts(s, []*store.Host{{Name: "web1", Address: "10.0.0.9", Via: "nosuch"}}, true, true)
+	v, err := vetImportHosts(tcl, s, []*store.Host{{Name: "web1", Address: "10.0.0.9", Via: "nosuch"}}, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +29,7 @@ func TestImportVetHosts(t *testing.T) {
 	}
 	// what was left out of a server is said only for one that is added,
 	// in words that are true for --dry-run too
-	v, err = vetImportHosts(s, []*store.Host{
+	v, err = vetImportHosts(tcl, s, []*store.Host{
 		{Name: "web2", Address: "10.0.0.2", Identity: "/no/such/key"},
 		{Name: "web3", Address: "10.0.0.3", Identity: "/no/such/key", Via: "nosuch"},
 	}, false, true)
@@ -43,9 +44,7 @@ func TestImportVetHosts(t *testing.T) {
 func TestGuideInstallDryRunText(t *testing.T) {
 	files := []skillFile{{Path: "/h/.claude/skills/komando/SKILL.md", Action: "created"},
 		{Path: "/h/.claude/settings.json", Action: "updated", Backup: "/h/.claude/settings.json.bak"}}
-	g.dryRun = true
-	dry := skillResult{Files: files}.Text()
-	g.dryRun = false
+	dry := skillResult{Files: files}.TextFor(&out.Printer{DryRun: true})
 	for _, line := range strings.Split(dry, "\n") {
 		if strings.HasPrefix(line, "created") || strings.HasPrefix(line, "updated") || strings.Contains(line, "Restart") {
 			t.Errorf("dry run says it was done: %q", line)
@@ -54,7 +53,7 @@ func TestGuideInstallDryRunText(t *testing.T) {
 	if !strings.Contains(dry, "would create") || !strings.Contains(dry, "would be kept") {
 		t.Errorf("dry run:\n%s", dry)
 	}
-	if real := (skillResult{Files: files}).Text(); !strings.HasPrefix(real, "created  ") {
+	if real := (skillResult{Files: files}).TextFor(&out.Printer{}); !strings.HasPrefix(real, "created  ") {
 		t.Errorf("real run:\n%s", real)
 	}
 }
@@ -65,11 +64,11 @@ func TestCommandKeepsVaultPass(t *testing.T) {
 	if _, ok := os.LookupEnv("KOMANDO_VAULT_PASS"); ok {
 		t.Fatal("Passphrase left the variable in the environment")
 	}
-	c := pickCommand("/bin/true", []string{"list"})
+	c := pickCommand(tcl, "/bin/true", []string{"list"})
 	if !slices.Contains(c.Env, "KOMANDO_VAULT_PASS=test") {
 		t.Error("a command komando runs does not get the vault passphrase")
 	}
-	if c.Stdin != os.Stdin || c.Stdout != os.Stdout || c.Stderr != os.Stderr {
+	if c.Stdin != tcl.stdin || c.Stdout != tcl.out.W || c.Stderr != tcl.out.Err {
 		t.Error("a command komando runs must have the terminal")
 	}
 }

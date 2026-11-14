@@ -81,7 +81,7 @@ func hasControl(s string) bool {
 
 // checkHost validates a host before it is saved into s: its port, user,
 // --via path and identity file.
-func checkHost(s *store.State, h *store.Host) error {
+func checkHost(cl *call, s *store.State, h *store.Host) error {
 	if err := validPort(h.Port); err != nil {
 		return err
 	}
@@ -104,7 +104,7 @@ func checkHost(s *store.State, h *store.Host) error {
 	if err := checkLabels(h.Groups, h.Tags, h.Labels); err != nil {
 		return err
 	}
-	return checkHostVia(s, h)
+	return checkHostVia(cl, s, h)
 }
 
 // errText is an OS error without the path it repeats.
@@ -117,7 +117,7 @@ func errText(err error) string {
 
 // checkHostVia: every step of the --via path exists, a VPN comes first,
 // the host is not on its own path, and no step's own path leads back.
-func checkHostVia(s *store.State, h *store.Host) error {
+func checkHostVia(cl *call, s *store.State, h *store.Host) error {
 	steps := viaChain(h.Via)
 	if err := viaTwice(steps); err != nil {
 		return err
@@ -136,7 +136,7 @@ func checkHostVia(s *store.State, h *store.Host) error {
 		if _, ok := s.Hosts[step]; !ok {
 			e := out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", "--via takes server and VPN names; see them with `komando list`", "no server or VPN named %q", step)
 			if c := closest(step, viaNames(s)); c != "" {
-				suggest(e, step, c)
+				suggest(cl, e, step, c)
 			}
 			return e
 		}

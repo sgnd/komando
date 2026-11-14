@@ -24,17 +24,24 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/tmpclean"
 	"github.com/sgnd/komando/internal/vault"
 )
 
 var Version = "dev"
+
+func init() {
+	if Version == "dev" {
+		// `go install ...@v1.2.3` records the module version in the binary
+		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
+			Version = bi.Main.Version
+		}
+	}
+}
 
 type globalFlags struct {
 	output         string
@@ -61,20 +68,19 @@ const tableOutput = "table_output"
 // else then prints as text, so errors and notes go to stderr and stdout
 // has only rows.
 func pickTableOutput(cmd *cobra.Command) error {
-	if g.output == "" {
-		g.output = os.Getenv("KOMANDO_OUTPUT")
+	cl := callOf(cmd)
+	if cl.flags.output == "" {
+		cl.flags.output = cl.getenv("KOMANDO_OUTPUT")
 	}
-	g.table = ""
-	if (g.output == "csv" || g.output == "tsv") && cmd.Flags().Changed("output") {
+	cl.flags.table = ""
+	if (cl.flags.output == "csv" || cl.flags.output == "tsv") && cmd.Flags().Changed("output") {
 		if cmd.Annotations[tableOutput] == "" {
-			return out.Usage("-o %s works with db query only; here use -o json or -o text", g.output)
+			return out.Usage("-o %s works with db query only; here use -o json or -o text", cl.flags.output)
 		}
-		g.table, g.output = g.output, "text"
+		cl.flags.table, cl.flags.output = cl.flags.output, "text"
 	}
 	return nil
 }
-
-var g globalFlags
 
 // exitCode signals that the command already printed its envelope and only
 // the process exit code must still be propagated.
@@ -82,62 +88,54 @@ type exitCode int
 
 func (e exitCode) Error() string { return "exit " + strconv.Itoa(int(e)) }
 
-func Execute() int {
-	// no program komando starts inherits the secret stores' unlock values
-	vault.TakeUnlockEnv()
-	noCoreDumps() // a crash writes no memory, secrets and all, to disk
-	noPeek()      // Linux: no process of the same user reads komando's memory
-	// a Windows console shows colour and line clearing only when asked
-	ok, restore := consoleVT(int(os.Stderr.Fd()))
-	defer restore()
-	vtOK = ok
-	return executeArgs(os.Args[1:])
-}
-
 // vtOK: the terminal on stderr reads escape sequences (colour, clearing a
 // line). Only an old Windows console does not.
 var vtOK = true
 
-// executeArgs runs komando with these arguments (os.Args[1:] for the real
-// program): one command, its envelope or text, and its exit code.
-func executeArgs(args []string) int {
-	// the store is closed when the command ends: a run inside a program
-	// that goes on (a test) leaves no file open, which Windows could then
-	// not remove
-	defer store.Close()
-	if Version == "dev" {
-		// `go install ...@v1.2.3` records the module version in the binary
-		if bi, ok := debug.ReadBuildInfo(); ok && isRelease(bi.Main.Version) {
-			Version = bi.Main.Version
-		}
-	}
-	out.P.Version = Version
-	// errors raised before flag parsing still need the right format
-	if f, ok := outputFormat(os.Getenv("KOMANDO_OUTPUT")); ok {
-		out.P.Format = f
+// execute runs one command with these arguments in cl: its envelope or
+// text, and its exit code.
+func (cl *call) execute(ctx context.Context, args []string) int {
+	// the hooks of the lower packages answer for this call from its first
+	// step (call_hooks.go): the store and the vault may open in any of
+	// them, and an agent's call must count there before they do
+	cl.enter()
+	defer cl.leave()
+	// errors raised before flag parsing still need the right format; the
+	// command before in this call does not choose it
+	cl.out.Format = "json"
+	if f, ok := outputFormat(cl, cl.getenv("KOMANDO_OUTPUT")); ok {
+		cl.out.Format = f
 	}
 	// a person at a terminal who left something out is asked for it first
 	// (prompter_fill.go); everyone else gets args as they are
-	filled, err := promptFill(args)
+	filled, err := promptFill(cl, args)
 	if err != nil {
 		var done fillDone
 		if errors.As(err, &done) {
 			return done.code
 		}
-		out.P.Format = "text"
-		return out.P.Fail("komando", promptStopped(err))
+		cl.out.Format = "text"
+		return cl.out.Fail("komando", promptStopped(err))
 	}
 	if !slices.Equal(filled, args) {
 		args = filled
-		os.Args = append([]string{os.Args[0]}, filled...) // what the audit and the approval window name
+		cl.args = append([]string{cl.args[0]}, filled...) // what the audit and the approval window name
 	}
-	root := newRoot()
+	// Ctrl-C stops the command only once the questions are answered: one
+	// at a question (or at a preview it offers) stops just that
+	if cl.signals != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = cl.signals(ctx)
+		defer cancel()
+	}
+	if ctx.Err() != nil { // stopped while the questions were asked
+		return cl.out.Fail("komando", promptStopped(ctx.Err()))
+	}
+	root := newRoot(cl)
 	root.SetArgs(args)
-	ctx, cancel := signalContext()
-	defer cancel()
-	cmd, err := root.ExecuteContextC(ctx)
+	cmd, err := root.ExecuteContextC(withCall(ctx, cl))
 	if err == nil {
-		promptNext()
+		promptNext(cl)
 		return 0
 	}
 	var ec exitCode
@@ -150,52 +148,48 @@ func executeArgs(args []string) int {
 	}
 	// argument and flag errors come before PersistentPreRunE, which applies
 	// -o; apply it here so `-o text` (or a terminal) gets text for them too
-	if f, ok := outputFormat(outputFlag()); ok {
-		out.P.Format = f
+	if f, ok := outputFormat(cl, outputFlag(cl)); ok {
+		cl.out.Format = f
 	}
 	var oe *out.Error
 	if errors.Is(err, store.ErrDryRun) {
 		err = toErr(err)
 	}
 	if !errors.As(err, &oe) && isUsageErr(err) {
-		err = usageErr(cmd, err)
+		err = usageErr(cl, cmd, err)
 	}
 	if errors.As(err, &oe) {
 		if oe.Code == "USAGE" && oe.Hint == out.UsageHint && cmd != nil && cmd.HasParent() {
 			oe.Hint = commandHint(cmd)
 		}
-		approvalHint(oe)
-		c := cur()
-		if cmd != nil && callFrom(cmd.Context()) != nil {
-			c = callFrom(cmd.Context())
-		}
-		cancelled(c, oe)
-		auditBlocked(cmd, oe)
+		approvalHint(cl, oe)
+		cancelled(cl, oe)
+		auditBlocked(cl, cmd, oe)
 		if cmd != nil {
 			fillHint(oe, firstArg(cmd))
 		}
-		if cmd != nil && out.P.Format == "text" {
-			notFoundSay(oe, cmd)
+		if cmd != nil && cl.out.Format == "text" {
+			notFoundSay(cl, oe, cmd)
 		}
-		cancelled(c, oe)
+		cancelled(cl, oe)
 	}
-	return out.P.Fail(name, err)
+	return cl.out.Fail(name, err)
 }
 
 // cancelled words a stop the person answered no to at the terminal: it was
 // cancelled, and nothing was changed unless the command already saved
 // something before the question.
-func cancelled(c *call, oe *out.Error) {
-	if !c.sess.PersonSaidNo() || oe.Exit != out.ExitPolicy {
+func cancelled(cl *call, oe *out.Error) {
+	if !cl.sess.PersonSaidNo() || oe.Exit != out.ExitPolicy {
 		return
 	}
 	oe.Message = "cancelled: " + oe.Message + "; nothing was changed"
 	oe.Hint = "run it again to be asked again"
-	if c.wroteBefore() {
+	if cl.wroteBefore() {
 		oe.Message = strings.TrimSuffix(oe.Message, "; nothing was changed") + "; what this command saved before the question stays"
 		return
 	}
-	oe.Cancel(cancelledText()) // text mode: the person's own choice, not an error
+	oe.Cancel(cancelledText(cl)) // text mode: the person's own choice, not an error
 }
 
 // firstArg is the first argument cmd was given (its TARGET or CONN), or "".
@@ -216,8 +210,8 @@ func topCommand(cmd *cobra.Command) string {
 
 // outputFlag is -o/--output as given, also when flag parsing stopped early
 // (an unknown flag), else KOMANDO_OUTPUT or auto.
-func outputFlag() string {
-	args := os.Args[1:]
+func outputFlag(cl *call) string {
+	args := cl.args[1:]
 	for i := 0; i < len(args) && args[i] != "--"; i++ {
 		a := args[i]
 		switch {
@@ -229,7 +223,7 @@ func outputFlag() string {
 			return strings.TrimPrefix(a[2:], "=")
 		}
 	}
-	if v := os.Getenv("KOMANDO_OUTPUT"); v != "" {
+	if v := cl.getenv("KOMANDO_OUTPUT"); v != "" {
 		return v
 	}
 	return "auto"
@@ -237,7 +231,7 @@ func outputFlag() string {
 
 // usageErr turns cobra's argument errors ("accepts 2 arg(s), received 1")
 // into what people know from other tools: what is wrong and the usage line.
-func usageErr(cmd *cobra.Command, err error) error {
+func usageErr(cl *call, cmd *cobra.Command, err error) error {
 	m := err.Error()
 	if cmd == nil {
 		return out.Usage("%s", m)
@@ -264,10 +258,10 @@ func usageErr(cmd *cobra.Command, err error) error {
 			return e
 		}
 		var rest []string
-		if i := slices.Index(os.Args, name); i > 0 {
-			rest = os.Args[i+1:]
+		if i := slices.Index(cl.args, name); i > 0 {
+			rest = cl.args[i+1:]
 		}
-		return unknownCommandErr(cmd, name, rest)
+		return unknownCommandErr(cl, cmd, name, rest)
 	}
 	// a flag value's own message and hint (flagHint), without pflag's
 	// "invalid argument ... for ... flag:" around it
@@ -301,7 +295,7 @@ func usageErr(cmd *cobra.Command, err error) error {
 			e.Message += "; did you mean --" + s + "?"
 			// a safety override is never handed out as a line to run
 			if name, _, _ := strings.Cut(flag, "="); !slices.Contains(safetyOverrides, s) {
-				suggest(e, name, "--"+s)
+				suggest(cl, e, name, "--"+s)
 			}
 		}
 		return e
@@ -409,9 +403,10 @@ var localReads = map[string]bool{
 // when the store (which holds the audit log) cannot be written: changes
 // must not happen without a record (docs/design/principles.md, section 7).
 func checkStoreWritable(cmd *cobra.Command) error {
+	cl := callOf(cmd)
 	name := commandName(cmd)
 	top, _, _ := strings.Cut(name, ".")
-	if g.dryRun || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "help" || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
+	if cl.flags.dryRun || backgroundCmd(cmd) || name == "komando" || localReads[name] || localReads[top] || leavesHomeNow(cmd) || top == "help" || top == "completion" || name == "secret.passphrase" { // it opens the store with the passphrase a person types
 		return nil
 	}
 	err := store.CheckWritable()
@@ -438,30 +433,35 @@ func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)
 // --host-key-policy off. The audit log needs no check: the store refuses a
 // change it cannot record.
 func startChecks(cmd *cobra.Command) error {
+	cl := callOf(cmd)
 	if err := guardHome(cmd); err != nil {
 		return err
 	}
-	if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !g.dryRun {
+	if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !cl.flags.dryRun {
 		netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 	}
-	if g.hostKeyPolicy == "off" {
-		if g.dryRun && isAgent() {
+	if cl.flags.hostKeyPolicy == "off" {
+		if cl.flags.dryRun && cl.isAgent() {
 			// an agent's preview still connects to read; it does that
 			// with the usual identity check, since a dry run never asks
 			// the person. People and scripts preview as they run.
-			_ = guardSafety("--host-key-policy off (no server identity check)")
-			g.hostKeyPolicy = ""
-		} else if err := guardSafety("--host-key-policy off (no server identity check)"); err != nil {
+			_ = guardSafety(cl, "--host-key-policy off (no server identity check)")
+			cl.flags.hostKeyPolicy = ""
+		} else if err := guardSafety(cl, "--host-key-policy off (no server identity check)"); err != nil {
 			return err
 		}
 	}
 	return checkStoreWritable(cmd)
 }
 
-func newRoot() *cobra.Command {
-	out.P.Reset()
-	askedAbout, blockAudited = nil, false
-	interrupted = false
+// newRoot is the command tree of cl: its flags are cl's, and every
+// command in it runs in cl (callOf). What the last command in cl
+// recorded is forgotten.
+func newRoot(cl *call) *cobra.Command {
+	cl.out.Reset()
+	cl.flags = globalFlags{} // the flags below bind to it with their defaults
+	cl.askedAbout, cl.blockAudited, cl.interrupted = nil, false, false
+	cl.personalCmd, cl.fsSudoRetry, cl.auditSyslog = false, "retry with --sudo", ""
 	root := &cobra.Command{
 		Use:           "komando",
 		Short:         "One safe CLI for servers, databases, caches, storage, clusters",
@@ -471,51 +471,47 @@ func newRoot() *cobra.Command {
 		Version:       Version,
 		RunE:          printFirstSteps,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			startCall(cmd) // answers count for one command only
+			cmd.SetContext(withCall(cmd.Context(), cl))
+			cl.begin() // answers count for one command only
 			if err := pickTableOutput(cmd); err != nil {
 				return err
 			}
-			f, ok := outputFormat(g.output)
+			f, ok := outputFormat(cl, cl.flags.output)
 			if !ok {
-				if !cmd.Flags().Changed("output") && os.Getenv("KOMANDO_OUTPUT") != "" {
-					return out.Usage("KOMANDO_OUTPUT=%s: it takes auto, json or text", os.Getenv("KOMANDO_OUTPUT"))
+				if !cmd.Flags().Changed("output") && cl.getenv("KOMANDO_OUTPUT") != "" {
+					return out.Usage("KOMANDO_OUTPUT=%s: it takes auto, json or text", cl.getenv("KOMANDO_OUTPUT"))
 				}
 				return out.Usage("--output takes auto, json or text (db query also takes csv and tsv)")
 			}
 			switch {
-			case g.parallel < 0:
+			case cl.flags.parallel < 0:
 				return out.Usage("-P/--parallel takes 1 or more (0 means the setting, default 10)")
-			case g.timeout < 0, g.connectTimeout < 0:
+			case cl.flags.timeout < 0, cl.flags.connectTimeout < 0:
 				return out.Usage("--timeout and --connect-timeout take a time more than 0, for example 30s or 5m")
-			case g.maxOutput < 0:
+			case cl.flags.maxOutput < 0:
 				return out.Usage("--max-output takes a number of bytes, for example 1048576")
 			}
-			out.P.Format = f
-			out.P.Pretty = g.pretty
-			out.P.Version = Version
-			out.P.DryRun = g.dryRun
-			store.DryRun, store.AllowOldCopy = g.dryRun, g.dryRun // a dry run may look at an old copy: it changes nothing
-			out.P.Start = time.Now()
+			cl.out.Format = f
+			cl.out.Pretty = cl.flags.pretty
+			cl.out.Version = Version
+			cl.out.DryRun = cl.flags.dryRun
+			cl.oldCopy.Store(cl.flags.dryRun) // a dry run may look at an old copy: it changes nothing
+			cl.out.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
-			// a person at the terminal answers what an SSH login asks
-			// (a password, a two-factor code); nobody else is asked
-			sshx.Ask = nil
-			if interactive() {
-				sshx.Ask = askSSH
-			}
-			out.P.Secrets = vaultValues
 			if leavesHomeNow(cmd) {
-				out.P.Secrets = nil // its output holds no secrets, and the vault is in ~/.komando
+				cl.out.SetSecrets(nil) // its output holds no secrets, and the vault is in ~/.komando
+			} else {
+				cl.out.SetSecrets(vaultValues)
 			}
 			// AI agents see passwords, keys and tokens as [hidden]; people and
 			// scripts see what the server sent (vault values are hidden for
 			// all). `secret show --reveal` and `key show --reveal` are for
 			// people only (secret_reveal.go): an agent is never asked and always sees
 			// [hidden]. A dry run never approves --reveal.
-			out.P.Mask = isAgent() && (revealNever[commandName(cmd)] || g.dryRun || !revealOK())
+			cl.out.Mask = cl.isAgent() && (revealNever[commandName(cmd)] || cl.flags.dryRun || !cl.revealOK())
 			startPersonal(cmd)
-			if out.P.Mask && g.dryRun && g.reveal {
-				out.P.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
+			if cl.out.Mask && cl.flags.dryRun && cl.flags.reveal {
+				cl.out.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
 					"--reveal needs the user's yes"))
 			}
 			if err := startChecks(cmd); err != nil {
@@ -525,25 +521,31 @@ func newRoot() *cobra.Command {
 			return secretInArgs(cmd, args)
 		},
 	}
+	// every command of the tree runs in cl (callOf), also before it runs
+	root.SetContext(withCall(context.Background(), cl))
+	// cobra's own output (help, usage, completion scripts) is the call's too
+	root.SetOut(cl.out.W)
+	root.SetErr(cl.out.Err)
+	root.SetIn(cl.stdin)
 	pf := root.PersistentFlags()
-	pf.StringVarP(&g.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
-	pf.BoolVar(&g.pretty, "pretty", false, "indent JSON output")
-	pf.BoolVar(&g.dryRun, "dry-run", false, "show what would run, changing nothing")
-	pf.BoolVarP(&g.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
-	pf.BoolVar(&g.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
-	pf.BoolVar(&g.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
-	durVar(pf, &g.timeout, "timeout", 0, "time limit per server, like 30s or 1h (default: setting default_timeout, 5m)")
-	durVar(pf, &g.connectTimeout, "connect-timeout", 0, "time to connect, like 30s (default: setting connect_timeout, 15s)")
-	pf.IntVarP(&g.parallel, "parallel", "P", 0, "servers at once (default: setting parallel, 10)")
-	pf.StringVar(&g.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting host_key_policy, accept-new)")
-	g.maxOutput = 0
-	pf.Var(&bytesFlag{i: &g.maxOutput}, "max-output", "bytes kept per stream per server, like 1MiB (default: setting max_output_bytes, 256KiB)")
+	pf.StringVarP(&cl.flags.output, "output", "o", "", "json or text (default $KOMANDO_OUTPUT, or\ntext in a terminal, JSON when piped); db query also\ntakes csv and tsv")
+	pf.BoolVar(&cl.flags.pretty, "pretty", false, "indent JSON output")
+	pf.BoolVar(&cl.flags.dryRun, "dry-run", false, "show what would run, changing nothing")
+	pf.BoolVarP(&cl.flags.yes, "yes", "y", false, "confirm a change on a protected target (an AI agent needs a person's yes)")
+	pf.BoolVar(&cl.flags.allowDangerous, "allow-dangerous", false, "run a command the safety rules would block")
+	pf.BoolVar(&cl.flags.reveal, "reveal", false, "show passwords and keys in output (an agent needs a person's yes)")
+	durVar(pf, &cl.flags.timeout, "timeout", 0, "time limit per server, like 30s or 1h (default: setting default_timeout, 5m)")
+	durVar(pf, &cl.flags.connectTimeout, "connect-timeout", 0, "time to connect, like 30s (default: setting connect_timeout, 15s)")
+	pf.IntVarP(&cl.flags.parallel, "parallel", "P", 0, "servers at once (default: setting parallel, 10)")
+	pf.StringVar(&cl.flags.hostKeyPolicy, "host-key-policy", "", "accept-new, strict or off: how a server's key is checked (default: setting host_key_policy, accept-new)")
+	cl.flags.maxOutput = 0
+	pf.Var(&bytesFlag{i: &cl.flags.maxOutput}, "max-output", "bytes kept per stream per server, like 1MiB (default: setting max_output_bytes, 256KiB)")
 	for flag, key := range map[string]string{"timeout": "default_timeout", "connect-timeout": "connect_timeout", "parallel": "parallel", "host-key-policy": "host_key_policy", "max-output": "max_output_bytes"} {
 		_ = pf.SetAnnotation(flag, defaultFrom, []string{"setting:" + key})
 	}
 
 	root.SetVersionTemplate(`{{.Version}}` + "\n")
-	addCommands(root)
+	addCommands(cl, root)
 	addHelpTopics(root) // and cobra's help command
 	root.InitDefaultCompletionCmd()
 	labelBuiltinCmds(root) // before the conventions: `completion` alone, piped, is a USAGE envelope too
@@ -557,7 +559,7 @@ func newRoot() *cobra.Command {
 
 // addCommands adds komando's commands to root under the groups of
 // `komando` alone (personHelp), so --help reads the same.
-func addCommands(root *cobra.Command) {
+func addCommands(cl *call, root *cobra.Command) {
 	root.AddGroup(
 		&cobra.Group{ID: "servers", Title: "Servers:"},
 		&cobra.Group{ID: "data", Title: "Data:"},
@@ -577,7 +579,7 @@ func addCommands(root *cobra.Command) {
 		svcCmd(), jobCmd(), dockerCmd(), pkgCmd(), cronCmd(), userCmd(), rebootCmd(), shellCmd(), netCmd(), certCmd(), recipeCmd())
 	add("data", dbCmd(), cacheCmd(), queueCmd(), storageCmd())
 	add("platform", clusterCmd(), registryCmd())
-	add("access", vpnCmd(), loginCmd(), logoutCmd(), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
+	add("access", vpnCmd(), loginCmd(cl), logoutCmd(cl), loginHolderCmd(), secretCmd(), keyCmd(), tunnelCmd())
 	add("overview", statusCmd(), auditCmd(), listCmd(), testCmd(), doctorCmd())
 	add("inventory", hostCmd(), connCmd(), groupCmd(), importCmd(), exportCmd(), renameCmd())
 	add("setup", configCmd(), policyCmd(), guideCmd(), schemaCmd(root), updateCmd(), versionCmd(), sshGateCmd())
@@ -646,10 +648,11 @@ const rootScriptNotes = `For scripts and AI agents:
 // printFirstSteps is `komando` alone: the commands by group for a person at
 // a terminal, else the first steps, not a wall of text (ux.md, section 10).
 func printFirstSteps(cmd *cobra.Command, args []string) error {
-	if out.P.Format == "json" { // piped: one JSON envelope, never text
+	cl := callOf(cmd)
+	if cl.out.Format == "json" { // piped: one JSON envelope, never text
 		return out.Usage("komando needs a command").WithHint("read `komando guide` (the playbook for agents) or `komando schema` (every command)")
 	}
-	if promptable(outputFlag()) { // a person at a terminal: what komando does, by group
+	if promptable(cl, outputFlag(cl)) { // a person at a terminal: what komando does, by group
 		_, err := fmt.Fprint(cmd.OutOrStdout(), personHelp())
 		return err
 	}
@@ -713,21 +716,22 @@ func versionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print the komando version and its home folder",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			out.P.Print("version", map[string]string{"version": Version, "home": store.Home()}, nil)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
+			cl.out.Print("version", map[string]string{"version": Version, "home": store.Home()}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
-// outputFormat resolves auto|json|text. "auto" (or empty) means text for a
-// human at a terminal and JSON for programs reading a pipe.
-func outputFormat(v string) (string, bool) {
+// outputFormat resolves auto|json|text for cl. "auto" (or empty) means
+// text when the call's stdout is a terminal (a person reads it) and JSON
+// for a pipe, a file or an app's writer.
+func outputFormat(cl *call, v string) (string, bool) {
 	switch v {
 	case "json", "text":
 		return v, true
 	case "", "auto":
-		if term.IsTerminal(int(os.Stdout.Fd())) {
+		if isTerminal(cl.out.W) {
 			return "text", true
 		}
 		return "json", true
@@ -747,8 +751,8 @@ func isRelease(v string) bool {
 // first removes the temporary files and folders this run made
 // (tmpclean), which the clean stop would have removed. A SIGHUP that was
 // ignored when komando started (nohup, a background holder) stays ignored.
-func signalContext() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
+func signalContext(parent context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(parent)
 	sigs := []os.Signal{os.Interrupt, syscall.SIGTERM}
 	if !signal.Ignored(syscall.SIGHUP) {
 		sigs = append(sigs, syscall.SIGHUP)

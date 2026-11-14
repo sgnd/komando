@@ -10,7 +10,7 @@ const mxtSessions = "[Bookmarks]\r\nSubRep=\r\nImgNum=42\r\nweb1=#109#0%web.exam
 // MobaXterm's exported sessions: SSH ones (type 109) become servers, with
 // their folder as a group; a telnet session is listed.
 func TestImportMobaXterm(t *testing.T) {
-	p, err := importMobaXterm(writeTemp(t, "sessions.mxtsessions", mxtSessions))
+	p, err := importMobaXterm(tcl, writeTemp(t, "sessions.mxtsessions", mxtSessions))
 	if err != nil {
 		t.Fatal(err)
 	}

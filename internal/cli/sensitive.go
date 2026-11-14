@@ -56,8 +56,8 @@ func hiddenInLocal(p string) error {
 // hiddenInInput refuses input that holds a value komando hid (exec
 // --stdin-file, a script): it is a masked copy, and a command that writes
 // it out (cat > /etc/redis.conf) would put [hidden] where the real value is.
-func hiddenInInput(what string, b []byte) error {
-	if err := secretInBody(what, b); err != nil {
+func hiddenInInput(cl *call, what string, b []byte) error {
+	if err := secretInBody(cl, what, b); err != nil {
 		return err
 	}
 	if len(b) > hiddenScanMax || !out.HasHidden(string(b)) {
@@ -77,7 +77,7 @@ var secretRef = regexp.MustCompile(`\{\{\s*secret:([A-Za-z0-9_.@/-]+)\s*\}\}`)
 // (guardSecretUse). An agent's dry run reads no secret, since it never
 // asks the person: its preview keeps {{secret:NAME}} as it is. With
 // dollars set, the values are written for a regexp replacement ($ as $$).
-func expandSecretRefs(s, where string, dollars bool) (string, error) {
+func expandSecretRefs(cl *call, s, where string, dollars bool) (string, error) {
 	var refs []string
 	for _, m := range secretRef.FindAllStringSubmatch(s, -1) {
 		refs = append(refs, "secret:"+m[1])
@@ -85,13 +85,13 @@ func expandSecretRefs(s, where string, dollars bool) (string, error) {
 	if len(refs) == 0 {
 		return s, nil
 	}
-	if err := guardSecretUse(refs, where); err != nil {
+	if err := guardSecretUse(cl, refs, where); err != nil {
 		return "", err
 	}
 	var err error
 	r := secretRef.ReplaceAllStringFunc(s, func(m string) string {
 		name := secretRef.FindStringSubmatch(m)[1]
-		if isAgent() && g.dryRun {
+		if cl.isAgent() && cl.flags.dryRun {
 			return m
 		}
 		v, e := vault.Get(name)
@@ -109,11 +109,11 @@ func expandSecretRefs(s, where string, dollars bool) (string, error) {
 	return r, err
 }
 
-func expandSecretRefsBytes(b []byte, where string) ([]byte, error) {
+func expandSecretRefsBytes(cl *call, b []byte, where string) ([]byte, error) {
 	if !secretRef.Match(b) {
 		return b, nil
 	}
-	s, err := expandSecretRefs(string(b), where, false)
+	s, err := expandSecretRefs(cl, string(b), where, false)
 	return []byte(s), err
 }
 
@@ -162,12 +162,12 @@ var sensitiveGlobs = []string{".env", ".env.*", "*.env", ".pgpass", ".my.cnf", "
 // guardSensitiveCopy stops an AI agent from copying a file that is a secret
 // by name to this computer, where it could read it in full. --reveal, which
 // a person allows on the screen, lets it through.
-func guardSensitiveCopy(remotePath string) error {
-	if !isAgent() || !sensitiveName(remotePath) || revealOK() {
+func guardSensitiveCopy(cl *call, remotePath string) error {
+	if !cl.isAgent() || !sensitiveName(remotePath) || cl.revealOK() {
 		return nil
 	}
 	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-		revealHint("read it with `komando fs cat` instead (passwords, keys and tokens show as [hidden]); if the user wants the real file on this computer, run it again with --reveal"),
+		revealHint(cl, "read it with `komando fs cat` instead (passwords, keys and tokens show as [hidden]); if the user wants the real file on this computer, run it again with --reveal"),
 		"%s holds secrets; komando does not copy it to this computer for an AI agent", remotePath)
 }
 
@@ -177,7 +177,7 @@ const komandoData = "komando's own data (vault, keys, inventory, audit log)"
 // localSecret says why a file on this computer is off limits to an AI
 // agent, as the agent guard sees it (guard.go), or "". The path is made
 // absolute and its links are followed, so a link to ~/.komando counts too.
-func localSecret(p string) string {
+func localSecret(cl *call, p string) string {
 	home, err := os.UserHomeDir()
 	if err != nil || p == "" {
 		return ""
@@ -186,15 +186,15 @@ func localSecret(p string) string {
 	if err != nil {
 		abs = p
 	}
-	if why := secretPath(abs, home); why != "" {
+	if why := secretPath(cl, abs, home); why != "" {
 		return why
 	}
 	if real := realPath(abs); real != abs {
-		if why := secretPath(real, home); why != "" {
+		if why := secretPath(cl, real, home); why != "" {
 			return why
 		}
 	}
-	return hardLinkSecret(abs, home)
+	return hardLinkSecret(cl, abs, home)
 }
 
 // procEnv is secretPath's reason for /proc/PID/environ.
@@ -205,7 +205,7 @@ const procEnv = "the environment of a process (it holds tokens and passwords)"
 // notes.txt` makes notes.txt the same file), or "". Following links does
 // not see a hard link, so the files in the protected folders are compared;
 // only files with more than one name are looked up.
-func hardLinkSecret(p, home string) string {
+func hardLinkSecret(cl *call, p, home string) string {
 	fi, err := os.Stat(p)
 	if err != nil || !fi.Mode().IsRegular() {
 		return ""
@@ -213,7 +213,7 @@ func hardLinkSecret(p, home string) string {
 	if fileLinks(p, fi) < 2 {
 		return ""
 	}
-	for _, f := range protectedFilesOf(home) {
+	for _, f := range protectedFilesOf(cl, home) {
 		if os.SameFile(fi, f.fi) {
 			return f.why
 		}
@@ -234,8 +234,8 @@ var protectedFiles struct {
 	files []protectedFile
 }
 
-func protectedFilesOf(home string) []protectedFile {
-	dirs := protectedDirs(home)
+func protectedFilesOf(cl *call, home string) []protectedFile {
+	dirs := protectedDirs(cl, home)
 	key := home + "\x00" + strings.Join(dirs, "\x00")
 	protectedFiles.Lock()
 	defer protectedFiles.Unlock()
@@ -255,7 +255,7 @@ func protectedFilesOf(home string) []protectedFile {
 			if !e.Type().IsRegular() {
 				return nil
 			}
-			if why := secretPath(q, home); why != "" {
+			if why := secretPath(cl, q, home); why != "" {
 				if fi, err := e.Info(); err == nil {
 					files = append(files, protectedFile{fi, why})
 				}
@@ -274,11 +274,11 @@ func protectedFilesOf(home string) []protectedFile {
 // The guard keeps the agent's own tools from the same files, so komando
 // must not be the way around it. A person allows a project secret (.env,
 // a TLS key) with --reveal; komando's own data never goes.
-func guardLocalRead(p string) error {
-	if p == "" || p == "-" || !isAgent() {
+func guardLocalRead(cl *call, p string) error {
+	if p == "" || p == "-" || !cl.isAgent() {
 		return nil
 	}
-	why := localSecret(p)
+	why := localSecret(cl, p)
 	switch {
 	case why == "":
 		return nil
@@ -290,16 +290,16 @@ func guardLocalRead(p string) error {
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
 			"ask the user for the one value you need",
 			"%s is %s; komando does not read it for an AI agent", p, why).NoFlag()
-	case revealOK():
+	case cl.revealOK():
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", revealHint("if the user wants komando to send this file, run it again with --reveal; komando asks the user in a window on their screen"),
+	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", revealHint(cl, "if the user wants komando to send this file, run it again with --reveal; komando asks the user in a window on their screen"),
 		"%s is %s; komando does not read it for an AI agent", p, why)
 }
 
 // revealHint is h, or under --dry-run, why --reveal does not count there.
-func revealHint(h string) string {
-	if g.dryRun && g.reveal {
+func revealHint(cl *call, h string) string {
+	if cl.flags.dryRun && cl.flags.reveal {
 		return "a dry run never asks the user, so --reveal does not count under --dry-run; run it without --dry-run and komando asks the user in a window"
 	}
 	return h
@@ -307,8 +307,8 @@ func revealHint(h string) string {
 
 // readLocalFile reads a file on this computer for a command, after
 // guardLocalRead. Every command that reads a path given to it uses it.
-func readLocalFile(p string) ([]byte, error) {
-	if err := guardLocalRead(p); err != nil {
+func readLocalFile(cl *call, p string) ([]byte, error) {
+	if err := guardLocalRead(cl, p); err != nil {
 		return nil, err
 	}
 	return os.ReadFile(p)
@@ -319,12 +319,12 @@ func readLocalFile(p string) ([]byte, error) {
 // an AI agent never sees, so the agent may point komando at them, as with
 // `key add --file` and `vpn add --config`. komando's own data and process
 // environments still never go.
-func readImportFile(p string) ([]byte, error) {
+func readImportFile(cl *call, p string) ([]byte, error) {
 	if p == "-" {
-		return readAllStdin()
+		return readAllStdin(cl)
 	}
-	if isAgent() {
-		if why := localSecret(p); why == komandoData || why == procEnv {
+	if cl.isAgent() {
+		if why := localSecret(cl, p); why == komandoData || why == procEnv {
 			return nil, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
 				"komando does not import its own folder or a process environment for an AI agent; ask the user to run this in their own terminal",
 				"%s is %s", p, why).NoFlag()
@@ -335,11 +335,11 @@ func readImportFile(p string) ([]byte, error) {
 
 // skipLocalSecret reports whether a folder upload leaves a file out for an
 // AI agent, as folder downloads do; meta.skipped lists it.
-func skipLocalSecret(p string) bool {
-	if guardLocalRead(p) == nil {
+func skipLocalSecret(cl *call, p string) bool {
+	if guardLocalRead(cl, p) == nil {
 		return false
 	}
-	out.P.Skip(out.Skipped{Name: p, Kind: "file", Reason: "holds secrets; an AI agent needs --reveal, which the user allows, to send it"})
+	cl.out.Skip(out.Skipped{Name: p, Kind: "file", Reason: "holds secrets; an AI agent needs --reveal, which the user allows, to send it"})
 	return true
 }
 
@@ -351,9 +351,10 @@ func unlockVar(name string) bool {
 	return name == "KOMANDO_VAULT_PASS" || slices.Contains(vault.UnlockVars, name)
 }
 
-// refGuard is vault.RefGuard: a secret: reference never reads a secret
-// komando keeps for itself (the approval code's key), for anyone. And an
-// AI agent cannot point a file: or env: reference (a password komando
+// refGuard is vault.RefGuard for one call (call_hooks.go, where a secret:
+// reference never reads a secret komando keeps for itself, the approval
+// code's key, for anyone). An AI agent cannot point a file: or env:
+// reference (a password komando
 // sends to a server) at komando's own data, a private key, a credential
 // store or the password of a secret store. Files that are secret only by
 // name stay allowed: VPN configs, key and password files are what a person
@@ -361,16 +362,13 @@ func unlockVar(name string) bool {
 // long after the person set it. Other variables stay allowed too: an agent
 // can read those in its own shell anyway, and the place a reference goes
 // to needs a person's yes (guardSends).
-func refGuard(kind, name string) error {
-	if kind == "secret" {
-		return reservedSecret(name)
-	}
-	if !isAgent() {
+func refGuard(cl *call, kind, name string) error {
+	if !cl.isAgent() {
 		return nil
 	}
 	switch kind {
 	case "file":
-		if why := localSecret(name); why != "" && why != "a file that holds secrets" {
+		if why := localSecret(cl, name); why != "" && why != "a file that holds secrets" {
 			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "store the password in komando's vault and use secret:NAME; the user sets it up in their own terminal",
 				"the reference file:%s points at %s; komando does not send it for an AI agent", name, why).NoFlag()
 		}
@@ -387,10 +385,4 @@ func refGuard(kind, name string) error {
 func isSensitive(err error) bool {
 	var e *out.Error
 	return errors.As(err, &e) && e.Code == "SENSITIVE_FILE"
-}
-
-func init() {
-	vault.RefGuard = refGuard
-	vault.OnResolve = func(v string) { out.P.AddValue(v) } // hidden in output, as vault values are
-	vault.AgentCall = isAgent                              // an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
 }

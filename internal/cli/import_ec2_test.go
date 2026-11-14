@@ -54,7 +54,7 @@ func TestImportAWSEC2(t *testing.T) {
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", "")
 	t.Setenv("AWS_PROFILE", "")
 	t.Setenv("AWS_EC2_METADATA_DISABLED", "true")
-	p, err := importAWSEC2(cfg)
+	p, err := importAWSEC2(tcl, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

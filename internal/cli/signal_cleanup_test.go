@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -28,7 +29,7 @@ func TestSecondSignalRemovesTempFiles(t *testing.T) {
 	hardStop = func(os.Signal) { tmpclean.RemoveAll(); close(stopped) }
 	t.Cleanup(func() { hardStop = saved })
 
-	ctx, cancel := signalContext()
+	ctx, cancel := signalContext(context.Background())
 	defer cancel()
 	if err := syscall.Kill(os.Getpid(), syscall.SIGHUP); err != nil {
 		t.Fatal(err)

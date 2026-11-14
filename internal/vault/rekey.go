@@ -3,6 +3,8 @@ package vault
 import (
 	"errors"
 	"fmt"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // Changing the store's key (`komando secret passphrase`, sealed_keys.go).
@@ -34,7 +36,7 @@ type KeyChange struct {
 // ChangeKey seals every secret again under a new key: the passphrase
 // newPass, or, when it is "", a new random key (sealed_keys.go). oldPass is
 // the current passphrase when KOMANDO_VAULT_PASS does not hold it,
-// otherwise "".
-func ChangeKey(oldPass, newPass string) (KeyChange, error) {
-	return sealedChangeKey(oldPass, newPass)
+// otherwise "". A preview (a dry run) stops with store.ErrDryRun.
+func ChangeKey(w store.Write, oldPass, newPass string) (KeyChange, error) {
+	return sealedChangeKey(w, oldPass, newPass)
 }

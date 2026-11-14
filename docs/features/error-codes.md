@@ -240,6 +240,7 @@ This page is made from the code (`komando schema` lists the same under
 | `STORAGE_ERROR` | 5 | the file is in use | another program has the file open; close it there and run it again |
 | `STORAGE_TLS` | 4 | the storage server's TLS certificate does not verify: … | if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL |
 | `STORE_BUSY` | 8 | komando's store stayed busy for …, so the server's host key could not be checked: … | another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again |
+| `STORE_CONFLICT` | 8 | nothing was done: … was replaced, given a new key or checked again while this command ran, and this command still held it as it was | run the command again: komando opens the store again from the start; if it keeps happening, run `komando doctor` |
 | `STORE_KEY_CHANGED` | 1 | …: … | run it again: another komando changed the store's key while this one ran |
 | `STORE_NEWER` | 1 | … was made by a newer komando | a newer komando made or changed this store; update this one: `komando update` |
 | `STORE_OLD_COPY` | 6 | … …: servers, rules, secrets or pinned host keys may be old | if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal; otherwise find out who put an old copy back or changed the keychain |

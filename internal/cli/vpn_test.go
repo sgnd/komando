@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/netx"
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -22,12 +21,10 @@ import (
 // agent could use the tunnel without komando's checks or audit.
 func TestVpnUpHidesSocksLogin(t *testing.T) {
 	invHome(t)
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "CLAUDECODE", "1")
 	const pass = "0123456789abcdef0123456789abcdef0123456789abcdef"
 	now := time.Now().UTC()
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "anyconnect", Address: "vpn.example.test", CreatedAt: now, UpdatedAt: now}
 		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), Socks: "127.0.0.1:41234",
 			SocksUser: "k1a2b3c4d5e6", SocksPass: pass, StartedAt: now, LastUsed: now}
@@ -36,14 +33,15 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"vpn", "up", "office"}, {"vpn", "up", "office", "--dry-run"}} {
-		g.dryRun, g.yes, store.DryRun = false, false, false
-		root := newRoot()
+		tcl.flags.dryRun, tcl.flags.yes = false, false
+		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
 		var buf bytes.Buffer
-		saved := out.P.W
-		out.P.W = &buf
+		saved := tcl.out.W
+		tcl.out.W = &buf
 		err := root.Execute()
-		out.P.W = saved
+		tcl.out.W = saved
 		if err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
@@ -59,6 +57,31 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 	st, _ := store.Load()
 	if st.Sessions["office"].SocksPass != pass {
 		t.Error("the stored session lost its login")
+	}
+}
+
+// A dry run that reuses a running VPN session previews its use: the
+// runtime record (the session's last use) stays as it was. A plain run
+// marks the session used.
+func TestVpnDryRunKeepsRuntime(t *testing.T) {
+	invHome(t)
+	used := time.Now().UTC().Add(-10 * time.Minute).Truncate(time.Second)
+	if err := store.Update(store.Save(), func(st *store.State) error {
+		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "anyconnect", Address: "vpn.example.test", CreatedAt: used, UpdatedAt: used}
+		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), Socks: "127.0.0.1:41234", StartedAt: used, LastUsed: used}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if d := mustRun(t, "vpn", "up", "office", "--dry-run"); d["already_up"] != true {
+		t.Fatalf("dry run: %v", d)
+	}
+	if got := mustState(t).Sessions["office"].LastUsed; !got.Equal(used) {
+		t.Errorf("a dry run marked the session used: %v, was %v", got, used)
+	}
+	mustRun(t, "vpn", "up", "office")
+	if got := mustState(t).Sessions["office"].LastUsed; !got.After(used) {
+		t.Errorf("a plain run did not mark the session used: %v", got)
 	}
 }
 
@@ -94,7 +117,7 @@ func TestSocksHandshakeDeadline(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				socks5Auth(server, &connMgr{}, logger, c.user, c.pass, nil)
+				socks5Auth(server, &connMgr{cl: tcl}, logger, c.user, c.pass, nil)
 				server.Close()
 			}()
 			go io.Copy(io.Discard, client)
@@ -112,7 +135,7 @@ func TestSocksHandshakeDeadline(t *testing.T) {
 	t.Run("open stream stays", func(t *testing.T) {
 		far, near := net.Pipe()
 		go func() { io.Copy(far, far) }() // the target echoes
-		cm := &connMgr{ctx: context.Background(), st: &store.State{}, vpnDial: func(context.Context, string, string) (net.Conn, error) { return near, nil }}
+		cm := &connMgr{cl: tcl, ctx: context.Background(), st: &store.State{}, vpnDial: func(context.Context, string, string) (net.Conn, error) { return near, nil }}
 		client, server := net.Pipe()
 		defer client.Close()
 		go func() { socks5Auth(server, cm, logger, "", "", nil); server.Close() }()
@@ -154,7 +177,7 @@ func TestSocksLoginMarksUse(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				socks5Auth(server, &connMgr{}, logger, "u", "p", func() { used.Store(true) })
+				socks5Auth(server, &connMgr{cl: tcl}, logger, "u", "p", func() { used.Store(true) })
 				server.Close()
 			}()
 			go io.Copy(io.Discard, client)
@@ -237,7 +260,7 @@ func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
 	invHome(t)
 	noAgent(t)
 	now := time.Now().UTC()
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
 		return nil
 	}); err != nil {
@@ -306,7 +329,7 @@ func TestVpnEditFlags(t *testing.T) {
 // An alias names the command it stands for in every envelope, its
 // errors too.
 func TestAliasEnvelopeName(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for path, want := range map[string]string{"vpn test": "test", "host list": "list", "vpn add": "vpn.add"} {
 		c, _, err := root.Find(strings.Fields(path))
 		if err != nil {
@@ -383,7 +406,7 @@ func TestVpnTestProxyMustAnswer(t *testing.T) {
 func TestVpnDownSaysWhatStops(t *testing.T) {
 	invHome(t)
 	now := time.Now().UTC()
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
 		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "openvpn", Check: "10.0.0.1:22", CreatedAt: now, UpdatedAt: now}
 		return nil
@@ -409,8 +432,8 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
-	g.dryRun, store.DryRun = false, false // left on by the dry run above
-	if err := store.UpdateRuntime(func(st *store.State) error {
+	tcl.flags.dryRun = false // left on by the dry run above
+	if err := store.UpdateRuntime(store.Save(), func(st *store.State) error {
 		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), StartedAt: now, LastUsed: now}
 		return nil
 	}); err != nil {

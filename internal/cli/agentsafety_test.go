@@ -9,7 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -18,13 +17,13 @@ import (
 // (an empty one still names an agent).
 func noAgent(t *testing.T) {
 	t.Helper()
+	t.Cleanup(resetApproval) // before t.Setenv: reads the caller once the variables are restored
 	for _, a := range agentVars {
 		t.Setenv(a.env, "") // restored after the test
 		os.Unsetenv(a.env)
 		resetApproval()
 	}
 	resetApproval() // the caller is read when a call starts
-	t.Cleanup(resetApproval)
 }
 
 // An agent cannot opt out by changing its own variables: komando counts
@@ -32,25 +31,19 @@ func noAgent(t *testing.T) {
 // the shell lines that change them.
 func TestAgentCannotClearItsVariables(t *testing.T) {
 	for _, v := range []string{"0", "false", "1"} {
-		t.Setenv("CLAUDECODE", v)
-		resetApproval()
-		t.Cleanup(resetApproval)
-		if agentName() != "Claude Code" {
-			t.Errorf("CLAUDECODE=%s: agentName = %q", v, agentName())
+		setCallerEnv(t, "CLAUDECODE", v)
+		if tcl.caller().Agent != "Claude Code" {
+			t.Errorf("CLAUDECODE=%s: agentName = %q", v, tcl.caller().Agent)
 		}
 	}
-	t.Setenv("CLAUDECODE", "")
-	resetApproval()
-	t.Cleanup(resetApproval)
-	if agentName() != "Claude Code" {
-		t.Errorf("CLAUDECODE empty: agentName = %q", agentName())
+	setCallerEnv(t, "CLAUDECODE", "")
+	if tcl.caller().Agent != "Claude Code" {
+		t.Errorf("CLAUDECODE empty: agentName = %q", tcl.caller().Agent)
 	}
 	noAgent(t)
-	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
-	resetApproval()
-	t.Cleanup(resetApproval)
-	if agentName() != "Claude Code" {
-		t.Errorf("CLAUDECODE cleared, CLAUDE_CODE_ENTRYPOINT set: agentName = %q", agentName())
+	setCallerEnv(t, "CLAUDE_CODE_ENTRYPOINT", "cli")
+	if tcl.caller().Agent != "Claude Code" {
+		t.Errorf("CLAUDECODE cleared, CLAUDE_CODE_ENTRYPOINT set: agentName = %q", tcl.caller().Agent)
 	}
 
 	home := "/Users/me"
@@ -166,7 +159,7 @@ func TestAgentCannotClearItsVariables(t *testing.T) {
 		"if [ -f go.mod ]; then go build ./...; fi":     false,
 		"cat <<'EOF' > notes.md\nunset CLAUDECODE\nEOF": false,
 	} {
-		if d := checkTool("Bash", map[string]any{"command": line}, home, ""); d.Deny != block {
+		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, ""); d.Deny != block {
 			t.Errorf("%q: deny=%v (%s)", line, d.Deny, d.Reason)
 		}
 	}
@@ -256,7 +249,7 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 	t.Run("unix paths", func(t *testing.T) {
 		unixOnly(t, "the cases name a Unix home, /Users/me, which is not a full path on Windows; TestGuardGlobsUnderThisHome covers globs there")
 		for _, c := range cases {
-			if d := checkTool(c.tool, c.in, home, c.cwd); d.Deny != c.block {
+			if d := checkTool(tcl, c.tool, c.in, home, c.cwd); d.Deny != c.block {
 				t.Errorf("%s %v (cwd %q): deny=%v (%s)", c.tool, c.in, c.cwd, d.Deny, d.Reason)
 			}
 		}
@@ -289,7 +282,7 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 		{"Read", map[string]any{"file_path": filepath.Join(proj, "k", "state.json")}},
 		{"Bash", map[string]any{"command": "cat k/state.json"}},
 	} {
-		if d := checkTool(c.tool, c.in, home, proj); !d.Deny {
+		if d := checkTool(tcl, c.tool, c.in, home, proj); !d.Deny {
 			t.Errorf("%s %v: allowed", c.tool, c.in)
 		}
 	}
@@ -300,7 +293,7 @@ func TestGuardCwdAndGlobs(t *testing.T) {
 	}
 	b, _ := json.Marshal(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": "cat .komando/state.json"}, "cwd": home})
 	t.Setenv("KOMANDO_HOME", "")
-	if d := guardAgent("codex", b, home); !d.Deny {
+	if d := guardAgent(tcl, "codex", b, home); !d.Deny {
 		t.Error("codex hook with cwd: relative path to komando's data allowed")
 	}
 }
@@ -320,11 +313,11 @@ func TestGuardGlobsUnderThisHome(t *testing.T) {
 		"cat ~/code/*.go":             false,
 		"du -sh ~/*/*":                false,
 	} {
-		if d := checkTool("Bash", map[string]any{"command": line}, home, ""); d.Deny != block {
+		if d := checkTool(tcl, "Bash", map[string]any{"command": line}, home, ""); d.Deny != block {
 			t.Errorf("%q: deny=%v (%s)", line, d.Deny, d.Reason)
 		}
 	}
-	if d := checkTool("Read", map[string]any{"file_path": "/proc/1/environ"}, home, ""); !d.Deny {
+	if d := checkTool(tcl, "Read", map[string]any{"file_path": "/proc/1/environ"}, home, ""); !d.Deny {
 		t.Error("Read /proc/1/environ allowed")
 	}
 }
@@ -369,9 +362,9 @@ func agentFiles(t *testing.T) (kh, home, proj string) {
 func TestLocalReadsForAgents(t *testing.T) {
 	noAgent(t)
 	kh, home, proj := agentFiles(t)
-	defer func() { g.reveal = false }()
+	defer func() { tcl.flags.reveal = false }()
 	read := func(p string) string {
-		_, err := readLocalFile(p)
+		_, err := readLocalFile(tcl, p)
 		if e := toErr(err); e != nil {
 			return e.Code
 		}
@@ -420,13 +413,13 @@ func TestLocalReadsForAgents(t *testing.T) {
 			t.Errorf("agent: %s: %q, want %q", p, c, want)
 		}
 	}
-	if d := checkTool("Read", map[string]any{"file_path": notes}, home, ""); !d.Deny {
+	if d := checkTool(tcl, "Read", map[string]any{"file_path": notes}, home, ""); !d.Deny {
 		t.Error("guard: a hard link to komando's data is allowed")
 	}
 	if *n != 0 {
 		t.Errorf("no --reveal: %d windows", *n)
 	}
-	g.reveal = true // the person allows a project secret, never komando's data
+	tcl.flags.reveal = true // the person allows a project secret, never komando's data
 	if c := read(filepath.Join(proj, ".env")); c != "" || *n != 1 {
 		t.Errorf("--reveal allowed: %q, %d windows", c, *n)
 	}
@@ -484,14 +477,14 @@ func TestImportsReadCredentialFilesForAgents(t *testing.T) {
 		filepath.Join(kh, "vault.key"):         "SENSITIVE_FILE",
 	} {
 		c := ""
-		if _, err := readSource(p); err != nil {
+		if _, err := readSource(tcl, p); err != nil {
 			c = toErr(err).Code
 		}
 		if c != want {
 			t.Errorf("import %s: %q, want %q", p, c, want)
 		}
 	}
-	if _, err := readLocalFile(filepath.Join(home, ".pgpass")); toErr(err) == nil || toErr(err).Code != "SENSITIVE_FILE" {
+	if _, err := readLocalFile(tcl, filepath.Join(home, ".pgpass")); toErr(err) == nil || toErr(err).Code != "SENSITIVE_FILE" {
 		t.Errorf("exec --stdin-file ~/.pgpass: %v", err)
 	}
 }
@@ -500,7 +493,7 @@ func TestImportsReadCredentialFilesForAgents(t *testing.T) {
 // those files here, each one checked as cp -r does.
 func TestSyncUpChecksEachFileForAgents(t *testing.T) {
 	_, home, _ := agentFiles(t)
-	t.Cleanup(func() { g.reveal = false; out.P.Reset() })
+	t.Cleanup(func() { tcl.flags.reveal = false; tcl.out.Reset() })
 	if err := os.MkdirAll(filepath.Join(home, ".komando"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -509,10 +502,10 @@ func TestSyncUpChecksEachFileForAgents(t *testing.T) {
 	}
 	for _, reveal := range []bool{false, true} {
 		asAgent(t, true, true)
-		g.reveal = reveal
+		tcl.flags.reveal = reveal
 		dst := t.TempDir()
 		ctx := context.Background()
-		if _, err := runSync(ctx, newAgentLocalSide(ctx, home), localSide{dst}, "home", "dst", syncOpts{}); err != nil {
+		if _, err := runSync(tcl, ctx, newAgentLocalSide(tcl, ctx, home), localSide{tcl, dst}, "home", "dst", syncOpts{}); err != nil {
 			t.Fatal(err)
 		}
 		for rel, want := range map[string]bool{
@@ -533,7 +526,9 @@ func TestSyncUpChecksEachFileForAgents(t *testing.T) {
 // The commands that read a local path refuse before any connection.
 func TestLocalReadCommandsForAgents(t *testing.T) {
 	kh, home, proj := agentFiles(t)
-	t.Cleanup(func() { g.dryRun, g.yes, g.allowDangerous, g.reveal, store.DryRun = false, false, false, false, false })
+	t.Cleanup(func() {
+		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous, tcl.flags.reveal = false, false, false, false
+	})
 	mustRun(t, "host", "add", "web", "deploy@127.0.0.1:1")
 	asAgent(t, false, false)
 	key := filepath.Join(kh, "vault.key")
@@ -555,48 +550,46 @@ func TestLocalReadCommandsForAgents(t *testing.T) {
 // person, and the preview still prints what it reads.
 func TestDryRunRevealStaysMasked(t *testing.T) {
 	invHome(t)
-	t.Cleanup(func() { g.reveal, out.P.Mask = false, false })
+	t.Cleanup(func() { tcl.flags.reveal, tcl.out.Mask = false, false })
 	n := asAgent(t, true, true)
-	g.dryRun, g.reveal = true, true
-	if revealOK() {
+	tcl.flags.dryRun, tcl.flags.reveal = true, true
+	if tcl.revealOK() {
 		t.Error("revealOK under --dry-run")
 	}
-	g.dryRun, g.reveal = false, false
+	tcl.flags.dryRun, tcl.flags.reveal = false, false
 	mustRun(t, "list", "--dry-run", "--reveal")
-	if !out.P.Mask || *n != 0 {
-		t.Errorf("list --dry-run --reveal: mask=%v windows=%d", out.P.Mask, *n)
+	if !tcl.out.Mask || *n != 0 {
+		t.Errorf("list --dry-run --reveal: mask=%v windows=%d", tcl.out.Mask, *n)
 	}
 	// an agent's preview that connects does it with the usual server
 	// identity check
 	mustRun(t, "list", "--dry-run", "--host-key-policy", "off")
-	if g.hostKeyPolicy != "" || *n != 0 {
-		t.Errorf("--dry-run --host-key-policy off: policy %q, windows %d", g.hostKeyPolicy, *n)
+	if tcl.flags.hostKeyPolicy != "" || *n != 0 {
+		t.Errorf("--dry-run --host-key-policy off: policy %q, windows %d", tcl.flags.hostKeyPolicy, *n)
 	}
 	// a person's or a script's preview runs as the real run would
 	noAgent(t)
-	t.Cleanup(func() { g.yes, g.hostKeyPolicy = false, "" })
+	t.Cleanup(func() { tcl.flags.yes, tcl.flags.hostKeyPolicy = false, "" })
 	mustRun(t, "list", "--dry-run", "--yes", "--host-key-policy", "off")
-	if g.hostKeyPolicy != "off" {
-		t.Errorf("script --dry-run --host-key-policy off: policy %q", g.hostKeyPolicy)
+	if tcl.flags.hostKeyPolicy != "off" {
+		t.Errorf("script --dry-run --host-key-policy off: policy %q", tcl.flags.hostKeyPolicy)
 	}
 }
 
 // The approval window shows the whole command, the reason and the targets;
 // a command it cannot show whole is refused without a window.
 func TestApprovalWindowShowsEverything(t *testing.T) {
-	saved := os.Args
-	t.Cleanup(func() { os.Args = saved; g.allowDangerous, g.yes = false, false })
-	t.Setenv("CLAUDECODE", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	saved := tcl.args
+	t.Cleanup(func() { tcl.args = saved; tcl.flags.allowDangerous, tcl.flags.yes = false, false })
+	setCallerEnv(t, "CLAUDECODE", "1")
 	var texts []string
 	savedAsk := askOnScreen
-	askOnScreen = func(text string) (bool, bool) { texts = append(texts, text); return false, true }
+	askOnScreen = func(_ *call, text string) (bool, bool) { texts = append(texts, text); return false, true }
 	t.Cleanup(func() { askOnScreen = savedAsk; resetApproval() })
 
 	st := &store.State{Hosts: map[string]*store.Host{"web": {Name: "web", Address: "10.0.0.1", Protected: true}}}
 	hosts := []*store.Host{st.Hosts["web"]}
-	g.allowDangerous, g.yes = true, true
+	tcl.flags.allowDangerous, tcl.flags.yes = true, true
 	for _, c := range []struct {
 		name, cmd string
 		shown     string // the command as the window shows it; "" for no window
@@ -618,8 +611,8 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	} {
 		resetApproval()
 		texts = nil
-		os.Args = []string{"komando", "exec", "web", "--allow-dangerous", "--", c.cmd}
-		err := guard(st, hosts, c.cmd, true)
+		tcl.args = []string{"komando", "exec", "web", "--allow-dangerous", "--", c.cmd}
+		err := guard(tcl, st, hosts, c.cmd, true)
 		if err == nil {
 			t.Errorf("%s: the person said no, but it passed", c.name)
 		}
@@ -629,9 +622,9 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 		}
 		if c.shown == "" {
 			e := toErr(err)
-			approvalHint(e)
-			if cur().sess.Window().Why != "unshowable" || !strings.Contains(e.Hint, "did not ask the user") {
-				t.Errorf("%s: why %q, hint %q", c.name, cur().sess.Window().Why, e.Hint)
+			approvalHint(tcl, e)
+			if tcl.sess.Window().Why != "unshowable" || !strings.Contains(e.Hint, "did not ask the user") {
+				t.Errorf("%s: why %q, hint %q", c.name, tcl.sess.Window().Why, e.Hint)
 			}
 			continue
 		}
@@ -649,9 +642,9 @@ func TestApprovalWindowShowsEverything(t *testing.T) {
 	// shown escaped
 	resetApproval()
 	texts = nil
-	g.allowDangerous = false
-	os.Args = []string{"komando", "fs", "replace", "web", "/etc/app.yml", "--old", "a: 1", "--new", "a:\n  b: 1\n  c: 2", "--yes"}
-	if guard(st, hosts, "", true) == nil {
+	tcl.flags.allowDangerous = false
+	tcl.args = []string{"komando", "fs", "replace", "web", "/etc/app.yml", "--old", "a: 1", "--new", "a:\n  b: 1\n  c: 2", "--yes"}
+	if guard(tcl, st, hosts, "", true) == nil {
 		t.Error("fs replace: the person said no, but it passed")
 	}
 	if len(texts) != 1 || !strings.Contains(texts[0], `--new $'a:\n  b: 1\n  c: 2' --yes`) {

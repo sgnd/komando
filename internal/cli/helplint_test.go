@@ -33,5 +33,5 @@ func TestHelpReadsWell(t *testing.T) {
 			walk(sub)
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 }

@@ -143,10 +143,10 @@ holds your data: it is created readable only by you.`,
   komando db dump prod-db --to schema.sql --schema-only
   komando db dump local --to backup.db`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			conn, file := args[0], false
 			if st, err := loadState(); err == nil {
-				if c, err := singleConn(st, args[0], "db"); err == nil {
+				if c, err := singleConn(cl, st, args[0], "db"); err == nil {
 					conn = c.Name // the file and the note name the conn, not a selector
 					if t, err := driver.Parse(c.URL); err == nil && t.Kind.File {
 						file = true
@@ -171,14 +171,14 @@ holds your data: it is created readable only by you.`,
 			if o.format == "custom" && strings.HasSuffix(to, ".gz") {
 				return out.Usage("a custom archive is already compressed; drop the .gz")
 			}
-			if err := runDump(cmd.Context(), args[0], to, on, o); err != nil {
+			if err := runDump(cl, cmd.Context(), args[0], to, on, o); err != nil {
 				return err
 			}
-			if !g.dryRun {
-				textNote("To load it back: %s", restoreNote(conn, to))
+			if !cl.flags.dryRun {
+				textNote(cl, "To load it back: %s", restoreNote(cl, conn, to))
 			}
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&to, "to", "", "file to create on this computer (default: CONN-<date>.sql.gz; SQLite: CONN-<date>.db)")
 	c.Flags().StringVar(&o.format, "format", "plain", "plain (SQL) or custom (PostgreSQL archive for pg_restore)")
@@ -217,13 +217,13 @@ MySQL runs the statements in order and stops at the first error.`,
   komando db restore staging-db --from prod-2026-11-02.sql.gz --allow-dangerous
   komando db restore staging-db --from prod.dump --run-on db1 --allow-dangerous`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if from == "" {
 				return out.Usage("give the backup to load with --from FILE").
 					WithHint("for example: komando db restore " + argQ(args[0]) + " --from backup.sql.gz --dry-run (`komando db dump` makes the file)")
 			}
-			return runRestore(cmd.Context(), args[0], from, on)
-		},
+			return runRestore(cl, cmd.Context(), args[0], from, on)
+		}),
 	}
 	c.Flags().StringVar(&from, "from", "", "SQL file on this computer")
 	c.Flags().StringVar(&on, "run-on", "", "run pg_restore for a PostgreSQL archive on this server (default: the database's --via server)")
@@ -264,12 +264,12 @@ func humanBytes(n int64) string {
 	return fmt.Sprintf("%.1f %ciB", float64(n)/float64(div), "KMGTPE"[exp])
 }
 
-func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
+func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "db")
+	c, err := singleConn(cl, st, connExpr, "db")
 	if err != nil {
 		return err
 	}
@@ -280,7 +280,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 	if _, err := os.Stat(to); err == nil {
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick a new file name; backups are never overwritten", "%s already exists", to)
 	}
-	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: g.dryRun}
+	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: cl.flags.dryRun}
 	rec := map[string]any{"conns": []string{c.Name}, "file": to}
 
 	if t.Kind.File { // sqlite: a consistent copy of the database file
@@ -292,13 +292,13 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 		}
 		data.Tool = []string{"VACUUM INTO"}
 		rec["runs_on"] = "local"
-		if g.dryRun {
-			out.P.Print("db.dump", data, nil)
+		if cl.flags.dryRun {
+			cl.out.Print("db.dump", data, nil)
 			return nil
 		}
 		err := writeAtomic(to, func(tmp string) error {
 			os.Remove(tmp) // VACUUM INTO needs a path that does not exist yet
-			db, closeDB, err := openDB(ctx, st, c, true)
+			db, closeDB, err := openDB(cl, ctx, st, c, true)
 			if err != nil {
 				return err
 			}
@@ -312,7 +312,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 			}
 			return nil
 		})
-		return finishTransfer(st, "db.dump", data, rec, err)
+		return finishTransfer(cl, st, "db.dump", data, rec, err)
 	}
 
 	tool, err := toolsFor(c, t)
@@ -322,7 +322,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 	if tool.dump, err = o.args(t.Kind.Name, tool.dump); err != nil {
 		return err
 	}
-	h, err := toolHost(st, c, on)
+	h, err := toolHost(cl, st, c, on)
 	if err != nil {
 		return err
 	}
@@ -337,12 +337,12 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 		data.RunsOn, data.LowPriority = h.Name, true
 	}
 	rec["runs_on"] = data.RunsOn
-	if g.dryRun {
-		out.P.Print("db.dump", data, nil)
+	if cl.flags.dryRun {
+		cl.out.Print("db.dump", data, nil)
 		return nil
 	}
 	builtinDump := func(w io.Writer) error {
-		db, closeDB, err := openDB(ctx, st, c, true)
+		db, closeDB, err := openDB(cl, ctx, st, c, true)
 		if err != nil {
 			return err
 		}
@@ -368,7 +368,7 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 			if err := builtinDump(w); err != nil {
 				return err
 			}
-		} else if err := runTool(ctx, st, c, h, tool, tool.dump, nil, w, true); err != nil {
+		} else if err := runTool(cl, ctx, st, c, h, tool, tool.dump, nil, w, true); err != nil {
 			code := toErr(err).Code
 			if (code != "TOOL_MISSING" && code != "TOOL_TOO_OLD") || o.format == "custom" || on != "" {
 				return err
@@ -397,15 +397,15 @@ func runDump(ctx context.Context, connExpr, to, on string, o dumpOpts) error {
 		}
 		return f.Sync()
 	})
-	return finishTransfer(st, "db.dump", data, rec, err)
+	return finishTransfer(cl, st, "db.dump", data, rec, err)
 }
 
-func runRestore(ctx context.Context, connExpr, from, on string) error {
+func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "db")
+	c, err := singleConn(cl, st, connExpr, "db")
 	if err != nil {
 		return err
 	}
@@ -416,7 +416,7 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 	if t.Kind.File {
 		return out.Errf(out.ExitUsage, "USAGE", sqliteRestoreHint, "sqlite backups are database files: komando does not restore them; copy the file back instead")
 	}
-	h, err := toolHost(st, c, on)
+	h, err := toolHost(cl, st, c, on)
 	if err != nil {
 		return err
 	}
@@ -429,7 +429,7 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `komando db dump`")
 	}
 	var argv []string
-	custom, err := isPgArchive(from)
+	custom, err := isPgArchive(cl, from)
 	if err != nil {
 		return err
 	}
@@ -441,7 +441,7 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 	}
 	v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}
 	if !custom {
-		if err := checkRestoreSQL(t.Kind.Name, from, &v); err != nil {
+		if err := checkRestoreSQL(cl, t.Kind.Name, from, &v); err != nil {
 			return err
 		}
 	}
@@ -452,34 +452,34 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a server: add --run-on HOST (a server with pg_restore that can reach the database). komando restores plain SQL itself", from)
 	}
 	// the file is checked first, so a dry run also says whether it is fine
-	if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+	if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 		return err
 	}
 	// plain SQL is always run by komando itself: psql and mysql would obey
 	// client commands hidden in the file, on the --via server
 	builtin := !custom
-	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, DryRun: g.dryRun}
+	data := transferData{Conn: c.Name, File: from, Bytes: fi.Size(), Tool: argv, DryRun: cl.flags.dryRun}
 	if builtin {
 		// komando runs here; only the connection goes through the --via path
 		data.Tool, data.RunsOn = []string{"komando"}, "local"
 	} else {
 		data.RunsOn = h.Name
 	}
-	if g.dryRun {
-		out.P.Print("db.restore", data, nil)
-		textNote("To keep a way back, save a copy first: komando db dump %s", argQ(c.Name))
+	if cl.flags.dryRun {
+		cl.out.Print("db.restore", data, nil)
+		textNote(cl, "To keep a way back, save a copy first: komando db dump %s", argQ(c.Name))
 		return nil
 	}
-	if err := offerBackup(ctx, c.Name); err != nil {
+	if err := offerBackup(cl, ctx, c.Name); err != nil {
 		return err
 	}
 	builtinRestore := func() error {
-		db, closeDB, err := openDB(ctx, st, c, false)
+		db, closeDB, err := openDB(cl, ctx, st, c, false)
 		if err != nil {
 			return err
 		}
 		defer closeDB()
-		return withBackup(from, func(r io.Reader) error {
+		return withBackup(cl, from, func(r io.Reader) error {
 			if err := dbx.Restore(ctx, db, t.Kind.Name, r); err != nil {
 				// what the database holds now depends on the engine (S-8.4):
 				// PostgreSQL restores in one transaction, MySQL cannot
@@ -496,17 +496,17 @@ func runRestore(ctx context.Context, connExpr, from, on string) error {
 	if builtin {
 		err = builtinRestore()
 	} else {
-		err = withBackup(from, func(r io.Reader) error { return runTool(ctx, st, c, h, tool, argv, r, io.Discard, false) })
+		err = withBackup(cl, from, func(r io.Reader) error { return runTool(cl, ctx, st, c, h, tool, argv, r, io.Discard, false) })
 	}
-	return finishTransfer(st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
+	return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
 }
 
 // checkRestoreSQL checks the whole file before sending any of it: what the
 // SQL does beyond writing data (COPY ... PROGRAM, INTO OUTFILE, GRANT, ...)
 // is added to v, so it is named in the approval and in POLICY_BLOCKED.
-func checkRestoreSQL(kind, from string, v *driver.Verdict) error {
+func checkRestoreSQL(cl *call, kind, from string, v *driver.Verdict) error {
 	var sqlV driver.Verdict
-	if err := withBackup(from, func(r io.Reader) (err error) {
+	if err := withBackup(cl, from, func(r io.Reader) (err error) {
 		sqlV, err = driver.CheckRestore(kind, r)
 		return err
 	}); err != nil {
@@ -518,8 +518,8 @@ func checkRestoreSQL(kind, from string, v *driver.Verdict) error {
 }
 
 // isPgArchive reports whether path is a pg_dump custom archive ("PGDMP").
-func isPgArchive(path string) (bool, error) {
-	if err := guardLocalRead(path); err != nil {
+func isPgArchive(cl *call, path string) (bool, error) {
+	if err := guardLocalRead(cl, path); err != nil {
 		return false, err
 	}
 	f, err := os.Open(path)
@@ -533,8 +533,8 @@ func isPgArchive(path string) (bool, error) {
 }
 
 // withBackup opens a backup file (decompressing .gz) and passes it to fn.
-func withBackup(path string, fn func(io.Reader) error) error {
-	if err := guardLocalRead(path); err != nil {
+func withBackup(cl *call, path string, fn func(io.Reader) error) error {
+	if err := guardLocalRead(cl, path); err != nil {
 		return err
 	}
 	f, err := os.Open(path)
@@ -554,7 +554,7 @@ func withBackup(path string, fn func(io.Reader) error) error {
 	return fn(r)
 }
 
-func finishTransfer(st *store.State, name string, data transferData, rec map[string]any, err error) error {
+func finishTransfer(cl *call, st *store.State, name string, data transferData, rec map[string]any, err error) error {
 	if err == nil && name == "db.dump" {
 		if fi, serr := os.Stat(data.File); serr == nil {
 			data.Bytes = fi.Size()
@@ -564,11 +564,11 @@ func finishTransfer(st *store.State, name string, data transferData, rec map[str
 	if err != nil {
 		rec["error"] = toErr(err).Code
 	}
-	audit(st, name, nil, "", err == nil, rec)
+	audit(cl, st, name, nil, "", err == nil, rec)
 	if err != nil {
 		return err
 	}
-	out.P.Print(name, data, nil)
+	cl.out.Print(name, data, nil)
 	return nil
 }
 
@@ -607,7 +607,7 @@ func writeAtomic(path string, fill func(tmp string) error) error {
 // runTool runs argv with the conn's password in tool.passwordEnv, on the
 // server h (see toolHost) or, when h is nil, here, streaming stdin and
 // stdout. low runs it under nice and ionice on the server.
-func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, argv []string, stdin io.Reader, stdout io.Writer, low bool) error {
+func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, argv []string, stdin io.Reader, stdout io.Writer, low bool) error {
 	password, err := resolvePassword(c)
 	if err != nil {
 		return err
@@ -615,9 +615,9 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	if strings.ContainsAny(password, "\r\n") {
 		return out.Errf(out.ExitUsage, "BAD_SECRET", "store the password again without line breaks (`komando secret set NAME`)", "the password for %s contains a line break", c.Name)
 	}
-	if g.timeout > 0 {
+	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
 	if stdin == nil {
@@ -629,7 +629,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	}
 	defer ca.remove()
 	// after toolWithCA: a URL with its own CA file gets no sslrootcert=system
-	if argv, err = toolTLSArgs(ctx, st, c, h, tool, argv); err != nil {
+	if argv, err = toolTLSArgs(cl, ctx, st, c, h, tool, argv); err != nil {
 		return err
 	}
 	if h == nil {
@@ -639,7 +639,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 				"%s is not installed here", argv[0])
 		}
 		p := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		p.Env = append(os.Environ(), tool.passwordEnv+"="+password)
+		p.Env = append(cl.environ(), tool.passwordEnv+"="+password)
 		var stderr strings.Builder
 		p.Stdin, p.Stdout, p.Stderr = stdin, stdout, &limitWriter{w: &stderr, n: 64 << 10}
 		if err := p.Run(); err != nil {
@@ -651,7 +651,7 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 	if h.Windows() {
 		return notOnWindows("running the dump tool --run-on a server", []string{h.Name})
 	}
-	sc, err := sshx.Dial(ctx, st, h, sshOpts(st))
+	sc, err := sshx.Dial(ctx, st, h, sshOpts(cl, st))
 	if err != nil {
 		return err
 	}
@@ -676,9 +676,9 @@ func runTool(ctx context.Context, st *store.State, c *store.Conn, h *store.Host,
 // --run-on, else the last server of the database's --via path (the path before it
 // is how komando reaches that server). nil means none: a direct conn, or
 // one reached through a VPN.
-func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
+func toolHost(cl *call, st *store.State, c *store.Conn, on string) (*store.Host, error) {
 	if on != "" {
-		h, err := singleHost(st, on)
+		h, err := singleHost(cl, st, on)
 		if err != nil {
 			return nil, err
 		}
@@ -687,7 +687,7 @@ func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
 			return nil, out.Errf(out.ExitUsage, "USAGE", "add the server first (`komando host add NAME USER@ADDRESS`), then use --run-on NAME",
 				"--run-on takes a server from your list, not %q", on)
 		}
-		return h, runOnSecret(st, c, h)
+		return h, runOnSecret(cl, st, c, h)
 	}
 	if c.Via == "" {
 		return nil, nil
@@ -705,7 +705,7 @@ func toolHost(st *store.State, c *store.Conn, on string) (*store.Host, error) {
 // runOnSecret: a server named with --run-on that is not the conn's own
 // --via server gets the conn's password, so for an AI agent it needs a
 // person's yes (SECRET_DESTINATION), as any other place a secret goes.
-func runOnSecret(st *store.State, c *store.Conn, h *store.Host) error {
+func runOnSecret(cl *call, st *store.State, c *store.Conn, h *store.Host) error {
 	if c.PasswordRef == "" {
 		return nil
 	}
@@ -714,7 +714,7 @@ func runOnSecret(st *store.State, c *store.Conn, h *store.Host) error {
 			return nil
 		}
 	}
-	return guardSecretUse([]string{c.PasswordRef}, h.Name+" (--run-on: the dump tool for conn "+c.Name+" runs there)")
+	return guardSecretUse(cl, []string{c.PasswordRef}, h.Name+" (--run-on: the dump tool for conn "+c.Name+" runs there)")
 }
 
 // toolFailed maps a failed dump or restore tool to the same error codes

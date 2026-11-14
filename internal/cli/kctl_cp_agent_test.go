@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -20,14 +21,14 @@ import (
 // download's rules, checked before anything is written.
 func TestPodCopyAsADownload(t *testing.T) {
 	invHome(t)
-	saved := out.P
-	out.P = &out.Printer{Format: "json", W: os.Stdout, Start: time.Now()} // the vault values are read once per printer
-	t.Cleanup(func() { out.P = saved })
+	saved := tcl.out
+	tcl.out = &out.Printer{Format: "json", W: tcl.out.W, Start: time.Now()} // the vault values are read once per printer
+	t.Cleanup(func() { tcl.out = saved })
 	const v = "pod-db-password-90210"
-	if err := vault.Set("db", v); err != nil {
+	if err := vault.Set(store.Save(), "db", v); err != nil {
 		t.Fatal(err)
 	}
-	out.P.Secrets = vaultValues
+	tcl.out.SetSecrets(vaultValues)
 	mk := func(files map[string]string) []byte {
 		var b bytes.Buffer
 		tw := tar.NewWriter(&b)
@@ -54,20 +55,20 @@ func TestPodCopyAsADownload(t *testing.T) {
 	}
 
 	asAgent(t, false, false)
-	out.P.Mask = true
-	t.Cleanup(func() { out.P.Mask = false })
+	tcl.out.Mask = true
+	t.Cleanup(func() { tcl.out.Mask = false })
 
 	dst := t.TempDir()
-	if err := untarTo(mk(map[string]string{"app/a.txt": "ok", "app/.env": "DB=" + v}), dst, "app"); stopCode(err) != "SENSITIVE_FILE" {
+	if err := untarTo(tcl, mk(map[string]string{"app/a.txt": "ok", "app/.env": "DB=" + v}), dst, "app"); stopCode(err) != "SENSITIVE_FILE" {
 		t.Errorf("a secret file by name: %v", err)
 	}
 	empty(dst)
 	bin := "\x00\x01ELF" + v
-	if err := untarTo(mk(map[string]string{"app/a.txt": "ok", "app/tool.bin": bin}), dst, "app"); stopCode(err) != "SENSITIVE_FILE" {
+	if err := untarTo(tcl, mk(map[string]string{"app/a.txt": "ok", "app/tool.bin": bin}), dst, "app"); stopCode(err) != "SENSITIVE_FILE" {
 		t.Errorf("a binary file with a vault value: %v", err)
 	}
 	empty(dst)
-	if err := untarTo(mk(map[string]string{"app/config.yml": "password: " + v + "\n"}), dst, "app"); err != nil {
+	if err := untarTo(tcl, mk(map[string]string{"app/config.yml": "password: " + v + "\n"}), dst, "app"); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dst, "config.yml")); strings.Contains(string(b), v) || !strings.Contains(string(b), "[secret:db]") {
@@ -76,9 +77,9 @@ func TestPodCopyAsADownload(t *testing.T) {
 
 	// a person gets the file as it is
 	noAgent(t)
-	out.P.Mask = false
+	tcl.out.Mask = false
 	pdst := t.TempDir()
-	if err := untarTo(mk(map[string]string{"app/.env": "DB=" + v}), pdst, "app"); err != nil {
+	if err := untarTo(tcl, mk(map[string]string{"app/.env": "DB=" + v}), pdst, "app"); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(filepath.Join(pdst, ".env")); string(b) != "DB="+v {
