@@ -29,8 +29,8 @@ curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh
 sh install.sh
 ```
 
-`KOMANDO_INSTALL_DIR=DIR` picks the folder, and `KOMANDO_VERSION=v0.13.0`
-picks one version (`KOMANDO_VERSION=v0.13.0 sh install.sh`).
+`KOMANDO_INSTALL_DIR=DIR` picks the folder, and `KOMANDO_VERSION=v0.14.0`
+picks one version (`KOMANDO_VERSION=v0.14.0 sh install.sh`).
 
 ## Install on Windows
 
@@ -95,7 +95,7 @@ your AI agents get the skill of the new version. Until then
   release is older than the komando you run.
 - A komando you built yourself from a commit between releases is not
   replaced (`SOURCE_BUILD`): build it again instead. One built at a release
-  tag (`go install ...@v0.13.0`) counts as that release.
+  tag (`go install ...@v0.14.0`) counts as that release.
 - Run as you, the update is written to the audit log like any other change.
 - `update` installs only a release signed with the komando project's key,
   which is built into komando. The release workflow signs `checksums.txt`
