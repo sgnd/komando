@@ -311,7 +311,7 @@ func recipeRmCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if builtinRecipe(args[0]) != nil {
-				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "built-in recipes cannot be removed", "%q is a built-in recipe", args[0])
+				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "remove one of your own recipes instead; see `komando recipe list --category saved`", "%q is a built-in recipe and cannot be removed", args[0])
 			}
 			err := store.Update(cl.storeWrite(), func(st *store.State) error {
 				if _, ok := st.Snippets[args[0]]; !ok {

@@ -49,7 +49,7 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"reboot"}, []string{"web1", "y"}, "reboot web1", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"svc", "stop", "web1"}, []string{"sshd", "y"}, "svc stop web1 sshd", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// easy to redo, no agent stop (OD-7), yet a person types what goes
-		{[]string{"cron", "rm", "web1"}, []string{"backup", "backup"}, "cron rm web1 backup", []string{"This deletes the scheduled task.", "Type the name backup to continue"}},
+		{[]string{"cron", "rm", "web1"}, []string{"backup", "backup"}, "cron rm web1 backup", []string{"This deletes the cron entry.", "Type the name backup to continue"}},
 		{[]string{"pkg", "rm", "web1"}, []string{"nginx curl", "2"}, "pkg rm web1 nginx curl", []string{"This removes the packages.", "Type 2 (packages on web1) to continue"}},
 		{[]string{"svc", "stop", "web1"}, []string{"nginx", "y"}, "svc stop web1 nginx", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// komando and csv have no usual file, so FILE is asked; the other

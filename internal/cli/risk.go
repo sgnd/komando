@@ -118,7 +118,7 @@ var riskRows = []riskRow{
 	{id: "key.rm", when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the private key komando keeps"},
 	{id: "pkg.rm", when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
 	{id: "pkg.rm", tier: tierChange, typed: "removes the packages", items: "packages"},
-	{id: "cron.rm", tier: tierChange, typed: "deletes the scheduled task", items: "scheduled tasks"},
+	{id: "cron.rm", tier: tierChange, typed: "deletes the cron entry", items: "cron entries"},
 	{id: "reboot", tier: tierDangerous, what: "restarts the server (it is away until it is back)"},
 	{id: "svc.stop", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "stops sshd (no one can log in remotely)"},
 	{id: "svc.disable", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "turns sshd off (no one can log in remotely after a restart)"},

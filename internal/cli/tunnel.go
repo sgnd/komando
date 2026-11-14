@@ -40,7 +40,7 @@ func tunnelCmd() *cobra.Command {
 		Short:   "Background port forwarding: start, see, stop",
 		Long: `Specs:
   -L [bind:]LPORT:RHOST:RPORT   local port -> RHOST:RPORT as seen from the server
-  -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this machine
+  -R [rbind:]RPORT:LHOST:LPORT  server port -> LHOST:LPORT on this computer
   -D [bind:]PORT                SOCKS5 proxy through the server
 LPORT/PORT 0 picks a free port; the chosen address is returned.
 IPv6 addresses go in brackets, as with ssh: -L 8080:[::1]:80.`,

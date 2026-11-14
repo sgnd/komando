@@ -240,7 +240,7 @@ func TestImportCSV(t *testing.T) {
 		{"name,address,address\n", "appears twice"},
 		{"name,address\n", "only the header row"},
 		{"name,address,port,protected\nok,10.0.0.1,22,no\nbad name,10.0.0.2,,\ny,10.0.0.3,99999,\nz,10.0.0.4,,maybe\nok,10.0.0.5,,\n",
-			"4 bad rows"},
+			"4 rows cannot be imported"},
 		{"name,address\nnew1,10.0.0.1\nnew2,10.0.0.2,extra\n", "wrong number of fields"},
 	} {
 		e := wantCode(t, "USAGE", "import", "csv", writeCSV(t, c.text))

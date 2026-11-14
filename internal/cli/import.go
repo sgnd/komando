@@ -235,8 +235,8 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		for _, s := range v.Invalid {
 			bad = append(bad, s.Name+": "+s.Reason)
 		}
-		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again; nothing was imported",
-			"%s cannot be added: %s", countOf(len(bad), "server"), strings.Join(bad, "; "))
+		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again",
+			"%s cannot be added: %s; nothing was imported", countOf(len(bad), "server"), strings.Join(bad, "; "))
 	}
 	hosts := v.Add
 	for _, n := range v.Existing {

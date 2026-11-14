@@ -396,7 +396,7 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if addr == "" {
 		_ = netx.Terminate(pid)
 		b, _ := os.ReadFile(logFile)
-		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and the whole log is "+logFile+" (for a person to read)", "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and a person reads the whole log in "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
 	}
 	return pid, addr, nil
 }

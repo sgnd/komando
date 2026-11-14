@@ -515,10 +515,10 @@ func secretKeychainCmd() *cobra.Command {
 	var off bool
 	c := &cobra.Command{
 		Use:   "keychain",
-		Short: "Keep the store key in the OS keychain instead of store.key",
-		Long: `Moves the store's key out of the store.key file into the operating system's
+		Short: "Keep the vault key in the OS keychain instead of store.key",
+		Long: `Moves the vault's key out of the store.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
-the store or its secrets. Nothing is re-encrypted: it is the same key, kept elsewhere.
+the vault or its secrets. Nothing is re-encrypted: it is the same key, kept elsewhere.
 --off moves it back into store.key, which needs --yes.
 
 Only a person at a terminal moves the key in: the keychain may ask them to
@@ -560,10 +560,10 @@ unlock it, and an AI agent or a script cannot answer that.`,
 			tool, err := vault.KeyToKeychain()
 			audit(cl, nil, "secret.keychain", nil, "", err == nil, map[string]any{"key": "keychain"})
 			if errors.Is(err, vault.ErrKeychainTaken) {
-				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then run it again", "%v; the store still uses store.key, nothing was lost", err)
+				return out.Errf(out.ExitConflict, "KEYCHAIN_TAKEN", "put back the vault you moved aside, or once no vault needs that key, a person deletes the keychain item (an AI agent asks the user), then run it again", "%v; the vault still uses store.key, nothing was lost", err)
 			}
 			if err != nil {
-				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring", "%v; the store still uses store.key, nothing was lost", err)
+				return out.Errf(out.ExitRemote, "KEYCHAIN_FAILED", "a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring", "%v; the vault still uses store.key, nothing was lost", err)
 			}
 			cl.out.Print("secret.keychain", map[string]any{"key": "keychain", "keychain": tool, "vault_key_file": "removed"}, nil)
 			return nil

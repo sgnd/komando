@@ -119,7 +119,7 @@ func (o *execOpts) bind(c *cobra.Command) {
 	f.BoolVarP(&o.sudo, "sudo", "s", false, "run with sudo (never prompts; uses the server's --sudo-ref password if set)")
 	f.StringVar(&o.sudoUser, "sudo-user", "", "run as this user with sudo -u")
 	f.StringArrayVarP(&o.env, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
-	f.StringVarP(&o.dir, "dir", "C", "", "working directory on the server")
+	f.StringVarP(&o.dir, "dir", "C", "", "working folder on the server")
 	f.BoolVar(&o.stream, "stream", false, "stream output as NDJSON events while it runs")
 	f.BoolVar(&o.failFast, "fail-fast", false, "start no more servers after the first failure")
 }

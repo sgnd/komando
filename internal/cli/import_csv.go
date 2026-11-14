@@ -15,7 +15,7 @@ import (
 
 // `komando import csv FILE` adds many servers from a spreadsheet. The first
 // row names the columns; each later row is one server, like one `host add`.
-// Every row is checked before anything is written: one bad row stops the
+// Every row is checked before anything is written: one row that cannot be imported stops the
 // whole import, so a half-imported fleet never happens.
 
 // csvColumns maps the column names people write to komando's fields.
@@ -60,12 +60,12 @@ func importCSV(cl *call, path string) (*importPlan, error) {
 }
 
 func csvErr(format string, a ...any) error {
-	return out.Errf(out.ExitUsage, "USAGE", "the first row names the columns: "+csvColumnList+"; see `komando import --help`. Nothing was imported", format, a...)
+	return out.Errf(out.ExitUsage, "USAGE", "the first row names the columns: "+csvColumnList+"; see `komando import --help`", format+"; nothing was imported", a...)
 }
 
 // parseHostsCSV reads the servers in a CSV file and checks every row on
 // its own (names, ports, users, references, groups and tags). It reports
-// all bad rows at once.
+// every row that cannot be imported at once.
 func parseHostsCSV(b []byte) ([]*store.Host, error) {
 	b = bytes.TrimPrefix(b, []byte("\xef\xbb\xbf")) // a BOM from Excel
 	r := csv.NewReader(bytes.NewReader(b))
@@ -126,7 +126,7 @@ func parseHostsCSV(b []byte) ([]*store.Host, error) {
 		hosts = append(hosts, h)
 	}
 	if len(problems) > 0 {
-		return nil, csvErr("%s: %s", countOf(len(problems), "bad row"), strings.Join(problems, "; "))
+		return nil, csvErr("%s cannot be imported: %s", countOf(len(problems), "row"), strings.Join(problems, "; "))
 	}
 	if len(hosts) == 0 {
 		return nil, csvErr("no servers in the file, only the header row")

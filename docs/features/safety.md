@@ -231,7 +231,7 @@ terminal are not affected by them.
 
 ```bash
 komando policy deny 'terraform\s+destroy'           # a Go regular expression; prints its id
-komando policy list                                  # built-in and custom rules, with ids
+komando policy list                                  # built-in rules and your deny rules, with ids
 komando policy rm 'terraform\s+destroy'              # remove it again
 komando policy rm custom-1a2b3c4d                    # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked
