@@ -379,6 +379,7 @@ func serverLoginChoices(st *store.State, _ formAnswers) []pickRow {
 	rows := []pickRow{
 		{label: "My SSH key", detail: "the key in ~/.ssh or ssh-agent, as ssh uses it", value: "usual"},
 		{label: "A password", detail: "you type it next, hidden; komando keeps it as a saved password", value: "password"},
+		{label: "A password I type each time", detail: "komando never keeps it: you type it whenever komando connects", value: "ask"},
 		{label: "A key file", detail: "a file somewhere else, like a .pem from your cloud provider", value: "file"},
 	}
 	if len(st.Keys) > 0 {
@@ -408,6 +409,8 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 	switch a["login"] {
 	case "password":
 		args = append(args, "--ask-password")
+	case "ask":
+		args = append(args, "--login", "ask")
 	case "file":
 		args = append(args, "--identity", formAbs(a["identity"]))
 	case "keylist":

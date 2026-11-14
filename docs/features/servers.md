@@ -47,6 +47,7 @@ The flags you will use most:
 | `-g`, `--group` / `-t`, `--tag` / `--label KEY=VALUE` | Sort servers so one [target](targets.md) can pick many. |
 | `--key NAME` / `--identity PATH` | Log in with a key from komando's key list (`komando key`), or with a key file. |
 | `--password-ref` / `--sudo-ref` | Where the login or sudo password is kept (see [Use a password](#use-a-password)). |
+| `--login ask\|password\|key\|agent` | How komando logs in, in the same words `host show` prints: `ask` (you type the password at every connect, never stored: see [Type the password each time](#type-the-password-each-time---login-ask)), `password` (a stored one, with `--ask-password` or `--password-ref`), `key` (with `--key` or `--identity`), `agent` (ssh-agent and `~/.ssh` only). |
 | `--via bastion` | Reach the server through other servers or a VPN first ([tunnels](tunnels.md)). |
 | `--protected` | Mark a production server (see [Protect a production server](#protect-a-production-server)). |
 | `-e`, `--env KEY=VALUE` | Export a variable before every command on this server. A value from the vault (`KEY=secret:NAME`) is left out of an AI agent's commands: the agent could read it back unmasked (`printenv KEY \| rev`). It goes to an agent's `exec` or `job start` only when the agent adds `--yes` and you allow it in komando's window. |
@@ -438,6 +439,91 @@ komando sends the stored password at most once per login, and only when the
 server asks for a password (hidden as you type); a refused one is not sent
 again, so a wrong password in the vault cannot lock the account.
 
+### Type the password each time (`--login ask`)
+
+Some passwords should never be kept on a laptop. With `--login ask`,
+komando stores nothing: a person types the password whenever komando
+connects, and it is used for that one command only.
+
+```bash
+komando host add web2 root@203.0.113.21 --login ask   # never stored
+komando host edit web1 --login ask                    # stop using the stored password
+komando host edit web1 --login agent                  # back to ssh-agent and ~/.ssh
+komando host edit web1 --login password --ask-password   # back to a stored password
+```
+
+`--login` takes the words `host show` and `host list` print in their
+`login` field, and each reads back as written:
+
+| `--login` | How komando logs in | Needs |
+|---|---|---|
+| `ask` | a person types the password at every connect; never stored | no `--password-ref` or `--ask-password` |
+| `password` | a stored password, no key | `--ask-password` or `--password-ref` (or one stored already) |
+| `key` | a key komando names, then a stored password if there is one | `--key NAME` or `--identity PATH` (or one set already) |
+| `agent` | ssh-agent and the keys in `~/.ssh` | no key, identity or stored password |
+
+The settings say it on their own too: `--key` gives `key`,
+`--password-ref` gives `password`. `--login` clears what contradicts it
+(`password` drops the key, `agent` drops the key and the stored password).
+A WinRM server logs in with a password: `password` or `ask`.
+
+Who types it, and where:
+
+- **You, at a terminal**: komando asks `web1: Password:` (hidden) when the
+  server wants it, after any key, as `ssh` does.
+- **An AI agent's command**: komando opens its own window on your screen.
+  It names the agent, the server as `user@address:port` and the command
+  (or says the command is hidden), and you type the password there. The
+  agent never sees it. Every command that connects asks, even one that
+  only looks (`komando test`, `fs ls`). If you press Cancel the command
+  stops with `DECLINED`, and the window stays shut for that server for a
+  minute (later commands get `DECLINED` at once), so an agent cannot ask
+  again and again. With no screen (an SSH session, `KOMANDO_NO_DIALOG=1`,
+  `ssh-gate`) it stops with `NEEDS_PERSON`.
+- **A script** (no terminal): `NEEDS_PERSON`. Nobody can type it.
+- **An app** that runs komando gets the same question in its own window.
+
+The password goes to whatever answers at the server's address, so komando
+guards that address as it guards a stored password's:
+
+- An AI agent that adds a `--login ask` server, or moves one to another
+  address, port, user, `--via` path or WinRM, needs your yes in komando's
+  window (`SECRET_DESTINATION`).
+- The first connection to a `--login ask` server, whose host key komando
+  has not seen yet, needs a person at a terminal: an AI agent's command
+  stops with `NEEDS_PERSON`, opens no window and pins nothing. Run
+  `komando login web1` (or any command) at your terminal once: komando
+  prints the new key to compare, then asks the password. An app's window
+  warns that it is a first connection. The same holds while
+  `host_key_policy` is `off`, and for a WinRM server with `tls=off` or
+  `tls=skip-verify`: nothing checks who answers there.
+
+One command asks once per server: `komando exec @web -P 10` asks each
+login-ask server once, and a jump host once for every server behind it.
+A password the server refuses is not sent again: the command forgets it,
+and the next connection (in the same command or the next one) asks
+again. The typed password is hidden in all output (`[hidden]`), never
+written to disk, the audit log or a program's environment. komando zeroes
+its own copy when the command ends; copies the SSH library made cannot be
+zeroed and go when the command's process ends.
+
+To type it once for a while instead, log in with `komando login web1`
+(below): every command, an AI agent's too, uses that login until it ends,
+and nobody is asked. A server that prints the password back cannot be
+masked then: the command that uses the login never had it. A tunnel runs
+in the background, so `komando tunnel start` asks now and hands the
+password to the tunnel's process on its input; that process keeps it in
+memory for the tunnel's whole life (its reconnects), until the tunnel
+stops. `tunnel start` asks only for servers komando has met (their key
+pinned): the background process could show a new key to nobody.
+
+Switching a server to `--login ask` or `--login agent` unlinks its stored
+password. komando never deletes the secret itself: when no other server or
+conn uses it, the result names it in `secrets_unused` with the
+`komando secret rm` that removes it. Setting a stored password later
+(`--password-ref`, `--ask-password`) ends `--login ask`. Changing the
+login of a protected server needs the same yes as any change to it.
+
 ### Two-factor logins
 
 When a server also asks for a one-time code (or any
@@ -671,6 +757,13 @@ told to use `komando exec` or `komando shell`.
   komando pins each server's own host key.
 - `--ask-password`, `komando login`, `host ssh-command` and replacing a
   pinned host key (`host trust --reset`) need a person at a terminal.
+- A `--login ask` server's password is typed by a person: a script, cron
+  or CI job reaches it only through a `komando login` a person started,
+  and its first connection needs a person at a terminal. A WinRM server
+  has no `komando login`.
+  On Windows, komando's password window is its approval window, so its
+  buttons read Deny and "Allow once", and spaces around the password are
+  dropped.
 - `op://` reads 1Password only through a 1Password Connect server: the
   1Password CLI is closed source, and komando uses only open-source parts.
 - The Azure CLI's saved token works for about an hour; komando does not run
@@ -695,6 +788,7 @@ told to use `komando exec` or `komando shell`.
 | `SECRET_DESTINATION` | an AI agent asked to send a password to a server | a person allows it in komando's window |
 | `SECRET_UNRESOLVED` | komando could not read a reference (no login for the password manager, or no such secret) | follow the hint: it names the logins that work |
 | `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando shell SERVER` |
-| `NEEDS_PERSON` | only a person at a terminal can do this (`host trust --reset`, `host ssh-command`) | run the command in your own terminal |
+| `NEEDS_PERSON` | only a person at a terminal can do this (`host trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has seen) | run the command in your own terminal, or `komando login SERVER` once |
+| `DECLINED` | the person cancelled the password window of a `--login ask` server (or did so less than a minute ago) | a person runs `komando login SERVER` |
 | `NEEDS_TERMINAL` | `komando login` without a person at a terminal | a person runs `komando login SERVER` |
 | `IMPORT_INCOMPLETE` | some servers were not imported (listed under `skipped`) | fix them in the source and import again |

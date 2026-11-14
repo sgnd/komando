@@ -539,18 +539,15 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 			Timeout: o.ConnectTimeout,
 		}, nil, nil
 	}
-	user := h.User
-	if user == "" {
-		user = st.Settings.DefaultUser
-	}
-	if user == "" {
-		user = LocalUser()
-	}
-	hkc, err := hostKeyCallback(ctx, h.Name, o.HostKeyPolicy)
+	// a login-ask server's password goes to this user at this address; the
+	// host key check notes a key it trusts on first use (q.NewKey)
+	q := LoginAskFor(st, h)
+	user := q.User
+	hkc, err := hostKeyCallback(ctx, h, o.HostKeyPolicy, &q)
 	if err != nil {
 		return nil, nil, err
 	}
-	auths, agentConn, err := authMethods(st, h, o.ConnectTimeout)
+	auths, agentConn, err := authMethods(ctx, st, h, o.ConnectTimeout, &q)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -570,6 +567,9 @@ type NewHostKey struct {
 	Address     string `json:"address"`
 	Type        string `json:"key_type"`
 	Fingerprint string `json:"fingerprint"` // SHA256:...
+	// Unchecked: host_key_policy off, so the key was not checked at all
+	// (only a login-ask server's connection is told; nothing is pinned)
+	Unchecked bool `json:"-"`
 }
 
 // HostKeyPinned, when set, is told about every key pinned on first use
@@ -607,13 +607,18 @@ var hostKeyNote io.Writer = os.Stderr
 // pinnedOnFirstUse tells the person, on stderr, which key was just pinned
 // and how to check it, and passes it on to HostKeyPinned.
 func pinnedOnFirstUse(ctx context.Context, name, hostname string, key ssh.PublicKey) {
-	k := NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key)}
+	k := keyNote(name, hostname, key)
 	fmt.Fprintf(hostKeyNote, "komando: first connection to %s (%s): trusted its %s host key %s\n"+
 		"komando: compare it with the server's own (on the server: ssh-keygen -lf /etc/ssh/ssh_host_%s_key.pub); if this key ever changes, komando refuses the server\n",
 		name, hostname, k.Type, k.Fingerprint, keyFileType(k.Type))
 	if HostKeyPinned != nil {
 		HostKeyPinned(ctx, k)
 	}
+}
+
+// keyNote is the NewHostKey of key at hostname for server name.
+func keyNote(name, hostname string, key ssh.PublicKey) NewHostKey {
+	return NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key)}
 }
 
 // keyFileType is the name part of the server's key file for a key type:
@@ -630,9 +635,26 @@ func keyFileType(t string) string {
 	return "*"
 }
 
-func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallback, error) {
+// hostKeyCallback checks the key of server h. q (nil: not a login-ask
+// server's connection) hears of a key trusted on first use: a login-ask
+// server's new key is pinned only when askLoginNewKey allows it, as a
+// person's password goes to whatever answers there.
+func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *LoginAsk) (ssh.HostKeyCallback, error) {
+	name := h.Name
+	ask := h.AskLogin() && q != nil
 	if policy == "off" {
-		return ssh.InsecureIgnoreHostKey(), nil
+		if !ask {
+			return ssh.InsecureIgnoreHostKey(), nil
+		}
+		return func(hostname string, _ net.Addr, key ssh.PublicKey) error {
+			k := keyNote(name, hostname, key)
+			k.Unchecked = true
+			if err := askLoginNewKey(ctx, h, k); err != nil {
+				return &pinRefused{err}
+			}
+			q.NewKey = &k
+			return nil
+		}, nil
 	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		// a known server is checked in a read step; only a new one takes
@@ -647,6 +669,12 @@ func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallb
 				return &hostKeyChanged{offered: key, err: ke0}
 			}
 			return known
+		}
+		if ask && policy != "strict" {
+			// nobody has seen this key: a person decides before it is pinned
+			if err := askLoginNewKey(ctx, h, keyNote(name, hostname, key)); err != nil {
+				return &pinRefused{err}
+			}
 		}
 		if policy != "strict" && MayPin != nil {
 			if err := MayPin(ctx); err != nil {
@@ -679,6 +707,10 @@ func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallb
 		}
 		if pinned {
 			pinnedOnFirstUse(ctx, name, hostname, key)
+			if ask {
+				k := keyNote(name, hostname, key)
+				q.NewKey = &k
+			}
 		}
 		return err
 	}, nil

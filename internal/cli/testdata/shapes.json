@@ -592,6 +592,7 @@
       "groups": [
         "string"
       ],
+      "login": "string",
       "name": "string",
       "port": "number",
       "tags": [
@@ -618,6 +619,7 @@
             "string"
           ],
           "kind": "string",
+          "login": "string",
           "name": "string",
           "protected": "bool",
           "tags": [
@@ -671,6 +673,7 @@
       "groups": [
         "string"
       ],
+      "login": "string",
       "name": "string",
       "tags": [
         "string"
@@ -755,6 +758,7 @@
             "string"
           ],
           "kind": "string",
+          "login": "string",
           "name": "string",
           "protected": "bool",
           "tags": [

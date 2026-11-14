@@ -145,7 +145,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	}
 
 	mustRun(t, "host", "edit", "web1", "--password-ref", "secret:db-pass", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to 10.0.0.1:22 (server web1)") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to root@10.0.0.1:22 (server web1)") {
 		t.Fatalf("window: %q", *texts)
 	}
 	resetApproval()
@@ -163,7 +163,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	mustRun(t, "host", "add", "db1", "deploy@10.0.0.2", "--protected")
 	n := len(*texts)
 	mustRun(t, "host", "edit", "db1", "--sudo-ref", "secret:db-pass", "--yes")
-	if len(*texts) != n+1 || !strings.Contains((*texts)[n], "protected host: db1") || !strings.Contains((*texts)[n], "secret:db-pass to 10.0.0.2:22 (server db1)") {
+	if len(*texts) != n+1 || !strings.Contains((*texts)[n], "protected host: db1") || !strings.Contains((*texts)[n], "secret:db-pass to deploy@10.0.0.2:22 (server db1)") {
 		t.Errorf("one window for the protected server and the secret: %q", (*texts)[n:])
 	}
 
@@ -247,7 +247,7 @@ func TestImportSecretDestinationsNeedAPerson(t *testing.T) {
 		t.Fatal("a refused import added a server")
 	}
 	mustRun(t, "import", "csv", csv, "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to 10.0.0.9:22 (server web9)") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to deploy@10.0.0.9:22 (server web9)") {
 		t.Errorf("window: %q", *texts)
 	}
 }

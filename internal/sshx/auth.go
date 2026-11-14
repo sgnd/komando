@@ -1,6 +1,7 @@
 package sshx
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -56,7 +57,10 @@ type loginKeys struct {
 }
 
 // authMethods also returns the ssh-agent connection it opened (or nil).
-func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
+// ctx is the Dial's: a server whose login is "ask" asks for the password
+// for the command that connects (LoginPassword), with q saying where it
+// goes (nil: h's own address and user).
+func authMethods(ctx context.Context, st *store.State, h *store.Host, timeout time.Duration, q *LoginAsk) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
 	defer func() {
 		if err != nil && agentConn != nil {
 			agentConn.Close()
@@ -108,7 +112,16 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	if len(signers) > 0 {
 		methods = append(methods, ssh.PublicKeys(signers...))
 	}
-	if h.PasswordRef != "" {
+	if h.AskLogin() {
+		// login ask: the password is never stored; a person types it
+		// when the server first wants it (after the keys, as ssh does)
+		if q == nil {
+			lq := LoginAskFor(st, h)
+			q = &lq
+		}
+		p := &passwordLogin{ask: personFor(h), typed: func() (string, func(), error) { return loginPassword(ctx, *q) }}
+		methods = append(methods, p.methods()...)
+	} else if h.PasswordRef != "" {
 		pw, err := vault.Resolve(h.PasswordRef)
 		if err != nil && len(methods) > 0 {
 			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
@@ -480,6 +493,8 @@ func authFailedHint(st *store.State, h *store.Host) string {
 func authFailedCheck(st *store.State, h *store.Host) string {
 	name := h.Name
 	switch {
+	case h.AskLogin():
+		return fmt.Sprintf("check the user with `komando host show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
 	case adhoc(st, h):
 		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
 	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
@@ -540,6 +555,118 @@ func ask() func(host, text string, hidden bool) (string, error) {
 	return Asker()
 }
 
+// LoginAsk is one connection's question for the password of a server
+// whose login is "ask" (host add --login ask).
+type LoginAsk struct {
+	Host *store.Host
+	User string // the user komando logs in as
+	Addr string // host:port, where the password goes
+	// NewKey is the host key this connection trusted on first use (or
+	// could not check: host_key_policy off); nil for a key komando knew.
+	// Nothing proved a new key is the server's.
+	NewKey *NewHostKey
+}
+
+// LoginAskFor is the question a connection to h asks, before it connects
+// (NewKey unknown yet).
+func LoginAskFor(st *store.State, h *store.Host) LoginAsk {
+	user := h.User
+	if user == "" && st != nil {
+		user = st.Settings.DefaultUser
+	}
+	if user == "" {
+		user = LocalUser()
+	}
+	return LoginAsk{Host: h, User: user, Addr: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))}
+}
+
+// LoginPassword, when set, gives the password of a server whose login is
+// "ask": komando never stores it, so a person types it for the command
+// that connects (ctx is that command's Dial). It returns refused, which
+// the login calls when the server refuses the password, so the command
+// does not send it again. The cli asks the person at the terminal, in an
+// app's window, or in komando's own window for an AI agent's command; a
+// script, or an agent with no screen, gets NEEDS_PERSON. Unset: the
+// person at the terminal (Asker) or NEEDS_PERSON.
+var LoginPassword func(ctx context.Context, q LoginAsk) (pw string, refused func(), err error)
+
+// loginPassword is the typed password of a login-ask server.
+func loginPassword(ctx context.Context, q LoginAsk) (string, func(), error) {
+	if LoginPassword != nil {
+		return LoginPassword(ctx, q)
+	}
+	if person := personFor(q.Host); person != nil {
+		pw, err := person("Password: ", true)
+		return pw, func() {}, err
+	}
+	return "", nil, AskLoginNeedsPerson(q.Host, false)
+}
+
+// AskLoginNewKey, when set, decides whether a connection may go on with a
+// login-ask server whose host key komando has not seen before (k): the
+// key is pinned only when it returns nil. The person's password would go
+// to whatever answers at the address, so the cli lets a first connection
+// through only when a person is at the terminal (who sees the key) or an
+// app's window will warn them; an AI agent's or a script's command gets
+// NEEDS_PERSON and nothing is pinned. Unset: only with a person at the
+// terminal.
+var AskLoginNewKey func(ctx context.Context, h *store.Host, k NewHostKey) error
+
+// askLoginNewKey is AskLoginNewKey, or its default.
+func askLoginNewKey(ctx context.Context, h *store.Host, k NewHostKey) error {
+	if AskLoginNewKey != nil {
+		return AskLoginNewKey(ctx, h, k)
+	}
+	if personFor(h) != nil {
+		return nil
+	}
+	return AskLoginNewKeyNeedsPerson(h, k, false)
+}
+
+// AskLoginNewKeyNeedsPerson is NEEDS_PERSON for the first connection to a
+// login-ask server h (or one whose key is not checked) with nobody at a
+// terminal to see the key: nothing was pinned or sent.
+func AskLoginNewKeyNeedsPerson(h *store.Host, k NewHostKey, agent bool) *out.Error {
+	name := h.Name
+	what := fmt.Sprintf("komando has not met %s at %s before (its %s host key %s is not trusted yet)", name, k.Address, k.Type, k.Fingerprint)
+	switch {
+	case k.Unchecked && k.Fingerprint == "" && k.Type != "":
+		what = fmt.Sprintf("nothing checks who answers for %s at %s (%s)", name, k.Address, k.Type)
+	case k.Fingerprint == "" && !k.Unchecked:
+		what = fmt.Sprintf("komando has not met %s at %s before (no host key of it is pinned)", name, k.Address)
+	case k.Unchecked:
+		what = fmt.Sprintf("komando does not check the host key of %s at %s (host_key_policy off)", name, k.Address)
+	}
+	msg := what + ", and " + name + " logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent"
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", AskLoginStep(h, agent)+": a person there sees what komando connects to and types the password", "%s", msg).NoFlag()
+}
+
+// AskLoginNeedsPerson is NEEDS_PERSON for a login-ask server h nobody can
+// type the password for: an AI agent (agent) with no window, or a script.
+func AskLoginNeedsPerson(h *store.Host, agent bool) *out.Error {
+	if agent {
+		return out.Errf(out.ExitPolicy, "NEEDS_PERSON", AskLoginStep(h, true)+"; never ask for the password in the chat",
+			"%s logs in with a password a person types each time (login ask), and komando could not ask the user in a window here", h.Name).NoFlag()
+	}
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", AskLoginStep(h, false)+": later commands (scripts too) use a `komando login` while it lasts",
+		"%s logs in with a password a person types each time (login ask), and no person is at a terminal here", h.Name).NoFlag()
+}
+
+// AskLoginStep is the one next step when nobody here can type the password
+// of login-ask server h: a person runs `komando login NAME` in their own
+// terminal (it keeps the login for a while); a WinRM server has no held
+// login, so the person runs the command there.
+func AskLoginStep(h *store.Host, agent bool) string {
+	who := "have a person run"
+	if agent {
+		who = "ask the user to run"
+	}
+	if h.WinRM() {
+		return who + " the command in their own terminal (a WinRM server has no `komando login`)"
+	}
+	return who + " `komando login " + h.Name + "` in their own terminal"
+}
+
 // passwordLogin answers the server's login questions. The stored password
 // goes out at most once per login (the password method and
 // keyboard-interactive share it), and in keyboard-interactive only to a
@@ -549,38 +676,93 @@ func ask() func(host, text string, hidden bool) (string, error) {
 // one-time code or any other question gets no answer and the login stops
 // before a wrong answer counts against the account.
 type passwordLogin struct {
-	pw   string // the stored password, "" when none is stored
-	sent bool
-	ask  func(text string, hidden bool) (string, error) // nil: no person at a terminal
-	stop error                                          // the person cancelled: every later question ends the same way
+	pw string // the stored password, "" when none is stored
+	// typed gives the password of a login-ask server: a person types it
+	// when the server first asks; it is never stored (LoginPassword)
+	typed    func() (string, func(), error)
+	got      bool   // typed gave the password (pw), or failed (typedErr)
+	typedErr error  // why typed gave none
+	refused  func() // tells typed's source the server refused it
+	sent     bool
+	ask      func(text string, hidden bool) (string, error) // nil: no person at a terminal
+	stop     error                                          // the person cancelled: every later question ends the same way
+}
+
+// has reports a password to send: a stored one, or one a person types
+// (login ask).
+func (p *passwordLogin) has() bool { return p.pw != "" || p.typed != nil }
+
+// password is the stored password, or the typed one, asked once.
+func (p *passwordLogin) password() (string, error) {
+	if p.typed == nil || p.got {
+		return p.pw, p.typedErr
+	}
+	p.got = true
+	pw, refused, err := p.typed()
+	if err != nil {
+		p.typedErr = err
+		return "", err
+	}
+	p.pw, p.refused = pw, refused
+	return pw, nil
+}
+
+// again is the answer when the server asks for the password once more: it
+// refused the one sent, which is not sent again (nor kept for the next
+// connection of the command, when a person typed it).
+// question is the server's, made safe to show.
+func (p *passwordLogin) again(question string) error {
+	if p.refused != nil {
+		p.refused()
+	}
+	return &unanswered{question: question, kind: askAgain, typed: p.typed != nil}
 }
 
 func (p *passwordLogin) methods() []ssh.AuthMethod {
 	if p.ask == nil {
-		return []ssh.AuthMethod{
-			ssh.PasswordCallback(func() (string, error) {
-				p.sent = true
-				return p.pw, nil
-			}),
-			ssh.KeyboardInteractive(p.answer),
-		}
+		pwm := p.retry(ssh.PasswordCallback(func() (string, error) {
+			if p.sent {
+				return "", p.again("Password:")
+			}
+			pw, err := p.password()
+			if err != nil {
+				return "", err
+			}
+			p.sent = true
+			return pw, nil
+		}))
+		return []ssh.AuthMethod{pwm, ssh.KeyboardInteractive(p.answer)}
 	}
 	// keyboard-interactive first, as OpenSSH tries them: a two-factor
 	// server asks the password and the code there, so a person types the
 	// password once, not once per method
 	return []ssh.AuthMethod{
 		ssh.KeyboardInteractive(p.answer),
-		ssh.PasswordCallback(func() (string, error) {
+		p.retry(ssh.PasswordCallback(func() (string, error) {
 			switch {
-			case p.pw == "":
+			case !p.has():
 				return p.askPerson("Password: ", true)
 			case p.sent:
-				return "", &unanswered{question: "Password:", kind: askAgain}
+				return "", p.again("Password:")
+			}
+			pw, err := p.password()
+			if err != nil {
+				return "", err
 			}
 			p.sent = true
-			return p.pw, nil
-		}),
+			return pw, nil
+		})),
 	}
+}
+
+// retry lets the password method of a login-ask server be tried once more
+// after the server refused the typed password: that try ends the login
+// (again) rather than send it twice, and the command forgets it.
+func (p *passwordLogin) retry(m ssh.AuthMethod) ssh.AuthMethod {
+	if p.typed == nil {
+		return m
+	}
+	return ssh.RetryableAuthMethod(m, 2)
 }
 
 func (p *passwordLogin) answer(_, instruction string, questions []string, echos []bool) ([]string, error) {
@@ -590,11 +772,15 @@ func (p *passwordLogin) answer(_, instruction string, questions []string, echos 
 		echo := i < len(echos) && echos[i]
 		kind := questionKind(q, echo)
 		switch {
-		case kind == askPassword && p.pw != "" && !sent:
-			answers[i], sent = p.pw, true
+		case kind == askPassword && p.has() && !sent:
+			pw, err := p.password()
+			if err != nil {
+				return nil, err
+			}
+			answers[i], sent = pw, true
 			continue
-		case kind == askPassword && p.pw != "":
-			kind = askAgain // the stored one went out and was refused
+		case kind == askPassword && p.has():
+			return nil, p.again(cleanQuestion(q)) // the stored (or typed) one went out and was refused
 		case p.ask != nil:
 			text := q
 			if i == 0 && strings.TrimSpace(instruction) != "" {
@@ -689,6 +875,7 @@ func cleanQuestion(q string) string {
 type unanswered struct {
 	question string // the server's words, made safe to show
 	kind     int
+	typed    bool // askAgain: the refused password was typed (login ask), not stored
 }
 
 func (e *unanswered) Error() string { return "the server asks " + strconv.Quote(e.question) }
@@ -706,6 +893,10 @@ func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
 		oe.Hint = strings.Replace(oe.Hint, "HOST", name, 1) // a command to run as it is
 		return oe
 	case askAgain:
+		if e.typed {
+			return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
+				"%s refused the password typed for it; komando sends a typed password once per login", name)
+		}
 		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
 			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
 	}

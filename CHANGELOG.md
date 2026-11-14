@@ -46,6 +46,15 @@ its highlights; the sections below them give the details. Versions follow
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
 
+### Added
+
+- `komando host add NAME ADDRESS --login ask` and `komando host edit NAME --login ask`: a server whose password komando never stores. A person types it whenever komando connects (every command, fleet run, jump host, `shell`, `cp`, `sync`, job and tunnel), and it is used for that command only: at a terminal komando asks `NAME: Password:` (hidden); for an AI agent's command komando opens its own window on the person's screen, which names the agent, the server as `user@address:port` and the command (or says it is hidden), and where they type it; the agent never sees it. Apps get the same question through the new `engine.Call.AskPassword` hook. A script, an agent with no screen and `ssh-gate` get `NEEDS_PERSON` (exit 6), and a cancelled window gives `DECLINED` (exit 6) whose hint is `komando login SERVER`; after a cancel the window stays shut for that server for a minute (`DECLINED` at once). These are new exit paths for every command that connects to such a server, including `tunnel start`, which asks before it starts the tunnel and hands the password to the tunnel's process on its input (that process keeps it in memory for the tunnel's life). The server's address is guarded as a stored password's is: an AI agent that adds a `--login ask` server, or changes its address, port, user, `--via` or transport, gets `SECRET_DESTINATION`, and the first connection to it (a host key nobody has seen, `host_key_policy off`, or WinRM `tls=off`/`skip-verify`) needs a person at a terminal: an agent gets `NEEDS_PERSON` and nothing is pinned. One command asks once per server; a refused password is asked again on the next connection. The typed password is hidden in all output and never written to disk, the audit log or a program's environment; komando zeroes its own copy when the command ends. A `komando login NAME` that is still live is used without asking.
+- `--login ask|password|key|agent` on `host add` and `host edit`: the same words as the new `login` field of `host show`, `host list` (and `list`), `host add` and `host edit`, so what you read back is what you can write. `password` is a stored password (with `--ask-password` or `--password-ref`) and drops a key; `key` needs `--key` or `--identity`; `agent` is ssh-agent and `~/.ssh` only and drops the key and the stored password. A flag that contradicts the word is a `USAGE` error. Switching to `ask` or `agent` unlinks the stored password but never deletes the secret: `host edit` names an unused one in the new `secrets_unused` field. `komando schema host add` and `host edit` list the new `--login` flag (type string, no default).
+
+### Changed
+
+- An AI agent that changes the user or the transport (WinRM, its `tls=`) of a server with a stored password now needs a person's yes (`SECRET_DESTINATION`), as it did for the address, port and `--via`: the password goes there.
+
 ### Fixed
 
 - `--ask-password` and `--ask-psk` no longer replace a secret made while

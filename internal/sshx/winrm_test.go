@@ -168,7 +168,7 @@ func TestWinRMNoPasswordExit(t *testing.T) {
 		{Name: "w1", Address: "10.0.0.9", User: "a", Transport: store.TransportWinRM},
 		{Name: "w2", Address: "10.0.0.9", PasswordRef: "env:X", Transport: store.TransportWinRM},
 	} {
-		_, err := winrmPassword(h)
+		_, _, err := winrmPassword(context.Background(), h)
 		if e := asOutErr(t, err); e.Code != "AUTH_FAILED" || e.Exit != out.ExitConnect {
 			t.Errorf("%s: %s exit %d, want AUTH_FAILED exit %d", h.Name, e.Code, e.Exit, out.ExitConnect)
 		}

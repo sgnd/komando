@@ -58,6 +58,10 @@ under a pseudo-terminal and komando does not know your agent, set
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
    `komando vpn up NAME`. For a server that asks for a two-factor code,
    ask them to run `komando login SERVER` once; your commands then use it.
+   A server with `login: ask` keeps no password: komando asks the human
+   to type it in a window on their screen, never you. On `NEEDS_PERSON`
+   or `DECLINED` from it, do not retry: ask them to run
+   `komando login SERVER` in their own terminal.
 9. Secrets stay hidden from agents. Output shows `[hidden]` or
    `[secret:NAME]`, and personal data on protected targets shows as
    `[hidden: email]` (or phone, card, iban, column). Never write such a

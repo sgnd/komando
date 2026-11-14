@@ -156,11 +156,31 @@ type secretPlace struct {
 	dest string
 }
 
-// hostPlace: a server's password and sudo password, and its environment
-// values that name a vault secret, go to its address, by the way there.
+// loginAskRef stands among a server's references for the password a
+// person types for a login-ask server (host add --login ask): komando
+// never stores it, but it goes to the server's address on every
+// connection, as a stored one does.
+const loginAskRef = "the password a person types for it (login ask)"
+
+// hostPlace: a server's password (stored, or typed by a person: login
+// ask) and sudo password, and its environment values that name a vault
+// secret, go to its user at its address, by the way there and the
+// transport (WinRM sends the password as its TLS setting allows).
 func hostPlace(h *store.Host) secretPlace {
 	refs := append([]string{h.PasswordRef, h.SudoRef}, envSecretRefs(h.Env)...)
+	if h.AskLogin() {
+		refs = append(refs, loginAskRef)
+	}
 	dest := net.JoinHostPort(normAddr(h.Address), strconv.Itoa(h.EffectivePort()))
+	if h.User != "" {
+		dest = h.User + "@" + dest
+	}
+	if h.WinRM() {
+		dest = "WinRM " + dest
+		if o := h.WinRMOpts; o != nil && o.TLS != "" {
+			dest += " (tls=" + o.TLS + ")"
+		}
+	}
 	if h.Via != "" {
 		dest += " via " + h.Via
 	}
@@ -342,6 +362,11 @@ func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, wh
 		var before *secretPlace
 		if o, ok := olds[h.Name]; ok && o != nil {
 			p := hostPlace(o)
+			if o.PasswordRef != "" {
+				// a stored password went there already: a person typing
+				// it there instead (login ask) sends nothing new
+				p.refs = append(p.refs, loginAskRef)
+			}
 			before = &p
 		}
 		line, err := newSends("server "+h.Name, before, hostPlace(h))

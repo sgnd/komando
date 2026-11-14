@@ -29,6 +29,7 @@ type targetRow struct {
 	Groups    []string `json:"groups,omitempty"`
 	Tags      []string `json:"tags,omitempty"`
 	Protected bool     `json:"protected"`
+	Login     string   `json:"login,omitempty"` // a server's: ask, key, password or agent
 }
 
 type targetList struct {
@@ -119,7 +120,7 @@ func listCmdFor(only string) *cobra.Command {
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
 					Where: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Via: h.Via,
-					Groups: h.Groups, Tags: h.Tags, Protected: h.Protected})
+					Groups: h.Groups, Tags: h.Tags, Protected: h.Protected, Login: h.LoginMode()})
 			}
 			for _, c := range sel.Conns {
 				where := c.URL

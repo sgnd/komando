@@ -189,6 +189,12 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				ln.Close()
 			}
+			// the background process asks nobody: the passwords of the
+			// login-ask servers on the way are typed now (login_ask.go)
+			logins, err := pathLogins(cl, st, h)
+			if err != nil {
+				return err
+			}
 			id := newID("t")
 			logPath := store.Path("tunnels", id+".log")
 			if err := logDir("tunnels", st); err != nil {
@@ -213,8 +219,14 @@ point your database app or psql at the local address it prints. With a server, g
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}
+			if len(logins) > 0 {
+				pargs = append(pargs, loginsStdinFlag)
+			}
 			p := tunnelServeCommand(self, pargs)
 			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
+			if len(logins) > 0 {
+				p.Stdin = loginsInput(logins)
+			}
 			p.SysProcAttr = detachAttr()
 			vault.PassOnStdin(p) // not in its environment: it runs for long
 			if err := p.Start(); err != nil {
@@ -454,7 +466,7 @@ func tunnelStopCmd() *cobra.Command {
 
 // tunnelServeCmd is the hidden daemon entry point.
 func tunnelServeCmd() *cobra.Command {
-	var passStdin bool
+	var passStdin, loginsStdin bool
 	c := &cobra.Command{
 		Use:    "serve ID",
 		Hidden: true,
@@ -466,6 +478,14 @@ func tunnelServeCmd() *cobra.Command {
 				b, _ := json.Marshal(serveErr{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit})
 				fmt.Fprintf(cl.out.W, "ERROR %s\n", b)
 				return exitCode(1)
+			}
+			cl.logins.background = true // nobody to ask: only what tunnel start typed
+			if loginsStdin {
+				in := bufio.NewReader(cl.stdin)
+				if err := readLogins(cl, in); err != nil {
+					return fail(err)
+				}
+				cl.stdin = in
 			}
 			st, err := serveState(cl, passStdin)
 			if err != nil {
@@ -551,6 +571,7 @@ func tunnelServeCmd() *cobra.Command {
 		}),
 	}
 	c.Flags().BoolVar(&passStdin, strings.TrimPrefix(vault.PassStdinFlag, "--"), false, "read the vault passphrase from stdin (tunnel start passes it)")
+	c.Flags().BoolVar(&loginsStdin, strings.TrimPrefix(loginsStdinFlag, "--"), false, "first read the passwords of login-ask servers from stdin (tunnel start passes them)")
 	return c
 }
 

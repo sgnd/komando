@@ -284,12 +284,16 @@ func loginHolderCmd() *cobra.Command {
 				return fail(err)
 			}
 			relay := relayAsk(in, say)
+			// the person at `login`'s terminal answers this login (a
+			// login-ask server's password too); after it, the asker goes
+			// back to the call's own, which asks nobody here
+			savedAsker := sshx.Asker
 			sshx.Asker = func() func(host, text string, hidden bool) (string, error) { return relay }
 			ctx := cmd.Context()
 			o := sshOpts(cl, st)
 			o.Fresh = true
 			c, err := sshx.Dial(ctx, st, h, o)
-			sshx.Asker = nil // logged in: nobody is asked again
+			sshx.Asker = savedAsker
 			if err != nil {
 				return fail(err)
 			}

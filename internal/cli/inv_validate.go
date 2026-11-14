@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -354,6 +355,22 @@ type hostResult struct {
 	Changed  *bool    `json:"changed,omitempty"` // edit: false when the edit changed nothing
 	Warnings []string `json:"warnings,omitempty"`
 	Next     string   `json:"next,omitempty"` // add: the command to run next
+	// SecretsUnused: edit --login ask or agent let go of these stored passwords;
+	// they stay in the vault (`komando secret rm NAME`)
+	SecretsUnused []string `json:"secrets_unused,omitempty"`
+}
+
+// MarshalJSON adds login (ask, password, key or agent) to the server's
+// settings, as host show prints it.
+func (r hostResult) MarshalJSON() ([]byte, error) {
+	type plain hostResult
+	if r.Host == nil {
+		return json.Marshal(plain(r))
+	}
+	return json.Marshal(struct {
+		plain
+		Login string `json:"login"`
+	}{plain(r), r.LoginMode()})
 }
 
 type connResult struct {

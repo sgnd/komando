@@ -29,6 +29,9 @@ func TestMain(m *testing.M) {
 		resetApproval()
 	}
 	askOnScreen = func(*call, string) (bool, bool) { panic("a test opened an approval window") }
+	// no password window either: an agent's login-ask server finds no
+	// screen (NEEDS_PERSON) unless a test stands in for the person
+	askLoginOnScreen = func(*call, string) (string, bool, bool) { return "", false, false }
 	// a new vault never puts its key in the login keychain of whoever runs
 	// the tests (secret_keychain_test.go uses stand-ins)
 	os.Setenv("KOMANDO_KEYCHAIN", "off")

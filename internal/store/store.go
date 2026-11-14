@@ -26,8 +26,12 @@ type Host struct {
 	KeyID       string `json:"key_id,omitempty"`       // that key's record ID (refs.go)
 	Identity    string `json:"identity,omitempty"`     // path to a private key file
 	PasswordRef string `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
-	SudoRef     string `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
-	Via         string `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
+	// Login is "ask" (LoginAsk) for a server whose password is never
+	// stored: a person types it at every connect (host add --login ask).
+	// Empty: keys, ssh-agent and PasswordRef, as komando always logs in.
+	Login   string `json:"login,omitempty"`
+	SudoRef string `json:"sudo_ref,omitempty"` // sudo password ref (secret:/env:)
+	Via     string `json:"via,omitempty"`      // the way there: host name(s), comma-separated chain
 	// ViaIDs are the record IDs of Via's steps, in order ("" for a step
 	// that names no server or VPN); see refs.go
 	ViaIDs []string `json:"via_ids,omitempty"`
@@ -55,6 +59,36 @@ type Host struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	Rec       Rec        `json:"-"`
+}
+
+// LoginAsk is Host.Login for a server whose password a person types at
+// every connect; komando never stores it.
+const LoginAsk = "ask"
+
+// The ways a server logs in, as host show and host list name them
+// (LoginMode).
+const (
+	LoginModeAsk      = "ask"      // a person types the password at every connect
+	LoginModeKey      = "key"      // a key komando names (--key or --identity)
+	LoginModePassword = "password" // a stored password (--password-ref)
+	LoginModeAgent    = "agent"    // ssh-agent and the default keys in ~/.ssh
+)
+
+// AskLogin reports a server whose password a person types at every connect.
+func (h *Host) AskLogin() bool { return h != nil && h.Login == LoginAsk }
+
+// LoginMode is how komando logs in to h: ask, key, password or agent. A
+// server with a key and a stored password is "key": the key goes first.
+func (h *Host) LoginMode() string {
+	switch {
+	case h.AskLogin():
+		return LoginModeAsk
+	case h.Key != "" || h.Identity != "":
+		return LoginModeKey
+	case h.PasswordRef != "":
+		return LoginModePassword
+	}
+	return LoginModeAgent
 }
 
 // TransportWinRM is Host.Transport for a server reached over WinRM.
