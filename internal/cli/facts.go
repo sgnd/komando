@@ -28,6 +28,7 @@ echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
 [ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
 [ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
 df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
+df -P -k 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|udev|overlay|shm|none|squashfs|proc|sysfs|efivarfs|cgroup2?)$/ && $1 !~ /^\/dev\/loop/ {m=$6; for(i=7;i<=NF;i++) m=m" "$i; if (m ~ /^\/(proc|sys|dev|run|snap)(\/|$)/) next; printf "disk=%s\t%s\t%s\t%s\t%d\t%s\n", $1, $2, $3, $4, $5, m}'
 echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
 echo "init=$(cat /proc/1/comm 2>/dev/null || ps -p 1 -o comm= 2>/dev/null)"
 v=$(systemd-detect-virt 2>/dev/null)
@@ -95,6 +96,35 @@ dnf|yum)
 esac
 true
 `
+
+// diskFacts is one mounted file system, in MiB (df's 1024-byte blocks).
+type diskFacts struct {
+	Mount   string `json:"mount"`
+	Device  string `json:"device"`
+	SizeMB  int64  `json:"size_mb"`
+	UsedMB  int64  `json:"used_mb"`
+	AvailMB int64  `json:"avail_mb"`
+	UsedPct int64  `json:"used_pct"`
+}
+
+// appendDisk reads a disk line: DEVICE, size, used and available in KiB,
+// use %, and the mount point (which may hold spaces), tab-separated.
+func appendDisk(disks []diskFacts, line string) []diskFacts {
+	p := strings.SplitN(line, "\t", 6)
+	if len(p) != 6 {
+		return disks
+	}
+	n := make([]int64, 4)
+	for i := range n {
+		v, err := strconv.ParseInt(strings.TrimSpace(p[i+1]), 10, 64)
+		if err != nil {
+			return disks
+		}
+		n[i] = v
+	}
+	return append(disks, diskFacts{Mount: strings.TrimSpace(p[5]), Device: p[0], SizeMB: n[0] / 1024, UsedMB: n[1] / 1024,
+		AvailMB: n[2] / 1024, UsedPct: n[3]})
+}
 
 // pm2App is one PM2 app: its name and state, never its command line or
 // environment (they can hold passwords).
@@ -169,6 +199,7 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 		hs                                     hostState
 		units                                  []customUnit
 		pm2JSON, proJSON, dockerInfo           *string
+		disks                                  []diskFacts
 	)
 	set := map[string]string{} // raw values of the keys read below
 	for _, line := range strings.Split(s, "\n") {
@@ -200,6 +231,8 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 				p = append(p, "")
 			}
 			units = append(units, customUnit{Unit: p[0], Enabled: strings.TrimSpace(p[1]), Active: strings.TrimSpace(p[2])})
+		case "disk":
+			disks = appendDisk(disks, raw)
 		case "pm2_json":
 			pm2JSON = &v
 		case "pro_json":
@@ -232,6 +265,9 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 	}
 	sort.Strings(tools)
 	f["tools"] = tools
+	if disks != nil {
+		f["disks"] = disks
+	}
 	hostStateFacts(f, hs)
 	if _, ok := f["sudo_nopasswd"]; !ok {
 		f["sudo_nopasswd"] = nil
