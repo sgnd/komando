@@ -237,6 +237,69 @@ A local file whose name has a colon (`a:b.txt`) is read as local when it
 exists; otherwise write `./a:b.txt`. Single-file copies report a `sha256`
 so you can check them.
 
+### Copy between two servers or conns
+
+With `TARGET:PATH` on both sides, `cp` copies from one server or
+[storage](storage.md) conn to another: server to server, storage to
+storage, or one of each.
+
+```bash
+komando cp web1:/var/backups/db.sql.gz web2:/var/backups/
+komando cp -r web1:/var/www/site backups:sites/
+komando cp backups:2026/db.sql.gz dr-backups:2026/
+```
+
+- The data streams through your computer, from the source straight into
+  the destination, and is never saved on its disk. The servers do not
+  need to reach each other.
+- Each side is one server or one conn (no `@group`).
+- The file at the destination is replaced, as an upload replaces it
+  (`replaced: true`); a new file on a server gets the source's mode.
+  `-p` and `--mode` work as for an upload to a server.
+- A single file reports its `sha256`; the result names the `source` too.
+  Folders (`-r`) follow the rule below.
+- A protected destination asks once, as an upload to it does. The audit
+  log has one record for the whole copy: source, destination, size and
+  `sha256`.
+- An AI agent copies a file that is a secret by name (`.env`, a private
+  key) only after the user allows it (`--reveal`), as for a download.
+- `--progress` writes the same lines as an upload.
+
+### Go on with a copy that was cut off (--continue)
+
+`--continue` on `upload`, `download` or `cp` (also between two remote
+places) goes on with one big file where an earlier copy stopped:
+
+```bash
+komando download web1 /var/backups/db.sql.gz --continue
+komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue
+komando cp web1:/var/backups/db.sql.gz web2:/var/backups/ --continue
+```
+
+- When the destination has part of the file, komando checks that part
+  against the same part of the source (sha256), sends only the rest and
+  then checks the whole file against the source. The result says how much
+  was there already (`continued_from_bytes`) and the file's `sha256`.
+- With `--continue` the file is written in place, not under a temporary
+  name, so a copy that stops again can be continued again.
+- A destination that is longer than the source, or differs from it,
+  stops with `RESUME_CONFLICT` (exit 8) and is not touched. Copy it again
+  without `--continue` (a download needs `--overwrite` to replace it).
+- A whole file is only checked; nothing is sent.
+- A server works out the sums itself (`sha256sum` or `shasum`), so the
+  part already copied does not travel again. On an SFTP-only account, or
+  from storage, komando reads that part once more to check it.
+- S3, Google Cloud Storage, Azure Blob and WebDAV store a file whole and
+  cannot add to one: `RESUME_UNSUPPORTED` (exit 2). SFTP, FTP, FTPS and
+  SMB storage conns can.
+- `--continue` takes one file, never `-r` (use `sync`, which sends only
+  what is missing), `--sudo` or `--overwrite`, and needs a Linux or other
+  Unix server.
+- An AI agent gets a text file of up to 16 MiB with secret values shown as
+  `[hidden]`, which cannot be continued (`RESUME_UNSUPPORTED`). A larger
+  file that holds a value from komando's vault stops with
+  `SENSITIVE_FILE`, and the part that run added is removed again.
+
 ### Copy folders
 
 Folders (`-r`) follow one rule, so running the same copy twice gives the same
@@ -267,8 +330,9 @@ read, the rest are still copied; the result lists the failures under
 - Uploads replace the file on the server and say so (`replaced: true`).
 - Every file, both ways, is written under a temporary name first and moved
   into place when complete, so a broken connection never leaves half a
-  file. (Moving a new file into place on a server makes the SSH user its
-  owner; use `--sudo` for a single file whose owner must stay.)
+  file (except with `--continue`, above, which writes in place on
+  purpose). (Moving a new file into place on a server makes the SSH user
+  its owner; use `--sudo` for a single file whose owner must stay.)
 
 ### Big files and Ctrl-C
 
@@ -384,6 +448,9 @@ For a single file, use `komando upload` or `komando download`.
 | `CHMOD_FAILED` | an SFTP server does not allow setting modes, and its new files are more open than asked | write without `--mode`, or on a server that allows it |
 | `POLICY_BLOCKED` | `fs rm`, `rm -r` or `sync --delete` from an AI agent or a script without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
 | `CANCELLED` | Ctrl-C stopped a copy or sync | run the same command again to finish |
+| `RESUME_CONFLICT` | `--continue` found a destination longer than the source, or one that differs from it | copy it again without `--continue` |
+| `RESUME_UNSUPPORTED` | `--continue` to S3, Google Cloud Storage, Azure Blob or WebDAV, which cannot add to a file | copy it again without `--continue` |
+| `RESUME_FAILED` | after `--continue` the file does not match the source | copy it again without `--continue` |
 
 ## Reference
 

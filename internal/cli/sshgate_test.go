@@ -172,6 +172,8 @@ func TestGateCheck(t *testing.T) {
 		{"host add x u@10.0.0.9", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret set db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"svc restart web nginx", "", "SSH_GATE_READ_ONLY"},
+		{"cp web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
+		{"cp web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
 		{"exec web -- uptime", "", "SSH_GATE_READ_ONLY"},
 		{"exec web --read-only -- uptime", "", ""},
 		{"docker exec web app ls", "", "SSH_GATE_READ_ONLY"},
@@ -321,6 +323,10 @@ func TestGateLocalTargets(t *testing.T) {
 		"svc restart lh sshd":                                                     R,
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
+		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                                R, // reads a file here
+		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":                           R,
+		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":                            R,
+		"cp web:/tmp/k web:/tmp/k2":                                               "",
 		"sync ./site web:/var/www":                                                "",
 		"recipe run disk me":                                                      R, // runs its command here
 		"recipe run disk web":                                                     "",

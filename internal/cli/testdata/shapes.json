@@ -434,6 +434,24 @@
     },
     "ok": "bool"
   },
+  "cp web:/etc/hosts web:/tmp/hosts --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "exec web -- rm -rf /": {
     "command": "string",
     "error": {

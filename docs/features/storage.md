@@ -144,6 +144,17 @@ changed files, like `komando sync`.
 - `--dry-run` sends nothing, but checks: `upload` shows the key and
   whether it would replace an object, `download` where the file would go
   and its size.
+- `--continue` goes on with one file that was cut off. A download keeps
+  the part already on your computer when it matches the object (sha256),
+  fetches the rest and checks the whole file. An upload can go on only on
+  an SFTP, FTP, FTPS or SMB conn; S3, Google Cloud Storage, Azure Blob
+  and WebDAV store a file whole and cannot add to one, so a cut file there
+  stops with `RESUME_UNSUPPORTED` (upload it again without `--continue`). Storage
+  cannot work out the sum of part of an object, so komando reads the part
+  already copied once more to check it.
+- `komando cp` also copies between two storage conns, or between a conn
+  and a server: `komando cp backups:2026/db.sql.gz dr-backups:2026/`. The
+  data streams through your computer and is never saved on its disk.
 - To keep a folder in step and send only new and changed files, use
   `komando sync` (see [Files](files.md)):
 
