@@ -128,7 +128,9 @@ format again from `json`. `Reset` keeps the values `AddValue` hid: the
 values the command before read are dropped by `call.enter`
 (`out.Printer.ForgetAdded`) before the call counts as running. From then
 on another call's `vault.OnResolve` adds to it, and nothing drops that
-value while the command runs.
+value while the command runs. A call that enters later does not inherit
+the values other calls resolved before it entered: `vault.OnResolve`
+adds a value only to the calls running at that moment.
 
 By then the call is already running, and other calls' hooks read it
 from their own goroutines (below). So what a hook reads changes only
@@ -394,7 +396,9 @@ is not.
    login question, say) never serves an AI agent's command, or another
    command of the same person with other approvals, and a path dialed
    with `--host-key-policy off` is never handed to a command that checks
-   keys. `TestChainServesOneOwner` checks it under `-race`.
+   keys. `TestChainServesOneOwner` checks it under `-race`. Keying the
+   paths per command means each command through a bastion pays its own
+   login and keeps its own connection open for 5 s once idle.
 6. **Background processes.** `login-holder` sets `sshx.Asker` and
    `vpn serve` sets `netx.SessionSecret`. Each runs as a process of its
    own and never in an app.

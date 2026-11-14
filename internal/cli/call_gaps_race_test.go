@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -76,7 +77,7 @@ func TestHostKeyPinNeedsItsCall(t *testing.T) {
 				return
 			default:
 				b.flags.dryRun = !b.flags.dryRun
-				b.auditSyslog = ""
+				b.personalCmd = !b.personalCmd
 			}
 		}
 	}()
@@ -127,6 +128,58 @@ func TestHostKeyPinNeedsItsCall(t *testing.T) {
 	}
 	if a := auditText(t); strings.Count(a, "host.key-pinned") != 1 || !strings.Contains(a, `"hosts":["dev"]`) {
 		t.Errorf("audit after b's pin: %s", a)
+	}
+}
+
+// One command that reaches two new servers at once (exec prod,dev -P 2)
+// pins both keys from two dial goroutines. Each records its pin in the
+// audit log; neither writes anything of the call the other reads (run
+// with -race).
+func TestOneCallPinsTwoKeysAtOnce(t *testing.T) {
+	startFakeServer(t)
+	st, err := store.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var o syncBuf
+	b := bufCall(t, map[string]string{"KOMANDO_HOME": os.Getenv("KOMANDO_HOME"), "USER": "ana"}, &o)
+	ctx := withCall(context.Background(), b)
+	opts := sshx.Options{ConnectTimeout: 5 * time.Second, HostKeyPolicy: "accept-new"}
+	names := []string{"prod", "dev"}
+	errs := make([]error, len(names))
+	start := make(chan struct{})
+	var dials sync.WaitGroup
+	for i, name := range names {
+		dials.Add(1)
+		go func() {
+			defer dials.Done()
+			<-start
+			c, err := sshx.Dial(ctx, st, st.Hosts[name], opts)
+			if c != nil {
+				c.Close()
+			}
+			errs[i] = err
+		}()
+	}
+	close(start)
+	dials.Wait()
+	for i, err := range errs {
+		if err != nil {
+			t.Fatalf("dial %s: %v", names[i], err)
+		}
+	}
+	got := pinnedIn(t, b, &o)
+	hosts := []string{}
+	for _, k := range got {
+		hosts = append(hosts, k.Host)
+	}
+	slices.Sort(hosts)
+	if !slices.Equal(hosts, []string{"dev", "prod"}) {
+		t.Errorf("the call reports pins %v, want dev and prod", hosts)
+	}
+	a := auditText(t)
+	if strings.Count(a, "host.key-pinned") != 2 || !strings.Contains(a, `"hosts":["dev"]`) || !strings.Contains(a, `"hosts":["prod"]`) {
+		t.Errorf("audit after two pins at once: %s", a)
 	}
 }
 

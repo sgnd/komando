@@ -16,6 +16,9 @@ func shellLab(t *testing.T, protected bool) {
 	saved, savedG := tcl.terminal, tcl.flags
 	t.Cleanup(func() { tcl.terminal, tcl.flags = saved, savedG; resetApproval(); tcl.out.Reset() })
 	tcl.terminal = true
+	// runShell runs no command (newRoot): what an earlier test's command
+	// recorded (a would-be stop) is forgotten here
+	tcl.out.Reset()
 	err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy", Via: "x y", Protected: protected}
 		return nil

@@ -13,6 +13,7 @@ import (
 type hidden struct {
 	raw, json, label string
 	added            bool // by AddValue: forgotten when the next command starts (ForgetAdded)
+	vault            bool // from Secrets: forgotten when they change (SetSecrets)
 }
 
 // minSecret is the shortest value hidden: shorter ones would match
@@ -47,33 +48,61 @@ func (p *Printer) SetSecrets(f func() map[string]string) {
 	p.hmu.Lock()
 	defer p.hmu.Unlock()
 	p.Secrets, p.loaded = f, false
-	p.hide = slices.DeleteFunc(slices.Clone(p.hide), func(h hidden) bool { return !h.added })
+	p.hide = keepOnly(p.hide, func(h *hidden) bool {
+		if !h.added {
+			return false
+		}
+		// AddValue hid it too: it stays hidden, under no vault's name
+		h.vault, h.label = false, Hidden
+		return true
+	})
 }
 
-// addLocked adds v, as it is and as it often travels, under label. p.hmu
-// is held.
+// keepOnly is a new list of the entries of hide that keep (which may
+// change them) says to keep: a hideList taken before goes on reading the
+// old one.
+func keepOnly(hide []hidden, keep func(*hidden) bool) []hidden {
+	kept := make([]hidden, 0, len(hide))
+	for _, h := range hide {
+		if keep(&h) {
+			kept = append(kept, h)
+		}
+	}
+	return kept
+}
+
+// addLocked adds v, as it is and as it often travels, under label: by
+// AddValue (added) or from the vault. A value both hid stays hidden until
+// both forget it (ForgetAdded, SetSecrets), under the vault's name while
+// the vault holds it. p.hmu is held.
 func (p *Printer) addLocked(v, label string, added bool) {
 	if len(v) < minSecret {
 		return
 	}
-	upgrade := false
+	vault := !added
+	var known *hidden
 	for _, h := range p.hide {
 		if h.raw == v {
-			if !h.added || added {
-				return // known already, under its own name
+			if (added && h.added) || (vault && h.vault) {
+				return // known already, in the way it is asked for
 			}
-			// AddValue hid it first, and now the vault holds it: it takes
-			// the vault's name, and HoldsVaultValue sees it
-			upgrade = true
+			known = &h
+			if h.vault {
+				label = h.label // the vault named it already: AddValue keeps that name
+			}
+			added, vault = added || h.added, vault || h.vault
 			break
 		}
 	}
 	encs := []string{base64.StdEncoding.EncodeToString([]byte(v)), url.QueryEscape(v)}
 	// a new list: a hideList taken before goes on reading the old one
 	hide := slices.Clone(p.hide)
-	if upgrade {
+	if known != nil {
+		// AddValue hid it first and now the vault holds it (it takes the
+		// vault's name, and HoldsVaultValue sees it), or the other way
+		// round (it survives SetSecrets)
 		hide = slices.DeleteFunc(hide, func(o hidden) bool {
-			return o.added && (o.raw == v || slices.Contains(encs, o.raw))
+			return o.added == known.added && o.vault == known.vault && (o.raw == v || slices.Contains(encs, o.raw))
 		})
 	}
 	var b bytes.Buffer
@@ -81,12 +110,12 @@ func (p *Printer) addLocked(v, label string, added bool) {
 	enc.SetEscapeHTML(false)
 	_ = enc.Encode(v)
 	j := strings.TrimSuffix(strings.TrimSpace(b.String()), `"`)
-	hide = append(hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: label, added: added})
+	hide = append(hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: label, added: added, vault: vault})
 	// the same value as it often travels: base64 (HTTP basic auth,
 	// Kubernetes secrets) and URL-encoded (connection strings)
 	for _, enc := range encs {
 		if enc != v {
-			hide = append(hide, hidden{raw: enc, json: enc, label: label, added: added})
+			hide = append(hide, hidden{raw: enc, json: enc, label: label, added: added, vault: vault})
 		}
 	}
 	// longest first, so a secret that contains another is hidden whole
@@ -120,7 +149,10 @@ func (p *Printer) hideList() []hidden {
 func (p *Printer) ForgetAdded() {
 	p.hmu.Lock()
 	defer p.hmu.Unlock()
-	p.hide = slices.DeleteFunc(slices.Clone(p.hide), func(h hidden) bool { return h.added })
+	p.hide = keepOnly(p.hide, func(h *hidden) bool {
+		h.added = false
+		return h.vault
+	})
 }
 
 // HoldsVaultValue reports whether s holds a value from the vault
@@ -132,7 +164,7 @@ func (p *Printer) HoldsVaultValue(s string) bool {
 		return false
 	}
 	for _, h := range p.hideList() {
-		if !h.added && strings.Contains(s, h.raw) {
+		if h.vault && strings.Contains(s, h.raw) {
 			return true
 		}
 	}

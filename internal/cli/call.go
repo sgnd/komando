@@ -70,7 +70,6 @@ type call struct {
 	askedAbout      []string            // the targets of the last yes/no question, so a "no" can say where nothing was changed
 	blockAudited    bool                // the command recorded its safety stop already (auditBlocked)
 	interrupted     bool                // the person pressed Ctrl-C at a question (ttyin.go)
-	auditSyslog     string              // the audit_syslog setting of this command's state
 	personalCmd     bool                // this command, run by an AI agent, may hide personal data
 	fsSudoRetry     string              // the hint of a permission error in an fs command: the line with --sudo
 	carriedSecrets  map[string]bool     // the secrets a sealed file being imported brings (import_sealed.go)

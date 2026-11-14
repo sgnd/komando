@@ -17,8 +17,12 @@ its highlights; the sections below them give the details. Versions follow
   so. A secret one command read could be shown in another command's
   output if it was read just as that command started; it now stays
   hidden for the whole command. And a login to a jump host that one
-  command opened could carry another command's servers, an AI agent's
-  after a person's say; now each command opens its own.
+  command opened could carry another command's servers: an AI agent's
+  command could use a jump-host login a person's command had opened; now
+  each command opens its own.
+- A command stopped while it followed a server's output (Ctrl-C on
+  `logs --follow`) could still print a line after it had ended. Output
+  now stops when the command does.
 
 ## [0.14.0] - 2026-11-14
 
