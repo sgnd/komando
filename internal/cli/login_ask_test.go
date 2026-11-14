@@ -247,16 +247,30 @@ func TestLoginAskFlag(t *testing.T) {
 	}
 }
 
-// The example of host edit reads in komando schema as written: no word
-// after "password:" that the output hides.
-func TestLoginAskExampleNotHidden(t *testing.T) {
+// komando schema of the commands that take --login reads as written: no
+// example or usage text that the output hides, the one --login usage
+// text, and nothing typed or stored in it.
+func TestLoginAskSchemaNotHidden(t *testing.T) {
 	invHome(t)
-	s, err := runCache(t, "-o", "json", "schema", "host", "edit")
-	if err != nil {
-		t.Fatal(err)
+	t.Setenv("PW", "s3cret-in-env")
+	mustRun(t, "secret", "set", "web1-pass", "--from-env", "PW")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--password-ref", "secret:web1-pass")
+	for _, cmd := range [][]string{{"host", "add"}, {"host", "edit"}, {"conn", "add"}, {"conn", "edit"}, {"db", "add"}} {
+		s, err := runCache(t, append([]string{"-o", "json", "schema"}, cmd...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(s, "[hidden") || strings.Contains(s, "s3cret-in-env") || !strings.Contains(s, loginFlagUsage[:40]) {
+			t.Errorf("schema %v:\n%s", cmd, s)
+		}
 	}
-	if !strings.Contains(s, "never store its password; type it at every connect") || strings.Contains(s, "password: [hidden]") {
-		t.Errorf("schema host edit:\n%s", s)
+	for _, c := range []struct{ cmd, example string }{
+		{"host", "never store its password; type it at every connect"},
+		{"conn", "never store its password; type it at every connect"},
+	} {
+		if s, _ := runCache(t, "-o", "json", "schema", c.cmd, "edit"); !strings.Contains(s, c.example) {
+			t.Errorf("schema %s edit lacks its --login example", c.cmd)
+		}
 	}
 }
 
