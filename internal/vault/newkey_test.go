@@ -27,6 +27,7 @@ func keychainStandIn(t *testing.T, failStore bool) (calls func() string) {
 		fail = `echo "no Secret Service" >&2; exit 1;`
 	}
 	script := `#!/bin/sh
+[ "$1" = warm-up ] && exit 0
 case "$1" in store|search) s="$4" ;; *) s="$3" ;; esac
 case "$s" in *generation) ;; *) echo "$1" >> "` + dir + `/calls" ;; esac
 kept="` + dir + `/$(echo "$s" | tr ' /' '__')"
@@ -41,6 +42,7 @@ esac
 		t.Fatal(err)
 	}
 	lockTool(t, dir, "gdbus", "echo '(<false>,)'")
+	warmUp(t)
 	t.Setenv("KOMANDO_KEYCHAIN", "") // TestMain turned the keychain off
 	return func() string {
 		b, _ := os.ReadFile(filepath.Join(dir, "calls"))
@@ -218,15 +220,27 @@ func scriptedSecretTool(t *testing.T, script string) (calls func() string) {
 	savedOS, savedDirs := keychainOS, toolDirs
 	keychainOS, toolDirs = "linux", []string{dir}
 	t.Cleanup(func() { keychainOS, toolDirs = savedOS, savedDirs })
-	body := "#!/bin/sh\necho \"$1\" >> \"" + dir + "/calls\"\n" + script
+	body := "#!/bin/sh\n[ \"$1\" = warm-up ] && exit 0\necho \"$1\" >> \"" + dir + "/calls\"\n" + script
 	if err := os.WriteFile(filepath.Join(dir, "secret-tool"), []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	lockTool(t, dir, "gdbus", "echo '(<false>,)'") // the default collection is unlocked
+	warmUp(t)
 	t.Setenv("KOMANDO_KEYCHAIN", "")
 	return func() string {
 		b, _ := os.ReadFile(filepath.Join(dir, "calls"))
 		return strings.TrimSpace(string(b))
+	}
+}
+
+// warmUp runs the stand-in secret-tool once, doing nothing: a first run of
+// a new script can be slow (macOS checks it), and that is not the keychain
+// call a time limit (the store's probe of its change count,
+// newKeyTimeout) should cut short.
+func warmUp(t *testing.T) {
+	t.Helper()
+	if err := keychainCmd("warm-up").Run(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -249,12 +263,14 @@ func lockTool(t *testing.T, dir, name, body string) {
 // A lookup that fails for another reason than "no such key" (a locked
 // collection, a dismissed prompt) may hide the only key of a vault moved
 // aside: `secret-tool store` would overwrite it, so nothing is stored and
-// the new vault keeps its key in vault.key.
+// the new vault keeps its key in vault.key. Here the store's change count
+// is known to be absent (its lookup says "no such item").
 func TestNewVaultKeychainLocked(t *testing.T) {
 	freshHome(t)
-	calls := scriptedSecretTool(t, `case "$1" in
-  lookup) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
-  store) exit 0 ;;
+	calls := scriptedSecretTool(t, `case "$1 $3" in
+  "lookup "*" generation") exit 1 ;;
+  lookup*) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
+  store*) exit 0 ;;
 esac
 `)
 	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
@@ -271,12 +287,51 @@ esac
 	}
 }
 
+// A keychain that cannot say whether it keeps a change count for this
+// folder (locked, or it never answers) may hold the count of a store that
+// was removed: no store is made, so nothing is lost and the count is not
+// lowered. Once the keychain answers, the first secret goes in.
+func TestNewStoreKeychainCannotAnswer(t *testing.T) {
+	for name, tc := range map[string]struct{ script, code string }{
+		"locked": {`case "$1" in
+  lookup) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
+  store) exit 0 ;;
+esac
+`, "STORE_OLD_COPY"},
+		"hangs": {"exec sleep 30\n", "KEYCHAIN_SLOW"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			freshHome(t)
+			calls := scriptedSecretTool(t, tc.script)
+			start := time.Now()
+			err := Set(store.Save, "db-pass", "s3cret")
+			if err == nil || !strings.Contains(err.Error(), tc.code) {
+				t.Fatalf("a new store beside a keychain that cannot answer: %v", err)
+			}
+			if d := time.Since(start); d > 5*time.Second {
+				t.Errorf("the refusal took %v", d)
+			}
+			if _, serr := os.Stat(store.DBPath()); !os.IsNotExist(serr) {
+				t.Errorf("a store was made: %v", serr)
+			}
+			if strings.Contains(calls(), "store") {
+				t.Errorf("something was stored in the keychain:\n%s", calls())
+			}
+		})
+	}
+}
+
 // A keychain tool that never answers (an unlock prompt nobody sees, a slow
 // D-Bus) does not hang the first secret: past newKeyTimeout the new vault
-// keeps its key in vault.key.
+// keeps its key in vault.key. Here the store's change count is known to
+// be absent (its lookup says "no such item").
 func TestNewVaultKeychainHangs(t *testing.T) {
 	freshHome(t)
-	scriptedSecretTool(t, "exec sleep 30\n")
+	scriptedSecretTool(t, `case "$1 $3" in
+  "lookup "*" generation") exit 1 ;;
+esac
+exec sleep 30
+`)
 	saved := newKeyTimeout
 	newKeyTimeout = 200 * time.Millisecond
 	defer func() { newKeyTimeout = saved }()
@@ -299,9 +354,6 @@ func newVaultNoStore(t *testing.T, script string) {
 	t.Helper()
 	freshHome(t)
 	calls := scriptedSecretTool(t, script)
-	// a first run of a new script can be slow (macOS checks it); not the
-	// keychain call newKeyTimeout should cut short
-	_ = keychainCmd("warm-up").Run()
 	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}

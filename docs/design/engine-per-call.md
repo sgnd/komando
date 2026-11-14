@@ -141,7 +141,8 @@ too.
 
 **A dry run is a parameter.** Every change says how it goes:
 `store.Update(w, fn)` and `store.UpdateRuntime(w, fn)` take a
-`store.Write`, `store.Save` or `store.Preview`. With `Preview`, `fn` runs
+`store.Write`, `store.Save` or `store.Preview`. `store.Write` is a struct,
+not a bool, so a bare `true` or `false` does not compile. With `Preview`, `fn` runs
 on a copy that is never saved, as `--dry-run` did before. The vault's
 writes take it too (`vault.Set`, `Delete`, `DeleteMany`, `Copy`,
 `Rename`, `RenameMany`, `ChangeKey`): a preview of one stops with
@@ -152,8 +153,14 @@ few callers (about 60) and all of them hold the call: a change that
 does not say how it goes does not compile, where a missing context
 value would quietly save a dry run's change. netx keeps a VPN
 session's runtime record up to date (its last use, a dead session
-gone) with `store.Save`: it records what happened to a real process,
-which a dry run does not undo.
+gone). It does not hold the call, so it asks a hook with the context of
+the connection, as `sshx.HostKeyPinned` does: `netx.WriteFor(ctx)` is
+the call's `storeWrite()` (the only running call's, for a context that
+carries none; `store.Save` when none runs). So a dry run that uses a
+VPN session writes nothing to `runtime.json`. It still stops an idle
+session's process, as before; the next command finds it gone and drops
+it from the record. `netx.ReapIdle` runs only outside a dry run and
+saves.
 
 **A look at an old copy belongs to the call.** doctor and a dry run may
 open an old copy of the store to look at it (they change nothing; doctor
@@ -170,13 +177,51 @@ only on a restored folder. Exact needs `store.DB` to take the call (a
 `context.Context`) through every read, the same next step as the hooks
 below.
 
-The store keeps one open handle per home (`cachedDB`). A handle opened
-on an old copy is marked look-only and is handed only to a caller that
-may look; any other caller gets the store opened and checked again, and
-`STORE_OLD_COPY`. `CopyState` and `AcceptOldCopy` (doctor, and a
-person's `doctor --accept-old-copy`) look with an explicit parameter
-(`openOldCopy`), not through the hook, and close only a look-only handle
-when they are done, so a call beside them keeps its open store.
+The store keeps its open handles per home (`cachedDB`), in two sets.
+`dbOpen` holds the ones every caller may use: a checked store, and one
+opened unchecked because the keychain did not answer in time (read
+only, opened and checked again once the keychain is asked again).
+`lookOpen` holds an old copy opened to be looked at; only a caller that
+may look gets it. Any other caller gets the store opened and checked
+again, and `STORE_OLD_COPY`, with a handle of its own; it never closes
+the look-only one. A handle that cannot be written (an old copy, an
+unchecked store) is never closed while another call may use it: when it
+is no longer handed out (its file was replaced, a person accepted the
+copy) it waits in `retired` until `store.Close`. A handle that can be
+written is closed at once, so nothing goes through it into a file that
+was put aside.
+
+A look never changes the old copy: its handle has `sealdb.NoWrites`
+set, and a write stops with `STORE_OLD_COPY` ("nothing was changed").
+Each write would raise the old copy's change count, until it passed for
+the newest. So a dry run on an old copy writes no audit record there,
+and says so. `CopyState` and `AcceptOldCopy` (doctor, and a person's
+`doctor --accept-old-copy`) look with an explicit parameter
+(`openOldCopy`), not through the hook. Neither writes to the store:
+accepting sets the keychain's count. After that, `AcceptOldCopy` stops
+handing out the look-only handle (`forgetOldCopy`), so the next open
+checks the store again, finds the newest copy and can write (the audit
+record of the accept).
+
+**A look never makes a store.** When `store.db` is missing, a read that
+may look sees no store (or `STATE_CORRUPT`, when the folder shows it
+had one). Only `createDB` makes a store, and it always checks first,
+under the store's lock, whoever asks (`missingGuardedStore`,
+`missingStore`): a dry run's audit record never starts an empty store
+over a missing one, which would drop every pinned host key, rule and
+secret and set the keychain's count down. The check fails closed: it
+makes a store only when the keychain answers that it keeps no count for
+this folder, or when there is no keychain on the computer at all (the
+vault's `genGet` says so with `store.NoKeychain`: turned off, or no
+keychain tool). A keychain that does not answer in time stops it with
+`KEYCHAIN_SLOW`; a locked or broken one with `STORE_OLD_COPY`. A read
+beside such a keychain sees no store, as reads go on beside a slow
+keychain.
+
+How long a slow keychain is left alone is kept per home
+(`slowUntil`), and a late answer marks the home that was asked, never
+the one in use by then. So one test's slow stand-in keychain never
+makes the next test's home slow.
 
 ## What is still shared, and why
 
@@ -184,9 +229,9 @@ The packages under the cli keep some state of their own. A call cannot
 reach it yet. Each item below is safe for two calls at once, or says what
 is not.
 
-1. **Hooks of sshx, vault and netx.** `sshx.HostKeyPinned` and
-   `netx.StartSession` get the context of the connection, which carries
-   the call: they answer for that call. `vault.OnResolve`,
+1. **Hooks of sshx, vault and netx.** `sshx.HostKeyPinned`,
+   `netx.StartSession` and `netx.WriteFor` get the context of the
+   connection, which carries the call: they answer for that call. `vault.OnResolve`,
    `vault.RefGuard`, `vault.AgentCall`, `sshx.HostSecretEnv`,
    `sshx.PersonAtTerminal`, `sshx.Asker` and `netx.LockBusy` get no call.
    `call_hooks.go` sets them once and answers over every call running in the
@@ -282,6 +327,19 @@ is not.
   that has opened the old copy and still runs stops with
   `STORE_OLD_COPY`; six more pairs run at once, and no plain call ever
   gets the old copy.
+- `TestDryRunNeverMakesMissingStore` (cli) and
+  `TestLookNeverMakesMissingStore` (store): with `store.db` gone and the
+  keychain remembering its count, a dry run (its preview, its audit
+  record) makes no store and leaves the count as it was; the next plain
+  call stops with `STORE_OLD_COPY`. `TestMissingStoreKeychainCannotAnswer`
+  and the vault's `TestNewStoreKeychainCannotAnswer`: a slow, locked or
+  broken keychain never lets a store be made; one that says "no count",
+  or none at all, does.
+- `TestOldCopyHandleStaysOpenAndTakesNoWrites`: a plain call on an old
+  copy never closes the handle a look uses, and no write reaches the old
+  copy; after `AcceptOldCopy` the store takes writes again.
+- `TestVpnDryRunKeepsRuntime`: a dry run that uses a running VPN session
+  leaves its last use in `runtime.json` as it was; a plain run updates it.
 - `TestCallEnvironForChildren`: a call with no environment starts a
   program with an empty one, not the process's, and a call's own
   environment loses its unlock values.

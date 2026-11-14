@@ -60,6 +60,31 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 	}
 }
 
+// A dry run that reuses a running VPN session previews its use: the
+// runtime record (the session's last use) stays as it was. A plain run
+// marks the session used.
+func TestVpnDryRunKeepsRuntime(t *testing.T) {
+	invHome(t)
+	used := time.Now().UTC().Add(-10 * time.Minute).Truncate(time.Second)
+	if err := store.Update(store.Save, func(st *store.State) error {
+		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "anyconnect", Address: "vpn.example.test", CreatedAt: used, UpdatedAt: used}
+		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), Socks: "127.0.0.1:41234", StartedAt: used, LastUsed: used}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if d := mustRun(t, "vpn", "up", "office", "--dry-run"); d["already_up"] != true {
+		t.Fatalf("dry run: %v", d)
+	}
+	if got := mustState(t).Sessions["office"].LastUsed; !got.Equal(used) {
+		t.Errorf("a dry run marked the session used: %v, was %v", got, used)
+	}
+	mustRun(t, "vpn", "up", "office")
+	if got := mustState(t).Sessions["office"].LastUsed; !got.After(used) {
+		t.Errorf("a plain run did not mark the session used: %v", got)
+	}
+}
+
 // the certificate checks the built-in client implements pass `vpn add`
 func TestCheckOVPNCertChecks(t *testing.T) {
 	for _, line := range []string{"ns-cert-type server", "remote-cert-ku a0", `remote-cert-eku "TLS Web Server Authentication"`} {

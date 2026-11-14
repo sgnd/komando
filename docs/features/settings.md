@@ -158,10 +158,12 @@ When the store's key is in the OS keychain, the keychain also remembers
 how many changes the store has had. An older copy of `store.db` put back
 (from a backup, or by someone) stops every command with `STORE_OLD_COPY`,
 because its servers, rules, secrets or pinned host keys may be old.
-`komando doctor` and dry runs still work. If you restored the folder on
-purpose, run `komando doctor --accept-old-copy` in your own terminal. With
-the key in `store.key` or a passphrase there is nothing to compare with,
-and `komando doctor` says so.
+`komando doctor` and dry runs still work, and only look: they write
+nothing into the old copy, and never start a new store where `store.db`
+is missing. If you restored the folder on purpose, run
+`komando doctor --accept-old-copy` in your own terminal. With the key
+in `store.key` or a passphrase there is nothing to compare with, and
+`komando doctor` says so.
 
 ### Where the vault's key lives
 
@@ -204,6 +206,20 @@ Where the keychain cannot keep the key or cannot tell, the key goes into
 - a Windows computer without Credential Manager;
 - an item for this folder that stays locked, a container, or a keychain
   that does not answer within a few seconds.
+
+Before komando makes a new store, it asks the keychain whether it still
+remembers a change count for this folder: then the folder had a store that
+was removed, and komando does not start an empty one in its place
+(`STORE_OLD_COPY`, as for an old copy above). The keychain must answer that
+question. When it says it has no count, or there is no keychain at all (no
+`secret-tool`, no Credential Manager, `KOMANDO_KEYCHAIN=off`), the new store
+starts as above. When it cannot say (a keychain locked over SSH, no default
+keychain for this `HOME`, no desktop session for `secret-tool`), komando
+makes no store and stops with `STORE_OLD_COPY`; when it does not answer
+within a second, with `KEYCHAIN_SLOW`. Unlock the keychain and run it again.
+On a computer without a working keychain, a person runs komando once with
+`KOMANDO_KEYCHAIN=off` (an AI agent's `KOMANDO_KEYCHAIN=off` still asks the
+keychain).
 
 A vault whose key is in `store.key` keeps it there until you move it: run
 `komando secret keychain`. Nothing is re-encrypted, so it works before or
@@ -285,7 +301,7 @@ To update komando itself, see [Install, update, remove](install.md#update).
 | Error | What it means | What to do |
 |-------|---------------|------------|
 | `SAFETY_SETTING` (exit 6) | the change turns one of komando's checks off | at your terminal komando asks first; an AI agent or a script adds `--yes` after a person agrees |
-| `STORE_OLD_COPY` (exit 6) | an older copy of `store.db` was put back | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
+| `STORE_OLD_COPY` (exit 6) | an older copy of `store.db` was put back, `store.db` is missing while the keychain remembers its change count, or the keychain cannot say whether it does | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
 | `STATE_CORRUPT` (exit 1) | `store.db` is missing in a folder that had a store, or does not open with the key; or `runtime.json` does not open | for `store.db`: put the folder back from a backup, then `komando doctor --accept-old-copy` in your own terminal; for `runtime.json`: move it away and connect again (it holds only running VPNs, logins, jobs and tunnels) |
 | `KEYCHAIN_SLOW` (exit 1) | the keychain did not answer in time, so nothing was changed | run it again in a moment; `komando doctor` if it keeps happening |
 | `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` (exit 1) | the vault does not open | see [Secrets](secrets.md#troubleshooting) |

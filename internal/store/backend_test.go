@@ -33,7 +33,7 @@ func fakeKeys(t *testing.T) *int {
 		}
 		return bytes.Repeat([]byte{7}, 32), nil, nil
 	}
-	t.Cleanup(func() { KeySource = old; closeDBs() })
+	t.Cleanup(func() { KeySource = old; Close() })
 	return &made
 }
 
@@ -41,7 +41,7 @@ func sealedHome(t *testing.T) string {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("KOMANDO_HOME", home)
-	t.Cleanup(closeDBs)
+	t.Cleanup(Close)
 	return home
 }
 
@@ -84,7 +84,7 @@ func TestDBReadMakesNothing(t *testing.T) {
 	if d2, _ := DB(false); d2 != d {
 		t.Fatal("not opened once per process")
 	}
-	closeDBs()
+	Close()
 	if _, err := DB(false); err != nil {
 		t.Fatalf("reopen: %v", err)
 	}

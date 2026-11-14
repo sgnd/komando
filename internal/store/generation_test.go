@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/sgnd/komando/internal/out"
 )
@@ -17,7 +16,7 @@ func keychainStore(t *testing.T) *uint64 {
 	t.Helper()
 	sealedHome(t)
 	oldKS, oldGK := KeySource, GenerationKeeper
-	slowUntil = time.Time{}
+	forgetSlowKeychain(t)
 	KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
 		return bytes.Repeat([]byte{5}, 32), map[string]string{"key_mode": "keychain"}, nil
 	}
@@ -30,11 +29,24 @@ func keychainStore(t *testing.T) *uint64 {
 	}
 	t.Cleanup(func() {
 		KeySource, GenerationKeeper = oldKS, oldGK
-		closeDBs()
+		Close()
 		OldCopyOK = nil
-		slowUntil = time.Time{}
 	})
 	return &kept
+}
+
+// forgetSlowKeychain starts a test with no keychain marked slow, and
+// leaves none marked slow for the next test.
+func forgetSlowKeychain(t *testing.T) {
+	t.Helper()
+	clearSlowKeychain()
+	t.Cleanup(clearSlowKeychain)
+}
+
+func clearSlowKeychain() {
+	slowMu.Lock()
+	defer slowMu.Unlock()
+	clear(slowUntil)
 }
 
 // lookOK is OldCopyOK for a command that may look at an old copy.
@@ -51,7 +63,7 @@ func TestOldCopyIsStopped(t *testing.T) {
 	newer := *kept
 
 	// someone puts the old copy back
-	closeDBs()
+	Close()
 	if err := os.WriteFile(Path(StoreFile), backup, 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +85,7 @@ func TestOldCopyIsStopped(t *testing.T) {
 		t.Fatalf("allowed look: %v", err)
 	}
 	OldCopyOK = nil
-	closeDBs()
+	Close()
 	have, k, guarded, old, err := CopyState()
 	if err != nil || !guarded || !old || k != newer || have >= k {
 		t.Fatalf("copy state %d %d %v %v %v", have, k, guarded, old, err)
@@ -95,7 +107,7 @@ func TestOldCopyIsStopped(t *testing.T) {
 	if *kept != newer {
 		t.Fatalf("the keychain went down to %d", *kept)
 	}
-	closeDBs()
+	Close()
 	have, _, _, _, _ = CopyState()
 
 	// a person accepts it, the number they saw only
@@ -105,7 +117,7 @@ func TestOldCopyIsStopped(t *testing.T) {
 	if _, err := AcceptOldCopy(have); err != nil {
 		t.Fatal(err)
 	}
-	closeDBs()
+	Close()
 	if _, err := Load(); err != nil {
 		t.Fatalf("after accepting: %v", err)
 	}
@@ -119,7 +131,7 @@ func TestKeychainBehindIsRaised(t *testing.T) {
 	update(t, func(s *State) { s.Hosts["b"] = &Host{Name: "b"} })
 	want := *kept
 	*kept = 1
-	closeDBs()
+	Close()
 	if _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +161,7 @@ func TestMissingOrBrokenCountStops(t *testing.T) {
 	} {
 		saved := GenerationKeeper
 		GenerationKeeper = gk
-		closeDBs()
+		Close()
 		_, err := Load()
 		var oe *out.Error
 		if !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
@@ -160,7 +172,7 @@ func TestMissingOrBrokenCountStops(t *testing.T) {
 	// a slow keychain lets reading go on, never a change
 	saved := GenerationKeeper
 	GenerationKeeper = GenerationKeep{Get: func() (uint64, bool, error) { return 0, false, ErrKeychainSlow }, Set: func(uint64) error { return nil }}
-	closeDBs()
+	Close()
 	if _, err := Load(); err != nil {
 		t.Errorf("slow keychain: %v", err)
 	}
@@ -173,8 +185,8 @@ func TestMissingOrBrokenCountStops(t *testing.T) {
 		t.Errorf("a slow keychain was asked again at once: %v", err)
 	}
 	GenerationKeeper = saved
-	slowUntil = time.Time{} // a minute later
-	closeDBs()
+	clearSlowKeychain() // a minute later
+	Close()
 	update(t, func(s *State) { s.Hosts["b"] = &Host{Name: "b"} })
 }
 
@@ -186,7 +198,7 @@ func TestNewStoreStartsItsCount(t *testing.T) {
 	if *kept == 0 {
 		t.Fatal("no number for a new store")
 	}
-	closeDBs()
+	Close()
 	if _, err := Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +232,7 @@ func TestKeyfileBackupAfterKeychainIsStopped(t *testing.T) {
 		return bytes.Repeat([]byte{5}, 32), map[string]string{"key_mode": "file"}, nil
 	}
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
-	closeDBs()
+	Close()
 	if err := GenerationKeeper.Set(*kept + 50); err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +251,7 @@ func TestMissingStoreWithCountStops(t *testing.T) {
 	if *kept == 0 {
 		t.Fatal("no count")
 	}
-	closeDBs()
+	Close()
 	if err := os.Remove(Path(StoreFile)); err != nil {
 		t.Fatal(err)
 	}
@@ -264,8 +276,167 @@ func TestMissingStoreWithCountStops(t *testing.T) {
 	if _, ok, _ := GenerationKeeper.Get(); ok {
 		t.Fatal("the count was not forgotten")
 	}
-	closeDBs()
+	Close()
 	if _, err := Load(); err != nil {
 		t.Fatalf("after accepting: %v", err)
+	}
+}
+
+// A missing store.db while the keychain holds its count: a caller that
+// may look at an old copy (a dry run) never makes a store. Making one
+// would start empty and lower the keychain's count, and the next plain
+// call would run on the empty store.
+func TestLookNeverMakesMissingStore(t *testing.T) {
+	for name, emptied := range map[string]bool{"store.db gone": false, "folder emptied": true} {
+		t.Run(name, func(t *testing.T) {
+			kept := keychainStore(t)
+			update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+			*kept = 1 << 40
+			Close()
+			if err := os.Remove(Path(StoreFile)); err != nil {
+				t.Fatal(err)
+			}
+			if emptied {
+				ents, _ := os.ReadDir(Home())
+				for _, e := range ents {
+					os.RemoveAll(Path(e.Name()))
+				}
+			}
+			OldCopyOK = lookOK
+			// a read stops (the folder shows it had a store) or sees none
+			s, err := Load()
+			var oe *out.Error
+			if emptied && (err != nil || len(s.Hosts) != 0) || !emptied && (!errors.As(err, &oe) || oe.Code != "STATE_CORRUPT") {
+				t.Fatalf("a look at a missing store: %v", err)
+			}
+			for _, create := range []func() error{
+				func() error { _, err := DB(true); return err },                         // the audit log of a dry run
+				func() error { return Update(Save, func(*State) error { return nil }) }, // a change, by mistake
+				CheckWritable,
+			} {
+				if err := create(); !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
+					t.Errorf("a store made where one went missing: %v", err)
+				}
+			}
+			OldCopyOK = nil
+			if _, err := os.Stat(Path(StoreFile)); !os.IsNotExist(err) {
+				t.Fatalf("a store was made: %v", err)
+			}
+			if *kept != 1<<40 {
+				t.Fatalf("the keychain's count went down to %d", *kept)
+			}
+			if _, err := Load(); !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
+				t.Fatalf("the plain call after the look: %v", err)
+			}
+		})
+	}
+}
+
+// A missing store.db and a keychain that cannot say whether it holds a
+// count (slow, locked, broken): no store is made, whoever asks. A keychain
+// that answers "none", or no keychain at all, is a new home.
+func TestMissingStoreKeychainCannotAnswer(t *testing.T) {
+	for name, tc := range map[string]struct {
+		get  func() (uint64, bool, error)
+		code string // "" : a store is made
+	}{
+		"slow":        {func() (uint64, bool, error) { return 0, false, ErrKeychainSlow }, "KEYCHAIN_SLOW"},
+		"locked":      {func() (uint64, bool, error) { return 0, false, errors.New("locked") }, "STORE_OLD_COPY"},
+		"no count":    {func() (uint64, bool, error) { return 0, false, nil }, ""},
+		"no keychain": {func() (uint64, bool, error) { return 0, false, NoKeychain{errors.New("off")} }, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			keychainStore(t)
+			// a new home's key in a file: no count to keep
+			KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
+				return bytes.Repeat([]byte{5}, 32), map[string]string{"key_mode": "file"}, nil
+			}
+			set := 0
+			GenerationKeeper = GenerationKeep{Get: tc.get, Set: func(uint64) error { set++; return nil }, Del: func() {}}
+			for _, look := range []bool{false, true} {
+				OldCopyOK = func() bool { return look }
+				// a read sees no store, as reads go on beside a slow keychain
+				if s, err := Load(); err != nil || len(s.Hosts) != 0 {
+					t.Errorf("look %v: a read: %v", look, err)
+				}
+				_, err := DB(true)
+				if tc.code == "" {
+					if err != nil {
+						t.Fatalf("look %v: a new home: %v", look, err)
+					}
+					Close()
+					os.Remove(Path(StoreFile))
+					continue
+				}
+				var oe *out.Error
+				if !errors.As(err, &oe) || oe.Code != tc.code {
+					t.Errorf("look %v: %v", look, err)
+				}
+				if _, err := os.Stat(Path(StoreFile)); !os.IsNotExist(err) {
+					t.Fatalf("look %v: a store was made: %v", look, err)
+				}
+				if set != 0 {
+					t.Fatalf("look %v: the keychain's count was set", look)
+				}
+			}
+		})
+	}
+}
+
+// A handle opened to look at an old copy is never closed by a call that
+// may not look (it gets STORE_OLD_COPY and its own handle), and takes no
+// writes: a write would raise the old copy's change count until it passed
+// for the newest.
+func TestOldCopyHandleStaysOpenAndTakesNoWrites(t *testing.T) {
+	kept := keychainStore(t)
+	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+	*kept += 5
+	Close()
+	OldCopyOK = lookOK
+	d, err := DB(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	have, err := d.Generation(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	OldCopyOK = nil
+	var oe *out.Error
+	if _, err := DB(false); !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
+		t.Fatalf("a plain call on an old copy: %v", err)
+	}
+	OldCopyOK = lookOK
+	if s, err := Load(); err != nil || s.Hosts["web"] == nil {
+		t.Fatalf("the look after a plain call: %v", err)
+	}
+	if n, err := d.Generation(t.Context()); err != nil || n != have {
+		t.Fatalf("the look-only handle after a plain call: %d %v", n, err)
+	}
+	for i := range 10 {
+		err := Update(Save, func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
+		if !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
+			t.Fatalf("write %d into an old copy: %v", i, err)
+		}
+	}
+	if n, _ := d.Generation(t.Context()); n != have {
+		t.Fatalf("the old copy's count went from %d to %d", have, n)
+	}
+	OldCopyOK = nil
+
+	// doctor looks, then a person accepts the copy: from then on it opens
+	// as the newest, and takes writes
+	if _, k, guarded, old, err := CopyState(); err != nil || !guarded || !old || k != *kept {
+		t.Fatalf("copy state %d %v %v %v", k, guarded, old, err)
+	}
+	if _, err := AcceptOldCopy(have); err != nil {
+		t.Fatal(err)
+	}
+	OldCopyOK = lookOK
+	update(t, func(s *State) { s.Hosts["x"] = &Host{Name: "x"} })
+	OldCopyOK = nil
+	update(t, func(s *State) { s.Hosts["y"] = &Host{Name: "y"} })
+	if *kept <= have {
+		t.Fatalf("the keychain was not raised: %d", *kept)
 	}
 }

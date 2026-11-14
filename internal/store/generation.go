@@ -33,6 +33,22 @@ type GenerationKeep struct {
 // GenerationKeeper is set by the vault package (it owns the keychain).
 var GenerationKeeper GenerationKeep
 
+// NoKeychain is the error of a GenerationKeep.Get that found no keychain
+// on this computer to ask (turned off, or no keychain tool): no count can
+// be kept there, so there is none. Any other error means a count may be
+// there but could not be read.
+type NoKeychain struct{ Err error }
+
+func (e NoKeychain) Error() string { return e.Err.Error() }
+func (e NoKeychain) Unwrap() error { return e.Err }
+
+// noCount reports a Get that says no count is kept: none in the keychain,
+// or no keychain at all.
+func noCount(ok bool, err error) bool {
+	var nk NoKeychain
+	return (err == nil && !ok) || errors.As(err, &nk)
+}
+
 // OldCopyOK says whether an old copy may be opened to be looked at. The
 // commands that may look are doctor and dry runs: they change nothing, and
 // doctor must be able to say what is wrong. The cli sets it: true only
@@ -80,15 +96,14 @@ func probeCount() (uint64, bool, error) {
 		ok  bool
 		err error
 	}
+	home := Home()
 	ch := make(chan answer, 1)
-	go func() { k, ok, err := keptCount(); ch <- answer{k, ok, err} }()
+	go func() { k, ok, err := keptCountOf(home); ch <- answer{k, ok, err} }()
 	select {
 	case a := <-ch:
 		return a.k, a.ok, a.err
 	case <-time.After(probeAnswer):
-		slowMu.Lock()
-		slowUntil = time.Now().Add(time.Minute)
-		slowMu.Unlock()
+		markKeychainSlow(home)
 		return 0, false, ErrKeychainSlow
 	}
 }
@@ -105,14 +120,33 @@ func oldCopyErr(have, kept uint64, why string) error {
 		"%s %s: servers, rules, secrets or pinned host keys may be old", Path(StoreFile), why)
 }
 
+// copyCheck is what checkGeneration found.
+type copyCheck int
+
+const (
+	checked   copyCheck = iota // the newest copy, or nothing to compare with
+	unchecked                  // the keychain did not answer in time: read only
+	oldCopy                    // an old copy, opened only to be looked at
+)
+
+// lookOnlyErr is the error of a write to an old copy opened to be looked
+// at: nothing is ever saved into one (its change count would climb back
+// to the keychain's, and the old copy would pass for the newest).
+func lookOnlyErr() error {
+	return out.Errf(out.ExitPolicy, "STORE_OLD_COPY",
+		"if the komando folder was restored from a backup on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal",
+		"nothing was changed: %s is an older copy than this computer's keychain remembers, opened only to be looked at", Path(StoreFile))
+}
+
 // checkGeneration compares d's generation with the keychain's when the
-// home is guarded (see guarded). It returns whether d is an old copy
-// opened only to be looked at (oldOK: the caller may look at one), and
-// the hook to raise the keychain's count after each changing commit (nil
-// when not guarded).
-func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (lookOnly bool, raise func(uint64), err error) {
+// home is guarded (see guarded). It says whether d is checked, unchecked
+// (a slow keychain: read only) or an old copy opened only to be looked at
+// (oldOK: the caller may look at one; read only), and gives the hook to
+// raise the keychain's count after each changing commit (nil when not
+// guarded). A store it does not find checked takes no writes.
+func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (state copyCheck, raise func(uint64), err error) {
 	if GenerationKeeper.Get == nil {
-		return false, nil, nil
+		return checked, nil, nil
 	}
 	get := keptCount
 	if !keychainMode(meta) {
@@ -120,19 +154,20 @@ func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (lookOnly
 	}
 	kept, ok, kerr := get()
 	if !keychainMode(meta) && (kerr != nil || !ok) {
-		return false, nil, nil // key file or passphrase, and no count: nothing to compare with
+		return checked, nil, nil // key file or passphrase, and no count: nothing to compare with
 	}
 	have, err := d.Generation(context.Background())
 	if err != nil {
-		return false, nil, err
+		return checked, nil, err
 	}
 	switch {
 	case errors.Is(kerr, ErrKeychainSlow):
-		// look only, and opened again (and checked) on the next use
+		// read only, and opened again (and checked) once the keychain
+		// is asked again
 		d.NoWrites = out.Errf(out.ExitError, "KEYCHAIN_SLOW",
 			"run it again in a moment; if it keeps happening, run `komando doctor`",
 			"nothing was changed: the keychain did not answer in time, so komando could not check that %s is the newest copy", Path(StoreFile))
-		return true, nil, nil
+		return unchecked, nil, nil
 	case kerr != nil || !ok:
 		// a store whose key is in the keychain always has its number there:
 		// a missing or unreadable one was removed or changed
@@ -141,19 +176,21 @@ func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (lookOnly
 			why = "has a change count in the keychain that cannot be read (" + kerr.Error() + ")"
 		}
 		if oldOK {
-			return true, nil, nil
+			d.NoWrites = lookOnlyErr()
+			return oldCopy, nil, nil
 		}
-		return false, nil, oldCopyErr(have, 0, why)
+		return checked, nil, oldCopyErr(have, 0, why)
 	case have < kept:
 		if oldOK {
-			return true, nil, nil
+			d.NoWrites = lookOnlyErr()
+			return oldCopy, nil, nil
 		}
-		return false, nil, oldCopyErr(have, kept, fmt.Sprintf("is an older copy (change %d) than this computer's keychain remembers (change %d)", have, kept))
+		return checked, nil, oldCopyErr(have, kept, fmt.Sprintf("is an older copy (change %d) than this computer's keychain remembers (change %d)", have, kept))
 	case have > kept:
 		_ = GenerationKeeper.Set(have)
 		kept = have
 	}
-	return false, raiser(kept), nil
+	return checked, raiser(kept), nil
 }
 
 // raiser is the hook after a commit that changed data: it only ever
@@ -175,14 +212,35 @@ func raiser(last uint64) func(uint64) {
 
 // missingGuardedStore stops a home whose store.db is gone while the keychain
 // still holds its change count: making a fresh store would silently drop
-// every pinned host key, rule and secret. oldOK: the caller may look at an
-// old copy, and a missing store is the oldest copy.
-func missingGuardedStore(oldOK bool) error {
-	if GenerationKeeper.Get == nil || oldOK {
+// every pinned host key, rule and secret, and lower the count.
+//
+// create: the caller would make a store. It never does over a kept count,
+// nor when the keychain cannot say whether one is kept (slow or broken):
+// only a home whose keychain answers "no count", or a computer with no
+// keychain at all, gets a new store. A read (no create) that may look at
+// an old copy (oldOK) goes on: a missing store is the oldest copy, and a
+// look changes nothing. So does a read beside a keychain that cannot
+// answer, as reads go on beside a slow keychain. Such a read sees no
+// store, or STATE_CORRUPT when the folder shows it had one (missingStore).
+func missingGuardedStore(create, oldOK bool) error {
+	if GenerationKeeper.Get == nil {
 		return nil
 	}
 	kept, ok, err := probeCount()
-	if err != nil || !ok {
+	switch {
+	case noCount(ok, err):
+		return nil // a new home
+	case err != nil && !create:
+		return nil
+	case errors.Is(err, ErrKeychainSlow):
+		return out.Errf(out.ExitError, "KEYCHAIN_SLOW",
+			"run it again in a moment; if it keeps happening, run `komando doctor`",
+			"nothing was changed: %s is missing, and the keychain did not answer in time, so komando could not check that this folder never had a store; it does not start an empty one", Path(StoreFile))
+	case err != nil:
+		return out.Errf(out.ExitPolicy, "STORE_OLD_COPY",
+			"fix the keychain and run it again (`komando doctor` checks it); on a computer with no working keychain, a person runs komando once with KOMANDO_KEYCHAIN=off in their own terminal",
+			"%s is missing, and this computer's keychain could not say whether it remembers a change count for this folder (%v): komando does not start an empty store in its place (every pinned host key and rule would be gone)", Path(StoreFile), err)
+	case !create && oldOK:
 		return nil
 	}
 	return out.Errf(out.ExitPolicy, "STORE_OLD_COPY",
@@ -229,7 +287,8 @@ func AcceptOldCopy(want uint64) (from uint64, err error) {
 	if err != nil {
 		return 0, err
 	}
-	defer dropLookOnly()
+	// from now on the store opens as the newest copy, and can be written
+	defer forgetOldCopy()
 	meta, err := sealdb.Peek(context.Background(), DBPath())
 	if err != nil {
 		return 0, err
@@ -266,7 +325,6 @@ func CopyState() (have, kept uint64, guardedStore, old bool, err error) {
 	if err != nil {
 		return 0, 0, true, false, err
 	}
-	defer dropLookOnly()
 	if have, err = d.Generation(context.Background()); err != nil {
 		return 0, 0, true, false, err
 	}
@@ -280,27 +338,50 @@ func CopyState() (have, kept uint64, guardedStore, old bool, err error) {
 	return have, kept, true, have < kept, nil
 }
 
-// slowUntil is when a keychain that did not answer in time is asked again:
-// a hung keychain tool costs one wait, not one per check in a command.
+// slowUntil is, by home, when a keychain that did not answer in time is
+// asked again for that home's count: a hung keychain tool costs one wait,
+// not one per check in a command. By home, as each home has its own count
+// (and a test its own home).
 var (
 	slowMu    sync.Mutex
-	slowUntil time.Time
+	slowUntil = map[string]time.Time{}
 )
 
-// keptCount asks GenerationKeeper.Get, unless the keychain was slow less
-// than a minute ago.
-func keptCount() (uint64, bool, error) {
+// slowFor is how long a keychain that did not answer is left alone.
+const slowFor = time.Minute
+
+// markKeychainSlow notes that the keychain did not answer for home. The
+// home is the one asked: an answer that comes late (from a probe that
+// gave up waiting) never marks the home in use by then.
+func markKeychainSlow(home string) {
 	slowMu.Lock()
-	skip := time.Now().Before(slowUntil)
+	defer slowMu.Unlock()
+	slowUntil[home] = time.Now().Add(slowFor)
+}
+
+// keychainSlowUntil is when the keychain is asked again for this home's
+// count (zero: it was not slow).
+func keychainSlowUntil() time.Time {
+	slowMu.Lock()
+	defer slowMu.Unlock()
+	return slowUntil[Home()]
+}
+
+// keptCount asks GenerationKeeper.Get, unless the keychain was slow for
+// this home less than a minute ago.
+func keptCount() (uint64, bool, error) { return keptCountOf(Home()) }
+
+// keptCountOf is keptCount for home, the home in use when it was asked.
+func keptCountOf(home string) (uint64, bool, error) {
+	slowMu.Lock()
+	skip := time.Now().Before(slowUntil[home])
 	slowMu.Unlock()
 	if skip {
 		return 0, false, ErrKeychainSlow
 	}
 	k, ok, err := GenerationKeeper.Get()
 	if errors.Is(err, ErrKeychainSlow) {
-		slowMu.Lock()
-		slowUntil = time.Now().Add(time.Minute)
-		slowMu.Unlock()
+		markKeychainSlow(home)
 	}
 	return k, ok, err
 }

@@ -171,7 +171,7 @@ func TestSealedAcrossProcesses(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	closeDBs()
+	Close()
 	s, err := Load()
 	if err != nil {
 		t.Fatal(err)

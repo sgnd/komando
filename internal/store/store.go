@@ -396,12 +396,14 @@ func (s *State) init() {
 // --dry-run) applies it to a copy that is never saved, so the command
 // shows the result of its change (and its validation errors) without
 // making it. Each command passes its own, so a dry run never turns
-// another command's change into a preview.
-type Write bool
+// another command's change into a preview. A struct, not a bool, so a
+// bare true or false does not compile: every change names Save or
+// Preview.
+type Write struct{ preview bool }
 
-const (
-	Save    Write = false
-	Preview Write = true
+var (
+	Save    = Write{}
+	Preview = Write{preview: true}
 )
 
 // ErrDryRun is returned by writes that cannot be previewed (the vault).

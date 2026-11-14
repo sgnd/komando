@@ -130,6 +130,17 @@ func init() {
 			noticef(cl, "another komando command is connecting or disconnecting vpn %s (a sign-in may be waiting in its browser window); waiting for it to end", name)
 		}
 	}
+	// a dry run's VPN use changes nothing in the runtime record
+	netx.WriteFor = func(ctx context.Context) store.Write {
+		cl := callFrom(ctx)
+		if cl == nil {
+			cl = soleCall()
+		}
+		if cl == nil {
+			return store.Save
+		}
+		return cl.storeWrite()
+	}
 	netx.StartSession = func(ctx context.Context, name string) error {
 		cl := callFrom(ctx)
 		if cl == nil {

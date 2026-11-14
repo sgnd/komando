@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -237,5 +238,68 @@ func TestOldCopyLookStaysInItsCall(t *testing.T) {
 	close(errs)
 	for err := range errs {
 		t.Error(err)
+	}
+}
+
+// A dry run on a home whose store.db went missing while the keychain
+// remembers its change count never makes a store there: not for its
+// preview, not for its audit record. The keychain keeps its count, and the
+// next plain call still stops with STORE_OLD_COPY.
+func TestDryRunNeverMakesMissingStore(t *testing.T) {
+	for name, emptied := range map[string]bool{"store.db gone": false, "folder emptied": true} {
+		t.Run(name, func(t *testing.T) {
+			home := t.TempDir()
+			setHome(t, home)
+			if err := store.Update(store.Save, func(st *store.State) error {
+				st.Hosts["web"] = &store.Host{Name: "web", Address: "10.0.0.5", User: "u"}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			store.Close()
+			if err := os.Remove(store.DBPath()); err != nil {
+				t.Fatal(err)
+			}
+			if emptied {
+				ents, _ := os.ReadDir(home)
+				for _, e := range ents {
+					os.RemoveAll(store.Path(e.Name()))
+				}
+			}
+			tcl.leave() // only the calls below run
+			t.Cleanup(tcl.enter)
+			// a stand-in keychain that remembers the store's count
+			var mu sync.Mutex
+			kept := uint64(1 << 40)
+			saved := store.GenerationKeeper
+			t.Cleanup(func() { store.GenerationKeeper = saved; store.Close() })
+			store.GenerationKeeper = store.GenerationKeep{
+				Get: func() (uint64, bool, error) { mu.Lock(); defer mu.Unlock(); return kept, true, nil },
+				Set: func(n uint64) error { mu.Lock(); defer mu.Unlock(); kept = n; return nil },
+				Del: func() {},
+			}
+			env := map[string]string{"KOMANDO_HOME": home, "USER": "ana"}
+			run := func(args ...string) (int, string) {
+				var o bytes.Buffer
+				noWindow := func(string) (bool, bool) { t.Error("a call opened a window"); return false, true }
+				c := engine.Call{Program: "komando", LookupEnv: envOf(env, &sync.Map{}), Stdout: &o, Stderr: &o, Ask: noWindow}
+				code := RunCall(context.Background(), c, append([]string{"-o", "json"}, args...))
+				return code, o.String()
+			}
+
+			run("host", "add", "web2", "u@10.0.0.6", "--dry-run")
+			run("list", "--dry-run")
+			if _, err := os.Stat(store.DBPath()); !os.IsNotExist(err) {
+				t.Fatalf("a dry run made a store: %v", err)
+			}
+			mu.Lock()
+			if kept != 1<<40 {
+				t.Errorf("the keychain's count went down to %d", kept)
+			}
+			mu.Unlock()
+			if code, o := run("list"); code != 6 || !strings.Contains(o, `"code":"STORE_OLD_COPY"`) {
+				t.Fatalf("the plain call after the dry runs: exit %d: %s", code, o)
+			}
+		})
 	}
 }

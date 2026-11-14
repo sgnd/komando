@@ -460,7 +460,7 @@ func vpnUpCmd() *cobra.Command {
 			if err := osModeGone(v); err != nil {
 				return err
 			}
-			if s := netx.LiveSession(v); s != nil {
+			if s := netx.LiveSession(cmd.Context(), v); s != nil {
 				cl.out.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
 				return nil
 			}

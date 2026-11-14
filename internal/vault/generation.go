@@ -30,7 +30,12 @@ func genService() string { return keychainService() + " generation" }
 const genTimeout = 5 * time.Second
 
 func genGet() (uint64, bool, error) {
-	if _, err := autoKeychainToolOff(countOff()); err != nil {
+	// no keychain here at all: no count is kept. A keychain that is there
+	// but cannot be used (no default keychain for this HOME) may hold one.
+	if _, err := keychainTool(countOff()); err != nil {
+		return 0, false, store.NoKeychain{Err: err}
+	}
+	if err := macDefaultKeychain(); err != nil {
 		return 0, false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
