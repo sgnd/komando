@@ -7,6 +7,19 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Changed for scripts and agents
+
+- A Kubernetes Secret's values in `cluster get`, the hidden arguments in
+  `cluster run`'s audit and dry run, and the `cluster apply --dry-run`
+  diff now read `[hidden]`, `[hidden, changed]` and `[hidden, new]`, the
+  marker the rest of komando uses, not `(hidden)`. A file holding either
+  marker is still refused with `HIDDEN_VALUE`.
+- `cluster run`'s own errors keep kubectl's `error: ` line and exit code 1,
+  but say what is wrong in komando's words (`name the type of resource to
+  get`, `--timeout "x" is not a duration`), not kubectl's.
+- Hints no longer say "nothing was changed/imported/lost/run": that state
+  is now at the end of the message.
+
 ### Removed
 
 - The refusal for an OpenVPN saved with the old OS mode (`--os-mode`,
