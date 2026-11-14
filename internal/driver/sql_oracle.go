@@ -449,17 +449,24 @@ func oracleExplainable(sql string) bool {
 
 // oracleXMLParse turn text into XML: a DTD or entity in that text names a
 // file or URL the parser may fetch (CVE-2014-6577 on unpatched servers).
-var oracleXMLParse = map[string]bool{"XMLTYPE": true, "XMLPARSE": true, "CREATEXML": true}
+var oracleXMLParse = map[string]bool{"XMLTYPE": true, "XMLPARSE": true, "CREATEXML": true, "XMLTRANSFORM": true}
 
-// builtXML: the call whose ( is ts[open] parses text the query builds (a
-// string literal, CHR, or ||), not only a column's stored XML.
+// xmlArgWords may stand around a column in XMLPARSE(DOCUMENT col WELLFORMED).
+var xmlArgWords = map[string]bool{"DOCUMENT": true, "CONTENT": true, "WELLFORMED": true}
+
+// builtXML: the call whose ( is ts[open] parses anything but bare columns
+// (doc, t.doc): a literal, a bind value, a function's result. Only XML a
+// person stored stays a read.
 func builtXML(ts []token, open int) bool {
 	if open >= len(ts) || ts[open].punct != '(' {
 		return false
 	}
 	for j := open + 1; j < len(ts) && ts[j].depth > ts[open].depth; j++ {
 		t := ts[j]
-		if t.punct == '\'' || t.punct == '|' || t.word == "CHR" || t.word == "NCHR" || t.word == "UNISTR" {
+		switch {
+		case t.punct == '.' || t.punct == ',' || t.ident != "" || xmlArgWords[t.word]:
+		case t.word != "" && t.punct == 0 && !isDigit(t.word[0]) && (j+1 >= len(ts) || ts[j+1].punct != '('):
+		default:
 			return true
 		}
 	}

