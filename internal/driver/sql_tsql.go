@@ -61,7 +61,41 @@ var serverScopes = map[string]bool{"DATABASE": true, "SERVER": true, "ENDPOINT":
 
 // tsqlFileWords read or write files on the server (BULK INSERT,
 // OPENROWSET(BULK ...), backups).
-var tsqlFileWords = map[string]bool{"BACKUP": true, "RESTORE": true, "BULK": true, "OPENROWSET": true, "OPENDATASOURCE": true}
+var tsqlFileWords = map[string]bool{"BACKUP": true, "RESTORE": true, "BULK": true, "OPENROWSET": true, "OPENDATASOURCE": true,
+	// functions that read a file by its path, which may be \\HOST\share:
+	// a lookup of and a connection to any host
+	"FN_XE_FILE_TARGET_READ_FILE": true, "FN_GET_AUDIT_FILE": true, "FN_TRACE_GETTABLE": true,
+	"FN_DUMP_DBLOG": true, "FN_GET_AUDIT_FILE_V2": true}
+
+// tsqlName is a token's name: a bare word, or a [quoted] or "quoted" one.
+func tsqlName(t token) string {
+	if t.word == "\x00ident" {
+		return t.ident
+	}
+	return t.word
+}
+
+// linkedName reports a four-part name (lnk.db.dbo.t, lnk.db..t) starting
+// at ts[i]: its first part is a linked server, another SQL Server or any
+// OLE DB source, where the query then runs.
+func linkedName(ts []token, i int) bool {
+	if n := tsqlName(ts[i]); n == "" || isDigit(n[0]) || i > 0 && ts[i-1].punct == '.' {
+		return false // not a name, or not its first part
+	}
+	dots, name := 0, true
+	for i++; i < len(ts); i++ {
+		t := ts[i]
+		switch {
+		case t.punct == '.':
+			dots, name = dots+1, false
+		case !name && tsqlName(t) != "" && !isDigit(tsqlName(t)[0]):
+			name = true
+		default:
+			return dots >= 3
+		}
+	}
+	return dots >= 3
+}
 
 // nests reports whether /* comments nest (Postgres, SQL Server, ClickHouse).
 func (d dialect) nests() bool { return d.dollar || d.tsql || d.clickhouse }
@@ -271,9 +305,9 @@ func tsqlStatement(ts []token, risk Risk, rules []string) (Risk, []string, error
 			flag("sql-drop")
 		case w == "TRUNCATE":
 			flag("sql-truncate")
-		case tsqlFileWords[w]:
+		case tsqlFileWords[w], t.word == "\x00ident" && tsqlFileWords[t.ident]:
 			flag("sql-server-file")
-		case w == "OPENQUERY":
+		case w == "OPENQUERY", linkedName(ts, i):
 			flag("sql-remote")
 		case w == "RECONFIGURE" || w == "DBCC" || w == "ALTER" && serverScopes[next]:
 			flag("sql-server-config")
