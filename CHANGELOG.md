@@ -41,6 +41,25 @@ its highlights; the sections below them give the details. Versions follow
   the query builds need `--write`: a DTD in it can name a URL the parser
   fetches. `xmltype(column)` stays a read.
 
+- No ssh-gate key, read, network or full, makes komando read a file on the
+  komando computer any more: `--script FILE`, `--stdin-file FILE`,
+  `db query --file`, `db restore --from`, `cluster apply --file`,
+  `fs write --from`, `upload`, `storage upload`, `cp` and `sync` from a path
+  there, and `cluster run -- apply -f`, `--from-file` or `cp` to a pod are
+  refused (`SSH_GATE_REFUSED`). A private key sent to a server could come
+  back in its answer. `-` (the key's own input) still works.
+- `--read-only` reads tool options as the tools do: a start of a writing
+  long option (`ss --kil`, `arp --del`, `yq --in-pl`), xmllint's
+  `-output` and `-shell`, and xxd's second file even when it starts with a
+  dash.
+- `db query` needs `--write` for more ways out: SQL Server
+  `dm_os_file_exists`, `dm_os_enumerate_filesystem` and any `\\HOST\share`
+  path; Oracle XML parsed from anything but a bare column (a bind value,
+  `CONCAT`, `XMLTRANSFORM`); Postgres `http_*` (pgsql-http, pg_net),
+  `aws_s3.*`, `aws_lambda.*`, `aws_commons.*` and `pg_background_*`; a
+  BigQuery routine or model named with a project (`proj.ds.fn`), which may be
+  another project's remote function.
+
 ### Added
 
 - `komando ssh-gate status` says which ssh-gate key runs it, and whether it

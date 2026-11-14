@@ -195,8 +195,10 @@ func TestGateCheck(t *testing.T) {
 		{"completion bash", "", ""},
 		{"exec web --read-only --dry-run -- uptime", "", ""},
 		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
-		{"exec web --script ./check.sh", "", "SSH_GATE_READ_ONLY"},
-		{"exec web --script ./check.sh --read-only", "", ""},
+		{"exec web --script ./check.sh", R, "SSH_GATE_READ_ONLY"},       // no key reads a file on the komando computer
+		{"exec web --script ./check.sh --read-only", R, R},
+		{"exec web --script -", "", "SSH_GATE_READ_ONLY"}, // the key's own input
+		{"exec web --script - --read-only", "", ""},
 		{"job start web --read-only -- du -sh /var", "", ""},
 		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
@@ -211,8 +213,8 @@ func TestGateCheck(t *testing.T) {
 		// nothing a key runs writes on the komando computer itself
 		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
 		{"cp web:/tmp/rc .bashrc", R, R},
-		{"cp ./app.tar.gz web:/tmp/app.tar.gz", "", "SSH_GATE_READ_ONLY"},
-		{"sync ./site web:/var/www/site", "", "SSH_GATE_READ_ONLY"},
+		{"cp ./app.tar.gz web:/tmp/app.tar.gz", R, "SSH_GATE_READ_ONLY"},
+		{"sync ./site web:/var/www/site", R, "SSH_GATE_READ_ONLY"},
 		{"sync web:/var/log/app ./logs", R, R},
 		{"storage download s3 a.txt --to .profile", R, R},
 		{"storage download s3 a.txt --to -", "", ""},
@@ -287,7 +289,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"cache run c --write SET a b":                                             "",
 		"cluster apply k8slocal --file pod.yaml":                                  R,
 		"cluster run k8slocal --write -- delete pod x":                            R,
-		"cluster apply k8s --file pod.yaml":                                       "",
+		"cluster apply k8s --file pod.yaml":                                       R, // reads a file here
 		"storage upload sftplocal x.txt .ssh/authorized_keys":                     R,
 		"registry rm reglocal app:1":                                              R,
 		"registry copy reg:app:1 reglocal:app:1":                                  R,
@@ -318,7 +320,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"svc restart lh sshd":                                                     R,
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
-		"sync ./site web:/var/www":                                                "",
+		"sync ./site web:/var/www":                                                R, // reads files here
 		"recipe run disk me":                                                      R, // runs its command here
 		"recipe run disk web":                                                     "",
 		"db query pghostparam --write 'select 1'":                                 R, // pgx dials ?host=
@@ -334,7 +336,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"cluster run k8s --write -- cp ns/pod:/x LOCAL":                           R,
 		"cluster run k8s --write -- cp ns/pod:/x ./x":                             R,
 		"cluster run k8s --write -- cp -n ns pod:/x /home/u/.ssh":                 R,
-		"cluster run k8s --write -- cp ./x ns/pod:/x":                             "",
+		"cluster run k8s --write -- cp ./x ns/pod:/x":                             R, // reads files here
 		"cluster run k8s --write -- cp ns/pod:/tmp/k x:/../.ssh/authorized_keys2": R, // a local path to kctl
 		"cluster run k8s --write -- cp ns/pod:/x other/pod:/y":                    R,
 		"cluster run k8s -- get pods":                                             "",

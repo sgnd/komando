@@ -418,6 +418,9 @@ func gateRule(c *cobra.Command, name string, key gateKey) (string, *out.Error) {
 		return name, out.Errf(out.ExitPolicy, "SSH_GATE_READ_ONLY", "this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself",
 			"komando %s is refused for a read-only key: %s", strings.ReplaceAll(name, ".", " "), why)
 	}
+	if why := gateLocalRead(c, name); why != "" {
+		return name, gateLocalReadErr(name, why)
+	}
 	if why := gateLocalTarget(c, name); why != "" {
 		return here(why)
 	}
@@ -571,8 +574,9 @@ komando then runs as for an AI agent: secret values stay [hidden], --reveal
 and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
 db shell, secret passphrase ...) are refused. The key runs commands on
-servers, never one that writes on this computer: no download or cp to a
-file here, no change to servers, VPNs, settings, rules, secrets, keys or
+servers, never one that writes on this computer or reads a file here (a
+script, SQL or upload source by path; '-' for the key's own input works):
+no download or cp to a file here, no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache run without --write), and only those that stay on the
