@@ -7,6 +7,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando secret set NAME --new` stores a secret only when NAME is not in
+  the vault yet. A taken name stops with `SECRET_EXISTS` (exit 8) and
+  keeps its value, `--dry-run` included. The check and the write are one
+  step of the store, so of several komando commands creating one name at
+  once exactly one wins.
+
 ### Fixed
 
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.

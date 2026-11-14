@@ -40,6 +40,10 @@ var shapeCases = [][]string{
 	{"group", "list"},
 	{"secret", "list"},
 	{"secret", "get", "pg-pass"},
+	// secret set --new: a taken name is SECRET_EXISTS, a free one a dry run
+	{"secret", "set", "pg-pass", "--new", "--from-env", "PG_PASS"},
+	{"secret", "set", "pg-new", "--new", "--from-env", "PG_PASS", "--dry-run"},
+	{"schema", "secret", "set"},
 	{"key", "list"},
 	{"tunnel", "list"},
 	{"vpn", "list"},

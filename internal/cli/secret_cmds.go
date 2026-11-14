@@ -23,13 +23,15 @@ func secretSetCmd() *cobra.Command {
 		Use:   "set NAME",
 		Short: "Store a secret, typed hidden or from a variable or a pipe",
 		Long: `Saves or replaces a password. Replacing one that a production server or
-database uses asks first: it changes how komando logs in there.
+database uses asks first: it changes how komando logs in there. With --new
+it only saves a new one: when NAME is in the vault already it stops with
+SECRET_EXISTS and leaves the stored value alone.
 
 A value from a pipe loses the line breaks at its end (echo and pbpaste add
 one). Spaces are kept, since a password can hold them; komando warns when the
 value starts or ends with one, so a stray space copied with a password is
 noticed. At the terminal, paste or type the value after the prompt appears.`,
-		Example: "  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  pbpaste | komando secret set vpn-pass",
+		Example: "  komando secret set web1-pass          # type or paste it after the prompt, nothing is shown\n  komando secret set db-pass --from-env DB_PASS\n  pbpaste | komando secret set vpn-pass\n  komando secret set api-token --new --from-env TOKEN   # never replaces one",
 		Args:    cobra.RangeArgs(1, 2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := validName("secret", args[0]); err != nil {
@@ -38,12 +40,19 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			if err := reservedSecret(args[0]); err != nil {
 				return err
 			}
+			isNew, _ := cmd.Flags().GetBool("new")
 			if len(args) == 2 {
 				// A value on the command line lands in shell history and in
 				// `ps` for every user on the machine.
 				return out.Errf(out.ExitUsage, "SECRET_IN_ARGS",
 					fmt.Sprintf("run `komando secret set %s` and type it (hidden), use --from-env VAR, or pipe it in (stdin)", args[0]),
 					"refusing a secret value on the command line: it would be saved in shell history")
+			}
+			// a name that is taken fails before anyone types the value; the
+			// write below checks again, in the same step, for a komando
+			// that stores it meanwhile
+			if _, gerr := vault.Get(args[0]); gerr == nil && isNew {
+				return secretSetExists(args[0])
 			}
 			v, err := secretInput(cmd, args[0], "Paste or type the value for "+args[0]+", then press Enter (it stays hidden): ")
 			var oe *out.Error
@@ -81,7 +90,13 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 				cl.out.Print("secret.set", textAs{res, textFn(func() string { return changeText(cl.out, res) })}, nil)
 				return nil
 			}
-			if err := vault.Set(cl.storeWrite(), args[0], v); err != nil {
+			put := vault.Set
+			if isNew {
+				put = vault.Create
+			}
+			if err := put(cl.storeWrite(), args[0], v); errors.Is(err, vault.ErrExists) {
+				return secretSetExists(args[0]) // stored by another komando meanwhile
+			} else if err != nil {
 				return err
 			}
 			audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": args[0], "replaced": replaced})
@@ -90,7 +105,15 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 		}),
 	}
 	set.Flags().String("from-env", "", "read the value from this environment variable")
+	set.Flags().Bool("new", false, "only store a secret that is not in the vault yet; a taken NAME stops with SECRET_EXISTS")
 	return set
+}
+
+// secretSetExists is `secret set NAME --new` when NAME is stored already.
+func secretSetExists(name string) error {
+	return out.Errf(out.ExitConflict, "SECRET_EXISTS",
+		"to replace it, run `komando secret set "+name+"` without --new; or pick another name",
+		"secret %q already exists", name)
 }
 
 // secretGetCmd is `secret show` (`secret get` is a plain synonym); the
