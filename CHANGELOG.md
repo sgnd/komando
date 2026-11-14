@@ -48,6 +48,8 @@ its highlights; the sections below them give the details. Versions follow
   short, a DPD interval or GlobalProtect timeout too large for a
   duration, and an IPv6 address for PPP (F5, Fortinet), which carries
   only IPv4.
+- An OpenVPN server that pushes a huge `ping` or `ping-restart` no longer
+  makes the client spin without waiting: both are kept to at most a day.
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
 - Three places where commands running side by side in one process (the
   apps) could answer for the wrong command. A connection with no command

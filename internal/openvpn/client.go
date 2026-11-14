@@ -617,12 +617,12 @@ func (c *Client) parsePush(opts []string) Pushed {
 				p.PeerID = n
 			}
 		case "ping":
-			if n, err := strconv.Atoi(arg(1)); err == nil && n > 0 {
-				p.Ping = time.Duration(n) * time.Second
+			if d, ok := pushedSeconds(arg(1)); ok {
+				p.Ping = d
 			}
 		case "ping-restart":
-			if n, err := strconv.Atoi(arg(1)); err == nil && n > 0 {
-				p.PingRestart = time.Duration(n) * time.Second
+			if d, ok := pushedSeconds(arg(1)); ok {
+				p.PingRestart = d
 			}
 		case "key-derivation":
 			p.EKM = arg(1) == "tls-ekm"
@@ -943,6 +943,17 @@ func (c *Client) uncompress(p []byte) []byte {
 		}
 	}
 	return p
+}
+
+// pushedSeconds reads a pushed ping or ping-restart, kept to at most a
+// day: a huge number overflowed the Duration to a negative one, and the
+// keepalive loop spun without waiting.
+func pushedSeconds(v string) (time.Duration, bool) {
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return time.Duration(min(n, 24*3600)) * time.Second, true
 }
 
 // pingString is OpenVPN's keepalive payload.
