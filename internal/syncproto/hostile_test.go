@@ -163,9 +163,16 @@ func TestHostileServerIsDetected(t *testing.T) {
 			s.forB(logList, func(it [][]byte) [][]byte { it[1], it[2] = it[2], it[1]; return it })
 		}, ErrChainBroken},
 		{"pass off one device's summary as another's", func(t *testing.T, s *scene) {
+			s.c.sumNum[s.c.ID()] += 100
+			must(t, s.c.publishSummary()) // C's newest now has the higher number
+			cs, _ := s.w.srv.MemServer.Read(s.c.ID(), logSummaries(s.c.ID()))
+			s.forB(logSummaries(s.a.ID()), func(it [][]byte) [][]byte { return append(it, cs[len(cs)-1]) })
+		}, ErrBadSignature},
+		{"raise a summary's number", func(t *testing.T, s *scene) {
 			s.forB(logSummaries(s.a.ID()), func(it [][]byte) [][]byte {
-				cs, _ := s.w.srv.MemServer.Read(s.c.ID(), logSummaries(s.c.ID()))
-				return append(it, cs[len(cs)-1])
+				sm, _ := ParseSummary(it[len(it)-1])
+				sm.Num += 5
+				return append(it, sm.Marshal())
 			})
 		}, ErrBadSignature},
 		{"hand over another device's sealed key", func(t *testing.T, s *scene) {

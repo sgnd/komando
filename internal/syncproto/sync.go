@@ -127,16 +127,21 @@ func (d *Device) readSummaries() (map[DeviceID]Head, map[DeviceID]*Summary, erro
 		if err != nil {
 			return nil, nil, err
 		}
+		// Only the newest counts, so only it is verified; a bad one stops
+		// sync rather than falling back to an older one.
 		var top *Summary
 		for _, it := range items {
 			s, err := ParseSummary(it)
-			if err != nil || s.Account != d.account || s.Signer != id ||
-				!verifySig(parsePub(m.Rec.SyncPub), labelSummary, s.signedBytes(), s.Sig) {
+			if err != nil {
 				return nil, nil, fmt.Errorf("%w: summary of %x", ErrBadSignature, id[:4])
 			}
 			if top == nil || s.Num > top.Num {
 				top = s
 			}
+		}
+		if top != nil && (top.Account != d.account || top.Signer != id ||
+			!verifySig(parsePub(m.Rec.SyncPub), labelSummary, top.signedBytes(), top.Sig)) {
+			return nil, nil, fmt.Errorf("%w: summary of %x", ErrBadSignature, id[:4])
 		}
 		if top == nil || top.Num < d.sumNum[id] {
 			if d.sumNum[id] > 0 {
