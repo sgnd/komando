@@ -207,7 +207,10 @@ func TestLoginAskFlag(t *testing.T) {
 		{"--login", "agent", "--identity", keyFile},
 		{"--login", "agent", "--password-ref", "env:X"},
 	} {
-		wantCode(t, "USAGE", append([]string{"host", "add", "web2", "u@10.0.0.2"}, bad...)...)
+		// each names its own way out, not the generic one
+		if e := wantCode(t, "USAGE", append([]string{"host", "add", "web2", "u@10.0.0.2"}, bad...)...); e.Hint == out.UsageHint || e.Hint == "" {
+			t.Errorf("%v: no hint of its own: %+v", bad, e)
+		}
 	}
 	wantCode(t, "USAGE", "host", "edit", "web1", "--unset", "login") // --login says it: no second way
 	e := wantCode(t, "USAGE", "host", "add", "win1", "winrm://Administrator@10.0.0.9", "--login", "agent")
@@ -804,7 +807,7 @@ func TestLoginAskWindowText(t *testing.T) {
 	cl := testCall()
 	cl.args = []string{"komando", "exec", "web1", "--read-only", "--", "uptime"}
 	q := sshx.LoginAsk{Host: &store.Host{Name: "web1", Address: "10.0.0.1", User: "deploy", Login: store.LoginAsk}, User: "deploy", Addr: "10.0.0.1:2222"}
-	text := loginWindowText(cl, q)
+	text := loginWindowText(cl, hostTarget(q))
 	for _, want := range []string{"Claude Code wants komando to log in to web1 as deploy@10.0.0.1:2222 for:", "komando exec web1 --read-only -- uptime",
 		"the agent never sees it", "even one that only looks (komando test"} {
 		if !strings.Contains(text, want) {
@@ -817,7 +820,7 @@ func TestLoginAskWindowText(t *testing.T) {
 	cl.args = []string{"komando", "exec", "web1", "--", "echo", "a\u202eb"}
 	k := sshx.NewHostKey{Host: "web1", Address: "10.0.0.1:2222", Type: "ssh-ed25519", Fingerprint: "SHA256:abc"}
 	q.NewKey = &k
-	text = loginWindowText(cl, q)
+	text = loginWindowText(cl, hostTarget(q))
 	for _, want := range []string{"The command is hidden here", "WARNING: first connection to 10.0.0.1:2222", "SHA256:abc"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("window text lacks %q:\n%s", want, text)
@@ -826,13 +829,13 @@ func TestLoginAskWindowText(t *testing.T) {
 	// the way there is part of where the password goes: the window names
 	// every step komando dials through
 	q.NewKey, q.Path = nil, "VPN office, then bastion (u@10.1.0.5:22)"
-	if text = loginWindowText(cl, q); !strings.Contains(text, "deploy@10.0.0.1:2222, reached through VPN office, then bastion (u@10.1.0.5:22)") {
+	if text = loginWindowText(cl, hostTarget(q)); !strings.Contains(text, "deploy@10.0.0.1:2222, reached through VPN office, then bastion (u@10.1.0.5:22)") {
 		t.Errorf("path:\n%s", text)
 	}
 	q.Path = ""
 	q.NewKey = &k
 	k.Unchecked, k.Fingerprint = true, ""
-	if text = loginWindowText(cl, q); !strings.Contains(text, "WARNING: komando does not check who answers at 10.0.0.1:2222") {
+	if text = loginWindowText(cl, hostTarget(q)); !strings.Contains(text, "WARNING: komando does not check who answers at 10.0.0.1:2222") {
 		t.Errorf("unchecked:\n%s", text)
 	}
 }

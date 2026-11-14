@@ -113,30 +113,84 @@ func (cl *call) loginNewKey(h *store.Host, k sshx.NewHostKey) error {
 	return sshx.AskLoginNewKeyNeedsPerson(h, k, cl.isAgent())
 }
 
+// askTarget is a login-ask server or conn as the questions for its
+// password name it.
+type askTarget struct {
+	name  string // the server's or conn's name; one name space for both
+	label string // how messages name it: web1, conn prod-db
+	id    string // what its window's cool-down follows (a record ID: a rename keeps it)
+	where string // what the window says komando logs in to: user@host:port and the way there
+	step  string // the one next step when nobody here can type it, for an AI agent
+	// needsPerson is NEEDS_PERSON when nobody here can type it (agent:
+	// for an AI agent's command)
+	needsPerson func(agent bool) *out.Error
+	looks       string                   // a look command that logs in too, for the window
+	warning     func(name string) string // a first connection's warning (servers), or nil
+}
+
+// hostTarget is the askTarget of a login-ask server's connection.
+func hostTarget(q sshx.LoginAsk) askTarget {
+	h := q.Host
+	where := q.User + "@" + q.Addr
+	if q.Path != "" {
+		where += ", reached through " + q.Path
+	}
+	return askTarget{
+		name: h.Name, label: h.Name, id: sshx.LoginID(h), where: where,
+		step:        sshx.AskLoginStep(h, true),
+		needsPerson: func(agent bool) *out.Error { return sshx.AskLoginNeedsPerson(h, agent) },
+		looks:       "komando test, komando fs ls",
+		warning:     func(name string) string { return keyWarning(name, q) },
+	}
+}
+
+// keyWarning is the window's warning on a first connection to a
+// login-ask server (q.NewKey), or "".
+func keyWarning(name string, q sshx.LoginAsk) string {
+	k := q.NewKey
+	switch {
+	case k == nil:
+		return ""
+	case k.NotMet:
+		return "WARNING: first login to " + name + " at " + cleanText(q.Addr) + " with a typed password. Its host key " + cleanText(k.Fingerprint) +
+			" was pinned before, but nobody has logged in to " + name + " with it. Type the password only if you expected " + name + " there.\n\n"
+	case k.Unchecked:
+		return "WARNING: komando does not check who answers at " + cleanText(q.Addr) + " (" + cleanText(k.Type) + "): an impostor there would get your password.\n\n"
+	}
+	return "WARNING: first connection to " + cleanText(q.Addr) + ". komando trusted its host key " + cleanText(k.Fingerprint) +
+		" a moment ago, and nothing proved it is " + name + "'s. Type the password only if you expected a new server there.\n\n"
+}
+
 // loginPassword is sshx.LoginPassword for this call: the password typed
 // for the server earlier in the command, or a person types it now.
 func (cl *call) loginPassword(q sshx.LoginAsk) (string, func(), error) {
-	h := q.Host
-	t := &cl.logins
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	if q.NewKey != nil {
 		// loginNewKey let the connection on; check again, as nothing may
 		// send a password to a server nobody has seen for an agent
-		if err := cl.loginNewKey(h, *q.NewKey); err != nil {
+		if err := cl.loginNewKey(q.Host, *q.NewKey); err != nil {
 			return "", nil, err
 		}
 	}
-	if b, ok := t.pw[h.Name]; ok {
-		return string(b), func() { t.forget(h.Name) }, nil
+	return cl.typedLogin(hostTarget(q))
+}
+
+// typedLogin is the password of a login-ask server or conn: the one
+// typed earlier in the command, or a person types it now. forget drops
+// it (the server refused it).
+func (cl *call) typedLogin(a askTarget) (pw string, forget func(), err error) {
+	t := &cl.logins
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if b, ok := t.pw[a.name]; ok {
+		return string(b), func() { t.forget(a.name) }, nil
 	}
 	if t.stop != nil {
 		return "", nil, t.stop
 	}
 	if t.background {
-		return "", nil, sshx.AskLoginNeedsPerson(h, cl.isAgent())
+		return "", nil, a.needsPerson(cl.isAgent())
 	}
-	pw, err := cl.typeLoginPassword(q)
+	pw, err = cl.typeLoginPassword(a)
 	if err != nil {
 		var oe *out.Error
 		if errors.As(err, &oe) && (oe.Code == "DECLINED" || oe.Code == "CANCELLED") {
@@ -145,7 +199,7 @@ func (cl *call) loginPassword(q sshx.LoginAsk) (string, func(), error) {
 		return "", nil, err
 	}
 	hideTyped(pw)
-	return pw, t.keep(h.Name, pw), nil
+	return pw, t.keep(a.name, pw), nil
 }
 
 // hideTyped hides a typed password in the output of every running call,
@@ -159,76 +213,75 @@ func hideTyped(pw string) {
 	}
 }
 
-// typeLoginPassword asks the person for the server's password: at the
-// terminal (or through `komando login`'s background process), in the
-// app's window, or in komando's window for an AI agent.
-func (cl *call) typeLoginPassword(q sshx.LoginAsk) (string, error) {
-	h := q.Host
+// typeLoginPassword asks the person for the password: at the terminal (or
+// through `komando login`'s background process), in the app's window, or
+// in komando's window for an AI agent.
+func (cl *call) typeLoginPassword(a askTarget) (string, error) {
 	if person := terminalPerson(); person != nil {
-		return person(h.Name, "Password: ", true)
+		return person(a.name, "Password: ", true)
 	}
-	text := loginWindowText(cl, q)
+	text := loginWindowText(cl, a)
 	if cl.io.AskPassword != nil {
 		pw, given, shown := cl.io.AskPassword(text)
-		return windowAnswer(h, pw, given, shown, false, cl.isAgent())
+		return windowAnswer(a, pw, given, shown, false, cl.isAgent())
 	}
 	if !cl.isAgent() || cl.getenv(engine.GateEnv) != "" {
-		return "", sshx.AskLoginNeedsPerson(h, cl.isAgent())
+		return "", a.needsPerson(cl.isAgent())
 	}
-	if err := loginCoolingDown(h); err != nil {
+	if err := loginCoolingDown(a); err != nil {
 		return "", err
 	}
 	pw, given, shown := askLoginOnScreen(cl, text)
 	gaveUp := tookGaveUp(text)
 	if shown && !given && !gaveUp {
-		noteLoginDeclined(cl, sshx.LoginID(h))
+		noteLoginDeclined(cl, a.id)
 	}
-	return windowAnswer(h, pw, given, shown, gaveUp, true)
+	return windowAnswer(a, pw, given, shown, gaveUp, true)
 }
 
 // declinedHint is the one next step after the person said no to, or did
 // not answer, the password window: the same as AGENTS.md, the skill and
 // the guide name.
-func declinedHint(h *store.Host) string { return "do not retry: " + sshx.AskLoginStep(h, true) }
+func declinedHint(a askTarget) string { return "do not retry: " + a.step }
 
 // windowAnswer is what a password window gave: the password, or why not.
-func windowAnswer(h *store.Host, pw string, given, shown, gaveUp, agent bool) (string, error) {
+func windowAnswer(a askTarget, pw string, given, shown, gaveUp, agent bool) (string, error) {
 	switch {
 	case given:
 		return pw, nil
 	case !shown:
-		return "", sshx.AskLoginNeedsPerson(h, agent)
+		return "", a.needsPerson(agent)
 	case gaveUp:
-		return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON", declinedHint(h),
-			"%s logs in with a password a person types each time (login ask), and nobody answered the window within 2 minutes", h.Name).NoFlag()
+		return "", out.Errf(out.ExitPolicy, "NEEDS_PERSON", declinedHint(a),
+			"%s logs in with a password a person types each time (login ask), and nobody answered the window within 2 minutes", a.label).NoFlag()
 	}
-	return "", out.Errf(out.ExitPolicy, "DECLINED", declinedHint(h),
-		"the user cancelled the password window: nothing was run on %s", h.Name).NoFlag()
+	return "", out.Errf(out.ExitPolicy, "DECLINED", declinedHint(a),
+		"the user cancelled the password window: nothing was run on %s", a.label).NoFlag()
 }
 
 // loginCoolDown is how long komando's password window stays shut for a
-// server after the person cancelled it for an AI agent: an agent cannot
-// wear the person down with one window after another.
+// server or conn after the person cancelled it for an AI agent: an agent
+// cannot wear the person down with one window after another.
 const loginCoolDown = 60 * time.Second
 
-// loginCoolingDown is DECLINED, without a window, while h's cool-down
+// loginCoolingDown is DECLINED, without a window, while a's cool-down
 // lasts.
-func loginCoolingDown(h *store.Host) error {
+func loginCoolingDown(a askTarget) error {
 	rt, err := store.ReadRuntime()
 	if err != nil {
 		return nil // no runtime file yet: nothing was declined
 	}
-	at, ok := rt.LoginDeclined[sshx.LoginID(h)]
+	at, ok := rt.LoginDeclined[a.id]
 	if since := time.Since(at); !ok || since >= loginCoolDown || since < 0 {
 		return nil
 	}
-	return out.Errf(out.ExitPolicy, "DECLINED", declinedHint(h),
+	return out.Errf(out.ExitPolicy, "DECLINED", declinedHint(a),
 		"the user cancelled the password window of %s less than a minute ago; komando does not open it again before %s",
-		h.Name, at.Add(loginCoolDown).Local().Format("15:04:05")).NoFlag()
+		a.label, at.Add(loginCoolDown).Local().Format("15:04:05")).NoFlag()
 }
 
-// noteLoginDeclined starts the cool-down of the server known as id
-// (sshx.LoginID: a rename does not end it). It is kept with the running
+// noteLoginDeclined starts the cool-down of the server or conn known as id
+// (a record ID: a rename does not end it). It is kept with the running
 // logins (runtime.json), so the next command sees it too.
 func noteLoginDeclined(cl *call, id string) {
 	_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
@@ -246,41 +299,28 @@ func noteLoginDeclined(cl *call, id string) {
 }
 
 // loginWindowText is what the password window says: who asks, for which
-// server, user, address and command, whether this is a first connection,
-// and that the password stays with komando.
-func loginWindowText(cl *call, q sshx.LoginAsk) string {
-	h := q.Host
+// server or conn, user, address, the way there and the command, whether
+// this is a first connection, and that the password stays with komando.
+func loginWindowText(cl *call, a askTarget) string {
 	who := cl.caller().Agent
 	if who == "" {
 		who = "A komando command"
 	}
-	name := cleanText(h.Name)
-	where := cleanText(q.User) + "@" + cleanText(q.Addr)
-	if q.Path != "" {
-		where += ", reached through " + cleanText(q.Path)
-	}
-	text := fmt.Sprintf("%s wants komando to log in to %s as %s", who, name, where)
+	name := cleanText(a.name)
+	text := fmt.Sprintf("%s wants komando to log in to %s as %s", who, cleanText(a.label), cleanText(a.where))
 	if line := commandLine(cl); len(cl.args) > 1 && unshowable(line) == "" && hiddenArgs(cl.args[1:]) == "" {
 		text += " for:\n\n" + line + "\n\n"
 	} else {
 		text += ". The command is hidden here: it has text this window cannot show.\n\n"
 	}
-	if k := q.NewKey; k != nil {
-		if k.NotMet {
-			text += "WARNING: first login to " + name + " at " + cleanText(q.Addr) + " with a typed password. Its host key " + cleanText(k.Fingerprint) +
-				" was pinned before, but nobody has logged in to " + name + " with it. Type the password only if you expected " + name + " there.\n\n"
-		} else if k.Unchecked {
-			text += "WARNING: komando does not check who answers at " + cleanText(q.Addr) + " (" + cleanText(k.Type) + "): an impostor there would get your password.\n\n"
-		} else {
-			text += "WARNING: first connection to " + cleanText(q.Addr) + ". komando trusted its host key " + cleanText(k.Fingerprint) +
-				" a moment ago, and nothing proved it is " + name + "'s. Type the password only if you expected a new server there.\n\n"
-		}
+	if a.warning != nil {
+		text += a.warning(name)
 	}
 	text += name + " logs in with a password you type each time; komando never stores it"
 	if cl.isAgent() {
 		text += ", and the agent never sees it"
 	}
-	return text + ". Every command that connects asks, even one that only looks (komando test, komando fs ls).\n\n" +
+	return text + ". Every command that connects asks, even one that only looks (" + a.looks + ").\n\n" +
 		"Type the password of " + name + " to log in for this command only:"
 }
 
@@ -375,6 +415,10 @@ func loginsInput(logins map[string]string) io.Reader {
 	return strings.NewReader(sb.String())
 }
 
+// serveByStart is the hint of a tunnel serve that did not get its input
+// from tunnel start.
+const serveByStart = "start the tunnel with `komando tunnel start`: tunnel serve is its background process, not a command to run by hand"
+
 // readLogins reads loginsInput's lines from in into the call; what follows
 // them (the vault passphrase) stays in in.
 func readLogins(cl *call, in *bufio.Reader) error {
@@ -382,7 +426,7 @@ func readLogins(cl *call, in *bufio.Reader) error {
 	for range 1000 {
 		line, err := in.ReadString('\n')
 		if err != nil {
-			return fmt.Errorf("reading the typed passwords from stdin: %w", err)
+			return out.Errf(out.ExitUsage, "USAGE", serveByStart, "reading the typed passwords from stdin: %v", err)
 		}
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
 		if word == "END" {
@@ -392,7 +436,7 @@ func readLogins(cl *call, in *bufio.Reader) error {
 		name, err1 := base64.StdEncoding.DecodeString(n)
 		pw, err2 := base64.StdEncoding.DecodeString(p)
 		if word != "LOGIN" || err1 != nil || err2 != nil {
-			return errors.New("tunnel serve is started by `komando tunnel start`, not by hand")
+			return out.Errf(out.ExitUsage, "USAGE", serveByStart, "the typed passwords on stdin are not as tunnel start writes them")
 		}
 		hideTyped(string(pw))
 		t.mu.Lock()
@@ -400,5 +444,5 @@ func readLogins(cl *call, in *bufio.Reader) error {
 		t.mu.Unlock()
 		clear(pw)
 	}
-	return errors.New("too many typed passwords on stdin")
+	return out.Errf(out.ExitUsage, "USAGE", serveByStart, "too many typed passwords on stdin")
 }

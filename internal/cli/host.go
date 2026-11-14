@@ -117,7 +117,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	if err := guardProxyCommand(cl, f.proxyCommand, name); err != nil {
 		return err
 	}
-	if err := loginConflict(cmd.Flags(), f.login, askPw, true); err != nil {
+	if err := loginConflict(cmd.Flags(), name, f.login, askPw, true); err != nil {
 		return err
 	}
 	undoPw := func() {}
@@ -368,7 +368,7 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 	if err := guardProxyCommand(cl, f.proxyCommand, args...); err != nil {
 		return undo, err
 	}
-	if err := loginConflict(fl, f.login, askPw, false); err != nil {
+	if err := loginConflict(fl, editName(args), f.login, askPw, false); err != nil {
 		return undo, err
 	}
 	if fl.Changed("forward-agent") && f.forwardAgent {
