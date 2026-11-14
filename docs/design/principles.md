@@ -365,8 +365,32 @@ A family is done when:
 - **No pool and no daemon.** One connection per command. Tunnels, VPN
   sessions, kept logins and jobs are the only background processes
   (`komando status` lists them).
-- The CLI never syncs between devices. Sync and the AI assistant are only
-  in the paid apps.
+- **The paid boundary.** The CLI never syncs between devices. Sync and the
+  AI assistant are only in the paid apps, and these rules keep paid-plan
+  logic out of komando:
+  1. komando, the open-source CLI, never contains plan, tier, seat,
+     billing, account, allowance or licence checks, and never asks Komando
+     Cloud whether something is allowed. Every command works with no
+     account and no network beyond the targets a person names.
+  2. Anything a paid service needs from the CLI comes in only as a
+     **neutral, open capability**: read or write an open format, check a
+     signature against a key list, or talk to a local process over a local
+     socket. It must work for anyone who brings their own keys and lists,
+     with Komando Cloud switched off.
+  3. **"Allowed because paid" lives only in Komando Cloud** (a separate,
+     closed repo) **and in the apps**. The apps may show what is paid; they
+     never lock anything that works on the device.
+  4. The komando binary never links the sync library or a Komando Cloud
+     client, and calls no komando-owned host except the release site, when
+     a person runs `komando update`. The sync library is a public Go module
+     in its own folder, `sync/` with its own `go.mod`
+     (`github.com/sgnd/komando/sync`), never under `internal/`, and
+     `cmd/komando` never imports it. (The alternative, if the owner prefers
+     it, is a separate `sgnd/komando-sync` repo.)
+
+  Code that would break rule 1 is a design error, not a feature: change the
+  design so the check happens on the service. `internal/boundary` checks
+  rule 4 in `go test`.
 
 ## 16. Not goals
 
