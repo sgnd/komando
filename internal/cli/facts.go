@@ -199,7 +199,6 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 		hs                                     hostState
 		units                                  []customUnit
 		pm2JSON, proJSON, dockerInfo           *string
-		disks                                  []diskFacts
 	)
 	set := map[string]string{} // raw values of the keys read below
 	for _, line := range strings.Split(s, "\n") {
@@ -231,8 +230,6 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 				p = append(p, "")
 			}
 			units = append(units, customUnit{Unit: p[0], Enabled: strings.TrimSpace(p[1]), Active: strings.TrimSpace(p[2])})
-		case "disk":
-			disks = appendDisk(disks, raw)
 		case "pm2_json":
 			pm2JSON = &v
 		case "pro_json":
@@ -265,9 +262,6 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 	}
 	sort.Strings(tools)
 	f["tools"] = tools
-	if disks != nil {
-		f["disks"] = disks
-	}
 	hostStateFacts(f, hs)
 	if _, ok := f["sudo_nopasswd"]; !ok {
 		f["sudo_nopasswd"] = nil
@@ -307,6 +301,9 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 // hostStateFacts puts what hoststate printed into the facts, in the keys
 // facts has always had.
 func hostStateFacts(f map[string]any, hs hostState) {
+	if hs.Disks != nil {
+		f["disks"] = hs.Disks
+	}
 	f["reboot_required"] = nil // not a Debian-family server and no needs-restarting
 	if hs.Reboot != nil {
 		f["reboot_required"] = *hs.Reboot
