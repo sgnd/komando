@@ -203,7 +203,11 @@ would move db/old.sql.gz -> archive/old.sql.gz (48.1 MiB, by a copy that is chec
   `DST` stops the move (`OBJECT_EXISTS`) unless you add `--overwrite`; a
   folder at `DST` is never replaced.
 - On a file server (SFTP, FTP, FTPS, WebDAV, SMB) `mv` is one rename on
-  the server, and it moves folders too.
+  the server, and it moves folders too. Where the server cannot rename
+  over a file, `--overwrite` first moves the old file aside
+  (`.komando-old-NAME`) and puts it back if the rename fails, so a failed
+  move never loses it.
+- A path is written plainly: `.` or `//` in it stops with `USAGE`.
 - S3, Google Cloud and Azure cannot rename. There `mv` copies the object
   on the server, checks that the copy has the same size and checksum, and
   only then deletes the original (`method: copy_then_delete` in the
