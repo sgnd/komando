@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -174,22 +175,32 @@ func TestGF256AndShamir(t *testing.T) {
 
 func TestPairingCode(t *testing.T) {
 	secret := randomBytes(16)
-	code := encode32(secret)
-	if len(code) != 26 {
+	code := pairCode(secret)
+	if len(code) != 27 {
 		t.Fatalf("%d characters", len(code))
 	}
-	got, err := decode32(strings.ToLower(code), 16)
+	got, err := parsePairCode(strings.ToLower(code))
 	must(t, err)
 	if !bytes.Equal(got, secret) {
 		t.Fatal("round trip")
 	}
-	// The last character carries two spare bits that must be zero: one
-	// typo in four there is caught; elsewhere a typo shows only as a
-	// failed check code (the one try is used).
-	last := strings.IndexByte(alphabet32, code[25])
-	bad := code[:25] + string(alphabet32[last^1])
-	if _, err := decode32(bad, 16); err == nil {
-		t.Fatal("non-zero spare bits accepted")
+	// The check character catches every one-character typo, at every
+	// place, the check character included (SS 6.3).
+	for i := range len(code) {
+		for _, c := range []byte(alphabet32) {
+			if c == code[i] {
+				continue
+			}
+			bad := code[:i] + string(c) + code[i+1:]
+			if _, err := parsePairCode(bad); !errors.Is(err, ErrPairingTypo) {
+				t.Fatalf("typo %q at %d not caught: %v", c, i, err)
+			}
+		}
+	}
+	for _, bad := range []string{code[:26], code + "0"} {
+		if _, err := parsePairCode(bad); !errors.Is(err, ErrPairingTypo) {
+			t.Fatalf("%d characters accepted", len(bad))
+		}
 	}
 }
 

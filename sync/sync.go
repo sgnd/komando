@@ -16,10 +16,12 @@ const MaxSkew = 5 * time.Minute
 type Report struct {
 	Applied    int   // writes checked, opened and merged
 	Duplicates int   // writes served again (a replay): ignored
-	Revoked    int   // writes by a removed device after its last accepted write: dropped
+	Revoked    int   // writes by a removed device past the writes that count (SS 6.2): dropped
 	Rejected   int   // approvals that do not verify, record changes recordFits refuses: dropped
 	Deferred   int   // writes stamped in the future: kept for later
 	Held       int   // writes and summaries naming list entries past a hold: read again after it
+	OldKey     int   // writes sealed under a key generation this device already knew was replaced (SS 7.1)
+	Resealed   int   // own writes sealed again under the newest generation (SS 7.1)
 	Hold       *Hold // the list waits on this device's clock
 	Alerts     []string
 }
@@ -37,25 +39,67 @@ func (d *Device) Sync() (*Report, error) {
 	if d.kitToType != nil {
 		return nil, ErrKitNotConfirmed
 	}
-	before := d.head
+	before, beforeGen := d.head, d.list.Gen.Gen
 	rep, err := d.pull()
 	if err != nil {
 		return nil, err
+	}
+	if d.list.Gen.Gen > beforeGen {
+		if rep.Resealed, err = d.reseal(before); err != nil {
+			return nil, err
+		}
 	}
 	if err := d.publishSummary(); err != nil {
 		return nil, err
 	}
 	rep.Alerts = d.alerts(before)
+	if rep.OldKey > 0 {
+		rep.Alerts = append(rep.Alerts, fmt.Sprintf("%d changes were sealed under a key from before a removal; a removed device can read them", rep.OldKey))
+	}
 	return rep, nil
+}
+
+// reseal is the writer catching up (SS 7.1, decided 2026-11-14): its own
+// writes that name the list entry it held before this sync, sealed under a
+// generation that is now replaced, are written again under the newest
+// generation. A device cannot know when the server got the key change, so
+// "the writes made while it was behind" are taken as those that name the
+// newest entry it held (see finding 33 in sync-prototype.md). A reseal
+// names the write it copies and changes nothing in the merged data.
+func (d *Device) reseal(heldHead uint32) (int, error) {
+	var old []staged
+	for _, s := range d.log {
+		if s.w.Writer == d.id && s.c.Kind == kindRecord && s.w.ListNum == heldHead && s.w.KeyGen < d.list.Gen.Gen {
+			old = append(old, s)
+		}
+	}
+	for _, s := range old {
+		c := *s.c
+		c.Kind, c.Target = kindReseal, s.w.Ref()
+		if _, err := d.write(&c); err != nil {
+			return 0, err
+		}
+	}
+	return len(old), nil
 }
 
 // pull is Sync without signing a summary: check everything, then merge.
 func (d *Device) pull() (*Report, error) {
 	rep := &Report{}
+	// A device that already holds a signed state alerts on writes sealed
+	// under a generation it knew was replaced (SS 7.1). A device catching
+	// up from nothing does not: all of history is new to it.
+	knownGen := uint32(0)
+	if d.list != nil && d.summaries[d.id] != nil {
+		knownGen = d.list.Gen.Gen
+	}
 	if err := d.refreshList(); err != nil {
 		return nil, err
 	}
 	rep.Hold = d.list.Hold
+	if err := d.computeCuts(); err != nil {
+		return nil, err
+	}
 	if err := d.dropRevoked(rep); err != nil {
 		return nil, err
 	}
@@ -73,6 +117,11 @@ func (d *Device) pull() (*Report, error) {
 	if err := d.checkComplete(target, stage); err != nil {
 		return nil, err
 	}
+	for _, s := range stage {
+		if s.w.KeyGen < knownGen {
+			rep.OldKey++
+		}
+	}
 	d.commit(stage, rep)
 	d.newest = target
 	for id, s := range best {
@@ -81,26 +130,79 @@ func (d *Device) pull() (*Report, error) {
 	return rep, nil
 }
 
-// dropRevoked handles a removal that names an earlier last write than
-// this device already applied (it synced with the removed device before
-// the remover did). SS says such writes are dropped by everyone; here they
-// are, by merging again without them. Merging is commutative, so the
-// result is what a device that never saw them holds.
+// computeCuts finds, for each removed device, its newest write that
+// counts (SS 6.2, decided 2026-11-14): the newest write of it that any
+// remaining device covered in a signed summary naming a list entry from
+// before the removal. The last write the removal records is the floor, not
+// the cut. A cut never goes down: a summary that was shown once was
+// checked once.
+func (d *Device) computeCuts() error {
+	for id, r := range d.list.Removed {
+		best := Head{Device: id, Seq: r.LastSeq, Hash: r.LastHash}
+		info := d.list.RemInfo[id]
+		for _, other := range info.Remaining {
+			items, err := d.srv.Read(d.id, logSummaries(other))
+			if err != nil {
+				return err
+			}
+			var top *Summary
+			var topHead Head
+			for _, it := range items {
+				s, err := ParseSummary(it)
+				if err != nil {
+					return fmt.Errorf("%w: summary of %x", ErrBadSignature, other[:4])
+				}
+				if h := headOf(s, id); s.ListNum < info.At && h.Seq > topHead.Seq {
+					top, topHead = s, h
+				}
+			}
+			if top == nil || topHead.Seq <= best.Seq {
+				continue
+			}
+			if top.Account != d.account || top.Signer != other ||
+				!verifySig(parsePub(d.list.Ever[other].SyncPub), labelSummary, top.signedBytes(), top.Sig) {
+				return fmt.Errorf("%w: summary of %x", ErrBadSignature, other[:4])
+			}
+			if top.ListNum == 0 || d.list.Hashes[top.ListNum-1] != top.ListHash {
+				return fmt.Errorf("%w: a summary names another list entry %d", ErrFork, top.ListNum)
+			}
+			best = topHead
+		}
+		if prev, ok := d.cuts[id]; ok {
+			switch {
+			case prev.Seq > best.Seq:
+				best = prev
+			case prev.Seq == best.Seq && prev.Hash != best.Hash:
+				return fmt.Errorf("%w: two different writes %d of a removed device", ErrFork, best.Seq)
+			}
+		}
+		d.cuts[id] = best
+	}
+	return nil
+}
+
+// dropRevoked handles a removal whose cut is below what this device
+// already applied: it applied writes no remaining device had confirmed
+// before the removal. It merges again without them; merging is
+// order-free, so the result is what a device that never saw them holds.
+// Two things are never taken back (SS 6.2): a stricter value that applied
+// by itself, and an approval the removed device signed.
 func (d *Device) dropRevoked(rep *Report) error {
 	drop := map[DeviceID]uint64{}
-	for id, r := range d.list.Removed {
-		if d.newest[id].Seq > r.LastSeq {
-			d.newest[id] = Head{Device: id, Seq: r.LastSeq, Hash: r.LastHash}
+	for id := range d.list.Removed {
+		c := d.cuts[id]
+		if d.newest[id].Seq > c.Seq {
+			d.newest[id] = c
 		}
-		if d.applied[id].Seq <= r.LastSeq {
+		if d.applied[id].Seq <= c.Seq {
 			continue
 		}
-		if r.LastSeq > 0 && d.hashAt(id, r.LastSeq, nil) != r.LastHash {
-			return fmt.Errorf("%w: last accepted write of a removed device differs", ErrFork)
+		if c.Seq > 0 && d.hashAt(id, c.Seq, nil) != c.Hash {
+			return fmt.Errorf("%w: the last write that counts of a removed device differs", ErrFork)
 		}
-		drop[id] = r.LastSeq
-		d.applied[id] = Head{Device: id, Seq: r.LastSeq, Hash: r.LastHash}
-		d.hashes[id] = d.hashes[id][:r.LastSeq]
+		drop[id] = c.Seq
+		d.applied[id] = c
+		d.hashes[id] = d.hashes[id][:c.Seq]
 	}
 	if len(drop) == 0 {
 		return nil
@@ -109,13 +211,84 @@ func (d *Device) dropRevoked(rep *Report) error {
 	d.log, d.data = nil, newMergeState()
 	for _, s := range old {
 		if last, ok := drop[s.w.Writer]; ok && s.w.Seq > last {
-			rep.Revoked++
-			continue
+			d.countRevoked(s.w.Ref(), rep)
+			kept := keptAfterRemoval(s.c)
+			if kept != s.c {
+				d.noteDropped(s.w.Ref())
+			}
+			if kept == nil {
+				continue
+			}
+			s = staged{s.w, kept}
 		}
 		d.applyChange(s.w, s.c, rep)
 		d.log = append(d.log, s)
 	}
 	return nil
+}
+
+// keptAfterRemoval is what stays of an applied change of a removed device
+// past its cut: an approval whole, and of a record change only the
+// stricter values that applied by themselves. Nil when nothing stays.
+func keptAfterRemoval(c *Change) *Change {
+	if c.Kind == kindApproval {
+		return c
+	}
+	if c.Kind != kindRecord || c.Create || c.Delete {
+		return nil
+	}
+	var keep []Field
+	for _, f := range c.Fields {
+		if stricter(c.Type, f) {
+			keep = append(keep, f)
+		}
+	}
+	if len(keep) == 0 {
+		return nil
+	}
+	if len(keep) == len(c.Fields) {
+		return c
+	}
+	return &Change{Kind: kindRecord, Record: c.Record, Type: c.Type, Fields: keep}
+}
+
+// countRevoked counts a dropped write once, however often it is served,
+// and reports whether this was the first time.
+func (d *Device) countRevoked(ref WriteRef, rep *Report) bool {
+	if d.revoked[ref] {
+		return false
+	}
+	d.revoked[ref] = true
+	rep.Revoked++
+	return true
+}
+
+// noteDropped keeps a dropped write of a removed device for the person to
+// see and confirm (SS 6.2: never dropped silently).
+func (d *Device) noteDropped(ref WriteRef) {
+	if _, seen := d.dropped[ref]; !seen {
+		d.dropped[ref] = false
+	}
+}
+
+// DroppedWrites lists the writes of removed devices that were not kept and
+// that the person has not confirmed yet.
+func (d *Device) DroppedWrites() []WriteRef {
+	var out []WriteRef
+	for ref, confirmed := range d.dropped {
+		if c, ok := d.cuts[ref.Writer]; !confirmed && ok && ref.Seq > c.Seq {
+			out = append(out, ref)
+		}
+	}
+	slices.SortFunc(out, cmpRef)
+	return out
+}
+
+// ConfirmDropped records that the person saw the dropped writes.
+func (d *Device) ConfirmDropped() {
+	for ref := range d.dropped {
+		d.dropped[ref] = true
+	}
 }
 
 // readSummaries takes the newest valid summary of every listed device and
@@ -158,6 +331,12 @@ func (d *Device) readSummaries() (map[DeviceID]Head, map[DeviceID]*Summary, erro
 		}
 		best[id] = top
 	}
+	// Every write of a removed device that counts must be here too.
+	for id, c := range d.cuts {
+		if c.Seq > target[id].Seq {
+			target[id] = c
+		}
+	}
 	return target, best, nil
 }
 
@@ -179,8 +358,16 @@ func (d *Device) mergeSummary(s *Summary, target map[DeviceID]Head) error {
 		return fmt.Errorf("%w: a summary names another list entry %d", ErrFork, s.ListNum)
 	}
 	for _, h := range s.Heads {
-		if r, removed := d.list.Removed[h.Device]; removed && h.Seq > r.LastSeq {
-			h = Head{Device: h.Device, Seq: r.LastSeq, Hash: r.LastHash}
+		if _, removed := d.list.Removed[h.Device]; removed {
+			if c := d.cuts[h.Device]; h.Seq > c.Seq {
+				// A summary from after the removal holds only writes that
+				// a summary from before it showed: the server holds that
+				// one back.
+				if s.ListNum >= d.list.RemInfo[h.Device].At {
+					return fmt.Errorf("%w: a summary covers writes of a removed device that no summary from before the removal shows", ErrMissingWrites)
+				}
+				h = c
+			}
 		}
 		cur := target[h.Device]
 		switch {
@@ -228,8 +415,9 @@ func (d *Device) readDeviceWrites(id DeviceID, items [][]byte, rep *Report) ([]s
 	cur := d.applied[id]
 	limit := ^uint64(0)
 	r, removed := d.list.Removed[id]
+	cut := d.cuts[id]
 	if removed {
-		limit = r.LastSeq
+		limit = cut.Seq
 	}
 	var prev uint64
 	for _, it := range items {
@@ -249,14 +437,16 @@ func (d *Device) readDeviceWrites(id DeviceID, items [][]byte, rep *Report) ([]s
 			continue
 		}
 		if w.Seq > limit {
-			rep.Revoked++
+			if verifySig(parsePub(d.list.Ever[id].SyncPub), labelWrite, w.signedBytes(), w.Sig) && d.countRevoked(w.Ref(), rep) {
+				d.noteDropped(w.Ref())
+			}
 			continue
 		}
 		if w.Seq != cur.Seq+1 || w.Prev != cur.Hash {
 			return nil, fmt.Errorf("%w: write %d of %x out of order or after a gap", ErrMissingWrites, w.Seq, id[:4])
 		}
-		if removed && w.Seq == limit && h != r.LastHash {
-			return nil, fmt.Errorf("%w: last accepted write of a removed device differs", ErrFork)
+		if removed && ((w.Seq == limit && h != cut.Hash) || (w.Seq == r.LastSeq && h != r.LastHash)) {
+			return nil, fmt.Errorf("%w: a recorded write of a removed device differs", ErrFork)
 		}
 		if d.pastHold(w.ListNum) {
 			rep.Held++ // this one and the rest of the log, after the hold
@@ -348,8 +538,10 @@ func (d *Device) commit(stage []staged, rep *Report) {
 	d.deferred = nil
 	limit := d.now().Add(MaxSkew).UnixMilli()
 	for _, s := range ready {
-		if r, ok := d.list.Removed[s.w.Writer]; ok && s.w.Seq > r.LastSeq {
-			rep.Revoked++ // deferred, then its writer was removed
+		if _, ok := d.list.Removed[s.w.Writer]; ok && s.w.Seq > d.cuts[s.w.Writer].Seq {
+			if d.countRevoked(s.w.Ref(), rep) { // deferred, then its writer was removed
+				d.noteDropped(s.w.Ref())
+			}
 			continue
 		}
 		if s.w.Clock.Wall > limit {
@@ -435,21 +627,39 @@ func (d *Device) alerts(before uint32) []string {
 		if p.Done {
 			continue
 		}
-		if p.Inner.Action == ActTakeover {
-			out = append(out, fmt.Sprintf("entry %d: the recovery key was used to add a device; it applies after 24 hours unless cancelled", num))
-		} else {
-			out = append(out, fmt.Sprintf("entry %d: a waiting %s; any device can cancel it", num, p.Inner.Action))
+		switch {
+		case p.Inner.Action == ActTakeover:
+			out = append(out, fmt.Sprintf("entry %d: the recovery key was used to take the account over on a new device; it applies after 24 hours unless a device with Face ID or Touch ID cancels it", num))
+		case p.Kit:
+			out = append(out, fmt.Sprintf("entry %d: the recovery key was used (%s); it applies after 24 hours unless a device with Face ID or Touch ID cancels it", num, p.Inner.Action))
+		default:
+			out = append(out, fmt.Sprintf("entry %d: a waiting %s; any device with Face ID or Touch ID can cancel it", num, p.Inner.Action))
 		}
+	}
+	if n := len(d.DroppedWrites()); n > 0 {
+		out = append(out, fmt.Sprintf("%d changes from removed devices were not kept; check them and confirm", n))
+	}
+	if d.kitsAtRisk {
+		out = append(out, "the recovery kit is in someone else's hands: replace the kits now")
 	}
 	if h := d.list.Hold; h != nil {
 		out = append(out, fmt.Sprintf("entry %d waits until %s: %s", h.Entry, h.Until.Format(time.RFC3339), h.Reason))
 	}
 	for _, en := range d.list.Entries[min(int(before), len(d.list.Entries)):] {
-		if en.Body.Action != ActReplaceAuthority {
+		of := en.Body.AuthOf
+		switch en.Body.Action {
+		case ActReplaceAuthority:
+		case ActApply: // a sign-in that waited
+			p := d.list.Pending[en.Body.Ref]
+			if p == nil || p.Inner.Action != ActReplaceAuthority {
+				continue
+			}
+			of = p.Inner.AuthOf
+		default:
 			continue
 		}
 		who := "another device"
-		if en.Body.AuthOf == d.id {
+		if of == d.id {
 			who = "this device; if you did not ask for it, someone holds this device's keys"
 		}
 		out = append(out, fmt.Sprintf("entry %d: a new authority key was signed in for %s", en.Num, who))

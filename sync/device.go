@@ -22,18 +22,22 @@ type Device struct {
 	// What the Keychain keeps, on this device only (SS 9): the account,
 	// the newest list entry, when each entry was first seen, this
 	// device's own write number, and the newest state seen.
-	account   Hash
-	joined    bool
-	head      uint32
-	headHash  Hash
-	seen      map[Hash]time.Time
-	trustUpTo uint32
-	ownSeq    uint64
-	ownHash   Hash
-	newest    map[DeviceID]Head
-	sumNum    map[DeviceID]uint64
-	kitToType *Kit          // set until the person types part of the kit back
-	answered  map[Hash]bool // pairing codes this device answered: one try each
+	account    Hash
+	joined     bool
+	head       uint32
+	headHash   Hash
+	seen       map[Hash]time.Time
+	trustUpTo  uint32
+	ownSeq     uint64
+	ownHash    Hash
+	newest     map[DeviceID]Head
+	sumNum     map[DeviceID]uint64
+	kitToType  *Kit              // set until the person types part of the kit back
+	answered   map[Hash]bool     // pairing codes this device answered: one try each
+	kitsAtRisk bool              // this device cancelled a recovery-key step
+	cuts       map[DeviceID]Head // per removed device, its newest write that counts
+	dropped    map[WriteRef]bool // dropped writes of removed devices; true once a person confirmed
+	revoked    map[WriteRef]bool // dropped writes already counted in a Report
 
 	acctKeys  map[uint32][]byte
 	vaultKeys map[uint32][]byte
@@ -50,6 +54,11 @@ type Device struct {
 	// AutoApprove: a device with an authority key collects the person's
 	// yes while editing (SS 8.1), so its own waiting changes carry it.
 	AutoApprove bool
+
+	// ConfirmUnchecked asks the person "could not check for removed
+	// devices; save anyway?" when the list cannot be read before a secret
+	// is sealed (SS 7.1). Nil means no.
+	ConfirmUnchecked func(err error) bool
 }
 
 // NewDevice prepares a device with its keys. It belongs to no account
@@ -60,7 +69,7 @@ func NewDevice(name string, keys *DeviceKeys, srv Server, now func() time.Time) 
 		seen: map[Hash]time.Time{}, answered: map[Hash]bool{}, newest: map[DeviceID]Head{}, sumNum: map[DeviceID]uint64{},
 		acctKeys: map[uint32][]byte{}, vaultKeys: map[uint32][]byte{},
 		applied: map[DeviceID]Head{}, hashes: map[DeviceID][]Hash{}, summaries: map[DeviceID]*Summary{},
-		data: newMergeState(),
+		data: newMergeState(), cuts: map[DeviceID]Head{}, dropped: map[WriteRef]bool{}, revoked: map[WriteRef]bool{},
 	}
 	d.rec = DeviceRecord{SyncPub: pubBytes(keys.Sync.Public()), UnwrapPub: keys.Unwrap.PublicKey()}
 	if keys.Authority != nil {

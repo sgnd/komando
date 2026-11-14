@@ -106,8 +106,7 @@ func (r *Recovery) Begin(newKits int) error {
 	if err := addNewKitSigs(en, kits); err != nil {
 		return err
 	}
-	idx := d.list.kitIndex(r.kit.Record())
-	if err := en.signEntry(r.kit.signer(), RoleKit, DeviceID{}, uint8(idx)); err != nil {
+	if err := d.kitSign(en, r.kit); err != nil {
 		return err
 	}
 	if err := d.appendEntry(en); err != nil {
@@ -161,33 +160,44 @@ func (r *Recovery) Finish() ([]*Kit, error) {
 // RecoveryStep is the kit used on a device already on the list, such as a
 // Mac without Touch ID after the iPhone was lost (SS 6.4): the recovery
 // key and this device's sync key sign one entry that removes the chosen
-// devices, starts a new account key and makes new kits. It applies at
-// once and ends the old kit.
-func (d *Device) RecoveryStep(kit *Kit, remove []DeviceID, newKits int) ([]*Kit, error) {
+// devices, and on apply starts a new account key and ends the old kit. It
+// replaces the kits, so while another device is listed it waits 24 hours,
+// and any device with an authority key can cancel it: then it returns the
+// pending entry, which this device applies with ApplyPending. Alone on the
+// list it applies at once and returns 0.
+func (d *Device) RecoveryStep(kit *Kit, remove []DeviceID, newKits int) ([]*Kit, uint32, error) {
 	if err := d.refreshList(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	idx := d.list.kitIndex(kit.Record())
-	if idx < 0 {
-		return nil, ErrKitUnknown
-	}
-	g, err := newGen(d.list.Gen.Gen + 1)
-	if err != nil {
-		return nil, err
+	if d.list.kitIndex(kit.Record()) < 0 {
+		return nil, 0, ErrKitUnknown
 	}
 	kits, recs, err := makeKits(newKits)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	en := d.nextEntry(Body{Action: ActRecoveryStep, Removes: d.removals(remove), Key: &g.KeyGen, Kits: recs})
-	if err := addNewKitSigs(en, kits); err != nil {
-		return nil, err
+	sign := func(en *Entry) error {
+		if err := addNewKitSigs(en, kits); err != nil {
+			return err
+		}
+		if err := d.kitSign(en, kit); err != nil {
+			return err
+		}
+		return en.signEntry(d.keys.Sync, RoleDevice, d.id, 0)
 	}
-	if err := en.signEntry(kit.signer(), RoleKit, DeviceID{}, uint8(idx)); err != nil {
-		return nil, err
+	body := Body{Action: ActRecoveryStep, Removes: d.removals(remove), Kits: recs}
+	if !d.list.alone(d.id) {
+		num, err := d.pendingBy(body, sign)
+		return kits, num, err
 	}
-	if err := en.signEntry(d.keys.Sync, RoleDevice, d.id, 0); err != nil {
-		return nil, err
+	g, err := newGen(d.list.Gen.Gen + 1)
+	if err != nil {
+		return nil, 0, err
 	}
-	return kits, d.startGen(en, g)
+	body.Key = &g.KeyGen
+	en := d.nextEntry(body)
+	if err := sign(en); err != nil {
+		return nil, 0, err
+	}
+	return kits, 0, d.startGen(en, g)
 }

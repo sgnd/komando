@@ -119,6 +119,7 @@ type Field struct {
 const (
 	kindRecord   uint8 = 1
 	kindApproval uint8 = 2
+	kindReseal   uint8 = 3 // an own record change sealed again under a newer key generation (Target names it)
 )
 
 // Change is the opened body of a write.
@@ -171,7 +172,7 @@ func parseChange(b []byte) (*Change, error) {
 	if err := d.done(); err != nil {
 		return nil, err
 	}
-	if c.Kind != kindRecord && c.Kind != kindApproval {
+	if c.Kind != kindRecord && c.Kind != kindApproval && c.Kind != kindReseal {
 		return nil, ErrBadWrite
 	}
 	return c, nil

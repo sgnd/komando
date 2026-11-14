@@ -194,6 +194,11 @@ let en = v["list_entry"] as! [String: String]
 check("list entry hash", hx(sum("komando-sync/1 list entry hash", [hex(en["SignedBytes"]!)])) == en["Hash"]!)
 
 let pc = v["pairing_code"] as! [String: String]
-check("pairing code", base32(hex(pc["secret"]!)) == pc["code"]!)
+// The 27th character is the check: each character's value times an odd
+// weight (1, 3, 5, ...), summed mod 32.
+let pc26 = base32(hex(pc["secret"]!))
+var pcSum = 0
+for (i, c) in pc26.enumerated() { pcSum += (2 * i + 1) * crockford.firstIndex(of: c)! }
+check("pairing code", pc26 + String(crockford[pcSum & 31]) == pc["code"]!)
 
 exit(failed ? 1 : 0)

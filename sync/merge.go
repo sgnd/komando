@@ -76,6 +76,12 @@ func appliesItself(typ string, f Field) bool {
 	return false
 }
 
+// stricter is a value that only tightens a rule (SS 8.1), judged from the
+// new value alone. A removal never takes such a value back (SS 6.2).
+func stricter(typ string, f Field) bool {
+	return typ != TypeNote && typ != TypeDevice && appliesItself(typ, f) && f.Name != "note" && f.Name != "description"
+}
+
 // apply takes in one record change that recordFits accepted, so its type
 // is the one fixed in the record ID. Merging is commutative: the same set
 // of writes and approvals gives the same state in any order.

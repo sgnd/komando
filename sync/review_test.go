@@ -203,12 +203,15 @@ func TestReplaceAuthorityNeedsTheDevice(t *testing.T) {
 	must(t, rm.signEntry(d.keys.Authority, RoleAuthority, d.ID(), 0))
 	keep := mustRead(t, w, logList)
 	must(t, w.srv.MemServer.AppendAt(d.ID(), logList, int(rm.Num-1), rm.Marshal()))
-	_, err = c.Sync()
-	wantErr(t, err, ErrYoungDevice)
+	rep, err := c.Sync() // time only delays: C holds the list at the removal
+	must(t, err)
+	if rep.Hold == nil || rep.Hold.Entry != rm.Num || c.List().Members[a.ID()] == nil {
+		t.Fatalf("C did not hold the young device's removal: %+v", rep.Hold)
+	}
 	w.srv.SetLog(logList, keep)
 	// The request cannot be replayed once used: it names the key it replaced.
 	wantErr(t, c.SignInAuthority(req), ErrNotAuthorized)
-	rep, err := a.Sync()
+	rep, err = a.Sync()
 	must(t, err)
 	if !strings.Contains(strings.Join(rep.Alerts, "\n"), "for this device") {
 		t.Fatalf("A not told: %v", rep.Alerts)

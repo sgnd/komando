@@ -7,12 +7,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
 // Joiner is a new device waiting to be let in by a device the account
 // already has (SS 6.3, spec 5.3). It holds a one-time 128-bit secret,
-// shown as a QR code or 26 characters, good for 10 minutes and one try.
+// shown as a QR code or 27 characters, good for 10 minutes and one try.
 type Joiner struct {
 	dev     *Device
 	secret  []byte
@@ -30,7 +31,7 @@ func mailbox(secret []byte) string {
 
 // StartJoin makes the secret and posts the new device's keys and name,
 // sealed under a key from the secret: the AEAD tag is the check code, so
-// the server can neither read nor swap them. It returns the 26 characters.
+// the server can neither read nor swap them. It returns the 27 characters.
 func StartJoin(dev *Device) (*Joiner, string, error) {
 	j := &Joiner{dev: dev, secret: randomBytes(16), created: dev.now()}
 	sigs, err := joinSigs(dev.keys, &dev.rec, 0)
@@ -53,7 +54,39 @@ func StartJoin(dev *Device) (*Joiner, string, error) {
 	if err := dev.srv.Put(dev.id, mailbox(j.secret)+"/req", box); err != nil {
 		return nil, "", err
 	}
-	return j, encode32(j.secret), nil
+	return j, pairCode(j.secret), nil
+}
+
+// pairCode is the secret as 26 characters and one check character (SS
+// 6.3). The 26 characters leave only 2 spare bits, too few to catch a
+// typo. The check is the sum of each character's value times an odd
+// weight, mod 32. An odd weight has an inverse mod 32, so changing any one
+// character, the check included, always changes the sum.
+func pairCode(secret []byte) string {
+	s := encode32(secret)
+	return s + string(alphabet32[pairCheck(s)])
+}
+
+func pairCheck(s string) int {
+	c := 0
+	for i := range len(s) {
+		c += (2*i + 1) * strings.IndexByte(alphabet32, s[i])
+	}
+	return c & 31
+}
+
+// parsePairCode reads a typed code back. A typo is caught here, before
+// anything is read from the server or the one try is used.
+func parsePairCode(code string) ([]byte, error) {
+	s := normalize32(code)
+	if len(s) != 27 || strings.IndexByte(alphabet32, s[26]) != pairCheck(s[:26]) {
+		return nil, ErrPairingTypo
+	}
+	secret, err := decode32(s[:26], 16)
+	if err != nil {
+		return nil, ErrPairingTypo
+	}
+	return secret, nil
 }
 
 type joinRequest struct {
@@ -90,9 +123,9 @@ func (d *Device) AcceptJoin(code string, confirm func(name string) bool) error {
 	if d.keys.Authority == nil {
 		return ErrNoAuthority
 	}
-	secret, err := decode32(code, 16)
+	secret, err := parsePairCode(code)
 	if err != nil {
-		return ErrCheckCode
+		return err
 	}
 	box, err := d.srv.Get(d.id, mailbox(secret)+"/req")
 	if err != nil || len(box) == 0 {
@@ -234,6 +267,9 @@ func (j *Joiner) Finish() (*Device, error) {
 		return nil, err
 	}
 	if err := d.loadKeys(); err != nil {
+		return nil, err
+	}
+	if err := d.computeCuts(); err != nil {
 		return nil, err
 	}
 	if err := d.CheckPeer(sumBytes); err != nil && !errors.Is(err, ErrMissingWrites) {

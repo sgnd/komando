@@ -105,15 +105,18 @@ func TestYoungDeviceCannotRemoveOlder(t *testing.T) {
 	en := b.nextEntry(Body{Action: ActRemove, Removes: b.removals([]DeviceID{a.ID()}), Key: &g.KeyGen})
 	must(t, en.signEntry(b.keys.Authority, RoleAuthority, b.ID(), 0))
 	must(t, w.srv.AppendAt(b.ID(), logList, int(en.Num-1), en.Marshal()))
-	_, err = a.Sync()
-	wantErr(t, err, ErrYoungDevice)
+	rep, err := a.Sync() // time only delays: A holds the list at it
+	must(t, err)
+	if rep.Hold == nil || rep.Hold.Entry != en.Num {
+		t.Fatalf("A did not hold a young device's direct removal: %+v", rep.Hold)
+	}
 	w.srv.SetLog(logList, mustRead(t, w, logList)[:en.Num-1])
 
 	// The young device's way: a removal that waits 7 days, which A sees
 	// and cancels.
 	num, err := b.RemoveLater(a.ID())
 	must(t, err)
-	rep, err := a.Sync()
+	rep, err = a.Sync()
 	must(t, err)
 	if len(rep.Alerts) == 0 {
 		t.Fatal("A was not told about the waiting removal")
@@ -143,10 +146,10 @@ func mustRead(t *testing.T, w *world, log string) [][]byte {
 }
 
 // The 7-day rule is counted on each device's own clock (SS 6.2). A device
-// that was offline sees "added" and "removed" at the same moment and
-// refuses a removal every online device accepted. This test pins that
-// behaviour; sync-prototype.md lists it as a design problem.
-func TestOfflineDeviceRefusesAValidRemoval(t *testing.T) {
+// that was offline sees "added" and "removed" at the same moment. Time
+// only delays, never refuses: it holds the list for its own 7 days and
+// then ends where every other device is.
+func TestOfflineDeviceHoldsAValidRemoval(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
 	b := w.pair(a, "B", true)
@@ -158,8 +161,17 @@ func TestOfflineDeviceRefusesAValidRemoval(t *testing.T) {
 	must(t, d.Remove(b.ID())) // D is 7 days old on its own clock and on A's
 	_, err := a.Sync()
 	must(t, err)
+	rep, err := c.Sync()
+	must(t, err)
+	if rep.Hold == nil || c.List().Members[b.ID()] == nil {
+		t.Fatalf("C did not hold: %+v", rep.Hold)
+	}
+	w.clk.add(WaitYoung)
 	_, err = c.Sync()
-	wantErr(t, err, ErrYoungDevice)
+	must(t, err)
+	if c.List().Members[b.ID()] != nil || c.Head() != a.Head() {
+		t.Fatal("C did not apply the removal after its own wait")
+	}
 }
 
 func TestAuthorityKeyAfterFaceIDChange(t *testing.T) {
@@ -222,10 +234,12 @@ func TestDeviceWithoutAuthorityCannotChangeTheList(t *testing.T) {
 	wantErr(t, err, ErrChainBroken)
 }
 
-// B applied a write of C that A had not seen when A removed C. SS says
-// that write is dropped by everyone; B merges again without it, so A and
-// B end equal.
-func TestRemovalDropsWritesAlreadyApplied(t *testing.T) {
+// B applied a write of C that A had not seen when A removed C. B's signed
+// summary from before the removal covers it, so it counts (SS 6.2,
+// decided 2026-11-14): B keeps it and A reads it too, past the last write
+// A recorded. A server that hides B's summary from before the removal is
+// caught by B's summary from after it.
+func TestRemovalKeepsWritesASummaryCovered(t *testing.T) {
 	w := newWorld(t)
 	a, _ := w.account("A")
 	b := w.pair(a, "B", true)
@@ -233,19 +247,80 @@ func TestRemovalDropsWritesAlreadyApplied(t *testing.T) {
 	w.syncAll(a, b, c)
 	x, err := c.Create(TypeNote, field("text", "C's last word"))
 	must(t, err)
-	_, err = b.Sync() // B applies it
+	_, err = b.Sync() // B applies it and signs a summary covering it
 	must(t, err)
-	if _, ok := b.Get(x); !ok {
-		t.Fatal("setup: B should hold C's note")
-	}
 	must(t, a.Remove(c.ID())) // A never saw it
+	removal := a.Head()
 	rep, err := b.Sync()
 	must(t, err)
-	if _, ok := b.Get(x); ok || rep.Revoked == 0 {
-		t.Fatalf("B kept a write past C's last accepted write (revoked=%d)", rep.Revoked)
+	if _, ok := b.Get(x); !ok || rep.Revoked != 0 {
+		t.Fatalf("B dropped a write it confirmed before the removal (revoked=%d)", rep.Revoked)
 	}
+
+	w.srv.OnRead = func(by DeviceID, log string, items [][]byte) [][]byte {
+		if by != a.ID() || log != logSummaries(b.ID()) {
+			return items
+		}
+		var out [][]byte
+		for _, it := range items {
+			if s, err := ParseSummary(it); err == nil && s.ListNum >= removal {
+				out = append(out, it)
+			}
+		}
+		return out
+	}
+	_, err = a.Sync()
+	wantErr(t, err, ErrMissingWrites)
+	w.srv.OnRead = nil
+
 	w.syncAll(a, b)
-	if a.Records() != b.Records() {
+	if _, ok := a.Get(x); !ok || a.Records() != b.Records() {
 		t.Fatalf("A has %d records, B %d", a.Records(), b.Records())
+	}
+}
+
+// B applied two writes of C that no remaining device confirmed in a
+// summary before the removal: one makes a server protected, which applies
+// by itself, the other is a note. A removal at an older write drops the
+// note and shows it to the person, but never takes the stricter value
+// back (SS 6.2).
+func TestRemovalNeverTakesBackAStricterValue(t *testing.T) {
+	w := newWorld(t)
+	a, _ := w.account("A")
+	b := w.pair(a, "B", true)
+	c := w.pair(a, "C", true)
+	srv, err := a.Create(TypeServer, field("name", "prod-db"), field("address", "10.0.0.5"))
+	must(t, err)
+	w.syncAll(a, b, c)
+	_, err = c.Update(srv, field("protected", "true"))
+	must(t, err)
+	note, err := c.Create(TypeNote, field("text", "after the last confirmed write"))
+	must(t, err)
+	_, err = b.pull() // B applies both, but its summary never reaches the server
+	must(t, err)
+	if value(t, b, srv, "protected") != "true" {
+		t.Fatal("setup: the stricter value did not apply by itself")
+	}
+	must(t, a.Remove(c.ID()))
+	rep, err := b.Sync()
+	must(t, err)
+	if rep.Revoked != 2 {
+		t.Fatalf("revoked %d, want 2", rep.Revoked)
+	}
+	if _, ok := b.Get(note); ok {
+		t.Fatal("B kept a write no summary covered")
+	}
+	if value(t, b, srv, "protected") != "true" {
+		t.Fatal("the removal took a stricter value back")
+	}
+	if got := b.DroppedWrites(); len(got) != 1 || got[0].Seq != c.ownSeq {
+		t.Fatalf("dropped writes shown: %v", got)
+	}
+	if !strings.Contains(strings.Join(rep.Alerts, "\n"), "were not kept") {
+		t.Fatalf("the person was not told: %v", rep.Alerts)
+	}
+	b.ConfirmDropped()
+	if len(b.DroppedWrites()) != 0 {
+		t.Fatal("confirmed writes still shown")
 	}
 }

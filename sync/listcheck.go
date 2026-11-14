@@ -3,6 +3,7 @@ package komandosync
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 )
@@ -26,11 +27,21 @@ type authSpan struct {
 type pendingChange struct {
 	Num       uint32
 	Inner     Body
-	Requester []byte   // the authority key that may apply it
+	Requester []byte   // the key that may apply it: an authority key, or a sync key for a kit step on a device
 	ReqDevice DeviceID // the device asking (for a takeover: the new device)
 	Wait      time.Duration
+	Kit       bool   // the recovery key signed it (SS 6.4)
+	OldAuth   []byte // a new authority key: the key it replaces
 	Done      bool
 	Cancelled bool
+}
+
+// removalInfo is where a device was removed and which devices stayed.
+// Their signed summaries from before that entry decide which of its writes
+// count (SS 6.2).
+type removalInfo struct {
+	At        uint32
+	Remaining []DeviceID
 }
 
 // Hold says the list stops before Entry until this device's own clock
@@ -48,6 +59,7 @@ type ListState struct {
 	HeadHash Hash
 	Members  map[DeviceID]*member
 	Removed  map[DeviceID]Removal
+	RemInfo  map[DeviceID]removalInfo
 	Ever     map[DeviceID]DeviceRecord
 	FirstAt  map[DeviceID]uint32
 	Auth     map[DeviceID][]authSpan
@@ -75,6 +87,7 @@ func newListState() *ListState {
 	return &ListState{
 		Members: map[DeviceID]*member{},
 		Removed: map[DeviceID]Removal{},
+		RemInfo: map[DeviceID]removalInfo{},
 		Ever:    map[DeviceID]DeviceRecord{},
 		FirstAt: map[DeviceID]uint32{},
 		Auth:    map[DeviceID][]authSpan{},
@@ -181,9 +194,11 @@ var shapes = map[Action][2]int{
 
 // innerShapes are the changes a Pending entry may hold.
 var innerShapes = map[Action][2]int{
-	ActTakeover: {fDevices | fRemoves | fKits, fDevices | fRemoves | fKits},
-	ActSetKits:  {fKits, fKits},
-	ActRemove:   {fRemoves, fRemoves},
+	ActTakeover:         {fDevices | fRemoves | fKits, fDevices | fRemoves | fKits},
+	ActSetKits:          {fKits, fKits},
+	ActRemove:           {fRemoves, fRemoves},
+	ActRecoveryStep:     {fKits, fKits | fRemoves},
+	ActReplaceAuthority: {fAuth, fAuth},
 }
 
 // checkShape refuses a body with a field its action does not use, a
@@ -239,8 +254,10 @@ func (st *ListState) apply(en *Entry, cv clockView) (*Hold, error) {
 	case ActSetKits:
 		// Replacing kits needs a current kit's signature: the recovery key
 		// typed (SS 6.4). Without it, only as a pending change (lost kit).
-		_, ok := st.authSigner(en)
-		if !ok || !newKitsSigned(en, b) || (len(st.Kits) > 0 && !st.kitSigned(en)) {
+		// A kit step applies at once only when no other device is listed;
+		// otherwise it is a pending change of 24 hours.
+		signer, ok := st.authSigner(en)
+		if !ok || !newKitsSigned(en, b) || (len(st.Kits) > 0 && (!st.kitSigned(en) || !st.alone(signer))) {
 			return nil, ErrNotAuthorized
 		}
 		return nil, st.applyKits(b)
@@ -251,22 +268,23 @@ func (st *ListState) apply(en *Entry, cv clockView) (*Hold, error) {
 		if !ok {
 			return nil, ErrNotAuthorized
 		}
-		if !st.kitSigned(en) && st.youngActsOnOlder(signer, removed(b.Removes), en.Num, cv) {
-			return nil, ErrYoungDevice
+		if h := st.youngHold(signer, removed(b.Removes), en.Num, cv); h != nil {
+			return h, nil
 		}
-		return nil, st.applyRemoval(b.Removes, b.Key, &signer)
+		return nil, st.applyRemoval(b.Removes, b.Key)
 	case ActReplaceAuthority:
-		return nil, st.applyReplaceAuth(en, b, cv)
+		return st.applyReplaceAuth(en, b, cv)
 	case ActRecoveryStep:
 		// The kit is used on a device already on the list (SS 6.4): that
 		// device's sync key signs too, and it does not remove itself. A kit
 		// alone, on a device that is not listed, only gets the 24-hour
-		// takeover.
-		dev, ok := st.syncSigner(en)
-		if !ok || !st.kitSigned(en) || !newKitsSigned(en, b) || slices.Contains(removed(b.Removes), dev) {
+		// takeover. At once only when no other device is listed; otherwise
+		// it is a pending change of 24 hours.
+		dev, ok := st.recoveryStepBy(en, b)
+		if !ok || !st.alone(dev) {
 			return nil, ErrNotAuthorized
 		}
-		if err := st.applyRemoval(b.Removes, b.Key, nil); err != nil {
+		if err := st.applyRemoval(b.Removes, b.Key); err != nil {
 			return nil, err
 		}
 		st.Kits = b.Kits
@@ -304,10 +322,33 @@ func (st *ListState) applyAdd(en *Entry, b *Body) error {
 }
 
 // applyReplaceAuth signs in a device's new authority key (SS 6.1). The
-// device itself asks, with its sync key, and the new key proves itself;
-// another listed authority key or the kit signs it in. A young signer
-// cannot do this for an older device, as with a removal.
-func (st *ListState) applyReplaceAuth(en *Entry, b *Body, cv clockView) error {
+// device itself asks, with its sync key, and the new key proves itself.
+// Another listed authority key signs it in; a signer listed less than 7
+// days ago does so for an older device only after its wait. The recovery
+// key signs it in at once only when the device is the only one listed;
+// otherwise as a pending change of 24 hours.
+func (st *ListState) applyReplaceAuth(en *Entry, b *Body, cv clockView) (*Hold, error) {
+	if err := st.authAsked(en, b); err != nil {
+		return nil, err
+	}
+	signer, ok := st.authSigner(en)
+	switch {
+	case ok && signer != b.AuthOf:
+		if h := st.youngHold(signer, []DeviceID{b.AuthOf}, en.Num, cv); h != nil {
+			return h, nil
+		}
+	case st.kitSigned(en) && st.alone(b.AuthOf):
+	default:
+		return nil, fmt.Errorf("%w: a new authority key is signed in by another device, or by the kit after 24 hours", ErrNotAuthorized)
+	}
+	st.setAuth(b.AuthOf, b.NewAuth, en.Num)
+	return nil, nil
+}
+
+// authAsked checks the device's own request for a new authority key: its
+// sync key asks, the new key proves itself, and both name the key it
+// replaces.
+func (st *ListState) authAsked(en *Entry, b *Body) error {
 	m := st.Members[b.AuthOf]
 	if m == nil || parsePub(b.NewAuth) == nil {
 		return ErrNotAuthorized
@@ -316,19 +357,32 @@ func (st *ListState) applyReplaceAuth(en *Entry, b *Body, cv clockView) error {
 	if !sigOver(en, RoleAuthAsk, b.AuthOf, m.Rec.SyncPub, msg) || !sigOver(en, RoleAuthProof, b.AuthOf, b.NewAuth, msg) {
 		return fmt.Errorf("%w: the device itself asks for a new authority key", ErrNotAuthorized)
 	}
-	signer, ok := st.authSigner(en)
-	kit := st.kitSigned(en)
-	if (!ok || signer == b.AuthOf) && !kit {
-		return fmt.Errorf("%w: a new authority key is signed in by another device or the kit", ErrNotAuthorized)
-	}
-	if !kit && st.youngActsOnOlder(signer, []DeviceID{b.AuthOf}, en.Num, cv) {
-		return ErrYoungDevice
-	}
-	st.closeAuth(b.AuthOf, en.Num)
-	m.Rec.AuthPub = append([]byte{}, b.NewAuth...)
-	m.AddedAt = en.Num
-	st.Auth[b.AuthOf] = append(st.Auth[b.AuthOf], authSpan{Pub: m.Rec.AuthPub, From: en.Num})
 	return nil
+}
+
+func (st *ListState) setAuth(dev DeviceID, pub []byte, at uint32) {
+	m := st.Members[dev]
+	st.closeAuth(dev, at)
+	m.Rec.AuthPub = append([]byte{}, pub...)
+	m.AddedAt = at
+	st.Auth[dev] = append(st.Auth[dev], authSpan{Pub: m.Rec.AuthPub, From: at})
+}
+
+// recoveryStepBy checks a recovery step's signatures: a current kit, the
+// new kits, and the sync key of the listed device it is used on, which
+// does not remove itself.
+func (st *ListState) recoveryStepBy(en *Entry, b *Body) (DeviceID, bool) {
+	dev, ok := st.syncSigner(en)
+	if !ok || !st.kitSigned(en) || !newKitsSigned(en, b) || slices.Contains(removed(b.Removes), dev) {
+		return DeviceID{}, false
+	}
+	return dev, true
+}
+
+// alone reports whether dev is the only listed device. Only then does a
+// recovery-key step apply at once (SS 6.4).
+func (st *ListState) alone(dev DeviceID) bool {
+	return len(st.Members) == 1 && st.Members[dev] != nil
 }
 
 func (st *ListState) applyPending(en *Entry) error {
@@ -343,16 +397,42 @@ func (st *ListState) applyPending(en *Entry) error {
 		if _, seen := st.Ever[rec.ID()]; seen {
 			return ErrNotAuthorized
 		}
-		p.Requester, p.ReqDevice, p.Wait = rec.AuthPub, rec.ID(), WaitRecovery
+		p.Requester, p.ReqDevice, p.Wait, p.Kit = rec.AuthPub, rec.ID(), WaitRecovery, true
 	case ActSetKits, ActRemove:
 		signer, ok := st.authSigner(en)
 		if !ok || (in.Action == ActSetKits && !newKitsSigned(en, in)) {
 			return ErrNotAuthorized
 		}
 		p.Requester, p.ReqDevice = st.Members[signer].Rec.AuthPub, signer
-		p.Wait = WaitKitLost
-		if in.Action == ActRemove {
+		switch {
+		case in.Action == ActRemove:
 			p.Wait = WaitYoung
+		case st.kitSigned(en): // the recovery key typed: 24 hours
+			p.Wait, p.Kit = WaitRecovery, true
+		default: // a lost kit: 7 days
+			p.Wait = WaitKitLost
+		}
+	case ActRecoveryStep:
+		dev, ok := st.recoveryStepBy(en, in)
+		if !ok {
+			return ErrNotAuthorized
+		}
+		p.Requester, p.ReqDevice, p.Wait, p.Kit = st.Members[dev].Rec.SyncPub, dev, WaitRecovery, true
+	case ActReplaceAuthority:
+		if err := st.authAsked(en, in); err != nil {
+			return err
+		}
+		m := st.Members[in.AuthOf]
+		p.OldAuth = m.Rec.AuthPub
+		if signer, ok := st.authSigner(en); ok && signer != in.AuthOf {
+			// A young signer's sign-in for an older device (SS 6.1).
+			p.Requester, p.ReqDevice, p.Wait = st.Members[signer].Rec.AuthPub, signer, WaitYoung
+		} else if st.kitSigned(en) {
+			// The kit signs; the device that asked applies it with its sync
+			// key: its new authority key signs nothing until then.
+			p.Requester, p.ReqDevice, p.Wait, p.Kit = m.Rec.SyncPub, in.AuthOf, WaitRecovery, true
+		} else {
+			return ErrNotAuthorized
 		}
 	}
 	st.Pending[en.Num] = p
@@ -392,10 +472,24 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 		}
 		rec := in.Devices[0]
 		st.addMember(rec, en.Num)
-		if err := st.applyRemoval(removes, b.Key, nil); err != nil {
+		if err := st.applyRemoval(removes, b.Key); err != nil {
 			return nil, err
 		}
 		st.Kits = in.Kits
+	case ActRecoveryStep:
+		if err := st.applyRemoval(st.stillListed(in.Removes), b.Key); err != nil {
+			return nil, err
+		}
+		st.Kits = in.Kits
+	case ActReplaceAuthority:
+		if b.Key != nil {
+			return nil, fmt.Errorf("%w: a new authority key starts no key generation", ErrChainBroken)
+		}
+		// A key changed again during the wait: the request is stale and
+		// applies as done.
+		if m := st.Members[in.AuthOf]; m != nil && bytes.Equal(m.Rec.AuthPub, p.OldAuth) {
+			st.setAuth(in.AuthOf, in.NewAuth, en.Num)
+		}
 	case ActSetKits:
 		kb := *in
 		kb.Key = b.Key
@@ -411,7 +505,7 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 			}
 			break
 		}
-		if err := st.applyRemoval(rs, b.Key, &p.ReqDevice); err != nil {
+		if err := st.applyRemoval(rs, b.Key); err != nil {
 			return nil, err
 		}
 	}
@@ -447,7 +541,7 @@ func (st *ListState) applyKits(b *Body) error {
 }
 
 // applyRemoval removes devices and starts the next key generation.
-func (st *ListState) applyRemoval(rs []Removal, key *KeyGen, signer *DeviceID) error {
+func (st *ListState) applyRemoval(rs []Removal, key *KeyGen) error {
 	if key == nil || key.Gen != st.Gen.Gen+1 {
 		return fmt.Errorf("%w: a removal starts the next key generation", ErrChainBroken)
 	}
@@ -466,29 +560,35 @@ func (st *ListState) applyRemoval(rs []Removal, key *KeyGen, signer *DeviceID) e
 		st.Removed[r.Device] = r
 		st.closeAuth(r.Device, st.Head+1)
 	}
+	remaining := slices.SortedFunc(maps.Keys(st.Members), func(a, b DeviceID) int { return bytes.Compare(a[:], b[:]) })
+	for _, r := range rs {
+		st.RemInfo[r.Device] = removalInfo{At: st.Head + 1, Remaining: remaining}
+	}
 	st.setGen(*key)
 	return nil
 }
 
-// youngActsOnOlder is the 7-day rule (SS 6.2), on this device's clock:
-// the gap between first seeing the signer's entry (its addition, or its
-// newest authority key) and first seeing this one. A target is older when
-// it was first listed before that entry; a new authority key never makes
-// its device younger in the eyes of others.
-func (st *ListState) youngActsOnOlder(signer DeviceID, targets []DeviceID, at uint32, cv clockView) bool {
+// youngHold is the 7-day rule (SS 6.2), on this device's clock. A signer
+// first seen (its addition, or its newest authority key) less than 7 days
+// ago that acts on an older device holds the list at this entry until 7
+// days have passed: time only delays, never refuses. A target is older
+// when it was first listed before the signer's entry; a new authority key
+// never makes its device younger in the eyes of others.
+func (st *ListState) youngHold(signer DeviceID, targets []DeviceID, at uint32, cv clockView) *Hold {
 	s := st.Members[signer]
 	if s.AddedAt <= cv.trustUpTo || at <= cv.trustUpTo {
-		return false
+		return nil
 	}
-	if cv.seen(at).Sub(cv.seen(s.AddedAt)) >= WaitYoung {
-		return false
+	until := cv.seen(s.AddedAt).Add(WaitYoung)
+	if !cv.now.Before(until) {
+		return nil
 	}
 	for _, t := range targets {
 		if st.Members[t] != nil && t != signer && st.FirstAt[t] < s.AddedAt {
-			return true
+			return &Hold{Entry: at, Until: until, Reason: "a device listed less than 7 days ago acted on an older device without waiting"}
 		}
 	}
-	return false
+	return nil
 }
 
 func removed(rs []Removal) []DeviceID {

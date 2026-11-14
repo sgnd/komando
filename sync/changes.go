@@ -3,6 +3,9 @@ package komandosync
 import (
 	"crypto/rand"
 	"crypto/subtle"
+	"errors"
+	"fmt"
+	"slices"
 )
 
 // Create adds a record. Unless it is a note it waits for a person's yes,
@@ -67,6 +70,11 @@ func (d *Device) change(c *Change) (WriteRef, error) {
 	if !recordFits(d.id, c) {
 		return WriteRef{}, ErrBadWrite
 	}
+	if c.Type == TypeSecret {
+		if err := d.refreshBeforeSecret(); err != nil {
+			return WriteRef{}, err
+		}
+	}
 	w, err := d.write(c)
 	if err != nil {
 		return WriteRef{}, err
@@ -76,6 +84,25 @@ func (d *Device) change(c *Change) (WriteRef, error) {
 		return ref, d.Approve(ref)
 	}
 	return ref, nil
+}
+
+// refreshBeforeSecret refreshes the list before a secret is sealed, so a
+// removal is seen before the secret goes out under the old key (SS 7.1).
+// When the list cannot be read, the person is asked: "could not check for
+// removed devices; save anyway?" (ConfirmUnchecked). A list that reads but
+// fails a check is never saved past.
+func (d *Device) refreshBeforeSecret() error {
+	err := d.refreshList()
+	if err == nil {
+		return d.loadKeys()
+	}
+	if slices.ContainsFunc(protocolErrors, func(e error) bool { return errors.Is(err, e) }) {
+		return err
+	}
+	if d.ConfirmUnchecked != nil && d.ConfirmUnchecked(err) {
+		return nil
+	}
+	return fmt.Errorf("%w: %v", ErrListUnchecked, err)
 }
 
 // Approve signs "a person agreed" to a waiting change with the authority
@@ -130,12 +157,20 @@ func (d *Device) write(c *Change) (*Write, error) {
 // applyChange merges an opened change. An approval counts only when the
 // writer's authority key valid at the write's list entry signed it.
 func (d *Device) applyChange(w *Write, c *Change, rep *Report) {
-	if c.Kind == kindRecord {
+	switch c.Kind {
+	case kindRecord:
 		if !recordFits(w.Writer, c) {
 			rep.Rejected++
 			return
 		}
 		d.data.apply(w.Ref(), c, w.Clock)
+		return
+	case kindReseal:
+		// A copy changes nothing; one that does not match its own
+		// writer's earlier write is refused.
+		if !d.resealMatches(w, c) {
+			rep.Rejected++
+		}
 		return
 	}
 	pub := parsePub(d.list.authKeyAt(w.Writer, w.ListNum))
@@ -144,4 +179,20 @@ func (d *Device) applyChange(w *Write, c *Change, rep *Report) {
 		return
 	}
 	d.data.approve(c.Target)
+}
+
+// resealMatches reports whether a reseal copies an earlier record change
+// of its own writer exactly.
+func (d *Device) resealMatches(w *Write, c *Change) bool {
+	if c.Target.Writer != w.Writer || c.Target.Seq >= w.Seq {
+		return false
+	}
+	for _, s := range d.log {
+		if s.w.Writer == w.Writer && s.w.Seq == c.Target.Seq {
+			orig := *s.c
+			orig.Kind, orig.Target = kindReseal, c.Target
+			return s.c.Kind == kindRecord && s.w.Hash() == c.Target.Hash && slices.Equal(orig.marshal(), c.marshal())
+		}
+	}
+	return false
 }

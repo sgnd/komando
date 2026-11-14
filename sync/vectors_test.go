@@ -119,7 +119,7 @@ func deterministic(t *testing.T) vectors {
 		Body: hx([]byte("body"))}
 	en := Entry{Num: 2, Prev: Hash(seq(200, 32)), Body: Body{Action: ActSetKits, Kits: []KitRecord{r}}}
 	v.Entry = entryVector{hx(en.signedBytes()), hx(func() []byte { h := en.Hash(); return h[:] }())}
-	v.PairingCode = map[string]string{"secret": hx(seq(5, 16)), "code": encode32(seq(5, 16))}
+	v.PairingCode = map[string]string{"secret": hx(seq(5, 16)), "code": pairCode(seq(5, 16))}
 	return v
 }
 

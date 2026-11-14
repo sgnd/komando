@@ -16,6 +16,7 @@ var (
 	ErrRemoved         = errors.New("komandosync: this device was removed from the account")
 	ErrNoKey           = errors.New("komandosync: no account key sealed to this device")
 	ErrKeyMismatch     = errors.New("komandosync: the opened key does not match the key ID in the signed list")
+	ErrPairingTypo     = errors.New("komandosync: the pairing code has a typo")
 	ErrCheckCode       = errors.New("komandosync: pairing check code does not match")
 	ErrPairingExpired  = errors.New("komandosync: pairing request older than 10 minutes")
 	ErrPairingUsed     = errors.New("komandosync: pairing request already used")
@@ -28,4 +29,12 @@ var (
 	ErrNoAuthority     = errors.New("komandosync: this device has no authority key")
 	ErrBadWrite        = errors.New("komandosync: write refused")
 	ErrListConflict    = errors.New("komandosync: another device added a list entry first")
+	ErrListUnchecked   = errors.New("komandosync: could not check for removed devices before sealing a secret")
 )
+
+// protocolErrors are the answers of a check that ran. A list that fails
+// one is never saved past; only a list that could not be read is.
+var protocolErrors = []error{
+	ErrChainBroken, ErrNotAuthorized, ErrAccountMismatch, ErrRollback, ErrFork,
+	ErrRemoved, ErrNoKey, ErrKeyMismatch,
+}

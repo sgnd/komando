@@ -7,16 +7,17 @@ import (
 // Action is what a device-list entry does (SS 6.2).
 type Action uint8
 
-// The actions. A change that must wait (a recovery that adds a device, a
-// young device removing an older one, replacing a lost kit) is a Pending
-// entry holding the change, later followed by an Apply or a Cancel entry.
+// The actions. A change that must wait (a recovery-key step while another
+// device is listed, a young device acting on an older one, replacing a
+// lost kit) is a Pending entry holding the change, later followed by an
+// Apply or a Cancel entry.
 const (
 	ActCreate           Action = 1 + iota // entry 1: first device and account key 1
 	ActSetKits                            // add the first kits, or replace them
 	ActAddDevice                          // a device let in by an authority key
 	ActRemove                             // remove devices, new account key
 	ActReplaceAuthority                   // a device's new authority key, signed by another
-	ActRecoveryStep                       // the kit on a listed device: remove, new key, new kits
+	ActRecoveryStep                       // the kit with a listed device's sync key: remove, new key, new kits
 	ActTakeover                           // the kit on a new device (only inside Pending)
 	ActPending                            // a change that waits
 	ActApply                              // the waited change takes effect; it carries the new key
@@ -35,14 +36,16 @@ func (a Action) String() string {
 // The waits. Each device counts them from the moment it first received the
 // entry itself, on its own clock (SS 6.2 "who counts the days").
 const (
-	WaitRecovery  = 24 * time.Hour     // SS 6.4: a recovery-key step that adds a device
+	WaitRecovery  = 24 * time.Hour     // SS 6.4: a recovery-key step while another device is listed
 	WaitYoung     = 7 * 24 * time.Hour // SS 6.2: the 7-day rule
 	WaitKitLost   = 7 * 24 * time.Hour // SS 6.4: replacing a lost kit without the key
 	PairingWindow = 10 * time.Minute   // spec 5.3
 	MaxKits       = 3                  // spec 5.4
 )
 
-// Removal records a removed device and its last accepted write (SS 6.2).
+// Removal records a removed device and the last write of it the remover
+// had seen. That is the floor, not the cut: writes a remaining device
+// confirmed in a signed summary before the removal count too (SS 6.2).
 type Removal struct {
 	Device   DeviceID
 	LastSeq  uint64

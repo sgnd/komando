@@ -372,12 +372,12 @@ func TestPairingWindowAndOneTry(t *testing.T) {
 	must(t, err)
 	bad := []byte(code2)
 	bad[3] = map[bool]byte{true: 'A', false: 'B'}[bad[3] != 'A']
-	wantErr(t, a.AcceptJoin(string(bad), func(string) bool { return true }), ErrCheckCode)
+	wantErr(t, a.AcceptJoin(string(bad), func(string) bool { return true }), ErrPairingTypo)
 
 	must(t, a.AcceptJoin(code2, func(string) bool { return true }))
 	wantErr(t, a.AcceptJoin(code2, func(string) bool { return true }), ErrCheckCode) // used
-	if len(code2) != 26 {
-		t.Fatalf("code has %d characters, want 26", len(code2))
+	if len(code2) != 27 {
+		t.Fatalf("code has %d characters, want 27", len(code2))
 	}
 	j3, code3, err := StartJoin(w.device("declined", true))
 	must(t, err)

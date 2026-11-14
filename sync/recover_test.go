@@ -166,33 +166,86 @@ func TestRecoveryStepOnListedDevice(t *testing.T) {
 	phone, kit := w.account("iPhone")
 	mini := w.pair(phone, "Mac mini", false)
 	w.syncAll(phone, mini)
-	// The iPhone is lost; the Mac has no Touch ID, so the kit signs.
-	kits, err := mini.RecoveryStep(kit, []DeviceID{phone.ID()}, 3)
+	// The iPhone is lost; the Mac has no Touch ID, so the kit signs. The
+	// iPhone is still listed, so the step waits 24 hours.
+	kits, num, err := mini.RecoveryStep(kit, []DeviceID{phone.ID()}, 3)
 	must(t, err)
+	if num == 0 || len(mini.List().Members) != 2 {
+		t.Fatalf("the step applied at once: pending %d, members %d", num, len(mini.List().Members))
+	}
+	wantErr(t, mini.ApplyPending(num), ErrWaiting)
+	w.clk.add(WaitRecovery + time.Minute)
+	must(t, mini.ApplyPending(num))
 	if len(mini.List().Members) != 1 || len(mini.List().Kits) != 3 {
 		t.Fatalf("members %d kits %d", len(mini.List().Members), len(mini.List().Kits))
 	}
+	// The iPhone saw neither the wait nor the apply: it holds for its own
+	// 24 hours first.
+	rep, err := phone.Sync()
+	must(t, err)
+	if rep.Hold == nil {
+		t.Fatal("the iPhone did not hold")
+	}
+	w.clk.add(WaitRecovery)
 	_, err = phone.Sync()
 	wantErr(t, err, ErrRemoved)
-	_, err = mini.RecoveryStep(kit, nil, 1)
+	_, _, err = mini.RecoveryStep(kit, nil, 1)
 	wantErr(t, err, ErrKitUnknown)
 	for _, k := range kits {
 		_, err = OpenWithKit(w.device("spare", true), k)
 		must(t, err)
+	}
+	// Alone on the list, a recovery step applies at once.
+	more, num, err := mini.RecoveryStep(kits[0], nil, 1)
+	must(t, err)
+	if num != 0 || mini.List().Kits[0].SignPub == nil || mini.List().kitIndex(more[0].Record()) != 0 {
+		t.Fatalf("alone: pending %d", num)
+	}
+}
+
+// A kit step waits while a device with an authority key can still cancel
+// it; the device that cancels asks for new kits at once (SS 6.4).
+func TestKitStepCancelled(t *testing.T) {
+	w := newWorld(t)
+	phone, kit := w.account("iPhone")
+	mini := w.pair(phone, "Mac mini", false)
+	w.syncAll(phone, mini)
+	_, num, err := mini.RecoveryStep(kit, []DeviceID{phone.ID()}, 1)
+	must(t, err)
+	rep, err := phone.Sync()
+	must(t, err)
+	if !strings.Contains(strings.Join(rep.Alerts, "\n"), "recovery key was used") {
+		t.Fatalf("the iPhone was not told: %v", rep.Alerts)
+	}
+	must(t, phone.CancelPending(num))
+	if !phone.KitsAtRisk() {
+		t.Fatal("the cancelling device does not ask for new kits")
+	}
+	w.clk.add(WaitRecovery + time.Minute)
+	_, err = mini.Sync()
+	must(t, err)
+	wantErr(t, mini.ApplyPending(num), ErrCancelled)
+	rep, err = phone.Sync()
+	must(t, err)
+	if !strings.Contains(strings.Join(rep.Alerts, "\n"), "replace the kits now") {
+		t.Fatalf("no alert to replace the kits: %v", rep.Alerts)
 	}
 }
 
 func TestReplaceKits(t *testing.T) {
 	w := newWorld(t)
 	a, kit := w.account("MacBook")
-	_, err := a.ReplaceKits(MaxKits+1, kit)
+	_, _, err := a.ReplaceKits(MaxKits+1, kit)
 	if err == nil {
 		t.Fatal("more than 3 kits")
 	}
-	_, err = a.ReplaceKits(1, nil)
-	wantErr(t, err, ErrNotAuthorized) // the current key must be typed
-	kits, err := a.ReplaceKits(3, kit)
+	_, _, err = a.ReplaceKits(1, nil)
+	wantErr(t, err, ErrNotAuthorized)       // the current key must be typed
+	kits, num, err := a.ReplaceKits(3, kit) // alone on the list: at once
 	must(t, err)
+	if num != 0 {
+		t.Fatalf("alone on the list, the replacement waits (entry %d)", num)
+	}
 	_, err = OpenWithKit(w.device("x", true), kit)
 	wantErr(t, err, ErrKitUnknown)
 	// The old kit cannot read past the replacement either: the current key
@@ -214,6 +267,29 @@ func TestReplaceKits(t *testing.T) {
 	_, err = OpenWithKit(w.device("y", true), kits[0])
 	wantErr(t, err, ErrKitUnknown)
 	_, err = OpenWithKit(w.device("z", true), lost[0])
+	must(t, err)
+
+	// With another device listed, replacing kits with the key waits 24
+	// hours. A direct entry is refused.
+	b := w.pair(a, "iPhone", true)
+	w.syncAll(a, b)
+	g2, err := newGen(a.List().Gen.Gen + 1)
+	must(t, err)
+	nk, recs, err := makeKits(1)
+	must(t, err)
+	en := a.nextEntry(Body{Action: ActSetKits, Kits: recs, Key: &g2.KeyGen})
+	must(t, addNewKitSigs(en, nk))
+	must(t, a.kitSign(en, lost[0]))
+	must(t, en.signEntry(a.keys.Authority, RoleAuthority, a.ID(), 0))
+	wantErr(t, a.appendEntry(en), ErrNotAuthorized)
+	again, num, err := a.ReplaceKits(1, lost[0])
+	must(t, err)
+	wantErr(t, a.ApplyPending(num), ErrWaiting)
+	_, err = b.Sync()
+	must(t, err)
+	w.clk.add(WaitRecovery + time.Minute)
+	must(t, a.ApplyPending(num))
+	_, err = OpenWithKit(w.device("v", true), again[0])
 	must(t, err)
 }
 
