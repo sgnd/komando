@@ -31,9 +31,11 @@ type pendingChange struct {
 	ReqDevice DeviceID // the device asking (for a takeover: the new device)
 	Wait      time.Duration
 	Kit       bool   // the recovery key signed it (SS 6.4)
+	KitPub    []byte // the signing key of the kit that signed it
 	OldAuth   []byte // a new authority key: the key it replaces
 	Done      bool
 	Cancelled bool
+	KitGone   bool // the kit that signed it was replaced first: it never applies
 }
 
 // removalInfo is where a device was removed and which devices stayed.
@@ -287,7 +289,7 @@ func (st *ListState) apply(en *Entry, cv clockView) (*Hold, error) {
 		if err := st.applyRemoval(b.Removes, b.Key); err != nil {
 			return nil, err
 		}
-		st.Kits = b.Kits
+		st.setKits(b.Kits)
 	case ActPending:
 		return nil, st.applyPending(en)
 	case ActApply:
@@ -435,6 +437,9 @@ func (st *ListState) applyPending(en *Entry) error {
 			return ErrNotAuthorized
 		}
 	}
+	if p.Kit {
+		p.KitPub = st.kitSigner(en)
+	}
 	st.Pending[en.Num] = p
 	return nil
 }
@@ -461,6 +466,7 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 	if len(b.Removes) > 0 && in.Action != ActTakeover {
 		return nil, fmt.Errorf("%w: only a takeover's apply names removals", ErrChainBroken)
 	}
+	p.Done = true // before its own kits replace the kit that signed it
 	switch in.Action {
 	case ActTakeover:
 		removes := in.Removes
@@ -475,12 +481,12 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 		if err := st.applyRemoval(removes, b.Key); err != nil {
 			return nil, err
 		}
-		st.Kits = in.Kits
+		st.setKits(in.Kits)
 	case ActRecoveryStep:
 		if err := st.applyRemoval(st.stillListed(in.Removes), b.Key); err != nil {
 			return nil, err
 		}
-		st.Kits = in.Kits
+		st.setKits(in.Kits)
 	case ActReplaceAuthority:
 		if b.Key != nil {
 			return nil, fmt.Errorf("%w: a new authority key starts no key generation", ErrChainBroken)
@@ -509,7 +515,6 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 			return nil, err
 		}
 	}
-	p.Done = true
 	return nil, nil
 }
 
@@ -536,8 +541,22 @@ func (st *ListState) applyKits(b *Body) error {
 	} else if b.Key != nil {
 		return fmt.Errorf("%w: the first kits keep the key", ErrChainBroken)
 	}
-	st.Kits = b.Kits
+	st.setKits(b.Kits)
 	return nil
+}
+
+// setKits replaces the kit set. Every waiting step a replaced kit signed
+// ends with it (SS 6.4: replacing the kits ends the old kit, and its
+// waiting steps too). Otherwise a thief who started two steps with a kit
+// would still hold one after the person replaced the kits.
+func (st *ListState) setKits(kits []KitRecord) {
+	st.Kits = kits
+	for _, p := range st.Pending {
+		if p.Done || !p.Kit || slices.ContainsFunc(kits, func(k KitRecord) bool { return bytes.Equal(k.SignPub, p.KitPub) }) {
+			continue
+		}
+		p.Done, p.KitGone = true, true
+	}
 }
 
 // applyRemoval removes devices and starts the next key generation.
@@ -674,15 +693,19 @@ func (st *ListState) sigBy(en *Entry, role SigRole, dev DeviceID, pub []byte) bo
 }
 
 // kitSigned reports whether a current recovery kit signed the entry.
-func (st *ListState) kitSigned(en *Entry) bool {
+func (st *ListState) kitSigned(en *Entry) bool { return st.kitSigner(en) != nil }
+
+// kitSigner is the signing key of the current kit that signed the entry,
+// or nil.
+func (st *ListState) kitSigner(en *Entry) []byte {
 	msg := en.signedBytes()
 	for _, s := range en.Sigs {
 		if s.Role == RoleKit && int(s.Index) < len(st.Kits) &&
 			verifySig(parsePub(st.Kits[s.Index].SignPub), labelEntry, msg, s.Sig) {
-			return true
+			return st.Kits[s.Index].SignPub
 		}
 	}
-	return false
+	return nil
 }
 
 // joinSigned checks the new device's proofs for b.Devices[0].

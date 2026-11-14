@@ -39,18 +39,22 @@ func (d *Device) Sync() (*Report, error) {
 	if d.kitToType != nil {
 		return nil, ErrKitNotConfirmed
 	}
-	before, beforeGen := d.head, d.list.Gen.Gen
 	rep, err := d.pull()
 	if err != nil {
 		return nil, err
 	}
-	if d.list.Gen.Gen > beforeGen {
-		if rep.Resealed, err = d.reseal(before); err != nil {
+	if d.resealDue {
+		if rep.Resealed, err = d.reseal(d.resealFrom); err != nil {
 			return nil, err
 		}
+		d.resealDue = false
 	}
 	if err := d.publishSummary(); err != nil {
 		return nil, err
+	}
+	before := d.head
+	if d.alertDue {
+		before, d.alertDue = d.alertFrom, false
 	}
 	rep.Alerts = d.alerts(before)
 	if rep.OldKey > 0 {
@@ -60,16 +64,18 @@ func (d *Device) Sync() (*Report, error) {
 }
 
 // reseal is the writer catching up (SS 7.1, decided 2026-11-14): its own
-// writes that name the list entry it held before this sync, sealed under a
-// generation that is now replaced, are written again under the newest
-// generation. A device cannot know when the server got the key change, so
-// "the writes made while it was behind" are taken as those that name the
-// newest entry it held (see finding 33 in sync-prototype.md). A reseal
-// names the write it copies and changes nothing in the merged data.
+// writes that name the list entry it held before another device's key
+// change reached it, or a later one, sealed under a generation that is now
+// replaced, are written again under the newest generation. A device cannot
+// know when the server got the key change, so "the writes made while it
+// was behind" are taken as those that name the newest entry it held (see
+// finding 33 in sync-prototype.md). The list can reach the device outside
+// Sync, so heldHead is kept from that moment (finding 37). A reseal names
+// the write it copies and changes nothing in the merged data.
 func (d *Device) reseal(heldHead uint32) (int, error) {
 	var old []staged
 	for _, s := range d.log {
-		if s.w.Writer == d.id && s.c.Kind == kindRecord && s.w.ListNum == heldHead && s.w.KeyGen < d.list.Gen.Gen {
+		if s.w.Writer == d.id && s.c.Kind == kindRecord && s.w.ListNum >= heldHead && s.w.KeyGen < d.list.Gen.Gen {
 			old = append(old, s)
 		}
 	}
@@ -174,6 +180,14 @@ func (d *Device) computeCuts() error {
 				best = prev
 			case prev.Seq == best.Seq && prev.Hash != best.Hash:
 				return fmt.Errorf("%w: two different writes %d of a removed device", ErrFork, best.Seq)
+			}
+		}
+		// A write this device dropped and showed as not kept is kept
+		// after all: the person is told again (finding 36).
+		for ref := range d.dropped {
+			if ref.Writer == id && ref.Seq <= best.Seq {
+				delete(d.dropped, ref)
+				d.keptAgain[ref] = false
 			}
 		}
 		d.cuts[id] = best
@@ -284,10 +298,28 @@ func (d *Device) DroppedWrites() []WriteRef {
 	return out
 }
 
-// ConfirmDropped records that the person saw the dropped writes.
+// KeptAgain lists the writes of removed devices that were shown as not
+// kept and are now kept, because a signed summary from before the removal
+// covers them, and that the person has not confirmed yet.
+func (d *Device) KeptAgain() []WriteRef {
+	var out []WriteRef
+	for ref, confirmed := range d.keptAgain {
+		if !confirmed {
+			out = append(out, ref)
+		}
+	}
+	slices.SortFunc(out, cmpRef)
+	return out
+}
+
+// ConfirmDropped records that the person saw the dropped writes and the
+// writes kept again.
 func (d *Device) ConfirmDropped() {
 	for ref := range d.dropped {
 		d.dropped[ref] = true
+	}
+	for ref := range d.keptAgain {
+		d.keptAgain[ref] = true
 	}
 }
 
@@ -638,6 +670,9 @@ func (d *Device) alerts(before uint32) []string {
 	}
 	if n := len(d.DroppedWrites()); n > 0 {
 		out = append(out, fmt.Sprintf("%d changes from removed devices were not kept; check them and confirm", n))
+	}
+	if n := len(d.KeptAgain()); n > 0 {
+		out = append(out, fmt.Sprintf("%d changes from removed devices that were shown as not kept are now kept; check them and confirm", n))
 	}
 	if d.kitsAtRisk {
 		out = append(out, "the recovery kit is in someone else's hands: replace the kits now")

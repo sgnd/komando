@@ -26,6 +26,7 @@ var (
 	ErrKitParts        = errors.New("komandosync: no two of these paper parts belong to one kit")
 	ErrWaiting         = errors.New("komandosync: the change is still waiting")
 	ErrCancelled       = errors.New("komandosync: the change was cancelled from another device")
+	ErrKitReplaced     = errors.New("komandosync: the recovery kit that signed this change was replaced, so the change ended")
 	ErrNoAuthority     = errors.New("komandosync: this device has no authority key")
 	ErrBadWrite        = errors.New("komandosync: write refused")
 	ErrListConflict    = errors.New("komandosync: another device added a list entry first")

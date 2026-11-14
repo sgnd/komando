@@ -119,6 +119,8 @@ func (d *Device) ApplyPending(num uint32) error {
 		return fmt.Errorf("%w: nothing waiting at entry %d", ErrChainBroken, num)
 	case p.Cancelled:
 		return ErrCancelled
+	case p.KitGone:
+		return ErrKitReplaced
 	case p.Done:
 		return nil
 	case p.ReqDevice != d.id:

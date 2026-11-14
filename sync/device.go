@@ -37,7 +37,14 @@ type Device struct {
 	kitsAtRisk bool              // this device cancelled a recovery-key step
 	cuts       map[DeviceID]Head // per removed device, its newest write that counts
 	dropped    map[WriteRef]bool // dropped writes of removed devices; true once a person confirmed
+	keptAgain  map[WriteRef]bool // dropped writes a raised cut keeps after all; true once a person confirmed
 	revoked    map[WriteRef]bool // dropped writes already counted in a Report
+
+	// The list can move forward outside Sync (a secret write, a removal,
+	// a pairing). Sync alerts on, and seals again, everything since the
+	// first such move it has not handled yet (SS 6.3, 7.1).
+	alertFrom, resealFrom uint32
+	alertDue, resealDue   bool
 
 	acctKeys  map[uint32][]byte
 	vaultKeys map[uint32][]byte
@@ -69,7 +76,7 @@ func NewDevice(name string, keys *DeviceKeys, srv Server, now func() time.Time) 
 		seen: map[Hash]time.Time{}, answered: map[Hash]bool{}, newest: map[DeviceID]Head{}, sumNum: map[DeviceID]uint64{},
 		acctKeys: map[uint32][]byte{}, vaultKeys: map[uint32][]byte{},
 		applied: map[DeviceID]Head{}, hashes: map[DeviceID][]Hash{}, summaries: map[DeviceID]*Summary{},
-		data: newMergeState(), cuts: map[DeviceID]Head{}, dropped: map[WriteRef]bool{}, revoked: map[WriteRef]bool{},
+		data: newMergeState(), cuts: map[DeviceID]Head{}, dropped: map[WriteRef]bool{}, keptAgain: map[WriteRef]bool{}, revoked: map[WriteRef]bool{},
 	}
 	d.rec = DeviceRecord{SyncPub: pubBytes(keys.Sync.Public()), UnwrapPub: keys.Unwrap.PublicKey()}
 	if keys.Authority != nil {
@@ -208,7 +215,7 @@ func (d *Device) appendEntry(en *Entry) error {
 		return err
 	}
 	d.seen[en.Hash()] = d.now()
-	return d.refreshList()
+	return d.loadList(true)
 }
 
 // readList fetches and parses the list. Each entry's first-seen time is
@@ -246,7 +253,11 @@ func (d *Device) clockView(entries []*Entry) clockView {
 
 // refreshList checks the whole list from entry 1 against what this device
 // remembers: same account, never shorter, never split.
-func (d *Device) refreshList() error {
+func (d *Device) refreshList() error { return d.loadList(false) }
+
+// loadList is refreshList. own says the only new entry is the one this
+// device just added: nothing to alert on or seal again for it.
+func (d *Device) loadList(own bool) error {
 	entries, err := readList(d.srv, d.id, d.seen, d.now())
 	if err != nil {
 		return err
@@ -263,6 +274,14 @@ func (d *Device) refreshList() error {
 	}
 	if d.head > 0 && st.Hashes[d.head-1] != d.headHash {
 		return fmt.Errorf("%w: list entry %d changed", ErrFork, d.head)
+	}
+	if d.joined && d.list != nil && !own {
+		if st.Head > d.head && !d.alertDue {
+			d.alertFrom, d.alertDue = d.head, true
+		}
+		if st.Gen.Gen > d.list.Gen.Gen && !d.resealDue {
+			d.resealFrom, d.resealDue = d.head, true
+		}
 	}
 	d.list, d.head, d.headHash = st, st.Head, st.HeadHash
 	if d.joined && st.Members[d.id] == nil {

@@ -127,18 +127,26 @@ func (r *Recovery) Pending() uint32 { return r.num }
 // passed and nobody cancelled. It returns the new kits.
 func (r *Recovery) Finish() ([]*Kit, error) {
 	d := r.Dev
-	if _, err := d.pull(); err != nil {
+	// The list first: a takeover that ended says so, before the keys a
+	// device that is not listed yet cannot open.
+	if err := d.refreshList(); err != nil {
 		return nil, err
 	}
 	p := d.list.Pending[r.num]
 	if p == nil {
 		return nil, fmt.Errorf("%w: the takeover is not on the list", ErrChainBroken)
 	}
-	if p.Cancelled {
+	switch {
+	case p.Cancelled:
 		return nil, ErrCancelled
+	case p.KitGone:
+		return nil, ErrKitReplaced
 	}
 	if until := d.seen[d.list.Hashes[r.num-1]].Add(WaitRecovery); d.now().Before(until) {
 		return nil, fmt.Errorf("%w: until %s", ErrWaiting, until.Format(time.RFC3339))
+	}
+	if _, err := d.pull(); err != nil {
+		return nil, err
 	}
 	// Writes the old devices made during the wait are kept: the apply
 	// names their newest writes. The new key is made now.

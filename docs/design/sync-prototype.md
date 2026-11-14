@@ -17,7 +17,7 @@ the text could not be built as written.
 
 **Go for the core of the design, and for SS as now written in sections 6
 to 9. No-go for freezing the format until the points still open in SS 21
-and findings 31 to 33 below are settled and tested here again.**
+and findings 31 to 36 below are settled and tested here again.**
 
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
@@ -84,6 +84,10 @@ Still open before the format is frozen:
   for 7 days (finding 31); "never take back a stricter value" and "never
   drop an approval" can leave devices different (finding 32); SS does not
   say which writes the writer seals again (finding 33).
+- From the third review: a held or backdated summary raises the cut of a
+  removed device and brings in its approvals (finding 35, the most
+  serious); approvals among writes kept again (finding 36). Findings 34
+  and 37 are fixed in code.
 
 ## What was built
 
@@ -178,8 +182,8 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`cd sync && go test -race ./...`: 97 tests and subtests pass, 0
-fail (62 top-level tests); statement coverage 86.6%. All table-driven where
+`cd sync && go test -race ./...`: 101 tests and subtests pass, 0
+fail (66 top-level tests); statement coverage 86.9%. All table-driven where
 there is a table.
 
 | Hostile server does this | The device reports |
@@ -729,7 +733,8 @@ writes again". A device cannot know when the server received the key
 change it hid, so it cannot tell its writes made before the removal from
 those made after. The prototype seals again its own record writes that
 are under a replaced generation and name the list entry it held just
-before it caught up: the writes made while its view was frozen. A server
+before the key change reached it, or a later one: the writes made while
+its view was frozen (finding 37). A server
 that hid more than one entry can leave older writes out. Sealing again
 also takes nothing back: the old sealed copy stays on the server, where
 the removed device can open it. It only puts the newest copy under the
@@ -751,6 +756,115 @@ to the snapshot (finding 9).**
   from the prototype's own code.
 - **Hostile server** now has write hooks, so tests can model a server that
   ignores a delete or keeps a fork.
+
+## Findings of the third review (2026-11-14)
+
+A third review attacked the prototype as updated for the owner's
+decisions. Three faults were in the code and are fixed, each with a test
+that fails without the fix. One is a design problem in SS 6.2 and is
+recorded here with a recommendation; SS is not changed. Tests are in
+`review3_test.go`.
+
+### 34. Wrong: a step signed by a replaced kit still applied (fixed in code)
+
+A thief with a kit, alone or with a stolen Mac without Touch ID, starts
+two kit steps: two takeovers, or two recovery steps that remove the
+iPhone. The iPhone cancels one. That sets "replace the kits now", and the
+person replaces the kits. The second step was still waiting, and after its
+24 hours it applied: the iPhone was removed and the thief's new kits
+replaced the person's. The kit's signature was checked only when the
+pending entry was added, never again when it applied. SS 6.4 says
+replacing the kits ends the old kit.
+
+The pending change now records the signing key of the kit that signed it.
+When the kits are replaced (a kit change, a recovery step or a takeover),
+every waiting step a replaced kit signed ends: it is done, never applies,
+and is no longer shown as an alert. An apply entry for it is refused by
+every device (`ErrChainBroken`). `ApplyPending` and `Recovery.Finish`
+report `ErrKitReplaced`. Tests: `TestReplacedKitEndsItsTakeover`,
+`TestReplacedKitEndsItsRecoveryStep`. **Say in SS 6.4: replacing the kits
+also ends every waiting step the old kit signed.**
+
+### 35. Wrong: a held or backdated summary raises the cut of a removed device
+
+SS 6.2 (finding 26) keeps a removed device's writes up to the newest write
+that any remaining device covered in a signed summary naming a list entry
+from before the removal. A summary's list entry is chosen by whoever holds
+the signer's sync key, and a device the server holds back honestly names
+an old entry. Two cases, both reproduced:
+
+- **Hostile server.** A removes iPad X. The server keeps the Mac mini M on
+  the list from before the removal. X, which has an authority key, changes
+  prod-db's address and approves it itself. M applies both and signs a
+  summary naming the old entry. Every device then raises X's cut and
+  applies the change. The only alert is "sealed under a key from before a
+  removal".
+- **Honest server, stolen sync key.** The thief holds the stolen Mac's sync
+  key and the removed iPad. A removes both. A summary signed with the
+  Mac's sync key, naming the entry from before the removals and covering
+  the iPad's new writes, is still counted, because a removed signer still
+  counts. One sync key, the key with no Face ID prompt, brings in a
+  removed authority device's approvals.
+
+This breaks SS 4 ("a removed device must not be able to write anything
+after removal") and, through the approvals, SS 8.1.
+
+**Recommended:**
+
+- A summary cannot raise the cut by itself for anything that needs a
+  person. Past the last write the removal records, keep only writes that
+  apply by themselves (plain record changes that need no yes, and
+  stricter values). Drop the removed device's approvals and waiting
+  changes past that point on every device, and show them to the person
+  for a fresh yes. This rule depends only on the list, so every device
+  does the same.
+- Count only summaries whose signer is still listed.
+- Refuse a summary log whose list entry goes down as its number goes up.
+- Say in SS 4 and 6.2 that a server holding a remaining device back can
+  extend which writes of a removed device count, as SS 7.1 already says
+  for the old key, and show every write kept past the recorded last write
+  as "kept from a removed device after it was removed".
+
+The stronger choice, counting a summary only when its signer's next
+summary names the removal and covers no more writes, stops the cut from
+growing while a device is held, but needs that device to sync again.
+
+### 36. Wrong: a dropped write the person confirmed came back silently (fixed in code, approvals open)
+
+A removes X. X's late change and its approval are dropped, the alert says
+"2 changes from removed devices were not kept", and the person confirms.
+Later a summary raises X's cut (case 35). The writes then applied, and
+`DroppedWrites` stopped listing them, with no word to the person.
+
+Now a raised cut moves such writes from "not kept" to "kept again".
+`KeptAgain` lists them until the person calls `ConfirmDropped`, and every
+sync alerts: "N changes from removed devices that were shown as not kept
+are now kept; check them and confirm". The writes still apply on every
+device, so devices stay the same; holding them back on one device only
+would split them (a later summary of another device covers them).
+Test: `TestKeptAgainIsShown`. Approvals among them still apply; keeping
+them out needs the rule recommended in finding 35.
+
+### 37. Gap: a list refresh outside Sync lost alerts and resealing (fixed in code)
+
+Sync took "what is new" from the list entry it held when it started. Many
+other calls already move the list forward: a secret write refreshes it
+(SS 7.1), and so do removals, pairings and waiting changes. After such a
+move, Sync showed no "A new device was added" (SS 6.3) or new authority
+key alert (SS 6.1), and did not seal again the writes made while behind
+(SS 7.1).
+
+The device now remembers the list entry it held before the first move it
+has not handled yet, one for alerts and one for resealing, and Sync works
+from those. Its own new entries do not count. Resealing now takes the own
+writes under a replaced generation that name that entry or a later one.
+Test: `TestListRefreshOutsideSyncStillAlertsAndReseals`.
+
+### 38. SS 21 was out of date
+
+SS 21 still said the prototype drops everything after the recorded last
+write. It now says the rule is built, and lists findings 31 to 36 with
+their recommendations.
 
 ## Limits of this prototype
 
