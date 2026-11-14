@@ -7,6 +7,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Fixed
+
+- A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
+
 ## [0.14.0] - 2026-11-14
 
 ### Highlights

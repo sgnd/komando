@@ -152,6 +152,12 @@ func splitExitMarker(s string) (string, int) {
 	return strings.TrimRight(s[:i], "\n"), code
 }
 
+// dockerMissing is a shell or sudo saying docker is not installed: bash
+// says "docker: command not found", zsh "command not found: docker",
+// dash and busybox "docker: not found", sudo "sudo: docker: command not
+// found", and komando's own preamble "komando: docker not found".
+var dockerMissing = regexp.MustCompile(`(?im)^(\S+: )*(line \d+: )?docker: (command )?not found$|command not found: docker$|^komando: docker not found$`)
+
 var dockerNotFound = regexp.MustCompile(`(?i)no such (container|service|object|image|node|task|network|volume|secret|config)|(service|node|task|stack) .* not found|nothing found in stack`)
 
 // runDocker runs a docker command on servers and turns a docker failure
@@ -202,7 +208,7 @@ func dockerErr(msg string, code int) *out.Error {
 	}
 	msg = strings.Join(lines, "\n")
 	switch {
-	case msg == "" && code == 127:
+	case (msg == "" && code == 127) || dockerMissing.MatchString(msg):
 		return out.Errf(out.ExitNotFound, "DOCKER_MISSING", "install Docker on the server, or pick another server", "docker not found")
 	case dockerNotFound.MatchString(msg):
 		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando docker ps TARGET --all` or `komando cluster list TARGET services`", "%s", firstLine(msg)).About("docker_object")
