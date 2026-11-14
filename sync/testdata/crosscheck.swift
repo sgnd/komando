@@ -317,8 +317,9 @@ check("write hash", hx(sum("komando-sync/1 write hash", [wvSigned])) == S(wv, "H
 
 // A snapshot's state: records sorted by ID, a deleted one keeps only its
 // name; waiting changes by write; yeses only past the heads, by write and
-// record; then waiting changes a yes set aside, while they wait or are
-// past the heads, by write and type.
+// record, each with its type, the holders it deletes (sorted) and the
+// waiting changes it sets aside (by write); then waiting changes a yes
+// set aside, while they wait or are past the heads, by write and type.
 let st = v["snapshot_state"] as! Obj
 var stHeads: [String: Int] = [:]
 for h in st["Heads"] as! [Obj] { stHeads[S(h, "Device")] = I(h, "Seq") }
@@ -341,7 +342,11 @@ let aps = (st["Approved"] as! [Obj]).filter(pastHeads).sorted {
     byRef($0, $1) || (!byRef($1, $0) && H($0, "Record").lexicographicallyPrecedes(H($1, "Record")))
 }
 stBytes += u32(aps.count)
-for a in aps { stBytes += cat([ref(a), H(a, "Record")]) }
+for a in aps {
+    let reps = (a["Replaces"] as! [String]).map(hex).sorted { $0.lexicographicallyPrecedes($1) }
+    let wds = (a["Withdraws"] as! [Obj]).sorted(by: byRef)
+    stBytes += cat([ref(a), H(a, "Record"), str(S(a, "Type")), u32(reps.count)] + reps + [u32(wds.count)] + wds.map { ref($0) })
+}
 let waits = Set(wts.map { hx(ref($0)) })
 let wds = (st["Withdrawn"] as! [Obj]).filter { pastHeads($0) || waits.contains(hx(ref($0))) }.sorted {
     byRef($0, $1) || (!byRef($1, $0) && S($0, "Type").utf8.lexicographicallyPrecedes(S($1, "Type").utf8))

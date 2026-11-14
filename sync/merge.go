@@ -49,9 +49,31 @@ type waiting struct {
 type mergeState struct {
 	records   map[RecordID]*record
 	waiting   map[WriteRef]*waiting
-	approved  map[approval]bool   // each verified yes: the write and the record it names
-	withdrawn map[withdrawal]bool // waiting changes a yes set aside, by the type of its record
+	approved  map[approval]bool     // each verified yes: the write and the record it names
+	withdrawn map[withdrawal]bool   // waiting changes a yes set aside, by the type of its record
+	pending   map[approval]*yesActs // what a yes deletes and sets aside, until its change arrives
+	heads     map[DeviceID]uint64   // the newest write of each device merged here
 	markers   map[RecordID]WriteRef
+}
+
+// yesActs is what a yes deletes and sets aside: the old holders of the
+// name it lists (Replaces) and the other waiting changes for that name
+// (Withdraws), for a record of Type. Several yeses for one change and
+// record act as the union of what they list.
+type yesActs struct {
+	Type      string
+	Replaces  []RecordID // sorted
+	Withdraws []WriteRef // sorted
+}
+
+// add takes in what one more yes lists.
+func (y *yesActs) add(replaces []RecordID, withdraws []WriteRef) {
+	y.Replaces = slices.Concat(y.Replaces, replaces)
+	slices.SortFunc(y.Replaces, cmpRecord)
+	y.Replaces = slices.Compact(y.Replaces)
+	y.Withdraws = slices.Concat(y.Withdraws, withdraws)
+	slices.SortFunc(y.Withdraws, cmpRef)
+	y.Withdraws = slices.Compact(y.Withdraws)
 }
 
 // approval is one yes as the merge keeps it: a change applies only when a
@@ -75,6 +97,8 @@ func newMergeState() *mergeState {
 		waiting:   map[WriteRef]*waiting{},
 		approved:  map[approval]bool{},
 		withdrawn: map[withdrawal]bool{},
+		pending:   map[approval]*yesActs{},
+		heads:     map[DeviceID]uint64{},
 		markers:   map[RecordID]WriteRef{},
 	}
 }
@@ -160,30 +184,77 @@ func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
 // type typ, and applies the change if it is here. The same yes deletes
 // the old holders of the name it lists (replaces: agreed records and
 // deletion markers, decided by the owner 2026-11-14) and sets aside the
-// waiting changes for that name it lists (withdraws, finding 69). Both
-// are read from the yes alone, never from the state the yes arrives in,
-// so a yes has the same effect whether its change is waiting, applied,
-// not here yet or inside a snapshot (finding 67), and the result never
-// depends on arrival order. A yes deletes only old holders of its own
-// record's type: never a device's own record, which no write deletes,
-// nor a record of another type a modified client named (SS 8.1).
+// waiting changes for that name it lists (withdraws, finding 69). What it
+// deletes and sets aside is read from the yes alone, never from the state
+// the yes arrives in, so it is the same whether its change waits, has
+// applied or lies inside a snapshot (finding 67). It acts once its change
+// has arrived and counts, never before: a change that never counts, such
+// as a removed device's waiting change past its floor, takes nothing away
+// (SS 6.2, 8.1; finding 70). So the result never depends on arrival
+// order. A yes deletes only old holders of its own record's type: never a
+// device's own record, which no write deletes, nor a record of another
+// type a modified client named (SS 8.1).
 func (m *mergeState) approve(ref WriteRef, record RecordID, typ string, replaces []RecordID, withdraws []WriteRef) {
-	m.approved[approval{ref, record}] = true
-	if namesHeld(typ) {
-		for _, id := range replaces {
-			if id != record && hasType(id, typ) {
-				m.markDeleted(id, ref)
-			}
+	ap := approval{ref, record}
+	m.approved[ap] = true
+	if ref.Seq <= m.heads[ref.Writer] {
+		m.act(ref, record, &yesActs{Type: typ, Replaces: replaces, Withdraws: withdraws})
+	} else {
+		y := m.pending[ap]
+		if y == nil {
+			y = &yesActs{Type: typ}
+			m.pending[ap] = y
 		}
-		for _, r := range withdraws {
-			if r != ref {
-				m.withdrawn[withdrawal{r, typ}] = true
-			}
-		}
+		y.add(replaces, withdraws)
 	}
 	if w := m.waiting[ref]; w != nil && w.Record == record {
 		delete(m.waiting, ref)
 		m.applyWaiting(w)
+	}
+}
+
+// arrive records that write ref has been merged here. When its change
+// counts, the yeses that waited for it act now.
+func (m *mergeState) arrive(ref WriteRef, counts bool) {
+	m.heads[ref.Writer] = max(m.heads[ref.Writer], ref.Seq)
+	if !counts {
+		return
+	}
+	for ap, y := range m.pending {
+		if ap.Ref.Writer == ref.Writer && ap.Ref.Seq == ref.Seq {
+			delete(m.pending, ap)
+			m.act(ap.Ref, ap.Record, y)
+		}
+	}
+}
+
+// forgetYesesPast drops the yeses still waiting for a write of writer
+// after seq: a removed device's waiting change past its floor never
+// counts, so its yes never acts (SS 6.2).
+func (m *mergeState) forgetYesesPast(writer DeviceID, seq uint64) {
+	for ap := range m.pending {
+		if ap.Ref.Writer == writer && ap.Ref.Seq > seq {
+			delete(m.pending, ap)
+			delete(m.approved, ap)
+		}
+	}
+}
+
+// act deletes the old holders a yes for write ref and record lists, never
+// that record itself, and sets aside the waiting changes it lists.
+func (m *mergeState) act(ref WriteRef, record RecordID, y *yesActs) {
+	if !namesHeld(y.Type) {
+		return
+	}
+	for _, id := range y.Replaces {
+		if id != record && hasType(id, y.Type) {
+			m.markDeleted(id, ref)
+		}
+	}
+	for _, r := range y.Withdraws {
+		if r != ref {
+			m.withdrawn[withdrawal{r, y.Type}] = true
+		}
 	}
 }
 
@@ -320,18 +391,22 @@ func namesHeld(typ string) bool {
 func hasType(id RecordID, typ string) bool { return recordID(typ, [12]byte(id[:12])) == id }
 
 // nameHolders lists who else of the same type holds the name (SS 8.1):
-// the agreed or deleted records whose name it is, sorted, and the
-// waiting changes that set it and are still asked about, sorted. A
-// record in the first list is not repeated in the second. Names are held
-// per type: a server and a note, or a server and a device, may share
-// one.
+// the agreed records and deletion markers whose name it is, sorted, and
+// the waiting changes for it that are still asked about, sorted. A yes
+// deletes the first and sets aside the second. A waiting change holds
+// the name when it sets it, or when it creates a record whose name
+// already is it (an approved rename of a record whose creation still
+// waits): that record was never agreed, so it is set aside, never deleted
+// (findings 69 and 71). A record in the first list is not
+// repeated in the second. Names are held per type: a server and a note,
+// or a server and a device, may share one.
 func (m *mergeState) nameHolders(name string, self RecordID, typ string) ([]RecordID, []WriteRef) {
 	if !namesHeld(typ) {
 		return nil, nil
 	}
 	held := map[RecordID]bool{}
 	for id, r := range m.records {
-		if id != self && r.Fields["name"].Value == name && hasType(id, typ) {
+		if id != self && (r.Exists || r.Deleted) && r.Fields["name"].Value == name && hasType(id, typ) {
 			held[id] = true
 		}
 	}
@@ -340,10 +415,12 @@ func (m *mergeState) nameHolders(name string, self RecordID, typ string) ([]Reco
 		if w.Record == self || held[w.Record] || !hasType(w.Record, typ) || m.withdrawn[withdrawal{ref, w.Type}] {
 			continue
 		}
-		if r := m.records[w.Record]; r != nil && r.Deleted {
+		r := m.records[w.Record]
+		if r != nil && r.Deleted {
 			continue
 		}
-		if slices.ContainsFunc(w.Fields, func(f Field) bool { return f.Name == "name" && f.Value == name }) {
+		named := r != nil && w.Create && r.Fields["name"].Value == name
+		if named || slices.ContainsFunc(w.Fields, func(f Field) bool { return f.Name == "name" && f.Value == name }) {
 			claims = append(claims, ref)
 		}
 	}

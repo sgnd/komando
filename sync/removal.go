@@ -212,6 +212,7 @@ func (d *Device) dropRevoked(rep *Report) error {
 		again = true
 	}
 	if !again {
+		d.forgetDroppedYeses(d.data) // yeses read before the removal, whose change never came
 		return nil
 	}
 	old, held := d.log, d.data

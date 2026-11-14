@@ -249,7 +249,7 @@ func TestAYesActsOnlyForTheRecordItNames(t *testing.T) {
 	}
 	for _, yesFirst := range []bool{false, true} {
 		m := newMergeState()
-		m.apply(ref(1), create(s1, TypeServer), HLC{Wall: 1})
+		merged(m, ref(1), create(s1, TypeServer), HLC{Wall: 1})
 		m.approve(ref(1), s1, TypeServer, nil, nil)
 		yeses := func() {
 			m.approve(ref(2), s3, TypeServer, nil, nil)                            // names another record
@@ -258,9 +258,9 @@ func TestAYesActsOnlyForTheRecordItNames(t *testing.T) {
 		if yesFirst {
 			yeses()
 		}
-		m.apply(ref(2), create(s2, TypeServer), HLC{Wall: 2})
-		m.apply(ref(3), create(s3, TypeServer), HLC{Wall: 3})
-		m.apply(ref(4), create(sec, TypeSecret), HLC{Wall: 4})
+		merged(m, ref(2), create(s2, TypeServer), HLC{Wall: 2})
+		merged(m, ref(3), create(s3, TypeServer), HLC{Wall: 3})
+		merged(m, ref(4), create(sec, TypeSecret), HLC{Wall: 4})
 		if !yesFirst {
 			yeses()
 		}

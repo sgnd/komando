@@ -406,8 +406,24 @@ func headOf(s *Summary, dev DeviceID) Head {
 // baseData is a fresh merge state to merge every write again on: the
 // state of the snapshot this device builds on, or empty.
 func (d *Device) baseData() *mergeState {
-	if d.base == nil {
-		return newMergeState()
+	m := newMergeState()
+	if d.base != nil {
+		m = d.base.clone()
 	}
-	return d.base.clone()
+	for id, h := range d.baseHeads {
+		m.heads[id] = h.Seq
+	}
+	d.forgetDroppedYeses(m)
+	return m
+}
+
+// forgetDroppedYeses drops from m the yeses that wait for a removed
+// device's write past its floor: that change never counts (SS 6.2).
+func (d *Device) forgetDroppedYeses(m *mergeState) {
+	if d.list == nil {
+		return
+	}
+	for id := range d.list.Removed {
+		m.forgetYesesPast(id, d.floorOf(id).Seq)
+	}
 }

@@ -1,6 +1,7 @@
 package komandosync
 
 import (
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -87,12 +88,12 @@ func TestLateApprovalAddsAHolderInAnyOrder(t *testing.T) {
 	base := func(m *mergeState) *mergeState {
 		for i, s := range []RecordID{s1, s3} {
 			r := ref(byte(10 + i))
-			m.apply(r, create(s, "10.0.0.5"), HLC{Wall: 1})
+			merged(m, r, create(s, "10.0.0.5"), HLC{Wall: 1})
 			m.approve(r, s, TypeServer, nil, nil)
 		}
 		return m
 	}
-	write := func(m *mergeState) *mergeState { m.apply(ref(2), create(s2, "10.0.0.6"), HLC{Wall: 2}); return m }
+	write := func(m *mergeState) *mergeState { merged(m, ref(2), create(s2, "10.0.0.6"), HLC{Wall: 2}); return m }
 	yesA := func(m *mergeState) *mergeState { m.approve(ref(2), s2, TypeServer, []RecordID{s1, s3}, nil); return m }
 	yesB := func(m *mergeState) *mergeState { m.approve(ref(2), s2, TypeServer, []RecordID{s1}, nil); return m }
 	heads := map[DeviceID]Head{}
@@ -100,8 +101,13 @@ func TestLateApprovalAddsAHolderInAnyOrder(t *testing.T) {
 		heads[DeviceID{b}] = Head{Seq: 1}
 	}
 	snap := func(m *mergeState) *mergeState {
-		out, err := decodeState(m.encode(heads))
+		at := map[DeviceID]Head{} // a snapshot holds the writes merged so far
+		for id, n := range m.heads {
+			at[id] = Head{Device: id, Seq: n}
+		}
+		out, err := decodeState(m.encode(at))
 		must(t, err)
+		maps.Copy(out.heads, m.heads) // as Device.baseData does
 		return out
 	}
 	orders := [][]step{

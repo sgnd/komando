@@ -157,11 +157,24 @@ type stateWaiting struct {
 	Dev            string
 }
 
+// stateApproved is a yes whose change is not among the writes yet:
+// the record it names, its type, and what it deletes (Replaces) and sets
+// aside (Withdraws) once its change arrives. Both lists are given in
+// another order than the bytes: the reader sorts.
 type stateApproved struct {
+	Writer    string
+	Seq       uint64
+	Hash      string
+	Record    string
+	Type      string
+	Replaces  []string
+	Withdraws []stateRef
+}
+
+type stateRef struct {
 	Writer string
 	Seq    uint64
 	Hash   string
-	Record string
 }
 
 type stateWithdrawn struct {
@@ -222,7 +235,8 @@ func layouts(v *vectors) {
 		hx(w.Body.CT), hx(w.header()), hx(w.signedBytes()), hx(wh[:])}
 
 	// A live server, its deleted old holder, a waiting edit, two yeses for
-	// a write past the heads, one at the heads (left out), and waiting
+	// a write past the heads (one that deletes two holders and sets two
+	// waiting changes aside), one at the heads (left out), and waiting
 	// changes a yes set aside: one that waits here, one past the heads and
 	// one at the heads that no longer waits (left out).
 	srv, old := recordID(TypeServer, [12]byte(seq(1, 12))), recordID(TypeServer, [12]byte(seq(20, 12)))
@@ -235,9 +249,16 @@ func layouts(v *vectors) {
 		"name": {"prod-db", clk}, "address": {"10.0.0.6", HLC{Wall: 1_700_000_000_500, Count: 0, Dev: dev2}}}}
 	m.waiting[ref(dev2, 3, 140)] = &waiting{Ref: ref(dev2, 3, 140), Record: srv, Type: TypeServer,
 		Fields: []Field{{"address", "203.0.113.9"}}, Clock: HLC{Wall: 1_700_000_001_000, Count: 2, Dev: dev2}}
-	m.approved[approval{ref(dev2, 4, 160), srv}] = true
-	m.approved[approval{ref(dev2, 4, 160), old}] = true
-	m.approved[approval{ref(dev, 6, 120), srv}] = true
+	gone2 := recordID(TypeServer, [12]byte(seq(40, 12)))
+	for ap, y := range map[approval]*yesActs{
+		{ref(dev2, 4, 160), srv}: {Type: TypeServer, Replaces: []RecordID{old, gone2},
+			Withdraws: []WriteRef{ref(dev2, 3, 140), ref(dev, 5, 110)}},
+		{ref(dev2, 4, 160), old}: {Type: TypeServer},
+		{ref(dev, 6, 120), srv}:  {Type: TypeServer, Replaces: []RecordID{old}},
+	} {
+		y.add(nil, nil) // sorted, as merging keeps them
+		m.approved[ap], m.pending[ap] = true, y
+	}
 	m.withdrawn[withdrawal{ref(dev2, 3, 140), TypeServer}] = true
 	m.withdrawn[withdrawal{ref(dev2, 5, 190), TypeSecret}] = true
 	m.withdrawn[withdrawal{ref(dev, 5, 110), TypeServer}] = true
@@ -262,10 +283,12 @@ func layouts(v *vectors) {
 	wt := m.waiting[ref(dev2, 3, 140)]
 	st.Waiting = []stateWaiting{{hx(dev2[:]), 3, hx(seq(140, 32)), hx(srv[:]), TypeServer, false, false,
 		pairs(wt.Fields), wt.Clock.Wall, wt.Clock.Count, hx(wt.Clock.Dev[:])}}
+	sr := func(r WriteRef) stateRef { return stateRef{hx(r.Writer[:]), r.Seq, hx(r.Hash[:])} }
 	st.Approved = []stateApproved{
-		{hx(dev2[:]), 4, hx(seq(160, 32)), hx(srv[:])},
-		{hx(dev[:]), 6, hx(seq(120, 32)), hx(srv[:])},
-		{hx(dev2[:]), 4, hx(seq(160, 32)), hx(old[:])},
+		{hx(dev2[:]), 4, hx(seq(160, 32)), hx(srv[:]), TypeServer, []string{hx(gone2[:]), hx(old[:])},
+			[]stateRef{sr(ref(dev, 5, 110)), sr(ref(dev2, 3, 140))}},
+		{hx(dev[:]), 6, hx(seq(120, 32)), hx(srv[:]), TypeServer, []string{hx(old[:])}, []stateRef{}},
+		{hx(dev2[:]), 4, hx(seq(160, 32)), hx(old[:]), TypeServer, []string{}, []stateRef{}},
 	}
 	st.Withdrawn = []stateWithdrawn{
 		{hx(dev2[:]), 5, hx(seq(190, 32)), TypeSecret},

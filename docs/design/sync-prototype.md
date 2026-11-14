@@ -48,6 +48,17 @@ still waits for the same name instead of deleting it, so both stay and
 show as "waiting: name taken" (finding 61's rule). Each is fixed with a
 test that fails without the fix, and written into SS 7.2, 8.1 and 9.
 
+Round 2 of that review (findings 70 to 72) found that the finding 67
+fix let a yes delete the holders it named even when its change never
+applied: a removed device's newcomer, dropped past its floor, still had
+another device's yes delete the record it meant to replace, for good.
+It also found that a record whose creation still waited was deleted
+rather than set aside. **Fixed: a yes acts once its change has arrived
+and counts; a yes for a dropped change takes nothing away; a record
+whose creation waits is set aside.** Each has a test that fails without
+its fix, and SS 6.2, 8.1, 9 and 21 say so. The one confirmation above
+is still open.
+
 The core holds. Two and three devices sync end to end. The server never
 holds a plaintext or a key. Every attack of a lying server is caught: it
 drops, reorders, replays, rolls back, forks and swaps, and each ends in a
@@ -312,8 +323,8 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`cd sync && go test -race ./...`: 136 tests and subtests pass, 0
-fail (98 top-level tests); statement coverage 88.4%. The same run passes
+`cd sync && go test -race ./...`: 139 tests and subtests pass, 0
+fail (101 top-level tests); statement coverage 88.7%. The same run passes
 under Go 1.27.3 (the default toolchain here) and under Go 1.26.0
 (`GOTOOLCHAIN=go1.26.0`, finding 56), and earlier runs passed under Go
 1.27.4. All table-driven where there is a table.
@@ -1294,7 +1305,9 @@ used Go 1.27.3 (the default toolchain in this worktree) and Go 1.27.4
 `swift testdata/crosscheck.swift testdata/vectors.json` gives every check
 ok. After findings 57 and 61 were built, the same runs pass again under
 Go 1.26.0 and Go 1.27.3 (132 tests and subtests, 42 Swift checks), and
-again after findings 67 to 69 (136 tests and subtests, 42 Swift checks).
+again after findings 67 to 69 (136 tests and subtests, 42 Swift checks),
+and again after findings 70 to 72 (139 tests and subtests, 42 Swift
+checks).
 Recorded in SS 7.2, 18 and 21.
 
 ## Findings of the review of the owner's freeze decisions (2026-11-14)
@@ -1547,6 +1560,62 @@ said so. Test: `TestTwoWaitingNewcomersApprovedAtOnceBothStay`;
 named while it waited, to be set aside rather than deleted. Written into
 SS 8.1 as following from finding 61's decision.
 
+## Findings of round 2 of the review of findings 67 to 69 (2026-11-14)
+
+Each fault is fixed with a test in `review7_test.go` that fails on the
+code before its fix.
+
+### 70. Wrong: a yes for a dropped newcomer still deleted the old holder (fixed in code, format change)
+
+The finding 67 fix made a yes delete the holders it names whether or not
+its change ever applied. X, which is later removed, makes S2 "prod-db"
+while S1 "prod-db" is agreed. B sees "replaces prod-db (deleted)" and
+approves. A, which never saw S2, removes X. S2 is past X's floor, so
+every device drops it (SS 6.2), but B's yes still deleted S1 for good.
+After syncing, prod-db was gone with nothing in its place. The dropped
+write was shown, but nothing explained S1's loss, and a fresh yes could
+not bring S1 back because a deletion is final. This is SS 8.1's
+stolen-device case. **Fixed: what a yes deletes and sets aside is still
+read from the yes alone, but it acts only once its change has arrived
+and counts.** A yes that arrives before its change waits for it, and a
+snapshot's state keeps it with what it names. A yes for a removed
+device's waiting change past its floor is ignored on every device, and
+a yes that waited for such a change is dropped when the removal is
+read. A device that applied the yes before it saw the removal merges
+again without it (the existing rule: it applied writes past the floor).
+Each device tracks only the newest write it merged from each device, so
+nothing grows with the data. Format change: in a snapshot's state, each
+yes whose change is not among its writes gains its type, the holders it
+deletes and the waiting changes it sets aside (vectors updated, Swift
+check included). Tests: `TestYesForADroppedNewcomerTakesNothing` (S1 stays
+live and S3, which the yes would have set aside, is still asked about,
+on A and B, with the same data), `TestYesActsOnlyOnceItsChangeCounts`
+(change then yes, yes then change, yes then a snapshot then the change,
+and a change that never counts). `TestLateApprovalAddsAHolderInAnyOrder`
+now takes each snapshot at the writes merged so far, as a device does.
+Written into SS 6.2, 8.1 and 9 as following from the decided rules.
+
+### 71. Wrong: a yes deleted a record whose creation still waited (fixed in code)
+
+SS 8.1 says a yes deletes only the agreed records and deletion markers
+that hold the name and sets aside what still waits. The code counted
+any record whose name field matched, also one whose creation still
+waited. A makes S2 "x" and approves only its rename to "prod-db"; S2's
+creation still waits. B makes S3 "prod-db": its screen listed S2 as an
+old holder, and B's yes deleted it. **Fixed: only an agreed record or a
+deletion marker is an old holder. A waiting creation of a record whose
+name already is the name holds it as a waiting change and is set
+aside.** Test: `TestYesSetsAsideAnUnagreedRecordWithItsName`. Written
+into SS 8.1 as following from finding 69's rule.
+
+### 72. Gap: SS 21 had one open item and said nothing about the removal case (written into SS 21)
+
+SS 21 now records findings 70 and 71. The open item stays: the owner
+has not yet confirmed that keeping no list meets the decision on finding
+57. Round 2 keeps no list either: a yes that waits for its change is
+kept only until that change arrives, or is dropped when that change can
+never count.
+
 ## Limits of this prototype
 
 - No teams, member lists or team vaults (SS 12), no approvals on the
@@ -1569,6 +1638,9 @@ SS 8.1 as following from finding 61's decision.
   aside, as it keeps every deleted record's name: a change set aside
   can still apply if its own yes arrives. Like waiting changes before
   finding 67, these grow with the changes that are never approved.
+  A yes whose change has not arrived is kept, with what it names, until
+  that change arrives, or until a removal shows the change never counts
+  (finding 70).
 - A snapshot is one sealed blob of the whole state. A real service would
   split it into parts so that a device fetches it in pieces.
 - Pruning is a test hook (`MemServer.PruneWrites`). A device judges a

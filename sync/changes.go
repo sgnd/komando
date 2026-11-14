@@ -241,7 +241,10 @@ func (d *Device) applyChange(w *Write, c *Change, rep *Report) { d.applyTo(d.dat
 // applyTo is applyChange into m: the live data, or a state rebuilt to
 // check a snapshot.
 func (d *Device) applyTo(m *mergeState, w *Write, c *Change, rep *Report) {
-	if c = d.pastFloor(w, c, rep); c == nil {
+	whole := c
+	c = d.pastFloor(w, c, rep)
+	m.arrive(w.Ref(), c == whole)
+	if c == nil {
 		return
 	}
 	switch c.Kind {
@@ -259,5 +262,15 @@ func (d *Device) applyTo(m *mergeState, w *Write, c *Change, rep *Report) {
 		rep.Rejected++
 		return
 	}
+	if d.pastFloorRef(c.Target) {
+		return // its change never counts, so the yes neither applies nor takes anything away
+	}
 	m.approve(c.Target, c.Record, c.Type, c.Replaces, c.Withdraws)
+}
+
+// pastFloorRef reports whether ref is a removed device's write past its
+// floor, whose waiting change is dropped on every device (SS 6.2).
+func (d *Device) pastFloorRef(ref WriteRef) bool {
+	_, removed := d.list.Removed[ref.Writer]
+	return removed && ref.Seq > d.floorOf(ref.Writer).Seq
 }

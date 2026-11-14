@@ -12,7 +12,8 @@ import (
 // encode is the one byte form of the state at heads, the same on every
 // device that merged the same writes: records by ID with their fields by
 // name, waiting changes by write, the yeses whose change is not among the
-// writes yet, and the waiting changes a yes set aside. A deleted record
+// writes yet with what each deletes and sets aside, and the waiting
+// changes a yes set aside. A deleted record
 // keeps only its type and its name: its marker goes, its deletion stays
 // final.
 func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
@@ -53,10 +54,11 @@ func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
 		}
 		encodeClock(&e, w.Clock)
 	}
-	// Yeses whose change is not among the writes yet, with the record each
-	// names.
+	// Yeses whose change is not among the writes yet: the record each
+	// names, its type, and what it deletes and sets aside once its change
+	// arrives.
 	var ok []approval
-	for ap := range m.approved {
+	for ap := range m.pending {
 		if ap.Ref.Seq > heads[ap.Ref.Writer].Seq {
 			ok = append(ok, ap)
 		}
@@ -66,8 +68,18 @@ func (m *mergeState) encode(heads map[DeviceID]Head) []byte {
 	})
 	e.u32(uint32(len(ok)))
 	for _, ap := range ok {
+		y := m.pending[ap]
 		encodeRef(&e, ap.Ref)
 		e.raw(ap.Record[:])
+		e.str(y.Type)
+		e.u32(uint32(len(y.Replaces)))
+		for _, id := range y.Replaces {
+			e.raw(id[:])
+		}
+		e.u32(uint32(len(y.Withdraws)))
+		for _, r := range y.Withdraws {
+			encodeRef(&e, r)
+		}
 	}
 	// Waiting changes a yes set aside, while they can still matter: the
 	// change waits here, or is not among the writes yet.
@@ -144,7 +156,17 @@ func decodeState(b []byte) (*mergeState, error) {
 	for range d.count(1 << 20) {
 		ap := approval{Ref: decodeRef(&d)}
 		d.fixed(ap.Record[:])
+		y := &yesActs{Type: d.str()}
+		for range d.count(1 << 20) {
+			var id RecordID
+			d.fixed(id[:])
+			y.Replaces = append(y.Replaces, id)
+		}
+		for range d.count(1 << 20) {
+			y.Withdraws = append(y.Withdraws, decodeRef(&d))
+		}
 		m.approved[ap] = true
+		m.pending[ap] = y
 	}
 	for range d.count(1 << 20) {
 		wd := withdrawal{Ref: decodeRef(&d)}
@@ -169,6 +191,10 @@ func (m *mergeState) clone() *mergeState {
 		c.waiting[ref] = &cw
 	}
 	maps.Copy(c.approved, m.approved)
+	for ap, y := range m.pending {
+		c.pending[ap] = &yesActs{Type: y.Type, Replaces: slices.Clone(y.Replaces), Withdraws: slices.Clone(y.Withdraws)}
+	}
+	maps.Copy(c.heads, m.heads)
 	maps.Copy(c.withdrawn, m.withdrawn)
 	maps.Copy(c.markers, m.markers)
 	return c
