@@ -16,6 +16,13 @@ func TestReadOnlyToolWriteForms(t *testing.T) {
 		"arp -d 10.0.0.1", "arp --delete 10.0.0.1", "arp -s 10.0.0.1 aa:bb:cc:dd:ee:ff", "arp --set 10.0.0.1 x",
 		"arp -f /etc/ethers", "arp --file /etc/ethers", "arp -nd 10.0.0.1",
 		"sar -o /tmp/sa 1 3", "sar -o", "sar -uo /tmp/sa 1 1", "sar -o/tmp/sa 1 1",
+		// the way the tools read their options: single-dash long options
+		// (xmllint), unique prefixes of long ones (getopt_long, argparse),
+		// and xxd's OUT, which may start with a dash
+		"xmllint -output /etc/x f.xml", "xmllint -shell f.xml", "xmllint --shell f.xml",
+		"ss --kil dst 10.0.0.1", "ss --ki", "ss --dia=/tmp/d", "arp --del 10.0.0.1", "arp --se 10.0.0.1 x", "arp --fi /etc/ethers",
+		"fuser --kil /data", "fuser --k /data", "yq --in-pl .a f.yaml", "yq --inp .a f.yaml", "yq --split .a f.yaml",
+		"xxd -r hexfile -name", "xxd in.bin -out", "xxd -c 8 in -x", "xxd -- in out",
 	}
 	for _, c := range refused {
 		if w := readOnlyViolation(c); w == "" {
@@ -33,6 +40,8 @@ func TestReadOnlyToolWriteForms(t *testing.T) {
 		"ss -tlnp", "ss -s", "ss -tan state established",
 		"arp -n", "arp -a", "arp -i eth0 -n",
 		"sar -u 1 3", "sar -f /var/log/sa/sa01", "sar -n DEV 1 1",
+		"ss --kernel", "ss --tcp --listening", "arp --numeric", "fuser --verbose /data", "yq --indent 4 .a f.yaml",
+		"xmllint --noout -format f.xml", "xxd -c8 in", "xxd -cols 8 in", "xxd in -",
 	}
 	for _, c := range allowed {
 		if w := readOnlyAllowlist(c); w != "" {

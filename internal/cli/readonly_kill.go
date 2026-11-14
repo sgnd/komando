@@ -15,10 +15,12 @@ func optionWrite(cmd string, args []string, letters, valued string, longs ...str
 		case a == "--":
 			return ""
 		case strings.HasPrefix(a, "--"):
+			// getopt_long and argparse take any unique start of a long
+			// option (--kil for --kill): a start of a writing one counts
 			name, _, _ := strings.Cut(a, "=")
 			for _, l := range longs {
-				if name == l {
-					return cmd + " " + name
+				if len(name) > 2 && strings.HasPrefix(l, name) {
+					return cmd + " " + l
 				}
 			}
 		case len(a) > 1 && a[0] == '-':
@@ -38,20 +40,24 @@ func optionWrite(cmd string, args []string, letters, valued string, longs ...str
 	return ""
 }
 
-// xxdWrite: xxd IN OUT (also -r) writes OUT; one file, or OUT "-", prints.
-// Its options are single words with a dash (-cols 8, -c8), some with a
-// value as the next word.
+// xxdWrite: xxd [options] [IN [OUT]] writes OUT, whatever it looks like
+// (-name too, once IN is given); OUT "-" prints. Its options are words
+// with one dash, read by their first letter (-c, -cols, -c8); -c, -g, -l,
+// -o, -s and -n take a value, in the same word or the next.
 func xxdWrite(cmd string, args []string, _ bool) string {
-	valued := map[string]bool{"-c": true, "-cols": true, "-g": true, "-groupsize": true, "-l": true, "-len": true,
-		"-o": true, "-offset": true, "-s": true, "-seek": true, "-n": true, "-name": true}
 	var files []string
+	opts := true
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		switch {
-		case valued[a]:
-			i++
-		case len(a) > 1 && a[0] == '-':
+		case opts && a == "--":
+			opts = false
+		case opts && len(a) > 1 && a[0] == '-':
+			if strings.ContainsRune("cglosn", rune(a[1])) && strings.Trim(a[2:], "abcdefghijklmnopqrstuvwxyz") == "" {
+				i++ // its value is the next word
+			}
 		default:
+			opts = false
 			files = append(files, a)
 		}
 	}
@@ -71,9 +77,10 @@ func yqWrite(cmd string, args []string, _ bool) string {
 // (save, write) read from its input.
 func xmllintWrite(cmd string, args []string, _ bool) string {
 	for _, a := range args {
-		name, _, _ := strings.Cut(a, "=")
-		if name == "--output" || name == "-o" || name == "--shell" {
-			return cmd + " " + name
+		// xmllint takes its long options with one dash or two
+		name, _, _ := strings.Cut(strings.TrimLeft(a, "-"), "=")
+		if strings.HasPrefix(a, "-") && (name == "output" || name == "o" || name == "shell") {
+			return cmd + " " + a
 		}
 	}
 	return ""
