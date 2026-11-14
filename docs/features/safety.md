@@ -401,10 +401,13 @@ More limits:
   computer in komando that way: `--read-only` does not make it safe.
 - A read key without `--network` still reaches what your servers and
   databases reach by their own setup: a Postgres foreign table, a MySQL
-  FEDERATED table, a ClickHouse `cluster()` or dictionary, a Kubernetes
-  API server's webhooks. Those go where a person set them up, not where
-  the key names, but a key that can read through them sends its query
-  there too.
+  FEDERATED table, a ClickHouse `cluster()` or dictionary, a Snowflake
+  external function or stage, a BigQuery remote function in the conn's own
+  project, a Kubernetes API server's webhooks. Those go where a person set
+  them up, not where the key names, but a key that can read through them
+  sends its query there too. And komando reads SQL as text: a SQL Server
+  network path built from pieces (`CHAR(92)+CHAR(92)+...`) and passed to a
+  function komando does not list is not recognized.
 - Secrets are never accepted as command arguments, because they would land
   in your shell history (`SECRET_IN_ARGS`). `komando secret set NAME` asks
   for the value after the prompt appears; see [Secrets](secrets.md#save-one).
