@@ -134,7 +134,6 @@ var examples = map[string]string{
 
 	"komando key list": "  komando key list",
 	"komando key rm":   "  komando key rm old-deploy",
-	"komando key show": "  komando key show deploy",
 
 	"komando net http":  "  komando net http web1 http://localhost:8080/health --expect 200",
 	"komando net ports": "  komando net ports web1",
