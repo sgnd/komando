@@ -639,12 +639,20 @@ func TestLoginAskAgentStops(t *testing.T) {
 	if len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") || !strings.Contains(e.Hint, "`komando login web1`") {
 		t.Errorf("cool-down: %d windows, %+v", len(*texts), e)
 	}
+	// a rename does not end it
+	mustRun(t, "host", "rename", "web1", "web9")
+	if e := wantCode(t, "DECLINED", "exec", "web9", "--read-only", "--", "uptime"); len(*texts) != 1 || !strings.Contains(e.Message, "less than a minute ago") {
+		t.Errorf("after a rename: %d windows, %+v", len(*texts), e)
+	}
+	mustRun(t, "host", "rename", "web9", "web1")
 	if n := tries.Load(); n != 0 {
 		t.Fatalf("the server got %d passwords", n)
 	}
 	// a minute later the window may open again
 	if err := store.UpdateRuntime(store.Save(), func(s *store.State) error {
-		s.LoginDeclined["web1"] = time.Now().Add(-loginCoolDown)
+		for id := range s.LoginDeclined {
+			s.LoginDeclined[id] = time.Now().Add(-loginCoolDown)
+		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)

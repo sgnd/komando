@@ -181,7 +181,7 @@ func (cl *call) typeLoginPassword(q sshx.LoginAsk) (string, error) {
 	pw, given, shown := askLoginOnScreen(cl, text)
 	gaveUp := tookGaveUp(text)
 	if shown && !given && !gaveUp {
-		noteLoginDeclined(cl, h.Name)
+		noteLoginDeclined(cl, sshx.LoginID(h))
 	}
 	return windowAnswer(h, pw, given, shown, gaveUp, true)
 }
@@ -218,7 +218,7 @@ func loginCoolingDown(h *store.Host) error {
 	if err != nil {
 		return nil // no runtime file yet: nothing was declined
 	}
-	at, ok := rt.LoginDeclined[h.Name]
+	at, ok := rt.LoginDeclined[sshx.LoginID(h)]
 	if since := time.Since(at); !ok || since >= loginCoolDown || since < 0 {
 		return nil
 	}
@@ -227,9 +227,10 @@ func loginCoolingDown(h *store.Host) error {
 		h.Name, at.Add(loginCoolDown).Local().Format("15:04:05")).NoFlag()
 }
 
-// noteLoginDeclined starts name's cool-down. It is kept with the running
+// noteLoginDeclined starts the cool-down of the server known as id
+// (sshx.LoginID: a rename does not end it). It is kept with the running
 // logins (runtime.json), so the next command sees it too.
-func noteLoginDeclined(cl *call, name string) {
+func noteLoginDeclined(cl *call, id string) {
 	_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 		if s.LoginDeclined == nil {
 			s.LoginDeclined = map[string]time.Time{}
@@ -239,7 +240,7 @@ func noteLoginDeclined(cl *call, name string) {
 				delete(s.LoginDeclined, n)
 			}
 		}
-		s.LoginDeclined[name] = time.Now().UTC()
+		s.LoginDeclined[id] = time.Now().UTC()
 		return nil
 	})
 }

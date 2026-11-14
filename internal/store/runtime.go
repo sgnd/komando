@@ -21,7 +21,7 @@ type Runtime struct {
 	Jobs     map[string]*Job        `json:"jobs,omitempty"`
 	Tunnels  map[string]*Tunnel     `json:"tunnels,omitempty"`
 	// LoginDeclined: when a person last cancelled the password window of
-	// a login-ask server, by server name; the window stays shut for a
+	// a login-ask server, by its record ID (sshx.LoginID); the window stays shut for a
 	// short while after (cli loginCoolDown)
 	LoginDeclined map[string]time.Time `json:"login_declined,omitempty"`
 }
