@@ -17,7 +17,7 @@ import (
 // unprotected, so a job may change dev.
 func fakeJobServer(t *testing.T) *fakeServer {
 	srv := startFakeServer(t)
-	if err := store.Update(func(st *store.State) error { st.Hosts["prod"].Protected = false; return nil }); err != nil {
+	if err := store.Update(store.Save, func(st *store.State) error { st.Hosts["prod"].Protected = false; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	srv.reply("1\n")

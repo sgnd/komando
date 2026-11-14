@@ -200,7 +200,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 		res.Updated = append(res.Updated, "secret "+n+", now "+secrets[n])
 	}
 	if len(secrets) > 0 && !cl.flags.dryRun {
-		if err := vault.RenameMany(secrets); err != nil {
+		if err := vault.RenameMany(cl.storeWrite(), secrets); err != nil {
 			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
 				"the vault cannot rename the VPN's secrets: %v; nothing was renamed", err)
 		}
@@ -208,7 +208,7 @@ func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 		for old, now := range secrets {
 			back[now] = old
 		}
-		res.undo = func() { _ = vault.RenameMany(back) }
+		res.undo = func() { _ = vault.RenameMany(cl.storeWrite(), back) }
 	}
 	if v.Kind == "tailscale" {
 		oldDir := netx.TailscaleDir(&store.Vpn{Name: from})
@@ -288,7 +288,7 @@ uses them, so the old name is free again. Disconnect it first
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var res mvResult
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				var err error
 				res, err = rename(cl, s, args[0], args[1])
 				return err

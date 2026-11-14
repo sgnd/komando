@@ -187,7 +187,7 @@ func connAddCmd() *cobra.Command {
 			cn.CreatedAt, cn.UpdatedAt = now, now
 			res := connResult{Conn: cn}
 			replaced := false
-			err = store.Update(func(s *store.State) error {
+			err = store.Update(cl.storeWrite(), func(s *store.State) error {
 				if err := checkNewName(cl, s, "conn", name, force); err != nil {
 					return err
 				}
@@ -267,7 +267,7 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 		undoPw = undo
 	}
 	var res connResult
-	err := store.Update(func(s *store.State) error {
+	err := store.Update(cl.storeWrite(), func(s *store.State) error {
 		cn, err := findConn(cl, s, args[0])
 		if err != nil {
 			return err
@@ -405,7 +405,7 @@ func connRmCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var names, unused []string
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				var prot []string
 				names = nil
 				conns, err := rmConns(cl, s, args)

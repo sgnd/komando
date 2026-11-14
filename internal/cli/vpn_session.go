@@ -283,7 +283,7 @@ func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, 
 	default:
 		return nil, out.Usage("%s VPNs need no session", v.Kind)
 	}
-	if err := store.UpdateRuntime(func(st *store.State) error { st.Sessions[v.Name] = s; return nil }); err != nil {
+	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.Sessions[v.Name] = s; return nil }); err != nil {
 		netx.StopSession(s)
 		return nil, err
 	}
@@ -517,7 +517,7 @@ func vpnUpCmd() *cobra.Command {
 					res["notes"] = []string{"no --check address, so the connection was not verified; add one with `komando vpn edit " + v.Name + " --check HOST:PORT`"}
 				} else if r := testVpn(cl, cmd.Context(), st, v); !r.OK {
 					_ = netx.StopSession(s)
-					_ = store.UpdateRuntime(func(st *store.State) error {
+					_ = store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error {
 						if x := st.Sessions[v.Name]; x != nil && x.PID == s.PID {
 							delete(st.Sessions, v.Name)
 						}
@@ -618,7 +618,7 @@ func vpnDownCmd() *cobra.Command {
 			if len(names) == 0 {
 				notes = append(notes, "nothing to disconnect: no VPN session is running")
 			}
-			if err := store.UpdateRuntime(func(s *store.State) error {
+			if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				for _, n := range down {
 					delete(s.Sessions, n)
 				}

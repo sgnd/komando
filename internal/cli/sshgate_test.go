@@ -118,7 +118,7 @@ func gateInventory(t *testing.T) {
 		"pghostaddr": "postgres://u@db.example.com/x?hostaddr=127.0.0.1", "pgsocket": "postgres://u@db.example.com/x?host=/var/run/postgresql",
 		"pglist": "postgres://u@10.0.0.6,127.0.0.1/x", "mongolist": "mongodb://u@10.0.0.8,localhost:27017/x",
 	}
-	err := store.Update(func(st *store.State) error {
+	err := store.Update(store.Save, func(st *store.State) error {
 		for n, h := range hosts {
 			h.Name, h.User = n, "u"
 			st.Hosts[n] = &h

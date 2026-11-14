@@ -139,9 +139,9 @@ shown once, here); turning it off needs --yes, so that code too.`,
 				if err := guardSafety(cl, "turning off the approval code"); err != nil {
 					return err
 				}
-				err := store.Update(func(st *store.State) error { st.Settings.ApprovalCode = false; return nil })
+				err := store.Update(cl.storeWrite(), func(st *store.State) error { st.Settings.ApprovalCode = false; return nil })
 				if err == nil {
-					_ = vault.Delete(approvalSecret)
+					_ = vault.Delete(cl.storeWrite(), approvalSecret)
 				}
 				audit(cl, nil, "config.approval-code", nil, "", err == nil, map[string]any{"approval_code": "off"})
 				if err != nil {
@@ -167,10 +167,10 @@ shown once, here); turning it off needs --yes, so that code too.`,
 			if !codeOK(raw, typed, time.Now()) {
 				return out.Errf(out.ExitUsage, "CODE_WRONG", "check the phone's clock and run it again", "that code does not match; nothing was changed")
 			}
-			if err := vault.Set(approvalSecret, b32); err != nil {
+			if err := vault.Set(cl.storeWrite(), approvalSecret, b32); err != nil {
 				return err
 			}
-			if err := store.Update(func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
+			if err := store.Update(cl.storeWrite(), func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
 				return err
 			}
 			audit(cl, nil, "config.approval-code", nil, "", true, map[string]any{"approval_code": "on"})

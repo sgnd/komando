@@ -28,7 +28,7 @@ func keyfileHome(t *testing.T) {
 // with the one key that is on disk.
 func TestParallelChangesKeepEverySecret(t *testing.T) {
 	keyfileHome(t)
-	if err := Set("gone", "to-be-removed"); err != nil {
+	if err := Set(store.Save, "gone", "to-be-removed"); err != nil {
 		t.Fatal(err)
 	}
 	// start again from nothing, so the workers also race to create vault.key
@@ -43,7 +43,7 @@ func TestParallelChangesKeepEverySecret(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs <- Set(fmt.Sprintf("s%d", i), fmt.Sprintf("value-%d", i))
+			errs <- Set(store.Save, fmt.Sprintf("s%d", i), fmt.Sprintf("value-%d", i))
 		}(i)
 	}
 	wg.Wait()
@@ -70,9 +70,9 @@ func TestParallelChangesKeepEverySecret(t *testing.T) {
 		go func(i int) {
 			defer wg2.Done()
 			if i%2 == 0 {
-				_ = Delete(fmt.Sprintf("s%d", i))
+				_ = Delete(store.Save, fmt.Sprintf("s%d", i))
 			} else {
-				_ = Set(fmt.Sprintf("t%d", i), "other-value")
+				_ = Set(store.Save, fmt.Sprintf("t%d", i), "other-value")
 			}
 		}(i)
 	}

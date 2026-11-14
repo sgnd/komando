@@ -150,7 +150,7 @@ func TestDockerPruneCommand(t *testing.T) {
 func TestDockerDeleteConfirmsWithTheServerName(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {

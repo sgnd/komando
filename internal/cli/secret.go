@@ -288,9 +288,9 @@ are not changed.`
 			}
 			var updated []string
 			if move {
-				updated, err = moveSecret(from, to, overwrite)
+				updated, err = moveSecret(cl, from, to, overwrite)
 			} else {
-				err = vault.Copy(from, to, overwrite)
+				err = vault.Copy(cl.storeWrite(), from, to, overwrite)
 			}
 			rec := map[string]any{"from": from, "to": to, "replaced": replaced}
 			if move {
@@ -330,12 +330,12 @@ func secretExists(from, to string) error {
 // every komando command takes them in), the references change only when
 // the vault rename worked, and OLD is put back in the vault when the state
 // cannot be saved. It returns what now uses the new name.
-func moveSecret(from, to string, overwrite bool) ([]string, error) {
+func moveSecret(cl *call, from, to string, overwrite bool) ([]string, error) {
 	var updated []string
 	renamed := false
-	err := store.Update(func(s *store.State) error {
+	err := store.Update(cl.storeWrite(), func(s *store.State) error {
 		updated = renameSecretRefs(s, from, to)
-		if err := vault.Rename(from, to, overwrite); err != nil {
+		if err := vault.Rename(cl.storeWrite(), from, to, overwrite); err != nil {
 			return err
 		}
 		renamed = true
@@ -344,9 +344,9 @@ func moveSecret(from, to string, overwrite bool) ([]string, error) {
 	switch {
 	case err == nil || !renamed:
 	case overwrite: // the value NEW had is gone; OLD comes back, NEW keeps its new value
-		_ = vault.Copy(to, from, false)
+		_ = vault.Copy(cl.storeWrite(), to, from, false)
 	default:
-		_ = vault.Rename(to, from, false)
+		_ = vault.Rename(cl.storeWrite(), to, from, false)
 	}
 	return updated, err
 }

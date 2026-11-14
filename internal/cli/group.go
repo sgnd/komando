@@ -155,7 +155,7 @@ func groupAddCmd() *cobra.Command {
 			}
 			res := map[string]any{"group": group}
 			var added []string
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				sel, err := resolveSelection(cl, s, strings.Join(args[1:], ","))
 				if err != nil {
 					return err
@@ -215,7 +215,7 @@ Deleting a group with more than 3 members needs --yes; try --dry-run first.`,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			group := strings.TrimPrefix(args[0], "@")
 			removed := []string{}
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				members := groupMembersOf(s, group)
 				if len(members) == 0 {
 					return groupNotFound(cl, s, group)

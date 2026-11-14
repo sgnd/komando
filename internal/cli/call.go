@@ -45,6 +45,11 @@ type call struct {
 	out   *out.Printer                  // with the call's stdout (W) and stderr (Err)
 	flags globalFlags
 
+	// oldCopy: this command may look at an old copy of the store (doctor,
+	// a dry run). The store asks every running call (oldCopyAllowed), so
+	// it is atomic.
+	oldCopy atomic.Bool
+
 	commits uint64   // store.Commits() when the command started
 	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
 
@@ -116,8 +121,18 @@ func (eofReader) Read([]byte) (int, error) { return 0, io.EOF }
 func (cl *call) begin() {
 	cl.setCaller(cl.io.Caller())
 	cl.sess.Reset()
+	cl.oldCopy.Store(false)
 	cl.commits = store.Commits()
 	cl.ttyYes, cl.typed, cl.typedProt, cl.body = nil, nil, nil, nil
+}
+
+// storeWrite is how this command's changes to the store and the vault go:
+// under --dry-run they are only previewed (store.Preview).
+func (cl *call) storeWrite() store.Write {
+	if cl.flags.dryRun {
+		return store.Preview
+	}
+	return store.Save
 }
 
 // caller is who makes the call (engine.Caller).

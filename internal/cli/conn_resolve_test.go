@@ -60,10 +60,10 @@ func TestRegistryResolve(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "a passphrase long enough for tests")
 	caPEM, leaf := testRegistryCert(t, "registry.test")
-	if err := vault.Set("reg-ca", string(caPEM)); err != nil {
+	if err := vault.Set(store.Save, "reg-ca", string(caPEM)); err != nil {
 		t.Fatal(err)
 	}
-	if err := vault.Set("reg-pw", "s3cret"); err != nil {
+	if err := vault.Set(store.Save, "reg-pw", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -167,7 +167,7 @@ func TestRegistryResolveSkipVerify(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "a passphrase long enough for tests")
 	_, leaf := testRegistryCert(t, "registry.test")
-	if err := vault.Set("reg-pw", "s3cret"); err != nil {
+	if err := vault.Set(store.Save, "reg-pw", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	var mu sync.Mutex

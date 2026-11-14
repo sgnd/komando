@@ -23,7 +23,7 @@ func TestVpnOSModeRemoved(t *testing.T) {
 	if _, e := cliRun(t, append(add, "--overwrite", "--os-mode")...); e == nil {
 		t.Fatal("--os-mode is still accepted")
 	}
-	if err := store.Update(func(s *store.State) error { s.Vpns["office"].OSMode = true; return nil }); err != nil {
+	if err := store.Update(store.Save, func(s *store.State) error { s.Vpns["office"].OSMode = true; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"vpn", "up", "office"}, {"vpn", "up", "office", "--dry-run"}} {

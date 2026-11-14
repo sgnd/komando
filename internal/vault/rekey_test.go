@@ -72,7 +72,7 @@ func vaultBytes(t *testing.T) []byte {
 func mustSet(t *testing.T, kv map[string]string) {
 	t.Helper()
 	for k, v := range kv {
-		if err := Set(k, v); err != nil {
+		if err := Set(store.Save, k, v); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -96,7 +96,7 @@ func TestChangePassphrase(t *testing.T) {
 	before := vaultFile(t)
 	time.Sleep(10 * time.Millisecond)
 
-	res, err := ChangeKey("", newPass)
+	res, err := ChangeKey(store.Save, "", newPass)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,10 +133,10 @@ func TestChangeKeyWrongOldPassphrase(t *testing.T) {
 	raw := vaultBytes(t)
 
 	usePass("correct horse battery stapel")
-	if _, err := ChangeKey("", newPass); !errors.Is(err, ErrWrongKey) {
+	if _, err := ChangeKey(store.Save, "", newPass); !errors.Is(err, ErrWrongKey) {
 		t.Fatalf("wrong KOMANDO_VAULT_PASS: %v", err)
 	}
-	if _, err := ChangeKey("not the passphrase at all", newPass); !errors.Is(err, ErrWrongKey) {
+	if _, err := ChangeKey(store.Save, "not the passphrase at all", newPass); !errors.Is(err, ErrWrongKey) {
 		t.Fatalf("wrong old passphrase: %v", err)
 	}
 	if !bytes.Equal(raw, vaultBytes(t)) {
@@ -147,7 +147,7 @@ func TestChangeKeyWrongOldPassphrase(t *testing.T) {
 	}
 
 	usePass(newPass) // the person changed KOMANDO_VAULT_PASS first
-	if _, err := ChangeKey(oldPass, newPass); err != nil {
+	if _, err := ChangeKey(store.Save, oldPass, newPass); err != nil {
 		t.Fatal(err)
 	}
 	wantValues(t, someSecrets)
@@ -168,7 +168,7 @@ func TestChangeKeyPartialFailure(t *testing.T) {
 	}
 	b := vaultBytes(t)
 
-	_, err := ChangeKey("", newPass)
+	_, err := ChangeKey(store.Save, "", newPass)
 	if err == nil || !bytes.Contains([]byte(err.Error()), []byte(`"empty-ish"`)) {
 		t.Fatalf("want the broken secret named: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestChangeKeyRefusesShortPassphrase(t *testing.T) {
 	passHome(t, oldPass)
 	mustSet(t, someSecrets)
 	raw := vaultBytes(t)
-	if _, err := ChangeKey("", "fourteen chars"); !errors.Is(err, ErrShortPassphrase) {
+	if _, err := ChangeKey(store.Save, "", "fourteen chars"); !errors.Is(err, ErrShortPassphrase) {
 		t.Fatalf("got %v", err)
 	}
 	if !bytes.Equal(raw, vaultBytes(t)) {
@@ -200,7 +200,7 @@ func TestKeychainToPassphrase(t *testing.T) {
 	if _, err := KeyToKeychain(); err != nil {
 		t.Fatal(err)
 	}
-	res, err := ChangeKey("", newPass)
+	res, err := ChangeKey(store.Save, "", newPass)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestKeychainToPassphrase(t *testing.T) {
 // With no vault yet, the first one is made with the passphrase.
 func TestChangeKeyWithoutVault(t *testing.T) {
 	passHome(t, "")
-	res, err := ChangeKey("", newPass)
+	res, err := ChangeKey(store.Save, "", newPass)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -237,9 +237,7 @@ func TestChangeKeyDryRun(t *testing.T) {
 	passHome(t, oldPass)
 	mustSet(t, someSecrets)
 	raw := vaultBytes(t)
-	store.DryRun = true
-	defer func() { store.DryRun = false }()
-	if _, err := ChangeKey("", newPass); !errors.Is(err, store.ErrDryRun) {
+	if _, err := ChangeKey(store.Preview, "", newPass); !errors.Is(err, store.ErrDryRun) {
 		t.Fatalf("got %v", err)
 	}
 	if !bytes.Equal(raw, vaultBytes(t)) {

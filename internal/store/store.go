@@ -392,18 +392,26 @@ func (s *State) init() {
 	}
 }
 
-// DryRun makes Update apply fn to a copy that is never saved. The CLI sets
-// it for --dry-run, so a command shows the result of its change (and its
-// validation errors) without making it.
-var DryRun bool
+// Write says what a change does: Save makes it; Preview (a command's
+// --dry-run) applies it to a copy that is never saved, so the command
+// shows the result of its change (and its validation errors) without
+// making it. Each command passes its own, so a dry run never turns
+// another command's change into a preview.
+type Write bool
 
-// ErrDryRun is returned by writes that cannot be simulated (the vault).
+const (
+	Save    Write = false
+	Preview Write = true
+)
+
+// ErrDryRun is returned by writes that cannot be previewed (the vault).
 var ErrDryRun = errors.New("this command cannot preview its change; nothing was changed")
 
 // Update reads the inventory, applies fn and writes what changed, in one
-// write step of the store. Safe for concurrent komando processes (parallel agents).
-func Update(fn func(s *State) error) error {
-	if DryRun {
+// write step of the store; with Preview it only applies fn to a copy.
+// Safe for concurrent komando processes (parallel agents).
+func Update(w Write, fn func(s *State) error) error {
+	if w == Preview {
 		s, err := Load()
 		if err != nil {
 			return err

@@ -12,7 +12,7 @@ import (
 )
 
 // fetchStatus asks the server how a job is doing.
-func fetchStatus(ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*jobStatus, error) {
+func fetchStatus(cl *call, ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*jobStatus, error) {
 	// the end time is when the exit (or killed) file was written, so the
 	// runtime of a finished job stays put
 	script := `d="` + jobDir(j.ID) + `"; [ -d "$d" ] || { echo LOST; exit 0; }; end=$(date -u +%s); ` +
@@ -67,18 +67,18 @@ func fetchStatus(ctx context.Context, c *sshx.Client, j *store.Job, tail int) (*
 			s.RuntimeSec = nowU - startU
 		}
 	}
-	noteJobEnd(j, s.State)
+	noteJobEnd(cl, j, s.State)
 	return s, nil
 }
 
 // noteJobEnd remembers that a job ended, so Running now leaves it out
 // without asking its server again. A failed save only costs that memory.
-func noteJobEnd(j *store.Job, state string) {
+func noteJobEnd(cl *call, j *store.Job, state string) {
 	if state == "" || state == "running" || j.Ended == state {
 		return
 	}
 	j.Ended = state
-	_ = store.Update(func(st *store.State) error {
+	_ = store.Update(cl.storeWrite(), func(st *store.State) error {
 		if sj := st.Jobs[j.ID]; sj != nil {
 			sj.Ended = state
 		}

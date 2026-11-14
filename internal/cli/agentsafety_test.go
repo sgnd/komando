@@ -527,7 +527,7 @@ func TestSyncUpChecksEachFileForAgents(t *testing.T) {
 func TestLocalReadCommandsForAgents(t *testing.T) {
 	kh, home, proj := agentFiles(t)
 	t.Cleanup(func() {
-		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous, tcl.flags.reveal, store.DryRun = false, false, false, false, false
+		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous, tcl.flags.reveal = false, false, false, false
 	})
 	mustRun(t, "host", "add", "web", "deploy@127.0.0.1:1")
 	asAgent(t, false, false)

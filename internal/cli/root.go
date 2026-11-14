@@ -495,7 +495,7 @@ func newRoot(cl *call) *cobra.Command {
 			cl.out.Pretty = cl.flags.pretty
 			cl.out.Version = Version
 			cl.out.DryRun = cl.flags.dryRun
-			storeDryRun(cl.flags.dryRun)
+			cl.oldCopy.Store(cl.flags.dryRun) // a dry run may look at an old copy: it changes nothing
 			cl.out.Start = time.Now()
 			vault.Passphrase() // take KOMANDO_VAULT_PASS out of the environment children inherit
 			if leavesHomeNow(cmd) {

@@ -84,6 +84,7 @@ func init() {
 	}
 	// an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
 	vault.AgentCall = agentCallRunning
+	store.OldCopyOK = oldCopyAllowed
 	// a server's env values from the vault go along only when every
 	// running call may send them
 	sshx.HostSecretEnv = func(c *sshx.Client) bool {
@@ -153,20 +154,17 @@ func agentCallRunning() bool {
 	return false
 }
 
-// storeMu guards storeDryRun.
-var storeMu sync.Mutex
-
-// storeDryRun sets store.DryRun and store.AllowOldCopy (a dry run may
-// look at an old copy: it changes nothing). They are still the process's
-// (docs/design/engine-per-call.md), so they are written only when they
-// change: calls that are no dry run never touch them.
-func storeDryRun(dry bool) {
-	storeMu.Lock()
-	defer storeMu.Unlock()
-	if store.DryRun != dry {
-		store.DryRun = dry
+// oldCopyAllowed is store.OldCopyOK: an old copy of the store may be
+// opened to be looked at only while every running call may look at one
+// (doctor, a dry run). One call's allowance never opens it for a call
+// beside it; the store hands a look-only handle only to a caller that
+// may look (store.cachedDB).
+func oldCopyAllowed() bool {
+	calls := runningCalls()
+	for _, cl := range calls {
+		if !cl.oldCopy.Load() {
+			return false
+		}
 	}
-	if store.AllowOldCopy != dry {
-		store.AllowOldCopy = dry
-	}
+	return len(calls) > 0
 }

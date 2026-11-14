@@ -200,7 +200,7 @@ func runSecretPassphrase(cl *call, off bool) error {
 	if err != nil {
 		return err
 	}
-	kc, err := vault.ChangeKey(old, newPass)
+	kc, err := vault.ChangeKey(cl.storeWrite(), old, newPass)
 	audit(cl, nil, "secret.passphrase", nil, "", err == nil, map[string]any{"from": res.From, "to": res.To, "secrets": kc.Secrets})
 	switch {
 	case errors.Is(err, vault.ErrWrongKey): // changed by another komando meanwhile

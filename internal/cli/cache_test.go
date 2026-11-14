@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // runCache runs komando in this process and returns what it printed.
@@ -40,7 +39,7 @@ func runCache(t *testing.T, args ...string) (string, error) {
 func TestCacheRunScriptsNeedApproval(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +75,7 @@ func TestCacheRunScriptsNeedApproval(t *testing.T) {
 		if err != nil || !strings.Contains(s, "nothing sent") || !strings.Contains(s, "POLICY_BLOCKED") {
 			t.Errorf("%s --write --dry-run: %v\n%s", command[0], err, s)
 		}
-		tcl.flags.dryRun, store.DryRun = false, false
+		tcl.flags.dryRun = false
 	}
 }
 
@@ -115,7 +114,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 func TestCacheRunQuotedCommand(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +207,7 @@ func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
 func TestCacheRunMemcachedLineInjection(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	addr, lines := fakeMemcached(t)
 	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
 		t.Fatal(err)
@@ -276,7 +275,7 @@ func TestCacheLimitMustBePositive(t *testing.T) {
 func TestCacheRunClusterWide(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "cl", "redis://127.0.0.1:1?cluster=1"); err != nil {
 		t.Fatal(err)
 	}

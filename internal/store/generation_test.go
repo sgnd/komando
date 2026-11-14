@@ -31,11 +31,14 @@ func keychainStore(t *testing.T) *uint64 {
 	t.Cleanup(func() {
 		KeySource, GenerationKeeper = oldKS, oldGK
 		closeDBs()
-		AllowOldCopy = false
+		OldCopyOK = nil
 		slowUntil = time.Time{}
 	})
 	return &kept
 }
+
+// lookOK is OldCopyOK for a command that may look at an old copy.
+func lookOK() bool { return true }
 
 func TestOldCopyIsStopped(t *testing.T) {
 	kept := keychainStore(t)
@@ -60,16 +63,16 @@ func TestOldCopyIsStopped(t *testing.T) {
 	if !strings.Contains(oe.Hint, "--accept-old-copy") {
 		t.Fatalf("hint %q", oe.Hint)
 	}
-	if err := Update(func(s *State) error { return nil }); err == nil {
+	if err := Update(Save, func(s *State) error { return nil }); err == nil {
 		t.Fatal("a change went into an old copy")
 	}
 
 	// doctor and dry runs may look
-	AllowOldCopy = true
+	OldCopyOK = lookOK
 	if s, err := Load(); err != nil || !s.Hosts["web"].Protected {
 		t.Fatalf("allowed look: %v", err)
 	}
-	AllowOldCopy = false
+	OldCopyOK = nil
 	closeDBs()
 	have, k, guarded, old, err := CopyState()
 	if err != nil || !guarded || !old || k != newer || have >= k {
@@ -77,18 +80,18 @@ func TestOldCopyIsStopped(t *testing.T) {
 	}
 
 	// the look-only handle is not reused once looking is over
-	AllowOldCopy = true
+	OldCopyOK = lookOK
 	if _, err := DB(false); err != nil {
 		t.Fatal(err)
 	}
-	AllowOldCopy = false
+	OldCopyOK = nil
 	if _, err := DB(false); err == nil {
 		t.Fatal("a handle opened to look at an old copy was handed to a normal command")
 	}
 	// a write through a look-only handle never lowers the keychain
-	AllowOldCopy = true
-	_ = Update(func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
-	AllowOldCopy = false
+	OldCopyOK = lookOK
+	_ = Update(Save, func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
+	OldCopyOK = nil
 	if *kept != newer {
 		t.Fatalf("the keychain went down to %d", *kept)
 	}
@@ -161,7 +164,7 @@ func TestMissingOrBrokenCountStops(t *testing.T) {
 	if _, err := Load(); err != nil {
 		t.Errorf("slow keychain: %v", err)
 	}
-	err := Update(func(s *State) error { s.Hosts["b"] = &Host{Name: "b"}; return nil })
+	err := Update(Save, func(s *State) error { s.Hosts["b"] = &Host{Name: "b"}; return nil })
 	var oe *out.Error
 	if !errors.As(err, &oe) || oe.Code != "KEYCHAIN_SLOW" {
 		t.Errorf("a write with a slow keychain: %v", err)
@@ -195,7 +198,7 @@ func TestNewStoreCountNotSaved(t *testing.T) {
 	kept := keychainStore(t)
 	set := GenerationKeeper.Set
 	GenerationKeeper.Set = func(uint64) error { return errors.New("keychain locked") }
-	err := Update(func(s *State) error { s.Hosts["a"] = &Host{Name: "a"}; return nil })
+	err := Update(Save, func(s *State) error { s.Hosts["a"] = &Host{Name: "a"}; return nil })
 	if err == nil || !strings.Contains(err.Error(), "change count") {
 		t.Fatalf("a new store without its count: %v", err)
 	}

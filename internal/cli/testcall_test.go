@@ -51,10 +51,12 @@ func realRun() *out.Printer { return &out.Printer{} }
 
 // endCommand leaves tcl as it is between two commands: the global flags
 // and the printer's settings of the command just run (--dry-run, masking
-// ...) are not in effect for code a later test calls without running a
-// command. What the command recorded (tcl.out.Blocked ...) stays for the
-// test to read; the next command forgets it (newRoot).
+// ...), and its leave to look at an old copy of the store, are not in
+// effect for code a later test calls without running a command. What the
+// command recorded (tcl.out.Blocked ...) stays for the test to read; the
+// next command forgets it (newRoot).
 func endCommand() {
 	tcl.flags = globalFlags{}
+	tcl.oldCopy.Store(false)
 	tcl.out.DryRun, tcl.out.Pretty, tcl.out.Mask, tcl.out.Personal, tcl.out.NoRedact = false, false, false, false, false
 }

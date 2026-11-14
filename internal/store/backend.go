@@ -37,8 +37,8 @@ type openStore struct {
 	db     *sealdb.DB
 	fi     os.FileInfo // the file it opened, to notice a file put in its place
 	master []byte      // its master key, made once per process (scrypt is slow)
-	// lookOnly: an old copy opened under AllowOldCopy (doctor, a dry run);
-	// never handed to a command without it
+	// lookOnly: an old copy opened for a caller that may look at one
+	// (doctor, a dry run); never handed to a caller that may not
 	lookOnly bool
 }
 
@@ -49,9 +49,17 @@ var (
 
 // DB opens the sealed store of this home, once per process. With create,
 // a home without store.db gets one, with a new key; without, it returns
-// ErrNoStore, so a read makes no file and no key.
-func DB(create bool) (*sealdb.DB, error) {
-	d, err := cachedDB(create)
+// ErrNoStore, so a read makes no file and no key. An old copy stops with
+// STORE_OLD_COPY unless OldCopyOK.
+func DB(create bool) (*sealdb.DB, error) { return db(create, oldCopyOK()) }
+
+// openOldCopy is DB for doctor's look at the store and for accepting an
+// old copy: an old copy is opened to be looked at.
+func openOldCopy() (*sealdb.DB, error) { return db(false, true) }
+
+// db is DB; oldOK: the caller may look at an old copy.
+func db(create, oldOK bool) (*sealdb.DB, error) {
+	d, err := cachedDB(create, oldOK)
 	if err != nil {
 		return nil, err
 	}
@@ -68,17 +76,32 @@ func DB(create bool) (*sealdb.DB, error) {
 		delete(dbOpen, Home())
 	}
 	dbMu.Unlock()
-	return cachedDB(create)
+	return cachedDB(create, oldOK)
 }
 
-func cachedDB(create bool) (*sealdb.DB, error) {
+// dropLookOnly closes this home's open store when it is an old copy opened
+// only to be looked at, so the next open checks the store again (after
+// doctor --accept-old-copy, a normal handle that raises the keychain).
+func dropLookOnly() {
+	dbMu.Lock()
+	defer dbMu.Unlock()
+	if o, ok := dbOpen[Home()]; ok && o.lookOnly {
+		o.db.Close()
+		delete(dbOpen, Home())
+	}
+}
+
+// cachedDB keeps one open store per home. A look-only handle (an old copy)
+// is handed out only to a caller that may look at one (oldOK); any other
+// caller gets the store opened and checked again.
+func cachedDB(create, oldOK bool) (*sealdb.DB, error) {
 	dbMu.Lock()
 	defer dbMu.Unlock()
 	home := Home()
 	if o, ok := dbOpen[home]; ok {
 		// a store removed or replaced (a restore from backup) since it was
 		// opened is opened again, never written through the old handle
-		if fi, err := os.Stat(DBPath()); err == nil && os.SameFile(fi, o.fi) && (!o.lookOnly || AllowOldCopy) {
+		if fi, err := os.Stat(DBPath()); err == nil && os.SameFile(fi, o.fi) && (!o.lookOnly || oldOK) {
 			return o.db, nil
 		}
 		o.db.Close()
@@ -91,7 +114,7 @@ func cachedDB(create bool) (*sealdb.DB, error) {
 	path := DBPath()
 	meta, err := sealdb.Peek(ctx, path)
 	if errors.Is(err, os.ErrNotExist) {
-		if err := missingGuardedStore(); err != nil {
+		if err := missingGuardedStore(oldOK); err != nil {
 			return nil, err // the keychain's count: doctor --accept-old-copy can clear it
 		}
 		if err := missingStore(); err != nil {
@@ -100,15 +123,15 @@ func cachedDB(create bool) (*sealdb.DB, error) {
 		if !create {
 			return nil, ErrNoStore
 		}
-		return createDB(ctx, home, path)
+		return createDB(ctx, home, path, oldOK)
 	}
 	if err != nil {
 		return nil, err
 	}
-	return openDB(ctx, home, path, meta)
+	return openDB(ctx, home, path, meta, oldOK)
 }
 
-func openDB(ctx context.Context, home, path string, meta map[string]string) (*sealdb.DB, error) {
+func openDB(ctx context.Context, home, path string, meta map[string]string, oldOK bool) (*sealdb.DB, error) {
 	master, _, err := KeySource(meta, false)
 	if err != nil {
 		return nil, err
@@ -121,7 +144,7 @@ func openDB(ctx context.Context, home, path string, meta map[string]string) (*se
 	if err != nil {
 		return nil, err
 	}
-	lookOnly, raise, err := checkGeneration(d, meta)
+	lookOnly, raise, err := checkGeneration(d, meta, oldOK)
 	if err != nil {
 		d.Close()
 		return nil, err
@@ -144,7 +167,7 @@ func remember(home, path string, d *sealdb.DB, master []byte, lookOnly bool) (*s
 	return d, nil
 }
 
-func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
+func createDB(ctx context.Context, home, path string, oldOK bool) (*sealdb.DB, error) {
 	if err := ensureHome(); err != nil {
 		return nil, err
 	}
@@ -155,7 +178,7 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 	defer unlock()
 	// another process may have made it while this one waited
 	if meta, err := sealdb.Peek(ctx, path); err == nil {
-		return openDB(ctx, home, path, meta)
+		return openDB(ctx, home, path, meta, oldOK)
 	}
 	master, meta, err := KeySource(nil, true)
 	if err != nil {
@@ -209,7 +232,7 @@ func createDB(ctx context.Context, home, path string) (*sealdb.DB, error) {
 			return nil, fmt.Errorf("could not save the store's change count in the keychain: %w", gerr)
 		}
 	}
-	lookOnly, raise, err := checkGeneration(d, meta)
+	lookOnly, raise, err := checkGeneration(d, meta, oldOK)
 	if err != nil {
 		d.Close()
 		return nil, err

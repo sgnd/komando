@@ -15,7 +15,7 @@ import (
 // (with a warning) unless it adds --yes and the person allows it.
 func TestHostEnvSecretNeedsAPersonForAnAgent(t *testing.T) {
 	invHome(t)
-	if err := vault.Set("tok", "host-env-token-5531"); err != nil {
+	if err := vault.Set(store.Save, "tok", "host-env-token-5531"); err != nil {
 		t.Fatal(err)
 	}
 	h := &store.Host{Name: "web1", Address: "10.0.0.1", User: "deploy", Env: map[string]string{"API_TOKEN": "secret:tok", "REGION": "eu"}}

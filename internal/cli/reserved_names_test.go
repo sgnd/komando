@@ -30,7 +30,7 @@ func TestReservedCloudNames(t *testing.T) {
 	wantCode(t, "USAGE", "rename", "c1", "gcp")
 
 	// an entry from before the names were reserved
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Hosts["aws"] = &store.Host{Name: "aws", Address: "127.0.0.1", Port: 1, User: "u", CreatedAt: time.Now()}
 		return nil
 	}); err != nil {

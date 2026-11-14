@@ -101,7 +101,7 @@ func TestKeyRmInUseAndText(t *testing.T) {
 // coreText runs komando with -o text and returns what it printed.
 func coreText(t *testing.T, args ...string) string {
 	t.Helper()
-	tcl.flags.dryRun, tcl.flags.yes, store.DryRun = false, false, false
+	tcl.flags.dryRun, tcl.flags.yes = false, false
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))

@@ -98,12 +98,12 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	if out.HasHidden(v) {
 		return "", undo, hiddenValueErr()
 	}
-	if err := vault.Set(sec, v); err != nil {
+	if err := vault.Set(cl.storeWrite(), sec, v); err != nil {
 		return "", undo, err
 	}
 	audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
 	if !existed {
-		undo = func() { _ = vault.Delete(sec) }
+		undo = func() { _ = vault.Delete(cl.storeWrite(), sec) }
 	}
 	return ref, undo, nil
 }

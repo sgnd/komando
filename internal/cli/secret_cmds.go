@@ -81,7 +81,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 				cl.out.Print("secret.set", textAs{res, textFn(func() string { return changeText(cl.out, res) })}, nil)
 				return nil
 			}
-			if err := vault.Set(args[0], v); err != nil {
+			if err := vault.Set(cl.storeWrite(), args[0], v); err != nil {
 				return err
 			}
 			audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": args[0], "replaced": replaced})
@@ -260,13 +260,13 @@ func secretRmCmd() *cobra.Command {
 			// moveSecret takes them), so a reference another komando adds
 			// meanwhile is seen before its secret is gone
 			args = dedupe(args)
-			err = store.Update(func(s *store.State) error {
+			err = store.Update(cl.storeWrite(), func(s *store.State) error {
 				for _, n := range args {
 					if users := secretUsers(s, n); len(users) > 0 {
 						return secretInUse(n, users)
 					}
 				}
-				return vault.DeleteMany(args)
+				return vault.DeleteMany(cl.storeWrite(), args)
 			})
 			audit(cl, nil, "secret.rm", nil, "", err == nil, map[string]any{"secrets": args})
 			if errors.Is(err, vault.ErrNotFound) { // removed by another komando meanwhile

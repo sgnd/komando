@@ -129,7 +129,7 @@ without it a job has no time limit.`,
 // startJobs starts sp on every server of hosts and prints one row each.
 func startJobs(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, sp jobSpec) error {
 	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-		s, err := startJob(ctx, c, sp)
+		s, err := startJob(cl, ctx, c, sp)
 		if err != nil {
 			return nil, err
 		}
@@ -211,7 +211,7 @@ func jobStatusCmd() *cobra.Command {
 			}
 			var s *jobStatus
 			err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
-				s, err = fetchStatus(cmd.Context(), c, j, tail)
+				s, err = fetchStatus(cl, cmd.Context(), c, j, tail)
 				return err
 			})
 			if err != nil {
@@ -258,7 +258,7 @@ func jobLogsCmd() *cobra.Command {
 			}
 			var res jobLogs
 			err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
-				s, err := fetchStatus(cmd.Context(), c, j, 0)
+				s, err := fetchStatus(cl, cmd.Context(), c, j, 0)
 				if err != nil {
 					return err
 				}
@@ -396,7 +396,7 @@ func waitJob(cl *call, ctx context.Context, id string, deadline time.Time, inter
 		err = withClient(cl, ctx, st, h, func(c *sshx.Client) error {
 			for {
 				var ferr error
-				if s, ferr = fetchStatus(ctx, c, j, tail); ferr != nil {
+				if s, ferr = fetchStatus(cl, ctx, c, j, tail); ferr != nil {
 					return ferr
 				}
 				if s.State != "running" || time.Now().After(deadline) {
@@ -605,7 +605,7 @@ func jobRmCmd() *cobra.Command {
 					}
 				}
 				err = withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
-					s, err := fetchStatus(cmd.Context(), c, j, 0)
+					s, err := fetchStatus(cl, cmd.Context(), c, j, 0)
 					if err != nil {
 						return err
 					}
@@ -638,7 +638,7 @@ func jobRmCmd() *cobra.Command {
 					return err
 				}
 				// an unreachable server: the record goes anyway (its logs stay there)
-				if err := store.UpdateRuntime(func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
+				if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { delete(s.Jobs, id); return nil }); err != nil {
 					return err
 				}
 				removed = append(removed, id)

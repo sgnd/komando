@@ -460,7 +460,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 	lockFree := false
 	askOnScreen = func(*call, string) (bool, bool) {
 		done := make(chan error, 1)
-		go func() { done <- store.Update(func(*store.State) error { return nil }) }()
+		go func() { done <- store.Update(store.Save, func(*store.State) error { return nil }) }()
 		select {
 		case <-done:
 			lockFree = true
@@ -490,7 +490,7 @@ func TestConfigSetAsksBeforeLocking(t *testing.T) {
 	lockFree := false
 	askOnScreen = func(*call, string) (bool, bool) {
 		done := make(chan error, 1)
-		go func() { done <- store.Update(func(*store.State) error { return nil }) }()
+		go func() { done <- store.Update(store.Save, func(*store.State) error { return nil }) }()
 		select {
 		case <-done:
 			lockFree = true
@@ -582,14 +582,14 @@ func TestDockerSudoRefusal(t *testing.T) {
 func TestPkgRmIsPkgRm(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		st.Hosts["win1"] = &store.Host{Name: "win1", Address: "10.255.255.4", User: "admin", OS: "windows"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	o := captureOutput(t, func() error { return runRoot(t, "-o", "json", "--dry-run", "pkg", "rm", "web1", "telnet") })
 	if !strings.Contains(o, `"command":"pkg.rm"`) || !strings.Contains(o, `"remote_command":"pkg rm telnet"`) {
 		t.Errorf("dry run: %s", o)
@@ -609,13 +609,13 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 func TestOpsDryRunShapes(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	for args, want := range map[string]string{
 		"reboot web1":                               `"data":{"order":"one server at a time","would_be_blocked":{"code":"POLICY_BLOCKED"`,
 		"user rm web1 bob --remove-home":            `"remote_command":"user rm bob --remove-home"`,
@@ -656,13 +656,13 @@ func TestDockerUseNamesTheArgument(t *testing.T) {
 func TestDockerContainerIsNeverAnOption(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	for _, args := range [][]string{
 		{"--dry-run", "docker", "exec", "web1", "--", "--privileged", "-u", "root", "api", "sh"},
 		{"--dry-run", "docker", "exec", "web1", "--", "-e", "X=1", "api", "id"},
@@ -686,13 +686,13 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 func TestUserNamesAreChecked(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	for _, verb := range []string{"add", "lock", "unlock", "rm"} {
 		if e := toErr(runRoot(t, "-o", "json", "--dry-run", "user", verb, "web1", "--", "-r")); e == nil || e.Code != "USAGE" {
 			t.Errorf("user %s -r: %v", verb, e)
@@ -704,7 +704,6 @@ func TestUserNamesAreChecked(t *testing.T) {
 // Ctrl-C ends logs --follow: the lines so far are the result, exit 0,
 // not CANCELLED (it is how a person stops a follow, like --timeout).
 func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
-	store.DryRun = false // an earlier --dry-run test leaves it on
 	s := startFakeServer(t)
 	lines := make([]string, 60)
 	for i := range lines {
@@ -724,7 +723,6 @@ func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
 // no password), like facts and pkg security: dnf keeps a cache per user,
 // and the login user's own listed 48 updates where root's listed 4.
 func TestPkgUpgradableReadsAsRootWhenItCan(t *testing.T) {
-	store.DryRun = false
 	s := startFakeServer(t)
 	s.reply("")
 	_ = runRoot(t, "-o", "json", "pkg", "upgradable", "dev")

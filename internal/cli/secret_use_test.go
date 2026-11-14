@@ -17,7 +17,7 @@ func secretHome(t *testing.T) {
 	t.Helper()
 	invHome(t)
 	resetApproval()
-	if err := vault.Set("db-pass", "pa$$1word"); err != nil {
+	if err := vault.Set(store.Save, "db-pass", "pa$$1word"); err != nil {
 		t.Fatal(err)
 	}
 }

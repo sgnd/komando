@@ -17,7 +17,7 @@ func TestShortPassphraseIsReported(t *testing.T) {
 	Passphrase()
 	defer func(n int) { PassphraseN = n }(PassphraseN)
 	PassphraseN = 1 << 10
-	if err := Set("x", "value-1"); err != nil {
+	if err := Set(store.Save, "x", "value-1"); err != nil {
 		t.Fatal(err)
 	}
 	if s, _ := Check(); !s.ShortPass {

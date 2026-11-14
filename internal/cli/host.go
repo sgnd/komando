@@ -156,7 +156,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	h.CreatedAt, h.UpdatedAt = now, now
 	res := hostResult{Host: h}
 	replaced := false
-	err = store.Update(func(s *store.State) error {
+	err = store.Update(cl.storeWrite(), func(s *store.State) error {
 		if err := checkNewName(cl, s, "host", name, force); err != nil {
 			return err
 		}
@@ -256,7 +256,7 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 	var res hostResult
 	var many hostEditResult
 	single := false
-	err = store.Update(func(s *store.State) error {
+	err = store.Update(cl.storeWrite(), func(s *store.State) error {
 		hosts, err := pickHosts(cl, s, args)
 		if err != nil {
 			return err

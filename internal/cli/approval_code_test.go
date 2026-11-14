@@ -30,10 +30,10 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long")
 	secret := []byte("12345678901234567890")
-	if err := vault.Set(approvalSecret, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(secret)); err != nil {
+	if err := vault.Set(store.Save, approvalSecret, base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(secret)); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
+	if err := store.Update(store.Save, func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")

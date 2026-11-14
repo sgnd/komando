@@ -23,7 +23,7 @@ func invHome(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	t.Cleanup(func() {
-		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous, store.DryRun = false, false, false, false
+		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
 		tcl.out.Format = "json"
 	})
 }
@@ -32,7 +32,7 @@ func invHome(t *testing.T) {
 func invRun(t *testing.T, args ...string) (map[string]any, *out.Error) {
 	t.Helper()
 	closeStoreAtEnd(t)
-	tcl.flags.dryRun, tcl.flags.yes, store.DryRun = false, false, false
+	tcl.flags.dryRun, tcl.flags.yes = false, false
 	root := newRoot(tcl)
 	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))

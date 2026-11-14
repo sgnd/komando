@@ -60,7 +60,7 @@ func jobListCmd() *cobra.Command {
 				var s *jobStatus
 				err := withClient(cl, cmd.Context(), st, h, func(c *sshx.Client) error {
 					var e error
-					s, e = fetchStatus(cmd.Context(), c, j, 0)
+					s, e = fetchStatus(cl, cmd.Context(), c, j, 0)
 					return e
 				})
 				if err != nil {

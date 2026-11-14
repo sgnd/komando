@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -21,7 +22,7 @@ func TestAgentInputWithVaultValueRefused(t *testing.T) {
 	tcl.out = &out.Printer{Format: "json", W: tcl.out.W, Start: time.Now()} // the vault values are read once per printer
 	t.Cleanup(func() { tcl.out = saved })
 	const v = "Tr0ub4dor-guess-77"
-	if err := vault.Set("db-pass", v); err != nil {
+	if err := vault.Set(store.Save, "db-pass", v); err != nil {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")

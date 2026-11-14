@@ -24,7 +24,7 @@ func keyfileHome(t *testing.T) []byte {
 	invHome(t)
 	t.Setenv("KOMANDO_VAULT_PASS", "")
 	vault.ReadPassStdin(strings.NewReader("")) // forget one read earlier
-	if err := vault.Set("db-pass", "s3cret"); err != nil {
+	if err := vault.Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	key, err := os.ReadFile(store.Path("store.key"))

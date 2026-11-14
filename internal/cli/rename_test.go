@@ -22,7 +22,7 @@ func shopInventory(t *testing.T) {
 	t.Helper()
 	invHome(t)
 	for _, n := range []string{"shop-pass", "shop-psk", "shop-ca", "other-pass"} {
-		if err := vault.Set(n, "value of "+n); err != nil {
+		if err := vault.Set(store.Save, n, "value of "+n); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -37,7 +37,7 @@ func shopInventory(t *testing.T) {
 		"--password-ref", "secret:shop-pass", "--protected", "-g", "shop")
 	mustRun(t, "conn", "add", "bucket", "s3://shop-admin@shop-prod?region=eu-west-1", "--password-ref", "secret:shop-pass")
 	mustRun(t, "conn", "add", "reg", "registry://u@reg.lan?ca=secret:shop-ca")
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Vpns["shop-vpn"].PSKRef = "secret:shop-psk"
 		s.Keys["shop-key"].PassphraseRef = "secret:shop-pass"
 		s.Jobs["j1"] = &store.Job{ID: "j1", Host: "shop-data-01", Command: "sleep 1"}
@@ -255,7 +255,7 @@ func TestRenameClashChangesNothing(t *testing.T) {
 	}{
 		{"a new host name is taken by a conn", func() { mustRun(t, "conn", "add", "acme-shop-data-01", "postgres://a@10.0.0.9/x") }},
 		{"a new secret name is taken", func() {
-			if err := vault.Set("acme-shop-psk", "x"); err != nil {
+			if err := vault.Set(store.Save, "acme-shop-psk", "x"); err != nil {
 				t.Fatal(err)
 			}
 		}},
@@ -279,7 +279,7 @@ func TestRenameClashChangesNothing(t *testing.T) {
 
 	// a connected VPN cannot be renamed: its background session runs under the old name
 	shopInventory(t)
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Sessions["shop-vpn"] = &store.VpnSession{Vpn: "shop-vpn", PID: os.Getpid(), StartedAt: time.Now(), LastUsed: time.Now()}
 		return nil
 	}); err != nil {
@@ -499,7 +499,7 @@ func TestRenameLabels(t *testing.T) {
 // (TestMain fails a test that opens one).
 func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	invHome(t)
-	if err := vault.Set("lab-pass", "v"); err != nil {
+	if err := vault.Set(store.Save, "lab-pass", "v"); err != nil {
 		t.Fatal(err)
 	}
 	mustRun(t, "vpn", "add", "lab-vpn", "socks", "--proxy-address", "127.0.0.1:1080")
@@ -527,7 +527,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 func TestRenameReservedSecret(t *testing.T) {
 	invHome(t)
 	for _, n := range []string{approvalSecret, "komando-other"} {
-		if err := vault.Set(n, "v"); err != nil {
+		if err := vault.Set(store.Save, n, "v"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -541,10 +541,10 @@ func TestRenameReservedSecret(t *testing.T) {
 	if _, err := vault.Get(approvalSecret); err != nil {
 		t.Errorf("the approval code's secret moved: %v", err)
 	}
-	if err := vault.RenameMany(map[string]string{"k-other": approvalSecret}); err == nil {
+	if err := vault.RenameMany(store.Save, map[string]string{"k-other": approvalSecret}); err == nil {
 		t.Error("the vault put a value under the approval code's name")
 	}
-	if err := vault.RenameMany(map[string]string{approvalSecret: "x"}); err == nil {
+	if err := vault.RenameMany(store.Save, map[string]string{approvalSecret: "x"}); err == nil {
 		t.Error("the vault moved the approval code's secret")
 	}
 }
@@ -650,7 +650,7 @@ func TestRenameRollback(t *testing.T) {
 		}
 		return b.String()
 	}
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Vpns["shop-ts"] = &store.Vpn{Name: "shop-ts", Kind: "tailscale"}
 		return nil
 	}); err != nil {

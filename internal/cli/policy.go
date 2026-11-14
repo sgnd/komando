@@ -89,7 +89,7 @@ func policyCmd() *cobra.Command {
 			}
 			var pats []string
 			added := false
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				added = !slices.Contains(s.Settings.ExtraDenyPattern, pat)
 				if added {
 					s.Settings.ExtraDenyPattern = append(s.Settings.ExtraDenyPattern, pat)
@@ -216,7 +216,7 @@ cannot be removed. Removing a rule weakens a safety check, so komando asks first
 			}
 			var pats []string
 			removed := ""
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				list := s.Settings.ExtraDenyPattern
 				i := slices.Index(list, arg)
 				if i < 0 {

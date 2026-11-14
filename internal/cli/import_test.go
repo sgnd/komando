@@ -69,7 +69,7 @@ func TestImportMycnf(t *testing.T) {
 func TestImportKomandoIsDefensive(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "x")
-	if err := vault.Set("prod-db-pass", "s3cret"); err != nil {
+	if err := vault.Set(store.Save, "prod-db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	file := writeTemp(t, "exp.json", `{"format":"komando-export/1",
@@ -108,7 +108,7 @@ func TestImportedHostsCannotUseLocalSecrets(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invHome(t)
-			if err := vault.Set("prod-db-pass", "s3cret"); err != nil {
+			if err := vault.Set(store.Save, "prod-db-pass", "s3cret"); err != nil {
 				t.Fatal(err)
 			}
 			file := writeTemp(t, "hosts.json", tc.file)

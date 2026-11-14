@@ -436,6 +436,7 @@ func vpnAskPassword(cmd *cobra.Command, name string, askPw, askPsk bool, check f
 // Its undo removes a secret that was new, and puts the old value back in
 // one it replaced (vpn add --overwrite), so a refused add changes nothing.
 func vpnAskSecret(cmd *cobra.Command, name string, a askSecret) (func(), error) {
+	cl := callOf(cmd)
 	sec := name + "-" + a.suffix
 	old, getErr := vault.Get(sec)
 	_, undo, err := askSecretNow(cmd, "vpn", name, a)
@@ -445,20 +446,20 @@ func vpnAskSecret(cmd *cobra.Command, name string, a askSecret) (func(), error) 
 	if getErr != nil { // it was new: askSecretNow's undo removes it
 		return undo, nil
 	}
-	return func() { _ = vault.Set(sec, old) }, nil
+	return func() { _ = vault.Set(cl.storeWrite(), sec, old) }, nil
 }
 
 // vpnAddSave stores a checked VPN v: its own vault secrets, then v.
 func vpnAddSave(cl *call, v *store.Vpn, secrets map[string]string, overwrite bool, check func(*store.State) error) error {
-	if err := store.Update(check); err != nil {
+	if err := store.Update(cl.storeWrite(), check); err != nil {
 		return err
 	}
 	for n, val := range secrets {
-		if err := vault.Set(n, val); err != nil {
+		if err := vault.Set(cl.storeWrite(), n, val); err != nil {
 			return err
 		}
 	}
-	return store.Update(func(s *store.State) error {
+	return store.Update(cl.storeWrite(), func(s *store.State) error {
 		if err := checkNewName(cl, s, "vpn", v.Name, overwrite); err != nil {
 			return err
 		}

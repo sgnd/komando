@@ -162,7 +162,7 @@ func TestMissingStoreOfSealedFolder(t *testing.T) {
 			// a plain state.json someone put there must not be read either
 			os.WriteFile(Path("state.json"), []byte(`{"hosts":{"x":{"name":"x"}}}`), 0o600)
 			var oe *out.Error
-			for what, err := range map[string]error{"Load": func() error { _, e := Load(); return e }(), "Update": Update(func(*State) error { return nil })} {
+			for what, err := range map[string]error{"Load": func() error { _, e := Load(); return e }(), "Update": Update(Save, func(*State) error { return nil })} {
 				if !errors.As(err, &oe) || oe.Code != want || (want == "STATE_CORRUPT" && !strings.Contains(oe.Hint, "store.db back")) {
 					t.Fatalf("%s: %v", what, err)
 				}
@@ -178,7 +178,7 @@ func TestMissingStoreOfSealedFolder(t *testing.T) {
 func TestStateFileBesideStoreIgnored(t *testing.T) {
 	sealedHome(t)
 	fakeKeys(t)
-	if err := Update(func(s *State) error { s.Hosts["real"] = &Host{Name: "real"}; return nil }); err != nil {
+	if err := Update(Save, func(s *State) error { s.Hosts["real"] = &Host{Name: "real"}; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	os.WriteFile(Path("state.json"), []byte(`{"hosts":{"planted":{"name":"planted"}},"settings":{"host_key_policy":"off"}}`), 0o600)

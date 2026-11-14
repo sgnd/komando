@@ -22,7 +22,7 @@ import (
 func startWindowsServer(t *testing.T) *fakeServer {
 	t.Helper()
 	srv := startFakeServer(t)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Hosts["prod"].Protected = false
 		w := *st.Hosts["dev"]
 		w.Name, w.OS = "win", store.OSWindows

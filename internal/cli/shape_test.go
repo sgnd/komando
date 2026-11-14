@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/store"
 )
 
 var updateShapes = flag.Bool("update-shapes", false, "rewrite testdata/shapes.json from what the commands print now")
@@ -91,7 +90,7 @@ func TestOutputShapes(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("PG_PASS", "s3cret")
-	defer func() { tcl.flags.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	for _, setup := range [][]string{
 		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
 		{"secret", "set", "pg-pass", "--from-env", "PG_PASS"},
@@ -121,7 +120,7 @@ func TestOutputShapes(t *testing.T) {
 			}
 		}
 		s := runShape(t, args)
-		tcl.flags.dryRun, store.DryRun = false, false
+		tcl.flags.dryRun = false
 		var v any
 		if err := json.Unmarshal([]byte(s), &v); err != nil {
 			t.Errorf("%v: not JSON: %v\n%s", args, err, s)

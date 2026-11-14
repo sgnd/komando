@@ -86,7 +86,7 @@ above are gone. There is no "current call" in a package variable.
   nil inherits the process's whole environment, so a call with no
   environment starts programs with none (a dump tool then gets no `PATH`
   or `HOME`; an app hands in what its programs need). Two programs a
-  command starts do not get it yet (item 3 of "What is still shared").
+  command starts do not get it yet (item 2 of "What is still shared").
   `vault.TakeUnlockEnv` cleans only the process's environment, and an
   app hands each call one of its own. A komando process that needs the
   vault gets `vault.SelfEnv` or the values on its stdin.
@@ -134,6 +134,50 @@ own lock (`engine.Session.Reset`), and the printer's vault values are
 set with `out.Printer.SetSecrets`, which drops the old ones and loads
 the new ones on first use.
 
+### The store: a preview and a look at an old copy
+
+Two things the store did for "the command running now" are the call's
+too.
+
+**A dry run is a parameter.** Every change says how it goes:
+`store.Update(w, fn)` and `store.UpdateRuntime(w, fn)` take a
+`store.Write`, `store.Save` or `store.Preview`. With `Preview`, `fn` runs
+on a copy that is never saved, as `--dry-run` did before. The vault's
+writes take it too (`vault.Set`, `Delete`, `DeleteMany`, `Copy`,
+`Rename`, `RenameMany`, `ChangeKey`): a preview of one stops with
+`store.ErrDryRun`, as before. In the cli every caller passes
+`cl.storeWrite()`, which is `Preview` under the call's `--dry-run`. A
+parameter, and not a value in a `context.Context`, because there are
+few callers (about 60) and all of them hold the call: a change that
+does not say how it goes does not compile, where a missing context
+value would quietly save a dry run's change. netx keeps a VPN
+session's runtime record up to date (its last use, a dead session
+gone) with `store.Save`: it records what happened to a real process,
+which a dry run does not undo.
+
+**A look at an old copy belongs to the call.** doctor and a dry run may
+open an old copy of the store to look at it (they change nothing; doctor
+must say what is wrong). The call keeps that leave in `cl.oldCopy`: a
+dry run sets it when its command starts, doctor while it looks
+(`lookAtOldCopy(cl)`). The store opens the sealed store deep down
+(`store.DB`), from reads that carry no call: `store.Load`, the vault,
+the host keys of sshx, the audit log. So it asks a hook,
+`store.OldCopyOK`, and the cli answers yes only while every running call
+may look (`oldCopyAllowed`). One call's leave never opens the old copy
+for a call beside it. The other way round, a dry run beside a plain call
+on an old copy stops with `STORE_OLD_COPY` too: safe, not exact, and
+only on a restored folder. Exact needs `store.DB` to take the call (a
+`context.Context`) through every read, the same next step as the hooks
+below.
+
+The store keeps one open handle per home (`cachedDB`). A handle opened
+on an old copy is marked look-only and is handed only to a caller that
+may look; any other caller gets the store opened and checked again, and
+`STORE_OLD_COPY`. `CopyState` and `AcceptOldCopy` (doctor, and a
+person's `doctor --accept-old-copy`) look with an explicit parameter
+(`openOldCopy`), not through the hook, and close only a look-only handle
+when they are done, so a call beside them keeps its open store.
+
 ## What is still shared, and why
 
 The packages under the cli keep some state of their own. A call cannot
@@ -166,16 +210,11 @@ is not.
    hides it. A value read for one call is hidden
    in all of them; one agent among them makes a guard answer as for an
    agent; a person is asked at the terminal only while theirs is the only
-   call. That is safe, not exact. Next step: these packages take a
+   call. That is safe, not exact. `store.OldCopyOK` answers the same
+   way ("The store", above). Next step: these packages take a
    `context.Context` that carries the call (`vault.Resolve` takes none
    yet; `sshx` would carry it on the `Client`).
-2. **`store.DryRun` and `store.AllowOldCopy`.** The store reads them on
-   every write. `storeDryRun` writes them only when they change, so calls
-   without `--dry-run` never touch them. A dry run at the same time as
-   another call still makes the other call's store writes previews. This
-   must change before the apps run calls side by side: `store.Update`
-   needs a dry-run parameter (48 callers) and `vault` reads it twice.
-3. **The process's terminal.** Raw mode (the fd of `os.Stdin`), the PTY
+2. **The process's terminal.** Raw mode (the fd of `os.Stdin`), the PTY
    questions and Ctrl-C use the process's terminal. Only a call with
    `Terminal: true` asks questions; an app's calls never do. The
    questions are drawn on the call's stderr. The width lines wrap at is
@@ -192,11 +231,11 @@ is not.
    writes from several goroutines: `netx.LockBusy` writes its notice
    ("another komando command is connecting vpn ...") to every running
    call's stderr from the goroutine of the call that waits.
-4. **The data folder.** `store.Home()` and the vault read `KOMANDO_HOME`,
+3. **The data folder.** `store.Home()` and the vault read `KOMANDO_HOME`,
    `env:` references and the unlock variables from the process's
    environment. An app's calls share one data folder, so this is right
    for them; a call's own `KOMANDO_HOME` must match the process's.
-5. **Set once per process.** `Version` (an `init`), `vtOK` (the Windows
+4. **Set once per process.** `Version` (an `init`), `vtOK` (the Windows
    console, in `Execute`), the signal handler, and `store.Close` (in
    `Execute`; an app closes the store when it quits). `Execute` sets
    `call.signals`, and `execute` arms Ctrl-C only after the guided
@@ -204,12 +243,12 @@ is not.
    offers, stops only that. An app passes its own context to `RunCall`;
    one already done after the questions stops the command with "Stopped.
    Nothing was run."
-6. **Paths through jump hosts.** sshx shares one login to the same jump
+5. **Paths through jump hosts.** sshx shares one login to the same jump
    hosts among the servers behind them (`openJumps`, a cache of the
    process), so calls at once share it too. The cache key names the VPN,
    each jump host and the host-key check (`chainKey`): a path dialed with
    `--host-key-policy off` is never handed to a call that checks keys.
-7. **Background processes.** `login-holder` sets `sshx.Asker` and
+6. **Background processes.** `login-holder` sets `sshx.Asker` and
    `vpn serve` sets `netx.SessionSecret`. Each runs as a process of its
    own and never in an app.
 
@@ -233,6 +272,16 @@ is not.
   `list` and `secret list` (which open the store) through `RunCall`:
   under `-race`, nothing a hook reads is written without a lock. It
   fails if the hooks never ran while both kinds of call were running.
+- `TestDryRunBesideARealChange`: a person's `host add --ask-password`
+  has started and waits for its password while a dry run's `host add`
+  runs from start to end; then the person's call saves its server and
+  its password, and the dry run's server is not saved. Six more pairs
+  run at once in no set order.
+- `TestOldCopyLookStaysInItsCall`: on an old copy, a dry run alone may
+  look and a plain call after it may not; a plain call beside a dry run
+  that has opened the old copy and still runs stops with
+  `STORE_OLD_COPY`; six more pairs run at once, and no plain call ever
+  gets the old copy.
 - `TestCallEnvironForChildren`: a call with no environment starts a
   program with an empty one, not the process's, and a call's own
   environment loses its unlock values.

@@ -278,7 +278,7 @@ func recipeAddCmd() *cobra.Command {
 				}
 				approved = true
 			}
-			err := store.Update(func(st *store.State) error {
+			err := store.Update(cl.storeWrite(), func(st *store.State) error {
 				if _, ok := st.Snippets[s.Name]; ok && !overwrite {
 					return out.Errf(out.ExitConflict, "RECIPE_EXISTS", "see it with `komando recipe show NAME`, or pass --overwrite to replace it", "recipe %q exists", s.Name)
 				}
@@ -313,7 +313,7 @@ func recipeRmCmd() *cobra.Command {
 			if builtinRecipe(args[0]) != nil {
 				return out.Errf(out.ExitConflict, "RECIPE_BUILTIN", "built-in recipes cannot be removed", "%q is a built-in recipe", args[0])
 			}
-			err := store.Update(func(st *store.State) error {
+			err := store.Update(cl.storeWrite(), func(st *store.State) error {
 				if _, ok := st.Snippets[args[0]]; !ok {
 					return recipeNotFound(args[0])
 				}

@@ -48,7 +48,7 @@ func acceptOldCopy(cl *call) error {
 
 // lookAtOldCopy lets this command open an old copy to look at it, until
 // the function it returns is called.
-func lookAtOldCopy() func() {
-	store.AllowOldCopy = true
-	return func() { store.AllowOldCopy = false }
+func lookAtOldCopy(cl *call) func() {
+	was := cl.oldCopy.Swap(true)
+	return func() { cl.oldCopy.Store(was) }
 }

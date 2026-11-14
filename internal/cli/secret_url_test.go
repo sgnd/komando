@@ -44,7 +44,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 	invHome(t)
 	setSecret(t, "reg-ca", "-----BEGIN CERTIFICATE-----")
 	const url = "registry://deploy@registry.lan?ca=secret:reg-ca"
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Conns = map[string]*store.Conn{"reg": {Name: "reg", Kind: "registry", URL: url, Protected: true}}
 		return nil
 	}); err != nil {
@@ -88,7 +88,7 @@ func TestSecretRefInConnURL(t *testing.T) {
 			t.Errorf("doctor: %+v", c)
 		}
 	}
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Conns["reg"].URL = "registry://deploy@registry.lan?ca=secret:nope"
 		return nil
 	}); err != nil {

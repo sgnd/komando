@@ -81,7 +81,7 @@ func hostRmCmd() *cobra.Command {
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var names, kept, unused []string
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				var prot []string
 				batch := map[string]bool{}
 				hosts, err := pickHosts(cl, s, args)

@@ -128,7 +128,7 @@ func TestHostAddWinRMAddressFlag(t *testing.T) {
 // like the host's password.
 func TestWinRMCAExportImport(t *testing.T) {
 	invHome(t)
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Hosts["win7"] = &store.Host{Name: "win7", Address: "10.0.0.9", User: "a", Transport: store.TransportWinRM, OS: store.OSWindows,
 			WinRMOpts: &store.WinRMOpts{CA: "secret:corp-ca"}}
 		return nil
@@ -164,7 +164,7 @@ func TestWinRMCAExportImport(t *testing.T) {
 func TestSecretRefInWinRMCA(t *testing.T) {
 	invHome(t)
 	setSecret(t, "corp-ca", "-----BEGIN CERTIFICATE-----")
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save, func(s *store.State) error {
 		s.Hosts = map[string]*store.Host{"win2": {Name: "win2", Address: "10.0.0.9", User: "Administrator",
 			Transport: store.TransportWinRM, WinRMOpts: &store.WinRMOpts{CA: "secret:corp-ca"}}}
 		return nil

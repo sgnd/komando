@@ -73,7 +73,7 @@ func loginHost(cl *call, ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	if err := store.UpdateRuntime(func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
+	if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { s.Logins[h.Name] = l; return nil }); err != nil {
 		endLogin(l)
 		return err
 	}
@@ -307,7 +307,7 @@ func loginHolderCmd() *cobra.Command {
 			why := holdUntil(ctx, c, until)
 			ln.Close()
 			fmt.Fprintf(cl.out.Err, "%s ENDED %s (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), why, time.Since(started).Round(time.Second))
-			_ = store.UpdateRuntime(func(s *store.State) error {
+			_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				if x := s.Logins[h.Name]; x != nil && x.PID == os.Getpid() { // not a newer login's record
 					delete(s.Logins, h.Name)
 				}
@@ -478,7 +478,7 @@ AWS IAM Identity Center (SSO) login.`,
 				}
 				endLogin(l)
 			}
-			if err := store.UpdateRuntime(func(s *store.State) error {
+			if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				for _, n := range append(append([]string{}, done...), none...) {
 					delete(s.Logins, n)
 				}

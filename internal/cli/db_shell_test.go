@@ -119,7 +119,7 @@ func TestDBShellDryRunContactsNothing(t *testing.T) {
 	defer func() { tcl.terminal, tcl.flags = saved, savedG }()
 	tcl.terminal = true
 	tcl.flags.dryRun = true
-	err := store.Update(func(st *store.State) error {
+	err := store.Update(store.Save, func(st *store.State) error {
 		st.Conns["far"] = &store.Conn{Name: "far", Kind: "postgres", URL: "postgres://app@10.255.255.1/app", Via: "no-such-host"}
 		return nil
 	})

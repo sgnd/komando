@@ -212,7 +212,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			if acceptOld {
 				return acceptOldCopy(cl)
 			}
-			defer lookAtOldCopy()() // doctor must be able to say what is wrong
+			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}
 			add := func(name string, ok bool, detail string) { r.Checks = append(r.Checks, doctorCheck{name, ok, detail}) }
 			st, err := loadState()

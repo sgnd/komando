@@ -89,7 +89,7 @@ func vpnServeCmd() *cobra.Command {
 				defer done()
 				socks5Auth(c, cm, logger, socksUser, socksPass, loggedIn)
 			})
-			_ = store.UpdateRuntime(func(s *store.State) error {
+			_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				if x := s.Sessions[v.Name]; x != nil && x.PID == os.Getpid() { // not a newer session's entry
 					delete(s.Sessions, v.Name)
 				}

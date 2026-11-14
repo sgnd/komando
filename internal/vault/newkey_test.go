@@ -75,7 +75,7 @@ func noKeyFile(t *testing.T) {
 func TestNewVaultKeyInKeychain(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keychain" {
@@ -99,7 +99,7 @@ func TestNewVaultKeyInKeychain(t *testing.T) {
 func TestNewVaultKeychainFails(t *testing.T) {
 	freshHome(t)
 	keychainStandIn(t, true)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -119,14 +119,14 @@ func TestNewVaultKeychainFails(t *testing.T) {
 func TestNewVaultKeepsKeychainKey(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
-	if err := Set("old", "kept value"); err != nil {
+	if err := Set(store.Save, "old", "kept value"); err != nil {
 		t.Fatal(err)
 	}
 	aside := store.DBPath() + ".aside"
 	if err := os.Rename(store.DBPath(), aside); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set("new", "v"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") && !strings.Contains(err.Error(), "is missing") {
+	if err := Set(store.Save, "new", "v"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") && !strings.Contains(err.Error(), "is missing") {
 		t.Fatalf("a store moved aside: %v", err)
 	}
 	if n := strings.Count(calls(), "store"); n != 1 {
@@ -146,7 +146,7 @@ func TestNewVaultKeychainOff(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -165,11 +165,11 @@ func TestNewVaultKeychainOff(t *testing.T) {
 // Only `komando secret keychain` moves a key.
 func TestExistingVaultKeepsMode(t *testing.T) {
 	freshHome(t)
-	if err := Set("first", "v"); err != nil { // keychain off: a key file store
+	if err := Set(store.Save, "first", "v"); err != nil { // keychain off: a key file store
 		t.Fatal(err)
 	}
 	calls := keychainStandIn(t, false)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -184,7 +184,7 @@ func TestExistingVaultKeepsMode(t *testing.T) {
 	savedN := PassphraseN
 	PassphraseN = 1 << 10 // quick; the cost is not what this test is about
 	defer func() { PassphraseN = savedN }()
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "passphrase" {
@@ -257,7 +257,7 @@ func TestNewVaultKeychainLocked(t *testing.T) {
   store) exit 0 ;;
 esac
 `)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -281,7 +281,7 @@ func TestNewVaultKeychainHangs(t *testing.T) {
 	newKeyTimeout = 200 * time.Millisecond
 	defer func() { newKeyTimeout = saved }()
 	start := time.Now()
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if d := time.Since(start); d > 5*time.Second {
@@ -302,7 +302,7 @@ func newVaultNoStore(t *testing.T, script string) {
 	// a first run of a new script can be slow (macOS checks it); not the
 	// keychain call newKeyTimeout should cut short
 	_ = keychainCmd("warm-up").Run()
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -353,7 +353,7 @@ func newVaultLockAnswer(t *testing.T, name, answer string) (stored bool) {
 	calls := scriptedSecretTool(t, keePassXCLocked)
 	lockTool(t, toolDirs[0], "gdbus", "")
 	lockTool(t, toolDirs[0], name, answer)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if v, err := Get("db-pass"); err != nil || v != "s3cret" {

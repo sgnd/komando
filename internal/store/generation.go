@@ -33,9 +33,15 @@ type GenerationKeep struct {
 // GenerationKeeper is set by the vault package (it owns the keychain).
 var GenerationKeeper GenerationKeep
 
-// AllowOldCopy lets this process open an old copy (doctor and dry runs:
-// they change nothing, and doctor must be able to say what is wrong).
-var AllowOldCopy bool
+// OldCopyOK says whether an old copy may be opened to be looked at. The
+// commands that may look are doctor and dry runs: they change nothing, and
+// doctor must be able to say what is wrong. The cli sets it: true only
+// while every command running in the process may look, so one command's
+// allowance never opens an old copy for another. Nil means never.
+var OldCopyOK func() bool
+
+// oldCopyOK asks OldCopyOK.
+func oldCopyOK() bool { return OldCopyOK != nil && OldCopyOK() }
 
 // ErrOldCopy: the store is older than the keychain says.
 var ErrOldCopy = errors.New("store: an older copy than the keychain's")
@@ -101,9 +107,10 @@ func oldCopyErr(have, kept uint64, why string) error {
 
 // checkGeneration compares d's generation with the keychain's when the
 // home is guarded (see guarded). It returns whether d is an old copy
-// opened only to be looked at (AllowOldCopy), and the hook to raise the
-// keychain's count after each changing commit (nil when not guarded).
-func checkGeneration(d *sealdb.DB, meta map[string]string) (lookOnly bool, raise func(uint64), err error) {
+// opened only to be looked at (oldOK: the caller may look at one), and
+// the hook to raise the keychain's count after each changing commit (nil
+// when not guarded).
+func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (lookOnly bool, raise func(uint64), err error) {
 	if GenerationKeeper.Get == nil {
 		return false, nil, nil
 	}
@@ -133,12 +140,12 @@ func checkGeneration(d *sealdb.DB, meta map[string]string) (lookOnly bool, raise
 		if kerr != nil {
 			why = "has a change count in the keychain that cannot be read (" + kerr.Error() + ")"
 		}
-		if AllowOldCopy {
+		if oldOK {
 			return true, nil, nil
 		}
 		return false, nil, oldCopyErr(have, 0, why)
 	case have < kept:
-		if AllowOldCopy {
+		if oldOK {
 			return true, nil, nil
 		}
 		return false, nil, oldCopyErr(have, kept, fmt.Sprintf("is an older copy (change %d) than this computer's keychain remembers (change %d)", have, kept))
@@ -168,9 +175,10 @@ func raiser(last uint64) func(uint64) {
 
 // missingGuardedStore stops a home whose store.db is gone while the keychain
 // still holds its change count: making a fresh store would silently drop
-// every pinned host key, rule and secret.
-func missingGuardedStore() error {
-	if GenerationKeeper.Get == nil || AllowOldCopy {
+// every pinned host key, rule and secret. oldOK: the caller may look at an
+// old copy, and a missing store is the oldest copy.
+func missingGuardedStore(oldOK bool) error {
+	if GenerationKeeper.Get == nil || oldOK {
 		return nil
 	}
 	kept, ok, err := probeCount()
@@ -205,9 +213,6 @@ func StartGeneration() error {
 // the number the person saw and said yes to: another one is refused. For
 // a person only: the caller checks.
 func AcceptOldCopy(want uint64) (from uint64, err error) {
-	saved := AllowOldCopy
-	AllowOldCopy = true
-	defer func() { AllowOldCopy = saved; closeDBs() }()
 	if _, err := os.Stat(DBPath()); errors.Is(err, os.ErrNotExist) {
 		// store.db is gone: the person starts an empty store on purpose,
 		// so the keychain forgets the old count
@@ -220,10 +225,11 @@ func AcceptOldCopy(want uint64) (from uint64, err error) {
 		}
 		return from, nil
 	}
-	d, err := DB(false)
+	d, err := openOldCopy()
 	if err != nil {
 		return 0, err
 	}
+	defer dropLookOnly()
 	meta, err := sealdb.Peek(context.Background(), DBPath())
 	if err != nil {
 		return 0, err
@@ -256,13 +262,11 @@ func CopyState() (have, kept uint64, guardedStore, old bool, err error) {
 	if err != nil || !guarded(meta) {
 		return 0, 0, false, false, nil
 	}
-	saved := AllowOldCopy
-	AllowOldCopy = true
-	defer func() { AllowOldCopy = saved; closeDBs() }()
-	d, err := DB(false)
+	d, err := openOldCopy()
 	if err != nil {
 		return 0, 0, true, false, err
 	}
+	defer dropLookOnly()
 	if have, err = d.Generation(context.Background()); err != nil {
 		return 0, 0, true, false, err
 	}

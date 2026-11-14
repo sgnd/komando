@@ -88,7 +88,7 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 	var moves []renamePair
 	var secrets map[string]string
 	moved := 0
-	err := store.Update(func(s *store.State) error {
+	err := store.Update(cl.storeWrite(), func(s *store.State) error {
 		set, opts, err := plan(s)
 		if err != nil {
 			return err
@@ -97,7 +97,7 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 			return err
 		}
 		if sec := set["secret"]; len(sec) > 0 {
-			if err := vault.RenameMany(sec); err != nil {
+			if err := vault.RenameMany(cl.storeWrite(), sec); err != nil {
 				return out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
 					"the vault cannot rename the secrets: %v; nothing was renamed", err)
 			}
@@ -121,7 +121,7 @@ func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)
 			for from, to := range secrets {
 				back[to] = from
 			}
-			_ = vault.RenameMany(back)
+			_ = vault.RenameMany(cl.storeWrite(), back)
 		}
 		return res, err
 	}

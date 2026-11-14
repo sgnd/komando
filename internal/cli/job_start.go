@@ -108,7 +108,7 @@ func jobWhat(cl *call, args []string, cmdStr string, so scriptOpts, stdinFile st
 // each once sent. So a command run as another user (--sudo-user) gets
 // them too, and none of it is ever on a command line (ps shows those to
 // every user on the server).
-func startJob(ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) {
+func startJob(cl *call, ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) {
 	id := newID("j")
 	exports, err := sshx.EnvExports(c, sp.env)
 	if err != nil {
@@ -150,7 +150,7 @@ func startJob(ctx context.Context, c *sshx.Client, sp jobSpec) (started, error) 
 		return started{}, out.Errf(out.ExitRemote, "JOB_START_FAILED", "check that /bin/sh and nohup work there: `komando test TARGET`", "could not start job: %s", o)
 	}
 	j := &store.Job{ID: id, Host: c.Host.Name, Command: sp.shown, PID: pid, RemoteDir: jobDir(id), StartedAt: time.Now().UTC()}
-	if err := store.UpdateRuntime(func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
+	if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error { s.Jobs[id] = j; return nil }); err != nil {
 		return started{}, err
 	}
 	return started{ID: id, Host: c.Host.Name, PID: pid, OK: true}, nil

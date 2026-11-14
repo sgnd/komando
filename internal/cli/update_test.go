@@ -23,7 +23,6 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/releasesig"
-	"github.com/sgnd/komando/internal/store"
 )
 
 func TestReleaseTags(t *testing.T) {
@@ -226,7 +225,7 @@ func updateLab(t *testing.T, running string, f *fakeReleases) (exe, home string)
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Cleanup(func() {
 		releaseSite, selfPath, Version, releasePlatforms, retryWait, asRoot = savedSite, savedSelf, savedVersion, savedPlatforms, savedWait, savedRoot
-		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.timeout, store.DryRun = false, false, 0, false
+		tcl.flags.dryRun, tcl.flags.yes, tcl.flags.timeout = false, false, 0
 	})
 	return exe, home
 }

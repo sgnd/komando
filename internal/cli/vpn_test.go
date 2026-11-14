@@ -24,7 +24,7 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 	const pass = "0123456789abcdef0123456789abcdef0123456789abcdef"
 	now := time.Now().UTC()
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "anyconnect", Address: "vpn.example.test", CreatedAt: now, UpdatedAt: now}
 		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), Socks: "127.0.0.1:41234",
 			SocksUser: "k1a2b3c4d5e6", SocksPass: pass, StartedAt: now, LastUsed: now}
@@ -33,7 +33,7 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, args := range [][]string{{"vpn", "up", "office"}, {"vpn", "up", "office", "--dry-run"}} {
-		tcl.flags.dryRun, tcl.flags.yes, store.DryRun = false, false, false
+		tcl.flags.dryRun, tcl.flags.yes = false, false
 		root := newRoot(tcl)
 		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"-o", "json"}, args...))
@@ -235,7 +235,7 @@ func TestVpnUpNeedsPersonDryRunAndAudit(t *testing.T) {
 	invHome(t)
 	noAgent(t)
 	now := time.Now().UTC()
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
 		return nil
 	}); err != nil {
@@ -381,7 +381,7 @@ func TestVpnTestProxyMustAnswer(t *testing.T) {
 func TestVpnDownSaysWhatStops(t *testing.T) {
 	invHome(t)
 	now := time.Now().UTC()
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save, func(st *store.State) error {
 		st.Vpns["client-x"] = &store.Vpn{Name: "client-x", Kind: "anyconnect", Portal: "vpn.example.test", MFA: true, CreatedAt: now, UpdatedAt: now}
 		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "openvpn", Check: "10.0.0.1:22", CreatedAt: now, UpdatedAt: now}
 		return nil
@@ -407,8 +407,8 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
-	tcl.flags.dryRun, store.DryRun = false, false // left on by the dry run above
-	if err := store.UpdateRuntime(func(st *store.State) error {
+	tcl.flags.dryRun = false // left on by the dry run above
+	if err := store.UpdateRuntime(store.Save, func(st *store.State) error {
 		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), StartedAt: now, LastUsed: now}
 		return nil
 	}); err != nil {
