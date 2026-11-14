@@ -105,7 +105,7 @@ var gateOnServers = map[string]func(c *cobra.Command) string{
 	"cron.rm": nil, "cron.set": nil, "key.deploy": gateSetDefault, "key.revoke": nil,
 	"db.explain": nil, "db.grant": nil, "db.kill": nil, "db.query": nil, "db.restore": nil, "db.revoke": nil,
 	"db.user.add": nil, "db.user.passwd": nil, "db.user.rm": nil,
-	"cache.rm": nil, "cache.run": nil, "cache.set": nil, "storage.rm": nil, "storage.upload": nil,
+	"cache.rm": nil, "cache.run": nil, "cache.set": nil, "storage.chmod": nil, "storage.mkdir": nil, "storage.mv": nil, "storage.rm": nil, "storage.upload": nil,
 	"registry.copy": nil, "registry.prune": nil, "registry.rm": nil,
 	"docker.compose": nil, "docker.exec": nil, "docker.prune": nil, "docker.pull": nil, "docker.raw": nil,
 	"docker.restart": nil, "docker.rm": nil, "docker.start": nil, "docker.stop": nil,

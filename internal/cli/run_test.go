@@ -434,6 +434,13 @@ func (f *fakeBucket) Remove(context.Context, string) error { return nil }
 func (f *fakeBucket) Link(context.Context, string, time.Duration) (*url.URL, error) {
 	return nil, nil
 }
+func (f *fakeBucket) Lookup(context.Context, string) (storex.Object, bool, error) {
+	return storex.Object{}, false, nil
+}
+func (f *fakeBucket) Mkdir(context.Context, string) (bool, error) { return false, nil }
+func (f *fakeBucket) Move(context.Context, string, string, storex.MoveOpts) (storex.Moved, error) {
+	return storex.Moved{}, nil
+}
 func (f *fakeBucket) Close() error { return nil }
 
 func TestSyncSkipsFolderMarkers(t *testing.T) {

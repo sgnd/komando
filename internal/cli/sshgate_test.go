@@ -206,6 +206,9 @@ func TestGateCheck(t *testing.T) {
 		{"download web /etc/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
+		{"storage mkdir s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
+		{"storage mv s3 a.txt b.txt", "", "SSH_GATE_READ_ONLY"},
+		{"storage chmod s3 0640 a.txt", "", "SSH_GATE_READ_ONLY"},
 		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself

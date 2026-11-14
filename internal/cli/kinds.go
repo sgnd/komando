@@ -286,9 +286,12 @@ var commandKinds = map[string]cmdKind{
 
 	"storage":          reads,
 	"storage cat":      reads,
+	"storage chmod":    changes,
 	"storage download": reads,
 	"storage link":     changes, // hands out access (OD-13)
 	"storage list":     reads,
+	"storage mkdir":    changes,
+	"storage mv":       changes,
 	"storage rm":       changes,
 	"storage upload":   changes,
 

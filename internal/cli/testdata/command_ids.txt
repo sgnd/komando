@@ -225,9 +225,12 @@ status
 storage
 storage.add
 storage.cat
+storage.chmod
 storage.download
 storage.link
 storage.list
+storage.mkdir
+storage.mv
 storage.rm
 storage.upload
 svc

@@ -38,6 +38,10 @@ its highlights; the sections below them give the details. Versions follow
   removed earlier): `VPN_OS_MODE_REMOVED` is gone, and `vpn show` no
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
+- `komando storage mkdir CONN PATH` makes a folder (and any missing parents) in a bucket or on a file server. On S3, Google Cloud and Azure, which have no real folders, it stores an empty folder marker, as their consoles do, and `storage list` now shows such an empty folder instead of `FOLDER_NOT_FOUND`.
+- `komando storage mv CONN SRC DST [--overwrite]` moves or renames inside one conn. File servers (SFTP, FTP, FTPS, WebDAV, SMB) rename on the server, folders too. S3, Google Cloud and Azure cannot rename: there `mv` copies the object on the server, checks the copy's size and checksum, and deletes the original only after that check (`method: copy_then_delete`). New error codes: `OBJECT_EXISTS` (exit 8: a file is already at DST, or a folder), `MOVE_FAILED` (exit 5: the copy did not check out, so the original was kept, or the original could not be deleted after a good copy) and `STORAGE_UNSUPPORTED` (exit 2).
+- `komando storage chmod CONN MODE PATH` sets the Unix mode of a file or folder on an SFTP conn and says the old one; other kinds stop with `STORAGE_UNSUPPORTED` before anything is contacted.
+- All three are changes like `storage upload`: `--dry-run` shows what would happen and is never blocked (`meta.would_need`), a protected conn needs a person's yes, and every run is in the audit log. New JSON: `storage.mkdir` `{conn, path, created, dry_run}`, `storage.mv` `{conn, src, dst, folder, replaced, method, size_bytes, dry_run}`, `storage.chmod` `{conn, path, mode, old_mode, dry_run}`.
 
 ### Fixed
 
