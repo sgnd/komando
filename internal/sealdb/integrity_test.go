@@ -188,40 +188,45 @@ func TestAuditSavepointUndone(t *testing.T) {
 	})
 }
 
-// A store from before the index (a generation of digits only) is read as
-// it is and gets its index with the next change.
-func TestIndexUpgrade(t *testing.T) {
+// A generation record without the index (digits only, the form no
+// released komando ever wrote) is tampering: every read stops, and so does
+// a write, which would otherwise make an index from the rows as they are.
+func TestGenerationWithoutIndex(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "store.db")
 	d := open(t, path)
 	id := put(t, d, "server", "", "web")
 	_ = d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("a")) })
-	var gen uint64
-	_ = d.Update(ctx, func(tx *Tx) error {
+	if err := d.Update(ctx, func(tx *Tx) error {
 		g, err := tx.generation()
-		gen = g
 		if err != nil {
 			return err
 		}
 		_, err = tx.write1(generationID, generationType, g, false, []byte(strconv.FormatUint(g, 10)))
 		return err
-	})
-	_ = d.View(ctx, func(tx *Tx) error {
-		if s, err := tx.index(); err != nil || !s.upgrade || s.gen != gen {
-			t.Fatalf("old store: %+v %v", s, err)
-		}
-		if _, err := tx.Get(id); err != nil {
-			t.Fatal(err)
-		}
-		return nil
-	})
-	_ = d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("b")) })
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.View(ctx, func(tx *Tx) error { _, err := tx.Get(id); return err }); !errors.Is(err, ErrTampered) {
+		t.Fatalf("read: %v", err)
+	}
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("b")) }); !errors.Is(err, ErrTampered) {
+		t.Fatalf("write: %v", err)
+	}
+}
+
+// A new store starts with an index (Create writes the first generation
+// from no rows), and its changes keep it.
+func TestFreshStoreIndex(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	g, err := d.Generation(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := put(t, d, "server", "", "web")
 	_ = d.View(ctx, func(tx *Tx) error {
 		s, err := tx.index()
-		if err != nil || s.upgrade || s.m[id].ver != 1 || s.head.seq != 2 {
-			t.Fatalf("upgraded: %+v %v", s, err)
-		}
-		if a, err := tx.Audit(0, 10); err != nil || len(a) != 2 {
-			t.Fatalf("audit: %v %v", a, err)
+		if err != nil || s.gen != g+1 || s.m[id].ver != 1 {
+			t.Fatalf("index: %+v %v", s, err)
 		}
 		return nil
 	})
