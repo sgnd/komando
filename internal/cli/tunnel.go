@@ -213,7 +213,7 @@ point your database app or psql at the local address it prints. With a server, g
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}
-			ticket, err := newSpawnTicket()
+			ticket, err := newSpawnTicket("tunnel", "serve", id)
 			if err != nil {
 				return err
 			}
@@ -472,7 +472,7 @@ func tunnelServeCmd() *cobra.Command {
 				return exitCode(1)
 			}
 			in := bufio.NewReader(cl.stdin)
-			if err := takeSpawnTicket(in, "tunnel serve", "tunnel start"); err != nil {
+			if err := takeSpawnTicket(in, []string{"tunnel", "serve", args[0]}, "tunnel serve", "tunnel start"); err != nil {
 				return fail(err)
 			}
 			st, err := serveState(in, passStdin)

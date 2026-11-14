@@ -17,15 +17,17 @@ import (
 // would skip all of that: an AI agent would get a SOCKS port into a VPN
 // `vpn up` refuses it, with no record. So each runs only with a ticket:
 // a random name its parent leaves in komando's home, which agents may not
-// read, and sends first on the child's stdin. The child uses it up as it
-// starts.
+// read, and sends first on the child's stdin. The ticket holds the
+// child's command line, so one taken on the way starts only what the
+// parent was starting. The child uses it up as it starts.
 
 // ticketTTL is how long a ticket waits for its child.
 const ticketTTL = 5 * time.Minute
 
-// newSpawnTicket leaves a ticket for one background command and returns
-// the line to send first on its stdin.
-func newSpawnTicket() (string, error) {
+// newSpawnTicket leaves a ticket for one background command, the words
+// of args (`vpn serve NAME`), and returns the line to send first on its
+// stdin.
+func newSpawnTicket(args ...string) (string, error) {
 	if err := store.MkdirPrivate("spawn"); err != nil {
 		return "", err
 	}
@@ -41,14 +43,20 @@ func newSpawnTicket() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	f.Close()
+	_, err = f.WriteString(strings.Join(args, " "))
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return "", err
+	}
 	return "TICKET " + t + "\n", nil
 }
 
 // takeSpawnTicket reads the ticket line from in and uses the ticket up. A
-// child without a fresh ticket of its parent stops: what, started by
-// `komando parent`, was run by hand.
-func takeSpawnTicket(in *bufio.Reader, what, parent string) error {
+// child without a fresh ticket of its parent for its own command line
+// (args) stops: what, started by `komando parent`, was run by hand.
+func takeSpawnTicket(in *bufio.Reader, args []string, what, parent string) error {
 	byHand := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando "+parent+"`: it checks and records what "+what+" does",
 		"%s is started by `komando %s`, not by hand", what, parent).NoFlag()
 	line, _ := in.ReadString('\n')
@@ -61,7 +69,11 @@ func takeSpawnTicket(in *bufio.Reader, what, parent string) error {
 	if err != nil || !fi.Mode().IsRegular() {
 		return byHand
 	}
-	if os.Remove(p) != nil || time.Since(fi.ModTime()) > ticketTTL { // one child per ticket
+	b, err := os.ReadFile(p)
+	if err != nil || os.Remove(p) != nil || time.Since(fi.ModTime()) > ticketTTL { // one child per ticket
+		return byHand
+	}
+	if string(b) != strings.Join(args, " ") {
 		return byHand
 	}
 	return nil

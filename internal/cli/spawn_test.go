@@ -56,12 +56,13 @@ func TestBackgroundCommandsNeedTheirParent(t *testing.T) {
 // A ticket works once, for a while, and only as a file komando made.
 func TestSpawnTicket(t *testing.T) {
 	invHome(t)
-	line, err := newSpawnTicket()
+	cmd := []string{"vpn", "serve", "x"}
+	line, err := newSpawnTicket(cmd...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	take := func(l string) error {
-		return takeSpawnTicket(bufio.NewReader(strings.NewReader(l)), "vpn serve", "vpn up x")
+		return takeSpawnTicket(bufio.NewReader(strings.NewReader(l)), cmd, "vpn serve", "vpn up x")
 	}
 	if err := take(line); err != nil {
 		t.Fatalf("the ticket: %v", err)
@@ -69,14 +70,18 @@ func TestSpawnTicket(t *testing.T) {
 	if take(line) == nil {
 		t.Fatal("a ticket worked twice")
 	}
-	old, _ := newSpawnTicket()
+	other, _ := newSpawnTicket("vpn", "serve", "y")
+	if take(other) == nil {
+		t.Fatal("another VPN's ticket worked")
+	}
+	old, _ := newSpawnTicket(cmd...)
 	name := strings.TrimSpace(strings.TrimPrefix(old, "TICKET "))
 	past := time.Now().Add(-2 * ticketTTL)
 	os.Chtimes(store.Path("spawn", name), past, past)
 	if take(old) == nil {
 		t.Fatal("an old ticket worked")
 	}
-	fresh, _ := newSpawnTicket()
+	fresh, _ := newSpawnTicket(cmd...)
 	name = strings.TrimSpace(strings.TrimPrefix(fresh, "TICKET "))
 	os.Remove(store.Path("spawn", name))
 	os.Mkdir(store.Path("spawn", name), 0o700)

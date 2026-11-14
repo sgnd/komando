@@ -371,7 +371,7 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if err != nil {
 		return 0, "", err
 	}
-	ticket, err := newSpawnTicket()
+	ticket, err := newSpawnTicket("vpn", "serve", name)
 	if err != nil {
 		return 0, "", err
 	}

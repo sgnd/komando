@@ -30,7 +30,7 @@ func vpnServeCmd() *cobra.Command {
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fail := func(err error) error { fmt.Fprintf(cl.out.W, "ERROR %v\n", err); return exitCode(1) }
 			in := bufio.NewReader(cl.stdin)
-			if err := takeSpawnTicket(in, "vpn serve", "vpn up "+args[0]); err != nil {
+			if err := takeSpawnTicket(in, []string{"vpn", "serve", args[0]}, "vpn serve", "vpn up "+args[0]); err != nil {
 				return fail(err)
 			}
 			socksUser, socksPass, err := serveStdin(in, passwordStdin, passStdin)
