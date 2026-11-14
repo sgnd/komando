@@ -1,8 +1,10 @@
 # Sync crypto prototype (phase 1)
 
-Date: 2026-11-14. Code: `internal/syncproto`, branch `proto/sync-crypto`.
-Status: **prototype**. Nothing in komando calls it. It has no network, no
-command and no tie to `internal/cli`. The CLI never syncs.
+Date: 2026-11-14. Code: [`sync/`](../../sync), branch `proto/sync-crypto`.
+Status: **prototype**. The code is its own public Go module,
+`github.com/sgnd/komando/sync` (package `komandosync`). The komando CLI
+never imports it, so the CLI binary does not contain it. It has no network
+and no command. The CLI never syncs.
 
 The question from the paid plan (`komando-notes/paid/phases.md`, phase 1):
 **"Does the design in spec.md section 6 work as written?"** Spec section 6
@@ -132,7 +134,7 @@ write that names another type for an ID is refused by every device.
 
 ## What the tests show
 
-`go test -race ./internal/syncproto/...`: 90 tests and subtests pass, 0
+`cd sync && go test -race ./...`: 90 tests and subtests pass, 0
 fail (55 top-level tests); statement coverage 86.5%. All table-driven where
 there is a table.
 
@@ -646,9 +648,10 @@ the number of devices, not with data.
 ## Running it
 
 ```
-go test -race ./internal/syncproto/...
-go test ./internal/syncproto/ -run XXX -bench .
-go test ./internal/syncproto/ -run TestSizes -v
-go test ./internal/syncproto/ -run TestVectors -update   # only for a change you meant
-swift internal/syncproto/testdata/crosscheck.swift internal/syncproto/testdata/vectors.json
+cd sync
+go test -race ./...
+go test . -run XXX -bench .
+go test . -run TestSizes -v
+go test . -run TestVectors -update   # only for a change you meant
+swift testdata/crosscheck.swift testdata/vectors.json
 ```

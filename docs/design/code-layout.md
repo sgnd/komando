@@ -54,6 +54,14 @@ log), and the logic is more than a file or two. The command itself (flags,
 guard, audit, output) stays in `internal/cli`. Moving a whole area out of
 `internal/cli` happens one area at a time.
 
+**The sync library is not part of komando.** `sync/` is a separate public
+Go module (`github.com/sgnd/komando/sync`, package `komandosync`, with its
+own `go.mod`) for the Komando apps. It is never under `internal/` and
+`cmd/komando` never imports it, so the CLI binary does not contain it. The
+root `go test ./...` skips it; `make test-sync` tests it. Its package is
+named `komandosync`, not `syncx`: other programs import it, and the name
+says whose it is.
+
 Every package is listed here; `internal/layout` fails when one is missing
 or a listed one is gone.
 
@@ -91,13 +99,13 @@ or a listed one is gone.
 | `internal/sealfile` | the sealed file of `export --sealed` and `export --for-phone` ([sealed-file.md](sealed-file.md)) |
 | `internal/sealrow` | seals one record of the local store |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
-| `internal/syncproto` | prototype only (phase 1 of the paid plan): the sync cryptography of the paid apps, tested against a hostile in-memory server ([sync-prototype.md](sync-prototype.md)); nothing in komando calls it |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
 | `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
 | `internal/storex` | object storage, FTP, SFTP, WebDAV and SMB behind one interface |
 | `internal/tmpclean` | the temporary files of one run, removed on a second Ctrl-C; old leftovers swept |
 | `internal/vault` | the encrypted secrets |
 | `internal/winrm` | komando's own WinRM client for Windows servers |
+| `sync` | prototype only, its own Go module: the open sync format and cryptography used by the Komando apps, tested against a hostile in-memory server ([sync-prototype.md](sync-prototype.md)); the CLI never imports it |
 
 ## Files in internal/cli
 

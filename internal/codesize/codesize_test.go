@@ -39,7 +39,8 @@ func measure(t *testing.T) map[string]int {
 	root := filepath.Join("..", "..")
 	big := map[string]int{}
 	fset := token.NewFileSet()
-	for _, dir := range []string{"internal", "cmd"} {
+	// sync/ is a module of its own (the sync library), kept to the same limits
+	for _, dir := range []string{"internal", "cmd", "sync"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
