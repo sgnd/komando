@@ -91,6 +91,7 @@ or a listed one is gone.
 | `internal/sealfile` | the sealed file of `export --sealed` and `export --for-phone` ([sealed-file.md](sealed-file.md)) |
 | `internal/sealrow` | seals one record of the local store |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
+| `internal/syncproto` | prototype only (phase 1 of the paid plan): the sync cryptography of the paid apps, tested against a hostile in-memory server ([sync-prototype.md](sync-prototype.md)); nothing in komando calls it |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
 | `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
 | `internal/storex` | object storage, FTP, SFTP, WebDAV and SMB behind one interface |
