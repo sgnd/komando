@@ -23,7 +23,7 @@ are named, and the rules every change keeps. Tests check most of them; the
 | **Every command runs once end to end** (`test/e2e/checks/coverage.sh`). | `make e2e` |
 | **Messages follow [message-style.md](message-style.md).** | `message_style_test.go` |
 | **Packages and files are named as below.** | `internal/layout` |
-| **The paid boundary.** No plan, account or licence check in any command. The binary never links the sync library or a Komando Cloud client, and names no komando-owned web address except the release site ([principles.md](principles.md#15-technical-rules)). | review, `internal/boundary` |
+| **The paid boundary.** No plan, account or licence check in any command. The binary never links the sync library or a Komando Cloud client, and names no komando-owned address except the release site ([principles.md](principles.md#15-technical-rules)). | review, `internal/boundary` |
 
 ## Packages
 

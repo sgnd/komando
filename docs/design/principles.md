@@ -370,27 +370,28 @@ A family is done when:
   logic out of komando:
   1. komando, the open-source CLI, never contains plan, tier, seat,
      billing, account, allowance or licence checks, and never asks Komando
-     Cloud whether something is allowed. Every command works with no
-     account and no network beyond the targets a person names.
-  2. Anything a paid service needs from the CLI comes in only as a
+     Cloud whether something is allowed. It is fully usable, every command,
+     with no account and no network beyond the targets a person names.
+  2. Anything a paid service needs from the CLI enters only as a
      **neutral, open capability**: read or write an open format, check a
-     signature against a key list, or talk to a local process over a local
+     signature against a key list, talk to a local process over a local
      socket. It must work for anyone who brings their own keys and lists,
      with Komando Cloud switched off.
-  3. **"Allowed because paid" lives only in Komando Cloud** (a separate,
+  3. **"Allowed because paid" lives only in Komando Cloud** (separate,
      closed repo) **and in the apps**. The apps may show what is paid; they
      never lock anything that works on the device.
-  4. The komando binary never links the sync library or a Komando Cloud
-     client, and calls no komando-owned host except the release site, when
-     a person runs `komando update`. The sync library is a public Go module
-     in its own folder, `sync/` with its own `go.mod`
-     (`github.com/sgnd/komando/sync`), never under `internal/`, and
-     `cmd/komando` never imports it. (The alternative, if the owner prefers
-     it, is a separate `sgnd/komando-sync` repo.)
+  4. The CLI binary never links the sync library or a Komando Cloud
+     client, and makes no network call to a komando-owned host except
+     `komando update` to the release site when a person runs it.
 
   Code that would break rule 1 is a design error, not a feature: change the
   design so the check happens on the service. `internal/boundary` checks
   rule 4 in `go test`.
+
+  The sync library is a public Go module in its own folder: `sync/`, with
+  its own `go.mod` (`github.com/sgnd/komando/sync`). It is never under
+  `internal/`, and `cmd/komando` never imports it. If the owner prefers,
+  it can be a separate `sgnd/komando-sync` repo instead.
 
 ## 16. Not goals
 

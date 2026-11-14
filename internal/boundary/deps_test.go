@@ -1,7 +1,7 @@
 // Package boundary checks the paid boundary (docs/design/principles.md,
 // section 15, rule 4) in go test: the komando binary never links the sync
 // library or a Komando Cloud client, and its code names no komando-owned
-// web address except the release site. Plan and account checks live in
+// address except the release site. Plan and account checks live in
 // Komando Cloud and the apps, never in komando.
 package boundary
 
