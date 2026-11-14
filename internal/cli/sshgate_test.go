@@ -88,7 +88,7 @@ func gateAnswer(t *testing.T, line string, readOnly bool) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, e := gateCheck(words, readOnly)
+	_, _, e := gateCheck(words, gateKey{readOnly: readOnly, network: true})
 	if e == nil {
 		return ""
 	}
@@ -451,11 +451,11 @@ func TestGateFailsClosed(t *testing.T) {
 	root.AddCommand(c)
 	commandKinds["brand-new"] = changes
 	defer delete(commandKinds, "brand-new")
-	if _, e := gateRule(c, "brand-new", false); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "not on this computer") {
+	if _, e := gateRule(c, "brand-new", gateKey{network: true}); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "not on this computer") {
 		t.Errorf("a new change: %+v", e)
 	}
 	commandKinds["brand-new"] = reads
-	if _, e := gateRule(c, "brand-new", false); e != nil {
+	if _, e := gateRule(c, "brand-new", gateKey{network: true}); e != nil {
 		t.Errorf("a new read: %+v", e)
 	}
 }

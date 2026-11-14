@@ -18,6 +18,34 @@ its highlights; the sections below them give the details. Versions follow
 ### Changed
 
 - `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
+- **A read key stays off the network.** An SSH key added with
+  `komando ssh-gate line --read-only` now runs only komando's own reads of
+  the servers and conns in your list. Every `net` command, `cert check` of
+  a website, and `exec`, `job start`, `docker exec`, `cluster exec` and
+  `recipe run` are refused for it (`SSH_GATE_NETWORK_REQUIRED`, exit 6): they can
+  reach any host and carry what the key reads in a URL or a DNS name. A
+  read komando adds later is refused until it is known to stay on listed
+  targets. Add `--network` to the line for a read key that may run them
+  (`komando ssh-gate line --name NAME --read-only --network KEY`); the line
+  JSON has `network`.
+- `--read-only` no longer lets through the forms of read tools that write
+  or kill: `xxd IN OUT`, `yq -i` and `--split-exp`, `xmllint --output` and
+  `--shell`, `fuser -k`, `ss -K` and `-D`, `arp -d`, `-s` and `-f`, and
+  `sar -o`. Their plain reads still pass.
+- `db query` on SQL Server: a linked-server name (`lnk.db.dbo.t`) and the
+  functions that read a file path (`fn_xe_file_target_read_file`,
+  `fn_get_audit_file`, `fn_trace_gettable`, `fn_dump_dblog`) need
+  `--write`, as `OPENQUERY` and `OPENROWSET` did: a path can be
+  `\\HOST\share`, a connection to any host.
+
+### Added
+
+- `komando ssh-gate status` says which ssh-gate key runs it, and whether it
+  may change things or reach the network (`gate`, `name`, `read_only`,
+  `network`, `komando`). ssh-gate answers it itself; typed on the komando
+  computer it says `gate: false`.
+- `komando facts` lists every real file system as `disks`: mount point,
+  device, size, used and free in MiB, and use %.
 
 ### Changed for scripts and agents
 
