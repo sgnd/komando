@@ -803,7 +803,7 @@ var errNoAnswer = errors.New("no answer from the server")
 // IKE_SA_INIT.
 
 func (k *ikeV2) natNotifies() []v1Payload {
-	srv := k.t.server.As4()
+	srv := as4(k.t.server)
 	port := binary.BigEndian.AppendUint16(nil, uint16(k.t.port))
 	n := func(t uint16, d []byte) v1Payload {
 		return v1Payload{typ: pNotify, body: append(binary.BigEndian.AppendUint16([]byte{0, 0}, t), d...)}

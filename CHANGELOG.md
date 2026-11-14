@@ -38,6 +38,12 @@ its highlights; the sections below them give the details. Versions follow
 - IKEv2 VPNs read only the IKE_SA_INIT response unencrypted. A forged
   plaintext Delete or CREATE_CHILD_SA from anyone on the path could end
   the tunnel or move its traffic to an SA of their choosing.
+- IKEv1 (L2TP/IPsec, Cisco IPsec) moves an exchange on only after the
+  server's hash checks out, so a forged message no longer breaks the
+  real one after it, and an error in a quick mode answer counts only
+  with the server's hash. Hash checks are constant-time.
+- An IPsec server given as an IPv6 address now gets a clear error
+  (komando's IPsec client speaks IPv4) instead of a crash.
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
 - Three places where commands running side by side in one process (the
   apps) could answer for the wrong command. A connection with no command

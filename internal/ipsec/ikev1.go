@@ -3,6 +3,7 @@ package ipsec
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/md5"
 	"encoding/binary"
 	"errors"
@@ -209,6 +210,8 @@ type v1msg struct {
 	mid         uint32
 	ps          []v1Payload
 	enc         bool
+	raw         []byte // as received, for spotting a retransmit (accept)
+	nextIV      []byte // the exchange's IV after this message (accept)
 }
 
 type ikeV1 struct {
@@ -309,7 +312,9 @@ func (k *ikeV1) encrypted(exch byte, mid uint32, ps []v1Payload) ([]byte, error)
 }
 
 // parse decrypts and splits a message. Retransmissions of a message
-// already seen get our last answer again and are dropped.
+// already accepted get our last answer again and are dropped. It changes
+// nothing: only accept, once the message's hash checks out, moves the
+// exchange's IV on. A forged message must not break the real one after it.
 func (k *ikeV1) parse(raw []byte) (*v1msg, error) {
 	if len(raw) < v1HdrLen || raw[17]>>4 != 1 {
 		return nil, errors.New("not IKEv1")
@@ -328,7 +333,7 @@ func (k *ikeV1) parse(raw []byte) (*v1msg, error) {
 		}
 		return nil, nil
 	}
-	k.lastIn[m.mid] = append([]byte{}, raw...)
+	m.raw = append([]byte{}, raw...)
 	body := raw[v1HdrLen:]
 	if m.flags&flagEnc != 0 {
 		if k.key == nil {
@@ -342,7 +347,7 @@ func (k *ikeV1) parse(raw []byte) (*v1msg, error) {
 		if err != nil {
 			return nil, err
 		}
-		k.ivs[m.mid] = append([]byte{}, body[len(body)-bs:]...)
+		m.nextIV = append([]byte{}, body[len(body)-bs:]...)
 		body, m.enc = pt, true
 	}
 	ps, err := parseChain(raw[16], body)
@@ -351,6 +356,19 @@ func (k *ikeV1) parse(raw []byte) (*v1msg, error) {
 	}
 	m.ps = ps
 	return m, nil
+}
+
+// accept takes m as the server's: the next message of its exchange is
+// decrypted after it, and a copy of it is a retransmit. Call it only once
+// m is authenticated (its hash, or phase 1's proof, checks out), or for
+// the plaintext of phase 1, which nothing can authenticate yet.
+func (k *ikeV1) accept(m v1msg) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if m.nextIV != nil {
+		k.ivs[m.mid] = m.nextIV
+	}
+	k.lastIn[m.mid] = m.raw
 }
 
 // run reads the SA's messages: answers to our requests go to their
@@ -466,7 +484,7 @@ func (k *ikeV1) readVIDs(ps []v1Payload) error {
 // natDs are the NAT-D payloads: the server's address, then ours made up,
 // so the server always sees a NAT and both sides move ESP into UDP.
 func (k *ikeV1) natDs() []v1Payload {
-	srv := k.t.server.As4()
+	srv := as4(k.t.server)
 	port := binary.BigEndian.AppendUint16(nil, uint16(k.t.port))
 	return []v1Payload{
 		{typ: k.natD, body: k.suite.hash.sum(k.ic, k.rc, srv[:], port)},
@@ -478,7 +496,7 @@ func (k *ikeV1) ourID() []byte {
 	if k.o.ID != "" {
 		return append([]byte{idKeyID, 0, 0, 0}, k.o.ID...)
 	}
-	a := k.t.local().Addr().As4()
+	a := as4(k.t.local().Addr())
 	return append([]byte{idIPv4, 0, 0, 0}, a[:]...)
 }
 
@@ -556,6 +574,7 @@ func (k *ikeV1) mainMode(ctx context.Context) error {
 	if err != nil {
 		return p1Err(err)
 	}
+	k.accept(r)
 	copy(k.rc, r.rc)
 	if err := k.acceptP1(find(r.ps, plSA), offered); err != nil {
 		return err
@@ -572,6 +591,7 @@ func (k *ikeV1) mainMode(ctx context.Context) error {
 	if err != nil {
 		return p1Err(err)
 	}
+	k.accept(r)
 	ke, nr := find(r.ps, plKE), find(r.ps, plNonce)
 	if ke == nil || nr == nil {
 		return errors.New("the server's answer has no key exchange")
@@ -600,9 +620,10 @@ func (k *ikeV1) mainMode(ctx context.Context) error {
 		return p1Err(err)
 	}
 	idr, hr := find(r.ps, plID), find(r.ps, plHash)
-	if idr == nil || hr == nil || !bytes.Equal(hr.body, k.hashR(sai, idr.body)) {
+	if idr == nil || hr == nil || !r.enc || !hmac.Equal(hr.body, k.hashR(sai, idr.body)) {
 		return &AuthError{Msg: "the server's proof of the pre-shared key is wrong (a wrong key, or not the right server)"}
 	}
+	k.accept(r)
 	k.mu.Lock()
 	k.p1IV = k.ivs[0]
 	k.mu.Unlock()
@@ -641,9 +662,10 @@ func (k *ikeV1) aggressiveOnce(ctx context.Context, group uint16) error {
 	k.mu.Lock()
 	k.keys(gxy)
 	k.mu.Unlock()
-	if !bytes.Equal(hr.body, k.hashR(sai, idr.body)) {
+	if !hmac.Equal(hr.body, k.hashR(sai, idr.body)) {
 		return &AuthError{Msg: "the server's proof of the pre-shared key is wrong (a wrong group password, or not the right server)"}
 	}
+	k.accept(r) // its retransmit gets the third message again
 	if err := k.t.startNATT(); err != nil {
 		return err
 	}
@@ -689,7 +711,11 @@ func (k *ikeV1) verify(m v1msg, extra []byte) bool {
 	}
 	// the last payload's next-payload byte is 0 as sent
 	want := k.suite.hash.prf(k.sA, binary.BigEndian.AppendUint32(nil, m.mid), extra, rest)
-	return bytes.Equal(m.ps[0].body, want)
+	if !hmac.Equal(m.ps[0].body, want) {
+		return false
+	}
+	k.accept(m)
+	return true
 }
 
 func newMID() uint32 {
@@ -909,13 +935,13 @@ func (k *ikeV1) espLife() uint32 {
 
 func (k *ikeV1) quickIDs() []v1Payload {
 	if k.tun {
-		a := k.s.Address.As4()
+		a := as4(k.s.Address)
 		return []v1Payload{
 			{typ: plID, body: append([]byte{idIPv4, 0, 0, 0}, a[:]...)},
 			{typ: plID, body: []byte{idIPv4Subnet, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
 		}
 	}
-	l, r := k.t.local().Addr().As4(), k.t.server.As4()
+	l, r := as4(k.t.local().Addr()), as4(k.t.server)
 	return []v1Payload{
 		{typ: plID, body: append([]byte{idIPv4, 17, 0x06, 0xa5}, l[:]...)}, // UDP 1701
 		{typ: plID, body: append([]byte{idIPv4, 17, 0x06, 0xa5}, r[:]...)},
@@ -968,7 +994,7 @@ func (k *ikeV1) quickOnce(ctx context.Context, pfs bool) error {
 	}
 	ps = append(ps, k.quickIDs()...)
 	if !k.tun { // transport mode behind NAT: our real addresses (RFC 3947 5.2)
-		l, r := k.t.local().Addr().As4(), k.t.server.As4()
+		l, r := as4(k.t.local().Addr()), as4(k.t.server)
 		ps = append(ps, v1Payload{typ: k.natOA, body: append([]byte{idIPv4, 0, 0, 0}, l[:]...)},
 			v1Payload{typ: k.natOA, body: append([]byte{idIPv4, 0, 0, 0}, r[:]...)})
 	}
@@ -980,13 +1006,16 @@ func (k *ikeV1) quickOnce(ctx context.Context, pfs bool) error {
 	if err != nil {
 		return fmt.Errorf("quick mode: %v", err)
 	}
-	if n := find(r.ps, plNotify); n != nil && len(n.body) >= 8 && find(r.ps, plSA) == nil {
-		return notifyError(binary.BigEndian.Uint16(n.body[6:]))
-	}
-	if !k.verify(r, ni) {
+	// an error in place of the answer counts only with the server's hash:
+	// HASH(2) as for an answer, or HASH(1) as for an informational
+	sa := find(r.ps, plSA)
+	if !k.verify(r, ni) && (sa != nil || !k.verify(r, nil)) {
 		return errors.New("quick mode: the server's hash is wrong")
 	}
-	sa, nr := find(r.ps, plSA), find(r.ps, plNonce)
+	if n := find(r.ps, plNotify); n != nil && len(n.body) >= 8 && sa == nil {
+		return notifyError(binary.BigEndian.Uint16(n.body[6:]))
+	}
+	nr := find(r.ps, plNonce)
 	if sa == nil || nr == nil {
 		return errors.New("quick mode: the server's answer is incomplete")
 	}

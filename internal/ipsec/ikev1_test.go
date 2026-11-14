@@ -1,9 +1,13 @@
 package ipsec
 
 import (
+	"context"
 	"errors"
+	"net"
+	"net/netip"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The default IKEv1 offer has no 3DES and no DH group below 14; legacy
@@ -114,4 +118,117 @@ func TestOfferedESPv1(t *testing.T) {
 	if _, err := offeredESPv1(pick(espSuite{tripleDES, integSHA1}), espOffer(true)); err != nil {
 		t.Errorf("legacy crypto: 3DES refused: %v", err)
 	}
+}
+
+// v1Pair is komando (a) and a server (b) after phase 1, with the same keys.
+func v1Pair(t *testing.T) (a, b *ikeV1) {
+	t.Helper()
+	s := p1Suite{aes256, hSHA256, 14}
+	mk := func() *ikeV1 {
+		return &ikeV1{o: &Options{}, suite: s, ivs: map[uint32][]byte{}, lastIn: map[uint32][]byte{},
+			lastOut: map[uint32][]byte{}, pending: map[uint32]chan v1msg{}, txn: make(chan v1msg, 8), p1err: make(chan error, 1)}
+	}
+	a, b = mk(), mk()
+	a.ic, a.rc, a.sA, a.sD, a.key, a.p1IV = random(8), random(8), random(32), random(32), random(32), random(16)
+	b.ic, b.rc, b.sA, b.sD, b.key, b.p1IV = a.ic, a.rc, a.sA, a.sD, a.key, a.p1IV
+	return a, b
+}
+
+// A forged encrypted message, which fails its hash, must leave the
+// exchange as it was: the real message after it still decrypts and
+// checks out. parse used to move the IV on before the hash was checked.
+func TestIKEv1ForgedMessageKeepsTheIV(t *testing.T) {
+	a, b := v1Pair(t)
+	const mid = 0x1234
+	real, err := b.protected(exInfo, mid, []v1Payload{{typ: plNotify, body: b.dpdBody(36136, []byte{0, 0, 0, 1})}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	forged := append([]byte{}, real...)
+	forged[len(forged)-1] ^= 0xff // the last block: the IV the next message would use
+	if m, err := a.parse(forged); err == nil && m != nil && a.verify(*m, nil) {
+		t.Fatal("a forged message passed its hash")
+	}
+	if a.lastIn[mid] != nil || a.ivs[mid] != nil {
+		t.Fatal("a forged message changed the exchange's state")
+	}
+	m, err := a.parse(real)
+	if err != nil || m == nil || !a.verify(*m, nil) {
+		t.Fatalf("the real message after a forged one: %v", err)
+	}
+	if a.lastIn[mid] == nil || a.ivs[mid] == nil {
+		t.Fatal("the real message was not accepted")
+	}
+	// constant-time checks still refuse a short hash
+	m.ps[0].body = m.ps[0].body[:4]
+	if a.verify(*m, nil) {
+		t.Fatal("a cut hash passed")
+	}
+}
+
+// A quick mode answer that is only an error notify ends quick mode only
+// with the server's hash: a forged one used to end it at once.
+func TestIKEv1QuickModeNotifyNeedsHash(t *testing.T) {
+	a, b := v1Pair(t)
+	srv, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	tr, err := newTransport(context.Background(), srv.LocalAddr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tr.end(errors.New("test over"))
+	a.t, a.natOA, a.encapT = tr, plNatOA, 4
+	refused := []v1Payload{{typ: plNotify, body: []byte{0, 0, 0, 1, 3, 0, 0, 14}}} // NO-PROPOSAL-CHOSEN
+	answer := func(signed bool) error {
+		done := make(chan error, 1)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		go func() { done <- a.quickOnce(ctx, false) }()
+		for {
+			a.mu.Lock()
+			var mid uint32
+			var ch chan v1msg
+			for mid, ch = range a.pending {
+			}
+			a.mu.Unlock()
+			if ch != nil {
+				ps := refused
+				if signed {
+					_, rest := encodeChain(refused)
+					ps = append([]v1Payload{{typ: plHash, body: b.hash1(mid, rest)}}, refused...)
+				}
+				first, body := encodeChain(ps)
+				parsed, _ := parseChain(first, body)
+				ch <- v1msg{exch: exQuick, mid: mid, ps: parsed, enc: true}
+				return <-done
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	if err := answer(false); err == nil || !strings.Contains(err.Error(), "hash is wrong") {
+		t.Fatalf("a forged notify: %v", err)
+	}
+	if err := answer(true); err == nil || !strings.Contains(err.Error(), "accepted none") {
+		t.Fatalf("the server's notify: %v", err)
+	}
+}
+
+// A server named by an IPv6 address, or a session without an IPv4
+// address, gets an error or zeros, never a panic in As4.
+func TestIPsecNoIPv6Panic(t *testing.T) {
+	if _, _, err := resolve(context.Background(), "[2001:db8::1]:500"); err == nil || !strings.Contains(err.Error(), "IPv6") {
+		t.Fatalf("an IPv6 server: %v", err)
+	}
+	if a, _, err := resolve(context.Background(), "::ffff:192.0.2.1"); err != nil || !a.Is4() {
+		t.Fatalf("an IPv4-mapped server: %v %v", a, err)
+	}
+	k := &ikeV1{tun: true, s: &Session{}}
+	if ids := k.quickIDs(); len(ids) != 2 {
+		t.Fatalf("quick mode IDs without an address: %v", ids)
+	}
+	k.s.Address = netip.MustParseAddr("2001:db8::2")
+	k.quickIDs()
 }
