@@ -219,6 +219,17 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		vpns = append(vpns, v)
 		res.Vpns = append(res.Vpns, v.Name)
 	}
+	var replacing []string // VPNs on the way to a login-ask server or conn that the import replaces
+	for _, v := range vpns {
+		if o, ok := st.Vpns[v.Name]; ok {
+			replacing = append(replacing, vpnPlaceChanges(st, v.Name, vpnWayChanged(o, v))...)
+		}
+	}
+	if cl.isAgent() && len(replacing) > 0 {
+		if err := loginPlaceStop(cl, replacing); err != nil {
+			return err
+		}
+	}
 	for _, v := range vpns { // so hosts and conns can use them with --via
 		st.Vpns[v.Name] = v
 	}
@@ -361,6 +372,9 @@ func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool,
 				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
 				continue
 			}
+		}
+		if err := loginPlaceStop(cl, connPlaceChanges(st.Conns[c.Name], c)); err != nil {
+			return nil, err
 		}
 		p := connPlace(c)
 		if ok && plan.Secrets[name] != "" { // stored by this import, for this conn

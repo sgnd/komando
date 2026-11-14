@@ -337,6 +337,9 @@ func guardSends(cl *call, sends, weak []string, why ...string) error {
 // guardConnSends is guardSends for a conn an add or edit leaves as now
 // (old is nil for a new one).
 func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
+	if what := connPlaceChanges(old, now); cl.isAgent() && len(what) > 0 {
+		return loginPlaceStop(cl, what)
+	}
 	var before *secretPlace
 	oldURL := ""
 	if old != nil {
@@ -355,8 +358,13 @@ func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 }
 
 // guardHostSends is guardSends for servers an add, edit or import leaves
-// as now; olds holds each one's settings before, by name (none: new).
-func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, why ...string) error {
+// as now; olds holds each one's settings before, by name (none: new). s
+// is the inventory: where a typed password goes stops an agent first
+// (loginPlaceStop).
+func guardHostSends(cl *call, s *store.State, now []*store.Host, olds map[string]*store.Host, why ...string) error {
+	if what := hostPlaceChanges(s, now, olds); cl.isAgent() && len(what) > 0 {
+		return loginPlaceStop(cl, what) // no yes lifts it, so no yes to ask for
+	}
 	var lines []string
 	for _, h := range now {
 		var before *secretPlace
@@ -405,7 +413,12 @@ func vpnPlace(v *store.Vpn, servers string) secretPlace {
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
 // is the VPN before (nil: a new one). servers is as for vpnPlace: an
 // OpenVPN VPN added again with a new profile may have new servers.
-func guardVpnSends(cl *call, old, now *store.Vpn, servers string) error {
+func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string) error {
+	if old != nil && cl.isAgent() {
+		if what := vpnPlaceChanges(s, now.Name, vpnWayChanged(old, now)); len(what) > 0 {
+			return loginPlaceStop(cl, what)
+		}
+	}
 	var before *secretPlace
 	if old != nil {
 		p := vpnPlace(old, "")

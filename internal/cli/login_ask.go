@@ -255,6 +255,9 @@ func loginWindowText(cl *call, q sshx.LoginAsk) string {
 	}
 	name := cleanText(h.Name)
 	where := cleanText(q.User) + "@" + cleanText(q.Addr)
+	if q.Path != "" {
+		where += ", reached through " + cleanText(q.Path)
+	}
 	text := fmt.Sprintf("%s wants komando to log in to %s as %s", who, name, where)
 	if line := commandLine(cl); len(cl.args) > 1 && unshowable(line) == "" && hiddenArgs(cl.args[1:]) == "" {
 		text += " for:\n\n" + line + "\n\n"

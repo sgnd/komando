@@ -561,6 +561,10 @@ type LoginAsk struct {
 	Host *store.Host
 	User string // the user komando logs in as
 	Addr string // host:port, where the password goes
+	// Path is the way there komando dials through ("" for straight
+	// there): the VPN, each jump host with its user and address, a proxy
+	// command. The password goes to Addr at its end.
+	Path string
 	// NewKey is the host key this connection trusted on first use (or
 	// could not check: host_key_policy off); nil for a key komando knew.
 	// Nothing proved a new key is the server's.
@@ -570,6 +574,12 @@ type LoginAsk struct {
 // LoginAskFor is the question a connection to h asks, before it connects
 // (NewKey unknown yet).
 func LoginAskFor(st *store.State, h *store.Host) LoginAsk {
+	user := loginUser(st, h)
+	return LoginAsk{Host: h, User: user, Addr: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Path: wayTo(st, h)}
+}
+
+// loginUser is the user komando logs in to h as.
+func loginUser(st *store.State, h *store.Host) string {
 	user := h.User
 	if user == "" && st != nil {
 		user = st.Settings.DefaultUser
@@ -577,7 +587,46 @@ func LoginAskFor(st *store.State, h *store.Host) LoginAsk {
 	if user == "" {
 		user = LocalUser()
 	}
-	return LoginAsk{Host: h, User: user, Addr: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort()))}
+	return user
+}
+
+// wayTo names the steps komando dials through to reach h, as Dial takes
+// them (resolveChain), or "" when it goes straight there.
+func wayTo(st *store.State, h *store.Host) string {
+	hops := []*store.Host{h}
+	var vpn *store.Vpn
+	if st != nil {
+		v, chain, err := resolveChain(st, h, map[string]bool{})
+		if err != nil {
+			return "" // Dial says what is wrong with the path
+		}
+		vpn, hops = v, chain
+	}
+	var parts []string
+	if vpn != nil {
+		parts = append(parts, "VPN "+vpn.Name)
+	}
+	for i, hop := range hops {
+		carrier := ""
+		switch {
+		case builtinSSM(hop):
+			carrier = "AWS Session Manager"
+		case hop.ProxyCommand != "":
+			carrier = "the proxy command `" + hop.ProxyCommand + "`"
+		}
+		if i == len(hops)-1 {
+			if carrier != "" {
+				parts = append(parts, carrier)
+			}
+			break
+		}
+		where := loginUser(st, hop) + "@" + net.JoinHostPort(hop.Address, strconv.Itoa(hop.EffectivePort()))
+		if carrier != "" {
+			where += ", carried by " + carrier
+		}
+		parts = append(parts, hop.Name+" ("+where+")")
+	}
+	return strings.Join(parts, ", then ")
 }
 
 // LoginPassword, when set, gives the password of a server whose login is

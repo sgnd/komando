@@ -219,7 +219,7 @@ step, starting with the VPN app your company uses.`,
 				if err := vpnOptIns(cl, v, cmd.Flags().Changed, legacyCrypto, allowPAP); err != nil {
 					return err
 				}
-				return guardVpnSends(cl, s.Vpns[name], v, ovpnServers)
+				return guardVpnSends(cl, s, s.Vpns[name], v, ovpnServers)
 			}
 			if cl.flags.dryRun { // the same checks the real add makes
 				st, err := loadState()

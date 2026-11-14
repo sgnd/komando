@@ -77,6 +77,24 @@ const (
 // AskLogin reports a server whose password a person types at every connect.
 func (h *Host) AskLogin() bool { return h != nil && h.Login == LoginAsk }
 
+// AskLogin reports a conn whose password a person types at every connect.
+func (c *Conn) AskLogin() bool { return c != nil && c.Login == LoginAsk }
+
+// LoginModeNone is a conn's login when komando sends no password of its
+// own: the URL's own login, a cloud login, or none.
+const LoginModeNone = "none"
+
+// LoginMode is how komando logs in to c: ask, password or none.
+func (c *Conn) LoginMode() string {
+	switch {
+	case c.AskLogin():
+		return LoginModeAsk
+	case c.PasswordRef != "":
+		return LoginModePassword
+	}
+	return LoginModeNone
+}
+
 // LoginMode is how komando logs in to h: ask, key, password or agent. A
 // server with a key and a stored password is "key": the key goes first.
 func (h *Host) LoginMode() string {
@@ -132,18 +150,21 @@ func (h *Host) EffectivePort() int {
 // Conn is a non-SSH resource (database, cache, ...) reached directly or
 // through an SSH host. The URL never holds a password; see PasswordRef.
 type Conn struct {
-	Name        string            `json:"name"`
-	Kind        string            `json:"kind"` // a name from driver.Kinds: postgres, redis, s3, kafka ...
-	URL         string            `json:"url"`
-	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
-	Via         string            `json:"via,omitempty"`          // host used to reach the resource
-	ViaIDs      []string          `json:"via_ids,omitempty"`      // the record IDs of Via's steps (refs.go)
-	Groups      []string          `json:"groups,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Options     map[string]string `json:"options,omitempty"` // kind-specific settings
-	Protected   bool              `json:"protected,omitempty"`
-	Notes       string            `json:"notes,omitempty"`
+	Name        string `json:"name"`
+	Kind        string `json:"kind"` // a name from driver.Kinds: postgres, redis, s3, kafka ...
+	URL         string `json:"url"`
+	PasswordRef string `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
+	// Login is "ask" (LoginAsk) for a conn whose password is never
+	// stored: a person types it at every connect (conn add --login ask)
+	Login     string            `json:"login,omitempty"`
+	Via       string            `json:"via,omitempty"`     // host used to reach the resource
+	ViaIDs    []string          `json:"via_ids,omitempty"` // the record IDs of Via's steps (refs.go)
+	Groups    []string          `json:"groups,omitempty"`
+	Tags      []string          `json:"tags,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Options   map[string]string `json:"options,omitempty"` // kind-specific settings
+	Protected bool              `json:"protected,omitempty"`
+	Notes     string            `json:"notes,omitempty"`
 	// TrustedPlugin is the hash of the kubeconfig login program a person
 	// trusted for this conn (import kubeconfig). Not an Option: only a
 	// person's import sets it, never --option.

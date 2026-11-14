@@ -27,7 +27,7 @@ func dialWinRM(ctx context.Context, st *store.State, h *store.Host, o Options) (
 			"WinRM carries PowerShell commands only: use `komando exec "+h.Name+" -- ...`; for a shell, tunnels or SSH host keys, turn on OpenSSH on the server and add it with --os windows (https://github.com/sgnd/komando/blob/main/docs/features/windows.md)",
 			"%s is reached over WinRM, which cannot do this (it has no SSH)", h.Name)
 	}
-	pass, refused, err := winrmPassword(ctx, h)
+	pass, refused, err := winrmPassword(ctx, st, h)
 	if err != nil {
 		return nil, err
 	}
@@ -76,14 +76,14 @@ func winrmOpts(h *store.Host) store.WinRMOpts {
 // winrmPassword is the host's password: WinRM logs in with a password
 // (NTLM or Basic), never with an SSH key. A login-ask server's is typed by
 // a person now (LoginPassword); refused forgets it when the server says no.
-func winrmPassword(ctx context.Context, h *store.Host) (pw string, refused func(), err error) {
+func winrmPassword(ctx context.Context, st *store.State, h *store.Host) (pw string, refused func(), err error) {
 	if (h.PasswordRef == "" && !h.AskLogin()) || h.User == "" {
 		return "", nil, out.Errf(out.ExitConnect, "AUTH_FAILED",
 			"WinRM logs in with a user and a password: `komando host edit "+h.Name+" --ask-password` (and the user in the address, for example winrm://Administrator@HOST)",
 			"%s has no user or password for WinRM", h.Name)
 	}
 	if h.AskLogin() {
-		q := LoginAskFor(nil, h) // WinRM has a user always (above)
+		q := LoginAskFor(st, h) // WinRM has a user always (above)
 		if t := winrmOpts(h).TLS; t == "off" || t == "skip-verify" {
 			// nothing checks who answers: as with a host key nobody has
 			// seen, a person decides first

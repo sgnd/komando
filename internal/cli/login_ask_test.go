@@ -286,43 +286,145 @@ func TestLoginAskUnlinksTheStoredPassword(t *testing.T) {
 	}
 }
 
-// A login-ask server's address is where a person's password goes: an AI
-// agent that adds one, or points one somewhere else, needs a person's yes
-// (SECRET_DESTINATION), as for a stored password. Other edits do not ask.
-func TestLoginAskDestinationNeedsYes(t *testing.T) {
+// A login-ask server's address is where a person's password goes, so only
+// a person sets it: an AI agent that adds one, turns a server to login
+// ask, points one somewhere else, or changes a server on the way to one,
+// gets NEEDS_PERSON, which no flag lifts. Other edits go on.
+func TestLoginAskDestinationNeedsPerson(t *testing.T) {
 	invHome(t)
-	mustRun(t, "host", "add", "bastion", "u@10.0.0.5")
-	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--login", "ask")
+	mustRun(t, "host", "add", "bastion0", "u@10.0.0.4")
+	mustRun(t, "host", "add", "bastion", "u@10.0.0.5", "--via", "bastion0")
+	mustRun(t, "host", "add", "other", "u@10.0.0.6")
+	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--login", "ask", "--via", "bastion")
 	t.Setenv("PW", "x")
 	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--password-ref", "env:PW")
 	setCallerEnv(t, "CLAUDECODE", "1")
 
-	e := wantCode(t, "SECRET_DESTINATION", "host", "add", "evil", "u@203.0.113.66", "--login", "ask")
-	if !strings.Contains(e.Message, "login ask") || !strings.Contains(e.Message, "203.0.113.66") {
-		t.Errorf("add: %+v", e)
+	needsPerson := func(want string, args ...string) {
+		t.Helper()
+		e := wantCode(t, "NEEDS_PERSON", args...)
+		if !strings.Contains(e.Message, want) || !strings.Contains(e.Hint, "in their own terminal") || strings.Contains(e.Hint, "--yes") {
+			t.Errorf("%v: %+v", args, e)
+		}
 	}
+	needsPerson("evil", "host", "add", "evil", "u@203.0.113.66", "--login", "ask")
 	for _, edit := range [][]string{
 		{"--port", "2222"},
 		{"--address", "203.0.113.66"},
 		{"--user", "root"},
-		{"--via", "bastion"},
+		{"--via", "other"},
+		{"--unset", "via"},
 		{"--address", "winrm://u@10.0.0.1"},
 	} {
-		if e := wantCode(t, "SECRET_DESTINATION", append([]string{"host", "edit", "web1"}, edit...)...); !strings.Contains(e.Message, "login ask") {
-			t.Errorf("%v: %+v", edit, e)
-		}
+		needsPerson("web1", append([]string{"host", "edit", "web1"}, edit...)...)
 	}
+	needsPerson("web2", "host", "edit", "web2", "--login", "ask")
+	// (--proxy-command stops first with SAFETY_SETTING; hostPlaceChanges
+	// counts it too, TestLoginPlaceChanges)
+	// the servers on the way: the password goes through them
+	needsPerson("web1", "host", "edit", "bastion", "--address", "203.0.113.66")
+	needsPerson("web1", "host", "edit", "bastion0", "--port", "2200")
 	// the dry run is never blocked, and says what the real run needs
 	d := mustRun(t, "host", "edit", "web1", "--port", "2222", "--dry-run")
-	if !strings.Contains(asJSON(d["_meta"]), "SECRET_DESTINATION") {
+	if m := asJSON(d["_meta"]); !strings.Contains(m, "NEEDS_PERSON") || strings.Contains(m, "SECRET_DESTINATION") {
 		t.Errorf("dry run: %v", d)
 	}
-	// nothing new goes anywhere: no question
+	// nothing about where it goes: no stop
 	mustRun(t, "host", "edit", "web1", "--add-tag", "canary")
-	mustRun(t, "host", "edit", "web2", "--login", "ask") // its stored password went there already
+	mustRun(t, "host", "edit", "bastion", "--add-tag", "canary")
+	mustRun(t, "host", "edit", "other", "--port", "2200")
+	mustRun(t, "host", "edit", "web1", "--login", "agent") // nothing typed goes anywhere now
 	st, _ := store.Load()
-	if h := st.Hosts["web1"]; h.Port != 0 || h.User != "u" || h.Via != "" {
-		t.Errorf("an edit went through: %+v", h)
+	if h := st.Hosts["bastion"]; h.Address != "10.0.0.5" {
+		t.Errorf("a hop edit went through: %+v", h)
+	}
+	if h := st.Hosts["web2"]; h.AskLogin() {
+		t.Errorf("web2 became login ask: %+v", h)
+	}
+
+	// a person at the terminal (or a script of theirs) sets it as before
+	noAgent(t)
+	mustRun(t, "host", "edit", "web2", "--login", "ask")
+	mustRun(t, "host", "edit", "web2", "--port", "2222")
+}
+
+// The VPN on the way to a login-ask server is part of where its password
+// goes: an AI agent that changes how the VPN connects, or replaces it,
+// gets NEEDS_PERSON; its notes and tags are only words.
+func TestLoginAskVpnOnTheWayNeedsPerson(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "10.0.0.1:1080")
+	mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "10.0.0.2:1080")
+	mustRun(t, "host", "add", "bastion", "u@10.1.0.5", "--via", "office")
+	mustRun(t, "host", "add", "web1", "u@10.1.0.1", "--login", "ask", "--via", "bastion")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	e := wantCode(t, "NEEDS_PERSON", "vpn", "edit", "office", "--proxy-address", "203.0.113.66:1080")
+	if !strings.Contains(e.Message, "VPN office is on the way to server web1") {
+		t.Errorf("%+v", e)
+	}
+	wantCode(t, "NEEDS_PERSON", "vpn", "add", "office", "socks", "--proxy-address", "203.0.113.66:1080", "--overwrite")
+	mustRun(t, "vpn", "edit", "office", "--notes", "the office", "--add-tag", "x")
+	mustRun(t, "vpn", "edit", "lab", "--proxy-address", "10.0.0.3:1080") // on nobody's way
+	st, _ := store.Load()
+	if v := st.Vpns["office"]; v.Address != "10.0.0.1:1080" {
+		t.Errorf("the VPN changed: %+v", v)
+	}
+}
+
+// LoginAskFor names the way to a server: the VPN, each jump host with
+// its address, and a proxy command.
+func TestLoginAskForWay(t *testing.T) {
+	invHome(t)
+	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "10.0.0.1:1080")
+	mustRun(t, "host", "add", "bastion", "jump@10.1.0.5:2200", "--via", "office")
+	mustRun(t, "host", "add", "web1", "u@10.1.0.1", "--login", "ask", "--via", "bastion")
+	mustRun(t, "host", "add", "web2", "u@10.1.0.2", "--login", "ask")
+	st, _ := store.Load()
+	if q := sshx.LoginAskFor(st, st.Hosts["web1"]); q.Path != "VPN office, then bastion (jump@10.1.0.5:2200)" || q.Addr != "10.1.0.1:22" {
+		t.Errorf("web1: %+v", q)
+	}
+	if q := sshx.LoginAskFor(st, st.Hosts["web2"]); q.Path != "" {
+		t.Errorf("web2: %+v", q)
+	}
+	h := *st.Hosts["web2"]
+	h.ProxyCommand = "cloudflared access ssh --hostname %h"
+	if q := sshx.LoginAskFor(st, &h); q.Path != "the proxy command `cloudflared access ssh --hostname %h`" {
+		t.Errorf("proxy: %+v", q)
+	}
+}
+
+// hostPlaceChanges counts each setting that moves a typed password, and
+// connPlaceChanges a conn's URL and way.
+func TestLoginPlaceChanges(t *testing.T) {
+	s := &store.State{Hosts: map[string]*store.Host{}, Conns: map[string]*store.Conn{}, Vpns: map[string]*store.Vpn{}}
+	ask := &store.Host{Name: "web1", Address: "10.0.0.1", User: "u", Login: store.LoginAsk}
+	s.Hosts["web1"] = ask
+	for _, change := range []func(h *store.Host){
+		func(h *store.Host) { h.ProxyCommand = "nc %h %p" },
+		func(h *store.Host) { h.Transport = store.TransportWinRM },
+		func(h *store.Host) { h.Address = "10.0.0.9" },
+	} {
+		now := *ask
+		change(&now)
+		if got := hostPlaceChanges(s, []*store.Host{&now}, map[string]*store.Host{"web1": ask}); len(got) != 1 {
+			t.Errorf("%+v: %q", now, got)
+		}
+	}
+	same := *ask
+	same.Notes, same.Tags = "x", []string{"y"}
+	if got := hostPlaceChanges(s, []*store.Host{&same}, map[string]*store.Host{"web1": ask}); len(got) != 0 {
+		t.Errorf("notes: %q", got)
+	}
+	db := &store.Conn{Name: "db1", URL: "postgres://app@10.0.0.5/app", Login: store.LoginAsk}
+	moved := *db
+	moved.URL = "postgres://app@203.0.113.66/app"
+	if len(connPlaceChanges(db, &moved)) != 1 || len(connPlaceChanges(nil, db)) != 1 || len(connPlaceChanges(db, db)) != 0 {
+		t.Error("connPlaceChanges")
+	}
+	moved.Via = "bastion"
+	moved.URL = db.URL
+	if len(connPlaceChanges(db, &moved)) != 1 {
+		t.Error("a new way is a new place")
 	}
 }
 
@@ -640,6 +742,14 @@ func TestLoginAskWindowText(t *testing.T) {
 			t.Errorf("window text lacks %q:\n%s", want, text)
 		}
 	}
+	// the way there is part of where the password goes: the window names
+	// every step komando dials through
+	q.NewKey, q.Path = nil, "VPN office, then bastion (u@10.1.0.5:22)"
+	if text = loginWindowText(cl, q); !strings.Contains(text, "deploy@10.0.0.1:2222, reached through VPN office, then bastion (u@10.1.0.5:22)") {
+		t.Errorf("path:\n%s", text)
+	}
+	q.Path = ""
+	q.NewKey = &k
 	k.Unchecked, k.Fingerprint = true, ""
 	if text = loginWindowText(cl, q); !strings.Contains(text, "WARNING: komando does not check who answers at 10.0.0.1:2222") {
 		t.Errorf("unchecked:\n%s", text)
