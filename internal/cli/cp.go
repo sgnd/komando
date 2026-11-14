@@ -215,6 +215,8 @@ type cpOpts struct {
 	oneHost                            bool // one server: a big file shows progress at a terminal
 	progress                           bool // --progress: JSON lines on stderr with -o json
 	resume                             bool // --continue: go on with a file that was cut off
+	size                               int64 // --size: the bytes an upload from stdin must send
+	sized                              bool  // --size was given
 }
 
 // transferProgress is a progress line on stderr for one big file going to
@@ -240,6 +242,12 @@ func (o *cpOpts) bind(c *cobra.Command) {
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "download: replace files that already exist on this computer")
 	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
 	c.Flags().BoolVar(&o.resume, "continue", false, continueUsage)
+	o.bindSize(c)
+}
+
+// bindSize adds --size, for an upload from stdin (-).
+func (o *cpOpts) bindSize(c *cobra.Command) {
+	c.Flags().Var(&bytesFlag{n: &o.size}, "size", "an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)")
 }
 
 func (o *cpOpts) bindUp(c *cobra.Command, prefix string) {
@@ -359,7 +367,8 @@ func runCpArgs(ctx context.Context, cmd *cobra.Command, args []string, o cpOpts)
 // SFTP: local to remote when up is true, else remote to local.
 func runCp(cl *call, ctx context.Context, name, target, remote, local string, up bool, o cpOpts) error {
 	// checks that need no server come first
-	if up {
+	stdin := up && local == "-"
+	if up && !stdin {
 		fi, err := os.Stat(local)
 		if err != nil {
 			return localFileErr("PATH_NOT_FOUND", err, "")
@@ -384,12 +393,18 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 	if !up {
 		src, dst = dst, src
 	}
+	if stdin && len(hosts) != 1 {
+		return out.Errf(out.ExitUsage, "USAGE", "name one server; to send the same file to many, save it to a file and upload that",
+			"target %q matched %d servers; an upload from stdin (-) goes to one, as stdin is read once", target, len(hosts))
+	}
 	if up {
-		if err := guardLocalRead(cl, local); err != nil {
-			return err
-		}
-		if err := hiddenInLocal(local); err != nil {
-			return err
+		if !stdin {
+			if err := guardLocalRead(cl, local); err != nil {
+				return err
+			}
+			if err := hiddenInLocal(local); err != nil {
+				return err
+			}
 		}
 		if err := guard(cl, st, hosts, "", true); err != nil {
 			return err
@@ -406,6 +421,9 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 		return nil
 	}
 	res := fanout(cl, allowWindows(ctx), st, hosts, cpProgress(cl, ctx, local, up, len(hosts), func(ctx context.Context, c *sshx.Client) (any, error) {
+		if c.Host.Windows() && stdin {
+			return nil, out.Usage("an upload from stdin (-) works with Linux and other Unix servers (SFTP); %s runs Windows", c.Host.Name)
+		}
 		if c.Host.Windows() && o.resume {
 			return nil, out.Usage("--continue works with Linux and other Unix servers (SFTP); %s runs Windows", c.Host.Name)
 		}
@@ -515,6 +533,9 @@ func treeDest(dst, srcBase string, contents, dstIsDir, dstSlash bool) string {
 }
 
 func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, o cpOpts) (xferStats, error) {
+	if src == "-" {
+		return uploadStdin(cl, ctx, c, sc, dst, o)
+	}
 	fi, err := os.Stat(src)
 	if err != nil {
 		return xferStats{}, err

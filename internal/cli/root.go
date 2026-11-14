@@ -173,6 +173,9 @@ func (cl *call) execute(ctx context.Context, args []string) int {
 		}
 		cancelled(cl, oe)
 	}
+	if cmd != nil && streamsToStdout(cl, cmd) {
+		cl.out.W = cl.out.Stderr() // stdout is the file's: what komando says goes to stderr
+	}
 	return cl.out.Fail(name, err)
 }
 

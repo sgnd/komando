@@ -206,6 +206,14 @@ func TestGateCheck(t *testing.T) {
 		{"docker compose web ps", "", "SSH_GATE_READ_ONLY"}, // decided by the subcommand: not for a read key
 		{"cp web:/etc/hosts /tmp/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"download web /etc/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"download web /etc/hosts --to -", "", ""}, // a stream to the key's own stdout saves nothing here
+		{"download s3 backups/db.gz --to -", "", ""},
+		{"download web /etc/hosts --to=-", "", ""},
+		{"download web /etc/hosts --to ./-", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"upload web - /tmp/app.conf", "", "SSH_GATE_READ_ONLY"}, // from the key's stdin, to a server
+		{"storage upload s3 - backups/db.gz", "", "SSH_GATE_READ_ONLY"},
+		{"cp - web:/tmp/app.conf", "", "SSH_GATE_READ_ONLY"},
+		{"cp web:/etc/hosts -", "", "SSH_GATE_READ_ONLY"}, // cp is a change kind: read-only keys use download --to -
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"storage mkdir s3 reports/2026", "", "SSH_GATE_READ_ONLY"},

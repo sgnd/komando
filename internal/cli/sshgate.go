@@ -117,7 +117,12 @@ var gateOnServers = map[string]func(c *cobra.Command) string{
 
 // gateSavesHere are reads that save a file on this computer, and when.
 var gateSavesHere = map[string]func(c *cobra.Command) string{
-	"download": func(*cobra.Command) string { return "it saves files on this computer" },
+	"download": func(c *cobra.Command) string {
+		if to, _ := c.Flags().GetString("to"); to == "-" {
+			return "" // to the key's own output
+		}
+		return "it saves files on this computer (--to - streams one instead)"
+	},
 	"db.dump":  func(*cobra.Command) string { return "it saves a file on this computer" },
 	"storage.download": func(c *cobra.Command) string {
 		if to, _ := c.Flags().GetString("to"); to == "-" {
@@ -140,6 +145,9 @@ func gateLocalDst(c *cobra.Command) string {
 	args := c.Flags().Args()
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
+	}
+	if args[1] == "-" {
+		return "" // a stream to the key's own output
 	}
 	if _, _, remote := splitArg(cl, args[1]); !remote {
 		return "its DST is on this computer; a key copies to servers or storage only"

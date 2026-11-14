@@ -185,6 +185,8 @@ func runRemoteCp(ctx context.Context, cmd *cobra.Command, srcT, srcP, dstT, dstP
 		return out.Usage("--sudo copies to or from this computer; between two remote places komando reads and writes as the SSH user")
 	case o.overwrite:
 		return out.Usage("--overwrite is for downloads; a copy between two remote places always replaces the file there (the result says replaced)")
+	case o.sized:
+		return out.Usage("--size is for an upload from stdin (-)")
 	}
 	st, err := loadState()
 	if err != nil {

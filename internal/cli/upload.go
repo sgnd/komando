@@ -95,6 +95,7 @@ Blob and WebDAV store a file whole and cannot add to one
 	}
 	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
 	c.Flags().BoolVar(&o.resume, "continue", false, continueUsage)
+	o.bindSize(c)
 	if storageOnly {
 		c.Use, c.Aliases = "upload CONN FILE [OBJECT]", []string{"put"}
 		c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "upload a folder (new and changed files, like komando sync)")
@@ -185,6 +186,22 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 	if err := continueFlags(o); err != nil {
 		return err
 	}
+	o.sized = cmd.Flags().Changed("size")
+	stdin := file == "-"
+	switch {
+	case stdin && o.resume:
+		return out.Usage("--continue reads the file again from where it stopped; stdin (-) cannot be read again")
+	case stdin && o.recursive:
+		return out.Usage("stdin (-) is one file; -r uploads a folder")
+	case !stdin && o.sized:
+		return out.Usage("--size is for an upload from stdin (-); a file's size is known")
+	case o.sized && o.size < 0:
+		return out.Usage("--size takes a number of bytes, 0 or more")
+	case stdin:
+		if err := stdinDest(dest); err != nil {
+			return err
+		}
+	}
 	storage := storageOnly
 	if !storage {
 		var err error
@@ -195,6 +212,9 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 	if storage {
 		if o.sudo || o.mkdirs || o.mode != "" {
 			return out.Usage("--sudo, -p and --mode are for servers")
+		}
+		if stdin {
+			return storageUploadStdin(cl, ctx, name, target, dest, o)
 		}
 		if o.recursive {
 			// a folder: sent like `komando sync`, new and changed files only
@@ -218,6 +238,9 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 	}
 	if o.resume && to == "-" {
 		return out.Usage("--continue adds to a file; --to - (stdout) has none")
+	}
+	if cmd.Flags().Lookup("size") != nil && cmd.Flags().Changed("size") {
+		return out.Usage("--size is for an upload from stdin (-)")
 	}
 	storage := storageOnly
 	if !storage {
@@ -243,7 +266,7 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 		return syncDown(cl, ctx, name, target, p, to, syncOpts{onlyNew: !o.overwrite})
 	}
 	if to == "-" {
-		return out.Usage("--to - (stdout) is for storage; to read a file on a server use `komando fs cat %s %s`", target, p)
+		return streamServer(cl, ctx, name, target, p, o)
 	}
 	if to == "" {
 		to = "."

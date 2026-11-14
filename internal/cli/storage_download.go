@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -80,9 +79,6 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 		return err
 	}
 	toStdout := to == "-"
-	if toStdout && cl.out.Format != "text" {
-		return out.Usage("--to - writes the file itself to stdout, where JSON output goes too; add -o text, or give a file name")
-	}
 	dest := downloadDest(to, key)
 	exists := false
 	if !toStdout {
@@ -111,7 +107,12 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 			}
 			mask := cl.out.Mask && !cl.revealOK()
 			if toStdout {
-				return nil, objectToStdout(cl, ctx, s, key, mask)
+				raw := takeStdout(cl)
+				r, err := streamTo(cl, ctx, raw, func(w io.Writer) (int64, error) { return s.Get(ctx, key, w) })
+				if err != nil {
+					return nil, err
+				}
+				return streamData{Conn: c.Name, Key: key, To: "stdout", Bytes: r.bytes, SHA256: r.sum, Masked: r.masked}, nil
 			}
 			if resume {
 				return continueObject(cl, ctx, c.Name, s, key, dest)
@@ -152,31 +153,6 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 			pp.fileDone()
 			return downloadData{Conn: c.Name, Key: key, File: dest, Bytes: n, Replaces: exists, Masked: masked, RunsOn: "local"}, nil
 		})
-}
-
-// objectToStdout writes the object at key to stdout (--to -). An AI agent
-// (mask) reads it there as fs cat shows text: up to 16 MiB, with secret
-// values shown as [hidden].
-func objectToStdout(cl *call, ctx context.Context, s storex.Bucket, key string, mask bool) error {
-	if !mask {
-		_, err := s.Get(ctx, key, cl.out.W)
-		return err
-	}
-	var b bytes.Buffer
-	n, err := s.Get(ctx, key, &limitWriter{w: &b, n: hiddenScanMax})
-	if err != nil {
-		return err
-	}
-	if n > hiddenScanMax {
-		return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "save it to a file with --to FILE",
-			"%s is larger than %s, the most komando shows an AI agent on stdout", key, humanBytes(hiddenScanMax))
-	}
-	text := b.String()
-	if bytes.IndexByte(b.Bytes(), 0) < 0 {
-		text = cl.out.Redact(text)
-	}
-	_, err = io.WriteString(cl.out.W, text)
-	return err
 }
 
 // objectProgress starts --progress's count for one object, with its size
