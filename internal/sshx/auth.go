@@ -590,9 +590,16 @@ func loginUser(st *store.State, h *store.Host) string {
 	return user
 }
 
+// WayVia names the steps komando dials through to reach h and h itself,
+// as a conn reached --via h names its way.
+func WayVia(st *store.State, h *store.Host) string { return way(st, h, true) }
+
 // wayTo names the steps komando dials through to reach h, as Dial takes
 // them (resolveChain), or "" when it goes straight there.
-func wayTo(st *store.State, h *store.Host) string {
+func wayTo(st *store.State, h *store.Host) string { return way(st, h, false) }
+
+// way is wayTo, with h itself as the last step when self.
+func way(st *store.State, h *store.Host, self bool) string {
 	hops := []*store.Host{h}
 	var vpn *store.Vpn
 	if st != nil {
@@ -614,7 +621,7 @@ func wayTo(st *store.State, h *store.Host) string {
 		case hop.ProxyCommand != "":
 			carrier = "the proxy command `" + hop.ProxyCommand + "`"
 		}
-		if i == len(hops)-1 {
+		if i == len(hops)-1 && !self {
 			if carrier != "" {
 				parts = append(parts, carrier)
 			}

@@ -152,11 +152,11 @@ func loginWindow(t *testing.T, pw string, given, shown bool) *[]string {
 	return texts
 }
 
-// loginOf is the login field of every row of a host list.
+// loginOf is the login field of every row of a list (servers and conns).
 func loginOf(t *testing.T) map[string]any {
 	t.Helper()
 	logins := map[string]any{}
-	for _, r := range mustRun(t, "host", "list")["targets"].([]any) {
+	for _, r := range mustRun(t, "list")["targets"].([]any) {
 		row := r.(map[string]any)
 		logins[row["name"].(string)] = row["login"]
 	}

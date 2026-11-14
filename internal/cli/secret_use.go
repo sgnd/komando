@@ -196,6 +196,9 @@ func hostPlace(h *store.Host) secretPlace {
 // counts: the addresses are looked up at its end.
 func connPlace(c *store.Conn) secretPlace {
 	refs := []string{c.PasswordRef}
+	if c.AskLogin() {
+		refs = append(refs, loginAskRef)
+	}
 	for _, r := range urlSecretRefs(c.URL) {
 		refs = append(refs, "secret:"+r.Name)
 	}
@@ -344,6 +347,9 @@ func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 	oldURL := ""
 	if old != nil {
 		p := connPlace(old)
+		if old.PasswordRef != "" {
+			p.refs = append(p.refs, loginAskRef) // as for a server (guardHostSends)
+		}
 		before, oldURL = &p, old.URL
 	}
 	line, err := newSends("conn "+now.Name, before, connPlace(now))

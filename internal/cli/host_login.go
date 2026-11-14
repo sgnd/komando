@@ -256,3 +256,10 @@ type hostView struct {
 }
 
 func viewOf(h *store.Host) hostView { return hostView{Host: h, Login: h.LoginMode()} }
+
+// connView is a conn as conn show prints it: its settings and how it logs
+// in (login: ask, password or none).
+type connView struct {
+	*store.Conn
+	Login string `json:"login"`
+}

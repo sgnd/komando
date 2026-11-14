@@ -379,6 +379,22 @@ type connResult struct {
 	Changed  *bool    `json:"changed,omitempty"` // edit: false when the edit changed nothing
 	Warnings []string `json:"warnings,omitempty"`
 	Next     string   `json:"next,omitempty"` // add: the command to run next
+	// SecretsUnused: edit --login ask or none let go of this stored
+	// password; it stays in the vault (`komando secret rm NAME`)
+	SecretsUnused []string `json:"secrets_unused,omitempty"`
+}
+
+// MarshalJSON adds login (ask, password or none) to the conn's settings,
+// as conn show prints it.
+func (r connResult) MarshalJSON() ([]byte, error) {
+	type plain connResult
+	if r.Conn == nil {
+		return json.Marshal(plain(r))
+	}
+	return json.Marshal(struct {
+		plain
+		Login string `json:"login"`
+	}{plain(r), r.LoginMode()})
 }
 
 // sameTwinWarning is the warning when an entry turns out to be a protected

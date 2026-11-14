@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -445,4 +446,55 @@ func readLogins(cl *call, in *bufio.Reader) error {
 		clear(pw)
 	}
 	return out.Errf(out.ExitUsage, "USAGE", serveByStart, "too many typed passwords on stdin")
+}
+
+// A conn whose login is "ask" (conn add --login ask) is asked as a
+// server is, through the same questions (typedLogin): its password goes
+// to the conn's address, at the end of its --via path, for this command
+// only. A conn has no `komando login`, so the next step for an agent is
+// the person running the command.
+
+// connLoginPassword is the password of login-ask conn c for this
+// command: typed earlier in it, or a person types it now.
+func connLoginPassword(cl *call, st *store.State, c *store.Conn) (string, error) {
+	pw, _, err := cl.typedLogin(connTarget(cl, st, c))
+	return pw, err
+}
+
+// connTarget is the askTarget of login-ask conn c.
+func connTarget(cl *call, st *store.State, c *store.Conn) askTarget {
+	bare := *c
+	bare.Via = ""
+	where := connPlace(&bare).dest
+	if u, err := url.Parse(c.URL); err == nil && u.User != nil && u.User.Username() != "" {
+		where = u.User.Username() + "@" + where
+	}
+	if c.Via != "" && st != nil {
+		if h, vpn, err := resolveVia(st, c.Via); err == nil {
+			switch {
+			case h != nil:
+				where += ", reached through " + sshx.WayVia(st, h)
+			case vpn != nil:
+				where += ", reached through VPN " + vpn.Name
+			}
+		}
+	}
+	id := "conn-name:" + c.Name
+	if c.Rec.ID != "" {
+		id = c.Rec.ID
+	}
+	step := "ask the user to run `" + commandLine(cl) + "` in their own terminal (a conn has no `komando login`)"
+	label := "conn " + c.Name
+	return askTarget{
+		name: c.Name, label: label, id: id, where: where, step: step,
+		looks: "komando test, komando db tables",
+		needsPerson: func(agent bool) *out.Error {
+			if agent {
+				return out.Errf(out.ExitPolicy, "NEEDS_PERSON", step+"; never ask for the password in the chat",
+					"%s logs in with a password a person types each time (login ask), and komando could not ask the user in a window here", label).NoFlag()
+			}
+			return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "have a person run the command in a terminal: komando asks them for the password there",
+				"%s logs in with a password a person types each time (login ask), and no person is at a terminal here", label).NoFlag()
+		},
+	}
 }

@@ -152,6 +152,19 @@ func formYesNoQ(key, label, ask, help, def, yes, no string) formQ {
 		}}
 }
 
+// formPasswordQ asks whether a database user logs in with a password:
+// yes (typed now and kept), each (typed at every connect, never kept:
+// --login ask) or no.
+func formPasswordQ(help, no string) formQ {
+	return formQ{key: "password", label: "Password", ask: "Does this user log in with a password?", help: help,
+		def: func(*store.State, formAnswers) string { return "yes" },
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Yes", detail: "you type it next, hidden", value: "yes"},
+				{label: "Yes, and I type it each time", detail: "komando never keeps it: you type it whenever komando connects", value: "each"},
+				{label: "No", detail: no, value: "no"}}
+		}}
+}
+
 // formMore moves q under More options.
 func formMore(q formQ) formQ {
 	q.advanced = true
@@ -452,9 +465,7 @@ func sqlForm(scheme, product, port string) formSpec {
 			help: "The user name the database knows you by, not your SSH user."},
 		{key: "database", label: "Database", ask: "Which database inside the server?", optional: true, example: "app",
 			help: "One server holds several databases. Empty uses the server's default."},
-		formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
-			"you type it next, hidden", "no password (trust or peer login)"),
+		formPasswordQ("Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "no password (trust or peer login)"),
 		formProtectQ("database"),
 		dbTLSQ(),
 		formGroupQ(), formNotesQ(),
@@ -496,7 +507,10 @@ func dbTLSQ() formQ {
 // formConnBuild is conn add for the answers, then a test.
 func formConnBuild(a formAnswers, rawURL string, askPassword bool) [][]string {
 	args := []string{"conn", "add", a["name"], rawURL}
-	if askPassword {
+	switch {
+	case a["password"] == "each": // formPasswordQ
+		args = append(args, "--login", "ask")
+	case askPassword:
 		args = append(args, "--ask-password")
 	}
 	return [][]string{formFlags(args, a), {"test", a["name"]}}
@@ -545,9 +559,7 @@ func mongoForm(_ *call) formSpec {
 		{key: "user", label: "User", ask: "Which database user do you log in with?", optional: true, example: "app",
 			help: "Empty when the database needs no login."},
 		{key: "database", label: "Database", ask: "Which database should commands use?", optional: true, example: "shop"},
-		formWhen(formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
-			"you type it next, hidden", "no password"), func(a formAnswers) bool { return a["user"] != "" }),
+		formWhen(formPasswordQ("komando asks for it after this, hidden, and keeps it as a saved password.", "no password"), func(a formAnswers) bool { return a["user"] != "" }),
 		formWhen(formQ{key: "authsource", label: "User's database", ask: "In which database was this user created?",
 			help: "Usually admin. Wrong here, and the login fails with a clear message.",
 			def:  func(*store.State, formAnswers) string { return "admin" }},
