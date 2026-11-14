@@ -315,7 +315,7 @@ func oracleStatement(ts []token) (Risk, []string, error) {
 				"%s is not allowed in komando db", strings.ToLower(w))
 		case (w == "EXECUTE" || w == "EXEC") && first != "GRANT" && first != "REVOKE":
 			flag("sql-opaque")
-		case remotePackages[name]:
+		case remotePackages[name], oracleXMLParse[name] && builtXML(ts, i+1):
 			flag("sql-remote")
 		case name == "UTL_FILE" || name == "BFILENAME" || name == "DBMS_DATAPUMP":
 			flag("sql-server-file")
@@ -442,6 +442,25 @@ func oracleExplainable(sql string) bool {
 			default:
 				return false
 			}
+		}
+	}
+	return false
+}
+
+// oracleXMLParse turn text into XML: a DTD or entity in that text names a
+// file or URL the parser may fetch (CVE-2014-6577 on unpatched servers).
+var oracleXMLParse = map[string]bool{"XMLTYPE": true, "XMLPARSE": true, "CREATEXML": true}
+
+// builtXML: the call whose ( is ts[open] parses text the query builds (a
+// string literal, CHR, or ||), not only a column's stored XML.
+func builtXML(ts []token, open int) bool {
+	if open >= len(ts) || ts[open].punct != '(' {
+		return false
+	}
+	for j := open + 1; j < len(ts) && ts[j].depth > ts[open].depth; j++ {
+		t := ts[j]
+		if t.punct == '\'' || t.punct == '|' || t.word == "CHR" || t.word == "NCHR" || t.word == "UNISTR" {
+			return true
 		}
 	}
 	return false

