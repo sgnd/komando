@@ -55,6 +55,9 @@ func (d *Device) pull() (*Report, error) {
 		return nil, err
 	}
 	rep.Hold = d.list.Hold
+	if err := d.dropRevoked(rep); err != nil {
+		return nil, err
+	}
 	if err := d.loadKeys(); err != nil {
 		return nil, err
 	}
@@ -75,6 +78,43 @@ func (d *Device) pull() (*Report, error) {
 		d.summaries[id], d.sumNum[id] = s, s.Num
 	}
 	return rep, nil
+}
+
+// dropRevoked handles a removal that names an earlier last write than
+// this device already applied (it synced with the removed device before
+// the remover did). SS says such writes are dropped by everyone; here they
+// are, by merging again without them. Merging is commutative, so the
+// result is what a device that never saw them holds.
+func (d *Device) dropRevoked(rep *Report) error {
+	drop := map[DeviceID]uint64{}
+	for id, r := range d.list.Removed {
+		if d.newest[id].Seq > r.LastSeq {
+			d.newest[id] = Head{Device: id, Seq: r.LastSeq, Hash: r.LastHash}
+		}
+		if d.applied[id].Seq <= r.LastSeq {
+			continue
+		}
+		if r.LastSeq > 0 && d.hashAt(id, r.LastSeq, nil) != r.LastHash {
+			return fmt.Errorf("%w: last accepted write of a removed device differs", ErrFork)
+		}
+		drop[id] = r.LastSeq
+		d.applied[id] = Head{Device: id, Seq: r.LastSeq, Hash: r.LastHash}
+		d.hashes[id] = d.hashes[id][:r.LastSeq]
+	}
+	if len(drop) == 0 {
+		return nil
+	}
+	old := d.log
+	d.log, d.data = nil, newMergeState()
+	for _, s := range old {
+		if last, ok := drop[s.w.Writer]; ok && s.w.Seq > last {
+			rep.Revoked++
+			continue
+		}
+		d.applyChange(s.w, s.c, rep)
+		d.log = append(d.log, s)
+	}
+	return nil
 }
 
 // readSummaries takes the newest valid summary of every listed device and
@@ -281,12 +321,17 @@ func (d *Device) commit(stage []staged, rep *Report) {
 	d.deferred = nil
 	limit := d.now().Add(MaxSkew).UnixMilli()
 	for _, s := range ready {
+		if r, ok := d.list.Removed[s.w.Writer]; ok && s.w.Seq > r.LastSeq {
+			rep.Revoked++ // deferred, then its writer was removed
+			continue
+		}
 		if s.w.Clock.Wall > limit {
 			d.deferred = append(d.deferred, s)
 			continue
 		}
 		d.observe(s.w.Clock)
 		d.applyChange(s.w, s.c, rep)
+		d.log = append(d.log, s)
 	}
 	rep.Applied = len(stage)
 	rep.Deferred = len(d.deferred)

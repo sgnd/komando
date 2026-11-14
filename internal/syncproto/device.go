@@ -43,6 +43,7 @@ type Device struct {
 	hashes    map[DeviceID][]Hash
 	summaries map[DeviceID]*Summary
 	data      *mergeState
+	log       []staged // every applied change, to merge again without some
 	hlc       HLC
 	deferred  []staged
 

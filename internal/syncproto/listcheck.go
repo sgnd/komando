@@ -162,7 +162,7 @@ func usedFields(b *Body) int {
 // shapes: for each action, the fields it needs and the fields it may have.
 var shapes = map[Action][2]int{
 	ActCreate:           {fDevices | fKey, fDevices | fKey},
-	ActSetKits:          {fKits, fKits},
+	ActSetKits:          {fKits, fKits | fKey},
 	ActAddDevice:        {fDevices, fDevices},
 	ActRemove:           {fRemoves | fKey, fRemoves | fKey},
 	ActReplaceAuthority: {fAuth, fAuth},
@@ -230,7 +230,7 @@ func (st *ListState) apply(en *Entry, cv clockView) (*Hold, error) {
 		if !ok || !newKitsSigned(en, b) || (len(st.Kits) > 0 && !st.kitSigned(en)) {
 			return nil, ErrNotAuthorized
 		}
-		st.Kits = b.Kits
+		return nil, st.applyKits(b)
 	case ActAddDevice:
 		return nil, st.applyAdd(en, b)
 	case ActRemove:
@@ -365,7 +365,9 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 		}
 		st.Kits = in.Kits
 	case ActSetKits:
-		st.Kits = in.Kits
+		if err := st.applyKits(in); err != nil {
+			return nil, err
+		}
 	case ActRemove:
 		if err := st.applyRemoval(in.Removes, in.Key, &p.ReqDevice); err != nil {
 			return nil, err
@@ -373,6 +375,22 @@ func (st *ListState) applyApply(en *Entry, cv clockView) (*Hold, error) {
 	}
 	p.Done = true
 	return nil, nil
+}
+
+// applyKits sets the kit set. Replacing kits starts a new account key
+// generation: the old kits hold sealed copies of the current key on the
+// server, so without one an old kit would still open everything.
+func (st *ListState) applyKits(b *Body) error {
+	if len(st.Kits) > 0 {
+		if b.Key == nil || b.Key.Gen != st.Gen.Gen+1 {
+			return fmt.Errorf("%w: replacing kits starts the next key generation", ErrChainBroken)
+		}
+		st.setGen(*b.Key)
+	} else if b.Key != nil {
+		return fmt.Errorf("%w: the first kits keep the key", ErrChainBroken)
+	}
+	st.Kits = b.Kits
+	return nil
 }
 
 // applyRemoval removes devices and starts the next key generation.

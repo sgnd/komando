@@ -94,6 +94,7 @@ func (d *Device) write(c *Change) (*Write, error) {
 	d.hashes[d.id] = append(d.hashes[d.id], h)
 	var rep Report
 	d.applyChange(w, c, &rep)
+	d.log = append(d.log, staged{w, c})
 	return w, nil
 }
 

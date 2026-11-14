@@ -164,6 +164,13 @@ func (d *Device) setKits(n int, old *Kit) ([]*Kit, error) {
 	if err := addNewKitSigs(en, kits); err != nil {
 		return nil, err
 	}
+	var g genKeys
+	if len(d.list.Kits) > 0 {
+		if g, err = newGen(d.list.Gen.Gen + 1); err != nil {
+			return nil, err
+		}
+		en.Body.Key = &g.KeyGen
+	}
 	if old != nil {
 		idx := d.list.kitIndex(old.Record())
 		if idx < 0 {
@@ -175,6 +182,9 @@ func (d *Device) setKits(n int, old *Kit) ([]*Kit, error) {
 	}
 	if err := en.signEntry(d.keys.Authority, RoleAuthority, d.id, 0); err != nil {
 		return nil, err
+	}
+	if en.Body.Key != nil {
+		return kits, d.startGen(en, g)
 	}
 	if err := d.appendEntry(en); err != nil {
 		return nil, err
@@ -204,9 +214,16 @@ func (d *Device) ReplaceLostKits(n int) ([]*Kit, uint32, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	num, err := d.pending(Body{Action: ActSetKits, Kits: recs}, func(en *Entry) error {
+	g, err := newGen(d.list.Gen.Gen + 1)
+	if err != nil {
+		return nil, 0, err
+	}
+	num, err := d.pending(Body{Action: ActSetKits, Kits: recs, Key: &g.KeyGen}, func(en *Entry) error {
 		return addNewKitSigs(en, kits)
 	})
+	if err == nil {
+		d.pendingKeys[num] = g
+	}
 	return kits, num, err
 }
 

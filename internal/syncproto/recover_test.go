@@ -195,6 +195,15 @@ func TestReplaceKits(t *testing.T) {
 	must(t, err)
 	_, err = OpenWithKit(w.device("x", true), kit)
 	wantErr(t, err, ErrKitUnknown)
+	// The old kit cannot read past the replacement either: the current key
+	// generation was never sealed to it.
+	g := a.List().Gen
+	if blob, _ := w.srv.Get(a.ID(), blobKitKey(g.KeyID, kit.Record())); blob != nil {
+		t.Fatal("the current account key is sealed to a replaced kit")
+	}
+	if g.Gen != 2 {
+		t.Fatalf("kit replacement left key generation %d", g.Gen)
+	}
 
 	// Lost kits: 7 days, cancellable.
 	lost, num, err := a.ReplaceLostKits(1)

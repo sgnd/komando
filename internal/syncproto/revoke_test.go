@@ -216,3 +216,31 @@ func TestDeviceWithoutAuthorityCannotChangeTheList(t *testing.T) {
 	_, err = phone.Sync()
 	wantErr(t, err, ErrChainBroken)
 }
+
+// B applied a write of C that A had not seen when A removed C. SS says
+// that write is dropped by everyone; B merges again without it, so A and
+// B end equal.
+func TestRemovalDropsWritesAlreadyApplied(t *testing.T) {
+	w := newWorld(t)
+	a, _ := w.account("A")
+	b := w.pair(a, "B", true)
+	c := w.pair(a, "C", true)
+	w.syncAll(a, b, c)
+	x, err := c.Create(TypeNote, field("text", "C's last word"))
+	must(t, err)
+	_, err = b.Sync() // B applies it
+	must(t, err)
+	if _, ok := b.Get(x); !ok {
+		t.Fatal("setup: B should hold C's note")
+	}
+	must(t, a.Remove(c.ID())) // A never saw it
+	rep, err := b.Sync()
+	must(t, err)
+	if _, ok := b.Get(x); ok || rep.Revoked == 0 {
+		t.Fatalf("B kept a write past C's last accepted write (revoked=%d)", rep.Revoked)
+	}
+	w.syncAll(a, b)
+	if a.Records() != b.Records() {
+		t.Fatalf("A has %d records, B %d", a.Records(), b.Records())
+	}
+}
