@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"strings"
+
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/store"
@@ -76,8 +78,8 @@ var gateNetwork = map[string]string{
 
 // gateEgress says why a read key without --network may not run c, or "".
 func gateEgress(c *cobra.Command, name string) string {
-	if c == c.Root() {
-		return "" // first steps
+	if top, _, _ := strings.Cut(name, "."); c == c.Root() || top == "help" || top == "completion" {
+		return "" // first steps, help and shell completion scripts: printed
 	}
 	if f, ok := gateNoNetwork[name]; ok {
 		if f != nil {

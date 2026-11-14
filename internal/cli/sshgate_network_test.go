@@ -236,3 +236,13 @@ func TestSSHGateLineNetwork(t *testing.T) {
 		t.Errorf("--network alone: %+v", e)
 	}
 }
+
+// help and completion print text: no key needs --network for them.
+func TestGateNoNetworkHelp(t *testing.T) {
+	invHome(t)
+	for _, line := range []string{"help", "help net http", "help exec", "completion bash", "completion zsh"} {
+		if got := gateKeyAnswer(t, line, readKey); got != "" {
+			t.Errorf("%q, read key: %q, want it to run", line, got)
+		}
+	}
+}
