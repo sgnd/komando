@@ -133,6 +133,24 @@ func (s *dirFTP) serve(c net.Conn) {
 				continue
 			}
 			say("226 stored")
+		case "APPE":
+			dc, err := data.Accept()
+			if err != nil {
+				return
+			}
+			say("150 send")
+			b, _ := io.ReadAll(dc)
+			dc.Close()
+			f, err := os.OpenFile(s.p(arg), os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o644)
+			if err == nil {
+				_, err = f.Write(b)
+				f.Close()
+			}
+			if err != nil {
+				say("553 cannot store")
+				continue
+			}
+			say("226 stored")
 		case "SIZE":
 			fi, err := os.Stat(s.p(arg))
 			if err != nil || fi.IsDir() {
