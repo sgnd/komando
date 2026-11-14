@@ -13,7 +13,7 @@ func TestCommitsCountsChangingWrites(t *testing.T) {
 		t.Fatal("a committed write was not counted")
 	}
 	n = Commits()
-	if err := Update(Save, func(*State) error { return nil }); err != nil {
+	if err := Update(Save(), func(*State) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if Commits() != n {

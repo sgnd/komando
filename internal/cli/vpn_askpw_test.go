@@ -74,7 +74,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 	// a failed add takes back the secret it made: here the name is taken
 	// while the person types
 	readPassword = func(*call, string) (string, error) {
-		err := store.Update(store.Save, func(s *store.State) error {
+		err := store.Update(store.Save(), func(s *store.State) error {
 			s.Hosts["bad"] = &store.Host{Name: "bad", Address: "10.0.0.9"}
 			return nil
 		})
@@ -130,7 +130,7 @@ func TestVpnAddAskPasswordOverwriteRefused(t *testing.T) {
 
 	// refused after the person typed: the name became a server's meanwhile
 	readPassword = func(*call, string) (string, error) {
-		err := store.Update(store.Save, func(s *store.State) error {
+		err := store.Update(store.Save(), func(s *store.State) error {
 			delete(s.Vpns, "lab")
 			s.Hosts["lab"] = &store.Host{Name: "lab", Address: "10.0.0.9"}
 			return nil

@@ -460,7 +460,7 @@ func TestRecipeReadOnlyAsksBeforeLocking(t *testing.T) {
 	lockFree := false
 	askOnScreen = func(*call, string) (bool, bool) {
 		done := make(chan error, 1)
-		go func() { done <- store.Update(store.Save, func(*store.State) error { return nil }) }()
+		go func() { done <- store.Update(store.Save(), func(*store.State) error { return nil }) }()
 		select {
 		case <-done:
 			lockFree = true
@@ -490,7 +490,7 @@ func TestConfigSetAsksBeforeLocking(t *testing.T) {
 	lockFree := false
 	askOnScreen = func(*call, string) (bool, bool) {
 		done := make(chan error, 1)
-		go func() { done <- store.Update(store.Save, func(*store.State) error { return nil }) }()
+		go func() { done <- store.Update(store.Save(), func(*store.State) error { return nil }) }()
 		select {
 		case <-done:
 			lockFree = true
@@ -582,7 +582,7 @@ func TestDockerSudoRefusal(t *testing.T) {
 func TestPkgRmIsPkgRm(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		st.Hosts["win1"] = &store.Host{Name: "win1", Address: "10.255.255.4", User: "admin", OS: "windows"}
 		return nil
@@ -609,7 +609,7 @@ func TestPkgRmIsPkgRm(t *testing.T) {
 func TestOpsDryRunShapes(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {
@@ -656,7 +656,7 @@ func TestDockerUseNamesTheArgument(t *testing.T) {
 func TestDockerContainerIsNeverAnOption(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {
@@ -686,7 +686,7 @@ func TestDockerContainerIsNeverAnOption(t *testing.T) {
 func TestUserNamesAreChecked(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {

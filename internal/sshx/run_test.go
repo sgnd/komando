@@ -91,7 +91,7 @@ func TestSecretEnvGoesOnInput(t *testing.T) {
 	dialHome(t)
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
 	weird := "p@ss 'q\" $(id) `x` \\n\\0101 \\ \nline2\ttab\x01\x7fend é\n\n"
-	if err := vault.Set(store.Save, "db", weird); err != nil {
+	if err := vault.Set(store.Save(), "db", weird); err != nil {
 		t.Fatal(err)
 	}
 	c := &Client{Host: &store.Host{Env: map[string]string{"APP_ENV": "prod", "TOKEN": "secret:db"}}}
@@ -145,7 +145,7 @@ func TestSecretEnvGoesOnInput(t *testing.T) {
 func TestSecretEnvTooLongForTerminal(t *testing.T) {
 	dialHome(t)
 	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough")
-	if err := vault.Set(store.Save, "cert", strings.Repeat("A", maxTerminalLine+1)); err != nil {
+	if err := vault.Set(store.Save(), "cert", strings.Repeat("A", maxTerminalLine+1)); err != nil {
 		t.Fatal(err)
 	}
 	r := RunRequest{Command: "true", Env: map[string]string{"CERT": "secret:cert"}}

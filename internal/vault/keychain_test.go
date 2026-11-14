@@ -37,7 +37,7 @@ func freshHome(t *testing.T) {
 func roundTrip(t *testing.T, kc string) {
 	t.Helper()
 	t.Setenv("KOMANDO_KEYCHAIN", "off") // the vault starts with vault.key
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("KOMANDO_KEYCHAIN", kc)
@@ -50,7 +50,7 @@ func roundTrip(t *testing.T, kc string) {
 	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
 		t.Fatalf("read with the key in the keychain: %q %v", v, err)
 	}
-	if err := Set(store.Save, "api", "tok"); err != nil {
+	if err := Set(store.Save(), "api", "tok"); err != nil {
 		t.Fatal(err)
 	}
 	if err := KeyToFile(); err != nil {
@@ -148,7 +148,7 @@ func TestKeychainMacOS(t *testing.T) {
 func keyFileVault(t *testing.T) []byte {
 	t.Helper()
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	key, err := os.ReadFile(storeKeyFile())

@@ -22,6 +22,7 @@ import (
 
 func init() {
 	store.GenerationKeeper = store.GenerationKeep{Get: genGet, Set: genSet, Del: genDel}
+	store.AgentCaller = func() bool { return AgentCall != nil && AgentCall() }
 }
 
 // genService names this home's generation item.
@@ -35,7 +36,8 @@ func genGet() (uint64, bool, error) {
 	if _, err := keychainTool(countOff()); err != nil {
 		return 0, false, store.NoKeychain{Err: err}
 	}
-	if err := macDefaultKeychain(); err != nil {
+	kc := countKeychainFile()
+	if err := macDefaultKeychain(kc); err != nil {
 		return 0, false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
@@ -55,7 +57,7 @@ func genGet() (uint64, bool, error) {
 		var c *exec.Cmd
 		if keychainOS == "darwin" {
 			args := []string{"find-generic-password", "-a", keychainAccount, "-s", genService(), "-w"}
-			if kc := keychainFile(); kc != "" {
+			if kc != "" {
 				args = append(args, kc)
 			}
 			c = keychainCmdCtx(ctx, args...)
@@ -88,7 +90,8 @@ func genGet() (uint64, bool, error) {
 }
 
 func genSet(n uint64) error {
-	if _, err := autoKeychainToolOff(countOff()); err != nil {
+	kc := countKeychainFile()
+	if _, err := autoKeychainToolFor(countOff(), kc); err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), genTimeout)
@@ -98,7 +101,7 @@ func genSet(n uint64) error {
 	case "darwin":
 		// -U replaces the item when it is there
 		line := fmt.Sprintf("add-generic-password -U -a %s -s %q -l %q -w %s", keychainAccount, genService(), genService(), v)
-		if kc := keychainFile(); kc != "" {
+		if kc != "" {
 			line += fmt.Sprintf(" %q", kc)
 		}
 		return run(keychainCmdCtx(ctx, "-i"), line+"\n")
@@ -112,7 +115,8 @@ func genSet(n uint64) error {
 // genDel removes the generation item: the store's key left the keychain,
 // so there is nothing to compare with.
 func genDel() {
-	if _, err := autoKeychainTool(); err != nil {
+	kc := countKeychainFile()
+	if _, err := autoKeychainToolFor(keychainOff(), kc); err != nil {
 		return
 	}
 	switch keychainOS {
@@ -120,7 +124,7 @@ func genDel() {
 		_ = credDelete(genService())
 	case "darwin":
 		args := []string{"delete-generic-password", "-a", keychainAccount, "-s", genService()}
-		if kc := keychainFile(); kc != "" {
+		if kc != "" {
 			args = append(args, kc)
 		}
 		_ = run(keychainCmd(args...), "")

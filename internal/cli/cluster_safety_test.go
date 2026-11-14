@@ -541,7 +541,7 @@ func TestKubeconfigLoginProgramNeedsAPerson(t *testing.T) {
 	// then the kubeconfig in the vault changes (an agent's secret set):
 	// the person did not trust that program
 	kc, _ := vault.Get("prod-kubeconfig")
-	if err := vault.Set(store.Save, "prod-kubeconfig", strings.Replace(kc, "echo ran", "echo ran2", 1)); err != nil || !strings.Contains(kc, "echo ran") {
+	if err := vault.Set(store.Save(), "prod-kubeconfig", strings.Replace(kc, "echo ran", "echo ran2", 1)); err != nil || !strings.Contains(kc, "echo ran") {
 		t.Fatalf("vault: %v %q", err, kc)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
@@ -910,7 +910,7 @@ func TestPluginApprovalNamesTheProgram(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := vault.Set(store.Save, "prod-kubeconfig", strings.Replace(kc, "touch", "touch -c", 1)); err != nil {
+	if err := vault.Set(store.Save(), "prod-kubeconfig", strings.Replace(kc, "touch", "touch -c", 1)); err != nil {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
@@ -951,7 +951,7 @@ func TestTrustedKubePlugin(t *testing.T) {
 	noAgent(t)
 	kc, _ := vault.Get("prod-kubeconfig")
 	for _, changed := range []string{strings.Replace(kc, "echo", "id; echo", 1), strings.Replace(kc, l.srv.URL, "https://attacker.example:6443", 1)} {
-		vault.Set(store.Save, "prod-kubeconfig", changed)
+		vault.Set(store.Save(), "prod-kubeconfig", changed)
 		setCallerEnv(t, "CLAUDECODE", "1")
 		if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" || !strings.Contains(e.Message, "read-only commands too") {
 			t.Errorf("a changed kubeconfig runs without a yes: %+v", e)

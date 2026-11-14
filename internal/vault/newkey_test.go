@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -77,7 +78,7 @@ func noKeyFile(t *testing.T) {
 func TestNewVaultKeyInKeychain(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keychain" {
@@ -101,7 +102,7 @@ func TestNewVaultKeyInKeychain(t *testing.T) {
 func TestNewVaultKeychainFails(t *testing.T) {
 	freshHome(t)
 	keychainStandIn(t, true)
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -121,14 +122,14 @@ func TestNewVaultKeychainFails(t *testing.T) {
 func TestNewVaultKeepsKeychainKey(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
-	if err := Set(store.Save, "old", "kept value"); err != nil {
+	if err := Set(store.Save(), "old", "kept value"); err != nil {
 		t.Fatal(err)
 	}
 	aside := store.DBPath() + ".aside"
 	if err := os.Rename(store.DBPath(), aside); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set(store.Save, "new", "v"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") && !strings.Contains(err.Error(), "is missing") {
+	if err := Set(store.Save(), "new", "v"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") && !strings.Contains(err.Error(), "is missing") {
 		t.Fatalf("a store moved aside: %v", err)
 	}
 	if n := strings.Count(calls(), "store"); n != 1 {
@@ -148,7 +149,7 @@ func TestNewVaultKeychainOff(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -167,11 +168,11 @@ func TestNewVaultKeychainOff(t *testing.T) {
 // Only `komando secret keychain` moves a key.
 func TestExistingVaultKeepsMode(t *testing.T) {
 	freshHome(t)
-	if err := Set(store.Save, "first", "v"); err != nil { // keychain off: a key file store
+	if err := Set(store.Save(), "first", "v"); err != nil { // keychain off: a key file store
 		t.Fatal(err)
 	}
 	calls := keychainStandIn(t, false)
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -186,7 +187,7 @@ func TestExistingVaultKeepsMode(t *testing.T) {
 	savedN := PassphraseN
 	PassphraseN = 1 << 10 // quick; the cost is not what this test is about
 	defer func() { PassphraseN = savedN }()
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "passphrase" {
@@ -273,7 +274,7 @@ func TestNewVaultKeychainLocked(t *testing.T) {
   store*) exit 0 ;;
 esac
 `)
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -289,8 +290,11 @@ esac
 
 // A keychain that cannot say whether it keeps a change count for this
 // folder (locked, or it never answers) may hold the count of a store that
-// was removed: no store is made, so nothing is lost and the count is not
-// lowered. Once the keychain answers, the first secret goes in.
+// was removed. A person's or a script's first store in a folder with no
+// trace of one is made all the same, with its key in a key file and a
+// note on stderr; nothing goes into the keychain, and later commands only
+// read while the keychain cannot be read. An AI agent's call never makes
+// one, nor does anyone's in a folder that shows it had a store.
 func TestNewStoreKeychainCannotAnswer(t *testing.T) {
 	for name, tc := range map[string]struct{ script, code string }{
 		"locked": {`case "$1" in
@@ -300,24 +304,68 @@ esac
 `, "STORE_OLD_COPY"},
 		"hangs": {"exec sleep 30\n", "KEYCHAIN_SLOW"},
 	} {
-		t.Run(name, func(t *testing.T) {
-			freshHome(t)
-			calls := scriptedSecretTool(t, tc.script)
-			start := time.Now()
-			err := Set(store.Save, "db-pass", "s3cret")
-			if err == nil || !strings.Contains(err.Error(), tc.code) {
-				t.Fatalf("a new store beside a keychain that cannot answer: %v", err)
-			}
-			if d := time.Since(start); d > 5*time.Second {
-				t.Errorf("the refusal took %v", d)
-			}
-			if _, serr := os.Stat(store.DBPath()); !os.IsNotExist(serr) {
-				t.Errorf("a store was made: %v", serr)
-			}
-			if strings.Contains(calls(), "store") {
-				t.Errorf("something was stored in the keychain:\n%s", calls())
-			}
-		})
+		later := map[string]string{"locked": "KEYCHAIN_FAILED", "hangs": "KEYCHAIN_SLOW"}[name]
+		for _, who := range []string{"person", "agent", "person, store.key left", "person, runtime.pids left"} {
+			t.Run(name+"/"+who, func(t *testing.T) {
+				freshHome(t)
+				calls := scriptedSecretTool(t, tc.script)
+				savedAgent, savedNotice := AgentCall, store.Notice
+				t.Cleanup(func() { AgentCall, store.Notice = savedAgent, savedNotice })
+				AgentCall = func() bool { return who == "agent" }
+				var notes []string
+				store.Notice = func(msg string) { notes = append(notes, msg) }
+				if trace, ok := strings.CutPrefix(who, "person, "); ok {
+					trace = strings.TrimSuffix(trace, " left")
+					if err := os.MkdirAll(store.Home(), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(store.Path(trace), []byte("x"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+				start := time.Now()
+				err := Set(store.Save(), "db-pass", "s3cret")
+				if d := time.Since(start); d > 5*time.Second {
+					t.Errorf("it took %v", d)
+				}
+				if strings.Contains(calls(), "store") {
+					t.Errorf("something was stored in the keychain:\n%s", calls())
+				}
+				if who != "person" {
+					if err == nil || !strings.Contains(err.Error(), tc.code) {
+						t.Fatalf("a new store beside a keychain that cannot answer: %v", err)
+					}
+					if _, serr := os.Stat(store.DBPath()); !os.IsNotExist(serr) {
+						t.Errorf("a store was made: %v", serr)
+					}
+					if len(notes) != 0 {
+						t.Errorf("notes %q", notes)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("a person's first store: %v", err)
+				}
+				if m := modeOnDisk(t); m != "keyfile" {
+					t.Errorf("mode %q, want keyfile", m)
+				}
+				if len(notes) != 1 || !strings.Contains(notes[0], "the keychain could not be read") || !strings.Contains(notes[0], "store.key") {
+					t.Errorf("notes %q", notes)
+				}
+				if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+					t.Errorf("Get in the same run: %q %v", v, err)
+				}
+				// the next run: the store may be a backup from before
+				// `secret keychain`, so it is read, never changed
+				store.Close()
+				if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+					t.Errorf("Get in the next run: %q %v", v, err)
+				}
+				if err := Set(store.Save(), "other", "v"); err == nil || !strings.Contains(err.Error(), later) {
+					t.Errorf("a change in the next run: %v", err)
+				}
+			})
+		}
 	}
 }
 
@@ -336,7 +384,7 @@ exec sleep 30
 	newKeyTimeout = 200 * time.Millisecond
 	defer func() { newKeyTimeout = saved }()
 	start := time.Now()
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if d := time.Since(start); d > 5*time.Second {
@@ -354,7 +402,7 @@ func newVaultNoStore(t *testing.T, script string) {
 	t.Helper()
 	freshHome(t)
 	calls := scriptedSecretTool(t, script)
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -405,7 +453,7 @@ func newVaultLockAnswer(t *testing.T, name, answer string) (stored bool) {
 	calls := scriptedSecretTool(t, keePassXCLocked)
 	lockTool(t, toolDirs[0], "gdbus", "")
 	lockTool(t, toolDirs[0], name, answer)
-	if err := Set(store.Save, "db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
@@ -465,14 +513,30 @@ esac
 `)
 }
 
-// A search that never answers is "cannot tell" too, past newKeyTimeout.
+// A search that never answers is "cannot tell" too, once its time is up.
+// Only the search is cut short: its time is up when the stand-in says the
+// search started, never by the clock, so a slow first lookup on a busy
+// computer is not cut short in its place.
 func TestNewVaultKeychainSearchHangs(t *testing.T) {
-	saved := newKeyTimeout
-	newKeyTimeout = 500 * time.Millisecond
-	defer func() { newKeyTimeout = saved }()
+	signal := filepath.Join(t.TempDir(), "searching")
+	saved := newKeyContext
+	t.Cleanup(func() { newKeyContext = saved })
+	newKeyContext = func() (context.Context, context.CancelFunc) {
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			for ctx.Err() == nil {
+				if _, err := os.Stat(signal); err == nil {
+					cancel() // the search hangs: its time is up
+					return
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+		}()
+		return ctx, cancel
+	}
 	newVaultNoStore(t, `case "$1" in
   lookup) exit 1 ;;
-  search) exec sleep 30 ;;
+  search) : > "`+signal+`"; exec sleep 30 ;;
   store) exit 0 ;;
 esac
 `)

@@ -127,12 +127,12 @@ func (cl *call) begin() {
 }
 
 // storeWrite is how this command's changes to the store and the vault go:
-// under --dry-run they are only previewed (store.Preview).
+// under --dry-run they are only previewed (store.Preview()).
 func (cl *call) storeWrite() store.Write {
 	if cl.flags.dryRun {
-		return store.Preview
+		return store.Preview()
 	}
-	return store.Save
+	return store.Save()
 }
 
 // caller is who makes the call (engine.Caller).

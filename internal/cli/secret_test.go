@@ -35,7 +35,7 @@ func setSecret(t *testing.T, name, value string) {
 func refsTo(t *testing.T, name string) {
 	t.Helper()
 	ref := "secret:" + name
-	err := store.Update(store.Save, func(s *store.State) error {
+	err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["h1"] = &store.Host{Name: "h1", Address: "10.0.0.1", PasswordRef: ref}
 		s.Hosts["h2"] = &store.Host{Name: "h2", Address: "10.0.0.2", SudoRef: ref, Env: map[string]string{"TOKEN": ref, "OTHER": "secret:other"}}
 		s.Conns = map[string]*store.Conn{"db": {Name: "db", Kind: "postgres", URL: "postgres://u@db/x", PasswordRef: ref}}
@@ -156,7 +156,7 @@ func TestSecretCp(t *testing.T) {
 // an agent must not replace, move, copy or remove it.
 func TestSecretReservedName(t *testing.T) {
 	invHome(t)
-	_ = vault.Set(store.Save, approvalSecret, "SEED")
+	_ = vault.Set(store.Save(), approvalSecret, "SEED")
 	setSecret(t, "x", "v")
 	t.Setenv("SECRET_TEST_VALUE", "MYSEED")
 	wantCode(t, "RESERVED_SECRET", "secret", "set", approvalSecret, "--from-env", "SECRET_TEST_VALUE")

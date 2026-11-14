@@ -66,7 +66,7 @@ func pwshServer(t *testing.T) {
 	blk, _ := ssh.MarshalPrivateKey(clientKey, "")
 	keyPath := filepath.Join(tmp, "id_test")
 	_ = os.WriteFile(keyPath, pem.EncodeToMemory(blk), 0o600)
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["win"] = &store.Host{Name: "win", Address: "127.0.0.1", Port: ln.Addr().(*net.TCPAddr).Port, User: "u", Identity: keyPath, OS: store.OSWindows}
 		return nil
 	}); err != nil {

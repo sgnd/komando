@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
@@ -102,5 +103,56 @@ esac
 	var oe *out.Error
 	if _, err := store.DB(true); !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
 		t.Fatalf("an agent's off let komando start an empty store: %v", err)
+	}
+}
+
+// An agent's KOMANDO_KEYCHAIN path counts no more than its "off": pointed
+// at a new, empty keychain file it would find no change count, and komando
+// would start an empty store over one the agent moved aside. An agent's
+// count is read and kept in the default keychain; a person's path is
+// still used.
+func TestAgentKeychainPathKeepsCount(t *testing.T) {
+	unixOnly(t, "an sh script plays macOS's security tool")
+	freshHome(t)
+	dir := t.TempDir()
+	other := filepath.Join(dir, "new.keychain-db")
+	t.Setenv("KOMANDO_KEYCHAIN", other)
+	savedOS, savedSec := keychainOS, securityTool
+	keychainOS, securityTool = "darwin", filepath.Join(dir, "security")
+	t.Cleanup(func() { keychainOS, securityTool = savedOS, savedSec })
+	// the default keychain remembers change 7; the new file holds nothing
+	script := `#!/bin/sh
+last=""; for a in "$@"; do last="$a"; done
+case "$1" in
+  default-keychain) echo '    "/Users/x/Library/Keychains/login.keychain-db"' ;;
+  find-generic-password) [ "$last" = "` + other + `" ] && exit 44; echo 7 ;;
+  -i) cat >> "` + dir + `/added" ;;
+esac
+`
+	if err := os.WriteFile(securityTool, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agent := false
+	AgentCall = func() bool { return agent }
+	t.Cleanup(func() { AgentCall = nil })
+	if _, ok, err := genGet(); err != nil || ok {
+		t.Fatalf("a person's keychain file: %v %v", ok, err)
+	}
+	agent = true
+	if n, ok, err := genGet(); err != nil || !ok || n != 7 {
+		t.Fatalf("an agent's keychain file hid the count: %d %v %v", n, ok, err)
+	}
+	if err := genSet(9); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "added")); strings.Contains(string(b), other) {
+		t.Errorf("an agent's count went into its own keychain file: %s", b)
+	}
+	var oe *out.Error
+	if _, err := store.DB(true); !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
+		t.Fatalf("an agent's keychain file let komando start an empty store: %v", err)
+	}
+	if _, err := os.Stat(store.DBPath()); !os.IsNotExist(err) {
+		t.Fatalf("a store was made: %v", err)
 	}
 }

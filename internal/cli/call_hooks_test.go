@@ -24,7 +24,7 @@ import (
 func TestAgentCallCountsBeforeTheStoreOpens(t *testing.T) {
 	home := t.TempDir()
 	setHome(t, home)
-	if err := store.Update(store.Save, func(*store.State) error { return nil }); err != nil {
+	if err := store.Update(store.Save(), func(*store.State) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	store.Close() // the next open checks the store again

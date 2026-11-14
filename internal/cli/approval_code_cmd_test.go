@@ -133,10 +133,10 @@ func TestApprovalCodeOn(t *testing.T) {
 // Turning it off needs --yes and removes the secret.
 func TestApprovalCodeOff(t *testing.T) {
 	invHome(t)
-	if err := vault.Set(store.Save, approvalSecret, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"); err != nil {
+	if err := vault.Set(store.Save(), approvalSecret, "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(store.Save, func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
+	if err := store.Update(store.Save(), func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if e := wantCode(t, "SAFETY_SETTING", "config", "approval-code", "--off"); e.Exit != out.ExitPolicy {

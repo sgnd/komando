@@ -108,7 +108,7 @@ printf 'stdin<<%s>>\n' "$(cat)"
 func TestToolWithCALocal(t *testing.T) {
 	invHome(t)
 	caPEM, _ := testRegistryCert(t, "db.internal")
-	if err := vault.Set(store.Save, "db-ca", string(caPEM)); err != nil {
+	if err := vault.Set(store.Save(), "db-ca", string(caPEM)); err != nil {
 		t.Fatal(err)
 	}
 	c := &store.Conn{Name: "pg", URL: "postgres://app@db.internal/app?ca=secret:db-ca"}
@@ -147,7 +147,7 @@ func TestDumpOnHostCA(t *testing.T) {
 	t.Setenv("KOMANDO_TEST_DB_PW", pw)
 	caPEM, _ := testRegistryCert(t, "db.internal")
 	ca := string(caPEM)
-	if err := vault.Set(store.Save, "db-ca", "Our CA, from the cloud console\n\n"+ca); err != nil {
+	if err := vault.Set(store.Save(), "db-ca", "Our CA, from the cloud console\n\n"+ca); err != nil {
 		t.Fatal(err)
 	}
 	mustRun(t, "conn", "add", "pg", "postgres://app@db.internal:5432/app?ca=secret:db-ca&application_name=nightly%20backup", "--password-ref", "env:KOMANDO_TEST_DB_PW")

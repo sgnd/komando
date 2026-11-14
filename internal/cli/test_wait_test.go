@@ -82,7 +82,7 @@ func forwardLater(t *testing.T, port, to int, after time.Duration) {
 
 func addLateHost(t *testing.T, name string, port int) {
 	t.Helper()
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		h := *st.Hosts["dev"]
 		h.Name, h.Address, h.Port = name, "127.0.0.1", port
 		st.Hosts[name] = &h

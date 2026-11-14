@@ -20,8 +20,12 @@ import (
 //     that was locked at the time; the keychain is raised.
 //   - store lower than the keychain: an old copy was put back; commands
 //     stop with STORE_OLD_COPY until a person accepts it on purpose.
-// A store with its key in a key file or a passphrase has no keychain to
-// compare with, and no such protection; doctor says so.
+// A store with its key in a key file or a passphrase is compared only when
+// the keychain keeps a count for this home (a backup from before `secret
+// keychain`). When the keychain cannot say whether it keeps one (locked,
+// slow, broken), such a store is read but never changed: it may be that
+// backup. Where the keychain answers "no count", or there is none, there
+// is no such protection; doctor says so.
 
 // GenerationKeep reads and writes the number in the keychain.
 type GenerationKeep struct {
@@ -108,10 +112,11 @@ func probeCount() (uint64, bool, error) {
 	}
 }
 
-// ErrKeychainSlow wraps a keychain that did not answer in time. Only this
-// lets a command go on unchecked, and then only to read (the keychain gave
-// the key a moment ago; a busy one must not stop all work, but nothing is
-// changed on a store that was not checked); doctor warns about it.
+// ErrKeychainSlow wraps a keychain that did not answer in time. A command
+// goes on unchecked then, and only to read (a busy keychain must not stop
+// all work, but nothing is changed on a store that was not checked);
+// doctor warns about it. So does a keychain that could not be read beside
+// a store whose key is elsewhere (checkGeneration).
 var ErrKeychainSlow = errors.New("store: the keychain did not answer in time")
 
 func oldCopyErr(have, kept uint64, why string) error {
@@ -140,7 +145,8 @@ func lookOnlyErr() error {
 
 // checkGeneration compares d's generation with the keychain's when the
 // home is guarded (see guarded). It says whether d is checked, unchecked
-// (a slow keychain: read only) or an old copy opened only to be looked at
+// (the keychain was slow, or could not be read beside a store whose key
+// is elsewhere: read only) or an old copy opened only to be looked at
 // (oldOK: the caller may look at one; read only), and gives the hook to
 // raise the keychain's count after each changing commit (nil when not
 // guarded). A store it does not find checked takes no writes.
@@ -153,8 +159,8 @@ func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (state co
 		get = probeCount
 	}
 	kept, ok, kerr := get()
-	if !keychainMode(meta) && (kerr != nil || !ok) {
-		return checked, nil, nil // key file or passphrase, and no count: nothing to compare with
+	if !keychainMode(meta) && noCount(ok, kerr) {
+		return checked, nil, nil // key file or passphrase, and no count kept: nothing to compare with
 	}
 	have, err := d.Generation(context.Background())
 	if err != nil {
@@ -164,9 +170,21 @@ func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (state co
 	case errors.Is(kerr, ErrKeychainSlow):
 		// read only, and opened again (and checked) once the keychain
 		// is asked again
-		d.NoWrites = out.Errf(out.ExitError, "KEYCHAIN_SLOW",
+		d.StopWrites(out.Errf(out.ExitError, "KEYCHAIN_SLOW",
 			"run it again in a moment; if it keeps happening, run `komando doctor`",
-			"nothing was changed: the keychain did not answer in time, so komando could not check that %s is the newest copy", Path(StoreFile))
+			"nothing was changed: the keychain did not answer in time, so komando could not check that %s is the newest copy", Path(StoreFile)))
+		return unchecked, nil, nil
+	case kerr != nil && !keychainMode(meta):
+		// a key file or a passphrase, and a keychain that could not say
+		// whether it keeps a count for this home: this may be a backup
+		// from before `secret keychain`, so it is read, never changed
+		if oldOK {
+			d.StopWrites(lookOnlyErr())
+			return oldCopy, nil, nil
+		}
+		d.StopWrites(out.Errf(out.ExitRemote, "KEYCHAIN_FAILED",
+			"a person unlocks the keychain (an AI agent asks the user), then run it again; on a computer with no working keychain, a person sets KOMANDO_KEYCHAIN=off",
+			"nothing was changed: the keychain could not be read (%v), so komando could not check that %s is the newest copy", kerr, Path(StoreFile)))
 		return unchecked, nil, nil
 	case kerr != nil || !ok:
 		// a store whose key is in the keychain always has its number there:
@@ -176,13 +194,13 @@ func checkGeneration(d *sealdb.DB, meta map[string]string, oldOK bool) (state co
 			why = "has a change count in the keychain that cannot be read (" + kerr.Error() + ")"
 		}
 		if oldOK {
-			d.NoWrites = lookOnlyErr()
+			d.StopWrites(lookOnlyErr())
 			return oldCopy, nil, nil
 		}
 		return checked, nil, oldCopyErr(have, 0, why)
 	case have < kept:
 		if oldOK {
-			d.NoWrites = lookOnlyErr()
+			d.StopWrites(lookOnlyErr())
 			return oldCopy, nil, nil
 		}
 		return checked, nil, oldCopyErr(have, kept, fmt.Sprintf("is an older copy (change %d) than this computer's keychain remembers (change %d)", have, kept))
@@ -214,36 +232,49 @@ func raiser(last uint64) func(uint64) {
 // still holds its change count: making a fresh store would silently drop
 // every pinned host key, rule and secret, and lower the count.
 //
-// create: the caller would make a store. It never does over a kept count,
-// nor when the keychain cannot say whether one is kept (slow or broken):
-// only a home whose keychain answers "no count", or a computer with no
+// create: the caller would make a store. It never does over a kept count.
+// When the keychain cannot say whether one is kept (slow, locked, broken),
+// it makes one only for a person or a script (not an AI agent), and only
+// in a folder with no trace of a store (storeTrace): then unread is the
+// keychain's error, and the new store keeps its key out of the keychain.
+// A home whose keychain answers "no count", or a computer with no
 // keychain at all, gets a new store. A read (no create) that may look at
 // an old copy (oldOK) goes on: a missing store is the oldest copy, and a
 // look changes nothing. So does a read beside a keychain that cannot
 // answer, as reads go on beside a slow keychain. Such a read sees no
 // store, or STATE_CORRUPT when the folder shows it had one (missingStore).
-func missingGuardedStore(create, oldOK bool) error {
+func missingGuardedStore(create, oldOK bool) (unread, err error) {
 	if GenerationKeeper.Get == nil {
-		return nil
+		return nil, nil
 	}
-	kept, ok, err := probeCount()
+	kept, ok, kerr := probeCount()
 	switch {
-	case noCount(ok, err):
-		return nil // a new home
-	case err != nil && !create:
-		return nil
-	case errors.Is(err, ErrKeychainSlow):
-		return out.Errf(out.ExitError, "KEYCHAIN_SLOW",
-			"run it again in a moment; if it keeps happening, run `komando doctor`",
-			"nothing was changed: %s is missing, and the keychain did not answer in time, so komando could not check that this folder never had a store; it does not start an empty one", Path(StoreFile))
-	case err != nil:
-		return out.Errf(out.ExitPolicy, "STORE_OLD_COPY",
-			"fix the keychain and run it again (`komando doctor` checks it); on a computer with no working keychain, a person runs komando once with KOMANDO_KEYCHAIN=off in their own terminal",
-			"%s is missing, and this computer's keychain could not say whether it remembers a change count for this folder (%v): komando does not start an empty store in its place (every pinned host key and rule would be gone)", Path(StoreFile), err)
+	case noCount(ok, kerr):
+		return nil, nil // a new home
+	case kerr != nil && !create:
+		return nil, nil
+	case kerr != nil:
+		trace := storeTrace()
+		if trace == "" && !agentCaller() {
+			return kerr, nil // a person's first store, beside a keychain that cannot be read
+		}
+		// first put store.db back; a fresh start only for a folder that never had a store
+		hint := "put store.db back from a backup, then run it again once the keychain answers (`komando doctor` checks it)"
+		had := " (this folder had a store: " + trace + ")"
+		if trace == "" {
+			hint = "if this folder had a store, put store.db back from a backup; if it never had one, a person runs the command in their own terminal (or with KOMANDO_KEYCHAIN=off), which starts a store with its key in a key file"
+			had = ""
+		}
+		if errors.Is(kerr, ErrKeychainSlow) {
+			return nil, out.Errf(out.ExitError, "KEYCHAIN_SLOW", hint,
+				"nothing was changed: %s is missing%s, and the keychain did not answer in time, so komando could not check that this folder never had a store; it does not start an empty one", Path(StoreFile), had)
+		}
+		return nil, out.Errf(out.ExitPolicy, "STORE_OLD_COPY", hint,
+			"%s is missing%s, and this computer's keychain could not say whether it remembers a change count for this folder (%v): komando does not start an empty store in its place (every pinned host key and rule would be gone)", Path(StoreFile), had, kerr)
 	case !create && oldOK:
-		return nil
+		return nil, nil
 	}
-	return out.Errf(out.ExitPolicy, "STORE_OLD_COPY",
+	return nil, out.Errf(out.ExitPolicy, "STORE_OLD_COPY",
 		"put store.db back from a backup; to start an empty store on purpose, a person runs `komando doctor --accept-old-copy` in their own terminal",
 		"%s is missing, though this computer's keychain remembers its change %d: komando does not start an empty store in its place (every pinned host key and rule would be gone)", Path(StoreFile), kept)
 }
@@ -318,8 +349,22 @@ func CopyState() (have, kept uint64, guardedStore, old bool, err error) {
 			return 0, k, true, true, nil
 		}
 	}
-	if err != nil || !guarded(meta) {
+	if err != nil {
 		return 0, 0, false, false, nil
+	}
+	if !keychainMode(meta) {
+		if GenerationKeeper.Get == nil {
+			return 0, 0, false, false, nil
+		}
+		_, ok, perr := probeCount()
+		switch {
+		case noCount(ok, perr):
+			return 0, 0, false, false, nil
+		case perr != nil:
+			// its key is elsewhere, and the keychain cannot say whether it
+			// keeps a newer count: the store is read, never changed
+			return 0, 0, false, false, fmt.Errorf("the keychain could not be read (%v), so komando cannot check that %s is not a backup from before `komando secret keychain`; until it can, komando changes nothing in it", perr, StoreFile)
+		}
 	}
 	d, err := openOldCopy()
 	if err != nil {

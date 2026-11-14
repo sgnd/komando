@@ -141,13 +141,17 @@ too.
 
 **A dry run is a parameter.** Every change says how it goes:
 `store.Update(w, fn)` and `store.UpdateRuntime(w, fn)` take a
-`store.Write`, `store.Save` or `store.Preview`. `store.Write` is a struct,
-not a bool, so a bare `true` or `false` does not compile. With `Preview`, `fn` runs
-on a copy that is never saved, as `--dry-run` did before. The vault's
+`store.Write`, `store.Save()` or `store.Preview()`. `store.Write` is a
+struct, not a bool, so a bare `true` or `false` does not compile. `Save`
+and `Preview` are functions, not variables, so no code can set one to the
+other (`store.Save = store.Preview` does not compile). The zero
+`store.Write{}` names neither: a change with it stops (`Write.Check`).
+With `Preview()`, `fn` runs on a copy that is never saved, as `--dry-run`
+did before. The vault's
 writes take it too (`vault.Set`, `Delete`, `DeleteMany`, `Copy`,
 `Rename`, `RenameMany`, `ChangeKey`): a preview of one stops with
 `store.ErrDryRun`, as before. In the cli every caller passes
-`cl.storeWrite()`, which is `Preview` under the call's `--dry-run`. A
+`cl.storeWrite()`, which is `Preview()` under the call's `--dry-run`. A
 parameter, and not a value in a `context.Context`, because there are
 few callers (about 60) and all of them hold the call: a change that
 does not say how it goes does not compile, where a missing context
@@ -156,7 +160,7 @@ session's runtime record up to date (its last use, a dead session
 gone). It does not hold the call, so it asks a hook with the context of
 the connection, as `sshx.HostKeyPinned` does: `netx.WriteFor(ctx)` is
 the call's `storeWrite()` (the only running call's, for a context that
-carries none; `store.Save` when none runs). So a dry run that uses a
+carries none; `store.Save()` when none runs). So a dry run that uses a
 VPN session writes nothing to `runtime.json`. It still stops an idle
 session's process, as before; the next command finds it gone and drops
 it from the record. `netx.ReapIdle` runs only outside a dry run and
@@ -179,17 +183,26 @@ below.
 
 The store keeps its open handles per home (`cachedDB`), in two sets.
 `dbOpen` holds the ones every caller may use: a checked store, and one
-opened unchecked because the keychain did not answer in time (read
-only, opened and checked again once the keychain is asked again).
-`lookOpen` holds an old copy opened to be looked at; only a caller that
-may look gets it. Any other caller gets the store opened and checked
-again, and `STORE_OLD_COPY`, with a handle of its own; it never closes
-the look-only one. A handle that cannot be written (an old copy, an
-unchecked store) is never closed while another call may use it: when it
-is no longer handed out (its file was replaced, a person accepted the
-copy) it waits in `retired` until `store.Close`. A handle that can be
-written is closed at once, so nothing goes through it into a file that
-was put aside.
+opened unchecked because the keychain was slow or could not be read
+(read only, opened and checked again once the keychain is asked again:
+after a slow keychain's minute, or `recheckAfter`). `lookOpen` holds an
+old copy opened to be looked at; only a caller that may look gets it. Any
+other caller gets the store opened and checked again, and
+`STORE_OLD_COPY`, with a handle of its own; it never closes the
+look-only one.
+
+A handle that is no longer handed out (its file was replaced, its key
+changed, its check ran out, a person accepted the copy) may still be in
+use by another call. It is never closed at once: `drop` stops its writes
+(`sealdb.DB.StopWrites`, with `STORE_CONFLICT`), so nothing goes through
+it into a file put aside, and it waits in `retired`. Each open sweeps
+`retired` (`sweepRetired`): a handle retired at least `retireGrace` (10
+seconds) ago with no step running is closed (`sealdb.DB.CloseIdle`). A
+call that still holds it then gets `STORE_CONFLICT` ("run it again"),
+never a raw `sql: database is closed`. So a process that runs for hours
+(an app, `tunnel serve`, `vpn serve`) beside a keychain that stays slow
+keeps one or two handles open, not one more per minute. `store.Close`
+closes the rest when the process ends.
 
 A look never changes the old copy: its handle has `sealdb.NoWrites`
 set, and a write stops with `STORE_OLD_COPY` ("nothing was changed").
@@ -205,18 +218,55 @@ record of the accept).
 
 **A look never makes a store.** When `store.db` is missing, a read that
 may look sees no store (or `STATE_CORRUPT`, when the folder shows it
-had one). Only `createDB` makes a store, and it always checks first,
+had one). Only `createDB` makes a store (`sealdb.Create`; `sealdb.Open`
+never makes a file, and tells SQLite not to). It always checks first,
 under the store's lock, whoever asks (`missingGuardedStore`,
 `missingStore`): a dry run's audit record never starts an empty store
 over a missing one, which would drop every pinned host key, rule and
-secret and set the keychain's count down. The check fails closed: it
-makes a store only when the keychain answers that it keeps no count for
-this folder, or when there is no keychain on the computer at all (the
+secret and set the keychain's count down. `store.db` removed between
+`Peek` and `Open` goes back to those checks too; it never comes back as
+an empty store that passes for "an older copy (change 1)".
+
+The check makes a store when the keychain answers that it keeps no count
+for this folder, or when there is no keychain on the computer at all (the
 vault's `genGet` says so with `store.NoKeychain`: turned off, or no
-keychain tool). A keychain that does not answer in time stops it with
-`KEYCHAIN_SLOW`; a locked or broken one with `STORE_OLD_COPY`. A read
-beside such a keychain sees no store, as reads go on beside a slow
-keychain.
+keychain tool). When the keychain cannot say (slow, locked, broken), it
+depends on who asks and on the folder:
+
+- A person or a script (`store.AgentCaller`, which the vault sets from
+  `vault.AgentCall`) in a folder with no trace of a store gets one. Its
+  key stays out of the keychain (`KeySource` is asked for a key file), and
+  `store.Notice` prints one note on the running calls' stderr: the key
+  file alone guards it. This is a first run on a computer whose keychain
+  does not work (a Linux server with `secret-tool` but no session, a Mac
+  over SSH with its keychain locked, `sudo -E`, Mac CI). The store this
+  process made is the newest copy, so it is not compared; its next opens
+  are (below).
+- An AI agent's call never gets one: `KEYCHAIN_SLOW` or `STORE_OLD_COPY`.
+  Nil `store.AgentCaller` counts as an agent.
+- A folder with a trace of a store gets none, whoever asks. The traces
+  (`storeTrace`) are `store.key`, `store.key.new`, `store.db-journal`,
+  `runtime.pids` and a sealed `runtime.json`. The lock files are not:
+  komando makes `.store.lock` before it makes a store, so a refused
+  attempt leaves one behind. The audit log is inside `store.db`.
+
+The hint of such a stop first says to put `store.db` back from a backup;
+a fresh start (a person's terminal, or `KOMANDO_KEYCHAIN=off`) is offered
+only for a folder with no trace. A read beside such a keychain sees no
+store, as reads go on beside a slow keychain.
+
+**A key file store fails closed too.** A store whose key is in `store.key`
+or a passphrase is compared when the keychain keeps a count for its
+folder: then it is a backup from before `secret keychain`. When the
+keychain cannot say whether it keeps one (`checkGeneration`: anything but
+"no count" or `NoKeychain`), the store is opened read only
+(`KEYCHAIN_FAILED`, or `KEYCHAIN_SLOW` when slow), or as a look for a
+caller that may look. A write would raise its change count until it
+passed for the newest copy. A person on a computer with no working
+keychain sets `KOMANDO_KEYCHAIN=off`; an agent's `off` is ignored for the
+count (`vault.countOff`), and so is an agent's `KOMANDO_KEYCHAIN` path
+(`vault.countKeychainFile`): pointed at a new, empty keychain file, it
+would find no count and let an empty store start over a guarded one.
 
 How long a slow keychain is left alone is kept per home
 (`slowUntil`), and a late answer marks the home that was asked, never
@@ -232,14 +282,16 @@ is not.
 1. **Hooks of sshx, vault and netx.** `sshx.HostKeyPinned`,
    `netx.StartSession` and `netx.WriteFor` get the context of the
    connection, which carries the call: they answer for that call. `vault.OnResolve`,
-   `vault.RefGuard`, `vault.AgentCall`, `sshx.HostSecretEnv`,
+   `vault.RefGuard`, `vault.AgentCall`, `store.Notice`, `sshx.HostSecretEnv`,
    `sshx.PersonAtTerminal`, `sshx.Asker` and `netx.LockBusy` get no call.
    `call_hooks.go` sets them once and answers over every call running in the
    process (a call counts from the first step of its command to the end:
    `execute` calls `call.enter` before anything can open the store or the
    vault, and `call.leave` when it returns). This order matters: the store
    is opened once per process, and `vault.AgentCall` decides there whether
-   an agent's `KOMANDO_KEYCHAIN=off` keeps the old-copy check. An agent's
+   an agent's `KOMANDO_KEYCHAIN` (`off`, or a keychain file) keeps the
+   old-copy check, and whether a first store may start beside a keychain
+   that cannot be read (`store.AgentCaller`). An agent's
    `--reveal` opens the store (is the approval code on?) before the
    command runs, so a call counted any later would open it as no
    agent's. What the hooks read of a call is safe to read while it runs
@@ -331,10 +383,28 @@ is not.
   `TestLookNeverMakesMissingStore` (store): with `store.db` gone and the
   keychain remembering its count, a dry run (its preview, its audit
   record) makes no store and leaves the count as it was; the next plain
-  call stops with `STORE_OLD_COPY`. `TestMissingStoreKeychainCannotAnswer`
-  and the vault's `TestNewStoreKeychainCannotAnswer`: a slow, locked or
-  broken keychain never lets a store be made; one that says "no count",
-  or none at all, does.
+  call stops with `STORE_OLD_COPY`. `TestMissingStoreKeychainCannotAnswer`:
+  a slow, locked or broken keychain never lets an unknown caller make a
+  store; one that says "no count", or none at all, does.
+- `TestFirstStoreKeychainCannotBeRead` (store) and the vault's
+  `TestNewStoreKeychainCannotAnswer`: beside a locked or hanging keychain,
+  a person's first store is made in a key file with one note, and the
+  next run only reads; an agent's call is refused, and so is a person's in
+  a folder with `store.key`, `runtime.pids` or a sealed `runtime.json`
+  left. A lock file or a plain `runtime.json` is no trace.
+- `TestKeyfileStoreKeychainCannotAnswer`: a key file store beside a locked
+  or slow keychain is read, takes no write (a look neither), and is caught
+  as an old copy once the keychain answers.
+  `TestAgentKeychainPathKeepsCount` (vault): an agent's keychain file
+  path does not hide the count.
+- `TestRetiredHandles` and `TestRetiredHandlesBounded`: a handle whose
+  file was replaced takes no write (`STORE_CONFLICT`) but still reads; a
+  busy one is kept, an idle one is closed once its grace is over, and a
+  store opened again thirty times leaves at most one retired handle open.
+  `TestStoreGoneBetweenPeekAndOpen`: `store.db` removed after `Peek`
+  makes no store and gets the missing-store answer. sealdb's
+  `TestOpenNeverCreates` and `TestStopWritesAndCloseIdle` check the
+  lower half.
 - `TestOldCopyHandleStaysOpenAndTakesNoWrites`: a plain call on an old
   copy never closes the handle a look uses, and no write reaches the old
   copy; after `AcceptOldCopy` the store takes writes again.

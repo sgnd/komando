@@ -122,9 +122,11 @@ type DB struct {
 	// OnGeneration, when set, is told the new generation after each write
 	// step that changed a record (the store keeps it in the keychain).
 	OnGeneration func(uint64)
-	// NoWrites, when set, is the error every write step fails with: the
-	// store could not be checked, so it is read but never changed.
-	NoWrites error
+	// noWrites is the error every write step fails with (StopWrites);
+	// closed the error of every step once the handle is closed (Close,
+	// CloseIdle). Atomic: another goroutine may be using the handle.
+	noWrites atomic.Pointer[error]
+	closed   atomic.Pointer[error]
 }
 
 // fileURI makes the SQLite URI for path, escaped so that '?', '#' and '%'
@@ -141,15 +143,34 @@ func fileURI(path string, q url.Values) (string, error) {
 	return u.String(), nil
 }
 
-// Open opens the store at path, making it when it does not exist (mode
-// 0600). It stops with ErrNewerFormat for a file from a newer komando.
+// ErrNotStore: the file at path is not a finished komando store.
+var ErrNotStore = errors.New("sealdb: not a komando store")
+
+// Open opens the store at path. It never makes one: a missing file is
+// os.ErrNotExist (SQLite is told not to make it either), and a file
+// without a finished store is ErrNotStore. It stops with ErrNewerFormat
+// for a file from a newer komando.
 func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
+	return openFile(ctx, path, key, false)
+}
+
+// Create makes a new store at path, which must not exist (mode 0600),
+// in one write step: a crash leaves no half-made store that Open takes.
+func Create(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
+	return openFile(ctx, path, key, true)
+}
+
+func openFile(ctx context.Context, path string, key *sealrow.Key, create bool) (*DB, error) {
 	if key == nil {
 		return nil, errors.New("sealdb: no key")
 	}
 	// make the file with 0600 before SQLite does, so it is never readable
 	// by others, not even for a moment
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0o600)
+	flag, mode := os.O_RDWR, "rw"
+	if create {
+		flag, mode = os.O_RDWR|os.O_CREATE|os.O_EXCL, "rwc"
+	}
+	f, err := os.OpenFile(path, flag, 0o600)
 	if err != nil {
 		return nil, err
 	}
@@ -160,6 +181,7 @@ func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
 		return nil, err
 	}
 	q := url.Values{}
+	q.Set("mode", mode)
 	for _, p := range []string{
 		"busy_timeout(" + strconv.Itoa(int(BusyTimeout/time.Millisecond)) + ")",
 		"journal_mode(DELETE)",
@@ -185,50 +207,44 @@ func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
 	// SQLite allows one writer anyway
 	sdb.SetMaxOpenConns(1)
 	d := &DB{db: sdb, key: key}
-	if err := d.init(ctx); err != nil {
+	if err := d.init(ctx, create); err != nil {
 		sdb.Close()
+		if _, serr := os.Stat(path); errors.Is(serr, os.ErrNotExist) {
+			return nil, serr // removed while it was opened
+		}
 		return nil, err
 	}
 	d.opened = true
 	return d, nil
 }
 
-func (d *DB) init(ctx context.Context) error {
-	// a store made already is checked in a read step, so opening it never
-	// waits for, or holds up, another process's write
-	ready := false
-	err := d.run(ctx, false, func(tx *Tx) error {
-		var n int
-		if err := tx.c.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('meta','records','audit')`).Scan(&n); err != nil || n < 3 {
-			return err
-		}
-		var v string
-		if err := tx.c.QueryRowContext(ctx, `SELECT v FROM meta WHERE k='format'`).Scan(&v); err != nil {
-			return nil // made, but not finished: the write step below does it
-		}
-		ready = true
-		return d.checkOpened(tx, v)
-	})
-	if err != nil || ready {
-		return err
+func (d *DB) init(ctx context.Context, create bool) error {
+	if !create {
+		// checked in a read step, so opening it never waits for, or holds
+		// up, another process's write
+		return d.run(ctx, false, func(tx *Tx) error {
+			var n int
+			if err := tx.c.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN ('meta','records','audit')`).Scan(&n); err != nil {
+				return err
+			}
+			var v string
+			if n < 3 || tx.c.QueryRowContext(ctx, `SELECT v FROM meta WHERE k='format'`).Scan(&v) != nil {
+				return ErrNotStore
+			}
+			return d.checkOpened(tx, v)
+		})
 	}
+	// a new file (Create): the tables, the format and the key check go in
+	// together
 	return d.run(ctx, true, func(tx *Tx) error {
 		if _, err := tx.c.ExecContext(ctx, schema); err != nil {
 			return err
 		}
-		var v string
-		err := tx.c.QueryRowContext(ctx, `SELECT v FROM meta WHERE k='format'`).Scan(&v)
-		if errors.Is(err, sql.ErrNoRows) {
-			if _, err = tx.c.ExecContext(ctx, `INSERT INTO meta(k,v) VALUES('format',?)`, strconv.Itoa(Format)); err != nil {
-				return err
-			}
-			_, err = tx.Put(keycheckType, keycheckID, []byte("komando"))
+		if _, err := tx.c.ExecContext(ctx, `INSERT INTO meta(k,v) VALUES('format',?)`, strconv.Itoa(Format)); err != nil {
 			return err
 		}
-		if err != nil {
-			return err
-		}
-		return d.checkOpened(tx, v)
+		_, err := tx.Put(keycheckType, keycheckID, []byte("komando"))
+		return err
 	})
 }
 
@@ -289,9 +305,6 @@ func Peek(ctx context.Context, path string) (map[string]string, error) {
 	return m, rows.Err()
 }
 
-// Close closes the store.
-func (d *DB) Close() error { return d.db.Close() }
-
 // View runs fn in a read step: it sees one consistent store.
 func (d *DB) View(ctx context.Context, fn func(*Tx) error) error {
 	return d.run(ctx, false, fn)
@@ -305,8 +318,8 @@ func (d *DB) Update(ctx context.Context, fn func(*Tx) error) error {
 }
 
 func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error) {
-	if write && d.NoWrites != nil {
-		return d.NoWrites
+	if err := d.stopped(write); err != nil {
+		return err
 	}
 	release, err := d.enter()
 	if errors.Is(err, ErrNested) {
@@ -316,6 +329,10 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 		return err
 	}
 	defer release()
+	// closed or stopped while this step waited for its turn
+	if err := d.stopped(write); err != nil {
+		return err
+	}
 	c, err := d.db.Conn(ctx)
 	if err != nil {
 		return err
@@ -441,6 +458,9 @@ func (d *DB) Backup(ctx context.Context, dst string) error {
 		return err
 	}
 	defer release()
+	if err := d.stopped(false); err != nil {
+		return err
+	}
 	if _, err := os.Lstat(dst); err == nil {
 		return fmt.Errorf("sealdb: %s already exists", dst)
 	}

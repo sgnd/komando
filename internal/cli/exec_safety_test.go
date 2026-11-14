@@ -94,7 +94,7 @@ func startFakeServer(t *testing.T) *fakeServer {
 	if err := os.WriteFile(keyPath, pem.EncodeToMemory(blk), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["prod"] = &store.Host{Name: "prod", Address: "127.0.0.1", Port: s.port, User: "deploy", Identity: keyPath, Protected: true}
 		st.Hosts["dev"] = &store.Host{Name: "dev", Address: "localhost", Port: s.port, User: "deploy", Identity: keyPath}
 		return nil
@@ -296,7 +296,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 	// a saved read-only recipe that does not keep the promise once filled
 	// in (or under a stricter check than when it was saved) runs as a
 	// change: a protected server needs --yes, and then it runs
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Snippets["peek"] = &store.Snippet{Name: "peek", Command: "cat {{f}}", ReadOnly: true}
 		st.Snippets["finder"] = &store.Snippet{Name: "finder", Command: "find /data/app -name {{n}} -exec {{x}} {} +", ReadOnly: true}
 		st.Snippets["procs"] = &store.Snippet{Name: "procs", Command: "ps aux | python3 -c 'import sys'", ReadOnly: true}
@@ -452,7 +452,7 @@ func TestLineBuffer(t *testing.T) {
 // policy list, and every command is blocked until it is fixed.
 func TestInvalidDenyPatternReported(t *testing.T) {
 	startFakeServer(t)
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Settings.ExtraDenyPattern = []string{`kubectl\s+delete(`}
 		return nil
 	}); err != nil {

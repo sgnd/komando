@@ -111,11 +111,14 @@ var ErrRuntimeOnly = errors.New("store: UpdateRuntime changed more than runtime 
 // for, or rewrite, the inventory. fn sees the whole state; a change to
 // anything else stops it with ErrRuntimeOnly and nothing is saved.
 //
-// With Preview, fn runs on a copy and nothing is saved or locked.
+// With Preview(), fn runs on a copy and nothing is saved or locked.
 //
 // Never call Update or UpdateRuntime from inside fn.
 func UpdateRuntime(w Write, fn func(s *State) error) error {
-	if w == Save {
+	if err := w.Check(); err != nil {
+		return err
+	}
+	if w == Save() {
 		if err := ensureHome(); err != nil {
 			return err
 		}
@@ -148,7 +151,7 @@ func UpdateRuntime(w Write, fn func(s *State) error) error {
 	if !bytes.Equal(before, after) {
 		return ErrRuntimeOnly
 	}
-	if w == Preview {
+	if w == Preview() {
 		return nil
 	}
 	return s.saveRuntime()

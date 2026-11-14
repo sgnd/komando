@@ -15,12 +15,12 @@ import (
 func TestRenameMany(t *testing.T) {
 	keyfileHome(t)
 	for n, v := range map[string]string{"shop-db": "db pass", "shop-vpn": "vpn psk", "other": "x"} {
-		if err := Set(store.Save, n, v); err != nil {
+		if err := Set(store.Save(), n, v); err != nil {
 			t.Fatal(err)
 		}
 	}
 	before, _ := List()
-	if err := RenameMany(store.Save, map[string]string{"shop-db": "acme-shop-db", "shop-vpn": "acme-shop-vpn"}); err != nil {
+	if err := RenameMany(store.Save(), map[string]string{"shop-db": "acme-shop-db", "shop-vpn": "acme-shop-vpn"}); err != nil {
 		t.Fatal(err)
 	}
 	for n, v := range map[string]string{"acme-shop-db": "db pass", "acme-shop-vpn": "vpn psk", "other": "x"} {
@@ -39,7 +39,7 @@ func TestRenameMany(t *testing.T) {
 			t.Errorf("the date changed, the value did not")
 		}
 	}
-	if err := RenameMany(store.Save, nil); err != nil {
+	if err := RenameMany(store.Save(), nil); err != nil {
 		t.Errorf("nothing to rename: %v", err)
 	}
 
@@ -58,20 +58,20 @@ func TestRenameMany(t *testing.T) {
 		"reserved target":  {"other": reservedName},
 		"one bad of three": {"acme-shop-db": "a", "acme-shop-vpn": "b", "other": "acme-shop-db"},
 	} {
-		if err := RenameMany(store.Save, pairs); err == nil {
+		if err := RenameMany(store.Save(), pairs); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 		if !bytes.Equal(vaultFile(), keep) {
 			t.Fatalf("%s: the vault changed", name)
 		}
 	}
-	if err := RenameMany(store.Save, map[string]string{"acme-shop-db": "other"}); !errors.Is(err, ErrExists) {
+	if err := RenameMany(store.Save(), map[string]string{"acme-shop-db": "other"}); !errors.Is(err, ErrExists) {
 		t.Errorf("want ErrExists, got %v", err)
 	}
-	if err := RenameMany(store.Save, map[string]string{"nope": "z"}); !errors.Is(err, ErrNotFound) {
+	if err := RenameMany(store.Save(), map[string]string{"nope": "z"}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("want ErrNotFound, got %v", err)
 	}
-	if err := RenameMany(store.Save, map[string]string{"other": reservedName}); err == nil || !strings.Contains(err.Error(), "approval code") {
+	if err := RenameMany(store.Save(), map[string]string{"other": reservedName}); err == nil || !strings.Contains(err.Error(), "approval code") {
 		t.Errorf("reserved: %v", err)
 	}
 }

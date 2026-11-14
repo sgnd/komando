@@ -88,6 +88,12 @@ func keychainCmdCtx(ctx context.Context, args ...string) *exec.Cmd {
 // the prompt. Tests shorten it.
 var newKeyTimeout = 5 * time.Second
 
+// newKeyContext bounds one keychain call of a new vault (newKeyTimeout).
+// A test that must cut short one call and not another replaces it.
+var newKeyContext = func() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), newKeyTimeout)
+}
+
 // errNoKeychainKey: the keychain answered, and holds no key under this
 // komando home's name. Any other error (locked, a dismissed prompt, a
 // timeout) says nothing about whether a key is there.
@@ -116,6 +122,18 @@ var AgentCall func() bool
 // secret, so reading it gives the agent nothing.
 func countOff() bool {
 	return keychainOff() && (AgentCall == nil || !AgentCall())
+}
+
+// countKeychainFile is keychainFile for the store's change count. An
+// agent's KOMANDO_KEYCHAIN path counts no more than its "off" (countOff):
+// pointed at a new, empty keychain file it would find no count, and
+// komando would start an empty store over one the agent moved aside. An
+// agent's call reads and keeps the count in the default keychain.
+func countKeychainFile() string {
+	if AgentCall != nil && AgentCall() {
+		return ""
+	}
+	return keychainFile()
 }
 
 // KeychainTool says which tool keeps the key here, or why there is none.
@@ -161,8 +179,8 @@ var (
 // sudo -E, a sandbox, CI, a test run; or no login keychain), while
 // `security default-keychain` only exits 1, with no dialog. So komando
 // asks that first, once per process.
-func macDefaultKeychain() error {
-	if keychainOS != "darwin" || keychainFile() != "" {
+func macDefaultKeychain(kc string) error {
+	if keychainOS != "darwin" || kc != "" {
 		return nil
 	}
 	home := os.Getenv("HOME")
@@ -189,16 +207,16 @@ func macDefaultKeychain() error {
 // keychain`: on macOS it also needs a default keychain, so komando never
 // makes macOS show a dialog. A use nobody asked for then goes on without
 // the keychain.
-func autoKeychainTool() (string, error) { return autoKeychainToolOff(keychainOff()) }
+func autoKeychainTool() (string, error) { return autoKeychainToolFor(keychainOff(), keychainFile()) }
 
-// autoKeychainToolOff is autoKeychainTool with off given (countOff for the
-// change count).
-func autoKeychainToolOff(off bool) (string, error) {
+// autoKeychainToolFor is autoKeychainTool with off and the keychain file
+// given (countOff and countKeychainFile for the change count).
+func autoKeychainToolFor(off bool, kc string) (string, error) {
 	tool, err := keychainTool(off)
 	if err != nil {
 		return "", err
 	}
-	if err := macDefaultKeychain(); err != nil {
+	if err := macDefaultKeychain(kc); err != nil {
 		return "", err
 	}
 	return tool, nil
@@ -439,9 +457,7 @@ func keychainNewKey() ([]byte, bool) {
 	if _, err := autoKeychainTool(); err != nil {
 		return nil, false
 	}
-	ctx := func() (context.Context, context.CancelFunc) {
-		return context.WithTimeout(context.Background(), newKeyTimeout)
-	}
+	ctx := newKeyContext
 	get := func() ([]byte, error) {
 		c, cancel := ctx()
 		defer cancel()

@@ -156,7 +156,7 @@ func TestDryRunBesideARealChange(t *testing.T) {
 func TestOldCopyLookStaysInItsCall(t *testing.T) {
 	home := t.TempDir()
 	setHome(t, home)
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["web"] = &store.Host{Name: "web", Address: "10.0.0.5", User: "u"}
 		return nil
 	}); err != nil {
@@ -250,7 +250,7 @@ func TestDryRunNeverMakesMissingStore(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			home := t.TempDir()
 			setHome(t, home)
-			if err := store.Update(store.Save, func(st *store.State) error {
+			if err := store.Update(store.Save(), func(st *store.State) error {
 				st.Hosts["web"] = &store.Host{Name: "web", Address: "10.0.0.5", User: "u"}
 				return nil
 			}); err != nil {

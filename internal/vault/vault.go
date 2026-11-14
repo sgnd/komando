@@ -242,7 +242,10 @@ const keyLen = 32
 // (parallel agents) never drop each other's secrets. A preview (a dry
 // run) cannot be made of a vault change: it stops with store.ErrDryRun.
 func change(w store.Write, fn func(f *file) error) error {
-	if w == store.Preview {
+	if err := w.Check(); err != nil {
+		return err
+	}
+	if w == store.Preview() {
 		return store.ErrDryRun
 	}
 	return changeSealed(fn)

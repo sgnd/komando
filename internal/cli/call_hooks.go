@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/sgnd/komando/internal/netx"
@@ -125,6 +126,9 @@ func init() {
 		}
 		return func(host, text string, hidden bool) (string, error) { return askSSH(cl, host, text, hidden) }
 	}
+	// a note of the store (a new store beside a keychain that could not be
+	// read) goes to the stderr of every running call
+	store.Notice = storeNotice
 	netx.LockBusy = func(name string) {
 		for _, cl := range runningCalls() {
 			noticef(cl, "another komando command is connecting or disconnecting vpn %s (a sign-in may be waiting in its browser window); waiting for it to end", name)
@@ -137,7 +141,7 @@ func init() {
 			cl = soleCall()
 		}
 		if cl == nil {
-			return store.Save
+			return store.Save()
 		}
 		return cl.storeWrite()
 	}
@@ -150,6 +154,20 @@ func init() {
 			return fmt.Errorf("vpn %s: no komando command to start it for", name)
 		}
 		return startVpnFor(cl, ctx, name)
+	}
+}
+
+// storeNotice is store.Notice: the note goes to the stderr of every
+// running call, people and scripts alike (it says how the store is
+// guarded), or to the process's when none runs.
+func storeNotice(msg string) {
+	line := "komando: " + cleanText(msg)
+	calls := runningCalls()
+	if len(calls) == 0 {
+		fmt.Fprintln(os.Stderr, line)
+	}
+	for _, cl := range calls {
+		fmt.Fprintln(cl.out.Err, line)
 	}
 }
 

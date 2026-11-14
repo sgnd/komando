@@ -75,13 +75,13 @@ var StartSession func(ctx context.Context, name string) error
 
 // WriteFor is set by the CLI: how the runtime record (a session's last
 // use, a dead session gone) changes for the command ctx belongs to:
-// store.Preview under its --dry-run, so a preview writes nothing. Nil:
-// store.Save.
+// store.Preview() under its --dry-run, so a preview writes nothing. Nil:
+// store.Save().
 var WriteFor func(ctx context.Context) store.Write
 
 func writeFor(ctx context.Context) store.Write {
 	if WriteFor == nil {
-		return store.Save
+		return store.Save()
 	}
 	return WriteFor(ctx)
 }
@@ -166,7 +166,7 @@ func ReapIdle() {
 	stale := func(x *store.VpnSession) bool { return time.Since(x.LastUsed) > idle }
 	for name, s := range st.Sessions {
 		if stale(s) {
-			stopIfStale(store.Save, name, s, stale)
+			stopIfStale(store.Save(), name, s, stale)
 		}
 	}
 }

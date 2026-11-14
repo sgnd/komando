@@ -90,7 +90,7 @@ func TestRunningStatus(t *testing.T) {
 // home and changes nothing.
 func TestStatusCommand(t *testing.T) {
 	setHome(t, t.TempDir())
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Jobs["j-1"] = &store.Job{ID: "j-1", Host: "nowhere", Command: "sleep 1"}
 		return nil
 	}); err != nil {

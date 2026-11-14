@@ -75,7 +75,7 @@ func TestOldCopyIsStopped(t *testing.T) {
 	if !strings.Contains(oe.Hint, "--accept-old-copy") {
 		t.Fatalf("hint %q", oe.Hint)
 	}
-	if err := Update(Save, func(s *State) error { return nil }); err == nil {
+	if err := Update(Save(), func(s *State) error { return nil }); err == nil {
 		t.Fatal("a change went into an old copy")
 	}
 
@@ -102,7 +102,7 @@ func TestOldCopyIsStopped(t *testing.T) {
 	}
 	// a write through a look-only handle never lowers the keychain
 	OldCopyOK = lookOK
-	_ = Update(Save, func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
+	_ = Update(Save(), func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
 	OldCopyOK = nil
 	if *kept != newer {
 		t.Fatalf("the keychain went down to %d", *kept)
@@ -176,7 +176,7 @@ func TestMissingOrBrokenCountStops(t *testing.T) {
 	if _, err := Load(); err != nil {
 		t.Errorf("slow keychain: %v", err)
 	}
-	err := Update(Save, func(s *State) error { s.Hosts["b"] = &Host{Name: "b"}; return nil })
+	err := Update(Save(), func(s *State) error { s.Hosts["b"] = &Host{Name: "b"}; return nil })
 	var oe *out.Error
 	if !errors.As(err, &oe) || oe.Code != "KEYCHAIN_SLOW" {
 		t.Errorf("a write with a slow keychain: %v", err)
@@ -210,7 +210,7 @@ func TestNewStoreCountNotSaved(t *testing.T) {
 	kept := keychainStore(t)
 	set := GenerationKeeper.Set
 	GenerationKeeper.Set = func(uint64) error { return errors.New("keychain locked") }
-	err := Update(Save, func(s *State) error { s.Hosts["a"] = &Host{Name: "a"}; return nil })
+	err := Update(Save(), func(s *State) error { s.Hosts["a"] = &Host{Name: "a"}; return nil })
 	if err == nil || !strings.Contains(err.Error(), "change count") {
 		t.Fatalf("a new store without its count: %v", err)
 	}
@@ -310,8 +310,8 @@ func TestLookNeverMakesMissingStore(t *testing.T) {
 				t.Fatalf("a look at a missing store: %v", err)
 			}
 			for _, create := range []func() error{
-				func() error { _, err := DB(true); return err },                         // the audit log of a dry run
-				func() error { return Update(Save, func(*State) error { return nil }) }, // a change, by mistake
+				func() error { _, err := DB(true); return err },                           // the audit log of a dry run
+				func() error { return Update(Save(), func(*State) error { return nil }) }, // a change, by mistake
 				CheckWritable,
 			} {
 				if err := create(); !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
@@ -414,7 +414,7 @@ func TestOldCopyHandleStaysOpenAndTakesNoWrites(t *testing.T) {
 		t.Fatalf("the look-only handle after a plain call: %d %v", n, err)
 	}
 	for i := range 10 {
-		err := Update(Save, func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
+		err := Update(Save(), func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
 		if !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
 			t.Fatalf("write %d into an old copy: %v", i, err)
 		}
@@ -438,5 +438,157 @@ func TestOldCopyHandleStaysOpenAndTakesNoWrites(t *testing.T) {
 	update(t, func(s *State) { s.Hosts["y"] = &Host{Name: "y"} })
 	if *kept <= have {
 		t.Fatalf("the keychain was not raised: %d", *kept)
+	}
+}
+
+// A store whose key is in a key file, beside a keychain that cannot say
+// whether it keeps a change count for this folder: it may be a backup from
+// before `secret keychain`, so it is read and never changed (a look may
+// look). Each write would raise its count until it passed for the newest.
+func TestKeyfileStoreKeychainCannotAnswer(t *testing.T) {
+	for name, tc := range map[string]struct {
+		err  error
+		code string
+	}{
+		"locked": {errors.New("locked"), "KEYCHAIN_FAILED"},
+		"slow":   {ErrKeychainSlow, "KEYCHAIN_SLOW"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			keychainStore(t)
+			KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
+				return bytes.Repeat([]byte{5}, 32), map[string]string{"key_mode": "keyfile"}, nil
+			}
+			update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+			if err := GenerationKeeper.Set(1 << 30); err != nil { // the keychain remembers a newer store
+				t.Fatal(err)
+			}
+			Close()
+			get := GenerationKeeper.Get
+			GenerationKeeper.Get = func() (uint64, bool, error) { return 0, false, tc.err }
+			d, err := DB(false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			have, _ := d.Generation(t.Context())
+			if s, err := Load(); err != nil || s.Hosts["web"] == nil {
+				t.Fatalf("a read: %v", err)
+			}
+			var oe *out.Error
+			err = Update(Save(), func(s *State) error { s.Hosts["x"] = &Host{Name: "x"}; return nil })
+			if !errors.As(err, &oe) || oe.Code != tc.code || !strings.Contains(oe.Message, "nothing was changed") {
+				t.Fatalf("a write: %v", err)
+			}
+			if tc.code == "KEYCHAIN_FAILED" && !strings.Contains(oe.Hint, "KOMANDO_KEYCHAIN=off") {
+				t.Errorf("hint %q", oe.Hint)
+			}
+			clearSlowKeychain()
+			if _, _, _, _, err := CopyState(); err == nil || !strings.Contains(err.Error(), "changes nothing") {
+				t.Errorf("doctor's copy state: %v", err) // doctor warns
+			}
+			Close()
+			clearSlowKeychain()
+			OldCopyOK = lookOK
+			if s, err := Load(); err != nil || s.Hosts["web"] == nil {
+				t.Fatalf("a look: %v", err)
+			}
+			if err := Update(Save(), func(*State) error { return nil }); !errors.As(err, &oe) || (oe.Code != "STORE_OLD_COPY" && oe.Code != tc.code) {
+				t.Fatalf("a write in a look: %v", err)
+			}
+			OldCopyOK = nil
+			Close()
+			d, _ = DB(false)
+			if n, _ := d.Generation(t.Context()); n != have {
+				t.Fatalf("the count went from %d to %d", have, n)
+			}
+			// the keychain answers again: the backup is caught
+			GenerationKeeper.Get = get
+			clearSlowKeychain()
+			Close()
+			if _, err := Load(); !errors.As(err, &oe) || oe.Code != "STORE_OLD_COPY" {
+				t.Fatalf("once the keychain answers: %v", err)
+			}
+		})
+	}
+}
+
+// A first store beside a keychain that cannot be read: a person or a
+// script gets one, with its key out of the keychain and a note; an agent
+// never does, and nobody does in a folder with a trace of a store. A lock
+// file left by a refused attempt, or a plain runtime.json, is no trace.
+func TestFirstStoreKeychainCannotBeRead(t *testing.T) {
+	for _, tc := range []struct {
+		who, trace string
+		agent      bool
+		code       string // "": made
+	}{
+		{who: "person", code: ""},
+		{who: "person beside a lock file and a plain runtime.json", trace: "litter", code: ""},
+		{who: "agent", agent: true, code: "STORE_OLD_COPY"},
+		{who: "person, store.key left", trace: "store.key", code: "STORE_OLD_COPY"},
+		{who: "person, sealed runtime.json left", trace: "runtime.json", code: "STORE_OLD_COPY"},
+	} {
+		t.Run(tc.who, func(t *testing.T) {
+			keychainStore(t)
+			var asked map[string]string
+			KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
+				if create {
+					asked = meta
+				}
+				return bytes.Repeat([]byte{5}, 32), map[string]string{"key_mode": "keyfile"}, nil
+			}
+			set := 0
+			GenerationKeeper = GenerationKeep{
+				Get: func() (uint64, bool, error) { return 0, false, errors.New("locked") },
+				Set: func(uint64) error { set++; return nil },
+				Del: func() {},
+			}
+			savedAgent, savedNotice := AgentCaller, Notice
+			t.Cleanup(func() { AgentCaller, Notice = savedAgent, savedNotice })
+			AgentCaller = func() bool { return tc.agent }
+			var notes []string
+			Notice = func(msg string) { notes = append(notes, msg) }
+			if err := ensureHome(); err != nil {
+				t.Fatal(err)
+			}
+			switch tc.trace {
+			case "litter":
+				os.WriteFile(Path(storeLock), nil, 0o600)
+				os.WriteFile(runtimePath(), []byte("{}"), 0o600)
+			case "runtime.json":
+				os.WriteFile(runtimePath(), append(append([]byte{}, runtimeMagic...), "x"...), 0o600)
+			case "store.key":
+				os.WriteFile(Path("store.key"), make([]byte, 32), 0o600)
+			}
+			err := Update(Save(), func(s *State) error { s.Hosts["web"] = &Host{Name: "web"}; return nil })
+			if tc.code != "" {
+				var oe *out.Error
+				if !errors.As(err, &oe) || oe.Code != tc.code || !strings.HasPrefix(oe.Hint, "put store.db back") && !strings.HasPrefix(oe.Hint, "if this folder had a store, put store.db back") {
+					t.Fatalf("refused: %v", err)
+				}
+				if tc.agent != strings.Contains(oe.Hint, "KOMANDO_KEYCHAIN=off") {
+					t.Errorf("hint %q", oe.Hint)
+				}
+				if _, err := os.Stat(DBPath()); !os.IsNotExist(err) {
+					t.Fatal("a store was made")
+				}
+				if len(notes) != 0 || set != 0 {
+					t.Fatalf("notes %q, count set %d times", notes, set)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if asked["key_mode"] != "keyfile" {
+				t.Errorf("the new key was not kept out of the keychain: %v", asked)
+			}
+			if len(notes) != 1 || !strings.Contains(notes[0], "could not be read (locked)") || !strings.Contains(notes[0], "KOMANDO_KEYCHAIN=off") {
+				t.Errorf("notes %q", notes)
+			}
+			update(t, func(s *State) { s.Hosts["db"] = &Host{Name: "db"} }) // the same run goes on
+			if set != 0 {
+				t.Errorf("the count was set %d times", set)
+			}
+		})
 	}
 }

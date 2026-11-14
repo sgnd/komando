@@ -13,18 +13,18 @@ import (
 // the new name (each value is bound to its name), and the old date stays.
 func TestRenameAndCopy(t *testing.T) {
 	keyfileHome(t)
-	if err := Set(store.Save, "old", "s3cret value"); err != nil {
+	if err := Set(store.Save(), "old", "s3cret value"); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set(store.Save, "other", "x"); err != nil {
+	if err := Set(store.Save(), "other", "x"); err != nil {
 		t.Fatal(err)
 	}
 	before, _ := List()
 
-	if err := Copy(store.Save, "old", "copy", false); err != nil {
+	if err := Copy(store.Save(), "old", "copy", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := Rename(store.Save, "old", "new", false); err != nil {
+	if err := Rename(store.Save(), "old", "new", false); err != nil {
 		t.Fatal(err)
 	}
 	for _, n := range []string{"copy", "new"} {
@@ -43,22 +43,22 @@ func TestRenameAndCopy(t *testing.T) {
 	}
 
 	// the new name is taken
-	if err := Rename(store.Save, "new", "other", false); !errors.Is(err, ErrExists) {
+	if err := Rename(store.Save(), "new", "other", false); !errors.Is(err, ErrExists) {
 		t.Errorf("want ErrExists, got %v", err)
 	}
 	if v, _ := Get("other"); v != "x" {
 		t.Errorf("other was replaced without overwrite: %q", v)
 	}
-	if err := Copy(store.Save, "new", "other", true); err != nil {
+	if err := Copy(store.Save(), "new", "other", true); err != nil {
 		t.Fatal(err)
 	}
 	if v, _ := Get("other"); v != "s3cret value" {
 		t.Errorf("overwrite: %q", v)
 	}
-	if err := Rename(store.Save, "missing", "x", false); !errors.Is(err, ErrNotFound) {
+	if err := Rename(store.Save(), "missing", "x", false); !errors.Is(err, ErrNotFound) {
 		t.Errorf("want ErrNotFound, got %v", err)
 	}
-	if err := Rename(store.Save, "new", "new", true); err == nil {
+	if err := Rename(store.Save(), "new", "new", true); err == nil {
 		t.Error("renaming to the same name must fail, not delete")
 	}
 
@@ -75,8 +75,8 @@ func TestRenameAndCopy(t *testing.T) {
 
 func TestRenameInDryRunChangesNothing(t *testing.T) {
 	keyfileHome(t)
-	_ = Set(store.Save, "a", "v")
-	if err := Rename(store.Preview, "a", "b", false); !errors.Is(err, store.ErrDryRun) {
+	_ = Set(store.Save(), "a", "v")
+	if err := Rename(store.Preview(), "a", "b", false); !errors.Is(err, store.ErrDryRun) {
 		t.Errorf("want ErrDryRun, got %v", err)
 	}
 }

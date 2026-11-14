@@ -32,7 +32,7 @@ func TestHostMv(t *testing.T) {
 	mustRun(t, "host", "add", "jump", "u@10.0.0.1", "-g", "edge", "-t", "prod", "--sudo-ref", "secret:j")
 	mustRun(t, "host", "add", "web", "u@10.0.0.2", "--via", "jump")
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--via", "jump")
-	if err := store.Update(store.Save, func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Jobs["j1"] = &store.Job{ID: "j1", Host: "jump", Command: "sleep 1"}
 		s.Tunnels["t1"] = &store.Tunnel{ID: "t1", Host: "jump", Via: "jump", Kind: "local"}
 		return nil
@@ -92,7 +92,7 @@ func TestHostMv(t *testing.T) {
 func TestConnMv(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "db", "postgres://a@10.0.0.5/app", "--protected", "-t", "x")
-	if err := store.Update(store.Save, func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Tunnels["t1"] = &store.Tunnel{ID: "t1", Host: "h", Conn: "db", Kind: "local"}
 		return nil
 	}); err != nil {
@@ -122,7 +122,7 @@ func TestVpnMv(t *testing.T) {
 	}
 	wantCode(t, "VPN_NOT_FOUND", "vpn", "mv", "lab", "x")
 	wantCode(t, "NAME_TAKEN", "vpn", "mv", "office", "h1")
-	if err := store.Update(store.Save, func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), StartedAt: time.Now(), LastUsed: time.Now()}
 		return nil
 	}); err != nil {
@@ -202,7 +202,7 @@ func writeCSV(t *testing.T, text string) string {
 
 func TestImportCSV(t *testing.T) {
 	invHome(t)
-	if err := vault.Set(store.Save, "ubuntu-sudo", "pw"); err != nil {
+	if err := vault.Set(store.Save(), "ubuntu-sudo", "pw"); err != nil {
 		t.Fatal(err)
 	}
 	mustRun(t, "host", "add", "old", "u@10.0.0.99")

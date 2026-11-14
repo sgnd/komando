@@ -183,7 +183,7 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	exited := make(chan struct{})
 	go func() { _ = other.Wait(); close(exited) }()
 	defer func() { _ = other.Process.Kill(); <-exited }()
-	if err := store.UpdateRuntime(store.Save, func(s *store.State) error {
+	if err := store.UpdateRuntime(store.Save(), func(s *store.State) error {
 		s.Tunnels["t-old"] = &store.Tunnel{ID: "t-old", Host: "web1", Kind: "local", Spec: "0:localhost:80", PID: other.Process.Pid, StartedAt: time.Now()}
 		return nil
 	}); err != nil {
@@ -193,7 +193,7 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	if r := d["tunnels"].([]any)[0].(map[string]any); r["alive"] != false {
 		t.Errorf("another program's pid listed as the tunnel: %v", r)
 	}
-	if err := store.UpdateRuntime(store.Save, func(s *store.State) error {
+	if err := store.UpdateRuntime(store.Save(), func(s *store.State) error {
 		s.Tunnels["t-old"] = &store.Tunnel{ID: "t-old", Host: "web1", Kind: "local", Spec: "0:localhost:80", PID: other.Process.Pid, StartedAt: time.Now()}
 		return nil
 	}); err != nil {

@@ -103,7 +103,10 @@ func sealedChangeKey(w store.Write, oldPass, newPass string) (KeyChange, error) 
 	if newPass != "" && utf8.RuneCountInString(newPass) < MinPassphrase {
 		return res, ErrShortPassphrase
 	}
-	if w == store.Preview {
+	if err := w.Check(); err != nil {
+		return res, err
+	}
+	if w == store.Preview() {
 		return res, store.ErrDryRun
 	}
 	meta, err := storeMeta()

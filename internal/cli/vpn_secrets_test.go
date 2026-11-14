@@ -45,7 +45,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 	const theirs = "alice-key-passphrase"
 	set := func(name string) {
 		t.Helper()
-		if err := vault.Set(store.Save, name, theirs); err != nil {
+		if err := vault.Set(store.Save(), name, theirs); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -61,7 +61,7 @@ func TestVpnAddKeepsOtherSecrets(t *testing.T) {
 			t.Errorf("VPN %s was saved", name)
 		}
 	}
-	if err := store.Update(store.Save, func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["web"] = &store.Host{Name: "web", Address: "web.example.com", User: "alice", PasswordRef: "secret:prod-key"}
 		return nil
 	}); err != nil {
@@ -153,7 +153,7 @@ func TestVpnAddOverwriteReusesOwnSecrets(t *testing.T) {
 	}
 
 	// the VPN's own secret, but a server uses it too
-	if err := store.Update(store.Save, func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["web"] = &store.Host{Name: "web", Address: "web.example.com", User: "alice", PasswordRef: "secret:lab-config"}
 		return nil
 	}); err != nil {

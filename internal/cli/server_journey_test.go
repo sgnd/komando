@@ -142,11 +142,11 @@ func TestJobStartScript(t *testing.T) {
 func TestJobStartScriptOnTheWire(t *testing.T) {
 	srv := startFakeServer(t)
 	const pw = "hunter2-Sudo-pw"
-	if err := vault.Set(store.Save, "dev-sudo", pw); err != nil {
+	if err := vault.Set(store.Save(), "dev-sudo", pw); err != nil {
 		t.Fatal(err)
 	}
 	// prod is the same server, protected: unprotect it for this change
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["dev"].SudoRef, st.Hosts["prod"].Protected = "secret:dev-sudo", false
 		return nil
 	}); err != nil {
@@ -188,7 +188,7 @@ func TestJobStartScriptOnTheWire(t *testing.T) {
 // protected server it asks first, before komando even connects.
 func TestJobRmKillProtected(t *testing.T) {
 	srv := startFakeServer(t)
-	if err := store.Update(store.Save, func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Jobs["j9"] = &store.Job{ID: "j9", Host: "prod", Command: "sleep 99", PID: 7}
 		return nil
 	}); err != nil {
