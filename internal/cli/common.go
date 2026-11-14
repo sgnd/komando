@@ -610,12 +610,15 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 	if st != nil && !st.Settings.Audit {
 		return
 	}
+	// where else the record goes: a local of this record, never a field of
+	// the call, as two dials of one command may pin keys at once
+	var syslog string
 	if st == nil { // always recorded (turning the audit off, too); read where else it goes
 		if s, err := store.Load(); err == nil {
-			cl.auditSyslog = s.Settings.AuditSyslog
+			syslog = s.Settings.AuditSyslog
 		}
 	} else {
-		cl.auditSyslog = st.Settings.AuditSyslog
+		syslog = st.Settings.AuditSyslog
 	}
 	rec := map[string]any{
 		"ts":      time.Now().UTC().Format(time.RFC3339Nano),
@@ -652,7 +655,7 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 	if rec["blocked"] != nil {
 		cl.blockAudited = true
 	}
-	if err := appendAudit(cl, rec); err != nil {
+	if err := appendAudit(cl, syslog, rec); err != nil {
 		// the action ran (or was refused); its record is missing: say so
 		cl.out.Warn(fmt.Sprintf("the audit log could not record %s: %v", command, err))
 	}

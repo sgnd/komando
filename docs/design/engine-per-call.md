@@ -124,7 +124,13 @@ second, as two processes did. Before that, `newRoot` starts the global
 flags from their defaults and resets the printer (`out.Printer.Reset`):
 what the last command set on it (`DryRun`, `Pretty`, `Mask`, `Personal`,
 `NoRedact`) is not the next one's, and `execute` chooses the output
-format again from `json`.
+format again from `json`. `Reset` keeps the values `AddValue` hid: the
+values the command before read are dropped by `call.enter`
+(`out.Printer.ForgetAdded`) before the call counts as running. From then
+on another call's `vault.OnResolve` adds to it, and nothing drops that
+value while the command runs. A call that enters later does not inherit
+the values other calls resolved before it entered: `vault.OnResolve`
+adds a value only to the calls running at that moment.
 
 By then the call is already running, and other calls' hooks read it
 from their own goroutines (below). So what a hook reads changes only
@@ -159,8 +165,9 @@ value would quietly save a dry run's change. netx keeps a VPN
 session's runtime record up to date (its last use, a dead session
 gone). It does not hold the call, so it asks a hook with the context of
 the connection, as `sshx.HostKeyPinned` does: `netx.WriteFor(ctx)` is
-the call's `storeWrite()` (the only running call's, for a context that
-carries none; `store.Save()` when none runs). So a dry run that uses a
+the call's `storeWrite()`, and for a context that carries no call it is
+`store.Preview()`: nothing is written, and no other call's `--dry-run`
+is read. So a dry run that uses a
 VPN session writes nothing to `runtime.json`. It still stops an idle
 session's process, as before; the next command finds it gone and drops
 it from the record. `netx.ReapIdle` runs only outside a dry run and
@@ -315,9 +322,18 @@ The packages under the cli keep some state of their own. A call cannot
 reach it yet. Each item below is safe for two calls at once, or says what
 is not.
 
-1. **Hooks of sshx, vault and netx.** `sshx.HostKeyPinned`,
-   `netx.StartSession` and `netx.WriteFor` get the context of the
-   connection, which carries the call: they answer for that call. `vault.OnResolve`,
+1. **Hooks of sshx, vault and netx.** `sshx.MayPin`, `sshx.HostKeyPinned`,
+   `sshx.ChainOwner`, `netx.StartSession` and `netx.WriteFor` get the
+   context of the connection, which carries the call: they answer for
+   that call. Every command's context carries its call (`newRoot` and
+   `execute` put it there; each dial, tunnel, job, VPN session and the
+   ssh gate's commands use the command's context). A context that
+   carries no call is a bug, and these hooks never answer for another
+   running call instead: `sshx.MayPin` refuses to pin a new server's key
+   (the dial fails with an error that says so, and nothing goes into any
+   call's output or audit log), `netx.StartSession` refuses to start a
+   VPN, `netx.WriteFor` writes nothing, and `sshx.ChainOwner` gives a
+   path that nobody shares. `vault.OnResolve`,
    `vault.RefGuard`, `vault.AgentCall`, `store.Notice`, `sshx.HostSecretEnv`,
    `sshx.PersonAtTerminal`, `sshx.Asker` and `netx.LockBusy` get no call.
    `call_hooks.go` sets them once and answers over every call running in the
@@ -332,15 +348,10 @@ is not.
    command runs, so a call counted any later would open it as no
    agent's. What the hooks read of a call is safe to read while it runs
    (see "One answer covers one command"); `TestHooksReadRunningCallsSafely`
-   checks it under `-race`. Two gaps are left. A host key pinned by a
-   connection whose context carries no call (`sshx.HostKeyPinned` with
-   such a context; no dial in komando does that today) is written to the
-   audit log of the first running call, which reads that call's flags as
-   it runs, so that read races. And `newRoot` starts each command with
-   `out.Printer.Reset`, which forgets the values `AddValue` hid: a value
-   another call's `vault.OnResolve` added to this call after it entered
-   but before it reached `newRoot` is dropped, and this call no longer
-   hides it. A value read for one call is hidden
+   checks it under `-race`, and `TestHostKeyPinNeedsItsCall`,
+   `TestResolvedValueStaysHiddenFromEnter` and `TestChainOwnerIsTheCommand`
+   check the three paths that once answered for the wrong call. A value
+   read for one call is hidden
    in all of them; one agent among them makes a guard answer as for an
    agent; a person is asked at the terminal only while theirs is the only
    call. That is safe, not exact. `store.OldCopyOK` answers the same
@@ -378,9 +389,16 @@ is not.
    Nothing was run."
 5. **Paths through jump hosts.** sshx shares one login to the same jump
    hosts among the servers behind them (`openJumps`, a cache of the
-   process), so calls at once share it too. The cache key names the VPN,
-   each jump host and the host-key check (`chainKey`): a path dialed with
-   `--host-key-policy off` is never handed to a call that checks keys.
+   process), within one command. The cache key (`chainKey`) names the
+   command that opened the path (`sshx.ChainOwner`, a number `call.enter`
+   gives each command), the VPN, each jump host and the host-key check.
+   So a path a person's command opened (after the person answered a
+   login question, say) never serves an AI agent's command, or another
+   command of the same person with other approvals, and a path dialed
+   with `--host-key-policy off` is never handed to a command that checks
+   keys. `TestChainServesOneOwner` checks it under `-race`. Keying the
+   paths per command means each command through a bastion pays its own
+   login and keeps its own connection open for 5 s once idle.
 6. **Background processes.** `login-holder` sets `sshx.Asker` and
    `vpn serve` sets `netx.SessionSecret`. Each runs as a process of its
    own and never in an app.

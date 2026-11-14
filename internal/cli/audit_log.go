@@ -16,11 +16,12 @@ import (
 // send the log elsewhere when that matters.
 
 // appendAudit adds one record, under a lock so parallel komando processes
-// keep the chain in order (audit_log_sealed.go).
-func appendAudit(cl *call, rec map[string]any) error {
+// keep the chain in order (audit_log_sealed.go), and sends it to syslog
+// too when the audit_syslog setting names a target.
+func appendAudit(cl *call, syslog string, rec map[string]any) error {
 	line, err := writeAudit(rec)
-	if err == nil && cl.auditSyslog != "" {
-		sendSyslog(cl, cl.auditSyslog, line, time.Now())
+	if err == nil && syslog != "" {
+		sendSyslog(cl, syslog, line, time.Now())
 	}
 	return err
 }

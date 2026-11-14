@@ -52,8 +52,56 @@ func TestAddValueThenVault(t *testing.T) {
 	if got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v))); got != "a=[secret:db] b=[secret:db]" {
 		t.Errorf("Redact: %q", got)
 	}
-	p.forgetAdded()
+	p.ForgetAdded()
 	if got := p.Redact(v); got != "[secret:db]" {
 		t.Errorf("the next command forgot a vault value: %q", got)
+	}
+}
+
+// A value the command read through AddValue that the vault holds too
+// stays hidden when the vault's values go (SetSecrets(nil): an update run
+// as root that leaves the home), whichever of the two hid it first.
+func TestAddValueOfVaultValueSurvivesSetSecrets(t *testing.T) {
+	const v = "vault-and-added-9876"
+	vaultOf := func() map[string]string { return map[string]string{"db": v} }
+
+	// the vault first: AddValue finds a vault value
+	p := &Printer{Secrets: vaultOf}
+	p.ForgetAdded()
+	p.AddValue(v)
+	if got := p.Redact(v); got != "[secret:db]" {
+		t.Fatalf("a vault value AddValue hid again: %q", got)
+	}
+	p.Reset()
+	p.SetSecrets(nil)
+	if got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v))); got != "a="+Hidden+" b="+Hidden {
+		t.Errorf("after SetSecrets(nil): %q", got)
+	}
+	if p.HoldsVaultValue(v) {
+		t.Error("a value the vault no longer holds counts as the vault's")
+	}
+	p.ForgetAdded()
+	if got := p.Redact(v); got != v {
+		t.Errorf("the next command still hides it: %q", got)
+	}
+
+	// AddValue first, then the vault loads it
+	p = &Printer{}
+	p.AddValue(v)
+	p.SetSecrets(vaultOf)
+	if got := p.Redact(v); got != "[secret:db]" || !p.HoldsVaultValue(v) {
+		t.Fatalf("the vault's value: %q", got)
+	}
+	p.SetSecrets(nil)
+	if got := p.Redact(v); got != Hidden {
+		t.Errorf("after SetSecrets(nil): %q", got)
+	}
+
+	// the next command forgets what AddValue hid, not the vault's value
+	p = &Printer{Secrets: vaultOf}
+	p.AddValue(v)
+	p.ForgetAdded()
+	if got := p.Redact(v); got != "[secret:db]" || !p.HoldsVaultValue(v) {
+		t.Errorf("after ForgetAdded: %q", got)
 	}
 }

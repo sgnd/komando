@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
@@ -29,8 +31,16 @@ var running struct {
 	calls map[*call]bool
 }
 
-// enter counts cl among the running calls; leave takes it out.
+// commands numbers the commands of the process (call.command).
+var commands atomic.Uint64
+
+// enter counts cl among the running calls, for a new command; leave takes
+// it out. A value the command before hid with AddValue is forgotten here,
+// before the call counts: from now on another call's vault.OnResolve adds
+// to it, and nothing drops what it added until the next command.
 func (cl *call) enter() {
+	cl.out.ForgetAdded()
+	cl.command.Store(commands.Add(1))
 	running.Lock()
 	defer running.Unlock()
 	if running.calls == nil {
@@ -41,8 +51,9 @@ func (cl *call) enter() {
 
 func (cl *call) leave() {
 	running.Lock()
-	defer running.Unlock()
 	delete(running.calls, cl)
+	running.Unlock()
+	cl.command.Store(0)
 }
 
 // runningCalls are the calls running now.
@@ -96,21 +107,26 @@ func init() {
 		}
 		return true
 	}
-	// a host key pinned on first use goes into the audit log and the JSON
-	// output (meta.host_keys_pinned) of the call that connected; sshx
-	// tells the person on stderr
-	sshx.HostKeyPinned = func(ctx context.Context, k sshx.NewHostKey) {
-		calls := []*call{callFrom(ctx)}
-		if calls[0] == nil { // a connection made outside a command: every call hears of it
-			calls = runningCalls()
+	// a host key is pinned on first use only for a connection whose
+	// context carries its call: the pin goes into that call's audit log
+	// and JSON output (meta.host_keys_pinned), never another call's
+	sshx.MayPin = func(ctx context.Context) error {
+		if callFrom(ctx) == nil {
+			return errNoCall("pin a new server's host key")
 		}
-		for i, cl := range calls {
-			cl.out.HostKeyPinned(out.HostKey{Host: k.Host, Address: k.Address, Type: k.Type, Fingerprint: k.Fingerprint})
-			if i == 0 {
-				auditPinnedKey(cl, k)
-			}
-		}
+		return nil
 	}
+	// sshx tells the person on stderr
+	sshx.HostKeyPinned = func(ctx context.Context, k sshx.NewHostKey) {
+		cl := callFrom(ctx)
+		if cl == nil {
+			return // MayPin refused it already
+		}
+		cl.out.HostKeyPinned(out.HostKey{Host: k.Host, Address: k.Address, Type: k.Type, Fingerprint: k.Fingerprint})
+		auditPinnedKey(cl, k)
+	}
+	// a path through jump hosts serves only the command that opened it
+	sshx.ChainOwner = chainOwner
 	// HOSTKEY_MISMATCH tells a person how to check and re-trust the key;
 	// an agent or a script is told to report it
 	sshx.PersonAtTerminal = func() bool {
@@ -134,27 +150,45 @@ func init() {
 			noticef(cl, "another komando command is connecting or disconnecting vpn %s (a sign-in may be waiting in its browser window); waiting for it to end", name)
 		}
 	}
-	// a dry run's VPN use changes nothing in the runtime record
+	// a dry run's VPN use changes nothing in the runtime record; with no
+	// call in the context nothing is written either (no other call's
+	// --dry-run is read)
 	netx.WriteFor = func(ctx context.Context) store.Write {
 		cl := callFrom(ctx)
 		if cl == nil {
-			cl = soleCall()
-		}
-		if cl == nil {
-			return store.Save()
+			return store.Preview()
 		}
 		return cl.storeWrite()
 	}
 	netx.StartSession = func(ctx context.Context, name string) error {
 		cl := callFrom(ctx)
 		if cl == nil {
-			cl = soleCall()
-		}
-		if cl == nil {
-			return fmt.Errorf("vpn %s: no komando command to start it for", name)
+			return errNoCall("start vpn " + name)
 		}
 		return startVpnFor(cl, ctx, name)
 	}
+}
+
+// errNoCall is the error of a hook reached with a context that carries no
+// call: a bug in komando. The hook refuses rather than answer for another
+// running call.
+func errNoCall(what string) error {
+	return fmt.Errorf("komando was asked to %s outside a command, and refused; this is a bug in komando: report it at https://github.com/sgnd/komando/issues", what)
+}
+
+// unowned numbers the paths through jump hosts opened outside a command
+// (chainOwner): each is its own.
+var unowned atomic.Uint64
+
+// chainOwner is sshx.ChainOwner: the command of ctx's call. A path opened
+// with no command running in the context is shared with nobody.
+func chainOwner(ctx context.Context) string {
+	if cl := callFrom(ctx); cl != nil {
+		if n := cl.command.Load(); n != 0 {
+			return "command " + strconv.FormatUint(n, 10)
+		}
+	}
+	return "nobody " + strconv.FormatUint(unowned.Add(1), 10)
 }
 
 // storeNotice is store.Notice: the note goes to the stderr of every

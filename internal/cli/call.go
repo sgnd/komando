@@ -50,6 +50,11 @@ type call struct {
 	// it is atomic.
 	oldCopy atomic.Bool
 
+	// command numbers the command running in the call (enter), unique in
+	// the process: a path through jump hosts is shared only within one
+	// command (sshx.ChainOwner). 0: no command runs in it.
+	command atomic.Uint64
+
 	commits uint64   // store.Commits() when the command started
 	ttyYes  []string // what a person said yes to at the terminal (the audit's confirm: tty)
 
@@ -65,7 +70,6 @@ type call struct {
 	askedAbout      []string            // the targets of the last yes/no question, so a "no" can say where nothing was changed
 	blockAudited    bool                // the command recorded its safety stop already (auditBlocked)
 	interrupted     bool                // the person pressed Ctrl-C at a question (ttyin.go)
-	auditSyslog     string              // the audit_syslog setting of this command's state
 	personalCmd     bool                // this command, run by an AI agent, may hide personal data
 	fsSudoRetry     string              // the hint of a permission error in an fs command: the line with --sudo
 	carriedSecrets  map[string]bool     // the secrets a sealed file being imported brings (import_sealed.go)

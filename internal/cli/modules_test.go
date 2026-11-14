@@ -710,7 +710,9 @@ func TestFollowEndsCleanlyOnCtrlC(t *testing.T) {
 		lines[i] = "line\n"
 	}
 	s.reply(lines...)
-	ctx, cancel := context.WithCancel(context.Background())
+	// a command's context carries its call (a new server's key is pinned
+	// only for one)
+	ctx, cancel := context.WithCancel(withCall(context.Background(), tcl))
 	time.AfterFunc(400*time.Millisecond, cancel)
 	defer cancel()
 	err := runFleet(tcl, ctx, "logs", "dev", "tail -n 200 -F -- '/var/log/x'", nil, execOpts{stream: true, follow: true}, false)

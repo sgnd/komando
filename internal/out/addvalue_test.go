@@ -38,9 +38,14 @@ func TestAddValueHidesIt(t *testing.T) {
 	if !s.Found() {
 		t.Fatal("the scanner does not see an added value")
 	}
-	// the next command (one process runs many in tests) starts without it
+	// Reset keeps it: another running command may have added it
 	p.Reset()
-	if got := p.Redact(v + " vault-value-1234"); got != v+" [secret:db]" {
+	if got := p.Redact(v); got != Hidden {
 		t.Fatalf("after Reset: %q", got)
+	}
+	// the next command (one process runs many in tests) starts without it
+	p.ForgetAdded()
+	if got := p.Redact(v + " vault-value-1234"); got != v+" [secret:db]" {
+		t.Fatalf("after ForgetAdded: %q", got)
 	}
 }

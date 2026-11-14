@@ -488,9 +488,9 @@ func gateRecipeWrites(c *cobra.Command) string {
 func gateAudit(cl *call, label string, readOnly bool, req gateRequest, name string, refused *out.Error) error {
 	// written even when the audit setting is off: a key's commands are
 	// always in the log
-	st, err := store.Load()
-	if err == nil {
-		cl.auditSyslog = st.Settings.AuditSyslog
+	var syslog string
+	if st, err := store.Load(); err == nil {
+		syslog = st.Settings.AuditSyslog
 	}
 	ran := out.MaskSecrets(req.raw)
 	if len(ran) > 2000 {
@@ -521,7 +521,7 @@ func gateAudit(cl *call, label string, readOnly bool, req gateRequest, name stri
 		rec["blocked"] = refused.Code
 		rec["reason"] = refused.Message
 	}
-	if err := appendAudit(cl, rec); err != nil {
+	if err := appendAudit(cl, syslog, rec); err != nil {
 		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions on the komando computer (`komando doctor` checks them); nothing was run",
 			"the audit log cannot be written (%v), so the key's command does not run", err)
 	}
