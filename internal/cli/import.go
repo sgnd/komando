@@ -219,6 +219,9 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		vpns = append(vpns, v)
 		res.Vpns = append(res.Vpns, v.Name)
 	}
+	if err := guardImportVpns(cl, st, vpns); err != nil {
+		return err
+	}
 	for _, v := range vpns { // so hosts and conns can use them with --via
 		st.Vpns[v.Name] = v
 	}
@@ -400,10 +403,13 @@ func importSkipper(cl *call, st *store.State, overwrite bool) func(kind, name st
 		if err := checkEntryName(kind, name); err != nil {
 			return toErr(err).Message
 		}
-		// a protected conn is skipped like a protected server (vetImportHosts),
+		// a protected conn or VPN is skipped like a protected server (vetImportHosts),
 		// so a dry run lists it as skipped, as the real run does, and the
 		// rest of the file still comes in
 		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !cl.yesOK() {
+			return importProtectedSkip
+		}
+		if v, ok := st.Vpns[name]; ok && kind == "vpn" && overwrite && v.Protected && !cl.yesOK() {
 			return importProtectedSkip
 		}
 		if err := checkNewName(cl, st, kind, name, overwrite); err != nil {
@@ -781,4 +787,42 @@ func importIncomplete(cl *call, refused int) error {
 	// a preview: nothing is in yet
 	return out.Errf(out.ExitError, "IMPORT_INCOMPLETE", "each skipped entry says why; without --dry-run the rest comes in, and importing again later skips it",
 		"%s would not be imported (see skipped)", countOf(refused, "server"))
+}
+
+// guardImportVpns asks for what the imported VPNs weaken, as vpn add and
+// vpn edit do: the weaker logins they turn on (importVpnOptIns), a CA
+// they no longer check the server against and secrets they send
+// (guardVpnSends), and, for a VPN they replace, protection or --mfa
+// turned off (guardVpnEdit). A file cannot do what a person did not allow.
+func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
+	olds := map[string]*store.Vpn{}
+	var replaced []*store.Vpn
+	for _, v := range vpns {
+		if err := importVpnOptIns(cl, st, v); err != nil {
+			return err
+		}
+		old := st.Vpns[v.Name]
+		if err := guardVpnSends(cl, old, v, ""); err != nil {
+			return err
+		}
+		if old != nil {
+			olds[v.Name] = old
+			replaced = append(replaced, v)
+		}
+	}
+	return guardVpnEdit(cl, olds, replaced)
+}
+
+// importVpnOptIns asks for the weaker logins an imported VPN turns on, as
+// vpn edit does (vpnOptIns): a file cannot allow old ciphers or PAP that
+// a person did not. A setting the VPN's kind does not use is dropped.
+func importVpnOptIns(cl *call, st *store.State, v *store.Vpn) error {
+	cur := &store.Vpn{Name: v.Name, Kind: v.Kind}
+	if old, ok := st.Vpns[v.Name]; ok && old.Kind == v.Kind {
+		cur.LegacyCrypto, cur.AllowPAP = old.LegacyCrypto, old.AllowPAP
+	}
+	v.LegacyCrypto = v.LegacyCrypto && vpnTakes(v.Kind, "legacy-crypto")
+	v.AllowPAP = v.AllowPAP && vpnTakes(v.Kind, "allow-pap")
+	set := map[string]bool{"legacy-crypto": v.LegacyCrypto, "allow-pap": v.AllowPAP}
+	return vpnOptIns(cl, cur, func(f string) bool { return set[f] }, v.LegacyCrypto, v.AllowPAP)
 }

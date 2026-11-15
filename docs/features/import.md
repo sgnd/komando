@@ -72,7 +72,15 @@ appear in komando's list, output or history.
   other clear-text URL to another computer is skipped unless it ends in
   `?insecure=1`.
 - With `--overwrite`, the result lists what it replaced. Without a yes, a
-  protected server or conn is skipped, in the dry run too.
+  protected server, conn or VPN is skipped, in the dry run too.
+- A file cannot turn on what `host edit` and `vpn edit` ask a person for:
+  `forward_agent` on a server that did not lend your ssh-agent before,
+  `legacy_crypto` or `allow_pap` on a VPN, and, for a VPN it replaces, a CA
+  it no longer checks the server against or `mfa` or protection turned
+  off. Each stops with `SAFETY_SETTING` (exit 6) until you say yes: at your
+  terminal komando asks, a script adds `--yes`, and an AI agent's yes comes
+  from you in komando's window. Settings in the file are never applied;
+  the result lists them in `settings_differ` with the command to run.
 - The result names the command that checks what came in in `data.next`,
   and a person sees it on stderr: `Next: komando test @shop`.
 - Servers are checked like `host add` (ports, users, `--via`). A bad one is
@@ -346,5 +354,6 @@ server it no longer knows).
 | `USAGE` (exit 2) | an unknown source, or `komando` or `csv` without a file | the hint lists the sources and an example |
 | `FILE_EXISTS` (exit 8) | `export --to` a file that exists | add `--overwrite`, or pick another file |
 | `PROTECTED_HOST`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
+| `SAFETY_SETTING` (exit 6) | the file turns on agent forwarding, old VPN ciphers or PAP, or weakens a VPN it replaces | check the file; at your terminal komando asks, a script adds `--yes` |
 | `STORE_OLD_COPY` (exit 6) | a backup of the folder was put back; the keychain remembers a newer store | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
 | `VAULT_LOCKED` (exit 1) | a copied folder whose vault has a passphrase, without `KOMANDO_VAULT_PASS` | set `KOMANDO_VAULT_PASS`; see [Secrets](secrets.md#troubleshooting) |

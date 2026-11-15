@@ -59,6 +59,15 @@ its highlights; the sections below them give the details. Versions follow
   user can enter (0700) and gets its final mode before it moves into
   place. A server that cannot make that folder private stops with
   `CHMOD_FAILED`, as before for a file it could not make private.
+- `import komando FILE` no longer turns on, without a person's yes, what
+  `host edit` and `vpn edit` ask for: lending the ssh-agent to a server
+  (`forward_agent`), old IKEv1 ciphers (`legacy_crypto`) or PAP
+  (`allow_pap`) for a VPN, and, for a VPN it replaces with `--overwrite`,
+  dropping the CA the VPN checks its server against or turning `mfa` or
+  protection off. Each stops with `SAFETY_SETTING`, as the edit commands
+  do; an AI agent could write such a file and import it to get around
+  them. A protected VPN left out of `--overwrite` without `--yes` now
+  gives the same reason as a protected server or conn.
 
 ### Fixed
 
