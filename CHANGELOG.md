@@ -83,6 +83,13 @@ its highlights; the sections below them give the details. Versions follow
   shell text such as `root;id;#`). The name is now printed on one line,
   only root's own line counts, an owner that is no user name is never
   put in the hint, and the path is quoted.
+- An ssh-gate key can no longer reach this computer's own ports through
+  `cert check` with a name that resolves to it (`ip6-localhost`, or a
+  public name pointing at 127.0.0.1). The gate compared names as text; it
+  now resolves a name and refuses it when any address is loopback,
+  unspecified or one of this computer's, and a gated `cert check` checks
+  the address again when it connects, so a DNS answer that changes in
+  between is refused too.
 
 ### Fixed
 
