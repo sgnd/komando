@@ -146,11 +146,19 @@ func (p *ptyRun) answer(q, s string) {
 // exit waits for komando to end and returns its exit code.
 func (p *ptyRun) exit() int {
 	p.t.Helper()
+	return p.exitWithin(10 * time.Second)
+}
+
+// exitWithin is exit for a command that may take longer than most: sealing
+// or opening a file runs a key derivation made to be slow, which takes
+// over 10 seconds under the race detector on a busy machine.
+func (p *ptyRun) exitWithin(d time.Duration) int {
+	p.t.Helper()
 	done := make(chan error, 1)
 	go func() { done <- p.cmd.Wait() }()
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(d):
 		_ = p.cmd.Process.Kill()
 		<-done
 		p.t.Fatalf("komando went on waiting; the screen:\n%s", p.shown())

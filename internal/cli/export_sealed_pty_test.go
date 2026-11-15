@@ -7,9 +7,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/sealfile"
 )
+
+// sealWait is how long a sealed export or import may take in these tests:
+// the passphrase's key derivation is slow on purpose (exitWithin).
+const sealWait = 90 * time.Second
 
 // A person types the passphrase at the terminal, hidden: twice to seal,
 // once to open on the other computer. Neither the passphrase nor a secret
@@ -20,7 +25,7 @@ func TestPTYExportSealed(t *testing.T) {
 	p := startPTY(t, "export", "--sealed", "--with-keys", "--to", file)
 	p.answer("Passphrase (hidden): ", sealPass+"\r")
 	p.answer("Type it again (hidden): ", sealPass+"\r")
-	if code := p.exit(); code != 0 {
+	if code := p.exitWithin(sealWait); code != 0 {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
 	}
 	p.waitFor("check phrase: ")
@@ -32,7 +37,7 @@ func TestPTYExportSealed(t *testing.T) {
 	invHome(t)
 	i := startPTY(t, "import", "komando", file)
 	i.answer("Passphrase of move.kmdseal (hidden): ", sealPass+"\r")
-	if code := i.exit(); code != 0 {
+	if code := i.exitWithin(sealWait); code != 0 {
 		t.Fatalf("import: exit %d; the screen:\n%s", code, i.shown())
 	}
 	i.waitFor("keys added: deploy")
