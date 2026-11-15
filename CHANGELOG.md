@@ -15,6 +15,10 @@ its highlights; the sections below them give the details. Versions follow
   step of the store, so of several komando commands creating one name at
   once exactly one wins.
 
+### Changed
+
+- `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
+
 ### Fixed
 
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
