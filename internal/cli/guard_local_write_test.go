@@ -118,3 +118,29 @@ func TestAgentLocalWriters(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// cluster cp puts a new file in place: a hard link to a protected file at
+// the destination's name is replaced, never written through.
+func TestClusterCpNoWriteThroughHardLink(t *testing.T) {
+	home, _ := agentWriteHome(t)
+	victim := filepath.Join(home, ".ssh", "authorized_keys")
+	os.WriteFile(victim, []byte("mine\n"), 0o600)
+	dst := filepath.Join(t.TempDir(), "notes.txt")
+	if err := os.Link(victim, dst); err != nil {
+		t.Skip("no hard links here:", err)
+	}
+	var tb bytes.Buffer
+	tw := tar.NewWriter(&tb)
+	tw.WriteHeader(&tar.Header{Name: "notes.txt", Mode: 0o600, Size: 4, Typeflag: tar.TypeReg})
+	tw.Write([]byte("evil"))
+	tw.Close()
+	if err := untarTo(tcl, tb.Bytes(), dst, "notes.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := os.ReadFile(victim); string(b) != "mine\n" {
+		t.Errorf("written through the hard link: %q", b)
+	}
+	if b, _ := os.ReadFile(dst); string(b) != "evil" {
+		t.Errorf("destination holds %q", b)
+	}
+}
