@@ -348,7 +348,7 @@ func nextDir(cl *call, args []string, home, cwd string) string {
 		if cwd == "" {
 			return ""
 		}
-		return filepath.Join(cwd, p)
+		return lexOrKernel(cwd + string(filepath.Separator) + p)
 	}
 	return home
 }

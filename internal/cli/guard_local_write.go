@@ -19,19 +19,50 @@ import (
 // Every writer checks its destination with guardLocalWrite, through links,
 // first and again just before the file is put in place.
 
-// writeProtectedDirs are the folders in a home folder an agent's command
-// writes nothing into, besides komando's own: ssh's (keys,
-// authorized_keys, config) and the credential stores and configuration of
-// the cloud, cluster and secret tools.
-var writeProtectedDirs = []string{".ssh", ".aws", ".config/gcloud", ".azure", ".kube", ".docker", ".gnupg", ".password-store", "Library/Keychains"}
+// writeProtectedDirs are the folders and files in a home folder an
+// agent's command writes nothing into, besides komando's own: ssh's (keys,
+// authorized_keys, config); the credential stores and settings of the
+// cloud, cluster, git and secret tools; what runs at the next login (shell
+// start files, LaunchAgents, systemd user units: one that runs komando
+// without the agent's variables would pass every stop for agents); and the
+// AI agents' own folders, where komando's guard hooks live.
+var writeProtectedDirs = []string{
+	".ssh", ".aws", ".config/gcloud", ".azure", ".kube", ".docker", ".gnupg", ".password-store", "Library/Keychains",
+	".gitconfig", ".config/git", ".netrc", ".config/gh", ".git-credentials",
+	".zshrc", ".zshenv", ".zprofile", ".zlogin", ".bashrc", ".bash_profile", ".bash_login", ".profile",
+	"Library/LaunchAgents", ".config/systemd/user", ".config/autostart",
+	".claude", ".codex", ".gemini", ".cursor", ".agents",
+}
+
+// dotDotThroughLink is localWriteProtected's reason for a path whose ..
+// comes after a link: the system goes up from where the link leads, while
+// the text reads as another folder.
+const dotDotThroughLink = "a path with .. after a link, which leads elsewhere than it reads; give the folder's real path"
 
 // localWriteProtected says why p, a file or folder on this computer, is no
-// place for an agent's command to write, or "". p is made absolute and its
-// links are followed (also those of a folder above a file not there yet).
+// place for an agent's command to write, or "". p is read as the system
+// reads it: from the working folder when relative, each link followed
+// before the next part (a .. after a link is refused), with case folded
+// as macOS and Windows fold it, and by identity (os.SameFile) for every
+// folder on the way that exists.
 func localWriteProtected(cl *call, p string) string {
-	abs, err := filepath.Abs(expandHome(p))
-	if err != nil {
-		abs = filepath.Clean(p)
+	raw := p
+	if rest, ok := strings.CutPrefix(p, "~/"); ok {
+		if home, err := os.UserHomeDir(); err == nil {
+			raw = home + string(filepath.Separator) + rest
+		}
+	}
+	if !filepath.IsAbs(raw) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "a path komando cannot place (" + err.Error() + ")"
+		}
+		raw = wd + string(filepath.Separator) + raw
+	}
+	clean := filepath.Clean(raw)
+	kernel := kernelPath(raw)
+	if hasDotDot(raw) && kernel != realPath(clean) {
+		return dotDotThroughLink
 	}
 	var komandoDirs, otherDirs []string
 	komandoDirs = withReal(komandoDirs, store.Home(), cl.getenv("KOMANDO_HOME"))
@@ -41,25 +72,57 @@ func localWriteProtected(cl *call, p string) string {
 			otherDirs = withReal(otherDirs, filepath.Join(home, filepath.FromSlash(d)))
 		}
 	}
-	in := func(p, d string) bool {
-		return pathIn(p, d) || caseFoldFS && pathIn(strings.ToLower(p), strings.ToLower(d))
+	otherWhy := func(d string) string {
+		return "in " + d + ", which holds keys, credentials, what runs at login or an AI agent's settings"
 	}
-	for _, p := range withReal(nil, abs) {
-		if isProcEnviron(p) {
+	in := func(p, d string) bool {
+		return pathIn(p, d) || caseFoldFS && pathIn(foldCase(p), foldCase(d))
+	}
+	cands := withReal([]string{clean}, kernel)
+	for _, c := range cands {
+		if isProcEnviron(c) {
 			return procEnv
 		}
 		for _, d := range komandoDirs {
-			if in(p, d) {
+			if in(c, d) {
 				return komandoData
 			}
 		}
 		for _, d := range otherDirs {
-			if in(p, d) {
-				return "in " + d + ", which holds keys, credentials or the settings that say what to trust"
+			if in(c, d) {
+				return otherWhy(d)
 			}
 		}
 	}
-	return ""
+	// by identity: another spelling of a protected folder (another case or
+	// Unicode form, a hard link to a file) that names the same one
+	ids := func(dirs []string) []os.FileInfo {
+		var l []os.FileInfo
+		for _, d := range dirs {
+			if fi, err := os.Stat(d); err == nil {
+				l = append(l, fi)
+			}
+		}
+		return l
+	}
+	kIDs, oIDs := ids(komandoDirs), ids(otherDirs)
+	for dir := kernel; ; dir = filepath.Dir(dir) {
+		if fi, err := os.Stat(dir); err == nil {
+			for _, k := range kIDs {
+				if os.SameFile(fi, k) {
+					return komandoData
+				}
+			}
+			for _, o := range oIDs {
+				if os.SameFile(fi, o) {
+					return otherWhy(dir)
+				}
+			}
+		}
+		if dir == filepath.Dir(dir) {
+			return ""
+		}
+	}
 }
 
 // withReal adds each non-empty path to l, and the path its links lead to

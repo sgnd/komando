@@ -130,7 +130,7 @@ func hiddenPattern(s string) string {
 // sensitiveName reports whether a file is a secret by its name: env files,
 // private keys, certificates' keys, password and credential stores.
 func sensitiveName(p string) bool {
-	b := strings.ToLower(path.Base(strings.ReplaceAll(p, `\`, "/")))
+	b := foldCase(path.Base(strings.ReplaceAll(p, `\`, "/")))
 	switch b {
 	case ".env", ".pgpass", ".my.cnf", ".netrc", ".git-credentials", ".htpasswd", ".npmrc", ".pypirc",
 		"credentials", "credentials.json", "credentials.yml", "credentials.yaml", "master.key",
