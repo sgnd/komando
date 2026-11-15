@@ -68,6 +68,15 @@ its highlights; the sections below them give the details. Versions follow
   do; an AI agent could write such a file and import it to get around
   them. A protected VPN left out of `--overwrite` without `--yes` now
   gives the same reason as a protected server or conn.
+- `--host-key-policy` no longer loosens the setting `host_key_policy`
+  without a yes, and no longer fails open. With the setting `strict`, an
+  AI agent (or an ssh-gate key) could add `--host-key-policy accept-new`
+  and pin a new server's key that `strict` says a person must trust; and
+  any value but the exact `strict` (`Strict`, a typo) pinned like
+  `accept-new`. The flag now takes `accept-new`, `strict` or `off` in any
+  case (anything else is `USAGE`), a value looser than the setting needs
+  the same yes as `config set` (`SAFETY_SETTING`), and a stored policy
+  komando does not know refuses to connect.
 
 ### Fixed
 
