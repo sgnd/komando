@@ -1,12 +1,22 @@
-// Package proxyx sends komando's HTTPS clients through the company proxy
-// that the environment names (HTTPS_PROXY, HTTP_PROXY, NO_PROXY), as curl,
-// kubectl and docker do. It also opens raw TCP tunnels through that proxy
-// for the connections http.Transport does not make itself (stream
-// upgrades, SSL VPN tunnels).
+// Package transport is what every outbound HTTPS and TLS client of
+// komando shares, so the environment never decides where a login goes:
+//
+//   - Certificates are checked against the system's CAs. SSL_CERT_FILE
+//     and SSL_CERT_DIR are ignored on every system (roots.go): with its
+//     own CA there and its proxy in HTTPS_PROXY, an AI agent would read a
+//     stored VPN password, a cluster token or a registry login.
+//   - The company proxy (HTTPS_PROXY, HTTP_PROXY, NO_PROXY) is used, as
+//     curl, kubectl and docker do, when a person runs komando. When an AI
+//     agent runs it, the environment is the agent's, and no proxy is
+//     taken from it (DistrustEnv). A proxy written in a config file the
+//     person keeps (a kubeconfig's proxy-url) still counts.
+//   - HTTP builds the clients' http.Transport, and Dial opens raw TCP
+//     tunnels through the proxy for the connections http.Transport does
+//     not make itself (stream upgrades, SSL VPN tunnels).
 //
 // A connection that goes through a --via path never uses these proxies:
 // the path is its way out.
-package proxyx
+package transport
 
 import (
 	"bufio"
@@ -18,6 +28,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/http/httpproxy"
@@ -30,12 +41,25 @@ type Func = func(*http.Request) (*url.URL, error)
 // Dialer opens TCP connections.
 type Dialer = func(ctx context.Context, network, addr string) (net.Conn, error)
 
-// FromEnv reads HTTPS_PROXY, HTTP_PROXY and NO_PROXY (or their lower-case
-// names) now. Requests to this computer (localhost, 127.0.0.1, a tunnel's
-// port) never use a proxy.
-func FromEnv() Func {
-	pick := httpproxy.FromEnvironment().ProxyFunc()
-	return func(r *http.Request) (*url.URL, error) { return pick(r.URL) }
+// envDistrusted: the process environment is an AI agent's (DistrustEnv).
+var envDistrusted atomic.Bool
+
+// DistrustEnv says the environment of this process is an AI agent's: no
+// proxy is taken from it. The komando program calls it for an agent; an
+// app's calls never reach its process environment.
+func DistrustEnv() { envDistrusted.Store(true) }
+
+// Proxy picks the company proxy that HTTPS_PROXY, HTTP_PROXY and NO_PROXY
+// (or their lower-case names) name, read when a request is made, or none
+// when the environment is an AI agent's. Requests to this computer
+// (localhost, 127.0.0.1, a tunnel's port) never use a proxy.
+func Proxy() Func {
+	return func(r *http.Request) (*url.URL, error) {
+		if envDistrusted.Load() {
+			return nil, nil
+		}
+		return httpproxy.FromEnvironment().ProxyFunc()(r.URL)
+	}
 }
 
 // Parse checks a proxy URL written in a config file, such as a

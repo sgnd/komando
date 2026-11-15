@@ -438,7 +438,7 @@ func bwDo(req *http.Request, v any) error {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Bitwarden-Client-Name", "komando")
 	req.Header.Set("Bitwarden-Client-Version", "1.0.0")
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	resp, err := proxiedClient(30 * time.Second).Do(req)
 	if err != nil {
 		return fmt.Errorf("bitwarden: %v", err)
 	}

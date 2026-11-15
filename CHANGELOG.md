@@ -9,6 +9,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- komando takes no proxy from an AI agent's environment (`HTTPS_PROXY`,
+  `HTTP_PROXY`, `NO_PROXY`): an agent that needs the company proxy uses
+  it as a VPN with `--via`, or a kubeconfig's `proxy-url`. A person's
+  proxy works as before. `SSL_CERT_FILE` and `SSL_CERT_DIR` are ignored
+  for everyone, on every system: komando trusts the system's CAs and the
+  CAs a conn, VPN or kubeconfig names. On Linux, and on macOS with Go
+  1.27, an agent's own CA plus its proxy read stored VPN passwords,
+  cluster tokens and registry and storage logins.
 - A Kubernetes Secret's values in `cluster get`, the hidden arguments in
   `cluster run`'s audit and dry run, and the `cluster apply --dry-run`
   diff now read `[hidden]`, `[hidden, changed]` and `[hidden, new]`, the

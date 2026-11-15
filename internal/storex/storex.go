@@ -24,6 +24,7 @@ import (
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // DialFunc opens a TCP connection, possibly through an SSH host.
@@ -90,8 +91,9 @@ func OpenS3(t driver.Target, secret string, dial DialFunc, timeout time.Duration
 // OpenS3Creds is OpenS3 with explicit credentials, including the session
 // token of temporary ones (SSO, an assumed role).
 func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial DialFunc, timeout time.Duration) (Bucket, error) {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr := transport.HTTP()
 	tr.ResponseHeaderTimeout = timeout
+	tr.Proxy = transport.Proxy()
 	if dial != nil {
 		tr.DialContext = dial
 		tr.Proxy = nil // the --via host is the way out
@@ -120,10 +122,7 @@ func trustCA(tr *http.Transport, t driver.Target) error {
 	if err != nil || ca == "" {
 		return err
 	}
-	pool, err := x509.SystemCertPool()
-	if err != nil || pool == nil {
-		pool = x509.NewCertPool()
-	}
+	pool := transport.Roots()
 	pool.AppendCertsFromPEM([]byte(ca))
 	tr.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: pool}
 	return nil

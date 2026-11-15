@@ -37,7 +37,7 @@ func EC2Instances(ctx context.Context, creds aws.Credentials, region, endpoint s
 	if base == "" {
 		base = "https://ec2." + region + ".amazonaws.com"
 	}
-	hc := &http.Client{Timeout: 30 * time.Second}
+	hc := proxiedClient(30 * time.Second)
 	signer := v4.NewSigner()
 	var all []EC2Instance
 	token := ""

@@ -31,7 +31,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sgnd/komando/internal/cloud"
-	"github.com/sgnd/komando/internal/proxyx"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // Config is the part of a kubeconfig komando uses.
@@ -324,9 +324,9 @@ func New(x *Context, dial Dialer) (*Client, error) {
 		}
 		tc.Certificates = []tls.Certificate{pair}
 	}
-	pick := proxyx.FromEnv() // HTTPS_PROXY and NO_PROXY, as kubectl reads them
+	pick := transport.Proxy() // HTTPS_PROXY and NO_PROXY, as kubectl reads them
 	if p := x.Cluster.ProxyURL; p != "" {
-		u, err := proxyx.Parse(p)
+		u, err := transport.Parse(p)
 		if err != nil {
 			return nil, fmt.Errorf("proxy-url: %w", err)
 		}
