@@ -30,7 +30,7 @@ func clusterApplyCmd() *cobra.Command {
 		Long: `Kubernetes: applies every object in FILE server-side and says per object
 whether it was created, configured or unchanged. --dry-run asks the server
 what would change and shows it as a diff (Secret values stay hidden; a
-changed value shows as "(hidden, changed)"). Objects without a namespace go
+changed value shows as "[hidden, changed]"). Objects without a namespace go
 to --namespace; one that names another namespace is refused.
 
 A field another field manager owns (an autoscaler's replicas, a kubectl
@@ -280,7 +280,7 @@ func diffObject(cl *call, name string, before, after []byte) objectChange {
 }
 
 // hideSecretValues replaces a Secret's values with markers that still say
-// which keys changed: (hidden), (hidden, changed), (hidden, new).
+// which keys changed: [hidden], [hidden, changed], [hidden, new].
 func hideSecretValues(old, upd map[string]any) {
 	isSecret := func(o map[string]any) bool { return o != nil && o["kind"] == "Secret" }
 	if !isSecret(old) && !isSecret(upd) {
@@ -293,15 +293,15 @@ func hideSecretValues(old, upd map[string]any) {
 			ov, had := od[k]
 			switch {
 			case !had && old != nil:
-				nd[k] = "(hidden, new)"
+				nd[k] = out.Hidden[:len(out.Hidden)-1] + ", new]"
 			case had && fmt.Sprint(ov) != fmt.Sprint(v):
-				nd[k] = "(hidden, changed)"
+				nd[k] = out.Hidden[:len(out.Hidden)-1] + ", changed]"
 			default:
-				nd[k] = "(hidden)"
+				nd[k] = out.Hidden
 			}
 		}
 		for k := range od {
-			od[k] = "(hidden)"
+			od[k] = out.Hidden
 		}
 	}
 }

@@ -359,7 +359,7 @@ any image.
 | `AWS_LOGIN_REQUIRED` (exit 4) | the ECR profile's AWS login ran out | a person runs `komando login aws --profile prod` |
 | `AZURE_LOGIN_REQUIRED` (exit 4) | no Azure login found | set a service principal, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` (exit 4) | the Google login ran out or its file is broken | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` |
-| `TOO_MANY_TAGS` (exit 2) | `prune` on a repository with more than 1000 tags | delete some first with `registry rm` |
+| `TOO_MANY_TAGS` (exit 2) | `prune` on a repository with more than 10000 tags (`--match` does not lift it) | delete some first with `registry rm` |
 
 ## Reference
 

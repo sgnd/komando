@@ -134,12 +134,12 @@ func parseKargs(args []string) (kargs, error) {
 		}
 		if key, ok := kBoolFlags[name]; ok {
 			if hasVal && val != "true" && val != "false" {
-				return a, fmt.Errorf("invalid argument %q for %s: use true or false", val, name)
+				return a, fmt.Errorf("%s takes true or false, not %q", name, val)
 			}
 			a.bools[key] = !hasVal || val == "true"
 			continue
 		}
-		return a, fmt.Errorf("unknown flag: %s", name)
+		return a, fmt.Errorf("%s is not a flag of komando's kubectl (see `komando cluster run --help`)", name)
 	}
 	return a, nil
 }
@@ -172,8 +172,8 @@ func kfail(format string, a ...any) error {
 // kstop is a kctl error that is one of komando's safety stops.
 func kstop(e *out.Error) error { return &kctlError{msg: "error: " + e.Message, stop: e} }
 
-// kwrap keeps a kctlError (a safety stop) as it is, and words any other
-// error as kubectl does.
+// kwrap keeps a kctlError (a safety stop) as it is, and ends any other
+// error the way kubectl does (exit 1, "error: ..." on stderr).
 func kwrap(err error) error {
 	var ke *kctlError
 	if errors.As(err, &ke) {
@@ -299,7 +299,7 @@ type kref struct {
 // refs reads "TYPE NAME...", "TYPE/NAME ...", "TYPE1,TYPE2" from pos.
 func (r *kctlRun) refs(pos []string) ([]kref, error) {
 	if len(pos) == 0 {
-		return nil, kfail("you must specify the type of resource to get")
+		return nil, kfail("name the type of resource to get, for example `get pods`")
 	}
 	var out []kref
 	resolve := func(t string) ([]kube.ResourceType, error) {
@@ -314,7 +314,7 @@ func (r *kctlRun) refs(pos []string) ([]kref, error) {
 		}
 		rt, err := r.k.Resource(r.ctx, t)
 		if err != nil {
-			return nil, kindErr(err, "the server doesn't have a resource type %q", t)
+			return nil, kindErr(err, "the cluster has no resource type %q", t)
 		}
 		return []kube.ResourceType{rt}, nil
 	}
@@ -322,10 +322,10 @@ func (r *kctlRun) refs(pos []string) ([]kref, error) {
 		for _, p := range pos {
 			t, n, ok := strings.Cut(p, "/")
 			if !ok {
-				return nil, kfail("there is no need to specify a resource type as a separate argument when passing arguments in resource/name form")
+				return nil, kfail("give the type once: TYPE NAME or TYPE/NAME, not both")
 			}
 			if n == "" {
-				return nil, kfail("resource name may not be empty") // the API would read it as every object (deletecollection)
+				return nil, kfail("the resource name is empty") // the API would read it as every object (deletecollection)
 			}
 			rts, err := resolve(t)
 			if err != nil {
@@ -336,7 +336,7 @@ func (r *kctlRun) refs(pos []string) ([]kref, error) {
 		return out, nil
 	}
 	if slices.Contains(pos[1:], "") {
-		return nil, kfail("resource name may not be empty")
+		return nil, kfail("the resource name is empty")
 	}
 	for _, t := range strings.Split(pos[0], ",") {
 		rts, err := resolve(t)
@@ -488,7 +488,7 @@ func (r *kctlRun) printFormat(format string, doc any) error {
 			jp.EnableJSONOutput(true)
 		}
 		if err := jp.Parse(expr); err != nil {
-			return kfail("error parsing jsonpath %s, %v", expr, err)
+			return kfail("komando cannot read the jsonpath %s: %v", expr, err)
 		}
 		// jsonpath works on plain JSON values
 		b, _ := json.Marshal(doc)
@@ -500,7 +500,7 @@ func (r *kctlRun) printFormat(format string, doc any) error {
 	case strings.HasPrefix(format, "custom-columns="):
 		return r.customColumns(strings.TrimPrefix(format, "custom-columns="), doc)
 	default:
-		return kfail("unable to match a printer suitable for the output format %q, allowed formats are: custom-columns,json,jsonpath,jsonpath-as-json,name,wide,yaml", format)
+		return kfail("-o %q is not an output format komando's kubectl has; use one of custom-columns, json, jsonpath, jsonpath-as-json, name, wide, yaml", format)
 	}
 	return nil
 }
@@ -514,7 +514,7 @@ func (r *kctlRun) customColumns(spec string, doc any) error {
 	for _, c := range strings.Split(spec, ",") {
 		name, expr, ok := strings.Cut(c, ":")
 		if !ok {
-			return kfail("custom-columns format specified but no custom columns given")
+			return kfail("-o custom-columns needs its columns, for example custom-columns=NAME:.metadata.name")
 		}
 		if !strings.HasPrefix(expr, "{") {
 			expr = "{" + expr + "}"
@@ -667,7 +667,7 @@ func (r *kctlRun) watchAfter(refs []kref) error {
 		return nil
 	}
 	if len(refs) != 1 {
-		return kfail("you may only specify a single resource type with --watch")
+		return kfail("--watch follows one resource type at a time")
 	}
 	kr := refs[0]
 	q := r.listQuery()
@@ -752,7 +752,7 @@ func meta(o map[string]any, key string) string {
 func (r *kctlRun) readFiles() ([]kubeDoc, error) {
 	files := r.a.vals["filename"]
 	if len(files) == 0 {
-		return nil, kfail("must specify one of -f and -k")
+		return nil, kfail("give the objects with -f FILE")
 	}
 	var docs []kubeDoc
 	for _, f := range files {

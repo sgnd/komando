@@ -589,15 +589,15 @@ func statusMatches(code int, want string) bool {
 // cron.
 
 const cronLong = `Cron runs commands on a schedule (every night at 2, every 5 minutes ...).
-komando manages crontab entries by ID: each is tagged with '# komando:<id>',
-so 'cron set' replaces the entry with the same ID instead of adding a second
+komando manages crontab entries by NAME: each is tagged with '# komando:<name>',
+so 'cron set' replaces the entry with the same NAME instead of adding a second
 one, and 'cron rm' removes only that entry. Other lines of the crontab are
 kept as they are.`
 
 func cronCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "cron",
-		Short: "Scheduled tasks on servers: see, set and remove them",
+		Short: "Cron entries on servers: see, set and remove them",
 		Long:  cronLong,
 	}
 	var user string
@@ -626,7 +626,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 	var schedule string
 	set := &cobra.Command{
 		Use:   "set TARGET NAME COMMAND --schedule SCHEDULE",
-		Short: "Create or replace the entry with this ID",
+		Short: "Create or replace the entry with this NAME",
 		Example: `  komando cron set db1 nightly-backup '/usr/local/bin/backup.sh >> /var/log/backup.log 2>&1' --schedule '0 2 * * *'
   komando cron set @web clean-tmp 'find /tmp -mtime +7 -delete' --schedule @daily`,
 		Args: cobra.ExactArgs(3),
@@ -635,7 +635,7 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 				return err
 			}
 			if !cronID.MatchString(args[1]) {
-				return out.Usage("%q cannot be an ID: use letters, digits, - and _", args[1])
+				return out.Usage("%q cannot be a NAME: use letters, digits, - and _, like nightly-backup", args[1])
 			}
 			if strings.ContainsAny(args[2], "\r\n") {
 				return out.Usage("COMMAND has more than one line; cron runs one line per entry")
@@ -653,11 +653,11 @@ if [ $rc -ne 0 ]; then case "$cur" in *"no crontab"*|*"can't open"*"No such file
 	_ = set.MarkFlagRequired("schedule")
 	rm := &cobra.Command{
 		Use:   "rm TARGET NAME",
-		Short: "Remove a scheduled task",
+		Short: "Remove the cron entry with this NAME",
 		Args:  cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if !cronID.MatchString(args[1]) {
-				return out.Usage("%q cannot be an ID: use letters, digits, - and _", args[1])
+				return out.Usage("%q cannot be a NAME: use letters, digits, - and _, like nightly-backup", args[1])
 			}
 			command := readCron() + without(args[1]) + `n=$(( $(printf '%s\n' "$cur" | grep -c .) - $(printf '%s\n' "$new" | grep -c .) ))
 if [ "$n" -gt 0 ]; then { [ -n "$new" ] && printf '%s\n' "$new"; } | ` + ct() + ` - || exit $?; fi

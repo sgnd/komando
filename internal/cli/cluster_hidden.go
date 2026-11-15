@@ -16,7 +16,7 @@ func redact(o map[string]any) {
 	for _, f := range []string{"data", "stringData"} {
 		if d, ok := o[f].(map[string]any); ok {
 			for k := range d {
-				d[k] = "(hidden)"
+				d[k] = out.Hidden
 			}
 		}
 	}
@@ -39,16 +39,18 @@ func maskObject(cl *call, o map[string]any) {
 }
 
 // refuseHidden stops objects that still hold a value komando hid from an
-// agent ([hidden] from maskObject or output masking, "(hidden)" from
-// redact): sending them would write that text over the real value, the
-// usual round trip being `get -o yaml`, an edit, then apply.
+// agent ([hidden] from maskObject, redact or output masking, [hidden,
+// changed] from a dry-run diff): sending them would write that text over
+// the real value, the usual round trip being `get -o yaml`, an edit, then
+// apply. "(hidden)" is what earlier versions wrote: a file saved from them
+// may still hold it, so it is refused too.
 func refuseHidden(docs []kubeDoc) error {
 	for _, d := range docs {
 		var o any
 		if json.Unmarshal(d.JSON, &o) == nil && holdsHidden(o) {
 			return out.Errf(out.ExitUsage, "HIDDEN_VALUE",
 				"leave the hidden entries out of the file (or use valueFrom.secretKeyRef), or change only what you need with `cluster run TARGET --write -- set image|patch ...`",
-				"%s/%s holds a value komando hid from you ([hidden] or (hidden)); sending it would write that text over the real value", strings.ToLower(d.Kind), d.Name)
+				"%s/%s holds a value komando hid from you ([hidden]); sending it would write that text over the real value", strings.ToLower(d.Kind), d.Name)
 		}
 	}
 	return nil
@@ -57,7 +59,7 @@ func refuseHidden(docs []kubeDoc) error {
 func holdsHidden(v any) bool {
 	switch x := v.(type) {
 	case string:
-		return out.HasHidden(x) || x == "(hidden)" || strings.HasPrefix(x, "(hidden, ")
+		return out.HasHidden(x) || strings.HasPrefix(x, "[hidden, ") || x == "(hidden)" || strings.HasPrefix(x, "(hidden, ")
 	case map[string]any:
 		for k, c := range x {
 			if out.HasHidden(k) || holdsHidden(c) {

@@ -33,7 +33,7 @@ agrees (see [When you are at the terminal](#when-you-are-at-the-terminal)).
 |----------|--------------|
 | **Dangerous-command filter** | Blocks commands such as `rm -rf /`, `mkfs`, `reboot`, `DROP DATABASE`, `curl … \| sh`, flushing the firewall and stopping SSH, on your servers, in pods and in databases. See them all with `komando policy list`. |
 | **Protected servers and conns** | Any change on it needs a yes. For the entry itself that means re-pointing it (address, port, user, key, password, `--via`), replacing a secret it uses, renaming it, removing it and turning protection off; its tags, groups, labels and notes change without one. Commands that only look can say so with `--read-only` and run without a yes. Anything at the same address and port (a `user@address` target, a second name, a name that resolves to the same IP, a second conn to the same database server) is protected too, whichever VPN or bastion it goes through. With many targets, komando checks all of them before it runs anything: one protected target stops the whole command before the first one runs (at a terminal, komando asks once), and the error names every protected target. A command never stops halfway because of protection. |
-| **Read-only by default** | `db query`, `cache run` and `cluster run` only read unless you add `--write`. For databases, the database itself enforces it. |
+| **Read-only by default** | `db query`, `cache run` and `cluster run` only read unless you add `--write`. On PostgreSQL, MySQL, Oracle and ClickHouse the database itself enforces it (a read-only transaction, or ClickHouse's readonly=1); SQL Server always rolls the SQL back. On Snowflake, BigQuery and MongoDB komando's own check of each statement keeps it a read: for a hard guarantee, connect with a user that may only read. See [databases](databases.md). |
 | **Dry run** | `--dry-run` shows what would run and whether it would be blocked (`meta.would_be_blocked`). It is never blocked itself. It never opens the approval window, so for an AI agent `--reveal` does not count in a dry run (output stays masked), and an agent's preview connects with `--host-key-policy off` ignored. |
 | **Safety settings** | Turning off the audit log or server identity checks, moving the vault key out of the keychain, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer) needs a yes. |
 | **Server identity** | If a server's fingerprint changes, komando refuses to connect (`HOSTKEY_MISMATCH`). |
@@ -231,7 +231,7 @@ terminal are not affected by them.
 
 ```bash
 komando policy deny 'terraform\s+destroy'           # a Go regular expression; prints its id
-komando policy list                                  # built-in and custom rules, with ids
+komando policy list                                  # built-in rules and your deny rules, with ids
 komando policy rm 'terraform\s+destroy'              # remove it again
 komando policy rm custom-1a2b3c4d                    # or remove it by its id
 komando policy check 'terraform destroy'             # exit 6 when it would be blocked

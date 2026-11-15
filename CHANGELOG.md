@@ -19,6 +19,26 @@ its highlights; the sections below them give the details. Versions follow
 
 - `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
 
+### Changed for scripts and agents
+
+- A Kubernetes Secret's values in `cluster get`, the hidden arguments in
+  `cluster run`'s audit and dry run, and the `cluster apply --dry-run`
+  diff now read `[hidden]`, `[hidden, changed]` and `[hidden, new]`, the
+  marker the rest of komando uses, not `(hidden)`. A file holding either
+  marker is still refused with `HIDDEN_VALUE`.
+- `cluster run`'s own errors keep kubectl's `error: ` line and exit code 1,
+  but say what is wrong in komando's words (`name the type of resource to
+  get`, `--timeout "x" is not a duration`), not kubectl's.
+- Hints no longer say "nothing was changed/imported/lost/run": that state
+  is now at the end of the message.
+
+### Removed
+
+- The refusal for an OpenVPN saved with the old OS mode (`--os-mode`,
+  removed earlier): `VPN_OS_MODE_REMOVED` is gone, and `vpn show` no
+  longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
+  --overwrite` before updating.
+
 ### Fixed
 
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.

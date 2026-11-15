@@ -177,7 +177,7 @@ off, renaming it and removing it. Tags, groups, labels and notes change
 without one.
 
 At your terminal komando asks you first
-(`web1 is protected. Change it anyway? [y/N]`); an AI agent or a script
+(`web1 (protected): this command changes it. Continue? [y/N]`); an AI agent or a script
 adds `--yes` after a person agrees, and an agent's `--yes` opens komando's
 approval window. See [Safety](safety.md) for the details.
 

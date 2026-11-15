@@ -28,7 +28,8 @@ komando svc logs web1 nginx                   # the unit's journal (see Logs)
 `start`, `stop`, `restart`, `reload`, `enable` and `disable` use sudo and
 report the state afterwards (see [Sudo](#sudo)).
 
-- `--wait` takes a time (`10s`, `2m`); a bare number counts as seconds.
+- `--wait` takes a time with a unit (`10s`, `2m`); a number without a unit
+  is refused, except `0` (no wait).
 - Stopping, disabling or masking the SSH server (`ssh`, `sshd`,
   `ssh.socket`) needs `--allow-dangerous`: it locks you out.
 

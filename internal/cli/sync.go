@@ -364,7 +364,7 @@ func planSync(src, dst map[string]syncFile, o syncOpts) []syncAction {
 func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName string, o syncOpts) (*syncResult, error) {
 	sf, err := src.list(ctx)
 	if errors.Is(err, errSideMissing) {
-		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path; nothing was changed", "%s does not exist (or holds no files)", srcName)
+		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path", "%s does not exist (or holds no files); nothing was changed", srcName)
 	}
 	if err != nil {
 		return nil, err
@@ -387,8 +387,8 @@ func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName 
 	sort.Strings(res.Skipped)
 	if o.delete && files == 0 && len(df) > 0 {
 		// an empty source would make --delete wipe the destination
-		return nil, out.Errf(out.ExitNotFound, "SOURCE_EMPTY", "check the source path; nothing was deleted",
-			"%s has no files to sync, so --delete would remove everything in %s", srcName, dstName)
+		return nil, out.Errf(out.ExitNotFound, "SOURCE_EMPTY", "check the source path",
+			"%s has no files to sync, so --delete would remove everything in %s; nothing was deleted", srcName, dstName)
 	}
 	acts := planSync(sf, df, o)
 	for _, a := range acts {

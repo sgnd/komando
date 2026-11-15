@@ -35,7 +35,7 @@ func jobCmd() *cobra.Command {
 		Use:     "job",
 		Aliases: []string{"jobs"},
 		Short:   "Long-running jobs on servers: start, follow, wait for, stop",
-		Long: `A long task should not hold up an agent's tool call. ` + "`job start`" + ` starts the
+		Long: `A long command should not hold up an agent's tool call. ` + "`job start`" + ` starts the
 command in the background on each server and returns the job IDs at once; it
 keeps running when the connection drops. Check on it with ` + "`job status`" + ` or
 ` + "`job logs --offset N`" + ` (pass back next_offset), or wait with ` + "`job wait --timeout`" + `.`,
@@ -121,7 +121,7 @@ without it a job has no time limit.`,
 	c.Flags().StringVar(&stdinFile, "stdin-file", "", "send this file on this computer as the command's input ('-' = komando's stdin)")
 	durVar(c.Flags(), &timeout, "timeout", 0, "stop the job after this long, like 2h (default: no limit)")
 	c.Flags().StringArrayVarP(&envs, "env", "e", nil, "export KEY=VALUE before the command (repeatable)")
-	c.Flags().StringVarP(&dir, "dir", "C", "", "working directory on the server")
+	c.Flags().StringVarP(&dir, "dir", "C", "", "working folder on the server")
 	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
 	return c
 }

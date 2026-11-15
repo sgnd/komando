@@ -535,11 +535,11 @@ func redactArgs(args []string) []string {
 		low := strings.ToLower(a)
 		switch {
 		case hideNext:
-			res[i], hideNext = "(hidden)", false
+			res[i], hideNext = out.Hidden, false
 		case strings.Contains(low, "literal") || strings.Contains(low, "password") || strings.Contains(low, "token") ||
 			strings.Contains(low, "secret"):
 			if k, _, ok := strings.Cut(a, "="); ok {
-				res[i] = k + "=(hidden)"
+				res[i] = k + "=" + out.Hidden
 			} else {
 				res[i], hideNext = a, strings.HasPrefix(a, "-")
 			}
