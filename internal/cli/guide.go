@@ -3,6 +3,7 @@ package cli
 import (
 	_ "embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -180,6 +182,11 @@ Safe to run again, for example after an update: a changed file is kept as
 			if err != nil {
 				return out.Errf(out.ExitError, "NO_FOLDER", "set HOME, or run it from the project folder", "cannot find the folder to install into: %v", err)
 			}
+			if project {
+				if err := noLinksUnder(base, projectFiles(base)...); err != nil {
+					return out.Errf(out.ExitError, "WRITE_FAILED", "remove the link, or install for your home folder without --project", "%v", err)
+				}
+			}
 			var files []skillFile
 			for _, d := range skillDirs {
 				f, err := installSkill(filepath.Join(base, d, "komando", "SKILL.md"), cl.flags.dryRun)
@@ -288,6 +295,10 @@ func (r skillResult) TextFor(pr *out.Printer) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
+// installSkill writes komando's skill to path. The old copy, when it is
+// another text, is kept under a new name (newBackup), and the skill goes
+// in through a temporary file of a random name in the same folder: no
+// name komando writes to is one a link could already have.
 func installSkill(path string, dryRun bool) (skillFile, error) {
 	f := skillFile{Path: path, Action: "created"}
 	old, err := os.ReadFile(path)
@@ -296,7 +307,7 @@ func installSkill(path string, dryRun bool) (skillFile, error) {
 		f.Action = "unchanged"
 		return f, nil
 	case err == nil:
-		f.Action, f.Backup = "updated", path+".bak"
+		f.Action, f.Backup = "updated", newBackup(path)
 	case !errors.Is(err, fs.ErrNotExist):
 		return f, err
 	}
@@ -304,18 +315,59 @@ func installSkill(path string, dryRun bool) (skillFile, error) {
 		return f, nil
 	}
 	if f.Backup != "" {
-		if err := os.WriteFile(f.Backup, old, 0o644); err != nil {
+		if err := saveBackup(f.Backup, old); err != nil {
 			return f, err
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return f, err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(skillText), 0o644); err != nil {
-		return f, err
+	return f, store.WriteFileAtomic(path, []byte(skillText), 0o644)
+}
+
+// noLinksUnder refuses a link on the way from base to any of paths. A
+// project folder is often a repository someone else wrote, and a link
+// committed there (.claude -> ~/.claude, SKILL.md -> ~/.ssh/id_ed25519)
+// would make komando read or change a file outside it. The home folder is
+// the person's own, where links (a dotfiles manager's) are theirs.
+func noLinksUnder(base string, paths ...string) error {
+	for _, p := range paths {
+		rel, err := filepath.Rel(base, p)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("%s is not in %s", p, base)
+		}
+		cur := base
+		for _, part := range strings.Split(rel, string(filepath.Separator)) {
+			cur = filepath.Join(cur, part)
+			fi, err := os.Lstat(cur)
+			if errors.Is(err, fs.ErrNotExist) {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			if fi.Mode()&fs.ModeSymlink != 0 {
+				return fmt.Errorf("%s is a link, and komando does not follow links in a project folder; nothing was changed (remove the link, then run it again)", cur)
+			}
+		}
 	}
-	return f, os.Rename(tmp, path)
+	return nil
+}
+
+// projectFiles are the files `guide install --project` and `guide
+// uninstall --project` may read or write in base, with the backup name
+// komando used to write before backups got a new name each.
+func projectFiles(base string) []string {
+	var ps []string
+	for _, d := range skillDirs {
+		p := filepath.Join(base, d, "komando", "SKILL.md")
+		ps = append(ps, p, p+".bak")
+	}
+	ps = append(ps, filepath.Join(base, ".claude", "settings.json"))
+	for _, h := range agentHooks {
+		ps = append(ps, filepath.Join(base, h.dir, h.file))
+	}
+	return ps
 }
 
 // schemaEnv are the environment variables `komando schema` lists.
