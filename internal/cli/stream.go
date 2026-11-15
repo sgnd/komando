@@ -296,10 +296,9 @@ func storageUploadStdin(cl *call, ctx context.Context, name, conn, key string, o
 	if err := storex.CheckKey(key); err != nil {
 		return err
 	}
-	size := int64(-1)
 	rec := map[string]any{"key": key, "file": "-"}
 	if o.sized {
-		size, rec["bytes"] = o.size, o.size
+		rec["bytes"] = o.size
 	}
 	return withStoragePreview(cl, ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, rec,
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
@@ -307,8 +306,11 @@ func storageUploadStdin(cl *call, ctx context.Context, name, conn, key string, o
 			if err != nil {
 				return nil, err
 			}
+			// the length goes to the store as unknown even with --size, so it
+			// reads stdin to its end and a stream that sends more is caught
+			// (a store told the length would stop reading there and keep it)
 			in := newStdinSource(cl, o)
-			if err := s.Put(ctx, key, storex.CtxReader(ctx, in), size, mime.TypeByExtension(path.Ext(key))); err != nil {
+			if err := s.Put(ctx, key, storex.CtxReader(ctx, in), -1, mime.TypeByExtension(path.Ext(key))); err != nil {
 				if in.err != nil {
 					return nil, in.err
 				}
@@ -319,7 +321,7 @@ func storageUploadStdin(cl *call, ctx context.Context, name, conn, key string, o
 		},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 			replaced, err := s.Exists(ctx, key)
-			return uploadData{Conn: c.Name, File: "-", Key: key, Bytes: max(size, 0), Replaced: replaced, DryRun: true}, err
+			return uploadData{Conn: c.Name, File: "-", Key: key, Bytes: max(o.size, 0), Replaced: replaced, DryRun: true}, err
 		})
 }
 

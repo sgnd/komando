@@ -71,6 +71,10 @@ to the file's name (servers: in the login user's home folder; ~/x works too).
 A storage KEY ending in / is a folder, so the file keeps its name inside it.
 An existing file at DEST is replaced (the result says replaced).
 
+FILE - reads the file from stdin into DEST, which then names the file: on a
+server through a temporary file moved into place at the end. --size N
+makes a stream of another length fail (SIZE_CONFLICT) and replace nothing.
+
 --continue goes on with an upload of one file that was cut off: the part
 already at DEST is kept when it matches the file (sha256), the rest is
 sent, and the whole file is checked. S3, Google Cloud Storage, Azure
@@ -82,7 +86,8 @@ Blob and WebDAV store a file whole and cannot add to one
   komando upload web1 ./site /var/www/site -r
   komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
   komando upload backups ./db.sql.gz 2026/db.sql.gz
-  komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue`,
+  komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue
+  komando upload web1 - /etc/app/motd --size 120 < motd.txt`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			dest := ""
@@ -137,7 +142,10 @@ folder per server when several are picked. A file that is already here is
 replaced only with --overwrite: without it, one file stops with FILE_EXISTS,
 and a folder keeps them (kept) and copies the rest. --sudo reads one file
 as root (up to 512 MiB).
-From storage, --to - writes the object to stdout.
+
+--to - streams one file to stdout, from a server or storage: stdout has the
+file's bytes and nothing else, whatever -o says, and komando's own answer
+(the result with bytes and sha256, or the error) goes to stderr.
 
 --continue goes on with a download of one file that was cut off: the part
 already here is kept when it matches the source (sha256), the rest is
@@ -149,7 +157,8 @@ differs, stops with RESUME_CONFLICT and is not touched.
   komando download @web /etc/nginx/nginx.conf --to ./configs/
   komando download backups 2026/db.sql.gz
   komando download backups reports/ -r --to ./reports
-  komando download web1 /var/backups/db.sql.gz --continue`,
+  komando download web1 /var/backups/db.sql.gz --continue
+  komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
@@ -157,7 +166,7 @@ differs, stops with RESUME_CONFLICT and is not touched.
 		}),
 	}
 	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
-	c.Flags().StringVar(&to, "to", "", "where to save it, or - for stdout from storage (default: the current folder)")
+	c.Flags().StringVar(&to, "to", "", "where to save it, or - to stream it to stdout (default: the current folder)")
 	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "download a folder (servers) or every object under a prefix (storage)")
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "replace files that already exist on this computer")
 	c.Flags().BoolVar(&o.resume, "continue", false, continueUsage)

@@ -452,6 +452,24 @@
     },
     "ok": "bool"
   },
+  "download web /etc/hosts --to - --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "exec web -- rm -rf /": {
     "command": "string",
     "error": {
@@ -1240,6 +1258,24 @@
     },
     "meta": {
       "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "upload web - /tmp/motd --size 12 --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },

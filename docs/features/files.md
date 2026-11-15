@@ -237,6 +237,54 @@ A local file whose name has a colon (`a:b.txt`) is read as local when it
 exists; otherwise write `./a:b.txt`. Single-file copies report a `sha256`
 so you can check them.
 
+### Stream a file through stdout or stdin
+
+`--to -` streams one file to stdout, and `-` as the file to upload reads
+it from stdin. Nothing is saved on this computer on the way, so an app (or
+a phone through [ssh-gate](safety.md)) can read and write files with them.
+
+```bash
+komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf
+komando download backups reports/q3.pdf --to - | open -f
+komando cp web1:/var/log/app.log - | grep ERROR
+komando upload web1 - /etc/app/motd < motd.txt
+komando upload backups - photos/2026/a.jpg --size 2483117 < a.jpg
+pg_dump app | komando storage upload backups - dumps/app.sql
+```
+
+- **stdout is the file's.** With `--to -` stdout carries the file's bytes
+  as they are, binary too, and nothing else, whatever `-o` says. komando's
+  own answer goes to stderr: with `-o json` one envelope at the end,
+  either the result or the error, and the exit code says which. The
+  result is `{"host": "web1", "path": "/etc/nginx/nginx.conf", "to":
+  "stdout", "bytes": 1234, "sha256": "…"}` (`conn` and `key` for
+  storage). In text mode nothing is said when it worked.
+- If a stream breaks off, the bytes already on stdout stay there: the exit
+  code is not 0 and the envelope on stderr says why. Compare `bytes` and
+  `sha256` when you need to be sure.
+- **Uploads from stdin** go to one server or conn, into DEST, which must
+  name the file (stdin has no name). On a server the content goes to a
+  temporary file that is moved into place only at the end; an object store
+  finishes the upload only at the end of the stream. The result has
+  `"file": "-"`, `bytes` and `sha256`.
+- `--size N` says how many bytes stdin sends. A stream that ends early, or
+  sends more, stops with `SIZE_CONFLICT` (exit 8) and replaces nothing.
+  Without it, whatever arrives until stdin closes is the file: give
+  `--size` whenever the sender could be cut off.
+- Content holding a value komando hid (`[hidden]`, `[secret:NAME]`) is
+  refused (`HIDDEN_VALUE`): a masked copy would destroy the real value.
+- `--continue`, `-r` and several servers do not go with `-` (`USAGE`). A
+  stream from a server reads as the SSH user; read a root-only file with
+  `fs cat --sudo`. An upload from stdin takes `--sudo`, `-p` and `--mode`
+  as any upload.
+- `--dry-run` says what would happen and reads nothing, from stdin or the
+  server; it answers on stdout, as every dry run does.
+- For an AI agent a stream keeps what a download to a file keeps, before a
+  byte is written: text with secret values as `[hidden]` (the result says
+  `masked`, without a `sha256`), a binary file holding a value from
+  komando's vault refused (`SENSITIVE_FILE`), and anything over 16 MiB
+  refused (`FILE_TOO_LARGE`), as bytes on stdout cannot be taken back.
+
 ### Copy between two servers or conns
 
 With `TARGET:PATH` on both sides, `cp` copies from one server or
@@ -449,6 +497,7 @@ For a single file, use `komando upload` or `komando download`.
 | `CHMOD_FAILED` | an SFTP server does not allow setting modes, and its new files are more open than asked | write without `--mode`, or on a server that allows it |
 | `POLICY_BLOCKED` | `fs rm`, `rm -r` or `sync --delete` from an AI agent or a script without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
 | `CANCELLED` | Ctrl-C stopped a copy or sync | run the same command again to finish |
+| `SIZE_CONFLICT` | an upload from stdin sent another number of bytes than `--size` | send the whole file again; nothing was replaced |
 | `RESUME_CONFLICT` | `--continue` found a destination longer than the source, or one that differs from it | copy it again without `--continue` |
 | `RESUME_UNSUPPORTED` | `--continue` to S3, Google Cloud Storage, Azure Blob or WebDAV, which cannot add to a file | copy it again without `--continue` |
 | `RESUME_FAILED` | after `--continue` the file does not match the source | copy it again without `--continue` |

@@ -58,6 +58,9 @@ var shapeCases = [][]string{
 	{"exec", "web", "--", "rm", "-rf", "/"},
 	// cp between two remote places: the plan names both sides
 	{"cp", "web:/etc/hosts", "web:/tmp/hosts", "--dry-run"},
+	// streams: a dry run reads nothing and answers on stdout
+	{"download", "web", "/etc/hosts", "--to", "-", "--dry-run"},
+	{"upload", "web", "-", "/tmp/motd", "--size", "12", "--dry-run"},
 	// a dry run names what it would remove would_remove, never removed;
 	// vpn rm lists the VPNs it removed; host trust answers with results
 	// for one server or many

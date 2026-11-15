@@ -573,7 +573,8 @@ and --allow-dangerous are refused, and --yes for a protected server needs a
 person on this computer. Commands that need a person at a terminal (shell,
 db shell, secret passphrase ...) are refused. The key runs commands on
 servers, never one that writes on this computer: no download or cp to a
-file here, no change to servers, VPNs, settings, rules, secrets, keys or
+file here (download --to - streams to the key's own output, and upload -
+reads from it), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run: exec
 needs --read-only, db query and cache run no --write. Every command a key
