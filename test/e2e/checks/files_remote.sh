@@ -16,7 +16,8 @@ for c in bucket files-sftp files-ftps; do
   check "$c the empty folder lists" 0 "$($K storage ls "$c" t-e2eops/new/deep/ | jget 'd["data"]["count"]')"
   q $K storage upload "$c" "$TMP/e2eops.txt" t-e2eops/a.txt
   q $K storage upload "$c" "$TMP/e2eops.txt" t-e2eops/b.txt
-  check "$c mv --dry-run changes nothing" True "$($K storage mv "$c" t-e2eops/a.txt t-e2eops/new/ --dry-run | jget 'd["data"]["dry_run"]'; $K storage cat "$c" t-e2eops/a.txt | jget 'd["ok"]')"
+  check "$c mv --dry-run" True "$($K storage mv "$c" t-e2eops/a.txt t-e2eops/new/ --dry-run | jget 'd["data"]["dry_run"]')"
+  check "$c mv --dry-run changes nothing" True "$($K storage cat "$c" t-e2eops/a.txt | jget 'd["ok"]')"
   check "$c mv into a folder" t-e2eops/new/a.txt "$($K storage mv "$c" t-e2eops/a.txt t-e2eops/new/ | jget 'd["data"]["dst"]')"
   check "$c mv took it away" OBJECT_NOT_FOUND "$($K storage cat "$c" t-e2eops/a.txt | jget 'd["error"]["code"]')"
   check "$c mv over a file stops" OBJECT_EXISTS "$($K storage mv "$c" t-e2eops/b.txt t-e2eops/new/a.txt | jget 'd["error"]["code"]')"
@@ -36,11 +37,11 @@ SUM=$(shasum -a 256 "$TMP/e2eops.bin" | cut -c1-64)
 q $K upload direct "$TMP/e2eops.bin" /tmp/e2eops/src.bin -p
 check "cp --dry-run names both sides" "direct:/tmp/e2eops/src.bin bastion:/tmp/e2eops/" "$($K cp direct:/tmp/e2eops/src.bin bastion:/tmp/e2eops/ --dry-run | jget 'd["data"]["src"] + " " + d["data"]["dst"]')"
 check "cp server to server" "$SUM" "$($K cp direct:/tmp/e2eops/src.bin bastion:/tmp/e2eops/ -p | jget 'd["data"]["results"][0]["sha256"]')"
-check "cp server to server arrived" "$SUM" "$($K exec bastion --read-only -- sha256sum /tmp/e2eops/src.bin -o text | cut -c1-64)"
+check "cp server to server arrived" "$SUM" "$($K -o text exec bastion --read-only -- sha256sum /tmp/e2eops/src.bin | cut -c1-64)"
 check "cp server to bucket" "$SUM" "$($K cp direct:/tmp/e2eops/src.bin bucket:t-e2eops/src.bin | jget 'd["data"]["results"][0]["sha256"]')"
 check "cp bucket to sftp conn" "$SUM" "$($K cp bucket:t-e2eops/src.bin files-sftp:t-e2eops/src.bin | jget 'd["data"]["results"][0]["sha256"]')"
 check "cp sftp conn to server" "$SUM" "$($K cp files-sftp:t-e2eops/src.bin direct:/tmp/e2eops/back.bin | jget 'd["data"]["results"][0]["sha256"]')"
-check "cp bucket to server arrived" "$SUM" "$($K exec direct --read-only -- sha256sum /tmp/e2eops/back.bin -o text | cut -c1-64)"
+check "cp bucket to server arrived" "$SUM" "$($K -o text exec direct --read-only -- sha256sum /tmp/e2eops/back.bin | cut -c1-64)"
 mkdir -p "$TMP/e2eops-tree/sub" && echo one > "$TMP/e2eops-tree/a.txt" && echo two > "$TMP/e2eops-tree/sub/b.txt"
 q $K upload direct "$TMP/e2eops-tree" /tmp/e2eops/tree -r
 check "cp -r server to bucket" 2 "$($K cp -r direct:/tmp/e2eops/tree bucket:t-e2eops/ | jget 'd["data"]["results"][0]["files"]')"
