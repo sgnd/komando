@@ -98,7 +98,7 @@ func gateEgress(c *cobra.Command, name string) string {
 func gateCertURL(c *cobra.Command) string {
 	st, err := store.Load()
 	if err != nil {
-		return "the inventory could not be read"
+		return "your list of servers and conns could not be read"
 	}
 	for _, a := range c.Flags().Args() {
 		if addr, _, ok, _ := parseCertURL(st, a); ok {

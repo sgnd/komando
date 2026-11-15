@@ -580,7 +580,7 @@ no download or cp to a file here, no change to servers, VPNs, settings, rules, s
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache run without --write), and only those that stay on the
-servers and conns in the inventory: no net, no cert check of a website, no
+servers and conns in your list: no net, no cert check of a website, no
 exec, job start, docker exec, cluster exec or recipe run, unless the line
 also has --network. ` + "`komando ssh-gate status`" + ` tells a key which it is. Every command a key
 runs or is refused is in ` + "`komando audit`" + `, with --name, even when the
@@ -669,7 +669,7 @@ line (ssh-ed25519 AAAA... comment) or a .pub file holding it. The line names
 this komando by its full path, as sshd does not search PATH.
 
 A --read-only key runs only commands that read, and only those that stay
-on the servers and conns in the inventory: no net checks, no cert check of
+on the servers and conns in your list: no net checks, no cert check of
 a website, and no exec, job start, docker exec, cluster exec or recipe run,
 whose programs can connect anywhere and carry what they read in a URL or a
 DNS name. Add --network too for a read key that may do those.`,
