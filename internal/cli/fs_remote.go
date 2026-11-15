@@ -254,6 +254,8 @@ func fsExitMap(cl *call, code int, stderr string) *out.Error {
 		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the path with `komando fs list TARGET FOLDER`", "%s", msg)
 	case fsExitDestExists:
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "add --overwrite to replace it", "%s", msg)
+	case sudoExitFolder:
+		return toErr(unsafeFolder("", stderr))
 	case sudoExitLink:
 		return out.Errf(out.ExitConflict, "IS_A_SYMLINK", "look at where it leads (`komando fs stat TARGET PATH`), then change that file by its own path, or run without --sudo", "%s", msg)
 	}
@@ -378,33 +380,51 @@ func mkdirScript(paths []string, asRoot bool) string {
 
 // mvScript moves src to dst like mv, but never replaces a file unless
 // overwrite: into an existing folder it moves to folder/name. As root
-// (asRoot, --sudo) both paths are turned into their real paths following
-// only links root or the SSH user made (for the source only its folder:
-// a link there is moved, not what it names), a link waiting at the final
-// name stops it, and the move runs from inside the source's folder.
+// (asRoot, --sudo) it is mvRootScript.
 func mvScript(src, dst string, overwrite, asRoot bool) string {
-	var b strings.Builder
 	if asRoot {
-		b.WriteString(rootOK + "p=" + rq(dst) + "; " + sudoWalkScript(rootStop(dst)) + "dt=$p; " +
-			rootParentScript(rq(src), src) + `sd=$d; sn=$n; s="${d%/}/$n"; t=$dt; `)
-	} else {
-		b.WriteString("s=" + rq(src) + "; t=" + rq(dst) + "; ")
+		return mvRootScript(src, dst, overwrite)
 	}
+	var b strings.Builder
+	b.WriteString("s=" + rq(src) + "; t=" + rq(dst) + "; ")
 	b.WriteString(`if [ ! -e "$s" ] && [ ! -L "$s" ]; then ` + failWith(fsExitNoSource, src+": no such file or directory") + "; fi; ")
 	b.WriteString(`if [ -d "$t" ] && [ ! -L "$t" ]; then t="${t%/}/$(basename -- "$s")"; fi; `)
-	if asRoot {
-		b.WriteString(`if [ -L "$t" ]; then ` + rootStop(dst) + "; fi; ")
-	}
-	if overwrite {
-		b.WriteString(`if [ -e "$t" ] || [ -L "$t" ]; then printf 'replaced: %s\n' "$t"; fi; `)
-	} else {
-		b.WriteString(`if [ -e "$t" ] || [ -L "$t" ]; then printf '%s already exists\n' "$t" >&2; exit ` + strconv.Itoa(fsExitDestExists) + "; fi; ")
-	}
-	if asRoot {
-		b.WriteString(`d=$sd; cd -- "$d" || exit 1; ` + rootCdScript(src) + `mv -- "./$sn" "$t" && printf 'moved to: %s\n' "$t"`)
-		return b.String()
-	}
+	b.WriteString(mvExistsScript(overwrite, `"$t"`))
 	b.WriteString(`mv -- "$s" "$t" && printf 'moved to: %s\n' "$t"`)
+	return b.String()
+}
+
+// mvExistsScript reports, or refuses without overwrite, a file already
+// at the destination q.
+func mvExistsScript(overwrite bool, q string) string {
+	if overwrite {
+		return `if [ -e ` + q + ` ] || [ -L ` + q + ` ]; then printf 'replaced: %s\n' "$t"; fi; `
+	}
+	return `if [ -e ` + q + ` ] || [ -L ` + q + ` ]; then printf '%s already exists\n' "$t" >&2; exit ` + strconv.Itoa(fsExitDestExists) + "; fi; "
+}
+
+// mvRootScript is mvScript as root. Both paths are turned into their real
+// paths following only links root or the SSH user made (for the source
+// only its folder: a link there is moved, not what it names). The folder
+// the file moves into must be one only root and the SSH user can change
+// (sudoFolderScript, exit 93), so no one else can swap it or put a link
+// in it; the move runs from inside that folder, checked with pwd -P, to a
+// name in it, and a link at that name stops it.
+func mvRootScript(src, dst string, overwrite bool) string {
+	var b strings.Builder
+	b.WriteString(rootOK + "p=" + rq(dst) + "; " + sudoWalkScript(rootStop(dst)) + "dt=$p; " +
+		rootParentScript(rq(src), src) + `s="${d%/}/$n"; sn=$n; `)
+	b.WriteString(`if [ ! -e "$s" ] && [ ! -L "$s" ]; then ` + failWith(fsExitNoSource, src+": no such file or directory") + "; fi; ")
+	b.WriteString(`if [ -d "$dt" ] && [ ! -L "$dt" ]; then td=$dt; tn=$sn; else td=${dt%/*}; tn=${dt##*/}; [ -n "$td" ] || td=/; fi; `)
+	b.WriteString(`t="${td%/}/$tn"; p=$t; ` + sudoFolderScript("''"))
+	b.WriteString(`cd -- "$td" || exit 1; d=$td; ` + rootCdScript(dst))
+	b.WriteString(`if [ -L "./$tn" ]; then ` + rootStop(dst) + "; fi; ")
+	b.WriteString(mvExistsScript(overwrite, `"./$tn"`))
+	flag := "-n"
+	if overwrite {
+		flag = "-f"
+	}
+	b.WriteString(`mv ` + flag + ` -- "$s" "./$tn" && printf 'moved to: %s\n' "$t"`)
 	return b.String()
 }
 

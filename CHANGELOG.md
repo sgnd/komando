@@ -54,7 +54,9 @@ its highlights; the sections below them give the details. Versions follow
   `fs chmod --sudo` and writes and reads as root already did. `fs rm`
   removes a link at the end of the path, never what it names, and works
   from inside the real folder, so a folder swapped for a link meanwhile is
-  not followed either.
+  not followed either. `fs mv --sudo` moves only into a folder no other
+  user can change (`SHARED_FOLDER_CONFLICT` otherwise, as for a write as
+  root), from inside that folder.
 - A file komando sends to a server (`fs write`, `upload`, `fs replace`,
   `fs restore`, `--backup` copies, `sync`, and the `--sudo` staging file)
   is no longer readable by other users of that server while it is written.

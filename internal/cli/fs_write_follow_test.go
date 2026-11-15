@@ -396,6 +396,24 @@ func TestSudoRmMvMkdirFollowNoOtherUsersLink(t *testing.T) {
 		if _, _, code := runAsRoot(t, mvScript(app+"/nope", app+"/b", false, true), nil); code != fsExitNoSource {
 			t.Fatalf("missing source: exit %d", code)
 		}
+		// a destination folder another user can change: that user could
+		// swap it, or put a link in it, between root's check and the move
+		cache := filepath.Join(app, "cache")
+		for _, dst := range []string{cache, cache + "/x.conf"} {
+			_ = os.WriteFile(filepath.Join(app, "two.conf"), []byte("2"), 0o644)
+			_, se, code := runAsRoot(t, mvScript(app+"/two.conf", dst, false, true), notRoot(cache))
+			if code != sudoExitFolder || exists(filepath.Join(cache, "two.conf")) || exists(filepath.Join(cache, "x.conf")) {
+				t.Fatalf("mv into www-data's folder %s: exit %d %s", dst, code, se)
+			}
+			if e := fsExitMap(tcl, code, se); e == nil || e.Code != "SHARED_FOLDER_CONFLICT" || !strings.Contains(e.Message, cache) {
+				t.Fatalf("error: %+v", e)
+			}
+		}
+		// the move names the file inside the folder root checked, never
+		// the whole destination path again
+		if sc := mvScript("a", "b", false, true); !strings.Contains(sc, `mv -n -- "$s" "./$tn"`) || !strings.Contains(sc, `cd -- "$td"`) {
+			t.Fatalf("script: %s", sc)
+		}
 	})
 	t.Run("mkdir", func(t *testing.T) {
 		_, etc, x := setup(t)

@@ -127,6 +127,9 @@ func unsafeFolder(p, stderr string) error {
 		group = "(unknown)"
 	}
 	dir = out.SafeText(out.NoCR(dir))
+	if p == "" { // fs mv --sudo: the folder it moves into
+		p = dir
+	}
 	by, as := "user "+owner, owner
 	switch who {
 	case "group":
