@@ -113,6 +113,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `--ask-password` and `--ask-psk` no longer replace a secret made while
+  the person was typing (in another terminal tab, or by an app's
+  `secret set --new`). A name that was free when komando asked is stored
+  only if it is still free, in one store write; otherwise the command
+  stops with `SECRET_EXISTS` (exit 8) and nothing is replaced. A new
+  password for a server's own secret still replaces it, as before.
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
 - Three places where commands running side by side in one process (the
   apps) could answer for the wrong command. A connection with no command
