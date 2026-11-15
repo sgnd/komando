@@ -13,7 +13,8 @@ import (
 )
 
 // fakeStat is a stat stand-in for the root scripts: every path is root's
-// (0 0 755) but those in $TABLE ("PATH|uid gid mode user group" lines).
+// (0 0 755) but those in $TABLE ("PATH|uid gid mode user group" lines; a
+// line break in PATH is written \x01).
 // %d:%i comes from ls -i; $SWAP names a path whose %d:%i is made up, as if
 // another file had been put there.
 const fakeStat = `#!/bin/sh
@@ -24,7 +25,7 @@ if [ "$fmt" = %d:%i ]; then
   if [ -n "$L" ]; then set -- $(ls -Lid "$f"); else set -- $(ls -id "$f"); fi
   echo "1:$1"; exit 0
 fi
-e=$(printf '%s\n' "$TABLE" | awk -F'|' -v f="$f" '$1==f {print $2}')
+e=$(printf '%s\n' "$TABLE" | awk -F'|' -v f="$(printf '%s' "$f" | tr '\n' '\001')" '$1==f {print $2}')
 [ -n "$e" ] || e="0 0 755 root root"
 set -- $e
 case $fmt in %u) echo "$1";; '%u %g %a') echo "$1 $2 $3";; '%U %G') echo "$4 $5";; esac
@@ -409,4 +410,32 @@ func TestSudoRmMvMkdirFollowNoOtherUsersLink(t *testing.T) {
 			t.Fatalf("a file: exit %d", code)
 		}
 	})
+}
+
+// A folder's name cannot forge who owns it in SHARED_FOLDER_CONFLICT: a
+// line break and a marker in the name stay part of the name, and every
+// server-derived word in the hint is quoted.
+func TestSharedFolderNameCannotForgeTheHint(t *testing.T) {
+	for _, forged := range []string{"user root;id;# g x", "user root root /srv/www"} {
+		d, _ := filepath.EvalSymlinks(t.TempDir())
+		dir := filepath.Join(d, "a\n"+sudoFolderMark+forged)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		file := filepath.Join(dir, "app.conf")
+		_, stderr, code := runAsRoot(t, "p='"+strings.ReplaceAll(file, "'", `'\''`)+"'; "+sudoWriteScript("/nonexistent", false), map[string]string{strings.ReplaceAll(dir, "\n", "\x01"): "33 33 755 www-data www-data"})
+		if code != sudoExitFolder {
+			t.Fatalf("exit %d (%s)", code, stderr)
+		}
+		e := toErr(unsafeFolder(file, stderr))
+		if e.Code != "SHARED_FOLDER_CONFLICT" || !strings.Contains(e.Hint, "--sudo-user www-data ") || strings.Contains(e.Hint, "--sudo-user root") || strings.Contains(e.Hint, "write it as root") ||
+			!strings.Contains(e.Message, "can be changed by user www-data,") || strings.Contains(e.Message, "\n") {
+			t.Fatalf("forged %q: %+v", forged, e)
+		}
+	}
+	// an owner that is not a user name is never put in the hint as one
+	e := toErr(unsafeFolder("/srv/app/x", sudoFolderMark+"user root;id;# g /srv/app\n"))
+	if strings.Contains(e.Hint, "root;id") || !strings.Contains(e.Hint, "--sudo-user USER ") {
+		t.Fatalf("hint: %+v", e)
+	}
 }

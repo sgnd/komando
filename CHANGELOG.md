@@ -77,6 +77,12 @@ its highlights; the sections below them give the details. Versions follow
   case (anything else is `USAGE`), a value looser than the setting needs
   the same yes as `config set` (`SAFETY_SETTING`), and a stored policy
   komando does not know refuses to connect.
+- A folder's name can no longer forge who owns it in the
+  `SHARED_FOLDER_CONFLICT` hint of a `--sudo` write. A name with a line
+  break and komando's marker made the hint suggest `--sudo-user root` (or
+  shell text such as `root;id;#`). The name is now printed on one line,
+  only root's own line counts, an owner that is no user name is never
+  put in the hint, and the path is quoted.
 
 ### Fixed
 
