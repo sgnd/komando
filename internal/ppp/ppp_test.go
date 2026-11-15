@@ -300,3 +300,13 @@ func TestWeakLoginsNeedTheOptIn(t *testing.T) {
 		t.Fatalf("answered before LCP: %x", *sent)
 	}
 }
+
+// A VPN without a user name still gets no link from a server that asks
+// for no login, unless the weak logins are allowed.
+func TestNoLoginNeedsTheOptInWithoutAUser(t *testing.T) {
+	p := New(func(uint16, []byte) error { return nil }, "", "")
+	p.Handle(LCP, packet(cfgRequest, 1, opt(5, []byte{9, 9, 9, 9})))
+	if p.authDone {
+		t.Fatal("no login was taken without the opt-in")
+	}
+}

@@ -392,7 +392,8 @@ func vpnPlace(v *store.Vpn, servers string) secretPlace {
 // --server, a new OpenVPN profile) would get the person's next login, so
 // that is for a person only, as for a server's typed login.
 func guardTypedLoginMove(cl *call, old, now *store.Vpn, servers string) error {
-	if old == nil || !cl.isAgent() || old.KeyRef != "" || old.Kind == "socks" || old.Kind == "proxy" || vpnPlace(old, "").dest == "" {
+	typed := old != nil && (old.KeyRef == "" || old.MFA) // --mfa: a person types the code even with a stored password
+	if !typed || !cl.isAgent() || old.Kind == "socks" || old.Kind == "proxy" || vpnPlace(old, "").dest == "" {
 		return nil
 	}
 	moved := vpnPlace(old, "").dest != vpnPlace(now, "").dest || old.Kind == "openvpn" && servers != ""

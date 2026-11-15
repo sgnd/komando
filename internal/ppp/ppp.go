@@ -273,7 +273,7 @@ func (p *Peer) lcp(code, id byte, data []byte) error {
 			p.send(LCP, packet(termRequest, p.nextID(), []byte("the login was dropped")))
 			return p.failWith(&AuthError{Msg: "the VPN server dropped the login it asked for, before it was done; not going on without it"})
 		}
-		if !asked && !p.AllowPAP && p.user != "" {
+		if !asked && !p.AllowPAP {
 			// no login at all: the server would prove nothing
 			p.weakNaks++
 			p.logf("PPP: the server asks for no login, which is not allowed for this VPN; asking for MS-CHAPv2")
