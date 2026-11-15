@@ -639,7 +639,7 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 				"%s is not installed here", argv[0])
 		}
 		p := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		p.Env = append(cl.environ(), tool.passwordEnv+"="+password)
+		p.Env = append(toolEnv(cl.environ()), tool.passwordEnv+"="+password)
 		var stderr strings.Builder
 		p.Stdin, p.Stdout, p.Stderr = stdin, stdout, &limitWriter{w: &stderr, n: 64 << 10}
 		if err := p.Run(); err != nil {
@@ -774,4 +774,18 @@ func unreachableHint(tool, where string, c *store.Conn) string {
 	}
 	return fmt.Sprintf("%s runs on %s and connects to %s from there. If the database listens only on 127.0.0.1 on %s, add a conn for that address reached through it (`komando conn add %s-local %s --via %s --password-ref ...`) and dump that conn; otherwise name a server that can reach %s with --run-on HOST",
 		tool, where, addr, where, c.Name, local, where, addr)
+}
+
+// toolEnv is env without the variables the dump tools read as defaults
+// for what the URL leaves out (libpq's PG*, the MySQL client's MYSQL_*):
+// from the environment an AI agent's process could move the login
+// (PGHOSTADDR, MYSQL_HOST) or the CA the tool trusts.
+func toolEnv(env []string) []string {
+	var keep []string
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, "PG") && !strings.HasPrefix(kv, "MYSQL") {
+			keep = append(keep, kv)
+		}
+	}
+	return keep
 }

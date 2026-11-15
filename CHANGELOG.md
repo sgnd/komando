@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Security
+
+- A conn's URL settings could send its stored password somewhere other than the address komando showed and guarded. Postgres reads `host=`, `port=`, `hostaddr=`, `service=` and fallback hosts from the URL, Redis `sentinels=`, MongoDB more seed hosts and RabbitMQ `management=`, and an AI agent could add them with `conn edit --url` without the yes that a new address needs. The place a conn's password goes is now every address its driver logs in at, read as the driver reads the URL, plus every URL setting except the few that move nothing (`application_name`, `connect_timeout` and other timeouts). An agent's change of any of it stops with `SECRET_DESTINATION`, and the window shows the settings.
+- komando no longer reads `PG*` environment variables for a Postgres conn: from its own environment an AI agent could make komando trust its certificate (`PGSSLROOTCERT`) and get the password. `db dump` and `db restore` run their tools without `PG*` and `MYSQL*` variables.
+- A Postgres conn with no password of komando's own no longer logs in with the password in `~/.pgpass`, which an agent could collect with a conn to a server it controls. A URL that names a `passfile=` still uses it.
+- komando's own folder (its store, and links to it) is refused as a SQLite conn (`SENSITIVE_FILE`); for an AI agent, other files the agent guard keeps from it are refused too.
+
 ### Added
 
 - `komando secret set NAME --new` stores a secret only when NAME is not in
