@@ -57,7 +57,10 @@ its highlights; the sections below them give the details. Versions follow
   CHAP Success before komando answered the challenge, a PAP ack nobody
   asked for, or a server dropping the login it asked for could bring it
   up without the MS-CHAPv2 server proof; now IPCP waits for the login,
-  and a dropped login ends the link with an authentication error.
+  and a dropped login ends the link with an authentication error. A
+  server that asks for CHAP-MD5 or no login, which prove nothing about
+  it, is now asked for MS-CHAPv2 like one asking for PAP; `--allow-pap`
+  allows all three weak logins for one VPN.
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
 - Three places where commands running side by side in one process (the
   apps) could answer for the wrong command. A connection with no command

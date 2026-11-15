@@ -272,7 +272,7 @@ step, starting with the VPN app your company uses.`,
 	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")
 	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)")
-	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (needs a person's yes)")
+	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (needs a person's yes)")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "put it in these groups (comma-separated)")
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, like prod (comma-separated)")
@@ -654,7 +654,7 @@ func (t vpnChangeText) Text() string {
 		field("legacy crypto", "yes (3DES, DH groups 2 and 5)")
 	}
 	if v.AllowPAP {
-		field("allow PAP", "yes (the server may get the password itself)")
+		field("allow PAP", "yes: PAP, CHAP-MD5 or no login (the server need not prove itself; with PAP it gets the password)")
 	}
 	if c := strings.TrimSpace(v.Config); c != "" {
 		b.WriteString("  config:\n")
