@@ -2,6 +2,7 @@ package storex
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"io"
 	"io/fs"
@@ -145,7 +146,8 @@ func (b *sftpBucket) Exists(_ context.Context, key string) (bool, error) {
 	return true, nil
 }
 
-// Put writes a temporary file (mode 0600) and renames it into place.
+// Put writes a temporary file (mode 0600, in a private folder) and renames
+// it into place.
 func (b *sftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _ string) error {
 	p, err := b.path(key)
 	if err != nil {
@@ -154,19 +156,34 @@ func (b *sftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, 
 	if err := b.c.MkdirAll(path.Dir(p)); err != nil {
 		return sftpErr(err)
 	}
-	tmp := path.Join(path.Dir(p), ".komando-upload-"+path.Base(p))
-	f, err := b.c.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY)
+	// a folder of its own under a name no one can guess, made exclusively
+	// (mkdir never follows a link), entered only by the SSH user: a link
+	// another user planted is never written through, and the file is not
+	// readable while it is written (pkg/sftp makes it at the server's
+	// default mode until the chmod)
+	d := path.Join(path.Dir(p), ".komando-upload-"+strings.ToLower(rand.Text()))
+	if err := b.c.Mkdir(d); err != nil {
+		return sftpErr(err)
+	}
+	_ = b.c.Chmod(d, 0o700) // some servers forbid modes; the name still cannot be guessed
+	tmp := path.Join(d, path.Base(p))
+	keep := false // the upload is only there: never remove it
+	defer func() {
+		if !keep {
+			_ = b.c.Remove(tmp)
+			_ = b.c.RemoveDirectory(d)
+		}
+	}()
+	f, err := b.c.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY)
 	if err != nil {
 		return sftpErr(err)
 	}
 	_ = f.Chmod(0o600)
 	if _, err := io.Copy(f, CtxReader(ctx, r)); err != nil {
 		f.Close()
-		_ = b.c.Remove(tmp)
 		return sftpErr(err)
 	}
 	if err := f.Close(); err != nil {
-		_ = b.c.Remove(tmp)
 		return sftpErr(err)
 	}
 	// keep the old file's permissions, or the server's usual 0644 for new ones
@@ -183,14 +200,13 @@ func (b *sftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, 
 			return nil
 		}
 		if _, serr := b.c.Stat(p); serr != nil {
-			_ = b.c.Remove(tmp)
 			return sftpErr(err)
 		}
 		if rerr := b.c.Remove(p); rerr != nil {
-			_ = b.c.Remove(tmp)
 			return sftpErr(err)
 		}
 		if rerr := b.c.Rename(tmp, p); rerr != nil {
+			keep = true
 			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
 				"the new content is on the server as "+tmp+": rename it by hand",
 				"could not rename the upload into place: %v; the old file was removed", rerr)
