@@ -156,6 +156,15 @@ func guardLocalWrite(cl *call, p string) error {
 		"%s is %s; komando does not write there for an AI agent", p, why).NoFlag()
 }
 
+// mkdirLocal makes the folder dir on this computer, with the folders
+// above it, after guardLocalWrite.
+func mkdirLocal(cl *call, dir string) error {
+	if err := guardLocalWrite(cl, dir); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, 0o755)
+}
+
 // guardDownload stops an AI agent's download of a file that is secret by
 // its name (guardSensitiveCopy) or to a protected place here
 // (guardLocalWrite), before anything is fetched.

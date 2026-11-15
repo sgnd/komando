@@ -262,6 +262,9 @@ func exportTarget(cl *call, to string, overwrite bool) error {
 // half of it. With overwrite, the new file replaces the old one only once
 // it is written.
 func writeExport(cl *call, to string, data []byte, overwrite bool) error {
+	if err := guardLocalWrite(cl, to); err != nil {
+		return err
+	}
 	fill := func(tmp string) error { return os.WriteFile(tmp, data, 0o600) }
 	if !overwrite {
 		return writeAtomic(cl, to, fill)

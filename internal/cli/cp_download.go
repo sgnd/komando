@@ -51,7 +51,7 @@ func download(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, sr
 		if err := guardSensitiveCopy(cl, src); err != nil {
 			return xferStats{}, err
 		}
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 			return xferStats{}, err
 		}
 		in, err := sc.Open(src)
@@ -106,7 +106,7 @@ func downloadFolder(cl *call, ctx context.Context, sc *sftp.Client, src, dst str
 			return st, localLinkStop(rel, link)
 		}
 		if w.Stat().IsDir() {
-			if err := os.MkdirAll(lp, 0o755); err != nil {
+			if err := mkdirLocal(cl, lp); err != nil {
 				return st, err
 			}
 			continue
@@ -209,7 +209,7 @@ func sudoDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string
 	if intoDir {
 		dst = filepath.Join(dst, path.Base(src))
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 		return xferStats{}, err
 	}
 	pp := progressFrom(ctx)
