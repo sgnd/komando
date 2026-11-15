@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando host trust NAME --fingerprint SHA256:...` pins a server's key
+  only when the server shows the key with that fingerprint: compare and
+  pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and
+  nothing is pinned. The answer has `expected_fingerprint` next to
+  `fingerprint`; the approval rules for AI agents and `--reset` are as
+  before.
 - `komando secret set NAME --new` stores a secret only when NAME is not in
   the vault yet. A taken name stops with `SECRET_EXISTS` (exit 8) and
   keeps its value, `--dry-run` included. The check and the write are one
@@ -38,13 +44,6 @@ its highlights; the sections below them give the details. Versions follow
   removed earlier): `VPN_OS_MODE_REMOVED` is gone, and `vpn show` no
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
-
-- `komando host trust NAME --fingerprint SHA256:...` pins a server's key
-  only when the server shows the key with that fingerprint: compare and
-  pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and
-  nothing is pinned. The answer has `expected_fingerprint` next to
-  `fingerprint`; the approval rules for AI agents and `--reset` are as
-  before.
 
 ### Security
 
