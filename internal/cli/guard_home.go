@@ -3,8 +3,10 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/sgnd/komando/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -16,16 +18,42 @@ import (
 // agent a KOMANDO_HOME that is another folder needs a person's yes (--yes,
 // then the window), on every command. A person who keeps komando's data
 // elsewhere can make ~/.komando a link to it: a link to the same folder
-// counts as ~/.komando.
+// counts as ~/.komando. HOME does not move it for an agent: komando takes
+// an agent's home folder from the system's user database (store.UserHome).
 
-// defaultHome is ~/.komando, where komando keeps its data without
-// KOMANDO_HOME (tests, which keep theirs in a fresh folder each, replace it).
+// defaultHome is ~/.komando, where komando keeps an agent's data without
+// KOMANDO_HOME, in the account's home folder from the user database
+// (tests, which keep theirs in a fresh folder each, replace it).
 var defaultHome = func() string {
-	d, err := os.UserHomeDir()
+	d, err := accountHome()
 	if err != nil {
 		return ".komando"
 	}
 	return filepath.Join(d, ".komando")
+}
+
+// accountHome is the account's home folder from the system's user
+// database, else $HOME when the database has no entry for it.
+func accountHome() (string, error) {
+	if d, err := store.AccountHome(); err == nil {
+		return d, nil
+	}
+	return os.UserHomeDir()
+}
+
+// guardHomes are the home folders the agent guard protects: $HOME, and
+// the account's home from the user database when that is another folder.
+// An agent's HOME=/tmp/x moves the one, never the other, and komando
+// keeps an agent's data in the account's (store.UserHome).
+func guardHomes() []string {
+	var homes []string
+	if d, err := os.UserHomeDir(); err == nil && d != "" {
+		homes = append(homes, d)
+	}
+	if d, err := store.AccountHome(); err == nil && !slices.ContainsFunc(homes, func(h string) bool { return sameDir(h, d) }) {
+		homes = append(homes, d)
+	}
+	return homes
 }
 
 // otherHome is $KOMANDO_HOME when it names another folder than

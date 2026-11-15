@@ -33,10 +33,11 @@ func guideGuardCmd() *cobra.Command {
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if agent != "" && agent != "claude" {
 				b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
-				home, herr := os.UserHomeDir()
 				d := allow()
-				if err == nil && herr == nil {
-					d = guardAgent(cl, agent, b, home)
+				for _, home := range guardHomes() {
+					if err == nil && !d.Deny {
+						d = guardAgent(cl, agent, b, home)
+					}
 				}
 				if a := guardAnswer(agent, d); a != nil {
 					cl.out.W.Write(a)
@@ -52,11 +53,12 @@ func guideGuardCmd() *cobra.Command {
 			if err != nil || json.Unmarshal(b, &call) != nil {
 				return nil
 			}
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return nil
+			d := allow()
+			for _, home := range guardHomes() {
+				if !d.Deny {
+					d = checkTool(cl, call.Tool, call.Input, home, hookCwd(call.Cwd))
+				}
 			}
-			d := checkTool(cl, call.Tool, call.Input, home, hookCwd(call.Cwd))
 			if !d.Deny {
 				return nil
 			}

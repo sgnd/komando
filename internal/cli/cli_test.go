@@ -41,6 +41,9 @@ func TestMain(m *testing.M) {
 	// every command opens the sealed store with the passphrase: a cheap
 	// scrypt keeps the PTY children (this binary again) fast under -race
 	vault.PassphraseN = 1 << 10
+	// the account's home follows HOME, so no test reads the real one;
+	// guard_home_redirect_test.go sets it apart
+	store.AccountHome = os.UserHomeDir
 	// each test keeps komando's data in its own KOMANDO_HOME, as the
 	// person's usual folder; TestAgentOtherHome checks the real rule
 	realHome := defaultHome

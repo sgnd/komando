@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // The agent guard keeps an AI agent's own tools (reading files, running
@@ -92,7 +94,7 @@ func secretPath(cl *call, p, home string) string {
 	if isProcEnviron(p) {
 		return procEnv
 	}
-	komandoDirs := []string{filepath.Join(home, ".komando")}
+	komandoDirs := []string{filepath.Join(home, ".komando"), store.Home()}
 	if h := cl.getenv("KOMANDO_HOME"); h != "" {
 		komandoDirs = append(komandoDirs, h)
 	}

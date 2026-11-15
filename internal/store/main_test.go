@@ -11,6 +11,9 @@ import (
 // ones); tests that count new keys use fakeKeys.
 func TestMain(m *testing.M) {
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
+	// the account's home follows HOME, so no test reads the real one, also
+	// when an AI agent runs the tests
+	AccountHome = os.UserHomeDir
 	KeySource = func(meta map[string]string, create bool) ([]byte, map[string]string, error) {
 		return bytes.Repeat([]byte{9}, 32), map[string]string{"key_mode": "test"}, nil
 	}

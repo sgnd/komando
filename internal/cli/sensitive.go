@@ -178,23 +178,27 @@ const komandoData = "komando's own data (vault, keys, inventory, audit log)"
 // agent, as the agent guard sees it (guard.go), or "". The path is made
 // absolute and its links are followed, so a link to ~/.komando counts too.
 func localSecret(cl *call, p string) string {
-	home, err := os.UserHomeDir()
-	if err != nil || p == "" {
+	if p == "" {
 		return ""
 	}
 	abs, err := filepath.Abs(expandHome(p))
 	if err != nil {
 		abs = p
 	}
-	if why := secretPath(cl, abs, home); why != "" {
-		return why
-	}
-	if real := realPath(abs); real != abs {
-		if why := secretPath(cl, real, home); why != "" {
+	for _, home := range guardHomes() {
+		if why := secretPath(cl, abs, home); why != "" {
+			return why
+		}
+		if real := realPath(abs); real != abs {
+			if why := secretPath(cl, real, home); why != "" {
+				return why
+			}
+		}
+		if why := hardLinkSecret(cl, abs, home); why != "" {
 			return why
 		}
 	}
-	return hardLinkSecret(cl, abs, home)
+	return ""
 }
 
 // procEnv is secretPath's reason for /proc/PID/environ.

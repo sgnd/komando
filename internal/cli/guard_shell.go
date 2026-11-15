@@ -372,6 +372,7 @@ func checkAgentVars(words []string, depth int) guardDecision {
 	// shell's own commands that set or remove variables
 	wrapper, pos := "", 0
 	sudo, keepsEnv := "", false
+	homeSet := ""
 	for i := 0; i < len(words); i++ {
 		w := words[i]
 		base := filepath.Base(w)
@@ -383,6 +384,9 @@ func checkAgentVars(words []string, depth int) guardDecision {
 		case envAssign.MatchString(w):
 			if name, ok := agentVarIn(assignName(w)); ok {
 				return why(name)
+			}
+			if homeVars[assignName(w)] {
+				homeSet = assignName(w)
 			}
 		case w == "unset" || w == "export" || w == "declare" || w == "typeset" || w == "local" || w == "readonly" || w == "integer" || w == "float":
 			for _, a := range words[i+1:] {
@@ -470,6 +474,9 @@ func checkAgentVars(words []string, depth int) guardDecision {
 			if base == "komando" && (sudo == "doas" || sudo == "sudo" && !keepsEnv) {
 				return deny("%s starts komando with a clean environment, so komando would not know that an AI agent runs it; run komando without %s (it does not need root on this computer)", sudo, sudo)
 			}
+			if base == "komando" && homeSet != "" {
+				return deny("%s=... in front of komando would move its data folder away from the user's protected servers, deny rules, host keys and audit log (komando keeps an agent's data in the account's own home folder all the same). Run komando without it", homeSet)
+			}
 			return allow()
 		}
 	}
@@ -481,6 +488,11 @@ func checkAgentVars(words []string, depth int) guardDecision {
 // person's protected servers, deny rules, host keys and audit log
 // (guardHome asks the person when it happens anyway).
 const homeVar = "KOMANDO_HOME"
+
+// homeVars are the home folder's variables. Setting them in front of
+// komando is refused; elsewhere they are the agent's own business (a test
+// run with its own HOME).
+var homeVars = map[string]bool{"HOME": true, "USERPROFILE": true}
 
 // watchedVars are the variables the guard keeps an agent's shell lines
 // from changing: the agent variables and homeVar.
