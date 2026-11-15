@@ -3,9 +3,12 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/sealfile"
 )
 
 // A person types the passphrase at the terminal, hidden: twice to seal,
@@ -43,9 +46,16 @@ func TestPTYExportSealed(t *testing.T) {
 // The phone's key and its key check are typed at the terminal.
 func TestPTYExportForPhone(t *testing.T) {
 	sealLab(t)
-	file := filepath.Join(t.TempDir(), "phone.kmdseal")
+	dir := t.TempDir()
+	file := filepath.Join(dir, "phone.kmdseal")
+	// a key file, as the phone shares it: the key as text is longer than a
+	// terminal line takes
+	keyFile := filepath.Join(dir, "phone.key")
+	if err := os.WriteFile(keyFile, []byte(strings.Repeat("ab", sealfile.PublicKeySize)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	p := startPTY(t, "export", "--for-phone", "--to", file)
-	p.answer("Key file from the phone (or the key as text): ", strings.Repeat("ab", 32)+"\r")
+	p.answer("Key file from the phone (or the key as text): ", keyFile+"\r")
 	p.answer("Key check the phone shows: ", "0000\r")
 	if code := p.exit(); code == 0 || !strings.Contains(p.shown(), "PHONE_KEY_INVALID") && !strings.Contains(p.shown(), "does not match the key check") {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())

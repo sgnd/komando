@@ -7,6 +7,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando secret set NAME --new` stores a secret only when NAME is not in
+  the vault yet. A taken name stops with `SECRET_EXISTS` (exit 8) and
+  keeps its value, `--dry-run` included. The check and the write are one
+  step of the store, so of several komando commands creating one name at
+  once exactly one wins.
+
+### Changed
+
+- `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
+
 ### Changed for scripts and agents
 
 - A Kubernetes Secret's values in `cluster get`, the hidden arguments in
