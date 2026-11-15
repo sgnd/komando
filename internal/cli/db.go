@@ -567,6 +567,9 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 	if err != nil {
 		return err
 	}
+	if err := sqliteFileSQL(cl, c, query); err != nil {
+		return err
+	}
 	rec := map[string]any{"conns": []string{c.Name}, "risk": plan.Risk.String(), "write": f.write}
 	switch st.Settings.AuditSQL {
 	case "hash":

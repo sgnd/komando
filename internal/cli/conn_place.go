@@ -200,3 +200,23 @@ func guardBackupFile(cl *call, path string) error {
 	}
 	return guardDBFile(cl, path, "a backup to load")
 }
+
+// sqliteFileSQL refuses an AI agent's SQL on a SQLite conn that writes a
+// file of its own choosing (ATTACH, VACUUM INTO) or loads native code
+// (load_extension): the conn's own file is checked (guardConnFile), but
+// those could reach any path here, komando's folder and ~/.ssh included.
+func sqliteFileSQL(cl *call, c *store.Conn, query string) error {
+	if c.Kind != "sqlite" {
+		return nil
+	}
+	found, err := driver.SQLiteFileWrites(query)
+	if err != nil || len(found) == 0 {
+		return err
+	}
+	if cl.isAgent() { // (the SQLite engine keeps load_extension off for everyone: "not authorized")
+		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+			"leave "+strings.Join(found, " and ")+" out, or ask the user to run it in their own terminal (`komando db dump "+c.Name+" --to FILE` copies the database)",
+			"%s on a SQLite conn writes or loads a file wherever it is told; komando does not run it for an AI agent", strings.Join(found, " and ")).NoFlag()
+	}
+	return nil
+}

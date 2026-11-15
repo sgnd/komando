@@ -241,6 +241,46 @@ func TestSQLiteSensitivePathsRefusedForAgents(t *testing.T) {
 	wantCode(t, "SENSITIVE_FILE", "db", "restore", "pg9", "--from", filepath.Join(home, ".aws", "dump.sql"))
 }
 
+// SQL on a SQLite conn can write any file: ATTACH DATABASE and VACUUM
+// INTO create one wherever they are told. An AI agent's query on a SQLite
+// conn may not use them at all, and load_extension (native code) stays
+// off for everyone.
+func TestSQLiteAttachAndVacuumIntoRefusedForAgents(t *testing.T) {
+	invHome(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	db := filepath.Join(t.TempDir(), "app.db")
+	noAgent(t)
+	mustRun(t, "conn", "add", "lite", "sqlite://"+db)
+	mustRun(t, "db", "query", "lite", "--write", "create table t(x)")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	vac := filepath.Join(home, ".ssh", "vac")
+	att := filepath.Join(os.Getenv("KOMANDO_HOME"), "att.db")
+	for _, q := range []string{
+		"VACUUM INTO '" + vac + "'",
+		"vacuum main into '" + vac + "'",
+		"ATTACH DATABASE '" + att + "' AS a; CREATE TABLE a.t(x)",
+		"attach '" + att + "' as a",
+	} {
+		wantCode(t, "SENSITIVE_FILE", "db", "query", "lite", "--write", q)
+	}
+	for _, p := range []string{vac, att} {
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("%s was created", p)
+		}
+	}
+	// a string that only mentions them is fine
+	mustRun(t, "db", "query", "lite", "--write", "insert into t values ('attach x; vacuum into y')")
+	// native code never loads, for a person either
+	noAgent(t)
+	if _, err := runCache(t, "-o", "json", "db", "query", "lite", "select load_extension('/tmp/evil')"); err == nil {
+		t.Error("load_extension ran")
+	}
+}
+
 // The dump tools run without the PG* and MYSQL* variables they would read
 // as defaults (libpq's PGHOSTADDR moves the login).
 func TestToolEnvDropsClientDefaults(t *testing.T) {
