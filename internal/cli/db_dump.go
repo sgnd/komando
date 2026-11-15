@@ -277,14 +277,8 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 	if err != nil {
 		return err
 	}
-	if err := guardConnFile(cl, c); err != nil {
+	if err := dumpTarget(cl, c, to); err != nil {
 		return err
-	}
-	if err := guardDBFile(cl, to, "a place for a backup"); err != nil {
-		return err
-	}
-	if _, err := os.Stat(to); err == nil {
-		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick a new file name; backups are never overwritten", "%s already exists", to)
 	}
 	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: cl.flags.dryRun}
 	rec := map[string]any{"conns": []string{c.Name}, "file": to}
@@ -415,9 +409,6 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err != nil {
 		return err
 	}
-	if err := guardDBFile(cl, from, "a backup to load"); err != nil {
-		return err
-	}
 	t, err := driver.Parse(c.URL)
 	if err != nil {
 		return err
@@ -528,7 +519,7 @@ func checkRestoreSQL(cl *call, kind, from string, v *driver.Verdict) error {
 
 // isPgArchive reports whether path is a pg_dump custom archive ("PGDMP").
 func isPgArchive(cl *call, path string) (bool, error) {
-	if err := guardLocalRead(cl, path); err != nil {
+	if err := guardBackupFile(cl, path); err != nil {
 		return false, err
 	}
 	f, err := os.Open(path)
@@ -543,7 +534,7 @@ func isPgArchive(cl *call, path string) (bool, error) {
 
 // withBackup opens a backup file (decompressing .gz) and passes it to fn.
 func withBackup(cl *call, path string, fn func(io.Reader) error) error {
-	if err := guardLocalRead(cl, path); err != nil {
+	if err := guardBackupFile(cl, path); err != nil {
 		return err
 	}
 	f, err := os.Open(path)
@@ -783,18 +774,4 @@ func unreachableHint(tool, where string, c *store.Conn) string {
 	}
 	return fmt.Sprintf("%s runs on %s and connects to %s from there. If the database listens only on 127.0.0.1 on %s, add a conn for that address reached through it (`komando conn add %s-local %s --via %s --password-ref ...`) and dump that conn; otherwise name a server that can reach %s with --run-on HOST",
 		tool, where, addr, where, c.Name, local, where, addr)
-}
-
-// toolEnv is env without the variables the dump tools read as defaults
-// for what the URL leaves out (libpq's PG*, the MySQL client's MYSQL_*):
-// from the environment an AI agent's process could move the login
-// (PGHOSTADDR, MYSQL_HOST) or the CA the tool trusts.
-func toolEnv(env []string) []string {
-	var keep []string
-	for _, kv := range env {
-		if !strings.HasPrefix(kv, "PG") && !strings.HasPrefix(kv, "MYSQL") {
-			keep = append(keep, kv)
-		}
-	}
-	return keep
 }

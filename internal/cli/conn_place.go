@@ -161,3 +161,42 @@ func dbFileOffLimits(cl *call, p string) string {
 	}
 	return ""
 }
+
+// toolEnv is env without the variables the dump tools read as defaults
+// for what the URL leaves out (libpq's PG*, the MySQL client's MYSQL_*):
+// from the environment an AI agent's process could move the login
+// (PGHOSTADDR, MYSQL_HOST) or the CA the tool trusts.
+func toolEnv(env []string) []string {
+	var keep []string
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, "PG") && !strings.HasPrefix(kv, "MYSQL") {
+			keep = append(keep, kv)
+		}
+	}
+	return keep
+}
+
+// dumpTarget checks db dump's conn and its --to file: the conn's file
+// (guardConnFile), a file an agent may not write there (guardDBFile), and
+// one that exists already (backups are never overwritten).
+func dumpTarget(cl *call, c *store.Conn, to string) error {
+	if err := guardConnFile(cl, c); err != nil {
+		return err
+	}
+	if err := guardDBFile(cl, to, "a place for a backup"); err != nil {
+		return err
+	}
+	if _, err := os.Stat(to); err == nil {
+		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick a new file name; backups are never overwritten", "%s already exists", to)
+	}
+	return nil
+}
+
+// guardBackupFile checks a backup db restore reads: what the agent guard
+// keeps from an agent (guardLocalRead), and a login folder (guardDBFile).
+func guardBackupFile(cl *call, path string) error {
+	if err := guardLocalRead(cl, path); err != nil {
+		return err
+	}
+	return guardDBFile(cl, path, "a backup to load")
+}
