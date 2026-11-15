@@ -39,6 +39,13 @@ its highlights; the sections below them give the details. Versions follow
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
 
+- `komando host trust NAME --fingerprint SHA256:...` pins a server's key
+  only when the server shows the key with that fingerprint: compare and
+  pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and
+  nothing is pinned. The answer has `expected_fingerprint` next to
+  `fingerprint`; the approval rules for AI agents and `--reset` are as
+  before.
+
 ### Security
 
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
