@@ -15,6 +15,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -199,6 +200,45 @@ func TestSQLiteKomandoStoreRefused(t *testing.T) {
 			t.Errorf("%s: %+v", p, e)
 		}
 	}
+}
+
+// A SQLite conn is a file on this computer, so an AI agent's conn reads
+// what the agent guard keeps from it: a credential database in a cloud
+// login folder (gcloud's credentials.db), ~/.ssh, ~/.aws. Refused at add,
+// and again at open for a conn a person added there; db dump and restore
+// do not write or read such paths either.
+func TestSQLiteSensitivePathsRefusedForAgents(t *testing.T) {
+	invHome(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	var paths []string
+	for _, rel := range []string{".config/gcloud/credentials.db", ".ssh/keys.db", ".aws/sso.db", ".azure/msal.db", ".kube/cache.db", ".docker/creds.db"} {
+		p := filepath.Join(home, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, p)
+	}
+	noAgent(t)
+	mustRun(t, "conn", "add", "gc", "sqlite://"+paths[0]) // a person may
+	mine := filepath.Join(t.TempDir(), "app.db")
+	mustRun(t, "conn", "add", "app", "sqlite://"+mine)
+	setCallerEnv(t, "CLAUDECODE", "1")
+	for i, p := range paths {
+		wantCode(t, "SENSITIVE_FILE", "conn", "add", "x"+strconv.Itoa(i), "sqlite://"+p)
+	}
+	wantCode(t, "SENSITIVE_FILE", "db", "query", "gc", "--", "select 1")
+	wantCode(t, "SENSITIVE_FILE", "db", "dump", "gc", "--to", filepath.Join(t.TempDir(), "copy.db"))
+	wantCode(t, "SENSITIVE_FILE", "db", "dump", "app", "--to", filepath.Join(home, ".ssh", "copy.db"))
+	wantCode(t, "SENSITIVE_FILE", "db", "dump", "app", "--to", filepath.Join(home, ".aws", "copy.db"))
+	if err := os.WriteFile(filepath.Join(home, ".aws", "dump.sql"), []byte("select 1;"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "conn", "add", "pg9", "postgres://app@10.0.0.5/app")
+	wantCode(t, "SENSITIVE_FILE", "db", "restore", "pg9", "--from", filepath.Join(home, ".aws", "dump.sql"))
 }
 
 // The dump tools run without the PG* and MYSQL* variables they would read

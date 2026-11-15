@@ -51,6 +51,12 @@ needs your yes (`SECRET_DESTINATION`). komando reads a Postgres conn from
 its URL only: never from `PG*` environment variables, and never with a
 password from `~/.pgpass` unless the URL names a `passfile=`.
 
+A SQLite conn never opens komando's own folder. For an AI agent it also
+never opens a file in a folder where logins are kept (`~/.ssh`, `~/.aws`,
+`~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`) or any other file
+komando keeps from agents, links followed, and `db dump --to` and
+`db restore --from` refuse the same paths (`SENSITIVE_FILE`).
+
 `--via web1` means "the database is only reachable from web1". komando
 connects through web1 over SSH by itself: there is no tunnel to start and no
 port opens on your computer. `--via` can also be a chain or a VPN (see

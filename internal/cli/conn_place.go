@@ -3,6 +3,8 @@ package cli
 import (
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -100,18 +102,62 @@ func sameHost(a, b string) bool {
 
 // guardConnFile refuses a file conn (SQLite) that is komando's own data,
 // its links included: the store holds the inventory and the sealed
-// secrets, and only komando's commands read it. For an AI agent, the other
-// files the agent guard keeps from it are refused too (guardLocalRead).
+// secrets, and only komando's commands read it. For an AI agent it also
+// refuses a database where its logins live (dbFileOffLimits): a SQLite
+// conn reads, copies and deletes rows, so it is a way to read those files.
+// It runs at add and edit, and again whenever the conn is opened.
 func guardConnFile(cl *call, c *store.Conn) error {
 	t, err := driver.Parse(c.URL)
 	if err != nil || !t.Kind.File {
 		return nil
 	}
-	p := dbx.SQLitePath(t)
+	return guardDBFile(cl, dbx.SQLitePath(t), "a database for a conn")
+}
+
+// guardDBFile is guardConnFile for a database file path p on this
+// computer (a conn's, or a db dump's --to); what says what p would be.
+func guardDBFile(cl *call, p, what string) error {
 	if localSecret(cl, p) == komandoData {
 		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			"point the conn at a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)",
-			"%s is %s, not a database for a conn", p, komandoData).NoFlag()
+			"use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)",
+			"%s is %s, not %s", p, komandoData, what).NoFlag()
 	}
-	return guardLocalRead(cl, p)
+	if !cl.isAgent() {
+		return nil
+	}
+	if why := dbFileOffLimits(cl, p); why != "" {
+		return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+			"use a database outside the folders that hold logins, or ask the user to run it in their own terminal",
+			"%s is %s; komando does not use it as %s for an AI agent", p, why, what).NoFlag()
+	}
+	return nil
+}
+
+// loginDirs are the folders where SSH and the cloud and container tools
+// keep their logins, some in SQLite databases (gcloud's credentials.db).
+var loginDirs = []string{".ssh", ".aws", ".config/gcloud", ".azure", ".kube", ".docker", ".gnupg", ".password-store"}
+
+// dbFileOffLimits says why an AI agent may not use p as a database file,
+// or "": what the agent guard keeps from it (localSecret), or a path in a
+// login folder, through links too.
+func dbFileOffLimits(cl *call, p string) string {
+	if why := localSecret(cl, p); why != "" {
+		return why
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	abs, err := filepath.Abs(expandHome(p))
+	if err != nil {
+		return ""
+	}
+	for _, q := range []string{abs, realPath(abs), realPath(filepath.Dir(abs))} {
+		for _, d := range loginDirs {
+			if pathIn(q, filepath.Join(home, d)) || pathIn(q, realPath(filepath.Join(home, d))) {
+				return "in " + filepath.Join("~", d) + ", where logins are kept"
+			}
+		}
+	}
+	return ""
 }
