@@ -80,17 +80,10 @@ stays shut for that conn for a minute. A script, or an agent with no
 screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
 agent that adds a login-ask conn, changes its URL or `--via`, turns one
 to `--login ask`, changes a server or VPN on its way, or replaces a
-secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`. A URL says more
-than its address: Postgres reads `host=`, `port=`, `hostaddr=` and
-`service=`, Redis `sentinels=`, MongoDB more seed hosts, RabbitMQ
-`management=`, and most kinds a CA or TLS mode. So every setting of the
-URL counts as part of where the password goes, except the few that move
-nothing (`connect_timeout`, `application_name` and other timeouts); the
-same holds for a stored password, where an agent's change needs your
-yes (`SECRET_DESTINATION`). komando reads a Postgres conn from its URL
-only, never from `PG*` environment variables, and the dump tools get no
-`PG*` or `MYSQL*` variables either. An agent's `db dump` and `db restore` of such a conn
-stop too: the dump tool would get the password in its environment, where
+secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
+password (above), every setting of the URL except the few that move
+nothing counts as where it goes. An agent's `db dump` and `db restore`
+of such a conn stop too: the dump tool would get the password in its environment, where
 the agent's own programs could read it; run those yourself. A file
 (SQLite) or a cluster has no password to type: `--login ask` is refused
 there. A conn has no `komando login`, so every command asks; use TLS
