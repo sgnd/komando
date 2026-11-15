@@ -11,6 +11,11 @@
 //	passphrase: nonce 12 bytes, then AES-256-GCM(key, nonce, deflate(content), aad)
 //	recipient:  the HPKE ciphertext of deflate(content) (enc is in the header)
 //
+// The passphrase mode is header version 1 (scrypt, AES-256-GCM). The
+// recipient mode is header version 2: HPKE with X-Wing (ML-KEM-768 and
+// X25519), post-quantum. A recipient file of version 1 (X25519 only, made
+// by komando 0.14.0) is refused with ErrOutdated: nothing reads it.
+//
 // aad is the first 12+header_len bytes of the file (magic, header_len and
 // header), so a change to the header breaks the seal.
 package sealfile
@@ -20,7 +25,6 @@ import (
 	"compress/flate"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdh"
 	"crypto/hpke"
 	"crypto/rand"
 	"crypto/sha256"
@@ -45,13 +49,35 @@ const (
 	ModeRecipient  = "recipient"
 )
 
-// Suite is the recipient mode's HPKE suite (RFC 9180): DHKEM(X25519,
-// HKDF-SHA256), HKDF-SHA256, AES-256-GCM. CryptoKit calls it
-// Curve25519_SHA256_AES_GCM_256.
-const Suite = "X25519-SHA256-AES256GCM"
+// The header version of each mode.
+const (
+	VersionPassphrase = 1
+	VersionRecipient  = 2
+)
+
+// Suite is the recipient mode's HPKE suite (RFC 9180 with
+// draft-ietf-hpke-pq): the X-Wing KEM (MLKEM768-X25519, KEM ID 0x647a),
+// HKDF-SHA256, AES-256-GCM, the suite komando's sync uses. CryptoKit calls
+// it XWingMLKEM768X25519_SHA256_AES_GCM_256.
+const Suite = "MLKEM768X25519-SHA256-AES256GCM"
 
 // Info is the HPKE info string of the recipient mode.
-const Info = "komando sealed file v1"
+const Info = "komando sealed file v2"
+
+// The recipient mode's key sizes: an X-Wing public key, its HPKE
+// encapsulated key and its private key (the 32-byte X-Wing seed).
+const (
+	PublicKeySize  = 1216
+	EncSize        = 1120
+	PrivateKeySize = 32
+)
+
+// The HPKE parts of Suite.
+var (
+	xwing    = hpke.MLKEM768X25519()
+	hpkeKDF  = hpke.HKDFSHA256()
+	hpkeAEAD = hpke.AES256GCM()
+)
 
 // The passphrase mode's scrypt cost, the same as the store's.
 const (
@@ -81,6 +107,9 @@ var (
 	ErrWrongKey        = errors.New("the file is sealed to another key")
 	ErrTampered        = errors.New("the file was changed after sealing")
 	ErrWrongMode       = errors.New("the file is sealed in the other mode")
+	// ErrOutdated: a file sealed for a phone by komando 0.14.0, with X25519
+	// only. Make it again.
+	ErrOutdated = errors.New("the file was sealed for a phone by an older komando (X25519, not post-quantum); make it again")
 )
 
 // Header is the clear part of a file. Its fields are in the order the
@@ -118,7 +147,7 @@ type Made struct {
 }
 
 // KeyID is the key_id of a recipient's public key: the hex SHA-256 of its
-// 32 bytes, which the phone shows for the person to type.
+// 1216 bytes, which the phone shows for the person to type.
 func KeyID(pub []byte) string {
 	s := sha256.Sum256(pub)
 	return hex.EncodeToString(s[:])
@@ -159,18 +188,17 @@ func SealPassphrase(content []byte, pass string, m Made) ([]byte, error) {
 	return gcm.Seal(out, nonce, z, head), nil
 }
 
-// SealRecipient seals content to a recipient's X25519 public key (32
+// SealRecipient seals content to a recipient's X-Wing public key (1216
 // bytes) with HPKE base mode.
 func SealRecipient(content, pub []byte, m Made) ([]byte, error) {
-	pk, err := ecdh.X25519().NewPublicKey(pub)
+	if len(pub) != PublicKeySize {
+		return nil, fmt.Errorf("sealfile: the recipient's key is %d bytes, an X-Wing public key is %d", len(pub), PublicKeySize)
+	}
+	pk, err := xwing.NewPublicKey(pub)
 	if err != nil {
 		return nil, fmt.Errorf("sealfile: the recipient's key: %w", err)
 	}
-	hpk, err := hpke.NewDHKEMPublicKey(pk)
-	if err != nil {
-		return nil, err
-	}
-	enc, s, err := hpke.NewSender(hpk, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(Info))
+	enc, s, err := hpke.NewSender(pk, hpkeKDF, hpkeAEAD, []byte(Info))
 	if err != nil {
 		return nil, err
 	}
@@ -223,8 +251,8 @@ func OpenPassphrase(file []byte, pass string) ([]byte, Header, error) {
 	return c, h, err
 }
 
-// OpenRecipient opens a recipient file with the X25519 private key (32
-// bytes) whose public key it was sealed to.
+// OpenRecipient opens a recipient file with the X-Wing private key (the
+// 32-byte seed) whose public key it was sealed to.
 func OpenRecipient(file, priv []byte) ([]byte, Header, error) {
 	h, n, err := splitFile(file)
 	if err != nil {
@@ -233,7 +261,10 @@ func OpenRecipient(file, priv []byte) ([]byte, Header, error) {
 	if h.Mode != ModeRecipient {
 		return nil, h, ErrWrongMode
 	}
-	sk, err := ecdh.X25519().NewPrivateKey(priv)
+	if len(priv) != PrivateKeySize {
+		return nil, h, fmt.Errorf("sealfile: the private key is %d bytes, an X-Wing private key is %d", len(priv), PrivateKeySize)
+	}
+	sk, err := xwing.NewPrivateKey(priv)
 	if err != nil {
 		return nil, h, fmt.Errorf("sealfile: the private key: %w", err)
 	}
@@ -241,16 +272,12 @@ func OpenRecipient(file, priv []byte) ([]byte, Header, error) {
 		return nil, h, ErrWrongKey
 	}
 	enc, err := base64.StdEncoding.DecodeString(h.KEM.Enc)
-	if err != nil {
+	if err != nil || len(enc) != EncSize {
 		return nil, h, ErrInvalid
 	}
-	hsk, err := hpke.NewDHKEMPrivateKey(sk)
+	r, err := hpke.NewRecipient(enc, sk, hpkeKDF, hpkeAEAD, []byte(Info))
 	if err != nil {
-		return nil, h, err
-	}
-	r, err := hpke.NewRecipient(enc, hsk, hpke.HKDFSHA256(), hpke.AES256GCM(), []byte(Info))
-	if err != nil {
-		return nil, h, ErrTampered // enc is not a point of the curve
+		return nil, h, ErrTampered // enc's X25519 part is a low-order point (all-zero shared secret)
 	}
 	z, err := r.Open(file[:n], file[n:])
 	if err != nil {
@@ -265,7 +292,11 @@ func newHeader(mode string, m Made) Header {
 	if at.IsZero() {
 		at = time.Now()
 	}
-	return Header{V: 1, Mode: mode, Compression: "deflate", CreatedAt: at.UTC().Format(time.RFC3339), MadeBy: m.By}
+	v := VersionPassphrase
+	if mode == ModeRecipient {
+		v = VersionRecipient
+	}
+	return Header{V: v, Mode: mode, Compression: "deflate", CreatedAt: at.UTC().Format(time.RFC3339), MadeBy: m.By}
 }
 
 // encodeHead is magic, header_len and the header: the start of the file,
@@ -299,7 +330,16 @@ func splitFile(file []byte) (Header, int, error) {
 	if err := d.Decode(&h); err != nil || d.More() {
 		return h, 0, ErrInvalid
 	}
-	if h.V != 1 {
+	// The header must be exactly what komando writes: no other spelling,
+	// order, case, duplicate or unknown key, spaces or trailing bytes, so
+	// every reader (Go, the iPhone app) sees the same fields.
+	if j, err := json.Marshal(h); err != nil || !bytes.Equal(j, file[headerPrefix:n]) {
+		return h, 0, ErrInvalid
+	}
+	if h.Mode == ModeRecipient && h.V == 1 {
+		return h, 0, ErrOutdated
+	}
+	if (h.Mode == ModePassphrase && h.V != VersionPassphrase) || (h.Mode == ModeRecipient && h.V != VersionRecipient) {
 		return h, 0, ErrUnsupported
 	}
 	if h.Compression != "deflate" {

@@ -256,6 +256,13 @@ phone any way you like, and check that the phone shows the same six words.
 If they differ, do not use the file. The phone reads servers, conns, VPNs,
 their passwords and, with `--with-keys`, the keys.
 
+The file is sealed with post-quantum encryption (X-Wing: ML-KEM-768 with
+X25519), so a copy left in mail or a cloud backup stays closed even to a
+future quantum computer. It needs the iPhone app for iOS 26 or later. A
+file made by komando 0.14.0 (X25519 only) no longer opens on the phone,
+and a key from an older app is refused: update the app and make the file
+again.
+
 The format is in [the sealed file design](../design/sealed-file.md).
 
 ### Copy the folder (everything, with passwords)
