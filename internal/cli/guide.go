@@ -346,7 +346,7 @@ func noLinksUnder(base string, paths ...string) error {
 			if err != nil {
 				return err
 			}
-			if fi.Mode()&fs.ModeSymlink != 0 {
+			if fi.Mode()&(fs.ModeSymlink|fs.ModeIrregular) != 0 { // Irregular: a Windows junction
 				return fmt.Errorf("%s is a link, and komando does not follow links in a project folder; nothing was changed (remove the link, then run it again)", cur)
 			}
 		}
@@ -355,8 +355,8 @@ func noLinksUnder(base string, paths ...string) error {
 }
 
 // projectFiles are the files `guide install --project` and `guide
-// uninstall --project` may read or write in base, with the backup name
-// komando used to write before backups got a new name each.
+// uninstall --project` may read, write or remove in base (removeSkill
+// takes SKILL.md.bak away too).
 func projectFiles(base string) []string {
 	var ps []string
 	for _, d := range skillDirs {
