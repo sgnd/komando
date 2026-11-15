@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 var updateShapes = flag.Bool("update-shapes", false, "rewrite testdata/shapes.json from what the commands print now")
@@ -76,6 +77,16 @@ var recordedShapeCases = map[string]func() any{
 		code := 0
 		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code,
 			Data: parseFactsAt(factsFocal+"disk=/dev/sda1\t81264764\t51086560\t30161820\t63\t/\n", factsNow)}}}
+		d.Summary.Total, d.Summary.OK = 1, 1
+		return map[string]any{"ok": true, "command": "facts", "data": d}
+	},
+	"facts web --only load,mem,disks (recorded)": func() any {
+		_, keys, _ := factsOnly([]string{"load", "mem", "disks"})
+		f, _ := factsOnlyParse(keys)(&store.Host{Name: "web"}, "load=0.12 0.10 0.05\ncpus=4\nmem_total_mb=7962\nmem_available_mb=5120\n"+
+			"swap_total_mb=2047\nswap_free_mb=2047\ndisk_root_total_gb=78\ndisk_root_used_pct=63\n"+
+			"disk=/dev/sda1\t81264764\t51086560\t30161820\t63\t/\n")
+		code := 0
+		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code, Data: f}}}
 		d.Summary.Total, d.Summary.OK = 1, 1
 		return map[string]any{"ok": true, "command": "facts", "data": d}
 	},

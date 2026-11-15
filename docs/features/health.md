@@ -38,6 +38,22 @@ looks at many at once.
 | ports | Listening ports and the program behind each one. Without root or passwordless sudo, only your own programs have names. |
 | units | Services and timers added by hand under `/etc/systemd/system` (not from a package). |
 
+In JSON, `disks` lists every real file system: `mount`, `device`,
+`size_mb`, `used_mb`, `avail_mb` and `used_pct`.
+
+### Just the numbers, fast
+
+```bash
+komando facts web1 --only load,mem,disks -o json
+```
+
+`--only` runs just the probes of the sections you name, in about a second,
+for an app or a script that polls: `load` (`load` 1, 5 and 15 minutes,
+`cpus`), `mem` (`mem_total_mb`, `mem_available_mb`, `swap_total_mb`,
+`swap_free_mb`) and `disks` (`disks`, `disk_root_total_gb`,
+`disk_root_used_pct`). No package index, Docker, ports, units or sudo; the
+keys of the other sections are left out. A read-only ssh-gate key runs it.
+
 `facts` only reads. It never refreshes a package index or starts anything,
 and it uses sudo only when sudo already works without a password (it never
 asks for one).

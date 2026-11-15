@@ -1,0 +1,112 @@
+package cli
+
+import (
+	"fmt"
+	"slices"
+	"sort"
+	"strings"
+
+	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
+)
+
+// facts --only runs the probes of a few sections, for an app that polls a
+// server (the phone's load, memory and disk readings): no package index,
+// Docker, ports, units or sudo, so it answers in about a second. The keys
+// are those of the full facts; a section not asked for leaves its keys out.
+type factsSection struct {
+	script string
+	keys   []string
+}
+
+var factsSections = map[string]factsSection{
+	"load": {`[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
+echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
+`, []string{"load", "cpus"}},
+	"mem":   {factsMemLine, []string{"mem_total_mb", "mem_available_mb", "swap_total_mb", "swap_free_mb"}},
+	"disks": {factsDiskLines, []string{"disks", "disk_root_total_gb", "disk_root_used_pct"}},
+}
+
+// factsSectionNames are the values --only takes, sorted.
+func factsSectionNames() []string {
+	names := make([]string, 0, len(factsSections))
+	for n := range factsSections {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// factsOnly is the script for the sections named and the keys they give.
+func factsOnly(sections []string) (script string, keys []string, err error) {
+	var b strings.Builder
+	b.WriteString("export LC_ALL=C\n")
+	seen := map[string]bool{}
+	for _, s := range sections {
+		s = strings.ToLower(strings.TrimSpace(s))
+		sec, ok := factsSections[s]
+		if !ok {
+			return "", nil, out.Errf(out.ExitUsage, "USAGE", "--only takes: "+strings.Join(factsSectionNames(), ", ")+" (comma-separated), for example --only load,mem,disks",
+				"facts has no section %q", s)
+		}
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		b.WriteString(sec.script)
+		keys = append(keys, sec.keys...)
+	}
+	return b.String(), keys, nil
+}
+
+// factsOnlyParse reads the script's lines as facts does and keeps the keys
+// asked for; one komando cannot read is null, as in facts.
+func factsOnlyParse(keys []string) func(h *store.Host, s string) (any, error) {
+	return func(h *store.Host, s string) (any, error) {
+		all, err := parseFacts(h, s)
+		if err != nil {
+			return nil, err
+		}
+		f, _ := all.(map[string]any)
+		res := map[string]any{}
+		for _, k := range keys {
+			res[k] = f[k]
+		}
+		return res, nil
+	}
+}
+
+// factsOnlyText is the -o text view of facts --only: one line per server.
+func factsOnlyText(d probeData) string {
+	var b strings.Builder
+	for _, r := range d.Results {
+		f, _ := r.Data.(map[string]any)
+		if !r.OK || f == nil {
+			msg := "failed"
+			if r.Error != nil {
+				msg = r.Error.Message
+			}
+			fmt.Fprintf(&b, "● %s  failed: %s\n", r.Host, msg)
+			continue
+		}
+		var parts []string
+		if l, ok := f["load"].([]float64); ok && len(l) == 3 {
+			parts = append(parts, fmt.Sprintf("load %.2f %.2f %.2f", l[0], l[1], l[2]))
+		}
+		if n, ok := f["cpus"].(int64); ok {
+			parts = append(parts, fmt.Sprintf("%d cpu", n))
+		}
+		if t, ok := f["mem_total_mb"].(int64); ok {
+			if a, ok := f["mem_available_mb"].(int64); ok {
+				parts = append(parts, fmt.Sprintf("mem %d of %d MB free", a, t))
+			}
+		}
+		if ds, ok := f["disks"].([]diskFacts); ok {
+			for _, x := range ds {
+				parts = append(parts, fmt.Sprintf("%s %d%%", x.Mount, x.UsedPct))
+			}
+		}
+		fmt.Fprintf(&b, "● %s  %s\n", r.Host, strings.Join(slices.DeleteFunc(parts, func(s string) bool { return s == "" }), ", "))
+	}
+	return b.String()
+}

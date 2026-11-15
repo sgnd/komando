@@ -16,6 +16,15 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
+// factsMemLine and factsDiskLines are the memory and disk probes, which
+// facts --only runs alone too.
+const factsMemLine = `[ -r /proc/meminfo ] && awk '/^MemTotal/{print "mem_total_mb="int($2/1024)}/^MemAvailable/{print "mem_available_mb="int($2/1024)}/^SwapTotal/{print "swap_total_mb="int($2/1024)}/^SwapFree/{print "swap_free_mb="int($2/1024)}' /proc/meminfo
+`
+
+const factsDiskLines = `df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
+df -P -k 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|udev|overlay|shm|none|squashfs|proc|sysfs|efivarfs|cgroup2?)$/ && $1 !~ /^\/dev\/loop/ {m=$6; for(i=7;i<=NF;i++) m=m" "$i; if (m ~ /^\/(proc|sys|dev|run|snap)(\/|$)/) next; printf "disk=%s\t%s\t%s\t%s\t%d\t%s\n", $1, $2, $3, $4, $5, m}'
+`
+
 // factsScript gathers everything in one round trip. It only reads: it
 // never refreshes a package index, never starts a PM2 daemon, and uses sudo
 // only as `sudo -n` when sudo already works without a password (it never
@@ -24,12 +33,9 @@ const factsScript = `export LC_ALL=C
 echo "hostname=$(hostname 2>/dev/null)"
 echo "kernel=$(uname -r)"; echo "arch=$(uname -m)"
 echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
-[ -r /proc/meminfo ] && awk '/^MemTotal/{print "mem_total_mb="int($2/1024)}/^MemAvailable/{print "mem_available_mb="int($2/1024)}/^SwapTotal/{print "swap_total_mb="int($2/1024)}/^SwapFree/{print "swap_free_mb="int($2/1024)}' /proc/meminfo
-[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
+` + factsMemLine + `[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
 [ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
-df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
-df -P -k 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|udev|overlay|shm|none|squashfs|proc|sysfs|efivarfs|cgroup2?)$/ && $1 !~ /^\/dev\/loop/ {m=$6; for(i=7;i<=NF;i++) m=m" "$i; if (m ~ /^\/(proc|sys|dev|run|snap)(\/|$)/) next; printf "disk=%s\t%s\t%s\t%s\t%d\t%s\n", $1, $2, $3, $4, $5, m}'
-echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
+` + factsDiskLines + `echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
 echo "init=$(cat /proc/1/comm 2>/dev/null || ps -p 1 -o comm= 2>/dev/null)"
 v=$(systemd-detect-virt 2>/dev/null)
 if [ -z "$v" ] || [ "$v" = none ]; then
@@ -586,7 +592,8 @@ func compactIPv6(s string) string {
 }
 
 func factsCmd() *cobra.Command {
-	return &cobra.Command{
+	var only []string
+	c := &cobra.Command{
 		Use:     "facts TARGET",
 		Aliases: []string{"info"},
 		Short:   "System facts: OS and support, updates, Docker, open ports",
@@ -603,13 +610,27 @@ On Windows servers it reports the Windows version and its support dates,
 pending updates from the Windows Update cache, a pending reboot, stopped
 automatic services and listening ports.
 
+--only load,mem,disks runs just those probes (load and CPUs; memory and
+swap; every file system), in about a second, for an app that polls; the
+other keys are left out. On Windows the full probe runs and only those
+keys are kept.
+
 It only reads, and it uses sudo only when sudo works without a password.
 A value komando cannot read is null ("unknown"), never 0 or false; read
 data.results[].data.warnings first.`,
-		Example: "  komando facts web1\n  komando facts @prod -o json",
+		Example: "  komando facts web1\n  komando facts @prod -o json\n  komando facts web1 --only load,mem,disks -o json",
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if len(only) > 0 {
+				script, keys, err := factsOnly(only)
+				if err != nil {
+					return err
+				}
+				return probeText(cl, cmd.Context(), "facts", args[0], script, false, nil, factsOnlyParse(keys), factsOnlyText)
+			}
 			return probeText(cl, cmd.Context(), "facts", args[0], factsScript, false, nil, parseFacts, factsText)
 		}),
 	}
+	c.Flags().StringSliceVar(&only, "only", nil, "run only these sections, comma-separated: "+strings.Join(factsSectionNames(), ", ")+" (fast, for polling; the other keys are left out)")
+	return c
 }

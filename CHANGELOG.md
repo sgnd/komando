@@ -68,6 +68,9 @@ its highlights; the sections below them give the details. Versions follow
   computer it says `gate: false`.
 - `komando facts` lists every real file system as `disks`: mount point,
   device, size, used and free in MiB, and use %.
+- `komando facts SERVER --only load,mem,disks` runs just those probes, in
+  about a second, for an app that polls: the same keys, the other sections
+  left out. A read-only ssh-gate key without `--network` runs it.
 
 ### Changed for scripts and agents
 
