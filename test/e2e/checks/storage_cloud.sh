@@ -35,13 +35,14 @@ for c in cloud-az cloud-gcs cloud-dav; do
   check "$c mv over a file stops" OBJECT_EXISTS "$($K storage upload "$c" "$TMP/e2ecloud.txt" t-e2ecloud/x.txt >/dev/null; $K storage mv "$c" t-e2ecloud/x.txt t-e2ecloud/moved.txt | jget 'd["error"]["code"]')"
   check "$c mv --overwrite" True "$($K storage mv "$c" t-e2ecloud/x.txt t-e2ecloud/moved.txt --overwrite | jget 'd["data"]["replaced"]')"
   check "$c upload --continue to a cut file is refused" RESUME_UNSUPPORTED "$(printf e2e > "$TMP/e2ecloud.part"; $K storage upload "$c" "$TMP/e2ecloud.part" t-e2ecloud/cut.txt >/dev/null; $K storage upload "$c" "$TMP/e2ecloud.txt" t-e2ecloud/cut.txt --continue | jget 'd["error"]["code"]')"
-  check "$c cp to another conn" e2ecloud "$($K cp "$c":t-e2ecloud/moved.txt cloud-dav:t-e2ecloud/from-$c.txt >/dev/null; $K storage cat cloud-dav t-e2ecloud/from-$c.txt -o text)"
+  check "$c cp to another conn" e2ecloud "$($K cp "$c":t-e2ecloud/moved.txt cloud-dav:t-e2ecopy/from-$c.txt >/dev/null; $K storage cat cloud-dav t-e2ecopy/from-$c.txt -o text)"
   q $K storage rm "$c" --prefix t-e2ecloud/ --allow-dangerous
   check "$c rm emptied the folder" 0 "$($K storage ls "$c" --recursive | jget 'len([o for o in d["data"]["objects"] if o["key"].startswith("t-e2ecloud/") and not o.get("dir")])')"
 done
 check "azure link through --via warns" True "$($K storage upload cloud-az "$TMP/e2ecloud.txt" t-e2ecloud/l.txt >/dev/null; $K storage link cloud-az t-e2ecloud/l.txt | jget '"bastion" in d["data"]["warning"]')"
 check "webdav has no links" NOT_SUPPORTED "$($K storage upload cloud-dav "$TMP/e2ecloud.txt" t-e2ecloud/l.txt >/dev/null; $K storage link cloud-dav t-e2ecloud/l.txt | jget 'd["error"]["code"]')"
 for c in cloud-az cloud-dav; do q $K storage rm "$c" --prefix t-e2ecloud/ --allow-dangerous; done
+q $K storage rm cloud-dav --prefix t-e2ecopy/ --allow-dangerous
 q $K conn rm cloud-az cloud-gcs cloud-dav
 rm -f "$TMP/e2ecloud.txt" "$TMP/e2ecloud.part"
 set -e
