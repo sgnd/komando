@@ -105,6 +105,11 @@ its highlights; the sections below them give the details. Versions follow
   in a folder of its own under a random name, made exclusively and
   entered only by the SSH user; a server that cannot make that folder
   private stops with `CHMOD_FAILED`.
+- An AI agent can no longer set a WinRM server's `tls=skip-verify`,
+  `tls=off` or `auth=basic` without a person's yes. Through `host add`,
+  `host edit --address` or `import`, a stored password could go to a
+  server komando does not check, or travel unencrypted, with only a
+  warning; now it stops with `SAFETY_SETTING`, as a conn's weak TLS does.
 
 ### Fixed
 
