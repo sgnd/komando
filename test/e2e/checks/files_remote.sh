@@ -67,6 +67,26 @@ check "upload --continue to a bucket is refused" RESUME_UNSUPPORTED "$($K upload
 q $K exec direct -- truncate -s 1000000 /tmp/e2eops/back.bin
 check "cp --continue between two remote places" "1000000 $SUM" "$($K cp files-sftp:t-e2eops/src.bin direct:/tmp/e2eops/back.bin --continue | jget 'str(d["data"]["results"][0]["continued_from_bytes"]) + " " + d["data"]["results"][0]["sha256"]')"
 
+echo "==> streams (--to -, upload -)"
+check "download --to - from a server is the file" "$SUM" "$($K download direct /tmp/e2eops/src.bin --to - 2>/dev/null | shasum -a 256 | cut -c1-64)"
+check "download --to - says the result on stderr" "$SUM" "$($K download direct /tmp/e2eops/src.bin --to - 2>&1 >/dev/null | jget 'd["data"]["sha256"]')"
+check "download --to - from a bucket is the file" "$SUM" "$($K download bucket t-e2eops/src.bin --to - 2>/dev/null | shasum -a 256 | cut -c1-64)"
+check "download --to - from sftp is the file" "$SUM" "$($K storage download files-sftp t-e2eops/src.bin --to - 2>/dev/null | shasum -a 256 | cut -c1-64)"
+check "cp TARGET:PATH - is the file" "$SUM" "$($K cp direct:/tmp/e2eops/src.bin - 2>/dev/null | shasum -a 256 | cut -c1-64)"
+check "a missing file: nothing on stdout" 0 "$($K download direct /tmp/e2eops/nope --to - 2>/dev/null | wc -c | tr -d ' ')"
+check "a missing file: the error on stderr" PATH_NOT_FOUND "$($K download direct /tmp/e2eops/nope --to - 2>&1 >/dev/null | jget 'd["error"]["code"]' || true)"
+check "upload - to a server" "$SUM" "$($K upload direct - /tmp/e2eops/stdin.bin --size "$(wc -c < "$TMP/e2eops.bin" | tr -d ' ')" < "$TMP/e2eops.bin" | jget 'd["data"]["results"][0]["sha256"]')"
+check "upload - to a server arrived" "$SUM" "$($K -o text exec direct --read-only -- sha256sum /tmp/e2eops/stdin.bin | cut -c1-64)"
+check "upload - with a short stream" SIZE_CONFLICT "$(head -c 1000 "$TMP/e2eops.bin" | $K upload direct - /tmp/e2eops/stdin.bin --size 5000 | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+check "a short stream replaced nothing" "$SUM" "$($K -o text exec direct --read-only -- sha256sum /tmp/e2eops/stdin.bin | cut -c1-64)"
+for c in bucket files-sftp files-ftps; do
+  check "$c storage upload -" "$SUM" "$($K storage upload "$c" - t-e2eops/stdin.bin < "$TMP/e2eops.bin" | jget 'd["data"]["sha256"]')"
+  check "$c storage upload - arrived" "$SUM" "$($K storage download "$c" t-e2eops/stdin.bin --to - 2>/dev/null | shasum -a 256 | cut -c1-64)"
+  check "$c storage upload - sending more than --size" SIZE_CONFLICT "$($K storage upload "$c" - t-e2eops/stdin.bin --size 10 < "$TMP/e2eops.bin" | jget 'd["error"]["code"]' || true)"
+  check "$c a long stream replaced nothing" "$SUM" "$($K storage download "$c" t-e2eops/stdin.bin --to - 2>/dev/null | shasum -a 256 | cut -c1-64)"
+done
+check "an agent's stream shows secret values as [hidden]" True "$(printf 'API_TOKEN=s3cr3t-e2e-value\n' | $K upload direct - /tmp/e2eops/app.conf >/dev/null; A download direct /tmp/e2eops/app.conf --to - 2>/dev/null | python3 -c 'import sys; s=sys.stdin.read(); print("s3cr3t-e2e-value" not in s)')"
+
 for c in bucket files-sftp files-ftps; do q $K storage rm "$c" --prefix t-e2eops/ --allow-dangerous; done
 q $K exec direct -- rm -rf /tmp/e2eops
 q $K exec bastion -- rm -rf /tmp/e2eops
