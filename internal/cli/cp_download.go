@@ -228,6 +228,9 @@ func sudoDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string
 // reaches dst: the temporary file is masked before it is moved there.
 // watch, when not nil, sees every byte (a progress line).
 func fetchFile(cl *call, ctx context.Context, in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool, watch io.Writer) (n int64, sum string, masked bool, err error) {
+	if err := guardLocalWrite(cl, dst); err != nil {
+		return 0, "", false, err
+	}
 	if _, err := os.Lstat(dst); err == nil && !overwrite {
 		return 0, "", false, fileExists(dst)
 	}
@@ -259,6 +262,9 @@ func fetchFile(cl *call, ctx context.Context, in io.Reader, dst string, perm os.
 	}
 	if !mtime.IsZero() {
 		_ = os.Chtimes(tmp.Name(), mtime, mtime)
+	}
+	if err := guardLocalWrite(cl, dst); err != nil {
+		return 0, "", false, err
 	}
 	if overwrite {
 		err = os.Rename(tmp.Name(), dst)

@@ -157,6 +157,9 @@ func untarTo(cl *call, tarball []byte, dst, base string) error {
 		plan = append(plan, e)
 	}
 	for _, e := range plan {
+		if err := guardLocalWrite(cl, e.target); err != nil {
+			return err
+		}
 		switch {
 		case e.target == "":
 		case e.dir:

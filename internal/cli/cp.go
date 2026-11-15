@@ -377,6 +377,8 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 		}
 	} else if err := guardSensitiveCopy(cl, remote); err != nil {
 		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
+	} else if err := guardLocalWrite(cl, local); err != nil {
+		return err // before connecting: komando's folder, ~/.ssh, a credential store
 	}
 	o.oneHost = len(hosts) == 1
 	if cl.flags.dryRun {

@@ -153,6 +153,9 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
 		return localLinkStop(rel, link)
 	}
+	if err := guardLocalWrite(l.cl, dst); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
@@ -184,12 +187,18 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	if !f.Mtime.IsZero() {
 		_ = os.Chtimes(tmp.Name(), f.Mtime, f.Mtime) // the next sync sees it as unchanged
 	}
+	if err := guardLocalWrite(l.cl, dst); err != nil {
+		return err
+	}
 	return os.Rename(tmp.Name(), dst)
 }
 
 func (l localSide) remove(_ context.Context, rel string) error {
 	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
 		return localLinkStop(rel, link) // --delete never removes a file outside the folder
+	}
+	if err := guardLocalWrite(l.cl, filepath.Join(l.root, filepath.FromSlash(rel))); err != nil {
+		return err
 	}
 	return os.Remove(filepath.Join(l.root, filepath.FromSlash(rel)))
 }
@@ -637,6 +646,9 @@ func syncDown(cl *call, ctx context.Context, name, target, remote, local string,
 		return err
 	}
 	if err := guardDelete(cl, o, local); err != nil {
+		return err
+	}
+	if err := guardLocalWrite(cl, local); err != nil {
 		return err
 	}
 	if cl.isAgent() && !cl.revealOK() {

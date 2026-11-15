@@ -226,11 +226,11 @@ func exportCmd() *cobra.Command {
 				cl.out.Print("export", f, nil)
 				return nil
 			}
-			if err := exportTarget(to, overwrite); err != nil {
+			if err := exportTarget(cl, to, overwrite); err != nil {
 				return err
 			}
 			b, _ := json.MarshalIndent(f, "", "  ")
-			if err := writeExport(to, append(b, '\n'), overwrite); err != nil {
+			if err := writeExport(cl, to, append(b, '\n'), overwrite); err != nil {
 				return err
 			}
 			cl.out.Print("export", exportResult{File: to, Hosts: len(f.Hosts), Conns: len(f.Conns), Vpns: len(f.Vpns), Recipes: len(f.Recipes),
@@ -248,7 +248,10 @@ func exportCmd() *cobra.Command {
 
 // exportTarget checks that the export may write to: a file that is not
 // there yet (or --overwrite), in a folder that exists or is made.
-func exportTarget(to string, overwrite bool) error {
+func exportTarget(cl *call, to string, overwrite bool) error {
+	if err := guardLocalWrite(cl, to); err != nil {
+		return err
+	}
 	if _, err := os.Stat(to); err == nil && !overwrite {
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another file or pass --overwrite", "%s already exists", to)
 	}
@@ -258,14 +261,18 @@ func exportTarget(to string, overwrite bool) error {
 // writeExport writes an export file (0600) as a whole: a reader never sees
 // half of it. With overwrite, the new file replaces the old one only once
 // it is written.
-func writeExport(to string, data []byte, overwrite bool) error {
+func writeExport(cl *call, to string, data []byte, overwrite bool) error {
 	fill := func(tmp string) error { return os.WriteFile(tmp, data, 0o600) }
 	if !overwrite {
-		return writeAtomic(to, fill)
+		return writeAtomic(cl, to, fill)
 	}
 	next := to + ".komando-new"
 	_ = os.Remove(next)
-	if err := writeAtomic(next, fill); err != nil {
+	if err := writeAtomic(cl, next, fill); err != nil {
+		return err
+	}
+	if err := guardLocalWrite(cl, to); err != nil {
+		os.Remove(next)
 		return err
 	}
 	return os.Rename(next, to)
