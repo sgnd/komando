@@ -149,3 +149,17 @@ func TestReplacedTailscaleStartsFresh(t *testing.T) {
 		t.Fatal("import --overwrite kept the old node state")
 	}
 }
+
+// import --overwrite must not do what vpn edit may not: move a VPN whose
+// login a person types somewhere else, for an AI agent.
+func TestImportMovesNoTypedLogin(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	mustRun(t, "vpn", "add", "corp", "globalprotect", "--portal", "vpn.corp.example", "--user", "alice", "--mfa")
+	windowText(t, false)
+	file := writeTemp(t, "exp.json", `{"format":"komando-export/1","vpns":[{"name":"corp","kind":"globalprotect","portal":"vpn.attacker.example","user":"alice","mfa":true}]}`)
+	wantCode(t, "NEEDS_PERSON", "import", "komando", file, "--overwrite")
+	if st, _ := store.Load(); st.Vpns["corp"].Portal != "vpn.corp.example" {
+		t.Fatalf("the portal moved to %q", st.Vpns["corp"].Portal)
+	}
+}
