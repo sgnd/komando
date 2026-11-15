@@ -318,3 +318,95 @@ func TestSudoWriteFollowedOnlyForALink(t *testing.T) {
 		}
 	}
 }
+
+// fs rm, mv and mkdir --sudo follow no link another server user made: a
+// link www-data planted in its own folder (cache/x -> etc) must not have
+// root remove, move or create anything in etc.
+func TestSudoRmMvMkdirFollowNoOtherUsersLink(t *testing.T) {
+	setup := func(t *testing.T) (d, etc, x string) {
+		d, _ = filepath.EvalSymlinks(t.TempDir())
+		etc = filepath.Join(d, "etc")
+		_ = os.MkdirAll(filepath.Join(etc, "sub"), 0o755)
+		_ = os.WriteFile(filepath.Join(etc, "keep.conf"), []byte("x"), 0o644)
+		_ = os.WriteFile(filepath.Join(etc, "sub", "a"), []byte("x"), 0o644)
+		_ = os.MkdirAll(filepath.Join(d, "srv", "app", "cache"), 0o755)
+		_ = os.WriteFile(filepath.Join(d, "srv", "app", "new.conf"), []byte("n"), 0o644)
+		x = filepath.Join(d, "srv", "app", "cache", "x")
+		if err := os.Symlink(etc, x); err != nil {
+			t.Fatal(err)
+		}
+		return d, etc, x
+	}
+	exists := func(p string) bool { _, err := os.Lstat(p); return err == nil }
+	check := func(t *testing.T, name, script string, table map[string]string) {
+		t.Helper()
+		_, stderr, code := runAsRoot(t, script, table)
+		if code != sudoExitLink {
+			t.Fatalf("%s: another user's link followed: exit %d %s", name, code, stderr)
+		}
+		if e := fsExitMap(tcl, code, stderr); e == nil || e.Code != "IS_A_SYMLINK" {
+			t.Fatalf("%s: error %+v", name, e)
+		}
+	}
+	t.Run("rm", func(t *testing.T) {
+		_, etc, x := setup(t)
+		check(t, "rm", rmScript([]string{x + "/keep.conf"}, false, true), notRoot(x))
+		check(t, "rm -r", rmScript([]string{x + "/sub"}, true, true), notRoot(x))
+		if !exists(filepath.Join(etc, "keep.conf")) || !exists(filepath.Join(etc, "sub", "a")) {
+			t.Fatal("root removed a file through www-data's link")
+		}
+		// the link itself, with or without a trailing slash: only the link goes
+		for _, p := range []string{x + "/", x} {
+			if _, se, code := runAsRoot(t, rmScript([]string{p}, true, true), notRoot(x)); code != 0 {
+				t.Fatalf("rm %s: exit %d %s", p, code, se)
+			}
+			if exists(x) || !exists(filepath.Join(etc, "keep.conf")) {
+				t.Fatalf("rm %s: link %v, target kept %v", p, exists(x), exists(filepath.Join(etc, "keep.conf")))
+			}
+			_ = os.Symlink(etc, x)
+		}
+		// root's own link: followed
+		if o, se, code := runAsRoot(t, rmScript([]string{x + "/keep.conf"}, false, true), nil); code != 0 || exists(filepath.Join(etc, "keep.conf")) || o != "removed: "+x+"/keep.conf" {
+			t.Fatalf("root's link: %q exit %d %s", o, code, se)
+		}
+		if o, _, code := runAsRoot(t, rmScript([]string{x + "/missing"}, false, true), nil); code != 0 || !strings.Contains(o, "not found") {
+			t.Fatalf("missing: %q exit %d", o, code)
+		}
+		if _, _, code := runAsRoot(t, rmScript([]string{etc + "/sub"}, false, true), nil); code != fsExitIsFolder {
+			t.Fatalf("folder without -r: exit %d", code)
+		}
+	})
+	t.Run("mv", func(t *testing.T) {
+		d, etc, x := setup(t)
+		app := filepath.Join(d, "srv", "app")
+		check(t, "mv source", mvScript(x+"/keep.conf", app+"/taken.conf", false, true), notRoot(x))
+		check(t, "mv destination", mvScript(app+"/new.conf", x+"/new.conf", false, true), notRoot(x))
+		check(t, "mv into a linked folder", mvScript(app+"/new.conf", x, false, true), notRoot(x))
+		if !exists(filepath.Join(etc, "keep.conf")) || exists(filepath.Join(etc, "new.conf")) || exists(filepath.Join(app, "taken.conf")) {
+			t.Fatal("root moved a file through www-data's link")
+		}
+		// a link waiting by that name in the folder the file moves into
+		_ = os.Symlink(etc, filepath.Join(app, "cache", "new.conf"))
+		check(t, "mv onto a link", mvScript(app+"/new.conf", app+"/cache", true, true), notRoot(filepath.Join(app, "cache", "new.conf")))
+		_ = os.Remove(filepath.Join(app, "cache", "new.conf"))
+		if o, se, code := runAsRoot(t, mvScript(app+"/new.conf", app+"/cache", false, true), nil); code != 0 || !exists(filepath.Join(app, "cache", "new.conf")) || o != "moved to: "+app+"/cache/new.conf" {
+			t.Fatalf("plain move: %q exit %d %s", o, code, se)
+		}
+		if _, _, code := runAsRoot(t, mvScript(app+"/nope", app+"/b", false, true), nil); code != fsExitNoSource {
+			t.Fatalf("missing source: exit %d", code)
+		}
+	})
+	t.Run("mkdir", func(t *testing.T) {
+		_, etc, x := setup(t)
+		check(t, "mkdir", mkdirScript([]string{x + "/made/deep"}, true), notRoot(x))
+		if exists(filepath.Join(etc, "made")) {
+			t.Fatal("root made a folder through www-data's link")
+		}
+		if o, se, code := runAsRoot(t, mkdirScript([]string{x + "/made/deep", etc + "/m2"}, true), nil); code != 0 || !exists(filepath.Join(etc, "made", "deep")) || !exists(filepath.Join(etc, "m2")) || o != "made: "+x+"/made/deep\nmade: "+etc+"/m2" {
+			t.Fatalf("root's link: %q exit %d %s", o, code, se)
+		}
+		if _, _, code := runAsRoot(t, mkdirScript([]string{etc + "/keep.conf"}, true), nil); code != fsExitNotFolder {
+			t.Fatalf("a file: exit %d", code)
+		}
+	})
+}

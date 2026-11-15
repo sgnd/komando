@@ -252,39 +252,39 @@ func runSh(t *testing.T, dir, script string) (string, int) {
 func TestFsScripts(t *testing.T) {
 	dir := t.TempDir()
 	writeTree(t, dir, map[string]string{"a": "A", "b": "B", "d/x": "X"})
-	if _, code := runSh(t, dir, mvScript("a", "b", false)); code != fsExitDestExists {
+	if _, code := runSh(t, dir, mvScript("a", "b", false, false)); code != fsExitDestExists {
 		t.Errorf("mv over a file: exit %d", code)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "b")); string(b) != "B" {
 		t.Error("mv replaced b without --overwrite")
 	}
-	if _, code := runSh(t, dir, mvScript("nope", "c", false)); code != fsExitNoSource {
+	if _, code := runSh(t, dir, mvScript("nope", "c", false, false)); code != fsExitNoSource {
 		t.Errorf("mv missing: exit %d", code)
 	}
-	if o, code := runSh(t, dir, mvScript("a", "b", true)); code != 0 || !strings.Contains(o, "replaced") {
+	if o, code := runSh(t, dir, mvScript("a", "b", true, false)); code != 0 || !strings.Contains(o, "replaced") {
 		t.Errorf("mv --overwrite: %d %s", code, o)
 	}
-	if o, code := runSh(t, dir, mvScript("b", "d/", false)); code != 0 || !strings.Contains(o, "moved to: d/b\n") {
+	if o, code := runSh(t, dir, mvScript("b", "d/", false, false)); code != 0 || !strings.Contains(o, "moved to: d/b\n") {
 		t.Errorf("mv into a folder: exit %d %q", code, o)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "d/b")); err != nil {
 		t.Error("mv into a folder did not land in it")
 	}
-	if _, code := runSh(t, dir, mkdirScript([]string{"d/b"})); code != fsExitNotFolder {
+	if _, code := runSh(t, dir, mkdirScript([]string{"d/b"}, false)); code != fsExitNotFolder {
 		t.Errorf("mkdir on a file: exit %d", code)
 	}
-	if _, code := runSh(t, dir, rmScript([]string{"d"}, false)); code != fsExitIsFolder {
+	if _, code := runSh(t, dir, rmScript([]string{"d"}, false, false)); code != fsExitIsFolder {
 		t.Errorf("rm folder without -r: exit %d", code)
 	}
-	o, code := runSh(t, dir, rmScript([]string{"missing", "*.bin"}, false))
+	o, code := runSh(t, dir, rmScript([]string{"missing", "*.bin"}, false, false))
 	if code != 0 || !strings.Contains(o, "not found: missing") || !strings.Contains(o, "globs are not expanded") {
 		t.Errorf("rm missing: %d %s", code, o)
 	}
-	if _, code := runSh(t, dir, rmScript([]string{"d"}, true)); code != 0 {
+	if _, code := runSh(t, dir, rmScript([]string{"d"}, true, false)); code != 0 {
 		t.Errorf("rm -r: exit %d", code)
 	}
 	// a change on one server says what it did: the text shows only stdout
-	if o, code := runSh(t, dir, mkdirScript([]string{"m/n", "m/o"})); code != 0 || o != "made: m/n\nmade: m/o\n" {
+	if o, code := runSh(t, dir, mkdirScript([]string{"m/n", "m/o"}, false)); code != 0 || o != "made: m/n\nmade: m/o\n" {
 		t.Errorf("mkdir: %d %q", code, o)
 	}
 	if o, code := runSh(t, dir, chmodScript("0700", []string{"m/n"}, false, false)); code != 0 || o != "mode 0700: m/n\n" {

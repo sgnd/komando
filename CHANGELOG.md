@@ -39,6 +39,17 @@ its highlights; the sections below them give the details. Versions follow
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
 
+### Security
+
+- `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
+  a link another server user made. A link that user planted in a folder of
+  theirs (`cache/x -> /etc`) could have root remove, move or create files
+  in the folder it names; now it stops with `IS_A_SYMLINK` (exit 92), as
+  `fs chmod --sudo` and writes and reads as root already did. `fs rm`
+  removes a link at the end of the path, never what it names, and works
+  from inside the real folder, so a folder swapped for a link meanwhile is
+  not followed either.
+
 ### Fixed
 
 - A `docker` command on a server without Docker now stops with `DOCKER_MISSING` and its hint whatever the shell prints (`docker: command not found` from bash or sudo, `command not found: docker` from zsh, `docker: not found` from dash), not with a generic `DOCKER_ERROR`.
