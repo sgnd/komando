@@ -62,3 +62,14 @@ func TestAppendOnFileServers(t *testing.T) {
 		}
 	}
 }
+
+// An upload of unknown length (stdin) reaches S3 whole.
+func TestS3PutUnknownLength(t *testing.T) {
+	b, f := openFakeS3(t)
+	if err := b.Put(context.Background(), "in.bin", strings.NewReader("streamed"), -1, ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(f.objs["site/in.bin"]); got != "streamed" {
+		t.Errorf("stored %q", got)
+	}
+}

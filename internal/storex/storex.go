@@ -275,9 +275,19 @@ func (s *s3Bucket) Put(ctx context.Context, key string, r io.Reader, size int64,
 	if err != nil {
 		return err
 	}
-	_, err = s.c.PutObject(ctx, s.bucket, full, r, size, minio.PutObjectOptions{ContentType: contentType})
+	o := minio.PutObjectOptions{ContentType: contentType}
+	if size < 0 {
+		// a stream of unknown length (stdin): minio would size its parts
+		// for the largest object S3 takes and hold one, over 500 MiB, in
+		// memory; 16 MiB parts keep it small (and allow 156 GiB)
+		o.PartSize = s3StreamPart
+	}
+	_, err = s.c.PutObject(ctx, s.bucket, full, r, size, o)
 	return toErr(err)
 }
+
+// s3StreamPart is the part size of an upload of unknown length.
+const s3StreamPart = 16 << 20
 
 // Remove deletes one object. Deleting a missing key is not an error in S3.
 func (s *s3Bucket) Remove(ctx context.Context, key string) error {

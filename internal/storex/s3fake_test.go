@@ -27,8 +27,9 @@ type fakeS3 struct {
 	mu      sync.Mutex
 	objs    map[string][]byte
 	copies  int
-	badCopy bool // a copy loses its last byte
-	denyDel bool // DELETE answers AccessDenied
+	badCopy bool                      // a copy loses its last byte
+	denyDel bool                      // DELETE answers AccessDenied
+	parts   map[string]map[int][]byte // multipart uploads in progress, by key
 }
 
 func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +46,9 @@ func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	case !ok:
 		s3Error(w, http.StatusNotFound, "NoSuchBucket")
+		return
+	}
+	if f.multipart(w, r, key) {
 		return
 	}
 	body, found := f.objs[key]
@@ -214,4 +218,43 @@ func openFakeS3(t *testing.T) (Bucket, *fakeS3) {
 		t.Fatal(err)
 	}
 	return b, f
+}
+
+// multipart answers the multipart upload calls (an upload of unknown
+// length): start, a part, complete, abort. It says whether r was one.
+func (f *fakeS3) multipart(w http.ResponseWriter, r *http.Request, key string) bool {
+	q := r.URL.Query()
+	_, start := q["uploads"]
+	id := q.Get("uploadId")
+	switch {
+	case start && r.Method == http.MethodPost:
+		if f.parts == nil {
+			f.parts = map[string]map[int][]byte{}
+		}
+		f.parts[key] = map[int][]byte{}
+		fmt.Fprintf(w, `<InitiateMultipartUploadResult><Bucket>media</Bucket><Key>%s</Key><UploadId>u1</UploadId></InitiateMultipartUploadResult>`, key)
+	case id != "" && r.Method == http.MethodPut:
+		n, _ := strconv.Atoi(q.Get("partNumber"))
+		b, err := s3Body(r)
+		if err != nil {
+			s3Error(w, http.StatusBadRequest, "IncompleteBody")
+			return true
+		}
+		f.parts[key][n] = b
+		w.Header().Set("ETag", `"`+etag(b)+`"`)
+	case id != "" && r.Method == http.MethodPost:
+		var all []byte
+		for i := 1; i <= len(f.parts[key]); i++ {
+			all = append(all, f.parts[key][i]...)
+		}
+		f.objs[key] = all
+		delete(f.parts, key)
+		fmt.Fprintf(w, `<CompleteMultipartUploadResult><Bucket>media</Bucket><Key>%s</Key><ETag>"%s"</ETag></CompleteMultipartUploadResult>`, key, etag(all))
+	case id != "" && r.Method == http.MethodDelete:
+		delete(f.parts, key)
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		return false
+	}
+	return true
 }
