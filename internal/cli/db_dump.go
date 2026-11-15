@@ -277,6 +277,12 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 	if err != nil {
 		return err
 	}
+	if err := guardConnFile(cl, c); err != nil {
+		return err
+	}
+	if err := guardDBFile(cl, to, "a place for a backup"); err != nil {
+		return err
+	}
 	if _, err := os.Stat(to); err == nil {
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick a new file name; backups are never overwritten", "%s already exists", to)
 	}
@@ -407,6 +413,9 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	}
 	c, err := singleConn(cl, st, connExpr, "db")
 	if err != nil {
+		return err
+	}
+	if err := guardDBFile(cl, from, "a backup to load"); err != nil {
 		return err
 	}
 	t, err := driver.Parse(c.URL)
