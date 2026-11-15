@@ -518,7 +518,8 @@ func newRoot(cl *call) *cobra.Command {
 				return err
 			}
 			// after guardHome: the vault read is this home's
-			return secretInArgs(cmd, args)
+			secretInArgs(cmd, args)
+			return nil
 		},
 	}
 	// every command of the tree runs in cl (callOf), also before it runs

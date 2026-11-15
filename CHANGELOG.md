@@ -21,6 +21,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- `SECRET_INPUT_INVALID` is gone. An AI agent's arguments, script or
+  file that hold a vault value now get the answer any other value gets,
+  and the value it typed is not hidden as `[secret:NAME]` in that
+  command's output: the refusal told it which guess was a secret as
+  surely as the mask did. The audit log still records it.
 - komando takes no proxy from an AI agent's environment (`HTTPS_PROXY`,
   `HTTP_PROXY`, `NO_PROXY`): an agent that needs the company proxy uses
   it as a VPN with `--via`, or a kubeconfig's `proxy-url`. A person's
