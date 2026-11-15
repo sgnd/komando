@@ -62,10 +62,7 @@ func (d downloadData) Text() string {
 // storageDownloadTo saves one object to a local file, - (stdout), or a
 // folder; an existing file is replaced only with overwrite.
 func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string, overwrite bool) error {
-	if err := guardSensitiveCopy(cl, key); err != nil {
-		return err
-	}
-	if err := guardLocalWrite(cl, to); err != nil {
+	if err := guardDownload(cl, key, to); err != nil {
 		return err
 	}
 	if strings.HasSuffix(key, "/") {

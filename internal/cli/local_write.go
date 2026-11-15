@@ -93,6 +93,16 @@ func guardLocalWrite(cl *call, p string) error {
 		"%s is %s; komando does not write there for an AI agent", p, why).NoFlag()
 }
 
+// guardDownload stops an AI agent's download of a file that is secret by
+// its name (guardSensitiveCopy) or to a protected place here
+// (guardLocalWrite), before anything is fetched.
+func guardDownload(cl *call, remote, local string) error {
+	if err := guardSensitiveCopy(cl, remote); err != nil {
+		return err
+	}
+	return guardLocalWrite(cl, local)
+}
+
 // writeAtomic lets fill write a temp file inside a private (0700) folder
 // next to path, then links it into place, so path appears complete or not
 // at all, and an existing file is never overwritten. For an AI agent the
