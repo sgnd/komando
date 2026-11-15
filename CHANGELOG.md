@@ -49,6 +49,16 @@ its highlights; the sections below them give the details. Versions follow
   removes a link at the end of the path, never what it names, and works
   from inside the real folder, so a folder swapped for a link meanwhile is
   not followed either.
+- A file komando sends to a server (`fs write`, `upload`, `fs replace`,
+  `fs restore`, `--backup` copies, `sync`, and the `--sudo` staging file)
+  is no longer readable by other users of that server while it is written.
+  SFTP makes a new file at the server's default mode (often 0644) and
+  komando narrowed it only afterwards, for `sync` and `upload -r` only
+  once the whole file was there: another user who opened it in between
+  could read it all. Each file is now made inside a folder only the SSH
+  user can enter (0700) and gets its final mode before it moves into
+  place. A server that cannot make that folder private stops with
+  `CHMOD_FAILED`, as before for a file it could not make private.
 
 ### Fixed
 

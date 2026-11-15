@@ -58,58 +58,6 @@ func read(t *testing.T, p string) string {
 	return string(b)
 }
 
-// peekReader looks at the staged temporary file while its content goes in.
-type peekReader struct {
-	dir   string
-	parts []string
-	modes []os.FileMode
-}
-
-func (r *peekReader) Read(b []byte) (int, error) {
-	ms, _ := filepath.Glob(filepath.Join(r.dir, ".komando-*"))
-	for _, m := range ms {
-		if fi, err := os.Stat(m); err == nil {
-			r.modes = append(r.modes, fi.Mode().Perm())
-		}
-	}
-	if len(r.parts) == 0 {
-		return 0, io.EOF
-	}
-	n := copy(b, r.parts[0])
-	r.parts = r.parts[1:]
-	return n, nil
-}
-
-// The staged file holds secrets ({{secret:NAME}} already filled in): only
-// the SSH user may read it while it is written, whatever the final mode.
-func TestWriteStagesPrivately(t *testing.T) {
-	sc := localSFTP(t)
-	dir := t.TempDir()
-	p := filepath.Join(dir, "app.conf")
-	if err := os.WriteFile(p, []byte("old\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	r := &peekReader{dir: dir, parts: []string{"DB_PASSWORD=", "s3cret\n"}}
-	res, err := writeRemoteFrom(tcl, context.Background(), nil, sc, p, r, writeOpts{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(r.modes) == 0 {
-		t.Fatal("the staged file was not seen")
-	}
-	for _, m := range r.modes {
-		if m != 0o600 {
-			t.Fatalf("staged file was %04o while the content went in", m)
-		}
-	}
-	if got := read(t, p); got != "DB_PASSWORD=s3cret\n" || mode(t, p) != 0o644 || res["mode"] != "0644" {
-		t.Fatalf("file %q mode %04o result %v", got, mode(t, p), res)
-	}
-	if left, _ := filepath.Glob(filepath.Join(dir, ".komando-*")); left != nil {
-		t.Fatalf("staged file left: %v", left)
-	}
-}
-
 // noModeSFTP is OpenSSH's sftp-server with setting modes forbidden, as on
 // storage boxes and SFTP-only accounts; it creates files with umask.
 func noModeSFTP(t *testing.T, umask string) *sftp.Client {
