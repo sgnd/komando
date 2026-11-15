@@ -165,7 +165,17 @@ func (b *sftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, 
 	if err := b.c.Mkdir(d); err != nil {
 		return sftpErr(err)
 	}
-	_ = b.c.Chmod(d, 0o700) // some servers forbid modes; the name still cannot be guessed
+	cerr := b.c.Chmod(d, 0o700)
+	if fi, err := b.c.Lstat(d); err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
+		// a server that allows no modes is fine when its new folders are
+		// private already (umask 077); otherwise the upload would be open
+		_ = b.c.RemoveDirectory(d)
+		if cerr == nil {
+			cerr = err
+		}
+		return out.Errf(out.ExitRemote, "CHMOD_FAILED", "this SFTP server does not allow setting modes, and its new folders are open to other users; upload over a conn whose server allows it",
+			"cannot make the private folder %s for the upload: %v; nothing was written", d, cerr)
+	}
 	tmp := path.Join(d, path.Base(p))
 	keep := false // the upload is only there: never remove it
 	defer func() {

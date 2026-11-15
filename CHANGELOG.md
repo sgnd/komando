@@ -103,7 +103,8 @@ its highlights; the sections below them give the details. Versions follow
   (`.komando-upload-NAME`), opened without refusing an existing file, so a
   link there had komando write and chmod the file it named. It now writes
   in a folder of its own under a random name, made exclusively and
-  entered only by the SSH user.
+  entered only by the SSH user; a server that cannot make that folder
+  private stops with `CHMOD_FAILED`.
 
 ### Fixed
 
