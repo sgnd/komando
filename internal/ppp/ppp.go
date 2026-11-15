@@ -223,6 +223,23 @@ func (p *Peer) Handle(proto uint16, b []byte) error {
 	return nil
 }
 
+// loginOption reads the server's authentication-protocol option v: the
+// login komando takes, or ok false to ask for MS-CHAPv2 instead.
+func (p *Peer) loginOption(v []byte) (auth uint16, alg byte, ok bool) {
+	switch a := binary.BigEndian.Uint16(v); {
+	case a == PAP && p.AllowPAP:
+		return PAP, 0, true
+	case a == CHAP && len(v) == 3 && (v[2] == 0x81 || v[2] == 5 && p.AllowPAP):
+		return CHAP, v[2], true
+	case a == PAP || a == CHAP && len(v) == 3 && v[2] == 5:
+		p.weakNaks++
+		p.logf("PPP: the server asks to log in with %s, which is not allowed for this VPN; asking for MS-CHAPv2", map[bool]string{true: "PAP", false: "CHAP-MD5"}[a == PAP])
+	default: // CHAP with MD4 (MS-CHAPv1), EAP, ...
+		p.logf("PPP: the server offers login method %x; asking for MS-CHAPv2", v)
+	}
+	return 0, 0, false
+}
+
 func (p *Peer) lcp(code, id byte, data []byte) error {
 	switch code {
 	case cfgRequest:
@@ -239,17 +256,8 @@ func (p *Peer) lcp(code, id byte, data []byte) error {
 					rej = append(rej, raw...)
 					return
 				}
-				switch a := binary.BigEndian.Uint16(v); {
-				case a == PAP && p.AllowPAP:
-					auth = PAP
-				case a == CHAP && len(v) == 3 && (v[2] == 0x81 || v[2] == 5 && p.AllowPAP):
-					auth, alg = CHAP, v[2]
-				case a == PAP || a == CHAP && len(v) == 3 && v[2] == 5:
-					p.weakNaks++
-					p.logf("PPP: the server asks to log in with %s, which is not allowed for this VPN; asking for MS-CHAPv2", map[bool]string{true: "PAP", false: "CHAP-MD5"}[a == PAP])
-					nak = append(nak, opt(3, []byte{0xc2, 0x23, 0x81})...)
-				default: // CHAP with MD4 (MS-CHAPv1), EAP, ...: ask for MS-CHAPv2
-					p.logf("PPP: the server offers login method %x; asking for MS-CHAPv2", v)
+				var ok bool
+				if auth, alg, ok = p.loginOption(v); !ok {
 					nak = append(nak, opt(3, []byte{0xc2, 0x23, 0x81})...)
 				}
 			default: // compression of fields, callbacks, multilink, ...

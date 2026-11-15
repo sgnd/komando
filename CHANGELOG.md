@@ -29,6 +29,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A Tailscale VPN logs in only at its `--server` or Tailscale's own
+  server: `TS_CONTROL_URL`, `TS_AUTHKEY`, `TSNET_FORCE_LOGIN` and the
+  other tsnet variables are ignored. A Tailscale VPN replaced by `vpn add
+  --overwrite` or an import starts as a new node, as after `vpn rm`.
+- An AI agent may no longer move a VPN whose login a person types at
+  `vpn up` (`--portal`, `--server`, a new OpenVPN profile): it gets
+  `NEEDS_PERSON`.
+- `vpn add --config` never quotes the file's text in an error (it named
+  the first word of the line it refused, which for a `.pgpass` or a
+  token file is the secret), and refuses komando's own folder for an AI
+  agent. `--ca` is read as any local file (`SENSITIVE_FILE` for an agent
+  on a secret file) and keeps only the file's certificates.
+- `vpn add --dry-run` no longer tells an AI agent whether a WireGuard key
+  it guessed is the one in an unused vault secret NAME-key; WireGuard
+  keys must be 32 bytes in base64.
 - `vpn serve`, `tunnel serve` and `login-holder`, the background
   processes `vpn up`, `tunnel start` and `login` start, now run only
   when one of those commands started them. Run by hand, an AI agent got a

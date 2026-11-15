@@ -197,6 +197,21 @@ type importResult struct {
 	dryRun     bool // the import was a dry run: the text says "would add"
 }
 
+// pickImportVpns are the VPNs of plan an import adds; skip says why one
+// is left out, which goes to res.Skipped.
+func pickImportVpns(plan *importPlan, skip func(kind, name string) string, res *importResult) []*store.Vpn {
+	var vpns []*store.Vpn
+	for _, v := range plan.Vpns {
+		if r := skip("vpn", v.Name); r != "" {
+			res.Skipped = append(res.Skipped, importSkip{v.Name, r})
+			continue
+		}
+		vpns = append(vpns, v)
+		res.Vpns = append(res.Vpns, v.Name)
+	}
+	return vpns
+}
+
 func applyImport(cl *call, source, file string, plan *importPlan, groups []string, overwrite bool) error {
 	res := importResult{Source: source, File: file, Hosts: []string{}, Conns: []string{}, Vpns: []string{}, Recipes: []string{},
 		Secrets: []string{}, Skipped: []importSkip{}, NotFound: plan.Notes, dryRun: cl.flags.dryRun}
@@ -210,15 +225,8 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	existed := entryNames(st) // before this import puts anything in st
 	// decide first, so secrets are stored only for what is really added
 	skip := importSkipper(cl, st, overwrite)
-	var vpns []*store.Vpn
-	for _, v := range plan.Vpns {
-		if r := skip("vpn", v.Name); r != "" {
-			res.Skipped = append(res.Skipped, importSkip{v.Name, r})
-			continue
-		}
-		vpns = append(vpns, v)
-		res.Vpns = append(res.Vpns, v.Name)
-	}
+	vpns := pickImportVpns(plan, skip, &res)
+	replaced := vpnsReplaced(st, vpns)
 	for _, v := range vpns { // so hosts and conns can use them with --via
 		st.Vpns[v.Name] = v
 	}
@@ -308,6 +316,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	if err != nil {
 		return err
 	}
+	forgetReplacedTailscale(cl, replaced...)
 	audit(cl, st, "import", append(append([]string{}, res.Hosts...), res.Conns...), "", true,
 		map[string]any{"source": source, "file": file, "secrets": len(res.Secrets), "deny_rules": res.DenyRules})
 	cl.out.Print("import", res, toErr(incomplete))

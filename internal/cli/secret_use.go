@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -385,6 +386,23 @@ func vpnPlace(v *store.Vpn, servers string) secretPlace {
 	return secretPlace{dedupe([]string{v.KeyRef, v.PSKRef}), dest}
 }
 
+// guardTypedLoginMove: a VPN without a stored login gets the one a person
+// types (or gives in the browser) at `vpn up`, and that login goes where
+// the VPN points. An AI agent that moves it elsewhere (--portal,
+// --server, a new OpenVPN profile) would get the person's next login, so
+// that is for a person only, as for a server's typed login.
+func guardTypedLoginMove(cl *call, old, now *store.Vpn, servers string) error {
+	if old == nil || !cl.isAgent() || old.KeyRef != "" || old.Kind == "socks" || old.Kind == "proxy" || vpnPlace(old, "").dest == "" {
+		return nil
+	}
+	moved := vpnPlace(old, "").dest != vpnPlace(now, "").dest || old.Kind == "openvpn" && servers != ""
+	if !moved {
+		return nil
+	}
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run this `komando vpn edit` in their own terminal",
+		"vpn %s gets the login a person types at `vpn up`; an AI agent may not change where it goes", now.Name).NoFlag()
+}
+
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
 // is the VPN before (nil: a new one). servers is as for vpnPlace: an
 // OpenVPN VPN added again with a new profile may have new servers.
@@ -393,6 +411,9 @@ func guardVpnSends(cl *call, old, now *store.Vpn, servers string) error {
 	if old != nil {
 		p := vpnPlace(old, "")
 		before = &p
+	}
+	if err := guardTypedLoginMove(cl, old, now, servers); err != nil {
+		return err
 	}
 	line, err := newSends("vpn "+now.Name, before, vpnPlace(now, servers))
 	if err != nil {
