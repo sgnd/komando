@@ -50,6 +50,17 @@ komando secret set tls-key < server.key        # a value of several lines
 - `secret set` on a name that exists replaces its value. When a protected
   server or conn uses it, komando asks you first; an AI agent or a script
   adds `--yes` after a person agrees.
+- `secret set NAME --new` only stores a new secret: when NAME is in the
+  vault already, it stops with `SECRET_EXISTS` (exit 8) and the stored
+  value stays. The value comes in as without `--new`. When several
+  komando commands store the same name with `--new` at once, exactly one
+  stores it and the others stop with `SECRET_EXISTS`. With `--dry-run` it
+  says the same: `SECRET_EXISTS` for a taken name, `"action":
+  "would_store"` for a free one.
+
+```bash
+komando secret set api-token --new --from-env TOKEN   # never replaces one
+```
 
 ## Use one
 
@@ -205,7 +216,7 @@ command the user runs in their own terminal.
 | `SECRET_IN_ARGS` (exit 2) | the value was on the command line | `komando secret set NAME`, then type it after the prompt |
 | `USAGE` (exit 2) | an empty value, or a paste of several lines | type it again, or give several lines on stdin: `komando secret set NAME < FILE` |
 | `SECRET_NOT_FOUND`, `SECRET_UNRESOLVED` (exit 3) | no secret by that name, or a reference that cannot be read | `komando secret list` |
-| `SECRET_EXISTS` (exit 8) | `secret rename` or `secret cp` to a name that is taken | pick another name, or add `--overwrite` |
+| `SECRET_EXISTS` (exit 8) | `secret rename` or `secret cp` to a name that is taken, or `secret set --new` of a name that is stored | pick another name; to replace it, add `--overwrite` (rename, cp) or run `komando secret set NAME` without `--new` |
 | `SECRET_IN_USE` (exit 8) | `secret rm` of a secret something still uses | point those at another secret, or `secret rename` it |
 | `SECRET_MISMATCH` (exit 1) | `secret check`: the value you typed is not the stored one | `data.difference` says how they differ; `komando secret set NAME` stores the right one |
 | `NEEDS_PERSON` (exit 6) | only a person can do this (`secret set` for an agent, `secret check`, `secret keychain`, `secret passphrase`) | the person runs it in their own terminal |

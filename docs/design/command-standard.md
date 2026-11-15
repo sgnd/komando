@@ -322,6 +322,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--sudo-user` | | string | run it as this user with `sudo -u` | |
 | `--no-sudo` | | bool | do not use sudo (system commands that default to sudo) | off |
 | `--overwrite` | | bool | replace what is there | false |
+| `--new` | | bool | *exception*: `secret set --new` = only store a new item, stop with SECRET_EXISTS when it is there (`set` replaces by default, so the opposite of `--overwrite`); on `fs replace` a string, the text to put in place of `--old` | false |
 | `--backup` | | bool | keep the previous version as PATH.bak | false |
 | `--recursive` | `-r` | bool | include everything under a folder | false |
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |

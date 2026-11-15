@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"crypto/ecdh"
-	"crypto/rand"
+	"crypto/hpke"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -245,8 +245,12 @@ func TestImportSealedRefused(t *testing.T) {
 	header := []byte(strings.Replace(string(raw), `"compression":"deflate"`, `"compression":"deflatE"`, 1))
 	when := []byte(strings.Replace(string(raw), `"created_at":"2`, `"created_at":"3`, 1))
 	newer := []byte(strings.Replace(string(raw), `{"v":1,`, `{"v":2,`, 1))
-	k, _ := ecdh.X25519().GenerateKey(rand.Reader)
-	phone, _ := sealfile.SealRecipient([]byte(`{}`), k.PublicKey().Bytes(), sealfile.Made{})
+	k, _ := hpke.MLKEM768X25519().GenerateKey()
+	phone, err := sealfile.SealRecipient([]byte(`{}`), k.PublicKey().Bytes(), sealfile.Made{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldPhone := []byte(strings.Replace(string(phone), `{"v":2,`, `{"v":1,`, 1)) // the X25519 phone file of komando 0.14.0
 	invHome(t)
 	for _, c := range []struct {
 		code, file, pass string
@@ -258,6 +262,7 @@ func TestImportSealedRefused(t *testing.T) {
 		{"SEALED_FILE_INVALID", write("cut", raw[:30]), sealPass},
 		{"SEALED_FILE_UNSUPPORTED", write("newer", newer), sealPass},
 		{"SEALED_FILE_UNSUPPORTED", write("phone", phone), sealPass},
+		{"SEALED_FILE_UNSUPPORTED", write("old-phone", oldPhone), sealPass},
 	} {
 		sealPerson(t, c.pass)
 		e := wantCode(t, c.code, "import", "komando", c.file)
@@ -290,10 +295,11 @@ func phoneAnswers(t *testing.T, key, check string) {
 
 func TestExportForPhone(t *testing.T) {
 	sealLab(t)
-	k, err := ecdh.X25519().GenerateKey(rand.Reader)
+	k, err := hpke.MLKEM768X25519().GenerateKey()
 	if err != nil {
 		t.Fatal(err)
 	}
+	seed, _ := k.Bytes()
 	pub := k.PublicKey().Bytes()
 	dir := t.TempDir()
 	keyFile := filepath.Join(dir, "phone.key")
@@ -320,7 +326,7 @@ func TestExportForPhone(t *testing.T) {
 		t.Fatalf("%v", d)
 	}
 	raw, _ := os.ReadFile(file)
-	content, h, err := sealfile.OpenRecipient(raw, k.Bytes())
+	content, h, err := sealfile.OpenRecipient(raw, seed)
 	if err != nil || h.KEM.KeyID != id {
 		t.Fatal(err)
 	}
@@ -334,20 +340,38 @@ func TestExportForPhone(t *testing.T) {
 }
 
 func TestReadPhoneKey(t *testing.T) {
-	pub := make([]byte, 32)
+	pub := make([]byte, sealfile.PublicKeySize)
 	pub[0] = 9
-	raw := filepath.Join(t.TempDir(), "raw")
+	dir := t.TempDir()
+	raw := filepath.Join(dir, "raw")
 	if err := os.WriteFile(raw, pub, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, in := range []string{raw, base64.StdEncoding.EncodeToString(pub), base64.RawURLEncoding.EncodeToString(pub), "09" + strings.Repeat("00", 31)} {
-		if k, err := readPhoneKey(in); err != nil || k[0] != 9 {
-			t.Errorf("%q: %v", in, err)
+	hexFile := filepath.Join(dir, "hex")
+	if err := os.WriteFile(hexFile, []byte(hex.EncodeToString(pub)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range []string{raw, hexFile, base64.StdEncoding.EncodeToString(pub), base64.RawURLEncoding.EncodeToString(pub),
+		"09" + strings.Repeat("00", sealfile.PublicKeySize-1)} {
+		if k, err := readPhoneKey(in); err != nil || k[0] != 9 || len(k) != sealfile.PublicKeySize {
+			t.Errorf("%.40q: %v", in, err)
 		}
 	}
-	for _, in := range []string{"", "short", base64.StdEncoding.EncodeToString(pub[:31])} {
+	for _, in := range []string{"", "short", base64.StdEncoding.EncodeToString(pub[:sealfile.PublicKeySize-1]), base64.StdEncoding.EncodeToString(append(slices.Clone(pub), 0))} {
 		if _, err := readPhoneKey(in); err == nil {
-			t.Errorf("%q taken", in)
+			t.Errorf("%.40q taken", in)
+		}
+	}
+	// 1216 characters of text are text, not a raw key
+	if _, err := readPhoneKey(base64.RawURLEncoding.EncodeToString(pub[:912])); err == nil || !strings.Contains(err.Error(), "not a 1216-byte key") {
+		t.Errorf("1216 characters of base64: %v", err)
+	}
+	// the X25519 key of an iPhone app from before the switch: refused, with why
+	old := make([]byte, 32)
+	old[0] = 9
+	for _, in := range []string{base64.StdEncoding.EncodeToString(old), hex.EncodeToString(old)} {
+		if _, err := readPhoneKey(in); err == nil || !strings.Contains(err.Error(), "post-quantum switch") {
+			t.Errorf("%q: %v", in, err)
 		}
 	}
 	id := sealfile.KeyID(pub)

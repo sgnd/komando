@@ -267,8 +267,19 @@ const MinPassphrase = 15
 
 func Check() (Strength, error) { return sealedStrength() }
 
-func Set(w store.Write, name, value string) error {
+// Set stores value under name, replacing what is there.
+func Set(w store.Write, name, value string) error { return put(w, name, value, false) }
+
+// Create stores value under name only when name is free, else ErrExists.
+// The check and the write are one write step of the store, so of several
+// komando processes creating one name at once exactly one wins.
+func Create(w store.Write, name, value string) error { return put(w, name, value, true) }
+
+func put(w store.Write, name, value string, mustBeNew bool) error {
 	return change(w, func(f *file) error {
+		if _, ok := f.Entries[name]; ok && mustBeNew {
+			return ErrExists
+		}
 		a, err := f.aead()
 		if err != nil {
 			return err
@@ -355,8 +366,8 @@ func DeleteMany(w store.Write, names []string) error {
 	})
 }
 
-// ErrExists is returned by Copy and Rename when the new name is taken and
-// overwrite is false.
+// ErrExists is returned by Create when the name is taken, and by Copy and
+// Rename when the new name is taken and overwrite is false.
 var ErrExists = errors.New("secret already exists")
 
 // Copy stores the value of from under the name to as well. The value is

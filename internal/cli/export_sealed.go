@@ -114,8 +114,7 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 			return err
 		}
 		res.PhoneKeyID = sealfile.KeyID(pub)
-		file, err = sealfile.SealRecipient(content, pub, made)
-		if err != nil {
+		if file, err = sealForPhone(content, pub, made); err != nil {
 			return err
 		}
 	} else {
@@ -239,8 +238,10 @@ func askPhoneKey(cl *call) ([]byte, error) {
 // terminal.
 var readPhoneAnswer = readAnswer
 
-// readPhoneKey reads the phone's X25519 public key from a file, or from
-// the answer itself: 32 bytes, as base64 or hex.
+// readPhoneKey reads the phone's X-Wing public key (sealfile.PublicKeySize
+// bytes) from a file, or from the answer itself, as base64 or hex. The
+// phone shares a key file: the key as text is longer than many terminals
+// take on one line.
 func readPhoneKey(ans string) ([]byte, error) {
 	bad := func(why string) error {
 		return out.Errf(out.ExitUsage, "PHONE_KEY_INVALID", "run `komando export --for-phone --to FILE` again and give the key file the phone shared, or paste the key as it shows it",
@@ -258,19 +259,42 @@ func readPhoneKey(ans string) ([]byte, error) {
 			return nil, bad(errText(err))
 		}
 	}
-	if len(b) == 32 {
-		return b, nil
-	}
+	const n = sealfile.PublicKeySize
+	// text first (hex, then base64): raw bytes only when the answer is not
+	// hex or base64 at all, so text of the right length is not a raw key
 	t := strings.Join(strings.Fields(string(b)), "")
-	if k, err := hex.DecodeString(t); err == nil && len(k) == 32 {
-		return k, nil
-	}
-	for _, enc := range []*base64.Encoding{base64.StdEncoding, base64.RawStdEncoding, base64.URLEncoding, base64.RawURLEncoding} {
-		if k, err := enc.DecodeString(t); err == nil && len(k) == 32 {
+	decoders := []func(string) ([]byte, error){hex.DecodeString, base64.StdEncoding.DecodeString, base64.RawStdEncoding.DecodeString,
+		base64.URLEncoding.DecodeString, base64.RawURLEncoding.DecodeString}
+	short, text := len(b) == 32, false
+	for _, dec := range decoders {
+		k, err := dec(t)
+		if err != nil {
+			continue
+		}
+		text = true
+		if len(k) == n {
 			return k, nil
 		}
+		short = short || len(k) == 32
 	}
-	return nil, bad("it is not a 32-byte key (base64 or hex)")
+	if len(b) == n && !text {
+		return b, nil
+	}
+	if short {
+		return nil, bad("it is 32 bytes: the key check (give it at the next question), or the X25519 key of an iPhone app from before the post-quantum switch (update the app)")
+	}
+	return nil, bad(fmt.Sprintf("it is not a %d-byte key (base64 or hex)", n))
+}
+
+// sealForPhone seals content to the phone's key. A key that matched its
+// key check but is no valid X-Wing key (a phone bug) is PHONE_KEY_INVALID.
+func sealForPhone(content, pub []byte, made sealfile.Made) ([]byte, error) {
+	file, err := sealfile.SealRecipient(content, pub, made)
+	if err != nil {
+		return nil, out.Errf(out.ExitUsage, "PHONE_KEY_INVALID", "make a new key on the phone, then run `komando export --for-phone --to FILE` again",
+			"the phone's key matches its key check but is not a valid X-Wing key (%s); nothing was written", errText(err))
+	}
+	return file, nil
 }
 
 // sameKeyCheck: the typed key check is the key's key_id, whatever spaces,

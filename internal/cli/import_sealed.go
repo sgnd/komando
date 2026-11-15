@@ -33,9 +33,10 @@ type sealedKey struct {
 
 func importSealed(cl *call, path string, b []byte) (*importPlan, error) {
 	h, err := sealfile.ReadHeader(b)
-	if err != nil {
+	if err != nil && !errors.Is(err, sealfile.ErrOutdated) {
 		return nil, sealedFileErr(path, err)
 	}
+	// a file for the phone never opens here, whichever version it is
 	if h.Mode == sealfile.ModeRecipient {
 		return nil, out.Errf(out.ExitUsage, "SEALED_FILE_UNSUPPORTED", "on the old computer, make a file for this one with `komando export --sealed --to FILE`",
 			"%s is sealed for the iPhone app: only the phone whose key it was sealed to opens it; nothing was imported", path)
