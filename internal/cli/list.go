@@ -238,7 +238,7 @@ func testCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
-		Short:   "Check that servers, services and VPNs answer and let you in",
+		Short:   "Check that servers, conns and VPNs answer and let you in",
 		Long: `Logs in to each server (and checks who it is and whether sudo needs a
 password), connects to each conn and checks each VPN.
 
@@ -293,7 +293,7 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 			}
 			soft := &out.Error{Code: "PARTIAL_FAILURE", Exit: worst,
 				Message: failedOf(data.Summary.Failed, data.Summary.Total) + ": " + strings.Join(data.Summary.FailedHosts, ", "),
-				Hint:    "see each result's error and hint"}
+				Hint:    "read each target's error and hint (data.results in -o json)"}
 			if len(res) == 1 && res[0].Error != nil { // one target: its own error code and next step, as exec gives
 				soft.Code, soft.Message = res[0].Error.Code, res[0].Host+" failed"
 				if res[0].Error.Hint != "" {

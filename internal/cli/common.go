@@ -206,8 +206,8 @@ func toErr(err error) *out.Error {
 		return &out.Error{Code: "SECRET_NOT_FOUND", Message: err.Error(), Exit: out.ExitNotFound,
 			Hint: "check the name with `komando secret list`; a person stores a missing one with `komando secret set NAME`"}
 	case errors.Is(err, vault.ErrDecrypt):
-		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error(), Exit: out.ExitError,
-			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost"}
+		return &out.Error{Code: "VAULT_DECRYPT", Message: err.Error() + "; nothing was lost", Exit: out.ExitError,
+			Hint: "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use)"}
 	}
 	var pe *os.PathError
 	if errors.As(err, &pe) {

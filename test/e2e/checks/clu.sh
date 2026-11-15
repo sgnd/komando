@@ -40,7 +40,7 @@ check "apply: a refused object stops the whole file" "K8S_INVALID True K8S_NOT_F
   "$($K cluster apply lab-k3s --file "$TMP/half.yaml" >"$TMP/o"; jget 'd["error"]["code"] + " " + str("nothing was applied" in d["error"]["message"])' <"$TMP/o") $($K cluster get lab-k3s cm t-ok --namespace t-e2eclu | jget 'd["error"]["code"]' || true)"
 sed 's/password: one/password: two/' "$TMP/clu.yaml" > "$TMP/clu2.yaml"
 check "a changed Secret value is a change, still hidden" "change True" \
-  "$($K cluster apply lab-k3s --file "$TMP/clu2.yaml" --dry-run | jget 'd["data"]["changes"][1]["action"] + " " + str("two" not in json.dumps(d) and "(hidden, changed)" in d["data"]["changes"][1]["diff"])')"
+  "$($K cluster apply lab-k3s --file "$TMP/clu2.yaml" --dry-run | jget 'd["data"]["changes"][1]["action"] + " " + str("two" not in json.dumps(d) and "[hidden, changed]" in d["data"]["changes"][1]["diff"])')"
 $K cluster status lab-k3s deployment/web --namespace t-e2eclu --wait --timeout 90s >/dev/null
 check "TYPE NAME, TYPE/NAME and group-qualified kinds" "web web web" \
   "$($K cluster get lab-k3s deployment web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]') $($K cluster get lab-k3s deploy/web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]') $($K cluster get lab-k3s deployment.apps/web --namespace t-e2eclu | jget 'd["data"]["metadata"]["name"]')"

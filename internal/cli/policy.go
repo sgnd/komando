@@ -38,7 +38,7 @@ func policyCmd() *cobra.Command {
 	var limit int
 	list := &cobra.Command{
 		Use:   "list",
-		Short: "List built-in and custom rules",
+		Short: "List the built-in rules and your deny rules",
 		Args:  cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
@@ -73,7 +73,7 @@ func policyCmd() *cobra.Command {
 	c.AddCommand(&cobra.Command{
 		Use:     "deny REGEX",
 		Aliases: []string{"add"},
-		Short:   "Add a custom deny pattern (Go regexp)",
+		Short:   "Add a deny rule (a Go regular expression)",
 		Example: `  komando policy deny 'kubectl\s+delete'`,
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {

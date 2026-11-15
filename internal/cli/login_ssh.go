@@ -180,7 +180,7 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 			if b, _ := os.ReadFile(logFile); len(strings.TrimSpace(string(b))) > 0 {
 				why += ": " + finalLine(string(b))
 			}
-			return nil, out.Errf(out.ExitConnect, "LOGIN_FAILED", "the whole log is "+logFile+" (for a person to read)",
+			return nil, out.Errf(out.ExitConnect, "LOGIN_FAILED", "a person reads the whole log in "+logFile,
 				"the login to %s ended early (%s)", h.Name, why)
 		}
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
@@ -207,7 +207,7 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 		case "ERROR":
 			var e holderError
 			if json.Unmarshal([]byte(rest), &e) != nil || e.Code == "" {
-				return fail(out.Errf(out.ExitConnect, "LOGIN_FAILED", "the whole log is "+logFile, "the login to %s failed: %s", h.Name, cleanText(rest)))
+				return fail(out.Errf(out.ExitConnect, "LOGIN_FAILED", "a person reads the whole log in "+logFile, "the login to %s failed: %s", h.Name, cleanText(rest)))
 			}
 			if cancelled != nil {
 				return fail(cancelled)

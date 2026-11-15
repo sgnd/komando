@@ -85,7 +85,8 @@ your AI agents get the skill of the new version. Until then
   Run `sudo komando update`. As root it writes nothing in `~/.komando`.
 - On Windows the running `komando.exe` is renamed aside (Windows does not
   let a running program be replaced) and the new one takes its name.
-- `komando update v0.11.0` installs that version. Going back to an older
+- `komando update v0.14.0` installs that version (only releases after
+  0.13.0 are signed; see below for older ones). Going back to an older
   version asks you first, because an older komando may lack safety checks
   the newer one has. An AI agent needs `--yes` and your "Allow once".
 - `update` takes only a komando version. `komando update web1` is an

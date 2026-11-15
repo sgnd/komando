@@ -522,7 +522,7 @@ func gateAudit(cl *call, label string, readOnly bool, req gateRequest, name stri
 		rec["reason"] = refused.Message
 	}
 	if err := appendAudit(cl, syslog, rec); err != nil {
-		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions on the komando computer (`komando doctor` checks them); nothing was run",
+		return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions on the komando computer (`komando doctor` checks them)",
 			"the audit log cannot be written (%v), so the key's command does not run", err)
 	}
 	return nil

@@ -63,7 +63,7 @@ func (r *kctlRun) cp() error {
 		}
 		return nil
 	}
-	return kfail("one of SRC or DST must be POD:PATH")
+	return kfail("name a pod in SRC or DST as POD:PATH")
 }
 
 // maxPodCopy is the most a copy from a pod brings: the tar stream is held

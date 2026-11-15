@@ -414,8 +414,8 @@ func checkStoreWritable(cmd *cobra.Command) error {
 	if err == nil || errors.As(err, &oe) {
 		return err
 	}
-	return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",
-		"the store, which keeps the audit log, cannot be written: %v", err)
+	return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them)",
+		"the store, which keeps the audit log, cannot be written: %v; nothing was run", err)
 }
 
 // leavesHome are commands that, run as root, never touch ~/.komando:

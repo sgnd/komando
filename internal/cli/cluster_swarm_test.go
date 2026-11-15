@@ -320,7 +320,7 @@ func TestDiffObjectSecret(t *testing.T) {
 	if c.Action != "change" {
 		t.Fatalf("a changed Secret value is a change, got %s", c.Action)
 	}
-	if strings.Contains(c.Diff, "dHdv") || strings.Contains(c.Diff, "b25l") || !strings.Contains(c.Diff, "+  a: (hidden, changed)") || !strings.Contains(c.Diff, "+  c: (hidden, new)") {
+	if strings.Contains(c.Diff, "dHdv") || strings.Contains(c.Diff, "b25l") || !strings.Contains(c.Diff, "+  a: '[hidden, changed]'") || !strings.Contains(c.Diff, "+  c: '[hidden, new]'") {
 		t.Errorf("diff:\n%s", c.Diff)
 	}
 	if c := diffObject(tcl, "secret/s", before, before); c.Action != "none" {

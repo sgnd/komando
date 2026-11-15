@@ -90,7 +90,7 @@ aok "cluster ls" cluster ls lab-k3s pods -A
 aok "cluster events" cluster events lab-k3s -A
 aok "cluster helm ls" cluster helm ls lab-k3s -A
 check "agent: cluster get hides Secret values" True \
-  "$(ag cluster get lab-k3s secret --namespace kube-system "$(A cluster ls lab-k3s secrets --namespace kube-system </dev/null | jget 'd["data"]["items"][0]["name"]')" | jget 'len(d["data"]["data"]) > 0 and all(v == "(hidden)" for v in d["data"]["data"].values())' || true)"
+  "$(ag cluster get lab-k3s secret --namespace kube-system "$(A cluster ls lab-k3s secrets --namespace kube-system </dev/null | jget 'd["data"]["items"][0]["name"]')" | jget 'len(d["data"]["data"]) > 0 and all(v == "[hidden]" for v in d["data"]["data"].values())' || true)"
 fi
 
 if in_area data; then

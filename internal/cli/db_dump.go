@@ -707,8 +707,8 @@ func toolFailed(tool, where string, code int, stderr string, c *store.Conn, dt d
 	}
 	if archiveTooNew(stderr) {
 		return out.Errf(out.ExitRemote, "TOOL_TOO_OLD",
-			"the archive was made by a newer pg_dump than "+tool+" on "+where+" reads: install a newer "+dt.pkg+" there, or name a server that has one with --run-on HOST (nothing was changed)",
-			"%s", msg)
+			"the archive was made by a newer pg_dump than "+tool+" on "+where+" reads: install a newer "+dt.pkg+" there, or name a server that has one with --run-on HOST",
+			"%s; nothing was changed", msg)
 	}
 	switch {
 	case strings.Contains(stderr, "Access denied"), strings.Contains(stderr, "password authentication failed"),

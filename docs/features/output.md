@@ -89,8 +89,11 @@ and the line komando prints before `shell` and similar commands is in
 ## Will my scripts keep working?
 
 Every JSON answer has `meta.contract`. Within a contract, komando only adds
-fields, error codes and commands; it never renames or removes them. If that
-ever has to change, `meta.contract` goes up and the
+fields, error codes and exit codes to the JSON envelope; it never renames or
+removes them. Command and flag names are not part of the contract: komando
+is used internally for now, so a renamed command or flag keeps no old name,
+and the changelog lists each one. If the envelope ever has to change,
+`meta.contract` goes up and the
 [changelog](../../CHANGELOG.md) says what changed.
 
 ## Reference: `komando schema`
