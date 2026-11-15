@@ -245,11 +245,3 @@ func checkTrustFingerprint(fp string, hosts []*store.Host) error {
 	}
 	return nil
 }
-
-// fingerprintMismatch is a --fingerprint the server's key does not have:
-// nothing was pinned.
-func fingerprintMismatch(host, want, offered string) *out.Error {
-	return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH",
-		"possible man-in-the-middle, or the fingerprint of another key type: compare again with `ssh-keygen -lf` on the server's console for the key type the server offers; do not pin this key without that",
-		"host key for %s is not the one given: --fingerprint %s, the server shows %s; nothing was pinned", host, want, offered)
-}

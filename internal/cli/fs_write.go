@@ -105,31 +105,11 @@ func writeRemoteFrom(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Cli
 	perm, _ := strconv.ParseUint(mode, 8, 32)
 	// only the SSH user may read the content while it goes in (it can be a
 	// secret); the final mode is set before the file goes into place
-	tmp, cleanup, err := privateTemp(cl, sc, dir, tmpName, path.Base(p))
+	tmp, got, cleanup, err := stageRemote(cl, sc, dir, tmpName, path.Base(p), os.FileMode(perm), copyIn)
 	if err != nil {
 		return nil, err
 	}
 	defer cleanup()
-	// exclusive: never write into a file, or through a link, already there
-	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
-	if err != nil {
-		return nil, fsErr(cl, dir, err)
-	}
-	_, err = chmodOpen(f, tmp, 0o600)
-	if err == nil {
-		err = copyIn(f)
-	}
-	got := os.FileMode(perm)
-	if err == nil {
-		got, err = chmodOpen(f, tmp, os.FileMode(perm))
-	}
-	if cerr := f.Close(); err == nil && cerr != nil {
-		err = fsErr(cl, tmp, cerr)
-	}
-	if err != nil {
-		sc.Remove(tmp)
-		return nil, err
-	}
 	if o.validate != "" {
 		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: o.validateCmd(tmp), Timeout: time.Minute, MaxOutput: 64 << 10})
 		if err != nil || r.ExitCode != 0 {
@@ -161,6 +141,39 @@ func writeRemoteFrom(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Cli
 		res["note"] = fmt.Sprintf("the server does not allow setting file modes; the file has mode %04o, not %s", got, mode)
 	}
 	return res, nil
+}
+
+// stageRemote writes the new content of a file named base in dir to a
+// temporary file only the SSH user can open (privateTemp), created
+// exclusively, and gives it perm. It returns the file, the mode it got,
+// and cleanup, which removes what is left of it.
+func stageRemote(cl *call, sc *sftp.Client, dir, tmpName, base string, perm os.FileMode, copyIn func(io.Writer) error) (string, os.FileMode, func(), error) {
+	tmp, cleanup, err := privateTemp(cl, sc, dir, tmpName, base)
+	if err != nil {
+		return "", 0, nil, err
+	}
+	// exclusive: never write into a file, or through a link, already there
+	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+	if err != nil {
+		cleanup()
+		return "", 0, nil, fsErr(cl, dir, err)
+	}
+	_, err = chmodOpen(f, tmp, 0o600)
+	if err == nil {
+		err = copyIn(f)
+	}
+	got := perm
+	if err == nil {
+		got, err = chmodOpen(f, tmp, perm)
+	}
+	if cerr := f.Close(); err == nil && cerr != nil {
+		err = fsErr(cl, tmp, cerr)
+	}
+	if err != nil {
+		cleanup()
+		return "", 0, nil, err
+	}
+	return tmp, got, cleanup, nil
 }
 
 // backupStamp is the UTC time in a backup's name when PATH.bak is taken.

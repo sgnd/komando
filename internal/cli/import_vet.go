@@ -181,3 +181,41 @@ func entryNames(st *store.State) map[string]bool {
 	}
 	return n
 }
+
+// guardImportVpns asks for what the imported VPNs weaken, as vpn add and
+// vpn edit do: the weaker logins they turn on (importVpnOptIns), a CA
+// they no longer check the server against and secrets they send
+// (guardVpnSends), and, for a VPN they replace, protection or --mfa
+// turned off (guardVpnEdit). A file cannot do what a person did not allow.
+func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
+	olds := map[string]*store.Vpn{}
+	var replaced []*store.Vpn
+	for _, v := range vpns {
+		if err := importVpnOptIns(cl, st, v); err != nil {
+			return err
+		}
+		old := st.Vpns[v.Name]
+		if err := guardVpnSends(cl, old, v, ""); err != nil {
+			return err
+		}
+		if old != nil {
+			olds[v.Name] = old
+			replaced = append(replaced, v)
+		}
+	}
+	return guardVpnEdit(cl, olds, replaced)
+}
+
+// importVpnOptIns asks for the weaker logins an imported VPN turns on, as
+// vpn edit does (vpnOptIns): a file cannot allow old ciphers or PAP that
+// a person did not. A setting the VPN's kind does not use is dropped.
+func importVpnOptIns(cl *call, st *store.State, v *store.Vpn) error {
+	cur := &store.Vpn{Name: v.Name, Kind: v.Kind}
+	if old, ok := st.Vpns[v.Name]; ok && old.Kind == v.Kind {
+		cur.LegacyCrypto, cur.AllowPAP = old.LegacyCrypto, old.AllowPAP
+	}
+	v.LegacyCrypto = v.LegacyCrypto && vpnTakes(v.Kind, "legacy-crypto")
+	v.AllowPAP = v.AllowPAP && vpnTakes(v.Kind, "allow-pap")
+	set := map[string]bool{"legacy-crypto": v.LegacyCrypto, "allow-pap": v.AllowPAP}
+	return vpnOptIns(cl, cur, func(f string) bool { return set[f] }, v.LegacyCrypto, v.AllowPAP)
+}

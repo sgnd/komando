@@ -193,7 +193,7 @@ func trustHosts(cl *call, ctx context.Context, st *store.State, hosts []*store.H
 		for _, r := range rows {
 			r.Expected = want
 			if r.Error == nil && r.Fingerprint != want {
-				r.Error = fingerprintMismatch(r.Host, want, r.Fingerprint)
+				r.Error = sshx.FingerprintMismatch(r.Host, want, r.Fingerprint)
 			}
 		}
 	}
