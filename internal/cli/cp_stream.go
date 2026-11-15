@@ -277,7 +277,7 @@ func (s *stdinSource) Read(p []byte) (int, error) {
 func (s *stdinSource) sum() string { return hex.EncodeToString(s.h.Sum(nil)) }
 
 func sizeMismatch(want int64, got string) error {
-	return out.Errf(out.ExitConflict, "SIZE_CONFLICT", "nothing was replaced: send the whole file again, as `komando upload TARGET - DEST --size N`",
+	return out.Errf(out.ExitConflict, "SIZE_CONFLICT", "send the whole file again: `komando upload TARGET - DEST --size N`",
 		"--size said %d bytes, and stdin sent %s; nothing was put into place", want, got)
 }
 

@@ -82,7 +82,7 @@ This page is made from the code (`komando schema` lists the same under
 | `GROUP_NOT_FOUND` | 3 | no group named … | run `komando group list` to see groups |
 | `HELM_RELEASE_NOT_FOUND` | 3 | no Helm release named … in namespace … | see the releases with `komando cluster helm list TARGET -A`, and name the namespace with --namespace |
 | `HELM_REVISION_NOT_FOUND` | 3 | … has no revision … | see the revisions with `komando cluster helm history TARGET RELEASE` |
-| `HIDDEN_VALUE` | 2 | … holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value | edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}} |
+| `HIDDEN_VALUE` | 2 | stdin holds a value komando hid ([hidden] or [secret:NAME]); uploading it would destroy the real value | edit the file on the server with `komando fs replace` (an --old with [hidden] in it matches the hidden value), and put a secret in with {{secret:NAME}} |
 | `HOSTKEY_MISMATCH` | 4 | host key for … changed: the server was rebuilt, or someone is intercepting the connection | possible man-in-the-middle: report this to the user and do not re-trust the key yourself; once they have checked the new fingerprint another way, they can run `komando host trust … --reset` |
 | `HOSTKEY_REVOKED` | 4 | … shows the revoked host key …; nothing was sent | this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust` |
 | `HOSTKEY_UNKNOWN` | 4 | host key for … is not trusted yet (host keys are strict) | compare the fingerprint with what the server's owner sees, then run `komando host trust …` (an AI agent asks the user: its pin needs their yes) |
@@ -226,7 +226,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SESSION_NOT_FOUND` | 3 | no session … | list sessions with `komando db activity CONN --all` |
 | `SFTP_UNAVAILABLE` | 4 | sftp: … | enable the sftp subsystem in sshd_config |
 | `SHARED_FOLDER_CONFLICT` | 8 | … can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes) | write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > "$0"' …` |
-| `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | nothing was replaced: send the whole file again, as `komando upload TARGET - DEST --size N` |
+| `SIZE_CONFLICT` | 8 | --size said … bytes, and stdin sent …; nothing was put into place | send the whole file again: `komando upload TARGET - DEST --size N` |
 | `SKIPPED` | 1 | skipped: another server failed first, and --fail-fast is on | run without --fail-fast to reach every server |
 | `SOURCE_BUILD` | 8 | this komando was built from source (version …), so update does not replace it | build it again (git pull, then make build), or install a release with the install line: https://github.com/sgnd/komando#install |
 | `SOURCE_EMPTY` | 3 | … has no files to sync, so --delete would remove everything in …; nothing was deleted | check the source path |
