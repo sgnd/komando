@@ -79,9 +79,12 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			case ref != "" && !vault.ValidRef(ref):
 				return out.Usage("--password-ref: %s", vault.RefHelp())
 			}
-			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-user"}, Reasons: []string{"db user " + action + " " + args[1]}}
+			// the same tier as the statement in `db query` (sql-privileges):
+			// a new login, a new role or another user's password gives rights
+			askTypes(cl, args[1:2], "users")
+			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user", "sql-privileges"},
+				Reasons: []string{"db user " + action + " " + args[1] + ": " + driver.RuleReason("sql-privileges")}}
 			if action == "rm" {
-				askTypes(cl, args[1:2], "users")
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user-rm"}, Reasons: []string{"removes the user " + args[1]}}
 			}
 			return changeDB(cl, cmd.Context(), "db.user."+action, args[0], v, map[string]any{"user": args[1]},
@@ -199,7 +202,10 @@ IAM). --dry-run shows the statement.`,
 			if privs != "" && on == "" {
 				return out.Usage("--privileges needs --on OBJECT").WithHint(ex)
 			}
-			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-grant"}, Reasons: []string{"db " + verb + " for " + args[1]}}
+			// the same tier as GRANT and REVOKE in `db query` (sql-privileges)
+			askTypes(cl, args[1:2], "users")
+			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-grant", "sql-privileges"},
+				Reasons: []string{"db " + verb + " for " + args[1] + ": " + driver.RuleReason("sql-privileges")}}
 			return changeDB(cl, cmd.Context(), "db."+verb, args[0], v, map[string]any{"user": args[1]},
 				func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 					stmt, err := dbx.GrantSQL(ctx, db, c.Kind, gr)

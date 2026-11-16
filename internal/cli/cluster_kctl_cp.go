@@ -97,7 +97,20 @@ func (b *capBuffer) Write(p []byte) (int, error) {
 // does (fetchMasked): a file that is a secret by name is refused, a text
 // file is masked before it is written, and a binary or larger one that
 // holds a vault value is refused; all of it before anything is written.
+//
+// The container also picks every size. The cap on the stream (capBuffer)
+// does not bound what the entries unpack to: a sparse entry of a few
+// hundred bytes names a file of any size. So a sparse entry is refused
+// and the files together may hold no more than maxPodCopy.
 func untarTo(cl *call, tarball []byte, dst, base string) error {
+	return untarLimit(cl, tarball, dst, base, maxPodCopy)
+}
+
+func untarLimit(cl *call, tarball []byte, dst, base string, max int64) error {
+	tooLarge := func() error {
+		return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy a smaller part of it", "the copy is more than %s", humanBytes(max)))
+	}
+	left := max
 	root, err := filepath.Abs(dst)
 	if err != nil {
 		return kfail("%v", err)
@@ -148,8 +161,19 @@ func untarTo(cl *call, tarball []byte, dst, base string) error {
 				errors.As(err, &stop)
 				return kstop(stop)
 			}
-			if e.data, err = io.ReadAll(tr); err != nil {
+			for k := range h.PAXRecords {
+				if strings.HasPrefix(k, "GNU.sparse.") {
+					return kfail("refusing %q: it is a sparse file, which unpacks to more than was sent", h.Name)
+				}
+			}
+			if h.Size > left {
+				return tooLarge()
+			}
+			if e.data, err = io.ReadAll(io.LimitReader(tr, left+1)); err != nil {
 				return kfail("%v", err)
+			}
+			if left -= int64(len(e.data)); left < 0 {
+				return tooLarge()
 			}
 			if e.data, err = podFileMasked(cl, h.Name, e.data); err != nil {
 				return err

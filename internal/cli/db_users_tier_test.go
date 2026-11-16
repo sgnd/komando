@@ -1,0 +1,26 @@
+package cli
+
+import (
+	"testing"
+)
+
+// db grant, db revoke, db user add and db user passwd send the statements
+// that `db query` rates sql-privileges: they need the same approval.
+func TestDBUserCommandsArePrivilegeChanges(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	mustRun(t, "conn", "add", "local", "postgres://app@127.0.0.1:1/app")
+	for _, args := range [][]string{
+		{"db", "grant", "local", "app_ro", "--role", "pg_read_all_data"},
+		{"db", "grant", "local", "app_ro", "--privileges", "ALL", "--on", "database:app"},
+		{"db", "revoke", "local", "app_ro", "--role", "readers"},
+		{"db", "user", "add", "local", "newrole", "--no-login"},
+		{"db", "user", "add", "local", "app2", "--password-ref", "secret:p"},
+		{"db", "user", "passwd", "local", "postgres", "--password-ref", "secret:p"},
+	} {
+		_, e := invRun(t, args...)
+		if e == nil || e.Code != "POLICY_BLOCKED" {
+			t.Errorf("%v: want POLICY_BLOCKED, got %+v", args[1:], e)
+		}
+	}
+}

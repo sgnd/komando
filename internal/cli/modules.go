@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"net/url"
 	"regexp"
@@ -489,15 +488,17 @@ func netCmd() *cobra.Command {
 			if expect != "" && !expectRe.MatchString(expect) {
 				return out.Usage("--expect takes a status like 200 or a class like 2xx (got %q)", expect)
 			}
-			command := `curl -sS -o /dev/null -m ` + strconv.Itoa(curlSeconds(cl)) + ` --proto =http,https -w '{"code":%{http_code},"time_total":%{time_total},"time_connect":%{time_connect},"time_starttransfer":%{time_starttransfer},"remote_ip":"%{remote_ip}","size":%{size_download},"redirect":"%{redirect_url}"}' --url ` + sshx.Q(args[1])
+			// The numbers go on the first line; the redirect address, which
+			// the HTTP server writes, goes alone on the second and is read
+			// as text, so nothing in it can pass as one of komando's fields.
+			command := `curl -sS -o /dev/null -m ` + strconv.Itoa(curlSeconds(cl)) + ` --proto =http,https -w '%{http_code} %{time_total} %{time_connect} %{time_starttransfer} %{size_download} %{remote_ip}\n%{redirect_url}' --url ` + sshx.Q(args[1])
 			return runOps(cl, cmd.Context(), opsSpec{name: "net.http", target: args[0], command: command, display: "net http " + args[1], parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
-				s := strings.Replace(rr.Stdout, `"code":000`, `"code":0`, 1) // curl writes 000 when nothing answered
-				var v map[string]any
-				if err := json.Unmarshal([]byte(s), &v); err != nil {
+				v, ok := parseCurlWriteOut(rr.Stdout)
+				if !ok {
 					if rr.ExitCode == 127 {
 						return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "install curl on the server", "curl is not installed")
 					}
-					return s, nil
+					return rr.Stdout, nil
 				}
 				code, _ := v["code"].(float64)
 				switch {
@@ -760,4 +761,28 @@ func parseCronLine(t string) map[string]any {
 		r["command"] = rest
 	}
 	return r
+}
+
+// parseCurlWriteOut reads what net http asks curl to write: one line of
+// numbers and the address that answered, then the redirect address. Only
+// the first line's fields become numbers; the second line is text
+// whatever it holds.
+func parseCurlWriteOut(s string) (map[string]any, bool) {
+	line, redirect, _ := strings.Cut(s, "\n")
+	f := strings.Fields(line)
+	if len(f) < 5 || len(f) > 6 {
+		return nil, false
+	}
+	v := map[string]any{"remote_ip": "", "redirect": strings.TrimSpace(redirect)}
+	for i, k := range []string{"code", "time_total", "time_connect", "time_starttransfer", "size"} {
+		n, err := strconv.ParseFloat(f[i], 64) // curl writes 000 when nothing answered
+		if err != nil {
+			return nil, false
+		}
+		v[k] = n
+	}
+	if len(f) == 6 {
+		v["remote_ip"] = f[5]
+	}
+	return v, true
 }

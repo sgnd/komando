@@ -233,14 +233,29 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 	}
 	switch first {
 	case "CREATE", "ALTER", "DROP", "UNDROP":
-		if first == "CREATE" && second == "OR" && word(2) == "REPLACE" {
-			flag("sql-drop") // what had the name is dropped
+		if first == "CREATE" && second == "OR" && (word(2) == "REPLACE" || word(2) == "ALTER") {
+			// REPLACE drops what had the name; ALTER drops the columns
+			// (and their data) that the new definition leaves out
+			flag("sql-drop")
 		}
 		if id := sfObjectRule(ts); id != "" {
 			flag(id)
 		}
 	case "PUT", "GET", "REMOVE", "RM":
 		flag("sql-server-file")
+	case "INSERT":
+		// INSERT OVERWRITE [ALL|FIRST] INTO t: empties the table first
+		if second == "OVERWRITE" {
+			flag("sql-truncate")
+		}
+	case "COPY":
+		// PURGE = TRUE deletes the staged files after the load; any
+		// value but a plain FALSE counts
+		for i, t := range ts {
+			if t.word == "PURGE" && !(i+2 < len(ts) && ts[i+1].punct == '=' && ts[i+2].word == "FALSE") {
+				flag("sql-server-file")
+			}
+		}
 	case "WITH":
 		// WITH p AS PROCEDURE (...) AS $$ ... $$ CALL p(): an anonymous
 		// procedure, whose body komando cannot see, runs without CREATE rights
