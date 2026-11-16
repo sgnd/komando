@@ -124,7 +124,8 @@ func tokenFile(name string) string {
 func vaultHTTP() (*http.Client, error) {
 	tr := transport.HTTP()
 	tr.Proxy = transport.Proxy()
-	if f := firstOf(os.Getenv("VAULT_CACERT"), os.Getenv("BAO_CACERT")); f != "" {
+	// an AI agent's own CA would let a server of its pass as the Vault
+	if f := firstOf(os.Getenv("VAULT_CACERT"), os.Getenv("BAO_CACERT")); f != "" && !transport.EnvDistrusted() {
 		pem, err := os.ReadFile(f)
 		if err != nil {
 			return nil, fmt.Errorf("vault: VAULT_CACERT: %w", err)

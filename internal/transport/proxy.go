@@ -45,9 +45,17 @@ type Dialer = func(ctx context.Context, network, addr string) (net.Conn, error)
 var envDistrusted atomic.Bool
 
 // DistrustEnv says the environment of this process is an AI agent's: no
-// proxy is taken from it. The komando program calls it for an agent; an
-// app's calls never reach its process environment.
-func DistrustEnv() { envDistrusted.Store(true) }
+// proxy, and no CA a client library would read from it (AWS_CA_BUNDLE,
+// VAULT_CACERT), is taken from it. The komando program calls it for an
+// agent; an app's calls never reach its process environment. undo is for
+// tests.
+func DistrustEnv() (undo func()) {
+	envDistrusted.Store(true)
+	return func() { envDistrusted.Store(false) }
+}
+
+// EnvDistrusted reports whether the environment is an AI agent's.
+func EnvDistrusted() bool { return envDistrusted.Load() }
 
 // Proxy picks the company proxy that HTTPS_PROXY, HTTP_PROXY and NO_PROXY
 // (or their lower-case names) name, read when a request is made, or none

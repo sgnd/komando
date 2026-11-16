@@ -114,6 +114,14 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region, temp: sessionToken != ""}, nil
 }
 
+// proxiedTransport is the shared transport through a person's company
+// proxy: minio's own would take an AI agent's proxy and SSL_CERT_FILE.
+func proxiedTransport() *http.Transport {
+	tr := transport.HTTP()
+	tr.Proxy = transport.Proxy()
+	return tr
+}
+
 // trustCA makes tr trust the conn's ?ca= certificate too, as well as the
 // usual ones: a private CA (a company's, or a proxy's that inspects TLS)
 // on the way to the storage or, for Google Cloud, to its login.
@@ -159,7 +167,7 @@ func ListBuckets(ctx context.Context, endpoint, accessKey, secret, sessionToken,
 		}
 		host, secure = u.Host, u.Scheme == "https"
 	}
-	c, err := minio.New(host, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secret, sessionToken), Secure: secure, Region: region})
+	c, err := minio.New(host, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secret, sessionToken), Secure: secure, Region: region, Transport: proxiedTransport()})
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +318,7 @@ func (s *s3Bucket) LinkAt(ctx context.Context, key string, expires time.Duration
 			return nil, toErr(err)
 		}
 	}
-	pub, err := minio.New(endpoint.Host, &minio.Options{Creds: s.creds, Secure: endpoint.Scheme == "https", Region: region})
+	pub, err := minio.New(endpoint.Host, &minio.Options{Creds: s.creds, Secure: endpoint.Scheme == "https", Region: region, Transport: proxiedTransport()})
 	if err != nil {
 		return nil, out.Usage("--endpoint %s: %v", endpoint, err)
 	}

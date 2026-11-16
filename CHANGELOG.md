@@ -34,6 +34,8 @@ its highlights; the sections below them give the details. Versions follow
   CAs a conn, VPN or kubeconfig names. On Linux, and on macOS with Go
   1.27, an agent's own CA plus its proxy read stored VPN passwords,
   cluster tokens and registry and storage logins.
+  The AWS SDK, minio and the Google token clients get komando's transport
+  too, and an agent's `AWS_CA_BUNDLE` and `VAULT_CACERT` are ignored.
 - A Kubernetes Secret's values in `cluster get`, the hidden arguments in
   `cluster run`'s audit and dry run, and the `cluster apply --dry-run`
   diff now read `[hidden]`, `[hidden, changed]` and `[hidden, new]`, the

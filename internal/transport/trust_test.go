@@ -18,14 +18,15 @@ import (
 // A person's HTTPS_PROXY is used; once the environment is an AI agent's
 // (DistrustEnv), no proxy comes from it.
 func TestProxyNotFromAnAgentsEnv(t *testing.T) {
-	t.Cleanup(func() { envDistrusted.Store(false) })
+	undo := func() {}
+	t.Cleanup(func() { undo() })
 	t.Setenv("HTTPS_PROXY", "http://proxy.example.com:3128")
 	t.Setenv("NO_PROXY", "")
 	req := &http.Request{URL: &url.URL{Scheme: "https", Host: "vpn.example.com"}}
 	if u, err := Proxy()(req); err != nil || u == nil || u.Host != "proxy.example.com:3128" {
 		t.Fatalf("a person's proxy: %v %v", u, err)
 	}
-	DistrustEnv()
+	undo = DistrustEnv()
 	if u, err := Proxy()(req); err != nil || u != nil {
 		t.Fatalf("an agent's proxy was taken: %v %v", u, err)
 	}
