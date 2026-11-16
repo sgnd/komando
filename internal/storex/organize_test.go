@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"io/fs"
 	"net/http/httptest"
 	"os"
@@ -13,8 +12,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/pkg/sftp"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
@@ -263,34 +260,19 @@ func TestOrganizeFTP(t *testing.T) {
 	}
 }
 
-// localSFTP is an SFTP server in this process over pipes, serving the
-// local file system, as an SFTP conn whose folder is dir.
-func localSFTP(t *testing.T, dir string) Bucket {
+// localSFTPBucket is the in-process SFTP server of localSFTP, as an SFTP
+// conn whose folder is dir.
+func localSFTPBucket(t *testing.T, dir string) Bucket {
 	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("a local SFTP server stands in for a Unix server")
 	}
-	cr, sw := io.Pipe()
-	sr, cw := io.Pipe()
-	srv, err := sftp.NewServer(struct {
-		io.Reader
-		io.WriteCloser
-	}{sr, sw})
-	if err != nil {
-		t.Fatal(err)
-	}
-	go func() { _ = srv.Serve() }()
-	sc, err := sftp.NewClientPipe(cr, cw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { cw.Close(); sw.Close(); sc.Close(); srv.Close() })
-	return NewSFTP(sc, strings.TrimPrefix(filepath.ToSlash(dir), "/")+"/", nil)
+	return NewSFTP(localSFTP(t), strings.TrimPrefix(filepath.ToSlash(dir), "/")+"/", nil)
 }
 
 func TestOrganizeSFTP(t *testing.T) {
 	dir := t.TempDir()
-	b := localSFTP(t, dir)
+	b := localSFTPBucket(t, dir)
 	organizeSteps(t, b, false)
 	if fi, err := os.Stat(filepath.Join(dir, "new", "deep")); err != nil || !fi.IsDir() {
 		t.Errorf("mkdir on the server: %v", err)
@@ -299,7 +281,7 @@ func TestOrganizeSFTP(t *testing.T) {
 
 func TestSFTPChmod(t *testing.T) {
 	dir := t.TempDir()
-	b := localSFTP(t, dir)
+	b := localSFTPBucket(t, dir)
 	ctx := context.Background()
 	if err := b.Put(ctx, "app/config.yml", strings.NewReader("x"), 1, ""); err != nil {
 		t.Fatal(err)
