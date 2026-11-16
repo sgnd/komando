@@ -40,14 +40,23 @@ func connURLSettings(rawURL string) []string {
 	if err != nil {
 		return nil
 	}
+	// split on & and ; both: url.Query drops a pair holding ';', and the
+	// MongoDB driver reads ';' as a separator, so a setting joined with
+	// ';' would move the login unseen. A pair that does not decode counts
+	// as it is written.
 	var set []string
-	for k, vs := range u.Query() {
+	for _, pair := range strings.FieldsFunc(u.RawQuery, func(r rune) bool { return r == '&' || r == ';' }) {
+		k, v, _ := strings.Cut(pair, "=")
+		if dk, err := url.QueryUnescape(k); err == nil {
+			k = dk
+		}
+		if dv, err := url.QueryUnescape(v); err == nil {
+			v = dv
+		}
 		if connSafeSettings[strings.ToLower(k)] {
 			continue
 		}
-		for _, v := range vs {
-			set = append(set, k+"="+v)
-		}
+		set = append(set, k+"="+v)
 	}
 	sort.Strings(set)
 	return set
