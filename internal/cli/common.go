@@ -406,6 +406,16 @@ func protectedHost(st *store.State, h *store.Host) bool {
 			return true
 		}
 	}
+	// a protected sftp:// conn is an SSH server too (protectedConn reads
+	// the link the other way)
+	for _, c := range st.Conns {
+		if !c.Protected {
+			continue
+		}
+		if o := sftpHost(c); o != nil && o.EffectivePort() == h.EffectivePort() && sameServer(o.Address, h.Address) {
+			return true
+		}
+	}
 	return false
 }
 

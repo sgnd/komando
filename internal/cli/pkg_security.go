@@ -523,6 +523,10 @@ func pkgUpgradeSecurity(c *cobra.Command, noSudo *bool) *cobra.Command {
 // pkgSecurity lists the pending security updates (pkg security), or with
 // apply installs them (pkg upgrade --security), which then audits and
 // prints as pkg.upgrade.
+// pkgSecRefresh is whether this run refreshes the package index first: a
+// dry run changes nothing on the server, so it lists from the index as it is.
+func pkgSecRefresh(cl *call, refresh bool) bool { return refresh && !cl.flags.dryRun }
+
 func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, keepGoing, sudo bool) error {
 	st, err := loadState()
 	if err != nil {
@@ -540,9 +544,12 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 	// an essential package may go only with --allow-dangerous, asked before
 	// anything runs (the script stops on the server when it would happen)
 	guardEssential := !cl.flags.allowDangerous || (change && !cl.dangerOK("the security updates may remove a package the server needs", targetsWhy(st, hosts)))
+	asked := refresh
+	refresh = pkgSecRefresh(cl, refresh)
 	script := pkgSecScript(change, refresh, guardEssential)
-	if apply {
-		// protected servers need --yes; a dry run records the stop as would_be_blocked
+	if apply || asked {
+		// protected servers need --yes, for the updates and for a new
+		// package index alike; a dry run records the stop as would_be_blocked
 		if gerr := guard(cl, st, hosts, script, true); gerr != nil {
 			audit(cl, st, id, hostNames(hosts), display, false, map[string]any{"blocked": toErr(gerr).Code})
 			return gerr

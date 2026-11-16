@@ -229,3 +229,33 @@ func TestPkgSecText(t *testing.T) {
 		}
 	}
 }
+
+// --refresh rewrites the server's package index as root, which is a
+// change: on a protected server pkg upgradable and pkg security need a yes
+// for it, and a dry run never refreshes.
+func TestPkgRefreshIsAChange(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
+	mustRun(t, "host", "edit", "web1", "--protected")
+	wantCode(t, "PROTECTED_HOST", "pkg", "security", "web1", "--refresh")
+	wantCode(t, "PROTECTED_HOST", "pkg", "upgradable", "web1", "--refresh")
+	for _, args := range [][]string{{"pkg", "security", "web1"}, {"pkg", "upgradable", "web1"}} {
+		if _, e := invRun(t, args...); e == nil || e.Code == "PROTECTED_HOST" {
+			t.Errorf("%v only lists: %+v", args, e)
+		}
+	}
+	for _, args := range [][]string{{"pkg", "security", "web1", "--refresh", "--dry-run"}, {"pkg", "upgradable", "web1", "--refresh", "--dry-run"}} {
+		if _, text := runMain(t, args...); !strings.Contains(text, "would_be_blocked") || !strings.Contains(text, "PROTECTED_HOST") {
+			t.Errorf("%v: %s", args, text)
+		}
+	}
+	defer func() { tcl.flags.dryRun = false }()
+	tcl.flags.dryRun = false
+	if !pkgSecRefresh(tcl, true) || pkgSecRefresh(tcl, false) {
+		t.Error("a real run refreshes when asked")
+	}
+	tcl.flags.dryRun = true
+	if pkgSecRefresh(tcl, true) {
+		t.Error("a dry run sends REFRESH=1")
+	}
+}
