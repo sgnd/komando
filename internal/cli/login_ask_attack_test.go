@@ -39,6 +39,9 @@ func TestLoginAskConnURLSettingsAreThePlace(t *testing.T) {
 		{"c1", "rediss://default@10.0.0.5:6379/0?sentinel=m&sentinels=203.0.113.66:26379&sentinel_auth=same"},
 		{"m1", "mongodb://app@10.0.0.5:27017,203.0.113.66:27017/app?authMechanism=PLAIN"},
 		{"q1", "amqp://guest@127.0.0.1:5672/?management=4444"},
+		// ';' joins settings for the MongoDB driver, which url.Query drops
+		{"m1", "mongodb://app@10.0.0.5:27017/app?appName=x;tlsInsecure=true"},
+		{"m1", "mongodb://app@10.0.0.5:27017/app?appName=x;tlsCAFile=/tmp/evil.pem"},
 	} {
 		e := wantCode(t, "NEEDS_PERSON", "conn", "edit", c.conn, "--url", c.url)
 		if !strings.Contains(e.Hint, "in their own terminal") {

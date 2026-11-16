@@ -222,6 +222,9 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	if err := importVpnPlaces(cl, st, vpns); err != nil {
 		return err
 	}
+	if err := guardImportVpns(cl, st, vpns); err != nil {
+		return err
+	}
 	for _, v := range vpns { // so hosts and conns can use them with --via
 		st.Vpns[v.Name] = v
 	}
@@ -406,10 +409,13 @@ func importSkipper(cl *call, st *store.State, overwrite bool) func(kind, name st
 		if err := checkEntryName(kind, name); err != nil {
 			return toErr(err).Message
 		}
-		// a protected conn is skipped like a protected server (vetImportHosts),
+		// a protected conn or VPN is skipped like a protected server (vetImportHosts),
 		// so a dry run lists it as skipped, as the real run does, and the
 		// rest of the file still comes in
 		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !cl.yesOK() {
+			return importProtectedSkip
+		}
+		if v, ok := st.Vpns[name]; ok && kind == "vpn" && overwrite && v.Protected && !cl.yesOK() {
 			return importProtectedSkip
 		}
 		if err := checkNewName(cl, st, kind, name, overwrite); err != nil {

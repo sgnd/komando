@@ -100,7 +100,7 @@ func authMethods(ctx context.Context, st *store.State, h *store.Host, timeout ti
 	}
 	signers = append(signers, fromAgent...)
 	if h.Key == "" && h.Identity == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := store.UserHome()
 		for _, n := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
 			p := filepath.Join(home, ".ssh", n)
 			if s, _ := lk.keyFile(p, "", nil, false); s != nil {
@@ -572,7 +572,7 @@ func (c *agentDeadline) Read(b []byte) (int, error) { return c.conn.Read(b) }
 
 func expand(p string) string {
 	if strings.HasPrefix(p, "~/") {
-		home, _ := os.UserHomeDir()
+		home, _ := store.UserHome()
 		return filepath.Join(home, p[2:])
 	}
 	return p

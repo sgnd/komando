@@ -57,7 +57,8 @@ func keyFileType(t string) string {
 func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *LoginAsk) (ssh.HostKeyCallback, error) {
 	name := h.Name
 	ask := h.AskLogin() && q != nil
-	if policy == "off" {
+	switch policy {
+	case "off":
 		if !ask {
 			return ssh.InsecureIgnoreHostKey(), nil
 		}
@@ -70,6 +71,9 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 			q.NewKey = &k
 			return nil
 		}, nil
+	case "", "accept-new", "strict":
+	default: // a typo of strict must not pin as accept-new does
+		return nil, fmt.Errorf("host key policy %q is not accept-new, strict or off", policy)
 	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		// a known server is checked in a read step; only a new one takes

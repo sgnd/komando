@@ -15,7 +15,7 @@ func tunnelServeProcess(cl *call, self, id string, logins map[string]string) *ex
 	pargs := []string{"tunnel", "serve", id}
 	if cl.flags.hostKeyPolicy != "" {
 		pargs = append(pargs, "--host-key-policy", cl.flags.hostKeyPolicy)
-		if cl.flags.hostKeyPolicy == "off" {
+		if what, _ := hostKeyFlagWhat(cl); what != "" {
 			pargs = append(pargs, "--yes") // checked by this command already
 		}
 	}

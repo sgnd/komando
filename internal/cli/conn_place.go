@@ -40,14 +40,23 @@ func connURLSettings(rawURL string) []string {
 	if err != nil {
 		return nil
 	}
+	// split on & and ; both: url.Query drops a pair holding ';', and the
+	// MongoDB driver reads ';' as a separator, so a setting joined with
+	// ';' would move the login unseen. A pair that does not decode counts
+	// as it is written.
 	var set []string
-	for k, vs := range u.Query() {
+	for _, pair := range strings.FieldsFunc(u.RawQuery, func(r rune) bool { return r == '&' || r == ';' }) {
+		k, v, _ := strings.Cut(pair, "=")
+		if dk, err := url.QueryUnescape(k); err == nil {
+			k = dk
+		}
+		if dv, err := url.QueryUnescape(v); err == nil {
+			v = dv
+		}
 		if connSafeSettings[strings.ToLower(k)] {
 			continue
 		}
-		for _, v := range vs {
-			set = append(set, k+"="+v)
-		}
+		set = append(set, k+"="+v)
 	}
 	sort.Strings(set)
 	return set
@@ -152,10 +161,19 @@ func dbFileOffLimits(cl *call, p string) string {
 	if err != nil {
 		return ""
 	}
+	dirs := make([]string, 0, len(loginDirs)+1)
+	for _, d := range loginDirs {
+		dirs = append(dirs, filepath.Join(home, d))
+	}
+	// gcloud keeps its logins in the OS config folder on Windows
+	// (%APPDATA%\gcloud), not in ~/.config
+	if cfg, err := os.UserConfigDir(); err == nil {
+		dirs = append(dirs, filepath.Join(cfg, "gcloud"))
+	}
 	for _, q := range []string{abs, realPath(abs), realPath(filepath.Dir(abs))} {
-		for _, d := range loginDirs {
-			if pathIn(q, filepath.Join(home, d)) || pathIn(q, realPath(filepath.Join(home, d))) {
-				return "in " + filepath.Join("~", d) + ", where logins are kept"
+		for _, d := range dirs {
+			if pathIn(q, d) || pathIn(q, realPath(d)) {
+				return "in " + d + ", where logins are kept"
 			}
 		}
 	}

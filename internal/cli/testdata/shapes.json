@@ -724,6 +724,26 @@
     },
     "ok": "bool"
   },
+  "host trust web --fingerprint SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc --dry-run": {
+    "command": "string",
+    "data": {
+      "results": [
+        {
+          "address": "string",
+          "expected_fingerprint": "string",
+          "host": "string",
+          "would_fetch_from": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "job list": {
     "command": "string",
     "data": {

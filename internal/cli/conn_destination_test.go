@@ -211,6 +211,7 @@ func TestSQLiteSensitivePathsRefusedForAgents(t *testing.T) {
 	invHome(t)
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home) // os.UserHomeDir on Windows
 	var paths []string
 	for _, rel := range []string{".config/gcloud/credentials.db", ".ssh/keys.db", ".aws/sso.db", ".azure/msal.db", ".kube/cache.db", ".docker/creds.db"} {
 		p := filepath.Join(home, rel)

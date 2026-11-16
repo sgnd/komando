@@ -126,10 +126,10 @@ func runExportSealed(cl *call, st *store.State, f exportFile, o exportSealOpts, 
 			return err
 		}
 	}
-	if err := exportTarget(to, overwrite); err != nil {
+	if err := exportTarget(cl, to, overwrite); err != nil {
 		return err
 	}
-	if err := writeExport(to, file, overwrite); err != nil {
+	if err := writeExport(cl, to, file, overwrite); err != nil {
 		return err
 	}
 	res.CheckPhrase = sealfile.CheckPhrase(file)
