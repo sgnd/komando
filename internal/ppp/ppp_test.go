@@ -3,6 +3,7 @@ package ppp
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -149,13 +150,13 @@ func recorder(allowPAP bool) (*Peer, *[][2]any) {
 }
 
 // A server that asks for PAP is asked for MS-CHAPv2 instead; one that
-// insists gets ErrPAPRefused, and the password is never sent.
+// insists gets ErrWeakLogin, and the password is never sent.
 func TestPAPRefusedByDefault(t *testing.T) {
 	p, sent := recorder(false)
 	papReq := func(id byte) []byte {
 		return packet(cfgRequest, id, append(opt(3, []byte{0xc0, 0x23}), opt(5, []byte{9, 9, 9, 9})...))
 	}
-	for id := byte(1); id <= papNakMax; id++ {
+	for id := byte(1); id <= weakNakMax; id++ {
 		if err := p.Handle(LCP, papReq(id)); err != nil {
 			t.Fatalf("request %d: %v", id, err)
 		}
@@ -165,10 +166,10 @@ func TestPAPRefusedByDefault(t *testing.T) {
 			t.Fatalf("request %d: sent %x, want a Nak asking for MS-CHAPv2", id, last[1])
 		}
 	}
-	if err := p.Handle(LCP, papReq(papNakMax+1)); err != ErrPAPRefused {
+	if err := p.Handle(LCP, papReq(weakNakMax+1)); err != ErrWeakLogin {
 		t.Fatalf("a server insisting on PAP: %v", err)
 	}
-	if err := p.Wait(time.Second); err != ErrPAPRefused {
+	if err := p.Wait(time.Second); err != ErrWeakLogin {
 		t.Fatalf("Wait: %v", err)
 	}
 	for _, f := range *sent {
@@ -200,5 +201,112 @@ func TestPAPAllowed(t *testing.T) {
 	}
 	if last := (*sent)[len(*sent)-1][1].([]byte); last[0] != cfgAck || p.auth != PAP {
 		t.Fatalf("sent %x, auth %x", last, p.auth)
+	}
+}
+
+// A server that asked for MS-CHAPv2 must prove it knows the password
+// before the link comes up: an IPCP Ack or a CHAP Success that skips the
+// login, or dropping the login, used to bring it up without that proof.
+func TestNoLinkWithoutServerProof(t *testing.T) {
+	isUp := func(p *Peer) bool {
+		select {
+		case <-p.up:
+			return true
+		default:
+			return false
+		}
+	}
+	lcpUp := func() *Peer {
+		p, _ := recorder(false)
+		p.Handle(LCP, packet(cfgRequest, 1, opt(3, []byte{0xc2, 0x23, 0x81})))
+		p.Handle(LCP, packet(cfgAck, p.id, nil))
+		return p
+	}
+	// IPCP before the login
+	p := lcpUp()
+	p.Handle(IPCP, packet(cfgNak, 1, opt(3, []byte{10, 1, 2, 3})))
+	p.Handle(IPCP, packet(cfgAck, 2, opt(3, []byte{10, 1, 2, 3})))
+	if isUp(p) || p.ipcpSent {
+		t.Fatal("IPCP came up before the login")
+	}
+	// a Success before any challenge
+	p = lcpUp()
+	p.Handle(CHAP, packet(3, 1, []byte("S=0000000000000000000000000000000000000000")))
+	if p.authDone {
+		t.Fatal("a CHAP Success before the challenge logged in")
+	}
+	// a Success with a wrong proof after the answer
+	p = lcpUp()
+	p.Handle(CHAP, packet(1, 7, append([]byte{16}, "0123456789abcdef"...)))
+	if err := p.Handle(CHAP, packet(3, 7, []byte("S=0000000000000000000000000000000000000000"))); err == nil || p.authDone {
+		t.Fatalf("a wrong server proof: %v", err)
+	}
+	// the login dropped after it was agreed
+	p = lcpUp()
+	var ae *AuthError
+	if err := p.Handle(LCP, packet(cfgRequest, 9, opt(5, []byte{9, 9, 9, 9}))); !errors.As(err, &ae) || p.authDone {
+		t.Fatalf("a dropped login: %v", err)
+	}
+	// a PAP ack nobody asked for
+	p = lcpUp()
+	p.Handle(PAP, packet(2, 1, nil))
+	if p.authDone {
+		t.Fatal("a PAP ack logged in to an MS-CHAPv2 server")
+	}
+}
+
+// The control frames come from the server: none may panic the peer.
+func FuzzPeer(f *testing.F) {
+	f.Add(uint16(LCP), []byte{1, 1, 0, 9, 3, 5, 0xc2, 0x23, 0x81})
+	f.Add(uint16(CHAP), []byte{1, 7, 0, 21, 16, '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'})
+	f.Fuzz(func(t *testing.T, proto uint16, b []byte) {
+		p, _ := recorder(true)
+		for _, pr := range []uint16{LCP, proto, CHAP, PAP, IPCP, IPV6CP} {
+			p.Handle(pr, b)
+		}
+	})
+}
+
+// A server that asks for no login or for CHAP-MD5 proves nothing about
+// itself: without the VPN's opt-in it is asked for MS-CHAPv2 and, if it
+// insists, the link ends with ErrWeakLogin. With the opt-in it is taken.
+func TestWeakLoginsNeedTheOptIn(t *testing.T) {
+	for _, req := range [][]byte{opt(5, []byte{9, 9, 9, 9}), opt(3, []byte{0xc2, 0x23, 5})} {
+		p, sent := recorder(false)
+		for id := byte(1); id <= weakNakMax; id++ {
+			if err := p.Handle(LCP, packet(cfgRequest, id, req)); err != nil {
+				t.Fatalf("%x: request %d: %v", req, id, err)
+			}
+			last := (*sent)[len(*sent)-1][1].([]byte)
+			if last[0] != cfgNak || p.authDone {
+				t.Fatalf("%x: request %d: sent %x, logged in %v", req, id, last, p.authDone)
+			}
+		}
+		if err := p.Handle(LCP, packet(cfgRequest, weakNakMax+1, req)); err != ErrWeakLogin {
+			t.Fatalf("%x: a server insisting: %v", req, err)
+		}
+		q, sent := recorder(true)
+		q.Handle(LCP, packet(cfgRequest, 1, req))
+		if last := (*sent)[len(*sent)-1][1].([]byte); last[0] != cfgAck {
+			t.Fatalf("%x with the opt-in: sent %x", req, last)
+		}
+	}
+	// a challenge outside an agreed CHAP login, and IPCP before LCP, go unanswered
+	p, sent := recorder(true)
+	p.Handle(CHAP, packet(1, 7, append([]byte{16}, "0123456789abcdef"...)))
+	p.authDone = true
+	p.Handle(IPCP, packet(cfgAck, 1, opt(3, []byte{10, 1, 2, 3})))
+	if len(*sent) != 0 || p.ipcpUp {
+		t.Fatalf("answered before LCP: %x", *sent)
+	}
+}
+
+// A VPN without a user name still gets no link from a server that asks
+// for no login, unless the weak logins are allowed.
+func TestNoLoginNeedsTheOptInWithoutAUser(t *testing.T) {
+	p := New(func(uint16, []byte) error { return nil }, "", "")
+	p.Handle(LCP, packet(cfgRequest, 1, opt(5, []byte{9, 9, 9, 9})))
+	if p.authDone {
+		t.Fatal("no login was taken without the opt-in")
 	}
 }

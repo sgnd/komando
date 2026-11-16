@@ -178,9 +178,7 @@ picks another database than the URL's.`},
 				if err != nil {
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
-				if err := secretInBody(cl, file, b); err != nil {
-					return err
-				}
+				secretInBody(cl, file, b)
 				q = string(b)
 			case len(args) == 1:
 				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")

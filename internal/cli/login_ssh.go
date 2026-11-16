@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -161,10 +162,9 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 		_ = c.Wait()
 		return nil, e
 	}
-	// the token, how long to keep the login, the vault passphrase and the
-	// other secret stores' unlock values go on its input, never in its
-	// arguments or environment
-	fmt.Fprintf(stdin, "TOKEN %s\nUNTIL %d\nPASS %s\n", l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
+	if err := holderHello(stdin, l); err != nil {
+		return fail(err)
+	}
 	var cancelled error
 	in := bufio.NewReader(stdout)
 	for {
@@ -217,6 +217,19 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 	}
 }
 
+// holderHello sends the holder of l what it needs first, on its input,
+// never in its arguments or environment: the ticket (guard_spawn.go), the
+// socket's token, how long to keep the login, the vault passphrase and
+// the other secret stores' unlock values.
+func holderHello(stdin io.Writer, l *store.SSHLogin) error {
+	ticket, err := ticketLine([]string{"login-holder", l.Host})
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(stdin, "%sTOKEN %s\nUNTIL %d\nPASS %s\n", ticket, l.Token, l.Until.Unix(), base64.StdEncoding.EncodeToString([]byte(vault.Handoff())))
+	return err
+}
+
 // holderCommand is the background process for a login to name; tests
 // run it in their own binary.
 var holderCommand = func(self, name string) *exec.Cmd {
@@ -256,7 +269,6 @@ func loginHolderCmd() *cobra.Command {
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP) // `login` exits once it is up
 			var outMu sync.Mutex
 			say := func(s string) { outMu.Lock(); fmt.Fprintln(cl.out.W, s); outMu.Unlock() }
 			fail := func(err error) error {
@@ -271,10 +283,16 @@ func loginHolderCmd() *cobra.Command {
 				return exitCode(1)
 			}
 			in := bufio.NewReader(cl.stdin)
+			ticket := readTicket(in)
 			token, until, err := holderStdin(in)
 			if err != nil {
 				return fail(err)
 			}
+			if err := checkTicket(cl, ticket, "login-holder", "login "+args[0]); err != nil {
+				return fail(err)
+			}
+			// only a holder its `login` started outlives it: `login` exits once it is up
+			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP)
 			st, err := loadState()
 			if err != nil {
 				return fail(err)
@@ -390,8 +408,8 @@ func holdUntil(ctx context.Context, c *sshx.Client, until time.Time) string {
 	}
 }
 
-// holderStdin reads what startHolder sends first: the socket's token, the
-// end time and the vault passphrase.
+// holderStdin reads what startHolder sends after the ticket: the socket's
+// token, the end time and the vault passphrase.
 func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 	for _, want := range []string{"TOKEN", "UNTIL", "PASS"} {
 		line, rerr := in.ReadString('\n')

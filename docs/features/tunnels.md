@@ -120,6 +120,17 @@ export NO_PROXY=.internal,10.0.0.0/8     # names and networks reached directly
 | Servers (SSH), databases, caches, FTP and SFTP | not through `HTTPS_PROXY`: `ssh` and `psql` do not read it either, and a company proxy usually lets only web traffic out. Reach them through the proxy added as a VPN, then `--via NAME`: an HTTP proxy with `komando vpn add NAME proxy --proxy-address HOST:PORT`, a SOCKS proxy with `komando vpn add NAME socks --proxy-address HOST:PORT`; or through a bastion |
 | WireGuard, L2TP/IPsec, IPsec and IKEv2 VPNs | not through a proxy: they use UDP, which a web proxy cannot carry |
 
+- `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY` count only when a person
+  runs komando. When an AI agent runs it, its environment is the agent's,
+  and komando takes no proxy from it: otherwise the agent could send
+  every login through a proxy of its own. If an agent's commands must go
+  through the company proxy, add the proxy as a VPN and use `--via`, or
+  for a cluster put `proxy-url` in its kubeconfig.
+- komando checks certificates against the computer's own CAs (and a
+  conn's `?ca=`, a VPN's `--ca` or a kubeconfig's CA). `SSL_CERT_FILE`
+  and `SSL_CERT_DIR` are ignored, on Linux, macOS and Windows: a proxy
+  that inspects TLS needs its CA in the system's trust store, or given as
+  `?ca=` / `--ca`.
 - A kubeconfig's `proxy-url` wins over `HTTPS_PROXY` for that cluster, as
   with `kubectl`. It may be `http://`, `https://` or `socks5://`.
 - A server or conn reached with `--via` goes out through its path, never

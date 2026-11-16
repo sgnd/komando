@@ -413,9 +413,9 @@ func l2tpForm(_ *call) formSpec {
 		vpnPassQ("save", true), vpnRefQ("ref", "pass"),
 		vpnCheckQ(false, "10.0.0.5:22"),
 		vpnLegacyQ(),
-		formMore(formYesNoQ("pap", "Plain login", "Does the old server only take a plain (PAP) login?",
-			"PAP hands the server your password itself. Only when your admin says so; komando asks you to confirm it.", "no",
-			"allow a PAP login", "only safer logins")),
+		formMore(formYesNoQ("pap", "Weak login", "Does the old server only take a weak login (PAP, CHAP-MD5 or none)?",
+			"These do not prove the server is real, and PAP hands it your password itself. Only when your admin says so; komando asks you to confirm it.", "no",
+			"allow a weak login", "only MS-CHAPv2")),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
 		args := vpnPskArgs([]string{"vpn", "add", a["name"], "l2tp", "--server", a["server"]}, a)

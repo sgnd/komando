@@ -28,6 +28,8 @@ var checkedWriters = map[string]bool{"guardLocalWrite": true, "guardDownload": t
 // command's argument points.
 var writesOwnFiles = map[string]string{
 	"placeNew":          "fetchFile's last step, after its guardLocalWrite",
+	"ticketLine":        "a spawn ticket in komando's own spawn folder, named by komando",
+	"checkTicket":       "removes that ticket once it is used",
 	"saveBackup":        "a free name next to an agent settings or skill file (guide install)",
 	"installSkill":      "the skill in ~/.claude/skills or ~/.agents/skills, or in the project (noLinksUnder)",
 	"installAgentHook":  "an agent harness's settings file (guide install)",
