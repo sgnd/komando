@@ -114,21 +114,40 @@ there, and `job wait` connects again by itself after a drop.
 
 On a protected server, a command asks first (at your terminal komando asks
 you; an AI agent or a script adds `--yes` after a person agrees; see
-[Safety](safety.md)), unless you add `--read-only` to say it only looks. komando checks that promise: a command
-that clearly changes something (`rm`, `mv`, `tee`, `> file`, `sed -i`,
-`systemctl restart`, `apt install`, ...) is refused with
-`READ_ONLY_VIOLATION`. In that case drop `--read-only` and confirm the change instead.
+[Safety](safety.md)), unless you add `--read-only` to say it only looks.
 
-On a protected server or conn, `--read-only` is an allowlist: it skips
-the question only for commands komando knows read: `cat`, `tail`, `head`, `ls`,
-`stat`, `df`, `du`, `free`, `uptime`, `ps`, `grep`, `ss`, `journalctl` and
-`systemctl status`/`is-active`, `docker ps`/`logs`/`inspect`,
-`kubectl get`/`describe`/`logs`, `find` without `-delete`/`-exec`, and the
-like, including a shell script built only from them. A command komando does
-not recognise (a program of your own, say) is treated as a change on a
-protected target, so it asks first like any other. On an unprotected server `--read-only` only has to pass the
-`READ_ONLY_VIOLATION` check above. `docker exec` and `cluster exec` check
-their `--read-only` the same way.
+`--read-only` is a strict allowlist, on every server: the command runs only
+when komando knows every part of it only reads. Anything else is refused
+with `READ_ONLY_VIOLATION`; drop `--read-only` and confirm the change
+instead. What passes:
+
+- Plain read tools: `cat`, `tail`, `head`, `ls`, `stat`, `df`, `du`, `free`,
+  `uptime`, `ps`, `grep`, `wc`, `id`, `jq` and the like, also in a pipe, a
+  `for` loop or after `sh -c`.
+- Tools whose options decide, with the options komando knows read: `find`
+  without `-delete`/`-exec`, `sed -n`, `sort`, `awk` that only prints,
+  `journalctl`, `dmesg`, `ss`, `tar -t`, `git log`/`status`/`diff`,
+  `psql -c 'select ...'`, `openssl x509`. A long option is written in full
+  (`--quiet`, not `--qui`): a tool reads a shortened name as any option
+  that starts with it, `sed --in` as `--in-place`.
+- Commands with subcommands, in the forms that read: `systemctl status`,
+  `is-active`, `list-units`, `show`; `docker ps`, `logs`, `inspect`,
+  `stats`; `kubectl get`, `describe`, `logs`, `top`; `ip addr`, `ip route`;
+  `iptables -L`/`-S`; `apt list`, `dpkg -l`, `rpm -q`; `nginx -t`,
+  `sshd -T`. A subcommand komando does not know is refused, not waved
+  through.
+- `sudo -n`, `sudo -u USER`, `timeout 10`, `nice`, `env NAME=VALUE`, `time`
+  and `xargs` (with a plain read tool) in front of such a command.
+
+What does not pass, besides clear changes (`rm`, `tee`, `> file`,
+`sed -i`, `systemctl restart`, `apt install`): a program komando does not
+know (your own tool, `curl`, `wget`, `nc`), an option or subcommand it has
+not heard of, unquoted braces (`{a,b}`), `${x@P}` and other expansions
+bash evaluates, `let`, `printf -v`, `test -v`, and SQL fed to `psql` that
+uses `\gexec`, `\set` or a `:variable`. For a server's state, komando's
+own reads need no shell command at all: `komando facts`, `logs`,
+`svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and
+`cluster exec` check their `--read-only` the same way.
 
 A command komando cannot follow is refused the same way: `eval`, `source`,
 a command name in a variable (`$X file`), a shell or python reading a
@@ -477,8 +496,8 @@ crashed a moment ago can still show until the next komando command.
   hands words to another program; komando's own flags go before it.
 - Output longer than `--max-output` (256 KiB per stream) is cut.
 - `--timeout` is per server (default 5m); a job is the way past it.
-- `--read-only` on a protected target skips the question only for commands
-  komando knows read; script arguments (`--arg`, words after `bash -s --`)
+- `--read-only` runs only commands komando knows only read, on every
+  target; script arguments (`--arg`, words after `bash -s --`)
   are refused under it.
 - `exec --script` cannot be combined with `--stdin-file` or `--pty`.
 - A recipe `--var` value may not start with `-` (except a number or a time
