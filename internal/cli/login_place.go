@@ -214,21 +214,28 @@ func sortedVpnNames(s *store.State) []string {
 	return names
 }
 
-// defaultUserChanges: default_user is the account a login-ask server with
-// no user of its own logs in as, so changing it changes where its typed
-// password goes.
+// defaultUserChanges: default_user is the account a server with no user
+// of its own logs in as, so changing it changes where a typed password
+// goes: for a login-ask server, and for a jump server on the way to a
+// login-ask server or conn.
 func defaultUserChanges(s *store.State, v string) []string {
 	if v == s.Settings.DefaultUser {
 		return nil
 	}
-	var names []string
+	var names, what []string
 	for _, h := range s.SortedHosts() {
-		if h.AskLogin() && h.User == "" {
+		if h.User != "" {
+			continue
+		}
+		if h.AskLogin() {
 			names = append(names, h.Name)
 		}
+		if users := askUsersThrough(s, h.Name); len(users) > 0 {
+			what = append(what, "default_user is the account of server "+h.Name+" on the way to login-ask "+strings.Join(users, ", "))
+		}
 	}
-	if len(names) == 0 {
-		return nil
+	if len(names) > 0 {
+		what = append([]string{"default_user is the account login-ask " + nouns(len(names), "server") + " " + strings.Join(names, ", ") + " log in as"}, what...)
 	}
-	return []string{"default_user is the account login-ask " + nouns(len(names), "server") + " " + strings.Join(names, ", ") + " log in as"}
+	return what
 }
