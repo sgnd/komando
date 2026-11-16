@@ -20,7 +20,7 @@ sight.
 3. `komando schema COMMAND` whenever you are unsure about a flag.
 
 If `komando` is not installed, stop and ask the human to install it:
-`curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
+`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
 Update komando only when the human asks: `komando update` (when it stops with
 `NOT_WRITABLE`, ask them to run `sudo komando update`).
 

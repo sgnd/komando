@@ -1,19 +1,25 @@
 #!/bin/sh
 # Install the latest komando release.
 #
-#   curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
+#   curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 #
 # Installs to /usr/local/bin when writable, otherwise ~/.local/bin.
 # Override with KOMANDO_INSTALL_DIR=/some/dir: it is made if missing, and the script
 # stops if it cannot write there (it never puts komando somewhere else).
 # Install one version with KOMANDO_VERSION=v0.3.1.
 #
-# The checksum comes from the same release as the archive. To check that an
-# archive was built by komando's release workflow, download it and run
+# A release is installed only when its checksums.txt is signed with the
+# komando project's key (checksums.txt.sig), the check `komando update`
+# makes, and the archive matches checksums.txt. The check needs OpenSSL 3
+# or perl; a computer with neither installs nothing. To check as well that
+# an archive was built by komando's release workflow, download it and run
 # `gh attestation verify FILE --repo sgnd/komando` (see SECURITY.md).
 set -eu
 
 REPO="sgnd/komando"
+# The komando project's release keys (Ed25519 public keys in base64, with a
+# space between two): the same list as Keys in internal/releasesig/releasesig.go.
+KEYS="GO75zZSPgMzciJXLqfbDrefUFaNQo3sfAZJx1NWxv2k="
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "$os" in
@@ -64,9 +70,14 @@ trap 'rm -rf "$tmp"' EXIT
 # a komando here already: this run is an update
 prev=$(command -v komando 2>/dev/null || true)
 
+# fetch URL FILE: download over HTTPS only, redirects included
+fetch() {
+  curl --proto '=https' --proto-redir '=https' --tlsv1.2 -fsSL -o "$2" "$1"
+}
+
 # get URL FILE: download, or say in words why not
 get() {
-  if curl -fsSL "$1" -o "$2"; then return 0; fi
+  if fetch "$1" "$2"; then return 0; fi
   if [ -n "${v:-}" ]; then
     echo "Could not download komando $v. Is there such a version? See https://github.com/$REPO/releases" >&2
   else
@@ -75,12 +86,155 @@ get() {
   exit 1
 }
 
+# unsigned_release VERSION: one of the releases up to 0.13.0, which were
+# made before releases were signed
+unsigned_release() {
+  n=${1#v}
+  case "$n" in
+    0.13.0) return 0 ;;
+    0.[0-9].* | 0.1[0-2].*) n=${n#0.*.} ;;
+    *) return 1 ;;
+  esac
+  case "$n" in "" | *[!0-9]*) return 1 ;; esac
+  return 0
+}
+
+# checked_by PROGRAM KEY SIGNATURE: PROGRAM finds that SIGNATURE (base64) is
+# the signature of checksums.txt by KEY (base64)
+checked_by() {
+  case "$1" in
+    openssl)
+      # the key as OpenSSL reads it: the 12 bytes that say "Ed25519 public
+      # key" (MCowBQYDK2VwAyEA in base64), then the key
+      printf '%s\n' '-----BEGIN PUBLIC KEY-----' "MCowBQYDK2VwAyEA$2" '-----END PUBLIC KEY-----' >"$tmp/key"
+      printf '%s' "$3" | openssl base64 -d -A >"$tmp/sig" 2>/dev/null || return 1
+      openssl pkeyutl -verify -pubin -inkey "$tmp/key" -rawin -in "$tmp/checksums.txt" -sigfile "$tmp/sig" >/dev/null 2>&1
+      ;;
+    perl) perl -e "$ed25519_pl" "$2" "$3" "$tmp/checksums.txt" >/dev/null 2>&1 ;;
+  esac
+}
+
+# can_check PROGRAM: PROGRAM is here and can check an Ed25519 signature
+# (the openssl of macOS is LibreSSL, which cannot; OpenSSL 3 can)
+can_check() {
+  command -v "$1" >/dev/null 2>&1 || return 1
+  case "$1" in
+    openssl) openssl pkeyutl -help 2>&1 | grep -q -e -rawin ;;
+    perl) perl -MMath::BigInt -MDigest::SHA -MMIME::Base64 -e 1 >/dev/null 2>&1 ;;
+  esac
+}
+
+# Ed25519 (RFC 8032) in perl, for a computer without OpenSSL 3: ends with 0
+# when the signature (base64) of the file is by the key (base64).
+# shellcheck disable=SC2016 # perl's variables, not the shell's
+ed25519_pl='
+use strict; use warnings;
+use Math::BigInt; use Digest::SHA qw(sha512); use MIME::Base64;
+my ($key, $sig) = map { decode_base64($_) } @ARGV[0, 1];
+exit 1 unless length($key) == 32 && length($sig) == 64;
+open(my $fh, "<:raw", $ARGV[2]) or exit 1;
+my $msg = do { local $/; <$fh> };
+my $two255 = Math::BigInt->new(2)->bpow(255);
+my $p = $two255 - 19;
+my $L = Math::BigInt->new(2)->bpow(252) + Math::BigInt->new("27742317777372353535851937790883648493");
+my $d = (Math::BigInt->new(-121665) * Math::BigInt->new(121666)->bmodinv($p)) % $p;
+my $sqrtm1 = Math::BigInt->new(2)->bmodpow(($p - 1) / 4, $p);
+# a number from its bytes, lowest first
+sub num { Math::BigInt->new("0x" . unpack("H*", scalar reverse $_[0])) }
+# the point with this y whose x is odd (sign 1) or even (sign 0), if any
+sub point {
+  my ($y, $sign) = @_;
+  return if $y >= $p;
+  my $xx = (($y * $y - 1) * (($d * $y * $y + 1) % $p)->bmodinv($p)) % $p;
+  my $x = $xx->copy->bmodpow(($p + 3) / 8, $p);
+  $x = ($x * $sqrtm1) % $p if ($x * $x - $xx) % $p != 0;
+  return if ($x * $x - $xx) % $p != 0;
+  return if $x == 0 && $sign == 1;
+  $x = $p - $x if $x % 2 != $sign;
+  return [$x, $y, Math::BigInt->new(1), ($x * $y) % $p];
+}
+sub add {
+  my ($P, $Q) = @_;
+  my $A = (($P->[1] - $P->[0]) * ($Q->[1] - $Q->[0])) % $p;
+  my $B = (($P->[1] + $P->[0]) * ($Q->[1] + $Q->[0])) % $p;
+  my $C = (2 * $P->[3] * $Q->[3] * $d) % $p;
+  my $D = (2 * $P->[2] * $Q->[2]) % $p;
+  my ($E, $F, $G, $H) = ($B - $A, $D - $C, $D + $C, $B + $A);
+  return [($E * $F) % $p, ($G * $H) % $p, ($F * $G) % $p, ($E * $H) % $p];
+}
+sub mul {
+  my ($n, $P) = @_;
+  my $Q = [Math::BigInt->new(0), Math::BigInt->new(1), Math::BigInt->new(1), Math::BigInt->new(0)];
+  for my $bit (split //, substr($n->as_bin, 2)) {
+    $Q = add($Q, $Q);
+    $Q = add($Q, $P) if $bit;
+  }
+  return $Q;
+}
+sub bytes {
+  my $P = shift;
+  my $zi = $P->[2]->copy->bmodinv($p);
+  my ($x, $y) = (($P->[0] * $zi) % $p, ($P->[1] * $zi) % $p);
+  $y = $y + $two255 if $x % 2 == 1;
+  my $h = substr($y->as_hex, 2);
+  return scalar reverse pack("H*", ("0" x (64 - length $h)) . $h);
+}
+my $base = point((4 * Math::BigInt->new(5)->bmodinv($p)) % $p, 0);
+my $ky = num($key);
+my $A = point($ky % $two255, $ky >= $two255 ? 1 : 0) or exit 1;
+my $s = num(substr($sig, 32));
+exit 1 if $s >= $L;
+my $h = num(sha512(substr($sig, 0, 32) . $key . $msg)) % $L;
+my $negA = [($p - $A->[0]) % $p, $A->[1], $A->[2], ($p - $A->[3]) % $p];
+exit(bytes(add(mul($s, $base), mul($h, $negA))) eq substr($sig, 0, 32) ? 0 : 1);
+'
+
+# check_signature: stop unless checksums.txt is signed with one of KEYS
+check_signature() {
+  refused="nothing was installed. Do not install it another way: someone may have replaced the release's files.
+Run the line again; if it happens again, report it privately at https://github.com/$REPO/security"
+  if ! fetch "$base/checksums.txt.sig" "$tmp/checksums.txt.sig" 2>/dev/null; then
+    echo "This release has no signature (checksums.txt.sig), so the installer cannot tell it comes from the komando project; $refused" >&2
+    exit 1
+  fi
+  # a signature is 64 bytes: 88 characters of base64, one signature a line
+  sigs=$(tr -d '\r' <"$tmp/checksums.txt.sig" | head -n 8 | grep -E '^[A-Za-z0-9+/]{86}==$' || true)
+  if [ -z "$sigs" ]; then
+    echo "This release has no signature (its checksums.txt.sig holds none), so the installer cannot tell it comes from the komando project; $refused" >&2
+    exit 1
+  fi
+  able=
+  for program in openssl perl; do
+    can_check "$program" || continue
+    able=yes
+    for key in $KEYS; do
+      for sig in $sigs; do
+        if checked_by "$program" "$key" "$sig"; then return 0; fi
+      done
+    done
+  done
+  if [ -z "$able" ]; then
+    echo "The installer checks that a release is signed by the komando project, and needs OpenSSL 3 or perl (with Math::BigInt) for that. This computer has neither, so nothing was installed." >&2
+    echo "Install one (the package is named openssl or perl), then run the line again." >&2
+    exit 1
+  fi
+  echo "This release is not signed with the komando project's key; $refused" >&2
+  exit 1
+}
+
 echo "Downloading $file ..."
 get "$base/$file" "$tmp/$file"
 get "$base/checksums.txt" "$tmp/checksums.txt"
 
+if [ -n "${v:-}" ] && unsigned_release "$v"; then
+  echo "Note: komando ${v#v} has no signature (releases up to 0.13.0 have none), so only its checksum is checked."
+else
+  echo "Verifying signature ..."
+  check_signature
+fi
+
 echo "Verifying checksum ..."
-expected=$(grep " $file\$" "$tmp/checksums.txt" | cut -d' ' -f1)
+expected=$(awk -v f="$file" '$2 == f { print $1 }' "$tmp/checksums.txt")
 if command -v sha256sum >/dev/null 2>&1; then
   actual=$(sha256sum "$tmp/$file" | cut -d' ' -f1)
 else
@@ -128,7 +282,7 @@ if [ -n "$now" ] && [ "$now" != "$dir/komando" ]; then
   echo
   echo "Note: your terminal runs another komando first: $now"
   echo "Remove that one, or install into its folder instead (with sudo if only root may write there):"
-  echo "  curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | KOMANDO_INSTALL_DIR=${now%/*} sh"
+  echo "  curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | KOMANDO_INSTALL_DIR=${now%/*} sh"
   echo "\`komando version\` shows which one runs."
 fi
 echo
