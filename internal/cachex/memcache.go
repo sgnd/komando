@@ -2,6 +2,7 @@ package cachex
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
@@ -125,12 +126,32 @@ func validKey(k string) error {
 	return nil
 }
 
+// mcMaxBlock is the largest value komando reads: memcached's own ceiling
+// for one item (-I) is 1 GiB.
+const mcMaxBlock = 1 << 30
+
+// blockLen reads the length the server announced for a value. The server
+// chooses it, so one that is not a number, is negative or is over
+// mcMaxBlock is an error.
+func blockLen(s string) (int, error) {
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 0 || n > mcMaxBlock {
+		return 0, fmt.Errorf("the server sent a bad value length %q", s)
+	}
+	return n, nil
+}
+
+// block reads a value of n bytes and its closing line end. Memory grows
+// with the bytes that arrive, not with the length the server announced.
 func (m *memcache) block(n int) ([]byte, error) {
-	b := make([]byte, n+2)
-	if _, err := io.ReadFull(m.r, b); err != nil {
+	if n < 0 || n > mcMaxBlock {
+		return nil, fmt.Errorf("the server sent a bad value length %d", n)
+	}
+	var b bytes.Buffer
+	if _, err := io.CopyN(&b, m.r, int64(n)+2); err != nil {
 		return nil, err
 	}
-	return b[:n], nil
+	return b.Bytes()[:n], nil
 }
 
 func (m *memcache) Get(ctx context.Context, key string, _ int64, maxBytes int) (*Value, error) {
@@ -152,7 +173,7 @@ func (m *memcache) Get(ctx context.Context, key string, _ int64, maxBytes int) (
 	if len(f) < 2 || f[0] != "VA" {
 		return nil, mcErr(fmt.Errorf("unexpected answer %q", line))
 	}
-	n, err := strconv.Atoi(f[1])
+	n, err := blockLen(f[1])
 	if err != nil {
 		return nil, mcErr(err)
 	}
@@ -187,7 +208,10 @@ func (m *memcache) classicGet(ctx context.Context, key string, maxBytes int) (*V
 	if len(f) < 4 || f[0] != "VALUE" {
 		return nil, mcErr(fmt.Errorf("unexpected answer %q", line))
 	}
-	n, _ := strconv.Atoi(f[3])
+	n, err := blockLen(f[3])
+	if err != nil {
+		return nil, mcErr(err)
+	}
 	data, err := m.block(n)
 	if err != nil {
 		return nil, mcErr(err)
@@ -444,7 +468,10 @@ func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
 		f := strings.Fields(l)
 		switch {
 		case len(f) >= 4 && f[0] == "VALUE":
-			n, _ := strconv.Atoi(f[3])
+			n, err := blockLen(f[3])
+			if err != nil {
+				return nil, mcErr(err)
+			}
 			data, err := m.block(n)
 			if err != nil {
 				return nil, mcErr(err)
@@ -452,7 +479,10 @@ func (m *memcache) Run(ctx context.Context, args []string) (any, error) {
 			lines = append(lines, map[string]any{"key": f[1], "value": text(string(data))})
 			continue
 		case len(f) >= 2 && f[0] == "VA":
-			n, _ := strconv.Atoi(f[1])
+			n, err := blockLen(f[1])
+			if err != nil {
+				return nil, mcErr(err)
+			}
 			data, err := m.block(n)
 			if err != nil {
 				return nil, mcErr(err)
