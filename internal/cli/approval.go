@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,12 +95,18 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 	sess := cl.sess
 	sess.Lock()
 	defer sess.Unlock()
-	if w := sess.Window(); w.Asked && (what == "" || sess.Shown(what) || !w.Allowed) {
+	// a yes covers what its window showed: what the flag lets through, the
+	// file the command sends, and the reasons komando gave. A check that
+	// brings one of these new (a script noted after the --reveal window, a
+	// protected server named after it) asks again, with it in the window.
+	// A no stands for the whole command.
+	need := shownKeys(cl, what, why)
+	if w := sess.Window(); w.Asked && (!w.Allowed || !slices.ContainsFunc(need, func(k string) bool { return !sess.Shown(k) })) {
 		return w.Allowed
 	}
 	sess.SetAsked(false)
-	if what != "" {
-		sess.MarkShown(what)
+	for _, k := range need {
+		sess.MarkShown(k)
 	}
 	line := commandLine(cl)
 	bad := hiddenArgs(cl.args[1:])
@@ -155,6 +164,25 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 		sess.SetWhy("no-screen")
 	}
 	return sess.Window().Allowed
+}
+
+// shownKeys names what a window for this check shows besides the command
+// line: what, the body the command sends (by its SHA-256) and each reason.
+func shownKeys(cl *call, what string, why []string) []string {
+	var keys []string
+	if what != "" {
+		keys = append(keys, what)
+	}
+	if cl.body != nil {
+		sum := sha256.Sum256(cl.body.body)
+		keys = append(keys, "body "+cl.body.label+" "+hex.EncodeToString(sum[:]))
+	}
+	for _, w := range why {
+		if w = strings.TrimSpace(w); w != "" {
+			keys = append(keys, "why "+w)
+		}
+	}
+	return keys
 }
 
 // askPerson opens the window: with a field for the code when the approval

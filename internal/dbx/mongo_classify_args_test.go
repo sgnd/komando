@@ -31,3 +31,36 @@ func TestClassifyMongoProfileValidate(t *testing.T) {
 		}
 	}
 }
+
+// The bulkWrite command deletes or updates every document the same way
+// delete and update do; aggregate with $out replaces a whole collection;
+// killCursors ends another client's query. None is a plain read or write.
+func TestClassifyMongoBulkOutKill(t *testing.T) {
+	for doc, want := range map[string]string{
+		`{"bulkWrite": 1, "ops": [{"delete": 0, "filter": {}, "multi": true}], "nsInfo": [{"ns": "a.b"}]}`:                                   "destructive mongo-delete-all",
+		`{"bulkWrite": 1, "ops": [{"insert": 0, "document": {"a": 1}}, {"delete": 0, "multi": true}], "nsInfo": [{"ns": "a.b"}]}`:            "destructive mongo-delete-all",
+		`{"bulkWrite": 1, "ops": [{"delete": 0, "filter": {}, "multi": false}], "nsInfo": [{"ns": "a.b"}]}`:                                  "write",
+		`{"bulkWrite": 1, "ops": [{"delete": 0, "filter": {"_id": 1}, "multi": true}], "nsInfo": [{"ns": "a.b"}]}`:                           "write",
+		`{"bulkWrite": 1, "ops": [{"update": 0, "filter": {}, "updateMods": {"$set": {"a": 1}}, "multi": true}], "nsInfo": [{"ns": "a.b"}]}`: "destructive mongo-update-all",
+		`{"bulkWrite": 1, "ops": [{"update": 0, "filter": {}, "updateMods": {"$set": {"a": 1}}}], "nsInfo": [{"ns": "a.b"}]}`:                "write",
+		`{"bulkWrite": 1, "ops": [{"insert": 0, "document": {"a": 1}}], "nsInfo": [{"ns": "a.b"}]}`:                                          "write",
+		`{"aggregate": "orders", "pipeline": [{"$group": {"_id": 1}}, {"$out": "users"}], "cursor": {}}`:                                     "destructive mongo-drop",
+		`{"aggregate": "orders", "pipeline": [{"$out": {"db": "x", "coll": "users"}}], "cursor": {}}`:                                        "destructive mongo-drop",
+		`{"aggregate": "orders", "pipeline": [{"$merge": {"into": "totals"}}], "cursor": {}}`:                                                "write",
+		`{"aggregate": "orders", "pipeline": [{"$match": {"a": "$out"}}], "cursor": {}}`:                                                     "read",
+		`{"killCursors": "users", "cursors": [123]}`:                                                                                         "write",
+	} {
+		cmd, _, err := ParseMongoCommand(doc)
+		if err != nil {
+			t.Fatalf("%s: %v", doc, err)
+		}
+		v := ClassifyMongo(cmd)
+		got := v.Risk.String()
+		if len(v.RuleIDs) > 0 {
+			got += " " + v.RuleIDs[0]
+		}
+		if got != want {
+			t.Errorf("%s: %s, want %s", doc, got, want)
+		}
+	}
+}

@@ -28,10 +28,10 @@ func MongoRules() []driver.Rule { return append([]driver.Rule(nil), mongoRules..
 
 var mongoReads = set(`find aggregate count distinct listCollections listIndexes listDatabases collStats dbStats
 dataSize explain serverStatus buildInfo ping hello isMaster ismaster hostInfo connectionStatus getParameter
-currentOp top validate getMore killCursors replSetGetStatus getCmdLineOpts usersInfo rolesInfo
+currentOp top validate getMore replSetGetStatus getCmdLineOpts usersInfo rolesInfo
 getLog dbHash profile listSearchIndexes`)
 
-var mongoWrites = set(`insert update delete findAndModify create createIndexes collMod bulkWrite
+var mongoWrites = set(`insert update delete findAndModify create createIndexes collMod bulkWrite killCursors
 createView renameCollection compact reIndex cloneCollectionAsCapped convertToCapped`)
 
 var mongoDrops = set(`drop dropDatabase dropIndexes deleteIndexes dropUser dropAllUsersFromDatabase dropRole
@@ -78,8 +78,14 @@ func ClassifyMongo(cmd bson.D) driver.Verdict {
 		return hit("mongo-update-all")
 	case name == "renamecollection" && field(cmd, "dropTarget") == true:
 		return hit("mongo-drop")
-	case name == "aggregate" && writesOut(cmd):
-		return driver.Verdict{Risk: driver.RiskWrite, Reasons: []string{"$out or $merge writes the result to a collection"}}
+	case name == "bulkwrite" && anyStatement(cmd, "ops", func(s bson.D) bool { return bulkAll(s, "delete") }):
+		return hit("mongo-delete-all")
+	case name == "bulkwrite" && anyStatement(cmd, "ops", func(s bson.D) bool { return bulkAll(s, "update") }):
+		return hit("mongo-update-all")
+	case name == "aggregate" && pipelineHas(cmd, "$out"):
+		return hit("mongo-drop") // $out replaces the collection it names, whole
+	case name == "aggregate" && pipelineHas(cmd, "$merge"):
+		return driver.Verdict{Risk: driver.RiskWrite, Reasons: []string{"$merge writes the result to a collection"}}
 	case name == "explain":
 		return driver.Verdict{Risk: driver.RiskRead}
 	case name == "profile" && !profileReads(cmd):
@@ -162,12 +168,20 @@ func anyStatement(cmd bson.D, key string, f func(bson.D) bool) bool {
 	return false
 }
 
-func writesOut(cmd bson.D) bool {
+// pipelineHas reports an aggregate pipeline with the stage (its first key).
+func pipelineHas(cmd bson.D, stage string) bool {
 	pipe, _ := field(cmd, "pipeline").(bson.A)
 	for _, st := range pipe {
-		if d, ok := st.(bson.D); ok && len(d) > 0 && (d[0].Key == "$out" || d[0].Key == "$merge") {
+		if d, ok := st.(bson.D); ok && len(d) > 0 && d[0].Key == stage {
 			return true
 		}
 	}
 	return false
+}
+
+// bulkAll: an op of the bulkWrite command (its first key is delete or
+// update) that takes every document: no filter, or an empty one, with
+// multi true.
+func bulkAll(op bson.D, kind string) bool {
+	return len(op) > 0 && op[0].Key == kind && emptyDoc(field(op, "filter")) && field(op, "multi") == true
 }

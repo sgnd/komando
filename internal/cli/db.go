@@ -181,6 +181,7 @@ picks another database than the URL's.`},
 				if err := secretInBody(cl, file, b); err != nil {
 					return err
 				}
+				noteApprovalBody(cl, scriptLabel("the SQL", file), b)
 				q = string(b)
 			case len(args) == 1:
 				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")

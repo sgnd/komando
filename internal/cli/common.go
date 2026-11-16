@@ -318,7 +318,8 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 		for i, h := range hits {
 			ids[i], reasons[i] = h.ID, h.Reason
 		}
-		if len(hits) > 0 && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
+		// one window for both stops: it names the protected servers too
+		if len(hits) > 0 && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protWhy(prot), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
 			// a dry run goes on to the protection check, so meta.would_need names both flags
 			if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 				fmt.Sprintf("the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protNeed(prot)...).Say(dangerSay(reasons), dangerHint)); err != nil {
@@ -326,11 +327,20 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 			}
 		}
 	}
-	if len(prot) > 0 && !cl.yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(cl, prot) {
+	if len(prot) > 0 && !cl.yesOK(protWhy(prot), targetsWhy(st, hosts)) && !confirmProtected(cl, prot) {
 		return cl.policyStop(approvalErr(cl, "PROTECTED_HOST",
 			fmt.Sprintf("this changes protected %s: %s", nouns(len(prot), "server"), strings.Join(prot, ", "))).Say(protectedSay(prot, "server"), protectedHint))
 	}
 	return nil
+}
+
+// protWhy is the approval window's line for the protected servers a
+// command changes, or "" for none.
+func protWhy(prot []string) string {
+	if len(prot) == 0 {
+		return ""
+	}
+	return "a change on protected " + nouns(len(prot), "host") + " " + strings.Join(prot, ", ")
 }
 
 // targetsWhy names the hosts a command runs on, for the approval window.
