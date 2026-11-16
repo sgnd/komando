@@ -269,7 +269,6 @@ func loginHolderCmd() *cobra.Command {
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP) // `login` exits once it is up
 			var outMu sync.Mutex
 			say := func(s string) { outMu.Lock(); fmt.Fprintln(cl.out.W, s); outMu.Unlock() }
 			fail := func(err error) error {
@@ -292,6 +291,8 @@ func loginHolderCmd() *cobra.Command {
 			if err := checkTicket(cl, ticket, "login-holder", "login "+args[0]); err != nil {
 				return fail(err)
 			}
+			// only a holder its `login` started outlives it: `login` exits once it is up
+			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP)
 			st, err := loadState()
 			if err != nil {
 				return fail(err)
