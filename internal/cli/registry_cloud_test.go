@@ -187,9 +187,18 @@ func TestECRLoginNeedsCheckedTLS(t *testing.T) {
 // sends a private key or komando's own data, a person's does.
 func TestCloudCredentialFileHook(t *testing.T) {
 	invHome(t)
+	// invHome moves komando's own folder only. This test writes a stand-in
+	// private key, so the computer's home is a temp folder too: it must
+	// never write into a person's real ~/.ssh.
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatal(err)
+	}
+	if home != tmpHome {
+		t.Fatalf("home is %q, not the test's temp folder: refusing to write a key file", home)
 	}
 	key := filepath.Join(home, ".ssh", "id_ed25519")
 	if err := os.MkdirAll(filepath.Dir(key), 0o700); err != nil {
