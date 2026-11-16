@@ -335,9 +335,15 @@ func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 }
 
 // guardHostSends is guardSends for servers an add, edit or import leaves
-// as now; olds holds each one's settings before, by name (none: new).
-func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, why ...string) error {
-	var lines, weak []string
+// as now; olds holds each one's settings before, by name (none: new). st
+// is the inventory: what reaches its server through one of them counts
+// too (behindSends).
+func guardHostSends(cl *call, st *store.State, now []*store.Host, olds map[string]*store.Host, why ...string) error {
+	lines, err := behindSends(st, now, olds)
+	if err != nil {
+		return err
+	}
+	var weak []string
 	for _, h := range now {
 		var before *secretPlace
 		if o, ok := olds[h.Name]; ok && o != nil {
@@ -352,6 +358,53 @@ func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, wh
 		weak = append(weak, winrmWeak(olds[h.Name], h)...)
 	}
 	return guardSends(cl, lines, weak, why...)
+}
+
+// behindSends lists what the servers and conns behind a moved hop send by
+// the new way: a server in now whose place changed (its address, port,
+// --via or proxy command) takes with it every other server and conn whose
+// --via names it, and their passwords travel that way on the next
+// connection (a conn's database password is typed into the last hop).
+func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host) ([]string, error) {
+	moved := map[string]string{} // hop name: where it is now
+	for _, h := range now {
+		if o := olds[h.Name]; o != nil && hostPlace(o).dest != hostPlace(h).dest {
+			moved[h.Name] = hostPlace(h).dest
+		}
+	}
+	if len(moved) == 0 || st == nil {
+		return nil, nil
+	}
+	var lines []string
+	add := func(label, via string, p secretPlace) error {
+		for _, step := range viaChain(via) {
+			to, ok := moved[step]
+			if !ok || len(p.refs) == 0 {
+				continue
+			}
+			if err := reservedRefs(p.refs); err != nil {
+				return err
+			}
+			lines = append(lines, fmt.Sprintf("%s to %s (%s), by way of %s, now at %s", strings.Join(p.refs, ", "), p.dest, label, step, to))
+		}
+		return nil
+	}
+	for _, n := range sortedKeys(st.Hosts) {
+		h := st.Hosts[n]
+		if slices.ContainsFunc(now, func(x *store.Host) bool { return x.Name == n }) {
+			continue // its own line says where its secrets go
+		}
+		if err := add("server "+n, h.Via, hostPlace(h)); err != nil {
+			return nil, err
+		}
+	}
+	for _, n := range sortedKeys(st.Conns) {
+		c := st.Conns[n]
+		if err := add("conn "+n, c.Via, connPlace(c)); err != nil {
+			return nil, err
+		}
+	}
+	return lines, nil
 }
 
 // winrmWeak is what now's WinRM settings give up that old's did not: the

@@ -126,7 +126,7 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 		}
 		v.Add = append(v.Add, h)
 	}
-	return v, guardHostSends(cl, v.Add, prev)
+	return v, guardHostSends(cl, s, v.Add, prev)
 }
 
 // proxyCommandSkip says why an import leaves out a host whose proxy

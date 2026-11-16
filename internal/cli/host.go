@@ -169,7 +169,7 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 		if err := checkHost(cl, s, h); err != nil {
 			return err
 		}
-		if err := guardHostSends(cl, []*store.Host{h}, s.Hosts); err != nil {
+		if err := guardHostSends(cl, s, []*store.Host{h}, s.Hosts); err != nil {
 			return err // s.Hosts holds the server it replaces, if any
 		}
 		if twin := protectedTwinHost(s, h); twin != "" && !h.Protected {
@@ -289,7 +289,7 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 			}
 			edits = append(edits, edit{h, before})
 		}
-		if err := guardHostEdit(cl, hosts, olds, single); err != nil {
+		if err := guardHostEdit(cl, s, hosts, olds, single); err != nil {
 			return err
 		}
 		for _, e := range edits {
@@ -435,7 +435,7 @@ func editErr(err error, name string, single bool) error {
 // For an AI agent the same window also asks about the secrets the edit
 // sends to a new place (guardHostSends). olds holds each server's settings
 // before the edit.
-func guardHostEdit(cl *call, hosts []*store.Host, olds map[string]*store.Host, single bool) error {
+func guardHostEdit(cl *call, st *store.State, hosts []*store.Host, olds map[string]*store.Host, single bool) error {
 	var names, off, login []string
 	for _, h := range hosts {
 		o := olds[h.Name]
@@ -462,9 +462,9 @@ func guardHostEdit(cl *call, hosts []*store.Host, olds map[string]*store.Host, s
 		why = fmt.Sprintf("this edit changes %d servers: %s (protected: %s)", len(all), strings.Join(all, ", "), strings.Join(names, ", "))
 	}
 	if len(names) == 0 {
-		return guardHostSends(cl, hosts, olds)
+		return guardHostSends(cl, st, hosts, olds)
 	}
-	if err := guardHostSends(cl, hosts, olds, why); err != nil {
+	if err := guardHostSends(cl, st, hosts, olds, why); err != nil {
 		return err
 	}
 	if single {

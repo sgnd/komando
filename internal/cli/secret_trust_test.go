@@ -168,3 +168,40 @@ func TestWinRMOtherCANeedsAPerson(t *testing.T) {
 		t.Errorf("window: %q", *texts)
 	}
 }
+
+// Moving a jump server moves the way to everything reached through it: an
+// AI agent that gives the hop a new address or port needs a person's yes
+// when a conn or server behind it sends a vault password that way.
+func TestMovedHopNeedsAPerson(t *testing.T) {
+	secretHome(t)
+	mustRun(t, "host", "add", "jump", "u@10.0.0.3")
+	mustRun(t, "host", "add", "edge", "u@10.0.0.4")
+	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "edge,jump", "--sudo-ref", "secret:db-pass")
+	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass", "--via", "jump")
+	mustRun(t, "host", "add", "lone", "u@10.0.0.8")
+	texts := windowText(t, true)
+	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--address", "10.6.6.6")
+	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--port", "2222")
+	wantCode(t, "SECRET_DESTINATION", "host", "add", "jump", "u@10.6.6.6", "--overwrite")
+	if len(*texts) != 0 {
+		t.Errorf("no flag, no window: %q", *texts)
+	}
+	if h := mustState(t).Hosts["jump"]; h.Address != "10.0.0.3" || h.EffectivePort() != 22 {
+		t.Errorf("jump moved: %+v", h)
+	}
+	// nothing behind it, or nothing about the way there: not asked
+	mustRun(t, "host", "edit", "lone", "--address", "10.0.0.88")
+	mustRun(t, "host", "edit", "jump", "--add-tag", "hop")
+	if len(*texts) != 0 {
+		t.Errorf("nothing re-routed: %q", *texts)
+	}
+	mustRun(t, "host", "edit", "jump", "--address", "10.6.6.6", "--yes")
+	if len(*texts) != 1 {
+		t.Fatalf("one window: %q", *texts)
+	}
+	for _, want := range []string{"secret:db-pass", "conn shop", "server inner", "10.6.6.6:22"} {
+		if !strings.Contains((*texts)[0], want) {
+			t.Errorf("window lacks %q: %q", want, (*texts)[0])
+		}
+	}
+}
