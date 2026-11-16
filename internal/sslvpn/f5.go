@@ -148,7 +148,9 @@ func F5Tunnel(ctx context.Context, o Options, login string) (Tunnel, error) {
 	t.closeFn = func() { c.Close() }
 	t.ppp = newPPP(t.sendPPP)
 	if a, err := netip.ParseAddr(resp.Header.Get("X-VPN-client-IP")); err == nil {
-		t.ppp.addr = a
+		if a, ok := ipv4(a); ok {
+			t.ppp.addr = a
+		}
 	}
 	go t.read()
 	if err := t.ppp.start(); err != nil {

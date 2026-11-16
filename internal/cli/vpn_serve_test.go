@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +34,7 @@ func TestVpnServeGetsPassphraseOnStdin(t *testing.T) {
 	}
 	t.Setenv("KOMANDO_VAULT_PASS", "not-the-passphrase-sent")
 	vault.Passphrase() // vpn serve starts without the real one
-	user, pass, err := serveStdin(c.Stdin, true, true)
+	user, pass, err := serveStdin(bufio.NewReader(c.Stdin), true, true)
 	if err != nil || user != s.SocksUser || pass != s.SocksPass || netx.SessionSecret != "typed-password" || vault.Passphrase() != want {
 		t.Errorf("read %q %q %q, passphrase %q: %v", user, pass, netx.SessionSecret, vault.Passphrase(), err)
 	}
@@ -77,6 +78,7 @@ func TestSessionUseOpenConnIsNotIdle(t *testing.T) {
 // come up after the person cancelled.
 func TestSpawnServeCtrlC(t *testing.T) {
 	invHome(t)
+	mustRun(t, "vpn", "add", "office", "socks", "--proxy-address", "127.0.0.1:1") // the store the ticket's key comes from
 	saved := serveCommand
 	serveCommand = func(string, string, string, *store.VpnSession) *exec.Cmd { return sleeperCmd() }
 	t.Cleanup(func() { serveCommand = saved })

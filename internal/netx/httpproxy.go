@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sgnd/komando/internal/proxyx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // openHTTPProxy is a "proxy" VPN: an HTTP proxy that tunnels each TCP
@@ -32,7 +32,7 @@ func openHTTPProxy(v *store.Vpn, timeout time.Duration) (Dialer, io.Closer, erro
 	pick := http.ProxyURL(pu)
 	direct := (&net.Dialer{Timeout: timeout}).DialContext
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
-		c, err := proxyx.Dial(ctx, pick, direct, &url.URL{Scheme: "https", Host: addr}, addr)
+		c, err := transport.Dial(ctx, pick, direct, &url.URL{Scheme: "https", Host: addr}, addr)
 		if err != nil {
 			return nil, Down(v, err)
 		}
@@ -50,7 +50,7 @@ func ProxyURL(address string) (*url.URL, error) {
 		}
 		a = "http://" + a
 	}
-	u, err := proxyx.Parse(a)
+	u, err := transport.Parse(a)
 	if err != nil {
 		return nil, err
 	}

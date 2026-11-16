@@ -18,7 +18,7 @@ import (
 
 	"github.com/moby/spdystream"
 
-	"github.com/sgnd/komando/internal/proxyx"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // SPDY/3.1 is how Kubernetes before 1.30 streams exec and port-forward
@@ -45,16 +45,16 @@ func (c *Client) dialSPDY(ctx context.Context, path string, q url.Values, protoc
 		}
 		addr = net.JoinHostPort(u.Hostname(), port)
 	}
-	dial := proxyx.Dialer((&net.Dialer{Timeout: streamWait}).DialContext)
+	dial := transport.Dialer((&net.Dialer{Timeout: streamWait}).DialContext)
 	tr, _ := c.http.Transport.(*http.Transport)
 	if tr != nil && tr.DialContext != nil {
 		dial = tr.DialContext
 	}
-	var pick proxyx.Func
+	var pick transport.Func
 	if tr != nil {
 		pick = tr.Proxy // nil through a --via path
 	}
-	conn, err := proxyx.Dial(ctx, pick, dial, &u, addr)
+	conn, err := transport.Dial(ctx, pick, dial, &u, addr)
 	if err != nil {
 		return nil, "", err
 	}

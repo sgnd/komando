@@ -22,11 +22,12 @@ import (
 	"net/http/cookiejar"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sgnd/komando/internal/proxyx"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // Tunnel is a connected VPN: IP packets in and out.
@@ -111,7 +112,7 @@ func httpClient(o Options, host string) (*http.Client, error) {
 	if o.Dial != nil {
 		tr.DialContext = o.Dial // the --via path is the way out
 	} else {
-		tr.Proxy = proxyx.FromEnv() // a company proxy: HTTPS_PROXY and NO_PROXY
+		tr.Proxy = transport.Proxy() // a company proxy: HTTPS_PROXY and NO_PROXY
 	}
 	jar, _ := cookiejar.New(nil)
 	return &http.Client{Transport: tr, Jar: jar, Timeout: 60 * time.Second,
@@ -143,11 +144,11 @@ func dialTLSWith(ctx context.Context, o Options, u *url.URL, keys *tlsKeys) (*tl
 	if err != nil {
 		return nil, err
 	}
-	dial, pick := o.Dial, proxyx.Func(nil)
+	dial, pick := o.Dial, transport.Func(nil)
 	if dial == nil {
-		dial, pick = (&net.Dialer{Timeout: 20 * time.Second}).DialContext, proxyx.FromEnv()
+		dial, pick = (&net.Dialer{Timeout: 20 * time.Second}).DialContext, transport.Proxy()
 	}
-	raw, err := proxyx.Dial(ctx, pick, dial, u, net.JoinHostPort(host, port))
+	raw, err := transport.Dial(ctx, pick, dial, u, net.JoinHostPort(host, port))
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +178,17 @@ type base struct {
 	once sync.Once
 	mu   sync.Mutex
 	err  error
+}
+
+// seconds reads a count of seconds a server sent, kept to 1..most: a
+// huge number must not overflow a Duration and panic a ticker or make it
+// spin.
+func seconds(v string, most int) (time.Duration, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return time.Duration(min(n, most)) * time.Second, true
 }
 
 func newBase() base {

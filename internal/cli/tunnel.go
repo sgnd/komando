@@ -213,11 +213,8 @@ point your database app or psql at the local address it prints. With a server, g
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}
-			p := tunnelServeCommand(self, pargs)
-			p.Stdout, p.Stderr, p.Stdin = lf, lf, nil
-			p.SysProcAttr = detachAttr()
-			vault.PassOnStdin(p) // not in its environment: it runs for long
-			if err := p.Start(); err != nil {
+			p, err := startTunnelServe(self, id, pargs, lf)
+			if err != nil {
 				return err
 			}
 			lf.Close()
@@ -554,13 +551,32 @@ func tunnelServeCmd() *cobra.Command {
 	return c
 }
 
-// serveState is tunnel serve's inventory, after the vault passphrase from
-// stdin when tunnel start sent one (vault.PassOnStdin).
+// startTunnelServe starts the `tunnel serve ID` process (pargs) of
+// tunnel start, logging to lf, with its ticket (guard_spawn.go) and the
+// vault passphrase on its stdin, not in its environment: it runs for long.
+func startTunnelServe(self, id string, pargs []string, lf *os.File) (*exec.Cmd, error) {
+	p := tunnelServeCommand(self, pargs)
+	p.Stdout, p.Stderr = lf, lf
+	p.SysProcAttr = detachAttr()
+	vault.PassOnStdin(p)
+	if err := sealTicket(p); err != nil {
+		return nil, err
+	}
+	return p, p.Start()
+}
+
+// serveState is tunnel serve's inventory, after its ticket from tunnel
+// start and the vault passphrase when it sent one (vault.PassOnStdin).
 func serveState(cl *call, passStdin bool) (*store.State, error) {
+	in := bufio.NewReader(cl.stdin)
+	ticket := readTicket(in)
 	if passStdin {
-		if err := vault.ReadPassStdin(cl.stdin); err != nil {
+		if err := vault.ReadPassStdin(in); err != nil {
 			return nil, err
 		}
+	}
+	if err := checkTicket(cl, ticket, "tunnel serve", "tunnel start"); err != nil {
+		return nil, err
 	}
 	return loadState()
 }

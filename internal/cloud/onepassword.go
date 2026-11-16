@@ -42,7 +42,7 @@ func OnePassword(ctx context.Context, ref string) (string, error) {
 			return err
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := proxiedClient(30 * time.Second).Do(req)
 		if err != nil {
 			return fmt.Errorf("1password connect: %v", err)
 		}
