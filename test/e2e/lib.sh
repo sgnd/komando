@@ -6,7 +6,7 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 E2E="$ROOT/test/e2e"
-K="$ROOT/bin/komando-e2e"
+K="${E2E_BIN:?test/e2e/run.sh builds the lab komando and sets E2E_BIN}"
 # E2E_HOME keeps the inventory after the run (with KEEP=1 for the
 # containers), to try commands by hand against the same lab: one folder per
 # area, E2E_HOME/AREA
@@ -27,7 +27,7 @@ inventory_text() { "$K" export -o json 2>/dev/null; }
 unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT GEMINI_CLI CODEX_SANDBOX CODEX_THREAD_ID CURSOR_AGENT KOMANDO_AGENT AI_AGENT
 # an agent's komando keeps the usual data folder, ~/.komando of the
 # account's home in the user database, whatever HOME and KOMANDO_HOME say.
-# The lab's komando (built with the e2elab tag, run.sh) takes that home
+# The lab's komando (built with the e2elab tag, run.sh, $E2E_BIN) takes that home
 # from KOMANDO_E2E_ACCOUNT_HOME: A runs with a home whose .komando is this
 # run's folder. A released komando knows no such variable.
 AGENT_HOME="$(mktemp -d)"

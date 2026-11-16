@@ -47,7 +47,18 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
-- An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in front of komando moved komando's data folder: komando counted `~/.komando` of the changed `HOME` as the usual folder, so only the guard hook refused the line. For an agent the usual folder is now only `~/.komando` of the account's home in the computer's user database (or a link to that folder); any other `KOMANDO_HOME` needs `--yes` and a person's yes (`SAFETY_SETTING`), whatever `HOME` says. The e2e lab, which leaned on the old rule, now builds a komando of its own (`bin/komando-e2e`, build tag `e2elab`) that takes the agent's account home from `KOMANDO_E2E_ACCOUNT_HOME`; a released komando has no such variable.
+- An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
+  front of komando moved komando's data folder: komando counted
+  `~/.komando` of the changed `HOME` as the usual folder, so only the
+  guard hook refused the line. For an agent the usual folder is now only
+  `~/.komando` of the account's home in the computer's user database (or
+  a link to that folder); any other `KOMANDO_HOME` needs `--yes` and a
+  person's yes (`SAFETY_SETTING`), whatever `HOME` says. The e2e lab,
+  which leaned on the old rule, now builds a komando of its own with the
+  build tag `e2elab`, which takes the agent's account home from
+  `KOMANDO_E2E_ACCOUNT_HOME`. It is built outside the checkout and
+  removed after the run; a released komando has no such variable, and
+  `make bins` and `make dist` refuse a binary that has it.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files
