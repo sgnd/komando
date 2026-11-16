@@ -66,6 +66,12 @@ Options go after `?`, joined with `&`:
 | `tls=off` | plain HTTP on port 5985: commands and output travel unencrypted, and the server must allow it |
 | `:PORT` | another port than 5986 (5985 with `tls=off`) |
 
+`auth=basic`, `tls=skip-verify` and `tls=off` give up a protection of the
+password or of the server check, so an AI agent that sets one (with `host
+add`, `host edit --address` or `import`) needs your yes in komando's
+window (`SAFETY_SETTING` without it). A server that has the setting
+already asks nothing again.
+
 `--via` works: the connection goes through the bastion or VPN. WinRM
 carries commands only, so `shell`, tunnels, `host trust`, `login` and
 `host ssh-command` need OpenSSH. To switch a server back to SSH:

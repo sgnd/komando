@@ -28,7 +28,8 @@ type trustRow struct {
 	Address        string     `json:"address"`
 	KeyType        string     `json:"key_type,omitempty"`
 	Fingerprint    string     `json:"fingerprint,omitempty"`
-	OldFingerprint []string   `json:"old_fingerprints,omitempty"` // pinned keys that are not the server's
+	OldFingerprint []string   `json:"old_fingerprints,omitempty"`     // pinned keys that are not the server's
+	Expected       string     `json:"expected_fingerprint,omitempty"` // --fingerprint: pinned only if the server shows it
 	RemovedEntries int        `json:"removed_entries"`
 	AlreadyPinned  bool       `json:"already_pinned,omitempty"`
 	Error          *out.Error `json:"error,omitempty"`
@@ -183,11 +184,19 @@ func (d trustData) Text() string {
 }
 
 // trustHosts is `host trust TARGET`.
-func trustHosts(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, reset bool) error {
+func trustHosts(cl *call, ctx context.Context, st *store.State, hosts []*store.Host, reset bool, want string) error {
 	if cl.flags.dryRun {
-		return trustDryRun(cl, st, hosts, reset)
+		return trustDryRun(cl, st, hosts, reset, want)
 	}
 	rows := fetchTrustRows(cl, ctx, st, hosts)
+	if want != "" {
+		for _, r := range rows {
+			r.Expected = want
+			if r.Error == nil && r.Fingerprint != want {
+				r.Error = sshx.FingerprintMismatch(r.Host, want, r.Fingerprint)
+			}
+		}
+	}
 	var first []string
 	for _, r := range rows {
 		if r.Error == nil && !r.same && len(r.OldFingerprint) == 0 {
@@ -215,7 +224,11 @@ func trustHosts(cl *call, ctx context.Context, st *store.State, hosts []*store.H
 			continue
 		}
 		data.Summary.OK++
-		audit(cl, st, "host.trust", []string{r.Host}, "", true, map[string]any{"reset": reset, "removed_entries": r.RemovedEntries, "fingerprint": r.Fingerprint})
+		rec := map[string]any{"reset": reset, "removed_entries": r.RemovedEntries, "fingerprint": r.Fingerprint}
+		if want != "" {
+			rec["fingerprint_checked"] = true
+		}
+		audit(cl, st, "host.trust", []string{r.Host}, "", true, rec)
 	}
 	data.Summary.Total = len(rows)
 	return finishFleet(cl, "host.trust", data, runSummary{fleetSummary: data.Summary}, worst, fails)
@@ -223,11 +236,14 @@ func trustHosts(cl *call, ctx context.Context, st *store.State, hosts []*store.H
 
 // trustDryRun fetches nothing and changes nothing: it says how each key
 // would be fetched and, with --reset, how many pinned entries would go.
-func trustDryRun(cl *call, st *store.State, hosts []*store.Host, reset bool) error {
+func trustDryRun(cl *call, st *store.State, hosts []*store.Host, reset bool, want string) error {
 	var res []map[string]any
 	pinned := 0
 	for _, h := range hosts {
 		r := map[string]any{"host": h.Name, "address": trustAddr(h), "would_fetch_from": keyFetchPath(st, h)}
+		if want != "" {
+			r["expected_fingerprint"] = want
+		}
 		if reset {
 			n := countPinned(trustAddr(h))
 			r["would_remove_entries"] = n
