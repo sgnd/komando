@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Security
+
+- A conn's URL settings could send its stored password somewhere other than the address komando showed and guarded. Postgres reads `host=`, `port=`, `hostaddr=`, `service=` and fallback hosts from the URL, Redis `sentinels=`, MongoDB more seed hosts and RabbitMQ `management=`, and an AI agent could add them with `conn edit --url` without the yes that a new address needs. The place a conn's password goes is now every address its driver logs in at, read as the driver reads the URL, plus every URL setting except the few that move nothing (`application_name`, `connect_timeout` and other timeouts). An agent's change of any of it stops with `SECRET_DESTINATION`, and the window shows the settings.
+- komando no longer reads `PG*` environment variables for a Postgres conn: from its own environment an AI agent could make komando trust its certificate (`PGSSLROOTCERT`) and get the password. `db dump` and `db restore` run their tools without `PG*` and `MYSQL*` variables.
+- A Postgres conn with no password of komando's own no longer logs in with the password in `~/.pgpass`, which an agent could collect with a conn to a server it controls. A URL that names a `passfile=` still uses it.
+- A SQLite conn could open komando's own store or a credential database (gcloud's `credentials.db`, anything in `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`), so an AI agent could read, copy or delete its rows. komando's own folder is now refused as a SQLite conn for everyone, and for an AI agent so are those login folders and every file the agent guard keeps from it, links followed (`SENSITIVE_FILE`). The check runs when the conn is added or changed and again whenever it is opened, and `db dump --to` and `db restore --from` refuse the same paths for an agent. An AI agent's query on a SQLite conn may not use `ATTACH` or `VACUUM INTO` either (they create a file wherever they are told), and `load_extension` stays off for everyone.
+
 ### Added
 
 - `komando host trust NAME --fingerprint SHA256:...` pins a server's key

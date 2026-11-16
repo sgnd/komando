@@ -277,8 +277,8 @@ func runDump(cl *call, ctx context.Context, connExpr, to, on string, o dumpOpts)
 	if err != nil {
 		return err
 	}
-	if _, err := os.Stat(to); err == nil {
-		return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick a new file name; backups are never overwritten", "%s already exists", to)
+	if err := dumpTarget(cl, c, to); err != nil {
+		return err
 	}
 	data := transferData{Conn: c.Name, File: to, RunsOn: "local", DryRun: cl.flags.dryRun}
 	rec := map[string]any{"conns": []string{c.Name}, "file": to}
@@ -519,7 +519,7 @@ func checkRestoreSQL(cl *call, kind, from string, v *driver.Verdict) error {
 
 // isPgArchive reports whether path is a pg_dump custom archive ("PGDMP").
 func isPgArchive(cl *call, path string) (bool, error) {
-	if err := guardLocalRead(cl, path); err != nil {
+	if err := guardBackupFile(cl, path); err != nil {
 		return false, err
 	}
 	f, err := os.Open(path)
@@ -534,7 +534,7 @@ func isPgArchive(cl *call, path string) (bool, error) {
 
 // withBackup opens a backup file (decompressing .gz) and passes it to fn.
 func withBackup(cl *call, path string, fn func(io.Reader) error) error {
-	if err := guardLocalRead(cl, path); err != nil {
+	if err := guardBackupFile(cl, path); err != nil {
 		return err
 	}
 	f, err := os.Open(path)
@@ -639,7 +639,7 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 				"%s is not installed here", argv[0])
 		}
 		p := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		p.Env = append(cl.environ(), tool.passwordEnv+"="+password)
+		p.Env = append(toolEnv(cl.environ()), tool.passwordEnv+"="+password)
 		var stderr strings.Builder
 		p.Stdin, p.Stdout, p.Stderr = stdin, stdout, &limitWriter{w: &stderr, n: 64 << 10}
 		if err := p.Run(); err != nil {
