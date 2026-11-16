@@ -171,7 +171,9 @@ func awkWrite(cmd string, args []string, _ bool) string {
 		case strings.HasPrefix(a, "-e"):
 			given = true
 			progs = append(progs, a[2:])
+		case strings.HasPrefix(a, "-F") || strings.HasPrefix(a, "-v"): // the value attached
 		case strings.HasPrefix(a, "-") && a != "-":
+			return cmd + " " + a + " (komando does not know this option only reads)"
 		default: // the program; the rest are files
 			if !given {
 				progs = append(progs, a)
@@ -231,7 +233,7 @@ func tarWrite(cmd string, args []string, _ bool) string {
 		switch {
 		case strings.IndexByte("Arux", l) >= 0:
 			return "tar -" + string(l)
-		case l == 'I' || l == 'g':
+		case l == 'I' || l == 'g' || l == 'F' || l == 'M':
 			return "tar -" + string(l)
 		case l == 'c' || l == 't' || l == 'd':
 			mode = string(l)
@@ -300,131 +302,11 @@ func tarWrite(cmd string, args []string, _ bool) string {
 	if mode == "c" && archive != "" && !isStdout(archive) {
 		return "tar -c writing " + archive
 	}
-	return ""
-}
-
-// curlWrite: curl saves files (-o FILE, -O, -c jar) and sends data or a
-// changing request (-d, -F, -T, -X POST); -K reads options komando does
-// not see. Output to standard output or /dev/null is fine.
-func curlWrite(cmd string, args []string, _ bool) string {
-	getish := func(m string) bool {
-		m = strings.ToUpper(m)
-		return m == "GET" || m == "HEAD" || m == "OPTIONS"
+	if mode == "" {
+		return "tar (only listing, comparing and an archive to standard output are known to read)"
 	}
-	for k := 0; k < len(args); k++ {
-		a := args[k]
-		next := func() string {
-			if k+1 < len(args) {
-				k++
-				return args[k]
-			}
-			return ""
-		}
-		if strings.HasPrefix(a, "--") {
-			name, val, has := strings.Cut(a, "=")
-			switch name {
-			case "--output", "--dump-header", "--trace", "--trace-ascii", "--stderr", "--libcurl", "--cookie-jar",
-				"--etag-save", "--hsts", "--alt-svc", "--output-dir":
-				if !has {
-					val = next()
-				}
-				if !isStdout(val) || name == "--output-dir" {
-					return "curl " + name + " " + val
-				}
-			case "--remote-name", "--remote-name-all", "--remote-header-name", "--upload-file", "--config", "--create-dirs",
-				"--data", "--data-ascii", "--data-binary", "--data-raw", "--data-urlencode", "--form", "--form-string", "--json", "--quote":
-				return "curl " + name
-			case "--request":
-				if !has {
-					val = next()
-				}
-				if !getish(val) {
-					return "curl " + name + " " + val
-				}
-			}
-			continue
-		}
-		if !strings.HasPrefix(a, "-") || len(a) < 2 {
-			continue
-		}
-		for j := 1; j < len(a); j++ {
-			l := a[j]
-			if strings.IndexByte("OTKJdFQ", l) >= 0 {
-				return "curl -" + string(l)
-			}
-			if strings.IndexByte("AbCcDdEeFHKmoPQrTtUuwXxYyz", l) < 0 {
-				continue
-			}
-			v := a[j+1:]
-			if v == "" {
-				v = next()
-			}
-			if (l == 'o' || l == 'D' || l == 'c') && !isStdout(v) || l == 'X' && !getish(v) {
-				return "curl -" + string(l) + " " + v
-			}
-			break
-		}
-	}
-	return ""
-}
-
-// wgetWrite: wget saves what it gets unless it goes to standard output
-// (-O -) or nothing is fetched (--spider).
-func wgetWrite(cmd string, args []string, _ bool) string {
-	safe := false
-	for k := 0; k < len(args); k++ {
-		a := args[k]
-		next := func() string {
-			if k+1 < len(args) {
-				k++
-				return args[k]
-			}
-			return ""
-		}
-		if strings.HasPrefix(a, "--") {
-			name, val, has := strings.Cut(a, "=")
-			switch name {
-			case "--output-document", "--output-file", "--append-output":
-				if !has {
-					val = next()
-				}
-				if !isStdout(val) {
-					return "wget " + name + " " + val
-				}
-				safe = safe || name == "--output-document"
-			case "--spider":
-				safe = true
-			case "--post-data", "--post-file", "--method", "--body-data", "--body-file", "--recursive", "--mirror", "--execute":
-				return "wget " + name
-			}
-			continue
-		}
-		if !strings.HasPrefix(a, "-") || len(a) < 2 {
-			continue
-		}
-		for j := 1; j < len(a); j++ {
-			l := a[j]
-			if l == 'e' || l == 'r' || l == 'm' {
-				return "wget -" + string(l)
-			}
-			if strings.IndexByte("OoaiBPUtTlADRIXwQ", l) < 0 {
-				continue
-			}
-			v := a[j+1:]
-			if v == "" {
-				v = next()
-			}
-			if l == 'O' || l == 'o' || l == 'a' {
-				if !isStdout(v) {
-					return "wget -" + string(l) + " " + v
-				}
-				safe = safe || l == 'O'
-			}
-			break
-		}
-	}
-	if !safe {
-		return "wget saving a file"
+	if strings.Contains(archive, ":") && !slices.Contains(args, "--force-local") {
+		return "tar -f " + archive + " (an archive on another computer)"
 	}
 	return ""
 }
@@ -439,6 +321,9 @@ func compressWrite(cmd string, args []string, _ bool) string {
 			reads = true
 		case strings.HasPrefix(a, "--"), a == "-":
 		case strings.HasPrefix(a, "-"):
+			if strings.Trim(a[1:], "cdltkvqfn0123456789") != "" {
+				return cmd + " " + a + " (komando does not know this option only reads)"
+			}
 			reads = reads || strings.ContainsAny(a[1:], "clt")
 		default:
 			files++
@@ -461,13 +346,6 @@ func unzipWrite(cmd string, args []string, _ bool) string {
 	return "unzip"
 }
 
-func patchWrite(cmd string, args []string, _ bool) string {
-	if slices.Contains(args, "--dry-run") {
-		return ""
-	}
-	return "patch"
-}
-
 // crontabWrite: only crontab -l (and -u USER -l) reads; crontab FILE and
 // crontab with nothing install a new table.
 func crontabWrite(cmd string, args []string, _ bool) string {
@@ -488,15 +366,6 @@ func crontabWrite(cmd string, args []string, _ bool) string {
 	return ""
 }
 
-func hashWrite(cmd string, args []string, _ bool) string {
-	for _, a := range args {
-		if strings.HasPrefix(a, "-") && strings.Contains(a, "p") {
-			return "hash -p" // runs another program under a known name
-		}
-	}
-	return ""
-}
-
 // gitWrites are git subcommands that change the repository, the work tree
 // or a remote, or run a program.
 var gitWrites = map[string]bool{"commit": true, "push": true, "pull": true, "reset": true, "checkout": true, "clean": true,
@@ -509,6 +378,11 @@ var gitWrites = map[string]bool{"commit": true, "push": true, "pull": true, "res
 	"instaweb": true, "difftool": true, "mergetool": true, "hook": true, "bundle": true, "format-patch": true, "svn": true,
 	"p4": true, "imap-send": true, "http-push": true, "upload-pack": true, "receive-pack": true, "shell": true, "archive": true}
 
+// gitReads are the git subcommands that only read (some only in the forms
+// gitSubWrite lets through); any other is refused.
+var gitReads = set(`status log show diff rev-parse describe ls-files ls-tree cat-file blame shortlog rev-list branch tag
+	remote config grep version merge-base name-rev for-each-ref show-ref reflog stash ls-remote count-objects`)
+
 // gitWrite: git -c sets config for one run (an alias, a pager or a hook
 // that runs anything), so it is never read-only; the global options that
 // take a value (-C DIR) are not the subcommand.
@@ -519,10 +393,19 @@ func gitWrite(cmd string, args []string, _ bool) string {
 		switch {
 		case a == "-c" || strings.HasPrefix(a, "-c") || strings.HasPrefix(a, "--config-env"):
 			return "git " + a + " (config for one run can run commands)"
-		case a == "-C" || a == "--git-dir" || a == "--work-tree" || a == "--namespace" || a == "--super-prefix":
+		case a == "-C" || a == "--git-dir" || a == "--work-tree":
 			k++
+		case a == "--no-pager" || a == "--version" || strings.HasPrefix(a, "--git-dir=") || strings.HasPrefix(a, "--work-tree="):
 		case strings.HasPrefix(a, "-"):
+			return "git " + a + " (komando does not know this option only reads)"
+		case !gitReads[a]:
+			return "git " + a
 		default:
+			if a == "grep" && slices.ContainsFunc(args[k+1:], func(o string) bool {
+				return len(o) > 1 && o[0] == '-' && o[1] != '-' && strings.Contains(o, "O")
+			}) {
+				return "git grep -O (opens the files in a program)"
+			}
 			return gitSubWrite(a, args[k+1:])
 		}
 	}
@@ -553,12 +436,11 @@ func gitSubWrite(sub string, rest []string) string {
 		return gitRefWrite("tag", rest, "dfasmFue", []string{"--delete", "--force", "--annotate", "--sign", "--message", "--file", "--local-user", "--edit"},
 			[]string{"-l", "--list", "-n", "--contains", "--no-contains", "--merged", "--no-merged", "--points-at"})
 	case "remote":
-		switch first {
-		case "add", "remove", "rm", "rename", "set-url", "set-head", "set-branches", "prune", "update":
+		if first != "" && first != "-v" && first != "--verbose" && first != "show" && first != "get-url" {
 			return "git remote " + first
 		}
 	case "reflog":
-		if first == "expire" || first == "delete" {
+		if first == "expire" || first == "delete" || first == "drop" || first == "write" {
 			return "git reflog " + first
 		}
 	case "hash-object":
@@ -674,21 +556,32 @@ func uniqWrite(cmd string, args []string, _ bool) string {
 	return ""
 }
 
-// opensslWrite: -out, -keyout and -writerand write a file.
+// opensslWrite: only the subcommands that show a certificate, a request or
+// a connection read; -out and its like write a file, and -engine and
+// -provider load code.
 func opensslWrite(cmd string, args []string, _ bool) string {
-	for _, a := range args {
-		if a == "-out" || a == "-keyout" || a == "-writerand" {
+	if len(args) == 0 || !opensslReads[args[0]] {
+		return cmd + " " + strings.Join(args[:min(len(args), 1)], "") + " (not a form komando knows only reads)"
+	}
+	for _, a := range args[1:] {
+		if opensslWrites[a] {
 			return cmd + " " + a
 		}
 	}
 	return ""
 }
 
+var (
+	opensslReads  = set(`x509 req crl verify version ciphers s_client`)
+	opensslWrites = set(`-out -keyout -writerand -engine -provider -provider-path -provider_path -config -CAcreateserial
+		-CAserial -sess_out -keylogfile -msgfile -passout -signkey -CAkey -key -new -x509 -proxy -starttls`)
+)
+
 // dateWrite: date -s TIME, or a bare MMDDhhmm, sets the clock.
 func dateWrite(cmd string, args []string, _ bool) string {
 	for k := 0; k < len(args); k++ {
 		switch a := args[k]; {
-		case strings.HasPrefix(a, "--set") || strings.HasPrefix(a, "-s"):
+		case len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.Contains(a, "s"):
 			return cmd + " --set"
 		case a == "-d" || a == "-r" || a == "-f" || a == "--date" || a == "--reference" || a == "--file":
 			k++ // --date TEXT, --reference FILE, --file FILE
@@ -702,7 +595,7 @@ func dateWrite(cmd string, args []string, _ bool) string {
 // hostnameWrite: hostname NAME (or -F FILE, -b) sets the host name.
 func hostnameWrite(cmd string, args []string, _ bool) string {
 	for _, a := range args {
-		if a == "-F" || strings.HasPrefix(a, "--file") || a == "-b" || a == "--boot" || !strings.HasPrefix(a, "-") {
+		if !strings.HasPrefix(a, "-") || !strings.HasPrefix(a, "--") && strings.ContainsAny(a, "Fb") {
 			return cmd + " setting the host name"
 		}
 	}
@@ -715,21 +608,6 @@ func dmesgWrite(cmd string, args []string, _ bool) string {
 	for _, a := range args {
 		if a == "--clear" || a == "--read-clear" || strings.HasPrefix(a, "--console-") ||
 			len(a) > 1 && a[0] == '-' && a[1] != '-' && !strings.Contains(a, "=") && strings.ContainsAny(a, "cCnDE") {
-			return cmd + " " + a
-		}
-	}
-	return ""
-}
-
-// lessWrite: less +CMD runs CMD as typed at its prompt, where ! runs a
-// shell; -o FILE copies the input to FILE.
-func lessWrite(cmd string, args []string, _ bool) string {
-	for _, a := range args {
-		if a == "--" {
-			break
-		}
-		if strings.HasPrefix(a, "+") || strings.HasPrefix(strings.ToLower(a), "--log-file") ||
-			len(a) > 1 && a[0] == '-' && a[1] != '-' && strings.ContainsAny(a, "oO") {
 			return cmd + " " + a
 		}
 	}

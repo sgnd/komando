@@ -18,6 +18,12 @@ type Token struct {
 	// Expands: the word has a $ or ` the shell expands when it runs (a
 	// variable, $1, a command substitution), so its value is not Text
 	Expands bool
+	// Brace: the word has an unquoted {a,b} or {1..3}, which bash expands
+	// into several words before the command runs
+	Brace bool
+	// Code: the word has an expansion bash may evaluate as code: anything
+	// in ${ } but a plain name (${x@P}, ${x:=v}, ${a[i]}, ${x:n}) or $[ ]
+	Code bool
 }
 
 // Sub stands in a word for a command substitution: $( ), ` `, <( ) or >( ).
@@ -74,13 +80,14 @@ func (l *lexer) line(inSub bool) []Token {
 	var toks []Token
 	var cur strings.Builder
 	inWord, quoted, expands := false, false, false
-	depth := 0     // ( opened in this line
-	cases := 0     // case ... esac open in this line: its ) end patterns
-	delim := false // the next word ends a here-document
+	brace, code := 0, false // brace: 1 after an unquoted {, 2 with a , or .. in it, 3 closed
+	depth := 0              // ( opened in this line
+	cases := 0              // case ... esac open in this line: its ) end patterns
+	delim := false          // the next word ends a here-document
 	strip := false
 	word := func() {
 		if inWord {
-			t := Token{Text: cur.String(), Quoted: quoted, Expands: expands}
+			t := Token{Text: cur.String(), Quoted: quoted, Expands: expands, Brace: brace == 3, Code: code}
 			start := len(toks) == 0 || toks[len(toks)-1].Op || cmdKeywords[toks[len(toks)-1].Text]
 			switch {
 			case delim:
@@ -95,6 +102,7 @@ func (l *lexer) line(inSub bool) []Token {
 		}
 		cur.Reset()
 		inWord, quoted, expands = false, false, false
+		brace, code = 0, false
 	}
 	op := func(o string, n int) {
 		word()
@@ -124,9 +132,11 @@ func (l *lexer) line(inSub bool) []Token {
 			l.i += j + 2
 		case c == '"':
 			l.i++
+			from := l.i
 			if l.dquote(&cur) {
 				expands = true
 			}
+			code = code || codeExpansion(s[from:l.i])
 			inWord, quoted = true, true
 		case c == '\\' && next == '\n': // a line continuation
 			l.i += 2
@@ -142,9 +152,11 @@ func (l *lexer) line(inSub bool) []Token {
 			inWord, quoted = true, true
 		case c == '$' && next == '"':
 			l.i += 2
+			from := l.i
 			if l.dquote(&cur) {
 				expands = true
 			}
+			code = code || codeExpansion(s[from:l.i])
 			inWord, quoted = true, true
 		case c == '$' && next == '(', (c == '<' || c == '>') && next == '(':
 			l.i += 2
@@ -218,6 +230,15 @@ func (l *lexer) line(inSub bool) []Token {
 		default:
 			if c == '$' && next != 0 && strings.IndexByte(" \t\n;&|()<>", next) < 0 {
 				expands = true // $NAME, ${NAME}, $1, $@ ...
+				code = code || next == '[' || next == '{' && !plainParam.MatchString(s[l.i:])
+			}
+			switch {
+			case c == '{' && (l.i == 0 || s[l.i-1] != '$') && brace == 0:
+				brace = 1
+			case brace == 1 && (c == ',' || c == '.' && next == '.'):
+				brace = 2
+			case brace == 2 && c == '}':
+				brace = 3
 			}
 			cur.WriteByte(c)
 			inWord = true
@@ -229,6 +250,26 @@ func (l *lexer) line(inSub bool) []Token {
 		l.fail("an unclosed $(")
 	}
 	return toks
+}
+
+var plainParam = regexp.MustCompile(`^\$\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[@*#?$!-])\}`)
+
+// codeExpansion: s (the inside of a "..." word) has a ${ } that is more
+// than a plain name, or a $[ ]. Bash
+// evaluates such a thing: ${x@P} runs the $( ) in x's value, ${a[i]} and
+// ${x:n} do arithmetic, which runs the $( ) in a subscript, ${x:=v} sets x.
+func codeExpansion(s string) bool {
+	for i := 0; i+1 < len(s); i++ {
+		switch {
+		case s[i] == '\\':
+			i++
+		case s[i] == '$' && s[i+1] == '[':
+			return true
+		case s[i] == '$' && s[i+1] == '{' && !plainParam.MatchString(s[i:]):
+			return true
+		}
+	}
+	return false
 }
 
 // heredocBodies reads the bodies of the here-documents started on the line

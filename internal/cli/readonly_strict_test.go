@@ -191,7 +191,7 @@ func TestReadOnlySubcommands(t *testing.T) {
 		`kubectl auth reconcile -f r.yaml`,
 		`npm explore lodash -- touch /tmp/p`,
 		`apt-get satisfy nginx`,
-		`systemctl`, `docker`, `kubectl unknownverb`,
+		`kubectl`, `kubectl unknownverb`, `docker unknownverb`, `systemctl unknownverb`,
 		`service nginx restart`, `ufw allow 22`,
 	)
 	allowedReadOnly(t,
@@ -222,6 +222,7 @@ func TestReadOnlyUnknownCommandRefused(t *testing.T) {
 // cli-guard 25: cobra takes the word after -o as its value, `--` too, so
 // `-o -- __complete` runs the completion helper. A key never runs it.
 func TestGateRefusesCompleteAfterFlagValue(t *testing.T) {
+	invHome(t)
 	gateInventory(t)
 	for _, c := range []string{
 		`-o -- __complete exec ''`, `--output -- __complete exec ''`, `-P -- __completeNoDesc exec ''`,

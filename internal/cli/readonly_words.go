@@ -10,12 +10,11 @@ import (
 
 // docker exec and cluster exec run a command's words as given, with no
 // shell added. Their --read-only is held to the same promise as exec's
-// (readonly.go): a command that clearly changes something is refused
-// (READ_ONLY_VIOLATION), and on a protected target it skips --yes only
-// when komando knows every part of it only reads (the allowlist).
+// (readonly.go): a command komando does not know only reads is refused
+// (READ_ONLY_VIOLATION), on every target.
 
 // readOnlyWords checks the words of a --read-only command (words, as run
-// without a shell) and says whether a protected target still needs --yes.
+// without a shell); mutating is false for one that passed.
 func readOnlyWords(cl *call, words []string) (mutating bool, err error) {
 	q := make([]string, len(words))
 	for i, w := range words {

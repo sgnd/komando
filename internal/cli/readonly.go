@@ -15,13 +15,15 @@ import (
 )
 
 // --read-only is a promise from the caller that lets a command skip the
-// confirmation protected servers need. checkReadOnly holds the caller to it
-// with a cheap look at the command: a word that clearly changes something
-// (rm, mv, tee, a > redirect, systemctl restart, apt install ...) breaks the
-// promise. What it cannot follow breaks it too (a command name in a
-// variable, eval, a shell or python reading a script it cannot see), so an
-// unclear command needs --yes like any other. It is not a sandbox: it
-// catches mistakes and the usual tricks, not every program that can write.
+// confirmation protected servers need, and it is all a read-only ssh-gate
+// key may run. checkReadOnly holds the caller to it with a strict
+// allowlist: the command runs only when komando knows every part of it
+// only reads. A word that clearly changes something (rm, tee, a >
+// redirect, systemctl restart) breaks the promise, and so does anything
+// komando does not know: a command that is not on its lists, an option or
+// subcommand it has not heard of, a command name in a variable, text bash
+// would expand or evaluate before the command runs. Such a command runs
+// without --read-only, with the confirmation that takes.
 
 // writeVerbs are commands that change something whatever their arguments.
 var writeVerbs = map[string]bool{
@@ -37,89 +39,97 @@ var writeVerbs = map[string]bool{
 	"zip": true, "sqlite3": true, "sqlite": true, "split": true, "csplit": true,
 }
 
-// writeSubs are commands where a word decides: systemctl status reads,
-// systemctl restart changes. The word may come anywhere (kubectl -n prod
-// delete, iptables -t nat -A), so every argument is compared.
-var writeSubs = map[string][]string{
-	"systemctl":   {"start", "stop", "restart", "reload", "enable", "disable", "mask", "unmask", "kill", "daemon-reload", "reload-or-restart", "try-restart", "isolate", "set-property", "edit", "reboot", "poweroff", "halt", "kexec", "set-environment", "unset-environment", "import-environment", "link", "revert", "preset", "preset-all", "reenable", "freeze", "thaw", "clean", "default", "rescue", "emergency"},
-	"service":     {"start", "stop", "restart", "reload"},
-	"apt":         {"install", "remove", "purge", "upgrade", "full-upgrade", "dist-upgrade", "autoremove", "update", "reinstall", "autoclean", "clean", "edit-sources"},
-	"apt-get":     {"install", "remove", "purge", "upgrade", "dist-upgrade", "autoremove", "update", "clean", "autoclean", "build-dep", "source", "reinstall"},
-	"dnf":         {"install", "remove", "erase", "upgrade", "update", "autoremove", "downgrade", "reinstall", "distro-sync", "swap", "makecache", "clean", "group"},
-	"yum":         {"install", "remove", "erase", "upgrade", "update", "autoremove", "downgrade", "reinstall", "distro-sync", "swap", "makecache", "clean", "groupinstall", "groupremove"},
-	"apk":         {"add", "del", "upgrade", "update", "fix", "cache"},
-	"zypper":      {"install", "in", "remove", "rm", "update", "up", "dist-upgrade", "dup", "patch", "refresh", "ref", "addrepo", "ar", "removerepo", "rr"},
-	"pacman":      {"-S", "-R", "-Syu", "-Rs", "-U", "-Sy", "-Syy", "-Syyu", "-Su", "-Rn", "-Rns", "-Rsn", "-Sc", "-Scc", "--sync", "--remove", "--upgrade"},
-	"pip":         {"install", "uninstall", "download", "wheel"},
-	"pip3":        {"install", "uninstall", "download", "wheel"},
-	"npm":         {"install", "i", "uninstall", "update", "ci", "run", "run-script", "exec", "start", "stop", "restart", "test", "publish", "link", "rebuild", "prune", "dedupe"},
-	"docker":      {"run", "rm", "rmi", "stop", "start", "restart", "kill", "create", "pull", "push", "prune", "update", "rename", "pause", "unpause", "cp", "commit", "tag", "build", "exec", "up", "down", "load", "import", "scale", "rollback", "deploy", "init", "join", "leave", "promote", "demote", "attach"},
-	"podman":      {"run", "rm", "rmi", "stop", "start", "restart", "kill", "create", "pull", "push", "prune", "update", "rename", "pause", "unpause", "cp", "commit", "tag", "build", "exec", "up", "down", "load", "import", "attach"},
-	"kubectl":     {"apply", "create", "delete", "edit", "patch", "replace", "scale", "rollout", "drain", "cordon", "uncordon", "label", "annotate", "set", "taint", "run", "expose", "autoscale", "exec", "cp", "debug", "attach", "approve", "deny", "use-context", "set-context", "delete-context", "set-cluster", "set-credentials", "rename-context"},
-	"ip":          {"add", "del", "delete", "set", "flush", "replace", "change"},
-	"hostnamectl": {"set-hostname"},
-	"timedatectl": {"set-time", "set-timezone", "set-ntp"},
-	"journalctl":  {"--vacuum-size", "--vacuum-time", "--vacuum-files", "--rotate", "--flush", "--relinquish-var", "--setup-keys"},
-	"sysctl":      {"-w", "--write", "-p", "--load", "--system"},
-	"ufw":         {"allow", "deny", "reject", "delete", "enable", "disable", "reset", "limit", "insert", "route", "reload"},
-	"iptables":    {"-A", "-D", "-I", "-R", "-F", "-X", "-P", "-N", "-Z", "-E", "--append", "--delete", "--insert", "--replace", "--flush", "--delete-chain", "--policy", "--new-chain", "--zero", "--rename-chain"},
-}
-
 // argChecks are commands whose arguments decide whether they write: each
 // one says what in them changes something, or "". input: the command
 // reads a pipe or a redirect.
 var argChecks = map[string]func(cmd string, args []string, input bool) string{
-	"find": findWrite, "sed": sedWrite, "tar": tarWrite, "curl": curlWrite, "wget": wgetWrite,
+	"find": findWrite, "sed": sedWrite, "tar": tarWrite,
 	"awk": awkWrite, "gawk": awkWrite, "mawk": awkWrite, "nawk": awkWrite,
 	"gzip": compressWrite, "gunzip": compressWrite, "bzip2": compressWrite, "bunzip2": compressWrite,
 	"xz": compressWrite, "unxz": compressWrite, "zstd": compressWrite, "unzstd": compressWrite,
-	"lz4": compressWrite, "lzma": compressWrite, "unlzma": compressWrite, "pigz": compressWrite,
-	"unzip": unzipWrite, "patch": patchWrite, "crontab": crontabWrite, "git": gitWrite, "hash": hashWrite,
+	"lzma": compressWrite, "unlzma": compressWrite, "pigz": compressWrite,
+	"zcat": catOnly, "bzcat": catOnly, "xzcat": catOnly, "zstdcat": catOnly, "lzcat": catOnly,
+	"unzip": unzipWrite, "crontab": crontabWrite, "git": gitWrite, "journalctl": noWrite,
 	"psql": psqlWrite, "mysql": mysqlWrite, "mariadb": mysqlWrite,
 	"sort": sortWrite, "uniq": uniqWrite, "openssl": opensslWrite, "date": dateWrite,
-	"hostname": hostnameWrite, "dmesg": dmesgWrite, "less": lessWrite,
+	"hostname": hostnameWrite, "dmesg": dmesgWrite,
 	"redis-cli": redisCliWrite, "valkey-cli": redisCliWrite, "keydb-cli": redisCliWrite,
 	"xxd": xxdWrite, "yq": yqWrite, "xmllint": xmllintWrite, "fuser": fuserWrite, "ss": ssWrite,
-	"arp": arpWrite, "sar": sarWrite,
+	"arp": arpWrite, "sar": sarWrite, "rg": rgWrite, "file": fileWrite, "lsof": lsofWrite, "pidstat": pidstatWrite,
+	"nginx": configTest, "sshd": configTest, "apachectl": configTest, "apache2ctl": configTest, "httpd": configTest,
+	"firewall-cmd": firewallCmdWrite,
+	"blkid":        blkidWrite, "printf": printfWrite, "test": testWrite, "[": testWrite, "[[": testWrite, "read": readWrite,
 }
 
 // argSensitive: the arguments of cmd decide what it does, so an argument
 // komando cannot see (find /data $X) may turn it into a write.
 func argSensitive(cmd string) bool {
 	_, a := argChecks[cmd]
-	_, b := writeSubs[cmd]
+	_, b := readSubs[cmd]
 	return a || b
 }
 
-// wrappers run the next word as the command. The list is the options that
-// take a value (sudo -u root, timeout -s KILL): the value is not the command.
+// wrappers run the next word as the command. The first list is the
+// options that take a value (sudo -u root, timeout -s KILL): the value is
+// not the command. The second is the options that take none. A wrapper
+// option that is in neither list is refused: komando could not tell where
+// the command starts, or what the option does (sudo -h HOST, ionice -p PID).
 var wrappers = map[string][]string{
-	"sudo":     {"-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U", "-R", "-T", "--user", "--group", "--close-from", "--chdir", "--host", "--prompt", "--role", "--type", "--other-user", "--chroot", "--command-timeout"},
-	"doas":     {"-u", "-C"},
-	"env":      {"-u", "-C", "--unset", "--chdir"},
-	"nice":     {"-n", "--adjustment"},
-	"timeout":  {"-s", "-k", "--signal", "--kill-after"},
-	"ionice":   {"-c", "-n", "-p", "-P", "-u", "--class", "--classdata", "--pid", "--pgid", "--uid"},
-	"stdbuf":   {"-i", "-o", "-e", "--input", "--output", "--error"},
-	"xargs":    {"-I", "-L", "-n", "-P", "-d", "-E", "-s", "-a", "--max-args", "--max-lines", "--max-procs", "--delimiter", "--eof", "--max-chars", "--arg-file", "--replace", "--process-slot-var"},
-	"time":     {"-f", "--format"},
-	"chrt":     {"-T", "-P", "-D", "--sched-runtime", "--sched-period", "--sched-deadline"},
-	"taskset":  nil,
-	"numactl":  {"-i", "-m", "-N", "-C", "-p", "--interleave", "--membind", "--cpunodebind", "--physcpubind", "--preferred"},
-	"prlimit":  {"-p", "-o", "--pid", "--output"},
-	"fakeroot": {"-l", "-s", "-i", "-b", "--lib", "--faked"},
-	"faketime": nil,
-	"command":  nil, "nohup": nil, "setsid": nil, "busybox": nil, // busybox APPLET ARGS
+	"sudo":    {"-u", "-g", "-p", "--user", "--group", "--prompt"},
+	"doas":    {"-u"},
+	"env":     {"-u", "-C", "--unset", "--chdir"},
+	"nice":    {"-n", "--adjustment"},
+	"timeout": {"-s", "-k", "--signal", "--kill-after"},
+	"ionice":  {"-c", "-n", "--class", "--classdata"},
+	"stdbuf":  {"-i", "-o", "-e", "--input", "--output", "--error"},
+	"xargs":   {"-I", "-L", "-n", "-P", "-d", "-E", "-s", "-a", "--max-args", "--max-lines", "--max-procs", "--delimiter", "--eof", "--max-chars", "--arg-file", "--replace"},
+	"time":    {"-f", "--format"},
+	"command": nil,
 }
 
-// wrapperWords are the words a wrapper takes before its command: chrt
-// PRIORITY CMD, taskset MASK CMD, faketime TIME CMD.
-var wrapperWords = map[string]int{"chrt": 1, "taskset": 1, "faketime": 1}
+var wrapperFlags = map[string]map[string]bool{
+	"sudo":    set(`-n -E -H --non-interactive --preserve-env --set-home`),
+	"doas":    set(`-n`),
+	"env":     set(`-i -S --ignore-environment --split-string`),
+	"timeout": set(`-v --preserve-status --foreground --verbose`),
+	"ionice":  set(`-t --ignore`),
+	"xargs":   set(`-0 -r -t -x --null --no-run-if-empty --verbose --exit`),
+	"time":    set(`-p -v -o --portability --verbose --output`),
+	"command": set(`-p -v -V`),
+}
+
+// wrapperOptionKnown: a is an option of the wrapper komando knows, alone,
+// in a group of letters (-nE) or with its value attached (-uroot, --user=x).
+func wrapperOptionKnown(name string, opts []string, a string) bool {
+	flags := wrapperFlags[name]
+	if n, _, _ := strings.Cut(a, "="); flags[a] || flags[n] || slices.Contains(opts, a) || slices.Contains(opts, n) {
+		return true
+	}
+	if strings.HasPrefix(a, "--") {
+		return false
+	}
+	for j := 1; j < len(a); j++ {
+		l := "-" + string(a[j])
+		if slices.Contains(opts, l) {
+			return true // the rest of the word is its value
+		}
+		if !flags[l] {
+			return false
+		}
+	}
+	return true
+}
+
+// wrapperWords are the words a wrapper takes before its command, each
+// with the form it must have: timeout DURATION CMD.
+var wrapperWords = map[string][]*regexp.Regexp{
+	"timeout": {regexp.MustCompile(`^([0-9]+(\.[0-9]*)?|\.[0-9]+)[smhd]?$`)},
+}
 
 // shellKeywords come before a command (if rm x; then ...): the command is
 // the next word.
 var shellKeywords = map[string]bool{"{": true, "}": true, "!": true, "if": true, "then": true, "elif": true,
-	"else": true, "fi": true, "do": true, "done": true, "while": true, "until": true, "esac": true, "coproc": true, "[[": true, "]]": true}
+	"else": true, "fi": true, "do": true, "done": true, "while": true, "until": true, "esac": true}
 
 // runsHidden are commands that run text komando does not see as a command,
 // or run another program in a way it cannot follow.
@@ -168,22 +178,13 @@ func isInterpreter(cmd string) bool {
 	return interpreters[cmd] || strings.HasPrefix(cmd, "python") || strings.HasPrefix(cmd, "pypy")
 }
 
-// readOnlyViolation returns what in command clearly changes something, or
-// "". It is a denylist: an unknown command is read-only here.
+// readOnlyViolation returns why command may not run as --read-only, or "":
+// what in it changes something, or what komando does not know only reads.
 func readOnlyViolation(command string) string {
-	return readOnlyCheck(command, 0, false)
+	return readOnlyCheck(command, 0)
 }
 
-// readOnlyAllowlist returns why command is not known to only read, or "".
-// Unlike readOnlyViolation it is an allowlist: a command komando does not
-// recognise as a read is reported, so a protected target can hold it to
-// the normal --yes path. Used only to decide whether --read-only may skip
-// the confirmation a protected target needs; the denylist still runs first.
-func readOnlyAllowlist(command string) string {
-	return readOnlyCheck(command, 0, true)
-}
-
-func readOnlyCheck(command string, depth int, allow bool) string {
+func readOnlyCheck(command string, depth int) string {
 	if depth > 8 {
 		return "shells nested too deep"
 	}
@@ -192,11 +193,19 @@ func readOnlyCheck(command string, depth int, allow bool) string {
 		return "komando cannot read the command (" + bad + ")"
 	}
 	for _, toks := range lines {
+		for _, t := range toks {
+			switch {
+			case t.Brace:
+				return t.Text + " (bash expands the braces into words komando cannot see)"
+			case t.Code:
+				return t.Text + " (bash evaluates this expansion, which can run commands)"
+			}
+		}
 		var words []policy.Token
 		input := false // the segment reads a pipe or a file
 		for i := 0; i <= len(toks); i++ {
 			if i == len(toks) || toks[i].Op && segmentEnd[toks[i].Text] {
-				if w := segmentWrite(words, input, depth, allow); w != "" {
+				if w := segmentWrite(words, input, depth); w != "" {
 					return w
 				}
 				words = nil
@@ -252,7 +261,7 @@ func texts(toks []policy.Token) []string {
 	return w
 }
 
-func segmentWrite(toks []policy.Token, input bool, depth int, allow bool) string {
+func segmentWrite(toks []policy.Token, input bool, depth int) string {
 	words := texts(toks)
 	i := 0
 	xargs := false
@@ -268,12 +277,12 @@ func segmentWrite(toks []policy.Token, input bool, depth int, allow bool) string
 		case shellKeywords[w]:
 			i++
 			continue
-		case w == "for" || w == "select" || w == "case":
+		case w == "for" || w == "case":
 			return "" // for NAME in WORDS: the words are not a command
 		}
 		if opts, ok := wrappers[path.Base(w)]; ok {
 			xargs = xargs || path.Base(w) == "xargs"
-			next, v := skipWrapper(path.Base(w), opts, toks, i+1, input, depth, allow)
+			next, v := skipWrapper(path.Base(w), opts, toks, i+1, input, depth)
 			if v != "" || next < 0 {
 				return v
 			}
@@ -291,7 +300,7 @@ func segmentWrite(toks []policy.Token, input bool, depth int, allow bool) string
 	}
 	cmd := path.Base(name)
 	args := words[i+1:]
-	if xargs && (argSensitive(cmd) || policy.IsShell(cmd)) {
+	if xargs && !readCommands[cmd] {
 		return "xargs " + cmd + " (xargs adds arguments komando cannot see)"
 	}
 	if argSensitive(cmd) {
@@ -299,7 +308,7 @@ func segmentWrite(toks []policy.Token, input bool, depth int, allow bool) string
 			if cmd == "crontab" && k > 0 && args[k-1] == "-u" && t.Quoted {
 				continue // crontab -l -u "$u": one word, a user name
 			}
-			if t.Expands {
+			if t.Expands && !builtinExpands(cmd, k, t, toks[i+1:]) {
 				return cmd + " argument " + t.Text + " is only known when it runs"
 			}
 		}
@@ -313,7 +322,7 @@ func segmentWrite(toks []policy.Token, input bool, depth int, allow bool) string
 		}
 		return cmd
 	case policy.IsShell(cmd):
-		return shellWrite(cmd, args, depth, allow)
+		return shellWrite(cmd, args, depth)
 	case isInterpreter(cmd):
 		if len(args) == 0 {
 			return cmd + " running code from its input"
@@ -326,71 +335,86 @@ func segmentWrite(toks []policy.Token, input bool, depth int, allow bool) string
 		return ""
 	}
 	switch cmd {
-	case "export", "declare", "typeset", "local", "readonly":
+	case "export": // export NAME, export NAME=VALUE: a name with a [ ] in it is evaluated
 		for _, a := range args {
-			if strings.Contains(a, "=") {
-				if v := envWrite(a); v != "" {
-					return v
-				}
+			name, _, _ := strings.Cut(a, "=")
+			if !validShellName(name) || name == "" {
+				return "export " + a + " (not a plain name)"
+			}
+			if v := envWrite(a); v != "" {
+				return v
 			}
 		}
 		return ""
 	}
-	return classifyCommand(cmd, args, input, allow)
+	return classifyCommand(cmd, args, input)
 }
 
-// classifyCommand rates the command word itself (after wrappers), using the
-// argument classifiers (argChecks), the subcommand lists (writeSubs), and,
-// for the allowlist, whether komando knows the command only reads.
-func classifyCommand(cmd string, args []string, input, allow bool) string {
+// builtinExpands: argument k of a shell built-in may hold a value komando
+// cannot see. printf's words after the format are only printed. test and
+// [ take a quoted value as one word, which cannot become the -v that
+// evaluates a name unless the word after it is unseen too; in [[ ]] the
+// operators are read before anything expands.
+func builtinExpands(cmd string, k int, t policy.Token, args []policy.Token) bool {
+	switch cmd {
+	case "printf":
+		return k > 0
+	case "[[":
+		return true
+	case "test", "[":
+		return t.Quoted && (k+1 >= len(args) || !args[k+1].Expands)
+	}
+	return false
+}
+
+// classifyCommand rates the command word itself (after wrappers): one
+// whose options decide (argChecks, with only the long options komando
+// knows), one with subcommands (readSubs), or a plain read tool
+// (readCommands). Anything else is not known to only read.
+func classifyCommand(cmd string, args []string, input bool) string {
 	if check, ok := argChecks[cmd]; ok {
+		if w := longOptionUnknown(cmd, args); w != "" {
+			return w
+		}
 		return check(cmd, args, input)
 	}
-	if subs, ok := writeSubs[cmd]; ok {
-		for _, a := range args {
-			for _, s := range subs {
-				if a == s || strings.HasPrefix(a, s+"=") {
-					return cmd + " " + a
-				}
-			}
+	if rule, ok := readSubs[cmd]; ok {
+		if cmd == "sysctl" && slices.ContainsFunc(args, func(a string) bool { return strings.Contains(a, "=") && !strings.HasPrefix(a, "-") }) {
+			return "sysctl NAME=VALUE"
 		}
-		return "" // a command komando classifies, with no writing word: it reads
+		return subRead(cmd, args, rule)
 	}
-	// a command no classifier covers: unknown to the denylist, so read-only;
-	// but the allowlist (a protected target's --read-only) only lets through
-	// a plain read tool or shell built-in it knows reads (readCommands).
-	if allow && !readCommands[cmd] {
+	if !readCommands[cmd] {
 		return "the command " + cmd + " is not known to only read"
 	}
 	return ""
 }
 
-// readCommands only ever read (or change nothing on the server: a shell
-// built-in that sets an option, a read tool that prints to stdout). A
-// command that can write by itself (tee, dd) is not here; one whose
-// arguments decide (find, sed, git, systemctl, docker ...) is classified
-// above, not here. The allowlist holds a protected target's --read-only to
-// commands on this list; anything else takes the normal --yes path.
+// readCommands only ever read, whatever their options: a read tool that
+// prints to stdout, a shell built-in that changes nothing on the server.
+// A command that can write by itself (tee, dd) is not here; one whose
+// options or subcommand decide (find, sed, git, systemctl, docker ...) is
+// classified above, not here; one that bash makes evaluate its arguments
+// (let, unset, declare, wait, getopts) is left out.
 var readCommands = set(`
-	: true false test [ [[ echo printf set shopt unset cd pwd pushd popd dirs umask ulimit
-	wait times let read help getopts exit
-	grep egrep fgrep zgrep rg
+	: true false echo set cd pwd exit sleep seq
+	grep egrep fgrep zgrep
 	cat tac nl head tail wc rev cut paste join comm column fold fmt expand unexpand tr
-	od hexdump xxd strings cksum sum md5sum sha1sum sha224sum sha256sum sha384sum sha512sum b2sum
+	od hexdump strings cksum sum md5sum sha1sum sha224sum sha256sum sha384sum sha512sum b2sum
 	base32 base64 basenc
-	ls dir vdir stat readlink realpath basename dirname pathchk
+	ls dir vdir stat readlink realpath basename dirname pathchk which whereis type
 	df du free uptime uname arch nproc hostid id whoami who w users groups logname tty getconf locale cal
-	ps pgrep pidof lsof fuser lslocks
-	ss netstat lsblk blkid lscpu lsmem lsusb lspci lsmod lsattr getfacl getcap
-	file nm objdump readelf ldd size
-	dig host nslookup getent arp
-	vmstat iostat mpstat sar pidstat
-	jq yq xmllint printenv
-	zcat bzcat xzcat zstdcat lzcat lz4cat`)
+	last lastlog lsb_release
+	ps pgrep pidof lslocks
+	netstat lsblk lscpu lsmem lsusb lspci lsmod lsattr getfacl getcap
+	objdump readelf size
+	dig host nslookup getent
+	vmstat iostat mpstat
+	jq printenv`)
 
 // shellWrite checks what a shell runs: the text after -c, also with the
 // arguments it gets ($0, $1 ...) filled in.
-func shellWrite(cmd string, args []string, depth int, allow bool) string {
+func shellWrite(cmd string, args []string, depth int) string {
 	if len(args) > 0 && !slices.ContainsFunc(args, func(a string) bool { return a != "--version" && a != "--help" }) {
 		return ""
 	}
@@ -398,18 +422,17 @@ func shellWrite(cmd string, args []string, depth int, allow bool) string {
 	if !ok {
 		return cmd + " running a script from a file or its input"
 	}
-	if w := readOnlyCheck(script, depth+1, allow); w != "" || len(params) == 0 {
+	if w := readOnlyCheck(script, depth+1); w != "" || len(params) == 0 {
 		return w
 	}
-	return readOnlyCheck(policy.FillParams(script, params), depth+1, allow)
+	return readOnlyCheck(policy.FillParams(script, params), depth+1)
 }
 
 // skipWrapper steps over a wrapper's options and values (sudo -u root,
 // timeout 10) and returns where its command starts, -1 when there is
 // nothing more to check, or why the wrapper itself changes something.
-func skipWrapper(name string, opts []string, toks []policy.Token, i int, input bool, depth int, allow bool) (int, string) {
+func skipWrapper(name string, opts []string, toks []policy.Token, i int, input bool, depth int) (int, string) {
 	words := texts(toks)
-	shell := false // sudo -s / -i: a shell runs the command, or reads its input
 	positional := 0
 	for i < len(words) {
 		a := words[i]
@@ -429,19 +452,16 @@ func skipWrapper(name string, opts []string, toks []policy.Token, i int, input b
 			case (name == "sudo" || name == "doas") && (strings.ContainsAny(flags, "e") && name == "sudo" || a == "--edit"):
 				return -1, "sudo -e"
 			case (name == "sudo" || name == "doas") && (strings.ContainsAny(flags, "si") || a == "--shell" || a == "--login"):
-				shell = true
+				return -1, name + " " + a + " (a shell reads the command again)"
 			case name == "env" && (strings.Contains(flags, "S") || strings.HasPrefix(a, "--split-string")):
 				return -1, "env -S"
 			case name == "time" && (strings.Contains(flags, "o") || strings.HasPrefix(a, "--output")):
 				return -1, "time -o"
 			}
-			switch takesValue(opts, a) {
-			case valueNext:
-				i++
-			case valueMaybe: // -uroot or -nu root: check both readings
-				if v := segmentWrite(toks[i+1:], input, depth, allow); v != "" {
-					return -1, v
-				}
+			if !wrapperOptionKnown(name, opts, a) {
+				return -1, name + " " + a + " (komando does not know this option)"
+			}
+			if takesValue(opts, a) {
 				i++
 			}
 			i++
@@ -454,63 +474,70 @@ func skipWrapper(name string, opts []string, toks []policy.Token, i int, input b
 			i++
 			continue
 		}
-		if words := wrapperWords[name] - positional; words > 0 { // taskset MASK, chrt PRIORITY
+		if forms := wrapperWords[name]; positional < len(forms) { // timeout DURATION
+			if !forms[positional].MatchString(a) {
+				return -1, name + " " + a + " (komando cannot tell where the command starts)"
+			}
 			positional++
-			i++
-			continue
-		}
-		if isNumberish(a) {
 			i++
 			continue
 		}
 		break
 	}
 	if i >= len(words) {
-		if shell {
-			return -1, "a shell reading commands from its input"
-		}
 		return -1, ""
 	}
 	return i, ""
 }
 
-const (
-	valueNone  = iota
-	valueNext  // -u root, --user root
-	valueMaybe // -nu root or -uroot: a group of flags, or a value attached
-)
-
-// takesValue says whether option a takes the next word as its value.
-func takesValue(opts []string, a string) int {
+// takesValue says whether option a takes the next word as its value, the
+// way getopt reads it: in a group of letters the first one that takes a
+// value ends the group (-nu root: root is -u's value; -uroot: attached).
+func takesValue(opts []string, a string) bool {
 	if strings.Contains(a, "=") {
-		return valueNone
+		return false
 	}
-	for _, o := range opts {
-		if a == o {
-			return valueNext
+	if slices.Contains(opts, a) {
+		return true
+	}
+	if strings.HasPrefix(a, "--") {
+		return false
+	}
+	for j := 1; j < len(a); j++ {
+		if slices.Contains(opts, "-"+string(a[j])) {
+			return j == len(a)-1
 		}
 	}
-	if strings.HasPrefix(a, "--") || len(a) <= 2 {
-		return valueNone
-	}
-	letters := true // -nu: a group of flags; -I{} or -n5: a value attached
-	for _, r := range a[1:] {
-		letters = letters && (r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z')
-	}
-	for _, o := range opts {
-		if len(o) == 2 && letters && strings.ContainsRune(a[1:], rune(o[1])) {
-			return valueMaybe
-		}
-	}
-	return valueNone
+	return false
 }
 
-// psqlMeta and mysqlMeta are client commands that run a shell or read and
-// write local files: the server's read-only settings do not cover them.
+// mysqlMeta are mysql client commands that run a shell or read and write
+// local files: the server's read-only settings do not cover them.
+var mysqlMeta = regexp.MustCompile(`(?im)\\[!.TPe]|(^|;)\s*(system|tee|pager|source|edit)\b`)
+
+// psql's backslash commands run a shell (\!), read and write files (\o,
+// \i, \copy, \lo_export), set variables (\set) and run query results as
+// SQL (\gexec), and new ones keep coming. Only the ones that describe or
+// list (\d and its family, \l, \z, \sf, \sv), \conninfo, \x, \timing,
+// \echo and \q pass; psqlBackslash finds every other use of a backslash.
 var (
-	psqlMeta  = regexp.MustCompile(`\\(!|copy|setenv|lo_export|lo_import|include(_relative)?|ir|i|o|out|w|write|s|cd|e|edit|ef|ev)(\s|$|\\|;)|\\g[a-z]*[ \t]+[^\s;\\]`)
-	mysqlMeta = regexp.MustCompile(`(?im)\\[!.TPe]|(^|;)\s*(system|tee|pager|source|edit)\b`)
+	psqlBackslash = regexp.MustCompile(`\\(.?[A-Za-z_]*)`)
+	psqlReadMeta  = regexp.MustCompile(`^(d[A-Za-z]*|l|z|sf|sv|conninfo|x|timing|echo|q)$`)
+	// psqlVar is :name, :'name' or :"name", which psql replaces with a
+	// variable's text before the server sees the SQL (not ::cast, not 12:30)
+	psqlVar = regexp.MustCompile(`(^|[^:A-Za-z0-9_])[:]['"]?[A-Za-z_]`)
 )
+
+// psqlMetaWrite returns the backslash command in text that is not one of
+// the read ones, or "".
+func psqlMetaWrite(text string) string {
+	for _, m := range psqlBackslash.FindAllStringSubmatch(text, -1) {
+		if !psqlReadMeta.MatchString(m[1]) {
+			return m[0]
+		}
+	}
+	return ""
+}
 
 // psqlWrite: psql -c is SQL, which must only read (sqlWrite), and a \! or
 // \o in it runs a shell or writes a file here; a file (-f) or commands from
@@ -555,8 +582,8 @@ func psqlWrite(cmd string, args []string, input bool) string {
 				}
 			}
 		}
-		if psqlMeta.MatchString(val) {
-			return cmd + ` running a shell or writing files (\! \o \w \copy ...)`
+		if m := psqlMetaWrite(val); m != "" {
+			return cmd + " " + m + ` (only the \d describe commands, \l, \x and \timing are known to read)`
 		}
 		if w := sqlWrite(val, false); w != "" {
 			return cmd + " -c " + w
@@ -611,7 +638,7 @@ func mysqlWrite(cmd string, args []string, input bool) string {
 // in a read-only transaction the way `db query` is, so only statements
 // that driver.ClassifySQL rates as reads pass: an unknown statement, a
 // transaction command or SQL it cannot read breaks the promise. psql meta
-// commands (\dt) are left to psqlMeta.
+// commands (\dt) are left to psqlMetaWrite.
 func sqlWrite(sql string, mysql bool) string {
 	kind := "postgres"
 	if mysql {
@@ -649,10 +676,18 @@ func sqlInputWrite(command string, stdin []byte) string {
 	if !sqlClient.MatchString(command) {
 		return ""
 	}
-	if psqlMeta.Match(stdin) || mysqlMeta.Match(stdin) {
-		return `the input runs a shell or writes files (\!, \o, system, tee ...)`
+	psql := strings.Contains(command, "psql")
+	if psql {
+		if m := psqlMetaWrite(string(stdin)); m != "" {
+			return "the input has " + m + ` (only the \d describe commands, \l, \x and \timing are known to read)`
+		}
+		if psqlVar.Match(stdin) {
+			return "the input uses a psql variable (:name), which may hold SQL komando cannot see"
+		}
+	} else if mysqlMeta.Match(stdin) {
+		return `the input runs a shell or writes files (\!, system, tee, source ...)`
 	}
-	if w := sqlWrite(string(stdin), !strings.Contains(command, "psql")); w != "" {
+	if w := sqlWrite(string(stdin), !psql); w != "" {
 		return "the input is " + w
 	}
 	return ""
@@ -670,18 +705,6 @@ func validShellName(k string) bool {
 		}
 	}
 	return true
-}
-
-func isNumberish(w string) bool {
-	if w == "" {
-		return false
-	}
-	for _, r := range w {
-		if !(r >= '0' && r <= '9' || r == '.' || r == 's' || r == 'm' || r == 'h') {
-			return false
-		}
-	}
-	return w[0] >= '0' && w[0] <= '9'
 }
 
 // stdinShells read a script from their input when given no -c and no file.
@@ -774,21 +797,14 @@ func readOnlyFill(command string, env []string) (filled, codeRunner string) {
 	}), ""
 }
 
-// readOnlyMutates reports whether a --read-only command still counts as a
-// change for a protected target, so it needs --yes: it does unless komando
-// knows every part of it only reads (readOnlyAllowlist). The command has
-// already passed the denylist (checkReadOnly), so this is the second gate:
-// an unknown command skips --yes on an ordinary target but not a protected
-// one.
+// readOnlyMutates reports whether command, with its -e values filled in,
+// is anything but a read komando knows.
 func readOnlyMutates(command string, env []string) bool {
 	filled, bad := readOnlyFill(command, env)
-	if bad != "" {
-		return true
-	}
-	return readOnlyAllowlist(filled) != ""
+	return bad != "" || readOnlyViolation(filled) != ""
 }
 
 func readOnlyStop(cl *call, what string) error {
-	return cl.policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "it changes something, so it is not --read-only: tell the user what it changes, then run it without --read-only (a protected server also needs --yes)",
-		"--read-only, but the command changes something (%s)", what))
+	return cl.policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "--read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)",
+		"--read-only, but the command is not known to only read (%s)", what))
 }
