@@ -40,7 +40,10 @@ func resolve(ctx context.Context, host string) (netip.Addr, int, error) {
 		}
 	}
 	if a, err := netip.ParseAddr(host); err == nil {
-		return a.Unmap(), port, nil
+		if a = a.Unmap(); !a.Is4() {
+			return netip.Addr{}, 0, fmt.Errorf("the VPN server %s is an IPv6 address: komando's IPsec client speaks IPv4 only; give its IPv4 address or name", host)
+		}
+		return a, port, nil
 	}
 	ips, err := net.DefaultResolver.LookupNetIP(ctx, "ip4", host)
 	if err != nil || len(ips) == 0 {
@@ -189,7 +192,17 @@ func (t *udpTransport) sendESP(b []byte) error {
 func (t *udpTransport) local() netip.AddrPort {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	return t.conn.LocalAddr().(*net.UDPAddr).AddrPort()
+	a := t.conn.LocalAddr().(*net.UDPAddr).AddrPort()
+	return netip.AddrPortFrom(a.Addr().Unmap(), a.Port())
+}
+
+// as4 is a's four bytes, or 0.0.0.0 for an address that is not IPv4: a
+// server's answer must never panic komando.
+func as4(a netip.Addr) [4]byte {
+	if a = a.Unmap(); a.Is4() {
+		return a.As4()
+	}
+	return [4]byte{}
 }
 
 func (t *udpTransport) end(err error) {

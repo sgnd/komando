@@ -15,6 +15,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/releasesig"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // releaseSite is where komando's releases are published (install.sh uses
@@ -57,7 +58,8 @@ func newestRelease(cl *call, ctx context.Context) (string, error) {
 }
 
 func updateClient() *http.Client {
-	t := http.DefaultTransport.(*http.Transport).Clone() // honours HTTPS_PROXY
+	t := transport.HTTP()
+	t.Proxy = transport.Proxy() // a person's HTTPS_PROXY
 	return &http.Client{Transport: t, CheckRedirect: httpsOnlyRedirect}
 }
 

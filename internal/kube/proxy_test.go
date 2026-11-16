@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sgnd/komando/internal/proxyx/proxytest"
+	"github.com/sgnd/komando/internal/transport/proxytest"
 )
 
 // Behind a company proxy the API server is reached through the proxy's

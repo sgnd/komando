@@ -77,3 +77,29 @@ func TestTailscaleStateSealed(t *testing.T) {
 		t.Fatal("vpn rm kept the folder")
 	}
 }
+
+// Where a Tailscale VPN logs in is its --server, or Tailscale's own: an
+// AI agent's TS_CONTROL_URL (or a login key in TS_AUTHKEY) must not
+// change it, or the stored auth key would go to the agent's server.
+func TestTailscaleIgnoresEnv(t *testing.T) {
+	tsHome(t)
+	t.Setenv("TS_CONTROL_URL", "http://127.0.0.1:1")
+	t.Setenv("TS_AUTHKEY", "tskey-agent")
+	t.Setenv("TSNET_FORCE_LOGIN", "1")
+	srv, err := newTailscale(&store.Vpn{Name: "tnet", Kind: "tailscale"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if srv.ControlURL != ipn.DefaultControlURL || srv.AuthKey != "" {
+		t.Fatalf("control %q, key %q", srv.ControlURL, srv.AuthKey)
+	}
+	for _, n := range []string{"TS_CONTROL_URL", "TS_AUTHKEY", "TSNET_FORCE_LOGIN"} {
+		if os.Getenv(n) != "" {
+			t.Errorf("%s is still set for tsnet", n)
+		}
+	}
+	srv, _ = newTailscale(&store.Vpn{Name: "hs", Kind: "tailscale", Server: "https://hs.example.com"})
+	if srv.ControlURL != "https://hs.example.com" {
+		t.Fatalf("headscale: %q", srv.ControlURL)
+	}
+}

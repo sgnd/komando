@@ -73,15 +73,30 @@ func (p *ppp) start() error {
 	return p.send(pppLCP, pkt(cfgRequest, p.nextID(), append(opt(1, []byte{0x05, 0xdc}), opt(5, p.magic[:])...)))
 }
 
+// ipv4 is a as IPCP carries it: an IPv6 address a server names (its
+// X-VPN-client-IP, a DNS server) is not one.
+func ipv4(a netip.Addr) (netip.Addr, bool) {
+	a = a.Unmap()
+	return a, a.Is4()
+}
+
+// four is a's bytes in an IPCP option, 0.0.0.0 when it is not IPv4.
+func four(a netip.Addr) [4]byte {
+	if a, ok := ipv4(a); ok {
+		return a.As4()
+	}
+	return [4]byte{}
+}
+
 func (p *ppp) ipcpRequest() error {
-	a := p.addr.As4()
+	a := four(p.addr)
 	opts := opt(3, a[:])
 	var d1, d2 [4]byte
 	if len(p.dns) > 0 {
-		d1 = p.dns[0].As4()
+		d1 = four(p.dns[0])
 	}
 	if len(p.dns) > 1 {
-		d2 = p.dns[1].As4()
+		d2 = four(p.dns[1])
 	}
 	opts = append(opts, opt(129, d1[:])...)
 	opts = append(opts, opt(131, d2[:])...)
@@ -161,7 +176,8 @@ func (p *ppp) handle(proto uint16, b []byte) error {
 			return p.ipcpRequest()
 		case cfgReject:
 			// drop the DNS options the peer does not offer
-			p.ipcpReq = opt(3, p.addr.AsSlice())
+			a := four(p.addr)
+			p.ipcpReq = opt(3, a[:])
 			return p.send(pppIPCP, pkt(cfgRequest, p.nextID(), p.ipcpReq))
 		case cfgAck:
 			p.ipcpUp = true
