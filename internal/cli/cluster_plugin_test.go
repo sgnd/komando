@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -70,7 +71,7 @@ func TestCloudLoginKubeconfigNeedsAPerson(t *testing.T) {
 func tokenProgram(t *testing.T, dir, name, log string) string {
 	t.Helper()
 	p := filepath.Join(dir, "mytoken")
-	script := "#!/bin/sh\necho \"" + name + " $* PATH=$PATH\" >> " + log + "\necho '{\"status\":{\"token\":\"t\"}}'\n"
+	script := "#!/bin/sh\necho \"" + name + " $* STEER=$KOMANDO_TEST_STEER PATH=$PATH\" >> " + log + "\necho '{\"status\":{\"token\":\"t\"}}'\n"
 	if err := os.WriteFile(p, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -99,11 +100,12 @@ func TestTrustedPluginIsTheProgramImported(t *testing.T) {
 
 	windows := asAgent(t, false, false)
 	t.Setenv("PATH", fake+string(os.PathListSeparator)+personPath) // PATH=<dir>:$PATH komando ...
+	t.Setenv("KOMANDO_TEST_STEER", "agent")                        // any variable that steers a program
 	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e != nil {
 		t.Fatalf("an agent on a trusted conn: %+v", e)
 	}
 	got := runs()
-	if strings.Contains(got, "fake") || !strings.Contains(got, "real --client-secret s3cr3t-arg") {
+	if strings.Contains(got, "fake") || !strings.Contains(got, "real --client-secret s3cr3t-arg STEER= ") {
 		t.Errorf("the program that ran: %q", got)
 	}
 	if !strings.Contains(got, "PATH="+personPath+"\n") {
@@ -132,8 +134,8 @@ func TestTrustedPluginIsTheProgramImported(t *testing.T) {
 	if len(texts) != 1 || !strings.Contains(texts[0], filepath.Join(fake, "mytoken")) {
 		t.Errorf("the window names the program file: %q", texts)
 	}
-	if got := runs(); !strings.Contains(got, "fake --client-secret") {
-		t.Errorf("after a yes, the named program runs: %q", got)
+	if got := runs(); !strings.Contains(got, "fake --client-secret s3cr3t-arg STEER= PATH="+fake+string(os.PathListSeparator)+"/usr/bin:") {
+		t.Errorf("after a yes, the named program runs, with the system's PATH and none of the agent's variables: %q", got)
 	}
 	askOnScreen = saved
 
@@ -175,5 +177,47 @@ func TestPluginTrustCoversTheClusterBlock(t *testing.T) {
 	setCallerEnv(t, "CLAUDECODE", "1")
 	if d, e := cliRun(t, "--dry-run", "cluster", "exec", "prod", "pod-a", "--", "id"); e != nil || blocked(d) != nil {
 		t.Errorf("unchanged: %v %+v", d, e)
+	}
+}
+
+// An import an AI agent made with a person's yes trusts nothing for later:
+// the program and its helpers were found by the agent's PATH, which the
+// window did not show.
+func TestAgentImportIsNotTrusted(t *testing.T) {
+	unixOnly(t, "the kubeconfig's login program is a /bin/sh script")
+	invHome(t)
+	l := newLabCluster(t)
+	dir := t.TempDir()
+	log := filepath.Join(t.TempDir(), "runs")
+	tokenProgram(t, dir, "prog", log)
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	plugin := "    exec:\n      apiVersion: client.authentication.k8s.io/v1\n      command: mytoken\n"
+	asAgent(t, true, true)
+	if _, e := cliRun(t, "--yes", "import", "kubeconfig", l.kubeconfigFile(t, plugin)); e != nil {
+		t.Fatalf("approved import: %+v", e)
+	}
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := st.Conns["prod"]; c == nil || c.TrustedPlugin+c.PluginProgram+c.PluginSearchPath != "" {
+		t.Errorf("the agent's import left trust: %+v", c)
+	}
+	asAgent(t, false, false)
+	if _, e := cliRun(t, "cluster", "ls", "prod", "pods"); e == nil || e.Code != "SAFETY_SETTING" {
+		t.Errorf("the agent's next command: %+v", e)
+	}
+}
+
+// The trust keeps each word of the plugin apart, and names the file.
+func TestPluginTrustInput(t *testing.T) {
+	c := kube.Cluster{Server: "https://10.0.0.1:6443"}
+	one, _ := pluginTrust(tcl, &kube.ExecAuth{Command: "/bin/sh", Args: []string{"--a b"}}, "/bin/sh", c)
+	two, _ := pluginTrust(tcl, &kube.ExecAuth{Command: "/bin/sh", Args: []string{"--a", "b"}}, "/bin/sh", c)
+	if one == two || one == "" {
+		t.Errorf("one argument and two hash the same: %s", one)
+	}
+	if _, ok := pluginTrust(tcl, &kube.ExecAuth{Command: "x"}, filepath.Join(t.TempDir(), "gone"), c); ok {
+		t.Error("a program file that is not there is trusted")
 	}
 }

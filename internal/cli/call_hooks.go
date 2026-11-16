@@ -239,21 +239,3 @@ func oldCopyAllowed() bool {
 	}
 	return len(calls) > 0
 }
-
-// credentialFileGuard is cloud.CheckLocalFile: what names a file whose
-// contents a cloud login sends to its sign-in address. An AI agent sets
-// the variable on its own command line, so for an agent's call the file
-// may not be one a file: reference could not name either (refGuard):
-// komando's own data, a private key, a credential store.
-func credentialFileGuard(what, path string) error {
-	for _, cl := range runningCalls() {
-		if !cl.isAgent() {
-			continue
-		}
-		if why := localSecret(cl, path); why != "" && why != "a file that holds secrets" {
-			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "the user sets up this cloud login in their own terminal; an AI agent's command does not choose the file",
-				"%s names %s, which is %s; komando does not send it for an AI agent", what, path, why).NoFlag()
-		}
-	}
-	return nil
-}

@@ -176,6 +176,14 @@ func TestECRLoginNeedsCheckedTLS(t *testing.T) {
 	if asked != 0 {
 		t.Errorf("an ECR login was made %d times for a registry whose certificate is not checked", asked)
 	}
+	// a CA of the conn's own, or another address, is not the cloud's registry
+	for _, q := range []string{"?ca=secret:mine", "?resolve=127.0.0.1:8443"} {
+		rc := registry.New(host, registry.TLS{}, "", "", nil)
+		e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{URL: "registry://" + host + q}, host, rc))
+		if e == nil || e.Code != "USAGE" || rc.Password != "" || asked != 0 {
+			t.Errorf("%s: %+v, password %q, asked %d", q, e, rc.Password, asked)
+		}
+	}
 	rc := registry.New(host, registry.TLS{}, "", "", nil)
 	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{}, host+":443", rc); err != nil || rc.User != "AWS" || rc.Password != "ecr-pw" {
 		t.Errorf("checked TLS: %v %q %q", err, rc.User, rc.Password)
@@ -207,6 +215,8 @@ func TestCloudCredentialFileHook(t *testing.T) {
 	os.WriteFile(key, []byte("PRIVATE KEY"), 0o600)
 	plain := filepath.Join(t.TempDir(), "token")
 	os.WriteFile(plain, []byte("jwt"), 0o600)
+	dotenv := filepath.Join(filepath.Dir(plain), ".env")
+	os.WriteFile(dotenv, []byte("DB_PASSWORD=x"), 0o600)
 	noAgent(t)
 	for _, check := range []func(string, string) error{cloud.CheckLocalFile, gcpadc.CheckLocalFile} {
 		if err := check("AZURE_FEDERATED_TOKEN_FILE", key); err != nil {
@@ -221,6 +231,11 @@ func TestCloudCredentialFileHook(t *testing.T) {
 		}
 		if err := check("AZURE_FEDERATED_TOKEN_FILE", plain); err != nil {
 			t.Errorf("an agent's token file: %v", err)
+		}
+		// a file that holds secrets by its name: the variable alone picks
+		// it, no person allowed where it goes
+		if e := toErr(check("AWS_WEB_IDENTITY_TOKEN_FILE", dotenv)); e == nil || e.Code != "SENSITIVE_FILE" {
+			t.Errorf("an agent's .env: %+v", e)
 		}
 	}
 }

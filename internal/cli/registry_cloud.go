@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
 	"github.com/sgnd/komando/internal/store"
@@ -70,6 +71,15 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 		return nil
 	}
 	host = strings.TrimSuffix(host, ":443")
+	if ecrRegion(host) != "" || isGoogleRegistry(host) || acrResource(host) != "" {
+		// the cloud's own registry has a certificate every computer
+		// trusts, at the address its name has: a CA of the conn's own
+		// (?ca=) or another address (?resolve=) would hand the cloud login
+		// to whoever holds that CA's key there
+		if t, err := driver.Parse(c.URL); err == nil && (t.CA != "" || t.Resolve != "") {
+			return out.Usage("a cloud login goes to %s only at its own address, checked against the system's CAs: take ?ca= and ?resolve= out of the conn URL, or log in with a registry token and --password-ref", host)
+		}
+	}
 	if region := ecrRegion(host); region != "" {
 		if !rc.CheckedTLS() {
 			return uncheckedCloudLogin("an Amazon ECR", host)
@@ -124,7 +134,7 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 // to a registry whose certificate is not checked (?tls=skip-verify): the
 // token is good for the whole cloud account, not only the registry.
 func uncheckedCloudLogin(what, host string) error {
-	return out.Usage("%s login goes to %s only over https with its certificate checked: take ?tls=false or ?tls=skip-verify out of the conn URL (?ca= trusts a private CA), or log in with a registry token and --password-ref", what, host)
+	return out.Usage("%s login goes to %s only over https with its certificate checked: take ?tls=false or ?tls=skip-verify out of the conn URL, or log in with a registry token and --password-ref", what, host)
 }
 
 // azureErr turns an Azure login error into komando's.
