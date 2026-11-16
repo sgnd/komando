@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/base64"
 	"sort"
 	"strings"
 	"time"
@@ -49,6 +50,7 @@ func testHost(ctx context.Context, c *sshx.Client) (any, error) {
 
 func hostTrustCmd() *cobra.Command {
 	var reset bool
+	var fingerprint string
 	c := &cobra.Command{
 		Use:   "trust TARGET",
 		Short: "Pin the SSH host keys of servers (--reset after a rebuild)",
@@ -68,12 +70,19 @@ TARGET can be many servers (@group, tag:, 'web*', a,b): after a rebuild of
 a whole group, --reset replaces all their keys after a single yes, which names
 every server with its new key. Each server is in results, with its old and
 new fingerprint; a server whose key changed is refused without --reset,
-the others are pinned.`,
+the others are pinned.
+
+With --fingerprint SHA256:..., the key is pinned only when the server shows
+that key: compare-then-pin in one step, for a fingerprint read from the
+server's console or a cloud provider. Any other key stops with
+HOSTKEY_MISMATCH and nothing is pinned. It takes one server, and the
+fingerprint of the key type the server offers (key_type in the answer).`,
 		Example: `  komando host trust web1
   komando host trust web1 --reset --dry-run   # how many pinned keys would go
   komando host trust web1 --reset             # after a real rebuild (a person, at a terminal)
   komando host trust @web                 # pin new servers; changed keys are refused
-  komando host trust @web --reset         # after rebuilding the whole group: one yes`,
+  komando host trust @web --reset         # after rebuilding the whole group: one yes
+  komando host trust web1 --fingerprint SHA256:pVt2...  # pin only this key`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
@@ -84,15 +93,21 @@ the others are pinned.`,
 			if err != nil {
 				return err
 			}
+			if cmd.Flags().Changed("fingerprint") {
+				if err := checkTrustFingerprint(fingerprint, hosts); err != nil {
+					return err
+				}
+			}
 			if reset && !cl.flags.dryRun && (cl.isAgent() || !cl.interactive()) {
 				if err := pinsNeedAPerson(cl, st, hosts); err != nil {
 					return err // before anything is fetched, as the dry run says
 				}
 			}
-			return trustHosts(cl, cmd.Context(), st, hosts, reset)
+			return trustHosts(cl, cmd.Context(), st, hosts, reset, fingerprint)
 		}),
 	}
 	c.Flags().BoolVar(&reset, "reset", false, "replace the key pinned before (a person at a terminal only)")
+	c.Flags().StringVar(&fingerprint, "fingerprint", "", "pin only if the server shows the key with this SHA256: fingerprint (one server)")
 	return c
 }
 
@@ -213,4 +228,20 @@ func guardFirstPin(cl *call, st *store.State, what []string) error {
 		return nil
 	}
 	return guardSafety(cl, "pinning a first host key while host keys are strict (compare it with what the server's owner sees): "+strings.Join(what, ", "))
+}
+
+// checkTrustFingerprint: --fingerprint is one key's SHA256 fingerprint, as
+// ssh-keygen -lf prints it (SHA256: and 43 characters of base64), for one
+// server.
+func checkTrustFingerprint(fp string, hosts []*store.Host) error {
+	b64, ok := strings.CutPrefix(fp, "SHA256:")
+	if _, err := base64.RawStdEncoding.DecodeString(b64); !ok || len(b64) != 43 || err != nil {
+		return out.Errf(out.ExitUsage, "USAGE", "give the fingerprint as `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` prints it on the server, for example --fingerprint SHA256:pVt2...",
+			"--fingerprint %q is not a SHA256 fingerprint (SHA256: and 43 characters)", fp)
+	}
+	if len(hosts) != 1 {
+		return out.Errf(out.ExitUsage, "USAGE", "name one server with --fingerprint: komando host trust NAME --fingerprint SHA256:...",
+			"--fingerprint is one server's key, and the target names %s", countOf(len(hosts), "server"))
+	}
+	return nil
 }

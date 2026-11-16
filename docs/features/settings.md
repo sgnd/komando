@@ -68,6 +68,13 @@ Most settings also have a flag for one run: `--timeout`,
 schema` shows such a flag with `"default": "0"` (not given) and
 `"default_from": "setting:default_timeout"` (the setting it reads).
 
+`--host-key-policy` takes `accept-new`, `strict` or `off` (in any case);
+anything else is a `USAGE` error, never a looser check. A flag looser than
+the setting `host_key_policy` (`accept-new` while the setting is
+`strict`, or `off`) needs the same yes as loosening the setting with
+`config set`: `SAFETY_SETTING` for an AI agent or a script without
+`--yes`. An agent's `--dry-run` connects with the setting instead.
+
 ## Ask for a code before an agent's risky command
 
 When an AI agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando

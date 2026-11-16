@@ -361,3 +361,48 @@ func TestHostRmKeepsThePin(t *testing.T) {
 		t.Errorf("dry run does not say the key stays: %v", d)
 	}
 }
+
+// host trust --fingerprint pins a first key only when the server shows
+// the key the person gave; any other key is HOSTKEY_MISMATCH and nothing
+// is pinned.
+func TestHostTrustFingerprint(t *testing.T) {
+	invHome(t)
+	real, impostor := trustSigner(t), trustSigner(t)
+	key := new(atomic.Pointer[ssh.Signer])
+	key.Store(&impostor)
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(keySSHD(t, key)))
+	mustRun(t, "host", "add", "web1", "root@"+addr)
+	mustRun(t, "host", "add", "web2", "root@"+addr)
+	realFP, impFP := ssh.FingerprintSHA256(real.PublicKey()), ssh.FingerprintSHA256(impostor.PublicKey())
+
+	e := wantCode(t, "HOSTKEY_MISMATCH", "host", "trust", "web1", "--fingerprint", realFP)
+	if e.Exit != out.ExitConnect || !containsAll(e.Message, realFP, impFP, "nothing was pinned") {
+		t.Fatalf("mismatch: %+v", e)
+	}
+	if fps := pinnedFingerprints(t, addr); len(fps) != 0 {
+		t.Fatalf("pinned after a mismatch: %v", fps)
+	}
+
+	key.Store(&real)
+	d := mustRun(t, "host", "trust", "web1", "--fingerprint", realFP)
+	if r := trustRow0(d); r["fingerprint"] != realFP || r["ok"] != true {
+		t.Fatalf("match: %v", d)
+	}
+	if fps := pinnedFingerprints(t, addr); len(fps) != 1 || fps[0] != realFP {
+		t.Fatalf("pins %v", fps)
+	}
+
+	wantCode(t, "USAGE", "host", "trust", "web1", "--fingerprint", "pVt2abc")
+	wantCode(t, "USAGE", "host", "trust", "web1", "--fingerprint", "MD5:aa:bb")
+	wantCode(t, "USAGE", "host", "trust", "web1,web2", "--fingerprint", realFP)
+
+	// an AI agent under strict still needs the person's yes for a first pin
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "root@"+addr)
+	mustRun(t, "config", "set", "host_key_policy", "strict")
+	asAgent(t, false, true)
+	wantCode(t, "SAFETY_SETTING", "host", "trust", "web1", "--fingerprint", realFP)
+	if fps := pinnedFingerprints(t, addr); len(fps) != 0 {
+		t.Fatalf("an agent pinned without a yes: %v", fps)
+	}
+}

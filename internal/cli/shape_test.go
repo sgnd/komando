@@ -59,6 +59,7 @@ var shapeCases = [][]string{
 	{"host", "rm", "web", "--dry-run"},
 	{"conn", "rm", "pg", "--dry-run"},
 	{"host", "trust", "web", "--dry-run"},
+	{"host", "trust", "web", "--fingerprint", "SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc", "--dry-run"},
 	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
 	{"vpn", "rm", "lab", "--dry-run"},
 	{"vpn", "rm", "lab"},

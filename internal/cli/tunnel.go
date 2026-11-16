@@ -209,7 +209,7 @@ point your database app or psql at the local address it prints. With a server, g
 			pargs := []string{"tunnel", "serve", id}
 			if cl.flags.hostKeyPolicy != "" {
 				pargs = append(pargs, "--host-key-policy", cl.flags.hostKeyPolicy)
-				if cl.flags.hostKeyPolicy == "off" {
+				if what, _ := hostKeyFlagWhat(cl); what != "" {
 					pargs = append(pargs, "--yes") // checked by this command already
 				}
 			}

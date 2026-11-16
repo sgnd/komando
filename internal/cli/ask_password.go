@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -98,7 +99,19 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	if out.HasHidden(v) {
 		return "", undo, hiddenValueErr()
 	}
-	if err := vault.Set(cl.storeWrite(), sec, v); err != nil {
+	// a name that was free when the person started typing is stored only
+	// if it is still free: one store write, so a secret made meanwhile (in
+	// another tab, or by an app) is never replaced
+	put := vault.Set
+	if !existed {
+		put = vault.Create
+	}
+	if err := put(cl.storeWrite(), sec, v); err != nil {
+		if errors.Is(err, vault.ErrExists) {
+			return "", undo, out.Errf(out.ExitConflict, "SECRET_EXISTS",
+				fmt.Sprintf("use it with --%s %s, or store yours under another name: `komando secret set NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
+				"secret %s was stored by something else while you typed; nothing was replaced", sec)
+		}
 		return "", undo, err
 	}
 	audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
