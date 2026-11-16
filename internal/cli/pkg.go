@@ -385,7 +385,7 @@ func runPkg(cl *call, ctx context.Context, action, target string, pkgs []string,
 		return runOps(cl, ctx, opsSpec{name: "pkg.upgradable", target: target, command: command, display: display, sudo: sudo, limit: limit,
 			mutating: refresh, // a new package index is a change: a protected server needs --yes for it
 			parse:    func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return pkgUpgradableResult(rr, refresh) },
-			text:  pkgUpgradableText})
+			text:     pkgUpgradableText})
 	}
 	spec := opsSpec{name: "pkg." + verb, target: target, command: pkgChangeScript(action, pkgs, action == "remove" && !cl.dangerOK()), display: display, sudo: sudo, mutating: true,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {

@@ -436,6 +436,14 @@ func funcRule(name string) (string, bool) {
 		return "sql-remote", true
 	case strings.HasPrefix(name, "PG_STAT_RESET"), strings.HasPrefix(name, "PG_REPLICATION_ORIGIN_"):
 		return "sql-server-config", true
+	case strings.HasPrefix(name, "PG_") && strings.HasSuffix(name, "_RESET"): // pg_stat_statements_reset and other extensions' counters
+		return "sql-server-config", true
+	case name == "PG_REPLICATION_SLOT_ADVANCE", // a slot moved on or read out loses changes for its consumer
+		strings.HasPrefix(name, "PG_LOGICAL_SLOT_GET_"),
+		strings.HasPrefix(name, "PG_COPY_") && strings.HasSuffix(name, "_REPLICATION_SLOT"),
+		name == "PG_LOGICAL_EMIT_MESSAGE", // written to the WAL even when the transaction rolls back
+		strings.HasPrefix(name, "PG_BACKUP_"), name == "PG_START_BACKUP", name == "PG_STOP_BACKUP":
+		return "sql-server-config", true
 	case strings.HasPrefix(name, "PG_LS_"): // pg_ls_dir, pg_ls_waldir, pg_ls_tmpdir, ...: list server directories
 		return "sql-server-file", true
 	}
@@ -612,6 +620,17 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 				return 0, nil, err
 			}
 		}
+	}
+	if first == "SET" && second == "STATEMENT" {
+		// MariaDB: SET STATEMENT var=value[, ...] FOR statement runs the
+		// statement after FOR, which is what gets rated. Without one it is
+		// no statement komando knows: a write, to be safe.
+		for i := 2; i < len(ts); i++ {
+			if ts[i].word == "FOR" && ts[i].depth == ts[0].depth && i+1 < len(ts) {
+				return classifyStatement(ts[i+1:], strict)
+			}
+		}
+		return RiskWrite, nil, nil
 	}
 	risk := RiskWrite
 	if readFirst[first] {

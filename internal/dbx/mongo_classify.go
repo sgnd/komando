@@ -82,12 +82,42 @@ func ClassifyMongo(cmd bson.D) driver.Verdict {
 		return driver.Verdict{Risk: driver.RiskWrite, Reasons: []string{"$out or $merge writes the result to a collection"}}
 	case name == "explain":
 		return driver.Verdict{Risk: driver.RiskRead}
+	case name == "profile" && !profileReads(cmd):
+		return driver.Verdict{Risk: driver.RiskWrite, Reasons: []string{"profile with a level other than -1, or with slowms, sampleRate or filter, changes the server's profiling"}}
+	case name == "validate" && (!isFalse(field(cmd, "repair")) || !isFalse(field(cmd, "fixMetadata"))):
+		return driver.Verdict{Risk: driver.RiskWrite, Reasons: []string{"validate with repair or fixMetadata changes the collection"}}
 	case mongoReads[name]:
 		return driver.Verdict{Risk: driver.RiskRead}
 	case mongoWrites[name]:
 		return driver.Verdict{Risk: driver.RiskWrite}
 	}
 	return driver.Verdict{Risk: driver.RiskWrite, Reasons: []string{cmd[0].Key + " is not known to be a read"}}
+}
+
+// profileReads: {profile: -1} alone reports the profiling level. Any other
+// level sets it, and slowms, sampleRate and filter are set at any level.
+func profileReads(cmd bson.D) bool {
+	for _, k := range []string{"slowms", "sampleRate", "filter"} {
+		if field(cmd, k) != nil {
+			return false
+		}
+	}
+	switch n := cmd[0].Value.(type) {
+	case int32:
+		return n == -1
+	case int64:
+		return n == -1
+	case float64:
+		return n == -1
+	}
+	return false
+}
+
+// isFalse: an option that is left out or says false. Anything else may
+// switch it on (the server takes 1 for true).
+func isFalse(v any) bool {
+	b, ok := v.(bool)
+	return v == nil || (ok && !b)
 }
 
 func field(d bson.D, key string) any {
