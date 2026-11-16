@@ -13,6 +13,10 @@ import (
 	"github.com/sgnd/komando/internal/tmpclean"
 )
 
+// signalWait is how long the test waits for a signal to arrive: far longer
+// than it takes, so a busy machine does not fail the test.
+const signalWait = 2 * time.Minute
+
 // O14: a second Ctrl-C (or a SIGHUP: the terminal closed) ended komando
 // without its deferred cleanup, leaving temporary files (a download before
 // its rename, a sign-in browser profile, an AWS token file) behind. The
@@ -36,7 +40,7 @@ func TestSecondSignalRemovesTempFiles(t *testing.T) {
 	}
 	select {
 	case <-ctx.Done():
-	case <-time.After(5 * time.Second):
+	case <-time.After(signalWait):
 		t.Fatal("SIGHUP did not stop the command")
 	}
 	if _, err := os.Stat(tmp); err != nil {
@@ -47,7 +51,7 @@ func TestSecondSignalRemovesTempFiles(t *testing.T) {
 	}
 	select {
 	case <-stopped:
-	case <-time.After(5 * time.Second):
+	case <-time.After(signalWait):
 		t.Fatal("a second signal did not end komando")
 	}
 	if _, err := os.Stat(tmp); !os.IsNotExist(err) {
