@@ -3,7 +3,12 @@
 // leniency in the format only: the chain and the host name are still
 // checked (TestNegativeSerialCertificate).
 //
+// SSL_CERT_FILE and SSL_CERT_DIR do not replace the system's CAs on macOS
+// and Windows either (Go 1.27 made them do so): an AI agent's environment
+// must not choose whom komando trusts (internal/transport, roots.go).
+//
 //go:debug x509negativeserial=1
+//go:debug x509sslcertoverrideplatform=0
 
 // Command komando manages servers, databases, queues, storage, clusters and
 // VPNs, for people and AI agents.

@@ -17,10 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/oauth2/google"
-
 	kdriver "github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -47,13 +44,6 @@ import (
 const BQDefaultMaxBytes int64 = 10 << 30
 
 const bqScope = "https://www.googleapis.com/auth/bigquery"
-
-// bqDefaultCredentials finds application default credentials (gcloud's
-// login, GOOGLE_APPLICATION_CREDENTIALS, the metadata server); tests
-// replace it.
-var bqDefaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
-	return gcpadc.Find(ctx, bqScope)
-}
 
 type bqConnector struct {
 	b         kdriver.BigQueryConn

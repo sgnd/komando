@@ -9,15 +9,19 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials/ssocreds"
 	"github.com/aws/aws-sdk-go-v2/service/ecr"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // ErrAWSLogin is wrapped by errors that a person fixes by logging in again
@@ -36,7 +40,7 @@ func AWSConfig(ctx context.Context, profile, region string) (aws.Config, error) 
 	if region != "" {
 		opts = append(opts, config.WithRegion(region))
 	}
-	cfg, err := config.LoadDefaultConfig(ctx, opts...)
+	cfg, err := loadAWS(ctx, opts...)
 	if err != nil {
 		return aws.Config{}, awsErr(err)
 	}
@@ -44,6 +48,19 @@ func AWSConfig(ctx context.Context, profile, region string) (aws.Config, error) 
 		return aws.Config{}, err
 	}
 	return cfg, nil
+}
+
+// loadAWS is config.LoadDefaultConfig with komando's transport: the SDK's
+// own client would take a proxy from an AI agent's HTTPS_PROXY and add
+// its AWS_CA_BUNDLE to the CAs, and so read secret values, SSO tokens and
+// temporary keys. For an agent, AWS_CA_BUNDLE is ignored; a person's, or
+// the ca_bundle of a profile in their ~/.aws/config, still counts.
+func loadAWS(ctx context.Context, opts ...func(*config.LoadOptions) error) (aws.Config, error) {
+	if transport.EnvDistrusted() {
+		_ = os.Unsetenv("AWS_CA_BUNDLE")
+	}
+	hc := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) { tr.Proxy = transport.Proxy() })
+	return config.LoadDefaultConfig(ctx, append(opts, config.WithHTTPClient(hc))...)
 }
 
 // stsEndpointFromGlobal makes AWS_ENDPOINT_URL cover STS too. The SDK
@@ -78,7 +95,7 @@ func AWSProfileAccess(ctx context.Context, profile, configFile, credsFile string
 	stsEndpointFromGlobal()
 	opts := []func(*config.LoadOptions) error{config.WithSharedConfigProfile(profile),
 		config.WithSharedConfigFiles([]string{configFile}), config.WithSharedCredentialsFiles([]string{credsFile})}
-	cfg, err := config.LoadDefaultConfig(ctx, opts...)
+	cfg, err := loadAWS(ctx, opts...)
 	if err != nil {
 		return aws.Credentials{}, "", "", awsErr(err)
 	}

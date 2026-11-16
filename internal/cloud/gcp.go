@@ -40,6 +40,7 @@ var ErrGCPLogin = errors.New("google cloud credentials required")
 func GCPSecret(ctx context.Context, name, project string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, proxiedClient(30*time.Second)) // tokens too: never http.DefaultClient
 	creds, err := gcpCredentials(ctx)
 	if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
 		return "", fe.Err

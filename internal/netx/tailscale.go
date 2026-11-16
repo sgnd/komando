@@ -1,13 +1,16 @@
 package netx
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"time"
 
+	"tailscale.com/ipn"
 	"tailscale.com/tsnet"
 
 	"github.com/sgnd/komando/internal/store"
@@ -34,16 +37,26 @@ func newTailscale(v *store.Vpn) (*tsnet.Server, error) {
 		return nil, err
 	}
 	quiet := func(string, ...any) {}
+	for _, n := range tsEnv {
+		_ = os.Unsetenv(n)
+	}
 	return &tsnet.Server{
 		Dir:        TailscaleDir(v),
 		Store:      &sealedTSState{id: tsStateID(v)},
 		Hostname:   "komando-" + v.Name,
 		AuthKey:    key,
-		ControlURL: v.Server, // "" is Tailscale's own
+		ControlURL: cmp.Or(v.Server, ipn.DefaultControlURL),
 		Logf:       quiet,
 		UserLogf:   quiet,
 	}, nil
 }
+
+// tsEnv are the variables tsnet would read where a field is empty: the
+// login server, a login key or a forced login. The VPN's own settings
+// decide those, never the environment (an AI agent's TS_CONTROL_URL would
+// send the stored auth key to its own server).
+var tsEnv = []string{"TS_CONTROL_URL", "TS_AUTHKEY", "TS_AUTH_KEY", "TS_CLIENT_SECRET", "TS_CLIENT_ID",
+	"TS_ID_TOKEN", "TS_AUDIENCE", "TSNET_FORCE_LOGIN"}
 
 // openTailscale joins the tailnet and dials through it. It needs a node
 // that is logged in (an auth key, or an earlier `komando vpn up`).

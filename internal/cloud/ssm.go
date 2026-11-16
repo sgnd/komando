@@ -21,6 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/gorilla/websocket"
+
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // AWS Systems Manager Session Manager without the aws CLI and its
@@ -80,7 +82,8 @@ func SSMDial(ctx context.Context, profile, region, target, port string) (net.Con
 		return nil, err
 	}
 	streamURL, token := sess.url, sess.token
-	ws, _, err := websocket.DefaultDialer.DialContext(ctx, streamURL, nil)
+	d := websocket.Dialer{Proxy: transport.Proxy(), HandshakeTimeout: 45 * time.Second}
+	ws, _, err := d.DialContext(ctx, streamURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("session manager: %w", err)
 	}

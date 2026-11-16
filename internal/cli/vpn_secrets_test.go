@@ -204,3 +204,25 @@ func TestVpnReAddAfterRm(t *testing.T) {
 		t.Errorf("warnings for the keys this add stored: %v", d["warnings"])
 	}
 }
+
+// For an AI agent, `vpn add --dry-run` must not tell whether a value it
+// guessed is the one in an unreferenced vault secret NAME-key: equal used
+// to give would_add, different SECRET_EXISTS. A person keeps the shortcut
+// of adding the same file again. Key text must be a real WireGuard key.
+func TestVpnAddNoEqualityOracle(t *testing.T) {
+	invHome(t)
+	wg, _ := vpnSecretFiles(t)
+	path := wg("1")
+	b, _ := os.ReadFile(path)
+	key := strings.TrimSpace(strings.SplitN(strings.SplitN(string(b), "PrivateKey = ", 2)[1], "\n", 2)[0])
+	if err := vault.Set(store.Save(), "probe-key", key); err != nil {
+		t.Fatal(err)
+	}
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
+	wantCode(t, "SECRET_EXISTS", "--dry-run", "vpn", "add", "probe", "wireguard", "--config", path)
+	bad := filepath.Join(t.TempDir(), "guess.conf")
+	os.WriteFile(bad, []byte(strings.Replace(string(b), key, "hunter2", 1)), 0o600)
+	if e := wantCode(t, "VPN_CONFIG", "--dry-run", "vpn", "add", "probe2", "wireguard", "--config", bad); strings.Contains(e.Message, "hunter2") {
+		t.Fatalf("the guess is in the error: %s", e.Message)
+	}
+}
