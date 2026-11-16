@@ -253,8 +253,7 @@ func TestImportSecretDestinationsNeedAPerson(t *testing.T) {
 }
 
 // For an AI agent, KOMANDO_HOME naming another folder than ~/.komando
-// stops every command, and no flag or window lets it through; a link to
-// ~/.komando is the usual folder.
+// needs a person's yes on every command; a link to ~/.komando does not.
 func TestAgentOtherHome(t *testing.T) {
 	usual := filepath.Join(t.TempDir(), ".komando")
 	os.MkdirAll(usual, 0o700)
@@ -285,17 +284,9 @@ func TestAgentOtherHome(t *testing.T) {
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
-	// no window lets it through: the approval code a person switched on
-	// lives in the usual folder, which this komando does not read, so a
-	// window here would be a plain click. A person runs it themselves.
-	if e := wantCode(t, "SAFETY_SETTING", "list", "--yes"); !strings.Contains(e.Hint, "own terminal") {
-		t.Errorf("hint: %q", e.Hint)
-	}
-	// taking the guard out is no playbook: the same stop
-	wantCode(t, "SAFETY_SETTING", "guide", "uninstall", "--yes")
-	wantCode(t, "SAFETY_SETTING", "guide", "uninstall")
-	if len(*texts) != 0 {
-		t.Errorf("another data folder opens no window: %q", *texts)
+	mustRun(t, "list", "--yes")
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "KOMANDO_HOME="+other) {
+		t.Errorf("window: %q", *texts)
 	}
 
 	// the usual folder, by its name or through a link
@@ -314,7 +305,7 @@ func TestAgentOtherHome(t *testing.T) {
 	if otherHome(tcl) != "" {
 		t.Error("no KOMANDO_HOME, no other folder")
 	}
-	if len(*texts) != 0 {
+	if len(*texts) != 1 {
 		t.Errorf("the usual folder asks nothing: %q", *texts)
 	}
 }
