@@ -11,7 +11,8 @@ import (
 )
 
 // facts --only runs the probes of a few sections, for an app that polls a
-// server (the phone's load, memory and disk readings): no package index,
+// server (the phone's load, memory and disk readings, the OS name and the
+// time it has been up): no package index,
 // Docker, ports, units or sudo, so it answers in about a second. The keys
 // are those of the full facts; a section not asked for leaves its keys out.
 type factsSection struct {
@@ -25,6 +26,9 @@ echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
 `, []string{"load", "cpus"}},
 	"mem":   {factsMemLine, []string{"mem_total_mb", "mem_available_mb", "swap_total_mb", "swap_free_mb"}},
 	"disks": {factsDiskLines, []string{"disks", "disk_root_total_gb", "disk_root_used_pct"}},
+	"system": {`if [ -r /etc/os-release ]; then . /etc/os-release; echo "os=$ID"; echo "os_version=$VERSION_ID"; echo "os_pretty=$PRETTY_NAME"; else echo "os=$(uname -s | tr A-Z a-z)"; fi
+[ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
+`, []string{"os", "os_version", "os_pretty", "uptime_sec"}},
 }
 
 // factsSectionNames are the values --only takes, sorted.

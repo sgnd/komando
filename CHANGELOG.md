@@ -76,7 +76,9 @@ its highlights; the sections below them give the details. Versions follow
   device, size, used and free in MiB, and use %.
 - `komando facts SERVER --only load,mem,disks` runs just those probes, in
   about a second, for an app that polls: the same keys, the other sections
-  left out. A read-only ssh-gate key without `--network` runs it.
+  left out. `--only system` gives the OS name and the time the server has
+  been up (`os`, `os_version`, `os_pretty`, `uptime_sec`). A read-only
+  ssh-gate key without `--network` runs it.
 
 ### Changed for scripts and agents
 

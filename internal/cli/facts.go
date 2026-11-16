@@ -612,7 +612,8 @@ automatic services and listening ports.
 
 --only load,mem,disks runs just those probes (load and CPUs; memory and
 swap; every file system), in about a second, for an app that polls; the
-other keys are left out. On Windows the full probe runs and only those
+other keys are left out. system gives the OS name and the time the server
+has been up. On Windows the full probe runs and only those
 keys are kept.
 
 It only reads, and it uses sudo only when sudo works without a password.

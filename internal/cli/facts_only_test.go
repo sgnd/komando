@@ -50,10 +50,38 @@ func TestFactsOnly(t *testing.T) {
 	if !slices.Equal(got, []string{"cpus", "load"}) {
 		t.Errorf("load only: %v", got)
 	}
-	if _, _, err := factsOnly([]string{"load", "cpu"}); err == nil || toErr(err).Code != "USAGE" || !strings.Contains(toErr(err).Hint, "disks, load, mem") {
+	if _, _, err := factsOnly([]string{"load", "cpu"}); err == nil || toErr(err).Code != "USAGE" || !strings.Contains(toErr(err).Hint, "disks, load, mem, system") {
 		t.Errorf("unknown section: %+v", toErr(err))
 	}
 	_ = time.Now
+}
+
+// The system section gives what an overview shows of the machine itself:
+// the OS name and how long it has been up, from /etc/os-release and
+// /proc/uptime only (C103).
+func TestFactsOnlySystem(t *testing.T) {
+	script, keys, err := factsOnly([]string{"system"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"/etc/os-release", "/proc/uptime"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("script lacks %s", want)
+		}
+	}
+	for _, heavy := range []string{"apt-get", "docker", "systemctl", "sudo", "pro "} {
+		if strings.Contains(script, heavy) {
+			t.Errorf("script runs %s", heavy)
+		}
+	}
+	d, err := factsOnlyParse(keys)(&store.Host{Name: "web"}, "os=ubuntu\nos_version=24.04\nos_pretty=Ubuntu 24.04.1 LTS\nuptime_sec=86400\ncpus=4\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := json.Marshal(d)
+	if want := `{"os":"ubuntu","os_pretty":"Ubuntu 24.04.1 LTS","os_version":"24.04","uptime_sec":86400}`; string(b) != want {
+		t.Errorf("got  %s\nwant %s", b, want)
+	}
 }
 
 func TestFactsOnlyCommand(t *testing.T) {
