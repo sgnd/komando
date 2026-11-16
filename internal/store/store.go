@@ -279,11 +279,12 @@ type State struct {
 	settingsRec Rec // the settings record in the sealed store
 }
 
+// Home is komando's data folder: KOMANDO_HOME, else .komando in UserHome.
 func Home() string {
 	if h := os.Getenv("KOMANDO_HOME"); h != "" {
 		return h
 	}
-	d, err := os.UserHomeDir()
+	d, err := UserHome()
 	if err != nil {
 		return ".komando"
 	}

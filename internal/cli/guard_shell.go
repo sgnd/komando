@@ -144,7 +144,7 @@ func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision 
 	}
 	for _, seg := range splitShell(line) {
 		words, globs := shellWordsGlob(seg)
-		if d := checkAgentVars(words, depth); d.Deny {
+		if d := checkShellVars(words, depth); d.Deny {
 			return d
 		}
 		prog, args := program(words)
@@ -348,7 +348,7 @@ func nextDir(cl *call, args []string, home, cwd string) string {
 		if cwd == "" {
 			return ""
 		}
-		return filepath.Join(cwd, p)
+		return lexOrKernel(cwd + string(filepath.Separator) + p)
 	}
 	return home
 }
@@ -481,6 +481,29 @@ func checkAgentVars(words []string, depth int) guardDecision {
 // person's protected servers, deny rules, host keys and audit log
 // (guardHome asks the person when it happens anyway).
 const homeVar = "KOMANDO_HOME"
+
+// homeVars are the home folder's variables. Setting them in front of
+// komando is refused; elsewhere they are the agent's own business (a test
+// run with its own HOME).
+var homeVars = map[string]bool{"HOME": true, "USERPROFILE": true}
+
+// checkShellVars is checkAgentVars, and refuses HOME= or USERPROFILE= among
+// the words in front of komando (its NAME=value words and wrappers).
+func checkShellVars(words []string, depth int) guardDecision {
+	if d := checkAgentVars(words, depth); d.Deny {
+		return d
+	}
+	prog, args := program(words)
+	if filepath.Base(prog) != "komando" {
+		return allow()
+	}
+	for _, w := range words[:len(words)-len(args)-1] {
+		if envAssign.MatchString(w) && homeVars[assignName(w)] {
+			return deny("%s=... in front of komando would move its data folder away from the user's protected servers, deny rules, host keys and audit log (komando keeps an agent's data in the account's own home folder all the same). Run komando without it", assignName(w))
+		}
+	}
+	return allow()
+}
 
 // watchedVars are the variables the guard keeps an agent's shell lines
 // from changing: the agent variables and homeVar.

@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando host trust NAME --fingerprint SHA256:...` pins a server's key
+  only when the server shows the key with that fingerprint: compare and
+  pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and
+  nothing is pinned. The answer has `expected_fingerprint` next to
+  `fingerprint`; the approval rules for AI agents and `--reset` are as
+  before.
 - `komando secret set NAME --new` stores a secret only when NAME is not in
   the vault yet. A taken name stops with `SECRET_EXISTS` (exit 8) and
   keeps its value, `--dry-run` included. The check and the write are one
@@ -43,6 +49,72 @@ its highlights; the sections below them give the details. Versions follow
 - `komando storage chmod CONN MODE PATH` sets the Unix mode of a file or folder on an SFTP conn and says the old one; other kinds stop with `STORAGE_UNSUPPORTED` before anything is contacted.
 - All three are changes like `storage upload`: `--dry-run` shows what would happen and is never blocked (`meta.would_need`), a protected conn needs a person's yes, and every run is in the audit log. New JSON: `storage.mkdir` `{conn, path, created, dry_run}`, `storage.mv` `{conn, src, dst, folder, replaced, method, size_bytes, dry_run}`, `storage.chmod` `{conn, path, mode, old_mode, dry_run}`.
 
+### Security
+
+- `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
+  a link another server user made. A link that user planted in a folder of
+  theirs (`cache/x -> /etc`) could have root remove, move or create files
+  in the folder it names; now it stops with `IS_A_SYMLINK` (exit 92), as
+  `fs chmod --sudo` and writes and reads as root already did. `fs rm`
+  removes a link at the end of the path, never what it names, and works
+  from inside the real folder, so a folder swapped for a link meanwhile is
+  not followed either. `fs mv --sudo` moves only into a folder no other
+  user can change (`SHARED_FOLDER_CONFLICT` otherwise, as for a write as
+  root), from inside that folder.
+- A file komando sends to a server (`fs write`, `upload`, `fs replace`,
+  `fs restore`, `--backup` copies, `sync`, and the `--sudo` staging file)
+  is no longer readable by other users of that server while it is written.
+  SFTP makes a new file at the server's default mode (often 0644) and
+  komando narrowed it only afterwards, for `sync` and `upload -r` only
+  once the whole file was there: another user who opened it in between
+  could read it all. Each file is now made inside a folder only the SSH
+  user can enter (0700) and gets its final mode before it moves into
+  place. A server that cannot make that folder private stops with
+  `CHMOD_FAILED`, as before for a file it could not make private.
+- `import komando FILE` no longer turns on, without a person's yes, what
+  `host edit` and `vpn edit` ask for: lending the ssh-agent to a server
+  (`forward_agent`), old IKEv1 ciphers (`legacy_crypto`) or PAP
+  (`allow_pap`) for a VPN, and, for a VPN it replaces with `--overwrite`,
+  dropping the CA the VPN checks its server against or turning `mfa` or
+  protection off. Each stops with `SAFETY_SETTING`, as the edit commands
+  do; an AI agent could write such a file and import it to get around
+  them. A protected VPN left out of `--overwrite` without `--yes` now
+  gives the same reason as a protected server or conn.
+- `--host-key-policy` no longer loosens the setting `host_key_policy`
+  without a yes, and no longer fails open. With the setting `strict`, an
+  AI agent (or an ssh-gate key) could add `--host-key-policy accept-new`
+  and pin a new server's key that `strict` says a person must trust; and
+  any value but the exact `strict` (`Strict`, a typo) pinned like
+  `accept-new`. The flag now takes `accept-new`, `strict` or `off` in any
+  case (anything else is `USAGE`), a value looser than the setting needs
+  the same yes as `config set` (`SAFETY_SETTING`), and a stored policy
+  komando does not know refuses to connect.
+- A folder's name can no longer forge who owns it in the
+  `SHARED_FOLDER_CONFLICT` hint of a `--sudo` write. A name with a line
+  break and komando's marker made the hint suggest `--sudo-user root` (or
+  shell text such as `root;id;#`). The name is now printed on one line,
+  only root's own line counts, an owner that is no user name is never
+  put in the hint, and the path is quoted.
+- An ssh-gate key can no longer reach this computer's own ports through
+  `cert check` with a name that resolves to it (`ip6-localhost`, or a
+  public name pointing at 127.0.0.1). The gate compared names as text; it
+  now resolves a name and refuses it when any address is loopback,
+  unspecified or one of this computer's, and a gated `cert check` checks
+  the address again when it connects, so a DNS answer that changes in
+  between is refused too.
+- `storage upload` to an SFTP conn no longer writes through a link another
+  user of that server planted. The upload went to a fixed temporary name
+  (`.komando-upload-NAME`), opened without refusing an existing file, so a
+  link there had komando write and chmod the file it named. It now writes
+  in a folder of its own under a random name, made exclusively and
+  entered only by the SSH user; a server that cannot make that folder
+  private stops with `CHMOD_FAILED`.
+- An AI agent can no longer set a WinRM server's `tls=skip-verify`,
+  `tls=off` or `auth=basic` without a person's yes. Through `host add`,
+  `host edit --address` or `import`, a stored password could go to a
+  server komando does not check, or travel unencrypted, with only a
+  warning; now it stops with `SAFETY_SETTING`, as a conn's weak TLS does.
+
 ### Fixed
 
 - `--ask-password` and `--ask-psk` no longer replace a secret made while
@@ -65,6 +137,20 @@ its highlights; the sections below them give the details. Versions follow
 - A command stopped while it followed a server's output (Ctrl-C on
   `logs --follow`) could still print a line after it had ended. Output
   now stops when the command does.
+
+## [0.14.1] - 2026-11-16
+
+### Highlights
+
+- Security fix: a conn's URL settings (Postgres `host=`/`hostaddr=`/`service=`, Redis sentinels, MongoDB seed hosts, RabbitMQ `management=`) could send its stored password somewhere other than the address komando showed. An AI agent's change of any of them now needs a person.
+- komando ignores `PG*` environment variables and `~/.pgpass` for Postgres conns, and a SQLite conn can no longer open komando's own store or a credential database; an agent's SQLite query cannot `ATTACH` or `VACUUM INTO`.
+
+### Security
+
+- A conn's URL settings could send its stored password somewhere other than the address komando showed and guarded. Postgres reads `host=`, `port=`, `hostaddr=`, `service=` and fallback hosts from the URL, Redis `sentinels=`, MongoDB more seed hosts and RabbitMQ `management=`, and an AI agent could add them with `conn edit --url` without the yes that a new address needs. The place a conn's password goes is now every address its driver logs in at, read as the driver reads the URL, plus every URL setting except the few that move nothing (`application_name`, `connect_timeout` and other timeouts). An agent's change of any of it stops with `SECRET_DESTINATION`, and the window shows the settings.
+- komando no longer reads `PG*` environment variables for a Postgres conn: from its own environment an AI agent could make komando trust its certificate (`PGSSLROOTCERT`) and get the password. `db dump` and `db restore` run their tools without `PG*` and `MYSQL*` variables.
+- A Postgres conn with no password of komando's own no longer logs in with the password in `~/.pgpass`, which an agent could collect with a conn to a server it controls. A URL that names a `passfile=` still uses it.
+- A SQLite conn could open komando's own store or a credential database (gcloud's `credentials.db`, anything in `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`), so an AI agent could read, copy or delete its rows. komando's own folder is now refused as a SQLite conn for everyone, and for an AI agent so are those login folders and every file the agent guard keeps from it, links followed (`SENSITIVE_FILE`). The check runs when the conn is added or changed and again whenever it is opened, and `db dump --to` and `db restore --from` refuse the same paths for an agent. An AI agent's query on a SQLite conn may not use `ATTACH` or `VACUUM INTO` either (they create a file wherever they are told), and `load_extension` stays off for everyone.
 
 ## [0.14.0] - 2026-11-14
 
@@ -4397,7 +4483,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/sgnd/komando/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/sgnd/komando/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/sgnd/komando/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/sgnd/komando/compare/v0.11.0...v0.12.0

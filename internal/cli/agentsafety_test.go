@@ -88,8 +88,16 @@ func TestAgentCannotClearItsVariables(t *testing.T) {
 		"unset -m 'KOMANDO_H*'":                      true,
 		`echo "$KOMANDO_HOME"`:                       false,
 		"KOMANDO_OUTPUT=json komando list":           false,
-		"export KOMANDO_ACTOR=claude":                false,
-		"CLAUDECODE=1 komando list":                  true, // any change is refused: KISS
+		// HOME in front of komando: refused; elsewhere the agent's business
+		"HOME=/tmp/k komando host list":      true,
+		"env HOME=/tmp/k komando list":       true,
+		"USERPROFILE=/tmp/k komando list":    true,
+		"bash -c 'HOME=/tmp/k komando list'": true,
+		"HOME=/tmp/k go test ./...":          false,
+		"export HOME=/tmp/k":                 false,
+		"HOME=/tmp/k true; komando list":     false,
+		"export KOMANDO_ACTOR=claude":        false,
+		"CLAUDECODE=1 komando list":          true, // any change is refused: KISS
 		// env's flag clusters, GNU long-option starts and -S
 		"env -vu CLAUDECODE -vu CLAUDE_CODE_ENTRYPOINT komando list --reveal": true,
 		"env -0u CLAUDECODE komando list":                                     true,
