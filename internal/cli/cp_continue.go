@@ -195,6 +195,7 @@ func wholeSum(ctx context.Context, e resumeEnd) (string, error) {
 // A file on this computer.
 
 type localEnd struct {
+	cl   *call // the command, for a destination: its writes are checked (guardLocalWrite)
 	path string
 	perm os.FileMode // a new file's mode
 }
@@ -243,6 +244,10 @@ func linkRefused(where string) error {
 }
 
 func (l localEnd) appendAt(_ context.Context, off, _ int64, r io.Reader) error {
+	// again just before the write: the path may lead elsewhere by now
+	if err := guardLocalWrite(l.cl, l.path); err != nil {
+		return err
+	}
 	f, err := os.OpenFile(l.path, os.O_WRONLY|os.O_CREATE, l.perm)
 	if err != nil {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder exists and is writable", "%v", err)
@@ -456,8 +461,11 @@ func (e bucketEnd) appendAt(ctx context.Context, off, n int64, r io.Reader) erro
 // in it, what this run added is taken off again, so the value does not
 // stay on this computer.
 func continueDownload(cl *call, ctx context.Context, src resumeEnd, dst string, perm os.FileMode, label string) (resumed, error) {
+	if err := guardLocalWrite(cl, dst); err != nil {
+		return resumed{}, err
+	}
 	mask := cl.out.Mask && !cl.revealOK()
-	here := localEnd{path: dst, perm: localMode(perm)}
+	here := localEnd{cl: cl, path: dst, perm: localMode(perm)}
 	before, existed, err := here.size(ctx)
 	if err != nil {
 		return resumed{}, err

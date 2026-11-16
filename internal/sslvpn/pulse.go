@@ -787,7 +787,7 @@ func (s *pulseSession) espConfig(body []byte) error {
 // espReply answers ESP keys: komando's SPI and keys, then the server's
 // own block (SPI, length, 64 bytes of keys) copied back.
 func espReply(f *iftConn, body []byte) error {
-	if len(body) < 0x6a-16 || binary.BigEndian.Uint16(body[0x28:]) != 0x40 {
+	if len(body) < 0x24+0x46 || binary.BigEndian.Uint16(body[0x28:]) != 0x40 {
 		return errors.New("the VPN sent ESP keys komando cannot read")
 	}
 	r := make([]byte, 0xc0-16)

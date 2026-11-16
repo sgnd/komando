@@ -22,7 +22,7 @@ func TestIPsecOptIns(t *testing.T) {
 	}
 	for err, flag := range map[error]string{
 		&ipsec.LegacyCryptoError{Msg: "the server accepted none of komando's proposals"}: "komando vpn edit kantor --legacy-crypto",
-		fmt.Errorf("l2tp: %w", ppp.ErrPAPRefused):                                        "komando vpn edit kantor --allow-pap",
+		fmt.Errorf("l2tp: %w", ppp.ErrWeakLogin):                                         "komando vpn edit kantor --allow-pap",
 	} {
 		var oe *out.Error
 		if e := ipsecErr(v, err); !errors.As(e, &oe) || oe.Code != "VPN_DOWN" || !strings.Contains(oe.Hint, flag) {

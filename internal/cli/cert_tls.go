@@ -64,6 +64,9 @@ func parseCertURL(st *store.State, s string) (addr, serverName string, ok bool, 
 func certDialer(cl *call, ctx context.Context, st *store.State, via string) (netx.Dialer, io.Closer, error) {
 	if via == "" {
 		d := &net.Dialer{}
+		if cl.gated() {
+			d.Control = gateDialControl // the gate looked at the name; this is the IP
+		}
 		return d.DialContext, nil, nil
 	}
 	h, vpn, err := resolveVia(st, via)

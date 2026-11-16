@@ -348,7 +348,7 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 	if fl.Changed("forward-agent") && f.forwardAgent {
 		// a server that holds your agent can log in anywhere your keys open,
 		// as long as komando is connected to it: a person decides that
-		if err := guardSafety(cl, "lending your ssh-agent to "+strings.Join(args, ", ")+" (root there can use your keys while komando is connected)"); err != nil {
+		if err := guardSafety(cl, forwardAgentWhat(args)); err != nil {
 			return undo, err
 		}
 	}
@@ -691,4 +691,10 @@ func hostShowCmd() *cobra.Command {
 			return nil
 		}),
 	}
+}
+
+// forwardAgentWhat is the safety question for lending the ssh-agent to
+// hosts (host edit --forward-agent, import).
+func forwardAgentWhat(hosts []string) string {
+	return "lending your ssh-agent to " + strings.Join(hosts, ", ") + " (root there can use your keys while komando is connected)"
 }

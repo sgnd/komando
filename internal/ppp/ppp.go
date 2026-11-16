@@ -1,7 +1,8 @@
 // Package ppp is a minimal PPP peer for the VPNs that carry PPP (L2TP):
-// LCP (RFC 1661), IPCP with DNS (RFC 1332, RFC 1877) and the logins the
-// server asks for: CHAP-MD5 (RFC 1994), MS-CHAPv2 (RFC 2759, with the
-// server's proof checked) and, only when the VPN allows it, PAP (RFC
+// LCP (RFC 1661), IPCP with DNS (RFC 1332, RFC 1877) and the login the
+// server asks for: MS-CHAPv2 (RFC 2759, with the server's proof
+// checked) and, only when the VPN allows the weak logins, CHAP-MD5 (RFC
+// 1994) or none, which prove nothing about the server, and PAP (RFC
 // 1334), which sends the password itself. Compression, encryption (MPPE)
 // and IPv6 are never negotiated.
 package ppp
@@ -60,13 +61,14 @@ type AuthError struct{ Msg string }
 
 func (e *AuthError) Error() string { return e.Msg }
 
-// ErrPAPRefused: the server insists on PAP and the VPN does not allow it
-// (Peer.AllowPAP). The caller names the per-VPN setting that does.
-var ErrPAPRefused = errors.New("the VPN server only accepts the PAP login, which hands it your password itself instead of a proof of it, so anyone who knows the pre-shared key and pretends to be the server gets the password; komando uses PAP only when it is allowed for this VPN")
+// ErrWeakLogin: the server insists on a login that does not prove it is
+// the server, and the VPN does not allow one (Peer.AllowPAP). The caller
+// names the per-VPN setting that does.
+var ErrWeakLogin = errors.New("the VPN server only offers a PPP login that does not prove it is the server (PAP, which hands it your password itself, CHAP-MD5, or none), so anyone who knows the pre-shared key could pretend to be the server; komando uses such a login only when it is allowed for this VPN")
 
-// papNakMax is how many times the server's request for PAP is answered
-// with a request for MS-CHAPv2 before komando gives up.
-const papNakMax = 2
+// weakNakMax is how many times the server's request for a weak login is
+// answered with a request for MS-CHAPv2 before komando gives up.
+const weakNakMax = 2
 
 // Peer is one PPP link. Send writes a PPP frame (protocol, information).
 type Peer struct {
@@ -88,22 +90,24 @@ type Peer struct {
 	addr     netip.Addr
 	dns      []netip.Addr
 	ms       *MSCHAPv2
+	answered bool // a CHAP challenge got our answer
 	papTries int
 	lastIPCP []byte
 	v6Sent   bool
 	v6ID     [8]byte
 	authSeen bool
-	papNaks  int // requests for PAP answered with MS-CHAPv2
+	weakNaks int // requests for a weak login answered with MS-CHAPv2
 	up       chan struct{}
 	fail     chan error
 	once     sync.Once
 	stop     chan struct{}
 	// Log, when set, notes the steps of the link (no secrets).
 	Log func(format string, args ...any)
-	// AllowPAP lets the server choose PAP, which sends the password itself
-	// (inside the VPN's encryption, but to whoever answers as the server).
-	// Off, komando asks for MS-CHAPv2 instead and, when the server insists,
-	// fails with ErrPAPRefused.
+	// AllowPAP lets the server choose a weak login: PAP, which sends the
+	// password itself (inside the VPN's encryption, but to whoever answers
+	// as the server), CHAP-MD5 or none, which prove nothing about the
+	// server. Off, komando asks for MS-CHAPv2 instead and, when the server
+	// insists, fails with ErrWeakLogin.
 	AllowPAP bool
 }
 
@@ -219,31 +223,41 @@ func (p *Peer) Handle(proto uint16, b []byte) error {
 	return nil
 }
 
+// loginOption reads the server's authentication-protocol option v: the
+// login komando takes, or ok false to ask for MS-CHAPv2 instead.
+func (p *Peer) loginOption(v []byte) (auth uint16, alg byte, ok bool) {
+	switch a := binary.BigEndian.Uint16(v); {
+	case a == PAP && p.AllowPAP:
+		return PAP, 0, true
+	case a == CHAP && len(v) == 3 && (v[2] == 0x81 || v[2] == 5 && p.AllowPAP):
+		return CHAP, v[2], true
+	case a == PAP || a == CHAP && len(v) == 3 && v[2] == 5:
+		p.weakNaks++
+		p.logf("PPP: the server asks to log in with %s, which is not allowed for this VPN; asking for MS-CHAPv2", map[bool]string{true: "PAP", false: "CHAP-MD5"}[a == PAP])
+	default: // CHAP with MD4 (MS-CHAPv1), EAP, ...
+		p.logf("PPP: the server offers login method %x; asking for MS-CHAPv2", v)
+	}
+	return 0, 0, false
+}
+
 func (p *Peer) lcp(code, id byte, data []byte) error {
 	switch code {
 	case cfgRequest:
 		var rej, nak []byte
 		var auth uint16
 		var alg byte
+		asked := false // the request names a login
 		options(data, func(t byte, v, raw []byte) {
 			switch t {
 			case 1, 2, 5: // MRU, async control character map, magic number
 			case 3: // authentication protocol
+				asked = true
 				if len(v) < 2 {
 					rej = append(rej, raw...)
 					return
 				}
-				switch a := binary.BigEndian.Uint16(v); {
-				case a == PAP && p.AllowPAP:
-					auth = PAP
-				case a == PAP:
-					p.papNaks++
-					p.logf("PPP: the server asks to log in with PAP, which is not allowed for this VPN; asking for MS-CHAPv2")
-					nak = append(nak, opt(3, []byte{0xc2, 0x23, 0x81})...)
-				case a == CHAP && len(v) == 3 && (v[2] == 5 || v[2] == 0x81):
-					auth, alg = CHAP, v[2]
-				default: // CHAP with MD4 (MS-CHAPv1), EAP, ...: ask for MS-CHAPv2
-					p.logf("PPP: the server offers login method %x; asking for MS-CHAPv2", v)
+				var ok bool
+				if auth, alg, ok = p.loginOption(v); !ok {
 					nak = append(nak, opt(3, []byte{0xc2, 0x23, 0x81})...)
 				}
 			default: // compression of fields, callbacks, multilink, ...
@@ -253,10 +267,22 @@ func (p *Peer) lcp(code, id byte, data []byte) error {
 		if len(rej) > 0 {
 			return p.send(LCP, packet(cfgReject, id, rej))
 		}
-		if p.papNaks > papNakMax {
-			p.logf("PPP: the server insists on PAP")
-			p.send(LCP, packet(termRequest, p.nextID(), []byte("PAP is not allowed")))
-			return p.failWith(ErrPAPRefused)
+		if p.authSeen && p.auth != 0 && !asked && !p.authDone {
+			// the login the server asked for, dropped before it checked
+			// out: the link must not come up without it
+			p.send(LCP, packet(termRequest, p.nextID(), []byte("the login was dropped")))
+			return p.failWith(&AuthError{Msg: "the VPN server dropped the login it asked for, before it was done; not going on without it"})
+		}
+		if !asked && !p.AllowPAP {
+			// no login at all: the server would prove nothing
+			p.weakNaks++
+			p.logf("PPP: the server asks for no login, which is not allowed for this VPN; asking for MS-CHAPv2")
+			nak = append(nak, opt(3, []byte{0xc2, 0x23, 0x81})...)
+		}
+		if p.weakNaks > weakNakMax {
+			p.logf("PPP: the server insists on a weak login")
+			p.send(LCP, packet(termRequest, p.nextID(), []byte("the login is too weak")))
+			return p.failWith(ErrWeakLogin)
 		}
 		if len(nak) > 0 {
 			return p.send(LCP, packet(cfgNak, id, nak))
@@ -341,6 +367,9 @@ func (p *Peer) papRequest() error {
 func (p *Peer) pap(code byte, data []byte) error {
 	switch code {
 	case 2: // ack
+		if p.auth != PAP || p.papTries == 0 {
+			return nil // no PAP login was sent
+		}
 		p.authDone = true
 		p.logf("PPP: login accepted (PAP)")
 		return p.next()
@@ -370,8 +399,8 @@ func clean(s string) string {
 func (p *Peer) chap(code, id byte, data []byte) error {
 	switch code {
 	case 1: // challenge
-		if len(data) < 1 || int(data[0]) > len(data)-1 {
-			return nil
+		if p.auth != CHAP || !p.lcpAcked || len(data) < 1 || int(data[0]) > len(data)-1 {
+			return nil // only the CHAP login agreed in LCP is answered
 		}
 		ch := data[1 : 1+data[0]]
 		var value []byte
@@ -397,9 +426,15 @@ func (p *Peer) chap(code, id byte, data []byte) error {
 			value = h.Sum(nil)
 		}
 		d := append([]byte{byte(len(value))}, value...)
+		p.answered = true
 		return p.send(CHAP, packet(2, id, append(d, p.user...)))
 	case 3: // success
+		if p.auth != CHAP || !p.answered || (p.chapAlg == 0x81 && p.ms == nil) {
+			return nil // a success before our answer proves nothing
+		}
 		if p.ms != nil {
+			// MS-CHAPv2's success carries the server's proof that it
+			// knows the password too
 			if err := p.ms.VerifySuccess(data); err != nil {
 				return p.failWith(err)
 			}
@@ -497,6 +532,9 @@ func (p *Peer) ipcpRequest() error {
 }
 
 func (p *Peer) ipcp(code, id byte, data []byte) error {
+	if (!p.authDone || !p.lcpUp) && code != termRequest {
+		return nil // no network before LCP and the login (RFC 1661 3.5)
+	}
 	switch code {
 	case cfgRequest:
 		// the server's own address: accept it; refuse compression
@@ -531,6 +569,9 @@ func (p *Peer) ipcp(code, id byte, data []byte) error {
 		p.lastIPCP = packet(cfgRequest, p.nextID(), opt(3, p.addr.AsSlice()))
 		return p.send(IPCP, p.lastIPCP)
 	case cfgAck:
+		if !p.ipcpSent {
+			return nil // an answer to nothing komando asked
+		}
 		if p.addr.IsUnspecified() {
 			return p.failWith(errors.New("the VPN gave no address (IPCP)"))
 		}

@@ -10,7 +10,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/sgnd/komando/internal/proxyx/proxytest"
+	"github.com/sgnd/komando/internal/transport/proxytest"
 )
 
 // Behind a company proxy, the portal login and the tunnel both go through

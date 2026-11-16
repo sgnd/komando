@@ -190,25 +190,26 @@ func TestOvpnRemotes(t *testing.T) {
 func TestVpnEditCANeedsAPerson(t *testing.T) {
 	invHome(t)
 	dir := t.TempDir()
-	ca := func(name, body string) string {
+	first := certPEM(t)
+	ca := func(name, pem string) string {
 		p := filepath.Join(dir, name)
-		if err := os.WriteFile(p, []byte("-----BEGIN CERTIFICATE-----\n"+body+"\n-----END CERTIFICATE-----\n"), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte(pem), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		return p
 	}
 	mustRun(t, "vpn", "add", "cloud", "ikev2", "--server", "vpn.example.com", "--user", "alice")
 	windows := asAgent(t, false, true)
-	mustRun(t, "vpn", "edit", "cloud", "--ca", ca("first", "MIIA"))
+	mustRun(t, "vpn", "edit", "cloud", "--ca", ca("first", first))
 	for _, args := range [][]string{
-		{"vpn", "edit", "cloud", "--ca", ca("other", "MIIB")},
+		{"vpn", "edit", "cloud", "--ca", ca("other", certPEM(t))},
 		{"vpn", "edit", "cloud", "--ca", ""},
 	} {
 		if _, e := cliRun(t, args...); e == nil || e.Code != "SAFETY_SETTING" {
 			t.Errorf("%v: want SAFETY_SETTING, got %+v", args, e)
 		}
 	}
-	if st, _ := store.Load(); !strings.Contains(st.Vpns["cloud"].CA, "MIIA") {
+	if st, _ := store.Load(); st.Vpns["cloud"].CA != first {
 		t.Errorf("a refused CA change was saved: %q", st.Vpns["cloud"].CA)
 	}
 	if *windows != 0 {

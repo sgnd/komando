@@ -60,8 +60,8 @@ func dtlsOffer(h http.Header, u *url.URL) (addr string, appID []byte, dpd time.D
 		return "", nil, 0, false
 	}
 	dpd = 30 * time.Second
-	if n, err := strconv.Atoi(h.Get("X-DTLS-DPD")); err == nil && n > 0 {
-		dpd = time.Duration(n) * time.Second
+	if d, ok := seconds(h.Get("X-DTLS-DPD"), 3600); ok {
+		dpd = d
 	}
 	return net.JoinHostPort(u.Hostname(), strconv.Itoa(port)), appID, dpd, true
 }

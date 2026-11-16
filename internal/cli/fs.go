@@ -583,7 +583,7 @@ func fsRmCmd() *cobra.Command {
 		if f["recursive"] {
 			flags = "-rf"
 		}
-		return rmScript(a, f["recursive"]), "rm " + flags + " -- " + rqAll(a), nil
+		return rmScript(a, f["recursive"], f["sudo"]), "rm " + flags + " -- " + rqAll(a), nil
 	}, map[string]string{"recursive": "remove folders and everything in them"})
 	c.Long = `Removes files like rm -f: a path that does not exist is reported ("not found")
 and the command still succeeds. A folder needs --recursive, which also needs
@@ -593,8 +593,8 @@ komando exec for that).`
 }
 
 func fsMkdirCmd() *cobra.Command {
-	c := shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents", 2, func(a []string, _ map[string]bool) (string, string, error) {
-		return mkdirScript(a), "mkdir -p -- " + rqAll(a), nil
+	c := shellFsCmd("mkdir TARGET PATH...", "Create folders on servers, with any missing parents", 2, func(a []string, f map[string]bool) (string, string, error) {
+		return mkdirScript(a, f["sudo"]), "mkdir -p -- " + rqAll(a), nil
 	}, nil)
 	// it always makes the parents; -p, typed from habit, changes nothing
 	c.Flags().BoolP("parents", "p", false, "make missing parents (always done)")
@@ -612,7 +612,7 @@ func fsMvCmd() *cobra.Command {
 		if f["overwrite"] {
 			flag = "-f"
 		}
-		return mvScript(a[0], a[1], f["overwrite"]), "mv " + flag + " -- " + rqAll(a), nil
+		return mvScript(a[0], a[1], f["overwrite"], f["sudo"]), "mv " + flag + " -- " + rqAll(a), nil
 	}, map[string]string{"overwrite": "replace DST if it exists"})
 	c.Long = `Moves SRC to DST. When DST is an existing folder, SRC moves into it (like mv).
 An existing file at the destination is never replaced unless --overwrite

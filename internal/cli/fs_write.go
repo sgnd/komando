@@ -103,29 +103,13 @@ func writeRemoteFrom(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Cli
 		}
 	}
 	perm, _ := strconv.ParseUint(mode, 8, 32)
-	tmp := path.Join(dir, tmpName)
-	// exclusive: never write into a file, or through a link, already there
-	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
-	if err != nil {
-		return nil, fsErr(cl, dir, err)
-	}
 	// only the SSH user may read the content while it goes in (it can be a
 	// secret); the final mode is set before the file goes into place
-	_, err = chmodOpen(f, tmp, 0o600)
-	if err == nil {
-		err = copyIn(f)
-	}
-	got := os.FileMode(perm)
-	if err == nil {
-		got, err = chmodOpen(f, tmp, os.FileMode(perm))
-	}
-	if cerr := f.Close(); err == nil && cerr != nil {
-		err = fsErr(cl, tmp, cerr)
-	}
+	tmp, got, cleanup, err := stageRemote(cl, sc, dir, tmpName, path.Base(p), os.FileMode(perm), copyIn)
 	if err != nil {
-		sc.Remove(tmp)
 		return nil, err
 	}
+	defer cleanup()
 	if o.validate != "" {
 		r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: o.validateCmd(tmp), Timeout: time.Minute, MaxOutput: 64 << 10})
 		if err != nil || r.ExitCode != 0 {
@@ -157,6 +141,39 @@ func writeRemoteFrom(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Cli
 		res["note"] = fmt.Sprintf("the server does not allow setting file modes; the file has mode %04o, not %s", got, mode)
 	}
 	return res, nil
+}
+
+// stageRemote writes the new content of a file named base in dir to a
+// temporary file only the SSH user can open (privateTemp), created
+// exclusively, and gives it perm. It returns the file, the mode it got,
+// and cleanup, which removes what is left of it.
+func stageRemote(cl *call, sc *sftp.Client, dir, tmpName, base string, perm os.FileMode, copyIn func(io.Writer) error) (string, os.FileMode, func(), error) {
+	tmp, cleanup, err := privateTemp(cl, sc, dir, tmpName, base)
+	if err != nil {
+		return "", 0, nil, err
+	}
+	// exclusive: never write into a file, or through a link, already there
+	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+	if err != nil {
+		cleanup()
+		return "", 0, nil, fsErr(cl, dir, err)
+	}
+	_, err = chmodOpen(f, tmp, 0o600)
+	if err == nil {
+		err = copyIn(f)
+	}
+	got := perm
+	if err == nil {
+		got, err = chmodOpen(f, tmp, perm)
+	}
+	if cerr := f.Close(); err == nil && cerr != nil {
+		err = fsErr(cl, tmp, cerr)
+	}
+	if err != nil {
+		cleanup()
+		return "", 0, nil, err
+	}
+	return tmp, got, cleanup, nil
 }
 
 // backupStamp is the UTC time in a backup's name when PATH.bak is taken.
@@ -228,32 +245,73 @@ func backupRemote(cl *call, sc *sftp.Client, p string, now time.Time) (string, e
 	if err != nil {
 		return "", fsErr(cl, p, err)
 	}
+	// the copy is made where only the SSH user can open it, complete and
+	// at p's mode before it gets the backup's name
+	tmp, cleanup, err := privateTemp(cl, sc, path.Dir(p), fmt.Sprintf(".komando-bak-%d-%s", now.UnixNano(), path.Base(p)), path.Base(p)+".bak")
+	if err != nil {
+		return "", err
+	}
+	defer cleanup()
+	o, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+	if err != nil {
+		return "", fsErr(cl, tmp, err)
+	}
+	_, err = chmodOpen(o, tmp, 0o600)
+	if err == nil {
+		_, err = io.Copy(o, in)
+	}
+	if err == nil {
+		_, err = chmodOpen(o, tmp, fi.Mode().Perm())
+	}
+	if cerr := o.Close(); err == nil && cerr != nil {
+		err = cerr
+	}
+	if err != nil {
+		return "", fsErr(cl, p+".bak", err)
+	}
 	taken := func(n string) bool { _, err := sc.Lstat(n); return err == nil }
 	for try := 0; ; try++ {
 		b := backupName(p, now, taken)
-		o, err := sc.OpenFile(b, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+		// a hard link, or a rename that refuses an existing name: never
+		// over a backup or a link already there
+		err := sc.Link(tmp, b)
+		if err != nil && !taken(b) {
+			err = sc.Rename(tmp, b)
+		}
 		if err != nil {
 			if try < 3 && taken(b) {
 				continue // made by someone else a moment ago
 			}
 			return "", fsErr(cl, b, err)
 		}
-		_, err = chmodOpen(o, b, 0o600)
-		if err == nil {
-			_, err = io.Copy(o, in)
-		}
-		if err == nil {
-			_, err = chmodOpen(o, b, fi.Mode().Perm())
-		}
-		if cerr := o.Close(); err == nil && cerr != nil {
-			err = cerr
-		}
-		if err != nil {
-			sc.Remove(b)
-			return "", fsErr(cl, b, err)
-		}
 		return b, nil
 	}
+}
+
+// privateTemp makes a folder named dirName in dir that only the SSH user
+// can enter (0700) and returns the path of name in it, and cleanup, which
+// removes what is left there. pkg/sftp opens a new file with no mode, so
+// the server makes it at its own default (0644 under the usual umask)
+// until komando narrows it: another server user who opened it in between
+// would read all that is written after. Inside this folder no other user
+// can open the file, whatever its mode. A server that will not make the
+// folder private gets CHMOD_FAILED and nothing is written.
+func privateTemp(cl *call, sc *sftp.Client, dir, dirName, name string) (string, func(), error) {
+	d := path.Join(dir, dirName)
+	if err := sc.Mkdir(d); err != nil {
+		return "", nil, fsErr(cl, dir, err)
+	}
+	cerr := sc.Chmod(d, 0o700)
+	if fi, err := sc.Lstat(d); err != nil || !fi.IsDir() || fi.Mode().Perm()&0o077 != 0 {
+		_ = sc.RemoveDirectory(d)
+		if cerr == nil {
+			cerr = err
+		}
+		return "", nil, out.Errf(out.ExitRemote, "CHMOD_FAILED", "this SFTP server does not allow setting file modes, and its new folders are open to other users; if the server has a shell and sudo, retry with --sudo",
+			"cannot make the private folder %s for the new file: %v; nothing was written", d, cerr)
+	}
+	tmp := path.Join(d, name)
+	return tmp, func() { _ = sc.Remove(tmp); _ = sc.RemoveDirectory(d) }, nil
 }
 
 // fsWriteInput is what fs write puts in the file: --content, --from FILE,
