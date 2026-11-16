@@ -30,11 +30,12 @@ func vpnServeCmd() *cobra.Command {
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fail := func(err error) error { fmt.Fprintf(cl.out.W, "ERROR %v\n", err); return exitCode(1) }
 			in := bufio.NewReader(cl.stdin)
-			if err := takeSpawnTicket(in, []string{"vpn", "serve", args[0]}, "vpn serve", "vpn up "+args[0]); err != nil {
-				return fail(err)
-			}
+			ticket := readTicket(in)
 			socksUser, socksPass, err := serveStdin(in, passwordStdin, passStdin)
 			if err != nil {
+				return fail(err)
+			}
+			if err := checkTicket(cl, ticket, "vpn serve", "vpn up "+args[0]); err != nil {
 				return fail(err)
 			}
 			st, err := loadState()
@@ -108,7 +109,7 @@ func vpnServeCmd() *cobra.Command {
 }
 
 // serveStdin reads what spawnServeWith sends `vpn serve` on stdin after
-// the ticket (takeSpawnTicket): the SOCKS login for this session and a typed VPN password, one line each
+// the ticket (readTicket): the SOCKS login for this session and a typed VPN password, one line each
 // (with password), then the vault passphrase up to the end (with pass;
 // vault.PassOnStdin).
 func serveStdin(r io.Reader, password, pass bool) (socksUser, socksPass string, err error) {

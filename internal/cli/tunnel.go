@@ -464,7 +464,7 @@ func tunnelServeCmd() *cobra.Command {
 				fmt.Fprintf(cl.out.W, "ERROR %s\n", b)
 				return exitCode(1)
 			}
-			st, err := serveState(cl.stdin, args[0], passStdin)
+			st, err := serveState(cl, passStdin)
 			if err != nil {
 				return fail(err)
 			}
@@ -555,28 +555,28 @@ func tunnelServeCmd() *cobra.Command {
 // tunnel start, logging to lf, with its ticket (guard_spawn.go) and the
 // vault passphrase on its stdin, not in its environment: it runs for long.
 func startTunnelServe(self, id string, pargs []string, lf *os.File) (*exec.Cmd, error) {
-	ticket, err := newSpawnTicket("tunnel", "serve", id)
-	if err != nil {
-		return nil, err
-	}
 	p := tunnelServeCommand(self, pargs)
-	p.Stdout, p.Stderr, p.Stdin = lf, lf, strings.NewReader(ticket)
+	p.Stdout, p.Stderr = lf, lf
 	p.SysProcAttr = detachAttr()
 	vault.PassOnStdin(p)
+	if err := sealTicket(p); err != nil {
+		return nil, err
+	}
 	return p, p.Start()
 }
 
 // serveState is tunnel serve's inventory, after its ticket from tunnel
 // start and the vault passphrase when it sent one (vault.PassOnStdin).
-func serveState(stdin io.Reader, id string, passStdin bool) (*store.State, error) {
-	in := bufio.NewReader(stdin)
-	if err := takeSpawnTicket(in, []string{"tunnel", "serve", id}, "tunnel serve", "tunnel start"); err != nil {
-		return nil, err
-	}
+func serveState(cl *call, passStdin bool) (*store.State, error) {
+	in := bufio.NewReader(cl.stdin)
+	ticket := readTicket(in)
 	if passStdin {
 		if err := vault.ReadPassStdin(in); err != nil {
 			return nil, err
 		}
+	}
+	if err := checkTicket(cl, ticket, "tunnel serve", "tunnel start"); err != nil {
+		return nil, err
 	}
 	return loadState()
 }

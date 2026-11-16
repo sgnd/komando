@@ -222,7 +222,7 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 // socket's token, how long to keep the login, the vault passphrase and
 // the other secret stores' unlock values.
 func holderHello(stdin io.Writer, l *store.SSHLogin) error {
-	ticket, err := newSpawnTicket("login-holder", l.Host)
+	ticket, err := ticketLine([]string{"login-holder", l.Host})
 	if err != nil {
 		return err
 	}
@@ -284,11 +284,12 @@ func loginHolderCmd() *cobra.Command {
 				return exitCode(1)
 			}
 			in := bufio.NewReader(cl.stdin)
-			if err := takeSpawnTicket(in, []string{"login-holder", args[0]}, "login-holder", "login "+args[0]); err != nil {
-				return fail(err)
-			}
+			ticket := readTicket(in)
 			token, until, err := holderStdin(in)
 			if err != nil {
+				return fail(err)
+			}
+			if err := checkTicket(cl, ticket, "login-holder", "login "+args[0]); err != nil {
 				return fail(err)
 			}
 			st, err := loadState()
