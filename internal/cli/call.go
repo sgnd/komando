@@ -15,6 +15,7 @@ import (
 	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/transport"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -241,6 +242,9 @@ func Execute() int {
 	// the store is closed when the program ends
 	defer store.Close()
 	cl := newCall(processCall(), os.Args[1:])
+	if cl.isAgent() {
+		transport.DistrustEnv() // its HTTPS_PROXY is the agent's: no proxy from it
+	}
 	cl.signals = signalContext
 	return cl.execute(context.Background(), os.Args[1:])
 }

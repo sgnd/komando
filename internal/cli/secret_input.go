@@ -5,39 +5,34 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // An AI agent sees every vault value as [secret:NAME]. That masking would
 // tell it which of its guesses is a secret: `secret get GUESS` or `exec
-// web1 -- echo GUESS` print [secret:NAME] on a hit. So komando refuses an
-// agent's arguments, script or input that hold a vault value, before
-// anything runs (a dry run too: its output would mask the same way), and
-// writes the refusal to the audit log, where a person sees the guessing.
-// The message never says which secret matched. A value the agent got
-// back from a server in another form (decoded there) cannot be caught.
+// web1 -- echo GUESS` print [secret:NAME] on a hit; and refusing such
+// input would tell it the same. So an agent's arguments, script or input
+// that hold a vault value get the answer any other value gets: the value
+// it typed is not hidden in that command's output (Printer.Spare), which
+// shows it nothing it did not type. The audit log records it, where a
+// person sees the guessing; the record never says which secret matched.
 
-// secretInputErr is the refusal; what says what held the value ("the
-// arguments hold", "FILE holds").
-func secretInputErr(cl *call, cmd *cobra.Command, what string) error {
-	e := out.Errf(out.ExitUsage, "SECRET_INPUT_INVALID",
-		"never type a secret's value: put {{secret:NAME}} where komando takes it (fs write, fs replace, -e), or ask the user to keep the value with `komando secret set NAME` and use that name",
-		"%s the value of a secret in komando's vault; an AI agent never sends one (this was written to the audit log)", what)
+// noteSecretInput records that what holds a vault value, and stops hiding
+// the values in s in this command's output.
+func noteSecretInput(cl *call, cmd *cobra.Command, what, s string) {
 	name := "komando"
 	if cmd != nil {
 		name = commandName(cmd)
 	}
-	audit(cl, nil, name, nil, "", false, map[string]any{"blocked": e.Code, "message": e.Message})
-	return e
+	audit(cl, nil, name, nil, "", true, map[string]any{"secret_value_in_input": what})
+	cl.out.Spare(s)
 }
 
-// secretInArgs refuses an agent's command line that holds a vault value:
+// secretInArgs notes an agent's command line that holds a vault value:
 // its arguments (the remote command after -- too) and the flags it gave.
-func secretInArgs(cmd *cobra.Command, args []string) error {
+func secretInArgs(cmd *cobra.Command, args []string) {
 	cl := callOf(cmd)
 	if !cl.isAgent() || cl.out.Secrets == nil {
-		return nil
+		return
 	}
 	words := append([]string{}, args...)
 	cmd.Flags().Visit(func(f *pflag.Flag) {
@@ -47,17 +42,15 @@ func secretInArgs(cmd *cobra.Command, args []string) error {
 		}
 		words = append(words, f.Value.String())
 	})
-	if !cl.out.HoldsVaultValue(strings.Join(words, "\x00")) {
-		return nil
+	if s := strings.Join(words, "\x00"); cl.out.HoldsVaultValue(s) {
+		noteSecretInput(cl, cmd, "the arguments", s)
 	}
-	return secretInputErr(cl, cmd, "the arguments hold")
 }
 
-// secretInBody refuses an agent's script, --stdin-file or SQL file that
+// secretInBody notes an agent's script, --stdin-file or SQL file that
 // holds a vault value.
-func secretInBody(cl *call, what string, b []byte) error {
-	if !cl.isAgent() || len(b) > hiddenScanMax || cl.out.Secrets == nil || !cl.out.HoldsVaultValue(string(b)) {
-		return nil
+func secretInBody(cl *call, what string, b []byte) {
+	if cl.isAgent() && len(b) <= hiddenScanMax && cl.out.Secrets != nil && cl.out.HoldsVaultValue(string(b)) {
+		noteSecretInput(cl, nil, what, string(b))
 	}
-	return secretInputErr(cl, nil, what+" holds")
 }

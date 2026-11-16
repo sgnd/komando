@@ -2,9 +2,10 @@ package cli
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -113,13 +114,7 @@ step, starting with the VPN app your company uses.`,
 			secrets := map[string]string{}
 			var ovpnWarn []string
 			ovpnServers := ""
-			readConfig := func() (string, error) {
-				b, err := os.ReadFile(expandHome(config))
-				if err != nil {
-					return "", localFileErr("FILE_NOT_FOUND", err, "give the path of the VPN's config file")
-				}
-				return string(b), nil
-			}
+			readConfig := func() (string, error) { return vpnConfigText(cl, config) }
 			var err error
 			switch {
 			case kind == "wireguard":
@@ -175,7 +170,7 @@ step, starting with the VPN app your company uses.`,
 				if err = need("server", server != ""); err != nil {
 					return err
 				}
-				if err = vpnAddIPsec(v, server, pskRef, localID, remoteID, ca); err != nil {
+				if err = vpnAddIPsec(cl, v, server, pskRef, localID, remoteID, ca); err != nil {
 					return err
 				}
 			case kind == "openvpn":
@@ -272,7 +267,7 @@ step, starting with the VPN app your company uses.`,
 	f.BoolVar(&askPsk, "ask-psk", false, "L2TP, IPsec, IKEv2: type the pre-shared key now (hidden, a person at a terminal); it is stored in the vault as secret:NAME-psk and used as --psk-ref")
 	f.BoolVar(&mfa, "mfa", false, "the login needs a person (MFA, SSO): only 'vpn up' run by a person connects it")
 	f.BoolVar(&legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; needs a person's yes)")
-	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (needs a person's yes)")
+	f.BoolVar(&allowPAP, "allow-pap", false, "L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (needs a person's yes)")
 	f.StringVar(&check, "check", "", "host:port reachable only through this VPN (vpn up and test connect to it; needed for system and openvpn)")
 	f.StringSliceVarP(&groups, "group", "g", nil, "put it in these groups (comma-separated)")
 	f.StringSliceVarP(&tags, "tag", "t", nil, "tags, like prod (comma-separated)")
@@ -305,7 +300,7 @@ func vpnShowCmd() *cobra.Command {
 
 // vpnAddIPsec fills in an l2tp, ipsec or ikev2 VPN v from vpn add's flags
 // (v.User and v.KeyRef are set already).
-func vpnAddIPsec(v *store.Vpn, server, pskRef, localID, remoteID, ca string) (err error) {
+func vpnAddIPsec(cl *call, v *store.Vpn, server, pskRef, localID, remoteID, ca string) (err error) {
 	if strings.HasPrefix(server, "-") || strings.Contains(server, "/") {
 		return out.Usage("--server takes a host name or address (host or host:port)")
 	}
@@ -325,7 +320,7 @@ func vpnAddIPsec(v *store.Vpn, server, pskRef, localID, remoteID, ca string) (er
 			return out.Usage("ikev2 needs --psk-ref (a pre-shared key) or --user (an EAP login checked with the server's certificate)")
 		}
 		v.LocalID, v.RemoteID = localID, remoteID
-		if v.CA, err = readVpnCA(ca); err != nil {
+		if v.CA, err = readVpnCA(cl, ca); err != nil {
 			return err
 		}
 	}
@@ -459,28 +454,92 @@ func vpnAddSave(cl *call, v *store.Vpn, secrets map[string]string, overwrite boo
 			return err
 		}
 	}
-	return store.Update(cl.storeWrite(), func(s *store.State) error {
+	var old *store.Vpn
+	err := store.Update(cl.storeWrite(), func(s *store.State) error {
 		if err := checkNewName(cl, s, "vpn", v.Name, overwrite); err != nil {
 			return err
 		}
+		old = s.Vpns[v.Name]
 		s.Vpns[v.Name] = v
 		return nil
 	})
+	if err == nil {
+		forgetReplacedTailscale(cl, old)
+	}
+	return err
 }
 
-// readVpnCA reads an ikev2 VPN's --ca file (PEM); "" without one.
-func readVpnCA(path string) (string, error) {
+// forgetReplacedTailscale removes the node state of old, a Tailscale VPN
+// that --overwrite or an import replaced: the new VPN of that name starts
+// as a new node, not with the old one's keys, as after `vpn rm`.
+func forgetReplacedTailscale(cl *call, olds ...*store.Vpn) {
+	for _, old := range olds {
+		if old == nil || old.Kind != "tailscale" {
+			continue
+		}
+		if err := netx.ForgetTailscale(old); err != nil {
+			noticef(cl, "the old Tailscale node state of %s could not be removed: %v", old.Name, err)
+		}
+	}
+}
+
+// vpnsReplaced are the VPNs in st that vpns replace.
+func vpnsReplaced(st *store.State, vpns []*store.Vpn) []*store.Vpn {
+	var olds []*store.Vpn
+	for _, v := range vpns {
+		if old := st.Vpns[v.Name]; old != nil {
+			olds = append(olds, old)
+		}
+	}
+	return olds
+}
+
+// vpnConfigText reads vpn add's --config file. Its secrets go into the
+// vault, so an AI agent may name a secret file; errors about it never
+// quote its text.
+func vpnConfigText(cl *call, config string) (string, error) {
+	b, err := readImportFile(cl, expandHome(config))
+	if err != nil {
+		if _, ok := err.(*out.Error); ok {
+			return "", err
+		}
+		return "", localFileErr("FILE_NOT_FOUND", err, "give the path of the VPN's config file")
+	}
+	return string(b), nil
+}
+
+// readVpnCA reads an ikev2 VPN's --ca file (PEM); "" without one. It is
+// read as any local file is (an AI agent gets SENSITIVE_FILE for a secret
+// file), and only its CERTIFICATE blocks are kept: the rest of a file (a
+// key, an .ovpn profile's static key and login) is never stored or shown.
+func readVpnCA(cl *call, path string) (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	b, err := os.ReadFile(expandHome(path))
+	b, err := readLocalFile(cl, expandHome(path))
 	if err != nil {
+		if _, ok := err.(*out.Error); ok {
+			return "", err
+		}
 		return "", localFileErr("FILE_NOT_FOUND", err, "give the path of the CA certificate (PEM)")
 	}
-	if !strings.Contains(string(b), "-----BEGIN CERTIFICATE-----") {
+	var certs []byte
+	for rest := b; ; {
+		var blk *pem.Block
+		if blk, rest = pem.Decode(rest); blk == nil {
+			break
+		}
+		if blk.Type == "CERTIFICATE" {
+			if _, err := x509.ParseCertificate(blk.Bytes); err != nil {
+				return "", out.Usage("--ca: a CERTIFICATE block in the file is not a certificate")
+			}
+			certs = append(certs, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: blk.Bytes})...)
+		}
+	}
+	if len(certs) == 0 {
 		return "", out.Usage("--ca takes a PEM certificate file")
 	}
-	return string(b), nil
+	return string(certs), nil
 }
 
 // vpnAddNotes are vpn add's notes on the VPN v it added from the file
@@ -654,7 +713,7 @@ func (t vpnChangeText) Text() string {
 		field("legacy crypto", "yes (3DES, DH groups 2 and 5)")
 	}
 	if v.AllowPAP {
-		field("allow PAP", "yes (the server may get the password itself)")
+		field("allow PAP", "yes: PAP, CHAP-MD5 or no login (the server need not prove itself; with PAP it gets the password)")
 	}
 	if c := strings.TrimSpace(v.Config); c != "" {
 		b.WriteString("  config:\n")
