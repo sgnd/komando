@@ -49,12 +49,15 @@ func secretNames() []string {
 	return n
 }
 
-// protectedUsers are the protected servers and conns among users.
+// protectedUsers are the protected servers, conns and VPNs among users.
 func protectedUsers(st *store.State, users []string) []string {
 	var prot []string
 	for _, u := range users {
 		kind, name, _ := strings.Cut(u, " ")
-		if (kind == "host" && st.Hosts[name] != nil && st.Hosts[name].Protected) || (kind == "conn" && st.Conns[name] != nil && st.Conns[name].Protected) {
+		switch {
+		case kind == "host" && st.Hosts[name] != nil && st.Hosts[name].Protected,
+			kind == "conn" && st.Conns[name] != nil && st.Conns[name].Protected,
+			kind == "vpn" && st.Vpns[name] != nil && st.Vpns[name].Protected:
 			prot = append(prot, u)
 		}
 	}
@@ -276,6 +279,18 @@ are not changed.`
 						"secret "+to+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
 						return err
 					}
+				}
+			}
+			// what uses NEW gets the value of OLD: for a profile or a CA
+			// certificate that is a new place or a new trust
+			if cl.isAgent() {
+				now, err := vault.Get(from)
+				if err != nil {
+					return err
+				}
+				was, _ := vault.Get(to)
+				if err := guardTrustSecret(cl, st, to, was, replaced, now); err != nil {
+					return err
 				}
 			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}

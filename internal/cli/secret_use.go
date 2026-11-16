@@ -356,7 +356,8 @@ func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, wh
 
 // winrmWeak is what now's WinRM settings give up that old's did not: the
 // server's certificate is not checked (tls=skip-verify), nothing is
-// encrypted (tls=off), or the password itself is sent (auth=basic).
+// encrypted (tls=off), the password itself is sent (auth=basic), or a
+// server komando knew is checked against another CA certificate (?ca=).
 func winrmWeak(old, now *store.Host) []string {
 	if !now.WinRM() || now.WinRMOpts == nil {
 		return nil
@@ -377,6 +378,11 @@ func winrmWeak(old, now *store.Host) []string {
 	}
 	if o.Auth == "basic" && was.Auth != "basic" {
 		w = append(w, "server "+now.Name+": WinRM auth=basic (the password itself is sent)")
+	}
+	// another CA lets another server pass as this one; a new server's own
+	// CA, and going back to the system's CAs only, give nothing up
+	if old != nil && o.CA != "" && o.CA != was.CA {
+		w = append(w, "server "+now.Name+": WinRM is checked against another CA certificate ("+o.CA+")")
 	}
 	return w
 }
@@ -424,4 +430,59 @@ func guardVpnSends(cl *call, old, now *store.Vpn, servers string) error {
 		weak = append(weak, "vpn "+now.Name+" no longer checks its server against the CA certificate it had")
 	}
 	return guardSends(cl, []string{line}, weak)
+}
+
+// guardTrustSecret stops an AI agent from giving the vault secret name
+// the value now when that value decides whom komando trusts, not only how
+// it logs in: an OpenVPN VPN's profile (its servers and CA; the VPN's
+// login goes there) and the CA certificate a WinRM server or a conn is
+// checked against (?ca=secret:NAME). had is false when the secret is not
+// there yet: making a CA an entry already names counts too. A person's
+// yes (--yes, then the window) lets it through, as for vpn edit, host
+// edit and conn edit making the same change.
+func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now string) error {
+	if !cl.isAgent() || (had && old == now) {
+		return nil
+	}
+	ref := "secret:" + name
+	var sends, weak []string
+	for _, n := range sortedKeys(st.Vpns) {
+		v := st.Vpns[n]
+		if v.Kind != "openvpn" || v.ConfigRef != ref {
+			continue
+		}
+		servers, err := ovpnRemotes(now)
+		if err != nil || servers == "" {
+			servers = "the servers in the new profile"
+		}
+		before := vpnPlace(v, "")
+		line, err := newSends("vpn "+v.Name, &before, vpnPlace(v, servers))
+		if err != nil {
+			return err
+		}
+		sends = append(sends, line)
+		weak = append(weak, "vpn "+v.Name+" gets another OpenVPN profile: other servers, checked against another CA certificate, may stand in for it")
+	}
+	for _, n := range sortedKeys(st.Hosts) {
+		h := st.Hosts[n]
+		if h.WinRMOpts != nil && h.WinRMOpts.CA == ref {
+			weak = append(weak, "server "+h.Name+" is checked against another CA certificate (WinRM): another server may pass as it and get its login")
+		}
+	}
+	for _, n := range sortedKeys(st.Conns) {
+		c := st.Conns[n]
+		for _, r := range urlSecretRefs(c.URL) {
+			if r.Name == name && caOption(r.Option) {
+				weak = append(weak, "conn "+c.Name+" is checked against another CA certificate: another server may pass as it and get its login")
+				break
+			}
+		}
+	}
+	return guardSends(cl, sends, weak)
+}
+
+// caOption reports whether a conn URL option names a CA certificate.
+func caOption(opt string) bool {
+	opt = strings.ToLower(opt)
+	return opt == "ca" || strings.HasSuffix(opt, "-ca") || strings.HasSuffix(opt, "_ca") || strings.Contains(opt, "rootcert")
 }
