@@ -20,6 +20,13 @@ import (
 
 // bqCredentials is the login: the conn's service account key, or the
 // application default credentials. gcloud's login goes only to Google's
+// bqDefaultCredentials finds application default credentials (gcloud's
+// login, GOOGLE_APPLICATION_CREDENTIALS, the metadata server); tests
+// replace it. bqCredentials gives it the conn's client in ctx.
+var bqDefaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
+	return google.FindDefaultCredentials(ctx, bqScope)
+}
+
 // own hosts (https://*.googleapis.com): an endpoint elsewhere (an
 // emulator) gets a key the conn names, or no login at all.
 func bqCredentials(key string, plain *http.Client, onGoogle bool) (*google.Credentials, error) {

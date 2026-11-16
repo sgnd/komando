@@ -274,6 +274,11 @@ func TestAgentOtherHome(t *testing.T) {
 	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
 		wantCode(t, "SAFETY_SETTING", syn...)
 	}
+	// a background command too: an agent's own home would hold its own
+	// store key, so it could make its own tickets
+	for _, bg := range [][]string{{"vpn", "serve", "office"}, {"tunnel", "serve", "t-1"}, {"login-holder", "web1"}} {
+		wantCode(t, "SAFETY_SETTING", bg...)
+	}
 	for _, free := range [][]string{{"version"}, {"schema"}, {"guide"}} {
 		mustRun(t, free...)
 	}

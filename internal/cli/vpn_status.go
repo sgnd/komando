@@ -185,7 +185,7 @@ func (e *vpnEditFlags) bind(c *cobra.Command) {
 	f.StringVar(&e.passwordRef, "password-ref", "", "password as secret:NAME | env:VAR | file:PATH | op://... | bw://... | kdbx:... | vault:PATH#FIELD | aws-sm:NAME | gcp-sm:NAME | azure-kv:VAULT/NAME")
 	f.BoolVar(&e.mfa, "mfa", false, "the login needs a person (MFA, SSO)")
 	f.BoolVar(&e.legacyCrypto, "legacy-crypto", false, "L2TP, IPsec: also offer 3DES and DH groups 2 and 5, for old servers (weak; turning it on needs a person's yes)")
-	f.BoolVar(&e.allowPAP, "allow-pap", false, "L2TP: let the server pick PAP, which hands it your password itself (turning it on needs a person's yes)")
+	f.BoolVar(&e.allowPAP, "allow-pap", false, "L2TP: let the server pick a login that does not prove it is the server: PAP, which hands it your password itself, CHAP-MD5 or none (turning it on needs a person's yes)")
 	f.StringVar(&e.notes, "notes", "", "free-form notes")
 	f.StringSliceVar(&e.addGroups, "add-group", nil, "put it in these groups (comma-separated)")
 	f.StringSliceVar(&e.rmGroups, "rm-group", nil, "take it out of these groups")
@@ -215,7 +215,7 @@ func vpnOptIns(cl *call, v *store.Vpn, changed func(string) bool, legacy, pap bo
 	}
 	if changed("allow-pap") {
 		if pap && !v.AllowPAP {
-			if err := guardSafety(cl, "letting VPN "+v.Name+" log in with PAP, which hands the server your password itself"); err != nil {
+			if err := guardSafety(cl, "letting VPN "+v.Name+" log in without the server's proof (PAP hands the server your password itself; CHAP-MD5 or no login prove nothing)"); err != nil {
 				return err
 			}
 		}

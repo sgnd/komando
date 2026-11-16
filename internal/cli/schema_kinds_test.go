@@ -110,7 +110,7 @@ func TestVpnAddKindsMatchTheCommand(t *testing.T) {
 	invHome(t)
 	wg, ovpn := vpnSecretFiles(t)
 	ca := filepath.Join(t.TempDir(), "ca.pem")
-	if err := os.WriteFile(ca, []byte("-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"), 0o600); err != nil {
+	if err := os.WriteFile(ca, []byte(certPEM(t)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	fs := vpnAddFlags(t)

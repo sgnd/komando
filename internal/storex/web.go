@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // The storage kinds that speak HTTP (GCS, Azure Blob, WebDAV) share this:
@@ -20,8 +21,9 @@ import (
 // webClient is an HTTP client for one conn. It goes through HTTPS_PROXY
 // like the S3 client, unless dial (a --via path) is the way out.
 func webClient(dial DialFunc, timeout time.Duration, skipVerify bool) *http.Client {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr := transport.HTTP()
 	tr.ResponseHeaderTimeout = timeout
+	tr.Proxy = transport.Proxy()
 	if skipVerify {
 		tr.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true} //nolint:gosec // only when the conn URL says ?tls=skip-verify
 	}

@@ -2,6 +2,7 @@ package out
 
 import (
 	"encoding/base64"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -103,5 +104,16 @@ func TestAddValueOfVaultValueSurvivesSetSecrets(t *testing.T) {
 	p.ForgetAdded()
 	if got := p.Redact(v); got != "[secret:db]" || !p.HoldsVaultValue(v) {
 		t.Errorf("after ForgetAdded: %q", got)
+	}
+}
+
+// Spare shows the vault values s holds as they are, and their base64 and
+// URL forms, in this printer's output; other secrets stay hidden.
+func TestSpare(t *testing.T) {
+	p := &Printer{Secrets: func() map[string]string { return map[string]string{"a": "guess-value-1", "b": "other-value-2"} }}
+	p.Spare("echo guess-value-1")
+	got := p.Redact("guess-value-1 " + base64.StdEncoding.EncodeToString([]byte("guess-value-1")) + " other-value-2")
+	if strings.Contains(got, "[secret:a]") || !strings.Contains(got, "[secret:b]") {
+		t.Fatalf("got %q", got)
 	}
 }
