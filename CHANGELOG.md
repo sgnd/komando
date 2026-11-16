@@ -7,6 +7,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-16
+
+### Highlights
+
+- Security fix: a conn's URL settings (Postgres `host=`/`hostaddr=`/`service=`, Redis sentinels, MongoDB seed hosts, RabbitMQ `management=`) could send its stored password somewhere other than the address komando showed. An AI agent's change of any of them now needs a person.
+- komando ignores `PG*` environment variables and `~/.pgpass` for Postgres conns, and a SQLite conn can no longer open komando's own store or a credential database; an agent's SQLite query cannot `ATTACH` or `VACUUM INTO`.
+
 ### Security
 
 - A conn's URL settings could send its stored password somewhere other than the address komando showed and guarded. Postgres reads `host=`, `port=`, `hostaddr=`, `service=` and fallback hosts from the URL, Redis `sentinels=`, MongoDB more seed hosts and RabbitMQ `management=`, and an AI agent could add them with `conn edit --url` without the yes that a new address needs. The place a conn's password goes is now every address its driver logs in at, read as the driver reads the URL, plus every URL setting except the few that move nothing (`application_name`, `connect_timeout` and other timeouts). An agent's change of any of it stops with `SECRET_DESTINATION`, and the window shows the settings.
@@ -4345,7 +4352,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/sgnd/komando/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/sgnd/komando/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/sgnd/komando/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/sgnd/komando/compare/v0.11.0...v0.12.0
