@@ -1,13 +1,17 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
@@ -27,7 +31,8 @@ import (
 // included, on a file conn or a target at a loopback address
 // (gateLocalAddr). A change whose target the gate cannot find is refused
 // too; a read with one it cannot find runs when the name is no loopback
-// address (a website for cert check, a typo that fails anyway). This
+// address, as written or resolved (a website for cert check, a typo that
+// fails anyway). This
 // computer under another name or address is found by its pinned host key,
 // which is one of this computer's own (gateSameHostKey), or by an address
 // that is one of this computer's network addresses (gateLocalAddr).
@@ -209,10 +214,59 @@ func gateAt(cl *call, st *store.State, addr, via string, depth int) string {
 }
 
 // gateLocalAddr: a name or address, with or without a port, is this
-// computer as written: localhost, a loopback or unspecified IP, or this
-// computer's name. A number in another form (127.1, 0x7f000001), which a C
-// resolver reads its own way, counts too.
+// computer: localhost, a loopback or unspecified IP, one of this
+// computer's addresses, or this computer's name, as written or as the
+// name resolves (ip6-localhost, localtest.me: any address it resolves to
+// counts). A number in another form (127.1, 0x7f000001), which a C
+// resolver reads its own way, counts too. A name that does not resolve
+// is judged as written; what a gated command dials is checked again when
+// it connects (gateDialControl), so an answer that changes in between
+// cannot reach this computer either.
 func gateLocalAddr(a string) bool {
+	if gateLocalAsWritten(a) {
+		return true
+	}
+	if h, _, err := net.SplitHostPort(a); err == nil {
+		a = h
+	}
+	a, _, _ = strings.Cut(normAddr(a), "%")
+	if a == "" || net.ParseIP(a) != nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	ips, _ := gateLookup(ctx, a)
+	return slices.ContainsFunc(ips, gateLocalIP)
+}
+
+// gateLookup resolves a name for gateLocalAddr; tests answer for it.
+var gateLookup = func(ctx context.Context, host string) ([]net.IP, error) {
+	return net.DefaultResolver.LookupIP(ctx, "ip", host)
+}
+
+// gateLocalIP: ip is this computer: loopback, unspecified, or one of its
+// network addresses.
+func gateLocalIP(ip net.IP) bool {
+	return ip.IsLoopback() || ip.IsUnspecified() || gateOwnIP(ip)
+}
+
+// gateDialControl refuses, as a gated command connects, an address that is
+// this computer (net.Dialer.Control): it sees the IP really dialled, after
+// the name was resolved.
+func gateDialControl(_, address string, _ syscall.RawConn) error {
+	h, _, err := net.SplitHostPort(address)
+	if err != nil {
+		h = address
+	}
+	h, _, _ = strings.Cut(h, "%")
+	if ip := net.ParseIP(h); ip == nil || gateLocalIP(ip) {
+		return fmt.Errorf("%s is this computer: a key through ssh-gate does not reach it", address)
+	}
+	return nil
+}
+
+// gateLocalAsWritten is gateLocalAddr without resolving the name.
+func gateLocalAsWritten(a string) bool {
 	if h, _, err := net.SplitHostPort(a); err == nil {
 		a = h
 	}
@@ -224,7 +278,7 @@ func gateLocalAddr(a string) bool {
 	me = normAddr(me)
 	short, _, _ := strings.Cut(me, ".")
 	if ip := net.ParseIP(a); ip != nil {
-		return ip.IsLoopback() || ip.IsUnspecified() || gateOwnIP(ip)
+		return gateLocalIP(ip)
 	}
 	return a == "localhost" || strings.HasSuffix(a, ".localhost") || a != "" && (a == me || a == short) ||
 		a != "" && a[0] >= '0' && a[0] <= '9' && strings.Trim(a, "0123456789abcdefx.") == ""

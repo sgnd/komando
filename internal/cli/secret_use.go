@@ -345,7 +345,7 @@ func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 // guardHostSends is guardSends for servers an add, edit or import leaves
 // as now; olds holds each one's settings before, by name (none: new).
 func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, why ...string) error {
-	var lines []string
+	var lines, weak []string
 	for _, h := range now {
 		var before *secretPlace
 		if o, ok := olds[h.Name]; ok && o != nil {
@@ -357,8 +357,36 @@ func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, wh
 			return err
 		}
 		lines = append(lines, line)
+		weak = append(weak, winrmWeak(olds[h.Name], h)...)
 	}
-	return guardSends(cl, lines, nil, why...)
+	return guardSends(cl, lines, weak, why...)
+}
+
+// winrmWeak is what now's WinRM settings give up that old's did not: the
+// server's certificate is not checked (tls=skip-verify), nothing is
+// encrypted (tls=off), or the password itself is sent (auth=basic).
+func winrmWeak(old, now *store.Host) []string {
+	if !now.WinRM() || now.WinRMOpts == nil {
+		return nil
+	}
+	var was store.WinRMOpts
+	if old.WinRM() && old.WinRMOpts != nil {
+		was = *old.WinRMOpts
+	}
+	o := now.WinRMOpts
+	var w []string
+	if o.TLS != was.TLS {
+		switch o.TLS {
+		case "skip-verify":
+			w = append(w, "server "+now.Name+": WinRM tls=skip-verify (the server's certificate is not checked)")
+		case "off":
+			w = append(w, "server "+now.Name+": WinRM tls=off (commands, files and the login travel unencrypted)")
+		}
+	}
+	if o.Auth == "basic" && was.Auth != "basic" {
+		w = append(w, "server "+now.Name+": WinRM auth=basic (the password itself is sent)")
+	}
+	return w
 }
 
 // vpnPlace: a VPN's login (its password or auth key, and its pre-shared

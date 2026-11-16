@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -63,7 +64,7 @@ func sudoFolderScript(tmpQ string) string {
 		`if command -v getfacl >/dev/null 2>&1; then ` +
 		`getfacl -cn -- "$d" 2>/dev/null | grep -E '^(user|group):[0-9]+:.w' | grep -Ev "^(user:($me|0)|group:0):" | grep -q . && w=acl; ` +
 		`else case $(ls -ld -- "$d") in ??????????+*) w=acl;; esac; fi; fi; ` +
-		`if [ -n "$w" ]; then printf '\036komando-folder %s %s %s\n' "$w" "$(stat -c '%U %G' -- "$d")" "$d" >&2; rm -f ` + tmpQ + `; exit 93; fi; ` +
+		`if [ -n "$w" ]; then printf '\036komando-folder %s %s %s\n' "$w" "$(stat -c '%U %G' -- "$d")" "$(printf '%s' "$d" | tr '\n\r\036' '???')" >&2; rm -f ` + tmpQ + `; exit 93; fi; ` +
 		`[ "$d" = / ] && break; c=1; d=$(dirname -- "$d"); done; `
 }
 
@@ -108,12 +109,26 @@ func sudoReadScript(p, reader string) string {
 // who can change it.
 func unsafeFolder(p, stderr string) error {
 	who, owner, group, dir := "", "", "", p
+	// the first marker is root's; the folder's name (line breaks shown as
+	// ?) cannot add another, and an owner or group that is no user name
+	// is never named
 	for _, l := range strings.Split(stderr, "\n") {
 		if _, rest, ok := strings.Cut(l, sudoFolderMark); ok {
 			if f := strings.SplitN(rest, " ", 4); len(f) == 4 {
 				who, owner, group, dir = f[0], f[1], f[2], f[3]
 			}
+			break
 		}
+	}
+	if !userRe.MatchString(owner) {
+		owner = "(unknown)"
+	}
+	if !userRe.MatchString(group) {
+		group = "(unknown)"
+	}
+	dir = out.SafeText(out.NoCR(dir))
+	if p == "" { // fs mv --sudo: the folder it moves into
+		p = dir
 	}
 	by, as := "user "+owner, owner
 	switch who {
@@ -125,23 +140,32 @@ func unsafeFolder(p, stderr string) error {
 		by, as = "a user or group its access list (ACL) names", "the user who should own the file"
 	}
 	user := "USER"
-	if who == "user" && owner != "" {
+	if who == "user" && owner != "(unknown)" {
 		user = owner
+		if strings.Contains(owner, "$") { // a machine account (host$)
+			user = sshx.Q(owner)
+		}
 	}
 	return out.Errf(out.ExitConflict, "SHARED_FOLDER_CONFLICT",
 		"write it as "+as+" instead, for example `komando exec TARGET --sudo-user "+user+" --stdin-file FILE -- sh -c 'cat > \"$0\"' "+sshx.Q(p)+"`",
-		"%s can be changed by %s, not only by root and the SSH user: as root, komando does not write %s there (that user could swap it for a link while root writes)", dir, by, p)
+		"%s can be changed by %s, not only by root and the SSH user: as root, komando does not write %s there (that user could swap it for a link while root writes)", dir, by, pathLine(p))
 }
 
 // writeRemoteSudo is writeRemoteFrom with --sudo: the content is staged in
-// the SSH user's /tmp (0600), then root checks the path and installs it.
+// a folder of the SSH user's own in /tmp (0700), then root checks the path
+// and installs it.
 func writeRemoteSudo(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, p, mode, tmpName string, o writeOpts, res map[string]any, copyIn func(io.Writer) error) (map[string]any, error) {
-	tmp := path.Join("/tmp", tmpName)
+	// only the SSH user may read the staged content (it can be a secret),
+	// from the moment the file is made
+	tmp, cleanup, err := privateTemp(cl, sc, "/tmp", tmpName, path.Base(p))
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
 	f, err := sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 	if err != nil {
 		return nil, fsErr(cl, tmp, err)
 	}
-	// only the SSH user may read the staged content (it can be a secret)
 	if err := f.Chmod(0o600); err != nil {
 		f.Close()
 		sc.Remove(tmp)
@@ -240,4 +264,14 @@ func sudoInstallScript(p, mode, tmp string, o writeOpts) string {
 	}
 	sb.WriteString("rm -f " + sshx.Q(tmp) + `; printf '%s %s %s %s %s\n' "$m" "$r" "$k" "${f:-0}" "$p"`)
 	return sb.String()
+}
+
+// pathLine is a path from a server as one line of a message: quoted when it
+// holds a line break or another control character, so it cannot start a
+// line of its own.
+func pathLine(p string) string {
+	if strings.IndexFunc(p, func(r rune) bool { return r < 0x20 || r == 0x7f }) >= 0 {
+		return strconv.Quote(p)
+	}
+	return out.SafeText(p)
 }

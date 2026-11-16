@@ -57,3 +57,18 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 		t.Errorf("HOSTKEY_UNKNOWN: %s / %s", oe.Message, oe.Hint)
 	}
 }
+
+// Only the listed policies are known: any other value, a typo of strict
+// too, is an error, never accept-new.
+func TestUnknownHostKeyPolicyFailsClosed(t *testing.T) {
+	for _, p := range []string{"Strict", "STRICT", "bogus", "accept_new", " strict"} {
+		if cb, err := hostKeyCallback(context.Background(), "web1", p); err == nil || cb != nil {
+			t.Errorf("%q: callback %v, err %v", p, cb != nil, err)
+		}
+	}
+	for _, p := range []string{"", "accept-new", "strict", "off"} {
+		if _, err := hostKeyCallback(context.Background(), "web1", p); err != nil {
+			t.Errorf("%q: %v", p, err)
+		}
+	}
+}

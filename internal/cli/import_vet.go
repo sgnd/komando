@@ -22,13 +22,16 @@ type hostVet struct {
 // its hosts may not use secrets or files of this computer
 // (dropForeignHostRefs), unless ownRefs says it is the user's own list (a
 // CSV). A proxy command runs on this computer, so it goes through
-// guardProxyCommand (an AI agent needs a person's yes). Without --yes (or
+// guardProxyCommand (an AI agent needs a person's yes), and so does
+// forward_agent on a host that did not lend the ssh-agent before (as host
+// edit --forward-agent). Without --yes (or
 // --allow-dangerous) the host is only left out, so the rest still comes
 // in; a person who says no in the window stops the whole import. Hosts
 // that pass are put into s.
 func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ownRefs bool) (hostVet, error) {
 	var v hostVet
 	var cand []*store.Host
+	var lend []string                   // hosts the file would lend the ssh-agent to
 	later := map[*store.Host][]string{} // what changed on a host; said only if it is added
 	for _, h := range hosts {
 		if h == nil || h.Name == "" || h.Address == "" {
@@ -86,7 +89,16 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 		if err := guardProxyCommand(cl, h.ProxyCommand, h.Name); err != nil {
 			return v, err
 		}
+		if old, ok := s.Hosts[h.Name]; h.ForwardAgent && (!ok || !old.ForwardAgent) {
+			lend = append(lend, h.Name)
+		}
 		cand = append(cand, h)
+	}
+	// as host edit --forward-agent: a person decides
+	if len(lend) > 0 {
+		if err := guardSafety(cl, forwardAgentWhat(lend)); err != nil {
+			return v, err
+		}
 	}
 	prev := map[string]*store.Host{} // what --overwrite replaces, put back if the new one is refused
 	for _, h := range cand {         // so they can be each other's --via
@@ -168,4 +180,42 @@ func entryNames(st *store.State) map[string]bool {
 		n[k] = true
 	}
 	return n
+}
+
+// guardImportVpns asks for what the imported VPNs weaken, as vpn add and
+// vpn edit do: the weaker logins they turn on (importVpnOptIns), a CA
+// they no longer check the server against and secrets they send
+// (guardVpnSends), and, for a VPN they replace, protection or --mfa
+// turned off (guardVpnEdit). A file cannot do what a person did not allow.
+func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
+	olds := map[string]*store.Vpn{}
+	var replaced []*store.Vpn
+	for _, v := range vpns {
+		if err := importVpnOptIns(cl, st, v); err != nil {
+			return err
+		}
+		old := st.Vpns[v.Name]
+		if err := guardVpnSends(cl, old, v, ""); err != nil {
+			return err
+		}
+		if old != nil {
+			olds[v.Name] = old
+			replaced = append(replaced, v)
+		}
+	}
+	return guardVpnEdit(cl, olds, replaced)
+}
+
+// importVpnOptIns asks for the weaker logins an imported VPN turns on, as
+// vpn edit does (vpnOptIns): a file cannot allow old ciphers or PAP that
+// a person did not. A setting the VPN's kind does not use is dropped.
+func importVpnOptIns(cl *call, st *store.State, v *store.Vpn) error {
+	cur := &store.Vpn{Name: v.Name, Kind: v.Kind}
+	if old, ok := st.Vpns[v.Name]; ok && old.Kind == v.Kind {
+		cur.LegacyCrypto, cur.AllowPAP = old.LegacyCrypto, old.AllowPAP
+	}
+	v.LegacyCrypto = v.LegacyCrypto && vpnTakes(v.Kind, "legacy-crypto")
+	v.AllowPAP = v.AllowPAP && vpnTakes(v.Kind, "allow-pap")
+	set := map[string]bool{"legacy-crypto": v.LegacyCrypto, "allow-pap": v.AllowPAP}
+	return vpnOptIns(cl, cur, func(f string) bool { return set[f] }, v.LegacyCrypto, v.AllowPAP)
 }
