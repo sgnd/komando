@@ -91,6 +91,14 @@ var recordedShapeCases = map[string]func() any{
 		d.Summary.Total, d.Summary.OK = 1, 1
 		return map[string]any{"ok": true, "command": "facts", "data": d}
 	},
+	"facts web --only system (recorded)": func() any {
+		_, keys, _ := factsOnly([]string{"system"})
+		f, _ := factsOnlyParse(keys)(&store.Host{Name: "web"}, "os=ubuntu\nos_version=24.04\nos_pretty=Ubuntu 24.04.1 LTS\nuptime_sec=86400\n")
+		code := 0
+		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code, Data: f}}}
+		d.Summary.Total, d.Summary.OK = 1, 1
+		return map[string]any{"ok": true, "command": "facts", "data": d}
+	},
 }
 
 // serverShapeCases read the fake memcached conn "mc".

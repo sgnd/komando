@@ -245,7 +245,11 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 		case "apt_sim_ok", "apt_lists_mtime", "upd_rc", "sec_rc", "listen_src", "listen_names",
 			"units_checked", "now_epoch", "docker_version", "login_user", "pm2_mine":
 			set[k] = v
-		case "os_version", "hostname", "kernel":
+		case "os", "os_version", "os_pretty": // a name stays a string; one the server lacks is null
+			if v != "" {
+				f[k] = v
+			}
+		case "hostname", "kernel":
 			f[k] = v
 		case "ips":
 			f[k] = strings.Fields(v)
@@ -612,14 +616,14 @@ automatic services and listening ports.
 
 --only load,mem,disks runs just those probes (load and CPUs; memory and
 swap; every file system), in about a second, for an app that polls; the
-other keys are left out. system gives the OS name and the time the server
-has been up. On Windows the full probe runs and only those
-keys are kept.
+other keys are left out. --only system gives the OS name and version and
+the time the server has been up. On Windows the full probe runs and only
+those keys are kept.
 
 It only reads, and it uses sudo only when sudo works without a password.
 A value komando cannot read is null ("unknown"), never 0 or false; read
 data.results[].data.warnings first.`,
-		Example: "  komando facts web1\n  komando facts @prod -o json\n  komando facts web1 --only load,mem,disks -o json",
+		Example: "  komando facts web1\n  komando facts @prod -o json\n  komando facts web1 --only load,mem,disks -o json\n  komando facts web1 --only system",
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if len(only) > 0 {

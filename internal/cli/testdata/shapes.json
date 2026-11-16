@@ -733,6 +733,30 @@
     },
     "ok": "bool"
   },
+  "facts web --only system (recorded)": {
+    "command": "string",
+    "data": {
+      "results": [
+        {
+          "data": {
+            "os": "string",
+            "os_pretty": "string",
+            "os_version": "string",
+            "uptime_sec": "number"
+          },
+          "exit_code": "number",
+          "host": "string",
+          "ok": "bool"
+        }
+      ],
+      "summary": {
+        "failed": "number",
+        "ok": "number",
+        "total": "number"
+      }
+    },
+    "ok": "bool"
+  },
   "group list": {
     "command": "string",
     "data": {

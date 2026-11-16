@@ -5,6 +5,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
@@ -24,12 +25,22 @@ var factsSections = map[string]factsSection{
 	"load": {`[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
 echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
 `, []string{"load", "cpus"}},
-	"mem":   {factsMemLine, []string{"mem_total_mb", "mem_available_mb", "swap_total_mb", "swap_free_mb"}},
-	"disks": {factsDiskLines, []string{"disks", "disk_root_total_gb", "disk_root_used_pct"}},
-	"system": {`if [ -r /etc/os-release ]; then . /etc/os-release; echo "os=$ID"; echo "os_version=$VERSION_ID"; echo "os_pretty=$PRETTY_NAME"; else echo "os=$(uname -s | tr A-Z a-z)"; fi
-[ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
-`, []string{"os", "os_version", "os_pretty", "uptime_sec"}},
+	"mem":    {factsMemLine, []string{"mem_total_mb", "mem_available_mb", "swap_total_mb", "swap_free_mb"}},
+	"disks":  {factsDiskLines, []string{"disks", "disk_root_total_gb", "disk_root_used_pct"}},
+	"system": {factsSystemLines, []string{"os", "os_version", "os_pretty", "uptime_sec"}},
 }
+
+// factsSystemLines print os=, os_version=, os_pretty= and uptime_sec=. The
+// os-release file is read in a subshell: a broken one, or a variable it
+// sets (PATH), stays out of the other sections. printf, not echo, so a
+// backslash in a name is not read as a line break. A server without
+// /etc/os-release or /proc/uptime (macOS, BSD) answers from uname, sw_vers
+// and the boot time.
+const factsSystemLines = `( if [ -r /etc/os-release ]; then . /etc/os-release; printf 'os=%s\nos_version=%s\nos_pretty=%s\n' "$ID" "$VERSION_ID" "$PRETTY_NAME"
+else echo "os=$(uname -s | tr A-Z a-z)"; echo "os_version=$(uname -r)"; if command -v sw_vers >/dev/null 2>&1; then echo "os_pretty=$(sw_vers -productName) $(sw_vers -productVersion)"; fi; fi ) 2>/dev/null || echo "os=$(uname -s | tr A-Z a-z)"
+if [ -r /proc/uptime ]; then echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
+else b=$(sysctl -n kern.boottime 2>/dev/null | sed -n 's/^{ sec = \([0-9]*\),.*/\1/p'); if [ -n "$b" ]; then echo "uptime_sec=$(( $(date +%s) - b ))"; fi; fi
+`
 
 // factsSectionNames are the values --only takes, sorted.
 func factsSectionNames() []string {
@@ -60,6 +71,7 @@ func factsOnly(sections []string) (script string, keys []string, err error) {
 		b.WriteString(sec.script)
 		keys = append(keys, sec.keys...)
 	}
+	b.WriteString(":\n") // a probe a server lacks is null, not a failed run
 	return b.String(), keys, nil
 }
 
@@ -94,6 +106,15 @@ func factsOnlyText(d probeData) string {
 			continue
 		}
 		var parts []string
+		if p, ok := f["os_pretty"].(string); ok {
+			parts = append(parts, p)
+		} else if o, ok := f["os"].(string); ok {
+			v, _ := f["os_version"].(string)
+			parts = append(parts, strings.TrimSpace(o+" "+v))
+		}
+		if n, ok := f["uptime_sec"].(int64); ok {
+			parts = append(parts, "up "+humanAge(time.Duration(n)*time.Second))
+		}
 		if l, ok := f["load"].([]float64); ok && len(l) == 3 {
 			parts = append(parts, fmt.Sprintf("load %.2f %.2f %.2f", l[0], l[1], l[2]))
 		}

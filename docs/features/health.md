@@ -54,6 +54,8 @@ for an app or a script that polls: `load` (`load` 1, 5 and 15 minutes,
 `disk_root_used_pct`) and `system` (`os`, `os_version`, `os_pretty`,
 `uptime_sec`). No package index, Docker, ports, units or sudo; the
 keys of the other sections are left out. A read-only ssh-gate key runs it.
+A value the server does not have is null; a server without
+`/etc/os-release` (macOS, BSD) gives `os` and `os_version` from `uname`.
 
 `facts` only reads. It never refreshes a package index or starts anything,
 and it uses sudo only when sudo already works without a password (it never
