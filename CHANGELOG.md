@@ -27,6 +27,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- `SECRET_INPUT_INVALID` is gone. An AI agent's arguments, script or
+  file that hold a vault value now get the answer any other value gets,
+  and the value it typed is not hidden as `[secret:NAME]` in that
+  command's output: the refusal told it which guess was a secret as
+  surely as the mask did. The audit log still records it.
+- komando takes no proxy from an AI agent's environment (`HTTPS_PROXY`,
+  `HTTP_PROXY`, `NO_PROXY`): an agent that needs the company proxy uses
+  it as a VPN with `--via`, or a kubeconfig's `proxy-url`. A person's
+  proxy works as before. `SSL_CERT_FILE` and `SSL_CERT_DIR` are ignored
+  for everyone, on every system: komando trusts the system's CAs and the
+  CAs a conn, VPN or kubeconfig names. On Linux, and on macOS with Go
+  1.27, an agent's own CA plus its proxy read stored VPN passwords,
+  cluster tokens and registry and storage logins.
+  The AWS SDK, minio and the Google token clients get komando's transport
+  too, and an agent's `AWS_CA_BUNDLE` and `VAULT_CACERT` are ignored.
 - A Kubernetes Secret's values in `cluster get`, the hidden arguments in
   `cluster run`'s audit and dry run, and the `cluster apply --dry-run`
   diff now read `[hidden]`, `[hidden, changed]` and `[hidden, new]`, the
@@ -115,6 +130,57 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A Tailscale VPN logs in only at its `--server` or Tailscale's own
+  server: `TS_CONTROL_URL`, `TS_AUTHKEY`, `TSNET_FORCE_LOGIN` and the
+  other tsnet variables are ignored. A Tailscale VPN replaced by `vpn add
+  --overwrite` or an import starts as a new node, as after `vpn rm`.
+- An AI agent may no longer move a VPN whose login a person types at
+  `vpn up` (`--portal`, `--server`, a new OpenVPN profile): it gets
+  `NEEDS_PERSON`.
+- `vpn add --config` never quotes the file's text in an error (it named
+  the first word of the line it refused, which for a `.pgpass` or a
+  token file is the secret), and refuses komando's own folder for an AI
+  agent. `--ca` is read as any local file (`SENSITIVE_FILE` for an agent
+  on a secret file) and keeps only the file's certificates.
+- `vpn add --dry-run` no longer tells an AI agent whether a WireGuard key
+  it guessed is the one in an unused vault secret NAME-key; WireGuard
+  keys must be 32 bytes in base64.
+- `vpn serve`, `tunnel serve` and `login-holder`, the background
+  processes `vpn up`, `tunnel start` and `login` start, now run only
+  when one of those commands started them. Run by hand, an AI agent got a
+  SOCKS port into an `--mfa` VPN that `vpn up` refuses it, a tunnel or a
+  held login without its checks, and no audit record. They now stop with
+  `NEEDS_PERSON` unless their parent's ticket comes first on stdin: an
+  HMAC of their whole command line (flags too) under a key made from the
+  store's master key, good once and for five minutes, so a file written
+  by hand is not one. An AI agent's `KOMANDO_HOME` set to another folder
+  needs a person's yes for them too (`SAFETY_SETTING`).
+- IKEv2 VPNs read only the IKE_SA_INIT response unencrypted. A forged
+  plaintext Delete or CREATE_CHILD_SA from anyone on the path could end
+  the tunnel or move its traffic to an SA of their choosing.
+- IKEv1 (L2TP/IPsec, Cisco IPsec) moves an exchange on only after the
+  server's hash checks out, so a forged message no longer breaks the
+  real one after it, and an error in a quick mode answer counts only
+  with the server's hash. Hash checks are constant-time. Cisco IPsec's
+  mode config fails on an answer without the server's hash, or one that
+  is not a REPLY or SET, instead of going on with no address and
+  crashing in quick mode.
+- An IPsec server given as an IPv6 address now gets a clear error
+  (komando's IPsec client speaks IPv4) instead of a crash.
+- Three crashes on what an SSL VPN server sends: Pulse ESP keys cut
+  short, a DPD interval or GlobalProtect timeout too large for a
+  duration, and an IPv6 address for PPP (F5, Fortinet), which carries
+  only IPv4.
+- An OpenVPN server that pushes a huge `ping` or `ping-restart` no longer
+  makes the client spin without waiting: both are kept to at most a day.
+- L2TP's PPP link no longer comes up before the login. An IPCP answer, a
+  CHAP Success before komando answered the challenge, a PAP ack nobody
+  asked for, or a server dropping the login it asked for could bring it
+  up without the MS-CHAPv2 server proof; now IPCP waits for the login,
+  and a dropped login ends the link with an authentication error. A
+  server that asks for CHAP-MD5 or no login, which prove nothing about
+  it, is now asked for MS-CHAPv2 like one asking for PAP; `--allow-pap`
+  allows all three weak logins for one VPN.
 - `--ask-password` and `--ask-psk` no longer replace a secret made while
   the person was typing (in another terminal tab, or by an app's
   `secret set --new`). A name that was free when komando asked is stored

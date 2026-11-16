@@ -18,7 +18,7 @@ func vpnAddCheck(cl *call, s *store.State, name string, secrets map[string]strin
 	if err := checkNewName(cl, s, "vpn", name, overwrite); err != nil {
 		return err
 	}
-	return checkVpnSecrets(s, name, secrets, overwrite)
+	return checkVpnSecrets(cl, s, name, secrets, overwrite)
 }
 
 // checkVpnSecrets refuses a VPN whose keys would go into a vault secret
@@ -28,7 +28,7 @@ func vpnAddCheck(cl *call, s *store.State, name string, secrets map[string]strin
 // would get a value the caller chose, an AI agent too. The only secret
 // that may be replaced is the VPN's own: --overwrite replaces a VPN that
 // keeps the same key in it, and nothing else uses it.
-func checkVpnSecrets(s *store.State, name string, secrets map[string]string, overwrite bool) error {
+func checkVpnSecrets(cl *call, s *store.State, name string, secrets map[string]string, overwrite bool) error {
 	if len(secrets) == 0 {
 		return nil
 	}
@@ -48,9 +48,11 @@ func checkVpnSecrets(s *store.State, name string, secrets map[string]string, ove
 		if overwrite && vpnOwnsSecret(s.Vpns[name], n) && slices.Equal(users, []string{"vpn " + name}) {
 			continue
 		}
-		if len(users) == 0 {
+		if len(users) == 0 && !cl.isAgent() {
 			// left by a removed VPN of this name: adding the same file
-			// again stores the value it has, which changes nothing
+			// again stores the value it has, which changes nothing. Not
+			// for an AI agent: the answer would tell it whether a value
+			// it guessed is the stored one.
 			if old, err := vault.Get(n); err == nil && old == secrets[n] {
 				continue
 			}

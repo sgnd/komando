@@ -131,3 +131,21 @@ func withSerial(t *testing.T, der []byte, serial *big.Int, key *ecdsa.PrivateKey
 	}
 	return res
 }
+
+// SSL_CERT_FILE and SSL_CERT_DIR must not replace the system's CAs on
+// macOS and Windows (Go 1.27 made them do so): the build keeps the
+// platform verifier (x509sslcertoverrideplatform=0). internal/transport
+// also hides them while Go loads the CAs, on every system
+// (TestEnvCAIsIgnored).
+func TestEnvCAKeepsThePlatformVerifier(t *testing.T) {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		t.Fatal("no build info")
+	}
+	for _, s := range bi.Settings {
+		if s.Key == "DefaultGODEBUG" && strings.Contains(s.Value, "x509sslcertoverrideplatform=0") {
+			return
+		}
+	}
+	t.Errorf("the build's DefaultGODEBUG has no x509sslcertoverrideplatform=0: %v", bi.Settings)
+}

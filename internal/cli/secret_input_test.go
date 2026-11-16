@@ -13,10 +13,12 @@ import (
 
 // O8: masking each exact vault value told an AI agent which of its guesses
 // is a secret (`secret show GUESS`, `exec web1 -- echo GUESS` printed
-// [secret:NAME] on a hit). An agent's arguments and input that hold a
-// vault value are refused, a dry run too, the refusal is audited, and the
-// message names no secret.
-func TestAgentInputWithVaultValueRefused(t *testing.T) {
+// [secret:NAME] on a hit), and refusing such input told it the same
+// (SECRET_INPUT_INVALID on a hit, the usual answer on a miss). An agent's
+// input that holds a vault value now gets the answer any other value gets:
+// the value it typed is not hidden in that command's output. The person
+// still sees the guessing in the audit log.
+func TestAgentInputWithVaultValueAnsweredAsAnyOther(t *testing.T) {
 	invHome(t)
 	saved := tcl.out
 	tcl.out = &out.Printer{Format: "json", W: tcl.out.W, Start: time.Now()} // the vault values are read once per printer
@@ -26,31 +28,24 @@ func TestAgentInputWithVaultValueRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
-
-	for _, args := range [][]string{
-		{"secret", "show", v},
-		{"secret", "show", v, "--dry-run"},
-		{"host", "show", "x" + v + "x"},
-		{"exec", "web1", "--", "echo", v},
-		{"exec", "web1", "-e", "X=" + v, "--", "true"},
+	for _, pair := range [][2][]string{
+		{{"host", "show", v}, {"host", "show", "Tr0ub4dor-wrong-77"}},
+		{{"secret", "show", v}, {"secret", "show", "Tr0ub4dor-wrong-77"}},
+		{{"secret", "show", v, "--dry-run"}, {"secret", "show", "Tr0ub4dor-wrong-77", "--dry-run"}},
 	} {
-		e := wantCode(t, "SECRET_INPUT_INVALID", args...)
-		if strings.Contains(e.Message, "db-pass") || strings.Contains(e.Message, v) {
-			t.Errorf("%v: the message names the secret: %q", args, e.Message)
+		_, hit := invRun(t, pair[0]...)
+		_, miss := invRun(t, pair[1]...)
+		if hit == nil || miss == nil || hit.Code != miss.Code || strings.Contains(hit.Message, "secret:db-pass") {
+			t.Errorf("%v: hit %+v, miss %+v", pair[0], hit, miss)
 		}
 	}
-	if err := hiddenInInput(tcl, "run.sh", []byte("#!/bin/sh\necho '"+v+"'\n")); err == nil || !strings.Contains(err.Error(), "SECRET_INPUT_INVALID") && toErr(err).Code != "SECRET_INPUT_INVALID" {
+	if err := hiddenInInput(tcl, "run.sh", []byte("#!/bin/sh\necho '"+v+"'\n")); err != nil {
 		t.Errorf("a script with the value: %v", err)
 	}
-	// a guess that is no secret goes on as before
-	wantCode(t, "SECRET_NOT_FOUND", "secret", "show", "not-a-secret-guess")
-
 	// the person sees the guessing in the audit log
 	noAgent(t)
 	d := mustRun(t, "audit", "--limit", "20")
-	if got := fmt.Sprint(d); strings.Count(got, "SECRET_INPUT_INVALID") < 5 || strings.Contains(got, v) {
+	if got := fmt.Sprint(d); strings.Count(got, "secret_value_in_input") < 3 || strings.Contains(got, v) {
 		t.Errorf("audit log: %s", got)
 	}
-	// a person types what they like
-	wantCode(t, "SECRET_NOT_FOUND", "secret", "show", v)
 }

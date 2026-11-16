@@ -371,7 +371,11 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if err != nil {
 		return 0, "", err
 	}
-	pid, err := background(serveCommand(self, name, password, s), logFile)
+	c := serveCommand(self, name, password, s)
+	if err := sealTicket(c); err != nil {
+		return 0, "", err
+	}
+	pid, err := background(c, logFile)
 	if err != nil {
 		return 0, "", err
 	}
@@ -404,7 +408,8 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 // serveCommand is the `komando vpn serve NAME` process (self is komando):
 // a new SOCKS login, kept in s, and the typed password go to it on stdin,
 // then the vault passphrase, never in its environment: it runs for long
-// (serveStdin reads them).
+// (serveStdin reads them). spawnServeWith puts its ticket first
+// (sealTicket).
 var serveCommand = func(self, name, password string, s *store.VpnSession) *exec.Cmd {
 	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
 	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
