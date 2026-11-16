@@ -31,7 +31,7 @@ func TestClientsUseTheSharedTransport(t *testing.T) {
 				return err
 			}
 			if d.IsDir() {
-				if d.Name() == "testdata" || p == "../../internal/transport" {
+				if d.Name() == "testdata" || filepath.ToSlash(p) == "../../internal/transport" {
 					return filepath.SkipDir
 				}
 				return nil
