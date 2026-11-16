@@ -161,10 +161,19 @@ func dbFileOffLimits(cl *call, p string) string {
 	if err != nil {
 		return ""
 	}
+	dirs := make([]string, 0, len(loginDirs)+1)
+	for _, d := range loginDirs {
+		dirs = append(dirs, filepath.Join(home, d))
+	}
+	// gcloud keeps its logins in the OS config folder on Windows
+	// (%APPDATA%\gcloud), not in ~/.config
+	if cfg, err := os.UserConfigDir(); err == nil {
+		dirs = append(dirs, filepath.Join(cfg, "gcloud"))
+	}
 	for _, q := range []string{abs, realPath(abs), realPath(filepath.Dir(abs))} {
-		for _, d := range loginDirs {
-			if pathIn(q, filepath.Join(home, d)) || pathIn(q, realPath(filepath.Join(home, d))) {
-				return "in " + filepath.Join("~", d) + ", where logins are kept"
+		for _, d := range dirs {
+			if pathIn(q, d) || pathIn(q, realPath(d)) {
+				return "in " + d + ", where logins are kept"
 			}
 		}
 	}
