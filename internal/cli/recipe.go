@@ -367,9 +367,9 @@ func recipeRunCmd() *cobra.Command {
 				return err
 			}
 			// read-only skips the protected-server question only for a
-			// command komando knows reads (allowlist): a filled-in command
-			// that clearly writes, or that komando cannot confirm only
-			// reads, runs as a change, so a protected server asks for --yes
+			// command komando knows only reads: a filled-in command that
+			// writes, or that komando cannot confirm only reads, runs as
+			// a change, so a protected server asks for --yes
 			mutating := !r.ReadOnly || readOnlyMutates(command, nil)
 			return runFleet(cl, cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: r.Sudo && !noSudo, recipe: r.Name, exitMap: orSudo(soleHost(cl, args[1]), nil)}, mutating)
 		}),

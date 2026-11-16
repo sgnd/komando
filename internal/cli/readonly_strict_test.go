@@ -237,3 +237,22 @@ func TestGateRefusesCompleteAfterFlagValue(t *testing.T) {
 		t.Errorf("echo __complete: %q", got)
 	}
 }
+
+// Reads people and the apps really send keep passing.
+func TestReadOnlyCommonReads(t *testing.T) {
+	allowedReadOnly(t,
+		// the apps' server readings, before they moved to facts --only
+		`echo load $(cut -d' ' -f1 /proc/loadavg); echo cores $(nproc); free -b | awk '/^Mem:/{print "mem", $2, $7}'; `+
+			`df -PB1 / | awk 'NR==2{print "disk", $2, $4}'; echo up $(cut -d. -f1 /proc/uptime); `+
+			`echo "os $(grep -m1 '^PRETTY_NAME=' /etc/os-release | cut -d= -f2 | tr -d '\"')"`,
+		`uname -a`, `hostname`, `whoami`, `id -un`, `true`, `stat -c '%a %U' /etc/hosts`,
+		`test -e /tmp/x; echo $?`, `pgrep -fxc "sleep 31" || true`,
+		`ls -a /tmp 2>/dev/null | grep -c "^\.komando-" || true`,
+		`sh -c 'echo out; echo err >&2; exit 3'`, `docker node ls`,
+		`tail -n 100 /var/log/nginx/error.log | grep -i error | sort | uniq -c | sort -rn | head`,
+		`for u in $(cut -d: -f1 /etc/passwd); do c=$(crontab -l -u "$u" 2>/dev/null | grep -v '^#'); [ -n "$c" ] && printf '## %s\n%s\n' "$u" "$c"; done`,
+		`journalctl -u ssh -u sshd --since -24h --no-pager 2>/dev/null | grep -iE 'failed password' | tail -n 50`,
+		`nginx -T 2>/dev/null | grep -E '^\s*(server_name|listen)\s' | sed 's/^\s*//' | sort | uniq -c`,
+		`if command -v ufw >/dev/null; then ufw status verbose; elif command -v firewall-cmd >/dev/null; then firewall-cmd --list-all; elif command -v nft >/dev/null; then nft list ruleset; else iptables -S; fi`,
+	)
+}

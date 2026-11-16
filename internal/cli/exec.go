@@ -248,9 +248,8 @@ func execReadOnly(cl *call, target, command string, stdin []byte, o execOpts, re
 			return true, err
 		}
 	}
-	// the denylist passed; a protected target still needs --yes unless
-	// komando knows the command only reads (allowlist)
-	return readOnlyMutates(checked, o.env), nil
+	// komando knows the command only reads: no change, so no --yes
+	return false, nil
 }
 
 // fleetDryRun is runFleet's --dry-run: what would run on each host. A

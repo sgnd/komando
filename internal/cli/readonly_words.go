@@ -24,7 +24,7 @@ func readOnlyWords(cl *call, words []string) (mutating bool, err error) {
 	if err := checkReadOnly(cl, command); err != nil {
 		return true, err
 	}
-	return readOnlyMutates(command, nil), nil
+	return false, nil
 }
 
 // clusterExecRisk is how cluster exec rates its command (words): a change,

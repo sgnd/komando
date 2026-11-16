@@ -2,8 +2,9 @@ package cli
 
 import "strings"
 
-// Read tools whose one flag or form writes a file or kills (the allowlist
-// otherwise lets them through --read-only).
+// Read tools whose one flag or form writes a file, runs a program or
+// kills; --read-only lets their other forms through.
+
 // optionWrite finds a writing or killing option in args: a short option
 // whose letter is in letters, alone or in a cluster (-tK), or a long one in
 // longs, alone or with =VALUE. valued are short options whose value is the
