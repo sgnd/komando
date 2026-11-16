@@ -10,8 +10,8 @@ import (
 
 // Rec is a record's identity: a
 // random ID that stays when the record is renamed, and a version that goes
-// up by one each time the record changes. The coming sealed store keys its
-// rows by ID, and sync tells changes apart by version.
+// up by one each time the record changes. The sealed store keys its rows
+// by ID.
 type Rec struct {
 	ID      string `json:"id"`
 	Version uint64 `json:"version"`

@@ -395,7 +395,7 @@ func runCertCheck(cl *call, ctx context.Context, args []string, o certOpts) erro
 	soft := &out.Error{Code: code, Exit: worst, Hint: hint,
 		Message: fmt.Sprintf("%d of %d targets need attention: %s", len(bad), data.Summary.Targets, strings.Join(bad, ", "))}
 	if !problems {
-		soft.Code, soft.Hint = "PARTIAL_FAILURE", "see each result's error and hint"
+		soft.Code, soft.Hint = "PARTIAL_FAILURE", "read each target's error and hint (data.results in -o json)"
 		if data.Summary.Targets == 1 { // one target: its own error, code and hint
 			e := data.Results[0].Error
 			soft.Code, soft.Message, soft.Hint = e.Code, withHost(data.Results[0].Target, e.Message), e.Hint

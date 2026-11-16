@@ -81,7 +81,7 @@ cannot know how the command ended. That server's result says so:
 - error code `CONNECTION_LOST`, exit code 4 (other servers keep their own
   results; the worst exit code wins, as usual);
 - the output that arrived before the break, with `exit_code` -1 (unknown);
-- in text mode: `=== web2 [FAILED connection lost, outcome unknown]`.
+- in text mode: `=== web2 [failed: connection lost, outcome unknown]`.
 
 The command may still be running on the server, or it may already have
 finished. Do not run it again yet (an upgrade or a migration twice can
@@ -180,8 +180,9 @@ A command that runs on several servers counts per server. Without
 `--limit` a list shows what it always did: everything, or the default
 its help names (`fs list` 1000, `logs` 200). `--limit 0` shows all where
 the help says so. When a list stops at its limit, the JSON has
-`meta.truncated: true` and `-o text` says on stderr
-`showing N of more; use --limit 0 for all`.
+`meta.truncated: true` and `-o text` prints on stderr
+`Note: showing the first N; --limit 0 shows all` (some commands put their
+own cut note in their output instead).
 
 ### Other names
 
@@ -336,7 +337,7 @@ Next time: komando logs web1
   change asks `Run it? [y/N, d = --dry-run first]` (Enter is No; `d` shows
   what it would do and asks again). One that deletes for good asks you to
   type the name of what goes (or how many). A protected target asks its
-  usual `web1 is protected. Change it anyway? [y/N]` instead.
+  usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
 - `komando host add` (or `conn add`, `vpn add`, `db add`, `cache add`,
   `queue add`, `storage add`, `cluster add`, `registry add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the

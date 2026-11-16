@@ -322,6 +322,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--sudo-user` | | string | run it as this user with `sudo -u` | |
 | `--no-sudo` | | bool | do not use sudo (system commands that default to sudo) | off |
 | `--overwrite` | | bool | replace what is there | false |
+| `--new` | | bool | *exception*: `secret set --new` = only store a new item, stop with SECRET_EXISTS when it is there (`set` replaces by default, so the opposite of `--overwrite`); on `fs replace` a string, the text to put in place of `--old` | false |
 | `--backup` | | bool | keep the previous version as PATH.bak | false |
 | `--recursive` | `-r` | bool | include everything under a folder | false |
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |
@@ -364,7 +365,8 @@ no default, never `-1`. [schema: no default "-1"; no default "1h0m0s"-style]
 
 **S-5.8** Every list command has `--limit` (S-5.1 defaults). A run that
 stops at the limit sets the additive `meta.truncated: true` and, in text
-mode, prints one stderr line `showing N of more; use --limit 0 for all`.
+mode, prints one stderr line `Note: showing the first N; --limit 0 shows all`
+(or the command's own cut note in its output).
 [schema: every leaf whose verb is list/ls (or a list tool word) has --limit;
 code: truncation sets the field]
 

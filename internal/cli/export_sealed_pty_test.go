@@ -3,10 +3,18 @@
 package cli
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/sgnd/komando/internal/sealfile"
 )
+
+// sealWait is how long a sealed export or import may take in these tests:
+// the passphrase's key derivation is slow on purpose (exitWithin).
+const sealWait = 90 * time.Second
 
 // A person types the passphrase at the terminal, hidden: twice to seal,
 // once to open on the other computer. Neither the passphrase nor a secret
@@ -17,7 +25,7 @@ func TestPTYExportSealed(t *testing.T) {
 	p := startPTY(t, "export", "--sealed", "--with-keys", "--to", file)
 	p.answer("Passphrase (hidden): ", sealPass+"\r")
 	p.answer("Type it again (hidden): ", sealPass+"\r")
-	if code := p.exit(); code != 0 {
+	if code := p.exitWithin(sealWait); code != 0 {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())
 	}
 	p.waitFor("check phrase: ")
@@ -29,7 +37,7 @@ func TestPTYExportSealed(t *testing.T) {
 	invHome(t)
 	i := startPTY(t, "import", "komando", file)
 	i.answer("Passphrase of move.kmdseal (hidden): ", sealPass+"\r")
-	if code := i.exit(); code != 0 {
+	if code := i.exitWithin(sealWait); code != 0 {
 		t.Fatalf("import: exit %d; the screen:\n%s", code, i.shown())
 	}
 	i.waitFor("keys added: deploy")
@@ -43,9 +51,16 @@ func TestPTYExportSealed(t *testing.T) {
 // The phone's key and its key check are typed at the terminal.
 func TestPTYExportForPhone(t *testing.T) {
 	sealLab(t)
-	file := filepath.Join(t.TempDir(), "phone.kmdseal")
+	dir := t.TempDir()
+	file := filepath.Join(dir, "phone.kmdseal")
+	// a key file, as the phone shares it: the key as text is longer than a
+	// terminal line takes
+	keyFile := filepath.Join(dir, "phone.key")
+	if err := os.WriteFile(keyFile, []byte(strings.Repeat("ab", sealfile.PublicKeySize)+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	p := startPTY(t, "export", "--for-phone", "--to", file)
-	p.answer("Key file from the phone (or the key as text): ", strings.Repeat("ab", 32)+"\r")
+	p.answer("Key file from the phone (or the key as text): ", keyFile+"\r")
 	p.answer("Key check the phone shows: ", "0000\r")
 	if code := p.exit(); code == 0 || !strings.Contains(p.shown(), "PHONE_KEY_INVALID") && !strings.Contains(p.shown(), "does not match the key check") {
 		t.Fatalf("exit %d; the screen:\n%s", code, p.shown())

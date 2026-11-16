@@ -81,7 +81,7 @@ func (r *kctlRun) drain() error {
 		evict = append(evict, p)
 	}
 	if len(problems) > 0 {
-		return kfail("unable to drain node %q due to error: %s", node, strings.Join(problems, ", "))
+		return kfail("komando cannot drain node %q: %s", node, strings.Join(problems, ", "))
 	}
 	for _, p := range evict {
 		ns, n := meta(p, "namespace"), meta(p, "name")
@@ -138,7 +138,7 @@ func (r *kctlRun) taint() error {
 		list = kept
 		if !remove {
 			if effect == "" {
-				return kfail("invalid taint spec: %s, must be key=value:effect", s)
+				return kfail("taint %s is not KEY=VALUE:EFFECT (or KEY:EFFECT- to remove it)", s)
 			}
 			t := map[string]any{"key": key, "effect": effect}
 			if val != "" {

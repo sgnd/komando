@@ -353,7 +353,7 @@ func (f *fill) confirm(filled []string) error {
 	}
 	targets := f.targets()
 	if slices.ContainsFunc(targets, func(n string) bool { return promptProtected(f.st, n) }) {
-		return nil // the command asks: "web1 is protected. Change it anyway? [y/N]"
+		return nil // the command asks: "web1 (protected): this command changes it. Continue? [y/N]"
 	}
 	// the words after the command's own, whatever name or alias was typed
 	_, words, items := lineWords(filled)

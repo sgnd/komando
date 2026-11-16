@@ -100,7 +100,7 @@ whole update (default 10m).`,
 		Example: `  komando update --dry-run    # is there a newer version?
   komando update              # install the newest release
   sudo komando update         # komando is in /usr/local/bin
-  komando update v0.6.0       # install this version`,
+  komando update v0.14.0      # install this version`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			want := ""

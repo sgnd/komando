@@ -32,7 +32,7 @@ var ErrAzureLogin = errors.New("no Azure login")
 var (
 	azureAuthority = "https://login.microsoftonline.com"
 	azureIMDS      = "http://169.254.169.254/metadata/identity/oauth2/token"
-	azureClient    = &http.Client{Timeout: 30 * time.Second}
+	azureClient    = proxiedClient(30 * time.Second)
 	// the metadata address answers at once on Azure; elsewhere it is not
 	// there, so a short wait, and never through a proxy
 	azureIMDSClient = &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{

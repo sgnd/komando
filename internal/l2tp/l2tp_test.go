@@ -103,7 +103,8 @@ func TestDialAgainstFakeLNS(t *testing.T) {
 		p := &pipe{out: make(chan []byte, 64), in: make(chan []byte, 64), done: make(chan struct{})}
 		go fakeLNS(t, p, chap)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		tun, err := Dial(ctx, p, "budi", "pw", false, nil)
+		// the fake asks for no login or CHAP-MD5: weak logins, allowed here
+		tun, err := Dial(ctx, p, "budi", "pw", true, nil)
 		cancel()
 		if err != nil {
 			t.Fatal(err)

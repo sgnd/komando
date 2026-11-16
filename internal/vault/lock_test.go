@@ -2,6 +2,7 @@ package vault
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -111,5 +112,52 @@ func TestNewKeyFileNeverReplacesAKey(t *testing.T) {
 	}
 	if left, _ := os.ReadDir(store.Home()); len(left) != 1 { // store.key
 		t.Fatalf("temporary files left behind: %v", left)
+	}
+}
+
+// Create stores a name only when it is free, in the same write step as the
+// check: of several komando processes creating one name at once exactly
+// one wins, and the others get ErrExists with the value left alone.
+func TestCreateNeverReplaces(t *testing.T) {
+	keyfileHome(t)
+	if err := Create(store.Save(), "taken", "first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Create(store.Save(), "taken", "second"); !errors.Is(err, ErrExists) {
+		t.Fatalf("Create over a stored name: %v, want ErrExists", err)
+	}
+	if v, err := Get("taken"); err != nil || v != "first" {
+		t.Fatalf("taken = %q, %v; the failed Create changed it", v, err)
+	}
+	if err := Create(store.Preview(), "fresh", "x"); !errors.Is(err, store.ErrDryRun) {
+		t.Errorf("Create on a preview: %v, want store.ErrDryRun", err)
+	}
+
+	const n = 8
+	var wg sync.WaitGroup
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			errs <- Create(store.Save(), "race", fmt.Sprintf("value-%d", i))
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	won := 0
+	for err := range errs {
+		switch {
+		case err == nil:
+			won++
+		case !errors.Is(err, ErrExists):
+			t.Errorf("a losing Create: %v, want ErrExists", err)
+		}
+	}
+	if won != 1 {
+		t.Fatalf("%d of %d parallel Creates won, want exactly 1", won, n)
+	}
+	if v, err := Get("race"); err != nil || !strings.HasPrefix(v, "value-") {
+		t.Errorf("race = %q, %v", v, err)
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // The agent guard keeps an AI agent's own tools (reading files, running
@@ -88,11 +90,11 @@ func secretPath(cl *call, p, home string) string {
 	if p == "" {
 		return ""
 	}
-	p = guardPath(cl, p, home)
+	p = underHome(guardPath(cl, p, home), home)
 	if isProcEnviron(p) {
 		return procEnv
 	}
-	komandoDirs := []string{filepath.Join(home, ".komando")}
+	komandoDirs := []string{filepath.Join(home, ".komando"), store.Home()}
 	if h := cl.getenv("KOMANDO_HOME"); h != "" {
 		komandoDirs = append(komandoDirs, h)
 	}
@@ -103,14 +105,14 @@ func secretPath(cl *call, p, home string) string {
 	}
 	if caseFoldFS {
 		// ~/.KOMANDO/state.json is the same file on these systems
-		p, home = strings.ToLower(p), strings.ToLower(home)
+		p, home = foldCase(p), foldCase(home)
 		for i, d := range komandoDirs {
-			komandoDirs[i] = strings.ToLower(d)
+			komandoDirs[i] = foldCase(d)
 		}
 	}
 	in := func(dir string) bool {
 		if caseFoldFS {
-			dir = strings.ToLower(dir)
+			dir = foldCase(dir)
 		}
 		return pathIn(p, dir)
 	}
@@ -174,7 +176,7 @@ func holdsProtected(cl *call, p, home string) bool {
 	for _, q := range []string{filepath.Clean(p), realPath(p)} {
 		for _, d := range protectedDirs(cl, home) {
 			if caseFoldFS {
-				q, d = strings.ToLower(q), strings.ToLower(d)
+				q, d = foldCase(q), foldCase(d)
 			}
 			if q != d && pathIn(d, q) {
 				return true
@@ -233,8 +235,11 @@ func realPath(p string) string {
 // known.
 func guardPathAt(cl *call, w, home, cwd string) string {
 	p := guardPath(cl, w, home)
-	if !filepath.IsAbs(p) && cwd != "" {
-		p = filepath.Join(cwd, p)
+	if !filepath.IsAbs(p) {
+		if cwd == "" {
+			return filepath.Clean(p)
+		}
+		p = lexOrKernel(cwd + string(filepath.Separator) + p)
 	}
 	return p
 }
@@ -293,7 +298,7 @@ var credentialStores = []string{".gnupg", ".password-store", ".config/gcloud", "
 
 func isCredentialStore(p, home string) bool {
 	for _, d := range credentialStores {
-		if d := filepath.Join(home, d); p == d || caseFoldFS && strings.EqualFold(p, d) {
+		if d := filepath.Join(home, d); p == d || caseFoldFS && foldCase(p) == foldCase(d) {
 			return true
 		}
 	}
@@ -319,7 +324,7 @@ func protectedDirs(cl *call, home string) []string {
 // store names the folder among others (`du -sh ~/*/*`); it does not count.
 func globUnder(p, dir, home string) (string, bool) {
 	if caseFoldFS {
-		p, dir, home = strings.ToLower(p), strings.ToLower(dir), strings.ToLower(home)
+		p, dir, home = foldCase(p), foldCase(dir), foldCase(home)
 	}
 	// by / on every system: a Windows path has \ between its parts
 	pc := strings.Split(strings.Trim(filepath.ToSlash(p), "/"), "/")
@@ -395,7 +400,7 @@ func guardPath(cl *call, p, home string) string {
 				return v.dir
 			}
 			if strings.HasPrefix(p, pre+"/") {
-				return filepath.Join(v.dir, p[len(pre)+1:])
+				return lexOrKernel(v.dir + string(filepath.Separator) + p[len(pre)+1:])
 			}
 		}
 	}
@@ -403,12 +408,15 @@ func guardPath(cl *call, p, home string) string {
 		return home
 	}
 	if strings.HasPrefix(p, "~/") {
-		return filepath.Join(home, p[2:])
+		return lexOrKernel(home + string(filepath.Separator) + p[2:])
 	}
 	if name, rest, _ := strings.Cut(p[min(len(p), 1):], "/"); strings.HasPrefix(p, "~") && userName.MatchString(name) {
-		return filepath.Join(userHome(name, home), rest) // ~me/.komando
+		return lexOrKernel(userHome(name, home) + string(filepath.Separator) + rest) // ~me/.komando
 	}
-	return filepath.Clean(p)
+	if !filepath.IsAbs(p) {
+		return p // guardPathAt puts the working folder in front, then reads it
+	}
+	return lexOrKernel(p)
 }
 
 var userName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9._-]*$`)

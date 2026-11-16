@@ -182,9 +182,12 @@ for both. Words only a person needs (run it in a terminal, type the name)
 go through `Say`, as sentences (M-3). An agent's hint says "ask the user",
 never "you". [review]
 
-**M-15 Other programs' words are data.** kubectl's text in kctl, db shell's
-psql-style lines, cache run replies, server output and strings matched
-against other programs' errors keep their own words. [review]
+**M-15 Other programs' words are data.** The API's own errors in kctl
+("Error from server ..."), db shell's psql-style lines, cache run replies,
+server output and strings matched against other programs' errors keep their
+own words. kctl's own errors keep kubectl's framing (`error: ` on stderr,
+exit 1) but their words follow these rules, and the tests read them
+(`kfail`, `kindErr`). [review]
 
 ## Tests
 
@@ -196,13 +199,13 @@ walks the non-test Go files with go/ast, as TestStandardReferences does:
 | TestMessageWords | M-1, M-6 | banned words and e.g./i.e./etc. in catalog text, Errf/Usage format strings, Warn, prompt ask/help; allow-list file:line that may only shrink |
 | TestMessageCase | M-3 | fragment literals start lower-case (proper-name list) and end without `.`; questions end in `?` |
 | TestStderrLabels | M-4 | first word of every literal written to os.Stderr / promptW |
-| TestMessageTerms | M-5 | "host"/"service"/"inventory"/"directory" outside the allowed phrases |
+| TestMessageTerms | M-5 | "host"/"service"/"inventory"/"directory" outside the allowed phrases, help text (Short, Long, Example, flag help) included |
 | TestHintJargon | M-7 | JSON paths and stdin/stderr in hints only inside parentheses |
 | TestUnknownNamesWayOut | M-8 | "unknown" lines have a list, "use", or a backticked command in message or hint |
 | TestTextWidth | M-9 | stderr literals ≤ 80 columns; printer wraps and keeps backticks whole |
 | TestMarks | M-10 | marks only from the table; no FAILED/ERROR/BROKEN/exit= in cli literals |
 | TestRiskReasons | M-11 | riskRows `what`/`typed`, confirmDangerous reasons and policy rule reasons start with a verb ending in -s |
-| TestStopLines | M-12, M-13 | the fixed lines; one cut-note helper |
+| TestStopLines | M-2, M-12, M-13 | the fixed lines; one cut-note helper; no hint says "nothing was ..." (that state goes in the message) |
 
 Each test has an allow-list of the strings that still break its rule (or
 that a rule does not fit, such as another program's words); an entry that

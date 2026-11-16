@@ -140,16 +140,13 @@ func needsPersonLogin(v *store.Vpn) bool {
 	if v.MFA {
 		return true
 	}
-	ownClient := v.Kind == "openvpn" && !v.OSMode || oneOf(v.Kind, "l2tp", "ipsec", "ikev2")
+	ownClient := v.Kind == "openvpn" || oneOf(v.Kind, "l2tp", "ipsec", "ikev2")
 	return ownClient && v.KeyRef == "" && v.User != ""
 }
 
 // startSession connects v in the background and records the session.
 // interactive means a person is at the terminal for the login (and MFA).
 func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, interactive bool) (*store.VpnSession, error) {
-	if err := osModeGone(v); err != nil {
-		return nil, err
-	}
 	if v.MFA && !interactive {
 		return nil, netx.LoginRequired(v)
 	}
@@ -374,7 +371,11 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if err != nil {
 		return 0, "", err
 	}
-	pid, err := background(serveCommand(self, name, password, s), logFile)
+	c := serveCommand(self, name, password, s)
+	if err := sealTicket(c); err != nil {
+		return 0, "", err
+	}
+	pid, err := background(c, logFile)
 	if err != nil {
 		return 0, "", err
 	}
@@ -399,7 +400,7 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if addr == "" {
 		_ = netx.Terminate(pid)
 		b, _ := os.ReadFile(logFile)
-		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and the whole log is "+logFile+" (for a person to read)", "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and a person reads the whole log in "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
 	}
 	return pid, addr, nil
 }
@@ -407,7 +408,8 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 // serveCommand is the `komando vpn serve NAME` process (self is komando):
 // a new SOCKS login, kept in s, and the typed password go to it on stdin,
 // then the vault passphrase, never in its environment: it runs for long
-// (serveStdin reads them).
+// (serveStdin reads them). spawnServeWith puts its ticket first
+// (sealTicket).
 var serveCommand = func(self, name, password string, s *store.VpnSession) *exec.Cmd {
 	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
 	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
@@ -456,9 +458,6 @@ func vpnUpCmd() *cobra.Command {
 			v, ok := st.Vpns[args[0]]
 			if !ok {
 				return out.NotFound("vpn", args[0])
-			}
-			if err := osModeGone(v); err != nil {
-				return err
 			}
 			if s := netx.LiveSession(cmd.Context(), v); s != nil {
 				cl.out.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
@@ -739,18 +738,6 @@ func randToken(n int) string {
 		panic(err)
 	}
 	return hex.EncodeToString(b)
-}
-
-// osModeGone refuses an OpenVPN saved with the removed --os-mode (which ran
-// the openvpn program as root): it is never quietly run another way. Adding
-// it again checks its profile against komando's own client.
-func osModeGone(v *store.Vpn) error {
-	if !v.OSMode {
-		return nil
-	}
-	return out.Errf(out.ExitUsage, "VPN_OS_MODE_REMOVED",
-		"add it again with komando's own client: `komando vpn add "+v.Name+" openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in)",
-		"VPN %s uses OpenVPN OS mode (--os-mode), which komando no longer has", v.Name)
 }
 
 // openconnectCmd is the openconnect command of v, with ocproxy giving its

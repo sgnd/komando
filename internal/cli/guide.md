@@ -65,15 +65,15 @@ says `supported`, `extended` (Ubuntu ESM, Debian LTS), `unsupported` or
 containers, listening ports and hand-made systemd units, so nothing running
 on the server surprises you.
 
-Multi-target results name each server in `results[].host` (also in
-`test`, which keeps `name` only for older scripts).
+Multi-target results, `test` included, name each server in
+`results[].host`.
 
 komando itself: `komando update --dry-run` says whether a newer release is
 out. Update only when the human asks: `komando update` replaces the program
 every agent and person on this computer uses. When it stops with
 `NOT_WRITABLE` (komando is in a folder only root may change), ask the human
 to run `sudo komando update` in their terminal. Going back to an older
-version (`komando update v0.6.0`) needs their yes.
+version (`komando update VERSION`) needs their yes.
 `RELEASE_SIGNATURE_INVALID` or `RELEASE_SIGNATURE_NOT_FOUND` means komando
 cannot show that the release comes from the komando project: never install
 it another way; tell the human.
@@ -412,7 +412,6 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 1    | ERROR, FILE_ERROR, WRITE_FAILED (a file on this computer) | read `error.message` and `error.hint` |
 | 2    | USAGE                             | fix the flags (`komando schema COMMAND`); a group alone (`komando db`) is USAGE and the hint lists its sub-commands |
 | 2    | HIDDEN_VALUE                      | never write `[hidden]` text back; put `{{secret:NAME}}` in its place (fs replace) or leave hidden entries out, as `error.hint` says |
-| 2    | SECRET_INPUT_INVALID              | your arguments or file hold a secret's value; never type or guess one: use `{{secret:NAME}}`, or ask the human to store it with `secret set` |
 | 3    | TARGET_NOT_FOUND, TARGET_EMPTY, PATH_NOT_FOUND | `komando list`; for a typo, `error.suggestion` is the closest name and the hint the command line with it |
 | 3    | SECRET_NOT_FOUND, SECRET_UNRESOLVED | `komando secret list`; ask the human to store the secret |
 | 3    | NO_MATCHING_TARGETS               | use the command the hint names (for example `db` for a database) |

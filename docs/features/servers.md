@@ -177,7 +177,7 @@ off, renaming it and removing it. Tags, groups, labels and notes change
 without one.
 
 At your terminal komando asks you first
-(`web1 is protected. Change it anyway? [y/N]`); an AI agent or a script
+(`web1 (protected): this command changes it. Continue? [y/N]`); an AI agent or a script
 adds `--yes` after a person agrees, and an agent's `--yes` opens komando's
 approval window. See [Safety](safety.md) for the details.
 
@@ -627,6 +627,23 @@ server's own first:
 komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNKNOWN
 komando host trust web1                     # data.results[0] has key_type and fingerprint
 ```
+
+When you already have the fingerprint (from the server's console or your
+cloud provider), let komando compare it for you: `--fingerprint` pins the
+key only when the server shows that one.
+
+```bash
+komando host trust web1 --fingerprint SHA256:pVt2...   # pinned only if it matches
+```
+
+Any other key stops with `HOSTKEY_MISMATCH` (exit 4) and nothing is
+pinned; the message shows both fingerprints. Give the fingerprint of the
+key type the server offers (`key_type` in the answer; `ssh-keygen -lf
+/etc/ssh/ssh_host_ed25519_key.pub` on the server prints it). It takes one
+server, and its answer has `expected_fingerprint` next to `fingerprint`.
+The other rules stay: with `strict`, an AI agent's first pin still needs
+your yes, and replacing a pinned key still needs `--reset` at your
+terminal.
 
 `HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,
 an AI agent cannot pin a first key by itself: `host trust` needs your yes in

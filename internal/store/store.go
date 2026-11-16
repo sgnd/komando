@@ -221,7 +221,6 @@ type Vpn struct {
 	CA        string            `json:"ca,omitempty"`         // ikev2: PEM of the CA that signed the server certificate
 	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
 	Protected bool              `json:"protected,omitempty"`  // changing or removing it needs a person's yes
-	OSMode    bool              `json:"os_mode,omitempty"`    // removed OpenVPN OS mode; kept only so `vpn up` refuses such a VPN
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`
 	Tags      []string          `json:"tags,omitempty"`
@@ -280,11 +279,12 @@ type State struct {
 	settingsRec Rec // the settings record in the sealed store
 }
 
+// Home is komando's data folder: KOMANDO_HOME, else .komando in UserHome.
 func Home() string {
 	if h := os.Getenv("KOMANDO_HOME"); h != "" {
 		return h
 	}
-	d, err := os.UserHomeDir()
+	d, err := UserHome()
 	if err != nil {
 		return ".komando"
 	}

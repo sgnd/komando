@@ -210,14 +210,13 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	existed := entryNames(st) // before this import puts anything in st
 	// decide first, so secrets are stored only for what is really added
 	skip := importSkipper(cl, st, overwrite)
-	var vpns []*store.Vpn
-	for _, v := range plan.Vpns {
-		if r := skip("vpn", v.Name); r != "" {
-			res.Skipped = append(res.Skipped, importSkip{v.Name, r})
-			continue
-		}
-		vpns = append(vpns, v)
-		res.Vpns = append(res.Vpns, v.Name)
+	vpns := pickImportVpns(plan, skip, &res)
+	replaced, err := vetImportVpns(cl, st, vpns)
+	if err != nil {
+		return err
+	}
+	if err := guardImportVpns(cl, st, vpns); err != nil {
+		return err
 	}
 	for _, v := range vpns { // so hosts and conns can use them with --via
 		st.Vpns[v.Name] = v
@@ -235,8 +234,8 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		for _, s := range v.Invalid {
 			bad = append(bad, s.Name+": "+s.Reason)
 		}
-		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again; nothing was imported",
-			"%s cannot be added: %s", countOf(len(bad), "server"), strings.Join(bad, "; "))
+		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again",
+			"%s cannot be added: %s; nothing was imported", countOf(len(bad), "server"), strings.Join(bad, "; "))
 	}
 	hosts := v.Add
 	for _, n := range v.Existing {
@@ -308,6 +307,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	if err != nil {
 		return err
 	}
+	forgetReplacedTailscale(cl, replaced...)
 	audit(cl, st, "import", append(append([]string{}, res.Hosts...), res.Conns...), "", true,
 		map[string]any{"source": source, "file": file, "secrets": len(res.Secrets), "deny_rules": res.DenyRules})
 	cl.out.Print("import", res, toErr(incomplete))
@@ -400,10 +400,13 @@ func importSkipper(cl *call, st *store.State, overwrite bool) func(kind, name st
 		if err := checkEntryName(kind, name); err != nil {
 			return toErr(err).Message
 		}
-		// a protected conn is skipped like a protected server (vetImportHosts),
+		// a protected conn or VPN is skipped like a protected server (vetImportHosts),
 		// so a dry run lists it as skipped, as the real run does, and the
 		// rest of the file still comes in
 		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !cl.yesOK() {
+			return importProtectedSkip
+		}
+		if v, ok := st.Vpns[name]; ok && kind == "vpn" && overwrite && v.Protected && !cl.yesOK() {
 			return importProtectedSkip
 		}
 		if err := checkNewName(cl, st, kind, name, overwrite); err != nil {

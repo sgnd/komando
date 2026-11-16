@@ -103,7 +103,7 @@ func winRun(cl *call, ctx context.Context, st *store.State, h *store.Host, p, sc
 		return m, e
 	}
 	if rr.ExitCode != 0 {
-		return m, out.Errf(out.ExitRemote, "COMMAND_FAILED", "read the message; check the path with `komando fs stat "+h.Name+" PATH`",
+		return m, out.Errf(out.ExitRemote, "COMMAND_FAILED", "check the path with `komando fs stat "+h.Name+" PATH`",
 			"%s", dash(strings.TrimSpace(rr.Stderr)))
 	}
 	return m, nil
@@ -298,7 +298,7 @@ func winWrite(ctx context.Context, c *sshx.Client, p string, src io.Reader, o wi
 		return m, e
 	}
 	if code != 0 || m["sha256"] == "" {
-		return m, out.Errf(out.ExitRemote, "WRITE_FAILED", "read the message", "cannot write %s: %s; the file was not changed", p, dash(strings.TrimSpace(stderr)))
+		return m, out.Errf(out.ExitRemote, "WRITE_FAILED", "check that the user may write to the folder and the disk has free space: `komando fs stat TARGET PATH`", "cannot write %s: %s; the file was not changed", p, dash(strings.TrimSpace(stderr)))
 	}
 	return m, nil
 }

@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/sgnd/komando/internal/sealrow"
 )
 
 func rawDB(t *testing.T, path string) *sql.DB {
@@ -230,4 +233,49 @@ func TestFreshStoreIndex(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// An audit entry that does not hold the sum of the one before it (the
+// form no released komando ever wrote) is tampering, like a broken chain.
+func TestAuditEntryWithoutChain(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	_ = d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("a")) })
+	if err := d.Update(ctx, func(tx *Tx) error {
+		s, err := tx.index()
+		if err != nil {
+			return err
+		}
+		id, err := sealrow.NewID()
+		if err != nil {
+			return err
+		}
+		seq := s.head.seq + 1
+		now := time.Now().UnixNano()
+		plain := head(false, now, []byte("b"))
+		sealed, err := tx.key.Seal(sealrow.Row{ID: id, Type: auditType, Version: uint64(seq)}, plain)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.c.ExecContext(tx.ctx, `INSERT INTO audit(seq,id,time,data) VALUES(?,?,?,?)`, seq, id, now, sealed); err != nil {
+			return err
+		}
+		s.head = auditHead{seq: seq, sum: auditSum(seq, plain)}
+		tx.changed = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err := d.View(ctx, func(tx *Tx) error {
+		a, err := tx.Audit(0, 10)
+		if len(a) != 1 {
+			t.Errorf("entries before the bad one: %d, want 1", len(a))
+		}
+		return err
+	})
+	if !errors.Is(err, ErrTampered) {
+		t.Fatalf("audit: %v", err)
+	}
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("c")) }); err != nil {
+		t.Fatalf("a write after it: %v", err)
+	}
 }

@@ -97,7 +97,7 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	}
 	signers = append(signers, fromAgent...)
 	if h.Key == "" && h.Identity == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := store.UserHome()
 		for _, n := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
 			p := filepath.Join(home, ".ssh", n)
 			if s, _ := lk.keyFile(p, "", nil, false); s != nil {
@@ -732,7 +732,7 @@ func (c *agentDeadline) Read(b []byte) (int, error) { return c.conn.Read(b) }
 
 func expand(p string) string {
 	if strings.HasPrefix(p, "~/") {
-		home, _ := os.UserHomeDir()
+		home, _ := store.UserHome()
 		return filepath.Join(home, p[2:])
 	}
 	return p
@@ -761,8 +761,8 @@ func secretUnresolved(h *store.Host, err error) *out.Error {
 		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrDecrypt):
-		return out.Errf(out.ExitError, "VAULT_DECRYPT", "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost",
-			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
+		return out.Errf(out.ExitError, "VAULT_DECRYPT", "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use)",
+			"password for %s (%s): %v; nothing was lost", h.Name, h.PasswordRef, err)
 	}
 	return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", netx.SecretHint(h.PasswordRef), "password for %s (%s): %v", h.Name, h.PasswordRef, err)
 }

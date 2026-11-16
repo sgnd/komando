@@ -153,6 +153,9 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
 		return localLinkStop(rel, link)
 	}
+	if err := guardLocalWrite(l.cl, dst); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
@@ -184,12 +187,18 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	if !f.Mtime.IsZero() {
 		_ = os.Chtimes(tmp.Name(), f.Mtime, f.Mtime) // the next sync sees it as unchanged
 	}
+	if err := guardLocalWrite(l.cl, dst); err != nil {
+		return err
+	}
 	return os.Rename(tmp.Name(), dst)
 }
 
 func (l localSide) remove(_ context.Context, rel string) error {
 	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
 		return localLinkStop(rel, link) // --delete never removes a file outside the folder
+	}
+	if err := guardLocalWrite(l.cl, filepath.Join(l.root, filepath.FromSlash(rel))); err != nil {
+		return err
 	}
 	return os.Remove(filepath.Join(l.root, filepath.FromSlash(rel)))
 }
@@ -248,7 +257,13 @@ func (s sftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile
 	if err := s.sc.MkdirAll(path.Dir(dst)); err != nil {
 		return fsErr(s.cl, path.Dir(dst), err)
 	}
-	tmp := path.Join(path.Dir(dst), fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst)))
+	// made where only the SSH user can open it: it gets the source's mode
+	// (0600 for a key) only once it is complete
+	tmp, cleanup, err := privateTemp(s.cl, s.sc, path.Dir(dst), fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst)), path.Base(dst))
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	o, err := s.sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 	if err != nil {
 		return fsErr(s.cl, dst, err) // the file the person named, not the temporary one
@@ -364,7 +379,7 @@ func planSync(src, dst map[string]syncFile, o syncOpts) []syncAction {
 func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName string, o syncOpts) (*syncResult, error) {
 	sf, err := src.list(ctx)
 	if errors.Is(err, errSideMissing) {
-		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path; nothing was changed", "%s does not exist (or holds no files)", srcName)
+		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path", "%s does not exist (or holds no files); nothing was changed", srcName)
 	}
 	if err != nil {
 		return nil, err
@@ -387,8 +402,8 @@ func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName 
 	sort.Strings(res.Skipped)
 	if o.delete && files == 0 && len(df) > 0 {
 		// an empty source would make --delete wipe the destination
-		return nil, out.Errf(out.ExitNotFound, "SOURCE_EMPTY", "check the source path; nothing was deleted",
-			"%s has no files to sync, so --delete would remove everything in %s", srcName, dstName)
+		return nil, out.Errf(out.ExitNotFound, "SOURCE_EMPTY", "check the source path",
+			"%s has no files to sync, so --delete would remove everything in %s; nothing was deleted", srcName, dstName)
 	}
 	acts := planSync(sf, df, o)
 	for _, a := range acts {
@@ -637,6 +652,9 @@ func syncDown(cl *call, ctx context.Context, name, target, remote, local string,
 		return err
 	}
 	if err := guardDelete(cl, o, local); err != nil {
+		return err
+	}
+	if err := guardLocalWrite(cl, local); err != nil {
 		return err
 	}
 	if cl.isAgent() && !cl.revealOK() {

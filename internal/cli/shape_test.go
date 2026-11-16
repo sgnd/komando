@@ -40,6 +40,10 @@ var shapeCases = [][]string{
 	{"group", "list"},
 	{"secret", "list"},
 	{"secret", "get", "pg-pass"},
+	// secret set --new: a taken name is SECRET_EXISTS, a free one a dry run
+	{"secret", "set", "pg-pass", "--new", "--from-env", "PG_PASS"},
+	{"secret", "set", "pg-new", "--new", "--from-env", "PG_PASS", "--dry-run"},
+	{"schema", "secret", "set"},
 	{"key", "list"},
 	{"tunnel", "list"},
 	{"vpn", "list"},
@@ -55,6 +59,7 @@ var shapeCases = [][]string{
 	{"host", "rm", "web", "--dry-run"},
 	{"conn", "rm", "pg", "--dry-run"},
 	{"host", "trust", "web", "--dry-run"},
+	{"host", "trust", "web", "--fingerprint", "SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc", "--dry-run"},
 	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
 	{"vpn", "rm", "lab", "--dry-run"},
 	{"vpn", "rm", "lab"},

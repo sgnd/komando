@@ -121,7 +121,7 @@ func TestClusterRunUsageFirst(t *testing.T) {
 	invHome(t)
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
 	for _, c := range []struct{ args, want string }{
-		{"gte pods", `unknown command "gte" for komando's kubectl; did you mean "get"?`},
+		{"gte pods", `"gte" is not a command of komando's kubectl; did you mean "get"?`},
 		{"config view", "config supports current-context and get-contexts"},
 		{"port-forward svc/x 80", "is a session"},
 	} {

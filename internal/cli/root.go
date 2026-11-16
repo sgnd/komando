@@ -414,8 +414,8 @@ func checkStoreWritable(cmd *cobra.Command) error {
 	if err == nil || errors.As(err, &oe) {
 		return err
 	}
-	return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them); nothing was run",
-		"the store, which keeps the audit log, cannot be written: %v", err)
+	return out.Errf(out.ExitError, "AUDIT_UNAVAILABLE", "fix the file or folder permissions (`komando doctor` checks them)",
+		"the store, which keeps the audit log, cannot be written: %v; nothing was run", err)
 }
 
 // leavesHome are commands that, run as root, never touch ~/.komando:
@@ -430,7 +430,7 @@ func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)
 
 // startChecks are the last steps before every command: the data folder
 // (guardHome), closing idle VPNs and
-// --host-key-policy off. The audit log needs no check: the store refuses a
+// --host-key-policy (checkHostKeyFlag). The audit log needs no check: the store refuses a
 // change it cannot record.
 func startChecks(cmd *cobra.Command) error {
 	cl := callOf(cmd)
@@ -440,16 +440,8 @@ func startChecks(cmd *cobra.Command) error {
 	if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !cl.flags.dryRun {
 		netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 	}
-	if cl.flags.hostKeyPolicy == "off" {
-		if cl.flags.dryRun && cl.isAgent() {
-			// an agent's preview still connects to read; it does that
-			// with the usual identity check, since a dry run never asks
-			// the person. People and scripts preview as they run.
-			_ = guardSafety(cl, "--host-key-policy off (no server identity check)")
-			cl.flags.hostKeyPolicy = ""
-		} else if err := guardSafety(cl, "--host-key-policy off (no server identity check)"); err != nil {
-			return err
-		}
+	if err := checkHostKeyFlag(cl); err != nil {
+		return err
 	}
 	return checkStoreWritable(cmd)
 }
@@ -518,7 +510,8 @@ func newRoot(cl *call) *cobra.Command {
 				return err
 			}
 			// after guardHome: the vault read is this home's
-			return secretInArgs(cmd, args)
+			secretInArgs(cmd, args)
+			return nil
 		},
 	}
 	// every command of the tree runs in cl (callOf), also before it runs

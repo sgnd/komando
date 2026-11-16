@@ -34,7 +34,7 @@ func kctlUsage(args []string) error {
 	case verb == "config" && !oneOf(sub, "current-context", "get-contexts"):
 		return out.Usage("config supports current-context and get-contexts (komando keeps the kubeconfig in its vault; `komando conn show NAME` shows the conn)")
 	case !oneOf(verb, kctlVerbs...):
-		e := out.Usage("unknown command %q for komando's kubectl", verb)
+		e := out.Usage("%q is not a command of komando's kubectl", verb)
 		if near := kube.Nearest(verb, slices.Clone(kctlVerbs)); near != "" {
 			e.Message += fmt.Sprintf("; did you mean %q?", near)
 		}
@@ -44,7 +44,7 @@ func kctlUsage(args []string) error {
 	return nil
 }
 
-// kindErr words a kind the cluster does not serve as kubectl does; any
+// kindErr ends with kfail for a kind the cluster does not serve; any
 // other error (discovery could not reach the cluster) stays as it is, so
 // it is reported as what it is.
 func kindErr(err error, format string, a ...any) error {

@@ -719,6 +719,26 @@
     },
     "ok": "bool"
   },
+  "host trust web --fingerprint SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc --dry-run": {
+    "command": "string",
+    "data": {
+      "results": [
+        {
+          "address": "string",
+          "expected_fingerprint": "string",
+          "host": "string",
+          "would_fetch_from": "string"
+        }
+      ]
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "job list": {
     "command": "string",
     "data": {
@@ -948,6 +968,47 @@
     },
     "ok": "bool"
   },
+  "schema secret set": {
+    "command": "string",
+    "data": {
+      "commands": [
+        {
+          "aliases": [
+            "string"
+          ],
+          "confirm": [
+            {
+              "tier": "string"
+            }
+          ],
+          "example": "string",
+          "flags": [
+            {
+              "default": "string",
+              "name": "string",
+              "type": "string",
+              "usage": "string"
+            }
+          ],
+          "kind": "string",
+          "long": "string",
+          "path": "string",
+          "runnable": "bool",
+          "short": "string",
+          "usage": "string"
+        }
+      ],
+      "contract": "number",
+      "name": "string",
+      "version": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "schema vpn add": {
     "command": "string",
     "data": {
@@ -1038,6 +1099,37 @@
           ]
         }
       ]
+    },
+    "meta": {
+      "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "secret set pg-new --new --from-env PG_PASS --dry-run": {
+    "command": "string",
+    "data": {
+      "action": "string",
+      "name": "string",
+      "ref": "string",
+      "replaced": "bool",
+      "would_set": "bool"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "secret set pg-pass --new --from-env PG_PASS": {
+    "command": "string",
+    "error": {
+      "code": "code SECRET_EXISTS",
+      "hint": "string",
+      "message": "string"
     },
     "meta": {
       "contract": "number",

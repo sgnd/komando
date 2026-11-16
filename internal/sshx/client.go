@@ -489,8 +489,8 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	switch {
 	case errors.As(err, &rv):
 		return out.Errf(out.ExitConnect, "HOSTKEY_REVOKED",
-			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`; nothing was sent",
-			"%s shows the revoked host key %s", host, ssh.FingerprintSHA256(rv.Revoked.Key))
+			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`",
+			"%s shows the revoked host key %s; nothing was sent", host, ssh.FingerprintSHA256(rv.Revoked.Key))
 	case errors.As(err, &hk):
 		return hk.outErr(host)
 	case errors.As(err, &ke) && len(ke.Want) > 0, strings.Contains(msg, "HOSTKEY_MISMATCH"):
@@ -631,8 +631,12 @@ func keyFileType(t string) string {
 }
 
 func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallback, error) {
-	if policy == "off" {
+	switch policy {
+	case "off":
 		return ssh.InsecureIgnoreHostKey(), nil
+	case "", "accept-new", "strict":
+	default: // a typo of strict must not pin as accept-new does
+		return nil, fmt.Errorf("host key policy %q is not accept-new, strict or off", policy)
 	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		// a known server is checked in a read step; only a new one takes
