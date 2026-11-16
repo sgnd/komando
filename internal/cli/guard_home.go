@@ -3,8 +3,10 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/sgnd/komando/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -16,16 +18,42 @@ import (
 // agent a KOMANDO_HOME that is another folder needs a person's yes (--yes,
 // then the window), on every command. A person who keeps komando's data
 // elsewhere can make ~/.komando a link to it: a link to the same folder
-// counts as ~/.komando.
+// counts as ~/.komando. HOME does not move it for an agent: komando takes
+// an agent's home folder from the system's user database (store.UserHome).
 
-// defaultHome is ~/.komando, where komando keeps its data without
-// KOMANDO_HOME (tests, which keep theirs in a fresh folder each, replace it).
+// defaultHome is ~/.komando, where komando keeps an agent's data without
+// KOMANDO_HOME, in the account's home folder from the user database
+// (tests, which keep theirs in a fresh folder each, replace it).
 var defaultHome = func() string {
-	d, err := os.UserHomeDir()
+	d, err := accountHome()
 	if err != nil {
 		return ".komando"
 	}
 	return filepath.Join(d, ".komando")
+}
+
+// accountHome is the account's home folder from the system's user
+// database, else $HOME when the database has no entry for it.
+func accountHome() (string, error) {
+	if d, err := store.AccountHome(); err == nil {
+		return d, nil
+	}
+	return os.UserHomeDir()
+}
+
+// guardHomes are the home folders the agent guard protects: $HOME, and
+// the account's home from the user database when that is another folder.
+// An agent's HOME=/tmp/x moves the one, never the other, and komando
+// keeps an agent's data in the account's (store.UserHome).
+func guardHomes() []string {
+	var homes []string
+	if d, err := os.UserHomeDir(); err == nil && d != "" {
+		homes = append(homes, d)
+	}
+	if d, err := store.AccountHome(); err == nil && !slices.ContainsFunc(homes, func(h string) bool { return sameDir(h, d) }) {
+		homes = append(homes, d)
+	}
+	return homes
 }
 
 // otherHome is $KOMANDO_HOME when it names another folder than
@@ -33,6 +61,14 @@ var defaultHome = func() string {
 func otherHome(cl *call) string {
 	h := cl.getenv("KOMANDO_HOME")
 	if h == "" || sameDir(h, defaultHome()) {
+		return ""
+	}
+	// ~/.komando of the HOME this komando was started with counts too: a
+	// person who starts their agent with HOME and KOMANDO_HOME elsewhere
+	// (a test lab) keeps working. An agent that sets both in front of
+	// komando is what the guard hook refuses; alone, HOME moves nothing
+	// (store.UserHome).
+	if d, err := os.UserHomeDir(); err == nil && sameDir(h, filepath.Join(d, ".komando")) {
 		return ""
 	}
 	return h
@@ -67,6 +103,12 @@ func guardHome(cmd *cobra.Command) error {
 	top, _, _ := strings.Cut(commandName(cmd), ".")
 	if !cl.isAgent() || homeFree[top] {
 		return nil
+	}
+	if _, err := store.AccountHome(); err != nil {
+		what := "HOME=" + cl.getenv("HOME") + ": komando's data from " + store.Home() + ", unchecked"
+		return agentYes(cl, "SAFETY_SETTING", "komando cannot find this account's home folder in the user database ("+err.Error()+
+			"), so it cannot tell whether HOME was moved to another folder: an AI agent needs a person's yes to use "+store.Home(),
+			what, "if HOME was moved, that folder's servers, protection, deny rules, pinned host keys and audit log are not the usual ones")
 	}
 	h := otherHome(cl)
 	if h == "" {

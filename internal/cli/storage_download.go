@@ -62,7 +62,7 @@ func (d downloadData) Text() string {
 // storageDownloadTo saves one object to a local file, - (stdout), or a
 // folder; an existing file is replaced only with overwrite.
 func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string, overwrite bool) error {
-	if err := guardSensitiveCopy(cl, key); err != nil {
+	if err := guardDownload(cl, key, to); err != nil {
 		return err
 	}
 	if strings.HasSuffix(key, "/") {
@@ -150,9 +150,9 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 			}
 			var err error
 			if exists {
-				err = writeReplacing(dest, fill)
+				err = writeReplacing(cl, dest, fill)
 			} else {
-				err = writeAtomic(dest, fill)
+				err = writeAtomic(cl, dest, fill)
 			}
 			if err != nil {
 				return nil, err
@@ -180,7 +180,10 @@ func objectProgress(ctx context.Context, s storex.Bucket, key string) *progressP
 
 // writeReplacing is writeAtomic for --overwrite: the new file replaces the
 // old one only once it is complete.
-func writeReplacing(dest string, fill func(tmp string) error) error {
+func writeReplacing(cl *call, dest string, fill func(tmp string) error) error {
+	if err := guardLocalWrite(cl, dest); err != nil {
+		return err
+	}
 	dir, err := os.MkdirTemp(filepath.Dir(dest), ".komando-*")
 	if err != nil {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder exists and is writable", "%v", err)
@@ -194,6 +197,9 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 	}
 	f.Close()
 	if err := fill(tmp); err != nil {
+		return err
+	}
+	if err := guardLocalWrite(cl, dest); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp, dest); err != nil {

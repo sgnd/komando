@@ -154,7 +154,7 @@ func TestSecretDestinationsNeedAPerson(t *testing.T) {
 	wantCode(t, "SECRET_DESTINATION", "host", "edit", "web1", "--port", "2222")
 	resetApproval()
 	mustRun(t, "conn", "add", "shop3", "postgres://app@10.0.0.6/app", "--password-ref", "env:SHOP_PASS", "--yes")
-	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "env:SHOP_PASS to 10.0.0.6:5432 (conn shop3)") {
+	if w := (*texts)[len(*texts)-1]; !strings.Contains(w, "env:SHOP_PASS to 10.0.0.6:5432 (sslmode=verify-full) (conn shop3)") {
 		t.Errorf("window: %q", w)
 	}
 
@@ -230,7 +230,7 @@ func TestWeakTLS(t *testing.T) {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
 	mustRun(t, "conn", "add", "files", "ftp://u@10.0.0.8/www?insecure=1", "--password-ref", "secret:db-pass", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to 10.0.0.8:21 (conn files)") || !strings.Contains((*texts)[0], "files: insecure=1") {
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "secret:db-pass to 10.0.0.8:21 (insecure=1) (conn files)") || !strings.Contains((*texts)[0], "files: insecure=1") {
 		t.Errorf("one window for the secret and the setting: %q", *texts)
 	}
 }

@@ -171,26 +171,18 @@ func hostPlace(h *store.Host) secretPlace {
 	return secretPlace{dedupe(refs), dest}
 }
 
-// connPlace: a conn's password and the secrets its URL names go to its
-// address (where ?resolve= points it), by the way there. A --via path
-// counts: the address is looked up at its end.
+// connPlace: a conn's password and the secrets its URL names go to every
+// place its driver logs in at (connPlaces), with the URL's settings that
+// decide where and how (connURLSettings), by the way there. A --via path
+// counts: the addresses are looked up at its end.
 func connPlace(c *store.Conn) secretPlace {
 	refs := []string{c.PasswordRef}
 	for _, r := range urlSecretRefs(c.URL) {
 		refs = append(refs, "secret:"+r.Name)
 	}
-	dest := c.URL
-	if t, err := driver.Parse(c.URL); err == nil {
-		dest = t.Address
-		if len(t.Brokers) > 1 { // kafka: the login goes to every broker
-			dest = strings.Join(t.Brokers, ",")
-		}
-		if t.Kind.File {
-			dest = t.Path
-		}
-		if t.Resolve != "" && t.Resolve != t.Address {
-			dest += " (at " + t.Resolve + ")"
-		}
+	dest := strings.Join(connPlaces(c), ",")
+	if set := connURLSettings(c.URL); len(set) > 0 {
+		dest += " (" + strings.Join(set, "&") + ")"
 	}
 	if c.Via != "" {
 		dest += " via " + c.Via
