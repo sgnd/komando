@@ -141,7 +141,7 @@ func TestQueueConnTLS(t *testing.T) {
 	if w := weakTLS("", "kafka://broker.example.com:9093?tls=skip-verify"); len(w) != 1 {
 		t.Errorf("weakTLS: %v", w)
 	}
-	if p := connPlace(&store.Conn{URL: "kafka://app@b1:9093,b2:9093?tls=true&sasl=plain", PasswordRef: "secret:k"}); p.dest != "b1:9093,b2:9093" {
+	if p := connPlace(&store.Conn{URL: "kafka://app@b1:9093,b2:9093?tls=true&sasl=plain", PasswordRef: "secret:k"}); p.dest != "b1:9093,b2:9093 (sasl=plain&tls=true)" {
 		t.Errorf("the password goes to %q", p.dest)
 	}
 }

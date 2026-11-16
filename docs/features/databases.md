@@ -41,6 +41,22 @@ komando secret set prod-db-pass
 komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
 ```
 
+A URL says more than its address: Postgres reads `host=`, `port=`,
+`hostaddr=` and `service=`, Redis `sentinels=`, MongoDB more seed hosts,
+RabbitMQ `management=`, and most kinds a CA or TLS mode. So for a conn
+with a stored password, every setting of its URL counts as part of where
+the password goes, except the few that move nothing (`connect_timeout`,
+`application_name` and other timeouts): an AI agent's change of any other
+needs your yes (`SECRET_DESTINATION`). komando reads a Postgres conn from
+its URL only: never from `PG*` environment variables, and never with a
+password from `~/.pgpass` unless the URL names a `passfile=`.
+
+A SQLite conn never opens komando's own folder. For an AI agent it also
+never opens a file in a folder where logins are kept (`~/.ssh`, `~/.aws`,
+`~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`) or any other file
+komando keeps from agents, links followed, and `db dump --to` and
+`db restore --from` refuse the same paths (`SENSITIVE_FILE`).
+
 `--via web1` means "the database is only reachable from web1". komando
 connects through web1 over SSH by itself: there is no tunnel to start and no
 port opens on your computer. `--via` can also be a chain or a VPN (see

@@ -104,7 +104,7 @@ func RemoveManagedKey(k *Key) error {
 
 func expandHome(p string) string {
 	if rest, ok := strings.CutPrefix(p, "~/"); ok {
-		if home, err := os.UserHomeDir(); err == nil {
+		if home, err := UserHome(); err == nil {
 			return filepath.Join(home, rest)
 		}
 	}

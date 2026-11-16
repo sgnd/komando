@@ -196,6 +196,9 @@ func connAddCmd() *cobra.Command {
 				if err := checkConn(s, cn); err != nil {
 					return err
 				}
+				if err := guardConnFile(cl, cn); err != nil {
+					return err
+				}
 				if err := secureConnURL(cn, &res); err != nil {
 					return err
 				}
@@ -309,6 +312,9 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 			}
 		}
 		if err := checkConn(s, cn); err != nil {
+			return err
+		}
+		if err := guardConnFile(cl, cn); err != nil {
 			return err
 		}
 		if err := guardConnEdit(cl, &old, cn, &res); err != nil {
@@ -493,6 +499,9 @@ func (a *access) Close() {
 func openAccess(cl *call, ctx context.Context, st *store.State, c *store.Conn) (*access, error) {
 	t, err := driver.Parse(c.URL)
 	if err != nil {
+		return nil, err
+	}
+	if err := guardConnFile(cl, c); err != nil {
 		return nil, err
 	}
 	password, err := resolvePassword(c)

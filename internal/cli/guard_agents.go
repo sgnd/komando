@@ -244,13 +244,13 @@ func installAgentHook(path string, add func(map[string]any, string), command str
 		return f, nil
 	}
 	if f.Action == "updated" {
-		f.Backup = settingsBackup(path)
+		f.Backup = newBackup(path)
 	}
 	if dryRun {
 		return f, nil
 	}
 	if f.Backup != "" {
-		if err := saveSettingsBackup(f.Backup, old); err != nil {
+		if err := saveBackup(f.Backup, old); err != nil {
 			return f, err
 		}
 	}

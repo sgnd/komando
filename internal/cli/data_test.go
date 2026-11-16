@@ -136,12 +136,12 @@ func TestWriteReplacing(t *testing.T) {
 	if err := os.WriteFile(p, []byte("old"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := writeReplacing(p, func(tmp string) error { return os.WriteFile(tmp, []byte("new"), 0o600) })
+	err := writeReplacing(tcl, p, func(tmp string) error { return os.WriteFile(tmp, []byte("new"), 0o600) })
 	if b, _ := os.ReadFile(p); err != nil || string(b) != "new" {
 		t.Errorf("%v %q", err, b)
 	}
 	// a failed download leaves the old file alone
-	_ = writeReplacing(p, func(string) error { return errors.New("cut") })
+	_ = writeReplacing(tcl, p, func(string) error { return errors.New("cut") })
 	if b, _ := os.ReadFile(p); string(b) != "new" {
 		t.Errorf("after failure: %q", b)
 	}
