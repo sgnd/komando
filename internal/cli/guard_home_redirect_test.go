@@ -158,5 +158,19 @@ func TestAgentHomePairStops(t *testing.T) {
 		if d := mustRun(t, "list"); d["count"] != float64(1) {
 			t.Fatalf("list through a link: %v", d)
 		}
+		// from the check on komando uses the account's folder by its own
+		// path: a link repointed after the check leads nowhere
+		if got, want := os.Getenv("KOMANDO_HOME"), filepath.Join(account, ".komando"); got != want {
+			t.Errorf("after the check KOMANDO_HOME = %s, want %s", got, want)
+		}
+		if err := os.Remove(link); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(fake, link); err != nil {
+			t.Fatal(err)
+		}
+		if got := store.Home(); got != filepath.Join(account, ".komando") {
+			t.Errorf("the repointed link moved komando's data to %s", got)
+		}
 	}
 }

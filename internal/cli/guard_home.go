@@ -112,6 +112,15 @@ func guardHome(cmd *cobra.Command) error {
 	}
 	h := otherHome(cl)
 	if h == "" {
+		// KOMANDO_HOME that names the usual folder another way (a link,
+		// other case) is replaced by the folder's own path, for this
+		// komando and the ones it starts: a link repointed after this
+		// check must not move the data
+		if k := cl.getenv("KOMANDO_HOME"); k != "" && filepath.Clean(k) != filepath.Clean(defaultHome()) {
+			if err := os.Setenv("KOMANDO_HOME", defaultHome()); err != nil {
+				return homeStop(cl, "komando cannot pin its data folder to "+defaultHome()+": "+err.Error())
+			}
+		}
 		return nil
 	}
 	return homeStop(cl, "KOMANDO_HOME points komando at "+h+", not at "+defaultHome()+
