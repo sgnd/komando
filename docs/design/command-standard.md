@@ -537,7 +537,8 @@ gate asks `Run it?` once and the typed name once; T3 on a protected target
 asks one typed question with "(protected)" and the answer covers both.
 [code: PTY test]
 
-**S-7.5** `--dry-run` works on every change command, is never blocked, and
+**S-7.5** `--dry-run` works on every change command, is never blocked (but
+for an AI agent's command in another data folder, `KOMANDO_HOME`), and
 lists every approval the real run needs in `meta.would_need`
 (`["--allow-dangerous","--yes"]`), next to the unchanged
 `meta.would_be_blocked`. [code]

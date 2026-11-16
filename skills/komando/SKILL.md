@@ -54,7 +54,9 @@ not know? Set `KOMANDO_AGENT=1`.
 2. **Dry-run every change first.** A dry run is never stopped: on a
    protected target or a destructive command it still shows the plan, and
    `meta.would_be_blocked` names the stop the real run would hit, so you can
-   show the human what you will ask for. Declare read-only shell commands
+   show the human what you will ask for. (One exception: with
+   `KOMANDO_HOME` set to another folder every command stops, a dry run
+   too, and no flag clears it.) Declare read-only shell commands
    with `komando exec TARGET --read-only -- 'COMMAND'`. `db query`,
    `cache run` and `cluster run` are the other way round: they only read
    unless you add `--write`.

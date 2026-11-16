@@ -131,7 +131,9 @@ stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
 1. **Preview.** Add `--dry-run` to see the exact remote command. A dry run is
    never blocked: when the real run would stop (protected target, destructive
    command), `meta.would_be_blocked` names the stop, so you can show the human
-   the plan before asking.
+   the plan before asking. One exception: with `KOMANDO_HOME` set to
+   another folder every command stops, a dry run too (`SAFETY_SETTING`),
+   and no flag clears it.
 2. **Edit** config with `fs replace` and `--backup`. It needs an exact match
    and fails on 0 or more than 1 matches:
    `komando fs replace web1 /etc/nginx/nginx.conf --old '...' --new '...' --sudo --backup`

@@ -74,6 +74,16 @@ its highlights; the sections below them give the details. Versions follow
   `KOMANDO_E2E_ACCOUNT_HOME`. It is built outside the checkout and
   removed after the run; a released komando has no such variable, and
   `make bins` and `make dist` refuse a binary that has it.
+- An AI agent's command with `KOMANDO_HOME` set to another folder than
+  `~/.komando` now stops for good (`SAFETY_SETTING`): no flag and no
+  window lets it through, and a dry run stops too. Before, `--dry-run`
+  went on and still connected to servers from a folder without the
+  person's pinned host keys, protection and deny rules, and `--yes`
+  opened a window that could not ask for the approval code, which lives
+  in the usual folder. `komando guide uninstall` stops the same way; it
+  used to skip the check. A person runs such a command at their own
+  terminal, or makes `~/.komando` a link to the folder. This is the one
+  case where a dry run is blocked.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -15,10 +16,10 @@ import (
 // empty folder, komando would know none of the person's protected servers,
 // deny rules or pinned host keys, and would write its audit log there,
 // while SSH still logs in with the person's ssh-agent and keys. So for an
-// agent a KOMANDO_HOME that is another folder needs a person's yes (--yes,
-// then the window), on every command. A person who keeps komando's data
-// elsewhere can make ~/.komando a link to it: a link to the same folder
-// counts as ~/.komando. HOME does not move it for an agent: komando takes
+// agent a KOMANDO_HOME that is another folder stops every command, a dry
+// run too, and no flag or window lets it through (homeStop). A person who
+// keeps komando's data elsewhere can make ~/.komando a link to it: a link
+// to the same folder counts as ~/.komando. HOME does not move it for an agent: komando takes
 // an agent's home folder from the system's user database (store.UserHome),
 // so HOME=/x with KOMANDO_HOME=/x/.komando is another folder too.
 
@@ -94,21 +95,37 @@ var homeFree = map[string]bool{"komando": true, "help": true, "completion": true
 func guardHome(cmd *cobra.Command) error {
 	cl := callOf(cmd)
 	top, _, _ := strings.Cut(commandName(cmd), ".")
-	if !cl.isAgent() || homeFree[top] {
+	// guide uninstall takes the agent guard out: it is no playbook
+	free := homeFree[top] && commandName(cmd) != "guide.uninstall"
+	if !cl.isAgent() || free {
 		return nil
 	}
 	if _, err := store.AccountHome(); err != nil {
 		what := "HOME=" + cl.getenv("HOME") + ": komando's data from " + store.Home() + ", unchecked"
-		return agentYes(cl, "SAFETY_SETTING", "komando cannot find this account's home folder in the user database ("+err.Error()+
-			"), so it cannot tell whether HOME was moved to another folder: an AI agent needs a person's yes to use "+store.Home(),
+		msg := "komando cannot find this account's home folder in the user database (" + err.Error() +
+			"), so it cannot tell whether HOME was moved to another folder: an AI agent needs a person's yes to use " + store.Home()
+		if cl.flags.dryRun {
+			return homeStop(cl, msg) // a dry run opens no window, and reads servers all the same
+		}
+		return agentYes(cl, "SAFETY_SETTING", msg,
 			what, "if HOME was moved, that folder's servers, protection, deny rules, pinned host keys and audit log are not the usual ones")
 	}
 	h := otherHome(cl)
 	if h == "" {
 		return nil
 	}
-	what := "KOMANDO_HOME=" + h + ": komando's data from this folder, not from " + defaultHome()
-	return agentYes(cl, "SAFETY_SETTING", "KOMANDO_HOME points komando at "+h+", not at "+defaultHome()+
-		": its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent needs a person's yes to use it",
-		what, "that folder's servers, protection, deny rules, pinned host keys and audit log are not the usual ones")
+	return homeStop(cl, "KOMANDO_HOME points komando at "+h+", not at "+defaultHome()+
+		": its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent cannot use it")
+}
+
+// homeStop refuses an AI agent's command in another data folder. It is
+// final: no flag and no window lets it through, and a dry run stops too.
+// The approval code a person switched on lives in the usual folder, which
+// this komando does not read, so a window here would be a plain click;
+// and a dry run in a folder without the person's pinned host keys,
+// protection and deny rules still connects, and previews nothing real.
+func homeStop(cl *call, msg string) error {
+	return out.Errf(out.ExitPolicy, "SAFETY_SETTING",
+		"ask the user to run `"+commandLine(cl)+"` in their own terminal, or to make ~/.komando a link to that folder; no flag lets an AI agent use another data folder",
+		"%s", msg)
 }
