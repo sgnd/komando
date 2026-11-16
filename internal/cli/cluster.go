@@ -268,12 +268,19 @@ func kubeDeadline(cl *call, ctx context.Context, st *store.State) (context.Conte
 // withKube runs fn on a k8s conn after the safety check for risk.
 func withKube(cl *call, ctx context.Context, name string, t clusterTarget, risk driver.Risk, extra map[string]any,
 	fn func(ctx context.Context, k *kube.Client) (any, error)) error {
+	return withKubeWhy(cl, ctx, name, t, risk, name, extra, fn)
+}
+
+// withKubeWhy is withKube with the reason a person reads when the change
+// needs their yes (withKube gives the command's name).
+func withKubeWhy(cl *call, ctx context.Context, name string, t clusterTarget, risk driver.Risk, why string, extra map[string]any,
+	fn func(ctx context.Context, k *kube.Client) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
 	// under --dry-run every stop only lands in meta.would_be_blocked
-	if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{name}}); err != nil {
+	if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster"}, Reasons: []string{why}}); err != nil {
 		return err
 	}
 	ctx, cancel := kubeDeadline(cl, ctx, st)

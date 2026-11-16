@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/sgnd/komando/internal/driver"
 )
 
@@ -134,4 +136,63 @@ func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, st
 		}
 	}
 	return risk, ""
+}
+
+// composeEscapes says why a compose file handed to `docker stack deploy`
+// gives a service its server: "" when it does not. It is the file form of
+// runEscapesHost. A file komando cannot read as YAML is left to docker,
+// which refuses it.
+func composeEscapes(file []byte) string {
+	var c struct {
+		Services map[string]map[string]any `yaml:"services"`
+		Volumes  map[string]map[string]any `yaml:"volumes"`
+	}
+	if yaml.Unmarshal(file, &c) != nil {
+		return ""
+	}
+	for name, v := range c.Volumes {
+		opts, _ := v["driver_opts"].(map[string]any)
+		if d := str(opts["device"]); strings.Contains(d, "$") || strings.HasPrefix(d, "/") && hostPathEscapes(d, false) {
+			return "volume " + name + " is the server folder " + d
+		}
+	}
+	for name, s := range c.Services {
+		pre := "service " + name + " "
+		if on(s["privileged"]) {
+			return pre + "is privileged"
+		}
+		for _, k := range []string{"cap_add", "devices", "device_cgroup_rules", "security_opt", "volumes_from"} {
+			if l, isList := s[k].([]any); s[k] != nil && (!isList || len(l) > 0) {
+				return pre + "sets " + k
+			}
+		}
+		for _, k := range []string{"pid", "ipc", "userns_mode", "uts", "cgroup", "network_mode"} {
+			if v := strings.ToLower(str(s[k])); v == "host" || strings.HasPrefix(v, "container:") || strings.HasPrefix(v, "service:") || strings.Contains(v, "$") {
+				return pre + "shares the server's " + k
+			}
+		}
+		vols, _ := s["volumes"].([]any)
+		for _, v := range vols {
+			src, ro := "", false
+			switch x := v.(type) {
+			case string:
+				var rest string
+				src, rest, _ = strings.Cut(x, ":")
+				if k := strings.LastIndex(rest, ":"); k >= 0 {
+					for _, o := range strings.Split(rest[k+1:], ",") {
+						ro = ro || o == "ro" || o == "readonly"
+					}
+				}
+			case map[string]any:
+				src, ro = str(x["source"]), on(x["read_only"])
+			}
+			// a path of the server (or one only the manager's
+			// environment knows) that hands over the server
+			if strings.Contains(src, "$") || strings.HasPrefix(src, "~") || strings.HasPrefix(src, ".") ||
+				strings.HasPrefix(src, "/") && hostPathEscapes(src, ro) {
+				return pre + "mounts the server folder " + src
+			}
+		}
+	}
+	return ""
 }

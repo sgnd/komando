@@ -92,7 +92,13 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			if forceConflicts {
 				extra["force_conflicts"] = true
 			}
-			return withKube(cl, cmd.Context(), "cluster.apply", t, driver.RiskWrite, extra, func(ctx context.Context, k *kube.Client) (any, error) {
+			// a file that gives out rights or opens a node is rated like
+			// the kubectl command that does the same
+			risk, why := driver.RiskWrite, "cluster.apply"
+			if esc := manifestEscalates(docs); esc != "" {
+				risk, why = driver.RiskDestructive, "cluster.apply: "+esc
+			}
+			return withKubeWhy(cl, cmd.Context(), "cluster.apply", t, risk, why, extra, func(ctx context.Context, k *kube.Client) (any, error) {
 				return kubeApply(cl, ctx, k, t.conn.Name, docs, ns, forceConflicts)
 			})
 		}),
@@ -323,10 +329,20 @@ func yamlText(o map[string]any) string {
 // with `docker stack config` and names the services it would make.
 func swarmApply(cl *call, ctx context.Context, t clusterTarget, stack string, file []byte) error {
 	line := "docker stack deploy --detach=true -c - " + sshx.Q(stack) + " 2>&1"
+	risk, why := driver.RiskWrite, line
+	if esc := composeEscapes(file); esc != "" {
+		risk, why = driver.RiskDestructive, "the stack file: "+esc
+	}
 	if cl.flags.dryRun {
 		st, err := loadState()
 		if err != nil {
 			return err
+		}
+		if risk >= driver.RiskDestructive {
+			// a dry run is not stopped: the stop lands in meta.would_be_blocked
+			if err := guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster.apply"}, Reasons: []string{why}}); err != nil {
+				return err
+			}
 		}
 		if err := guard(cl, st, []*store.Host{t.host}, line, true); err != nil {
 			return err
@@ -355,7 +371,7 @@ func swarmApply(cl *call, ctx context.Context, t clusterTarget, stack string, fi
 		cl.out.Print("cluster.apply", res, nil)
 		return nil
 	}
-	s, _, err := swarmDo(cl, ctx, "cluster.apply", t, line, file, driver.RiskWrite, line)
+	s, _, err := swarmDo(cl, ctx, "cluster.apply", t, line, file, risk, why)
 	if err != nil {
 		return err
 	}
