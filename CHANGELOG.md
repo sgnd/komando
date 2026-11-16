@@ -63,25 +63,41 @@ its highlights; the sections below them give the details. Versions follow
 ### Security
 
 - A cloud login of this computer no longer goes to an address an AI agent
-  picked. A kubeconfig that logs in with `aws eks get-token`,
-  `aws-iam-authenticator` or `gke-gcloud-auth-plugin` needs a person's yes
-  for an agent to import, or to use after its server changed
-  (`SAFETY_SETTING`), and that login never travels over `http://` or with
-  the certificate unchecked. A kubeconfig login program a person trusted is
-  now one file: an agent's command runs the file the import found, with the
-  import's `PATH`, so `PATH=dir:$PATH komando ...` no longer hands the
-  kubeconfig's arguments to another program; the trust also covers the CA,
-  `tls-server-name` and `proxy-url`. A Pub/Sub conn with an `endpoint=`
-  that is not Google's gets no gcloud login; an Amazon ECR login goes only
-  over https with the certificate checked; `AZURE_AUTHORITY_HOST` has to be
-  one of Azure's sign-in hosts; a Google `external_account` file is used
-  only with `token_url` on `googleapis.com`; and for an agent the token
-  file a cloud variable names (`AZURE_FEDERATED_TOKEN_FILE`,
-  `AWS_WEB_IDENTITY_TOKEN_FILE`, `credential_source.file`) may not be a
-  private key or komando's own data (`SENSITIVE_FILE`). After updating,
-  import each kubeconfig that uses a login program, EKS or GKE once more
-  (`komando import kubeconfig FILE --overwrite`), or agents are asked on
-  every cluster command.
+  picked.
+  - Kubernetes: a kubeconfig that logs in with `aws eks get-token`,
+    `aws-iam-authenticator` or `gke-gcloud-auth-plugin` needs a person's
+    yes for an agent to import, or to use after its cluster block changed
+    (`SAFETY_SETTING`). For everyone, people too, that login no longer
+    travels over `http://` or with the certificate unchecked
+    (`insecure-skip-tls-verify` with no CA): a usage error.
+  - Kubernetes: a login program a person trusted is now one file. An
+    agent's command runs the file the person's import found, with that
+    import's `PATH`, the user's real home and only a few plain variables
+    of its own environment, so `PATH=dir:$PATH komando ...` (or
+    `LD_PRELOAD`, `KUBECONFIG`, a proxy) no longer hands the kubeconfig's
+    arguments to another program. The trust covers the file's contents,
+    each argument, and the CA, `tls-server-name` and `proxy-url`. An
+    import an agent made with a person's yes trusts nothing for later.
+  - A Pub/Sub conn with an `endpoint=` that is not Google's gets no gcloud
+    login. An Amazon ECR login goes only over https with the certificate
+    checked. No cloud registry login (ECR, Google, Azure), and no gcloud
+    login for Cloud Storage, BigQuery or Pub/Sub, goes to a conn with a CA
+    of its own (`?ca=`) or `?resolve=`.
+  - `AZURE_AUTHORITY_HOST` has to be one of Azure's sign-in hosts. A Google
+    login file sends only to Google's token services
+    (`sts.googleapis.com`, `iamcredentials.googleapis.com`), also inside
+    `source_credentials`.
+  - For an AI agent: only a gcloud login or a service account key is used
+    as Google login file; `AWS_ENDPOINT_URL`, `AWS_ENDPOINT_URL_*`, a
+    profile's `endpoint_url` and a container credentials address that is
+    not ECS's or EKS's are not followed (a conn's own `endpoint=` still
+    is); and the token file a cloud variable or AWS profile names
+    (`AZURE_FEDERATED_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE`) may not
+    be a private key, komando's own data or a file that holds secrets
+    (`SENSITIVE_FILE`).
+  - After updating, import each kubeconfig that uses a login program, EKS
+    or GKE once more yourself (`komando import kubeconfig FILE
+    --overwrite`), or agents are asked on every cluster command.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

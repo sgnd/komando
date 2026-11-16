@@ -83,7 +83,9 @@ runs `komando login aws --profile prod` once. See [Cloud logins](cloud.md).
 The ECR login is good for every repository your AWS login reaches, so
 komando sends it only over https to a registry whose certificate is
 checked. A conn with `?tls=false` or `?tls=skip-verify` stops with a usage
-error.
+error. So does a cloud registry conn (ECR, Google, Azure) with `?ca=` or
+`?resolve=` and no `--password-ref`: the cloud's registry has a certificate
+every computer trusts, at its own address.
 
 ### Azure Container Registry
 
@@ -118,7 +120,7 @@ token or the admin user works too: put the user in the URL and give
 The Azure token is good for your whole subscription, not only the
 registry, so komando sends it only over https to a registry whose
 certificate is checked. A conn with `?tls=false` or `?tls=skip-verify`
-stops with a usage error; use `?ca=` for a private CA, or a registry token
+stops with a usage error; use a registry token
 with `--password-ref`.
 
 ### Google Artifact Registry and Container Registry

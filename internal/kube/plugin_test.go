@@ -104,9 +104,21 @@ func TestPluginEnvironment(t *testing.T) {
 	if got := run(e(), env); got != "call|/agent/bin:/usr/bin:/bin|/tmp/x.so|--require /tmp/x.js" {
 		t.Errorf("the client's environment: %q", got)
 	}
-	trusted := e()
-	trusted.SearchPath = "/usr/bin:/bin"
-	if got := run(trusted, env); got != "call|/usr/bin:/bin||" {
-		t.Errorf("a recorded PATH: %q", got)
+	// a recorded PATH: only who, where and which language stay of the
+	// caller's environment, and the home is the user's own
+	t.Setenv("HOME", "/agent/home")
+	home := `printf '{"status":{"token":"%s|%s|%s|%s|%s|%s"}}' "$KOMANDO_TEST_MARK" "$PATH" "$LD_PRELOAD" "$KUBECONFIG" "$LANG" "$HOME"`
+	trusted := &ExecAuth{Command: "/bin/sh", Args: []string{"-c", home}, SearchPath: "/usr/bin:/bin"}
+	env = append(env, "KUBECONFIG=/agent/kubeconfig", "LANG=C", "HOME=/agent/home", "HTTPS_PROXY=http://127.0.0.1:9")
+	if got := run(trusted, env); got != "|/usr/bin:/bin|||C|"+userHome() || userHome() == "/agent/home" {
+		t.Errorf("a recorded PATH: %q (home %q)", got, userHome())
+	}
+	// Check runs before the program and can stop it
+	stopped := &ExecAuth{Command: "/bin/sh", Args: []string{"-c", home}, Check: func() error { return errors.New("the file changed") }}
+	x := &Context{Cluster: Cluster{Server: srv.URL}}
+	x.User.Exec = stopped
+	k, _ := New(x, nil)
+	if _, err := k.Do(context.Background(), "GET", "/version", nil, nil, ""); err == nil || !strings.Contains(err.Error(), "the file changed") {
+		t.Errorf("Check: %v", err)
 	}
 }

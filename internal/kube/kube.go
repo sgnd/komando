@@ -21,9 +21,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -97,8 +99,12 @@ type ExecAuth struct {
 	// SearchPath, when set, is the PATH the program runs with instead of
 	// the caller's (the cli sets it for a program a person trusted, so an
 	// AI agent's PATH does not pick the program's helpers); the variables
-	// that load code into a program are then left out too.
+	// that steer a program are then left out too (pluginEnv).
 	SearchPath string `yaml:"-"`
+	// Check, when set, runs right before the program starts; an error
+	// stops the login (the cli checks again that the file is the one a
+	// person trusted).
+	Check func() error `yaml:"-"`
 }
 
 // gcpAccessToken and eksToken make the builtin plugins' tokens; tests
@@ -124,24 +130,46 @@ func (x *Context) CloudLogin() *ExecAuth {
 	return e
 }
 
-// loaderVars load code into a program that starts: they do not travel to
-// a plugin that runs with a recorded PATH.
-var loaderVars = []string{"LD_PRELOAD", "LD_LIBRARY_PATH", "LD_AUDIT", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH", "DYLD_FRAMEWORK_PATH",
-	"DYLD_FALLBACK_LIBRARY_PATH", "BASH_ENV", "ENV", "PYTHONPATH", "PYTHONSTARTUP", "PYTHONHOME", "NODE_OPTIONS", "NODE_PATH", "PERL5LIB", "PERL5OPT", "RUBYOPT", "RUBYLIB"}
+// keptVars are what a credential plugin that runs with a recorded PATH
+// keeps of the caller's environment: who and where it is, its language and
+// its screen. Everything else is the caller's to set, and an AI agent's
+// caller sets it to steer the program: a library to load (LD_PRELOAD,
+// PYTHONPATH, NODE_OPTIONS, JAVA_TOOL_OPTIONS), a config of its own
+// (KUBECONFIG, AWS_CONFIG_FILE), a proxy with its own CA. What the plugin
+// needs beyond these is in the kubeconfig's own env.
+var keptVars = []string{"USER", "LOGNAME", "LANG", "LC_ALL", "LC_CTYPE", "LC_MESSAGES", "TZ", "TMPDIR", "TERM", "DISPLAY", "WAYLAND_DISPLAY", "XDG_RUNTIME_DIR",
+	"SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "PATHEXT", "TEMP", "TMP", "USERNAME", "USERDOMAIN", "PROGRAMDATA", "LOCALAPPDATA", "APPDATA"}
 
-// pluginEnv is the environment of a credential plugin: base, the PATH
-// the cli recorded for it (SearchPath), then what the kubeconfig sets.
+// userHome is the home folder of the user komando runs as, from the
+// system's user list, not from HOME (the caller's to set).
+func userHome() string {
+	u, err := user.LookupId(strconv.Itoa(os.Getuid()))
+	if err != nil {
+		if u, err = user.Current(); err != nil {
+			return ""
+		}
+	}
+	return u.HomeDir
+}
+
+// pluginEnv is the environment of a credential plugin: base and what the
+// kubeconfig sets. With a PATH the cli recorded for it (SearchPath), only
+// keptVars of base stay, the home folder is the user's real one and PATH
+// is the recorded one.
 func pluginEnv(base []string, e *ExecAuth) []string {
-	env := make([]string, 0, len(base)+len(e.Env)+1)
+	env := make([]string, 0, len(base)+len(e.Env)+2)
 	for _, kv := range base {
 		name, _, _ := strings.Cut(kv, "=")
-		if e.SearchPath != "" && (strings.EqualFold(name, "PATH") || slices.Contains(loaderVars, strings.ToUpper(name))) {
+		if e.SearchPath != "" && !slices.Contains(keptVars, strings.ToUpper(name)) {
 			continue
 		}
 		env = append(env, kv)
 	}
 	if e.SearchPath != "" {
 		env = append(env, "PATH="+e.SearchPath)
+		if home := userHome(); home != "" {
+			env = append(env, "HOME="+home, "USERPROFILE="+home)
+		}
 	}
 	for _, kv := range e.Env {
 		env = append(env, kv.Name+"="+kv.Value)
@@ -430,6 +458,11 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 	base := c.Env
 	if base == nil {
 		base = os.Environ()
+	}
+	if e.Check != nil {
+		if err := e.Check(); err != nil {
+			return "", err
+		}
 	}
 	cmd := exec.CommandContext(ctx, e.Command, e.Args...)
 	cmd.Env = pluginEnv(base, e)

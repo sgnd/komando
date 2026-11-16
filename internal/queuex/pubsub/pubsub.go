@@ -101,8 +101,12 @@ func baseURL(t driver.Target) string {
 
 // onGoogle says whether the endpoint is one of Google's own.
 func onGoogle(t driver.Target) bool {
-	h, _, _ := net.SplitHostPort(t.Address)
-	return t.Secure && (h == "googleapis.com" || strings.HasSuffix(h, ".googleapis.com"))
+	h, _, err := net.SplitHostPort(t.Address)
+	if err != nil {
+		h = t.Address
+	}
+	h = strings.ToLower(strings.TrimSuffix(h, "."))
+	return t.Secure && t.CA == "" && (h == "googleapis.com" || strings.HasSuffix(h, ".googleapis.com"))
 }
 
 // tokens is where the access tokens come from: the service account key,

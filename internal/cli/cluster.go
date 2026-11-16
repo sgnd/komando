@@ -7,12 +7,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -160,8 +160,22 @@ func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 		return nil
 	}
 	if c.TrustedPlugin != "" && c.PluginProgram != "" {
-		if t, ok := pluginTrust(cl, line, c.PluginProgram, x.Cluster); ok && t == c.TrustedPlugin {
-			e.Command, e.SearchPath = c.PluginProgram, c.PluginSearchPath
+		trusted := func() bool {
+			t, ok := pluginTrust(cl, e, c.PluginProgram, x.Cluster)
+			return ok && t == c.TrustedPlugin
+		}
+		if trusted() {
+			want := *e // the kubeconfig's line, before the full path goes in
+			e.Command, e.SearchPath = c.PluginProgram, cmp.Or(c.PluginSearchPath, systemPath)
+			// once more right before it starts (connecting takes a while,
+			// and the file may be the user's to replace)
+			e.Check = func() error {
+				if t, ok := pluginTrust(cl, &want, c.PluginProgram, x.Cluster); !ok || t != c.TrustedPlugin {
+					return out.Errf(out.ExitPolicy, "SAFETY_SETTING", "run it again; if the program was updated, the user imports the kubeconfig again (`komando import kubeconfig FILE --overwrite`)",
+						"the login program %s of conn %s changed while komando was connecting", c.PluginProgram, c.Name).NoFlag()
+				}
+				return nil
+			}
 			return nil
 		}
 	}
@@ -173,10 +187,22 @@ func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 		return err
 	}
 	if prog != "" {
-		e.Command = prog // the file the window named
+		// the file the window named, with the system's PATH and none of
+		// the agent's other variables (kube.ExecAuth.SearchPath)
+		e.Command, e.SearchPath = prog, filepath.Dir(prog)+string(os.PathListSeparator)+systemPath
 	}
 	return nil
 }
+
+// systemPath is the PATH of a login program an AI agent's command runs
+// when no import recorded one: the system's folders only.
+var systemPath = func() string {
+	if runtime.GOOS == "windows" {
+		root := cmp.Or(os.Getenv("SystemRoot"), `C:\Windows`)
+		return root + `\System32;` + root
+	}
+	return "/usr/bin:/bin:/usr/sbin:/sbin"
+}()
 
 // guardCloudLogin: a kubeconfig that logs in with `aws eks get-token`,
 // aws-iam-authenticator or gke-gcloud-auth-plugin gets a token komando
@@ -189,7 +215,7 @@ func guardCloudLogin(cl *call, c *store.Conn, x *kube.Context, b *kube.ExecAuth)
 	if !cl.isAgent() {
 		return nil
 	}
-	if t, _ := pluginTrust(cl, pluginLine(b), "", x.Cluster); c.TrustedPlugin != "" && c.TrustedPlugin == t {
+	if t, _ := pluginTrust(cl, b, "", x.Cluster); c.TrustedPlugin != "" && c.TrustedPlugin == t {
 		return nil
 	}
 	what := "the kubeconfig of conn " + c.Name + " sends a login made from this computer's " + cloudLoginName(b) + " login to " + x.Cluster.Server
@@ -245,16 +271,30 @@ func programNote(command, prog string) string {
 }
 
 // pluginTrust is what Conn.TrustedPlugin holds for a kubeconfig login: a
-// hash of the plugin's whole line, of the program file it runs (program:
-// its full path, and its contents unless only root can change it) and of
-// the cluster block its token goes to (server, CA, TLS name, proxy), so
-// any change (another program, args, environment, file or destination)
-// asks again. program is "" for a plugin komando makes the token for. ok
-// is false when the program file cannot be read: nothing is trusted then.
-func pluginTrust(cl *call, line, program string, cluster kube.Cluster) (string, bool) {
+// hash of the plugin as the kubeconfig writes it (command, each argument,
+// environment), of the program file it runs (program: its full path, and
+// its contents unless only root can change it) and of the cluster block
+// its token goes to (server, CA, TLS name, proxy), so any change (another
+// program, args, environment, file or destination) asks again. program is
+// "" for a plugin komando makes the token for. ok is false when the
+// program file cannot be read: nothing is trusted then.
+func pluginTrust(cl *call, e *kube.ExecAuth, program string, cluster kube.Cluster) (string, bool) {
+	var env [][2]string
+	for _, kv := range e.Env {
+		env = append(env, [2]string{kv.Name, kv.Value})
+	}
+	// JSON keeps each word apart: ["--a b"] and ["--a", "b"] differ
+	what, err := json.Marshal(struct {
+		Command, Program string
+		Args             []string
+		Env              [][2]string
+		Cluster          kube.Cluster
+	}{e.Command, program, e.Args, env, cluster})
+	if err != nil {
+		return "", false
+	}
 	h := sha256.New()
-	block, _ := json.Marshal(cluster)
-	fmt.Fprintf(h, "%s\n%s\n%s\n", line, program, block)
+	h.Write(what)
 	if program != "" && !toolSafe(cl, program) {
 		f, err := os.Open(program)
 		if err != nil {

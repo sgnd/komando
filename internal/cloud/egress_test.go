@@ -10,6 +10,10 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/config"
+
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // refuseFiles makes CheckLocalFile refuse path, as the cli does for an AI
@@ -137,5 +141,49 @@ func TestAWSWebIdentityFileIsChecked(t *testing.T) {
 	t.Setenv("AWS_WEB_IDENTITY_TOKEN_FILE", ok)
 	if _, err := AWSCredentials(context.Background(), ""); errors.Is(err, errRefused) || hits.Load() == 0 {
 		t.Errorf("an allowed token file: %v, %d requests", err, hits.Load())
+	}
+}
+
+// In an AI agent's environment the variables that move where AWS logins
+// go are not followed: AWS_ENDPOINT_URL and its per-service forms would
+// send the saved SSO token, or a token file, to a listener of the agent's.
+func TestAgentEnvironmentKeepsAWSEndpoints(t *testing.T) {
+	awsEnv(t)
+	defer transport.DistrustEnv()()
+	set := map[string]string{"AWS_ENDPOINT_URL": "http://127.0.0.1:9", "AWS_ENDPOINT_URL_SSO": "http://127.0.0.1:9", "AWS_ENDPOINT_URL_STS": "http://127.0.0.1:9",
+		"AWS_CONTAINER_CREDENTIALS_FULL_URI": "http://127.0.0.1:9/creds", "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE": "/tmp/x", "AWS_CONTAINER_AUTHORIZATION_TOKEN": "t"}
+	for k, v := range set {
+		t.Setenv(k, v)
+	}
+	t.Setenv("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", "")
+	t.Setenv("AWS_REGION", "eu-west-1")
+	cfg, err := AWSConfig(context.Background(), "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.BaseEndpoint != nil {
+		t.Errorf("endpoint %v", *cfg.BaseEndpoint)
+	}
+	for _, src := range cfg.ConfigSources {
+		if e, ok := src.(config.EnvConfig); ok {
+			if e.BaseEndpoint != "" || e.IgnoreConfiguredEndpoints == nil || !*e.IgnoreConfiguredEndpoints || e.ContainerCredentialsEndpoint != "" || e.ContainerAuthorizationToken != "" {
+				t.Errorf("the configuration followed the agent's variables: endpoint %q, ignore %v, container %q", e.BaseEndpoint, e.IgnoreConfiguredEndpoints != nil, e.ContainerCredentialsEndpoint)
+			}
+		}
+	}
+	if os.Getenv("AWS_ENDPOINT_URL") == "" || os.Getenv("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS") != "" {
+		t.Error("the process environment is as it was after the load")
+	}
+	// the container address of ECS and EKS itself stays
+	t.Setenv("AWS_CONTAINER_CREDENTIALS_FULL_URI", "http://169.254.170.23/v1/credentials")
+	t.Setenv("AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE", "/var/run/secrets/pods.eks.amazonaws.com/serviceaccount/eks-pod-identity-token")
+	cfg, err = AWSConfig(context.Background(), "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, src := range cfg.ConfigSources {
+		if e, ok := src.(config.EnvConfig); ok && e.ContainerCredentialsEndpoint == "" {
+			t.Error("the EKS pod identity address was dropped")
+		}
 	}
 }

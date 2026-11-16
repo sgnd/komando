@@ -59,6 +59,7 @@ func loadAWS(ctx context.Context, opts ...func(*config.LoadOptions) error) (aws.
 	if transport.EnvDistrusted() {
 		_ = os.Unsetenv("AWS_CA_BUNDLE")
 	}
+	defer agentAWSEnv()()
 	hc := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) { tr.Proxy = transport.Proxy() })
 	return config.LoadDefaultConfig(ctx, append(opts, config.WithHTTPClient(hc))...)
 }
@@ -69,6 +70,9 @@ func loadAWS(ctx context.Context, opts ...func(*config.LoadOptions) error) (aws.
 // went to the real AWS with the source access key. AWS_ENDPOINT_URL_STS,
 // when set, still wins.
 func stsEndpointFromGlobal() {
+	if transport.EnvDistrusted() {
+		return // an AI agent's endpoint variables are not followed at all (agentAWSEnv)
+	}
 	if e := os.Getenv("AWS_ENDPOINT_URL"); e != "" && os.Getenv("AWS_ENDPOINT_URL_STS") == "" {
 		os.Setenv("AWS_ENDPOINT_URL_STS", e)
 	}

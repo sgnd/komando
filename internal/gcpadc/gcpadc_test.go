@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/sgnd/komando/internal/transport"
 )
 
 const scope = "https://www.googleapis.com/auth/cloud-platform"
@@ -136,5 +138,68 @@ func TestUsualFiles(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "application_default_credentials.json"), b, 0o600)
 	if _, err := Find(context.Background(), scope); err == nil || !strings.Contains(err.Error(), "token_url") {
 		t.Errorf("the well-known file is checked too: %v", err)
+	}
+}
+
+// A file can wrap one kind of login in another (impersonated_service_account
+// holds source_credentials): what is inside is checked the same way.
+func TestNestedCredentialsAreChecked(t *testing.T) {
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { hits.Add(1); w.WriteHeader(400) }))
+	defer srv.Close()
+	key := filepath.Join(t.TempDir(), "id_ed25519")
+	os.WriteFile(key, []byte("PRIVATE KEY"), 0o600)
+	adcFile(t, map[string]any{"type": "impersonated_service_account",
+		"service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/x@p.iam.gserviceaccount.com:generateAccessToken",
+		"source_credentials":                external(srv.URL+"/t", key)})
+	if err := use(t); err == nil || !strings.Contains(err.Error(), "token_url") || hits.Load() != 0 {
+		t.Errorf("an external_account inside source_credentials: %v, %d requests", err, hits.Load())
+	}
+	adcFile(t, map[string]any{"type": "impersonated_service_account", "service_account_impersonation_url": srv.URL + "/x",
+		"source_credentials": map[string]any{"type": "authorized_user", "client_id": "c", "client_secret": "s", "refresh_token": "r"}})
+	if _, err := Find(context.Background(), scope); err == nil || !strings.Contains(err.Error(), "service_account_impersonation_url") {
+		t.Errorf("an impersonation address that is not Google's: %v", err)
+	}
+}
+
+// "On googleapis.com" is not enough: a bucket there takes uploads from
+// anyone. The login goes to Google's token services only.
+func TestOnlyGooglesTokenServices(t *testing.T) {
+	key := filepath.Join(t.TempDir(), "token")
+	os.WriteFile(key, []byte("jwt"), 0o600)
+	for _, u := range []string{"https://storage.googleapis.com/upload/storage/v1/b/bucket/o?uploadType=media&name=x",
+		"https://sts.googleapis.com/v1/token?x=1", "https://sts.googleapis.com/other", "https://pubsub.googleapis.com/v1/token"} {
+		adcFile(t, external(u, key))
+		if _, err := Find(context.Background(), scope); err == nil || !strings.Contains(err.Error(), "token_url") {
+			t.Errorf("%s: %v", u, err)
+		}
+	}
+}
+
+// For an AI agent's environment only the two plain kinds of file are
+// used (a gcloud login, a service account key): every other kind reads
+// files, runs programs or calls addresses the file names. The login is
+// then made from the bytes that were checked, not from a second read.
+func TestAgentEnvironmentUsesPlainFilesOnly(t *testing.T) {
+	defer transport.DistrustEnv()()
+	ok := filepath.Join(t.TempDir(), "token")
+	os.WriteFile(ok, []byte("jwt"), 0o600)
+	exe := external("https://sts.googleapis.com/v1/token", "")
+	exe["credential_source"] = map[string]any{"executable": map[string]any{"command": "/tmp/x"}}
+	for name, cfg := range map[string]map[string]any{
+		"external_account":             external("https://sts.googleapis.com/v1/token", ok),
+		"external_account, executable": exe,
+		"impersonated_service_account": {"type": "impersonated_service_account", "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/x",
+			"source_credentials": map[string]any{"type": "authorized_user", "client_id": "c", "client_secret": "s", "refresh_token": "r"}},
+	} {
+		adcFile(t, cfg)
+		var fe *FileError
+		if _, err := Find(context.Background(), scope); !errors.As(err, &fe) || !strings.Contains(err.Error(), "AI agent") {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	adcFile(t, map[string]any{"type": "authorized_user", "client_id": "c", "client_secret": "s", "refresh_token": "r"})
+	if _, err := Find(context.Background(), scope); err != nil {
+		t.Errorf("a gcloud login: %v", err)
 	}
 }

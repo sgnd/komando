@@ -63,12 +63,17 @@ How the login works:
 - Any other login program the kubeconfig names runs on this computer, so
   an AI agent needs a person's yes (`--yes`) to import it, as with a
   server's `--proxy-command`.
-- The import records which file that program is (its full path) and the
-  `PATH` of the import. An AI agent's command runs that file with that
-  `PATH`, whatever `PATH` the agent's own command line sets. If the file
-  is one that programs of your user can replace (Homebrew's `bin`,
+- Your own import records which file that program is (its full path) and
+  the `PATH` of the import. An AI agent's command runs that file with that
+  `PATH`, your real home folder and only a few plain variables (user,
+  language, screen, temp folder) of its own environment: what the program
+  needs beyond those goes in the kubeconfig's `env`. If the file is one
+  that programs of your user can replace (Homebrew's `bin`,
   `~/.local/bin`) and its contents changed, for example after an update,
   agents are asked again until you import the kubeconfig again.
+- An import an AI agent made with your yes trusts nothing for later: its
+  cluster commands ask you each time, and after your yes the program runs
+  with the system's `PATH`. Import the kubeconfig yourself to trust it.
 - When that program is missing, cluster commands stop with `TOOL_MISSING`
   (exit 3) and the kubeconfig's own `installHint`. When it runs but cannot
   log in (it may want a person to sign in first), they stop with

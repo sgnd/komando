@@ -2,10 +2,14 @@ package cloud
 
 import (
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // CheckLocalFile is asked before a file of this computer that the
@@ -61,3 +65,64 @@ func checkAWSTokenFile(cfg aws.Config) error {
 	}
 	return nil
 }
+
+// containerHosts are the addresses ECS and EKS give containers their
+// credentials at.
+var containerHosts = map[string]bool{"169.254.170.2": true, "169.254.170.23": true, "fd00:ec2::23": true}
+
+// agentAWSEnv takes out of an AI agent's environment, while the AWS
+// configuration is read, what moves where AWS logins go; restore puts
+// the variables back (the SDK keeps what it read). AWS_ENDPOINT_URL and
+// its per-service forms (and endpoint_url in a profile) would send the
+// saved SSO token or a web identity token file to a listener of the
+// agent's; AWS_CONTAINER_CREDENTIALS_FULL_URI would send it the file
+// AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE names. A conn's own endpoint
+// (an emulator, a VPC endpoint) is in the conn, which a person allows.
+func agentAWSEnv() (restore func()) {
+	if !transport.EnvDistrusted() {
+		return func() {}
+	}
+	awsEnvMu.Lock()
+	saved := map[string]*string{}
+	set := func(name string, v *string) {
+		if _, ok := saved[name]; !ok {
+			if old, was := os.LookupEnv(name); was {
+				saved[name] = &old
+			} else {
+				saved[name] = nil
+			}
+		}
+		if v == nil {
+			_ = os.Unsetenv(name)
+		} else {
+			_ = os.Setenv(name, *v)
+		}
+	}
+	for _, kv := range os.Environ() {
+		if name, _, _ := strings.Cut(kv, "="); name == "AWS_ENDPOINT_URL" || strings.HasPrefix(name, "AWS_ENDPOINT_URL_") {
+			set(name, nil)
+		}
+	}
+	yes := "true"
+	set("AWS_IGNORE_CONFIGURED_ENDPOINT_URLS", &yes)
+	if full := os.Getenv("AWS_CONTAINER_CREDENTIALS_FULL_URI"); full != "" {
+		if u, err := url.Parse(full); err != nil || !containerHosts[u.Hostname()] {
+			for _, n := range []string{"AWS_CONTAINER_CREDENTIALS_FULL_URI", "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE", "AWS_CONTAINER_AUTHORIZATION_TOKEN"} {
+				set(n, nil)
+			}
+		}
+	}
+	return func() {
+		for name, v := range saved {
+			if v == nil {
+				_ = os.Unsetenv(name)
+			} else {
+				_ = os.Setenv(name, *v)
+			}
+		}
+		awsEnvMu.Unlock()
+	}
+}
+
+// awsEnvMu keeps two loads from changing the environment at once.
+var awsEnvMu sync.Mutex

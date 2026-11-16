@@ -132,18 +132,31 @@ Google Cloud and Azure sign-in are not available yet. What works instead:
 Registries on Google Cloud and Azure log in the same way: see
 [Container registries](registry.md).
 
-Files these logins name are sent only to the cloud's own sign-in address:
+A cloud login goes only to the cloud's own sign-in address:
 
-- A Google workload or workforce identity file (`external_account`) is
-  used only when its `token_url` (and `service_account_impersonation_url`)
-  is an https address on `googleapis.com`.
+- A Google login file that names addresses (a workload or workforce
+  identity file, `external_account`; an impersonated service account) is
+  used only when they are Google's token services
+  (`https://sts.googleapis.com/v1/token`,
+  `https://iamcredentials.googleapis.com/...`).
 - `AZURE_AUTHORITY_HOST` has to be one of Azure's sign-in hosts.
-- For an AI agent's command, the file named by
-  `AZURE_FEDERATED_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE` (or
-  `web_identity_token_file` in an AWS profile) or a Google file's
-  `credential_source.file` may not be a private key, komando's own data or
-  a credential store: the command stops with `SENSITIVE_FILE`. A person's
-  own command is not checked.
+- gcloud's login and the cloud registry logins never go to a conn with a CA
+  of its own (`?ca=`) or `?resolve=`.
+
+For an AI agent's command, more is fixed, because the agent sets the
+variables on its own command line:
+
+- As a Google login file only a gcloud login
+  (`gcloud auth application-default login`) or a service account key is
+  used; any other kind stops with `SENSITIVE_FILE`.
+- `AWS_ENDPOINT_URL`, `AWS_ENDPOINT_URL_*` and a profile's `endpoint_url`
+  are not followed, nor a container credentials address
+  (`AWS_CONTAINER_CREDENTIALS_FULL_URI`) that is not ECS's or EKS's. An
+  emulator or VPC endpoint goes in the conn (`endpoint=`).
+- The file named by `AZURE_FEDERATED_TOKEN_FILE`,
+  `AWS_WEB_IDENTITY_TOKEN_FILE` (or `web_identity_token_file` in an AWS
+  profile) may not be a private key, komando's own data, a credential
+  store or a file that holds secrets by its name: `SENSITIVE_FILE`.
 
 ## Limits
 

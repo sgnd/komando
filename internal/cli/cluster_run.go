@@ -449,7 +449,12 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 			// may run this program file for this conn without asking again
 			note := fmt.Sprintf("context %s logs in by running `%s` on this computer for every cluster command", n, pluginLine(e))
 			prog := pluginProgram(e.Command)
-			if t, ok := pluginTrust(cl, pluginLine(e), prog, stored); ok && prog != "" {
+			if cl.isAgent() {
+				// a person said yes to this import, but the PATH is the
+				// agent's: the program and its helpers were found by it, so
+				// nothing is trusted for later commands
+				note += " (imported by an AI agent: its cluster commands ask you each time; import the kubeconfig yourself to trust the program for this conn)"
+			} else if t, ok := pluginTrust(cl, e, prog, stored); ok && prog != "" {
 				c.TrustedPlugin, c.PluginProgram, c.PluginSearchPath = t, prog, cl.getenv("PATH")
 			} else {
 				note += fmt.Sprintf(" (%s is not installed here: after installing it, import the kubeconfig again, or an AI agent's cluster commands will ask you each time)", e.Command)
@@ -458,7 +463,7 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 		} else if b := x.CloudLogin(); b != nil {
 			// this computer's cloud login goes to this server, for agents'
 			// later commands too
-			c.TrustedPlugin, _ = pluginTrust(cl, pluginLine(b), "", stored)
+			c.TrustedPlugin, _ = pluginTrust(cl, b, "", stored)
 		}
 	}
 	return p, nil
