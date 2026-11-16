@@ -20,6 +20,7 @@ import (
 	"golang.org/x/oauth2/google"
 
 	kdriver "github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -51,7 +52,7 @@ const bqScope = "https://www.googleapis.com/auth/bigquery"
 // login, GOOGLE_APPLICATION_CREDENTIALS, the metadata server); tests
 // replace it.
 var bqDefaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, bqScope)
+	return gcpadc.Find(ctx, bqScope)
 }
 
 type bqConnector struct {

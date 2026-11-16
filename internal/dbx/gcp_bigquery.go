@@ -11,6 +11,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -36,6 +37,9 @@ func bqCredentials(key string, plain *http.Client, onGoogle bool) (*google.Crede
 		return nil, nil // an emulator without a login
 	}
 	creds, err := bqDefaultCredentials(tctx)
+	if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
+		return nil, fe.Err
+	}
 	if err != nil {
 		return nil, out.Errf(out.ExitConnect, "DB_AUTH",
 			"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME < key.json` and pass --password-ref secret:NAME",

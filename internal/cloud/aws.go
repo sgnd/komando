@@ -40,6 +40,9 @@ func AWSConfig(ctx context.Context, profile, region string) (aws.Config, error) 
 	if err != nil {
 		return aws.Config{}, awsErr(err)
 	}
+	if err := checkAWSTokenFile(cfg); err != nil {
+		return aws.Config{}, err
+	}
 	return cfg, nil
 }
 
@@ -78,6 +81,9 @@ func AWSProfileAccess(ctx context.Context, profile, configFile, credsFile string
 	cfg, err := config.LoadDefaultConfig(ctx, opts...)
 	if err != nil {
 		return aws.Credentials{}, "", "", awsErr(err)
+	}
+	if err := checkAWSTokenFile(cfg); err != nil {
+		return aws.Credentials{}, "", "", err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

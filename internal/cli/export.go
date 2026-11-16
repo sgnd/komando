@@ -99,7 +99,8 @@ func planFromExport(cl *call, f exportFile) *importPlan {
 	}
 	for _, c := range p.Conns {
 		ref(c.Name, "password_ref", &c.PasswordRef)
-		c.TrustedPlugin = "" // a login program is trusted on this computer only (import kubeconfig)
+		// a login program is trusted on this computer only (import kubeconfig)
+		c.TrustedPlugin, c.PluginProgram, c.PluginSearchPath = "", "", ""
 	}
 	var vpns []*store.Vpn
 	for _, v := range p.Vpns {

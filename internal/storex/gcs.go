@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -26,6 +27,7 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -45,7 +47,7 @@ const gcsScope = "https://www.googleapis.com/auth/devstorage.read_write"
 // gcsDefaultCredentials finds application default credentials; tests
 // replace it.
 var gcsDefaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, gcsScope)
+	return gcpadc.Find(ctx, gcsScope)
 }
 
 // OpenGCS prepares a client; it does not contact the bucket. key is a
@@ -76,7 +78,11 @@ func OpenGCS(_ context.Context, t driver.Target, key string, dial DialFunc, time
 				"gcs: the stored key is not a service account key: %v", err)
 		}
 	case gcsGoogleHost(t):
-		if creds, err = gcsDefaultCredentials(tctx); err != nil {
+		creds, err = gcsDefaultCredentials(tctx)
+		if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
+			return nil, fe.Err
+		}
+		if err != nil {
 			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH",
 				"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME` and pass --password-ref secret:NAME",
 				"gcs: no Google Cloud login: %v", err)

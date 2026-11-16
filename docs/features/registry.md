@@ -80,6 +80,11 @@ komando registry add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws
 If the SSO login has expired, the error is `AWS_LOGIN_REQUIRED`: a person
 runs `komando login aws --profile prod` once. See [Cloud logins](cloud.md).
 
+The ECR login is good for every repository your AWS login reaches, so
+komando sends it only over https to a registry whose certificate is
+checked. A conn with `?tls=false` or `?tls=skip-verify` stops with a usage
+error.
+
 ### Azure Container Registry
 
 Leave out `--password-ref` and komando logs in with your Azure login, the

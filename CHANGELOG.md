@@ -47,6 +47,26 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- A cloud login of this computer no longer goes to an address an AI agent
+  picked. A kubeconfig that logs in with `aws eks get-token`,
+  `aws-iam-authenticator` or `gke-gcloud-auth-plugin` needs a person's yes
+  for an agent to import, or to use after its server changed
+  (`SAFETY_SETTING`), and that login never travels over `http://` or with
+  the certificate unchecked. A kubeconfig login program a person trusted is
+  now one file: an agent's command runs the file the import found, with the
+  import's `PATH`, so `PATH=dir:$PATH komando ...` no longer hands the
+  kubeconfig's arguments to another program; the trust also covers the CA,
+  `tls-server-name` and `proxy-url`. A Pub/Sub conn with an `endpoint=`
+  that is not Google's gets no gcloud login; an Amazon ECR login goes only
+  over https with the certificate checked; `AZURE_AUTHORITY_HOST` has to be
+  one of Azure's sign-in hosts; a Google `external_account` file is used
+  only with `token_url` on `googleapis.com`; and for an agent the token
+  file a cloud variable names (`AZURE_FEDERATED_TOKEN_FILE`,
+  `AWS_WEB_IDENTITY_TOKEN_FILE`, `credential_source.file`) may not be a
+  private key or komando's own data (`SENSITIVE_FILE`). After updating,
+  import each kubeconfig that uses a login program, EKS or GKE once more
+  (`komando import kubeconfig FILE --overwrite`), or agents are asked on
+  every cluster command.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

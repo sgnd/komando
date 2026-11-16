@@ -18,11 +18,12 @@ import (
 // no --password-ref of its own: Amazon ECR and Azure Container Registry
 // logins last hours, so komando gets a fresh one each time and keeps none.
 
-// azureToken gets an Azure AD access token, and gcpToken a Google one;
-// tests replace them.
+// azureToken gets an Azure AD access token, gcpToken a Google one and
+// ecrLogin an Amazon ECR password; tests replace them.
 var (
 	azureToken = cloud.AzureToken
 	gcpToken   = cloud.GCPAccessToken
+	ecrLogin   = ecrToken
 )
 
 // googleRegistry matches Google Artifact Registry (REGION-docker.pkg.dev)
@@ -70,7 +71,10 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 	}
 	host = strings.TrimSuffix(host, ":443")
 	if region := ecrRegion(host); region != "" {
-		tok, err := ecrToken(ctx, cmp.Or(awsProfile(c), "default"), region)
+		if !rc.CheckedTLS() {
+			return uncheckedCloudLogin("an Amazon ECR", host)
+		}
+		tok, err := ecrLogin(ctx, cmp.Or(awsProfile(c), "default"), region)
 		if err != nil {
 			return err
 		}
@@ -85,6 +89,8 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 		switch {
 		case errors.Is(err, cloud.ErrGCPNoCredentials):
 			return nil
+		case isSensitive(err):
+			return err
 		case err != nil:
 			return out.Errf(out.ExitConnect, "GCP_LOGIN_REQUIRED",
 				"a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used",
@@ -123,6 +129,9 @@ func uncheckedCloudLogin(what, host string) error {
 
 // azureErr turns an Azure login error into komando's.
 func azureErr(what, resource string, err error) error {
+	if oe := (*out.Error)(nil); errors.As(err, &oe) {
+		return oe // komando's own stop (a file an AI agent may not send)
+	}
 	if errors.Is(err, cloud.ErrAzureLogin) {
 		// a person signs in, as with an expired AWS SSO login: agents ask
 		return out.Errf(out.ExitConnect, "AZURE_LOGIN_REQUIRED", cloud.AzureLoginHint(resource), "%s: %v", what, err)

@@ -132,6 +132,19 @@ Google Cloud and Azure sign-in are not available yet. What works instead:
 Registries on Google Cloud and Azure log in the same way: see
 [Container registries](registry.md).
 
+Files these logins name are sent only to the cloud's own sign-in address:
+
+- A Google workload or workforce identity file (`external_account`) is
+  used only when its `token_url` (and `service_account_impersonation_url`)
+  is an https address on `googleapis.com`.
+- `AZURE_AUTHORITY_HOST` has to be one of Azure's sign-in hosts.
+- For an AI agent's command, the file named by
+  `AZURE_FEDERATED_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE` (or
+  `web_identity_token_file` in an AWS profile) or a Google file's
+  `credential_source.file` may not be a private key, komando's own data or
+  a credential store: the command stops with `SENSITIVE_FILE`. A person's
+  own command is not checked.
+
 ## Limits
 
 - Only AWS has a `komando login`; Google Cloud and Azure use the logins

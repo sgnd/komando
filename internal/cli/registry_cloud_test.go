@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/registry"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -149,5 +152,66 @@ func TestGoogleRegistryLogin(t *testing.T) {
 	e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "us-docker.pkg.dev", registry.New("us-docker.pkg.dev", registry.TLS{}, "", "", nil)))
 	if e.Code != "GCP_LOGIN_REQUIRED" || !strings.Contains(e.Hint, "gcloud auth application-default login") || !strings.Contains(e.Message, "invalid_grant") {
 		t.Errorf("an expired login: %+v", e)
+	}
+}
+
+// An Amazon ECR login is good for every repository the AWS identity
+// reaches: like the Google and Azure ones, it goes only over https with
+// the certificate checked, never to ?tls=skip-verify or plain http (with
+// ?resolve= that is any address).
+func TestECRLoginNeedsCheckedTLS(t *testing.T) {
+	saved := ecrLogin
+	defer func() { ecrLogin = saved }()
+	asked := 0
+	ecrLogin = func(context.Context, string, string) (string, error) { asked++; return "ecr-pw", nil }
+	ctx := context.Background()
+	const host = "123456789012.dkr.ecr.eu-west-1.amazonaws.com"
+	for name, tls := range map[string]registry.TLS{"skip-verify": {SkipVerify: true}, "plain http": {Plain: true}} {
+		rc := registry.New(host, tls, "", "", nil)
+		e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, host, rc))
+		if e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "Amazon ECR") || rc.Password != "" {
+			t.Errorf("%s: %+v, password %q", name, e, rc.Password)
+		}
+	}
+	if asked != 0 {
+		t.Errorf("an ECR login was made %d times for a registry whose certificate is not checked", asked)
+	}
+	rc := registry.New(host, registry.TLS{}, "", "", nil)
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{}, host+":443", rc); err != nil || rc.User != "AWS" || rc.Password != "ecr-pw" {
+		t.Errorf("checked TLS: %v %q %q", err, rc.User, rc.Password)
+	}
+}
+
+// What the cloud logins read from a file the environment names goes
+// through the same check as a file: reference: an AI agent's command never
+// sends a private key or komando's own data, a person's does.
+func TestCloudCredentialFileHook(t *testing.T) {
+	invHome(t)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := filepath.Join(home, ".ssh", "id_ed25519")
+	if err := os.MkdirAll(filepath.Dir(key), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(key, []byte("PRIVATE KEY"), 0o600)
+	plain := filepath.Join(t.TempDir(), "token")
+	os.WriteFile(plain, []byte("jwt"), 0o600)
+	noAgent(t)
+	for _, check := range []func(string, string) error{cloud.CheckLocalFile, gcpadc.CheckLocalFile} {
+		if err := check("AZURE_FEDERATED_TOKEN_FILE", key); err != nil {
+			t.Errorf("a person's own file: %v", err)
+		}
+	}
+	asAgent(t, false, false)
+	for _, check := range []func(string, string) error{cloud.CheckLocalFile, gcpadc.CheckLocalFile} {
+		e := toErr(check("AZURE_FEDERATED_TOKEN_FILE", key))
+		if e == nil || e.Code != "SENSITIVE_FILE" || !strings.Contains(e.Message, "AZURE_FEDERATED_TOKEN_FILE") || !strings.Contains(e.Message, "private key") {
+			t.Errorf("an agent's private key: %+v", e)
+		}
+		if err := check("AZURE_FEDERATED_TOKEN_FILE", plain); err != nil {
+			t.Errorf("an agent's token file: %v", err)
+		}
 	}
 }

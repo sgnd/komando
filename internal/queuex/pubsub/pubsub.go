@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -25,6 +26,7 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/queuex"
 )
@@ -38,7 +40,7 @@ const scope = "https://www.googleapis.com/auth/pubsub"
 // GOOGLE_APPLICATION_CREDENTIALS file, gcloud's own file, or the metadata
 // server on Google Cloud). Tests replace it.
 var defaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, scope)
+	return gcpadc.Find(ctx, scope)
 }
 
 // testTLS is nil, except in tests, which trust their own HTTPS server.
@@ -104,7 +106,8 @@ func onGoogle(t driver.Target) bool {
 }
 
 // tokens is where the access tokens come from: the service account key,
-// or the application default credentials. Tokens only travel over HTTPS:
+// or, for Google's own endpoint, the application default credentials.
+// Tokens only travel over HTTPS:
 // the emulator (http://) takes no login, so it gets none. The tokens are
 // fetched the conn's way too (plain), so --via also covers the login.
 func tokens(t driver.Target, key string, plain *http.Client) (oauth2.TokenSource, error) {
@@ -119,19 +122,22 @@ func tokens(t driver.Target, key string, plain *http.Client) (oauth2.TokenSource
 				"pubsub: the stored login is not a service account key")
 		}
 		return creds.TokenSource, nil
-	case !t.Secure:
+	case !onGoogle(t):
+		// an endpoint of its own gets no gcloud login: that token is good
+		// for the whole Google Cloud account, and a conn names any host. A
+		// login for it is a --password-ref, which a person allows
 		return nil, nil
 	}
 	creds, err := defaultCredentials(tctx)
-	switch {
-	case err == nil:
-		return creds.TokenSource, nil
-	case onGoogle(t):
+	if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
+		return nil, fe.Err
+	}
+	if err != nil {
 		return nil, out.Errf(out.ExitConnect, "QUEUE_AUTH",
 			"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME < key.json` and pass --password-ref secret:NAME",
 			"pubsub: no Google Cloud login: %v", err)
 	}
-	return nil, nil // an endpoint of its own that may need no login
+	return creds.TokenSource, nil
 }
 
 // Close ends the idle connections.
