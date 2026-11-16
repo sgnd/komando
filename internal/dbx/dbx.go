@@ -17,6 +17,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,7 +50,7 @@ func Open(ctx context.Context, rawURL string, t driver.Target, password string, 
 	var db *sql.DB
 	switch t.Kind.Name {
 	case "postgres":
-		cfg, err := pgx.ParseConfig(driver.WithoutCA(rawURL))
+		cfg, err := parsePostgres(rawURL)
 		if err != nil {
 			return nil, out.Usage("komando cannot read the postgres URL: %v", err)
 		}
@@ -726,4 +728,48 @@ func pinCA(cfg *pgx.ConnConfig, pool *x509.CertPool) {
 		}
 	}
 	cfg.Fallbacks = keep
+}
+
+// pgEnv are the environment variables pgx reads as defaults for what a URL
+// leaves out (pgconn parseEnvSettings). komando takes a conn from its URL
+// only: from the environment, an AI agent's process could move the login
+// (PGHOST, PGSERVICE) or make komando trust its certificate
+// (PGSSLROOTCERT), so they are dropped before any URL is read.
+var pgEnv = []string{"PGHOST", "PGPORT", "PGDATABASE", "PGUSER", "PGPASSWORD", "PGPASSFILE", "PGAPPNAME",
+	"PGCONNECT_TIMEOUT", "PGSSLMODE", "PGSSLKEY", "PGSSLCERT", "PGSSLCERTMODE", "PGSSLSNI", "PGSSLROOTCERT",
+	"PGSSLPASSWORD", "PGSSLNEGOTIATION", "PGTARGETSESSIONATTRS", "PGSERVICE", "PGSERVICEFILE", "PGTZ",
+	"PGOPTIONS", "PGMINPROTOCOLVERSION", "PGMAXPROTOCOLVERSION", "PGCHANNELBINDING", "PGREQUIREAUTH", "PGHOSTADDR"}
+
+// parsePostgres is pgx.ParseConfig of rawURL with no environment
+// defaults, and no password from ~/.pgpass unless the URL names a
+// passfile: a conn with no password of komando's own must not log in with
+// the person's .pgpass at a server an AI agent chose.
+func parsePostgres(rawURL string) (*pgx.ConnConfig, error) {
+	for _, k := range pgEnv {
+		_ = os.Unsetenv(k)
+	}
+	conn := driver.WithoutCA(rawURL)
+	if u, err := url.Parse(conn); err == nil && !u.Query().Has("passfile") {
+		q := u.Query()
+		q.Set("passfile", "")
+		u.RawQuery = q.Encode()
+		conn = u.String()
+	}
+	return pgx.ParseConfig(conn)
+}
+
+// PostgresTargets are the host:port pairs pgx logs in at for rawURL, its
+// fallbacks included, read as Open reads it.
+func PostgresTargets(rawURL string) []string {
+	cfg, err := parsePostgres(rawURL)
+	if err != nil {
+		return nil
+	}
+	targets := []string{net.JoinHostPort(cfg.Host, strconv.Itoa(int(cfg.Port)))}
+	for _, fb := range cfg.Fallbacks {
+		if t := net.JoinHostPort(fb.Host, strconv.Itoa(int(fb.Port))); !slices.Contains(targets, t) {
+			targets = append(targets, t)
+		}
+	}
+	return targets
 }

@@ -170,26 +170,18 @@ func hostPlace(h *store.Host) secretPlace {
 	return secretPlace{dedupe(refs), dest}
 }
 
-// connPlace: a conn's password and the secrets its URL names go to its
-// address (where ?resolve= points it), by the way there. A --via path
-// counts: the address is looked up at its end.
+// connPlace: a conn's password and the secrets its URL names go to every
+// place its driver logs in at (connPlaces), with the URL's settings that
+// decide where and how (connURLSettings), by the way there. A --via path
+// counts: the addresses are looked up at its end.
 func connPlace(c *store.Conn) secretPlace {
 	refs := []string{c.PasswordRef}
 	for _, r := range urlSecretRefs(c.URL) {
 		refs = append(refs, "secret:"+r.Name)
 	}
-	dest := c.URL
-	if t, err := driver.Parse(c.URL); err == nil {
-		dest = t.Address
-		if len(t.Brokers) > 1 { // kafka: the login goes to every broker
-			dest = strings.Join(t.Brokers, ",")
-		}
-		if t.Kind.File {
-			dest = t.Path
-		}
-		if t.Resolve != "" && t.Resolve != t.Address {
-			dest += " (at " + t.Resolve + ")"
-		}
+	dest := strings.Join(connPlaces(c), ",")
+	if set := connURLSettings(c.URL); len(set) > 0 {
+		dest += " (" + strings.Join(set, "&") + ")"
 	}
 	if c.Via != "" {
 		dest += " via " + c.Via
@@ -345,7 +337,7 @@ func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 // guardHostSends is guardSends for servers an add, edit or import leaves
 // as now; olds holds each one's settings before, by name (none: new).
 func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, why ...string) error {
-	var lines []string
+	var lines, weak []string
 	for _, h := range now {
 		var before *secretPlace
 		if o, ok := olds[h.Name]; ok && o != nil {
@@ -357,8 +349,36 @@ func guardHostSends(cl *call, now []*store.Host, olds map[string]*store.Host, wh
 			return err
 		}
 		lines = append(lines, line)
+		weak = append(weak, winrmWeak(olds[h.Name], h)...)
 	}
-	return guardSends(cl, lines, nil, why...)
+	return guardSends(cl, lines, weak, why...)
+}
+
+// winrmWeak is what now's WinRM settings give up that old's did not: the
+// server's certificate is not checked (tls=skip-verify), nothing is
+// encrypted (tls=off), or the password itself is sent (auth=basic).
+func winrmWeak(old, now *store.Host) []string {
+	if !now.WinRM() || now.WinRMOpts == nil {
+		return nil
+	}
+	var was store.WinRMOpts
+	if old.WinRM() && old.WinRMOpts != nil {
+		was = *old.WinRMOpts
+	}
+	o := now.WinRMOpts
+	var w []string
+	if o.TLS != was.TLS {
+		switch o.TLS {
+		case "skip-verify":
+			w = append(w, "server "+now.Name+": WinRM tls=skip-verify (the server's certificate is not checked)")
+		case "off":
+			w = append(w, "server "+now.Name+": WinRM tls=off (commands, files and the login travel unencrypted)")
+		}
+	}
+	if o.Auth == "basic" && was.Auth != "basic" {
+		w = append(w, "server "+now.Name+": WinRM auth=basic (the password itself is sent)")
+	}
+	return w
 }
 
 // vpnPlace: a VPN's login (its password or auth key, and its pre-shared

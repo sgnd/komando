@@ -214,7 +214,7 @@ var errorCodes = []errorCode{
 	{"SECRET_UNRESOLVED", 3, "registry CA …: …", "store the CA certificate with `komando secret set NAME < ca.crt`"},
 	{"SECURITY_UNSUPPORTED", 3, "komando picks security updates on apt and dnf/yum servers only; … uses …", "use `komando pkg upgrade TARGET` on these servers"},
 	{"SELF_NOT_FOUND", 1, "cannot find the komando program that is running: …", "run komando by its full path, for example /usr/local/bin/komando update"},
-	{"SENSITIVE_FILE", 6, "… is …; komando does not write there for an AI agent", "save it in another folder (the project folder, /tmp), or ask the user to run the command in their own terminal"},
+	{"SENSITIVE_FILE", 6, "… is …, not …", "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"},
 	{"SESSION_NOT_FOUND", 3, "no session …", "list sessions with `komando db activity CONN --all`"},
 	{"SFTP_UNAVAILABLE", 4, "sftp: …", "enable the sftp subsystem in sshd_config"},
 	{"SHARED_FOLDER_CONFLICT", 8, "… can be changed by …, not only by root and the SSH user: as root, komando does not write … there (that user could swap it for a link while root writes)", "write it as … instead, for example `komando exec TARGET --sudo-user … --stdin-file FILE -- sh -c 'cat > \"$0\"' …`"},
