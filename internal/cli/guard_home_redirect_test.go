@@ -112,3 +112,28 @@ func TestAgentHomeUnknownStops(t *testing.T) {
 	noAgent(t)
 	mustRun(t, "list") // a person is not asked
 }
+
+// The e2e lab's agent (test/e2e/lib.sh): KOMANDO_HOME is the run's folder
+// and HOME a folder whose .komando is a link to it, neither the account's
+// home. KOMANDO_HOME names ~/.komando of that HOME, so nothing stops.
+func TestAgentLabHome(t *testing.T) {
+	unixOnly(t, "symbolic links")
+	account, run, agentHome := t.TempDir(), t.TempDir(), t.TempDir()
+	accountHomeAt(t, account)
+	saved := defaultHome
+	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
+	t.Cleanup(func() { defaultHome = saved })
+	t.Setenv("KOMANDO_HOME", run)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.9")
+	if err := os.Symlink(run, filepath.Join(agentHome, ".komando")); err != nil {
+		t.Fatal(err)
+	}
+	windowText(t, false)
+	t.Setenv("HOME", agentHome)
+	if d := mustRun(t, "list"); d["count"] != float64(1) {
+		t.Fatalf("list: %v", d)
+	}
+	// KOMANDO_HOME that is no ~/.komando at all still needs a person
+	t.Setenv("HOME", t.TempDir())
+	wantCode(t, "SAFETY_SETTING", "list")
+}

@@ -63,6 +63,14 @@ func otherHome(cl *call) string {
 	if h == "" || sameDir(h, defaultHome()) {
 		return ""
 	}
+	// ~/.komando of the HOME this komando was started with counts too: a
+	// person who starts their agent with HOME and KOMANDO_HOME elsewhere
+	// (a test lab) keeps working. An agent that sets both in front of
+	// komando is what the guard hook refuses; alone, HOME moves nothing
+	// (store.UserHome).
+	if d, err := os.UserHomeDir(); err == nil && sameDir(h, filepath.Join(d, ".komando")) {
+		return ""
+	}
 	return h
 }
 

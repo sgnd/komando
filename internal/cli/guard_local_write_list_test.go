@@ -172,7 +172,7 @@ func TestOtherPackagesWriteOwnFiles(t *testing.T) {
 	fset := token.NewFileSet()
 	var files []string
 	filepath.WalkDir("..", func(p string, d fs.DirEntry, err error) error {
-		if err == nil && d.IsDir() && (p == "../cli" || d.Name() == "e2e" || d.Name() == "testdata") {
+		if err == nil && d.IsDir() && (filepath.ToSlash(p) == "../cli" || d.Name() == "e2e" || d.Name() == "testdata") {
 			return filepath.SkipDir
 		}
 		if err == nil && strings.HasSuffix(p, ".go") {
