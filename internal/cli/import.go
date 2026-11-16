@@ -210,14 +210,10 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	existed := entryNames(st) // before this import puts anything in st
 	// decide first, so secrets are stored only for what is really added
 	skip := importSkipper(cl, st, overwrite)
-	var vpns []*store.Vpn
-	for _, v := range plan.Vpns {
-		if r := skip("vpn", v.Name); r != "" {
-			res.Skipped = append(res.Skipped, importSkip{v.Name, r})
-			continue
-		}
-		vpns = append(vpns, v)
-		res.Vpns = append(res.Vpns, v.Name)
+	vpns := pickImportVpns(plan, skip, &res)
+	replaced, err := vetImportVpns(cl, st, vpns)
+	if err != nil {
+		return err
 	}
 	if err := importVpnPlaces(cl, st, vpns); err != nil {
 		return err
@@ -317,6 +313,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	if err != nil {
 		return err
 	}
+	forgetReplacedTailscale(cl, replaced...)
 	audit(cl, st, "import", append(append([]string{}, res.Hosts...), res.Conns...), "", true,
 		map[string]any{"source": source, "file": file, "secrets": len(res.Secrets), "deny_rules": res.DenyRules})
 	cl.out.Print("import", res, toErr(incomplete))

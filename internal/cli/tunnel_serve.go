@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -10,7 +9,7 @@ import (
 // tunnelServeProcess is the background process of tunnel start for tunnel
 // id: the host key policy this command checked, and the passwords typed
 // for the login-ask servers on the way on its input (never in its
-// arguments or environment).
+// arguments or environment). startTunnelServe starts it.
 func tunnelServeProcess(cl *call, self, id string, logins map[string]string) *exec.Cmd {
 	pargs := []string{"tunnel", "serve", id}
 	if cl.flags.hostKeyPolicy != "" {
@@ -28,21 +27,6 @@ func tunnelServeProcess(cl *call, self, id string, logins map[string]string) *ex
 		p.Stdin = loginsInput(logins)
 	}
 	return p
-}
-
-// serveLogins: tunnel serve asks nobody, and has only the passwords tunnel
-// start typed (read from stdin when fromStdin).
-func serveLogins(cl *call, fromStdin bool) error {
-	cl.logins.background = true
-	if !fromStdin {
-		return nil
-	}
-	in := bufio.NewReader(cl.stdin)
-	if err := readLogins(cl, in); err != nil {
-		return err
-	}
-	cl.stdin = in
-	return nil
 }
 
 // serveFail is how tunnel serve says why it stops: one ERROR line, which

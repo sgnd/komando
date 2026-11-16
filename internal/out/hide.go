@@ -155,10 +155,28 @@ func (p *Printer) ForgetAdded() {
 	})
 }
 
+// Spare stops hiding, in this printer's output, the vault values that s
+// holds (and their encoded forms): s is what an AI agent typed itself. A
+// [secret:NAME] in place of its own guess would tell it the guess is a
+// secret; shown as typed, a right guess and a wrong one look the same.
+func (p *Printer) Spare(s string) {
+	p.load()
+	p.hmu.Lock()
+	defer p.hmu.Unlock()
+	labels := map[string]bool{}
+	for _, h := range p.hide {
+		if h.vault && !h.added && len(h.raw) >= minSecret && strings.Contains(s, h.raw) {
+			labels[h.label] = true
+		}
+	}
+	if len(labels) == 0 {
+		return
+	}
+	p.hide = keepOnly(p.hide, func(h *hidden) bool { return h.added || !labels[h.label] })
+}
+
 // HoldsVaultValue reports whether s holds a value from the vault
-// (Printer.Secrets), raw, never what only looks like a secret. komando
-// refuses such input from an AI agent: masking each exact value would
-// otherwise tell it which of its guesses is a secret.
+// (Printer.Secrets), raw, never what only looks like a secret.
 func (p *Printer) HoldsVaultValue(s string) bool {
 	if p.NoRedact || len(s) < minSecret {
 		return false

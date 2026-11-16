@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"io"
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -42,5 +45,33 @@ func TestLoginAskDefaultUserOfAJumpServer(t *testing.T) {
 	e := wantCode(t, "NEEDS_PERSON", "config", "set", "default_user", "root")
 	if !strings.Contains(e.Message, "bastion") || !strings.Contains(e.Message, "web1") {
 		t.Errorf("%+v", e)
+	}
+}
+
+// tunnel serve reads what tunnel start wrote in one order: its ticket,
+// then the typed passwords. Without a ticket it stops, whatever follows.
+func TestLoginAskServeReadsTicketThenLogins(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--login", "ask") // the store the ticket's key comes from
+	saved, savedIn := tcl.args, tcl.stdin
+	t.Cleanup(func() { tcl.args, tcl.stdin = saved, savedIn; resetApproval() })
+	cmd := []string{"tunnel", "serve", "t1", loginsStdinFlag}
+	tcl.args = append([]string{"komando"}, cmd...)
+	logins, _ := io.ReadAll(loginsInput(map[string]string{"web1": "typed-Pa55"}))
+	line, err := ticketLine(cmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tcl.stdin = strings.NewReader(line + string(logins))
+	if _, err := serveState(tcl, true, false); err != nil {
+		t.Fatalf("ticket then passwords: %v", err)
+	}
+	q := sshx.LoginAsk{Host: &store.Host{Name: "web1", Login: store.LoginAsk}, User: "u", Addr: "10.0.0.5:22"}
+	if pw, _, err := tcl.loginPassword(q); err != nil || pw != "typed-Pa55" {
+		t.Errorf("web1: %q %v", pw, err)
+	}
+	tcl.stdin = strings.NewReader(string(logins)) // run by hand: no ticket
+	if _, err := serveState(tcl, true, false); err == nil {
+		t.Error("tunnel serve went on without a ticket")
 	}
 }

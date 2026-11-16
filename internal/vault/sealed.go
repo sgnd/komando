@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hkdf"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -120,6 +121,25 @@ func changeSealed(fn func(f *file) error) error {
 		}
 		return nil
 	})
+}
+
+// TicketMAC is the HMAC-SHA256 of msg under a key made from the store's
+// master key: what komando's background commands check their parent's
+// ticket with, so only a process that can open the store makes one.
+func TicketMAC(msg []byte) ([]byte, error) {
+	m, err := store.MasterKey()
+	if err != nil {
+		return nil, err
+	}
+	defer clear(m)
+	k, err := hkdf.Key(sha256.New, m, nil, "komando spawn tickets v1", 32)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(k)
+	h := hmac.New(sha256.New, k)
+	h.Write(msg)
+	return h.Sum(nil), nil
 }
 
 // sealedAEAD is the vault's key on a sealed home: HKDF of the store's

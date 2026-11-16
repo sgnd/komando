@@ -123,11 +123,15 @@ func FortinetTunnel(ctx context.Context, o Options, cookie string) (Tunnel, erro
 	t.closeFn = func() { c.Close() }
 	t.ppp = newPPP(t.sendPPP)
 	if a, err := netip.ParseAddr(cfg.IPv4.Assigned.IP); err == nil {
-		t.ppp.addr = a
+		if a, ok := ipv4(a); ok {
+			t.ppp.addr = a
+		}
 	}
 	for _, d := range cfg.IPv4.DNS {
 		if a, err := netip.ParseAddr(d.IP); err == nil {
-			t.ppp.dns = append(t.ppp.dns, a)
+			if a, ok := ipv4(a); ok {
+				t.ppp.dns = append(t.ppp.dns, a)
+			}
 		}
 	}
 	go t.read()

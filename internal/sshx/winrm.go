@@ -13,6 +13,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/transport"
 	"github.com/sgnd/komando/internal/vault"
 	"github.com/sgnd/komando/internal/winrm"
 )
@@ -113,10 +114,7 @@ func winrmTLS(h *store.Host) (*tls.Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		pool, err := x509.SystemCertPool()
-		if err != nil || pool == nil {
-			pool = x509.NewCertPool()
-		}
+		pool := transport.Roots()
 		if !pool.AppendCertsFromPEM([]byte(pem)) {
 			return nil, out.Errf(out.ExitUsage, "BAD_CA", "store the CA certificate (PEM) with `komando secret set NAME < ca.crt`",
 				"%s: the WinRM CA %s holds no PEM certificate", h.Name, opts.CA)

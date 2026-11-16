@@ -89,7 +89,9 @@ func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 	}
 	b, _ := os.ReadFile(got)
 	want := "LOGIN " + base64.StdEncoding.EncodeToString([]byte("web1")) + " " + base64.StdEncoding.EncodeToString([]byte(pw)) + "\nEND\n"
-	if !strings.HasPrefix(string(b), want) {
+	// the spawn ticket is the first line, the typed passwords follow it
+	ticket, rest, _ := strings.Cut(string(b), "\n")
+	if !strings.HasPrefix(ticket, "TICKET ") || !strings.HasPrefix(rest, want) {
 		t.Errorf("serve stdin %q", b)
 	}
 	if strings.Contains(buf.String(), pw) {

@@ -209,11 +209,8 @@ point your database app or psql at the local address it prints. With a server, g
 			if err != nil {
 				return err
 			}
-			p := tunnelServeProcess(cl, self, id, logins)
-			p.Stdout, p.Stderr = lf, lf
-			p.SysProcAttr = detachAttr()
-			vault.PassOnStdin(p) // not in its environment: it runs for long
-			if err := p.Start(); err != nil {
+			p, err := startTunnelServe(tunnelServeProcess(cl, self, id, logins), lf)
+			if err != nil {
 				return err
 			}
 			lf.Close()
@@ -458,10 +455,7 @@ func tunnelServeCmd() *cobra.Command {
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			logger := log.New(cl.out.W, "", log.LstdFlags)
 			fail := func(err error) error { return serveFail(cl, err) }
-			if err := serveLogins(cl, loginsStdin); err != nil {
-				return fail(err)
-			}
-			st, err := serveState(cl, passStdin)
+			st, err := serveState(cl, loginsStdin, passStdin)
 			if err != nil {
 				return fail(err)
 			}
@@ -549,13 +543,39 @@ func tunnelServeCmd() *cobra.Command {
 	return c
 }
 
-// serveState is tunnel serve's inventory, after the vault passphrase from
-// stdin when tunnel start sent one (vault.PassOnStdin).
-func serveState(cl *call, passStdin bool) (*store.State, error) {
-	if passStdin {
-		if err := vault.ReadPassStdin(cl.stdin); err != nil {
+// startTunnelServe starts the `tunnel serve ID` process (pargs) of
+// tunnel start, logging to lf, with its ticket (guard_spawn.go) and the
+// vault passphrase on its stdin, not in its environment: it runs for long.
+func startTunnelServe(p *exec.Cmd, lf *os.File) (*exec.Cmd, error) {
+	p.Stdout, p.Stderr = lf, lf
+	p.SysProcAttr = detachAttr()
+	vault.PassOnStdin(p)
+	if err := sealTicket(p); err != nil {
+		return nil, err
+	}
+	return p, p.Start()
+}
+
+// serveState is tunnel serve's inventory, after what tunnel start wrote
+// on its stdin, in this order: its ticket, the passwords typed for the
+// login-ask servers on the way (loginsStdin), and the vault passphrase
+// when it sent one (vault.PassOnStdin). tunnel serve asks nobody.
+func serveState(cl *call, loginsStdin, passStdin bool) (*store.State, error) {
+	cl.logins.background = true
+	in := bufio.NewReader(cl.stdin)
+	ticket := readTicket(in)
+	if loginsStdin {
+		if err := readLogins(cl, in); err != nil {
 			return nil, err
 		}
+	}
+	if passStdin {
+		if err := vault.ReadPassStdin(in); err != nil {
+			return nil, err
+		}
+	}
+	if err := checkTicket(cl, ticket, "tunnel serve", "tunnel start"); err != nil {
+		return nil, err
 	}
 	return loadState()
 }

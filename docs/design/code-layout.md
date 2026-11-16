@@ -37,7 +37,7 @@ work and prints the answer. Code that talks to something outside komando
 gets an `x` at the end only when the plain word would clash with:
 
 - a standard library package (`net` → `netx`);
-- a package komando imports (`ssh` → `sshx`, `proxy` → `proxyx`);
+- a package komando imports (`ssh` → `sshx`, `queue` → `queuex`);
 - another komando package (`store` → `storex`);
 - a word the code uses as a variable name everywhere (`db`, `cache`,
   `queue`, `browser` → `dbx`, `cachex`, `queuex`, `browserx`).
@@ -47,7 +47,7 @@ conflict and gains nothing. A new package follows the rule.
 
 **One engine per sub-package** under its family: `queuex/nats`,
 `queuex/sqs`. A fake server or helper that only tests use goes in a
-`...test` sub-package (`proxyx/proxytest`).
+`...test` sub-package (`transport/proxytest`).
 
 **When a noun gets its own package:** when it has logic that needs neither
 cobra nor komando's global state (the inventory, the guards, the audit
@@ -88,8 +88,8 @@ or a listed one is gone.
 | `internal/out` | the JSON envelope and the text output of every command |
 | `internal/policy` | finds destructive shell commands |
 | `internal/ppp` | a small PPP peer for L2TP |
-| `internal/proxyx` | HTTPS clients through the company proxy |
-| `internal/proxyx/proxytest` | a test proxy for the tests |
+| `internal/transport` | what every outbound HTTPS and TLS client of komando shares: the system's CAs (never `SSL_CERT_FILE`/`SSL_CERT_DIR`) and the company proxy (a person's `HTTPS_PROXY`, never an AI agent's) |
+| `internal/transport/proxytest` | a test proxy for the tests |
 | `internal/queuex` | message queues, with Kafka built in |
 | `internal/queuex/nats` | NATS JetStream |
 | `internal/queuex/pubsub` | Google Cloud Pub/Sub |
