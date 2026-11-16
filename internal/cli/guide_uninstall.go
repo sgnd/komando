@@ -42,6 +42,11 @@ an agent needs a person's yes (--yes).`,
 			if err != nil {
 				return out.Errf(out.ExitError, "NO_FOLDER", "set HOME, or run it from the project folder", "cannot find the folder: %v", err)
 			}
+			if project {
+				if err := noLinksUnder(base, projectFiles(base)...); err != nil {
+					return out.Errf(out.ExitError, "WRITE_FAILED", "remove the link, then run it again", "%v", err)
+				}
+			}
 			// the whole plan first: a stop for the guard must come before
 			// anything is removed, the skill files too
 			var files []skillFile
@@ -158,7 +163,7 @@ func removeGuard(cl *call, path string, check bool) (skillFile, error) {
 	if len(hooks) == 0 {
 		delete(settings, "hooks")
 	}
-	f.Action, f.Backup = "updated", settingsBackup(path)
+	f.Action, f.Backup = "updated", newBackup(path)
 	if check || cl.flags.dryRun {
 		return f, nil
 	}
@@ -169,7 +174,7 @@ func removeGuard(cl *call, path string, check bool) (skillFile, error) {
 	if err := enc.Encode(settings); err != nil {
 		return f, err
 	}
-	if err := saveSettingsBackup(f.Backup, old); err != nil {
+	if err := saveBackup(f.Backup, old); err != nil {
 		return f, err
 	}
 	return f, store.WriteFileAtomic(path, buf.Bytes(), 0o600)

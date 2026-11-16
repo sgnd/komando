@@ -72,7 +72,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
 | `FAILED` | 5 | kubectl exited … | read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
-| `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the folder exists and is writable |
+| `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the temporary folder is writable |
 | `FILE_EXISTS` | 8 | … already exists on this computer | choose another --to, remove the file, or pass --overwrite |
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |
 | `FILE_TOO_LARGE` | 8 | …:… is more than …; komando holds a copy from a pod in memory, and stopped | copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH` |

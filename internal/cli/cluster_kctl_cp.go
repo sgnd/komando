@@ -12,6 +12,7 @@ import (
 
 	"github.com/sgnd/komando/internal/kube"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // cp copies between this computer and a pod with tar in the container,
@@ -157,6 +158,9 @@ func untarTo(cl *call, tarball []byte, dst, base string) error {
 		plan = append(plan, e)
 	}
 	for _, e := range plan {
+		if err := guardLocalWrite(cl, e.target); err != nil {
+			return err
+		}
 		switch {
 		case e.target == "":
 		case e.dir:
@@ -168,17 +172,9 @@ func untarTo(cl *call, tarball []byte, dst, base string) error {
 				return kfail("%v", err)
 			}
 			mode := e.mode&0o755 | 0o600 // as kubectl cp: never setuid, setgid or world-writable
-			f, err := os.OpenFile(e.target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
-			if err != nil {
-				return kfail("%v", err)
-			}
-			if err := f.Chmod(mode); err != nil { // a file already there keeps no mode of its own
-				f.Close()
-				return kfail("%v", err)
-			}
-			_, err = f.Write(e.data)
-			f.Close()
-			if err != nil {
+			// a new file put in place, never written through a link or a
+			// hard link already at that name
+			if err := store.WriteFileAtomic(e.target, e.data, mode); err != nil {
 				return kfail("%v", err)
 			}
 		}
