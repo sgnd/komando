@@ -1,10 +1,11 @@
 package cli
 
 import (
-	"bufio"
 	"bytes"
 	"context"
+	"encoding/hex"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -53,39 +54,51 @@ func TestBackgroundCommandsNeedTheirParent(t *testing.T) {
 	}
 }
 
-// A ticket works once, for a while, and only as a file komando made.
+// A ticket works once, for a while, only for the command line it was
+// made for (flags too), and only if made with the store's key: a file
+// any program of the user can write in komando's home is not one.
 func TestSpawnTicket(t *testing.T) {
 	invHome(t)
-	cmd := []string{"vpn", "serve", "x"}
-	line, err := newSpawnTicket(cmd...)
+	mustRun(t, "vpn", "add", "x", "socks", "--proxy-address", "127.0.0.1:1") // the store the ticket's key comes from
+	saved := tcl.args
+	t.Cleanup(func() { tcl.args = saved })
+	cmd := []string{"vpn", "serve", "x", "--password-stdin"}
+	tcl.args = append([]string{"komando"}, cmd...)
+	check := func(line string) error {
+		return checkTicket(tcl, strings.TrimRight(line, "\n"), "vpn serve", "vpn up x")
+	}
+	line, err := ticketLine(cmd)
 	if err != nil {
 		t.Fatal(err)
 	}
-	take := func(l string) error {
-		return takeSpawnTicket(bufio.NewReader(strings.NewReader(l)), cmd, "vpn serve", "vpn up x")
-	}
-	if err := take(line); err != nil {
+	if err := check(line); err != nil {
 		t.Fatalf("the ticket: %v", err)
 	}
-	if take(line) == nil {
+	if check(line) == nil {
 		t.Fatal("a ticket worked twice")
 	}
-	other, _ := newSpawnTicket("vpn", "serve", "y")
-	if take(other) == nil {
-		t.Fatal("another VPN's ticket worked")
+	// made for other words, or for the same words with other flags
+	for _, other := range [][]string{{"vpn", "serve", "y", "--password-stdin"}, {"vpn", "serve", "x"}} {
+		l, _ := ticketLine(other)
+		if check(l) == nil {
+			t.Fatalf("a ticket for %v started %v", other, cmd)
+		}
 	}
-	old, _ := newSpawnTicket(cmd...)
-	name := strings.TrimSpace(strings.TrimPrefix(old, "TICKET "))
-	past := time.Now().Add(-2 * ticketTTL)
-	os.Chtimes(store.Path("spawn", name), past, past)
-	if take(old) == nil {
+	// forged: a nonce file and a line written by hand, without the key
+	nonce := strings.Repeat("ab", 16)
+	os.WriteFile(store.Path("spawn", nonce), []byte("vpn serve x"), 0o600)
+	now := strconv.FormatInt(time.Now().Unix(), 10)
+	for _, forged := range []string{"TICKET " + nonce, "TICKET " + nonce + " " + now + " " + strings.Repeat("00", 32)} {
+		if check(forged) == nil {
+			t.Fatalf("a forged ticket worked: %q", forged)
+		}
+	}
+	// an old ticket
+	old, _ := ticketLine(cmd)
+	of := strings.Fields(old)
+	stale := strconv.FormatInt(time.Now().Add(-2*ticketTTL).Unix(), 10)
+	mac, _ := ticketMAC(of[1], stale, cmd)
+	if check("TICKET "+of[1]+" "+stale+" "+hex.EncodeToString(mac)) == nil {
 		t.Fatal("an old ticket worked")
-	}
-	fresh, _ := newSpawnTicket(cmd...)
-	name = strings.TrimSpace(strings.TrimPrefix(fresh, "TICKET "))
-	os.Remove(store.Path("spawn", name))
-	os.Mkdir(store.Path("spawn", name), 0o700)
-	if take(fresh) == nil {
-		t.Fatal("a folder worked as a ticket")
 	}
 }

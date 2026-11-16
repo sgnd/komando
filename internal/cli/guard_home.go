@@ -58,13 +58,14 @@ func sameDir(a, b string) bool {
 var homeFree = map[string]bool{"komando": true, "help": true, "completion": true, "version": true, "schema": true, "guide": true}
 
 // guardHome stops an AI agent's command that would use another data folder
-// than ~/.komando, unless a person allows it. Hidden commands go on: the
-// background processes a checked command starts (tunnel serve, vpn serve)
-// and the agent guard, which the agent's tool runs before every call.
+// than ~/.komando, unless a person allows it. The background commands
+// (vpn serve, tunnel serve, login-holder) too: in a home of its own an
+// agent holds the store key their tickets are made with. The agent guard
+// (guide guard), which the agent's tool runs before every call, goes on.
 func guardHome(cmd *cobra.Command) error {
 	cl := callOf(cmd)
 	top, _, _ := strings.Cut(commandName(cmd), ".")
-	if !cl.isAgent() || backgroundCmd(cmd) || homeFree[top] {
+	if !cl.isAgent() || homeFree[top] {
 		return nil
 	}
 	h := otherHome(cl)

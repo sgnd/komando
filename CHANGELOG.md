@@ -76,7 +76,11 @@ its highlights; the sections below them give the details. Versions follow
   when one of those commands started them. Run by hand, an AI agent got a
   SOCKS port into an `--mfa` VPN that `vpn up` refuses it, a tunnel or a
   held login without its checks, and no audit record. They now stop with
-  `NEEDS_PERSON`.
+  `NEEDS_PERSON` unless their parent's ticket comes first on stdin: an
+  HMAC of their whole command line (flags too) under a key made from the
+  store's master key, good once and for five minutes, so a file written
+  by hand is not one. An AI agent's `KOMANDO_HOME` set to another folder
+  needs a person's yes for them too (`SAFETY_SETTING`).
 - IKEv2 VPNs read only the IKE_SA_INIT response unencrypted. A forged
   plaintext Delete or CREATE_CHILD_SA from anyone on the path could end
   the tunnel or move its traffic to an SA of their choosing.
