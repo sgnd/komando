@@ -143,7 +143,7 @@ func TestReplacedTailscaleStartsFresh(t *testing.T) {
 		t.Fatal("vpn add --overwrite kept the old node state")
 	}
 	plant("tnet")
-	file := writeTemp(t, "exp.json", `{"format":"komando-export/1","vpns":[{"name":"tnet","kind":"tailscale"}]}`)
+	file := writeTemp(t, "exp.json", `{"format":"komando-export/1","vpns":[{"name":"tnet","kind":"tailscale","mfa":true}]}`)
 	mustRun(t, "import", "komando", file, "--overwrite")
 	if _, ok := stateOf("tnet"); ok {
 		t.Fatal("import --overwrite kept the old node state")
