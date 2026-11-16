@@ -1,7 +1,15 @@
 # Test-only FTPS server: user deploy/deploypass, TLS required on control and data.
+import logging
+from importlib.metadata import version
+
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import TLS_FTPHandler
 from pyftpdlib.servers import FTPServer
+
+# every command and every dropped connection goes to the container's log,
+# which run.sh prints when an area fails
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
+logging.info("pyftpdlib %s, pyopenssl %s", version("pyftpdlib"), version("pyopenssl"))
 
 auth = DummyAuthorizer()
 auth.add_user("deploy", "deploypass", "/data", perm="elradfmwMT")
