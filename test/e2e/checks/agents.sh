@@ -14,6 +14,7 @@ check "masked text is never written back" HIDDEN_VALUE "$(A fs write direct /hom
 check "an agent needs a person to send a vault secret" SECRET_DESTINATION "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' | jget 'd["error"]["code"]' || true)"
 check "an agent's preview of it reads no secret" "True SECRET_DESTINATION" "$(A fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}' --dry-run | jget 'd["data"]["results"][0]["would_change"], d["meta"]["would_be_blocked"]["code"]')"
 check "an agent with another KOMANDO_HOME needs a person" SAFETY_SETTING "$(CLAUDECODE=1 KOMANDO_NO_DIALOG=1 "$K" list | jget 'd["error"]["code"]' || true)"
+check "an agent with HOME and KOMANDO_HOME moved together needs a person" SAFETY_SETTING "$(CLAUDECODE=1 KOMANDO_NO_DIALOG=1 HOME="$AGENT_HOME" KOMANDO_HOME="$AGENT_HOME/.komando" "$K" list | jget 'd["error"]["code"]' || true)"
 q $K fs replace direct /home/agent/app/.env --old 'DB_PASSWORD=[hidden]' --new 'DB_PASSWORD={{secret:ops-pass}}'
 check "a hidden value set from the vault" True "$($K fs cat direct /home/agent/app/.env | jget '"DB_PASSWORD=[secret:ops-pass]" in d["data"]["content"] and "DB_HOST=db" in d["data"]["content"]')"
 check "an agent's guess of a vault value is refused" SECRET_INPUT_INVALID "$(A exec direct --read-only -- echo opspass | jget 'd["error"]["code"]' || true)"

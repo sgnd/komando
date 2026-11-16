@@ -121,7 +121,9 @@ if [ -n "$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT")" ]
 fi
 
 echo "==> build"
-(cd "$ROOT" && go build -o bin/komando ./cmd/komando)
+# a komando of the lab's own (bin/komando-e2e, never bin/komando): the
+# e2elab tag lets the lab name the agent's account home (lib.sh, A)
+(cd "$ROOT" && go build -tags e2elab -o bin/komando-e2e ./cmd/komando)
 
 E2E_RESULTS=$(mktemp)
 export E2E_RESULTS

@@ -19,7 +19,8 @@ import (
 // then the window), on every command. A person who keeps komando's data
 // elsewhere can make ~/.komando a link to it: a link to the same folder
 // counts as ~/.komando. HOME does not move it for an agent: komando takes
-// an agent's home folder from the system's user database (store.UserHome).
+// an agent's home folder from the system's user database (store.UserHome),
+// so HOME=/x with KOMANDO_HOME=/x/.komando is another folder too.
 
 // defaultHome is ~/.komando, where komando keeps an agent's data without
 // KOMANDO_HOME, in the account's home folder from the user database
@@ -56,19 +57,11 @@ func guardHomes() []string {
 	return homes
 }
 
-// otherHome is $KOMANDO_HOME when it names another folder than
-// ~/.komando, or "".
+// otherHome is $KOMANDO_HOME when it names another folder than the
+// account's ~/.komando, or "". $HOME has no say: an agent sets it.
 func otherHome(cl *call) string {
 	h := cl.getenv("KOMANDO_HOME")
 	if h == "" || sameDir(h, defaultHome()) {
-		return ""
-	}
-	// ~/.komando of the HOME this komando was started with counts too: a
-	// person who starts their agent with HOME and KOMANDO_HOME elsewhere
-	// (a test lab) keeps working. An agent that sets both in front of
-	// komando is what the guard hook refuses; alone, HOME moves nothing
-	// (store.UserHome).
-	if d, err := os.UserHomeDir(); err == nil && sameDir(h, filepath.Join(d, ".komando")) {
 		return ""
 	}
 	return h

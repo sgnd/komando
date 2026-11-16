@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -113,27 +114,49 @@ func TestAgentHomeUnknownStops(t *testing.T) {
 	mustRun(t, "list") // a person is not asked
 }
 
-// The e2e lab's agent (test/e2e/lib.sh): KOMANDO_HOME is the run's folder
-// and HOME a folder whose .komando is a link to it, neither the account's
-// home. KOMANDO_HOME names ~/.komando of that HOME, so nothing stops.
-func TestAgentLabHome(t *testing.T) {
-	unixOnly(t, "symbolic links")
-	account, run, agentHome := t.TempDir(), t.TempDir(), t.TempDir()
+// An AI agent that sets both HOME=/x and KOMANDO_HOME=/x/.komando in front
+// of komando moves the data folder just as KOMANDO_HOME alone does: it
+// needs a person's yes. Only ~/.komando of the account's home (or a link
+// to the same folder) is the usual one.
+func TestAgentHomePairStops(t *testing.T) {
+	account, fake := t.TempDir(), t.TempDir()
 	accountHomeAt(t, account)
 	saved := defaultHome
 	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
 	t.Cleanup(func() { defaultHome = saved })
-	t.Setenv("KOMANDO_HOME", run)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9")
-	if err := os.Symlink(run, filepath.Join(agentHome, ".komando")); err != nil {
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected") // the person
+	store.Close()
+
+	texts := windowText(t, false)
+	if err := os.Mkdir(filepath.Join(fake, ".komando"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	windowText(t, false)
-	t.Setenv("HOME", agentHome)
+	t.Setenv("HOME", fake)
+	t.Setenv("USERPROFILE", fake)
+	t.Setenv("KOMANDO_HOME", filepath.Join(fake, ".komando"))
+	wantCode(t, "SAFETY_SETTING", "list")
+	wantCode(t, "SAFETY_SETTING", "exec", "web2", "--", "touch", "/tmp/x")
+	if len(*texts) != 0 {
+		t.Errorf("no flag, no window: %q", *texts)
+	}
+	if _, err := os.Lstat(filepath.Join(fake, ".komando", "store.db")); !os.IsNotExist(err) {
+		t.Errorf("komando made a store in the agent's folder: %v", err)
+	}
+
+	// KOMANDO_HOME that names the account's ~/.komando is the usual folder,
+	// also through a link, whatever HOME says
+	t.Setenv("KOMANDO_HOME", filepath.Join(account, ".komando"))
 	if d := mustRun(t, "list"); d["count"] != float64(1) {
 		t.Fatalf("list: %v", d)
 	}
-	// KOMANDO_HOME that is no ~/.komando at all still needs a person
-	t.Setenv("HOME", t.TempDir())
-	wantCode(t, "SAFETY_SETTING", "list")
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(t.TempDir(), "k")
+		if err := os.Symlink(filepath.Join(account, ".komando"), link); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("KOMANDO_HOME", link)
+		if d := mustRun(t, "list"); d["count"] != float64(1) {
+			t.Fatalf("list through a link: %v", d)
+		}
+	}
 }
