@@ -11,7 +11,9 @@
 # A release is installed only when its checksums.txt is signed with the
 # komando project's key (checksums.txt.sig), the check `komando update`
 # makes, and the archive matches checksums.txt. The check needs OpenSSL 3
-# or perl; a computer with neither installs nothing. To check as well that
+# or perl; a computer with neither installs nothing. A release up to 0.13.0
+# (they have no signature) installs only with the checksums.txt it was
+# released with, which this script knows. To check as well that
 # an archive was built by komando's release workflow, download it and run
 # `gh attestation verify FILE --repo sgnd/komando` (see SECURITY.md).
 set -eu
@@ -61,11 +63,19 @@ fi
 
 file="komando_${os}_${arch}.tar.gz"
 base="https://github.com/$REPO/releases/latest/download"
+# v: the version asked for; empty: the newest release
+v=
 if [ -n "${KOMANDO_VERSION:-}" ]; then
-  case "$KOMANDO_VERSION" in v*) v=$KOMANDO_VERSION ;; *) v=v$KOMANDO_VERSION ;; esac
+  case "$KOMANDO_VERSION" in
+    *[!A-Za-z0-9.+-]* | *..* | .* | -*)
+      echo "KOMANDO_VERSION=$KOMANDO_VERSION is not a komando version. Write it as v0.14.1; see https://github.com/$REPO/releases" >&2
+      exit 1 ;;
+    v*) v=$KOMANDO_VERSION ;;
+    *) v=v$KOMANDO_VERSION ;;
+  esac
   base="https://github.com/$REPO/releases/download/$v"
 fi
-tmp=$(mktemp -d)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/komando-install.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT
 # a komando here already: this run is an update
 prev=$(command -v komando 2>/dev/null || true)
@@ -78,7 +88,7 @@ fetch() {
 # get URL FILE: download, or say in words why not
 get() {
   if fetch "$1" "$2"; then return 0; fi
-  if [ -n "${v:-}" ]; then
+  if [ -n "$v" ]; then
     echo "Could not download komando $v. Is there such a version? See https://github.com/$REPO/releases" >&2
   else
     echo "Could not download komando. Check the internet connection (and HTTPS_PROXY), then run the line again." >&2
@@ -86,17 +96,36 @@ get() {
   exit 1
 }
 
-# unsigned_release VERSION: one of the releases up to 0.13.0, which were
-# made before releases were signed
-unsigned_release() {
-  n=${1#v}
-  case "$n" in
-    0.13.0) return 0 ;;
-    0.[0-9].* | 0.1[0-2].*) n=${n#0.*.} ;;
-    *) return 1 ;;
+# sha256_of FILE: the sha256 of FILE, in hex
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
+# old_release VERSION: the sha256 of the checksums.txt that VERSION was
+# released with, for the releases made before releases were signed (up to
+# 0.13.0). One of them installs only with exactly that file, so nobody can
+# put other files in its place. Any other version needs a signature.
+old_release() {
+  case "${1#v}" in
+    0.1.0) echo 189d7e417ade91769123d4f25e37f09a71bfef6134377f42e19f233157cd93df ;;
+    0.2.0) echo b208838dceddb0515a29e8dfa08b26f56b9c58cfae22f648acb37c198237ae2c ;;
+    0.3.0) echo 3c09a61ed0cd4558163ad2fb22487dd2ef747fabd8c8a266a54b01ce082c365b ;;
+    0.3.1) echo f29aa9eda3cb2d8b620719635081ecd9485f0fd92df61eb3808d2f73fb7cfcd8 ;;
+    0.4.0) echo 29e227971cd48d7045c3589ec666722a965340dc0166bd92514ab4ebab00b415 ;;
+    0.5.0) echo 4db2fed021d1ce14a301e494e14a9f348dff2788a1d5581841a350107b677b8e ;;
+    0.6.0) echo 08ee66a2daaf79bf69676e4d6fe879f19ec84b639607e675620d69ddef2c48b2 ;;
+    0.7.0) echo 9867cf4f114b3e3a9b88f2bb88daa335937e22e3daccc00fb262653969944873 ;;
+    0.8.0) echo 15b69146c34c4de7ce00a84eed92c6319e0d9540f4a2b1cc9dba243bd5470094 ;;
+    0.9.0) echo 9f5620e21adb3bf53504525214a81ea6d92195142f0303d43cf183c631858244 ;;
+    0.10.0) echo 4a4b14e3bdace694903dfcf942cb98ec8b7b63dc05154a2173a72480342cf20c ;;
+    0.11.0) echo d3d26bd1225c6abd45a6f5d2e2a77489f571f1797385cb7d08e7bcb95e716b65 ;;
+    0.12.0) echo dd1cf9e07b84824ae802bcf15f83867677e4387fe0fb12805765d2b34163cc6c ;;
+    0.13.0) echo e0dd5d810fd4aa7c3bbf711e2c16bf6b7f7d299bd11d72033e6ca5bab690c4a6 ;;
   esac
-  case "$n" in "" | *[!0-9]*) return 1 ;; esac
-  return 0
 }
 
 # checked_by PROGRAM KEY SIGNATURE: PROGRAM finds that SIGNATURE (base64) is
@@ -193,8 +222,14 @@ exit(bytes(add(mul($s, $base), mul($h, $negA))) eq substr($sig, 0, 32) ? 0 : 1);
 check_signature() {
   refused="nothing was installed. Do not install it another way: someone may have replaced the release's files.
 Run the line again; if it happens again, report it privately at https://github.com/$REPO/security"
-  if ! fetch "$base/checksums.txt.sig" "$tmp/checksums.txt.sig" 2>/dev/null; then
+  rc=0
+  fetch "$base/checksums.txt.sig" "$tmp/checksums.txt.sig" 2>/dev/null || rc=$?
+  # curl ends with 22 when the release has no such file
+  if [ "$rc" -eq 22 ]; then
     echo "This release has no signature (checksums.txt.sig), so the installer cannot tell it comes from the komando project; $refused" >&2
+    exit 1
+  elif [ "$rc" -ne 0 ]; then
+    echo "Could not download the release's signature (checksums.txt.sig), so nothing was installed. Check the internet connection (and HTTPS_PROXY), then run the line again." >&2
     exit 1
   fi
   # a signature is 64 bytes: 88 characters of base64, one signature a line
@@ -226,8 +261,15 @@ echo "Downloading $file ..."
 get "$base/$file" "$tmp/$file"
 get "$base/checksums.txt" "$tmp/checksums.txt"
 
-if [ -n "${v:-}" ] && unsigned_release "$v"; then
-  echo "Note: komando ${v#v} has no signature (releases up to 0.13.0 have none), so only its checksum is checked."
+old=
+[ -z "$v" ] || old=$(old_release "$v")
+if [ -n "$old" ]; then
+  echo "Note: komando ${v#v} has no signature (releases up to 0.13.0 have none); its files are checked against the checksums it was released with."
+  if [ "$(sha256_of "$tmp/checksums.txt")" != "$old" ]; then
+    echo "This is not the checksums.txt komando ${v#v} was released with; nothing was installed. Do not install it another way: someone may have replaced the release's files." >&2
+    echo "Run the line again; if it happens again, report it privately at https://github.com/$REPO/security" >&2
+    exit 1
+  fi
 else
   echo "Verifying signature ..."
   check_signature
@@ -235,11 +277,7 @@ fi
 
 echo "Verifying checksum ..."
 expected=$(awk -v f="$file" '$2 == f { print $1 }' "$tmp/checksums.txt")
-if command -v sha256sum >/dev/null 2>&1; then
-  actual=$(sha256sum "$tmp/$file" | cut -d' ' -f1)
-else
-  actual=$(shasum -a 256 "$tmp/$file" | cut -d' ' -f1)
-fi
+actual=$(sha256_of "$tmp/$file")
 if [ -z "$expected" ] || [ "$expected" != "$actual" ]; then
   echo "The download does not match checksums.txt of its release; nothing was installed." >&2
   echo "Run the line again; if it happens again, report it at https://github.com/$REPO/issues" >&2

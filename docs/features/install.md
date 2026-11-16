@@ -38,8 +38,9 @@ release's files cannot make it install them. It checks the signature with
 OpenSSL 3, or with perl where there is none (macOS has perl; its own
 `openssl` cannot check this kind of signature). A computer with neither
 gets nothing installed and is told to install one. Releases up to 0.13.0
-have no signature: asked for with `KOMANDO_VERSION`, they install after
-the checksum check alone, and the installer says so.
+have no signature: the installer knows the checksums each of them was
+released with, installs one (asked for with `KOMANDO_VERSION`) only when
+its files match them, and says so.
 
 ## Install on Windows
 

@@ -68,6 +68,16 @@ func canCheck(checker string) bool {
 	return exec.Command(p, "-MMath::BigInt", "-MDigest::SHA", "-MMIME::Base64", "-e", "1").Run() == nil
 }
 
+// noChecker skips a test on a computer that cannot check a signature; in
+// CI, where one always can, a green run must mean the check ran.
+func noChecker(t *testing.T) {
+	t.Helper()
+	if os.Getenv("CI") != "" {
+		t.Fatal("neither OpenSSL 3 nor perl with Math::BigInt is here: the signature check was not tested")
+	}
+	t.Skip("neither OpenSSL 3 nor perl with Math::BigInt is on this computer")
+}
+
 type release struct {
 	archive []byte
 	sums    string
@@ -132,6 +142,7 @@ while [ $# -gt 1 ]; do
   [ "$1" = -o ] && out=$2
   shift
 done
+[ "${1##*/}" = "${CURL_FAIL:-}" ] && exit 56
 [ -n "$out" ] && [ -f "$SERVED/${1##*/}" ] || exit 22
 cp "$SERVED/${1##*/}" "$out"
 `, 0o755)
@@ -147,7 +158,7 @@ cp "$SERVED/${1##*/}" "$out"
 	log := filepath.Join(dir, "curl.log")
 	cmd := exec.Command("/bin/sh", path)
 	cmd.Env = append([]string{"PATH=" + bin, "HOME=" + dir, "SHELL=/bin/sh", "KOMANDO_INSTALL_DIR=" + dest,
-		"SERVED=" + served, "CURL_LOG=" + log}, env...)
+		"SERVED=" + served, "CURL_LOG=" + log, "TMPDIR=" + dir}, env...)
 	b, err := cmd.CombinedOutput()
 	got, _ := os.ReadFile(filepath.Join(dest, "komando"))
 	lines, _ := os.ReadFile(log)
@@ -231,7 +242,7 @@ func TestInstallScriptChecksTheSignature(t *testing.T) {
 		}
 	}
 	if ran == 0 {
-		t.Skip("neither OpenSSL 3 nor perl with Math::BigInt is on this computer")
+		noChecker(t)
 	}
 }
 
@@ -276,7 +287,7 @@ func TestInstallScriptAcceptsARealRelease(t *testing.T) {
 		})
 	}
 	if ran == 0 {
-		t.Skip("neither OpenSSL 3 nor perl with Math::BigInt is on this computer")
+		noChecker(t)
 	}
 }
 
@@ -297,44 +308,110 @@ func TestInstallScriptWithoutAChecker(t *testing.T) {
 	}
 }
 
-// Releases up to 0.13.0 were never signed: asked for by version, they
-// install with a note. Any later version, and the newest, need a signature.
+// Releases up to 0.13.0 were never signed. install.sh knows the checksums.txt
+// each of them was released with, and installs one, asked for by version,
+// only with exactly that file: nobody can put other files in its place.
 func TestInstallScriptOldReleases(t *testing.T) {
-	pub, _, err := NewKey()
+	sums, err := os.ReadFile("testdata/v0.13.0/checksums.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	script := withKey(t, pub)
-	for _, c := range []struct {
-		version string
-		install bool
-	}{
-		{"v0.13.0", true},
-		{"0.13.0", true},
-		{"v0.3.1", true},
-		{"v0.12.10", true},
-		{"v0.13.1", false},
-		{"v0.14.0", false},
-		{"v1.0.0", false},
-		{"v0.13.0-rc1", false},
-		{"v0.13", false},
-		{"v0.13.0.1", false},
-		{"v00.13.0", false},
-		{"", false},
-	} {
-		t.Run("version "+c.version, func(t *testing.T) {
-			var env []string
-			if c.version != "" {
-				env = append(env, "KOMANDO_VERSION="+c.version)
+	script := readScript(t)
+	for _, version := range []string{"v0.13.0", "0.13.0"} {
+		t.Run("the release's own checksums.txt, "+version, func(t *testing.T) {
+			rel := newRelease(t, "stand-in")
+			rel.sums = string(sums)
+			out, ok, installed, _ := runInstall(t, script, rel, "no-such-program", "KOMANDO_VERSION="+version)
+			if ok || installed != "" {
+				t.Fatalf("installed a stand-in archive:\n%s", out)
 			}
-			out, ok, installed, _ := runInstall(t, script, newRelease(t, "old"), "no-such-program", env...)
-			if got := ok && installed != ""; got != c.install {
-				t.Fatalf("installed = %v, want %v:\n%s", got, c.install, out)
-			}
-			if c.install && !strings.Contains(out, "no signature") {
-				t.Errorf("an unsigned old release installs without a note:\n%s", out)
+			// accepted as 0.13.0's file; the stand-in archive then fails the checksum
+			if !strings.Contains(out, "does not match checksums.txt") || !strings.Contains(out, "has no signature (releases up to 0.13.0 have none)") {
+				t.Errorf("want the old release's checksums.txt accepted, with a note, and the archive refused:\n%s", out)
 			}
 		})
+	}
+	t.Run("another checksums.txt", func(t *testing.T) {
+		out, ok, installed, _ := runInstall(t, script, newRelease(t, "replaced"), "no-such-program", "KOMANDO_VERSION=v0.13.0")
+		if ok || installed != "" {
+			t.Fatalf("installed replaced files as 0.13.0:\n%s", out)
+		}
+		if !strings.Contains(out, "not the checksums.txt komando 0.13.0 was released with") || !strings.Contains(out, "nothing was installed") {
+			t.Errorf("the refusal:\n%s", out)
+		}
+	})
+	// no release of these versions was made unsigned: they need a signature
+	for _, version := range []string{"v0.13.1", "v0.14.0", "v1.0.0", "v0.9.9", "v0.12.99", "v0.13.0-rc1", "v0.13", "v0.13.0.1", "v00.13.0", ""} {
+		t.Run("needs a signature: "+version, func(t *testing.T) {
+			var env []string
+			if version != "" {
+				env = append(env, "KOMANDO_VERSION="+version)
+			}
+			out, ok, installed, _ := runInstall(t, script, newRelease(t, "unsigned"), "no-such-program", env...)
+			if ok || installed != "" || !strings.Contains(out, "has no signature") || !strings.Contains(out, "nothing was installed") {
+				t.Fatalf("ok=%v installed=%q, want a refusal for the missing signature:\n%s", ok, installed, out)
+			}
+		})
+	}
+}
+
+// Nothing in the environment but KOMANDO_VERSION picks the version: a
+// variable named v, left there by something else, once made the newest
+// release pass as an old, unsigned one.
+func TestInstallScriptIgnoresStrayVariables(t *testing.T) {
+	out, ok, installed, curls := runInstall(t, readScript(t), newRelease(t, "unsigned"), "no-such-program", "v=v0.13.0")
+	if ok || installed != "" || !strings.Contains(out, "has no signature") {
+		t.Fatalf("ok=%v installed=%q, want a refusal for the missing signature:\n%s", ok, installed, out)
+	}
+	if !strings.Contains(curls, "/releases/latest/download/") || strings.Contains(curls, "v0.13.0") {
+		t.Errorf("not the newest release: curl %s", curls)
+	}
+}
+
+// A version that is not a version is refused before anything is downloaded
+// (a path in it could name another project's release).
+func TestInstallScriptRefusesAVersionWithAPath(t *testing.T) {
+	for _, version := range []string{"v0.13.0/../../../../other/repo/releases/download/v1", "v0.14.1?x", "v0.14.1 x", ".."} {
+		out, ok, installed, curls := runInstall(t, readScript(t), newRelease(t, "x"), "no-such-program", "KOMANDO_VERSION="+version)
+		if ok || installed != "" || curls != "" || !strings.Contains(out, "is not a komando version") {
+			t.Errorf("KOMANDO_VERSION=%q: ok=%v, downloads %q:\n%s", version, ok, curls, out)
+		}
+	}
+}
+
+// A signature that could not be downloaded (the connection, not a missing
+// file) is a download problem, not a sign that files were replaced.
+func TestInstallScriptSignatureDownloadFails(t *testing.T) {
+	pub, priv, err := NewKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel := newRelease(t, "good")
+	rel.sig = sign(t, priv, rel.sums)
+	out, ok, installed, _ := runInstall(t, withKey(t, pub), rel, "no-such-program", "CURL_FAIL=checksums.txt.sig")
+	if ok || installed != "" || !strings.Contains(out, "Could not download") || strings.Contains(out, "replaced") {
+		t.Errorf("ok=%v installed=%q:\n%s", ok, installed, out)
+	}
+}
+
+// What the script makes while it works is inside TMPDIR and gone afterwards.
+func TestInstallScriptCleansUp(t *testing.T) {
+	pub, priv, err := NewKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel := newRelease(t, "good")
+	rel.sig = sign(t, priv, rel.sums)
+	tmp := t.TempDir()
+	out, ok, _, _ := runInstall(t, withKey(t, pub), rel, "perl", "TMPDIR="+tmp)
+	if !canCheck("perl") {
+		t.Skip("no perl with Math::BigInt here")
+	}
+	if !ok {
+		t.Fatalf("not installed:\n%s", out)
+	}
+	if left, _ := os.ReadDir(tmp); len(left) != 0 {
+		t.Errorf("left in TMPDIR: %v", left)
 	}
 }
 
