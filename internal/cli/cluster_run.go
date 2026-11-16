@@ -164,7 +164,7 @@ func classifyKubectl(cl *call, args []string) driver.Risk {
 		return driver.RiskDestructive // exec/cp/debug run anything inside the cluster; edit patches like patch
 	case verb == "apply" && hasFlag(args, "--prune", "--force"),
 		verb == "scale" && scalesToZero(args),
-		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole"),
+		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole", "role"),
 		verb == "set" && sub == "subject",
 		verb == "run" && (hasFlag(args, "--overrides", "--privileged") || strings.Contains(joined, "hostPID")):
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
@@ -283,6 +283,13 @@ risky verbs also need --allow-dangerous.`,
 				return err
 			}
 			verb := strings.ToLower(args[1])
+			reason := "kubectl " + verb
+			if t.host == nil {
+				var why string
+				if risk, why = kubectlFileRisk(cl, args[1:], risk); why != "" {
+					reason += " -f: " + why
+				}
+			}
 			tool := map[bool]string{true: "docker", false: "kubectl"}[t.host != nil]
 			// the destructive-command policy sees the words as typed (quoting
 			// them for the shell would hide them from its patterns)
@@ -303,7 +310,7 @@ risky verbs also need --allow-dangerous.`,
 				return runOne(cl, cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
 			// under --dry-run every stop only lands in meta.would_be_blocked
-			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
+			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{reason}}); err != nil {
 				return execInstead(err, verb)
 			}
 			plan := map[string]any{"conn": t.conn.Name, "dry_run": true, "would_run": "kubectl " + strings.Join(redactArgs(args[1:]), " ")}

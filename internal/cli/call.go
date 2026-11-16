@@ -63,6 +63,10 @@ type call struct {
 
 	body *approvalBody // a file the command sends, which the window shows
 
+	// manifests: the manifest files this command has read (readManifest),
+	// so the bytes that were rated are the bytes that are sent.
+	manifests map[string][]byte
+
 	// ask opens the approval window; nil is askOnScreen.
 	ask func(text string) (allowed, shown bool)
 
@@ -127,7 +131,7 @@ func (cl *call) begin() {
 	cl.sess.Reset()
 	cl.oldCopy.Store(false)
 	cl.commits = store.Commits()
-	cl.ttyYes, cl.typed, cl.typedProt, cl.body = nil, nil, nil, nil
+	cl.ttyYes, cl.typed, cl.typedProt, cl.body, cl.manifests = nil, nil, nil, nil, nil
 }
 
 // storeWrite is how this command's changes to the store and the vault go:
