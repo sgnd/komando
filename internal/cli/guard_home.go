@@ -95,6 +95,12 @@ func guardHome(cmd *cobra.Command) error {
 	if !cl.isAgent() || backgroundCmd(cmd) || homeFree[top] {
 		return nil
 	}
+	if _, err := store.AccountHome(); err != nil {
+		what := "HOME=" + cl.getenv("HOME") + ": komando's data from " + store.Home() + ", unchecked"
+		return agentYes(cl, "SAFETY_SETTING", "komando cannot find this account's home folder in the user database ("+err.Error()+
+			"), so it cannot tell whether HOME was moved to another folder: an AI agent needs a person's yes to use "+store.Home(),
+			what, "if HOME was moved, that folder's servers, protection, deny rules, pinned host keys and audit log are not the usual ones")
+	}
 	h := otherHome(cl)
 	if h == "" {
 		return nil

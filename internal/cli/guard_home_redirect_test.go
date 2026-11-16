@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
@@ -91,4 +93,22 @@ func TestGuardProtectsAccountHome(t *testing.T) {
 			t.Errorf("%s is not a secret with HOME=%s", p, fake)
 		}
 	}
+}
+
+// With no account in the user database (nor getent), komando cannot check
+// HOME: an AI agent's command needs a person's yes.
+func TestAgentHomeUnknownStops(t *testing.T) {
+	home := t.TempDir()
+	accountHomeAt(t, home)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // the person
+	store.AccountHome = func() (string, error) { return "", errors.New("no entry for uid 4242") }
+	texts := windowText(t, false)
+	if e := wantCode(t, "SAFETY_SETTING", "list"); !strings.Contains(e.Message, "cannot find this account's home folder") {
+		t.Errorf("message: %s", e.Message)
+	}
+	if len(*texts) != 0 {
+		t.Errorf("no flag, no window: %q", *texts)
+	}
+	noAgent(t)
+	mustRun(t, "list") // a person is not asked
 }
