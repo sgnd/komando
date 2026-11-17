@@ -42,7 +42,7 @@ func TestEveryErrfHasHint(t *testing.T) {
 func TestErrorJSONAlwaysHasHint(t *testing.T) {
 	var buf bytes.Buffer
 	p := &Printer{Format: "json", W: &buf}
-	p.Fail("cluster.run", &Error{Code: "FAILED", Message: "m", Exit: ExitTimeout})
+	p.Fail("cluster.run", &Error{Code: "TOOL_FAILED", Message: "m", Exit: ExitTimeout})
 	if !strings.Contains(buf.String(), `"hint":"`+DefaultHint(ExitTimeout)+`"`) {
 		t.Errorf("no default hint: %s", buf.String())
 	}

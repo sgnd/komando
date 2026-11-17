@@ -126,8 +126,8 @@ func TestPwshRealExec(t *testing.T) {
 		code      string
 	}{
 		{`Write-Output "a'b $env:MODE"`, `a'b it's`, ""},
-		{`cmd-that-does-not-exist`, "", "FAILED"},
-		{`exit 7`, "", "FAILED"},
+		{`cmd-that-does-not-exist`, "", "COMMAND_FAILED"},
+		{`exit 7`, "", "COMMAND_FAILED"},
 		{`Get-Location`, "/tmp", ""},
 		{`[Console]::In.ReadToEnd()`, "from stdin", ""},
 	}

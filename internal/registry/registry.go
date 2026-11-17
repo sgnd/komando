@@ -94,6 +94,7 @@ type Error struct {
 	Code       string
 	Message    string
 	RetryAfter string // the Retry-After header of a 429 or 503, as sent
+	Manifest   bool   // the request was for a manifest or blob: a 404 means the tag is missing
 }
 
 func (e *Error) Error() string {
@@ -172,7 +173,8 @@ func (c *Client) Send(ctx context.Context, method string, u *url.URL, accept, co
 					Message string `json:"message"`
 				} `json:"errors"`
 			}
-			re := &Error{Status: resp.StatusCode, Code: http.StatusText(resp.StatusCode), RetryAfter: resp.Header.Get("Retry-After")}
+			re := &Error{Status: resp.StatusCode, Code: http.StatusText(resp.StatusCode), RetryAfter: resp.Header.Get("Retry-After"),
+				Manifest: strings.Contains(req.URL.Path, "/manifests/") || strings.Contains(req.URL.Path, "/blobs/")}
 			if json.Unmarshal(b, &e) == nil && len(e.Errors) > 0 {
 				re.Code, re.Message = e.Errors[0].Code, e.Errors[0].Message
 			}

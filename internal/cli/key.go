@@ -745,7 +745,7 @@ this key.`,
 				})
 			}
 			audit(cl, st, "key.deploy", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": name})
-			return finish(cl, "key.deploy", data, data.Summary, worst)
+			return finish(cl, "key.deploy", data, data.Summary, worst, soleError(res))
 		}),
 	}
 	c.Flags().BoolVar(&setDefault, "set-default", false, "servers that got the key log in with it from now on")

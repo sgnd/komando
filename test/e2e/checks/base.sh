@@ -3,8 +3,12 @@
 # shell, secret managers (OpenBao, AWS Secrets Manager), fs, sudo, cp, jobs,
 # keys, tunnels and modules. Moved here from run.sh; runs first in the core area.
 check "host list count" 3 "$($K host list | jget 'd["data"]["count"]')"
+# every --via bastion connection starts with a login there: sshd's default
+# MaxStartups (10:30:100) drops new logins once ten are half-open, which a
+# loaded CI runner reaches (C88, 2026-11-17)
+check "the bastion takes many logins at once" "maxstartups 200:30:400" "$(DC exec -T bastion /usr/sbin/sshd -T 2>/dev/null | grep -i '^maxstartups ' || true)"
 check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
-check "reveal needs a person" REVEAL_NEEDS_HUMAN "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
+check "reveal needs a person" REVEAL_NEEDS_TERMINAL "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
 check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
 check "plain password refused as a ref" USAGE "$($K host add bad "agent@127.0.0.1:$E2E_SSH_DIRECT" --password-ref agentpass | jget 'd["error"]["code"]' || true)"
 # renaming a secret moves every reference with it; the logins below prove the value survived the round trip
@@ -37,7 +41,7 @@ printf 'name,address,user,via,password-ref,groups,protected\nbulk1,target,agent,
 check "import csv --dry-run adds nothing" 2 "$($K import csv "$CSV" --dry-run | jget 'len(d["data"]["hosts"])')"
 check "import csv" 2 "$($K import csv "$CSV" | jget 'len(d["data"]["hosts"])')"
 rm -f "$CSV"
-check "host edit @group stops at a protected server" PROTECTED_HOST "$($K host edit @bulk --user agent2 | jget 'd["error"]["code"]' || true)"
+check "host edit @group stops at a protected server" PROTECTED_TARGET "$($K host edit @bulk --user agent2 | jget 'd["error"]["code"]' || true)"
 check "host edit @group --yes changes both" 2 "$($K host edit @bulk -t bulked --user agent --yes | jget 'len(d["data"]["changed"])')"
 $K host mv bulk1 bulk-one --yes >/dev/null # same address as the protected target
 check "host mv keeps the server working" target "$($K exec bulk-one --read-only -- hostname | jget 'd["data"]["results"][0]["stdout"].strip()')"
@@ -57,7 +61,7 @@ ptyrun 'n\n' "$K" shell target >/dev/null; check "shell on a protected host: no 
 O=$(ptyrun 'exit 0\n' env NO_COLOR=1 "$K" shell target --yes | tr -d '\r'); check "shell on a protected host with --yes" 0 $?
 check "shell names the bastion and protection" 1 "$(grep -c '^komando: shell on target (agent@target) via bastion · PROTECTED$' <<<"$O")"
 check "PROTECTED is red in colour terminals" 1 "$(ptyrun 'exit 0\n' env TERM=xterm NO_COLOR= "$K" shell target --yes | grep -c $'\e\\[1;31mPROTECTED')"
-check "shell --dry-run reports the protected stop" PROTECTED_HOST "$(ptyrun '' "$K" -o json shell target --dry-run | tr -d '\r' | grep '^{' | jget 'd["meta"]["would_be_blocked"]["code"]')"
+check "shell --dry-run reports the protected stop" PROTECTED_TARGET "$(ptyrun '' "$K" -o json shell target --dry-run | tr -d '\r' | grep '^{' | jget 'd["meta"]["would_be_blocked"]["code"]')"
 # a login with no stored password: a person types it, as with ssh; an agent is never asked
 $K host add nopass "agent@127.0.0.1:$E2E_SSH_DIRECT" >/dev/null
 O=$(ptyrun 'agentpass\n' env NO_COLOR=1 "$K" -o text exec nopass --read-only -- echo typed-ok | tr -d '\r'); check "a person types the password when none is stored" 0 $?
@@ -102,7 +106,7 @@ check "SSM session key from KMS (moto)" ok "$(grep -q -- '--- PASS: TestSSMKMSMo
 (cd "$ROOT" && KOMANDO_E2E_MOTO="http://127.0.0.1:$E2E_MOTO" go test -count=1 -v -run '^TestImportAWS$' ./internal/cli/ >"$KOMANDO_HOME/import-aws.log" 2>&1) || true
 check "import aws: a conn per bucket of each profile (moto S3)" ok "$(grep -q -- '--- PASS: TestImportAWS' "$KOMANDO_HOME/import-aws.log" && echo ok)"
 check "sudo works" root "$($K exec direct --sudo -- whoami | jget 'd["data"]["results"][0]["stdout"].strip()')"
-check "dry-run reports block" PROTECTED_HOST "$($K exec @lab --dry-run -- 'touch x' | jget 'd["data"]["would_be_blocked"]["code"]')"
+check "dry-run reports block" PROTECTED_TARGET "$($K exec @lab --dry-run -- 'touch x' | jget 'd["data"]["would_be_blocked"]["code"]')"
 
 echo "==> fs"
 $K fs replace direct /etc/app/app.conf --old 'worker_connections 768;' --new 'worker_connections 4096;' --sudo --backup >/dev/null

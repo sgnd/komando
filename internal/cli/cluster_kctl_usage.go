@@ -69,7 +69,7 @@ func kubectlRisk(cl *call, args []string) (driver.Risk, error) {
 // auditBrokenWrite records a change whose connection broke: it may have
 // reached the cluster before the connection went.
 func auditBrokenWrite(cl *call, st *store.State, conn string, args []string, risk driver.Risk, stop *out.Error) {
-	if stop.Code == "K8S_UNREACHABLE" && risk > driver.RiskRead {
+	if stop.Code == "CONN_UNREACHABLE" && risk > driver.RiskRead {
 		audit(cl, st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args), " "), false, map[string]any{"conns": []string{conn}, "risk": risk.String(), "error": stop.Code})
 	}
 }

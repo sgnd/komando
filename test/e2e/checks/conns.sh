@@ -127,7 +127,7 @@ check "memcached run takes GET in capitals" halo "$($K cache run mc -- GET greet
 check "memcached stats reset needs --write" WRITE_REQUIRES_FLAG "$($K cache run mc -- stats reset | jget 'd["error"]["code"]' || true)"
 check "memcached rm --dry-run names the key" "['greeting']" "$($K cache rm mc greeting --dry-run | jget 'd["data"]["would_delete"]')"
 q $K cache rm mc greeting --allow-dangerous
-check "memcached key gone" KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"
+check "memcached key gone" CACHE_KEY_NOT_FOUND "$($K cache get mc greeting | jget 'd["error"]["code"]' || true)"
 printf wrong | $K secret set mc-pass >/dev/null
 check "memcached wrong password is named" CACHE_AUTH "$($K cache info mc | jget 'd["error"]["code"]' || true)"
 q $K conn rm mc
