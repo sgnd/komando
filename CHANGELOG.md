@@ -215,6 +215,7 @@ its highlights; the sections below them give the details. Versions follow
     --overwrite`), or agents are asked on every cluster command. For an
     agent, such a login program gets only the environment the kubeconfig
     gives it (`env`), not the shell's proxy, `AWS_PROFILE` or `KUBECONFIG`.
+- A running VPN session, a kept server login and a tunnel are now known by when their process started, not only by its process number and program. When that process ended (a crash, or an old copy of komando's runtime file put back), a later process given the same number, even another komando or openconnect, is no longer taken for it: it gets neither the session's SOCKS login nor the addresses it connects to, and is never stopped by komando. After updating, VPN sessions, logins and tunnels started by an older komando count as ended: run `komando vpn down --all`, `komando logout SERVER` and `komando tunnel stop --all` before you update, or end those processes yourself; komando starts new ones when needed.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files
