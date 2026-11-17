@@ -2,7 +2,6 @@ package storex
 
 import (
 	"context"
-	"encoding/json"
 	"encoding/xml"
 	"io"
 	"net/http"
@@ -129,7 +128,7 @@ func (b *gcsBucket) Lookup(ctx context.Context, rel string) (Object, bool, error
 		Items    []gcsObject `json:"items"`
 		Prefixes []string    `json:"prefixes"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+	if err := decodeCapped(resp.Body, &page); err != nil {
 		return Object{}, false, webErr("gcs", nil, err)
 	}
 	if len(page.Items)+len(page.Prefixes) > 0 {
@@ -187,7 +186,7 @@ func (b *gcsBucket) copyObject(ctx context.Context, src, dst string, overwrite b
 			Done         bool   `json:"done"`
 			RewriteToken string `json:"rewriteToken"`
 		}
-		err = json.NewDecoder(resp.Body).Decode(&r)
+		err = decodeCapped(resp.Body, &r)
 		resp.Body.Close()
 		if err != nil {
 			return webErr("gcs", nil, err)
@@ -217,7 +216,7 @@ func (b *gcsBucket) fingerprint(ctx context.Context, rel string) (int64, string,
 		CRC32C string `json:"crc32c"`
 		MD5    string `json:"md5Hash"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&o); err != nil {
+	if err := decodeCapped(resp.Body, &o); err != nil {
 		return 0, "", webErr("gcs", nil, err)
 	}
 	n, _ := strconv.ParseInt(o.Size, 10, 64)

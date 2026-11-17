@@ -197,7 +197,7 @@ func (b *ftpBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Move
 
 func (r *ftpReconnect) Lookup(ctx context.Context, rel string) (Object, bool, error) {
 	o, found, err := r.ftpBucket.Lookup(ctx, rel)
-	if err != nil && r.again(err) {
+	if err != nil && r.again(&err) {
 		return r.ftpBucket.Lookup(ctx, rel)
 	}
 	return o, found, err
