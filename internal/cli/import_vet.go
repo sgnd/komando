@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // hostVet is what an import may add, and why the rest is left out.
@@ -126,7 +129,7 @@ func vetImportHosts(cl *call, s *store.State, hosts []*store.Host, overwrite, ow
 		}
 		v.Add = append(v.Add, h)
 	}
-	return v, guardHostSends(cl, v.Add, prev)
+	return v, guardHostSends(cl, s, v.Add, prev)
 }
 
 // proxyCommandSkip says why an import leaves out a host whose proxy
@@ -188,6 +191,9 @@ func entryNames(st *store.State) map[string]bool {
 // (guardVpnSends), and, for a VPN they replace, protection or --mfa
 // turned off (guardVpnEdit). A file cannot do what a person did not allow.
 func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
+	if err := importVpnPlaces(cl, st, vpns); err != nil { // an agent: no yes lifts it
+		return err
+	}
 	olds := map[string]*store.Vpn{}
 	var replaced []*store.Vpn
 	for _, v := range vpns {
@@ -195,7 +201,7 @@ func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
 			return err
 		}
 		old := st.Vpns[v.Name]
-		if err := guardVpnSends(cl, old, v, ""); err != nil {
+		if err := guardVpnSends(cl, st, old, v, ""); err != nil {
 			return err
 		}
 		if old != nil {
@@ -204,6 +210,32 @@ func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
 		}
 	}
 	return guardVpnEdit(cl, olds, replaced)
+}
+
+// guardImportSecrets is secret set's guard for the secrets an import
+// writes (a conn's password it carries is stored as NAME-pass, whoever
+// else uses that name): one on the way to a login-ask server or conn
+// stops an AI agent, whether it is there already or only named
+// (loginPlaceStop), and replacing one a protected entry uses needs a
+// person's yes.
+func guardImportSecrets(cl *call, st *store.State, names []string) error {
+	for _, name := range names {
+		if err := loginPlaceStop(cl, secretPlaceChanges(st, name)); err != nil {
+			return err
+		}
+		if _, err := vault.Get(name); errors.Is(err, vault.ErrNotFound) {
+			continue // a new secret replaces nothing
+		} else if err != nil {
+			return err
+		}
+		if prot := protectedUsers(st, secretUsers(st, name)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+			if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
+				"secret "+name+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // importVpnOptIns asks for the weaker logins an imported VPN turns on, as

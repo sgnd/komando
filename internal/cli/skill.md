@@ -114,7 +114,15 @@ not know? Set `KOMANDO_AGENT=1`.
 7. **Logins that need a person.** `VPN_LOGIN_REQUIRED` or `VPN_DOWN`: ask
    the human to run `komando vpn up NAME`. A server that asks for a code
    (`AUTH_FAILED`, two-factor): ask them to run `komando login SERVER` once;
-   your commands then use that login.
+   your commands then use that login. A server or conn added with
+   `--login ask` (`host show` or `conn show` says `login: ask`) has no
+   stored password, so komando asks the human to type it in its own
+   window, and you never see it. Every command that connects asks, even
+   `komando test`. If that gives `NEEDS_PERSON` (no screen, or a first
+   connection) or `DECLINED` (they cancelled), do not retry: ask them to
+   run `komando login SERVER` (for a conn: the command itself) in their
+   own terminal. Adding one, or changing where it goes (address, `--via`,
+   a jump host or VPN on its way), is theirs too: `NEEDS_PERSON`.
 8. **Secrets stay hidden from you.**
    - Passwords, keys and tokens in any output show as `[hidden]` or
      `[secret:NAME]`. That is expected; do not work around it.

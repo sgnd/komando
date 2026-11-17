@@ -117,7 +117,7 @@ or removed. Turning that off, or turning --mfa off, needs a person's yes.`,
 					if err := vpnOptIns(cl, &v, cmd.Flags().Changed, e.legacyCrypto, e.allowPAP); err != nil {
 						return err
 					}
-					if err := guardVpnSends(cl, old, &v, ""); err != nil {
+					if err := guardVpnSends(cl, s, old, &v, ""); err != nil {
 						return err
 					}
 					v.UpdatedAt = time.Now().UTC()
