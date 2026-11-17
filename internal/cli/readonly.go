@@ -49,7 +49,7 @@ var argChecks = map[string]func(cmd string, args []string, input bool) string{
 	"xz": compressWrite, "unxz": compressWrite, "zstd": compressWrite, "unzstd": compressWrite,
 	"lzma": compressWrite, "unlzma": compressWrite, "pigz": compressWrite,
 	"zcat": catOnly, "bzcat": catOnly, "xzcat": catOnly, "zstdcat": catOnly, "lzcat": catOnly,
-	"unzip": unzipWrite, "crontab": crontabWrite, "git": gitWrite, "journalctl": noWrite,
+	"unzip": unzipWrite, "crontab": crontabWrite, "journalctl": noWrite, "set": setWrite,
 	"psql": psqlWrite, "mysql": mysqlWrite, "mariadb": mysqlWrite,
 	"sort": sortWrite, "uniq": uniqWrite, "openssl": opensslWrite, "date": dateWrite,
 	"hostname": hostnameWrite, "dmesg": dmesgWrite,
@@ -101,7 +101,10 @@ var envRunsCode = map[string]bool{"BASH_ENV": true, "ENV": true, "PS0": true, "P
 	"SUDO_ASKPASS": true, "SUDO_EDITOR": true, "LESSOPEN": true, "LESSCLOSE": true, "MANPAGER": true,
 	"SYSTEMD_PAGER": true, "SYSTEMD_EDITOR": true, "KUBE_EDITOR": true, "PERL5OPT": true, "PERL5LIB": true,
 	"PERLLIB": true, "PYTHONSTARTUP": true, "PYTHONPATH": true, "PYTHONHOME": true, "NODE_OPTIONS": true,
-	"RUBYOPT": true, "RUBYLIB": true, "PSQLRC": true, "PSQL_PAGER": true}
+	"RUBYOPT": true, "RUBYLIB": true, "PSQLRC": true, "PSQL_PAGER": true,
+	// where programs and files are found, or how words split
+	"PATH": true, "IFS": true, "CDPATH": true, "HOME": true, "GLOBIGNORE": true, "SHELL": true,
+	"KUBECONFIG": true, "DOCKER_CONFIG": true, "DOCKER_HOST": true, "HISTFILE": true}
 
 // envWrite: setting this variable (NAME=VALUE) can run code.
 func envWrite(assign string) string {
@@ -220,8 +223,15 @@ func segmentWrite(toks []policy.Token, input bool, depth int) string {
 		case shellKeywords[w]:
 			i++
 			continue
-		case w == "for" || w == "case":
-			return "" // for NAME in WORDS: the words are not a command
+		case w == "case":
+			return "" // case WORD in: the word is not a command
+		case w == "for": // for NAME in WORDS: the words are not a command, NAME is set
+			if i+1 < len(words) {
+				if v := envWrite(words[i+1] + "="); v != "" {
+					return v
+				}
+			}
+			return ""
 		}
 		if opts, ok := wrappers[path.Base(w)]; ok {
 			xargs = xargs || path.Base(w) == "xargs"
@@ -325,6 +335,11 @@ func classifyCommand(cmd string, args []string, input bool) string {
 		if cmd == "sysctl" && slices.ContainsFunc(args, func(a string) bool { return strings.Contains(a, "=") && !strings.HasPrefix(a, "-") }) {
 			return "sysctl NAME=VALUE"
 		}
+		if cmd == "kubectl" {
+			if w := kubectlConfigOption(args); w != "" {
+				return w
+			}
+		}
 		return subRead(cmd, args, rule)
 	}
 	if !readCommands[cmd] {
@@ -340,7 +355,7 @@ func classifyCommand(cmd string, args []string, input bool) string {
 // classified above, not here; one that bash makes evaluate its arguments
 // (let, unset, declare, wait, getopts) is left out.
 var readCommands = set(`
-	: true false echo set cd pwd exit sleep seq
+	: true false echo cd pwd exit sleep seq
 	grep egrep fgrep zgrep
 	cat tac nl head tail wc rev cut paste join comm column fold fmt expand unexpand tr
 	od hexdump strings cksum sum md5sum sha1sum sha224sum sha256sum sha384sum sha512sum b2sum

@@ -190,12 +190,55 @@ func testWrite(cmd string, args []string, _ bool) string {
 	return ""
 }
 
-// readWrite: read NAME evaluates a subscript in NAME; only plain names
-// and -r pass.
+// readWrite: read NAME evaluates a subscript in NAME, and sets NAME: only
+// plain names that run nothing (not PATH, not PS4) and -r pass.
 func readWrite(cmd string, args []string, _ bool) string {
 	for _, a := range args {
-		if a != "-r" && !validShellName(a) {
+		if a == "-r" {
+			continue
+		}
+		if !validShellName(a) {
 			return cmd + " " + a
+		}
+		if v := envWrite(a + "="); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// setWrite: set -e, -u and -o pipefail (errexit, nounset) only change how
+// the script stops; -x and -v print a trace that expands PS4, and other
+// options change what words mean.
+func setWrite(cmd string, args []string, _ bool) string {
+	for k := 0; k < len(args); k++ {
+		a := args[k]
+		switch {
+		case (a == "-o" || a == "+o") && k+1 < len(args) && (args[k+1] == "pipefail" || args[k+1] == "errexit" || args[k+1] == "nounset"):
+			k++
+		case len(a) > 1 && (a[0] == '-' || a[0] == '+') && strings.Trim(a[1:], "eu") == "":
+		case len(a) > 2 && a[0] == '-' && strings.Trim(a[1:len(a)-1], "eu") == "" && a[len(a)-1] == 'o' &&
+			k+1 < len(args) && (args[k+1] == "pipefail" || args[k+1] == "errexit" || args[k+1] == "nounset"):
+			k++ // -euo pipefail
+		default:
+			return "set " + a + " (only set -e, -u and -o pipefail are known to change nothing)"
+		}
+	}
+	return ""
+}
+
+// kubectlConfigOption: a kubeconfig, server or identity komando does not
+// know can name a program kubectl runs for credentials.
+func kubectlConfigOption(args []string) string {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		name, _, _ := strings.Cut(a, "=")
+		switch name {
+		case "--kubeconfig", "--server", "-s", "--token", "--as", "--as-group", "--as-uid", "--username", "--password",
+			"--certificate-authority", "--client-certificate", "--client-key", "--insecure-skip-tls-verify", "--tls-server-name":
+			return "kubectl " + name + " (a kubeconfig, server or identity komando does not know)"
 		}
 	}
 	return ""

@@ -71,7 +71,7 @@ func TestReadOnlyViolation(t *testing.T) {
 		"ls 2>err.log":                            "> err.log",
 		"nice -n 5 cp a b":                        "cp",
 		"xargs rm < list":                         "xargs rm (xargs adds arguments komando cannot see)",
-		"git -C /srv/app pull":                    "git pull",
+		"git -C /srv/app pull":                    "the command git is not known to only read",
 		"crontab -r":                              "crontab -r",
 		"ip addr add 10.0.0.1/24 dev eth0":        "ip addr add 10.0.0.1/24 dev eth0 (not a form komando knows only reads)",
 		"echo x >| /etc/cron.d/a":                 "> /etc/cron.d/a",

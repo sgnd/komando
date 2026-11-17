@@ -223,15 +223,6 @@ var readLongs = map[string]map[string]bool{
 	"tar": set(`--list --create --diff --compare --file --gzip --gunzip --bzip2 --xz --zstd --lzma --verbose --directory --wildcards
 		--no-wildcards --numeric-owner --utc --full-time --exclude --null --no-recursion --totals --anchored --ignore-case
 		--strip-components --occurrence --files-from --exclude-from --absolute-names --dereference --force-local --version --help`),
-	"git": set(`--oneline --stat --shortstat --numstat --name-only --name-status --graph --all --decorate --no-decorate --pretty
-		--format --abbrev-commit --abbrev --no-abbrev --since --until --after --before --author --grep --max-count --skip
-		--reverse --first-parent --merges --no-merges --follow --patch --no-patch --cached --staged --short --branch
-		--porcelain --long --show-toplevel --abbrev-ref --verify --is-inside-work-tree --git-dir --work-tree --no-pager
-		--tags --heads --refs --always --dirty --list --remotes --contains --no-contains --merged --no-merged --points-at
-		--show-current --verbose --get --get-all --get-regexp --global --local --system --show-origin --count --no-color
-		--color --date --word-diff --ignore-all-space --no-renames --find-renames --diff-filter --unified --no-index
-		--line-number --ignore-case --files-with-matches --others --modified --deleted --exclude-standard --stage
-		--quiet --version`),
 	"gzip": compressLongs, "gunzip": compressLongs, "bzip2": compressLongs, "bunzip2": compressLongs, "xz": compressLongs,
 	"unxz": compressLongs, "zstd": compressLongs, "unzstd": compressLongs, "lzma": compressLongs, "unlzma": compressLongs,
 	"pigz": compressLongs,

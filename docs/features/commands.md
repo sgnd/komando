@@ -126,8 +126,7 @@ instead. What passes:
   `for` loop or after `sh -c`.
 - Tools whose options decide, with the options komando knows read: `find`
   without `-delete`/`-exec`, `sed -n`, `sort`, `awk` that only prints,
-  `journalctl`, `dmesg`, `ss`, `tar -t`, `git log`/`status`/`diff`,
-  `psql -c 'select ...'`, `openssl x509`. A long option is written in full
+  `journalctl`, `dmesg`, `ss`, `tar -t`, `psql -c 'select ...'`, `openssl x509`. A long option is written in full
   (`--quiet`, not `--qui`): a tool reads a shortened name as any option
   that starts with it, `sed --in` as `--in-place`.
 - Commands with subcommands, in the forms that read: `systemctl status`,
@@ -137,14 +136,19 @@ instead. What passes:
   `sshd -T`. A subcommand komando does not know is refused, not waved
   through.
 - `sudo -n`, `sudo -u USER`, `timeout 10`, `nice`, `env NAME=VALUE`, `time`
-  and `xargs` (with a plain read tool) in front of such a command.
+  and `xargs` (with a plain read tool) in front of such a command, and
+  `set -e`, `-u` and `-o pipefail`.
 
 What does not pass, besides clear changes (`rm`, `tee`, `> file`,
 `sed -i`, `systemctl restart`, `apt install`): a program komando does not
-know (your own tool, `curl`, `wget`, `nc`), an option or subcommand it has
-not heard of, unquoted braces (`{a,b}`), `${x@P}` and other expansions
-bash evaluates, `let`, `printf -v`, `test -v`, and SQL fed to `psql` that
-uses `\gexec`, `\set` or a `:variable`. For a server's state, komando's
+know (your own tool, `curl`, `wget`, `nc`), `git` (a repository's own
+config can run a program on `git status` or `git diff`), an option or
+subcommand it has not heard of, `kubectl --kubeconfig` and other client
+settings, `sudo -E`, unquoted braces (`{a,b}`), `${x@P}` and other
+expansions bash evaluates, `let`, `printf -v`, `test -v`, `set -x`,
+setting a variable a program or bash reads as code or as where programs
+are (`PATH`, `IFS`, `PS4`, `KUBECONFIG` ...: by `NAME=`, `read`, `for` or
+`-e`), and SQL fed to `psql` that uses `\gexec`, `\set` or a `:variable`. For a server's state, komando's
 own reads need no shell command at all: `komando facts`, `logs`,
 `svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and
 `cluster exec` check their `--read-only` the same way.
@@ -158,7 +162,7 @@ the script only looks. `exec --script --read-only` needs a shell as the
 interpreter (`sh`, `bash -eu`). Script arguments (`--arg`, or words after
 `bash -s --`) are refused under `--read-only`: put the values in the
 script. An argument the check cannot see (`find /data $X`) is refused for
-commands whose arguments decide what they do (`find`, `sed`, `git`,
+commands whose arguments decide what they do (`find`, `sed`, `sort`,
 `kubectl` ...); `-e` values are filled in first. Other input (a CSV for
 `wc`, SQL for `psql`) is data and is not read as commands, except that
 `psql` and `mysql` input may not use `\!`, `\o`, `system` or `tee`.

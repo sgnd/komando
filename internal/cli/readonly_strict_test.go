@@ -49,7 +49,7 @@ func TestReadOnlyLongOptionStarts(t *testing.T) {
 	allowedReadOnly(t,
 		`sed -n 1,5p /etc/hosts`, `sed --quiet -e 5p /etc/hosts`, `sort -rn --key=2 f`, `sort --reverse f`,
 		`date --utc`, `date +%s`, `journalctl -u nginx --no-pager --since=today -n 50`,
-		`dmesg --ctime --level=err`, `git log --oneline -5`, `git status --short`, `git diff --stat HEAD~1`,
+		`dmesg --ctime --level=err`,
 		`tar -tzf a.tgz`, `tar --list -f a.tar`,
 	)
 }

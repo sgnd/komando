@@ -27,7 +27,7 @@ var wrappers = map[string][]string{
 }
 
 var wrapperFlags = map[string]map[string]bool{
-	"sudo":    set(`-n -E -H --non-interactive --preserve-env --set-home`),
+	"sudo":    set(`-n -H --non-interactive --set-home`), // not -E: root would get the caller's PATH
 	"doas":    set(`-n`),
 	"env":     set(`-i -S --ignore-environment --split-string`),
 	"timeout": set(`-v --preserve-status --foreground --verbose`),

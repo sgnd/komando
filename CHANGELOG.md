@@ -29,10 +29,14 @@ its highlights; the sections below them give the details. Versions follow
   anything else is `READ_ONLY_VIOLATION`. Before, an unknown command ran
   on an unprotected server and through a read-only ssh-gate key. No longer
   accepted under `--read-only`: a program komando does not know (`curl`,
-  `wget`, `nc`, your own tool), `less`, `patch --dry-run`, `lz4`, `ldd`,
-  `nm`, `chrt`, `taskset`, `nohup`, `busybox`, `sudo -i`/`-s`, `let`,
-  `unset`, `declare`, `shopt`, a long option not written in full or not
-  on komando's list, a subcommand it does not know, unquoted `{a,b}`, and
+  `wget`, `nc`, your own tool), `git` (a repository's config can run a
+  program), `less`, `patch --dry-run`, `lz4`, `ldd`, `nm`, `chrt`,
+  `taskset`, `nohup`, `busybox`, `sudo -i`/`-s`/`-E`, `set -x` and any
+  `set` but `-e`, `-u` and `-o pipefail`, `let`, `unset`, `declare`,
+  `shopt`, `kubectl --kubeconfig`/`--server`/`--token`/`--as`, setting
+  `PATH`, `IFS`, `PS4`, `KUBECONFIG` and their like (by `NAME=`, `read`,
+  `for` or `-e`), a long option not written in full or not on komando's
+  list, a subcommand it does not know, unquoted `{a,b}`, and
   `${x@P}`-style expansions. For a server's state use `komando facts`,
   `logs`, `svc status` or `fs read`. See
   [Commands](docs/features/commands.md#protected-servers-and---read-only).
