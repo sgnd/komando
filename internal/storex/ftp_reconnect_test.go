@@ -326,3 +326,35 @@ func TestFTPListSortsByName(t *testing.T) {
 		t.Errorf("recursive, limit 3: %s, more %v", got, more)
 	}
 }
+
+// When the new session cannot be opened either, the error names both: the
+// drop, and why logging in again failed.
+func TestFTPSaysWhyTheSecondLoginFailed(t *testing.T) {
+	s := newFakeFTP(t)
+	s.drop = "LIST"
+	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		s.mu.Lock()
+		gone := s.dropped
+		s.mu.Unlock()
+		if gone {
+			return nil, errors.New("the hop is gone")
+		}
+		return (&net.Dialer{}).DialContext(ctx, network, addr)
+	}
+	b, err := OpenFTP(context.Background(), s.target(), "p", dial, 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { b.Close() })
+	_, _, err = b.List(context.Background(), "", false, 0)
+	var oe *out.Error
+	if !errors.As(err, &oe) || oe.Code != "STORAGE_CONNECT" {
+		t.Fatalf("List: %v, want STORAGE_CONNECT", err)
+	}
+	if !strings.Contains(oe.Message, "EOF") || !strings.Contains(oe.Message, "; logging in again failed: ") || !strings.Contains(oe.Message, "the hop is gone") {
+		t.Fatalf("message %q: want the drop and the second login's error", oe.Message)
+	}
+	if got := s.loginCount(); got != 1 {
+		t.Fatalf("%d logins, want 1", got)
+	}
+}
