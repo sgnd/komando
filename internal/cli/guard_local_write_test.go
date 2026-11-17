@@ -78,7 +78,12 @@ func TestAgentLocalWriteCommands(t *testing.T) {
 				t.Errorf("%v: want SENSITIVE_FILE, got %+v", args, e)
 			}
 		}
-		wantSensitiveWrite(t, "storage download", p, storageDownloadTo(tcl, context.Background(), "storage.download", "bk", "a.txt", p, true))
+		for _, resume := range []bool{false, true} {
+			wantSensitiveWrite(t, "storage download", p, storageDownloadTo(tcl, context.Background(), "storage.download", "bk", "a.txt", p, true, resume))
+		}
+		_, err := continueDownload(tcl, context.Background(), &memEnd{name: "web1:/etc/hosts", b: []byte("x")}, p, 0o644, "hosts")
+		wantSensitiveWrite(t, "download --continue", p, err)
+		wantSensitiveWrite(t, "the write of --continue", p, localEnd{cl: tcl, path: p, perm: 0o600}.appendAt(context.Background(), 0, 1, strings.NewReader("x")))
 	}
 	if after, _ := os.ReadFile(filepath.Join(home, ".komando", "store.db")); !bytes.Equal(before, after) && len(before) > 0 {
 		t.Error("komando's store changed")

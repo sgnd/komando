@@ -76,7 +76,7 @@ services:
   # cloud storage emulators (gcs, azblob and webdav conns)
   gcs:
     image: fsouza/fake-gcs-server:1.52.2
-    entrypoint: ["sh", "-c", "mkdir -p /data/media && exec /bin/fake-gcs-server -data /data -scheme http -port 4443 -public-host gcs:4443"]
+    entrypoint: ["sh", "-c", "mkdir -p /data/media && exec /bin/fake-gcs-server -backend memory -data /data -scheme http -port 4443 -public-host gcs:4443"]  # memory: the file backend loses an object named dir/ (a folder marker)
     networks: [private]
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:3.35.0
