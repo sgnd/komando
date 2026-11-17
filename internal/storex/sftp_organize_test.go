@@ -68,3 +68,7 @@ func TestSFTPChmod(t *testing.T) {
 		}
 	}
 }
+
+func TestAppendOnSFTP(t *testing.T) {
+	appendSteps(t, "sftp", localSFTPBucket(t, t.TempDir()))
+}
