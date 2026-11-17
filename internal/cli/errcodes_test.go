@@ -787,6 +787,7 @@ var approvalMeanings = map[string]string{
 // the catalog shows (these are the texts 0.12.0 showed).
 var catalogSite = map[string]string{
 	"CONN_UNREACHABLE":    "cannot reach …: …",
+	"NEEDS_PERSON":        "logging in to … needs a person at a terminal to answer its questions",
 	"FILE_EXISTS":         "… already exists on this computer",
 	"PASSPHRASE_MISMATCH": "the two passphrases you typed differ; nothing was changed",
 	"WEAK_PASSPHRASE":     "…; nothing was changed",

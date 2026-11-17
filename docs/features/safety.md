@@ -429,7 +429,7 @@ what an agent or a script gets.
 | `WRITE_REQUIRES_FLAG` | 6 | The query or command changes data. | Try `--write --dry-run`, then `--write`. |
 | `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but the command changes something. | Drop `--read-only`; a person may confirm with `--yes`. |
 | `DB_BYTES_LIMIT` | 6 | A BigQuery query would read more bytes than `--max-bytes` allows, so it did not run. | Select fewer columns or filter more; raise `--max-bytes` only if the person agrees to the cost. |
-| `SQL_STRING_RULES` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. | Use a user whose settings keep `dialect = 'clickhouse'`. |
+| `SQL_SAFE_SETTINGS_REQUIRED` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. | Use a user whose settings keep `dialect = 'clickhouse'`. |
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. | Remove that line if the dump is not trusted. |
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. | Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_TERMINAL` | 6 | Only a person can see secret values. | Ask the person to run the command in their own terminal. |

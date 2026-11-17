@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/registry"
 )
 
 // A refused certificate says so (not "unreachable") and points at ca= first.
@@ -35,5 +36,25 @@ func TestRegistryTLSOptions(t *testing.T) {
 	tg, _ = driver.Parse("registry://me@r.lan?ca=secret:nope")
 	if _, err := registryTLS(tg); toErr(err).Code != "SECRET_NOT_FOUND" {
 		t.Errorf("missing CA secret: %v", err)
+	}
+}
+
+// A 404 says which is missing (C79): a tag (MANIFEST_UNKNOWN, or a bare
+// 404 to a manifest or blob request) or the repository (NAME_UNKNOWN, or
+// a bare 404 elsewhere).
+func TestRegistryNotFoundSays(t *testing.T) {
+	for _, c := range []struct {
+		e    registry.Error
+		want string
+	}{
+		{registry.Error{Status: 404, Code: "MANIFEST_UNKNOWN"}, "IMAGE_TAG_NOT_FOUND"},
+		{registry.Error{Status: 404, Code: "Not Found", Manifest: true}, "IMAGE_TAG_NOT_FOUND"},
+		{registry.Error{Status: 404, Code: "NAME_UNKNOWN", Manifest: true}, "REPOSITORY_NOT_FOUND"},
+		{registry.Error{Status: 404, Code: "Not Found"}, "REPOSITORY_NOT_FOUND"},
+	} {
+		e := c.e
+		if got := toErr(registryErr(&e)); got.Code != c.want {
+			t.Errorf("%+v: %s, want %s", c.e, got.Code, c.want)
+		}
 	}
 }

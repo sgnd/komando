@@ -182,7 +182,7 @@ func registryErr(err error) error {
 			code, exit, hint = "REGISTRY_AUTH", out.ExitConnect, "check the user in the conn URL and its --password-ref (a token with the right scopes)"
 		case 404:
 			code, exit = "REPOSITORY_NOT_FOUND", out.ExitNotFound
-			if e.Code == "MANIFEST_UNKNOWN" || e.Code == "BLOB_UNKNOWN" {
+			if e.Code == "MANIFEST_UNKNOWN" || e.Code == "BLOB_UNKNOWN" || e.Manifest && e.Code != "NAME_UNKNOWN" {
 				// the repository is there; the tag (or a layer of it) is not
 				code, exit = "IMAGE_TAG_NOT_FOUND", out.ExitNotFound
 			}

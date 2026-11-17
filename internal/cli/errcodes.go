@@ -119,7 +119,7 @@ var errorCodes = []errorCode{
 	{"LOGIN_FAILED", 4, "the login to … ended early (…)", "a person reads the whole log in …"},
 	{"MIXED_OS", 2, "the target picks Windows servers (…) and other servers (…)", "a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh)"},
 	{"NAME_TAKEN", 8, "the rename clashes: …; nothing was renamed", "pick other names, or rename or remove what is in the way first"},
-	{"NEEDS_PERSON", 6, "setting up the approval code shows its secret, so only a person at a terminal can do it", "a person runs `komando config approval-code` in their own terminal"},
+	{"NEEDS_PERSON", 6, "logging in to … needs a person at a terminal to answer its questions", "ask a person to run `komando login …` in a terminal; after that your commands to … need no login"},
 	{"NEEDS_TERMINAL", 2, "cluster shell needs a person at a terminal", "agents and scripts use `komando cluster exec`"},
 	{"NOTHING_TO_RENAME", 3, "no … starts with …", "check OLD with `komando list` and `komando secret list`; names are matched from the start, as written"},
 	{"NOT_A_FOLDER", 8, "… is a file, not a folder", "give a folder path, not a file"},
