@@ -476,7 +476,7 @@ func TestAgentOutlivesASlowTransport(t *testing.T) {
 	host, port := testSSHD(t, newSigner(t))
 	h := &store.Host{Name: "web1", Address: host, Port: port, User: "u"}
 	timeout := 300 * time.Millisecond
-	cfg, agentConn, err := clientConfig(context.Background(), newState(h), h, Options{ConnectTimeout: timeout, HostKeyPolicy: "off"})
+	cfg, _, agentConn, err := clientConfig(context.Background(), newState(h), h, Options{ConnectTimeout: timeout, HostKeyPolicy: "off"})
 	if err != nil {
 		t.Fatal(err)
 	}

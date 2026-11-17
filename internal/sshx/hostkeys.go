@@ -35,8 +35,15 @@ type hostKeyTx interface {
 	Pins(addr string) (keys []ssh.PublicKey, count int, err error)
 	// Add pins key for addr beside its other pins.
 	Add(addr string, key ssh.PublicKey) error
-	// Replace makes key the only pin for addr, in one write.
+	// Replace makes key the only pin for addr, in one write; the logins
+	// met with the old pins are forgotten.
 	Replace(addr string, key ssh.PublicKey) error
+	// LoginMet reports that a person logged in to login-ask server id at
+	// addr with key, with a password they typed (MarkLogin).
+	LoginMet(addr, id string, key ssh.PublicKey) (bool, error)
+	// MarkLogin notes that a person did: later connections of id to addr
+	// that offer key may ask for the password in an agent's window.
+	MarkLogin(addr, id string, key ssh.PublicKey) error
 }
 
 // HostKeys is where this process keeps pins: the sealed store.

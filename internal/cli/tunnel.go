@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -189,6 +188,10 @@ point your database app or psql at the local address it prints. With a server, g
 				}
 				ln.Close()
 			}
+			logins, err := pathLogins(cl, st, h) // tunnel serve asks nobody: typed now
+			if err != nil {
+				return err
+			}
 			id := newID("t")
 			logPath := store.Path("tunnels", id+".log")
 			if err := logDir("tunnels", st); err != nil {
@@ -206,14 +209,7 @@ point your database app or psql at the local address it prints. With a server, g
 			if err != nil {
 				return err
 			}
-			pargs := []string{"tunnel", "serve", id}
-			if cl.flags.hostKeyPolicy != "" {
-				pargs = append(pargs, "--host-key-policy", cl.flags.hostKeyPolicy)
-				if what, _ := hostKeyFlagWhat(cl); what != "" {
-					pargs = append(pargs, "--yes") // checked by this command already
-				}
-			}
-			p, err := startTunnelServe(self, id, pargs, lf)
+			p, err := startTunnelServe(tunnelServeProcess(cl, self, id, logins), lf)
 			if err != nil {
 				return err
 			}
@@ -451,20 +447,15 @@ func tunnelStopCmd() *cobra.Command {
 
 // tunnelServeCmd is the hidden daemon entry point.
 func tunnelServeCmd() *cobra.Command {
-	var passStdin bool
+	var passStdin, loginsStdin bool
 	c := &cobra.Command{
 		Use:    "serve ID",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			logger := log.New(cl.out.W, "", log.LstdFlags)
-			fail := func(err error) error {
-				e := toErr(err)
-				b, _ := json.Marshal(serveErr{Code: e.Code, Message: e.Message, Hint: e.Hint, Exit: e.Exit})
-				fmt.Fprintf(cl.out.W, "ERROR %s\n", b)
-				return exitCode(1)
-			}
-			st, err := serveState(cl, passStdin)
+			fail := func(err error) error { return serveFail(cl, err) }
+			st, err := serveState(cl, loginsStdin, passStdin)
 			if err != nil {
 				return fail(err)
 			}
@@ -548,14 +539,14 @@ func tunnelServeCmd() *cobra.Command {
 		}),
 	}
 	c.Flags().BoolVar(&passStdin, strings.TrimPrefix(vault.PassStdinFlag, "--"), false, "read the vault passphrase from stdin (tunnel start passes it)")
+	c.Flags().BoolVar(&loginsStdin, strings.TrimPrefix(loginsStdinFlag, "--"), false, "first read the passwords of login-ask servers from stdin (tunnel start passes them)")
 	return c
 }
 
 // startTunnelServe starts the `tunnel serve ID` process (pargs) of
 // tunnel start, logging to lf, with its ticket (guard_spawn.go) and the
 // vault passphrase on its stdin, not in its environment: it runs for long.
-func startTunnelServe(self, id string, pargs []string, lf *os.File) (*exec.Cmd, error) {
-	p := tunnelServeCommand(self, pargs)
+func startTunnelServe(p *exec.Cmd, lf *os.File) (*exec.Cmd, error) {
 	p.Stdout, p.Stderr = lf, lf
 	p.SysProcAttr = detachAttr()
 	vault.PassOnStdin(p)
@@ -565,11 +556,22 @@ func startTunnelServe(self, id string, pargs []string, lf *os.File) (*exec.Cmd, 
 	return p, p.Start()
 }
 
-// serveState is tunnel serve's inventory, after its ticket from tunnel
-// start and the vault passphrase when it sent one (vault.PassOnStdin).
-func serveState(cl *call, passStdin bool) (*store.State, error) {
+// serveState is tunnel serve's inventory, after what tunnel start wrote
+// on its stdin, in this order: its ticket, the passwords typed for the
+// login-ask servers on the way (loginsStdin), and the vault passphrase
+// when it sent one (vault.PassOnStdin). tunnel serve asks nobody.
+func serveState(cl *call, loginsStdin, passStdin bool) (*store.State, error) {
+	cl.logins.background = true
 	in := bufio.NewReader(cl.stdin)
 	ticket := readTicket(in)
+	if loginsStdin {
+		if err := readLogins(cl, in); err != nil {
+			if terr := checkTicket(cl, ticket, "tunnel serve", "tunnel start"); terr != nil {
+				return nil, terr // run by hand
+			}
+			return nil, err
+		}
+	}
 	if passStdin {
 		if err := vault.ReadPassStdin(in); err != nil {
 			return nil, err

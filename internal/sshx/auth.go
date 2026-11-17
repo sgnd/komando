@@ -1,6 +1,7 @@
 package sshx
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -56,7 +56,10 @@ type loginKeys struct {
 }
 
 // authMethods also returns the ssh-agent connection it opened (or nil).
-func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
+// ctx is the Dial's: a server whose login is "ask" asks for the password
+// for the command that connects (LoginPassword), with q saying where it
+// goes (nil: h's own address and user).
+func authMethods(ctx context.Context, st *store.State, h *store.Host, timeout time.Duration, q *LoginAsk) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
 	defer func() {
 		if err != nil && agentConn != nil {
 			agentConn.Close()
@@ -108,7 +111,16 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	if len(signers) > 0 {
 		methods = append(methods, ssh.PublicKeys(signers...))
 	}
-	if h.PasswordRef != "" {
+	if h.AskLogin() {
+		// login ask: the password is never stored; a person types it
+		// when the server first wants it (after the keys, as ssh does)
+		if q == nil {
+			lq := LoginAskFor(st, h)
+			q = &lq
+		}
+		p := &passwordLogin{ask: personFor(h), typed: func() (string, func(), error) { return loginPassword(ctx, *q) }}
+		methods = append(methods, p.methods()...)
+	} else if h.PasswordRef != "" {
 		pw, err := vault.Resolve(h.PasswordRef)
 		if err != nil && len(methods) > 0 {
 			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
@@ -480,6 +492,8 @@ func authFailedHint(st *store.State, h *store.Host) string {
 func authFailedCheck(st *store.State, h *store.Host) string {
 	name := h.Name
 	switch {
+	case h.AskLogin():
+		return fmt.Sprintf("check the user with `komando host show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
 	case adhoc(st, h):
 		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
 	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
@@ -538,180 +552,6 @@ func ask() func(host, text string, hidden bool) (string, error) {
 		return nil
 	}
 	return Asker()
-}
-
-// passwordLogin answers the server's login questions. The stored password
-// goes out at most once per login (the password method and
-// keyboard-interactive share it), and in keyboard-interactive only to a
-// hidden question that asks for a password: a refused one is not sent
-// again, so a wrong password in the vault cannot lock the account. With a
-// person to ask (ask), every other question goes to them; without one, a
-// one-time code or any other question gets no answer and the login stops
-// before a wrong answer counts against the account.
-type passwordLogin struct {
-	pw   string // the stored password, "" when none is stored
-	sent bool
-	ask  func(text string, hidden bool) (string, error) // nil: no person at a terminal
-	stop error                                          // the person cancelled: every later question ends the same way
-}
-
-func (p *passwordLogin) methods() []ssh.AuthMethod {
-	if p.ask == nil {
-		return []ssh.AuthMethod{
-			ssh.PasswordCallback(func() (string, error) {
-				p.sent = true
-				return p.pw, nil
-			}),
-			ssh.KeyboardInteractive(p.answer),
-		}
-	}
-	// keyboard-interactive first, as OpenSSH tries them: a two-factor
-	// server asks the password and the code there, so a person types the
-	// password once, not once per method
-	return []ssh.AuthMethod{
-		ssh.KeyboardInteractive(p.answer),
-		ssh.PasswordCallback(func() (string, error) {
-			switch {
-			case p.pw == "":
-				return p.askPerson("Password: ", true)
-			case p.sent:
-				return "", &unanswered{question: "Password:", kind: askAgain}
-			}
-			p.sent = true
-			return p.pw, nil
-		}),
-	}
-}
-
-func (p *passwordLogin) answer(_, instruction string, questions []string, echos []bool) ([]string, error) {
-	answers := make([]string, len(questions))
-	sent := p.sent
-	for i, q := range questions {
-		echo := i < len(echos) && echos[i]
-		kind := questionKind(q, echo)
-		switch {
-		case kind == askPassword && p.pw != "" && !sent:
-			answers[i], sent = p.pw, true
-			continue
-		case kind == askPassword && p.pw != "":
-			kind = askAgain // the stored one went out and was refused
-		case p.ask != nil:
-			text := q
-			if i == 0 && strings.TrimSpace(instruction) != "" {
-				text = strings.TrimSpace(instruction) + "\n" + q
-			}
-			a, err := p.askPerson(text, !echo)
-			if err != nil {
-				return nil, err
-			}
-			answers[i] = a
-			continue
-		}
-		if kind == askPassword {
-			kind = askOther // no password stored and no one to ask
-		}
-		return nil, &unanswered{question: cleanQuestion(q), kind: kind}
-	}
-	p.sent = sent
-	return answers, nil
-}
-
-// askPerson asks the person at the terminal. After a Ctrl-C every later
-// question ends the same way at once: the person wants out.
-func (p *passwordLogin) askPerson(text string, hidden bool) (string, error) {
-	if p.stop != nil {
-		return "", p.stop
-	}
-	a, err := p.ask(text, hidden)
-	if err != nil {
-		p.stop = err
-	}
-	return a, err
-}
-
-// The kinds of keyboard-interactive question.
-const (
-	askPassword = iota // a hidden question for the password
-	askCode            // a one-time code: a two-factor login
-	askAgain           // the password once more: the server refused it
-	askOther           // anything else (a shown answer, a username, a menu)
-)
-
-var (
-	codeWords     = []string{"one-time", "one time", "onetime", "code", "token", "otp", "passcode", "verification"}
-	passwordWords = []string{"password", "passwort", "mot de passe", "contraseña", "senha", "wachtwoord"}
-)
-
-// questionKind sorts a keyboard-interactive question. A user@host in it
-// (OpenSSH shows "(user@host) Password:") does not count.
-func questionKind(q string, echo bool) int {
-	var words []string
-	for _, f := range strings.Fields(strings.ToLower(q)) {
-		if !strings.Contains(f, "@") {
-			words = append(words, f)
-		}
-	}
-	l := strings.Join(words, " ")
-	for _, w := range codeWords {
-		if strings.Contains(l, w) {
-			return askCode
-		}
-	}
-	if echo {
-		return askOther
-	}
-	for _, w := range passwordWords {
-		if strings.Contains(l, w) {
-			return askPassword
-		}
-	}
-	return askOther
-}
-
-// cleanQuestion makes a server's question safe to show: printable
-// characters only, one line, at most 80 characters.
-func cleanQuestion(q string) string {
-	q = strings.Map(func(r rune) rune {
-		if unicode.IsPrint(r) {
-			return r
-		}
-		return ' '
-	}, q)
-	q = strings.Join(strings.Fields(q), " ")
-	if r := []rune(q); len(r) > 80 {
-		q = string(r[:79]) + "…"
-	}
-	return q
-}
-
-// unanswered is a keyboard-interactive question komando gave no answer;
-// the login stops there.
-type unanswered struct {
-	question string // the server's words, made safe to show
-	kind     int
-}
-
-func (e *unanswered) Error() string { return "the server asks " + strconv.Quote(e.question) }
-
-// authFailed is the AUTH_FAILED error that quotes the question.
-func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
-	name := h.Name
-	// Asker gave no question: no person at a terminal (an AI agent, a script, a
-	// background process). A person who runs the command is asked.
-	switch e.kind {
-	case askCode:
-		oe := out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
-			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
-		oe.Hint = strings.Replace(oe.Hint, "HOST", name, 1) // a command to run as it is
-		return oe
-	case askAgain:
-		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
-			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
-	}
-	return out.Errf(out.ExitConnect, "AUTH_FAILED",
-		"run `komando login "+name+"` in a terminal: komando shows you the question once and keeps the login, so later commands (an AI agent's too) need no answer; an AI agent asks the user to run it",
-		"%s asks %s; komando answers only a hidden password question by itself, and no person is at a terminal here", name, strconv.Quote(e.question))
 }
 
 // agentDeadline gives every request written to the ssh-agent (and the

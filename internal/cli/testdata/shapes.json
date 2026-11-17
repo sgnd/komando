@@ -386,6 +386,7 @@
       "targets": [
         {
           "kind": "string",
+          "login": "string",
           "name": "string",
           "protected": "bool",
           "where": "string"
@@ -422,6 +423,7 @@
     "data": {
       "created_at": "string",
       "kind": "string",
+      "login": "string",
       "name": "string",
       "password_ref": "string",
       "updated_at": "string",
@@ -787,6 +789,7 @@
       "groups": [
         "string"
       ],
+      "login": "string",
       "name": "string",
       "port": "number",
       "tags": [
@@ -813,6 +816,7 @@
             "string"
           ],
           "kind": "string",
+          "login": "string",
           "name": "string",
           "protected": "bool",
           "tags": [
@@ -866,6 +870,7 @@
       "groups": [
         "string"
       ],
+      "login": "string",
       "name": "string",
       "tags": [
         "string"
@@ -970,6 +975,7 @@
             "string"
           ],
           "kind": "string",
+          "login": "string",
           "name": "string",
           "protected": "bool",
           "tags": [
