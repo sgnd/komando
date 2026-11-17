@@ -96,7 +96,11 @@ bins: ## Build release binaries into OUT/komando_OS_ARCH/ (OUT=bins; PLATFORMS p
 	  $(NOLAB) $(OUT)/$$name/$$exe || exit 1; \
 	done
 
-dist: ## Build release archives + checksums into ./dist (SIGNED=DIR: take the binaries found in DIR, from `make bins`, instead of building them)
+dist: ## Build release archives + checksums into ./dist (SIGNED=DIR: take the macOS binaries from DIR, made by `make bins` and signed, instead of building them)
+	@if [ -n "$(SIGNED)" ]; then for p in $(PLATFORMS); do \
+	  case $$p in darwin/*) [ -f "$(SIGNED)/komando_darwin_$${p#*/}/komando" ] || { \
+	    echo "SIGNED=$(SIGNED) has no komando_darwin_$${p#*/}/komando: with SIGNED, every macOS binary comes from there. Nothing was built." >&2; exit 1; } ;; esac; \
+	done; fi
 	rm -rf dist && mkdir -p dist
 	scripts/third-party-licenses.sh dist/THIRD_PARTY_LICENSES
 	@for p in $(PLATFORMS); do \

@@ -67,11 +67,11 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
 
 ## Supported versions
 
-Only the newest release gets fixes. `install.sh` downloads the newest release (or the one `KOMANDO_VERSION` names), never `main`, and checks its checksum.
+Only the newest release gets fixes. `install.sh` downloads the newest release (or the one `KOMANDO_VERSION` names), never `main`, and installs it only when it is signed with the komando project's key and matches its checksum.
 
 ## Check a download
 
-Every release has `checksums.txt` (install.sh checks it), its signature `checksums.txt.sig`, and signed build provenance (SLSA level 2). `komando update` installs a release only when `checksums.txt.sig` is a signature by the komando project's key, whose public half is built into komando: someone who replaces a release's files cannot sign them. To check that a file was built by this repository's release workflow from its source:
+Every release has `checksums.txt`, its signature `checksums.txt.sig`, and signed build provenance (SLSA level 2). `komando update` and `install.sh` install a release only when `checksums.txt.sig` is a signature by the komando project's key, whose public half is built into komando: someone who replaces a release's files cannot sign them. To check that a file was built by this repository's release workflow from its source:
 
 ```bash
 gh attestation verify komando_darwin_arm64.tar.gz --repo sgnd/komando

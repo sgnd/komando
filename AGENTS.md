@@ -49,13 +49,14 @@ under a pseudo-terminal and komando does not know your agent, set
    `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
    `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
-   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
-   `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
+   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_NETWORK_REQUIRED`,
+   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
    `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why. Once the human agrees, re-run with
    the flag the hint names: komando asks them in a window on their screen
    ("Allow once"). With no screen, ask them to run the command in their own
    terminal. No flag clears `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`,
-   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a
+   `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or
+   `STORE_OLD_COPY`: only a
    person at a terminal can run those. If they deny it, do not retry.
 8. Never "fix" `HOSTKEY_MISMATCH` yourself: report it, it may be an attack.
    For `VPN_LOGIN_REQUIRED` or `VPN_DOWN`, ask the human to run
