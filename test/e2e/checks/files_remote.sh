@@ -20,7 +20,7 @@ for c in bucket files-sftp files-ftps; do
   check "$c mv --dry-run changes nothing" True "$($K storage cat "$c" t-e2eops/a.txt | jget 'd["ok"]')"
   check "$c mv into a folder" t-e2eops/new/a.txt "$($K storage mv "$c" t-e2eops/a.txt t-e2eops/new/ | jget 'd["data"]["dst"]')"
   check "$c mv took it away" OBJECT_NOT_FOUND "$($K storage cat "$c" t-e2eops/a.txt | jget 'd["error"]["code"]')"
-  check "$c mv over a file stops" OBJECT_EXISTS "$($K storage mv "$c" t-e2eops/b.txt t-e2eops/new/a.txt | jget 'd["error"]["code"]')"
+  check "$c mv over a file stops" FILE_EXISTS "$($K storage mv "$c" t-e2eops/b.txt t-e2eops/new/a.txt | jget 'd["error"]["code"]')"
   check "$c mv --overwrite" True "$($K storage mv "$c" t-e2eops/b.txt t-e2eops/new/a.txt --overwrite | jget 'd["data"]["replaced"]')"
   check "$c mv over a file keeps no aside copy" "['t-e2eops/new/a.txt', 't-e2eops/new/deep/']" "$($K storage ls "$c" t-e2eops/new/ | jget 'sorted(o["key"] for o in d["data"]["objects"])')"
 done
