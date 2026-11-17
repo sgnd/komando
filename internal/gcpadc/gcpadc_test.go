@@ -203,3 +203,22 @@ func TestAgentEnvironmentUsesPlainFilesOnly(t *testing.T) {
 		t.Errorf("a gcloud login: %v", err)
 	}
 }
+
+// In an AI agent's environment a file that cannot be read, or is no
+// JSON, is refused: it is never handed to the Google library, which
+// would read the path a second time (a named pipe answers each read
+// with something else).
+func TestAgentEnvironmentReadsTheFileOnce(t *testing.T) {
+	defer transport.DistrustEnv()()
+	p := filepath.Join(t.TempDir(), "adc.json")
+	os.WriteFile(p, []byte("x"), 0o600)
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", p)
+	var fe *FileError
+	if _, err := Find(context.Background(), scope); !errors.As(err, &fe) {
+		t.Errorf("a file that is no JSON: %v", err)
+	}
+	t.Setenv("GOOGLE_APPLICATION_CREDENTIALS", filepath.Join(t.TempDir(), "gone.json"))
+	if _, err := Find(context.Background(), scope); !errors.As(err, &fe) {
+		t.Errorf("a file that is not there: %v", err)
+	}
+}

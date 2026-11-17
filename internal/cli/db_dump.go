@@ -3,7 +3,6 @@ package cli
 import (
 	"compress/gzip"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -603,21 +602,12 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 		return err
 	}
 	if h == nil {
-		// no caller passes a nil server today (komando dumps and restores
-		// plain SQL itself); should one ever, the program that gets the
-		// password is found as every local helper is (localTool): by its
-		// full path, with a person's yes for an AI agent when any program
-		// of the user could have put it there
-		bin, err := localTool(cl, argv[0], []string{c.PasswordRef})
-		if errors.Is(err, exec.ErrNotFound) {
+		if _, err := exec.LookPath(argv[0]); err != nil {
 			return out.Errf(out.ExitNotFound, "TOOL_MISSING",
 				fmt.Sprintf("install %s on this computer, or run it on a server that has it (--run-on HOST)", tool.pkg),
 				"%s is not installed here", argv[0])
 		}
-		if err != nil {
-			return err
-		}
-		p := exec.CommandContext(ctx, bin, argv[1:]...)
+		p := exec.CommandContext(ctx, argv[0], argv[1:]...)
 		p.Env = append(toolEnv(cl.environ()), tool.passwordEnv+"="+password)
 		var stderr strings.Builder
 		p.Stdin, p.Stdout, p.Stderr = stdin, stdout, &limitWriter{w: &stderr, n: 64 << 10}

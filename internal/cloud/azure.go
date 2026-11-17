@@ -98,7 +98,7 @@ func azureClientToken(ctx context.Context, tenant string, form url.Values, resou
 	if h := os.Getenv("AZURE_AUTHORITY_HOST"); h != "" {
 		a, ok := azureAuthorityHost(h)
 		if !ok {
-			return "", fmt.Errorf("%w: AZURE_AUTHORITY_HOST is not one of Azure's sign-in hosts (https://login.microsoftonline.com, https://login.microsoftonline.us, https://login.chinacloudapi.cn)", ErrAzureLogin)
+			return "", fmt.Errorf("%w: AZURE_AUTHORITY_HOST is not one of Azure's sign-in addresses (https://login.microsoftonline.com, https://login.microsoftonline.us, https://login.chinacloudapi.cn)", ErrAzureLogin)
 		}
 		authority = a
 	}

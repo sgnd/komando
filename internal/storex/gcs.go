@@ -77,7 +77,9 @@ func OpenGCS(_ context.Context, t driver.Target, key string, dial DialFunc, time
 			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH", "the --password-ref of a gcs conn holds a service account key (the JSON file from the console)",
 				"gcs: the stored key is not a service account key: %v", err)
 		}
-	case gcsGoogleHost(t) && t.CA == "": // under the system's CAs only, never a CA of the conn's own
+	case gcsGoogleHost(t) && t.CA != "":
+		return nil, out.Usage("gcloud's login goes to Google Cloud Storage only under the system's CAs: take ?ca= out of the conn URL, or give the conn a service account key with --password-ref")
+	case gcsGoogleHost(t):
 		creds, err = gcsDefaultCredentials(tctx)
 		if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
 			return nil, fe.Err
