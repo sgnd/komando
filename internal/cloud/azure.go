@@ -27,8 +27,8 @@ import (
 var ErrAzureLogin = errors.New("no Azure login")
 
 // Azure addresses. Tests point them at a local server; a program changes
-// the sign-in host only with AZURE_AUTHORITY_HOST (https only), as the
-// Azure SDKs do for the national clouds.
+// the sign-in host only with AZURE_AUTHORITY_HOST, and only to another of
+// Azure's own (azureAuthorities): the national clouds.
 var (
 	azureAuthority = "https://login.microsoftonline.com"
 	azureIMDS      = "http://169.254.169.254/metadata/identity/oauth2/token"
@@ -61,6 +61,9 @@ func AzureToken(ctx context.Context, resource string) (string, error) {
 			return azureClientToken(ctx, tenant, form, resource)
 		}
 		if f := os.Getenv("AZURE_FEDERATED_TOKEN_FILE"); f != "" {
+			if err := CheckLocalFile("AZURE_FEDERATED_TOKEN_FILE", f); err != nil {
+				return "", err
+			}
 			b, err := os.ReadFile(f)
 			if err != nil {
 				return "", fmt.Errorf("%w: AZURE_FEDERATED_TOKEN_FILE: %v", ErrAzureLogin, err)
@@ -93,10 +96,11 @@ func azureClientToken(ctx context.Context, tenant string, form url.Values, resou
 	}
 	authority := azureAuthority
 	if h := os.Getenv("AZURE_AUTHORITY_HOST"); h != "" {
-		if !strings.HasPrefix(h, "https://") {
-			return "", fmt.Errorf("%w: AZURE_AUTHORITY_HOST has to start with https://", ErrAzureLogin)
+		a, ok := azureAuthorityHost(h)
+		if !ok {
+			return "", fmt.Errorf("%w: AZURE_AUTHORITY_HOST is not one of Azure's sign-in addresses (https://login.microsoftonline.com, https://login.microsoftonline.us, https://login.chinacloudapi.cn)", ErrAzureLogin)
 		}
-		authority = strings.TrimSuffix(h, "/")
+		authority = a
 	}
 	form.Set("grant_type", "client_credentials")
 	form.Set("scope", azureScope(resource))

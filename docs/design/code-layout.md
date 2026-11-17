@@ -74,6 +74,7 @@ or a listed one is gone.
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
 | `internal/cli` | every command: flags, safety checks, audit and output |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
+| `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
 | `internal/dbx` | SQL and MongoDB against a conn, dump and restore |
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |

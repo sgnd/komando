@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -95,6 +97,12 @@ func init() {
 		}
 		return nil
 	}
+	// a file the environment or a cloud config names as a login to send
+	// (AZURE_FEDERATED_TOKEN_FILE, AWS_WEB_IDENTITY_TOKEN_FILE, a Google
+	// external_account's credential_source.file) is checked as a file:
+	// reference is
+	cloud.CheckLocalFile = credentialFileGuard
+	gcpadc.CheckLocalFile = credentialFileGuard
 	// an agent's KOMANDO_KEYCHAIN=off keeps the old-copy check
 	vault.AgentCall = agentCallRunning
 	store.OldCopyOK = oldCopyAllowed
