@@ -29,6 +29,8 @@ This page is made from the code (`komando schema` lists the same under
 | `CACHE_AUTH` | 4 | memcached refused the login: … | check the user in the URL and the password reference (`komando conn show NAME`) |
 | `CACHE_CONNECT` | 4 | cannot connect to …: … | the server's certificate could not be checked against this computer's CAs: give the CA that signed it with ?ca=secret:NAME (`komando secret set NAME < ca.pem`), or reach the server --via an SSH server with the plain scheme (redis://, memcached://) instead (`komando conn edit NAME --via HOST --url ...`) |
 | `CACHE_ERROR` | 5 | this memcached cannot list keys: … | start memcached with the LRU crawler on (the default since 1.5); `cache get` works without it |
+| `CACHE_KEY_NOT_FOUND` | 3 | no cache key named … | list keys with `komando cache keys CONN 'pattern*'` |
+| `CACHE_SECTION_NOT_FOUND` | 3 | INFO … returned nothing | this server has no such section; try `komando cache info CONN --all` |
 | `CANCELLED` | 1 | interrupted | it stopped before the end (Ctrl-C or a signal); check what it left, then run it again |
 | `CERT_PROBLEMS` | 1 | … of … targets need attention: … | renew or replace the certificates marked expiring, expired or not_trusted; see each result |
 | `CHECKSUM_MISMATCH` | 1 | … does not match checksums.txt of its release; nothing was changed | run it again, and report it at …/issues if it happens again |
@@ -42,11 +44,9 @@ This page is made from the code (`komando schema` lists the same under
 | `CONNECT_FAILED` | 4 | cannot reach …: … | check the name and port; if the site is only reachable from a server or VPN, add --via NAME |
 | `CONNECT_TIMEOUT` | 7 | connecting to … timed out | a firewall drops the connection, or the server is private: check the address with `komando host show …`, reach it through a bastion or VPN (`komando host edit … --via NAME`), or raise --connect-timeout on a slow link |
 | `CONN_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
-| `CONN_NOT_FOUND` | 3 | no conn named … | see them with `komando conn list` |
 | `CONN_UNREACHABLE` | 4 | cannot reach …: … | check the address and port; if it is only reachable from a server, set `komando conn edit … --via SERVER` |
 | `CONSUMER_GROUP_NOT_FOUND` | 3 | no consumer group named … | list consumer groups with `komando queue groups CONN` |
 | `CONSUMER_NOT_FOUND` | 3 | no consumer named … | list consumers with `komando queue groups CONN`; name one as STREAM/CONSUMER |
-| `CONTAINER_NOT_FOUND` | 3 | no container named … | its containers: … |
 | `CRONTAB_UNREADABLE` | 5 | cannot read the crontab (exit …) | check the user name; reading another user's crontab needs sudo |
 | `DB_AUTH` | 4 | bigquery: the stored key is not a service account key: … | the --password-ref of a bigquery conn holds a service account key (the JSON file from the console), or leave it out to use gcloud's login |
 | `DB_BYTES_LIMIT` | 6 | the query would read …, more than --max-bytes …, so it did not run | BigQuery bills by the bytes a query reads: select fewer columns, filter on the partition or cluster columns, or, if that cost is intended (ask the user), raise --max-bytes |
@@ -65,6 +65,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DNS_ERROR` | 4 | the server's name does not resolve on this computer | the name does not resolve here: check it with `komando host show …` and fix it with `komando host edit … --address ADDRESS`; a name only a VPN resolves needs --via that VPN |
 | `DOCKER_ERROR` | 5 | docker on the server answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
 | `DOCKER_MISSING` | 3 | docker not found | install Docker on the server, or pick another server |
+| `DOCKER_OBJECT_NOT_FOUND` | 3 |  | list what exists with `komando docker ps TARGET --all` or `komando cluster list TARGET services` |
 | `DOCKER_PERMISSION` | 5 | the login user may not use docker on the server (add --sudo, or the docker group) | add --sudo, or add the login user to the docker group |
 | `DOCTOR_FAILED` | 1 | some checks failed | fix the checks marked ✗ (ok: false in -o json), then run `komando doctor` again |
 | `DRY_RUN_UNSUPPORTED` | 2 | this change cannot be previewed; run it without --dry-run to make it | run it again without --dry-run to make the change |
@@ -89,7 +90,7 @@ This page is made from the code (`komando schema` lists the same under
 | `HOSTKEY_UNREADABLE` | 4 | the pinned host key for … cannot be read | a person checks the server's key and runs `komando host trust` for it in their own terminal |
 | `HOST_EXISTS` | 8 | … … already exists | use `komando … edit` or pass --overwrite to replace it |
 | `HOST_IN_USE` | 8 | server … is on the --via path of … | change them first: … (or --via OTHER), or remove them in the same command |
-| `HOST_NOT_FOUND` | 3 | no server named … | see them with `komando host list` |
+| `IMAGE_TAG_NOT_FOUND` | 3 | … not found; the repository has no tags | list the repositories with `komando registry list CONN` |
 | `IMPORT_INCOMPLETE` | 1 | … not imported (see skipped) | fix them in the source and import again: the rest is in, and importing again skips it |
 | `INSECURE_PROTOCOL` | 2 | …:// crosses the network to … without TLS, so the password and the data travel unencrypted | use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted |
 | `IS_A_DIRECTORY` | 2 | … is a folder, not a file | list it with `komando fs list TARGET …` |
@@ -102,10 +103,12 @@ This page is made from the code (`komando schema` lists the same under
 | `JOB_START_FAILED` | 5 | could not start job: … | check that /bin/sh and nohup work there: `komando test TARGET` |
 | `JOURNAL_PERMISSION` | 5 | this user may not read the system journal | add --sudo, or add the login user to the systemd-journal group |
 | `K8S_CONFLICT` | 8 | the object changed or exists already (the cluster's words follow) | the object changed meanwhile or exists already: look at it with `komando cluster get TARGET TYPE/NAME`, then run it again |
+| `K8S_CONTAINER_NOT_FOUND` | 3 | no container named … | its containers: … |
 | `K8S_ERROR` | 5 | the Kubernetes API answered with an error (its words follow) | read the cluster's words; `komando cluster events TARGET --warnings` shows what went wrong lately |
 | `K8S_FORBIDDEN` | 4 | listing Helm releases: … | Helm keeps releases as Secrets: the kubeconfig's user needs to list secrets there (or name one namespace with --namespace) |
 | `K8S_INVALID` | 2 | the cluster refused the request as written (its words follow) | the cluster refused it as written: check the label selector (-l) or the object's YAML |
-| `K8S_NOT_FOUND` | 3 | … has no running pod | check them with `komando cluster list TARGET pods` |
+| `K8S_NOT_FOUND` | 3 |  | list what exists with `komando cluster list TARGET pods` (or deployments, services ...) |
+| `K8S_POD_NOT_FOUND` | 3 | … has no running pod | check them with `komando cluster list TARGET pods` |
 | `K8S_UNREACHABLE` | 4 | the Kubernetes API did not answer (address, --via path or VPN) | check the conn with `komando test TARGET` (and its --via path) |
 | `KEYCHAIN_FAILED` | 5 | …; the vault still uses store.key, nothing was lost | a person unlocks the keychain (an AI agent asks the user), then run it again; on Linux it needs secret-tool and a keyring |
 | `KEYCHAIN_SLOW` | 1 | nothing was changed: the keychain did not answer in time, so komando could not check that … is the newest copy | run it again in a moment; if it keeps happening, run `komando doctor` |
@@ -115,7 +118,6 @@ This page is made from the code (`komando schema` lists the same under
 | `KEY_FAILED` | 1 | could not read key …: …; nothing was written | check the key with `komando key show …`, or leave out --with-keys |
 | `KEY_INVALID` | 2 | cannot parse …: … | give an OpenSSH or PEM private key file |
 | `KEY_IN_USE` | 8 | server … still uses this key | give the server another key first: `komando host edit … --key OTHER` |
-| `KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando key list` |
 | `KEY_PASSPHRASE_REQUIRED` | 2 | key … is encrypted and … | load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands) |
 | `KEY_UNREADABLE` | 4 | cannot read key …: … | check the key path (`komando key list` shows the keys komando knows) |
 | `KILL_FAILED` | 5 | the server did not stop session … | you may lack the right to stop another user's session |
@@ -127,7 +129,6 @@ This page is made from the code (`komando schema` lists the same under
 | `NEEDS_TERMINAL` | 2 | cluster shell needs a person at a terminal | agents and scripts use `komando cluster exec` |
 | `NOTHING_TO_RENAME` | 3 | no … starts with … | check OLD with `komando list` and `komando secret list`; names are matched from the start, as written |
 | `NOT_A_FOLDER` | 8 | … is a file, not a folder | give a folder path, not a file |
-| `NOT_FOUND` | 3 | INFO … returned nothing | this server has no such section; try `komando cache info CONN --all` |
 | `NOT_SUPPORTED` | 2 | … waits for data that keeps coming, so cache run would never return | cache run sends one command and prints its one reply; drop BLOCK from XREAD, and use redis-cli for MONITOR or SUBSCRIBE |
 | `NOT_SWARM_MANAGER` | 3 | … is not a Swarm manager (docker not found) | Swarm commands run on a manager: `komando exec … --read-only -- docker node ls` shows whether it is one |
 | `NOT_TEXT` | 2 | … is not text | download it with `komando storage download CONN OBJECT` |
@@ -184,7 +185,6 @@ This page is made from the code (`komando schema` lists the same under
 | `RECIPE_NOT_FOUND` | 3 | no recipe named … | see them with `komando recipe list` |
 | `REGISTRY_AUTH` | 4 | the registry refused to list its repositories: … | the login may read images but not list every repository: name one with `komando registry list CONN REPO`; else check the user in the conn URL and its --password-ref |
 | `REGISTRY_ERROR` | 5 | the registry did not say the image's digest | run it again; if it keeps failing, the registry may not support this image format |
-| `REGISTRY_NOT_FOUND` | 3 | no repository named … | list the repositories with `komando registry list CONN` |
 | `REGISTRY_RATE_LIMIT` | 5 | the registry turned the request down: too many requests (Docker Hub's pull limit) | the registry limits how many requests it takes (Docker Hub: pulls per 6 hours, fewer without a login); wait and run it again |
 | `REGISTRY_TLS` | 4 | the registry's TLS certificate is for another name: … | use the host name the certificate is for in the conn URL; with --via the server on the path looks the name up (its /etc/hosts applies) |
 | `REGISTRY_UNREACHABLE` | 4 | the registry did not answer (address, TLS or --via path) | check the conn with `komando test TARGET` |
@@ -194,6 +194,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RELEASE_SIGNATURE_NOT_FOUND` | 3 | komando … has no signature, so komando cannot tell it comes from the komando project; nothing was changed | releases up to … have no signature: to go back to one anyway, use the install line with KOMANDO_VERSION=… (…#install); to stay on a signed release, run `komando update` |
 | `REMOTE_ERROR` | 1 | an error from outside komando with no more specific code (its words follow) | run it again with -o json for the details; `komando doctor` checks this computer's setup |
 | `RENAME_FAILED` | 1 | the vault cannot rename the VPN's secrets: …; nothing was renamed | check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS) |
+| `REPOSITORY_NOT_FOUND` | 3 | no repository named … | list the repositories with `komando registry list CONN` |
 | `RESERVED_SECRET` | 2 | secret … belongs to komando's approval code | a person manages it with `komando config approval-code` |
 | `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando db restore … --from …` |
 | `RESTORE_UNSUPPORTED` | 2 | line … switches to another database: … | the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn |
@@ -232,6 +233,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
 | `SSH_GATE_REFUSED` | 6 | komando … needs a person at a terminal on this computer; a key cannot run it | a person runs it in a terminal on the komando computer itself |
 | `SSH_GATE_SYNTAX` | 2 | an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it) | send one komando command; put an argument with ; \| & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes) |
+| `SSH_KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando key list` |
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
 | `STATE_CORRUPT` | 1 | … does not open with the store's key | the file holds only running VPN sessions, logins, jobs and tunnels: move it away, then connect again (a VPN started before the store's key changed is ended by `komando vpn down`) |
 | `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME |
@@ -249,10 +251,13 @@ This page is made from the code (`komando schema` lists the same under
 | `SUBSCRIPTION_NOT_FOUND` | 3 | no subscription named … | list subscriptions with `komando queue groups CONN`; `komando queue describe CONN TOPIC` shows a topic's own |
 | `SVC_FAILED` | 5 | systemctl daemon-reload failed (…) | read the error output (stderr) for systemd's reason; a unit file with a mistake is named there |
 | `SWARM_ERROR` | 5 | Docker Swarm answered with an error | check that Docker runs there: `komando exec TARGET --read-only -- docker info` |
+| `SWARM_OBJECT_NOT_FOUND` | 3 | no … named … | list what exists with `komando cluster list TARGET …s` |
+| `SWARM_SERVICE_NOT_FOUND` | 3 | no service named … | list services with `komando cluster list TARGET services` |
+| `SWARM_STACK_NOT_FOUND` | 3 | no stack named … | list the stacks with `komando cluster list … stacks` |
 | `SYMLINK_LOOP` | 8 | …: too many levels of symbolic links | a link points back to itself; look at it with `komando fs stat SERVER PATH` |
 | `TABLE_NOT_FOUND` | 3 | no table named … | run `komando db schema CONN` to list tables |
 | `TARGET_EMPTY` | 3 | target … matched nothing | run `komando list` to see servers, conns, groups and tags |
-| `TARGET_NOT_FOUND` | 3 | no server, conn or VPN named … | run `komando list` to see servers, conns and VPNs |
+| `TARGET_NOT_FOUND` | 3 | no VPN named … | see them with `komando vpn list` |
 | `TIMEOUT` | 7 | redis did not answer in time | raise --timeout |
 | `TLS_HANDSHAKE_FAILED` | 4 | TLS handshake with … failed: … | the server ended the TLS handshake; run it again, and check that … is the TLS port (not plain HTTP) |
 | `TOOL_FAILED` | 5 | a program komando ran on the server failed (its words follow) | check that … is installed and works: `komando doctor` |
@@ -294,7 +299,6 @@ This page is made from the code (`komando schema` lists the same under
 | `VPN_IN_USE` | 8 | VPN … is on the --via path of … | change their --via first: `komando host edit TARGET --via OTHER` |
 | `VPN_LOGIN_REQUIRED` | 4 | VPN … is not connected and needs a person to log in | ask a person to run `komando vpn up …` (it needs their login); then run it again |
 | `VPN_NOT_FOR_OPENSSH` | 2 | VPN … (…) runs inside komando; OpenSSH cannot use it | use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via |
-| `VPN_NOT_FOUND` | 3 | no VPN named … | see them with `komando vpn list` |
 | `VPN_STOP_FAILED` | 1 | could not disconnect …: … | run `komando vpn down …` again; if it still fails, end process … yourself |
 | `WAIT_TIMEOUT` | 7 | job … still running after … | it is still running: `komando job wait …` waits again, `komando job logs … --limit 50` shows its output so far |
 | `WEAK_PASSPHRASE` | 2 | …; nothing was changed | run it again with another passphrase |
@@ -307,32 +311,3 @@ This page is made from the code (`komando schema` lists the same under
 | `WRITE_REQUIRES_FLAG` | 6 | … needs --write | this command may change data (or is not known to be a read); run it again with --write |
 | `WRONG_KIND` | 2 | … is a … URL, not one for `komando … add` | add it with `komando … add` (or `komando conn add`) |
 | `WRONG_PASSPHRASE` | 2 | that passphrase does not open the vault; nothing was changed | run it again and type the passphrase the vault has now |
-
-## Codes shared by several things
-
-These codes are given for more than one kind of item. `error.thing` says
-which one (it is left out for the other codes). A later contract gives
-each its own code; until then the code stays as it is.
-
-| Code | `error.thing` | Codes it will split into |
-|------|---------------|--------------------------|
-| `KEY_NOT_FOUND` | `ssh_key`, `cache_key` | SSH_KEY_NOT_FOUND, CACHE_KEY_NOT_FOUND |
-| `CONN_NOT_FOUND` | `conn`, `selector` | CONN_NOT_FOUND, TARGET_EMPTY |
-| `NOT_FOUND` | `swarm_service`, `swarm_stack`, `swarm_node`, `swarm_task`, `swarm_config`, `swarm_secret`, `swarm_network`, `docker_object`, `cache_info_section` | SWARM_SERVICE_NOT_FOUND, SWARM_STACK_NOT_FOUND, SWARM_OBJECT_NOT_FOUND, DOCKER_OBJECT_NOT_FOUND, CACHE_SECTION_NOT_FOUND |
-| `REGISTRY_NOT_FOUND` | `repository`, `image_tag` | REPOSITORY_NOT_FOUND, IMAGE_NOT_FOUND |
-| `K8S_NOT_FOUND` | `k8s_object`, `k8s_pod`, `k8s_container` | K8S_NOT_FOUND, K8S_POD_NOT_FOUND, K8S_CONTAINER_NOT_FOUND |
-
-## Codes that mean the same
-
-Each row is codes that mean the same thing. All of them stay, since
-scripts branch on them; new errors use the first one, and a later
-contract keeps only that one.
-
-| Codes | Use | Meaning |
-|-------|-----|---------|
-| `PROTECTED_TARGET`, `PROTECTED_HOST` | `PROTECTED_TARGET` | a protected item needs a person's yes (--yes); PROTECTED_HOST is the server case |
-| `REVEAL_NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN` | `REVEAL_NEEDS_PERSON` | --reveal needs a person; REVEAL_NEEDS_HUMAN is the case where no window can ask one, so only a person at a terminal can run it |
-| `TARGET_EMPTY`, `NO_MATCHING_TARGETS`, `CONN_NOT_FOUND` | `TARGET_EMPTY` | the target picked nothing the command can use; CONN_NOT_FOUND counts only with error.thing selector |
-| `CONN_UNREACHABLE`, `CONNECT_FAILED` | `CONN_UNREACHABLE` | komando could not reach the address |
-| `TOOL_FAILED`, `FAILED` | `TOOL_FAILED` | a program komando ran (kubectl, a dump tool) failed; its words follow |
-| `IS_A_DIRECTORY`, `USAGE` | `IS_A_DIRECTORY` | storage download of a folder without -r gives USAGE today; contract 2 gives IS_A_DIRECTORY, as fs cat does |

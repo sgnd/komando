@@ -499,7 +499,7 @@ func TestInvRmSelector(t *testing.T) {
 	if d := mustRun(t, "conn", "rm", "kind:redis"); len(d["removed"].([]any)) != 2 {
 		t.Errorf("conn rm selector: %v", d)
 	}
-	wantCode(t, "HOST_NOT_FOUND", "host", "rm", "nosuch")
+	wantCode(t, "TARGET_NOT_FOUND", "host", "rm", "nosuch")
 }
 
 func TestInvEmptyListText(t *testing.T) {

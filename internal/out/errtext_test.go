@@ -34,7 +34,7 @@ func TestTextErrorLeadsWithMeaning(t *testing.T) {
 func TestTextErrorPlain(t *testing.T) {
 	p := &Printer{Format: "text", W: &bytes.Buffer{}}
 	got := captureStderr(t, p, func() {
-		p.Fail("x", Errf(ExitNotFound, "HOST_NOT_FOUND", "run komando list", "host %q not found", "a"))
+		p.Fail("x", Errf(ExitNotFound, "TARGET_NOT_FOUND", "run komando list", "host %q not found", "a"))
 	})
 	if !strings.HasPrefix(got, "Error: host \"a\" not found\nHint: run komando list\n(code HOST_NOT_FOUND, exit 3)") {
 		t.Errorf("got %q", got)

@@ -56,7 +56,7 @@ func pickVpns(cl *call, s *store.State, args []string) ([]*store.Vpn, error) {
 				return nil, err
 			}
 			if vs = sel.Vpns; len(vs) == 0 {
-				return nil, out.Errf(out.ExitNotFound, "VPN_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no VPNs", a)
+				return nil, out.Errf(out.ExitNotFound, "TARGET_EMPTY", "run `komando list "+a+"` to see what it picks", "target %q picked no VPNs", a)
 			}
 		}
 		for _, v := range vs {

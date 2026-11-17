@@ -53,7 +53,7 @@ func TestRegistryChecks(t *testing.T) {
 	if d, e := invRun(t, "--dry-run", "registry", "copy", "lreg:app:1", "lreg:c:2"); e != nil || d["would_replace"] != nil {
 		t.Errorf("new tag: %v %+v", d, e)
 	}
-	if _, e := invRun(t, "--dry-run", "registry", "copy", "lreg:nope:1", "lreg:c:2"); e == nil || e.Code != "REGISTRY_NOT_FOUND" {
+	if _, e := invRun(t, "--dry-run", "registry", "copy", "lreg:nope:1", "lreg:c:2"); e == nil || e.Code != "REPOSITORY_NOT_FOUND" {
 		t.Errorf("missing source: %+v", e)
 	}
 	if _, e := invRun(t, "--dry-run", "registry", "copy", "dead:a:1", "lreg:b:1"); e == nil || e.Code != "REGISTRY_UNREACHABLE" {

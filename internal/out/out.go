@@ -34,9 +34,6 @@ type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Hint    string `json:"hint,omitempty"`
-	// Thing says which kind of item a code shared by several kinds is
-	// about (KEY_NOT_FOUND: ssh_key or cache_key), S-8.3; additive
-	Thing string `json:"thing,omitempty"`
 	// Suggestion is the word komando thinks was meant ("did you mean"),
 	// S-8.8; the hint has the whole command line with it; additive
 	Suggestion string `json:"suggestion,omitempty"`
@@ -48,6 +45,7 @@ type Error struct {
 	// text-mode wording for a person; JSON keeps Message and Hint
 	say, sayHint string
 	cancelled    bool
+	wanted       string   // TARGET_NOT_FOUND: the kind looked for (host, conn, vpn), "" for any
 	need         []string // more flags the real run needs (Need)
 }
 
@@ -81,13 +79,17 @@ func (e *Error) TextHint() string {
 
 func (e *Error) Error() string { return e.Code + ": " + e.Message }
 
+// Wanted is the kind a TARGET_NOT_FOUND looked for (host, conn or vpn),
+// "" for any; ForKind sets it. Text mode words the error with it; JSON
+// carries one code for every kind.
+func (e *Error) Wanted() string { return e.wanted }
+
+func (e *Error) ForKind(kind string) *Error { e.wanted = kind; return e }
+
 // NoFlag marks a stop that no flag lifts (see Final).
 func (e *Error) NoFlag() *Error { e.Final = true; return e }
 
 func (e *Error) WithHint(h string) *Error { e.Hint = h; return e }
-
-// About sets error.thing: which kind of item a shared code is about.
-func (e *Error) About(thing string) *Error { e.Thing = thing; return e }
 
 // MarshalJSON writes the error with a hint even when the code that made it
 // gave none: error.hint always says what to try next.

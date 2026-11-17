@@ -593,7 +593,7 @@ func TestKeyMv(t *testing.T) {
 		t.Errorf("the added key's file is gone: %v", err)
 	}
 
-	wantCode(t, "KEY_NOT_FOUND", "key", "mv", "nosuch", "x")
+	wantCode(t, "SSH_KEY_NOT_FOUND", "key", "mv", "nosuch", "x")
 	wantCode(t, "KEY_EXISTS", "key", "mv", "external", "deploy-2026")
 	wantCode(t, "USAGE", "key", "mv", "external", "bad name")
 	if d := mustRun(t, "key", "mv", "external", "external"); d["action"] != "unchanged" {

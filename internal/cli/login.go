@@ -51,7 +51,7 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 				return out.Usage("cloud logins are lower case: komando login %s", loginClouds[i]).WithHint("komando login " + loginClouds[i])
 			}
 			err := loginHost(cl, cmd.Context(), args[0])
-			if e := toErr(err); e != nil && e.Code == "HOST_NOT_FOUND" {
+			if e := toErr(err); e != nil && e.Code == "TARGET_NOT_FOUND" {
 				if c := closest(args[0], loginClouds[:1]); c != "" { // only aws is built
 					e.Hint += " For the AWS login: komando login " + c
 				}

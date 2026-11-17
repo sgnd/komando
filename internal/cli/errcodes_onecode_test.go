@@ -55,7 +55,4 @@ func TestOneCodeEach(t *testing.T) {
 	if _, ok := reflect.TypeOf(out.Error{}).FieldByName("Thing"); ok {
 		t.Error("out.Error still has Thing (error.thing)")
 	}
-	if len(sharedCodes) != 0 || len(sameAsCodes) != 0 {
-		t.Errorf("the shared and same-meaning lists must be empty: %d, %d", len(sharedCodes), len(sameAsCodes))
-	}
 }

@@ -213,7 +213,7 @@ func TestLogoutArgs(t *testing.T) {
 	if d := mustRun(t, "logout", "web1"); fmt.Sprint(d["not_logged_in"]) != "[web1]" {
 		t.Errorf("logout web1: %v", d)
 	}
-	wantCode(t, "HOST_NOT_FOUND", "logout", "nosuch")
+	wantCode(t, "TARGET_NOT_FOUND", "logout", "nosuch")
 	wantCode(t, "USAGE", "logout", "--all", "web1")
 	mustRun(t, "logout", "--all")
 }
@@ -314,10 +314,10 @@ func TestLoginCloudTypos(t *testing.T) {
 	if e := wantCode(t, "USAGE", "login", "AWS"); e.Hint != "komando login aws" {
 		t.Errorf("AWS: %+v", e)
 	}
-	if e := wantCode(t, "HOST_NOT_FOUND", "login", "asw"); !strings.Contains(e.Hint, "komando login aws") {
+	if e := wantCode(t, "TARGET_NOT_FOUND", "login", "asw"); !strings.Contains(e.Hint, "komando login aws") {
 		t.Errorf("asw: %+v", e)
 	}
-	if e := wantCode(t, "HOST_NOT_FOUND", "login", "web1"); strings.Contains(e.Hint, "login aws") {
+	if e := wantCode(t, "TARGET_NOT_FOUND", "login", "web1"); strings.Contains(e.Hint, "login aws") {
 		t.Errorf("web1: %+v", e)
 	}
 }
