@@ -316,6 +316,11 @@ komando cp backups:2026/db.sql.gz dr-backups:2026/
   `sha256`.
 - An AI agent copies a file that is a secret by name (`.env`, a private
   key) only after the user allows it (`--reveal`), as for a download.
+  The copy is also read on its way: a file holding anything komando hides
+  from an AI agent (a vault value, a secret by its shape, or personal data
+  where the source hides it) stops with `SENSITIVE_FILE` before it is put
+  in place, as the copy cannot show it as `[hidden]`. In a folder copy that
+  file is listed in `errors` and the rest are copied.
 - `--progress` writes the same lines as an upload.
 
 ### Go on with a copy that was cut off (--continue)

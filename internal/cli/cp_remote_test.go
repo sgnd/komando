@@ -335,3 +335,53 @@ func TestRemoteCopyFolderNeedsR(t *testing.T) {
 		t.Fatalf("a folder without -r: %v (exit %d, hint %q)", err, e.Exit, e.Hint)
 	}
 }
+
+// For an AI agent a copy between two remote places stops on everything a
+// download would hide (C120): a secret by its shape, not only a vault
+// value, and personal data where the source hides it. Nothing is put in
+// place; a file with neither is copied as it is.
+func TestRemoteCopyStopsHiddenValuesForAgents(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		personal bool
+		body     string
+	}{
+		"a secret by its shape":       {false, "DB_PASSWORD=Sup3rS3cretPw\n"},
+		"personal data, where hidden": {true, "name,email\nAlice,alice@example.com\n"},
+	} {
+		tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true, Personal: tc.personal}
+		one := &memBucket{objs: map[string]string{"a.txt": tc.body}}
+		two := &memBucket{objs: map[string]string{}}
+		src := &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}
+		dst := &copyEnd{conn: &store.Conn{Name: "bk2"}, b: two}
+		_, err := remoteCopy(tcl, ctx, src, dst, "a.txt", "a.txt", cpOpts{})
+		if e := toErr(err); e == nil || e.Code != "SENSITIVE_FILE" || len(two.objs) != 0 {
+			t.Errorf("%s: %v, copied %v", name, err, two.objs)
+		}
+	}
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true, Personal: false}
+	one := &memBucket{objs: map[string]string{"a.txt": "name,email\nAlice,alice@example.com\n"}}
+	two := &memBucket{objs: map[string]string{}}
+	if _, err := remoteCopy(tcl, ctx, &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}, &copyEnd{conn: &store.Conn{Name: "bk2"}, b: two}, "a.txt", "a.txt", cpOpts{}); err != nil || two.objs["a.txt"] != one.objs["a.txt"] {
+		t.Errorf("personal data where the source does not hide it: %v %v", err, two.objs)
+	}
+}
+
+// The command turns personal data hiding on for the copy's source, as
+// download does for its server or conn (mask_personal on the conn).
+func TestRemoteCopyPersonalFromTheSource(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
+	mustRun(t, "conn", "add", "bk2", "s3://AKIAEXAMPLE@shop-dev/other?region=eu-west-1")
+	mustRun(t, "conn", "edit", "bk", "--option", "mask_personal=on")
+	one := &memBucket{objs: map[string]string{"people.csv": "name,email\nAlice,alice@example.com\n"}}
+	two := &memBucket{objs: map[string]string{}}
+	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
+	asAgent(t, false, false)
+	wantCode(t, "SENSITIVE_FILE", "cp", "bk:people.csv", "bk2:people.csv")
+	if len(two.objs) != 0 {
+		t.Errorf("copied: %v", two.objs)
+	}
+}
