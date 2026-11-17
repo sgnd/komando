@@ -223,7 +223,7 @@ terminal are not affected by them.
 | **A person decides about weaker connections** | An agent that adds a conn whose URL turns the network protection down, or edits one so that it does, needs `--yes` and your yes in the window (`SAFETY_SETTING`): `sslmode=disable`, `allow` or `prefer` (PostgreSQL), `tls=false`, `preferred` or `skip-verify` (MySQL), `encrypt=false`, `encrypt=disable` or `tls=skip-verify` (SQL Server), `tls=false` or `tls=skip-verify` (Oracle, ClickHouse, registry, FTPS), `tls=skip-verify` or `insecure=1` (Kafka, RabbitMQ, NATS, SQS, Pub/Sub), `insecure=1` (FTP, Redis, memcached), an `http://` endpoint (BigQuery), and going from `rediss://`, `memcacheds://` or an `https` endpoint to one without TLS. |
 | **The usual data folder** | `KOMANDO_HOME` moves komando's data. In a new folder komando would know none of your protected servers, deny rules or pinned host keys, and would write the audit log there. So an agent's command with a `KOMANDO_HOME` other than `~/.komando` needs `--yes` and your yes in the window, every time (`SAFETY_SETTING`). If you keep komando's data elsewhere, make `~/.komando` a link to that folder: a link to the same folder counts as `~/.komando`. `HOME` does not move it for an agent: komando takes an agent's home folder from the computer's user database, so `HOME=/tmp/x komando ...` still uses your `~/.komando` (and the guard refuses that line). You, at your own terminal, may set `HOME`, and komando follows it. An account the user database does not know (on Linux komando also asks `getent`, so LDAP and sssd accounts count) leaves komando nothing to check `HOME` against: an agent's command then needs your yes in the window (`SAFETY_SETTING`). |
 | **No guessing a secret** | `secret check`, which says whether a value is the stored one, is for people only (`NEEDS_PERSON`): for an agent it would answer yes or no to guesses. `secret show` tells an agent only whether the value starts or ends with a space, never its length or a hash of it (a hash of a short password can be guessed offline). |
-| **Secret files stay on the server** | An agent cannot copy a file that is secret by its name (`.env`, private keys, `credentials`, `shadow`, ...) to this computer (`SENSITIVE_FILE`); folder copies leave them out. It can read them with `fs cat`, masked. Any other text file an agent downloads (`download`, `sync`, `storage download`, also `--to -`) is saved the way `fs cat` shows it, with secret values as `[hidden]`, and the result says `masked`; such a copy is never uploaded back (`HIDDEN_VALUE`). Binary files and files over 16 MB are copied as they are. |
+| **Secret files stay on the server** | An agent cannot copy a file that is secret by its name (`.env`, private keys, `credentials`, `shadow`, ...) to this computer (`SENSITIVE_FILE`); folder copies leave them out. It can read them with `fs cat`, masked. Any other text file an agent downloads (`download`, `sync`, `storage download`, also `--to -`) is saved the way `fs cat` shows it, with secret values as `[hidden]`, and the result says `masked`; such a copy is never uploaded back (`HIDDEN_VALUE`). Binary files and files over 16 MB are copied as they are, unless they hold a vault value, or the target hides personal data from agents (see [Personal data](#personal-data)). |
 | **Secret files stay on this computer** | komando does not read `~/.komando`, private keys, credential stores or files that are secret by name for an agent when a command takes a local file (`--stdin-file`, `script FILE`, uploads, `sync`, `fs write --from`, `db --file`, `cluster -f`) (`SENSITIVE_FILE`); folder uploads and `sync` check each file and leave those out. That holds for the same file by another name: a link, a hard link, or other upper and lower case on macOS. You allow a project secret such as `.env` with `--reveal`; komando's own data and `/proc/PID/environ` never go. Imports (`komando import kubeconfig`, `pgpass`, `docker`, ...) may read credential files, because they put the secrets into komando's vault, which the agent never sees. A `file:` or `env:` password reference cannot point at komando's data, a private key, a credential store or the password of a secret store either. No reference, for anyone, reads the approval code's key (`RESERVED_SECRET`). Nor does an agent's command write there: `download`, `cp`, `sync` (and its `--delete`), `storage download`, `db dump --to`, `export --to` and `cluster cp` never save a file into komando's folder, `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.password-store` or the keychains, also through a link (`SENSITIVE_FILE`, no flag: you run such a command in your own terminal). |
 | **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws/credentials`, the keychain), listing all environment variables, changing or clearing the variables komando knows an agent by (`CLAUDECODE=0`, `unset`, `env -u`, `env -i`, `read`, `sudo komando`) or `KOMANDO_HOME`, setting `HOME` in front of komando, searching or archiving a folder that holds them (`grep -r ~`, `tar -C ~ ...`), and running `ssh`/`scp` around komando. It reads relative paths from the agent's working folder, follows `cd`, and counts a glob such as `~/.komand?/*` as the path it could match; quoted patterns (`grep '.*' f`) are not globs. Skip it with `--no-guard`. |
 
@@ -286,6 +286,42 @@ komando config set mask_personal protected       # back to the default (komando 
 - Names and street addresses have no shape komando can find, so name the
   columns that hold them in `mask_columns`, split by spaces. Setting it
   also turns personal data hiding on for that conn.
+- A query that names a hidden column could rename it (`name AS customer`),
+  compute from it (`upper(name)`) or ask about it (`WHERE name LIKE 'A%'`),
+  and komando cannot tell which results come from it. So an AI agent's
+  `db query` that names one anywhere stops with `REVEAL_NEEDS_PERSON` (exit 6): a person
+  allows it with `--reveal`.
+  `SELECT *` shows the column as `[hidden: column]` beside the others. On
+  MongoDB the names are fields, hidden at any depth, and a command that
+  names one stops the same way.
+- This stops ordinary queries, not a database that builds the name while
+  it runs (whole-row values, dynamic SQL, a view that renames the column).
+  For a column an agent must never read, give the conn's database user no
+  right to read it.
+- The same data is not handed over another way. For an AI agent, where
+  personal data is hidden: `cp`, `sync` and `download` save files with it
+  hidden; `fs replace`, `fs write --dry-run`, `fs restore` and `docker
+  compose` show it hidden; `db dump` stops with `SENSITIVE_FILE` (a dump
+  cannot be masked). A value that is not text is shown as base64; when it
+  holds a secret or personal data, the whole value reads `[hidden]`.
+- A file komando cannot show with personal data hidden stops an AI
+  agent's `cp`, `sync`, `download` or `cluster cp` with `SENSITIVE_FILE`:
+  a binary file whose text holds a secret or personal data, a binary file
+  over 256 KiB (too large to check), and any file over 16 MiB. A person
+  allows it with `--reveal`.
+- The hiding follows the database, not the conn's name: a second conn to
+  the same database (same server address and database name) hides as
+  much. A conn to the same server under another address (a host name for
+  an IP, a tunnel's `localhost` port) is not recognised as the same, nor a
+  SQLite file under another path (`~/app.db` and its full path, a link, other
+  upper and lower case on macOS). On PostgreSQL the hiding is per database;
+  on MySQL, SQL Server, ClickHouse, MongoDB and the others, whose conns read
+  every database of the server, it covers the whole server.
+- Taking a column out of `mask_columns`, turning `mask_personal` off, or
+  replacing (`conn add --overwrite`, `import --overwrite`) or removing
+  such a conn shows agents more: an AI agent needs a person's yes for it
+  (`SAFETY_SETTING`), as for the setting. `mask_columns` takes column
+  names without the table, and the options are written in lower case.
 - A person decides when an agent sees the real values: with `--reveal`,
   which a person allows in the approval window, the agent sees them for
   that one command.
@@ -433,7 +469,7 @@ what an agent or a script gets.
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. | Remove that line if the dump is not trusted. |
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. | Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. | Ask the person to run the command in their own terminal. |
-| `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`. | Run it without `--dry-run`: komando asks the person in a window on their screen. |
+| `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`, or its query names a column hidden from it (`mask_columns`). | Run it without `--dry-run`: komando asks the person in a window on their screen. |
 | `NEEDS_PERSON` | 6 | Only a person can do this: `secret set` and `secret check` for an agent, `secret keychain`, `secret passphrase`, `doctor --accept-old-copy`, `login aws`, `host ssh-command` for an agent, setting up `config approval-code`, replacing a pinned host key with `host trust --reset`. | Ask them to run it in their own terminal. A `--dry-run` still shows the plan. |
 | `STORE_OLD_COPY` | 6 | An older copy of `store.db` was put back. | No flag clears it. If you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal (see [Settings](settings.md#where-komando-keeps-its-data)). |
 | `DECLINED` | 6 | You answered no to komando's question. | Nothing was changed; run it again to be asked again. |

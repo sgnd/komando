@@ -167,6 +167,11 @@ komando storage link media site/report.pdf                   # Google Cloud and 
 komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```
 
+- For an AI agent, `storage link` needs a person's yes (`--reveal`): a
+  link is the file as it is, past the hiding that `storage cat` and
+  `storage download` apply. Without it the command stops with
+  `SENSITIVE_FILE`; for a file that is a secret by its name (`.env`, a
+  key) it always does.
 - The link works for anyone who has it until it expires. Share it like a
   password. It is not written to the audit history.
 - On a protected conn, `link` asks a person at a terminal first; an AI

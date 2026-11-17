@@ -41,41 +41,100 @@ var (
 	iban  = regexp.MustCompile(`\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b`)
 )
 
+// personalPasses are MaskPersonal's passes, in order: each finds where
+// its kind of value stands in a text. Printer.View runs the same passes.
+var personalPasses = []struct {
+	kind string
+	find func(s string) [][2]int
+}{
+	{PersonalEmail, func(s string) [][2]int {
+		if strings.IndexByte(s, '@') < 0 {
+			return nil
+		}
+		return spans(email, s, func(m string) bool { return !notPersonalEmail(m) })
+	}},
+	{PersonalPhone, func(s string) [][2]int {
+		if strings.IndexByte(s, '+') < 0 {
+			return nil
+		}
+		var at [][2]int
+		for _, loc := range phone.FindAllStringIndex(s, -1) {
+			i, j := loc[0], loc[1]
+			// standing alone: not glued to a letter, digit or dot before
+			// it (a time zone "T10:00+07:00", a version "1.2+34567890")
+			// nor to one after it
+			if i > 0 && isWordByte(s[i-1]) || j < len(s) && (isWordByte(s[j]) || s[j] == '+') || inLabel(labelSpans(s), i, j) {
+				continue
+			}
+			if n := digits(s[i:j]); len(n) < 8 || len(n) > 15 {
+				continue
+			}
+			at = append(at, [2]int{i, j})
+		}
+		return at
+	}},
+	{PersonalCard, func(s string) [][2]int {
+		return spans(card, s, func(m string) bool { return isCard(digits(m)) && !mixedSeparators(m) })
+	}},
+	{PersonalIBAN, func(s string) [][2]int {
+		return spans(iban, s, func(m string) bool { return isIBAN(strings.ReplaceAll(m, " ", "")) })
+	}},
+}
+
+// spans: where re matches in s, for the matches keep accepts. A match
+// inside one of komando's labels ([secret:ops@corp.example], [hidden:
+// email]) is the label, not personal data.
+func spans(re *regexp.Regexp, s string, keep func(string) bool) [][2]int {
+	var at [][2]int
+	labels := labelSpans(s)
+	for _, loc := range re.FindAllStringIndex(s, -1) {
+		if inLabel(labels, loc[0], loc[1]) {
+			continue
+		}
+		if keep(s[loc[0]:loc[1]]) {
+			at = append(at, [2]int{loc[0], loc[1]})
+		}
+	}
+	return at
+}
+
+// labelSpans: where komando's labels stand in s.
+func labelSpans(s string) [][]int {
+	if !strings.Contains(s, "[") {
+		return nil
+	}
+	return append(secretLabel.FindAllStringIndex(s, -1), hiddenLabel.FindAllStringIndex(s, -1)...)
+}
+
+// inLabel reports whether s[i:j] overlaps one of the labels.
+func inLabel(labels [][]int, i, j int) bool {
+	for _, l := range labels {
+		if i < l[1] && l[0] < j {
+			return true
+		}
+	}
+	return false
+}
+
 // MaskPersonal hides email addresses, phone numbers, payment card numbers
 // and IBANs in text.
 func MaskPersonal(s string) string {
-	if s == "" {
-		return s
-	}
-	if strings.IndexByte(s, '@') >= 0 {
-		s = email.ReplaceAllStringFunc(s, func(m string) string {
-			if notPersonalEmail(m) {
-				return m
-			}
-			return PersonalLabel(PersonalEmail)
-		})
-	}
-	if strings.IndexByte(s, '+') >= 0 {
-		s = replaceStandalone(phone, s, func(m string) (string, bool) {
-			n := digits(m)
-			if len(n) < 8 || len(n) > 15 {
-				return m, false
-			}
-			return PersonalLabel(PersonalPhone), true
-		})
-	}
-	s = card.ReplaceAllStringFunc(s, func(m string) string {
-		if !isCard(digits(m)) || mixedSeparators(m) {
-			return m
+	for _, pass := range personalPasses {
+		at := pass.find(s)
+		if len(at) == 0 {
+			continue
 		}
-		return PersonalLabel(PersonalCard)
-	})
-	return iban.ReplaceAllStringFunc(s, func(m string) string {
-		if !isIBAN(strings.ReplaceAll(m, " ", "")) {
-			return m
+		var b strings.Builder
+		last := 0
+		for _, r := range at {
+			b.WriteString(s[last:r[0]])
+			b.WriteString(PersonalLabel(pass.kind))
+			last = r[1]
 		}
-		return PersonalLabel(PersonalIBAN)
-	})
+		b.WriteString(s[last:])
+		s = b.String()
+	}
+	return s
 }
 
 // notPersonalEmail: addresses that name a service, not a person. git@host
@@ -87,32 +146,6 @@ func notPersonalEmail(m string) bool {
 		return true
 	}
 	return false
-}
-
-// replaceStandalone replaces matches of re that stand alone: not glued to
-// a letter, digit or dot before them (a time zone "T10:00+07:00", a
-// version "1.2+34567890") nor to one after them.
-func replaceStandalone(re *regexp.Regexp, s string, f func(string) (string, bool)) string {
-	var b strings.Builder
-	last := 0
-	for _, loc := range re.FindAllStringIndex(s, -1) {
-		i, j := loc[0], loc[1]
-		if i > 0 && isWordByte(s[i-1]) || j < len(s) && (isWordByte(s[j]) || s[j] == '+') {
-			continue
-		}
-		r, ok := f(s[i:j])
-		if !ok {
-			continue
-		}
-		b.WriteString(s[last:i])
-		b.WriteString(r)
-		last = j
-	}
-	if last == 0 {
-		return s
-	}
-	b.WriteString(s[last:])
-	return b.String()
 }
 
 func isWordByte(c byte) bool {
