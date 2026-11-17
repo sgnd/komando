@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -40,7 +41,7 @@ func TestRunningStatus(t *testing.T) {
 			"old":    {Vpn: "old", PID: 200, StartedAt: now.Add(-time.Hour), LastUsed: now.Add(-time.Hour)}, // died
 		},
 		Tunnels: map[string]*store.Tunnel{
-			"t-up":   {ID: "t-up", Host: "bastion", Kind: "local", Spec: "5433:10.0.0.9:5432", Conn: "app-db", PID: os.Getpid(), StartedAt: now.Add(-2 * time.Hour)},
+			"t-up":   {ID: "t-up", Host: "bastion", Kind: "local", Spec: "5433:10.0.0.9:5432", Conn: "app-db", PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), StartedAt: now.Add(-2 * time.Hour)},
 			"t-dead": {ID: "t-dead", Host: "bastion", Kind: "local", Spec: "1:2:3", PID: 1 << 30, StartedAt: now},
 		},
 		Jobs: map[string]*store.Job{

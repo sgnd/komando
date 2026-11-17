@@ -19,7 +19,7 @@ import (
 // komando: after a crash or a restart its pid may belong to another
 // program, which tunnel stop must never signal.
 func tunnelAlive(t *store.Tunnel) bool {
-	return alive(t.PID) && netx.SessionAlive(&store.VpnSession{PID: t.PID, Exe: tunnelExe()})
+	return alive(t.PID) && netx.SessionAlive(&store.VpnSession{PID: t.PID, Exe: tunnelExe(), ProcStart: t.ProcStart})
 }
 
 // tunnelExe is the program name tunnel processes run as: this komando's

@@ -23,6 +23,7 @@ type dirFS struct {
 	root      string
 	failMove  string // Rename to this name fails
 	renameErr error
+	failLeft  *int // with failMove: fail only this many times
 }
 
 func (d dirFS) p(name string) string { return filepath.Join(d.root, filepath.FromSlash(name)) }
@@ -45,7 +46,10 @@ func (d dirFS) Create(name string) (io.WriteCloser, error) { return os.Create(d.
 func (d dirFS) MkdirAll(dir string) error                  { return os.MkdirAll(d.p(dir), 0o755) }
 func (d dirFS) Remove(name string) error                   { return os.Remove(d.p(name)) }
 func (d dirFS) Rename(from, to string) error {
-	if to == d.failMove {
+	if to == d.failMove && (d.failLeft == nil || *d.failLeft > 0) {
+		if d.failLeft != nil {
+			*d.failLeft--
+		}
 		return d.renameErr
 	}
 	if _, err := os.Stat(d.p(to)); err == nil {
