@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -190,7 +191,7 @@ func entryNames(st *store.State) map[string]bool {
 // (guardVpnSends), and, for a VPN they replace, protection or --mfa
 // turned off (guardVpnEdit). A file cannot do what a person did not allow.
 func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
-	if err := importVpnPlaces(cl, st, vpns); err != nil { // an agent: before any yes is asked for
+	if err := importVpnPlaces(cl, st, vpns); err != nil { // an agent: no yes lifts it
 		return err
 	}
 	olds := map[string]*store.Vpn{}
@@ -212,16 +213,19 @@ func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
 }
 
 // guardImportSecrets is secret set's guard for the secrets an import
-// replaces (a conn's password it carries is stored as NAME-pass, whoever
+// writes (a conn's password it carries is stored as NAME-pass, whoever
 // else uses that name): one on the way to a login-ask server or conn
-// stops an AI agent (loginPlaceStop), and one a protected entry uses
-// needs a person's yes.
+// stops an AI agent, whether it is there already or only named
+// (loginPlaceStop), and replacing one a protected entry uses needs a
+// person's yes.
 func guardImportSecrets(cl *call, st *store.State, names []string) error {
 	for _, name := range names {
-		if _, err := vault.Get(name); err != nil {
-			continue // a new secret
-		}
 		if err := loginPlaceStop(cl, secretPlaceChanges(st, name)); err != nil {
+			return err
+		}
+		if _, err := vault.Get(name); errors.Is(err, vault.ErrNotFound) {
+			continue // a new secret replaces nothing
+		} else if err != nil {
 			return err
 		}
 		if prot := protectedUsers(st, secretUsers(st, name)); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {

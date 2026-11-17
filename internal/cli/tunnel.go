@@ -566,6 +566,9 @@ func serveState(cl *call, loginsStdin, passStdin bool) (*store.State, error) {
 	ticket := readTicket(in)
 	if loginsStdin {
 		if err := readLogins(cl, in); err != nil {
+			if terr := checkTicket(cl, ticket, "tunnel serve", "tunnel start"); terr != nil {
+				return nil, terr // run by hand
+			}
 			return nil, err
 		}
 	}

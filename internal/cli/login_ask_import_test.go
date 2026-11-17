@@ -70,8 +70,27 @@ func TestLoginAskServeReadsTicketThenLogins(t *testing.T) {
 	if pw, _, err := tcl.loginPassword(q); err != nil || pw != "typed-Pa55" {
 		t.Errorf("web1: %q %v", pw, err)
 	}
-	tcl.stdin = strings.NewReader(string(logins)) // run by hand: no ticket
-	if _, err := serveState(tcl, true, false); err == nil {
-		t.Error("tunnel serve went on without a ticket")
+	// run by hand: no ticket, nothing at all, or a ticket made for a
+	// tunnel serve without the passwords flag
+	other, _ := ticketLine(cmd[:3])
+	for _, in := range []string{string(logins), "", other + string(logins)} {
+		tcl.stdin = strings.NewReader(in)
+		if _, err := serveState(tcl, true, false); err == nil || toErr(err).Code != "NEEDS_PERSON" {
+			t.Errorf("stdin %q: %v", in, err)
+		}
+	}
+}
+
+// The same for a secret that is not there yet: a VPN on the way names
+// it, so the import that would make it gives the VPN the agent's key.
+func TestLoginAskImportCannotMakeTheSecretOnTheWay(t *testing.T) {
+	secretHome(t)
+	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:corp-pass")
+	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	env := writeTemp(t, ".env", "CORP_URL=postgres://app:tskey-the-agents@127.0.0.1:5432/app\n")
+	wantCode(t, "NEEDS_PERSON", "import", "env", env)
+	if v, err := vault.Get("corp-pass"); err == nil {
+		t.Errorf("the import made the VPN's key: %q", v)
 	}
 }
