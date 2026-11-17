@@ -212,7 +212,8 @@ own tool, is allowed when this list names it:
 `user add`, `db user add` (useradd; hidden alias `create`),
 `db grant/revoke` (SQL), `pkg installed/upgradable/security`,
 `queue peek/send/lag/groups`, `db activity/locks/sizes/explain/kill`,
-`fs cat/stat/chmod/mkdir/write/replace/mv`, `svc daemon-reload`,
+`fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
+`svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
 `key gen/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
 `audit verify`, `config approval-code`, `secret keychain/passphrase`.

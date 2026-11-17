@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -220,7 +221,7 @@ func TestTunnelStopOtherProgram(t *testing.T) {
 	saved := tunnelExe
 	tunnelExe = func() string { return otherName }
 	defer func() { tunnelExe = saved }()
-	if !tunnelAlive(&store.Tunnel{PID: other.Process.Pid}) {
+	if !tunnelAlive(&store.Tunnel{PID: other.Process.Pid, ProcStart: netx.ProcessStart(other.Process.Pid)}) {
 		t.Error("a running tunnel process is not seen")
 	}
 }

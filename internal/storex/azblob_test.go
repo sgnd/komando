@@ -3,6 +3,8 @@ package storex
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -26,10 +28,12 @@ const azuriteKey = "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6
 // It checks that requests are signed, not the signature itself: the
 // Azurite test below does that.
 type fakeAzure struct {
-	mu     sync.Mutex
-	blobs  map[string][]byte
-	blocks map[string][]byte
-	puts   int
+	mu      sync.Mutex
+	blobs   map[string][]byte
+	blocks  map[string][]byte
+	puts    int
+	copies  int
+	pending int // a copy answers "pending" to this many looks before "success"
 }
 
 func (f *fakeAzure) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +65,8 @@ func (f *fakeAzure) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		f.blobs[name] = all
 		w.WriteHeader(http.StatusCreated)
+	case r.Method == http.MethodPut && r.Header.Get("x-ms-copy-source") != "":
+		f.copyBlob(w, r, name)
 	case r.Method == http.MethodPut:
 		if r.Header.Get("x-ms-blob-type") != "BlockBlob" {
 			w.WriteHeader(http.StatusBadRequest)
@@ -81,6 +87,14 @@ func (f *fakeAzure) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		default:
 			w.Header().Set("Content-Length", fmt.Sprint(len(b)))
 			w.Header().Set("Last-Modified", "Sun, 08 Nov 2026 10:00:00 GMT")
+			sum := md5.Sum(b)
+			w.Header().Set("Content-MD5", base64.StdEncoding.EncodeToString(sum[:]))
+			if f.pending > 0 {
+				f.pending--
+				w.Header().Set("x-ms-copy-status", "pending")
+			} else {
+				w.Header().Set("x-ms-copy-status", "success")
+			}
 			if r.Method == http.MethodGet {
 				w.Write(b)
 			}
@@ -88,9 +102,37 @@ func (f *fakeAzure) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// copyBlob is Copy Blob from a blob in the same container, honouring
+// If-None-Match: * (only while the target does not exist).
+func (f *fakeAzure) copyBlob(w http.ResponseWriter, r *http.Request, name string) {
+	u, err := url.Parse(r.Header.Get("x-ms-copy-source"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	src, _ := url.PathUnescape(strings.TrimPrefix(u.EscapedPath(), "/media/"))
+	b, ok := f.blobs[src]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if _, there := f.blobs[name]; there && r.Header.Get("If-None-Match") == "*" {
+		w.WriteHeader(http.StatusConflict)
+		return
+	}
+	f.blobs[name] = append([]byte(nil), b...)
+	f.copies++
+	status := "success"
+	if f.pending > 0 {
+		status = "pending"
+	}
+	w.Header().Set("x-ms-copy-status", status)
+	w.WriteHeader(http.StatusAccepted)
+}
+
 func (f *fakeAzure) list(w http.ResponseWriter, q url.Values) {
 	prefix, delim := q.Get("prefix"), q.Get("delimiter")
-	seen := map[string]bool{}
+	seen, folders := map[string]bool{}, map[string]bool{}
 	var entries []string
 	for n := range f.blobs {
 		if !strings.HasPrefix(n, prefix) {
@@ -98,6 +140,7 @@ func (f *fakeAzure) list(w http.ResponseWriter, q url.Values) {
 		}
 		if i := strings.Index(n[len(prefix):], "/"); delim == "/" && i >= 0 {
 			n = n[:len(prefix)+i+1]
+			folders[n] = true // a folder marker (name/) lists as its folder
 		}
 		if !seen[n] {
 			seen[n] = true
@@ -111,7 +154,7 @@ func (f *fakeAzure) list(w http.ResponseWriter, q url.Values) {
 	b.WriteString(`<?xml version="1.0" encoding="utf-8"?><EnumerationResults><Blobs>`)
 	for i := start; i < len(entries) && i < start+2; i++ {
 		n := entries[i]
-		if data, file := f.blobs[n]; file {
+		if data, file := f.blobs[n]; file && !folders[n] {
 			fmt.Fprintf(&b, "<Blob><Name>%s</Name><Properties><Last-Modified>Sun, 08 Nov 2026 10:00:00 GMT</Last-Modified><Content-Length>%d</Content-Length></Properties></Blob>", n, len(data))
 		} else {
 			fmt.Fprintf(&b, "<BlobPrefix><Name>%s</Name></BlobPrefix>", n)

@@ -690,6 +690,15 @@ func init() {
 			flags: []formFlag{
 				{name: "prefix", ask: "Delete everything in a folder?", help: "Empty when you named the files above. A folder ends in /, like daily/.", example: "daily/"},
 				{name: "older-than", ask: "Only files older than?", help: "With a folder: newer ones are kept. Like 30d (days) or 12h (hours).", example: "30d"}}},
+		"storage mkdir": {args: []formArg{conn,
+			key("Which folder should be made?", "Its path inside the storage; missing folders on the way are made too.", "reports/2026")}},
+		"storage mv": {args: []formArg{conn,
+			key("Which file (or folder) do you want to move or rename?", "Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time.", "db/old.sql.gz"),
+			key("Where to? (the new name)", "A new name, or a folder ending in / to move it into with its own name.", "archive/")},
+			flags: []formFlag{{name: "overwrite", ask: "Replace a file that is already there?"}}},
+		"storage chmod": {args: []formArg{conn,
+			key("Which permissions? (as a number)", "640: owner reads and writes, group reads, others nothing. 755: everyone can read and open, only the owner writes. SFTP storage only.", "640"),
+			key("Which file or folder?", "Its name inside the storage, as storage list shows it.", "config/app.yml")}},
 		"storage link": {args: []formArg{conn,
 			key("Which file to share?", "Its name inside the storage. Anyone with the link can download it until it ends.", "reports/q3.pdf")},
 			flags: []formFlag{{name: "expires", ask: "How long should the link work?", help: "Like 30m or 24h; at most 168h (7 days).", def: "1h"}}},
@@ -704,5 +713,8 @@ func init() {
 		"storage upload":   {next: []string{"storage list {} PREFIX/", "storage link {} OBJECT --expires 24h"}},
 		"storage download": {next: []string{"storage list {}"}},
 		"storage rm":       {next: []string{"storage list {} --recursive"}},
+		"storage mkdir":    {next: []string{"storage upload {} FILE OBJECT", "storage list {} PREFIX/"}},
+		"storage mv":       {next: []string{"storage list {} PREFIX/"}},
+		"storage chmod":    {next: []string{"storage list {} PREFIX/"}},
 	})
 }

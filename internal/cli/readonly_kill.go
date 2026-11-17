@@ -2,8 +2,9 @@ package cli
 
 import "strings"
 
-// Read tools whose one flag or form writes a file or kills (the allowlist
-// otherwise lets them through --read-only).
+// Read tools whose one flag or form writes a file, runs a program or
+// kills; --read-only lets their other forms through.
+
 // optionWrite finds a writing or killing option in args: a short option
 // whose letter is in letters, alone or in a cluster (-tK), or a long one in
 // longs, alone or with =VALUE. valued are short options whose value is the
@@ -104,4 +105,182 @@ func arpWrite(cmd string, args []string, _ bool) string {
 // sarWrite: -o [FILE] saves the readings to a file.
 func sarWrite(cmd string, args []string, _ bool) string {
 	return optionWrite(cmd, args, "o", "fiesIPnm")
+}
+
+// rgWrite: --pre and --hostname-bin run a program.
+func rgWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		if strings.HasPrefix(a, "--pre") || strings.HasPrefix(a, "--hostname-bin") {
+			return cmd + " " + a
+		}
+	}
+	return ""
+}
+
+// fileWrite: -C compiles a magic file, which writes NAME.mgc.
+func fileWrite(cmd string, args []string, _ bool) string {
+	return optionWrite(cmd, args, "C", "mFePf", "--compile")
+}
+
+// lsofWrite: -D builds or updates the device cache file.
+func lsofWrite(cmd string, args []string, _ bool) string {
+	return optionWrite(cmd, args, "D", "acdFgikopsSTuZ")
+}
+
+// pidstatWrite: -e PROGRAM runs a program to watch it.
+func pidstatWrite(cmd string, args []string, _ bool) string {
+	return optionWrite(cmd, args, "e", "CGpT")
+}
+
+// blkidWrite: -g and -c FILE change the cache file.
+func blkidWrite(cmd string, args []string, _ bool) string {
+	if w := optionWrite(cmd, args, "gc", "LUostOuSkn", "--garbage-collect", "--cache-file"); w != "" {
+		return w
+	}
+	for _, a := range args {
+		if strings.HasPrefix(a, "--") {
+			return cmd + " " + a + " (komando does not know this option only reads)"
+		}
+	}
+	return ""
+}
+
+// catOnly: zcat and its like print files; an option may name an output
+// file (zstdcat -o), so they take none.
+func catOnly(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if len(a) > 1 && a[0] == '-' {
+			return cmd + " " + a + " (komando does not know this option only reads)"
+		}
+	}
+	return ""
+}
+
+// noWrite: every short option of the command reads; its long ones are
+// held to readLongs.
+func noWrite(string, []string, bool) string { return "" }
+
+// The shell built-ins below read, but bash evaluates some of their
+// arguments: a name with a subscript (a[$(cmd)]) runs the command in it.
+
+// printfWrite: printf -v NAME sets a variable, and evaluates NAME.
+func printfWrite(cmd string, args []string, _ bool) string {
+	if len(args) > 0 && strings.HasPrefix(args[0], "-") && args[0] != "--" {
+		return cmd + " " + args[0]
+	}
+	return ""
+}
+
+// testWrite: -v NAME and -R NAME evaluate NAME, and [[ ]] does arithmetic
+// on both sides of -eq and its like.
+func testWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		switch a {
+		case "-v", "-R":
+			return cmd + " " + a
+		case "-eq", "-ne", "-lt", "-le", "-gt", "-ge":
+			if cmd == "[[" {
+				return "[[ " + a
+			}
+		}
+	}
+	return ""
+}
+
+// readWrite: read NAME evaluates a subscript in NAME, and sets NAME: only
+// plain names that run nothing (not PATH, not PS4) and -r pass.
+func readWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		if a == "-r" {
+			continue
+		}
+		if !validShellName(a) {
+			return cmd + " " + a
+		}
+		if v := envWrite(a + "="); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// setWrite: set -e, -u and -o pipefail (errexit, nounset) only change how
+// the script stops; -x and -v print a trace that expands PS4, and other
+// options change what words mean.
+func setWrite(cmd string, args []string, _ bool) string {
+	for k := 0; k < len(args); k++ {
+		a := args[k]
+		switch {
+		case (a == "-o" || a == "+o") && k+1 < len(args) && (args[k+1] == "pipefail" || args[k+1] == "errexit" || args[k+1] == "nounset"):
+			k++
+		case len(a) > 1 && (a[0] == '-' || a[0] == '+') && strings.Trim(a[1:], "eu") == "":
+		case len(a) > 2 && a[0] == '-' && strings.Trim(a[1:len(a)-1], "eu") == "" && a[len(a)-1] == 'o' &&
+			k+1 < len(args) && (args[k+1] == "pipefail" || args[k+1] == "errexit" || args[k+1] == "nounset"):
+			k++ // -euo pipefail
+		default:
+			return "set " + a + " (only set -e, -u and -o pipefail are known to change nothing)"
+		}
+	}
+	return ""
+}
+
+// kubectlConfigOption: a kubeconfig, server or identity komando does not
+// know can name a program kubectl runs for credentials.
+func kubectlConfigOption(args []string) string {
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		name, _, _ := strings.Cut(a, "=")
+		if strings.HasPrefix(a, "-s") && !strings.HasPrefix(a, "--") {
+			name = "-s" // -sURL: the server, attached
+		}
+		if name == "--raw" {
+			return "kubectl --raw (prints the credentials in a kubeconfig)"
+		}
+		switch name {
+		case "--kubeconfig", "--server", "-s", "--token", "--as", "--as-group", "--as-uid", "--username", "--password",
+			"--certificate-authority", "--client-certificate", "--client-key", "--insecure-skip-tls-verify", "--tls-server-name":
+			return "kubectl " + name + " (a kubeconfig, server or identity komando does not know)"
+		}
+	}
+	return ""
+}
+
+// configTest: a server program passes only when asked to check or print
+// its configuration, or its version: nginx -t, nginx -T, sshd -T,
+// apachectl configtest, apachectl -S.
+func configTest(cmd string, args []string, _ bool) string {
+	ok := map[string]string{"nginx": "tTvVq", "sshd": "tTV", "apachectl": "tSMvVl", "apache2ctl": "tSMvVl", "httpd": "tSMvVl"}[cmd]
+	if len(args) == 0 {
+		return cmd + " (starting the server)"
+	}
+	for _, a := range args {
+		switch {
+		case a == "configtest" && cmd != "nginx" && cmd != "sshd":
+		case len(a) > 1 && a[0] == '-' && strings.Trim(a[1:], ok) == "":
+		default:
+			return notReadForm(cmd, args)
+		}
+	}
+	return ""
+}
+
+// firewallCmdWrite: firewall-cmd reads with --state and its --list-,
+// --get-, --query- and --info- options; --zone and --permanent say where.
+func firewallCmdWrite(cmd string, args []string, _ bool) string {
+	for _, a := range args {
+		name, _, _ := strings.Cut(a, "=")
+		read := name == "--state" || name == "--zone" || name == "--permanent" || name == "--version"
+		for _, p := range []string{"--list-", "--get-", "--query-", "--info-"} {
+			read = read || strings.HasPrefix(name, p)
+		}
+		if !read {
+			return notReadForm(cmd, args)
+		}
+	}
+	return ""
 }

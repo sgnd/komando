@@ -1,8 +1,10 @@
 package nats
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -313,4 +315,36 @@ func TestNatsCreds(t *testing.T) {
 	if o, err := loginOption(tg, ""); err != nil || o == nil {
 		t.Errorf("login option: %v", err)
 	}
+}
+
+// The fake server refuses a login the way a real one does: it sends -ERR
+// and keeps the connection until the client has read it and hung up. A
+// server that closes first, with the client's PING still unread, makes
+// Windows drop the -ERR on its way, and the client sees a reset instead.
+func TestFakeKeepsARefusedLoginOpenUntilTheClientLeaves(t *testing.T) {
+	f := newFake(t, func(f *fakeServer) { f.user, f.pass = "app", "natspass" })
+	c, err := net.Dial("tcp", f.addr())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	r := bufio.NewReader(c)
+	if line, err := r.ReadString('\n'); err != nil || !strings.HasPrefix(line, "INFO ") {
+		t.Fatalf("greeting: %q %v", line, err)
+	}
+	if _, err := c.Write([]byte("CONNECT {\"user\":\"app\",\"pass\":\"wrong\"}\r\nPING\r\n")); err != nil {
+		t.Fatal(err)
+	}
+	if line, err := r.ReadString('\n'); err != nil || !strings.HasPrefix(line, "-ERR ") {
+		t.Fatalf("answer to a wrong password: %q %v", line, err)
+	}
+	// the server is still there: reading waits, it does not end
+	c.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
+	_, err = r.ReadByte()
+	var ne net.Error
+	if !errors.As(err, &ne) || !ne.Timeout() {
+		t.Fatalf("the server hung up before the client did: %v", err)
+	}
+	// and it leaves once the client has
+	c.Close()
 }
