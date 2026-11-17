@@ -276,8 +276,11 @@ var invSafetyHints = map[string]formHint{
 				help: "It shows in `komando audit` for every command the key runs. Letters, digits, dot, dash, underscore."},
 			{name: "read-only", ask: "Should the key only run commands that look, without changing anything?",
 				help: "Yes is safer for a phone or a shared key."},
+			{name: "network", ask: "Should this read-only key also run network checks and programs on servers?",
+				help: "No is safer: what the key reads cannot leave through a URL or a name lookup. Yes allows net, cert check of a website and exec --read-only."},
 		},
 	},
+	"ssh-gate status": {},
 }
 
 var invSetupHints = map[string]formHint{

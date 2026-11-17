@@ -231,6 +231,9 @@ func bigqueryStatement(ts []token) (Risk, []string, error) {
 			flag("sql-remote") // runs SQL on a Cloud SQL or Spanner database
 		case t.word == "REMOTE" && word(i+1) == "WITH" && word(i+2) == "CONNECTION":
 			flag("sql-remote") // a remote function or model calls another service
+		case i+1 < len(ts) && ts[i+1].punct == '(' && bqProjectName(ts, i, -1),
+			t.word == "MODEL" && bqProjectName(ts, i+1, 1):
+			flag("sql-remote") // a routine or model of a project: maybe another's remote function
 		}
 	}
 	return risk, rules, nil
@@ -273,4 +276,33 @@ func bigqueryRows(kw string) bool { return bqReads[kw] || kw == "CALL" || kw == 
 func bigqueryNoTx(ts []token) bool {
 	risk, _, err := bigqueryStatement(ts)
 	return err != nil || risk != RiskRead
+}
+
+// bqProjectName: the name that ends (dir -1) or starts (dir 1) at ts[i]
+// has three parts, PROJECT.DATASET.NAME, in words, `quoted` parts and the
+// dashes a project ID may hold. komando does not know the conn's project,
+// so any project counts. SAFE.NET.HOST is a built-in function.
+func bqProjectName(ts []token, i, dir int) bool {
+	dots, edge := 0, ""
+	for j := i; j >= 0 && j < len(ts); j += 2 * dir {
+		t := ts[j]
+		switch {
+		case t.ident != "":
+			dots += strings.Count(t.ident, ".")
+		case t.punct == 0 && t.word != "":
+		default:
+			return false // not a name where one must be
+		}
+		edge = nameOf(t)
+		if k := j + dir; k < 0 || k >= len(ts) || ts[k].punct != '.' && ts[k].punct != '-' {
+			break
+		} else if ts[k].punct == '.' {
+			dots++
+		}
+	}
+	first := edge
+	if dir > 0 {
+		first = nameOf(ts[i])
+	}
+	return dots >= 2 && first != "SAFE"
 }
