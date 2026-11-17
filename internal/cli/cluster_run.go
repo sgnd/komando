@@ -278,15 +278,8 @@ risky verbs also need --allow-dangerous.`,
 			if strings.HasPrefix(args[1], "-") {
 				return out.Usage("start with the command (for example `-- get pods -n shop`); put flags after it")
 			}
-			risk, reason := driver.Risk(0), ""
-			if t.host != nil {
-				risk = classifyDocker(args[1:])
-				if risk < driver.RiskDestructive {
-					if reason = serverComposeReason(cl, st, []*store.Host{t.host}, args[1:]); reason != "" {
-						risk = driver.RiskDestructive // a stack file on the manager that gets the host (C113)
-					}
-				}
-			} else if risk, reason, err = kubectlRunRisk(cl, args[1:]); err != nil {
+			risk, reason, err := clusterRunRisk(cl, st, t, args[1:])
+			if err != nil {
 				return err
 			}
 			verb := strings.ToLower(args[1])
@@ -419,9 +412,9 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 		if err := guardKubeImport(cl, n, x); err != nil {
 			return nil, err
 		}
-		// the files the kubeconfig names are read like the kubeconfig: for
-		// an AI agent, never komando's own folder
-		kc, err := x.Standalone(func(p string) ([]byte, error) { return readImportFile(cl, p) })
+		// the files the kubeconfig names: for an AI agent, never komando's
+		// own folder, an SSH key or another credential store
+		kc, err := x.Standalone(func(p string) ([]byte, error) { return readKubeRefFile(cl, p) })
 		var stop *out.Error
 		if errors.As(err, &stop) {
 			return nil, stop
@@ -626,6 +619,22 @@ func psaLoosens(args []string) bool {
 		}
 	}
 	return false
+}
+
+// clusterRunRisk rates a `cluster run` command line: docker's rules on a
+// Swarm manager (with the stack files there read first), kubectl's
+// otherwise.
+func clusterRunRisk(cl *call, st *store.State, t clusterTarget, args []string) (driver.Risk, string, error) {
+	if t.host == nil {
+		return kubectlRunRisk(cl, args)
+	}
+	risk := classifyDocker(args)
+	if risk < driver.RiskDestructive {
+		if why := serverComposeReason(cl, st, []*store.Host{t.host}, args); why != "" {
+			return driver.RiskDestructive, why, nil // a stack file on the manager that gets the host (C113)
+		}
+	}
+	return risk, "", nil
 }
 
 // kubectlRunRisk is the rating and the reason a person reads for a kubectl

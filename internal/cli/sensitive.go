@@ -335,6 +335,39 @@ func readImportFile(cl *call, p string) ([]byte, error) {
 	return os.ReadFile(p)
 }
 
+// readKubeRefFile reads a file a kubeconfig names (client key and
+// certificate, CA, token file) as readImportFile does. For an AI agent it
+// may not come from a credential store other than ~/.kube, nor be an SSH
+// private key: import keeps it in the vault, so a key the agent may not
+// read would end up in komando's hands without the user (C113).
+func readKubeRefFile(cl *call, p string) ([]byte, error) {
+	if cl.isAgent() && p != "-" {
+		why := localSecret(cl, p)
+		if why == "a private key" || why == "a credential store" && !inKubeDir(p) {
+			return nil, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+				"a kubeconfig's keys belong in ~/.kube or next to it; ask the user to run the import in their own terminal",
+				"the kubeconfig names %s, which is %s; komando does not copy it into the vault for an AI agent", p, why).NoFlag()
+		}
+	}
+	return readImportFile(cl, p)
+}
+
+// inKubeDir: p is in ~/.kube of one of the guarded homes.
+func inKubeDir(p string) bool {
+	abs, err := filepath.Abs(expandHome(p))
+	if err != nil {
+		return false
+	}
+	for _, home := range guardHomes() {
+		for _, q := range []string{abs, realPath(abs)} {
+			if pathIn(q, filepath.Join(home, ".kube")) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // skipLocalSecret reports whether a folder upload leaves a file out for an
 // AI agent, as folder downloads do; meta.skipped lists it.
 func skipLocalSecret(cl *call, p string) bool {

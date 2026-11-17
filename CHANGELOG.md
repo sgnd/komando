@@ -188,6 +188,10 @@ its highlights; the sections below them give the details. Versions follow
   accounts, `label ... pod-security.kubernetes.io/enforce=privileged` (or
   removing it), `set serviceaccount`, `create configmap aws-auth` and
   Argo Workflows need it too. (C113)
+- An AI agent's `import kubeconfig` no longer copies a file from `~/.ssh`
+  or another credential store (other than `~/.kube`) into the vault when
+  the kubeconfig names it as a client key, certificate or token file
+  (`SENSITIVE_FILE`). (C113)
 - The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
   and `~/.azure`: the SSO token cache and the CLI's cached credentials
   too, not only the `credentials` file. An AWS profile whose web identity
