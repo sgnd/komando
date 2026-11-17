@@ -375,14 +375,25 @@ is kubectl's namespace flag.
 - A file (`apply -f`, `create -f`, and `cluster apply --file`) is rated by
   what is in it. One that gives out rights (a Role, ClusterRole or their
   bindings, a webhook configuration, an APIService, a service account
-  token Secret) or opens a node to a pod (`hostPID`, `hostNetwork`,
-  `hostIPC`, a privileged container, added capabilities, a `hostPath`
-  volume) also needs `--allow-dangerous`, like `create clusterrolebinding`
-  and `run --privileged` do. The same holds for a Swarm stack file whose
-  service is privileged, adds capabilities or devices, shares the
+  token Secret, EKS's `aws-auth` ConfigMap) or opens a node to a pod
+  (`hostPID`, `hostNetwork`, `hostIPC`, a privileged container, added
+  capabilities, a `hostPath` volume, a pod in `kube-system` that runs as
+  one of its service accounts) also needs `--allow-dangerous`, like
+  `create clusterrolebinding` and `run --privileged` do. So does an
+  object a controller installs with its own rights: a k3s `HelmChart`, an
+  Argo CD `Application`, `ApplicationSet` or `AppProject`, a Flux
+  `Kustomization` or `HelmRelease`. The same holds for a Swarm stack file
+  whose service is privileged, adds capabilities or devices, shares the
   server's namespaces, or mounts `/`, the docker socket, system or
   credential folders. komando reads each file once, so the file that was
   rated is the file that is sent.
+- `label` that sets `pod-security.kubernetes.io/enforce=privileged` on a
+  namespace, or removes that label, and `set serviceaccount` need
+  `--allow-dangerous` too.
+- A compose or stack file already on the server (`stack deploy -c FILE`,
+  `docker compose -f FILE up`, or compose's own file names when there is
+  no `-f`) is read there first (at most 1 MiB, without sudo) and rated
+  the same way. A file komando cannot read counts as dangerous.
 - `--dry-run` sends a change to the server as a server-side dry run
   (`apply`, `create`, `delete`, `scale`, `patch`, ...). A command the server
   cannot dry-run (`exec`, `cp`, `create token`, `config view`, `get` of
@@ -429,9 +440,9 @@ is kubectl's namespace flag.
 - `cluster run` knows kubectl's own commands, not kubectl plugins (krew).
   `edit` is refused (get the YAML, change it, then `apply -f`), and of
   `config` only `current-context` and `get-contexts` work.
-- On Swarm, komando cannot see inside a compose or stack file on the
-  server, so `cluster run swarm1 -- stack deploy -c FILE` and `compose up`
-  are rated by their flags only.
+- Of a compose file on the server, komando reads the file itself, not
+  the files it pulls in (`include:`, `extends:`, `env_file:`). It cannot
+  tell which service accounts outside `kube-system` have strong rights.
 - Helm: komando reads releases only; install, upgrade and rollback stay
   with `helm` (`cluster deploy` and `cluster apply` change what runs).
 

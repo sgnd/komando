@@ -165,7 +165,8 @@ func classifyKubectl(cl *call, args []string) driver.Risk {
 	case verb == "apply" && hasFlag(args, "--prune", "--force"),
 		verb == "scale" && scalesToZero(args),
 		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole", "role"),
-		verb == "set" && sub == "subject",
+		verb == "set" && oneOf(sub, "subject", "serviceaccount", "sa"),
+		verb == "label" && psaLoosens(args),
 		verb == "run" && (hasFlag(args, "--overrides", "--privileged") || strings.Contains(joined, "hostPID")):
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}
@@ -279,6 +280,11 @@ risky verbs also need --allow-dangerous.`,
 			risk, reason := driver.Risk(0), ""
 			if t.host != nil {
 				risk = classifyDocker(args[1:])
+				if risk < driver.RiskDestructive {
+					if reason = serverComposeReason(cl, st, []*store.Host{t.host}, args[1:]); reason != "" {
+						risk = driver.RiskDestructive // a stack file on the manager that gets the host (C113)
+					}
+				}
 			} else if risk, reason, err = kubectlRunRisk(cl, args[1:]); err != nil {
 				return err
 			}
@@ -297,7 +303,7 @@ risky verbs also need --allow-dangerous.`,
 			}
 			if t.host != nil {
 				line := "docker " + quoteAll(args[1:])
-				if err := guardSwarmRun(cl, st, t.host.Name, risk, verb); err != nil {
+				if err := guardSwarmRun(cl, st, t.host.Name, risk, strings.TrimSuffix(verb+": "+reason, ": ")); err != nil {
 					return err
 				}
 				return runOne(cl, cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
@@ -606,6 +612,19 @@ func guardSwarmRun(cl *call, st *store.State, host string, risk driver.Risk, ver
 	}
 	askTypes(cl, []string{host}, "servers")
 	return guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
+}
+
+// psaLoosens: a `label` that lets a namespace run privileged pods
+// (pod-security.kubernetes.io/enforce=privileged) or takes its rule away
+// (enforce-). C113.
+func psaLoosens(args []string) bool {
+	for _, a := range args {
+		k, v, set := strings.Cut(strings.ToLower(a), "=")
+		if k == "pod-security.kubernetes.io/enforce-" && !set || k == "pod-security.kubernetes.io/enforce" && strings.TrimSpace(v) == "privileged" {
+			return true
+		}
+	}
+	return false
 }
 
 // kubectlRunRisk is the rating and the reason a person reads for a kubectl

@@ -24,6 +24,20 @@ var rightsKinds = map[string]string{
 	"apiservice":                     "puts another server behind the cluster's API",
 }
 
+// controllerKinds are kinds a controller in the cluster turns into
+// anything, with its own (usually full) rights: a Helm chart, a Git
+// repository's manifests. Keyed by API group and kind, in lower case,
+// since other groups use the same kind names.
+var controllerKinds = map[string]string{
+	"helm.cattle.io/helmchart":                  "installs a Helm chart with k3s's own rights",
+	"helm.cattle.io/helmchartconfig":            "changes a Helm chart k3s installs with its own rights",
+	"argoproj.io/application":                   "makes Argo CD install anything, with its rights",
+	"argoproj.io/applicationset":                "makes Argo CD install anything, with its rights",
+	"argoproj.io/appproject":                    "sets what Argo CD may install",
+	"kustomize.toolkit.fluxcd.io/kustomization": "makes Flux install anything, with its rights",
+	"helm.toolkit.fluxcd.io/helmrelease":        "makes Flux install a Helm chart, with its rights",
+}
+
 // manifestEscalates says why objects in a manifest give more rights than
 // the change itself: "" when none does. `cluster run -- create
 // clusterrolebinding ...` and `-- run --privileged` need
@@ -57,6 +71,19 @@ func objectEscalates(v any) string {
 		if why, ok := rightsKinds[strings.ToLower(kind)]; ok && x["apiVersion"] != nil {
 			return ref + " " + why
 		}
+		group, _, _ := strings.Cut(strings.ToLower(str(x["apiVersion"])), "/")
+		if why, ok := controllerKinds[group+"/"+strings.ToLower(kind)]; ok {
+			return ref + " " + why
+		}
+		ns := meta(x, "namespace")
+		if strings.EqualFold(kind, "ConfigMap") && meta(x, "name") == "aws-auth" && ns == "kube-system" {
+			return ref + " sets who may sign in to an EKS cluster, and with what rights"
+		}
+		if ns == "kube-system" {
+			if sa := podAccount(x); sa != "" {
+				return ref + " runs as " + sa + ", one of the cluster's own service accounts in kube-system"
+			}
+		}
 		if strings.EqualFold(kind, "Secret") && str(x["type"]) == "kubernetes.io/service-account-token" {
 			return ref + " makes a service account token that never runs out"
 		}
@@ -66,6 +93,33 @@ func objectEscalates(v any) string {
 		for _, c := range x {
 			if why := objectEscalates(c); why != "" {
 				return why
+			}
+		}
+	}
+	return ""
+}
+
+// podAccount finds a pod spec in v that names a service account other
+// than default: "" when there is none.
+func podAccount(v any) string {
+	switch x := v.(type) {
+	case []any:
+		for _, c := range x {
+			if sa := podAccount(c); sa != "" {
+				return sa
+			}
+		}
+	case map[string]any:
+		if x["containers"] != nil {
+			for _, k := range []string{"serviceAccountName", "serviceAccount"} {
+				if sa := str(x[k]); sa != "" && sa != "default" {
+					return sa
+				}
+			}
+		}
+		for _, c := range x {
+			if sa := podAccount(c); sa != "" {
+				return sa
 			}
 		}
 	}

@@ -177,6 +177,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- `cluster run` and `docker raw|compose` read a compose or stack file
+  that is already on the server before they rate the command: a
+  privileged service or a bind of `/` there now needs `--allow-dangerous`,
+  as in a local file, and so does a file komando cannot read. Manifests
+  that install through a controller (k3s `HelmChart`, Argo CD, Flux), EKS's
+  `aws-auth` ConfigMap, a `kube-system` pod with one of its service
+  accounts, `label ... pod-security.kubernetes.io/enforce=privileged` (or
+  removing it) and `set serviceaccount` need it too. (C113)
 - The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
   and `~/.azure`: the SSO token cache and the CLI's cached credentials
   too, not only the `credentials` file. An AWS profile whose web identity
