@@ -138,10 +138,10 @@ func appendCheck(key string, o Object, found bool, off int64) error {
 	case found && o.Dir:
 		return out.Usage("%q is a folder", key)
 	case found && o.Size != off:
-		return out.Errf(out.ExitConflict, "RESUME_CONFLICT", "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again",
+		return out.Errf(out.ExitConflict, "FILE_CHANGED", "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again",
 			"%s changed while komando was copying (it is %d bytes, not %d); nothing was added", key, o.Size, off)
 	case !found && off > 0:
-		return out.Errf(out.ExitConflict, "RESUME_CONFLICT", "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again",
+		return out.Errf(out.ExitConflict, "FILE_CHANGED", "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again",
 			"%s was removed while komando was copying; nothing was added", key)
 	}
 	return nil

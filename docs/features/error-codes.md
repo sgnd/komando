@@ -72,6 +72,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
 | `FAILED` | 5 | kubectl exited … | read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
+| `FILE_CHANGED` | 8 | … …; nothing was added | run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again |
 | `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the folder exists and is writable |
 | `FILE_EXISTS` | 8 | … already exists on this computer | choose another --to, remove the file, or pass --overwrite |
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |
@@ -198,8 +199,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RESERVED_SECRET` | 2 | secret … belongs to komando's approval code | a person manages it with `komando config approval-code` |
 | `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando db restore … --from …` |
 | `RESTORE_UNSUPPORTED` | 2 | line … switches to another database: … | the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn |
-| `RESUME_CONFLICT` | 8 | … changed while komando was copying (it is … bytes, not …); nothing was added | run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again |
-| `RESUME_FAILED` | 5 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue, replacing this one: `komando cp SRC DST` (a download: with --overwrite) |
+| `RESUME_CONFLICT` | 8 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST` |
 | `RESUME_UNSUPPORTED` | 2 | … cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed | run it again without --continue to copy the whole file: `komando cp SRC DST` |
 | `REVEAL_NEEDS_HUMAN` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |

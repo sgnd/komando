@@ -142,11 +142,18 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 		return resumed{}, err
 	}
 	if got != want {
-		return resumed{}, out.Errf(out.ExitRemote, "RESUME_FAILED", "copy the whole file again without --continue, replacing this one: `komando cp SRC DST` (a download: with --overwrite)",
+		return resumed{}, out.Errf(out.ExitConflict, "RESUME_CONFLICT", "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST`",
 			"%s does not match the source after the copy (sha256 %s, the source %s); it was left as it is", dst.where(), got, want)
 	}
 	pp.fileDone()
 	return resumed{from: ds, bytes: n, sum: got}, nil
+}
+
+// fileChanged: a file changed while komando copied it; the next step is to
+// run the same command again, which reads it anew.
+func fileChanged(where, why string) error {
+	return out.Errf(out.ExitConflict, "FILE_CHANGED", "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again",
+		"%s %s; nothing was added", where, why)
 }
 
 func resumeConflict(where, why string) error {
@@ -170,7 +177,7 @@ func prefixSum(ctx context.Context, e resumeEnd, n int64, h hash.Hash) (sum stri
 		return "", true, err
 	}
 	if got != n {
-		return "", true, resumeConflict(e.where(), "became shorter while komando read it")
+		return "", true, fileChanged(e.where(), "became shorter while komando read it")
 	}
 	return hex.EncodeToString(h.Sum(nil)), true, nil
 }
@@ -254,7 +261,7 @@ func (l localEnd) appendAt(_ context.Context, off, _ int64, r io.Reader) error {
 	}
 	if fi, err := f.Stat(); err != nil || fi.Size() != off {
 		f.Close()
-		return resumeConflict(l.path, "changed while komando was copying")
+		return fileChanged(l.path, "changed while komando was copying")
 	}
 	if _, err := f.Seek(off, io.SeekStart); err != nil {
 		f.Close()
@@ -379,7 +386,7 @@ func (s serverEnd) appendAt(_ context.Context, off, _ int64, r io.Reader) error 
 	fi, err := f.Stat()
 	if err != nil || fi.Size() != off {
 		f.Close()
-		return resumeConflict(s.where(), "changed while komando was copying")
+		return fileChanged(s.where(), "changed while komando was copying")
 	}
 	if off == 0 && s.perm != 0 {
 		_ = f.Chmod(s.perm)

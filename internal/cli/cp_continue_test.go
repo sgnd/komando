@@ -197,7 +197,7 @@ func TestContinueChecksTheWholeFile(t *testing.T) {
 	src := &memEnd{name: "src", b: data}
 	dst := &memEnd{name: "dst", b: append([]byte{}, data[:4000]...), corrupt: true}
 	_, err := resumeCopy(context.Background(), src, dst, "a")
-	if e := toErr(err); e.Code != "RESUME_FAILED" || e.Exit != out.ExitRemote {
+	if e := toErr(err); e.Code != "RESUME_CONFLICT" || e.Exit != out.ExitConflict {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -377,5 +377,20 @@ func TestContinueRefusesASymlink(t *testing.T) {
 	}
 	if got := readBytes(t, target); !bytes.Equal(got, data[:10]) {
 		t.Errorf("the linked file changed: %d bytes", len(got))
+	}
+}
+
+// A destination that changes length while komando adds to it is
+// FILE_CHANGED: the next step is to run the same command again, which
+// reads its length anew.
+func TestContinueDestinationChangedMeanwhile(t *testing.T) {
+	dst := filepath.Join(t.TempDir(), "a.bin")
+	writeFile(t, dst, []byte("12345"))
+	err := localEnd{cl: tcl, path: dst, perm: 0o644}.appendAt(context.Background(), 3, 1, strings.NewReader("x"))
+	if e := toErr(err); e.Code != "FILE_CHANGED" || e.Exit != out.ExitConflict {
+		t.Fatalf("got %v", err)
+	}
+	if string(readBytes(t, dst)) != "12345" {
+		t.Error("the file was changed")
 	}
 }
