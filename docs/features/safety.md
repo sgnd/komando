@@ -312,7 +312,11 @@ komando config set mask_personal protected       # back to the default (komando 
 - The hiding follows the database, not the conn's name: a second conn to
   the same database (same server address and database name) hides as
   much. A conn to the same server under another address (a host name for
-  an IP, a tunnel's `localhost` port) is not recognised as the same.
+  an IP, a tunnel's `localhost` port) is not recognised as the same, nor a
+  SQLite file under another path (`~/app.db` and its full path, a link, other
+  upper and lower case on macOS). On PostgreSQL the hiding is per database;
+  on MySQL, SQL Server, ClickHouse, MongoDB and the others, whose conns read
+  every database of the server, it covers the whole server.
 - Taking a column out of `mask_columns`, turning `mask_personal` off, or
   replacing (`conn add --overwrite`, `import --overwrite`) or removing
   such a conn shows agents more: an AI agent needs a person's yes for it
