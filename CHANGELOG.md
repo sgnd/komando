@@ -161,6 +161,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- `cluster run -- cp POD:SRC DST` by an AI agent, with SRC named like a
+  secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
+  komando reads the pod, as `download` does; before, the pod's files were
+  read first and refused afterwards. (C04)
 - The audit log no longer keeps a password, key or token that a command
   line carried (`PGPASSWORD=... psql`, `--password=...`): the command
   of `exec`, `job start` and `cluster exec` is recorded with those

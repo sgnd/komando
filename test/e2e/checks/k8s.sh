@@ -107,6 +107,10 @@ POD=$(KS -- get pods -l app=tools -o 'jsonpath={.items[0].metadata.name}')
 q KR --write --allow-dangerous -- cp "$TMP/cp-in.txt" "$POD:/tmp/cp-in.txt"
 q KR --write --allow-dangerous -- cp "$POD:/tmp/cp-in.txt" "$TMP/cp-back.txt"
 check "run: cp there and back" "copied in" "$(cat "$TMP/cp-back.txt" 2>/dev/null)"
+q KR --write --allow-dangerous -- exec "$POD" -- sh -c 'echo DB_PASSWORD=e2e-pod-pass > /tmp/.env'
+check "run: an agent's cp of a pod's .env stops, nothing copied" "6 no" "$(KOMANDO_AGENT=1 "${NOKUBE[@]}" $K cluster run lab-k3s --write -- cp "$POD:/tmp/.env" "$TMP/agent.env" >/dev/null; echo "$? $(test -e "$TMP/agent.env" && echo yes || echo no)")"
+q KR --write --allow-dangerous -- cp "$POD:/tmp/.env" "$TMP/person.env"
+check "run: a person's cp of a pod's .env is as it is" "DB_PASSWORD=e2e-pod-pass" "$(cat "$TMP/person.env" 2>/dev/null)"
 check "run: diff a change exits 1" 5 "$(sed 's/replicas: 1/replicas: 2/' "$TMP/tools.yaml" > "$TMP/tools2.yaml"; KR -- diff -f "$TMP/tools2.yaml" >/dev/null; echo $?)"
 check "run: scale" 2 "$(KR --write -- scale deploy/tools --replicas=2 >/dev/null; KS -- get deploy tools -o 'jsonpath={.spec.replicas}')"
 q $K cluster rm lab-k3s deployment tools --allow-dangerous
