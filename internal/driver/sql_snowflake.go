@@ -231,23 +231,19 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 		}
 		risk = RiskDestructive
 	}
+	for _, id := range sfEmptiesRules(ts, first, second, word(2)) {
+		flag(id)
+	}
 	switch first {
 	case "CREATE", "ALTER", "DROP", "UNDROP":
-		if first == "CREATE" && second == "OR" && (word(2) == "REPLACE" || word(2) == "ALTER") {
-			// REPLACE drops what had the name; ALTER drops the columns
-			// (and their data) that the new definition leaves out
-			flag("sql-drop")
+		if first == "CREATE" && second == "OR" && word(2) == "REPLACE" {
+			flag("sql-drop") // what had the name is dropped
 		}
 		if id := sfObjectRule(ts); id != "" {
 			flag(id)
 		}
 	case "PUT", "GET", "REMOVE", "RM":
 		flag("sql-server-file")
-	case "INSERT":
-		// INSERT OVERWRITE [ALL|FIRST] INTO t: empties the table first
-		if second == "OVERWRITE" {
-			flag("sql-truncate")
-		}
 	case "WITH":
 		// WITH p AS PROCEDURE (...) AS $$ ... $$ CALL p(): an anonymous
 		// procedure, whose body komando cannot see, runs without CREATE rights
@@ -261,11 +257,6 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 			name = t.ident
 		}
 		switch {
-		case t.word == "PURGE" && oneOfWord(first, "COPY", "CREATE", "ALTER") && !(i+2 < len(ts) && ts[i+1].punct == '=' && ts[i+2].word == "FALSE"):
-			// PURGE = TRUE deletes the staged files after a load: in the
-			// COPY itself, or as a table's or stage's copy option, which a
-			// later plain COPY obeys. Any value but a plain FALSE counts.
-			flag("sql-server-file")
 		case t.word == "INTO" && i+1 < len(ts) && (ts[i+1].punct == '@' || ts[i+1].punct == '\''):
 			flag("sql-server-file") // COPY INTO @stage or 's3://...': writes files
 		case (t.word == "URL" || t.word == "CREDENTIALS") && i+1 < len(ts) && ts[i+1].punct == '=',
@@ -362,11 +353,30 @@ func snowflakeNoTx(ts []token) bool {
 	return err != nil || risk != RiskRead
 }
 
-func oneOfWord(w string, words ...string) bool {
-	for _, x := range words {
-		if w == x {
-			return true
+// sfEmptiesRules are the rules for Snowflake statements that empty a
+// table, drop columns or delete staged files under another name than
+// TRUNCATE, DROP or REMOVE:
+//   - INSERT OVERWRITE [ALL|FIRST] INTO t empties the table first;
+//   - CREATE OR ALTER drops the columns (and their data) that the new
+//     definition leaves out;
+//   - PURGE = TRUE deletes the staged files after a load, in the COPY
+//     itself or as a table's or stage's copy option, which a later plain
+//     COPY obeys. Any value but a plain FALSE counts.
+func sfEmptiesRules(ts []token, first, second, third string) []string {
+	var ids []string
+	if first == "INSERT" && second == "OVERWRITE" {
+		ids = append(ids, "sql-truncate")
+	}
+	if first == "CREATE" && second == "OR" && third == "ALTER" {
+		ids = append(ids, "sql-drop")
+	}
+	if first == "COPY" || first == "CREATE" || first == "ALTER" {
+		for i, t := range ts {
+			if t.word == "PURGE" && !(i+2 < len(ts) && ts[i+1].punct == '=' && ts[i+2].word == "FALSE") {
+				ids = append(ids, "sql-server-file")
+				break
+			}
 		}
 	}
-	return false
+	return ids
 }

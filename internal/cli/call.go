@@ -65,8 +65,9 @@ type call struct {
 	body *approvalBody // a file the command sends, which the window shows
 
 	// manifests: the manifest files this command has read (readManifest),
-	// so the bytes that were rated are the bytes that are sent.
-	manifests map[string][]byte
+	// and why one could not be read, so the bytes that were rated are the
+	// bytes that are sent.
+	manifests map[string]manifestRead
 
 	// ask opens the approval window; nil is askOnScreen.
 	ask func(text string) (allowed, shown bool)

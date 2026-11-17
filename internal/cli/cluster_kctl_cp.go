@@ -39,7 +39,7 @@ func (r *kctlRun) cp() error {
 		var errb bytes.Buffer
 		rpath = path.Clean(rpath) // "/data/" is /data, "/x/.." is /
 		dir, base := path.Dir(rpath), path.Base(rpath)
-		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: tarball, Stderr: &errb})
+		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: tarball, Stderr: &limitWriter{w: &errb, n: podErrMax}})
 		if tarball.over {
 			return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE",
 				"copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH`",
@@ -57,7 +57,7 @@ func (r *kctlRun) cp() error {
 		}
 		var errb bytes.Buffer
 		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "xf", "-", "-C", path.Dir(rpath)},
-			Stdin: &tarball, Stderr: &errb})
+			Stdin: &tarball, Stderr: &limitWriter{w: &errb, n: podErrMax}})
 		if err != nil {
 			return kfail("%s %s", strings.TrimSpace(errb.String()), err)
 		}
@@ -70,6 +70,10 @@ func (r *kctlRun) cp() error {
 // in memory (untarTo checks every name before it writes any), so a pod
 // must not be able to fill this computer's memory.
 const maxPodCopy = 512 << 20
+
+// podErrMax is the most of tar's error output in a pod komando keeps for
+// the message: the pod decides how much it writes.
+const podErrMax = 64 << 10
 
 // capBuffer is a bytes.Buffer that takes at most max bytes: past that it
 // stops the copy (the writer's error ends the stream) and says so.

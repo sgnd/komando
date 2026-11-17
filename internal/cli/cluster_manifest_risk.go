@@ -2,13 +2,11 @@ package cli
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/out"
 )
 
 // rightsKinds are the kinds that hand out rights in a cluster: who may do
@@ -128,35 +126,31 @@ func on(v any) bool {
 // manifest (-f) whose objects give out rights or escape to a node. The
 // files are read here once and kept for the run (readManifest), so what
 // was rated is what is sent. A file that cannot be read or parsed leaves
-// was rated is what is sent. A file that cannot be read or parsed stops
-// the command here: one that only appears after the rating would be sent
-// unrated.
-func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, string, error) {
+// was rated is what is sent. A file that cannot be read or parsed leaves
+// the rating alone: readManifest keeps that answer too, so the run stops
+// on the same error, even when the file appears in the meantime.
+func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, string) {
 	if risk >= driver.RiskDestructive || risk == driver.RiskRead {
-		return risk, "", nil
+		return risk, ""
 	}
 	a, err := parseKargs(args)
 	if err != nil {
-		return risk, "", nil // the run says what is wrong with the words
+		return risk, "" // the run says what is wrong with the words
 	}
 	for _, f := range a.vals["filename"] {
 		b, err := readManifest(cl, f, a.bools["recursive"])
 		if err != nil {
-			var stop *out.Error
-			if errors.As(err, &stop) {
-				return risk, "", stop
-			}
-			return risk, "", localFileErr("FILE_NOT_FOUND", err, "")
+			continue
 		}
 		docs, err := splitYAML(b)
 		if err != nil {
-			return risk, "", out.Usage("%s: %v", f, err)
+			continue
 		}
 		if why := manifestEscalates(docs); why != "" {
-			return driver.RiskDestructive, why, nil
+			return driver.RiskDestructive, why
 		}
 	}
-	return risk, "", nil
+	return risk, ""
 }
 
 // composeEscapes says why a compose file handed to `docker stack deploy`

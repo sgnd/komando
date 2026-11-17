@@ -478,31 +478,8 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err := verifyBackup(cl, from, seal); err != nil {
 		return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
 	}
-	builtinRestore := func() error {
-		db, closeDB, err := openDB(cl, ctx, st, c, false)
-		if err != nil {
-			return err
-		}
-		defer closeDB()
-		return withBackup(cl, from, seal, func(r io.Reader) error {
-			if err := dbx.Restore(ctx, db, t.Kind.Name, r); err != nil {
-				if seal.changed {
-					return err // withBackup says BACKUP_CONFLICT
-				}
-				// what the database holds now depends on the engine (S-8.4):
-				// PostgreSQL restores in one transaction, MySQL cannot
-				state := "nothing was changed (PostgreSQL restores in one transaction)"
-				if t.Kind.Name == "mysql" {
-					state = "the statements before that line were applied (MySQL cannot roll back tables)"
-				}
-				return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando db restore "+c.Name+" --from "+from+"`",
-					"%v; %s", err, state)
-			}
-			return nil
-		})
-	}
 	if builtin {
-		err = builtinRestore()
+		err = builtinRestore(cl, ctx, st, c, t.Kind.Name, from, seal)
 	} else {
 		err = withBackup(cl, from, seal, func(r io.Reader) error { return runTool(cl, ctx, st, c, h, tool, argv, r, io.Discard, false) })
 	}
@@ -705,4 +682,30 @@ func unreachableHint(tool, where string, c *store.Conn) string {
 	}
 	return fmt.Sprintf("%s runs on %s and connects to %s from there. If the database listens only on 127.0.0.1 on %s, add a conn for that address reached through it (`komando conn add %s-local %s --via %s --password-ref ...`) and dump that conn; otherwise name a server that can reach %s with --run-on HOST",
 		tool, where, addr, where, c.Name, local, where, addr)
+}
+
+// builtinRestore restores plain SQL with komando's own client, reading the
+// file through its seal.
+func builtinRestore(cl *call, ctx context.Context, st *store.State, c *store.Conn, kind, from string, seal *backupSeal) error {
+	db, closeDB, err := openDB(cl, ctx, st, c, false)
+	if err != nil {
+		return err
+	}
+	defer closeDB()
+	return withBackup(cl, from, seal, func(r io.Reader) error {
+		if err := dbx.Restore(ctx, db, kind, r); err != nil {
+			if seal.changed {
+				return err // withBackup says BACKUP_CONFLICT
+			}
+			// what the database holds now depends on the engine (S-8.4):
+			// PostgreSQL restores in one transaction, MySQL cannot
+			state := "nothing was changed (PostgreSQL restores in one transaction)"
+			if kind == "mysql" {
+				state = "the statements before that line were applied (MySQL cannot roll back tables)"
+			}
+			return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando db restore "+c.Name+" --from "+from+"`",
+				"%v; %s", err, state)
+		}
+		return nil
+	})
 }

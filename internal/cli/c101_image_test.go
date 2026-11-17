@@ -26,7 +26,7 @@ func TestImagePatch(t *testing.T) {
 	if len(cs) != 1 || len(cs[0]) != 2 || cs[0]["name"] != `a"b` || cs[0]["image"] != `ghcr.io/acme/api:1.4.3","x":"y` {
 		t.Errorf("patch: %s", p)
 	}
-	for _, bad := range []string{"", "nginx\x00", "nginx:1\n", "ngi nx", "nginx\xff", "nginx‮", "nginx\x1b[2J"} {
+	for _, bad := range []string{"", "nginx\x00", "nginx:1\n", "ngi nx", "nginx\xff", "nginx\u202e", "nginx\x1b[2J"} {
 		if err := validImage(bad); err == nil {
 			t.Errorf("%q passed as an image name", bad)
 		}

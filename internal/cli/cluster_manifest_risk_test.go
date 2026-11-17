@@ -63,8 +63,8 @@ func TestManifestReadOnce(t *testing.T) {
 	plain := "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: a}\n"
 	os.WriteFile(file, []byte(plain), 0o600)
 	cl := newCall(tcl.io, nil)
-	if risk, why, err := kubectlFileRisk(cl, []string{"apply", "-f", file}, driver.RiskWrite); risk != driver.RiskWrite || why != "" || err != nil {
-		t.Fatalf("plain file: %v %q %v", risk, why, err)
+	if risk, why := kubectlFileRisk(cl, []string{"apply", "-f", file}, driver.RiskWrite); risk != driver.RiskWrite || why != "" {
+		t.Fatalf("plain file: %v %q", risk, why)
 	}
 	os.WriteFile(file, []byte("apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata: {name: a}\n"), 0o600)
 	b, err := readManifest(cl, file, false)
@@ -73,24 +73,19 @@ func TestManifestReadOnce(t *testing.T) {
 	}
 	// and the other way round: a file that escalates is rated so
 	cl2 := newCall(tcl.io, nil)
-	if risk, why, err := kubectlFileRisk(cl2, []string{"create", "--filename=" + file}, driver.RiskWrite); risk != driver.RiskDestructive || why == "" || err != nil {
-		t.Errorf("binding file: %v %q %v", risk, why, err)
+	if risk, why := kubectlFileRisk(cl2, []string{"create", "--filename=" + file}, driver.RiskWrite); risk != driver.RiskDestructive || why == "" {
+		t.Errorf("binding file: %v %q", risk, why)
 	}
-	// a file that is not there (or not YAML) when it is rated stops the
-	// command: created a moment later, it would be sent unrated
+	// a file that is not there when it is rated stays not there for the
+	// run: made a moment later, it would be sent unrated
 	cl3 := newCall(tcl.io, nil)
 	missing := filepath.Join(t.TempDir(), "later.yaml")
-	if _, _, err := kubectlFileRisk(cl3, []string{"apply", "-f", missing}, driver.RiskWrite); err == nil {
-		t.Error("a missing manifest was not an error at rating time")
+	if risk, _ := kubectlFileRisk(cl3, []string{"apply", "-f", missing}, driver.RiskWrite); risk != driver.RiskWrite {
+		t.Errorf("missing file: %v", risk)
 	}
-	bad := filepath.Join(t.TempDir(), "bad.yaml")
-	os.WriteFile(bad, []byte("a: [1\n"), 0o600)
-	if _, _, err := kubectlFileRisk(cl3, []string{"apply", "-f", bad}, driver.RiskWrite); err == nil {
-		t.Error("a manifest that is not YAML was not an error at rating time")
-	}
-	// a read (diff) is not held up
-	if _, _, err := kubectlFileRisk(cl3, []string{"diff", "-f", missing}, driver.RiskRead); err != nil {
-		t.Errorf("diff: %v", err)
+	os.WriteFile(missing, []byte("apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata: {name: a}\n"), 0o600)
+	if b, err := readManifest(cl3, missing, false); err == nil || b != nil {
+		t.Errorf("the run read a file that appeared after the rating: %q %v", b, err)
 	}
 	if got := classifyKubectl(tcl, []string{"create", "role", "r", "--verb=get", "--resource=pods"}); got != driver.RiskDestructive {
 		t.Errorf("create role: %v", got)

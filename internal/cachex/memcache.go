@@ -142,7 +142,7 @@ const mcMaxBlock = 1 << 30
 func blockLen(s string) (int, error) {
 	n, err := strconv.Atoi(s)
 	if err != nil || n < 0 || n > mcMaxBlock {
-		return 0, fmt.Errorf("the server sent a bad value length %q", s)
+		return 0, fmt.Errorf("the server sent a value length komando cannot use: %q", s)
 	}
 	return n, nil
 }
@@ -151,7 +151,7 @@ func blockLen(s string) (int, error) {
 // with the bytes that arrive, not with the length the server announced.
 func (m *memcache) block(n int) ([]byte, error) {
 	if n < 0 || n > mcMaxBlock {
-		return nil, fmt.Errorf("the server sent a bad value length %d", n)
+		return nil, fmt.Errorf("the server sent a value length komando cannot use: %d", n)
 	}
 	var b bytes.Buffer
 	if _, err := io.CopyN(&b, m.r, int64(n)+2); err != nil {

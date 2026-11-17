@@ -80,11 +80,8 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 	line := 0
 	for sc.Scan() {
 		line++
-		// every trailing CR goes, as the restore's own line reader drops
-		// them (dbx sqlScanner.rawLine): a line the two read differently
-		// (the COPY end marker \. with more than one CR) would hide SQL
-		text := strings.TrimRight(sc.Text(), "\r")
-		if inCopy { // COPY data: backslashes are escapes, the block ends with \.
+		text := strings.TrimRight(sc.Text(), "\r") // as dbx's reader: see restoreLine
+		if inCopy {                                // COPY data: backslashes are escapes, the block ends with \.
 			if text == `\.` {
 				inCopy = false
 			}
@@ -153,13 +150,8 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 				inCopy, copyLine = true, line
 				break
 			}
-			if kind == "mysql" {
-				// DELIMITER is a command at the start of a line only; after
-				// a statement on the same line the two readers of this file
-				// (this check and the restore) must not read it differently
-				if _, ok := ParseDelimiter(strings.TrimSpace(text[end:])); ok {
-					return Verdict{}, unsureLine(line, trimmed, "a DELIMITER command follows a statement on its line")
-				}
+			if err := delimiterAfter(kind, text[end:], line, trimmed); err != nil {
+				return Verdict{}, err
 			}
 			pos = end
 		}
@@ -634,4 +626,23 @@ func (l *Lexer) finish() {
 	l.last = strings.TrimSpace(l.code.String())
 	l.code.Reset()
 	l.paren, l.begin, l.nIdent, l.idents = 0, 0, 0, [4]byte{}
+}
+
+// restoreLine: CheckRestore drops every trailing CR of a line, as the
+// restore's own line reader does (dbx sqlScanner.rawLine). A line the two
+// read differently (the COPY end marker \. with more than one CR) would
+// hide the SQL after it from the check.
+
+// delimiterAfter refuses a MySQL DELIMITER that follows a statement on the
+// same line. DELIMITER is a command at the start of a line only; the two
+// readers of the file (this check and the restore) must not read it
+// differently.
+func delimiterAfter(kind, rest string, line int, trimmed string) error {
+	if kind != "mysql" {
+		return nil
+	}
+	if _, ok := ParseDelimiter(strings.TrimSpace(rest)); ok {
+		return unsureLine(line, trimmed, "a DELIMITER command follows a statement on its line")
+	}
+	return nil
 }

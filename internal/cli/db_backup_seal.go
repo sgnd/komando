@@ -45,7 +45,7 @@ type sealReader struct {
 
 func backupChanged(path string) *out.Error {
 	return out.Errf(out.ExitConflict, "BACKUP_CONFLICT",
-		"run the restore again: komando checks the file as it is now, and asks again",
+		"run `komando db restore` again: komando checks the file as it is now, and asks again",
 		"%s changed after komando checked it; the changed part was not sent to the database", path)
 }
 

@@ -492,23 +492,7 @@ func netCmd() *cobra.Command {
 			// the HTTP server writes, goes alone on the second and is read
 			// as text, so nothing in it can pass as one of komando's fields.
 			command := `curl -sS -o /dev/null -m ` + strconv.Itoa(curlSeconds(cl)) + ` --proto =http,https -w '%{http_code} %{time_total} %{time_connect} %{time_starttransfer} %{size_download} %{remote_ip}\n%{redirect_url}' --url ` + sshx.Q(args[1])
-			return runOps(cl, cmd.Context(), opsSpec{name: "net.http", target: args[0], command: command, display: "net http " + args[1], parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
-				v, ok := parseCurlWriteOut(rr.Stdout)
-				if !ok {
-					if rr.ExitCode == 127 {
-						return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "install curl on the server", "curl is not installed")
-					}
-					return rr.Stdout, nil
-				}
-				code, _ := v["code"].(float64)
-				switch {
-				case code == 0:
-					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" ADDRESS:443`", "no HTTP answer from %s", args[1])
-				case expect != "" && !statusMatches(int(code), expect):
-					return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
-				}
-				return v, nil
-			}, text: func(data any) string {
+			return runOps(cl, cmd.Context(), opsSpec{name: "net.http", target: args[0], command: command, display: "net http " + args[1], parse: netHTTPParse(args, expect), text: func(data any) string {
 				v, _ := data.(map[string]any)
 				if v == nil {
 					return ""
@@ -785,4 +769,25 @@ func parseCurlWriteOut(s string) (map[string]any, bool) {
 		v["remote_ip"] = f[5]
 	}
 	return v, true
+}
+
+// netHTTPParse reads what curl wrote for net http and checks --expect.
+func netHTTPParse(args []string, expect string) func(*store.Host, *sshx.RunResult) (any, *out.Error) {
+	return func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+		v, ok := parseCurlWriteOut(rr.Stdout)
+		if !ok {
+			if rr.ExitCode == 127 {
+				return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "install curl on the server", "curl is not installed")
+			}
+			return rr.Stdout, nil
+		}
+		code, _ := v["code"].(float64)
+		switch {
+		case code == 0:
+			return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" ADDRESS:443`", "no HTTP answer from %s", args[1])
+		case expect != "" && !statusMatches(int(code), expect):
+			return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
+		}
+		return v, nil
+	}
 }
