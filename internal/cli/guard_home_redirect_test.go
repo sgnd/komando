@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -113,27 +116,113 @@ func TestAgentHomeUnknownStops(t *testing.T) {
 	mustRun(t, "list") // a person is not asked
 }
 
-// The e2e lab's agent (test/e2e/lib.sh): KOMANDO_HOME is the run's folder
-// and HOME a folder whose .komando is a link to it, neither the account's
-// home. KOMANDO_HOME names ~/.komando of that HOME, so nothing stops.
-func TestAgentLabHome(t *testing.T) {
-	unixOnly(t, "symbolic links")
-	account, run, agentHome := t.TempDir(), t.TempDir(), t.TempDir()
+// An AI agent that sets both HOME=/x and KOMANDO_HOME=/x/.komando in front
+// of komando moves the data folder just as KOMANDO_HOME alone does: it
+// needs a person's yes. Only ~/.komando of the account's home (or a link
+// to the same folder) is the usual one.
+func TestAgentHomePairStops(t *testing.T) {
+	account, fake := t.TempDir(), t.TempDir()
 	accountHomeAt(t, account)
 	saved := defaultHome
 	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
 	t.Cleanup(func() { defaultHome = saved })
-	t.Setenv("KOMANDO_HOME", run)
-	mustRun(t, "host", "add", "web1", "u@10.0.0.9")
-	if err := os.Symlink(run, filepath.Join(agentHome, ".komando")); err != nil {
+	mustRun(t, "host", "add", "web2", "u@10.0.0.2", "--protected") // the person
+	store.Close()
+
+	texts := windowText(t, false)
+	if err := os.Mkdir(filepath.Join(fake, ".komando"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	windowText(t, false)
-	t.Setenv("HOME", agentHome)
+	t.Setenv("HOME", fake)
+	t.Setenv("USERPROFILE", fake)
+	t.Setenv("KOMANDO_HOME", filepath.Join(fake, ".komando"))
+	wantCode(t, "NEEDS_PERSON", "list")
+	wantCode(t, "NEEDS_PERSON", "exec", "web2", "--", "touch", "/tmp/x")
+	if len(*texts) != 0 {
+		t.Errorf("no flag, no window: %q", *texts)
+	}
+	if _, err := os.Lstat(filepath.Join(fake, ".komando", "store.db")); !os.IsNotExist(err) {
+		t.Errorf("komando made a store in the agent's folder: %v", err)
+	}
+
+	// KOMANDO_HOME that names the account's ~/.komando is the usual folder,
+	// also through a link, whatever HOME says
+	t.Setenv("KOMANDO_HOME", filepath.Join(account, ".komando"))
 	if d := mustRun(t, "list"); d["count"] != float64(1) {
 		t.Fatalf("list: %v", d)
 	}
-	// KOMANDO_HOME that is no ~/.komando at all still needs a person
-	t.Setenv("HOME", t.TempDir())
-	wantCode(t, "SAFETY_SETTING", "list")
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(t.TempDir(), "k")
+		if err := os.Symlink(filepath.Join(account, ".komando"), link); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("KOMANDO_HOME", link)
+		if d := mustRun(t, "list"); d["count"] != float64(1) {
+			t.Fatalf("list through a link: %v", d)
+		}
+		// from the check on komando uses the account's folder by its own
+		// path: a link repointed after the check leads nowhere
+		if got, want := os.Getenv("KOMANDO_HOME"), filepath.Join(account, ".komando"); got != want {
+			t.Errorf("after the check KOMANDO_HOME = %s, want %s", got, want)
+		}
+		if err := os.Remove(link); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(fake, link); err != nil {
+			t.Fatal(err)
+		}
+		if got := store.Home(); got != filepath.Join(account, ".komando") {
+			t.Errorf("the repointed link moved komando's data to %s", got)
+		}
+	}
+}
+
+// The stop for an agent's other data folder is final all the way out:
+// the hint names no flag, no window opens (--reveal asked before the
+// check once), nothing is made or written in that folder, and the
+// unknown-account case does not offer a window for it either.
+func TestAgentOtherHomeIsFinal(t *testing.T) {
+	account, other := t.TempDir(), t.TempDir()
+	accountHomeAt(t, account)
+	saved := defaultHome
+	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
+	t.Cleanup(func() { defaultHome = saved })
+	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // the person, in the usual folder
+	store.Close()
+
+	texts := windowText(t, true)
+	t.Setenv("KOMANDO_HOME", other)
+	for _, args := range [][]string{{"list"}, {"list", "--yes"}, {"list", "--dry-run"}, {"list", "--reveal"}, {"guide", "uninstall", "--yes"}} {
+		code, text := runMain(t, args...)
+		if code != out.ExitPolicy || !strings.Contains(text, `"code":"NEEDS_PERSON"`) {
+			t.Errorf("%v: exit %d %s", args, code, text)
+			continue
+		}
+		var env struct {
+			Error struct{ Hint string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(text), &env); err != nil {
+			t.Fatalf("%v: %v in %s", args, err, text)
+		}
+		h := env.Error.Hint
+		if strings.Contains(h, "--yes") || strings.Contains(h, "window") || !strings.Contains(h, "KOMANDO_HOME") || strings.Contains(h, "a link") {
+			t.Errorf("%v: hint %q", args, h)
+		}
+	}
+	if len(*texts) != 0 {
+		t.Errorf("a window opened for another data folder: %q", *texts)
+	}
+	if left, _ := os.ReadDir(other); len(left) != 0 {
+		t.Errorf("komando made %d files in the other folder (%s ...)", len(left), left[0].Name())
+	}
+
+	// an account the user database does not know: another KOMANDO_HOME is
+	// still another folder, and stops without a window
+	store.AccountHome = func() (string, error) { return "", errors.New("no entry for uid 4242") }
+	if code, text := runMain(t, "list", "--yes"); code != out.ExitPolicy || !strings.Contains(text, "KOMANDO_HOME points komando at") {
+		t.Errorf("unknown account: exit %d %s", code, text)
+	}
+	if len(*texts) != 0 {
+		t.Errorf("unknown account: a window opened: %q", *texts)
+	}
 }

@@ -16,6 +16,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/testhome"
 )
 
 // These tests run komando's PowerShell for real: a loopback SSH server
@@ -37,7 +38,7 @@ func pwshServer(t *testing.T) {
 	if box == "" {
 		t.Skip("set KOMANDO_PWSH_CONTAINER to a container with pwsh to run this")
 	}
-	realHome := os.Getenv("HOME") // the docker command finds its settings there
+	realHome := testhome.Real() // the docker command finds its settings there
 	tmp := t.TempDir()
 	t.Setenv("HOME", tmp)
 	t.Setenv("USERPROFILE", tmp) // os.UserHomeDir reads USERPROFILE on Windows
@@ -248,6 +249,7 @@ func TestPwshRealParse(t *testing.T) {
 		check := `$e = $null; [void][System.Management.Automation.Language.Parser]::ParseInput([Console]::In.ReadToEnd(), [ref]$null, [ref]$e); if ($e) { $e | ForEach-Object { $_.ToString() }; exit 1 }`
 		cmd := exec.Command("docker", "exec", "-i", "-e", "DOTNET_GCHeapHardLimit=0x10000000", box, "/opt/microsoft/powershell/7/pwsh", "-NoProfile", "-NonInteractive", "-Command", check)
 		cmd.Stdin = strings.NewReader(s)
+		cmd.Env = append(os.Environ(), "HOME="+testhome.Real()) // the docker command finds its settings there
 		if b, err := cmd.CombinedOutput(); err != nil {
 			t.Errorf("%s does not parse: %s\n%s", name, b, s)
 		}

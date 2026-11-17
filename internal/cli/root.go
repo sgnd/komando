@@ -432,11 +432,22 @@ func leavesHomeNow(cmd *cobra.Command) bool { return leavesHome[commandName(cmd)
 // (guardHome), closing idle VPNs and
 // --host-key-policy (checkHostKeyFlag). The audit log needs no check: the store refuses a
 // change it cannot record.
+// startMask: AI agents see passwords, keys and tokens as [hidden]; people
+// and scripts see what the server sent (vault values are hidden for all).
+// `secret show --reveal` and `key show --reveal` are for people only
+// (secret_reveal.go): an agent is never asked and always sees [hidden]. A
+// dry run never approves --reveal.
+func startMask(cl *call, cmd *cobra.Command) {
+	cl.out.Mask = cl.isAgent() && (revealNever[commandName(cmd)] || cl.flags.dryRun || !cl.revealOK())
+	startPersonal(cmd)
+	if cl.out.Mask && cl.flags.dryRun && cl.flags.reveal {
+		cl.out.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
+			"--reveal needs the user's yes"))
+	}
+}
+
 func startChecks(cmd *cobra.Command) error {
 	cl := callOf(cmd)
-	if err := guardHome(cmd); err != nil {
-		return err
-	}
 	if cmd.Name() != "serve" && !leavesHomeNow(cmd) && !cl.flags.dryRun {
 		netx.ReapIdle() // close VPN sessions nobody used for vpn_idle
 	}
@@ -495,17 +506,12 @@ func newRoot(cl *call) *cobra.Command {
 			} else {
 				cl.out.SetSecrets(vaultValues)
 			}
-			// AI agents see passwords, keys and tokens as [hidden]; people and
-			// scripts see what the server sent (vault values are hidden for
-			// all). `secret show --reveal` and `key show --reveal` are for
-			// people only (secret_reveal.go): an agent is never asked and always sees
-			// [hidden]. A dry run never approves --reveal.
-			cl.out.Mask = cl.isAgent() && (revealNever[commandName(cmd)] || cl.flags.dryRun || !cl.revealOK())
-			startPersonal(cmd)
-			if cl.out.Mask && cl.flags.dryRun && cl.flags.reveal {
-				cl.out.WouldBlock(out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen",
-					"--reveal needs the user's yes"))
+			// first an AI agent's command in another data folder stops
+			// (guardHome), before anything asks the person or opens the store
+			if err := guardHome(cmd); err != nil {
+				return err
 			}
+			startMask(cl, cmd)
 			if err := startChecks(cmd); err != nil {
 				return err
 			}

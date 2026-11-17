@@ -161,6 +161,30 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
+  front of komando moved komando's data folder: komando counted
+  `~/.komando` of the changed `HOME` as the usual folder, so only the
+  guard hook refused the line. For an agent the usual folder is now only
+  `~/.komando` of the account's home in the computer's user database (or
+  a link to that folder); any other `KOMANDO_HOME` stops (see the next
+  entry), whatever `HOME` says. The e2e lab,
+  which leaned on the old rule, now builds a komando of its own with the
+  build tag `e2elab`, which takes the agent's account home from
+  `KOMANDO_E2E_ACCOUNT_HOME`. It is built outside the checkout and
+  removed after the run; a released komando has no such variable, and
+  `make bins` and `make dist` refuse a binary that has it.
+- An AI agent's command with `KOMANDO_HOME` set to another folder than
+  `~/.komando` now stops for good (`NEEDS_PERSON`, was `SAFETY_SETTING`): no flag and no
+  window lets it through, and a dry run stops too. Before, `--dry-run`
+  went on and still connected to servers from a folder without the
+  person's pinned host keys, protection and deny rules, and `--yes`
+  opened a window that could not ask for the approval code, which lives
+  in the usual folder. `komando guide uninstall` stops the same way; it
+  used to skip the check, and `--reveal` opened its window before it.
+  komando makes nothing in the other folder (a stopped command used to
+  leave a new store there). The hint tells the agent to take
+  `KOMANDO_HOME` out and run the command again. This is the one case
+  where a dry run is blocked.
 - The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
   and `~/.azure`: the SSO token cache and the CLI's cached credentials
   too, not only the `credentials` file. An AWS profile whose web identity
