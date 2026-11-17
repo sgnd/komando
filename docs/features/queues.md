@@ -488,13 +488,17 @@ komando queue peek prod-pubsub billing                 # up to 10 messages of su
 ```
 
 - How komando logs in: the service account key in `--password-ref`, or
-  else your application default credentials (the
+  else, on Google's own endpoint (`*.googleapis.com`), your application
+  default credentials (the
   `GOOGLE_APPLICATION_CREDENTIALS` file, the one
   `gcloud auth application-default login` makes, or the server's own
   account on Google Cloud). Give the login the role it needs:
   `roles/pubsub.viewer` to look, `roles/pubsub.subscriber` to peek,
   `roles/pubsub.publisher` to send, `roles/pubsub.editor` to create and
   delete.
+- An `endpoint=` that is not Google's never gets your gcloud login: that
+  token is good for your whole Google Cloud account. Give such an endpoint
+  its own key with `--password-ref`, or none.
 - A login only ever travels over HTTPS. The emulator (`http://`) takes
   none, so komando sends none there: a key in `--password-ref` on an
   `http://` endpoint is refused (`USAGE`).
