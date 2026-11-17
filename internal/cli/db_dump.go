@@ -453,11 +453,8 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if custom && h == nil {
 		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a server: add --run-on HOST (a server with pg_restore that can reach the database). komando restores plain SQL itself", from)
 	}
-	if err := noteRestoreFile(cl, from, custom); err != nil {
-		return err
-	}
 	// the file is checked first, so a dry run also says whether it is fine
-	if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+	if err := guardRestore(cl, st, c, v, from, custom); err != nil {
 		return err
 	}
 	// plain SQL is always run by komando itself: psql and mysql would obey

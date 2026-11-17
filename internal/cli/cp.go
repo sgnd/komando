@@ -405,10 +405,7 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 				return err
 			}
 		}
-		if err := noteUpload(cl, local, nil); err != nil {
-			return err
-		}
-		if err := guard(cl, st, hosts, "", true); err != nil {
+		if err := guardUpload(cl, st, hosts, local); err != nil {
 			return err
 		}
 	} else if err := guardDownload(cl, remote, local); err != nil {

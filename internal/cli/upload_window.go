@@ -11,7 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // noteUpload tells an AI agent's approval window what an upload sends
@@ -85,8 +87,8 @@ func fileDigest(p string) (int64, string, error) {
 // (a folder's .yaml, .yml and .json files, as the run reads them) and the
 // files of --from-file. The window shows them as cluster apply --file does.
 func noteKubectlFiles(cl *call, args []string) error {
-	if !cl.caller().IsAgent() {
-		return nil
+	if !cl.caller().IsAgent() || cl.flags.dryRun {
+		return nil // a dry run opens no window; the run names any stop
 	}
 	a, err := parseKargs(args)
 	if err != nil {
@@ -110,7 +112,7 @@ func noteKubectlFiles(cl *call, args []string) error {
 			p = f
 		}
 		if err := localReadOK(cl, expandHome(p)); err != nil {
-			return err
+			return fileErr(err)
 		}
 		b, err := os.ReadFile(expandHome(p))
 		if err != nil {
@@ -129,11 +131,45 @@ func noteKubectlFiles(cl *call, args []string) error {
 }
 
 // fileErr is komando's own stop as it is (a file it does not read for an
-// agent), else PATH_NOT_FOUND.
+// agent, also when kctl wrapped it), else PATH_NOT_FOUND.
 func fileErr(err error) error {
+	var ke *kctlError
+	if errors.As(err, &ke) && ke.stop != nil {
+		return ke.stop
+	}
 	var e *out.Error
 	if errors.As(err, &e) {
 		return e
 	}
 	return localFileErr("PATH_NOT_FOUND", err, "")
+}
+
+// guardUpload is guard for an upload to servers, with what it sends in
+// the window (noteUpload).
+func guardUpload(cl *call, st *store.State, hosts []*store.Host, local string) error {
+	if err := noteUpload(cl, local, nil); err != nil {
+		return err
+	}
+	return guard(cl, st, hosts, "", true)
+}
+
+// guardKubectlRun is cluster run's guard for a kubectl command line, with
+// the files it sends in the window (noteKubectlFiles).
+func guardKubectlRun(cl *call, st *store.State, c *store.Conn, risk driver.Risk, verb string, args []string) error {
+	if err := noteKubectlFiles(cl, args); err != nil {
+		return err
+	}
+	if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
+		return execInstead(err, verb)
+	}
+	return nil
+}
+
+// guardRestore is db restore's guard, with the file it sends in the
+// window (noteRestoreFile).
+func guardRestore(cl *call, st *store.State, c *store.Conn, v driver.Verdict, from string, custom bool) error {
+	if err := noteRestoreFile(cl, from, custom); err != nil {
+		return err
+	}
+	return guardConns(cl, st, []*store.Conn{c}, v)
 }
