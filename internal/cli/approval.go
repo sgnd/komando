@@ -62,6 +62,19 @@ func (cl *call) dangerOK(why ...string) bool {
 	return cl.flags.allowDangerous && cl.personAllows("--allow-dangerous", why...)
 }
 
+// dangerAndYesOK is dangerOK for a destructive change on protected
+// targets: one window names both flags and both reasons, so the --yes
+// check that follows is answered by it.
+func (cl *call) dangerAndYesOK(prot string, why ...string) bool {
+	if !cl.flags.allowDangerous {
+		return false
+	}
+	if prot == "" || !cl.flags.yes {
+		return cl.personAllows("--allow-dangerous", why...)
+	}
+	return cl.personAllowsFlags([]string{"--allow-dangerous", "--yes"}, "", append([]string{prot}, why...)...)
+}
+
 // revealOK never counts under --dry-run: a preview still prints what it
 // reads, and a dry run never asks the person, so it stays masked.
 func (cl *call) revealOK() bool {
@@ -89,6 +102,13 @@ func (cl *call) personAllows(flag string, why ...string) bool {
 // line alone does not show it. A yes given in a window that did not name
 // it does not cover it: the person is asked again, with it named.
 func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
+	return cl.personAllowsFlags([]string{flag}, what, why...)
+}
+
+// personAllowsFlags is personAllowsFor for a window that names several
+// flags. A yes covers the flags its window named, and no other: a window
+// opened for --reveal does not answer a later --yes check.
+func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bool {
 	if !cl.caller().IsAgent() || cl.flags.dryRun {
 		return true
 	}
@@ -101,6 +121,9 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 	// protected server named after it) asks again, with it in the window.
 	// A no stands for the whole command.
 	need := shownKeys(cl, what, why)
+	for _, f := range flags {
+		need = append(need, "flag "+f)
+	}
 	if w := sess.Window(); w.Asked && (!w.Allowed || !slices.ContainsFunc(need, func(k string) bool { return !sess.Shown(k) })) {
 		return w.Allowed
 	}
@@ -147,7 +170,12 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 	for _, w := range reasons {
 		text += "Why komando asks: " + w + "\n"
 	}
-	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
+	for i, f := range flags {
+		if i > 0 {
+			text += "\n"
+		}
+		text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", f, flagMeaning[f])
+	}
 	sess.SetGaveUp(false)
 	allowed, shown := cl.askPerson(text)
 	gaveUp := tookGaveUp(text)

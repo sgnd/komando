@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // A person's yes covers what the window showed. A window opened before
@@ -80,5 +82,34 @@ func TestEarlierWindowDoesNotCoverUnshownBody(t *testing.T) {
 	}
 	if len(texts) == 1 && !strings.Contains(texts[0], "protected host web") {
 		t.Errorf("that window names the protected server: %s", texts[0])
+	}
+}
+
+// A yes is for the flag its window named: the --reveal window does not
+// answer a --yes check, even one that brings no reason of its own. And a
+// destructive query on a protected conn asks once, in a window that
+// names both.
+func TestYesIsForTheFlagItsWindowNamed(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web", "u@10.0.0.9", "--protected")
+	if err := vault.Set(store.Save(), "web-pw", "old-value"); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, "host", "edit", "web", "--password-ref", "secret:web-pw", "--yes")
+	texts := windowText(t, true)
+	t.Setenv("V", "agent-value")
+	mustRun(t, "secret", "set", "web-pw", "--from-env", "V", "--yes", "--reveal")
+	if len(*texts) != 2 || !strings.Contains((*texts)[1], "--yes skips") {
+		t.Errorf("the --yes check gets its own window: %q", *texts)
+	}
+
+	*texts = nil
+	resetApproval()
+	mustRun(t, "conn", "add", "lite", "sqlite://"+filepath.Join(t.TempDir(), "app.db"), "--protected")
+	*texts = nil
+	resetApproval()
+	mustRun(t, "db", "query", "lite", "--write", "--yes", "--allow-dangerous", "drop table if exists t")
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "protected conn lite") {
+		t.Errorf("one window that names the protected conn: %q", *texts)
 	}
 }

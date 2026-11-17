@@ -19,7 +19,7 @@ func TestRecipeRunWindowShowsTheCommand(t *testing.T) {
 	if len(*texts) != 1 {
 		t.Fatalf("windows: %q", *texts)
 	}
-	for _, want := range []string{"touch /tmp/marker-xyz", "recipe deploy", "with sudo"} {
+	for _, want := range []string{"touch /tmp/marker-'xyz'", "recipe deploy", "with sudo"} {
 		if !strings.Contains((*texts)[0], want) {
 			t.Errorf("window lacks %q:\n%s", want, (*texts)[0])
 		}

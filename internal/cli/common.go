@@ -319,7 +319,7 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 			ids[i], reasons[i] = h.ID, h.Reason
 		}
 		// one window for both stops: it names the protected servers too
-		if len(hits) > 0 && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protWhy(prot), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
+		if len(hits) > 0 && !cl.dangerAndYesOK(protWhy(prot), fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
 			// a dry run goes on to the protection check, so meta.would_need names both flags
 			if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 				fmt.Sprintf("the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protNeed(prot)...).Say(dangerSay(reasons), dangerHint)); err != nil {
@@ -341,6 +341,14 @@ func protWhy(prot []string) string {
 		return ""
 	}
 	return "a change on protected " + nouns(len(prot), "host") + " " + strings.Join(prot, ", ")
+}
+
+// connProtWhy is protWhy for conns.
+func connProtWhy(prot []string) string {
+	if len(prot) == 0 {
+		return ""
+	}
+	return "a change on protected " + nouns(len(prot), "conn") + " " + strings.Join(prot, ", ")
 }
 
 // targetsWhy names the hosts a command runs on, for the approval window.
@@ -386,13 +394,13 @@ func guardConns(cl *call, st *store.State, conns []*store.Conn, v driver.Verdict
 			}
 		}
 	}
-	if v.Risk >= driver.RiskDestructive && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(cl, names, prot, strings.Join(v.Reasons, "; ")) {
+	if v.Risk >= driver.RiskDestructive && !cl.dangerAndYesOK(connProtWhy(prot), fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(cl, names, prot, strings.Join(v.Reasons, "; ")) {
 		if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 			fmt.Sprintf("the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), protNeed(prot)...).Say(dangerSay(v.Reasons), dangerHint)); err != nil {
 			return err
 		}
 	}
-	if len(prot) > 0 && !cl.yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(cl, prot) {
+	if len(prot) > 0 && !cl.yesOK(connProtWhy(prot)) && !confirmProtected(cl, prot) {
 		return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			fmt.Sprintf("a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", "))).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
 	}
