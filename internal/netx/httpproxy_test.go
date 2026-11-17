@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/proxyx/proxytest"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/transport/proxytest"
 )
 
 func echoServer(t *testing.T) string {
