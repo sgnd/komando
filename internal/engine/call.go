@@ -37,6 +37,14 @@ type Call struct {
 	// --allow-dangerous or --reveal; nil opens komando's own window on
 	// the screen.
 	Ask func(text string) (allowed, shown bool)
+	// AskPassword asks the person, in the app's window, to type the
+	// password of a server whose login is "ask" (host add --login ask):
+	// text says which server and why. given is false when the person
+	// cancelled; shown is false when no window could be shown. The
+	// password is used for this call only and never stored. nil: komando's
+	// own window for an AI agent's call, and NEEDS_PERSON for any other
+	// call without a terminal.
+	AskPassword func(text string) (password string, given, shown bool)
 }
 
 // Lookup is LookupEnv, or nothing found when the call has no environment.
