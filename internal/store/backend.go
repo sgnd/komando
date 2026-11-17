@@ -541,7 +541,7 @@ func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) er
 }
 
 // SetStoreMeta changes readable key settings of this home's store (a key
-// moved between the keychain and a key file: the same key, kept elsewhere).
+// moved out of the keychain into a key file, a move under way).
 func SetStoreMeta(meta map[string]string) error {
 	d, err := DB(false)
 	if err != nil {
