@@ -71,17 +71,21 @@ its highlights; the sections below them give the details. Versions follow
   agent's `--reveal` (or `--host-key-policy off`) opened its window
   before the command had read its script, and that yes then covered the
   script, the matched rules and the protected server, even a script no
-  window can show. A yes now covers the script and the reasons its
-  window showed; anything new asks again, and a destructive command on a
-  protected server still asks once, in a window that names both.
+  window can show. A yes now covers the flags, the script and the
+  reasons its window showed; anything new asks again. A destructive
+  change on a protected server or conn asks once, in a window that names
+  both flags.
 - The approval window for `recipe run` shows the command the recipe
   fills in, and says when it runs with sudo. An agent could replace a
   saved recipe and have a person allow it by its trusted name.
-- The approval window shows what a command sends from a file or stdin:
-  the SQL of `db query --file` (whole, or no window, like a script), and
-  the content of `fs write --from`, `cluster apply --file` and
-  `queue send --from` (whole when it fits, else its size and SHA-256
-  with a note that it is not shown).
+- The approval window of `db query --file`, `fs write --from`,
+  `cluster apply --file` and `queue send --from` shows what the command
+  sends: the SQL whole, or no window, like a script; other content whole
+  when it fits, a named file that is only too long by its size and
+  SHA-256, and anything else (stdin, invisible characters, what looks
+  like a secret) gets no window.
+- `import env` and `import csv --overwrite` check the vault secrets they
+  replace as `secret set` does; they replaced any secret unasked.
 - Replacing a protected VPN's key, pre-shared key or profile in the vault
   (`secret set`, `secret cp --overwrite`, `secret rename --overwrite`)
   needs a yes (`PROTECTED_TARGET`), like a protected server's password.
@@ -93,8 +97,8 @@ its highlights; the sections below them give the details. Versions follow
   with `host edit` asks the same way.
 - An AI agent that moves a jump server (address, port, `--via`, proxy
   command) is asked about every password other servers and conns send
-  through it (`SECRET_DESTINATION`). Only the moved server's own
-  secrets were checked.
+  through it, also through a second hop (`SECRET_DESTINATION`). Only the
+  moved server's own secrets were checked.
 - A protected `sftp://` conn protects the SSH server at its address: a
   host entry or `user@address` for the same server needs a yes too.
 - `pkg upgradable --refresh` and `pkg security --refresh` count as a
@@ -104,8 +108,10 @@ its highlights; the sections below them give the details. Versions follow
   do: MariaDB's `SET STATEMENT ... FOR <statement>` as the statement
   after `FOR`; the Postgres functions `pg_replication_slot_advance`,
   `pg_logical_slot_get_changes`, `pg_copy_*_replication_slot`,
-  `pg_logical_emit_message`, `pg_backup_start`/`stop` and `pg_*_reset`
-  as destructive; MongoDB `profile` (any level but -1), `validate` with
+  `pg_logical_emit_message`, `pg_backup_start`/`stop`,
+  `pg_sync_replication_slots`, `pg_truncate_visibility_map` and
+  `pg_*_reset` as destructive (and a wrapped DDL no longer runs inside
+  the transaction a dry run rolls back); MongoDB `profile` (any level but -1), `validate` with
   `repair` or `fixMetadata` and `killCursors` as writes, `bulkWrite`
   that deletes or updates every document like `delete` and `update`
   do, and `aggregate` with `$out` as replacing a collection.

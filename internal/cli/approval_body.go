@@ -66,21 +66,31 @@ func scriptLabel(kind, file string) string {
 // long to show whole. The SHA-256 is of the body as sent.
 func (b *approvalBody) shown(cl *call) (text, bad string) {
 	text, bad = b.whole(cl)
-	if bad == "" || !b.data {
+	// only a named file too long to show gets the digest line instead: the
+	// person can check that file. Content made unshowable (what looks like
+	// a secret, an invisible character, not text) or sent on stdin gets
+	// no window, as a script does.
+	if bad == "" || !b.data || !b.tooLong() || strings.Contains(b.label, "komando's stdin") {
 		return text, bad
 	}
 	sum := sha256.Sum256(b.body)
 	return fmt.Sprintf("It also sends %s (%d bytes, SHA-256 %s). Its content is not shown here: %s. Check the file (shasum -a 256) before you allow.\n\n",
-		b.label, len(b.body), hex.EncodeToString(sum[:]), dataUnshown(len(b.body))), ""
+		b.label, len(b.body), hex.EncodeToString(sum[:]), "it is too long"), ""
 }
 
-// dataUnshown says, in words that are safe to show, why content is not in
-// the window (the exact reason may quote the content).
-func dataUnshown(n int) string {
-	if n > bodyMaxBytes {
-		return "it is too long"
+// tooLong reports a body that is plain text with nothing hidden in it,
+// only longer than the window shows.
+func (b *approvalBody) tooLong() bool {
+	if len(b.body) > bodyMaxBytes {
+		return true
 	}
-	return "it is too long, is not plain text, or holds what looks like a password, key or token"
+	if hiddenArgs([]string{string(b.body)}) != "" {
+		return false
+	}
+	if s := string(b.body); out.MaskSecrets(s) != s {
+		return false
+	}
+	return true
 }
 
 // whole is the body's text for the window with every line of it, or why

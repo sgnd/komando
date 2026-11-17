@@ -150,8 +150,8 @@ komando pkg update web1                         # only refresh the package index
 - `upgradable` says how old the package index is, and suggests `--refresh`
   when it is more than a day old. `--refresh` rewrites the server's package
   index as root, so it is a change: on a protected server `pkg upgradable
-  --refresh` and `pkg security --refresh` need a yes, and a dry run lists
-  from the index as it is.
+  --refresh` and `pkg security --refresh` need a yes, and a dry run never
+  refreshes.
 - Removing packages a server needs (openssh-server, sudo, systemd, libc
   and the like) needs `--allow-dangerous`, however the name is written
   (`openssh-server:amd64`, `sudo.x86_64`, `openssh.server`). On apt

