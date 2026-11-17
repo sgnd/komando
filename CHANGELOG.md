@@ -68,6 +68,14 @@ its highlights; the sections below them give the details. Versions follow
   removed earlier): `VPN_OS_MODE_REMOVED` is gone, and `vpn show` no
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
+- The reader for sealed stores from before the record index (a change
+  count with no index beside it). No released komando wrote that form,
+  only development builds in the hours before 0.12.0. A store in that
+  form now stops with "changed outside komando".
+- The reader for audit entries from before the audit chain (an entry
+  that does not hold the sum of the one before it). Only the same
+  development builds wrote them. `komando audit` stops at such an entry
+  with "changed outside komando", after the entries before it.
 
 ### Security
 
@@ -138,6 +146,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A Google Cloud Storage conn reads at most 32 MiB of one listing page or
+  one object's details: a broken or hostile endpoint that answers without
+  end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
+  instead of being read, and kept in memory, whole.
 - An FTP or FTPS conn whose connection drops, and whose one new session
   cannot be opened either, now says both in `STORAGE_CONNECT`: the drop
   and why logging in again failed ("...: EOF; logging in again failed:
