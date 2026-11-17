@@ -167,6 +167,7 @@ func classifyKubectl(cl *call, args []string) driver.Risk {
 		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole", "role"),
 		verb == "set" && oneOf(sub, "subject", "serviceaccount", "sa"),
 		verb == "label" && psaLoosens(args),
+		verb == "create" && sub == "configmap" && len(args) > 2 && args[2] == "aws-auth",
 		verb == "run" && (hasFlag(args, "--overrides", "--privileged") || strings.Contains(joined, "hostPID")):
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}

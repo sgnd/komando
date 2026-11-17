@@ -392,8 +392,15 @@ is kubectl's namespace flag.
   `--allow-dangerous` too.
 - A compose or stack file already on the server (`stack deploy -c FILE`,
   `docker compose -f FILE up`, or compose's own file names when there is
-  no `-f`) is read there first (at most 1 MiB, without sudo) and rated
-  the same way. A file komando cannot read counts as dangerous.
+  no `-f`, with their override files) is read there first (at most
+  1 MiB, without sudo) and rated the same way. These count as dangerous
+  too, because komando cannot check what they lead to: a file it cannot
+  read, `include:`, `extends:` with another `file:`, `privileged` left to
+  a variable, and a `COMPOSE_FILE` in the folder's `.env`.
+- The rating reads the file a moment before docker does. Someone who can
+  change that file on the server can swap it in between: the rating stops
+  an agent's mistake and a file that was dangerous already, not a person
+  who can already write there.
 - `--dry-run` sends a change to the server as a server-side dry run
   (`apply`, `create`, `delete`, `scale`, `patch`, ...). A command the server
   cannot dry-run (`exec`, `cp`, `create token`, `config view`, `get` of
@@ -440,9 +447,9 @@ is kubectl's namespace flag.
 - `cluster run` knows kubectl's own commands, not kubectl plugins (krew).
   `edit` is refused (get the YAML, change it, then `apply -f`), and of
   `config` only `current-context` and `get-contexts` work.
-- Of a compose file on the server, komando reads the file itself, not
-  the files it pulls in (`include:`, `extends:`, `env_file:`). It cannot
-  tell which service accounts outside `kube-system` have strong rights.
+- komando cannot tell which service accounts outside `kube-system` have
+  strong rights (an operator's own namespace, `argocd`, `flux-system`),
+  nor that a kubeconfig's default namespace is `kube-system`.
 - Helm: komando reads releases only; install, upgrade and rollback stay
   with `helm` (`cluster deploy` and `cluster apply` change what runs).
 

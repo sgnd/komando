@@ -89,7 +89,9 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 			if err != nil {
 				return err
 			}
-			c := "docker compose"
+			// the server's own COMPOSE_FILE never picks other files than
+			// the ones the guard read (C113)
+			c := "env -u COMPOSE_FILE -u COMPOSE_PATH_SEPARATOR docker compose"
 			if dir != "" {
 				c = "cd " + sshx.Q(dir) + " && " + c
 			}

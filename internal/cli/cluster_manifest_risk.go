@@ -36,6 +36,10 @@ var controllerKinds = map[string]string{
 	"argoproj.io/appproject":                    "sets what Argo CD may install",
 	"kustomize.toolkit.fluxcd.io/kustomization": "makes Flux install anything, with its rights",
 	"helm.toolkit.fluxcd.io/helmrelease":        "makes Flux install a Helm chart, with its rights",
+	"argoproj.io/workflow":                      "runs pods as any service account it names",
+	"argoproj.io/cronworkflow":                  "runs pods as any service account it names",
+	"argoproj.io/workflowtemplate":              "runs pods as any service account it names",
+	"argoproj.io/clusterworkflowtemplate":       "runs pods as any service account it names",
 }
 
 // manifestEscalates says why objects in a manifest give more rights than
@@ -44,24 +48,28 @@ var controllerKinds = map[string]string{
 // --allow-dangerous (classifyKubectl); the same objects in a file need it
 // too. It looks at what the file says, anywhere in an object, so a pod
 // template inside a Deployment, a CronJob, a List or a custom kind counts.
-func manifestEscalates(docs []kubeDoc) string {
+func manifestEscalates(docs []kubeDoc) string { return manifestEscalatesIn(docs, "") }
+
+// manifestEscalatesIn is manifestEscalates for objects that name no
+// namespace of their own going to ns (kubectl's -n).
+func manifestEscalatesIn(docs []kubeDoc, ns string) string {
 	for _, d := range docs {
 		var o any
 		if json.Unmarshal(d.JSON, &o) != nil {
 			return strings.ToLower(d.Kind) + "/" + d.Name + " could not be read"
 		}
-		if why := objectEscalates(o); why != "" {
+		if why := objectEscalates(o, ns); why != "" {
 			return why
 		}
 	}
 	return ""
 }
 
-func objectEscalates(v any) string {
+func objectEscalates(v any, defNS string) string {
 	switch x := v.(type) {
 	case []any:
 		for _, c := range x {
-			if why := objectEscalates(c); why != "" {
+			if why := objectEscalates(c, defNS); why != "" {
 				return why
 			}
 		}
@@ -76,6 +84,9 @@ func objectEscalates(v any) string {
 			return ref + " " + why
 		}
 		ns := meta(x, "namespace")
+		if ns == "" {
+			ns = defNS
+		}
 		if strings.EqualFold(kind, "ConfigMap") && meta(x, "name") == "aws-auth" && ns == "kube-system" {
 			return ref + " sets who may sign in to an EKS cluster, and with what rights"
 		}
@@ -91,7 +102,7 @@ func objectEscalates(v any) string {
 			return why
 		}
 		for _, c := range x {
-			if why := objectEscalates(c); why != "" {
+			if why := objectEscalates(c, defNS); why != "" {
 				return why
 			}
 		}
@@ -191,6 +202,10 @@ func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, st
 	if err != nil {
 		return risk, "" // the run says what is wrong with the words
 	}
+	ns := ""
+	if n := a.vals["namespace"]; len(n) > 0 {
+		ns = n[len(n)-1]
+	}
 	for _, f := range a.vals["filename"] {
 		b, err := readManifest(cl, f, a.bools["recursive"])
 		if err != nil {
@@ -200,7 +215,7 @@ func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, st
 		if err != nil {
 			continue
 		}
-		if why := manifestEscalates(docs); why != "" {
+		if why := manifestEscalatesIn(docs, ns); why != "" {
 			return driver.RiskDestructive, why
 		}
 	}
@@ -213,6 +228,7 @@ func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, st
 // read it another way.
 func composeEscapes(file []byte) string {
 	var c struct {
+		Include  any                       `yaml:"include"`
 		Services map[string]map[string]any `yaml:"services"`
 		Volumes  map[string]map[string]any `yaml:"volumes"`
 		Networks map[string]map[string]any `yaml:"networks"`
@@ -221,6 +237,9 @@ func composeEscapes(file []byte) string {
 	}
 	if err := yaml.Unmarshal(file, &c); err != nil {
 		return "komando cannot read it as YAML (" + firstLine(err.Error()) + "), so it cannot check what the services get"
+	}
+	if c.Include != nil {
+		return "it includes other compose files (include:), which komando does not check"
 	}
 	for name, n := range c.Networks {
 		if strings.EqualFold(name, "host") && n["external"] != nil || strings.EqualFold(str(n["name"]), "host") {
@@ -247,8 +266,11 @@ func composeEscapes(file []byte) string {
 	}
 	for name, s := range c.Services {
 		pre := "service " + name + " "
-		if on(s["privileged"]) {
-			return pre + "is privileged"
+		if on(s["privileged"]) || strings.Contains(str(s["privileged"]), "$") {
+			return pre + "is privileged (or leaves it to a variable)"
+		}
+		if ext, ok := s["extends"].(map[string]any); ok && ext["file"] != nil {
+			return pre + "extends a service in another file (" + str(ext["file"]) + "), which komando does not check"
 		}
 		for _, k := range []string{"cap_add", "devices", "device_cgroup_rules", "security_opt", "volumes_from"} {
 			if l, isList := s[k].([]any); s[k] != nil && (!isList || len(l) > 0) {

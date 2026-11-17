@@ -80,3 +80,52 @@ func TestComposeGuardArgs(t *testing.T) {
 		}
 	}
 }
+
+// komando rates the file it reads, so a file that pulls in another one,
+// or leaves a risky field to a variable, counts as one it cannot check.
+func TestComposeEscapesFailsClosed(t *testing.T) {
+	for name, c := range map[string]struct {
+		yaml string
+		esc  bool
+	}{
+		"include":           {"include: [other.yml]\nservices:\n  web: {image: nginx}\n", true},
+		"include long form": {"include:\n  - path: other.yml\n", true},
+		"extends file":      {"services:\n  web:\n    extends: {file: base.yml, service: web}\n", true},
+		"extends same file": {"services:\n  base: {image: nginx}\n  web:\n    extends: {service: base}\n", false},
+		"privileged var":    {"services:\n  web:\n    image: nginx\n    privileged: ${PRIV}\n", true},
+		"privileged false":  {"services:\n  web:\n    image: nginx\n    privileged: false\n", false},
+		"image var":         {"services:\n  web:\n    image: nginx:${TAG}\n", false},
+	} {
+		if why := composeEscapes([]byte(c.yaml)); (why != "") != c.esc {
+			t.Errorf("%s: %q, want escapes=%v", name, why, c.esc)
+		}
+	}
+}
+
+// Review round: the glued -cFILE form, compose's override files and a
+// COMPOSE_FILE in the folder's .env.
+func TestComposeFilesReviewRound(t *testing.T) {
+	if got := serverComposeFiles(strings.Fields("stack deploy -c/srv/evil.yml st")); !reflect.DeepEqual(got, [][]string{{"/srv/evil.yml"}}) {
+		t.Errorf("glued -c: %v", got)
+	}
+	plain := "services:\n  web: {image: nginx}\n"
+	for name, c := range map[string]struct {
+		files map[string]string
+		bad   bool
+	}{
+		"plain":               {map[string]string{"/a/compose.yaml": plain}, false},
+		"override privileged": {map[string]string{"/a/compose.yaml": plain, "/a/compose.override.yaml": "services:\n  web: {privileged: true}\n"}, true},
+		"env COMPOSE_FILE":    {map[string]string{"/a/compose.yaml": plain, "/a/.env": "TAG=1\nCOMPOSE_FILE=evil.yml\n"}, true},
+		"env plain":           {map[string]string{"/a/compose.yaml": plain, "/a/.env": "TAG=1\n"}, false},
+	} {
+		read := func(p string) ([]byte, error) {
+			if b, ok := c.files[p]; ok {
+				return []byte(b), nil
+			}
+			return nil, os.ErrNotExist
+		}
+		if why := composeFilesRisk(read, [][]string{composeDefaultNames("/a")}); (why != "") != c.bad {
+			t.Errorf("%s: %q, want bad=%v", name, why, c.bad)
+		}
+	}
+}

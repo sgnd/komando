@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -54,5 +55,23 @@ func TestClassifyKubectlC113(t *testing.T) {
 		if got := classifyKubectl(tcl, strings.Fields(cmd)); got != want {
 			t.Errorf("%s: %v, want %v", cmd, got, want)
 		}
+	}
+}
+
+// Review round: kube-system given with -n, aws-auth made with create
+// configmap, and Argo Workflows.
+func TestC113ReviewRound(t *testing.T) {
+	dir := t.TempDir()
+	f := dir + "/dep.yaml"
+	os.WriteFile(f, []byte("apiVersion: apps/v1\nkind: Deployment\nmetadata: {name: a}\nspec:\n  template:\n    spec:\n      serviceAccountName: clusterrole-aggregation-controller\n      containers: [{name: c, image: a}]\n"), 0o600)
+	if risk, _ := kubectlFileRisk(newCall(tcl.io, nil), []string{"apply", "-n", "kube-system", "-f", f}, driver.RiskWrite); risk != driver.RiskDestructive {
+		t.Errorf("-n kube-system: %v", risk)
+	}
+	if got := classifyKubectl(tcl, strings.Fields("create configmap aws-auth -n kube-system --from-literal=mapRoles=x")); got != driver.RiskDestructive {
+		t.Errorf("create configmap aws-auth: %v", got)
+	}
+	docs, _ := splitYAML([]byte("apiVersion: argoproj.io/v1alpha1\nkind: Workflow\nmetadata: {name: w}\n"))
+	if manifestEscalates(docs) == "" {
+		t.Error("argo Workflow")
 	}
 }

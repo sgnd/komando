@@ -22,6 +22,7 @@ check "docker raw reads stay reads" True "$($K docker raw swarm1 -- volume ls | 
 # C113: a stack file already on the manager is read there and rated
 q $K exec swarm1 -- 'printf "services:\n  web:\n    image: nginx\n    privileged: true\n" > /tmp/e2e-priv.yml; printf "services:\n  web:\n    image: nginx\n" > /tmp/e2e-ok.yml'
 set +e; $K cluster run swarm1 --write -- stack deploy -c /tmp/e2e-priv.yml e2epriv >/dev/null; check "swarm run: a privileged stack file on the server needs --allow-dangerous" 6 $?; set -e
-check "swarm run: a stack file the server lacks needs --allow-dangerous" POLICY_BLOCKED "$($K docker raw swarm1 -- stack deploy -c /tmp/e2e-none.yml e2enone | jget 'd["error"]["code"]' || true)"
-check "swarm run: a plain stack file on the server stays write" True "$($K cluster run swarm1 --write --dry-run -- stack deploy -c /tmp/e2e-ok.yml e2eok | jget '"would_be_blocked" not in d.get("meta", {})')"
+set +e; $K cluster run swarm1 --write -- stack deploy -c /tmp/e2e-none.yml e2enone >/dev/null; check "swarm run: a stack file the server lacks needs --allow-dangerous" 6 $?; set -e
+check "docker raw: a privileged stack file on the server needs --allow-dangerous" POLICY_BLOCKED "$($K docker raw swarm1 -- stack deploy -c /tmp/e2e-priv.yml e2epriv | jget 'd["error"]["code"]' || true)"
+check "swarm run: a plain stack file on the server stays write" "True True" "$($K cluster run swarm1 --write --dry-run -- stack deploy -c /tmp/e2e-ok.yml e2eok | jget 'd["ok"], "would_be_blocked" not in d.get("meta", {})' | tr -d '(),')"
 q $K cluster rm swarm1 stack e2e --allow-dangerous

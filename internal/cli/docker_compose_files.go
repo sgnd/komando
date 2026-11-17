@@ -101,6 +101,12 @@ func flagFiles(args []string, names ...string) [][]string {
 	for i := 0; i < len(args); i++ {
 		name, val, hasValue := strings.Cut(args[i], "=")
 		if !oneOf(name, names...) {
+			// a short flag glued to its value: -cFILE
+			for _, n := range names {
+				if len(n) == 2 && strings.HasPrefix(args[i], n) && len(args[i]) > 2 {
+					files = append(files, []string{args[i][2:]})
+				}
+			}
 			continue
 		}
 		if !hasValue {
@@ -139,8 +145,50 @@ func composeFilesRisk(read func(p string) ([]byte, error), groups [][]string) st
 			found = true
 			break
 		}
+		if found && len(g) > 1 {
+			if why := composeDefaultsRisk(read, path.Dir(g[0])); why != "" {
+				return why
+			}
+		}
 		if !found {
 			return "komando found no compose file on the server to check"
+		}
+	}
+	return ""
+}
+
+// composeDefaultsRisk checks what compose adds to its own file names when
+// no -f is given: the override files it merges, and a COMPOSE_FILE in the
+// folder's .env that names other files.
+func composeDefaultsRisk(read func(p string) ([]byte, error), dir string) string {
+	if dir == "." {
+		dir = ""
+	}
+	for _, n := range []string{"compose.override.yaml", "compose.override.yml", "docker-compose.override.yaml", "docker-compose.override.yml"} {
+		p := path.Join(dir, n)
+		b, err := read(p)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Sprintf("komando cannot read %s on the server (%s), so it cannot check what the services get", p, firstLine(err.Error()))
+		}
+		if esc := composeEscapes(b); esc != "" {
+			return p + ": " + esc
+		}
+	}
+	env := path.Join(dir, ".env")
+	b, err := read(env)
+	if errors.Is(err, os.ErrNotExist) {
+		return ""
+	}
+	if err != nil {
+		return fmt.Sprintf("komando cannot read %s on the server (%s), which may name other compose files", env, firstLine(err.Error()))
+	}
+	for _, l := range strings.Split(string(b), "\n") {
+		k, _, _ := strings.Cut(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(l), "export ")), "=")
+		if k == "COMPOSE_FILE" || k == "COMPOSE_PATH_SEPARATOR" {
+			return env + " sets " + k + ", so compose reads files komando does not check"
 		}
 	}
 	return ""

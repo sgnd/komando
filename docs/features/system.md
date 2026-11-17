@@ -92,7 +92,10 @@ komando docker compose web1 --dir /srv/shop -- up -d --pull always
   compose's own names in `--dir`; at most 1 MiB, without sudo). A service
   that gets the server (privileged, added capabilities or devices, the
   host's network or processes, a bind of `/` or the docker socket) needs
-  `--allow-dangerous`, as does a file komando cannot read.
+  `--allow-dangerous`, as does a file komando cannot read or one that
+  pulls in files it does not check (override files are read too; see
+  [Clusters](cluster.md) for the full list and the moment between
+  komando's read and docker's).
 - `rm`, `prune`, `compose down -v` and other deletes delete for good: at
   your terminal komando asks you to type the server's name; an AI agent or
   a script adds `--allow-dangerous` after a person agrees
