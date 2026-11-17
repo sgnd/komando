@@ -264,8 +264,10 @@ func (c *Client) token(ctx context.Context, challenge, scope string) (string, er
 		Token       string `json:"token"`
 		AccessToken string `json:"access_token"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&t); err != nil {
-		return "", err
+	// a token is a few kilobytes; the token service decides how much it
+	// sends, so komando reads at most 1 MiB of it
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&t); err != nil {
+		return "", fmt.Errorf("komando cannot read the token service's reply: %w", err)
 	}
 	if t.Token == "" {
 		t.Token = t.AccessToken
