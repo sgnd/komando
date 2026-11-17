@@ -239,11 +239,11 @@ func awsHome(t *testing.T) {
 
 // An AI agent cannot log in to AWS (the sign-in is in a person's browser):
 // it gets NEEDS_PERSON with the exact command, a dry run says so in
-// would_be_blocked, and a script gets NEEDS_TERMINAL.
+// would_be_blocked, and a script gets NEEDS_PERSON (exit 6), as an agent does.
 func TestLoginAWSNeedsPerson(t *testing.T) {
 	invHome(t)
 	awsHome(t)
-	e := wantCode(t, "NEEDS_TERMINAL", "login", "aws", "--profile", "sso")
+	e := wantCode(t, "NEEDS_PERSON", "login", "aws", "--profile", "sso")
 	if !strings.Contains(e.Hint, "komando login aws --profile sso") {
 		t.Errorf("script hint %q", e.Hint)
 	}

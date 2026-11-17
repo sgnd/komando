@@ -66,9 +66,9 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 		}
 		hint := fmt.Sprintf("store it with `komando secret set %s` (it reads stdin too), then pass --%s %s", sec, a.refFlag, ref)
 		if a.flag == askPasswordSecret.flag {
-			return "", undo, out.Errf(out.ExitUsage, "NEEDS_TERMINAL", hint, "--ask-password asks at a terminal, and there is none")
+			return "", undo, out.Errf(out.ExitPolicy, "NEEDS_PERSON", hint, "--ask-password asks at a terminal, and there is none").NoFlag()
 		}
-		return "", undo, out.Errf(out.ExitUsage, "NEEDS_TERMINAL", hint, "--ask-psk asks at a terminal, and there is none")
+		return "", undo, out.Errf(out.ExitPolicy, "NEEDS_PERSON", hint, "--ask-psk asks at a terminal, and there is none").NoFlag()
 	}
 	st, err := loadState()
 	if err != nil {

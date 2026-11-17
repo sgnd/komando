@@ -47,7 +47,7 @@ func loginHost(cl *call, ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	needsPerson := out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
+	needsPerson := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
 		"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
 	if !cl.interactive() && !cl.flags.dryRun {
 		return needsPerson
