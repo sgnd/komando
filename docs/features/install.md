@@ -117,6 +117,20 @@ your AI agents get the skill of the new version. Until then
   ([SECURITY.md](../../SECURITY.md)). Releases up to 0.13.0 have no
   signature, so `komando update v0.13.0` stops too; to go back to one of
   them, use the install line with `KOMANDO_VERSION=v0.13.0`.
+- The signature covers the version too. From 0.15.0 on, the first line of
+  `checksums.txt` names the release and the day it was made
+  (`komando-release v0.15.0 2026-11-20`). `update` and the install line
+  install a release only as the version that line names, so the signed
+  files of an older release cannot pass as a newer one
+  (`RELEASE_SIGNATURE_INVALID`). 0.14.0 and 0.14.1 were signed before the
+  line: they install only when asked for by version. Checking by hand with
+  `sha256sum -c checksums.txt` warns about this one line; the files still
+  check.
+- Known limit: someone who controls the download could serve a real, older
+  release as the newest. `update` then says komando is up to date (it never
+  goes back on its own), and the install line installs that release and
+  prints its version and date. Check them against the
+  [releases page](https://github.com/sgnd/komando/releases).
 - To check the signed build provenance of a download as well, use
   `gh attestation verify` (see
   [Other ways to install](#other-ways-to-install)).

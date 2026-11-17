@@ -136,6 +136,9 @@ func releaseSums(cl *call, ctx context.Context, tag string) ([]byte, error) {
 	if err := checkSigned(cl, ctx, tag, sums); err != nil {
 		return nil, err
 	}
+	if err := checkVersion(tag, sums); err != nil {
+		return nil, err
+	}
 	if sumFor(sums, archiveName()) == "" {
 		return nil, out.Errf(out.ExitNotFound, "VERSION_NOT_FOUND", "pick another version from "+releaseSite+"/releases",
 			"komando %s has no download for %s", tag, platform())
@@ -164,6 +167,23 @@ func checkSigned(cl *call, ctx context.Context, tag string, sums []byte) error {
 	}
 	// a komando built without the public key, or with a broken one
 	return fmt.Errorf("cannot check komando %s: %w; nothing was changed", tag, err)
+}
+
+// checkVersion checks that the signed checksums.txt is the one of release
+// tag (its version line, internal/releasesig): otherwise the signed files
+// of an older release, put under a newer tag, would install as that one.
+func checkVersion(tag string, sums []byte) error {
+	err := releasesig.CheckVersion(sums, tag)
+	if err == nil {
+		return nil
+	}
+	hint := "do not install it another way, someone may have replaced the release's files: report it privately at " + releaseSite + "/security, and check again later with `komando update --dry-run`"
+	if got, _, ok := releasesig.Version(sums); ok {
+		return out.Errf(out.ExitUsage, "RELEASE_SIGNATURE_INVALID", hint,
+			"the release under tag %s holds komando %s; nothing was changed", tag, got)
+	}
+	return out.Errf(out.ExitUsage, "RELEASE_SIGNATURE_INVALID", hint,
+		"komando %s does not name its version, though every release after %s does; nothing was changed", tag, releasesig.Unversioned[len(releasesig.Unversioned)-1])
 }
 
 // lastUnsigned is the newest release made before releases were signed.

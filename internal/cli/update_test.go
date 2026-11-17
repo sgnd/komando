@@ -61,6 +61,7 @@ type fakeReleases struct {
 	sums      string            // "" right; "bad" every line wrong; "other" only another platform's line right; "missing" no line for this platform
 	noBinary  bool              // the archive has no komando
 	sig       string            // "" signed with the key komando knows; "none" no checksums.txt.sig; "other" signed with another key; "tampered" checksums.txt changed after signing; "junk" no signature in the file
+	version   string            // the version line: "" the tag's; "none" no line; else the version it names
 	key       string            // the private key whose public key komando knows (updateLab sets it)
 	fail      atomic.Int32      // answer this many requests with 503 first
 	slow      time.Duration     // wait this long before /releases/latest answers
@@ -106,7 +107,19 @@ func (f *fakeReleases) archive(tag string) []byte {
 	return b.Bytes()
 }
 
-func (f *fakeReleases) checksums(data []byte, name string) string {
+func (f *fakeReleases) checksums(tag string, data []byte, name string) string {
+	line := releasesig.VersionLine(tag, "2026-11-17")
+	switch f.version {
+	case "none":
+		line = ""
+	case "":
+	default:
+		line = releasesig.VersionLine(f.version, "2026-11-17")
+	}
+	return line + f.sumLines(data, name)
+}
+
+func (f *fakeReleases) sumLines(data []byte, name string) string {
 	right := sha256.Sum256(data)
 	wrong := sha256.Sum256([]byte("something else"))
 	r, w := hex.EncodeToString(right[:]), hex.EncodeToString(wrong[:])
@@ -162,7 +175,7 @@ func (f *fakeReleases) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write(data)
 			return
 		case "/releases/download/" + tag + "/checksums.txt":
-			sums := f.checksums(data, name)
+			sums := f.checksums(tag, data, name)
 			if f.sig == "tampered" {
 				sums += strings.Repeat("0", 64) + "  komando_extra.tar.gz\n"
 			}
@@ -172,7 +185,7 @@ func (f *fakeReleases) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if f.sig == "none" {
 				break
 			}
-			_, _ = w.Write([]byte(f.signature(f.checksums(data, name))))
+			_, _ = w.Write([]byte(f.signature(f.checksums(tag, data, name))))
 			return
 		}
 	}
@@ -654,4 +667,45 @@ func TestUpdateRefusesATarget(t *testing.T) {
 	if err := updateNotATarget("v0.6.0"); err != nil {
 		t.Errorf("a version: %v", err)
 	}
+}
+
+// The signature covers the version line of checksums.txt: the signed files
+// of an older release put under a newer tag are refused, and so is a newer
+// release with no version line (C114). A release signed before the line
+// (v0.14.1) still updates under its own tag.
+func TestUpdateChecksTheVersionLine(t *testing.T) {
+	for _, c := range []struct {
+		name, tag, version, say string
+	}{
+		{"an older release under a newer tag", "v0.16.0", "v0.14.1", "the release under tag v0.16.0 holds komando v0.14.1"},
+		{"a newer release without the line", "v0.16.0", "none", "does not name its version, though every release after v0.14.1 does"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := &fakeReleases{newest: c.tag, tags: []string{c.tag}, version: c.version}
+			exe, _ := updateLab(t, "v0.12.0", f)
+			for _, dry := range []bool{true, false} {
+				args := []string{}
+				if dry {
+					args = append(args, "--dry-run")
+				}
+				e := updateFails(t, args...)
+				if e.Code != "RELEASE_SIGNATURE_INVALID" || e.Exit != out.ExitUsage || !strings.Contains(e.Message, c.say) || !strings.Contains(e.Message, "nothing was changed") {
+					t.Errorf("dry run %v: got %v, want RELEASE_SIGNATURE_INVALID saying %q", dry, e, c.say)
+				}
+			}
+			if f.downloads.Load() != 0 || fileText(t, exe) != "old komando" {
+				t.Errorf("downloaded %d archives or replaced komando", f.downloads.Load())
+			}
+		})
+	}
+	t.Run("signed before the version line", func(t *testing.T) {
+		f := &fakeReleases{newest: "v0.14.1", tags: []string{"v0.14.1"}, version: "none"}
+		exe, _ := updateLab(t, "v0.12.0", f)
+		if s, err := runCache(t, "-o", "json", "update"); err != nil {
+			t.Fatalf("v0.14.1 without the line was refused: %v\n%s", err, s)
+		}
+		if fileText(t, exe) == "old komando" {
+			t.Error("komando was not replaced")
+		}
+	})
 }
