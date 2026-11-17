@@ -257,3 +257,16 @@ func importVpnOptIns(cl *call, st *store.State, v *store.Vpn) error {
 	set := map[string]bool{"legacy-crypto": v.LegacyCrypto, "allow-pap": v.AllowPAP}
 	return vpnOptIns(cl, cur, func(f string) bool { return set[f] }, v.LegacyCrypto, v.AllowPAP)
 }
+
+// importHostSecrets records the passwords an import brings for its
+// servers (FileZilla), under the name each server's --password-ref points
+// at, so they go to the vault. A name already in the vault never gets
+// here: vetImportHosts drops that reference (dropForeignHostRefs).
+func importHostSecrets(hosts []*store.Host, plan *importPlan, res *importResult) []*store.Host {
+	for _, h := range hosts {
+		if name, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
+			res.Secrets = append(res.Secrets, name)
+		}
+	}
+	return hosts
+}

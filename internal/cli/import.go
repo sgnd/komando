@@ -385,19 +385,6 @@ func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool,
 	return conns, guardSends(cl, sends, weak)
 }
 
-// importHostSecrets records the passwords an import brings for its
-// servers (FileZilla), under the name each server's --password-ref points
-// at, so they go to the vault. A name already in the vault never gets
-// here: vetImportHosts drops that reference (dropForeignHostRefs).
-func importHostSecrets(hosts []*store.Host, plan *importPlan, res *importResult) []*store.Host {
-	for _, h := range hosts {
-		if name, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
-			res.Secrets = append(res.Secrets, name)
-		}
-	}
-	return hosts
-}
-
 // addConn records a conn the import adds: its name, the password stored
 // for it, and how to set one when the source had none. That note uses the
 // conn's final name, so its commands change this conn and no other.
