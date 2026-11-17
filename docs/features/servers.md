@@ -632,6 +632,10 @@ tries these logins in order:
 4. the managed identity of the Azure machine komando runs on
    (`AZURE_CLIENT_ID` picks a user-assigned one).
 
+`AZURE_AUTHORITY_HOST` picks another Azure cloud's sign-in host
+(`https://login.microsoftonline.us`, `https://login.chinacloudapi.cn`);
+any other host is refused, because the login goes there.
+
 The login needs the "Key Vault Secrets User" role on the vault, or an access
 policy that allows Get on secrets.
 

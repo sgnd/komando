@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go/middleware"
 	smithyhttp "github.com/aws/smithy-go/transport/http"
+
+	"github.com/sgnd/komando/internal/gcpadc"
 )
 
 // EKSToken is a bearer token for an Amazon EKS cluster, made the way
@@ -67,6 +67,9 @@ var ErrGCPNoCredentials = errors.New("none found")
 // print-access-token` a registry login.
 func GCPAccessToken(ctx context.Context) (string, error) {
 	creds, err := gcpCredentials(ctx)
+	if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
+		return "", fe.Err
+	}
 	if err != nil {
 		if gcpCredentialsSet() {
 			// a key file or gcloud login that is there but broken
@@ -89,15 +92,6 @@ func gcpCredentialsSet() bool {
 	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") != "" {
 		return true
 	}
-	var dir string
-	if runtime.GOOS == "windows" {
-		dir = os.Getenv("APPDATA")
-	} else if dir = os.Getenv("HOME"); dir == "" {
-		dir, _ = os.UserHomeDir()
-	}
-	if runtime.GOOS != "windows" {
-		dir = filepath.Join(dir, ".config")
-	}
-	_, err := os.Stat(filepath.Join(dir, "gcloud", "application_default_credentials.json"))
+	_, err := os.Stat(gcpadc.File())
 	return err == nil
 }
