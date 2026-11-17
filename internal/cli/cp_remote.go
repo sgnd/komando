@@ -155,12 +155,14 @@ func (e *copyEnd) stat(ctx context.Context, p string) (copyStat, bool, error) {
 		return copyStat{size: fi.Size(), dir: fi.IsDir(), mode: fi.Mode().Perm(), mtime: fi.ModTime()}, true, nil
 	}
 	if p != "" && !strings.HasSuffix(p, "/") {
-		o, err := e.b.Stat(ctx, p)
-		if err == nil {
-			return copyStat{size: o.Size, mtime: o.Modified}, true, nil
-		}
-		if toErr(err).Exit != out.ExitNotFound {
+		// Lookup, not Stat: a file server's Stat answers a folder with a
+		// usage error
+		o, found, err := e.b.Lookup(ctx, p)
+		if err != nil {
 			return copyStat{}, false, err
+		}
+		if found && !o.Dir {
+			return copyStat{size: o.Size, mtime: o.Modified}, true, nil
 		}
 	}
 	objs, _, err := e.b.List(ctx, folderKey(p), true, 1)
@@ -304,6 +306,19 @@ func remoteCopy(cl *call, ctx context.Context, src, dst *copyEnd, srcP, dstP str
 		dp = path.Join(dp, path.Base(sp))
 	}
 	if o.resume {
+		// --continue adds to the file in place: an AI agent's source is
+		// read first, so a vault value is found before anything is added
+		if agentScans(cl) {
+			r, err := src.side(cl, path.Dir(sp)).open(ctx, path.Base(sp))
+			if err != nil {
+				return xferStats{}, err
+			}
+			_, err = io.Copy(io.Discard, storex.CtxReader(ctx, agentScan(cl, r, src.name()+":"+sp)))
+			r.Close()
+			if err != nil {
+				return xferStats{}, err
+			}
+		}
 		r, err := resumeCopy(ctx, src.resumeEnd(cl, sp, 0, false), dst.resumeEnd(cl, dp, copyMode(si.mode, o), o.mkdirs), sp)
 		if err != nil {
 			return xferStats{}, err
@@ -338,7 +353,7 @@ func copyOne(cl *call, ctx context.Context, src, dst *copyEnd, sp, dp string, si
 	pp.total(1, si.size)
 	pp.start(sp)
 	h := sha256.New()
-	in := storex.CtxReader(ctx, io.TeeReader(pp.reader(r), h))
+	in := storex.CtxReader(ctx, io.TeeReader(pp.reader(agentScan(cl, r, src.name()+":"+sp)), h))
 	st := xferStats{Files: 1, Source: src.name() + ":" + sp}
 	if dst.server() {
 		newMode := ""
@@ -441,7 +456,7 @@ func copyFolder(cl *call, ctx context.Context, src, dst *copyEnd, sp, dp string,
 			continue
 		}
 		pp.start(rel)
-		err = to.write(ctx, rel, pp.reader(r), f)
+		err = to.write(ctx, rel, pp.reader(agentScan(cl, r, src.name()+":"+path.Join(sp, rel))), f)
 		r.Close()
 		if ctx.Err() != nil {
 			return st, ctx.Err()
@@ -455,6 +470,41 @@ func copyFolder(cl *call, ctx context.Context, src, dst *copyEnd, sp, dp string,
 		st.Bytes += f.Size
 	}
 	return st, nil
+}
+
+// agentScans: this command's copies between two remote places are read
+// for vault values on their way (an AI agent without --reveal).
+func agentScans(cl *call) bool { return cl.out.Mask && !cl.revealOK() }
+
+// agentScan is r, for a copy between two remote places. The file does not
+// come to this computer, but an AI agent could read it unhidden where it
+// lands (a link from a bucket, another server). A download hides secret
+// values or stops; a copy cannot hide them in a file it does not keep, so
+// it stops with SENSITIVE_FILE at the first value from komando's vault,
+// before the destination puts the file in place.
+func agentScan(cl *call, r io.Reader, where string) io.Reader {
+	if !agentScans(cl) {
+		return r
+	}
+	return &vaultStop{cl: cl, r: r, sc: cl.out.NewValueScanner(), where: where}
+}
+
+type vaultStop struct {
+	cl    *call
+	r     io.Reader
+	sc    *out.ValueScanner
+	where string
+}
+
+func (v *vaultStop) Read(p []byte) (int, error) {
+	n, err := v.r.Read(p)
+	_, _ = v.sc.Write(p[:n])
+	if v.sc.Found() {
+		return 0, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+			revealHint(v.cl, "if the user wants it copied, run it again with --reveal"),
+			"%s holds a value from komando's vault; komando does not copy it to another place for an AI agent", v.where)
+	}
+	return n, err
 }
 
 // guardSensitiveRemote is guardSensitiveCopy for a copy between two

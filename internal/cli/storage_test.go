@@ -116,8 +116,11 @@ func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
 
 func (m *memBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
 	b, err := io.ReadAll(r)
+	if err != nil {
+		return err // as a real conn: a source that fails puts nothing in place
+	}
 	m.objs[key] = string(b)
-	return err
+	return nil
 }
 
 func (m *memBucket) Remove(_ context.Context, key string) error { delete(m.objs, key); return nil }

@@ -200,7 +200,7 @@ This page is made from the code (`komando schema` lists the same under
 | `RESTORE_FAILED` | 5 | the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it | fix the file, then restore it again: `komando db restore … --from …` |
 | `RESTORE_UNSUPPORTED` | 2 | line … switches to another database: … | the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn |
 | `RESUME_CONFLICT` | 8 | … changed while komando was copying (it is … bytes, not …); nothing was added | run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again |
-| `RESUME_FAILED` | 5 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue: `komando cp SRC DST` |
+| `RESUME_FAILED` | 5 | … does not match the source after the copy (sha256 …, the source …); it was left as it is | copy the whole file again without --continue, replacing this one: `komando cp SRC DST` (a download: with --overwrite) |
 | `RESUME_UNSUPPORTED` | 2 | … cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed | run it again without --continue to copy the whole file: `komando cp SRC DST` |
 | `REVEAL_NEEDS_HUMAN` | 6 | --reveal only works for a person at a terminal | ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead |
 | `REVEAL_NEEDS_PERSON` | 6 | --reveal needs the user's yes | values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen |
