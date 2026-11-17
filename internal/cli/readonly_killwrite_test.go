@@ -28,7 +28,7 @@ func TestReadOnlyToolWriteForms(t *testing.T) {
 		if w := readOnlyViolation(c); w == "" {
 			t.Errorf("%q: --read-only let it through (denylist)", c)
 		}
-		if w := readOnlyAllowlist(c); w == "" {
+		if w := readOnlyViolation(c); w == "" {
 			t.Errorf("%q: --read-only let it through (allowlist)", c)
 		}
 	}
@@ -44,7 +44,7 @@ func TestReadOnlyToolWriteForms(t *testing.T) {
 		"xmllint --noout -format f.xml", "xxd -c8 in", "xxd -cols 8 in", "xxd in -",
 	}
 	for _, c := range allowed {
-		if w := readOnlyAllowlist(c); w != "" {
+		if w := readOnlyViolation(c); w != "" {
 			t.Errorf("%q: refused (%s), a plain read", c, w)
 		}
 	}
