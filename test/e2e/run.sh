@@ -109,6 +109,10 @@ case "${1:-}" in
   *) echo "usage: run.sh [--list | --list-json]; pick areas with AREA=NAME[,NAME...]" >&2; exit 2 ;;
 esac
 
+# listing starts nothing; a lab does
+. "$(dirname "${BASH_SOURCE[0]}")/lab_env.sh"
+lab_refuse_here || exit 1
+
 ALL=$(area_names | tr '\n' ' ')
 if [ -n "${AREA:-}" ]; then
   PICKED=$(echo "$AREA" | tr ',' ' ')

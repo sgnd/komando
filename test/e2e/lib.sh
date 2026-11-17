@@ -7,6 +7,10 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 E2E="$ROOT/test/e2e"
 K="$ROOT/bin/komando"
+# the person's home, keychain, keyring and ssh-agent stay out of reach
+. "$E2E/lab_env.sh"
+lab_refuse_here || exit 1
+lab_env || exit 1
 # E2E_HOME keeps the inventory after the run (with KEEP=1 for the
 # containers), to try commands by hand against the same lab: one folder per
 # area, E2E_HOME/AREA
