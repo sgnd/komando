@@ -21,10 +21,12 @@ import (
 //   - store lower than the keychain: an old copy was put back; commands
 //     stop with STORE_OLD_COPY until a person accepts it on purpose.
 // A store with its key in a key file or a passphrase is compared only when
-// the keychain keeps a count for this home (a backup from before `secret
-// keychain`). When the keychain cannot say whether it keeps one (locked,
-// slow, broken), such a store is read but never changed: it may be that
-// backup. Where the keychain answers "no count", or there is none, there
+// the keychain keeps a count for this home. That count is how an old copy
+// made while the key was in a key file shows, when it is put back after
+// `secret keychain` moved the key into the keychain: its readable key_mode
+// says keyfile and its key file opens it. When the keychain cannot say
+// whether it keeps a count (locked, slow, broken), such a store is read but
+// never changed: it may be that copy. Where the keychain answers "no count", or there is none, there
 // is no such protection; doctor says so.
 
 // GenerationKeep reads and writes the number in the keychain.

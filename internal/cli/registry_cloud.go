@@ -65,7 +65,7 @@ func acrResource(host string) string {
 // credentials, a Google registry is used without a login, so public
 // images there stay readable.
 func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host string, rc *registry.Client) error {
-	if c.PasswordRef != "" {
+	if c.PasswordRef != "" || c.AskLogin() {
 		return nil
 	}
 	host = strings.TrimSuffix(host, ":443")
