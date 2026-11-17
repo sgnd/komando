@@ -216,6 +216,11 @@ whole, for the agent: see [Personal data](safety.md#personal-data).
 komando conn edit prod-db --option 'mask_columns=full_name address birth_date'
 ```
 
+An AI agent's query that names such a column (to rename it, compute from
+it or filter on it) stops with `REVEAL_REQUIRED`; `SELECT *` shows it as
+`[hidden: column]`. An agent's `db dump` of a database whose personal data
+is hidden stops with `SENSITIVE_FILE`: a person allows it with `--reveal`.
+
 SQL that starts with a `-- comment` looks like a flag to the command
 line. Put `--` before it, or use `--file -`.
 

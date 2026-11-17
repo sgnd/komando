@@ -196,6 +196,7 @@ var errorCodes = []errorCode{
 	{"RESTORE_UNSUPPORTED", 2, "line … switches to another database: …", "the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn"},
 	{"REVEAL_NEEDS_HUMAN", 6, "--reveal only works for a person at a terminal", "ask a person to run `komando secret show … --reveal` in a terminal; to use the secret in a command, reference it (secret:…) instead"},
 	{"REVEAL_NEEDS_PERSON", 6, "--reveal needs the user's yes", "values stay [hidden] in a dry run; run it without --dry-run to ask the user in a window on their screen"},
+	{"REVEAL_REQUIRED", 6, "the query …, and conn … hides columns from AI agents (mask_columns); komando cannot tell which results come from them", "stop and tell the user what you want to do and why; `komando guide` explains the safety stops"},
 	{"REVISION_NOT_FOUND", 3, "no earlier revision to go back to", "see the revisions with `komando cluster history TARGET TYPE/NAME`"},
 	{"REVOKE_FAILED", 5, "the key could not be removed from a server's authorized_keys", "run it again; to look at the file: `komando fs cat SERVER ~/.ssh/authorized_keys`"},
 	{"ROLLOUT_FAILED", 5, "pods stuck for …", "see why with `komando cluster describe TARGET …`; `komando cluster rollback` goes back"},

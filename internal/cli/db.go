@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -582,7 +583,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 		audit(cl, st, name, nil, "", false, rec)
 		return err
 	}
-	if err := refuseHiddenSQL(f.write, query, f.args); err != nil {
+	if err := cmp.Or(refuseHiddenSQL(f.write, query, f.args), hiddenColumnUse(cl, c, query)); err != nil {
 		return fail(err)
 	}
 	if !f.write && plan.NeedsWrite() {

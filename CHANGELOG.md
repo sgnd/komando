@@ -79,6 +79,21 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- Ways around hiding data from an AI agent are closed. A value that is
+  not text (shown as base64) is now checked for what it holds and reads
+  `[hidden]` when that is a secret or personal data, in `db query`, `cache`
+  and `queue peek`. Stored credentials are hidden whatever their shape
+  (MongoDB's SCRAM verifiers under `credentials`, a list under `apiKeys`).
+  `mask_columns` now also hides MongoDB fields, and an agent's query that
+  names a hidden column (`name AS customer`, `upper(name)`, `WHERE name
+  ...`) stops with the new `REVEAL_REQUIRED` (exit 6); `SELECT *` still shows
+  it as `[hidden: column]`. `cp`, `sync` and `fs replace` hide personal
+  data as `download` and `fs cat` do. For an agent, `db dump` of a
+  database whose personal data is hidden, `storage link`, and a binary
+  object on `storage download --to -` that holds a hidden value stop with
+  `SENSITIVE_FILE` unless a person allows `--reveal`. An agent's `conn
+  edit` that takes a column out of `mask_columns` or turns `mask_personal`
+  off needs a person's yes (`SAFETY_SETTING`).
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files
