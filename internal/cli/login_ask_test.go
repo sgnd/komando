@@ -565,7 +565,7 @@ func TestLoginAskPinAloneNeedsPerson(t *testing.T) {
 	}
 }
 
-// `komando login` is a person's: an AI agent's gets NEEDS_TERMINAL, and
+// `komando login` is a person's: an AI agent's gets NEEDS_PERSON, and
 // one that starts the login's background process itself (whose questions
 // it would answer as if it were the person) gets NEEDS_PERSON before it
 // connects, so it cannot accept a login-ask server's new key.
@@ -574,7 +574,7 @@ func TestLoginAskHolderIsAPersons(t *testing.T) {
 	port, tries, _ := passwordSSHD(t, "pw")
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:"+port, "--login", "ask")
 	setCallerEnv(t, "CLAUDECODE", "1")
-	wantCode(t, "NEEDS_TERMINAL", "login", "web1")
+	wantCode(t, "NEEDS_PERSON", "login", "web1")
 	tcl.stdin = strings.NewReader("TOKEN x\nUNTIL 4070908800\nPASS \nyes\npw\n")
 	t.Cleanup(func() { tcl.stdin = nil })
 	s, err := runCache(t, "login-holder", "web1")

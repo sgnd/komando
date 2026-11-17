@@ -439,12 +439,11 @@ func skipVpns(cl *call, vs []*store.Vpn) {
 	}
 }
 
-// renameNotFound gives a command that works with one type only its own,
-// more specific not-found code.
-func renameNotFound(err error, code string) error {
+// notFoundFor marks the unknown name of a command that works with one kind
+// only (host, conn), so its text names that kind; the code stays.
+func notFoundFor(err error, kind string) error {
 	if e := toErr(err); e.Code == "TARGET_NOT_FOUND" {
-		e.Code = code
-		return e
+		return e.ForKind(kind)
 	}
 	return err
 }
@@ -454,7 +453,7 @@ func renameNotFound(err error, code string) error {
 func resolveTargets(cl *call, st *store.State, expr string) ([]*store.Host, error) {
 	sel, err := resolveSelection(cl, st, expr)
 	if err != nil {
-		return nil, renameNotFound(err, "HOST_NOT_FOUND")
+		return nil, notFoundFor(err, "host")
 	}
 	if len(sel.Hosts) == 0 {
 		return nil, noMatch(expr, "servers", selection{Conns: sel.Conns, Vpns: sel.Vpns})
@@ -548,7 +547,7 @@ func singleHost(cl *call, st *store.State, expr string) (*store.Host, error) {
 func singleConn(cl *call, st *store.State, expr, family string) (*store.Conn, error) {
 	sel, err := resolveSelection(cl, st, expr)
 	if err != nil {
-		return nil, renameNotFound(err, "CONN_NOT_FOUND")
+		return nil, notFoundFor(err, "conn")
 	}
 	var match []*store.Conn
 	var skip []out.Skipped

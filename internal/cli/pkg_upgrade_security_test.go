@@ -14,7 +14,7 @@ func TestPkgUpgradeSecurity(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
 	mustRun(t, "host", "edit", "web1", "--protected")
-	if e := wantCode(t, "PROTECTED_HOST", "pkg", "upgrade", "web1", "--security"); e.Exit != out.ExitPolicy {
+	if e := wantCode(t, "PROTECTED_TARGET", "pkg", "upgrade", "web1", "--security"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)
 	}
 	code, text := runMain(t, "pkg", "upgrade", "web1", "--security", "--dry-run")

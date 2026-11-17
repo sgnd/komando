@@ -97,7 +97,7 @@ func connWord(conns []*store.Conn, names []string) string {
 // says so ("web1 is a server, not a conn"). JSON is unchanged.
 func notFoundSay(cl *call, e *out.Error, cmd *cobra.Command) {
 	switch e.Code {
-	case "HOST_NOT_FOUND", "CONN_NOT_FOUND", "TARGET_NOT_FOUND", "VPN_NOT_FOUND":
+	case "TARGET_NOT_FOUND":
 	default:
 		return
 	}
@@ -121,7 +121,7 @@ func notFoundSay(cl *call, e *out.Error, cmd *cobra.Command) {
 		return
 	}
 	family := topCommand(cmd)
-	one, many, names := wantedNames(st, e.Code, family)
+	one, many, names := wantedNames(st, e.Wanted(), family)
 	if kind, have, ok := st.FindName(name); ok {
 		if msg, hint := otherKindSay(st, cmd, kind, have, one); msg != "" {
 			e.Say(msg, hint)
@@ -129,7 +129,7 @@ func notFoundSay(cl *call, e *out.Error, cmd *cobra.Command) {
 		return // or it is the kind wanted, and the error is about something else
 	}
 	if len(names) == 0 {
-		e.Say(fmt.Sprintf("No %s named %q.", one, name), fmt.Sprintf("You have no %s yet: %s.", one, addHint(cl, family, e.Code)))
+		e.Say(fmt.Sprintf("No %s named %q.", one, name), fmt.Sprintf("You have no %s yet: %s.", one, addHint(cl, family, e.Wanted())))
 		return
 	}
 	msg := fmt.Sprintf("No %s named %q.", one, name)
@@ -145,8 +145,8 @@ func notFoundSay(cl *call, e *out.Error, cmd *cobra.Command) {
 
 // wantedNames is what a not-found command works with, in words, and the
 // names of that kind: a family's conns (db: databases), the kind of a
-// host, conn or vpn command, else what the error code says it looked for.
-func wantedNames(st *store.State, code, family string) (one, many string, names []string) {
+// host, conn or vpn command, else the kind the error says it looked for.
+func wantedNames(st *store.State, wanted, family string) (one, many string, names []string) {
 	hosts := func() {
 		for _, h := range st.SortedHosts() {
 			names = append(names, h.Name)
@@ -169,13 +169,13 @@ func wantedNames(st *store.State, code, family string) (one, many string, names 
 		return w[0], w[1], names
 	}
 	switch {
-	case family == "host" || family != "conn" && family != "vpn" && code == "HOST_NOT_FOUND":
+	case family == "host" || family != "conn" && family != "vpn" && wanted == "host":
 		hosts()
 		return "server", "servers", names
-	case family == "conn" || family != "vpn" && code == "CONN_NOT_FOUND":
+	case family == "conn" || family != "vpn" && wanted == "conn":
 		conns("")
 		return "conn", "conns", names
-	case family == "vpn" || code == "VPN_NOT_FOUND":
+	case family == "vpn" || wanted == "vpn":
 		vpns()
 		return "VPN", "VPNs", names
 	}
@@ -223,23 +223,23 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 
 // addHint says how to add the first of what a command works with. A person
 // at a terminal can type the add command alone, which asks step by step.
-func addHint(cl *call, family, code string) string {
+func addHint(cl *call, family, wanted string) string {
 	if cl.interactive() {
 		cmd := "host add"
 		switch {
 		case familyWord[family] != [2]string{}:
 			cmd = family + " add"
-		case family == "conn" || family != "host" && family != "vpn" && code == "CONN_NOT_FOUND":
+		case family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
 			cmd = "conn add"
-		case family == "vpn" || code == "VPN_NOT_FOUND":
+		case family == "vpn" || wanted == "vpn":
 			cmd = "vpn add"
 		}
 		return "type `komando " + cmd + "`: it asks step by step"
 	}
 	switch {
-	case familyWord[family] != [2]string{} || family == "conn" || family != "host" && family != "vpn" && code == "CONN_NOT_FOUND":
+	case familyWord[family] != [2]string{} || family == "conn" || family != "host" && family != "vpn" && wanted == "conn":
 		return "add one with `komando conn add NAME URL` (`komando conn kinds` lists the kinds)"
-	case family == "vpn" || code == "VPN_NOT_FOUND":
+	case family == "vpn" || wanted == "vpn":
 		return "add one with `komando vpn add NAME KIND` (see `komando vpn add --help`)"
 	}
 	return "add one with `komando host add NAME user@address`, or bring in ~/.ssh/config with `komando import ssh-config`"

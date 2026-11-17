@@ -75,7 +75,7 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 		return err
 	}
 	if strings.HasSuffix(key, "/") {
-		return out.Usage("%q is a folder; add -r to download everything in it", key)
+		return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "add -r to download everything in it: `komando storage download CONN "+key+" -r`", "%q is a folder", key)
 	}
 	if err := storex.CheckKey(key); err != nil {
 		return err

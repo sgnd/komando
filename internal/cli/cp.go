@@ -124,8 +124,7 @@ func colonHint(err error, arg string) error {
 // targetMissing are the codes for a target name komando does not know;
 // a missing file or path is a different mistake and keeps its own hint.
 var targetMissing = map[string]bool{
-	"HOST_NOT_FOUND": true, "CONN_NOT_FOUND": true, "TARGET_NOT_FOUND": true,
-	"GROUP_NOT_FOUND": true, "TARGET_EMPTY": true, "NO_MATCHING_TARGETS": true,
+	"TARGET_NOT_FOUND": true, "GROUP_NOT_FOUND": true, "TARGET_EMPTY": true, "NO_MATCHING_TARGETS": true,
 }
 
 type xferErr struct {

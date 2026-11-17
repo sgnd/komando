@@ -12,7 +12,7 @@ check "registry copy keeps the digest" "$($K registry inspect reg tools/busybox:
 set +e; $K registry rm reg tools/busybox:1.37 >/dev/null; check "registry rm needs --allow-dangerous" 6 $?; set -e
 check "registry rm names the tags it takes" True "$($K registry rm reg tools/busybox:1.37 --allow-dangerous --dry-run | jget '"1.37" in d["data"]["tags"]')"
 q $K registry rm reg tools/busybox:1.37 --allow-dangerous
-check "registry rm removed it" REGISTRY_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
+check "registry rm removed it" IMAGE_TAG_NOT_FOUND "$($K registry inspect reg tools/busybox:1.37 | jget 'd["error"]["code"]' || true)"
 # a person deleting an image: told which tags go, then types the conn's name
 rtty() { ptyrun "$1" env NO_COLOR=1 TERM=dumb "$K" -o text "${@:2}" | tr -d '\r'; }
 # its own repository: clu.sh uses mirror/busybox:stable later

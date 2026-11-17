@@ -20,13 +20,13 @@ check "rename: the project answers before" True "$($K test "$R-target" | jget 'd
 DRY=$($K rename --starts-with "$R-" "$N-" --dry-run)
 check "rename dry run: count" 7 "$(echo "$DRY" | jget 'd["data"]["count"]')"
 check "rename dry run: OLD without - counts" "$N" "$(echo "$DRY" | jget '[p["to"] for p in d["data"]["renamed"]["group"] if p["from"] == "'"$R"'"][0]')"
-check "rename dry run: a protected stop" PROTECTED_HOST "$(echo "$DRY" | jget 'd["meta"]["would_be_blocked"]["code"]')"
+check "rename dry run: a protected stop" PROTECTED_TARGET "$(echo "$DRY" | jget 'd["meta"]["would_be_blocked"]["code"]')"
 check "rename dry run: via follows" "$N-jump" "$(echo "$DRY" | jget '[u["to"] for u in d["data"]["updated"] if u["entry"] == "host '"$N"'-target" and u["field"] == "via"][0]')"
 check "rename dry run: changes nothing" True "$($K host show "$R-target" | jget 'd["data"]["via"] == "'"$R"'-jump"')"
 
 # an agent with no screen to ask on is refused; a person's --yes covers all
-check "rename: agent without a window" PROTECTED_HOST "$(A rename --starts-with "$R-" "$N-" --yes | code)"
-check "rename: without --yes" PROTECTED_HOST "$($K rename --starts-with "$R-" "$N-" | code)"
+check "rename: agent without a window" PROTECTED_TARGET "$(A rename --starts-with "$R-" "$N-" --yes | code)"
+check "rename: without --yes" PROTECTED_TARGET "$($K rename --starts-with "$R-" "$N-" | code)"
 check "rename: one --yes" 7 "$($K rename --starts-with "$R-" "$N-" --yes | jget 'd["data"]["count"]')"
 check "rename: still protected" True "$($K host show "$N-target" | jget 'd["data"]["protected"]')"
 check "rename: refs follow" True "$($K host show "$N-target" | jget 'd["data"]["via"] == "'"$N"'-jump" and d["data"]["password_ref"] == "secret:'"$N"'-pass" and "'"$N"'" in d["data"]["groups"]')"
@@ -47,7 +47,7 @@ q $K host edit "$R-solo" --key "$N-key"
 check "key mv" True "$($K key mv "$N-key" "$N-key2" | jget 'd["data"]["action"] == "renamed"')"
 check "key mv: the server follows" "$N-key2" "$($K host show "$R-solo" | jget 'd["data"]["key"]')"
 check "key mv: the key keeps working" True "$($K key show "$N-key2" | jget 'd["data"]["path"].startswith("sealed:")')"
-check "group mv: protected member" PROTECTED_HOST "$($K group mv "$N" "$N-all" | code)"
+check "group mv: protected member" PROTECTED_TARGET "$($K group mv "$N" "$N-all" | code)"
 check "group mv --yes" True "$($K group mv "$N" "$N-all" --yes | jget 'd["data"]["action"] == "renamed"')"
 check "group mv: members follow" 2 "$($K group list "$N-all" | jget 'len(d["data"]["members"])')"
 

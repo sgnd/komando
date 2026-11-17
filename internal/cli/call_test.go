@@ -111,13 +111,13 @@ func TestCancelledWording(t *testing.T) {
 	invHome(t)
 	c := testCall()
 	c.sess.SaidNo(true)
-	e := &out.Error{Code: "PROTECTED_HOST", Message: "web1 is protected", Exit: out.ExitPolicy}
+	e := &out.Error{Code: "PROTECTED_TARGET", Message: "web1 is protected", Exit: out.ExitPolicy}
 	cancelled(c, e)
 	if e.Message != "cancelled: web1 is protected; nothing was changed" || e.Hint != "run it again to be asked again" {
 		t.Fatalf("before any write: %+v", e)
 	}
 	mustRun(t, "host", "add", "web1", "u@127.0.0.1:1") // a write in the same process
-	e = &out.Error{Code: "PROTECTED_HOST", Message: "web1 is protected", Exit: out.ExitPolicy}
+	e = &out.Error{Code: "PROTECTED_TARGET", Message: "web1 is protected", Exit: out.ExitPolicy}
 	cancelled(c, e)
 	if e.Message != "cancelled: web1 is protected; what this command saved before the question stays" {
 		t.Fatalf("after a write: %+v", e)

@@ -46,12 +46,12 @@ func newestRelease(cl *call, ctx context.Context) (string, error) {
 	hint := "run it again later; the releases are at " + releaseSite + "/releases"
 	loc, err := resp.Location()
 	if err != nil {
-		return "", out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", hint,
+		return "", out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint,
 			"cannot find the newest release (HTTP %d, no redirect)", resp.StatusCode)
 	}
 	tag, _ := url.PathUnescape(path.Base(loc.Path))
 	if !strings.Contains(loc.Path, "/releases/tag/") || !isReleaseTag(tag) {
-		return "", out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", hint,
+		return "", out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint,
 			"cannot find the newest release (it points to %s)", loc.Redacted())
 	}
 	return tag, nil
@@ -120,7 +120,7 @@ func releaseErr(cl *call, err error) error {
 	if asRoot() && cl.getenv("HTTPS_PROXY") == "" && cl.getenv("https_proxy") == "" {
 		hint = "check this computer's internet connection; behind a proxy, keep it for sudo: sudo --preserve-env=HTTPS_PROXY komando update"
 	}
-	return out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", hint, "cannot reach komando's releases: %s", flatText(err.Error()))
+	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint, "cannot reach komando's releases: %s", flatText(err.Error()))
 }
 
 func flatText(s string) string { return strings.Join(strings.Fields(s), " ") }
@@ -210,7 +210,7 @@ func fetch(cl *call, ctx context.Context, tag, name string, max int64, label str
 		return nil, out.Errf(out.ExitNotFound, "VERSION_NOT_FOUND", "pick another version from "+releaseSite+"/releases",
 			"komando %s has no %s", tag, name)
 	case resp.StatusCode != http.StatusOK:
-		return nil, out.Errf(out.ExitConnect, "RELEASES_UNREACHABLE", "GitHub did not answer as it should; run it again in a few minutes",
+		return nil, out.Errf(out.ExitConnect, "CONN_UNREACHABLE", "GitHub did not answer as it should; run it again in a few minutes",
 			"downloading %s failed: HTTP %d", name, resp.StatusCode)
 	case resp.ContentLength > max:
 		return nil, out.Errf(out.ExitError, "BAD_RELEASE", bad, "%s is %d bytes, more than komando accepts; nothing was changed", name, resp.ContentLength)
