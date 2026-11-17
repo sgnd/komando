@@ -64,3 +64,35 @@ func TestPostgresSideEffectFunctions(t *testing.T) {
 		}
 	}
 }
+
+// The wrapped statement also decides how the statement is run: MariaDB
+// commits DDL at once, so SET STATEMENT ... FOR CREATE TABLE cannot run
+// inside the transaction a dry run rolls back, and FOR SELECT has rows.
+func TestSetStatementForRunsAsTheWrappedStatement(t *testing.T) {
+	for _, c := range []struct{ wrapped, plain string }{
+		{"SET STATEMENT a=1 FOR DROP TABLE t", "DROP TABLE t"},
+		{"SET STATEMENT a=1 FOR CREATE TABLE x (a int)", "CREATE TABLE x (a int)"},
+		{"SET STATEMENT a=1 FOR ALTER TABLE x ADD b int", "ALTER TABLE x ADD b int"},
+		{"SET STATEMENT a=1 FOR SELECT 1", "SELECT 1"},
+		{"SET STATEMENT a=1 FOR DELETE FROM t WHERE id=1", "DELETE FROM t WHERE id=1"},
+	} {
+		w, err := ClassifySQL("mysql", c.wrapped)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := ClassifySQL("mysql", c.plain)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, b := w.Statements[0], p.Statements[0]
+		if a.Keyword != b.Keyword || a.Rows != b.Rows || a.NoTx != b.NoTx || a.NoRollback != b.NoRollback || a.Risk != b.Risk || a.Unknown != b.Unknown {
+			t.Errorf("%q: %+v, but %q: %+v", c.wrapped, a, c.plain, b)
+		}
+	}
+	// the functions a read-only transaction does not stop
+	for _, sql := range []string{"SELECT pg_sync_replication_slots()", "SELECT pg_truncate_visibility_map('t')"} {
+		if p, err := ClassifySQL("postgres", sql); err != nil || p.Risk != RiskDestructive {
+			t.Errorf("%q: %v, %v", sql, p.Risk, err)
+		}
+	}
+}

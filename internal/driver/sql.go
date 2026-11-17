@@ -309,6 +309,9 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 		if err != nil {
 			return SQLPlan{}, err
 		}
+		// what runs decides how it is run: the statement inside MariaDB's
+		// SET STATEMENT ... FOR, not the SET around it
+		ts = setStatementInner(ts)
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
 			Rows: rowsFor(kind, kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
@@ -442,7 +445,8 @@ func funcRule(name string) (string, bool) {
 		strings.HasPrefix(name, "PG_LOGICAL_SLOT_GET_"),
 		strings.HasPrefix(name, "PG_COPY_") && strings.HasSuffix(name, "_REPLICATION_SLOT"),
 		name == "PG_LOGICAL_EMIT_MESSAGE", // written to the WAL even when the transaction rolls back
-		strings.HasPrefix(name, "PG_BACKUP_"), name == "PG_START_BACKUP", name == "PG_STOP_BACKUP":
+		strings.HasPrefix(name, "PG_BACKUP_"), name == "PG_START_BACKUP", name == "PG_STOP_BACKUP",
+		name == "PG_SYNC_REPLICATION_SLOTS", name == "PG_TRUNCATE_VISIBILITY_MAP":
 		return "sql-server-config", true
 	case strings.HasPrefix(name, "PG_LS_"): // pg_ls_dir, pg_ls_waldir, pg_ls_tmpdir, ...: list server directories
 		return "sql-server-file", true
@@ -573,6 +577,26 @@ func explainTarget(ts []token) ([]token, bool) {
 	return nil, analyze
 }
 
+// setStatementInner is the statement MariaDB's SET STATEMENT var=value
+// FOR statement runs (wrapped more than once, the innermost), or ts as it
+// is for anything else.
+func setStatementInner(ts []token) []token {
+	for len(ts) > 1 && ts[0].word == "SET" && ts[1].word == "STATEMENT" {
+		at := -1
+		for i := 2; i < len(ts); i++ {
+			if ts[i].word == "FOR" && ts[i].depth == ts[0].depth && i+1 < len(ts) {
+				at = i + 1
+				break
+			}
+		}
+		if at < 0 {
+			break
+		}
+		ts = ts[at:]
+	}
+	return ts
+}
+
 // classifyStatement rates one statement. strict (komando db) refuses
 // transaction control and changes to the settings komando's checks rely
 // on; a restore (not strict) checks those itself and only wants the rules.
@@ -625,10 +649,8 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 		// MariaDB: SET STATEMENT var=value[, ...] FOR statement runs the
 		// statement after FOR, which is what gets rated. Without one it is
 		// no statement komando knows: a write, to be safe.
-		for i := 2; i < len(ts); i++ {
-			if ts[i].word == "FOR" && ts[i].depth == ts[0].depth && i+1 < len(ts) {
-				return classifyStatement(ts[i+1:], strict)
-			}
+		if inner := setStatementInner(ts); len(inner) < len(ts) {
+			return classifyStatement(inner, strict)
 		}
 		return RiskWrite, nil, nil
 	}
