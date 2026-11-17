@@ -133,7 +133,23 @@ func SessionAlive(s *store.VpnSession) bool {
 	if !Alive(s.PID) || !isProgram(s.PID, s.Exe) {
 		return false
 	}
-	return s.ProcStart == "" || ProcessStart(s.PID) == s.ProcStart
+	if !startTimesKnown {
+		return true // pid and program are all this system tells
+	}
+	// a session without a start time (recorded by an older komando, or
+	// put back from an old copy) is not trusted: it is started again
+	return s.ProcStart != "" && ProcessStart(s.PID) == s.ProcStart
+}
+
+// RecordStart is ProcessStart for a process komando just started, as
+// its session records it: an error where this system reads start times
+// but cannot read this one (the process already ended).
+func RecordStart(pid int) (string, error) {
+	start := ProcessStart(pid)
+	if start == "" && startTimesKnown {
+		return "", fmt.Errorf("process %d ended as it started", pid)
+	}
+	return start, nil
 }
 
 // isProgram checks that pid still runs the expected program: after a

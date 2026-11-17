@@ -221,6 +221,7 @@ type Tunnel struct {
 	Kind      string    `json:"kind"`           // local | remote | dynamic
 	Spec      string    `json:"spec"`
 	PID       int       `json:"pid"`
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart)
 	LogFile   string    `json:"log_file"`
 	StartedAt time.Time `json:"started_at"`
 }

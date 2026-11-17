@@ -69,10 +69,11 @@ func TestSessionAliveNeedsTheSameStart(t *testing.T) {
 	if SessionAlive(s) {
 		t.Error("a process that started at another time passes as the session's")
 	}
-	// a session recorded before start times were kept: pid and program only
+	// a session without a start time (an older komando's, or an old copy
+	// of runtime.json put back) is not trusted where start times are read
 	s.ProcStart = ""
-	if !SessionAlive(s) {
-		t.Error("a session without a start time is not alive")
+	if SessionAlive(s) != !startTimesKnown {
+		t.Errorf("a session without a start time: alive = %v", SessionAlive(s))
 	}
 	if got := ProcessStart(1 << 30); got != "" {
 		t.Errorf("ProcessStart of no process = %q", got)
@@ -86,8 +87,32 @@ func TestProcessStartDiffers(t *testing.T) {
 		t.Fatal(err)
 	}
 	child := ProcessStart(c.Process.Pid)
+	recorded, err := RecordStart(c.Process.Pid)
 	_ = c.Wait()
-	if child == "" || child == ProcessStart(os.Getpid()) {
-		t.Errorf("a child's start %q, this process's %q", child, ProcessStart(os.Getpid()))
+	if child == "" || child == ProcessStart(os.Getpid()) || child == ProcessStart(os.Getppid()) {
+		t.Errorf("a child's start %q, this process's %q, its parent's %q", child, ProcessStart(os.Getpid()), ProcessStart(os.Getppid()))
+	}
+	if err != nil || recorded != child {
+		t.Errorf("RecordStart = %q %v, want %q", recorded, err, child)
+	}
+	// once it has ended, there is nothing to record
+	if _, err := RecordStart(c.Process.Pid); err == nil && startTimesKnown {
+		t.Error("RecordStart of an ended process: no error")
+	}
+}
+
+// The start time is field 22 of Linux's /proc/PID/stat, counted after the
+// program's name, which may hold spaces and brackets.
+func TestStatStart(t *testing.T) {
+	tail := " S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 987654 20 21\n"
+	for line, want := range map[string]string{
+		"42 (komando)" + tail:            "987654",
+		"42 (my prog) ) (x)" + tail:      "987654", // brackets and spaces in the name
+		"42 (komando) S 1 2":             "",
+		"no brackets at all 1 2 3 4 5 6": "",
+	} {
+		if got := statStart(line); got != want {
+			t.Errorf("statStart(%q) = %q, want %q", line, got, want)
+		}
 	}
 }

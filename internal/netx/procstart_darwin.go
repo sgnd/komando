@@ -6,6 +6,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// startTimesKnown: this system tells when a process started.
+const startTimesKnown = true
+
 // ProcessStart is when pid started, to the microsecond, as the kernel
 // keeps it; "" when there is no such process.
 func ProcessStart(pid int) string {

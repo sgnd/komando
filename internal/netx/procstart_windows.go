@@ -6,6 +6,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// startTimesKnown: this system tells when a process started.
+const startTimesKnown = true
+
 // ProcessStart is when pid started (its creation time, in 100 ns steps);
 // "" when there is no such process.
 func ProcessStart(pid int) string {

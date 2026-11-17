@@ -26,7 +26,7 @@ func TestVpnUpHidesSocksLogin(t *testing.T) {
 	now := time.Now().UTC()
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "anyconnect", Address: "vpn.example.test", CreatedAt: now, UpdatedAt: now}
-		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), Socks: "127.0.0.1:41234",
+		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), Socks: "127.0.0.1:41234",
 			SocksUser: "k1a2b3c4d5e6", SocksPass: pass, StartedAt: now, LastUsed: now}
 		return nil
 	}); err != nil {
@@ -68,7 +68,7 @@ func TestVpnDryRunKeepsRuntime(t *testing.T) {
 	used := time.Now().UTC().Add(-10 * time.Minute).Truncate(time.Second)
 	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Vpns["office"] = &store.Vpn{Name: "office", Kind: "anyconnect", Address: "vpn.example.test", CreatedAt: used, UpdatedAt: used}
-		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), Socks: "127.0.0.1:41234", StartedAt: used, LastUsed: used}
+		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), Socks: "127.0.0.1:41234", StartedAt: used, LastUsed: used}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
@@ -433,7 +433,7 @@ func TestVpnDownSaysWhatStops(t *testing.T) {
 	defer func() { _ = sleeper.Process.Kill(); _ = sleeper.Wait() }()
 	tcl.flags.dryRun = false // left on by the dry run above
 	if err := store.UpdateRuntime(store.Save(), func(st *store.State) error {
-		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), StartedAt: now, LastUsed: now}
+		st.Sessions["client-x"] = &store.VpnSession{Vpn: "client-x", PID: sleeper.Process.Pid, Exe: sleeperExe(), ProcStart: netx.ProcessStart(sleeper.Process.Pid), StartedAt: now, LastUsed: now}
 		return nil
 	}); err != nil {
 		t.Fatal(err)

@@ -215,13 +215,17 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			lf.Close()
 			pid := p.Process.Pid
+			start, serr := netx.RecordStart(pid)
 			_ = p.Process.Release()
 			_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				if x, ok := s.Tunnels[id]; ok {
-					x.PID = pid
+					x.PID, x.ProcStart = pid, start
 				}
 				return nil
 			})
+			if serr != nil {
+				return serr
+			}
 			info := tunnelInfo{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Target: ts.TargetAddr, PID: pid, Log: logPath}
 			return tunnelWait(cl, cmd.Context(), st, info, ts.BindAddr, sshOpts(cl, st).ConnectTimeout+5*time.Second)
 		}),
