@@ -90,11 +90,14 @@ func (e *Error) WithHint(h string) *Error { e.Hint = h; return e }
 func (e *Error) About(thing string) *Error { e.Thing = thing; return e }
 
 // MarshalJSON writes the error with a hint even when the code that made it
-// gave none: error.hint always says what to try next.
+// gave none: error.hint always says what to try next. The message, hint
+// and suggestion are made safe to show (noteText), as text mode prints
+// them: they carry words from servers and tools, and whoever reads the
+// JSON (an app, an agent's terminal) shows them to a person.
 func (e Error) MarshalJSON() ([]byte, error) {
 	type plain Error
 	p := plain(e)
-	p.Hint = e.hintOrDefault()
+	p.Message, p.Hint, p.Suggestion = noteText(e.Message), noteText(e.hintOrDefault()), noteText(e.Suggestion)
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false) // the outer encoder decides, as for any field
@@ -325,7 +328,7 @@ func (p *Printer) meta() Meta {
 	pinned, warns, cut, ns := slices.Clone(p.pinned), slices.Clone(p.warns), p.cut, slices.Clone(p.notSim)
 	p.mu.Unlock()
 	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
-		HostKeysPinned: pinned, Warnings: warns, Truncated: cut, NotSimulated: ns}
+		HostKeysPinned: pinned, Warnings: safeNotes(warns), Truncated: cut, NotSimulated: safeNotes(ns)}
 }
 
 // NotSimulated records a step a dry run left out because trying it would
@@ -761,4 +764,12 @@ func scalarList(v any) (string, bool) {
 		return "-", true
 	}
 	return strings.Join(parts, ", "), true
+}
+
+// safeNotes is noteText over the notes that go into meta.
+func safeNotes(notes []string) []string {
+	for i, n := range notes {
+		notes[i] = noteText(n)
+	}
+	return notes
 }

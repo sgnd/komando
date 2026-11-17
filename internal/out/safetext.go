@@ -105,3 +105,8 @@ func NoCR(s string) string {
 	}
 	return b.String()
 }
+
+// NoteText makes a line komando writes about something (an error, a hint,
+// a doctor detail) safe to show wherever it is read: SafeText, and no
+// colour sequences or carriage returns either.
+func NoteText(s string) string { return noteText(s) }

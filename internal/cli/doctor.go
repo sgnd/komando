@@ -17,9 +17,10 @@ import (
 )
 
 type doctorCheck struct {
-	Name   string `json:"name"`
-	OK     bool   `json:"ok"`
-	Detail string `json:"detail"`
+	Name   string   `json:"name"`
+	OK     bool     `json:"ok"`
+	Detail string   `json:"detail"`
+	Fix    []string `json:"fix,omitempty"` // see securityCheck.Fix
 }
 
 type doctorReport struct {
@@ -84,8 +85,8 @@ func (r doctorReport) Text() string {
 func inventoryChecks(cl *call, st *store.State) []securityCheck {
 	var cs []securityCheck
 	fail := func(name, detail string) { cs = append(cs, securityCheck{Name: name, Detail: detail}) }
-	warn := func(name, detail string) {
-		cs = append(cs, securityCheck{Name: name, OK: true, Warning: true, Detail: detail})
+	warn := func(name, detail string, fix ...string) {
+		cs = append(cs, securityCheck{Name: name, OK: true, Warning: true, Detail: detail, Fix: fix})
 	}
 	secrets := map[string]bool{}
 	for _, n := range secretNames() {
@@ -97,7 +98,8 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		case !vault.ValidRef(r):
 			fail(name, flag+" holds plain text instead of a reference: store it with `komando secret set NAME` and use secret:NAME")
 		case strings.HasPrefix(r, "secret:") && !secrets[strings.TrimPrefix(r, "secret:")]:
-			warn(name, flag+" "+r+" is not in the vault: `komando secret set "+strings.TrimPrefix(r, "secret:")+"`")
+			fix := komandoFix("secret", "set", strings.TrimPrefix(r, "secret:"))
+			warn(name, flag+" "+r+" is not in the vault: "+fixText(fix), fix...)
 		}
 	}
 	for _, h := range st.SortedHosts() {
@@ -151,7 +153,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		}
 		ref(name, "passphrase_ref", k.PassphraseRef)
 		if b := rsaBits(k.PublicKey); b > 0 && b < minRSABits {
-			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando key gen` (ed25519)", b))
+			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando key gen` (ed25519)", b), komandoFix("key", "gen")...)
 		}
 	}
 	return cs
@@ -164,7 +166,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 //   - two conns of the same kind with the same URL (user included) and
 //     --via: one is enough;
 //   - an unprotected conn with the label host=SERVER of a protected server.
-func connHygiene(st *store.State, warn func(name, detail string)) {
+func connHygiene(st *store.State, warn func(name, detail string, fix ...string)) {
 	prot := map[string][]string{} // secret name → the protected targets using it
 	for _, h := range st.SortedHosts() {
 		for _, r := range []string{h.PasswordRef, h.SudoRef} {
@@ -187,12 +189,14 @@ func connHygiene(st *store.State, warn func(name, detail string)) {
 		}
 		key := c.Kind + "\x00" + c.URL + "\x00" + c.Via
 		if first, ok := same[key]; ok {
-			warn(name, "has the same kind, URL and --via as conn "+first+"; if they are the same thing, keep one: `komando conn rm "+c.Name+"`")
+			fix := komandoFix("conn", "rm", c.Name)
+			warn(name, "has the same kind, URL and --via as conn "+first+"; if they are the same thing, keep one: "+fixText(fix), fix...)
 		} else {
 			same[key] = c.Name
 		}
 		if h := st.Hosts[c.Labels["host"]]; h != nil && h.Protected && !c.Protected {
-			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: `komando conn edit "+c.Name+" --protected`")
+			fix := komandoFix("conn", "edit", c.Name, "--protected")
+			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: "+fixText(fix), fix...)
 		}
 	}
 }
@@ -214,7 +218,9 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			}
 			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}
-			add := func(name string, ok bool, detail string) { r.Checks = append(r.Checks, doctorCheck{name, ok, detail}) }
+			add := func(name string, ok bool, detail string, fix ...string) {
+				r.Checks = append(r.Checks, doctorCheck{name, ok, detail, fix})
+			}
 			st, err := loadState()
 			add("state", err == nil, store.Home())
 			if err != nil {
@@ -246,24 +252,25 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			installed, stale := skillStatus()
 			switch {
 			case len(installed) == 0:
-				add("agent_skill", false, "no AI agent has komando's skill yet: `komando guide install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando")
+				add("agent_skill", false, "no AI agent has komando's skill yet: `komando guide install` teaches Claude Code, Codex, Cursor and Gemini CLI to use komando", komandoFix("guide", "install")...)
 			case len(stale) > 0:
-				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando guide install` again, so your AI agents use this version's commands")
+				add("agent_skill", false, "from another komando version in "+strings.Join(stale, ", ")+": run `komando guide install` again, so your AI agents use this version's commands", komandoFix("guide", "install")...)
 			default:
 				add("agent_skill", true, strings.Join(installed, ", "))
 			}
 			if home, err := os.UserHomeDir(); err == nil && len(installed) > 0 && slices.ContainsFunc(installed, func(p string) bool { return strings.Contains(p, ".claude") }) {
 				switch found, problem := claudeGuard(filepath.Join(home, ".claude", "settings.json")); {
 				case !found:
-					add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it")
+					add("agent_guard", false, "Claude Code runs without komando's guard, which keeps it away from secret files: `komando guide install` adds it", komandoFix("guide", "install")...)
 				case problem != "":
-					add("agent_guard", false, "komando's guard in Claude Code cannot run, so Claude Code goes on without it: "+problem+"; `komando guide install` sets it up again")
+					add("agent_guard", false, "komando's guard in Claude Code cannot run, so Claude Code goes on without it: "+problem+"; `komando guide install` sets it up again", komandoFix("guide", "install")...)
 				default:
 					add("agent_guard", true, "Claude Code asks komando before reading files or running shell commands")
 				}
 			}
 			r.Inventory = inventoryChecks(cl, st)
 			r.Security = securityChecks(cl, st)
+			r.safe()
 			ok := true
 			for _, c := range r.Checks {
 				if !c.OK && !r.optional[c.Name] {
@@ -291,4 +298,19 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 	}
 	c.Flags().BoolVar(&acceptOld, "accept-old-copy", false, "use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only)")
 	return c
+}
+
+// safe makes every name and detail safe to show: they carry names from
+// imported files and words from servers and tools, which could hold
+// terminal escapes or text-direction marks. JSON gets the same text as
+// the terminal. Fix stays as it is: those are the exact words to run.
+func (r *doctorReport) safe() {
+	for i := range r.Checks {
+		r.Checks[i].Name, r.Checks[i].Detail = out.NoteText(r.Checks[i].Name), out.NoteText(r.Checks[i].Detail)
+	}
+	for _, cs := range [][]securityCheck{r.Inventory, r.Security} {
+		for i := range cs {
+			cs[i].Name, cs[i].Detail = out.NoteText(cs[i].Name), out.NoteText(cs[i].Detail)
+		}
+	}
 }
