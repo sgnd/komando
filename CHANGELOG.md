@@ -161,6 +161,63 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- The audit log no longer keeps a password, key or token that a command
+  line carried (`PGPASSWORD=... psql`, `--password=...`): the command
+  of `exec`, `job start` and `cluster exec` is recorded with those
+  values as `[hidden]`, in the sealed log and in the copy sent to a
+  syslog server (`audit_syslog`), which travels in clear text.
+- One approval window no longer answers for what it did not show. An AI
+  agent's `--reveal` (or `--host-key-policy off`) opened its window
+  before the command had read its script, and that yes then covered the
+  script, the matched rules and the protected server, even a script no
+  window can show. A yes now covers the script and the reasons its
+  window showed, and a `--reveal` yes no longer answers a `--yes` or
+  `--allow-dangerous` check (nor the other way round); anything new asks
+  again. A destructive
+  change on a protected server or conn asks once, in a window that names
+  both flags.
+- The approval window for `recipe run` shows the command the recipe
+  fills in, and says when it runs with sudo. An agent could replace a
+  saved recipe and have a person allow it by its trusted name.
+- The approval window of `db query --file`, `fs write --from`,
+  `cluster apply --file` and `queue send --from` shows what the command
+  sends: the SQL whole, or no window, like a script; other content whole
+  when it fits, a named file that is only too long by its size and
+  SHA-256, and anything else (stdin, invisible characters, what looks
+  like a secret) gets no window.
+- `import env` and `import csv --overwrite` also run `secret set`'s
+  check of whom komando trusts on the secrets they store: an OpenVPN
+  profile or a CA certificate an agent replaces this way needs a
+  person's yes.
+- Replacing a protected VPN's key, pre-shared key or profile in the vault
+  (`secret set`, `secret cp --overwrite`, `secret rename --overwrite`)
+  needs a yes (`PROTECTED_TARGET`), like a protected server's password.
+- An AI agent that replaces a secret deciding whom komando trusts needs
+  a person's yes: an OpenVPN VPN's profile (`SECRET_DESTINATION`; the
+  window names the new servers), and the CA certificate a WinRM server
+  or a conn is checked against (`SAFETY_SETTING`), also when the secret
+  did not exist yet. Pointing a WinRM server at another CA certificate
+  with `host edit` asks the same way.
+- An AI agent that moves a jump server (address, port, `--via`, proxy
+  command) is asked about every password other servers and conns send
+  through it, also through a second hop (`SECRET_DESTINATION`). Only the
+  moved server's own secrets were checked.
+- A protected `sftp://` conn protects the SSH server at its address: a
+  host entry or `user@address` for the same server needs a yes too.
+- `pkg upgradable --refresh` and `pkg security --refresh` count as a
+  change (they rewrite the package index as root): a protected server
+  needs a yes, and `--dry-run` no longer refreshes.
+- `db query` and `exec --read-only` rate more statements by what they
+  do: MariaDB's `SET STATEMENT ... FOR <statement>` as the statement
+  after `FOR`; the Postgres functions `pg_replication_slot_advance`,
+  `pg_logical_slot_get_changes`, `pg_copy_*_replication_slot`,
+  `pg_logical_emit_message`, `pg_backup_start`/`stop`,
+  `pg_sync_replication_slots`, `pg_truncate_visibility_map` and
+  `pg_*_reset` as destructive (and a wrapped DDL no longer runs inside
+  the transaction a dry run rolls back); MongoDB `profile` (any level but -1), `validate` with
+  `repair` or `fixMetadata` and `killCursors` as writes, `bulkWrite`
+  that deletes or updates every document like `delete` and `update`
+  do, and `aggregate` with `$out` as replacing a collection.
 - `--read-only` could be talked into a change on a protected server, or
   through a read-only ssh-gate key, with no person's yes: a shortened long
   option (`sed --in`, `sort --o=FILE`, `tar --checkpoint-act=exec=...`),
