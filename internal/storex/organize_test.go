@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"io/fs"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -530,4 +532,54 @@ func TestS3MoveWithKMSEncryption(t *testing.T) {
 			t.Errorf("%s: b.txt is %q", sse, f.objs["site/b.txt"])
 		}
 	}
+}
+
+// mv's own GCS calls (a folder lookup, the rewrite, the copy's checksum)
+// read at most 32 MiB of an answer too.
+func TestGCSMoveCapsItsAnswers(t *testing.T) {
+	withGCSLogin(t)
+	f := &fakeGCS{objs: map[string][]byte{}}
+	huge := `{"name":"x","x":"` + strings.Repeat("a", 40<<20) + `"}`
+	var mode string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		switch {
+		case mode == "lookup" && strings.HasSuffix(r.URL.Path, "/o") && q.Get("maxResults") == "1",
+			mode == "rewrite" && strings.Contains(r.URL.Path, "/rewriteTo/"),
+			mode == "sum" && strings.Contains(q.Get("fields"), "md5Hash"):
+			io.WriteString(w, huge)
+			return
+		}
+		f.ServeHTTP(w, r)
+	}))
+	defer srv.Close()
+	tg, err := driver.Parse("gs://media/site?endpoint=" + srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bk, err := OpenGCS(context.Background(), tg, "", nil, 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := bk.(*gcsBucket)
+	ctx := context.Background()
+	if err := b.Put(ctx, "a.txt", strings.NewReader("abc"), 3, ""); err != nil {
+		t.Fatal(err)
+	}
+	tooLarge := func(what string, err error) {
+		t.Helper()
+		var oe *out.Error
+		if !errors.As(err, &oe) || !strings.Contains(oe.Message, "larger than 32 MiB") {
+			t.Errorf("%s: %v, want the cap named", what, err)
+		}
+	}
+	mode = "lookup"
+	_, _, err = b.Lookup(ctx, "nope")
+	tooLarge("lookup", err)
+	mode = "rewrite"
+	err = b.copyObject(ctx, "a.txt", "b.txt", false)
+	tooLarge("rewrite", err)
+	mode = "sum"
+	_, _, err = b.fingerprint(ctx, "a.txt")
+	tooLarge("checksum", err)
 }
