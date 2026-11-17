@@ -47,6 +47,28 @@ func resolveVia(st *store.State, via string) (*store.Host, *store.Vpn, error) {
 	return h, nil, nil
 }
 
+// viaAskStop stops an AI agent's --via path of more than one step that
+// reaches a login-ask server another way than its own: the person would
+// type its password into a way the agent chose (see login_place.go). A
+// path that is the last server's own stored way goes on.
+func viaAskStop(cl *call, st *store.State, via string) error {
+	steps := viaChain(via)
+	if len(steps) < 2 {
+		return nil
+	}
+	last, ok := st.Hosts[steps[len(steps)-1]]
+	if ok && strings.EqualFold(strings.Join(viaChain(last.Via), ","), strings.Join(steps[:len(steps)-1], ",")) {
+		return nil
+	}
+	var what []string
+	for _, n := range waySteps(st, strings.Join(steps, ","), map[string]bool{}) {
+		if h, ok := st.Hosts[n]; ok && h.AskLogin() {
+			what = append(what, "server "+n+" on the --via path "+strings.Join(steps, ","))
+		}
+	}
+	return loginPlaceStop(cl, what)
+}
+
 // viaTwice refuses a --via path that names a step twice (office,office or
 // a,b,a): a typo, and a VPN named twice was told to "put the VPN first".
 func viaTwice(steps []string) error {

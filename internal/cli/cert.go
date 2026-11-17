@@ -237,6 +237,9 @@ func runCertCheck(cl *call, ctx context.Context, args []string, o certOpts) erro
 		if _, _, err := resolveVia(st, o.via); err != nil {
 			return err
 		}
+		if err := viaAskStop(cl, st, o.via); err != nil {
+			return err
+		}
 	}
 	var hosts []*store.Host
 	var urls []certURL
