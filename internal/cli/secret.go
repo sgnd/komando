@@ -519,8 +519,9 @@ func secretKeychainCmd() *cobra.Command {
 		Short: "Keep the vault key in the OS keychain instead of store.key",
 		Long: `Moves the vault's key out of the store.key file into the operating system's
 keychain, so a copy of ` + "~/.komando" + ` (a backup, a synced folder) no longer opens
-the vault or its secrets. Nothing is re-encrypted: it is the same key, kept elsewhere.
---off moves it back into store.key, which needs --yes.
+the vault or its secrets. The vault gets a new key as it moves, so a copy of store.key
+made before opens nothing either, and the vault keeps every secret.
+--off moves the key back into store.key, which needs --yes.
 
 Only a person at a terminal moves the key in: the keychain may ask them to
 unlock it, and an AI agent or a script cannot answer that.`,

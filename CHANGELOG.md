@@ -62,6 +62,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- `komando secret keychain` now gives the vault a new key as it moves the key into the keychain. Before, it moved the same key, so a copy of `store.key` from before the move (a backup, a synced folder's history) still opened every later copy of the store, secrets added after the move included. A move that stops part way finishes the next time it runs.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files
