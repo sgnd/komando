@@ -126,8 +126,12 @@ func TestLoginAskViaAtRunTime(t *testing.T) {
 	mustRun(t, "host", "add", "evil", "u@203.0.113.66")
 	mustRun(t, "host", "add", "web1", "u@10.0.0.5", "--login", "ask", "--via", "hop")
 	mustRun(t, "host", "add", "plain", "u@10.0.0.6")
+	t.Setenv("K", "x")
+	mustRun(t, "secret", "set", "tskey", "--from-env", "K")
+	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
 	setCallerEnv(t, "CLAUDECODE", "1")
 	for _, args := range [][]string{
+		{"cert", "check", "https://intranet.local", "--via", "ts,web1"},
 		{"cert", "check", "https://intranet.local", "--via", "evil,web1"},
 		{"cert", "check", "https://intranet.local", "--via", "web1,plain"}, // a jump at run time: only its own way
 	} {
