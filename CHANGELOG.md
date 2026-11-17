@@ -439,6 +439,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An AI agent's `storage download` from an FTP or FTPS conn that komando
+  stops before the end (a file too large to read for personal data) now
+  waits for the download to end, so the next command on that connection
+  reads its own reply instead of the download's.
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
