@@ -353,7 +353,7 @@ server it no longer knows).
 | `IMPORT_INCOMPLETE` (exit 1) | most things came in, some were refused (see `skipped`) | fix those entries in the file and import again; what is in already is skipped |
 | `USAGE` (exit 2) | an unknown source, or `komando` or `csv` without a file | the hint lists the sources and an example |
 | `FILE_EXISTS` (exit 8) | `export --to` a file that exists | add `--overwrite`, or pick another file |
-| `PROTECTED_HOST`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
+| `PROTECTED_TARGET`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
 | `SAFETY_SETTING` (exit 6) | the file turns on agent forwarding, old VPN ciphers or PAP, or weakens a VPN it replaces | check the file; at your terminal komando asks, a script adds `--yes` |
 | `STORE_OLD_COPY` (exit 6) | a backup of the folder was put back; the keychain remembers a newer store | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
 | `VAULT_LOCKED` (exit 1) | a copied folder whose vault has a passphrase, without `KOMANDO_VAULT_PASS` | set `KOMANDO_VAULT_PASS`; see [Secrets](secrets.md#troubleshooting) |
