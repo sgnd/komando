@@ -238,7 +238,7 @@ func kubectlConfigOption(args []string) string {
 		if strings.HasPrefix(a, "-s") && !strings.HasPrefix(a, "--") {
 			name = "-s" // -sURL: the server, attached
 		}
-		if a == "--raw" {
+		if name == "--raw" {
 			return "kubectl --raw (prints the credentials in a kubeconfig)"
 		}
 		switch name {

@@ -472,6 +472,11 @@ func readOnlyFill(command string, env []string) (filled, codeRunner string) {
 			return command, w
 		}
 	}
+	for _, k := range slices.Sorted(maps.Keys(kv)) {
+		if strings.ContainsAny(kv[k], "*?[{\\~") {
+			return command, "-e " + k + " has a * ? [ { ~ or backslash: bash would expand the value into words komando cannot see"
+		}
+	}
 	if k := quotedEnv(command, kv); k != "" {
 		return command, "-e " + k + ` in a command with double quotes ("$` + k + `" is one word komando cannot check: leave the quotes off)`
 	}

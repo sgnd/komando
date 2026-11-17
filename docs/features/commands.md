@@ -153,7 +153,8 @@ names as settings or code) by `NAME=`, `export`, `read`, `for` or `-e`.
 Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
 `LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS` are fine. A command that uses an
 `-e` value has no double quotes: in `"$dir"` the value is one word komando
-cannot check. `kubectl config view --raw` is refused too: it prints the
+cannot check. A value with `*`, `?`, `[`, `{`, `~` or a backslash is refused:
+bash would expand it into names komando cannot see. `kubectl config view --raw` is refused too: it prints the
 kubeconfig's credentials. For a server's state, komando's
 own reads need no shell command at all: `komando facts`, `logs`,
 `svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and

@@ -42,7 +42,8 @@ its highlights; the sections below them give the details. Versions follow
   transaction), setting a variable with an upper-case name (`PATH`,
   `PS4`, `TAR_OPTIONS` ...; `LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS`
   still pass) by `NAME=`, `export`, `read`, `for` or `-e`, an `-e` value
-  in a command with double quotes, `kubectl config view --raw`, a long
+  in a command with double quotes or with `*`, `?`, `[`, `{`, `~` or a
+  backslash in it, `kubectl config view --raw`, a long
   option not written in full or not on komando's
   list, a subcommand it does not know, unquoted `{a,b}`, and
   `${x@P}`-style expansions. For a server's state use `komando facts`,
