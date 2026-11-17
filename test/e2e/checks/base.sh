@@ -3,6 +3,10 @@
 # shell, secret managers (OpenBao, AWS Secrets Manager), fs, sudo, cp, jobs,
 # keys, tunnels and modules. Moved here from run.sh; runs first in the core area.
 check "host list count" 3 "$($K host list | jget 'd["data"]["count"]')"
+# every --via bastion connection starts with a login there: sshd's default
+# MaxStartups (10:30:100) drops new logins once ten are half-open, which a
+# loaded CI runner reaches (C88, 2026-11-17)
+check "the bastion takes many logins at once" "maxstartups 200:30:400" "$(DC exec -T bastion /usr/sbin/sshd -T 2>/dev/null | grep -i '^maxstartups ' || true)"
 check "secret never printed" False "$($K secret get agent-pass | jget '"value" in d["data"]')"
 check "reveal needs a person" REVEAL_NEEDS_TERMINAL "$($K secret get agent-pass --reveal </dev/null | jget 'd["error"]["code"]' || true)"
 check "secret in use cannot be removed" SECRET_IN_USE "$($K secret rm agent-pass | jget 'd["error"]["code"]' || true)"
