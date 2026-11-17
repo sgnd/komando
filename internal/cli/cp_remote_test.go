@@ -385,3 +385,55 @@ func TestRemoteCopyPersonalFromTheSource(t *testing.T) {
 		t.Errorf("copied: %v", two.objs)
 	}
 }
+
+// fixedReader hands out its bytes n at a time, so a test controls where
+// a window ends.
+type fixedReader struct {
+	b []byte
+	n int
+}
+
+func (f *fixedReader) Read(p []byte) (int, error) {
+	if len(f.b) == 0 {
+		return 0, io.EOF
+	}
+	k := copy(p[:min(len(p), f.n)], f.b)
+	f.b = f.b[k:]
+	return k, nil
+}
+
+// A vault value longer than the 4 KiB overlap, more than 4 KiB of it
+// before a 64 KiB window edge, is still found: the vault scan keeps as
+// much as its longest value.
+func TestRemoteCopyFindsALongVaultValueAcrossWindows(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	long := strings.Repeat("plain words ", 450) // 5400 bytes no shape rule matches
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true,
+		Secrets: func() map[string]string { return map[string]string{"cert": long} }}
+	body := strings.Repeat(".", scanStep-5<<10) + long + strings.Repeat(".", 10<<10)
+	r := agentScan(tcl, &fixedReader{b: []byte(body), n: scanStep}, "bk:a.txt")
+	_, err := io.Copy(io.Discard, r)
+	if e := toErr(err); e == nil || e.Code != "SENSITIVE_FILE" {
+		t.Fatalf("a 5400-byte vault value across a window edge: %v", err)
+	}
+}
+
+// With --continue the bytes that are added are scanned as they are read,
+// not only in the first pass: a source that changed between the two reads
+// cannot bring a hidden value in (scannedEnd).
+func TestRemoteCopyContinueScansWhatItAdds(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true,
+		Secrets: func() map[string]string { return map[string]string{"db": "vault-value-77"} }}
+	src := &memEnd{name: "bk:a.txt", b: []byte("clean start, then vault-value-77")}
+	r, err := scannedEnd{resumeEnd: src, cl: tcl}.openAt(context.Background(), 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if _, err := io.Copy(io.Discard, r); toErr(err) == nil || toErr(err).Code != "SENSITIVE_FILE" {
+		t.Fatalf("the added part holds a vault value: %v", err)
+	}
+}
