@@ -33,9 +33,12 @@ its highlights; the sections below them give the details. Versions follow
   program), `less`, `patch --dry-run`, `lz4`, `ldd`, `nm`, `chrt`,
   `taskset`, `nohup`, `busybox`, `sudo -i`/`-s`/`-E`, `set -x` and any
   `set` but `-e`, `-u` and `-o pipefail`, `let`, `unset`, `declare`,
-  `shopt`, `kubectl --kubeconfig`/`--server`/`--token`/`--as`, setting
-  `PATH`, `IFS`, `PS4`, `KUBECONFIG` and their like (by `NAME=`, `read`,
-  `for` or `-e`), a long option not written in full or not on komando's
+  `shopt`, `kubectl --kubeconfig`/`--server`/`--token`/`--as`, `psql`
+  and `mysql` (use `komando db query`, which runs in a read-only
+  transaction), setting a variable with an upper-case name (`PATH`,
+  `PS4`, `TAR_OPTIONS` ...; `LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS`
+  still pass) by `NAME=`, `export`, `read`, `for` or `-e`, an `-e` value
+  inside double quotes, a long option not written in full or not on komando's
   list, a subcommand it does not know, unquoted `{a,b}`, and
   `${x@P}`-style expansions. For a server's state use `komando facts`,
   `logs`, `svc status` or `fs read`. See
@@ -143,8 +146,12 @@ its highlights; the sections below them give the details. Versions follow
   did not follow (`timeout 1d rm`, `coproc`), subcommands it did not list
   as writes (`systemctl soft-reboot`, `ip netns exec`, `npm explore`,
   `sysctl name=value`), read tools with a writing option (`rg --pre`,
-  `file -C`), and `\gexec` or `\set` in SQL fed to `psql`. `--read-only`
-  now runs only what komando knows only reads (see Changed).
+  `file -C`), `\gexec`, `\set` or a backquote in SQL fed to `psql`, an
+  `-e` value inside double quotes (`find /tmp "$x"` with `x=-delete`),
+  variables programs read as code (`read PS4`, `PATH=...`,
+  `TAR_OPTIONS=...`), `git` in a repository whose config runs a program,
+  and `kubectl --kubeconfig FILE`. `--read-only` now runs only what
+  komando knows only reads (see Changed).
 - An ssh-gate key could run the shell-completion helper with
   `-o -- __complete`, which the gate recorded as an empty command. The
   gate now finds the helper the way komando does and refuses it.

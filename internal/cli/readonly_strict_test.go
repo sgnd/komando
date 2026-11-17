@@ -145,35 +145,16 @@ func TestReadOnlyWrappers(t *testing.T) {
 		`busybox mytool`,
 	)
 	allowedReadOnly(t, `timeout 10 cat f`, `timeout 1.5m cat f`, `timeout 1d cat f`, `timeout -s KILL 5 df -h`,
-		`sudo -n cat /etc/shadow`, `sudo -u postgres psql -c 'select 1'`, `nice -n 5 du -sh /var`, `time ls`)
+		`sudo -n cat /etc/shadow`, `sudo -u postgres cat /var/lib/pg/x`, `nice -n 5 du -sh /var`, `time ls`)
 }
 
 // cli-guard 15: SQL fed to psql from a file. \gexec and \set with :var
-// run SQL the check never sees, so only the describe commands pass.
+// run SQL the check never sees, and nothing holds psql to a read-only
+// transaction, so psql and mysql do not pass --read-only at all (db query
+// does that job).
 func TestReadOnlyPsqlInput(t *testing.T) {
-	for _, in := range []string{
-		"SELECT 'DROP TABLE accounts'\n\\gexec\n",
-		"SELECT 'DROP TABLE accounts' \\gexec",
-		"\\set q '1; DELETE FROM accounts'\nSELECT :q;\n",
-		"SELECT :q;\n",
-		"SELECT :'q';\n",
-		"\\lo_unlink 123\n",
-		"select 1 \\gset\n",
-		"\\if true\n\\endif\n",
-		"\\unknown\n",
-	} {
-		if sqlInputWrite("psql app", []byte(in)) == "" {
-			t.Errorf("psql input %q passed --read-only", in)
-		}
-	}
-	for _, in := range []string{
-		"select 1;\n", "\\dt\nselect now()::text;\n", "\\d+ accounts\n", "\\l\n", "\\x\nselect '12:30'::time;\n",
-	} {
-		if w := sqlInputWrite("psql app", []byte(in)); w != "" {
-			t.Errorf("psql input %q refused (%s)", in, w)
-		}
-	}
-	refusedReadOnly(t, `psql -c '\gexec'`, `psql -c "select 1 \gset"`, `psql --comm='drop table x'`, `psql -c '\lo_unlink 1'`)
+	refusedReadOnly(t, `psql app`, `psql -d app -X`, `psql -c '\gexec'`, `psql -c "select 1 \gset"`,
+		`psql --comm='drop table x'`, `psql -c '\lo_unlink 1'`, `mysql app`)
 }
 
 // cli-guard 16: a command with subcommands passes only for a form komando
@@ -302,7 +283,7 @@ func TestReadOnlyClientConfigRefused(t *testing.T) {
 // sudo -E would hand root the caller's environment.
 func TestReadOnlySudoKeepsNoEnvironment(t *testing.T) {
 	refusedReadOnly(t, `sudo -E cat /etc/shadow`, `sudo --preserve-env cat f`, `sudo --preserve-env=PATH cat f`, `sudo -nE cat f`)
-	allowedReadOnly(t, `sudo -n cat /etc/shadow`, `sudo -u postgres -H psql -c 'select 1'`)
+	allowedReadOnly(t, `sudo -n cat /etc/shadow`, `sudo -u postgres -H cat f`)
 }
 
 // Review round 3 (2026-11-17).
@@ -311,10 +292,10 @@ func TestReadOnlySudoKeepsNoEnvironment(t *testing.T) {
 // the shell will ("$X" with X=-delete is find's -delete).
 func TestReadOnlyEnvInDoubleQuotes(t *testing.T) {
 	for _, c := range []struct{ cmd, env string }{
-		{`find /tmp "$X"`, `X=-delete`},
-		{`sort "$X" a`, `X=-o/tmp/x`},
-		{`find /tmp "${X}"`, `X=-delete`},
-		{`echo "a $X b"`, `X=x`},
+		{`find /tmp "$x"`, `x=-delete`},
+		{`sort "$x" a`, `x=-o/tmp/x`},
+		{`find /tmp "${x}"`, `x=-delete`},
+		{`echo "a $x b"`, `x=x`},
 	} {
 		if !readOnlyMutates(c.cmd, []string{c.env}) {
 			t.Errorf("%q with -e %s passed", c.cmd, c.env)
@@ -323,8 +304,8 @@ func TestReadOnlyEnvInDoubleQuotes(t *testing.T) {
 	if readOnlyMutates(`du -sh $dir`, []string{`dir=/var/log`}) {
 		t.Error("du -sh $dir with -e dir=/var/log refused")
 	}
-	if readOnlyMutates(`echo '$X'`, []string{`X=-delete`}) {
-		t.Error(`echo '$X' refused: the single quotes keep it literal`)
+	if readOnlyMutates(`echo '$x'`, []string{`x=-delete`}) {
+		t.Error(`echo '$x' refused: the single quotes keep it literal`)
 	}
 }
 

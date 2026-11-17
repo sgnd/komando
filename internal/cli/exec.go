@@ -234,7 +234,7 @@ func execReadOnly(cl *call, target, command string, stdin []byte, o execOpts, re
 	}
 	// bash -s alone runs its input, so the input is checked as its script;
 	// any other command is checked itself, and its input is data (a CSV
-	// for wc, SQL for psql)
+	// for wc)
 	checked := command
 	if o.stdinFile != "" && stdinShell(command) {
 		checked = string(stdin)
@@ -243,10 +243,6 @@ func execReadOnly(cl *call, target, command string, stdin []byte, o execOpts, re
 		}
 	} else if err := checkReadOnlyEnv(cl, command, o.env); err != nil {
 		return true, err
-	} else if w := sqlInputWrite(command, stdin); w != "" {
-		if err := readOnlyStop(cl, w); err != nil {
-			return true, err
-		}
 	}
 	// komando knows the command only reads: no change, so no --yes
 	return false, nil

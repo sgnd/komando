@@ -126,7 +126,7 @@ instead. What passes:
   `for` loop or after `sh -c`.
 - Tools whose options decide, with the options komando knows read: `find`
   without `-delete`/`-exec`, `sed -n`, `sort`, `awk` that only prints,
-  `journalctl`, `dmesg`, `ss`, `tar -t`, `psql -c 'select ...'`, `openssl x509`. A long option is written in full
+  `journalctl`, `dmesg`, `ss`, `tar -t`, `openssl x509`. A long option is written in full
   (`--quiet`, not `--qui`): a tool reads a shortened name as any option
   that starts with it, `sed --in` as `--in-place`.
 - Commands with subcommands, in the forms that read: `systemctl status`,
@@ -146,9 +146,13 @@ config can run a program on `git status` or `git diff`), an option or
 subcommand it has not heard of, `kubectl --kubeconfig` and other client
 settings, `sudo -E`, unquoted braces (`{a,b}`), `${x@P}` and other
 expansions bash evaluates, `let`, `printf -v`, `test -v`, `set -x`,
-setting a variable a program or bash reads as code or as where programs
-are (`PATH`, `IFS`, `PS4`, `KUBECONFIG` ...: by `NAME=`, `read`, `for` or
-`-e`), and SQL fed to `psql` that uses `\gexec`, `\set` or a `:variable`. For a server's state, komando's
+`psql` and `mysql` (nothing holds them to a read-only transaction; use
+`komando db query`, which is), and setting a variable with an upper-case
+name (`PATH`, `PS4`, `TAR_OPTIONS`, `KUBECONFIG` ...: programs read such
+names as settings or code) by `NAME=`, `export`, `read`, `for` or `-e`.
+Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
+`LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS` are fine. An `-e` value goes in
+unquoted: in `"$dir"` it is one word komando cannot check, so it is refused. For a server's state, komando's
 own reads need no shell command at all: `komando facts`, `logs`,
 `svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and
 `cluster exec` check their `--read-only` the same way.
@@ -164,8 +168,7 @@ interpreter (`sh`, `bash -eu`). Script arguments (`--arg`, or words after
 script. An argument the check cannot see (`find /data $X`) is refused for
 commands whose arguments decide what they do (`find`, `sed`, `sort`,
 `kubectl` ...); `-e` values are filled in first. Other input (a CSV for
-`wc`, SQL for `psql`) is data and is not read as commands, except that
-`psql` and `mysql` input may not use `\!`, `\o`, `system` or `tee`.
+`wc`) is data and is not read as commands.
 
 komando blocks destructive commands (`rm -rf /`, `mkfs`, `reboot`,
 `DROP DATABASE`, ...) everywhere unless a person allows them. See [Safety](safety.md).

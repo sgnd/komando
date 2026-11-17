@@ -4,11 +4,9 @@ import (
 	"maps"
 	"os"
 	"path"
-	"regexp"
 	"slices"
 	"strings"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/policy"
 	"github.com/sgnd/komando/internal/sshx"
@@ -50,7 +48,6 @@ var argChecks = map[string]func(cmd string, args []string, input bool) string{
 	"lzma": compressWrite, "unlzma": compressWrite, "pigz": compressWrite,
 	"zcat": catOnly, "bzcat": catOnly, "xzcat": catOnly, "zstdcat": catOnly, "lzcat": catOnly,
 	"unzip": unzipWrite, "crontab": crontabWrite, "journalctl": noWrite, "set": setWrite,
-	"psql": psqlWrite, "mysql": mysqlWrite, "mariadb": mysqlWrite,
 	"sort": sortWrite, "uniq": uniqWrite, "openssl": opensslWrite, "date": dateWrite,
 	"hostname": hostnameWrite, "dmesg": dmesgWrite,
 	"redis-cli": redisCliWrite, "valkey-cli": redisCliWrite, "keydb-cli": redisCliWrite,
@@ -91,31 +88,32 @@ var interpreters = map[string]bool{"perl": true, "ruby": true, "node": true, "no
 // versionV: -v only prints the version (python -v is verbose, and runs).
 var versionV = map[string]bool{"node": true, "nodejs": true, "php": true, "perl": true, "bun": true}
 
-// envRunsCode are environment variables a program reads as code to run, a
-// library to load or settings that change what it runs (PS4 with bash -x,
-// BASH_ENV, LD_PRELOAD, a pager or editor).
-var envRunsCode = map[string]bool{"BASH_ENV": true, "ENV": true, "PS0": true, "PS1": true, "PS2": true, "PS3": true,
-	"PS4": true, "PROMPT_COMMAND": true, "SHELLOPTS": true, "BASHOPTS": true, "PAGER": true, "EDITOR": true,
-	"VISUAL": true, "GIT_SSH": true, "GIT_SSH_COMMAND": true, "GIT_EXTERNAL_DIFF": true, "GIT_PAGER": true,
-	"GIT_EDITOR": true, "GIT_ASKPASS": true, "GIT_EXEC_PATH": true, "GIT_PROXY_COMMAND": true, "SSH_ASKPASS": true,
-	"SUDO_ASKPASS": true, "SUDO_EDITOR": true, "LESSOPEN": true, "LESSCLOSE": true, "MANPAGER": true,
-	"SYSTEMD_PAGER": true, "SYSTEMD_EDITOR": true, "KUBE_EDITOR": true, "PERL5OPT": true, "PERL5LIB": true,
-	"PERLLIB": true, "PYTHONSTARTUP": true, "PYTHONPATH": true, "PYTHONHOME": true, "NODE_OPTIONS": true,
-	"RUBYOPT": true, "RUBYLIB": true, "PSQLRC": true, "PSQL_PAGER": true,
-	// where programs and files are found, or how words split
-	"PATH": true, "IFS": true, "CDPATH": true, "HOME": true, "GLOBIGNORE": true, "SHELL": true,
-	"KUBECONFIG": true, "DOCKER_CONFIG": true, "DOCKER_HOST": true, "HISTFILE": true}
+// Under --read-only a variable may be set (NAME=VALUE, export, read, for
+// or -e) only when no program reads it as settings, code or where things
+// are. Programs read upper-case names (PATH, PS4, TAR_OPTIONS,
+// JAVA_TOOL_OPTIONS, KUBECONFIG ...), and there are too many to list, so
+// a name must have a lower-case letter, unless it only sets a language,
+// a time zone or how output looks (safeEnv). A few lower-case names are
+// read too: the proxy settings, and zsh's path, fpath and their like.
+var (
+	safeEnv  = set(`LANG LANGUAGE TZ TERM COLUMNS LINES NO_COLOR`)
+	readEnvs = set(`path fpath cdpath manpath module_path mailpath fignore prompt histchars watch psvar`)
+)
 
-// envWrite: setting this variable (NAME=VALUE) can run code.
+// envWrite: setting this variable (NAME=VALUE) is not known to change
+// nothing.
 func envWrite(assign string) string {
 	name, _, _ := strings.Cut(assign, "=")
-	for _, p := range []string{"LD_", "BASH_FUNC_", "GIT_CONFIG", "DYLD_"} {
-		if strings.HasPrefix(name, p) {
-			return "setting " + name + " can run commands"
-		}
-	}
-	if envRunsCode[name] || !validShellName(name) || name == "" {
-		return "setting " + name + " can run commands"
+	switch {
+	case name == "" || !validShellName(name):
+		return "setting " + name + " (not a plain name)"
+	case safeEnv[name] || strings.HasPrefix(name, "LC_"):
+		return ""
+	case readEnvs[name] || strings.HasSuffix(name, "_proxy") || strings.HasSuffix(name, "_functions") ||
+		strings.HasPrefix(name, "BASH_FUNC_"):
+		return "setting " + name + " (a program or the shell reads it)"
+	case strings.ToUpper(name) == name:
+		return "setting " + name + " (programs read upper-case names as settings or code: use a name with a lower-case letter, like dir)"
 	}
 	return ""
 }
@@ -386,188 +384,6 @@ func shellWrite(cmd string, args []string, depth int) string {
 	return readOnlyCheck(policy.FillParams(script, params), depth+1)
 }
 
-// mysqlMeta are mysql client commands that run a shell or read and write
-// local files: the server's read-only settings do not cover them.
-var mysqlMeta = regexp.MustCompile(`(?im)\\[!.TPe]|(^|;)\s*(system|tee|pager|source|edit)\b`)
-
-// psql's backslash commands run a shell (\!), read and write files (\o,
-// \i, \copy, \lo_export), set variables (\set) and run query results as
-// SQL (\gexec), and new ones keep coming. Only the ones that describe or
-// list (\d and its family, \l, \z, \sf, \sv), \conninfo, \x, \timing,
-// \echo and \q pass; psqlBackslash finds every other use of a backslash.
-var (
-	psqlBackslash = regexp.MustCompile(`\\(.?[A-Za-z_]*)`)
-	psqlReadMeta  = regexp.MustCompile(`^(d[A-Za-z]*|l|z|sf|sv|conninfo|x|timing|echo|q)$`)
-	// psqlVar is :name, :'name' or :"name", which psql replaces with a
-	// variable's text before the server sees the SQL (not ::cast, not 12:30)
-	psqlVar = regexp.MustCompile(`(^|[^:A-Za-z0-9_])[:]['"]?[A-Za-z_]`)
-)
-
-// psqlMetaWrite returns the backslash command in text that is not one of
-// the read ones, or "".
-func psqlMetaWrite(text string) string {
-	for _, m := range psqlBackslash.FindAllStringSubmatch(text, -1) {
-		if !psqlReadMeta.MatchString(m[1]) {
-			return m[0]
-		}
-	}
-	return ""
-}
-
-// psqlWrite: psql -c is SQL, which must only read (sqlWrite), and a \! or
-// \o in it runs a shell or writes a file here; a file (-f) or commands from
-// a pipe are not seen at all.
-func psqlWrite(cmd string, args []string, input bool) string {
-	inline := false
-	for k := 0; k < len(args); k++ {
-		a := args[k]
-		val := ""
-		switch {
-		case a == "-c" || a == "--command":
-			inline = true
-			if k+1 < len(args) {
-				val = args[k+1]
-				k++
-			}
-		case strings.HasPrefix(a, "--command="):
-			inline = true
-			val = strings.TrimPrefix(a, "--command=")
-		case a == "--file" || strings.HasPrefix(a, "--file=") || a == "--output" || strings.HasPrefix(a, "--output=") ||
-			a == "--log-file" || strings.HasPrefix(a, "--log-file="):
-			return cmd + " " + a
-		case strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") && len(a) > 1:
-			for j := 1; j < len(a); j++ {
-				switch l := a[j]; {
-				case l == 'c':
-					inline = true
-					if j+1 < len(a) {
-						val = a[j+1:]
-					} else if k+1 < len(args) {
-						val = args[k+1]
-						k++
-					}
-					j = len(a)
-				case l == 'f' || l == 'o' || l == 'L':
-					return cmd + " -" + string(l)
-				case strings.IndexByte("dhpUvPFRT", l) >= 0:
-					if j+1 == len(a) {
-						k++
-					}
-					j = len(a)
-				}
-			}
-		}
-		if m := psqlMetaWrite(val); m != "" {
-			return cmd + " " + m + ` (only the \d describe commands, \l, \x and \timing are known to read)`
-		}
-		if w := sqlWrite(val, false); w != "" {
-			return cmd + " -c " + w
-		}
-	}
-	if !inline && input {
-		return cmd + " reading commands from a pipe or a file"
-	}
-	return ""
-}
-
-// mysqlWrite is psqlWrite for mysql -e (system, \!, tee, pager).
-func mysqlWrite(cmd string, args []string, input bool) string {
-	inline := false
-	for k := 0; k < len(args); k++ {
-		a := args[k]
-		val := ""
-		opt, _, _ := strings.Cut(a, "=")
-		switch {
-		case a == "-e" || a == "--execute":
-			inline = true
-			if k+1 < len(args) {
-				val = args[k+1]
-				k++
-			}
-		case strings.HasPrefix(a, "--execute="):
-			inline = true
-			val = strings.TrimPrefix(a, "--execute=")
-		case opt == "--tee" || opt == "--pager" || opt == "--init-command" || opt == "--init-command-add" || opt == "--plugin-dir" ||
-			opt == "--load-data-local-dir" || opt == "--local-infile" || opt == "--default-auth" || opt == "--defaults-file" || opt == "--defaults-extra-file":
-			return cmd + " " + opt
-		case strings.HasPrefix(a, "-e"):
-			inline = true
-			val = a[2:]
-		case strings.HasPrefix(a, "-") && !strings.HasPrefix(a, "--") && len(a) == 2 && strings.IndexByte("hPuDS", a[1]) >= 0:
-			k++
-		}
-		if mysqlMeta.MatchString(val) {
-			return cmd + " running a shell or writing files (system, tee, pager ...)"
-		}
-		if w := sqlWrite(val, true); w != "" {
-			return cmd + " -e " + w
-		}
-	}
-	if !inline && input {
-		return cmd + " reading commands from a pipe or a file"
-	}
-	return ""
-}
-
-// sqlWrite returns what in sql may write, or "". psql and mysql are not
-// in a read-only transaction the way `db query` is, so only statements
-// that driver.ClassifySQL rates as reads pass: an unknown statement, a
-// transaction command or SQL it cannot read breaks the promise. psql meta
-// commands (\dt) are left to psqlMetaWrite.
-func sqlWrite(sql string, mysql bool) string {
-	kind := "postgres"
-	if mysql {
-		kind = "mysql"
-	}
-	var lines []string
-	for _, l := range strings.Split(sql, "\n") {
-		if mysql || !strings.HasPrefix(strings.TrimSpace(l), `\`) {
-			lines = append(lines, l)
-		}
-	}
-	if sql = strings.Join(lines, "\n"); strings.TrimSpace(sql) == "" {
-		return ""
-	}
-	plan, err := driver.ClassifySQL(kind, sql)
-	if err != nil {
-		return "SQL komando cannot check (" + strings.SplitN(err.Error(), "\n", 2)[0] + ")"
-	}
-	for _, st := range plan.Statements {
-		if st.Risk != driver.RiskRead || st.Unknown {
-			if len(plan.Reasons) > 0 {
-				return "SQL that " + plan.Reasons[0] + " (" + st.Keyword + ")"
-			}
-			return "SQL that may write (" + st.Keyword + ")"
-		}
-	}
-	return ""
-}
-
-// sqlClients read SQL from their input: with exec --stdin-file, that
-// input is checked for the client commands that run a shell.
-var sqlClient = regexp.MustCompile(`\b(psql|mysql|mariadb)\b`)
-
-func sqlInputWrite(command string, stdin []byte) string {
-	if !sqlClient.MatchString(command) {
-		return ""
-	}
-	psql := strings.Contains(command, "psql")
-	if psql {
-		if m := psqlMetaWrite(string(stdin)); m != "" {
-			return "the input has " + m + ` (only the \d describe commands, \l, \x and \timing are known to read)`
-		}
-		if psqlVar.Match(stdin) {
-			return "the input uses a psql variable (:name), which may hold SQL komando cannot see"
-		}
-	} else if mysqlMeta.Match(stdin) {
-		return `the input runs a shell or writes files (\!, system, tee, source ...)`
-	}
-	if w := sqlWrite(string(stdin), !psql); w != "" {
-		return "the input is " + w
-	}
-	return ""
-}
-
 func isAssign(w string) bool {
 	k, _, ok := strings.Cut(w, "=")
 	return ok && k != "" && validShellName(k)
@@ -656,6 +472,9 @@ func readOnlyFill(command string, env []string) (filled, codeRunner string) {
 			return command, w
 		}
 	}
+	if k := quotedEnv(command, kv); k != "" {
+		return command, "-e " + k + ` inside double quotes ("$` + k + `" is one word komando cannot check: leave the quotes off)`
+	}
 	return os.Expand(command, func(k string) string {
 		v, ok := kv[k]
 		if !ok {
@@ -670,6 +489,32 @@ func readOnlyFill(command string, env []string) (filled, codeRunner string) {
 		}
 		return strings.Join(f, " ")
 	}), ""
+}
+
+// quotedEnv returns the name of a value in kv the command uses inside
+// double quotes, or "".
+func quotedEnv(command string, kv map[string]string) string {
+	single, double := false, false
+	for i := 0; i < len(command); i++ {
+		switch c := command[i]; {
+		case c == '\\' && !single:
+			i++
+		case c == '\'' && !double:
+			single = !single
+		case c == '"' && !single:
+			double = !double
+		case c == '$' && double && i+1 < len(command):
+			name := strings.TrimPrefix(command[i+1:], "{")
+			end := 0
+			for end < len(name) && (name[end] == '_' || name[end] >= 'a' && name[end] <= 'z' || name[end] >= 'A' && name[end] <= 'Z' || end > 0 && name[end] >= '0' && name[end] <= '9') {
+				end++
+			}
+			if _, ok := kv[name[:end]]; ok && end > 0 {
+				return name[:end]
+			}
+		}
+	}
+	return ""
 }
 
 // readOnlyMutates reports whether command, with its -e values filled in,

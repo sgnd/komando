@@ -225,12 +225,7 @@ var readLongs = map[string]map[string]bool{
 		--strip-components --occurrence --files-from --exclude-from --absolute-names --dereference --force-local --version --help`),
 	"gzip": compressLongs, "gunzip": compressLongs, "bzip2": compressLongs, "bunzip2": compressLongs, "xz": compressLongs,
 	"unxz": compressLongs, "zstd": compressLongs, "unzstd": compressLongs, "lzma": compressLongs, "unlzma": compressLongs,
-	"pigz": compressLongs,
-	"psql": set(`--command --dbname --host --port --username --no-password --tuples-only --no-align --csv --quiet --no-psqlrc
-		--expanded --field-separator --record-separator --set --variable --echo-all --echo-errors --echo-queries --html
-		--single-transaction --list --version --help`),
-	"mysql":     mysqlLongs,
-	"mariadb":   mysqlLongs,
+	"pigz":      compressLongs,
 	"redis-cli": redisLongs, "valkey-cli": redisLongs, "keydb-cli": redisLongs,
 	"yq":       set(`--raw-output --yaml-output --null-input --prettyPrint --no-colors --colors --output-format --input-format --indent --unwrapScalar --exit-status --no-doc --version --help`),
 	"xmllint":  set(`--xpath --format --noout --html --recover --nonet --noblanks --nowarning --huge --schema --valid --version`),
@@ -246,9 +241,7 @@ var readLongs = map[string]map[string]bool{
 
 var (
 	compressLongs = set(`--stdout --to-stdout --list --test --decompress --uncompress --keep --verbose --quiet --fast --best --version --help`)
-	mysqlLongs    = set(`--execute --host --port --user --password --database --batch --silent --skip-column-names --column-names --table
-		--vertical --raw --html --xml --protocol --socket --ssl-mode --no-auto-rehash --default-character-set --connect-timeout --version --help`)
-	redisLongs = set(`--no-auth-warning --raw --no-raw --tls --insecure --user --pass --cacert --cacertdir --cert --key --sni --csv --json --resp2 --resp3 --scan --pattern --count --bigkeys --memkeys --hotkeys --cluster --version --help`)
+	redisLongs    = set(`--no-auth-warning --raw --no-raw --tls --insecure --user --pass --cacert --cacertdir --cert --key --sni --csv --json --resp2 --resp3 --scan --pattern --count --bigkeys --memkeys --hotkeys --cluster --version --help`)
 )
 
 // longOptionUnknown returns the first long option of args that is not in
