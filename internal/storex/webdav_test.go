@@ -213,3 +213,110 @@ func TestWebDAVPutFailingPartwayLeavesNothing(t *testing.T) {
 		t.Errorf("left behind: %+v", objs)
 	}
 }
+
+// davServerWith is davServer with a hook that may answer a request itself
+// (return true) before x/net/webdav does.
+func davServerWith(t *testing.T, hook func(h http.Handler, w http.ResponseWriter, r *http.Request) bool) *url.URL {
+	t.Helper()
+	h := &webdav.Handler{Prefix: "/dav", FileSystem: webdav.NewMemFS(), LockSystem: webdav.NewMemLS()}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if u, p, ok := r.BasicAuth(); !ok || u != "alice" || p != "pw" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if !hook(h, w, r) {
+			h.ServeHTTP(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	u, _ := url.Parse(srv.URL)
+	return u
+}
+
+// A MOVE that removes the old file and then fails (as delete-then-move
+// servers may) leaves the upload where it is and says so: the new content
+// is never deleted once the old file is gone.
+func TestWebDAVPutKeepsTheUploadWhenTheOldFileIsGone(t *testing.T) {
+	failMove := false
+	u := davServerWith(t, func(h http.Handler, w http.ResponseWriter, r *http.Request) bool {
+		if r.Method != "MOVE" || !failMove {
+			return false
+		}
+		dst, _ := url.Parse(r.Header.Get("Destination"))
+		del, _ := http.NewRequest(http.MethodDelete, dst.Path, nil)
+		h.ServeHTTP(httptest.NewRecorder(), del)
+		w.WriteHeader(http.StatusInternalServerError)
+		return true
+	})
+	b := openDav(t, u, "pw")
+	ctx := context.Background()
+	if err := b.Put(ctx, "dir/a.txt", strings.NewReader("old"), 3, ""); err != nil {
+		t.Fatal(err)
+	}
+	failMove = true
+	err := b.Put(ctx, "dir/a.txt", strings.NewReader("new"), 3, "")
+	if code(err) != "UPLOAD_NOT_RENAMED" {
+		t.Fatalf("got %v, want UPLOAD_NOT_RENAMED", err)
+	}
+	objs, _, _ := b.List(ctx, "dir/", true, 0)
+	if len(objs) != 1 || !strings.HasPrefix(objs[0].Key, "dir/.komando-upload-") || !strings.Contains(err.Error()+toHint(err), objs[0].Key) {
+		t.Errorf("the upload is not kept and named: %+v, %v", objs, err)
+	}
+}
+
+// A server that refuses MOVE says so in the hint, and keeps nothing.
+func TestWebDAVPutWhenMoveIsRefused(t *testing.T) {
+	u := davServerWith(t, func(_ http.Handler, w http.ResponseWriter, r *http.Request) bool {
+		if r.Method == "MOVE" {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return true
+		}
+		return false
+	})
+	b := openDav(t, u, "pw")
+	err := b.Put(context.Background(), "a.txt", strings.NewReader("x"), 1, "")
+	if err == nil || !strings.Contains(toHint(err), "MOVE") {
+		t.Fatalf("got %v (hint %q), want a hint that names MOVE", err, toHint(err))
+	}
+	if objs, _, _ := b.List(context.Background(), "", true, 0); len(objs) != 0 {
+		t.Errorf("left behind: %+v", objs)
+	}
+}
+
+// A MOVE answered 200 counts as done; each upload has its own temporary
+// name, so two uploads of one file never share one.
+func TestWebDAVPutMove200AndOwnTemporaryName(t *testing.T) {
+	var puts []string
+	u := davServerWith(t, func(h http.Handler, w http.ResponseWriter, r *http.Request) bool {
+		switch r.Method {
+		case http.MethodPut:
+			puts = append(puts, r.URL.Path)
+		case "MOVE":
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, r)
+			if rec.Code == http.StatusCreated || rec.Code == http.StatusNoContent {
+				w.WriteHeader(http.StatusOK)
+				return true
+			}
+		}
+		return false
+	})
+	b := openDav(t, u, "pw")
+	ctx := context.Background()
+	for _, body := range []string{"one", "two"} {
+		if err := b.Put(ctx, "a.txt", strings.NewReader(body), int64(len(body)), ""); err != nil {
+			t.Fatalf("%s: %v", body, err)
+		}
+	}
+	if len(puts) != 2 || puts[0] == puts[1] {
+		t.Errorf("temporary names: %v", puts)
+	}
+}
+
+func toHint(err error) string {
+	var oe *out.Error
+	if errors.As(err, &oe) {
+		return oe.Hint
+	}
+	return ""
+}

@@ -2,7 +2,9 @@ package storex
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -234,7 +236,13 @@ func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64
 	// whole: many servers write a PUT straight into the file, so one cut
 	// off partway would leave part of it, or replace the old file with part
 	// of the new one
-	tmp, err := b.url(path.Join(path.Dir(k), ".komando-upload-"+path.Base(k)), false)
+	// whether a file is there now: a MOVE that fails after removing it
+	// leaves the upload as the only copy
+	_, serr := b.Stat(ctx, k)
+	existed := serr == nil
+	// a name of its own per upload: two uploads of one file never share it
+	tmpKey := path.Join(path.Dir(k), ".komando-upload-"+strings.ToLower(rand.Text()))
+	tmp, err := b.url(tmpKey, false)
 	if err != nil {
 		return err
 	}
@@ -261,12 +269,47 @@ func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64
 	}
 	mv.Header.Set("Destination", u.String())
 	mv.Header.Set("Overwrite", "T")
-	resp, err = do(b.c, "webdav", mv, http.StatusCreated, http.StatusNoContent)
-	if err != nil {
-		b.removeURL(tmp)
-		return err
+	status := 0
+	resp, err = b.c.Do(mv)
+	if err == nil {
+		status = resp.StatusCode
+		switch status {
+		case http.StatusOK, http.StatusCreated, http.StatusNoContent:
+			return resp.Body.Close()
+		}
+		err = webErr("webdav", resp, nil)
+		resp.Body.Close()
+	} else {
+		err = webErr("webdav", nil, err)
 	}
-	return resp.Body.Close()
+	if refusedMove(status) { // the server did nothing
+		b.removeURL(tmp)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR",
+			"the server refuses WebDAV MOVE, which every upload uses: allow it (nginx: `dav_methods PUT DELETE MKCOL COPY MOVE;`), and behind a proxy check that it keeps the scheme and host; then run `komando test TARGET`",
+			"could not move the upload into place: %v; nothing was changed", err)
+	}
+	// a server that replaces by deleting first may have removed the old
+	// file before its MOVE failed: then the upload is the only copy left,
+	// and it stays where it is
+	if _, serr := b.Stat(context.Background(), k); existed && serr != nil && code404(serr) {
+		return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
+			"the new content is on the server as "+tmpKey+": rename it by hand",
+			"could not move the upload into place: %v; the old file was removed", err)
+	}
+	b.removeURL(tmp)
+	return err
+}
+
+// code404: err says the object is not there.
+func code404(err error) bool {
+	var oe *out.Error
+	return errors.As(err, &oe) && oe.Code == "OBJECT_NOT_FOUND"
+}
+
+// refusedMove: the server does not do MOVE here (not allowed, not built in,
+// or a proxy in front that changes the Destination's scheme or host).
+func refusedMove(status int) bool {
+	return status == http.StatusMethodNotAllowed || status == http.StatusNotImplemented || status == http.StatusBadGateway
 }
 
 // removeURL deletes what is at u, on a fresh context: a cancelled upload

@@ -443,7 +443,7 @@ its highlights; the sections below them give the details. Versions follow
   Ctrl-C, or a copy komando refuses) no longer replaces the file there with
   the part that arrived, or leaves a part under a new name: it goes to a
   temporary name and is moved into place (WebDAV MOVE) only when it arrived
-  whole, as on SFTP, FTP and SMB conns.
+  whole, as on SFTP, FTP and SMB conns. The server must allow `MOVE`; a server that refuses it says so in the hint, and one that removes the old file and then fails the move keeps the new content under its temporary name (`UPLOAD_NOT_RENAMED`).
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
