@@ -70,6 +70,9 @@ func gateLocalSrc(c *cobra.Command) string {
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
 	}
+	if args[0] == "-" && c.Name() == "cp" {
+		return "" // cp - DST: the key's own input; to sync, - is a folder here
+	}
 	if _, _, remote := splitArg(callOf(c), args[0]); !remote {
 		return "its SRC " + args[0] + " is on this computer"
 	}
