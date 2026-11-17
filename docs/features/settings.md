@@ -259,8 +259,11 @@ answer within a second):
   aside.
 
 A vault whose key is in `store.key` keeps it there until you move it: run
-`komando secret keychain`. Nothing is re-encrypted, so it works before or
-after your first secret (`--off` moves it back, and komando asks first).
+`komando secret keychain`. It works before or after your first secret: the
+vault gets a new key as it moves, kept only in the keychain, so a copy of
+`store.key` made before (in a backup or a synced folder's history) opens
+nothing, not even the secrets you had then (`--off` moves the key back into
+`store.key`, and komando asks first).
 Only a person at a terminal can run it: an AI agent or a script gets
 `NEEDS_PERSON`, since the keychain may ask to be unlocked. On Linux it
 stops, and asks you to unlock the keychain, while the default collection

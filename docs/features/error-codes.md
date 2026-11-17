@@ -123,6 +123,7 @@ This page is made from the code (`komando schema` lists the same under
 | `KUBECONFIG` | 2 | conn …: … | import it again with `komando import kubeconfig` |
 | `LOGIN_FAILED` | 4 | the login to … ended early (…) | a person reads the whole log in … |
 | `MIXED_OS` | 2 | the target picks Windows servers (…) and other servers (…) | a command is written for one shell: run it twice, once with TARGET,os:windows (PowerShell) and once with TARGET,!os:windows (sh) |
+| `MOVE_FAILED` | 5 | the copy on the server (…) ended badly: …; … was kept | run it again: `komando storage mv CONN … …` |
 | `NAME_TAKEN` | 8 | the rename clashes: …; nothing was renamed | pick other names, or rename or remove what is in the way first |
 | `NEEDS_PERSON` | 6 | setting up the approval code shows its secret, so only a person at a terminal can do it | a person runs `komando config approval-code` in their own terminal |
 | `NEEDS_TERMINAL` | 2 | cluster shell needs a person at a terminal | agents and scripts use `komando cluster exec` |
@@ -176,7 +177,7 @@ This page is made from the code (`komando schema` lists the same under
 | `QUEUE_EXISTS` | 8 | queue … already exists | pick another name, or see it with `komando queue describe CONN …` |
 | `QUEUE_NOT_FOUND` | 3 | no queue named … | list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path |
 | `READ_FAILED` | 5 | cannot read …: … | run it again; the output was cut (raise --max-output?) |
-| `READ_ONLY_VIOLATION` | 6 | --read-only, but the command changes something (…) | it changes something, so it is not --read-only: tell the user what it changes, then run it without --read-only (a protected server also needs --yes) |
+| `READ_ONLY_VIOLATION` | 6 | --read-only, but the command is not known to only read (…) | --read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes) |
 | `REBOOT_FAILED` | 5 | the reboot command failed (exit …): … | read the error output (stderr); without sudo rights a reboot is refused |
 | `REBOOT_TIMEOUT` | 7 | … did not come back within … | check the server's console; komando did not reboot the servers after it |
 | `RECIPE_BUILTIN` | 8 | … is a built-in recipe | pick another name; see `komando recipe list` |
@@ -240,6 +241,7 @@ This page is made from the code (`komando schema` lists the same under
 | `STORAGE_CONNECT` | 4 | komando could not reach the bucket or file server | run `komando test TARGET` to check reachability |
 | `STORAGE_ERROR` | 5 | the file is in use | another program has the file open; close it there and run it again |
 | `STORAGE_TLS` | 4 | the storage server's TLS certificate does not verify: … | if the server uses a self-signed certificate you trust, add ?tls=skip-verify to the conn URL |
+| `STORAGE_UNSUPPORTED` | 2 | … is … storage, which has no file modes | chmod works on SFTP conns; `komando list kind:storage` lists yours |
 | `STORE_BUSY` | 8 | komando's store stayed busy for …, so the server's host key could not be checked: … | another komando process is writing komando's store, or one is stuck (`komando status` lists what runs): wait for it to finish, then run it again |
 | `STORE_CONFLICT` | 8 | nothing was done: … was replaced, given a new key or checked again while this command ran, and this command still held it as it was | run the command again: komando opens the store again from the start; if it keeps happening, run `komando doctor` |
 | `STORE_KEY_CHANGED` | 1 | …: … | run it again: another komando changed the store's key while this one ran |

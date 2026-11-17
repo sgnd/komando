@@ -86,9 +86,8 @@ func scriptReadOnly(cl *call, body, interpreter string, args, env []string) (mut
 	if err := checkReadOnlyEnv(cl, body, env); err != nil {
 		return true, err
 	}
-	// a protected target still needs --yes unless komando knows every
-	// command in the script only reads (allowlist)
-	return readOnlyMutates(body, env), nil
+	// komando knows every command in the script only reads
+	return false, nil
 }
 
 // scriptArgsShown are --arg values as they show in a job's command.

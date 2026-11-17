@@ -215,13 +215,9 @@ point your database app or psql at the local address it prints. With a server, g
 			}
 			lf.Close()
 			pid := p.Process.Pid
-			_ = p.Process.Release()
-			_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
-				if x, ok := s.Tunnels[id]; ok {
-					x.PID = pid
-				}
-				return nil
-			})
+			if err := recordTunnel(cl, id, p.Process); err != nil {
+				return err
+			}
 			info := tunnelInfo{ID: id, Host: hostName, Via: via, Conn: conn, Kind: kind, Spec: spec, Target: ts.TargetAddr, PID: pid, Log: logPath}
 			return tunnelWait(cl, cmd.Context(), st, info, ts.BindAddr, sshOpts(cl, st).ConnectTimeout+5*time.Second)
 		}),
@@ -231,6 +227,22 @@ point your database app or psql at the local address it prints. With a server, g
 	c.Flags().StringVarP(&d, "dynamic", "D", "", "SOCKS5 proxy [bind:]PORT")
 	c.Flags().IntVar(&port, "port", 0, "with a conn: the local port (default: a free one)")
 	return c
+}
+
+// recordTunnel records the process a tunnel runs in, with when it
+// started (so tunnel stop never signals a later process on its pid), and
+// lets it go.
+func recordTunnel(cl *call, id string, p *os.Process) error {
+	pid := p.Pid
+	start, err := netx.RecordStart(pid)
+	_ = p.Release()
+	_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
+		if x, ok := s.Tunnels[id]; ok {
+			x.PID, x.ProcStart = pid, start
+		}
+		return nil
+	})
+	return err
 }
 
 // tunnelWait waits for the READY or ERROR line of the tunnel process that
