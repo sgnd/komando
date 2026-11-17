@@ -179,6 +179,7 @@ picks another database than the URL's.`},
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
 				secretInBody(cl, file, b)
+				noteApprovalBody(cl, scriptLabel("the SQL", file), b)
 				q = string(b)
 			case len(args) == 1:
 				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")
