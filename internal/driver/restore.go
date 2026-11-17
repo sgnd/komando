@@ -140,7 +140,6 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 			} else {
 				stmt.WriteString(text[pos:end])
 			}
-			// delimiterAfter: a MySQL DELIMITER after the statement on its line
 			if err := cmp.Or(chk.statement(stmt.String(), stmtLine), delimiterAfter(kind, text[end:], line, trimmed)); err != nil {
 				return Verdict{}, err
 			}
