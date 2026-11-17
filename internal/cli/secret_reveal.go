@@ -19,7 +19,7 @@ import (
 //   - any other caller (the Komando Mac app, which runs komando without a
 //     terminal) gets it only after the person says yes in komando's own
 //     window, with the approval code when that is on. Where no window can
-//     ask, it stops with REVEAL_NEEDS_HUMAN.
+//     ask, it stops with REVEAL_NEEDS_TERMINAL.
 //
 // Every reveal is in the audit log (how the person allowed it, and the
 // programs that started komando), and so is every refusal, with the name
@@ -61,10 +61,10 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 	return refuse(needsHuman(cmdName, name, true))
 }
 
-// needsHuman is REVEAL_NEEDS_HUMAN for cmdName (secret.show, key.show) and
+// needsHuman is REVEAL_NEEDS_TERMINAL for cmdName (secret.show, key.show) and
 // name: for an AI agent, or where no window could ask (noScreen).
 func needsHuman(cmdName, name string, noScreen bool) *out.Error {
-	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_HUMAN",
+	e := out.Errf(out.ExitPolicy, "REVEAL_NEEDS_TERMINAL",
 		"ask a person to run `komando secret show "+name+" --reveal` in a terminal; to use the secret in a command, reference it (secret:"+name+") instead",
 		"--reveal only works for a person at a terminal")
 	run := "`komando " + strings.ReplaceAll(cmdName, ".", " ") + " " + name + " --reveal`"

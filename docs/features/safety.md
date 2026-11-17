@@ -49,7 +49,7 @@ Who is asked depends on who runs the command:
 - **You, at a terminal:** komando asks you first, and runs the command
   only after your answer.
 - **An AI agent or a script:** komando never asks. The command stops with
-  exit 6 and a code (`PROTECTED_HOST`, `POLICY_BLOCKED` ...), and the hint
+  exit 6 and a code (`PROTECTED_TARGET`, `POLICY_BLOCKED` ...), and the hint
   names the flag the real run needs: `--yes`, or `--allow-dangerous` for a
   step that cannot be undone. The agent or script adds that flag after a
   person agrees.
@@ -99,7 +99,7 @@ More about the questions:
   `confirm: tty` and what you said yes to.
 - Some stops have no flag and are never asked: `HOSTKEY_MISMATCH`,
   `NEEDS_PERSON`, `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`,
-  `STORE_OLD_COPY` and `REVEAL_NEEDS_HUMAN`. Only a person runs those
+  `STORE_OLD_COPY` and `REVEAL_NEEDS_TERMINAL`. Only a person runs those
   commands, in their own terminal.
 
 Every stop a flag lifts has the same hint, naming every flag the real run
@@ -119,7 +119,7 @@ table below only reads, or makes a change you can undo.
 |---|---|---|---|
 | read | looks only | nothing | nothing |
 | change | can be undone, or only komando's own list | nothing | typed in full: runs; filled in: `Run it?` |
-| protected | a change on a protected server, conn or VPN | `--yes` (PROTECTED_HOST, PROTECTED_TARGET) | `NAME (protected): ... Continue? [y/N]` |
+| protected | a change on a protected server, conn or VPN | `--yes` (PROTECTED_TARGET) | `NAME (protected): ... Continue? [y/N]` |
 | dangerous | cannot be undone, or an outage | `--allow-dangerous` (POLICY_BLOCKED) | types the name of what goes, the count, or the target |
 | safety | weakens komando's own checks | `--yes` (SAFETY_SETTING, OPEN_BIND, SECRET_DESTINATION) | `This turns off a komando safety check: ... Continue? [y/N]` |
 | person | only a person at a terminal | no flag: NEEDS_PERSON and friends | the command itself |
@@ -457,7 +457,7 @@ what an agent or a script gets.
 | Error | Exit | What it means | What to do |
 |-------|------|---------------|------------|
 | `POLICY_BLOCKED` | 6 | The command looks destructive. | Check the command. At a terminal komando asks you to type the name of what goes; a script adds `--allow-dangerous` after a person agrees. |
-| `PROTECTED_HOST`, `PROTECTED_TARGET` | 6 | A change to something protected. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). Commands that only look can add `--read-only`. |
+| `PROTECTED_TARGET`, `PROTECTED_TARGET` | 6 | A change to something protected. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). Commands that only look can add `--read-only`. |
 | `SAFETY_SETTING` | 6 | A change that turns a seatbelt off. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). |
 | `SECRET_DESTINATION` | 6 | An agent asked to send a secret somewhere new (see [above](#seatbelts-for-ai-agents)). | Tell the user which secret goes where; once they agree, add `--yes`. |
 | `OPEN_BIND` | 6 | A tunnel would listen on an address other machines can reach. | Keep the default 127.0.0.1, or add `--yes` after a person agrees. |
@@ -465,10 +465,10 @@ what an agent or a script gets.
 | `WRITE_REQUIRES_FLAG` | 6 | The query or command changes data. | Try `--write --dry-run`, then `--write`. |
 | `READ_ONLY_VIOLATION` | 6 | `--read-only` was given, but komando does not know the command only reads: it changes something, or it is a program, option or subcommand komando has not heard of. | Use komando's own read (`facts`, `logs`, `svc status`, `fs read`), or drop `--read-only`; a person may confirm with `--yes`. |
 | `DB_BYTES_LIMIT` | 6 | A BigQuery query would read more bytes than `--max-bytes` allows, so it did not run. | Select fewer columns or filter more; raise `--max-bytes` only if the person agrees to the cost. |
-| `SQL_STRING_RULES` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. | Use a user whose settings keep `dialect = 'clickhouse'`. |
+| `SQL_SAFE_SETTINGS_REQUIRED` | 6 | The ClickHouse user reads queries in another dialect, so komando cannot check them. | Use a user whose settings keep `dialect = 'clickhouse'`. |
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. | Remove that line if the dump is not trusted. |
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. | Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
-| `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. | Ask the person to run the command in their own terminal. |
+| `REVEAL_NEEDS_TERMINAL` | 6 | Only a person can see secret values. | Ask the person to run the command in their own terminal. |
 | `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`, or its query names a column hidden from it (`mask_columns`). | Run it without `--dry-run`: komando asks the person in a window on their screen. |
 | `NEEDS_PERSON` | 6 | Only a person can do this: `secret set` and `secret check` for an agent, `secret keychain`, `secret passphrase`, `doctor --accept-old-copy`, `login aws`, `host ssh-command` for an agent, setting up `config approval-code`, replacing a pinned host key with `host trust --reset`. | Ask them to run it in their own terminal. A `--dry-run` still shows the plan. |
 | `STORE_OLD_COPY` | 6 | An older copy of `store.db` was put back. | No flag clears it. If you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal (see [Settings](settings.md#where-komando-keeps-its-data)). |

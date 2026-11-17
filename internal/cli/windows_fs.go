@@ -298,7 +298,7 @@ func winWrite(ctx context.Context, c *sshx.Client, p string, src io.Reader, o wi
 		return m, e
 	}
 	if code != 0 || m["sha256"] == "" {
-		return m, out.Errf(out.ExitRemote, "WRITE_FAILED", "check that the user may write to the folder and the disk has free space: `komando fs stat TARGET PATH`", "cannot write %s: %s; the file was not changed", p, dash(strings.TrimSpace(stderr)))
+		return m, out.Errf(out.ExitRemote, "REMOTE_WRITE_FAILED", "check that the user may write to the folder and the disk has free space: `komando fs stat SERVER PATH`", "cannot write %s: %s; the file was not changed", p, dash(strings.TrimSpace(stderr)))
 	}
 	return m, nil
 }
