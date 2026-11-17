@@ -81,7 +81,9 @@ func TestPackagesThatNameAHomeUseTheThrowawayOne(t *testing.T) {
 				tests = true
 				uses = uses || callsUse(t, f)
 			}
-			names = names || slices.ContainsFunc(homeWords, func(w string) bool { return strings.Contains(s, w) })
+			// the package's own code decides: a test's shell text
+			// (`echo $HOME`) reads no home folder
+			names = names || (!strings.HasSuffix(f, "_test.go") && slices.ContainsFunc(homeWords, func(w string) bool { return strings.Contains(s, w) }))
 		}
 		if names && tests {
 			seen++
