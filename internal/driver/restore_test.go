@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -214,5 +215,23 @@ func TestLexerStatements(t *testing.T) {
 		if strings.Join(got, "|") != strings.Join(c.want, "|") {
 			t.Errorf("%s %q:\n got %q\nwant %q", c.kind, c.sql, got, c.want)
 		}
+	}
+}
+
+func TestCheckRestoreDelimiterAfterStatement(t *testing.T) {
+	for _, sql := range []string{
+		"SELECT 1; DELIMITER //\nSELECT 2 # ; DROP DATABASE shop //\n",
+		"SELECT 1;\tdelimiter $$\nGRANT ALL ON *.* TO x $$\n",
+		"DELIMITER ;;\nSELECT 1;; DELIMITER ;\nSELECT 2;\n",
+	} {
+		_, err := CheckRestore("mysql", strings.NewReader(sql))
+		var e *out.Error
+		if !errors.As(err, &e) || e.Code != "UNSAFE_BACKUP" {
+			t.Errorf("%q: want UNSAFE_BACKUP, got %v", sql, err)
+		}
+	}
+	// a column or text that only looks like it is fine
+	if _, err := CheckRestore("mysql", strings.NewReader("SELECT 1; SELECT delimiter FROM t;\nINSERT INTO t VALUES ('; DELIMITER //');\n")); err != nil {
+		t.Errorf("plain statements: %v", err)
 	}
 }

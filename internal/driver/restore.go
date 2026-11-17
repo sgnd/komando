@@ -150,6 +150,14 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 				inCopy, copyLine = true, line
 				break
 			}
+			if kind == "mysql" {
+				// DELIMITER is a command at the start of a line only; after
+				// a statement on the same line the two readers of this file
+				// (this check and the restore) must not read it differently
+				if _, ok := ParseDelimiter(strings.TrimSpace(text[end:])); ok {
+					return Verdict{}, unsureLine(line, trimmed, "a DELIMITER command follows a statement on its line")
+				}
+			}
 			pos = end
 		}
 		stmt.WriteByte('\n')
