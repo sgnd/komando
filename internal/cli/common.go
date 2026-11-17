@@ -651,7 +651,10 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 		rec["hosts"] = hosts
 	}
 	if remote != "" {
-		rec["remote"] = remote
+		// the command as it ran, without the passwords, keys and tokens it
+		// carried: the record is kept for years, and a copy of it goes to
+		// the syslog server in clear text (audit_syslog)
+		rec["remote"] = out.MaskSecrets(cl.out.RedactExact(remote))
 	}
 	if a := cl.caller().Agent; a != "" {
 		rec["agent"] = a // who typed it: an AI agent

@@ -62,6 +62,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- The audit log no longer keeps a password, key or token that a command
+  line carried (`PGPASSWORD=... psql`, `--password=...`): the command
+  of `exec`, `job start` and `cluster exec` is recorded with those
+  values as `[hidden]`, in the sealed log and in the copy sent to a
+  syslog server (`audit_syslog`), which travels in clear text.
 - One approval window no longer answers for what it did not show. An AI
   agent's `--reveal` (or `--host-key-policy off`) opened its window
   before the command had read its script, and that yes then covered the
