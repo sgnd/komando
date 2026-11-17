@@ -32,7 +32,7 @@ type tier int
 const (
 	tierRead      tier = iota // T0: looks only
 	tierChange                // T1: reversible, or only komando's own list
-	tierProtected             // T2: decided by the target (PROTECTED_HOST, PROTECTED_TARGET)
+	tierProtected             // T2: decided by the target (PROTECTED_TARGET)
 	tierDangerous             // T3: cannot be undone, or an outage (POLICY_BLOCKED)
 	tierSafety                // T3s: weakens komando's own checks (SAFETY_SETTING and friends)
 	tierPerson                // T4: only a person at a terminal (NEEDS_PERSON and friends)
@@ -296,7 +296,7 @@ func (t tier) flag() string {
 // confirmSchema is one approval of a command in `komando schema` (S-7.7):
 // its tier, the flag an AI agent or a script adds for it, and when it
 // holds ("" = always). A change on a protected server or conn also needs
-// --yes (PROTECTED_HOST, PROTECTED_TARGET); the target decides that, so it
+// --yes (PROTECTED_TARGET); the target decides that, so it
 // is no entry.
 type confirmSchema struct {
 	Tier string `json:"tier"`           // read, change, dangerous, safety or person

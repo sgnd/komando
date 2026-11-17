@@ -34,7 +34,7 @@ You need [Go](https://go.dev/dl/) (the version in [`go.mod`](go.mod) or newer),
 ```bash
 make build    # compile ./bin/komando
 make test     # fast unit tests (no servers needed)
-make e2e      # real SSH tests in Docker (bastion + private target)
+make e2e      # real SSH tests in Docker (bastion + private target); Linux only, see below
 ```
 
 `make help` lists everything.
@@ -63,7 +63,7 @@ Each command has its own files in `internal/cli/`, named for its noun (`host.go`
 4. **Multi-host commands** return `data.results[]` + `data.summary` (use `fanout`, `probe` or `runFleet` in `common.go` / `exec.go`).
 5. **Safety**: anything that changes a server must call `guard(...)` with `mutating=true`, respect `--dry-run`, and call `audit(...)`.
 6. **Quote everything** sent to a remote shell with `sshx.Q`.
-7. Add a unit test for pure logic and, when it touches SSH, a check in `test/e2e/checks/`, listed in the right area of `test/e2e/run.sh` (`make e2e AREA=NAME` runs that area alone).
+7. Add a unit test for pure logic and, when it touches SSH, a check in `test/e2e/checks/`, listed in the right area of `test/e2e/run.sh` (`make e2e AREA=NAME` runs that area alone). The e2e lab runs komando on the machine that runs it. It gives every call an empty home of its own, with no desktop keyring and no ssh-agent, and it does not start on macOS: there an AI agent's checks would write to your login keychain. Run it in CI or on Linux.
 8. **Say what it does**: add the command to `commandKinds` in [`internal/cli/kinds.go`](internal/cli/kinds.go) (`reads`, `changes` or `dependsOn("why")`). A test fails on a command without one.
 9. **Keep pieces small**: a function up to 100 lines, a file up to 800. Split instead of growing ([`internal/codesize`](internal/codesize/codesize_test.go) checks it).
 10. **Never break the JSON**: fields may be added, never renamed or removed. `TestOutputShapes` keeps the shape of the answers; after adding a field, run `go test ./internal/cli -run TestOutputShapes -update-shapes`.
@@ -87,7 +87,7 @@ A test also reads every `komando ...` example in the docs (`README.md`, `AGENTS.
    make lint     # gofmt, go vet, staticcheck
    make cover    # unit tests, and coverage may not drop below test/coverage-floor.txt
    make security # known vulnerabilities (govulncheck)
-   make e2e      # needs Docker; run it when the change talks to a server or service
+   make e2e      # needs Docker and Linux (CI runs it); run it when the change talks to a server or service
    ```
 
    VPN changes also have `make e2e-openvpn`, `make e2e-ipsec` and `make e2e-vpnclients` (GitHub runs them every night and on VPN pull requests). Changes to the Windows commands have `make e2e-windows`, which runs komando's PowerShell in a PowerShell container.

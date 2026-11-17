@@ -937,7 +937,7 @@ komando db kill events 8078617214407497              # the pid db activity shows
   `readonly` for it. For a hard limit, give the conn such a user with only
   `SELECT` grants. A user whose settings profile reads queries as another
   language (`dialect = 'kusto'` or `'prql'`) is refused
-  (`SQL_STRING_RULES`): komando checks ClickHouse SQL only.
+  (`SQL_SAFE_SETTINGS_REQUIRED`): komando checks ClickHouse SQL only.
 - Text in `$$...$$` and names or text with letters outside ASCII outside
   quotes are refused (`SQL_HIDDEN_CODE`): use `'...'` (with `\'` for a quote) and
   `` `...` ``. `FORMAT` and `INTO OUTFILE` are refused too: komando reads

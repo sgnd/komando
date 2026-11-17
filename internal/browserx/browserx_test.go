@@ -13,17 +13,23 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/sgnd/komando/internal/testhome"
 )
 
 // The test binary doubles as a browser: started with KOMANDO_FAKE_BROWSER
 // it speaks the DevTools pipe on descriptors 3 and 4 the way Chromium
 // does, and ends the sign-in the way the variable says.
 func TestMain(m *testing.M) {
+	// no test of this package sees the real home folder (internal/testhome)
+	homeDone := testhome.Use()
 	if mode := os.Getenv("KOMANDO_FAKE_BROWSER"); mode != "" {
 		fakeBrowser(mode)
 		os.Exit(0)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	homeDone()
+	os.Exit(code)
 }
 
 func fakeBrowser(mode string) {

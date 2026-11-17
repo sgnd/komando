@@ -190,7 +190,8 @@ not possible, it says so. The details are in
   command's row is in [safety.md](../features/safety.md#what-needs-a-yes)).
 - **Agents and scripts**: a change that needs approval fails without the
   flag (exit 6), with a hint. `--dry-run` is never blocked and lists the
-  approvals the real run would need. A known AI agent's `--yes`,
+  approvals the real run would need (one exception: an AI agent's command
+  with `KOMANDO_HOME` set to another folder stops, dry run or not). A known AI agent's `--yes`,
   `--allow-dangerous` and `--reveal` open a window on the person's screen;
   the person approves, not the agent.
 - **People at a terminal**: komando asks instead. A protected target gets

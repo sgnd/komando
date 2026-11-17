@@ -10,7 +10,7 @@ import (
 // the real run needs.
 func TestApprovalErr(t *testing.T) {
 	invHome(t)
-	for code, flag := range map[string]string{"POLICY_BLOCKED": "--allow-dangerous", "PROTECTED_HOST": "--yes", "PROTECTED_TARGET": "--yes",
+	for code, flag := range map[string]string{"POLICY_BLOCKED": "--allow-dangerous", "PROTECTED_TARGET": "--yes",
 		"SAFETY_SETTING": "--yes", "SECRET_DESTINATION": "--yes", "OPEN_BIND": "--yes", "CONFIRM_REQUIRED": "--yes"} {
 		noAgent(t)
 		setCallerEnv(t, "CLAUDECODE", "1")

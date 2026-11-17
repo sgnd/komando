@@ -53,7 +53,10 @@ they are really gone. ` + "`storage list CONN PREFIX --all-versions`" + ` shows 
 				return out.Usage("--all-versions takes exact keys; list a folder's versions first with `komando storage list %s %s --all-versions`", args[0], prefix)
 			}
 			for _, k := range keys {
-				if strings.HasSuffix(k, "/") || strings.ContainsAny(k, "*?") {
+				if strings.HasSuffix(k, "/") {
+					return out.Errf(out.ExitUsage, "IS_A_DIRECTORY", "remove a folder with --prefix: `komando storage rm CONN --prefix "+k+"`", "%q is a folder", k)
+				}
+				if strings.ContainsAny(k, "*?") {
 					return out.Usage("%q looks like a folder or pattern; use --prefix for folders (see `komando storage list`)", k)
 				}
 				if err := storex.CheckKey(k); err != nil {
