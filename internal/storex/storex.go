@@ -44,6 +44,16 @@ type Bucket interface {
 	Remove(ctx context.Context, key string) error
 	// Link makes a temporary download URL; file servers have none.
 	Link(ctx context.Context, key string, expires time.Duration) (*url.URL, error)
+	// Lookup says what is at rel: a file (found, its size and time), a
+	// folder (found, Dir, the key ending in /), or nothing.
+	Lookup(ctx context.Context, rel string) (o Object, found bool, err error)
+	// Mkdir makes the folder rel and any missing parents; existed is true
+	// when it was there already. Object stores have no folders: there it
+	// is an empty folder marker (rel/), as their consoles make.
+	Mkdir(ctx context.Context, rel string) (existed bool, err error)
+	// Move renames src to dst inside the conn (see MoveOpts). File servers
+	// rename; object stores copy, check the copy and only then delete src.
+	Move(ctx context.Context, src, dst string, o MoveOpts) (Moved, error)
 	Close() error
 }
 

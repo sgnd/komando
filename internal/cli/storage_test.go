@@ -72,6 +72,9 @@ func (m *memBucket) List(_ context.Context, prefix string, recursive bool, limit
 		if !strings.HasPrefix(k, prefix) {
 			continue
 		}
+		if strings.HasSuffix(k, "/") && (recursive || k == prefix) {
+			continue // a folder marker, as a bucket lists it
+		}
 		rest := strings.TrimPrefix(k, prefix)
 		if i := strings.Index(rest, "/"); !recursive && i >= 0 {
 			if d := prefix + rest[:i+1]; !dirs[d] {
@@ -121,6 +124,59 @@ func (m *memBucket) Remove(_ context.Context, key string) error { delete(m.objs,
 
 func (m *memBucket) Link(context.Context, string, time.Duration) (*url.URL, error) {
 	return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "", "no links")
+}
+
+// Lookup: a key is a file; a folder is any key under name/.
+func (m *memBucket) Lookup(_ context.Context, rel string) (storex.Object, bool, error) {
+	r := strings.Trim(rel, "/")
+	if err := storex.CheckKey(r); err != nil {
+		return storex.Object{}, false, err
+	}
+	if v, ok := m.objs[r]; ok {
+		return storex.Object{Key: r, Size: int64(len(v))}, true, nil
+	}
+	for k := range m.objs {
+		if strings.HasPrefix(k, r+"/") {
+			return storex.Object{Key: r + "/", Dir: true}, true, nil
+		}
+	}
+	return storex.Object{}, false, nil
+}
+
+// Mkdir makes a folder marker, as on S3.
+func (m *memBucket) Mkdir(ctx context.Context, rel string) (bool, error) {
+	o, found, err := m.Lookup(ctx, rel)
+	if err != nil || found {
+		if found && !o.Dir {
+			err = out.Errf(out.ExitConflict, "FILE_EXISTS", "", "a file named %q is already there", rel)
+		}
+		return found, err
+	}
+	m.objs[strings.Trim(rel, "/")+"/"] = ""
+	return false, nil
+}
+
+// Move copies and deletes, as on S3: one object, no folders.
+func (m *memBucket) Move(ctx context.Context, src, dst string, o storex.MoveOpts) (storex.Moved, error) {
+	so, found, err := m.Lookup(ctx, src)
+	switch {
+	case err != nil:
+		return storex.Moved{}, err
+	case !found:
+		return storex.Moved{}, storex.NotThere(src)
+	case so.Dir:
+		return storex.Moved{}, out.Errf(out.ExitUsage, "STORAGE_UNSUPPORTED", "", "%q is a folder", src)
+	}
+	_, replaced, _ := m.Lookup(ctx, dst)
+	if replaced && !o.Overwrite {
+		return storex.Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS", "", "a file named %q is already there", dst)
+	}
+	mv := storex.Moved{Replaced: replaced, Size: so.Size, Copied: true}
+	if !o.DryRun {
+		m.objs[dst] = m.objs[src]
+		delete(m.objs, src)
+	}
+	return mv, nil
 }
 
 func (m *memBucket) Close() error { return nil }
