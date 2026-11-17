@@ -291,6 +291,12 @@ func loginHolderCmd() *cobra.Command {
 			if err := checkTicket(cl, ticket, "login-holder", "login "+args[0]); err != nil {
 				return fail(err)
 			}
+			if cl.isAgent() {
+				// its questions go to whoever started it: an agent would
+				// answer them as the person, and accept a new host key
+				return fail(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando login "+args[0]+"` in their own terminal",
+					"login-holder is the background process of `komando login`, which only a person runs").NoFlag())
+			}
 			// only a holder its `login` started outlives it: `login` exits once it is up
 			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP)
 			st, err := loadState()
@@ -302,12 +308,16 @@ func loginHolderCmd() *cobra.Command {
 				return fail(err)
 			}
 			relay := relayAsk(in, say)
+			// the person at `login`'s terminal answers this login (a
+			// login-ask server's password too); after it, the asker goes
+			// back to the call's own, which asks nobody here
+			savedAsker := sshx.Asker
 			sshx.Asker = func() func(host, text string, hidden bool) (string, error) { return relay }
 			ctx := cmd.Context()
 			o := sshOpts(cl, st)
 			o.Fresh = true
 			c, err := sshx.Dial(ctx, st, h, o)
-			sshx.Asker = nil // logged in: nobody is asked again
+			sshx.Asker = savedAsker
 			if err != nil {
 				return fail(err)
 			}
@@ -415,7 +425,8 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 		line, rerr := in.ReadString('\n')
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
 		if rerr != nil || word != want {
-			return "", time.Time{}, fmt.Errorf("login-holder is started by `komando login`, not by hand")
+			return "", time.Time{}, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando login`: it checks and records what login-holder does",
+				"login-holder is started by `komando login`, not by hand").NoFlag()
 		}
 		switch want {
 		case "TOKEN":
