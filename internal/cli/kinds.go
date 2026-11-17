@@ -279,8 +279,9 @@ var commandKinds = map[string]cmdKind{
 
 	"shell": dependsOn(shellNote),
 
-	"ssh-gate":      dependsOn("runs the komando command an SSH key sent, when ssh-gate allows it"),
-	"ssh-gate line": reads,
+	"ssh-gate":        dependsOn("runs the komando command an SSH key sent, when ssh-gate allows it"),
+	"ssh-gate line":   reads,
+	"ssh-gate status": reads,
 
 	"status": reads,
 

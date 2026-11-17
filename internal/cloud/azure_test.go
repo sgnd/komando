@@ -120,9 +120,11 @@ func TestAzureServicePrincipalAndKeyVault(t *testing.T) {
 	t.Setenv("AZURE_FEDERATED_TOKEN_FILE", "")
 	t.Setenv("AZURE_CLIENT_SECRET", "s3cret")
 	t.Setenv("AZURE_AUTHORITY_HOST", "http://login.example.com")
-	if _, err := AzureToken(ctx, "https://vault.azure.net"); err == nil || !strings.Contains(err.Error(), "https://") {
+	if _, err := AzureToken(ctx, "https://vault.azure.net"); err == nil || !strings.Contains(err.Error(), "AZURE_AUTHORITY_HOST") {
 		t.Errorf("a plain-http sign-in host: %v", err)
 	}
+	azureAuthorities[strings.TrimPrefix(srv.URL, "https://")] = true // stands in for a national cloud's sign-in host
+	defer delete(azureAuthorities, strings.TrimPrefix(srv.URL, "https://"))
 	t.Setenv("AZURE_AUTHORITY_HOST", srv.URL+"/")
 	if tok, err := AzureToken(ctx, "https://vault.azure.net"); err != nil || tok != "tok-https://vault.azure.net" {
 		t.Errorf("AZURE_AUTHORITY_HOST: %q %v", tok, err)

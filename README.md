@@ -25,7 +25,7 @@ can both use safely:
 On macOS or Linux, open a terminal and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 ```
 
 On Windows, download `komando_windows_amd64.zip` from
