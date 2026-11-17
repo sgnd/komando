@@ -226,8 +226,15 @@ func TestRemoteCopyProtectedServer(t *testing.T) {
 	one := &memBucket{objs: map[string]string{"db.sql": "x"}}
 	withBuckets(t, map[string]*memBucket{"bk": one})
 	mustRun(t, "host", "edit", "web2", "--protected")
-	wantCode(t, "PROTECTED_HOST", "cp", "web1:/tmp/a", "web2:/tmp/a")
-	wantCode(t, "PROTECTED_HOST", "cp", "bk:db.sql", "web2:/tmp/db.sql", "--continue")
+	// the protected stop (its name is C79's to settle): exit 6, nothing copied
+	for _, args := range [][]string{
+		{"cp", "web1:/tmp/a", "web2:/tmp/a"},
+		{"cp", "bk:db.sql", "web2:/tmp/db.sql", "--continue"},
+	} {
+		if _, e := invRun(t, args...); e == nil || e.Exit != out.ExitPolicy || !strings.HasPrefix(e.Code, "PROTECTED_") {
+			t.Errorf("%v: want the protected stop, got %+v", args, e)
+		}
+	}
 	d := mustRun(t, "cp", "web1:/tmp/a", "web2:/tmp/a", "--dry-run")
 	meta, _ := d["_meta"].(map[string]any)
 	if need := fmt.Sprint(meta["would_need"]); !strings.Contains(need, "--yes") {

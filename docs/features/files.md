@@ -502,9 +502,9 @@ For a single file, use `komando upload` or `komando download`.
 | `POLICY_BLOCKED` | `fs rm`, `rm -r` or `sync --delete` from an AI agent or a script without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
 | `CANCELLED` | Ctrl-C stopped a copy or sync | run the same command again to finish |
 | `SIZE_CONFLICT` | an upload from stdin sent another number of bytes than `--size` | send the whole file again; nothing was replaced |
-| `RESUME_CONFLICT` | `--continue` found a destination longer than the source, or one that differs from it | copy it again without `--continue` |
+| `RESUME_CONFLICT` | `--continue` found a destination longer than the source, or one that differs from it, before the copy or by its sum after it | copy it again without `--continue` |
+| `FILE_CHANGED` | the file changed while `--continue` copied it | run the same command again |
 | `RESUME_UNSUPPORTED` | `--continue` to S3, Google Cloud Storage, Azure Blob or WebDAV, which cannot add to a file | copy it again without `--continue` |
-| `RESUME_FAILED` | after `--continue` the file does not match the source | copy it again without `--continue` |
 
 ## Reference
 

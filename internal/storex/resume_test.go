@@ -31,7 +31,7 @@ func TestAppendOnFileServers(t *testing.T) {
 		if err := b.Put(ctx, "dir/big.bin", strings.NewReader("hello "), 6, ""); err != nil {
 			t.Fatalf("%s: put: %v", name, err)
 		}
-		if _, err := Append(ctx, b, "dir/big.bin", 3, strings.NewReader("x")); code(err) != "RESUME_CONFLICT" {
+		if _, err := Append(ctx, b, "dir/big.bin", 3, strings.NewReader("x")); code(err) != "FILE_CHANGED" {
 			t.Errorf("%s: a file of another length: %v", name, err)
 		}
 		if n, err := Append(ctx, b, "dir/big.bin", 6, strings.NewReader("world")); err != nil || n != 5 {
