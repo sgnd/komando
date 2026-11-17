@@ -116,7 +116,7 @@ func protNeed(prot []string) []string {
 }
 
 // approvalErr is a stop a flag lifts (C-C10): POLICY_BLOCKED
-// (--allow-dangerous), or PROTECTED_HOST, PROTECTED_TARGET, SAFETY_SETTING,
+// (--allow-dangerous), or PROTECTED_TARGET, SAFETY_SETTING,
 // SECRET_DESTINATION, OPEN_BIND and CONFIRM_REQUIRED (--yes). why says what
 // would happen; need adds the other flags the real run needs (--yes on a
 // protected target). The hint is the one approval hint for every one of

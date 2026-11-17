@@ -358,7 +358,7 @@ func TestCertCheckURLCommand(t *testing.T) {
 	}
 	mustRun(t, "cert", "check", a2, "--warn", "7d")
 	wantCode(t, "USAGE", "cert", "check", a1, "--warn", "soon")
-	if e := wantCode(t, "CONNECT_FAILED", "cert", "check", "127.0.0.1:1"); e.Exit != out.ExitConnect {
+	if e := wantCode(t, "CONN_UNREACHABLE", "cert", "check", "127.0.0.1:1"); e.Exit != out.ExitConnect {
 		t.Errorf("exit %d", e.Exit)
 	}
 	// a dry run connects nowhere

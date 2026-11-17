@@ -67,12 +67,13 @@ func finishFleet(cl *call, command string, data any, sum runSummary, worst int, 
 	}()
 	if sum.Total == 1 {
 		f := fails[0]
-		soft.Code, soft.Message = "FAILED", "server "+f.host+" failed ("+f.reason+")"
-		if f.err != nil && f.err.Code != "REMOTE_EXIT" {
+		// the command ran and exited non-zero: COMMAND_FAILED
+		soft.Code, soft.Message, soft.Exit = "COMMAND_FAILED", "server "+f.host+" failed ("+f.reason+")", out.ExitRemote
+		if f.err != nil {
 			// a connection, timeout or policy problem: its own code and hint
 			soft.Code = f.err.Code
 			soft.Message = withHost(f.host, f.err.Message)
-			soft.Hint = f.err.Hint
+			soft.Hint, soft.Exit = f.err.Hint, f.err.Exit
 		}
 		if soft.Hint == "" && cl.out.Format != "text" {
 			soft.Hint = "each server's result has its exit code and error output (data.results in -o json)"

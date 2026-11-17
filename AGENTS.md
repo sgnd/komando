@@ -29,7 +29,10 @@ under a pseudo-terminal and komando does not know your agent, set
    (`stdout_truncated`).
 4. Before any change, run it once with `--dry-run`. A dry run is never
    blocked; `meta.would_need` lists the flags the real run would need
-   (`meta.would_be_blocked` says why).
+   (`meta.would_be_blocked` says why). One exception: with `KOMANDO_HOME`
+   set to another folder every command of yours stops, a dry run too
+   (`NEEDS_PERSON`); no flag clears that one, so leave `KOMANDO_HOME`
+   alone.
    Declare read-only shell commands with `--read-only`. `db query`,
    `cache run` and `cluster run` are the other way round: they only read
    unless you add `--write`. A command that hands words to another
@@ -43,15 +46,16 @@ under a pseudo-terminal and komando does not know your agent, set
    2 minutes or runs over a shaky link: a job survives a dropped connection.
 7. Never add `--allow-dangerous`, `--yes` or `--reveal` on your own. If a
    command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
-   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
-   `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
-   `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
-   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_NETWORK_REQUIRED`,
-   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
-   `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why. Once the human agrees, re-run with
+   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`,
+   `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
+   `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
+   `SENSITIVE_FILE`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
+   `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`,
+   `STORE_OLD_COPY`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why. Once the human agrees, re-run with
    the flag the hint names: komando asks them in a window on their screen
    ("Allow once"). With no screen, ask them to run the command in their own
-   terminal. No flag clears `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`,
+   terminal. No flag clears `NEEDS_PERSON`, `REVEAL_NEEDS_TERMINAL`,
+   `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
    `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or
    `STORE_OLD_COPY`: only a
    person at a terminal can run those. If they deny it, do not retry.

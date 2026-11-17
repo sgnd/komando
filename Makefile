@@ -82,6 +82,9 @@ licenses: ## Write dist/THIRD_PARTY_LICENSES (licenses of everything built into 
 
 # a release binary, as `make bins` and `make dist` build it
 GOBUILD = CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)"
+# NOLAB FILE: a release binary never knows the e2e lab's variable
+# (internal/store/home_lab.go and its build tag), however the build was set up
+NOLAB = scripts/no-lab-build.sh
 OUT ?= bins
 
 bins: ## Build release binaries into OUT/komando_OS_ARCH/ (OUT=bins; PLATFORMS picks which)
@@ -89,7 +92,8 @@ bins: ## Build release binaries into OUT/komando_OS_ARCH/ (OUT=bins; PLATFORMS p
 	  os=$${p%/*}; arch=$${p#*/}; name=komando_$${os}_$${arch}; \
 	  exe=komando; [ $$os = windows ] && exe=komando.exe; \
 	  echo "  $$name"; mkdir -p $(OUT)/$$name && \
-	  GOOS=$$os GOARCH=$$arch $(GOBUILD) -o $(OUT)/$$name/$$exe ./cmd/komando || exit 1; \
+	  GOOS=$$os GOARCH=$$arch $(GOBUILD) -o $(OUT)/$$name/$$exe ./cmd/komando && \
+	  $(NOLAB) $(OUT)/$$name/$$exe || exit 1; \
 	done
 
 dist: ## Build release archives + checksums into ./dist (SIGNED=DIR: take the macOS binaries from DIR, made by `make bins` and signed, instead of building them)
@@ -108,6 +112,7 @@ dist: ## Build release archives + checksums into ./dist (SIGNED=DIR: take the ma
 	  else \
 	    echo "  $$name" && GOOS=$$os GOARCH=$$arch $(GOBUILD) -o dist/$$name/$$exe ./cmd/komando; \
 	  fi && \
+	  $(NOLAB) dist/$$name/$$exe && \
 	  cp LICENSE README.md dist/THIRD_PARTY_LICENSES dist/$$name/ && \
 	  if [ $$os = windows ]; then (cd dist/$$name && zip -qX ../$$name.zip *); \
 	  else tar -czf dist/$$name.tar.gz -C dist/$$name .; fi && rm -rf dist/$$name || exit 1; \

@@ -204,7 +204,7 @@ func (m *memcache) classicGet(ctx context.Context, key string, maxBytes int) (*V
 }
 
 func notFound(key string) error {
-	return out.Errf(out.ExitNotFound, "KEY_NOT_FOUND", "list keys with `komando cache keys CONN 'pattern*'`", "no cache key named %q", key).About("cache_key")
+	return out.Errf(out.ExitNotFound, "CACHE_KEY_NOT_FOUND", "list keys with `komando cache keys CONN 'pattern*'`", "no cache key named %q", key)
 }
 
 // mcMaxRelative is the longest expiry memcached reads as seconds from now
@@ -256,7 +256,7 @@ func (m *memcache) Exists(ctx context.Context, key string) (bool, error) {
 
 func ignoreNotFound(err error) error {
 	var oe *out.Error
-	if errors.As(err, &oe) && oe.Code == "KEY_NOT_FOUND" {
+	if errors.As(err, &oe) && oe.Code == "CACHE_KEY_NOT_FOUND" {
 		return nil
 	}
 	return err

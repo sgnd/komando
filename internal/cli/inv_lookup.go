@@ -148,7 +148,7 @@ func pickHosts(cl *call, s *store.State, args []string) ([]*store.Host, error) {
 			}
 		}
 		if n == 0 {
-			return nil, out.Errf(out.ExitNotFound, "HOST_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no servers in your list", a)
+			return nil, out.Errf(out.ExitNotFound, "TARGET_EMPTY", "run `komando list "+a+"` to see what it picks", "target %q picked no servers in your list", a)
 		}
 	}
 	return res, nil
@@ -170,7 +170,7 @@ func rmConns(cl *call, s *store.State, args []string) ([]*store.Conn, error) {
 				return nil, err
 			}
 			if cs = sel.Conns; len(cs) == 0 {
-				return nil, out.Errf(out.ExitNotFound, "CONN_NOT_FOUND", "run `komando list "+a+"` to see what it picks", "target %q picked no conns", a).About("selector")
+				return nil, out.Errf(out.ExitNotFound, "TARGET_EMPTY", "run `komando list "+a+"` to see what it picks", "target %q picked no conns", a)
 			}
 		}
 		for _, c := range cs {

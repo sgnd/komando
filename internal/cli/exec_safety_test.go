@@ -223,7 +223,7 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"env value that runs code", []string{"exec", "prod", "--read-only", "-e", "PS4=$(rm -rf /data)", "--", "bash -xc :"}, "READ_ONLY_VIOLATION", ""},
 		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "dir=/var/log", "--", "find $dir -name '*.gz'"}, "", ""},
 		{"read-only, input piped into a shell", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "cat | sh"}, "READ_ONLY_VIOLATION", ""},
-		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_HOST", ""},
+		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_TARGET", ""},
 		{"interpreter tee", []string{"exec", "prod", "--read-only", "--interpreter", "tee /etc/passwd", "--script", benign}, "READ_ONLY_VIOLATION", ""},
 		{"interpreter with -c", []string{"exec", "prod", "--read-only", "--interpreter", `sh -c "systemctl stop nginx" #`, "--script", benign}, "READ_ONLY_VIOLATION", ""},
 		{"interpreter python", []string{"exec", "prod", "--read-only", "--interpreter", "python3", "--script", benign}, "READ_ONLY_VIOLATION", ""},
@@ -309,7 +309,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 		if name == "procs" {
 			args = args[:4]
 		}
-		if err := runRoot(t, args...); toErr(err) == nil || toErr(err).Code != "PROTECTED_HOST" {
+		if err := runRoot(t, args...); toErr(err) == nil || toErr(err).Code != "PROTECTED_TARGET" {
 			t.Errorf("%s: %v", name, err)
 		}
 		if n := len(srv.take()); n != 0 {

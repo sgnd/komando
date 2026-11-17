@@ -163,7 +163,7 @@ func winrmErr(h *store.Host, err error) error {
 		return out.Errf(out.ExitRemote, "WINRM_ERROR", "read the message; `winrm quickconfig` on the server sets WinRM up, and the user needs the right to use it (an administrator, or the Remote Management Users group)",
 			"%s: %v", h.Name, err)
 	case errors.As(err, &oe) && oe.Op == "dial":
-		return out.Errf(out.ExitConnect, "WINRM_UNREACHABLE", "check the address and that WinRM listens there (port 5986 for HTTPS, 5985 for HTTP) and the firewall lets you in",
+		return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", "check the address and that WinRM listens there (port 5986 for HTTPS, 5985 for HTTP) and the firewall lets you in",
 			"cannot reach %s over WinRM: %v", h.Name, err)
 	}
 	if strings.Contains(err.Error(), "server gave HTTP response to HTTPS client") {

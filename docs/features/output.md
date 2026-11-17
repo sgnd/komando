@@ -53,7 +53,7 @@ messages.
     "summary": { "total": 1, "ok": 0, "failed": 1, "failed_hosts": ["web1"] }
   },
   "error": { "code": "FAILED", "message": "server web1 failed", "hint": "…" },
-  "meta": { "contract": 1, "version": "…", "duration_ms": 211 }
+  "meta": { "contract": 2, "version": "…", "duration_ms": 211 }
 }
 ```
 
@@ -63,7 +63,6 @@ messages.
 | `command` | the command's ID: its words joined by dots (`exec`, `db.query`, `fs.list`, `secret.show`). `komando audit --command` takes the same IDs |
 | `data` | the result. Commands that run on many servers use `data.results[]` (one per server) and `data.summary`. Each result names its server in `host` (`exec`, `facts`, `test`, `cp` ...) |
 | `error` | `{code, message, hint}` when `ok` is false. `data` can still be there when servers failed (`PARTIAL_FAILURE`) |
-| `error.thing` | for a code several kinds of item share (`KEY_NOT_FOUND`, `NOT_FOUND`, `CONN_NOT_FOUND`, `REGISTRY_NOT_FOUND`, `K8S_NOT_FOUND`): which one it is about, such as `ssh_key` or `cache_key`. Left out otherwise. [Error codes](error-codes.md#codes-shared-by-several-things) lists every value |
 | `error.suggestion` | for a typo: the name komando thinks you meant (a command, a server, a flag). The hint is then the whole command line with it in place. A word from another tool (`ps`, `kubectl`, `psql`) gets the komando command that does that job. Left out otherwise |
 | `error.hint` | always says what to try next. Most codes give their own hint; when one gives none, komando puts in a general hint for the exit code (for example, exit 7 suggests `--timeout` or `komando job start`) |
 | `null` | komando could not find out (for example `facts` without the rights to read something). It never stands in for `0` or `false` |
@@ -79,7 +78,7 @@ messages.
 | 3 | not found | `TARGET_NOT_FOUND`, `FILE_NOT_FOUND`, `TOOL_MISSING`, `SECRET_NOT_FOUND`, `SECRET_UNRESOLVED` |
 | 4 | cannot connect or log in, or the connection broke | `AUTH_FAILED`, `NO_AUTH`, `HOSTKEY_MISMATCH`, `VPN_LOGIN_REQUIRED`, `CONNECTION_LOST` |
 | 5 | the command failed on the server | `FAILED`, `ROLLOUT_FAILED` |
-| 6 | blocked for safety | `POLICY_BLOCKED`, `PROTECTED_HOST`, `WRITE_REQUIRES_FLAG`, `DECLINED` |
+| 6 | blocked for safety | `POLICY_BLOCKED`, `PROTECTED_TARGET`, `WRITE_REQUIRES_FLAG`, `DECLINED` |
 | 7 | timed out | `TIMEOUT`, `CONNECT_TIMEOUT` (the server did not answer within `--connect-timeout`), `ROLLOUT_TIMEOUT` |
 | 8 | a precondition failed or something is in the way | `NO_MATCH` and `AMBIGUOUS_MATCH` (`fs replace` text not found or not unique), `PORT_IN_USE`, `FILE_TOO_LARGE`, `KEY_EXISTS` |
 
@@ -172,19 +171,20 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 | `AZURE_LOGIN_REQUIRED` | no Azure login was found (for an Azure Container Registry) | set a service principal (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`), run on Azure with a managed identity, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` | the Google login has run out (for Google Artifact Registry) | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` to a key file |
 | `POLICY_BLOCKED` | the command looks destructive | double-check it; at your terminal you type the name of what goes, a script adds `--allow-dangerous` |
-| `PROTECTED_HOST`, `PROTECTED_TARGET` | a change to something marked protected | at your terminal komando asks; a script adds `--yes` |
+| `PROTECTED_TARGET`, `PROTECTED_TARGET` | a change to something marked protected | at your terminal komando asks; a script adds `--yes` |
 | `SAFETY_SETTING` | a change that turns a seatbelt off | at your terminal komando asks; a script adds `--yes` |
 | `SECRET_DESTINATION` | an AI agent asked to send a secret somewhere new (`{{secret:NAME}}`, `--env K=secret:NAME`, a password on a new address) | tell the user which secret goes where; once they agree, add `--yes` |
-| `NEEDS_PERSON` | an AI agent asked for something only a person can do: type a password into `secret set`, compare one with `secret check`, set the approval code | the agent asks the user to run the command in their own terminal; no flag lets an agent do it |
+| `NEEDS_PERSON` | something only a person can do: type a password (`secret set`, `--ask-password`, a `--login ask` server), log in (`komando login`), compare a secret with `secret check`, set the approval code. An AI agent and a script get it alike | ask the user to run the command in their own terminal; no flag lets a program do it |
 | `DECLINED` | a person answered no to komando's question | nothing was changed; run it again to be asked again |
 | `WRITE_REQUIRES_FLAG` | a database, cache or cluster command that changes data | `--write --dry-run`, then `--write` |
 | `SENSITIVE_FILE` | an AI agent tried to copy a secret file (`.env`, a private key) here | read it with `komando fs cat` (values hidden); a person may allow `--reveal` |
 | `HIDDEN_VALUE` | the text holds `[hidden]` or `[secret:NAME]` | change one line with `fs replace`; set a secret with `{{secret:NAME}}` |
 | `NO_MATCHING_TARGETS` | the target picked only things this command can't use | follow the hint (for example, use `komando db` for a database) |
-| `TARGET_NOT_FOUND`, `HOST_NOT_FOUND`, `CONN_NOT_FOUND`, `TARGET_EMPTY` | a typo in a name, group or tag (`exec` says `HOST_NOT_FOUND`, `test` and `list` say `TARGET_NOT_FOUND`: the same problem) | the hint suggests the closest match; `komando list` |
+| `TARGET_NOT_FOUND` | a typo in a server, conn or VPN name, whatever the command | the hint suggests the closest match; `komando list` |
+| `TARGET_EMPTY` | a group, tag or pattern picked nothing | `komando list GROUP` shows what it picks |
 | `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` | the vault cannot be opened: no passphrase, a wrong one, or its key is gone | see [Secrets](secrets.md#troubleshooting); `komando doctor` says which |
 | `IMPORT_INCOMPLETE` | an import brought most things in but refused some (see `skipped`) | fix those entries in the file and import again |
-| `PARTIAL_FAILURE` | the command ran on several servers and at least one failed (with one server you get that server's own code, such as `CONNECTION_REFUSED`) | read `data.results` for each server's exit code and stderr |
+| `PARTIAL_FAILURE` | the command ran on several servers and at least one failed (with one server you get that server's own code, such as `CONNECTION_REFUSED`, or `COMMAND_FAILED` when its command exited non-zero) | read `data.results` for each server's exit code and stderr |
 | `USAGE` | a wrong command, flag or value; also `komando` alone or a group such as `komando db` without its sub-command, when piped | the message says what is wrong, often with "did you mean"; the hint gives an example or lists the sub-commands |
 | `PORT_IN_USE` | the local port is taken | pick another port, or `0` for a free one |
 | `NEEDS_TERMINAL` | an interactive command (`shell`) run by a program | agents use `exec`, `cluster exec` or `job` |
