@@ -119,8 +119,13 @@ var gateOnServers = map[string]func(c *cobra.Command) string{
 
 // gateSavesHere are reads that save a file on this computer, and when.
 var gateSavesHere = map[string]func(c *cobra.Command) string{
-	"download": func(*cobra.Command) string { return "it saves files on this computer" },
-	"db.dump":  func(*cobra.Command) string { return "it saves a file on this computer" },
+	"download": func(c *cobra.Command) string {
+		if to, _ := c.Flags().GetString("to"); to == "-" {
+			return "" // to the key's own output
+		}
+		return "it saves files on this computer (--to - streams one instead)"
+	},
+	"db.dump": func(*cobra.Command) string { return "it saves a file on this computer" },
 	"storage.download": func(c *cobra.Command) string {
 		if to, _ := c.Flags().GetString("to"); to == "-" {
 			return "" // to the key's own output
@@ -142,6 +147,14 @@ func gateLocalDst(c *cobra.Command) string {
 	args := c.Flags().Args()
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
+	}
+	if args[1] == "-" && c.Name() == "cp" {
+		// cp's stream to the key's own output (to sync, - is a folder
+		// here); only from a server or storage: a file here is never sent
+		if _, _, remote := splitArg(cl, args[0]); !remote {
+			return "its SRC " + args[0] + " is on this computer; a key streams from servers or storage only"
+		}
+		return ""
 	}
 	if _, _, remote := splitArg(cl, args[1]); !remote {
 		return "its DST is on this computer; a key copies to servers or storage only"
@@ -579,7 +592,8 @@ person on this computer. Commands that need a person at a terminal (shell,
 db shell, secret passphrase ...) are refused. The key runs commands on
 servers, never one that writes on this computer or reads a file here (a
 script, SQL or upload source by path; '-' for the key's own input works):
-no download or cp to a file here, no change to servers, VPNs, settings, rules, secrets, keys or
+no download or cp to a file here (download --to - and cp SRC - stream to
+the key's own output), no change to servers, VPNs, settings, rules, secrets, keys or
 recipes in komando, no update, no change on a sqlite file or a target at
 localhost or 127.x. With --read-only only commands that read run (db
 query and cache run without --write), and only those that stay on the
