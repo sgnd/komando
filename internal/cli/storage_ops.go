@@ -271,7 +271,7 @@ storage stop with STORAGE_UNSUPPORTED before anything is contacted.`,
 			rec := map[string]any{"path": p, "mode": modeDigits(mode)}
 			run := func(dry bool) storageFn {
 				return func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-					m, ok := unwrapBucket(s).(storex.Modes)
+					m, ok := storex.Inner(s).(storex.Modes)
 					if !ok {
 						return nil, out.Errf(out.ExitUsage, "STORAGE_UNSUPPORTED", "chmod works on SFTP conns; `komando list kind:storage` lists yours",
 							"%s has no file modes", c.Name)
@@ -296,14 +296,6 @@ storage stop with STORAGE_UNSUPPORTED before anything is contacted.`,
 			return withStoragePreview(cl, cmd.Context(), "storage.chmod", args[0], driver.Verdict{Risk: driver.RiskWrite}, rec, run(false), run(true))
 		}),
 	}
-}
-
-// unwrapBucket is the bucket inside closeBoth, or b itself.
-func unwrapBucket(b storex.Bucket) storex.Bucket {
-	if w, ok := b.(interface{ Unwrap() storex.Bucket }); ok {
-		return w.Unwrap()
-	}
-	return b
 }
 
 // parseStorageMode reads a mode in digits (644, 0640, 2775) as a file

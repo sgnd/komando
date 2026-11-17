@@ -31,10 +31,10 @@ func TestStorageTransferIsUploadDownload(t *testing.T) {
 		}
 		return c
 	}
-	if got := flagNames(find("storage upload")); !slices.Equal(got, []string{"progress", "recursive"}) {
+	if got := flagNames(find("storage upload")); !slices.Equal(got, []string{"continue", "progress", "recursive", "size"}) {
 		t.Errorf("storage upload flags: %v", got)
 	}
-	if got := flagNames(find("storage download")); !slices.Equal(got, []string{"overwrite", "progress", "recursive", "to"}) {
+	if got := flagNames(find("storage download")); !slices.Equal(got, []string{"continue", "overwrite", "progress", "recursive", "to"}) {
 		t.Errorf("storage download flags: %v", got)
 	}
 	for _, p := range []string{"storage upload", "storage download"} {
@@ -73,7 +73,7 @@ func TestTransferOnePath(t *testing.T) {
 		{"cp", "bk:a.txt", t.TempDir(), "--sudo"},
 		{"storage", "download", "bk", "logs/", "-r", "--to", "-"},
 		{"download", "bk", "logs/", "-r", "--to", "-"},
-		{"download", "web1", "/etc/hosts", "--to", "-"},
+		{"download", "web1", "/etc/hosts", "--to", "-", "--sudo"},
 		{"download", "web1", "/var/www", "-r", "--sudo"},
 	} {
 		if e := wantCode(t, "USAGE", args...); e.Exit != 2 {
