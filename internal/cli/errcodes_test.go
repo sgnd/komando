@@ -812,8 +812,6 @@ var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR"}
 // hintMeanings stand in for a hint the program builds as it runs (from the
 // key's path, or from the tool's error): what it tells the reader to do.
 var hintMeanings = map[string]string{
-	// one code for every place komando cannot reach: each site's hint names its own check
-	"CONN_UNREACHABLE":        "check the address with `komando test TARGET` (a cluster, registry, database, WinRM server or komando's releases: the hint names the check for each); if only a server or VPN reaches it, add --via",
 	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)",
 	"NO_PASSPHRASE":           "the vault keeps its key in store.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",
