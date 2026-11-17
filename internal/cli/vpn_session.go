@@ -280,16 +280,26 @@ func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, 
 	default:
 		return nil, out.Usage("%s VPNs need no session", v.Kind)
 	}
-	// when the process started: a pid the system gives to another
-	// process later is never taken for this session
-	if s.ProcStart, err = netx.RecordStart(s.PID); err != nil {
-		return nil, netx.Down(v, err)
-	}
-	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.Sessions[v.Name] = s; return nil }); err != nil {
-		netx.StopSession(s)
+	if err := saveSession(cl, v, s); err != nil {
 		return nil, err
 	}
 	return s, nil
+}
+
+// saveSession records a session that just started, with when its process
+// started: a pid the system gives to another process later is never taken
+// for it. A session it cannot record is stopped.
+func saveSession(cl *call, v *store.Vpn, s *store.VpnSession) error {
+	start, err := netx.RecordStart(s.PID)
+	if err != nil {
+		return netx.Down(v, err)
+	}
+	s.ProcStart = start
+	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.Sessions[v.Name] = s; return nil }); err != nil {
+		netx.StopSession(s)
+		return err
+	}
+	return nil
 }
 
 // auditVpnUp records a vpn up, or a session a command started, with how

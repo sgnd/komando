@@ -155,17 +155,14 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 	if err := c.Start(); err != nil {
 		return nil, err
 	}
-	l.PID = c.Process.Pid
-	l.Exe = filepath.Base(self)
-	if l.ProcStart, err = netx.RecordStart(l.PID); err != nil {
-		_ = c.Process.Kill()
-		_ = c.Wait()
-		return nil, err
-	}
+	l.PID, l.Exe = c.Process.Pid, filepath.Base(self)
 	fail := func(e error) (*store.SSHLogin, error) {
 		_ = c.Process.Kill()
 		_ = c.Wait()
 		return nil, e
+	}
+	if l.ProcStart, err = netx.RecordStart(l.PID); err != nil {
+		return fail(err)
 	}
 	if err := holderHello(stdin, l); err != nil {
 		return fail(err)
