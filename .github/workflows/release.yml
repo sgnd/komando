@@ -33,6 +33,9 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          # no shared cache: this job holds the Developer ID secrets, and a
+          # cache is written by other jobs too
+          cache: false
       - run: make bins VERSION="$GITHUB_REF_NAME" PLATFORMS="darwin/amd64 darwin/arm64" OUT=signed
       - name: Sign and notarize
         id: sign
@@ -72,6 +75,10 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
+          # no shared cache: the e2e jobs, which run other projects'
+          # images as privileged containers, write the same cache, and
+          # this job builds the release and holds the signing key
+          cache: false
       - name: Write the release notes from CHANGELOG.md
         run: |
           v="${GITHUB_REF_NAME#v}"
@@ -83,7 +90,7 @@ jobs:
           /usr/local/bin). From 0.6.0 or older, or to install, run:
 
           ```sh
-          curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
+          curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
           ```
 
           Check a download: `gh attestation verify FILE --repo sgnd/komando`
@@ -93,8 +100,11 @@ jobs:
         with:
           name: macos-signed
           path: signed
-      # the signed macOS binaries replace the ones make dist would build
-      - run: make dist VERSION="$GITHUB_REF_NAME" SIGNED=signed
+      # the signed macOS binaries replace the ones make dist would build;
+      # with SIGNED, make dist stops when one of them is missing
+      - run: make dist VERSION="$GITHUB_REF_NAME" SIGNED="$SIGNED"
+        env:
+          SIGNED: ${{ needs.macos.outputs.signed == 'true' && 'signed' || '' }}
       # `komando update` refuses a release whose checksums.txt is not signed
       # with a key built into komando; this checks the signature with
       # those keys before anything is published

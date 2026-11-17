@@ -315,6 +315,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--key` | | string | *exception*: `queue send --key` is the message key (Kafka); elsewhere an SSH key file | |
 | `--env`, `--label`, `--option`, `--var`, `--header`, `--config` (queue) | `-e` for --env | stringArray | `KEY=VALUE`, repeatable, never split on commas. A value whose text after a comma looks like `KEY=` is a USAGE error: "repeat --option for each KEY=VALUE" | |
 | `--group`, `--tag`, `--add-*`, `--rm-*`, `--kind`, `--unset` | `-g`, `-t` | stringSlice | a list of names, comma-separated | |
+| `--only` | | stringSlice | run only these parts of a read (`facts --only load,mem,disks`); the usage text lists the values, an unknown one is a USAGE error naming them | all parts |
 | `--all` | `-a` on read commands only | bool | also what is normally left out (read), or every item instead of one named item (change: no shorthand) | false |
 | `--all-namespaces` | `-A` | bool | every namespace (cluster) | false |
 | `--namespace` | `-n` (cluster only) | string | Kubernetes namespace. An all-digit value given as `-n` is a USAGE error: "`--limit N`, or `--namespace=N` for a namespace named N" | the conn's |

@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -26,6 +27,7 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -45,7 +47,7 @@ const gcsScope = "https://www.googleapis.com/auth/devstorage.read_write"
 // gcsDefaultCredentials finds application default credentials; tests
 // replace it.
 var gcsDefaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, gcsScope)
+	return gcpadc.Find(ctx, gcsScope)
 }
 
 // OpenGCS prepares a client; it does not contact the bucket. key is a
@@ -75,8 +77,14 @@ func OpenGCS(_ context.Context, t driver.Target, key string, dial DialFunc, time
 			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH", "the --password-ref of a gcs conn holds a service account key (the JSON file from the console)",
 				"gcs: the stored key is not a service account key: %v", err)
 		}
+	case gcsGoogleHost(t) && t.CA != "":
+		return nil, out.Usage("gcloud's login goes to Google Cloud Storage only under the system's CAs: take ?ca= out of the conn URL, or give the conn a service account key with --password-ref")
 	case gcsGoogleHost(t):
-		if creds, err = gcsDefaultCredentials(tctx); err != nil {
+		creds, err = gcsDefaultCredentials(tctx)
+		if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
+			return nil, fe.Err
+		}
+		if err != nil {
 			return nil, out.Errf(out.ExitConnect, "STORAGE_AUTH",
 				"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME` and pass --password-ref secret:NAME",
 				"gcs: no Google Cloud login: %v", err)
@@ -156,7 +164,7 @@ func (b *gcsBucket) List(ctx context.Context, prefix string, recursive bool, lim
 			Prefixes      []string    `json:"prefixes"`
 			NextPageToken string      `json:"nextPageToken"`
 		}
-		err = json.NewDecoder(resp.Body).Decode(&page)
+		err = decodeCapped(resp.Body, &page)
 		resp.Body.Close()
 		if err != nil {
 			return nil, false, webErr("gcs", nil, err)
@@ -210,7 +218,7 @@ func (b *gcsBucket) Stat(ctx context.Context, rel string) (Object, error) {
 	}
 	defer resp.Body.Close()
 	var o gcsObject
-	if err := json.NewDecoder(resp.Body).Decode(&o); err != nil {
+	if err := decodeCapped(resp.Body, &o); err != nil {
 		return Object{}, webErr("gcs", nil, err)
 	}
 	n, _ := strconv.ParseInt(o.Size, 10, 64)
@@ -348,4 +356,19 @@ func (s *gcsSigner) sign(bucket, object string, expires time.Duration, now time.
 		return nil, fmt.Errorf("gcs: signing the link: %w", err)
 	}
 	return url.Parse("https://storage.googleapis.com" + canonPath + "?" + canonQuery + "&X-Goog-Signature=" + hex.EncodeToString(sig))
+}
+
+// answerCap is the most komando reads of one JSON answer from a storage
+// API (a listing page, an object's details): a broken or hostile endpoint
+// cannot make it read, and keep, without end.
+const answerCap = 32 << 20
+
+// decodeCapped decodes one JSON answer of at most answerCap bytes.
+func decodeCapped(r io.Reader, v any) error {
+	lr := &io.LimitedReader{R: r, N: answerCap + 1}
+	err := json.NewDecoder(lr).Decode(v)
+	if lr.N <= 0 {
+		return fmt.Errorf("the answer is larger than %d MiB; komando reads no more of it", answerCap>>20)
+	}
+	return err
 }

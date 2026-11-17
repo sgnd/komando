@@ -16,6 +16,24 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
+// factsMemLine and factsDiskLines are the memory and disk probes, which
+// facts --only runs alone too.
+const factsMemLine = `[ -r /proc/meminfo ] && awk '/^MemTotal/{print "mem_total_mb="int($2/1024)}/^MemAvailable/{print "mem_available_mb="int($2/1024)}/^SwapTotal/{print "swap_total_mb="int($2/1024)}/^SwapFree/{print "swap_free_mb="int($2/1024)}' /proc/meminfo
+`
+
+const factsDiskLines = `df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
+df -P -k 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|udev|overlay|shm|none|squashfs|proc|sysfs|efivarfs|cgroup2?)$/ && $1 !~ /^\/dev\/loop/ {m=$6; for(i=7;i<=NF;i++) m=m" "$i; if (m ~ /^\/(proc|sys|dev|run|snap)(\/|$)/) next; printf "disk=%s\t%s\t%s\t%s\t%d\t%s\n", $1, $2, $3, $4, $5, m}'
+`
+
+// factsName keeps a name a string, whatever it looks like (PRETTY_NAME=2024
+// is not a number); an OS name or version the server does not have is null.
+func factsName(k, v string) any {
+	if v == "" && strings.HasPrefix(k, "os") {
+		return nil
+	}
+	return v
+}
+
 // factsScript gathers everything in one round trip. It only reads: it
 // never refreshes a package index, never starts a PM2 daemon, and uses sudo
 // only as `sudo -n` when sudo already works without a password (it never
@@ -24,11 +42,9 @@ const factsScript = `export LC_ALL=C
 echo "hostname=$(hostname 2>/dev/null)"
 echo "kernel=$(uname -r)"; echo "arch=$(uname -m)"
 echo "cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null)"
-[ -r /proc/meminfo ] && awk '/^MemTotal/{print "mem_total_mb="int($2/1024)}/^MemAvailable/{print "mem_available_mb="int($2/1024)}/^SwapTotal/{print "swap_total_mb="int($2/1024)}/^SwapFree/{print "swap_free_mb="int($2/1024)}' /proc/meminfo
-[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
+` + factsMemLine + `[ -r /proc/loadavg ] && echo "load=$(cut -d' ' -f1-3 /proc/loadavg)"
 [ -r /proc/uptime ] && echo "uptime_sec=$(cut -d. -f1 /proc/uptime)"
-df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_total_gb="int($2/1048576); print "disk_root_used_pct="int($5)}'
-echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
+` + factsDiskLines + `echo "ips=$(hostname -I 2>/dev/null || ip -o -4 addr show scope global 2>/dev/null | awk '{sub("/.*", "", $4); print $4}' | tr '\n' ' ')"
 echo "init=$(cat /proc/1/comm 2>/dev/null || ps -p 1 -o comm= 2>/dev/null)"
 v=$(systemd-detect-virt 2>/dev/null)
 if [ -z "$v" ] || [ "$v" = none ]; then
@@ -95,6 +111,35 @@ dnf|yum)
 esac
 true
 `
+
+// diskFacts is one mounted file system, in MiB (df's 1024-byte blocks).
+type diskFacts struct {
+	Mount   string `json:"mount"`
+	Device  string `json:"device"`
+	SizeMB  int64  `json:"size_mb"`
+	UsedMB  int64  `json:"used_mb"`
+	AvailMB int64  `json:"avail_mb"`
+	UsedPct int64  `json:"used_pct"`
+}
+
+// appendDisk reads a disk line: DEVICE, size, used and available in KiB,
+// use %, and the mount point (which may hold spaces), tab-separated.
+func appendDisk(disks []diskFacts, line string) []diskFacts {
+	p := strings.SplitN(line, "\t", 6)
+	if len(p) != 6 {
+		return disks
+	}
+	n := make([]int64, 4)
+	for i := range n {
+		v, err := strconv.ParseInt(strings.TrimSpace(p[i+1]), 10, 64)
+		if err != nil {
+			return disks
+		}
+		n[i] = v
+	}
+	return append(disks, diskFacts{Mount: strings.TrimSpace(p[5]), Device: p[0], SizeMB: n[0] / 1024, UsedMB: n[1] / 1024,
+		AvailMB: n[2] / 1024, UsedPct: n[3]})
+}
 
 // pm2App is one PM2 app: its name and state, never its command line or
 // environment (they can hold passwords).
@@ -209,8 +254,8 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 		case "apt_sim_ok", "apt_lists_mtime", "upd_rc", "sec_rc", "listen_src", "listen_names",
 			"units_checked", "now_epoch", "docker_version", "login_user", "pm2_mine":
 			set[k] = v
-		case "os_version", "hostname", "kernel":
-			f[k] = v
+		case "os", "os_version", "os_pretty", "hostname", "kernel":
+			f[k] = factsName(k, v)
 		case "ips":
 			f[k] = strings.Fields(v)
 		case "load":
@@ -271,6 +316,9 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 // hostStateFacts puts what hoststate printed into the facts, in the keys
 // facts has always had.
 func hostStateFacts(f map[string]any, hs hostState) {
+	if hs.Disks != nil {
+		f["disks"] = hs.Disks
+	}
 	f["reboot_required"] = nil // not a Debian-family server and no needs-restarting
 	if hs.Reboot != nil {
 		f["reboot_required"] = *hs.Reboot
@@ -553,7 +601,8 @@ func compactIPv6(s string) string {
 }
 
 func factsCmd() *cobra.Command {
-	return &cobra.Command{
+	var only []string
+	c := &cobra.Command{
 		Use:     "facts TARGET",
 		Aliases: []string{"info"},
 		Short:   "System facts: OS and support, updates, Docker, open ports",
@@ -570,13 +619,28 @@ On Windows servers it reports the Windows version and its support dates,
 pending updates from the Windows Update cache, a pending reboot, stopped
 automatic services and listening ports.
 
+--only load,mem,disks runs just those probes (load and CPUs; memory and
+swap; every file system), in about a second, for an app that polls; the
+other keys are left out. --only system gives the OS name and version and
+the time the server has been up. On Windows the full probe runs and only
+those keys are kept.
+
 It only reads, and it uses sudo only when sudo works without a password.
 A value komando cannot read is null ("unknown"), never 0 or false; read
 data.results[].data.warnings first.`,
-		Example: "  komando facts web1\n  komando facts @prod -o json",
+		Example: "  komando facts web1\n  komando facts @prod -o json\n  komando facts web1 --only load,mem,disks -o json\n  komando facts web1 --only system",
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if len(only) > 0 {
+				script, keys, err := factsOnly(only)
+				if err != nil {
+					return err
+				}
+				return probeText(cl, cmd.Context(), "facts", args[0], script, false, nil, factsOnlyParse(keys), factsOnlyText)
+			}
 			return probeText(cl, cmd.Context(), "facts", args[0], factsScript, false, nil, parseFacts, factsText)
 		}),
 	}
+	c.Flags().StringSliceVar(&only, "only", nil, "run only these sections, comma-separated: "+strings.Join(factsSectionNames(), ", ")+" (fast, for polling; the other keys are left out)")
+	return c
 }

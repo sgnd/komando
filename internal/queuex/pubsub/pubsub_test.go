@@ -94,16 +94,22 @@ func TestOpenDefaultCredentials(t *testing.T) {
 	defaultCredentials = func(context.Context) (*google.Credentials, error) {
 		return &google.Credentials{TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "adc"})}, nil
 	}
+	// gcloud's login goes to Google only: an endpoint of its own gets none
+	// (a conn names any https host, and the token is good for the whole
+	// Google Cloud account), as with Cloud Storage and BigQuery
 	open(t, srv)
-	if f.auth[0] != "Bearer adc" {
-		t.Errorf("auth: %q", f.auth)
+	if f.auth[0] != "" {
+		t.Errorf("an endpoint of its own got gcloud's login: %q", f.auth)
+	}
+	tg, _ := driver.Parse("pubsub://" + fakeProject)
+	if src, err := tokens(tg, "", nil); err != nil || src == nil {
+		t.Errorf("Google's endpoint uses gcloud's login: %v %v", src, err)
 	}
 	noADC(t)
 	open(t, srv) // an endpoint of its own may need no login
 	if f.auth[1] != "" {
 		t.Errorf("auth: %q", f.auth)
 	}
-	tg, _ := driver.Parse("pubsub://" + fakeProject)
 	if _, err := Open(context.Background(), tg, "", nil, time.Second, "x"); code(err) != "QUEUE_AUTH" {
 		t.Errorf("Google without a login: %v", err)
 	}
