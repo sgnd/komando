@@ -161,6 +161,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- Moving a VPN now counts for the stored passwords behind it (C111). An AI agent's `vpn edit` that changes how a VPN connects, `vpn add --overwrite`, an import that replaces a VPN, or a new OpenVPN profile in the vault, gets `SECRET_DESTINATION` (exit 6) when servers or conns with a stored password reach their server through that VPN, and the window names each one, as for a moved jump server. Login-ask servers and conns behind it still need a person (`NEEDS_PERSON`). A person's own commands are unchanged.
+
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
   `~/.komando` of the changed `HOME` as the usual folder, so only the
