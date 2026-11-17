@@ -91,6 +91,9 @@ func runMongoQuery(cl *call, ctx context.Context, name string, st *store.State, 
 	if err != nil {
 		return err
 	}
+	if err := hiddenColumnUse(cl, c, text); err != nil {
+		return err
+	}
 	v := dbx.ClassifyMongo(cmd)
 	rec := map[string]any{"conns": []string{c.Name}, "risk": v.Risk.String(), "write": f.write, "mongo_command": cmd[0].Key}
 	switch st.Settings.AuditSQL { // the same setting keeps command text out of the log
@@ -140,6 +143,7 @@ func runMongoQuery(cl *call, ctx context.Context, name string, st *store.State, 
 		return fail(err)
 	}
 	audit(cl, st, name, nil, "", true, rec)
+	maskMongo(cl, c, res)
 	data.MongoResult = res
 	cl.out.Print(name, data, nil)
 	return nil

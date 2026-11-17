@@ -193,6 +193,9 @@ func podFileMasked(cl *call, name string, b []byte) ([]byte, error) {
 	if len(b) <= hiddenScanMax && bytes.IndexByte(b, 0) < 0 {
 		return []byte(cl.out.Redact(string(b))), nil
 	}
+	if err := personalBinary(cl, b, int64(len(b))); err != nil {
+		return nil, kstop(toErr(err))
+	}
 	sc := cl.out.NewValueScanner()
 	_, _ = sc.Write(b)
 	if sc.Found() {

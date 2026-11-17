@@ -14,6 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // Where a secret may go when an AI agent asks (docs/features/safety.md).
@@ -375,12 +376,17 @@ func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 // guardHostSends is guardSends for servers an add, edit or import leaves
 // as now; olds holds each one's settings before, by name (none: new). s
 // is the inventory: where a typed password goes stops an agent first
-// (loginPlaceStop).
+// (loginPlaceStop), and what reaches its server through one of them
+// counts too (behindSends).
 func guardHostSends(cl *call, s *store.State, now []*store.Host, olds map[string]*store.Host, why ...string) error {
 	if what := hostPlaceChanges(s, now, olds); cl.isAgent() && len(what) > 0 {
 		return loginPlaceStop(cl, what) // no yes lifts it, so no yes to ask for
 	}
-	var lines, weak []string
+	lines, err := behindSends(s, now, olds)
+	if err != nil {
+		return err
+	}
+	var weak []string
 	for _, h := range now {
 		var before *secretPlace
 		if o, ok := olds[h.Name]; ok && o != nil {
@@ -402,9 +408,84 @@ func guardHostSends(cl *call, s *store.State, now []*store.Host, olds map[string
 	return guardSends(cl, lines, weak, why...)
 }
 
+// behindSends lists what the servers and conns behind a moved hop send by
+// the new way: a server in now whose place changed (its address, port,
+// --via or proxy command) takes with it every other server and conn whose
+// --via names it, and their passwords travel that way on the next
+// connection (a conn's database password is typed into the last hop).
+func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host) ([]string, error) {
+	if st == nil {
+		return nil, nil
+	}
+	cur := map[string]*store.Host{} // every server as the edit leaves it
+	for n, h := range st.Hosts {
+		cur[n] = h
+	}
+	ownLine := map[string]bool{} // a server of the edit whose own place changed: its own line covers it
+	moved := map[string]string{} // hop name: where it is now
+	for _, h := range now {
+		cur[h.Name] = h
+		if o := olds[h.Name]; o != nil && hostPlace(o).dest != hostPlace(h).dest {
+			moved[h.Name] = hostPlace(h).dest
+			ownLine[h.Name] = true
+		}
+	}
+	if len(moved) == 0 {
+		return nil, nil
+	}
+	// a server reached through a moved hop has moved too: what lies behind
+	// it goes the new way (mid --via jump, then conn --via mid)
+	for changed := true; changed; {
+		changed = false
+		for n, h := range cur {
+			if _, ok := moved[n]; ok {
+				continue
+			}
+			for _, step := range viaChain(h.Via) {
+				if to, ok := moved[step]; ok {
+					moved[n] = hostPlace(h).dest + " (by way of " + step + ", now at " + to + ")"
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	var lines []string
+	add := func(label, via string, p secretPlace) error {
+		for _, step := range viaChain(via) {
+			to, ok := moved[step]
+			if !ok || len(p.refs) == 0 {
+				continue
+			}
+			if err := reservedRefs(p.refs); err != nil {
+				return err
+			}
+			lines = append(lines, fmt.Sprintf("%s to %s (%s), by way of %s, now at %s", strings.Join(p.refs, ", "), p.dest, label, step, to))
+			break
+		}
+		return nil
+	}
+	for _, n := range sortedKeys(cur) {
+		if ownLine[n] {
+			continue
+		}
+		if err := add("server "+n, cur[n].Via, hostPlace(cur[n])); err != nil {
+			return nil, err
+		}
+	}
+	for _, n := range sortedKeys(st.Conns) {
+		c := st.Conns[n]
+		if err := add("conn "+n, c.Via, connPlace(c)); err != nil {
+			return nil, err
+		}
+	}
+	return lines, nil
+}
+
 // winrmWeak is what now's WinRM settings give up that old's did not: the
 // server's certificate is not checked (tls=skip-verify), nothing is
-// encrypted (tls=off), or the password itself is sent (auth=basic).
+// encrypted (tls=off), the password itself is sent (auth=basic), or a
+// server komando knew is checked against another CA certificate (?ca=).
 func winrmWeak(old, now *store.Host) []string {
 	if !now.WinRM() || now.WinRMOpts == nil {
 		return nil
@@ -425,6 +506,11 @@ func winrmWeak(old, now *store.Host) []string {
 	}
 	if o.Auth == "basic" && was.Auth != "basic" {
 		w = append(w, "server "+now.Name+": WinRM auth=basic (the password itself is sent)")
+	}
+	// another CA lets another server pass as this one; a new server's own
+	// CA, and going back to the system's CAs only, give nothing up
+	if old != nil && o.CA != "" && o.CA != was.CA {
+		w = append(w, "server "+now.Name+": WinRM is checked against another CA certificate ("+o.CA+")")
 	}
 	return w
 }
@@ -498,4 +584,85 @@ func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string
 		weak = append(weak, "vpn "+now.Name+" no longer checks its server against the CA certificate it had")
 	}
 	return guardSends(cl, []string{line}, weak)
+}
+
+// guardTrustSecret stops an AI agent from giving the vault secret name
+// the value now when that value decides whom komando trusts, not only how
+// it logs in: an OpenVPN VPN's profile (its servers and CA; the VPN's
+// login goes there) and the CA certificate a WinRM server or a conn is
+// checked against (?ca=secret:NAME). had is false when the secret is not
+// there yet: making a CA an entry already names counts too. A person's
+// yes (--yes, then the window) lets it through, as for vpn edit, host
+// edit and conn edit making the same change.
+//
+// nowFrom names where the new value comes from when the agent may not read
+// it (secret cp/rename copies another secret): the window then names that
+// secret, never the servers in it.
+func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now, nowFrom string) error {
+	if !cl.isAgent() || (had && old == now) {
+		return nil
+	}
+	ref := "secret:" + name
+	var sends, weak []string
+	for _, n := range sortedKeys(st.Vpns) {
+		v := st.Vpns[n]
+		if v.Kind != "openvpn" || v.ConfigRef != ref {
+			continue
+		}
+		// a login a person types at `vpn up` goes wherever the profile
+		// points: moving it is for a person only, as vpn edit has it
+		if v.KeyRef == "" || v.MFA {
+			return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to replace secret "+name+" in their own terminal",
+				"secret %s is the profile of vpn %s, which gets the login a person types at `vpn up`; an AI agent may not change where it goes", name, v.Name).NoFlag()
+		}
+		servers, err := ovpnRemotes(now)
+		if err != nil || servers == "" {
+			servers = "the servers in the new profile"
+		}
+		if nowFrom != "" {
+			servers = "the servers in the profile " + nowFrom + " holds"
+		}
+		before := vpnPlace(v, "")
+		line, err := newSends("vpn "+v.Name, &before, vpnPlace(v, servers))
+		if err != nil {
+			return err
+		}
+		sends = append(sends, line)
+		weak = append(weak, "vpn "+v.Name+" gets another OpenVPN profile: other servers, checked against another CA certificate, may stand in for it")
+	}
+	for _, n := range sortedKeys(st.Hosts) {
+		h := st.Hosts[n]
+		if h.WinRMOpts != nil && h.WinRMOpts.CA == ref {
+			weak = append(weak, "server "+h.Name+" is checked against another CA certificate (WinRM): another server may pass as it and get its login")
+		}
+	}
+	for _, n := range sortedKeys(st.Conns) {
+		c := st.Conns[n]
+		for _, r := range urlSecretRefs(c.URL) {
+			if r.Name == name && caOption(r.Option) {
+				weak = append(weak, "conn "+c.Name+" is checked against another CA certificate: another server may pass as it and get its login")
+				break
+			}
+		}
+	}
+	return guardSends(cl, sends, weak)
+}
+
+// guardImportedTrust runs secret set's trust check (guardTrustSecret) for
+// every vault secret an import replaces or makes; guardImportSecrets has
+// the protected-entry and login-place checks.
+func guardImportedTrust(cl *call, st *store.State, values map[string]string) error {
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		old, err := vault.Get(name)
+		if err := guardTrustSecret(cl, st, name, old, err == nil, values[name], ""); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// caOption reports whether a conn URL option names a CA certificate.
+func caOption(opt string) bool {
+	opt = strings.ToLower(opt)
+	return opt == "ca" || strings.HasSuffix(opt, "-ca") || strings.HasSuffix(opt, "_ca") || strings.Contains(opt, "rootcert")
 }

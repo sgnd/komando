@@ -276,6 +276,7 @@ Values that are not UTF-8 text are shown as base64.`,
 					if err != nil {
 						return nil, err
 					}
+					hideBinaryMessages(cl, p.Messages)
 					return queuePeek{Conn: c.Name, PeekResult: p}, nil
 				})
 		}),
