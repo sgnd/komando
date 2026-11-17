@@ -80,7 +80,7 @@ func organizeSteps(t *testing.T, b Bucket, objectStore bool) {
 	if existed, err := b.Mkdir(ctx, "dir"); !existed || err != nil {
 		t.Errorf("mkdir of a folder with files: %v %v", existed, err)
 	}
-	if _, err := b.Mkdir(ctx, "a.txt"); code(err) != "OBJECT_EXISTS" {
+	if _, err := b.Mkdir(ctx, "a.txt"); code(err) != "FILE_EXISTS" {
 		t.Errorf("mkdir over a file: %v", err)
 	}
 	for _, bad := range []string{"", "/", "../up", `a\..\..\x`} {
@@ -99,7 +99,7 @@ func organizeSteps(t *testing.T, b Bucket, objectStore bool) {
 	}
 
 	// an existing file stops it, unless --overwrite; a dry run changes nothing
-	if _, err := b.Move(ctx, "other.txt", "dir/b.txt", MoveOpts{}); code(err) != "OBJECT_EXISTS" {
+	if _, err := b.Move(ctx, "other.txt", "dir/b.txt", MoveOpts{}); code(err) != "FILE_EXISTS" {
 		t.Errorf("over a file: %v", err)
 	}
 	if m, err := b.Move(ctx, "other.txt", "dir/b.txt", MoveOpts{Overwrite: true, DryRun: true}); err != nil || !m.Replaced || get("dir/b.txt") != "bb" || !there("other.txt") {
@@ -111,11 +111,11 @@ func organizeSteps(t *testing.T, b Bucket, objectStore bool) {
 
 	for _, c := range []struct{ src, dst, want string }{
 		{"nope.txt", "x.txt", "OBJECT_NOT_FOUND"},
-		{"moved/a2.txt", "dir", "OBJECT_EXISTS"},      // a folder is never replaced
-		{"moved/a2.txt", "moved/a2.txt", "USAGE"},     // the same
-		{"moved/a2.txt", "../a.txt", "USAGE"},         // out of the folder
-		{"dir", "dir/sub/x", "USAGE"},                 // into itself
-		{"moved/a2.txt", "new/deep", "OBJECT_EXISTS"}, // an empty folder too
+		{"moved/a2.txt", "dir", "FILE_EXISTS"},      // a folder is never replaced
+		{"moved/a2.txt", "moved/a2.txt", "USAGE"},   // the same
+		{"moved/a2.txt", "../a.txt", "USAGE"},       // out of the folder
+		{"dir", "dir/sub/x", "USAGE"},               // into itself
+		{"moved/a2.txt", "new/deep", "FILE_EXISTS"}, // an empty folder too
 	} {
 		if _, err := b.Move(ctx, c.src, c.dst, MoveOpts{Overwrite: true}); code(err) != c.want {
 			t.Errorf("mv %s %s: %v, want %s", c.src, c.dst, err, c.want)
@@ -133,7 +133,7 @@ func organizeSteps(t *testing.T, b Bucket, objectStore bool) {
 	if err != nil || !m.Folder || get("dir2/sub/c.txt") != "c" || there("dir") {
 		t.Errorf("a folder: %+v %v", m, err)
 	}
-	if _, err := b.Move(ctx, "dir2", "moved/a2.txt", MoveOpts{Overwrite: true}); code(err) != "OBJECT_EXISTS" {
+	if _, err := b.Move(ctx, "dir2", "moved/a2.txt", MoveOpts{Overwrite: true}); code(err) != "FILE_EXISTS" {
 		t.Errorf("a folder over a file: %v", err)
 	}
 }
@@ -173,7 +173,7 @@ func TestOrganizeGCS(t *testing.T) {
 	}
 	// the copy itself refuses an object that appeared after the check
 	f.objs["site/x"], f.objs["site/y"] = []byte("x"), []byte("y")
-	if err := b.(*gcsBucket).copyObject(context.Background(), "x", "y", false); code(err) != "OBJECT_EXISTS" {
+	if err := b.(*gcsBucket).copyObject(context.Background(), "x", "y", false); code(err) != "FILE_EXISTS" {
 		t.Errorf("rewrite over an object: %v", err)
 	}
 }
@@ -201,7 +201,7 @@ func TestOrganizeAzure(t *testing.T) {
 		t.Errorf("a pending copy: %v %v", err, keysOf(f.blobs))
 	}
 	f.blobs["site/x"], f.blobs["site/y"] = []byte("x"), []byte("y")
-	if err := b.(*azBucket).copyObject(context.Background(), "x", "y", false); code(err) != "OBJECT_EXISTS" {
+	if err := b.(*azBucket).copyObject(context.Background(), "x", "y", false); code(err) != "FILE_EXISTS" {
 		t.Errorf("copy over a blob: %v", err)
 	}
 }
@@ -501,8 +501,8 @@ func TestFTPMoveSeesAHiddenDotFile(t *testing.T) {
 	os.WriteFile(filepath.Join(site, "new.conf"), []byte("new"), 0o644)
 	b := s.open(t)
 	_, err := b.Move(context.Background(), "new.conf", ".htaccess", MoveOpts{})
-	if errCode(err) != "OBJECT_EXISTS" {
-		t.Fatalf("mv onto a hidden file: %v, want OBJECT_EXISTS", err)
+	if errCode(err) != "FILE_EXISTS" {
+		t.Fatalf("mv onto a hidden file: %v, want FILE_EXISTS", err)
 	}
 	if got, _ := os.ReadFile(filepath.Join(site, ".htaccess")); string(got) != "old" {
 		t.Fatalf(".htaccess is now %q", got)

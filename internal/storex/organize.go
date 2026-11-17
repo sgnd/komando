@@ -110,7 +110,7 @@ func NotThere(rel string) error {
 }
 
 func fileInTheWay(rel string) error {
-	return out.Errf(out.ExitConflict, "OBJECT_EXISTS", "pick another name; `komando storage list CONN [PREFIX]` shows what is there",
+	return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name; `komando storage list CONN [PREFIX]` shows what is there",
 		"a file named %q is already there", rel)
 }
 
@@ -150,14 +150,14 @@ func checkMove(ctx context.Context, b lookuper, src, dst string, o MoveOpts, obj
 	}
 	switch {
 	case found && do.Dir:
-		return Moved{}, out.Errf(out.ExitConflict, "OBJECT_EXISTS",
+		return Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS",
 			fmt.Sprintf("to move it into that folder, end DST with /: `komando storage mv CONN %s %s`", arg(s), arg(d+"/")),
 			"%q is a folder", d)
 	case found && so.Dir:
-		return Moved{}, out.Errf(out.ExitConflict, "OBJECT_EXISTS", "pick another DST; a folder never replaces a file",
+		return Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another DST; a folder never replaces a file",
 			"a file named %q is already there", d)
 	case found && !o.Overwrite:
-		return Moved{}, out.Errf(out.ExitConflict, "OBJECT_EXISTS",
+		return Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS",
 			fmt.Sprintf("replace it with `komando storage mv CONN %s %s --overwrite`, or pick another DST", arg(s), arg(d)),
 			"a file named %q is already there", d)
 	}

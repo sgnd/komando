@@ -65,7 +65,7 @@ func storageMkdirCmd() *cobra.Command {
 		Short: "Create a folder in a storage conn, with any missing parents",
 		Long: `Makes the folder PATH and any missing folders above it. A folder that is
 already there is fine (created: false); a file with that name stops it
-(OBJECT_EXISTS).
+(FILE_EXISTS).
 
 S3, Google Cloud Storage and Azure Blob have no real folders, only names
 with / in them: there mkdir stores an empty folder marker (PATH/), as their
@@ -93,7 +93,7 @@ it.`,
 						return nil, err
 					}
 					if found && !o.Dir {
-						return nil, out.Errf(out.ExitConflict, "OBJECT_EXISTS", "pick another name; `komando storage list CONN [PREFIX]` shows what is there",
+						return nil, out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name; `komando storage list CONN [PREFIX]` shows what is there",
 							"a file named %q is already there", p)
 					}
 					return mkdirData{Conn: c.Name, Path: p + "/", Created: !found, DryRun: true}, nil
@@ -128,7 +128,7 @@ func storageMvCmd() *cobra.Command {
 		Short: "Move or rename a file or folder inside a storage conn",
 		Long: `Moves SRC to DST inside one conn. A DST ending in / is a folder: SRC moves
 into it and keeps its name. Missing folders above DST are made. A file
-already at DST stops the move (OBJECT_EXISTS) unless --overwrite; a folder
+already at DST stops the move (FILE_EXISTS) unless --overwrite; a folder
 at DST is never replaced.
 
 On a file server (SFTP, FTP, FTPS, WebDAV, SMB) mv is one rename on the

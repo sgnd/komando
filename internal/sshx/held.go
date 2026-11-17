@@ -192,3 +192,23 @@ func passChannel(nc ssh.NewChannel, up *ssh.Client) {
 	dch.Close()
 	asking.Unlock()
 }
+
+// AskHops are the servers on the way to h, h last, whose login is "ask"
+// (a person types the password) and that no held login covers: the ones a
+// connection to h asks a password for.
+func AskHops(st *store.State, h *store.Host) []*store.Host {
+	if h == nil || HeldFor(st, h) != nil {
+		return nil
+	}
+	_, hops, err := resolveChain(st, h, map[string]bool{})
+	if err != nil {
+		return nil // Dial says what is wrong with the path
+	}
+	var ask []*store.Host
+	for _, hop := range hops {
+		if hop.AskLogin() && HeldFor(st, hop) == nil {
+			ask = append(ask, hop)
+		}
+	}
+	return ask
+}

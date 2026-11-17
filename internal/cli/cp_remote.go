@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"mime"
 	"os"
@@ -298,7 +299,9 @@ func remoteCopy(cl *call, ctx context.Context, src, dst *copyEnd, srcP, dstP str
 	}
 	if si.dir {
 		if !o.recursive {
-			return xferStats{}, out.Usage("%s:%s is a folder; add -r", src.name(), srcP)
+			return xferStats{}, out.Errf(out.ExitUsage, "IS_A_DIRECTORY",
+				fmt.Sprintf("copy the folder and everything in it with -r: `komando cp -r %s %s`", argQ(src.name()+":"+srcP), argQ(dst.name()+":"+dstP)),
+				"%s:%s is a folder, not a file", src.name(), srcP)
 		}
 		return copyFolder(cl, ctx, src, dst, strings.TrimSuffix(sp, "/"), dp, contents, dstIsDir, dstSlash, o)
 	}

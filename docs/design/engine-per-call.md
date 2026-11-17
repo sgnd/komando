@@ -32,8 +32,10 @@ variables.
 
 `internal/engine` has `Call`: the environment (`LookupEnv`, `Environ`),
 `Stdin`, `Stdout`, `Stderr`, whether a person can answer at a terminal
-(`Terminal`), and the approval window (`Ask`; nil opens komando's own).
-The CLI makes one from its process (`processCall`). An app makes one per
+(`Terminal`), the approval window (`Ask`; nil opens komando's own), and
+the password window for a server whose login is `ask` (`AskPassword`; nil
+opens komando's own for an AI agent's call, and gives any other call
+without a terminal `NEEDS_PERSON`). The CLI makes one from its process (`processCall`). An app makes one per
 command. `Call.Caller()` says who calls (person, script or agent), read
 from that environment only.
 
