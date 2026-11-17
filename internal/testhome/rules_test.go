@@ -166,11 +166,9 @@ func homeWrites(fset *token.FileSet, file *ast.File) []string {
 					if !fromHome(rhs) {
 						continue
 					}
-					lhs := as.Lhs
+					lhs := as.Lhs[:1] // d, err := os.UserHomeDir()
 					if len(as.Rhs) == len(as.Lhs) {
 						lhs = as.Lhs[i : i+1]
-					} else {
-						lhs = as.Lhs[:1] // d, err := os.UserHomeDir()
 					}
 					for _, l := range lhs {
 						if id, ok := l.(*ast.Ident); ok && id.Name != "_" && !tainted[id.Name] {
