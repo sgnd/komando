@@ -143,8 +143,10 @@ its highlights; the sections below them give the details. Versions follow
   agent's `--reveal` (or `--host-key-policy off`) opened its window
   before the command had read its script, and that yes then covered the
   script, the matched rules and the protected server, even a script no
-  window can show. A yes now covers the flags, the script and the
-  reasons its window showed; anything new asks again. A destructive
+  window can show. A yes now covers the script and the reasons its
+  window showed, and a `--reveal` yes no longer answers a `--yes` or
+  `--allow-dangerous` check (nor the other way round); anything new asks
+  again. A destructive
   change on a protected server or conn asks once, in a window that names
   both flags.
 - The approval window for `recipe run` shows the command the recipe

@@ -106,8 +106,9 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 }
 
 // personAllowsFlags is personAllowsFor for a window that names several
-// flags. A yes covers the flags its window named, and no other: a window
-// opened for --reveal does not answer a later --yes check.
+// flags. A yes covers the kind of flag its window named (flagKind): a
+// window opened for --reveal does not answer a later --yes check, nor the
+// other way round.
 func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bool {
 	if !cl.caller().IsAgent() || cl.flags.dryRun {
 		return true
@@ -122,7 +123,7 @@ func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bo
 	// A no stands for the whole command.
 	need := shownKeys(cl, what, why)
 	for _, f := range flags {
-		need = append(need, "flag "+f)
+		need = append(need, flagKind(f))
 	}
 	if w := sess.Window(); w.Asked && (!w.Allowed || !slices.ContainsFunc(need, func(k string) bool { return !sess.Shown(k) })) {
 		return w.Allowed
@@ -192,6 +193,16 @@ func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bo
 		sess.SetWhy("no-screen")
 	}
 	return sess.Window().Allowed
+}
+
+// flagKind is the key of what a flag's yes covers: --reveal shows or
+// sends secrets; --yes and --allow-dangerous both let a change through,
+// and one window answers both (it names the reasons of each).
+func flagKind(flag string) string {
+	if flag == "--reveal" {
+		return "flag --reveal"
+	}
+	return "flag change"
 }
 
 // shownKeys names what a window for this check shows besides the command

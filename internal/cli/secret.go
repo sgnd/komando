@@ -275,15 +275,8 @@ are not changed.`
 			}
 			// what uses NEW gets the value of OLD: for a profile or a CA
 			// certificate that is a new place or a new trust
-			if cl.isAgent() {
-				now, err := vault.Get(from)
-				if err != nil {
-					return err
-				}
-				was, _ := vault.Get(to)
-				if err := guardTrustSecret(cl, st, to, was, replaced, now, "secret "+from); err != nil {
-					return err
-				}
+			if err := guardCopyTrust(cl, st, from, to, replaced); err != nil {
+				return err
 			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
 			if cl.flags.dryRun {
@@ -325,6 +318,21 @@ are not changed.`
 		c.Aliases = []string{"mv"} // a plain synonym
 	}
 	return c
+}
+
+// guardCopyTrust is guardTrustSecret for secret cp and rename: what uses
+// TO gets the value of FROM, which the agent may not read, so the window
+// names FROM, never what is in it.
+func guardCopyTrust(cl *call, st *store.State, from, to string, replaced bool) error {
+	if !cl.isAgent() {
+		return nil
+	}
+	now, err := vault.Get(from)
+	if err != nil {
+		return err
+	}
+	was, _ := vault.Get(to)
+	return guardTrustSecret(cl, st, to, was, replaced, now, "secret "+from)
 }
 
 func secretExists(from, to string) error {

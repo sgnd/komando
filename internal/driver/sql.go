@@ -538,26 +538,6 @@ func explainTarget(ts []token) ([]token, bool) {
 	return nil, analyze
 }
 
-// setStatementInner is the statement MariaDB's SET STATEMENT var=value
-// FOR statement runs (wrapped more than once, the innermost), or ts as it
-// is for anything else.
-func setStatementInner(ts []token) []token {
-	for len(ts) > 1 && ts[0].word == "SET" && ts[1].word == "STATEMENT" {
-		at := -1
-		for i := 2; i < len(ts); i++ {
-			if ts[i].word == "FOR" && ts[i].depth == ts[0].depth && i+1 < len(ts) {
-				at = i + 1
-				break
-			}
-		}
-		if at < 0 {
-			break
-		}
-		ts = ts[at:]
-	}
-	return ts
-}
-
 // classifyStatement rates one statement. strict (komando db) refuses
 // transaction control and changes to the settings komando's checks rely
 // on; a restore (not strict) checks those itself and only wants the rules.
@@ -585,35 +565,10 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 		}
 		return classifyStatement(inner, strict) // EXPLAIN EXECUTE runs its argument expressions even without ANALYZE
 	}
-	if strict && (first == "SET" || first == "RESET") {
-		for i, t := range ts {
-			name := t.word
-			afterScope := i > 0 && (ts[i-1].punct == '@' || ts[i-1].punct == '.') // @@session.x
-			switch {
-			case t.ident != "": // SET "standard_conforming_strings", SET `autocommit`
-				name = t.ident
-			case t.punct == '\'' && afterScope: // MariaDB: @@session.'autocommit'
-				name = strings.ToUpper(t.str)
-			}
-			if afterScope && (t.ident != "" || t.punct == '\'') && strings.Contains(name, `\`) {
-				// MariaDB reads @@session.'auto\commit' as autocommit
-				return 0, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
-					"write the setting name without quotes or backslashes: komando cannot check a name it cannot read",
-					"setting name %s has escapes", strings.ToLower(name))
-			}
-			if err := settingAllowed(name); err != nil {
-				return 0, nil, err
-			}
+	if first == "SET" || first == "RESET" {
+		if risk, rules, done, err := classifySet(ts, second, strict); done {
+			return risk, rules, err
 		}
-	}
-	if first == "SET" && second == "STATEMENT" {
-		// MariaDB: SET STATEMENT var=value[, ...] FOR statement runs the
-		// statement after FOR, which is what gets rated. Without one it is
-		// no statement komando knows: a write, to be safe.
-		if inner := setStatementInner(ts); len(inner) < len(ts) {
-			return classifyStatement(inner, strict)
-		}
-		return RiskWrite, nil, nil
 	}
 	risk := RiskWrite
 	if readFirst[first] {

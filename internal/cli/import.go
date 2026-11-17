@@ -260,15 +260,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	res.Secrets, res.Keys = plan.sealedNames(res.Secrets)
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
 	res.replacedAndNext(cl, existed, groups)
-	if err := guardImportSecrets(cl, st, res.Secrets); err != nil {
-		return err
-	}
-	// and secret set's check of whom komando trusts
-	values := map[string]string{}
-	for _, n := range res.Secrets {
-		values[n] = cmp.Or(plan.Secrets[n], plan.SealedSecrets[n])
-	}
-	if err := guardImportedTrust(cl, st, values); err != nil {
+	if err := guardImportSecrets(cl, st, res.Secrets, plan); err != nil {
 		return err
 	}
 	res.Action = "added"
