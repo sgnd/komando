@@ -284,6 +284,7 @@ func (p *Printer) redactJSON(b []byte) []byte {
 	if p.NoRedact {
 		return b
 	}
+	b = p.hideBase64JSON(b) // first: the later passes cannot see into base64
 	for _, h := range p.hideList() {
 		b = bytes.ReplaceAll(b, []byte(h.json), []byte(h.label))
 	}

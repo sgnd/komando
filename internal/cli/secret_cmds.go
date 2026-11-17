@@ -74,7 +74,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			if err := loginPlaceStop(cl, secretPlaceChanges(st, args[0])); err != nil {
 				return err
 			}
-			_, gerr := vault.Get(args[0])
+			was, gerr := vault.Get(args[0])
 			replaced := gerr == nil
 			if replaced {
 				if prot := protectedUsers(st, secretUsers(st, args[0])); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
@@ -83,6 +83,9 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 						return err
 					}
 				}
+			}
+			if err := guardTrustSecret(cl, st, args[0], was, replaced, v, ""); err != nil {
+				return err
 			}
 			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": secretSetAction(cl, replaced)}
 			if w := valueWarning(args[0], v); w != "" {

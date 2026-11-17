@@ -260,7 +260,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	res.Secrets, res.Keys = plan.sealedNames(res.Secrets)
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
 	res.replacedAndNext(cl, existed, groups)
-	if err := guardImportSecrets(cl, st, res.Secrets); err != nil {
+	if err := guardImportSecrets(cl, st, res.Secrets, plan); err != nil {
 		return err
 	}
 	res.Action = "added"
@@ -409,7 +409,7 @@ func importSkipper(cl *call, st *store.State, overwrite bool) func(kind, name st
 		// a protected conn or VPN is skipped like a protected server (vetImportHosts),
 		// so a dry run lists it as skipped, as the real run does, and the
 		// rest of the file still comes in
-		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !cl.yesOK() {
+		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && (c.Protected || cl.isAgent() && maskedConn(c)) && !cl.yesOK() {
 			return importProtectedSkip
 		}
 		if v, ok := st.Vpns[name]; ok && kind == "vpn" && overwrite && v.Protected && !cl.yesOK() {
