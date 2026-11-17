@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -191,6 +193,9 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 			if n, img, ok := strings.Cut(image, "="); ok && !strings.Contains(n, "/") && !strings.Contains(n, ":") {
 				container, image = n, img
 			}
+			if err := validImage(image); err != nil {
+				return err
+			}
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -237,7 +242,10 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 				if err != nil {
 					return nil, err
 				}
-				patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"image":%q}]}}}}`, target, image)
+				patch, err := imagePatch(target, image)
+				if err != nil {
+					return nil, err
+				}
 				q := url.Values{}
 				if cl.flags.dryRun {
 					q.Set("dryRun", "All")
@@ -610,4 +618,24 @@ func rollbackNote(cl *call, err *error, target, obj, ns string) {
 		n = " --namespace " + argQ(ns)
 	}
 	textNote(cl, "To go back to the previous image: komando cluster rollback %s %s%s", argQ(target), argQ(obj), n)
+}
+
+// validImage: an image name is printable text without spaces. Anything
+// else is refused here, where the message can say so, not by the cluster.
+func validImage(image string) error {
+	if image == "" || !utf8.ValidString(image) || strings.ContainsFunc(image, func(r rune) bool { return unicode.IsSpace(r) || !unicode.IsPrint(r) }) {
+		return out.Usage("--image %q is not an image name: it is empty or holds a space or a character that cannot be printed", image)
+	}
+	return nil
+}
+
+// imagePatch is the strategic-merge patch that gives one container a new
+// image, written by the JSON encoder so no name can change its shape.
+func imagePatch(container, image string) (string, error) {
+	if err := validImage(image); err != nil {
+		return "", err
+	}
+	c := map[string]any{"name": container, "image": image}
+	b, err := json.Marshal(map[string]any{"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": []any{c}}}}})
+	return string(b), err
 }

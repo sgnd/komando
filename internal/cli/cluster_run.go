@@ -419,7 +419,13 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 		if err := guardKubeImport(cl, n, x); err != nil {
 			return nil, err
 		}
-		kc, err := x.Standalone()
+		// the files the kubeconfig names are read like the kubeconfig: for
+		// an AI agent, never komando's own folder
+		kc, err := x.Standalone(func(p string) ([]byte, error) { return readImportFile(cl, p) })
+		var stop *out.Error
+		if errors.As(err, &stop) {
+			return nil, stop
+		}
 		if err != nil {
 			p.Notes = append(p.Notes, fmt.Sprintf("context %s: %v", n, err))
 			continue
