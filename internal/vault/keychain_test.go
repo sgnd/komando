@@ -11,14 +11,19 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/testhome"
 )
 
 // TestMain keeps every test away from the real keychain: a new vault
 // would otherwise put its key in the login keychain of whoever runs them.
 // The tests that use a keychain set KOMANDO_KEYCHAIN themselves.
 func TestMain(m *testing.M) {
+	// no test of this package sees the real home folder (internal/testhome)
+	homeDone := testhome.Use()
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
-	os.Exit(m.Run())
+	code := m.Run()
+	homeDone()
+	os.Exit(code)
 }
 
 func freshHome(t *testing.T) {

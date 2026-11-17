@@ -13,10 +13,13 @@ import (
 
 	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/testhome"
 	"github.com/sgnd/komando/internal/vault"
 )
 
 func TestMain(m *testing.M) {
+	// no test of this package sees the real home folder (internal/testhome)
+	homeDone := testhome.Use()
 	// never wait for a confirmation prompt, even when run from a terminal;
 	// a test that plays a person at a terminal sets it, whatever CI says
 	tcl.terminal = false
@@ -60,7 +63,9 @@ func TestMain(m *testing.M) {
 		}
 		return realHome()
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	homeDone()
+	os.Exit(code)
 }
 
 // setHome makes dir this test's komando home. The sealed store is closed
