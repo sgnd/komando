@@ -84,7 +84,7 @@ func fetchTrustRows(cl *call, ctx context.Context, st *store.State, hosts []*sto
 }
 
 func keyscanError(h *store.Host, addr string, err error) *out.Error {
-	if oe, ok := err.(*out.Error); ok && oe.Code != "CONNECT_FAILED" {
+	if oe, ok := err.(*out.Error); ok && oe.Code != "CONN_UNREACHABLE" {
 		return oe // a jump host's key or login, a timeout, a VPN: its own words
 	}
 	return out.Errf(out.ExitConnect, "KEYSCAN_FAILED", "check the address and port with `komando host show "+h.Name+"`", "cannot fetch host key from %s: %v", addr, err)

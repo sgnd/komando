@@ -134,10 +134,10 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	if e == nil || !strings.Contains(e.Hint, "komando login web1") {
 		t.Fatalf("an agent without a login: %+v", e)
 	}
-	wantCode(t, "NEEDS_TERMINAL", "login", "web1")
+	wantCode(t, "NEEDS_PERSON", "login", "web1")
 	// its dry run is never blocked: the plan says what the real run needs
 	d := mustRun(t, "login", "web1", "--dry-run")
-	if b, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); d["would_log_in"] != false || b["code"] != "NEEDS_TERMINAL" {
+	if b, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); d["would_log_in"] != false || b["code"] != "NEEDS_PERSON" {
 		t.Fatalf("an agent's dry run: %v", d)
 	}
 

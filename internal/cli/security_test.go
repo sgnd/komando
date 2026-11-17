@@ -83,7 +83,7 @@ func TestAgentFlagsNeedAPerson(t *testing.T) {
 	if tcl.yesOK() {
 		t.Fatal("the person denied it")
 	}
-	e := &out.Error{Code: "PROTECTED_HOST", Exit: out.ExitPolicy}
+	e := &out.Error{Code: "PROTECTED_TARGET", Exit: out.ExitPolicy}
 	approvalHint(tcl, e)
 	if !strings.Contains(e.Hint, "Deny") {
 		t.Errorf("hint after deny: %q", e.Hint)
@@ -97,7 +97,7 @@ func TestAgentFlagsNeedAPerson(t *testing.T) {
 		t.Fatal("nobody answered")
 	}
 	askOnScreen = saved
-	e = &out.Error{Code: "PROTECTED_HOST", Exit: out.ExitPolicy}
+	e = &out.Error{Code: "PROTECTED_TARGET", Exit: out.ExitPolicy}
 	approvalHint(tcl, e)
 	if !strings.Contains(e.Hint, "nobody answered") || strings.Contains(e.Hint, "Deny") {
 		t.Errorf("hint after no answer: %q", e.Hint)
