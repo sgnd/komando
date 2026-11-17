@@ -331,7 +331,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |
 | `--write` | | bool | let a read-first command (SQL, Redis, kubectl text) change things | false |
 | `--read-only` | | bool | declare shell text as read only | false |
-| `--dry-run` | | bool (global) | show the plan, change nothing; never blocked | false |
+| `--dry-run` | | bool (global) | show the plan, change nothing; never blocked (but S-7.5's one exception) | false |
 | `--refresh` | | bool | update the package index first (dnf, zypper) | false |
 | `--*-ref` | | string | where a secret is: `secret:NAME`, `env:VAR`, `file:PATH` or a manager ref | |
 | `--login` | | word | how komando logs in to a server or conn, in the words `show` and `list` print in `login`: `ask` (a person types the password at every connect; never stored), `password` (a stored one); servers also `key` and `agent`, conns `none`. One usage text (S-5.11); contradicting flags are USAGE | as the settings say |
@@ -541,7 +541,8 @@ gate asks `Run it?` once and the typed name once; T3 on a protected target
 asks one typed question with "(protected)" and the answer covers both.
 [code: PTY test]
 
-**S-7.5** `--dry-run` works on every change command, is never blocked, and
+**S-7.5** `--dry-run` works on every change command, is never blocked (but
+for an AI agent's command in another data folder, `KOMANDO_HOME`), and
 lists every approval the real run needs in `meta.would_need`
 (`["--allow-dangerous","--yes"]`), next to the unchanged
 `meta.would_be_blocked`. [code]

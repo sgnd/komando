@@ -6,7 +6,7 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 E2E="$ROOT/test/e2e"
-K="$ROOT/bin/komando"
+K="${E2E_BIN:?test/e2e/run.sh builds the lab komando and sets E2E_BIN}"
 # E2E_HOME keeps the inventory after the run (with KEEP=1 for the
 # containers), to try commands by hand against the same lab: one folder per
 # area, E2E_HOME/AREA
@@ -25,11 +25,14 @@ inventory_text() { "$K" export -o json 2>/dev/null; }
 # this script is a script, even when an AI agent starts it; the agent
 # checks say so on purpose (and never open an approval window)
 unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT GEMINI_CLI CODEX_SANDBOX CODEX_THREAD_ID CURSOR_AGENT KOMANDO_AGENT AI_AGENT
-# an agent's komando keeps the usual data folder (~/.komando): A runs with a
-# home whose .komando is this run's folder
+# an agent's komando keeps the usual data folder, ~/.komando of the
+# account's home in the user database, whatever HOME and KOMANDO_HOME say.
+# The lab's komando (built with the e2elab tag, run.sh, $E2E_BIN) takes that home
+# from KOMANDO_E2E_ACCOUNT_HOME: A runs with a home whose .komando is this
+# run's folder. A released komando knows no such variable.
 AGENT_HOME="$(mktemp -d)"
 ln -s "$KOMANDO_HOME" "$AGENT_HOME/.komando"
-A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 HOME="$AGENT_HOME" "$K" "$@"; }
+A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 KOMANDO_E2E_ACCOUNT_HOME="$AGENT_HOME" HOME="$AGENT_HOME" "$K" "$@"; }
 TMP="$(mktemp -d)"
 PROJECT=${E2E_PROJECT:-komando-e2e}
 export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}

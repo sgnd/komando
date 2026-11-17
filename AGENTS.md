@@ -29,7 +29,10 @@ under a pseudo-terminal and komando does not know your agent, set
    (`stdout_truncated`).
 4. Before any change, run it once with `--dry-run`. A dry run is never
    blocked; `meta.would_need` lists the flags the real run would need
-   (`meta.would_be_blocked` says why).
+   (`meta.would_be_blocked` says why). One exception: with `KOMANDO_HOME`
+   set to another folder every command of yours stops, a dry run too
+   (`NEEDS_PERSON`); no flag clears that one, so leave `KOMANDO_HOME`
+   alone.
    Declare read-only shell commands with `--read-only`. `db query`,
    `cache run` and `cluster run` are the other way round: they only read
    unless you add `--write`. A command that hands words to another
