@@ -53,7 +53,7 @@ func (s sudoSftpSide) remove(ctx context.Context, rel string) error {
 		return e
 	}
 	if r.ExitCode != 0 {
-		return out.Errf(out.ExitRemote, "WRITE_FAILED", "look at it with `komando fs stat SERVER PATH`", "%s: %s", p, strings.TrimSpace(r.Stderr))
+		return out.Errf(out.ExitRemote, "REMOTE_WRITE_FAILED", "look at it with `komando fs stat SERVER PATH`", "%s: %s", p, strings.TrimSpace(r.Stderr))
 	}
 	return nil
 }

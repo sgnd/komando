@@ -16,6 +16,7 @@ import (
 	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/registry"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/testhome"
 )
 
 func TestACRResource(t *testing.T) {
@@ -208,7 +209,7 @@ func TestCloudCredentialFileHook(t *testing.T) {
 	if home != tmpHome {
 		t.Fatalf("home is %q, not the test's temp folder: refusing to write a key file", home)
 	}
-	key := filepath.Join(home, ".ssh", "id_ed25519")
+	key := testhome.Path(t, filepath.Join(home, ".ssh", "id_ed25519"))
 	if err := os.MkdirAll(filepath.Dir(key), 0o700); err != nil {
 		t.Fatal(err)
 	}

@@ -64,7 +64,7 @@ func TestHostMv(t *testing.T) {
 	}
 
 	wantCode(t, "NAME_TAKEN", "host", "mv", "bastion", "db")
-	wantCode(t, "HOST_NOT_FOUND", "host", "mv", "nosuch", "x")
+	wantCode(t, "TARGET_NOT_FOUND", "host", "mv", "nosuch", "x")
 	wantCode(t, "USAGE", "host", "mv", "web", "bad name")
 	wantCode(t, "USAGE", "host", "mv", "web", "all")
 	if d := mustRun(t, "host", "mv", "web", "web"); d["action"] != "unchanged" {
@@ -74,7 +74,7 @@ func TestHostMv(t *testing.T) {
 
 	// protected: a person's yes, once
 	mustRun(t, "host", "add", "prod", "u@10.0.0.9", "--protected")
-	wantCode(t, "PROTECTED_HOST", "host", "mv", "prod", "prod1")
+	wantCode(t, "PROTECTED_TARGET", "host", "mv", "prod", "prod1")
 	if d := mustRun(t, "host", "mv", "prod", "prod1", "--dry-run"); d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run shows the stop: %v", d)
 	}
@@ -120,7 +120,7 @@ func TestVpnMv(t *testing.T) {
 	if st.Vpns["office"] == nil || st.Vpns["lab"] != nil || st.Hosts["h1"].Via != "office" || st.Hosts["h2"].Via != "office,h1" {
 		t.Errorf("vpn references: %+v %+v", st.Hosts["h1"], st.Hosts["h2"])
 	}
-	wantCode(t, "VPN_NOT_FOUND", "vpn", "mv", "lab", "x")
+	wantCode(t, "TARGET_NOT_FOUND", "vpn", "mv", "lab", "x")
 	wantCode(t, "NAME_TAKEN", "vpn", "mv", "office", "h1")
 	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: os.Getpid(), StartedAt: time.Now(), LastUsed: time.Now()}
@@ -138,7 +138,7 @@ func TestHostEditMany(t *testing.T) {
 	mustRun(t, "host", "add", "c", "u@10.0.0.3", "-g", "ubuntu", "--protected")
 	mustRun(t, "host", "add", "d", "u@10.0.0.4")
 
-	wantCode(t, "PROTECTED_HOST", "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo")
+	wantCode(t, "PROTECTED_TARGET", "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo")
 	d := mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--dry-run")
 	if len(d["changed"].([]any)) != 3 || len(d["protected"].([]any)) != 2 || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run lists every server and the stop: %v", d)
@@ -180,10 +180,10 @@ func TestHostEditMany(t *testing.T) {
 	}
 	// one server's value only
 	wantCode(t, "USAGE", "host", "edit", "a", "d", "--address", "10.9.9.9")
-	wantCode(t, "HOST_NOT_FOUND", "host", "edit", "a", "nosuch", "--add-tag", "x")
+	wantCode(t, "TARGET_NOT_FOUND", "host", "edit", "a", "nosuch", "--add-tag", "x")
 	wantCode(t, "TARGET_EMPTY", "host", "edit", "@nosuch", "--add-tag", "x")
 	// all or nothing: a bad value for one server stops every change
-	wantCode(t, "KEY_NOT_FOUND", "host", "edit", "a", "d", "--key", "nokey")
+	wantCode(t, "SSH_KEY_NOT_FOUND", "host", "edit", "a", "d", "--key", "nokey")
 	// one name keeps its old output
 	d = mustRun(t, "host", "edit", "a", "--add-tag", "one")
 	if d["name"] != "a" || d["changed"] != true {

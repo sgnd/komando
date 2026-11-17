@@ -328,7 +328,7 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 		}
 	}
 	if len(prot) > 0 && !cl.yesOK(protWhy(prot), targetsWhy(st, hosts)) && !confirmProtected(cl, prot) {
-		return cl.policyStop(approvalErr(cl, "PROTECTED_HOST",
+		return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			fmt.Sprintf("this changes protected %s: %s", nouns(len(prot), "server"), strings.Join(prot, ", "))).Say(protectedSay(prot, "server"), protectedHint))
 	}
 	return nil
@@ -545,8 +545,7 @@ func guardProtectionWhy(cl *call, kind, action string, names []string, why strin
 	if cl.yesOK(why) || asked() {
 		return nil
 	}
-	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind]
-	return cl.policyStop(approvalErr(cl, code, fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
+	return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET", fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
 }
 
 func hostNames(hs []*store.Host) []string {
@@ -670,15 +669,24 @@ type fleetSummary struct {
 	FailedHosts []string `json:"failed_hosts,omitempty"`
 }
 
-// finish prints a multi-host result and converts failures into an exit code.
-func finish(cl *call, command string, data any, sum fleetSummary, worstExit int) error {
+// soleError is the error of a fan-out to one server (nil otherwise): what
+// finish reports for a one-server result.
+func soleError(res []outcome) *out.Error {
+	if len(res) != 1 || res[0].Err == nil {
+		return nil
+	}
+	return toErr(res[0].Err)
+}
+
+// finish prints a multi-host result and converts failures into an exit
+// code. With one server, the result's error is that server's own (one).
+func finish(cl *call, command string, data any, sum fleetSummary, worstExit int, one *out.Error) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: failedOf(sum.Failed, sum.Total) + ": " + strings.Join(sum.FailedHosts, ", "),
 			Hint: "each server's result has its own exit code and error output (data.results in -o json)", Exit: worstExit}
-		if sum.Total == 1 {
-			soft.Code = "FAILED"
-			soft.Message = "server " + sum.FailedHosts[0] + " failed"
+		if sum.Total == 1 && one != nil {
+			soft.Code, soft.Message, soft.Hint, soft.Exit = one.Code, withHost(sum.FailedHosts[0], one.Message), one.Hint, one.Exit
 		}
 	}
 	cl.out.Print(command, data, soft)
