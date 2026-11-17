@@ -714,15 +714,24 @@ type fleetSummary struct {
 	FailedHosts []string `json:"failed_hosts,omitempty"`
 }
 
-// finish prints a multi-host result and converts failures into an exit code.
-func finish(cl *call, command string, data any, sum fleetSummary, worstExit int) error {
+// soleError is the error of a fan-out to one server (nil otherwise): what
+// finish reports for a one-server result.
+func soleError(res []outcome) *out.Error {
+	if len(res) != 1 || res[0].Err == nil {
+		return nil
+	}
+	return toErr(res[0].Err)
+}
+
+// finish prints a multi-host result and converts failures into an exit
+// code. With one server, the result's error is that server's own (one).
+func finish(cl *call, command string, data any, sum fleetSummary, worstExit int, one *out.Error) error {
 	var soft *out.Error
 	if sum.Failed > 0 {
 		soft = &out.Error{Code: "PARTIAL_FAILURE", Message: failedOf(sum.Failed, sum.Total) + ": " + strings.Join(sum.FailedHosts, ", "),
 			Hint: "each server's result has its own exit code and error output (data.results in -o json)", Exit: worstExit}
-		if sum.Total == 1 {
-			soft.Code = "FAILED"
-			soft.Message = "server " + sum.FailedHosts[0] + " failed"
+		if sum.Total == 1 && one != nil {
+			soft.Code, soft.Message, soft.Hint, soft.Exit = one.Code, withHost(sum.FailedHosts[0], one.Message), one.Hint, one.Exit
 		}
 	}
 	cl.out.Print(command, data, soft)

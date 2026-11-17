@@ -385,7 +385,7 @@ func kubectlFailure(code int, stderr string) *out.Error {
 		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound,
 			Hint: "list what exists with `komando cluster list TARGET TYPE`"}
 	}
-	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
+	return &out.Error{Code: "TOOL_FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
 		Hint: "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
 }
 

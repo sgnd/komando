@@ -128,7 +128,7 @@ func TestFillHint(t *testing.T) {
 	if e.Hint != "run `komando test pg` to check reachability" {
 		t.Errorf("got %q", e.Hint)
 	}
-	e = out.Errf(out.ExitRemote, "FAILED", "read stderr; `komando cluster events TARGET --warnings` shows more; `komando secret set NAME`", "x")
+	e = out.Errf(out.ExitRemote, "TOOL_FAILED", "read stderr; `komando cluster events TARGET --warnings` shows more; `komando secret set NAME`", "x")
 	fillHint(e, "pg")
 	if e.Hint != "read stderr; `komando cluster events pg --warnings` shows more; `komando secret set NAME`" {
 		t.Errorf("got %q", e.Hint)

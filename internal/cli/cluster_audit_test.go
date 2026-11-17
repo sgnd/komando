@@ -137,9 +137,10 @@ func TestClusterRunUsageFirst(t *testing.T) {
 }
 
 // Only the API's NotFound is K8S_NOT_FOUND; a command in a pod that is
-// not found is the command's own failure.
+// not found is the command's own failure: kubectl, a program komando
+// ran, failed (TOOL_FAILED).
 func TestKubectlFailureNotFoundOnlyFromAPI(t *testing.T) {
-	if f := kubectlFailure(127, "sh: foo: not found\ncommand terminated with exit code 127\n"); f.Code != "FAILED" {
+	if f := kubectlFailure(127, "sh: foo: not found\ncommand terminated with exit code 127\n"); f.Code != "TOOL_FAILED" || f.Exit != out.ExitRemote {
 		t.Errorf("exec: %+v", f)
 	}
 }

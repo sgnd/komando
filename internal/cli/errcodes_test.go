@@ -733,7 +733,6 @@ var meanings = map[string]string{
 	"DUMP_FAILED":          "the backup stopped before the end; no partial file is left",
 	"DUMP_UNSUPPORTED":     "komando's own dump cannot write an object (the message names it)",
 	"ERROR":                "an error with no more specific code (read the message)",
-	"FAILED":               "the command ran on the server and exited non-zero",
 	"FILE_ERROR":           "a file on this computer cannot be read or written",
 	"HOSTKEY_MISMATCH":     "the server shows a different host key than the one pinned: maybe an attack, never fixed automatically",
 	"HOSTKEY_UNKNOWN":      "host keys are strict and this server's key is not pinned yet (the message shows its fingerprint)",

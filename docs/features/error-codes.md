@@ -71,7 +71,6 @@ This page is made from the code (`komando schema` lists the same under
 | `DUMP_FAILED` | 5 | the backup stopped before the end; no partial file is left | check the conn with `komando test …`; with --run-on HOST, pg_dump or mysqldump on that server runs instead |
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
-| `FAILED` | 5 | kubectl exited … | read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
 | `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the temporary folder is writable |
 | `FILE_EXISTS` | 8 | … already exists on this computer | choose another --to, remove the file, or pass --overwrite |
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |
@@ -255,7 +254,7 @@ This page is made from the code (`komando schema` lists the same under
 | `TARGET_NOT_FOUND` | 3 | no VPN named … | see them with `komando vpn list` |
 | `TIMEOUT` | 7 | redis did not answer in time | raise --timeout |
 | `TLS_HANDSHAKE_FAILED` | 4 | TLS handshake with … failed: … | the server ended the TLS handshake; run it again, and check that … is the TLS port (not plain HTTP) |
-| `TOOL_FAILED` | 5 | a program komando ran on the server failed (its words follow) | check that … is installed and works: `komando doctor` |
+| `TOOL_FAILED` | 5 | kubectl exited … | read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
 | `TOOL_MISSING` | 3 | curl is not installed | install curl on the server |
 | `TOOL_TOO_OLD` | 5 | … failed on … (exit …): … | pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --run-on HOST |
 | `TOO_MANY` | 8 | … objects match, more than --max-remove … | narrow --prefix or --older-than, or raise --max-remove above … after checking the list |
