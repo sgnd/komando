@@ -117,8 +117,8 @@ func ipsecErr(v *store.Vpn, err error) error {
 	case errors.As(err, &le):
 		return out.Errf(out.ExitConnect, "VPN_DOWN", "ask the VPN's admin for AES with DH group 14 or higher; if you accept old, weak ciphers for this VPN, a person can allow them with `komando vpn edit "+v.Name+" --legacy-crypto`",
 			"VPN %s: %v", v.Name, err)
-	case errors.Is(err, ppp.ErrPAPRefused):
-		return out.Errf(out.ExitConnect, "VPN_DOWN", "ask the VPN's admin to allow MS-CHAPv2; if you accept that the server gets your password, a person can allow PAP with `komando vpn edit "+v.Name+" --allow-pap`",
+	case errors.Is(err, ppp.ErrWeakLogin):
+		return out.Errf(out.ExitConnect, "VPN_DOWN", "ask the VPN's admin to allow MS-CHAPv2; if you accept a server that does not prove itself (with PAP it gets your password), a person can allow the weak logins with `komando vpn edit "+v.Name+" --allow-pap`",
 			"VPN %s: %v", v.Name, err)
 	case errors.As(err, &ae), errors.As(err, &pe):
 		return Down(v, fmt.Errorf("%v (check `komando vpn show %s`: the pre-shared key, --user and the password)", err, v.Name))

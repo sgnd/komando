@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/sgnd/komando/internal/proxyx/proxytest"
+	"github.com/sgnd/komando/internal/transport/proxytest"
 )
 
 // Behind a company proxy (HTTPS_PROXY), the registry is reached through

@@ -178,9 +178,7 @@ picks another database than the URL's.`},
 				if err != nil {
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
-				if err := secretInBody(cl, file, b); err != nil {
-					return err
-				}
+				secretInBody(cl, file, b)
 				noteApprovalBody(cl, scriptLabel("the SQL", file), b)
 				q = string(b)
 			case len(args) == 1:

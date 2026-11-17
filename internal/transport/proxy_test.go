@@ -1,4 +1,4 @@
-package proxyx_test
+package transport_test
 
 import (
 	"bufio"
@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sgnd/komando/internal/proxyx"
-	"github.com/sgnd/komando/internal/proxyx/proxytest"
+	"github.com/sgnd/komando/internal/transport"
+	"github.com/sgnd/komando/internal/transport/proxytest"
 )
 
-func pick(t *testing.T, f proxyx.Func, target string) string {
+func pick(t *testing.T, f transport.Func, target string) string {
 	t.Helper()
 	u, _ := url.Parse(target)
 	p, err := f(&http.Request{URL: u})
@@ -29,11 +29,11 @@ func pick(t *testing.T, f proxyx.Func, target string) string {
 	return p.String()
 }
 
-func TestFromEnv(t *testing.T) {
+func TestProxy(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "http://proxy.corp:3128")
 	t.Setenv("HTTP_PROXY", "http://plain.corp:8080")
 	t.Setenv("NO_PROXY", ".internal,10.0.0.0/8")
-	f := proxyx.FromEnv()
+	f := transport.Proxy()
 	for target, want := range map[string]string{
 		"https://api.example.com:6443": "http://proxy.corp:3128",
 		"http://registry.example.com":  "http://plain.corp:8080",
@@ -48,19 +48,19 @@ func TestFromEnv(t *testing.T) {
 	}
 	t.Setenv("HTTPS_PROXY", "")
 	t.Setenv("HTTP_PROXY", "")
-	if got := pick(t, proxyx.FromEnv(), "https://api.example.com"); got != "" {
+	if got := pick(t, transport.Proxy(), "https://api.example.com"); got != "" {
 		t.Errorf("without the variables there is no proxy, got %q", got)
 	}
 }
 
 func TestParse(t *testing.T) {
 	for _, ok := range []string{"http://proxy:3128", "https://u:p@proxy.example.com", "socks5://127.0.0.1:1080", "socks5h://proxy:1080"} {
-		if _, err := proxyx.Parse(ok); err != nil {
+		if _, err := transport.Parse(ok); err != nil {
 			t.Errorf("%s: %v", ok, err)
 		}
 	}
 	for _, bad := range []string{"", "proxy:3128", "ftp://proxy:21", "http://", "://x"} {
-		if _, err := proxyx.Parse(bad); err == nil {
+		if _, err := transport.Parse(bad); err == nil {
 			t.Errorf("%q: want an error", bad)
 		}
 	}
@@ -106,7 +106,7 @@ func TestDialThroughProxy(t *testing.T) {
 	target, _ := url.Parse("https://vpn.example.com")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	c, err := proxyx.Dial(ctx, http.ProxyURL(pu), direct, target, "vpn.example.com:443")
+	c, err := transport.Dial(ctx, http.ProxyURL(pu), direct, target, "vpn.example.com:443")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,8 +128,8 @@ func TestDialThroughProxy(t *testing.T) {
 func TestDialWithoutProxy(t *testing.T) {
 	backend := echo(t)
 	target, _ := url.Parse("https://" + backend)
-	for _, f := range []proxyx.Func{nil, func(*http.Request) (*url.URL, error) { return nil, nil }} {
-		c, err := proxyx.Dial(context.Background(), f, direct, target, backend)
+	for _, f := range []transport.Func{nil, func(*http.Request) (*url.URL, error) { return nil, nil }} {
+		c, err := transport.Dial(context.Background(), f, direct, target, backend)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -141,12 +141,12 @@ func TestDialRefused(t *testing.T) {
 	p := proxytest.Start(t, echo(t), http.StatusProxyAuthRequired)
 	pu, _ := url.Parse(p.URL)
 	target, _ := url.Parse("https://vpn.example.com")
-	_, err := proxyx.Dial(context.Background(), http.ProxyURL(pu), direct, target, "vpn.example.com:443")
+	_, err := transport.Dial(context.Background(), http.ProxyURL(pu), direct, target, "vpn.example.com:443")
 	if err == nil || !strings.Contains(err.Error(), "407") {
 		t.Fatalf("want the proxy's 407, got %v", err)
 	}
 	pu.User = url.UserPassword("me", "s3cret")
-	_, err = proxyx.Dial(context.Background(), http.ProxyURL(pu), direct, target, "vpn.example.com:443")
+	_, err = transport.Dial(context.Background(), http.ProxyURL(pu), direct, target, "vpn.example.com:443")
 	if err == nil || strings.Contains(err.Error(), "s3cret") {
 		t.Fatalf("the error must not show the proxy password: %v", err)
 	}

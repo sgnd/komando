@@ -254,7 +254,7 @@ func applyVpnEdit(cmd *cobra.Command, e *vpnEditFlags, v *store.Vpn) error {
 		}
 		v.Address = a
 	}
-	if err := applyVpnFields(f, e, v); err != nil {
+	if err := applyVpnFields(callOf(cmd), f, e, v); err != nil {
 		return err
 	}
 	for _, u := range e.unset {
@@ -273,14 +273,14 @@ func applyVpnEdit(cmd *cobra.Command, e *vpnEditFlags, v *store.Vpn) error {
 }
 
 // applyVpnFields sets the plain settings the flags give.
-func applyVpnFields(f *pflag.FlagSet, e *vpnEditFlags, v *store.Vpn) error {
+func applyVpnFields(cl *call, f *pflag.FlagSet, e *vpnEditFlags, v *store.Vpn) error {
 	if f.Changed("server") {
 		if e.server == "" || strings.HasPrefix(e.server, "-") || strings.Contains(e.server, "/") {
 			return out.Usage("--server takes a host name or address (host or host:port)")
 		}
 	}
 	if f.Changed("ca") {
-		ca, err := readVpnCA(e.ca)
+		ca, err := readVpnCA(cl, e.ca)
 		if err != nil {
 			return err
 		}

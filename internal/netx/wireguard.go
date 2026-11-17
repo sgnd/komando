@@ -84,7 +84,7 @@ func ParseWG(text string) (*WGConfig, error) {
 				if err != nil {
 					ad, err2 := netip.ParseAddr(a)
 					if err2 != nil {
-						return nil, fmt.Errorf("line %d: Address %q is not an IP address with a prefix, like 10.0.0.2/32", n, a)
+						return nil, fmt.Errorf("line %d: an Address is not an IP address with a prefix, like 10.0.0.2/32", n)
 					}
 					p = netip.PrefixFrom(ad, ad.BitLen())
 				}
@@ -112,7 +112,7 @@ func ParseWG(text string) (*WGConfig, error) {
 			for _, a := range list() {
 				p, err := netip.ParsePrefix(a)
 				if err != nil {
-					return nil, fmt.Errorf("line %d: AllowedIPs %q is not a list of IP ranges, like 10.0.0.0/24, 0.0.0.0/0", n, a)
+					return nil, fmt.Errorf("line %d: AllowedIPs is not a list of IP ranges, like 10.0.0.0/24, 0.0.0.0/0", n)
 				}
 				peer.AllowedIPs = append(peer.AllowedIPs, p)
 			}
@@ -147,8 +147,14 @@ func StripWGKeys(text string) (clean, private, psk string, err error) {
 	if c.PrivateKey == "" {
 		return "", "", "", fmt.Errorf("[Interface] needs a PrivateKey")
 	}
+	if _, err := hexKey(c.PrivateKey); err != nil {
+		return "", "", "", fmt.Errorf("[Interface] PrivateKey is not a WireGuard key (32 bytes in base64)")
+	}
 	for _, p := range c.Peers {
 		if p.PresharedKey != "" {
+			if _, err := hexKey(p.PresharedKey); err != nil {
+				return "", "", "", fmt.Errorf("[Peer] PresharedKey is not a WireGuard key (32 bytes in base64)")
+			}
 			if psk != "" && psk != p.PresharedKey {
 				return "", "", "", fmt.Errorf("different PresharedKeys per peer are not supported")
 			}
