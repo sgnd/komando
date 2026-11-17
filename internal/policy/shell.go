@@ -79,15 +79,14 @@ var cmdKeywords = map[string]bool{"then": true, "do": true, "else": true, "elif"
 func (l *lexer) line(inSub bool) []Token {
 	var toks []Token
 	var cur strings.Builder
-	inWord, quoted, expands := false, false, false
-	brace, code := 0, false // brace: 1 after an unquoted {, 2 with a , or .. in it, 3 closed
-	depth := 0              // ( opened in this line
-	cases := 0              // case ... esac open in this line: its ) end patterns
-	delim := false          // the next word ends a here-document
+	inWord, quoted, expands, marks := false, false, false, wordMarks{} // marks: {a,b}, ${x@P}
+	depth := 0                                                         // ( opened in this line
+	cases := 0                                                         // case ... esac open in this line: its ) end patterns
+	delim := false                                                     // the next word ends a here-document
 	strip := false
 	word := func() {
 		if inWord {
-			t := Token{Text: cur.String(), Quoted: quoted, Expands: expands, Brace: brace == 3, Code: code}
+			t := Token{Text: cur.String(), Quoted: quoted, Expands: expands, Brace: marks.brace == 3, Code: marks.code}
 			start := len(toks) == 0 || toks[len(toks)-1].Op || cmdKeywords[toks[len(toks)-1].Text]
 			switch {
 			case delim:
@@ -102,7 +101,7 @@ func (l *lexer) line(inSub bool) []Token {
 		}
 		cur.Reset()
 		inWord, quoted, expands = false, false, false
-		brace, code = 0, false
+		marks = wordMarks{}
 	}
 	op := func(o string, n int) {
 		word()
@@ -132,11 +131,8 @@ func (l *lexer) line(inSub bool) []Token {
 			l.i += j + 2
 		case c == '"':
 			l.i++
-			from := l.i
-			if l.dquote(&cur) {
-				expands = true
-			}
-			code = code || codeExpansion(s[from:l.i])
+			e, code := l.dquote(&cur)
+			expands, marks.code = expands || e, marks.code || code
 			inWord, quoted = true, true
 		case c == '\\' && next == '\n': // a line continuation
 			l.i += 2
@@ -152,11 +148,8 @@ func (l *lexer) line(inSub bool) []Token {
 			inWord, quoted = true, true
 		case c == '$' && next == '"':
 			l.i += 2
-			from := l.i
-			if l.dquote(&cur) {
-				expands = true
-			}
-			code = code || codeExpansion(s[from:l.i])
+			e, code := l.dquote(&cur)
+			expands, marks.code = expands || e, marks.code || code
 			inWord, quoted = true, true
 		case c == '$' && next == '(', (c == '<' || c == '>') && next == '(':
 			l.i += 2
@@ -230,16 +223,8 @@ func (l *lexer) line(inSub bool) []Token {
 		default:
 			if c == '$' && next != 0 && strings.IndexByte(" \t\n;&|()<>", next) < 0 {
 				expands = true // $NAME, ${NAME}, $1, $@ ...
-				code = code || next == '[' || next == '{' && !plainParam.MatchString(s[l.i:])
 			}
-			switch {
-			case c == '{' && (l.i == 0 || s[l.i-1] != '$') && brace == 0:
-				brace = 1
-			case brace == 1 && (c == ',' || c == '.' && next == '.'):
-				brace = 2
-			case brace == 2 && c == '}':
-				brace = 3
-			}
+			marks.see(s, l.i)
 			cur.WriteByte(c)
 			inWord = true
 			l.i++
@@ -250,6 +235,33 @@ func (l *lexer) line(inSub bool) []Token {
 		l.fail("an unclosed $(")
 	}
 	return toks
+}
+
+// wordMarks follows, through the unquoted characters of a word, what bash
+// does to it before the command runs. brace is 1 after a {, 2 once a , or
+// .. is in it, 3 when it closes: {a,b} or {1..3}, which bash expands into
+// several words. code is an expansion bash evaluates (see codeExpansion).
+type wordMarks struct {
+	brace int
+	code  bool
+}
+
+// see looks at the unquoted character s[i].
+func (m *wordMarks) see(s string, i int) {
+	c, next := s[i], byte(0)
+	if i+1 < len(s) {
+		next = s[i+1]
+	}
+	switch {
+	case c == '$':
+		m.code = m.code || next == '[' || next == '{' && !plainParam.MatchString(s[i:])
+	case c == '{' && (i == 0 || s[i-1] != '$') && m.brace == 0:
+		m.brace = 1
+	case m.brace == 1 && (c == ',' || c == '.' && next == '.'):
+		m.brace = 2
+	case m.brace == 2 && c == '}':
+		m.brace = 3
+	}
 }
 
 var plainParam = regexp.MustCompile(`^\$\{([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[@*#?$!-])\}`)
@@ -349,14 +361,16 @@ func fdWord(w string) bool {
 // dquote reads a "..." string after its opening quote. In it, \ escapes
 // only $ ` " \ and a line break, and $( ) and ` ` still run commands. It
 // says whether the string has something the shell expands.
-func (l *lexer) dquote(cur *strings.Builder) (expands bool) {
+func (l *lexer) dquote(cur *strings.Builder) (expands, code bool) {
 	s := l.s
+	from := l.i
+	defer func() { code = codeExpansion(s[from:l.i]) }()
 	for l.i < len(s) {
 		c := s[l.i]
 		switch {
 		case c == '"':
 			l.i++
-			return expands
+			return expands, false
 		case c == '\\' && l.i+1 < len(s) && strings.IndexByte("$`\"\\\n", s[l.i+1]) >= 0:
 			if s[l.i+1] != '\n' {
 				cur.WriteByte(s[l.i+1])
@@ -381,7 +395,7 @@ func (l *lexer) dquote(cur *strings.Builder) (expands bool) {
 		}
 	}
 	l.fail(`an unclosed "`)
-	return expands
+	return expands, false
 }
 
 // backquote reads a `...` substitution after its opening quote: the text up
