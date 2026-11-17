@@ -33,7 +33,7 @@ func TestJSONErrorTextIsSafe(t *testing.T) {
 	}
 	texts["warning"] = env.Meta.Warnings[0]
 	for name, s := range texts {
-		if strings.ContainsAny(s, "\x1b\x07\x9b\u202e") {
+		if strings.ContainsAny(s, "\x1b\x07\u009b\u202e") {
 			t.Errorf("%s still holds a control character: %q", name, s)
 		}
 		if !strings.Contains(s, `\e]0;pwned\x07`) || !strings.Contains(s, "\\u202e") || !strings.Contains(s, `<b> & "q"`) {
