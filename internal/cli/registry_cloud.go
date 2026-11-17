@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
 	"github.com/sgnd/komando/internal/store"
@@ -18,11 +19,12 @@ import (
 // no --password-ref of its own: Amazon ECR and Azure Container Registry
 // logins last hours, so komando gets a fresh one each time and keeps none.
 
-// azureToken gets an Azure AD access token, and gcpToken a Google one;
-// tests replace them.
+// azureToken gets an Azure AD access token, gcpToken a Google one and
+// ecrLogin an Amazon ECR password; tests replace them.
 var (
 	azureToken = cloud.AzureToken
 	gcpToken   = cloud.GCPAccessToken
+	ecrLogin   = ecrToken
 )
 
 // googleRegistry matches Google Artifact Registry (REGION-docker.pkg.dev)
@@ -69,8 +71,20 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 		return nil
 	}
 	host = strings.TrimSuffix(host, ":443")
+	if ecrRegion(host) != "" || isGoogleRegistry(host) || acrResource(host) != "" {
+		// the cloud's own registry has a certificate every computer
+		// trusts, at the address its name has: a CA of the conn's own
+		// (?ca=) or another address (?resolve=) would hand the cloud login
+		// to whoever holds that CA's key there
+		if t, err := driver.Parse(c.URL); err == nil && (t.CA != "" || t.Resolve != "") {
+			return out.Usage("a cloud login goes to %s only at its own address, checked against the system's CAs: take ?ca= and ?resolve= out of the conn URL, or log in with a registry token and --password-ref", host)
+		}
+	}
 	if region := ecrRegion(host); region != "" {
-		tok, err := ecrToken(ctx, cmp.Or(awsProfile(c), "default"), region)
+		if !rc.CheckedTLS() {
+			return uncheckedCloudLogin("an Amazon ECR", host)
+		}
+		tok, err := ecrLogin(ctx, cmp.Or(awsProfile(c), "default"), region)
 		if err != nil {
 			return err
 		}
@@ -85,6 +99,8 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 		switch {
 		case errors.Is(err, cloud.ErrGCPNoCredentials):
 			return nil
+		case policyStop(err):
+			return err
 		case err != nil:
 			return out.Errf(out.ExitConnect, "GCP_LOGIN_REQUIRED",
 				"a person runs `gcloud auth application-default login` again, or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file; on Google Cloud the machine's service account is used",
@@ -118,11 +134,14 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 // to a registry whose certificate is not checked (?tls=skip-verify): the
 // token is good for the whole cloud account, not only the registry.
 func uncheckedCloudLogin(what, host string) error {
-	return out.Usage("%s login goes to %s only over https with its certificate checked: take ?tls=false or ?tls=skip-verify out of the conn URL (?ca= trusts a private CA), or log in with a registry token and --password-ref", what, host)
+	return out.Usage("%s login goes to %s only over https with its certificate checked: take ?tls=false or ?tls=skip-verify out of the conn URL, or log in with a registry token and --password-ref", what, host)
 }
 
 // azureErr turns an Azure login error into komando's.
 func azureErr(what, resource string, err error) error {
+	if oe := (*out.Error)(nil); errors.As(err, &oe) {
+		return oe // komando's own stop (a file an AI agent may not send)
+	}
 	if errors.Is(err, cloud.ErrAzureLogin) {
 		// a person signs in, as with an expired AWS SSO login: agents ask
 		return out.Errf(out.ExitConnect, "AZURE_LOGIN_REQUIRED", cloud.AzureLoginHint(resource), "%s: %v", what, err)

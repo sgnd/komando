@@ -168,10 +168,16 @@ type Conn struct {
 	// TrustedPlugin is the hash of the kubeconfig login program a person
 	// trusted for this conn (import kubeconfig). Not an Option: only a
 	// person's import sets it, never --option.
-	TrustedPlugin string    `json:"trusted_plugin,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	Rec           Rec       `json:"-"`
+	TrustedPlugin string `json:"trusted_plugin,omitempty"`
+	// PluginProgram is the full path of that login program as the import
+	// found it, and PluginSearchPath the PATH of that import: an AI
+	// agent's command runs this file with this PATH, not what its own
+	// PATH would find.
+	PluginProgram    string    `json:"plugin_program,omitempty"`
+	PluginSearchPath string    `json:"plugin_search_path,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	Rec              Rec       `json:"-"`
 }
 
 type Key struct {
@@ -221,6 +227,7 @@ type Tunnel struct {
 	Kind      string    `json:"kind"`           // local | remote | dynamic
 	Spec      string    `json:"spec"`
 	PID       int       `json:"pid"`
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart)
 	LogFile   string    `json:"log_file"`
 	StartedAt time.Time `json:"started_at"`
 }
@@ -298,7 +305,8 @@ type VpnSession struct {
 	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
 	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
 	SocksPass string    `json:"socks_pass,omitempty"`
-	Exe       string    `json:"exe,omitempty"` // the program the pid must still be, so a reused pid is never signalled
+	Exe       string    `json:"exe,omitempty"`        // the program the pid must still be, so a reused pid is never signalled
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart): a pid used again is another process
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`
@@ -312,6 +320,7 @@ type SSHLogin struct {
 	Target    string    `json:"target"` // user@address:port when it logged in: the login is used only while the host still points there
 	PID       int       `json:"pid"`
 	Exe       string    `json:"exe,omitempty"`
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart)
 	Socket    string    `json:"socket"`
 	Token     string    `json:"token"`    // the socket's password, random per login
 	HostKey   string    `json:"host_key"` // the socket's own key (authorized_keys form), random per login
