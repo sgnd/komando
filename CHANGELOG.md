@@ -185,6 +185,18 @@ its highlights; the sections below them give the details. Versions follow
   leave a new store there). The hint tells the agent to take
   `KOMANDO_HOME` out and run the command again. This is the one case
   where a dry run is blocked.
+- The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
+  and `~/.azure`: the SSO token cache and the CLI's cached credentials
+  too, not only the `credentials` file. An AWS profile whose web identity
+  token file lies under `~/.aws` now needs a person for an agent's
+  command (`NEEDS_PERSON`), as a token file elsewhere already did.
+- On Windows, komando takes the Windows and Program Files folders from
+  Windows itself when it decides that a program there is safe to run
+  with a password, and only System32 and SysWOW64 count of the Windows
+  folder (every user can write to its Temp and Tasks folders). It used
+  to read `SystemRoot` and `ProgramFiles` from the environment, which an
+  AI agent sets. A login program's PATH (kubeconfig) takes the Windows
+  folder from Windows too.
 - The audit log no longer keeps a password, key or token that a command
   line carried (`PGPASSWORD=... psql`, `--password=...`): the command
   of `exec`, `job start` and `cluster exec` is recorded with those
@@ -303,6 +315,21 @@ its highlights; the sections below them give the details. Versions follow
     gives it (`env`), not the shell's proxy, `AWS_PROFILE` or `KUBECONFIG`.
 - A running VPN session, a kept server login and a tunnel are now known by when their process started, not only by its process number and program. When that process ended (a crash, or an old copy of komando's runtime file put back), a later process given the same number, even another komando or openconnect, is no longer taken for it: it gets neither the session's SOCKS login nor the addresses it connects to, and is never stopped by komando. After updating, VPN sessions, logins and tunnels started by an older komando count as ended: run `komando vpn down --all`, `komando logout SERVER` and `komando tunnel stop --all` before you update, or end those processes yourself; komando starts new ones when needed.
 - `komando secret keychain` now gives the vault a new key as it moves the key into the keychain. Before, it moved the same key, so a copy of `store.key` from before the move (a backup, a synced folder's history) still opened every later copy of the store, secrets added after the move included. A move that stops part way finishes the next time it runs.
+- Ways around hiding data from an AI agent are closed. A value that is
+  not text (shown as base64) is now checked for what it holds and reads
+  `[hidden]` when that is a secret or personal data, in `db query`, `cache`
+  and `queue peek`. Stored credentials are hidden whatever their shape
+  (MongoDB's SCRAM verifiers under `credentials`, a list under `apiKeys`).
+  `mask_columns` now also hides MongoDB fields, and an agent's query that
+  names a hidden column (`name AS customer`, `upper(name)`, `WHERE name
+  ...`) stops with `REVEAL_NEEDS_PERSON` (exit 6: a person allows it with `--reveal`); `SELECT *` still shows
+  it as `[hidden: column]`. `cp`, `sync` and `fs replace` hide personal
+  data as `download` and `fs cat` do. For an agent, `db dump` of a
+  database whose personal data is hidden, `storage link`, and a binary
+  object on `storage download --to -` that holds a hidden value stop with
+  `SENSITIVE_FILE` unless a person allows `--reveal`. An agent's `conn
+  edit` that takes a column out of `mask_columns` or turns `mask_personal`
+  off needs a person's yes (`SAFETY_SETTING`).
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

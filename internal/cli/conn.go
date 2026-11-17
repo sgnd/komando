@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -205,7 +207,7 @@ func connAddCmd() *cobra.Command {
 				}
 				old := s.Conns[name]
 				replaced = old != nil
-				if err := checkConn(s, cn); err != nil {
+				if err := cmp.Or(checkConn(s, cn), guardLostMasking(cl, old, cn)); err != nil {
 					return err
 				}
 				if err := guardConnFile(cl, cn); err != nil {
@@ -289,6 +291,7 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 		}
 		before, _ := json.Marshal(cn)
 		old := *cn
+		old.Options = maps.Clone(cn.Options) // the edit changes cn's map: guardConnEdit compares the two
 		set := func(name string, dst *string, v string) {
 			if fl.Changed(name) {
 				*dst = v
@@ -386,6 +389,9 @@ func guardConnEdit(cl *call, old, cn *store.Conn, res *connResult) error {
 	for _, a := range actions {
 		why = append(why, a+" protected conn: "+cn.Name)
 	}
+	if err := guardLostMasking(cl, old, cn); err != nil {
+		return err
+	}
 	if err := guardConnSends(cl, old, cn, why...); err != nil {
 		return err
 	}
@@ -437,6 +443,9 @@ func connRmCmd() *cobra.Command {
 					names = append(names, c.Name)
 					if c.Protected {
 						prot = append(prot, c.Name)
+					}
+					if err := guardLostMasking(cl, c, nil); err != nil {
+						return err
 					}
 				}
 				if err := guardProtection(cl, "conn", "removing", prot); err != nil {

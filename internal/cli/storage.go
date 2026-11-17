@@ -450,7 +450,10 @@ func storageLinkCmd() *cobra.Command {
 		Short:   "Make a temporary download link that works without a login",
 		Long: `Prints a URL anyone can use to download KEY until it expires (default 1 hour,
 at most 7 days). Treat it like a password while it is valid. Sharing from a
-protected conn needs --yes. The link itself is not stored in the audit log.
+protected conn needs --yes. An AI agent gets a link only when a person allows
+--reveal, and never for a file that is a secret by its name (.env, a key): a
+link is the file as it is, past the hiding of storage cat and download. The
+link itself is not stored in the audit log.
 The link names the storage address in the conn URL: when komando reaches it
 through --via, only people who can reach that address can use the link.
 --endpoint signs the link for the address they use instead (S3 only).`,
@@ -469,6 +472,9 @@ through --via, only people who can reach that address can use the link.
 					return out.Usage("--endpoint takes http(s)://HOST[:PORT], for example https://files.example.com")
 				}
 				pub = u
+			}
+			if err := guardLink(cl, args[1]); err != nil {
+				return err
 			}
 			// a link opens data to anyone who has it: treat it like a change
 			return withStorage(cl, cmd.Context(), "storage.link", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1], "expires": expires.String()},
