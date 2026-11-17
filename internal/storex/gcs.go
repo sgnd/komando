@@ -164,7 +164,7 @@ func (b *gcsBucket) List(ctx context.Context, prefix string, recursive bool, lim
 			Prefixes      []string    `json:"prefixes"`
 			NextPageToken string      `json:"nextPageToken"`
 		}
-		err = json.NewDecoder(resp.Body).Decode(&page)
+		err = decodeCapped(resp.Body, &page)
 		resp.Body.Close()
 		if err != nil {
 			return nil, false, webErr("gcs", nil, err)
@@ -218,7 +218,7 @@ func (b *gcsBucket) Stat(ctx context.Context, rel string) (Object, error) {
 	}
 	defer resp.Body.Close()
 	var o gcsObject
-	if err := json.NewDecoder(resp.Body).Decode(&o); err != nil {
+	if err := decodeCapped(resp.Body, &o); err != nil {
 		return Object{}, webErr("gcs", nil, err)
 	}
 	n, _ := strconv.ParseInt(o.Size, 10, 64)
@@ -356,4 +356,19 @@ func (s *gcsSigner) sign(bucket, object string, expires time.Duration, now time.
 		return nil, fmt.Errorf("gcs: signing the link: %w", err)
 	}
 	return url.Parse("https://storage.googleapis.com" + canonPath + "?" + canonQuery + "&X-Goog-Signature=" + hex.EncodeToString(sig))
+}
+
+// answerCap is the most komando reads of one JSON answer from a storage
+// API (a listing page, an object's details): a broken or hostile endpoint
+// cannot make it read, and keep, without end.
+const answerCap = 32 << 20
+
+// decodeCapped decodes one JSON answer of at most answerCap bytes.
+func decodeCapped(r io.Reader, v any) error {
+	lr := &io.LimitedReader{R: r, N: answerCap + 1}
+	err := json.NewDecoder(lr).Decode(v)
+	if lr.N <= 0 {
+		return fmt.Errorf("the answer is larger than %d MiB; komando reads no more of it", answerCap>>20)
+	}
+	return err
 }

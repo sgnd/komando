@@ -89,7 +89,7 @@ func spellingAnswer(t *testing.T, id, flag, alias string) string {
 	if err := c.ParseFlags(args); err != nil {
 		t.Fatalf("%s %v: %v", id, args, err)
 	}
-	if _, e := gateRule(c, id, true); e != nil {
+	if _, e := gateRule(c, id, gateKey{readOnly: true, network: true}); e != nil {
 		return e.Code
 	}
 	return ""

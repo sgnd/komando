@@ -70,6 +70,9 @@ var settings = []setting{
 					return err
 				}
 			}
+			if err := loginPlaceStop(cl, defaultUserChanges(st, v)); err != nil {
+				return err
+			}
 			st.Settings.DefaultUser = v
 			return nil
 		}},

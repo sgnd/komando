@@ -28,7 +28,7 @@ func dialWinRM(ctx context.Context, st *store.State, h *store.Host, o Options) (
 			"WinRM carries PowerShell commands only: use `komando exec "+h.Name+" -- ...`; for a shell, tunnels or SSH host keys, turn on OpenSSH on the server and add it with --os windows (https://github.com/sgnd/komando/blob/main/docs/features/windows.md)",
 			"%s is reached over WinRM, which cannot do this (it has no SSH)", h.Name)
 	}
-	pass, err := winrmPassword(h)
+	pass, refused, err := winrmPassword(ctx, st, h)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func dialWinRM(ctx context.Context, st *store.State, h *store.Host, o Options) (
 	}
 	endpoint := (&url.URL{Scheme: scheme, Host: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Path: "/wsman"}).String()
 	cl.Win = &winrmShell{c: winrm.New(winrm.Config{Endpoint: endpoint, User: h.User, Password: pass, Basic: opts.Auth == "basic",
-		TLS: tc, Dial: dial}), host: h}
+		TLS: tc, Dial: dial}), host: h, refused: refused}
 	return cl, nil
 }
 
@@ -75,14 +75,29 @@ func winrmOpts(h *store.Host) store.WinRMOpts {
 }
 
 // winrmPassword is the host's password: WinRM logs in with a password
-// (NTLM or Basic), never with an SSH key.
-func winrmPassword(h *store.Host) (string, error) {
-	if h.PasswordRef == "" || h.User == "" {
-		return "", out.Errf(out.ExitConnect, "AUTH_FAILED",
+// (NTLM or Basic), never with an SSH key. A login-ask server's is typed by
+// a person now (LoginPassword); refused forgets it when the server says no.
+func winrmPassword(ctx context.Context, st *store.State, h *store.Host) (pw string, refused func(), err error) {
+	if (h.PasswordRef == "" && !h.AskLogin()) || h.User == "" {
+		return "", nil, out.Errf(out.ExitConnect, "AUTH_FAILED",
 			"WinRM logs in with a user and a password: `komando host edit "+h.Name+" --ask-password` (and the user in the address, for example winrm://Administrator@HOST)",
 			"%s has no user or password for WinRM", h.Name)
 	}
-	return vault.Resolve(h.PasswordRef)
+	if h.AskLogin() {
+		q := LoginAskFor(st, h) // WinRM has a user always (above)
+		if t := winrmOpts(h).TLS; t == "off" || t == "skip-verify" {
+			// nothing checks who answers: as with a host key nobody has
+			// seen, a person decides first
+			k := NewHostKey{Host: h.Name, Address: q.Addr, Type: "WinRM tls=" + t, Unchecked: true}
+			if err := askLoginNewKey(ctx, h, k); err != nil {
+				return "", nil, err
+			}
+			q.NewKey = &k
+		}
+		return loginPassword(ctx, q)
+	}
+	pw, err = vault.Resolve(h.PasswordRef)
+	return pw, nil, err
 }
 
 // winrmTLS checks the server's certificate against this computer's CAs,
@@ -112,14 +127,18 @@ func winrmTLS(h *store.Host) (*tls.Config, error) {
 // winrmShell is the WinShell of a host: it turns the client's errors into
 // komando's error codes.
 type winrmShell struct {
-	c    *winrm.Client
-	host *store.Host
+	c       *winrm.Client
+	host    *store.Host
+	refused func() // a typed password (login ask) the server refused is forgotten
 }
 
 func (w *winrmShell) Run(ctx context.Context, command string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	code, err := w.c.Run(ctx, command, stdin, stdout, stderr)
 	if err == nil || ctx.Err() != nil {
 		return code, err
+	}
+	if errors.Is(err, winrm.ErrAuth) && w.refused != nil {
+		w.refused()
 	}
 	return code, winrmErr(w.host, err)
 }
