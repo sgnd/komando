@@ -13,7 +13,7 @@ var codeOutcomes = []struct {
 	exit   int
 }{
 	{"_NOT_FOUND", 3}, {"_MISSING", 3},
-	{"_EXISTS", 8}, {"_IN_USE", 8}, {"_CONFLICT", 8}, {"_BUSY", 8},
+	{"_EXISTS", 8}, {"_IN_USE", 8}, {"_CONFLICT", 8}, {"_BUSY", 8}, {"_CHANGED", 8},
 	{"_INVALID", 2}, {"_UNSUPPORTED", 2},
 	{"_AUTH", 4}, {"_UNREACHABLE", 4}, {"_TLS", 4},
 	{"_DENIED", 5}, {"_FAILED", 5}, {"_ERROR", 5},

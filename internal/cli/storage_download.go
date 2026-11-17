@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -42,6 +42,10 @@ type downloadData struct {
 	Masked   bool   `json:"masked,omitempty"` // saved with secret values shown as [hidden] (AI agents)
 	DryRun   bool   `json:"dry_run,omitempty"`
 	RunsOn   string `json:"runs_on"`
+	// --continue: the file's sha256, checked against the object, and the
+	// bytes that were already here and stayed
+	SHA256        string `json:"sha256,omitempty"`
+	ContinuedFrom int64  `json:"continued_from_bytes,omitempty"`
 }
 
 func (d downloadData) Text() string {
@@ -53,6 +57,9 @@ func (d downloadData) Text() string {
 		return s + "\n"
 	}
 	s := fmt.Sprintf("%s: %s (%s)\n", d.Conn, d.File, humanBytes(d.Bytes))
+	if d.ContinuedFrom > 0 {
+		s += fmt.Sprintf("went on after the %s already here\n", humanBytes(d.ContinuedFrom))
+	}
 	if d.Masked {
 		s += "saved with secret values shown as [hidden], as fs cat shows them\n"
 	}
@@ -60,8 +67,9 @@ func (d downloadData) Text() string {
 }
 
 // storageDownloadTo saves one object to a local file, - (stdout), or a
-// folder; an existing file is replaced only with overwrite.
-func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string, overwrite bool) error {
+// folder; an existing file is replaced only with overwrite, and continued
+// only with resume (--continue).
+func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string, overwrite, resume bool) error {
 	if err := guardDownload(cl, key, to); err != nil {
 		return err
 	}
@@ -72,9 +80,6 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 		return err
 	}
 	toStdout := to == "-"
-	if toStdout && cl.out.Format != "text" {
-		return out.Usage("--to - writes the file itself to stdout, where JSON output goes too; add -o text, or give a file name")
-	}
 	dest := downloadDest(to, key)
 	exists := false
 	if !toStdout {
@@ -82,10 +87,10 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 			if fi.IsDir() {
 				return out.Errf(out.ExitConflict, "FILE_EXISTS", "give a file name with --to", "%s is a folder", dest)
 			}
-			if !overwrite {
+			if !overwrite && !resume {
 				return out.Errf(out.ExitConflict, "FILE_EXISTS", "pick another name with --to, or add --overwrite to replace it", "%s already exists", dest)
 			}
-			exists = true
+			exists = !resume
 		}
 	}
 	return withStorage(cl, ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
@@ -102,27 +107,16 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 				return downloadData{Conn: c.Name, Key: key, File: file, Bytes: o.Size, Replaces: exists, DryRun: true, RunsOn: "local"}, nil
 			}
 			mask := cl.out.Mask && !cl.revealOK()
-			if toStdout && mask {
-				// an AI agent reads it here: shown as fs cat shows text
-				var b bytes.Buffer
-				n, err := s.Get(ctx, key, &limitWriter{w: &b, n: hiddenScanMax})
-				if err != nil {
-					return nil, err
-				}
-				if n > hiddenScanMax {
-					return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "save it to a file with --to FILE",
-						"%s is larger than %s, the most komando shows an AI agent on stdout", key, humanBytes(hiddenScanMax))
-				}
-				text, err := agentStdout(cl, key, b.Bytes())
-				if err != nil {
-					return nil, err
-				}
-				_, err = io.WriteString(cl.out.W, text)
-				return nil, err
-			}
 			if toStdout {
-				_, err := s.Get(ctx, key, cl.out.W)
-				return nil, err
+				raw := takeStdout(cl)
+				r, err := streamTo(cl, ctx, raw, func(w io.Writer) (int64, error) { return s.Get(ctx, key, w) })
+				if err != nil {
+					return nil, err
+				}
+				return streamData{Conn: c.Name, Key: key, To: "stdout", Bytes: r.bytes, SHA256: r.sum, Masked: r.masked}, nil
+			}
+			if resume {
+				return continueObject(cl, ctx, c.Name, s, key, dest)
 			}
 			pp := objectProgress(ctx, s, key)
 			var n int64
@@ -218,4 +212,21 @@ func getMasked(cl *call, ctx context.Context, s storex.Bucket, key string, f *os
 		pw.CloseWithError(err)
 	}()
 	return fetchMasked(cl, ctx, pr, f, io.Discard, watch)
+}
+
+// continueObject is storage download --continue: one object into dest,
+// going on from the part already there.
+func continueObject(cl *call, ctx context.Context, conn string, s storex.Bucket, key, dest string) (any, error) {
+	if err := mkdirLocal(cl, filepath.Dir(dest)); err != nil {
+		var refused *out.Error
+		if errors.As(err, &refused) {
+			return nil, err
+		}
+		return nil, out.Errf(out.ExitError, "FILE_ERROR", "check that the folder is writable", "%v", err)
+	}
+	r, err := continueDownload(cl, ctx, bucketEnd{conn: conn, b: s, key: key}, dest, 0o644, key)
+	if err != nil {
+		return nil, err
+	}
+	return downloadData{Conn: conn, Key: key, File: dest, Bytes: r.bytes, RunsOn: "local", SHA256: r.sum, ContinuedFrom: r.from}, nil
 }
