@@ -133,6 +133,7 @@ its highlights; the sections below them give the details. Versions follow
   `host edit --address` or `import`, a stored password could go to a
   server komando does not check, or travel unencrypted, with only a
   warning; now it stops with `SAFETY_SETTING`, as a conn's weak TLS does.
+
 ### Fixed
 
 - A Tailscale VPN logs in only at its `--server` or Tailscale's own

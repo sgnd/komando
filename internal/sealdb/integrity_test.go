@@ -251,7 +251,8 @@ func TestAuditEntryWithoutChain(t *testing.T) {
 		}
 		seq := s.head.seq + 1
 		now := time.Now().UnixNano()
-		plain := head(false, now, []byte("b"))
+		// long enough to hold a sum: only the missing mark gives it away
+		plain := head(false, now, make([]byte, sumLen+1))
 		sealed, err := tx.key.Seal(sealrow.Row{ID: id, Type: auditType, Version: uint64(seq)}, plain)
 		if err != nil {
 			return err
