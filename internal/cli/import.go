@@ -237,7 +237,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again",
 			"%s cannot be added: %s; nothing was imported", countOf(len(bad), "server"), strings.Join(bad, "; "))
 	}
-	hosts := v.Add
+	hosts := importHostSecrets(v.Add, plan, &res)
 	for _, n := range v.Existing {
 		res.Skipped = append(res.Skipped, importSkip{n, "a server with this name exists (use --overwrite to replace it)"})
 	}
@@ -383,6 +383,19 @@ func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool,
 		conns = append(conns, c)
 	}
 	return conns, guardSends(cl, sends, weak)
+}
+
+// importHostSecrets records the passwords an import brings for its
+// servers (FileZilla), under the name each server's --password-ref points
+// at, so they go to the vault. A name already in the vault never gets
+// here: vetImportHosts drops that reference (dropForeignHostRefs).
+func importHostSecrets(hosts []*store.Host, plan *importPlan, res *importResult) []*store.Host {
+	for _, h := range hosts {
+		if name, ok := strings.CutPrefix(h.PasswordRef, "secret:"); ok && plan.Secrets[name] != "" {
+			res.Secrets = append(res.Secrets, name)
+		}
+	}
+	return hosts
 }
 
 // addConn records a conn the import adds: its name, the password stored

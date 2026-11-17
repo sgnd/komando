@@ -62,12 +62,12 @@ func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 	trustSSHD(t, "web1", "2", key)
 	got := filepath.Join(t.TempDir(), "stdin")
 	var args []string
-	var env []string
+	var serve *exec.Cmd
 	saved := tunnelServeCommand
 	tunnelServeCommand = func(_ string, a []string) *exec.Cmd {
 		args = a
 		c := exec.Command("/bin/sh", "-c", "cat > \"$0\"; sleep 5", got)
-		env = c.Env
+		serve = c // its Env is read after komando set it (PassOnStdin)
 		return c
 	}
 	t.Cleanup(func() { tunnelServeCommand = saved })
@@ -81,9 +81,10 @@ func TestLoginAskTunnelStartHandsOff(t *testing.T) {
 	tcl.out.W = &buf
 	_ = root.ExecuteContext(withCall(ctx, tcl))
 	tcl.out.W = savedW
-	if len(*texts) != 1 {
-		t.Fatalf("asked %d times", len(*texts))
+	if len(*texts) != 1 || serve == nil {
+		t.Fatalf("asked %d times, started %v", len(*texts), serve != nil)
 	}
+	env := serve.Env
 	if !slices.Contains(args, loginsStdinFlag) || strings.Contains(strings.Join(args, " "), pw) || strings.Contains(strings.Join(env, " "), pw) {
 		t.Errorf("serve args %q", args)
 	}
