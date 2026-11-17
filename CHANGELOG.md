@@ -163,11 +163,16 @@ its highlights; the sections below them give the details. Versions follow
 
 - The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
   and `~/.azure`: the SSO token cache and the CLI's cached credentials
-  too, not only the `credentials` file.
+  too, not only the `credentials` file. An AWS profile whose web identity
+  token file lies under `~/.aws` now needs a person for an agent's
+  command (`NEEDS_PERSON`), as a token file elsewhere already did.
 - On Windows, komando takes the Windows and Program Files folders from
   Windows itself when it decides that a program there is safe to run
-  with a password. It used to read `SystemRoot` and `ProgramFiles` from
-  the environment, which an AI agent sets.
+  with a password, and only System32 and SysWOW64 count of the Windows
+  folder (every user can write to its Temp and Tasks folders). It used
+  to read `SystemRoot` and `ProgramFiles` from the environment, which an
+  AI agent sets. A login program's PATH (kubeconfig) takes the Windows
+  folder from Windows too.
 - `--read-only` could be talked into a change on a protected server, or
   through a read-only ssh-gate key, with no person's yes: a shortened long
   option (`sed --in`, `sort --o=FILE`, `tar --checkpoint-act=exec=...`),

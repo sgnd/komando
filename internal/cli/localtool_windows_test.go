@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -25,7 +26,28 @@ func TestToolSafeIgnoresTheEnvironment(t *testing.T) {
 	if err == nil && toolSafe(tcl, filepath.Join(win, "x.exe")) {
 		t.Error("a program in the home folder counts as safe")
 	}
-	if !toolSafe(tcl, filepath.Join(windowsToolDirs()[0], "System32", "cmd.exe")) {
-		t.Error("cmd.exe in the Windows folder counts as changeable")
+	if dirs := windowsToolDirs(); len(dirs) == 0 || !toolSafe(tcl, filepath.Join(windowsDir(), "System32", "cmd.exe")) {
+		t.Errorf("cmd.exe in the Windows folder counts as changeable (%q)", dirs)
+	}
+}
+
+// Inside the Windows folder only System32 and SysWOW64 count: folders such
+// as Temp and Tasks can be written by every user of the computer.
+func TestToolSafeLeavesWritableWindowsFoldersOut(t *testing.T) {
+	win := windowsDir()
+	if win == "" {
+		t.Fatal("Windows names no Windows folder")
+	}
+	for _, p := range []string{`Temp\pg_dump.exe`, `Tasks\pg_dump.exe`, `Tracing\pg_dump.exe`, `pg_dump.exe`} {
+		if toolSafe(tcl, filepath.Join(win, p)) {
+			t.Errorf("%s counts as safe", p)
+		}
+	}
+	if !toolSafe(tcl, filepath.Join(win, "System32", "cmd.exe")) {
+		t.Error("System32 counts as changeable")
+	}
+	t.Setenv("SystemRoot", t.TempDir())
+	if !strings.HasPrefix(strings.ToLower(systemPathFor()), strings.ToLower(win)) {
+		t.Errorf("a login program's PATH follows SystemRoot from the environment: %s", systemPathFor())
 	}
 }
