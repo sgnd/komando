@@ -116,7 +116,9 @@ func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
 
 func (m *memBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
 	b, err := io.ReadAll(r)
-	m.objs[key] = string(b)
+	if err == nil { // a store keeps nothing of an upload that failed
+		m.objs[key] = string(b)
+	}
 	return err
 }
 

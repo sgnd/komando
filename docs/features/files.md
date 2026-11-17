@@ -237,6 +237,123 @@ A local file whose name has a colon (`a:b.txt`) is read as local when it
 exists; otherwise write `./a:b.txt`. Single-file copies report a `sha256`
 so you can check them.
 
+### Stream a file through stdout or stdin
+
+`--to -` streams one file to stdout, and `-` as the file to upload reads
+it from stdin. Nothing is saved on this computer on the way, so an app (or
+a phone through [ssh-gate](safety.md)) can read and write files with them.
+An ssh-gate key counts as an AI agent, so its streams keep the rules
+below for agents: a file over 16 MiB is refused, and a text file arrives
+with secret values as `[hidden]` (such a copy cannot be uploaded back).
+`--progress` does not go with `--to -`.
+
+```bash
+komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf
+komando download backups reports/q3.pdf --to - | open -f
+komando cp web1:/var/log/app.log - | grep ERROR
+komando upload web1 - /etc/app/motd < motd.txt
+komando upload backups - photos/2026/a.jpg --size 2483117 < a.jpg
+pg_dump app | komando storage upload backups - dumps/app.sql
+```
+
+- **stdout is the file's.** With `--to -` stdout carries the file's bytes
+  as they are, binary too, and nothing else, whatever `-o` says. komando's
+  own answer goes to stderr: with `-o json` one envelope at the end,
+  either the result or the error, and the exit code says which. The
+  result is `{"host": "web1", "path": "/etc/nginx/nginx.conf", "to":
+  "stdout", "bytes": 1234, "sha256": "…"}` (`conn` and `key` for
+  storage). In text mode nothing is said when it worked.
+- If a stream breaks off, the bytes already on stdout stay there: the exit
+  code is not 0 and the envelope on stderr says why. Compare `bytes` and
+  `sha256` when you need to be sure.
+- **Uploads from stdin** go to one server or conn, into DEST, which must
+  name the file (stdin has no name). On a server the content goes to a
+  temporary file that is moved into place only at the end; an object store
+  finishes the upload only at the end of the stream. The result has
+  `"file": "-"`, `bytes` and `sha256`.
+- `--size N` says how many bytes stdin sends. A stream that ends early, or
+  sends more, stops with `SIZE_CONFLICT` (exit 8) and replaces nothing.
+  Without it, whatever arrives until stdin closes is the file: give
+  `--size` whenever the sender could be cut off.
+- Content holding a value komando hid (`[hidden]`, `[secret:NAME]`) is
+  refused (`HIDDEN_VALUE`): a masked copy would destroy the real value.
+- `--continue`, `-r` and several servers do not go with `-` (`USAGE`). A
+  stream from a server reads as the SSH user; read a root-only file with
+  `fs cat --sudo`. An upload from stdin takes `--sudo`, `-p` and `--mode`
+  as any upload.
+- `--dry-run` says what would happen and reads nothing, from stdin or the
+  server; it answers on stdout, as every dry run does.
+- For an AI agent a stream keeps what a download to a file keeps, before a
+  byte is written: text with secret values as `[hidden]` (the result says
+  `masked`, without a `sha256`), a binary file holding a vault value, a
+  secret or personal data komando hides refused (`SENSITIVE_FILE`), and
+  anything over 16 MiB
+  refused (`FILE_TOO_LARGE`), as bytes on stdout cannot be taken back.
+
+### Copy between two servers or conns
+
+With `TARGET:PATH` on both sides, `cp` copies from one server or
+[storage](storage.md) conn to another: server to server, storage to
+storage, or one of each.
+
+```bash
+komando cp web1:/var/backups/db.sql.gz web2:/var/backups/
+komando cp -r web1:/var/www/site backups:sites/
+komando cp backups:2026/db.sql.gz dr-backups:2026/
+```
+
+- The data streams through your computer, from the source straight into
+  the destination, and is never saved on its disk. The servers do not
+  need to reach each other.
+- Each side is one server or one conn (no `@group`).
+- The file at the destination is replaced, as an upload replaces it
+  (`replaced: true`); a new file on a server gets the source's mode.
+  `-p` and `--mode` work as for an upload to a server.
+- A single file reports its `sha256`; the result names the `source` too.
+  Folders (`-r`) follow the rule below.
+- A protected destination asks once, as an upload to it does. The audit
+  log has one record for the whole copy: source, destination, size and
+  `sha256`.
+- An AI agent copies a file that is a secret by name (`.env`, a private
+  key) only after the user allows it (`--reveal`), as for a download.
+- `--progress` writes the same lines as an upload.
+
+### Go on with a copy that was cut off (--continue)
+
+`--continue` on `upload`, `download` or `cp` (also between two remote
+places) goes on with one big file where an earlier copy stopped:
+
+```bash
+komando download web1 /var/backups/db.sql.gz --continue
+komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue
+komando cp web1:/var/backups/db.sql.gz web2:/var/backups/ --continue
+```
+
+- When the destination has part of the file, komando checks that part
+  against the same part of the source (sha256), sends only the rest and
+  then checks the whole file against the source. The result says how much
+  was there already (`continued_from_bytes`) and the file's `sha256`.
+- With `--continue` the file is written in place, not under a temporary
+  name, so a copy that stops again can be continued again. It never
+  writes through a symbolic link (`USAGE`): name the file itself.
+- A destination that is longer than the source, or differs from it,
+  stops with `RESUME_CONFLICT` (exit 8) and is not touched. Copy it again
+  without `--continue` (a download needs `--overwrite` to replace it).
+- A whole file is only checked; nothing is sent.
+- A server works out the sums itself (`sha256sum` or `shasum`), so the
+  part already copied does not travel again. On an SFTP-only account, or
+  from storage, komando reads that part once more to check it.
+- S3, Google Cloud Storage, Azure Blob and WebDAV store a file whole and
+  cannot add to one: `RESUME_UNSUPPORTED` (exit 2). SFTP, FTP, FTPS and
+  SMB storage conns can.
+- `--continue` takes one file, never `-r` (use `sync`, which sends only
+  what is missing), `--sudo` or `--overwrite`, and needs a Linux or other
+  Unix server.
+- An AI agent gets a text file of up to 16 MiB with secret values shown as
+  `[hidden]`, which cannot be continued (`RESUME_UNSUPPORTED`). A larger
+  file that holds a value from komando's vault stops with
+  `SENSITIVE_FILE`, and the part that run added is removed again.
+
 ### Copy folders
 
 Folders (`-r`) follow one rule, so running the same copy twice gives the same
@@ -267,8 +384,9 @@ read, the rest are still copied; the result lists the failures under
 - Uploads replace the file on the server and say so (`replaced: true`).
 - Every file, both ways, is written under a temporary name first and moved
   into place when complete, so a broken connection never leaves half a
-  file. (Moving a new file into place on a server makes the SSH user its
-  owner; use `--sudo` for a single file whose owner must stay.)
+  file (except with `--continue`, above, which writes in place on
+  purpose). (Moving a new file into place on a server makes the SSH user
+  its owner; use `--sudo` for a single file whose owner must stay.)
 
 ### Big files and Ctrl-C
 
@@ -384,6 +502,10 @@ For a single file, use `komando upload` or `komando download`.
 | `CHMOD_FAILED` | an SFTP server does not allow setting modes, and its new files are more open than asked | write without `--mode`, or on a server that allows it |
 | `POLICY_BLOCKED` | `fs rm`, `rm -r` or `sync --delete` from an AI agent or a script without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
 | `CANCELLED` | Ctrl-C stopped a copy or sync | run the same command again to finish |
+| `SIZE_CONFLICT` | an upload from stdin sent another number of bytes than `--size` | send the whole file again; nothing was replaced |
+| `RESUME_CONFLICT` | `--continue` found a destination longer than the source, or one that differs from it, before the copy or by its sum after it | copy it again without `--continue` |
+| `FILE_CHANGED` | the file changed while `--continue` copied it | run the same command again |
+| `RESUME_UNSUPPORTED` | `--continue` to S3, Google Cloud Storage, Azure Blob or WebDAV, which cannot add to a file | copy it again without `--continue` |
 
 ## Reference
 

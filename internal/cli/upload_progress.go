@@ -156,6 +156,15 @@ func (pp *progressPart) start(file string) {
 	p.tick()
 }
 
+// skip counts n bytes as done without moving them: the part of a file
+// that --continue found at the destination already.
+func (pp *progressPart) skip(n int64) {
+	if pp == nil {
+		return
+	}
+	pp.p.add(n)
+}
+
 // fileDone counts one file moved in full.
 func (pp *progressPart) fileDone() {
 	if pp == nil {
