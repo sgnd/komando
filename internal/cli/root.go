@@ -495,6 +495,11 @@ func newRoot(cl *call) *cobra.Command {
 			} else {
 				cl.out.SetSecrets(vaultValues)
 			}
+			// before anything asks the person or opens the store: an AI
+			// agent's command in another data folder stops here
+			if err := guardHome(cmd); err != nil {
+				return err
+			}
 			// AI agents see passwords, keys and tokens as [hidden]; people and
 			// scripts see what the server sent (vault values are hidden for
 			// all). `secret show --reveal` and `key show --reveal` are for

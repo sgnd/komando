@@ -288,18 +288,13 @@ func TestAgentOtherHome(t *testing.T) {
 	wantCode(t, "SAFETY_SETTING", "list", "--dry-run")
 	wantCode(t, "SAFETY_SETTING", "list", "--dry-run", "--yes")
 	wantCode(t, "SAFETY_SETTING", "fs", "replace", "u@127.0.0.1:1", "/etc/x", "--old", "a", "--new", "b", "--dry-run")
-	if _, err := os.Stat(filepath.Join(other, "store.db")); err == nil {
-		// the script's host add above made the store; an agent's stopped
-		// command must not have been what did
-		t.Log("store.db exists from the person's host add")
-	}
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
 	// no window lets it through: the approval code a person switched on
 	// lives in the usual folder, which this komando does not read, so a
 	// window here would be a plain click. A person runs it themselves.
-	if e := wantCode(t, "SAFETY_SETTING", "list", "--yes"); !strings.Contains(e.Hint, "own terminal") {
+	if e := wantCode(t, "SAFETY_SETTING", "list", "--yes"); !strings.Contains(e.Hint, "No flag lets an AI agent") {
 		t.Errorf("hint: %q", e.Hint)
 	}
 	// taking the guard out is no playbook: the same stop

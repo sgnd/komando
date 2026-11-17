@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -172,5 +174,55 @@ func TestAgentHomePairStops(t *testing.T) {
 		if got := store.Home(); got != filepath.Join(account, ".komando") {
 			t.Errorf("the repointed link moved komando's data to %s", got)
 		}
+	}
+}
+
+// The stop for an agent's other data folder is final all the way out:
+// the hint names no flag, no window opens (--reveal asked before the
+// check once), nothing is made or written in that folder, and the
+// unknown-account case does not offer a window for it either.
+func TestAgentOtherHomeIsFinal(t *testing.T) {
+	account, other := t.TempDir(), t.TempDir()
+	accountHomeAt(t, account)
+	saved := defaultHome
+	defaultHome = func() string { return filepath.Join(account, ".komando") } // the real rule
+	t.Cleanup(func() { defaultHome = saved })
+	mustRun(t, "host", "add", "web1", "u@10.0.0.9") // the person, in the usual folder
+	store.Close()
+
+	texts := windowText(t, true)
+	t.Setenv("KOMANDO_HOME", other)
+	for _, args := range [][]string{{"list"}, {"list", "--yes"}, {"list", "--dry-run"}, {"list", "--reveal"}, {"guide", "uninstall", "--yes"}} {
+		code, text := runMain(t, args...)
+		if code != out.ExitPolicy || !strings.Contains(text, `"code":"SAFETY_SETTING"`) {
+			t.Errorf("%v: exit %d %s", args, code, text)
+			continue
+		}
+		var env struct {
+			Error struct{ Hint string } `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(text), &env); err != nil {
+			t.Fatalf("%v: %v in %s", args, err, text)
+		}
+		h := env.Error.Hint
+		if strings.Contains(h, "--yes") || strings.Contains(h, "window") || !strings.Contains(h, "KOMANDO_HOME") || strings.Contains(h, "a link") {
+			t.Errorf("%v: hint %q", args, h)
+		}
+	}
+	if len(*texts) != 0 {
+		t.Errorf("a window opened for another data folder: %q", *texts)
+	}
+	if left, _ := os.ReadDir(other); len(left) != 0 {
+		t.Errorf("komando made %d files in the other folder (%s ...)", len(left), left[0].Name())
+	}
+
+	// an account the user database does not know: another KOMANDO_HOME is
+	// still another folder, and stops without a window
+	store.AccountHome = func() (string, error) { return "", errors.New("no entry for uid 4242") }
+	if code, text := runMain(t, "list", "--yes"); code != out.ExitPolicy || !strings.Contains(text, "KOMANDO_HOME points komando at") {
+		t.Errorf("unknown account: exit %d %s", code, text)
+	}
+	if len(*texts) != 0 {
+		t.Errorf("unknown account: a window opened: %q", *texts)
 	}
 }

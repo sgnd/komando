@@ -81,9 +81,11 @@ its highlights; the sections below them give the details. Versions follow
   person's pinned host keys, protection and deny rules, and `--yes`
   opened a window that could not ask for the approval code, which lives
   in the usual folder. `komando guide uninstall` stops the same way; it
-  used to skip the check. A person runs such a command at their own
-  terminal, or makes `~/.komando` a link to the folder. This is the one
-  case where a dry run is blocked.
+  used to skip the check, and `--reveal` opened its window before it.
+  komando makes nothing in the other folder (a stopped command used to
+  leave a new store there). The hint tells the agent to take
+  `KOMANDO_HOME` out and run the command again. This is the one case
+  where a dry run is blocked.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

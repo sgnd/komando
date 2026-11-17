@@ -88,10 +88,9 @@ func sameDir(a, b string) bool {
 var homeFree = map[string]bool{"komando": true, "help": true, "completion": true, "version": true, "schema": true, "guide": true}
 
 // guardHome stops an AI agent's command that would use another data folder
-// than ~/.komando, unless a person allows it. The background commands
-// (vpn serve, tunnel serve, login-holder) too: in a home of its own an
-// agent holds the store key their tickets are made with. The agent guard
-// (guide guard), which the agent's tool runs before every call, goes on.
+// than ~/.komando. The stop is final (homeStop). Only the commands that
+// read no data go on (homeFree); hidden background commands are checked
+// like any other.
 func guardHome(cmd *cobra.Command) error {
 	cl := callOf(cmd)
 	top, _, _ := strings.Cut(commandName(cmd), ".")
@@ -100,41 +99,46 @@ func guardHome(cmd *cobra.Command) error {
 	if !cl.isAgent() || free {
 		return nil
 	}
+	// first: with no account in the user database either, a KOMANDO_HOME
+	// that is not ~/.komando of $HOME is still another folder
+	if h := otherHome(cl); h != "" {
+		return homeStop(cl, "KOMANDO_HOME points komando at "+h+", not at "+defaultHome()+
+			": its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent cannot use it",
+			"take KOMANDO_HOME out of the command's environment and run it again: komando then uses the user's own data folder. No flag lets an AI agent use another one")
+	}
 	if _, err := store.AccountHome(); err != nil {
 		what := "HOME=" + cl.getenv("HOME") + ": komando's data from " + store.Home() + ", unchecked"
 		msg := "komando cannot find this account's home folder in the user database (" + err.Error() +
 			"), so it cannot tell whether HOME was moved to another folder: an AI agent needs a person's yes to use " + store.Home()
 		if cl.flags.dryRun {
-			return homeStop(cl, msg) // a dry run opens no window, and reads servers all the same
+			// a dry run opens no window, and reads servers all the same
+			return homeStop(cl, msg, "a dry run cannot ask the user: run it without --dry-run and with --yes (komando then asks them in a window on their screen), or ask them to run it in their own terminal")
 		}
 		return agentYes(cl, "SAFETY_SETTING", msg,
 			what, "if HOME was moved, that folder's servers, protection, deny rules, pinned host keys and audit log are not the usual ones")
 	}
-	h := otherHome(cl)
-	if h == "" {
-		// KOMANDO_HOME that names the usual folder another way (a link,
-		// other case) is replaced by the folder's own path, for this
-		// komando and the ones it starts: a link repointed after this
-		// check must not move the data
-		if k := cl.getenv("KOMANDO_HOME"); k != "" && filepath.Clean(k) != filepath.Clean(defaultHome()) {
-			if err := os.Setenv("KOMANDO_HOME", defaultHome()); err != nil {
-				return homeStop(cl, "komando cannot pin its data folder to "+defaultHome()+": "+err.Error())
-			}
+	// KOMANDO_HOME that names the usual folder another way (a link, other
+	// case) is replaced by the folder's own path, for this komando and the
+	// ones it starts: a link repointed after this check must not move the
+	// data. Only the process's own variable is replaced, never one that a
+	// call brought along for itself (RunCall).
+	if k := cl.getenv("KOMANDO_HOME"); k != "" && k == os.Getenv("KOMANDO_HOME") && filepath.Clean(k) != filepath.Clean(defaultHome()) {
+		if err := os.Setenv("KOMANDO_HOME", defaultHome()); err != nil {
+			return homeStop(cl, "komando cannot keep its data folder at "+defaultHome()+": "+err.Error(), "ask the user to run it in their own terminal")
 		}
-		return nil
 	}
-	return homeStop(cl, "KOMANDO_HOME points komando at "+h+", not at "+defaultHome()+
-		": its servers, protection, deny rules, host keys and audit log are not the usual ones, so an AI agent cannot use it")
+	return nil
 }
 
 // homeStop refuses an AI agent's command in another data folder. It is
 // final: no flag and no window lets it through, and a dry run stops too.
-// The approval code a person switched on lives in the usual folder, which
-// this komando does not read, so a window here would be a plain click;
+// The approval code a person switched on is kept in the usual folder, not
+// in the one KOMANDO_HOME names, so a window here would be a plain click;
 // and a dry run in a folder without the person's pinned host keys,
 // protection and deny rules still connects, and previews nothing real.
-func homeStop(cl *call, msg string) error {
-	return out.Errf(out.ExitPolicy, "SAFETY_SETTING",
-		"ask the user to run `"+commandLine(cl)+"` in their own terminal, or to make ~/.komando a link to that folder; no flag lets an AI agent use another data folder",
-		"%s", msg)
+// The stop is not written to an audit log: the only one at hand is the
+// other folder's, and komando makes nothing there.
+func homeStop(cl *call, msg, hint string) error {
+	cl.blockAudited = true
+	return out.Errf(out.ExitPolicy, "SAFETY_SETTING", hint, "%s", msg).NoFlag()
 }

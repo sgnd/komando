@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestMain(m *testing.M) {
+	os.Setenv("CLAUDECODE", "1") // as when an AI agent starts the tests
+	os.Setenv("KOMANDO_AGENT", "1")
 	done := Use()
 	code := m.Run()
 	done()
@@ -32,6 +35,16 @@ func TestUseGivesAThrowawayHome(t *testing.T) {
 	}
 	if d, err := os.UserConfigDir(); err != nil || !strings.HasPrefix(d, Dir()) {
 		t.Errorf("os.UserConfigDir() = %q, %v", d, err)
+	}
+	// the tests run as a script: for an agent komando reads the home from
+	// the user database, which HOME does not move
+	for _, v := range []string{"CLAUDECODE", "KOMANDO_AGENT"} {
+		if _, set := os.LookupEnv(v); set {
+			t.Errorf("%s is still set: komando would take the home folder from the user database", v)
+		}
+	}
+	if !ours(Dir()) || ours(Real()) || ours(filepath.Join(os.TempDir(), "elsewhere")) || ours("") {
+		t.Error("only a komando-test-home folder in the temp folder counts as a parent's home")
 	}
 	if os.Getenv(childEnv) != Dir() {
 		t.Error("a test binary started by a test would make a home of its own")
@@ -61,7 +74,18 @@ func TestPath(t *testing.T) {
 			t.Errorf("%s: %s", ok, f.failed)
 		}
 	}
-	bad := []string{filepath.Join(Real(), ".ssh", "id_ed25519"), Real(), filepath.Join(Dir(), "..", "..", "x"), "relative/file"}
+	// a link in the temp folder that leads out of it is where it leads
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(t.TempDir(), "key")
+		if err := os.Symlink(filepath.Join(Real(), "komando-testhome-no-such-file"), link); err != nil {
+			t.Fatal(err)
+		}
+		f := &fakeTB{}
+		if Path(f, link); f.failed == "" {
+			t.Error("a link to a file in the real home passed")
+		}
+	}
+	bad := []string{filepath.Join(Real(), "komando-testhome-no-such-folder", "x"), Real(), filepath.Join(Dir(), "..", "..", "x"), "relative/file"}
 	if wd, err := os.Getwd(); err == nil {
 		bad = append(bad, filepath.Join(wd, "testdata", "x"))
 	}

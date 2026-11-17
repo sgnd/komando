@@ -328,7 +328,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |
 | `--write` | | bool | let a read-first command (SQL, Redis, kubectl text) change things | false |
 | `--read-only` | | bool | declare shell text as read only | false |
-| `--dry-run` | | bool (global) | show the plan, change nothing; never blocked | false |
+| `--dry-run` | | bool (global) | show the plan, change nothing; never blocked (but S-7.5's one exception) | false |
 | `--refresh` | | bool | update the package index first (dnf, zypper) | false |
 | `--*-ref` | | string | where a secret is: `secret:NAME`, `env:VAR`, `file:PATH` or a manager ref | |
 | `--user` | | string | the account on the target the command acts as or on | |

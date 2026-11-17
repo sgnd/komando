@@ -49,13 +49,22 @@ func goDirs(t *testing.T, root string) map[string][]string {
 }
 
 // homeWords are how Go code names a home folder.
-var homeWords = []string{"UserHomeDir", "UserConfigDir", "UserCacheDir", `"HOME"`, `"USERPROFILE"`, `"APPDATA"`, `"LOCALAPPDATA"`, `"XDG_`}
+// komando's own data folder counts: store.Home and store.Path are in it,
+// and store.Load and store.Update open the store there.
+var homeWords = []string{"UserHomeDir", "UserConfigDir", "UserCacheDir", `"HOME"`, `"USERPROFILE"`, `"APPDATA"`, `"LOCALAPPDATA"`, `"XDG_`,
+	"user.Current(", "$HOME", `"~/`, "store.Home(", "store.Path(", "store.UserHome(", "store.AccountHome(", "store.Load(", "store.Update(", "vault.Get(", "vault.Set("}
 
 // Every package whose code names a home folder, and that has tests,
 // starts them with Use in a TestMain: all its tests get the throwaway
 // home, whatever each one sets up itself.
 func TestPackagesThatNameAHomeUseTheThrowawayOne(t *testing.T) {
 	root := repoRoot(t)
+	seen := 0
+	defer func() {
+		if seen < 8 {
+			t.Errorf("only %d packages name a home folder: the rule is looking in the wrong place (%s)", seen, root)
+		}
+	}()
 	for dir, files := range goDirs(t, root) {
 		rel, _ := filepath.Rel(root, dir)
 		if rel == filepath.Join("internal", "testhome") || strings.HasPrefix(rel, "sync") {
@@ -70,9 +79,12 @@ func TestPackagesThatNameAHomeUseTheThrowawayOne(t *testing.T) {
 			s := string(b)
 			if strings.HasSuffix(f, "_test.go") {
 				tests = true
-				uses = uses || (strings.Contains(s, "func TestMain(") && strings.Contains(s, "testhome.Use()"))
+				uses = uses || callsUse(t, f)
 			}
 			names = names || slices.ContainsFunc(homeWords, func(w string) bool { return strings.Contains(s, w) })
+		}
+		if names && tests {
+			seen++
 		}
 		if names && tests && !uses {
 			t.Errorf("%s names a home folder (os.UserHomeDir, HOME, APPDATA, XDG_...) but its tests have no TestMain that calls testhome.Use()", rel)
@@ -80,17 +92,54 @@ func TestPackagesThatNameAHomeUseTheThrowawayOne(t *testing.T) {
 	}
 }
 
+// callsUse reports whether the test file has a TestMain whose code calls
+// testhome.Use (a comment that says so does not count).
+func callsUse(t *testing.T, path string) bool {
+	t.Helper()
+	file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, d := range file.Decls {
+		fn, ok := d.(*ast.FuncDecl)
+		if !ok || fn.Name.Name != "TestMain" || fn.Recv != nil || fn.Body == nil {
+			continue
+		}
+		ast.Inspect(fn.Body, func(n ast.Node) bool {
+			if c, ok := n.(*ast.CallExpr); ok && isCall(c, "testhome", "Use") {
+				found = true
+			}
+			return !found
+		})
+	}
+	return found
+}
+
 // writers are the os functions that make, change or remove a file, with
 // the positions of their path arguments.
 var writers = map[string][]int{
 	"WriteFile": {0}, "MkdirAll": {0}, "Mkdir": {0}, "Create": {0}, "OpenFile": {0}, "Remove": {0}, "RemoveAll": {0},
 	"Rename": {0, 1}, "Symlink": {1}, "Link": {1}, "Chmod": {0}, "Truncate": {0}, "Chtimes": {0},
+	"Chown": {0}, "Lchown": {0}, "CreateTemp": {0}, "MkdirTemp": {0},
+}
+
+// homeCalls are the calls that give a path in a home folder. komando's
+// own data folder (store.Home, store.Path) is left out: tests give it a
+// temp folder of their own, and without one it lies in the throwaway home.
+var homeCalls = [][2]string{
+	{"os", "UserHomeDir"}, {"os", "UserConfigDir"}, {"os", "UserCacheDir"}, {"user", "Current"},
+	{"store", "UserHome"}, {"store", "AccountHome"}, {"testhome", "Real"},
 }
 
 // No test writes to a path built from the home folder (os.UserHomeDir, the
-// HOME variable, a "~/..." text) unless the path went through
-// testhome.Path, which fails the test for a path outside the throwaway
-// home. The check follows names inside one function: p := filepath.Join(home, ...).
+// HOME variable, a "~/..." text) unless the path
+// went through testhome.Path, which fails the test for a path outside the
+// throwaway home. The check follows names inside one function:
+// p := filepath.Join(home, ...). It is a tripwire for the plain mistake,
+// not a proof: a path handed through a helper, a struct field or one of
+// komando's own commands is not followed. What keeps such a write out of
+// the real home is Use, which every package that names a home must call.
 func TestTestsWriteHomePathsOnlyThroughPath(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
@@ -116,9 +165,14 @@ func TestTestsWriteHomePathsOnlyThroughPath(t *testing.T) {
 func homeWrites(fset *token.FileSet, file *ast.File) []string {
 	var bad []string
 	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Body == nil {
-			continue
+		// one scope per top-level declaration: a function, or the
+		// functions written into a package-level var
+		var body ast.Node = decl
+		if fn, ok := decl.(*ast.FuncDecl); ok {
+			if fn.Body == nil {
+				continue
+			}
+			body = fn.Body
 		}
 		tainted := map[string]bool{}
 		fromHome := func(e ast.Expr) bool {
@@ -129,7 +183,7 @@ func homeWrites(fset *token.FileSet, file *ast.File) []string {
 					if isCall(x, "testhome", "Path") {
 						return false // checked when the test runs
 					}
-					if isCall(x, "os", "UserHomeDir") || isCall(x, "os", "UserConfigDir") || isCall(x, "os", "UserCacheDir") {
+					if slices.ContainsFunc(homeCalls, func(c [2]string) bool { return isCall(x, c[0], c[1]) }) {
 						hit = true
 					}
 					if (isCall(x, "os", "Getenv") || isCall(x, "os", "LookupEnv")) && len(x.Args) == 1 {
@@ -141,7 +195,7 @@ func homeWrites(fset *token.FileSet, file *ast.File) []string {
 					}
 				case *ast.BasicLit:
 					if x.Kind == token.STRING {
-						if v, _ := strconv.Unquote(x.Value); v == "~" || strings.HasPrefix(v, "~/") || strings.HasPrefix(v, `~\`) {
+						if v, _ := strconv.Unquote(x.Value); v == "~" || strings.HasPrefix(v, "~/") || strings.HasPrefix(v, `~\`) || strings.Contains(v, "$HOME") || strings.Contains(v, "${HOME}") {
 							hit = true
 						}
 					}
@@ -157,7 +211,25 @@ func homeWrites(fset *token.FileSet, file *ast.File) []string {
 		// names that hold a home path: assigned from one, until nothing new
 		for changed := true; changed; {
 			changed = false
-			ast.Inspect(fn.Body, func(n ast.Node) bool {
+			ast.Inspect(body, func(n ast.Node) bool {
+				if vs, ok := n.(*ast.ValueSpec); ok { // var key = filepath.Join(home, ...)
+					for i, v := range vs.Values {
+						if !fromHome(v) {
+							continue
+						}
+						names := vs.Names[:1]
+						if len(vs.Values) == len(vs.Names) {
+							names = vs.Names[i : i+1]
+						}
+						for _, id := range names {
+							if id.Name != "_" && !tainted[id.Name] {
+								tainted[id.Name] = true
+								changed = true
+							}
+						}
+					}
+					return true
+				}
 				as, ok := n.(*ast.AssignStmt)
 				if !ok {
 					return true
@@ -180,7 +252,7 @@ func homeWrites(fset *token.FileSet, file *ast.File) []string {
 				return true
 			})
 		}
-		ast.Inspect(fn.Body, func(n ast.Node) bool {
+		ast.Inspect(body, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
 				return true
@@ -229,6 +301,8 @@ func TestA(t *testing.T) {
 	os.WriteFile(filepath.Join(t.TempDir(), "x"), nil, 0o600)      // fine
 	os.Symlink("target", "~/link")                                 // 12: bad
 	os.ReadFile(key)                                               // reading is not this test's business
+	var conf = filepath.Join(testhome.Real(), "config.json")
+	os.Remove(conf)                                                // 15: bad
 }
 func TestB(t *testing.T) {
 	key := "elsewhere"
@@ -245,8 +319,8 @@ func TestB(t *testing.T) {
 	for _, g := range got {
 		lines = append(lines, strings.SplitN(g, ":", 2)[0])
 	}
-	if strings.Join(lines, ",") != "6,7,12" {
-		t.Errorf("flagged lines %v, want 6, 7, 12: %v", lines, got)
+	if strings.Join(lines, ",") != "6,7,12,15" {
+		t.Errorf("flagged lines %v, want 6, 7, 12, 15: %v", lines, got)
 	}
 }
 

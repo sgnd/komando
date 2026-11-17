@@ -13,6 +13,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/sgnd/komando/internal/engine"
 )
 
 // childEnv tells a test binary started by a test (a PTY child, a helper
@@ -42,13 +44,22 @@ func Dir() string { return dir }
 // A test binary that a test started itself keeps its parent's folder and
 // removes nothing. The Go tool keeps the caches and the toolchain it had
 // (they live under the real home), so a test may still run `go`.
+//
+// The tests also run as a script, whoever starts them: for an AI agent
+// komando takes the home folder from the system's user database, which no
+// variable moves (store.UserHome), so the variables an agent's shell sets
+// are taken out. A test about agents sets one itself, and then answers
+// for store.AccountHome too.
 func Use() (done func()) {
-	real, _ = os.UserHomeDir()
-	if d := os.Getenv(childEnv); d != "" {
+	for _, v := range engine.AgentVars() {
+		os.Unsetenv(v)
+	}
+	if d := os.Getenv(childEnv); ours(d) {
 		dir = d
 		setHome(d)
 		return func() {}
 	}
+	real, _ = os.UserHomeDir()
 	pinGo()
 	d, err := os.MkdirTemp("", "komando-test-home-")
 	if err != nil {
@@ -61,6 +72,20 @@ func Use() (done func()) {
 	setHome(d)
 	os.Setenv(childEnv, d)
 	return func() { os.RemoveAll(d) }
+}
+
+// ours reports whether d is a throwaway home a parent test binary made:
+// a folder of that name in the temp folder. Any other value of the
+// variable (a stale export in a shell) is not taken as a home.
+func ours(d string) bool {
+	if d == "" || !strings.HasPrefix(filepath.Base(d), "komando-test-home-") {
+		return false
+	}
+	fi, err := os.Stat(d)
+	if err != nil || !fi.IsDir() {
+		return false
+	}
+	return filepath.Dir(d) == evalOr(os.TempDir()) || filepath.Dir(d) == filepath.Clean(os.TempDir())
 }
 
 func setHome(d string) {
@@ -77,7 +102,7 @@ func setHome(d string) {
 // pinGo writes into the environment what the Go tool would otherwise work
 // out from the home folder: its caches and the toolchain in use.
 func pinGo() {
-	names := []string{"GOROOT", "GOCACHE", "GOMODCACHE", "GOPATH"}
+	names := []string{"GOROOT", "GOCACHE", "GOMODCACHE", "GOPATH", "GOENV"} // GOENV: what `go env -w` saved
 	out, err := exec.Command("go", append([]string{"env"}, names...)...).Output()
 	if err != nil {
 		return // no Go tool here (a test binary run by itself): nothing to keep
@@ -117,17 +142,43 @@ func Path(t TB, p string) string {
 	if dir != "" {
 		roots = append(roots, dir)
 	}
+	where := resolved(abs)
 	for _, r := range roots {
-		for _, root := range []string{r, evalOr(r)} {
-			for _, a := range []string{abs, evalOr(filepath.Dir(abs))} {
-				if rel, err := filepath.Rel(root, a); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel) {
-					return p
-				}
-			}
+		if rel, err := filepath.Rel(resolved(r), where); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel) {
+			return p
 		}
 	}
 	t.Fatalf("testhome: %s is outside the throwaway home (%s) and the temp folder: a test must not write there", p, dir)
 	return p
+}
+
+// resolved is where p really is: links followed for the part of it that
+// exists (a link in the temp folder that leads to a real file is that
+// file, also when nothing is there yet), the rest added as written.
+func resolved(p string) string { return resolveN(p, 16) }
+
+func resolveN(p string, depth int) string {
+	rest := ""
+	for cur := p; ; {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(r, rest)
+		}
+		// a link whose target is not there: where it points is what counts
+		if fi, err := os.Lstat(cur); err == nil && fi.Mode()&os.ModeSymlink != 0 && depth > 0 {
+			if to, err := os.Readlink(cur); err == nil {
+				if !filepath.IsAbs(to) {
+					to = filepath.Join(filepath.Dir(cur), to)
+				}
+				return resolveN(filepath.Join(to, rest), depth-1)
+			}
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return p
+		}
+		rest = filepath.Join(filepath.Base(cur), rest)
+		cur = parent
+	}
 }
 
 func evalOr(p string) string {
