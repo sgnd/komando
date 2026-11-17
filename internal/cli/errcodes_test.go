@@ -96,15 +96,6 @@ type goFile struct {
 	f    *ast.File
 }
 
-// twoExits are the codes whose exit tells two places apart on purpose:
-// WRITE_FAILED is 1 for a file on this computer and 5 on a server (as any
-// remote failure); VIA_CYCLE is 2 for the --via just given (host add or
-// edit) and 1 for one stored earlier, found when connecting.
-// SQL_TX_CONTROL and SQL_STRING_RULES are 2 for SQL the user wrote, refused
-// before it runs, and 6 (a safety stop) when the server ended komando's
-// transaction or reads SQL by rules komando cannot check.
-var twoExits = map[string]bool{"WRITE_FAILED": true, "VIA_CYCLE": true, "SQL_TX_CONTROL": true, "SQL_STRING_RULES": true}
-
 func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 	t.Helper()
 	var files []goFile
@@ -151,7 +142,7 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 				exits[s.exit] = append(exits[s.exit], s.file)
 			}
 		}
-		if len(exits) > 1 && !twoExits[code] {
+		if len(exits) > 1 {
 			mixed = append(mixed, fmt.Sprintf("%s exits with %d different codes: %v", code, len(exits), exits))
 		}
 		if from, ok := renamedFrom[code]; ok {
@@ -770,7 +761,8 @@ var meanings = map[string]string{
 	"VAULT_LOCKED":         "the vault has a passphrase and none was given (KOMANDO_VAULT_PASS)",
 	"VPN_STOP_FAILED":      "the VPN session could not be stopped",
 	"WEAK_PASSPHRASE":      "the passphrase is shorter than 15 characters",
-	"WRITE_FAILED":         "a file could not be written (exit 1 on this computer; exit 5 for a file on a server: fs write, fs replace)",
+	"WRITE_FAILED":         "a file on this computer could not be written (guide install, update)",
+	"REMOTE_WRITE_FAILED":  "a file on a server could not be written (fs --sudo, sync, Windows fs)",
 	"CONNECTION_REFUSED":   "the server refused the connection: nothing listens on that port",
 	"DNS_ERROR":            "the server's name does not resolve on this computer",
 	"OVPN_UNSUPPORTED":     "the OpenVPN profile has an option komando's own client does not support (the message names it)",

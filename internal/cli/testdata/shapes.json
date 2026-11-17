@@ -656,7 +656,7 @@
   "host show nope": {
     "command": "string",
     "error": {
-      "code": "code HOST_NOT_FOUND",
+      "code": "code TARGET_NOT_FOUND",
       "hint": "string",
       "message": "string"
     },

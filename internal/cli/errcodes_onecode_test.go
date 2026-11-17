@@ -25,7 +25,7 @@ var newCodes = map[string]int{
 	"DOCKER_OBJECT_NOT_FOUND": 3, "CACHE_SECTION_NOT_FOUND": 3,
 	"REPOSITORY_NOT_FOUND": 3, "IMAGE_TAG_NOT_FOUND": 3,
 	"K8S_POD_NOT_FOUND": 3, "K8S_CONTAINER_NOT_FOUND": 3,
-	"REVEAL_NEEDS_TERMINAL": 6, "SQL_TX_ENDED": 6, "SQL_STRING_SETTING": 6, "REMOTE_WRITE_FAILED": 5,
+	"REVEAL_NEEDS_TERMINAL": 6, "SQL_TX_CHECK_REQUIRED": 6, "SQL_SAFE_SETTINGS_REQUIRED": 6, "REMOTE_WRITE_FAILED": 5,
 }
 
 func TestOneCodeEach(t *testing.T) {
@@ -44,12 +44,13 @@ func TestOneCodeEach(t *testing.T) {
 			t.Errorf("%s: want exit %d, got %d (given: %v)", c, exit, e, ok)
 		}
 	}
-	// every code has one exit: no exceptions left
-	if len(twoExits) != 0 {
-		t.Errorf("twoExits still lists %v", twoExits)
-	}
+	// every code has one exit: no exceptions left (scanErrorCodes says which)
 	for _, m := range mixed {
 		t.Error(m)
+	}
+	// removing codes is a change of the JSON envelope: the contract goes up
+	if out.Contract != 2 {
+		t.Errorf("meta.contract is %d, want 2", out.Contract)
 	}
 	// error.thing told shared codes apart; with one code each it is gone
 	if _, ok := reflect.TypeOf(out.Error{}).FieldByName("Thing"); ok {

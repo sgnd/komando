@@ -107,7 +107,7 @@ func TestSQLServerLive(t *testing.T) {
 		{SQL: "commit", Keyword: "SELECT", Risk: driver.RiskRead},
 		{SQL: "delete from dbo.orders", Keyword: "SELECT", Risk: driver.RiskRead},
 	}}
-	if _, err := Run(ctx, db, "sqlserver", commit, Options{Timeout: 10 * time.Second}); err == nil || err.(*out.Error).Code != "SQL_TX_CONTROL" {
+	if _, err := Run(ctx, db, "sqlserver", commit, Options{Timeout: 10 * time.Second}); err == nil || err.(*out.Error).Code != "SQL_TX_CHECK_REQUIRED" {
 		t.Errorf("a hidden commit: %v", err)
 	}
 	if n := count(); n != int64(2) {

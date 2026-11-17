@@ -161,7 +161,7 @@ type Envelope struct {
 // field names, error codes and exit codes. Within one contract, fields
 // and codes are only added, never renamed or removed; a breaking change
 // raises it (docs/design/principles.md, section 5).
-const Contract = 1
+const Contract = 2
 
 type Meta struct {
 	Contract   int    `json:"contract"`

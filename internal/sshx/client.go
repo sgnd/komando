@@ -313,7 +313,7 @@ func Route(st *store.State, h *store.Host) (*store.Vpn, []*store.Host, error) {
 // hops [via1, via2, ..., target].
 func resolveChain(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {
 	if seen[h.Name] {
-		return nil, nil, out.Errf(out.ExitError, "VIA_CYCLE", "fix the path: `komando host edit "+h.Name+" --via OTHER` (or --unset via)", "--via cycle detected at %q", h.Name)
+		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the path: `komando host edit "+h.Name+" --via OTHER` (or --unset via)", "--via cycle detected at %q", h.Name)
 	}
 	seen[h.Name] = true
 	if h.Via == "" {
