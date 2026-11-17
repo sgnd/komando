@@ -336,6 +336,10 @@ func TestGateLocalTargets(t *testing.T) {
 		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":                           R,
 		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":                            R,
 		"cp web:/tmp/k web:/tmp/k2":                                               "",
+		"download me /home/u/.ssh/id_ed25519 --to -":                              R, // a stream reads here too
+		"storage download sftplocal .ssh/id_ed25519 --to -":                       R,
+		"cp ./id_ed25519 -":                                                       R, // SRC on this computer, whatever DST is
+		"cp me:/home/u/.ssh/id_ed25519 -":                                         R,
 		"sync ./site web:/var/www":                                                "",
 		"recipe run disk me":                                                      R, // runs its command here
 		"recipe run disk web":                                                     "",
