@@ -9,7 +9,10 @@ from pyftpdlib.servers import FTPServer
 # every command and every dropped connection goes to the container's log,
 # which run.sh prints when an area fails
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
-logging.info("pyftpdlib %s, pyopenssl %s", version("pyftpdlib"), version("pyopenssl"))
+try:
+    logging.info("pyftpdlib %s, pyopenssl %s", version("pyftpdlib"), version("pyopenssl"))
+except Exception as e:  # a version that cannot be read must not stop the server
+    logging.info("versions unknown: %s", e)
 
 auth = DummyAuthorizer()
 auth.add_user("deploy", "deploypass", "/data", perm="elradfmwMT")

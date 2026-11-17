@@ -126,14 +126,17 @@ func TestTestWaitStopsAtHostKeyMismatch(t *testing.T) {
 	if _, err := sshx.PinHostKey(net.JoinHostPort("localhost", strconv.Itoa(srv.port)), trustSigner(t).PublicKey(), true); err != nil {
 		t.Fatal(err)
 	}
-	// given an hour, it answers long before: this test would otherwise
-	// run into the time limit of the whole test run
-	env, took, err := runWait(t, "test", "dev", "--wait", "1h")
+	// rounds a millisecond apart: a komando that tested again would go on
+	// until the 10 minutes are up, far longer than one round ever takes
+	saved := waitInterval
+	waitInterval = time.Millisecond
+	t.Cleanup(func() { waitInterval = saved })
+	env, took, err := runWait(t, "test", "dev", "--wait", "10m")
 	if err == nil || env.Data.Results[0].Error == nil || env.Data.Results[0].Error.Code != "HOSTKEY_MISMATCH" {
 		t.Fatalf("err %v, results %+v", err, env.Data.Results)
 	}
-	if took > 30*time.Minute {
-		t.Errorf("waited %s for a changed key", took)
+	if env.Data.WaitedMS >= (10 * time.Minute).Milliseconds() {
+		t.Errorf("tested again until the time was up (%s) for a changed key", took)
 	}
 }
 

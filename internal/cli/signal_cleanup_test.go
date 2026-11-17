@@ -74,14 +74,15 @@ func TestSecondSignalRemovesTempFiles(t *testing.T) {
 // starts with SIGHUP ignored, whatever this process was started with.
 func TestIgnoredSIGHUPStaysIgnored(t *testing.T) {
 	if os.Getenv("KOMANDO_SIGHUP_CHILD") == "1" {
-		ctx, cancel := signalContext(context.Background())
+		// signalContext must not take over an ignored SIGHUP: listening
+		// for it would end the ignoring, which signal.Ignored shows at
+		// once, with no waiting for a signal
+		_, cancel := signalContext(context.Background())
 		defer cancel()
-		_ = syscall.Kill(os.Getpid(), syscall.SIGHUP)
-		select {
-		case <-ctx.Done():
-			os.Stdout.WriteString("stopped\n")
-		case <-time.After(time.Second):
+		if signal.Ignored(syscall.SIGHUP) {
 			os.Stdout.WriteString("kept running\n")
+		} else {
+			os.Stdout.WriteString("listens for SIGHUP\n")
 		}
 		return
 	}
@@ -95,6 +96,6 @@ func TestIgnoredSIGHUPStaysIgnored(t *testing.T) {
 	cmd.Dir = t.TempDir() // nohup writes nohup.out here when it cannot use the terminal
 	out, err := cmd.CombinedOutput()
 	if err != nil || !strings.Contains(string(out), "kept running") {
-		t.Errorf("a SIGHUP ignored from the start stopped the command (%v):\n%s", err, out)
+		t.Errorf("a SIGHUP ignored from the start would stop the command (%v):\n%s", err, out)
 	}
 }
