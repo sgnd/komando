@@ -120,7 +120,7 @@ func runningStatus(cl *call, st *store.State) runningData {
 	}
 	for _, n := range mapKeys(st.Logins) {
 		l := st.Logins[n]
-		if time.Now().Before(l.Until) && sessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe}) {
+		if time.Now().Before(l.Until) && sessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe, ProcStart: l.ProcStart}) {
 			d.Logins = append(d.Logins, runningLogin{Host: l.Host, Since: l.StartedAt, Until: l.Until})
 		}
 	}
