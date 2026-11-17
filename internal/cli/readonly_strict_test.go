@@ -361,3 +361,17 @@ func TestReadOnlyEnvQuotingTricks(t *testing.T) {
 	refusedReadOnly(t, `kubectl get pods -shttp://evil`, `kubectl -n x get pods -s=http://evil`, `kubectl config view --raw`)
 	allowedReadOnly(t, `kubectl config view`, `kubectl get svc -o wide`)
 }
+
+// Review round 5 (2026-11-17): bash globs an unquoted -e value, so
+// -delet[e] can become -delete; and --raw=true is --raw.
+func TestReadOnlyEnvGlobAndRaw(t *testing.T) {
+	for _, env := range []string{`x=-delet[e]`, `x=-fprin?`, `x=*`, `x=-{a,b}`, `x=a\b`} {
+		if !readOnlyMutates(`find /tmp $x`, []string{env}) {
+			t.Errorf("find /tmp $x with -e %s passed", env)
+		}
+	}
+	if readOnlyMutates(`du -sh $x`, []string{`x=/var/log`}) {
+		t.Error("a plain -e path refused")
+	}
+	refusedReadOnly(t, `kubectl config view --raw=true`, `kubectl get pods --raw=/x`)
+}
