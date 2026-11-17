@@ -276,17 +276,13 @@ risky verbs also need --allow-dangerous.`,
 			if strings.HasPrefix(args[1], "-") {
 				return out.Usage("start with the command (for example `-- get pods -n shop`); put flags after it")
 			}
-			var risk driver.Risk
+			risk, reason := driver.Risk(0), ""
 			if t.host != nil {
 				risk = classifyDocker(args[1:])
-			} else if risk, err = kubectlRisk(cl, args[1:]); err != nil {
+			} else if risk, reason, err = kubectlRunRisk(cl, args[1:]); err != nil {
 				return err
 			}
 			verb := strings.ToLower(args[1])
-			reason := "kubectl " + verb
-			if t.host == nil {
-				risk, reason = kubectlRunRisk(cl, args[1:], risk)
-			}
 			tool := map[bool]string{true: "docker", false: "kubectl"}[t.host != nil]
 			// the destructive-command policy sees the words as typed (quoting
 			// them for the shell would hide them from its patterns)
@@ -584,11 +580,15 @@ func guardSwarmRun(cl *call, st *store.State, host string, risk driver.Risk, ver
 
 // kubectlRunRisk is the rating and the reason a person reads for a kubectl
 // command line: a manifest it sends can raise the rating (kubectlFileRisk).
-func kubectlRunRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, string) {
+func kubectlRunRisk(cl *call, args []string) (driver.Risk, string, error) {
+	risk, err := kubectlRisk(cl, args)
+	if err != nil {
+		return 0, "", err
+	}
 	reason := "kubectl " + strings.ToLower(args[0])
 	risk, why := kubectlFileRisk(cl, args, risk)
 	if why != "" {
 		reason += " -f: " + why
 	}
-	return risk, reason
+	return risk, reason, nil
 }

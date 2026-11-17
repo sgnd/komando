@@ -2,6 +2,7 @@ package driver
 
 import (
 	"bufio"
+	"cmp"
 	"fmt"
 	"io"
 	"regexp"
@@ -139,7 +140,8 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 			} else {
 				stmt.WriteString(text[pos:end])
 			}
-			if err := chk.statement(stmt.String(), stmtLine); err != nil {
+			// delimiterAfter: a MySQL DELIMITER after the statement on its line
+			if err := cmp.Or(chk.statement(stmt.String(), stmtLine), delimiterAfter(kind, text[end:], line, trimmed)); err != nil {
 				return Verdict{}, err
 			}
 			stmt.Reset()
@@ -149,9 +151,6 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 				}
 				inCopy, copyLine = true, line
 				break
-			}
-			if err := delimiterAfter(kind, text[end:], line, trimmed); err != nil {
-				return Verdict{}, err
 			}
 			pos = end
 		}
