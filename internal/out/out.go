@@ -327,7 +327,7 @@ func (p *Printer) meta() Meta {
 	p.mu.Lock()
 	pinned, warns, cut, ns := slices.Clone(p.pinned), slices.Clone(p.warns), p.cut, slices.Clone(p.notSim)
 	p.mu.Unlock()
-	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: p.skipped, WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
+	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: safeSkipped(p.skipped), WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
 		HostKeysPinned: pinned, Warnings: safeNotes(warns), Truncated: cut, NotSimulated: safeNotes(ns)}
 }
 
@@ -772,4 +772,16 @@ func safeNotes(notes []string) []string {
 		notes[i] = noteText(n)
 	}
 	return notes
+}
+
+// safeSkipped is meta.skipped with each reason made safe to show.
+func safeSkipped(sk []Skipped) []Skipped {
+	if sk == nil {
+		return nil
+	}
+	c := slices.Clone(sk)
+	for i := range c {
+		c[i].Name, c[i].Reason = noteText(c[i].Name), noteText(c[i].Reason)
+	}
+	return c
 }

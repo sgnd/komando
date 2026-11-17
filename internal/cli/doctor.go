@@ -98,8 +98,8 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		case !vault.ValidRef(r):
 			fail(name, flag+" holds plain text instead of a reference: store it with `komando secret set NAME` and use secret:NAME")
 		case strings.HasPrefix(r, "secret:") && !secrets[strings.TrimPrefix(r, "secret:")]:
-			fix := komandoFix("secret", "set", strings.TrimPrefix(r, "secret:"))
-			warn(name, flag+" "+r+" is not in the vault: "+fixText(fix), fix...)
+			// no fix: secret set asks for the value
+			warn(name, flag+" "+r+" is not in the vault: `komando secret set "+argQ(strings.TrimPrefix(r, "secret:"))+"`")
 		}
 	}
 	for _, h := range st.SortedHosts() {
@@ -153,7 +153,7 @@ func inventoryChecks(cl *call, st *store.State) []securityCheck {
 		}
 		ref(name, "passphrase_ref", k.PassphraseRef)
 		if b := rsaBits(k.PublicKey); b > 0 && b < minRSABits {
-			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando key gen` (ed25519)", b), komandoFix("key", "gen")...)
+			warn(name, fmt.Sprintf("RSA %d bits is weak: make a new key with `komando key gen` (ed25519)", b))
 		}
 	}
 	return cs
@@ -189,14 +189,14 @@ func connHygiene(st *store.State, warn func(name, detail string, fix ...string))
 		}
 		key := c.Kind + "\x00" + c.URL + "\x00" + c.Via
 		if first, ok := same[key]; ok {
-			fix := komandoFix("conn", "rm", c.Name)
-			warn(name, "has the same kind, URL and --via as conn "+first+"; if they are the same thing, keep one: "+fixText(fix), fix...)
+			// no fix: only a person knows whether they are the same thing
+			warn(name, "has the same kind, URL and --via as conn "+first+"; if they are the same thing, keep one: `komando conn rm "+argQ(c.Name)+"`")
 		} else {
 			same[key] = c.Name
 		}
 		if h := st.Hosts[c.Labels["host"]]; h != nil && h.Protected && !c.Protected {
-			fix := komandoFix("conn", "edit", c.Name, "--protected")
-			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: "+fixText(fix), fix...)
+			fix := withFlag(komandoFix("conn", "edit", c.Name), "--protected")
+			warn(name, "has the label host="+h.Name+", a protected server, but is not protected itself: `komando conn edit "+argQ(c.Name)+" --protected`", fix...)
 		}
 	}
 }
@@ -224,6 +224,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			st, err := loadState()
 			add("state", err == nil, store.Home())
 			if err != nil {
+				r.safe()
 				cl.out.Print("doctor", r, toErr(err))
 				return exitCode(1)
 			}

@@ -35,9 +35,13 @@ or pod's name (`[web1] ...`): there it shows as `\r`, so a server cannot
 print over the name. In JSON, `data` keeps the bytes as they are, escaped
 the JSON way: it is the file, the row or the output itself. The words
 komando writes about a result are made safe there too, because whoever
-reads the JSON shows them to a person: `error.message`, `error.hint`,
-`error.suggestion`, `meta.warnings`, `meta.would_be_blocked` and the
-`name` and `detail` of `doctor`'s checks.
+reads the JSON shows them to a person: `error.message`, `error.hint` and
+`error.suggestion` (also in the error objects of a result, one per
+server), `meta.warnings`, `meta.skipped`, `meta.would_be_blocked` and the
+`name` and `detail` of `doctor`'s checks. Invisible format characters
+(zero-width spaces, word joiners, tag characters) show as `\uNNNN` there
+too. This is for display: it changes the text, so compare codes, not
+messages.
 
 ```json
 {
@@ -192,6 +196,9 @@ agrees. See [Safety](safety.md#when-you-are-at-the-terminal).
 In `-o json`, a doctor check that one komando command puts right has
 `fix`: the words to run, as a list (`["komando", "conn", "edit", "db2",
 "--protected"]`). The `detail` says the same in prose. A program that
-offers the fix reads `fix` and never takes a command out of `detail`; a
-check with several ways out, or one that needs a name from you, has no
-`fix`.
+offers the fix reads `fix` and never takes a command out of `detail`.
+A check has `fix` only when one command puts it right whatever else is
+true, and that command asks nothing: a check with several ways out, one
+that needs a value or a passphrase from you, one only you can judge
+(two conns that look the same), or a name that could be read as a flag,
+has none.

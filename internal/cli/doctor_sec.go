@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/policy"
@@ -25,14 +26,34 @@ type securityCheck struct {
 	Warning bool   `json:"warning,omitempty"`
 	Detail  string `json:"detail"`
 	// Fix is the one komando command that puts this right, as the words
-	// to run (["komando", "conn", "rm", "db2"]), when there is exactly
-	// one and it needs nothing filled in. The detail says the same in
+	// to run (["komando", "conn", "edit", "db2", "--protected"]), when
+	// there is exactly one, it asks nothing and needs nothing filled in,
+	// and it is right whatever else is true. The detail says the same in
 	// prose; a program reads Fix and never takes a command out of text.
 	Fix []string `json:"fix,omitempty"`
 }
 
-// komandoFix is a check's Fix: komando and its words.
-func komandoFix(words ...string) []string { return append([]string{"komando"}, words...) }
+// komandoFix is a check's Fix: komando and its words. The names in it come
+// from the store or an imported file; a word that could be read as a flag
+// (it starts with "-") or holds a character that is not printable makes
+// it nil, so no fix is offered at all. The flags komando adds itself are
+// passed as flag.
+func komandoFix(words ...string) []string {
+	for _, w := range words {
+		if w == "" || strings.HasPrefix(w, "-") || strings.ContainsFunc(w, func(r rune) bool { return !unicode.IsPrint(r) || unicode.IsSpace(r) }) {
+			return nil
+		}
+	}
+	return append([]string{"komando"}, words...)
+}
+
+// withFlag is fix with flag added (nil stays nil).
+func withFlag(fix []string, flag string) []string {
+	if fix == nil {
+		return nil
+	}
+	return append(fix, flag)
+}
 
 // fixText is a Fix as a person types it, for the detail: each word quoted
 // where a shell needs it.
@@ -125,7 +146,7 @@ func sealedStoreCheck(add func(name string, ok, warn bool, detail string, fix ..
 	case s.Mode == "passphrase" && vault.Passphrase() == "":
 		add("vault", false, true, "the store has a passphrase, but KOMANDO_VAULT_PASS is not set here, so komando cannot open it")
 	case s.ShortPass:
-		add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`", komandoFix("secret", "passphrase")...)
+		add("vault", false, true, "KOMANDO_VAULT_PASS is shorter than 15 characters (NIST SP 800-63B); change it with `komando secret passphrase`")
 	default:
 		add("vault", true, false, "everything sealed in "+store.StoreFile+" (AES-256-GCM), passphrase with scrypt N=2^17")
 	}
@@ -140,7 +161,7 @@ func oldCopyCheck(add func(name string, ok, warn bool, detail string, fix ...str
 	case err != nil:
 		add("old_copy", false, true, err.Error())
 	case !guarded:
-		add("old_copy", false, true, "an old copy of "+store.StoreFile+" put back (from a backup, or by someone) would not be noticed: that needs the store's key in the OS keychain (`komando secret keychain`)", komandoFix("secret", "keychain")...)
+		add("old_copy", false, true, "an old copy of "+store.StoreFile+" put back (from a backup, or by someone) would not be noticed: that needs the store's key in the OS keychain (`komando secret keychain`)")
 	case old && have == 0 && !storeFileThere():
 		add("old_copy", false, false, store.StoreFile+" is missing, though the keychain remembers its change "+strconv.FormatUint(kept, 10)+": put it back from a backup, or run `komando doctor --accept-old-copy` to start an empty store on purpose")
 	case old && kept == 0:
@@ -157,7 +178,7 @@ func oldCopyCheck(add func(name string, ok, warn bool, detail string, fix ...str
 func vaultKeyChecks(add func(name string, ok, warn bool, detail string, fix ...string)) {
 	if s, err := vault.Check(); err == nil && s.Mode == "passphrase" && vault.Passphrase() != "" {
 		if err := vault.Opens(""); errors.Is(err, vault.ErrWrongKey) {
-			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one", komandoFix("secret", "passphrase")...)
+			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
 		}
 	}
 }

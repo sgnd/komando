@@ -51,3 +51,26 @@ func TestJSONErrorTextPlain(t *testing.T) {
 		t.Errorf("%s", buf.String())
 	}
 }
+
+// Invisible format characters only hide text from the person reading a
+// message; they are shown. The zero-width joiner stays for emoji.
+func TestNoteTextInvisible(t *testing.T) {
+	in := "ok\u200bhidden\ufeff\U000e0041\u2060 \u061c family \U0001f468\u200d\U0001f469"
+	got := noteText(in)
+	for _, want := range []string{`\u200b`, `\ufeff`, `\ue0041`, `\u2060`, `\u061c`, "\U0001f468\u200d\U0001f469"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("%q lacks %q", got, want)
+		}
+	}
+}
+
+// meta.skipped reasons are cleaned like warnings.
+func TestSkippedReasonSafe(t *testing.T) {
+	var buf bytes.Buffer
+	p := &Printer{W: &buf, Format: "json", Start: time.Now()}
+	p.Skip(Skipped{Name: "db\x1b[2J", Kind: "postgres", Reason: "server said \x1b]0;x\x07"})
+	p.Print("x", map[string]any{}, nil)
+	if strings.Contains(buf.String(), `\u001b`) || !strings.Contains(buf.String(), `\\e]0;x`) {
+		t.Errorf("%s", buf.String())
+	}
+}

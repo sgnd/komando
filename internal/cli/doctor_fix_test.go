@@ -7,10 +7,12 @@ import (
 )
 
 // doctor's JSON names the fix as words to run, next to the prose: a
-// program never has to take a command out of text.
+// program never has to take a command out of text. A fix is offered only
+// when it asks nothing and is right whatever else is true.
 func TestDoctorFixIsStructured(t *testing.T) {
 	invHome(t)
-	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app")
+	mustRun(t, "host", "add", "db", "u@10.0.0.5", "--protected")
+	mustRun(t, "conn", "add", "db1", "postgres://app@10.0.0.5/app", "--label", "host=db")
 	mustRun(t, "conn", "add", "db2", "postgres://app@10.0.0.5/app")
 	d, _ := invRun(t, "doctor")
 	b, _ := json.Marshal(d)
@@ -23,28 +25,38 @@ func TestDoctorFixIsStructured(t *testing.T) {
 	if err := json.Unmarshal(b, &r); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]string{
-		"conn:db2": "komando conn rm db2",
-	}
-	seen := map[string]bool{}
+	fixes := map[string]string{}
 	for _, c := range append(append(r.Checks, r.Inventory...), r.Security...) {
-		if len(c.Fix) > 0 {
-			if c.Fix[0] != "komando" {
-				t.Errorf("%s: a fix is a komando command: %q", c.Name, c.Fix)
-			}
-			// the prose shows the same command
-			if !strings.Contains(c.Detail, "`"+strings.Join(c.Fix, " ")+"`") {
-				t.Errorf("%s: detail %q does not show the fix %q", c.Name, c.Detail, c.Fix)
-			}
+		if len(c.Fix) == 0 {
+			continue
 		}
-		if w, ok := want[c.Name]; ok && strings.Join(c.Fix, " ") == w {
-			seen[c.Name] = true
+		fixes[c.Name] = strings.Join(c.Fix, " ")
+		if c.Fix[0] != "komando" || !strings.Contains(c.Detail, "`"+strings.Join(c.Fix, " ")+"`") {
+			t.Errorf("%s: fix %q, detail %q", c.Name, c.Fix, c.Detail)
 		}
 	}
-	for name := range want {
-		if !seen[name] {
-			t.Errorf("%s has no fix %q: %s", name, want[name], b)
+	if fixes["conn:db1"] != "komando conn edit db1 --protected" {
+		t.Errorf("conn:db1: %q (all: %v)", fixes["conn:db1"], fixes)
+	}
+	// a duplicate may not be one: no fix, the prose names the way
+	if _, ok := fixes["conn:db2"]; ok {
+		t.Errorf("conn:db2 got a fix: %v", fixes)
+	}
+}
+
+// A name that could be read as a flag, or holds a control character,
+// gives no fix at all.
+func TestKomandoFixRefusesFlagsAndControls(t *testing.T) {
+	for _, w := range []string{"--yes", "-o", "", "a\x1b", "a b", "a\u202e"} {
+		if f := komandoFix("conn", "rm", w); f != nil {
+			t.Errorf("%q: %q", w, f)
 		}
+	}
+	if f := withFlag(komandoFix("conn", "edit", "db-1.prod"), "--protected"); strings.Join(f, " ") != "komando conn edit db-1.prod --protected" {
+		t.Errorf("%q", f)
+	}
+	if withFlag(komandoFix("conn", "edit", "--x"), "--protected") != nil {
+		t.Error("withFlag of nil")
 	}
 }
 
@@ -88,8 +100,5 @@ func TestDoctorSecurityFixes(t *testing.T) {
 	}
 	if got["security:audit"] != "komando config set audit on" || got["security:host_keys"] != "komando config set host_key_policy accept-new" {
 		t.Errorf("fixes: %v", got)
-	}
-	if fixText(komandoFix("conn", "rm", "a b; rm -rf ~")) != "`komando conn rm 'a b; rm -rf ~'`" {
-		t.Errorf("quoting: %s", fixText(komandoFix("conn", "rm", "a b; rm -rf ~")))
 	}
 }

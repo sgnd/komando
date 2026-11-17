@@ -27,12 +27,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
-- `komando doctor -o json`: a check that one komando command puts right
-  has `fix`, the words to run as a list. `error.message`, `error.hint`,
-  `error.suggestion`, `meta.warnings` and doctor's `name` and `detail`
-  are made safe to show in JSON as they are on the terminal (escape
-  sequences and text-direction marks show as `\e`, `\xNN`, `\u202e`);
-  `data` is unchanged.
+- `komando doctor -o json`: a check that one komando command puts right,
+  asking nothing, has `fix`, the words to run as a list. `error.message`,
+  `error.hint`, `error.suggestion` (also in per-server error objects),
+  `meta.warnings`, `meta.skipped` and doctor's `name` and `detail` are
+  made safe to show in JSON as they are on the terminal: escape
+  sequences, text-direction marks and invisible format characters show
+  as `\e`, `\xNN`, `\uNNNN`. The rest of `data` is unchanged.
 - `SECRET_INPUT_INVALID` is gone. An AI agent's arguments, script or
   file that hold a vault value now get the answer any other value gets,
   and the value it typed is not hidden as `[secret:NAME]` in that
