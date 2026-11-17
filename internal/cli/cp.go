@@ -133,19 +133,22 @@ type xferErr struct {
 }
 
 type xferStats struct {
-	Host     string     `json:"host"`
-	OK       bool       `json:"ok"`
-	Files    int        `json:"files"`
-	Bytes    int64      `json:"bytes"`
-	Dest     string     `json:"dest"`
-	SHA256   string     `json:"sha256,omitempty"`
-	Replaced bool       `json:"replaced,omitempty"` // an upload replaced a file that was there
-	Masked   int        `json:"masked,omitempty"`   // files saved with secret values shown as [hidden] (AI agents)
-	Kept     int        `json:"kept,omitempty"`     // a folder download: files already on this computer, left as they are
-	Skipped  []string   `json:"skipped,omitempty"`  // symbolic links and other non-files, not copied
-	Errors   []xferErr  `json:"errors,omitempty"`   // files that could not be copied (the rest were)
-	Error    *out.Error `json:"error,omitempty"`
-	up       bool
+	Host     string `json:"host"`
+	OK       bool   `json:"ok"`
+	Files    int    `json:"files"`
+	Bytes    int64  `json:"bytes"`
+	Dest     string `json:"dest"`
+	SHA256   string `json:"sha256,omitempty"`
+	Replaced bool   `json:"replaced,omitempty"` // an upload replaced a file that was there
+	Masked   int    `json:"masked,omitempty"`   // files saved with secret values shown as [hidden] (AI agents)
+	Kept     int    `json:"kept,omitempty"`     // a folder download: files already on this computer, left as they are
+	// --continue: bytes that were already at the destination and stayed
+	ContinuedFrom int64      `json:"continued_from_bytes,omitempty"`
+	Source        string     `json:"source,omitempty"`  // a copy between two remote places: where it came from (TARGET:PATH)
+	Skipped       []string   `json:"skipped,omitempty"` // symbolic links and other non-files, not copied
+	Errors        []xferErr  `json:"errors,omitempty"`  // files that could not be copied (the rest were)
+	Error         *out.Error `json:"error,omitempty"`
+	verb          string     // uploaded, downloaded, copied
 }
 
 type xferData struct {
@@ -170,15 +173,14 @@ func (d xferData) Text() string {
 			}
 			continue
 		}
-		verb := "downloaded"
-		if r.up {
-			verb = "uploaded"
-		}
 		files := "files"
 		if r.Files == 1 {
 			files = "file"
 		}
-		fmt.Fprintf(&b, "%s%s %d %s (%s) to %s", pre, verb, r.Files, files, humanBytes(r.Bytes), r.Dest)
+		fmt.Fprintf(&b, "%s%s %d %s (%s) to %s", pre, r.verb, r.Files, files, humanBytes(r.Bytes), r.Dest)
+		if r.ContinuedFrom > 0 {
+			fmt.Fprintf(&b, ", going on after the %s already there", humanBytes(r.ContinuedFrom))
+		}
 		if r.Replaced {
 			b.WriteString(", replacing the file there")
 		}
@@ -209,8 +211,11 @@ func shortList(l []string, n int) string {
 type cpOpts struct {
 	recursive, sudo, mkdirs, overwrite bool
 	mode                               string
-	oneHost                            bool // one server: a big file shows progress at a terminal
-	progress                           bool // --progress: JSON lines on stderr with -o json
+	oneHost                            bool  // one server: a big file shows progress at a terminal
+	progress                           bool  // --progress: JSON lines on stderr with -o json
+	resume                             bool  // --continue: go on with a file that was cut off
+	size                               int64 // --size: the bytes an upload from stdin must send
+	sized                              bool  // --size was given
 }
 
 // transferProgress is a progress line on stderr for one big file going to
@@ -235,6 +240,13 @@ func (o *cpOpts) bind(c *cobra.Command) {
 	c.Flags().Lookup("sudo").Usage = "single files with sudo: install as root (upload), read as root (download)"
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "download: replace files that already exist on this computer")
 	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
+	c.Flags().BoolVar(&o.resume, "continue", false, continueUsage)
+	o.bindSize(c)
+}
+
+// bindSize adds --size, for an upload from stdin (-).
+func (o *cpOpts) bindSize(c *cobra.Command) {
+	c.Flags().Var(&bytesFlag{n: &o.size}, "size", "an upload from stdin (-): how many bytes it sends, like 10MiB; a stream of another length replaces nothing (SIZE_CONFLICT)")
 }
 
 func (o *cpOpts) bindUp(c *cobra.Command, prefix string) {
@@ -290,13 +302,28 @@ DST/<server>/... . A single-file copy reports its sha256, so you can check it.
 TARGET can be a storage conn too (backups:2026/db.sql.gz). cp is upload or
 download written the cp way: the same code, flags and results.
 
+With TARGET:PATH on both sides, cp copies from one server or storage conn
+to another (server to server, storage to storage, or one of each). The
+data streams through this computer and is never saved on its disk. The
+file at the destination is replaced, as an upload replaces it.
+
+--continue goes on with a single file that was cut off: the part already
+at the destination is kept when it matches the source (sha256), the rest
+is sent, and the whole file is checked against the source. A destination
+that is longer, or differs, stops with RESUME_CONFLICT and is not touched.
+S3, Google Cloud Storage, Azure Blob and WebDAV store a file whole and
+cannot add to one (RESUME_UNSUPPORTED).
+
 ` + cpFolderRule,
 		Example: `  komando cp ./app.tar.gz @web:/tmp/app.tar.gz
   komando cp -r ./site web1:/var/www/site
   komando cp ./nginx.conf web1:/etc/nginx/nginx.conf --sudo
   komando cp web1:/var/log/nginx/error.log ./logs/
   komando cp @web:/etc/nginx/nginx.conf ./configs/
-  komando cp ./db.sql.gz backups:2026/db.sql.gz`,
+  komando cp ./db.sql.gz backups:2026/db.sql.gz
+  komando cp web1:/var/backups/db.sql.gz web2:/var/backups/
+  komando cp -r web1:/var/www/site backups:sites/
+  komando cp web1:/var/backups/db.sql.gz ./db.sql.gz --continue`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
@@ -320,7 +347,7 @@ func runCpArgs(ctx context.Context, cmd *cobra.Command, args []string, o cpOpts)
 					"%q is not a server or conn komando knows", a.t)
 			}
 		}
-		return out.Usage("komando cannot copy from one server straight to another: download, then upload")
+		return runRemoteCp(ctx, cmd, srcT, srcP, dstT, dstP, o)
 	case !srcRemote && !dstRemote:
 		return out.Usage("neither side is on a server: write one as TARGET:PATH (a local name with a colon is written ./name)")
 	case dstRemote:
@@ -339,7 +366,8 @@ func runCpArgs(ctx context.Context, cmd *cobra.Command, args []string, o cpOpts)
 // SFTP: local to remote when up is true, else remote to local.
 func runCp(cl *call, ctx context.Context, name, target, remote, local string, up bool, o cpOpts) error {
 	// checks that need no server come first
-	if up {
+	stdin := up && local == "-"
+	if up && !stdin {
 		fi, err := os.Stat(local)
 		if err != nil {
 			return localFileErr("PATH_NOT_FOUND", err, "")
@@ -364,12 +392,18 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 	if !up {
 		src, dst = dst, src
 	}
+	if stdin && len(hosts) != 1 {
+		return out.Errf(out.ExitUsage, "USAGE", "name one server; to send the same file to many, save it to a file and upload that",
+			"target %q matched %d servers; an upload from stdin (-) goes to one, as stdin is read once", target, len(hosts))
+	}
 	if up {
-		if err := guardLocalRead(cl, local); err != nil {
-			return err
-		}
-		if err := hiddenInLocal(local); err != nil {
-			return err
+		if !stdin {
+			if err := guardLocalRead(cl, local); err != nil {
+				return err
+			}
+			if err := hiddenInLocal(local); err != nil {
+				return err
+			}
 		}
 		if err := guard(cl, st, hosts, "", true); err != nil {
 			return err
@@ -379,13 +413,19 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 	}
 	o.oneHost = len(hosts) == 1
 	if cl.flags.dryRun {
-		if err := downloadExists(local, remote, !up && !o.overwrite && !o.recursive && len(hosts) == 1); err != nil {
+		if err := downloadExists(local, remote, !up && !o.overwrite && !o.recursive && !o.resume && len(hosts) == 1); err != nil {
 			return err // the real run would stop here
 		}
 		cl.out.Print(name, map[string]any{"src": src, "dst": dst, "hosts": hostNames(hosts), "direction": map[bool]string{true: "upload", false: "download"}[up]}, nil)
 		return nil
 	}
 	res := fanout(cl, allowWindows(ctx), st, hosts, cpProgress(cl, ctx, local, up, len(hosts), func(ctx context.Context, c *sshx.Client) (any, error) {
+		if c.Host.Windows() && stdin {
+			return nil, out.Usage("an upload from stdin (-) works with Linux and other Unix servers (SFTP); %s runs Windows", c.Host.Name)
+		}
+		if c.Host.Windows() && o.resume {
+			return nil, out.Usage("--continue works with Linux and other Unix servers (SFTP); %s runs Windows", c.Host.Name)
+		}
 		if c.Host.Windows() {
 			return winCopy(cl, ctx, c, local, remote, up, o, len(hosts) > 1)
 		}
@@ -407,35 +447,55 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 		}
 		return download(cl, ctx, c, sc, rp, l, o)
 	}))
-	data := xferData{Results: []xferStats{}}
-	worst := 0
-	var fails []hostFail
+	verb := "downloaded"
+	if up {
+		verb = "uploaded"
+	}
+	var x xferTally
 	for _, r := range res {
-		s := xferStats{Host: r.Host.Name, up: up}
+		s := xferStats{}
 		if v, ok := r.Value.(xferStats); ok {
 			s = v
-			s.Host, s.up = r.Host.Name, up
 		}
-		if r.Err != nil {
-			s.Error = toErr(r.Err)
-		} else if len(s.Errors) > 0 {
-			s.Error = out.Errf(out.ExitRemote, "PARTIAL_TRANSFER", "fix the listed ones (permissions?) and run it again",
-				"%s could not be copied; the other files were copied", countOf(len(s.Errors), "file"))
-		}
-		if s.Error != nil {
-			worst = worse(worst, s.Error.Exit)
-			fails = append(fails, hostFail{host: s.Host, reason: failReason(0, s.Error), err: s.Error})
-			data.Summary.Failed++
-			data.Summary.FailedHosts = append(data.Summary.FailedHosts, s.Host)
-		} else {
-			s.OK = true
-			data.Summary.OK++
-		}
-		data.Results = append(data.Results, s)
+		s.Host, s.verb = r.Host.Name, verb
+		x.add(s, r.Err)
 	}
-	data.Summary.Total = len(res)
+	data, worst, fails := x.data, x.worst, x.fails
 	audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
 	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+}
+
+// xferTally adds up the results of a copy, one per server (or one for a
+// copy between two remote places).
+type xferTally struct {
+	data  xferData
+	worst int
+	fails []hostFail
+}
+
+// add counts s, which ended with err (nil: it worked, unless files in it
+// could not be copied).
+func (x *xferTally) add(s xferStats, err error) {
+	if x.data.Results == nil {
+		x.data.Results = []xferStats{}
+	}
+	if err != nil {
+		s.Error = toErr(err)
+	} else if len(s.Errors) > 0 {
+		s.Error = out.Errf(out.ExitRemote, "PARTIAL_TRANSFER", "fix the listed ones (permissions?) and run it again",
+			"%s could not be copied; the other files were copied", countOf(len(s.Errors), "file"))
+	}
+	if s.Error != nil {
+		x.worst = worse(x.worst, s.Error.Exit)
+		x.fails = append(x.fails, hostFail{host: s.Host, reason: failReason(0, s.Error), err: s.Error})
+		x.data.Summary.Failed++
+		x.data.Summary.FailedHosts = append(x.data.Summary.FailedHosts, s.Host)
+	} else {
+		s.OK = true
+		x.data.Summary.OK++
+	}
+	x.data.Summary.Total++
+	x.data.Results = append(x.data.Results, s)
 }
 
 // downloadExists is the FILE_EXISTS a single-file download of remote to
@@ -472,6 +532,9 @@ func treeDest(dst, srcBase string, contents, dstIsDir, dstSlash bool) string {
 }
 
 func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, o cpOpts) (xferStats, error) {
+	if src == "-" {
+		return uploadStdin(cl, ctx, c, sc, dst, o)
+	}
 	fi, err := os.Stat(src)
 	if err != nil {
 		return xferStats{}, err
@@ -482,6 +545,9 @@ func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src,
 		// "dst/" or existing remote dir => put inside it
 		if strings.HasSuffix(dst, "/") || dstIsDir {
 			dst = path.Join(dst, filepath.Base(src))
+		}
+		if o.resume {
+			return continueUpload(cl, ctx, c, sc, src, dst, fi.Mode().Perm(), o)
 		}
 		f, err := os.Open(src)
 		if err != nil {

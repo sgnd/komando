@@ -71,11 +71,23 @@ to the file's name (servers: in the login user's home folder; ~/x works too).
 A storage KEY ending in / is a folder, so the file keeps its name inside it.
 An existing file at DEST is replaced (the result says replaced).
 
+FILE - reads the file from stdin into DEST, which then names the file: on a
+server through a temporary file moved into place at the end. --size N
+makes a stream of another length fail (SIZE_CONFLICT) and replace nothing.
+
+--continue goes on with an upload of one file that was cut off: the part
+already at DEST is kept when it matches the file (sha256), the rest is
+sent, and the whole file is checked. S3, Google Cloud Storage, Azure
+Blob and WebDAV store a file whole and cannot add to one
+(RESUME_UNSUPPORTED).
+
 ` + uploadFolderRule,
 		Example: `  komando upload @web ./app.tar.gz /tmp/app.tar.gz
   komando upload web1 ./site /var/www/site -r
   komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
-  komando upload backups ./db.sql.gz 2026/db.sql.gz`,
+  komando upload backups ./db.sql.gz 2026/db.sql.gz
+  komando upload web1 ./db.sql.gz /var/backups/db.sql.gz --continue
+  komando upload web1 - /etc/app/motd --size 120 < motd.txt`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			dest := ""
@@ -87,6 +99,8 @@ An existing file at DEST is replaced (the result says replaced).
 		}),
 	}
 	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
+	c.Flags().BoolVar(&o.resume, "continue", false, continueUsage)
+	o.bindSize(c)
 	if storageOnly {
 		c.Use, c.Aliases = "upload CONN FILE [OBJECT]", []string{"put"}
 		c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "upload a folder (new and changed files, like komando sync)")
@@ -128,13 +142,23 @@ folder per server when several are picked. A file that is already here is
 replaced only with --overwrite: without it, one file stops with FILE_EXISTS,
 and a folder keeps them (kept) and copies the rest. --sudo reads one file
 as root (up to 512 MiB).
-From storage, --to - writes the object to stdout.
+
+--to - streams one file to stdout, from a server or storage: stdout has the
+file's bytes and nothing else, whatever -o says, and komando's own answer
+(the result with bytes and sha256, or the error) goes to stderr.
+
+--continue goes on with a download of one file that was cut off: the part
+already here is kept when it matches the source (sha256), the rest is
+fetched, and the whole file is checked. A file here that is longer, or
+differs, stops with RESUME_CONFLICT and is not touched.
 
 ` + downloadFolderRule,
 		Example: `  komando download web1 /var/log/nginx/error.log --to ./logs/
   komando download @web /etc/nginx/nginx.conf --to ./configs/
   komando download backups 2026/db.sql.gz
-  komando download backups reports/ -r --to ./reports`,
+  komando download backups reports/ -r --to ./reports
+  komando download web1 /var/backups/db.sql.gz --continue
+  komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
@@ -142,9 +166,10 @@ From storage, --to - writes the object to stdout.
 		}),
 	}
 	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
-	c.Flags().StringVar(&to, "to", "", "where to save it, or - for stdout from storage (default: the current folder)")
+	c.Flags().StringVar(&to, "to", "", "where to save it, or - to stream it to stdout (default: the current folder)")
 	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "download a folder (servers) or every object under a prefix (storage)")
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "replace files that already exist on this computer")
+	c.Flags().BoolVar(&o.resume, "continue", false, continueUsage)
 	if storageOnly {
 		c.Use, c.Aliases = "download CONN OBJECT", []string{"get"}
 		return c
@@ -167,6 +192,25 @@ func cmdName(cmd *cobra.Command) string {
 func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest string, storageOnly bool, o cpOpts) error {
 	cl := callOf(cmd)
 	name := cmdName(cmd)
+	if err := continueFlags(o); err != nil {
+		return err
+	}
+	o.sized = cmd.Flags().Changed("size")
+	stdin := file == "-"
+	switch {
+	case stdin && o.resume:
+		return out.Usage("--continue reads the file again from where it stopped; stdin (-) cannot be read again")
+	case stdin && o.recursive:
+		return out.Usage("stdin (-) is one file; -r uploads a folder")
+	case !stdin && o.sized:
+		return out.Usage("--size is for an upload from stdin (-); a file's size is known")
+	case o.sized && o.size < 0:
+		return out.Usage("--size takes a number of bytes, 0 or more")
+	case stdin:
+		if err := stdinDest(dest); err != nil {
+			return err
+		}
+	}
 	storage := storageOnly
 	if !storage {
 		var err error
@@ -178,11 +222,14 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 		if o.sudo || o.mkdirs || o.mode != "" {
 			return out.Usage("--sudo, -p and --mode are for servers")
 		}
+		if stdin {
+			return storageUploadStdin(cl, ctx, name, target, dest, o)
+		}
 		if o.recursive {
 			// a folder: sent like `komando sync`, new and changed files only
 			return syncUp(cl, ctx, name, file, target, storageFolderDest(file, dest), syncOpts{})
 		}
-		return storageUpload(cl, ctx, name, target, file, dest)
+		return storageUpload(cl, ctx, name, target, file, dest, o.resume)
 	}
 	if dest == "" {
 		dest = filepath.Base(file)
@@ -195,6 +242,18 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, storageOnly bool, o cpOpts) error {
 	cl := callOf(cmd)
 	name := cmdName(cmd)
+	if err := continueFlags(o); err != nil {
+		return err
+	}
+	if o.resume && to == "-" {
+		return out.Usage("--continue adds to a file; --to - (stdout) has none")
+	}
+	if o.progress && to == "-" {
+		return out.Usage("--progress counts what is saved; --to - (stdout) has one answer on stderr, at the end")
+	}
+	if cmd.Flags().Lookup("size") != nil && cmd.Flags().Changed("size") {
+		return out.Usage("--size is for an upload from stdin (-)")
+	}
 	storage := storageOnly
 	if !storage {
 		var err error
@@ -207,7 +266,7 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 			return out.Usage("--sudo is for servers")
 		}
 		if !o.recursive {
-			return storageDownloadTo(cl, ctx, name, target, p, to, o.overwrite)
+			return storageDownloadTo(cl, ctx, name, target, p, to, o.overwrite, o.resume)
 		}
 		if to == "-" {
 			return out.Usage("-r saves a folder; --to - (stdout) takes one file")
@@ -219,7 +278,7 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 		return syncDown(cl, ctx, name, target, p, to, syncOpts{onlyNew: !o.overwrite})
 	}
 	if to == "-" {
-		return out.Usage("--to - (stdout) is for storage; to read a file on a server use `komando fs cat %s %s`", target, p)
+		return streamServer(cl, ctx, name, target, p, o)
 	}
 	if to == "" {
 		to = "."
@@ -228,4 +287,19 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 		return out.Usage("--sudo downloads single files; copy the folder to a readable place with `komando exec --sudo -- cp -r`, then download that")
 	}
 	return runCp(cl, ctx, name, target, p, to, false, o)
+}
+
+// continueFlags refuses flags that do not go with --continue.
+func continueFlags(o cpOpts) error {
+	switch {
+	case !o.resume:
+		return nil
+	case o.recursive:
+		return out.Usage("--continue goes on with one file; for a folder use `komando sync`, which sends only what is still missing")
+	case o.sudo:
+		return out.Usage("--continue reads and writes as the SSH user; --sudo copies the whole file")
+	case o.overwrite:
+		return out.Usage("--continue keeps the part already there and --overwrite replaces it; give one of them")
+	}
+	return nil
 }

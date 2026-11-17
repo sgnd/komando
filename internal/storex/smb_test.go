@@ -43,8 +43,11 @@ func (d dirFS) ReadDir(dir string) ([]os.FileInfo, error) {
 func (d dirFS) Stat(name string) (os.FileInfo, error)      { return os.Stat(d.p(name)) }
 func (d dirFS) Open(name string) (io.ReadCloser, error)    { return os.Open(d.p(name)) }
 func (d dirFS) Create(name string) (io.WriteCloser, error) { return os.Create(d.p(name)) }
-func (d dirFS) MkdirAll(dir string) error                  { return os.MkdirAll(d.p(dir), 0o755) }
-func (d dirFS) Remove(name string) error                   { return os.Remove(d.p(name)) }
+func (d dirFS) OpenEnd(name string) (io.WriteCloser, error) {
+	return os.OpenFile(d.p(name), os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o644)
+}
+func (d dirFS) MkdirAll(dir string) error { return os.MkdirAll(d.p(dir), 0o755) }
+func (d dirFS) Remove(name string) error  { return os.Remove(d.p(name)) }
 func (d dirFS) Rename(from, to string) error {
 	if to == d.failMove && (d.failLeft == nil || *d.failLeft > 0) {
 		if d.failLeft != nil {

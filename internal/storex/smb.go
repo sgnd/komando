@@ -26,6 +26,9 @@ type smbFS interface {
 	Open(name string) (io.ReadCloser, error)
 	// Create makes or empties a file for writing.
 	Create(name string) (io.WriteCloser, error)
+	// OpenEnd opens a file for writing at its end, making it when it is
+	// not there (--continue).
+	OpenEnd(name string) (io.WriteCloser, error)
 	MkdirAll(dir string) error
 	// Rename fails with os.ErrExist when to is already there.
 	Rename(from, to string) error
@@ -123,6 +126,18 @@ func (f shareFS) Open(name string) (io.ReadCloser, error) {
 func (f shareFS) Create(name string) (io.WriteCloser, error) {
 	fh, err := f.s.OpenFile(name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
+		return nil, err
+	}
+	return fh, nil
+}
+
+func (f shareFS) OpenEnd(name string) (io.WriteCloser, error) {
+	fh, err := f.s.OpenFile(name, os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := fh.Seek(0, io.SeekEnd); err != nil {
+		fh.Close()
 		return nil, err
 	}
 	return fh, nil
