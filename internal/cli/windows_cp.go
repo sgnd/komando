@@ -44,7 +44,7 @@ func winCopy(cl *call, ctx context.Context, c *sshx.Client, local, remote string
 	dst := local
 	if many {
 		dst = filepath.Join(local, c.Host.Name) + string(os.PathSeparator)
-		if err := os.MkdirAll(dst, 0o755); err != nil {
+		if err := mkdirLocal(cl, dst); err != nil {
 			return nil, err
 		}
 	}
@@ -60,7 +60,7 @@ func winDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string,
 	if fi, err := os.Stat(dst); (err == nil && fi.IsDir()) || strings.HasSuffix(dst, string(os.PathSeparator)) || strings.HasSuffix(dst, "/") {
 		dst = filepath.Join(dst, winBase(src))
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 		return xferStats{}, err
 	}
 	script := winPath(src) + winCatch(`if (Test-Path -LiteralPath $p -PathType Container) { mark 'dir'; exit 0 }

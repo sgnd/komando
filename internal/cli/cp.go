@@ -409,7 +409,7 @@ func runCp(cl *call, ctx context.Context, name, target, remote, local string, up
 		if err := guard(cl, st, hosts, "", true); err != nil {
 			return err
 		}
-	} else if err := guardSensitiveCopy(cl, remote); err != nil {
+	} else if err := guardDownload(cl, remote, local); err != nil {
 		return err // before connecting: a file named like a secret (a folder's files are checked one by one)
 	}
 	o.oneHost = len(hosts) == 1

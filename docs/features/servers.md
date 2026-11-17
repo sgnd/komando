@@ -628,6 +628,23 @@ komando config set host_key_policy strict   # unknown keys stop with HOSTKEY_UNK
 komando host trust web1                     # data.results[0] has key_type and fingerprint
 ```
 
+When you already have the fingerprint (from the server's console or your
+cloud provider), let komando compare it for you: `--fingerprint` pins the
+key only when the server shows that one.
+
+```bash
+komando host trust web1 --fingerprint SHA256:pVt2...   # pinned only if it matches
+```
+
+Any other key stops with `HOSTKEY_MISMATCH` (exit 4) and nothing is
+pinned; the message shows both fingerprints. Give the fingerprint of the
+key type the server offers (`key_type` in the answer; `ssh-keygen -lf
+/etc/ssh/ssh_host_ed25519_key.pub` on the server prints it). It takes one
+server, and its answer has `expected_fingerprint` next to `fingerprint`.
+The other rules stay: with `strict`, an AI agent's first pin still needs
+your yes, and replacing a pinned key still needs `--reset` at your
+terminal.
+
 `HOSTKEY_UNKNOWN` says which fingerprint the server shows. With `strict`,
 an AI agent cannot pin a first key by itself: `host trust` needs your yes in
 komando's window, which shows the fingerprint to compare (with the default

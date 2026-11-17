@@ -21,7 +21,7 @@ func TestAppendOnFileServers(t *testing.T) {
 	}
 	smb, _ := localSMB(t, "")
 	for name, b := range map[string]Bucket{
-		"sftp": localSFTP(t, t.TempDir()),
+		"sftp": localSFTPBucket(t, t.TempDir()),
 		"ftp":  ftp.open(t),
 		"smb":  smb,
 	} {

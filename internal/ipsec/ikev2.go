@@ -604,13 +604,22 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 	raw = raw[:n]
 	m := &v2msg{exch: raw[18], flags: raw[19], id: binary.BigEndian.Uint32(raw[20:]), raw: raw}
 	next := raw[16]
+	k.mu.Lock()
+	defer k.mu.Unlock()
 	if next != pSK && next != pSKF {
+		// Only the IKE_SA_INIT response travels in the clear. Anything
+		// else unencrypted is unauthenticated: a spoofed Delete would end
+		// the tunnel, a spoofed request would move the message ids.
+		if m.exch != exSAInit || m.flags&flagResp == 0 {
+			return nil, errors.New("an unencrypted message other than the IKE_SA_INIT response")
+		}
+		if k.skD != nil {
+			return nil, nil // a late retransmit of the IKE_SA_INIT response
+		}
 		ps, err := parseChain(next, raw[28:])
 		m.ps = ps
 		return m, err
 	}
-	k.mu.Lock()
-	defer k.mu.Unlock()
 	if k.skD == nil {
 		return nil, errors.New("encrypted message before the keys")
 	}
@@ -668,28 +677,10 @@ func (k *ikeV2) open(raw []byte) (*v2msg, error) {
 	plain = plain[:len(plain)-1-int(plain[len(plain)-1])]
 	first := raw[28]
 	if fragTotal > 1 {
-		key := m.id
-		if m.flags&flagResp == 0 {
-			key |= 1 << 31 // requests and responses may share an id
-		}
-		f := k.frags[key]
-		if f == nil || f.total != fragTotal {
-			f = &fragSet{total: fragTotal, parts: map[int][]byte{}}
-			k.frags[key] = f
-		}
-		if fragNum == 1 {
-			f.next = first
-		}
-		f.parts[fragNum] = plain
-		if len(f.parts) < f.total {
+		var whole bool
+		if first, plain, whole = k.reassemble(m, fragNum, fragTotal, first, plain); !whole {
 			return nil, nil
 		}
-		delete(k.frags, key)
-		plain = nil
-		for i := 1; i <= f.total; i++ {
-			plain = append(plain, f.parts[i]...)
-		}
-		first = f.next
 	}
 	ps, err := parseChain(first, plain)
 	if err != nil {
@@ -794,7 +785,7 @@ var errNoAnswer = errors.New("no answer from the server")
 // IKE_SA_INIT.
 
 func (k *ikeV2) natNotifies() []v1Payload {
-	srv := k.t.server.As4()
+	srv := as4(k.t.server)
 	port := binary.BigEndian.AppendUint16(nil, uint16(k.t.port))
 	n := func(t uint16, d []byte) v1Payload {
 		return v1Payload{typ: pNotify, body: append(binary.BigEndian.AppendUint16([]byte{0, 0}, t), d...)}

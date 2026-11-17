@@ -178,9 +178,7 @@ picks another database than the URL's.`},
 				if err != nil {
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
-				if err := secretInBody(cl, file, b); err != nil {
-					return err
-				}
+				secretInBody(cl, file, b)
 				q = string(b)
 			case len(args) == 1:
 				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")
@@ -563,7 +561,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 	if err != nil {
 		return err
 	}
-	plan, err := classifyQuery(c.Kind, query, f)
+	plan, err := classifyConnQuery(cl, c, query, f)
 	if err != nil {
 		return err
 	}
@@ -752,6 +750,16 @@ func maxBytesFlag(kind, s string) (int64, error) {
 func (f dbFlags) maxBilled(kind string) int64 {
 	n, _ := maxBytesFlag(kind, f.maxBytes)
 	return n
+}
+
+// classifyConnQuery is classifyQuery for conn c, and the stop for SQL
+// that writes a file on a SQLite conn (sqliteFileSQL).
+func classifyConnQuery(cl *call, c *store.Conn, query string, f dbFlags) (driver.SQLPlan, error) {
+	plan, err := classifyQuery(c.Kind, query, f)
+	if err != nil {
+		return plan, err
+	}
+	return plan, sqliteFileSQL(cl, c, query)
 }
 
 // classifyQuery is driver.ClassifySQL for runSQL, after a check of

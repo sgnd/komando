@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 )
 
 // What komando offers and accepts in IKEv1: the phase 1 (IKE SA) and ESP
@@ -289,4 +290,20 @@ func suiteFromESPv1(c chosen) (espSuite, error) {
 		}
 	}
 	return s, nil
+}
+
+// responderLife is the ESP lifetime the server's RESPONDER-LIFETIME
+// notify names, else life.
+func responderLife(life time.Duration, ps []v1Payload) time.Duration {
+	for _, p := range ps {
+		if p.typ == plNotify && len(p.body) >= 8 && binary.BigEndian.Uint16(p.body[6:]) == 24576 {
+			spiLen := int(p.body[5])
+			if len(p.body) >= 8+spiLen {
+				if l := attrNum(parseAttrs(p.body[8+spiLen:]), 2); l > 0 {
+					life = time.Duration(l) * time.Second
+				}
+			}
+		}
+	}
+	return life
 }

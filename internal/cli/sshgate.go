@@ -536,6 +536,9 @@ func gateAudit(cl *call, label string, readOnly bool, req gateRequest, name stri
 	return nil
 }
 
+// gated: the call came through ssh-gate (the komando the gate runs).
+func (cl *call) gated() bool { return strings.HasPrefix(cl.caller().Agent, "ssh-gate key ") }
+
 // gateChildEnv is the environment of the komando the gate runs: this one,
 // with the vault passphrase komando took out of it at start (SelfEnv), the
 // key's name (so it runs as an agent) and no approval window: the person

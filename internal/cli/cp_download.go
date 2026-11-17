@@ -51,7 +51,7 @@ func download(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, sr
 		if err := guardSensitiveCopy(cl, src); err != nil {
 			return xferStats{}, err
 		}
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 			return xferStats{}, err
 		}
 		if o.resume {
@@ -113,7 +113,7 @@ func downloadFolder(cl *call, ctx context.Context, sc *sftp.Client, src, dst str
 			return st, localLinkStop(rel, link)
 		}
 		if w.Stat().IsDir() {
-			if err := os.MkdirAll(lp, 0o755); err != nil {
+			if err := mkdirLocal(cl, lp); err != nil {
 				return st, err
 			}
 			continue
@@ -216,7 +216,7 @@ func sudoDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string
 	if intoDir {
 		dst = filepath.Join(dst, path.Base(src))
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 		return xferStats{}, err
 	}
 	pp := progressFrom(ctx)
@@ -235,6 +235,9 @@ func sudoDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string
 // reaches dst: the temporary file is masked before it is moved there.
 // watch, when not nil, sees every byte (a progress line).
 func fetchFile(cl *call, ctx context.Context, in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool, watch io.Writer) (n int64, sum string, masked bool, err error) {
+	if err := guardLocalWrite(cl, dst); err != nil {
+		return 0, "", false, err
+	}
 	if _, err := os.Lstat(dst); err == nil && !overwrite {
 		return 0, "", false, fileExists(dst)
 	}
@@ -266,6 +269,9 @@ func fetchFile(cl *call, ctx context.Context, in io.Reader, dst string, perm os.
 	}
 	if !mtime.IsZero() {
 		_ = os.Chtimes(tmp.Name(), mtime, mtime)
+	}
+	if err := guardLocalWrite(cl, dst); err != nil {
+		return 0, "", false, err
 	}
 	if overwrite {
 		err = os.Rename(tmp.Name(), dst)

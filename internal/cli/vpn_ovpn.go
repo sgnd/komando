@@ -132,9 +132,9 @@ func (r *ovpnReader) items(inConn bool) ([]ovpnItem, error) {
 		case inConn && tag == "/connection":
 			return items, nil
 		case strings.HasPrefix(tag, "/"):
-			return nil, fmt.Errorf("line %d: <%s> closes a block that is not open", n, tag)
+			return nil, fmt.Errorf("line %d: %s closes a block that is not open", n, ovpnShowTag(tag))
 		case inConn:
-			return nil, fmt.Errorf("line %d: <%s> inside <connection> is not allowed", n, tag)
+			return nil, fmt.Errorf("line %d: %s inside <connection> is not allowed", n, ovpnShowTag(tag))
 		case tag == "connection":
 			inner, err := r.items(true)
 			if err != nil {
@@ -148,7 +148,7 @@ func (r *ovpnReader) items(inConn bool) ([]ovpnItem, error) {
 			}
 			items = append(items, ovpnItem{name: tag, block: true, lines: body})
 		default:
-			return nil, fmt.Errorf("line %d: inline block <%s> is not allowed", n, tag)
+			return nil, fmt.Errorf("line %d: inline block %s is not allowed", n, ovpnShowTag(tag))
 		}
 	}
 }
@@ -264,6 +264,36 @@ func ovpnWordOK(w string, quoted bool) error {
 	return nil
 }
 
+// ovpnKnown are OpenVPN options komando refuses (they run programs, read
+// or write files, or serve): an error may name them. Any other word of a
+// refused line is not named: the file may be a secret file an AI agent
+// pointed --config at, and its words must not reach the agent.
+var ovpnKnown = map[string]bool{
+	"up": true, "down": true, "route-up": true, "route-pre-down": true, "ipchange": true, "tls-verify": true,
+	"script-security": true, "plugin": true, "management": true, "log": true, "log-append": true, "status": true,
+	"writepid": true, "cd": true, "chroot": true, "config": true, "daemon": true, "client-connect": true,
+	"client-disconnect": true, "learn-address": true, "auth-user-pass-verify": true, "tls-export-cert": true,
+	"iproute": true, "dhcp-option": true, "server": true, "mode": true, "askpass": true, "http-proxy": true,
+	"socks-proxy": true, "dev-node": true, "tmp-dir": true, "echo": true, "parameter": true,
+}
+
+// ovpnShow is how an error names the directive word w: quoted when komando
+// knows it, else only "an option komando does not know".
+func ovpnShow(w string) string {
+	if ovpnAllowed[w] || ovpnConnection[w] || ovpnKnown[w] || slices.Contains(ovpnInline, w) {
+		return fmt.Sprintf("%q", w)
+	}
+	return "an option komando does not know"
+}
+
+// ovpnShowTag is ovpnShow for a block tag (without < >).
+func ovpnShowTag(t string) string {
+	if n := strings.TrimPrefix(t, "/"); n == "connection" || ovpnShow(n) != "an option komando does not know" {
+		return "<" + t + ">"
+	}
+	return "a block komando does not know"
+}
+
 // ovpnDirective checks one directive line, already split into words.
 func ovpnDirective(words []string, inConn bool) (ovpnItem, error) {
 	name, args := words[0], words[1:]
@@ -276,7 +306,7 @@ func ovpnDirective(words []string, inConn bool) (ovpnItem, error) {
 	}
 	switch {
 	case !allowed[name]:
-		return ovpnItem{}, fmt.Errorf("%q is not allowed (komando passes only client settings; nothing that runs programs or reads/writes files)", words[0])
+		return ovpnItem{}, fmt.Errorf("%s is not allowed (komando passes only client settings; nothing that runs programs or reads/writes files)", ovpnShow(name))
 	case slices.Contains(ovpnInline, name) && len(args) > 0 && args[0] != "[inline]":
 		return ovpnItem{}, fmt.Errorf("%s names a file; komando takes it only inline (<%s>...</%s>)", name, name, name)
 	case name == "setenv" && len(args) > 0 && strings.EqualFold(args[0], "opt"):
