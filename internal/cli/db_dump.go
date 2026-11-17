@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"cmp"
 	"compress/gzip"
 	"context"
@@ -501,7 +502,11 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 			}
 			return err
 		}
-		sqlV, err = driver.CheckRestore(kind, r)
+		br := bufio.NewReader(r)
+		if head, _ := br.Peek(5); string(head) == "PGDMP" {
+			return out.Usage("%s is a gzipped pg_dump archive: unpack it first (`gunzip -k %s`), then restore the .dump file", from, from)
+		}
+		sqlV, err = driver.CheckRestore(kind, br)
 		return err
 	}); err != nil {
 		return err

@@ -126,7 +126,10 @@ func (a *pgArchive) header() error {
 }
 
 // pgTocEntry is what an entry sends to the server.
-type pgTocEntry struct{ desc, defn, copyStmt string }
+type pgTocEntry struct {
+	hasData                    bool
+	desc, defn, drop, copyStmt string
+}
 
 // entry reads one entry of the table of contents.
 func (a *pgArchive) entry() (pgTocEntry, error) {
@@ -147,13 +150,17 @@ func (a *pgArchive) entry() (pgTocEntry, error) {
 		}
 		return nil
 	}
-	if err := ints(2); err != nil { // dump id, has data
+	if err := ints(1); err != nil { // dump id
 		return e, err
 	}
+	had, err := a.readInt()
+	if err != nil {
+		return e, err
+	}
+	e.hasData = had != 0
 	if err := strs(3); err != nil { // table oid, oid, tag
 		return e, err
 	}
-	var err error
 	if e.desc, err = a.str(); err != nil {
 		return e, err
 	}
@@ -163,7 +170,9 @@ func (a *pgArchive) entry() (pgTocEntry, error) {
 	if e.defn, err = a.str(); err != nil {
 		return e, err
 	}
-	if err := strs(1); err != nil { // drop statement
+	// the drop statement: pg_restore copies part of it into ALTER ...
+	// OWNER TO, so it reaches the server even without --clean
+	if e.drop, err = a.str(); err != nil {
 		return e, err
 	}
 	if e.copyStmt, err = a.str(); err != nil {
@@ -200,36 +209,54 @@ func (a *pgArchive) entry() (pgTocEntry, error) {
 	return e, err
 }
 
+// pgArchiveSQLMax is the most SQL komando collects from an archive's
+// table of contents; a larger one is named sql-opaque.
+const pgArchiveSQLMax = 256 << 20
+
 // pgArchiveSQL reads an archive's table of contents and returns its SQL as
-// pg_restore sends it, each COPY followed by the end of its (left out) data.
-func pgArchiveSQL(r io.Reader) (string, error) {
+// pg_restore sends it, each COPY followed by the end of its (left out)
+// data, and why part of it is SQL komando did not read ("" when none).
+func pgArchiveSQL(r io.Reader) (sql, unread string, err error) {
 	a := &pgArchive{r: bufio.NewReader(r)}
 	if err := a.header(); err != nil {
-		return "", err
+		return "", "", err
 	}
 	n, err := a.readInt()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	if n < 0 || n > 10_000_000 {
-		return "", errPGArchive
+		return "", "", errPGArchive
 	}
-	var sql strings.Builder
+	var b strings.Builder
 	for i := int64(0); i < n; i++ {
 		e, err := a.entry()
 		if err != nil {
-			return "", fmt.Errorf("entry %d of %d: %w", i+1, n, err)
+			return "", "", fmt.Errorf("entry %d of %d: %w", i+1, n, err)
 		}
-		if e.defn != "" {
-			sql.WriteString(e.defn)
-			sql.WriteString("\n")
+		for _, stmt := range []string{e.defn, e.drop} {
+			if stmt != "" {
+				b.WriteString(stmt)
+				b.WriteString("\n")
+			}
 		}
-		if e.copyStmt != "" {
-			sql.WriteString(e.copyStmt)
-			sql.WriteString("\n\\.\n")
+		switch {
+		case e.copyStmt != "":
+			if strings.Contains(strings.TrimRight(e.copyStmt, "\n"), "\n") || !IsCopyStdin(strings.ToUpper(strings.TrimSuffix(strings.TrimSpace(e.copyStmt), ";"))) {
+				return "", "", fmt.Errorf("entry %d: a COPY that is not one COPY ... FROM stdin", i+1)
+			}
+			b.WriteString(e.copyStmt)
+			b.WriteString("\n\\.\n")
+		case e.hasData && unread == "" && !strings.HasPrefix(e.desc, "BLOB"):
+			// table data with no COPY is SQL (pg_dump --inserts), kept
+			// in the data part komando does not read
+			unread = "the archive keeps " + strings.ToLower(e.desc) + " as SQL statements (pg_dump --inserts), which komando does not read"
+		}
+		if b.Len() > pgArchiveSQLMax {
+			return "", "", fmt.Errorf("more than %d MiB of SQL", pgArchiveSQLMax>>20)
 		}
 	}
-	return sql.String(), nil
+	return b.String(), unread, nil
 }
 
 // CheckRestoreArchive checks a pg_dump custom archive as CheckRestore checks
@@ -237,13 +264,21 @@ func pgArchiveSQL(r io.Reader) (string, error) {
 // damaged) is named sql-opaque, so the approval says komando could not look
 // inside; the restore itself is pg_restore's to refuse.
 func CheckRestoreArchive(r io.Reader) (Verdict, error) {
-	sql, err := pgArchiveSQL(r)
+	sql, unread, err := pgArchiveSQL(r)
 	if err != nil {
-		c := newRestoreCheck("postgres")
-		c.flag("sql-opaque", 0)
-		v := c.verdict()
-		v.Reasons[0] = "komando could not read the archive's contents (" + err.Error() + "), so it cannot say what it does"
-		return v, nil
+		return opaqueArchive(Verdict{}, "komando could not read the archive's contents ("+err.Error()+"), so it cannot say what it does"), nil
 	}
-	return CheckRestore("postgres", strings.NewReader(sql))
+	v, err := CheckRestore("postgres", strings.NewReader(sql))
+	if err != nil || unread == "" {
+		return v, err
+	}
+	return opaqueArchive(v, unread), nil
+}
+
+// opaqueArchive adds sql-opaque to v with why as its reason.
+func opaqueArchive(v Verdict, why string) Verdict {
+	v.Risk = RiskDestructive
+	v.RuleIDs = append(v.RuleIDs, "sql-opaque")
+	v.Reasons = append(v.Reasons, why)
+	return v
 }

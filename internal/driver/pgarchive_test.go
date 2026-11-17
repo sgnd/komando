@@ -40,3 +40,33 @@ func TestCheckRestoreArchive(t *testing.T) {
 		t.Errorf("an unknown version: %+v", v)
 	}
 }
+
+// Review: table data kept as SQL (--inserts, no COPY), a dropStmt that
+// pg_restore copies into ALTER ... OWNER, and a COPY that is not FROM
+// stdin are not passed as harmless.
+func TestCheckRestoreArchiveReview(t *testing.T) {
+	b, err := os.ReadFile("testdata/pgdump17.custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	same := func(old, new string) []byte {
+		if len(new) > len(old) {
+			t.Fatalf("%q longer than %q", new, old)
+		}
+		return bytes.Replace(b, []byte(old), []byte(new+strings.Repeat(" ", len(old)-len(new))), 1)
+	}
+	// the table's COPY gone: its data block is SQL komando does not read
+	noCopy := bytes.Replace(b, []byte("\x00\x25\x00\x00\x00COPY public.t (id, note) FROM stdin;\n"), []byte("\x00\x00\x00\x00\x00"), 1)
+	if bytes.Equal(noCopy, b) {
+		t.Fatal("fixture: no COPY string found")
+	}
+	if v, _ := CheckRestoreArchive(bytes.NewReader(noCopy)); !slices.Contains(v.RuleIDs, "sql-opaque") {
+		t.Errorf("table data without COPY: %+v", v)
+	}
+	if v, _ := CheckRestoreArchive(bytes.NewReader(same("DROP FUNCTION public.f();", "COPY t TO PROGRAM 'id';"))); !slices.Contains(v.RuleIDs, "sql-program") {
+		t.Errorf("a dropStmt with COPY ... PROGRAM: %+v", v)
+	}
+	if v, err := CheckRestoreArchive(bytes.NewReader(same("COPY public.t (id, note) FROM stdin;", "COPY public.t FROM PROGRAM 'id';"))); err == nil && !slices.Contains(v.RuleIDs, "sql-opaque") && !slices.Contains(v.RuleIDs, "sql-program") {
+		t.Errorf("a COPY that is not FROM stdin: %+v", v)
+	}
+}
