@@ -20,8 +20,8 @@ import (
 // be opened as a record.
 const auditType = "audit"
 
-// chained marks an entry that holds the sum of the one before it; entries
-// from before the chain start with 0.
+// chained is the first byte of every entry: it holds the sum of the one
+// before it. An entry without it is tampering.
 const chained = 2
 
 const sumLen = sha256.Size
@@ -41,8 +41,7 @@ func (t *Tx) openAudit(seq, tm int64, id string, sealed []byte) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("audit %d: %w: %w", seq, ErrTampered, err)
 	}
-	if len(plain) < headLen || int64(binary.BigEndian.Uint64(plain[1:])) != tm ||
-		(plain[0] == chained && len(plain) < headLen+sumLen) {
+	if len(plain) < headLen+sumLen || plain[0] != chained || int64(binary.BigEndian.Uint64(plain[1:])) != tm {
 		return nil, fmt.Errorf("audit %d: %w", seq, ErrTampered)
 	}
 	return plain, nil
@@ -137,12 +136,10 @@ func (t *Tx) Audit(after int64, limit int) ([]AuditRow, error) {
 			return out, err
 		}
 		data := plain[headLen:]
-		if plain[0] == chained {
-			if prev != nil && [sumLen]byte(data[:sumLen]) != *prev {
-				return out, fmt.Errorf("audit %d: %w", seq, ErrTampered)
-			}
-			data = data[sumLen:]
+		if prev != nil && [sumLen]byte(data[:sumLen]) != *prev {
+			return out, fmt.Errorf("audit %d: %w", seq, ErrTampered)
 		}
+		data = data[sumLen:]
 		last = auditHead{seq: seq, sum: auditSum(seq, plain)}
 		prev = &last.sum
 		out = append(out, AuditRow{Seq: seq, Time: time.Unix(0, tm), Data: data})
