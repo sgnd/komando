@@ -468,6 +468,12 @@ Plain SQL that psql and mysql can also read:
   again: komando checks the file as it is now.
 - A MySQL `DELIMITER` after a statement on the same line is refused
   (`UNSAFE_BACKUP`); mysqldump writes it on a line of its own.
+- A PostgreSQL archive (`--format custom`) is read too: komando checks the
+  SQL in its table of contents (pg_dump 9.5 to 17 archives) and names what
+  it does beyond writing data, as for plain SQL (`COPY ... PROGRAM`,
+  `GRANT`, ...). The line numbers count in that SQL, as `pg_restore -f -`
+  prints it. An archive komando cannot read (another version, cut short)
+  is named "could not read the archive's contents" in the approval.
 - PostgreSQL restores run in one transaction: if anything fails, nothing
   changes. MySQL runs the statements in order and stops at the first error;
   what ran before it stays (`RESTORE_FAILED`).

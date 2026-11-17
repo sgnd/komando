@@ -1,0 +1,249 @@
+package driver
+
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+)
+
+// A pg_dump custom archive ("PGDMP") holds its SQL in a table of contents
+// at the start: each entry has the statement that makes the object (defn)
+// and, for table data, the COPY that loads it. pg_restore sends those to
+// the server. CheckRestoreArchive reads that table (not the data, which is
+// rows) and checks the SQL as CheckRestore checks a plain dump, so what an
+// archive does beyond writing data is named in the approval as well.
+//
+// The layout follows pg_dump's pg_backup_archiver.c, archive versions
+// 1.12 (PostgreSQL 9.5) to 1.16 (PostgreSQL 17).
+
+// pgArchiveMaxStr is the longest string komando reads from an archive's
+// table of contents; a longer one counts as a damaged archive.
+const pgArchiveMaxStr = 64 << 20
+
+type pgArchive struct {
+	r       *bufio.Reader
+	version int // major<<16 | minor<<8 | rev
+	intSize int
+	offSize int
+}
+
+func pgVersion(major, minor, rev int) int { return major<<16 | minor<<8 | rev }
+
+var errPGArchive = errors.New("not a pg_dump archive komando can read")
+
+func (a *pgArchive) byte() (int, error) {
+	b, err := a.r.ReadByte()
+	return int(b), err
+}
+
+// readInt is pg_dump's ReadInt: a sign byte, then intSize bytes, lowest first.
+func (a *pgArchive) readInt() (int64, error) {
+	sign, err := a.byte()
+	if err != nil {
+		return 0, err
+	}
+	var v uint64
+	for i := 0; i < a.intSize; i++ {
+		b, err := a.byte()
+		if err != nil {
+			return 0, err
+		}
+		if i < 8 {
+			v |= uint64(b) << (8 * i)
+		}
+	}
+	if v > 1<<62 {
+		return 0, errPGArchive
+	}
+	if sign != 0 {
+		return -int64(v), nil
+	}
+	return int64(v), nil
+}
+
+// readStr is pg_dump's ReadStr: a length (-1 for none), then the bytes.
+func (a *pgArchive) readStr() (string, bool, error) {
+	n, err := a.readInt()
+	if err != nil {
+		return "", false, err
+	}
+	if n < 0 {
+		return "", false, nil
+	}
+	if n > pgArchiveMaxStr {
+		return "", false, errPGArchive
+	}
+	b := make([]byte, n)
+	if _, err := io.ReadFull(a.r, b); err != nil {
+		return "", false, err
+	}
+	return string(b), true, nil
+}
+
+func (a *pgArchive) str() (string, error) {
+	s, _, err := a.readStr()
+	return s, err
+}
+
+// header reads the archive's head up to its table of contents.
+func (a *pgArchive) header() error {
+	magic := make([]byte, 5)
+	if _, err := io.ReadFull(a.r, magic); err != nil || string(magic) != "PGDMP" {
+		return errPGArchive
+	}
+	var v [6]int
+	for i := range v {
+		b, err := a.byte()
+		if err != nil {
+			return err
+		}
+		v[i] = b
+	}
+	a.version, a.intSize, a.offSize = pgVersion(v[0], v[1], v[2]), v[3], v[4]
+	if a.version < pgVersion(1, 12, 0) || a.version > pgVersion(1, 16, 0) || a.intSize < 1 || a.intSize > 8 || a.offSize < 1 || a.offSize > 8 || v[5] != 1 {
+		return fmt.Errorf("%w (version %d.%d, format %d)", errPGArchive, v[0], v[1], v[5])
+	}
+	if a.version >= pgVersion(1, 15, 0) {
+		if _, err := a.byte(); err != nil { // compression algorithm
+			return err
+		}
+	} else if _, err := a.readInt(); err != nil { // compression level
+		return err
+	}
+	for i := 0; i < 7; i++ { // when it was made
+		if _, err := a.readInt(); err != nil {
+			return err
+		}
+	}
+	for i := 0; i < 3; i++ { // database name, server and pg_dump versions
+		if _, err := a.str(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// pgTocEntry is what an entry sends to the server.
+type pgTocEntry struct{ desc, defn, copyStmt string }
+
+// entry reads one entry of the table of contents.
+func (a *pgArchive) entry() (pgTocEntry, error) {
+	var e pgTocEntry
+	ints := func(n int) error {
+		for i := 0; i < n; i++ {
+			if _, err := a.readInt(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	strs := func(n int) error {
+		for i := 0; i < n; i++ {
+			if _, err := a.str(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := ints(2); err != nil { // dump id, has data
+		return e, err
+	}
+	if err := strs(3); err != nil { // table oid, oid, tag
+		return e, err
+	}
+	var err error
+	if e.desc, err = a.str(); err != nil {
+		return e, err
+	}
+	if err := ints(1); err != nil { // section
+		return e, err
+	}
+	if e.defn, err = a.str(); err != nil {
+		return e, err
+	}
+	if err := strs(1); err != nil { // drop statement
+		return e, err
+	}
+	if e.copyStmt, err = a.str(); err != nil {
+		return e, err
+	}
+	if err := strs(2); err != nil { // schema, tablespace
+		return e, err
+	}
+	if a.version >= pgVersion(1, 14, 0) {
+		if err := strs(1); err != nil { // table access method
+			return e, err
+		}
+	}
+	if a.version >= pgVersion(1, 16, 0) {
+		if err := ints(1); err != nil { // relkind
+			return e, err
+		}
+	}
+	if err := strs(2); err != nil { // owner, with oids
+		return e, err
+	}
+	for { // the ids it depends on, to a missing string
+		_, ok, err := a.readStr()
+		if err != nil {
+			return e, err
+		}
+		if !ok {
+			break
+		}
+	}
+	// the custom format's data place (ReadOffset): a state byte, then
+	// offSize bytes
+	_, err = io.ReadFull(a.r, make([]byte, 1+a.offSize))
+	return e, err
+}
+
+// pgArchiveSQL reads an archive's table of contents and returns its SQL as
+// pg_restore sends it, each COPY followed by the end of its (left out) data.
+func pgArchiveSQL(r io.Reader) (string, error) {
+	a := &pgArchive{r: bufio.NewReader(r)}
+	if err := a.header(); err != nil {
+		return "", err
+	}
+	n, err := a.readInt()
+	if err != nil {
+		return "", err
+	}
+	if n < 0 || n > 10_000_000 {
+		return "", errPGArchive
+	}
+	var sql strings.Builder
+	for i := int64(0); i < n; i++ {
+		e, err := a.entry()
+		if err != nil {
+			return "", fmt.Errorf("entry %d of %d: %w", i+1, n, err)
+		}
+		if e.defn != "" {
+			sql.WriteString(e.defn)
+			sql.WriteString("\n")
+		}
+		if e.copyStmt != "" {
+			sql.WriteString(e.copyStmt)
+			sql.WriteString("\n\\.\n")
+		}
+	}
+	return sql.String(), nil
+}
+
+// CheckRestoreArchive checks a pg_dump custom archive as CheckRestore checks
+// a plain dump. An archive komando cannot read (another version, cut or
+// damaged) is named sql-opaque, so the approval says komando could not look
+// inside; the restore itself is pg_restore's to refuse.
+func CheckRestoreArchive(r io.Reader) (Verdict, error) {
+	sql, err := pgArchiveSQL(r)
+	if err != nil {
+		c := newRestoreCheck("postgres")
+		c.flag("sql-opaque", 0)
+		v := c.verdict()
+		v.Reasons[0] = "komando could not read the archive's contents (" + err.Error() + "), so it cannot say what it does"
+		return v, nil
+	}
+	return CheckRestore("postgres", strings.NewReader(sql))
+}

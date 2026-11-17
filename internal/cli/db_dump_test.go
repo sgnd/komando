@@ -57,6 +57,18 @@ func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 	if tool, _ := d["tool"].([]any); len(tool) == 0 || tool[0] != "pg_restore" {
 		t.Errorf("archive restore uses %v, want pg_restore", d["tool"])
 	}
+	// C113: the SQL inside a real archive is named as in a plain dump
+	real, err := os.ReadFile("../driver/testdata/pgdump17.custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grant := "GRANT SELECT ON TABLE public.t TO helper;"
+	evil := "COPY public.t TO PROGRAM 'id';" + strings.Repeat(" ", len(grant)-len("COPY public.t TO PROGRAM 'id';"))
+	tampered := write("evil.dump", strings.Replace(string(real), grant, evil, 1))
+	d = mustRun(t, "db", "restore", "pg", "--from", tampered, "--dry-run")
+	if blocked := fmt.Sprint(d["_meta"].(map[string]any)["would_be_blocked"]); !strings.Contains(blocked, "sql-program") {
+		t.Errorf("COPY ... PROGRAM inside an archive: would_be_blocked %s, want sql-program", blocked)
+	}
 }
 
 // TestDumpTableIsNotAnOption: mysqldump reads options even after the

@@ -192,6 +192,10 @@ its highlights; the sections below them give the details. Versions follow
   or another credential store (other than `~/.kube`) into the vault when
   the kubeconfig names it as a client key, certificate or token file
   (`SENSITIVE_FILE`). (C113)
+- `db restore` of a PostgreSQL archive now checks the SQL inside it, as
+  for a plain SQL file: what it does beyond writing data (`COPY ...
+  PROGRAM`, `GRANT`, ...) is named in the approval; before, an archive
+  went to pg_restore unread. (C113)
 - The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
   and `~/.azure`: the SSO token cache and the CLI's cached credentials
   too, not only the `credentials` file. An AWS profile whose web identity

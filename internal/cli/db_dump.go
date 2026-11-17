@@ -443,7 +443,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 		if tool.restoreCustom == nil {
 			return out.Usage("%s is a PostgreSQL archive; restore it into a PostgreSQL database", from)
 		}
-		argv = tool.restoreCustom // pg_restore: an archive holds no client commands to check
+		argv = tool.restoreCustom // pg_restore runs no client commands; the archive's SQL was checked (checkRestoreSQL)
 	}
 	if !custom && on != "" {
 		return out.Usage("%s is plain SQL, which komando always restores itself (psql and mysql would obey client commands in it); --run-on is only for pg_dump archives", from)
@@ -494,7 +494,12 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 	var sqlV driver.Verdict
 	if err := withBackup(cl, from, seal, func(r io.Reader) (err error) {
 		if seal.archive() {
-			return nil // a pg_dump archive: pg_restore reads it, and it holds no SQL text to check
+			// a pg_dump archive: the SQL in its table of contents is
+			// checked; the rest is read too, so the seal covers every byte
+			if sqlV, err = driver.CheckRestoreArchive(r); err == nil {
+				_, err = io.Copy(io.Discard, r)
+			}
+			return err
 		}
 		sqlV, err = driver.CheckRestore(kind, r)
 		return err
