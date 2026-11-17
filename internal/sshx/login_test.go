@@ -445,7 +445,7 @@ func TestNoAuthHints(t *testing.T) {
 				t.Setenv("SSH_AUTH_SOCK", filepath.Join(t.TempDir(), "gone.sock"))
 			}
 			h := &store.Host{Name: "web1", Address: "10.0.0.1"}
-			_, _, err := authMethods(newState(h), h, time.Second)
+			_, _, err := authMethods(context.Background(), newState(h), h, time.Second, nil)
 			oe := asOutErr(t, err)
 			if oe.Code != "NO_AUTH" || oe.Exit != out.ExitConnect {
 				t.Fatalf("got %s exit %d", oe.Code, oe.Exit)

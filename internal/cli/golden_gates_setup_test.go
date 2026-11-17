@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // goldenGateHome is a komando home with the gate rows' inventory, made
@@ -33,6 +34,8 @@ func goldenGateSetup(t *testing.T) {
 			{"host", "add", "h2", "u@127.0.0.12:1", "-g", "big"},
 			{"host", "add", "h3", "u@127.0.0.13:1", "-g", "big"},
 			{"host", "add", "h4", "u@127.0.0.14:1", "-g", "big"},
+			{"host", "add", "ask1", "u@127.0.0.21:1", "--login", "ask"},
+			{"host", "add", "ask2", "u@127.0.0.22:1", "--login", "ask"},
 			{"conn", "add", "cache1", "redis://127.0.0.1:1/0"},
 			{"conn", "add", "pcache", "redis://127.0.0.3:1/1", "--protected"},
 			{"conn", "add", "db1", "postgres://u@127.0.0.1:1/app"},
@@ -54,6 +57,15 @@ func goldenGateSetup(t *testing.T) {
 			t.Fatal(err)
 		}
 		if _, err := sshx.PinHostKey("127.0.0.2:1", pub, false); err != nil {
+			t.Fatal(err)
+		}
+		// ask1 is a login-ask server a person has logged in to; ask2 one
+		// komando has not met
+		st, err := store.Load()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := sshx.MarkLoginMet(st.Hosts["ask1"], "127.0.0.21:1", pub); err != nil {
 			t.Fatal(err)
 		}
 		goldenGateHome = filepath.Join(os.TempDir(), "komando-golden-gates-"+filepath.Base(home))
@@ -178,4 +190,11 @@ var goldenNotes = [][]string{
 	{"psql"},
 	{"exce", "web1", "--", "uptime"},
 	{"svc", "restat", "web1", "nginx"},
+	// login ask: a server whose password a person types at every connect;
+	// a script or an agent with no window gets NEEDS_PERSON (tunnel start
+	// asks before it connects, so it shows without a server)
+	{"tunnel", "start", "ask1", "-L", "0:localhost:80"},
+	// ...and a login-ask server komando has never met: nobody could see
+	// its new host key, so nobody is asked
+	{"tunnel", "start", "ask2", "-L", "0:localhost:80"},
 }

@@ -195,7 +195,7 @@ func TestPinsOfMissingStore(t *testing.T) {
 // that pins a new server on first use.
 func dialPin(t *testing.T, key ssh.PublicKey) error {
 	t.Helper()
-	cb, err := hostKeyCallback(context.Background(), "web", "accept-new")
+	cb, err := hostKeyCallback(context.Background(), &store.Host{Name: "web"}, "accept-new", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

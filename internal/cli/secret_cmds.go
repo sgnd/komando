@@ -71,6 +71,9 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 			if err != nil {
 				return err
 			}
+			if err := loginPlaceStop(cl, secretPlaceChanges(st, args[0])); err != nil {
+				return err
+			}
 			_, gerr := vault.Get(args[0])
 			replaced := gerr == nil
 			if replaced {

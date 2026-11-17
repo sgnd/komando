@@ -72,6 +72,19 @@ q $K logout "$P1-login"
 check "person: after logout the agent is out again" False "$(A exec "$P1-login" --read-only -- true </dev/null | jget 'd["ok"]')"
 q $K host rm "$P1-login"
 
+# --login ask: a person types the password at every connect; an AI agent
+# can neither make the first connection nor move the server
+q $K host add "$P1-ask" "agent@127.0.0.1:$E2E_SSH_DIRECT" --login ask
+check "person: an agent cannot meet a login-ask server" NEEDS_PERSON "$(A exec "$P1-ask" --read-only -- true </dev/null | jget 'd["error"]["code"]')"
+O=$(tty 'agentpass\n' exec "$P1-ask" --read-only -- echo typed-ok); RC=$?
+check "person: login ask asks the password" 1 "$(grep -c 'Password' <<<"$O")"
+check "person: login ask logs in" 0 "$RC"
+check "person: login ask runs the command" 1 "$(grep -c typed-ok <<<"$O")"
+check "person: the typed password is not shown" 0 "$(grep -c agentpass <<<"$O")"
+check "person: no window, no screen: the agent stops" NEEDS_PERSON "$(A exec "$P1-ask" --read-only -- true </dev/null | jget 'd["error"]["code"]')"
+check "person: an agent cannot move a login-ask server" NEEDS_PERSON "$(A host edit "$P1-ask" --port 2222 </dev/null | jget 'd["error"]["code"]')"
+q $K host rm "$P1-ask"
+
 # typed commands at a terminal: what is missing is asked, the line shown
 O=$(ptykeys -- env TERM=xterm "$K" | tr -d '\r')
 check "person: komando alone shows the commands by group" True "$(grep -q 'START' <<<"$O" && grep -q 'SERVERS' <<<"$O" && echo True || echo False)"

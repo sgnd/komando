@@ -148,7 +148,7 @@ func (m *memBucket) Mkdir(ctx context.Context, rel string) (bool, error) {
 	o, found, err := m.Lookup(ctx, rel)
 	if err != nil || found {
 		if found && !o.Dir {
-			err = out.Errf(out.ExitConflict, "OBJECT_EXISTS", "", "a file named %q is already there", rel)
+			err = out.Errf(out.ExitConflict, "FILE_EXISTS", "", "a file named %q is already there", rel)
 		}
 		return found, err
 	}
@@ -169,7 +169,7 @@ func (m *memBucket) Move(ctx context.Context, src, dst string, o storex.MoveOpts
 	}
 	_, replaced, _ := m.Lookup(ctx, dst)
 	if replaced && !o.Overwrite {
-		return storex.Moved{}, out.Errf(out.ExitConflict, "OBJECT_EXISTS", "", "a file named %q is already there", dst)
+		return storex.Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS", "", "a file named %q is already there", dst)
 	}
 	mv := storex.Moved{Replaced: replaced, Size: so.Size, Copied: true}
 	if !o.DryRun {
