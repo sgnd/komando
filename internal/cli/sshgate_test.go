@@ -172,6 +172,8 @@ func TestGateCheck(t *testing.T) {
 		{"host add x u@10.0.0.9", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"secret set db", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"svc restart web nginx", "", "SSH_GATE_READ_ONLY"},
+		{"cp web:/var/backups/db.gz web:/tmp/db.gz", "", "SSH_GATE_READ_ONLY"}, // between two servers
+		{"cp web:/var/backups/db.gz web:/tmp/db.gz --continue", "", "SSH_GATE_READ_ONLY"},
 		{"exec web -- uptime", "", "SSH_GATE_READ_ONLY"},
 		{"exec web --read-only -- uptime", "", ""},
 		{"docker exec web app ls", "", "SSH_GATE_READ_ONLY"},
@@ -206,6 +208,16 @@ func TestGateCheck(t *testing.T) {
 		{"docker compose web ps", "", "SSH_GATE_READ_ONLY"}, // decided by the subcommand: not for a read key
 		{"cp web:/etc/hosts /tmp/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"download web /etc/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"download web /etc/hosts --to -", "", ""}, // a stream to the key's own stdout saves nothing here
+		{"download s3 backups/db.gz --to -", "", ""},
+		{"download web /etc/hosts --to=-", "", ""},
+		{"download web /etc/hosts --to ./-", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
+		{"upload web - /tmp/app.conf", "", "SSH_GATE_READ_ONLY"}, // from the key's stdin, to a server
+		{"storage upload s3 - backups/db.gz", "", "SSH_GATE_READ_ONLY"},
+		{"cp - web:/tmp/app.conf", "", "SSH_GATE_READ_ONLY"},
+		{"sync - web:/tmp/app", "SSH_GATE_REFUSED", "SSH_GATE_READ_ONLY"},   // to sync, - is a folder here
+		{"cp web:/etc/hosts -", "", "SSH_GATE_READ_ONLY"},                   // cp is a change kind: read-only keys use download --to -
+		{"sync web:/var/log/app -", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // sync has no stream: - is a folder here
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"storage mkdir s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
@@ -326,6 +338,14 @@ func TestGateLocalTargets(t *testing.T) {
 		"svc restart lh sshd":                                                     R,
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
+		"cp me:/home/u/.ssh/id_ed25519 web:/tmp/k":                                R, // reads a file here
+		"cp web:/tmp/k me:/home/u/.ssh/authorized_keys":                           R,
+		"cp web:/tmp/k sftplocal:.ssh/authorized_keys":                            R,
+		"cp web:/tmp/k web:/tmp/k2":                                               "",
+		"download me /home/u/.ssh/id_ed25519 --to -":                              R, // a stream reads here too
+		"storage download sftplocal .ssh/id_ed25519 --to -":                       R,
+		"cp ./id_ed25519 -":                                                       R, // SRC on this computer, whatever DST is
+		"cp me:/home/u/.ssh/id_ed25519 -":                                         R,
 		"sync ./site web:/var/www":                                                R, // reads files here
 		"recipe run disk me":                                                      R, // runs its command here
 		"recipe run disk web":                                                     "",
