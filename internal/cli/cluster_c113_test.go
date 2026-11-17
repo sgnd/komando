@@ -75,3 +75,17 @@ func TestC113ReviewRound(t *testing.T) {
 		t.Error("argo Workflow")
 	}
 }
+
+// Second review: aws-auth with no namespace of its own (the context's may
+// be kube-system), and create configmap in every word order.
+func TestAwsAuthForms(t *testing.T) {
+	docs, _ := splitYAML([]byte("apiVersion: v1\nkind: ConfigMap\nmetadata: {name: aws-auth}\ndata: {mapRoles: x}\n"))
+	if manifestEscalates(docs) == "" {
+		t.Error("aws-auth without a namespace")
+	}
+	for _, cmd := range []string{"create cm aws-auth", "create configmap -n kube-system aws-auth", "create configmap --namespace=kube-system aws-auth --from-literal=a=b"} {
+		if got := classifyKubectl(tcl, strings.Fields(cmd)); got != driver.RiskDestructive {
+			t.Errorf("%s: %v", cmd, got)
+		}
+	}
+}

@@ -167,7 +167,7 @@ func classifyKubectl(cl *call, args []string) driver.Risk {
 		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole", "role"),
 		verb == "set" && oneOf(sub, "subject", "serviceaccount", "sa"),
 		verb == "label" && psaLoosens(args),
-		verb == "create" && sub == "configmap" && len(args) > 2 && args[2] == "aws-auth",
+		verb == "create" && createsAwsAuth(args),
 		verb == "run" && (hasFlag(args, "--overrides", "--privileged") || strings.Contains(joined, "hostPID")):
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}
@@ -296,7 +296,7 @@ risky verbs also need --allow-dangerous.`,
 				}
 			}
 			if t.host != nil {
-				line := "docker " + quoteAll(args[1:])
+				line := dockerLine(args[1:])
 				if err := guardSwarmRun(cl, st, t.host.Name, risk, strings.TrimSuffix(verb+": "+reason, ": ")); err != nil {
 					return err
 				}
@@ -606,6 +606,16 @@ func guardSwarmRun(cl *call, st *store.State, host string, risk driver.Risk, ver
 	}
 	askTypes(cl, []string{host}, "servers")
 	return guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
+}
+
+// createsAwsAuth: `create configmap|cm aws-auth`, flags anywhere. EKS
+// reads that ConfigMap for who may sign in (C113).
+func createsAwsAuth(args []string) bool {
+	a, err := parseKargs(args)
+	if err != nil {
+		return true // cannot tell: the worst
+	}
+	return len(a.pos) > 1 && oneOf(strings.ToLower(a.pos[0]), "configmap", "configmaps", "cm") && a.pos[1] == "aws-auth"
 }
 
 // psaLoosens: a `label` that lets a namespace run privileged pods

@@ -87,7 +87,7 @@ func objectEscalates(v any, defNS string) string {
 		if ns == "" {
 			ns = defNS
 		}
-		if strings.EqualFold(kind, "ConfigMap") && meta(x, "name") == "aws-auth" && ns == "kube-system" {
+		if strings.EqualFold(kind, "ConfigMap") && meta(x, "name") == "aws-auth" && (ns == "kube-system" || ns == "") {
 			return ref + " sets who may sign in to an EKS cluster, and with what rights"
 		}
 		if ns == "kube-system" {

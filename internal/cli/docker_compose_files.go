@@ -13,6 +13,10 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
+// envFileMark marks a group in serverComposeFiles that is an env file
+// (--env-file), read for COMPOSE_FILE rather than as a compose file.
+const envFileMark = "\x00env:"
+
 // composeFileMax is the most of a compose file on the server komando reads
 // to rate it; a larger one is rated as one it cannot check.
 const composeFileMax = 1 << 20
@@ -54,6 +58,7 @@ func serverComposeFiles(args []string) [][]string {
 // --project-directory, then its subcommand.
 func composeFiles(args []string) [][]string {
 	var files [][]string
+	var envFiles []string
 	dir := ""
 	for len(args) > 0 && strings.HasPrefix(args[0], "-") {
 		name, val, hasValue := strings.Cut(args[0], "=")
@@ -67,13 +72,18 @@ func composeFiles(args []string) [][]string {
 			files = append(files, []string{val})
 		case "--project-directory":
 			dir = val
+		case "--env-file":
+			envFiles = append(envFiles, val)
 		}
 	}
 	if len(args) == 0 || !oneOf(strings.ToLower(args[0]), "up", "create", "run", "start", "restart", "pull", "build", "watch", "scale") {
 		return nil
 	}
 	if len(files) == 0 {
-		return [][]string{composeDefaultNames(dir)}
+		files = [][]string{composeDefaultNames(dir)}
+		for _, e := range envFiles {
+			files = append(files, []string{envFileMark + e}) // it may set COMPOSE_FILE
+		}
 	}
 	return files
 }
@@ -127,6 +137,12 @@ func flagFiles(args []string, names ...string) [][]string {
 // when every file is checked and stays in its containers.
 func composeFilesRisk(read func(p string) ([]byte, error), groups [][]string) string {
 	for _, g := range groups {
+		if e, ok := strings.CutPrefix(g[0], envFileMark); ok {
+			if why := envFileRisk(read, e, false); why != "" {
+				return why
+			}
+			continue
+		}
 		found := false
 		for i, p := range g {
 			if p == "-" || p == "" {
@@ -177,21 +193,45 @@ func composeDefaultsRisk(read func(p string) ([]byte, error), dir string) string
 			return p + ": " + esc
 		}
 	}
-	env := path.Join(dir, ".env")
+	return envFileRisk(read, path.Join(dir, ".env"), true)
+}
+
+// envFileRisk reads an env file compose reads and says why it counts as
+// destructive: it sets COMPOSE_FILE or COMPOSE_PATH_SEPARATOR, so compose
+// reads files komando does not check, or it cannot be read. A missing
+// file is fine when optional (the folder's .env).
+func envFileRisk(read func(p string) ([]byte, error), env string, optional bool) string {
 	b, err := read(env)
-	if errors.Is(err, os.ErrNotExist) {
+	if optional && errors.Is(err, os.ErrNotExist) {
 		return ""
 	}
 	if err != nil {
 		return fmt.Sprintf("komando cannot read %s on the server (%s), which may name other compose files", env, firstLine(err.Error()))
 	}
 	for _, l := range strings.Split(string(b), "\n") {
-		k, _, _ := strings.Cut(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(l), "export ")), "=")
-		if k == "COMPOSE_FILE" || k == "COMPOSE_PATH_SEPARATOR" {
+		l = strings.TrimSpace(l)
+		if rest, ok := strings.CutPrefix(l, "export"); ok && rest != "" && (rest[0] == ' ' || rest[0] == '\t') {
+			l = strings.TrimSpace(rest)
+		}
+		k := l
+		if i := strings.IndexAny(l, "=:"); i >= 0 {
+			k = l[:i]
+		}
+		if k = strings.TrimSpace(k); k == "COMPOSE_FILE" || k == "COMPOSE_PATH_SEPARATOR" {
 			return env + " sets " + k + ", so compose reads files komando does not check"
 		}
 	}
 	return ""
+}
+
+// dockerLine is the docker command line komando runs on a server. A
+// command that reads compose files runs without the server's own
+// COMPOSE_FILE, so docker reads the files the guard read (C113).
+func dockerLine(args []string) string {
+	if serverComposeFiles(args) != nil {
+		return "env -u COMPOSE_FILE -u COMPOSE_PATH_SEPARATOR docker " + quoteAll(args)
+	}
+	return "docker " + quoteAll(args)
 }
 
 // serverComposeReason reads the compose files a docker command uses on

@@ -38,3 +38,29 @@ func TestKubeconfigNamedFilesForAgent(t *testing.T) {
 		t.Errorf("a client key in ~/.kube: %+v", e)
 	}
 }
+
+// Second review: a link or hard link in ~/.kube to an SSH key, and
+// ~/.kube itself a link, are decided by the file they reach.
+func TestKubeconfigLinksIntoSSH(t *testing.T) {
+	invHome(t)
+	home, _ := os.UserHomeDir()
+	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
+	key := filepath.Join(home, ".ssh", "id_ed25519")
+	os.WriteFile(key, []byte("not a real key\n"), 0o600)
+	os.MkdirAll(filepath.Join(home, ".kube"), 0o700)
+	sym := filepath.Join(home, ".kube", "key")
+	os.Symlink(key, sym)
+	hard := filepath.Join(home, ".kube", "hard")
+	os.Link(key, hard)
+	crt := filepath.Join(home, ".kube", "client.crt")
+	os.WriteFile(crt, []byte("not a real cert\n"), 0o600)
+	asAgent(t, false, false)
+	for name, p := range map[string]string{"symlink": sym, "hard link": hard} {
+		if _, err := readKubeRefFile(tcl, p); err == nil {
+			t.Errorf("%s in ~/.kube to an SSH key was read", name)
+		}
+	}
+	if _, err := readKubeRefFile(tcl, crt); err != nil {
+		t.Errorf("a plain file in ~/.kube: %v", err)
+	}
+}

@@ -113,7 +113,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 			if err != nil {
 				return err
 			}
-			return runDocker(cl, cmd.Context(), "docker.raw", args[0], "docker "+quoteAll(args[1:]), sudo, mutating)
+			return runDocker(cl, cmd.Context(), "docker.raw", args[0], dockerLine(args[1:]), sudo, mutating)
 		}),
 	}
 	c.AddCommand(logs, inspect, execC, compose, raw, dockerPruneCmd(&sudo))

@@ -129,3 +129,34 @@ func TestComposeFilesReviewRound(t *testing.T) {
 		}
 	}
 }
+
+// Second review: --env-file, the forms of COMPOSE_FILE compose reads, and
+// docker raw compose without the server's COMPOSE_FILE.
+func TestComposeEnvForms(t *testing.T) {
+	plain := "services:\n  web: {image: nginx}\n"
+	for _, env := range []string{"COMPOSE_FILE = evil.yml\n", "COMPOSE_FILE: evil.yml\n", "export\tCOMPOSE_FILE=evil.yml\n"} {
+		files := map[string]string{"/a/compose.yaml": plain, "/a/.env": env}
+		read := func(p string) ([]byte, error) {
+			if b, ok := files[p]; ok {
+				return []byte(b), nil
+			}
+			return nil, os.ErrNotExist
+		}
+		if composeFilesRisk(read, [][]string{composeDefaultNames("/a")}) == "" {
+			t.Errorf("%q in .env passed", env)
+		}
+	}
+	files := map[string]string{"compose.yaml": plain, "x.env": "COMPOSE_FILE=evil.yml\n"}
+	read := func(p string) ([]byte, error) {
+		if b, ok := files[p]; ok {
+			return []byte(b), nil
+		}
+		return nil, os.ErrNotExist
+	}
+	if composeFilesRisk(read, serverComposeFiles(strings.Fields("compose --env-file x.env up"))) == "" {
+		t.Error("--env-file x.env with COMPOSE_FILE passed")
+	}
+	if !strings.HasPrefix(dockerLine(strings.Fields("compose up -d")), "env -u COMPOSE_FILE") || strings.HasPrefix(dockerLine([]string{"ps"}), "env") {
+		t.Errorf("dockerLine: %q / %q", dockerLine(strings.Fields("compose up -d")), dockerLine([]string{"ps"}))
+	}
+}

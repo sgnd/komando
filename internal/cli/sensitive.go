@@ -342,8 +342,7 @@ func readImportFile(cl *call, p string) ([]byte, error) {
 // read would end up in komando's hands without the user (C113).
 func readKubeRefFile(cl *call, p string) ([]byte, error) {
 	if cl.isAgent() && p != "-" {
-		why := localSecret(cl, p)
-		if why == "a private key" || why == "a credential store" && !inKubeDir(p) {
+		if why := kubeRefSecret(cl, p); why != "" {
 			return nil, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
 				"a kubeconfig's keys belong in ~/.kube or next to it; ask the user to run the import in their own terminal",
 				"the kubeconfig names %s, which is %s; komando does not copy it into the vault for an AI agent", p, why).NoFlag()
@@ -352,20 +351,26 @@ func readKubeRefFile(cl *call, p string) ([]byte, error) {
 	return readImportFile(cl, p)
 }
 
-// inKubeDir: p is in ~/.kube of one of the guarded homes.
-func inKubeDir(p string) bool {
+// kubeRefSecret decides by the file a path reaches (links followed, hard
+// links compared): an SSH private key, or a credential store other than
+// ~/.kube, is refused; "" otherwise.
+func kubeRefSecret(cl *call, p string) string {
 	abs, err := filepath.Abs(expandHome(p))
 	if err != nil {
-		return false
+		abs = p
 	}
+	real := realPath(abs)
 	for _, home := range guardHomes() {
-		for _, q := range []string{abs, realPath(abs)} {
-			if pathIn(q, filepath.Join(home, ".kube")) {
-				return true
+		for _, why := range []string{secretPath(cl, real, home), hardLinkSecret(cl, real, home), secretPath(cl, abs, home)} {
+			switch {
+			case why == komandoData || why == procEnv || why == "a private key":
+				return why
+			case why == "a credential store" && !pathIn(real, filepath.Join(realPath(home), ".kube")) && !pathIn(real, filepath.Join(home, ".kube")):
+				return why
 			}
 		}
 	}
-	return false
+	return ""
 }
 
 // skipLocalSecret reports whether a folder upload leaves a file out for an
