@@ -368,14 +368,41 @@ func guardHostSends(cl *call, st *store.State, now []*store.Host, olds map[strin
 // --via names it, and their passwords travel that way on the next
 // connection (a conn's database password is typed into the last hop).
 func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host) ([]string, error) {
+	if st == nil {
+		return nil, nil
+	}
+	cur := map[string]*store.Host{} // every server as the edit leaves it
+	for n, h := range st.Hosts {
+		cur[n] = h
+	}
+	ownLine := map[string]bool{} // a server of the edit whose own place changed: its own line covers it
 	moved := map[string]string{} // hop name: where it is now
 	for _, h := range now {
+		cur[h.Name] = h
 		if o := olds[h.Name]; o != nil && hostPlace(o).dest != hostPlace(h).dest {
 			moved[h.Name] = hostPlace(h).dest
+			ownLine[h.Name] = true
 		}
 	}
-	if len(moved) == 0 || st == nil {
+	if len(moved) == 0 {
 		return nil, nil
+	}
+	// a server reached through a moved hop has moved too: what lies behind
+	// it goes the new way (mid --via jump, then conn --via mid)
+	for changed := true; changed; {
+		changed = false
+		for n, h := range cur {
+			if _, ok := moved[n]; ok {
+				continue
+			}
+			for _, step := range viaChain(h.Via) {
+				if to, ok := moved[step]; ok {
+					moved[n] = hostPlace(h).dest + " (by way of " + step + ", now at " + to + ")"
+					changed = true
+					break
+				}
+			}
+		}
 	}
 	var lines []string
 	add := func(label, via string, p secretPlace) error {
@@ -388,15 +415,15 @@ func behindSends(st *store.State, now []*store.Host, olds map[string]*store.Host
 				return err
 			}
 			lines = append(lines, fmt.Sprintf("%s to %s (%s), by way of %s, now at %s", strings.Join(p.refs, ", "), p.dest, label, step, to))
+			break
 		}
 		return nil
 	}
-	for _, n := range sortedKeys(st.Hosts) {
-		h := st.Hosts[n]
-		if slices.ContainsFunc(now, func(x *store.Host) bool { return x.Name == n }) {
-			continue // its own line says where its secrets go
+	for _, n := range sortedKeys(cur) {
+		if ownLine[n] {
+			continue
 		}
-		if err := add("server "+n, h.Via, hostPlace(h)); err != nil {
+		if err := add("server "+n, cur[n].Via, hostPlace(cur[n])); err != nil {
 			return nil, err
 		}
 	}

@@ -259,3 +259,21 @@ func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
 	wantCode(t, "NEEDS_PERSON", "secret", "set", "typed-config", "--from-env", "V", "--yes")
 	secretIs(t, "typed-config", ovpnOld)
 }
+
+// What lies behind a moved hop is asked about also when the same edit
+// names it, and also when it is reached through a second hop.
+func TestMovedHopReachesEverythingBehindIt(t *testing.T) {
+	secretHome(t)
+	mustRun(t, "host", "add", "jump", "u@10.0.0.3", "--port", "2222")
+	mustRun(t, "host", "add", "inner", "u@10.0.1.1", "--via", "jump", "--sudo-ref", "secret:db-pass")
+	mustRun(t, "host", "add", "mid", "u@10.0.1.2", "--via", "jump")
+	mustRun(t, "conn", "add", "shop", "postgres://app@10.0.0.5/app", "--password-ref", "secret:db-pass", "--via", "mid")
+	texts := windowText(t, true)
+	wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump,inner", "--port", "22")
+	if e := wantCode(t, "SECRET_DESTINATION", "host", "edit", "jump", "--address", "10.6.6.6"); !strings.Contains(e.Message, "conn shop") {
+		t.Errorf("the conn behind the second hop is named: %s", e.Message)
+	}
+	if len(*texts) != 0 {
+		t.Errorf("no flag, no window: %q", *texts)
+	}
+}
