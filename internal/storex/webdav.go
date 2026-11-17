@@ -285,7 +285,7 @@ func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64
 	if refusedMove(status) { // the server did nothing
 		b.removeURL(tmp)
 		return out.Errf(out.ExitRemote, "STORAGE_ERROR",
-			"the server refuses WebDAV MOVE, which every upload uses: allow it (nginx: `dav_methods PUT DELETE MKCOL COPY MOVE;`), and behind a proxy check that it keeps the scheme and host; then run `komando test TARGET`",
+			"the server refuses WebDAV MOVE, which every upload uses: allow it (nginx: `dav_methods PUT DELETE MKCOL COPY MOVE;`), and behind a proxy check that it keeps the URL's scheme and address; then run `komando test TARGET`",
 			"could not move the upload into place: %v; nothing was changed", err)
 	}
 	// a server that replaces by deleting first may have removed the old
