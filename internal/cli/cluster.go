@@ -78,7 +78,7 @@ func kubeClient(cl *call, ctx context.Context, st *store.State, c *store.Conn) (
 // kubeContext reads the conn's kubeconfig from the vault and checks its
 // login program (guardKubePlugin), without connecting to anything.
 func kubeContext(cl *call, c *store.Conn) (*kube.Context, error) {
-	kc, err := resolvePassword(c)
+	kc, err := resolvePassword(cl, nil, c)
 	if err != nil {
 		return nil, err
 	}

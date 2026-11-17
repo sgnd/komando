@@ -140,7 +140,7 @@ func winrmWarnings(h *store.Host) []string {
 	case "skip-verify":
 		w = append(w, "tls=skip-verify: komando does not check the server's certificate, so it cannot tell the server from an impostor; prefer ca=secret:NAME with its CA")
 	}
-	if h.PasswordRef == "" {
+	if h.PasswordRef == "" && !h.AskLogin() {
 		w = append(w, "WinRM logs in with a password; give it one with `komando host edit "+h.Name+" --ask-password`")
 	}
 	return w

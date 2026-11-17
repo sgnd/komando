@@ -172,9 +172,7 @@ func clickhouseForm(_ *call) formSpec {
 		dbUserQ("default", "ClickHouse's own first user is called default; your provider may have given you another."),
 		{key: "database", label: "Database", ask: "Which database should commands use?", optional: true, example: "analytics",
 			help: "Empty uses the user's default database.", check: dbNameProblem},
-		formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
-			"you type it next, hidden", "no password"),
+		formPasswordQ("Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "no password"),
 		formProtectQ("database"),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {

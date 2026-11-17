@@ -11,6 +11,15 @@ updates:
       go:
         patterns: ["*"]
 
+  # the sync library is a Go module of its own
+  - package-ecosystem: gomod
+    directory: /sync
+    schedule:
+      interval: monthly
+    groups:
+      go-sync:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

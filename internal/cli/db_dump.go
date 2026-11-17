@@ -577,7 +577,15 @@ func finishTransfer(cl *call, st *store.State, name string, data transferData, r
 // server h (see toolHost) or, when h is nil, here, streaming stdin and
 // stdout. low runs it under nice and ionice on the server.
 func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, argv []string, stdin io.Reader, stdout io.Writer, low bool) error {
-	password, err := resolvePassword(c)
+	if c.AskLogin() && cl.isAgent() {
+		// the tool gets the password in its environment, where any program
+		// of this user (the agent's too) can read it
+		return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+			"ask the user to run `"+commandLine(cl)+"` in their own terminal; never ask for the password in the chat",
+			"%s runs with the password of conn %s in its environment, which an AI agent's programs could read, and %s logs in with a password a person types each time (login ask)",
+			argv[0], c.Name, c.Name).NoFlag()
+	}
+	password, err := resolvePassword(cl, st, c)
 	if err != nil {
 		return err
 	}
@@ -675,7 +683,7 @@ func toolHost(cl *call, st *store.State, c *store.Conn, on string) (*store.Host,
 // --via server gets the conn's password, so for an AI agent it needs a
 // person's yes (SECRET_DESTINATION), as any other place a secret goes.
 func runOnSecret(cl *call, st *store.State, c *store.Conn, h *store.Host) error {
-	if c.PasswordRef == "" {
+	if c.PasswordRef == "" { // a typed password (login ask): runTool stops an agent
 		return nil
 	}
 	if c.Via != "" {

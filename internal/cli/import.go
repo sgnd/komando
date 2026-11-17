@@ -260,6 +260,9 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	res.Secrets, res.Keys = plan.sealedNames(res.Secrets)
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
 	res.replacedAndNext(cl, existed, groups)
+	if err := guardImportSecrets(cl, st, res.Secrets); err != nil {
+		return err
+	}
 	res.Action = "added"
 	incomplete := importIncomplete(cl, len(v.Invalid))
 	if cl.flags.dryRun {
@@ -361,6 +364,9 @@ func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool,
 				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
 				continue
 			}
+		}
+		if err := loginPlaceStop(cl, connPlaceChanges(st.Conns[c.Name], c)); err != nil {
+			return nil, err
 		}
 		p := connPlace(c)
 		if ok && plan.Secrets[name] != "" { // stored by this import, for this conn

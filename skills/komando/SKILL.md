@@ -20,7 +20,7 @@ sight.
 3. `komando schema COMMAND` whenever you are unsure about a flag.
 
 If `komando` is not installed, stop and ask the human to install it:
-`curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
+`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
 Update komando only when the human asks: `komando update` (when it stops with
 `NOT_WRITABLE`, ask them to run `sudo komando update`).
 
@@ -98,15 +98,15 @@ not know? Set `KOMANDO_AGENT=1`.
    `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
    `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
-   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
-   `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
+   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_NETWORK_REQUIRED`,
+   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
    `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
    why. When they agree, re-run with
    the flag the hint names: komando opens a window on their screen and they
    click "Allow once" (you cannot). If the hint says there is no screen, ask
    them to run the command in their own terminal. No flag clears
-   `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`, `SSH_GATE_READ_ONLY`,
-   `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a person at a terminal can
+   `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`, `SSH_GATE_NETWORK_REQUIRED`,
+   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a person at a terminal can
    run those. If they
    click Deny, do not retry.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an
@@ -114,7 +114,15 @@ not know? Set `KOMANDO_AGENT=1`.
 7. **Logins that need a person.** `VPN_LOGIN_REQUIRED` or `VPN_DOWN`: ask
    the human to run `komando vpn up NAME`. A server that asks for a code
    (`AUTH_FAILED`, two-factor): ask them to run `komando login SERVER` once;
-   your commands then use that login.
+   your commands then use that login. A server or conn added with
+   `--login ask` (`host show` or `conn show` says `login: ask`) has no
+   stored password, so komando asks the human to type it in its own
+   window, and you never see it. Every command that connects asks, even
+   `komando test`. If that gives `NEEDS_PERSON` (no screen, or a first
+   connection) or `DECLINED` (they cancelled), do not retry: ask them to
+   run `komando login SERVER` (for a conn: the command itself) in their
+   own terminal. Adding one, or changing where it goes (address, `--via`,
+   a jump host or VPN on its way), is theirs too: `NEEDS_PERSON`.
 8. **Secrets stay hidden from you.**
    - Passwords, keys and tokens in any output show as `[hidden]` or
      `[secret:NAME]`. That is expected; do not work around it.
