@@ -155,8 +155,9 @@ use ` + "`komando job start` and `komando job wait`" + `: they survive a drop.
 Commands that destroy things (rm -rf /, mkfs, reboot, DROP DATABASE, ...)
 and any change on a production server: at a terminal komando asks you
 first. --yes and --allow-dangerous answer that question in advance, for
-scripts. --read-only says the command only looks, so a production server
-does not ask for commands komando knows only read.
+scripts. --read-only says the command only looks: it runs only commands
+komando knows only read (cat, grep, df, systemctl status ...) and refuses
+any other, so a production server does not ask.
 
 --script FILE runs a script from this computer instead: it is sent to the
 interpreter (from its #! line, else sh; --interpreter to choose) as input,
@@ -214,7 +215,7 @@ so nothing is left on the server. --arg values become $1, $2 ... .`,
 	c.Flags().StringVarP(&cmdStr, "cmd", "c", "", "the command as one string (instead of words after --)")
 	c.Flags().StringVar(&so.file, "script", "", "run this script from this computer ('-' = komando's stdin); nothing is left on the server")
 	so.bind(c)
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected servers: no --yes for commands komando knows read)")
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks: only commands komando knows only read run (protected servers: no --yes)")
 	return c
 }
 
@@ -233,7 +234,7 @@ func execReadOnly(cl *call, target, command string, stdin []byte, o execOpts, re
 	}
 	// bash -s alone runs its input, so the input is checked as its script;
 	// any other command is checked itself, and its input is data (a CSV
-	// for wc, SQL for psql)
+	// for wc)
 	checked := command
 	if o.stdinFile != "" && stdinShell(command) {
 		checked = string(stdin)
@@ -242,14 +243,9 @@ func execReadOnly(cl *call, target, command string, stdin []byte, o execOpts, re
 		}
 	} else if err := checkReadOnlyEnv(cl, command, o.env); err != nil {
 		return true, err
-	} else if w := sqlInputWrite(command, stdin); w != "" {
-		if err := readOnlyStop(cl, w); err != nil {
-			return true, err
-		}
 	}
-	// the denylist passed; a protected target still needs --yes unless
-	// komando knows the command only reads (allowlist)
-	return readOnlyMutates(checked, o.env), nil
+	// komando knows the command only reads: no change, so no --yes
+	return false, nil
 }
 
 // fleetDryRun is runFleet's --dry-run: what would run on each host. A

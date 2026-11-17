@@ -57,6 +57,16 @@ func TestPTYChild(t *testing.T) {
 	os.Exit(code)
 }
 
+// ptyWait is how long a pty test waits for something komando should do at
+// once (show a question, end): far longer than it takes, so a busy machine
+// or the race detector does not fail the test. A komando that hangs still
+// fails it, later.
+const ptyWait = 2 * time.Minute
+
+// ptyChildLimit ends a child komando that hangs even when its test is no
+// longer there to stop it (one ran for 18 hours once).
+const ptyChildLimit = "15m"
+
 type ptyRun struct {
 	t      *testing.T
 	master *os.File // the side a terminal window holds: what is typed goes in here
@@ -81,7 +91,7 @@ func startPTYEnv(t *testing.T, env []string, args ...string) *ptyRun {
 		t.Skipf("no pseudo-terminal here: %v", err)
 	}
 	p := &ptyRun{t: t, master: m, tty: tty, report: filepath.Join(t.TempDir(), "report")}
-	p.cmd = exec.Command(os.Args[0], "-test.run=^TestPTYChild$")
+	p.cmd = exec.Command(os.Args[0], "-test.run=^TestPTYChild$", "-test.timeout="+ptyChildLimit)
 	p.cmd.Env = append(append(environWithout("CI"), "KOMANDO_PTY_ARGS="+strings.Join(args, "\x1f"), "KOMANDO_PTY_REPORT="+p.report, "KOMANDO_OUTPUT=text"), env...)
 	// this process took the passphrase out of its environment; the child
 	// needs it for every command, as a person's own shell would give it
@@ -125,7 +135,7 @@ func (p *ptyRun) shown() string {
 // waitFor waits until s is on the screen.
 func (p *ptyRun) waitFor(s string) {
 	p.t.Helper()
-	for end := time.Now().Add(10 * time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+	for end := time.Now().Add(ptyWait); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
 		if strings.Contains(p.shown(), s) {
 			return
 		}
@@ -146,12 +156,11 @@ func (p *ptyRun) answer(q, s string) {
 // exit waits for komando to end and returns its exit code.
 func (p *ptyRun) exit() int {
 	p.t.Helper()
-	return p.exitWithin(10 * time.Second)
+	return p.exitWithin(ptyWait)
 }
 
 // exitWithin is exit for a command that may take longer than most: sealing
-// or opening a file runs a key derivation made to be slow, which takes
-// over 10 seconds under the race detector on a busy machine.
+// or opening a file runs a key derivation made to be slow.
 func (p *ptyRun) exitWithin(d time.Duration) int {
 	p.t.Helper()
 	done := make(chan error, 1)

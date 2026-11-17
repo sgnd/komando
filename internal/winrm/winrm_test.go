@@ -208,6 +208,11 @@ func TestNTLMIsOffered(t *testing.T) {
 }
 
 func TestCancelStopsTheCommand(t *testing.T) {
+	// the command is stopped once it runs and komando waits for its
+	// output, whenever that is: a time limit instead could end it on a
+	// busy machine before there was a command to stop
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	block := make(chan struct{})
 	var actions []string
 	var mu sync.Mutex
@@ -224,6 +229,7 @@ func TestCancelStopsTheCommand(t *testing.T) {
 		case "Command":
 			_, _ = io.WriteString(w, `<s:Envelope `+soapNS+`><s:Body><rsp:CommandResponse><rsp:CommandId>C</rsp:CommandId></rsp:CommandResponse></s:Body></s:Envelope>`)
 		case "Receive":
+			cancel()
 			select {
 			case <-block:
 			case <-r.Context().Done():
@@ -234,10 +240,8 @@ func TestCancelStopsTheCommand(t *testing.T) {
 	}))
 	defer srv.Close()
 	defer close(block)
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
-	defer cancel()
 	c := New(Config{Endpoint: srv.URL + "/wsman", User: "u", Password: "p", Basic: true})
-	if _, err := c.Run(ctx, "x", nil, io.Discard, io.Discard); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := c.Run(ctx, "x", nil, io.Discard, io.Discard); !errors.Is(err, context.Canceled) {
 		t.Errorf("err = %v", err)
 	}
 	mu.Lock()
