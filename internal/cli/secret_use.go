@@ -14,6 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/vault"
 )
 
 // Where a secret may go when an AI agent asks (docs/features/safety.md).
@@ -515,7 +516,11 @@ func guardVpnSends(cl *call, old, now *store.Vpn, servers string) error {
 // there yet: making a CA an entry already names counts too. A person's
 // yes (--yes, then the window) lets it through, as for vpn edit, host
 // edit and conn edit making the same change.
-func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now string) error {
+//
+// nowFrom names where the new value comes from when the agent may not read
+// it (secret cp/rename copies another secret): the window then names that
+// secret, never the servers in it.
+func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now, nowFrom string) error {
 	if !cl.isAgent() || (had && old == now) {
 		return nil
 	}
@@ -526,9 +531,18 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 		if v.Kind != "openvpn" || v.ConfigRef != ref {
 			continue
 		}
+		// a login a person types at `vpn up` goes wherever the profile
+		// points: moving it is for a person only, as vpn edit has it
+		if v.KeyRef == "" || v.MFA {
+			return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to replace secret "+name+" in their own terminal",
+				"secret %s is the profile of vpn %s, which gets the login a person types at `vpn up`; an AI agent may not change where it goes", name, v.Name).NoFlag()
+		}
 		servers, err := ovpnRemotes(now)
 		if err != nil || servers == "" {
 			servers = "the servers in the new profile"
+		}
+		if nowFrom != "" {
+			servers = "the servers in the profile " + nowFrom + " holds"
 		}
 		before := vpnPlace(v, "")
 		line, err := newSends("vpn "+v.Name, &before, vpnPlace(v, servers))
@@ -554,6 +568,30 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 		}
 	}
 	return guardSends(cl, sends, weak)
+}
+
+// guardImportedSecrets runs secret set's checks for every vault secret an
+// import replaces or makes: a protected entry that uses it, and a secret
+// that decides whom komando trusts. The entries the import itself
+// replaces (mine) are checked by the import.
+func guardImportedSecrets(cl *call, st *store.State, values map[string]string, mine map[string]bool) error {
+	for _, name := range slices.Sorted(maps.Keys(values)) {
+		old, err := vault.Get(name)
+		had := err == nil
+		if had {
+			users := slices.DeleteFunc(secretUsers(st, name), func(u string) bool { return mine[u] })
+			if prot := protectedUsers(st, users); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+				if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
+					"secret "+name+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
+					return err
+				}
+			}
+		}
+		if err := guardTrustSecret(cl, st, name, old, had, values[name], ""); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // caOption reports whether a conn URL option names a CA certificate.

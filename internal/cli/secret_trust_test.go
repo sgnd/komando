@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -204,4 +207,55 @@ func TestMovedHopNeedsAPerson(t *testing.T) {
 			t.Errorf("window lacks %q: %q", want, (*texts)[0])
 		}
 	}
+}
+
+// An import that replaces a vault secret (import env --overwrite stores a
+// conn's password as CONN-pass) gets the same checks as secret set: a
+// secret a protected entry uses, an OpenVPN profile, a CA certificate.
+func TestImportReplacingATrustSecretNeedsAPerson(t *testing.T) {
+	secretHome(t)
+	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "secret:x-pass", KeyRef: "secret:corp-pass", User: "ana"},
+		map[string]string{"x-pass": ovpnOld, "corp-pass": "pw"})
+	putVpn(t, &store.Vpn{Name: "office", Kind: "wireguard", KeyRef: "secret:y-pass", Protected: true, Config: "[Interface]\n"},
+		map[string]string{"y-pass": "key-1"})
+	env := filepath.Join(t.TempDir(), "app.env")
+	if err := os.WriteFile(env, []byte("X_URL=postgres://app:"+url.QueryEscape(ovpnEvil)+"@10.9.9.9:5432/app\nY_URL=postgres://app:agentkey@10.9.9.8:5432/app\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	texts := windowText(t, true)
+	e := wantCode(t, "SECRET_DESTINATION", "import", "env", env, "--overwrite")
+	if strings.Contains(e.Message, "vpn.corp.example") {
+		t.Errorf("the message shows where the old profile pointed, which the agent cannot read: %s", e.Message)
+	}
+	if len(*texts) != 0 {
+		t.Errorf("no flag, no window: %q", *texts)
+	}
+	secretIs(t, "x-pass", ovpnOld)
+	secretIs(t, "y-pass", "key-1")
+	// a dry run says so too, and changes nothing
+	d := mustRun(t, "import", "env", env, "--overwrite", "--dry-run")
+	if wb, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); wb == nil {
+		t.Errorf("dry run: %v", d)
+	}
+	secretIs(t, "x-pass", ovpnOld)
+}
+
+// A profile copied from another secret is named by that secret, never by
+// the servers in it (the agent cannot read it); and a VPN whose login a
+// person types at `vpn up` gets a new profile only from a person.
+func TestOvpnProfileCopyAndTypedLogin(t *testing.T) {
+	secretHome(t)
+	putVpn(t, &store.Vpn{Name: "corp", Kind: "openvpn", ConfigRef: "secret:corp-config", KeyRef: "secret:corp-pass", User: "ana"},
+		map[string]string{"corp-config": ovpnOld, "corp-pass": "pw", "hidden-profile": "client\nremote hidden-host.internal 7777\n"})
+	putVpn(t, &store.Vpn{Name: "typed", Kind: "openvpn", ConfigRef: "secret:typed-config"}, map[string]string{"typed-config": ovpnOld})
+	windowText(t, true)
+	for _, args := range [][]string{{"secret", "cp", "hidden-profile", "corp-config", "--overwrite"}, {"secret", "cp", "hidden-profile", "corp-config", "--overwrite", "--dry-run"}} {
+		_, text := runMain(t, args...)
+		if strings.Contains(text, "hidden-host") || !strings.Contains(text, "secret hidden-profile") {
+			t.Errorf("%v: %s", args, text)
+		}
+	}
+	t.Setenv("V", ovpnEvil)
+	wantCode(t, "NEEDS_PERSON", "secret", "set", "typed-config", "--from-env", "V", "--yes")
+	secretIs(t, "typed-config", ovpnOld)
 }

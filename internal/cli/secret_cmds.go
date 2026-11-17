@@ -81,7 +81,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 					}
 				}
 			}
-			if err := guardTrustSecret(cl, st, args[0], was, replaced, v); err != nil {
+			if err := guardTrustSecret(cl, st, args[0], was, replaced, v, ""); err != nil {
 				return err
 			}
 			res := map[string]any{"name": args[0], "ref": "secret:" + args[0], "replaced": replaced, "action": secretSetAction(cl, replaced)}

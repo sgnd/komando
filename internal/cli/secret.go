@@ -289,7 +289,7 @@ are not changed.`
 					return err
 				}
 				was, _ := vault.Get(to)
-				if err := guardTrustSecret(cl, st, to, was, replaced, now); err != nil {
+				if err := guardTrustSecret(cl, st, to, was, replaced, now, "secret "+from); err != nil {
 					return err
 				}
 			}

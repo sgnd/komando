@@ -260,6 +260,20 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	res.Secrets, res.Keys = plan.sealedNames(res.Secrets)
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
 	res.replacedAndNext(cl, existed, groups)
+	// the secrets it stores get secret set's checks
+	values, mine := map[string]string{}, map[string]bool{}
+	for _, n := range res.Secrets {
+		values[n] = cmp.Or(plan.Secrets[n], plan.SealedSecrets[n])
+	}
+	for _, h := range hosts {
+		mine["host "+h.Name] = true
+	}
+	for _, c := range conns {
+		mine["conn "+c.Name] = true
+	}
+	if err := guardImportedSecrets(cl, st, values, mine); err != nil {
+		return err
+	}
 	res.Action = "added"
 	incomplete := importIncomplete(cl, len(v.Invalid))
 	if cl.flags.dryRun {
