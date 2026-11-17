@@ -22,7 +22,7 @@ check "the guess is in the audit log" True "$($K audit --limit 5 | jget '"secret
 check "agent cannot copy .env here" SENSITIVE_FILE "$(A download direct /home/agent/app/.env --to "$TMP/" | jget 'd["error"]["code"]' || true)"
 q A download direct /home/agent/app --to "$TMP/agentcopy" -r
 check "agent folder copy leaves .env behind" "False True" "$(python3 -c "import os; print(os.path.exists('$TMP/agentcopy/.env'), os.path.exists('$TMP/agentcopy/readme.txt'))")"
-check "agent secret get --reveal refused" REVEAL_NEEDS_HUMAN "$(A secret get ops-pass --reveal | jget 'd["error"]["code"]' || true)"
+check "agent secret get --reveal refused" REVEAL_NEEDS_TERMINAL "$(A secret get ops-pass --reveal | jget 'd["error"]["code"]' || true)"
 check "guard stops reading the vault" deny "$(printf '{"tool_name":"Read","tool_input":{"file_path":"%s/.komando/vault.key"}}' "$HOME" | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
 check "guard stops ssh around komando" deny "$(echo '{"tool_name":"Bash","tool_input":{"command":"ssh web1 cat .env"}}' | $K guide guard | jget 'd["hookSpecificOutput"]["permissionDecision"]')"
 check "guard lets komando through" "" "$(echo '{"tool_name":"Bash","tool_input":{"command":"komando fs cat web1 /srv/.env"}}' | $K guide guard)"

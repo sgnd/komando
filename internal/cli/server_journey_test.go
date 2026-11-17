@@ -194,8 +194,8 @@ func TestJobRmKillProtected(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := runRoot(t, "job", "rm", "j9", "--kill"); errCode(err) != "PROTECTED_HOST" {
-		t.Fatalf("want PROTECTED_HOST, got %v", err)
+	if err := runRoot(t, "job", "rm", "j9", "--kill"); errCode(err) != "PROTECTED_TARGET" {
+		t.Fatalf("want PROTECTED_TARGET, got %v", err)
 	}
 	if n := len(srv.take()); n != 0 {
 		t.Errorf("%d commands ran on the protected server", n)

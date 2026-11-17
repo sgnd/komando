@@ -262,7 +262,7 @@ func TestClickHouseErrors(t *testing.T) {
 	f2 := &fakeCH{readonly: "0", dialect: "kusto"}
 	srv2 := httptest.NewServer(f2)
 	defer srv2.Close()
-	if _, err := openFake(t, srv2, "", "", true, nil); errCode(err) != "SQL_STRING_RULES" {
+	if _, err := openFake(t, srv2, "", "", true, nil); errCode(err) != "SQL_SAFE_SETTINGS_REQUIRED" {
 		t.Errorf("kusto dialect: %v", err)
 	}
 }

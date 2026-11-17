@@ -110,7 +110,7 @@ yourself out. --dry-run counts the lines it would remove.`,
 			if !cl.flags.dryRun {
 				audit(cl, st, "key.revoke", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": label, "user": user, "all_users": allUsers})
 			}
-			return finish(cl, "key.revoke", data, data.Summary, worst)
+			return finish(cl, "key.revoke", data, data.Summary, worst, soleError(res))
 		}),
 	}
 	c.Flags().StringVar(&user, "user", "", "edit this user's authorized_keys instead of the login user's (uses sudo)")

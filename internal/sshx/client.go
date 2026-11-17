@@ -235,7 +235,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 			}
 			ce := classify(st, hop, err)
 			if tail := pc.stderrTail(); tail != "" {
-				if ce.Code != "CONNECT_FAILED" {
+				if ce.Code != "CONN_UNREACHABLE" {
 					// keep what went wrong (HOSTKEY_MISMATCH, AUTH_FAILED, ...):
 					// the proxy's words are only extra detail
 					ce.Message += "; the proxy command said: " + tail
@@ -313,7 +313,7 @@ func Route(st *store.State, h *store.Host) (*store.Vpn, []*store.Host, error) {
 // hops [via1, via2, ..., target].
 func resolveChain(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {
 	if seen[h.Name] {
-		return nil, nil, out.Errf(out.ExitError, "VIA_CYCLE", "fix the path: `komando host edit "+h.Name+" --via OTHER` (or --unset via)", "--via cycle detected at %q", h.Name)
+		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the path: `komando host edit "+h.Name+" --via OTHER` (or --unset via)", "--via cycle detected at %q", h.Name)
 	}
 	seen[h.Name] = true
 	if h.Via == "" {
@@ -524,7 +524,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	case strings.Contains(msg, "no such host"):
 		return out.Errf(out.ExitConnect, "DNS_ERROR", "the name does not resolve here: check it with `komando host show "+host+"` and fix it with `komando host edit "+host+" --address ADDRESS`; a name only a VPN resolves needs --via that VPN", "%s: %s", host, msg)
 	}
-	return out.Errf(out.ExitConnect, "CONNECT_FAILED", "check the address and the path with `komando host show "+host+"`; `komando doctor` checks this computer's setup", "%s: %s", host, msg)
+	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", "check the address and the path with `komando host show "+host+"`; `komando doctor` checks this computer's setup", "%s: %s", host, msg)
 }
 
 // clientConfig is the login for one hop. The ssh-agent connection it opens

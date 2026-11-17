@@ -393,7 +393,7 @@ func approvalHint(cl *call, e *out.Error) {
 			". Make the command shorter (put a long script in a file for `komando exec --script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
 		switch {
-		case e.Final, e.Code == "REVEAL_NEEDS_HUMAN", e.Code == "NEEDS_PERSON":
+		case e.Final, e.Code == "REVEAL_NEEDS_TERMINAL", e.Code == "NEEDS_PERSON":
 			return // no flag allows these: adding one asks nobody
 		case e.Code == "WRITE_REQUIRES_FLAG", e.Code == "READ_ONLY_VIOLATION", e.Code == "DB_BYTES_LIMIT":
 			// --write, leaving out --read-only and raising --max-bytes open no window
