@@ -42,7 +42,7 @@ func (r *kctlRun) cp() error {
 			return err // named like a secret: stop before the pod is read, as download does
 		}
 		dir, base := path.Dir(rpath), path.Base(rpath)
-		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: tarball, Stderr: &errb})
+		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, "--", base}, Stdout: tarball, Stderr: &errb})
 		if tarball.over {
 			return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE",
 				"copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH`",
@@ -146,7 +146,7 @@ func untarTo(cl *call, tarball []byte, dst, base string) error {
 		}
 		e := entry{target: target, dir: h.Typeflag == tar.TypeDir, mode: os.FileMode(h.Mode)}
 		if !e.dir {
-			if err := podNameOK(cl, h.Name); err != nil {
+			if err := podNameOK(cl, path.Clean(h.Name)); err != nil { // the name that is written: app/.env/. is app/.env
 				return err
 			}
 			if e.data, err = io.ReadAll(tr); err != nil {
