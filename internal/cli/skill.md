@@ -95,18 +95,19 @@ not know? Set `KOMANDO_AGENT=1`.
    read-only command before you run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
    When a command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
-   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
-   `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
-   `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
-   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
-   `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
-   `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
+   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`,
+   `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
+   `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
+   `SENSITIVE_FILE`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
+   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`, `STORE_OLD_COPY`,
+   `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
    why. When they agree, re-run with
    the flag the hint names: komando opens a window on their screen and they
    click "Allow once" (you cannot). If the hint says there is no screen, ask
    them to run the command in their own terminal. No flag clears
-   `NEEDS_PERSON`, `REVEAL_NEEDS_HUMAN`, `SSH_GATE_READ_ONLY`,
-   `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a person at a terminal can
+   `NEEDS_PERSON`, `REVEAL_NEEDS_TERMINAL`, `SQL_SAFE_SETTINGS_REQUIRED`,
+   `SQL_TX_CHECK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or
+   `STORE_OLD_COPY`: only a person at a terminal can
    run those. If they
    click Deny, do not retry.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an
@@ -139,7 +140,7 @@ not know? Set `KOMANDO_AGENT=1`.
      ids and counts, never write it back, and ask the human if a task needs
      a real value.
    - `secret show --reveal` and `key show --reveal` are for people only
-     (`REVEAL_NEEDS_HUMAN`), and so is `secret check` (`NEEDS_PERSON`). For a password only the human
+     (`REVEAL_NEEDS_TERMINAL`), and so is `secret check` (`NEEDS_PERSON`). For a password only the human
      knows, ask them to run `komando secret set NAME` in their own terminal
      (it asks for it hidden). Never ask for a password in the chat.
    - Rename or copy a secret with `komando secret rename OLD NEW` or

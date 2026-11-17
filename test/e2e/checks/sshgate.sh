@@ -64,7 +64,7 @@ check "the value never comes back" False "$(kssh gate-ro komando secret get gx-p
 check "no keychain here: the store's key is a file" True "$(gx test -f /home/agent/.komando/store.key && echo True || echo False)"
 # the komando a key runs is an agent: --yes on a protected server needs a person, who is not at this screen
 gx komando host edit gx --protected -o json >/dev/null
-check "--yes from a key needs a person" PROTECTED_HOST "$(kssh gate-rw komando exec gx --yes -o json -- touch /tmp/gx | code || true)"
+check "--yes from a key needs a person" PROTECTED_TARGET "$(kssh gate-rw komando exec gx --yes -o json -- touch /tmp/gx | code || true)"
 A1=$(gx komando audit -n 200 -o json)
 check "audit: every key command, with the key's name" True "$(jget 'sum(1 for e in d["data"]["entries"] if e["command"] == "ssh-gate" and e.get("ssh_gate") in ("phone", "phone-read")) >= 14' <<<"$A1")"
 check "audit: what no key may write here" True "$(jget 'any(e.get("blocked") == "SSH_GATE_REFUSED" and e.get("runs") == "download" for e in d["data"]["entries"])' <<<"$A1")"

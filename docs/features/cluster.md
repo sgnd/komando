@@ -414,7 +414,7 @@ is kubectl's namespace flag.
 |------|---------------|------------|
 | `TOOL_MISSING` (exit 3) | the login program the kubeconfig names is not installed | install it; the error shows the kubeconfig's `installHint` |
 | `LOGIN_FAILED` (exit 4) | the login program ran but could not log in | a person signs in with that program, then run it again |
-| `K8S_UNREACHABLE` (exit 4) | the API server did not answer | `komando test prod-k8s`, and check its `--via` path or VPN |
+| `CONN_UNREACHABLE` (exit 4) | the API server did not answer | `komando test prod-k8s`, and check its `--via` path or VPN |
 | `K8S_FORBIDDEN` (exit 4) | the kubeconfig's user may not do this (Helm: list Secrets) | give the user the right, or name one namespace with `--namespace` |
 | `K8S_INVALID` (exit 2) | the cluster refused the request or the file as written | read the cluster's words in the message; fix the YAML or the `-l` selector |
 | `K8S_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster list prod-k8s pods --namespace shop` |

@@ -21,7 +21,7 @@ if in_area data; then
 # inventory and settings
 check "version" True "$($K version | ok)"
 # a go build is a source build, which update refuses; a release build checks GitHub
-check "update (dry run)" True "$($K update --dry-run | jget 'd["ok"] or d["error"]["code"] in ("SOURCE_BUILD", "RELEASES_UNREACHABLE")')"
+check "update (dry run)" True "$($K update --dry-run | jget 'd["ok"] or d["error"]["code"] in ("SOURCE_BUILD", "CONN_UNREACHABLE")')"
 check "config show" True "$($K config show | ok)"
 check "conn kinds" True "$($K conn kinds | has postgres)"
 check "conn list" True "$($K conn list | has maria)"
@@ -83,7 +83,7 @@ check "svc list fails clearly without systemd" False "$($K svc list direct | ok 
 check "svc status fails clearly without systemd" False "$($K svc status direct ssh | ok || true)"
 check "svc logs fails clearly without systemd" NO_SYSTEMD "$($K svc logs direct ssh | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
 for a in start stop restart reload enable disable; do
-  check "svc $a on a protected host previews" PROTECTED_HOST "$($K svc $a target nginx --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
+  check "svc $a on a protected host previews" PROTECTED_TARGET "$($K svc $a target nginx --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 done
 check "pkg installed" True "$($K pkg installed direct curl | jget 'd["data"]["results"][0]["data"][0]["installed"]')"
 check "pkg upgradable" True "$($K pkg upgradable direct | ok)"
@@ -115,7 +115,7 @@ q $K conn add "$C-db" 'postgres://app@pg:5432/app?sslmode=disable' --via "$C-vpn
 check "vpn mv takes the conn's --via along" "conn $C-db --via" "$($K vpn mv "$C-vpn" "$C-vpn2" | jget '" ".join(d["data"]["updated"])')"
 check "conn mv" "renamed $C-db2" "$($K conn mv "$C-db" "$C-db2" | jget 'd["data"]["action"] + " " + d["data"]["to"]')"
 check "the conn has both new names" "$C-db2 $C-vpn2" "$($K conn show "$C-db2" | jget 'd["data"]["name"] + " " + d["data"]["via"]')"
-check "the old conn name is gone" CONN_NOT_FOUND "$($K conn show "$C-db" | jget 'd["error"]["code"]' || true)"
+check "the old conn name is gone" TARGET_NOT_FOUND "$($K conn show "$C-db" | jget 'd["error"]["code"]' || true)"
 check "db query through the renamed conn and VPN" 1 "$($K db query "$C-db2" 'select 1' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 q $K conn rm "$C-db2"
 q $K vpn rm "$C-vpn2"

@@ -100,7 +100,7 @@ This is different from:
 
 | What happened | Error code | Exit |
 |---------------|-----------|------|
-| could not connect at all (the command never started) | `CONNECT_FAILED`, `CONNECTION_REFUSED`, `AUTH_FAILED`, ... | 4 |
+| could not connect at all (the command never started) | `CONN_UNREACHABLE`, `CONNECTION_REFUSED`, `AUTH_FAILED`, ... | 4 |
 | the link broke before the command started (it did not run) | `CONNECTION_LOST`, message says "it did not run" | 4 |
 | the link broke while the command ran (outcome unknown) | `CONNECTION_LOST` | 4 |
 | the command ran and failed | `FAILED` (per server: its `exit_code`) | 5 |

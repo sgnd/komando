@@ -99,5 +99,5 @@ terminal; an AI agent or a script adds `--yes` after a person agrees (see
 | `POLICY_BLOCKED` (exit 6) | `key revoke` of the key komando logs in with | deploy another key with `--set-default` first |
 | `KEY_IN_USE` (exit 8) | `key rm` of a key a server still uses | point the server at another key first |
 | `KEY_EXISTS` (exit 8) | `key gen` to a name that is taken | choose another name, or `komando key rm NAME` first |
-| `PROTECTED_HOST`, `PROTECTED_TARGET` (exit 6) | a change on a protected server or conn | at your terminal komando asks first; a script adds `--yes` |
+| `PROTECTED_TARGET`, `PROTECTED_TARGET` (exit 6) | a change on a protected server or conn | at your terminal komando asks first; a script adds `--yes` |
 | `AUTH_FAILED` (exit 4) | the new key or password does not log in | check it before you remove the old one; see [Results and errors](output.md#troubleshooting) |

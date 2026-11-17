@@ -332,7 +332,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
   `mkfs`, `reboot`, `DROP DATABASE`, `curl | sh`, a firewall flush, stopping
   sshd, ...). Stop and ask the human. Re-run with `--allow-dangerous` only
   after they explicitly agree.
-- `PROTECTED_HOST` / `PROTECTED_TARGET` (exit 6): the server or conn is
+- `PROTECTED_TARGET` / `PROTECTED_TARGET` (exit 6): the server or conn is
   marked as production. Get the human's confirmation, then add `--yes`.
   Removing, replacing or unprotecting a protected target also needs it.
 - `SAFETY_SETTING` (exit 6): the change turns a seatbelt off (audit log, host
@@ -426,7 +426,7 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 5    | WRITE_FAILED (a file on a server) | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
-| 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_HOST, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_HUMAN, REVEAL_NEEDS_PERSON, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SQL_STRING_RULES, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_HUMAN, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
+| 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SQL_SAFE_SETTINGS_REQUIRED, SQL_TX_CHECK_REQUIRED, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_TERMINAL, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
 | 6    | NEEDS_PERSON or DECLINED from a server or conn whose login is `ask` (`host show`/`conn show`: `login: ask`) | its password is typed by the human in komando's window, never by you; do not retry: ask them to run `komando login SERVER` (a conn: the command itself) in their own terminal. Adding one or changing where it goes (address, `--via`, a jump host or VPN on its way) is theirs too |
 | 7    | CONNECT_TIMEOUT                   | the server did not answer: check the address, `--via` or the VPN; on a slow link raise `--connect-timeout` |
 | 7    | TIMEOUT                           | raise `--timeout` or use `job start` |
