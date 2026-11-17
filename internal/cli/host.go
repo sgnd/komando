@@ -32,7 +32,7 @@ func validName(kind, n string) error {
 
 type hostFlags struct {
 	address, user, key, identity, passwordRef, sudoRef, jump, notes string
-	proxyCommand, os                                                string
+	proxyCommand, os, login                                         string
 	ssm                                                             bool
 	port                                                            int
 	groups, tags, labels, env                                       []string
@@ -48,6 +48,8 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 	fl.StringVar(&f.key, "key", "", "name of a key in komando's key list (see komando key list)")
 	fl.StringVar(&f.identity, "identity", "", "path to a private key file")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.login, "login", "", loginFlagUsage)
+	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(loginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.sudoRef, "sudo-ref", "", "where the sudo password is, written like --password-ref")
 	fl.StringVar(&f.jump, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path, like vpn1,bastion")
 	fl.StringVar(&f.proxyCommand, "proxy-command", "", "a command on this computer that carries the connection (OpenSSH ProxyCommand; %h %p %r)")
@@ -89,6 +91,7 @@ func hostAddCmd() *cobra.Command {
 		Example: `  komando host add web1 deploy@10.0.0.11 --group web --tag prod --key deploy
   komando host add db1 --address db.internal --user root --via bastion --protected
   komando host add vps1 root@203.0.113.20 --ask-password   # type its password now (hidden)
+  komando host add web2 root@203.0.113.21 --login ask      # type its password at every connect; never stored
   komando host add win1 Administrator@10.0.0.9 --os windows --ask-password   # Windows with OpenSSH
   komando host add win2 winrm://Administrator@10.0.0.9 --ask-password        # Windows over WinRM (HTTPS)`,
 		Args: formArgs(cobra.RangeArgs(1, 2)),
@@ -114,6 +117,9 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	if err := guardProxyCommand(cl, f.proxyCommand, name); err != nil {
 		return err
 	}
+	if err := loginConflict(cmd.Flags(), name, f.login, askPw, true); err != nil {
+		return err
+	}
 	undoPw := func() {}
 	if askPw {
 		ref, undo, err := askPassword(cmd, "host", name)
@@ -135,6 +141,11 @@ func runHostAdd(cmd *cobra.Command, args []string, f *hostFlags, force, askPw bo
 	h.Address = normAddr(h.Address)
 	if f.ssm {
 		h.ProxyCommand = ssmProxy
+	}
+	if f.login != "" {
+		if err := applyLogin(h, f.login); err != nil {
+			return err
+		}
 	}
 	if err := checkHostRefs(h); err != nil {
 		return err
@@ -235,6 +246,8 @@ covers every server in the command.`,
   komando host edit @ubuntu --sudo-ref secret:ubuntu-sudo --dry-run
   komando host edit web1 web2 web3 --user deploy
   komando host edit vps1 --ask-password          # type a new password (hidden)
+  komando host edit web2 --login ask             # never store its password; type it at every connect
+  komando host edit web2 --login key --key deploy   # log in with a key komando names
   komando host edit bastion --forward-agent      # lend it your ssh-agent (asks first)`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -292,6 +305,16 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 		if err := guardHostEdit(cl, s, hosts, olds, single); err != nil {
 			return err
 		}
+		var unlinked []string // stored passwords a --login ask or agent let go of
+		for _, e := range edits {
+			if old := olds[e.h.Name]; fl.Changed("login") && old.PasswordRef != "" && e.h.PasswordRef == "" {
+				unlinked = append(unlinked, old.PasswordRef)
+			}
+		}
+		if unused := unusedSecrets(s, unlinked); len(unused) > 0 {
+			res.SecretsUnused, many.SecretsUnused = unused, unused
+			many.Warnings = append(many.Warnings, unlinkedWarnings(unused)...)
+		}
 		for _, e := range edits {
 			h := e.h
 			if err := checkHost(cl, s, h); err != nil {
@@ -317,7 +340,7 @@ func runHostEdit(cmd *cobra.Command, args []string, f *hostFlags, askPw bool) er
 			}
 			many.Hosts = append(many.Hosts, h)
 			many.Warnings = append(many.Warnings, warnings...)
-			res.Host, res.Changed, res.Warnings = h, &ch, warnings
+			res.Host, res.Changed, res.Warnings = h, &ch, append(warnings, unlinkedWarnings(res.SecretsUnused)...)
 		}
 		return nil
 	})
@@ -343,6 +366,9 @@ func hostEditChecks(cmd *cobra.Command, args []string, f *hostFlags, askPw bool)
 		return undo, err
 	}
 	if err := guardProxyCommand(cl, f.proxyCommand, args...); err != nil {
+		return undo, err
+	}
+	if err := loginConflict(fl, editName(args), f.login, askPw, false); err != nil {
 		return undo, err
 	}
 	if fl.Changed("forward-agent") && f.forwardAgent {
@@ -395,6 +421,9 @@ type hostEditResult struct {
 	Protected []string      `json:"protected,omitempty"` // which of them are protected
 	Hosts     []*store.Host `json:"hosts"`               // every server, after the edit
 	Warnings  []string      `json:"warnings,omitempty"`
+	// SecretsUnused: the stored passwords a --login ask or agent left
+	// unused; they stay in the vault (`komando secret rm NAME`)
+	SecretsUnused []string `json:"secrets_unused,omitempty"`
 }
 
 func (r hostEditResult) TextFor(pr *out.Printer) string {
@@ -435,7 +464,7 @@ func editErr(err error, name string, single bool) error {
 // For an AI agent the same window also asks about the secrets the edit
 // sends to a new place (guardHostSends). olds holds each server's settings
 // before the edit.
-func guardHostEdit(cl *call, st *store.State, hosts []*store.Host, olds map[string]*store.Host, single bool) error {
+func guardHostEdit(cl *call, s *store.State, hosts []*store.Host, olds map[string]*store.Host, single bool) error {
 	var names, off, login []string
 	for _, h := range hosts {
 		o := olds[h.Name]
@@ -462,9 +491,9 @@ func guardHostEdit(cl *call, st *store.State, hosts []*store.Host, olds map[stri
 		why = fmt.Sprintf("this edit changes %d servers: %s (protected: %s)", len(all), strings.Join(all, ", "), strings.Join(names, ", "))
 	}
 	if len(names) == 0 {
-		return guardHostSends(cl, st, hosts, olds)
+		return guardHostSends(cl, s, hosts, olds)
 	}
-	if err := guardHostSends(cl, st, hosts, olds, why); err != nil {
+	if err := guardHostSends(cl, s, hosts, olds, why); err != nil {
 		return err
 	}
 	if single {
@@ -488,6 +517,9 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 	set("key", &h.Key, f.key)
 	set("identity", &h.Identity, f.identity)
 	set("password-ref", &h.PasswordRef, f.passwordRef)
+	if fl.Changed("password-ref") && h.PasswordRef != "" {
+		h.Login = "" // a stored password: komando no longer asks each time
+	}
 	set("sudo-ref", &h.SudoRef, f.sudoRef)
 	set("via", &h.Via, f.jump)
 	set("proxy-command", &h.ProxyCommand, f.proxyCommand)
@@ -549,6 +581,11 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 				"cannot unset %q", u)
 		}
 	}
+	if fl.Changed("login") {
+		if err := applyLogin(h, f.login); err != nil {
+			return err
+		}
+	}
 	return checkHostRefs(h)
 }
 
@@ -556,7 +593,7 @@ func applyHostEdit(h *store.Host, f *hostFlags, fl *pflag.FlagSet) error {
 // logs in.
 func hostConnChanged(a, b *store.Host) bool {
 	return !sameAddress(a.Address, b.Address) || a.Port != b.Port || a.User != b.User || a.Key != b.Key || a.Identity != b.Identity ||
-		a.PasswordRef != b.PasswordRef || a.SudoRef != b.SudoRef || a.Via != b.Via || a.ProxyCommand != b.ProxyCommand || a.OS != b.OS || !sameWinRM(a, b)
+		a.PasswordRef != b.PasswordRef || a.Login != b.Login || a.SudoRef != b.SudoRef || a.Via != b.Via || a.ProxyCommand != b.ProxyCommand || a.OS != b.OS || !sameWinRM(a, b)
 }
 
 // editConflicts refuses an edit that sets and unsets the same field, or
@@ -641,6 +678,9 @@ func checkHostRefs(h *store.Host) error {
 	if h.ProxyCommand != "" && h.Via != "" {
 		return out.Usage("a server takes --proxy-command or --via, not both (put the proxy command on the first server of the --via path)")
 	}
+	if err := checkLogin(h); err != nil {
+		return err
+	}
 	for _, r := range []struct{ flag, ref string }{{"--password-ref", h.PasswordRef}, {"--sudo-ref", h.SudoRef}} {
 		if r.ref != "" && !vault.ValidRef(r.ref) {
 			return out.Usage("%s takes a reference, not the password itself (%s); store the password with `komando secret set NAME` first", r.flag, vault.RefHelp())
@@ -687,7 +727,7 @@ func hostShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cl.out.Print("host.show", h, nil)
+			cl.out.Print("host.show", viewOf(h), nil)
 			return nil
 		}),
 	}

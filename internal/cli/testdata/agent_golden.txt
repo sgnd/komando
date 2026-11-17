@@ -9136,6 +9136,54 @@ exit 2
 Error: unknown command "restat" for "komando svc"; did you mean restart?
 Hint: run it again with restart: `komando -o text svc restart web1 nginx`
 (code USAGE, exit 2)
+### komando -o json tunnel start ask1 -L 0:localhost:80 (agent json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"ask1 logs in with a password a person types each time (login ask), and komando could not ask the user in a window here","hint":"ask the user to run `komando login ask1` in their own terminal; never ask for the password in the chat"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text tunnel start ask1 -L 0:localhost:80 (agent text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: ask1 logs in with a password a person types each time (login ask), and komando could not ask the user in a window here; nothing was changed
+Hint: ask the user to run `komando login ask1` in their own terminal; never ask for the password in the chat
+(code NEEDS_PERSON, exit 6)
+### komando -o json tunnel start ask1 -L 0:localhost:80 (script json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"ask1 logs in with a password a person types each time (login ask), and no person is at a terminal here","hint":"have a person run `komando login ask1` in their own terminal: later commands (scripts too) use a `komando login` while it lasts"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text tunnel start ask1 -L 0:localhost:80 (script text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: ask1 logs in with a password a person types each time (login ask), and no person is at a terminal here; nothing was changed
+Hint: have a person run `komando login ask1` in their own terminal: later commands (scripts too) use a `komando login` while it lasts
+(code NEEDS_PERSON, exit 6)
+### komando -o json tunnel start ask2 -L 0:localhost:80 (agent json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent","hint":"ask the user to run `komando login ask2` in their own terminal: a person there sees what komando connects to and types the password"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text tunnel start ask2 -L 0:localhost:80 (agent text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent; nothing was changed
+Hint: ask the user to run `komando login ask2` in their own terminal: a person there sees what komando connects to and types the password
+(code NEEDS_PERSON, exit 6)
+### komando -o json tunnel start ask2 -L 0:localhost:80 (script json, release note)
+exit 6
+--- stdout
+{"ok":false,"command":"tunnel.start","error":{"code":"NEEDS_PERSON","message":"komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent","hint":"have a person run `komando login ask2` in their own terminal: a person there sees what komando connects to and types the password"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text tunnel start ask2 -L 0:localhost:80 (script text, release note)
+exit 6
+--- stdout
+--- stderr
+Stopped: komando has not met ask2 at 127.0.0.22:1 before (no host key of it is pinned), and ask2 logs in with a password a person types (login ask): a person's password never goes to a server komando cannot tell from an impostor; nothing was sent; nothing was changed
+Hint: have a person run `komando login ask2` in their own terminal: a person there sees what komando connects to and types the password
+(code NEEDS_PERSON, exit 6)
 ### komando -o json ssh-gate --name phone-read --read-only, SSH_ORIGINAL_COMMAND='komando storage link s3 report.pdf' (agent json, read-only key)
 exit 6
 --- stdout
@@ -9203,6 +9251,7 @@ komando host add kind=change confirm=[{"tier":"change"},{"flag":"--allow-dangero
   --identity type=string
   --key type=string
   --label type=stringArray default=[]
+  --login type=string
   --notes type=string
   --os type=string
   --overwrite type=bool default=false
@@ -9221,6 +9270,7 @@ komando conn add kind=change confirm=[{"tier":"change"}]
   --ask-password type=bool default=false
   --group shorthand=g type=stringSlice default=[]
   --label type=stringArray default=[]
+  --login type=string
   --notes type=string
   --option type=stringArray default=[]
   --overwrite type=bool default=false

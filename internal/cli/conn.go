@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,13 +14,12 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/cachex"
 	"github.com/sgnd/komando/internal/dbx"
 	"github.com/sgnd/komando/internal/driver"
-	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
@@ -62,7 +60,7 @@ func nameTaken(kind, name string) error {
 }
 
 type connFlags struct {
-	via, passwordRef, notes                     string
+	via, passwordRef, notes, login              string
 	groups, tags, labels, options               []string
 	protected                                   bool
 	addGroups, rmGroups, addTags, rmTags, unset []string
@@ -72,6 +70,8 @@ func (f *connFlags) bind(c *cobra.Command, edit bool) {
 	fl := c.Flags()
 	fl.StringVar(&f.via, "via", "", "reach it through these servers (bastions) or a VPN first, comma-separated path; no local port is opened")
 	fl.StringVar(&f.passwordRef, "password-ref", "", "where the password is: secret:NAME (saved with komando secret set NAME), env:VAR, file:PATH or a password manager like op://...")
+	fl.StringVar(&f.login, "login", "", loginFlagUsage)
+	_ = c.RegisterFlagCompletionFunc("login", cobra.FixedCompletions(connLoginCompletions, cobra.ShellCompDirectiveNoFileComp))
 	fl.StringVar(&f.notes, "notes", "", "free-form notes (komando conn show shows them to people and agents)")
 	fl.BoolVar(&f.protected, "protected", false, "production: komando asks you before every change, and an AI agent needs your yes in a window")
 	if edit {
@@ -99,6 +99,9 @@ func checkConn(s *store.State, c *store.Conn) error {
 		return kindExample(c.URL, err)
 	}
 	c.Kind = t.Kind.Name
+	if err := checkConnLogin(c, t.Kind); err != nil {
+		return err
+	}
 	if t.Kind.File && !strings.HasPrefix(t.Path, "/") && !strings.HasPrefix(t.Path, "~/") && !filepath.IsAbs(t.Path) {
 		// a relative path would name a different file in every folder komando runs from
 		hint := "write the full path, for example " + t.Kind.Example + ", or ~/ for your home folder"
@@ -150,7 +153,8 @@ func connAddCmd() *cobra.Command {
   komando conn add local sqlite:///var/lib/app.db
   komando conn add cache redis://default@10.0.0.7:6379/0 --via web1 --password-ref secret:redis-pass
   komando conn add backups 's3://AKIAEXAMPLE@my-bucket/db?region=eu-west-1' --password-ref secret:s3-secret
-  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)`,
+  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --ask-password   # type it now (hidden)
+  komando conn add prod-db postgres://app@10.0.0.5/app --via web1 --login ask      # type it at every connect; never stored`,
 		Args: formArgs(cobra.ExactArgs(2)),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -158,6 +162,9 @@ func connAddCmd() *cobra.Command {
 			}
 			name := args[0]
 			if err := checkEntryName("conn", name); err != nil {
+				return err
+			}
+			if err := connLoginConflict(cmd.Flags(), name, f.login, askPw, true); err != nil {
 				return err
 			}
 			undoPw := func() {}
@@ -170,6 +177,11 @@ func connAddCmd() *cobra.Command {
 			}
 			cn := &store.Conn{Name: name, URL: normConnURL(strings.TrimSpace(args[1])), PasswordRef: f.passwordRef, Via: f.via,
 				Groups: dedupe(f.groups), Tags: dedupe(f.tags), Protected: f.protected, Notes: f.notes}
+			if f.login != "" {
+				if err := applyConnLogin(cn, f.login); err != nil {
+					return err
+				}
+			}
 			var err error
 			if cn.Labels, err = parseKV(f.labels); err != nil {
 				return err
@@ -238,7 +250,8 @@ func connEditCmd() *cobra.Command {
 		Use:   "edit NAME",
 		Short: "Change a conn (only the flags you pass change)",
 		Example: `  komando conn edit prod-db --via bastion --add-tag critical --option statement_timeout=10s
-  komando conn edit shop -g shop -t live          # -g/-t add a group/tag`,
+  komando conn edit shop -g shop -t live          # -g/-t add a group/tag
+  komando conn edit prod-db --login ask           # never store its password; type it at every connect`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConnEdit(cmd, args, &f, url, askPw)
@@ -256,8 +269,7 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 	if len(changedFlags(cmd)) == 0 {
 		return out.Errf(out.ExitUsage, "USAGE", "pass what to change, for example komando conn edit "+args[0]+" --via bastion (see --help)", "nothing to change")
 	}
-	if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
-		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
+	if err := connEditConflicts(fl, args[0], f, askPw); err != nil {
 		return err
 	}
 	undoPw := func() {}
@@ -310,6 +322,9 @@ func runConnEdit(cmd *cobra.Command, args []string, f *connFlags, url string, as
 			default:
 				return out.Errf(out.ExitUsage, "USAGE", "--unset takes: via, password-ref, notes, protected", "cannot unset %q", u)
 			}
+		}
+		if err := connEditLogin(s, fl, f.login, &old, cn, &res); err != nil {
+			return err
 		}
 		if err := checkConn(s, cn); err != nil {
 			return err
@@ -396,7 +411,7 @@ func connShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cl.out.Print("conn.show", c, nil)
+			cl.out.Print("conn.show", connView{Conn: c, Login: c.LoginMode()}, nil)
 			return nil
 		}),
 	}
@@ -473,85 +488,6 @@ func (l kindList) Text() string {
 	}
 	tw.Flush()
 	return sb.String()
-}
-
-// Opening a conn.
-
-// access is what every conn command needs: the parsed URL, the password and
-// a dialer that goes through the --via host (nil Dial = connect directly).
-type access struct {
-	Target   driver.Target
-	Password string
-	Dial     func(ctx context.Context, network, addr string) (net.Conn, error)
-	ssh      *sshx.Client
-	vpn      io.Closer
-}
-
-func (a *access) Close() {
-	if a.ssh != nil {
-		a.ssh.Close()
-	}
-	if a.vpn != nil {
-		a.vpn.Close()
-	}
-}
-
-func openAccess(cl *call, ctx context.Context, st *store.State, c *store.Conn) (*access, error) {
-	t, err := driver.Parse(c.URL)
-	if err != nil {
-		return nil, err
-	}
-	if err := guardConnFile(cl, c); err != nil {
-		return nil, err
-	}
-	password, err := resolvePassword(c)
-	if err != nil {
-		return nil, err
-	}
-	a := &access{Target: t, Password: password}
-	// ?resolve=IP: connections to the URL's address go to that IP, from the
-	// end of the --via path set up below
-	defer func() { a.Dial = pinDial(a.Dial, t.Address, t.Resolve) }()
-	if c.Via == "" {
-		return a, nil
-	}
-	h, vpn, err := resolveVia(st, c.Via)
-	if err != nil {
-		return nil, err
-	}
-	if vpn != nil {
-		d, closer, err := netx.Open(ctx, vpn, sshOpts(cl, st).ConnectTimeout)
-		if err != nil {
-			return nil, err
-		}
-		a.Dial, a.vpn = d, closer
-		return a, nil
-	}
-	cctx, cancel := context.WithTimeout(ctx, sshOpts(cl, st).ConnectTimeout)
-	defer cancel()
-	if a.ssh, err = sshx.Dial(cctx, st, h, sshOpts(cl, st)); err != nil {
-		return nil, err
-	}
-	a.Dial = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		c, err := a.ssh.DialContext(ctx, network, addr)
-		if err != nil {
-			return nil, err
-		}
-		return sshx.WithDeadlines(c), nil
-	}
-	return a, nil
-}
-
-func resolvePassword(c *store.Conn) (string, error) {
-	p, err := vault.Resolve(c.PasswordRef)
-	if err == nil {
-		return p, nil
-	}
-	hint := netx.SecretHint(c.PasswordRef) + ", or point the conn elsewhere: `komando conn edit " + c.Name + " --password-ref ...`"
-	if errors.Is(err, vault.ErrNotFound) {
-		return "", out.Errf(out.ExitNotFound, "SECRET_NOT_FOUND", hint, "password reference %s: %v", c.PasswordRef, err)
-	}
-	return "", out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", hint, "password reference %s: %v", c.PasswordRef, err)
 }
 
 // conn test.
@@ -786,4 +722,33 @@ func connAddCmdFor(kind string) *cobra.Command {
 			"komando %s add needs a name and a URL", kind)
 	}
 	return c
+}
+
+// connEditLogin applies conn edit --login: a stored password it lets go of
+// stays in the vault, named in secrets_unused when nothing else uses it.
+func connEditLogin(s *store.State, fl *pflag.FlagSet, login string, old, cn *store.Conn, res *connResult) error {
+	if fl.Changed("password-ref") && cn.PasswordRef != "" {
+		cn.Login = "" // a stored password: komando no longer asks each time
+	}
+	if !fl.Changed("login") {
+		return nil
+	}
+	if err := applyConnLogin(cn, login); err != nil {
+		return err
+	}
+	if old.PasswordRef != "" && cn.PasswordRef == "" {
+		res.SecretsUnused = unusedSecrets(s, []string{old.PasswordRef})
+		res.Warnings = append(res.Warnings, unlinkedWarnings(res.SecretsUnused)...)
+	}
+	return nil
+}
+
+// connEditConflicts refuses a conn edit whose flags contradict each other,
+// before --ask-password asks for anything.
+func connEditConflicts(fl *pflag.FlagSet, name string, f *connFlags, askPw bool) error {
+	if err := editConflicts(fl, f.unset, map[string]string{"via": "via", "password-ref": "password-ref", "notes": "notes", "protected": "protected"},
+		[][2][]string{{f.addGroups, f.rmGroups}, {f.addTags, f.rmTags}}); err != nil {
+		return err
+	}
+	return connLoginConflict(fl, name, f.login, askPw, false)
 }

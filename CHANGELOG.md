@@ -21,9 +21,73 @@ its highlights; the sections below them give the details. Versions follow
   step of the store, so of several komando commands creating one name at
   once exactly one wins.
 
+- `komando host add NAME ADDRESS --login ask` and `komando host edit NAME --login ask`: a server whose password komando never stores. A person types it whenever komando connects (every command, fleet run, jump host, `shell`, `cp`, `sync`, job and tunnel), and it is used for that command only: at a terminal komando asks `NAME: Password:` (hidden); for an AI agent's command komando opens its own window on the person's screen, which names the agent, the server as `user@address:port` and the command (or says it is hidden), and where they type it; the agent never sees it. Apps get the same question through the new `engine.Call.AskPassword` hook. A script, an agent with no screen and `ssh-gate` get `NEEDS_PERSON` (exit 6), and a cancelled window gives `DECLINED` (exit 6) whose hint is `komando login SERVER`; after a cancel the window stays shut for that server for a minute (`DECLINED` at once). These are new exit paths for every command that connects to such a server, including `tunnel start`, which asks before it starts the tunnel and hands the password to the tunnel's process on its input (that process keeps it in memory for the tunnel's life). Only a person sets where the password goes: an AI agent that adds a `--login ask` server, turns one to `--login ask`, changes its address, port, user, `--via`, proxy command or transport, or changes a server or VPN on its way (edit, `vpn add --overwrite`, import, or replacing the vault secret that holds an OpenVPN profile) gets `NEEDS_PERSON` (exit 6), which no flag lifts; a dry run names it in `meta.would_be_blocked`. The window names the way komando dials (VPN, each jump host with its address, proxy command). The first connection to such a server (a host key nobody has seen, `host_key_policy off`, or WinRM `tls=off`/`skip-verify`) needs a person at a terminal, and so does a key that is pinned but that nobody has logged in to this server with (pins are by address, and any server added at that address can pin one): an agent gets `NEEDS_PERSON` and nothing is pinned. Each pin now keeps the login-ask servers a person logged in to with it (a new optional `logins` list in the pin record; `host trust --reset` clears it). An AI agent that starts `komando login`'s background process (`login-holder`) itself gets `NEEDS_PERSON`. One command asks once per server; a refused password is asked again on the next connection. The typed password is hidden in all output and never written to disk, the audit log or a program's environment; komando zeroes its own copy when the command ends. A `komando login NAME` that is still live is used without asking.
+- `komando conn add NAME URL --login ask` and `komando conn edit NAME --login ask` (also `komando db add` and the other `KIND add`): a conn whose password komando never stores, typed by a person at every connect through the same questions as a `--login ask` server (terminal, app window, komando's window for an AI agent with the same cool-down; `NEEDS_PERSON` for a script or an agent with no screen; `DECLINED` after a cancel). `--login` on conns takes `ask`, `password` or `none`, the words of the new `login` field of `conn show` and `list`. Only a person sets where the password goes (`NEEDS_PERSON` for an agent's add, `--url`, `--via`, turn to ask, or change to a server or VPN on its way). An agent's `db dump`/`db restore` of such a conn gets `NEEDS_PERSON` (the dump tool would get the password in its environment). SQLite files and clusters refuse `--login ask` (`USAGE`). The guided database forms offer "Yes, and I type it each time".
+- `--login ask|password|key|agent` on `host add` and `host edit`: the same words as the new `login` field of `host show`, `host list` (and `list`), `host add` and `host edit`, so what you read back is what you can write. `password` is a stored password (with `--ask-password` or `--password-ref`) and drops a key; `key` needs `--key` or `--identity`; `agent` is ssh-agent and `~/.ssh` only and drops the key and the stored password. A flag that contradicts the word is a `USAGE` error. Switching to `ask` or `agent` unlinks the stored password but never deletes the secret: `host edit` names an unused one in the new `secrets_unused` field. `komando schema host add` and `host edit` list the new `--login` flag (type string, no default).
+
 ### Changed
 
 - `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
+- **A read key stays off the network.** An SSH key added with
+  `komando ssh-gate line --read-only` now runs only komando's own reads of
+  the servers and conns in your list. Every `net` command, `cert check` of
+  a website, and `exec`, `job start`, `docker exec`, `cluster exec` and
+  `recipe run` are refused for it (`SSH_GATE_NETWORK_REQUIRED`, exit 6): they can
+  reach any host and carry what the key reads in a URL or a DNS name. A
+  read komando adds later is refused until it is known to stay on listed
+  targets. Add `--network` to the line for a read key that may run them
+  (`komando ssh-gate line --name NAME --read-only --network KEY`); the line
+  JSON has `network`.
+- `--read-only` no longer lets through the forms of read tools that write
+  or kill: `xxd IN OUT`, `yq -i` and `--split-exp`, `xmllint --output` and
+  `--shell`, `fuser -k`, `ss -K` and `-D`, `arp -d`, `-s` and `-f`, and
+  `sar -o`. Their plain reads still pass.
+- `db query` on SQL Server: a linked-server name (`lnk.db.dbo.t`) and the
+  functions that read a file path (`fn_xe_file_target_read_file`,
+  `fn_get_audit_file`, `fn_trace_gettable`, `fn_dump_dblog`) need
+  `--write`, as `OPENQUERY` and `OPENROWSET` did: a path can be
+  `\\HOST\share`, a connection to any host.
+- `db query` on Oracle: `xmltype()`, `XMLPARSE` and `createxml()` of text
+  the query builds need `--write`: a DTD in it can name a URL the parser
+  fetches. `xmltype(column)` stays a read.
+
+- No ssh-gate key, read, network or full, makes komando read a file on the
+  komando computer any more: `--script FILE`, `--stdin-file FILE`,
+  `db query --file`, `db restore --from`, `cluster apply --file`,
+  `fs write --from`, `upload`, `storage upload`, `cp` and `sync` from a path
+  there, and `cluster run -- apply -f`, `--from-file` or `cp` to a pod are
+  refused (`SSH_GATE_REFUSED`). A private key sent to a server could come
+  back in its answer. `-` (the key's own input) still works.
+- `--read-only` reads tool options as the tools do: a start of a writing
+  long option (`ss --kil`, `arp --del`, `yq --in-pl`), xmllint's
+  `-output` and `-shell`, and xxd's second file even when it starts with a
+  dash.
+- `db query` needs `--write` for more ways out: SQL Server
+  `dm_os_file_exists`, `dm_os_enumerate_filesystem` and any `\\HOST\share`
+  path; Oracle XML parsed from anything but a bare column (a bind value,
+  `CONCAT`, `XMLTRANSFORM`); Postgres `http_*` (pgsql-http, pg_net),
+  `aws_s3.*`, `aws_lambda.*`, `aws_commons.*` and `pg_background_*`; a
+  BigQuery routine or model named with a project (`proj.ds.fn`), which may be
+  another project's remote function.
+
+### Added
+
+- `komando ssh-gate status` says which ssh-gate key runs it, and whether it
+  may change things or reach the network (`gate`, `name`, `read_only`,
+  `network`, `komando`). ssh-gate answers it itself; typed on the komando
+  computer it says `gate: false`.
+- `komando facts` lists every real file system as `disks`: mount point,
+  device, size, used and free in MiB, and use %.
+- `komando facts SERVER --only load,mem,disks` runs just those probes, in
+  about a second, for an app that polls: the same keys, the other sections
+  left out. `--only system` gives the OS name and the time the server has
+  been up (`os`, `os_version`, `os_pretty`, `uptime_sec`). A read-only
+  ssh-gate key without `--network` runs it.
+
+- A `--login ask` conn follows the same rule as a stored password for where its password goes (every URL setting except the few that move nothing): an AI agent's other change of its URL gets `NEEDS_PERSON`. A WinRM server's `ca=` and `auth=` count as where its password goes too.
+- An AI agent's `config set default_user` gets `NEEDS_PERSON` while a `--login ask` server has no user of its own; replacing a secret on the way to a login-ask server or conn (a VPN's key or profile, a WinRM or conn CA) does too. The same holds for `default_user` while a jump server on the way to a login-ask server or conn has no user of its own, and for an `import --overwrite` that would replace such a secret (a conn's password in the file is stored as `NAME-pass`); a secret a protected entry uses needs a person's yes there, as in `secret set`.
+
+- An AI agent that changes the user or the transport (WinRM, its `tls=`) of a server with a stored password now needs a person's yes (`SECRET_DESTINATION`), as it did for the address, port and `--via`: the password goes there.
 
 ### Changed for scripts and agents
 
@@ -59,6 +123,14 @@ its highlights; the sections below them give the details. Versions follow
   removed earlier): `VPN_OS_MODE_REMOVED` is gone, and `vpn show` no
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
+- The reader for sealed stores from before the record index (a change
+  count with no index beside it). No released komando wrote that form,
+  only development builds in the hours before 0.12.0. A store in that
+  form now stops with "changed outside komando".
+- The reader for audit entries from before the audit chain (an entry
+  that does not hold the sum of the one before it). Only the same
+  development builds wrote them. `komando audit` stops at such an entry
+  with "changed outside komando", after the entries before it.
 
 ### Security
 
@@ -84,8 +156,10 @@ its highlights; the sections below them give the details. Versions follow
   when it fits, a named file that is only too long by its size and
   SHA-256, and anything else (stdin, invisible characters, what looks
   like a secret) gets no window.
-- `import env` and `import csv --overwrite` check the vault secrets they
-  replace as `secret set` does; they replaced any secret unasked.
+- `import env` and `import csv --overwrite` also run `secret set`'s
+  check of whom komando trusts on the secrets they store: an OpenVPN
+  profile or a CA certificate an agent replaces this way needs a
+  person's yes.
 - Replacing a protected VPN's key, pre-shared key or profile in the vault
   (`secret set`, `secret cp --overwrite`, `secret rename --overwrite`)
   needs a yes (`PROTECTED_TARGET`), like a protected server's password.
@@ -115,6 +189,8 @@ its highlights; the sections below them give the details. Versions follow
   `repair` or `fixMetadata` and `killCursors` as writes, `bulkWrite`
   that deletes or updates every document like `delete` and `update`
   do, and `aggregate` with `$out` as replacing a collection.
+- The install line (`install.sh`) installs a release only when its `checksums.txt` is signed with the komando project's key, the check `komando update` already made; before, it checked only the checksum, which someone able to replace a release's files could replace too. It needs OpenSSL 3 or perl for the check (macOS and most Linux systems have one), installs nothing on a computer with neither, and downloads over HTTPS only. Releases up to 0.13.0, which have no signature, still install with `KOMANDO_VERSION`: the installer knows the checksums each was released with and takes no other files for them. The install line itself is now `curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`.
+- Releases: the jobs that build and sign a release no longer use a build cache other jobs can write, and `make dist SIGNED=DIR` stops when a signed macOS binary is missing instead of building an unsigned one in its place.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files
@@ -181,6 +257,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A Google Cloud Storage conn reads at most 32 MiB of one listing page or
+  one object's details: a broken or hostile endpoint that answers without
+  end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
+  instead of being read, and kept in memory, whole.
 - An FTP or FTPS conn whose connection drops, and whose one new session
   cannot be opened either, now says both in `STORAGE_CONNECT`: the drop
   and why logging in again failed ("...: EOF; logging in again failed:

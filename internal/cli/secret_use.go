@@ -158,11 +158,39 @@ type secretPlace struct {
 	dest string
 }
 
-// hostPlace: a server's password and sudo password, and its environment
-// values that name a vault secret, go to its address, by the way there.
+// loginAskRef stands among a server's references for the password a
+// person types for a login-ask server (host add --login ask): komando
+// never stores it, but it goes to the server's address on every
+// connection, as a stored one does.
+const loginAskRef = "the password a person types for it (login ask)"
+
+// hostPlace: a server's password (stored, or typed by a person: login
+// ask) and sudo password, and its environment values that name a vault
+// secret, go to its user at its address, by the way there and the
+// transport (WinRM sends the password as its TLS setting allows).
 func hostPlace(h *store.Host) secretPlace {
 	refs := append([]string{h.PasswordRef, h.SudoRef}, envSecretRefs(h.Env)...)
+	if h.AskLogin() {
+		refs = append(refs, loginAskRef)
+	}
 	dest := net.JoinHostPort(normAddr(h.Address), strconv.Itoa(h.EffectivePort()))
+	if h.User != "" {
+		dest = h.User + "@" + dest
+	}
+	if h.WinRM() {
+		dest = "WinRM " + dest
+		if o := h.WinRMOpts; o != nil {
+			var set []string
+			for _, kv := range [][2]string{{"tls", o.TLS}, {"ca", o.CA}, {"auth", o.Auth}} {
+				if kv[1] != "" {
+					set = append(set, kv[0]+"="+kv[1])
+				}
+			}
+			if len(set) > 0 {
+				dest += " (" + strings.Join(set, ", ") + ")"
+			}
+		}
+	}
 	if h.Via != "" {
 		dest += " via " + h.Via
 	}
@@ -178,6 +206,9 @@ func hostPlace(h *store.Host) secretPlace {
 // counts: the addresses are looked up at its end.
 func connPlace(c *store.Conn) secretPlace {
 	refs := []string{c.PasswordRef}
+	if c.AskLogin() {
+		refs = append(refs, loginAskRef)
+	}
 	for _, r := range urlSecretRefs(c.URL) {
 		refs = append(refs, "secret:"+r.Name)
 	}
@@ -319,10 +350,16 @@ func guardSends(cl *call, sends, weak []string, why ...string) error {
 // guardConnSends is guardSends for a conn an add or edit leaves as now
 // (old is nil for a new one).
 func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
+	if what := connPlaceChanges(old, now); cl.isAgent() && len(what) > 0 {
+		return loginPlaceStop(cl, what)
+	}
 	var before *secretPlace
 	oldURL := ""
 	if old != nil {
 		p := connPlace(old)
+		if old.PasswordRef != "" {
+			p.refs = append(p.refs, loginAskRef) // as for a server (guardHostSends)
+		}
 		before, oldURL = &p, old.URL
 	}
 	line, err := newSends("conn "+now.Name, before, connPlace(now))
@@ -337,11 +374,15 @@ func guardConnSends(cl *call, old, now *store.Conn, why ...string) error {
 }
 
 // guardHostSends is guardSends for servers an add, edit or import leaves
-// as now; olds holds each one's settings before, by name (none: new). st
-// is the inventory: what reaches its server through one of them counts
-// too (behindSends).
-func guardHostSends(cl *call, st *store.State, now []*store.Host, olds map[string]*store.Host, why ...string) error {
-	lines, err := behindSends(st, now, olds)
+// as now; olds holds each one's settings before, by name (none: new). s
+// is the inventory: where a typed password goes stops an agent first
+// (loginPlaceStop), and what reaches its server through one of them
+// counts too (behindSends).
+func guardHostSends(cl *call, s *store.State, now []*store.Host, olds map[string]*store.Host, why ...string) error {
+	if what := hostPlaceChanges(s, now, olds); cl.isAgent() && len(what) > 0 {
+		return loginPlaceStop(cl, what) // no yes lifts it, so no yes to ask for
+	}
+	lines, err := behindSends(s, now, olds)
 	if err != nil {
 		return err
 	}
@@ -350,6 +391,11 @@ func guardHostSends(cl *call, st *store.State, now []*store.Host, olds map[strin
 		var before *secretPlace
 		if o, ok := olds[h.Name]; ok && o != nil {
 			p := hostPlace(o)
+			if o.PasswordRef != "" {
+				// a stored password went there already: a person typing
+				// it there instead (login ask) sends nothing new
+				p.refs = append(p.refs, loginAskRef)
+			}
 			before = &p
 		}
 		line, err := newSends("server "+h.Name, before, hostPlace(h))
@@ -514,7 +560,12 @@ func guardTypedLoginMove(cl *call, old, now *store.Vpn, servers string) error {
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
 // is the VPN before (nil: a new one). servers is as for vpnPlace: an
 // OpenVPN VPN added again with a new profile may have new servers.
-func guardVpnSends(cl *call, old, now *store.Vpn, servers string) error {
+func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string) error {
+	if old != nil && cl.isAgent() {
+		if what := vpnPlaceChanges(s, now.Name, vpnWayChanged(old, now)); len(what) > 0 {
+			return loginPlaceStop(cl, what)
+		}
+	}
 	var before *secretPlace
 	if old != nil {
 		p := vpnPlace(old, "")
@@ -597,24 +648,13 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 	return guardSends(cl, sends, weak)
 }
 
-// guardImportedSecrets runs secret set's checks for every vault secret an
-// import replaces or makes: a protected entry that uses it, and a secret
-// that decides whom komando trusts. The entries the import itself
-// replaces (mine) are checked by the import.
-func guardImportedSecrets(cl *call, st *store.State, values map[string]string, mine map[string]bool) error {
+// guardImportedTrust runs secret set's trust check (guardTrustSecret) for
+// every vault secret an import replaces or makes; guardImportSecrets has
+// the protected-entry and login-place checks.
+func guardImportedTrust(cl *call, st *store.State, values map[string]string) error {
 	for _, name := range slices.Sorted(maps.Keys(values)) {
 		old, err := vault.Get(name)
-		had := err == nil
-		if had {
-			users := slices.DeleteFunc(secretUsers(st, name), func(u string) bool { return mine[u] })
-			if prot := protectedUsers(st, users); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
-				if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
-					"secret "+name+" is used by protected "+strings.Join(prot, ", ")+"; replacing it changes how komando logs in there")); err != nil {
-					return err
-				}
-			}
-		}
-		if err := guardTrustSecret(cl, st, name, old, had, values[name], ""); err != nil {
+		if err := guardTrustSecret(cl, st, name, old, err == nil, values[name], ""); err != nil {
 			return err
 		}
 	}

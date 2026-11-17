@@ -222,8 +222,13 @@ func TestImportReplacingATrustSecretNeedsAPerson(t *testing.T) {
 	if err := os.WriteFile(env, []byte("X_URL=postgres://app:"+url.QueryEscape(ovpnEvil)+"@10.9.9.9:5432/app\nY_URL=postgres://app:agentkey@10.9.9.8:5432/app\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	only := filepath.Join(t.TempDir(), "x.env") // the profile alone
+	if err := os.WriteFile(only, []byte("X_URL=postgres://app:"+url.QueryEscape(ovpnEvil)+"@10.9.9.9:5432/app\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	texts := windowText(t, true)
-	e := wantCode(t, "SECRET_DESTINATION", "import", "env", env, "--overwrite")
+	wantCode(t, "PROTECTED_TARGET", "import", "env", env, "--overwrite") // the protected VPN's key stops it first
+	e := wantCode(t, "SECRET_DESTINATION", "import", "env", only, "--overwrite")
 	if strings.Contains(e.Message, "vpn.corp.example") {
 		t.Errorf("the message shows where the old profile pointed, which the agent cannot read: %s", e.Message)
 	}
@@ -233,7 +238,7 @@ func TestImportReplacingATrustSecretNeedsAPerson(t *testing.T) {
 	secretIs(t, "x-pass", ovpnOld)
 	secretIs(t, "y-pass", "key-1")
 	// a dry run says so too, and changes nothing
-	d := mustRun(t, "import", "env", env, "--overwrite", "--dry-run")
+	d := mustRun(t, "import", "env", only, "--overwrite", "--dry-run")
 	if wb, _ := d["_meta"].(map[string]any)["would_be_blocked"].(map[string]any); wb == nil {
 		t.Errorf("dry run: %v", d)
 	}

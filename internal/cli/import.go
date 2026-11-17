@@ -260,18 +260,15 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	res.Secrets, res.Keys = plan.sealedNames(res.Secrets)
 	res.DenyRules, res.SettingsDiffer = importRulesAndSettings(st, plan)
 	res.replacedAndNext(cl, existed, groups)
-	// the secrets it stores get secret set's checks
-	values, mine := map[string]string{}, map[string]bool{}
+	if err := guardImportSecrets(cl, st, res.Secrets); err != nil {
+		return err
+	}
+	// and secret set's check of whom komando trusts
+	values := map[string]string{}
 	for _, n := range res.Secrets {
 		values[n] = cmp.Or(plan.Secrets[n], plan.SealedSecrets[n])
 	}
-	for _, h := range hosts {
-		mine["host "+h.Name] = true
-	}
-	for _, c := range conns {
-		mine["conn "+c.Name] = true
-	}
-	if err := guardImportedSecrets(cl, st, values, mine); err != nil {
+	if err := guardImportedTrust(cl, st, values); err != nil {
 		return err
 	}
 	res.Action = "added"
@@ -375,6 +372,9 @@ func vetImportConns(cl *call, st *store.State, plan *importPlan, overwrite bool,
 				res.Skipped = append(res.Skipped, importSkip{c.Name, "secret " + name + " already exists (use --overwrite to replace it)"})
 				continue
 			}
+		}
+		if err := loginPlaceStop(cl, connPlaceChanges(st.Conns[c.Name], c)); err != nil {
+			return nil, err
 		}
 		p := connPlace(c)
 		if ok && plan.Secrets[name] != "" { // stored by this import, for this conn
