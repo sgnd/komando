@@ -18,8 +18,34 @@ import (
 // or touches a keychain: the scripts run with stand-in tools first in PATH.
 func TestE2ELabKeepsAwayFromThePersonsHome(t *testing.T) {
 	unixOnly(t, "the lab's scripts are bash")
-	root := filepath.Join("..", "..", "test", "e2e")
+	// fail closed: the scripts run from a copy in a temp folder (no
+	// bin/komando beside them), with a PATH that holds only the stand-ins
+	// below and the plain tools the scripts need: no docker, go, security
+	// or komando can be found, even if a stand-in is missing
+	copyRoot := t.TempDir()
+	root := filepath.Join(copyRoot, "test", "e2e")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"lab_env.sh", "run.sh", "lib.sh", "pty.sh"} {
+		b, err := os.ReadFile(filepath.Join("..", "..", "test", "e2e", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, f), b, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	bin := t.TempDir()
+	for _, tool := range []string{"mktemp", "dirname", "env", "awk", "sed", "tr", "cat", "sort", "grep"} {
+		p, err := exec.LookPath(tool)
+		if err != nil {
+			t.Skipf("%s: %v", tool, err)
+		}
+		if err := os.Symlink(p, filepath.Join(bin, tool)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for name, script := range map[string]string{
 		"uname":    "#!/bin/sh\necho Linux\n",
 		"security": "#!/bin/sh\necho \"security $*\" >> \"$LAB_TOOL_LOG\"\nexit 1\n",
@@ -33,11 +59,11 @@ func TestE2ELabKeepsAwayFromThePersonsHome(t *testing.T) {
 	}
 	toolLog := filepath.Join(t.TempDir(), "tools")
 	realHome := t.TempDir()
-	env := []string{"PATH=" + bin + ":/usr/bin:/bin", "HOME=" + realHome, "LAB_TOOL_LOG=" + toolLog,
+	env := []string{"PATH=" + bin, "HOME=" + realHome, "LAB_TOOL_LOG=" + toolLog,
 		"DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/bus", "SSH_AUTH_SOCK=/tmp/agent.sock", "XDG_CONFIG_HOME=" + realHome + "/.config"}
 
 	// the lab's environment, as lib.sh sets it before the first call
-	c := exec.Command("bash", "-c", `. "$1/lab_env.sh" && lab_env && env`, "bash", root)
+	c := exec.Command("/bin/bash", "-c", `. "$1/lab_env.sh" && lab_env && env`, "bash", root)
 	c.Env = env
 	out, err := c.CombinedOutput()
 	if err != nil {
@@ -67,14 +93,14 @@ func TestE2ELabKeepsAwayFromThePersonsHome(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bin, "uname"), []byte("#!/bin/sh\necho Darwin\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	c = exec.Command("bash", filepath.Join(root, "run.sh"))
+	c = exec.Command("/bin/bash", filepath.Join(root, "run.sh"))
 	c.Env = append(env, "AREA=core")
 	out, err = c.CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "login keychain") {
 		t.Errorf("run.sh on macOS: %v\n%s", err, out)
 	}
 	// listing the areas starts nothing, so it works on a Mac too
-	c = exec.Command("bash", filepath.Join(root, "run.sh"), "--list")
+	c = exec.Command("/bin/bash", filepath.Join(root, "run.sh"), "--list")
 	c.Env = env
 	if out, err = c.CombinedOutput(); err != nil || !strings.Contains(string(out), "core") {
 		t.Errorf("run.sh --list on macOS: %v\n%s", err, out)
