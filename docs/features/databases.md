@@ -78,7 +78,7 @@ address, the way there (`--via`) and the command; the agent never sees
 the password. A cancel stops the command with `DECLINED`, and the window
 stays shut for that conn for a minute. A script, or an agent with no
 screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
-agent that adds a login-ask conn, changes its URL or `--via`, turns one
+agent that adds a login-ask conn, changes its URL (its user too) or `--via`, turns one
 to `--login ask`, changes a server or VPN on its way, or replaces a
 secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
 password (above), every setting of the URL except the few that move

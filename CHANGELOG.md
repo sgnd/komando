@@ -200,6 +200,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- Four more ways an AI agent could move where a person's typed password
+  (`--login ask`) goes now stop with `NEEDS_PERSON`. A server with no
+  user logs in as the account komando runs as, from the system, no
+  longer as `$USER`, which an agent sets. A `cert check --via` path that
+  reaches a login-ask server another way than its own stops. A login-ask
+  conn's URL user is part of where its password goes. And an agent's
+  `vpn add --overwrite` or import of a VPN on such a way stops even with
+  the same flags: its profile or key secret may be new.
+
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
   `~/.komando` of the changed `HOME` as the usual folder, so only the
@@ -434,6 +443,12 @@ its highlights; the sections below them give the details. Versions follow
   warning; now it stops with `SAFETY_SETTING`, as a conn's weak TLS does.
 
 ### Fixed
+
+- `komando import filezilla` now stores the password FileZilla keeps for
+  an SFTP server in the vault: the server pointed at `secret:NAME-pass`,
+  but nothing was stored there.
+- `login-holder` started by hand answers every broken input with
+  `NEEDS_PERSON`, not with a parse error.
 
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
