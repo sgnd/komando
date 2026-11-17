@@ -23,7 +23,7 @@ func sayCmd(t *testing.T, path ...string) *cobra.Command {
 func TestNotFoundSayScopedWithNearMatch(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	e := out.Errf(out.ExitNotFound, "HOST_NOT_FOUND", "h", "host %q not found", "wbe1")
+	e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "host %q not found", "wbe1").ForKind("host")
 	notFoundSay(tcl, e, sayCmd(t, "exec"))
 	if got := e.TextMessage(); got != `No server named "wbe1". Did you mean web1?` {
 		t.Errorf("message: %q", got)
@@ -34,7 +34,7 @@ func TestNotFoundSayScopedWithNearMatch(t *testing.T) {
 	if e.Message != `host "wbe1" not found` {
 		t.Errorf("JSON message changed: %q", e.Message)
 	}
-	e = out.Errf(out.ExitNotFound, "CONN_NOT_FOUND", "h", "target %q picked no conns", "nosuch")
+	e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "target %q picked no conns", "nosuch").ForKind("conn")
 	notFoundSay(tcl, e, sayCmd(t, "db", "query"))
 	if e.TextMessage() != `No database named "nosuch".` || !strings.Contains(e.TextHint(), "no database yet") {
 		t.Errorf("no databases: %q / %q", e.TextMessage(), e.TextHint())
@@ -49,21 +49,21 @@ func TestNotFoundSayOtherKind(t *testing.T) {
 	mustRun(t, "conn", "add", "pg2", "postgres://u@127.0.0.1:5/db")
 	for _, c := range []struct {
 		path      []string
-		code, msg string
+		kind, msg string
 		say, hint string
 	}{
-		{[]string{"conn", "edit"}, "CONN_NOT_FOUND", `conn "web1" not found`,
+		{[]string{"conn", "edit"}, "conn", `conn "web1" not found`,
 			"web1 is a server, not a conn.", "Use `komando host edit web1`."},
-		{[]string{"host", "rm"}, "HOST_NOT_FOUND", `host "pg2" not found`,
+		{[]string{"host", "rm"}, "host", `host "pg2" not found`,
 			"pg2 is a postgres conn, not a server.", "Use `komando conn rm pg2`."},
-		{[]string{"exec"}, "HOST_NOT_FOUND", `host "pg2" not found`,
+		{[]string{"exec"}, "host", `host "pg2" not found`,
 			"pg2 is a postgres conn, not a server.", "Use it with `komando db`."},
-		{[]string{"list"}, "TARGET_NOT_FOUND", `no server, conn or VPN named "pgg"`,
+		{[]string{"list"}, "", `no server, conn or VPN named "pgg"`,
 			`No server, conn or VPN named "pgg". Did you mean pg2?`, "Your servers, conns and VPNs: pg2, web1."},
-		{[]string{"vpn", "list"}, "TARGET_NOT_FOUND", `no server, conn or VPN named "nosuch"`,
+		{[]string{"vpn", "list"}, "", `no server, conn or VPN named "nosuch"`,
 			`No VPN named "nosuch".`, "You have no VPN yet: add one with `komando vpn add NAME KIND`"},
 	} {
-		e := out.Errf(out.ExitNotFound, c.code, "h", "%s", c.msg)
+		e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "%s", c.msg).ForKind(c.kind)
 		notFoundSay(tcl, e, sayCmd(t, c.path...))
 		if e.TextMessage() != c.say || !strings.HasPrefix(e.TextHint(), c.hint) {
 			t.Errorf("%v: %q / %q", c.path, e.TextMessage(), e.TextHint())
@@ -75,7 +75,7 @@ func TestNotFoundSayOtherKind(t *testing.T) {
 // a command's own words for a person (cert check's website tip) stay.
 func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 	invHome(t)
-	e := out.Errf(out.ExitNotFound, "HOST_NOT_FOUND", "h", "host %q not found", "bastion")
+	e := out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "host %q not found", "bastion").ForKind("host")
 	notFoundSay(tcl, e, sayCmd(t, "host", "show"))
 	if h := e.TextHint(); strings.Contains(h, "pick Add") || !strings.Contains(h, "komando host add NAME user@address") {
 		t.Errorf("hint: %q", h)
@@ -85,9 +85,9 @@ func TestNotFoundSayNoMenuForScripts(t *testing.T) {
 	saved := tcl.terminal
 	tcl.terminal = true
 	t.Cleanup(func() { tcl.terminal = saved })
-	for _, c := range [][2]string{{"HOST_NOT_FOUND", "`komando host add`"}, {"CONN_NOT_FOUND", "`komando conn add`"}, {"VPN_NOT_FOUND", "`komando vpn add`"}} {
-		e = out.Errf(out.ExitNotFound, c[0], "h", "%q not found", "nosuch")
-		cmd := map[string][]string{"HOST_NOT_FOUND": {"host", "show"}, "CONN_NOT_FOUND": {"conn", "show"}, "VPN_NOT_FOUND": {"vpn", "up"}}[c[0]]
+	for _, c := range [][2]string{{"host", "`komando host add`"}, {"conn", "`komando conn add`"}, {"vpn", "`komando vpn add`"}} {
+		e = out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "h", "%q not found", "nosuch").ForKind(c[0])
+		cmd := map[string][]string{"host": {"host", "show"}, "conn": {"conn", "show"}, "vpn": {"vpn", "up"}}[c[0]]
 		notFoundSay(tcl, e, sayCmd(t, cmd...))
 		if h := e.TextHint(); strings.Contains(h, "pick Add") || strings.Contains(h, "menu") || !strings.Contains(h, c[1]) {
 			t.Errorf("%s at a terminal: %q", c[0], h)
@@ -128,7 +128,7 @@ func TestFillHint(t *testing.T) {
 	if e.Hint != "run `komando test pg` to check reachability" {
 		t.Errorf("got %q", e.Hint)
 	}
-	e = out.Errf(out.ExitRemote, "FAILED", "read stderr; `komando cluster events TARGET --warnings` shows more; `komando secret set NAME`", "x")
+	e = out.Errf(out.ExitRemote, "TOOL_FAILED", "read stderr; `komando cluster events TARGET --warnings` shows more; `komando secret set NAME`", "x")
 	fillHint(e, "pg")
 	if e.Hint != "read stderr; `komando cluster events pg --warnings` shows more; `komando secret set NAME`" {
 		t.Errorf("got %q", e.Hint)

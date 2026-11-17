@@ -382,10 +382,10 @@ func kubectlFailure(code int, stderr string) *out.Error {
 	// only the API's NotFound: `sh: foo: not found` from a command in a pod is the command's own failure
 	if strings.Contains(stderr, "Error from server (NotFound)") {
 		msg = strings.TrimPrefix(msg, "Error from server (NotFound): ")
-		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound, Thing: "k8s_object",
+		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound,
 			Hint: "list what exists with `komando cluster list TARGET TYPE`"}
 	}
-	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
+	return &out.Error{Code: "TOOL_FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
 		Hint: "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
 }
 

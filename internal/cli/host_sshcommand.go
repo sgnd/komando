@@ -77,7 +77,7 @@ func shellLine(parts []string) string {
 // sshx.Dial resolves them: each step's own --via comes first.
 func sshPath(st *store.State, h *store.Host, seen map[string]bool) (*store.Vpn, []*store.Host, error) {
 	if seen[h.Name] {
-		return nil, nil, out.Errf(out.ExitError, "VIA_CYCLE", "fix the --via setting with `komando host edit "+h.Name+" --via ...`", "--via loop at %q", h.Name)
+		return nil, nil, out.Errf(out.ExitUsage, "VIA_CYCLE", "fix the --via setting with `komando host edit "+h.Name+" --via ...`", "--via loop at %q", h.Name)
 	}
 	seen[h.Name] = true
 	var vpn *store.Vpn

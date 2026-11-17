@@ -203,14 +203,12 @@ func (d testData) Text() string {
 }
 
 // fixTestError gives errors from the connection layer the exit code and
-// hint that fit `komando test`: a broken --via path or key file is a
-// setting to fix (1, 4), not a usage error; an ad-hoc target has no
+// hint that fit `komando test`: a broken key file is a
+// setting to fix (4), not a usage error; an ad-hoc target has no
 // inventory entry to show.
 func fixTestError(st *store.State, name string, e *out.Error) *out.Error {
 	c := *e
 	switch c.Code {
-	case "VIA_CYCLE":
-		c.Exit = out.ExitError
 	case "KEY_UNREADABLE":
 		c.Exit = out.ExitConnect
 		if st.Hosts[name] != nil {

@@ -110,6 +110,6 @@ back: `Next: komando group add old TARGET...`.
 |------------|---------------|------------|
 | `TARGET_EMPTY` | the target matched nothing (exit 3) | `komando list` shows servers, conns, groups and tags |
 | `NO_MATCHING_TARGETS` | the target picked only things this command cannot use (exit 3) | the hint names the command for what it picked |
-| `HOST_NOT_FOUND` | no server of that name (exit 3) | check the "did you mean", or `komando host list` |
+| `TARGET_NOT_FOUND` | no server of that name (exit 3) | check the "did you mean", or `komando host list` |
 | `USAGE` | a command that needs exactly one conn got a target with several | name the one conn |
 | `CONFIRM_REQUIRED` | `group rm` of a group with more than 3 members, from an AI agent or a script without `--yes` | check the members with `komando group list GROUP`, then add `--yes` after a person agrees |

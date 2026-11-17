@@ -95,8 +95,8 @@ func (c *chConnector) Connect(ctx context.Context) (driver.Conn, error) {
 			c.profileRO, _ = strconv.Atoi(value)
 		case "dialect":
 			if value != "clickhouse" {
-				return nil, out.Errf(out.ExitPolicy, "SQL_STRING_RULES",
-					"komando checks ClickHouse SQL; use a user whose settings profile keeps dialect = 'clickhouse'",
+				return nil, out.Errf(out.ExitPolicy, "SQL_SAFE_SETTINGS_REQUIRED",
+					"komando checks ClickHouse SQL; use a user whose settings profile keeps dialect = 'clickhouse' (`komando conn edit NAME --url URL`)",
 					"this user's queries are read as %s, not ClickHouse SQL", value).NoFlag()
 			}
 		}
