@@ -160,6 +160,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An FTP or FTPS conn whose connection drops, and whose one new session
+  cannot be opened either, now says both in `STORAGE_CONNECT`: the drop
+  and why logging in again failed ("...: EOF; logging in again failed:
+  ..."). The second error used to be thrown away.
 - A Tailscale VPN logs in only at its `--server` or Tailscale's own
   server: `TS_CONTROL_URL`, `TS_AUTHKEY`, `TSNET_FORCE_LOGIN` and the
   other tsnet variables are ignored. A Tailscale VPN replaced by `vpn add
