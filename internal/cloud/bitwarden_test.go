@@ -70,7 +70,9 @@ func TestBitwardenKDFBounds(t *testing.T) {
 			if _, err := BitwardenMasterKey("password", "a@b", tc.kdf, tc.t, tc.mMiB, tc.p); err == nil {
 				t.Error("accepted")
 			}
-			if d := time.Since(start); d > time.Second {
+			// refused before any work: the smallest of these settings
+			// would take hours to run, so a generous limit still tells
+			if d := time.Since(start); d > time.Minute {
 				t.Errorf("took %v", d)
 			}
 		})

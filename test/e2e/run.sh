@@ -71,6 +71,13 @@ if [ "${E2E_AREA_RUN:-0}" = 1 ]; then
   . "$E2E/lib.sh"
   cleanup() {
     local rc=$?
+    # a failed area shows what its servers logged: a check that fails one
+    # run in many (a dropped FTPS connection) cannot be read from
+    # komando's side alone
+    if { [ "$rc" -ne 0 ] || [ "$FAIL" -gt 0 ]; } && [ "${#SERVICES[@]}" -gt 0 ]; then
+      echo "==> the lab servers' last lines ($AREA failed)"
+      DC logs --no-color --timestamps --tail 200 2>&1 || true
+    fi
     lab_down
     "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
     [ -n "${E2E_HOME:-}" ] || rm -rf "$KOMANDO_HOME"
