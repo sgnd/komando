@@ -27,9 +27,9 @@ type fakeS3 struct {
 	mu      sync.Mutex
 	objs    map[string][]byte
 	copies  int
-	badCopy bool // a copy loses its last byte
+	badCopy bool   // a copy loses its last byte
 	sse     string // the encryption every object reports; its ETag is then no MD5
-	denyDel bool // DELETE answers AccessDenied
+	denyDel bool   // DELETE answers AccessDenied
 }
 
 func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
