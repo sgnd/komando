@@ -31,6 +31,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Windows: a program under Program Files or the system folder counts as one only an administrator can change (so an AI agent's command may hand it a password, or run a kubeconfig's login program without asking again) only when the file and each folder up to Program Files belong to the system or the administrators and no one else may write them (C116). An installer that let every user write its folder no longer makes its programs count. A ProxyCommand runs with Windows' own `cmd.exe`, never the one `ComSpec` or `SystemRoot` in the environment names.
 - `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
   read-only recipes) is now a strict allowlist on every server: the
   command runs only when komando knows every part of it only reads, and
