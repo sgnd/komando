@@ -487,7 +487,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 		return withBackup(cl, from, seal, func(r io.Reader) error {
 			if err := dbx.Restore(ctx, db, t.Kind.Name, r); err != nil {
 				if seal.changed {
-					return err // withBackup says BACKUP_CHANGED
+					return err // withBackup says BACKUP_CONFLICT
 				}
 				// what the database holds now depends on the engine (S-8.4):
 				// PostgreSQL restores in one transaction, MySQL cannot

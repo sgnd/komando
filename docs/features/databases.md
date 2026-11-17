@@ -422,6 +422,14 @@ Plain SQL that psql and mysql can also read:
   question: run `komando db dump CONN` first yourself, then add
   `--allow-dangerous` (and `--yes` on a protected conn) after a person
   agrees.
+- The file that was checked is the file that is restored. komando keeps
+  a fingerprint of every part of the file from the check; a file that is
+  changed, replaced or made longer afterwards stops with `BACKUP_CONFLICT`
+  (exit 8) before the changed part is sent, and before the database is
+  opened when the change came while you were asked. Run the restore
+  again: komando checks the file as it is now.
+- A MySQL `DELIMITER` after a statement on the same line is refused
+  (`UNSAFE_BACKUP`); mysqldump writes it on a line of its own.
 - PostgreSQL restores run in one transaction: if anything fails, nothing
   changes. MySQL runs the statements in order and stops at the first error;
   what ran before it stays (`RESTORE_FAILED`).
@@ -517,6 +525,11 @@ Typed alone, `komando db user add` asks which database, the user, then
 where the password is kept. To change the password of the conn's own
 user, see [Rotate passwords](rotate.md).
 
+- `db user add`, `db user passwd`, `db grant` and `db revoke` change who
+  may do what, like `GRANT` or `CREATE USER` sent with `db query`. At
+  your terminal komando asks you to type the user's name; scripts and AI
+  agents add `--allow-dangerous` after a person agrees (`POLICY_BLOCKED`
+  without it). `db user rm` asks the same.
 - Passwords come only from a secret reference. They are never typed on a
   command line, shown, or written to the audit log (`--dry-run` and the
   answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that

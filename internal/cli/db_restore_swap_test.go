@@ -7,7 +7,7 @@ import (
 )
 
 // The file a person said yes to is the file that is restored: one that is
-// rewritten while the approval window is open stops with BACKUP_CHANGED
+// rewritten while the approval window is open stops with BACKUP_CONFLICT
 // before the database is opened. (Before, the restore opened the path
 // again and ran whatever was there.)
 func TestRestoreStopsWhenTheFileChangesAfterTheCheck(t *testing.T) {
@@ -32,7 +32,7 @@ func TestRestoreStopsWhenTheFileChangesAfterTheCheck(t *testing.T) {
 	if windows == 0 {
 		t.Fatal("no approval window was opened")
 	}
-	if e == nil || e.Code != "BACKUP_CHANGED" {
-		t.Fatalf("want BACKUP_CHANGED, got %+v", e)
+	if e == nil || e.Code != "BACKUP_CONFLICT" {
+		t.Fatalf("want BACKUP_CONFLICT, got %+v", e)
 	}
 }

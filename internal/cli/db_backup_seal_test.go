@@ -74,8 +74,8 @@ func TestBackupSeal(t *testing.T) {
 		seal.changed = false
 		write(changed)
 		b, err := read()
-		if e := toErr(err); err == nil || e.Code != "BACKUP_CHANGED" {
-			t.Errorf("%s: want BACKUP_CHANGED, got %v", name, err)
+		if e := toErr(err); err == nil || e.Code != "BACKUP_CONFLICT" {
+			t.Errorf("%s: want BACKUP_CONFLICT, got %v", name, err)
 		}
 		// what was handed on before the stop is the checked file's own start
 		if !bytes.HasPrefix(orig, b) {
@@ -85,7 +85,7 @@ func TestBackupSeal(t *testing.T) {
 			t.Errorf("%s: changed text was handed on", name)
 		}
 		seal.changed = false
-		if e := toErr(verifyBackup(tcl, path, seal)); e.Code != "BACKUP_CHANGED" {
+		if e := toErr(verifyBackup(tcl, path, seal)); e.Code != "BACKUP_CONFLICT" {
 			t.Errorf("%s: verify: %+v", name, e)
 		}
 	}
@@ -111,8 +111,8 @@ func TestBackupSealChangeWhileReading(t *testing.T) {
 		_, err = io.Copy(&got, r)
 		return err
 	})
-	if e := toErr(err); err == nil || e.Code != "BACKUP_CHANGED" {
-		t.Fatalf("want BACKUP_CHANGED, got %v", err)
+	if e := toErr(err); err == nil || e.Code != "BACKUP_CONFLICT" {
+		t.Fatalf("want BACKUP_CONFLICT, got %v", err)
 	}
 	if !bytes.HasPrefix(orig, got.Bytes()) || got.Len() != 2*sealChunk {
 		t.Errorf("handed on %d bytes; the two checked chunks are %d", got.Len(), 2*sealChunk)
@@ -141,8 +141,8 @@ func TestBackupSealGzip(t *testing.T) {
 		}
 		return err
 	})
-	if e := toErr(err); err == nil || e.Code != "BACKUP_CHANGED" {
-		t.Errorf("want BACKUP_CHANGED, got %v", err)
+	if e := toErr(err); err == nil || e.Code != "BACKUP_CONFLICT" {
+		t.Errorf("want BACKUP_CONFLICT, got %v", err)
 	}
 }
 
