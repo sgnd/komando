@@ -5873,7 +5873,7 @@ Hint: for example: komando storage cat backups logs/app-2026-11-02.log --tail 50
 ### komando -o json storage chmod (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage chmod (agent text)
 exit 2
@@ -5885,7 +5885,7 @@ Hint: for example: komando storage chmod backups 0640 config/app.yml --dry-run
 ### komando -o json storage chmod (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage chmod (script text)
 exit 2
@@ -5897,7 +5897,7 @@ Hint: for example: komando storage chmod backups 0640 config/app.yml --dry-run
 ### komando -o json storage chmod x1 x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage chmod x1 x1 (agent text)
 exit 2
@@ -5909,7 +5909,7 @@ Hint: for example: komando storage chmod backups 0640 config/app.yml --dry-run
 ### komando -o json storage chmod x1 x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.chmod","error":{"code":"USAGE","message":"missing arguments; usage: komando storage chmod CONN MODE PATH","hint":"for example: komando storage chmod backups 0640 config/app.yml --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage chmod x1 x1 (script text)
 exit 2
@@ -6041,7 +6041,7 @@ Hint: for example: komando storage list backups
 ### komando -o json storage mkdir (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mkdir (agent text)
 exit 2
@@ -6053,7 +6053,7 @@ Hint: for example: komando storage mkdir backups reports/2026 --dry-run
 ### komando -o json storage mkdir (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mkdir (script text)
 exit 2
@@ -6065,7 +6065,7 @@ Hint: for example: komando storage mkdir backups reports/2026 --dry-run
 ### komando -o json storage mkdir x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mkdir x1 (agent text)
 exit 2
@@ -6077,7 +6077,7 @@ Hint: for example: komando storage mkdir backups reports/2026 --dry-run
 ### komando -o json storage mkdir x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mkdir","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mkdir CONN PATH","hint":"for example: komando storage mkdir backups reports/2026 --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mkdir x1 (script text)
 exit 2
@@ -6089,7 +6089,7 @@ Hint: for example: komando storage mkdir backups reports/2026 --dry-run
 ### komando -o json storage mv (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mv (agent text)
 exit 2
@@ -6101,7 +6101,7 @@ Hint: for example: komando storage mv backups db/old.sql.gz archive/ --dry-run
 ### komando -o json storage mv (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mv (script text)
 exit 2
@@ -6113,7 +6113,7 @@ Hint: for example: komando storage mv backups db/old.sql.gz archive/ --dry-run
 ### komando -o json storage mv x1 x1 (agent json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mv x1 x1 (agent text)
 exit 2
@@ -6125,7 +6125,7 @@ Hint: for example: komando storage mv backups db/old.sql.gz archive/ --dry-run
 ### komando -o json storage mv x1 x1 (script json)
 exit 2
 --- stdout
-{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"storage.mv","error":{"code":"USAGE","message":"missing arguments; usage: komando storage mv CONN SRC DST","hint":"for example: komando storage mv backups db/old.sql.gz archive/ --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text storage mv x1 x1 (script text)
 exit 2
