@@ -29,6 +29,23 @@ its highlights; the sections below them give the details. Versions follow
 - `komando storage chmod CONN MODE PATH` sets the Unix mode of a file or folder on an SFTP conn and says the old one; other kinds stop with `STORAGE_UNSUPPORTED` before anything is contacted.
 - All three are changes like `storage upload`: `--dry-run` shows what would happen and is never blocked (`meta.would_need`), a protected conn needs a person's yes, and every run is in the audit log. New JSON: `storage.mkdir` `{conn, path, created, dry_run}`, `storage.mv` `{conn, src, dst, folder, replaced, method, size_bytes, dry_run}`, `storage.chmod` `{conn, path, mode, old_mode, dry_run}`.
 
+- `komando ssh-gate status` says which ssh-gate key runs it, and whether it
+  may change things or reach the network (`gate`, `name`, `read_only`,
+  `network`, `komando`). ssh-gate answers it itself; typed on the komando
+  computer it says `gate: false`.
+- `komando facts` lists every real file system as `disks`: mount point,
+  device, size, used and free in MiB, and use %.
+- `komando facts SERVER --only load,mem,disks` runs just those probes, in
+  about a second, for an app that polls: the same keys, the other sections
+  left out. `--only system` gives the OS name and the time the server has
+  been up (`os`, `os_version`, `os_pretty`, `uptime_sec`). A read-only
+  ssh-gate key without `--network` runs it.
+
+- A `--login ask` conn follows the same rule as a stored password for where its password goes (every URL setting except the few that move nothing): an AI agent's other change of its URL gets `NEEDS_PERSON`. A WinRM server's `ca=` and `auth=` count as where its password goes too.
+- An AI agent's `config set default_user` gets `NEEDS_PERSON` while a `--login ask` server has no user of its own; replacing a secret on the way to a login-ask server or conn (a VPN's key or profile, a WinRM or conn CA) does too. The same holds for `default_user` while a jump server on the way to a login-ask server or conn has no user of its own, and for an `import --overwrite` that would replace such a secret (a conn's password in the file is stored as `NAME-pass`); a secret a protected entry uses needs a person's yes there, as in `secret set`.
+
+- An AI agent that changes the user or the transport (WinRM, its `tls=`) of a server with a stored password now needs a person's yes (`SECRET_DESTINATION`), as it did for the address, port and `--via`: the password goes there.
+
 ### Changed
 
 - `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
@@ -96,25 +113,6 @@ its highlights; the sections below them give the details. Versions follow
   `aws_s3.*`, `aws_lambda.*`, `aws_commons.*` and `pg_background_*`; a
   BigQuery routine or model named with a project (`proj.ds.fn`), which may be
   another project's remote function.
-
-### Added
-
-- `komando ssh-gate status` says which ssh-gate key runs it, and whether it
-  may change things or reach the network (`gate`, `name`, `read_only`,
-  `network`, `komando`). ssh-gate answers it itself; typed on the komando
-  computer it says `gate: false`.
-- `komando facts` lists every real file system as `disks`: mount point,
-  device, size, used and free in MiB, and use %.
-- `komando facts SERVER --only load,mem,disks` runs just those probes, in
-  about a second, for an app that polls: the same keys, the other sections
-  left out. `--only system` gives the OS name and the time the server has
-  been up (`os`, `os_version`, `os_pretty`, `uptime_sec`). A read-only
-  ssh-gate key without `--network` runs it.
-
-- A `--login ask` conn follows the same rule as a stored password for where its password goes (every URL setting except the few that move nothing): an AI agent's other change of its URL gets `NEEDS_PERSON`. A WinRM server's `ca=` and `auth=` count as where its password goes too.
-- An AI agent's `config set default_user` gets `NEEDS_PERSON` while a `--login ask` server has no user of its own; replacing a secret on the way to a login-ask server or conn (a VPN's key or profile, a WinRM or conn CA) does too. The same holds for `default_user` while a jump server on the way to a login-ask server or conn has no user of its own, and for an `import --overwrite` that would replace such a secret (a conn's password in the file is stored as `NAME-pass`); a secret a protected entry uses needs a person's yes there, as in `secret set`.
-
-- An AI agent that changes the user or the transport (WinRM, its `tls=`) of a server with a stored password now needs a person's yes (`SECRET_DESTINATION`), as it did for the address, port and `--via`: the password goes there.
 
 ### Changed for scripts and agents
 
@@ -1775,8 +1773,6 @@ instead.
   menu.
 - README: the Windows `.zip` is an install option, and `prompt` (now
   `status --short`) is no longer listed as a command.
-
-### Fixed
 
 - `key gen`, `key rm` and `rename` help said keys komando makes live in
   `~/.komando/keys`; they are kept in the sealed store, with no file, and
