@@ -282,12 +282,6 @@ func loginHolderCmd() *cobra.Command {
 				say("ERROR " + string(b))
 				return exitCode(1)
 			}
-			if cl.isAgent() {
-				// its questions go to whoever started it: an agent would
-				// answer them as the person, and accept a new host key
-				return fail(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando login "+args[0]+"` in their own terminal",
-					"login-holder is the background process of `komando login`, which only a person runs").NoFlag())
-			}
 			in := bufio.NewReader(cl.stdin)
 			ticket := readTicket(in)
 			token, until, err := holderStdin(in)
@@ -296,6 +290,12 @@ func loginHolderCmd() *cobra.Command {
 			}
 			if err := checkTicket(cl, ticket, "login-holder", "login "+args[0]); err != nil {
 				return fail(err)
+			}
+			if cl.isAgent() {
+				// its questions go to whoever started it: an agent would
+				// answer them as the person, and accept a new host key
+				return fail(out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask the user to run `komando login "+args[0]+"` in their own terminal",
+					"login-holder is the background process of `komando login`, which only a person runs").NoFlag())
 			}
 			// only a holder its `login` started outlives it: `login` exits once it is up
 			signal.Ignore(syscall.SIGPIPE, syscall.SIGHUP)
@@ -425,7 +425,8 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 		line, rerr := in.ReadString('\n')
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
 		if rerr != nil || word != want {
-			return "", time.Time{}, fmt.Errorf("login-holder is started by `komando login`, not by hand")
+			return "", time.Time{}, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando login`: it checks and records what login-holder does",
+				"login-holder is started by `komando login`, not by hand").NoFlag()
 		}
 		switch want {
 		case "TOKEN":

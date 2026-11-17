@@ -215,9 +215,6 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 	if err != nil {
 		return err
 	}
-	if err := importVpnPlaces(cl, st, vpns); err != nil {
-		return err
-	}
 	if err := guardImportVpns(cl, st, vpns); err != nil {
 		return err
 	}

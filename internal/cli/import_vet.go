@@ -190,6 +190,9 @@ func entryNames(st *store.State) map[string]bool {
 // (guardVpnSends), and, for a VPN they replace, protection or --mfa
 // turned off (guardVpnEdit). A file cannot do what a person did not allow.
 func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
+	if err := importVpnPlaces(cl, st, vpns); err != nil { // an agent: before any yes is asked for
+		return err
+	}
 	olds := map[string]*store.Vpn{}
 	var replaced []*store.Vpn
 	for _, v := range vpns {
