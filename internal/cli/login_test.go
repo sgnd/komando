@@ -213,7 +213,7 @@ func TestLogoutArgs(t *testing.T) {
 	if d := mustRun(t, "logout", "web1"); fmt.Sprint(d["not_logged_in"]) != "[web1]" {
 		t.Errorf("logout web1: %v", d)
 	}
-	wantCode(t, "HOST_NOT_FOUND", "logout", "nosuch")
+	wantCode(t, "TARGET_NOT_FOUND", "logout", "nosuch")
 	wantCode(t, "USAGE", "logout", "--all", "web1")
 	mustRun(t, "logout", "--all")
 }
@@ -239,11 +239,11 @@ func awsHome(t *testing.T) {
 
 // An AI agent cannot log in to AWS (the sign-in is in a person's browser):
 // it gets NEEDS_PERSON with the exact command, a dry run says so in
-// would_be_blocked, and a script gets NEEDS_TERMINAL.
+// would_be_blocked, and a script gets NEEDS_PERSON (exit 6), as an agent does.
 func TestLoginAWSNeedsPerson(t *testing.T) {
 	invHome(t)
 	awsHome(t)
-	e := wantCode(t, "NEEDS_TERMINAL", "login", "aws", "--profile", "sso")
+	e := wantCode(t, "NEEDS_PERSON", "login", "aws", "--profile", "sso")
 	if !strings.Contains(e.Hint, "komando login aws --profile sso") {
 		t.Errorf("script hint %q", e.Hint)
 	}
@@ -314,10 +314,10 @@ func TestLoginCloudTypos(t *testing.T) {
 	if e := wantCode(t, "USAGE", "login", "AWS"); e.Hint != "komando login aws" {
 		t.Errorf("AWS: %+v", e)
 	}
-	if e := wantCode(t, "HOST_NOT_FOUND", "login", "asw"); !strings.Contains(e.Hint, "komando login aws") {
+	if e := wantCode(t, "TARGET_NOT_FOUND", "login", "asw"); !strings.Contains(e.Hint, "komando login aws") {
 		t.Errorf("asw: %+v", e)
 	}
-	if e := wantCode(t, "HOST_NOT_FOUND", "login", "web1"); strings.Contains(e.Hint, "login aws") {
+	if e := wantCode(t, "TARGET_NOT_FOUND", "login", "web1"); strings.Contains(e.Hint, "login aws") {
 		t.Errorf("web1: %+v", e)
 	}
 }

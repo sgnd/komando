@@ -526,7 +526,7 @@ func TestUpdateTriesAgain(t *testing.T) {
 	}
 	f.fail.Store(3)
 	Version = "v0.6.0"
-	if e := updateFails(t); e.Code != "RELEASES_UNREACHABLE" || e.Exit != out.ExitConnect {
+	if e := updateFails(t); e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
 		t.Errorf("after three 503s: %v", e)
 	}
 }
@@ -566,11 +566,11 @@ func TestUpdateErrors(t *testing.T) {
 	}
 	releasePlatforms = map[string]bool{platform(): true}
 	f.newest = "not-a-tag"
-	if e := updateFails(t); e.Code != "RELEASES_UNREACHABLE" {
+	if e := updateFails(t); e.Code != "CONN_UNREACHABLE" {
 		t.Errorf("bad redirect: %v", e)
 	}
 	releaseSite = "http://127.0.0.1:1"
-	if e := updateFails(t); e.Code != "RELEASES_UNREACHABLE" || e.Exit != out.ExitConnect {
+	if e := updateFails(t); e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
 		t.Errorf("no server: %v", e)
 	}
 }

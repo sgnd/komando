@@ -130,7 +130,7 @@ func TestOracleLive(t *testing.T) {
 		{SQL: "commit", Keyword: "SELECT", Risk: driver.RiskRead},
 		{SQL: "delete from orders", Keyword: "SELECT", Risk: driver.RiskRead},
 	}}
-	if _, err := Run(ctx, db, "oracle", commit, Options{Timeout: 10 * time.Second}); oraCode(err) != "SQL_TX_CONTROL" {
+	if _, err := Run(ctx, db, "oracle", commit, Options{Timeout: 10 * time.Second}); oraCode(err) != "SQL_TX_CHECK_REQUIRED" {
 		t.Errorf("a hidden commit: %v", err)
 	}
 	commitW := driver.SQLPlan{Statements: []driver.Statement{
@@ -138,7 +138,7 @@ func TestOracleLive(t *testing.T) {
 		{SQL: "commit", Keyword: "SELECT", Risk: driver.RiskRead},
 		{SQL: "delete from orders", Keyword: "DELETE", Risk: driver.RiskWrite},
 	}}
-	if _, err := Run(ctx, db, "oracle", commitW, Options{Write: true, DryRun: true, Timeout: 10 * time.Second}); oraCode(err) != "SQL_TX_CONTROL" {
+	if _, err := Run(ctx, db, "oracle", commitW, Options{Write: true, DryRun: true, Timeout: 10 * time.Second}); oraCode(err) != "SQL_TX_CHECK_REQUIRED" {
 		t.Errorf("a hidden commit in a dry run: %v", err)
 	}
 	if n := fmt.Sprint(count()); n != "2" {

@@ -17,7 +17,10 @@ import (
 func TestAskPassword(t *testing.T) {
 	invHome(t)
 	// a script: no terminal
-	e := wantCode(t, "NEEDS_TERMINAL", "host", "add", "vps1", "root@10.0.0.20", "--ask-password")
+	e := wantCode(t, "NEEDS_PERSON", "host", "add", "vps1", "root@10.0.0.20", "--ask-password")
+	if e.Exit != out.ExitPolicy {
+		t.Errorf("a password nobody can type here: exit %d, want 6 (C79)", e.Exit)
+	}
 	if !strings.Contains(e.Hint, "komando secret set vps1-pass") {
 		t.Errorf("script hint: %q", e.Hint)
 	}
