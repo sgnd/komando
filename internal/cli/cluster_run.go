@@ -460,9 +460,10 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 				note += fmt.Sprintf(" (%s is not installed here: after installing it, import the kubeconfig again, or an AI agent's cluster commands will ask you each time)", e.Command)
 			}
 			p.ConnNotes[c] = append(p.ConnNotes[c], note)
-		} else if b := x.CloudLogin(); b != nil {
-			// this computer's cloud login goes to this server, for agents'
-			// later commands too
+		} else if b := x.CloudLogin(); b != nil && !cl.isAgent() {
+			// a person's own import: this computer's cloud login goes to
+			// this cluster, for agents' later commands too. An import an
+			// agent made (with a person's yes) trusts nothing for later
 			c.TrustedPlugin, _ = pluginTrust(cl, b, "", stored)
 		}
 	}
@@ -545,7 +546,7 @@ func guardKubeImport(cl *call, name string, x *kube.Context) error {
 		}
 	}
 	if b := x.CloudLogin(); b != nil && cl.isAgent() {
-		if err := guardSafety(cl, "letting context "+name+" send a login made from this computer's "+cloudLoginName(b)+" login to "+x.Cluster.Server+", also for AI agents' later commands"); err != nil {
+		if err := guardSafety(cl, "letting context "+name+" send a login made from this computer's "+cloudLoginName(b)+" login to "+clusterWay(x.Cluster)); err != nil {
 			return err
 		}
 	}

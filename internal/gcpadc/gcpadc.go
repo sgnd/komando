@@ -7,13 +7,18 @@ package gcpadc
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io/fs"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
+	"time"
 
+	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
 	"github.com/sgnd/komando/internal/out"
@@ -46,7 +51,16 @@ func (e *FileError) Unwrap() error { return e.Err }
 //   - in an AI agent's environment only a gcloud login and a service
 //     account key are used, made from the bytes that were checked.
 func Find(ctx context.Context, scopes ...string) (*google.Credentials, error) {
+	if ctx.Value(oauth2.HTTPClient) == nil {
+		// tokens are fetched with komando's transport, never http.DefaultClient
+		tr := transport.HTTP()
+		tr.Proxy = transport.Proxy()
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: tr, Timeout: 30 * time.Second})
+	}
 	path := File()
+	if transport.EnvDistrusted() {
+		return agentFind(ctx, path, scopes)
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		// no file: the metadata server on Google Cloud, or no login
@@ -56,23 +70,62 @@ func Find(ctx context.Context, scopes ...string) (*google.Credentials, error) {
 	if json.Unmarshal(b, &f) != nil {
 		return google.FindDefaultCredentials(ctx, scopes...) // the library says what is wrong with it
 	}
-	if transport.EnvDistrusted() {
-		var kind google.CredentialsType
-		switch f.Type {
-		case "authorized_user":
-			kind = google.AuthorizedUser
-		case "service_account":
-			kind = google.ServiceAccount
-		default:
-			return nil, &FileError{Err: out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "the user sets up this Google login in their own terminal; for an AI agent komando uses a gcloud login (`gcloud auth application-default login`) or a service account key",
-				"%s is a Google login file of the kind %q, which names files, programs or addresses of its own; komando does not follow it for an AI agent", path, f.Type).NoFlag()}
-		}
-		return google.CredentialsFromJSONWithType(ctx, b, kind, scopes...)
-	}
 	if err := f.check(path); err != nil {
 		return nil, err
 	}
 	return google.FindDefaultCredentials(ctx, scopes...)
+}
+
+// agentFind is Find in an AI agent's environment. The file is read once
+// and the login is made from those bytes: the Google library never reads
+// the path itself, so a file that changes between the check and a second
+// read (a named pipe, a link swapped in time) gains nothing. A file that
+// cannot be read or is no JSON is refused, not handed to the library.
+func agentFind(ctx context.Context, path string, scopes []string) (*google.Credentials, error) {
+	b, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, fs.ErrNotExist) && os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "":
+		// no gcloud login: the machine's own account on Google Cloud, or
+		// none. Should a file have appeared meanwhile, the library read it
+		// unchecked (it keeps the file's text): that login is not used
+		creds, err := google.FindDefaultCredentials(ctx, scopes...)
+		if err == nil && len(creds.JSON) > 0 {
+			return nil, agentRefusal("%s appeared while komando looked for a Google login", path)
+		}
+		return creds, err
+	case err != nil:
+		return nil, agentRefusal("%s cannot be read as a Google login file (%v)", path, pathErr(err))
+	}
+	var f credFile
+	if json.Unmarshal(b, &f) != nil {
+		return nil, agentRefusal("%s is not a Google login file", path)
+	}
+	var kind google.CredentialsType
+	switch f.Type {
+	case "authorized_user":
+		kind = google.AuthorizedUser
+	case "service_account":
+		kind = google.ServiceAccount
+	default:
+		return nil, agentRefusal("%s is a Google login file of the kind %q, which names files, programs or addresses of its own", path, f.Type)
+	}
+	return google.CredentialsFromJSONWithType(ctx, b, kind, scopes...)
+}
+
+// agentRefusal is the stop for a login file komando does not follow for
+// an AI agent.
+func agentRefusal(format string, a ...any) error {
+	return &FileError{Err: out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "the user sets up this Google login in their own terminal; for an AI agent komando uses a gcloud login (`gcloud auth application-default login`) or a service account key",
+		format+"; komando does not follow it for an AI agent", a...).NoFlag()}
+}
+
+// pathErr is err without the path (the message names it already).
+func pathErr(err error) error {
+	var pe *fs.PathError
+	if errors.As(err, &pe) {
+		return pe.Err
+	}
+	return err
 }
 
 // File is the credentials file the Google library reads: the one
@@ -134,7 +187,7 @@ func (f *credFile) check(path string) error {
 			}
 			u, err := url.Parse(a.url)
 			if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !a.host.MatchString(strings.ToLower(u.Host)) || !a.ok(u.Path) {
-				return refuse("%s: %s is %q, which is not one of Google's token services (https://sts.googleapis.com/v1/token, https://iamcredentials.googleapis.com/...); komando sends a login only there", path, a.name, a.url)
+				return refuse("%s: %s is %q, which is not one of Google's token addresses (https://sts.googleapis.com/v1/token, https://iamcredentials.googleapis.com/...); komando sends a login only there", path, a.name, a.url)
 			}
 		}
 		if f.Source.File != "" {

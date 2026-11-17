@@ -97,7 +97,9 @@ its highlights; the sections below them give the details. Versions follow
     (`SENSITIVE_FILE`).
   - After updating, import each kubeconfig that uses a login program, EKS
     or GKE once more yourself (`komando import kubeconfig FILE
-    --overwrite`), or agents are asked on every cluster command.
+    --overwrite`), or agents are asked on every cluster command. For an
+    agent, such a login program gets only the environment the kubeconfig
+    gives it (`env`), not the shell's proxy, `AWS_PROFILE` or `KUBECONFIG`.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

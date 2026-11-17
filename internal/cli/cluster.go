@@ -218,7 +218,7 @@ func guardCloudLogin(cl *call, c *store.Conn, x *kube.Context, b *kube.ExecAuth)
 	if t, _ := pluginTrust(cl, b, "", x.Cluster); c.TrustedPlugin != "" && c.TrustedPlugin == t {
 		return nil
 	}
-	what := "the kubeconfig of conn " + c.Name + " sends a login made from this computer's " + cloudLoginName(b) + " login to " + x.Cluster.Server
+	what := "the kubeconfig of conn " + c.Name + " sends a login made from this computer's " + cloudLoginName(b) + " login to " + clusterWay(x.Cluster)
 	stop := approvalErr(cl, "SAFETY_SETTING",
 		what+"; no person sent that login there, so an AI agent needs a person's yes each time, read-only commands too (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)")
 	return agentLoginYes(cl, what, stop)
@@ -239,6 +239,23 @@ func agentLoginYes(cl *call, what string, stop *out.Error) error {
 		return nil
 	}
 	return stop
+}
+
+// clusterWay says where a cluster block sends a login, for the approval
+// window: the server and whatever moves or re-names the connection (a
+// proxy, another TLS name, a CA of the kubeconfig's own).
+func clusterWay(c kube.Cluster) string {
+	way := c.Server
+	if c.ProxyURL != "" {
+		way += " through the proxy " + c.ProxyURL
+	}
+	if c.TLSServerName != "" {
+		way += ", checked as " + c.TLSServerName
+	}
+	if c.CertificateAuthorityData != "" || c.CertificateAuthority != "" {
+		way += " (trusting the CA in the kubeconfig)"
+	}
+	return way
 }
 
 // cloudLoginName names the cloud whose login a builtin plugin uses.
