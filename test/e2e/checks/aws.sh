@@ -125,11 +125,21 @@ check "STS: a refused role is AWS_FAILED, not a login" AWS_FAILED \
 q $K conn rm t-aws-role
 
 # Amazon ECR: a fresh login from the ECR API (moto here) on every call,
-# with the region from the host name and the conn's aws_profile
+# with the region from the host name and the conn's aws_profile. The login
+# is good for every repository of the AWS account, so it goes only over
+# https with the registry's certificate checked (C98): the lab's registry
+# speaks plain http, so a tls=false conn is refused before any login is
+# made, and an https conn makes the login, then cannot reach that registry.
 printf '[e2e]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/aws-ecr-credentials"
 ECRENV=(env PATH=/usr/bin:/bin AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-ecr-credentials" AWS_CONFIG_FILE=/dev/null AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" AWS_EC2_METADATA_DISABLED=true)
 q $K conn add t-ecr "registry://AWS@123456789012.dkr.ecr.us-east-1.amazonaws.com:5000?tls=false" --via bastion --option aws_profile=e2e
-check "ECR: registry ls with a login from the ECR API, no aws CLI" True "$("${ECRENV[@]}" $K registry ls t-ecr | jget 'd["ok"]')"
+check "ECR: no login over plain http" "USAGE Amazon ECR" \
+  "$("${ECRENV[@]}" $K registry ls t-ecr | jget 'd["error"]["code"] + (" Amazon ECR" if "Amazon ECR" in d["error"]["message"] else "")' || true)"
+q $K conn rm t-ecr
+q $K conn add t-ecr "registry://AWS@123456789012.dkr.ecr.us-east-1.amazonaws.com:5000" --via bastion --option aws_profile=e2e
+ECRCODE=$("${ECRENV[@]}" $K registry ls t-ecr | jget 'd["error"]["code"] if not d["ok"] else "OK"' || true)
+case "$ECRCODE" in AWS_*|USAGE|"") ECRMADE=False ;; *) ECRMADE=True ;; esac
+check "ECR: the login comes from the ECR API, no aws CLI (then the plain-http lab registry is not reached: $ECRCODE)" True "$ECRMADE"
 check "ECR: an unknown profile is named" AWS_PROFILE_NOT_FOUND \
   "$(env PATH=/usr/bin:/bin AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null $K registry ls t-ecr | jget 'd["error"]["code"]' || true)"
 q $K conn rm t-ecr

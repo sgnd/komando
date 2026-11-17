@@ -388,3 +388,31 @@ func isSensitive(err error) bool {
 	var e *out.Error
 	return errors.As(err, &e) && e.Code == "SENSITIVE_FILE"
 }
+
+// credentialFileGuard is cloud.CheckLocalFile: what names a file whose
+// contents a cloud login sends to its sign-in address. An AI agent sets
+// the variable on its own command line, so for an agent's call the file
+// may be none the agent guard keeps from the agent: komando's own data, a
+// private key, a credential store, or a file that holds secrets by its
+// name (.env, *.pem). A file: reference may name the last kind because a
+// person allows where a reference goes; nobody allows this.
+func credentialFileGuard(what, path string) error {
+	for _, cl := range runningCalls() {
+		if !cl.isAgent() {
+			continue
+		}
+		if why := localSecret(cl, path); why != "" {
+			return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "the user sets up this cloud login in their own terminal; an AI agent's command does not choose the file",
+				"%s names %s, which is %s; komando does not send it for an AI agent", what, path, why).NoFlag()
+		}
+	}
+	return nil
+}
+
+// policyStop reports whether err is one of komando's own stops (exit 6:
+// SENSITIVE_FILE, NEEDS_PERSON ...), which a caller passes on as it is,
+// not as a failed login.
+func policyStop(err error) bool {
+	var e *out.Error
+	return errors.As(err, &e) && e.Exit == out.ExitPolicy
+}
