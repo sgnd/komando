@@ -6,9 +6,18 @@ from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import TLS_FTPHandler
 from pyftpdlib.servers import FTPServer
 
-# every command and every dropped connection goes to the container's log,
-# which run.sh prints when an area fails
+# every command, reply and dropped connection goes to the container's log,
+# which run.sh prints in full when an area fails (C88). pyftpdlib's own
+# "[debug] call: ..." lines (each TLS handshake step) are left out: they
+# buried the failing session.
+class NoCallTrace(logging.Filter):
+    def filter(self, record):
+        return not record.getMessage().startswith("[debug]")
+
+
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
+for h in logging.getLogger().handlers:
+    h.addFilter(NoCallTrace())
 try:
     logging.info("pyftpdlib %s, pyopenssl %s", version("pyftpdlib"), version("pyopenssl"))
 except Exception as e:  # a version that cannot be read must not stop the server
