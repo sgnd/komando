@@ -68,6 +68,14 @@ its highlights; the sections below them give the details. Versions follow
   removed earlier): `VPN_OS_MODE_REMOVED` is gone, and `vpn show` no
   longer has a `runs` line for it. Re-add such a VPN with `vpn add ...
   --overwrite` before updating.
+- The reader for sealed stores from before the record index (a change
+  count with no index beside it). No released komando wrote that form,
+  only development builds in the hours before 0.12.0. A store in that
+  form now stops with "changed outside komando".
+- The reader for audit entries from before the audit chain (an entry
+  that does not hold the sum of the one before it). Only the same
+  development builds wrote them. `komando audit` stops at such an entry
+  with "changed outside komando", after the entries before it.
 
 ### Security
 
