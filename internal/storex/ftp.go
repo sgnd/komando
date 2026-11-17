@@ -106,14 +106,24 @@ type ftpReconnect struct {
 	login func() (*ftp.ServerConn, error)
 }
 
-// again reports whether err is a dropped connection and a new session is open.
-func (r *ftpReconnect) again(err error) bool {
+// again reports whether *err is a dropped connection and a new session is
+// open. When the new session cannot be opened, *err says so next to the
+// drop, so the answer names the layer that failed.
+func (r *ftpReconnect) again(err *error) bool {
 	var oe *out.Error
-	if !errors.As(err, &oe) || oe.Code != "STORAGE_CONNECT" {
+	if !errors.As(*err, &oe) || oe.Code != "STORAGE_CONNECT" {
 		return false
 	}
 	c, lerr := r.login()
 	if lerr != nil {
+		why := lerr.Error()
+		var le *out.Error
+		if errors.As(lerr, &le) {
+			why = le.Message
+		}
+		both := *oe
+		both.Message = oe.Message + "; logging in again failed: " + why
+		*err = &both
 		return false
 	}
 	_ = r.c.Quit() // the old session is broken; this only frees it
@@ -123,7 +133,7 @@ func (r *ftpReconnect) again(err error) bool {
 
 func (r *ftpReconnect) List(ctx context.Context, prefix string, recursive bool, limit int) ([]Object, bool, error) {
 	objs, more, err := r.ftpBucket.List(ctx, prefix, recursive, limit)
-	if err != nil && r.again(err) {
+	if err != nil && r.again(&err) {
 		return r.ftpBucket.List(ctx, prefix, recursive, limit)
 	}
 	return objs, more, err
@@ -131,7 +141,7 @@ func (r *ftpReconnect) List(ctx context.Context, prefix string, recursive bool, 
 
 func (r *ftpReconnect) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
 	n, err := r.ftpBucket.Get(ctx, key, w)
-	if err != nil && n == 0 && r.again(err) {
+	if err != nil && n == 0 && r.again(&err) {
 		return r.ftpBucket.Get(ctx, key, w)
 	}
 	return n, err
@@ -139,7 +149,7 @@ func (r *ftpReconnect) Get(ctx context.Context, key string, w io.Writer) (int64,
 
 func (r *ftpReconnect) Exists(ctx context.Context, key string) (bool, error) {
 	ok, err := r.ftpBucket.Exists(ctx, key)
-	if err != nil && r.again(err) {
+	if err != nil && r.again(&err) {
 		return r.ftpBucket.Exists(ctx, key)
 	}
 	return ok, err
@@ -147,7 +157,7 @@ func (r *ftpReconnect) Exists(ctx context.Context, key string) (bool, error) {
 
 func (r *ftpReconnect) Stat(ctx context.Context, key string) (Object, error) {
 	o, err := r.ftpBucket.Stat(ctx, key)
-	if err != nil && r.again(err) {
+	if err != nil && r.again(&err) {
 		return r.ftpBucket.Stat(ctx, key)
 	}
 	return o, err
@@ -169,7 +179,7 @@ func (r *ftpReconnect) Put(ctx context.Context, key string, src io.Reader, size 
 	if _, serr := s.Seek(0, io.SeekStart); serr != nil {
 		return err
 	}
-	if !r.again(err) {
+	if !r.again(&err) {
 		return err
 	}
 	return r.ftpBucket.Put(ctx, key, src, size, contentType)
@@ -177,7 +187,7 @@ func (r *ftpReconnect) Put(ctx context.Context, key string, src io.Reader, size 
 
 func (r *ftpReconnect) Remove(ctx context.Context, key string) error {
 	err := r.ftpBucket.Remove(ctx, key)
-	if err != nil && r.again(err) {
+	if err != nil && r.again(&err) {
 		err = r.ftpBucket.Remove(ctx, key)
 		var oe *out.Error
 		if errors.As(err, &oe) && oe.Code == "OBJECT_NOT_FOUND" {
