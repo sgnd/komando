@@ -143,7 +143,7 @@ func TestAliasesKeepID(t *testing.T) {
 				}
 				tcl.out.Mask, tcl.personalCmd = false, false
 			}
-			name, _, _ := gateCheck(append(slices.Clone(parent), a), true)
+			name, _, _ := gateCheck(append(slices.Clone(parent), a), gateKey{readOnly: true, network: true})
 			if name != cmdID(c) {
 				t.Errorf("%s typed as %q: the ssh gate sees %q, want %q", c.CommandPath(), a, name, cmdID(c))
 			}

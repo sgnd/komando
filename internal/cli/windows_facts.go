@@ -31,6 +31,7 @@ kv mem_available_mb ([int64]($o.FreePhysicalMemory / 1KB))
 kv uptime_sec ([int64]((Get-Date) - $o.LastBootUpTime).TotalSeconds)
 $d = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$env:SystemDrive'"
 if ($d.Size) { kv disk_root_total_gb ([int64]($d.Size / 1GB)); kv disk_root_used_pct ([int64](100 - 100 * $d.FreeSpace / $d.Size)) }
+Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' | Where-Object { $_.Size } | ForEach-Object { kv disk (@($_.DeviceID, [int64]($_.Size / 1KB), [int64](($_.Size - $_.FreeSpace) / 1KB), [int64]($_.FreeSpace / 1KB), [int64](100 - 100 * $_.FreeSpace / $_.Size), ($_.DeviceID + '\')) -join [char]9) }
 kv ips ((Get-CimInstance Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' | ForEach-Object { $_.IPAddress } | Where-Object { $_ -notmatch ':' }) -join ' ')
 kv virt $cs.Model
 kv domain $cs.Domain
@@ -70,6 +71,7 @@ func parseWinFacts(s string, now time.Time) map[string]any {
 	set := map[string]string{}
 	tools, stopped := []string{}, []string{}
 	var ports []listenPort
+	var disks []diskFacts
 	for _, line := range strings.Split(s, "\n") {
 		k, v, ok := strings.Cut(strings.TrimRight(line, "\r"), "=")
 		if !ok {
@@ -87,6 +89,8 @@ func parseWinFacts(s string, now time.Time) map[string]any {
 			}
 		case "ips":
 			f[k] = strings.Fields(v)
+		case "disk":
+			disks = appendDisk(disks, v)
 		case "admin", "reboot_required":
 			f[k] = strings.EqualFold(v, "true")
 		case "cpus", "mem_total_mb", "mem_available_mb", "uptime_sec", "disk_root_total_gb", "disk_root_used_pct":
@@ -101,6 +105,9 @@ func parseWinFacts(s string, now time.Time) map[string]any {
 	}
 	sort.Strings(tools)
 	f["tools"], f["services_stopped"] = tools, stopped
+	if disks != nil {
+		f["disks"] = disks
+	}
 	if _, ok := f["reboot_required"]; !ok {
 		f["reboot_required"] = nil
 	}
