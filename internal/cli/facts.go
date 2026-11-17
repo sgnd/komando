@@ -25,6 +25,15 @@ const factsDiskLines = `df -P -k / 2>/dev/null | awk 'NR==2{print "disk_root_tot
 df -P -k 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|udev|overlay|shm|none|squashfs|proc|sysfs|efivarfs|cgroup2?)$/ && $1 !~ /^\/dev\/loop/ {m=$6; for(i=7;i<=NF;i++) m=m" "$i; if (m ~ /^\/(proc|sys|dev|run|snap)(\/|$)/) next; printf "disk=%s\t%s\t%s\t%s\t%d\t%s\n", $1, $2, $3, $4, $5, m}'
 `
 
+// factsName keeps a name a string, whatever it looks like (PRETTY_NAME=2024
+// is not a number); an OS name or version the server does not have is null.
+func factsName(k, v string) any {
+	if v == "" && strings.HasPrefix(k, "os") {
+		return nil
+	}
+	return v
+}
+
 // factsScript gathers everything in one round trip. It only reads: it
 // never refreshes a package index, never starts a PM2 daemon, and uses sudo
 // only as `sudo -n` when sudo already works without a password (it never
@@ -245,12 +254,8 @@ func parseFactsAt(s string, now time.Time) map[string]any {
 		case "apt_sim_ok", "apt_lists_mtime", "upd_rc", "sec_rc", "listen_src", "listen_names",
 			"units_checked", "now_epoch", "docker_version", "login_user", "pm2_mine":
 			set[k] = v
-		case "os", "os_version", "os_pretty": // a name stays a string; one the server lacks is null
-			if v != "" {
-				f[k] = v
-			}
-		case "hostname", "kernel":
-			f[k] = v
+		case "os", "os_version", "os_pretty", "hostname", "kernel":
+			f[k] = factsName(k, v)
 		case "ips":
 			f[k] = strings.Fields(v)
 		case "load":
