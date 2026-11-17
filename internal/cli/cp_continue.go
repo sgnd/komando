@@ -425,26 +425,12 @@ func (e bucketEnd) size(ctx context.Context) (int64, bool, error) {
 
 func (bucketEnd) sumThere(context.Context, int64) (string, bool) { return "", false }
 
-// openAt streams the object through a pipe: nothing is kept on disk or
-// in memory. Closing the reader early stops the download.
+// openAt streams the object from off (getReader).
 func (e bucketEnd) openAt(ctx context.Context, off int64) (io.ReadCloser, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	pr, pw := io.Pipe()
-	go func() {
-		_, err := storex.GetFrom(ctx, e.b, e.key, off, pw)
-		pw.CloseWithError(err)
-	}()
-	return cancelReader{pr, cancel}, nil
-}
-
-type cancelReader struct {
-	*io.PipeReader
-	cancel context.CancelFunc
-}
-
-func (c cancelReader) Close() error {
-	c.cancel()
-	return c.PipeReader.Close()
+	return getReader(ctx, func(ctx context.Context, w io.Writer) error {
+		_, err := storex.GetFrom(ctx, e.b, e.key, off, w)
+		return err
+	}), nil
 }
 
 func (e bucketEnd) canAppend() bool { return storex.CanAppend(e.b) }
