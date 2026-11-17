@@ -328,6 +328,7 @@ func fsWriteInput(cl *call, contentSet bool, content, from string) ([]byte, erro
 		if data, err = readFileOrStdin(cl, from); err != nil {
 			return nil, err
 		}
+		noteApprovalData(cl, scriptLabel("the content", from), data)
 	default:
 		if data, err = readStdinIfPiped(cl, 0, "the content"); err != nil {
 			return nil, err
@@ -335,6 +336,7 @@ func fsWriteInput(cl *call, contentSet bool, content, from string) ([]byte, erro
 		if data == nil {
 			return nil, out.Usage("give the content with --content, --from FILE, or pipe it in (stdin)")
 		}
+		noteApprovalData(cl, scriptLabel("the content", "-"), data)
 	}
 	if out.HasHidden(string(data)) {
 		return nil, hiddenValueErr()

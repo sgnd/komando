@@ -43,3 +43,6 @@ func rootsAlone(p string) bool {
 		p = up
 	}
 }
+
+// windowsDir is the Windows folder; there is none here.
+func windowsDir() string { return "" }

@@ -318,7 +318,8 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 		for i, h := range hits {
 			ids[i], reasons[i] = h.ID, h.Reason
 		}
-		if len(hits) > 0 && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
+		// one window for both stops: it names the protected servers too
+		if len(hits) > 0 && !cl.dangerAndYesOK(protWhy(prot), fmt.Sprintf("[%s] %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), targetsWhy(st, hosts)) && !confirmDangerousOn(cl, names, prot, hits[0].Reason) {
 			// a dry run goes on to the protection check, so meta.would_need names both flags
 			if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 				fmt.Sprintf("the command matches destructive rules [%s]: %s", strings.Join(ids, ","), strings.Join(reasons, "; ")), protNeed(prot)...).Say(dangerSay(reasons), dangerHint)); err != nil {
@@ -326,7 +327,7 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 			}
 		}
 	}
-	if len(prot) > 0 && !cl.yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(cl, prot) {
+	if len(prot) > 0 && !cl.yesOK(protWhy(prot), targetsWhy(st, hosts)) && !confirmProtected(cl, prot) {
 		return cl.policyStop(approvalErr(cl, "PROTECTED_HOST",
 			fmt.Sprintf("this changes protected %s: %s", nouns(len(prot), "server"), strings.Join(prot, ", "))).Say(protectedSay(prot, "server"), protectedHint))
 	}
@@ -358,55 +359,6 @@ func connsWhy(names []string) string {
 		return ""
 	}
 	return "it runs on " + strings.Join(names, ", ")
-}
-
-// guardConns is guard for conns. The driver classifies the operation first;
-// destructive needs --allow-dangerous, and any change to a protected conn
-// needs --yes. Exit code and codes match guard so agents handle both alike.
-func guardConns(cl *call, st *store.State, conns []*store.Conn, v driver.Verdict) error {
-	names := make([]string, len(conns))
-	for i, c := range conns {
-		names[i] = c.Name
-	}
-	var prot []string
-	if v.Risk >= driver.RiskWrite {
-		for _, c := range conns {
-			if protectedConn(st, c) {
-				prot = append(prot, c.Name)
-			}
-		}
-	}
-	if v.Risk >= driver.RiskDestructive && !cl.dangerOK(fmt.Sprintf("[%s] %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), connsWhy(names)) && !confirmDangerousOn(cl, names, prot, strings.Join(v.Reasons, "; ")) {
-		if err := cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
-			fmt.Sprintf("the operation matches destructive rules [%s]: %s", strings.Join(v.RuleIDs, ","), strings.Join(v.Reasons, "; ")), protNeed(prot)...).Say(dangerSay(v.Reasons), dangerHint)); err != nil {
-			return err
-		}
-	}
-	if len(prot) > 0 && !cl.yesOK("a change on protected "+nouns(len(prot), "conn")+" "+strings.Join(prot, ", ")) && !confirmProtected(cl, prot) {
-		return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
-			fmt.Sprintf("a %s action on protected %s: %s", v.Risk, nouns(len(prot), "conn"), strings.Join(prot, ", "))).Say(protectedSay(prot, connWord(conns, prot)), protectedHint))
-	}
-	return nil
-}
-
-// protectedHost is true when h is marked protected, or when a protected
-// inventory host has the same address and port: otherwise an ad-hoc
-// user@address or a second name for the same server would get around
-// protection. Addresses are compared as sameServer does: by name, and by
-// the IP addresses they lead to (each IP in its one canonical form, so
-// ::ffff:10.0.0.5 is 10.0.0.5). A name this computer cannot look up (one
-// only a jump host knows) is compared by its text only: failing closed on
-// it would put every change behind --yes and teach people to say yes.
-func protectedHost(st *store.State, h *store.Host) bool {
-	if h.Protected {
-		return true
-	}
-	for _, o := range st.Hosts {
-		if o.Protected && o.EffectivePort() == h.EffectivePort() && sameServer(o.Address, h.Address) {
-			return true
-		}
-	}
-	return false
 }
 
 // sameHostName compares host names the way DNS does: case does not matter,
@@ -631,7 +583,10 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 		rec["hosts"] = hosts
 	}
 	if remote != "" {
-		rec["remote"] = remote
+		// the command as it ran, without the passwords, keys and tokens it
+		// carried: the record is kept for years, and a copy of it goes to
+		// the syslog server in clear text (audit_syslog)
+		rec["remote"] = out.MaskSecrets(cl.out.RedactExact(remote))
 	}
 	if a := cl.caller().Agent; a != "" {
 		rec["agent"] = a // who typed it: an AI agent

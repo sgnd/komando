@@ -309,6 +309,9 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 		if err != nil {
 			return SQLPlan{}, err
 		}
+		// what runs decides how it is run: the statement inside MariaDB's
+		// SET STATEMENT ... FOR, not the SET around it
+		ts = setStatementInner(ts)
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
 			Rows: rowsFor(kind, kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
@@ -562,25 +565,9 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 		}
 		return classifyStatement(inner, strict) // EXPLAIN EXECUTE runs its argument expressions even without ANALYZE
 	}
-	if strict && (first == "SET" || first == "RESET") {
-		for i, t := range ts {
-			name := t.word
-			afterScope := i > 0 && (ts[i-1].punct == '@' || ts[i-1].punct == '.') // @@session.x
-			switch {
-			case t.ident != "": // SET "standard_conforming_strings", SET `autocommit`
-				name = t.ident
-			case t.punct == '\'' && afterScope: // MariaDB: @@session.'autocommit'
-				name = strings.ToUpper(t.str)
-			}
-			if afterScope && (t.ident != "" || t.punct == '\'') && strings.Contains(name, `\`) {
-				// MariaDB reads @@session.'auto\commit' as autocommit
-				return 0, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
-					"write the setting name without quotes or backslashes: komando cannot check a name it cannot read",
-					"setting name %s has escapes", strings.ToLower(name))
-			}
-			if err := settingAllowed(name); err != nil {
-				return 0, nil, err
-			}
+	if first == "SET" || first == "RESET" {
+		if risk, rules, done, err := classifySet(ts, second, strict); done {
+			return risk, rules, err
 		}
 	}
 	risk := RiskWrite

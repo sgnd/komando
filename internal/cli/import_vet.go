@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -218,7 +219,7 @@ func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
 // stops an AI agent, whether it is there already or only named
 // (loginPlaceStop), and replacing one a protected entry uses needs a
 // person's yes.
-func guardImportSecrets(cl *call, st *store.State, names []string) error {
+func guardImportSecrets(cl *call, st *store.State, names []string, plan *importPlan) error {
 	for _, name := range names {
 		if err := loginPlaceStop(cl, secretPlaceChanges(st, name)); err != nil {
 			return err
@@ -235,7 +236,12 @@ func guardImportSecrets(cl *call, st *store.State, names []string) error {
 			}
 		}
 	}
-	return nil
+	// and secret set's check of whom komando trusts
+	values := map[string]string{}
+	for _, n := range names {
+		values[n] = cmp.Or(plan.Secrets[n], plan.SealedSecrets[n])
+	}
+	return guardImportedTrust(cl, st, values)
 }
 
 // importVpnOptIns asks for the weaker logins an imported VPN turns on, as
