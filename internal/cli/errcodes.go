@@ -172,7 +172,7 @@ var errorCodes = []errorCode{
 	{"QUEUE_EXISTS", 8, "queue … already exists", "pick another name, or see it with `komando queue describe CONN …`"},
 	{"QUEUE_NOT_FOUND", 3, "no queue named …", "list queues with `komando queue list CONN` (it needs ?management=PORT in the conn's URL); the vhost is the URL's path"},
 	{"READ_FAILED", 5, "cannot read …: …", "run it again; the output was cut (raise --max-output?)"},
-	{"READ_ONLY_VIOLATION", 6, "--read-only, but the command changes something (…)", "it changes something, so it is not --read-only: tell the user what it changes, then run it without --read-only (a protected server also needs --yes)"},
+	{"READ_ONLY_VIOLATION", 6, "--read-only, but the command is not known to only read (…)", "--read-only runs only what komando knows only reads: for a server's state use komando facts, logs, svc status or fs read; otherwise tell the user what the command does, then run it without --read-only (a protected server also needs --yes)"},
 	{"REBOOT_FAILED", 5, "the reboot command failed (exit …): …", "read the error output (stderr); without sudo rights a reboot is refused"},
 	{"REBOOT_TIMEOUT", 7, "… did not come back within …", "check the server's console; komando did not reboot the servers after it"},
 	{"RECIPE_BUILTIN", 8, "… is a built-in recipe", "pick another name; see `komando recipe list`"},

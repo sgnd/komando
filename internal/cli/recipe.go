@@ -367,9 +367,9 @@ func recipeRunCmd() *cobra.Command {
 				return err
 			}
 			// read-only skips the protected-server question only for a
-			// command komando knows reads (allowlist): a filled-in command
-			// that clearly writes, or that komando cannot confirm only
-			// reads, runs as a change, so a protected server asks for --yes
+			// command komando knows only reads: a filled-in command that
+			// writes, or that komando cannot confirm only reads, runs as
+			// a change, so a protected server asks for --yes
 			mutating := !r.ReadOnly || readOnlyMutates(command, nil)
 			// the approval window shows what runs, not only the recipe's
 			// name: a stored recipe can be replaced between two runs
