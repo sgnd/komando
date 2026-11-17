@@ -72,6 +72,10 @@ type call struct {
 	// ask opens the approval window; nil is askOnScreen.
 	ask func(text string) (allowed, shown bool)
 
+	// logins are the passwords typed for login-ask servers in this
+	// command (login_ask.go)
+	logins typedLogins
+
 	// what one command found out as it ran
 	askedAbout      []string            // the targets of the last yes/no question, so a "no" can say where nothing was changed
 	blockAudited    bool                // the command recorded its safety stop already (auditBlocked)
@@ -134,6 +138,7 @@ func (cl *call) begin() {
 	cl.oldCopy.Store(false)
 	cl.commits = store.Commits()
 	cl.ttyYes, cl.typed, cl.typedProt, cl.body, cl.manifests = nil, nil, nil, nil, nil
+	cl.logins.reset()
 }
 
 // storeWrite is how this command's changes to the store and the vault go:

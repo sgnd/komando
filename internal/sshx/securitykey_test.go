@@ -1,6 +1,7 @@
 package sshx
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/pem"
@@ -68,7 +69,7 @@ func TestSecurityKeyGoesThroughTheAgent(t *testing.T) {
 		t.Fatal("IsSecurityKey")
 	}
 	h := &store.Host{Name: "web1", Address: "10.0.0.5", User: "u", Identity: p}
-	_, _, err := authMethods(newState(h), h, 0)
+	_, _, err := authMethods(context.Background(), newState(h), h, 0, nil)
 	e := asOutErr(t, err)
 	if e.Code != "KEY_PASSPHRASE_REQUIRED" || !strings.Contains(e.Message, "security key") || !strings.Contains(e.Hint, "ssh-add") {
 		t.Fatalf("no agent: %+v", e)

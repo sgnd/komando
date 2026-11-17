@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealrow"
@@ -19,6 +20,10 @@ type Runtime struct {
 	Logins   map[string]*SSHLogin   `json:"ssh_logins,omitempty"`
 	Jobs     map[string]*Job        `json:"jobs,omitempty"`
 	Tunnels  map[string]*Tunnel     `json:"tunnels,omitempty"`
+	// LoginDeclined: when a person last cancelled the password window of
+	// a login-ask server, by its record ID (sshx.LoginID); the window stays shut for a
+	// short while after (cli loginCoolDown)
+	LoginDeclined map[string]time.Time `json:"login_declined,omitempty"`
 }
 
 const runtimeLock = ".runtime.lock"

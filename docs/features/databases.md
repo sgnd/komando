@@ -57,6 +57,39 @@ never opens a file in a folder where logins are kept (`~/.ssh`, `~/.aws`,
 komando keeps from agents, links followed, and `db dump --to` and
 `db restore --from` refuse the same paths (`SENSITIVE_FILE`).
 
+A password that should never be kept on this computer can be typed each
+time instead, with `--login ask`:
+
+```bash
+komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --login ask
+komando conn edit prod-db --login ask        # stop using the stored password
+komando conn edit prod-db --login password --ask-password   # back to a stored one
+```
+
+`--login` takes the words `conn show` and `list` print in their `login`
+field: `ask` (a person types the password at every connect; never
+stored), `password` (a stored one: `--ask-password` or `--password-ref`)
+or `none` (komando sends no password of its own: the URL's own login, a
+cloud login, or none). A login-ask conn asks as a
+[login-ask server](servers.md#type-the-password-each-time---login-ask)
+does: at your terminal (hidden), in an app's window, or, for an AI agent's
+command, in komando's own window, which names the conn, its user,
+address, the way there (`--via`) and the command; the agent never sees
+the password. A cancel stops the command with `DECLINED`, and the window
+stays shut for that conn for a minute. A script, or an agent with no
+screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
+agent that adds a login-ask conn, changes its URL or `--via`, turns one
+to `--login ask`, changes a server or VPN on its way, or replaces a
+secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
+password (above), every setting of the URL except the few that move
+nothing counts as where it goes. An agent's `db dump` and `db restore`
+of such a conn stop too: the dump tool would get the password in its environment, where
+the agent's own programs could read it; run those yourself. A file
+(SQLite) or a cluster has no password to type: `--login ask` is refused
+there. A conn has no `komando login`, so every command asks; use TLS
+(`sslmode=verify-full`, `tls=true`) so the server is checked before the
+password goes out.
+
 `--via web1` means "the database is only reachable from web1". komando
 connects through web1 over SSH by itself: there is no tunnel to start and no
 port opens on your computer. `--via` can also be a chain or a VPN (see
@@ -1103,6 +1136,12 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   `revoke` (Google Cloud IAM), and `db locks`.
 
 ## Limits
+
+- `--login ask` relies on komando telling an AI agent from a person, by
+  the agent's environment only. Any program of your user can fake
+  komando's window, replace its binary or read its memory; see
+  [Servers](servers.md#limits). Files under `~/.postgresql` (a
+  `root.crt` there) are read as Postgres does.
 
 **SQL Server**
 
