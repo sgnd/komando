@@ -145,6 +145,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A Google Cloud Storage conn reads at most 32 MiB of one listing page or
+  one object's details: a broken or hostile endpoint that answers without
+  end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
+  instead of being read, and kept in memory, whole.
 - An FTP or FTPS conn whose connection drops, and whose one new session
   cannot be opened either, now says both in `STORAGE_CONNECT`: the drop
   and why logging in again failed ("...: EOF; logging in again failed:
