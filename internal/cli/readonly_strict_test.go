@@ -304,3 +304,58 @@ func TestReadOnlySudoKeepsNoEnvironment(t *testing.T) {
 	refusedReadOnly(t, `sudo -E cat /etc/shadow`, `sudo --preserve-env cat f`, `sudo --preserve-env=PATH cat f`, `sudo -nE cat f`)
 	allowedReadOnly(t, `sudo -n cat /etc/shadow`, `sudo -u postgres -H psql -c 'select 1'`)
 }
+
+// Review round 3 (2026-11-17).
+
+// An -e value inside double quotes is one word the check cannot see as
+// the shell will ("$X" with X=-delete is find's -delete).
+func TestReadOnlyEnvInDoubleQuotes(t *testing.T) {
+	for _, c := range []struct{ cmd, env string }{
+		{`find /tmp "$X"`, `X=-delete`},
+		{`sort "$X" a`, `X=-o/tmp/x`},
+		{`find /tmp "${X}"`, `X=-delete`},
+		{`echo "a $X b"`, `X=x`},
+	} {
+		if !readOnlyMutates(c.cmd, []string{c.env}) {
+			t.Errorf("%q with -e %s passed", c.cmd, c.env)
+		}
+	}
+	if readOnlyMutates(`du -sh $dir`, []string{`dir=/var/log`}) {
+		t.Error("du -sh $dir with -e dir=/var/log refused")
+	}
+	if readOnlyMutates(`echo '$X'`, []string{`X=-delete`}) {
+		t.Error(`echo '$X' refused: the single quotes keep it literal`)
+	}
+}
+
+// A variable a program reads as options, a plugin or a config path:
+// under --read-only a name must have a lower-case letter (programs read
+// upper-case ones) or be one of the few that only set a language or zone.
+func TestReadOnlyEnvNames(t *testing.T) {
+	for _, env := range []string{
+		`TAR_OPTIONS=--checkpoint=1 --checkpoint-action=exec=id`, `JAVA_TOOL_OPTIONS=-javaagent:x`, `_JAVA_OPTIONS=x`,
+		`GCONV_PATH=/tmp`, `LOCPATH=/tmp`, `NODE_PATH=/tmp`, `PGOPTIONS=x`, `PGSERVICEFILE=/tmp/x`, `MYSQL_HOME=/tmp`,
+		`ZDOTDIR=/tmp`, `XDG_CONFIG_HOME=/tmp`, `SYSTEMD_PAGERSECURE=0`, `DIR=/var/log`,
+		`http_proxy=http://x`, `https_proxy=http://x`, `all_proxy=x`, `no_proxy=x`,
+	} {
+		if !readOnlyMutates(`tar tf a.tar`, []string{env}) {
+			t.Errorf("-e %s passed", env)
+		}
+	}
+	refusedReadOnly(t, `TAR_OPTIONS=--checkpoint-action=exec=id tar tf a.tar`, `export TAR_OPTIONS=x; tar tf a.tar`,
+		`DIR=/var/log; du -sh $DIR`, `http_proxy=x curl_like`)
+	for _, env := range []string{`LANG=C`, `LC_ALL=C`, `TZ=UTC`, `TERM=dumb`, `COLUMNS=200`, `NO_COLOR=1`, `dir=/var/log`, `logDir=/x`} {
+		if readOnlyMutates(`ls`, []string{env}) {
+			t.Errorf("-e %s refused", env)
+		}
+	}
+	allowedReadOnly(t, `export LC_ALL=C; df -h`, `TZ=UTC date`, `dir=/var/log; du -sh $dir`)
+}
+
+// psql and mysql run in no read-only transaction under exec: a function a
+// SELECT calls may write, and their meta commands run a shell (\echo `id`).
+// komando db query runs SQL in a read-only transaction instead.
+func TestReadOnlySQLClientsRefused(t *testing.T) {
+	refusedReadOnly(t, `psql -c 'select 1'`, `psql app`, `sudo -u postgres psql -c 'select f()'`,
+		`mysql -e 'select 1'`, `mariadb app`, `psql -c '\echo `+"`id`"+`'`)
+}
