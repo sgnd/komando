@@ -123,9 +123,17 @@ func LiveSession(ctx context.Context, v *store.Vpn) *store.VpnSession {
 	return s
 }
 
-// SessionAlive reports whether a session's process runs.
+// SessionAlive reports whether a session's process runs: the pid is
+// alive, runs the session's program, and started when the session's
+// process did. A pid the system gave to another process later (after a
+// crash, or named by an old copy of runtime.json put back) is not the
+// session's, even when it runs the same program: its SOCKS port and login
+// must not go to it, and it must not be signalled.
 func SessionAlive(s *store.VpnSession) bool {
-	return Alive(s.PID) && isProgram(s.PID, s.Exe)
+	if !Alive(s.PID) || !isProgram(s.PID, s.Exe) {
+		return false
+	}
+	return s.ProcStart == "" || ProcessStart(s.PID) == s.ProcStart
 }
 
 // isProgram checks that pid still runs the expected program: after a

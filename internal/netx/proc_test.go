@@ -2,8 +2,11 @@ package netx
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 func TestSameProgram(t *testing.T) {
@@ -38,5 +41,53 @@ func TestIsProgramSelf(t *testing.T) {
 	}
 	if isProgram(os.Getpid(), "surely-not-this-program") {
 		t.Fatal("isProgram matched another program's name")
+	}
+}
+
+// A session names its process by its pid, its program and when it
+// started. A pid used again by another process of the same program (a
+// komando or an openconnect started later) is not the session's: an old
+// runtime.json put back, or a session whose process died, must not send
+// its SOCKS login and its targets to whatever that process is.
+func TestSessionAliveNeedsTheSameStart(t *testing.T) {
+	self, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := ProcessStart(os.Getpid())
+	if start == "" {
+		t.Fatal("ProcessStart(self) is empty: this system's start time is not read")
+	}
+	if again := ProcessStart(os.Getpid()); again != start {
+		t.Fatalf("ProcessStart changes: %q, then %q", start, again)
+	}
+	s := &store.VpnSession{PID: os.Getpid(), Exe: filepath.Base(self), ProcStart: start}
+	if !SessionAlive(s) {
+		t.Error("the session's own process is not alive")
+	}
+	s.ProcStart = "1"
+	if SessionAlive(s) {
+		t.Error("a process that started at another time passes as the session's")
+	}
+	// a session recorded before start times were kept: pid and program only
+	s.ProcStart = ""
+	if !SessionAlive(s) {
+		t.Error("a session without a start time is not alive")
+	}
+	if got := ProcessStart(1 << 30); got != "" {
+		t.Errorf("ProcessStart of no process = %q", got)
+	}
+}
+
+// Another process started after this one has another start time.
+func TestProcessStartDiffers(t *testing.T) {
+	c := exec.Command(os.Args[0], "-test.run=^$")
+	if err := c.Start(); err != nil {
+		t.Fatal(err)
+	}
+	child := ProcessStart(c.Process.Pid)
+	_ = c.Wait()
+	if child == "" || child == ProcessStart(os.Getpid()) {
+		t.Errorf("a child's start %q, this process's %q", child, ProcessStart(os.Getpid()))
 	}
 }

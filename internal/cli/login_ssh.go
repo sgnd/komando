@@ -99,7 +99,7 @@ func (r loginResult) Text() string {
 
 // heldAlive reports whether l's process still runs.
 func heldAlive(l *store.SSHLogin) bool {
-	return l != nil && netx.SessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe})
+	return l != nil && netx.SessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe, ProcStart: l.ProcStart})
 }
 
 // endLogin stops l's process and removes its socket. It keeps the record:
@@ -157,6 +157,7 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 	}
 	l.PID = c.Process.Pid
 	l.Exe = filepath.Base(self)
+	l.ProcStart = netx.ProcessStart(l.PID)
 	fail := func(e error) (*store.SSHLogin, error) {
 		_ = c.Process.Kill()
 		_ = c.Wait()

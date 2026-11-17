@@ -280,6 +280,9 @@ func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, 
 	default:
 		return nil, out.Usage("%s VPNs need no session", v.Kind)
 	}
+	// when the process started: a pid the system gives to another
+	// process later is never taken for this session
+	s.ProcStart = netx.ProcessStart(s.PID)
 	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.Sessions[v.Name] = s; return nil }); err != nil {
 		netx.StopSession(s)
 		return nil, err

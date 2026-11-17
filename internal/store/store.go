@@ -298,7 +298,8 @@ type VpnSession struct {
 	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
 	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
 	SocksPass string    `json:"socks_pass,omitempty"`
-	Exe       string    `json:"exe,omitempty"` // the program the pid must still be, so a reused pid is never signalled
+	Exe       string    `json:"exe,omitempty"`        // the program the pid must still be, so a reused pid is never signalled
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart): a pid used again is another process
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`
@@ -312,6 +313,7 @@ type SSHLogin struct {
 	Target    string    `json:"target"` // user@address:port when it logged in: the login is used only while the host still points there
 	PID       int       `json:"pid"`
 	Exe       string    `json:"exe,omitempty"`
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart)
 	Socket    string    `json:"socket"`
 	Token     string    `json:"token"`    // the socket's password, random per login
 	HostKey   string    `json:"host_key"` // the socket's own key (authorized_keys form), random per login
