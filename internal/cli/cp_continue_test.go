@@ -10,7 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -392,5 +394,84 @@ func TestContinueDestinationChangedMeanwhile(t *testing.T) {
 	}
 	if string(readBytes(t, dst)) != "12345" {
 		t.Error("the file was changed")
+	}
+}
+
+// oneLineBucket is a conn with one control connection, like FTP: a Get
+// still finishing (it reads the server's closing reply after the last
+// byte) must be over before the next call, or the replies cross.
+type oneLineBucket struct {
+	*memBucket
+	mu      sync.Mutex
+	busy    bool
+	crossed bool
+}
+
+func (b *oneLineBucket) use() {
+	b.mu.Lock()
+	if b.busy {
+		b.crossed = true
+	}
+	b.mu.Unlock()
+}
+
+func (b *oneLineBucket) Get(ctx context.Context, key string, w io.Writer) (int64, error) {
+	b.use()
+	b.mu.Lock()
+	b.busy = true
+	b.mu.Unlock()
+	n, err := b.memBucket.Get(ctx, key, w)
+	time.Sleep(50 * time.Millisecond) // the closing reply after the last byte
+	b.mu.Lock()
+	b.busy = false
+	b.mu.Unlock()
+	return n, err
+}
+
+func (b *oneLineBucket) Stat(ctx context.Context, key string) (storex.Object, error) {
+	b.use()
+	return b.memBucket.Stat(ctx, key)
+}
+
+// Reading part of an object, then closing, leaves the conn free for the
+// next call: Close waits for the download to end.
+func TestBucketEndCloseWaitsForTheDownload(t *testing.T) {
+	b := &oneLineBucket{memBucket: &memBucket{objs: map[string]string{"a.bin": "hello world"}}}
+	e := bucketEnd{conn: "files-ftps", b: b, key: "a.bin"}
+	ctx := context.Background()
+	r, err := e.openAt(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(r, make([]byte, 5)); err != nil {
+		t.Fatal(err)
+	}
+	r.Close()
+	if _, _, err := e.size(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if b.crossed {
+		t.Fatal("a call went to the conn while the download was still finishing")
+	}
+}
+
+// The same for a file of a folder copy (bucketSide.open): a copy that
+// stops reading early leaves the conn free for the next file.
+func TestBucketSideCloseWaitsForTheDownload(t *testing.T) {
+	b := &oneLineBucket{memBucket: &memBucket{objs: map[string]string{"site/a.txt": "hello world"}}}
+	side := bucketSide{b: b, prefix: "site/"}
+	r, err := side.open(context.Background(), "a.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(r, make([]byte, 5)); err != nil {
+		t.Fatal(err)
+	}
+	r.Close()
+	if _, err := b.Stat(context.Background(), "site/a.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if b.crossed {
+		t.Fatal("a call went to the conn while the download was still finishing")
 	}
 }
