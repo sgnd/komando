@@ -53,7 +53,7 @@ func TestShellProtectedHost(t *testing.T) {
 	if err := runShell(tcl, context.Background(), "web1"); err != nil {
 		t.Fatalf("dry run: %v", err)
 	}
-	if b := tcl.out.Blocked(); b == nil || b.Code != "PROTECTED_HOST" {
+	if b := tcl.out.Blocked(); b == nil || b.Code != "PROTECTED_TARGET" {
 		t.Errorf("dry run should report the protected stop, got %+v", b)
 	}
 	tcl.flags.dryRun = false
@@ -68,13 +68,13 @@ func TestShellProtectedHost(t *testing.T) {
 	tcl.stdin = r
 	w.WriteString("n\n")
 	w.Close()
-	if err := runShell(tcl, context.Background(), "web1"); err == nil || toErr(err).Code != "PROTECTED_HOST" {
-		t.Errorf("no at the prompt: want PROTECTED_HOST, got %v", err)
+	if err := runShell(tcl, context.Background(), "web1"); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
+		t.Errorf("no at the prompt: want PROTECTED_TARGET, got %v", err)
 	}
 
 	// --yes: past the check, it stops at the bad --via hop instead
 	tcl.flags.yes = true
-	if err := runShell(tcl, context.Background(), "web1"); err == nil || toErr(err).Code == "PROTECTED_HOST" {
+	if err := runShell(tcl, context.Background(), "web1"); err == nil || toErr(err).Code == "PROTECTED_TARGET" {
 		t.Errorf("--yes: want a connect error, got %v", err)
 	}
 }

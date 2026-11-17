@@ -121,7 +121,7 @@ path.
 
 ```bash
 komando download backups reports/q3.pdf --to ~/Downloads/   # into a folder
-komando download backups logs/app.log --to - -o text | less # to stdout
+komando download backups logs/app.log --to - | less         # to stdout
 komando download backups reports -r --to ./reports          # a whole folder
 komando upload backups ./a.pdf reports/                     # stores reports/a.pdf
 komando upload backups ./reports reports -r                 # a whole folder
@@ -135,8 +135,13 @@ changed files, like `komando sync`.
 - Downloads never overwrite a file on your computer unless you add
   `--overwrite`. The file is readable only by you. `--to` takes a file name,
   a folder (one that exists, or a name ending in `/`: the file keeps its
-  name inside), or `-` for stdout (`-o text` only). A folder download keeps
-  files that are already there.
+  name inside), or `-` to stream it to stdout (any `-o`: komando's own
+  answer then goes to stderr). A folder download keeps files that are
+  already there.
+- `komando storage upload CONN - KEY` (or `upload CONN - KEY`) streams
+  stdin into KEY; `--size N` makes a stream of another length fail with
+  `SIZE_CONFLICT` and replace nothing. See
+  [Stream a file through stdout or stdin](files.md#stream-a-file-through-stdout-or-stdin).
 - Uploads replace an object with the same key; the result says
   `"replaced": true`. A key ending in `/` is a folder.
 - On a protected conn, `upload` asks a person at a terminal first; an AI
@@ -144,6 +149,18 @@ changed files, like `komando sync`.
 - `--dry-run` sends nothing, but checks: `upload` shows the key and
   whether it would replace an object, `download` where the file would go
   and its size.
+- `--continue` goes on with one file that was cut off. A download keeps
+  the part already on your computer when it matches the object (sha256),
+  fetches the rest and checks the whole file. An upload can go on only on
+  an SFTP, FTP, FTPS or SMB conn; S3, Google Cloud Storage, Azure Blob
+  and WebDAV store a file whole and cannot add to one, so a cut file there
+  stops with `RESUME_UNSUPPORTED` (upload it again without
+  `--continue`). Storage
+  cannot work out the sum of part of an object, so komando reads the part
+  already copied once more to check it.
+- `komando cp` also copies between two storage conns, or between a conn
+  and a server: `komando cp backups:2026/db.sql.gz dr-backups:2026/`. The
+  data streams through your computer and is never saved on its disk.
 - To keep a folder in step and send only new and changed files, use
   `komando sync` (see [Files](files.md)):
 
@@ -167,6 +184,11 @@ komando storage link media site/report.pdf                   # Google Cloud and 
 komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```
 
+- For an AI agent, `storage link` needs a person's yes (`--reveal`): a
+  link is the file as it is, past the hiding that `storage cat` and
+  `storage download` apply. Without it the command stops with
+  `SENSITIVE_FILE`; for a file that is a secret by its name (`.env`, a
+  key) it always does.
 - The link works for anyone who has it until it expires. Share it like a
   password. It is not written to the audit history.
 - On a protected conn, `link` asks a person at a terminal first; an AI

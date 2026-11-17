@@ -21,9 +21,10 @@ Rules that cannot change because of the contract:
   `komando schema` output is part of this: a change to a `flags[].type`,
   `default`, `kind`, `path` or `usage` value is listed in the release note
   (S-9.8), even when no field name changes.
-- **Error codes and exit codes stay** within output contract 1. Fixes to
-  them are recorded for contract 2. Every new exit-code path on an existing
-  command is listed in the release note with a TestAgentGolden row.
+- **Error codes and exit codes stay** within an output contract
+  (`meta.contract`, 2 since one code each, C79). A removed or renamed code
+  raises the contract. Every new exit-code path on an existing command is
+  listed in the release note with a TestAgentGolden row.
 - **One command, one ID** (S-1.6). The success envelope, the error
   envelope, the audit log and every name-keyed table use the same string.
 - **No legacy.** A rename is clean: the old name stops working, and every
@@ -330,7 +331,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |
 | `--write` | | bool | let a read-first command (SQL, Redis, kubectl text) change things | false |
 | `--read-only` | | bool | declare shell text as read only | false |
-| `--dry-run` | | bool (global) | show the plan, change nothing; never blocked | false |
+| `--dry-run` | | bool (global) | show the plan, change nothing; never blocked (but S-7.5's one exception) | false |
 | `--refresh` | | bool | update the package index first (dnf, zypper) | false |
 | `--*-ref` | | string | where a secret is: `secret:NAME`, `env:VAR`, `file:PATH` or a manager ref | |
 | `--login` | | word | how komando logs in to a server or conn, in the words `show` and `list` print in `login`: `ask` (a person types the password at every connect; never stored), `password` (a stored one); servers also `key` and `agent`, conns `none`. One usage text (S-5.11); contradicting flags are USAGE | as the settings say |
@@ -520,7 +521,7 @@ row; TestAgentGolden has a row per gated command and flag combination]
 |---|---|---|---|
 | T0 read | looks only | nothing | nothing |
 | T1 change | reversible, or only komando's own list | nothing | typed in full: runs. Prompted: `Run it? [y/N, d = --dry-run first]` |
-| T2 protected | any T1 or T3 on a protected server or conn | `--yes`, exit 6 PROTECTED_HOST / PROTECTED_TARGET | `web1 (protected): <what changes>. Continue? [y/N]` |
+| T2 protected | any T1 or T3 on a protected server or conn | `--yes`, exit 6 PROTECTED_TARGET / PROTECTED_TARGET | `web1 (protected): <what changes>. Continue? [y/N]` |
 | T3 dangerous | cannot be undone, or an outage: deleting data or files, purge, restore, reboot, scale to 0, stopping sshd, user rm, sync --delete, deleting a secret or key file, a policy or classifier hit | `--allow-dangerous`, exit 6 POLICY_BLOCKED | `This deletes <what> on <where> for good. Type <answer> to continue:` |
 | T3s safety | weakens komando's own checks: audit off, removing a deny rule, downgrade, keychain or passphrase off, open bind, sending a secret, unprotecting a server, conn or VPN, clearing a VPN's `--mfa` | `--yes`, exit 6 SAFETY_SETTING / OPEN_BIND / SECRET_DESTINATION | `This turns off a komando safety check: <what>. Continue? [y/N]` |
 | T4 person only | approval-code setup, typing a secret, `--reveal`, accepting an old copy, two-factor and VPN login, replacing a pinned host key | no flag; NEEDS_PERSON and friends, hint names the command a person runs | the command itself |
@@ -540,7 +541,8 @@ gate asks `Run it?` once and the typed name once; T3 on a protected target
 asks one typed question with "(protected)" and the answer covers both.
 [code: PTY test]
 
-**S-7.5** `--dry-run` works on every change command, is never blocked, and
+**S-7.5** `--dry-run` works on every change command, is never blocked (but
+for an AI agent's command in another data folder, `KOMANDO_HOME`), and
 lists every approval the real run needs in `meta.would_need`
 (`["--allow-dangerous","--yes"]`), next to the unchanged
 `meta.would_be_blocked`. [code]
@@ -573,7 +575,7 @@ family or item word. OUTCOME and its exit code come from this list:
 | OUTCOME | Exit |
 |---|---|
 | NOT_FOUND, MISSING (a tool) | 3 |
-| EXISTS, IN_USE, CONFLICT, BUSY | 8 |
+| EXISTS, IN_USE, CONFLICT, BUSY, CHANGED (changed while komando worked) | 8 |
 | INVALID, UNSUPPORTED | 2 |
 | AUTH, UNREACHABLE, TLS | 4 |
 | DENIED, FAILED (server side), ERROR (server's own words) | 5 |
@@ -581,10 +583,12 @@ family or item word. OUTCOME and its exit code come from this list:
 | TIMEOUT | 7 |
 | a local failure | 1 |
 
-**S-8.3** One code has one meaning. `<THING>_NOT_FOUND` names exactly what
-is missing. Where a code is shared today, `error.thing` says which
-(`ssh_key`, `cache_key`, `swarm_service`, `repository`, `k8s_object`).
-[code]
+**S-8.3** One code has one meaning, and one meaning has one code: two
+causes share a code only when the next step is the same, and one cause
+gives the same code to an agent and to a script. `<THING>_NOT_FOUND` names
+exactly what is missing; an unknown server, conn or VPN name is
+`TARGET_NOT_FOUND` for every command. Every code has one exit code.
+[code: TestOneCodeEach, TestErrorCodeCatalog]
 
 **S-8.4** `error.message` says what happened and the state of the world:
 lower-case start, no full stop, no `tool:` prefix, the human kind word.
@@ -653,7 +657,7 @@ is a fallback, tracked in a shrinking list. [code]
 **S-9.8** `komando schema` is read by agents (AGENTS rule 2).
 `komando schema` with a synonym (`komando schema host ls`) shows the
 command it runs. The fields agents read for approvals and limits
-(`error.suggestion`, `error.thing`, `meta.would_need`, `meta.truncated`,
+(`error.suggestion`, `meta.would_need`, `meta.truncated`,
 schema `confirm`, schema `default_from`) are part of the output contract.
 [code]
 

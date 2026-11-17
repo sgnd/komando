@@ -450,7 +450,10 @@ func storageLinkCmd() *cobra.Command {
 		Short:   "Make a temporary download link that works without a login",
 		Long: `Prints a URL anyone can use to download KEY until it expires (default 1 hour,
 at most 7 days). Treat it like a password while it is valid. Sharing from a
-protected conn needs --yes. The link itself is not stored in the audit log.
+protected conn needs --yes. An AI agent gets a link only when a person allows
+--reveal, and never for a file that is a secret by its name (.env, a key): a
+link is the file as it is, past the hiding of storage cat and download. The
+link itself is not stored in the audit log.
 The link names the storage address in the conn URL: when komando reaches it
 through --via, only people who can reach that address can use the link.
 --endpoint signs the link for the address they use instead (S3 only).`,
@@ -469,6 +472,9 @@ through --via, only people who can reach that address can use the link.
 					return out.Usage("--endpoint takes http(s)://HOST[:PORT], for example https://files.example.com")
 				}
 				pub = u
+			}
+			if err := guardLink(cl, args[1]); err != nil {
+				return err
 			}
 			// a link opens data to anyone who has it: treat it like a change
 			return withStorage(cl, cmd.Context(), "storage.link", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1], "expires": expires.String()},
@@ -546,6 +552,10 @@ type uploadData struct {
 	Bytes    int64  `json:"bytes"`
 	Replaced bool   `json:"replaced"`
 	DryRun   bool   `json:"dry_run,omitempty"`
+	// --continue: the file's sha256, checked against the object, and the
+	// bytes that were already in the conn and stayed
+	SHA256        string `json:"sha256,omitempty"`
+	ContinuedFrom int64  `json:"continued_from_bytes,omitempty"`
 }
 
 func (d uploadData) Text() string {
@@ -553,6 +563,9 @@ func (d uploadData) Text() string {
 		return fmt.Sprintf("would upload %s -> %s (%s, replaces existing: %s)\n", d.File, d.Key, humanBytes(d.Bytes), yesNo(d.Replaced))
 	}
 	s := fmt.Sprintf("uploaded %s -> %s (%s)", d.File, d.Key, humanBytes(d.Bytes))
+	if d.ContinuedFrom > 0 {
+		s += fmt.Sprintf(", going on after the %s already there", humanBytes(d.ContinuedFrom))
+	}
 	if d.Replaced {
 		s += ", replaced the old object"
 	}
@@ -560,7 +573,8 @@ func (d uploadData) Text() string {
 }
 
 // storageUpload uploads one local file; key defaults to the file's name.
-func storageUpload(cl *call, ctx context.Context, name, conn, file, key string) error {
+// resume (--continue) goes on with an upload that was cut off.
+func storageUpload(cl *call, ctx context.Context, name, conn, file, key string, resume bool) error {
 	key = uploadKey(file, key)
 	if err := storex.CheckKey(key); err != nil {
 		return err
@@ -577,13 +591,21 @@ func storageUpload(cl *call, ctx context.Context, name, conn, file, key string) 
 	}
 	data := func(c *store.Conn, s storex.Bucket, ctx context.Context) (uploadData, error) {
 		replaced, err := s.Exists(ctx, key)
-		return uploadData{Conn: c.Name, File: file, Key: key, Bytes: fi.Size(), Replaced: replaced}, err
+		return uploadData{Conn: c.Name, File: file, Key: key, Bytes: fi.Size(), Replaced: replaced && !resume}, err
 	}
 	return withStoragePreview(cl, ctx, name, conn, driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": key, "file": file, "bytes": fi.Size()},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
 			d, err := data(c, s, ctx)
 			if err != nil {
 				return nil, err
+			}
+			if resume {
+				r, err := resumeCopy(ctx, localEnd{path: file}, bucketEnd{conn: c.Name, b: s, key: key}, file)
+				if err != nil {
+					return nil, err
+				}
+				d.Bytes, d.SHA256, d.ContinuedFrom = r.bytes, r.sum, r.from
+				return d, nil
 			}
 			f, err := os.Open(file)
 			if err != nil {

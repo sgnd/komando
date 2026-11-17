@@ -436,6 +436,42 @@
     },
     "ok": "bool"
   },
+  "cp web:/etc/hosts web:/tmp/hosts --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "download web /etc/hosts --to - --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
   "exec web -- rm -rf /": {
     "command": "string",
     "error": {
@@ -851,7 +887,7 @@
   "host show nope": {
     "command": "string",
     "error": {
-      "code": "code HOST_NOT_FOUND",
+      "code": "code TARGET_NOT_FOUND",
       "hint": "string",
       "message": "string"
     },
@@ -1459,6 +1495,24 @@
     },
     "meta": {
       "contract": "number",
+      "duration_ms": "number",
+      "version": "string"
+    },
+    "ok": "bool"
+  },
+  "upload web - /tmp/motd --size 12 --dry-run": {
+    "command": "string",
+    "data": {
+      "direction": "string",
+      "dst": "string",
+      "hosts": [
+        "string"
+      ],
+      "src": "string"
+    },
+    "meta": {
+      "contract": "number",
+      "dry_run": "bool",
       "duration_ms": "number",
       "version": "string"
     },

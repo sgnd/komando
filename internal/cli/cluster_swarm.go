@@ -74,7 +74,8 @@ func swarmErr(host, stderr, stdout string, code int) *out.Error {
 	switch e.Code {
 	case "DOCKER_ERROR":
 		e.Code = "SWARM_ERROR"
-	case "NOT_FOUND":
+	case "DOCKER_OBJECT_NOT_FOUND":
+		e.Code = "SWARM_OBJECT_NOT_FOUND"
 		e.Hint = "list what exists with `komando cluster list " + host + " services` (or tasks, nodes, stacks)"
 	}
 	return e
@@ -323,7 +324,7 @@ func swarmDescribe(cl *call, ctx context.Context, t clusterTarget, name string) 
 	p := swarmSections(s, 3)
 	ins := jsonLines(p[0])
 	if len(ins) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list the services with `komando cluster list "+t.host.Name+" services`", "no service named %q", name).About("swarm_service")
+		return nil, out.Errf(out.ExitNotFound, "SWARM_SERVICE_NOT_FOUND", "list the services with `komando cluster list "+t.host.Name+" services`", "no service named %q", name)
 	}
 	ready := ""
 	for _, l := range jsonLines(p[2]) {
@@ -408,7 +409,7 @@ func swarmGet(cl *call, ctx context.Context, t clusterTarget, typ, name string) 
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando cluster list TARGET "+kind+"s`", "no %s named %q", kind, name).About("swarm_" + kind)
+		return nil, out.Errf(out.ExitNotFound, "SWARM_OBJECT_NOT_FOUND", "list what exists with `komando cluster list TARGET "+kind+"s`", "no %s named %q", kind, name)
 	}
 	return rows[0], nil
 }
@@ -538,7 +539,7 @@ func swarmInspect(cl *call, ctx context.Context, t clusterTarget, service string
 	}
 	rows := jsonLines(s)
 	if len(rows) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "NOT_FOUND", "list services with `komando cluster list TARGET services`", "no service named %q", service).About("swarm_service")
+		return nil, out.Errf(out.ExitNotFound, "SWARM_SERVICE_NOT_FOUND", "list services with `komando cluster list TARGET services`", "no service named %q", service)
 	}
 	return rows[0], nil
 }
@@ -712,7 +713,7 @@ func swarmStackExists(cl *call, ctx context.Context, t clusterTarget, stack stri
 		return err
 	}
 	if strings.TrimSpace(s) == "" {
-		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list the stacks with `komando cluster list "+t.host.Name+" stacks`", "no stack named %q", stack).About("swarm_stack")
+		return out.Errf(out.ExitNotFound, "SWARM_STACK_NOT_FOUND", "list the stacks with `komando cluster list "+t.host.Name+" stacks`", "no stack named %q", stack)
 	}
 	return nil
 }

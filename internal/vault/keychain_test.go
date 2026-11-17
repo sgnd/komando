@@ -12,14 +12,38 @@ import (
 
 	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/testhome"
 )
 
 // TestMain keeps every test away from the real keychain: a new vault
 // would otherwise put its key in the login keychain of whoever runs them.
 // The tests that use a keychain set KOMANDO_KEYCHAIN themselves.
+// failingToolLog is where the stand-in keychain tools of TestMain write
+// each call.
+var failingToolLog string
+
 func TestMain(m *testing.M) {
+	// no test of this package sees the real home folder (internal/testhome)
+	homeDone := testhome.Use()
 	os.Setenv("KOMANDO_KEYCHAIN", "off")
-	os.Exit(m.Run())
+	// and none starts a real keychain tool: security and secret-tool are
+	// stand-ins that log the call and fail, whatever a test sets up
+	dir, err := os.MkdirTemp("", "komando-vault-tools-")
+	if err != nil {
+		panic(err)
+	}
+	failingToolLog = filepath.Join(dir, "calls")
+	for _, name := range []string{"security", "secret-tool", "gdbus"} {
+		script := "#!/bin/sh\necho \"" + name + " $*\" >> \"" + failingToolLog + "\"\nexit 1\n"
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755); err != nil {
+			panic(err)
+		}
+	}
+	securityTool, toolDirs = filepath.Join(dir, "security"), []string{dir}
+	code := m.Run()
+	homeDone()
+	os.RemoveAll(dir)
+	os.Exit(code)
 }
 
 func freshHome(t *testing.T) {
@@ -484,5 +508,30 @@ func TestKeyToKeychainChangesTheKey(t *testing.T) {
 	}
 	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
 		t.Error("store.key is still on disk")
+	}
+}
+
+// No test of this package starts a real keychain tool: TestMain points
+// the tools at stand-ins that only fail and log the call. A test that
+// needs a keychain sets its own scripted tools (and puts these back).
+func TestNoRealKeychainTool(t *testing.T) {
+	if securityTool == "/usr/bin/security" {
+		t.Errorf("securityTool is the real one: %s", securityTool)
+	}
+	for _, d := range toolDirs {
+		switch d {
+		case "/usr/bin", "/bin", "/usr/local/bin":
+			t.Errorf("toolDirs holds the system folder %s", d)
+		}
+	}
+	// with the keychain on and an agent asking, the count reaches only the stand-in
+	saved := AgentCall
+	t.Cleanup(func() { AgentCall = saved })
+	AgentCall = func() bool { return true }
+	t.Setenv("KOMANDO_KEYCHAIN", "")
+	freshHome(t)
+	genGet()
+	if b, err := os.ReadFile(failingToolLog); err != nil || len(b) == 0 {
+		t.Errorf("the stand-in was not the tool asked (%v): %q", err, b)
 	}
 }

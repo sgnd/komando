@@ -18,7 +18,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 		return append([]string{"vpn", "add", name, "socks", "--proxy-address", "127.0.0.1:1080", "--user", "budi", "--ask-password"}, extra...)
 	}
 	// a script: no terminal
-	if e := wantCode(t, "NEEDS_TERMINAL", socks("lab")...); !strings.Contains(e.Hint, "komando secret set lab-pass") {
+	if e := wantCode(t, "NEEDS_PERSON", socks("lab")...); !strings.Contains(e.Hint, "komando secret set lab-pass") {
 		t.Errorf("script hint: %q", e.Hint)
 	}
 	// an agent

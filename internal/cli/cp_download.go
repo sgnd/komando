@@ -54,6 +54,13 @@ func download(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, sr
 		if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 			return xferStats{}, err
 		}
+		if o.resume {
+			r, err := continueDownload(cl, ctx, serverEnd{cl: cl, name: hostName(c), c: c, sc: sc, path: src}, dst, fi.Mode().Perm(), src)
+			if err != nil {
+				return xferStats{}, err
+			}
+			return xferStats{Files: 1, Bytes: r.bytes, Dest: dst, SHA256: r.sum, ContinuedFrom: r.from}, nil
+		}
 		in, err := sc.Open(src)
 		if err != nil {
 			return xferStats{}, fsErrHint(src, err, downloadPermHint)
@@ -301,6 +308,9 @@ func fetchMasked(cl *call, ctx context.Context, in io.Reader, tmp *os.File, h io
 			return 0, false, err
 		}
 		return int64(len(m)), m != string(b), nil
+	}
+	if err := personalBinary(cl, b, n); err != nil {
+		return 0, false, err
 	}
 	sc := cl.out.NewValueScanner()
 	_, _ = sc.Write(b)

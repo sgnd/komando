@@ -116,7 +116,9 @@ func (m *memBucket) Stat(_ context.Context, key string) (storex.Object, error) {
 
 func (m *memBucket) Put(_ context.Context, key string, r io.Reader, _ int64, _ string) error {
 	b, err := io.ReadAll(r)
-	m.objs[key] = string(b)
+	if err == nil { // a store keeps nothing of an upload that failed
+		m.objs[key] = string(b)
+	}
 	return err
 }
 
@@ -333,4 +335,18 @@ func TestStorageRmMaxRemove(t *testing.T) {
 	if c.Flags().ShorthandLookup("n") != nil || c.Flags().Lookup("limit") != nil || c.Flags().Lookup("max-remove").Shorthand != "" {
 		t.Error("storage rm has -n or --limit, or a short --max-remove")
 	}
+}
+
+// A folder given where a file goes is IS_A_DIRECTORY, as fs cat says it
+// (C79): storage download without -r, storage rm without --prefix. A
+// pattern is a usage error.
+func TestStorageFolderIsADirectory(t *testing.T) {
+	withMemBucket(t, &memBucket{objs: map[string]string{"logs/a.txt": "x"}})
+	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "download", "bk", "logs/", "--to", t.TempDir()); e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "-r") {
+		t.Errorf("download: %+v", e)
+	}
+	if e := wantCode(t, "IS_A_DIRECTORY", "storage", "rm", "bk", "logs/"); !strings.Contains(e.Hint, "--prefix") {
+		t.Errorf("rm: %+v", e)
+	}
+	wantCode(t, "USAGE", "storage", "rm", "bk", "logs/*.txt")
 }

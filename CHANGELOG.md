@@ -28,6 +28,8 @@ its highlights; the sections below them give the details. Versions follow
 - `komando storage mv CONN SRC DST [--overwrite]` moves or renames inside one conn. File servers (SFTP, FTP, FTPS, WebDAV, SMB) rename on the server, folders too. S3, Google Cloud and Azure cannot rename: there `mv` copies the object on the server, checks the copy's size and checksum, and deletes the original only after that check (`method: copy_then_delete`). Where a file server cannot rename over a file, `--overwrite` moves the old one aside first and puts it back if the rename fails. A file or folder already at DST stops it with `FILE_EXISTS` (exit 8). New error codes: `MOVE_FAILED` (exit 5: the copy did not check out, so the original was kept, or the original could not be deleted after a good copy) and `STORAGE_UNSUPPORTED` (exit 2). For an AI agent, a file that is secret by its name (`.env`, a private key, a key store) keeps such a name: renaming it to another kind of name stops with `SENSITIVE_FILE`. An FTP server whose listing hides dot files is asked for the file itself, so a hidden file at DST is not replaced without `--overwrite`.
 - `komando storage chmod CONN MODE PATH` sets the Unix mode of a file or folder on an SFTP conn and says the old one; other kinds stop with `STORAGE_UNSUPPORTED` before anything is contacted.
 - All three are changes like `storage upload`: `--dry-run` shows what would happen and is never blocked (`meta.would_need`), a protected conn needs a person's yes, and every run is in the audit log. New JSON: `storage.mkdir` `{conn, path, created, dry_run}`, `storage.mv` `{conn, src, dst, folder, replaced, method, size_bytes, dry_run}`, `storage.chmod` `{conn, path, mode, old_mode, dry_run}`.
+- `komando cp SRC_TARGET:PATH DST_TARGET:PATH` copies between two remote places: server to server, storage to storage, or a server and a storage conn. The data streams through this computer and is never saved on its disk; folders go with `-r`. A single file reports its `sha256`, the result names its `source`, a protected destination asks once, `--progress` writes the same lines as an upload, and the audit log has one record for the whole copy (source, destination, size, `sha256`). For an AI agent the copy is read on its way: a file holding a value from komando's vault stops with `SENSITIVE_FILE` before it is put in place (in a folder copy it is listed in `errors` and the rest go), as a file that is secret by its name does. A folder without `-r` stops with `IS_A_DIRECTORY` (exit 2).
+- `--continue` on `upload`, `download`, `cp` and `storage upload/download` goes on with one file that was cut off: the part already at the destination is checked against the source (sha256), only the rest is sent, and the whole file is checked before komando says it worked. The result has `continued_from_bytes` and `sha256`. A destination that is longer or differs, before the copy or by its sum after it, stops with `RESUME_CONFLICT` (exit 8: copy the whole file again without `--continue`); one that changed while komando copied stops with `FILE_CHANGED` (exit 8: run the same command again); S3, Google Cloud Storage, Azure Blob and WebDAV, which store a file whole, stop with `RESUME_UNSUPPORTED` (SFTP, FTP, FTPS and SMB conns can go on). Servers work out the sums themselves (`sha256sum` or `shasum`).
 
 - `komando ssh-gate status` says which ssh-gate key runs it, and whether it
   may change things or reach the network (`gate`, `name`, `read_only`,
@@ -116,6 +118,45 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- **One error code each (output contract 2).** `meta.contract` is now 2.
+  Every error code means one thing and has one exit code; there are no old
+  names to fall back on. Scripts and apps that read `error.code` change
+  these (old -> new):
+  - `PROTECTED_HOST` -> `PROTECTED_TARGET` (any protected server, conn, VPN
+    or secret).
+  - `CONNECT_FAILED`, `K8S_UNREACHABLE`, `REGISTRY_UNREACHABLE`,
+    `WINRM_UNREACHABLE`, `RELEASES_UNREACHABLE` -> `CONN_UNREACHABLE` (the
+    message still names what could not be reached).
+  - `HOST_NOT_FOUND`, `CONN_NOT_FOUND`, `VPN_NOT_FOUND` -> `TARGET_NOT_FOUND`
+    for an unknown name, whatever the command; a group, tag or pattern that
+    picks nothing -> `TARGET_EMPTY`.
+  - `KEY_NOT_FOUND` -> `SSH_KEY_NOT_FOUND` or `CACHE_KEY_NOT_FOUND`;
+    `NOT_FOUND` -> `SWARM_SERVICE_NOT_FOUND`, `SWARM_STACK_NOT_FOUND`,
+    `SWARM_OBJECT_NOT_FOUND`, `DOCKER_OBJECT_NOT_FOUND` or
+    `CACHE_SECTION_NOT_FOUND`; `REGISTRY_NOT_FOUND` ->
+    `REPOSITORY_NOT_FOUND` or `IMAGE_TAG_NOT_FOUND`; `K8S_NOT_FOUND` for a
+    pod -> `K8S_POD_NOT_FOUND`, for a container (and `CONTAINER_NOT_FOUND`
+    of `cluster deploy`) -> `K8S_CONTAINER_NOT_FOUND`.
+  - `FAILED` -> `COMMAND_FAILED` (exit 5) when one server's command exited
+    non-zero; any other one-server failure gives that server's own code
+    (`CONNECTION_REFUSED`, `TIMEOUT` ...); kubectl failing in `cluster run`
+    -> `TOOL_FAILED`.
+  - `REVEAL_NEEDS_HUMAN` -> `REVEAL_NEEDS_TERMINAL`.
+  - A statement that ended komando's transaction while running ->
+    `SQL_TX_CHECK_REQUIRED` (exit 6); a conn whose settings change how SQL
+    is read -> `SQL_SAFE_SETTINGS_REQUIRED` (exit 6). `SQL_TX_CONTROL` and
+    `SQL_STRING_RULES` are now only for SQL you wrote (exit 2).
+  - A file komando cannot write on a server -> `REMOTE_WRITE_FAILED`
+    (exit 5); `WRITE_FAILED` (exit 1) is a file on this computer.
+  - `storage download` of a folder without `-r` and `storage rm` of a
+    folder key -> `IS_A_DIRECTORY` (was `USAGE`).
+  - `error.thing` is gone from the JSON: the code says it.
+- **Breaking for scripts:** a script (no terminal, not an AI agent) that runs
+  `komando login`, `komando login aws` or `--ask-password` / `--ask-psk` now
+  gets `NEEDS_PERSON` (exit 6), as an agent does; it was `NEEDS_TERMINAL`
+  (exit 2). `NEEDS_TERMINAL` is only for interactive commands (`shell`,
+  `db shell`, `cluster shell`). `VIA_CYCLE` is exit 2 everywhere (it was 1
+  when found while connecting).
 - `SECRET_INPUT_INVALID` is gone. An AI agent's arguments, script or
   file that hold a vault value now get the answer any other value gets,
   and the value it typed is not hidden as `[secret:NAME]` in that
@@ -157,8 +198,103 @@ its highlights; the sections below them give the details. Versions follow
   development builds wrote them. `komando audit` stops at such an entry
   with "changed outside komando", after the entries before it.
 
+- `komando download TARGET PATH --to -` streams one file to stdout, from a server too now (and `komando cp TARGET:PATH -`); `komando upload TARGET - DEST`, `komando storage upload CONN - KEY` and `komando cp - TARGET:PATH` read it from stdin, for the phone apps' Files view. With `--to -`, stdout carries the file's bytes and nothing else, whatever `-o` says; komando's own answer goes to stderr (with `-o json` one envelope at the end: `{host|conn, path|key, to: "stdout", bytes, sha256, masked}`, or the error), and the exit code says which. Storage downloads to stdout no longer need `-o text`. An upload from stdin goes to one server or conn through a temporary file (an object store finishes it only at the end); `--size N` makes a stream of another length fail with `SIZE_CONFLICT` (exit 8) and replace nothing, and a stream holding a `[hidden]` value is refused (`HIDDEN_VALUE`). `--continue`, `-r` and several servers are refused with `-`; a dry run reads nothing. For an AI agent a stream keeps what a download to a file keeps, before a byte is written: text with secret values as `[hidden]`, a binary file holding a vault value, a secret or personal data komando hides refused (`SENSITIVE_FILE`), anything over 16 MiB refused (`FILE_TOO_LARGE`). Through ssh-gate, `download --to -` is a read (allowed for a read-only key), and uploads from stdin need a key that may change things.
+
 ### Security
 
+- An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
+  front of komando moved komando's data folder: komando counted
+  `~/.komando` of the changed `HOME` as the usual folder, so only the
+  guard hook refused the line. For an agent the usual folder is now only
+  `~/.komando` of the account's home in the computer's user database (or
+  a link to that folder); any other `KOMANDO_HOME` stops (see the next
+  entry), whatever `HOME` says. The e2e lab,
+  which leaned on the old rule, now builds a komando of its own with the
+  build tag `e2elab`, which takes the agent's account home from
+  `KOMANDO_E2E_ACCOUNT_HOME`. It is built outside the checkout and
+  removed after the run; a released komando has no such variable, and
+  `make bins` and `make dist` refuse a binary that has it.
+- An AI agent's command with `KOMANDO_HOME` set to another folder than
+  `~/.komando` now stops for good (`NEEDS_PERSON`, was `SAFETY_SETTING`): no flag and no
+  window lets it through, and a dry run stops too. Before, `--dry-run`
+  went on and still connected to servers from a folder without the
+  person's pinned host keys, protection and deny rules, and `--yes`
+  opened a window that could not ask for the approval code, which lives
+  in the usual folder. `komando guide uninstall` stops the same way; it
+  used to skip the check, and `--reveal` opened its window before it.
+  komando makes nothing in the other folder (a stopped command used to
+  leave a new store there). The hint tells the agent to take
+  `KOMANDO_HOME` out and run the command again. This is the one case
+  where a dry run is blocked.
+- The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
+  and `~/.azure`: the SSO token cache and the CLI's cached credentials
+  too, not only the `credentials` file. An AWS profile whose web identity
+  token file lies under `~/.aws` now needs a person for an agent's
+  command (`NEEDS_PERSON`), as a token file elsewhere already did.
+- On Windows, komando takes the Windows and Program Files folders from
+  Windows itself when it decides that a program there is safe to run
+  with a password, and only System32 and SysWOW64 count of the Windows
+  folder (every user can write to its Temp and Tasks folders). It used
+  to read `SystemRoot` and `ProgramFiles` from the environment, which an
+  AI agent sets. A login program's PATH (kubeconfig) takes the Windows
+  folder from Windows too.
+- The audit log no longer keeps a password, key or token that a command
+  line carried (`PGPASSWORD=... psql`, `--password=...`): the command
+  of `exec`, `job start` and `cluster exec` is recorded with those
+  values as `[hidden]`, in the sealed log and in the copy sent to a
+  syslog server (`audit_syslog`), which travels in clear text.
+- One approval window no longer answers for what it did not show. An AI
+  agent's `--reveal` (or `--host-key-policy off`) opened its window
+  before the command had read its script, and that yes then covered the
+  script, the matched rules and the protected server, even a script no
+  window can show. A yes now covers the script and the reasons its
+  window showed, and a `--reveal` yes no longer answers a `--yes` or
+  `--allow-dangerous` check (nor the other way round); anything new asks
+  again. A destructive
+  change on a protected server or conn asks once, in a window that names
+  both flags.
+- The approval window for `recipe run` shows the command the recipe
+  fills in, and says when it runs with sudo. An agent could replace a
+  saved recipe and have a person allow it by its trusted name.
+- The approval window of `db query --file`, `fs write --from`,
+  `cluster apply --file` and `queue send --from` shows what the command
+  sends: the SQL whole, or no window, like a script; other content whole
+  when it fits, a named file that is only too long by its size and
+  SHA-256, and anything else (stdin, invisible characters, what looks
+  like a secret) gets no window.
+- `import env` and `import csv --overwrite` also run `secret set`'s
+  check of whom komando trusts on the secrets they store: an OpenVPN
+  profile or a CA certificate an agent replaces this way needs a
+  person's yes.
+- Replacing a protected VPN's key, pre-shared key or profile in the vault
+  (`secret set`, `secret cp --overwrite`, `secret rename --overwrite`)
+  needs a yes (`PROTECTED_TARGET`), like a protected server's password.
+- An AI agent that replaces a secret deciding whom komando trusts needs
+  a person's yes: an OpenVPN VPN's profile (`SECRET_DESTINATION`; the
+  window names the new servers), and the CA certificate a WinRM server
+  or a conn is checked against (`SAFETY_SETTING`), also when the secret
+  did not exist yet. Pointing a WinRM server at another CA certificate
+  with `host edit` asks the same way.
+- An AI agent that moves a jump server (address, port, `--via`, proxy
+  command) is asked about every password other servers and conns send
+  through it, also through a second hop (`SECRET_DESTINATION`). Only the
+  moved server's own secrets were checked.
+- A protected `sftp://` conn protects the SSH server at its address: a
+  host entry or `user@address` for the same server needs a yes too.
+- `pkg upgradable --refresh` and `pkg security --refresh` count as a
+  change (they rewrite the package index as root): a protected server
+  needs a yes, and `--dry-run` no longer refreshes.
+- `db query` and `exec --read-only` rate more statements by what they
+  do: MariaDB's `SET STATEMENT ... FOR <statement>` as the statement
+  after `FOR`; the Postgres functions `pg_replication_slot_advance`,
+  `pg_logical_slot_get_changes`, `pg_copy_*_replication_slot`,
+  `pg_logical_emit_message`, `pg_backup_start`/`stop`,
+  `pg_sync_replication_slots`, `pg_truncate_visibility_map` and
+  `pg_*_reset` as destructive (and a wrapped DDL no longer runs inside
+  the transaction a dry run rolls back); MongoDB `profile` (any level but -1), `validate` with
+  `repair` or `fixMetadata` and `killCursors` as writes, `bulkWrite`
+  that deletes or updates every document like `delete` and `update`
+  do, and `aggregate` with `$out` as replacing a collection.
 - `--read-only` could be talked into a change on a protected server, or
   through a read-only ssh-gate key, with no person's yes: a shortened long
   option (`sed --in`, `sort --o=FILE`, `tar --checkpoint-act=exec=...`),
@@ -220,6 +356,21 @@ its highlights; the sections below them give the details. Versions follow
     gives it (`env`), not the shell's proxy, `AWS_PROFILE` or `KUBECONFIG`.
 - A running VPN session, a kept server login and a tunnel are now known by when their process started, not only by its process number and program. When that process ended (a crash, or an old copy of komando's runtime file put back), a later process given the same number, even another komando or openconnect, is no longer taken for it: it gets neither the session's SOCKS login nor the addresses it connects to, and is never stopped by komando. After updating, VPN sessions, logins and tunnels started by an older komando count as ended: run `komando vpn down --all`, `komando logout SERVER` and `komando tunnel stop --all` before you update, or end those processes yourself; komando starts new ones when needed.
 - `komando secret keychain` now gives the vault a new key as it moves the key into the keychain. Before, it moved the same key, so a copy of `store.key` from before the move (a backup, a synced folder's history) still opened every later copy of the store, secrets added after the move included. A move that stops part way finishes the next time it runs.
+- Ways around hiding data from an AI agent are closed. A value that is
+  not text (shown as base64) is now checked for what it holds and reads
+  `[hidden]` when that is a secret or personal data, in `db query`, `cache`
+  and `queue peek`. Stored credentials are hidden whatever their shape
+  (MongoDB's SCRAM verifiers under `credentials`, a list under `apiKeys`).
+  `mask_columns` now also hides MongoDB fields, and an agent's query that
+  names a hidden column (`name AS customer`, `upper(name)`, `WHERE name
+  ...`) stops with `REVEAL_NEEDS_PERSON` (exit 6: a person allows it with `--reveal`); `SELECT *` still shows
+  it as `[hidden: column]`. `cp`, `sync` and `fs replace` hide personal
+  data as `download` and `fs cat` do. For an agent, `db dump` of a
+  database whose personal data is hidden, `storage link`, and a binary
+  object on `storage download --to -` that holds a hidden value stop with
+  `SENSITIVE_FILE` unless a person allows `--reveal`. An agent's `conn
+  edit` that takes a column out of `mask_columns` or turns `mask_personal`
+  off needs a person's yes (`SAFETY_SETTING`).
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

@@ -25,9 +25,9 @@ check "conn alias is protected" True "$($K conn add t-e2einv2 'mysql://shop@mari
 q $K conn rm t-e2einv2 --yes
 
 # protected entries cannot be re-pointed without --yes
-check "re-point protected host" PROTECTED_HOST "$($K host edit target --via direct | code)"
+check "re-point protected host" PROTECTED_TARGET "$($K host edit target --via direct | code)"
 check "re-point protected conn" PROTECTED_TARGET "$($K conn edit maria --via direct | code)"
-check "dry-run shows that stop" PROTECTED_HOST "$($K host edit target --via direct --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
+check "dry-run shows that stop" PROTECTED_TARGET "$($K host edit target --via direct --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 check "edit without changes" USAGE "$($K host edit direct | code)"
 check "conflicting edit" USAGE "$($K host edit direct --add-tag x --rm-tag x | code)"
 
@@ -42,7 +42,7 @@ check "rm a selector --dry-run lists it" 2 "$($K host rm 't-e2einv*' --dry-run |
 check "rm a selector" ok "$($K host rm 't-e2einv*' | code)"
 # @lab holds bastion (the --via host of the conns) and target (protected)
 check "rm @group still in use removes nothing" HOST_IN_USE "$($K host rm @lab | code)"
-check "rm @group protected stop in dry-run" PROTECTED_HOST "$($K host rm target --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
+check "rm @group protected stop in dry-run" PROTECTED_TARGET "$($K host rm target --dry-run | jget 'd["meta"]["would_be_blocked"]["code"]')"
 
 # host trust --reset --dry-run changes nothing
 N1=$($K host trust direct --reset --dry-run | jget 'd["data"]["results"][0]["would_remove_entries"]')

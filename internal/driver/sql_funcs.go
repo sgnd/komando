@@ -28,6 +28,15 @@ func funcRule(name string) (string, bool) {
 		return "sql-opaque", true // runs SQL in a worker, outside komando's read-only transaction
 	case strings.HasPrefix(name, "PG_STAT_RESET"), strings.HasPrefix(name, "PG_REPLICATION_ORIGIN_"):
 		return "sql-server-config", true
+	case strings.HasPrefix(name, "PG_") && strings.HasSuffix(name, "_RESET"): // pg_stat_statements_reset and other extensions' counters
+		return "sql-server-config", true
+	case name == "PG_REPLICATION_SLOT_ADVANCE", // a slot moved on or read out loses changes for its consumer
+		strings.HasPrefix(name, "PG_LOGICAL_SLOT_GET_"),
+		strings.HasPrefix(name, "PG_COPY_") && strings.HasSuffix(name, "_REPLICATION_SLOT"),
+		name == "PG_LOGICAL_EMIT_MESSAGE", // written to the WAL even when the transaction rolls back
+		strings.HasPrefix(name, "PG_BACKUP_"), name == "PG_START_BACKUP", name == "PG_STOP_BACKUP",
+		name == "PG_SYNC_REPLICATION_SLOTS", name == "PG_TRUNCATE_VISIBILITY_MAP":
+		return "sql-server-config", true
 	case strings.HasPrefix(name, "PG_LS_"): // pg_ls_dir, pg_ls_waldir, pg_ls_tmpdir, ...: list server directories
 		return "sql-server-file", true
 	}

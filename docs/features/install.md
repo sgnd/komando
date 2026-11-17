@@ -168,7 +168,7 @@ For fish and PowerShell, see `komando completion --help`.
 |-------|---------------|------------|
 | `NOT_WRITABLE` (exit 8) | komando's folder belongs to root | run the `sudo` command the hint gives |
 | `VERSION_NOT_FOUND` (exit 3) | no such release, or none for this computer | see the [list of releases](https://github.com/sgnd/komando/releases) |
-| `RELEASES_UNREACHABLE` (exit 4) | GitHub cannot be reached | check the internet connection and `HTTPS_PROXY` |
+| `CONN_UNREACHABLE` (exit 4) | GitHub cannot be reached | check the internet connection and `HTTPS_PROXY` |
 | `TIMEOUT` (exit 7) | the download took longer than `--timeout`; nothing changed | `komando update --timeout 30m` |
 | `CHECKSUM_MISMATCH`, `BAD_RELEASE` (exit 1) | the download is damaged or does not run here; nothing changed | try again; report it if it happens again |
 | `SOURCE_BUILD` | this komando was built from source between releases | build it again from source |

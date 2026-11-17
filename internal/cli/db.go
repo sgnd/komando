@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -179,6 +180,7 @@ picks another database than the URL's.`},
 					return localFileErr("FILE_NOT_FOUND", err, "")
 				}
 				secretInBody(cl, file, b)
+				noteApprovalBody(cl, scriptLabel("the SQL", file), b)
 				q = string(b)
 			case len(args) == 1:
 				return out.Usage("no SQL: give it as an argument, or with -f FILE (-f - reads stdin)")
@@ -582,7 +584,7 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 		audit(cl, st, name, nil, "", false, rec)
 		return err
 	}
-	if err := refuseHiddenSQL(f.write, query, f.args); err != nil {
+	if err := cmp.Or(refuseHiddenSQL(f.write, query, f.args), hiddenColumnUse(cl, c, query)); err != nil {
 		return fail(err)
 	}
 	if !f.write && plan.NeedsWrite() {

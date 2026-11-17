@@ -48,12 +48,39 @@ func (b bucketSide) list(ctx context.Context) (map[string]syncFile, error) {
 }
 
 func (b bucketSide) open(ctx context.Context, rel string) (io.ReadCloser, error) {
+	return getReader(ctx, func(ctx context.Context, w io.Writer) error {
+		_, err := b.b.Get(ctx, b.key(rel), w)
+		return err
+	}), nil
+}
+
+// getReader streams what get writes through a pipe: nothing is kept on
+// disk or in memory. Closing the reader stops get, and waits for it to
+// end: an FTP conn has one control connection, and a download still reads
+// the server's closing reply after its last byte; a next call sent
+// meanwhile would read the wrong reply.
+func getReader(ctx context.Context, get func(context.Context, io.Writer) error) io.ReadCloser {
+	ctx, cancel := context.WithCancel(ctx)
 	pr, pw := io.Pipe()
+	done := make(chan struct{})
 	go func() {
-		_, err := b.b.Get(ctx, b.key(rel), pw)
-		pw.CloseWithError(err)
+		defer close(done)
+		pw.CloseWithError(get(ctx, pw))
 	}()
-	return pr, nil
+	return waitReader{pr, cancel, done}
+}
+
+type waitReader struct {
+	*io.PipeReader
+	cancel context.CancelFunc
+	done   <-chan struct{} // closed when get has ended
+}
+
+func (r waitReader) Close() error {
+	err := r.PipeReader.Close() // get's next write fails
+	r.cancel()
+	<-r.done
+	return err
 }
 
 func (b bucketSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {

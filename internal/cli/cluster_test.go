@@ -83,7 +83,7 @@ func TestPickContainer(t *testing.T) {
 	if n, _, err := pickContainer(two, "proxy"); err != nil || n != "proxy" {
 		t.Errorf("named container: %v %v", n, err)
 	}
-	if _, _, err := pickContainer(two, "nope"); err == nil || toErr(err).Code != "CONTAINER_NOT_FOUND" {
+	if _, _, err := pickContainer(two, "nope"); err == nil || toErr(err).Code != "K8S_CONTAINER_NOT_FOUND" {
 		t.Errorf("unknown container: %v", err)
 	}
 }

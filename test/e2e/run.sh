@@ -13,7 +13,8 @@
 #   test/e2e/run.sh --list      the areas, with their containers
 #
 # Needs: docker (with compose), go, python3. Set KEEP=1 to keep the last
-# area's containers, E2E_HOME=DIR to keep each area's inventory in DIR/AREA.
+# area's containers, E2E_HOME=DIR to keep each area's inventory in DIR/AREA
+# (and the lab's komando in DIR/komando).
 #
 # Several runs can share one machine (e.g. one per git worktree) when each
 # sets its own project name and host ports:
@@ -35,6 +36,7 @@ ROOT="$(cd "$E2E/../.." && pwd)"
 AREAS='
 core          | bastion target direct bao moto                    | +hosts +maria_conn base protect agents audit general inv proxy_path rename resilience run sshgate
 data          | bastion target direct pg maria redis memcached s3 sftp ftps bao vaultwarden | +hosts +data conns vpn coverage data files dbusers dryrun dump parity zz_agent zz_person
+files         | bastion direct s3 sftp ftps                       | +hosts +bucket +files_pass files_remote
 k8s           | bastion k3s                                       | +hosts k8s clu dryrun parity zz_agent
 k8s-old       | bastion k3s-old                                   | +hosts k8s_old
 swarm         | direct swarm                                      | +hosts +swarm swarm clu coverage dryrun parity zz_agent
@@ -76,6 +78,12 @@ if [ "${E2E_AREA_RUN:-0}" = 1 ]; then
     if { [ "$rc" -ne 0 ] || [ "$FAIL" -gt 0 ]; } && [ "${#SERVICES[@]}" -gt 0 ]; then
       echo "==> the lab servers' last lines ($AREA failed)"
       DC logs --no-color --timestamps --tail 200 2>&1 || true
+      # the FTPS server in full: its one failing session is often older
+      # than the last 200 lines (C88)
+      if has_service ftps; then
+        echo "==> the FTPS server's whole log ($AREA failed)"
+        DC logs --no-color --timestamps ftps 2>&1 || true
+      fi
     fi
     lab_down
     "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
@@ -109,6 +117,10 @@ case "${1:-}" in
   *) echo "usage: run.sh [--list | --list-json]; pick areas with AREA=NAME[,NAME...]" >&2; exit 2 ;;
 esac
 
+# listing starts nothing; a lab does
+. "$(dirname "${BASH_SOURCE[0]}")/lab_env.sh"
+lab_refuse_here || exit 1
+
 ALL=$(area_names | tr '\n' ' ')
 if [ -n "${AREA:-}" ]; then
   PICKED=$(echo "$AREA" | tr ',' ' ')
@@ -128,11 +140,19 @@ if [ -n "$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT")" ]
 fi
 
 echo "==> build"
-(cd "$ROOT" && go build -o bin/komando ./cmd/komando)
+# a komando of the lab's own, never bin/komando: the e2elab tag lets the
+# lab name the agent's account home (lib.sh, A). It is built outside the
+# checkout and removed when the run ends, so no komando that takes its
+# account home from a variable stays on this computer. With E2E_HOME it is
+# kept there (E2E_HOME/komando), to try commands by hand against the lab.
+E2E_BIN_DIR="${E2E_HOME:-$(mktemp -d)}"
+mkdir -p "$E2E_BIN_DIR"
+export E2E_BIN="$E2E_BIN_DIR/komando"
+(cd "$ROOT" && go build -tags e2elab -o "$E2E_BIN" ./cmd/komando)
 
 E2E_RESULTS=$(mktemp)
 export E2E_RESULTS
-trap 'rm -f "$E2E_RESULTS" "$E2E_RESULTS.skipped"' EXIT
+trap 'rm -f "$E2E_RESULTS" "$E2E_RESULTS.skipped"; [ -n "${E2E_HOME:-}" ] || rm -rf "$E2E_BIN_DIR"' EXIT
 for a in $PICKED; do
   echo
   echo "======== area $a ========"

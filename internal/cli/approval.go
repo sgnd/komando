@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,6 +62,19 @@ func (cl *call) dangerOK(why ...string) bool {
 	return cl.flags.allowDangerous && cl.personAllows("--allow-dangerous", why...)
 }
 
+// dangerAndYesOK is dangerOK for a destructive change on protected
+// targets: one window names both flags and both reasons, so the --yes
+// check that follows is answered by it.
+func (cl *call) dangerAndYesOK(prot string, why ...string) bool {
+	if !cl.flags.allowDangerous {
+		return false
+	}
+	if prot == "" || !cl.flags.yes {
+		return cl.personAllows("--allow-dangerous", why...)
+	}
+	return cl.personAllowsFlags([]string{"--allow-dangerous", "--yes"}, "", append([]string{prot}, why...)...)
+}
+
 // revealOK never counts under --dry-run: a preview still prints what it
 // reads, and a dry run never asks the person, so it stays masked.
 func (cl *call) revealOK() bool {
@@ -86,18 +102,35 @@ func (cl *call) personAllows(flag string, why ...string) bool {
 // line alone does not show it. A yes given in a window that did not name
 // it does not cover it: the person is asked again, with it named.
 func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
+	return cl.personAllowsFlags([]string{flag}, what, why...)
+}
+
+// personAllowsFlags is personAllowsFor for a window that names several
+// flags. A yes covers the kind of flag its window named (flagKind): a
+// window opened for --reveal does not answer a later --yes check, nor the
+// other way round.
+func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bool {
 	if !cl.caller().IsAgent() || cl.flags.dryRun {
 		return true
 	}
 	sess := cl.sess
 	sess.Lock()
 	defer sess.Unlock()
-	if w := sess.Window(); w.Asked && (what == "" || sess.Shown(what) || !w.Allowed) {
+	// a yes covers what its window showed: what the flag lets through, the
+	// file the command sends, and the reasons komando gave. A check that
+	// brings one of these new (a script noted after the --reveal window, a
+	// protected server named after it) asks again, with it in the window.
+	// A no stands for the whole command.
+	need := shownKeys(cl, what, why)
+	for _, f := range flags {
+		need = append(need, flagKind(f))
+	}
+	if w := sess.Window(); w.Asked && (!w.Allowed || !slices.ContainsFunc(need, func(k string) bool { return !sess.Shown(k) })) {
 		return w.Allowed
 	}
 	sess.SetAsked(false)
-	if what != "" {
-		sess.MarkShown(what)
+	for _, k := range need {
+		sess.MarkShown(k)
 	}
 	line := commandLine(cl)
 	bad := hiddenArgs(cl.args[1:])
@@ -138,7 +171,12 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 	for _, w := range reasons {
 		text += "Why komando asks: " + w + "\n"
 	}
-	text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", flag, flagMeaning[flag])
+	for i, f := range flags {
+		if i > 0 {
+			text += "\n"
+		}
+		text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", f, flagMeaning[f])
+	}
 	sess.SetGaveUp(false)
 	allowed, shown := cl.askPerson(text)
 	gaveUp := tookGaveUp(text)
@@ -155,6 +193,35 @@ func (cl *call) personAllowsFor(flag, what string, why ...string) bool {
 		sess.SetWhy("no-screen")
 	}
 	return sess.Window().Allowed
+}
+
+// flagKind is the key of what a flag's yes covers: --reveal shows or
+// sends secrets; --yes and --allow-dangerous both let a change through,
+// and one window answers both (it names the reasons of each).
+func flagKind(flag string) string {
+	if flag == "--reveal" {
+		return "flag --reveal"
+	}
+	return "flag change"
+}
+
+// shownKeys names what a window for this check shows besides the command
+// line: what, the body the command sends (by its SHA-256) and each reason.
+func shownKeys(cl *call, what string, why []string) []string {
+	var keys []string
+	if what != "" {
+		keys = append(keys, what)
+	}
+	if cl.body != nil {
+		sum := sha256.Sum256(cl.body.body)
+		keys = append(keys, "body "+cl.body.label+" "+hex.EncodeToString(sum[:]))
+	}
+	for _, w := range why {
+		if w = strings.TrimSpace(w); w != "" {
+			keys = append(keys, "why "+w)
+		}
+	}
+	return keys
 }
 
 // askPerson opens the window: with a field for the code when the approval
@@ -326,7 +393,7 @@ func approvalHint(cl *call, e *out.Error) {
 			". Make the command shorter (put a long script in a file for `komando exec --script`, change a big file with a few smaller `komando fs replace` runs) and without invisible characters, or ask the user to run it in their own terminal"
 	default:
 		switch {
-		case e.Final, e.Code == "REVEAL_NEEDS_HUMAN", e.Code == "NEEDS_PERSON":
+		case e.Final, e.Code == "REVEAL_NEEDS_TERMINAL", e.Code == "NEEDS_PERSON":
 			return // no flag allows these: adding one asks nobody
 		case e.Code == "WRITE_REQUIRES_FLAG", e.Code == "READ_ONLY_VIOLATION", e.Code == "DB_BYTES_LIMIT":
 			// --write, leaving out --read-only and raising --max-bytes open no window

@@ -6,7 +6,11 @@
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 E2E="$ROOT/test/e2e"
-K="$ROOT/bin/komando"
+K="${E2E_BIN:?test/e2e/run.sh builds the lab komando and sets E2E_BIN}"
+# the person's home, keychain, keyring and ssh-agent stay out of reach
+. "$E2E/lab_env.sh"
+lab_refuse_here || exit 1
+lab_env || exit 1
 # E2E_HOME keeps the inventory after the run (with KEEP=1 for the
 # containers), to try commands by hand against the same lab: one folder per
 # area, E2E_HOME/AREA
@@ -25,11 +29,14 @@ inventory_text() { "$K" export -o json 2>/dev/null; }
 # this script is a script, even when an AI agent starts it; the agent
 # checks say so on purpose (and never open an approval window)
 unset CLAUDECODE CLAUDE_CODE_ENTRYPOINT GEMINI_CLI CODEX_SANDBOX CODEX_THREAD_ID CURSOR_AGENT KOMANDO_AGENT AI_AGENT
-# an agent's komando keeps the usual data folder (~/.komando): A runs with a
-# home whose .komando is this run's folder
+# an agent's komando keeps the usual data folder, ~/.komando of the
+# account's home in the user database, whatever HOME and KOMANDO_HOME say.
+# The lab's komando (built with the e2elab tag, run.sh, $E2E_BIN) takes that home
+# from KOMANDO_E2E_ACCOUNT_HOME: A runs with a home whose .komando is this
+# run's folder. A released komando knows no such variable.
 AGENT_HOME="$(mktemp -d)"
 ln -s "$KOMANDO_HOME" "$AGENT_HOME/.komando"
-A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 HOME="$AGENT_HOME" "$K" "$@"; }
+A() { CLAUDECODE=1 KOMANDO_NO_DIALOG=1 KOMANDO_E2E_ACCOUNT_HOME="$AGENT_HOME" HOME="$AGENT_HOME" "$K" "$@"; }
 TMP="$(mktemp -d)"
 PROJECT=${E2E_PROJECT:-komando-e2e}
 export E2E_SSH_BASTION=${E2E_SSH_BASTION:-2222} E2E_SSH_DIRECT=${E2E_SSH_DIRECT:-2223}
@@ -116,18 +123,23 @@ setup_hosts() {
 setup_data() {
   echo "==> conns through bastion (db, cache, storage)"
   for _ in $(seq 1 60); do DC ps --format '{{.Health}}' pg maria 2>/dev/null | grep -qv healthy || break; sleep 1; done
+  echo -n apppass | $K secret set pg-pass >/dev/null
+  echo -n shoppass | $K secret set maria-pass >/dev/null
+  echo -n redispass | $K secret set redis-pass >/dev/null
+  q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
+  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
+  q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
+  setup_bucket
+}
+
+# +bucket: a Garage bucket and the conn bucket through the bastion
+setup_bucket() {
   G() { DC exec -T s3 /garage "$@" 2>/dev/null; }
   NODE=$(G status | awk '/^[0-9a-f]{16}/{print $1; exit}')
   G layout assign -z dc1 -c 1G "$NODE" >/dev/null && G layout apply --version 1 >/dev/null
   G bucket create backups >/dev/null && G key create komando > "$TMP/s3key" && G bucket allow --read --write --owner backups --key komando >/dev/null
   S3ID=$(awk '/Key ID/{print $3}' "$TMP/s3key")
-  echo -n apppass | $K secret set pg-pass >/dev/null
-  echo -n shoppass | $K secret set maria-pass >/dev/null
-  echo -n redispass | $K secret set redis-pass >/dev/null
   awk '/Secret key/{printf "%s", $3}' "$TMP/s3key" | $K secret set s3-secret >/dev/null
-  q $K conn add pg 'postgres://app@pg:5432/app?sslmode=disable' --via bastion --password-ref secret:pg-pass
-  q $K conn add maria 'mysql://shop@maria:3306/shop' --via bastion --password-ref secret:maria-pass --protected
-  q $K conn add cache 'redis://redis:6379/0' --via bastion --password-ref secret:redis-pass
   q $K conn add bucket "s3://$S3ID@backups/e2e?endpoint=http://s3:3900&region=garage" --via bastion --password-ref secret:s3-secret
 }
 
