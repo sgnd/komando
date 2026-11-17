@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/sgnd/komando/internal/testhome"
 )
 
 // C113 (d): a kubeconfig an AI agent imports may not name a file from a
@@ -13,7 +15,7 @@ func TestKubeconfigNamedFilesForAgent(t *testing.T) {
 	invHome(t)
 	home, _ := os.UserHomeDir()
 	mk := func(rel, body string) string {
-		p := filepath.Join(home, rel)
+		p := testhome.Path(t, filepath.Join(home, rel))
 		os.MkdirAll(filepath.Dir(p), 0o700)
 		os.WriteFile(p, []byte(body), 0o600)
 		return p
@@ -23,7 +25,7 @@ func TestKubeconfigNamedFilesForAgent(t *testing.T) {
 	kubeKey := mk(".kube/certs/client.key", "not a real key either\n")
 	kubeCrt := mk(".kube/certs/client.crt", "not a real cert\n")
 	kc := func(key, crt string) string {
-		p := filepath.Join(t.TempDir(), "kubeconfig")
+		p := testhome.Path(t, filepath.Join(t.TempDir(), "kubeconfig"))
 		os.WriteFile(p, []byte("apiVersion: v1\nkind: Config\ncurrent-context: prod\nclusters:\n- name: prod\n  cluster:\n    server: https://k.example.com\n"+
 			"users:\n- name: prod\n  user:\n    client-key: "+key+"\n    client-certificate: "+crt+"\ncontexts:\n- name: prod\n  context: {cluster: prod, user: prod}\n"), 0o600)
 		return p
@@ -44,15 +46,16 @@ func TestKubeconfigNamedFilesForAgent(t *testing.T) {
 func TestKubeconfigLinksIntoSSH(t *testing.T) {
 	invHome(t)
 	home, _ := os.UserHomeDir()
-	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
-	key := filepath.Join(home, ".ssh", "id_ed25519")
+	ssh, kube := testhome.Path(t, filepath.Join(home, ".ssh")), testhome.Path(t, filepath.Join(home, ".kube"))
+	os.MkdirAll(ssh, 0o700)
+	key := filepath.Join(ssh, "id_ed25519")
 	os.WriteFile(key, []byte("not a real key\n"), 0o600)
-	os.MkdirAll(filepath.Join(home, ".kube"), 0o700)
-	sym := filepath.Join(home, ".kube", "key")
+	os.MkdirAll(kube, 0o700)
+	sym := filepath.Join(kube, "key")
 	os.Symlink(key, sym)
-	hard := filepath.Join(home, ".kube", "hard")
+	hard := filepath.Join(kube, "hard")
 	os.Link(key, hard)
-	crt := filepath.Join(home, ".kube", "client.crt")
+	crt := filepath.Join(kube, "client.crt")
 	os.WriteFile(crt, []byte("not a real cert\n"), 0o600)
 	asAgent(t, false, false)
 	for name, p := range map[string]string{"symlink": sym, "hard link": hard} {
