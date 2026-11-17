@@ -113,9 +113,9 @@ func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string
 					return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "save it to a file with --to FILE",
 						"%s is larger than %s, the most komando shows an AI agent on stdout", key, humanBytes(hiddenScanMax))
 				}
-				text := b.String()
-				if bytes.IndexByte(b.Bytes(), 0) < 0 {
-					text = cl.out.Redact(text)
+				text, err := agentStdout(cl, key, b.Bytes())
+				if err != nil {
+					return nil, err
 				}
 				_, err = io.WriteString(cl.out.W, text)
 				return nil, err

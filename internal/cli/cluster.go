@@ -196,13 +196,17 @@ func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 
 // systemPath is the PATH of a login program an AI agent's command runs
 // when no import recorded one: the system's folders only.
-var systemPath = func() string {
+// On Windows the folder comes from Windows itself (windowsDir), never
+// from SystemRoot in the environment, which the caller sets.
+var systemPath = systemPathFor()
+
+func systemPathFor() string {
 	if runtime.GOOS == "windows" {
-		root := cmp.Or(os.Getenv("SystemRoot"), `C:\Windows`)
+		root := cmp.Or(windowsDir(), `C:\Windows`)
 		return root + `\System32;` + root
 	}
 	return "/usr/bin:/bin:/usr/sbin:/sbin"
-}()
+}
 
 // guardCloudLogin: a kubeconfig that logs in with `aws eks get-token`,
 // aws-iam-authenticator or gke-gcloud-auth-plugin gets a token komando

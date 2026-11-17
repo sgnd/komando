@@ -409,7 +409,7 @@ func importSkipper(cl *call, st *store.State, overwrite bool) func(kind, name st
 		// a protected conn or VPN is skipped like a protected server (vetImportHosts),
 		// so a dry run lists it as skipped, as the real run does, and the
 		// rest of the file still comes in
-		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && c.Protected && !cl.yesOK() {
+		if c, ok := st.Conns[name]; ok && kind == "conn" && overwrite && (c.Protected || cl.isAgent() && maskedConn(c)) && !cl.yesOK() {
 			return importProtectedSkip
 		}
 		if v, ok := st.Vpns[name]; ok && kind == "vpn" && overwrite && v.Protected && !cl.yesOK() {

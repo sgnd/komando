@@ -294,7 +294,7 @@ func secretGlob(cl *call, w, home, cwd string) string {
 
 // credentialStores are the folders under home that other programs keep
 // their credentials in.
-var credentialStores = []string{".gnupg", ".password-store", ".config/gcloud", ".azure", ".kube", "Library/Keychains"}
+var credentialStores = []string{".gnupg", ".password-store", ".aws", ".config/gcloud", ".azure", ".kube", "Library/Keychains"}
 
 func isCredentialStore(p, home string) bool {
 	for _, d := range credentialStores {
