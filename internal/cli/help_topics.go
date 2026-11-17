@@ -32,7 +32,7 @@ window on the screen. See docs/features/safety.md.`},
   4 connect     5 failed on the server              6 blocked for safety
   7 timeout     8 precondition or conflict
 
--o json shows the error code (USAGE, PROTECTED_HOST ...) and a hint.`},
+-o json shows the error code (USAGE, PROTECTED_TARGET ...) and a hint.`},
 	{"output", "Text for people, JSON for programs", `Text for people, JSON for programs.
 
 In a terminal komando prints text; piped, one JSON envelope on stdout:

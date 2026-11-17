@@ -45,7 +45,7 @@ func TestColonHint(t *testing.T) {
 		t.Fatalf("hint about the wrong argument: %q", e.Hint)
 	}
 	// an unknown target with a colon may be a local file name
-	e := toErr(colonHint(out.Errf(out.ExitNotFound, "HOST_NOT_FOUND", "run `komando list`", "no server named %q", "a"), "a:b"))
+	e := toErr(colonHint(out.Errf(out.ExitNotFound, "TARGET_NOT_FOUND", "run `komando list`", "no server named %q", "a"), "a:b"))
 	if !strings.HasPrefix(e.Hint, "if a:b is a file on this computer, write it as ./a:b; otherwise run") {
 		t.Fatalf("hint: %q", e.Hint)
 	}

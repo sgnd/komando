@@ -5,24 +5,25 @@ import "fmt"
 // notFoundCodes is the code of each kind NotFound knows, written out so
 // the error catalog and agents can find every code in the source (S-8.1).
 var notFoundCodes = map[string]string{
-	"host":   "HOST_NOT_FOUND",
-	"conn":   "CONN_NOT_FOUND",
-	"vpn":    "VPN_NOT_FOUND",
+	"host":   "TARGET_NOT_FOUND",
+	"conn":   "TARGET_NOT_FOUND",
+	"vpn":    "TARGET_NOT_FOUND",
 	"job":    "JOB_NOT_FOUND",
-	"key":    "KEY_NOT_FOUND",
+	"key":    "SSH_KEY_NOT_FOUND",
 	"recipe": "RECIPE_NOT_FOUND",
 	"secret": "SECRET_NOT_FOUND",
 	"tunnel": "TUNNEL_NOT_FOUND",
 	"group":  "GROUP_NOT_FOUND",
 }
 
-// NotFoundCode is the code NotFound gives for kind ("NOT_FOUND" for a kind
-// it does not know; TestErrorCodeCatalog keeps every caller's kind known).
+// NotFoundCode is the code NotFound gives for kind. A server, conn and VPN
+// share one: a name komando does not know, whatever kind was meant.
+// TestNotFoundKinds keeps every caller's kind in notFoundCodes.
 func NotFoundCode(kind string) string {
 	if c, ok := notFoundCodes[kind]; ok {
 		return c
 	}
-	return "NOT_FOUND"
+	panic("out.NotFound: no code for kind " + kind)
 }
 
 // KindWord is the word people read for an inventory kind: a host is a
@@ -45,13 +46,8 @@ func NotFound(kind, name string) *Error {
 	e := Errf(ExitNotFound, NotFoundCode(kind),
 		fmt.Sprintf("see them with `komando %s list`", kind),
 		"no %s named %q", KindWord(kind), name)
-	if t, ok := sharedThings[kind]; ok {
-		e.Thing = t
+	if e.Code == "TARGET_NOT_FOUND" {
+		e.wanted = kind
 	}
 	return e
 }
-
-// sharedThings: the kinds whose not-found code another kind of item gives
-// too (KEY_NOT_FOUND for cache keys, CONN_NOT_FOUND for a selector that
-// picks no conns), so error.thing tells them apart.
-var sharedThings = map[string]string{"key": "ssh_key", "conn": "conn"}

@@ -118,6 +118,45 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- **One error code each (output contract 2).** `meta.contract` is now 2.
+  Every error code means one thing and has one exit code; there are no old
+  names to fall back on. Scripts and apps that read `error.code` change
+  these (old -> new):
+  - `PROTECTED_HOST` -> `PROTECTED_TARGET` (any protected server, conn, VPN
+    or secret).
+  - `CONNECT_FAILED`, `K8S_UNREACHABLE`, `REGISTRY_UNREACHABLE`,
+    `WINRM_UNREACHABLE`, `RELEASES_UNREACHABLE` -> `CONN_UNREACHABLE` (the
+    message still names what could not be reached).
+  - `HOST_NOT_FOUND`, `CONN_NOT_FOUND`, `VPN_NOT_FOUND` -> `TARGET_NOT_FOUND`
+    for an unknown name, whatever the command; a group, tag or pattern that
+    picks nothing -> `TARGET_EMPTY`.
+  - `KEY_NOT_FOUND` -> `SSH_KEY_NOT_FOUND` or `CACHE_KEY_NOT_FOUND`;
+    `NOT_FOUND` -> `SWARM_SERVICE_NOT_FOUND`, `SWARM_STACK_NOT_FOUND`,
+    `SWARM_OBJECT_NOT_FOUND`, `DOCKER_OBJECT_NOT_FOUND` or
+    `CACHE_SECTION_NOT_FOUND`; `REGISTRY_NOT_FOUND` ->
+    `REPOSITORY_NOT_FOUND` or `IMAGE_TAG_NOT_FOUND`; `K8S_NOT_FOUND` for a
+    pod -> `K8S_POD_NOT_FOUND`, for a container (and `CONTAINER_NOT_FOUND`
+    of `cluster deploy`) -> `K8S_CONTAINER_NOT_FOUND`.
+  - `FAILED` -> `COMMAND_FAILED` (exit 5) when one server's command exited
+    non-zero; any other one-server failure gives that server's own code
+    (`CONNECTION_REFUSED`, `TIMEOUT` ...); kubectl failing in `cluster run`
+    -> `TOOL_FAILED`.
+  - `REVEAL_NEEDS_HUMAN` -> `REVEAL_NEEDS_TERMINAL`.
+  - A statement that ended komando's transaction while running ->
+    `SQL_TX_CHECK_REQUIRED` (exit 6); a conn whose settings change how SQL
+    is read -> `SQL_SAFE_SETTINGS_REQUIRED` (exit 6). `SQL_TX_CONTROL` and
+    `SQL_STRING_RULES` are now only for SQL you wrote (exit 2).
+  - A file komando cannot write on a server -> `REMOTE_WRITE_FAILED`
+    (exit 5); `WRITE_FAILED` (exit 1) is a file on this computer.
+  - `storage download` of a folder without `-r` and `storage rm` of a
+    folder key -> `IS_A_DIRECTORY` (was `USAGE`).
+  - `error.thing` is gone from the JSON: the code says it.
+- **Breaking for scripts:** a script (no terminal, not an AI agent) that runs
+  `komando login`, `komando login aws` or `--ask-password` / `--ask-psk` now
+  gets `NEEDS_PERSON` (exit 6), as an agent does; it was `NEEDS_TERMINAL`
+  (exit 2). `NEEDS_TERMINAL` is only for interactive commands (`shell`,
+  `db shell`, `cluster shell`). `VIA_CYCLE` is exit 2 everywhere (it was 1
+  when found while connecting).
 - `SECRET_INPUT_INVALID` is gone. An AI agent's arguments, script or
   file that hold a vault value now get the answer any other value gets,
   and the value it typed is not hidden as `[secret:NAME]` in that
@@ -165,6 +204,30 @@ its highlights; the sections below them give the details. Versions follow
   secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
   komando reads the pod, as `download` does; before, the pod's files were
   read first and refused afterwards. (C04)
+- An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
+  front of komando moved komando's data folder: komando counted
+  `~/.komando` of the changed `HOME` as the usual folder, so only the
+  guard hook refused the line. For an agent the usual folder is now only
+  `~/.komando` of the account's home in the computer's user database (or
+  a link to that folder); any other `KOMANDO_HOME` stops (see the next
+  entry), whatever `HOME` says. The e2e lab,
+  which leaned on the old rule, now builds a komando of its own with the
+  build tag `e2elab`, which takes the agent's account home from
+  `KOMANDO_E2E_ACCOUNT_HOME`. It is built outside the checkout and
+  removed after the run; a released komando has no such variable, and
+  `make bins` and `make dist` refuse a binary that has it.
+- An AI agent's command with `KOMANDO_HOME` set to another folder than
+  `~/.komando` now stops for good (`NEEDS_PERSON`, was `SAFETY_SETTING`): no flag and no
+  window lets it through, and a dry run stops too. Before, `--dry-run`
+  went on and still connected to servers from a folder without the
+  person's pinned host keys, protection and deny rules, and `--yes`
+  opened a window that could not ask for the approval code, which lives
+  in the usual folder. `komando guide uninstall` stops the same way; it
+  used to skip the check, and `--reveal` opened its window before it.
+  komando makes nothing in the other folder (a stopped command used to
+  leave a new store there). The hint tells the agent to take
+  `KOMANDO_HOME` out and run the command again. This is the one case
+  where a dry run is blocked.
 - The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
   and `~/.azure`: the SSO token cache and the CLI's cached credentials
   too, not only the `credentials` file. An AWS profile whose web identity

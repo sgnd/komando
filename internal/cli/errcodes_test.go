@@ -96,15 +96,6 @@ type goFile struct {
 	f    *ast.File
 }
 
-// twoExits are the codes whose exit tells two places apart on purpose:
-// WRITE_FAILED is 1 for a file on this computer and 5 on a server (as any
-// remote failure); VIA_CYCLE is 2 for the --via just given (host add or
-// edit) and 1 for one stored earlier, found when connecting.
-// SQL_TX_CONTROL and SQL_STRING_RULES are 2 for SQL the user wrote, refused
-// before it runs, and 6 (a safety stop) when the server ended komando's
-// transaction or reads SQL by rules komando cannot check.
-var twoExits = map[string]bool{"WRITE_FAILED": true, "VIA_CYCLE": true, "SQL_TX_CONTROL": true, "SQL_STRING_RULES": true}
-
 func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 	t.Helper()
 	var files []goFile
@@ -151,7 +142,7 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 				exits[s.exit] = append(exits[s.exit], s.file)
 			}
 		}
-		if len(exits) > 1 && !twoExits[code] {
+		if len(exits) > 1 {
 			mixed = append(mixed, fmt.Sprintf("%s exits with %d different codes: %v", code, len(exits), exits))
 		}
 		if from, ok := renamedFrom[code]; ok {
@@ -385,7 +376,7 @@ func codesAt(e ast.Expr, vars map[string][]assign) (codes []string, scopes []sco
 	}
 	switch x := e.(type) {
 	case *ast.IndexExpr:
-		// map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
+		// map[string]string{"host": "PROTECTED_TARGET", "conn": "PROTECTED_TARGET"}[kind]
 		if cl, ok := x.X.(*ast.CompositeLit); ok {
 			for _, el := range cl.Elts {
 				if kv, ok := el.(*ast.KeyValueExpr); ok && codeShape.MatchString(lit(kv.Value)) {
@@ -733,14 +724,12 @@ var meanings = map[string]string{
 	"DUMP_FAILED":          "the backup stopped before the end; no partial file is left",
 	"DUMP_UNSUPPORTED":     "komando's own dump cannot write an object (the message names it)",
 	"ERROR":                "an error with no more specific code (read the message)",
-	"FAILED":               "the command ran on the server and exited non-zero",
 	"FILE_ERROR":           "a file on this computer cannot be read or written",
 	"HOSTKEY_MISMATCH":     "the server shows a different host key than the one pinned: maybe an attack, never fixed automatically",
 	"HOSTKEY_UNKNOWN":      "host keys are strict and this server's key is not pinned yet (the message shows its fingerprint)",
 	"K8S_CONFLICT":         "the object changed or exists already (the cluster's words follow)",
 	"K8S_ERROR":            "the Kubernetes API answered with an error (its words follow)",
 	"K8S_INVALID":          "the cluster refused the request as written (its words follow)",
-	"K8S_UNREACHABLE":      "the Kubernetes API did not answer (address, --via path or VPN)",
 	"KEYCHAIN_FAILED":      "the system keychain refused (locked, or no Secret Service on Linux)",
 	"KILL_FAILED":          "the session or job could not be stopped",
 	"PARTIAL_FAILURE":      "some targets failed and some worked (see each result)",
@@ -752,7 +741,6 @@ var meanings = map[string]string{
 	"REGISTRY_AUTH":        "the registry refused the login or the token's scopes",
 	"REGISTRY_UNSUPPORTED": "the registry does not allow this request",
 	"REGISTRY_RATE_LIMIT":  "the registry turned the request down: too many requests (Docker Hub's pull limit)",
-	"REGISTRY_UNREACHABLE": "the registry did not answer (address, TLS or --via path)",
 	"REMOTE_ERROR":         "an error from outside komando with no more specific code (its words follow)",
 	"RESTORE_FAILED":       "the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it",
 	"REVISION_NOT_FOUND":   "the deployment has no revision with that number (cluster history lists them)",
@@ -773,7 +761,8 @@ var meanings = map[string]string{
 	"VAULT_LOCKED":         "the vault has a passphrase and none was given (KOMANDO_VAULT_PASS)",
 	"VPN_STOP_FAILED":      "the VPN session could not be stopped",
 	"WEAK_PASSPHRASE":      "the passphrase is shorter than 15 characters",
-	"WRITE_FAILED":         "a file could not be written (exit 1 on this computer; exit 5 for a file on a server: fs write, fs replace)",
+	"WRITE_FAILED":         "a file on this computer could not be written (guide install, update)",
+	"REMOTE_WRITE_FAILED":  "a file on a server could not be written (fs --sudo, sync, Windows fs)",
 	"CONNECTION_REFUSED":   "the server refused the connection: nothing listens on that port",
 	"DNS_ERROR":            "the server's name does not resolve on this computer",
 	"OVPN_UNSUPPORTED":     "the OpenVPN profile has an option komando's own client does not support (the message names it)",
@@ -785,7 +774,6 @@ var meanings = map[string]string{
 // whose sites build the message from what the command does.
 var approvalMeanings = map[string]string{
 	"POLICY_BLOCKED":     "the command matches destructive rules [rm-rf]: deletes files recursively",
-	"PROTECTED_HOST":     "this changes protected server …: …",
 	"PROTECTED_TARGET":   "a change action on protected conn …: …",
 	"SAFETY_SETTING":     "… weakens komando's safety checks",
 	"SECRET_DESTINATION": "an AI agent asked to send …; that needs a person's yes",
@@ -798,6 +786,8 @@ var approvalMeanings = map[string]string{
 // order of the files would decide: renaming a file must not change what
 // the catalog shows (these are the texts 0.12.0 showed).
 var catalogSite = map[string]string{
+	"CONN_UNREACHABLE":    "cannot reach …: …",
+	"NEEDS_PERSON":        "logging in to … needs a person at a terminal to answer its questions",
 	"FILE_EXISTS":         "… already exists on this computer",
 	"PASSPHRASE_MISMATCH": "the two passphrases you typed differ; nothing was changed",
 	"WEAK_PASSPHRASE":     "…; nothing was changed",

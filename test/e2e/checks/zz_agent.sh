@@ -110,9 +110,9 @@ acode "scaling to 0 needs --allow-dangerous" POLICY_BLOCKED cluster scale lab-k3
 fi
 
 if in_area data; then
-acode "a service on a protected host needs a person" PROTECTED_HOST svc restart target nginx
-acode "a change on a protected host needs a person" PROTECTED_HOST exec target -- touch /tmp/t-agent
-acode "an agent cannot log in for a person" NEEDS_TERMINAL login direct
+acode "a service on a protected host needs a person" PROTECTED_TARGET svc restart target nginx
+acode "a change on a protected host needs a person" PROTECTED_TARGET exec target -- touch /tmp/t-agent
+acode "an agent cannot log in for a person" NEEDS_PERSON login direct
 acode "an agent gets no SQL shell" NEEDS_TERMINAL db shell pg
 fi
 

@@ -47,7 +47,7 @@ func TestBlockedAttemptsAreAudited(t *testing.T) {
 		m := e.(map[string]any)
 		got = append(got, m["command"].(string)+"="+m["blocked"].(string))
 	}
-	want := "host.rm=PROTECTED_HOST policy.rm=SAFETY_SETTING exec=PROTECTED_HOST"
+	want := "host.rm=PROTECTED_TARGET policy.rm=SAFETY_SETTING exec=PROTECTED_TARGET"
 	if strings.Join(got, " ") != want {
 		t.Errorf("blocked in the audit: %v, want %s", got, want)
 	}
