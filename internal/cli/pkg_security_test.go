@@ -207,7 +207,7 @@ func TestPkgSecGates(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "root@127.0.0.1", "--port", "2")
 	mustRun(t, "host", "edit", "web1", "--protected")
-	if _, e := invRun(t, "pkg", "security", "web1"); e == nil || e.Code == "PROTECTED_HOST" {
+	if _, e := invRun(t, "pkg", "security", "web1"); e == nil || e.Code == "PROTECTED_TARGET" {
 		t.Errorf("list: %+v", e)
 	}
 	wantCode(t, "USAGE", "pkg", "security", "web1", "--apply")

@@ -31,7 +31,7 @@ func TestProtectedFollowsTheAddressAtRunTime(t *testing.T) {
 			if err != nil || len(m.Hosts) != 1 {
 				t.Fatalf("%s: %v %v", tc.target, m, err)
 			}
-			if err := guard(tcl, st, m.Hosts, "systemctl restart postgresql", true); err == nil || toErr(err).Code != "PROTECTED_HOST" {
+			if err := guard(tcl, st, m.Hosts, "systemctl restart postgresql", true); err == nil || toErr(err).Code != "PROTECTED_TARGET" {
 				t.Errorf("guard: %v", err)
 			}
 		})

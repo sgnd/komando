@@ -20,7 +20,7 @@ func TestRegistryCertErrors(t *testing.T) {
 	if e.Code != "REGISTRY_TLS" || strings.Contains(e.Hint, "skip-verify") {
 		t.Errorf("wrong name: %+v", e)
 	}
-	if e := toErr(registryErr(fmt.Errorf("dial tcp: connection refused"))); e.Code != "REGISTRY_UNREACHABLE" {
+	if e := toErr(registryErr(fmt.Errorf("dial tcp: connection refused"))); e.Code != "CONN_UNREACHABLE" {
 		t.Errorf("refused: %+v", e)
 	}
 }

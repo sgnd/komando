@@ -8105,7 +8105,7 @@ Hint: If you mean it, run it again in a terminal and type the name to confirm, o
 ### komando -o json exec prod1 -- touch /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (agent text, gate inventory)
 exit 6
@@ -8113,11 +8113,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json exec prod1 -- touch /tmp/x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"exec","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"exec","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text exec prod1 -- touch /tmp/x (script text, gate inventory)
 exit 6
@@ -8125,11 +8125,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json job start prod1 -- touch x (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start prod1 -- touch x (agent text, gate inventory)
 exit 6
@@ -8137,11 +8137,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json job start prod1 -- touch x (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"job.start","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"job.start","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes (before the --)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text job start prod1 -- touch x (script text, gate inventory)
 exit 6
@@ -8149,11 +8149,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json svc restart prod1 nginx (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc restart prod1 nginx (agent text, gate inventory)
 exit 6
@@ -8161,11 +8161,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json svc restart prod1 nginx (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json svc restart prod1 nginx --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"svc.restart","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json svc restart prod1 nginx --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text svc restart prod1 nginx (script text, gate inventory)
 exit 6
@@ -8173,11 +8173,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json user add prod1 bob (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add prod1 bob (agent text, gate inventory)
 exit 6
@@ -8185,11 +8185,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json user add prod1 bob (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"user.add","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json user add prod1 bob --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"user.add","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json user add prod1 bob --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text user add prod1 bob (script text, gate inventory)
 exit 6
@@ -8197,11 +8197,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json pkg install prod1 vim (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg install prod1 vim (agent text, gate inventory)
 exit 6
@@ -8209,11 +8209,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json pkg install prod1 vim (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json pkg install prod1 vim --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"pkg.install","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json pkg install prod1 vim --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text pkg install prod1 vim (script text, gate inventory)
 exit 6
@@ -8221,11 +8221,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json fs write prod1 /tmp/x --content hi (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write prod1 /tmp/x --content hi (agent text, gate inventory)
 exit 6
@@ -8233,11 +8233,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json fs write prod1 /tmp/x --content hi (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"fs.write","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text fs write prod1 /tmp/x --content hi (script text, gate inventory)
 exit 6
@@ -8245,7 +8245,7 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json fs rm prod1 /tmp/x (agent json, gate inventory)
 exit 6
 --- stdout
@@ -8273,7 +8273,7 @@ Hint: If you mean it, run it again in a terminal and type the name to confirm, o
 ### komando -o json docker stop prod1 c1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker stop prod1 c1 (agent text, gate inventory)
 exit 6
@@ -8281,11 +8281,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json docker stop prod1 c1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json docker stop prod1 c1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"docker.stop","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json docker stop prod1 c1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text docker stop prod1 c1 (script text, gate inventory)
 exit 6
@@ -8293,11 +8293,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json cron rm prod1 1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm prod1 1 (agent text, gate inventory)
 exit 6
@@ -8305,11 +8305,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json cron rm prod1 1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json cron rm prod1 1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"cron.rm","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json cron rm prod1 1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text cron rm prod1 1 (script text, gate inventory)
 exit 6
@@ -8317,11 +8317,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (agent text, gate inventory)
 exit 6
@@ -8329,11 +8329,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json upload prod1 testdata/golden_restore.sql /tmp/h (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"upload","error":{"code":"PROTECTED_HOST","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json upload prod1 testdata/golden_restore.sql /tmp/h --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"upload","error":{"code":"PROTECTED_TARGET","message":"this changes protected server: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json upload prod1 testdata/golden_restore.sql /tmp/h --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text upload prod1 testdata/golden_restore.sql /tmp/h (script text, gate inventory)
 exit 6
@@ -8341,11 +8341,11 @@ exit 6
 --- stderr
 Stopped: prod1 is a protected server (production), so komando asks before changing it; nothing was changed
 Hint: Run it again in a terminal to answer the question, or add --yes in a script if you are sure. Try --dry-run first to see what it would do.
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json host rm prod1 (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_HOST","message":"removing protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rm prod1 (agent text, gate inventory)
 exit 6
@@ -8353,11 +8353,11 @@ exit 6
 --- stderr
 Stopped: removing protected host: prod1; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json host rm prod1 (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_HOST","message":"removing protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host rm prod1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.rm","error":{"code":"PROTECTED_TARGET","message":"removing protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host rm prod1 --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host rm prod1 (script text, gate inventory)
 exit 6
@@ -8365,11 +8365,11 @@ exit 6
 --- stderr
 Stopped: removing protected host: prod1; nothing was changed
 Hint: check with --dry-run, then run it again with --yes: `komando -o text host rm prod1 --yes`
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json host edit prod1 --protected=false (agent json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_HOST","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit prod1 --protected=false (agent text, gate inventory)
 exit 6
@@ -8377,11 +8377,11 @@ exit 6
 --- stderr
 Stopped: turning off protection of protected host: prod1; nothing was changed
 Hint: check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json host edit prod1 --protected=false (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_HOST","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host edit prod1 --protected=false --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
+{"ok":false,"command":"host.edit","error":{"code":"PROTECTED_TARGET","message":"turning off protection of protected host: prod1","hint":"check with --dry-run, then run it again with --yes: `komando -o json host edit prod1 --protected=false --yes`"},"meta":{"contract":1,"version":"V","duration_ms":0}}
 --- stderr
 ### komando -o text host edit prod1 --protected=false (script text, gate inventory)
 exit 6
@@ -8389,7 +8389,7 @@ exit 6
 --- stderr
 Stopped: turning off protection of protected host: prod1; nothing was changed
 Hint: check with --dry-run, then run it again with --yes: `komando -o text host edit prod1 --protected=false --yes`
-(code PROTECTED_HOST, exit 6)
+(code PROTECTED_TARGET, exit 6)
 ### komando -o json cache set pcache k v (agent json, gate inventory)
 exit 6
 --- stdout

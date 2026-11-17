@@ -220,7 +220,7 @@ func kubeErr(err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test TARGET` (and its --via path)",
 			"the cluster did not answer within the time limit (--timeout)")
 	}
-	return out.Errf(out.ExitConnect, "K8S_UNREACHABLE", "check the conn with `komando test TARGET` (and its --via path)", "%s", dialMessage(err))
+	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", "check the conn with `komando test TARGET` (and its --via path)", "%s", dialMessage(err))
 }
 
 // dialMessage says "cannot reach HOST:PORT: connection refused" for a

@@ -86,7 +86,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	// a new password for a protected server or conn changes how komando
 	// logs in there: the same yes as any change to it
 	if prot := protectedUsers(st, []string{self}); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
-		return "", undo, cl.policyStop(approvalErr(cl, map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind],
+		return "", undo, cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			name+" is protected; a new password or key changes how komando logs in there"))
 	}
 	v, err := readPassword(cl, fmt.Sprintf("%s for %s (it stays hidden): ", strings.ToUpper(a.what[:1])+a.what[1:], name))

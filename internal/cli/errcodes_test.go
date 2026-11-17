@@ -385,7 +385,7 @@ func codesAt(e ast.Expr, vars map[string][]assign) (codes []string, scopes []sco
 	}
 	switch x := e.(type) {
 	case *ast.IndexExpr:
-		// map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET"}[kind]
+		// map[string]string{"host": "PROTECTED_TARGET", "conn": "PROTECTED_TARGET"}[kind]
 		if cl, ok := x.X.(*ast.CompositeLit); ok {
 			for _, el := range cl.Elts {
 				if kv, ok := el.(*ast.KeyValueExpr); ok && codeShape.MatchString(lit(kv.Value)) {
@@ -740,7 +740,6 @@ var meanings = map[string]string{
 	"K8S_CONFLICT":         "the object changed or exists already (the cluster's words follow)",
 	"K8S_ERROR":            "the Kubernetes API answered with an error (its words follow)",
 	"K8S_INVALID":          "the cluster refused the request as written (its words follow)",
-	"K8S_UNREACHABLE":      "the Kubernetes API did not answer (address, --via path or VPN)",
 	"KEYCHAIN_FAILED":      "the system keychain refused (locked, or no Secret Service on Linux)",
 	"KILL_FAILED":          "the session or job could not be stopped",
 	"PARTIAL_FAILURE":      "some targets failed and some worked (see each result)",
@@ -752,7 +751,6 @@ var meanings = map[string]string{
 	"REGISTRY_AUTH":        "the registry refused the login or the token's scopes",
 	"REGISTRY_UNSUPPORTED": "the registry does not allow this request",
 	"REGISTRY_RATE_LIMIT":  "the registry turned the request down: too many requests (Docker Hub's pull limit)",
-	"REGISTRY_UNREACHABLE": "the registry did not answer (address, TLS or --via path)",
 	"REMOTE_ERROR":         "an error from outside komando with no more specific code (its words follow)",
 	"RESTORE_FAILED":       "the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it",
 	"REVISION_NOT_FOUND":   "the deployment has no revision with that number (cluster history lists them)",
@@ -785,7 +783,6 @@ var meanings = map[string]string{
 // whose sites build the message from what the command does.
 var approvalMeanings = map[string]string{
 	"POLICY_BLOCKED":     "the command matches destructive rules [rm-rf]: deletes files recursively",
-	"PROTECTED_HOST":     "this changes protected server …: …",
 	"PROTECTED_TARGET":   "a change action on protected conn …: …",
 	"SAFETY_SETTING":     "… weakens komando's safety checks",
 	"SECRET_DESTINATION": "an AI agent asked to send …; that needs a person's yes",
@@ -798,6 +795,7 @@ var approvalMeanings = map[string]string{
 // order of the files would decide: renaming a file must not change what
 // the catalog shows (these are the texts 0.12.0 showed).
 var catalogSite = map[string]string{
+	"CONN_UNREACHABLE":    "cannot reach …: …",
 	"FILE_EXISTS":         "… already exists on this computer",
 	"PASSPHRASE_MISMATCH": "the two passphrases you typed differ; nothing was changed",
 	"WEAK_PASSPHRASE":     "…; nothing was changed",
@@ -814,6 +812,8 @@ var renamedFrom = map[string]string{"SWARM_ERROR": "DOCKER_ERROR"}
 // hintMeanings stand in for a hint the program builds as it runs (from the
 // key's path, or from the tool's error): what it tells the reader to do.
 var hintMeanings = map[string]string{
+	// one code for every place komando cannot reach: each site's hint names its own check
+	"CONN_UNREACHABLE":        "check the address with `komando test TARGET` (a cluster, registry, database, WinRM server or komando's releases: the hint names the check for each); if only a server or VPN reaches it, add --via",
 	"KEY_PASSPHRASE_REQUIRED": "load the key into ssh-agent with `ssh-add PATH`, or store its passphrase with `komando secret set NAME` (the hint gives the whole commands)",
 	"NO_PASSPHRASE":           "the vault keeps its key in store.key or the OS keychain already; the hint says which",
 	"VPN_CLIENT_MISSING":      "install the program the message names (macOS: `brew install NAME`; Linux: its package)",

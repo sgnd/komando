@@ -327,7 +327,7 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 		}
 	}
 	if len(prot) > 0 && !cl.yesOK("a change on protected "+nouns(len(prot), "host")+" "+strings.Join(prot, ", "), targetsWhy(st, hosts)) && !confirmProtected(cl, prot) {
-		return cl.policyStop(approvalErr(cl, "PROTECTED_HOST",
+		return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			fmt.Sprintf("this changes protected %s: %s", nouns(len(prot), "server"), strings.Join(prot, ", "))).Say(protectedSay(prot, "server"), protectedHint))
 	}
 	return nil
@@ -593,8 +593,7 @@ func guardProtectionWhy(cl *call, kind, action string, names []string, why strin
 	if cl.yesOK(why) || asked() {
 		return nil
 	}
-	code := map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind]
-	return cl.policyStop(approvalErr(cl, code, fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
+	return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET", fmt.Sprintf("%s protected %s: %s", action, nouns(len(names), word), strings.Join(names, ", "))))
 }
 
 func hostNames(hs []*store.Host) []string {

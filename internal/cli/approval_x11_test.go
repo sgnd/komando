@@ -36,7 +36,7 @@ func TestX11ApprovalNeedsCode(t *testing.T) {
 	if c.sess.Allowed() || clicked != 0 || c.sess.Window().Why != "needs-code" {
 		t.Fatalf("X11: allowed %v, clicked %d, why %q", c.sess.Allowed(), clicked, c.sess.Window().Why)
 	}
-	e := out.Errf(out.ExitPolicy, "PROTECTED_HOST", "add --yes", "web1 is protected")
+	e := out.Errf(out.ExitPolicy, "PROTECTED_TARGET", "add --yes", "web1 is protected")
 	approvalHint(tcl, e)
 	if !strings.Contains(e.Hint, "komando config approval-code") {
 		t.Errorf("hint: %q", e.Hint)

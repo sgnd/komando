@@ -370,7 +370,7 @@ func ApprovalFlag(e *Error) string {
 	switch e.Code {
 	case "POLICY_BLOCKED":
 		return "--allow-dangerous"
-	case "PROTECTED_HOST", "PROTECTED_TARGET", "SAFETY_SETTING", "OPEN_BIND", "SECRET_DESTINATION", "CONFIRM_REQUIRED":
+	case "PROTECTED_TARGET", "SAFETY_SETTING", "OPEN_BIND", "SECRET_DESTINATION", "CONFIRM_REQUIRED":
 		return "--yes"
 	case "REVEAL_NEEDS_PERSON":
 		return "--reveal"

@@ -74,7 +74,7 @@ func TestHostMv(t *testing.T) {
 
 	// protected: a person's yes, once
 	mustRun(t, "host", "add", "prod", "u@10.0.0.9", "--protected")
-	wantCode(t, "PROTECTED_HOST", "host", "mv", "prod", "prod1")
+	wantCode(t, "PROTECTED_TARGET", "host", "mv", "prod", "prod1")
 	if d := mustRun(t, "host", "mv", "prod", "prod1", "--dry-run"); d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run shows the stop: %v", d)
 	}
@@ -138,7 +138,7 @@ func TestHostEditMany(t *testing.T) {
 	mustRun(t, "host", "add", "c", "u@10.0.0.3", "-g", "ubuntu", "--protected")
 	mustRun(t, "host", "add", "d", "u@10.0.0.4")
 
-	wantCode(t, "PROTECTED_HOST", "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo")
+	wantCode(t, "PROTECTED_TARGET", "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo")
 	d := mustRun(t, "host", "edit", "@ubuntu", "--sudo-ref", "secret:ubuntu-sudo", "--dry-run")
 	if len(d["changed"].([]any)) != 3 || len(d["protected"].([]any)) != 2 || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run lists every server and the stop: %v", d)

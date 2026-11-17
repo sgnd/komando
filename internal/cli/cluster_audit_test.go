@@ -65,7 +65,7 @@ func TestKubeErrWords(t *testing.T) {
 	addr := closedAddr(t)
 	_, err := http.Get("http://" + addr + "/")
 	e := toErr(kubeErr(err))
-	if e.Code != "K8S_UNREACHABLE" || e.Message != "cannot reach "+addr+": connection refused" {
+	if e.Code != "CONN_UNREACHABLE" || e.Message != "cannot reach "+addr+": connection refused" {
 		t.Errorf("refused: %+v", e)
 	}
 	if e := toErr(kubeErr(fmt.Errorf("x: %w", context.DeadlineExceeded))); e.Code != "TIMEOUT" {
@@ -73,25 +73,25 @@ func TestKubeErrWords(t *testing.T) {
 	}
 }
 
-// An unreachable cluster is K8S_UNREACHABLE in cluster run and apply too,
+// An unreachable cluster is CONN_UNREACHABLE in cluster run and apply too,
 // not "no resource type" (exit 5) or a usage error (exit 2).
 func TestClusterUnreachableIsUnreachable(t *testing.T) {
 	invHome(t)
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, "https://"+closedAddr(t)))
 	for _, args := range [][]string{{"run", "prod", "--", "get", "pods"}, {"run", "prod", "--", "version"}} {
-		if _, e := invRun(t, append([]string{"cluster"}, args...)...); e == nil || e.Code != "K8S_UNREACHABLE" || e.Exit != out.ExitConnect {
+		if _, e := invRun(t, append([]string{"cluster"}, args...)...); e == nil || e.Code != "CONN_UNREACHABLE" || e.Exit != out.ExitConnect {
 			t.Errorf("%v: %+v", args, e)
 		}
 	}
 	f := filepath.Join(t.TempDir(), "cm.yaml")
 	os.WriteFile(f, []byte("apiVersion: v1\nkind: ConfigMap\nmetadata: {name: x}\n"), 0o600)
-	if _, e := invRun(t, "cluster", "apply", "prod", "--file", f); e == nil || e.Code != "K8S_UNREACHABLE" {
+	if _, e := invRun(t, "cluster", "apply", "prod", "--file", f); e == nil || e.Code != "CONN_UNREACHABLE" {
 		t.Errorf("apply: %+v", e)
 	}
 }
 
 // A change whose connection breaks after the request went out may have
-// happened: it is K8S_UNREACHABLE and still lands in the audit log.
+// happened: it is CONN_UNREACHABLE and still lands in the audit log.
 func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 	invHome(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +107,7 @@ func TestClusterRunBrokenWriteIsAudited(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	mustRun(t, "import", "kubeconfig", kubeconfigAt(t, srv.URL))
-	if _, e := invRun(t, "cluster", "run", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "K8S_UNREACHABLE" {
+	if _, e := invRun(t, "cluster", "run", "prod", "--write", "--", "create", "configmap", "x"); e == nil || e.Code != "CONN_UNREACHABLE" {
 		t.Fatalf("run: %+v", e)
 	}
 	d := mustRun(t, "audit", "--failed")

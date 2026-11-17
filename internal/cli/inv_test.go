@@ -147,8 +147,8 @@ func TestInvProtectedEditNeedsYes(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "jump", "u@10.0.0.1")
 	mustRun(t, "host", "add", "prod", "u@10.0.0.2", "--protected")
-	wantCode(t, "PROTECTED_HOST", "host", "edit", "prod", "--via", "jump")
-	wantCode(t, "PROTECTED_HOST", "host", "edit", "prod", "--address", "10.0.0.3")
+	wantCode(t, "PROTECTED_TARGET", "host", "edit", "prod", "--via", "jump")
+	wantCode(t, "PROTECTED_TARGET", "host", "edit", "prod", "--address", "10.0.0.3")
 	d := mustRun(t, "host", "edit", "prod", "--via", "jump", "--dry-run")
 	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry-run shows the stop: %v", d)
@@ -485,7 +485,7 @@ func TestInvRmSelector(t *testing.T) {
 	mustRun(t, "host", "add", "prod", "u@10.0.0.4", "-g", "old", "--protected")
 	wantCode(t, "HOST_IN_USE", "host", "rm", "tmp-*") // keep still goes through tmp-1
 	mustRun(t, "host", "edit", "keep", "--unset", "via")
-	wantCode(t, "PROTECTED_HOST", "host", "rm", "@old")
+	wantCode(t, "PROTECTED_TARGET", "host", "rm", "@old")
 	d := mustRun(t, "host", "rm", "@old", "--dry-run")
 	if got := d["would_remove"].([]any); len(got) != 3 || d["removed"] != nil {
 		t.Errorf("dry-run lists all: %v", got)

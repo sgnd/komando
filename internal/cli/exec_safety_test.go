@@ -223,7 +223,7 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"env value that runs code", []string{"exec", "prod", "--read-only", "-e", "PS4=$(rm -rf /data)", "--", "bash -xc :"}, "READ_ONLY_VIOLATION", ""},
 		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "DIR=/var/log", "--", "find $DIR -name '*.gz'"}, "", ""},
 		{"read-only, input piped into a shell", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "cat | sh"}, "READ_ONLY_VIOLATION", ""},
-		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_HOST", ""},
+		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_TARGET", ""},
 		{"interpreter tee", []string{"exec", "prod", "--read-only", "--interpreter", "tee /etc/passwd", "--script", benign}, "READ_ONLY_VIOLATION", ""},
 		{"interpreter with -c", []string{"exec", "prod", "--read-only", "--interpreter", `sh -c "systemctl stop nginx" #`, "--script", benign}, "READ_ONLY_VIOLATION", ""},
 		{"interpreter python", []string{"exec", "prod", "--read-only", "--interpreter", "python3", "--script", benign}, "READ_ONLY_VIOLATION", ""},
@@ -234,16 +234,16 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		// --read-only is an allowlist on a protected target: a command
 		// komando does not know reads still needs --yes, even though the
 		// denylist lets it pass (it changes nothing komando can see)
-		{"allowlist: unknown command needs --yes", []string{"exec", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_HOST", ""},
-		{"allowlist: unknown in a pipe needs --yes", []string{"exec", "prod", "--read-only", "--", "cat /etc/hosts | mytool"}, "PROTECTED_HOST", ""},
-		{"allowlist: unknown in a shell needs --yes", []string{"exec", "prod", "--read-only", "--", "sh -c 'mytool --status'"}, "PROTECTED_HOST", ""},
+		{"allowlist: unknown command needs --yes", []string{"exec", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_TARGET", ""},
+		{"allowlist: unknown in a pipe needs --yes", []string{"exec", "prod", "--read-only", "--", "cat /etc/hosts | mytool"}, "PROTECTED_TARGET", ""},
+		{"allowlist: unknown in a shell needs --yes", []string{"exec", "prod", "--read-only", "--", "sh -c 'mytool --status'"}, "PROTECTED_TARGET", ""},
 		{"allowlist: unknown script command needs --yes", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
 		{"allowlist: known read runs", []string{"exec", "prod", "--read-only", "--", "cat /etc/hostname"}, "", ""},
 		{"allowlist: ps runs", []string{"exec", "prod", "--read-only", "--", "ps aux | grep nginx"}, "", ""},
 		{"allowlist: docker ps runs", []string{"exec", "prod", "--read-only", "--", "docker ps"}, "", ""},
 		{"allowlist: docker rm is a clear write", []string{"exec", "prod", "--read-only", "--", "docker rm web"}, "READ_ONLY_VIOLATION", ""},
 		{"allowlist: systemctl status runs", []string{"exec", "prod", "--read-only", "--", "systemctl status nginx"}, "", ""},
-		{"allowlist: job unknown needs --yes", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_HOST", ""},
+		{"allowlist: job unknown needs --yes", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_TARGET", ""},
 	}
 	for _, c := range cases {
 		err := runRoot(t, c.args...)
@@ -309,7 +309,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 		if name == "procs" {
 			args = args[:4]
 		}
-		if err := runRoot(t, args...); toErr(err) == nil || toErr(err).Code != "PROTECTED_HOST" {
+		if err := runRoot(t, args...); toErr(err) == nil || toErr(err).Code != "PROTECTED_TARGET" {
 			t.Errorf("%s: %v", name, err)
 		}
 		if n := len(srv.take()); n != 0 {

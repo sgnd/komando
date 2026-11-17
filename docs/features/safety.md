@@ -119,7 +119,7 @@ table below only reads, or makes a change you can undo.
 |---|---|---|---|
 | read | looks only | nothing | nothing |
 | change | can be undone, or only komando's own list | nothing | typed in full: runs; filled in: `Run it?` |
-| protected | a change on a protected server, conn or VPN | `--yes` (PROTECTED_HOST, PROTECTED_TARGET) | `NAME (protected): ... Continue? [y/N]` |
+| protected | a change on a protected server, conn or VPN | `--yes` (PROTECTED_TARGET) | `NAME (protected): ... Continue? [y/N]` |
 | dangerous | cannot be undone, or an outage | `--allow-dangerous` (POLICY_BLOCKED) | types the name of what goes, the count, or the target |
 | safety | weakens komando's own checks | `--yes` (SAFETY_SETTING, OPEN_BIND, SECRET_DESTINATION) | `This turns off a komando safety check: ... Continue? [y/N]` |
 | person | only a person at a terminal | no flag: NEEDS_PERSON and friends | the command itself |

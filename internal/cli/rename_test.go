@@ -141,7 +141,7 @@ func TestRenamePrefix(t *testing.T) {
 	if moved, _ := d["moved"].([]any); len(moved) != 0 {
 		t.Errorf("a key in the store has no file to move: %v", d["moved"])
 	}
-	if b := d["_meta"].(map[string]any)["would_be_blocked"]; b == nil || b.(map[string]any)["code"] != "PROTECTED_HOST" {
+	if b := d["_meta"].(map[string]any)["would_be_blocked"]; b == nil || b.(map[string]any)["code"] != "PROTECTED_TARGET" {
 		t.Errorf("the dry run shows the stop: %v", b)
 	}
 	if homeFiles(t) != keep {
@@ -149,7 +149,7 @@ func TestRenamePrefix(t *testing.T) {
 	}
 
 	// a script without --yes: stopped, nothing changed
-	wantCode(t, "PROTECTED_HOST", "rename", "--starts-with", "shop-", "acme-shop-")
+	wantCode(t, "PROTECTED_TARGET", "rename", "--starts-with", "shop-", "acme-shop-")
 	if homeFiles(t) != keep {
 		t.Fatal("a stopped rename changed something")
 	}
@@ -516,7 +516,7 @@ func TestRenameAgentNeedsNoWindow(t *testing.T) {
 	askOnScreen = func(*call, string) (bool, bool) { return false, false } // no screen
 	t.Cleanup(func() { askOnScreen = saved })
 	keep := homeFiles(t)
-	wantCode(t, "PROTECTED_HOST", "rename", "--starts-with", "lab-", "test-", "--yes")
+	wantCode(t, "PROTECTED_TARGET", "rename", "--starts-with", "lab-", "test-", "--yes")
 	if homeFiles(t) != keep {
 		t.Fatal("a refused rename changed something")
 	}
@@ -609,7 +609,7 @@ func TestGroupMv(t *testing.T) {
 	mustRun(t, "vpn", "add", "v", "socks", "--proxy-address", "127.0.0.1:1080", "-g", "web")
 
 	// a protected member: one yes
-	wantCode(t, "PROTECTED_HOST", "group", "mv", "web", "frontend")
+	wantCode(t, "PROTECTED_TARGET", "group", "mv", "web", "frontend")
 	d := mustRun(t, "group", "mv", "@web", "frontend", "--dry-run")
 	if d["action"] != "would_rename" || len(d["updated"].([]any)) != 4 || d["_meta"].(map[string]any)["would_be_blocked"] == nil {
 		t.Errorf("dry run: %v", d)

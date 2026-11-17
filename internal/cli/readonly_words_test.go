@@ -29,9 +29,9 @@ func TestDockerExecReadOnly(t *testing.T) {
 	}{
 		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "cat", "/app/config.yml"}, "<nil>"},
 		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "sh", "-c", "ls /data | wc -l"}, "<nil>"},
-		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "myapp", "report"}, "PROTECTED_HOST"},
-		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "sh", "-c", "ls /data; ./reset.sh"}, "PROTECTED_HOST"},
-		{[]string{"docker", "exec", "db1", "api", "--", "cat", "/app/config.yml"}, "PROTECTED_HOST"},
+		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "myapp", "report"}, "PROTECTED_TARGET"},
+		{[]string{"docker", "exec", "db1", "api", "--read-only", "--", "sh", "-c", "ls /data; ./reset.sh"}, "PROTECTED_TARGET"},
+		{[]string{"docker", "exec", "db1", "api", "--", "cat", "/app/config.yml"}, "PROTECTED_TARGET"},
 		{[]string{"docker", "exec", "web1", "api", "--read-only", "--", "rm", "-f", "/tmp/cache"}, "READ_ONLY_VIOLATION"},
 		{[]string{"docker", "exec", "web1", "api", "--read-only", "--", "sh", "-c", "echo x > /data/flag"}, "READ_ONLY_VIOLATION"},
 		{[]string{"docker", "exec", "web1", "api", "--read-only", "--", "myapp", "report"}, "<nil>"}, // not protected

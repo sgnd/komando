@@ -215,7 +215,7 @@ func registryErr(err error) error {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout, or check the conn with `komando test TARGET`",
 			"the registry did not answer within the time limit (--timeout)")
 	}
-	return out.Errf(out.ExitConnect, "REGISTRY_UNREACHABLE", "check the conn with `komando test TARGET`", "%s", dialMessage(err))
+	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", "check the conn with `komando test TARGET`", "%s", dialMessage(err))
 }
 
 // retryAfter turns a Retry-After header (seconds, or an HTTP date) into

@@ -12,7 +12,7 @@ import (
 func TestRegistryErrWords(t *testing.T) {
 	addr := closedAddr(t)
 	_, err := http.Get("http://" + addr + "/")
-	if e := toErr(registryErr(err)); e.Code != "REGISTRY_UNREACHABLE" || e.Message != "cannot reach "+addr+": connection refused" {
+	if e := toErr(registryErr(err)); e.Code != "CONN_UNREACHABLE" || e.Message != "cannot reach "+addr+": connection refused" {
 		t.Errorf("registry refused: %+v", e)
 	}
 }
@@ -56,7 +56,7 @@ func TestRegistryChecks(t *testing.T) {
 	if _, e := invRun(t, "--dry-run", "registry", "copy", "lreg:nope:1", "lreg:c:2"); e == nil || e.Code != "REPOSITORY_NOT_FOUND" {
 		t.Errorf("missing source: %+v", e)
 	}
-	if _, e := invRun(t, "--dry-run", "registry", "copy", "dead:a:1", "lreg:b:1"); e == nil || e.Code != "REGISTRY_UNREACHABLE" {
+	if _, e := invRun(t, "--dry-run", "registry", "copy", "dead:a:1", "lreg:b:1"); e == nil || e.Code != "CONN_UNREACHABLE" {
 		t.Errorf("unreachable source: %+v", e)
 	}
 	wantCode(t, "USAGE", "--dry-run", "registry", "copy", "lreg:app:1", "lreg:")
