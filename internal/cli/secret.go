@@ -49,12 +49,15 @@ func secretNames() []string {
 	return n
 }
 
-// protectedUsers are the protected servers and conns among users.
+// protectedUsers are the protected servers, conns and VPNs among users.
 func protectedUsers(st *store.State, users []string) []string {
 	var prot []string
 	for _, u := range users {
 		kind, name, _ := strings.Cut(u, " ")
-		if (kind == "host" && st.Hosts[name] != nil && st.Hosts[name].Protected) || (kind == "conn" && st.Conns[name] != nil && st.Conns[name].Protected) {
+		switch {
+		case kind == "host" && st.Hosts[name] != nil && st.Hosts[name].Protected,
+			kind == "conn" && st.Conns[name] != nil && st.Conns[name].Protected,
+			kind == "vpn" && st.Vpns[name] != nil && st.Vpns[name].Protected:
 			prot = append(prot, u)
 		}
 	}
@@ -270,6 +273,11 @@ are not changed.`
 			if err := secretCopyStops(cl, st, from, to, replaced, overwrite); err != nil {
 				return err
 			}
+			// what uses NEW gets the value of OLD: for a profile or a CA
+			// certificate that is a new place or a new trust
+			if err := guardCopyTrust(cl, st, from, to, replaced); err != nil {
+				return err
+			}
 			res := map[string]any{"from": from, "to": to, "ref": "secret:" + to, "replaced": replaced}
 			if cl.flags.dryRun {
 				res[map[bool]string{true: "would_move", false: "would_copy"}[move]] = true
@@ -310,6 +318,21 @@ are not changed.`
 		c.Aliases = []string{"mv"} // a plain synonym
 	}
 	return c
+}
+
+// guardCopyTrust is guardTrustSecret for secret cp and rename: what uses
+// TO gets the value of FROM, which the agent may not read, so the window
+// names FROM, never what is in it.
+func guardCopyTrust(cl *call, st *store.State, from, to string, replaced bool) error {
+	if !cl.isAgent() {
+		return nil
+	}
+	now, err := vault.Get(from)
+	if err != nil {
+		return err
+	}
+	was, _ := vault.Get(to)
+	return guardTrustSecret(cl, st, to, was, replaced, now, "secret "+from)
 }
 
 func secretExists(from, to string) error {

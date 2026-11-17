@@ -52,6 +52,7 @@ the file with ` + "`docker stack config`" + ` on the manager.`,
 			if err != nil {
 				return localFileErr("FILE_NOT_FOUND", err, "")
 			}
+			noteApprovalData(cl, scriptLabel("the YAML", file), b)
 			st, err := loadState()
 			if err != nil {
 				return err

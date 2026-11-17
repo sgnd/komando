@@ -1,6 +1,7 @@
 package out
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -162,5 +163,58 @@ func TestMaskSecretsLeavesKomandoSentences(t *testing.T) {
 		if got := MaskSecrets(in); got != want {
 			t.Errorf("MaskSecrets(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// Everything under a key that names stored credentials is hidden, whatever
+// its shape: MongoDB keeps each user's SCRAM verifiers (salt, storedKey,
+// serverKey) in an object under "credentials", and a list under a
+// secret-named key ("apiKeys": [...]) holds secrets too.
+func TestNestedCredentialsAreHidden(t *testing.T) {
+	in := `{"ok":true,"data":{"documents":[{"user":"app","db":"admin","credentials":{"SCRAM-SHA-1":{"iterationCount":10000,"salt":"c2FsdHNhbHRzYWx0","storedKey":"U3RvcmVkS2V5U3RvcmVkS2V5","serverKey":"U2VydmVyS2V5U2VydmVyS2V5"},` +
+		`"SCRAM-SHA-256":{"salt":"c2FsdDI1NnNhbHQyNTY=","storedKey":"U3RvcmVkMjU2","serverKey":"U2VydmVyMjU2"}},"roles":[{"role":"readWrite","db":"shop"}],"apiKeys":["ak_live_1234567890abcdef","ak_live_fedcba0987654321"],` +
+		`"scramKeys":{"storedKey":"TG9vc2VTdG9yZWRLZXk="}}]}}`
+	got := string(maskJSON([]byte(in)))
+	if !json.Valid([]byte(got)) {
+		t.Fatalf("not JSON: %s", got)
+	}
+	for _, leak := range []string{"c2FsdHNhbHRzYWx0", "U3RvcmVkS2V5U3RvcmVkS2V5", "U2VydmVyS2V5U2VydmVyS2V5", "c2FsdDI1NnNhbHQyNTY=", "U3RvcmVkMjU2", "U2VydmVyMjU2", "ak_live_1234567890abcdef", "ak_live_fedcba0987654321", "TG9vc2VTdG9yZWRLZXk="} {
+		if strings.Contains(got, leak) {
+			t.Errorf("%q leaked: %s", leak, got)
+		}
+	}
+	for _, keep := range []string{`"user":"app"`, `"role":"readWrite"`, `"db":"shop"`, `"iterationCount":10000`} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("%q should stay: %s", keep, got)
+		}
+	}
+	// the same in text (-o text prints indented JSON through Redact)
+	var pretty bytes.Buffer
+	_ = json.Indent(&pretty, []byte(in), "", "  ")
+	text := (&Printer{Mask: true}).Redact(pretty.String())
+	for _, leak := range []string{"U3RvcmVkS2V5U3RvcmVkS2V5", "U2VydmVyS2V5U2VydmVyS2V5", "TG9vc2VTdG9yZWRLZXk="} {
+		if strings.Contains(text, leak) {
+			t.Errorf("text: %q leaked: %s", leak, text)
+		}
+	}
+	// komando's own lists of names under such a key stay readable
+	own := `{"ok":true,"data":{"secrets":[{"name":"db-pass"}],"would_set":["web1-pass"],"password_ref":"secret:db","credentials":{"note":"secret:db"}}}`
+	if got := string(maskJSON([]byte(own))); got != own {
+		t.Errorf("komando's own output changed: %s", got)
+	}
+}
+
+// komando's own lists of names, and lists of public things, stay readable
+// for an AI agent; credentials are hidden under the keys that hold them.
+func TestOwnListsStayReadable(t *testing.T) {
+	own := `{"ok":true,"data":{"secrets_unused":["db-pass"],"host_keys_kept":["node2"],"authorized_keys":["ssh-ed25519 AAAA bob"],"imagePullSecrets":["regcred"],"primary_keys":["id"],` +
+		`"password":{"min_length":"12","policy":"strong"},"scramble":{"x":"hello"},"credentials":{"type":"basic","helper_name":"osxkeychain"}}}`
+	if got := string(maskJSON([]byte(own))); got != own {
+		t.Errorf("changed:\n got %s\nwant %s", got, own)
+	}
+	// names of 12 characters and more too
+	longer := `{"ok":true,"data":{"secrets_unused":["shop-db-password"],"secrets_needed":["shop-db-password"],"host_keys_kept":["node2.example.com"]}}`
+	if got := string(maskJSON([]byte(longer))); got != longer {
+		t.Errorf("komando's own lists: %s", got)
 	}
 }

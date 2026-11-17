@@ -97,6 +97,7 @@ func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
 		if data, err = readFileOrStdin(cl, from); err != nil {
 			return nil, err
 		}
+		noteApprovalData(cl, scriptLabel("the message", from), data)
 	default:
 		if data, err = readStdinIfPiped(cl, maxQueueMessage, "the message"); err != nil {
 			return nil, err
@@ -104,6 +105,7 @@ func queueValue(cmd *cobra.Command, value, from string) ([]byte, error) {
 		if data == nil {
 			return nil, out.Usage("give the message with --value, --from FILE, or pipe it in (stdin)")
 		}
+		noteApprovalData(cl, scriptLabel("the message", "-"), data)
 	}
 	if len(data) > maxQueueMessage {
 		return nil, out.Usage("the message is %s; komando sends up to 1 MiB (Kafka's default limit, message.max.bytes): put bigger data in storage and send its name", humanBytes(int64(len(data))))
