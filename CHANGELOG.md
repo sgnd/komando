@@ -28,6 +28,61 @@ its highlights; the sections below them give the details. Versions follow
 ### Changed
 
 - `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
+- **A read key stays off the network.** An SSH key added with
+  `komando ssh-gate line --read-only` now runs only komando's own reads of
+  the servers and conns in your list. Every `net` command, `cert check` of
+  a website, and `exec`, `job start`, `docker exec`, `cluster exec` and
+  `recipe run` are refused for it (`SSH_GATE_NETWORK_REQUIRED`, exit 6): they can
+  reach any host and carry what the key reads in a URL or a DNS name. A
+  read komando adds later is refused until it is known to stay on listed
+  targets. Add `--network` to the line for a read key that may run them
+  (`komando ssh-gate line --name NAME --read-only --network KEY`); the line
+  JSON has `network`.
+- `--read-only` no longer lets through the forms of read tools that write
+  or kill: `xxd IN OUT`, `yq -i` and `--split-exp`, `xmllint --output` and
+  `--shell`, `fuser -k`, `ss -K` and `-D`, `arp -d`, `-s` and `-f`, and
+  `sar -o`. Their plain reads still pass.
+- `db query` on SQL Server: a linked-server name (`lnk.db.dbo.t`) and the
+  functions that read a file path (`fn_xe_file_target_read_file`,
+  `fn_get_audit_file`, `fn_trace_gettable`, `fn_dump_dblog`) need
+  `--write`, as `OPENQUERY` and `OPENROWSET` did: a path can be
+  `\\HOST\share`, a connection to any host.
+- `db query` on Oracle: `xmltype()`, `XMLPARSE` and `createxml()` of text
+  the query builds need `--write`: a DTD in it can name a URL the parser
+  fetches. `xmltype(column)` stays a read.
+
+- No ssh-gate key, read, network or full, makes komando read a file on the
+  komando computer any more: `--script FILE`, `--stdin-file FILE`,
+  `db query --file`, `db restore --from`, `cluster apply --file`,
+  `fs write --from`, `upload`, `storage upload`, `cp` and `sync` from a path
+  there, and `cluster run -- apply -f`, `--from-file` or `cp` to a pod are
+  refused (`SSH_GATE_REFUSED`). A private key sent to a server could come
+  back in its answer. `-` (the key's own input) still works.
+- `--read-only` reads tool options as the tools do: a start of a writing
+  long option (`ss --kil`, `arp --del`, `yq --in-pl`), xmllint's
+  `-output` and `-shell`, and xxd's second file even when it starts with a
+  dash.
+- `db query` needs `--write` for more ways out: SQL Server
+  `dm_os_file_exists`, `dm_os_enumerate_filesystem` and any `\\HOST\share`
+  path; Oracle XML parsed from anything but a bare column (a bind value,
+  `CONCAT`, `XMLTRANSFORM`); Postgres `http_*` (pgsql-http, pg_net),
+  `aws_s3.*`, `aws_lambda.*`, `aws_commons.*` and `pg_background_*`; a
+  BigQuery routine or model named with a project (`proj.ds.fn`), which may be
+  another project's remote function.
+
+### Added
+
+- `komando ssh-gate status` says which ssh-gate key runs it, and whether it
+  may change things or reach the network (`gate`, `name`, `read_only`,
+  `network`, `komando`). ssh-gate answers it itself; typed on the komando
+  computer it says `gate: false`.
+- `komando facts` lists every real file system as `disks`: mount point,
+  device, size, used and free in MiB, and use %.
+- `komando facts SERVER --only load,mem,disks` runs just those probes, in
+  about a second, for an app that polls: the same keys, the other sections
+  left out. `--only system` gives the OS name and the time the server has
+  been up (`os`, `os_version`, `os_pretty`, `uptime_sec`). A read-only
+  ssh-gate key without `--network` runs it.
 
 - A `--login ask` conn follows the same rule as a stored password for where its password goes (every URL setting except the few that move nothing): an AI agent's other change of its URL gets `NEEDS_PERSON`. A WinRM server's `ca=` and `auth=` count as where its password goes too.
 - An AI agent's `config set default_user` gets `NEEDS_PERSON` while a `--login ask` server has no user of its own; replacing a secret on the way to a login-ask server or conn (a VPN's key or profile, a WinRM or conn CA) does too. The same holds for `default_user` while a jump server on the way to a login-ask server or conn has no user of its own, and for an `import --overwrite` that would replace such a secret (a conn's password in the file is stored as `NAME-pass`); a secret a protected entry uses needs a person's yes there, as in `secret set`.

@@ -55,6 +55,7 @@ type hostState struct {
 	RebootPackages []string
 	RestartChecked bool
 	NeedRestart    []string
+	Disks          []diskFacts // facts: the file systems df lists
 }
 
 // line reads one key=value line of hoststate; false when the key is not
@@ -67,6 +68,8 @@ func (h *hostState) line(k, v string) bool {
 	}
 	yes, no := true, false
 	switch k {
+	case "disk":
+		h.Disks = appendDisk(h.Disks, v)
 	case "failed_checked":
 		h.FailedChecked = true
 	case "failed":

@@ -221,6 +221,7 @@ secret.show
 shell
 ssh-gate
 ssh-gate.line
+ssh-gate.status
 status
 storage
 storage.add
