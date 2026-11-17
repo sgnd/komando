@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -162,12 +163,18 @@ func TestBitwardenCrypto(t *testing.T) {
 	}
 }
 
+// fakeBWIterations is the fake account's key derivation: the fewest rounds
+// komando accepts. With an account's usual 600000, a login under the race
+// detector on a busy machine ran past komando's time limit for a login
+// (TestBitwardenCrypto checks the 600000-round key itself).
+const fakeBWIterations = 5000
+
 // fakeBitwarden is a server holding one account, built with the same
 // crypto a Bitwarden client uses: a personal item, an item with its own
 // key, and an organization item.
 func fakeBitwarden(t *testing.T, email, password string) *httptest.Server {
 	t.Helper()
-	master, _ := BitwardenMasterKey(password, email, 0, 600000, 0, 0)
+	master, _ := BitwardenMasterKey(password, email, 0, fakeBWIterations, 0, 0)
 	userKey := make([]byte, 64)
 	rand.Read(userKey)
 	encUserKey, _ := BitwardenEncrypt(userKey, BitwardenStretch(master))
@@ -201,7 +208,7 @@ func fakeBitwarden(t *testing.T, email, password string) *httptest.Server {
 		rw.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/identity/accounts/prelogin":
-			io.WriteString(rw, `{"kdf":0,"kdfIterations":600000}`)
+			io.WriteString(rw, `{"kdf":0,"kdfIterations":`+strconv.Itoa(fakeBWIterations)+`}`)
 		case "/identity/connect/token":
 			r.ParseForm()
 			if r.Form.Get("password") != want || !strings.EqualFold(r.Form.Get("username"), email) || r.Form.Get("grant_type") != "password" {

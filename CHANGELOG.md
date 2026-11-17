@@ -24,8 +24,35 @@ its highlights; the sections below them give the details. Versions follow
 - `komando host add NAME ADDRESS --login ask` and `komando host edit NAME --login ask`: a server whose password komando never stores. A person types it whenever komando connects (every command, fleet run, jump host, `shell`, `cp`, `sync`, job and tunnel), and it is used for that command only: at a terminal komando asks `NAME: Password:` (hidden); for an AI agent's command komando opens its own window on the person's screen, which names the agent, the server as `user@address:port` and the command (or says it is hidden), and where they type it; the agent never sees it. Apps get the same question through the new `engine.Call.AskPassword` hook. A script, an agent with no screen and `ssh-gate` get `NEEDS_PERSON` (exit 6), and a cancelled window gives `DECLINED` (exit 6) whose hint is `komando login SERVER`; after a cancel the window stays shut for that server for a minute (`DECLINED` at once). These are new exit paths for every command that connects to such a server, including `tunnel start`, which asks before it starts the tunnel and hands the password to the tunnel's process on its input (that process keeps it in memory for the tunnel's life). Only a person sets where the password goes: an AI agent that adds a `--login ask` server, turns one to `--login ask`, changes its address, port, user, `--via`, proxy command or transport, or changes a server or VPN on its way (edit, `vpn add --overwrite`, import, or replacing the vault secret that holds an OpenVPN profile) gets `NEEDS_PERSON` (exit 6), which no flag lifts; a dry run names it in `meta.would_be_blocked`. The window names the way komando dials (VPN, each jump host with its address, proxy command). The first connection to such a server (a host key nobody has seen, `host_key_policy off`, or WinRM `tls=off`/`skip-verify`) needs a person at a terminal, and so does a key that is pinned but that nobody has logged in to this server with (pins are by address, and any server added at that address can pin one): an agent gets `NEEDS_PERSON` and nothing is pinned. Each pin now keeps the login-ask servers a person logged in to with it (a new optional `logins` list in the pin record; `host trust --reset` clears it). An AI agent that starts `komando login`'s background process (`login-holder`) itself gets `NEEDS_PERSON`. One command asks once per server; a refused password is asked again on the next connection. The typed password is hidden in all output and never written to disk, the audit log or a program's environment; komando zeroes its own copy when the command ends. A `komando login NAME` that is still live is used without asking.
 - `komando conn add NAME URL --login ask` and `komando conn edit NAME --login ask` (also `komando db add` and the other `KIND add`): a conn whose password komando never stores, typed by a person at every connect through the same questions as a `--login ask` server (terminal, app window, komando's window for an AI agent with the same cool-down; `NEEDS_PERSON` for a script or an agent with no screen; `DECLINED` after a cancel). `--login` on conns takes `ask`, `password` or `none`, the words of the new `login` field of `conn show` and `list`. Only a person sets where the password goes (`NEEDS_PERSON` for an agent's add, `--url`, `--via`, turn to ask, or change to a server or VPN on its way). An agent's `db dump`/`db restore` of such a conn gets `NEEDS_PERSON` (the dump tool would get the password in its environment). SQLite files and clusters refuse `--login ask` (`USAGE`). The guided database forms offer "Yes, and I type it each time".
 - `--login ask|password|key|agent` on `host add` and `host edit`: the same words as the new `login` field of `host show`, `host list` (and `list`), `host add` and `host edit`, so what you read back is what you can write. `password` is a stored password (with `--ask-password` or `--password-ref`) and drops a key; `key` needs `--key` or `--identity`; `agent` is ssh-agent and `~/.ssh` only and drops the key and the stored password. A flag that contradicts the word is a `USAGE` error. Switching to `ask` or `agent` unlinks the stored password but never deletes the secret: `host edit` names an unused one in the new `secrets_unused` field. `komando schema host add` and `host edit` list the new `--login` flag (type string, no default).
+- `komando storage mkdir CONN PATH` makes a folder (and any missing parents) in a bucket or on a file server. On S3, Google Cloud and Azure, which have no real folders, it stores an empty folder marker, as their consoles do, and `storage list` now shows such an empty folder instead of `FOLDER_NOT_FOUND`.
+- `komando storage mv CONN SRC DST [--overwrite]` moves or renames inside one conn. File servers (SFTP, FTP, FTPS, WebDAV, SMB) rename on the server, folders too. S3, Google Cloud and Azure cannot rename: there `mv` copies the object on the server, checks the copy's size and checksum, and deletes the original only after that check (`method: copy_then_delete`). Where a file server cannot rename over a file, `--overwrite` moves the old one aside first and puts it back if the rename fails. A file or folder already at DST stops it with `FILE_EXISTS` (exit 8). New error codes: `MOVE_FAILED` (exit 5: the copy did not check out, so the original was kept, or the original could not be deleted after a good copy) and `STORAGE_UNSUPPORTED` (exit 2). For an AI agent, a file that is secret by its name (`.env`, a private key, a key store) keeps such a name: renaming it to another kind of name stops with `SENSITIVE_FILE`. An FTP server whose listing hides dot files is asked for the file itself, so a hidden file at DST is not replaced without `--overwrite`.
+- `komando storage chmod CONN MODE PATH` sets the Unix mode of a file or folder on an SFTP conn and says the old one; other kinds stop with `STORAGE_UNSUPPORTED` before anything is contacted.
+- All three are changes like `storage upload`: `--dry-run` shows what would happen and is never blocked (`meta.would_need`), a protected conn needs a person's yes, and every run is in the audit log. New JSON: `storage.mkdir` `{conn, path, created, dry_run}`, `storage.mv` `{conn, src, dst, folder, replaced, method, size_bytes, dry_run}`, `storage.chmod` `{conn, path, mode, old_mode, dry_run}`.
 
 ### Changed
+
+- `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
+  read-only recipes) is now a strict allowlist on every server: the
+  command runs only when komando knows every part of it only reads, and
+  anything else is `READ_ONLY_VIOLATION`. Before, an unknown command ran
+  on an unprotected server and through a read-only ssh-gate key. No longer
+  accepted under `--read-only`: a program komando does not know (`curl`,
+  `wget`, `nc`, your own tool), `git` (a repository's config can run a
+  program), `less`, `patch --dry-run`, `lz4`, `ldd`, `nm`, `chrt`,
+  `taskset`, `nohup`, `busybox`, `sudo -i`/`-s`/`-E`, `set -x` and any
+  `set` but `-e`, `-u` and `-o pipefail`, `let`, `unset`, `declare`,
+  `shopt`, `kubectl --kubeconfig`/`--server`/`--token`/`--as`, `psql`
+  and `mysql` (use `komando db query`, which runs in a read-only
+  transaction), setting a variable with an upper-case name (`PATH`,
+  `PS4`, `TAR_OPTIONS` ...; `LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS`
+  still pass) by `NAME=`, `export`, `read`, `for` or `-e`, an `-e` value
+  in a command with double quotes or with `*`, `?`, `[`, `{`, `~` or a
+  backslash in it, `kubectl config view --raw`, a long
+  option not written in full or not on komando's
+  list, a subcommand it does not know, unquoted `{a,b}`, and
+  `${x@P}`-style expansions. For a server's state use `komando facts`,
+  `logs`, `svc status` or `fs read`. See
+  [Commands](docs/features/commands.md#protected-servers-and---read-only).
 
 - `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
 - **A read key stays off the network.** An SSH key added with
@@ -158,6 +185,23 @@ its highlights; the sections below them give the details. Versions follow
   leave a new store there). The hint tells the agent to take
   `KOMANDO_HOME` out and run the command again. This is the one case
   where a dry run is blocked.
+- `--read-only` could be talked into a change on a protected server, or
+  through a read-only ssh-gate key, with no person's yes: a shortened long
+  option (`sed --in`, `sort --o=FILE`, `tar --checkpoint-act=exec=...`),
+  text bash evaluates inside an argument (`let 'a[$(cmd)]=1'`, `${x@P}`),
+  brace expansion (`systemctl {restart,status} nginx`), a wrapper komando
+  did not follow (`timeout 1d rm`, `coproc`), subcommands it did not list
+  as writes (`systemctl soft-reboot`, `ip netns exec`, `npm explore`,
+  `sysctl name=value`), read tools with a writing option (`rg --pre`,
+  `file -C`), `\gexec`, `\set` or a backquote in SQL fed to `psql`, an
+  `-e` value inside double quotes (`find /tmp "$x"` with `x=-delete`),
+  variables programs read as code (`read PS4`, `PATH=...`,
+  `TAR_OPTIONS=...`), `git` in a repository whose config runs a program,
+  and `kubectl --kubeconfig FILE`. `--read-only` now runs only what
+  komando knows only reads (see Changed).
+- An ssh-gate key could run the shell-completion helper with
+  `-o -- __complete`, which the gate recorded as an empty command. The
+  gate now finds the helper the way komando does and refuses it.
 - The install line (`install.sh`) installs a release only when its `checksums.txt` is signed with the komando project's key, the check `komando update` already made; before, it checked only the checksum, which someone able to replace a release's files could replace too. It needs OpenSSL 3 or perl for the check (macOS and most Linux systems have one), installs nothing on a computer with neither, and downloads over HTTPS only. Releases up to 0.13.0, which have no signature, still install with `KOMANDO_VERSION`: the installer knows the checksums each was released with and takes no other files for them. The install line itself is now `curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`.
 - Releases: the jobs that build and sign a release no longer use a build cache other jobs can write, and `make dist SIGNED=DIR` stops when a signed macOS binary is missing instead of building an unsigned one in its place.
 - A cloud login of this computer no longer goes to an address an AI agent
@@ -201,6 +245,7 @@ its highlights; the sections below them give the details. Versions follow
     agent, such a login program gets only the environment the kubeconfig
     gives it (`env`), not the shell's proxy, `AWS_PROFILE` or `KUBECONFIG`.
 - A running VPN session, a kept server login and a tunnel are now known by when their process started, not only by its process number and program. When that process ended (a crash, or an old copy of komando's runtime file put back), a later process given the same number, even another komando or openconnect, is no longer taken for it: it gets neither the session's SOCKS login nor the addresses it connects to, and is never stopped by komando. After updating, VPN sessions, logins and tunnels started by an older komando count as ended: run `komando vpn down --all`, `komando logout SERVER` and `komando tunnel stop --all` before you update, or end those processes yourself; komando starts new ones when needed.
+- `komando secret keychain` now gives the vault a new key as it moves the key into the keychain. Before, it moved the same key, so a copy of `store.key` from before the move (a backup, a synced folder's history) still opened every later copy of the store, secrets added after the move included. A move that stops part way finishes the next time it runs.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

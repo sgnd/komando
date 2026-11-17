@@ -270,6 +270,9 @@ the database.
 **Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage list CONN [FOLDER]`,
 `storage cat CONN OBJECT --tail 50` and `komando download CONN OBJECT` read;
 `komando upload CONN FILE` and `storage link` change or share;
+`storage mkdir CONN PATH`, `storage mv CONN SRC DST` (on S3, Google Cloud
+and Azure: a copy that is checked, then the delete) and `storage chmod CONN
+MODE PATH` (SFTP only) change;
 `storage rm` deletes (needs `--allow-dangerous`): list first with
 `storage rm CONN --prefix FOLDER/ --older-than 30d --dry-run`. Object
 names are relative to the conn's folder. On a versioned bucket `rm` keeps the old
