@@ -69,7 +69,7 @@ func TestRemoteCopyEveryPairing(t *testing.T) {
 	}
 
 	// folders, by cpFolderRule
-	if _, err := remoteCopy(tcl, ctx, web1, web2, filepath.Join(a, "site"), b, cpOpts{}); toErr(err).Code != "USAGE" {
+	if _, err := remoteCopy(tcl, ctx, web1, web2, filepath.Join(a, "site"), b, cpOpts{}); toErr(err).Code != "IS_A_DIRECTORY" {
 		t.Errorf("a folder without -r: %v", err)
 	}
 	if st, err = remoteCopy(tcl, ctx, web1, web2, filepath.Join(a, "site"), b, cpOpts{recursive: true}); err != nil || st.Files != 2 || st.Dest != "web2:"+filepath.Join(b, "site") {
@@ -315,5 +315,16 @@ func TestRemoteCopyStopsAVaultValueForAgents(t *testing.T) {
 	writeFile(t, dstFile, []byte("pass"))
 	if _, err := remoteCopy(tcl, ctx, src, web, "app/config.yml", dstFile, cpOpts{resume: true}); toErr(err).Code != "SENSITIVE_FILE" || string(readBytes(t, dstFile)) != "pass" {
 		t.Fatalf("--continue: %v %q", err, readBytes(t, dstFile))
+	}
+}
+
+// A folder without -r is IS_A_DIRECTORY, as fs cat answers for a folder.
+func TestRemoteCopyFolderNeedsR(t *testing.T) {
+	one := &memBucket{objs: map[string]string{"app/a.txt": "a"}}
+	src := &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}
+	dst := &copyEnd{conn: &store.Conn{Name: "bk2"}, b: &memBucket{objs: map[string]string{}}}
+	_, err := remoteCopy(tcl, context.Background(), src, dst, "app", "", cpOpts{})
+	if e := toErr(err); e.Code != "IS_A_DIRECTORY" || e.Exit != out.ExitUsage || e.Hint != "copy the folder and everything in it with -r: `komando cp -r bk:app bk2:`" {
+		t.Fatalf("a folder without -r: %v (exit %d, hint %q)", err, e.Exit, e.Hint)
 	}
 }

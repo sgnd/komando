@@ -217,7 +217,7 @@ would move db/old.sql.gz -> archive/old.sql.gz (48.1 MiB, by a copy that is chec
   their web consoles do, so `storage list` shows the empty folder.
 - `mv` moves one file or folder inside one conn. A `DST` ending in `/` is
   a folder: the file moves into it and keeps its name. A file already at
-  `DST` stops the move (`OBJECT_EXISTS`) unless you add `--overwrite`; a
+  `DST` stops the move (`FILE_EXISTS`) unless you add `--overwrite`; a
   folder at `DST` is never replaced.
 - On a file server (SFTP, FTP, FTPS, WebDAV, SMB) `mv` is one rename on
   the server, and it moves folders too. Where the server cannot rename

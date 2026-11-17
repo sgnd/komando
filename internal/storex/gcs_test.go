@@ -13,6 +13,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"hash/crc32"
 	"io"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // fakeGCS is the part of the GCS JSON API komando uses, two items a page.
@@ -312,4 +314,39 @@ func TestGCSKeyMustBeServiceAccount(t *testing.T) {
 			t.Errorf("%s: %v", key, err)
 		}
 	}
+}
+
+// A listing or an object's details larger than komando's cap (a broken
+// or hostile endpoint) stop with an error, even when they are valid JSON,
+// rather than being read and kept whole.
+func TestGCSCapsItsAnswers(t *testing.T) {
+	withGCSLogin(t)
+	filler := strings.Repeat("a", 40<<20) // over the 32 MiB cap
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/o") { // a listing
+			io.WriteString(w, `{"items":[{"name":"site/a","size":"1","x":"`+filler+`"}]}`)
+			return
+		}
+		io.WriteString(w, `{"name":"site/a","size":"1","x":"`+filler+`"}`)
+	}))
+	defer srv.Close()
+	tg, err := driver.Parse("gs://media/site?endpoint=" + srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := OpenGCS(context.Background(), tg, "", nil, 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tooLarge := func(what string, err error) {
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != "STORAGE_ERROR" || !strings.Contains(oe.Message, "larger than 32 MiB") {
+			t.Errorf("%s: %v, want STORAGE_ERROR naming the cap", what, err)
+		}
+	}
+	_, _, err = b.List(context.Background(), "", true, 0)
+	tooLarge("List", err)
+	_, err = b.Stat(context.Background(), "a")
+	tooLarge("Stat", err)
 }

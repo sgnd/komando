@@ -196,7 +196,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	if c := useHeld(ctx, st, hop, o); c != nil {
 		return c, nil // a jump host a person logged in to with `komando login`
 	}
-	cfg, agentConn, err := clientConfig(ctx, st, hop, o)
+	cfg, q, agentConn, err := clientConfig(ctx, st, hop, o)
 	if err != nil {
 		return nil, err
 	}
@@ -253,6 +253,10 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	}
 	if err != nil {
 		return nil, hopErr(st, hop, err)
+	}
+	if err := loginMet(ctx, hop, q); err != nil {
+		c.Close()
+		return nil, err
 	}
 	return c, nil
 }
@@ -525,7 +529,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 
 // clientConfig is the login for one hop. The ssh-agent connection it opens
 // (or nil) is the caller's to close once the handshake is over.
-func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
+func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, *LoginAsk, io.Closer, error) {
 	if o.scan != nil {
 		// FetchHostKey: no login, so no keys, agent or vault secrets are used
 		scan := o.scan
@@ -537,29 +541,26 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 				return errKeyScanned
 			},
 			Timeout: o.ConnectTimeout,
-		}, nil, nil
+		}, nil, nil, nil
 	}
-	user := h.User
-	if user == "" {
-		user = st.Settings.DefaultUser
-	}
-	if user == "" {
-		user = LocalUser()
-	}
-	hkc, err := hostKeyCallback(ctx, h.Name, o.HostKeyPolicy)
+	// a login-ask server's password goes to this user at this address; the
+	// host key check notes a key it trusts on first use (q.NewKey)
+	q := LoginAskFor(st, h)
+	user := q.User
+	hkc, err := hostKeyCallback(ctx, h, o.HostKeyPolicy, &q)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	auths, agentConn, err := authMethods(st, h, o.ConnectTimeout)
+	auths, agentConn, err := authMethods(ctx, st, h, o.ConnectTimeout, &q)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	return &ssh.ClientConfig{
 		User:            user,
 		Auth:            auths,
 		HostKeyCallback: hkc,
 		Timeout:         o.ConnectTimeout,
-	}, agentConn, nil
+	}, &q, agentConn, nil
 }
 
 // NewHostKey is a host key komando pinned the first time it reached a
@@ -570,6 +571,14 @@ type NewHostKey struct {
 	Address     string `json:"address"`
 	Type        string `json:"key_type"`
 	Fingerprint string `json:"fingerprint"` // SHA256:...
+	// Unchecked: host_key_policy off, so the key was not checked at all
+	// (only a login-ask server's connection is told; nothing is pinned)
+	Unchecked bool `json:"-"`
+	// NotMet: the key is pinned, but no person ever logged in to this
+	// login-ask server with it (a pin alone may come from an AI agent's
+	// connection to another server at the same address)
+	NotMet bool `json:"-"`
+	key    ssh.PublicKey
 }
 
 // HostKeyPinned, when set, is told about every key pinned on first use
@@ -599,93 +608,6 @@ func hopErr(st *store.State, h *store.Host, err error) error {
 		return pr.err
 	}
 	return classify(st, h, err)
-}
-
-// hostKeyNote is where the line about a newly pinned key goes.
-var hostKeyNote io.Writer = os.Stderr
-
-// pinnedOnFirstUse tells the person, on stderr, which key was just pinned
-// and how to check it, and passes it on to HostKeyPinned.
-func pinnedOnFirstUse(ctx context.Context, name, hostname string, key ssh.PublicKey) {
-	k := NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key)}
-	fmt.Fprintf(hostKeyNote, "komando: first connection to %s (%s): trusted its %s host key %s\n"+
-		"komando: compare it with the server's own (on the server: ssh-keygen -lf /etc/ssh/ssh_host_%s_key.pub); if this key ever changes, komando refuses the server\n",
-		name, hostname, k.Type, k.Fingerprint, keyFileType(k.Type))
-	if HostKeyPinned != nil {
-		HostKeyPinned(ctx, k)
-	}
-}
-
-// keyFileType is the name part of the server's key file for a key type:
-// ssh-ed25519 is in ssh_host_ed25519_key.pub.
-func keyFileType(t string) string {
-	switch {
-	case strings.Contains(t, "ed25519"):
-		return "ed25519"
-	case strings.HasPrefix(t, "ecdsa"):
-		return "ecdsa"
-	case strings.Contains(t, "rsa"):
-		return "rsa"
-	}
-	return "*"
-}
-
-func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallback, error) {
-	switch policy {
-	case "off":
-		return ssh.InsecureIgnoreHostKey(), nil
-	case "", "accept-new", "strict":
-	default: // a typo of strict must not pin as accept-new does
-		return nil, fmt.Errorf("host key policy %q is not accept-new, strict or off", policy)
-	}
-	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		// a known server is checked in a read step; only a new one takes
-		// the write step that pins it (and checks again inside it)
-		var known error
-		if verr := HostKeys().view(ctx, func(t hostKeyTx) error { known = t.Check(hostname, remote, key); return nil }); verr != nil {
-			return verr
-		}
-		var ke0 *knownhosts.KeyError
-		if !errors.As(known, &ke0) || len(ke0.Want) > 0 {
-			if errors.As(known, &ke0) {
-				return &hostKeyChanged{offered: key, err: ke0}
-			}
-			return known
-		}
-		if policy != "strict" && MayPin != nil {
-			if err := MayPin(ctx); err != nil {
-				return &pinRefused{err}
-			}
-		}
-		var err error
-		pinned := false
-		lockErr := HostKeys().update(ctx, func(t hostKeyTx) error {
-			err = t.Check(hostname, remote, key)
-			var ke *knownhosts.KeyError
-			if errors.As(err, &ke) && len(ke.Want) == 0 {
-				if policy == "strict" {
-					err = errors.New("HOSTKEY_UNKNOWN " + ssh.FingerprintSHA256(key))
-					return nil
-				}
-				if aerr := t.Add(hostname, key); aerr != nil {
-					return aerr
-				}
-				err, pinned = nil, true
-				return nil
-			}
-			if errors.As(err, &ke) {
-				err = &hostKeyChanged{offered: key, err: ke}
-			}
-			return nil
-		})
-		if lockErr != nil {
-			return lockErr
-		}
-		if pinned {
-			pinnedOnFirstUse(ctx, name, hostname, key)
-		}
-		return err
-	}, nil
 }
 
 // SameKey reports whether a and b are the same public key.

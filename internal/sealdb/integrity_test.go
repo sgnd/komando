@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/sgnd/komando/internal/sealrow"
 )
 
 func rawDB(t *testing.T, path string) *sql.DB {
@@ -188,41 +191,92 @@ func TestAuditSavepointUndone(t *testing.T) {
 	})
 }
 
-// A store from before the index (a generation of digits only) is read as
-// it is and gets its index with the next change.
-func TestIndexUpgrade(t *testing.T) {
+// A generation record without the index (digits only, the form no
+// released komando ever wrote) is tampering: every read stops, and so does
+// a write, which would otherwise make an index from the rows as they are.
+func TestGenerationWithoutIndex(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "store.db")
 	d := open(t, path)
 	id := put(t, d, "server", "", "web")
 	_ = d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("a")) })
-	var gen uint64
-	_ = d.Update(ctx, func(tx *Tx) error {
+	if err := d.Update(ctx, func(tx *Tx) error {
 		g, err := tx.generation()
-		gen = g
 		if err != nil {
 			return err
 		}
 		_, err = tx.write1(generationID, generationType, g, false, []byte(strconv.FormatUint(g, 10)))
 		return err
-	})
-	_ = d.View(ctx, func(tx *Tx) error {
-		if s, err := tx.index(); err != nil || !s.upgrade || s.gen != gen {
-			t.Fatalf("old store: %+v %v", s, err)
-		}
-		if _, err := tx.Get(id); err != nil {
-			t.Fatal(err)
-		}
-		return nil
-	})
-	_ = d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("b")) })
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.View(ctx, func(tx *Tx) error { _, err := tx.Get(id); return err }); !errors.Is(err, ErrTampered) {
+		t.Fatalf("read: %v", err)
+	}
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("b")) }); !errors.Is(err, ErrTampered) {
+		t.Fatalf("write: %v", err)
+	}
+}
+
+// A new store starts with an index (Create writes the first generation
+// from no rows), and its changes keep it.
+func TestFreshStoreIndex(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	g, err := d.Generation(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := put(t, d, "server", "", "web")
 	_ = d.View(ctx, func(tx *Tx) error {
 		s, err := tx.index()
-		if err != nil || s.upgrade || s.m[id].ver != 1 || s.head.seq != 2 {
-			t.Fatalf("upgraded: %+v %v", s, err)
-		}
-		if a, err := tx.Audit(0, 10); err != nil || len(a) != 2 {
-			t.Fatalf("audit: %v %v", a, err)
+		if err != nil || s.gen != g+1 || s.m[id].ver != 1 {
+			t.Fatalf("index: %+v %v", s, err)
 		}
 		return nil
 	})
+}
+
+// An audit entry that does not hold the sum of the one before it (the
+// form no released komando ever wrote) is tampering, like a broken chain.
+func TestAuditEntryWithoutChain(t *testing.T) {
+	d := open(t, filepath.Join(t.TempDir(), "store.db"))
+	_ = d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("a")) })
+	if err := d.Update(ctx, func(tx *Tx) error {
+		s, err := tx.index()
+		if err != nil {
+			return err
+		}
+		id, err := sealrow.NewID()
+		if err != nil {
+			return err
+		}
+		seq := s.head.seq + 1
+		now := time.Now().UnixNano()
+		// it even holds the right sum: only the missing mark gives it away
+		plain := head(false, now, append(s.head.sum[:sumLen:sumLen], 'b'))
+		sealed, err := tx.key.Seal(sealrow.Row{ID: id, Type: auditType, Version: uint64(seq)}, plain)
+		if err != nil {
+			return err
+		}
+		if _, err = tx.c.ExecContext(tx.ctx, `INSERT INTO audit(seq,id,time,data) VALUES(?,?,?,?)`, seq, id, now, sealed); err != nil {
+			return err
+		}
+		s.head = auditHead{seq: seq, sum: auditSum(seq, plain)}
+		tx.changed = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	err := d.View(ctx, func(tx *Tx) error {
+		a, err := tx.Audit(0, 10)
+		if len(a) != 1 {
+			t.Errorf("entries before the bad one: %d, want 1", len(a))
+		}
+		return err
+	})
+	if !errors.Is(err, ErrTampered) {
+		t.Fatalf("audit: %v", err)
+	}
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.AppendAudit([]byte("c")) }); err != nil {
+		t.Fatalf("a write after it: %v", err)
+	}
 }

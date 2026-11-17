@@ -92,7 +92,7 @@ This page is made from the code (`komando schema` lists the same under
 | `HOST_NOT_FOUND` | 3 | no server named … | see them with `komando host list` |
 | `IMPORT_INCOMPLETE` | 1 | … not imported (see skipped) | fix them in the source and import again: the rest is in, and importing again skips it |
 | `INSECURE_PROTOCOL` | 2 | …:// crosses the network to … without TLS, so the password and the data travel unencrypted | use the URL's TLS form if the server has TLS (rediss://, memcacheds://, amqps://, nats tls://, kafka tls=true, an https:// endpoint, ftps://, webdavs://), or reach it --via an SSH server (`--via HOST`); otherwise add ?insecure=1 to accept that the login and the data travel unencrypted |
-| `IS_A_DIRECTORY` | 2 | … is a folder, not a file | list it with `komando fs list TARGET …` |
+| `IS_A_DIRECTORY` | 2 | …:… is a folder, not a file | copy the folder and everything in it with -r: `komando cp -r … …` |
 | `IS_A_SYMLINK` | 8 | … is a symbolic link (--no-follow) | drop --no-follow to write the file it points to |
 | `JOB_FAILED` | 5 | job exited with … | read its output with `komando job logs … --limit 50` |
 | `JOB_KILLED` | 5 | job … was killed (…) | it was stopped with `komando job kill` |
@@ -147,7 +147,6 @@ This page is made from the code (`komando schema` lists the same under
 | `NO_SYSTEMD` | 3 | systemd is not running on this server | this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs` |
 | `NO_TUNNEL_NEEDED` | 2 | … has no --via, so it is reachable without a tunnel | connect to … directly |
 | `NXDOMAIN` | 3 | … does not resolve from this server | check the name, and the server's DNS (/etc/resolv.conf) |
-| `OBJECT_EXISTS` | 8 | a file named … is already there | pick another name; `komando storage list CONN [PREFIX]` shows what is there |
 | `OBJECT_NOT_FOUND` | 3 | … not found | list files with `komando storage list CONN [PREFIX]` |
 | `OPEN_BIND` | 6 | the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer) | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
 | `OPTION_LIKE_VAR` | 2 | the value of … may not start with '-' (… would be read as an option) | for a path that starts with -, write ./… |
@@ -234,6 +233,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SQL_TX_CONTROL` | 2 | … is not allowed in komando db | leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back |
 | `SSH_AGENT_NEEDED` | 2 | a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK) | start one with `eval "$(ssh-agent)"` and run this again, or use `komando shell SERVER`, which logs in with the key itself |
 | `SSH_AGENT_REFUSED` | 1 | the ssh-agent did not take key …: … | check the ssh-agent, or use `komando shell SERVER` |
+| `SSH_GATE_NETWORK_REQUIRED` | 6 | komando … is refused for a read key without network: … | this key was added with --read-only and without --network: it runs only reads that stay on the servers and conns in your list; a person adds a key for this with `komando ssh-gate line --read-only --network`, or runs it on the komando computer |
 | `SSH_GATE_PATH` | 1 | komando cannot tell its own full path, which the line needs | run komando by its full path, for example /usr/local/bin/komando ssh-gate line ... |
 | `SSH_GATE_READ_ONLY` | 6 | komando … is refused for a read-only key: … | this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself |
 | `SSH_GATE_REFUSED` | 6 | komando … needs a person at a terminal on this computer; a key cannot run it | a person runs it in a terminal on the komando computer itself |

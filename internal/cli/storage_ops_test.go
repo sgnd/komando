@@ -34,8 +34,8 @@ func TestStorageMkdir(t *testing.T) {
 	if d := mustRun(t, "storage", "mkdir", "bk", "reports"); d["created"] != false {
 		t.Errorf("a folder that is there: %v", d)
 	}
-	wantCode(t, "OBJECT_EXISTS", "storage", "mkdir", "bk", "a.txt")
-	wantCode(t, "OBJECT_EXISTS", "storage", "mkdir", "bk", "a.txt", "--dry-run")
+	wantCode(t, "FILE_EXISTS", "storage", "mkdir", "bk", "a.txt")
+	wantCode(t, "FILE_EXISTS", "storage", "mkdir", "bk", "a.txt", "--dry-run")
 	wantCode(t, "FOLDER_NOT_FOUND", "storage", "list", "bk", "nope/")
 	for _, bad := range []string{"../up", "/"} {
 		wantCode(t, "USAGE", "storage", "mkdir", "bk", bad)
@@ -55,7 +55,7 @@ func TestStorageMv(t *testing.T) {
 	if d["replaced"] != false || m.objs["archive/old.sql.gz"] != "old" || slices.Contains(keysOf(m.objs), "db/old.sql.gz") {
 		t.Errorf("mv: %v %v", d, m.objs)
 	}
-	wantCode(t, "OBJECT_EXISTS", "storage", "mv", "bk", "keep.txt", "archive/x")
+	wantCode(t, "FILE_EXISTS", "storage", "mv", "bk", "keep.txt", "archive/x")
 	if d := mustRun(t, "storage", "mv", "bk", "keep.txt", "archive/x", "--overwrite"); d["replaced"] != true || m.objs["archive/x"] != "k" {
 		t.Errorf("--overwrite: %v %v", d, m.objs)
 	}
