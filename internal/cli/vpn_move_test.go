@@ -43,3 +43,48 @@ func TestVpnMoveNamesPasswordsBehindIt(t *testing.T) {
 	noAgent(t)
 	mustRun(t, "vpn", "edit", "lab", "--proxy-address", "127.0.0.1:1081")
 }
+
+// The neighbours of a VPN move (C111): each one that changes the way a
+// stored password travels asks a person; one that keeps it asks nothing.
+func TestVpnMoveNeighbours(t *testing.T) {
+	setup := func(t *testing.T) {
+		invHome(t)
+		noAgent(t)
+		mustRun(t, "vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080")
+		mustRun(t, "vpn", "add", "other", "socks", "--proxy-address", "127.0.0.1:1081")
+		mustRun(t, "host", "add", "db1", "u@10.0.0.2", "--via", "lab", "--password-ref", "secret:db1-pass")
+		setCallerEnv(t, "KOMANDO_AGENT", "1")
+	}
+	t.Run("another VPN put first on the way", func(t *testing.T) {
+		setup(t)
+		wantCode(t, "SECRET_DESTINATION", "host", "edit", "db1", "--via", "other,lab")
+	})
+	t.Run("a new VPN under a name the way already names", func(t *testing.T) {
+		setup(t)
+		noAgent(t)
+		_, e := invRun(t, "host", "add", "db2", "u@10.0.0.3", "--via", "ghost", "--password-ref", "secret:db2-pass")
+		setCallerEnv(t, "KOMANDO_AGENT", "1")
+		if e == nil {
+			wantCode(t, "SECRET_DESTINATION", "vpn", "add", "ghost", "socks", "--proxy-address", "203.0.113.9:1080")
+		} else if e.Code != "VIA_NOT_FOUND" {
+			t.Fatalf("a --via naming no VPN: %v", e)
+		}
+	})
+	t.Run("the VPN removed", func(t *testing.T) {
+		setup(t)
+		_, e := invRun(t, "vpn", "rm", "lab")
+		st, _ := store.Load()
+		if _, ok := st.Vpns["lab"]; !ok {
+			t.Fatalf("an agent removed a VPN with a stored password behind it: db1 via %q", st.Hosts["db1"].Via)
+		}
+		t.Logf("vpn rm with db1 behind it: %v", e)
+	})
+	t.Run("the VPN renamed", func(t *testing.T) {
+		setup(t)
+		mustRun(t, "rename", "lab", "lab2")
+		st, _ := store.Load()
+		if st.Hosts["db1"].Via != "lab2" {
+			t.Fatalf("the way did not follow the rename: %q", st.Hosts["db1"].Via)
+		}
+	})
+}
