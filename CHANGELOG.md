@@ -31,6 +31,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- An old copy of `runtime.json` put back no longer opens (C115). store.db keeps a mark that changes whenever a VPN session or a held server login starts, ends or changes, and `runtime.json` must carry the same mark; one that does not is read as empty, like a plain one, so its sessions are found or made again. Marking a VPN used does not change the mark. Folders from before keep working: neither file has a mark until the first session change.
 - `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
   read-only recipes) is now a strict allowlist on every server: the
   command runs only when komando knows every part of it only reads, and

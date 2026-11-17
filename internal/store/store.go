@@ -340,7 +340,8 @@ type State struct {
 	Runtime
 	Settings Settings `json:"settings"`
 
-	settingsRec Rec // the settings record in the sealed store
+	settingsRec Rec    // the settings record in the sealed store
+	runtimeMark string // store.db's mark of runtime.json (runtime_mark.go)
 }
 
 // Home is komando's data folder: KOMANDO_HOME, else .komando in UserHome.
