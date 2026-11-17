@@ -571,7 +571,7 @@ family or item word. OUTCOME and its exit code come from this list:
 | OUTCOME | Exit |
 |---|---|
 | NOT_FOUND, MISSING (a tool) | 3 |
-| EXISTS, IN_USE, CONFLICT, BUSY | 8 |
+| EXISTS, IN_USE, CONFLICT, BUSY, CHANGED (changed while komando worked) | 8 |
 | INVALID, UNSUPPORTED | 2 |
 | AUTH, UNREACHABLE, TLS | 4 |
 | DENIED, FAILED (server side), ERROR (server's own words) | 5 |

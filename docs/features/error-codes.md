@@ -17,7 +17,6 @@ This page is made from the code (`komando schema` lists the same under
 | `AWS_PROFILE_NOT_FOUND` | 3 | there is no AWS profile … | add the profile to ~/.aws/config (or fix --option aws_profile) |
 | `AZURE_FAILED` | 4 | …: … | check that this computer reaches login.microsoftonline.com |
 | `AZURE_LOGIN_REQUIRED` | 4 | …: … | set AZURE_TENANT_ID, AZURE_CLIENT_ID and AZURE_CLIENT_SECRET for a service principal, run komando on Azure with a managed identity, or a person runs `az login` |
-| `BACKUP_CONFLICT` | 8 | … changed after komando checked it; the changed part was not sent to the database | run `komando db restore` again: komando checks the file as it is now, and asks again |
 | `BACKUP_FAILED` | 5 | could not make a backup of …: …; the file was not changed | check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup |
 | `BACKUP_NOT_FOUND` | 3 | no backup of … found (looked for ….bak) | komando keeps a backup only when you edit with --backup; give another copy with --copy PATH |
 | `BAD_CA` | 2 | registry CA …: … | store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt` |
@@ -73,6 +72,7 @@ This page is made from the code (`komando schema` lists the same under
 | `DUMP_UNSUPPORTED` | 2 | komando's own dump cannot write an object (the message names it) | run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table |
 | `ERROR` | 1 | an error with no more specific code (read the message) | read the message; `komando doctor` checks this computer's setup |
 | `FAILED` | 5 | kubectl exited … | read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems |
+| `FILE_CHANGED` | 8 | … changed after komando checked it; the changed part was not sent to the database | run `komando db restore` again: komando checks the file as it is now, and asks again |
 | `FILE_ERROR` | 1 | a file on this computer cannot be read or written | check that the temporary folder is writable |
 | `FILE_EXISTS` | 8 | … already exists on this computer | choose another --to, remove the file, or pass --overwrite |
 | `FILE_NOT_FOUND` | 3 | identity file …: … | give the path of a private key file, or register it with `komando key add NAME FILE` and use --key |

@@ -44,13 +44,13 @@ type sealReader struct {
 }
 
 func backupChanged(path string) *out.Error {
-	return out.Errf(out.ExitConflict, "BACKUP_CONFLICT",
+	return out.Errf(out.ExitConflict, "FILE_CHANGED",
 		"run `komando db restore` again: komando checks the file as it is now, and asks again",
 		"%s changed after komando checked it; the changed part was not sent to the database", path)
 }
 
 // errSealBroken is what a reader of a changed file gets; withBackup turns
-// it into BACKUP_CONFLICT (the seal remembers it in changed).
+// it into FILE_CHANGED (the seal remembers it in changed).
 var errSealBroken = errors.New("the backup file changed after it was checked")
 
 func (s *sealReader) fill() {
@@ -101,7 +101,7 @@ func (s *sealReader) Read(p []byte) (int, error) {
 
 // withBackup opens a backup file (decompressing .gz) and passes it to fn.
 // The first call for a seal records it and reads the file to its end; a
-// later call checks the file against it and ends with BACKUP_CONFLICT when
+// later call checks the file against it and ends with FILE_CHANGED when
 // the file is not what was sealed.
 func withBackup(cl *call, path string, seal *backupSeal, fn func(io.Reader) error) error {
 	if err := guardBackupFile(cl, path); err != nil {

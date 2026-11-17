@@ -703,7 +703,7 @@ func builtinRestore(cl *call, ctx context.Context, st *store.State, c *store.Con
 	return withBackup(cl, from, seal, func(r io.Reader) error {
 		if err := dbx.Restore(ctx, db, kind, r); err != nil {
 			if seal.changed {
-				return err // withBackup says BACKUP_CONFLICT
+				return err // withBackup says FILE_CHANGED
 			}
 			// what the database holds now depends on the engine (S-8.4):
 			// PostgreSQL restores in one transaction, MySQL cannot

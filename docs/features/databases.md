@@ -457,7 +457,7 @@ Plain SQL that psql and mysql can also read:
   agrees.
 - The file that was checked is the file that is restored. komando keeps
   a fingerprint of every part of the file from the check; a file that is
-  changed, replaced or made longer afterwards stops with `BACKUP_CONFLICT`
+  changed, replaced or made longer afterwards stops with `FILE_CHANGED`
   (exit 8) before the changed part is sent, and before the database is
   opened when the change came while you were asked. Run the restore
   again: komando checks the file as it is now.

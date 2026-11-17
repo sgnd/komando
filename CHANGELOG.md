@@ -50,7 +50,7 @@ its highlights; the sections below them give the details. Versions follow
   to a pod (host namespaces, privileged, added capabilities, `hostPath`),
   and for a Swarm stack file that hands a service the server. `cluster
   run -- create role` needs it too.
-- `db restore` has a new stop, `BACKUP_CONFLICT` (exit 8): the file
+- `db restore` has a new stop, `FILE_CHANGED` (exit 8): the file
   changed after komando checked it.
 - `SECRET_INPUT_INVALID` is gone. An AI agent's arguments, script or
   file that hold a vault value now get the answer any other value gets,
