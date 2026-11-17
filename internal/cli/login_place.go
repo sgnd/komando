@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -132,8 +133,19 @@ func connPlaceChanges(old, now *store.Conn) []string {
 		return []string{fmt.Sprintf("conn %s would ask for a typed password for %s", now.Name, dest)}
 	case connPlace(old).dest != dest:
 		return []string{fmt.Sprintf("conn %s would send its typed password to %s instead of %s", now.Name, dest, connPlace(old).dest)}
+	case connURLUser(old) != connURLUser(now):
+		return []string{fmt.Sprintf("conn %s would ask for the password of user %q instead of %q", now.Name, connURLUser(now), connURLUser(old))}
 	}
 	return nil
+}
+
+// connURLUser is the user a conn's URL logs in as: for a login-ask conn,
+// the account whose password the person types.
+func connURLUser(c *store.Conn) string {
+	if u, err := url.Parse(c.URL); err == nil && u.User != nil {
+		return u.User.Username()
+	}
+	return ""
 }
 
 // vpnPlaceChanges: a VPN an edit, an add --overwrite or an import

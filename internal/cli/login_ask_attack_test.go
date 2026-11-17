@@ -155,3 +155,15 @@ func TestLoginAskVpnOverwriteWay(t *testing.T) {
 	wantCode(t, "NEEDS_PERSON", "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey", "--overwrite")
 	mustRun(t, "vpn", "edit", "ts", "-g", "lab")
 }
+
+// The user in a login-ask conn's URL is the account the typed password is
+// for, as a server's user is: an agent's conn edit to another user stops.
+func TestLoginAskConnURLUser(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "pg1", "postgres://app@db.internal:5432/app", "--login", "ask")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	base := mustRun(t, "conn", "show", "pg1")["url"].(string)
+	if e := wantCode(t, "NEEDS_PERSON", "conn", "edit", "pg1", "--url", strings.Replace(base, "app@", "postgres@", 1)); !strings.Contains(e.Message, "postgres") {
+		t.Errorf("%+v", e)
+	}
+}
