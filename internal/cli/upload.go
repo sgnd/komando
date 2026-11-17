@@ -182,6 +182,9 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 			// a folder: sent like `komando sync`, new and changed files only
 			return syncUp(cl, ctx, name, file, target, storageFolderDest(file, dest), syncOpts{})
 		}
+		if err := noteUpload(cl, file, nil); err != nil {
+			return err
+		}
 		return storageUpload(cl, ctx, name, target, file, dest)
 	}
 	if dest == "" {

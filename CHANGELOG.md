@@ -161,6 +161,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- An AI agent's approval window now shows what an upload, a restore or a kubectl `-f` sends from this computer (C111). `cp`, `upload` and `storage upload` of a file show it, or name its size and SHA-256 when it is too long or not text; `cp -r` and `sync` list each file with its size and SHA-256 (more than 40 files: no window); `cluster run -- apply -f FILE` and `--from-file` show the files; `db restore` shows plain SQL whole or opens no window (a 60-line SQL file is no longer a way past that rule) and names a pg_dump archive by its SHA-256. Indentation past 16 spaces shows as `(+N)`, so deep YAML keeps its nesting. A person's own commands are unchanged.
+
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
   `~/.komando` of the changed `HOME` as the usual folder, so only the

@@ -302,6 +302,9 @@ risky verbs also need --allow-dangerous.`,
 				}
 				return runOne(cl, cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
+			if err := noteKubectlFiles(cl, args[1:]); err != nil {
+				return err
+			}
 			// under --dry-run every stop only lands in meta.would_be_blocked
 			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
 				return execInstead(err, verb)

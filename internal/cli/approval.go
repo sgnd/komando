@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -213,8 +212,7 @@ func shownKeys(cl *call, what string, why []string) []string {
 		keys = append(keys, what)
 	}
 	if cl.body != nil {
-		sum := sha256.Sum256(cl.body.body)
-		keys = append(keys, "body "+cl.body.label+" "+hex.EncodeToString(sum[:]))
+		keys = append(keys, "body "+cl.body.label+" "+hex.EncodeToString(cl.body.sum[:]))
 	}
 	for _, w := range why {
 		if w = strings.TrimSpace(w); w != "" {
