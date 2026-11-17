@@ -18,9 +18,8 @@ import (
 // match it, and reads stop with ErrTampered. Rolling the generation record
 // itself back is an old copy of the store, which the keychain catches.
 //
-// A store from before the index has a generation record of digits only;
-// its index is made from the rows as they are, and written with the next
-// change.
+// A generation record without the index is tampering too: only a store
+// never written (no generation record, no rows) starts from the rows.
 
 type ixEnt struct {
 	typ string
@@ -36,7 +35,6 @@ type auditHead struct {
 // ixState is a step's view of the index, shared by its nested steps.
 type ixState struct {
 	loaded  bool
-	upgrade bool // made from the rows: written with the next change
 	gen     uint64
 	m       map[string]ixEnt
 	head    auditHead
@@ -51,7 +49,8 @@ func (t *Tx) index() (*ixState, error) {
 	r, err := t.rawGet(generationID)
 	switch {
 	case errors.Is(err, ErrNotFound):
-		// only a store that was never written has no generation record
+		// only a store that was never written (Create) has no generation
+		// record
 		var n int
 		if err := t.c.QueryRowContext(t.ctx, `SELECT count(*) FROM records`).Scan(&n); err != nil {
 			return nil, err
@@ -64,9 +63,6 @@ func (t *Tx) index() (*ixState, error) {
 		return nil, err
 	default:
 		err = s.decode(r.Data)
-		if errors.Is(err, errNoIndex) {
-			err = t.indexFromRows(s)
-		}
 	}
 	if err != nil {
 		return nil, err
@@ -75,19 +71,14 @@ func (t *Tx) index() (*ixState, error) {
 	return s, nil
 }
 
-var errNoIndex = errors.New("no index")
-
 func (s *ixState) decode(b []byte) error {
+	bad := fmt.Errorf("record %s: %w", generationID, ErrTampered)
 	num, rest, found := bytes.Cut(b, []byte{'\n'})
 	n, err := strconv.ParseUint(string(num), 10, 64)
-	if err != nil {
-		return fmt.Errorf("record %s: %w", generationID, ErrTampered)
+	if err != nil || !found {
+		return bad
 	}
 	s.gen = n
-	if !found {
-		return errNoIndex
-	}
-	bad := fmt.Errorf("record %s: %w", generationID, ErrTampered)
 	if len(rest) < 40 {
 		return bad
 	}
@@ -146,10 +137,9 @@ func (s *ixState) encode() []byte {
 	return b
 }
 
-// indexFromRows makes the index of a store from before it, trusting the
-// rows as they are.
+// indexFromRows makes the index from the rows as they are: only for a
+// store never written, which has none.
 func (t *Tx) indexFromRows(s *ixState) error {
-	s.upgrade = true
 	s.m = map[string]ixEnt{}
 	rows, err := t.c.QueryContext(t.ctx, `SELECT id,type,version,deleted FROM records WHERE id<>?`, generationID)
 	if err != nil {
@@ -246,6 +236,6 @@ func (t *Tx) bumpGeneration() (uint64, error) {
 	if _, err := t.write1(generationID, generationType, s.gen, false, s.encode()); err != nil {
 		return 0, err
 	}
-	s.touched, s.upgrade = nil, false
+	s.touched = nil
 	return s.gen, nil
 }

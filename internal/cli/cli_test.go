@@ -151,7 +151,7 @@ func TestResolveTargets(t *testing.T) {
 		}
 	}
 	if _, err := resolveTargets(tcl, st, "nope"); err == nil || toErr(err).Code != "TARGET_NOT_FOUND" {
-		t.Errorf("expected HOST_NOT_FOUND, got %v", err)
+		t.Errorf("expected TARGET_NOT_FOUND, got %v", err)
 	}
 	if _, err := resolveTargets(tcl, st, "@missing"); err == nil || toErr(err).Code != "TARGET_EMPTY" {
 		t.Errorf("expected TARGET_EMPTY, got %v", err)

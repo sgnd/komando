@@ -20,7 +20,7 @@ sight.
 3. `komando schema COMMAND` whenever you are unsure about a flag.
 
 If `komando` is not installed, stop and ask the human to install it:
-`curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
+`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`
 Update komando only when the human asks: `komando update` (when it stops with
 `NOT_WRITABLE`, ask them to run `sudo komando update`).
 
@@ -99,15 +99,15 @@ not know? Set `KOMANDO_AGENT=1`.
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
    `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
-   `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`, `STORE_OLD_COPY`,
-   `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
+   `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED`,
+   `STORE_OLD_COPY`, `UNSAFE_BACKUP`, `WRITE_REQUIRES_FLAG`), stop and tell the human what you want to do and
    why. When they agree, re-run with
    the flag the hint names: komando opens a window on their screen and they
    click "Allow once" (you cannot). If the hint says there is no screen, ask
    them to run the command in their own terminal. No flag clears
    `NEEDS_PERSON`, `REVEAL_NEEDS_TERMINAL`, `SQL_SAFE_SETTINGS_REQUIRED`,
-   `SQL_TX_CHECK_REQUIRED`, `SSH_GATE_READ_ONLY`, `SSH_GATE_REFUSED` or
-   `STORE_OLD_COPY`: only a person at a terminal can
+   `SQL_TX_CHECK_REQUIRED`, `SSH_GATE_NETWORK_REQUIRED`, `SSH_GATE_READ_ONLY`,
+   `SSH_GATE_REFUSED` or `STORE_OLD_COPY`: only a person at a terminal can
    run those. If they
    click Deny, do not retry.
 6. **Never "fix" `HOSTKEY_MISMATCH` yourself.** Report it: it may be an

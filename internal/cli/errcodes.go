@@ -223,6 +223,7 @@ var errorCodes = []errorCode{
 	{"SQL_TX_CONTROL", 2, "… is not allowed in komando db", "leave transactions to komando: without --write it runs a read-only transaction, with --write one transaction that --dry-run rolls back"},
 	{"SSH_AGENT_NEEDED", 2, "a key komando made is sealed in its store and never written to a file, so OpenSSH gets it from a running ssh-agent, and none was found (SSH_AUTH_SOCK)", "start one with `eval \"$(ssh-agent)\"` and run this again, or use `komando shell SERVER`, which logs in with the key itself"},
 	{"SSH_AGENT_REFUSED", 1, "the ssh-agent did not take key …: …", "check the ssh-agent, or use `komando shell SERVER`"},
+	{"SSH_GATE_NETWORK_REQUIRED", 6, "komando … is refused for a read key without network: …", "this key was added with --read-only and without --network: it runs only reads that stay on the servers and conns in your list; a person adds a key for this with `komando ssh-gate line --read-only --network`, or runs it on the komando computer"},
 	{"SSH_GATE_PATH", 1, "komando cannot tell its own full path, which the line needs", "run komando by its full path, for example /usr/local/bin/komando ssh-gate line ..."},
 	{"SSH_GATE_READ_ONLY", 6, "komando … is refused for a read-only key: …", "this key was added with --read-only and runs only commands that read; use a key that may change things, or the komando computer itself"},
 	{"SSH_GATE_REFUSED", 6, "komando … needs a person at a terminal on this computer; a key cannot run it", "a person runs it in a terminal on the komando computer itself"},
