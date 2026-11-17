@@ -289,7 +289,8 @@ komando config set mask_personal protected       # back to the default (komando 
 - A query that names a hidden column could rename it (`name AS customer`),
   compute from it (`upper(name)`) or ask about it (`WHERE name LIKE 'A%'`),
   and komando cannot tell which results come from it. So an AI agent's
-  `db query` that names one anywhere stops with `REVEAL_REQUIRED` (exit 6).
+  `db query` that names one anywhere stops with `REVEAL_NEEDS_PERSON` (exit 6): a person
+  allows it with `--reveal`.
   `SELECT *` shows the column as `[hidden: column]` beside the others. On
   MongoDB the names are fields, hidden at any depth, and a command that
   names one stops the same way.
@@ -450,7 +451,7 @@ what an agent or a script gets.
 | `UNSAFE_BACKUP` | 6 | The backup file holds a client command, not SQL, that could run programs where the restore runs. | Remove that line if the dump is not trusted. |
 | `SENSITIVE_FILE` | 6 | An agent tried to copy a secret file here, or to have komando read one here. | Read it with `fs cat` (values hidden); a person may allow `--reveal` for a project file. |
 | `REVEAL_NEEDS_HUMAN` | 6 | Only a person can see secret values. | Ask the person to run the command in their own terminal. |
-| `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`. | Run it without `--dry-run`: komando asks the person in a window on their screen. |
+| `REVEAL_NEEDS_PERSON` | 6 | An AI agent asked for `--reveal`, or its query names a column hidden from it (`mask_columns`). | Run it without `--dry-run`: komando asks the person in a window on their screen. |
 | `NEEDS_PERSON` | 6 | Only a person can do this: `secret set` and `secret check` for an agent, `secret keychain`, `secret passphrase`, `doctor --accept-old-copy`, `login aws`, `host ssh-command` for an agent, setting up `config approval-code`, replacing a pinned host key with `host trust --reset`. | Ask them to run it in their own terminal. A `--dry-run` still shows the plan. |
 | `STORE_OLD_COPY` | 6 | An older copy of `store.db` was put back. | No flag clears it. If you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal (see [Settings](settings.md#where-komando-keeps-its-data)). |
 | `DECLINED` | 6 | You answered no to komando's question. | Nothing was changed; run it again to be asked again. |

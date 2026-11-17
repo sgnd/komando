@@ -86,7 +86,7 @@ its highlights; the sections below them give the details. Versions follow
   (MongoDB's SCRAM verifiers under `credentials`, a list under `apiKeys`).
   `mask_columns` now also hides MongoDB fields, and an agent's query that
   names a hidden column (`name AS customer`, `upper(name)`, `WHERE name
-  ...`) stops with the new `REVEAL_REQUIRED` (exit 6); `SELECT *` still shows
+  ...`) stops with `REVEAL_NEEDS_PERSON` (exit 6: a person allows it with `--reveal`); `SELECT *` still shows
   it as `[hidden: column]`. `cp`, `sync` and `fs replace` hide personal
   data as `download` and `fs cat` do. For an agent, `db dump` of a
   database whose personal data is hidden, `storage link`, and a binary

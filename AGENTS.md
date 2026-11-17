@@ -43,10 +43,10 @@ under a pseudo-terminal and komando does not know your agent, set
    2 minutes or runs over a shaky link: a job survives a dropped connection.
 7. Never add `--allow-dangerous`, `--yes` or `--reveal` on your own. If a
    command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
-   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`,
-   `PROTECTED_HOST`, `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`,
-   `REVEAL_REQUIRED`, `REVEAL_NEEDS_HUMAN`, `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`,
-   `SECRET_DESTINATION`, `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
+   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`, `PROTECTED_HOST`,
+   `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_HUMAN`,
+   `REVEAL_NEEDS_PERSON`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
+   `SENSITIVE_FILE`, `SQL_STRING_RULES`, `SSH_GATE_READ_ONLY`,
    `SSH_GATE_REFUSED`, `STORE_OLD_COPY`, `UNSAFE_BACKUP`,
    `WRITE_REQUIRES_FLAG`), stop and explain what you want to do and why. Once the human agrees, re-run with
    the flag the hint names: komando asks them in a window on their screen

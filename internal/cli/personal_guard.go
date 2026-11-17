@@ -51,7 +51,7 @@ func hiddenColumnUse(cl *call, c *store.Conn, text string) error {
 		return nil
 	}
 	stop := func(what string) error {
-		return out.Errf(out.ExitPolicy, "REVEAL_REQUIRED",
+		return out.Errf(out.ExitPolicy, "REVEAL_NEEDS_PERSON",
 			revealHint(cl, "leave the hidden columns out of the query: `SELECT *` shows them as [hidden: column] beside the other columns; if the user wants you to see them, run it again with --reveal"),
 			"the query %s, and conn %s hides columns from AI agents (mask_columns); komando cannot tell which results come from them", what, c.Name)
 	}

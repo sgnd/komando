@@ -31,7 +31,7 @@ func TestMaskingSurvivesOtherWaysToTheConn(t *testing.T) {
 	if got := strs(customer(t, "dev2")); got[1] != "[hidden: column]" || got[2] != "[hidden: email]" {
 		t.Errorf("a second conn to the same database: %v", got)
 	}
-	wantCode(t, "REVEAL_REQUIRED", "db", "query", "dev2", "select name n from users")
+	wantCode(t, "REVEAL_NEEDS_PERSON", "db", "query", "dev2", "select name n from users")
 	wantCode(t, "SENSITIVE_FILE", "db", "dump", "dev2", "--to", filepath.Join(t.TempDir(), "x.db"))
 }
 
@@ -47,13 +47,13 @@ func TestMongoCommandIsSearchedDecoded(t *testing.T) {
 		`{"aggregate":"users","pipeline":[{"$project":{"all":{"$objectToArray":"$$ROOT"}}}],"cursor":{}}`,
 		`{"find":"users","filter":{"$where":"this.x == 1"}}`,
 	} {
-		if e := toErr(hiddenColumnUse(tcl, c, cmd)); e == nil || e.Code != "REVEAL_REQUIRED" {
+		if e := toErr(hiddenColumnUse(tcl, c, cmd)); e == nil || e.Code != "REVEAL_NEEDS_PERSON" {
 			t.Errorf("%s: %+v", cmd, e)
 		}
 	}
 	// SQL: an escaped identifier cannot be read by komando
 	sql := &store.Conn{Name: "p", URL: "postgres://h/db", Options: map[string]string{"mask_columns": "name"}}
-	if e := toErr(hiddenColumnUse(tcl, sql, `select U&"n\0061me" from users`)); e == nil || e.Code != "REVEAL_REQUIRED" {
+	if e := toErr(hiddenColumnUse(tcl, sql, `select U&"n\0061me" from users`)); e == nil || e.Code != "REVEAL_NEEDS_PERSON" {
 		t.Errorf("U& escape: %+v", e)
 	}
 }
@@ -132,7 +132,7 @@ func TestMongoDuplicateKeysAreSearched(t *testing.T) {
 	tcl.out = &out.Printer{Mask: true, Personal: true}
 	t.Cleanup(func() { tcl.out = saved })
 	cmd := `{"aggregate":"users","pipeline":[{"$project":{"x":"$name"}}],"pipeline":[],"cursor":{}}`
-	if e := toErr(hiddenColumnUse(tcl, c, cmd)); e == nil || e.Code != "REVEAL_REQUIRED" {
+	if e := toErr(hiddenColumnUse(tcl, c, cmd)); e == nil || e.Code != "REVEAL_NEEDS_PERSON" {
 		t.Errorf("%s: %+v", cmd, e)
 	}
 	// extended JSON MongoDB takes is read too, not refused

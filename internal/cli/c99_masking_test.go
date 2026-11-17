@@ -31,7 +31,7 @@ func TestHiddenColumnCannotBeRenamed(t *testing.T) {
 		"select * from (select card c from users)",
 		"select id, name from users",
 	} {
-		e := wantCode(t, "REVEAL_REQUIRED", "db", "query", "dev", q)
+		e := wantCode(t, "REVEAL_NEEDS_PERSON", "db", "query", "dev", q)
 		if strings.Contains(e.Message+e.Hint, "Ada") || !strings.Contains(e.Hint, "*") {
 			t.Errorf("%s: %+v", q, e)
 		}
@@ -177,7 +177,7 @@ func TestMongoHiddenFields(t *testing.T) {
 		t.Errorf("masked: %s", got)
 	}
 	for _, cmd := range []string{`{"find":"users","filter":{"name":"Ada"}}`, `{"aggregate":"users","pipeline":[{"$project":{"n":"$name"}}],"cursor":{}}`} {
-		if e := toErr(hiddenColumnUse(tcl, c, cmd)); e == nil || e.Code != "REVEAL_REQUIRED" {
+		if e := toErr(hiddenColumnUse(tcl, c, cmd)); e == nil || e.Code != "REVEAL_NEEDS_PERSON" {
 			t.Errorf("%s: %+v", cmd, e)
 		}
 	}
