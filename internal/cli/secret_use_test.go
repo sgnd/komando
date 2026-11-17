@@ -253,7 +253,8 @@ func TestImportSecretDestinationsNeedAPerson(t *testing.T) {
 }
 
 // For an AI agent, KOMANDO_HOME naming another folder than ~/.komando
-// needs a person's yes on every command; a link to ~/.komando does not.
+// stops every command, and no flag or window lets it through; a link to
+// ~/.komando is the usual folder.
 func TestAgentOtherHome(t *testing.T) {
 	usual := filepath.Join(t.TempDir(), ".komando")
 	os.MkdirAll(usual, 0o700)
@@ -265,33 +266,42 @@ func TestAgentOtherHome(t *testing.T) {
 
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1") // a script: not asked
 	texts := windowText(t, true)
-	e := wantCode(t, "SAFETY_SETTING", "list")
+	e := wantCode(t, "NEEDS_PERSON", "list")
 	if !strings.Contains(e.Message, "KOMANDO_HOME points komando at "+other) {
 		t.Errorf("message: %q", e.Message)
 	}
-	wantCode(t, "SAFETY_SETTING", "host", "add", "prod", "root@10.0.0.2")
+	wantCode(t, "NEEDS_PERSON", "host", "add", "prod", "root@10.0.0.2")
 	// a synonym is typed like the command it names: the same stop
 	for _, syn := range [][]string{{"tunnel", "show", "t1"}, {"recipe", "show", "r1"}, {"group", "show", "prod"}, {"cluster", "info", "k1"}} {
-		wantCode(t, "SAFETY_SETTING", syn...)
+		wantCode(t, "NEEDS_PERSON", syn...)
 	}
 	// a background command too: an agent's own home would hold its own
 	// store key, so it could make its own tickets
 	for _, bg := range [][]string{{"vpn", "serve", "office"}, {"tunnel", "serve", "t-1"}, {"login-holder", "web1"}} {
-		wantCode(t, "SAFETY_SETTING", bg...)
+		wantCode(t, "NEEDS_PERSON", bg...)
 	}
 	for _, free := range [][]string{{"version"}, {"schema"}, {"guide"}} {
 		mustRun(t, free...)
 	}
-	d := mustRun(t, "list", "--dry-run")
-	if d["_meta"].(map[string]any)["would_be_blocked"] == nil {
-		t.Errorf("a dry run goes on and says the real run would stop: %v", d)
-	}
+	// a dry run stops too: in another data folder it is no preview of the
+	// real run, and it would read servers with none of the person's pins
+	wantCode(t, "NEEDS_PERSON", "list", "--dry-run")
+	wantCode(t, "NEEDS_PERSON", "list", "--dry-run", "--yes")
+	wantCode(t, "NEEDS_PERSON", "fs", "replace", "u@127.0.0.1:1", "/etc/x", "--old", "a", "--new", "b", "--dry-run")
 	if len(*texts) != 0 {
 		t.Fatalf("no flag, no window: %q", *texts)
 	}
-	mustRun(t, "list", "--yes")
-	if len(*texts) != 1 || !strings.Contains((*texts)[0], "KOMANDO_HOME="+other) {
-		t.Errorf("window: %q", *texts)
+	// no window lets it through: the approval code a person switched on
+	// lives in the usual folder, which this komando does not read, so a
+	// window here would be a plain click. A person runs it themselves.
+	if e := wantCode(t, "NEEDS_PERSON", "list", "--yes"); !strings.Contains(e.Hint, "No flag lets an AI agent") {
+		t.Errorf("hint: %q", e.Hint)
+	}
+	// taking the guard out is no playbook: the same stop
+	wantCode(t, "NEEDS_PERSON", "guide", "uninstall", "--yes")
+	wantCode(t, "NEEDS_PERSON", "guide", "uninstall")
+	if len(*texts) != 0 {
+		t.Errorf("another data folder opens no window: %q", *texts)
 	}
 
 	// the usual folder, by its name or through a link
@@ -310,7 +320,7 @@ func TestAgentOtherHome(t *testing.T) {
 	if otherHome(tcl) != "" {
 		t.Error("no KOMANDO_HOME, no other folder")
 	}
-	if len(*texts) != 1 {
+	if len(*texts) != 0 {
 		t.Errorf("the usual folder asks nothing: %q", *texts)
 	}
 }

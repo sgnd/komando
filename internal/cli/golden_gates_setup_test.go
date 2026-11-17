@@ -128,7 +128,7 @@ var goldenGates = [][]string{
 	{"docker", "rm", "web1", "c1"},
 	{"docker", "prune", "web1"},
 	{"docker", "raw", "web1", "--", "system", "prune", "-af"},
-	// PROTECTED_HOST: a change on a protected server (--yes)
+	// PROTECTED_TARGET: a change on a protected server (--yes)
 	{"exec", "prod1", "--", "touch", "/tmp/x"},
 	{"job", "start", "prod1", "--", "touch", "x"},
 	{"svc", "restart", "prod1", "nginx"},

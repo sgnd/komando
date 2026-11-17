@@ -127,7 +127,7 @@ func TestHiddenCommitPostgresLive(t *testing.T) {
 	}
 	// a COMMIT on its own ends the transaction: nothing after it runs
 	_, err := Run(ctx, rw, "postgres", raw("INSERT INTO komando_victim VALUES (2)", "COMMIT", "DELETE FROM komando_victim"), Options{Write: true, DryRun: true})
-	if errCode(err) != "SQL_TX_CONTROL" {
+	if errCode(err) != "SQL_TX_CHECK_REQUIRED" {
 		t.Errorf("escaped COMMIT: %v", err)
 	}
 	if n := count(t, rw, "komando_victim"); n != 2 {
@@ -192,7 +192,7 @@ func TestHiddenCommitMySQLLive(t *testing.T) {
 			db = rw
 		}
 		_, err := Run(ctx, db, "mysql", raw("SET autocommit = 0, autocommit = 1", "DELETE FROM komando_victim"), o)
-		if errCode(err) != "SQL_TX_CONTROL" {
+		if errCode(err) != "SQL_TX_CHECK_REQUIRED" {
 			t.Errorf("escaped transaction (write=%v): %v", o.Write, err)
 		}
 		if n := count(t, rw, "komando_victim"); n != 1 {
@@ -297,7 +297,7 @@ func TestTxSafetyPostgresLive2(t *testing.T) {
 			t.Errorf("%q: %v", p, err)
 		}
 	}
-	if err := openErr(t, "KOMANDO_PGTEST", "client_encoding=SJIS"); errCode(err) != "SQL_STRING_RULES" {
+	if err := openErr(t, "KOMANDO_PGTEST", "client_encoding=SJIS"); errCode(err) != "SQL_SAFE_SETTINGS_REQUIRED" {
 		t.Errorf("SJIS connection: %v", err)
 	}
 	if err := openErr(t, "KOMANDO_PGTEST", "client_encoding=LATIN1"); err != nil {
@@ -311,7 +311,7 @@ func TestTxSafetyPostgresLive2(t *testing.T) {
 			db, first = ro, "SELECT 1"
 		}
 		res, err := Run(ctx, db, "postgres", raw(first, "COMMIT AND CHAIN", "INSERT INTO komando_victim2 VALUES (2)"), o)
-		if errCode(err) != "SQL_TX_CONTROL" || res != nil {
+		if errCode(err) != "SQL_TX_CHECK_REQUIRED" || res != nil {
 			t.Errorf("AND CHAIN (write=%v): %+v %v", o.Write, res, err)
 		}
 	}
@@ -369,7 +369,7 @@ func TestTxSafetyMySQLLive2(t *testing.T) {
 			t.Errorf("%q: %v", p, err)
 		}
 	}
-	if err := openErr(t, "KOMANDO_MYTEST", "character_set_client=gbk"); errCode(err) != "SQL_STRING_RULES" {
+	if err := openErr(t, "KOMANDO_MYTEST", "character_set_client=gbk"); errCode(err) != "SQL_SAFE_SETTINGS_REQUIRED" {
 		t.Errorf("GBK connection: %v", err)
 	}
 

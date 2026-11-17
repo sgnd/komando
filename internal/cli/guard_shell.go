@@ -479,7 +479,7 @@ func checkAgentVars(words []string, depth int) guardDecision {
 // homeVar moves komando's data folder. An agent's shell line must not
 // change it either: komando would then use another inventory, without the
 // person's protected servers, deny rules, host keys and audit log
-// (guardHome asks the person when it happens anyway).
+// (guardHome stops the command when it happens anyway).
 const homeVar = "KOMANDO_HOME"
 
 // homeVars are the home folder's variables. Setting them in front of
