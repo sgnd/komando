@@ -128,3 +128,16 @@ func TestKeyTailIsHidden(t *testing.T) {
 		t.Errorf("Hidden = %q", h)
 	}
 }
+
+// View is what fs replace shows of a file (its matches and its diff):
+// where personal data is hidden, it is hidden there too.
+func TestViewHidesPersonalData(t *testing.T) {
+	src := "admin = alice@example.com\nport = 8080\n"
+	v := (&Printer{Mask: true, Personal: true}).View(src)
+	if strings.Contains(v.Text, "alice@example.com") || !strings.Contains(v.Text, "[hidden: email]") || !strings.Contains(v.Text, "port = 8080") {
+		t.Errorf("view: %q", v.Text)
+	}
+	if v := (&Printer{Mask: true}).View(src); !strings.Contains(v.Text, "alice@example.com") {
+		t.Errorf("without Personal: %q", v.Text)
+	}
+}

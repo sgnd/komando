@@ -40,9 +40,10 @@ func storageCmd() *cobra.Command {
 It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket,
 or a folder on a WebDAV, FTPS, FTP or SFTP server or an SMB share (Windows,
 Samba, Azure Files). Keys are relative to the folder in the storage URL; a
-key ending in / is a folder. ls, cat and download only read. upload changes
-files and link shares one (S3, Google Cloud and Azure; on production
-storage both ask first); rm deletes, so it also needs --allow-dangerous.
+key ending in / is a folder. ls, cat and download only read. upload,
+mkdir, mv and chmod (SFTP only) change files and link shares one (S3,
+Google Cloud and Azure; on production storage they ask first); rm deletes,
+so it also needs --allow-dangerous.
 Downloads never overwrite a local file unless --overwrite, and uploads to
 file servers go to a temporary name first, so a failed upload leaves
 nothing half written.
@@ -61,7 +62,8 @@ edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
   komando storage add media gs://my-bucket/site   # logs in like gcloud
   komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
   komando storage add site 'sftp://deploy@files.example.com/uploads'`
-	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
+	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd(),
+		storageMkdirCmd(), storageMvCmd(), storageChmodCmd())
 	return c
 }
 
@@ -134,7 +136,7 @@ func namedHint(err error, conn string) error {
 		return err
 	}
 	h := oe.Hint
-	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "download ", "upload "} {
+	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "storage mv ", "storage rm ", "download ", "upload "} {
 		for _, word := range []string{"NAME", "CONN"} {
 			h = strings.ReplaceAll(h, "komando "+cmd+word, "komando "+cmd+conn)
 		}
@@ -318,8 +320,11 @@ func storageLsCmd() *cobra.Command {
 					}
 					if len(objs) == 0 && strings.Trim(prefix, "/") != "" {
 						// a bucket has no folders, only keys: nothing under the
-						// prefix is what a missing folder is on a file server
-						return nil, storex.FolderNotFound(prefix)
+						// prefix is what a missing folder is on a file server,
+						// unless it is an empty folder (storage mkdir's marker)
+						if o, found, err := s.Lookup(ctx, prefix); err != nil || !found || !o.Dir {
+							return nil, storex.FolderNotFound(prefix)
+						}
 					}
 					if more {
 						cl.out.CutNoted()
@@ -445,7 +450,10 @@ func storageLinkCmd() *cobra.Command {
 		Short:   "Make a temporary download link that works without a login",
 		Long: `Prints a URL anyone can use to download KEY until it expires (default 1 hour,
 at most 7 days). Treat it like a password while it is valid. Sharing from a
-protected conn needs --yes. The link itself is not stored in the audit log.
+protected conn needs --yes. An AI agent gets a link only when a person allows
+--reveal, and never for a file that is a secret by its name (.env, a key): a
+link is the file as it is, past the hiding of storage cat and download. The
+link itself is not stored in the audit log.
 The link names the storage address in the conn URL: when komando reaches it
 through --via, only people who can reach that address can use the link.
 --endpoint signs the link for the address they use instead (S3 only).`,
@@ -464,6 +472,9 @@ through --via, only people who can reach that address can use the link.
 					return out.Usage("--endpoint takes http(s)://HOST[:PORT], for example https://files.example.com")
 				}
 				pub = u
+			}
+			if err := guardLink(cl, args[1]); err != nil {
+				return err
 			}
 			// a link opens data to anyone who has it: treat it like a change
 			return withStorage(cl, cmd.Context(), "storage.link", args[0], driver.Verdict{Risk: driver.RiskWrite}, map[string]any{"key": args[1], "expires": expires.String()},

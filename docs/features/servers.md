@@ -516,8 +516,8 @@ So komando keeps the way in your hands:
   `host_key_policy` is `off`, and for a WinRM server with `tls=off` or
   `tls=skip-verify`: nothing checks who answers there.
 - **The login's background process is yours.** An AI agent cannot run
-  `komando login` (`NEEDS_TERMINAL`), nor start its background process
-  itself (`NEEDS_PERSON`), whose questions it would answer as if it were
+  `komando login`, nor start its background process itself (both
+  `NEEDS_PERSON`), whose questions it would answer as if it were
   you.
 
 One command asks once per server: `komando exec @web -P 10` asks each
@@ -573,7 +573,7 @@ its address changes.
 
 Only a person at a terminal can run `komando login`; an AI agent's
 `komando login web1 --dry-run` shows the plan (`would_log_in: false`, and
-`meta.would_be_blocked` names `NEEDS_TERMINAL`).
+`meta.would_be_blocked` names `NEEDS_PERSON`).
 
 ### Sudo passwords and the vault
 
@@ -631,6 +631,10 @@ tries these logins in order:
    and cannot renew the token;
 4. the managed identity of the Azure machine komando runs on
    (`AZURE_CLIENT_ID` picks a user-assigned one).
+
+`AZURE_AUTHORITY_HOST` picks another Azure cloud's sign-in host
+(`https://login.microsoftonline.us`, `https://login.chinacloudapi.cn`);
+any other host is refused, because the login goes there.
 
 The login needs the "Key Vault Secrets User" role on the vault, or an access
 policy that allows Get on secrets.
@@ -839,5 +843,5 @@ told to use `komando exec` or `komando shell`.
 | `SSH_AGENT_NEEDED` | `host ssh-command` for a key komando made, with no ssh-agent running | `eval "$(ssh-agent)"`, or use `komando shell SERVER` |
 | `NEEDS_PERSON` | only a person at a terminal can do this (`host trust --reset`, `host ssh-command`), or a `--login ask` server's password and nobody can type it, or its first connection (a host key nobody has logged in with), or an AI agent changed where its password goes (its address, port, user, `--via`, proxy command, a server or VPN on its way) | run the command in your own terminal, or `komando login SERVER` once |
 | `DECLINED` | the person cancelled the password window of a `--login ask` server (or did so less than a minute ago) | a person runs `komando login SERVER` |
-| `NEEDS_TERMINAL` | `komando login` without a person at a terminal | a person runs `komando login SERVER` |
+| `NEEDS_PERSON` | `komando login` without a person at a terminal (an AI agent or a script) | a person runs `komando login SERVER` |
 | `IMPORT_INCOMPLETE` | some servers were not imported (listed under `skipped`) | fix them in the source and import again |

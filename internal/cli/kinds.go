@@ -279,16 +279,20 @@ var commandKinds = map[string]cmdKind{
 
 	"shell": dependsOn(shellNote),
 
-	"ssh-gate":      dependsOn("runs the komando command an SSH key sent, when ssh-gate allows it"),
-	"ssh-gate line": reads,
+	"ssh-gate":        dependsOn("runs the komando command an SSH key sent, when ssh-gate allows it"),
+	"ssh-gate line":   reads,
+	"ssh-gate status": reads,
 
 	"status": reads,
 
 	"storage":          reads,
 	"storage cat":      reads,
+	"storage chmod":    changes,
 	"storage download": reads,
 	"storage link":     changes, // hands out access (OD-13)
 	"storage list":     reads,
+	"storage mkdir":    changes,
+	"storage mv":       changes,
 	"storage rm":       changes,
 	"storage upload":   changes,
 

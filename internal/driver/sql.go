@@ -309,6 +309,9 @@ func ClassifySQL(kind, sql string) (SQLPlan, error) {
 		if err != nil {
 			return SQLPlan{}, err
 		}
+		// what runs decides how it is run: the statement inside MariaDB's
+		// SET STATEMENT ... FOR, not the SET around it
+		ts = setStatementInner(ts)
 		kw := firstWord(ts)
 		plan.Statements = append(plan.Statements, Statement{SQL: texts[i], Keyword: kw, Risk: risk,
 			Rows: rowsFor(kind, kw, ts), NoTx: noTx(kind, kw, ts), NoRollback: noRollback(kw, ts, rules),
@@ -410,36 +413,6 @@ var readFirst = map[string]bool{
 var txControl = map[string]bool{
 	"BEGIN": true, "START": true, "COMMIT": true, "END": true, "ROLLBACK": true, "ABORT": true,
 	"SAVEPOINT": true, "RELEASE": true,
-}
-
-// dangerousFuncs have side effects a read-only transaction does not stop.
-var dangerousFuncs = map[string]string{
-	"PG_TERMINATE_BACKEND": "sql-kill", "PG_CANCEL_BACKEND": "sql-kill", "PG_PROMOTE": "sql-kill",
-	"PG_RELOAD_CONF": "sql-server-config", "PG_ROTATE_LOGFILE": "sql-server-config", "PG_SWITCH_WAL": "sql-server-config",
-	"PG_CREATE_RESTORE_POINT": "sql-server-config", "PG_WAL_REPLAY_PAUSE": "sql-server-config", "PG_WAL_REPLAY_RESUME": "sql-server-config",
-	"PG_DROP_REPLICATION_SLOT": "sql-server-config", "PG_CREATE_PHYSICAL_REPLICATION_SLOT": "sql-server-config",
-	"PG_CREATE_LOGICAL_REPLICATION_SLOT": "sql-server-config", "PG_STAT_RESET": "sql-server-config",
-	"LO_EXPORT": "sql-server-file", "LO_IMPORT": "sql-server-file", "PG_READ_FILE": "sql-server-file",
-	"PG_READ_BINARY_FILE": "sql-server-file", "PG_FILE_WRITE": "sql-server-file", "PG_FILE_UNLINK": "sql-server-file",
-	"PG_FILE_RENAME": "sql-server-file", "PG_FILE_SYNC": "sql-server-file", "PG_STAT_FILE": "sql-server-file",
-	"PG_LOGDIR_LS": "sql-server-file", "PG_CURRENT_LOGFILE": "sql-server-file", "LOAD_FILE": "sql-server-file",
-	"SYS_EXEC": "sql-program", "SYS_EVAL": "sql-program",
-}
-
-// funcRule rates a function call by name; prefixes cover function families.
-func funcRule(name string) (string, bool) {
-	if id, ok := dangerousFuncs[name]; ok {
-		return id, true
-	}
-	switch {
-	case strings.HasPrefix(name, "DBLINK"):
-		return "sql-remote", true
-	case strings.HasPrefix(name, "PG_STAT_RESET"), strings.HasPrefix(name, "PG_REPLICATION_ORIGIN_"):
-		return "sql-server-config", true
-	case strings.HasPrefix(name, "PG_LS_"): // pg_ls_dir, pg_ls_waldir, pg_ls_tmpdir, ...: list server directories
-		return "sql-server-file", true
-	}
-	return "", false
 }
 
 // writeFuncs change data. The read-only transaction refuses them, but
@@ -592,25 +565,9 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 		}
 		return classifyStatement(inner, strict) // EXPLAIN EXECUTE runs its argument expressions even without ANALYZE
 	}
-	if strict && (first == "SET" || first == "RESET") {
-		for i, t := range ts {
-			name := t.word
-			afterScope := i > 0 && (ts[i-1].punct == '@' || ts[i-1].punct == '.') // @@session.x
-			switch {
-			case t.ident != "": // SET "standard_conforming_strings", SET `autocommit`
-				name = t.ident
-			case t.punct == '\'' && afterScope: // MariaDB: @@session.'autocommit'
-				name = strings.ToUpper(t.str)
-			}
-			if afterScope && (t.ident != "" || t.punct == '\'') && strings.Contains(name, `\`) {
-				// MariaDB reads @@session.'auto\commit' as autocommit
-				return 0, nil, out.Errf(out.ExitUsage, "SQL_HIDDEN_CODE",
-					"write the setting name without quotes or backslashes: komando cannot check a name it cannot read",
-					"setting name %s has escapes", strings.ToLower(name))
-			}
-			if err := settingAllowed(name); err != nil {
-				return 0, nil, err
-			}
+	if first == "SET" || first == "RESET" {
+		if risk, rules, done, err := classifySet(ts, second, strict); done {
+			return risk, rules, err
 		}
 	}
 	risk := RiskWrite
@@ -729,7 +686,7 @@ func classifyStatement(ts []token, strict bool) (Risk, []string, error) {
 				}
 				continue
 			}
-			if id, ok := funcRule(name); ok {
+			if id, ok := callRule(ts, i, name); ok {
 				flag(id)
 			}
 			if writeFuncs[name] {

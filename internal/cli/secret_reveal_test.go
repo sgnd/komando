@@ -79,7 +79,7 @@ func TestRevealDeniedOrNoScreen(t *testing.T) {
 		t.Errorf("audit of the refusal: %v", a)
 	}
 	n, _ := revealWindow(t, true, false) // no screen: nobody to ask
-	if e := wantCode(t, "REVEAL_NEEDS_HUMAN", "secret", "show", "db-pass", "--reveal"); !strings.Contains(e.Hint, "in a terminal") || *n != 1 {
+	if e := wantCode(t, "REVEAL_NEEDS_TERMINAL", "secret", "show", "db-pass", "--reveal"); !strings.Contains(e.Hint, "in a terminal") || *n != 1 {
 		t.Errorf("hint %q after %d windows", e.Hint, *n)
 	}
 }
@@ -91,7 +91,7 @@ func TestRevealNoClickWindowOnLinux(t *testing.T) {
 	n, _ := revealWindow(t, true, true)
 	desktopOS = "linux"
 	t.Setenv("DISPLAY", ":0")
-	wantCode(t, "REVEAL_NEEDS_HUMAN", "secret", "show", "db-pass", "--reveal")
+	wantCode(t, "REVEAL_NEEDS_TERMINAL", "secret", "show", "db-pass", "--reveal")
 	if *n != 0 {
 		t.Errorf("%d click-only windows on a Linux desktop", *n)
 	}
@@ -130,11 +130,11 @@ func TestRevealNeverForAnAgent(t *testing.T) {
 		{"key", "show", "deploy", "--reveal"},
 	} {
 		d, e := invRun(t, args...)
-		if e == nil || e.Code != "REVEAL_NEEDS_HUMAN" || d["value"] != nil || d["private_key"] != nil || *n != 0 {
+		if e == nil || e.Code != "REVEAL_NEEDS_TERMINAL" || d["value"] != nil || d["private_key"] != nil || *n != 0 {
 			t.Fatalf("%v: %+v, %d windows", args, e, *n)
 		}
 	}
-	if a := lastAudit(t); a["blocked"] != "REVEAL_NEEDS_HUMAN" || a["key"] != "deploy" || a["agent"] != "Claude Code" {
+	if a := lastAudit(t); a["blocked"] != "REVEAL_NEEDS_TERMINAL" || a["key"] != "deploy" || a["agent"] != "Claude Code" {
 		t.Errorf("audit of the refusal: %v", a)
 	}
 }

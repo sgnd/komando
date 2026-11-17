@@ -1001,7 +1001,7 @@ func TestPersonAllowsForAsksAgain(t *testing.T) {
 func TestImportKomandoDropsTrustedPlugin(t *testing.T) {
 	invHome(t)
 	b, _ := json.Marshal(exportFile{Format: exportFormat, Conns: []*store.Conn{{Name: "k", Kind: "k8s", URL: "k8s://10.0.0.1:6443",
-		PasswordRef: "secret:k-kubeconfig", TrustedPlugin: pluginTrust("/bin/sh -c id", "https://10.0.0.1:6443")}}})
+		PasswordRef: "secret:k-kubeconfig", TrustedPlugin: "0f", PluginProgram: "/bin/sh", PluginSearchPath: "/usr/bin:/bin"}}})
 	f := filepath.Join(t.TempDir(), "export.json")
 	os.WriteFile(f, b, 0o600)
 	mustRun(t, "import", "komando", f)
@@ -1009,7 +1009,7 @@ func TestImportKomandoDropsTrustedPlugin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c := st.Conns["k"]; c == nil || c.TrustedPlugin != "" {
+	if c := st.Conns["k"]; c == nil || c.TrustedPlugin+c.PluginProgram+c.PluginSearchPath != "" {
 		t.Errorf("imported conn: %+v", c)
 	}
 }

@@ -216,6 +216,11 @@ whole, for the agent: see [Personal data](safety.md#personal-data).
 komando conn edit prod-db --option 'mask_columns=full_name address birth_date'
 ```
 
+An AI agent's query that names such a column (to rename it, compute from
+it or filter on it) stops with `REVEAL_NEEDS_PERSON`; `SELECT *` shows it as
+`[hidden: column]`. An agent's `db dump` of a database whose personal data
+is hidden stops with `SENSITIVE_FILE`: a person allows it with `--reveal`.
+
 SQL that starts with a `-- comment` looks like a flag to the command
 line. Put `--` before it, or use `--file -`.
 
@@ -932,7 +937,7 @@ komando db kill events 8078617214407497              # the pid db activity shows
   `readonly` for it. For a hard limit, give the conn such a user with only
   `SELECT` grants. A user whose settings profile reads queries as another
   language (`dialect = 'kusto'` or `'prql'`) is refused
-  (`SQL_STRING_RULES`): komando checks ClickHouse SQL only.
+  (`SQL_SAFE_SETTINGS_REQUIRED`): komando checks ClickHouse SQL only.
 - Text in `$$...$$` and names or text with letters outside ASCII outside
   quotes are refused (`SQL_HIDDEN_CODE`): use `'...'` (with `\'` for a quote) and
   `` `...` ``. `FORMAT` and `INTO OUTFILE` are refused too: komando reads

@@ -382,10 +382,10 @@ func kubectlFailure(code int, stderr string) *out.Error {
 	// only the API's NotFound: `sh: foo: not found` from a command in a pod is the command's own failure
 	if strings.Contains(stderr, "Error from server (NotFound)") {
 		msg = strings.TrimPrefix(msg, "Error from server (NotFound): ")
-		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound, Thing: "k8s_object",
+		return &out.Error{Code: "K8S_NOT_FOUND", Message: cmp.Or(msg, "not found"), Exit: out.ExitNotFound,
 			Hint: "list what exists with `komando cluster list TARGET TYPE`"}
 	}
-	return &out.Error{Code: "FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
+	return &out.Error{Code: "TOOL_FAILED", Message: "kubectl exited " + strconv.Itoa(code) + cmp.Or(": "+firstLine(msg), ""), Exit: out.ExitRemote,
 		Hint: "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"}
 }
 
@@ -436,11 +436,35 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s does not check the server's certificate (insecure-skip-tls-verify): "+
 				"its login goes to whoever answers at %s; add the cluster's CA (certificate-authority-data) to the kubeconfig and import it again", n, u.Host))
 		}
+		// the trust is over the cluster block as stored (a CA file is
+		// inlined), which is what a later command reads back
+		stored := x.Cluster
+		if cfg, err := kube.Parse(kc); err == nil {
+			if sx, err := cfg.Resolve(""); err == nil {
+				stored = sx.Cluster
+			}
+		}
 		if e := x.Plugin(); e != nil {
 			// a person imported it, or allowed it (guardKubeImport): agents
-			// may run this program for this conn without asking again
-			c.TrustedPlugin = pluginTrust(pluginLine(e), x.Cluster.Server)
-			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s logs in by running `%s` on this computer for every cluster command", n, pluginLine(e)))
+			// may run this program file for this conn without asking again
+			note := fmt.Sprintf("context %s logs in by running `%s` on this computer for every cluster command", n, pluginLine(e))
+			prog := pluginProgram(e.Command)
+			if cl.isAgent() {
+				// a person said yes to this import, but the PATH is the
+				// agent's: the program and its helpers were found by it, so
+				// nothing is trusted for later commands
+				note += " (imported by an AI agent: its cluster commands ask you each time; import the kubeconfig yourself to trust the program for this conn)"
+			} else if t, ok := pluginTrust(cl, e, prog, stored); ok && prog != "" {
+				c.TrustedPlugin, c.PluginProgram, c.PluginSearchPath = t, prog, cl.getenv("PATH")
+			} else {
+				note += fmt.Sprintf(" (%s is not installed here: after installing it, import the kubeconfig again, or an AI agent's cluster commands will ask you each time)", e.Command)
+			}
+			p.ConnNotes[c] = append(p.ConnNotes[c], note)
+		} else if b := x.CloudLogin(); b != nil && !cl.isAgent() {
+			// a person's own import: this computer's cloud login goes to
+			// this cluster, for agents' later commands too. An import an
+			// agent made (with a person's yes) trusts nothing for later
+			c.TrustedPlugin, _ = pluginTrust(cl, b, "", stored)
 		}
 	}
 	return p, nil
@@ -503,9 +527,10 @@ func kubeconfigConnNames(contexts []string) (names, clash map[string]string) {
 }
 
 // guardKubeImport: an AI agent importing a kubeconfig that runs a program
-// on this computer to log in (guardKubePlugin), or that sends a file of
-// this computer to the server as its token (tokenFile), needs a person's
-// yes, as for a host's --proxy-command. Under --dry-run the stop is only
+// on this computer to log in (guardKubePlugin), that sends a login made
+// from this computer's cloud login to its server (guardCloudLogin), or
+// that sends a file of this computer to the server as its token
+// (tokenFile), needs a person's yes, as for a host's --proxy-command. Under --dry-run the stop is only
 // reported.
 func guardKubeImport(cl *call, name string, x *kube.Context) error {
 	if e := x.Plugin(); e != nil {
@@ -515,9 +540,14 @@ func guardKubeImport(cl *call, name string, x *kube.Context) error {
 				"context %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig)", name, line, hits[0].Reason))
 		}
 		if cl.isAgent() {
-			if err := guardSafety(cl, "letting context "+name+" run `"+line+"` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {
+			if err := guardSafety(cl, "letting context "+name+" run `"+line+"` on this computer"+programNote(e.Command, pluginProgram(e.Command))+" whenever komando logs in, also for AI agents' later commands"); err != nil {
 				return err
 			}
+		}
+	}
+	if b := x.CloudLogin(); b != nil && cl.isAgent() {
+		if err := guardSafety(cl, "letting context "+name+" send a login made from this computer's "+cloudLoginName(b)+" login to "+clusterWay(x.Cluster)); err != nil {
+			return err
 		}
 	}
 	if f := x.User.TokenFile; f != "" && cl.isAgent() {

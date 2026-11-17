@@ -103,3 +103,17 @@ func TestHasHiddenLabels(t *testing.T) {
 		}
 	}
 }
+
+// A label is never read as personal data: a secret named like an email
+// address keeps its label, in Redact and in View alike.
+func TestLabelsAreNotPersonalData(t *testing.T) {
+	p := &Printer{Mask: true, Personal: true, Secrets: func() map[string]string { return map[string]string{"ops@corp.example": "Sup3rS3cretPw"} }}
+	s := "x Sup3rS3cretPw y bob@example.com"
+	want := "x [secret:ops@corp.example] y [hidden: email]"
+	if got := p.Redact(s); got != want {
+		t.Errorf("Redact: %q", got)
+	}
+	if got := p.View(s).Text; got != want {
+		t.Errorf("View: %q", got)
+	}
+}

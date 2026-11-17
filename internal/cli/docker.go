@@ -211,7 +211,7 @@ func dockerErr(msg string, code int) *out.Error {
 	case (msg == "" && code == 127) || dockerMissing.MatchString(msg):
 		return out.Errf(out.ExitNotFound, "DOCKER_MISSING", "install Docker on the server, or pick another server", "docker not found")
 	case dockerNotFound.MatchString(msg):
-		return out.Errf(out.ExitNotFound, "NOT_FOUND", "list what exists with `komando docker ps TARGET --all` or `komando cluster list TARGET services`", "%s", firstLine(msg)).About("docker_object")
+		return out.Errf(out.ExitNotFound, "DOCKER_OBJECT_NOT_FOUND", "list what exists with `komando docker ps TARGET --all` or `komando cluster list TARGET services`", "%s", firstLine(msg))
 	case strings.Contains(msg, "permission denied") && strings.Contains(msg, "docker.sock"):
 		return out.Errf(out.ExitRemote, "DOCKER_PERMISSION", "add --sudo, or add the login user to the docker group", "%s", firstLine(msg))
 	case msg == "":
@@ -635,9 +635,9 @@ func dockerExecCmd(sudo *bool) *cobra.Command {
 		Long: `Runs COMMAND in the container with its arguments exactly as written (like
 ` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
 && write the shell yourself: -- sh -c 'a | b'. The destructive-command
-policy checks the command; --read-only declares that it only looks: a
-command that clearly changes something is refused, and on a protected
-server only commands komando knows read skip --yes.`,
+policy checks the command; --read-only declares that it only looks: only
+commands komando knows only read run, and a protected server then needs
+no --yes.`,
 		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
 		Args:    cobra.MinimumNArgs(3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {

@@ -140,6 +140,7 @@ func typeName(e ast.Expr) string {
 // an agent's argument points. A new one fails TestOtherPackagesWriteOwnFiles
 // until it is listed here (or its callers check its destination).
 var otherPackageWriters = map[string]string{
+	"testhome.Use":              "tests only (never in the komando program): a throwaway home folder in the temp folder",
 	"browserx.Open":             "a sign-in browser profile in a new temporary folder",
 	"browserx.Close":            "removes that profile",
 	"cloud.writeTokenFile":      "the AWS SSO token cache, `login aws`",

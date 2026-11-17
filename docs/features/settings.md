@@ -109,7 +109,7 @@ turn on the approval code.
 
 | Variable | What it does |
 |----------|--------------|
-| `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`, on Windows `%USERPROFILE%\.komando`). For an AI agent, another folder needs a person's yes on every command (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
+| `KOMANDO_HOME` | where komando keeps its data (default `~/.komando`, on Windows `%USERPROFILE%\.komando`). For an AI agent, every command with another folder stops, a dry run too (see [Safety](safety.md#seatbelts-for-ai-agents)); if you keep the data elsewhere, make `~/.komando` a link to it instead |
 | `KOMANDO_VAULT_PASS` | optional: the vault's passphrase, instead of a key in the keychain or in `store.key`. A new vault takes it at your first secret; `komando secret passphrase` adds or changes it later (see [below](#a-passphrase-instead-of-the-keychain)) |
 | `KOMANDO_KEYCHAIN` | `off`: komando uses no keychain, and a new vault keeps its key in `store.key` (CI runners, containers, test runs). On a Mac, a path to a keychain file to use instead of the login keychain, for the store's key and its change count. An AI agent cannot move the keychain: its `off` does not move the change count (the old-copy check), and its path is not used at all, so an agent's call keeps the key and the count in the login keychain. A store whose key is in your own keychain file is opened only by your commands, not an agent's. The other way round, a store an agent made keeps its key in the login keychain, so your commands with `KOMANDO_KEYCHAIN` set to a file do not find it there |
 | `KOMANDO_ACTOR` | the name recorded in `komando audit` (for example `claude`) |
@@ -259,8 +259,11 @@ answer within a second):
   aside.
 
 A vault whose key is in `store.key` keeps it there until you move it: run
-`komando secret keychain`. Nothing is re-encrypted, so it works before or
-after your first secret (`--off` moves it back, and komando asks first).
+`komando secret keychain`. It works before or after your first secret: the
+vault gets a new key as it moves, kept only in the keychain, so a copy of
+`store.key` made before (in a backup or a synced folder's history) opens
+nothing, not even the secrets you had then (`--off` moves the key back into
+`store.key`, and komando asks first).
 Only a person at a terminal can run it: an AI agent or a script gets
 `NEEDS_PERSON`, since the keychain may ask to be unlocked. On Linux it
 stops, and asks you to unlock the keychain, while the default collection

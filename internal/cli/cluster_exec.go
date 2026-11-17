@@ -32,9 +32,9 @@ func clusterExecCmd() *cobra.Command {
 		Use:   "exec TARGET POD|TYPE/NAME -- COMMAND...",
 		Short: "Run a command in a pod, checked by the policy",
 		Long: `Runs COMMAND in the pod (for TYPE/NAME, in one of its pods) and returns its
-output. Commands that only look can say so with --read-only: one that
-clearly changes something is refused, and protected clusters skip --yes
-only for commands komando knows read (cat, ls, printenv ...). For an
+output. Commands that only look can say so with --read-only: it runs only
+commands komando knows only read (cat, ls, printenv ...) and refuses any
+other; a protected cluster then needs no --yes. For an
 interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 		Example: `  komando cluster exec prod-k8s deploy/api --namespace shop --read-only -- cat /app/config.yml
   komando cluster exec prod-k8s api-7d9f-x2 -c api --namespace shop -- php artisan cache:clear`,
@@ -120,7 +120,7 @@ interactive shell use ` + "`komando cluster shell TARGET POD`" + `.`,
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().StringVarP(&container, "container", "c", "", "container in the pod")
-	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks (protected clusters: no --yes for commands komando knows read)")
+	c.Flags().BoolVar(&readOnly, "read-only", false, "declare that the command only looks: only commands komando knows only read run (protected clusters: no --yes)")
 	return c
 }
 
@@ -152,7 +152,7 @@ func runningPods(ctx context.Context, k *kube.Client, space, ref string) ([]stri
 		}
 	}
 	if len(running) == 0 {
-		return nil, out.Errf(out.ExitNotFound, "K8S_NOT_FOUND", "check them with `komando cluster list TARGET pods`", "%s has no running pod", ref).About("k8s_pod")
+		return nil, out.Errf(out.ExitNotFound, "K8S_POD_NOT_FOUND", "check them with `komando cluster list TARGET pods`", "%s has no running pod", ref)
 	}
 	return running, nil
 }

@@ -44,6 +44,9 @@ func AWSConfig(ctx context.Context, profile, region string) (aws.Config, error) 
 	if err != nil {
 		return aws.Config{}, awsErr(err)
 	}
+	if err := checkAWSTokenFile(cfg); err != nil {
+		return aws.Config{}, err
+	}
 	return cfg, nil
 }
 
@@ -56,6 +59,7 @@ func loadAWS(ctx context.Context, opts ...func(*config.LoadOptions) error) (aws.
 	if transport.EnvDistrusted() {
 		_ = os.Unsetenv("AWS_CA_BUNDLE")
 	}
+	defer agentAWSEnv()()
 	hc := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) { tr.Proxy = transport.Proxy() })
 	return config.LoadDefaultConfig(ctx, append(opts, config.WithHTTPClient(hc))...)
 }
@@ -66,6 +70,9 @@ func loadAWS(ctx context.Context, opts ...func(*config.LoadOptions) error) (aws.
 // went to the real AWS with the source access key. AWS_ENDPOINT_URL_STS,
 // when set, still wins.
 func stsEndpointFromGlobal() {
+	if transport.EnvDistrusted() {
+		return // an AI agent's endpoint variables are not followed at all (agentAWSEnv)
+	}
 	if e := os.Getenv("AWS_ENDPOINT_URL"); e != "" && os.Getenv("AWS_ENDPOINT_URL_STS") == "" {
 		os.Setenv("AWS_ENDPOINT_URL_STS", e)
 	}
@@ -95,6 +102,9 @@ func AWSProfileAccess(ctx context.Context, profile, configFile, credsFile string
 	cfg, err := loadAWS(ctx, opts...)
 	if err != nil {
 		return aws.Credentials{}, "", "", awsErr(err)
+	}
+	if err := checkAWSTokenFile(cfg); err != nil {
+		return aws.Credentials{}, "", "", err
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

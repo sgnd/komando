@@ -55,19 +55,36 @@ How the login works:
 - komando keeps each context's kubeconfig in the vault.
 - It makes the EKS and GKE logins itself (`aws eks get-token`,
   `aws-iam-authenticator`, `gke-gcloud-auth-plugin`), so you do not need
-  those programs.
+  those programs. That login is made from this computer's AWS or Google
+  Cloud login and sent to the kubeconfig's server, so an AI agent needs a
+  person's yes (`--yes`) to import such a kubeconfig. It goes only over
+  https with the server's certificate checked: a server at `http://`, or
+  `insecure-skip-tls-verify` with no CA, stops with a usage error.
 - Any other login program the kubeconfig names runs on this computer, so
   an AI agent needs a person's yes (`--yes`) to import it, as with a
   server's `--proxy-command`.
+- Your own import records which file that program is (its full path) and
+  the `PATH` of the import. An AI agent's command runs that file with that
+  `PATH`, your real home folder and only a few plain variables (user,
+  language, screen, temp folder) of its own environment: what the program
+  needs beyond those goes in the kubeconfig's `env`. If the file is one
+  that programs of your user can replace (Homebrew's `bin`,
+  `~/.local/bin`) and its contents changed, for example after an update,
+  agents are asked again until you import the kubeconfig again.
+- An import an AI agent made with your yes trusts nothing for later: its
+  cluster commands ask you each time, and after your yes the program runs
+  with the system's `PATH`. Import the kubeconfig yourself to trust it.
 - When that program is missing, cluster commands stop with `TOOL_MISSING`
   (exit 3) and the kubeconfig's own `installHint`. When it runs but cannot
   log in (it may want a person to sign in first), they stop with
   `LOGIN_FAILED` (exit 4).
 - Once a person imported (or allowed) a kubeconfig, agents use the conn
   without asking. If the kubeconfig in the vault changes to another program
-  or server (`secret set`), or reads its token from a local file
-  (`tokenFile`), every agent command asks again, reads included, until a
-  person imports it again.
+  or anything in its cluster block (the server, its CA, `tls-server-name`,
+  `proxy-url`, `insecure-skip-tls-verify`; `secret set`), or reads its
+  token from a local file (`tokenFile`), every agent command asks again,
+  reads included, until a person imports it again. This holds for the EKS
+  and GKE logins too.
 
 komando checks the API server's certificate against the kubeconfig's CA.
 A context with `insecure-skip-tls-verify` and no CA skips that check, as
@@ -324,10 +341,9 @@ komando cluster shell prod-k8s deploy/api --namespace shop          # interactiv
 
 - `cluster exec` runs one command (not interactive). The
   dangerous-command filter checks it, as with `exec` on servers.
-  `--read-only` says it only looks, checked as for `exec`: a command that
-  clearly changes something is refused (`READ_ONLY_VIOLATION`), and a
-  protected cluster skips `--yes` only for commands komando knows read
-  (`cat`, `ls`, `printenv` ...; see [Commands](commands.md#protected-servers-and---read-only)).
+  `--read-only` says it only looks, checked as for `exec`: only a
+  command komando knows only reads runs (`cat`, `ls`, `printenv` ...);
+  anything else is refused (`READ_ONLY_VIOLATION`; see [Commands](commands.md#protected-servers-and---read-only)).
 - `cluster forward` makes a pod or service port reachable on this
   computer only (127.0.0.1). For a service, the service port is forwarded to
   the pod port behind it. Ctrl-C or `--timeout` ends it normally. What goes
@@ -414,10 +430,10 @@ is kubectl's namespace flag.
 |------|---------------|------------|
 | `TOOL_MISSING` (exit 3) | the login program the kubeconfig names is not installed | install it; the error shows the kubeconfig's `installHint` |
 | `LOGIN_FAILED` (exit 4) | the login program ran but could not log in | a person signs in with that program, then run it again |
-| `K8S_UNREACHABLE` (exit 4) | the API server did not answer | `komando test prod-k8s`, and check its `--via` path or VPN |
+| `CONN_UNREACHABLE` (exit 4) | the API server did not answer | `komando test prod-k8s`, and check its `--via` path or VPN |
 | `K8S_FORBIDDEN` (exit 4) | the kubeconfig's user may not do this (Helm: list Secrets) | give the user the right, or name one namespace with `--namespace` |
 | `K8S_INVALID` (exit 2) | the cluster refused the request or the file as written | read the cluster's words in the message; fix the YAML or the `-l` selector |
-| `K8S_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster list prod-k8s pods --namespace shop` |
+| `K8S_POD_NOT_FOUND` (exit 3) | the workload has no running pod to read or run in | `komando cluster list prod-k8s pods --namespace shop` |
 | `NOT_SWARM_MANAGER` (exit 3) | the server is not a Swarm manager | name a manager; `komando exec swarm1 --read-only -- docker node ls` shows whether it is one |
 | `ROLLOUT_FAILED` (exit 5), `ROLLOUT_TIMEOUT` (exit 7) | the new version did not come up | `komando cluster describe prod-k8s deployment/api --namespace shop`, then `cluster rollback` |
 | `HIDDEN_VALUE` (exit 2) | the file holds a value komando hid from an AI agent | leave hidden entries out, or change one field with `cluster run ... --write -- set image` or `patch` |

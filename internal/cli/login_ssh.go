@@ -47,7 +47,7 @@ func loginHost(cl *call, ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	needsPerson := out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
+	needsPerson := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "ask a person to run `komando login "+h.Name+"` in a terminal; after that your commands to "+h.Name+" need no login",
 		"logging in to %s needs a person at a terminal to answer its questions", h.Name).NoFlag()
 	if !cl.interactive() && !cl.flags.dryRun {
 		return needsPerson
@@ -99,7 +99,7 @@ func (r loginResult) Text() string {
 
 // heldAlive reports whether l's process still runs.
 func heldAlive(l *store.SSHLogin) bool {
-	return l != nil && netx.SessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe})
+	return l != nil && netx.SessionAlive(&store.VpnSession{PID: l.PID, Exe: l.Exe, ProcStart: l.ProcStart})
 }
 
 // endLogin stops l's process and removes its socket. It keeps the record:
@@ -155,12 +155,14 @@ func startHolder(cl *call, h *store.Host, keep time.Duration) (*store.SSHLogin, 
 	if err := c.Start(); err != nil {
 		return nil, err
 	}
-	l.PID = c.Process.Pid
-	l.Exe = filepath.Base(self)
+	l.PID, l.Exe = c.Process.Pid, filepath.Base(self)
 	fail := func(e error) (*store.SSHLogin, error) {
 		_ = c.Process.Kill()
 		_ = c.Wait()
 		return nil, e
+	}
+	if l.ProcStart, err = netx.RecordStart(l.PID); err != nil {
+		return fail(err)
 	}
 	if err := holderHello(stdin, l); err != nil {
 		return fail(err)
