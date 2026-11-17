@@ -285,8 +285,9 @@ pg_dump app | komando storage upload backups - dumps/app.sql
   server; it answers on stdout, as every dry run does.
 - For an AI agent a stream keeps what a download to a file keeps, before a
   byte is written: text with secret values as `[hidden]` (the result says
-  `masked`, without a `sha256`), a binary file holding a value from
-  komando's vault refused (`SENSITIVE_FILE`), and anything over 16 MiB
+  `masked`, without a `sha256`), a binary file holding a vault value, a
+  secret or personal data komando hides refused (`SENSITIVE_FILE`), and
+  anything over 16 MiB
   refused (`FILE_TOO_LARGE`), as bytes on stdout cannot be taken back.
 
 ### Copy between two servers or conns

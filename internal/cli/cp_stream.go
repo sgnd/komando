@@ -85,7 +85,7 @@ func streamsToStdout(cl *call, cmd *cobra.Command) bool {
 // streamTo writes what get writes to w. For an AI agent it keeps what a
 // download to a file keeps, before a byte is written: a text file komando
 // reads whole goes with its secret values as [hidden]; a binary one that
-// holds a value from komando's vault is refused; a larger one is refused,
+// holds what komando hides from agents is refused; a larger one is refused,
 // as bytes on stdout cannot be taken back.
 func streamTo(cl *call, ctx context.Context, w io.Writer, get func(io.Writer) (int64, error)) (streamed, error) {
 	h := sha256.New()
@@ -107,12 +107,13 @@ func streamTo(cl *call, ctx context.Context, w io.Writer, get func(io.Writer) (i
 	b := c.buf.Bytes()
 	text := string(b)
 	if bytes.IndexByte(b, 0) >= 0 {
-		sc := cl.out.NewValueScanner()
-		_, _ = sc.Write(b)
-		if sc.Found() {
+		// binary: refused when it holds anything komando hides from an
+		// agent (a vault value, a secret by its shape, personal data where
+		// the target hides it), as storage download does (agentStdout)
+		if cl.out.BinaryHidden(b) {
 			return streamed{}, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-				revealHint(cl, "it is binary, so its secrets cannot be shown as [hidden]; if the user wants the real file, re-run with --reveal"),
-				"the file holds a value from komando's vault; komando does not stream it to an AI agent")
+				revealHint(cl, "it is binary, so what it holds cannot be shown as [hidden]; if the user wants the real file, re-run with --reveal"),
+				"the file holds a secret or personal data komando hides from AI agents, in binary form; komando does not stream it to an AI agent")
 		}
 	} else {
 		text = cl.out.Redact(text)

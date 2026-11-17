@@ -11,7 +11,7 @@ func TestClassifyMongo(t *testing.T) {
 	for doc, want := range map[string]string{
 		`{"find": "users", "filter": {"plan": "pro"}}`:                                               "read",
 		`{"aggregate": "orders", "pipeline": [{"$match": {}}], "cursor": {}}`:                        "read",
-		`{"aggregate": "orders", "pipeline": [{"$group": {"_id": 1}}, {"$out": "x"}], "cursor": {}}`: "write",
+		`{"aggregate": "orders", "pipeline": [{"$group": {"_id": 1}}, {"$out": "x"}], "cursor": {}}`: "destructive mongo-drop",
 		`{"count": "users"}`:     "read",
 		`{"listCollections": 1}`: "read",
 		`{"explain": {"delete": "users", "deletes": [{"q": {}, "limit": 0}]}}`:                "read",

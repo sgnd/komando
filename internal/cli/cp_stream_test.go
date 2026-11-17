@@ -287,3 +287,27 @@ func TestStreamRefusesProgress(t *testing.T) {
 	withMemBucket(t, &memBucket{objs: map[string]string{"a.bin": "abc"}})
 	wantCode(t, "USAGE", "download", "bk", "a.bin", "--to", "-", "--progress")
 }
+
+// For an AI agent a binary stream is refused when it holds anything komando
+// hides from agents, not only a vault value: here personal data on a
+// target that hides it (as agentStdout on main does for storage).
+func TestStreamBinaryHiddenForAgents(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true, Personal: true}
+	bin := "\x00\x01bin\x00"
+	_, err := streamTo(tcl, context.Background(), io.Discard, func(w io.Writer) (int64, error) {
+		n, err := io.WriteString(w, bin+"alice@example.com")
+		return int64(n), err
+	})
+	if e := toErr(err); e == nil || e.Code != "SENSITIVE_FILE" {
+		t.Fatalf("binary with personal data: %v", err)
+	}
+	var got bytes.Buffer
+	if _, err := streamTo(tcl, context.Background(), &got, func(w io.Writer) (int64, error) {
+		n, err := io.WriteString(w, bin+"nothing here")
+		return int64(n), err
+	}); err != nil || got.String() != bin+"nothing here" {
+		t.Fatalf("plain binary: %q %v", got.String(), err)
+	}
+}
