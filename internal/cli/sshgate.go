@@ -351,23 +351,23 @@ func gateWords(s string) ([]string, error) {
 // its flags as komando will, so `--reveal` after `--` (an argument for the
 // server) is not mistaken for komando's.
 func gateCheck(args []string, key gateKey) (name, output string, refused *out.Error) {
-	for _, a := range args {
-		if a == "--" {
-			break
-		}
-		if a == cobra.ShellCompRequestCmd || a == cobra.ShellCompNoDescRequestCmd {
-			// cobra adds these only as it runs, so Find below cannot see them
-			return a, "", out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
-				"komando %s is the shell's completion helper, not for a key", a)
-		}
-	}
 	// a command tree of its own: the key's flags are read here, apart
 	// from the gate's
 	sc := treeCall()
 	root := newRoot(sc)
+	// cobra adds its completion helper only as it runs, and finds it the
+	// way Find does here (after `-o --`, the -- is -o's value and the next
+	// word is the command): with the helper in this tree too, the gate
+	// sees what komando would run
+	root.AddCommand(&cobra.Command{Use: cobra.ShellCompRequestCmd, Aliases: []string{cobra.ShellCompNoDescRequestCmd},
+		DisableFlagParsing: true, Run: func(*cobra.Command, []string) {}})
 	c, rest, err := root.Find(args)
 	if err != nil {
 		return "", "", nil // komando reports it, and runs nothing
+	}
+	if c.Name() == cobra.ShellCompRequestCmd {
+		return c.Name(), "", out.Errf(out.ExitPolicy, "SSH_GATE_REFUSED", "run it on the komando computer itself",
+			"komando %s is the shell's completion helper, not for a key", c.Name())
 	}
 	name = commandName(c)
 	c.InitDefaultHelpFlag()

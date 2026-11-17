@@ -635,9 +635,9 @@ func dockerExecCmd(sudo *bool) *cobra.Command {
 		Long: `Runs COMMAND in the container with its arguments exactly as written (like
 ` + "`docker exec`" + `): no shell is added, so the image needs no sh. For pipes or
 && write the shell yourself: -- sh -c 'a | b'. The destructive-command
-policy checks the command; --read-only declares that it only looks: a
-command that clearly changes something is refused, and on a protected
-server only commands komando knows read skip --yes.`,
+policy checks the command; --read-only declares that it only looks: only
+commands komando knows only read run, and a protected server then needs
+no --yes.`,
 		Example: "  komando docker exec app1 api -- php artisan migrate:status\n  komando docker exec app1 api --read-only -- sh -c 'ls /data | wc -l'",
 		Args:    cobra.MinimumNArgs(3),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {

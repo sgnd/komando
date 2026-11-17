@@ -31,7 +31,7 @@ func TestReadOnlyViolation(t *testing.T) {
 		"kubectl get pods":                        "",
 		"apt list --upgradable":                   "",
 		"sed -n 1,5p /etc/hosts":                  "",
-		"psql -c 'select 1'":                      "",
+		"psql -c 'select 1'":                      "the command psql is not known to only read",
 		"ls 2>&1 | head":                          "",
 		"ls >&2 2>&-":                             "",
 		"echo x > /dev/stderr":                    "",
@@ -42,7 +42,7 @@ func TestReadOnlyViolation(t *testing.T) {
 		"python3 --version":                       "",
 		"awk -F: '{print $1}' /etc/passwd":        "",
 		"awk '$3 > 100' f":                        "",
-		"sudo -u postgres psql -Atc 'select 1'":   "",
+		"sudo -u postgres psql -Atc 'select 1'":   "the command psql is not known to only read",
 		"xargs -I{} cat {} < list":                "",
 		"timeout 5s ls":                           "",
 		"cat $(ls /etc/*.conf)":                   "",
@@ -53,13 +53,13 @@ func TestReadOnlyViolation(t *testing.T) {
 		"ls; mv a b":                              "mv",
 		"cat x | tee /tmp/y":                      "tee",
 		"sudo -u root rm /x":                      "rm",
-		"FOO=1 truncate -s 0 /x":                  "truncate",
-		"systemctl restart nginx":                 "systemctl restart",
-		"service nginx stop":                      "service stop",
-		"apt-get install -y curl":                 "apt-get install",
-		"apk add curl":                            "apk add",
+		"FOO=1 truncate -s 0 /x":                  "setting FOO (programs read upper-case names as settings or code: use a name with a lower-case letter, like dir)",
+		"systemctl restart nginx":                 "systemctl restart nginx (not a form komando knows only reads)",
+		"service nginx stop":                      "service nginx stop (not a form komando knows only reads)",
+		"apt-get install -y curl":                 "apt-get install -y curl (not a form komando knows only reads)",
+		"apk add curl":                            "apk add curl (not a form komando knows only reads)",
 		"sed -i s/a/b/ /etc/x":                    "sed -i",
-		"docker run --rm alpine true":             "docker run",
+		"docker run --rm alpine true":             "docker run --rm alpine true (not a form komando knows only reads)",
 		"useradd bob":                             "useradd",
 		"chmod 600 /x":                            "chmod",
 		"kill -9 123":                             "kill",
@@ -70,10 +70,10 @@ func TestReadOnlyViolation(t *testing.T) {
 		"cat /etc/hosts && /bin/rm /x":            "rm",
 		"ls 2>err.log":                            "> err.log",
 		"nice -n 5 cp a b":                        "cp",
-		"xargs rm < list":                         "rm",
-		"git -C /srv/app pull":                    "git pull",
+		"xargs rm < list":                         "xargs rm (xargs adds arguments komando cannot see)",
+		"git -C /srv/app pull":                    "the command git is not known to only read",
 		"crontab -r":                              "crontab -r",
-		"ip addr add 10.0.0.1/24 dev eth0":        "ip add",
+		"ip addr add 10.0.0.1/24 dev eth0":        "ip addr add 10.0.0.1/24 dev eth0 (not a form komando knows only reads)",
 		"echo x >| /etc/cron.d/a":                 "> /etc/cron.d/a",
 		"echo x >&/etc/cron.d/a":                  "> /etc/cron.d/a",
 		"echo x >& /etc/cron.d/a":                 "> /etc/cron.d/a",
@@ -91,7 +91,7 @@ func TestReadOnlyViolation(t *testing.T) {
 		"source x.sh":                             "source",
 		"exec rm F":                               "exec",
 		"bash -ec 'rm F'":                         "rm",
-		"bash -lc 'systemctl restart nginx'":      "systemctl restart",
+		"bash -lc 'systemctl restart nginx'":      "systemctl restart nginx (not a form komando knows only reads)",
 		"sh -o pipefail -c 'touch x'":             "touch",
 		"echo 'rm F' | sh":                        "sh running a script from a file or its input",
 		"bash -s < x.sh":                          "bash running a script from a file or its input",
@@ -114,11 +114,11 @@ func TestReadOnlyViolation(t *testing.T) {
 		"timeout -s KILL 10 rm F":                 "rm",
 		"sudo -uroot rm F":                        "rm",
 		"sudo -nu root rm F":                      "rm",
-		"sudo -s":                                 "a shell reading commands from its input",
+		"sudo -s":                                 "sudo -s (a shell reads the command again)",
 		"sudo -e /etc/hosts":                      "sudo -e",
 		"env -S 'rm F'":                           "env -S",
 		"stdbuf -o L rm F":                        "rm",
-		"busybox rm F":                            "rm",
+		"busybox rm F":                            "the command busybox is not known to only read",
 		"find . -fprint /etc/x":                   "find -fprint",
 		"time -o /tmp/t ls":                       "time -o",
 		"systemd-run touch /x":                    "systemd-run",
@@ -135,9 +135,9 @@ func TestReadOnlyViolation(t *testing.T) {
 	}
 }
 
-// The allowlist (readOnlyAllowlist) is stricter than the denylist: a
-// command komando cannot confirm only reads is reported, so a protected
-// target holds it to --yes. Commands komando knows read are not.
+// --read-only is a strict allowlist: a
+// command komando cannot confirm only reads is refused on every server.
+// Commands komando knows read are not.
 func TestReadOnlyAllowlist(t *testing.T) {
 	allowed := []string{
 		"cat /etc/hostname", "ls -la /var", "tail -n 50 /var/log/syslog", "head -5 f",
@@ -152,7 +152,7 @@ func TestReadOnlyAllowlist(t *testing.T) {
 		"sh -c 'ls /data | wc -l'",
 	}
 	for _, c := range allowed {
-		if w := readOnlyAllowlist(c); w != "" {
+		if w := readOnlyViolation(c); w != "" {
 			t.Errorf("%q: allowlist refused it (%s)", c, w)
 		}
 	}
@@ -162,11 +162,9 @@ func TestReadOnlyAllowlist(t *testing.T) {
 		"custombin", "xargs mytool", "sudo mytool",
 	}
 	for _, c := range refused {
-		if readOnlyAllowlist(c) == "" {
-			t.Errorf("%q: allowlist let it skip --yes on a protected target", c)
+		if readOnlyViolation(c) == "" {
+			t.Errorf("%q: passed --read-only, but komando does not know it only reads", c)
 		}
-		// but none of these is a clear write, so the denylist stays quiet
-		// for the ones that truly change nothing komando can see
 	}
 }
 

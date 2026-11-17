@@ -33,6 +33,29 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
+  read-only recipes) is now a strict allowlist on every server: the
+  command runs only when komando knows every part of it only reads, and
+  anything else is `READ_ONLY_VIOLATION`. Before, an unknown command ran
+  on an unprotected server and through a read-only ssh-gate key. No longer
+  accepted under `--read-only`: a program komando does not know (`curl`,
+  `wget`, `nc`, your own tool), `git` (a repository's config can run a
+  program), `less`, `patch --dry-run`, `lz4`, `ldd`, `nm`, `chrt`,
+  `taskset`, `nohup`, `busybox`, `sudo -i`/`-s`/`-E`, `set -x` and any
+  `set` but `-e`, `-u` and `-o pipefail`, `let`, `unset`, `declare`,
+  `shopt`, `kubectl --kubeconfig`/`--server`/`--token`/`--as`, `psql`
+  and `mysql` (use `komando db query`, which runs in a read-only
+  transaction), setting a variable with an upper-case name (`PATH`,
+  `PS4`, `TAR_OPTIONS` ...; `LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS`
+  still pass) by `NAME=`, `export`, `read`, `for` or `-e`, an `-e` value
+  in a command with double quotes or with `*`, `?`, `[`, `{`, `~` or a
+  backslash in it, `kubectl config view --raw`, a long
+  option not written in full or not on komando's
+  list, a subcommand it does not know, unquoted `{a,b}`, and
+  `${x@P}`-style expansions. For a server's state use `komando facts`,
+  `logs`, `svc status` or `fs read`. See
+  [Commands](docs/features/commands.md#protected-servers-and---read-only).
+
 - `komando export --for-phone` now seals the file with post-quantum encryption: HPKE with X-Wing (ML-KEM-768 and X25519), HKDF-SHA256 and AES-256-GCM, the suite komando's sync uses, so a copied export file stays closed even to a future quantum computer. The phone's key is now a 1216-byte X-Wing public key; a 32-byte X25519 key from an older iPhone app is refused with `PHONE_KEY_INVALID` and a message to update the app. The file's recipient header is version 2; a file for the phone made by komando 0.14.0 (X25519 only) is refused as outdated and never opened: make it again. It needs the iPhone app for iOS 26 or later. Passphrase files (`--sealed`) are unchanged. `internal/sealfile/testdata/vectors.json` now pins every byte of both modes, with files that must be refused; `docs/design/sealed-file.md` has the layout.
 - **A read key stays off the network.** An SSH key added with
   `komando ssh-gate line --read-only` now runs only komando's own reads of
@@ -140,6 +163,23 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- `--read-only` could be talked into a change on a protected server, or
+  through a read-only ssh-gate key, with no person's yes: a shortened long
+  option (`sed --in`, `sort --o=FILE`, `tar --checkpoint-act=exec=...`),
+  text bash evaluates inside an argument (`let 'a[$(cmd)]=1'`, `${x@P}`),
+  brace expansion (`systemctl {restart,status} nginx`), a wrapper komando
+  did not follow (`timeout 1d rm`, `coproc`), subcommands it did not list
+  as writes (`systemctl soft-reboot`, `ip netns exec`, `npm explore`,
+  `sysctl name=value`), read tools with a writing option (`rg --pre`,
+  `file -C`), `\gexec`, `\set` or a backquote in SQL fed to `psql`, an
+  `-e` value inside double quotes (`find /tmp "$x"` with `x=-delete`),
+  variables programs read as code (`read PS4`, `PATH=...`,
+  `TAR_OPTIONS=...`), `git` in a repository whose config runs a program,
+  and `kubectl --kubeconfig FILE`. `--read-only` now runs only what
+  komando knows only reads (see Changed).
+- An ssh-gate key could run the shell-completion helper with
+  `-o -- __complete`, which the gate recorded as an empty command. The
+  gate now finds the helper the way komando does and refuses it.
 - The install line (`install.sh`) installs a release only when its `checksums.txt` is signed with the komando project's key, the check `komando update` already made; before, it checked only the checksum, which someone able to replace a release's files could replace too. It needs OpenSSL 3 or perl for the check (macOS and most Linux systems have one), installs nothing on a computer with neither, and downloads over HTTPS only. Releases up to 0.13.0, which have no signature, still install with `KOMANDO_VERSION`: the installer knows the checksums each was released with and takes no other files for them. The install line itself is now `curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`.
 - Releases: the jobs that build and sign a release no longer use a build cache other jobs can write, and `make dist SIGNED=DIR` stops when a signed macOS binary is missing instead of building an unsigned one in its place.
 - A cloud login of this computer no longer goes to an address an AI agent

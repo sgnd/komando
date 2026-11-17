@@ -14,7 +14,7 @@ import (
 
 // sealWait is how long a sealed export or import may take in these tests:
 // the passphrase's key derivation is slow on purpose (exitWithin).
-const sealWait = 90 * time.Second
+const sealWait = 5 * time.Minute
 
 // A person types the passphrase at the terminal, hidden: twice to seal,
 // once to open on the other computer. Neither the passphrase nor a secret

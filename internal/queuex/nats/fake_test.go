@@ -113,6 +113,13 @@ func (f *fakeServer) serve(c net.Conn) {
 			json.Unmarshal([]byte(strings.TrimPrefix(strings.TrimSpace(line), fields[0])), &cn)
 			if f.user != "" && (cn.User != f.user || cn.Pass != f.pass) {
 				fc.send("-ERR 'Authorization Violation'\r\n")
+				// Read on until the client hangs up, as it does once
+				// it has the -ERR. Closing now, with its PING unread,
+				// makes Windows reset the connection and drop the
+				// -ERR on its way. The deadline is only for a client
+				// that never leaves.
+				c.SetReadDeadline(time.Now().Add(10 * time.Second))
+				io.Copy(io.Discard, r)
 				return
 			}
 		case "PING":
