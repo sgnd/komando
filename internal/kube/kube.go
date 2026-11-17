@@ -6,7 +6,6 @@ package kube
 
 import (
 	"bytes"
-	"cmp"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -30,7 +29,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/sgnd/komando/internal/cloud"
 	"github.com/sgnd/komando/internal/transport"
 )
 
@@ -94,6 +92,15 @@ type ExecAuth struct {
 	// InstallHint is what the kubeconfig says to do when Command is not
 	// installed (kubectl prints it too).
 	InstallHint string `yaml:"installHint,omitempty"`
+	// SearchPath, when set, is the PATH the program runs with instead of
+	// the caller's (the cli sets it for a program a person trusted, so an
+	// AI agent's PATH does not pick the program's helpers); the variables
+	// that steer a program are then left out too (pluginEnv).
+	SearchPath string `yaml:"-"`
+	// Check, when set, runs right before the program starts; an error
+	// stops the login (the cli checks again that the file is the one a
+	// person trusted).
+	Check func() error `yaml:"-"`
 }
 
 // PluginError is a credential plugin that could not log in: its program
@@ -287,6 +294,9 @@ type Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
 type Client struct {
 	Base      *url.URL
 	Namespace string
+	// Env is the environment a credential plugin runs with (the
+	// command's); nil is this process's.
+	Env       []string
 	http      *http.Client
 	ctx       *Context
 	mu        sync.Mutex
@@ -364,6 +374,9 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 		return c.token, nil
 	}
 	e := c.ctx.User.Exec
+	if e.Builtin() && (c.Base.Scheme != "https" || c.ctx.Cluster.InsecureSkipTLSVerify && c.ctx.Cluster.CertificateAuthorityData == "") {
+		return "", ErrUncheckedLogin
+	}
 	if tok, ok, err := builtinToken(ctx, e); ok {
 		if err != nil {
 			return "", err
@@ -371,11 +384,17 @@ func (c *Client) bearer(ctx context.Context) (string, error) {
 		c.token = tok
 		return tok, nil
 	}
-	cmd := exec.CommandContext(ctx, e.Command, e.Args...)
-	cmd.Env = os.Environ()
-	for _, kv := range e.Env {
-		cmd.Env = append(cmd.Env, kv.Name+"="+kv.Value)
+	base := c.Env
+	if base == nil {
+		base = os.Environ()
 	}
+	if e.Check != nil {
+		if err := e.Check(); err != nil {
+			return "", err
+		}
+	}
+	cmd := exec.CommandContext(ctx, e.Command, e.Args...)
+	cmd.Env = pluginEnv(base, e)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	b, err := cmd.Output()
@@ -646,38 +665,6 @@ func (r ResourceType) ObjectPath(ns, name string) string {
 
 func (r ResourceType) IsNamespaced() bool { return r.Namespaced }
 func (r ResourceType) KindName() string   { return r.Kind }
-
-// builtinToken makes the tokens of the common credential plugins without
-// running them: `aws eks get-token`, aws-iam-authenticator and
-// gke-gcloud-auth-plugin. ok is false for any other plugin, which then runs
-// as the kubeconfig says.
-func builtinToken(ctx context.Context, e *ExecAuth) (tok string, ok bool, err error) {
-	if !e.Builtin() {
-		return "", false, nil
-	}
-	env := map[string]string{}
-	for _, kv := range e.Env {
-		env[kv.Name] = kv.Value
-	}
-	arg := func(names ...string) string { return execArg(e.Args, names...) }
-	profile := cmp.Or(arg("--profile"), env["AWS_PROFILE"], os.Getenv("AWS_PROFILE"))
-	switch filepath.Base(e.Command) {
-	case "aws":
-		cluster := arg("--cluster-name", "--cluster-id")
-		if cluster == "" {
-			return "", true, errors.New("aws eks get-token in the kubeconfig names no --cluster-name")
-		}
-		tok, err := cloud.EKSToken(ctx, profile, cmp.Or(arg("--region"), env["AWS_REGION"], env["AWS_DEFAULT_REGION"]), cluster, arg("--role-arn"))
-		return tok, true, err
-	case "aws-iam-authenticator":
-		tok, err := cloud.EKSToken(ctx, profile, cmp.Or(arg("--region"), env["AWS_REGION"]), arg("-i", "--cluster-id"), arg("-r", "--role"))
-		return tok, true, err
-	case "gke-gcloud-auth-plugin":
-		tok, err := cloud.GCPAccessToken(ctx)
-		return tok, true, err
-	}
-	return "", false, nil
-}
 
 // Table is the server-side table the API prints for a list or an object,
 // the same columns kubectl shows.

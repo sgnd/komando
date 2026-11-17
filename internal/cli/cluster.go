@@ -5,9 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -72,6 +77,7 @@ func kubeClient(cl *call, ctx context.Context, st *store.State, c *store.Conn) (
 		a.Close()
 		return nil, nil, out.Errf(out.ExitUsage, "KUBECONFIG", "check the kubeconfig", "conn %s: %v", c.Name, err)
 	}
+	k.Env = cl.environ() // a login program gets this command's environment
 	return k, a.Close, nil
 }
 
@@ -122,7 +128,20 @@ var errDryRunStopped = errors.New("dry run stopped before a step that needs a pe
 // trusted this very program for the conn (Conn.TrustedPlugin, set only by
 // an import a person made or allowed). The plugin runs only after that.
 // People and scripts wired it themselves.
+//
+// The program an agent's command runs for a trusted conn is the file the
+// import found (Conn.PluginProgram), with the import's PATH: the agent's
+// own PATH (`PATH=dir:$PATH komando ...`) picks neither the program nor
+// its helpers, so the kubeconfig's arguments and environment (an OIDC
+// client secret) reach only what the person trusted.
+//
+// A plugin komando makes the token for (EKS, GKE) runs nothing, but sends
+// a login made from this computer's cloud login to the kubeconfig's
+// server: guardCloudLogin.
 func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
+	if b := x.CloudLogin(); b != nil {
+		return guardCloudLogin(cl, c, x, b)
+	}
 	e := x.Plugin()
 	if e == nil {
 		return nil
@@ -137,13 +156,79 @@ func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 		}
 		return stop
 	}
-	if !cl.isAgent() || c.TrustedPlugin != "" && c.TrustedPlugin == pluginTrust(line, x.Cluster.Server) {
+	if !cl.isAgent() {
 		return nil
 	}
-	what := "the kubeconfig of conn " + c.Name + " runs `" + line + "` on this computer to log in"
+	if c.TrustedPlugin != "" && c.PluginProgram != "" {
+		trusted := func() bool {
+			t, ok := pluginTrust(cl, e, c.PluginProgram, x.Cluster)
+			return ok && t == c.TrustedPlugin
+		}
+		if trusted() {
+			want := *e // the kubeconfig's line, before the full path goes in
+			e.Command, e.SearchPath = c.PluginProgram, cmp.Or(c.PluginSearchPath, systemPath)
+			// once more right before it starts (connecting takes a while,
+			// and the file may be the user's to replace)
+			e.Check = func() error {
+				if t, ok := pluginTrust(cl, &want, c.PluginProgram, x.Cluster); !ok || t != c.TrustedPlugin {
+					return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run it again; if the program was updated, the user imports the kubeconfig again (`komando import kubeconfig FILE --overwrite`)",
+						"the login program %s of conn %s changed while komando was connecting", c.PluginProgram, c.Name).NoFlag()
+				}
+				return nil
+			}
+			return nil
+		}
+	}
+	prog := pluginProgram(e.Command)
+	what := "the kubeconfig of conn " + c.Name + " runs `" + line + "` on this computer to log in" + programNote(e.Command, prog)
 	stop := approvalErr(cl, "SAFETY_SETTING",
 		what+"; a program on this computer is outside the agent guard's view, so an AI agent needs a person's yes each time, read-only commands too (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)")
-	if cl.flags.dryRun { // a dry run never runs it: --yes is not asked for here
+	if err := agentLoginYes(cl, what, stop); err != nil {
+		return err
+	}
+	if prog != "" {
+		// the file the window named, with the system's PATH and none of
+		// the agent's other variables (kube.ExecAuth.SearchPath)
+		e.Command, e.SearchPath = prog, filepath.Dir(prog)+string(os.PathListSeparator)+systemPath
+	}
+	return nil
+}
+
+// systemPath is the PATH of a login program an AI agent's command runs
+// when no import recorded one: the system's folders only.
+var systemPath = func() string {
+	if runtime.GOOS == "windows" {
+		root := cmp.Or(os.Getenv("SystemRoot"), `C:\Windows`)
+		return root + `\System32;` + root
+	}
+	return "/usr/bin:/bin:/usr/sbin:/sbin"
+}()
+
+// guardCloudLogin: a kubeconfig that logs in with `aws eks get-token`,
+// aws-iam-authenticator or gke-gcloud-auth-plugin gets a token komando
+// makes from this computer's AWS or Google Cloud login, sent to the
+// kubeconfig's server. An AI agent that brings such a kubeconfig in with
+// a server of its own would be handed the person's cloud login, so an
+// agent's command needs a person's yes unless a person's import trusted
+// this plugin line and cluster block for the conn.
+func guardCloudLogin(cl *call, c *store.Conn, x *kube.Context, b *kube.ExecAuth) error {
+	if !cl.isAgent() {
+		return nil
+	}
+	if t, _ := pluginTrust(cl, b, "", x.Cluster); c.TrustedPlugin != "" && c.TrustedPlugin == t {
+		return nil
+	}
+	what := "the kubeconfig of conn " + c.Name + " sends a login made from this computer's " + cloudLoginName(b) + " login to " + clusterWay(x.Cluster)
+	stop := approvalErr(cl, "SAFETY_SETTING",
+		what+"; no person sent that login there, so an AI agent needs a person's yes each time, read-only commands too (to trust it for this conn for good, the user runs `komando import kubeconfig FILE --overwrite` themselves)")
+	return agentLoginYes(cl, what, stop)
+}
+
+// agentLoginYes asks the person for an agent's kubeconfig login (what),
+// or returns stop. A dry run never logs in: it reports the stop and ends
+// before the step.
+func agentLoginYes(cl *call, what string, stop *out.Error) error {
+	if cl.flags.dryRun { // --yes is not asked for here
 		if !cl.flags.yes {
 			cl.out.WouldBlock(stop)
 		}
@@ -156,12 +241,88 @@ func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 	return stop
 }
 
-// pluginTrust is what Conn.TrustedPlugin holds for a login program: a
-// hash of its whole line and of the server its token goes to, so any
-// change (another program, args, environment or server) asks again.
-func pluginTrust(line, server string) string {
-	h := sha256.Sum256([]byte(line + "\n" + server))
-	return hex.EncodeToString(h[:])
+// clusterWay says where a cluster block sends a login, for the approval
+// window: the server and whatever moves or re-names the connection (a
+// proxy, another TLS name, a CA of the kubeconfig's own).
+func clusterWay(c kube.Cluster) string {
+	way := c.Server
+	if c.ProxyURL != "" {
+		way += " through the proxy " + c.ProxyURL
+	}
+	if c.TLSServerName != "" {
+		way += ", checked as " + c.TLSServerName
+	}
+	if c.CertificateAuthorityData != "" || c.CertificateAuthority != "" {
+		way += " (trusting the CA in the kubeconfig)"
+	}
+	return way
+}
+
+// cloudLoginName names the cloud whose login a builtin plugin uses.
+func cloudLoginName(b *kube.ExecAuth) string {
+	if filepath.Base(b.Command) == "gke-gcloud-auth-plugin" {
+		return "Google Cloud"
+	}
+	return "AWS"
+}
+
+// pluginProgram is the file a login program's command names on this
+// computer, by this command's PATH, as a full path; "" when there is none.
+func pluginProgram(command string) string {
+	p, err := exec.LookPath(command)
+	if err != nil {
+		return ""
+	}
+	if p, err = filepath.Abs(p); err != nil {
+		return ""
+	}
+	return p
+}
+
+// programNote names the file behind a command that is not a full path.
+func programNote(command, prog string) string {
+	if prog == "" || prog == command {
+		return ""
+	}
+	return " (the program " + prog + ")"
+}
+
+// pluginTrust is what Conn.TrustedPlugin holds for a kubeconfig login: a
+// hash of the plugin as the kubeconfig writes it (command, each argument,
+// environment), of the program file it runs (program: its full path, and
+// its contents unless only root can change it) and of the cluster block
+// its token goes to (server, CA, TLS name, proxy), so any change (another
+// program, args, environment, file or destination) asks again. program is
+// "" for a plugin komando makes the token for. ok is false when the
+// program file cannot be read: nothing is trusted then.
+func pluginTrust(cl *call, e *kube.ExecAuth, program string, cluster kube.Cluster) (string, bool) {
+	var env [][2]string
+	for _, kv := range e.Env {
+		env = append(env, [2]string{kv.Name, kv.Value})
+	}
+	// JSON keeps each word apart: ["--a b"] and ["--a", "b"] differ
+	what, err := json.Marshal(struct {
+		Command, Program string
+		Args             []string
+		Env              [][2]string
+		Cluster          kube.Cluster
+	}{e.Command, program, e.Args, env, cluster})
+	if err != nil {
+		return "", false
+	}
+	h := sha256.New()
+	h.Write(what)
+	if program != "" && !toolSafe(cl, program) {
+		f, err := os.Open(program)
+		if err != nil {
+			return "", false
+		}
+		defer f.Close()
+		if _, err := io.Copy(h, f); err != nil {
+			return "", false
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)), true
 }
 
 // pluginLine is a credential plugin's command line, as it would run, with
@@ -206,6 +367,9 @@ func kubeErr(err error) error {
 	var oe *out.Error
 	if errors.As(err, &oe) {
 		return oe
+	}
+	if errors.Is(err, kube.ErrUncheckedLogin) {
+		return out.Usage("%v", err)
 	}
 	var pe *kube.PluginError
 	if errors.As(err, &pe) {
