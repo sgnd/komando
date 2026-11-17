@@ -98,7 +98,7 @@ func (s *s3Bucket) fingerprint(ctx context.Context, rel string) (int64, string, 
 		return 0, "", toErr(err)
 	}
 	etag := strings.Trim(i.ETag, `"`)
-	if len(etag) != 32 || strings.Contains(etag, "-") || i.Metadata.Get("X-Amz-Server-Side-Encryption") == "aws:kms" {
+	if len(etag) != 32 || strings.Contains(etag, "-") || strings.HasPrefix(i.Metadata.Get("X-Amz-Server-Side-Encryption"), "aws:kms") {
 		etag = ""
 	}
 	return i.Size, etag, nil

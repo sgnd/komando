@@ -128,6 +128,11 @@ func (b *ftpBucket) Lookup(_ context.Context, rel string) (Object, bool, error) 
 		}
 		return Object{Key: r, Size: int64(e.Size), Modified: e.Time.UTC()}, true, nil
 	}
+	// a listing may leave files out (many servers hide names that start
+	// with a dot): SIZE answers for a file that is there
+	if n, err := b.c.FileSize(p); err == nil {
+		return Object{Key: r, Size: n}, true, nil
+	}
 	return Object{}, false, nil
 }
 
