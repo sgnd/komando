@@ -99,7 +99,7 @@ func cloudRegistryLogin(cl *call, ctx context.Context, c *store.Conn, host strin
 		switch {
 		case errors.Is(err, cloud.ErrGCPNoCredentials):
 			return nil
-		case isSensitive(err):
+		case policyStop(err):
 			return err
 		case err != nil:
 			return out.Errf(out.ExitConnect, "GCP_LOGIN_REQUIRED",

@@ -115,7 +115,7 @@ func agentFind(ctx context.Context, path string, scopes []string) (*google.Crede
 // agentRefusal is the stop for a login file komando does not follow for
 // an AI agent.
 func agentRefusal(format string, a ...any) error {
-	return &FileError{Err: out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "the user sets up this Google login in their own terminal; for an AI agent komando uses a gcloud login (`gcloud auth application-default login`) or a service account key",
+	return &FileError{Err: out.Errf(out.ExitPolicy, "NEEDS_PERSON", "the user sets up this Google login in their own terminal; for an AI agent komando uses a gcloud login (`gcloud auth application-default login`) or a service account key",
 		format+"; komando does not follow it for an AI agent", a...).NoFlag()}
 }
 

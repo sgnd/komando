@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/transport"
 )
 
@@ -194,7 +195,9 @@ func TestAgentEnvironmentUsesPlainFilesOnly(t *testing.T) {
 	} {
 		adcFile(t, cfg)
 		var fe *FileError
-		if _, err := Find(context.Background(), scope); !errors.As(err, &fe) || !strings.Contains(err.Error(), "AI agent") {
+		_, err := Find(context.Background(), scope)
+		var oe *out.Error
+		if !errors.As(err, &fe) || !strings.Contains(err.Error(), "AI agent") || !errors.As(err, &oe) || oe.Code != "NEEDS_PERSON" {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

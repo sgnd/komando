@@ -171,7 +171,7 @@ func guardKubePlugin(cl *call, c *store.Conn, x *kube.Context) error {
 			// and the file may be the user's to replace)
 			e.Check = func() error {
 				if t, ok := pluginTrust(cl, &want, c.PluginProgram, x.Cluster); !ok || t != c.TrustedPlugin {
-					return out.Errf(out.ExitPolicy, "SAFETY_SETTING", "run it again; if the program was updated, the user imports the kubeconfig again (`komando import kubeconfig FILE --overwrite`)",
+					return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run it again; if the program was updated, the user imports the kubeconfig again (`komando import kubeconfig FILE --overwrite`)",
 						"the login program %s of conn %s changed while komando was connecting", c.PluginProgram, c.Name).NoFlag()
 				}
 				return nil

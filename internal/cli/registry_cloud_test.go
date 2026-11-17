@@ -226,7 +226,7 @@ func TestCloudCredentialFileHook(t *testing.T) {
 	asAgent(t, false, false)
 	for _, check := range []func(string, string) error{cloud.CheckLocalFile, gcpadc.CheckLocalFile} {
 		e := toErr(check("AZURE_FEDERATED_TOKEN_FILE", key))
-		if e == nil || e.Code != "SENSITIVE_FILE" || !strings.Contains(e.Message, "AZURE_FEDERATED_TOKEN_FILE") || !strings.Contains(e.Message, "private key") {
+		if e == nil || e.Code != "NEEDS_PERSON" || !strings.Contains(e.Message, "AZURE_FEDERATED_TOKEN_FILE") || !strings.Contains(e.Message, "private key") {
 			t.Errorf("an agent's private key: %+v", e)
 		}
 		if err := check("AZURE_FEDERATED_TOKEN_FILE", plain); err != nil {
@@ -234,7 +234,7 @@ func TestCloudCredentialFileHook(t *testing.T) {
 		}
 		// a file that holds secrets by its name: the variable alone picks
 		// it, no person allowed where it goes
-		if e := toErr(check("AWS_WEB_IDENTITY_TOKEN_FILE", dotenv)); e == nil || e.Code != "SENSITIVE_FILE" {
+		if e := toErr(check("AWS_WEB_IDENTITY_TOKEN_FILE", dotenv)); e == nil || e.Code != "NEEDS_PERSON" {
 			t.Errorf("an agent's .env: %+v", e)
 		}
 	}

@@ -148,7 +148,8 @@ variables on its own command line:
 
 - As a Google login file only a gcloud login
   (`gcloud auth application-default login`) or a service account key is
-  used; any other kind stops with `SENSITIVE_FILE`.
+  used; any other kind stops with `NEEDS_PERSON`: the user sets that login
+  up in their own terminal.
 - `AWS_ENDPOINT_URL`, `AWS_ENDPOINT_URL_*` and a profile's `endpoint_url`
   are not followed, nor a container credentials address
   (`AWS_CONTAINER_CREDENTIALS_FULL_URI`) that is not ECS's or EKS's. An
@@ -156,7 +157,8 @@ variables on its own command line:
 - The file named by `AZURE_FEDERATED_TOKEN_FILE`,
   `AWS_WEB_IDENTITY_TOKEN_FILE` (or `web_identity_token_file` in an AWS
   profile) may not be a private key, komando's own data, a credential
-  store or a file that holds secrets by its name: `SENSITIVE_FILE`.
+  store or a file that holds secrets by its name: `NEEDS_PERSON` (no flag
+  lifts it; the user sets the login up in their own terminal).
 
 ## Limits
 

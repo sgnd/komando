@@ -93,8 +93,10 @@ its highlights; the sections below them give the details. Versions follow
     not ECS's or EKS's are not followed (a conn's own `endpoint=` still
     is); and the token file a cloud variable or AWS profile names
     (`AZURE_FEDERATED_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE`) may not
-    be a private key, komando's own data or a file that holds secrets
-    (`SENSITIVE_FILE`).
+    be a private key, komando's own data or a file that holds secrets.
+    These stops are `NEEDS_PERSON` (no flag lifts them: the user sets the
+    login up in their own terminal), as is a login program that changed
+    while komando was connecting.
   - After updating, import each kubeconfig that uses a login program, EKS
     or GKE once more yourself (`komando import kubeconfig FILE
     --overwrite`), or agents are asked on every cluster command. For an

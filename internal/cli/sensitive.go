@@ -402,9 +402,17 @@ func credentialFileGuard(what, path string) error {
 			continue
 		}
 		if why := localSecret(cl, path); why != "" {
-			return out.Errf(out.ExitPolicy, "SENSITIVE_FILE", "the user sets up this cloud login in their own terminal; an AI agent's command does not choose the file",
+			return out.Errf(out.ExitPolicy, "NEEDS_PERSON", "the user sets up this cloud login in their own terminal; an AI agent's command does not choose the file",
 				"%s names %s, which is %s; komando does not send it for an AI agent", what, path, why).NoFlag()
 		}
 	}
 	return nil
+}
+
+// policyStop reports whether err is one of komando's own stops (exit 6:
+// SENSITIVE_FILE, NEEDS_PERSON ...), which a caller passes on as it is,
+// not as a failed login.
+func policyStop(err error) bool {
+	var e *out.Error
+	return errors.As(err, &e) && e.Exit == out.ExitPolicy
 }

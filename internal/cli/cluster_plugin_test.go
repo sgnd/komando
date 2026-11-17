@@ -212,8 +212,13 @@ func TestAgentImportIsNotTrusted(t *testing.T) {
 // The trust keeps each word of the plugin apart, and names the file.
 func TestPluginTrustInput(t *testing.T) {
 	c := kube.Cluster{Server: "https://10.0.0.1:6443"}
-	one, _ := pluginTrust(tcl, &kube.ExecAuth{Command: "/bin/sh", Args: []string{"--a b"}}, "/bin/sh", c)
-	two, _ := pluginTrust(tcl, &kube.ExecAuth{Command: "/bin/sh", Args: []string{"--a", "b"}}, "/bin/sh", c)
+	// a program file of the test's own, so it is there on every system
+	prog := filepath.Join(t.TempDir(), "mytoken")
+	if err := os.WriteFile(prog, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	one, _ := pluginTrust(tcl, &kube.ExecAuth{Command: "mytoken", Args: []string{"--a b"}}, prog, c)
+	two, _ := pluginTrust(tcl, &kube.ExecAuth{Command: "mytoken", Args: []string{"--a", "b"}}, prog, c)
 	if one == two || one == "" {
 		t.Errorf("one argument and two hash the same: %s", one)
 	}
