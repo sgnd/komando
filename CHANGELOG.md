@@ -165,6 +165,18 @@ its highlights; the sections below them give the details. Versions follow
   secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
   komando reads the pod, as `download` does; before, the pod's files were
   read first and refused afterwards. (C04)
+- The agent guard keeps all of `~/.aws` from an AI agent, like `~/.kube`
+  and `~/.azure`: the SSO token cache and the CLI's cached credentials
+  too, not only the `credentials` file. An AWS profile whose web identity
+  token file lies under `~/.aws` now needs a person for an agent's
+  command (`NEEDS_PERSON`), as a token file elsewhere already did.
+- On Windows, komando takes the Windows and Program Files folders from
+  Windows itself when it decides that a program there is safe to run
+  with a password, and only System32 and SysWOW64 count of the Windows
+  folder (every user can write to its Temp and Tasks folders). It used
+  to read `SystemRoot` and `ProgramFiles` from the environment, which an
+  AI agent sets. A login program's PATH (kubeconfig) takes the Windows
+  folder from Windows too.
 - The audit log no longer keeps a password, key or token that a command
   line carried (`PGPASSWORD=... psql`, `--password=...`): the command
   of `exec`, `job start` and `cluster exec` is recorded with those
