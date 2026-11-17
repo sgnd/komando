@@ -256,3 +256,51 @@ func TestReadOnlyCommonReads(t *testing.T) {
 		`if command -v ufw >/dev/null; then ufw status verbose; elif command -v firewall-cmd >/dev/null; then firewall-cmd --list-all; elif command -v nft >/dev/null; then nft list ruleset; else iptables -S; fi`,
 	)
 }
+
+// Review round 2 (2026-11-17): a variable bash or a tool reads as code or
+// as where programs are cannot be set under --read-only, however it is
+// set: read, for, an assignment, export or -e.
+func TestReadOnlySpecialVariables(t *testing.T) {
+	refusedReadOnly(t,
+		`read PS4 < /tmp/f; set -x; ls`,
+		`read PATH < /tmp/f; ls`,
+		`read -r IFS < /tmp/f`,
+		`read PROMPT_COMMAND < /tmp/f`,
+		`for PATH in /tmp/evil; do ls; done`,
+		`for PS4 in x; do ls; done`,
+		`PATH=/tmp/evil ls`,
+		`PATH=/tmp/evil; ls`,
+		`export PATH=/tmp/evil`,
+		`IFS=/ ; cat /etc/hosts`,
+		`KUBECONFIG=/tmp/k kubectl get pods`,
+		`DOCKER_CONFIG=/tmp/d docker ps`,
+		`set -x`, `set -v`, `set -o xtrace`, `set -o verbose`, `set -xe`, `set +o noglob`,
+	)
+	if !readOnlyMutates(`ls`, []string{`PATH=/tmp/evil`}) {
+		t.Error("-e PATH passed")
+	}
+	allowedReadOnly(t, `read -r line < /etc/hostname; echo $line`, `for f in /etc/*.conf; do wc -l $f; done`,
+		`set -e`, `set -eu`, `set -euo pipefail`, `set -o pipefail`, `set -o errexit -o nounset`, `x=1; echo $x`)
+}
+
+// git reads the repository's own config, which can run a program on
+// status, diff or log (core.fsmonitor, diff.external, textconv), so git
+// is not known to only read.
+func TestReadOnlyGitRefused(t *testing.T) {
+	refusedReadOnly(t, `git -C /tmp/evil status`, `cd /tmp/evil && git diff`, `git log -p`, `git status`)
+}
+
+// A kubeconfig or docker config komando does not know can name a program
+// to run for credentials.
+func TestReadOnlyClientConfigRefused(t *testing.T) {
+	refusedReadOnly(t, `kubectl get pods --kubeconfig /tmp/k`, `kubectl get pods --kubeconfig=/tmp/k`,
+		`kubectl --kubeconfig /tmp/k get pods`, `kubectl get pods --server https://x`, `kubectl get pods --token x`,
+		`kubectl -n x get pods --as admin`, `docker --config /tmp/d ps`, `docker -H tcp://x ps`)
+	allowedReadOnly(t, `kubectl get pods -n prod --context staging`, `kubectl -n prod logs api --tail=20`)
+}
+
+// sudo -E would hand root the caller's environment.
+func TestReadOnlySudoKeepsNoEnvironment(t *testing.T) {
+	refusedReadOnly(t, `sudo -E cat /etc/shadow`, `sudo --preserve-env cat f`, `sudo --preserve-env=PATH cat f`, `sudo -nE cat f`)
+	allowedReadOnly(t, `sudo -n cat /etc/shadow`, `sudo -u postgres -H psql -c 'select 1'`)
+}
