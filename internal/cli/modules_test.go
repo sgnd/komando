@@ -568,7 +568,7 @@ func TestDockerSudoRefusal(t *testing.T) {
 	if e := dockerExit("web1", false, &sshx.RunResult{ExitCode: 127}); e == nil || e.Code != "DOCKER_MISSING" {
 		t.Errorf("no docker: %+v", e)
 	}
-	if e := dockerExit("web1", true, &sshx.RunResult{Stderr: "Error: No such container: x", ExitCode: 1}); e == nil || e.Code != "NOT_FOUND" {
+	if e := dockerExit("web1", true, &sshx.RunResult{Stderr: "Error: No such container: x", ExitCode: 1}); e == nil || e.Code != "DOCKER_OBJECT_NOT_FOUND" {
 		t.Errorf("docker error under --sudo: %+v", e)
 	}
 	if e := dockerExit("web1", true, &sshx.RunResult{}); e != nil {

@@ -110,7 +110,7 @@ func stopHasRow(t *testing.T, line []string, code string) {
 	switch code {
 	case "POLICY_BLOCKED":
 		ok = has(tierDangerous)
-	case "PROTECTED_HOST", "PROTECTED_TARGET":
+	case "PROTECTED_TARGET":
 		ok = best.tier >= tierChange
 	case "SAFETY_SETTING":
 		ok = has(tierSafety)

@@ -39,7 +39,7 @@ and the aws CLI all use it.
 An agent gets `NEEDS_PERSON` (exit 6) with the hint *ask the user to run
 `komando login aws --profile prod` in their own terminal*. After the
 person logs in, the agent's commands use that login. A script without a
-terminal gets `NEEDS_TERMINAL` (exit 2). komando never puts the token in
+terminal gets `NEEDS_PERSON` (exit 6), as an agent does. komando never puts the token in
 a command line, its output or the audit log; the audit records only
 `login.aws` and the profile name.
 

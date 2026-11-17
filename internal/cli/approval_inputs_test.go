@@ -15,7 +15,7 @@ func TestRecipeRunWindowShowsTheCommand(t *testing.T) {
 	mustRun(t, "recipe", "add", "deploy", "systemctl restart app")
 	texts := windowText(t, false) // the person says no
 	mustRun(t, "recipe", "add", "deploy", "touch /tmp/marker-{{name}}", "--needs-sudo", "--overwrite")
-	wantCode(t, "PROTECTED_HOST", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--yes")
+	wantCode(t, "PROTECTED_TARGET", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--yes")
 	if len(*texts) != 1 {
 		t.Fatalf("windows: %q", *texts)
 	}
@@ -26,7 +26,7 @@ func TestRecipeRunWindowShowsTheCommand(t *testing.T) {
 	}
 	*texts = nil
 	resetApproval()
-	wantCode(t, "PROTECTED_HOST", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--no-sudo", "--yes")
+	wantCode(t, "PROTECTED_TARGET", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--no-sudo", "--yes")
 	if len(*texts) != 1 || strings.Contains((*texts)[0], "with sudo") {
 		t.Errorf("--no-sudo: %q", *texts)
 	}
@@ -77,7 +77,7 @@ func TestApprovalWindowShowsFileInputs(t *testing.T) {
 	big := writeTemp(t, "big.conf", strings.Repeat("line of config\n", bodyMaxLines+5))
 	*texts = nil
 	resetApproval()
-	wantCode(t, "PROTECTED_HOST", "fs", "write", "web", "/etc/app.conf", "--from", big, "--yes")
+	wantCode(t, "PROTECTED_TARGET", "fs", "write", "web", "/etc/app.conf", "--from", big, "--yes")
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "SHA-256") || !strings.Contains((*texts)[0], "not shown here") || strings.Contains((*texts)[0], "line of config") {
 		t.Errorf("a long file: %q", *texts)
 	}
@@ -96,7 +96,7 @@ func TestUnshowableContentIsRefused(t *testing.T) {
 	for _, f := range []string{secretish, hidden} {
 		*texts = nil
 		resetApproval()
-		wantCode(t, "PROTECTED_HOST", "fs", "write", "web", "/etc/cron.d/x", "--from", f, "--yes")
+		wantCode(t, "PROTECTED_TARGET", "fs", "write", "web", "/etc/cron.d/x", "--from", f, "--yes")
 		if len(*texts) != 0 {
 			t.Errorf("%s: a window that does not show the content: %q", f, *texts)
 		}

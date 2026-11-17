@@ -38,7 +38,7 @@ func TestDangerOnProtectedAsksOnce(t *testing.T) {
 	mustRun(t, "host", "add", "prod1", "u@127.0.0.1:1", "--protected")
 	personTypes(t, "prod1") // one line: a second question would read no answer
 	_, e := invRun(t, "reboot", "prod1")
-	if e == nil || e.Code == "POLICY_BLOCKED" || e.Code == "PROTECTED_HOST" {
+	if e == nil || e.Code == "POLICY_BLOCKED" || e.Code == "PROTECTED_TARGET" {
 		t.Fatalf("the typed name must cover both stops: %+v", e)
 	}
 }

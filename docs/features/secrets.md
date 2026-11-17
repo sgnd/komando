@@ -109,9 +109,9 @@ komando key show deploy --reveal > deploy.key     # the private key of a key kom
   value only after **Allow once**; with `komando config approval-code` on,
   the window also asks for the 6-digit code. A Linux or BSD desktop gets
   that window only with the approval code, and with no screen it stops
-  with `REVEAL_NEEDS_HUMAN`: run it in a terminal.
+  with `REVEAL_NEEDS_TERMINAL`: run it in a terminal.
 - **An AI agent never gets a value or a private key**, not even with your
-  yes: komando refuses with `REVEAL_NEEDS_HUMAN` and opens no window. The
+  yes: komando refuses with `REVEAL_NEEDS_TERMINAL` and opens no window. The
   agent uses `secret:NAME` in a command instead. A key through `ssh-gate`
   (the iPhone and iPad app) is refused too.
 - A dry run shows no value and asks nobody.
@@ -192,7 +192,7 @@ An agent never sees a value: output shows `[secret:NAME]` or `[hidden]`.
 | preview a change | the same command with `--dry-run` | `meta.would_be_blocked` names what the real run needs |
 | use a secret | `secret:NAME` in a flag | `SECRET_DESTINATION`: a person allows where it goes |
 | rename, copy, remove | `secret rename`, `secret cp`, `secret rm` | |
-| read or compare a value | asks the user (`secret show --reveal`, `key show --reveal`, `secret check`) | `REVEAL_NEEDS_HUMAN`, `NEEDS_PERSON` |
+| read or compare a value | asks the user (`secret show --reveal`, `key show --reveal`, `secret check`) | `REVEAL_NEEDS_TERMINAL`, `NEEDS_PERSON` |
 
 The agent never asks for a password in the chat: the hint names the
 command the user runs in their own terminal.

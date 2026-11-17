@@ -51,7 +51,7 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 				return out.Usage("cloud logins are lower case: komando login %s", loginClouds[i]).WithHint("komando login " + loginClouds[i])
 			}
 			err := loginHost(cl, cmd.Context(), args[0])
-			if e := toErr(err); e != nil && e.Code == "HOST_NOT_FOUND" {
+			if e := toErr(err); e != nil && e.Code == "TARGET_NOT_FOUND" {
 				if c := closest(args[0], loginClouds[:1]); c != "" { // only aws is built
 					e.Hint += " For the AWS login: komando login " + c
 				}
@@ -119,7 +119,7 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 					"ask the user to run `"+again+"` in their own terminal; their browser opens for the AWS sign-in, then your commands use the login",
 					"logging in to AWS needs a person at a terminal and a browser")
 			default:
-				stop = out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "a person runs `"+again+"` in a terminal",
+				stop = out.Errf(out.ExitPolicy, "NEEDS_PERSON", "a person runs `"+again+"` in a terminal",
 					"logging in to AWS needs a person at a terminal and a browser")
 			}
 			if stop != nil && !cl.flags.dryRun {

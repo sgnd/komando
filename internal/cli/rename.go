@@ -197,11 +197,7 @@ func guardRenameProtected(cl *call, what string, prot []string) error {
 	if cl.yesOK(why) || confirmYes(cl, why+". Continue?") {
 		return nil
 	}
-	code := "PROTECTED_TARGET"
-	if hosts > 0 {
-		code = "PROTECTED_HOST"
-	}
-	return cl.policyStop(approvalErr(cl, code, fmt.Sprintf("%s changes %s (one yes covers all of them): %s", what, count, strings.Join(names, ", "))))
+	return cl.policyStop(approvalErr(cl, "PROTECTED_TARGET", fmt.Sprintf("%s changes %s (one yes covers all of them): %s", what, count, strings.Join(names, ", "))))
 }
 
 func renameCmd() *cobra.Command {

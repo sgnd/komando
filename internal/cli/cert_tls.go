@@ -157,9 +157,9 @@ func certConnErr(address, via string, err error) error {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return out.Errf(out.ExitTimeout, "TIMEOUT", "the port may be firewalled; check the address or raise --connect-timeout", "connecting to %s timed out", address)
 	}
-	hint := "check the name and port; if the site is only reachable from a server or VPN, add --via NAME"
+	hint := "check the name and port; if the site is only reachable from a server or VPN, run it again with --via: `komando cert check " + address + " --via NAME`"
 	if via != "" {
 		hint = "the address is reached through " + via + "; check it from there with `komando net check " + via + " " + address + "`"
 	}
-	return out.Errf(out.ExitConnect, "CONNECT_FAILED", hint, "cannot reach %s: %v", address, err)
+	return out.Errf(out.ExitConnect, "CONN_UNREACHABLE", hint, "cannot reach %s: %v", address, err)
 }

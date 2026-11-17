@@ -53,16 +53,16 @@ func TestDoctorConnHygiene(t *testing.T) {
 func TestShowSelectorHint(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1", "--group", "acme")
-	e := wantCode(t, "HOST_NOT_FOUND", "host", "show", "@acme")
+	e := wantCode(t, "TARGET_NOT_FOUND", "host", "show", "@acme")
 	if !strings.Contains(e.Hint, "takes one host name") || !strings.Contains(e.Hint, "`komando list @acme`") {
 		t.Errorf("hint: %s", e.Hint)
 	}
-	e = wantCode(t, "CONN_NOT_FOUND", "conn", "show", "web-*")
+	e = wantCode(t, "TARGET_NOT_FOUND", "conn", "show", "web-*")
 	if !strings.Contains(e.Hint, "`komando list 'web-*'`") {
 		t.Errorf("glob hint: %s", e.Hint)
 	}
 	// a plain typo gets a suggestion (S-8.8)
-	e = wantCode(t, "HOST_NOT_FOUND", "host", "show", "web2")
+	e = wantCode(t, "TARGET_NOT_FOUND", "host", "show", "web2")
 	if e.Suggestion != "web1" || !strings.Contains(e.Hint, "web1") {
 		t.Errorf("typo: %+v", e)
 	}

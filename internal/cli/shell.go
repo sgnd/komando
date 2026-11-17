@@ -58,7 +58,7 @@ func runShell(cl *call, ctx context.Context, target string) error {
 	}
 	protected := protectedHost(st, h)
 	if protected && !cl.yesOK() && !confirmYes(cl, h.Name+" (protected): this opens a shell on it. Continue?") {
-		if err := cl.policyStop(approvalErr(cl, "PROTECTED_HOST",
+		if err := cl.policyStop(approvalErr(cl, "PROTECTED_TARGET",
 			"a shell on protected server "+h.Name+" can change anything")); err != nil {
 			return err
 		}

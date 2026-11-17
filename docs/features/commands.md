@@ -100,10 +100,10 @@ This is different from:
 
 | What happened | Error code | Exit |
 |---------------|-----------|------|
-| could not connect at all (the command never started) | `CONNECT_FAILED`, `CONNECTION_REFUSED`, `AUTH_FAILED`, ... | 4 |
+| could not connect at all (the command never started) | `CONN_UNREACHABLE`, `CONNECTION_REFUSED`, `AUTH_FAILED`, ... | 4 |
 | the link broke before the command started (it did not run) | `CONNECTION_LOST`, message says "it did not run" | 4 |
 | the link broke while the command ran (outcome unknown) | `CONNECTION_LOST` | 4 |
-| the command ran and failed | `FAILED` (per server: its `exit_code`) | 5 |
+| the command ran and failed | `COMMAND_FAILED` (per server: its `exit_code`) | 5 |
 | the command ran longer than `--timeout` (komando stopped it) | `TIMEOUT` | 7 |
 
 For long tasks, or any task over a shaky link, use a [job](#long-tasks-jobs)
@@ -524,7 +524,7 @@ crashed a moment ago can still show until the next komando command.
 | Error code | What it means | What to do |
 |------------|---------------|------------|
 | `USAGE` | an argument is missing, or the command's words were not after `--` (exit 2) | read the example in the error; put the command after `--` |
-| `FAILED` | the command ran and failed on a server (exit 5) | read that server's output and `exit_code` |
+| `COMMAND_FAILED` | the command ran and failed on a server (exit 5) | read that server's output and `exit_code` |
 | `CONNECTION_LOST` | the link broke; the command may still run, or may have finished (exit 4) | look first with a read-only command; use a job over a shaky link |
 | `CONNECT_TIMEOUT` | the server did not answer within `--connect-timeout` (exit 7) | check the address and the `--via` path |
 | `TIMEOUT` | the command ran longer than `--timeout`; komando stopped it (exit 7) | raise `--timeout`, or run it as a job |
