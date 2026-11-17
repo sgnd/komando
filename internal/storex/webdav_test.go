@@ -3,6 +3,7 @@ package storex
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -167,5 +168,48 @@ func TestWebDAVMakesTheConnFolder(t *testing.T) {
 	}
 	if objs, _, err := b.List(ctx, "x", false, 0); err != nil || len(objs) != 1 || objs[0].Key != "x/y.txt" {
 		t.Errorf("list: %+v %v", objs, err)
+	}
+}
+
+// failAfter gives n bytes, then fails, like a copy komando refuses partway.
+type failAfter struct{ n int }
+
+func (f *failAfter) Read(p []byte) (int, error) {
+	if f.n <= 0 {
+		return 0, errors.New("refused partway")
+	}
+	k := min(len(p), f.n)
+	for i := range p[:k] {
+		p[i] = 'x'
+	}
+	f.n -= k
+	return k, nil
+}
+
+// An upload that fails partway leaves the file as it was, and no file at
+// all under a new name or a temporary one: it goes to a temporary name and
+// is moved into place only when it arrived whole.
+func TestWebDAVPutFailingPartwayLeavesNothing(t *testing.T) {
+	b := openDav(t, davServer(t), "pw")
+	ctx := context.Background()
+	if err := b.Put(ctx, "dir/a.txt", strings.NewReader("old"), 3, ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Put(ctx, "dir/a.txt", &failAfter{n: 100}, -1, ""); err == nil {
+		t.Fatal("a failing upload said it worked")
+	}
+	var got strings.Builder
+	if _, err := b.Get(ctx, "dir/a.txt", &got); err != nil || got.String() != "old" {
+		t.Errorf("dir/a.txt is now %q (%v), want old", got.String(), err)
+	}
+	if err := b.Put(ctx, "dir/new.txt", &failAfter{n: 100}, -1, ""); err == nil {
+		t.Fatal("a failing upload said it worked")
+	}
+	objs, _, err := b.List(ctx, "dir/", true, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objs) != 1 || objs[0].Key != "dir/a.txt" {
+		t.Errorf("left behind: %+v", objs)
 	}
 }

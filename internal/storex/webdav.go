@@ -222,14 +222,23 @@ func (b *davBucket) Get(ctx context.Context, key string, w io.Writer) (int64, er
 
 // Put makes the missing parent folders (MKCOL), then writes the file.
 func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
-	u, err := b.url(key, false)
+	k := strings.Trim(key, "/")
+	u, err := b.url(k, false)
 	if err != nil {
 		return err
 	}
-	if err := b.mkdirs(ctx, path.Dir(strings.Trim(key, "/"))); err != nil {
+	if err := b.mkdirs(ctx, path.Dir(k)); err != nil {
 		return err
 	}
-	req, err := b.request(ctx, http.MethodPut, u, r)
+	// to a temporary name first, moved into place only when it arrived
+	// whole: many servers write a PUT straight into the file, so one cut
+	// off partway would leave part of it, or replace the old file with part
+	// of the new one
+	tmp, err := b.url(path.Join(path.Dir(k), ".komando-upload-"+path.Base(k)), false)
+	if err != nil {
+		return err
+	}
+	req, err := b.request(ctx, http.MethodPut, tmp, r)
 	if err != nil {
 		return err
 	}
@@ -241,9 +250,37 @@ func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64
 	}
 	resp, err := do(b.c, "webdav", req, http.StatusOK, http.StatusCreated, http.StatusNoContent)
 	if err != nil {
+		b.removeURL(tmp)
+		return err
+	}
+	resp.Body.Close()
+	mv, err := b.request(ctx, "MOVE", tmp, nil)
+	if err != nil {
+		b.removeURL(tmp)
+		return err
+	}
+	mv.Header.Set("Destination", u.String())
+	mv.Header.Set("Overwrite", "T")
+	resp, err = do(b.c, "webdav", mv, http.StatusCreated, http.StatusNoContent)
+	if err != nil {
+		b.removeURL(tmp)
 		return err
 	}
 	return resp.Body.Close()
+}
+
+// removeURL deletes what is at u, on a fresh context: a cancelled upload
+// still takes its temporary file away.
+func (b *davBucket) removeURL(u *url.URL) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := b.request(ctx, http.MethodDelete, u, nil)
+	if err != nil {
+		return
+	}
+	if resp, err := b.c.Do(req); err == nil {
+		resp.Body.Close()
+	}
 }
 
 // mkdirs creates dir and its parents, from the top; a folder that is

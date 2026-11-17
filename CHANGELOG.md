@@ -439,6 +439,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An upload to a WebDAV conn that is cut off partway (a dropped link,
+  Ctrl-C, or a copy komando refuses) no longer replaces the file there with
+  the part that arrived, or leaves a part under a new name: it goes to a
+  temporary name and is moved into place (WebDAV MOVE) only when it arrived
+  whole, as on SFTP, FTP and SMB conns.
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
