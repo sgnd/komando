@@ -32,7 +32,7 @@ for c in cloud-az cloud-gcs cloud-dav; do
   check "$c mv" t-e2ecloud/moved.txt "$($K storage mv "$c" t-e2ecloud/dir/e2ecloud.txt t-e2ecloud/moved.txt | jget 'd["data"]["dst"]')"
   check "$c mv took it away" OBJECT_NOT_FOUND "$($K storage cat "$c" t-e2ecloud/dir/e2ecloud.txt | jget 'd["error"]["code"]')"
   check "$c mv arrived" e2ecloud "$($K storage cat "$c" t-e2ecloud/moved.txt -o text)"
-  check "$c mv over a file stops" OBJECT_EXISTS "$($K storage upload "$c" "$TMP/e2ecloud.txt" t-e2ecloud/x.txt >/dev/null; $K storage mv "$c" t-e2ecloud/x.txt t-e2ecloud/moved.txt | jget 'd["error"]["code"]')"
+  check "$c mv over a file stops" FILE_EXISTS "$($K storage upload "$c" "$TMP/e2ecloud.txt" t-e2ecloud/x.txt >/dev/null; $K storage mv "$c" t-e2ecloud/x.txt t-e2ecloud/moved.txt | jget 'd["error"]["code"]')"
   check "$c mv --overwrite" True "$($K storage mv "$c" t-e2ecloud/x.txt t-e2ecloud/moved.txt --overwrite | jget 'd["data"]["replaced"]')"
   check "$c upload --continue to a cut file is refused" RESUME_UNSUPPORTED "$(printf e2e > "$TMP/e2ecloud.part"; $K storage upload "$c" "$TMP/e2ecloud.part" t-e2ecloud/cut.txt >/dev/null; $K storage upload "$c" "$TMP/e2ecloud.txt" t-e2ecloud/cut.txt --continue | jget 'd["error"]["code"]')"
   check "$c cp to another conn" e2ecloud "$($K cp "$c":t-e2ecloud/moved.txt cloud-dav:t-e2ecopy/from-$c.txt >/dev/null; $K storage cat cloud-dav t-e2ecopy/from-$c.txt -o text)"
