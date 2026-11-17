@@ -42,6 +42,8 @@ func awsErr(profile string, err error) error {
 	switch {
 	case errors.Is(err, context.Canceled):
 		return toErr(err) // Ctrl-C: CANCELLED
+	case policyStop(err):
+		return err // komando's own stop: a token file an AI agent may not send (credentialFileGuard)
 	case cloud.AWSProfileMissing(err):
 		return out.Errf(out.ExitNotFound, "AWS_PROFILE_NOT_FOUND", "add the profile to ~/.aws/config (or fix --option aws_profile)",
 			"there is no AWS profile %q", profile)

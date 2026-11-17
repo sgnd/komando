@@ -142,6 +142,47 @@ its highlights; the sections below them give the details. Versions follow
 
 - The install line (`install.sh`) installs a release only when its `checksums.txt` is signed with the komando project's key, the check `komando update` already made; before, it checked only the checksum, which someone able to replace a release's files could replace too. It needs OpenSSL 3 or perl for the check (macOS and most Linux systems have one), installs nothing on a computer with neither, and downloads over HTTPS only. Releases up to 0.13.0, which have no signature, still install with `KOMANDO_VERSION`: the installer knows the checksums each was released with and takes no other files for them. The install line itself is now `curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh`.
 - Releases: the jobs that build and sign a release no longer use a build cache other jobs can write, and `make dist SIGNED=DIR` stops when a signed macOS binary is missing instead of building an unsigned one in its place.
+- A cloud login of this computer no longer goes to an address an AI agent
+  picked.
+  - Kubernetes: a kubeconfig that logs in with `aws eks get-token`,
+    `aws-iam-authenticator` or `gke-gcloud-auth-plugin` needs a person's
+    yes for an agent to import, or to use after its cluster block changed
+    (`SAFETY_SETTING`). For everyone, people too, that login no longer
+    travels over `http://` or with the certificate unchecked
+    (`insecure-skip-tls-verify` with no CA): a usage error.
+  - Kubernetes: a login program a person trusted is now one file. An
+    agent's command runs the file the person's import found, with that
+    import's `PATH`, the user's real home and only a few plain variables
+    of its own environment, so `PATH=dir:$PATH komando ...` (or
+    `LD_PRELOAD`, `KUBECONFIG`, a proxy) no longer hands the kubeconfig's
+    arguments to another program. The trust covers the file's contents,
+    each argument, and the CA, `tls-server-name` and `proxy-url`. An
+    import an agent made with a person's yes trusts nothing for later.
+  - A Pub/Sub conn with an `endpoint=` that is not Google's gets no gcloud
+    login. An Amazon ECR login goes only over https with the certificate
+    checked. No cloud registry login (ECR, Google, Azure), and no gcloud
+    login for Cloud Storage, BigQuery or Pub/Sub, goes to a conn with a CA
+    of its own (`?ca=`) or `?resolve=`.
+  - `AZURE_AUTHORITY_HOST` has to be one of Azure's sign-in hosts. A Google
+    login file sends only to Google's token services
+    (`sts.googleapis.com`, `iamcredentials.googleapis.com`), also inside
+    `source_credentials`.
+  - For an AI agent: only a gcloud login or a service account key is used
+    as Google login file; `AWS_ENDPOINT_URL`, `AWS_ENDPOINT_URL_*`, a
+    profile's `endpoint_url` and a container credentials address that is
+    not ECS's or EKS's are not followed (a conn's own `endpoint=` still
+    is); and the token file a cloud variable or AWS profile names
+    (`AZURE_FEDERATED_TOKEN_FILE`, `AWS_WEB_IDENTITY_TOKEN_FILE`) may not
+    be a private key, komando's own data or a file that holds secrets.
+    These stops are `NEEDS_PERSON` (no flag lifts them: the user sets the
+    login up in their own terminal), as is a login program that changed
+    while komando was connecting.
+  - After updating, import each kubeconfig that uses a login program, EKS
+    or GKE once more yourself (`komando import kubeconfig FILE
+    --overwrite`), or agents are asked on every cluster command. For an
+    agent, such a login program gets only the environment the kubeconfig
+    gives it (`env`), not the shell's proxy, `AWS_PROFILE` or `KUBECONFIG`.
+- A running VPN session, a kept server login and a tunnel are now known by when their process started, not only by its process number and program. When that process ended (a crash, or an old copy of komando's runtime file put back), a later process given the same number, even another komando or openconnect, is no longer taken for it: it gets neither the session's SOCKS login nor the addresses it connects to, and is never stopped by komando. After updating, VPN sessions, logins and tunnels started by an older komando count as ended: run `komando vpn down --all`, `komando logout SERVER` and `komando tunnel stop --all` before you update, or end those processes yourself; komando starts new ones when needed.
 - `fs rm`, `fs mv` and `fs mkdir` with `--sudo` no longer follow, as root,
   a link another server user made. A link that user planted in a folder of
   theirs (`cache/x -> /etc`) could have root remove, move or create files

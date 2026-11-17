@@ -437,7 +437,7 @@ func openBigQuery(rawURL string, t kdriver.Target, password string, dial DialFun
 	// tokens come over the same dialer and CAs (tr), so --via as well; the
 	// token source has no context of its own, so its client has a time limit
 	tokens := &http.Client{Transport: tr, Timeout: bqTokenTimeout, CheckRedirect: plain.CheckRedirect}
-	creds, err := bqCredentials(password, tokens, c.google)
+	creds, err := bqCredentials(password, tokens, c.google && t.CA == "") // gcloud's login only under the system's CAs, never a CA of the conn's own
 	if err != nil {
 		return nil, err
 	}
