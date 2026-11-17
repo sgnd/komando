@@ -24,8 +24,9 @@ import (
 // Mac has), the Secret Service on Linux (GNOME Keyring, KWallet, through
 // `secret-tool`), or the Windows Credential Manager (advapi32, called
 // directly: credman_windows.go). The key never goes on a command line: `security -i` and
-// `secret-tool store` read it from standard input. Moving the key does not
-// re-encrypt anything: it is the same key, kept elsewhere.
+// `secret-tool store` read it from standard input. Moving the key into the
+// keychain gives the store a new key (sealed_keys.go), so a copy of
+// store.key from before opens nothing; moving it back keeps the key.
 //
 // A new vault without a passphrase starts with its key in the keychain
 // when there is one (keychainNewKey); KOMANDO_KEYCHAIN=off keeps komando
@@ -526,11 +527,11 @@ func keychainNewKey() ([]byte, bool) {
 	return key, true
 }
 
-// KeyToKeychain moves the vault key from store.key into the keychain. It
-// never replaces a key the keychain already holds for this komando folder
-// (ErrKeychainTaken): that one may be the only key of a vault moved aside.
-// The same key there (a move that stopped before vault.json said so) is
-// fine. When keychainHas cannot tell (on Linux, a locked default
+// KeyToKeychain gives the vault a new key, kept in the keychain, and
+// removes store.key. It never replaces a key the keychain already holds
+// for this komando folder (ErrKeychainTaken): that one may be the only key
+// of a vault moved aside, even when it is this store's own old key. The
+// new key of a move that stopped part way is fine. When keychainHas cannot tell (on Linux, a locked default
 // collection among other things) it stores nothing and asks for the
 // keychain to be unlocked first.
 func KeyToKeychain() (string, error) { return sealedKeyToKeychain() }

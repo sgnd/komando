@@ -40,9 +40,10 @@ func storageCmd() *cobra.Command {
 It works with an S3-compatible, Google Cloud Storage or Azure Blob bucket,
 or a folder on a WebDAV, FTPS, FTP or SFTP server or an SMB share (Windows,
 Samba, Azure Files). Keys are relative to the folder in the storage URL; a
-key ending in / is a folder. ls, cat and download only read. upload changes
-files and link shares one (S3, Google Cloud and Azure; on production
-storage both ask first); rm deletes, so it also needs --allow-dangerous.
+key ending in / is a folder. ls, cat and download only read. upload,
+mkdir, mv and chmod (SFTP only) change files and link shares one (S3,
+Google Cloud and Azure; on production storage they ask first); rm deletes,
+so it also needs --allow-dangerous.
 Downloads never overwrite a local file unless --overwrite, and uploads to
 file servers go to a temporary name first, so a failed upload leaves
 nothing half written.
@@ -61,7 +62,8 @@ edit CONN, komando conn rm CONN. komando list kind:storage lists them.`,
   komando storage add media gs://my-bucket/site   # logs in like gcloud
   komando storage add files azblob://mystorageacct@uploads/2026 --password-ref secret:files-key
   komando storage add site 'sftp://deploy@files.example.com/uploads'`
-	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd())
+	c.AddCommand(add, storageLsCmd(), storageCatCmd(), storageDownloadCmd(), storageUploadCmd(), storageRmCmd(), storageLinkCmd(),
+		storageMkdirCmd(), storageMvCmd(), storageChmodCmd())
 	return c
 }
 
@@ -134,7 +136,7 @@ func namedHint(err error, conn string) error {
 		return err
 	}
 	h := oe.Hint
-	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "download ", "upload "} {
+	for _, cmd := range []string{"conn test ", "conn show ", "conn edit ", "storage list ", "storage mv ", "storage rm ", "download ", "upload "} {
 		for _, word := range []string{"NAME", "CONN"} {
 			h = strings.ReplaceAll(h, "komando "+cmd+word, "komando "+cmd+conn)
 		}
@@ -318,8 +320,11 @@ func storageLsCmd() *cobra.Command {
 					}
 					if len(objs) == 0 && strings.Trim(prefix, "/") != "" {
 						// a bucket has no folders, only keys: nothing under the
-						// prefix is what a missing folder is on a file server
-						return nil, storex.FolderNotFound(prefix)
+						// prefix is what a missing folder is on a file server,
+						// unless it is an empty folder (storage mkdir's marker)
+						if o, found, err := s.Lookup(ctx, prefix); err != nil || !found || !o.Dir {
+							return nil, storex.FolderNotFound(prefix)
+						}
 					}
 					if more {
 						cl.out.CutNoted()
