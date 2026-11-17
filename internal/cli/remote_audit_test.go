@@ -316,8 +316,8 @@ func TestDryRunMissingSecretFails(t *testing.T) {
 
 func TestDownloadChecks(t *testing.T) {
 	dir := auditHome(t)
-	if _, e := invRun(t, "download", "web2", "/etc/hosts", "--to", "-"); e == nil || e.Code != "USAGE" {
-		t.Errorf("--to - for a server: %+v", e)
+	if d, e := invRun(t, "download", "web2", "/etc/hosts", "--to", "-", "--dry-run"); e != nil || d["dst"] != "stdout" {
+		t.Errorf("--to - for a server, dry run: %v %+v", d, e)
 	}
 	exists := filepath.Join(dir, "exists.txt")
 	_ = os.WriteFile(exists, []byte("x"), 0o600)
