@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -12,9 +11,9 @@ import (
 )
 
 // testRound tests every target of sel once, in parallel.
-func testRound(ctx context.Context, st *store.State, sel selection) []targetTest {
+func testRound(cl *call, ctx context.Context, st *store.State, sel selection) []targetTest {
 	var res []targetTest
-	for _, o := range fanout(allowWindows(ctx), st, sel.Hosts, testHost) {
+	for _, o := range fanout(cl, allowWindows(ctx), st, sel.Hosts, testHost) {
 		r := targetTest{Host: o.Host.Name, Kind: "host"}
 		if o.Err != nil {
 			r.Error = fixTestError(st, o.Host.Name, toErr(o.Err))
@@ -25,9 +24,9 @@ func testRound(ctx context.Context, st *store.State, sel selection) []targetTest
 		}
 		res = append(res, r)
 	}
-	res = append(res, testConns(ctx, st, sel.Conns)...)
+	res = append(res, testConns(cl, ctx, st, sel.Conns)...)
 	for _, v := range sel.Vpns {
-		res = append(res, vpnTest(ctx, st, v))
+		res = append(res, vpnTest(cl, ctx, st, v))
 	}
 	// by name, like `komando list`: not all servers before all conns
 	sort.SliceStable(res, func(i, j int) bool { return res[i].Host < res[j].Host })
@@ -54,7 +53,7 @@ func noWaitFor(code string) bool {
 // waitInterval, until they all pass, only errors waiting cannot help are
 // left, or the deadline. It returns the last result of every target, in
 // the order of res (by name).
-func waitForTargets(ctx context.Context, st *store.State, sel selection, res []targetTest, deadline time.Time) []targetTest {
+func waitForTargets(cl *call, ctx context.Context, st *store.State, sel selection, res []targetTest, deadline time.Time) []targetTest {
 	for {
 		pending := waitPending(sel, res)
 		if len(pending.Hosts)+len(pending.Conns)+len(pending.Vpns) == 0 {
@@ -64,8 +63,8 @@ func waitForTargets(ctx context.Context, st *store.State, sel selection, res []t
 		if left <= 0 {
 			return res
 		}
-		if interactive() {
-			fmt.Fprintf(os.Stderr, "Waiting for %d of %d targets, %s left\n", len(pending.Hosts)+len(pending.Conns)+len(pending.Vpns), len(res), left.Round(time.Second))
+		if cl.interactive() {
+			fmt.Fprintf(cl.out.Err, "Waiting for %d of %d targets, %s left\n", len(pending.Hosts)+len(pending.Conns)+len(pending.Vpns), len(res), left.Round(time.Second))
 		}
 		select {
 		case <-ctx.Done():
@@ -76,7 +75,7 @@ func waitForTargets(ctx context.Context, st *store.State, sel selection, res []t
 			return res // no round cut short: the last error is the real one
 		}
 		rctx, cancel := context.WithDeadline(ctx, deadline)
-		again := testRound(rctx, st, pending)
+		again := testRound(cl, rctx, st, pending)
 		cancel()
 		byName := map[string]targetTest{}
 		for _, r := range again {

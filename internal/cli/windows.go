@@ -97,12 +97,12 @@ func sameOS(hosts []*store.Host) (windows bool, err error) {
 
 // targetWindows resolves target and says whether it is Windows servers
 // only (true) or none (false); a mix is MIXED_OS.
-func targetWindows(target string) (bool, error) {
+func targetWindows(cl *call, target string) (bool, error) {
 	st, err := loadState()
 	if err != nil {
 		return false, err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return false, nil // runFleet reports it
 	}
@@ -136,9 +136,9 @@ func windowsRunCheck(ctx context.Context, name string, hosts []*store.Host, o ex
 // refusing every command outside the small subset komando knows to only
 // read (policy.PSReadOnly), and says whether a protected server still needs
 // --yes (the command is not known to only read).
-func psReadOnlyCheck(command string) (mutating bool, err error) {
+func psReadOnlyCheck(cl *call, command string) (mutating bool, err error) {
 	if why := policy.PSReadOnly(command); why != "" {
-		return true, policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "--read-only accepts only simple read commands on Windows; run it without --read-only so komando asks before it changes something",
+		return true, cl.policyStop(out.Errf(out.ExitPolicy, "READ_ONLY_VIOLATION", "--read-only accepts only simple read commands on Windows; run it without --read-only so komando asks before it changes something",
 			"--read-only on Windows, but komando cannot tell that the command only reads: %s", why))
 	}
 	return !policy.PSOnlyReads(command), nil
@@ -170,24 +170,24 @@ func psScriptCall(body string, argv []string) string {
 
 // windowsScript is `komando exec --script` on Windows servers: the file is a
 // PowerShell script, and --arg values are its arguments.
-func windowsScript(ctx context.Context, target, file string, body []byte, interpreter string, argv []string, o execOpts, readOnly bool) error {
+func windowsScript(cl *call, ctx context.Context, target, file string, body []byte, interpreter string, argv []string, o execOpts, readOnly bool) error {
 	if i := strings.ToLower(interpreter); i != "" && i != "powershell" && i != "pwsh" {
 		return out.Errf(out.ExitUsage, "NOT_SUPPORTED", "on Windows servers a script is PowerShell: leave --interpreter out",
 			"--interpreter %s does not work on Windows servers", interpreter)
 	}
-	if err := guardBody(string(body)); err != nil {
+	if err := guardBody(cl, string(body)); err != nil {
 		return err
 	}
 	command := psScriptCall(string(body), argv)
 	mutating := true
 	if readOnly {
 		var err error
-		if mutating, err = psReadOnlyCheck(string(body)); err != nil {
+		if mutating, err = psReadOnlyCheck(cl, string(body)); err != nil {
 			return err
 		}
 	}
 	o.display = "script " + filepath.Base(file)
-	return runFleet(ctx, "exec", target, command, nil, o, mutating)
+	return runFleet(cl, ctx, "exec", target, command, nil, o, mutating)
 }
 
 // testWindowsHost is testHost for a Windows server: who komando logs in

@@ -81,7 +81,7 @@ func (r *kctlRun) drain() error {
 		evict = append(evict, p)
 	}
 	if len(problems) > 0 {
-		return kfail("unable to drain node %q due to error: %s", node, strings.Join(problems, ", "))
+		return kfail("komando cannot drain node %q: %s", node, strings.Join(problems, ", "))
 	}
 	for _, p := range evict {
 		ns, n := meta(p, "namespace"), meta(p, "name")
@@ -138,7 +138,7 @@ func (r *kctlRun) taint() error {
 		list = kept
 		if !remove {
 			if effect == "" {
-				return kfail("invalid taint spec: %s, must be key=value:effect", s)
+				return kfail("taint %s is not KEY=VALUE:EFFECT (or KEY:EFFECT- to remove it)", s)
 			}
 			t := map[string]any{"key": key, "effect": effect}
 			if val != "" {
@@ -279,14 +279,14 @@ func (r *kctlRun) config(sub string) error {
 }
 
 // readManifest reads a file, or the .yaml/.yml/.json files of a directory.
-func readManifest(p string, recursive bool) ([]byte, error) {
+func readManifest(cl *call, p string, recursive bool) ([]byte, error) {
 	p = expandHome(p)
 	fi, err := os.Stat(p)
 	if err != nil {
 		return nil, err
 	}
 	if !fi.IsDir() {
-		if err := localReadOK(p); err != nil {
+		if err := localReadOK(cl, p); err != nil {
 			return nil, err
 		}
 		return os.ReadFile(p)
@@ -303,7 +303,7 @@ func readManifest(p string, recursive bool) ([]byte, error) {
 			return nil
 		}
 		if ext := strings.ToLower(filepath.Ext(f)); ext == ".yaml" || ext == ".yml" || ext == ".json" {
-			if err := localReadOK(f); err != nil {
+			if err := localReadOK(cl, f); err != nil {
 				return err
 			}
 			b, err := os.ReadFile(f)

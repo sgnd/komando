@@ -55,19 +55,36 @@ How the login works:
 - komando keeps each context's kubeconfig in the vault.
 - It makes the EKS and GKE logins itself (`aws eks get-token`,
   `aws-iam-authenticator`, `gke-gcloud-auth-plugin`), so you do not need
-  those programs.
+  those programs. That login is made from this computer's AWS or Google
+  Cloud login and sent to the kubeconfig's server, so an AI agent needs a
+  person's yes (`--yes`) to import such a kubeconfig. It goes only over
+  https with the server's certificate checked: a server at `http://`, or
+  `insecure-skip-tls-verify` with no CA, stops with a usage error.
 - Any other login program the kubeconfig names runs on this computer, so
   an AI agent needs a person's yes (`--yes`) to import it, as with a
   server's `--proxy-command`.
+- Your own import records which file that program is (its full path) and
+  the `PATH` of the import. An AI agent's command runs that file with that
+  `PATH`, your real home folder and only a few plain variables (user,
+  language, screen, temp folder) of its own environment: what the program
+  needs beyond those goes in the kubeconfig's `env`. If the file is one
+  that programs of your user can replace (Homebrew's `bin`,
+  `~/.local/bin`) and its contents changed, for example after an update,
+  agents are asked again until you import the kubeconfig again.
+- An import an AI agent made with your yes trusts nothing for later: its
+  cluster commands ask you each time, and after your yes the program runs
+  with the system's `PATH`. Import the kubeconfig yourself to trust it.
 - When that program is missing, cluster commands stop with `TOOL_MISSING`
   (exit 3) and the kubeconfig's own `installHint`. When it runs but cannot
   log in (it may want a person to sign in first), they stop with
   `LOGIN_FAILED` (exit 4).
 - Once a person imported (or allowed) a kubeconfig, agents use the conn
   without asking. If the kubeconfig in the vault changes to another program
-  or server (`secret set`), or reads its token from a local file
-  (`tokenFile`), every agent command asks again, reads included, until a
-  person imports it again.
+  or anything in its cluster block (the server, its CA, `tls-server-name`,
+  `proxy-url`, `insecure-skip-tls-verify`; `secret set`), or reads its
+  token from a local file (`tokenFile`), every agent command asks again,
+  reads included, until a person imports it again. This holds for the EKS
+  and GKE logins too.
 
 komando checks the API server's certificate against the kubeconfig's CA.
 A context with `insecure-skip-tls-verify` and no CA skips that check, as
@@ -160,6 +177,13 @@ autoscaler targets. In text mode the tables look like kubectl's
 (`NAME READY STATUS RESTARTS AGE NODE` for pods). In JSON the same rows are
 under `data.items[]`, for Kubernetes and Swarm alike.
 
+In JSON, `cluster describe` of a Kubernetes object also gives
+`data.detail`, made for a program to read: `kind`, `name`, `namespace`,
+`status` (a pod's phase, `ready 2/3` for a workload), `created_at`,
+`labels`, `conditions[]` (`type`, `status`, `reason`, `message`) and
+`events[]` (`type`, `reason`, `message`, `count`, `last_seen_at`). It never
+holds a Secret's values.
+
 ### Many clusters at once
 
 `cluster status`, `cluster list`, `cluster events` and `cluster helm list`
@@ -185,7 +209,11 @@ Commands that change a cluster (`apply`, `deploy`, `restart`, `scale`,
 ### Helm releases (read-only)
 
 komando reads the Helm releases stored in the cluster, without the `helm`
-program. It only reads: install, upgrade and rollback stay with `helm`.
+program. It only reads: install, upgrade and rollback stay with `helm`. To
+change what runs from komando, `cluster deploy` sets a new image with a
+rollout you can wait for, and `cluster apply` applies manifests, for
+example the output of `helm template` (a server dry run checks them
+first).
 
 ```bash
 komando cluster helm list prod-k8s -A                                   # name, revision, status, chart, app version
@@ -223,6 +251,10 @@ then the pod or workload.
 - `-f` keeps reading new lines. Ctrl-C or `--timeout` ends it normally.
 - `--since` takes a duration (`10m`, `2h`) or a time (`2026-01-02T10:00:00Z`).
 - `--timestamps` starts each line with its time; `-c` picks a container.
+- In JSON, `data.lines[]` has each line on its own: `logged_at` (its time),
+  `pod`, `container` and `text`. `data.truncated` (and `meta.truncated`) is
+  true when a pod sent `--limit` lines, so it may have older ones.
+  `--limit 0` reads every line.
 
 ## Deploy a new version, and roll back
 
@@ -286,7 +318,7 @@ komando cluster scale swarm1 service/web 4
   change: a protected cluster needs a person's yes, as without it.
 - `apply --dry-run` shows for each object whether it would be created,
   changed or stay the same, with a diff. Secret values never show: a changed
-  value reads `(hidden, changed)`. Objects in a namespace that the same file
+  value reads `[hidden, changed]`. Objects in a namespace that the same file
   creates are reported as created too. `--file -` reads from stdin.
 - An object whose namespace in the file differs from `--namespace` is
   refused, as kubectl does.
@@ -309,10 +341,9 @@ komando cluster shell prod-k8s deploy/api --namespace shop          # interactiv
 
 - `cluster exec` runs one command (not interactive). The
   dangerous-command filter checks it, as with `exec` on servers.
-  `--read-only` says it only looks, checked as for `exec`: a command that
-  clearly changes something is refused (`READ_ONLY_VIOLATION`), and a
-  protected cluster skips `--yes` only for commands komando knows read
-  (`cat`, `ls`, `printenv` ...; see [Commands](commands.md#protected-servers-and---read-only)).
+  `--read-only` says it only looks, checked as for `exec`: only a
+  command komando knows only reads runs (`cat`, `ls`, `printenv` ...);
+  anything else is refused (`READ_ONLY_VIOLATION`; see [Commands](commands.md#protected-servers-and---read-only)).
 - `cluster forward` makes a pod or service port reachable on this
   computer only (127.0.0.1). For a service, the service port is forwarded to
   the pod port behind it. Ctrl-C or `--timeout` ends it normally. What goes
@@ -357,13 +388,13 @@ is kubectl's namespace flag.
 - `delete -f FILE` deletes each object in the namespace its file names,
   and refuses a `-n` that says otherwise. An empty name is refused.
 - `cp POD:SRC DST` writes only inside DST, never into a `.git` folder, and
-  skips links and devices, like kubectl cp. It reads at most 512 MiB
-  (`FILE_TOO_LARGE`), and each file is written under a temporary name
-  first. For an AI agent it copies as `download` does: a file named like a
-  secret (`.env`, keys) stops it (`SENSITIVE_FILE`), or is left out of a
-  folder, unless the person allows `--reveal`; a text file is saved with
-  secret values as `[hidden]`; and a file that holds a value from the vault
-  but cannot be masked is refused.
+  skips links and devices, like kubectl cp. It brings at most 512 MiB
+  (`FILE_TOO_LARGE`): komando checks every name before it writes any, so
+  it holds the copy in memory. For an AI agent it copies as `download`
+  does: a file that is a secret by its name (`.env`, a private key) is
+  refused (`SENSITIVE_FILE`), a text file is written with its secret
+  values `[hidden]`, and a binary or larger file that holds a vault value
+  is refused; nothing is written when any file is refused.
 - On Swarm, `docker run`, `create` and `service create|update` that give a
   container the server (`--privileged`, `--cap-add`, devices, the host's
   network or processes, `--volumes-from`, a bind of `/`, the docker socket,
@@ -391,7 +422,7 @@ is kubectl's namespace flag.
   server, so `cluster run swarm1 -- stack deploy -c FILE` and `compose up`
   are rated by their flags only.
 - Helm: komando reads releases only; install, upgrade and rollback stay
-  with `helm`.
+  with `helm` (`cluster deploy` and `cluster apply` change what runs).
 
 ## Troubleshooting
 

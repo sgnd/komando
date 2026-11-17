@@ -42,6 +42,10 @@ office   wireguard      -     -       db1       connects for each command
 | `proxy` | an HTTP proxy that tunnels connections (CONNECT), such as a company proxy: `--proxy-address proxy.corp:3128` or `https://proxy.corp`, its login with `--user` and `--password-ref` | already running | no |
 | `system` | a VPN set up in your computer's own settings | by your computer | yes |
 
+`komando vpn add --help` shows which flags go with each kind;
+`komando schema vpn add` lists the same for a program, under `add_kinds`
+(see [Reference: komando schema](output.md#reference-komando-schema)).
+
 "Inside komando" means: no extra program, no Docker, no admin rights.
 Your computer's routes and DNS stay the same, so two VPNs that use the
 same addresses (both `10.0.0.0/8`) do not get in each other's way. Names
@@ -352,13 +356,15 @@ komando test office
 
 - Without `--password-ref`, a person types the password at
   `komando vpn up NAME` (a password with a one-time code works too).
-- `l2tp` logs in to PPP with MS-CHAPv2 (it checks the server's proof too)
-  or CHAP, whichever the server asks for. A server that asks for PAP is
-  asked for MS-CHAPv2 instead: PAP hands the server your password itself,
-  and with a shared pre-shared key anyone who knows that key can pretend to
-  be the server. A server that insists on PAP stops with an error that says
-  so. If the server cannot do better and you accept that it gets your
-  password, allow PAP for that VPN only: `komando vpn edit office --allow-pap`.
+- `l2tp` logs in to PPP with MS-CHAPv2, and checks the server's proof
+  that it knows your password too. With a shared pre-shared key anyone who
+  knows that key can pretend to be the server, so a server that asks for a
+  weaker login is asked for MS-CHAPv2 instead: PAP hands the server your
+  password itself, and CHAP-MD5 or no login prove nothing about the
+  server. A server that insists stops with an error that says so. The link
+  never comes up before the login. If the server cannot do better and you
+  accept that, allow the weak logins for that VPN only:
+  `komando vpn edit office --allow-pap`.
 - `ipsec` with a group name (`--id`) logs in with IKEv1 aggressive mode,
   like Cisco's own clients. Anyone who sees that login can guess the group
   password offline, and with it pretend to be the server. The session log

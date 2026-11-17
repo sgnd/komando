@@ -36,12 +36,12 @@ passes.`,
   komando cluster status prod-k8s deployment/api --namespace shop --wait
   komando cluster status swarm1 service/web --wait`,
 		Args: cobra.RangeArgs(1, 3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			ts, err := resolveClusters(st, args[0])
+			ts, err := resolveClusters(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -56,12 +56,12 @@ passes.`,
 				if err != nil {
 					return err
 				}
-				return rolloutStatus(ownTimeLimit(cmd.Context(), wait), ts[0], typ, name, ns, wait)
+				return rolloutStatus(cl, ownTimeLimit(cmd.Context(), wait), ts[0], typ, name, ns, wait)
 			}
 			if wait {
 				return out.Usage("--wait needs an object: `cluster status %s deployment/NAME --wait`", args[0])
 			}
-			return readClusters(cmd.Context(), "cluster.status", st, ts, clusterRead{
+			return readClusters(cl, cmd.Context(), "cluster.status", st, ts, clusterRead{
 				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 					return kubeStatus(ctx, k, t.conn.Name, ns)
 				},
@@ -69,10 +69,10 @@ passes.`,
 					if err := noNamespace(t, ns); err != nil {
 						return nil, err
 					}
-					return swarmStatus(ctx, t)
+					return swarmStatus(cl, ctx, t)
 				},
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().BoolVar(&wait, "wait", false, "with TYPE/NAME: wait until it has rolled out (--timeout, default 5m)")
@@ -219,23 +219,23 @@ func listItems(ctx context.Context, k *kube.Client, path string) (items []map[st
 
 // rolloutStatus reports whether one workload has rolled out, and with wait
 // stays until it has (or failed, or --timeout passed).
-func rolloutStatus(ctx context.Context, t clusterTarget, typ, name, ns string, wait bool) error {
+func rolloutStatus(cl *call, ctx context.Context, t clusterTarget, typ, name, ns string, wait bool) error {
 	d := time.Duration(0)
 	if wait {
-		d = rolloutWait()
+		d = rolloutWait(cl)
 	}
 	if t.host != nil {
 		if swarmKind(typ) != "service" {
 			return out.Usage("on Swarm, status works on services (service/NAME)")
 		}
-		res, err := swarmWait(ctx, t, name, d, false)
+		res, err := swarmWait(cl, ctx, t, name, d, false)
 		if err != nil && res == nil {
 			return err
 		}
-		out.P.Print("cluster.status", res, softErr(err))
+		cl.out.Print("cluster.status", res, softErr(err))
 		return exitFor(err)
 	}
-	return withKube(ctx, "cluster.status", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+	return withKube(cl, ctx, "cluster.status", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 		r, err := resource(ctx, k, typ)
 		if err != nil {
 			return nil, err

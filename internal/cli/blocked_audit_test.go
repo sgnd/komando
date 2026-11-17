@@ -2,7 +2,7 @@ package cli
 
 import (
 	"bytes"
-	"os"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -13,13 +13,13 @@ import (
 // the exit code and what it printed.
 func runMain(t *testing.T, args ...string) (int, string) {
 	t.Helper()
-	g.dryRun, g.yes, g.allowDangerous = false, false, false
-	saved, savedW := os.Args, out.P.W
+	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+	saved, savedW := tcl.args, tcl.out.W
 	var buf bytes.Buffer
-	out.P.W = &buf
-	os.Args = append([]string{"komando", "-o", "json"}, args...)
-	defer func() { os.Args, out.P.W = saved, savedW }()
-	return Execute(), buf.String()
+	tcl.out.W = &buf
+	tcl.args = append([]string{"komando", "-o", "json"}, args...)
+	defer func() { tcl.args, tcl.out.W = saved, savedW }()
+	return executeArgs(tcl.args[1:]), buf.String()
 }
 
 // Every blocked attempt is a line in the audit log, once, also where the
@@ -90,5 +90,26 @@ func TestBlockedAttemptNamesSelectedTargets(t *testing.T) {
 		if d := mustRun(t, "audit", "--failed", "--target", name, "-n", "0"); d["count"] != float64(1) {
 			t.Errorf("the blocked host rm names %s: %v", name, d["entries"])
 		}
+	}
+}
+
+// The audit log keeps no password a command line carried: the command an
+// exec, job start or cluster exec ran is recorded with what looks like a
+// password, key or token hidden, as the ssh-gate's records are. The copy
+// sent to a syslog server is the same record.
+func TestAuditRecordHidesSecretsInTheCommand(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web1", "u@10.0.0.9")
+	st := mustState(t)
+	audit(tcl, st, "exec", []string{"web1"}, "PGPASSWORD=Sup3rS3cretValue99 psql --password=hunter2222x -h db -c 'select 1'", true, nil)
+	d := mustRun(t, "audit", "-n", "0")
+	b, _ := json.Marshal(d)
+	for _, leak := range []string{"Sup3rS3cretValue99", "hunter2222x"} {
+		if strings.Contains(string(b), leak) {
+			t.Errorf("the audit log holds %s: %s", leak, b)
+		}
+	}
+	if !strings.Contains(string(b), "psql") || !strings.Contains(string(b), "select 1") || !strings.Contains(string(b), "[hidden]") {
+		t.Errorf("the rest of the command stays readable: %s", b)
 	}
 }

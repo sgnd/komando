@@ -7,15 +7,11 @@ import (
 	"github.com/sgnd/komando/internal/store"
 )
 
-// blockAudited: this command recorded its safety stop already, with what
-// it ran on; auditBlocked does not record it twice.
-var blockAudited bool
-
 // auditBlocked records a safety stop (exit 6) that the command itself did
 // not record, so `audit --failed` shows every blocked attempt: a protected
 // host rm, a deny rule removal, a secret sent somewhere.
-func auditBlocked(cmd *cobra.Command, e *out.Error) {
-	if e.Exit != out.ExitPolicy || blockAudited || g.dryRun || cmd == nil || leavesHomeNow(cmd) {
+func auditBlocked(cl *call, cmd *cobra.Command, e *out.Error) {
+	if e.Exit != out.ExitPolicy || cl.blockAudited || cl.flags.dryRun || cmd == nil || leavesHomeNow(cmd) {
 		return
 	}
 	st, err := loadState()
@@ -24,13 +20,13 @@ func auditBlocked(cmd *cobra.Command, e *out.Error) {
 	}
 	var hosts, conns []string
 	if st != nil { // what it was stopped on, for `audit --target`
-		hosts, conns = blockedTargets(st, cmd)
+		hosts, conns = blockedTargets(cl, st, cmd)
 	}
 	extra := map[string]any{"blocked": e.Code, "message": e.Message}
 	if conns != nil {
 		extra["conns"] = conns
 	}
-	audit(st, commandName(cmd), hosts, "", false, extra)
+	audit(cl, st, commandName(cmd), hosts, "", false, extra)
 }
 
 // blockedTargets are the servers and conns a stopped command named: a name,
@@ -38,7 +34,7 @@ func auditBlocked(cmd *cobra.Command, e *out.Error) {
 // says web2 rather than "-". Only arguments before "--" count (after it
 // comes the remote command), and only what is in the inventory: an
 // ad-hoc address or a word that picks nothing is left out.
-func blockedTargets(st *store.State, cmd *cobra.Command) (hosts, conns []string) {
+func blockedTargets(cl *call, st *store.State, cmd *cobra.Command) (hosts, conns []string) {
 	args := cmd.Flags().Args()
 	if n := cmd.ArgsLenAtDash(); n >= 0 && n <= len(args) {
 		args = args[:n]
@@ -62,7 +58,7 @@ func blockedTargets(st *store.State, cmd *cobra.Command) (hosts, conns []string)
 			}
 			continue
 		}
-		sel, err := pickedBy(st, a)
+		sel, err := pickedBy(cl, st, a)
 		if err != nil {
 			continue
 		}
@@ -81,13 +77,13 @@ func blockedTargets(st *store.State, cmd *cobra.Command) (hosts, conns []string)
 // pickedBy is what a selector expression picks, like resolveSelection but
 // with no side effect: recording a stop must not change how the rest of
 // the output is masked.
-func pickedBy(st *store.State, expr string) (selection, error) {
+func pickedBy(cl *call, st *store.State, expr string) (selection, error) {
 	type item struct {
 		h *store.Host
 		c *store.Conn
 	}
 	items, err := resolveExpr(expr, func(one string) ([]item, error) {
-		m, err := matchSelector(st, one)
+		m, err := matchSelector(cl, st, one)
 		var res []item
 		for _, h := range m.Hosts {
 			res = append(res, item{h: h})

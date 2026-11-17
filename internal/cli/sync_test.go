@@ -22,26 +22,26 @@ func writeTree(t *testing.T, root string, files map[string]string) {
 }
 
 func TestSyncCopiesOnlyChanges(t *testing.T) {
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	src, dst := t.TempDir(), t.TempDir()
 	writeTree(t, src, map[string]string{"a.txt": "one", "dir/b.txt": "two", ".git/HEAD": "x", "c.log": "log"})
 	ctx := context.Background()
 	o := syncOpts{exclude: []string{".git", "*.log"}}
-	r, err := runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", o)
+	r, err := runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", o)
 	if err != nil || r.Copied != 2 || r.Updated != 0 {
 		t.Fatalf("first sync: %+v %v", r, err)
 	}
 	if _, err := os.Stat(filepath.Join(dst, ".git/HEAD")); !os.IsNotExist(err) {
 		t.Error("excluded folder was copied")
 	}
-	r, _ = runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", o)
+	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", o)
 	if r.Copied+r.Updated != 0 || r.Unchanged != 2 {
 		t.Errorf("second sync must copy nothing: %+v", r)
 	}
 	writeTree(t, src, map[string]string{"a.txt": "one, longer"})
 	os.Remove(filepath.Join(src, "dir/b.txt"))
 	writeTree(t, dst, map[string]string{"extra.txt": "only in dst"})
-	r, _ = runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{delete: true, exclude: o.exclude})
+	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true, exclude: o.exclude})
 	if r.Updated != 1 || r.Deleted != 2 {
 		t.Errorf("update + delete: %+v", r)
 	}
@@ -56,16 +56,16 @@ func TestSyncDryRunAndOnlyNew(t *testing.T) {
 	writeTree(t, dst, map[string]string{"same.txt": "mine"})
 	old := time.Now().Add(-time.Hour)
 	os.Chtimes(filepath.Join(dst, "same.txt"), old, old)
-	g.dryRun = true
-	r, _ := runSync(context.Background(), localSide{src}, localSide{dst}, "s", "d", syncOpts{})
-	g.dryRun = false
+	tcl.flags.dryRun = true
+	r, _ := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "s", "d", syncOpts{})
+	tcl.flags.dryRun = false
 	if r.Copied != 1 || r.Updated != 1 {
 		t.Errorf("dry run plan: %+v", r)
 	}
 	if _, err := os.Stat(filepath.Join(dst, "new.txt")); !os.IsNotExist(err) {
 		t.Error("dry run wrote a file")
 	}
-	r, _ = runSync(context.Background(), localSide{src}, localSide{dst}, "s", "d", syncOpts{onlyNew: true})
+	r, _ = runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "s", "d", syncOpts{onlyNew: true})
 	if r.Copied != 1 || r.Kept != 1 {
 		t.Errorf("onlyNew: %+v", r)
 	}

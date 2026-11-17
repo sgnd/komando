@@ -25,6 +25,16 @@ each one gets a block headed `=== web1 [ok, exit 0]` (or `[failed: exit 1]`,
 `[skipped]` ...). Use JSON when you need each server's exit code or error
 as data.
 
+Text from servers, databases and pods is made safe for your terminal
+first: colours stay, but escape sequences that move the cursor, set the
+window title or write the clipboard, hidden text (`ESC[8m`), other control
+characters and bidi overrides (`U+202E`, which shows text in another order
+than it runs) are printed as `\e`, `\xNN` and `\u202e`. A carriage return
+stays, so progress bars work, except on a line that starts with a server's
+or pod's name (`[web1] ...`): there it shows as `\r`, so a server cannot
+print over the name. JSON keeps the bytes as they are, escaped the JSON
+way.
+
 ```json
 {
   "ok": false,
@@ -79,8 +89,11 @@ and the line komando prints before `shell` and similar commands is in
 ## Will my scripts keep working?
 
 Every JSON answer has `meta.contract`. Within a contract, komando only adds
-fields, error codes and commands; it never renames or removes them. If that
-ever has to change, `meta.contract` goes up and the
+fields, error codes and exit codes to the JSON envelope; it never renames or
+removes them. Command and flag names are not part of the contract: komando
+is used internally for now, so a renamed command or flag keeps no old name,
+and the changelog lists each one. If the envelope ever has to change,
+`meta.contract` goes up and the
 [changelog](../../CHANGELOG.md) says what changed.
 
 ## Reference: `komando schema`
@@ -100,6 +113,19 @@ Tiers are `read`, `change`, `dangerous` (`--allow-dangerous`), `safety`
 (`--yes`) and `person` (no flag: a person at a terminal runs it). A change
 on a protected server or conn also needs a yes; the target decides that,
 so it is not listed. See [What needs a yes](safety.md#what-needs-a-yes).
+
+The add commands also list the kinds they take, under `add_kinds`, so a
+program can build its add forms from them. `komando schema vpn add` gives
+each VPN kind its `id`, `display_name`, `family` (`portal`, `config_file`,
+`server_psk`, `auth_key`, `system` or `proxy`), `aliases`, the flags it
+needs (`required`, and `one_of`: groups where one flag is enough), the
+flags it may take (`optional`), `flag_notes`, and `opens_browser`: whether
+`vpn up` opens a browser to sign in (`browser_note` says when).
+`komando schema conn add` (and `db add`, `cache add`, `queue add`,
+`storage add`, `cluster add`, `registry add` for their own kinds) gives
+each conn kind its `id`, `display_name`, `family`, `url_schemes`,
+`url_example`, `default_port` and the same flag lists. They come from the
+same table as `komando vpn add --help` and `komando conn kinds`.
 
 ## Troubleshooting
 

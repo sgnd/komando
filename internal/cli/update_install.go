@@ -20,14 +20,15 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // installRelease downloads tag's archive for this computer, checks it
 // against sums (its release's checksums.txt), and puts its komando where
 // exe is. On any failure exe stays as it was.
-func installRelease(ctx context.Context, tag, exe string, sums []byte) error {
+func installRelease(cl *call, ctx context.Context, tag, exe string, sums []byte) error {
 	archive := archiveName()
-	data, err := fetch(ctx, tag, archive, maxArchive, "Downloading komando "+tag)
+	data, err := fetch(cl, ctx, tag, archive, maxArchive, "Downloading komando "+tag)
 	if err != nil {
 		return err
 	}
@@ -131,6 +132,7 @@ func replaceSelf(ctx context.Context, exe string, bin []byte, tag string) error 
 	}
 	tmp := f.Name()
 	defer os.Remove(tmp) // gone after the rename; cleans up after a failure
+	defer tmpclean.Add(tmp)()
 	_, err = f.Write(bin)
 	if cerr := f.Close(); err == nil {
 		err = cerr

@@ -81,7 +81,7 @@ cannot know how the command ended. That server's result says so:
 - error code `CONNECTION_LOST`, exit code 4 (other servers keep their own
   results; the worst exit code wins, as usual);
 - the output that arrived before the break, with `exit_code` -1 (unknown);
-- in text mode: `=== web2 [FAILED connection lost, outcome unknown]`.
+- in text mode: `=== web2 [failed: connection lost, outcome unknown]`.
 
 The command may still be running on the server, or it may already have
 finished. Do not run it again yet (an upgrade or a migration twice can
@@ -114,21 +114,51 @@ there, and `job wait` connects again by itself after a drop.
 
 On a protected server, a command asks first (at your terminal komando asks
 you; an AI agent or a script adds `--yes` after a person agrees; see
-[Safety](safety.md)), unless you add `--read-only` to say it only looks. komando checks that promise: a command
-that clearly changes something (`rm`, `mv`, `tee`, `> file`, `sed -i`,
-`systemctl restart`, `apt install`, ...) is refused with
-`READ_ONLY_VIOLATION`. In that case drop `--read-only` and confirm the change instead.
+[Safety](safety.md)), unless you add `--read-only` to say it only looks.
 
-On a protected server or conn, `--read-only` is an allowlist: it skips
-the question only for commands komando knows read: `cat`, `tail`, `head`, `ls`,
-`stat`, `df`, `du`, `free`, `uptime`, `ps`, `grep`, `ss`, `journalctl` and
-`systemctl status`/`is-active`, `docker ps`/`logs`/`inspect`,
-`kubectl get`/`describe`/`logs`, `find` without `-delete`/`-exec`, and the
-like, including a shell script built only from them. A command komando does
-not recognise (a program of your own, say) is treated as a change on a
-protected target, so it asks first like any other. On an unprotected server `--read-only` only has to pass the
-`READ_ONLY_VIOLATION` check above. `docker exec` and `cluster exec` check
-their `--read-only` the same way.
+`--read-only` is a strict allowlist, on every server: the command runs only
+when komando knows every part of it only reads. Anything else is refused
+with `READ_ONLY_VIOLATION`; drop `--read-only` and confirm the change
+instead. What passes:
+
+- Plain read tools: `cat`, `tail`, `head`, `ls`, `stat`, `df`, `du`, `free`,
+  `uptime`, `ps`, `grep`, `wc`, `id`, `jq` and the like, also in a pipe, a
+  `for` loop or after `sh -c`.
+- Tools whose options decide, with the options komando knows read: `find`
+  without `-delete`/`-exec`, `sed -n`, `sort`, `awk` that only prints,
+  `journalctl`, `dmesg`, `ss`, `tar -t`, `openssl x509`. A long option is written in full
+  (`--quiet`, not `--qui`): a tool reads a shortened name as any option
+  that starts with it, `sed --in` as `--in-place`.
+- Commands with subcommands, in the forms that read: `systemctl status`,
+  `is-active`, `list-units`, `show`; `docker ps`, `logs`, `inspect`,
+  `stats`; `kubectl get`, `describe`, `logs`, `top`; `ip addr`, `ip route`;
+  `iptables -L`/`-S`; `apt list`, `dpkg -l`, `rpm -q`; `nginx -t`,
+  `sshd -T`. A subcommand komando does not know is refused, not waved
+  through.
+- `sudo -n`, `sudo -u USER`, `timeout 10`, `nice`, `env NAME=VALUE`, `time`
+  and `xargs` (with a plain read tool) in front of such a command, and
+  `set -e`, `-u` and `-o pipefail`.
+
+What does not pass, besides clear changes (`rm`, `tee`, `> file`,
+`sed -i`, `systemctl restart`, `apt install`): a program komando does not
+know (your own tool, `curl`, `wget`, `nc`), `git` (a repository's own
+config can run a program on `git status` or `git diff`), an option or
+subcommand it has not heard of, `kubectl --kubeconfig` and other client
+settings, `sudo -E`, unquoted braces (`{a,b}`), `${x@P}` and other
+expansions bash evaluates, `let`, `printf -v`, `test -v`, `set -x`,
+`psql` and `mysql` (nothing holds them to a read-only transaction; use
+`komando db query`, which is), and setting a variable with an upper-case
+name (`PATH`, `PS4`, `TAR_OPTIONS`, `KUBECONFIG` ...: programs read such
+names as settings or code) by `NAME=`, `export`, `read`, `for` or `-e`.
+Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
+`LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS` are fine. A command that uses an
+`-e` value has no double quotes: in `"$dir"` the value is one word komando
+cannot check. A value with `*`, `?`, `[`, `{`, `~` or a backslash is refused:
+bash would expand it into names komando cannot see. `kubectl config view --raw` is refused too: it prints the
+kubeconfig's credentials. For a server's state, komando's
+own reads need no shell command at all: `komando facts`, `logs`,
+`svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and
+`cluster exec` check their `--read-only` the same way.
 
 A command komando cannot follow is refused the same way: `eval`, `source`,
 a command name in a variable (`$X file`), a shell or python reading a
@@ -139,10 +169,9 @@ the script only looks. `exec --script --read-only` needs a shell as the
 interpreter (`sh`, `bash -eu`). Script arguments (`--arg`, or words after
 `bash -s --`) are refused under `--read-only`: put the values in the
 script. An argument the check cannot see (`find /data $X`) is refused for
-commands whose arguments decide what they do (`find`, `sed`, `git`,
+commands whose arguments decide what they do (`find`, `sed`, `sort`,
 `kubectl` ...); `-e` values are filled in first. Other input (a CSV for
-`wc`, SQL for `psql`) is data and is not read as commands, except that
-`psql` and `mysql` input may not use `\!`, `\o`, `system` or `tee`.
+`wc`) is data and is not read as commands.
 
 komando blocks destructive commands (`rm -rf /`, `mkfs`, `reboot`,
 `DROP DATABASE`, ...) everywhere unless a person allows them. See [Safety](safety.md).
@@ -180,8 +209,9 @@ A command that runs on several servers counts per server. Without
 `--limit` a list shows what it always did: everything, or the default
 its help names (`fs list` 1000, `logs` 200). `--limit 0` shows all where
 the help says so. When a list stops at its limit, the JSON has
-`meta.truncated: true` and `-o text` says on stderr
-`showing N of more; use --limit 0 for all`.
+`meta.truncated: true` and `-o text` prints on stderr
+`Note: showing the first N; --limit 0 shows all` (some commands put their
+own cut note in their output instead).
 
 ### Other names
 
@@ -228,6 +258,8 @@ Typed alone, `komando job start` asks for the server, then the command.
 ```bash
 komando job start @web --sudo -- 'apt-get update && apt-get -y upgrade'
 komando job start @web --script ./migrate.sh --arg v2   # a script from this computer
+komando job start db1 --sudo-user postgres --stdin-file ./fix.sql -- 'psql app'   # as another user, with input
+komando job start web1 --timeout 2h -- ./reindex.sh   # stopped if it runs longer than 2 hours
 komando job status JOB               # running, exited or lost; exit code; last lines
 komando job logs JOB                 # output so far
 komando job wait JOB --timeout 30m   # wait until it ends
@@ -249,13 +281,24 @@ Good to know:
   job (`data.jobs`) and a summary; the exit code is the worst one.
 - `job start --script FILE` runs a script from this computer as the job,
   with `--arg` and `--interpreter` as in `exec --script`. Its copy waits in
-  the job's private folder and is removed the moment the job opens it.
+  the job's private folder and is removed the moment it is sent to the
+  interpreter.
+- `job start --stdin-file FILE` gives the command FILE as its input (`-`
+  for komando's own stdin), and `--sudo-user USER` runs it as USER with
+  `sudo -u`, as in `exec`. The job's `--env` values and its input go to the
+  command through a pipe, so a command run as another user gets them too.
+- `job start --timeout 2h` stops the job after 2 hours, as `job kill`
+  does; `job status` then says `killed` with `timed_out: true`, and
+  `job wait` names the timeout. Without `--timeout` a job has no time
+  limit. (`job start` has no `--pty`: a job runs without a terminal.)
 - When `exec` times out or loses its connection, its hint is the
   `komando job start ...` line that runs the same thing as a job.
 - `job start --sudo` uses the server's `--sudo-ref` password when it has
-  one. The password is sent as input (never on a command line), waits in a
-  private file only the job's user can read, and the job deletes it the
-  moment it starts. The command itself gets no input, so it cannot read it.
+  one. The password is sent as input (never on a command line) and waits
+  in a private file only the job's user can read. The job first asks sudo
+  whether it needs a password: when it does not, the file is deleted
+  unread; when it does, sudo reads it before the command starts. Either
+  way the command can never read it.
 - `job kill` on a job that already ended does nothing. A job started with
   `--sudo` needs `job kill --sudo`.
 - `job rm` refuses a running job: kill it first, or add `--kill`.
@@ -323,7 +366,7 @@ Next time: komando logs web1
   change asks `Run it? [y/N, d = --dry-run first]` (Enter is No; `d` shows
   what it would do and asks again). One that deletes for good asks you to
   type the name of what goes (or how many). A protected target asks its
-  usual `web1 is protected. Change it anyway? [y/N]` instead.
+  usual `web1 (protected): this command changes it. Continue? [y/N]` instead.
 - `komando host add` (or `conn add`, `vpn add`, `db add`, `cache add`,
   `queue add`, `storage add`, `cluster add`, `registry add`) typed alone
   asks that kind's own questions: which kind, a name, the address or the
@@ -408,6 +451,7 @@ komando status
 KIND    NAME                   DETAIL                                             SINCE
 vpn     office                 used 3m ago, closes in 26m if unused               42m
 login   web1                   kept for 7h more (`komando logout web1` ends it)   1h
+aws     dev,ops                SSO login, kept for 3h more (`komando logout aws --profile dev` ends it)   1h
 tunnel  t1108-195255-ab12cd34  127.0.0.1:5433 → prod-db                            2h
 job     j1108-193010-9f8e7d6c  web1: tar czf /backup/www.tgz /var/www             15m
 jobs run on their servers: `komando job list --refresh` shows which still run
@@ -462,8 +506,8 @@ crashed a moment ago can still show until the next komando command.
   hands words to another program; komando's own flags go before it.
 - Output longer than `--max-output` (256 KiB per stream) is cut.
 - `--timeout` is per server (default 5m); a job is the way past it.
-- `--read-only` on a protected target skips the question only for commands
-  komando knows read; script arguments (`--arg`, words after `bash -s --`)
+- `--read-only` runs only commands komando knows only read, on every
+  target; script arguments (`--arg`, words after `bash -s --`)
   are refused under it.
 - `exec --script` cannot be combined with `--stdin-file` or `--pty`.
 - A recipe `--var` value may not start with `-` (except a number or a time

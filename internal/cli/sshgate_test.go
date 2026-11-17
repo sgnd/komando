@@ -88,7 +88,7 @@ func gateAnswer(t *testing.T, line string, readOnly bool) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _, e := gateCheck(words, readOnly)
+	_, _, e := gateCheck(words, gateKey{readOnly: readOnly, network: true})
 	if e == nil {
 		return ""
 	}
@@ -118,7 +118,7 @@ func gateInventory(t *testing.T) {
 		"pghostaddr": "postgres://u@db.example.com/x?hostaddr=127.0.0.1", "pgsocket": "postgres://u@db.example.com/x?host=/var/run/postgresql",
 		"pglist": "postgres://u@10.0.0.6,127.0.0.1/x", "mongolist": "mongodb://u@10.0.0.8,localhost:27017/x",
 	}
-	err := store.Update(func(st *store.State) error {
+	err := store.Update(store.Save(), func(st *store.State) error {
 		for n, h := range hosts {
 			h.Name, h.User = n, "u"
 			st.Hosts[n] = &h
@@ -141,8 +141,8 @@ func TestGateCheck(t *testing.T) {
 	gateInventory(t)
 	mustRun(t, "recipe", "add", "my-df", "df -h", "--read-only")
 	mustRun(t, "recipe", "add", "my-clean", "rm -rf /tmp/cache")
-	g.yes = true // the gate's own flags come back after it read the key's
-	defer func() { g.yes = false }()
+	tcl.flags.yes = true // the gate's own flags come back after it read the key's
+	defer func() { tcl.flags.yes = false }()
 	const R = "SSH_GATE_REFUSED"
 	cases := []struct {
 		line           string
@@ -195,8 +195,10 @@ func TestGateCheck(t *testing.T) {
 		{"completion bash", "", ""},
 		{"exec web --read-only --dry-run -- uptime", "", ""},
 		{"host rm x --dry-run", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // no key changes komando's inventory, nor previews it
-		{"exec web --script ./check.sh", "", "SSH_GATE_READ_ONLY"},
-		{"exec web --script ./check.sh --read-only", "", ""},
+		{"exec web --script ./check.sh", R, "SSH_GATE_READ_ONLY"},       // no key reads a file on the komando computer
+		{"exec web --script ./check.sh --read-only", R, R},
+		{"exec web --script -", "", "SSH_GATE_READ_ONLY"}, // the key's own input
+		{"exec web --script - --read-only", "", ""},
 		{"job start web --read-only -- du -sh /var", "", ""},
 		{"job start web -- make backup", "", "SSH_GATE_READ_ONLY"},
 		{"cluster exec k8s pod/x -- ls", "", "SSH_GATE_READ_ONLY"},
@@ -206,13 +208,16 @@ func TestGateCheck(t *testing.T) {
 		{"download web /etc/hosts", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
+		{"storage mkdir s3 reports/2026", "", "SSH_GATE_READ_ONLY"},
+		{"storage mv s3 a.txt b.txt", "", "SSH_GATE_READ_ONLY"},
+		{"storage chmod s3 0640 a.txt", "", "SSH_GATE_READ_ONLY"},
 		{"cluster forward k8s svc/web 8080", "", "SSH_GATE_READ_ONLY"},
 		{"export web", "", ""},
 		// nothing a key runs writes on the komando computer itself
 		{"download web /home/u/.ssh/id_ed25519.pub --to .ssh/authorized_keys --overwrite", R, R},
 		{"cp web:/tmp/rc .bashrc", R, R},
-		{"cp ./app.tar.gz web:/tmp/app.tar.gz", "", "SSH_GATE_READ_ONLY"},
-		{"sync ./site web:/var/www/site", "", "SSH_GATE_READ_ONLY"},
+		{"cp ./app.tar.gz web:/tmp/app.tar.gz", R, "SSH_GATE_READ_ONLY"},
+		{"sync ./site web:/var/www/site", R, "SSH_GATE_READ_ONLY"},
 		{"sync web:/var/log/app ./logs", R, R},
 		{"storage download s3 a.txt --to .profile", R, R},
 		{"storage download s3 a.txt --to -", "", ""},
@@ -258,8 +263,8 @@ func TestGateCheck(t *testing.T) {
 			t.Errorf("%q --read-only: %q, want %q", c.line, got, c.readOnly)
 		}
 	}
-	if !g.yes || g.reveal {
-		t.Errorf("the gate's own flags changed: %+v", g)
+	if !tcl.flags.yes || tcl.flags.reveal {
+		t.Errorf("the gate's own flags changed: %+v", tcl.flags)
 	}
 }
 
@@ -287,8 +292,11 @@ func TestGateLocalTargets(t *testing.T) {
 		"cache run c --write SET a b":                                             "",
 		"cluster apply k8slocal --file pod.yaml":                                  R,
 		"cluster run k8slocal --write -- delete pod x":                            R,
-		"cluster apply k8s --file pod.yaml":                                       "",
+		"cluster apply k8s --file pod.yaml":                                       R, // reads a file here
 		"storage upload sftplocal x.txt .ssh/authorized_keys":                     R,
+		"storage mkdir sftplocal x":                                               R, // the storage changes meet the local-target rule too
+		"storage mv sftplocal a.txt b.txt":                                        R,
+		"storage chmod sftplocal 0600 a.txt":                                      R,
 		"registry rm reglocal app:1":                                              R,
 		"registry copy reg:app:1 reglocal:app:1":                                  R,
 		"registry copy reg:app:1 reg:app:2":                                       "",
@@ -318,7 +326,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"svc restart lh sshd":                                                     R,
 		"docker raw me -- run -v /:/h x":                                          R,
 		"cp ./id.pub me:/home/u/.ssh/x":                                           R,
-		"sync ./site web:/var/www":                                                "",
+		"sync ./site web:/var/www":                                                R, // reads files here
 		"recipe run disk me":                                                      R, // runs its command here
 		"recipe run disk web":                                                     "",
 		"db query pghostparam --write 'select 1'":                                 R, // pgx dials ?host=
@@ -334,7 +342,7 @@ func TestGateLocalTargets(t *testing.T) {
 		"cluster run k8s --write -- cp ns/pod:/x LOCAL":                           R,
 		"cluster run k8s --write -- cp ns/pod:/x ./x":                             R,
 		"cluster run k8s --write -- cp -n ns pod:/x /home/u/.ssh":                 R,
-		"cluster run k8s --write -- cp ./x ns/pod:/x":                             "",
+		"cluster run k8s --write -- cp ./x ns/pod:/x":                             R, // reads files here
 		"cluster run k8s --write -- cp ns/pod:/tmp/k x:/../.ssh/authorized_keys2": R, // a local path to kctl
 		"cluster run k8s --write -- cp ns/pod:/x other/pod:/y":                    R,
 		"cluster run k8s -- get pods":                                             "",
@@ -412,7 +420,7 @@ func TestGateReadsExist(t *testing.T) {
 			walk(sub)
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 	for n := range gateReadForm {
 		if !names[n] {
 			t.Errorf("gateReadForm names %q, which is no command", n)
@@ -446,16 +454,16 @@ func TestGateReadsExist(t *testing.T) {
 // gateOnServers.
 func TestGateFailsClosed(t *testing.T) {
 	invHome(t)
-	root := newRoot()
+	root := newRoot(tcl)
 	c := &cobra.Command{Use: "brand-new", Run: func(*cobra.Command, []string) {}}
 	root.AddCommand(c)
 	commandKinds["brand-new"] = changes
 	defer delete(commandKinds, "brand-new")
-	if _, e := gateRule(c, "brand-new", false); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "not on this computer") {
+	if _, e := gateRule(c, "brand-new", gateKey{network: true}); e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "not on this computer") {
 		t.Errorf("a new change: %+v", e)
 	}
 	commandKinds["brand-new"] = reads
-	if _, e := gateRule(c, "brand-new", false); e != nil {
+	if _, e := gateRule(c, "brand-new", gateKey{network: true}); e != nil {
 		t.Errorf("a new read: %+v", e)
 	}
 }
@@ -490,9 +498,9 @@ func TestSSHGateNoWritesHere(t *testing.T) {
 // With the audit setting off, a key's command is still in the log.
 func TestSSHGateAuditAlways(t *testing.T) {
 	invHome(t)
-	g.yes = true
+	tcl.flags.yes = true
 	mustRun(t, "config", "set", "audit", "off", "--yes")
-	g.yes = false
+	tcl.flags.yes = false
 	ran, _, e := gateRun(t, "komando list", "--name", "phone")
 	if ran == nil {
 		t.Fatalf("did not run: %+v", e)
@@ -611,19 +619,17 @@ func TestSSHGateAuditHidesSecrets(t *testing.T) {
 // The komando a key runs is an agent named after the key; a name ssh-gate
 // could not have set is not shown as it is.
 func TestGateAgentName(t *testing.T) {
-	t.Setenv(gateEnv, "phone")
-	resetApproval()
-	if got := agentName(); got != "ssh-gate key phone" {
+	setCallerEnv(t, gateEnv, "phone")
+	if got := tcl.caller().Agent; got != "ssh-gate key phone" {
 		t.Errorf("agent %q", got)
 	}
-	t.Setenv("CLAUDECODE", "1") // set in the account's shell files, say
-	if got := agentName(); got != "ssh-gate key phone" {
+	setCallerEnv(t, "CLAUDECODE", "1") // set in the account's shell files, say
+	if got := tcl.caller().Agent; got != "ssh-gate key phone" {
 		t.Errorf("with CLAUDECODE too: agent %q", got)
 	}
 	os.Unsetenv("CLAUDECODE") // t.Setenv puts it back afterwards
-	t.Setenv(gateEnv, "x\n\nkomando list wants")
-	resetApproval()
-	if got := agentName(); got != "An SSH key through ssh-gate" {
+	setCallerEnv(t, gateEnv, "x\n\nkomando list wants")
+	if got := tcl.caller().Agent; got != "An SSH key through ssh-gate" {
 		t.Errorf("agent %q", got)
 	}
 }

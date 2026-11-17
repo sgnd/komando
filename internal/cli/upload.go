@@ -17,12 +17,12 @@ import (
 // (docs/design/principles.md, section 12).
 
 // fileTarget says whether a target is servers or one storage conn.
-func fileTarget(expr string) (storage bool, err error) {
+func fileTarget(cl *call, expr string) (storage bool, err error) {
 	st, err := loadState()
 	if err != nil {
 		return false, err
 	}
-	sel, err := resolveSelection(st, expr)
+	sel, err := resolveSelection(cl, st, expr)
 	if err != nil {
 		return false, err
 	}
@@ -77,14 +77,16 @@ An existing file at DEST is replaced (the result says replaced).
   komando upload web1 ./nginx.conf /etc/nginx/nginx.conf --sudo
   komando upload backups ./db.sql.gz 2026/db.sql.gz`,
 		Args: cobra.RangeArgs(2, 3),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			dest := ""
 			if len(args) == 3 {
 				dest = args[2]
 			}
-			return runUpload(cmd.Context(), cmd, args[0], args[1], dest, storageOnly, o)
-		},
+			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
+			return finish(runUpload(ctx, cmd, args[0], args[1], dest, storageOnly, o))
+		}),
 	}
+	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
 	if storageOnly {
 		c.Use, c.Aliases = "upload CONN FILE [OBJECT]", []string{"put"}
 		c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "upload a folder (new and changed files, like komando sync)")
@@ -124,9 +126,8 @@ func downloadCmdFor(storageOnly bool) *cobra.Command {
 where it lands: a file name, or a folder (existing, or ending in /); a
 folder per server when several are picked. A file that is already here is
 replaced only with --overwrite: without it, one file stops with FILE_EXISTS,
-a folder from servers stops at the first such file, and a folder from
-storage keeps them and copies the rest. --sudo reads one file as root (up
-to 512 MiB).
+and a folder keeps them (kept) and copies the rest. --sudo reads one file
+as root (up to 512 MiB).
 From storage, --to - writes the object to stdout.
 
 ` + downloadFolderRule,
@@ -135,10 +136,12 @@ From storage, --to - writes the object to stdout.
   komando download backups 2026/db.sql.gz
   komando download backups reports/ -r --to ./reports`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDownload(cmd.Context(), cmd, args[0], args[1], to, storageOnly, o)
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			ctx, finish := startProgress(cl, cmd.Context(), o.progress)
+			return finish(runDownload(ctx, cmd, args[0], args[1], to, storageOnly, o))
+		}),
 	}
+	c.Flags().BoolVar(&o.progress, "progress", false, progressUsage)
 	c.Flags().StringVar(&to, "to", "", "where to save it, or - for stdout from storage (default: the current folder)")
 	c.Flags().BoolVarP(&o.recursive, "recursive", "r", false, "download a folder (servers) or every object under a prefix (storage)")
 	c.Flags().BoolVar(&o.overwrite, "overwrite", false, "replace files that already exist on this computer")
@@ -162,11 +165,12 @@ func cmdName(cmd *cobra.Command) string {
 // runUpload is every upload: `upload`, `storage upload` and `cp` to a
 // TARGET:PATH. storageOnly skips asking the inventory what target is.
 func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest string, storageOnly bool, o cpOpts) error {
+	cl := callOf(cmd)
 	name := cmdName(cmd)
 	storage := storageOnly
 	if !storage {
 		var err error
-		if storage, err = fileTarget(target); err != nil {
+		if storage, err = fileTarget(cl, target); err != nil {
 			return err
 		}
 	}
@@ -176,24 +180,25 @@ func runUpload(ctx context.Context, cmd *cobra.Command, target, file, dest strin
 		}
 		if o.recursive {
 			// a folder: sent like `komando sync`, new and changed files only
-			return syncUp(ctx, name, file, target, storageFolderDest(file, dest), syncOpts{})
+			return syncUp(cl, ctx, name, file, target, storageFolderDest(file, dest), syncOpts{})
 		}
-		return storageUpload(ctx, name, target, file, dest)
+		return storageUpload(cl, ctx, name, target, file, dest)
 	}
 	if dest == "" {
 		dest = filepath.Base(file)
 	}
-	return runCp(ctx, name, target, dest, file, true, o)
+	return runCp(cl, ctx, name, target, dest, file, true, o)
 }
 
 // runDownload is every download: `download`, `storage download` and `cp`
 // from a TARGET:PATH.
 func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, storageOnly bool, o cpOpts) error {
+	cl := callOf(cmd)
 	name := cmdName(cmd)
 	storage := storageOnly
 	if !storage {
 		var err error
-		if storage, err = fileTarget(target); err != nil {
+		if storage, err = fileTarget(cl, target); err != nil {
 			return err
 		}
 	}
@@ -202,7 +207,7 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 			return out.Usage("--sudo is for servers")
 		}
 		if !o.recursive {
-			return storageDownloadTo(ctx, name, target, p, to, o.overwrite)
+			return storageDownloadTo(cl, ctx, name, target, p, to, o.overwrite)
 		}
 		if to == "-" {
 			return out.Usage("-r saves a folder; --to - (stdout) takes one file")
@@ -211,7 +216,7 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 			to = path.Base(strings.TrimSuffix(p, "/"))
 		}
 		// files already here stay unless --overwrite
-		return syncDown(ctx, name, target, p, to, syncOpts{onlyNew: !o.overwrite})
+		return syncDown(cl, ctx, name, target, p, to, syncOpts{onlyNew: !o.overwrite})
 	}
 	if to == "-" {
 		return out.Usage("--to - (stdout) is for storage; to read a file on a server use `komando fs cat %s %s`", target, p)
@@ -222,5 +227,5 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 	if o.sudo && o.recursive {
 		return out.Usage("--sudo downloads single files; copy the folder to a readable place with `komando exec --sudo -- cp -r`, then download that")
 	}
-	return runCp(ctx, name, target, p, to, false, o)
+	return runCp(cl, ctx, name, target, p, to, false, o)
 }

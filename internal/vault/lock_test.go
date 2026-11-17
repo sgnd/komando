@@ -2,6 +2,7 @@ package vault
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -28,7 +29,7 @@ func keyfileHome(t *testing.T) {
 // with the one key that is on disk.
 func TestParallelChangesKeepEverySecret(t *testing.T) {
 	keyfileHome(t)
-	if err := Set("gone", "to-be-removed"); err != nil {
+	if err := Set(store.Save(), "gone", "to-be-removed"); err != nil {
 		t.Fatal(err)
 	}
 	// start again from nothing, so the workers also race to create vault.key
@@ -43,7 +44,7 @@ func TestParallelChangesKeepEverySecret(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			errs <- Set(fmt.Sprintf("s%d", i), fmt.Sprintf("value-%d", i))
+			errs <- Set(store.Save(), fmt.Sprintf("s%d", i), fmt.Sprintf("value-%d", i))
 		}(i)
 	}
 	wg.Wait()
@@ -70,9 +71,9 @@ func TestParallelChangesKeepEverySecret(t *testing.T) {
 		go func(i int) {
 			defer wg2.Done()
 			if i%2 == 0 {
-				_ = Delete(fmt.Sprintf("s%d", i))
+				_ = Delete(store.Save(), fmt.Sprintf("s%d", i))
 			} else {
-				_ = Set(fmt.Sprintf("t%d", i), "other-value")
+				_ = Set(store.Save(), fmt.Sprintf("t%d", i), "other-value")
 			}
 		}(i)
 	}
@@ -111,5 +112,52 @@ func TestNewKeyFileNeverReplacesAKey(t *testing.T) {
 	}
 	if left, _ := os.ReadDir(store.Home()); len(left) != 1 { // store.key
 		t.Fatalf("temporary files left behind: %v", left)
+	}
+}
+
+// Create stores a name only when it is free, in the same write step as the
+// check: of several komando processes creating one name at once exactly
+// one wins, and the others get ErrExists with the value left alone.
+func TestCreateNeverReplaces(t *testing.T) {
+	keyfileHome(t)
+	if err := Create(store.Save(), "taken", "first"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Create(store.Save(), "taken", "second"); !errors.Is(err, ErrExists) {
+		t.Fatalf("Create over a stored name: %v, want ErrExists", err)
+	}
+	if v, err := Get("taken"); err != nil || v != "first" {
+		t.Fatalf("taken = %q, %v; the failed Create changed it", v, err)
+	}
+	if err := Create(store.Preview(), "fresh", "x"); !errors.Is(err, store.ErrDryRun) {
+		t.Errorf("Create on a preview: %v, want store.ErrDryRun", err)
+	}
+
+	const n = 8
+	var wg sync.WaitGroup
+	errs := make(chan error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			errs <- Create(store.Save(), "race", fmt.Sprintf("value-%d", i))
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	won := 0
+	for err := range errs {
+		switch {
+		case err == nil:
+			won++
+		case !errors.Is(err, ErrExists):
+			t.Errorf("a losing Create: %v, want ErrExists", err)
+		}
+	}
+	if won != 1 {
+		t.Fatalf("%d of %d parallel Creates won, want exactly 1", won, n)
+	}
+	if v, err := Get("race"); err != nil || !strings.HasPrefix(v, "value-") {
+		t.Errorf("race = %q, %v", v, err)
 	}
 }

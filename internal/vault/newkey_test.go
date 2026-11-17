@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -27,6 +28,7 @@ func keychainStandIn(t *testing.T, failStore bool) (calls func() string) {
 		fail = `echo "no Secret Service" >&2; exit 1;`
 	}
 	script := `#!/bin/sh
+[ "$1" = warm-up ] && exit 0
 case "$1" in store|search) s="$4" ;; *) s="$3" ;; esac
 case "$s" in *generation) ;; *) echo "$1" >> "` + dir + `/calls" ;; esac
 kept="` + dir + `/$(echo "$s" | tr ' /' '__')"
@@ -41,6 +43,7 @@ esac
 		t.Fatal(err)
 	}
 	lockTool(t, dir, "gdbus", "echo '(<false>,)'")
+	warmUp(t)
 	t.Setenv("KOMANDO_KEYCHAIN", "") // TestMain turned the keychain off
 	return func() string {
 		b, _ := os.ReadFile(filepath.Join(dir, "calls"))
@@ -75,7 +78,7 @@ func noKeyFile(t *testing.T) {
 func TestNewVaultKeyInKeychain(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keychain" {
@@ -99,7 +102,7 @@ func TestNewVaultKeyInKeychain(t *testing.T) {
 func TestNewVaultKeychainFails(t *testing.T) {
 	freshHome(t)
 	keychainStandIn(t, true)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -119,14 +122,14 @@ func TestNewVaultKeychainFails(t *testing.T) {
 func TestNewVaultKeepsKeychainKey(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
-	if err := Set("old", "kept value"); err != nil {
+	if err := Set(store.Save(), "old", "kept value"); err != nil {
 		t.Fatal(err)
 	}
 	aside := store.DBPath() + ".aside"
 	if err := os.Rename(store.DBPath(), aside); err != nil {
 		t.Fatal(err)
 	}
-	if err := Set("new", "v"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") && !strings.Contains(err.Error(), "is missing") {
+	if err := Set(store.Save(), "new", "v"); err == nil || !strings.Contains(err.Error(), "STATE_CORRUPT") && !strings.Contains(err.Error(), "is missing") {
 		t.Fatalf("a store moved aside: %v", err)
 	}
 	if n := strings.Count(calls(), "store"); n != 1 {
@@ -146,7 +149,7 @@ func TestNewVaultKeychainOff(t *testing.T) {
 	freshHome(t)
 	calls := keychainStandIn(t, false)
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -165,11 +168,11 @@ func TestNewVaultKeychainOff(t *testing.T) {
 // Only `komando secret keychain` moves a key.
 func TestExistingVaultKeepsMode(t *testing.T) {
 	freshHome(t)
-	if err := Set("first", "v"); err != nil { // keychain off: a key file store
+	if err := Set(store.Save(), "first", "v"); err != nil { // keychain off: a key file store
 		t.Fatal(err)
 	}
 	calls := keychainStandIn(t, false)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -184,7 +187,7 @@ func TestExistingVaultKeepsMode(t *testing.T) {
 	savedN := PassphraseN
 	PassphraseN = 1 << 10 // quick; the cost is not what this test is about
 	defer func() { PassphraseN = savedN }()
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "passphrase" {
@@ -218,15 +221,27 @@ func scriptedSecretTool(t *testing.T, script string) (calls func() string) {
 	savedOS, savedDirs := keychainOS, toolDirs
 	keychainOS, toolDirs = "linux", []string{dir}
 	t.Cleanup(func() { keychainOS, toolDirs = savedOS, savedDirs })
-	body := "#!/bin/sh\necho \"$1\" >> \"" + dir + "/calls\"\n" + script
+	body := "#!/bin/sh\n[ \"$1\" = warm-up ] && exit 0\necho \"$1\" >> \"" + dir + "/calls\"\n" + script
 	if err := os.WriteFile(filepath.Join(dir, "secret-tool"), []byte(body), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	lockTool(t, dir, "gdbus", "echo '(<false>,)'") // the default collection is unlocked
+	warmUp(t)
 	t.Setenv("KOMANDO_KEYCHAIN", "")
 	return func() string {
 		b, _ := os.ReadFile(filepath.Join(dir, "calls"))
 		return strings.TrimSpace(string(b))
+	}
+}
+
+// warmUp runs the stand-in secret-tool once, doing nothing: a first run of
+// a new script can be slow (macOS checks it), and that is not the keychain
+// call a time limit (the store's probe of its change count,
+// newKeyTimeout) should cut short.
+func warmUp(t *testing.T) {
+	t.Helper()
+	if err := keychainCmd("warm-up").Run(); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -249,15 +264,17 @@ func lockTool(t *testing.T, dir, name, body string) {
 // A lookup that fails for another reason than "no such key" (a locked
 // collection, a dismissed prompt) may hide the only key of a vault moved
 // aside: `secret-tool store` would overwrite it, so nothing is stored and
-// the new vault keeps its key in vault.key.
+// the new vault keeps its key in vault.key. Here the store's change count
+// is known to be absent (its lookup says "no such item").
 func TestNewVaultKeychainLocked(t *testing.T) {
 	freshHome(t)
-	calls := scriptedSecretTool(t, `case "$1" in
-  lookup) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
-  store) exit 0 ;;
+	calls := scriptedSecretTool(t, `case "$1 $3" in
+  "lookup "*" generation") exit 1 ;;
+  lookup*) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
+  store*) exit 0 ;;
 esac
 `)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -271,17 +288,157 @@ esac
 	}
 }
 
+// A keychain that cannot say whether it keeps a change count for this
+// folder (locked, or it never answers) may hold the count of a store that
+// was removed. A person's or a script's first store in a folder with no
+// trace of one is made all the same, with its key in a key file and a
+// note on stderr; nothing goes into the keychain, and later commands only
+// read while the keychain cannot be read. An AI agent's call never makes
+// one, nor does anyone's in a folder that shows it had a store.
+func TestNewStoreKeychainCannotAnswer(t *testing.T) {
+	for name, tc := range map[string]struct{ script, code string }{
+		"locked": {`case "$1" in
+  lookup) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
+  store) exit 0 ;;
+esac
+`, "STORE_OLD_COPY"},
+		"hangs": {"exec sleep 30\n", "KEYCHAIN_SLOW"},
+	} {
+		later := map[string]string{"locked": "KEYCHAIN_FAILED", "hangs": "KEYCHAIN_SLOW"}[name]
+		for _, who := range []string{"person", "agent", "person, store.key left", "person, runtime.pids left"} {
+			t.Run(name+"/"+who, func(t *testing.T) {
+				freshHome(t)
+				calls := scriptedSecretTool(t, tc.script)
+				savedAgent, savedNotice := AgentCall, store.Notice
+				t.Cleanup(func() { AgentCall, store.Notice = savedAgent, savedNotice })
+				AgentCall = func() bool { return who == "agent" }
+				var notes []string
+				store.Notice = func(msg string) { notes = append(notes, msg) }
+				if trace, ok := strings.CutPrefix(who, "person, "); ok {
+					trace = strings.TrimSuffix(trace, " left")
+					if err := os.MkdirAll(store.Home(), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(store.Path(trace), []byte("x"), 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+				start := time.Now()
+				err := Set(store.Save(), "db-pass", "s3cret")
+				if d := time.Since(start); d > 5*time.Second {
+					t.Errorf("it took %v", d)
+				}
+				if strings.Contains(calls(), "store") {
+					t.Errorf("something was stored in the keychain:\n%s", calls())
+				}
+				if who != "person" {
+					if err == nil || !strings.Contains(err.Error(), tc.code) {
+						t.Fatalf("a new store beside a keychain that cannot answer: %v", err)
+					}
+					if _, serr := os.Stat(store.DBPath()); !os.IsNotExist(serr) {
+						t.Errorf("a store was made: %v", serr)
+					}
+					if len(notes) != 0 {
+						t.Errorf("notes %q", notes)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatalf("a person's first store: %v", err)
+				}
+				if m := modeOnDisk(t); m != "keyfile" {
+					t.Errorf("mode %q, want keyfile", m)
+				}
+				if len(notes) != 1 || !strings.Contains(notes[0], "the keychain could not be read") || !strings.Contains(notes[0], "store.key") {
+					t.Errorf("notes %q", notes)
+				}
+				if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+					t.Errorf("Get in the same run: %q %v", v, err)
+				}
+				// the next run: the store may be a backup from before
+				// `secret keychain`, so it is read, never changed
+				store.Close()
+				if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+					t.Errorf("Get in the next run: %q %v", v, err)
+				}
+				if err := Set(store.Save(), "other", "v"); err == nil || !strings.Contains(err.Error(), later) {
+					t.Errorf("a change in the next run: %v", err)
+				}
+			})
+		}
+	}
+}
+
+// The attack on a store whose key is in the keychain: it has no
+// store.key, so once store.db is removed and the keychain is locked or
+// hangs, only store.made (left when the store was made) shows the folder
+// had a store. Nobody's call starts an empty store there: not a person's
+// or a script's (no agent), nor an agent's.
+func TestKeychainStoreGoneKeychainCannotAnswer(t *testing.T) {
+	for name, tc := range map[string]struct{ script, code string }{
+		"locked": {`case "$1" in
+  lookup) echo "Cannot get secret of a locked object" >&2; exit 1 ;;
+  store) exit 0 ;;
+esac
+`, "STORE_OLD_COPY"},
+		"hangs": {"exec sleep 30\n", "KEYCHAIN_SLOW"},
+	} {
+		for _, who := range []string{"person or script", "agent"} {
+			t.Run(name+"/"+who, func(t *testing.T) {
+				freshHome(t)
+				keychainStandIn(t, false)
+				savedAgent, savedNotice := AgentCall, store.Notice
+				t.Cleanup(func() { AgentCall, store.Notice = savedAgent, savedNotice })
+				AgentCall = func() bool { return false }
+				if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
+					t.Fatal(err)
+				}
+				if m := modeOnDisk(t); m != "keychain" {
+					t.Fatalf("mode %q, want keychain", m)
+				}
+				noKeyFile(t)
+				store.Close()
+				if err := os.Remove(store.DBPath()); err != nil {
+					t.Fatal(err)
+				}
+				calls := scriptedSecretTool(t, tc.script)
+				AgentCall = func() bool { return who == "agent" }
+				var notes []string
+				store.Notice = func(msg string) { notes = append(notes, msg) }
+				err := Set(store.Save(), "other", "v")
+				if err == nil || !strings.Contains(err.Error(), tc.code) || !strings.Contains(err.Error(), "store.made") {
+					t.Fatalf("an empty store over a lost one: %v", err)
+				}
+				if _, serr := os.Stat(store.DBPath()); !os.IsNotExist(serr) {
+					t.Errorf("a store was made: %v", serr)
+				}
+				if strings.Contains(calls(), "store") {
+					t.Errorf("something was stored in the keychain:\n%s", calls())
+				}
+				if len(notes) != 0 {
+					t.Errorf("notes %q", notes)
+				}
+			})
+		}
+	}
+}
+
 // A keychain tool that never answers (an unlock prompt nobody sees, a slow
 // D-Bus) does not hang the first secret: past newKeyTimeout the new vault
-// keeps its key in vault.key.
+// keeps its key in vault.key. Here the store's change count is known to
+// be absent (its lookup says "no such item").
 func TestNewVaultKeychainHangs(t *testing.T) {
 	freshHome(t)
-	scriptedSecretTool(t, "exec sleep 30\n")
+	scriptedSecretTool(t, `case "$1 $3" in
+  "lookup "*" generation") exit 1 ;;
+esac
+exec sleep 30
+`)
 	saved := newKeyTimeout
 	newKeyTimeout = 200 * time.Millisecond
 	defer func() { newKeyTimeout = saved }()
 	start := time.Now()
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if d := time.Since(start); d > 5*time.Second {
@@ -299,10 +456,7 @@ func newVaultNoStore(t *testing.T, script string) {
 	t.Helper()
 	freshHome(t)
 	calls := scriptedSecretTool(t, script)
-	// a first run of a new script can be slow (macOS checks it); not the
-	// keychain call newKeyTimeout should cut short
-	_ = keychainCmd("warm-up").Run()
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if m := modeOnDisk(t); m != "keyfile" {
@@ -353,7 +507,7 @@ func newVaultLockAnswer(t *testing.T, name, answer string) (stored bool) {
 	calls := scriptedSecretTool(t, keePassXCLocked)
 	lockTool(t, toolDirs[0], "gdbus", "")
 	lockTool(t, toolDirs[0], name, answer)
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
@@ -413,14 +567,35 @@ esac
 `)
 }
 
-// A search that never answers is "cannot tell" too, past newKeyTimeout.
+// A search that never answers is "cannot tell" too, once its time is up.
+// Only the search is cut short: its time is up when the stand-in says the
+// search started, never by the clock, so a slow first lookup on a busy
+// computer is not cut short in its place. A call that starts after the
+// search (a store, were komando to go on) is never cut short: a store
+// would then run to its end and be seen.
 func TestNewVaultKeychainSearchHangs(t *testing.T) {
-	saved := newKeyTimeout
-	newKeyTimeout = 500 * time.Millisecond
-	defer func() { newKeyTimeout = saved }()
+	signal := filepath.Join(t.TempDir(), "searching")
+	saved := newKeyContext
+	t.Cleanup(func() { newKeyContext = saved })
+	newKeyContext = func() (context.Context, context.CancelFunc) {
+		ctx, cancel := context.WithCancel(context.Background())
+		if _, err := os.Stat(signal); err == nil {
+			return ctx, cancel // after the search: its own time
+		}
+		go func() {
+			for ctx.Err() == nil {
+				if _, err := os.Stat(signal); err == nil {
+					cancel() // the search hangs: its time is up
+					return
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+		}()
+		return ctx, cancel
+	}
 	newVaultNoStore(t, `case "$1" in
   lookup) exit 1 ;;
-  search) exec sleep 30 ;;
+  search) : > "`+signal+`"; exec sleep 30 ;;
   store) exit 0 ;;
 esac
 `)

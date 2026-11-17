@@ -107,7 +107,7 @@ func TestSealedVersionsAndDeletes(t *testing.T) {
 		t.Fatalf("hosts %v", s.Hosts)
 	}
 	// a fn error writes nothing
-	err := Update(func(s *State) error {
+	err := Update(Save(), func(s *State) error {
 		s.Hosts["z"] = &Host{Name: "z"}
 		return os.ErrInvalid
 	})
@@ -122,10 +122,10 @@ func TestSealedVersionsAndDeletes(t *testing.T) {
 func TestSealedRuntimeOnly(t *testing.T) {
 	sealedStore(t)
 	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
-	if err := UpdateRuntime(func(s *State) error { s.Jobs["j"] = &Job{ID: "j"}; return nil }); err != nil {
+	if err := UpdateRuntime(Save(), func(s *State) error { s.Jobs["j"] = &Job{ID: "j"}; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	if err := UpdateRuntime(func(s *State) error { s.Hosts["a"].User = "x"; return nil }); err != ErrRuntimeOnly {
+	if err := UpdateRuntime(Save(), func(s *State) error { s.Hosts["a"].User = "x"; return nil }); err != ErrRuntimeOnly {
 		t.Fatalf("%v", err)
 	}
 	if s, _ := Load(); s.Jobs["j"] == nil || s.Hosts["a"].User != "" {
@@ -143,7 +143,7 @@ func TestSealedAcrossProcesses(t *testing.T) {
 		n := os.Getenv("STORE_CHILD_N")
 		for i := range 10 {
 			name := "h" + n + "-" + strconv.Itoa(i)
-			if err := Update(func(s *State) error {
+			if err := Update(Save(), func(s *State) error {
 				s.Hosts[name] = &Host{Name: name}
 				if _, ok := s.Hosts["shared"]; !ok {
 					s.Hosts["shared"] = &Host{Name: "shared", User: n}
@@ -171,7 +171,7 @@ func TestSealedAcrossProcesses(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	closeDBs()
+	Close()
 	s, err := Load()
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestSealedAcrossProcesses(t *testing.T) {
 func TestSealedRuntimeFile(t *testing.T) {
 	sealedStore(t)
 	update(t, func(s *State) { s.Hosts["a"] = &Host{Name: "a"} })
-	if err := UpdateRuntime(func(s *State) error {
+	if err := UpdateRuntime(Save(), func(s *State) error {
 		s.Sessions["office"] = &VpnSession{Vpn: "office", PID: 7, SocksPass: "socks-s3cret"}
 		return nil
 	}); err != nil {
@@ -241,7 +241,7 @@ func TestForgedPlainRuntimeIgnored(t *testing.T) {
 		t.Fatalf("ReadRuntime trusted it: %v", err)
 	}
 	// the next runtime write seals over it
-	if err := UpdateRuntime(func(s *State) error { s.Jobs["k"] = &Job{ID: "k"}; return nil }); err != nil {
+	if err := UpdateRuntime(Save(), func(s *State) error { s.Jobs["k"] = &Job{ID: "k"}; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	if b, _ := os.ReadFile(runtimePath()); !strings.HasPrefix(string(b), string(runtimeMagic)) || strings.Contains(string(b), "evil") {
@@ -253,7 +253,7 @@ func TestForgedPlainRuntimeIgnored(t *testing.T) {
 // the store, so runtime.json is never plain there.
 func TestSealedRuntimeBeforeStore(t *testing.T) {
 	sealedStore(t)
-	if err := UpdateRuntime(func(s *State) error { s.Jobs["j"] = &Job{ID: "j", Command: "secret-cmd"}; return nil }); err != nil {
+	if err := UpdateRuntime(Save(), func(s *State) error { s.Jobs["j"] = &Job{ID: "j", Command: "secret-cmd"}; return nil }); err != nil {
 		t.Fatal(err)
 	}
 	b, _ := os.ReadFile(runtimePath())
@@ -266,7 +266,7 @@ func TestSealedRuntimeBeforeStore(t *testing.T) {
 // names, logins or tokens, and it opens without the key.
 func TestSealedRuntimePIDs(t *testing.T) {
 	sealedStore(t)
-	if err := UpdateRuntime(func(s *State) error {
+	if err := UpdateRuntime(Save(), func(s *State) error {
 		s.Sessions["office-vpn"] = &VpnSession{Vpn: "office-vpn", PID: 4242, SocksPass: "pw"}
 		s.Tunnels["t"] = &Tunnel{ID: "t", Host: "db-host", PID: 4343}
 		return nil

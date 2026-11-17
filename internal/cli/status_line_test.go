@@ -73,14 +73,14 @@ func TestStatusRoutes(t *testing.T) {
 
 // TestStatusOnlyForPeople: agents and scripts never see a status line.
 func TestStatusOnlyForPeople(t *testing.T) {
-	saved := interactive
-	defer func() { interactive = saved }()
+	saved := tcl.terminal
+	defer func() { tcl.terminal = saved }()
 	for _, person := range []bool{false, true} {
-		interactive = func() bool { return person }
+		tcl.terminal = person
 		got := captureStderr(t, func() {
-			showStatus(statusLine{What: "shell", Target: "web1"})
-			showExit("web1", 0, false, time.Second)
-			noticef("vpn %s connected", "office")
+			showStatus(tcl, statusLine{What: "shell", Target: "web1"})
+			showExit(tcl, "web1", 0, false, time.Second)
+			noticef(tcl, "vpn %s connected", "office")
 		})
 		if person != (got != "") {
 			t.Errorf("person=%v: stderr %q", person, got)
@@ -94,10 +94,10 @@ func captureStderr(t *testing.T, fn func()) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stderr
-	os.Stderr = w
+	saved := tcl.out.Err
+	tcl.out.Err = w
 	fn()
-	os.Stderr = saved
+	tcl.out.Err = saved
 	w.Close()
 	b, _ := io.ReadAll(r)
 	return string(b)

@@ -199,7 +199,7 @@ func s3Providers(*store.State, formAnswers) []pickRow {
 	}
 }
 
-func s3Form() formSpec {
+func s3Form(_ *call) formSpec {
 	is := func(p string) func(formAnswers) bool { return func(a formAnswers) bool { return a["provider"] == p } }
 	return formSpec{title: "Add an S3 bucket", qs: []formQ{
 		formNameQ("conn", "bucket", "backups"),
@@ -351,7 +351,7 @@ func s3Build(_ *store.State, a formAnswers) [][]string {
 
 // Google Cloud Storage.
 
-func gcsForm() formSpec {
+func gcsForm(_ *call) formSpec {
 	return formSpec{title: "Add a Google Cloud Storage bucket", qs: []formQ{
 		formNameQ("conn", "bucket", "media"),
 		storeBucketQ("the Cloud Storage page of the Google Cloud console"),
@@ -410,7 +410,7 @@ func gcsKeyProblem(v string) string {
 
 // Azure Blob Storage.
 
-func azureForm() formSpec {
+func azureForm(_ *call) formSpec {
 	return formSpec{title: "Add an Azure Blob Storage container", qs: []formQ{
 		formNameQ("conn", "container", "files"),
 		{key: "account", label: "Account", ask: "What is the storage account's name?", example: "mystorageacct",
@@ -462,7 +462,7 @@ func azureAccountProblem(_ *store.State, _ formAnswers, v string) string {
 
 // SFTP.
 
-func sftpForm() formSpec {
+func sftpForm(cl *call) formSpec {
 	return formSpec{title: "Add an SFTP file server", qs: []formQ{
 		formNameQ("conn", "file server", "site"),
 		storeHostQ("sftp", "files.example.com"),
@@ -470,7 +470,7 @@ func sftpForm() formSpec {
 		{key: "login", label: "Login", ask: "How do you log in?",
 			help: "Not sure? Pick password: your hosting panel shows it.",
 			def: func(st *store.State, a formAnswers) string {
-				if serverLoginDefault(st, a) == "usual" {
+				if serverLoginDefault(cl, st, a) == "usual" {
 					return "key"
 				}
 				return "password"
@@ -497,7 +497,7 @@ func sftpForm() formSpec {
 
 // FTP and FTPS.
 
-func ftpForm() formSpec {
+func ftpForm(_ *call) formSpec {
 	plain := func(a formAnswers) bool { return a["encryption"] == "ftp" && a["plain"] == "yes" }
 	return formSpec{title: "Add an FTP file server", qs: []formQ{
 		formNameQ("conn", "file server", "site"),
@@ -548,7 +548,7 @@ func ftpForm() formSpec {
 
 // WebDAV.
 
-func webdavForm() formSpec {
+func webdavForm(_ *call) formSpec {
 	isHTTP := func(a formAnswers) bool { return strings.HasPrefix(strings.ToLower(a["address"]), "http://") }
 	return formSpec{title: "Add a WebDAV folder", qs: []formQ{
 		formNameQ("conn", "folder", "cloud"),
@@ -619,7 +619,7 @@ func webdavUserDefault(_ *store.State, a formAnswers) string {
 
 // SMB.
 
-func smbForm() formSpec {
+func smbForm(_ *call) formSpec {
 	return formSpec{title: "Add a Windows share (SMB)", qs: []formQ{
 		formNameQ("conn", "share", "team"),
 		storeHostQ("smb", "fileserver.corp.lan"),
@@ -690,6 +690,15 @@ func init() {
 			flags: []formFlag{
 				{name: "prefix", ask: "Delete everything in a folder?", help: "Empty when you named the files above. A folder ends in /, like daily/.", example: "daily/"},
 				{name: "older-than", ask: "Only files older than?", help: "With a folder: newer ones are kept. Like 30d (days) or 12h (hours).", example: "30d"}}},
+		"storage mkdir": {args: []formArg{conn,
+			key("Which folder should be made?", "Its path inside the storage; missing folders on the way are made too.", "reports/2026")}},
+		"storage mv": {args: []formArg{conn,
+			key("Which file (or folder) do you want to move or rename?", "Its name inside the storage, as storage list shows it. On S3, Google Cloud and Azure only one file at a time.", "db/old.sql.gz"),
+			key("Where to? (the new name)", "A new name, or a folder ending in / to move it into with its own name.", "archive/")},
+			flags: []formFlag{{name: "overwrite", ask: "Replace a file that is already there?"}}},
+		"storage chmod": {args: []formArg{conn,
+			key("Which permissions? (as a number)", "640: owner reads and writes, group reads, others nothing. 755: everyone can read and open, only the owner writes. SFTP storage only.", "640"),
+			key("Which file or folder?", "Its name inside the storage, as storage list shows it.", "config/app.yml")}},
 		"storage link": {args: []formArg{conn,
 			key("Which file to share?", "Its name inside the storage. Anyone with the link can download it until it ends.", "reports/q3.pdf")},
 			flags: []formFlag{{name: "expires", ask: "How long should the link work?", help: "Like 30m or 24h; at most 168h (7 days).", def: "1h"}}},
@@ -704,5 +713,8 @@ func init() {
 		"storage upload":   {next: []string{"storage list {} PREFIX/", "storage link {} OBJECT --expires 24h"}},
 		"storage download": {next: []string{"storage list {}"}},
 		"storage rm":       {next: []string{"storage list {} --recursive"}},
+		"storage mkdir":    {next: []string{"storage upload {} FILE OBJECT", "storage list {} PREFIX/"}},
+		"storage mv":       {next: []string{"storage list {} PREFIX/"}},
+		"storage chmod":    {next: []string{"storage list {} PREFIX/"}},
 	})
 }

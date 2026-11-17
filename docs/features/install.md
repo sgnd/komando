@@ -9,7 +9,7 @@ it again.
 Open a terminal (on macOS the **Terminal** app) and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 ```
 
 Then check that it works:
@@ -25,12 +25,22 @@ and add that line to `~/.zshrc` (macOS) or `~/.bashrc` (Linux) so it stays.
 Want to read the script first? Download it, read it, then run it:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh
+curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh
 sh install.sh
 ```
 
-`KOMANDO_INSTALL_DIR=DIR` picks the folder, and `KOMANDO_VERSION=v0.13.0`
-picks one version (`KOMANDO_VERSION=v0.13.0 sh install.sh`).
+`KOMANDO_INSTALL_DIR=DIR` picks the folder, and `KOMANDO_VERSION=v0.14.1`
+picks one version (`KOMANDO_VERSION=v0.14.1 sh install.sh`).
+
+The installer installs a release only when it is signed with the komando
+project's key, the check `komando update` makes: someone who replaced a
+release's files cannot make it install them. It checks the signature with
+OpenSSL 3, or with perl where there is none (macOS has perl; its own
+`openssl` cannot check this kind of signature). A computer with neither
+gets nothing installed and is told to install one. Releases up to 0.13.0
+have no signature: the installer knows the checksums each of them was
+released with, installs one (asked for with `KOMANDO_VERSION`) only when
+its files match them, and says so.
 
 ## Install on Windows
 
@@ -71,8 +81,9 @@ komando update --dry-run   # is there a newer version? (changes nothing)
 komando update             # install the newest release
 ```
 
-`update` downloads the release for this computer, checks it against the
-release's checksums, runs the new program once to make sure it works here,
+`update` checks that the release is signed by the komando project,
+downloads the release for this computer, checks it against the release's
+signed checksums, runs the new program once to make sure it works here,
 and only then puts it in place. If anything fails, the old komando stays.
 Your servers, secrets and history in `~/.komando` stay as they are.
 
@@ -84,7 +95,8 @@ your AI agents get the skill of the new version. Until then
   Run `sudo komando update`. As root it writes nothing in `~/.komando`.
 - On Windows the running `komando.exe` is renamed aside (Windows does not
   let a running program be replaced) and the new one takes its name.
-- `komando update v0.11.0` installs that version. Going back to an older
+- `komando update v0.14.1` installs that version (only releases after
+  0.13.0 are signed; see below for older ones). Going back to an older
   version asks you first, because an older komando may lack safety checks
   the newer one has. An AI agent needs `--yes` and your "Allow once".
 - `update` takes only a komando version. `komando update web1` is an
@@ -94,10 +106,19 @@ your AI agents get the skill of the new version. Until then
   release is older than the komando you run.
 - A komando you built yourself from a commit between releases is not
   replaced (`SOURCE_BUILD`): build it again instead. One built at a release
-  tag (`go install ...@v0.13.0`) counts as that release.
+  tag (`go install ...@v0.14.1`) counts as that release.
 - Run as you, the update is written to the audit log like any other change.
-- `update` checks the download against the release's checksums. To check
-  the signed build provenance too, use `gh attestation verify` (see
+- `update` installs only a release signed with the komando project's key,
+  which is built into komando. The release workflow signs `checksums.txt`
+  (as `checksums.txt.sig`), so someone who replaced a release's files
+  cannot make `update` install them. An unsigned release stops with
+  `RELEASE_SIGNATURE_NOT_FOUND`, a wrong signature with
+  `RELEASE_SIGNATURE_INVALID`; nothing is changed. Do not work around either for a new release: report it
+  ([SECURITY.md](../../SECURITY.md)). Releases up to 0.13.0 have no
+  signature, so `komando update v0.13.0` stops too; to go back to one of
+  them, use the install line with `KOMANDO_VERSION=v0.13.0`.
+- To check the signed build provenance of a download as well, use
+  `gh attestation verify` (see
   [Other ways to install](#other-ways-to-install)).
 - It uses `HTTPS_PROXY`. `sudo` drops that variable; keep it with
   `sudo --preserve-env=HTTPS_PROXY komando update`.
@@ -105,7 +126,7 @@ your AI agents get the skill of the new version. Until then
   answers with an error, it tries twice more.
 
 Installed with `sudo` and the install line? Update the same way:
-`curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sudo sh`.
+`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sudo sh`.
 Without `sudo` the installer cannot write there, puts the new version in
 `~/.local/bin`, and your terminal may keep running the old one.
 `komando version` shows which one runs.

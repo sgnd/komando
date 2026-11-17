@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/flock"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 type Host struct {
@@ -22,10 +23,18 @@ type Host struct {
 	Port        int    `json:"port,omitempty"`
 	User        string `json:"user,omitempty"`
 	Key         string `json:"key,omitempty"`          // name of a key in the keychain
+	KeyID       string `json:"key_id,omitempty"`       // that key's record ID (refs.go)
 	Identity    string `json:"identity,omitempty"`     // path to a private key file
 	PasswordRef string `json:"password_ref,omitempty"` // secret:<name> or env:<VAR>
-	SudoRef     string `json:"sudo_ref,omitempty"`     // sudo password ref (secret:/env:)
-	Via         string `json:"via,omitempty"`          // the way there: host name(s), comma-separated chain
+	// Login is "ask" (LoginAsk) for a server whose password is never
+	// stored: a person types it at every connect (host add --login ask).
+	// Empty: keys, ssh-agent and PasswordRef, as komando always logs in.
+	Login   string `json:"login,omitempty"`
+	SudoRef string `json:"sudo_ref,omitempty"` // sudo password ref (secret:/env:)
+	Via     string `json:"via,omitempty"`      // the way there: host name(s), comma-separated chain
+	// ViaIDs are the record IDs of Via's steps, in order ("" for a step
+	// that names no server or VPN); see refs.go
+	ViaIDs []string `json:"via_ids,omitempty"`
 	// ProxyCommand is a program on this computer whose stdin and stdout
 	// carry the SSH connection (OpenSSH ProxyCommand): aws ssm start-session,
 	// gcloud compute start-iap-tunnel, cloudflared access ssh. %h %p %r %n.
@@ -35,7 +44,11 @@ type Host struct {
 	Labels       map[string]string `json:"labels,omitempty"`
 	Env          map[string]string `json:"env,omitempty"` // exported before every command
 	Protected    bool              `json:"protected,omitempty"`
-	Notes        string            `json:"notes,omitempty"`
+	// ForwardAgent lends the server this computer's ssh-agent while
+	// komando is connected (host edit --forward-agent; root there can use
+	// the keys in it meanwhile)
+	ForwardAgent bool   `json:"forward_agent,omitempty"`
+	Notes        string `json:"notes,omitempty"`
 	// OS is "windows" for a Windows server: commands are PowerShell, not
 	// sh. Empty: Linux or another Unix (docs/features/windows.md).
 	OS string `json:"os,omitempty"`
@@ -46,6 +59,54 @@ type Host struct {
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	Rec       Rec        `json:"-"`
+}
+
+// LoginAsk is Host.Login for a server whose password a person types at
+// every connect; komando never stores it.
+const LoginAsk = "ask"
+
+// The ways a server logs in, as host show and host list name them
+// (LoginMode).
+const (
+	LoginModeAsk      = "ask"      // a person types the password at every connect
+	LoginModeKey      = "key"      // a key komando names (--key or --identity)
+	LoginModePassword = "password" // a stored password (--password-ref)
+	LoginModeAgent    = "agent"    // ssh-agent and the default keys in ~/.ssh
+)
+
+// AskLogin reports a server whose password a person types at every connect.
+func (h *Host) AskLogin() bool { return h != nil && h.Login == LoginAsk }
+
+// AskLogin reports a conn whose password a person types at every connect.
+func (c *Conn) AskLogin() bool { return c != nil && c.Login == LoginAsk }
+
+// LoginModeNone is a conn's login when komando sends no password of its
+// own: the URL's own login, a cloud login, or none.
+const LoginModeNone = "none"
+
+// LoginMode is how komando logs in to c: ask, password or none.
+func (c *Conn) LoginMode() string {
+	switch {
+	case c.AskLogin():
+		return LoginModeAsk
+	case c.PasswordRef != "":
+		return LoginModePassword
+	}
+	return LoginModeNone
+}
+
+// LoginMode is how komando logs in to h: ask, key, password or agent. A
+// server with a key and a stored password is "key": the key goes first.
+func (h *Host) LoginMode() string {
+	switch {
+	case h.AskLogin():
+		return LoginModeAsk
+	case h.Key != "" || h.Identity != "":
+		return LoginModeKey
+	case h.PasswordRef != "":
+		return LoginModePassword
+	}
+	return LoginModeAgent
 }
 
 // TransportWinRM is Host.Transport for a server reached over WinRM.
@@ -89,36 +150,49 @@ func (h *Host) EffectivePort() int {
 // Conn is a non-SSH resource (database, cache, ...) reached directly or
 // through an SSH host. The URL never holds a password; see PasswordRef.
 type Conn struct {
-	Name        string            `json:"name"`
-	Kind        string            `json:"kind"` // a name from driver.Kinds: postgres, redis, s3, kafka ...
-	URL         string            `json:"url"`
-	PasswordRef string            `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
-	Via         string            `json:"via,omitempty"`          // host used to reach the resource
-	Groups      []string          `json:"groups,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
-	Options     map[string]string `json:"options,omitempty"` // kind-specific settings
-	Protected   bool              `json:"protected,omitempty"`
-	Notes       string            `json:"notes,omitempty"`
+	Name        string `json:"name"`
+	Kind        string `json:"kind"` // a name from driver.Kinds: postgres, redis, s3, kafka ...
+	URL         string `json:"url"`
+	PasswordRef string `json:"password_ref,omitempty"` // secret:<name>, env:<VAR> or file:<path>
+	// Login is "ask" (LoginAsk) for a conn whose password is never
+	// stored: a person types it at every connect (conn add --login ask)
+	Login     string            `json:"login,omitempty"`
+	Via       string            `json:"via,omitempty"`     // host used to reach the resource
+	ViaIDs    []string          `json:"via_ids,omitempty"` // the record IDs of Via's steps (refs.go)
+	Groups    []string          `json:"groups,omitempty"`
+	Tags      []string          `json:"tags,omitempty"`
+	Labels    map[string]string `json:"labels,omitempty"`
+	Options   map[string]string `json:"options,omitempty"` // kind-specific settings
+	Protected bool              `json:"protected,omitempty"`
+	Notes     string            `json:"notes,omitempty"`
 	// TrustedPlugin is the hash of the kubeconfig login program a person
 	// trusted for this conn (import kubeconfig). Not an Option: only a
 	// person's import sets it, never --option.
-	TrustedPlugin string    `json:"trusted_plugin,omitempty"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	Rec           Rec       `json:"-"`
+	TrustedPlugin string `json:"trusted_plugin,omitempty"`
+	// PluginProgram is the full path of that login program as the import
+	// found it, and PluginSearchPath the PATH of that import: an AI
+	// agent's command runs this file with this PATH, not what its own
+	// PATH would find.
+	PluginProgram    string    `json:"plugin_program,omitempty"`
+	PluginSearchPath string    `json:"plugin_search_path,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	Rec              Rec       `json:"-"`
 }
 
 type Key struct {
-	Name          string    `json:"name"`
-	Path          string    `json:"path"`
-	Type          string    `json:"type,omitempty"`
-	PublicKey     string    `json:"public_key,omitempty"`
-	Fingerprint   string    `json:"fingerprint,omitempty"`
-	PassphraseRef string    `json:"passphrase_ref,omitempty"`
-	Managed       bool      `json:"managed"` // generated/stored by komando
-	CreatedAt     time.Time `json:"created_at"`
-	Rec           Rec       `json:"-"`
+	Name          string `json:"name"`
+	Path          string `json:"path"`
+	Type          string `json:"type,omitempty"`
+	PublicKey     string `json:"public_key,omitempty"`
+	Fingerprint   string `json:"fingerprint,omitempty"`
+	PassphraseRef string `json:"passphrase_ref,omitempty"`
+	// CertPath is an OpenSSH user certificate for the key (key add --cert);
+	// without it a key file's KEY-cert.pub next to it is used, as ssh does
+	CertPath  string    `json:"cert_path,omitempty"`
+	Managed   bool      `json:"managed"` // generated/stored by komando
+	CreatedAt time.Time `json:"created_at"`
+	Rec       Rec       `json:"-"`
 }
 
 type Snippet struct {
@@ -153,6 +227,7 @@ type Tunnel struct {
 	Kind      string    `json:"kind"`           // local | remote | dynamic
 	Spec      string    `json:"spec"`
 	PID       int       `json:"pid"`
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart)
 	LogFile   string    `json:"log_file"`
 	StartedAt time.Time `json:"started_at"`
 }
@@ -208,7 +283,6 @@ type Vpn struct {
 	CA        string            `json:"ca,omitempty"`         // ikev2: PEM of the CA that signed the server certificate
 	MFA       bool              `json:"mfa,omitempty"`        // a human must log in (`vpn up`); never automated
 	Protected bool              `json:"protected,omitempty"`  // changing or removing it needs a person's yes
-	OSMode    bool              `json:"os_mode,omitempty"`    // removed OpenVPN OS mode; kept only so `vpn up` refuses such a VPN
 	Check     string            `json:"check,omitempty"`      // host:port that answers only through the VPN
 	Groups    []string          `json:"groups,omitempty"`
 	Tags      []string          `json:"tags,omitempty"`
@@ -231,7 +305,8 @@ type VpnSession struct {
 	Socks     string    `json:"socks,omitempty"`      // local SOCKS5 address; empty when the OS routes the traffic
 	SocksUser string    `json:"socks_user,omitempty"` // login for the container's SOCKS port, random per session
 	SocksPass string    `json:"socks_pass,omitempty"`
-	Exe       string    `json:"exe,omitempty"` // the program the pid must still be, so a reused pid is never signalled
+	Exe       string    `json:"exe,omitempty"`        // the program the pid must still be, so a reused pid is never signalled
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart): a pid used again is another process
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`
@@ -245,6 +320,7 @@ type SSHLogin struct {
 	Target    string    `json:"target"` // user@address:port when it logged in: the login is used only while the host still points there
 	PID       int       `json:"pid"`
 	Exe       string    `json:"exe,omitempty"`
+	ProcStart string    `json:"proc_start,omitempty"` // when that process started (netx.ProcessStart)
 	Socket    string    `json:"socket"`
 	Token     string    `json:"token"`    // the socket's password, random per login
 	HostKey   string    `json:"host_key"` // the socket's own key (authorized_keys form), random per login
@@ -267,11 +343,12 @@ type State struct {
 	settingsRec Rec // the settings record in the sealed store
 }
 
+// Home is komando's data folder: KOMANDO_HOME, else .komando in UserHome.
 func Home() string {
 	if h := os.Getenv("KOMANDO_HOME"); h != "" {
 		return h
 	}
-	d, err := os.UserHomeDir()
+	d, err := UserHome()
 	if err != nil {
 		return ".komando"
 	}
@@ -304,6 +381,9 @@ func ensureHome() error {
 			}
 			return fmt.Errorf("could not make %s private to you (%w); set KOMANDO_HOME to a folder on an NTFS drive", d, err)
 		}
+	}
+	if len(made) == 0 {
+		tightenHome(h)
 	}
 	return nil
 }
@@ -376,18 +456,51 @@ func (s *State) init() {
 	}
 }
 
-// DryRun makes Update apply fn to a copy that is never saved. The CLI sets
-// it for --dry-run, so a command shows the result of its change (and its
-// validation errors) without making it.
-var DryRun bool
+// Write says what a change does: Save() makes it; Preview() (a command's
+// --dry-run) applies it to a copy that is never saved, so the command
+// shows the result of its change (and its validation errors) without
+// making it. Each command passes its own, so a dry run never turns
+// another command's change into a preview. A struct, not a bool, so a
+// bare true or false does not compile: every change names Save() or
+// Preview(). Functions, not variables, so no code can set one to the
+// other; the zero Write names neither, and a change with it stops
+// (Check).
+type Write struct{ how writeHow }
 
-// ErrDryRun is returned by writes that cannot be simulated (the vault).
+type writeHow uint8
+
+const (
+	writeUnset writeHow = iota
+	writeSave
+	writePreview
+)
+
+// Save is the Write that makes a change.
+func Save() Write { return Write{writeSave} }
+
+// Preview is the Write that only previews a change (--dry-run).
+func Preview() Write { return Write{writePreview} }
+
+// Check is nil for Save() and Preview(), and an error for the zero Write,
+// which names neither.
+func (w Write) Check() error {
+	if w.how == writeUnset {
+		return errors.New("store: a change that says neither Save nor Preview; nothing was changed")
+	}
+	return nil
+}
+
+// ErrDryRun is returned by writes that cannot be previewed (the vault).
 var ErrDryRun = errors.New("this command cannot preview its change; nothing was changed")
 
 // Update reads the inventory, applies fn and writes what changed, in one
-// write step of the store. Safe for concurrent komando processes (parallel agents).
-func Update(fn func(s *State) error) error {
-	if DryRun {
+// write step of the store; with Preview() it only applies fn to a copy.
+// Safe for concurrent komando processes (parallel agents).
+func Update(w Write, fn func(s *State) error) error {
+	if err := w.Check(); err != nil {
+		return err
+	}
+	if w == Preview() {
 		s, err := Load()
 		if err != nil {
 			return err
@@ -425,6 +538,7 @@ func WriteFileAtomic(path string, b []byte, mode os.FileMode) (err error) {
 	if err != nil {
 		return err
 	}
+	defer tmpclean.Add(tmp.Name())()
 	defer func() {
 		if err != nil {
 			tmp.Close()

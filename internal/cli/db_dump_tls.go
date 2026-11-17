@@ -28,10 +28,10 @@ import (
 
 // toolTLSArgs passes the conn URL's TLS settings on to the tool's command
 // line argv, asking the tool for its version where that matters.
-func toolTLSArgs(ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, argv []string) ([]string, error) {
+func toolTLSArgs(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, argv []string) ([]string, error) {
 	version := func() (string, error) {
 		var b bytes.Buffer
-		err := runTool(ctx, st, c, h, dumpTool{passwordEnv: tool.passwordEnv, pkg: tool.pkg}, []string{argv[0], "--version"}, nil, &b, false)
+		err := runTool(cl, ctx, st, c, h, dumpTool{passwordEnv: tool.passwordEnv, pkg: tool.pkg}, []string{argv[0], "--version"}, nil, &b, false)
 		return b.String(), err
 	}
 	switch {

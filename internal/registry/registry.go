@@ -19,7 +19,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sgnd/komando/internal/proxyx"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // Accept lists the manifest types komando reads.
@@ -48,10 +48,7 @@ type TLS struct {
 // CAPool is the system's CAs plus the PEM certificates in pem, for a
 // registry with a certificate from a private CA (mkcert, an internal CA).
 func CAPool(pem []byte) (*x509.CertPool, error) {
-	pool, err := x509.SystemCertPool()
-	if err != nil || pool == nil {
-		pool = x509.NewCertPool()
-	}
+	pool := transport.Roots()
 	if !pool.AppendCertsFromPEM(pem) {
 		return nil, fmt.Errorf("no PEM certificate found (it starts with -----BEGIN CERTIFICATE-----)")
 	}
@@ -78,7 +75,7 @@ func New(host string, t TLS, user, password string, dial func(ctx context.Contex
 		// without a limit, an address that never answers waits for the
 		// system's own (75 s and more)
 		tr.DialContext = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext
-		tr.Proxy = proxyx.FromEnv() // HTTPS_PROXY and NO_PROXY, as docker reads them
+		tr.Proxy = transport.Proxy() // HTTPS_PROXY and NO_PROXY, as docker reads them
 	}
 	return &Client{Base: &url.URL{Scheme: scheme, Host: host}, User: user, Password: password, skipVerify: t.SkipVerify,
 		http: &http.Client{Transport: tr, Timeout: 2 * time.Minute}, tokens: map[string]string{}}

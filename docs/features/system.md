@@ -28,7 +28,8 @@ komando svc logs web1 nginx                   # the unit's journal (see Logs)
 `start`, `stop`, `restart`, `reload`, `enable` and `disable` use sudo and
 report the state afterwards (see [Sudo](#sudo)).
 
-- `--wait` takes a time (`10s`, `2m`); a bare number counts as seconds.
+- `--wait` takes a time with a unit (`10s`, `2m`); a number without a unit
+  is refused, except `0` (no wait).
 - Stopping, disabling or masking the SSH server (`ssh`, `sshd`,
   `ssh.socket`) needs `--allow-dangerous`: it locks you out.
 
@@ -93,8 +94,7 @@ komando docker compose web1 --dir /srv/shop -- up -d --pull always
 - `docker exec` passes the command's words as written, with no shell, so
   the image needs no `sh`. For pipes or `&&`, write the shell yourself:
   `-- sh -c 'ls /data | wc -l'`. Add `--read-only` when it only looks; it
-  is checked as for `exec`, so on a protected server only commands komando
-  knows read skip the question.
+  is checked as for `exec`: only commands komando knows only read run.
 - `docker raw TARGET -- ARGS...` runs any other docker subcommand, under the
   same rules.
 - `--sudo` runs docker through sudo, when your user is not in the `docker`
@@ -147,7 +147,10 @@ komando pkg update web1                         # only refresh the package index
 - `install` and `rm` report what changed (`changed: false` when there was
   nothing to do). An unknown package exits 3 (`PACKAGE_NOT_FOUND`).
 - `upgradable` says how old the package index is, and suggests `--refresh`
-  when it is more than a day old.
+  when it is more than a day old. `--refresh` rewrites the server's package
+  index as root, so it is a change: on a protected server `pkg upgradable
+  --refresh` and `pkg security --refresh` need a yes, and a dry run never
+  refreshes.
 - Removing packages a server needs (openssh-server, sudo, systemd, libc
   and the like) needs `--allow-dangerous`, however the name is written
   (`openssh-server:amd64`, `sudo.x86_64`, `openssh.server`). On apt
@@ -302,8 +305,8 @@ use sudo, the command stops with `PERMISSION_DENIED` and a hint that names
 the fix (`komando host edit web1 --sudo-ref secret:web1-sudo`, see
 [Sudo passwords](servers.md#sudo-passwords-and-the-vault)). A server with
 no sudo at all gives `TOOL_MISSING` (add `--no-sudo` as root). The same
-holds for `pkg`, `user`, `cron --user`, the `docker` commands that change
-something with `--sudo`, and recipes that use sudo.
+holds for `pkg`, `user`, `cron --user`, every `docker` command with
+`--sudo` (as root, leave out `--sudo`), and recipes that use sudo.
 
 ## Whole jobs, step by step
 
@@ -344,7 +347,6 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
   own units (`systemctl --user`); use `komando exec` for those.
 - `svc` and `logs --unit` need systemd; a server without it (most
   containers) stops with `NO_SYSTEMD`.
-- `--since today` and `--since yesterday` do not work for containers.
 - On apt servers only, `pkg rm` and `pkg upgrade --security` check whether
   an essential package would go with another one; other package managers
   are not checked this way.
@@ -385,7 +387,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 | `-c`, `--container NAME` | Read this Docker container's log. |
 | `-n`, `--limit N` | The last N lines (default 200). |
 | `--grep REGEX` | Only lines that match (extended regex, any case). |
-| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). Containers take no `today` or `yesterday`. |
+| `--since` / `--until` | A time range: a time back from now (`30m`, `2h`, `7d`), `today`, `yesterday`, or a date (`'2026-01-02 10:00'`). For a container, `today` and `yesterday` are the server's own midnight. |
 | `-p`, `--priority` | Journal priority and worse: `emerg` to `debug`, or 0-7. |
 | `-f`, `--follow` | Keep printing new lines until Ctrl-C. |
 | `-s`, `--sudo` | Read the whole journal or a protected file. As root, komando does not read a file through a link another server user made (`IS_A_SYMLINK`), and `--follow` keeps reading the file it opened. |

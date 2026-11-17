@@ -38,19 +38,19 @@ func dbUserLsCmd() *cobra.Command {
 		Short:   "List the users and roles of a database",
 		Example: "  komando db user list prod-db",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.user.list", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
-				rows, err := dbx.Users(ctx, db, c.Kind, connTimeout(c))
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return readDB(cl, cmd.Context(), "db.user.list", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+				rows, err := dbx.Users(ctx, db, c.Kind, connTimeout(cl, c))
 				if err != nil {
 					return nil, err
 				}
 				if rows == nil {
 					rows = []map[string]any{}
 				}
-				rows = cutRows(rows, limit)
+				rows = cutRows(cl, rows, limit)
 				return map[string]any{"conn": c.Name, "count": len(rows), "users": rows}, nil
 			})
-		},
+		}),
 	}
 	limitFlag(c, &limit, 0, "users")
 	return c
@@ -69,7 +69,7 @@ func dbUserChangeCmd(action string) *cobra.Command {
 		Short:   parts[1],
 		Example: parts[2],
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			u := dbx.UserSpec{Name: args[1], Host: host, NoLogin: noLogin}
 			switch {
 			case action == "rm" && ref != "":
@@ -81,14 +81,14 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			}
 			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-user"}, Reasons: []string{"db user " + action + " " + args[1]}}
 			if action == "rm" {
-				askTypes(args[1:2], "users")
+				askTypes(cl, args[1:2], "users")
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user-rm"}, Reasons: []string{"removes the user " + args[1]}}
 			}
-			return changeDB(cmd.Context(), "db.user."+action, args[0], v, map[string]any{"user": args[1]},
+			return changeDB(cl, cmd.Context(), "db.user."+action, args[0], v, map[string]any{"user": args[1]},
 				func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 					if ref != "" {
 						// the password goes to the conn's server, which could be the agent's own
-						if err := guardSecretUse([]string{ref}, connPlace(c).dest+" as the password of database user "+args[1]+" (conn "+c.Name+")"); err != nil {
+						if err := guardSecretUse(cl, []string{ref}, connPlace(c).dest+" as the password of database user "+args[1]+" (conn "+c.Name+")"); err != nil {
 							return nil, err
 						}
 						pw, err := vault.Resolve(ref)
@@ -100,16 +100,16 @@ func dbUserChangeCmd(action string) *cobra.Command {
 						}
 						u.Password = pw
 					}
-					shown, err := dbx.UserChange(ctx, db, c.Kind, action, u, g.dryRun)
+					shown, err := dbx.UserChange(ctx, db, c.Kind, action, u, cl.flags.dryRun)
 					res := map[string]any{"conn": c.Name, "user": args[1], "sql": shown}
-					if g.dryRun {
+					if cl.flags.dryRun {
 						res["dry_run"] = true
 					} else if err == nil {
 						res["done"] = action
 					}
 					return res, err
 				})
-		},
+		}),
 	}
 	if action != "rm" {
 		c.Flags().StringVar(&ref, "password-ref", "", "the password: secret:NAME | vault:PATH#FIELD | aws-sm:NAME | ...")
@@ -126,12 +126,12 @@ func dbUserChangeCmd(action string) *cobra.Command {
 
 // changeDB is readDB for a change: the safety check first, then fn on a
 // writable connection, then the audit (no password in it).
-func changeDB(ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error)) error {
+func changeDB(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, rec map[string]any, fn func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "db")
+	c, err := singleConn(cl, st, connExpr, "db")
 	if err != nil {
 		return err
 	}
@@ -141,17 +141,17 @@ func changeDB(ctx context.Context, name, connExpr string, v driver.Verdict, rec 
 	if c.Kind == "bigquery" { // Google Cloud IAM
 		return dbx.BQNoUsers(strings.ReplaceAll(name, ".", " "))
 	}
-	if err := guardConns(st, []*store.Conn{c}, v); err != nil && !g.dryRun {
-		audit(st, name, nil, "", false, map[string]any{"conns": []string{c.Name}, "blocked": toErr(err).Code})
+	if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil && !cl.flags.dryRun {
+		audit(cl, st, name, nil, "", false, map[string]any{"conns": []string{c.Name}, "blocked": toErr(err).Code})
 		return err
 	}
-	db, closeDB, err := openDB(ctx, st, c, g.dryRun)
+	db, closeDB, err := openDB(cl, ctx, st, c, cl.flags.dryRun)
 	if err != nil {
 		return err
 	}
 	defer closeDB()
 	res, err := fn(ctx, c, db)
-	if !g.dryRun {
+	if !cl.flags.dryRun {
 		r := map[string]any{"conns": []string{c.Name}, "risk": v.Risk.String()}
 		for k, x := range rec {
 			r[k] = x
@@ -159,12 +159,12 @@ func changeDB(ctx context.Context, name, connExpr string, v driver.Verdict, rec 
 		if m, ok := res.(map[string]any); ok && m["sql"] != nil {
 			r["sql"] = m["sql"] // the shown form: the password is hidden
 		}
-		audit(st, name, nil, "", err == nil, r)
+		audit(cl, st, name, nil, "", err == nil, r)
 	}
 	if err != nil {
 		return err
 	}
-	out.P.Print(name, res, nil)
+	cl.out.Print(name, res, nil)
 	return nil
 }
 
@@ -187,7 +187,7 @@ IAM). --dry-run shows the statement.`,
   komando db ` + verb + ` prod-db app_ro --role readers
   komando db ` + verb + ` prod-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*'`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			gr := dbx.Grant{User: args[1], Host: host, On: on, Role: role, Revoke: revoke}
 			if privs != "" {
 				gr.Privs = strings.Split(privs, ",")
@@ -200,14 +200,14 @@ IAM). --dry-run shows the statement.`,
 				return out.Usage("--privileges needs --on OBJECT").WithHint(ex)
 			}
 			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-grant"}, Reasons: []string{"db " + verb + " for " + args[1]}}
-			return changeDB(cmd.Context(), "db."+verb, args[0], v, map[string]any{"user": args[1]},
+			return changeDB(cl, cmd.Context(), "db."+verb, args[0], v, map[string]any{"user": args[1]},
 				func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 					stmt, err := dbx.GrantSQL(ctx, db, c.Kind, gr)
 					if err != nil {
 						return nil, err
 					}
 					res := map[string]any{"conn": c.Name, "user": args[1], "sql": stmt}
-					if g.dryRun {
+					if cl.flags.dryRun {
 						res["dry_run"] = true
 						return res, nil
 					}
@@ -217,7 +217,7 @@ IAM). --dry-run shows the statement.`,
 					res["done"] = verb
 					return res, nil
 				})
-		},
+		}),
 	}
 	c.Flags().StringVar(&privs, "privileges", "", "comma-separated: SELECT,INSERT,UPDATE,DELETE,... or ALL")
 	c.Flags().StringVar(&on, "on", "", "what the privileges are on (see above)")
@@ -234,9 +234,9 @@ func dbUserShowCmd() *cobra.Command {
 		Short:   "What a user may do: privileges on tables and databases, and its roles",
 		Example: "  komando db user show prod-db app_ro",
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return readDB(cmd.Context(), "db.user.show", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
-				rows, err := dbx.Grants(ctx, db, c.Kind, args[1], host, connTimeout(c))
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return readDB(cl, cmd.Context(), "db.user.show", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
+				rows, err := dbx.Grants(ctx, db, c.Kind, args[1], host, connTimeout(cl, c))
 				if err != nil {
 					return nil, err
 				}
@@ -245,7 +245,7 @@ func dbUserShowCmd() *cobra.Command {
 				}
 				return map[string]any{"conn": c.Name, "user": args[1], "grants": rows}, nil
 			})
-		},
+		}),
 	}
 	c.Flags().StringVar(&host, "from-host", "", "MySQL: where the user connects from (the account host; default %)")
 	return c

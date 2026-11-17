@@ -27,11 +27,11 @@ func TestProtectedFollowsTheAddressAtRunTime(t *testing.T) {
 			st := &store.State{Hosts: map[string]*store.Host{
 				"prod": {Name: "prod", Address: tc.protected, User: "root", Protected: true},
 			}}
-			m, err := matchSelector(st, tc.target)
+			m, err := matchSelector(tcl, st, tc.target)
 			if err != nil || len(m.Hosts) != 1 {
 				t.Fatalf("%s: %v %v", tc.target, m, err)
 			}
-			if err := guard(st, m.Hosts, "systemctl restart postgresql", true); err == nil || toErr(err).Code != "PROTECTED_HOST" {
+			if err := guard(tcl, st, m.Hosts, "systemctl restart postgresql", true); err == nil || toErr(err).Code != "PROTECTED_HOST" {
 				t.Errorf("guard: %v", err)
 			}
 		})
@@ -39,12 +39,12 @@ func TestProtectedFollowsTheAddressAtRunTime(t *testing.T) {
 	// inventory addresses (komando stores them without brackets)
 	for _, a := range []string{"[::ffff:10.0.0.5]", "0:0:0:0:0:ffff:a00:5", "10.0.0.5."} {
 		st := &store.State{Hosts: map[string]*store.Host{"prod": {Name: "prod", Address: "10.0.0.5", Protected: true}}}
-		if err := guard(st, []*store.Host{{Name: "alias", Address: a}}, "", true); err == nil {
+		if err := guard(tcl, st, []*store.Host{{Name: "alias", Address: a}}, "", true); err == nil {
 			t.Errorf("%s is prod", a)
 		}
 	}
 	other := &store.State{Hosts: map[string]*store.Host{"prod": {Name: "prod", Address: "10.0.0.5", Protected: true}}}
-	if err := guard(other, []*store.Host{{Name: "x", Address: "10.0.0.6"}}, "", true); err != nil {
+	if err := guard(tcl, other, []*store.Host{{Name: "x", Address: "10.0.0.6"}}, "", true); err != nil {
 		t.Errorf("another server is not protected: %v", err)
 	}
 }
@@ -102,7 +102,7 @@ func TestImportResolvesEachNameOnce(t *testing.T) {
 	}
 	hosts = append(hosts, &store.Host{Name: "alias", Address: "alias.internal", User: "root"})
 	prefetchTwinIPs(st, hosts)
-	v, err := vetImportHosts(st, hosts, false, false)
+	v, err := vetImportHosts(tcl, st, hosts, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}

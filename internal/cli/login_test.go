@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 
+	"github.com/sgnd/komando/internal/engine"
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
@@ -153,13 +154,20 @@ func TestTestWithEncryptedIdentityInAgent(t *testing.T) {
 // sshx words the HOSTKEY_MISMATCH hint for a person only when interactive()
 // says one is at the terminal.
 func TestHostKeyHintFollowsInteractive(t *testing.T) {
-	saved := interactive
-	defer func() { interactive = saved }()
-	interactive = func() bool { return true }
+	// a person's call, whatever a test before left in tcl: not an agent,
+	// not in CI, and the one call running (sshx.PersonAtTerminal)
+	t.Setenv("CI", "")
+	savedTerm, savedCaller := tcl.terminal, tcl.caller()
+	t.Cleanup(func() { tcl.terminal = savedTerm; tcl.setCaller(savedCaller) })
+	tcl.setCaller(engine.Caller{Kind: engine.Person})
+	if soleCall() != tcl {
+		t.Fatal("tcl is not the one call running")
+	}
+	tcl.terminal = true
 	if !strings.Contains(sshx.HostKeyMismatch("web1", "SHA256:x", nil).Hint, "compare this fingerprint") {
 		t.Error("a person gets the agent's hint")
 	}
-	interactive = func() bool { return false }
+	tcl.terminal = false
 	if !strings.Contains(sshx.HostKeyMismatch("web1", "SHA256:x", nil).Hint, "report this to the user") {
 		t.Error("an agent or a script gets the person's hint")
 	}
@@ -170,7 +178,7 @@ func TestHostKeyHintFollowsInteractive(t *testing.T) {
 // subcommands, in any case.
 func TestLoginCloudNamesReserved(t *testing.T) {
 	var subs []string
-	for _, c := range loginCmd().Commands() {
+	for _, c := range loginCmd(tcl).Commands() {
 		subs = append(subs, c.Name())
 	}
 	slices.Sort(subs)
@@ -239,9 +247,7 @@ func TestLoginAWSNeedsPerson(t *testing.T) {
 	if !strings.Contains(e.Hint, "komando login aws --profile sso") {
 		t.Errorf("script hint %q", e.Hint)
 	}
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	e = wantCode(t, "NEEDS_PERSON", "login", "aws", "--profile", "sso")
 	if e.Exit != out.ExitPolicy || !strings.Contains(e.Hint, "`komando login aws --profile sso`") {
 		t.Errorf("agent: exit %d hint %q", e.Exit, e.Hint)

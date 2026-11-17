@@ -16,6 +16,8 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+
+	"github.com/sgnd/komando/internal/gcpadc"
 )
 
 // gcpSecretEndpoint is Secret Manager's REST address; tests point it at a
@@ -26,7 +28,7 @@ var gcpSecretEndpoint = "https://secretmanager.googleapis.com"
 // GOOGLE_APPLICATION_CREDENTIALS file, the well-known file in the gcloud
 // folder, or the metadata server on Google Cloud. Tests replace it.
 var gcpCredentials = func(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
+	return gcpadc.Find(ctx, "https://www.googleapis.com/auth/cloud-platform")
 }
 
 // ErrGCPLogin is wrapped by errors that credentials fix.
@@ -38,7 +40,11 @@ var ErrGCPLogin = errors.New("google cloud credentials required")
 func GCPSecret(ctx context.Context, name, project string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, proxiedClient(30*time.Second)) // tokens too: never http.DefaultClient
 	creds, err := gcpCredentials(ctx)
+	if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
+		return "", fe.Err
+	}
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrGCPLogin, err)
 	}

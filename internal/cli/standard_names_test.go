@@ -22,7 +22,7 @@ func findCmd(t *testing.T, root *cobra.Command, args ...string) *cobra.Command {
 // A renamed command's ID is its new path; its plain synonym (mv, get, ls)
 // runs the same command (S-1.7).
 func TestStandardRenamedIDs(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, c := range []struct {
 		now, old []string
 		id       string
@@ -87,13 +87,13 @@ func TestStandardListVerb(t *testing.T) {
 			t.Errorf("%s: list needs the ls alias", c.CommandPath())
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 }
 
 // Every noun has its plural and its help word as a synonym (S-2.1), and
 // each synonym of C-V07..C-V21 runs the command (and ID) it stands for.
 func TestStandardSynonyms(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for noun, aliases := range nounAliases {
 		c := findCmd(t, root, noun)
 		for _, a := range aliases {
@@ -177,7 +177,7 @@ func TestSchemaResolvesNames(t *testing.T) {
 // `db user show` has the ID db.user.show; `db grants` is no command (C-V15).
 func TestDbUserShowReplacesGrants(t *testing.T) {
 	invHome(t)
-	show := findCmd(t, newRoot(), "db", "user", "show")
+	show := findCmd(t, newRoot(tcl), "db", "user", "show")
 	if cmdID(show) != "db.user.show" || show.Hidden {
 		t.Fatalf("id %s, hidden %v", cmdID(show), show.Hidden)
 	}

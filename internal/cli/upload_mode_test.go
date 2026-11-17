@@ -22,19 +22,19 @@ func TestUploadKeepsTheRemoteMode(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if _, err := upload(ctx, nil, sc, src, dst, cpOpts{}); err != nil {
+	if _, err := upload(tcl, ctx, nil, sc, src, dst, cpOpts{}); err != nil {
 		t.Fatal(err)
 	}
 	if m := mode(t, dst); m != 0o600 || read(t, dst) != "A=1\n" {
 		t.Fatalf("existing file: mode %04o", m)
 	}
-	if _, err := upload(ctx, nil, sc, src, filepath.Join(remote, "new.env"), cpOpts{}); err != nil {
+	if _, err := upload(tcl, ctx, nil, sc, src, filepath.Join(remote, "new.env"), cpOpts{}); err != nil {
 		t.Fatal(err)
 	}
 	if m := mode(t, filepath.Join(remote, "new.env")); m != 0o644 {
 		t.Fatalf("new file: mode %04o", m)
 	}
-	if _, err := upload(ctx, nil, sc, src, dst, cpOpts{mode: "0640"}); err != nil {
+	if _, err := upload(tcl, ctx, nil, sc, src, dst, cpOpts{mode: "0640"}); err != nil {
 		t.Fatal(err)
 	}
 	if m := mode(t, dst); m != 0o640 {
@@ -49,7 +49,7 @@ func TestUploadKeepsTheRemoteMode(t *testing.T) {
 	into := filepath.Join(remote, "conf")
 	_ = os.MkdirAll(into, 0o755)
 	_ = os.WriteFile(filepath.Join(into, "secret.yml"), []byte("old\n"), 0o600)
-	if _, err := upload(ctx, nil, sc, tree+"/", into, cpOpts{recursive: true}); err != nil {
+	if _, err := upload(tcl, ctx, nil, sc, tree+"/", into, cpOpts{recursive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if m := mode(t, filepath.Join(into, "secret.yml")); m != 0o600 {

@@ -115,7 +115,7 @@ func TestPkgRmStopsOnEssentialDependents(t *testing.T) {
 	if s := pkgChangeScript("install", []string{"nginx"}, true); strings.Contains(s, "ACTION=simulate-remove") {
 		t.Error("install simulates a removal")
 	}
-	_, e := pkgChangeResult("remove", []string{"libssl3"}, &sshx.RunResult{Stdout: "#komando:essential\nopenssh-server\nsudo\n"})
+	_, e := pkgChangeResult(tcl, "remove", []string{"libssl3"}, &sshx.RunResult{Stdout: "#komando:essential\nopenssh-server\nsudo\n"})
 	if e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(e.Message, "openssh-server, sudo") || e.Exit != out.ExitPolicy {
 		t.Errorf("result: %+v", e)
 	}

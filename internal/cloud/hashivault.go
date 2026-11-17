@@ -3,7 +3,6 @@ package cloud
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // VaultKV reads one field of a KV secret from HashiCorp Vault or OpenBao,
@@ -121,16 +122,15 @@ func tokenFile(name string) string {
 
 // vaultHTTP trusts the system roots, plus VAULT_CACERT when set.
 func vaultHTTP() (*http.Client, error) {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
-	if f := firstOf(os.Getenv("VAULT_CACERT"), os.Getenv("BAO_CACERT")); f != "" {
+	tr := transport.HTTP()
+	tr.Proxy = transport.Proxy()
+	// an AI agent's own CA would let a server of its pass as the Vault
+	if f := firstOf(os.Getenv("VAULT_CACERT"), os.Getenv("BAO_CACERT")); f != "" && !transport.EnvDistrusted() {
 		pem, err := os.ReadFile(f)
 		if err != nil {
 			return nil, fmt.Errorf("vault: VAULT_CACERT: %w", err)
 		}
-		pool, err := x509.SystemCertPool()
-		if err != nil {
-			pool = x509.NewCertPool()
-		}
+		pool := transport.Roots()
 		if !pool.AppendCertsFromPEM(pem) {
 			return nil, errors.New("vault: VAULT_CACERT holds no certificate")
 		}

@@ -11,6 +11,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -20,6 +21,13 @@ import (
 
 // bqCredentials is the login: the conn's service account key, or the
 // application default credentials. gcloud's login goes only to Google's
+// bqDefaultCredentials finds application default credentials (gcloud's
+// login, GOOGLE_APPLICATION_CREDENTIALS, the metadata server); tests
+// replace it. bqCredentials gives it the conn's client in ctx.
+var bqDefaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
+	return gcpadc.Find(ctx, bqScope)
+}
+
 // own hosts (https://*.googleapis.com): an endpoint elsewhere (an
 // emulator) gets a key the conn names, or no login at all.
 func bqCredentials(key string, plain *http.Client, onGoogle bool) (*google.Credentials, error) {
@@ -36,6 +44,9 @@ func bqCredentials(key string, plain *http.Client, onGoogle bool) (*google.Crede
 		return nil, nil // an emulator without a login
 	}
 	creds, err := bqDefaultCredentials(tctx)
+	if fe := (*gcpadc.FileError)(nil); errors.As(err, &fe) {
+		return nil, fe.Err
+	}
 	if err != nil {
 		return nil, out.Errf(out.ExitConnect, "DB_AUTH",
 			"log in with `gcloud auth application-default login`, or store a service account key with `komando secret set NAME < key.json` and pass --password-ref secret:NAME",

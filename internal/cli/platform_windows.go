@@ -101,3 +101,10 @@ func swapExe(tmp, exe string) error {
 	_ = os.Remove(old) // fails while this komando runs from it
 	return nil
 }
+
+// noCoreDumps: Windows writes no core file of its own (a crash dump needs
+// Windows Error Reporting set up for it).
+func noCoreDumps() {}
+
+// raise: Windows has no signal to end a process with; the caller exits.
+func raise(os.Signal) {}

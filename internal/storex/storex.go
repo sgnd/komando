@@ -24,6 +24,7 @@ import (
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/transport"
 )
 
 // DialFunc opens a TCP connection, possibly through an SSH host.
@@ -43,6 +44,16 @@ type Bucket interface {
 	Remove(ctx context.Context, key string) error
 	// Link makes a temporary download URL; file servers have none.
 	Link(ctx context.Context, key string, expires time.Duration) (*url.URL, error)
+	// Lookup says what is at rel: a file (found, its size and time), a
+	// folder (found, Dir, the key ending in /), or nothing.
+	Lookup(ctx context.Context, rel string) (o Object, found bool, err error)
+	// Mkdir makes the folder rel and any missing parents; existed is true
+	// when it was there already. Object stores have no folders: there it
+	// is an empty folder marker (rel/), as their consoles make.
+	Mkdir(ctx context.Context, rel string) (existed bool, err error)
+	// Move renames src to dst inside the conn (see MoveOpts). File servers
+	// rename; object stores copy, check the copy and only then delete src.
+	Move(ctx context.Context, src, dst string, o MoveOpts) (Moved, error)
 	Close() error
 }
 
@@ -90,8 +101,9 @@ func OpenS3(t driver.Target, secret string, dial DialFunc, timeout time.Duration
 // OpenS3Creds is OpenS3 with explicit credentials, including the session
 // token of temporary ones (SSO, an assumed role).
 func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial DialFunc, timeout time.Duration) (Bucket, error) {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr := transport.HTTP()
 	tr.ResponseHeaderTimeout = timeout
+	tr.Proxy = transport.Proxy()
 	if dial != nil {
 		tr.DialContext = dial
 		tr.Proxy = nil // the --via host is the way out
@@ -112,6 +124,14 @@ func OpenS3Creds(t driver.Target, accessKey, secret, sessionToken string, dial D
 	return &s3Bucket{c: c, bucket: t.Bucket, prefix: t.Prefix, creds: creds, region: t.Region, temp: sessionToken != ""}, nil
 }
 
+// proxiedTransport is the shared transport through a person's company
+// proxy: minio's own would take an AI agent's proxy and SSL_CERT_FILE.
+func proxiedTransport() *http.Transport {
+	tr := transport.HTTP()
+	tr.Proxy = transport.Proxy()
+	return tr
+}
+
 // trustCA makes tr trust the conn's ?ca= certificate too, as well as the
 // usual ones: a private CA (a company's, or a proxy's that inspects TLS)
 // on the way to the storage or, for Google Cloud, to its login.
@@ -120,10 +140,7 @@ func trustCA(tr *http.Transport, t driver.Target) error {
 	if err != nil || ca == "" {
 		return err
 	}
-	pool, err := x509.SystemCertPool()
-	if err != nil || pool == nil {
-		pool = x509.NewCertPool()
-	}
+	pool := transport.Roots()
 	pool.AppendCertsFromPEM([]byte(ca))
 	tr.TLSClientConfig = &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: pool}
 	return nil
@@ -160,7 +177,7 @@ func ListBuckets(ctx context.Context, endpoint, accessKey, secret, sessionToken,
 		}
 		host, secure = u.Host, u.Scheme == "https"
 	}
-	c, err := minio.New(host, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secret, sessionToken), Secure: secure, Region: region})
+	c, err := minio.New(host, &minio.Options{Creds: credentials.NewStaticV4(accessKey, secret, sessionToken), Secure: secure, Region: region, Transport: proxiedTransport()})
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +328,7 @@ func (s *s3Bucket) LinkAt(ctx context.Context, key string, expires time.Duration
 			return nil, toErr(err)
 		}
 	}
-	pub, err := minio.New(endpoint.Host, &minio.Options{Creds: s.creds, Secure: endpoint.Scheme == "https", Region: region})
+	pub, err := minio.New(endpoint.Host, &minio.Options{Creds: s.creds, Secure: endpoint.Scheme == "https", Region: region, Transport: proxiedTransport()})
 	if err != nil {
 		return nil, out.Usage("--endpoint %s: %v", endpoint, err)
 	}

@@ -101,11 +101,11 @@ func TestServerListsSortByName(t *testing.T) {
 		t.Errorf("svc list: %v", rows)
 	}
 
-	ps, err := dockerTable([]string{"name"}, []string{"Names"}, "Names")(nil, `{"Names":"web"}`+"\n"+`{"Names":"api"}`)
+	ps, err := dockerTable(tcl, []string{"name"}, []string{"Names"}, "Names")(nil, `{"Names":"web"}`+"\n"+`{"Names":"api"}`)
 	if err != nil || strings.Join(field(t, ps, "Names"), ",") != "api,web" {
 		t.Errorf("docker ps: %v %v", ps, err)
 	}
-	images, _ := dockerTable([]string{"repository", "tag"}, []string{"Repository", "Tag"}, "Repository", "Tag")(nil,
+	images, _ := dockerTable(tcl, []string{"repository", "tag"}, []string{"Repository", "Tag"}, "Repository", "Tag")(nil,
 		`{"Repository":"b","Tag":"1"}`+"\n"+`{"Repository":"a","Tag":"2"}`+"\n"+`{"Repository":"a","Tag":"1"}`+"\n"+`{"Repository":"ab","Tag":"0"}`)
 	var got []string
 	for _, r := range images.([]any) {

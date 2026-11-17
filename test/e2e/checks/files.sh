@@ -62,11 +62,32 @@ check "refused download exits 8" 8 $?
 check "refused download does not say downloaded" 0 "$(echo "$out" | grep -c downloaded)"
 check "refused download keeps the file here" mine "$(cat "$F/a.txt")"
 
+# a folder download keeps the files already here and copies the rest
+q $K exec direct -o text -- 'mkdir -p /tmp/e2efiles-tree/sub && echo theirs > /tmp/e2efiles-tree/a.txt && echo b > /tmp/e2efiles-tree/sub/b.txt'
+mkdir -p "$F/tree"; echo mine > "$F/tree/a.txt"
+out=$($K download direct /tmp/e2efiles-tree/ -r --to "$F/tree")
+check "folder download goes on past a file here" "1 1" "$(echo "$out" | jget 'str(d["data"]["results"][0]["files"])+" "+str(d["data"]["results"][0]["kept"])')"
+check "folder download keeps the file here" mine "$(cat "$F/tree/a.txt")"
+check "folder download copies the rest" b "$(cat "$F/tree/sub/b.txt")"
+check "folder download --overwrite replaces it" theirs "$($K download direct /tmp/e2efiles-tree/ -r --to "$F/tree" --overwrite >/dev/null; cat "$F/tree/a.txt")"
+
 # a folder given as a symbolic link is copied as the folder it names
 mkdir -p "$F/releases/42/css"; echo i > "$F/releases/42/index.html"; echo c > "$F/releases/42/css/a.css"
 ln -s releases/42 "$F/current"
 check "upload of a linked folder copies its files" 2 "$($K upload direct "$F/current" /tmp/e2efiles-site -r | jget 'd["data"]["results"][0]["files"]')"
 check "sync of a linked folder copies its files" 2 "$($K sync "$F/current" direct:/tmp/e2efiles-site2 | jget 'd["data"]["results"][0]["copied"]')"
+
+# sync --sudo: a folder only root may write, each file installed as root,
+# a second run sends nothing; a folder others may change is refused
+mkdir -p "$F/conf/sub"; echo a > "$F/conf/a.conf"; echo b > "$F/conf/sub/b.conf"; chmod 640 "$F/conf/a.conf"
+q $K exec direct --sudo -- 'mkdir -p /etc/e2esync && chmod 755 /etc/e2esync'
+check "sync --sudo without sudo is refused by the folder" True "$($K sync "$F/conf" direct:/etc/e2esync | jget 'd["ok"] == False' || true)"
+check "sync --sudo copies as root" 2 "$($K sync "$F/conf" direct:/etc/e2esync --sudo | jget 'd["data"]["results"][0]["copied"]')"
+check "sync --sudo keeps the mode" "640 root" "$($K exec direct --read-only -- 'stat -c "%a %U" /etc/e2esync/a.conf' | jget 'd["data"]["results"][0]["stdout"].strip()')"
+check "sync --sudo a second time sends nothing" "0 0" "$($K sync "$F/conf" direct:/etc/e2esync --sudo | jget 'str(d["data"]["results"][0]["copied"])+" "+str(d["data"]["results"][0]["updated"])')"
+q $K exec direct --sudo -- 'mkdir -p /tmp/e2eshared && chmod 777 /tmp/e2eshared'
+check "sync --sudo into a folder others may change" SHARED_FOLDER_CONFLICT "$($K sync "$F/conf" direct:/tmp/e2eshared --sudo | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+q $K exec direct --sudo -- 'rm -rf /etc/e2esync /tmp/e2eshared'
 
 q $K exec direct -o text -- 'rm -rf /tmp/e2efiles* /tmp/.komando-*'
 rm -rf "$F"

@@ -26,7 +26,7 @@ var (
 	urlPw   = regexp.MustCompile(`\b([a-zA-Z][a-zA-Z0-9+.-]*://[^\s:/@"'\\]+:)([^\s@/"'\\]+)@`)
 	bearer  = regexp.MustCompile(`(?i)\b(bearer|basic|token)([ \t]+)([A-Za-z0-9._~+/=-]{12,})`) // same line only
 	// NAME=value, NAME: value, "name": "value", --name=value
-	assign = regexp.MustCompile(`(?i)([A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|pass|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|[_.-]key)[A-Za-z0-9_.-]*)(["']?[ \t]*[:=][ \t]*["']?)([^\s"'\\,;&}]+)`)
+	assign = regexp.MustCompile(`(?i)([A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|pass|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|(?:stored|server|salted)[_-]?key|[_.-]key)[A-Za-z0-9_.-]*)(["']?[ \t]*[:=][ \t]*["']?)([^\s"'\\,;&}]+)`)
 	// well-known token shapes, wherever they appear
 	tokens = regexp.MustCompile(`\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|glpat-[A-Za-z0-9_-]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9_-]{20,}|[rs]k_(?:live|test)_[A-Za-z0-9]{16,}|AIza[0-9A-Za-z_-]{35}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b`)
 	// Redis and Sentinel config: "requirepass pw", "sentinel auth-pass
@@ -42,7 +42,16 @@ var (
 	// password hashes, as in /etc/shadow
 	pwHash = regexp.MustCompile(`\$(?:1|2[abxy]?|5|6|y|gy|7|argon2[a-z]*)\$[^\s:"'\\]{8,}`)
 	// a JSON object key that names a secret: its whole string value is hidden
-	secretKey = regexp.MustCompile(`(?i)^[A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|[_.-]key)[A-Za-z0-9_.-]*$`)
+	secretKey = regexp.MustCompile(`(?i)^[A-Za-z0-9_.-]*(?:passw(?:or)?d|passphrase|pwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credentials?|authorization|(?:stored|server|salted)[_-]?key|[_.-]key)[A-Za-z0-9_.-]*$`)
+	// a key whose whole value is stored credentials, whatever its shape:
+	// MongoDB keeps each user's SCRAM verifiers in an object under
+	// "credentials" ({"SCRAM-SHA-256": {salt, storedKey, serverKey}})
+	credContainer = regexp.MustCompile(`(?i)^(?:credentials?|passw(?:or)?ds?|scram[-_][A-Za-z0-9_.-]*)$`)
+	// keys inside such a container that say what kind of login it is,
+	// not the login itself
+	plainCredKey = regexp.MustCompile(`(?i)^(?:type|kind|name|user|username|db|policy|mechanism|helper|source|algorithm|iterationcount)$`)
+	// komando's own lists of secret names ("secrets": ["db-pass"])
+	ownList = regexp.MustCompile(`(?i)^(?:secrets?|secrets?_[a-z_]+|host_keys_[a-z_]+)$`)
 	// keys that name a secret but hold no value komando would hide
 	// (snake_case or kebab-case: secret_name, --host-key-policy; a Pub/Sub
 	// message's ordering_key, which groups messages)
@@ -183,6 +192,7 @@ func maskJSON(b []byte) []byte {
 	var outb bytes.Buffer
 	lastKey := ""
 	var parents []string // the key each open object or array is the value of
+	var arrays []bool    // whether each of them is an array
 	i := 0
 	for i < len(b) {
 		c := b[i]
@@ -194,10 +204,12 @@ func maskJSON(b []byte) []byte {
 					k = lastKey
 				}
 				parents = append(parents, k)
+				arrays = append(arrays, c == '[')
 				lastKey = ""
 			case '}', ']':
 				if len(parents) > 0 {
 					parents = parents[:len(parents)-1]
+					arrays = arrays[:len(arrays)-1]
 				}
 			}
 			outb.WriteByte(c)
@@ -228,9 +240,18 @@ func maskJSON(b []byte) []byte {
 		if len(parents) > 0 {
 			parent = parents[len(parents)-1]
 		}
+		inList := len(arrays) > 0 && arrays[len(arrays)-1]
 		var m string
 		switch {
 		case key != "" && isValueOf(&outb) && secretKey.MatchString(key) && !keepValue(key, s) && s != "":
+			m = Hidden
+		case s != "" && underCredentials(parents) && !keepValue(key, s) && !plainCredKey.MatchString(key):
+			// stored credentials in an object or a list: all of it
+			m = Hidden
+		case s != "" && key == "" && inList && secretKey.MatchString(parent) && !notSecretKey.MatchString(parent) && !ownList.MatchString(parent) && !keepValue(parent, s) && secretShaped(s):
+			// a list under a key that names a secret ("apiKeys": [...]),
+			// of values shaped like one: komando's own lists of names
+			// ("secrets_unused": ["db-pass"]) and public keys stay
 			m = Hidden
 		case key != "" && (parent == "data" || parent == "stringData") && len(parents) >= 3 && kubeSecretValue(s):
 			// (deeper than komando's own envelope "data", which is at depth 1)
@@ -250,6 +271,24 @@ func maskJSON(b []byte) []byte {
 		outb.Write(bytes.TrimRight(e.Bytes(), "\n"))
 	}
 	return outb.Bytes()
+}
+
+// secretShaped: a value that could be a key or a token: one word of at
+// least 12 characters. A name (db-pass, regcred, id) or a public key line
+// ("ssh-ed25519 AAAA... bob") is not.
+func secretShaped(s string) bool {
+	return len(s) >= 12 && !strings.ContainsAny(s, " \t\n")
+}
+
+// underCredentials reports whether one of the open objects or arrays is
+// the value of a key that holds stored credentials (credContainer).
+func underCredentials(parents []string) bool {
+	for _, k := range parents {
+		if k != "" && credContainer.MatchString(k) {
+			return true
+		}
+	}
+	return false
 }
 
 // kubeSecretValue: a value under data/stringData that looks like a Secret's
@@ -332,6 +371,12 @@ func (p *Printer) View(s string) View {
 	v.hide(redisACLValues(v.Text), Hidden)
 	v.hide(groups(tokens, v.Text, 0, nil), Hidden)
 	v.hide(groups(pwHash, v.Text, 0, nil), Hidden)
+	if p.Personal {
+		// the passes of MaskPersonal, in its order
+		for _, pass := range personalPasses {
+			v.hide(pass.find(v.Text), PersonalLabel(pass.kind))
+		}
+	}
 	return v
 }
 

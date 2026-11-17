@@ -17,8 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/oauth2/google"
-
 	kdriver "github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 )
@@ -46,13 +44,6 @@ import (
 const BQDefaultMaxBytes int64 = 10 << 30
 
 const bqScope = "https://www.googleapis.com/auth/bigquery"
-
-// bqDefaultCredentials finds application default credentials (gcloud's
-// login, GOOGLE_APPLICATION_CREDENTIALS, the metadata server); tests
-// replace it.
-var bqDefaultCredentials = func(ctx context.Context) (*google.Credentials, error) {
-	return google.FindDefaultCredentials(ctx, bqScope)
-}
 
 type bqConnector struct {
 	b         kdriver.BigQueryConn
@@ -446,7 +437,7 @@ func openBigQuery(rawURL string, t kdriver.Target, password string, dial DialFun
 	// tokens come over the same dialer and CAs (tr), so --via as well; the
 	// token source has no context of its own, so its client has a time limit
 	tokens := &http.Client{Transport: tr, Timeout: bqTokenTimeout, CheckRedirect: plain.CheckRedirect}
-	creds, err := bqCredentials(password, tokens, c.google)
+	creds, err := bqCredentials(password, tokens, c.google && t.CA == "") // gcloud's login only under the system's CAs, never a CA of the conn's own
 	if err != nil {
 		return nil, err
 	}

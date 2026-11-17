@@ -15,7 +15,6 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -67,15 +66,15 @@ func pwshServer(t *testing.T) {
 	blk, _ := ssh.MarshalPrivateKey(clientKey, "")
 	keyPath := filepath.Join(tmp, "id_test")
 	_ = os.WriteFile(keyPath, pem.EncodeToMemory(blk), 0o600)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["win"] = &store.Host{Name: "win", Address: "127.0.0.1", Port: ln.Addr().(*net.TCPAddr).Port, User: "u", Identity: keyPath, OS: store.OSWindows}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	savedW := out.P.W
-	out.P.W = io.Discard
-	t.Cleanup(func() { out.P.W = savedW })
+	savedW := tcl.out.W
+	tcl.out.W = io.Discard
+	t.Cleanup(func() { tcl.out.W = savedW })
 }
 
 // bridgePwsh runs each exec as `docker exec -i BOX pwsh ARGS`.

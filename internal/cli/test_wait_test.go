@@ -49,22 +49,26 @@ func closedPort(t *testing.T) int {
 	return p
 }
 
-// forwardLater starts, after a delay, a forwarder from port to the fake
-// server: a new server whose SSH comes up while komando waits.
-func forwardLater(t *testing.T, port, to int, after time.Duration) {
+// lateServer listens on a new port as a server that is still starting: it
+// hangs up on the first connection (its SSH is not up yet), and passes every
+// later one on to the fake server. The first test of it fails and the next
+// passes, however busy this machine is.
+func lateServer(t *testing.T, to int) (port int) {
 	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
 	go func() {
-		time.Sleep(after)
-		ln, err := net.Listen("tcp", "127.0.0.1:"+strconv.Itoa(port))
-		if err != nil {
-			t.Error(err)
-			return
-		}
-		t.Cleanup(func() { ln.Close() })
-		for {
+		for first := true; ; first = false {
 			c, err := ln.Accept()
 			if err != nil {
 				return
+			}
+			if first {
+				c.Close()
+				continue
 			}
 			go func() {
 				d, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(to))
@@ -78,11 +82,12 @@ func forwardLater(t *testing.T, port, to int, after time.Duration) {
 			}()
 		}
 	}()
+	return ln.Addr().(*net.TCPAddr).Port
 }
 
 func addLateHost(t *testing.T, name string, port int) {
 	t.Helper()
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		h := *st.Hosts["dev"]
 		h.Name, h.Address, h.Port = name, "127.0.0.1", port
 		st.Hosts[name] = &h
@@ -99,16 +104,17 @@ func TestTestWaitsForANewServer(t *testing.T) {
 	saved := waitInterval
 	waitInterval = 100 * time.Millisecond
 	t.Cleanup(func() { waitInterval = saved })
-	port := closedPort(t)
-	addLateHost(t, "new1", port)
-	forwardLater(t, port, srv.port, time.Second)
+	addLateHost(t, "new1", lateServer(t, srv.port))
 
-	env, took, err := runWait(t, "test", "new1", "--wait", "30s")
+	// the time given is far more than a busy machine needs: the test ends
+	// when the server answers, not when the time is up
+	env, _, err := runWait(t, "test", "new1", "--wait", "10m")
 	if err != nil || len(env.Data.Results) != 1 || !env.Data.Results[0].OK {
 		t.Fatalf("err %v, results %+v", err, env.Data.Results)
 	}
-	if env.Data.WaitedMS < 900 || took > 15*time.Second {
-		t.Errorf("waited %dms, took %s", env.Data.WaitedMS, took)
+	// it passed in a later round, after one pause between rounds
+	if env.Data.WaitedMS < waitInterval.Milliseconds() {
+		t.Errorf("waited %dms, less than one pause between rounds (%s)", env.Data.WaitedMS, waitInterval)
 	}
 }
 
@@ -120,12 +126,17 @@ func TestTestWaitStopsAtHostKeyMismatch(t *testing.T) {
 	if _, err := sshx.PinHostKey(net.JoinHostPort("localhost", strconv.Itoa(srv.port)), trustSigner(t).PublicKey(), true); err != nil {
 		t.Fatal(err)
 	}
-	env, took, err := runWait(t, "test", "dev", "--wait", "30s")
+	// rounds a millisecond apart: a komando that tested again would go on
+	// until the 10 minutes are up, far longer than one round ever takes
+	saved := waitInterval
+	waitInterval = time.Millisecond
+	t.Cleanup(func() { waitInterval = saved })
+	env, took, err := runWait(t, "test", "dev", "--wait", "10m")
 	if err == nil || env.Data.Results[0].Error == nil || env.Data.Results[0].Error.Code != "HOSTKEY_MISMATCH" {
 		t.Fatalf("err %v, results %+v", err, env.Data.Results)
 	}
-	if took > 10*time.Second {
-		t.Errorf("waited %s for a changed key", took)
+	if env.Data.WaitedMS >= (10 * time.Minute).Milliseconds() {
+		t.Errorf("tested again until the time was up (%s) for a changed key", took)
 	}
 }
 

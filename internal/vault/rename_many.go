@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+
+	"github.com/sgnd/komando/internal/store"
 )
 
 // reservedName is the secret komando keeps for its approval code (the
@@ -23,14 +25,14 @@ const reservedName = "komando-approval-totp"
 // the caller does not rewrite (a {{secret:b}} already in a file on a
 // server) would then quietly get another secret's value. Two old names
 // may not share a new one, and the approval code's secret never moves.
-func RenameMany(pairs map[string]string) error {
+func RenameMany(w store.Write, pairs map[string]string) error {
 	if len(pairs) == 0 {
 		return nil
 	}
 	if err := checkRenames(pairs); err != nil {
 		return err
 	}
-	return change(func(f *file) error {
+	return change(w, func(f *file) error {
 		for _, from := range slices.Sorted(maps.Keys(pairs)) {
 			to := pairs[from]
 			if _, ok := f.Entries[from]; !ok {

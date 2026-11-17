@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -43,6 +44,7 @@ func askPassword(cmd *cobra.Command, kind, name string) (ref string, undo func()
 
 // askSecretNow is askPassword for any askSecret.
 func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref string, undo func(), err error) {
+	cl := callOf(cmd)
 	undo = func() {}
 	if cmd.Flags().Changed(a.refFlag) {
 		return "", undo, out.Usage("use --%s or --%s, not both", a.flag, a.refFlag)
@@ -53,13 +55,13 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	}
 	sec := name + "-" + a.suffix
 	ref = "secret:" + sec
-	if g.dryRun {
+	if cl.flags.dryRun {
 		return ref, undo, nil
 	}
-	if !interactive() {
-		if isAgent() {
+	if !cl.interactive() {
+		if cl.isAgent() {
 			return "", undo, out.Errf(out.ExitPolicy, "NEEDS_PERSON",
-				"ask the user to run `"+commandLine()+"` in their own terminal; never ask for a "+a.what+" in the chat",
+				"ask the user to run `"+commandLine(cl)+"` in their own terminal; never ask for a "+a.what+" in the chat",
 				"--%s needs the user to type the %s, so it never passes through an AI agent", a.flag, a.what)
 		}
 		hint := fmt.Sprintf("store it with `komando secret set %s` (it reads stdin too), then pass --%s %s", sec, a.refFlag, ref)
@@ -83,11 +85,11 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	}
 	// a new password for a protected server or conn changes how komando
 	// logs in there: the same yes as any change to it
-	if prot := protectedUsers(st, []string{self}); len(prot) > 0 && !yesOK() && !confirmProtected(prot) {
-		return "", undo, policyStop(approvalErr(map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind],
+	if prot := protectedUsers(st, []string{self}); len(prot) > 0 && !cl.yesOK() && !confirmProtected(cl, prot) {
+		return "", undo, cl.policyStop(approvalErr(cl, map[string]string{"host": "PROTECTED_HOST", "conn": "PROTECTED_TARGET", "vpn": "PROTECTED_TARGET"}[kind],
 			name+" is protected; a new password or key changes how komando logs in there"))
 	}
-	v, err := readPassword(fmt.Sprintf("%s for %s (it stays hidden): ", strings.ToUpper(a.what[:1])+a.what[1:], name))
+	v, err := readPassword(cl, fmt.Sprintf("%s for %s (it stays hidden): ", strings.ToUpper(a.what[:1])+a.what[1:], name))
 	if err != nil {
 		return "", undo, err
 	}
@@ -97,12 +99,24 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 	if out.HasHidden(v) {
 		return "", undo, hiddenValueErr()
 	}
-	if err := vault.Set(sec, v); err != nil {
+	// a name that was free when the person started typing is stored only
+	// if it is still free: one store write, so a secret made meanwhile (in
+	// another tab, or by an app) is never replaced
+	put := vault.Set
+	if !existed {
+		put = vault.Create
+	}
+	if err := put(cl.storeWrite(), sec, v); err != nil {
+		if errors.Is(err, vault.ErrExists) {
+			return "", undo, out.Errf(out.ExitConflict, "SECRET_EXISTS",
+				fmt.Sprintf("use it with --%s %s, or store yours under another name: `komando secret set NAME`, then --%s secret:NAME", a.refFlag, ref, a.refFlag),
+				"secret %s was stored by something else while you typed; nothing was replaced", sec)
+		}
 		return "", undo, err
 	}
-	audit(nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
+	audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
 	if !existed {
-		undo = func() { _ = vault.Delete(sec) }
+		undo = func() { _ = vault.Delete(cl.storeWrite(), sec) }
 	}
 	return ref, undo, nil
 }

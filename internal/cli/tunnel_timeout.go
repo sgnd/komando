@@ -10,7 +10,7 @@ import (
 // tunnelTimeout is TUNNEL_TIMEOUT: the last lines of the tunnel's log in
 // the message and a command to try, as an AI agent may not read the log.
 func tunnelTimeout(host, logPath string) error {
-	return out.Errf(out.ExitTimeout, "TUNNEL_TIMEOUT", "check that "+host+" answers: `komando test "+host+"`; the whole log is "+logPath+" (for a person to read)",
+	return out.Errf(out.ExitTimeout, "TUNNEL_TIMEOUT", "check that "+host+" answers: `komando test "+host+"`; a person reads the whole log in "+logPath,
 		"tunnel did not become ready%s", logTail(logPath, 5))
 }
 

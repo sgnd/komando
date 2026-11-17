@@ -15,28 +15,29 @@ import (
 )
 
 // MongoDB conns are `db` conns: `db query` takes a command document
-// instead of SQL, and `db schema` and `db info` describe the database. The
-// SQL-only commands (dump, activity, users, ...) say so.
+// instead of SQL, `db schema` and `db info` describe the database, `db
+// explain` shows a read's plan and `db activity` what runs now. The
+// SQL-only commands (dump, sizes, users, ...) say so.
 
 // mongoConn is the conn expr picks, when it is a MongoDB conn.
-func mongoConn(expr string) (*store.State, *store.Conn, bool) {
+func mongoConn(cl *call, expr string) (*store.State, *store.Conn, bool) {
 	st, err := loadState()
 	if err != nil {
 		return nil, nil, false
 	}
-	c, err := singleConn(st, expr, "db")
+	c, err := singleConn(cl, st, expr, "db")
 	if err != nil || c.Kind != "mongodb" {
 		return nil, nil, false
 	}
 	return st, c, true
 }
 
-func openMongo(ctx context.Context, st *store.State, c *store.Conn) (*dbx.Mongo, func(), error) {
-	a, err := openAccess(ctx, st, c)
+func openMongo(cl *call, ctx context.Context, st *store.State, c *store.Conn) (*dbx.Mongo, func(), error) {
+	a, err := openAccess(cl, ctx, st, c)
 	if err != nil {
 		return nil, nil, err
 	}
-	m, err := dbx.OpenMongo(ctx, c.URL, a.Target, a.Password, a.Dial, "komando/"+actor(), max(connTimeout(c), sshOpts(st).ConnectTimeout))
+	m, err := dbx.OpenMongo(ctx, c.URL, a.Target, a.Password, a.Dial, "komando/"+actor(cl), max(connTimeout(cl, c), sshOpts(cl, st).ConnectTimeout))
 	if err != nil {
 		a.Close()
 		return nil, nil, viaTimeout(c, err)
@@ -79,7 +80,7 @@ func (d mongoQueryData) Text() string {
 }
 
 // runMongoQuery rates, guards, sends and audits one command document.
-func runMongoQuery(ctx context.Context, name string, st *store.State, c *store.Conn, text string, f dbFlags) error {
+func runMongoQuery(cl *call, ctx context.Context, name string, st *store.State, c *store.Conn, text string, f dbFlags) error {
 	switch {
 	case f.table != "":
 		return out.Usage("MongoDB documents have no fixed columns: use -o json, or -o text for one document per line")
@@ -88,6 +89,9 @@ func runMongoQuery(ctx context.Context, name string, st *store.State, c *store.C
 	}
 	cmd, db, err := dbx.ParseMongoCommand(text)
 	if err != nil {
+		return err
+	}
+	if err := hiddenColumnUse(cl, c, text); err != nil {
 		return err
 	}
 	v := dbx.ClassifyMongo(cmd)
@@ -104,7 +108,7 @@ func runMongoQuery(ctx context.Context, name string, st *store.State, c *store.C
 	}
 	fail := func(err error) error {
 		rec["error"] = toErr(err).Code
-		audit(st, name, nil, "", false, rec)
+		audit(cl, st, name, nil, "", false, rec)
 		return err
 	}
 	if !f.write && v.Risk > driver.RiskRead {
@@ -116,31 +120,32 @@ func runMongoQuery(ctx context.Context, name string, st *store.State, c *store.C
 		}
 		return fail(e)
 	}
-	data := mongoQueryData{Conn: c.Name, Database: cmp.Or(db, mongoDB(c)), Command: cmd[0].Key, Risk: v.Risk.String(), Write: f.write, DryRun: g.dryRun}
+	data := mongoQueryData{Conn: c.Name, Database: cmp.Or(db, mongoDB(c)), Command: cmd[0].Key, Risk: v.Risk.String(), Write: f.write, DryRun: cl.flags.dryRun}
 	if f.write {
 		v.Risk = max(v.Risk, driver.RiskWrite)
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return fail(err)
 		}
-		if g.dryRun { // MongoDB cannot roll back a command outside a transaction
+		if cl.flags.dryRun { // MongoDB cannot roll back a command outside a transaction
 			data.Note = "dry run: nothing was sent (MongoDB cannot roll a write back); the command was rated " + v.Risk.String()
-			audit(st, name, nil, "", true, rec)
-			out.P.Print(name, data, nil)
+			audit(cl, st, name, nil, "", true, rec)
+			cl.out.Print(name, data, nil)
 			return nil
 		}
 	}
-	m, closeM, err := openMongo(ctx, st, c)
+	m, closeM, err := openMongo(cl, ctx, st, c)
 	if err != nil {
 		return fail(err)
 	}
 	defer closeM()
-	res, err := dbx.RunMongo(ctx, m, db, cmd, f.limit, maxOutput(st))
+	res, err := dbx.RunMongo(ctx, m, db, cmd, f.limit, maxOutput(cl, st))
 	if err != nil {
 		return fail(err)
 	}
-	audit(st, name, nil, "", true, rec)
+	audit(cl, st, name, nil, "", true, rec)
+	maskMongo(cl, c, res)
 	data.MongoResult = res
-	out.P.Print(name, data, nil)
+	cl.out.Print(name, data, nil)
 	return nil
 }
 
@@ -157,23 +162,23 @@ type mongoSchemaData struct {
 	Collections []dbx.MongoCollection `json:"collections"`
 }
 
-func runMongoSchema(ctx context.Context, st *store.State, c *store.Conn, names []string) error {
-	m, closeM, err := openMongo(ctx, st, c)
+func runMongoSchema(cl *call, ctx context.Context, st *store.State, c *store.Conn, names []string) error {
+	m, closeM, err := openMongo(cl, ctx, st, c)
 	if err != nil {
 		return err
 	}
 	defer closeM()
 	cols, err := dbx.MongoSchema(ctx, m, names)
-	audit(st, "db.schema", nil, "", err == nil, map[string]any{"conns": []string{c.Name}})
+	audit(cl, st, "db.schema", nil, "", err == nil, map[string]any{"conns": []string{c.Name}})
 	if err != nil {
 		return err
 	}
-	out.P.Print("db.schema", mongoSchemaData{Conn: c.Name, Database: m.DB, Collections: cols}, nil)
+	cl.out.Print("db.schema", mongoSchemaData{Conn: c.Name, Database: m.DB, Collections: cols}, nil)
 	return nil
 }
 
-func runMongoInfo(ctx context.Context, st *store.State, c *store.Conn) error {
-	m, closeM, err := openMongo(ctx, st, c)
+func runMongoInfo(cl *call, ctx context.Context, st *store.State, c *store.Conn) error {
+	m, closeM, err := openMongo(cl, ctx, st, c)
 	if err != nil {
 		return err
 	}
@@ -183,14 +188,69 @@ func runMongoInfo(ctx context.Context, st *store.State, c *store.Conn) error {
 		return err
 	}
 	res["conn"], res["kind"] = c.Name, c.Kind
-	out.P.Print("db.info", res, nil)
+	cl.out.Print("db.info", res, nil)
+	return nil
+}
+
+// mongoExplainData is db explain's answer for MongoDB: the plan document.
+type mongoExplainData struct {
+	Conn     string `json:"conn"`
+	Database string `json:"database"`
+	Command  string `json:"command"`
+	Plan     any    `json:"plan"`
+}
+
+func (d mongoExplainData) Text() string {
+	b, _ := json.MarshalIndent(d.Plan, "", "  ")
+	return string(b) + "\n"
+}
+
+// runMongoExplain asks MongoDB for the plan of a read command (find,
+// aggregate, count, distinct); --analyze runs it and adds what it did
+// (executionStats). A command that writes is refused: explain would not
+// show its plan without running parts of it.
+func runMongoExplain(cl *call, ctx context.Context, st *store.State, c *store.Conn, text string, analyze bool) error {
+	cmd, db, err := dbx.ParseMongoCommand(text)
+	if err != nil {
+		return err
+	}
+	if v := dbx.ClassifyMongo(cmd); v.Risk > driver.RiskRead {
+		return out.Usage("db explain shows the plan of a read (find, aggregate, count, distinct); %s writes", cmd[0].Key)
+	}
+	m, closeM, err := openMongo(cl, ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer closeM()
+	plan, err := dbx.MongoExplain(ctx, m, db, cmd, analyze)
+	audit(cl, st, "db.explain", nil, "", err == nil, map[string]any{"conns": []string{c.Name}, "mongo_command": cmd[0].Key})
+	if err != nil {
+		return err
+	}
+	cl.out.Print("db.explain", mongoExplainData{Conn: c.Name, Database: cmp.Or(db, m.DB), Command: cmd[0].Key, Plan: plan}, nil)
+	return nil
+}
+
+// runMongoActivity is db activity for MongoDB (currentOp).
+func runMongoActivity(cl *call, ctx context.Context, st *store.State, c *store.Conn, all bool, limit int) error {
+	m, closeM, err := openMongo(cl, ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer closeM()
+	rows, err := dbx.MongoActivity(ctx, m, all)
+	if err != nil {
+		return err
+	}
+	rows = cutRows(cl, rows, limit)
+	cl.out.Print("db.activity", activityData{Conn: c.Name, Count: len(rows), Sessions: rows}, nil)
 	return nil
 }
 
 // mongoLogin is `conn test`'s login check for a MongoDB conn, on the path
 // the test already opened.
-func mongoLogin(ctx context.Context, c *store.Conn, a *access, r *connTestResult) error {
-	m, err := dbx.OpenMongo(ctx, c.URL, a.Target, a.Password, a.Dial, "komando/"+actor(), connTimeout(c))
+func mongoLogin(cl *call, ctx context.Context, c *store.Conn, a *access, r *connTestResult) error {
+	m, err := dbx.OpenMongo(ctx, c.URL, a.Target, a.Password, a.Dial, "komando/"+actor(cl), connTimeout(cl, c))
 	if err != nil {
 		return viaTimeout(c, err)
 	}

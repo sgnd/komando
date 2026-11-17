@@ -9,7 +9,7 @@ import (
 // vpn add/edit take --label, --protected and --unset like host and conn,
 // and rm and edit take NAME|TARGET... (S-10.2, C-F26).
 func TestVpnParityWithHost(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, verb := range []string{"add", "edit"} {
 		h, v := findCmd(t, root, "host", verb), findCmd(t, root, "vpn", verb)
 		for _, flag := range []string{"label", "protected"} {

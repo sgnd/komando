@@ -51,6 +51,10 @@ q $K host trust t-fixops-ns
 check "svc restart without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K svc restart t-fixops-ns ssh | jget "${r0}['error']['code']" || true)"
 check "pkg install without sudo rights names the next command" True "$($K pkg install t-fixops-ns tree | jget "'--sudo-ref secret:t-fixops-ns-sudo' in ${r0}['error']['hint'] or '--user OTHER' in ${r0}['error']['hint']" || true)"
 check "user add without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K user add t-fixops-ns t-fixopsx | jget "${r0}['error']['code']" || true)"
+for sub in ps stats images; do
+  check "docker $sub --sudo without sudo rights names PERMISSION_DENIED" PERMISSION_DENIED "$($K docker $sub t-fixops-ns --sudo | jget "${r0}['error']['code']" || true)"
+done
+check "docker ps --sudo refused says to leave out --sudo as root" True "$($K docker ps t-fixops-ns --sudo | jget "'--user OTHER' in ${r0}['error']['hint'] or 'leave out --sudo' in ${r0}['error']['hint']" || true)"
 q $K host rm t-fixops-ns
 $K user rm direct t-fixopsns --remove-home --allow-dangerous >/dev/null 2>&1 || true
 q $K key rm t-fixops-k
@@ -98,6 +102,9 @@ $K docker exec swarm1 -- --privileged -u root t-fixops id >/dev/null; check "doc
 set -e
 check "net check says why" refused "$($K net check direct 127.0.0.1:1 | jget "${r0}['data'][0]['reason']" || true)"
 check "net dns --type A" True "$($K net dns direct localhost --type A | jget "'127.0.0.1' in ${r0}['data']['records']")"
+# direct has no dig: komando asks the server's resolver itself (Docker's at
+# 127.0.0.11), so an MX question gets the resolver's answer, not DIG_MISSING
+check "net dns --type MX without dig asks the resolver" True "$($K net dns direct bastion --type MX | jget "${r0}.get('error', {}).get('code') in (None, 'NO_RECORDS')" || true)"
 check "net ports has pid with sudo" True "$($K net ports direct --sudo | jget "any(r.get('process') == 'sshd' and r.get('pid', 0) > 0 for r in ${r0}['data'])")"
 check "net ports on busybox (netstat)" True "$($K net ports swarm1 | jget "any(r['port'] == 22 for r in ${r0}['data'])")"
 

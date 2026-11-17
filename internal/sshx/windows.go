@@ -129,8 +129,8 @@ func runWindows(ctx context.Context, c *Client, r RunRequest) (*RunResult, error
 		return nil, err
 	}
 	stdin := append(psInput(script, env), r.Stdin...)
-	stdout := &limitedBuf{max: r.MaxOutput, name: "stdout", stream: r.Stream}
-	stderr := &limitedBuf{max: r.MaxOutput, name: "stderr", stream: r.Stream}
+	stdout, stderr, stop := outputOf(r)
+	defer stop()
 	rctx := ctx
 	if r.Timeout > 0 {
 		var cancel context.CancelFunc

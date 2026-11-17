@@ -10,20 +10,20 @@ import (
 // of 4 letters or fewer, 2 for a longer one), at most two; the hint names a
 // command only when there is exactly one (C-E11).
 func TestUnknownCommandWords(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for word, want := range map[string]string{
 		"ps": "docker ps TARGET", "get": "list", "kubectl": "cluster run TARGET -- ...", "psql": "db query CONN",
 		"mysql": "db query CONN", "apt": "pkg", "yum": "pkg", "systemctl": "svc",
 	} {
-		e := unknownCommandErr(root, word, nil)
+		e := unknownCommandErr(tcl, root, word, nil)
 		if e.Suggestion != want || e.Hint != "run `komando "+want+"` instead" || e.Code != "USAGE" {
 			t.Errorf("%s: %+v", word, e)
 		}
 	}
-	if e := unknownCommandErr(root, "delete", []string{"web1"}); e.Suggestion != "host rm web1" {
+	if e := unknownCommandErr(tcl, root, "delete", []string{"web1"}); e.Suggestion != "host rm web1" {
 		t.Errorf("delete web1: %+v", e)
 	}
-	if e := unknownCommandErr(root, "delete", []string{"conn", "pg"}); e.Suggestion != "conn rm pg" {
+	if e := unknownCommandErr(tcl, root, "delete", []string{"conn", "pg"}); e.Suggestion != "conn rm pg" {
 		t.Errorf("delete conn pg: %+v", e)
 	}
 	// a short word: distance 1 only, so `ps` never matched cp, db, fs, pkg
@@ -41,7 +41,7 @@ func TestUnknownCommandWords(t *testing.T) {
 	if got := nearWords("cash", []string{"cache", "cast", "cask"}); len(got) != 2 {
 		t.Errorf("at most two: %v", got)
 	}
-	e := unknownCommandErr(root, "logz", nil)
+	e := unknownCommandErr(tcl, root, "logz", nil)
 	if e.Suggestion != "logs" {
 		t.Errorf("logz: %+v", e)
 	}

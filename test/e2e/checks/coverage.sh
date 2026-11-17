@@ -76,7 +76,7 @@ q $K storage upload bucket "$TMP/hosts.json" "$C/hosts.json"
 check "storage link" True "$($K storage link bucket "$C/hosts.json" | jget 'd["data"]["url"].startswith("http")')"
 check "storage link --endpoint signs for that address" True "$($K storage link bucket "$C/hosts.json" --endpoint https://files.example.com | jget 'd["data"]["url"].startswith("https://files.example.com/") and "warning" not in d["data"]')"
 U=$($K storage link bucket "$C/hosts.json" --endpoint http://s3:3900 | jget 'd["data"]["url"]')
-check "a link signed for an address works there" True "$($K exec bastion --read-only -- "curl -sf '$U'" | has direct)"
+check "a link signed for an address works there" True "$($K exec bastion -- "curl -sf '$U'" | has direct)"
 
 # system modules (the lab containers run without systemd: svc must say so)
 check "svc list fails clearly without systemd" False "$($K svc list direct | ok || true)"
@@ -134,6 +134,8 @@ check "docker images" True "$($K docker images swarm1 | has busybox)"
 check "docker inspect" True "$($K docker inspect swarm1 "$C-c" | ok)"
 check "docker exec" hi "$($K docker exec swarm1 "$C-c" -- echo hi | jget 'd["data"]["results"][0]["stdout"].strip()')"
 check "docker logs" True "$($K docker logs swarm1 "$C-c" | ok)"
+check "logs --container --since today (busybox date)" True "$($K logs swarm1 --container "$C-c" --since today | ok)"
+check "logs --container --since yesterday --until today" True "$($K logs swarm1 --container "$C-c" --since yesterday --until today | ok)"
 check "docker stats" True "$($K docker stats swarm1 | ok)"
 q $K docker restart swarm1 "$C-c"
 q $K docker stop swarm1 "$C-c"

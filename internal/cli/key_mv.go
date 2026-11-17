@@ -36,10 +36,10 @@ still work, since the key itself does not change.`,
 		Example: `  komando key rename deploy deploy-2026
   komando key rename old-ci ci --dry-run`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			from, to := args[0], args[1]
-			r, err := renameTx(func(s *store.State) (renameSet, renameOpts, error) {
-				k, err := findKey(s, from)
+			r, err := renameTx(cl, func(s *store.State) (renameSet, renameOpts, error) {
+				k, err := findKey(cl, s, from)
 				if err != nil {
 					return nil, renameOpts{}, err
 				}
@@ -59,11 +59,11 @@ still work, since the key itself does not change.`,
 			}
 			res := mvFromRename("key", from, to, r)
 			if res.Action == "renamed" {
-				audit(nil, "key.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated), "moved": res.Moved})
+				audit(cl, nil, "key.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated), "moved": res.Moved})
 			}
-			out.P.Print("key.rename", res, nil)
+			cl.out.Print("key.rename", res, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -80,10 +80,10 @@ renaming it needs --yes, once for all of them.`,
 		Example: `  komando group rename web frontend
   komando group rename prod production --dry-run`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			from, to := strings.TrimPrefix(args[0], "@"), strings.TrimPrefix(args[1], "@")
 			what := "renaming group " + from + " to " + to
-			r, err := renameTx(func(s *store.State) (renameSet, renameOpts, error) {
+			r, err := renameTx(cl, func(s *store.State) (renameSet, renameOpts, error) {
 				var spellings []string // Web and web are one group
 				for _, gr := range mapKeys(allGroups(s).Groups) {
 					if strings.EqualFold(gr, from) {
@@ -91,7 +91,7 @@ renaming it needs --yes, once for all of them.`,
 					}
 				}
 				if len(spellings) == 0 {
-					return nil, renameOpts{}, groupNotFound(s, from)
+					return nil, renameOpts{}, groupNotFound(cl, s, from)
 				}
 				if err := validLabelName("group", to); err != nil {
 					return nil, renameOpts{}, err
@@ -114,17 +114,17 @@ renaming it needs --yes, once for all of them.`,
 						set["group"][sp] = to
 					}
 				}
-				return set, renameOpts{guard: func(prot []string) error { return guardRenameProtected(what, prot) }}, nil
+				return set, renameOpts{guard: func(prot []string) error { return guardRenameProtected(cl, what, prot) }}, nil
 			})
 			if err != nil {
 				return err
 			}
 			res := mvFromRename("group", from, to, r)
 			if res.Action == "renamed" {
-				audit(nil, "group.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated)})
+				audit(cl, nil, "group.rename", nil, "", true, map[string]any{"from": from, "to": to, "updated": len(res.Updated)})
 			}
-			out.P.Print("group.rename", res, nil)
+			cl.out.Print("group.rename", res, nil)
 			return nil
-		},
+		}),
 	}
 }

@@ -103,7 +103,13 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
 
 `main` takes changes only through a pull request whose `Lint and unit tests`, `Security` and `End-to-end tests` checks pass (the "Protect main" ruleset), and that includes the release commit. A `git push origin main` is refused.
 
-1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the example output in [`docs/features/output.md`](docs/features/output.md) too.
+Pick the version number from what `## [Unreleased]` holds:
+
+- **Patch** (0.14.0 → 0.14.1): the release only fixes bugs (only `### Fixed` or `### Security` fixes).
+- **Minor** (0.14.x → 0.15.0): it adds a feature or changes behaviour that people, scripts or agents can notice: anything under `### Added`, `### Changed`, `### Changed for scripts and agents` or `### Removed`, a new error code, or a new field in the JSON output.
+- **1.0.0**: when the commands and the JSON output are settled, around the public release of the free Mac and iPhone apps. From then on, a change that breaks scripts needs 2.0.0.
+
+1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the examples in [`docs/features/install.md`](docs/features/install.md) too, but not the lines that name the last unsigned release (0.13.0).
 2. Commit it as `Release X.Y.Z` and open a pull request. When its checks pass, merge it with **Create a merge commit**.
 3. Tag the merged `main`, and only then push the tag:
 
@@ -113,9 +119,74 @@ Every version is a GitHub release, and `install.sh` only downloads releases. `ma
    ```
 
    Do not push the tag before the pull request is merged: the tag starts the release at once, from a commit that is not on `main` yet.
-4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux, macOS and Windows (amd64 and arm64), signs their build provenance and publishes the release. If a test fails, nothing is published:
+4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux, macOS and Windows (amd64 and arm64), signs `checksums.txt` with the [release signing key](#the-release-signing-key), signs their build provenance and publishes the release. If a test fails, nothing is published:
    - a test that fails now and then (the FTPS end-to-end test has): run the failed jobs again with `gh run rerun RUN_ID --failed`;
    - a real failure: fix it in a pull request, delete the tag (`git push origin :vX.Y.Z`), and tag the new `main` again.
+
+### The release signing key
+
+`komando update` installs a release only when its `checksums.txt` is signed with a key whose public half is built into komando (`Keys` in [`internal/releasesig`](internal/releasesig/releasesig.go)). The private half is the secret `RELEASE_SIGNING_KEY` of the GitHub environment `release`, which only `v*` tags may use. The release workflow signs with it and writes `checksums.txt.sig`; it stops before publishing when the secret is missing or its public key is not in `Keys`.
+
+Set it up once, in a terminal in this repository (Go and `gh` installed, `gh auth login` done):
+
+1. Make the key. The private key goes into the file you name, never on the screen:
+
+   ```bash
+   go run ./scripts/releasesig new ~/komando-release.key
+   ```
+
+   It prints the public key (44 characters ending in `=`). Put that line into `Keys` with a pull request.
+2. Make the environment `release`, usable only by `v*` tags:
+
+   ```bash
+   gh api -X PUT repos/sgnd/komando/environments/release -F 'deployment_branch_policy[protected_branches]=false' -F 'deployment_branch_policy[custom_branch_policies]=true'
+   gh api -X POST repos/sgnd/komando/environments/release/deployment-branch-policies -f name='v*' -f type=tag
+   ```
+3. Store the private key as the environment's secret:
+
+   ```bash
+   gh secret set RELEASE_SIGNING_KEY --env release --repo sgnd/komando < ~/komando-release.key
+   ```
+4. Keep a copy of `~/komando-release.key` somewhere safe that is not this computer's disk (a password manager), then delete the file. GitHub never shows the secret again. Without the key, komandos already installed refuse every later release, and people must reinstall with the install line.
+5. Protect the release tags, so only you can make, move or delete a `v*` tag (the signature says "made by our workflow from a `v*` tag", so it is worth only as much as the rule for tags):
+
+   ```bash
+   gh api -X POST repos/sgnd/komando/rulesets --input - <<'JSON'
+   {"name": "Protect release tags", "target": "tag", "enforcement": "active",
+    "conditions": {"ref_name": {"include": ["refs/tags/v*"], "exclude": []}},
+    "rules": [{"type": "creation"}, {"type": "update"}, {"type": "deletion"}],
+    "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always"}]}
+   JSON
+   ```
+
+   Role 5 is the repository admin: you can still push and delete tags (step 4 of [Release a version](#release-a-version)); nobody else can.
+
+To change the key (it leaked, or you lost it): make a new one, add its public key to `Keys` beside the old one, and release that komando signed with the old key. Then put both private keys in the secret, one per line (each adds a signature), so komandos that know either key update. Once most people run a komando with the new key, remove the old one from `Keys` and from the secret. A leaked key that must stop working at once: remove it from `Keys` and the secret right away; komandos that know only that key must reinstall with the install line.
+
+### macOS signing
+
+The release signs the macOS binaries with the project's Developer ID and has Apple notarize them ([`scripts/macos-sign.sh`](scripts/macos-sign.sh), on a macOS runner with Apple's own `codesign` and `notarytool`). Until the secrets below exist, the release goes out with unsigned macOS binaries and the log says so. Set them once, all six, as secrets of the environment `release` (a part of them stops the release):
+
+1. In the Apple Developer account (paid membership): Certificates → **+** → **Developer ID Application**. Make the request on your Mac with Keychain Access (Certificate Assistant → Request a Certificate From a Certificate Authority, saved to disk), upload it, download the certificate and open it so it lands in your keychain.
+2. In Keychain Access, right-click that certificate (with its private key) → Export → `devid.p12`, with a strong password. Then:
+
+   ```bash
+   base64 -i devid.p12 | gh secret set MACOS_CERT_P12 --env release --repo sgnd/komando
+   gh secret set MACOS_CERT_PASSWORD --env release --repo sgnd/komando
+   gh secret set APPLE_TEAM_ID --env release --repo sgnd/komando
+   ```
+
+   `gh secret set` without input asks for the value (the .p12 password; the 10-character team ID from Membership details).
+3. In App Store Connect → Users and Access → Integrations → App Store Connect API: make a key with the **Developer** role and download `AuthKey_XXXX.p8` (only once). Then:
+
+   ```bash
+   base64 -i AuthKey_XXXX.p8 | gh secret set NOTARY_KEY_P8 --env release --repo sgnd/komando
+   gh secret set NOTARY_KEY_ID --env release --repo sgnd/komando
+   gh secret set NOTARY_ISSUER_ID --env release --repo sgnd/komando
+   ```
+
+   The key ID is in the key's row, the issuer ID above the list.
+4. Keep `devid.p12`, its password and the `.p8` in a password manager, then delete the files.
 
 ## Writing
 

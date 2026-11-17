@@ -140,13 +140,13 @@ func guardAnswer(agent string, d guardDecision) []byte {
 }
 
 // guardAgent decides all of one hook input's calls: the first denial wins.
-func guardAgent(agent string, b []byte, home string) guardDecision {
+func guardAgent(cl *call, agent string, b []byte, home string) guardDecision {
 	var where struct {
 		Cwd string `json:"cwd"`
 	}
 	_ = json.Unmarshal(b, &where)
 	for _, c := range guardCalls(agent, b) {
-		if d := checkTool(c.tool, c.in, home, hookCwd(where.Cwd)); d.Deny {
+		if d := checkTool(cl, c.tool, c.in, home, hookCwd(where.Cwd)); d.Deny {
 			return d
 		}
 	}
@@ -244,13 +244,13 @@ func installAgentHook(path string, add func(map[string]any, string), command str
 		return f, nil
 	}
 	if f.Action == "updated" {
-		f.Backup = settingsBackup(path)
+		f.Backup = newBackup(path)
 	}
 	if dryRun {
 		return f, nil
 	}
 	if f.Backup != "" {
-		if err := saveSettingsBackup(f.Backup, old); err != nil {
+		if err := saveBackup(f.Backup, old); err != nil {
 			return f, err
 		}
 	}

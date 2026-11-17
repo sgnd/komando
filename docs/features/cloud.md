@@ -85,11 +85,25 @@ With a FILE, the conns keep only each profile's name: later commands read
 `~/.aws/config` (or `AWS_CONFIG_FILE`), so put the profiles there too, or
 they stop with `AWS_PROFILE_NOT_FOUND`.
 
-## End an AWS login
+## See and end an AWS login
 
-komando has no AWS logout: `komando logout` is for servers, and
-`komando status` lists only server logins. To end an AWS login early, run
-`aws sso logout`, or delete the profile's file in `~/.aws/sso/cache`.
+`komando status` lists the SSO logins of the profiles in `~/.aws/config`
+(made by `komando login aws`, `aws sso login` or an AWS SDK): the profiles
+that share each one and when its token runs out. A login with a refresh
+token (`renews: true`) gets a new token by itself after that, for as long
+as the AWS session lasts.
+
+```bash
+komando logout aws --profile prod   # end it now
+komando logout aws --all            # every SSO login of your profiles
+```
+
+`komando logout aws` does what `aws sso logout` does: it tells AWS to end
+the token and deletes the login in `~/.aws/sso/cache`, so komando, the AWS
+SDKs and the aws CLI all need `komando login aws` again. Profiles that share
+the login (one `sso-session`) are logged out together. When AWS cannot be
+reached, the login on this computer still ends (`revoked: false`); the token
+then runs out by itself. It never shows the token.
 
 ## Google Cloud and Azure
 
@@ -118,12 +132,38 @@ Google Cloud and Azure sign-in are not available yet. What works instead:
 Registries on Google Cloud and Azure log in the same way: see
 [Container registries](registry.md).
 
+A cloud login goes only to the cloud's own sign-in address:
+
+- A Google login file that names addresses (a workload or workforce
+  identity file, `external_account`; an impersonated service account) is
+  used only when they are Google's token services
+  (`https://sts.googleapis.com/v1/token`,
+  `https://iamcredentials.googleapis.com/...`).
+- `AZURE_AUTHORITY_HOST` has to be one of Azure's sign-in hosts.
+- gcloud's login and the cloud registry logins never go to a conn with a CA
+  of its own (`?ca=`) or `?resolve=`.
+
+For an AI agent's command, more is fixed, because the agent sets the
+variables on its own command line:
+
+- As a Google login file only a gcloud login
+  (`gcloud auth application-default login`) or a service account key is
+  used; any other kind stops with `NEEDS_PERSON`: the user sets that login
+  up in their own terminal.
+- `AWS_ENDPOINT_URL`, `AWS_ENDPOINT_URL_*` and a profile's `endpoint_url`
+  are not followed, nor a container credentials address
+  (`AWS_CONTAINER_CREDENTIALS_FULL_URI`) that is not ECS's or EKS's. An
+  emulator or VPC endpoint goes in the conn (`endpoint=`).
+- The file named by `AZURE_FEDERATED_TOKEN_FILE`,
+  `AWS_WEB_IDENTITY_TOKEN_FILE` (or `web_identity_token_file` in an AWS
+  profile) may not be a private key, komando's own data, a credential
+  store or a file that holds secrets by its name: `NEEDS_PERSON` (no flag
+  lifts it; the user sets the login up in their own terminal).
+
 ## Limits
 
 - Only AWS has a `komando login`; Google Cloud and Azure use the logins
   above.
-- komando has no AWS logout and does not list AWS logins in
-  `komando status`.
 - `aws`, `gcp` and `azure` (any case) cannot be the name of a new server,
   conn or VPN, as `all` cannot: those words are the cloud logins.
 

@@ -14,6 +14,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // downloadDest is where a download lands: to as given, inside it when it
@@ -60,8 +61,8 @@ func (d downloadData) Text() string {
 
 // storageDownloadTo saves one object to a local file, - (stdout), or a
 // folder; an existing file is replaced only with overwrite.
-func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrite bool) error {
-	if err := guardSensitiveCopy(key); err != nil {
+func storageDownloadTo(cl *call, ctx context.Context, name, conn, key, to string, overwrite bool) error {
+	if err := guardDownload(cl, key, to); err != nil {
 		return err
 	}
 	if strings.HasSuffix(key, "/") {
@@ -71,7 +72,7 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 		return err
 	}
 	toStdout := to == "-"
-	if toStdout && out.P.Format != "text" {
+	if toStdout && cl.out.Format != "text" {
 		return out.Usage("--to - writes the file itself to stdout, where JSON output goes too; add -o text, or give a file name")
 	}
 	dest := downloadDest(to, key)
@@ -87,9 +88,9 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 			exists = true
 		}
 	}
-	return withStorage(ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
+	return withStorage(cl, ctx, name, conn, driver.Verdict{}, map[string]any{"key": key, "file": dest},
 		func(ctx context.Context, c *store.Conn, s storex.Bucket) (any, error) {
-			if g.dryRun { // a download changes this computer: check, write nothing
+			if cl.flags.dryRun { // a download changes this computer: check, write nothing
 				o, err := s.Stat(ctx, key)
 				if err != nil {
 					return nil, err
@@ -100,7 +101,7 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 				}
 				return downloadData{Conn: c.Name, Key: key, File: file, Bytes: o.Size, Replaces: exists, DryRun: true, RunsOn: "local"}, nil
 			}
-			mask := out.P.Mask && !revealOK()
+			mask := cl.out.Mask && !cl.revealOK()
 			if toStdout && mask {
 				// an AI agent reads it here: shown as fs cat shows text
 				var b bytes.Buffer
@@ -112,17 +113,18 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 					return nil, out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "save it to a file with --to FILE",
 						"%s is larger than %s, the most komando shows an AI agent on stdout", key, humanBytes(hiddenScanMax))
 				}
-				text := b.String()
-				if bytes.IndexByte(b.Bytes(), 0) < 0 {
-					text = out.P.Redact(text)
+				text, err := agentStdout(cl, key, b.Bytes())
+				if err != nil {
+					return nil, err
 				}
-				_, err = io.WriteString(out.P.W, text)
+				_, err = io.WriteString(cl.out.W, text)
 				return nil, err
 			}
 			if toStdout {
-				_, err := s.Get(ctx, key, out.P.W)
+				_, err := s.Get(ctx, key, cl.out.W)
 				return nil, err
 			}
+			pp := objectProgress(ctx, s, key)
 			var n int64
 			masked := false
 			fill := func(tmp string) error {
@@ -132,37 +134,62 @@ func storageDownloadTo(ctx context.Context, name, conn, key, to string, overwrit
 				}
 				defer f.Close()
 				if !mask {
-					if n, err = s.Get(ctx, key, f); err != nil {
+					var w io.Writer = f
+					if pw := pp.writer(); pw != nil {
+						w = io.MultiWriter(f, pw)
+					}
+					if n, err = s.Get(ctx, key, w); err != nil {
 						return err
 					}
 					return f.Sync()
 				}
-				if n, masked, err = getMasked(ctx, s, key, f); err != nil {
+				if n, masked, err = getMasked(cl, ctx, s, key, f, pp.writer()); err != nil {
 					return err
 				}
 				return f.Sync()
 			}
 			var err error
 			if exists {
-				err = writeReplacing(dest, fill)
+				err = writeReplacing(cl, dest, fill)
 			} else {
-				err = writeAtomic(dest, fill)
+				err = writeAtomic(cl, dest, fill)
 			}
 			if err != nil {
 				return nil, err
 			}
+			pp.fileDone()
 			return downloadData{Conn: c.Name, Key: key, File: dest, Bytes: n, Replaces: exists, Masked: masked, RunsOn: "local"}, nil
 		})
 }
 
+// objectProgress starts --progress's count for one object, with its size
+// as the total: one more look at the object, made only with --progress.
+func objectProgress(ctx context.Context, s storex.Bucket, key string) *progressPart {
+	pp := progressFrom(ctx)
+	if pp == nil {
+		return nil
+	}
+	if o, err := s.Stat(ctx, key); err == nil {
+		pp.total(1, o.Size)
+	} else {
+		pp.unknown()
+	}
+	pp.start(key)
+	return pp
+}
+
 // writeReplacing is writeAtomic for --overwrite: the new file replaces the
 // old one only once it is complete.
-func writeReplacing(dest string, fill func(tmp string) error) error {
+func writeReplacing(cl *call, dest string, fill func(tmp string) error) error {
+	if err := guardLocalWrite(cl, dest); err != nil {
+		return err
+	}
 	dir, err := os.MkdirTemp(filepath.Dir(dest), ".komando-*")
 	if err != nil {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder exists and is writable", "%v", err)
 	}
 	defer os.RemoveAll(dir)
+	defer tmpclean.Add(dir)()
 	tmp := filepath.Join(dir, "data")
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -172,6 +199,9 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 	if err := fill(tmp); err != nil {
 		return err
 	}
+	if err := guardLocalWrite(cl, dest); err != nil {
+		return err
+	}
 	if err := os.Rename(tmp, dest); err != nil {
 		return out.Errf(out.ExitError, "FILE_ERROR", "check that the folder is writable and has free space", "%v", err)
 	}
@@ -179,13 +209,13 @@ func writeReplacing(dest string, fill func(tmp string) error) error {
 }
 
 // getMasked saves object key into f for an AI agent, masked before it
-// reaches the disk (fetchMasked).
-func getMasked(ctx context.Context, s storex.Bucket, key string, f *os.File) (int64, bool, error) {
+// reaches the disk (fetchMasked). watch, when not nil, sees every byte.
+func getMasked(cl *call, ctx context.Context, s storex.Bucket, key string, f *os.File, watch io.Writer) (int64, bool, error) {
 	pr, pw := io.Pipe()
 	defer pr.Close()
 	go func() {
 		_, err := s.Get(ctx, key, pw)
 		pw.CloseWithError(err)
 	}()
-	return fetchMasked(ctx, pr, f, io.Discard, nil)
+	return fetchMasked(cl, ctx, pr, f, io.Discard, watch)
 }

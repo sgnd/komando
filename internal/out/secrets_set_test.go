@@ -1,0 +1,119 @@
+package out
+
+import (
+	"encoding/base64"
+	"strings"
+	"sync"
+	"testing"
+)
+
+// SetSecrets after the printer was used loads the new values on next use
+// and forgets the old ones; a value AddValue hid on its own stays. It is
+// safe beside AddValue from another goroutine (run with -race).
+func TestSetSecretsAfterUse(t *testing.T) {
+	p := &Printer{Secrets: func() map[string]string { return map[string]string{"old": "old-value-111"} }}
+	if p.Redact("old-value-111") != "[secret:old]" {
+		t.Fatal("the first Secrets was not hidden")
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 200 {
+			p.AddValue("added-value-333")
+		}
+	}()
+	for range 200 {
+		p.SetSecrets(func() map[string]string { return map[string]string{"new": "new-value-222"} })
+		_ = p.Redact("x")
+	}
+	wg.Wait()
+	if got := p.Redact("new-value-222 old-value-111 added-value-333"); got != "[secret:new] old-value-111 "+Hidden {
+		t.Errorf("after SetSecrets: %q", got)
+	}
+	p.SetSecrets(nil)
+	if got := p.Redact("new-value-222"); got != "new-value-222" {
+		t.Errorf("SetSecrets(nil) kept the vault's values: %q", got)
+	}
+}
+
+// A value AddValue hid first that the vault then holds is a vault value:
+// it shows under the vault's name, and HoldsVaultValue sees it.
+func TestAddValueThenVault(t *testing.T) {
+	const v = "shared-value-4321"
+	p := &Printer{}
+	p.AddValue(v)
+	if p.HoldsVaultValue("x " + v) {
+		t.Fatal("a value only AddValue hid counts as the vault's")
+	}
+	p.SetSecrets(func() map[string]string { return map[string]string{"db": v} })
+	if !p.HoldsVaultValue("x " + v) {
+		t.Error("HoldsVaultValue misses a vault value AddValue hid first")
+	}
+	if got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v))); got != "a=[secret:db] b=[secret:db]" {
+		t.Errorf("Redact: %q", got)
+	}
+	p.ForgetAdded()
+	if got := p.Redact(v); got != "[secret:db]" {
+		t.Errorf("the next command forgot a vault value: %q", got)
+	}
+}
+
+// A value the command read through AddValue that the vault holds too
+// stays hidden when the vault's values go (SetSecrets(nil): an update run
+// as root that leaves the home), whichever of the two hid it first.
+func TestAddValueOfVaultValueSurvivesSetSecrets(t *testing.T) {
+	const v = "vault-and-added-9876"
+	vaultOf := func() map[string]string { return map[string]string{"db": v} }
+
+	// the vault first: AddValue finds a vault value
+	p := &Printer{Secrets: vaultOf}
+	p.ForgetAdded()
+	p.AddValue(v)
+	if got := p.Redact(v); got != "[secret:db]" {
+		t.Fatalf("a vault value AddValue hid again: %q", got)
+	}
+	p.Reset()
+	p.SetSecrets(nil)
+	if got := p.Redact("a=" + v + " b=" + base64.StdEncoding.EncodeToString([]byte(v))); got != "a="+Hidden+" b="+Hidden {
+		t.Errorf("after SetSecrets(nil): %q", got)
+	}
+	if p.HoldsVaultValue(v) {
+		t.Error("a value the vault no longer holds counts as the vault's")
+	}
+	p.ForgetAdded()
+	if got := p.Redact(v); got != v {
+		t.Errorf("the next command still hides it: %q", got)
+	}
+
+	// AddValue first, then the vault loads it
+	p = &Printer{}
+	p.AddValue(v)
+	p.SetSecrets(vaultOf)
+	if got := p.Redact(v); got != "[secret:db]" || !p.HoldsVaultValue(v) {
+		t.Fatalf("the vault's value: %q", got)
+	}
+	p.SetSecrets(nil)
+	if got := p.Redact(v); got != Hidden {
+		t.Errorf("after SetSecrets(nil): %q", got)
+	}
+
+	// the next command forgets what AddValue hid, not the vault's value
+	p = &Printer{Secrets: vaultOf}
+	p.AddValue(v)
+	p.ForgetAdded()
+	if got := p.Redact(v); got != "[secret:db]" || !p.HoldsVaultValue(v) {
+		t.Errorf("after ForgetAdded: %q", got)
+	}
+}
+
+// Spare shows the vault values s holds as they are, and their base64 and
+// URL forms, in this printer's output; other secrets stay hidden.
+func TestSpare(t *testing.T) {
+	p := &Printer{Secrets: func() map[string]string { return map[string]string{"a": "guess-value-1", "b": "other-value-2"} }}
+	p.Spare("echo guess-value-1")
+	got := p.Redact("guess-value-1 " + base64.StdEncoding.EncodeToString([]byte("guess-value-1")) + " other-value-2")
+	if strings.Contains(got, "[secret:a]") || !strings.Contains(got, "[secret:b]") {
+		t.Fatalf("got %q", got)
+	}
+}

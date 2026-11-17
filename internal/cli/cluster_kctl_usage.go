@@ -34,7 +34,7 @@ func kctlUsage(args []string) error {
 	case verb == "config" && !oneOf(sub, "current-context", "get-contexts"):
 		return out.Usage("config supports current-context and get-contexts (komando keeps the kubeconfig in its vault; `komando conn show NAME` shows the conn)")
 	case !oneOf(verb, kctlVerbs...):
-		e := out.Usage("unknown command %q for komando's kubectl", verb)
+		e := out.Usage("%q is not a command of komando's kubectl", verb)
 		if near := kube.Nearest(verb, slices.Clone(kctlVerbs)); near != "" {
 			e.Message += fmt.Sprintf("; did you mean %q?", near)
 		}
@@ -44,7 +44,7 @@ func kctlUsage(args []string) error {
 	return nil
 }
 
-// kindErr words a kind the cluster does not serve as kubectl does; any
+// kindErr ends with kfail for a kind the cluster does not serve; any
 // other error (discovery could not reach the cluster) stays as it is, so
 // it is reported as what it is.
 func kindErr(err error, format string, a ...any) error {
@@ -56,20 +56,20 @@ func kindErr(err error, format string, a ...any) error {
 }
 
 // kubectlRisk checks a kubectl command line and rates it.
-func kubectlRisk(args []string) (driver.Risk, error) {
+func kubectlRisk(cl *call, args []string) (driver.Risk, error) {
 	if err := kctlUsage(args); err != nil {
 		return 0, err
 	}
 	if err := checkKubectlFlags(args); err != nil {
 		return 0, err
 	}
-	return classifyKubectl(args), nil
+	return classifyKubectl(cl, args), nil
 }
 
 // auditBrokenWrite records a change whose connection broke: it may have
 // reached the cluster before the connection went.
-func auditBrokenWrite(st *store.State, conn string, args []string, risk driver.Risk, stop *out.Error) {
+func auditBrokenWrite(cl *call, st *store.State, conn string, args []string, risk driver.Risk, stop *out.Error) {
 	if stop.Code == "K8S_UNREACHABLE" && risk > driver.RiskRead {
-		audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args), " "), false, map[string]any{"conns": []string{conn}, "risk": risk.String(), "error": stop.Code})
+		audit(cl, st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args), " "), false, map[string]any{"conns": []string{conn}, "risk": risk.String(), "error": stop.Code})
 	}
 }

@@ -42,7 +42,7 @@ func TestImportAWS(t *testing.T) {
 	os.WriteFile(cfg, []byte("[default]\nregion = us-east-1\nendpoint_url = "+endpoint+"\n\n[profile prod]\nregion = us-east-1\nendpoint_url = "+endpoint+
 		"\naws_access_key_id = test\naws_secret_access_key = test\n\n[profile broken]\nregion = us-east-1\nendpoint_url = http://127.0.0.1:1\naws_access_key_id = x\naws_secret_access_key = y\n"), 0o600)
 	os.WriteFile(filepath.Join(dir, "credentials"), []byte("[default]\naws_access_key_id = test\naws_secret_access_key = test\n"), 0o600)
-	p, err := importAWS(cfg)
+	p, err := importAWS(tcl, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestImportAWSNotes(t *testing.T) {
 		"sso_start_url = https://x.awsapps.com/start\nsso_region = eu-west-1\n[profile bare]\nregion = eu-west-1\n"), 0o600)
 	t.Setenv("AWS_SHARED_CREDENTIALS_FILE", "")
 	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
-	p, err := importAWS(cfg)
+	p, err := importAWS(tcl, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

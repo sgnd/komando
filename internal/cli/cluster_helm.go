@@ -186,7 +186,7 @@ func helmLsCmd() *cobra.Command {
   komando cluster helm list prod-k8s --namespace shop
   komando cluster helm list @prod -A              # every cluster in the group`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := nsOrAll(ns, all); err != nil {
 				return err
 			}
@@ -194,11 +194,11 @@ func helmLsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ts, err := resolveClusters(st, args[0])
+			ts, err := resolveClusters(cl, st, args[0])
 			if err != nil {
 				return err
 			}
-			return readClusters(cmd.Context(), "cluster.helm.list", st, ts, clusterRead{swarmNo: helmNoSwarm,
+			return readClusters(cl, cmd.Context(), "cluster.helm.list", st, ts, clusterRead{swarmNo: helmNoSwarm,
 				kube: func(ctx context.Context, t clusterTarget, k *kube.Client) (any, error) {
 					space := cmp.Or(ns, k.Namespace)
 					if all {
@@ -218,14 +218,14 @@ func helmLsCmd() *cobra.Command {
 						}
 						rels = append(rels, row)
 					}
-					rels = cutRows(rels, limit)
+					rels = cutRows(cl, rels, limit)
 					res := helmList{"conn": t.conn.Name, "count": len(rels), "releases": rels}
 					if !all {
 						res["namespace"] = space
 					}
 					return res, nil
 				}})
-		},
+		}),
 	}
 	nsFlags(c, &ns, &all, nil)
 	clusterLimitFlag(c, &limit, 0, "releases per cluster")
@@ -284,18 +284,19 @@ func pickRevision(revs []helmRelease, n int) (helmRelease, error) {
 
 // helmOne runs a read on one release of one cluster.
 func helmOne(cmd *cobra.Command, name, target, release, ns string, fn func(t clusterTarget, revs []helmRelease) (any, error)) error {
+	cl := callOf(cmd)
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	t, err := resolveCluster(st, target)
+	t, err := resolveCluster(cl, st, target)
 	if err != nil {
 		return err
 	}
 	if t.host != nil {
 		return out.Usage("%s", helmNoSwarm)
 	}
-	return withKube(cmd.Context(), name, t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+	return withKube(cl, cmd.Context(), name, t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 		revs, err := helmRevisions(ctx, k, cmp.Or(ns, k.Namespace), release)
 		if err != nil {
 			return nil, err
@@ -365,16 +366,16 @@ func helmHistoryCmd() *cobra.Command {
 		Short:   "Every stored revision of a Helm release, oldest first",
 		Example: `  komando cluster helm history prod-k8s shop-api --namespace shop`,
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return helmOne(cmd, "cluster.helm.history", args[0], args[1], ns, func(t clusterTarget, revs []helmRelease) (any, error) {
 				rows := make([]map[string]any, len(revs))
 				for i, r := range revs {
 					rows[i] = map[string]any{"revision": r.Version, "updated": r.Info.LastDeployed, "status": r.Info.Status,
 						"chart": r.chart(), "app_version": r.Chart.Metadata.AppVersion, "description": r.Info.Description}
 				}
-				return helmHistory{"conn": t.conn.Name, "name": args[1], "namespace": revs[0].Namespace, "revisions": cutLast(rows, limit)}, nil
+				return helmHistory{"conn": t.conn.Name, "name": args[1], "namespace": revs[0].Namespace, "revisions": cutLast(cl, rows, limit)}, nil
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	clusterLimitFlag(c, &limit, 0, "revisions, newest kept")

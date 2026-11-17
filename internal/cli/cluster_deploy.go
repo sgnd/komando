@@ -163,9 +163,9 @@ func stuckText(stuck []map[string]any) string {
 	return "; " + strings.Join(parts, "; ")
 }
 
-func rolloutWait() time.Duration {
-	if g.timeout > 0 {
-		return g.timeout
+func rolloutWait(cl *call) time.Duration {
+	if cl.flags.timeout > 0 {
+		return cl.flags.timeout
 	}
 	return 5 * time.Minute
 }
@@ -184,7 +184,7 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 		Example: `  komando cluster deploy prod-k8s deployment/api --image ghcr.io/acme/api:1.4.3 --namespace shop --wait
   komando cluster deploy swarm1 service/web --image nginx:1.27 --wait`,
 		Args: refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) (rerr error) {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) (rerr error) {
 			if image == "" {
 				return out.Usage("give the new image with --image")
 			}
@@ -195,7 +195,7 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -210,17 +210,17 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 				if swarmKind(typ) != "service" {
 					return out.Usage("on Swarm, deploy works on services (service/NAME)")
 				}
-				ins, err := swarmInspect(cmd.Context(), t, name)
+				ins, err := swarmInspect(cl, cmd.Context(), t, name)
 				if err != nil {
 					return err
 				}
 				line := "docker service update --with-registry-auth --detach --image " + sshx.Q(image) + " " + sshx.Q(name)
-				defer rollbackNote(&rerr, args[0], "service/"+name, "")
-				return swarmChange(cmd.Context(), "cluster.deploy", t, name, line, wait, false, driver.RiskWrite,
+				defer rollbackNote(cl, &rerr, args[0], "service/"+name, "")
+				return swarmChange(cl, cmd.Context(), "cluster.deploy", t, name, line, wait, false, driver.RiskWrite,
 					map[string]any{"object": "service/" + name, "image": image, "previous_image": serviceImage(ins["Spec"])})
 			}
-			defer rollbackNote(&rerr, args[0], typ+"/"+name, ns)
-			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.deploy", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "image": image}, func(ctx context.Context, k *kube.Client) (any, error) {
+			defer rollbackNote(cl, &rerr, args[0], typ+"/"+name, ns)
+			return withKube(cl, ownTimeLimit(cmd.Context(), wait), "cluster.deploy", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "image": image}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -239,20 +239,20 @@ image, the rollout fails, or --timeout (default 5m) passes; go back with
 				}
 				patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"containers":[{"name":%q,"image":%q}]}}}}`, target, image)
 				q := url.Values{}
-				if g.dryRun {
+				if cl.flags.dryRun {
 					q.Set("dryRun", "All")
 				}
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, []byte(patch), "application/strategic-merge-patch+json"); err != nil {
 					return nil, err
 				}
 				res := map[string]any{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "container": target,
-					"image": image, "previous_image": old, "dry_run": g.dryRun}
+					"image": image, "previous_image": old, "dry_run": cl.flags.dryRun}
 				if old == image {
 					res["unchanged"] = true
 				}
-				return withRollout(ctx, k, r, space, name, wait, res)
+				return withRollout(cl, ctx, k, r, space, name, wait, res)
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	c.Flags().StringVar(&image, "image", "", "the new image, like ghcr.io/acme/api:1.4.3 (or CONTAINER=IMAGE)")
@@ -353,12 +353,12 @@ func clusterHistoryCmd() *cobra.Command {
 		Short:   "Revisions of a deployment, newest first, with their images",
 		Example: "  komando cluster history prod-k8s deployment/api --namespace shop",
 		Args:    refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -369,7 +369,7 @@ func clusterHistoryCmd() *cobra.Command {
 			if t.host != nil {
 				return out.Usage("Swarm keeps one previous version; `komando cluster rollback TARGET service/NAME` goes back to it")
 			}
-			return withKube(cmd.Context(), "cluster.history", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, cmd.Context(), "cluster.history", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -393,9 +393,9 @@ func clusterHistoryCmd() *cobra.Command {
 					rows = append(rows, map[string]any{"revision": rsRevision(rs), "images": rsImages(rs),
 						"current": rsRevision(rs) == current, "age": age(str(rm["creationTimestamp"]))})
 				}
-				return historyData{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "revisions": cutRows(rows, limit)}, nil
+				return historyData{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space, "revisions": cutRows(cl, rows, limit)}, nil
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	clusterLimitFlag(c, &limit, 0, "revisions, newest first")
@@ -497,12 +497,12 @@ revision. A Swarm service goes back to its previous version.`,
   komando cluster rollback prod-k8s deployment/api --revision 3 --namespace shop
   komando cluster rollback swarm1 service/web`,
 		Args: refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -520,17 +520,17 @@ revision. A Swarm service goes back to its previous version.`,
 				if swarmKind(typ) != "service" {
 					return out.Usage("on Swarm, rollback works on services (service/NAME)")
 				}
-				ins, err := swarmInspect(cmd.Context(), t, name)
+				ins, err := swarmInspect(cl, cmd.Context(), t, name)
 				if err != nil {
 					return err
 				}
 				if ins["PreviousSpec"] == nil {
 					return out.Errf(out.ExitNotFound, "REVISION_NOT_FOUND", "see what was deployed with `komando cluster describe TARGET service/"+name+"`", "service %s has no previous version to go back to", name)
 				}
-				return swarmChange(cmd.Context(), "cluster.rollback", t, name, "docker service rollback --detach "+sshx.Q(name), wait, true, driver.RiskWrite,
+				return swarmChange(cl, cmd.Context(), "cluster.rollback", t, name, "docker service rollback --detach "+sshx.Q(name), wait, true, driver.RiskWrite,
 					map[string]any{"object": "service/" + name, "images": []string{serviceImage(ins["PreviousSpec"])}, "previous_image": serviceImage(ins["Spec"])})
 			}
-			return withKube(ownTimeLimit(cmd.Context(), wait), "cluster.rollback", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "to": to}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, ownTimeLimit(cmd.Context(), wait), "cluster.rollback", t, driver.RiskWrite, map[string]any{"object": typ + "/" + name, "to": to}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
@@ -563,7 +563,7 @@ revision. A Swarm service goes back to its previous version.`,
 					return nil, err
 				}
 				res := map[string]any{"conn": t.conn.Name, "object": kindRef(r, name), "namespace": space,
-					"from_revision": current, "to_revision": rsRevision(target), "images": rsImages(target), "dry_run": g.dryRun}
+					"from_revision": current, "to_revision": rsRevision(target), "images": rsImages(target), "dry_run": cl.flags.dryRun}
 				if rsRevision(target) == current {
 					res["unchanged"] = true
 					return res, nil
@@ -577,15 +577,15 @@ revision. A Swarm service goes back to its previous version.`,
 				}
 				body, _ := json.Marshal([]map[string]any{{"op": "replace", "path": "/spec/template", "value": tpl}})
 				q := url.Values{}
-				if g.dryRun {
+				if cl.flags.dryRun {
 					q.Set("dryRun", "All")
 				}
 				if _, err := k.Do(ctx, "PATCH", r.ObjectPath(space, name), q, body, "application/json-patch+json"); err != nil {
 					return nil, err
 				}
-				return withRollout(ctx, k, r, space, name, wait, res)
+				return withRollout(cl, ctx, k, r, space, name, wait, res)
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	rollbackFlags(c, &to, &wait)
@@ -601,13 +601,13 @@ func rollbackFlags(c *cobra.Command, to *int, wait *bool) {
 
 // rollbackNote prints, for a person, how to undo a deploy that went
 // through (text mode only; JSON already carries previous_image).
-func rollbackNote(err *error, target, obj, ns string) {
-	if *err != nil || g.dryRun {
+func rollbackNote(cl *call, err *error, target, obj, ns string) {
+	if *err != nil || cl.flags.dryRun {
 		return
 	}
 	n := ""
 	if ns != "" {
 		n = " --namespace " + argQ(ns)
 	}
-	textNote("To go back to the previous image: komando cluster rollback %s %s%s", argQ(target), argQ(obj), n)
+	textNote(cl, "To go back to the previous image: komando cluster rollback %s %s%s", argQ(target), argQ(obj), n)
 }

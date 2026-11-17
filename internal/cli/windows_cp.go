@@ -18,7 +18,7 @@ import (
 
 // winCopy is runCp's work on one Windows server: one file each way.
 // Folders (-r), --sudo and --mode have no Windows form yet.
-func winCopy(ctx context.Context, c *sshx.Client, local, remote string, up bool, o cpOpts, many bool) (any, error) {
+func winCopy(cl *call, ctx context.Context, c *sshx.Client, local, remote string, up bool, o cpOpts, many bool) (any, error) {
 	switch {
 	case o.recursive:
 		return nil, notOnWindows("copying folders (-r)", []string{c.Host.Name})
@@ -32,32 +32,35 @@ func winCopy(ctx context.Context, c *sshx.Client, local, remote string, up bool,
 			return nil, localFileErr("PATH_NOT_FOUND", err, "")
 		}
 		defer f.Close()
-		m, err := winWrite(ctx, c, remote, f, winWriteOpts{mkdirs: o.mkdirs, intoDir: filepath.Base(local)})
+		pp := progressFrom(ctx)
+		pp.start(local)
+		m, err := winWrite(ctx, c, remote, pp.reader(f), winWriteOpts{mkdirs: o.mkdirs, intoDir: filepath.Base(local)})
 		if err != nil {
 			return nil, err
 		}
+		pp.fileDone()
 		return xferStats{Files: 1, Bytes: atoi64(m["bytes"]), Dest: m["path"], SHA256: m["sha256"], Replaced: m["replaced"] == "True"}, nil
 	}
 	dst := local
 	if many {
 		dst = filepath.Join(local, c.Host.Name) + string(os.PathSeparator)
-		if err := os.MkdirAll(dst, 0o755); err != nil {
+		if err := mkdirLocal(cl, dst); err != nil {
 			return nil, err
 		}
 	}
-	return winDownload(ctx, c, remote, dst, o.overwrite)
+	return winDownload(cl, ctx, c, remote, dst, o.overwrite)
 }
 
 // winDownload saves the file src of a Windows server as dst (a folder:
 // the file keeps its name in it).
-func winDownload(ctx context.Context, c *sshx.Client, src, dst string, overwrite bool) (xferStats, error) {
-	if err := guardSensitiveCopy(strings.ReplaceAll(src, `\`, "/")); err != nil {
+func winDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string, overwrite bool) (xferStats, error) {
+	if err := guardSensitiveCopy(cl, strings.ReplaceAll(src, `\`, "/")); err != nil {
 		return xferStats{}, err
 	}
 	if fi, err := os.Stat(dst); (err == nil && fi.IsDir()) || strings.HasSuffix(dst, string(os.PathSeparator)) || strings.HasSuffix(dst, "/") {
 		dst = filepath.Join(dst, winBase(src))
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 		return xferStats{}, err
 	}
 	script := winPath(src) + winCatch(`if (Test-Path -LiteralPath $p -PathType Container) { mark 'dir'; exit 0 }
@@ -69,11 +72,15 @@ try {
   while (($k = $fs.Read($buf, 0, $buf.Length)) -gt 0) { [Console]::Out.WriteLine([Convert]::ToBase64String($buf, 0, $k)) }
   [Console]::Out.Flush()
 } finally { $fs.Close() }`)
+	pp := progressFrom(ctx)
+	pp.unknown() // the size comes with the file
+	pp.start(src)
 	w := &b64Sink{save: func(in io.Reader) (xferStats, error) {
-		n, sum, masked, err := fetchFile(ctx, in, dst, 0o644, time.Time{}, overwrite, nil)
+		n, sum, masked, err := fetchFile(cl, ctx, in, dst, 0o644, time.Time{}, overwrite, pp.writer())
 		if err != nil {
 			return xferStats{}, err
 		}
+		pp.fileDone()
 		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 	}}
 	code, stderr, err := sshx.RunPS(ctx, c, script, nil, w)

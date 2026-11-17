@@ -65,13 +65,25 @@ type envVar struct {
 	secret     bool
 }
 
+// HostSecretEnv says whether the host's own env values that come from the
+// vault go into this command's environment; nil is yes. The cli says no for
+// an AI agent until a person has said yes: in the command's environment
+// the agent could read the value back in a form masking does not know
+// (printenv X | rev). extra (a command's --env) is checked where it is
+// given.
+var HostSecretEnv func(c *Client) bool
+
 // commandEnv is the host's env and extra, sorted by name. A value written
 // secret:NAME is read from the vault here, so it never passes through the
 // agent (and output hides vault values too).
 func commandEnv(c *Client, extra map[string]string) ([]envVar, error) {
 	env := map[string]string{}
 	if c != nil && c.Host != nil {
+		keep := HostSecretEnv == nil || HostSecretEnv(c)
 		for k, v := range c.Host.Env {
+			if !keep && strings.HasPrefix(v, "secret:") {
+				continue
+			}
 			env[k] = v
 		}
 	}
@@ -275,6 +287,38 @@ func (l *limitedBuf) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// streamUntil hands each chunk to stream until stop is called. stop waits
+// for a chunk being handed over and returns once no more can come: the
+// session's copy goroutines may still read output after Run gave up on
+// the command (Ctrl-C, a timeout), and what the command shows must never
+// reach its caller after Run returned.
+func streamUntil(stream func(string, []byte)) (fn func(string, []byte), stop func()) {
+	if stream == nil {
+		return nil, func() {}
+	}
+	var mu sync.Mutex
+	stopped := false
+	return func(name string, chunk []byte) {
+			mu.Lock()
+			defer mu.Unlock()
+			if !stopped {
+				stream(name, chunk)
+			}
+		}, func() {
+			mu.Lock()
+			stopped = true
+			mu.Unlock()
+		}
+}
+
+// outputOf is where a command's stdout and stderr go, each kept up to
+// r.MaxOutput and handed to r.Stream until stop is called (streamUntil).
+func outputOf(r RunRequest) (stdout, stderr *limitedBuf, stop func()) {
+	stream, stop := streamUntil(r.Stream)
+	return &limitedBuf{max: r.MaxOutput, name: "stdout", stream: stream},
+		&limitedBuf{max: r.MaxOutput, name: "stderr", stream: stream}, stop
+}
+
 // Run executes a command and never returns an error for a non-zero exit:
 // that is reported in RunResult.ExitCode. err is for transport failures.
 // On a Windows server the command is PowerShell.
@@ -292,7 +336,7 @@ func runPOSIX(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) 
 	if err != nil {
 		return nil, err
 	}
-	sess, err := c.NewSession()
+	sess, err := c.Session()
 	if err != nil {
 		if c.lost() {
 			return nil, lostError(c, false)
@@ -303,8 +347,8 @@ func runPOSIX(ctx context.Context, c *Client, r RunRequest) (*RunResult, error) 
 	if r.PTY {
 		_ = sess.RequestPty("xterm", 40, 200, ssh.TerminalModes{ssh.ECHO: 0})
 	}
-	stdout := &limitedBuf{max: r.MaxOutput, name: "stdout", stream: r.Stream}
-	stderr := &limitedBuf{max: r.MaxOutput, name: "stderr", stream: r.Stream}
+	stdout, stderr, stop := outputOf(r)
+	defer stop()
 	sess.Stdout, sess.Stderr = stdout, stderr
 	var gate *sudoGate
 	switch {
@@ -545,7 +589,7 @@ func Pipe(ctx context.Context, c *Client, cmd string, stdin io.Reader, stdout io
 	if isWindows(c) { // cmd is sh; Windows streams use RunPS
 		return -1, "", fmt.Errorf("%s is a Windows server: this command needs a Linux shell there", c.Host.Name)
 	}
-	sess, err := c.NewSession()
+	sess, err := c.Session()
 	if err != nil {
 		return -1, "", err
 	}

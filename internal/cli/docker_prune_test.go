@@ -150,34 +150,34 @@ func TestDockerPruneCommand(t *testing.T) {
 func TestDockerDeleteConfirmsWithTheServerName(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["web1"] = &store.Host{Name: "web1", Address: "10.255.255.1", User: "deploy"}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	savedInteractive, savedStdin, savedErr := interactive, os.Stdin, os.Stderr
-	t.Cleanup(func() { interactive, os.Stdin, os.Stderr = savedInteractive, savedStdin, savedErr; resetApproval() })
-	interactive = func() bool { return true }
+	savedInteractive, savedStdin, savedErr := tcl.terminal, tcl.stdin, tcl.out.Err
+	t.Cleanup(func() { tcl.terminal, tcl.stdin, tcl.out.Err = savedInteractive, savedStdin, savedErr; resetApproval() })
+	tcl.terminal = true
 	answer := func(typed string, args ...string) (string, error) {
 		resetApproval()
 		in, w, _ := os.Pipe()
 		_, _ = w.WriteString(typed + "\n")
 		_ = w.Close()
 		er, ew, _ := os.Pipe()
-		os.Stdin, os.Stderr = in, ew
-		_, err := guardDocker("web1", args)
+		tcl.stdin, tcl.out.Err = in, ew
+		_, err := guardDocker(tcl, "web1", args)
 		var asked string
 		if err == nil {
 			// the server guard of the same command: no second question
 			st, _ := store.Load()
-			hosts, _ := resolveTargets(st, "web1")
-			err = guard(st, hosts, "docker "+strings.Join(args, " "), true)
+			hosts, _ := resolveTargets(tcl, st, "web1")
+			err = guard(tcl, st, hosts, "docker "+strings.Join(args, " "), true)
 		}
 		_ = ew.Close()
 		b, _ := io.ReadAll(er)
 		asked = string(b)
-		os.Stdin, os.Stderr = savedStdin, savedErr
+		tcl.stdin, tcl.out.Err = savedStdin, savedErr
 		return asked, err
 	}
 	asked, err := answer("web1", "system", "prune", "-f", "-a")

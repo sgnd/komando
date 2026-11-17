@@ -158,12 +158,12 @@ func loginUser(st *store.State, h *store.Host) string {
 // lockoutStop refuses to lock or delete root or the account komando logs
 // in as: afterwards nobody gets in to undo it. --allow-dangerous lets it
 // through.
-func lockoutStop(target, user, verb string) error {
+func lockoutStop(cl *call, target, user, verb string) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return nil // the command itself reports it
 	}
@@ -184,10 +184,10 @@ func lockoutStop(target, user, verb string) error {
 	if login {
 		why = verb + " " + user + " locks komando out of " + strings.Join(names, ", ") + ": it is the user komando logs in as (log in as another user first: `komando host edit TARGET --user OTHER`)"
 	}
-	if dangerOK(why, targetsWhy(st, hosts)) || confirmDangerous(names, why) {
+	if cl.dangerOK(why, targetsWhy(st, hosts)) || confirmDangerous(cl, names, why) {
 		return nil
 	}
-	return policyStop(approvalErr("POLICY_BLOCKED", why))
+	return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED", why))
 }
 
 func userCmd() *cobra.Command {
@@ -205,11 +205,11 @@ wheel or admin group (admin_group; rules in sudoers.d are not read) and
 whether the account is locked (expired, as ` + "`komando user lock`" + ` does). The lock
 state is read through sudo; with --no-sudo it is left out.`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "user.list", target: args[0], command: userListScript, display: "user list", sudo: !noSudo, limit: limit,
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return runOps(cl, cmd.Context(), opsSpec{name: "user.list", target: args[0], command: userListScript, display: "user list", sudo: !noSudo, limit: limit,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return parseUsers(rr.Stdout, all), nil },
 				text:  usersText})
-		},
+		}),
 	}
 	list.Flags().BoolVarP(&all, "all", "a", false, "include system accounts")
 	limitFlag(list, &limit, 0, "accounts per server")
@@ -221,7 +221,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 		Short:   "Create a user if missing, with an SSH key and sudo if asked",
 		Example: "  komando user add @web deploy --key deploy --admin",
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			u := args[1]
 			if err := checkUsername(u); err != nil {
 				return err
@@ -233,7 +233,7 @@ state is read through sudo; with --no-sudo it is left out.`,
 			// an existing user gets --shell too, so a shell nobody can log
 			// in with locks out root or komando's own login like `user lock`
 			if cmd.Flags().Changed("shell") && !loginShell(shell) {
-				if err := lockoutStop(args[0], u, "giving the shell "+shell+" to"); err != nil {
+				if err := lockoutStop(cl, args[0], u, "giving the shell "+shell+" to"); err != nil {
 					return err
 				}
 			}
@@ -260,8 +260,8 @@ state is read through sudo; with --no-sudo it is left out.`,
 					}
 				}
 			}
-			return runFleet(cmd.Context(), "user.add", args[0], sb.String(), nil, execOpts{sudo: !noSudo, display: shown, exitMap: orSudo(soleHost(args[0]), shadowMissing)}, true)
-		},
+			return runFleet(cl, cmd.Context(), "user.add", args[0], sb.String(), nil, execOpts{sudo: !noSudo, display: shown, exitMap: orSudo(soleHost(cl, args[0]), shadowMissing)}, true)
+		}),
 	}
 	add.Flags().StringVar(&pubKey, "pubkey", "", "public key line to authorize")
 	add.Flags().StringVar(&keyName, "key", "", "authorize this key from komando's key list")
@@ -303,14 +303,14 @@ func userRmCmd(noSudo *bool) *cobra.Command {
 		Use:   "rm TARGET USER",
 		Short: "Delete a user account",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := checkUsername(args[1]); err != nil {
 				return err
 			}
-			if err := lockoutStop(args[0], args[1], "deleting"); err != nil {
+			if err := lockoutStop(cl, args[0], args[1], "deleting"); err != nil {
 				return err
 			}
-			askTypes(args[1:2], "users")
+			askTypes(cl, args[1:2], "users")
 			c := needShadow("userdel") + "userdel "
 			if removeHome {
 				c += "-r "
@@ -319,8 +319,8 @@ func userRmCmd(noSudo *bool) *cobra.Command {
 			if removeHome {
 				shown += " --remove-home"
 			}
-			return runFleet(cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), nil, execOpts{sudo: !*noSudo, display: shown, exitMap: orSudo(soleHost(args[0]), shadowMissing)}, true)
-		},
+			return runFleet(cl, cmd.Context(), "user.rm", args[0], c+sshx.Q(args[1]), nil, execOpts{sudo: !*noSudo, display: shown, exitMap: orSudo(soleHost(cl, args[0]), shadowMissing)}, true)
+		}),
 	}
 	del.Flags().BoolVar(&removeHome, "remove-home", false, "also delete the user's home folder and the files in it")
 	return del
@@ -367,30 +367,30 @@ func userLockCmds(noSudo *bool) (lock, unlock *cobra.Command) {
 		Use:   "lock TARGET USER",
 		Short: "Lock an account so password and SSH keys stop working",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := checkUsername(args[1]); err != nil {
 				return err
 			}
-			if err := lockoutStop(args[0], args[1], "locking"); err != nil {
+			if err := lockoutStop(cl, args[0], args[1], "locking"); err != nil {
 				return err
 			}
-			return runOps(cmd.Context(), opsSpec{name: "user.lock", target: args[0], command: userExists(args[1]) + needShadow("usermod") + "usermod -L -e 1 " + sshx.Q(args[1]),
+			return runOps(cl, cmd.Context(), opsSpec{name: "user.lock", target: args[0], command: userExists(args[1]) + needShadow("usermod") + "usermod -L -e 1 " + sshx.Q(args[1]),
 				display: "user lock " + args[1], sudo: !*noSudo, mutating: true,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "locked", rr) }})
-		},
+		}),
 	}
 	unlock = &cobra.Command{
 		Use:   "unlock TARGET USER",
 		Short: "Unlock an account locked with `user lock`",
 		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := checkUsername(args[1]); err != nil {
 				return err
 			}
-			return runOps(cmd.Context(), opsSpec{name: "user.unlock", target: args[0], command: userExists(args[1]) + needShadow("usermod") + "usermod -U -e '' " + sshx.Q(args[1]),
+			return runOps(cl, cmd.Context(), opsSpec{name: "user.unlock", target: args[0], command: userExists(args[1]) + needShadow("usermod") + "usermod -U -e '' " + sshx.Q(args[1]),
 				display: "user unlock " + args[1], sudo: !*noSudo, mutating: true,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return userResult(args[1], "unlocked", rr) }})
-		},
+		}),
 	}
 	return lock, unlock
 }

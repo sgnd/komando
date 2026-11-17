@@ -23,7 +23,7 @@ func flagNames(c *cobra.Command) []string {
 // storage upload/download are upload/download for storage conns: the same
 // code, with only the flags that mean something for storage.
 func TestStorageTransferIsUploadDownload(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	find := func(path string) *cobra.Command {
 		c, _, err := root.Find(strings.Fields(path))
 		if err != nil {
@@ -31,10 +31,10 @@ func TestStorageTransferIsUploadDownload(t *testing.T) {
 		}
 		return c
 	}
-	if got := flagNames(find("storage upload")); !slices.Equal(got, []string{"recursive"}) {
+	if got := flagNames(find("storage upload")); !slices.Equal(got, []string{"progress", "recursive"}) {
 		t.Errorf("storage upload flags: %v", got)
 	}
-	if got := flagNames(find("storage download")); !slices.Equal(got, []string{"overwrite", "recursive", "to"}) {
+	if got := flagNames(find("storage download")); !slices.Equal(got, []string{"overwrite", "progress", "recursive", "to"}) {
 		t.Errorf("storage download flags: %v", got)
 	}
 	for _, p := range []string{"storage upload", "storage download"} {
@@ -107,10 +107,10 @@ func stderrOf(t *testing.T, fn func()) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stderr
-	os.Stderr = w
+	saved := tcl.out.Err
+	tcl.out.Err = w
 	fn()
-	os.Stderr = saved
+	tcl.out.Err = saved
 	_ = w.Close()
 	b, _ := io.ReadAll(r)
 	return string(b)

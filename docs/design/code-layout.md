@@ -23,6 +23,7 @@ are named, and the rules every change keeps. Tests check most of them; the
 | **Every command runs once end to end** (`test/e2e/checks/coverage.sh`). | `make e2e` |
 | **Messages follow [message-style.md](message-style.md).** | `message_style_test.go` |
 | **Packages and files are named as below.** | `internal/layout` |
+| **The paid boundary.** No plan, account or licence check in any command. The binary never links the sync library or a Komando Cloud client, and names no komando-owned address except the release site ([principles.md](principles.md#15-technical-rules)). | review, `internal/boundary` |
 
 ## Packages
 
@@ -36,7 +37,7 @@ work and prints the answer. Code that talks to something outside komando
 gets an `x` at the end only when the plain word would clash with:
 
 - a standard library package (`net` → `netx`);
-- a package komando imports (`ssh` → `sshx`, `proxy` → `proxyx`);
+- a package komando imports (`ssh` → `sshx`, `queue` → `queuex`);
 - another komando package (`store` → `storex`);
 - a word the code uses as a variable name everywhere (`db`, `cache`,
   `queue`, `browser` → `dbx`, `cachex`, `queuex`, `browserx`).
@@ -46,7 +47,7 @@ conflict and gains nothing. A new package follows the rule.
 
 **One engine per sub-package** under its family: `queuex/nats`,
 `queuex/sqs`. A fake server or helper that only tests use goes in a
-`...test` sub-package (`proxyx/proxytest`).
+`...test` sub-package (`transport/proxytest`).
 
 **When a noun gets its own package:** when it has logic that needs neither
 cobra nor komando's global state (the inventory, the guards, the audit
@@ -54,16 +55,26 @@ log), and the logic is more than a file or two. The command itself (flags,
 guard, audit, output) stays in `internal/cli`. Moving a whole area out of
 `internal/cli` happens one area at a time.
 
+**The sync library is not part of komando.** `sync/` is a separate public
+Go module (`github.com/sgnd/komando/sync`, package `komandosync`, with its
+own `go.mod`) for the Komando apps. It is never under `internal/` and
+`cmd/komando` never imports it, so the CLI binary does not contain it. The
+root `go test ./...` skips it; `make test-sync` tests it. Its package is
+named `komandosync`, not `syncx`: other programs import it, and the name
+says whose it is.
+
 Every package is listed here; `internal/layout` fails when one is missing
 or a listed one is gone.
 
 | Package | What it is |
 |---|---|
 | `cmd/komando` | `main`: starts `internal/cli` |
+| `internal/boundary` | test only: the paid boundary (no sync library or Komando Cloud client in the binary, no komando-owned address but the release site) |
 | `internal/browserx` | a sign-in page in a browser window (VPN SAML logins) |
 | `internal/cachex` | Redis-compatible caches and memcached, with the risk of each command |
 | `internal/cli` | every command: flags, safety checks, audit and output |
 | `internal/cloud` | komando's own clients for cloud and secret-manager APIs |
+| `internal/gcpadc` | finds Google application-default credentials for every client that uses them, after checking where the file found would send what |
 | `internal/codesize` | test only: the 100-line and 800-line limits |
 | `internal/dbx` | SQL and MongoDB against a conn, dump and restore |
 | `internal/driver` | the kinds of conns and the risk levels the safety checks use |
@@ -78,22 +89,26 @@ or a listed one is gone.
 | `internal/out` | the JSON envelope and the text output of every command |
 | `internal/policy` | finds destructive shell commands |
 | `internal/ppp` | a small PPP peer for L2TP |
-| `internal/proxyx` | HTTPS clients through the company proxy |
-| `internal/proxyx/proxytest` | a test proxy for the tests |
+| `internal/transport` | what every outbound HTTPS and TLS client of komando shares: the system's CAs (never `SSL_CERT_FILE`/`SSL_CERT_DIR`) and the company proxy (a person's `HTTPS_PROXY`, never an AI agent's) |
+| `internal/transport/proxytest` | a test proxy for the tests |
 | `internal/queuex` | message queues, with Kafka built in |
 | `internal/queuex/nats` | NATS JetStream |
 | `internal/queuex/pubsub` | Google Cloud Pub/Sub |
 | `internal/queuex/rabbitmq` | RabbitMQ |
 | `internal/queuex/sqs` | Amazon SQS |
 | `internal/registry` | container registries over the OCI Distribution API |
+| `internal/releasesig` | the signature of a release's checksums.txt (`komando update` checks it; `scripts/releasesig` signs) |
 | `internal/sealdb` | the local store file (SQLite of sealed rows) |
+| `internal/sealfile` | the sealed file of `export --sealed` and `export --for-phone` ([sealed-file.md](sealed-file.md)) |
 | `internal/sealrow` | seals one record of the local store |
 | `internal/sshx` | SSH: dialing through jump hosts, host keys, running commands |
 | `internal/sslvpn` | komando's own SSL VPN clients (AnyConnect, Fortinet, GlobalProtect, F5, Pulse) |
 | `internal/store` | komando's state: inventory, conns, keys, jobs, tunnels, settings |
 | `internal/storex` | object storage, FTP, SFTP, WebDAV and SMB behind one interface |
+| `internal/tmpclean` | the temporary files of one run, removed on a second Ctrl-C; old leftovers swept |
 | `internal/vault` | the encrypted secrets |
 | `internal/winrm` | komando's own WinRM client for Windows servers |
+| `sync` | prototype only, its own Go module: the open sync format and cryptography used by the Komando apps, tested against a hostile in-memory server ([sync-prototype.md](sync-prototype.md)); the CLI never imports it |
 
 ## Files in internal/cli
 
@@ -127,6 +142,7 @@ a reason; `internal/layout` reads this table.
 | `approval` | the person's approval: the window, the code, the hints |
 | `args` | the argument words of a command, and the words after `--` |
 | `ask` | asking a person for a password or a login answer |
+| `call` | one command's run (`RunCall`): its printer, flags, approvals and environment, and the hooks of the packages under the cli ([engine-per-call.md](engine-per-call.md)) |
 | `cmdid` | the stable command IDs |
 | `common` | small helpers nearly every command uses (state, timeouts, fan-out, audit) |
 | `confirm` | yes/no and typed confirmations |

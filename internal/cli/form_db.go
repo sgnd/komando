@@ -46,7 +46,7 @@ func dbNameProblem(_ *store.State, _ formAnswers, v string) string {
 
 // SQL Server.
 
-func sqlServerForm() formSpec {
+func sqlServerForm(_ *call) formSpec {
 	host := formServiceHostQ("database server", "10.0.0.5 or db.example.com")
 	check := host.check
 	host.check = func(st *store.State, a formAnswers, v string) string {
@@ -83,7 +83,7 @@ func sqlServerForm() formSpec {
 
 // Oracle.
 
-func oracleForm() formSpec {
+func oracleForm(_ *call) formSpec {
 	oracleName := func(_ *store.State, _ formAnswers, v string) string {
 		if !dbOracleNameRe.MatchString(v) {
 			return "type only the name, like ORCLPDB1: letters, digits, dot, _ and -, starting with a letter"
@@ -142,7 +142,7 @@ func clickhouseTLSDefault(st *store.State, a formAnswers) string {
 	return "true"
 }
 
-func clickhouseForm() formSpec {
+func clickhouseForm(_ *call) formSpec {
 	return formSpec{title: "Add a ClickHouse database", qs: []formQ{
 		formNameQ("conn", "database", "events"),
 		formReachQ("database"),
@@ -172,9 +172,7 @@ func clickhouseForm() formSpec {
 		dbUserQ("default", "ClickHouse's own first user is called default; your provider may have given you another."),
 		{key: "database", label: "Database", ask: "Which database should commands use?", optional: true, example: "analytics",
 			help: "Empty uses the user's default database.", check: dbNameProblem},
-		formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
-			"you type it next, hidden", "no password"),
+		formPasswordQ("Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "no password"),
 		formProtectQ("database"),
 		formGroupQ(), formNotesQ(),
 	}, build: func(_ *store.State, a formAnswers) [][]string {
@@ -189,7 +187,7 @@ func clickhouseForm() formSpec {
 
 // Snowflake.
 
-func snowflakeForm() formSpec {
+func snowflakeForm(_ *call) formSpec {
 	login := func(v string) func(formAnswers) bool { return func(a formAnswers) bool { return a["login"] == v } }
 	return formSpec{title: "Add a Snowflake database", qs: []formQ{
 		formNameQ("conn", "database", "analytics"),
@@ -294,7 +292,7 @@ func snowflakeBuild(_ *store.State, a formAnswers) [][]string {
 
 // BigQuery.
 
-func bigqueryForm() formSpec {
+func bigqueryForm(_ *call) formSpec {
 	return formSpec{title: "Add a Google BigQuery database", qs: []formQ{
 		formNameQ("conn", "database", "warehouse"),
 		{key: "project", label: "Project", ask: "Which Google Cloud project runs the queries?", example: "my-project",

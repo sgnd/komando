@@ -76,6 +76,17 @@ func TestMemcacheServer(t *testing.T) {
 	if err != nil || len(keys) != 2 {
 		t.Errorf("keys %v %v", keys, err)
 	}
+	for _, k := range keys {
+		ok := k.Type != nil && *k.Type == "string" && k.TTL != nil
+		if ok && k.Key == "komando:a" {
+			ok = *k.TTL > 3500 && *k.TTL <= 3600
+		} else if ok {
+			ok = *k.TTL == -1
+		}
+		if !ok {
+			t.Errorf("type and ttl: %s", keyLine(k))
+		}
+	}
 	info, err := s.Info(ctx, "")
 	sum := SummarizeFor("memcached", info)
 	if err != nil || !strings.HasSuffix(sum.Version, "(memcached)") || sum.Keys["items"] < 2 {

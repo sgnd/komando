@@ -164,7 +164,7 @@ func prefixRenames(s *store.State, old, new string, kinds map[string]bool) (rena
 // guardRenameProtected asks once for every protected server and conn a
 // rename changes: --yes (for an AI agent, a person's "Allow once" in
 // komando's window), or a yes at the terminal.
-func guardRenameProtected(what string, prot []string) error {
+func guardRenameProtected(cl *call, what string, prot []string) error {
 	hosts := 0
 	names := make([]string, len(prot))
 	for i, p := range prot {
@@ -194,14 +194,14 @@ func guardRenameProtected(what string, prot []string) error {
 		shown, more = shown[:8], fmt.Sprintf(" and %d more", len(names)-8)
 	}
 	why := fmt.Sprintf("%s changes %s in one step: %s%s", what, count, strings.Join(shown, ", "), more)
-	if yesOK(why) || confirmYes(why+". Continue?") {
+	if cl.yesOK(why) || confirmYes(cl, why+". Continue?") {
 		return nil
 	}
 	code := "PROTECTED_TARGET"
 	if hosts > 0 {
 		code = "PROTECTED_HOST"
 	}
-	return policyStop(approvalErr(code, fmt.Sprintf("%s changes %s (one yes covers all of them): %s", what, count, strings.Join(names, ", "))))
+	return cl.policyStop(approvalErr(cl, code, fmt.Sprintf("%s changes %s (one yes covers all of them): %s", what, count, strings.Join(names, ", "))))
 }
 
 func renameCmd() *cobra.Command {
@@ -251,7 +251,7 @@ group rename.`,
   komando rename --starts-with old-registry registry --kind conn,secret
   komando rename --starts-with lab- test- --in-notes --in-labels --dry-run`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			old, new := args[0], args[1]
 			if !prefix {
 				if notes || labels || len(kinds) > 0 {
@@ -272,7 +272,7 @@ group rename.`,
 			}
 			var skipped []renameSkip
 			what := fmt.Sprintf("renaming %s* to %s*", old, new)
-			res, err := renameTx(func(s *store.State) (renameSet, renameOpts, error) {
+			res, err := renameTx(cl, func(s *store.State) (renameSet, renameOpts, error) {
 				set, sk := prefixRenames(s, old, new, want)
 				skipped = sk
 				if set.size() == 0 && len(sk) == 0 {
@@ -280,7 +280,7 @@ group rename.`,
 						"no %s starts with %q", strings.Join(slices.Sorted(maps.Keys(want)), ", "), old)
 				}
 				return set, renameOpts{notes: notes, labels: labels, prefix: &renamePair{From: old, To: new},
-					guard: func(prot []string) error { return guardRenameProtected(what, prot) }}, nil
+					guard: func(prot []string) error { return guardRenameProtected(cl, what, prot) }}, nil
 			})
 			if err != nil {
 				return err
@@ -288,11 +288,11 @@ group rename.`,
 			res.Prefix = &renamePair{From: old, To: new}
 			res.Skipped = skipped
 			if res.Action == "renamed" {
-				audit(nil, "rename", renamedNames(res), "", true, map[string]any{"prefix": old, "new_prefix": new, "count": res.Count, "renamed": res.Renamed, "updated": len(res.Updated)})
+				audit(cl, nil, "rename", renamedNames(res), "", true, map[string]any{"prefix": old, "new_prefix": new, "count": res.Count, "renamed": res.Renamed, "updated": len(res.Updated)})
 			}
-			out.P.Print("rename", res, nil)
+			cl.out.Print("rename", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&prefix, "starts-with", false, "rename every name that starts with OLD")
 	c.Flags().StringSliceVar(&kinds, "kind", nil, "rename only these kinds: host, conn, vpn, secret, key, group (default: all)")

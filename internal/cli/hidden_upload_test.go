@@ -38,15 +38,15 @@ func TestUploadRefusesHiddenValues(t *testing.T) {
 // An AI agent's download is saved the way fs cat shows it; a person's is
 // saved as it is.
 func TestDownloadMasksSecretsForAgents(t *testing.T) {
-	saved := out.P.Mask
-	t.Cleanup(func() { out.P.Mask = saved })
+	saved := tcl.out.Mask
+	t.Cleanup(func() { tcl.out.Mask = saved })
 	dir := t.TempDir()
 	conf := "bind 0.0.0.0\nrequirepass hunter2pass\n"
 	bin := "\x00\x01requirepass hunter2pass"
 
-	out.P.Mask = true
+	tcl.out.Mask = true
 	dst := filepath.Join(dir, "agent.conf")
-	_, sum, masked, err := fetchFile(context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false, nil)
+	_, sum, masked, err := fetchFile(tcl, context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false, nil)
 	got, _ := os.ReadFile(dst)
 	if err != nil || !masked || sum != "" || strings.Contains(string(got), "hunter2pass") || !strings.Contains(string(got), "requirepass [hidden]") {
 		t.Fatalf("agent download: masked=%v sum=%q err=%v file=%q", masked, sum, err, got)
@@ -55,23 +55,23 @@ func TestDownloadMasksSecretsForAgents(t *testing.T) {
 		t.Error("the masked copy could be uploaded back")
 	}
 	dst = filepath.Join(dir, "agent.bin")
-	if _, _, masked, _ := fetchFile(context.Background(), strings.NewReader(bin), dst, 0o644, time.Time{}, false, nil); masked {
+	if _, _, masked, _ := fetchFile(tcl, context.Background(), strings.NewReader(bin), dst, 0o644, time.Time{}, false, nil); masked {
 		t.Error("a binary file was rewritten")
 	}
 	// sync down: the same masking
-	if err := (localSide{root: dir}).write(context.Background(), "sync.conf", strings.NewReader(conf), syncFile{}); err != nil {
+	if err := (localSide{cl: tcl, root: dir}).write(context.Background(), "sync.conf", strings.NewReader(conf), syncFile{}); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := os.ReadFile(filepath.Join(dir, "sync.conf")); strings.Contains(string(got), "hunter2pass") {
 		t.Errorf("sync down kept the password: %q", got)
 	}
-	if _, err := (agentLocalSide{localSide: localSide{root: dir}}).open(context.Background(), "sync.conf"); err == nil {
+	if _, err := (agentLocalSide{localSide: localSide{cl: tcl, root: dir}}).open(context.Background(), "sync.conf"); err == nil {
 		t.Error("sync up would send the masked copy")
 	}
 
-	out.P.Mask = false
+	tcl.out.Mask = false
 	dst = filepath.Join(dir, "person.conf")
-	_, sum, masked, err = fetchFile(context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false, nil)
+	_, sum, masked, err = fetchFile(tcl, context.Background(), strings.NewReader(conf), dst, 0o644, time.Time{}, false, nil)
 	if got, _ := os.ReadFile(dst); err != nil || masked || sum == "" || string(got) != conf {
 		t.Fatalf("person download changed: masked=%v err=%v file=%q", masked, err, got)
 	}
@@ -103,20 +103,20 @@ func (r *tmpPeek) Read(b []byte) (int, error) {
 // download's temporary file; a binary file that holds a vault value is
 // stopped, not saved.
 func TestAgentDownloadNeverOnDiskUnmasked(t *testing.T) {
-	saved := out.P
-	t.Cleanup(func() { out.P = saved })
-	out.P = &out.Printer{Format: "json", W: io.Discard, Mask: true,
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true,
 		Secrets: func() map[string]string { return map[string]string{"db": "vault-value-77"} }}
 	dir := t.TempDir()
 	r := &tmpPeek{data: []byte("requirepass hunter2pass\nDB=vault-value-77\n"), dir: dir}
-	if _, _, _, err := fetchFile(context.Background(), r, filepath.Join(dir, "a.conf"), 0o644, time.Time{}, false, nil); err != nil {
+	if _, _, _, err := fetchFile(tcl, context.Background(), r, filepath.Join(dir, "a.conf"), 0o644, time.Time{}, false, nil); err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(r.seen), "hunter2pass") || strings.Contains(string(r.seen), "vault-value-77") {
 		t.Fatalf("the real text was on disk during the download: %q", r.seen)
 	}
 	dst := filepath.Join(dir, "a.bin")
-	_, _, _, err := fetchFile(context.Background(), strings.NewReader("\x00\x01DB=vault-value-77"), dst, 0o644, time.Time{}, false, nil)
+	_, _, _, err := fetchFile(tcl, context.Background(), strings.NewReader("\x00\x01DB=vault-value-77"), dst, 0o644, time.Time{}, false, nil)
 	if toErr(err).Code != "SENSITIVE_FILE" {
 		t.Fatalf("a binary file with a vault value: %v", err)
 	}

@@ -78,8 +78,8 @@ func withPerson(t *testing.T, answers map[string]string, err error) *[]asked {
 	t.Helper()
 	var mu sync.Mutex
 	got := &[]asked{}
-	saved := Ask
-	Ask = func(host, text string, hidden bool) (string, error) {
+	saved := Asker
+	person := func(host, text string, hidden bool) (string, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		*got = append(*got, asked{host, text, hidden})
@@ -93,7 +93,8 @@ func withPerson(t *testing.T, answers map[string]string, err error) *[]asked {
 		}
 		return "no answer", nil
 	}
-	t.Cleanup(func() { Ask = saved })
+	Asker = func() func(host, text string, hidden bool) (string, error) { return person }
+	t.Cleanup(func() { Asker = saved })
 	return got
 }
 
@@ -195,9 +196,9 @@ func TestPersonCancelsTheLogin(t *testing.T) {
 // code question stops the login with a hint that sends a person to run it.
 func TestNoPersonNoQuestions(t *testing.T) {
 	dialHome(t)
-	saved := Ask
-	Ask = nil
-	t.Cleanup(func() { Ask = saved })
+	saved := Asker
+	Asker = nil
+	t.Cleanup(func() { Asker = saved })
 	t.Setenv("KOMANDO_TEST_PW", "pw")
 	srv := &askServer{rounds: [][]string{{"Password: "}, {"Verification code: "}}, want: map[string]string{"Password: ": "pw", "Verification code: ": "1"}}
 	host, port := srv.start(t)

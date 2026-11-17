@@ -17,12 +17,7 @@ import (
 // stops it with a hint to use komando shell.
 func TestSSHCommandSealedHome(t *testing.T) {
 	setHome(t, t.TempDir())
-	for _, a := range agentVars {
-		t.Setenv(a.env, "")
-		resetApproval()
-		os.Unsetenv(a.env)
-		resetApproval()
-	}
+	noAgent(t)
 	mustRun(t, "host", "add", "web1", "deploy@10.0.0.1")
 	d := mustRun(t, "host", "ssh-command", "web1")
 	cmd, _ := d["command"].(string)
@@ -42,9 +37,7 @@ func TestSSHCommandSealedHome(t *testing.T) {
 		t.Fatalf("sealed key, no ssh-agent: %+v", e)
 	}
 
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if _, e := invRun(t, "host", "ssh-command", "web1"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}
@@ -78,9 +71,7 @@ func TestSealedConfigAndDoctor(t *testing.T) {
 // Accepting an old copy is for a person at a terminal.
 func TestAcceptOldCopyNeedsAPerson(t *testing.T) {
 	invHome(t)
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	if _, e := invRun(t, "doctor", "--accept-old-copy"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("agent: %+v", e)
 	}
@@ -103,7 +94,9 @@ func TestSSHCommandSealedKeyGoesToAgent(t *testing.T) {
 	invHome(t)
 	ring := &recordingAgent{ExtendedAgent: agent.NewKeyring().(agent.ExtendedAgent)}
 	saved := openAgent
-	openAgent = func() (agent.ExtendedAgent, string, func(), error) { return ring, "/tmp/agent.sock", func() {}, nil }
+	openAgent = func(*call) (agent.ExtendedAgent, string, func(), error) {
+		return ring, "/tmp/agent.sock", func() {}, nil
+	}
 	t.Cleanup(func() { openAgent = saved })
 
 	mustRun(t, "key", "gen", "k1")

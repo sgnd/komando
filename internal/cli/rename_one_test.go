@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -26,7 +27,7 @@ func TestRenameOneEntry(t *testing.T) {
 	if st, _ := loadState(); st.Hosts["web-01"] == nil || st.Hosts["web1"] != nil {
 		t.Fatal("web1 was not renamed")
 	}
-	if err := vault.Set("db-pass", "s3cret-value"); err != nil {
+	if err := vault.Set(store.Save(), "db-pass", "s3cret-value"); err != nil {
 		t.Fatal(err)
 	}
 	if d := mustRun(t, "rename", "db-pass", "shop-db-pass"); d["to"] != "shop-db-pass" {
@@ -36,7 +37,7 @@ func TestRenameOneEntry(t *testing.T) {
 	if d := mustRun(t, "rename", "@front", "edge"); d["to"] != "edge" {
 		t.Errorf("rename a group: %v", d)
 	}
-	if err := vault.Set("web-01", "other-value"); err != nil {
+	if err := vault.Set(store.Save(), "web-01", "other-value"); err != nil {
 		t.Fatal(err)
 	}
 	e := wantCode(t, "USAGE", "rename", "web-01", "web-02")

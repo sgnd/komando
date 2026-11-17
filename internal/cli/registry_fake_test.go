@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/registry"
 )
 
@@ -184,15 +183,16 @@ func (m *memRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // textRun runs komando with -o text and returns what it printed.
 func textRun(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	g.dryRun, g.yes, g.allowDangerous = false, false, false
-	root := newRoot()
+	tcl.flags.dryRun, tcl.flags.yes, tcl.flags.allowDangerous = false, false, false
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
+	saved := tcl.out.W
+	tcl.out.W = &buf
 	root.SetOut(&buf)
 	root.SetErr(&buf)
-	defer func() { out.P.W, out.P.Format = saved, "json" }()
+	defer func() { tcl.out.W, tcl.out.Format = saved, "json" }()
 	err := root.Execute()
 	return buf.String(), err
 }
@@ -299,8 +299,8 @@ func TestRegistryText(t *testing.T) {
 	}
 	// the Next: line a person gets on stderr names a command for one item
 	for args, want := range map[string]string{"registry ls mem shop/api": "komando registry inspect mem shop/api:TAG", "registry ls mem": "komando registry list mem REPO"} {
-		if _, err := textRun(t, strings.Fields(args)...); err != nil || !slices.Equal(nextNow, []string{want}) {
-			t.Errorf("%s: Next: %q, %v", args, nextNow, err)
+		if _, err := textRun(t, strings.Fields(args)...); err != nil || !slices.Equal(tcl.nextNow, []string{want}) {
+			t.Errorf("%s: Next: %q, %v", args, tcl.nextNow, err)
 		}
 	}
 }
@@ -325,7 +325,7 @@ func TestImportDockerRegistries(t *testing.T) {
 	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p, err := importDocker(path)
+	p, err := importDocker(tcl, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -382,8 +382,9 @@ func TestRegistryRmSaysWhatGoes(t *testing.T) {
 	}
 }
 
-// prune reads build dates only for images a matching tag may take, and
-// past 1000 tags says --match does not help.
+// prune reads build dates only for images a matching tag may take, reads
+// every tag of a big repository (it used to stop at 1000), and past
+// 10000 tags says --match does not help.
 func TestRegistryPruneMatchAndCap(t *testing.T) {
 	invHome(t)
 	m, _ := memRepo(t)
@@ -392,8 +393,24 @@ func TestRegistryPruneMatchAndCap(t *testing.T) {
 		t.Errorf("manifest reads: %d, want 2", m.gets)
 	}
 	d := m.image("big/app", "t0", time.Now())
+	old := m.image("big/app", "old", time.Now().Add(-48*time.Hour))
 	m.mu.Lock()
-	for i := 1; i <= 1000; i++ {
+	for i := 1; i <= 1200; i++ {
+		m.tags["big/app"][fmt.Sprintf("t%d", i)] = d
+	}
+	m.mu.Unlock()
+	pd := mustRun(t, "--dry-run", "registry", "prune", "mem", "big/app", "--keep", "1")
+	if b, _ := json.Marshal(pd); !strings.Contains(string(b), shortDigest(old)) || strings.Contains(string(b), shortDigest(d)) {
+		t.Errorf("1202 tags: the old image should go, the one 1201 tags keep should stay: %s", b)
+	}
+	// rm sees a tag far down the list too (it used to read only 200)
+	m.image("big/app", "zz-late", time.Now().Add(-72*time.Hour))
+	rd := mustRun(t, "--dry-run", "registry", "rm", "mem", "big/app:zz-late")
+	if b, _ := json.Marshal(rd); !strings.Contains(string(b), "zz-late") || strings.Contains(string(b), "only the first") {
+		t.Errorf("rm of a late tag in 1203: %s", b)
+	}
+	m.mu.Lock()
+	for i := 1201; i <= 10000; i++ {
 		m.tags["big/app"][fmt.Sprintf("t%d", i)] = d
 	}
 	m.mu.Unlock()

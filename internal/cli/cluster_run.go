@@ -32,12 +32,12 @@ func clusterRmCmd() *cobra.Command {
 		Example: `  komando cluster rm prod-k8s pod/api-7d9f-x2 --namespace shop --allow-dangerous
   komando cluster rm swarm1 service/web --allow-dangerous`,
 		Args: refArgs(1, 0),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -55,16 +55,16 @@ func clusterRmCmd() *cobra.Command {
 				}
 				line := "docker " + kind + " rm " + sshx.Q(name)
 				if kind == "service" {
-					if _, err := swarmInspect(cmd.Context(), t, name); err != nil {
+					if _, err := swarmInspect(cl, cmd.Context(), t, name); err != nil {
 						return err
 					}
-				} else if err := swarmStackExists(cmd.Context(), t, name); err != nil {
+				} else if err := swarmStackExists(cl, cmd.Context(), t, name); err != nil {
 					return err // stack rm of a missing stack says "Nothing found" and exits 0
 				}
-				if err := confirmObject(nil, name, "removes "+kind+" "+name); err != nil {
+				if err := confirmObject(cl, nil, name, "removes "+kind+" "+name); err != nil {
 					return err
 				}
-				_, ran, err := swarmDo(cmd.Context(), "cluster.rm", t, line, nil, driver.RiskDestructive, "removes "+kind+" "+name)
+				_, ran, err := swarmDo(cl, cmd.Context(), "cluster.rm", t, line, nil, driver.RiskDestructive, "removes "+kind+" "+name)
 				if err != nil {
 					return err
 				}
@@ -72,28 +72,28 @@ func clusterRmCmd() *cobra.Command {
 				if !ran {
 					res = map[string]any{"host": t.host.Name, "would_remove": kind + "/" + name, "dry_run": true, "would_run": line}
 				}
-				out.P.Print("cluster.rm", res, nil)
+				cl.out.Print("cluster.rm", res, nil)
 				return nil
 			}
-			if err := confirmObject([]string{t.conn.Name}, name, "deletes "+typ+"/"+name+" from the cluster"); err != nil {
+			if err := confirmObject(cl, []string{t.conn.Name}, name, "deletes "+typ+"/"+name+" from the cluster"); err != nil {
 				return err
 			}
-			return withKube(cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, cmd.Context(), "cluster.rm", t, driver.RiskDestructive, map[string]any{"object": typ + "/" + name}, func(ctx context.Context, k *kube.Client) (any, error) {
 				r, err := resource(ctx, k, typ)
 				if err != nil {
 					return nil, err
 				}
 				q := url.Values{}
-				if g.dryRun {
+				if cl.flags.dryRun {
 					q.Set("dryRun", "All")
 				}
 				space := cmp.Or(ns, k.Namespace)
 				if _, err := k.Do(ctx, "DELETE", r.ObjectPath(space, name), q, nil, ""); err != nil {
 					return nil, err
 				}
-				return map[string]any{"conn": t.conn.Name, "removed": kindRef(r, name), "dry_run": g.dryRun}, nil
+				return map[string]any{"conn": t.conn.Name, "removed": kindRef(r, name), "dry_run": cl.flags.dryRun}, nil
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, nil)
 	return c
@@ -134,7 +134,7 @@ func hasFlag(args []string, flags ...string) bool {
 
 // classifyKubectl rates a kubectl command by its verb (args[0]), its
 // subcommand and the flags that change what it does.
-func classifyKubectl(args []string) driver.Risk {
+func classifyKubectl(cl *call, args []string) driver.Risk {
 	verb, sub := strings.ToLower(args[0]), ""
 	if a, err := parseKargs(args); err == nil {
 		if len(a.pos) > 0 {
@@ -150,7 +150,7 @@ func classifyKubectl(args []string) driver.Risk {
 			return driver.RiskRead
 		}
 		return driver.RiskDestructive // config view --raw prints the credentials
-	case verb == "get" && getsSecretValues(args[1:]) && !out.P.Mask:
+	case verb == "get" && getsSecretValues(args[1:]) && !cl.out.Mask:
 		return driver.RiskDestructive // -o yaml/json/jsonpath on Secrets prints their values (an agent sees them hidden: maskObject)
 	case oneOf(verb, "get", "describe", "logs", "top", "explain", "version", "api-resources", "api-versions",
 		"cluster-info", "events", "diff", "wait"):
@@ -262,12 +262,12 @@ risky verbs also need --allow-dangerous.`,
   komando cluster run prod-k8s --write -- rollout undo deployment/api -n shop
   komando cluster run swarm1 -- service ps web`,
 		Args: cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -279,7 +279,7 @@ risky verbs also need --allow-dangerous.`,
 			var risk driver.Risk
 			if t.host != nil {
 				risk = classifyDocker(args[1:])
-			} else if risk, err = kubectlRisk(args[1:]); err != nil {
+			} else if risk, err = kubectlRisk(cl, args[1:]); err != nil {
 				return err
 			}
 			verb := strings.ToLower(args[1])
@@ -290,68 +290,68 @@ risky verbs also need --allow-dangerous.`,
 				risk = driver.RiskDestructive
 			}
 			if risk > driver.RiskRead && !write {
-				if err := policyStop(out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; run it again with --write (try --dry-run first)",
+				if err := cl.policyStop(out.Errf(out.ExitPolicy, "WRITE_REQUIRES_FLAG", "this changes the cluster; run it again with --write (try --dry-run first)",
 					"%q is not a read-only command", verb)); err != nil {
 					return err
 				}
 			}
 			if t.host != nil {
 				line := "docker " + quoteAll(args[1:])
-				if err := guardSwarmRun(st, t.host.Name, risk, verb); err != nil {
+				if err := guardSwarmRun(cl, st, t.host.Name, risk, verb); err != nil {
 					return err
 				}
-				return runOne(cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
+				return runOne(cl, cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
 			// under --dry-run every stop only lands in meta.would_be_blocked
-			if err := guardConns(st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
+			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
 				return execInstead(err, verb)
 			}
 			plan := map[string]any{"conn": t.conn.Name, "dry_run": true, "would_run": "kubectl " + strings.Join(redactArgs(args[1:]), " ")}
-			if g.dryRun && risk > driver.RiskRead && !serverDryRun(args[1:]) {
+			if cl.flags.dryRun && risk > driver.RiskRead && !serverDryRun(args[1:]) {
 				// the server cannot dry-run it: show it, run nothing
-				out.P.Print("cluster.run", plan, nil)
+				cl.out.Print("cluster.run", plan, nil)
 				return nil
 			}
 			// a watch (-w, logs -f) ends at --timeout like every command
-			ctx, cancel := context.WithTimeout(cmd.Context(), cmdTimeout(st))
+			ctx, cancel := context.WithTimeout(cmd.Context(), cmdTimeout(cl, st))
 			defer cancel()
-			k, done, err := kubeClient(ctx, st, t.conn)
+			k, done, err := kubeClient(cl, ctx, st, t.conn)
 			if errors.Is(err, errDryRunStopped) {
-				out.P.Print("cluster.run", plan, nil)
+				cl.out.Print("cluster.run", plan, nil)
 				return nil
 			}
 			if err != nil {
 				return err
 			}
 			defer done()
-			code, stdout, stderr, stop := runKctlLive(ctx, k, t.conn.Name, args[1:], printLogLine)
+			code, stdout, stderr, stop := runKctlLive(cl, ctx, k, t.conn.Name, args[1:], func(pod, prefix, line string) { printLogLine(cl, pod, prefix, line) })
 			if stop != nil { // komando's own stop
-				if g.dryRun && stop.Exit == out.ExitPolicy {
-					out.P.WouldBlock(stop)
-					out.P.Print("cluster.run", plan, nil)
+				if cl.flags.dryRun && stop.Exit == out.ExitPolicy {
+					cl.out.WouldBlock(stop)
+					cl.out.Print("cluster.run", plan, nil)
 					return nil
 				}
-				auditBrokenWrite(st, t.conn.Name, args[1:], risk, stop)
+				auditBrokenWrite(cl, st, t.conn.Name, args[1:], risk, stop)
 				return stop
 			}
 			if risk > driver.RiskRead {
-				audit(st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args[1:]), " "), code == 0, map[string]any{"conns": []string{t.conn.Name}, "risk": risk.String()})
+				audit(cl, st, "cluster.run", nil, "kubectl "+strings.Join(redactArgs(args[1:]), " "), code == 0, map[string]any{"conns": []string{t.conn.Name}, "risk": risk.String()})
 			}
 			fail := kubectlFailure(code, stderr)
-			if out.P.Format == "text" {
-				fmt.Fprint(os.Stdout, out.SafeText(out.P.Redact(stdout)))
-				fmt.Fprint(os.Stderr, out.SafeText(out.P.Redact(stderr)))
+			if cl.out.Format == "text" {
+				fmt.Fprint(cl.out.W, out.SafeText(cl.out.Redact(stdout)))
+				fmt.Fprint(cl.out.Err, out.SafeText(cl.out.Redact(stderr)))
 				if fail != nil {
 					return exitCode(fail.Exit)
 				}
 				return nil
 			}
-			out.P.Print("cluster.run", map[string]any{"conn": t.conn.Name, "exit_code": code, "stdout": stdout, "stderr": stderr}, fail)
+			cl.out.Print("cluster.run", map[string]any{"conn": t.conn.Name, "exit_code": code, "stdout": stdout, "stderr": stderr}, fail)
 			if fail != nil {
 				return exitCode(fail.Exit)
 			}
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&write, "write", false, "allow commands that change the cluster")
 	return c
@@ -392,8 +392,8 @@ func kubectlFailure(code int, stderr string) *out.Error {
 // importKubeconfig makes one k8s conn per context; each context's
 // credentials go to the vault as a standalone kubeconfig. path may be a
 // KUBECONFIG list (a:b), merged as kubectl merges it.
-func importKubeconfig(path string) (*importPlan, error) {
-	cfg, err := kube.Load(readSource, kubeconfigPaths(path)...)
+func importKubeconfig(cl *call, path string) (*importPlan, error) {
+	cfg, err := kube.Load(func(p string) ([]byte, error) { return readSource(cl, p) }, kubeconfigPaths(path)...)
 	if err != nil {
 		var oe *out.Error
 		if errors.As(err, &oe) {
@@ -409,7 +409,7 @@ func importKubeconfig(path string) (*importPlan, error) {
 			p.Notes = append(p.Notes, fmt.Sprintf("context %s: %v", n, err))
 			continue
 		}
-		if err := guardKubeImport(n, x); err != nil {
+		if err := guardKubeImport(cl, n, x); err != nil {
 			return nil, err
 		}
 		kc, err := x.Standalone()
@@ -436,11 +436,35 @@ func importKubeconfig(path string) (*importPlan, error) {
 			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s does not check the server's certificate (insecure-skip-tls-verify): "+
 				"its login goes to whoever answers at %s; add the cluster's CA (certificate-authority-data) to the kubeconfig and import it again", n, u.Host))
 		}
+		// the trust is over the cluster block as stored (a CA file is
+		// inlined), which is what a later command reads back
+		stored := x.Cluster
+		if cfg, err := kube.Parse(kc); err == nil {
+			if sx, err := cfg.Resolve(""); err == nil {
+				stored = sx.Cluster
+			}
+		}
 		if e := x.Plugin(); e != nil {
 			// a person imported it, or allowed it (guardKubeImport): agents
-			// may run this program for this conn without asking again
-			c.TrustedPlugin = pluginTrust(pluginLine(e), x.Cluster.Server)
-			p.ConnNotes[c] = append(p.ConnNotes[c], fmt.Sprintf("context %s logs in by running `%s` on this computer for every cluster command", n, pluginLine(e)))
+			// may run this program file for this conn without asking again
+			note := fmt.Sprintf("context %s logs in by running `%s` on this computer for every cluster command", n, pluginLine(e))
+			prog := pluginProgram(e.Command)
+			if cl.isAgent() {
+				// a person said yes to this import, but the PATH is the
+				// agent's: the program and its helpers were found by it, so
+				// nothing is trusted for later commands
+				note += " (imported by an AI agent: its cluster commands ask you each time; import the kubeconfig yourself to trust the program for this conn)"
+			} else if t, ok := pluginTrust(cl, e, prog, stored); ok && prog != "" {
+				c.TrustedPlugin, c.PluginProgram, c.PluginSearchPath = t, prog, cl.getenv("PATH")
+			} else {
+				note += fmt.Sprintf(" (%s is not installed here: after installing it, import the kubeconfig again, or an AI agent's cluster commands will ask you each time)", e.Command)
+			}
+			p.ConnNotes[c] = append(p.ConnNotes[c], note)
+		} else if b := x.CloudLogin(); b != nil && !cl.isAgent() {
+			// a person's own import: this computer's cloud login goes to
+			// this cluster, for agents' later commands too. An import an
+			// agent made (with a person's yes) trusts nothing for later
+			c.TrustedPlugin, _ = pluginTrust(cl, b, "", stored)
 		}
 	}
 	return p, nil
@@ -503,25 +527,31 @@ func kubeconfigConnNames(contexts []string) (names, clash map[string]string) {
 }
 
 // guardKubeImport: an AI agent importing a kubeconfig that runs a program
-// on this computer to log in (guardKubePlugin), or that sends a file of
-// this computer to the server as its token (tokenFile), needs a person's
-// yes, as for a host's --proxy-command. Under --dry-run the stop is only
+// on this computer to log in (guardKubePlugin), that sends a login made
+// from this computer's cloud login to its server (guardCloudLogin), or
+// that sends a file of this computer to the server as its token
+// (tokenFile), needs a person's yes, as for a host's --proxy-command. Under --dry-run the stop is only
 // reported.
-func guardKubeImport(name string, x *kube.Context) error {
+func guardKubeImport(cl *call, name string, x *kube.Context) error {
 	if e := x.Plugin(); e != nil {
 		line := pluginLine(e)
-		if hits := policy.Check(line, nil); len(hits) > 0 && !dangerOK() && !policyAsk("context "+name+" logs in with `"+line+"`, which matches "+hits[0].Reason, name) {
-			return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig (if this program is intended, --allow-dangerous lets it run)",
+		if hits := policy.Check(line, nil); len(hits) > 0 && !cl.dangerOK() && !policyAsk(cl, "context "+name+" logs in with `"+line+"`, which matches "+hits[0].Reason, name) {
+			return cl.policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", "a credential plugin only prints a token; check the kubeconfig (if this program is intended, --allow-dangerous lets it run)",
 				"context %s logs in with `%s`, which matches destructive rules: %s (a credential plugin only prints a token: check the kubeconfig)", name, line, hits[0].Reason))
 		}
-		if isAgent() {
-			if err := guardSafety("letting context " + name + " run `" + line + "` on this computer whenever komando logs in, also for AI agents' later commands"); err != nil {
+		if cl.isAgent() {
+			if err := guardSafety(cl, "letting context "+name+" run `"+line+"` on this computer"+programNote(e.Command, pluginProgram(e.Command))+" whenever komando logs in, also for AI agents' later commands"); err != nil {
 				return err
 			}
 		}
 	}
-	if f := x.User.TokenFile; f != "" && isAgent() {
-		return guardSafety("letting context " + name + " send the file " + f + " from this computer to its server as the login token")
+	if b := x.CloudLogin(); b != nil && cl.isAgent() {
+		if err := guardSafety(cl, "letting context "+name+" send a login made from this computer's "+cloudLoginName(b)+" login to "+clusterWay(x.Cluster)); err != nil {
+			return err
+		}
+	}
+	if f := x.User.TokenFile; f != "" && cl.isAgent() {
+		return guardSafety(cl, "letting context "+name+" send the file "+f+" from this computer to its server as the login token")
 	}
 	return nil
 }
@@ -535,11 +565,11 @@ func redactArgs(args []string) []string {
 		low := strings.ToLower(a)
 		switch {
 		case hideNext:
-			res[i], hideNext = "(hidden)", false
+			res[i], hideNext = out.Hidden, false
 		case strings.Contains(low, "literal") || strings.Contains(low, "password") || strings.Contains(low, "token") ||
 			strings.Contains(low, "secret"):
 			if k, _, ok := strings.Cut(a, "="); ok {
-				res[i] = k + "=(hidden)"
+				res[i] = k + "=" + out.Hidden
 			} else {
 				res[i], hideNext = a, strings.HasPrefix(a, "-")
 			}
@@ -564,10 +594,10 @@ func nilData(v any) bool {
 
 // guardSwarmRun is cluster run's stop for a destructive docker command on
 // a Swarm manager: a person types the server's name.
-func guardSwarmRun(st *store.State, host string, risk driver.Risk, verb string) error {
-	if risk != driver.RiskDestructive || dangerOK() {
+func guardSwarmRun(cl *call, st *store.State, host string, risk driver.Risk, verb string) error {
+	if risk != driver.RiskDestructive || cl.dangerOK() {
 		return nil
 	}
-	askTypes([]string{host}, "servers")
-	return guardConns(st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
+	askTypes(cl, []string{host}, "servers")
+	return guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
 }

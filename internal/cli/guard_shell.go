@@ -125,11 +125,11 @@ func inlineNames(line string) string {
 // `cd` so relative paths are read from the right folder. Arguments of
 // komando itself pass: komando checks the local files it reads itself
 // (readLocalFile), and the rest are paths on servers, which it masks.
-func checkShell(line, home, cwd string) guardDecision {
-	return checkShellDepth(line, home, cwd, 0)
+func checkShell(cl *call, line, home, cwd string) guardDecision {
+	return checkShellDepth(cl, line, home, cwd, 0)
 }
 
-func checkShellDepth(line, home, cwd string, depth int) guardDecision {
+func checkShellDepth(cl *call, line, home, cwd string, depth int) guardDecision {
 	line = stripQuotedHeredocs(line)
 	if readsVaultPass.MatchString(line) {
 		return deny("KOMANDO_VAULT_PASS opens komando's vault; it is for the user only")
@@ -138,13 +138,13 @@ func checkShellDepth(line, home, cwd string, depth int) guardDecision {
 		return deny("process environments hold secrets; ask the user for the one value you need")
 	}
 	if in := inlineNames(line); in != line && depth < 3 {
-		if d := checkShellDepth(in, home, cwd, depth+1); d.Deny {
+		if d := checkShellDepth(cl, in, home, cwd, depth+1); d.Deny {
 			return d
 		}
 	}
 	for _, seg := range splitShell(line) {
 		words, globs := shellWordsGlob(seg)
-		if d := checkAgentVars(words, depth); d.Deny {
+		if d := checkShellVars(words, depth); d.Deny {
 			return d
 		}
 		prog, args := program(words)
@@ -155,8 +155,8 @@ func checkShellDepth(line, home, cwd string, depth int) guardDecision {
 		case base == "komando":
 			continue
 		case base == "cd" || base == "pushd":
-			cwd = nextDir(args, home, cwd)
-			if why := secretPath(cwd, home); cwd != "" && why != "" {
+			cwd = nextDir(cl, args, home, cwd)
+			if why := secretPath(cl, cwd, home); cwd != "" && why != "" {
 				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", cwd, why, viaKomando(why))
 			}
 		case isShell(base) || base == "eval":
@@ -167,7 +167,7 @@ func checkShellDepth(line, home, cwd string, depth int) guardDecision {
 				script = strings.Join(args, " ")
 			}
 			if script != "" && depth < 3 {
-				if d := checkShellDepth(script, home, cwd, depth+1); d.Deny {
+				if d := checkShellDepth(cl, script, home, cwd, depth+1); d.Deny {
 					return d
 				}
 			}
@@ -209,15 +209,15 @@ func checkShellDepth(line, home, cwd string, depth int) guardDecision {
 				case (base == "tar" || base == "git" || base == "make") && (w == "-C" || w == "--directory") && j+1 < len(words):
 					// tar -C DIR and git -C DIR: the words after it are read from DIR
 					j++
-					if wcwd = nextDir(words[j:j+1], home, wcwd); wcwd != "" {
-						if why := secretPath(wcwd, home); why != "" {
+					if wcwd = nextDir(cl, words[j:j+1], home, wcwd); wcwd != "" {
+						if why := secretPath(cl, wcwd, home); why != "" {
 							return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", wcwd, why, viaKomando(why))
 						}
 					}
 					continue
 				case (base == "tar" || base == "git" || base == "make") && strings.HasPrefix(w, "--directory="):
-					if wcwd = nextDir([]string{strings.TrimPrefix(w, "--directory=")}, home, wcwd); wcwd != "" {
-						if why := secretPath(wcwd, home); why != "" {
+					if wcwd = nextDir(cl, []string{strings.TrimPrefix(w, "--directory=")}, home, wcwd); wcwd != "" {
+						if why := secretPath(cl, wcwd, home); why != "" {
 							return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", wcwd, why, viaKomando(why))
 						}
 					}
@@ -231,10 +231,10 @@ func checkShellDepth(line, home, cwd string, depth int) guardDecision {
 			if !looksLikePath(w) && !glob {
 				continue
 			}
-			if why := secretWord(w, home, wcwd, glob); why != "" {
+			if why := secretWord(cl, w, home, wcwd, glob); why != "" {
 				return deny("%s is %s. komando keeps it away from AI agents; ask the user if you need something from it%s", w, why, viaKomando(why))
 			}
-			if recursive && j >= first && !glob && !strings.HasPrefix(w, "-") && holdsProtected(guardPathAt(w, home, wcwd), home) {
+			if recursive && j >= first && !glob && !strings.HasPrefix(w, "-") && holdsProtected(cl, guardPathAt(cl, w, home, wcwd), home) {
 				return deny("%s holds komando's data and private keys, and %s reads all of it; work on a project folder instead", w, base)
 			}
 		}
@@ -330,7 +330,7 @@ func recursiveReader(base string, args []string) bool {
 
 // nextDir is the folder `cd ARGS` moves to from cwd, or "" when the guard
 // cannot know it (`cd -`, `cd "$DIR"`).
-func nextDir(args []string, home, cwd string) string {
+func nextDir(cl *call, args []string, home, cwd string) string {
 	for _, a := range args {
 		if a == "--" || a == "-L" || a == "-P" || a == "-e" || a == "-@" {
 			continue
@@ -341,14 +341,14 @@ func nextDir(args []string, home, cwd string) string {
 		if wordHasGlob(a) {
 			return "" // checked as a glob with the other words
 		}
-		p := guardPath(a, home)
+		p := guardPath(cl, a, home)
 		if filepath.IsAbs(p) {
 			return p
 		}
 		if cwd == "" {
 			return ""
 		}
-		return filepath.Join(cwd, p)
+		return lexOrKernel(cwd + string(filepath.Separator) + p)
 	}
 	return home
 }
@@ -481,6 +481,29 @@ func checkAgentVars(words []string, depth int) guardDecision {
 // person's protected servers, deny rules, host keys and audit log
 // (guardHome asks the person when it happens anyway).
 const homeVar = "KOMANDO_HOME"
+
+// homeVars are the home folder's variables. Setting them in front of
+// komando is refused; elsewhere they are the agent's own business (a test
+// run with its own HOME).
+var homeVars = map[string]bool{"HOME": true, "USERPROFILE": true}
+
+// checkShellVars is checkAgentVars, and refuses HOME= or USERPROFILE= among
+// the words in front of komando (its NAME=value words and wrappers).
+func checkShellVars(words []string, depth int) guardDecision {
+	if d := checkAgentVars(words, depth); d.Deny {
+		return d
+	}
+	prog, args := program(words)
+	if filepath.Base(prog) != "komando" {
+		return allow()
+	}
+	for _, w := range words[:len(words)-len(args)-1] {
+		if envAssign.MatchString(w) && homeVars[assignName(w)] {
+			return deny("%s=... in front of komando would move its data folder away from the user's protected servers, deny rules, host keys and audit log (komando keeps an agent's data in the account's own home folder all the same). Run komando without it", assignName(w))
+		}
+	}
+	return allow()
+}
 
 // watchedVars are the variables the guard keeps an agent's shell lines
 // from changing: the agent variables and homeVar.

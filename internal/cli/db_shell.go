@@ -47,16 +47,16 @@ statement ending in \G is shown expanded. Up and down arrows recall lines.`,
 		Example: `  komando db shell prod-db
   komando db shell staging-db --write`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDBShell(cmd.Context(), args[0], write)
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return runDBShell(cl, cmd.Context(), args[0], write)
+		}),
 	}
 	c.Flags().BoolVar(&write, "write", false, "allow changes in this session")
 	return c
 }
 
-func runDBShell(ctx context.Context, connExpr string, write bool) error {
-	if !interactive() {
+func runDBShell(cl *call, ctx context.Context, connExpr string, write bool) error {
+	if !cl.interactive() {
 		return out.Errf(out.ExitUsage, "NEEDS_TERMINAL",
 			"agents and scripts use `komando db query CONN \"SQL\"`, which returns JSON and checks every statement",
 			"db shell needs a person at a terminal")
@@ -65,7 +65,7 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "db")
+	c, err := singleConn(cl, st, connExpr, "db")
 	if err != nil {
 		return err
 	}
@@ -75,28 +75,28 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	}
 	// a protected conn asks before any shell: inside, anything can be typed
 	if write || protectedConn(st, c) {
-		if err := guardConns(st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
+		if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: driver.RiskWrite}); err != nil {
 			return err
 		}
 	}
 	rec := map[string]any{"conns": []string{c.Name}, "write": write, "client": "komando"}
-	if g.dryRun { // before any VPN, SSH or database contact
-		audit(st, "db.shell", nil, "", true, rec)
-		out.P.Print("db.shell", map[string]any{"conn": c.Name, "kind": t.Kind.Name, "via": c.Via, "write": write, "dry_run": true}, nil)
+	if cl.flags.dryRun { // before any VPN, SSH or database contact
+		audit(cl, st, "db.shell", nil, "", true, rec)
+		cl.out.Print("db.shell", map[string]any{"conn": c.Name, "kind": t.Kind.Name, "via": c.Via, "write": write, "dry_run": true}, nil)
 		return nil
 	}
 	mode := "read-only"
 	if write {
 		mode = "read-write"
 	}
-	showStatus(statusLine{What: t.Kind.Name, Target: c.Name, Detail: mode, Route: connRoute(st, c), Protected: protectedConn(st, c)})
-	db, closeDB, err := openDB(ctx, st, c, !write)
+	showStatus(cl, statusLine{What: t.Kind.Name, Target: c.Name, Detail: mode, Route: connRoute(st, c), Protected: protectedConn(st, c)})
+	db, closeDB, err := openDB(cl, ctx, st, c, !write)
 	if err != nil {
-		audit(st, "db.shell", nil, "", false, map[string]any{"conns": []string{c.Name}, "error": toErr(err).Code})
+		audit(cl, st, "db.shell", nil, "", false, map[string]any{"conns": []string{c.Name}, "error": toErr(err).Code})
 		return err
 	}
 	defer func() { closeDB() }() // the connection \write opened, when it did
-	audit(st, "db.shell", nil, "", true, rec)
+	audit(cl, st, "db.shell", nil, "", true, rec)
 
 	fd := int(os.Stdin.Fd())
 	old, err := term.MakeRaw(fd)
@@ -107,17 +107,17 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	tty := struct {
 		io.Reader
 		io.Writer
-	}{os.Stdin, os.Stdout}
+	}{cl.stdin, cl.out.W}
 	started := time.Now()
 	tm := term.NewTerminal(tty, "")
 	if w, h, err := term.GetSize(fd); err == nil {
 		tm.SetSize(w, h)
 	}
-	sh := &sqlShell{db: db, st: st, conn: c, kind: c.Kind, write: write, term: tm}
+	sh := &sqlShell{cl: cl, db: db, st: st, conn: c, kind: c.Kind, write: write, term: tm}
 	// \write and \read open the database again: the read-only mode is the
 	// database's own (a read-only transaction), not only komando's check
 	sh.reopen = func(w bool) error {
-		ndb, nclose, err := openDB(ctx, st, c, !w)
+		ndb, nclose, err := openDB(cl, ctx, st, c, !w)
 		if err != nil {
 			return err
 		}
@@ -127,12 +127,13 @@ func runDBShell(ctx context.Context, connExpr string, write bool) error {
 	}
 	sh.run(ctx)
 	term.Restore(fd, old)
-	showExit(c.Name, 0, false, time.Since(started))
+	showExit(cl, c.Name, 0, false, time.Since(started))
 	return nil
 }
 
 // sqlShell reads statements from a terminal and runs them.
 type sqlShell struct {
+	cl       *call // the call it works for
 	db       *sql.DB
 	st       *store.State
 	conn     *store.Conn
@@ -186,7 +187,7 @@ func (s *sqlShell) switchWrite() {
 		return
 	}
 	s.write = true
-	audit(s.st, "db.shell", nil, "", true, map[string]any{"conns": []string{name}, "write": true, "switched": true})
+	audit(s.cl, s.st, "db.shell", nil, "", true, map[string]any{"conns": []string{name}, "write": true, "switched": true})
 	s.printf("Changes are allowed now. \\write again goes back to read-only.\n")
 }
 
@@ -274,7 +275,7 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 		if arg != "" {
 			names = []string{arg}
 		}
-		tables, err := dbx.Schema(ctx, s.db, s.kind, names, connTimeout(s.conn))
+		tables, err := dbx.Schema(ctx, s.db, s.kind, names, connTimeout(s.cl, s.conn))
 		if err != nil {
 			s.printf("error: %s\n", toErr(err).Message)
 			return false
@@ -307,7 +308,7 @@ func (s *sqlShell) meta(ctx context.Context, line string) bool {
 		}
 		s.exec(ctx, q, s.expanded)
 	case `\i`, `\include`:
-		b, err := readLocalFile(expandHome(arg))
+		b, err := readLocalFile(s.cl, expandHome(arg))
 		if err != nil {
 			s.printf("error: %v\n", err)
 			return false
@@ -345,7 +346,7 @@ func (s *sqlShell) exec(ctx context.Context, text string, expanded bool) {
 		s.printf("error: this %s statement changes data; the shell is read-only (\\write allows changes)\n", plan.Risk)
 		return
 	}
-	if plan.Risk >= driver.RiskDestructive && !dangerOK() {
+	if plan.Risk >= driver.RiskDestructive && !s.cl.dangerOK() {
 		// as on the command line, a person confirms by typing the name
 		if s.ask(fmt.Sprintf("%s Type %s to run it: ", dangerLine(strings.Join(plan.Reasons, "; ")), s.conn.Name)) != s.conn.Name {
 			s.printf("Not run.\n")
@@ -362,11 +363,11 @@ func (s *sqlShell) exec(ctx context.Context, text string, expanded bool) {
 		rec["sql"] = redactSQL(text)
 	}
 	start := time.Now()
-	res, err := dbx.Run(ctx, s.db, s.kind, plan, dbx.Options{Write: s.write, Limit: 10000, MaxBytes: 64 << 20, Timeout: connTimeout(s.conn)})
+	res, err := dbx.Run(ctx, s.db, s.kind, plan, dbx.Options{Write: s.write, Limit: 10000, MaxBytes: 64 << 20, Timeout: connTimeout(s.cl, s.conn)})
 	took := time.Since(start)
 	if err != nil {
 		rec["error"] = toErr(err).Code
-		audit(s.st, "db.shell", nil, "", false, rec)
+		audit(s.cl, s.st, "db.shell", nil, "", false, rec)
 		e := toErr(err)
 		s.printf("error: %s\n", e.Message)
 		var oe *out.Error
@@ -375,7 +376,7 @@ func (s *sqlShell) exec(ctx context.Context, text string, expanded bool) {
 		}
 		return
 	}
-	audit(s.st, "db.shell", nil, "", true, rec)
+	audit(s.cl, s.st, "db.shell", nil, "", true, rec)
 	if expanded {
 		s.printf("%s", expandedText(res))
 	} else {

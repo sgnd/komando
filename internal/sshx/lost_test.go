@@ -5,6 +5,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,9 +57,10 @@ func (f *freezeConn) Write(p []byte) (int, error) {
 	return f.Conn.Write(p)
 }
 
-// execSSHD runs three commands: "ok" prints and exits 0, "drop" prints a
+// execSSHD runs four commands: "ok" prints and exits 0, "drop" prints a
 // line and then the connection breaks, "silent" prints a line and then the
-// link goes quiet.
+// link goes quiet, "follow" prints a line every few milliseconds until the
+// session ends.
 func execSSHD(t *testing.T) *ssh.Client {
 	t.Helper()
 	cfg := &ssh.ServerConfig{NoClientAuth: true}
@@ -103,6 +105,15 @@ func execSSHD(t *testing.T) *ssh.Client {
 							case "silent":
 								time.Sleep(50 * time.Millisecond)
 								nc.freeze()
+							case "follow":
+								go func() {
+									for {
+										if _, err := ch.Write([]byte("line\n")); err != nil {
+											return
+										}
+										time.Sleep(2 * time.Millisecond)
+									}
+								}()
 							default:
 								_, _ = ch.SendRequest("exit-status", false, ssh.Marshal(struct{ S uint32 }{0}))
 								_ = ch.Close()
@@ -188,5 +199,33 @@ func TestRunAfterLossDidNotStart(t *testing.T) {
 	e, ok := err.(*out.Error)
 	if !ok || e.Code != "CONNECTION_LOST" || !strings.Contains(e.Message, "did not run") {
 		t.Fatalf("got %#v", err)
+	}
+}
+
+// Once Run returns (here: the command was stopped, as Ctrl-C on a
+// follow does), the stream gets no more output: what the command shows
+// belongs to it, never to whatever its caller does next (run with -race).
+func TestRunStreamEndsWithRun(t *testing.T) {
+	c := &Client{Client: execSSHD(t), Host: &store.Host{Name: "web1"}}
+	for range 20 {
+		ctx, cancel := context.WithCancel(context.Background())
+		var calls atomic.Int32
+		var lines int // written by the stream, read after Run without a lock
+		_, err := Run(ctx, c, RunRequest{Command: "follow", Timeout: 5 * time.Second, Stream: func(string, []byte) {
+			if calls.Add(1) == 3 {
+				cancel()
+			}
+			time.Sleep(time.Millisecond) // a writer that takes its time
+			lines++
+		}})
+		cancel()
+		if err == nil {
+			t.Fatal("a stopped command returned no error")
+		}
+		got := lines
+		time.Sleep(20 * time.Millisecond)
+		if lines != got {
+			t.Fatalf("the stream got output after Run returned: %d, then %d", got, lines)
+		}
 	}
 }

@@ -56,7 +56,7 @@ func TestStandardListLimit(t *testing.T) {
 			}
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 }
 
 // A list that stops at --limit sets meta.truncated; one that shows

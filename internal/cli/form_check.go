@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -14,12 +13,12 @@ import (
 // formRunAll runs the commands here, each shown first, until one fails:
 // its exit code and, when the one that failed is the check after an add
 // (test, login, vpn up, cluster status), the last line it printed.
-func formRunAll(self string, cmds [][]string) (int, string, error) {
+func formRunAll(cl *call, self string, cmds [][]string) (int, string, error) {
 	for i, c := range cmds {
-		fmt.Fprintf(os.Stderr, "$ komando %s\n", pickCommandLine(c))
+		fmt.Fprintf(cl.out.Err, "$ komando %s\n", pickCommandLine(c))
 		var buf bytes.Buffer
-		x := pickCommand(self, c)
-		x.Stderr = io.MultiWriter(os.Stderr, &buf)
+		x := pickCommand(cl, self, c)
+		x.Stderr = io.MultiWriter(cl.out.Err, &buf)
 		code, err := formExitCode(x.Run())
 		if err != nil || code == 0 {
 			if err != nil {

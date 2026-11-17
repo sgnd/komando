@@ -16,7 +16,7 @@ import (
 // runKctl runs one kubectl-style command and returns its exit code with
 // what kubectl would have printed.
 func runKctl(ctx context.Context, k *kube.Client, conn string, args []string) (code int, stdout, stderr string) {
-	code, stdout, stderr, _ = runKctlLive(ctx, k, conn, args, nil)
+	code, stdout, stderr, _ = runKctlLive(tcl, ctx, k, conn, args, nil)
 	return code, stdout, stderr
 }
 
@@ -153,13 +153,13 @@ func TestKctlRead(t *testing.T) {
 	if code, _, se := run("get", "deploy", "nope"); code != 1 || !strings.Contains(se, `Error from server (NotFound): deployments.apps "nope" not found`) {
 		t.Errorf("not found: %d %q", code, se)
 	}
-	if code, _, se := run("get", "widgets"); code != 1 || !strings.Contains(se, `doesn't have a resource type "widgets"`) {
+	if code, _, se := run("get", "widgets"); code != 1 || !strings.Contains(se, `has no resource type "widgets"`) {
 		t.Errorf("unknown type: %d %q", code, se)
 	}
 	if code, so, _ := run("auth", "can-i", "get", "pods"); code != 0 || so != "yes\n" {
 		t.Errorf("can-i yes: %d %q", code, so)
 	}
-	if code, _, se := run("frobnicate"); code != 1 || !strings.Contains(se, "unknown command") {
+	if code, _, se := run("frobnicate"); code != 1 || !strings.Contains(se, "is not a command") {
 		t.Errorf("unknown verb: %d %q", code, se)
 	}
 	if code, _, se := run("port-forward", "x"); code != 1 || !strings.Contains(se, "komando cluster forward") {
@@ -197,15 +197,15 @@ func TestKctlWrite(t *testing.T) {
 		}
 	}
 	// label refuses to change a value without --overwrite
-	if code, _, se := run("label", "deploy", "web", "app=other"); code != 1 || !strings.Contains(se, "--overwrite is false") {
+	if code, _, se := run("label", "deploy", "web", "app=other"); code != 1 || !strings.Contains(se, "add --overwrite to replace it") {
 		t.Errorf("overwrite: %d %q", code, se)
 	}
 	// --dry-run reaches the server as dryRun=All
-	saved := g.dryRun
-	g.dryRun = true
+	saved := tcl.flags.dryRun
+	tcl.flags.dryRun = true
 	f.writes = nil
 	_, so, _ := run("scale", "deploy/web", "--replicas=0")
-	g.dryRun = saved
+	tcl.flags.dryRun = saved
 	if !strings.Contains(so, "(server dry run)") || !strings.Contains(strings.Join(f.writes, ""), " All ") {
 		t.Errorf("dry run: %q %v", so, f.writes)
 	}

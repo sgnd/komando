@@ -13,7 +13,8 @@ import (
 )
 
 // fakeStat is a stat stand-in for the root scripts: every path is root's
-// (0 0 755) but those in $TABLE ("PATH|uid gid mode user group" lines).
+// (0 0 755) but those in $TABLE ("PATH|uid gid mode user group" lines; a
+// line break in PATH is written \x01).
 // %d:%i comes from ls -i; $SWAP names a path whose %d:%i is made up, as if
 // another file had been put there.
 const fakeStat = `#!/bin/sh
@@ -24,7 +25,7 @@ if [ "$fmt" = %d:%i ]; then
   if [ -n "$L" ]; then set -- $(ls -Lid "$f"); else set -- $(ls -id "$f"); fi
   echo "1:$1"; exit 0
 fi
-e=$(printf '%s\n' "$TABLE" | awk -F'|' -v f="$f" '$1==f {print $2}')
+e=$(printf '%s\n' "$TABLE" | awk -F'|' -v f="$(printf '%s' "$f" | tr '\n' '\001')" '$1==f {print $2}')
 [ -n "$e" ] || e="0 0 755 root root"
 set -- $e
 case $fmt in %u) echo "$1";; '%u %g %a') echo "$1 $2 $3";; '%U %G') echo "$4 $5";; esac
@@ -277,7 +278,7 @@ func TestSudoChmodFollowsNoOtherUsersLink(t *testing.T) {
 	if code != sudoExitLink || mode() != 0o600 {
 		t.Fatalf("another user's link followed: exit %d, mode %o", code, mode())
 	}
-	if e := fsExitMap(code, stderr); e == nil || e.Code != "IS_A_SYMLINK" || !strings.Contains(e.Message, link) {
+	if e := fsExitMap(tcl, code, stderr); e == nil || e.Code != "IS_A_SYMLINK" || !strings.Contains(e.Message, link) {
 		t.Fatalf("error: %+v", e)
 	}
 	// root's link, or the SSH user's: followed
@@ -316,5 +317,143 @@ func TestSudoWriteFollowedOnlyForALink(t *testing.T) {
 		if mode != "0644" || f != tc.followed || res["backup"] != real+".bak" {
 			t.Errorf("%s: mode %q, %v", tc.p, mode, res)
 		}
+	}
+}
+
+// fs rm, mv and mkdir --sudo follow no link another server user made: a
+// link www-data planted in its own folder (cache/x -> etc) must not have
+// root remove, move or create anything in etc.
+func TestSudoRmMvMkdirFollowNoOtherUsersLink(t *testing.T) {
+	setup := func(t *testing.T) (d, etc, x string) {
+		d, _ = filepath.EvalSymlinks(t.TempDir())
+		etc = filepath.Join(d, "etc")
+		_ = os.MkdirAll(filepath.Join(etc, "sub"), 0o755)
+		_ = os.WriteFile(filepath.Join(etc, "keep.conf"), []byte("x"), 0o644)
+		_ = os.WriteFile(filepath.Join(etc, "sub", "a"), []byte("x"), 0o644)
+		_ = os.MkdirAll(filepath.Join(d, "srv", "app", "cache"), 0o755)
+		_ = os.WriteFile(filepath.Join(d, "srv", "app", "new.conf"), []byte("n"), 0o644)
+		x = filepath.Join(d, "srv", "app", "cache", "x")
+		if err := os.Symlink(etc, x); err != nil {
+			t.Fatal(err)
+		}
+		return d, etc, x
+	}
+	exists := func(p string) bool { _, err := os.Lstat(p); return err == nil }
+	check := func(t *testing.T, name, script string, table map[string]string) {
+		t.Helper()
+		_, stderr, code := runAsRoot(t, script, table)
+		if code != sudoExitLink {
+			t.Fatalf("%s: another user's link followed: exit %d %s", name, code, stderr)
+		}
+		if e := fsExitMap(tcl, code, stderr); e == nil || e.Code != "IS_A_SYMLINK" {
+			t.Fatalf("%s: error %+v", name, e)
+		}
+	}
+	t.Run("rm", func(t *testing.T) {
+		_, etc, x := setup(t)
+		check(t, "rm", rmScript([]string{x + "/keep.conf"}, false, true), notRoot(x))
+		check(t, "rm -r", rmScript([]string{x + "/sub"}, true, true), notRoot(x))
+		if !exists(filepath.Join(etc, "keep.conf")) || !exists(filepath.Join(etc, "sub", "a")) {
+			t.Fatal("root removed a file through www-data's link")
+		}
+		// the link itself, with or without a trailing slash: only the link goes
+		for _, p := range []string{x + "/", x} {
+			if _, se, code := runAsRoot(t, rmScript([]string{p}, true, true), notRoot(x)); code != 0 {
+				t.Fatalf("rm %s: exit %d %s", p, code, se)
+			}
+			if exists(x) || !exists(filepath.Join(etc, "keep.conf")) {
+				t.Fatalf("rm %s: link %v, target kept %v", p, exists(x), exists(filepath.Join(etc, "keep.conf")))
+			}
+			_ = os.Symlink(etc, x)
+		}
+		// root's own link: followed
+		if o, se, code := runAsRoot(t, rmScript([]string{x + "/keep.conf"}, false, true), nil); code != 0 || exists(filepath.Join(etc, "keep.conf")) || o != "removed: "+x+"/keep.conf" {
+			t.Fatalf("root's link: %q exit %d %s", o, code, se)
+		}
+		if o, _, code := runAsRoot(t, rmScript([]string{x + "/missing"}, false, true), nil); code != 0 || !strings.Contains(o, "not found") {
+			t.Fatalf("missing: %q exit %d", o, code)
+		}
+		if _, _, code := runAsRoot(t, rmScript([]string{etc + "/sub"}, false, true), nil); code != fsExitIsFolder {
+			t.Fatalf("folder without -r: exit %d", code)
+		}
+	})
+	t.Run("mv", func(t *testing.T) {
+		d, etc, x := setup(t)
+		app := filepath.Join(d, "srv", "app")
+		check(t, "mv source", mvScript(x+"/keep.conf", app+"/taken.conf", false, true), notRoot(x))
+		check(t, "mv destination", mvScript(app+"/new.conf", x+"/new.conf", false, true), notRoot(x))
+		check(t, "mv into a linked folder", mvScript(app+"/new.conf", x, false, true), notRoot(x))
+		if !exists(filepath.Join(etc, "keep.conf")) || exists(filepath.Join(etc, "new.conf")) || exists(filepath.Join(app, "taken.conf")) {
+			t.Fatal("root moved a file through www-data's link")
+		}
+		// a link waiting by that name in the folder the file moves into
+		_ = os.Symlink(etc, filepath.Join(app, "cache", "new.conf"))
+		check(t, "mv onto a link", mvScript(app+"/new.conf", app+"/cache", true, true), notRoot(filepath.Join(app, "cache", "new.conf")))
+		_ = os.Remove(filepath.Join(app, "cache", "new.conf"))
+		if o, se, code := runAsRoot(t, mvScript(app+"/new.conf", app+"/cache", false, true), nil); code != 0 || !exists(filepath.Join(app, "cache", "new.conf")) || o != "moved to: "+app+"/cache/new.conf" {
+			t.Fatalf("plain move: %q exit %d %s", o, code, se)
+		}
+		if _, _, code := runAsRoot(t, mvScript(app+"/nope", app+"/b", false, true), nil); code != fsExitNoSource {
+			t.Fatalf("missing source: exit %d", code)
+		}
+		// a destination folder another user can change: that user could
+		// swap it, or put a link in it, between root's check and the move
+		cache := filepath.Join(app, "cache")
+		for _, dst := range []string{cache, cache + "/x.conf"} {
+			_ = os.WriteFile(filepath.Join(app, "two.conf"), []byte("2"), 0o644)
+			_, se, code := runAsRoot(t, mvScript(app+"/two.conf", dst, false, true), notRoot(cache))
+			if code != sudoExitFolder || exists(filepath.Join(cache, "two.conf")) || exists(filepath.Join(cache, "x.conf")) {
+				t.Fatalf("mv into www-data's folder %s: exit %d %s", dst, code, se)
+			}
+			if e := fsExitMap(tcl, code, se); e == nil || e.Code != "SHARED_FOLDER_CONFLICT" || !strings.Contains(e.Message, cache) {
+				t.Fatalf("error: %+v", e)
+			}
+		}
+		// the move names the file inside the folder root checked, never
+		// the whole destination path again
+		if sc := mvScript("a", "b", false, true); !strings.Contains(sc, `mv -n -- "$s" "./$tn"`) || !strings.Contains(sc, `cd -- "$td"`) {
+			t.Fatalf("script: %s", sc)
+		}
+	})
+	t.Run("mkdir", func(t *testing.T) {
+		_, etc, x := setup(t)
+		check(t, "mkdir", mkdirScript([]string{x + "/made/deep"}, true), notRoot(x))
+		if exists(filepath.Join(etc, "made")) {
+			t.Fatal("root made a folder through www-data's link")
+		}
+		if o, se, code := runAsRoot(t, mkdirScript([]string{x + "/made/deep", etc + "/m2"}, true), nil); code != 0 || !exists(filepath.Join(etc, "made", "deep")) || !exists(filepath.Join(etc, "m2")) || o != "made: "+x+"/made/deep\nmade: "+etc+"/m2" {
+			t.Fatalf("root's link: %q exit %d %s", o, code, se)
+		}
+		if _, _, code := runAsRoot(t, mkdirScript([]string{etc + "/keep.conf"}, true), nil); code != fsExitNotFolder {
+			t.Fatalf("a file: exit %d", code)
+		}
+	})
+}
+
+// A folder's name cannot forge who owns it in SHARED_FOLDER_CONFLICT: a
+// line break and a marker in the name stay part of the name, and every
+// server-derived word in the hint is quoted.
+func TestSharedFolderNameCannotForgeTheHint(t *testing.T) {
+	for _, forged := range []string{"user root;id;# g x", "user root root /srv/www"} {
+		d, _ := filepath.EvalSymlinks(t.TempDir())
+		dir := filepath.Join(d, "a\n"+sudoFolderMark+forged)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		file := filepath.Join(dir, "app.conf")
+		_, stderr, code := runAsRoot(t, "p='"+strings.ReplaceAll(file, "'", `'\''`)+"'; "+sudoWriteScript("/nonexistent", false), map[string]string{strings.ReplaceAll(dir, "\n", "\x01"): "33 33 755 www-data www-data"})
+		if code != sudoExitFolder {
+			t.Fatalf("exit %d (%s)", code, stderr)
+		}
+		e := toErr(unsafeFolder(file, stderr))
+		if e.Code != "SHARED_FOLDER_CONFLICT" || !strings.Contains(e.Hint, "--sudo-user www-data ") || strings.Contains(e.Hint, "--sudo-user root") || strings.Contains(e.Hint, "write it as root") ||
+			!strings.Contains(e.Message, "can be changed by user www-data,") || strings.Contains(e.Message, "\n") {
+			t.Fatalf("forged %q: %+v", forged, e)
+		}
+	}
+	// an owner that is not a user name is never put in the hint as one
+	e := toErr(unsafeFolder("/srv/app/x", sudoFolderMark+"user root;id;# g /srv/app\n"))
+	if strings.Contains(e.Hint, "root;id") || !strings.Contains(e.Hint, "--sudo-user USER ") {
+		t.Fatalf("hint: %+v", e)
 	}
 }

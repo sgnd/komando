@@ -129,9 +129,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	t.Cleanup(func() { _, _ = invRun(t, "logout", "--all") })
 
 	// an AI agent cannot answer the code, and cannot log in for itself
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	_, e := invRun(t, "exec", "web1", "--read-only", "--", "uptime")
 	if e == nil || !strings.Contains(e.Hint, "komando login web1") {
 		t.Fatalf("an agent without a login: %+v", e)
@@ -155,9 +153,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	p.waitFor("logged in to web1")
 
 	// now the agent's commands use that login: no code, no new login
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	for range 2 {
 		d := mustRun(t, "exec", "web1", "--read-only", "--", "uptime")
 		if !strings.Contains(asJSON(d), "ran on web1") {
@@ -171,7 +167,7 @@ func TestLoginKeepsATwoFactorLogin(t *testing.T) {
 	if l := st.Logins["web1"]; l == nil || time.Until(l.Until) < 7*time.Hour {
 		t.Fatalf("login record %+v", l)
 	}
-	if rows := runningStatus(st).Logins; len(rows) != 1 || rows[0].Host != "web1" {
+	if rows := runningStatus(tcl, st).Logins; len(rows) != 1 || rows[0].Host != "web1" {
 		t.Errorf("status: %+v", rows)
 	}
 
@@ -238,9 +234,7 @@ func TestLoginForSetting(t *testing.T) {
 	invHome(t)
 	mustRun(t, "config", "set", "login_for", "2h") // shorter: fine for anyone
 	wantCode(t, "USAGE", "config", "set", "login_for", "0")
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	mustRun(t, "config", "set", "login_for", "1h")
 	if e := wantCode(t, "SAFETY_SETTING", "config", "set", "login_for", "24h"); e.Exit != out.ExitPolicy {
 		t.Errorf("exit %d", e.Exit)

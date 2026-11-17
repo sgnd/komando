@@ -12,8 +12,9 @@ import (
 // completionScript is what `komando completion SHELL` prints.
 func completionScript(t *testing.T, shell string, flags ...string) string {
 	t.Helper()
-	return captureOutput(t, func() error { // cobra's own scripts go to os.Stdout
-		root := newRoot()
+	return captureOutput(t, func() error { // cobra's own scripts go to tcl.out.W
+		root := newRoot(tcl)
+		t.Cleanup(endCommand) // the next test starts with none of this command's flags
 		root.SetArgs(append([]string{"completion", shell}, flags...))
 		root.SilenceErrors, root.SilenceUsage = true, true
 		return root.Execute()
@@ -78,7 +79,7 @@ func TestBashCompletionLoadsWithEval(t *testing.T) {
 // Each shell's help is komando's: the line to add, not cobra's package
 // and Homebrew paths.
 func TestCompletionHelpIsKomandos(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	for _, shell := range []string{"bash", "zsh", "fish", "powershell"} {
 		c, _, err := root.Find([]string{"completion", shell})
 		if err != nil || c.Long != completionHelp[shell] || strings.Contains(c.Long, "brew") {
@@ -110,7 +111,8 @@ func TestConnCompletionByFamily(t *testing.T) {
 		{[]string{"test", ""}, "@prod all app-cache app-db kind:"},
 	} {
 		got := captureOutput(t, func() error {
-			root := newRoot()
+			root := newRoot(tcl)
+			t.Cleanup(endCommand) // the next test starts with none of this command's flags
 			root.SetArgs(append([]string{"__complete"}, c.args...))
 			return root.Execute()
 		})

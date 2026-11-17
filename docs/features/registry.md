@@ -80,6 +80,13 @@ komando registry add ecr registry://AWS@123456789012.dkr.ecr.eu-west-1.amazonaws
 If the SSO login has expired, the error is `AWS_LOGIN_REQUIRED`: a person
 runs `komando login aws --profile prod` once. See [Cloud logins](cloud.md).
 
+The ECR login is good for every repository your AWS login reaches, so
+komando sends it only over https to a registry whose certificate is
+checked. A conn with `?tls=false` or `?tls=skip-verify` stops with a usage
+error. So does a cloud registry conn (ECR, Google, Azure) with `?ca=` or
+`?resolve=` and no `--password-ref`: the cloud's registry has a certificate
+every computer trusts, at its own address.
+
 ### Azure Container Registry
 
 Leave out `--password-ref` and komando logs in with your Azure login, the
@@ -113,7 +120,7 @@ token or the admin user works too: put the user in the URL and give
 The Azure token is good for your whole subscription, not only the
 registry, so komando sends it only over https to a registry whose
 certificate is checked. A conn with `?tls=false` or `?tls=skip-verify`
-stops with a usage error; use `?ca=` for a private CA, or a registry token
+stops with a usage error; use a registry token
 with `--password-ref`.
 
 ### Google Artifact Registry and Container Registry
@@ -286,7 +293,7 @@ with it goes every tag on that image: 1.9, latest
 latest is one of them: docker pull without a tag stops working
 ```
 
-komando checks the first 200 tags of the repository; with more,
+komando checks every tag of the repository (up to 10000); with more,
 `tags_note` says others may point at the image too.
 
 Deleting cannot be undone. At your terminal komando asks you first: it
@@ -334,11 +341,11 @@ any image.
 
 - Docker Hub and GHCR have no list of every repository: name one.
 - `list` shows at most 1000 entries unless you raise `--limit`.
-- `rm` and its dry run check the first 200 tags of a repository for other
-  tags on the same image.
-- `prune` reads each tag's digest, then each image once, and stops with
-  `TOO_MANY_TAGS` above 1000 tags (`--match` does not lift it, since every
-  tag is read): delete some first with `registry rm`.
+- `rm` and its dry run check every tag of a repository, up to 10000, for
+  other tags on the same image.
+- `prune` reads each tag's digest (8 at a time), then each image once, and
+  stops with `TOO_MANY_TAGS` above 10000 tags (`--match` does not lift it,
+  since every tag is read): delete some first with `registry rm`.
 - A registry with deletes turned off (a `registry:2` without
   `REGISTRY_STORAGE_DELETE_ENABLED=true`) answers `rm` and `prune` with
   `REGISTRY_UNSUPPORTED`.
@@ -359,7 +366,7 @@ any image.
 | `AWS_LOGIN_REQUIRED` (exit 4) | the ECR profile's AWS login ran out | a person runs `komando login aws --profile prod` |
 | `AZURE_LOGIN_REQUIRED` (exit 4) | no Azure login found | set a service principal, or a person runs `az login` |
 | `GCP_LOGIN_REQUIRED` (exit 4) | the Google login ran out or its file is broken | a person runs `gcloud auth application-default login`, or set `GOOGLE_APPLICATION_CREDENTIALS` |
-| `TOO_MANY_TAGS` (exit 2) | `prune` on a repository with more than 1000 tags | delete some first with `registry rm` |
+| `TOO_MANY_TAGS` (exit 2) | `prune` on a repository with more than 10000 tags (`--match` does not lift it) | delete some first with `registry rm` |
 
 ## Reference
 

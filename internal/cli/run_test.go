@@ -31,7 +31,7 @@ func TestReadOnlyViolation(t *testing.T) {
 		"kubectl get pods":                        "",
 		"apt list --upgradable":                   "",
 		"sed -n 1,5p /etc/hosts":                  "",
-		"psql -c 'select 1'":                      "",
+		"psql -c 'select 1'":                      "the command psql is not known to only read",
 		"ls 2>&1 | head":                          "",
 		"ls >&2 2>&-":                             "",
 		"echo x > /dev/stderr":                    "",
@@ -42,7 +42,7 @@ func TestReadOnlyViolation(t *testing.T) {
 		"python3 --version":                       "",
 		"awk -F: '{print $1}' /etc/passwd":        "",
 		"awk '$3 > 100' f":                        "",
-		"sudo -u postgres psql -Atc 'select 1'":   "",
+		"sudo -u postgres psql -Atc 'select 1'":   "the command psql is not known to only read",
 		"xargs -I{} cat {} < list":                "",
 		"timeout 5s ls":                           "",
 		"cat $(ls /etc/*.conf)":                   "",
@@ -53,13 +53,13 @@ func TestReadOnlyViolation(t *testing.T) {
 		"ls; mv a b":                              "mv",
 		"cat x | tee /tmp/y":                      "tee",
 		"sudo -u root rm /x":                      "rm",
-		"FOO=1 truncate -s 0 /x":                  "truncate",
-		"systemctl restart nginx":                 "systemctl restart",
-		"service nginx stop":                      "service stop",
-		"apt-get install -y curl":                 "apt-get install",
-		"apk add curl":                            "apk add",
+		"FOO=1 truncate -s 0 /x":                  "setting FOO (programs read upper-case names as settings or code: use a name with a lower-case letter, like dir)",
+		"systemctl restart nginx":                 "systemctl restart nginx (not a form komando knows only reads)",
+		"service nginx stop":                      "service nginx stop (not a form komando knows only reads)",
+		"apt-get install -y curl":                 "apt-get install -y curl (not a form komando knows only reads)",
+		"apk add curl":                            "apk add curl (not a form komando knows only reads)",
 		"sed -i s/a/b/ /etc/x":                    "sed -i",
-		"docker run --rm alpine true":             "docker run",
+		"docker run --rm alpine true":             "docker run --rm alpine true (not a form komando knows only reads)",
 		"useradd bob":                             "useradd",
 		"chmod 600 /x":                            "chmod",
 		"kill -9 123":                             "kill",
@@ -70,10 +70,10 @@ func TestReadOnlyViolation(t *testing.T) {
 		"cat /etc/hosts && /bin/rm /x":            "rm",
 		"ls 2>err.log":                            "> err.log",
 		"nice -n 5 cp a b":                        "cp",
-		"xargs rm < list":                         "rm",
-		"git -C /srv/app pull":                    "git pull",
+		"xargs rm < list":                         "xargs rm (xargs adds arguments komando cannot see)",
+		"git -C /srv/app pull":                    "the command git is not known to only read",
 		"crontab -r":                              "crontab -r",
-		"ip addr add 10.0.0.1/24 dev eth0":        "ip add",
+		"ip addr add 10.0.0.1/24 dev eth0":        "ip addr add 10.0.0.1/24 dev eth0 (not a form komando knows only reads)",
 		"echo x >| /etc/cron.d/a":                 "> /etc/cron.d/a",
 		"echo x >&/etc/cron.d/a":                  "> /etc/cron.d/a",
 		"echo x >& /etc/cron.d/a":                 "> /etc/cron.d/a",
@@ -91,7 +91,7 @@ func TestReadOnlyViolation(t *testing.T) {
 		"source x.sh":                             "source",
 		"exec rm F":                               "exec",
 		"bash -ec 'rm F'":                         "rm",
-		"bash -lc 'systemctl restart nginx'":      "systemctl restart",
+		"bash -lc 'systemctl restart nginx'":      "systemctl restart nginx (not a form komando knows only reads)",
 		"sh -o pipefail -c 'touch x'":             "touch",
 		"echo 'rm F' | sh":                        "sh running a script from a file or its input",
 		"bash -s < x.sh":                          "bash running a script from a file or its input",
@@ -114,11 +114,11 @@ func TestReadOnlyViolation(t *testing.T) {
 		"timeout -s KILL 10 rm F":                 "rm",
 		"sudo -uroot rm F":                        "rm",
 		"sudo -nu root rm F":                      "rm",
-		"sudo -s":                                 "a shell reading commands from its input",
+		"sudo -s":                                 "sudo -s (a shell reads the command again)",
 		"sudo -e /etc/hosts":                      "sudo -e",
 		"env -S 'rm F'":                           "env -S",
 		"stdbuf -o L rm F":                        "rm",
-		"busybox rm F":                            "rm",
+		"busybox rm F":                            "the command busybox is not known to only read",
 		"find . -fprint /etc/x":                   "find -fprint",
 		"time -o /tmp/t ls":                       "time -o",
 		"systemd-run touch /x":                    "systemd-run",
@@ -128,16 +128,16 @@ func TestReadOnlyViolation(t *testing.T) {
 			t.Errorf("%q: got %q, want %q", cmd, got, want)
 		}
 	}
-	g.dryRun = false
-	err := checkReadOnly("rm -rf /tmp/x")
+	tcl.flags.dryRun = false
+	err := checkReadOnly(tcl, "rm -rf /tmp/x")
 	if e := toErr(err); e == nil || e.Code != "READ_ONLY_VIOLATION" || e.Exit != out.ExitPolicy {
 		t.Errorf("checkReadOnly: %v", err)
 	}
 }
 
-// The allowlist (readOnlyAllowlist) is stricter than the denylist: a
-// command komando cannot confirm only reads is reported, so a protected
-// target holds it to --yes. Commands komando knows read are not.
+// --read-only is a strict allowlist: a
+// command komando cannot confirm only reads is refused on every server.
+// Commands komando knows read are not.
 func TestReadOnlyAllowlist(t *testing.T) {
 	allowed := []string{
 		"cat /etc/hostname", "ls -la /var", "tail -n 50 /var/log/syslog", "head -5 f",
@@ -152,7 +152,7 @@ func TestReadOnlyAllowlist(t *testing.T) {
 		"sh -c 'ls /data | wc -l'",
 	}
 	for _, c := range allowed {
-		if w := readOnlyAllowlist(c); w != "" {
+		if w := readOnlyViolation(c); w != "" {
 			t.Errorf("%q: allowlist refused it (%s)", c, w)
 		}
 	}
@@ -162,11 +162,9 @@ func TestReadOnlyAllowlist(t *testing.T) {
 		"custombin", "xargs mytool", "sudo mytool",
 	}
 	for _, c := range refused {
-		if readOnlyAllowlist(c) == "" {
-			t.Errorf("%q: allowlist let it skip --yes on a protected target", c)
+		if readOnlyViolation(c) == "" {
+			t.Errorf("%q: passed --read-only, but komando does not know it only reads", c)
 		}
-		// but none of these is a clear write, so the denylist stays quiet
-		// for the ones that truly change nothing komando can see
 	}
 }
 
@@ -214,14 +212,14 @@ func TestExecDataText(t *testing.T) {
 		{Host: "web2", RunResult: &sshx.RunResult{ExitCode: 3, Stdout: "out2"}},
 		{Host: "web3", Error: &out.Error{Code: "CONNECTION_REFUSED", Message: "web3: refused", Hint: "check that sshd runs on the server and listens on this port: komando host show web3"}},
 	}}
-	got := d.Text()
+	got := d.TextFor(realRun())
 	for _, want := range []string{"=== web1 [ok, exit 0]\nout1\n[stderr] warn1\n", "=== web2 [failed: exit 3]\nout2\n", "=== web3 [failed: connection refused]\n  Error: web3: refused (code CONNECTION_REFUSED)\n  Hint: check that sshd runs"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("text misses %q:\n%s", want, got)
 		}
 	}
 	d.streamed = true
-	if strings.Contains(d.Text(), "out1") {
+	if strings.Contains(d.TextFor(realRun()), "out1") {
 		t.Error("streamed output must not be printed again")
 	}
 }
@@ -252,39 +250,39 @@ func runSh(t *testing.T, dir, script string) (string, int) {
 func TestFsScripts(t *testing.T) {
 	dir := t.TempDir()
 	writeTree(t, dir, map[string]string{"a": "A", "b": "B", "d/x": "X"})
-	if _, code := runSh(t, dir, mvScript("a", "b", false)); code != fsExitDestExists {
+	if _, code := runSh(t, dir, mvScript("a", "b", false, false)); code != fsExitDestExists {
 		t.Errorf("mv over a file: exit %d", code)
 	}
 	if b, _ := os.ReadFile(filepath.Join(dir, "b")); string(b) != "B" {
 		t.Error("mv replaced b without --overwrite")
 	}
-	if _, code := runSh(t, dir, mvScript("nope", "c", false)); code != fsExitNoSource {
+	if _, code := runSh(t, dir, mvScript("nope", "c", false, false)); code != fsExitNoSource {
 		t.Errorf("mv missing: exit %d", code)
 	}
-	if o, code := runSh(t, dir, mvScript("a", "b", true)); code != 0 || !strings.Contains(o, "replaced") {
+	if o, code := runSh(t, dir, mvScript("a", "b", true, false)); code != 0 || !strings.Contains(o, "replaced") {
 		t.Errorf("mv --overwrite: %d %s", code, o)
 	}
-	if o, code := runSh(t, dir, mvScript("b", "d/", false)); code != 0 || !strings.Contains(o, "moved to: d/b\n") {
+	if o, code := runSh(t, dir, mvScript("b", "d/", false, false)); code != 0 || !strings.Contains(o, "moved to: d/b\n") {
 		t.Errorf("mv into a folder: exit %d %q", code, o)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "d/b")); err != nil {
 		t.Error("mv into a folder did not land in it")
 	}
-	if _, code := runSh(t, dir, mkdirScript([]string{"d/b"})); code != fsExitNotFolder {
+	if _, code := runSh(t, dir, mkdirScript([]string{"d/b"}, false)); code != fsExitNotFolder {
 		t.Errorf("mkdir on a file: exit %d", code)
 	}
-	if _, code := runSh(t, dir, rmScript([]string{"d"}, false)); code != fsExitIsFolder {
+	if _, code := runSh(t, dir, rmScript([]string{"d"}, false, false)); code != fsExitIsFolder {
 		t.Errorf("rm folder without -r: exit %d", code)
 	}
-	o, code := runSh(t, dir, rmScript([]string{"missing", "*.bin"}, false))
+	o, code := runSh(t, dir, rmScript([]string{"missing", "*.bin"}, false, false))
 	if code != 0 || !strings.Contains(o, "not found: missing") || !strings.Contains(o, "globs are not expanded") {
 		t.Errorf("rm missing: %d %s", code, o)
 	}
-	if _, code := runSh(t, dir, rmScript([]string{"d"}, true)); code != 0 {
+	if _, code := runSh(t, dir, rmScript([]string{"d"}, true, false)); code != 0 {
 		t.Errorf("rm -r: exit %d", code)
 	}
 	// a change on one server says what it did: the text shows only stdout
-	if o, code := runSh(t, dir, mkdirScript([]string{"m/n", "m/o"})); code != 0 || o != "made: m/n\nmade: m/o\n" {
+	if o, code := runSh(t, dir, mkdirScript([]string{"m/n", "m/o"}, false)); code != 0 || o != "made: m/n\nmade: m/o\n" {
 		t.Errorf("mkdir: %d %q", code, o)
 	}
 	if o, code := runSh(t, dir, chmodScript("0700", []string{"m/n"}, false, false)); code != 0 || o != "mode 0700: m/n\n" {
@@ -293,7 +291,7 @@ func TestFsScripts(t *testing.T) {
 	if _, code := runSh(t, dir, chmodScript("0600", []string{"zzz"}, false, false)); code != fsExitNoSource {
 		t.Errorf("chmod missing: exit %d", code)
 	}
-	if e := fsExitMap(fsExitIsFolder, "d is a folder"); e == nil || e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "--recursive") {
+	if e := fsExitMap(tcl, fsExitIsFolder, "d is a folder"); e == nil || e.Exit != out.ExitUsage || !strings.Contains(e.Hint, "--recursive") {
 		t.Errorf("exit map: %+v", e)
 	}
 }
@@ -355,16 +353,16 @@ func TestCheckVars(t *testing.T) {
 }
 
 func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	dst := t.TempDir()
 	writeTree(t, dst, map[string]string{"keep.txt": "mine"})
 	ctx := context.Background()
-	_, err := runSync(ctx, localSide{filepath.Join(dst, "nope")}, localSide{dst}, "src", "dst", syncOpts{delete: true})
+	_, err := runSync(tcl, ctx, localSide{tcl, filepath.Join(dst, "nope")}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 	if toErr(err).Code != "PATH_NOT_FOUND" {
 		t.Fatalf("missing source: %v", err)
 	}
 	empty := t.TempDir()
-	_, err = runSync(ctx, localSide{empty}, localSide{dst}, "src", "dst", syncOpts{delete: true})
+	_, err = runSync(tcl, ctx, localSide{tcl, empty}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
 	if toErr(err).Code != "SOURCE_EMPTY" {
 		t.Fatalf("empty source with --delete: %v", err)
 	}
@@ -372,7 +370,7 @@ func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
 		t.Fatal("the destination lost a file")
 	}
 	// a file as the source
-	_, err = runSync(ctx, localSide{filepath.Join(dst, "keep.txt")}, localSide{empty}, "src", "dst", syncOpts{})
+	_, err = runSync(tcl, ctx, localSide{tcl, filepath.Join(dst, "keep.txt")}, localSide{tcl, empty}, "src", "dst", syncOpts{})
 	if toErr(err).Code != "NOT_A_FOLDER" {
 		t.Errorf("file source: %v", err)
 	}
@@ -380,7 +378,7 @@ func TestSyncMissingSourceAndEmptyDelete(t *testing.T) {
 
 func TestSyncLinksModesAndNewFolder(t *testing.T) {
 	unixOnly(t, "symbolic links and file modes")
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	src := t.TempDir()
 	dst := filepath.Join(t.TempDir(), "new")
 	writeTree(t, src, map[string]string{"a.sh": "echo"})
@@ -388,21 +386,21 @@ func TestSyncLinksModesAndNewFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	r, err := runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{})
+	r, err := runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if err != nil || r.Copied != 1 || !r.NewFolder || len(r.Skipped) != 1 || r.Skipped[0] != "link" {
 		t.Fatalf("first sync: %+v %v", r, err)
 	}
 	os.Chmod(filepath.Join(src, "a.sh"), 0o755)
-	r, _ = runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{})
+	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if r.Updated != 1 {
 		t.Errorf("a mode change must be synced: %+v", r)
 	}
 	if fi, _ := os.Stat(filepath.Join(dst, "a.sh")); fi.Mode().Perm() != 0o755 {
 		t.Errorf("mode not applied: %v", fi.Mode())
 	}
-	g.dryRun = true
-	defer func() { g.dryRun = false }()
-	r, _ = runSync(ctx, localSide{src}, localSide{dst}, "src", "dst", syncOpts{})
+	tcl.flags.dryRun = true
+	defer func() { tcl.flags.dryRun = false }()
+	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{})
 	if !strings.Contains(r.Text(), "would copy 0, update 0, delete 0") {
 		t.Errorf("dry-run grammar: %s", r.Text())
 	}
@@ -434,13 +432,20 @@ func (f *fakeBucket) Remove(context.Context, string) error { return nil }
 func (f *fakeBucket) Link(context.Context, string, time.Duration) (*url.URL, error) {
 	return nil, nil
 }
+func (f *fakeBucket) Lookup(context.Context, string) (storex.Object, bool, error) {
+	return storex.Object{}, false, nil
+}
+func (f *fakeBucket) Mkdir(context.Context, string) (bool, error) { return false, nil }
+func (f *fakeBucket) Move(context.Context, string, string, storex.MoveOpts) (storex.Moved, error) {
+	return storex.Moved{}, nil
+}
 func (f *fakeBucket) Close() error { return nil }
 
 func TestSyncSkipsFolderMarkers(t *testing.T) {
-	g.dryRun = false
+	tcl.flags.dryRun = false
 	b := &fakeBucket{objs: []storex.Object{{Key: "tree"}, {Key: "tree/"}, {Key: "tree/sub/"}, {Key: "tree/a.txt", Size: 11}}}
 	dst := t.TempDir()
-	r, err := runSync(context.Background(), bucketSide{b: b, prefix: "tree/"}, localSide{dst}, "b:tree", dst, syncOpts{})
+	r, err := runSync(tcl, context.Background(), bucketSide{b: b, prefix: "tree/"}, localSide{tcl, dst}, "b:tree", dst, syncOpts{})
 	if err != nil || r.Copied != 1 {
 		t.Fatalf("markers: %+v %v", r, err)
 	}

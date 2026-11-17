@@ -17,15 +17,15 @@ import (
 // flagAliasOf names, on a hidden spelling, the flag it is a spelling of.
 const flagAliasOf = "komando.flag-alias-of"
 
-// flagAlias adds old as a hidden spelling of c's local flag now, sharing
+// flagAlias adds synonym as a hidden spelling of c's local flag now, sharing
 // its value. It panics when now is not a flag of c: that is a bug in
 // komando, found by every test that builds the command tree.
-func flagAlias(c *cobra.Command, old, now string) {
+func flagAlias(c *cobra.Command, synonym, now string) {
 	f := c.Flags().Lookup(now)
 	if f == nil {
 		panic("flagAlias: " + c.CommandPath() + " has no --" + now)
 	}
-	a := &pflag.Flag{Name: old, Usage: "old name of --" + now, Value: f.Value, DefValue: f.DefValue,
+	a := &pflag.Flag{Name: synonym, Usage: "same as --" + now, Value: f.Value, DefValue: f.DefValue,
 		NoOptDefVal: f.NoOptDefVal, Hidden: true, Annotations: map[string][]string{flagAliasOf: {now}}}
 	c.Flags().AddFlag(a)
 }

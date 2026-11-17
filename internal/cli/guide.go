@@ -3,6 +3,7 @@ package cli
 import (
 	_ "embed"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -14,6 +15,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -73,10 +75,10 @@ part. Piped (as an agent reads it), it prints the whole playbook as JSON.`,
   komando guide --all`,
 		Args:      cobra.MaximumNArgs(1),
 		ValidArgs: guideTopics,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if !interactive() && !isAgent() {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if !cl.interactive() && !cl.isAgent() {
 				// a note on stderr: stdout stays one JSON envelope
-				sayLine(cmd.ErrOrStderr(), "Note: this AI agent is not one komando knows. Set KOMANDO_AGENT=1 in its environment, so passwords stay [hidden] and --yes asks a person.")
+				sayLine(cl, "Note: this AI agent is not one komando knows. Set KOMANDO_AGENT=1 in its environment, so passwords stay [hidden] and --yes asks a person.")
 			}
 			text := guideText
 			switch {
@@ -85,16 +87,16 @@ part. Piped (as an agent reads it), it prints the whole playbook as JSON.`,
 					return out.Errf(out.ExitUsage, "USAGE", "the topics are: "+strings.Join(guideTopics, ", "),
 						"komando guide has no topic %q", args[0])
 				}
-			case out.P.Format == "text" && !all:
+			case cl.out.Format == "text" && !all:
 				text = guideRules
 			}
-			if out.P.Format == "text" {
-				out.P.Print("guide", textBlob(text), nil)
+			if cl.out.Format == "text" {
+				cl.out.Print("guide", textBlob(text), nil)
 				return nil
 			}
-			out.P.Print("guide", map[string]string{"format": "markdown", "content": text}, nil)
+			cl.out.Print("guide", map[string]string{"format": "markdown", "content": text}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVarP(&all, "all", "a", false, "print the whole playbook")
 	c.AddCommand(guideInstallCmd(), guideUninstallCmd(), guideGuardCmd())
@@ -172,7 +174,7 @@ Safe to run again, for example after an update: a changed file is kept as
   komando guide install --project   # only for the folder you are in
   komando guide install --dry-run   # show where it would go`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			base, err := os.UserHomeDir()
 			if project {
 				base, err = os.Getwd()
@@ -180,9 +182,14 @@ Safe to run again, for example after an update: a changed file is kept as
 			if err != nil {
 				return out.Errf(out.ExitError, "NO_FOLDER", "set HOME, or run it from the project folder", "cannot find the folder to install into: %v", err)
 			}
+			if project {
+				if err := noLinksUnder(base, projectFiles(base)...); err != nil {
+					return out.Errf(out.ExitError, "WRITE_FAILED", "remove the link, or install for your home folder without --project", "%v", err)
+				}
+			}
 			var files []skillFile
 			for _, d := range skillDirs {
-				f, err := installSkill(filepath.Join(base, d, "komando", "SKILL.md"), g.dryRun)
+				f, err := installSkill(filepath.Join(base, d, "komando", "SKILL.md"), cl.flags.dryRun)
 				if err != nil {
 					return out.Errf(out.ExitError, "WRITE_FAILED", "check that you may write to this folder", "%v", err)
 				}
@@ -191,7 +198,7 @@ Safe to run again, for example after an update: a changed file is kept as
 			if !noGuard {
 				prog, note := hookProgram(project)
 				// Claude Code asks komando before each tool call (guard.go)
-				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, g.dryRun)
+				f, err := installGuardHook(filepath.Join(base, ".claude", "settings.json"), prog, cl.flags.dryRun)
 				if err != nil {
 					return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 				}
@@ -203,7 +210,7 @@ Safe to run again, for example after an update: a changed file is kept as
 					if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
 						continue
 					}
-					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, shellQuote(prog)+" guide guard --for "+h.name, g.dryRun)
+					f, err := installAgentHook(filepath.Join(dir, h.file), h.add, shellQuote(prog)+" guide guard --for "+h.name, cl.flags.dryRun)
 					if err != nil {
 						return out.Errf(out.ExitError, "WRITE_FAILED", "fix the file, or pass --no-guard to skip the guard", "%v", err)
 					}
@@ -220,12 +227,12 @@ Safe to run again, for example after an update: a changed file is kept as
 					changed++
 				}
 			}
-			if changed > 0 && !g.dryRun {
-				audit(nil, "guide.install", nil, "", true, map[string]any{"files": changed})
+			if changed > 0 && !cl.flags.dryRun {
+				audit(cl, nil, "guide.install", nil, "", true, map[string]any{"files": changed})
 			}
-			out.P.Print("guide.install", skillResult{Files: files}, nil)
+			cl.out.Print("guide.install", skillResult{Files: files}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&project, "project", false, "install into the current folder instead of your home folder")
 	c.Flags().BoolVar(&noGuard, "no-guard", false, "do not add the guard that keeps AI agents away from secret files on this computer")
@@ -253,18 +260,18 @@ type skillResult struct {
 	uninstall bool
 }
 
-func (r skillResult) Text() string {
+func (r skillResult) TextFor(pr *out.Printer) string {
 	var b strings.Builder
 	changed := false
 	kept := "  old version kept as "
-	if g.dryRun {
+	if pr.DryRun {
 		kept = "  old version would be kept as "
 	}
 	for _, f := range r.Files {
 		action := f.Action
 		if action != "unchanged" {
 			changed = true
-			if g.dryRun {
+			if pr.DryRun {
 				action = map[string]string{"created": "would create", "updated": "would update", "removed": "would remove"}[action]
 			}
 		}
@@ -279,7 +286,7 @@ func (r skillResult) Text() string {
 	switch {
 	case r.uninstall && len(r.Files) == 0:
 		b.WriteString("komando's skill and guard are not here; nothing to remove.")
-	case !changed || g.dryRun:
+	case !changed || pr.DryRun:
 	case r.uninstall:
 		b.WriteString("Restart your AI agent so it stops using komando's skill.")
 	default:
@@ -288,6 +295,10 @@ func (r skillResult) Text() string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
+// installSkill writes komando's skill to path. The old copy, when it is
+// another text, is kept under a new name (newBackup), and the skill goes
+// in through a temporary file of a random name in the same folder: no
+// name komando writes to is one a link could already have.
 func installSkill(path string, dryRun bool) (skillFile, error) {
 	f := skillFile{Path: path, Action: "created"}
 	old, err := os.ReadFile(path)
@@ -296,7 +307,7 @@ func installSkill(path string, dryRun bool) (skillFile, error) {
 		f.Action = "unchanged"
 		return f, nil
 	case err == nil:
-		f.Action, f.Backup = "updated", path+".bak"
+		f.Action, f.Backup = "updated", newBackup(path)
 	case !errors.Is(err, fs.ErrNotExist):
 		return f, err
 	}
@@ -304,18 +315,59 @@ func installSkill(path string, dryRun bool) (skillFile, error) {
 		return f, nil
 	}
 	if f.Backup != "" {
-		if err := os.WriteFile(f.Backup, old, 0o644); err != nil {
+		if err := saveBackup(f.Backup, old); err != nil {
 			return f, err
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return f, err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(skillText), 0o644); err != nil {
-		return f, err
+	return f, store.WriteFileAtomic(path, []byte(skillText), 0o644)
+}
+
+// noLinksUnder refuses a link on the way from base to any of paths. A
+// project folder is often a repository someone else wrote, and a link
+// committed there (.claude -> ~/.claude, SKILL.md -> ~/.ssh/id_ed25519)
+// would make komando read or change a file outside it. The home folder is
+// the person's own, where links (a dotfiles manager's) are theirs.
+func noLinksUnder(base string, paths ...string) error {
+	for _, p := range paths {
+		rel, err := filepath.Rel(base, p)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("%s is not in %s", p, base)
+		}
+		cur := base
+		for _, part := range strings.Split(rel, string(filepath.Separator)) {
+			cur = filepath.Join(cur, part)
+			fi, err := os.Lstat(cur)
+			if errors.Is(err, fs.ErrNotExist) {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			if fi.Mode()&(fs.ModeSymlink|fs.ModeIrregular) != 0 { // Irregular: a Windows junction
+				return fmt.Errorf("%s is a link, and komando does not follow links in a project folder; nothing was changed (remove the link, then run it again)", cur)
+			}
+		}
 	}
-	return f, os.Rename(tmp, path)
+	return nil
+}
+
+// projectFiles are the files `guide install --project` and `guide
+// uninstall --project` may read, write or remove in base (removeSkill
+// takes SKILL.md.bak away too).
+func projectFiles(base string) []string {
+	var ps []string
+	for _, d := range skillDirs {
+		p := filepath.Join(base, d, "komando", "SKILL.md")
+		ps = append(ps, p, p+".bak")
+	}
+	ps = append(ps, filepath.Join(base, ".claude", "settings.json"))
+	for _, h := range agentHooks {
+		ps = append(ps, filepath.Join(base, h.dir, h.file))
+	}
+	return ps
 }
 
 // schemaEnv are the environment variables `komando schema` lists.
@@ -365,6 +417,9 @@ type cmdSchema struct {
 	// Confirm is what a run needs, from the rule table (S-7.7): the tier it
 	// always has first, then each it reaches only sometimes
 	Confirm []confirmSchema `json:"confirm,omitempty"`
+	// AddKinds are the kinds an add command takes (vpn add, conn add, db
+	// add, ...), each with the flags that go with it (schema_kinds.go)
+	AddKinds any `json:"add_kinds,omitempty"`
 }
 
 // newCmdSchema is c in `komando schema`.
@@ -379,6 +434,7 @@ func newCmdSchema(c *cobra.Command) cmdSchema {
 	if s.Runnable {
 		s.Confirm = confirmOf(c)
 	}
+	s.AddKinds = addKindsOf(c)
 	ownFlags(c).VisitAll(func(f *pflag.Flag) {
 		if f.Hidden || f.Name == "help" {
 			return
@@ -454,7 +510,7 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
   komando schema exec        # one command subtree
   komando schema host.add    # one command, as named in the envelope
   komando schema --compact   # paths + short descriptions only`,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			start := root
 			args = schemaPath(args)
 			if len(args) > 0 {
@@ -524,9 +580,9 @@ func schemaCmd(root *cobra.Command) *cobra.Command {
 				res["secret_ref_list"] = vault.Refs
 				res["env"] = schemaEnv
 			}
-			out.P.Print("schema", res, nil)
+			cl.out.Print("schema", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&compact, "compact", false, "only paths and short descriptions")
 	return c

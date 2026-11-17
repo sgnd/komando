@@ -167,6 +167,11 @@ komando storage link media site/report.pdf                   # Google Cloud and 
 komando storage link backups 2026/app.sql.gz --endpoint https://files.example.com
 ```
 
+- For an AI agent, `storage link` needs a person's yes (`--reveal`): a
+  link is the file as it is, past the hiding that `storage cat` and
+  `storage download` apply. Without it the command stops with
+  `SENSITIVE_FILE`; for a file that is a secret by its name (`.env`, a
+  key) it always does.
 - The link works for anyone who has it until it expires. Share it like a
   password. It is not written to the audit history.
 - On a protected conn, `link` asks a person at a terminal first; an AI
@@ -179,6 +184,49 @@ komando storage link backups 2026/app.sql.gz --endpoint https://files.example.co
   link with temporary keys, so the link stops working when they expire,
   often after an hour, whatever `--expires` says. The result warns about
   it. For a link that lasts, give the conn an access key of its own.
+
+## Make folders, move and rename files
+
+```bash
+komando storage mkdir backups reports/2026 --dry-run       # check first
+komando storage mkdir backups reports/2026                 # missing parents too
+komando storage mv backups db/old.sql.gz archive/          # into a folder, same name
+komando storage mv backups reports/draft.pdf reports/q3.pdf --overwrite
+komando storage chmod backups 0640 config/app.yml          # SFTP only
+```
+
+```text
+would move db/old.sql.gz -> archive/old.sql.gz (48.1 MiB, by a copy that is checked before the original is deleted; replaces a file: no)
+```
+
+- `mkdir` makes the folder and any missing folders above it. A folder that
+  is already there is fine. S3, Google Cloud and Azure have no real
+  folders: `mkdir` stores an empty folder marker (`reports/2026/`), as
+  their web consoles do, so `storage list` shows the empty folder.
+- `mv` moves one file or folder inside one conn. A `DST` ending in `/` is
+  a folder: the file moves into it and keeps its name. A file already at
+  `DST` stops the move (`FILE_EXISTS`) unless you add `--overwrite`; a
+  folder at `DST` is never replaced.
+- On a file server (SFTP, FTP, FTPS, WebDAV, SMB) `mv` is one rename on
+  the server, and it moves folders too. Where the server cannot rename
+  over a file, `--overwrite` first moves the old file aside
+  (`.komando-old-NAME`) and puts it back if the rename fails, so a failed
+  move never loses it.
+- A path is written plainly: `.` or `//` in it stops with `USAGE`.
+- S3, Google Cloud and Azure cannot rename. There `mv` copies the object
+  on the server, checks that the copy has the same size and checksum, and
+  only then deletes the original (`method: copy_then_delete` in the
+  result). If the check fails, the original stays and the copy is
+  deleted (`MOVE_FAILED`). It moves one object at a time, not a folder
+  (`STORAGE_UNSUPPORTED`). In a bucket that keeps old versions, the
+  original's old versions stay.
+- `chmod` sets the Unix mode of a file or folder, in digits (`0644`,
+  `640`, `2775`), and the result says the old mode too. Only SFTP servers
+  have modes; on any other kind it stops with `STORAGE_UNSUPPORTED` before
+  komando contacts the storage.
+- All three are changes, like `upload`: try them with `--dry-run`, a
+  protected conn asks a person first (an AI agent or a script adds `--yes`
+  after a person agrees), and each run is in `komando audit`.
 
 ## Delete files
 
@@ -210,6 +258,21 @@ agrees. See [Safety](safety.md#what-needs-a-yes).
   default; `TOO_MANY`). Check the dry-run list, and raise the cap if that
   is what you mean.
 - `--dry-run` lists the objects one per line with size and date.
+
+### Old versions (S3 versioning)
+
+A bucket with versioning keeps every overwritten or deleted object, and
+`rm` leaves those behind (S3 adds a delete marker). See them, and remove a
+key with every version:
+
+```bash
+komando storage list backups app/ --all-versions               # every version and delete marker
+komando storage rm backups app/config.json --all-versions --dry-run
+komando storage rm backups app/config.json --all-versions      # really gone
+```
+
+`--all-versions` takes exact keys and works on S3 and S3-compatible
+stores; it asks first like any `rm`.
 
 ## Add a Google Cloud or Azure bucket
 
@@ -324,6 +387,8 @@ komando conn rm backups                       # komando forgets it; the files st
 ## Limits
 
 - Keys cannot leave the conn's folder (`../` is refused).
+- `storage mv` stays inside one conn, and on S3, Google Cloud and Azure it
+  moves one object at a time; `storage chmod` is for SFTP conns only.
 - `storage cat` shows text only, at most `--max-bytes` (1 MiB by default).
 - `storage rm` without `--prefix` takes exact keys, no patterns; with
   `--prefix` it stops above `--max-remove` objects (1000 by default) and
@@ -332,8 +397,9 @@ komando conn rm backups                       # komando forgets it; the files st
   versioning or soft delete, Azure blob versioning or soft delete): `rm`
   removes the current object only. The provider keeps the old versions (S3
   adds a delete marker), they still cost storage, and they can be brought
-  back in the provider's console or CLI. komando does not list or remove
-  old versions; a lifecycle rule on the bucket does that.
+  back in the provider's console or CLI. On S3, `--all-versions` lists and
+  removes them (see [Old versions](#old-versions-s3-versioning)); on Google
+  Cloud and Azure komando does not, and a lifecycle rule on the bucket does.
 - File servers (WebDAV, FTPS, SFTP, FTP, SMB) have no temporary links:
   `storage link` is for S3, Google Cloud and Azure. gcloud's own login and
   an Azure SAS token cannot sign a link either.

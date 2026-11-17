@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"slices"
@@ -22,7 +21,7 @@ import (
 // CLI. Both are for a person: they answer the login at the terminal or in
 // their browser.
 
-func loginCmd() *cobra.Command {
+func loginCmd(cl *call) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "login [SERVER]",
 		Short: "Log in once to a server or a cloud account",
@@ -39,9 +38,9 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
   komando logout web1
   komando login aws --profile prod`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
-				if out.P.Format == "json" {
+				if cl.out.Format == "json" {
 					// piped: one JSON envelope, never help text (ux.md, section 4)
 					return out.Usage("komando login needs a server or a cloud account").WithHint("komando login HOST, or komando login aws")
 				}
@@ -51,7 +50,7 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 				// no server can have that name (checkHostName): it is the cloud login
 				return out.Usage("cloud logins are lower case: komando login %s", loginClouds[i]).WithHint("komando login " + loginClouds[i])
 			}
-			err := loginHost(cmd.Context(), args[0])
+			err := loginHost(cl, cmd.Context(), args[0])
 			if e := toErr(err); e != nil && e.Code == "HOST_NOT_FOUND" {
 				if c := closest(args[0], loginClouds[:1]); c != "" { // only aws is built
 					e.Hint += " For the AWS login: komando login " + c
@@ -59,10 +58,10 @@ komando login aws logs in to AWS IAM Identity Center (SSO).`,
 				return e
 			}
 			return err
-		},
+		}),
 	}
 	// a new subcommand goes into loginClouds too, so no server takes its name
-	c.AddCommand(loginAWSCmd(),
+	c.AddCommand(loginAWSCmd(cl),
 		loginNotBuiltCmd("gcp", "Google Cloud", "for now komando uses your Google application default credentials (GOOGLE_APPLICATION_CREDENTIALS, or the file gcloud saved), "+
 			"or a service account key: `komando secret set gcs-key`, then `komando conn add NAME gs://BUCKET --password-ref secret:gcs-key`"),
 		loginNotBuiltCmd("azure", "Azure", "for now an Azure blob conn takes the storage account key or a SAS token: `komando secret set blob-key`, then "+
@@ -80,14 +79,14 @@ func loginNotBuiltCmd(name, cloud, today string) *cobra.Command {
 		Short:  cloud + " login is coming in a later release",
 		Hidden: true,
 		Args:   cobra.ArbitraryArgs,
-		RunE: func(*cobra.Command, []string) error {
-			noteCloudNamed(name)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
+			noteCloudNamed(cl, name)
 			return out.Errf(out.ExitUsage, "USAGE", today, "komando login %s is not built yet: the %s browser login comes in a later release", name, cloud)
-		},
+		}),
 	}
 }
 
-func loginAWSCmd() *cobra.Command {
+func loginAWSCmd(cl *call) *cobra.Command {
 	var profile string
 	c := &cobra.Command{
 		Use:   "aws",
@@ -107,15 +106,15 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
   komando login aws                      # the profile in AWS_PROFILE, else default
   komando login aws --profile prod --dry-run   # which sign-in page, without logging in`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			profile := cmp.Or(profile, "default")
-			noteCloudNamed("aws")
+			noteCloudNamed(cl, "aws")
 			again := "komando login aws --profile " + shellQuote(profile)
 			// the sign-in is in the person's browser, never the agent's
 			var stop *out.Error
 			switch {
-			case interactive():
-			case isAgent():
+			case cl.interactive():
+			case cl.isAgent():
 				stop = out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 					"ask the user to run `"+again+"` in their own terminal; their browser opens for the AWS sign-in, then your commands use the login",
 					"logging in to AWS needs a person at a terminal and a browser")
@@ -123,33 +122,33 @@ NEEDS_PERSON and asks you to run it. A profile with keys in
 				stop = out.Errf(out.ExitUsage, "NEEDS_TERMINAL", "a person runs `"+again+"` in a terminal",
 					"logging in to AWS needs a person at a terminal and a browser")
 			}
-			if stop != nil && !g.dryRun {
+			if stop != nil && !cl.flags.dryRun {
 				return stop
 			}
 			sso, err := cloud.AWSProfileSSO(cmd.Context(), profile)
 			if err != nil {
 				return awsErr(profile, err)
 			}
-			if g.dryRun { // a dry run is never blocked; it says what the real run needs
+			if cl.flags.dryRun { // a dry run is never blocked; it says what the real run needs
 				if stop != nil {
-					out.P.WouldBlock(stop)
+					cl.out.WouldBlock(stop)
 				}
-				out.P.Print("login.aws", map[string]any{"profile": profile, "sso_start_url": sso.StartURL, "sso_region": sso.Region, "dry_run": true}, nil)
+				cl.out.Print("login.aws", map[string]any{"profile": profile, "sso_start_url": sso.StartURL, "sso_region": sso.Region, "dry_run": true}, nil)
 				return nil
 			}
 			path, err := cloud.AWSSSOLogin(cmd.Context(), profile, func(url, code string) {
-				fmt.Fprintf(os.Stderr, "komando: confirm the code %s at %s\n", cleanText(code), cleanText(url))
+				fmt.Fprintf(cl.out.Err, "komando: confirm the code %s at %s\n", cleanText(code), cleanText(url))
 				openBrowser(cmd.Context(), url)
 			})
 			if err != nil {
 				return awsErr(profile, err)
 			}
-			audit(nil, "login.aws", nil, "", true, map[string]any{"profile": profile})
-			out.P.Print("login.aws", map[string]any{"profile": profile, "sso_start_url": sso.StartURL, "saved": path}, nil)
+			audit(cl, nil, "login.aws", nil, "", true, map[string]any{"profile": profile})
+			cl.out.Print("login.aws", map[string]any{"profile": profile, "sso_start_url": sso.StartURL, "saved": path}, nil)
 			return nil
-		},
+		}),
 	}
-	c.Flags().StringVar(&profile, "profile", os.Getenv("AWS_PROFILE"), "profile in ~/.aws/config (default: AWS_PROFILE, else default)")
+	c.Flags().StringVar(&profile, "profile", cl.getenv("AWS_PROFILE"), "profile in ~/.aws/config (default: AWS_PROFILE, else default)")
 	return c
 }
 
@@ -214,14 +213,14 @@ func cloudNameText(e cloudEntry) string {
 
 // noteCloudNamed: `login CLOUD` is always the cloud login; an older entry
 // with that name gets a note on stderr (and in meta.warnings) that says so.
-func noteCloudNamed(cloud string) {
+func noteCloudNamed(cl *call, cloud string) {
 	st, err := loadState()
 	if err != nil {
 		return
 	}
 	for _, e := range cloudNamed(st) {
 		if e.cloud == cloud {
-			out.P.Warn(cloudNameText(e))
+			cl.out.Warn(cloudNameText(e))
 		}
 	}
 }

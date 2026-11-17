@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -102,13 +101,14 @@ func TestKeyRmInUseAndText(t *testing.T) {
 // coreText runs komando with -o text and returns what it printed.
 func coreText(t *testing.T, args ...string) string {
 	t.Helper()
-	g.dryRun, g.yes, store.DryRun = false, false, false
-	root := newRoot()
+	tcl.flags.dryRun, tcl.flags.yes = false, false
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "text"}, args...))
 	var buf bytes.Buffer
-	saved := out.P.W
-	out.P.W = &buf
-	defer func() { out.P.W = saved }()
+	saved := tcl.out.W
+	tcl.out.W = &buf
+	defer func() { tcl.out.W = saved }()
 	if err := root.Execute(); err != nil {
 		t.Fatalf("%v: %v", args, err)
 	}
@@ -135,9 +135,9 @@ func TestImportNextReplacedAndPreview(t *testing.T) {
 	if got := importNext([]string{"a", "b", "c", "d", "e", "f"}, nil); got != "komando test all" {
 		t.Errorf("many: %s", got)
 	}
-	g.dryRun = true
-	defer func() { g.dryRun = false }()
-	e := toErr(importIncomplete(1))
+	tcl.flags.dryRun = true
+	defer func() { tcl.flags.dryRun = false }()
+	e := toErr(importIncomplete(tcl, 1))
 	if strings.Contains(e.Hint, "the rest is in") || !strings.Contains(e.Message, "would not") {
 		t.Errorf("a preview says nothing is in yet: %s / %s", e.Message, e.Hint)
 	}
@@ -189,7 +189,7 @@ func TestHostAddressNeverAnOption(t *testing.T) {
 	wantCode(t, "USAGE", "host", "add", "e1", "u@-oProxyCommand=x")
 	wantCode(t, "USAGE", "host", "add", "e2", "--address=-oProxyCommand=x")
 	st := &store.State{Hosts: map[string]*store.Host{"old": {Name: "old", Address: "-oproxycommand=x"}}}
-	if _, err := sshCommandFor(st, st.Hosts["old"]); err == nil || !strings.Contains(err.Error(), "option") {
+	if _, err := sshCommandFor(tcl, st, st.Hosts["old"]); err == nil || !strings.Contains(err.Error(), "option") {
 		t.Errorf("want a refusal, got %v", err)
 	}
 }

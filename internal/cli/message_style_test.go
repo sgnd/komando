@@ -40,7 +40,7 @@ type textRole string
 const (
 	roleMsg    textRole = "message" // error.message, a Go error's text
 	roleHint   textRole = "hint"    // error.hint
-	roleWarn   textRole = "warning" // out.P.Warn
+	roleWarn   textRole = "warning" // cl.out.Warn
 	roleStderr textRole = "stderr"  // a line komando writes on stderr for itself
 	roleAsk    textRole = "ask"     // a question
 	roleHelpQ  textRole = "help"    // the help under a question
@@ -93,7 +93,7 @@ func styleTexts(t *testing.T) []styleText {
 			}
 			name := d.Name()
 			if d.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") ||
-				strings.HasPrefix(name, "cluster_kctl") || name == "errcodes.go" { // kubectl's words (M-15); generated
+				name == "errcodes.go" { // generated
 				return nil
 			}
 			fset := token.NewFileSet()
@@ -117,7 +117,11 @@ func styleTexts(t *testing.T) []styleText {
 }
 
 // stderrWriters are the writers that reach the person's stderr.
-var stderrWriters = map[string]bool{"os.Stderr": true, "promptW": true, "hintW": true, "cmd.ErrOrStderr()": true, "c.ErrOrStderr()": true}
+var stderrWriters = map[string]bool{"os.Stderr": true, "promptW()": true, "cmd.ErrOrStderr()": true, "c.ErrOrStderr()": true,
+	// a call's stderr (call.go), also through the struct that keeps the call
+	"cl.out.Err": true, "w.cl.out.Err": true, "r.cl.out.Err": true, "p.cl.out.Err": true, "s.cl.out.Err": true, "pr.Stderr()": true,
+	// the printer's stderr (internal/out)
+	"p.Stderr()": true}
 
 var flagFunc = regexp.MustCompile(`^(String|Bool|Int|Int64|Uint|Duration|Float64|StringSlice|StringArray|StringToString|Count|Var)(Var)?P?$`)
 
@@ -148,9 +152,13 @@ func fileTexts(fset *token.FileSet, rel string, f *ast.File) []styleText {
 					add(args[2], roleHint, args[3])
 					add(args[3], roleMsg, args[2])
 				}
-			case name == "out.Usage" || name == "fmt.Errorf" || name == "errors.New":
+			case name == "out.Usage" || name == "fmt.Errorf" || name == "errors.New" || name == "kfail":
 				if len(args) >= 1 {
 					add(args[0], roleMsg, nil)
+				}
+			case name == "kindErr": // kindErr(err, format, ...) ends in kfail
+				if len(args) >= 2 {
+					add(args[1], roleMsg, nil)
 				}
 			case strings.HasSuffix(name, ".WithHint"):
 				if len(args) == 1 {
@@ -166,7 +174,7 @@ func fileTexts(fset *token.FileSet, rel string, f *ast.File) []styleText {
 					add(args[0], roleWarn, nil)
 				}
 			case name == "sayLine":
-				if len(args) == 2 && stderrWriters[exprName(args[0])] {
+				if len(args) == 2 { // sayLine(cl, msg) writes on the call's stderr
 					add(args[1], roleStderr, nil)
 					if len(res) > 0 && res[len(res)-1].line == fset.Position(args[1].Pos()).Line {
 						res[len(res)-1].wrapped = true
@@ -409,9 +417,9 @@ func TestStderrLabels(t *testing.T) {
 var (
 	// M-5: komando's words; the allowed senses of host, service and
 	// directory are taken out first: a URL's host part, a database
-	// account's host, a host key or name, a systemd, Swarm or Kubernetes
-	// service, another program's words
-	termsAllowed = regexp.MustCompile(`(?i)(komando host|host (key|name|keys|part|port|header)|hosts? file|localhost|--(from-)?host|host:|\bhost\)|:host|known_hosts|/etc/hosts|` +
+	// account's host, a host key or name, a jump host, a host subcommand,
+	// a systemd, Swarm or Kubernetes service, another program's words
+	termsAllowed = regexp.MustCompile(`(?i)(komando host|host (key|name|keys|part|port|header|edit|rename|ssh-command)|host\s+key|jump host|--command host\.|host or host:port|kinds: host|user, host|hosts? file|localhost|--(from-)?host|host:|\bhost\)|:host|known_hosts|/etc/hosts|` +
 		`(URL|URL's|endpoint|portal|kubeconfig's server|redirected to another|the same|after the|virtual|account|Vault|to a|a|one) hosts?\b|hosts it may|` +
 		`service account|service principal|service name|systemd|unit|kubernetes|swarm|stack|cluster list|windows|Service\b|service/|services? \(|[a-z]+\.service|` +
 		`system files or services|Which services|Only services|without services|lists the services|or services|deployments, services|no such file or directory)`)
@@ -420,7 +428,7 @@ var (
 
 // M-5: one term for one thing: server, conn, your list, folder.
 func TestMessageTerms(t *testing.T) {
-	styleCheck(t, "M-5", []textRole{roleMsg, roleHint, roleWarn, roleAsk, roleHelpQ}, allowTerms, func(s styleText) string {
+	styleCheck(t, "M-5", []textRole{roleMsg, roleHint, roleWarn, roleAsk, roleHelpQ, roleUsage}, allowTerms, func(s styleText) string {
 		for _, p := range s.parts {
 			if m := termsBanned.FindString(termsAllowed.ReplaceAllString(p, "")); m != "" {
 				return "says " + strconv.Quote(m)
@@ -597,7 +605,7 @@ func TestStopLines(t *testing.T) {
 	}
 	// a hint is the next step, never a state (M-2)
 	for _, s := range styleTexts(t) {
-		if s.role == roleHint && s.first && strings.HasPrefix(strings.ToLower(s.parts[0]), "nothing was") {
+		if s.role == roleHint && strings.Contains(strings.ToLower(strings.Join(s.parts, " ")), "nothing was") {
 			t.Errorf("%s:%d: a hint that says a state (put it in the message): %q", s.file, s.line, s.text)
 		}
 	}
@@ -645,6 +653,11 @@ var (
 	// M-5: the Swarm and Kubernetes Service, command words, and URL or
 	// account placeholders
 	allowTerms = []string{
+		"cli/cluster_objects.go: List pods, deployments, services, nodes ... (Swarm: services",
+		"cli/cluster_objects.go:   komando cluster list prod-k8s pods --namespace shop\n  koma",
+		"cli/cluster_status.go: Without an object: the version, the nodes, and every problem",
+		"cli/facts.go: Run this first on a server you do not know yet: it tells an ",
+		"cli/pkg_security.go: This only looks: the pending security updates of each server",
 		"cli/cluster_names.go: Swarm has no namespaces: leave out --namespace (a stack's se",
 		"cli/cluster_swarm.go: Swarm lists services, tasks, nodes or stacks",
 		"cli/cluster_swarm.go: a stack is its services: `komando cluster list %s services -",
@@ -654,10 +667,7 @@ var (
 		"cli/cluster_objects.go: service %s is global (one task per node); scale works on rep",
 		"cli/docker.go: list what exists with `komando docker ps TARGET --all` or `k",
 		"cli/form_cluster.go: pods, deployments, services, nodes, ingresses, configmaps ..",
-		"cli/host_sshcommand.go: host ssh-command writes a copy of the pinned host keys for O",
 		"cli/select.go: unknown kind %q: use host, conn, vpn, a conn kind (see `koma",
-		"cli/vpn.go: --server takes a host name or address (host or host:port)",
-		"cli/vpn_inv.go: --server takes a host name or address (host or host:port)",
 		"dbx/users.go: host %q: a name, an address, or a pattern with %%",
 		"driver/driver.go: %s URL needs a user name, for example %s://deploy@host/folde",
 		"driver/storage_urls.go: add the user name, for example smb://alice@host/share; a gue",

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/storex"
 )
 
 var updateShapes = flag.Bool("update-shapes", false, "rewrite testdata/shapes.json from what the commands print now")
@@ -35,11 +37,16 @@ var shapeCases = [][]string{
 	{"host", "show", "nope"},
 	{"host", "ssh-command", "web"},
 	{"export"},
+	{"export", "--sealed", "--to", "never-written.kmdseal", "--dry-run"},
 	{"conn", "list"},
 	{"conn", "show", "pg"},
 	{"group", "list"},
 	{"secret", "list"},
 	{"secret", "get", "pg-pass"},
+	// secret set --new: a taken name is SECRET_EXISTS, a free one a dry run
+	{"secret", "set", "pg-pass", "--new", "--from-env", "PG_PASS"},
+	{"secret", "set", "pg-new", "--new", "--from-env", "PG_PASS", "--dry-run"},
+	{"schema", "secret", "set"},
 	{"key", "list"},
 	{"tunnel", "list"},
 	{"vpn", "list"},
@@ -55,9 +62,71 @@ var shapeCases = [][]string{
 	{"host", "rm", "web", "--dry-run"},
 	{"conn", "rm", "pg", "--dry-run"},
 	{"host", "trust", "web", "--dry-run"},
+	{"host", "trust", "web", "--fingerprint", "SHA256:pVt2Cc0dD2Q8dVqf7aNzK7TQzWm0yXcQe3uUe0t1abc", "--dry-run"},
 	{"vpn", "add", "lab", "socks", "--proxy-address", "127.0.0.1:1080"},
 	{"vpn", "rm", "lab", "--dry-run"},
 	{"vpn", "rm", "lab"},
+	// the kinds an app builds its add forms from
+	{"schema", "vpn", "add"},
+	{"schema", "conn", "add"},
+	// what an app checks its key with (typed here: not through a key)
+	{"ssh-gate", "status"},
+}
+
+// recordedShapeCases are answers that need a server, kept from a recorded
+// run of its script: the facts the phone app reads its numbers from.
+var recordedShapeCases = map[string]func() any{
+	"facts web (recorded)": func() any {
+		code := 0
+		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code,
+			Data: parseFactsAt(factsFocal+"disk=/dev/sda1\t81264764\t51086560\t30161820\t63\t/\n", factsNow)}}}
+		d.Summary.Total, d.Summary.OK = 1, 1
+		return map[string]any{"ok": true, "command": "facts", "data": d}
+	},
+	"facts web --only load,mem,disks (recorded)": func() any {
+		_, keys, _ := factsOnly([]string{"load", "mem", "disks"})
+		f, _ := factsOnlyParse(keys)(&store.Host{Name: "web"}, "load=0.12 0.10 0.05\ncpus=4\nmem_total_mb=7962\nmem_available_mb=5120\n"+
+			"swap_total_mb=2047\nswap_free_mb=2047\ndisk_root_total_gb=78\ndisk_root_used_pct=63\n"+
+			"disk=/dev/sda1\t81264764\t51086560\t30161820\t63\t/\n")
+		code := 0
+		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code, Data: f}}}
+		d.Summary.Total, d.Summary.OK = 1, 1
+		return map[string]any{"ok": true, "command": "facts", "data": d}
+	},
+	"facts web --only system (recorded)": func() any {
+		_, keys, _ := factsOnly([]string{"system"})
+		f, _ := factsOnlyParse(keys)(&store.Host{Name: "web"}, "os=ubuntu\nos_version=24.04\nos_pretty=Ubuntu 24.04.1 LTS\nuptime_sec=86400\n")
+		code := 0
+		d := probeData{Results: []probeRow{{Host: "web", OK: true, ExitCode: &code, Data: f}}}
+		d.Summary.Total, d.Summary.OK = 1, 1
+		return map[string]any{"ok": true, "command": "facts", "data": d}
+	},
+}
+
+// serverShapeCases read the fake memcached conn "mc".
+var serverShapeCases = [][]string{
+	{"cache", "keys", "mc"},
+}
+
+// clusterShapeCases run against a loopback Kubernetes API
+// (newDetailCluster), imported as conn prod after the cases above, so
+// those see the same inventory as before.
+var clusterShapeCases = [][]string{
+	{"cluster", "describe", "prod", "pod/api-1"},
+	{"cluster", "describe", "prod", "deployment/api"},
+	{"cluster", "describe", "prod", "secret/app-db"},
+	{"cluster", "logs", "prod", "api-1"},
+	{"cluster", "logs", "prod", "-l", "app=api"},
+}
+
+// storageShapeCases run last, against an S3 conn "bk" whose bucket is in
+// memory (memBucket).
+var storageShapeCases = [][]string{
+	{"storage", "mkdir", "bk", "reports/2026", "--dry-run"},
+	{"storage", "mkdir", "bk", "reports/2026"},
+	{"storage", "mv", "bk", "a.txt", "archive/", "--dry-run"},
+	{"storage", "mv", "bk", "a.txt", "archive/"},
+	{"storage", "chmod", "bk", "0640", "archive/a.txt"},
 }
 
 // TestOutputShapes: agents parse komando's JSON, so a field may be added
@@ -71,7 +140,7 @@ func TestOutputShapes(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
 	t.Setenv("PG_PASS", "s3cret")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	for _, setup := range [][]string{
 		{"host", "add", "web", "deploy@web.lan", "--group", "lab", "--tag", "prod"},
 		{"secret", "set", "pg-pass", "--from-env", "PG_PASS"},
@@ -82,10 +151,35 @@ func TestOutputShapes(t *testing.T) {
 			t.Fatalf("setup %v: %v\n%s", setup, err, s)
 		}
 	}
+	// serverShapeCases then clusterShapeCases run last, against a fake
+	// memcached and a loopback Kubernetes API, so the conns they need are
+	// not in the inventory answers above
+	cases := append(append(append(append([][]string{}, shapeCases...), serverShapeCases...), clusterShapeCases...), storageShapeCases...)
 	got := map[string]any{}
-	for _, args := range shapeCases {
+	kube := newDetailCluster(t)
+	for i, args := range cases {
+		if i == len(shapeCases) {
+			addr, _ := fakeMemcached(t)
+			if s, err := runCache(t, "-o", "json", "conn", "add", "mc", "memcached://"+addr); err != nil {
+				t.Fatalf("conn add mc: %v\n%s", err, s)
+			}
+		}
+		if i == len(shapeCases)+len(serverShapeCases) {
+			if s, err := runCache(t, "-o", "json", "import", "kubeconfig", kube.kubeconfig(t)); err != nil {
+				t.Fatalf("import kubeconfig: %v\n%s", err, s)
+			}
+		}
+		if i == len(cases)-len(storageShapeCases) {
+			if s, err := runCache(t, "-o", "json", "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1"); err != nil {
+				t.Fatalf("conn add bk: %v\n%s", err, s)
+			}
+			m := &memBucket{objs: map[string]string{"a.txt": "a"}}
+			saved := openBucket
+			openBucket = func(*call, context.Context, *store.State, *store.Conn) (storex.Bucket, error) { return m, nil }
+			t.Cleanup(func() { openBucket = saved })
+		}
 		s := runShape(t, args)
-		g.dryRun, store.DryRun = false, false
+		tcl.flags.dryRun = false
 		var v any
 		if err := json.Unmarshal([]byte(s), &v); err != nil {
 			t.Errorf("%v: not JSON: %v\n%s", args, err, s)
@@ -99,6 +193,20 @@ func TestOutputShapes(t *testing.T) {
 			}
 		}
 		got[strings.Join(args, " ")] = sh
+	}
+	keys := make([]string, 0, len(cases)+len(recordedShapeCases))
+	for _, args := range cases {
+		keys = append(keys, strings.Join(args, " "))
+	}
+	for key, run := range recordedShapeCases {
+		b, err := json.Marshal(run())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var v any
+		_ = json.Unmarshal(b, &v)
+		got[key] = shapeOf(v)
+		keys = append(keys, key)
 	}
 	path := filepath.Join("testdata", "shapes.json")
 	if *updateShapes {
@@ -116,8 +224,7 @@ func TestOutputShapes(t *testing.T) {
 	if err := json.Unmarshal(b, &want); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range shapeCases {
-		key := strings.Join(args, " ")
+	for _, key := range keys {
 		w, ok := want[key]
 		if !ok {
 			t.Errorf("komando %s: new case, run with -update-shapes", key)
@@ -138,27 +245,29 @@ func TestOutputShapes(t *testing.T) {
 // included (Execute prints that one, not the command).
 func runShape(t *testing.T, args []string) string {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"-o", "json"}, args...))
 	root.SilenceErrors, root.SilenceUsage = true, true
 	var b strings.Builder
-	saved := out.P.W
-	out.P.W = &b
-	defer func() { out.P.W = saved; out.P.Reset() }()
+	saved := tcl.out.W
+	tcl.out.W = &b
+	defer func() { tcl.out.W = saved; tcl.out.Reset() }()
 	var ec exitCode // the command printed its own answer already, like in Execute
 	if cmd, err := root.ExecuteC(); err != nil && !errors.As(err, &ec) {
-		out.P.Fail(commandName(cmd), toErr(err))
+		tcl.out.Fail(commandName(cmd), toErr(err))
 	}
 	return b.String()
 }
 
-// dataKeyed are fields whose keys are data, not field names. Today only
-// `recipe list`'s params (a recipe's blanks and their defaults): its shape
-// is "*" for any key, so a recipe with other blanks is not a change of the
-// output. The keys of a field listed here are not guarded, in any command:
-// a new field called params elsewhere needs another name, or to be left
-// out of this list.
-var dataKeyed = map[string]bool{"params": true}
+// dataKeyed are fields whose keys are data, not field names: `recipe
+// list`'s params (a recipe's blanks and their defaults) and the flag_notes
+// of `schema vpn add` (keyed by flag name). Their shape is "*" for any
+// key, so a recipe with other blanks, or a note on another flag, is not a
+// change of the output. The keys of a field listed here are not guarded,
+// in any command: a new field called params or flag_notes elsewhere needs
+// another name, or to be left out of this list.
+var dataKeyed = map[string]bool{"params": true, "flag_notes": true}
 
 // shapeOf replaces every value with its JSON type; arrays become one
 // element with the merged shape of all their elements. Maps keyed by

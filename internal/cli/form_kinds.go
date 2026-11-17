@@ -15,7 +15,7 @@ import (
 
 // formGroups is the first list of Add: what it is, in plain words, with
 // the products it covers beside it.
-func formGroups() []formGroup {
+func formGroups(cl *call) []formGroup {
 	return []formGroup{
 		{"Server", "a Linux or Windows machine you log in to", []formKind{{"Server", "", serverForm}}, ""},
 		{"Databases", "PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, ClickHouse, Snowflake, BigQuery, SQLite", dbForms(), "Which database?"},
@@ -23,16 +23,16 @@ func formGroups() []formGroup {
 		{"Queues", "Kafka, RabbitMQ, NATS, Amazon SQS, Google Pub/Sub", queueForms(), "Which message queue?"},
 		{"File storage", "a cloud bucket (S3, R2, Google, Azure) or a file server (SFTP, FTP, WebDAV, Windows share)", storageForms(), "A cloud bucket or a file server?"},
 		{"Clusters", "Kubernetes or Docker Swarm", clusterForms(), "Kubernetes or Docker Swarm?"},
-		{"Images (registries)", "Docker Hub, GitHub, GitLab, AWS, Azure, Google, your own", registryForms(), "Which container registry?"},
+		{"Images (registries)", "Docker Hub, GitHub, GitLab, AWS, Azure, Google, your own", registryForms(cl), "Which container registry?"},
 		{"VPN", "your company's VPN app, WireGuard, OpenVPN, Tailscale", vpnForms(), "Which VPN app does your company use?"},
 	}
 }
 
 // formGroupsFor is the groups `komando KIND add` offers when typed alone:
 // host add asks for a server, vpn add for a VPN, conn add for the rest.
-func formGroupsFor(kind string) []formGroup {
+func formGroupsFor(cl *call, kind string) []formGroup {
 	var gs []formGroup
-	for _, g := range formGroups() {
+	for _, g := range formGroups(cl) {
 		switch {
 		case kind == "host" && g.label == "Server",
 			kind == "vpn" && g.label == "VPN",
@@ -50,8 +50,8 @@ var formFamilyAdd = map[string]string{
 }
 
 // formGroupNamed is the one Add group with this label.
-func formGroupNamed(label string) []formGroup {
-	for _, g := range formGroups() {
+func formGroupNamed(cl *call, label string) []formGroup {
+	for _, g := range formGroups(cl) {
 		if g.label == label {
 			return []formGroup{g}
 		}
@@ -149,6 +149,19 @@ func formYesNoQ(key, label, ask, help, def, yes, no string) formQ {
 		def: func(*store.State, formAnswers) string { return def },
 		choices: func(*store.State, formAnswers) []pickRow {
 			return []pickRow{{label: "Yes", detail: yes, value: "yes"}, {label: "No", detail: no, value: "no"}}
+		}}
+}
+
+// formPasswordQ asks whether a database user logs in with a password:
+// yes (typed now and kept), each (typed at every connect, never kept:
+// --login ask) or no.
+func formPasswordQ(help, no string) formQ {
+	return formQ{key: "password", label: "Password", ask: "Does this user log in with a password?", help: help,
+		def: func(*store.State, formAnswers) string { return "yes" },
+		choices: func(*store.State, formAnswers) []pickRow {
+			return []pickRow{{label: "Yes", detail: "you type it next, hidden", value: "yes"},
+				{label: "Yes, and I type it each time", detail: "komando never keeps it: you type it whenever komando connects", value: "each"},
+				{label: "No", detail: no, value: "no"}}
 		}}
 }
 
@@ -258,7 +271,7 @@ func formIsLocal(host string) bool {
 // serverForm asks for a server in the order people think of it: a name,
 // the address, the user, what it runs, then how to log in. A Windows
 // server is reached over OpenSSH or WinRM (form_winserver.go).
-func serverForm() formSpec {
+func serverForm(cl *call) formSpec {
 	ssh := func(a formAnswers) bool { return !serverWinRM(a) }
 	return formSpec{title: "Add a server", qs: []formQ{
 		formNameQ("host", "server", "web1"),
@@ -278,7 +291,7 @@ func serverForm() formSpec {
 				return "22"
 			}, check: formPortProblem}, ssh),
 		serverWinRMTLSQ(), serverWinRMPortQ(),
-		formWhen(formQ{key: "login", label: "Login", ask: "How do you log in?", def: serverLoginDefault, choices: serverLoginChoices,
+		formWhen(formQ{key: "login", label: "Login", ask: "How do you log in?", def: func(st *store.State, a formAnswers) string { return serverLoginDefault(cl, st, a) }, choices: serverLoginChoices,
 			help: "Not sure? Pick the first: komando tries your keys and asks for a password if none works."}, ssh),
 		formWhen(formQ{key: "identity", label: "Key file", ask: "Where is the key file?",
 			help:    "The private key file, often ending in .pem. Not the .pub file.",
@@ -362,8 +375,8 @@ func serverAddressProblem(_ *store.State, _ formAnswers, v string) string {
 
 // serverLoginDefault is "usual" when this computer has an SSH key or an
 // agent, else "password".
-func serverLoginDefault(*store.State, formAnswers) string {
-	if os.Getenv("SSH_AUTH_SOCK") != "" {
+func serverLoginDefault(cl *call, _ *store.State, _ formAnswers) string {
+	if cl.getenv("SSH_AUTH_SOCK") != "" {
 		return "usual"
 	}
 	home, _ := os.UserHomeDir()
@@ -379,6 +392,7 @@ func serverLoginChoices(st *store.State, _ formAnswers) []pickRow {
 	rows := []pickRow{
 		{label: "My SSH key", detail: "the key in ~/.ssh or ssh-agent, as ssh uses it", value: "usual"},
 		{label: "A password", detail: "you type it next, hidden; komando keeps it as a saved password", value: "password"},
+		{label: "A password I type each time", detail: "komando never keeps it: you type it whenever komando connects", value: "ask"},
 		{label: "A key file", detail: "a file somewhere else, like a .pem from your cloud provider", value: "file"},
 	}
 	if len(st.Keys) > 0 {
@@ -408,6 +422,8 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 	switch a["login"] {
 	case "password":
 		args = append(args, "--ask-password")
+	case "ask":
+		args = append(args, "--login", "ask")
 	case "file":
 		args = append(args, "--identity", formAbs(a["identity"]))
 	case "keylist":
@@ -424,8 +440,8 @@ func serverBuild(_ *store.State, a formAnswers) [][]string {
 
 func dbForms() []formKind {
 	return []formKind{
-		{"PostgreSQL", "also Amazon RDS, Supabase, Neon, Cloud SQL", func() formSpec { return sqlForm("postgres", "PostgreSQL", "5432") }},
-		{"MySQL or MariaDB", "also Amazon RDS, PlanetScale", func() formSpec { return sqlForm("mysql", "MySQL", "3306") }},
+		{"PostgreSQL", "also Amazon RDS, Supabase, Neon, Cloud SQL", func(cl *call) formSpec { return sqlForm("postgres", "PostgreSQL", "5432") }},
+		{"MySQL or MariaDB", "also Amazon RDS, PlanetScale", func(cl *call) formSpec { return sqlForm("mysql", "MySQL", "3306") }},
 		{"SQL Server", "also Azure SQL Managed Instance", sqlServerForm},
 		{"Oracle Database", "19c and later, also Oracle Database Free", oracleForm},
 		{"MongoDB", "also MongoDB Atlas", mongoForm},
@@ -449,9 +465,7 @@ func sqlForm(scheme, product, port string) formSpec {
 			help: "The user name the database knows you by, not your SSH user."},
 		{key: "database", label: "Database", ask: "Which database inside the server?", optional: true, example: "app",
 			help: "One server holds several databases. Empty uses the server's default."},
-		formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
-			"you type it next, hidden", "no password (trust or peer login)"),
+		formPasswordQ("Almost always yes. komando asks for it after this, hidden, and keeps it as a saved password.", "no password (trust or peer login)"),
 		formProtectQ("database"),
 		dbTLSQ(),
 		formGroupQ(), formNotesQ(),
@@ -493,7 +507,10 @@ func dbTLSQ() formQ {
 // formConnBuild is conn add for the answers, then a test.
 func formConnBuild(a formAnswers, rawURL string, askPassword bool) [][]string {
 	args := []string{"conn", "add", a["name"], rawURL}
-	if askPassword {
+	switch {
+	case a["password"] == "each": // formPasswordQ
+		args = append(args, "--login", "ask")
+	case askPassword:
 		args = append(args, "--ask-password")
 	}
 	return [][]string{formFlags(args, a), {"test", a["name"]}}
@@ -524,7 +541,7 @@ func formServiceHostQ(what, example string) formQ {
 		check: func(_ *store.State, a formAnswers, v string) string { return formServiceHostProblem(a, v) }}
 }
 
-func mongoForm() formSpec {
+func mongoForm(_ *call) formSpec {
 	atlas := func(a formAnswers) bool { return a["flavor"] == "atlas" }
 	self := func(a formAnswers) bool { return !atlas(a) }
 	return formSpec{title: "Add a MongoDB database", qs: []formQ{
@@ -542,9 +559,7 @@ func mongoForm() formSpec {
 		{key: "user", label: "User", ask: "Which database user do you log in with?", optional: true, example: "app",
 			help: "Empty when the database needs no login."},
 		{key: "database", label: "Database", ask: "Which database should commands use?", optional: true, example: "shop"},
-		formWhen(formYesNoQ("password", "Password", "Does this user log in with a password?",
-			"komando asks for it after this, hidden, and keeps it as a saved password.", "yes",
-			"you type it next, hidden", "no password"), func(a formAnswers) bool { return a["user"] != "" }),
+		formWhen(formPasswordQ("komando asks for it after this, hidden, and keeps it as a saved password.", "no password"), func(a formAnswers) bool { return a["user"] != "" }),
 		formWhen(formQ{key: "authsource", label: "User's database", ask: "In which database was this user created?",
 			help: "Usually admin. Wrong here, and the login fails with a clear message.",
 			def:  func(*store.State, formAnswers) string { return "admin" }},
@@ -586,7 +601,7 @@ func mongoBuild(_ *store.State, a formAnswers) [][]string {
 	return formConnBuild(a, u.String(), a["user"] != "" && a["password"] != "no")
 }
 
-func sqliteForm() formSpec {
+func sqliteForm(_ *call) formSpec {
 	return formSpec{title: "Add a SQLite database", qs: []formQ{
 		formNameQ("conn", "database", "app-db"),
 		{key: "path", label: "File", ask: "Where is the database file on this computer?", example: "~/projects/app/data.db",
@@ -602,9 +617,9 @@ func sqliteForm() formSpec {
 // The add commands use the hand-made forms above from every menu path.
 func init() {
 	addFormHints(map[string]formHint{
-		"host add": {form: func() []formGroup { return formGroupsFor("host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
-		"conn add": {form: func() []formGroup { return formGroupsFor("conn") }, next: []string{"test {}", "conn show {}"}},
-		"vpn add":  {form: func() []formGroup { return formGroupsFor("vpn") }, next: []string{"vpn up {}", "vpn test {}", "host add NAME USER@ADDRESS --via {}"}},
+		"host add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "host") }, next: []string{"test {}", "host show {}", "host edit {} --protected"}},
+		"conn add": {form: func(cl *call) []formGroup { return formGroupsFor(cl, "conn") }, next: []string{"test {}", "conn show {}"}},
+		"vpn add":  {form: func(cl *call) []formGroup { return formGroupsFor(cl, "vpn") }, next: []string{"vpn up {}", "vpn test {}", "host add NAME USER@ADDRESS --via {}"}},
 	})
 	// db add, cache add, ...: conn add for one family, asked the same way.
 	next := map[string][]string{
@@ -615,6 +630,6 @@ func init() {
 		"cluster add": {"cluster status {}", "cluster list {} pods"}, "registry add": {"registry list {}", "registry list {} REPO"},
 	}
 	for cmd, label := range formFamilyAdd {
-		addFormHints(map[string]formHint{cmd: {form: func() []formGroup { return formGroupNamed(label) }, next: next[cmd]}})
+		addFormHints(map[string]formHint{cmd: {form: func(cl *call) []formGroup { return formGroupNamed(cl, label) }, next: next[cmd]}})
 	}
 }

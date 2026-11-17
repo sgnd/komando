@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -41,6 +40,18 @@ type opsSpec struct {
 	winParse func(h *store.Host, r *sshx.RunResult) (any, *out.Error)
 	// limit is --limit on a list: each server's rows stop there (0: all)
 	limit int
+	// after, when set, may finish a server's result through its connection
+	// (net dns without dig asks the server's resolver itself)
+	after func(ctx context.Context, c *sshx.Client, rr *sshx.RunResult) *sshx.RunResult
+}
+
+// run runs cmd on c, then the after step when the spec has one.
+func (spec opsSpec) run(ctx context.Context, c *sshx.Client, cmd string, timeout time.Duration, maxOut int) (*sshx.RunResult, error) {
+	rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOut})
+	if err == nil && spec.after != nil && !c.Host.Windows() {
+		rr = spec.after(ctx, c, rr)
+	}
+	return rr, err
 }
 
 type opsRow struct {
@@ -66,7 +77,7 @@ type opsData struct {
 
 // Text shows one block per server when there are several (like the other
 // fleet commands), and just the result for one server.
-func (d opsData) Text() string {
+func (d opsData) TextFor(pr *out.Printer) string {
 	var sb strings.Builder
 	multi := len(d.Results) > 1
 	for _, r := range d.Results {
@@ -91,14 +102,14 @@ func (d opsData) Text() string {
 			if multi {
 				fmt.Fprintf(&sb, "%swarning: %s\n", indent, w)
 			} else {
-				fmt.Fprintf(os.Stderr, "Warning: %s\n", out.SafeText(w))
+				fmt.Fprintf(pr.Stderr(), "Warning: %s\n", out.SafeText(w))
 			}
 		}
 		if !r.OK && r.Stderr != "" {
 			if multi {
 				sb.WriteString(indentLines(r.Stderr, indent+"| "))
 			} else {
-				fmt.Fprintln(os.Stderr, out.SafeText(out.P.Redact(r.Stderr)))
+				fmt.Fprintln(pr.Stderr(), out.SafeText(pr.Redact(r.Stderr)))
 			}
 		}
 		if r.Error != nil && multi { // one server: the closing line says it once
@@ -124,12 +135,12 @@ func indentLines(s, prefix string) string {
 
 // runOps runs spec on every server of its target, honouring policy,
 // protected servers and --dry-run like `exec` does.
-func runOps(ctx context.Context, spec opsSpec) error {
+func runOps(cl *call, ctx context.Context, spec opsSpec) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, spec.target)
+	hosts, err := resolveTargets(cl, st, spec.target)
 	if err != nil {
 		return err
 	}
@@ -140,30 +151,30 @@ func runOps(ctx context.Context, spec opsSpec) error {
 	if spec.display != "" {
 		shown = spec.display
 	}
-	guardErr := guard(st, hosts, strings.TrimSpace(spec.command+"\n"+spec.win), spec.mutating)
-	if guardErr != nil && !g.dryRun {
-		audit(st, spec.name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
+	guardErr := guard(cl, st, hosts, strings.TrimSpace(spec.command+"\n"+spec.win), spec.mutating)
+	if guardErr != nil && !cl.flags.dryRun {
+		audit(cl, st, spec.name, hostNames(hosts), shown, false, map[string]any{"blocked": toErr(guardErr).Code})
 		return guardErr
 	}
 	command := spec.command
-	if g.dryRun {
+	if cl.flags.dryRun {
 		if spec.preview == "" {
-			opsDryRun(spec, hosts, shown, guardErr)
+			opsDryRun(cl, spec, hosts, shown, guardErr)
 			return nil
 		}
 		command = spec.preview // read-only: shows what would change
 	}
-	timeout := max(cmdTimeout(st), spec.timeoutAtLeast)
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	timeout := max(cmdTimeout(cl, st), spec.timeoutAtLeast)
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		cmd := command
-		if c.Host.Windows() && g.dryRun { // a preview: never run the change itself
+		if c.Host.Windows() && cl.flags.dryRun { // a preview: never run the change itself
 			return nil, notOnWindows("a --dry-run preview of "+commandWord(spec.name), []string{c.Host.Name})
 		} else if c.Host.Windows() {
 			cmd = spec.win
 		}
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: cmd, Sudo: spec.sudo, Timeout: timeout, MaxOutput: maxOutput(st)})
+		return spec.run(ctx, c, cmd, timeout, maxOutput(cl, st))
 	})
-	data := opsData{Command: shown, DryRun: g.dryRun, Results: []opsRow{}}
+	data := opsData{Command: shown, DryRun: cl.flags.dryRun, Results: []opsRow{}}
 	worst := 0
 	var fails []hostFail
 	for _, o := range res {
@@ -179,7 +190,7 @@ func runOps(ctx context.Context, spec opsSpec) error {
 				s := rr.Stdout
 				r.Stdout = &s
 			}
-			if parse := opsParser(spec, o.Host); parse != nil {
+			if parse := opsParser(cl, spec, o.Host); parse != nil {
 				d, perr := parse(o.Host, rr)
 				r.Error = perr
 				if w, ok := d.(opsWarnings); ok {
@@ -226,15 +237,15 @@ func runOps(ctx context.Context, spec opsSpec) error {
 		data.Results = append(data.Results, r)
 	}
 	data.Summary.Total = len(res)
-	if !g.dryRun {
-		audit(st, spec.name, hostNames(hosts), shown, data.Summary.Failed == 0, nil)
+	if !cl.flags.dryRun {
+		audit(cl, st, spec.name, hostNames(hosts), shown, data.Summary.Failed == 0, nil)
 	}
 	// the same closing as exec: each failed server with its own error and hint
-	return finishFleet(spec.name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return finishFleet(cl, spec.name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }
 
 // opsDryRun is runOps' --dry-run without a preview: what would run where.
-func opsDryRun(spec opsSpec, hosts []*store.Host, shown string, guardErr error) {
+func opsDryRun(cl *call, spec opsSpec, hosts []*store.Host, shown string, guardErr error) {
 	plans := []map[string]any{}
 	for _, h := range hosts {
 		cmd := shown
@@ -246,20 +257,20 @@ func opsDryRun(spec opsSpec, hosts []*store.Host, shown string, guardErr error) 
 	res := map[string]any{"would_run": plans}
 	if guardErr != nil {
 		res["would_be_blocked"] = toErr(guardErr)
-	} else if b := out.P.Blocked(); b != nil {
+	} else if b := cl.out.Blocked(); b != nil {
 		res["would_be_blocked"] = b
 	}
-	out.P.Print(spec.name, res, nil)
+	cl.out.Print(spec.name, res, nil)
 }
 
 // opsParser is the parser of spec's result on host h.
 // A sudo that refused before the command ran is said first: there is
 // nothing to parse then.
-func opsParser(spec opsSpec, h *store.Host) func(h *store.Host, r *sshx.RunResult) (any, *out.Error) {
+func opsParser(cl *call, spec opsSpec, h *store.Host) func(h *store.Host, r *sshx.RunResult) (any, *out.Error) {
 	if h.Windows() && spec.winParse != nil {
-		return cutOps(spec.limit, spec.winParse)
+		return cutOps(cl, spec.limit, spec.winParse)
 	}
-	spec.parse = cutOps(spec.limit, spec.parse)
+	spec.parse = cutOps(cl, spec.limit, spec.parse)
 	if !spec.sudo || h.Windows() || spec.parse == nil {
 		return spec.parse
 	}
@@ -279,8 +290,8 @@ type opsWarnings struct {
 }
 
 // cutTo cuts the rows inside, keeping the warnings (limiter).
-func (w opsWarnings) cutTo(n int) any {
-	w.data = cutValue(w.data, n)
+func (w opsWarnings) cutTo(cl *call, n int) any {
+	w.data = cutValue(cl, w.data, n)
 	return w
 }
 
@@ -347,6 +358,13 @@ func errNoSystemd() *out.Error {
 // or the server has no sudo (a minimal image where you log in as root).
 // host names the server in the hint; "" leaves NAME (a group).
 func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
+	return sudoRefusal(host, "add --no-sudo", rr)
+}
+
+// sudoRefusal is sudoProblem with asRoot, what to do when the login user
+// is root: "add --no-sudo" where sudo is the default, "leave out --sudo"
+// where it is asked for (docker).
+func sudoRefusal(host, asRoot string, rr *sshx.RunResult) *out.Error {
 	if rr == nil || rr.ExitCode == 0 {
 		return nil
 	}
@@ -359,7 +377,7 @@ func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
 	case strings.Contains(e, "sudo: a password is required"), strings.Contains(e, "sudo: a terminal is required"),
 		strings.Contains(e, "no tty present and no askpass"):
 		return out.Errf(out.ExitRemote, "PERMISSION_DENIED",
-			"a person stores the sudo password with `komando secret set "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, add --no-sudo",
+			"a person stores the sudo password with `komando secret set "+name+"-sudo`, then runs `komando host edit "+name+" --sudo-ref secret:"+name+"-sudo`; when you log in as root, "+asRoot,
 			"sudo asks for a password komando does not have")
 	case strings.Contains(e, "is not in the sudoers file"), strings.Contains(e, "is not allowed to run sudo"),
 		strings.Contains(e, "may not run sudo"):
@@ -368,7 +386,7 @@ func sudoProblem(host string, rr *sshx.RunResult) *out.Error {
 			"the login user may not use sudo")
 	case rr.ExitCode == 127 && (strings.Contains(e, "sudo: not found") || strings.Contains(e, "sudo: command not found")):
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING",
-			"when you log in as root, add --no-sudo; otherwise install sudo on the server",
+			"when you log in as root, "+asRoot+"; otherwise install sudo on the server",
 			"sudo is not installed on this server")
 	}
 	return nil
@@ -389,12 +407,12 @@ func orSudo(host string, next func(*sshx.RunResult) *out.Error) func(*sshx.RunRe
 
 // soleHost is target when it names one server, "" otherwise (a group, a
 // list or a pattern), for hints that name the server.
-func soleHost(target string) string {
+func soleHost(cl *call, target string) string {
 	st, err := loadState()
 	if err != nil {
 		return ""
 	}
-	if hosts, err := resolveTargets(st, target); err == nil && len(hosts) == 1 {
+	if hosts, err := resolveTargets(cl, st, target); err == nil && len(hosts) == 1 {
 		return hosts[0].Name
 	}
 	return ""

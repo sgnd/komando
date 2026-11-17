@@ -277,8 +277,8 @@ func AnyConnectTunnel(ctx context.Context, o Options, cookie string) (Tunnel, er
 		t.mtu = n
 	}
 	t.dpd = 30 * time.Second
-	if n, err := strconv.Atoi(h.Get("X-CSTP-DPD")); err == nil && n > 0 {
-		t.dpd = time.Duration(n) * time.Second
+	if d, ok := seconds(h.Get("X-CSTP-DPD"), 3600); ok {
+		t.dpd = d
 	}
 	if len(t.addrs) == 0 {
 		c.Close()

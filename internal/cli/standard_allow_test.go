@@ -9,6 +9,7 @@ var (
 		"db schema",
 		"docker stats",
 		"login aws",
+		"logout aws", // login aws's other half: aws names the cloud, not a verb
 		"policy deny",
 		"storage cat",
 		"storage link",
@@ -18,9 +19,11 @@ var (
 		"key grant/revoke",
 		"pkg install/uninstall",
 	}
-	// S-5.1 exceptions: --wait is a bool on cluster commands; --config a file on vpn add, KEY=VALUE on queue create
+	// S-5.1 exceptions: --wait is a bool on cluster commands; --config a file on vpn add, KEY=VALUE on queue create;
+	// --new a bool on secret set (create only), the replacement text on fs replace
 	allowFlagTypes = []string{
 		"--config",
+		"--new",
 		"--wait",
 	}
 	// S-5.11: flags whose usage text still differs per command
@@ -43,7 +46,6 @@ var (
 		"secret",
 		"tunnel",
 		"vpn",
-		"vpn add",
 	}
 	// S-6.6, S-6.7: commands with fewer examples than S-6.6 asks (a second one is still to write)
 	allowExamples = []string{
@@ -72,7 +74,6 @@ var (
 		"host show",
 		"job status",
 		"key list",
-		"key show",
 		"net check",
 		"net http",
 		"net ports",

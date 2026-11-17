@@ -20,21 +20,21 @@ func TestRunOnOtherServerNeedsYesForPassword(t *testing.T) {
 	nopw := &store.Conn{Name: "pg3"}
 
 	asAgent(t, false, false)
-	if h, err := toolHost(st, via, "db1"); err != nil || h == nil || h.Name != "db1" {
+	if h, err := toolHost(tcl, st, via, "db1"); err != nil || h == nil || h.Name != "db1" {
 		t.Fatalf("own --via server: %v %v", h, err)
 	}
 	for _, c := range []*store.Conn{via, direct} {
-		_, err := toolHost(st, c, "other")
+		_, err := toolHost(tcl, st, c, "other")
 		if e := toErr(err); err == nil || e.Code != "SECRET_DESTINATION" {
 			t.Errorf("%s --run-on other: %v", c.Name, err)
 		}
 	}
-	if _, err := toolHost(st, nopw, "other"); err != nil {
+	if _, err := toolHost(tcl, st, nopw, "other"); err != nil {
 		t.Errorf("no password: %v", err)
 	}
 	noAgent(t)
 	resetApproval()
-	if _, err := toolHost(st, direct, "other"); err != nil {
+	if _, err := toolHost(tcl, st, direct, "other"); err != nil {
 		t.Errorf("a person: %v", err)
 	}
 }

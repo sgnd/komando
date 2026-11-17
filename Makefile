@@ -9,7 +9,7 @@ GOVULNCHECK := v1.9.0
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 export PLATFORMS
 
-.PHONY: help build install test cover security fuzz e2e e2e-areas e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses dist clean
+.PHONY: help build install test test-sync cover security fuzz e2e e2e-areas e2e-openvpn e2e-vpnclients e2e-ipsec e2e-windows lint licenses bins dist clean
 
 help: ## Show this help
 	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-15s %s\n", $$1, $$2}'
@@ -20,8 +20,13 @@ build: ## Build ./bin/komando
 install: ## Install komando into $GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/komando
 
-test: ## Fast unit tests
-	go test ./...
+# -timeout: internal/cli alone takes minutes, near Go's default 10m limit
+test: ## Fast unit tests (and the sync library in sync/)
+	go test -timeout 30m ./...
+	$(MAKE) test-sync
+
+test-sync: ## Vet and race-test the sync library in sync/ (its own go.mod, so the root go test skips it)
+	cd sync && go vet ./... && go test -race ./...
 
 cover: ## Unit tests, and each package's coverage against its floor (test/coverage-floor.txt)
 	test/coverage.sh
@@ -70,18 +75,39 @@ lint: ## gofmt + go vet + staticcheck
 	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
 	go vet ./...
 	go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK) ./...
+	cd sync && go run honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK) ./...
 
 licenses: ## Write dist/THIRD_PARTY_LICENSES (licenses of everything built into komando)
 	scripts/third-party-licenses.sh dist/THIRD_PARTY_LICENSES
 
-dist: ## Build release archives + checksums into ./dist
+# a release binary, as `make bins` and `make dist` build it
+GOBUILD = CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)"
+OUT ?= bins
+
+bins: ## Build release binaries into OUT/komando_OS_ARCH/ (OUT=bins; PLATFORMS picks which)
+	@for p in $(PLATFORMS); do \
+	  os=$${p%/*}; arch=$${p#*/}; name=komando_$${os}_$${arch}; \
+	  exe=komando; [ $$os = windows ] && exe=komando.exe; \
+	  echo "  $$name"; mkdir -p $(OUT)/$$name && \
+	  GOOS=$$os GOARCH=$$arch $(GOBUILD) -o $(OUT)/$$name/$$exe ./cmd/komando || exit 1; \
+	done
+
+dist: ## Build release archives + checksums into ./dist (SIGNED=DIR: take the macOS binaries from DIR, made by `make bins` and signed, instead of building them)
+	@if [ -n "$(SIGNED)" ]; then for p in $(PLATFORMS); do \
+	  case $$p in darwin/*) [ -f "$(SIGNED)/komando_darwin_$${p#*/}/komando" ] || { \
+	    echo "SIGNED=$(SIGNED) has no komando_darwin_$${p#*/}/komando: with SIGNED, every macOS binary comes from there. Nothing was built." >&2; exit 1; } ;; esac; \
+	done; fi
 	rm -rf dist && mkdir -p dist
 	scripts/third-party-licenses.sh dist/THIRD_PARTY_LICENSES
 	@for p in $(PLATFORMS); do \
 	  os=$${p%/*}; arch=$${p#*/}; name=komando_$${os}_$${arch}; \
 	  exe=komando; [ $$os = windows ] && exe=komando.exe; \
-	  echo "  $$name"; mkdir -p dist/$$name && \
-	  CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o dist/$$name/$$exe ./cmd/komando && \
+	  mkdir -p dist/$$name && \
+	  if [ -n "$(SIGNED)" ] && [ -f "$(SIGNED)/$$name/$$exe" ]; then \
+	    echo "  $$name (signed, from $(SIGNED))" && cp "$(SIGNED)/$$name/$$exe" dist/$$name/$$exe && chmod 755 dist/$$name/$$exe; \
+	  else \
+	    echo "  $$name" && GOOS=$$os GOARCH=$$arch $(GOBUILD) -o dist/$$name/$$exe ./cmd/komando; \
+	  fi && \
 	  cp LICENSE README.md dist/THIRD_PARTY_LICENSES dist/$$name/ && \
 	  if [ $$os = windows ]; then (cd dist/$$name && zip -qX ../$$name.zip *); \
 	  else tar -czf dist/$$name.tar.gz -C dist/$$name .; fi && rm -rf dist/$$name || exit 1; \
@@ -90,4 +116,4 @@ dist: ## Build release archives + checksums into ./dist
 	cd dist && (sha256sum *.tar.gz *.zip 2>/dev/null || shasum -a 256 *.tar.gz *.zip) > checksums.txt
 
 clean: ## Remove build output
-	rm -rf bin dist
+	rm -rf bin bins dist

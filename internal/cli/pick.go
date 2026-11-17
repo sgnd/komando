@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"slices"
 	"strings"
@@ -174,8 +173,8 @@ func pickDetail(parts, groups, tags []string) string {
 
 // pickRunOne runs one komando command on this terminal: its exit code, -1
 // when a signal ended it.
-func pickRunOne(self string, args []string) (int, error) {
-	err := pickCommand(self, args).Run()
+func pickRunOne(cl *call, self string, args []string) (int, error) {
+	err := pickCommand(cl, self, args).Run()
 	var ee *exec.ExitError
 	switch {
 	case err == nil:
@@ -208,10 +207,10 @@ func pickCommandLine(args []string) string {
 // KOMANDO_VAULT_PASS out of its environment when it started, and the
 // command needs it to open a passphrase vault, as it would when typed. The
 // command takes it out again before it starts anything else.
-func pickCommand(self string, args []string) *exec.Cmd {
+func pickCommand(cl *call, self string, args []string) *exec.Cmd {
 	c := exec.Command(self, args...)
 	c.Env = vault.SelfEnv()
-	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stdout, os.Stderr
+	c.Stdin, c.Stdout, c.Stderr = cl.stdin, cl.out.W, cl.out.Err
 	return c
 }
 

@@ -19,8 +19,8 @@ func cronListCmd(readCron func() string, useSudo func() bool) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "Show crontab entries",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runOps(cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(), limit: cronLimit,
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			return runOps(cl, cmd.Context(), opsSpec{name: "cron.list", target: args[0], command: readCron() + `printf '%s\n' "$cur"`, display: "cron list", sudo: useSudo(), limit: cronLimit,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 					if rr.ExitCode != 0 {
 						return nil, out.Errf(out.ExitRemote, "CRONTAB_UNREADABLE", "check the user name; reading another user's crontab needs sudo", "cannot read the crontab (exit %d)", rr.ExitCode)
@@ -46,7 +46,7 @@ func cronListCmd(readCron func() string, useSudo func() bool) *cobra.Command {
 					}
 					return textTable([]string{"schedule", "command", "id"}, rows)
 				}})
-		},
+		}),
 	}
 	limitFlag(list, &cronLimit, 0, "entries per server")
 	return list

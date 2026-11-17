@@ -28,13 +28,13 @@ import (
 // read, and the shell would run the other lines as commands once komando
 // ends, showing the secret and saving it in the shell's history. The
 // other lines are thrown away and nothing is used.
-func readHidden(label string) (string, error) {
+func readHidden(cl *call, label string) (string, error) {
 	fd := int(os.Stdin.Fd())
-	if !interrupted && dropEarlyInput(fd) {
-		fmt.Fprintln(os.Stderr, "Note: what was typed before this question showed was not used.")
-		sayLine(os.Stderr, "If it was the secret, clear the screen (it may be in the scrollback), then type it below.")
+	if !cl.interrupted && dropEarlyInput(fd) {
+		fmt.Fprintln(cl.out.Err, "Note: what was typed before this question showed was not used.")
+		sayLine(cl, "If it was the secret, clear the screen (it may be in the scrollback), then type it below.")
 	}
-	v, err := readAnswer(label, true)
+	v, err := readAnswer(cl, label, true)
 	if errors.Is(err, errMoreLines) {
 		return "", out.Errf(out.ExitUsage, "USAGE", "for a key or a file, use `komando secret set NAME < FILE` or pipe it",
 			"the value has more than one line, so nothing was stored")
@@ -44,12 +44,6 @@ func readHidden(label string) (string, error) {
 	}
 	return stripPasteMarks(v), nil
 }
-
-// interrupted: the person pressed Ctrl-C at a question in this command.
-// Every later question in the command gets no answer at once: the person
-// wants out, and the read that was cut short may still be waiting on the
-// terminal.
-var interrupted bool
 
 // interruptedErr is what a question gives after Ctrl-C: the CANCELLED
 // error ("interrupted") of a cancelled command.
@@ -69,8 +63,8 @@ var errMoreLines = errors.New("more than one line")
 // interruptedErr. Ctrl-D (end of input) where the answer shows is an
 // empty answer; the line is ended there too, as the terminal does not.
 // (term.ReadPassword takes no notice of Ctrl-D.)
-func readAnswer(label string, hidden bool) (string, error) {
-	if interrupted {
+func readAnswer(cl *call, label string, hidden bool) (string, error) {
+	if cl.interrupted {
 		return "", interruptedErr()
 	}
 	sigs := make(chan os.Signal, 1)
@@ -87,8 +81,8 @@ func readAnswer(label string, hidden bool) (string, error) {
 		}
 	}
 	defer restore()
-	fmt.Fprint(os.Stderr, label)
-	read := func() (string, error) { return bufio.NewReader(os.Stdin).ReadString('\n') }
+	fmt.Fprint(cl.out.Err, label)
+	read := func() (string, error) { return bufio.NewReader(cl.stdin).ReadString('\n') }
 	if hidden {
 		// echo goes off before ReadPassword turns it off, so it is still
 		// off after the line, while moreWaiting looks for a second one
@@ -108,20 +102,20 @@ func readAnswer(label string, hidden bool) (string, error) {
 	}()
 	select {
 	case <-sigs:
-		interrupted = true
+		cl.interrupted = true
 		restore()
-		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(cl.out.Err)
 		return "", interruptedErr()
 	case a := <-got:
 		if hidden {
 			more := a.err == nil && moreWaiting(fd)
 			restore()
-			fmt.Fprintln(os.Stderr) // the Enter was not echoed
+			fmt.Fprintln(cl.out.Err) // the Enter was not echoed
 			if more {
 				return "", errMoreLines
 			}
 		} else if errors.Is(a.err, io.EOF) {
-			fmt.Fprintln(os.Stderr)
+			fmt.Fprintln(cl.out.Err)
 			return "", nil
 		}
 		return a.s, a.err

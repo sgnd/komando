@@ -30,36 +30,43 @@ import (
 // --via path needs a VPN without MFA start one by themselves. A session
 // unused for the vpn_idle setting (30m) is disconnected.
 
-func init() {
-	netx.LockBusy = func(name string) {
-		noticef("another komando command is connecting or disconnecting vpn %s (a sign-in may be waiting in its browser window); waiting for it to end", name)
+// startVpnFor brings up vpn name for a command of cl whose --via path
+// needs it (netx.StartSession, call_hooks.go).
+func startVpnFor(cl *call, ctx context.Context, name string) error {
+	st, err := loadState()
+	if err != nil {
+		return err
 	}
-	netx.StartSession = func(ctx context.Context, name string) error {
-		st, err := loadState()
-		if err != nil {
-			return err
-		}
-		v, ok := st.Vpns[name]
-		if !ok {
-			return out.NotFound("vpn", name)
-		}
-		_, err = startSession(ctx, st, v, false)
-		auditVpnUp(st, v, false, err)
-		if err != nil {
-			return err
-		}
-		// started by a command, not by `vpn up`: say it now stays up
-		if idle, _ := time.ParseDuration(st.Settings.VpnIdle); idle > 0 {
-			noticef("vpn %s connected; it stays up until unused for %s (`komando vpn down %s` stops it)", name, humanAge(idle), name)
-		} else {
-			noticef("vpn %s connected; it stays up until `komando vpn down %s`", name, name)
-		}
-		return nil
+	v, ok := st.Vpns[name]
+	if !ok {
+		return out.NotFound("vpn", name)
 	}
+	_, err = startSession(cl, ctx, st, v, false)
+	auditVpnUp(cl, st, v, false, err)
+	if err != nil {
+		return err
+	}
+	// started by a command, not by `vpn up`: say it now stays up
+	if idle, _ := time.ParseDuration(st.Settings.VpnIdle); idle > 0 {
+		noticef(cl, "vpn %s connected; it stays up until unused for %s (`komando vpn down %s` stops it)", name, humanAge(idle), name)
+	} else {
+		noticef(cl, "vpn %s connected; it stays up until `komando vpn down %s`", name, name)
+	}
+	return nil
 }
 
 func vpnDir() (string, error) {
 	return store.Path("vpn"), store.MkdirPrivate("vpn")
+}
+
+// vpnLogDir is vpnDir for a VPN that starts: it also removes the logs of
+// VPNs (some since removed) unused for a week.
+func vpnLogDir() (string, error) {
+	st, err := store.Load()
+	if err != nil {
+		return vpnDir()
+	}
+	return store.Path("vpn"), logDir("vpn", st)
 }
 
 func freePort() (int, error) {
@@ -118,11 +125,11 @@ func installHint(bin string) string {
 // vpnUpPlan is what vpn up --dry-run prints. A VPN that needs a person,
 // with nobody at the terminal, would not connect: VPN_LOGIN_REQUIRED goes
 // to meta.would_be_blocked.
-func vpnUpPlan(v *store.Vpn) map[string]any {
+func vpnUpPlan(cl *call, v *store.Vpn) map[string]any {
 	res := map[string]any{"vpn": v.Name, "kind": v.Kind, "would_connect": true}
-	if (netx.Kinds[v.Kind].Session || v.Kind == "wireguard") && needsPersonLogin(v) && !interactive() {
+	if (netx.Kinds[v.Kind].Session || v.Kind == "wireguard") && needsPersonLogin(v) && !cl.interactive() {
 		res["would_connect"] = false
-		out.P.WouldBlock(toErr(netx.LoginRequired(v)))
+		cl.out.WouldBlock(toErr(netx.LoginRequired(v)))
 	}
 	return res
 }
@@ -133,23 +140,20 @@ func needsPersonLogin(v *store.Vpn) bool {
 	if v.MFA {
 		return true
 	}
-	ownClient := v.Kind == "openvpn" && !v.OSMode || oneOf(v.Kind, "l2tp", "ipsec", "ikev2")
+	ownClient := v.Kind == "openvpn" || oneOf(v.Kind, "l2tp", "ipsec", "ikev2")
 	return ownClient && v.KeyRef == "" && v.User != ""
 }
 
 // startSession connects v in the background and records the session.
 // interactive means a person is at the terminal for the login (and MFA).
-func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactive bool) (*store.VpnSession, error) {
-	if err := osModeGone(v); err != nil {
-		return nil, err
-	}
+func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, interactive bool) (*store.VpnSession, error) {
 	if v.MFA && !interactive {
 		return nil, netx.LoginRequired(v)
 	}
 	if err := clientMissing(v); err != nil {
 		return nil, err
 	}
-	dir, err := vpnDir()
+	dir, err := vpnLogDir()
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +192,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	case v.Kind == "tailscale":
 		if v.MFA { // no auth key: a person logs in through the browser first
 			err := netx.TailscaleLogin(ctx, v, func(url string) {
-				fmt.Fprintf(os.Stderr, "komando: log in to %s at %s\n", v.Name, cleanText(url))
+				fmt.Fprintf(cl.out.Err, "komando: log in to %s at %s\n", v.Name, cleanText(url))
 				openBrowser(ctx, url)
 			})
 			if err != nil {
@@ -206,7 +210,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	case netx.BuiltinSSLFor(v):
 		// log in here, where a person can answer (MFA); the session's
 		// server gets only the cookie
-		cookie, err := sslLogin(ctx, v, interactive)
+		cookie, err := sslLogin(cl, ctx, v, interactive)
 		if err != nil {
 			return nil, err
 		}
@@ -225,12 +229,12 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 		}
 		pidFile := filepath.Join(dir, v.Name+".pid")
 		_ = os.Remove(pidFile)
-		oc, err := openconnectCmd(ctx, v, k.Protocol, pidFile, port, interactive)
+		oc, err := openconnectCmd(cl, ctx, v, k.Protocol, pidFile, port, interactive)
 		if err != nil {
 			return nil, err
 		}
 		if interactive {
-			oc.Stdin, oc.Stdout, oc.Stderr = os.Stdin, os.Stderr, os.Stderr // the login and MFA prompts
+			oc.Stdin, oc.Stdout, oc.Stderr = cl.stdin, cl.out.Err, cl.out.Err // the login and MFA prompts
 		} else {
 			oc.Stdin = strings.NewReader(password + "\n")
 			lf, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -260,7 +264,7 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 				return nil, netx.LoginRequired(v)
 			}
 			var err error
-			typed, err = loginSecret(fmt.Sprintf("Password for %s on VPN %s (with the PIN or one-time code, if it wants one): ", cmp.Or(v.User, "you"), v.Name))
+			typed, err = loginSecret(cl, fmt.Sprintf("Password for %s on VPN %s (with the PIN or one-time code, if it wants one): ", cmp.Or(v.User, "you"), v.Name))
 			if err != nil {
 				return nil, err
 			}
@@ -276,21 +280,36 @@ func startSession(ctx context.Context, st *store.State, v *store.Vpn, interactiv
 	default:
 		return nil, out.Usage("%s VPNs need no session", v.Kind)
 	}
-	if err := store.UpdateRuntime(func(st *store.State) error { st.Sessions[v.Name] = s; return nil }); err != nil {
-		netx.StopSession(s)
+	if err := saveSession(cl, v, s); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
+// saveSession records a session that just started, with when its process
+// started: a pid the system gives to another process later is never taken
+// for it. A session it cannot record is stopped.
+func saveSession(cl *call, v *store.Vpn, s *store.VpnSession) error {
+	start, err := netx.RecordStart(s.PID)
+	if err != nil {
+		return netx.Down(v, err)
+	}
+	s.ProcStart = start
+	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.Sessions[v.Name] = s; return nil }); err != nil {
+		netx.StopSession(s)
+		return err
+	}
+	return nil
+}
+
 // auditVpnUp records a vpn up, or a session a command started, with how
 // it ended: a session that started but failed its --check is a failure.
-func auditVpnUp(st *store.State, v *store.Vpn, interactive bool, err error) {
+func auditVpnUp(cl *call, st *store.State, v *store.Vpn, interactive bool, err error) {
 	rec := map[string]any{"kind": v.Kind, "interactive": interactive}
 	if err != nil {
 		rec["error"] = toErr(err).Code
 	}
-	audit(st, "vpn.up", []string{v.Name}, "", err == nil, rec)
+	audit(cl, st, "vpn.up", []string{v.Name}, "", err == nil, rec)
 }
 
 // background starts a process detached from this one, logging to logFile,
@@ -316,11 +335,11 @@ func background(c *exec.Cmd, logFile string) (int, error) {
 // accept. The text comes from the server, so each line is cleaned of
 // control characters (a banner keeps its lines); the last line is the
 // question.
-func loginPrompt(label string, secretIn bool) (string, error) {
+func loginPrompt(cl *call, label string, secretIn bool) (string, error) {
 	if secretIn {
-		return loginSecret(loginQuestion(label))
+		return loginSecret(cl, loginQuestion(label))
 	}
-	v, err := readAnswer(loginQuestion(label), false)
+	v, err := readAnswer(cl, loginQuestion(label), false)
 	return strings.TrimSpace(v), err
 }
 
@@ -343,8 +362,8 @@ func loginQuestion(label string) string {
 
 // loginSecret reads a login's password or code, hidden. A paste of more than one
 // line is refused as it is for a secret, in words that fit a login.
-func loginSecret(label string) (string, error) {
-	v, err := readHidden(label)
+func loginSecret(cl *call, label string) (string, error) {
+	v, err := readHidden(cl, label)
 	var oe *out.Error
 	if errors.As(err, &oe) && oe.Code == "USAGE" { // readHidden's only usage error
 		oe.Message = "the answer has more than one line, so it was not sent"
@@ -367,7 +386,11 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if err != nil {
 		return 0, "", err
 	}
-	pid, err := background(serveCommand(self, name, password, s), logFile)
+	c := serveCommand(self, name, password, s)
+	if err := sealTicket(c); err != nil {
+		return 0, "", err
+	}
+	pid, err := background(c, logFile)
 	if err != nil {
 		return 0, "", err
 	}
@@ -392,7 +415,7 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 	if addr == "" {
 		_ = netx.Terminate(pid)
 		b, _ := os.ReadFile(logFile)
-		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and the whole log is "+logFile+" (for a person to read)", "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "the message ends with its log; `komando vpn test "+name+"` tries again, and a person reads the whole log in "+logFile, "VPN %s did not start: %s", name, strings.TrimSpace(string(b)))
 	}
 	return pid, addr, nil
 }
@@ -400,7 +423,8 @@ func spawnServeWith(ctx context.Context, name, logFile string, wait time.Duratio
 // serveCommand is the `komando vpn serve NAME` process (self is komando):
 // a new SOCKS login, kept in s, and the typed password go to it on stdin,
 // then the vault passphrase, never in its environment: it runs for long
-// (serveStdin reads them).
+// (serveStdin reads them). spawnServeWith puts its ticket first
+// (sealTicket).
 var serveCommand = func(self, name, password string, s *store.VpnSession) *exec.Cmd {
 	c := exec.Command(self, "vpn", "serve", name, "--password-stdin")
 	s.SocksUser, s.SocksPass = "k"+randToken(6), randToken(24)
@@ -410,7 +434,7 @@ var serveCommand = func(self, name, password string, s *store.VpnSession) *exec.
 }
 
 // systemVPN connects or disconnects a VPN configured in the OS settings.
-func systemVPN(v *store.Vpn, up bool) error {
+func systemVPN(cl *call, v *store.Vpn, up bool) error {
 	var c *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -420,7 +444,7 @@ func systemVPN(v *store.Vpn, up bool) error {
 	default:
 		return out.Usage("connect %s from your computer's settings; komando checks it with --check", v.Name)
 	}
-	c.Stdin, c.Stdout, c.Stderr = os.Stdin, os.Stderr, os.Stderr
+	c.Stdin, c.Stdout, c.Stderr = cl.stdin, cl.out.Err, cl.out.Err
 	if err := c.Run(); err != nil {
 		return netx.Down(v, err)
 	}
@@ -441,7 +465,7 @@ func vpnUpCmd() *cobra.Command {
 		Use:   "up NAME",
 		Short: "Connect a VPN now and keep it up",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -450,15 +474,12 @@ func vpnUpCmd() *cobra.Command {
 			if !ok {
 				return out.NotFound("vpn", args[0])
 			}
-			if err := osModeGone(v); err != nil {
-				return err
-			}
-			if s := netx.LiveSession(v); s != nil {
-				out.P.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
+			if s := netx.LiveSession(cmd.Context(), v); s != nil {
+				cl.out.Print("vpn.up", map[string]any{"vpn": v.Name, "already_up": true, "session": sessionView(s)}, nil)
 				return nil
 			}
-			if g.dryRun {
-				out.P.Print("vpn.up", vpnUpPlan(v), nil)
+			if cl.flags.dryRun {
+				cl.out.Print("vpn.up", vpnUpPlan(cl, v), nil)
 				return nil
 			}
 			// VPNs that change this computer's routes get a before/after
@@ -481,11 +502,11 @@ func vpnUpCmd() *cobra.Command {
 			}
 			if !netx.Kinds[v.Kind].Session && v.Kind != "wireguard" { // wireguard may keep a session to skip handshakes
 				if v.Kind == "system" && v.Service != "" {
-					if err := systemVPN(v, true); err != nil {
+					if err := systemVPN(cl, v, true); err != nil {
 						return err
 					}
 				}
-				r := testVpn(cmd.Context(), st, v)
+				r := testVpn(cl, cmd.Context(), st, v)
 				if !r.OK {
 					return r.Error
 				}
@@ -493,13 +514,13 @@ func vpnUpCmd() *cobra.Command {
 				if w := clashes(); len(w) > 0 {
 					res["warnings"] = w
 				}
-				out.P.Print("vpn.up", res, nil)
+				cl.out.Print("vpn.up", res, nil)
 				return nil
 			}
-			person := interactive()
-			s, err := startSession(cmd.Context(), st, v, person)
+			person := cl.interactive()
+			s, err := startSession(cl, cmd.Context(), st, v, person)
 			if err != nil {
-				auditVpnUp(st, v, person, err)
+				auditVpnUp(cl, st, v, person, err)
 				return err
 			}
 			res := map[string]any{"vpn": v.Name, "session": sessionView(s)}
@@ -508,9 +529,9 @@ func vpnUpCmd() *cobra.Command {
 				// from --check shows the tunnel works
 				if v.Check == "" {
 					res["notes"] = []string{"no --check address, so the connection was not verified; add one with `komando vpn edit " + v.Name + " --check HOST:PORT`"}
-				} else if r := testVpn(cmd.Context(), st, v); !r.OK {
+				} else if r := testVpn(cl, cmd.Context(), st, v); !r.OK {
 					_ = netx.StopSession(s)
-					_ = store.UpdateRuntime(func(st *store.State) error {
+					_ = store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error {
 						if x := st.Sessions[v.Name]; x != nil && x.PID == s.PID {
 							delete(st.Sessions, v.Name)
 						}
@@ -521,19 +542,19 @@ func vpnUpCmd() *cobra.Command {
 						why = " (no WireGuard handshake from " + vpnWhere(v) + " yet)"
 					}
 					err := out.Errf(out.ExitConnect, "VPN_DOWN", netx.DownHint(v), "VPN %s: no answer from %s through the tunnel%s", v.Name, v.Check, why)
-					auditVpnUp(st, v, person, err)
+					auditVpnUp(cl, st, v, person, err)
 					return err
 				} else {
 					res["checked"] = v.Check
 				}
 			}
-			auditVpnUp(st, v, person, nil)
+			auditVpnUp(cl, st, v, person, nil)
 			if w := clashes(); len(w) > 0 {
 				res["warnings"] = w
 			}
-			out.P.Print("vpn.up", res, nil)
+			cl.out.Print("vpn.up", res, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -542,7 +563,7 @@ func vpnDownCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "down [NAME...]",
 		Short: "Disconnect VPN sessions (--all for every one)",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -565,12 +586,12 @@ func vpnDownCmd() *cobra.Command {
 					return out.NotFound("vpn", n)
 				}
 			}
-			if g.dryRun {
+			if cl.flags.dryRun {
 				res := map[string]any{"would_disconnect": names}
 				if a := vpnDownAffects(st, names); len(a) > 0 {
 					res["affects"] = a
 				}
-				out.P.Print("vpn.down", res, nil)
+				cl.out.Print("vpn.down", res, nil)
 				return nil
 			}
 			down, idle, notes := []string{}, []string{}, []string{}
@@ -586,7 +607,7 @@ func vpnDownCmd() *cobra.Command {
 					}
 					down = append(down, n)
 				} else if v.Kind == "system" && v.Service != "" {
-					if err := systemVPN(v, false); err != nil {
+					if err := systemVPN(cl, v, false); err != nil {
 						return err
 					}
 					down = append(down, n)
@@ -611,7 +632,7 @@ func vpnDownCmd() *cobra.Command {
 			if len(names) == 0 {
 				notes = append(notes, "nothing to disconnect: no VPN session is running")
 			}
-			if err := store.UpdateRuntime(func(s *store.State) error {
+			if err := store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				for _, n := range down {
 					delete(s.Sessions, n)
 				}
@@ -620,11 +641,11 @@ func vpnDownCmd() *cobra.Command {
 				return err
 			}
 			if len(down) > 0 {
-				audit(st, "vpn.down", down, "", true, nil)
+				audit(cl, st, "vpn.down", down, "", true, nil)
 			}
-			out.P.Print("vpn.down", vpnDownData{Disconnected: down, NotConnected: idle, Notes: notes, Affects: vpnDownAffects(st, down)}, nil)
+			cl.out.Print("vpn.down", vpnDownData{Disconnected: down, NotConnected: idle, Notes: notes, Affects: vpnDownAffects(st, down)}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&all, "all", false, "disconnect every VPN session")
 	return c
@@ -714,14 +735,14 @@ func vpnStatusCmd() *cobra.Command {
 runs; a SOCKS proxy is up when its address answers, a system VPN when its
 --check address answers. WireGuard connects for each command.`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			out.P.Print("vpn.status", vpnStatusData{Vpns: vpnStatusRows(st)}, nil)
+			cl.out.Print("vpn.status", vpnStatusData{Vpns: vpnStatusRows(st)}, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -734,31 +755,19 @@ func randToken(n int) string {
 	return hex.EncodeToString(b)
 }
 
-// osModeGone refuses an OpenVPN saved with the removed --os-mode (which ran
-// the openvpn program as root): it is never quietly run another way. Adding
-// it again checks its profile against komando's own client.
-func osModeGone(v *store.Vpn) error {
-	if !v.OSMode {
-		return nil
-	}
-	return out.Errf(out.ExitUsage, "VPN_OS_MODE_REMOVED",
-		"add it again with komando's own client: `komando vpn add "+v.Name+" openvpn --config FILE.ovpn --check HOST:PORT --overwrite` (plus --user and --password-ref if it logs in)",
-		"VPN %s uses OpenVPN OS mode (--os-mode), which komando no longer has", v.Name)
-}
-
 // openconnectCmd is the openconnect command of v, with ocproxy giving its
 // SOCKS port. The password and the tunnel's traffic go to these programs:
 // an agent gets ones in folders only root can change, or a person's yes.
-func openconnectCmd(ctx context.Context, v *store.Vpn, protocol, pidFile string, port int, interactive bool) (*exec.Cmd, error) {
+func openconnectCmd(cl *call, ctx context.Context, v *store.Vpn, protocol, pidFile string, port int, interactive bool) (*exec.Cmd, error) {
 	var refs []string
 	if !interactive && v.KeyRef != "" {
 		refs = []string{v.KeyRef}
 	}
-	ocBin, err := localTool("openconnect", refs)
+	ocBin, err := localTool(cl, "openconnect", refs)
 	if err != nil {
 		return nil, err
 	}
-	proxyBin, err := localTool("ocproxy", refs)
+	proxyBin, err := localTool(cl, "ocproxy", refs)
 	if err != nil {
 		return nil, err
 	}

@@ -121,6 +121,11 @@ func TestRedisClusterLive(t *testing.T) {
 	if err != nil || more || len(got) != 30 {
 		t.Errorf("keys over every master: %d %v %v", len(got), more, err)
 	}
+	for _, k := range got { // TYPE and PTTL reach each key's own master
+		if k.Type == nil || *k.Type != "string" || k.TTL == nil || *k.TTL < 1 || *k.TTL > 60 {
+			t.Errorf("type and ttl over every master: %s", keyLine(k))
+		}
+	}
 	if got, more, _ := s.Keys(ctx, "t-komando:*", 10); len(got) != 10 || !more {
 		t.Errorf("limit: %d %v", len(got), more)
 	}
@@ -171,6 +176,10 @@ func TestRedisSentinelLive(t *testing.T) {
 	defer s.Del(ctx, "t-komando:s")
 	if v, err := s.Get(ctx, "t-komando:s", 10, 1024); err != nil || fmt.Sprint(v.Value) != "via-sentinel" {
 		t.Errorf("get: %+v %v", v, err)
+	}
+	if got, _, err := s.Keys(ctx, "t-komando:s", 10); err != nil || len(got) != 1 || got[0].Type == nil || *got[0].Type != "string" ||
+		got[0].TTL == nil || *got[0].TTL < 1 || *got[0].TTL > 60 {
+		t.Errorf("keys through the Sentinels: %v %v", got, err)
 	}
 	info, err := s.Info(ctx, "replication")
 	if err != nil || info["replication"]["role"] != "master" {

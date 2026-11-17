@@ -22,7 +22,7 @@ func cacheForms() []formKind {
 	}
 }
 
-func redisForm() formSpec {
+func redisForm(_ *call) formSpec {
 	sentinel := func(a formAnswers) bool { return a["setup"] == "sentinel" }
 	return formSpec{title: "Add a Redis cache", qs: []formQ{
 		formNameQ("conn", "cache", "shop-cache"),
@@ -76,7 +76,7 @@ func redisForm() formSpec {
 	}, build: redisBuild}
 }
 
-func memcachedForm() formSpec {
+func memcachedForm(_ *call) formSpec {
 	return formSpec{title: "Add a Memcached cache", qs: []formQ{
 		formNameQ("conn", "cache", "memcache"),
 		formReachQ("cache"),

@@ -17,6 +17,7 @@ import (
 type approvalBody struct {
 	label string // "the script ./deploy.sh"
 	body  []byte
+	data  bool // content to store or send, not code to run (noteApprovalData)
 }
 
 // The window shows a body whole or not at all: a part left out could be
@@ -31,8 +32,19 @@ const (
 )
 
 // noteApprovalBody tells the approval window of this command what it sends.
-func noteApprovalBody(label string, body []byte) {
-	cur().body = &approvalBody{label: label, body: body}
+func noteApprovalBody(cl *call, label string, body []byte) {
+	cl.body = &approvalBody{label: label, body: body}
+}
+
+// noteApprovalData is noteApprovalBody for content a command stores or
+// sends as it is: a file's new content, a manifest, a queue message. The
+// window shows it whole when it can. When it cannot (too long, not text,
+// or it holds what looks like a secret) the window still names its size
+// and SHA-256 and says that it is not shown: unlike a script, such
+// content is often long, and refusing it would leave a protected target
+// no way to get a config file from an agent at all.
+func noteApprovalData(cl *call, label string, body []byte) {
+	cl.body = &approvalBody{label: label, body: body, data: true}
 }
 
 // scriptLabel names a file the command reads: "-" is komando's stdin.
@@ -52,7 +64,38 @@ func scriptLabel(kind, file string) string {
 // secret on the screen. Values komando keeps secret show as [hidden]
 // (hiddenInInput refuses them in the file already). So is a body too
 // long to show whole. The SHA-256 is of the body as sent.
-func (b *approvalBody) shown() (text, bad string) {
+func (b *approvalBody) shown(cl *call) (text, bad string) {
+	text, bad = b.whole(cl)
+	// only a named file too long to show gets the digest line instead: the
+	// person can check that file. Content made unshowable (what looks like
+	// a secret, an invisible character, not text) or sent on stdin gets
+	// no window, as a script does.
+	if bad == "" || !b.data || !b.tooLong() || strings.Contains(b.label, "komando's stdin") {
+		return text, bad
+	}
+	sum := sha256.Sum256(b.body)
+	return fmt.Sprintf("It also sends %s (%d bytes, SHA-256 %s). Its content is not shown here: %s. Check the file (shasum -a 256) before you allow.\n\n",
+		b.label, len(b.body), hex.EncodeToString(sum[:]), "it is too long"), ""
+}
+
+// tooLong reports a body that is plain text with nothing hidden in it,
+// only longer than the window shows.
+func (b *approvalBody) tooLong() bool {
+	if len(b.body) > bodyMaxBytes {
+		return true
+	}
+	if hiddenArgs([]string{string(b.body)}) != "" {
+		return false
+	}
+	if s := string(b.body); out.MaskSecrets(s) != s {
+		return false
+	}
+	return true
+}
+
+// whole is the body's text for the window with every line of it, or why
+// it cannot be shown that way.
+func (b *approvalBody) whole(cl *call) (text, bad string) {
 	if len(b.body) > bodyMaxBytes {
 		return "", fmt.Sprintf("%s is %d bytes, more than the %d the window shows whole", b.label, len(b.body), bodyMaxBytes)
 	}
@@ -70,7 +113,7 @@ func (b *approvalBody) shown() (text, bad string) {
 	var shown []string
 	numW := len(strconv.Itoa(len(lines)))
 	for i, l := range lines {
-		for j, piece := range bodyLine(l) {
+		for j, piece := range bodyLine(cl, l) {
 			num := strconv.Itoa(i + 1)
 			if j > 0 {
 				num = "" // a wrapped piece of the line above
@@ -97,10 +140,10 @@ func (b *approvalBody) shown() (text, bad string) {
 // most bodyWrap characters: komando's own secrets hidden, its indent kept
 // short, and written with escapes ($'...') when a character in it would
 // not show as itself. A wrapped piece keeps the indent.
-func bodyLine(l string) []string {
+func bodyLine(cl *call, l string) []string {
 	l = strings.TrimSuffix(l, "\r")
 	l = strings.ReplaceAll(l, "\t", "  ")
-	l = out.P.RedactExact(l)
+	l = cl.out.RedactExact(l)
 	rest := strings.TrimLeft(l, " ")
 	indent := strings.Repeat(" ", min(len(l)-len(rest), maxSpaces))
 	if needsEscapes(rest) {

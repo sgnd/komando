@@ -8,9 +8,13 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
+	"hash/crc32"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -26,13 +30,16 @@ import (
 	"golang.org/x/oauth2/google"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // fakeGCS is the part of the GCS JSON API komando uses, two items a page.
 type fakeGCS struct {
-	mu      sync.Mutex
-	objs    map[string][]byte
-	sawAuth bool // a request came with an Authorization header
+	mu       sync.Mutex
+	objs     map[string][]byte
+	sawAuth  bool // a request came with an Authorization header
+	rewrites int  // rewriteTo calls
+	steps    int  // a rewrite takes this many calls (0 or 1: one)
 }
 
 func (f *fakeGCS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -45,6 +52,8 @@ func (f *fakeGCS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	p := r.URL.EscapedPath()
 	switch {
+	case r.Method == http.MethodPost && strings.Contains(p, "/rewriteTo/b/media/o/"):
+		f.rewrite(w, r, p)
 	case r.Method == http.MethodPost && strings.HasPrefix(p, "/upload/storage/v1/b/media/o"):
 		b, _ := io.ReadAll(r.Body)
 		f.objs[r.URL.Query().Get("name")] = b
@@ -61,7 +70,8 @@ func (f *fakeGCS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case r.URL.Query().Get("alt") == "media":
 			w.Write(b)
 		default:
-			json.NewEncoder(w).Encode(map[string]any{"name": name, "size": itoa(len(b)), "updated": "2026-11-08T10:00:00Z"})
+			json.NewEncoder(w).Encode(map[string]any{"name": name, "size": itoa(len(b)), "updated": "2026-11-08T10:00:00Z",
+				"crc32c": crc32c(b)})
 		}
 	case p == "/storage/v1/b/media/o":
 		f.list(w, r.URL.Query())
@@ -72,9 +82,40 @@ func (f *fakeGCS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
+func crc32c(b []byte) string {
+	var sum [4]byte
+	binary.BigEndian.PutUint32(sum[:], crc32.Checksum(b, crc32.MakeTable(crc32.Castagnoli)))
+	return base64.StdEncoding.EncodeToString(sum[:])
+}
+
+// rewrite copies an object in f.steps calls, as GCS does for a large one,
+// and keeps ifGenerationMatch=0 (only while the target does not exist).
+func (f *fakeGCS) rewrite(w http.ResponseWriter, r *http.Request, p string) {
+	src, dst, _ := strings.Cut(strings.TrimPrefix(p, "/storage/v1/b/media/o/"), "/rewriteTo/b/media/o/")
+	src, _ = url.PathUnescape(src)
+	dst, _ = url.PathUnescape(dst)
+	b, ok := f.objs[src]
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if _, there := f.objs[dst]; there && r.URL.Query().Get("ifGenerationMatch") == "0" {
+		w.WriteHeader(http.StatusPreconditionFailed)
+		return
+	}
+	f.rewrites++
+	call, _ := strconv.Atoi(r.URL.Query().Get("rewriteToken"))
+	if call+1 < f.steps {
+		json.NewEncoder(w).Encode(map[string]any{"done": false, "rewriteToken": strconv.Itoa(call + 1)})
+		return
+	}
+	f.objs[dst] = append([]byte(nil), b...)
+	json.NewEncoder(w).Encode(map[string]any{"done": true, "resource": map[string]any{"name": dst}})
+}
+
 func (f *fakeGCS) list(w http.ResponseWriter, q url.Values) {
 	prefix, delim := q.Get("prefix"), q.Get("delimiter")
-	seen := map[string]bool{}
+	seen, folders := map[string]bool{}, map[string]bool{}
 	var entries []string // names and folder prefixes, in name order, as GCS pages them
 	for n := range f.objs {
 		if !strings.HasPrefix(n, prefix) {
@@ -82,6 +123,7 @@ func (f *fakeGCS) list(w http.ResponseWriter, q url.Values) {
 		}
 		if i := strings.Index(n[len(prefix):], "/"); delim == "/" && i >= 0 {
 			n = n[:len(prefix)+i+1]
+			folders[n] = true // a folder marker (name/) lists as its folder
 		}
 		if !seen[n] {
 			seen[n] = true
@@ -96,7 +138,7 @@ func (f *fakeGCS) list(w http.ResponseWriter, q url.Values) {
 	page := map[string]any{"items": []any{}, "prefixes": []string{}}
 	for i := start; i < len(entries) && i < start+2; i++ {
 		n := entries[i]
-		if _, file := f.objs[n]; !file {
+		if _, file := f.objs[n]; !file || folders[n] {
 			page["prefixes"] = append(page["prefixes"].([]string), n)
 			continue
 		}
@@ -272,4 +314,39 @@ func TestGCSKeyMustBeServiceAccount(t *testing.T) {
 			t.Errorf("%s: %v", key, err)
 		}
 	}
+}
+
+// A listing or an object's details larger than komando's cap (a broken
+// or hostile endpoint) stop with an error, even when they are valid JSON,
+// rather than being read and kept whole.
+func TestGCSCapsItsAnswers(t *testing.T) {
+	withGCSLogin(t)
+	filler := strings.Repeat("a", 40<<20) // over the 32 MiB cap
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/o") { // a listing
+			io.WriteString(w, `{"items":[{"name":"site/a","size":"1","x":"`+filler+`"}]}`)
+			return
+		}
+		io.WriteString(w, `{"name":"site/a","size":"1","x":"`+filler+`"}`)
+	}))
+	defer srv.Close()
+	tg, err := driver.Parse("gs://media/site?endpoint=" + srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := OpenGCS(context.Background(), tg, "", nil, 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tooLarge := func(what string, err error) {
+		var oe *out.Error
+		if !errors.As(err, &oe) || oe.Code != "STORAGE_ERROR" || !strings.Contains(oe.Message, "larger than 32 MiB") {
+			t.Errorf("%s: %v, want STORAGE_ERROR naming the cap", what, err)
+		}
+	}
+	_, _, err = b.List(context.Background(), "", true, 0)
+	tooLarge("List", err)
+	_, err = b.Stat(context.Background(), "a")
+	tooLarge("Stat", err)
 }

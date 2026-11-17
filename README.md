@@ -25,7 +25,7 @@ can both use safely:
 On macOS or Linux, open a terminal and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
 ```
 
 On Windows, download `komando_windows_amd64.zip` from
@@ -148,6 +148,15 @@ Help for one command: `komando <command> --help`.
 - Everything is recorded: `komando audit`.
 
 More: [Safety](docs/features/safety.md) and [Security](SECURITY.md).
+
+## What komando sends
+
+Nothing on its own. komando has no usage statistics, no crash reports and
+no update check in the background. It connects only where you send it: the
+servers, databases, caches, queues, storage, clusters, registries and VPNs
+you added, the password manager or cloud you named in a password reference,
+and AWS when you run `komando login aws`. `komando update` asks GitHub for
+the newest release only when you run it.
 
 ## Something wrong?
 

@@ -16,7 +16,7 @@ func TestRuntimeLivesApart(t *testing.T) {
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
 	inv, _ := os.ReadFile(filepath.Join(home, StoreFile))
 
-	if err := UpdateRuntime(func(s *State) error {
+	if err := UpdateRuntime(Save(), func(s *State) error {
 		s.Sessions["office"] = &VpnSession{Vpn: "office", PID: 42, SocksPass: "p"}
 		s.Jobs["j1"] = &Job{ID: "j1", Host: "web"}
 		return nil
@@ -47,7 +47,7 @@ func TestUpdateRuntimeRefusesInventory(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
-	err := UpdateRuntime(func(s *State) error {
+	err := UpdateRuntime(Save(), func(s *State) error {
 		s.Hosts["web"].Address = "x"
 		s.Jobs["j"] = &Job{ID: "j"}
 		return nil
@@ -85,14 +85,14 @@ func TestRuntimeAndInventoryTogether(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			name := "h" + string(rune('a'+i))
-			if err := Update(func(s *State) error { s.Hosts[name] = &Host{Name: name}; return nil }); err != nil {
+			if err := Update(Save(), func(s *State) error { s.Hosts[name] = &Host{Name: name}; return nil }); err != nil {
 				t.Error(err)
 			}
 		}()
 		go func() {
 			defer wg.Done()
 			id := "j" + string(rune('a'+i))
-			if err := UpdateRuntime(func(s *State) error { s.Jobs[id] = &Job{ID: id}; return nil }); err != nil {
+			if err := UpdateRuntime(Save(), func(s *State) error { s.Jobs[id] = &Job{ID: id}; return nil }); err != nil {
 				t.Error(err)
 			}
 		}()
@@ -108,15 +108,12 @@ func TestUpdateRuntimeDryRun(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", t.TempDir())
 	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
-	DryRun = true
-	defer func() { DryRun = false }()
-	if err := UpdateRuntime(func(s *State) error { s.Hosts["web"].Address = "x"; return nil }); !errors.Is(err, ErrRuntimeOnly) {
+	if err := UpdateRuntime(Preview(), func(s *State) error { s.Hosts["web"].Address = "x"; return nil }); !errors.Is(err, ErrRuntimeOnly) {
 		t.Fatalf("dry run skipped the check: %v", err)
 	}
-	if err := UpdateRuntime(func(s *State) error { s.Jobs["j"] = &Job{ID: "j"}; return nil }); err != nil {
+	if err := UpdateRuntime(Preview(), func(s *State) error { s.Jobs["j"] = &Job{ID: "j"}; return nil }); err != nil {
 		t.Fatal(err)
 	}
-	DryRun = false
 	if s, _ := Load(); s.Jobs["j"] != nil {
 		t.Fatal("dry run saved")
 	}

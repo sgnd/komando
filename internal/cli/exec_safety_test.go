@@ -94,16 +94,16 @@ func startFakeServer(t *testing.T) *fakeServer {
 	if err := os.WriteFile(keyPath, pem.EncodeToMemory(blk), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Hosts["prod"] = &store.Host{Name: "prod", Address: "127.0.0.1", Port: s.port, User: "deploy", Identity: keyPath, Protected: true}
 		st.Hosts["dev"] = &store.Host{Name: "dev", Address: "localhost", Port: s.port, User: "deploy", Identity: keyPath}
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	savedW := out.P.W
-	out.P.W = io.Discard
-	t.Cleanup(func() { out.P.W = savedW })
+	savedW := tcl.out.W
+	tcl.out.W = io.Discard
+	t.Cleanup(func() { tcl.out.W = savedW })
 	return s
 }
 
@@ -169,10 +169,11 @@ func (s *fakeServer) serve(nc net.Conn, cfg *ssh.ServerConfig) {
 
 func runRoot(t *testing.T, args ...string) error {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(append([]string{"--host-key-policy", "accept-new"}, args...))
 	root.SilenceErrors, root.SilenceUsage = true, true
-	_, err := root.ExecuteContextC(context.Background())
+	_, err := root.ExecuteContextC(withCall(context.Background(), tcl))
 	return err
 }
 
@@ -211,7 +212,7 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"read-only input, destructive", []string{"exec", "prod", "--read-only", "--stdin-file", evil, "--", "bash -s"}, "POLICY_BLOCKED", ""},
 		{"read-only bash -s with a read-only script", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
 		{"read-only reader of data", []string{"exec", "prod", "--read-only", "--stdin-file", data, "--", "wc -l"}, "", "id,cmd\n1,rm -rf /x\n2,a > b\n"},
-		{"read-only SQL as input", []string{"exec", "prod", "--read-only", "--stdin-file", report, "--", "psql app"}, "", "select count(*) from t where n > 5;\n"},
+		{"psql is not a known read (db query is)", []string{"exec", "prod", "--read-only", "--stdin-file", report, "--", "psql app"}, "READ_ONLY_VIOLATION", ""},
 		{"read-only SQL input with a shell escape", []string{"exec", "prod", "--read-only", "--stdin-file", escape, "--", "psql app"}, "READ_ONLY_VIOLATION", ""},
 		{"script arguments after --", []string{"exec", "prod", "--read-only", "--stdin-file", positional, "--", "bash -s -- -delete"}, "READ_ONLY_VIOLATION", ""},
 		{"script --arg", []string{"exec", "prod", "--script", positional, "--read-only", "--arg", "-delete"}, "READ_ONLY_VIOLATION", ""},
@@ -220,7 +221,7 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		{"bash -s with #!/bin/bash", []string{"exec", "prod", "--read-only", "--stdin-file", shebang, "--", "bash -s"}, "", bashScript},
 		{"bash -s with #!/usr/bin/env bash", []string{"exec", "prod", "--read-only", "--stdin-file", envBang, "--", "bash -s"}, "", envScript},
 		{"env value that runs code", []string{"exec", "prod", "--read-only", "-e", "PS4=$(rm -rf /data)", "--", "bash -xc :"}, "READ_ONLY_VIOLATION", ""},
-		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "DIR=/var/log", "--", "find $DIR -name '*.gz'"}, "", ""},
+		{"env value filled in, read-only", []string{"exec", "prod", "--read-only", "-e", "dir=/var/log", "--", "find $dir -name '*.gz'"}, "", ""},
 		{"read-only, input piped into a shell", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "cat | sh"}, "READ_ONLY_VIOLATION", ""},
 		{"no --read-only on protected", []string{"exec", "prod", "--stdin-file", benign, "--", "bash -s"}, "PROTECTED_HOST", ""},
 		{"interpreter tee", []string{"exec", "prod", "--read-only", "--interpreter", "tee /etc/passwd", "--script", benign}, "READ_ONLY_VIOLATION", ""},
@@ -233,16 +234,16 @@ func TestStdinAndInterpreterChecked(t *testing.T) {
 		// --read-only is an allowlist on a protected target: a command
 		// komando does not know reads still needs --yes, even though the
 		// denylist lets it pass (it changes nothing komando can see)
-		{"allowlist: unknown command needs --yes", []string{"exec", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_HOST", ""},
-		{"allowlist: unknown in a pipe needs --yes", []string{"exec", "prod", "--read-only", "--", "cat /etc/hosts | mytool"}, "PROTECTED_HOST", ""},
-		{"allowlist: unknown in a shell needs --yes", []string{"exec", "prod", "--read-only", "--", "sh -c 'mytool --status'"}, "PROTECTED_HOST", ""},
-		{"allowlist: unknown script command needs --yes", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
+		{"allowlist: unknown command is refused", []string{"exec", "prod", "--read-only", "--", "mytool --status"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: unknown in a pipe is refused", []string{"exec", "prod", "--read-only", "--", "cat /etc/hosts | mytool"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: unknown in a shell is refused", []string{"exec", "prod", "--read-only", "--", "sh -c 'mytool --status'"}, "READ_ONLY_VIOLATION", ""},
+		{"allowlist: unknown script command is refused", []string{"exec", "prod", "--read-only", "--stdin-file", benign, "--", "bash -s"}, "", "uptime\ndf -h /\n"},
 		{"allowlist: known read runs", []string{"exec", "prod", "--read-only", "--", "cat /etc/hostname"}, "", ""},
 		{"allowlist: ps runs", []string{"exec", "prod", "--read-only", "--", "ps aux | grep nginx"}, "", ""},
 		{"allowlist: docker ps runs", []string{"exec", "prod", "--read-only", "--", "docker ps"}, "", ""},
 		{"allowlist: docker rm is a clear write", []string{"exec", "prod", "--read-only", "--", "docker rm web"}, "READ_ONLY_VIOLATION", ""},
 		{"allowlist: systemctl status runs", []string{"exec", "prod", "--read-only", "--", "systemctl status nginx"}, "", ""},
-		{"allowlist: job unknown needs --yes", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "PROTECTED_HOST", ""},
+		{"allowlist: job unknown is refused", []string{"job", "start", "prod", "--read-only", "--", "mytool --status"}, "READ_ONLY_VIOLATION", ""},
 	}
 	for _, c := range cases {
 		err := runRoot(t, c.args...)
@@ -295,7 +296,7 @@ func TestRecipeVarsChecked(t *testing.T) {
 	// a saved read-only recipe that does not keep the promise once filled
 	// in (or under a stricter check than when it was saved) runs as a
 	// change: a protected server needs --yes, and then it runs
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Snippets["peek"] = &store.Snippet{Name: "peek", Command: "cat {{f}}", ReadOnly: true}
 		st.Snippets["finder"] = &store.Snippet{Name: "finder", Command: "find /data/app -name {{n}} -exec {{x}} {} +", ReadOnly: true}
 		st.Snippets["procs"] = &store.Snippet{Name: "procs", Command: "ps aux | python3 -c 'import sys'", ReadOnly: true}
@@ -383,21 +384,21 @@ func TestStreamRedactsSplitSecrets(t *testing.T) {
 	}
 }
 
-// captureOutput collects what komando prints, both through out.P and on
-// stdout and stderr (the text stream).
+// captureOutput collects what komando prints on the test call's stdout
+// and stderr (the text stream).
 func captureOutput(t *testing.T, run func() error) string {
 	t.Helper()
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	savedOut, savedErr, savedW := os.Stdout, os.Stderr, out.P.W
-	os.Stdout, os.Stderr, out.P.W = w, w, w
+	savedOut, savedErr := tcl.out.W, tcl.out.Err
+	tcl.out.W, tcl.out.Err = w, w
 	done := make(chan string)
 	go func() { b, _ := io.ReadAll(r); done <- string(b) }()
 	err = run()
 	_ = w.Close()
-	os.Stdout, os.Stderr, out.P.W = savedOut, savedErr, savedW
+	tcl.out.W, tcl.out.Err = savedOut, savedErr
 	got := <-done
 	if err != nil {
 		t.Logf("run: %v", err)
@@ -451,7 +452,7 @@ func TestLineBuffer(t *testing.T) {
 // policy list, and every command is blocked until it is fixed.
 func TestInvalidDenyPatternReported(t *testing.T) {
 	startFakeServer(t)
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Settings.ExtraDenyPattern = []string{`kubectl\s+delete(`}
 		return nil
 	}); err != nil {
@@ -462,7 +463,7 @@ func TestInvalidDenyPatternReported(t *testing.T) {
 		t.Fatal(err)
 	}
 	found := false
-	for _, c := range securityChecks(st) {
+	for _, c := range securityChecks(tcl, st) {
 		if c.Name == "security:deny_rule:"+policy.CustomID(`kubectl\s+delete(`) {
 			found = !c.OK && strings.Contains(c.Detail, "not a regular expression komando can read")
 		}
@@ -617,6 +618,40 @@ func TestReadOnlyBypassesClosed(t *testing.T) {
 		`git stash`,
 		`git diff --output=/etc/x`,
 		`npm run build`,
+		// not known to only read: the strict allowlist refuses these too
+		// psql and mysql run in no read-only transaction; FOO may be a setting
+		`psql -Atc 'select 1'`,
+		`mysql -e 'SHOW PROCESSLIST'`,
+		`psql -c "select 'drop table x; delete' as note, comment, role from t"`,
+		`psql -c 'select replace(name, $$a$$, $$b$$) from t -- update later'`,
+		`psql -c 'explain select * from t'`,
+		`psql -c 'set statement_timeout = 1000; select 1'`,
+		`FOO=1 ls`,
+		`psql -c '\dt'`,
+		`mysql -e $'select a # delete\n from t'`,
+		// git runs what the repository's own config names (core.fsmonitor ...)
+		`git log --oneline -5`,
+		`git -C /srv/app status`,
+		`git branch -a`,
+		`git branch`,
+		`git tag -l 'v*'`,
+		`git config --get user.name`,
+		`git config user.name`,
+		`git remote -v`,
+		`git stash list`,
+		`curl -s http://localhost/health`,
+		`curl -fsS -o /dev/null -w '%{http_code}' http://h/`,
+		`curl -H 'Accept: x' -X GET http://h/`,
+		`wget -qO- http://h/`,
+		`wget --spider http://h/`,
+		`patch --dry-run -p1 < x.diff`,
+		`systemctl -H db1 status nginx`,
+		`docker --context prod ps`,
+		`psql -c "select E'it\\'s' as a"`,
+		`less -R f`,
+		`chrt -p 1234`,
+		`taskset -c 0 ls`,
+		`ls {a,b}`,
 	}
 	for _, c := range writes {
 		if w := readOnlyViolation(c); w == "" {
@@ -648,33 +683,13 @@ func TestReadOnlyBypassesClosed(t *testing.T) {
 		`tar -tzf a.tgz`,
 		`tar tzf a.tgz`,
 		`tar -czf - /etc | wc -c`,
-		`curl -s http://localhost/health`,
-		`curl -fsS -o /dev/null -w '%{http_code}' http://h/`,
-		`curl -H 'Accept: x' -X GET http://h/`,
-		`wget -qO- http://h/`,
-		`wget --spider http://h/`,
 		`gzip -dc x.gz | head`,
 		`zcat x.gz`,
 		`cat x | gzip | wc -c`,
 		`unzip -l a.zip`,
-		`patch --dry-run -p1 < x.diff`,
 		`crontab -l`,
 		`crontab -u bob -l`,
 		`kubectl -n prod get pods`,
-		`systemctl -H db1 status nginx`,
-		`docker --context prod ps`,
-		`git log --oneline -5`,
-		`git -C /srv/app status`,
-		`git branch -a`,
-		`git branch`,
-		`git tag -l 'v*'`,
-		`git config --get user.name`,
-		`git config user.name`,
-		`git remote -v`,
-		`git stash list`,
-		`psql -Atc 'select 1'`,
-		`mysql -e 'SHOW PROCESSLIST'`,
-		`psql -c '\dt'`,
 		`sort -n -k2 f`,
 		`sort -u f | head`,
 		`uniq -c f`,
@@ -684,30 +699,19 @@ func TestReadOnlyBypassesClosed(t *testing.T) {
 		`date -d @1700000000 -u`,
 		`date --date='yesterday' +%F`,
 		`date --date tomorrow`,
-		`psql -c "select E'it\\'s' as a"`,
 		`hostname`,
 		`hostname -I`,
 		`dmesg -T --level=err,warn`,
 		`dmesg -H -x`,
-		`less -R f`,
 		`redis-cli -h r1 -p 6380 info memory`,
 		`redis-cli --scan --pattern 'sess:*' --count 100`,
 		`redis-cli -n 2 get k`,
 		`redis-cli --bigkeys`,
 		`redis-cli config get maxmemory`,
 		`redis-cli --cluster check r1:6379`,
-		`psql -c "select 'drop table x; delete' as note, comment, role from t"`,
-		`psql -c 'select replace(name, $$a$$, $$b$$) from t -- update later'`,
-		`psql -c 'explain select * from t'`,
-		`psql -c 'set statement_timeout = 1000; select 1'`,
-		`mysql -e $'select a # delete\n from t'`,
-		`chrt -p 1234`,
-		`taskset -c 0 ls`,
 		`echo it\'s`,
 		`grep "it's" f`,
 		`find /var/log -name '*.log' -mtime +7`,
-		`ls {a,b}`,
-		`FOO=1 ls`,
 		`for u in $(cut -d: -f1 /etc/passwd); do crontab -l -u "$u"; done`,
 	}
 	for _, c := range reads {
@@ -735,7 +739,7 @@ func TestDryRunReportsInputStops(t *testing.T) {
 		{[]string{"--dry-run", "exec", "prod", "--read-only", "--stdin-file", writes, "--", "bash -s"}, "READ_ONLY_VIOLATION"},
 	}
 	for _, c := range cases {
-		out.P.Reset()
+		tcl.out.Reset()
 		var err error
 		got := captureOutput(t, func() error { err = runRoot(t, c.args...); return err })
 		if err != nil {
@@ -748,7 +752,7 @@ func TestDryRunReportsInputStops(t *testing.T) {
 			t.Errorf("%v: the server ran it", c.args)
 		}
 	}
-	out.P.Reset()
+	tcl.out.Reset()
 }
 
 // A line that only mentions a key header (a log, a grep) holds the

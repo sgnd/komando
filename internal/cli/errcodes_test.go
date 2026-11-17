@@ -184,7 +184,7 @@ func scanErrorCodes(t *testing.T) (codes []errorCode, mixed []string) {
 		// a stop a flag lifts gets the one approval hint (S-8.6, C-C10):
 		// the catalog shows the agent variant, as TestAgentGolden pins it
 		if f := out.ApprovalFlag(&out.Error{Code: code, Exit: out.ExitPolicy}); f != "" && f != "--reveal" {
-			c.Hint = approvalText([]string{f}, true, false)
+			c.Hint = approvalText(tcl, []string{f}, true, false)
 			if m, ok := approvalMeanings[code]; ok {
 				c.Example = m
 			}
@@ -587,8 +587,14 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 					}
 				}
 				// the inventory lookups pass their kind on to out.NotFound
-				if id, ok := x.Fun.(*ast.Ident); ok && notFoundWrappers[id.Name] && len(x.Args) >= 1 && lit(x.Args[0]) != "" {
-					sites = append(sites, notFoundSite(path, lit(x.Args[0])))
+				// (after the call they run in, cl or a struct's cl such as
+				// c.cl, when they take one)
+				args := x.Args
+				if len(args) > 0 && callArg(args[0]) {
+					args = args[1:]
+				}
+				if id, ok := x.Fun.(*ast.Ident); ok && notFoundWrappers[id.Name] && len(args) >= 1 && lit(args[0]) != "" {
+					sites = append(sites, notFoundSite(path, lit(args[0])))
 				}
 			}
 			s := sinkOf(n, path, wrappers)
@@ -635,6 +641,18 @@ func codeSites(path string, f *ast.File, wrappers map[string]*wrapper) []codeSit
 		}
 	}
 	return sites
+}
+
+// callArg reports whether e is a call handed on as an argument: cl, or
+// a struct's call (c.cl, f.cl).
+func callArg(e ast.Expr) bool {
+	switch x := e.(type) {
+	case *ast.Ident:
+		return x.Name == "cl"
+	case *ast.SelectorExpr:
+		return x.Sel.Name == "cl"
+	}
+	return false
 }
 
 // notFoundWrappers are the lookups that hand their first argument, a
@@ -780,9 +798,13 @@ var approvalMeanings = map[string]string{
 // order of the files would decide: renaming a file must not change what
 // the catalog shows (these are the texts 0.12.0 showed).
 var catalogSite = map[string]string{
-	"NO_FOLDER":       "cannot find the folder: …",
-	"RENAME_FAILED":   "the vault cannot rename the VPN's secrets: …; nothing was renamed",
-	"ROLLOUT_TIMEOUT": "not rolled out after … (replicas …)…",
+	"FILE_EXISTS":         "… already exists on this computer",
+	"PASSPHRASE_MISMATCH": "the two passphrases you typed differ; nothing was changed",
+	"WEAK_PASSPHRASE":     "…; nothing was changed",
+	"WRONG_PASSPHRASE":    "that passphrase does not open the vault; nothing was changed",
+	"NO_FOLDER":           "cannot find the folder: …",
+	"RENAME_FAILED":       "the vault cannot rename the VPN's secrets: …; nothing was renamed",
+	"ROLLOUT_TIMEOUT":     "not rolled out after … (replicas …)…",
 }
 
 // renamedFrom are codes given by renaming another error (e.Code =

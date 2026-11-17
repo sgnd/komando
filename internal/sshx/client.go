@@ -49,6 +49,9 @@ type Client struct {
 	once  sync.Once
 	// silent: the keepalive got no answer and closed the connection
 	silent atomic.Bool
+	// fwdOnce sets up agent forwarding once per connection (Session)
+	fwdOnce sync.Once
+	fwdErr  error
 	// Win carries the commands of a Windows server reached over WinRM;
 	// such a Client has no SSH connection (Client is nil)
 	Win WinShell
@@ -193,7 +196,7 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 	if c := useHeld(ctx, st, hop, o); c != nil {
 		return c, nil // a jump host a person logged in to with `komando login`
 	}
-	cfg, agentConn, err := clientConfig(ctx, st, hop, o)
+	cfg, q, agentConn, err := clientConfig(ctx, st, hop, o)
 	if err != nil {
 		return nil, err
 	}
@@ -226,6 +229,10 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		c, err = handshake(ctx, pc, addr, cfg, o.ConnectTimeout)
 		if err != nil {
 			pc.Close()
+			var pr *pinRefused
+			if errors.As(err, &pr) {
+				return nil, pr.err
+			}
 			ce := classify(st, hop, err)
 			if tail := pc.stderrTail(); tail != "" {
 				if ce.Code != "CONNECT_FAILED" {
@@ -245,7 +252,11 @@ func dialHop(ctx context.Context, st *store.State, hop *store.Host, o Options, f
 		c, err = dialVia(ctx, prev, addr, cfg, o.ConnectTimeout)
 	}
 	if err != nil {
-		return nil, classify(st, hop, err)
+		return nil, hopErr(st, hop, err)
+	}
+	if err := loginMet(ctx, hop, q); err != nil {
+		c.Close()
+		return nil, err
 	}
 	return c, nil
 }
@@ -482,8 +493,8 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 	switch {
 	case errors.As(err, &rv):
 		return out.Errf(out.ExitConnect, "HOSTKEY_REVOKED",
-			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`; nothing was sent",
-			"%s shows the revoked host key %s", host, ssh.FingerprintSHA256(rv.Revoked.Key))
+			"this key is on komando's list of revoked host keys: treat the server as compromised, tell its owner, and do not re-trust it with `komando host trust`",
+			"%s shows the revoked host key %s; nothing was sent", host, ssh.FingerprintSHA256(rv.Revoked.Key))
 	case errors.As(err, &hk):
 		return hk.outErr(host)
 	case errors.As(err, &ke) && len(ke.Want) > 0, strings.Contains(msg, "HOSTKEY_MISMATCH"):
@@ -518,7 +529,7 @@ func classify(st *store.State, h *store.Host, err error) *out.Error {
 
 // clientConfig is the login for one hop. The ssh-agent connection it opens
 // (or nil) is the caller's to close once the handshake is over.
-func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, io.Closer, error) {
+func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options) (*ssh.ClientConfig, *LoginAsk, io.Closer, error) {
 	if o.scan != nil {
 		// FetchHostKey: no login, so no keys, agent or vault secrets are used
 		scan := o.scan
@@ -530,29 +541,26 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 				return errKeyScanned
 			},
 			Timeout: o.ConnectTimeout,
-		}, nil, nil
+		}, nil, nil, nil
 	}
-	user := h.User
-	if user == "" {
-		user = st.Settings.DefaultUser
-	}
-	if user == "" {
-		user = LocalUser()
-	}
-	hkc, err := hostKeyCallback(ctx, h.Name, o.HostKeyPolicy)
+	// a login-ask server's password goes to this user at this address; the
+	// host key check notes a key it trusts on first use (q.NewKey)
+	q := LoginAskFor(st, h)
+	user := q.User
+	hkc, err := hostKeyCallback(ctx, h, o.HostKeyPolicy, &q)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	auths, agentConn, err := authMethods(st, h, o.ConnectTimeout)
+	auths, agentConn, err := authMethods(ctx, st, h, o.ConnectTimeout, &q)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	return &ssh.ClientConfig{
 		User:            user,
 		Auth:            auths,
 		HostKeyCallback: hkc,
 		Timeout:         o.ConnectTimeout,
-	}, agentConn, nil
+	}, &q, agentConn, nil
 }
 
 // NewHostKey is a host key komando pinned the first time it reached a
@@ -563,89 +571,43 @@ type NewHostKey struct {
 	Address     string `json:"address"`
 	Type        string `json:"key_type"`
 	Fingerprint string `json:"fingerprint"` // SHA256:...
+	// Unchecked: host_key_policy off, so the key was not checked at all
+	// (only a login-ask server's connection is told; nothing is pinned)
+	Unchecked bool `json:"-"`
+	// NotMet: the key is pinned, but no person ever logged in to this
+	// login-ask server with it (a pin alone may come from an AI agent's
+	// connection to another server at the same address)
+	NotMet bool `json:"-"`
+	key    ssh.PublicKey
 }
 
 // HostKeyPinned, when set, is told about every key pinned on first use
-// (for the output and the audit log). It is called after the pin is saved,
-// while the connection waits: it must be quick.
-var HostKeyPinned func(NewHostKey)
+// (for the output and the audit log), with the context of the Dial that
+// pinned it. It is called after the pin is saved, while the connection
+// waits: it must be quick.
+var HostKeyPinned func(ctx context.Context, k NewHostKey)
 
-// hostKeyNote is where the line about a newly pinned key goes.
-var hostKeyNote io.Writer = os.Stderr
+// MayPin, when set, is asked before a new server's key is pinned on first
+// use, with the context of the Dial. An error refuses the pin, and the
+// connection with it: the CLI refuses a context that carries no command,
+// since the pin would belong to no command's output and audit log.
+var MayPin func(ctx context.Context) error
 
-// pinnedOnFirstUse tells the person, on stderr, which key was just pinned
-// and how to check it, and passes it on to HostKeyPinned.
-func pinnedOnFirstUse(name, hostname string, key ssh.PublicKey) {
-	k := NewHostKey{Host: name, Address: hostname, Type: key.Type(), Fingerprint: ssh.FingerprintSHA256(key)}
-	fmt.Fprintf(hostKeyNote, "komando: first connection to %s (%s): trusted its %s host key %s\n"+
-		"komando: compare it with the server's own (on the server: ssh-keygen -lf /etc/ssh/ssh_host_%s_key.pub); if this key ever changes, komando refuses the server\n",
-		name, hostname, k.Type, k.Fingerprint, keyFileType(k.Type))
-	if HostKeyPinned != nil {
-		HostKeyPinned(k)
+// pinRefused carries MayPin's error through the SSH handshake: the dial
+// gives it as it is (hopErr), not as a connection error.
+type pinRefused struct{ err error }
+
+func (p *pinRefused) Error() string { return p.err.Error() }
+func (p *pinRefused) Unwrap() error { return p.err }
+
+// hopErr is the error of a hop that failed: MayPin's refusal as it is,
+// anything else as classify names it.
+func hopErr(st *store.State, h *store.Host, err error) error {
+	var pr *pinRefused
+	if errors.As(err, &pr) {
+		return pr.err
 	}
-}
-
-// keyFileType is the name part of the server's key file for a key type:
-// ssh-ed25519 is in ssh_host_ed25519_key.pub.
-func keyFileType(t string) string {
-	switch {
-	case strings.Contains(t, "ed25519"):
-		return "ed25519"
-	case strings.HasPrefix(t, "ecdsa"):
-		return "ecdsa"
-	case strings.Contains(t, "rsa"):
-		return "rsa"
-	}
-	return "*"
-}
-
-func hostKeyCallback(ctx context.Context, name, policy string) (ssh.HostKeyCallback, error) {
-	if policy == "off" {
-		return ssh.InsecureIgnoreHostKey(), nil
-	}
-	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		// a known server is checked in a read step; only a new one takes
-		// the write step that pins it (and checks again inside it)
-		var known error
-		if verr := HostKeys().view(ctx, func(t hostKeyTx) error { known = t.Check(hostname, remote, key); return nil }); verr != nil {
-			return verr
-		}
-		var ke0 *knownhosts.KeyError
-		if !errors.As(known, &ke0) || len(ke0.Want) > 0 {
-			if errors.As(known, &ke0) {
-				return &hostKeyChanged{offered: key, err: ke0}
-			}
-			return known
-		}
-		var err error
-		pinned := false
-		lockErr := HostKeys().update(ctx, func(t hostKeyTx) error {
-			err = t.Check(hostname, remote, key)
-			var ke *knownhosts.KeyError
-			if errors.As(err, &ke) && len(ke.Want) == 0 {
-				if policy == "strict" {
-					err = errors.New("HOSTKEY_UNKNOWN " + ssh.FingerprintSHA256(key))
-					return nil
-				}
-				if aerr := t.Add(hostname, key); aerr != nil {
-					return aerr
-				}
-				err, pinned = nil, true
-				return nil
-			}
-			if errors.As(err, &ke) {
-				err = &hostKeyChanged{offered: key, err: ke}
-			}
-			return nil
-		})
-		if lockErr != nil {
-			return lockErr
-		}
-		if pinned {
-			pinnedOnFirstUse(name, hostname, key)
-		}
-		return err
-	}, nil
+	return classify(st, h, err)
 }
 
 // SameKey reports whether a and b are the same public key.

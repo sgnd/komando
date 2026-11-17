@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"mime"
 	"os"
 	"path"
 	"path/filepath"
@@ -22,6 +21,7 @@ import (
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // `komando sync` copies a folder one way: from this computer to servers or
@@ -52,7 +52,10 @@ type syncSide interface {
 
 // Sync side: a folder on this computer.
 
-type localSide struct{ root string }
+type localSide struct {
+	cl   *call // the call it works for
+	root string
+}
 
 func (l localSide) list(context.Context) (map[string]syncFile, error) {
 	files := map[string]syncFile{}
@@ -100,8 +103,8 @@ type agentLocalSide struct {
 	secret map[string]bool
 }
 
-func newAgentLocalSide(ctx context.Context, root string) agentLocalSide {
-	l := agentLocalSide{localSide: localSide{root: root}, secret: map[string]bool{}}
+func newAgentLocalSide(cl *call, ctx context.Context, root string) agentLocalSide {
+	l := agentLocalSide{localSide: localSide{cl: cl, root: root}, secret: map[string]bool{}}
 	files, _ := l.localSide.list(ctx) // an error shows when the sync lists it
 	rels := make([]string, 0, len(files))
 	for rel, f := range files {
@@ -111,7 +114,7 @@ func newAgentLocalSide(ctx context.Context, root string) agentLocalSide {
 	}
 	sort.Strings(rels)
 	for _, rel := range rels {
-		if skipLocalSecret(filepath.Join(root, filepath.FromSlash(rel))) {
+		if skipLocalSecret(cl, filepath.Join(root, filepath.FromSlash(rel))) {
 			l.secret[rel] = true
 		}
 	}
@@ -147,6 +150,12 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 		return out.Errf(out.ExitRemote, "UNSAFE_PATH", "check the source for odd file names", "the source sent the path %q, which leads outside %s; nothing outside the folder was written", rel, l.root)
 	}
 	dst := filepath.Join(l.root, filepath.FromSlash(rel))
+	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
+		return localLinkStop(rel, link)
+	}
+	if err := guardLocalWrite(l.cl, dst); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
@@ -155,9 +164,10 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 		return err
 	}
 	defer os.Remove(tmp.Name())
+	defer tmpclean.Add(tmp.Name())()
 	// the destination watches ctx: an SFTP source keeps reading in parallel
-	if out.P.Mask && !revealOK() {
-		_, _, err = fetchMasked(ctx, r, tmp, io.Discard, nil) // as download does: secret values as [hidden]
+	if l.cl.out.Mask && !l.cl.revealOK() {
+		_, _, err = fetchMasked(l.cl, ctx, r, tmp, io.Discard, nil) // as download does: secret values as [hidden]
 	} else {
 		_, err = io.Copy(storex.CtxWriter(ctx, tmp), r)
 	}
@@ -177,16 +187,26 @@ func (l localSide) write(ctx context.Context, rel string, r io.Reader, f syncFil
 	if !f.Mtime.IsZero() {
 		_ = os.Chtimes(tmp.Name(), f.Mtime, f.Mtime) // the next sync sees it as unchanged
 	}
+	if err := guardLocalWrite(l.cl, dst); err != nil {
+		return err
+	}
 	return os.Rename(tmp.Name(), dst)
 }
 
 func (l localSide) remove(_ context.Context, rel string) error {
+	if link := linkInDest(l.root, filepath.FromSlash(rel), false); link != "" {
+		return localLinkStop(rel, link) // --delete never removes a file outside the folder
+	}
+	if err := guardLocalWrite(l.cl, filepath.Join(l.root, filepath.FromSlash(rel))); err != nil {
+		return err
+	}
 	return os.Remove(filepath.Join(l.root, filepath.FromSlash(rel)))
 }
 
 // Sync side: a folder on a server, over SFTP.
 
 type sftpSide struct {
+	cl   *call // the call it works for
 	sc   *sftp.Client
 	root string
 }
@@ -224,7 +244,7 @@ const syncPermHint = "sync reads and writes as the SSH user; fix the owner or pe
 func (s sftpSide) open(_ context.Context, rel string) (io.ReadCloser, error) {
 	f, err := s.sc.Open(path.Join(s.root, rel))
 	if err != nil {
-		return nil, fsErr(rel, err)
+		return nil, fsErr(s.cl, rel, err)
 	}
 	return f, nil
 }
@@ -235,12 +255,18 @@ func (s sftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile
 	}
 	dst := path.Join(s.root, rel)
 	if err := s.sc.MkdirAll(path.Dir(dst)); err != nil {
-		return fsErr(path.Dir(dst), err)
+		return fsErr(s.cl, path.Dir(dst), err)
 	}
-	tmp := path.Join(path.Dir(dst), fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst)))
+	// made where only the SSH user can open it: it gets the source's mode
+	// (0600 for a key) only once it is complete
+	tmp, cleanup, err := privateTemp(s.cl, s.sc, path.Dir(dst), fmt.Sprintf(".komando-sync-%d-%s", time.Now().UnixNano(), path.Base(dst)), path.Base(dst))
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	o, err := s.sc.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
 	if err != nil {
-		return fsErr(dst, err) // the file the person named, not the temporary one
+		return fsErr(s.cl, dst, err) // the file the person named, not the temporary one
 	}
 	_, err = io.Copy(o, storex.CtxReader(ctx, r))
 	if cerr := o.Close(); err == nil {
@@ -259,73 +285,21 @@ func (s sftpSide) write(ctx context.Context, rel string, r io.Reader, f syncFile
 	if err := s.sc.PosixRename(tmp, dst); err != nil {
 		if err2 := s.sc.Rename(tmp, dst); err2 != nil {
 			s.sc.Remove(tmp)
-			return fsErr(dst, err)
+			return fsErr(s.cl, dst, err)
 		}
 	}
 	return nil
 }
 
 func (s sftpSide) remove(_ context.Context, rel string) error {
-	return fsErr(rel, s.sc.Remove(path.Join(s.root, rel)))
-}
-
-// Sync side: a prefix in a storage conn.
-
-type bucketSide struct {
-	b      storex.Bucket
-	prefix string // "" or "folder/" inside the conn
-}
-
-func (b bucketSide) key(rel string) string { return b.prefix + rel }
-
-func (b bucketSide) list(ctx context.Context) (map[string]syncFile, error) {
-	objs, more, err := b.b.List(ctx, b.prefix, true, 1_000_000)
-	if err != nil {
-		if toErr(err).Exit == out.ExitNotFound {
-			return map[string]syncFile{}, errSideMissing // SFTP/FTP: the folder is not there yet
-		}
-		return nil, err
-	}
-	if more {
-		return nil, out.Usage("more than a million objects under %q; sync a smaller prefix", b.prefix)
-	}
-	files := map[string]syncFile{}
-	for _, o := range objs {
-		rel := strings.TrimPrefix(o.Key, b.prefix)
-		// folder markers: the prefix itself, or a key ending in / (S3
-		// consoles create them); they hold no file
-		if o.Dir || rel == "" || strings.HasSuffix(rel, "/") || o.Key+"/" == b.prefix {
-			continue
-		}
-		files[rel] = syncFile{Size: o.Size, Mtime: o.Modified}
-	}
-	if len(files) == 0 {
-		return files, errSideMissing // nothing under the prefix: S3 has no empty folders
-	}
-	return files, nil
-}
-
-func (b bucketSide) open(ctx context.Context, rel string) (io.ReadCloser, error) {
-	pr, pw := io.Pipe()
-	go func() {
-		_, err := b.b.Get(ctx, b.key(rel), pw)
-		pw.CloseWithError(err)
-	}()
-	return pr, nil
-}
-
-func (b bucketSide) write(ctx context.Context, rel string, r io.Reader, f syncFile) error {
-	return b.b.Put(ctx, b.key(rel), r, f.Size, mime.TypeByExtension(path.Ext(rel)))
-}
-
-func (b bucketSide) remove(ctx context.Context, rel string) error {
-	return b.b.Remove(ctx, b.key(rel))
+	return fsErr(s.cl, rel, s.sc.Remove(path.Join(s.root, rel)))
 }
 
 // Planning what to copy and delete.
 
 type syncOpts struct {
 	delete, onlyNew bool
+	sudo            bool // servers: write and remove as root (sudoSftpSide)
 	exclude         []string
 }
 
@@ -402,10 +376,10 @@ func planSync(src, dst map[string]syncFile, o syncOpts) []syncAction {
 }
 
 // runSync plans and (unless dry-run) carries out one sync.
-func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o syncOpts) (*syncResult, error) {
+func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName string, o syncOpts) (*syncResult, error) {
 	sf, err := src.list(ctx)
 	if errors.Is(err, errSideMissing) {
-		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path; nothing was changed", "%s does not exist (or holds no files)", srcName)
+		return nil, out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the source path", "%s does not exist (or holds no files); nothing was changed", srcName)
 	}
 	if err != nil {
 		return nil, err
@@ -415,7 +389,7 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 	if err != nil && !newFolder {
 		return nil, err
 	}
-	res := &syncResult{Src: srcName, Dst: dstName, DryRun: g.dryRun, Actions: []syncAction{}, NewFolder: newFolder}
+	res := &syncResult{Src: srcName, Dst: dstName, DryRun: cl.flags.dryRun, Actions: []syncAction{}, NewFolder: newFolder}
 	files := 0
 	for rel, f := range sf {
 		switch {
@@ -428,8 +402,8 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 	sort.Strings(res.Skipped)
 	if o.delete && files == 0 && len(df) > 0 {
 		// an empty source would make --delete wipe the destination
-		return nil, out.Errf(out.ExitNotFound, "SOURCE_EMPTY", "check the source path; nothing was deleted",
-			"%s has no files to sync, so --delete would remove everything in %s", srcName, dstName)
+		return nil, out.Errf(out.ExitNotFound, "SOURCE_EMPTY", "check the source path",
+			"%s has no files to sync, so --delete would remove everything in %s; nothing was deleted", srcName, dstName)
 	}
 	acts := planSync(sf, df, o)
 	for _, a := range acts {
@@ -452,9 +426,11 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 	if len(acts) > shown {
 		res.Actions, res.More = acts[:shown], true
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		return res, nil
 	}
+	pp := progressFrom(ctx)
+	pp.total(res.Copied+res.Updated, res.Bytes)
 	for _, a := range acts {
 		if err := ctx.Err(); err != nil {
 			return res, err // Ctrl-C: what was copied so far stays
@@ -465,7 +441,8 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 			if err != nil {
 				return res, err
 			}
-			err = dst.write(ctx, a.Path, r, sf[a.Path])
+			pp.start(a.Path)
+			err = dst.write(ctx, a.Path, pp.reader(r), sf[a.Path])
 			r.Close()
 			if ctx.Err() != nil {
 				return res, ctx.Err()
@@ -473,6 +450,7 @@ func runSync(ctx context.Context, src, dst syncSide, srcName, dstName string, o 
 			if err != nil {
 				return res, fmt.Errorf("%s: %w", a.Path, err)
 			}
+			pp.fileDone()
 		case "delete":
 			if err := dst.remove(ctx, a.Path); err != nil {
 				return res, fmt.Errorf("%s: %w", a.Path, err)
@@ -525,6 +503,7 @@ func (r *syncResult) Text() string {
 
 func syncCmd() *cobra.Command {
 	var o syncOpts
+	var progress bool
 	c := &cobra.Command{
 		Use:   "sync SRC DST",
 		Short: "Copy a folder one way, sending only new and changed files",
@@ -533,172 +512,206 @@ func syncCmd() *cobra.Command {
 or a file server). Files that are new, a different size or file mode, or
 newer in SRC are copied; the rest are left alone. --delete also removes files SRC no longer has
 (that needs --allow-dangerous). --exclude skips names or paths (shell globs,
-repeatable). Try --dry-run first: it lists every file it would touch.`,
+repeatable). Try --dry-run first: it lists every file it would touch.
+
+--sudo writes on the servers as root, for a folder the SSH user cannot
+write (/etc/nginx): each file goes in as ` + "`upload --sudo`" + ` puts one, staged
+privately and checked by root, keeping the owner of a file that is there;
+the SSH user still needs to read the folder.`,
 		Example: `  komando sync ./site @web:/var/www/site --exclude .git --dry-run
   komando sync ./site web1:/var/www/site --delete --allow-dangerous
+  komando sync ./nginx @web:/etc/nginx/conf.d --sudo --dry-run
   komando sync ./backups backups:2026/ --exclude '*.tmp'
   komando sync backups:2026/ ./restore
   komando sync web1:/var/log/app ./logs/web1`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			srcT, srcP, srcRemote := splitArg(args[0])
-			dstT, dstP, dstRemote := splitArg(args[1])
-			switch {
-			case srcRemote && dstRemote:
-				return out.Usage("both sides are remote; sync needs one folder on this computer (go remote to remote by way of a local folder)")
-			case !srcRemote && !dstRemote:
-				return out.Usage("neither side is remote: write one as TARGET:PATH (servers) or CONN:PREFIX (storage); a local name with a colon is written ./name")
-			}
-			if !srcRemote {
-				fi, err := os.Stat(srcP)
-				if err != nil {
-					return localFileErr("PATH_NOT_FOUND", err, "")
-				}
-				if !fi.IsDir() {
-					return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
-				}
-			}
-			if dstRemote {
-				return colonHint(syncUp(cmd.Context(), "sync", srcP, dstT, dstP, o), args[1])
-			}
-			return colonHint(syncDown(cmd.Context(), "sync", srcT, srcP, dstP, o), args[0])
-		},
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			ctx, finish := startProgress(cl, cmd.Context(), progress)
+			return finish(runSyncArgs(cl, ctx, args, o))
+		}),
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
 	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
+	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write on the servers as root, file by file as upload --sudo does (a folder here to servers)")
+
+	c.Flags().BoolVar(&progress, "progress", false, progressUsage)
 	return c
+}
+
+// runSyncArgs is sync: up or down, by which side is remote.
+func runSyncArgs(cl *call, ctx context.Context, args []string, o syncOpts) error {
+	srcT, srcP, srcRemote := splitArg(cl, args[0])
+	dstT, dstP, dstRemote := splitArg(cl, args[1])
+	switch {
+	case srcRemote && dstRemote:
+		return out.Usage("both sides are remote; sync needs one folder on this computer (go remote to remote by way of a local folder)")
+	case !srcRemote && !dstRemote:
+		return out.Usage("neither side is remote: write one as TARGET:PATH (servers) or CONN:PREFIX (storage); a local name with a colon is written ./name")
+	}
+	if !srcRemote {
+		fi, err := os.Stat(srcP)
+		if err != nil {
+			return localFileErr("PATH_NOT_FOUND", err, "")
+		}
+		if !fi.IsDir() {
+			return out.Errf(out.ExitConflict, "NOT_A_FOLDER", "sync copies folders; for one file use `komando upload`", "%s is a file, not a folder", srcP)
+		}
+	}
+	if dstRemote {
+		return colonHint(syncUp(cl, ctx, "sync", srcP, dstT, dstP, o), args[1])
+	}
+	return colonHint(syncDown(cl, ctx, "sync", srcT, srcP, dstP, o), args[0])
 }
 
 // guardDelete: --delete removes files for good, like `storage rm`. A person
 // at the terminal confirms by typing the destination.
 // Under --dry-run the stop goes to meta.would_be_blocked.
-func guardDelete(o syncOpts, dst string) error {
-	if o.delete && !dangerOK() && !confirmDangerous([]string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
-		return policyStop(approvalErr("POLICY_BLOCKED",
+func guardDelete(cl *call, o syncOpts, dst string) error {
+	if o.delete && !cl.dangerOK() && !confirmDangerous(cl, []string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
+		return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
 			"--delete removes files in the destination that the source does not have"))
 	}
 	return nil
 }
 
 // syncUp sends a local folder to servers or to a storage conn.
-func syncUp(ctx context.Context, name, local, target, remote string, o syncOpts) error {
-	storage, err := fileTarget(target)
+func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o syncOpts) error {
+	storage, err := fileTarget(cl, target)
 	if err != nil {
 		return err
 	}
-	if err := guardDelete(o, target+":"+remote); err != nil {
+	if err := guardDelete(cl, o, target+":"+remote); err != nil {
 		return err
 	}
-	if err := guardLocalRead(local); err != nil {
+	if err := guardLocalRead(cl, local); err != nil {
 		return err
 	}
-	var src syncSide = localSide{root: local}
-	if isAgent() {
+	var src syncSide = localSide{cl: cl, root: local}
+	if cl.isAgent() {
 		// each file is checked as cp -r does: komando's own data and private
 		// keys stay here even under a folder that holds them (sync ~ web:),
 		// and files that are secrets by name too, unless the user allows
 		// --reveal, as syncDown leaves them there
-		src = newAgentLocalSide(ctx, local)
+		src = newAgentLocalSide(cl, ctx, local)
+	}
+	if storage && o.sudo {
+		return out.Usage("--sudo is for servers")
 	}
 	if storage {
 		v := driver.Verdict{Risk: driver.RiskWrite}
 		if o.delete {
 			v = driver.DataDelete()
 		}
-		return syncStorage(ctx, name, target, v, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
-			return runSync(ctx, src, bucketSide{b: b, prefix: folderKey(remote)}, local, c.Name+":"+remote, o)
+		return syncStorage(cl, ctx, name, target, v, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+			return runSync(cl, ctx, src, bucketSide{b: b, prefix: folderKey(remote)}, local, c.Name+":"+remote, o)
 		})
 	}
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
-	if err := guard(st, hosts, "", true); err != nil {
+	if err := guard(cl, st, hosts, "", true); err != nil {
 		return err
 	}
-	res := fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+	progressFrom(ctx).eachServer(len(hosts)) // each server needs its own files
+	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		ctx, settle := progressServer(ctx)
+		defer settle()
 		sc, err := sftpClient(c)
 		if err != nil {
 			return nil, err
 		}
 		defer sc.Close()
-		r, err := runSync(ctx, src, sftpSide{sc: sc, root: expandRemote(sc, remote)}, local, c.Host.Name+":"+remote, o)
+		var dst syncSide = sftpSide{cl: cl, sc: sc, root: expandRemote(sc, remote)}
+		if o.sudo {
+			if c.Host.Windows() {
+				return nil, out.Usage("--sudo is for Linux and other Unix servers; %s runs Windows", c.Host.Name)
+			}
+			dst = sudoSftpSide{sftpSide: sftpSide{cl: cl, sc: sc, root: expandRemote(sc, remote)}, c: c}
+		}
+		r, err := runSync(cl, ctx, src, dst, local, c.Host.Name+":"+remote, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
 		return r, err
 	})
-	return finishSync(st, name, hosts, res, local, target+":"+remote)
+	return finishSync(cl, st, name, hosts, res, local, target+":"+remote)
 }
 
 // syncDown fetches a folder from one server or a storage conn.
-func syncDown(ctx context.Context, name, target, remote, local string, o syncOpts) error {
-	storage, err := fileTarget(target)
+func syncDown(cl *call, ctx context.Context, name, target, remote, local string, o syncOpts) error {
+	if o.sudo {
+		return out.Usage("sync --sudo writes as root on servers (a folder here to a server); to read a file only root can read, use `komando download %s %s --sudo` per file", target, remote)
+	}
+	storage, err := fileTarget(cl, target)
 	if err != nil {
 		return err
 	}
-	if err := guardDelete(o, local); err != nil {
+	if err := guardDelete(cl, o, local); err != nil {
 		return err
 	}
-	if isAgent() && !revealOK() {
+	if err := guardLocalWrite(cl, local); err != nil {
+		return err
+	}
+	if cl.isAgent() && !cl.revealOK() {
 		// files that are secrets by name stay where they are (sensitive.go)
 		o.exclude = append(o.exclude, sensitiveGlobs...)
 	}
-	dst := localSide{root: local}
+	dst := localSide{cl: cl, root: local}
 	if storage {
-		return syncStorage(ctx, name, target, driver.Verdict{}, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
-			return runSync(ctx, bucketSide{b: b, prefix: folderKey(remote)}, dst, c.Name+":"+remote, local, o)
+		return syncStorage(cl, ctx, name, target, driver.Verdict{}, func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error) {
+			return runSync(cl, ctx, bucketSide{b: b, prefix: folderKey(remote)}, dst, c.Name+":"+remote, local, o)
 		})
 	}
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	h, err := oneServer(st, target, "sync downloads from one server; name one, for example `komando sync SERVER:"+remote+" "+local+"`")
+	h, err := oneServer(cl, st, target, "sync downloads from one server; name one, for example `komando sync SERVER:"+remote+" "+local+"`")
 	if err != nil {
 		return err
 	}
-	res := fanout(ctx, st, []*store.Host{h}, func(ctx context.Context, c *sshx.Client) (any, error) {
+	res := fanout(cl, ctx, st, []*store.Host{h}, func(ctx context.Context, c *sshx.Client) (any, error) {
 		sc, err := sftpClient(c)
 		if err != nil {
 			return nil, err
 		}
 		defer sc.Close()
-		r, err := runSync(ctx, sftpSide{sc: sc, root: expandRemote(sc, remote)}, dst, c.Host.Name+":"+remote, local, o)
+		r, err := runSync(cl, ctx, sftpSide{cl: cl, sc: sc, root: expandRemote(sc, remote)}, dst, c.Host.Name+":"+remote, local, o)
 		if r != nil {
 			r.Host = c.Host.Name
 		}
 		return r, err
 	})
-	return finishSync(st, name, []*store.Host{h}, res, target+":"+remote, local)
+	return finishSync(cl, st, name, []*store.Host{h}, res, target+":"+remote, local)
 }
 
 // syncStorage runs a sync against one storage conn. Unlike other storage
 // changes, a dry run still reads both sides, so it can list the files.
-func syncStorage(ctx context.Context, name, connExpr string, v driver.Verdict, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
+func syncStorage(cl *call, ctx context.Context, name, connExpr string, v driver.Verdict, fn func(ctx context.Context, c *store.Conn, b storex.Bucket) (any, error)) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	c, err := singleConn(st, connExpr, "storage")
+	c, err := singleConn(cl, st, connExpr, "storage")
 	if err != nil {
 		return err
 	}
-	if v.Risk > driver.RiskRead && !g.dryRun {
-		if err := guardConns(st, []*store.Conn{c}, v); err != nil {
+	if v.Risk > driver.RiskRead && !cl.flags.dryRun {
+		if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 			return err
 		}
 	}
-	if g.timeout > 0 {
+	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
-	b, err := openBucket(ctx, st, c)
+	b, err := openBucket(cl, ctx, st, c)
 	if err != nil {
 		return err
 	}
@@ -710,12 +723,12 @@ func syncStorage(ctx context.Context, name, connExpr string, v driver.Verdict, f
 		rec["copied"], rec["updated"], rec["deleted"] = r.Copied, r.Updated, r.Deleted
 	}
 	if v.Risk > driver.RiskRead || (r != nil && !r.DryRun) {
-		audit(st, name, nil, "", err == nil, rec)
+		audit(cl, st, name, nil, "", err == nil, rec)
 	}
 	if err != nil {
 		return toErr(err)
 	}
-	out.P.Print(name, data, nil)
+	cl.out.Print(name, data, nil)
 	return nil
 }
 
@@ -757,7 +770,7 @@ func (f syncFleet) Text() string {
 	return sb.String()
 }
 
-func finishSync(st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string) error {
+func finishSync(cl *call, st *store.State, name string, hosts []*store.Host, res []outcome, src, dst string) error {
 	data := syncFleet{Results: []any{}}
 	worst := 0
 	var fails []hostFail
@@ -775,8 +788,8 @@ func finishSync(st *store.State, name string, hosts []*store.Host, res []outcome
 		data.Summary.OK++
 		data.Results = append(data.Results, o.Value)
 	}
-	if !g.dryRun {
-		audit(st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
+	if !cl.flags.dryRun {
+		audit(cl, st, name, hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"src": src, "dst": dst})
 	}
-	return finishFleet(name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
+	return finishFleet(cl, name, data, runSummary{fleetSummary: data.Summary}, worst, fails)
 }

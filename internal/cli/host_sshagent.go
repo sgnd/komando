@@ -24,8 +24,8 @@ import (
 const agentLifetime = 3600
 
 // openAgent connects to the ssh-agent this shell uses; tests swap it.
-var openAgent = func() (agent.ExtendedAgent, string, func(), error) {
-	sock := os.Getenv("SSH_AUTH_SOCK")
+var openAgent = func(cl *call) (agent.ExtendedAgent, string, func(), error) {
+	sock := cl.getenv("SSH_AUTH_SOCK")
 	if sock == "" || runtime.GOOS == "windows" {
 		return nil, "", nil, errNoAgent()
 	}
@@ -45,7 +45,7 @@ func errNoAgent() error {
 // agentKeys gives the running ssh-agent each sealed key the hops log in
 // with, and returns the ssh options for each such key: its public key in
 // dir and the agent's socket. Hops with other keys are not in the map.
-func agentKeys(st *store.State, hops []*store.Host, dir string) (map[string][]string, error) {
+func agentKeys(cl *call, st *store.State, hops []*store.Host, dir string) (map[string][]string, error) {
 	var keys []*store.Key
 	seen := map[string]bool{}
 	for _, h := range hops {
@@ -57,7 +57,7 @@ func agentKeys(st *store.State, hops []*store.Host, dir string) (map[string][]st
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	ag, sock, done, err := openAgent()
+	ag, sock, done, err := openAgent(cl)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +87,6 @@ func agentKeys(st *store.State, hops []*store.Host, dir string) (map[string][]st
 		}
 		opts[k.Name] = []string{"-o", "IdentitiesOnly=yes", "-o", "IdentityAgent=" + sock, "-i", pub}
 	}
-	audit(st, "host ssh-command", nil, "", true, map[string]any{"agent_keys": added, "agent_lifetime_secs": agentLifetime})
+	audit(cl, st, "host ssh-command", nil, "", true, map[string]any{"agent_keys": added, "agent_lifetime_secs": agentLifetime})
 	return opts, nil
 }

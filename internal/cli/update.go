@@ -21,8 +21,8 @@ import (
 )
 
 // `komando update`: replace this komando with a release from GitHub. The
-// download (update_fetch.go) is checked like install.sh checks it, and put
-// in place by update_install.go.
+// download (update_fetch.go) is checked against the release's signed
+// checksums.txt, and put in place by update_install.go.
 
 // releasePlatforms are the archives a release has (Makefile, PLATFORMS;
 // a test keeps the two the same).
@@ -45,7 +45,7 @@ type updateResult struct {
 	newest  bool   // To is the newest release (no version was asked for)
 }
 
-func (r updateResult) Text() string {
+func (r updateResult) TextFor(pr *out.Printer) string {
 	var b strings.Builder
 	switch {
 	case r.Action == "unchanged" && r.newest && r.From != r.To:
@@ -54,11 +54,11 @@ func (r updateResult) Text() string {
 		fmt.Fprintf(&b, "komando %s is the newest version\n", r.From)
 	case r.Action == "unchanged":
 		fmt.Fprintf(&b, "komando %s is already installed\n", r.From)
-	case r.Action == "downgraded" && g.dryRun:
+	case r.Action == "downgraded" && pr.DryRun:
 		fmt.Fprintf(&b, "would go back to komando %s (from %s)\n", r.To, r.From)
 	case r.Action == "downgraded":
 		fmt.Fprintf(&b, "went back to komando %s (was %s)\n", r.To, r.From)
-	case g.dryRun:
+	case pr.DryRun:
 		fmt.Fprintf(&b, "would update komando %s → %s\n", r.From, r.To)
 	default:
 		fmt.Fprintf(&b, "updated komando %s → %s\n", r.From, r.To)
@@ -76,9 +76,11 @@ func updateCmd() *cobra.Command {
 		Use:   "update [VERSION]",
 		Short: "Update komando to the newest release",
 		Long: `Replaces this komando program with the newest release from GitHub, or with
-the VERSION you name. Like the install line, it checks the download against
-checksums.txt from the same release, and it tries the new program before it
-replaces the old one. If anything fails, the old komando stays as it was.
+the VERSION you name. It checks that the release is signed with the komando
+project's key (a release without that signature is refused), checks the
+download against the release's signed checksums.txt, and tries the new
+program before it replaces the old one. If anything fails, the old komando
+stays as it was.
 
 See whether there is a newer version, changing nothing: komando update --dry-run.
 
@@ -98,9 +100,9 @@ whole update (default 10m).`,
 		Example: `  komando update --dry-run    # is there a newer version?
   komando update              # install the newest release
   sudo komando update         # komando is in /usr/local/bin
-  komando update v0.6.0       # install this version`,
+  komando update v0.14.0      # install this version`,
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			want := ""
 			if len(args) == 1 {
 				want = args[0]
@@ -108,23 +110,23 @@ whole update (default 10m).`,
 			if err := updateNotATarget(want); err != nil {
 				return err
 			}
-			r, err := runUpdate(cmd.Context(), want)
+			r, err := runUpdate(cl, cmd.Context(), want)
 			if err != nil {
-				return updateErr(err)
+				return updateErr(cl, err)
 			}
-			out.P.Print("update", r, nil)
+			cl.out.Print("update", r, nil)
 			return nil
-		},
+		}),
 	}
 }
 
 // updateErr is komando's error for a failed update: a timeout or Ctrl-C
 // says that nothing changed (the rename is the last step).
-func updateErr(err error) error {
+func updateErr(cl *call, err error) error {
 	e := toErr(err)
 	switch e.Code {
 	case "TIMEOUT":
-		e.Message = "the update took longer than " + strings.TrimSuffix(updateTimeout().String(), "0s")
+		e.Message = "the update took longer than " + strings.TrimSuffix(updateTimeout(cl).String(), "0s")
 		e.Message += "; nothing was changed"
 		e.Hint = "give it more time: `komando update --timeout 30m`"
 	case "CANCELLED":
@@ -135,15 +137,15 @@ func updateErr(err error) error {
 }
 
 // runUpdate decides what to install, checks that it may, and installs it.
-func runUpdate(ctx context.Context, want string) (updateResult, error) {
+func runUpdate(cl *call, ctx context.Context, want string) (updateResult, error) {
 	exe, err := updatable()
 	if err != nil {
 		return updateResult{}, err
 	}
-	ctx, cancel := context.WithTimeout(ctx, updateTimeout())
+	ctx, cancel := context.WithTimeout(ctx, updateTimeout(cl))
 	defer cancel()
 	r := updateResult{Path: exe, From: Version, newest: want == "" || want == "latest"}
-	if r.To, err = pickVersion(ctx, want); err != nil {
+	if r.To, err = pickVersion(cl, ctx, want); err != nil {
 		return r, err
 	}
 	r.Release = releaseSite + "/releases/tag/" + r.To
@@ -156,32 +158,33 @@ func runUpdate(ctx context.Context, want string) (updateResult, error) {
 	if c < 0 {
 		r.Action = "downgraded"
 	}
-	// before asking anything: the release exists and has this computer's archive
-	sums, err := releaseSums(ctx, r.To)
+	// before asking anything: the release exists, is signed, and has this
+	// computer's archive
+	sums, err := releaseSums(cl, ctx, r.To)
 	if err != nil {
 		return r, err
 	}
-	if err := checkWritable(exe, want); err != nil {
-		if !g.dryRun {
+	if err := checkWritable(cl, exe, want); err != nil {
+		if !cl.flags.dryRun {
 			return r, err
 		}
-		out.P.WouldBlock(err)
+		cl.out.WouldBlock(err)
 	}
 	if c < 0 {
-		if err := guardSafety("going back to the older komando " + r.To); err != nil {
+		if err := guardSafety(cl, "going back to the older komando "+r.To); err != nil {
 			return r, err
 		}
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		return r, nil
 	}
-	err = installRelease(ctx, r.To, exe, sums)
-	auditUpdate(r, err)
+	err = installRelease(cl, ctx, r.To, exe, sums)
+	auditUpdate(cl, r, err)
 	if err != nil {
 		return r, err
 	}
 	r.Next = nextAfterUpdate()
-	sayNext(r.Next)
+	sayNext(cl, r.Next)
 	return r, nil
 }
 
@@ -236,9 +239,9 @@ func updateNotATarget(want string) error {
 
 // pickVersion is the version asked for (v added when missing), or the
 // newest release for none or "latest".
-func pickVersion(ctx context.Context, want string) (string, error) {
+func pickVersion(cl *call, ctx context.Context, want string) (string, error) {
 	if want == "" || want == "latest" {
-		return newestRelease(ctx)
+		return newestRelease(cl, ctx)
 	}
 	v := want
 	if !strings.HasPrefix(v, "v") {
@@ -250,9 +253,9 @@ func pickVersion(ctx context.Context, want string) (string, error) {
 	return v, nil
 }
 
-func updateTimeout() time.Duration {
-	if g.timeout > 0 {
-		return g.timeout
+func updateTimeout(cl *call) time.Duration {
+	if cl.flags.timeout > 0 {
+		return cl.flags.timeout
 	}
 	return 10 * time.Minute // the archives can be slow to download
 }
@@ -310,7 +313,7 @@ func compareNum(a, b string) int {
 
 // checkWritable checks that komando may replace exe: that needs a new file
 // in its folder.
-func checkWritable(exe, want string) *out.Error {
+func checkWritable(cl *call, exe, want string) *out.Error {
 	dir := filepath.Dir(exe)
 	f, err := os.CreateTemp(dir, ".komando-update-*")
 	if err == nil {
@@ -333,7 +336,7 @@ func checkWritable(exe, want string) *out.Error {
 		line += " " + shellQuote(want)
 	}
 	hint := "run `" + line + "`"
-	if isAgent() {
+	if cl.isAgent() {
 		hint = "ask the user to run `" + line + "` in their own terminal: it needs their password"
 	}
 	who := "you may not write to " + dir
@@ -373,7 +376,7 @@ func nextAfterUpdate() string {
 // auditUpdate records an update that ran, as other changes are recorded.
 // As root it records nothing: root must not write in a person's ~/.komando
 // (root.go, leavesHome).
-func auditUpdate(r updateResult, err error) {
+func auditUpdate(cl *call, r updateResult, err error) {
 	if asRoot() {
 		return
 	}
@@ -385,5 +388,5 @@ func auditUpdate(r updateResult, err error) {
 	if err != nil {
 		extra["error"] = toErr(err).Code
 	}
-	audit(st, "update", nil, "", err == nil, extra)
+	audit(cl, st, "update", nil, "", err == nil, extra)
 }

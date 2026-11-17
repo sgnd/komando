@@ -21,6 +21,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // ErrClosed: the person closed the window before the sign-in ended.
@@ -118,23 +120,27 @@ type message struct {
 // can show several sign-ins in a row: what the first one left (the
 // sign-in service's own session) lets the next one pass without typing.
 type Browser struct {
-	dir string
-	b   *browser
+	dir    string
+	b      *browser
+	forget func() // takes dir off tmpclean's list
 }
 
 // Open starts the browser exe with a temporary profile, which shares
 // nothing with the person's own browser. Close removes it.
 func Open(exe string) (*Browser, error) {
+	tmpclean.Sweep(os.TempDir(), "komando-signin-", "") // profiles of runs that were killed
 	dir, err := os.MkdirTemp("", "komando-signin-")
 	if err != nil {
 		return nil, err
 	}
+	forget := tmpclean.Add(dir) // a second Ctrl-C still removes it
 	b, err := launch(exe, dir)
 	if err != nil {
 		os.RemoveAll(dir)
+		forget()
 		return nil, err
 	}
-	return &Browser{dir: dir, b: b}, nil
+	return &Browser{dir: dir, b: b, forget: forget}, nil
 }
 
 // SignIn shows page and returns the first address starting with prefix
@@ -158,6 +164,9 @@ func (w *Browser) SignIn(ctx context.Context, page Page, prefix string, accept f
 func (w *Browser) Close() {
 	w.b.close()
 	os.RemoveAll(w.dir)
+	if w.forget != nil {
+		w.forget()
+	}
 }
 
 // SignIn is one sign-in in a browser of its own: Open, SignIn, Close.

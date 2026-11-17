@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/cloud"
+	"github.com/sgnd/komando/internal/gcpadc"
 	"github.com/sgnd/komando/internal/registry"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -57,7 +60,7 @@ func TestACRLoginFromAzure(t *testing.T) {
 	var asked string
 	azureToken = func(_ context.Context, res string) (string, error) { asked = res; return "aad-good", nil }
 	rc := open()
-	if err := cloudRegistryLogin(ctx, &store.Conn{Name: "acr"}, "shop01.azurecr.io:443", rc); err != nil {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{Name: "acr"}, "shop01.azurecr.io:443", rc); err != nil {
 		t.Fatal(err)
 	}
 	if rc.User != registry.ACRUser || rc.Password != "acr-refresh" || asked != "https://management.core.windows.net/" {
@@ -65,11 +68,11 @@ func TestACRLoginFromAzure(t *testing.T) {
 	}
 
 	rc = registry.New("shop01.azurecr.io", registry.TLS{}, "me", "own", nil)
-	if err := cloudRegistryLogin(ctx, &store.Conn{PasswordRef: "secret:acr"}, "shop01.azurecr.io", rc); err != nil || rc.Password != "own" {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{PasswordRef: "secret:acr"}, "shop01.azurecr.io", rc); err != nil || rc.Password != "own" {
 		t.Errorf("a conn with --password-ref keeps it: %v %q", err, rc.Password)
 	}
 	rc = registry.New("ghcr.io", registry.TLS{}, "me", "", nil)
-	if err := cloudRegistryLogin(ctx, &store.Conn{}, "ghcr.io", rc); err != nil || rc.User != "me" {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{}, "ghcr.io", rc); err != nil || rc.User != "me" {
 		t.Errorf("another registry: %v %q", err, rc.User)
 	}
 
@@ -77,12 +80,12 @@ func TestACRLoginFromAzure(t *testing.T) {
 	// for the whole subscription
 	asked = ""
 	unchecked := registry.New(strings.TrimPrefix(srv.URL, "https://"), registry.TLS{SkipVerify: true}, "", "", nil)
-	if e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "shop01.azurecr.io", unchecked)); e.Code != "USAGE" || !strings.Contains(e.Message, "skip-verify") || asked != "" {
+	if e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "shop01.azurecr.io", unchecked)); e.Code != "USAGE" || !strings.Contains(e.Message, "skip-verify") || asked != "" {
 		t.Errorf("skip-verify: %+v, asked for %q", e, asked)
 	}
 
 	azureToken = func(context.Context, string) (string, error) { return "aad-other", nil }
-	e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "shop01.azurecr.io", open()))
+	e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "shop01.azurecr.io", open()))
 	if e.Code != "REGISTRY_AUTH" || !strings.Contains(e.Message, "no AcrPull") || !strings.Contains(e.Hint, "AcrPull") {
 		t.Errorf("refused: %+v", e)
 	}
@@ -90,12 +93,12 @@ func TestACRLoginFromAzure(t *testing.T) {
 	azureToken = func(context.Context, string) (string, error) {
 		return "", fmt.Errorf("%w: nothing here", cloud.ErrAzureLogin)
 	}
-	e = toErr(cloudRegistryLogin(ctx, &store.Conn{}, "shop01.azurecr.io", open()))
+	e = toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "shop01.azurecr.io", open()))
 	if e.Code != "AZURE_LOGIN_REQUIRED" || !strings.Contains(e.Hint, "AZURE_CLIENT_SECRET") || !strings.Contains(e.Hint, "`az login`") {
 		t.Errorf("no login: %+v", e)
 	}
 	azureToken = func(context.Context, string) (string, error) { return "", errors.New("dial: no route") }
-	if e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "shop01.azurecr.io", open())); e.Code != "AZURE_FAILED" {
+	if e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "shop01.azurecr.io", open())); e.Code != "AZURE_FAILED" {
 		t.Errorf("other failure: %+v", e)
 	}
 }
@@ -119,20 +122,20 @@ func TestGoogleRegistryLogin(t *testing.T) {
 	ctx := context.Background()
 	gcpToken = func(context.Context) (string, error) { return "ya29.reg", nil }
 	rc := registry.New("europe-west1-docker.pkg.dev", registry.TLS{}, "", "", nil)
-	if err := cloudRegistryLogin(ctx, &store.Conn{}, "europe-west1-docker.pkg.dev", rc); err != nil || rc.User != "oauth2accesstoken" || rc.Password != "ya29.reg" {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{}, "europe-west1-docker.pkg.dev", rc); err != nil || rc.User != "oauth2accesstoken" || rc.Password != "ya29.reg" {
 		t.Errorf("login: %v %q %q", err, rc.User, rc.Password)
 	}
 	rc = registry.New("gcr.io", registry.TLS{}, "_json_key", "{key}", nil)
-	if err := cloudRegistryLogin(ctx, &store.Conn{PasswordRef: "secret:gar-key"}, "gcr.io", rc); err != nil || rc.User != "_json_key" {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{PasswordRef: "secret:gar-key"}, "gcr.io", rc); err != nil || rc.User != "_json_key" {
 		t.Errorf("a service account key keeps its login: %v %q", err, rc.User)
 	}
-	if e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "gcr.io", registry.New("gcr.io", registry.TLS{Plain: true}, "", "", nil))); e.Code != "USAGE" {
+	if e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "gcr.io", registry.New("gcr.io", registry.TLS{Plain: true}, "", "", nil))); e.Code != "USAGE" {
 		t.Errorf("plain http: %+v", e)
 	}
 	// the cloud-platform token is good for the whole project: never to an
 	// unchecked certificate
 	unchecked := registry.New("gcr.io", registry.TLS{SkipVerify: true}, "", "", nil)
-	if e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "gcr.io", unchecked)); e.Code != "USAGE" || !strings.Contains(e.Message, "skip-verify") || unchecked.Password != "" {
+	if e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "gcr.io", unchecked)); e.Code != "USAGE" || !strings.Contains(e.Message, "skip-verify") || unchecked.Password != "" {
 		t.Errorf("skip-verify: %+v %q", e, unchecked.Password)
 	}
 
@@ -140,14 +143,99 @@ func TestGoogleRegistryLogin(t *testing.T) {
 		return "", fmt.Errorf("%w (%w): could not find default credentials", cloud.ErrGCPLogin, cloud.ErrGCPNoCredentials)
 	}
 	rc = registry.New("gcr.io", registry.TLS{}, "", "", nil)
-	if err := cloudRegistryLogin(ctx, &store.Conn{}, "gcr.io", rc); err != nil || rc.User != "" {
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{}, "gcr.io", rc); err != nil || rc.User != "" {
 		t.Errorf("no credentials stays anonymous: %v %q", err, rc.User)
 	}
 	gcpToken = func(context.Context) (string, error) {
 		return "", fmt.Errorf("%w: oauth2: invalid_grant", cloud.ErrGCPLogin)
 	}
-	e := toErr(cloudRegistryLogin(ctx, &store.Conn{}, "us-docker.pkg.dev", registry.New("us-docker.pkg.dev", registry.TLS{}, "", "", nil)))
+	e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, "us-docker.pkg.dev", registry.New("us-docker.pkg.dev", registry.TLS{}, "", "", nil)))
 	if e.Code != "GCP_LOGIN_REQUIRED" || !strings.Contains(e.Hint, "gcloud auth application-default login") || !strings.Contains(e.Message, "invalid_grant") {
 		t.Errorf("an expired login: %+v", e)
+	}
+}
+
+// An Amazon ECR login is good for every repository the AWS identity
+// reaches: like the Google and Azure ones, it goes only over https with
+// the certificate checked, never to ?tls=skip-verify or plain http (with
+// ?resolve= that is any address).
+func TestECRLoginNeedsCheckedTLS(t *testing.T) {
+	saved := ecrLogin
+	defer func() { ecrLogin = saved }()
+	asked := 0
+	ecrLogin = func(context.Context, string, string) (string, error) { asked++; return "ecr-pw", nil }
+	ctx := context.Background()
+	const host = "123456789012.dkr.ecr.eu-west-1.amazonaws.com"
+	for name, tls := range map[string]registry.TLS{"skip-verify": {SkipVerify: true}, "plain http": {Plain: true}} {
+		rc := registry.New(host, tls, "", "", nil)
+		e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{}, host, rc))
+		if e == nil || e.Code != "USAGE" || !strings.Contains(e.Message, "Amazon ECR") || rc.Password != "" {
+			t.Errorf("%s: %+v, password %q", name, e, rc.Password)
+		}
+	}
+	if asked != 0 {
+		t.Errorf("an ECR login was made %d times for a registry whose certificate is not checked", asked)
+	}
+	// a CA of the conn's own, or another address, is not the cloud's registry
+	for _, q := range []string{"?ca=secret:mine", "?resolve=127.0.0.1:8443"} {
+		rc := registry.New(host, registry.TLS{}, "", "", nil)
+		e := toErr(cloudRegistryLogin(tcl, ctx, &store.Conn{URL: "registry://" + host + q}, host, rc))
+		if e == nil || e.Code != "USAGE" || rc.Password != "" || asked != 0 {
+			t.Errorf("%s: %+v, password %q, asked %d", q, e, rc.Password, asked)
+		}
+	}
+	rc := registry.New(host, registry.TLS{}, "", "", nil)
+	if err := cloudRegistryLogin(tcl, ctx, &store.Conn{}, host+":443", rc); err != nil || rc.User != "AWS" || rc.Password != "ecr-pw" {
+		t.Errorf("checked TLS: %v %q %q", err, rc.User, rc.Password)
+	}
+}
+
+// What the cloud logins read from a file the environment names goes
+// through the same check as a file: reference: an AI agent's command never
+// sends a private key or komando's own data, a person's does.
+func TestCloudCredentialFileHook(t *testing.T) {
+	invHome(t)
+	// invHome moves komando's own folder only. This test writes a stand-in
+	// private key, so the computer's home is a temp folder too: it must
+	// never write into a person's real ~/.ssh.
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if home != tmpHome {
+		t.Fatalf("home is %q, not the test's temp folder: refusing to write a key file", home)
+	}
+	key := filepath.Join(home, ".ssh", "id_ed25519")
+	if err := os.MkdirAll(filepath.Dir(key), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(key, []byte("PRIVATE KEY"), 0o600)
+	plain := filepath.Join(t.TempDir(), "token")
+	os.WriteFile(plain, []byte("jwt"), 0o600)
+	dotenv := filepath.Join(filepath.Dir(plain), ".env")
+	os.WriteFile(dotenv, []byte("DB_PASSWORD=x"), 0o600)
+	noAgent(t)
+	for _, check := range []func(string, string) error{cloud.CheckLocalFile, gcpadc.CheckLocalFile} {
+		if err := check("AZURE_FEDERATED_TOKEN_FILE", key); err != nil {
+			t.Errorf("a person's own file: %v", err)
+		}
+	}
+	asAgent(t, false, false)
+	for _, check := range []func(string, string) error{cloud.CheckLocalFile, gcpadc.CheckLocalFile} {
+		e := toErr(check("AZURE_FEDERATED_TOKEN_FILE", key))
+		if e == nil || e.Code != "NEEDS_PERSON" || !strings.Contains(e.Message, "AZURE_FEDERATED_TOKEN_FILE") || !strings.Contains(e.Message, "private key") {
+			t.Errorf("an agent's private key: %+v", e)
+		}
+		if err := check("AZURE_FEDERATED_TOKEN_FILE", plain); err != nil {
+			t.Errorf("an agent's token file: %v", err)
+		}
+		// a file that holds secrets by its name: the variable alone picks
+		// it, no person allowed where it goes
+		if e := toErr(check("AWS_WEB_IDENTITY_TOKEN_FILE", dotenv)); e == nil || e.Code != "NEEDS_PERSON" {
+			t.Errorf("an agent's .env: %+v", e)
+		}
 	}
 }

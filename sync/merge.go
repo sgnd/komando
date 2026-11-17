@@ -1,0 +1,516 @@
+package komandosync
+
+import (
+	"cmp"
+	"fmt"
+	"maps"
+	"slices"
+)
+
+// The record types the prototype knows. "note" applies by itself; every
+// other type holds fields that can move a secret, change what runs or who
+// is reached. A deny rule is its own record: a new one applies by itself,
+// an edit or a delete of one waits (SS 8.1).
+const (
+	TypeServer = "server"
+	TypeSecret = "secret"
+	TypeRule   = "rule"
+	TypeDeny   = "deny"
+	TypeNote   = "note"
+	TypeDevice = "device"
+)
+
+type fieldVal struct {
+	Value string
+	Clock HLC
+}
+
+type record struct {
+	Type    string
+	Fields  map[string]fieldVal
+	Exists  bool // its creation is agreed
+	Deleted bool
+}
+
+// waiting is the part of a change that waits for a person's signed yes.
+type waiting struct {
+	Ref    WriteRef
+	Record RecordID
+	Type   string
+	Create bool
+	Delete bool
+	Fields []Field
+	Clock  HLC
+}
+
+// mergeState is the agreed data on one device: field by field, newest
+// clock wins, deletion is final, and a waiting change applies only once
+// approved (SS 8.1, 9).
+type mergeState struct {
+	records   map[RecordID]*record
+	waiting   map[WriteRef]*waiting
+	approved  map[approval]bool     // each verified yes: the write and the record it names
+	withdrawn map[withdrawal]bool   // waiting changes a yes set aside, by the type of its record
+	pending   map[approval]*yesActs // what a yes deletes and sets aside, until its change arrives
+	heads     map[DeviceID]uint64   // the newest write of each device merged here
+	uncounted map[writeAt]bool      // merged writes whose waiting part never counts (SS 6.2)
+	markers   map[RecordID]WriteRef
+}
+
+// yesActs is what a yes deletes and sets aside: the old holders of the
+// name it lists (Replaces) and the other waiting changes for that name
+// (Withdraws), for a record of Type. Several yeses for one change and
+// record act as the union of what they list.
+type yesActs struct {
+	Type      string
+	Replaces  []RecordID // sorted
+	Withdraws []WriteRef // sorted
+}
+
+// add takes in what one more yes lists.
+func (y *yesActs) add(replaces []RecordID, withdraws []WriteRef) {
+	y.Replaces = slices.Concat(y.Replaces, replaces)
+	slices.SortFunc(y.Replaces, cmpRecord)
+	y.Replaces = slices.Compact(y.Replaces)
+	y.Withdraws = slices.Concat(y.Withdraws, withdraws)
+	slices.SortFunc(y.Withdraws, cmpRef)
+	y.Withdraws = slices.Compact(y.Withdraws)
+}
+
+// writeAt is a write by its writer and number. A yes is matched to its
+// change by these alone, as heads are, so a yes that names a write
+// by another hash acts the same in any order.
+type writeAt struct {
+	Writer DeviceID
+	Seq    uint64
+}
+
+func at(r WriteRef) writeAt { return writeAt{r.Writer, r.Seq} }
+
+func cmpWriteAt(a, b writeAt) int {
+	return cmp.Or(slices.Compare(a.Writer[:], b.Writer[:]), cmp.Compare(a.Seq, b.Seq))
+}
+
+// approval is one yes as the merge keeps it: a change applies only when a
+// yes names its write and its record.
+type approval struct {
+	Ref    WriteRef
+	Record RecordID
+}
+
+// withdrawal is a waiting change for a name that a yes for another record
+// of Type set aside: it is no longer asked about, unless a yes of its own
+// approves it (SS 8.1, finding 69).
+type withdrawal struct {
+	Ref  WriteRef
+	Type string
+}
+
+func newMergeState() *mergeState {
+	return &mergeState{
+		records:   map[RecordID]*record{},
+		waiting:   map[WriteRef]*waiting{},
+		approved:  map[approval]bool{},
+		withdrawn: map[withdrawal]bool{},
+		pending:   map[approval]*yesActs{},
+		heads:     map[DeviceID]uint64{},
+		uncounted: map[writeAt]bool{},
+		markers:   map[RecordID]WriteRef{},
+	}
+}
+
+// stricterValues is the table of SS 8.1 (decided by the owner
+// 2026-11-14): each rule field has one value that applies by itself; its
+// other values wait. It is fixed with the format. A new deny rule, the
+// table's last line, is a record type (TypeDeny), not a field.
+var stricterValues = map[string]string{
+	"protected": "true",     // protected: on
+	"approval":  "required", // approval: required
+	"never_ai":  "true",     // "Never use AI here": on
+}
+
+// stricter reports whether f sets a rule field to its one stricter value.
+// It is judged from the new value alone, so the result never depends on
+// the order writes arrive in.
+func stricter(typ string, f Field) bool {
+	v, ok := stricterValues[f.Name]
+	return ok && v == f.Value && typ != TypeNote && typ != TypeDevice
+}
+
+// appliesItself is SS 8.1's "applies by itself" list for one field of an
+// edit: notes and descriptions, and a stricter value from the table.
+// Anything else waits.
+func appliesItself(typ string, f Field) bool {
+	return typ == TypeNote || f.Name == "note" || f.Name == "description" || stricter(typ, f)
+}
+
+// wholeAppliesItself reports whether a whole change applies by itself: a
+// note, a device's own record, or a new deny rule (never its edit or
+// delete).
+func wholeAppliesItself(typ string, c *Change) bool {
+	return typ == TypeNote || typ == TypeDevice || (typ == TypeDeny && c.Create && !c.Delete)
+}
+
+// apply takes in one record change that recordFits accepted, so its type
+// is the one fixed in the record ID. Merging is commutative: the same set
+// of writes and approvals gives the same state in any order.
+func (m *mergeState) apply(ref WriteRef, c *Change, clock HLC) {
+	rec := m.records[c.Record]
+	if rec == nil {
+		rec = &record{Fields: map[string]fieldVal{}}
+		m.records[c.Record] = rec
+	}
+	if rec.Type == "" { // a placeholder an approval's "replaces" made
+		rec.Type = c.Type
+	}
+	if c.Target != (WriteRef{}) {
+		// A deny rule written again: several devices may write it, with
+		// the same fields. Their own clocks must not count, or the last
+		// of them would undo an edit made with a yes in between.
+		clock = HLC{}
+	}
+	w := &waiting{Ref: ref, Record: c.Record, Type: rec.Type, Create: c.Create, Delete: c.Delete, Clock: clock}
+	// Notes apply by themselves; a device's name record is written only by
+	// that device (recordFits) and pinned by the hash in the signed list
+	// entry a person already agreed to; a new deny rule only restricts,
+	// and its ID is bound to the write that makes it (recordFits).
+	auto := wholeAppliesItself(rec.Type, c)
+	if auto {
+		w.Fields = c.Fields
+	} else {
+		for _, f := range c.Fields {
+			if !c.Create && appliesItself(rec.Type, f) {
+				setField(rec, f, clock)
+			} else {
+				w.Fields = append(w.Fields, f)
+			}
+		}
+	}
+	if !w.Create && !w.Delete && len(w.Fields) == 0 {
+		return
+	}
+	if auto || m.approved[approval{ref, c.Record}] {
+		m.applyWaiting(w)
+		return
+	}
+	m.waiting[ref] = w
+}
+
+// approve records a verified yes for the change ref makes to record, of
+// type typ, and applies the change if it is here. The same yes deletes
+// the old holders of the name it lists (replaces: agreed records and
+// deletion markers, decided by the owner 2026-11-14) and sets aside the
+// waiting changes for that name it lists (withdraws, finding 69). What it
+// deletes and sets aside is read from the yes alone, never from the state
+// the yes arrives in, so it is the same whether its change waits, has
+// applied or lies inside a snapshot (finding 67). It acts once its change
+// has arrived and counts, never before: a change that never counts, such
+// as a removed device's waiting change past its floor, takes nothing away
+// (SS 6.2, 8.1; finding 70). Whether a change counted is kept with the
+// change (uncounted), never read from the newest write merged or from a
+// floor, so a snapshot that holds a dropped change, and raises the floor
+// past it, gives its yes no power (finding 73). So the result never
+// depends on arrival order or on the snapshot a device builds on. A yes deletes only old holders of its own record's type: never a
+// device's own record, which no write deletes, nor a record of another
+// type a modified client named (SS 8.1).
+func (m *mergeState) approve(ref WriteRef, record RecordID, typ string, replaces []RecordID, withdraws []WriteRef) {
+	if m.uncounted[at(ref)] {
+		return // its change never counts, so the yes neither applies nor takes anything away
+	}
+	ap := approval{ref, record}
+	m.approved[ap] = true
+	if ref.Seq <= m.heads[ref.Writer] {
+		m.act(ref, record, &yesActs{Type: typ, Replaces: replaces, Withdraws: withdraws})
+	} else {
+		y := m.pending[ap]
+		if y == nil {
+			y = &yesActs{Type: typ}
+			m.pending[ap] = y
+		}
+		y.add(replaces, withdraws)
+	}
+	if w := m.waiting[ref]; w != nil && w.Record == record {
+		delete(m.waiting, ref)
+		m.applyWaiting(w)
+	}
+}
+
+// arrive records that write ref has been merged here, and whether its
+// change counts whole. When it counts, the yeses that waited for it act
+// now. When it does not (a removed device's write past its floor), it is
+// kept as uncounted and the yeses for it are dropped: they never act.
+func (m *mergeState) arrive(ref WriteRef, counts bool) {
+	m.heads[ref.Writer] = max(m.heads[ref.Writer], ref.Seq)
+	if !counts {
+		m.uncounted[at(ref)] = true
+	}
+	for ap, y := range m.pending {
+		if at(ap.Ref) == at(ref) {
+			delete(m.pending, ap)
+			if counts {
+				m.act(ap.Ref, ap.Record, y)
+			} else {
+				delete(m.approved, ap)
+			}
+		}
+	}
+}
+
+// forgetYesesPast drops the yeses still waiting for a write of writer
+// after seq: a removed device's waiting change past its floor never
+// counts, so its yes never acts (SS 6.2).
+func (m *mergeState) forgetYesesPast(writer DeviceID, seq uint64) {
+	for ap := range m.pending {
+		if ap.Ref.Writer == writer && ap.Ref.Seq > seq {
+			delete(m.pending, ap)
+			delete(m.approved, ap)
+		}
+	}
+}
+
+// act deletes the old holders a yes for write ref and record lists, never
+// that record itself, and sets aside the waiting changes it lists.
+func (m *mergeState) act(ref WriteRef, record RecordID, y *yesActs) {
+	if !namesHeld(y.Type) {
+		return
+	}
+	for _, id := range y.Replaces {
+		if id != record && hasType(id, y.Type) {
+			m.markDeleted(id, ref)
+		}
+	}
+	for _, r := range y.Withdraws {
+		if r != ref {
+			m.withdrawn[withdrawal{r, y.Type}] = true
+		}
+	}
+}
+
+func (m *mergeState) applyWaiting(w *waiting) {
+	rec := m.records[w.Record]
+	if w.Create {
+		rec.Exists = true
+	}
+	for _, f := range w.Fields {
+		setField(rec, f, w.Clock)
+	}
+	if w.Delete {
+		m.markDeleted(w.Record, w.Ref)
+	}
+}
+
+func cmpRecord(a, b RecordID) int { return slices.Compare(a[:], b[:]) }
+
+// markDeleted makes a record's deletion final. The record may not be here
+// yet: a placeholder takes its type from its first write.
+func (m *mergeState) markDeleted(id RecordID, by WriteRef) {
+	rec := m.records[id]
+	if rec == nil {
+		rec = &record{Fields: map[string]fieldVal{}}
+		m.records[id] = rec
+	}
+	if !rec.Deleted {
+		rec.Deleted = true
+		m.markers[id] = by
+	} else if cur := m.markers[id]; cmpRef(by, cur) < 0 {
+		m.markers[id] = by // the same marker whichever order
+	}
+}
+
+func setField(rec *record, f Field, clock HLC) {
+	if cur, ok := rec.Fields[f.Name]; !ok || cur.Clock.Less(clock) {
+		rec.Fields[f.Name] = fieldVal{Value: f.Value, Clock: clock}
+	}
+}
+
+// Get returns a record's agreed fields; false when it does not exist, is
+// deleted, or its creation still waits.
+func (m *mergeState) get(id RecordID) (map[string]string, bool) {
+	rec := m.records[id]
+	if rec == nil || !rec.Exists || rec.Deleted {
+		return nil, false
+	}
+	out := map[string]string{}
+	for k, v := range rec.Fields {
+		out[k] = v.Value
+	}
+	return out, true
+}
+
+// count is the number of agreed, live records.
+func (m *mergeState) count() int {
+	n := 0
+	for _, r := range m.records {
+		if r.Exists && !r.Deleted {
+			n++
+		}
+	}
+	return n
+}
+
+// FieldChange is one line of the approval screen: "address 10.0.0.5 ->
+// 203.0.113.9".
+type FieldChange struct {
+	Name, Old, New string
+}
+
+// Waiting is a change that waits for a person's yes, as the screen shows
+// it.
+type Waiting struct {
+	Ref     WriteRef
+	Record  RecordID
+	Type    string
+	Create  bool
+	Delete  bool
+	Changes []FieldChange
+	// Replaces is a name another record, waiting change or deletion
+	// marker holds. Approving the change deletes ReplacesIDs, the agreed
+	// records and deletion markers that hold it, in the same signed yes,
+	// so two records never hold one name by a yes (SS 8.1). It sets aside
+	// Withdraws, the other waiting changes for the name: they are no
+	// longer asked about, unless a yes of their own approves them, and
+	// then both records stay and show as "waiting: name taken" (finding
+	// 69).
+	Replaces    string
+	ReplacesIDs []RecordID
+	Withdraws   []WriteRef
+}
+
+// ReplacesLine is the screen's line for a newcomer that takes a held
+// name: "replaces prod-db (deleted)". Empty when it takes none.
+func (w Waiting) ReplacesLine() string {
+	if w.Replaces == "" {
+		return ""
+	}
+	return "replaces " + w.Replaces + " (deleted)"
+}
+
+func (m *mergeState) list() []Waiting {
+	var out []Waiting
+	for _, ref := range slices.SortedFunc(maps.Keys(m.waiting), cmpRef) {
+		w := m.waiting[ref]
+		rec := m.records[w.Record]
+		if rec.Deleted || m.withdrawn[withdrawal{ref, w.Type}] {
+			continue // deleted or set aside: there is nothing left to agree to
+		}
+		v := Waiting{Ref: ref, Record: w.Record, Type: w.Type, Create: w.Create, Delete: w.Delete}
+		for _, f := range w.Fields {
+			v.Changes = append(v.Changes, FieldChange{Name: f.Name, Old: rec.Fields[f.Name].Value, New: f.Value})
+			if f.Name == "name" {
+				if ids, refs := m.nameHolders(f.Value, w.Record, w.Type); len(ids)+len(refs) > 0 {
+					v.Replaces, v.ReplacesIDs, v.Withdraws = f.Value, ids, refs
+				}
+			}
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+// namesHeld reports whether names of a record type are held (SS 8.1):
+// only for types whose new record waits for a person. A note, a device's
+// own record and a deny rule apply by themselves, so they can neither
+// wait for a name nor hold one.
+func namesHeld(typ string) bool {
+	return typ != TypeNote && typ != TypeDevice && typ != TypeDeny
+}
+
+// hasType reports whether a record ID carries the tag of typ.
+func hasType(id RecordID, typ string) bool { return recordID(typ, [12]byte(id[:12])) == id }
+
+// nameHolders lists who else of the same type holds the name (SS 8.1):
+// the agreed records and deletion markers whose name it is, sorted, and
+// the waiting changes for it that are still asked about, sorted. A yes
+// deletes the first and sets aside the second. A waiting change holds
+// the name when it sets it, or when it creates a record whose name
+// already is it (an approved rename of a record whose creation still
+// waits): that record was never agreed, so it is set aside, never deleted
+// (findings 69 and 71). A record in the first list is not
+// repeated in the second. Names are held per type: a server and a note,
+// or a server and a device, may share one.
+func (m *mergeState) nameHolders(name string, self RecordID, typ string) ([]RecordID, []WriteRef) {
+	if !namesHeld(typ) {
+		return nil, nil
+	}
+	held := map[RecordID]bool{}
+	for id, r := range m.records {
+		if id != self && (r.Exists || r.Deleted) && r.Fields["name"].Value == name && hasType(id, typ) {
+			held[id] = true
+		}
+	}
+	var claims []WriteRef
+	for ref, w := range m.waiting {
+		if w.Record == self || held[w.Record] || !hasType(w.Record, typ) || m.withdrawn[withdrawal{ref, w.Type}] {
+			continue
+		}
+		r := m.records[w.Record]
+		if r != nil && r.Deleted {
+			continue
+		}
+		named := r != nil && w.Create && r.Fields["name"].Value == name
+		if named || slices.ContainsFunc(w.Fields, func(f Field) bool { return f.Name == "name" && f.Value == name }) {
+			claims = append(claims, ref)
+		}
+	}
+	slices.SortFunc(claims, cmpRef)
+	return slices.SortedFunc(maps.Keys(held), cmpRecord), claims
+}
+
+// NameClash is a name that two or more agreed, live records of one type
+// hold. Two devices offline at once can each take a free name, and
+// neither yes replaces anything, because neither saw the other record.
+// Decided by the owner 2026-11-14 (SS 8.1): every record in a clash is
+// shown as "waiting: name taken" and no command picks any of them by that
+// name until a person picks one (KeepName), renames one or deletes one.
+// Nothing disappears by itself. A clash is read from the merged records
+// alone, so every device that holds the same writes shows the same clash.
+type NameClash struct {
+	Type    string
+	Name    string
+	Records []RecordID // sorted
+}
+
+// Line is the screen's line for a clash: "waiting: name taken: prod-db
+// (2 server records)".
+func (c NameClash) Line() string {
+	return fmt.Sprintf("waiting: name taken: %s (%d %s records)", c.Name, len(c.Records), c.Type)
+}
+
+// clashes lists every name held by two or more agreed, live records of
+// one type, sorted by type, then name.
+func (m *mergeState) clashes() []NameClash {
+	type key struct{ typ, name string }
+	held := map[key][]RecordID{}
+	for id, r := range m.records {
+		n, ok := r.Fields["name"]
+		if !r.Exists || r.Deleted || !ok || n.Value == "" || !namesHeld(r.Type) {
+			continue
+		}
+		k := key{r.Type, n.Value}
+		held[k] = append(held[k], id)
+	}
+	var out []NameClash
+	for k, ids := range held {
+		if len(ids) > 1 {
+			slices.SortFunc(ids, cmpRecord)
+			out = append(out, NameClash{Type: k.typ, Name: k.name, Records: ids})
+		}
+	}
+	slices.SortFunc(out, func(a, b NameClash) int {
+		return cmp.Or(cmp.Compare(a.Type, b.Type), cmp.Compare(a.Name, b.Name))
+	})
+	return out
+}
+
+func cmpRef(a, b WriteRef) int {
+	if c := slices.Compare(a.Writer[:], b.Writer[:]); c != 0 {
+		return c
+	}
+	switch {
+	case a.Seq < b.Seq:
+		return -1
+	case a.Seq > b.Seq:
+		return 1
+	}
+	return 0
+}

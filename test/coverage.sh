@@ -8,7 +8,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 FLOORS=test/coverage-floor.txt
 mod=$(go list -m)
-report=$(go test -cover ./... 2>&1) || { echo "$report"; exit 1; }
+# -timeout: internal/cli takes minutes, near Go's default 10m limit on a
+# slow runner
+report=$(go test -timeout 30m -cover ./... 2>&1) || { echo "$report"; exit 1; }
 echo "$report"
 fail=0
 while read -r pkg floor; do

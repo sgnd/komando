@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"os"
 	"slices"
 	"sort"
 	"strings"
@@ -37,9 +36,9 @@ func suggestHabitWords(root *cobra.Command) {
 
 // suggest records right as the suggestion for wrong: error.suggestion, and
 // a hint with the command line it gives.
-func suggest(e *out.Error, wrong, right string) *out.Error {
+func suggest(cl *call, e *out.Error, wrong, right string) *out.Error {
 	e.Suggestion = right
-	if line, ok := swappedLine(os.Args[1:], wrong, right); ok {
+	if line, ok := swappedLine(cl.args[1:], wrong, right); ok {
 		e.Hint = "run it again with " + right + ": `" + line + "`"
 	} else if e.Hint != "" {
 		e.Hint = "use " + right + "; " + e.Hint
@@ -190,7 +189,7 @@ func foreignCommand(root *cobra.Command, word string, rest []string) (string, bo
 // unknownCommandErr is the usage error for a word that names no command
 // of cmd (S-5.17): a foreign word's komando command first, then the
 // nearest names; the hint names a command only when there is exactly one.
-func unknownCommandErr(cmd *cobra.Command, word string, rest []string) *out.Error {
+func unknownCommandErr(cl *call, cmd *cobra.Command, word string, rest []string) *out.Error {
 	e := out.Usage("unknown command %q", word)
 	if cmd.HasParent() {
 		e = out.Usage("unknown command %q for %q", word, cmd.CommandPath())
@@ -211,7 +210,7 @@ func unknownCommandErr(cmd *cobra.Command, word string, rest []string) *out.Erro
 		e.Hint = "see `" + cmd.CommandPath() + " --help` for the list of commands"
 	case 1:
 		e.Message += "; did you mean " + near[0] + "?"
-		suggest(e, word, near[0])
+		suggest(cl, e, word, near[0])
 	default:
 		e.Message += "; did you mean " + strings.Join(near, " or ") + "?"
 		e.Hint = "see `" + cmd.CommandPath() + " --help` for the list of commands"

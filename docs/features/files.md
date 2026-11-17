@@ -80,9 +80,12 @@ komando fs replace web1 /etc/ssh/sshd_config --regex \
 `--all` replaces every match instead. `--regex` treats `--old` as a Go
 regular expression; `$1` in `--new` inserts a group.
 
-`fs replace`, `fs write` and `fs restore` change one server's file. For
-many servers, run them once per server (or copy one file to many with
-`komando upload`).
+On a group, `fs replace` makes the same edit on every server
+(`komando fs replace @web ... --dry-run` first shows each server's diff),
+and `fs restore @web PATH` puts back each server's own newest backup. Each
+server has its own result; one where `--old` is not found fails on its own
+(`NO_MATCH`) while the others are changed. `fs write` changes one server's
+file; to put one file on many servers use `komando upload`.
 
 ### Write a whole file
 
@@ -258,10 +261,9 @@ read, the rest are still copied; the result lists the failures under
 ### What a copy replaces
 
 - Downloads never replace a file that is already on your computer. One
-  file stops with `FILE_EXISTS` (exit 8); a folder from a server stops at
-  the first file that is already here; a folder from storage keeps those
-  files and copies the rest. Add `--overwrite` when you mean to replace
-  them.
+  file stops with `FILE_EXISTS` (exit 8); a folder (`-r`), from a server or
+  from storage, keeps those files, copies the rest and says how many it
+  kept (`kept`). Add `--overwrite` when you mean to replace them.
 - Uploads replace the file on the server and say so (`replaced: true`).
 - Every file, both ways, is written under a temporary name first and moved
   into place when complete, so a broken connection never leaves half a
@@ -274,10 +276,30 @@ read, the rest are still copied; the result lists the failures under
   its progress on stderr (`app.tar.gz: 120.0 of 512.0 MB`). Nothing is
   shown when stderr is not a terminal, or for an AI agent; stdout never
   gets it.
+- A program that draws its own progress bar (an app, a script, an AI
+  agent) adds `--progress` to `upload`, `download`, `cp`, `sync` or
+  `storage upload/download` with `-o json`. The error output (stderr) then
+  gets one JSON object per line, at most about four a second, and a last
+  one when the command ends; the result on stdout stays as it is. A total
+  is `null` while komando cannot know it (a folder from a server is read
+  as it is copied). Lines on stderr that are not JSON (a warning) are not
+  progress: skip them. Without `-o json`, `--progress` changes nothing.
+
+  ```
+  {"event":"progress","file":"site/index.html","bytes_done":1048576,"bytes_total":4194304,"files_done":3,"files_total":12}
+  {"event":"done","file":"site/app.js","bytes_done":4194304,"bytes_total":4194304,"files_done":12,"files_total":12,"ok":true}
+  ```
+
+  `file` is the file being copied (inside a folder, its path in the
+  folder); the counts cover every server of the run. The lines hold names
+  and counts only, never what is in a file.
 - Ctrl-C stops a copy, or a sync, within a moment. The file being copied is
   not left behind, files already copied stay, and komando exits 1 with
   `CANCELLED`. Run the same command again to finish: `sync` sends only
-  what is still missing.
+  what is still missing. Closing the terminal stops it the same way. A
+  second Ctrl-C ends komando at once, and still removes the half-copied
+  file (and any other temporary file or sign-in browser profile this run
+  made).
 - For a copy that may take longer than a few minutes, or over a shaky
   link, run it on the server as a job: `komando job start`.
 
@@ -313,13 +335,21 @@ komando sync backups:2026/ ./restore                               # from storag
   names.
 - Ctrl-C stops it within a moment; files already copied stay, and the
   next run sends the rest.
+- `--sudo` writes on the servers as root, for a folder the SSH user cannot
+  write (`komando sync ./conf.d web1:/etc/nginx/conf.d --sudo`): each file
+  goes in as `upload --sudo` puts one, staged in the SSH user's `/tmp`
+  (only they can read it), checked by root and installed with the source
+  file's mode, keeping the owner of a file that is there. A folder another
+  user may change stops it (`SHARED_FOLDER_CONFLICT`). The folder must be
+  readable by the SSH user, and `--sudo` is for a folder going to servers
+  (to read a file only root can read, use `download --sudo`).
 
 For a single file, use `komando upload` or `komando download`.
 
 ## Limits
 
-- `fs replace`, `fs write` and `fs restore` work on one server per run; a
-  target that picks several stops with an error.
+- `fs write` works on one server per run; a target that picks several
+  stops with an error (use `komando upload` for many).
 - `fs cat` reads at most `--max-bytes` (1 MiB by default) and refuses a
   binary file in `-o text`.
 - `fs list` shows up to 1000 entries unless `--limit` says otherwise.

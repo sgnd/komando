@@ -31,7 +31,7 @@ func (r *kctlRun) describe() error {
 			return err
 		}
 		for _, o := range objs {
-			d, err := describeObject(r.ctx, r.k, r.conn, kr.r, meta(o, "name"), cmp.Or(meta(o, "namespace"), r.space(kr.r)))
+			d, err := describeObject(r.cl, r.ctx, r.k, r.conn, kr.r, meta(o, "name"), cmp.Or(meta(o, "namespace"), r.space(kr.r)))
 			if err != nil {
 				return err
 			}
@@ -68,7 +68,7 @@ func (r *kctlRun) logs() error {
 	if s := r.a.val("since"); s != "" {
 		d, err := time.ParseDuration(s)
 		if err != nil {
-			return kfail("invalid argument %q for --since", s)
+			return kfail("--since %q is not a duration (for example 1h or 30m)", s)
 		}
 		q.Set("sinceSeconds", strconv.Itoa(int(d.Seconds())))
 	}
@@ -109,7 +109,7 @@ func (r *kctlRun) follow(space string, pods []string, q url.Values) error {
 	if v := r.a.val("max-log-requests"); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil || n < 1 {
-			return kfail("--max-log-requests must be 1 or more")
+			return kfail("--max-log-requests takes 1 or more")
 		}
 		most = n
 	}
@@ -170,7 +170,7 @@ func (r *kctlRun) events() error {
 	if r.a.bools["all-namespaces"] {
 		space = ""
 	}
-	evs, err := clusterEvents(r.ctx, r.k, space, "", "", false, 500)
+	evs, err := clusterEvents(r.cl, r.ctx, r.k, space, "", "", false, 500)
 	if err != nil {
 		return err
 	}
@@ -271,7 +271,7 @@ func (r *kctlRun) top() error {
 	if err := r.k.Get(r.ctx, path, r.listQuery(), &list); err != nil {
 		var ae *kube.APIError
 		if errors.As(err, &ae) && ae.Code == 404 {
-			return kfail("Metrics API not available")
+			return kfail("the cluster has no metrics API (metrics-server)")
 		}
 		return err
 	}
@@ -336,7 +336,7 @@ func (r *kctlRun) auth(sub string) error {
 	switch sub {
 	case "can-i":
 		if len(r.a.pos) < 3 {
-			return kfail("you must specify two arguments: verb resource or a non-resource URL")
+			return kfail("auth can-i needs VERB TYPE (or VERB URL)")
 		}
 		verb, res := r.a.pos[1], r.a.pos[2]
 		attrs := map[string]any{"verb": verb}
@@ -411,13 +411,13 @@ func (r *kctlRun) canI(body []byte) error {
 func (r *kctlRun) wait() error {
 	cond := r.a.val("for")
 	if cond == "" {
-		return kfail("--for must be set")
+		return kfail("wait needs --for: condition=NAME, delete or jsonpath=EXPR=VALUE")
 	}
 	timeout := 30 * time.Second
 	if t := r.a.val("timeout"); t != "" {
 		d, err := time.ParseDuration(t)
 		if err != nil {
-			return kfail("invalid --timeout %q", t)
+			return kfail("--timeout %q is not a duration (for example 30s or 5m)", t)
 		}
 		timeout = d
 	}
@@ -519,7 +519,7 @@ func (r *kctlRun) rollout(sub string) error {
 	q := r.dryQuery()
 	switch sub {
 	case "status":
-		wait := rolloutWait()
+		wait := rolloutWait(r.cl)
 		if t := r.a.val("timeout"); t != "" {
 			if d, err := time.ParseDuration(t); err == nil {
 				wait = d
@@ -574,7 +574,7 @@ func (r *kctlRun) rollout(sub string) error {
 				}
 			}
 			if target == nil {
-				return kfail("unable to find specified revision %s in history", want)
+				return kfail("revision %s is not in the history; see `rollout history`", want)
 			}
 			err = nil
 		}

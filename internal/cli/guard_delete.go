@@ -17,36 +17,36 @@ import (
 // guardLocalDelete stops a delete of komando's own things on this computer
 // (secrets, key files) until it is allowed. Under --dry-run it records the
 // stop and goes on. Call it before the state is locked: it may ask.
-func guardLocalDelete(items []string, of, reason string) error {
-	askTypes(items, of)
-	if dangerOK(reason) || confirmDangerous(items, reason) {
+func guardLocalDelete(cl *call, items []string, of, reason string) error {
+	askTypes(cl, items, of)
+	if cl.dangerOK(reason) || confirmDangerous(cl, items, reason) {
 		return nil
 	}
-	return policyStop(approvalErr("POLICY_BLOCKED", reason).Say(dangerSay([]string{reason}), dangerHint))
+	return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED", reason).Say(dangerSay([]string{reason}), dangerHint))
 }
 
 // guardFsRm is fs rm's stop: every rm deletes for good. A folder with
 // --recursive and a top-level path keep their own words; on a protected
 // server the one typed question covers the protection too (S-7.4), and the
 // stop's hint names --yes as well.
-func guardFsRm(target string, paths []string, recursive bool) error {
-	askTypes(paths, "paths on "+target)
+func guardFsRm(cl *call, target string, paths []string, recursive bool) error {
+	askTypes(cl, paths, "paths on "+target)
 	names := []string{target}
-	prot, win := protectedTargets(target)
+	prot, win := protectedTargets(cl, target)
 	if len(win) > 0 { // fs rm does not run there: say so before asking anything
 		return notOnWindows("fs rm", win)
 	}
 	// flags is what the real run needs: --allow-dangerous, and --yes as
 	// well on a protected server (S-7.5)
 	flags, dry := "--allow-dangerous", " (try --dry-run first)"
-	if len(prot) > 0 && !g.yes {
+	if len(prot) > 0 && !cl.flags.yes {
 		flags, dry = "--allow-dangerous and --yes (a protected server)", " and --yes (a protected server; try --dry-run first)"
 	}
 	stop := func(hint, reason, msg string, a ...any) error {
-		if dangerOK(reason) || confirmDangerousOn(names, prot, reason) {
+		if cl.dangerOK(reason) || confirmDangerousOn(cl, names, prot, reason) {
 			return nil
 		}
-		return policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", hint, msg, a...).
+		return cl.policyStop(out.Errf(out.ExitPolicy, "POLICY_BLOCKED", hint, msg, a...).
 			Say(dangerSay([]string{reason}), dangerHint).Need(protNeed(prot)...))
 	}
 	if recursive {
@@ -66,12 +66,12 @@ func guardFsRm(target string, paths []string, recursive bool) error {
 // protectedTargets are the protected servers target picks, and its
 // Windows servers (none when it picks nothing: the command's own lookup
 // says what is wrong).
-func protectedTargets(target string) (prot, windows []string) {
+func protectedTargets(cl *call, target string) (prot, windows []string) {
 	st, err := loadState()
 	if err != nil {
 		return nil, nil
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return nil, nil
 	}

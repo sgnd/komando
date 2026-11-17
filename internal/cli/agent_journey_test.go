@@ -25,7 +25,7 @@ func TestApprovalHintOnlyWhereAFlagAsks(t *testing.T) {
 		{&out.Error{Code: "SENSITIVE_FILE", Hint: "re-run with --reveal; komando asks the user in a window on their screen", Exit: out.ExitPolicy}, "--reveal", "Tell the user"},
 	} {
 		resetApproval()
-		approvalHint(tc.e)
+		approvalHint(tcl, tc.e)
 		if !strings.Contains(tc.e.Hint, tc.want) || tc.nope != "" && strings.Contains(tc.e.Hint, tc.nope) {
 			t.Errorf("%s: %q", tc.e.Code, tc.e.Hint)
 		}
@@ -37,15 +37,15 @@ func TestApprovalHintOnlyWhereAFlagAsks(t *testing.T) {
 func TestSafetyStopTextHintForAgents(t *testing.T) {
 	invHome(t)
 	noAgent(t)
-	e := toErr(guardSafety("turning off the audit log"))
-	approvalHint(e)
+	e := toErr(guardSafety(tcl, "turning off the audit log"))
+	approvalHint(tcl, e)
 	if !strings.Contains(e.TextHint(), "in a script") {
 		t.Errorf("script: %q", e.TextHint())
 	}
 	asAgent(t, false, true)
 	resetApproval()
-	e = toErr(guardSafety("turning off the audit log"))
-	approvalHint(e)
+	e = toErr(guardSafety(tcl, "turning off the audit log"))
+	approvalHint(tcl, e)
 	if h := e.TextHint(); strings.Contains(h, "in a script") || !strings.Contains(h, "komando then asks them in a window") {
 		t.Errorf("agent text hint: %q", h)
 	}
@@ -60,16 +60,16 @@ func TestFirstPinByAnAgentUnderStrict(t *testing.T) {
 	st := &store.State{Settings: store.DefaultSettings()}
 	noAgent(t)
 	st.Settings.HostKeyPolicy = "strict"
-	if err := guardFirstPin(st, []string{"web1 SHA256:abc"}); err != nil {
+	if err := guardFirstPin(tcl, st, []string{"web1 SHA256:abc"}); err != nil {
 		t.Fatalf("a person pins it: %v", err)
 	}
 	asAgent(t, false, true)
-	err := guardFirstPin(st, []string{"web1 SHA256:abc"})
+	err := guardFirstPin(tcl, st, []string{"web1 SHA256:abc"})
 	if oe, ok := err.(*out.Error); !ok || oe.Code != "SAFETY_SETTING" || !strings.Contains(oe.Message, "SHA256:abc") {
 		t.Fatalf("agent, strict: %v", err)
 	}
 	st.Settings.HostKeyPolicy = "accept-new"
-	if err := guardFirstPin(st, []string{"web1 SHA256:abc"}); err != nil {
+	if err := guardFirstPin(tcl, st, []string{"web1 SHA256:abc"}); err != nil {
 		t.Fatalf("accept-new pins on first login anyway: %v", err)
 	}
 }
@@ -139,7 +139,7 @@ func TestGuideUninstall(t *testing.T) {
 		t.Fatalf("install: %s", settings())
 	}
 	asAgent(t, false, true) // the person says no
-	g.yes = true
+	tcl.flags.yes = true
 	if _, e := invRun(t, "guide", "uninstall"); e == nil || e.Code != "SAFETY_SETTING" {
 		t.Fatalf("an agent removes its guard: %+v", e)
 	}

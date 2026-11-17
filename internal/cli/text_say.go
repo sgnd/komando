@@ -14,22 +14,22 @@ import (
 )
 
 // cancelledText is what a person reads after they answered no.
-func cancelledText() string {
-	if len(askedAbout) == 0 {
+func cancelledText(cl *call) string {
+	if len(cl.askedAbout) == 0 {
 		return "Cancelled. Nothing was changed."
 	}
-	return "Cancelled. Nothing was changed on " + joinAnd(askedAbout) + "."
+	return "Cancelled. Nothing was changed on " + joinAnd(cl.askedAbout) + "."
 }
 
 // changeSay says what a change did, first, in words: "added web1 to
 // @web", or under --dry-run "would add web1 to @web (dry run)". An empty
 // what is "nothing to add".
-func changeSay(verb, what, where string) string {
+func changeSay(cl *call, verb, what, where string) string {
 	if what == "" {
 		return "nothing to " + verb
 	}
 	s := strings.TrimSpace(map[string]string{"add": "added", "remove": "removed", "save": "saved", "import": "imported"}[verb] + " " + what + " " + where)
-	if g.dryRun {
+	if cl.flags.dryRun {
 		s = strings.TrimSpace("would "+verb+" "+what+" "+where) + " (dry run)"
 	}
 	return s
@@ -95,7 +95,7 @@ func connWord(conns []*store.Conn, names []string) string {
 // the command works with: "No database named "x". Did you mean prod-db?
 // Your databases: prod-db, shop-db." A name that exists as another kind
 // says so ("web1 is a server, not a conn"). JSON is unchanged.
-func notFoundSay(e *out.Error, cmd *cobra.Command) {
+func notFoundSay(cl *call, e *out.Error, cmd *cobra.Command) {
 	switch e.Code {
 	case "HOST_NOT_FOUND", "CONN_NOT_FOUND", "TARGET_NOT_FOUND", "VPN_NOT_FOUND":
 	default:
@@ -129,7 +129,7 @@ func notFoundSay(e *out.Error, cmd *cobra.Command) {
 		return // or it is the kind wanted, and the error is about something else
 	}
 	if len(names) == 0 {
-		e.Say(fmt.Sprintf("No %s named %q.", one, name), fmt.Sprintf("You have no %s yet: %s.", one, addHint(family, e.Code)))
+		e.Say(fmt.Sprintf("No %s named %q.", one, name), fmt.Sprintf("You have no %s yet: %s.", one, addHint(cl, family, e.Code)))
 		return
 	}
 	msg := fmt.Sprintf("No %s named %q.", one, name)
@@ -223,8 +223,8 @@ func otherKindSay(st *store.State, cmd *cobra.Command, kind, name, one string) (
 
 // addHint says how to add the first of what a command works with. A person
 // at a terminal can type the add command alone, which asks step by step.
-func addHint(family, code string) string {
-	if interactive() {
+func addHint(cl *call, family, code string) string {
+	if cl.interactive() {
 		cmd := "host add"
 		switch {
 		case familyWord[family] != [2]string{}:

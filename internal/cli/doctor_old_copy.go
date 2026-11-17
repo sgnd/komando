@@ -12,8 +12,8 @@ import (
 // backup on purpose, the keychain's number is set back to the store's, so
 // komando uses the restored folder. A person at a terminal only, with a
 // yes: an agent or a script could otherwise undo the protection.
-func acceptOldCopy() error {
-	if isAgent() || !interactive() {
+func acceptOldCopy(cl *call) error {
+	if cl.isAgent() || !cl.interactive() {
 		return out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"a person runs `komando doctor --accept-old-copy` in their own terminal",
 			"accepting an older copy of komando's folder is for a person at a terminal")
@@ -23,32 +23,32 @@ func acceptOldCopy() error {
 		return err
 	}
 	if !guarded || !old {
-		out.P.Print("doctor.accept-old-copy", map[string]any{"accepted": false, "note": "nothing to accept: the folder is not older than the keychain remembers"}, nil)
+		cl.out.Print("doctor.accept-old-copy", map[string]any{"accepted": false, "note": "nothing to accept: the folder is not older than the keychain remembers"}, nil)
 		return nil
 	}
-	if g.dryRun {
-		out.P.Print("doctor.accept-old-copy", map[string]any{"accepted": false, "would_accept": have, "keychain": kept}, nil)
+	if cl.flags.dryRun {
+		cl.out.Print("doctor.accept-old-copy", map[string]any{"accepted": false, "would_accept": have, "keychain": kept}, nil)
 		return nil
 	}
 	q := "komando's folder is an older copy (change " + strconv.FormatUint(have, 10) + ", the keychain remembers " + strconv.FormatUint(kept, 10) + "). Use it from now on?"
 	if _, serr := os.Stat(store.Path(store.StoreFile)); os.IsNotExist(serr) {
 		q = "store.db is missing (the keychain remembers its change " + strconv.FormatUint(kept, 10) + "). Start an empty store, without its servers, secrets and pinned host keys?"
 	}
-	if !confirmYes(q) {
-		return policyStop(out.Errf(out.ExitError, "CANCELLED", "run `komando doctor --accept-old-copy` again to be asked again", "%s", "the older copy was not accepted; nothing was changed in "+store.Home()))
+	if !confirmYes(cl, q) {
+		return cl.policyStop(out.Errf(out.ExitError, "CANCELLED", "run `komando doctor --accept-old-copy` again to be asked again", "%s", "the older copy was not accepted; nothing was changed in "+store.Home()))
 	}
 	from, err := store.AcceptOldCopy(have)
 	if err != nil {
 		return err
 	}
-	audit(nil, "doctor.accept-old-copy", nil, "", true, map[string]any{"from": from, "to": have})
-	out.P.Print("doctor.accept-old-copy", map[string]any{"accepted": true, "from": from, "to": have}, nil)
+	audit(cl, nil, "doctor.accept-old-copy", nil, "", true, map[string]any{"from": from, "to": have})
+	cl.out.Print("doctor.accept-old-copy", map[string]any{"accepted": true, "from": from, "to": have}, nil)
 	return nil
 }
 
 // lookAtOldCopy lets this command open an old copy to look at it, until
 // the function it returns is called.
-func lookAtOldCopy() func() {
-	store.AllowOldCopy = true
-	return func() { store.AllowOldCopy = false }
+func lookAtOldCopy(cl *call) func() {
+	was := cl.oldCopy.Swap(true)
+	return func() { cl.oldCopy.Store(was) }
 }

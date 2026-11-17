@@ -34,10 +34,10 @@ func foldMatch(n string, names []string) (string, bool) {
 
 // notFoundSuggest is out.NotFound with a "did you mean" when a name is
 // spelled almost the same.
-func notFoundSuggest(kind, name string, names []string) *out.Error {
+func notFoundSuggest(cl *call, kind, name string, names []string) *out.Error {
 	e := out.NotFound(kind, name)
 	if s := closest(name, names); s != "" {
-		suggest(e, name, s)
+		suggest(cl, e, name, s)
 	}
 	return e
 }
@@ -51,7 +51,7 @@ func mapKeys[V any](m map[string]V) []string {
 	return k
 }
 
-func findHost(s *store.State, name string) (*store.Host, error) {
+func findHost(cl *call, s *store.State, name string) (*store.Host, error) {
 	if h, ok := s.Hosts[name]; ok {
 		return h, nil
 	}
@@ -61,10 +61,10 @@ func findHost(s *store.State, name string) (*store.Host, error) {
 	if isSelector(name) {
 		return nil, selectorNotName("host", name)
 	}
-	return nil, notFoundSuggest("host", name, mapKeys(s.Hosts))
+	return nil, notFoundSuggest(cl, "host", name, mapKeys(s.Hosts))
 }
 
-func findConn(s *store.State, name string) (*store.Conn, error) {
+func findConn(cl *call, s *store.State, name string) (*store.Conn, error) {
 	if c, ok := s.Conns[name]; ok {
 		return c, nil
 	}
@@ -74,7 +74,7 @@ func findConn(s *store.State, name string) (*store.Conn, error) {
 	if isSelector(name) {
 		return nil, selectorNotName("conn", name)
 	}
-	return nil, notFoundSuggest("conn", name, mapKeys(s.Conns))
+	return nil, notFoundSuggest(cl, "conn", name, mapKeys(s.Conns))
 }
 
 // selectorNotName is the not-found error for a selector (@group, web-*,
@@ -91,15 +91,15 @@ func selectorNotName(kind, sel string) *out.Error {
 	return e
 }
 
-func findKey(s *store.State, name string) (*store.Key, error) {
+func findKey(cl *call, s *store.State, name string) (*store.Key, error) {
 	if k, ok := s.Keys[name]; ok {
 		return k, nil
 	}
-	return nil, keyNotFound(s, name)
+	return nil, keyNotFound(cl, s, name)
 }
 
-func keyNotFound(s *store.State, name string) error {
-	return notFoundSuggest("key", name, mapKeys(s.Keys))
+func keyNotFound(cl *call, s *store.State, name string) error {
+	return notFoundSuggest(cl, "key", name, mapKeys(s.Keys))
 }
 
 // shortAlias adds --name/-short as another spelling of an existing flag:
@@ -120,7 +120,7 @@ func isSelector(arg string) bool {
 
 // pickHosts turns rm and edit arguments (names or selectors) into inventory hosts,
 // each once, in order. Ad-hoc user@host targets are not in the inventory.
-func pickHosts(s *store.State, args []string) ([]*store.Host, error) {
+func pickHosts(cl *call, s *store.State, args []string) ([]*store.Host, error) {
 	var res []*store.Host
 	seen := map[string]bool{}
 	add := func(h *store.Host) {
@@ -130,13 +130,13 @@ func pickHosts(s *store.State, args []string) ([]*store.Host, error) {
 		}
 	}
 	for _, a := range args {
-		if h, err := findHost(s, a); err == nil {
+		if h, err := findHost(cl, s, a); err == nil {
 			add(h)
 			continue
 		} else if !isSelector(a) {
 			return nil, err
 		}
-		sel, err := resolveSelection(s, a)
+		sel, err := resolveSelection(cl, s, a)
 		if err != nil {
 			return nil, err
 		}
@@ -155,17 +155,17 @@ func pickHosts(s *store.State, args []string) ([]*store.Host, error) {
 }
 
 // rmConns is pickHosts for conns.
-func rmConns(s *store.State, args []string) ([]*store.Conn, error) {
+func rmConns(cl *call, s *store.State, args []string) ([]*store.Conn, error) {
 	var res []*store.Conn
 	seen := map[string]bool{}
 	for _, a := range args {
 		var cs []*store.Conn
-		if c, err := findConn(s, a); err == nil {
+		if c, err := findConn(cl, s, a); err == nil {
 			cs = []*store.Conn{c}
 		} else if !isSelector(a) {
 			return nil, err
 		} else {
-			sel, err := resolveSelection(s, a)
+			sel, err := resolveSelection(cl, s, a)
 			if err != nil {
 				return nil, err
 			}
@@ -189,13 +189,14 @@ type rmResult struct {
 	HostKeysKept  []string `json:"host_keys_kept,omitempty"` // host rm: servers whose pinned key stays in known_hosts
 	SecretsUnused []string `json:"secrets_unused,omitempty"` // vault secrets only the removed entries used
 	Note          string   `json:"note,omitempty"`
+	dryRun        bool     // a preview: the list is would_remove
 }
 
 // MarshalJSON names the list would_remove under --dry-run, so a preview
 // does not read as done.
 func (r rmResult) MarshalJSON() ([]byte, error) {
 	type plain rmResult
-	if !g.dryRun {
+	if !r.dryRun {
 		return json.Marshal(plain(r))
 	}
 	return json.Marshal(struct {
@@ -208,7 +209,7 @@ func (r rmResult) MarshalJSON() ([]byte, error) {
 
 func (r rmResult) Text() string {
 	t := "removed " + strings.Join(r.Removed, ", ")
-	if g.dryRun {
+	if r.dryRun {
 		t = "would remove " + strings.Join(r.Removed, ", ") + " (dry run)"
 	}
 	for _, s := range r.SecretsUnused {

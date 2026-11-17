@@ -16,17 +16,15 @@ import (
 // send the log elsewhere when that matters.
 
 // appendAudit adds one record, under a lock so parallel komando processes
-// keep the chain in order (audit_log_sealed.go).
-func appendAudit(rec map[string]any) error {
+// keep the chain in order (audit_log_sealed.go), and sends it to syslog
+// too when the audit_syslog setting names a target.
+func appendAudit(cl *call, syslog string, rec map[string]any) error {
 	line, err := writeAudit(rec)
-	if err == nil && auditSyslog != "" {
-		sendSyslog(auditSyslog, line, time.Now())
+	if err == nil && syslog != "" {
+		sendSyslog(cl, syslog, line, time.Now())
 	}
 	return err
 }
-
-// auditSyslog is the audit_syslog setting of this command's state.
-var auditSyslog string
 
 func writeAudit(rec map[string]any) ([]byte, error) { return writeSealedAudit(rec) }
 
@@ -53,19 +51,19 @@ func auditVerifyCmd() *cobra.Command {
 		Use:   "verify",
 		Short: "Check that no audit record was changed, added or removed outside komando",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			r, err := verifyAudit()
 			if err != nil {
 				return err
 			}
 			if !r.OK {
-				out.P.Print("audit.verify", r, &out.Error{Code: "AUDIT_TAMPERED", Exit: out.ExitError,
+				cl.out.Print("audit.verify", r, &out.Error{Code: "AUDIT_TAMPERED", Exit: out.ExitError,
 					Message: "the audit log chain is broken at line " + strconv.Itoa(r.FirstBroken),
 					Hint:    "keep a copy of the file and find out who changed it; komando keeps adding records after it"})
 				return exitCode(out.ExitError)
 			}
-			out.P.Print("audit.verify", r, nil)
+			cl.out.Print("audit.verify", r, nil)
 			return nil
-		},
+		}),
 	}
 }

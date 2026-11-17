@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // The master key of the sealed store, kept the
@@ -28,7 +29,7 @@ func storeKeyFile() string { return store.Path("store.key") }
 
 func storeMaster(meta map[string]string, create bool) ([]byte, map[string]string, error) {
 	if create {
-		return newStoreMaster()
+		return newStoreMaster(meta["key_mode"] == "keyfile")
 	}
 	switch meta["key_mode"] {
 	case "passphrase":
@@ -45,6 +46,9 @@ func storeMaster(meta map[string]string, create bool) ([]byte, map[string]string
 		return k, nil, err
 	case "keychain":
 		k, err := keychainGet()
+		if err != nil && agentKeychainPath() {
+			return nil, nil, fmt.Errorf("%w; an AI agent's KOMANDO_KEYCHAIN path is not used (its calls use the default keychain): if this store's key is in that keychain file, a person runs the command in their own terminal", err)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -74,7 +78,8 @@ func storeMaster(meta map[string]string, create bool) ([]byte, map[string]string
 
 // newStoreMaster picks where a new store's key lives, as a new vault does:
 // the passphrase when one is given, else the keychain, else a key file.
-func newStoreMaster() ([]byte, map[string]string, error) {
+// noKeychain: the keychain could not be read, so it is not asked.
+func newStoreMaster(noKeychain bool) ([]byte, map[string]string, error) {
 	if p := Passphrase(); p != "" {
 		salt := make([]byte, 16)
 		if _, err := rand.Read(salt); err != nil {
@@ -86,8 +91,10 @@ func newStoreMaster() ([]byte, map[string]string, error) {
 		}
 		return k, map[string]string{"key_mode": "passphrase", "salt": hex.EncodeToString(salt), "scrypt_n": strconv.Itoa(PassphraseN)}, nil
 	}
-	if k, ok := keychainNewKey(); ok && len(k) >= keyLen {
-		return k[:keyLen], map[string]string{"key_mode": "keychain"}, nil
+	if !noKeychain {
+		if k, ok := keychainNewKey(); ok && len(k) >= keyLen {
+			return k[:keyLen], map[string]string{"key_mode": "keychain"}, nil
+		}
 	}
 	if err := store.EnsureHome(); err != nil {
 		return nil, nil, err
@@ -116,6 +123,7 @@ func newKeyFile(kp string) ([]byte, error) {
 		return nil, err
 	}
 	defer os.Remove(tmp.Name())
+	defer tmpclean.Add(tmp.Name())() // it holds the key
 	_, err = tmp.Write(key)
 	if err == nil {
 		err = tmp.Sync()

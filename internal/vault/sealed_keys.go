@@ -23,9 +23,10 @@ import (
 )
 
 // Moving and changing the key of a sealed store.
-// Moving it between the keychain and store.key moves the same key; a new
-// passphrase, or leaving one, makes a new master key and seals the whole
-// store again in one write step. A new key is kept before the store uses
+// Moving it into the keychain makes a new master key, so an old copy of
+// store.key opens nothing later; moving it back into store.key keeps the
+// key. A new passphrase, or leaving one, makes a new master key too. A
+// new master key seals the whole store again in one write step. A new key is kept before the store uses
 // it, and the old one goes only after.
 
 func storeMeta() (map[string]string, error) {
@@ -98,12 +99,15 @@ func sealedOpens(oldPass string) error {
 }
 
 // sealedChangeKey is ChangeKey on a sealed home.
-func sealedChangeKey(oldPass, newPass string) (KeyChange, error) {
+func sealedChangeKey(w store.Write, oldPass, newPass string) (KeyChange, error) {
 	var res KeyChange
 	if newPass != "" && utf8.RuneCountInString(newPass) < MinPassphrase {
 		return res, ErrShortPassphrase
 	}
-	if store.DryRun {
+	if err := w.Check(); err != nil {
+		return res, err
+	}
+	if w == store.Preview() {
 		return res, store.ErrDryRun
 	}
 	meta, err := storeMeta()
@@ -301,8 +305,8 @@ func resealSecrets(tx *sealdb.Tx, oldA, newA cipher.AEAD) (int, error) {
 	return len(rows), nil
 }
 
-// sealedKeyToKeychain is KeyToKeychain on a sealed home: the key in
-// store.key moves into the keychain.
+// sealedKeyToKeychain is KeyToKeychain on a sealed home: the store gets a
+// new key, kept in the keychain, and store.key goes.
 func sealedKeyToKeychain() (string, error) {
 	tool, err := autoKeychainTool() // a clear error, never macOS's dialog
 	if err != nil {
@@ -327,24 +331,105 @@ func sealedKeyToKeychain() (string, error) {
 		return "", errors.New("this store is unlocked with KOMANDO_VAULT_PASS, not a key file: nothing to move")
 	}
 	kp := storeKeyFile()
-	key, err := os.ReadFile(kp)
+	oldKey, err := os.ReadFile(kp)
 	if err != nil {
 		return "", err
 	}
-	if err := keychainAdopt(key); err != nil {
+	defer clear(oldKey)
+	if err := opensStore(oldKey); err != nil {
 		return "", err
 	}
-	// the change count first: a keychain store without one never opens
+	// A new key, not the one in store.key: a copy of store.key from
+	// before (a backup, a synced folder's history) must not open this
+	// store, nor anything added to it later.
+	newKey, fresh, err := keyForMove(meta)
+	if err != nil {
+		return "", err
+	}
+	defer clear(newKey)
+	oldA, err := vaultAEADFrom(oldKey)
+	if err != nil {
+		return "", err
+	}
+	newA, err := vaultAEADFrom(newKey)
+	if err != nil {
+		return "", err
+	}
+	// the new key into the keychain before the store uses it: a store
+	// sealed with a key nobody kept is lost
+	if err := keychainAdopt(newKey); err != nil {
+		return "", err
+	}
+	// the change count next: a keychain store without one never opens.
+	// The rekey below raises the store's count past it, which is allowed.
 	if err := store.StartGeneration(); err != nil {
+		dropMoveKey(fresh, oldKey)
 		return "", err
 	}
-	if err := store.SetStoreMeta(map[string]string{"key_mode": "keychain"}); err != nil {
-		genDel()
+	// the store sealed again with the new key, its secrets with it, and
+	// key_mode keychain, in one step: it either all happens or none of it
+	err = rekeyStore(newKey, map[string]string{"key_mode": "keychain", "key_moving": ""}, func(tx *sealdb.Tx) error {
+		_, err := resealSecrets(tx, oldA, newA)
+		return err
+	})
+	if err != nil {
+		if opensStore(oldKey) == nil {
+			genDel()
+			dropMoveKey(fresh, oldKey)
+		}
 		return "", err
 	}
-	// overwrite, then remove: the key now lives only in the keychain
-	_ = os.WriteFile(kp, make([]byte, len(key)), 0o600)
+	// overwrite, then remove: nothing uses the old key now
+	_ = os.WriteFile(kp, make([]byte, len(oldKey)), 0o600)
 	return tool, os.Remove(kp)
+}
+
+// rekeyStore is store.Rekey; tests make it fail.
+var rekeyStore = store.Rekey
+
+// keyForMove is the key a store gets as it moves into the keychain, and
+// whether it is new (fresh). A move that stopped after it put its new key
+// there left that key's hash in the store's key_moving: that key is used
+// again, so the move finishes. Any other key there, this store's old key
+// included (it may be the only key of a vault moved aside), stays, and
+// keychainAdopt refuses it (ErrKeychainTaken). A new key's hash goes into
+// key_moving before the key goes into the keychain.
+func keyForMove(meta map[string]string) (key []byte, fresh bool, err error) {
+	if meta["key_moving"] != "" {
+		if has, err := keychainHas(context.Background()); err == nil && has {
+			if k, err := keychainGet(); err == nil {
+				if keyHash(k) == meta["key_moving"] {
+					return k, false, nil
+				}
+				clear(k)
+			}
+		}
+	}
+	k, _, err := newStoreKey("")
+	if err != nil {
+		return nil, false, err
+	}
+	if err := store.SetStoreMeta(map[string]string{"key_moving": keyHash(k)}); err != nil {
+		clear(k)
+		return nil, false, err
+	}
+	return k, true, nil
+}
+
+// dropMoveKey takes a move's key out of the keychain again after the move
+// failed, while the store still opens with its old key: only a key this
+// run made (fresh) and put there. A key found there (a move that stopped
+// before) stays for the next run.
+func dropMoveKey(fresh bool, oldKey []byte) {
+	if fresh && opensStore(oldKey) == nil {
+		_ = keychainDel()
+	}
+}
+
+// keyHash names a random key without giving it away: its SHA-256, in hex.
+func keyHash(k []byte) string {
+	h := sha256.Sum256(k)
+	return hex.EncodeToString(h[:])
 }
 
 // sealedKeyToFile is KeyToFile on a sealed home.

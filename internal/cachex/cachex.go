@@ -505,34 +505,6 @@ func Get(ctx context.Context, c redis.UniversalClient, key string, limit int64, 
 	return v, nil
 }
 
-// Keys lists keys matching pattern with SCAN (never KEYS), up to limit.
-func Keys(ctx context.Context, c redis.UniversalClient, pattern string, limit int) (keys []string, more bool, err error) {
-	if pattern == "" {
-		pattern = "*"
-	}
-	if cc, ok := c.(*redis.ClusterClient); ok {
-		return clusterKeys(ctx, cc, pattern, limit)
-	}
-	keys = []string{}
-	var cur uint64
-	for {
-		batch, next, err := c.Scan(ctx, cur, pattern, 500).Result()
-		if err != nil {
-			return nil, false, cmdErr(err)
-		}
-		for _, k := range batch {
-			if len(keys) >= limit {
-				return keys, true, nil
-			}
-			keys = append(keys, k)
-		}
-		if next == 0 {
-			return keys, false, nil
-		}
-		cur = next
-	}
-}
-
 // Info returns the INFO reply as sections of key/value pairs.
 func Info(ctx context.Context, c redis.UniversalClient, section string) (map[string]map[string]string, error) {
 	if cc, ok := c.(*redis.ClusterClient); ok {

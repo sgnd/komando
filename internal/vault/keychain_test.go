@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -37,7 +38,7 @@ func freshHome(t *testing.T) {
 func roundTrip(t *testing.T, kc string) {
 	t.Helper()
 	t.Setenv("KOMANDO_KEYCHAIN", "off") // the vault starts with vault.key
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("KOMANDO_KEYCHAIN", kc)
@@ -50,7 +51,7 @@ func roundTrip(t *testing.T, kc string) {
 	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
 		t.Fatalf("read with the key in the keychain: %q %v", v, err)
 	}
-	if err := Set("api", "tok"); err != nil {
+	if err := Set(store.Save(), "api", "tok"); err != nil {
 		t.Fatal(err)
 	}
 	if err := KeyToFile(); err != nil {
@@ -148,7 +149,7 @@ func TestKeychainMacOS(t *testing.T) {
 func keyFileVault(t *testing.T) []byte {
 	t.Helper()
 	t.Setenv("KOMANDO_KEYCHAIN", "off")
-	if err := Set("db-pass", "s3cret"); err != nil {
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
 		t.Fatal(err)
 	}
 	key, err := os.ReadFile(storeKeyFile())
@@ -241,24 +242,129 @@ func TestKeyToKeychainCollectionLocked(t *testing.T) {
 	stillKeyFile(t)
 }
 
-// The same key already in the keychain (a move that stopped before
-// vault.json said so) finishes the move.
+// This store's own key already in the keychain is refused like any other
+// key there: it may be the only key of a vault moved aside (moved into the
+// keychain by an older komando, which kept the key, then set aside while
+// a backup from before came back). Nothing changes: the key stays in the
+// keychain and in store.key.
 func TestKeyToKeychainSameKey(t *testing.T) {
 	freshHome(t)
-	calls := keychainStandIn(t, false)
+	keychainStandIn(t, false)
 	key := keyFileVault(t)
 	if err := os.WriteFile(keptItem(), []byte(hex.EncodeToString(key)), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := KeyToKeychain(); !errors.Is(err, ErrKeychainTaken) {
+		t.Fatalf("KeyToKeychain with the store's own key there: %v", err)
+	}
+	if b, _ := os.ReadFile(keptItem()); string(b) != hex.EncodeToString(key) {
+		t.Errorf("the keychain item changed: %q", b)
+	}
+	if b, _ := os.ReadFile(storeKeyFile()); hex.EncodeToString(b) != hex.EncodeToString(key) {
+		t.Error("store.key changed")
+	}
+	stillKeyFile(t)
+}
+
+// A move whose rekey fails takes its new key out of the keychain again,
+// and the store keeps store.key. A key found in the keychain (from a move
+// that stopped before) stays there for the next run.
+func TestKeyToKeychainRekeyFails(t *testing.T) {
+	saved := rekeyStore
+	rekeyStore = func([]byte, map[string]string, func(*sealdb.Tx) error) error { return errors.New("disk full") }
+	t.Cleanup(func() { rekeyStore = saved })
+
+	t.Run("a new key", func(t *testing.T) {
+		freshHome(t)
+		keychainStandIn(t, false)
+		keyFileVault(t)
+		if _, err := KeyToKeychain(); err == nil {
+			t.Fatal("no error")
+		}
+		if _, err := os.Stat(keptItem()); !os.IsNotExist(err) {
+			t.Error("the failed move's key stayed in the keychain")
+		}
+		stillKeyFile(t)
+	})
+	t.Run("a key a stopped move left", func(t *testing.T) {
+		freshHome(t)
+		keychainStandIn(t, false)
+		keyFileVault(t)
+		left := strings.Repeat("ef", 32)
+		b, _ := hex.DecodeString(left)
+		if err := store.SetStoreMeta(map[string]string{"key_moving": keyHash(b)}); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(keptItem(), []byte(left), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		store.Close()
+		if _, err := KeyToKeychain(); err == nil {
+			t.Fatal("no error")
+		}
+		if got, _ := os.ReadFile(keptItem()); string(got) != left {
+			t.Errorf("the key found in the keychain was removed: %q", got)
+		}
+		stillKeyFile(t)
+	})
+}
+
+// A move that stopped after it put its new key into the keychain, before
+// the store used it: the next run finds that key by its hash in
+// key_moving and finishes with it, instead of taking it for another
+// vault's key.
+func TestKeyToKeychainResumesAMove(t *testing.T) {
+	freshHome(t)
+	keychainStandIn(t, false)
+	old := keyFileVault(t)
+	newKey := make([]byte, 32)
+	for i := range newKey {
+		newKey[i] = byte(i + 1)
+	}
+	if err := store.SetStoreMeta(map[string]string{"key_moving": keyHash(newKey)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keptItem(), []byte(hex.EncodeToString(newKey)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
 	if _, err := KeyToKeychain(); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(calls(), "store") {
-		t.Errorf("stored again:\n%s", calls())
+	if err := opensStore(newKey); err != nil {
+		t.Errorf("the key the stopped move left does not open the store: %v", err)
 	}
-	if m := modeOnDisk(t); m != "keychain" {
-		t.Errorf("mode %q, want keychain", m)
+	if err := opensStore(old); !errors.Is(err, ErrWrongKey) {
+		t.Errorf("the old key still opens the store: %v", err)
 	}
+	if m, _ := storeMeta(); m["key_moving"] != "" {
+		t.Errorf("key_moving stayed: %q", m["key_moving"])
+	}
+	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+		t.Errorf("Get: %q %v", v, err)
+	}
+}
+
+// A key in the keychain whose hash is not the store's key_moving is
+// another vault's: refused, as before, and nothing changes.
+func TestKeyToKeychainOtherKeyDuringAMove(t *testing.T) {
+	freshHome(t)
+	keychainStandIn(t, false)
+	keyFileVault(t)
+	if err := store.SetStoreMeta(map[string]string{"key_moving": keyHash([]byte("not this one"))}); err != nil {
+		t.Fatal(err)
+	}
+	other := strings.Repeat("cd", 32)
+	if err := os.WriteFile(keptItem(), []byte(other), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := KeyToKeychain(); !errors.Is(err, ErrKeychainTaken) {
+		t.Errorf("KeyToKeychain over another key: %v", err)
+	}
+	if b, _ := os.ReadFile(keptItem()); string(b) != other {
+		t.Errorf("the other key was replaced: %q", b)
+	}
+	stillKeyFile(t)
 }
 
 // macOS: an item find-generic-password finds holds another key, so
@@ -336,5 +442,47 @@ esac
 	calls, _ := os.ReadFile(filepath.Join(dir, "calls"))
 	if got := strings.TrimSpace(string(calls)); got != "default-keychain" {
 		t.Errorf("security was run for more than default-keychain (once per process):\n%s", got)
+	}
+}
+
+// `komando secret keychain` gives the store a new key as it moves it into
+// the keychain: a copy of store.key from before (a backup, a synced
+// folder's history) opens neither the store nor its secrets, the old ones
+// or those added later.
+func TestKeyToKeychainChangesTheKey(t *testing.T) {
+	freshHome(t)
+	keychainStandIn(t, false)
+	old := keyFileVault(t)
+	if _, err := KeyToKeychain(); err != nil {
+		t.Fatal(err)
+	}
+	if m := modeOnDisk(t); m != "keychain" {
+		t.Fatalf("mode %q, want keychain", m)
+	}
+	kept, err := keychainGet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hex.EncodeToString(kept) == hex.EncodeToString(old) {
+		t.Fatal("the keychain holds the key store.key held: an old copy of store.key still opens the store")
+	}
+	if err := opensStore(old); !errors.Is(err, ErrWrongKey) {
+		t.Errorf("the old store.key opens the store: %v", err)
+	}
+	if err := opensStore(kept); err != nil {
+		t.Errorf("the keychain's key does not open the store: %v", err)
+	}
+	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+		t.Errorf("a secret from before the move: %q %v", v, err)
+	}
+	if err := Set(store.Save(), "api", "tok"); err != nil {
+		t.Fatal(err)
+	}
+	store.Close()
+	if v, err := Get("api"); err != nil || v != "tok" {
+		t.Errorf("a secret added after the move, store opened again: %q %v", v, err)
+	}
+	if _, err := os.Stat(storeKeyFile()); !os.IsNotExist(err) {
+		t.Error("store.key is still on disk")
 	}
 }

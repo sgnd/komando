@@ -10,30 +10,112 @@ import (
 	"strings"
 )
 
-// addLocked adds v, as it is and as it often travels, under label. p.hmu
-// is held.
+type hidden struct {
+	raw, json, label string
+	added            bool // by AddValue: forgotten when the next command starts (ForgetAdded)
+	vault            bool // from Secrets: forgotten when they change (SetSecrets)
+}
+
+// minSecret is the shortest value hidden: shorter ones would match
+// ordinary words and garble output.
+const minSecret = 6
+
+func (p *Printer) load() {
+	p.hmu.RLock()
+	loaded := p.loaded
+	p.hmu.RUnlock()
+	if loaded {
+		return
+	}
+	p.hmu.Lock()
+	defer p.hmu.Unlock()
+	if p.loaded {
+		return
+	}
+	p.loaded = true
+	if p.Secrets == nil {
+		return
+	}
+	for name, v := range p.Secrets() {
+		p.addLocked(v, "[secret:"+name+"]", false)
+	}
+}
+
+// SetSecrets makes f the printer's Secrets: the values of the one before
+// are no longer hidden as [secret:NAME], and f is called on first use.
+// It locks by itself, so it is safe while AddValue runs elsewhere.
+func (p *Printer) SetSecrets(f func() map[string]string) {
+	p.hmu.Lock()
+	defer p.hmu.Unlock()
+	p.Secrets, p.loaded = f, false
+	p.hide = keepOnly(p.hide, func(h *hidden) bool {
+		if !h.added {
+			return false
+		}
+		// AddValue hid it too: it stays hidden, under no vault's name
+		h.vault, h.label = false, Hidden
+		return true
+	})
+}
+
+// keepOnly is a new list of the entries of hide that keep (which may
+// change them) says to keep: a hideList taken before goes on reading the
+// old one.
+func keepOnly(hide []hidden, keep func(*hidden) bool) []hidden {
+	kept := make([]hidden, 0, len(hide))
+	for _, h := range hide {
+		if keep(&h) {
+			kept = append(kept, h)
+		}
+	}
+	return kept
+}
+
+// addLocked adds v, as it is and as it often travels, under label: by
+// AddValue (added) or from the vault. A value both hid stays hidden until
+// both forget it (ForgetAdded, SetSecrets), under the vault's name while
+// the vault holds it. p.hmu is held.
 func (p *Printer) addLocked(v, label string, added bool) {
 	if len(v) < minSecret {
 		return
 	}
+	vault := !added
+	var known *hidden
 	for _, h := range p.hide {
 		if h.raw == v {
-			return // known already, under its own name
+			if (added && h.added) || (vault && h.vault) {
+				return // known already, in the way it is asked for
+			}
+			known = &h
+			if h.vault {
+				label = h.label // the vault named it already: AddValue keeps that name
+			}
+			added, vault = added || h.added, vault || h.vault
+			break
 		}
 	}
+	encs := []string{base64.StdEncoding.EncodeToString([]byte(v)), url.QueryEscape(v)}
 	// a new list: a hideList taken before goes on reading the old one
 	hide := slices.Clone(p.hide)
+	if known != nil {
+		// AddValue hid it first and now the vault holds it (it takes the
+		// vault's name, and HoldsVaultValue sees it), or the other way
+		// round (it survives SetSecrets)
+		hide = slices.DeleteFunc(hide, func(o hidden) bool {
+			return o.added == known.added && o.vault == known.vault && (o.raw == v || slices.Contains(encs, o.raw))
+		})
+	}
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
 	enc.SetEscapeHTML(false)
 	_ = enc.Encode(v)
 	j := strings.TrimSuffix(strings.TrimSpace(b.String()), `"`)
-	hide = append(hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: label, added: added})
+	hide = append(hide, hidden{raw: v, json: strings.TrimPrefix(j, `"`), label: label, added: added, vault: vault})
 	// the same value as it often travels: base64 (HTTP basic auth,
 	// Kubernetes secrets) and URL-encoded (connection strings)
-	for _, enc := range []string{base64.StdEncoding.EncodeToString([]byte(v)), url.QueryEscape(v)} {
+	for _, enc := range encs {
 		if enc != v {
-			hide = append(hide, hidden{raw: enc, json: enc, label: label, added: added})
+			hide = append(hide, hidden{raw: enc, json: enc, label: label, added: added, vault: vault})
 		}
 	}
 	// longest first, so a secret that contains another is hidden whole
@@ -60,10 +142,49 @@ func (p *Printer) hideList() []hidden {
 	return p.hide
 }
 
-// forgetAdded drops what AddValue added: a value one command read is not
-// hidden in the next one's output (tests run many in one process).
-func (p *Printer) forgetAdded() {
+// ForgetAdded drops what AddValue added: a value one command read is not
+// hidden in the next one's output (tests run many in one process). The
+// CLI calls it before the command counts as running, never while it runs:
+// another command's secret added after that must stay hidden.
+func (p *Printer) ForgetAdded() {
 	p.hmu.Lock()
 	defer p.hmu.Unlock()
-	p.hide = slices.DeleteFunc(slices.Clone(p.hide), func(h hidden) bool { return h.added })
+	p.hide = keepOnly(p.hide, func(h *hidden) bool {
+		h.added = false
+		return h.vault
+	})
+}
+
+// Spare stops hiding, in this printer's output, the vault values that s
+// holds (and their encoded forms): s is what an AI agent typed itself. A
+// [secret:NAME] in place of its own guess would tell it the guess is a
+// secret; shown as typed, a right guess and a wrong one look the same.
+func (p *Printer) Spare(s string) {
+	p.load()
+	p.hmu.Lock()
+	defer p.hmu.Unlock()
+	labels := map[string]bool{}
+	for _, h := range p.hide {
+		if h.vault && !h.added && len(h.raw) >= minSecret && strings.Contains(s, h.raw) {
+			labels[h.label] = true
+		}
+	}
+	if len(labels) == 0 {
+		return
+	}
+	p.hide = keepOnly(p.hide, func(h *hidden) bool { return h.added || !labels[h.label] })
+}
+
+// HoldsVaultValue reports whether s holds a value from the vault
+// (Printer.Secrets), raw, never what only looks like a secret.
+func (p *Printer) HoldsVaultValue(s string) bool {
+	if p.NoRedact || len(s) < minSecret {
+		return false
+	}
+	for _, h := range p.hideList() {
+		if h.vault && strings.Contains(s, h.raw) {
+			return true
+		}
+	}
+	return false
 }

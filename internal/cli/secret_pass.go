@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"unicode"
@@ -143,7 +142,9 @@ or put the key back in store.key, could open the vault on its own. Anyone can
 preview it with --dry-run.`,
 		Example: "  komando secret passphrase               # asks for the new passphrase twice, hidden\n  komando secret passphrase --dry-run\n  komando secret passphrase --off --yes   # back to a random key in store.key",
 		Args:    cobra.NoArgs,
-		RunE:    func(cmd *cobra.Command, _ []string) error { return runSecretPassphrase(off) },
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
+			return runSecretPassphrase(cl, off)
+		}),
 	}
 	c.Flags().BoolVar(&off, "off", false, "back to a random key in store.key (needs --yes)")
 	return c
@@ -163,11 +164,11 @@ func passphraseNextSteps(to string) []string {
 	}
 }
 
-func runSecretPassphrase(off bool) error {
-	if isAgent() || !interactive() {
+func runSecretPassphrase(cl *call, off bool) error {
+	if cl.isAgent() || !cl.interactive() {
 		// a dry run is never blocked: it says what would change, and that
 		// the real run needs the user (policyStop records it)
-		if err := policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
+		if err := cl.policyStop(out.Errf(out.ExitPolicy, "NEEDS_PERSON",
 			"ask the user to run `komando secret passphrase` in their own terminal",
 			"only a person at a terminal can change the vault's key: an AI agent that chose the passphrase, or put the key in store.key, could open the vault on its own")); err != nil {
 			return err
@@ -177,30 +178,30 @@ func runSecretPassphrase(off bool) error {
 	if err != nil {
 		return err
 	}
-	if g.dryRun {
+	if cl.flags.dryRun {
 		res.DryRun = true
 		opens := vault.Opens("") == nil
 		res.OpensNow = &opens
-		out.P.Print("secret.passphrase", res, nil)
+		cl.out.Print("secret.passphrase", res, nil)
 		return nil
 	}
 	// the current key first, so nobody types a new passphrase twice for a
 	// vault that will not open
-	old, err := currentPassphrase(res.From)
+	old, err := currentPassphrase(cl, res.From)
 	if err != nil {
 		return err
 	}
 	newPass := ""
 	if off {
-		err = guardSafety("moving the store's key from a passphrase into store.key next to the store")
+		err = guardSafety(cl, "moving the store's key from a passphrase into store.key next to the store")
 	} else {
-		newPass, err = askNewPassphrase()
+		newPass, err = askNewPassphrase(cl)
 	}
 	if err != nil {
 		return err
 	}
-	kc, err := vault.ChangeKey(old, newPass)
-	audit(nil, "secret.passphrase", nil, "", err == nil, map[string]any{"from": res.From, "to": res.To, "secrets": kc.Secrets})
+	kc, err := vault.ChangeKey(cl.storeWrite(), old, newPass)
+	audit(cl, nil, "secret.passphrase", nil, "", err == nil, map[string]any{"from": res.From, "to": res.To, "secrets": kc.Secrets})
 	switch {
 	case errors.Is(err, vault.ErrWrongKey): // changed by another komando meanwhile
 		return out.Errf(out.ExitConflict, "VAULT_CHANGED", "run it again", "%v; nothing was changed", err)
@@ -208,7 +209,7 @@ func runSecretPassphrase(off bool) error {
 		return err
 	}
 	res.Secrets, res.OldKey, res.Warning = kc.Secrets, kc.Removed, kc.Left
-	out.P.Print("secret.passphrase", res, nil)
+	cl.out.Print("secret.passphrase", res, nil)
 	return nil
 }
 
@@ -252,7 +253,7 @@ func passphrasePlan(off bool) (passphraseResult, error) {
 // For a passphrase vault that KOMANDO_VAULT_PASS does not open (not set,
 // or changed already), it asks the person for the current passphrase and
 // returns it; otherwise "".
-func currentPassphrase(from string) (string, error) {
+func currentPassphrase(cl *call, from string) (string, error) {
 	err := vault.Opens("")
 	if err == nil {
 		return "", nil
@@ -261,11 +262,11 @@ func currentPassphrase(from string) (string, error) {
 		return "", out.Errf(out.ExitError, "VAULT_LOCKED", "fix that, then run it again", "%v; nothing was changed", err)
 	}
 	if vault.Passphrase() == "" {
-		fmt.Fprintln(os.Stderr, "KOMANDO_VAULT_PASS is not set.")
+		fmt.Fprintln(cl.out.Err, "KOMANDO_VAULT_PASS is not set.")
 	} else {
-		fmt.Fprintln(os.Stderr, "KOMANDO_VAULT_PASS does not open the vault (did you change it already?).")
+		fmt.Fprintln(cl.out.Err, "KOMANDO_VAULT_PASS does not open the vault (did you change it already?).")
 	}
-	old, err := readHidden("Current vault passphrase (hidden): ")
+	old, err := readHidden(cl, "Current vault passphrase (hidden): ")
 	if err != nil {
 		return "", err
 	}
@@ -280,16 +281,16 @@ func currentPassphrase(from string) (string, error) {
 }
 
 // askNewPassphrase asks for the new passphrase twice, hidden.
-func askNewPassphrase() (string, error) {
-	fmt.Fprintf(os.Stderr, "Choose a new vault passphrase: %d or more characters (random words work well).\n", vault.MinPassphrase)
-	p1, err := readHidden("New vault passphrase (hidden): ")
+func askNewPassphrase(cl *call) (string, error) {
+	fmt.Fprintf(cl.out.Err, "Choose a new vault passphrase: %d or more characters (random words work well).\n", vault.MinPassphrase)
+	p1, err := readHidden(cl, "New vault passphrase (hidden): ")
 	if err != nil {
 		return "", err
 	}
 	if why := newPassphraseProblem(p1); why != "" {
 		return "", out.Errf(out.ExitUsage, "WEAK_PASSPHRASE", "run it again with another passphrase", "%s; nothing was changed", why)
 	}
-	p2, err := readHidden("Type it again (hidden): ")
+	p2, err := readHidden(cl, "Type it again (hidden): ")
 	if err != nil {
 		return "", err
 	}

@@ -6,15 +6,15 @@ import "testing"
 // no answer at once, and nothing reads the terminal again. The next command
 // (newRoot) asks again.
 func TestAskAfterInterrupt(t *testing.T) {
-	interrupted = true
-	defer func() { interrupted = false }()
-	if a := ask("Continue? [y/N] "); a != "" {
+	tcl.interrupted = true
+	defer func() { tcl.interrupted = false }()
+	if a := ask(tcl, "Continue? [y/N] "); a != "" {
 		t.Errorf("ask: %q", a)
 	}
-	if _, err := readHidden("Password: "); toErr(err).Code != "CANCELLED" {
+	if _, err := readHidden(tcl, "Password: "); toErr(err).Code != "CANCELLED" {
 		t.Errorf("readHidden: %v", err)
 	}
-	if newRoot(); interrupted {
+	if newRoot(tcl); tcl.interrupted {
 		t.Error("the next command starts with the interrupt still set")
 	}
 }

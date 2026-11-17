@@ -6,15 +6,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sgnd/komando/internal/netx"
 	"github.com/sgnd/komando/internal/store"
 )
 
 func TestRunningStatusEmpty(t *testing.T) {
-	d := runningStatus(&store.State{Settings: store.DefaultSettings()})
-	if d.Vpns == nil || d.Tunnels == nil || d.Jobs == nil {
+	d := runningStatus(tcl, &store.State{Settings: store.DefaultSettings()})
+	if d.Vpns == nil || d.AWSLogins == nil || d.Tunnels == nil || d.Jobs == nil {
 		t.Errorf("empty lists must be [] in JSON, not null: %+v", d)
 	}
-	if got := d.Text(); got != "nothing running: no VPN sessions, server logins, tunnels or jobs\n" {
+	if got := d.Text(); got != "nothing running: no VPN sessions, server or AWS logins, tunnels or jobs\n" {
 		t.Errorf("text: %q", got)
 	}
 }
@@ -40,14 +41,14 @@ func TestRunningStatus(t *testing.T) {
 			"old":    {Vpn: "old", PID: 200, StartedAt: now.Add(-time.Hour), LastUsed: now.Add(-time.Hour)}, // died
 		},
 		Tunnels: map[string]*store.Tunnel{
-			"t-up":   {ID: "t-up", Host: "bastion", Kind: "local", Spec: "5433:10.0.0.9:5432", Conn: "app-db", PID: os.Getpid(), StartedAt: now.Add(-2 * time.Hour)},
+			"t-up":   {ID: "t-up", Host: "bastion", Kind: "local", Spec: "5433:10.0.0.9:5432", Conn: "app-db", PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), StartedAt: now.Add(-2 * time.Hour)},
 			"t-dead": {ID: "t-dead", Host: "bastion", Kind: "local", Spec: "1:2:3", PID: 1 << 30, StartedAt: now},
 		},
 		Jobs: map[string]*store.Job{
 			"j-1": {ID: "j-1", Host: "web1", Command: "pg_dump app | gzip > /backup/app.sql.gz && echo done && echo \x1b[2J" + strings.Repeat("x", 40), StartedAt: now.Add(-15 * time.Minute)},
 		},
 	}
-	d := runningStatus(st)
+	d := runningStatus(tcl, st)
 	if len(d.Vpns) != 1 || d.Vpns[0].Name != "office" {
 		t.Fatalf("only live sessions: %+v", d.Vpns)
 	}
@@ -81,7 +82,7 @@ func TestRunningStatus(t *testing.T) {
 
 	// vpn_idle 0: a session never closes by itself
 	st.Settings.VpnIdle = "0"
-	if d := runningStatus(st); !d.Vpns[0].ClosesAt.IsZero() {
+	if d := runningStatus(tcl, st); !d.Vpns[0].ClosesAt.IsZero() {
 		t.Errorf("no idle limit, no closes_at: %v", d.Vpns[0].ClosesAt)
 	}
 }
@@ -90,7 +91,7 @@ func TestRunningStatus(t *testing.T) {
 // home and changes nothing.
 func TestStatusCommand(t *testing.T) {
 	setHome(t, t.TempDir())
-	if err := store.Update(func(st *store.State) error {
+	if err := store.Update(store.Save(), func(st *store.State) error {
 		st.Jobs["j-1"] = &store.Job{ID: "j-1", Host: "nowhere", Command: "sleep 1"}
 		return nil
 	}); err != nil {
@@ -98,7 +99,8 @@ func TestStatusCommand(t *testing.T) {
 	}
 	before, _ := os.ReadFile(store.Path("state.json"))
 	rtBefore, _ := os.ReadFile(store.Path("runtime.json"))
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs([]string{"-o", "json", "status"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("status: %v", err)

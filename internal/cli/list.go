@@ -29,6 +29,7 @@ type targetRow struct {
 	Groups    []string `json:"groups,omitempty"`
 	Tags      []string `json:"tags,omitempty"`
 	Protected bool     `json:"protected"`
+	Login     string   `json:"login,omitempty"` // a server's: ask, key, password or agent; a conn's: ask, password or none
 }
 
 type targetList struct {
@@ -96,7 +97,7 @@ func listCmdFor(only string) *cobra.Command {
 		Short:   "List servers, conns and VPNs",
 		Example: "  komando list\n  komando list @prod\n  komando list kind:db",
 		Args:    cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -106,7 +107,7 @@ func listCmdFor(only string) *cobra.Command {
 			}
 			sel := selection{Hosts: st.SortedHosts(), Conns: st.SortedConns(), Vpns: st.SortedVpns()}
 			if target != "" {
-				if sel, err = resolveSelection(st, target); err != nil {
+				if sel, err = resolveSelection(cl, st, target); err != nil {
 					return err
 				}
 			}
@@ -119,7 +120,7 @@ func listCmdFor(only string) *cobra.Command {
 			for _, h := range sel.Hosts {
 				l.Targets = append(l.Targets, targetRow{Name: h.Name, Kind: "host",
 					Where: net.JoinHostPort(h.Address, strconv.Itoa(h.EffectivePort())), Via: h.Via,
-					Groups: h.Groups, Tags: h.Tags, Protected: h.Protected})
+					Groups: h.Groups, Tags: h.Tags, Protected: h.Protected, Login: h.LoginMode()})
 			}
 			for _, c := range sel.Conns {
 				where := c.URL
@@ -127,7 +128,7 @@ func listCmdFor(only string) *cobra.Command {
 					where = t.Where()
 				}
 				l.Targets = append(l.Targets, targetRow{Name: c.Name, Kind: c.Kind, Where: where, Via: c.Via,
-					Groups: c.Groups, Tags: c.Tags, Protected: c.Protected})
+					Groups: c.Groups, Tags: c.Tags, Protected: c.Protected, Login: c.LoginMode()})
 			}
 			for _, v := range sel.Vpns {
 				l.Targets = append(l.Targets, targetRow{Name: v.Name, Kind: "vpn:" + v.Kind, Where: vpnWhere(v),
@@ -136,11 +137,11 @@ func listCmdFor(only string) *cobra.Command {
 			// one list by name, not servers first: the KIND column tells
 			// servers, conns and VPNs apart
 			sort.SliceStable(l.Targets, func(i, j int) bool { return l.Targets[i].Name < l.Targets[j].Name })
-			l.Targets = cutRows(l.Targets, limit)
+			l.Targets = cutRows(cl, l.Targets, limit)
 			l.Count = len(l.Targets)
-			out.P.Print("list", l, nil)
+			cl.out.Print("list", l, nil)
 			return nil
-		},
+		}),
 	}
 	limitFlag(c, &limit, 0, "items")
 	return c
@@ -221,8 +222,8 @@ func fixTestError(st *store.State, name string, e *out.Error) *out.Error {
 
 // vpnTest is testVpn with an error that says the --check address was
 // tried through the VPN (it is not a conn of its own).
-func vpnTest(ctx context.Context, st *store.State, v *store.Vpn) targetTest {
-	r := testVpn(ctx, st, v)
+func vpnTest(cl *call, ctx context.Context, st *store.State, v *store.Vpn) targetTest {
+	r := testVpn(cl, ctx, st, v)
 	if r.Error != nil && v.Check != "" && strings.Contains(r.Error.Message, v.Check) {
 		e := *r.Error
 		e.Message = "checking through the VPN with " + v.Check + " (its --check address): " + e.Message
@@ -238,7 +239,7 @@ func testCmdFor(only string) *cobra.Command {
 	c := &cobra.Command{
 		Use:     "test TARGET",
 		Aliases: []string{"ping"},
-		Short:   "Check that servers, services and VPNs answer and let you in",
+		Short:   "Check that servers, conns and VPNs answer and let you in",
 		Long: `Logs in to each server (and checks who it is and whether sudo needs a
 password), connects to each conn and checks each VPN.
 
@@ -251,12 +252,12 @@ problem: those fail at once. To wait for the server's own start-up too,
 run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next.`,
 		Example: "  komando test @prod\n  komando test all\n  komando test @new --wait 5m   # right after creating servers",
 		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			sel, err := resolveSelection(st, args[0])
+			sel, err := resolveSelection(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -265,9 +266,9 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 				return noMatch(args[0], kindWords[only], picked).WithHint("use `komando test " + args[0] + "` to test everything it picks")
 			}
 			t0 := time.Now()
-			res := testRound(cmd.Context(), st, sel)
+			res := testRound(cl, cmd.Context(), st, sel)
 			if wait > 0 {
-				res = waitForTargets(cmd.Context(), st, sel, res, t0.Add(wait))
+				res = waitForTargets(cl, cmd.Context(), st, sel, res, t0.Add(wait))
 			}
 			data := testData{Results: res}
 			if wait > 0 {
@@ -286,32 +287,32 @@ run ` + "`komando exec TARGET --read-only -- cloud-init status --wait`" + ` next
 				worst = worse(worst, r.Error.Exit)
 			}
 			data.Summary.Total = len(res)
-			audit(st, "test", names, "", data.Summary.Failed == 0, nil)
+			audit(cl, st, "test", names, "", data.Summary.Failed == 0, nil)
 			if data.Summary.Failed == 0 {
-				out.P.Print("test", data, nil)
+				cl.out.Print("test", data, nil)
 				return nil
 			}
 			soft := &out.Error{Code: "PARTIAL_FAILURE", Exit: worst,
 				Message: failedOf(data.Summary.Failed, data.Summary.Total) + ": " + strings.Join(data.Summary.FailedHosts, ", "),
-				Hint:    "see each result's error and hint"}
+				Hint:    "read each target's error and hint (data.results in -o json)"}
 			if len(res) == 1 && res[0].Error != nil { // one target: its own error code and next step, as exec gives
 				soft.Code, soft.Message = res[0].Error.Code, res[0].Host+" failed"
 				if res[0].Error.Hint != "" {
 					soft.Hint = res[0].Error.Hint
 				}
 			}
-			out.P.Print("test", data, soft)
+			cl.out.Print("test", data, soft)
 			return exitCode(worst)
-		},
+		}),
 	}
 	durVar(c.Flags(), &wait, "wait", 0, "test again every few seconds until every target passes, for up to this long (like 5m)")
 	return c
 }
 
 // testConns runs testConn on each conn in parallel, bounded by --parallel.
-func testConns(ctx context.Context, st *store.State, conns []*store.Conn) []targetTest {
+func testConns(cl *call, ctx context.Context, st *store.State, conns []*store.Conn) []targetTest {
 	res := make([]targetTest, len(conns))
-	sem := make(chan struct{}, max(1, parallelism(st)))
+	sem := make(chan struct{}, max(1, parallelism(cl, st)))
 	var wg sync.WaitGroup
 	for i, c := range conns {
 		wg.Add(1)
@@ -319,7 +320,7 @@ func testConns(ctx context.Context, st *store.State, conns []*store.Conn) []targ
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			d := testConn(ctx, st, c)
+			d := testConn(cl, ctx, st, c)
 			res[i] = targetTest{Host: c.Name, Kind: c.Kind, OK: d.OK, LatencyMS: d.LatencyMS, Detail: d, Error: d.Error}
 		}(i, c)
 	}

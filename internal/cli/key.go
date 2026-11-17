@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -97,7 +98,7 @@ bits.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web
   komando key gen legacy --type rsa -b 4096 -C ops@example.com`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			name := args[0]
 			if err := validName("key", name); err != nil {
 				return err
@@ -109,7 +110,7 @@ bits.`,
 			if hasControl(comment) {
 				return out.Errf(out.ExitUsage, "USAGE", "use one line of plain text, for example -C ops@example.com", "the key comment cannot hold line breaks or control characters")
 			}
-			if g.dryRun {
+			if cl.flags.dryRun {
 				if err := checkKeyType(typ, bits); err != nil {
 					return err
 				}
@@ -121,7 +122,7 @@ bits.`,
 					return keyExists(name)
 				}
 				k := &store.Key{Name: name, Type: typ, Managed: true}
-				out.P.Print("key.gen", keyResult{Key: k, Action: "would_add"}, nil)
+				cl.out.Print("key.gen", keyResult{Key: k, Action: "would_add"}, nil)
 				return nil
 			}
 			sk, err := newSigner(typ, bits)
@@ -137,7 +138,7 @@ bits.`,
 				return err
 			}
 			var k *store.Key
-			err = store.Update(func(s *store.State) error {
+			err = store.Update(cl.storeWrite(), func(s *store.State) error {
 				if _, ok := s.Keys[name]; ok {
 					return keyExists(name)
 				}
@@ -154,10 +155,10 @@ bits.`,
 			if err != nil {
 				return err
 			}
-			audit(nil, "key.gen", nil, "", true, map[string]any{"key": name, "type": k.Type, "fingerprint": k.Fingerprint})
-			out.P.Print("key.gen", keyResult{Key: k, Action: "added"}, nil)
+			audit(cl, nil, "key.gen", nil, "", true, map[string]any{"key": name, "type": k.Type, "fingerprint": k.Fingerprint})
+			cl.out.Print("key.gen", keyResult{Key: k, Action: "added"}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&typ, "type", "ed25519", "ed25519 | rsa | ecdsa")
 	c.Flags().IntVarP(&bits, "bits", "b", 0, "key size: RSA 3072-16384 (default 4096), ECDSA 256|384|521")
@@ -176,17 +177,21 @@ func isPublicKey(b []byte) bool {
 }
 
 func keyAddCmd() *cobra.Command {
-	var passRef string
+	var passRef, cert string
 	c := &cobra.Command{
 		Use:   "add NAME FILE",
 		Short: "Add a private key file you already have (komando keeps its path)",
 		Long: `Adds a private key file you already have to komando's key list; the file stays
 where it is. For a key with a passphrase, store the passphrase in the vault
-and pass --passphrase-ref secret:NAME.`,
+and pass --passphrase-ref secret:NAME.
+
+An OpenSSH user certificate next to the key (FILE-cert.pub) is used at
+login, as ssh does; --cert names one kept somewhere else.`,
 		Example: `  komando key add personal ~/.ssh/id_ed25519
+  komando key add corp ~/.ssh/id_corp --cert ~/.ssh/corp-ca/id_corp-cert.pub
   komando secret set id-pass && komando key add work ~/.ssh/id_work --passphrase-ref secret:id-pass`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if err := validName("key", args[0]); err != nil {
 				return err
 			}
@@ -202,7 +207,7 @@ and pass --passphrase-ref secret:NAME.`,
 				return out.Errf(out.ExitUsage, "KEY_INVALID", "this is a public key; pass the private key file: "+strings.TrimSuffix(args[1], ".pub"),
 					"%s is a public key", p)
 			}
-			res := keyResult{Key: &store.Key{Name: args[0], Path: p, PassphraseRef: passRef, CreatedAt: time.Now().UTC()}, Action: addVerb(false)}
+			res := keyResult{Key: &store.Key{Name: args[0], Path: p, PassphraseRef: passRef, CreatedAt: time.Now().UTC()}, Action: addVerb(cl, false)}
 			k := res.Key
 			signer, err := ssh.ParsePrivateKey(b)
 			var pme *ssh.PassphraseMissingError
@@ -230,13 +235,22 @@ and pass --passphrase-ref secret:NAME.`,
 				} else {
 					res.Warnings = append(res.Warnings, "no "+filepath.Base(p)+".pub next to it, so the public key is unknown (needed by key deploy)")
 				}
+			case skPublic(p) != nil:
+				// a FIDO2 key: komando signs with it through ssh-agent
+				pub := skPublic(p)
+				k.Type, k.Fingerprint = pub.Type(), ssh.FingerprintSHA256(pub)
+				k.PublicKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
+				res.Warnings = append(res.Warnings, "a security key (FIDO2): komando logs in with it through ssh-agent; load it with `ssh-add "+p+"` (touch the key when it blinks)")
 			default:
 				return out.Errf(out.ExitUsage, "KEY_INVALID", "give an OpenSSH or PEM private key file", "cannot parse %s: %v", p, err)
+			}
+			if err := keyCert(k, cert, p, &res.Warnings); err != nil {
+				return err
 			}
 			if k.Type == ssh.KeyAlgoRSA && rsaBits(k.PublicKey) > 0 && rsaBits(k.PublicKey) < 2048 {
 				res.Warnings = append(res.Warnings, fmt.Sprintf("this RSA key has only %d bits; servers may refuse it: make a new one with `komando key gen`", rsaBits(k.PublicKey)))
 			}
-			err = store.Update(func(s *store.State) error {
+			err = store.Update(cl.storeWrite(), func(s *store.State) error {
 				if _, ok := s.Keys[k.Name]; ok {
 					return keyExists(k.Name)
 				}
@@ -251,13 +265,73 @@ and pass --passphrase-ref secret:NAME.`,
 			if err != nil {
 				return err
 			}
-			audit(nil, "key.add", nil, "", true, map[string]any{"key": k.Name, "path": k.Path, "fingerprint": k.Fingerprint})
-			out.P.Print("key.add", res, nil)
+			audit(cl, nil, "key.add", nil, "", true, map[string]any{"key": k.Name, "path": k.Path, "fingerprint": k.Fingerprint})
+			cl.out.Print("key.add", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&passRef, "passphrase-ref", "", "passphrase reference for encrypted keys (secret:NAME | env:VAR | ...)")
+	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key (default: FILE-cert.pub next to it, if there)")
 	return c
+}
+
+// keyCert checks the user certificate key add or key edit names (cert) and
+// keeps its path in k; without one it notes a FILE-cert.pub next to the
+// key file (keyFile), which logins use as ssh does.
+func keyCert(k *store.Key, cert, keyFile string, warnings *[]string) error {
+	var pub ssh.PublicKey
+	if k.PublicKey != "" {
+		pub, _, _, _, _ = ssh.ParseAuthorizedKey([]byte(k.PublicKey))
+	}
+	path := cert
+	if path == "" {
+		if keyFile == "" {
+			return nil
+		}
+		path = keyFile + "-cert.pub"
+		if _, err := os.Stat(path); err != nil {
+			return nil
+		}
+	}
+	path, _ = filepath.Abs(expandHome(path))
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return out.Errf(out.ExitNotFound, "FILE_NOT_FOUND", "give the path of the key's certificate, for example ~/.ssh/id_ed25519-cert.pub", "%s: %v", path, errText(err))
+	}
+	c, err := sshx.ParseUserCert(b, pub)
+	if err != nil {
+		return out.Errf(out.ExitUsage, "KEY_INVALID", "give the OpenSSH user certificate (KEY-cert.pub) that was signed for this key", "%s: %v", path, err)
+	}
+	if cert != "" {
+		k.CertPath = path
+	}
+	if !sshx.CertCurrent(c, time.Now()) {
+		*warnings = append(*warnings, "the certificate "+filepath.Base(path)+" is not valid now (valid "+certWindow(c)+"): logins use the key alone until it is renewed")
+	}
+	return nil
+}
+
+// certWindow is a certificate's valid time in words.
+func certWindow(c *ssh.Certificate) string {
+	from := time.Unix(int64(c.ValidAfter), 0).UTC().Format(time.RFC3339)
+	if c.ValidBefore == ssh.CertTimeInfinity {
+		return "from " + from + ", no end"
+	}
+	return from + " to " + time.Unix(int64(c.ValidBefore), 0).UTC().Format(time.RFC3339)
+}
+
+// skPublic is the public key of the security key (FIDO2) whose key file
+// is p, from p.pub next to it; nil when p is no security key.
+func skPublic(p string) ssh.PublicKey {
+	b, err := os.ReadFile(p + ".pub")
+	if err != nil {
+		return nil
+	}
+	pub, _, _, _, err := ssh.ParseAuthorizedKey(b)
+	if err != nil || !sshx.IsSecurityKey(pub) {
+		return nil
+	}
+	return pub
 }
 
 // rsaBits is the size of an RSA public key line, or 0.
@@ -291,66 +365,94 @@ func cleanPubLine(pub ssh.PublicKey, comment string) string {
 }
 
 func keyEditCmd() *cobra.Command {
-	var passRef string
+	var passRef, cert string
 	var unset []string
 	c := &cobra.Command{
 		Use:   "edit NAME",
-		Short: "Change a key's passphrase reference",
+		Short: "Change a key's passphrase reference or certificate",
 		Long: `Sets where komando finds the passphrase of an encrypted key. Store the
 passphrase with ` + "`komando secret set NAME`" + ` first and pass secret:NAME;
---unset passphrase-ref clears it.`,
+--unset passphrase-ref clears it.
+
+--cert FILE gives the key an OpenSSH user certificate (for a key komando
+made, or one kept away from the key file); --unset cert goes back to
+FILE-cert.pub next to the key.`,
 		Example: `  komando secret set work-key-pass
   komando key edit work --passphrase-ref secret:work-key-pass
-  komando key edit work --unset passphrase-ref`,
+  komando key edit work --unset passphrase-ref
+  komando key edit deploy --cert ~/Downloads/deploy-cert.pub`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
 			for _, u := range unset {
-				if u != "passphrase-ref" {
-					return out.Usage("--unset takes passphrase-ref, not %q", u)
+				if u != "passphrase-ref" && u != "cert" {
+					return out.Usage("--unset takes passphrase-ref or cert, not %q", u)
 				}
 			}
+			unsetPass, unsetCert := slices.Contains(unset, "passphrase-ref"), slices.Contains(unset, "cert")
 			switch {
-			case fl.Changed("unset") && fl.Changed("passphrase-ref"):
+			case unsetPass && fl.Changed("passphrase-ref"):
 				return out.Usage("use --passphrase-ref or --unset passphrase-ref, not both")
-			case fl.Changed("unset"):
-				passRef = ""
-			case !fl.Changed("passphrase-ref"):
+			case unsetCert && fl.Changed("cert"):
+				return out.Usage("use --cert or --unset cert, not both")
+			case !fl.Changed("unset") && !fl.Changed("passphrase-ref") && !fl.Changed("cert"):
 				return out.Errf(out.ExitUsage, "USAGE", "for example komando key edit "+args[0]+" --passphrase-ref secret:NAME", "nothing to change")
 			}
 			if err := checkPassphraseRef(passRef); err != nil {
 				return err
 			}
-			var k *store.Key
-			old := ""
-			err := store.Update(func(s *store.State) error {
-				var err error
-				if k, err = findKey(s, args[0]); err != nil {
-					return err
-				}
-				old = k.PassphraseRef
-				k.PassphraseRef = passRef
-				return nil
-			})
+			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			res := keyResult{Key: k, Action: "changed", Warnings: missingSecretWarnings(passRef)}
+			cur, err := findKey(cl, st, args[0])
+			if err != nil {
+				return err
+			}
+			want := *cur
+			if fl.Changed("passphrase-ref") || unsetPass {
+				want.PassphraseRef = passRef
+			}
+			var warnings []string
 			switch {
-			case old == passRef:
+			case unsetCert:
+				want.CertPath = ""
+			case fl.Changed("cert"):
+				if err := keyCert(&want, cert, "", &warnings); err != nil {
+					return err
+				}
+			}
+			warnings = append(warnings, missingSecretWarnings(want.PassphraseRef)...)
+			res := keyResult{Key: &want, Action: "changed", Warnings: warnings}
+			switch {
+			case want.PassphraseRef == cur.PassphraseRef && want.CertPath == cur.CertPath:
 				res.Action = "unchanged"
-			case g.dryRun:
+			case cl.flags.dryRun:
 				res.Action = "would_change"
 			}
 			if res.Action == "changed" {
-				audit(nil, "key.edit", nil, "", true, map[string]any{"key": k.Name, "old_passphrase_ref": old, "new_passphrase_ref": passRef})
+				err := store.Update(cl.storeWrite(), func(s *store.State) error {
+					k, err := findKey(cl, s, args[0])
+					if err != nil {
+						return err
+					}
+					k.PassphraseRef, k.CertPath = want.PassphraseRef, want.CertPath
+					res.Key = k
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				audit(cl, nil, "key.edit", nil, "", true, map[string]any{"key": cur.Name, "old_passphrase_ref": cur.PassphraseRef, "new_passphrase_ref": want.PassphraseRef,
+					"old_cert": cur.CertPath, "new_cert": want.CertPath})
 			}
-			out.P.Print("key.edit", res, nil)
+			cl.out.Print("key.edit", res, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().StringVar(&passRef, "passphrase-ref", "", "where the passphrase is: secret:NAME | env:VAR | ...")
-	c.Flags().StringSliceVar(&unset, "unset", nil, "clear this setting: passphrase-ref")
+	c.Flags().StringVar(&cert, "cert", "", "an OpenSSH user certificate for the key")
+	c.Flags().StringSliceVar(&unset, "unset", nil, "clear this setting: passphrase-ref, cert")
 	return c
 }
 
@@ -381,7 +483,7 @@ func keyListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List keys and the servers that use them",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
@@ -397,33 +499,65 @@ func keyListCmd() *cobra.Command {
 				l.Keys = append(l.Keys, r)
 			}
 			sort.Slice(l.Keys, func(i, j int) bool { return l.Keys[i].Name < l.Keys[j].Name })
-			l.Keys = cutRows(l.Keys, limit)
+			l.Keys = cutRows(cl, l.Keys, limit)
 			l.Count = len(l.Keys)
-			out.P.Print("key.list", l, nil)
+			cl.out.Print("key.list", l, nil)
 			return nil
-		},
+		}),
 	}
 	limitFlag(c, &limit, 0, "keys")
 	return c
 }
 
+// keyShown is `key show`: the key, and with --reveal the private key of
+// one komando keeps in its sealed store.
+type keyShown struct {
+	*store.Key
+	PrivateKey string `json:"private_key,omitempty"`
+}
+
 func keyShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show NAME",
-		Short: "Show a key's public part (never the private key)",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Short: "Show a key's public part, or a person its private key",
+		Long: `Shows a key's type, fingerprint and public part. A person at a terminal can
+add --reveal to print the private key of a key komando made (it is kept in
+komando's sealed store, with no file), for example to keep a copy in a
+password manager; from a program without a terminal (the Komando Mac app),
+komando first asks the person in its own window. A key added with ` + "`key add`" + `
+is a file you have already: --reveal names its path. AI agents never get a
+private key.`,
+		Example: `  komando key show deploy
+  komando key show deploy --reveal > deploy.key   # a person, at a terminal`,
+		Args: cobra.ExactArgs(1),
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			k, err := findKey(st, args[0])
+			k, err := findKey(cl, st, args[0])
 			if err != nil {
 				return err
 			}
-			out.P.Print("key.show", k, nil)
+			res := keyShown{Key: k}
+			if cl.flags.reveal {
+				if !store.SealedKey(k) && !cl.isAgent() {
+					cl.out.Warn("komando keeps only the path of " + k.Name + ": its private key is the file " + k.Path)
+				} else if via, err := revealGate(cl, "key.show", "key", k.Name, "the private key of "+k.Name); err != nil {
+					return err
+				} else if via != "" {
+					priv, err := store.ReadPrivateKey(k)
+					if err != nil {
+						return err
+					}
+					cl.out.NoRedact = true // the person asked for this key
+					res.PrivateKey = string(priv)
+					revealAudit(cl, "key.reveal", "key", k.Name, via)
+				}
+			}
+			cl.out.Print("key.show", res, nil)
 			return nil
-		},
+		}),
 	}
 }
 
@@ -436,19 +570,19 @@ func keyRmCmd() *cobra.Command {
 key komando keeps for a key it made (key gen), for good; a key file you
 added stays on disk.`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			res := map[string]any{"removed": args[0], "file_deleted": false}
 			if deleteFile { // key files komando made have no copy: T3 (OD-7); asked before the state is locked
 				if st, err := loadState(); err == nil {
-					if k, err := findKey(st, args[0]); err == nil && k.Managed && !keyInUse(st, k.Name) {
-						if err := guardLocalDelete([]string{k.Name}, "keys", "deletes the private key of "+k.Name+" for good"); err != nil {
+					if k, err := findKey(cl, st, args[0]); err == nil && k.Managed && !keyInUse(st, k.Name) {
+						if err := guardLocalDelete(cl, []string{k.Name}, "keys", "deletes the private key of "+k.Name+" for good"); err != nil {
 							return err
 						}
 					}
 				}
 			}
-			err := store.Update(func(s *store.State) error {
-				k, err := findKey(s, args[0])
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
+				k, err := findKey(cl, s, args[0])
 				if err != nil {
 					return err
 				}
@@ -469,7 +603,7 @@ added stays on disk.`,
 				switch {
 				case deleteFile && !k.Managed:
 					res["note"] = "komando did not create " + k.Path + ", so the file was left in place"
-				case deleteFile && g.dryRun:
+				case deleteFile && cl.flags.dryRun:
 					res["would_delete_file"] = k.Path
 				case deleteFile:
 					if err := store.RemoveManagedKey(k); err != nil {
@@ -484,12 +618,12 @@ added stays on disk.`,
 				return err
 			}
 			name := res["removed"].(string)
-			if g.dryRun { // a preview does not read as done
+			if cl.flags.dryRun { // a preview does not read as done
 				res["would_remove"] = name
 				delete(res, "removed")
 			}
-			audit(nil, "key.rm", nil, "", true, map[string]any{"key": name, "file_deleted": res["file_deleted"]})
-			say := changeSay("remove", "key "+name, "")
+			audit(cl, nil, "key.rm", nil, "", true, map[string]any{"key": name, "file_deleted": res["file_deleted"]})
+			say := changeSay(cl, "remove", "key "+name, "")
 			if res["file_deleted"] == true {
 				say += "\nits private key was deleted"
 			} else if f, ok := res["would_delete_file"].(string); ok {
@@ -498,16 +632,16 @@ added stays on disk.`,
 			if n, ok := res["note"].(string); ok {
 				say += "\nnote: " + n
 			}
-			out.P.Print("key.rm", textAs{res, textBlob(say)}, nil)
+			cl.out.Print("key.rm", textAs{res, textBlob(say)}, nil)
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&deleteFile, "delete-file", false, "also delete the private key komando keeps (only keys komando made)")
 	return c
 }
 
 // deployKey is what `key deploy` installs: a keychain key, or a .pub file.
-func deployKey(st *store.State, arg string) (name, line string, err error) {
+func deployKey(cl *call, st *store.State, arg string) (name, line string, err error) {
 	if k, ok := st.Keys[arg]; ok {
 		if k.PublicKey == "" {
 			return "", "", out.Errf(out.ExitUsage, "NO_PUBLIC_KEY", "place "+k.Path+".pub next to the key, then `komando key rm "+k.Name+"` and add it again", "komando does not have the public key of %s", k.Name)
@@ -525,7 +659,7 @@ func deployKey(st *store.State, arg string) (name, line string, err error) {
 		}
 		return arg, cleanPubLine(pub, comment), nil
 	}
-	return "", "", notFoundSuggest("key", arg, mapKeys(st.Keys)).WithHint("give a key name from `komando key list` or a .pub file")
+	return "", "", notFoundSuggest(cl, "key", arg, mapKeys(st.Keys)).WithHint("give a key name from `komando key list` or a .pub file")
 }
 
 func keyDeployCmd() *cobra.Command {
@@ -541,34 +675,34 @@ this key.`,
 		Example: `  komando key gen deploy && komando key deploy deploy @web --set-default
   komando key deploy ~/.ssh/id_ed25519.pub web1`,
 		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			st, err := loadState()
 			if err != nil {
 				return err
 			}
-			name, pubLine, err := deployKey(st, args[0])
+			name, pubLine, err := deployKey(cl, st, args[0])
 			if err != nil {
 				return err
 			}
 			if setDefault && st.Keys[name] == nil {
 				return out.Errf(out.ExitUsage, "USAGE", "add the private key first with `komando key add NAME FILE`, then deploy NAME", "--set-default needs a key in komando's key list, not a .pub file")
 			}
-			hosts, err := resolveTargets(st, args[1])
+			hosts, err := resolveTargets(cl, st, args[1])
 			if err != nil {
 				return err
 			}
-			if err := guard(st, hosts, "", true); err != nil {
+			if err := guard(cl, st, hosts, "", true); err != nil {
 				return err
 			}
 			fields := strings.Fields(pubLine)
 			match := fields[0] + " " + fields[1]
 			script := `umask 077; mkdir -p ~/.ssh && touch ~/.ssh/authorized_keys && ` +
 				`if grep -qF ` + sshx.Q(match) + ` ~/.ssh/authorized_keys; then echo present; else printf '%s\n' ` + sshx.Q(pubLine) + ` >> ~/.ssh/authorized_keys && echo added; fi`
-			if g.dryRun {
-				out.P.Print("key.deploy", map[string]any{"hosts": hostNames(hosts), "would_run": script}, nil)
+			if cl.flags.dryRun {
+				cl.out.Print("key.deploy", map[string]any{"hosts": hostNames(hosts), "would_run": script}, nil)
 				return nil
 			}
-			res := fanout(cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+			res := fanout(cl, cmd.Context(), st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 				o, code, err := sshx.Output(ctx, c, script, 30*time.Second)
 				if err != nil {
 					return nil, err
@@ -601,7 +735,7 @@ this key.`,
 			}
 			data.Summary.Total = len(res)
 			if setDefault && len(okHosts) > 0 {
-				_ = store.Update(func(s *store.State) error {
+				_ = store.Update(cl.storeWrite(), func(s *store.State) error {
 					for _, n := range okHosts {
 						if h, ok := s.Hosts[n]; ok {
 							h.Key = name
@@ -610,9 +744,9 @@ this key.`,
 					return nil
 				})
 			}
-			audit(st, "key.deploy", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": name})
-			return finish("key.deploy", data, data.Summary, worst)
-		},
+			audit(cl, st, "key.deploy", hostNames(hosts), "", data.Summary.Failed == 0, map[string]any{"key": name})
+			return finish(cl, "key.deploy", data, data.Summary, worst)
+		}),
 	}
 	c.Flags().BoolVar(&setDefault, "set-default", false, "servers that got the key log in with it from now on")
 	return c

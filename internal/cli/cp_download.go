@@ -17,6 +17,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/storex"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // Downloads from servers: one file or a folder over SFTP, one file as root
@@ -26,15 +27,18 @@ import (
 const downloadPermHint = "the SSH user cannot read it; for one file add --sudo, for a folder copy it to a readable place first with `komando exec --sudo`"
 
 // download copies src from the server to dst on this computer. Files that
-// already exist stay as they are unless overwrite is set, and every file is
-// written to a temporary name first, so an interrupted download never
-// leaves half a file behind.
-func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, o cpOpts) (xferStats, error) {
+// already exist stay as they are unless overwrite is set: one file stops
+// with FILE_EXISTS, a folder keeps them (kept) and copies the rest. Every
+// file is written to a temporary name first, so an interrupted download
+// never leaves half a file behind.
+func download(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, o cpOpts) (xferStats, error) {
 	lfi, lerr := os.Stat(dst)
 	dstIsDir := lerr == nil && lfi.IsDir()
 	dstSlash := strings.HasSuffix(dst, string(os.PathSeparator)) || strings.HasSuffix(dst, "/")
+	pp := progressFrom(ctx)
 	if o.sudo {
-		return sudoDownload(ctx, c, src, dst, dstIsDir || dstSlash, o.overwrite)
+		pp.unknown() // sudo cat: the size is known once it is read
+		return sudoDownload(cl, ctx, c, src, dst, dstIsDir || dstSlash, o.overwrite)
 	}
 	fi, err := sc.Stat(src)
 	if err != nil {
@@ -44,10 +48,10 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 		if dstIsDir || dstSlash {
 			dst = filepath.Join(dst, path.Base(src))
 		}
-		if err := guardSensitiveCopy(src); err != nil {
+		if err := guardSensitiveCopy(cl, src); err != nil {
 			return xferStats{}, err
 		}
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 			return xferStats{}, err
 		}
 		in, err := sc.Open(src)
@@ -55,20 +59,30 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			return xferStats{}, fsErrHint(src, err, downloadPermHint)
 		}
 		defer in.Close()
-		var watch io.Writer
-		if p := transferProgress(o, path.Base(src), fi.Size()); p != nil {
+		pp.total(1, fi.Size())
+		pp.start(src)
+		watch := pp.writer()
+		if p := transferProgress(cl, ctx, o, path.Base(src), fi.Size()); p != nil {
 			defer p.done()
 			watch = p
 		}
-		n, sum, masked, err := fetchFile(ctx, in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite, watch)
+		n, sum, masked, err := fetchFile(cl, ctx, in, dst, fi.Mode().Perm(), fi.ModTime(), o.overwrite, watch)
 		if err != nil {
 			return xferStats{}, err // nothing was saved: never "downloaded 1 file"
 		}
+		pp.fileDone()
 		return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 	}
 	if !o.recursive {
 		return xferStats{}, out.Usage("%s is a folder; add -r", src)
 	}
+	pp.unknown() // the folder is read as it is copied
+	return downloadFolder(cl, ctx, sc, src, dst, dstIsDir, dstSlash, o)
+}
+
+// downloadFolder is download -r: the folder src (its contents with a
+// trailing /) into dst, as cpFolderRule says.
+func downloadFolder(cl *call, ctx context.Context, sc *sftp.Client, src, dst string, dstIsDir, dstSlash bool, o cpOpts) (xferStats, error) {
 	contents := strings.HasSuffix(src, "/")
 	src = path.Clean(src)
 	dst = filepath.FromSlash(treeDest(filepath.ToSlash(filepath.Clean(dst)), path.Base(src), contents, dstIsDir, dstSlash))
@@ -88,8 +102,11 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			return st, out.Errf(out.ExitRemote, "UNSAFE_PATH", "check the server for odd file names", "server sent the path %q, which leads outside %s; nothing outside the folder was written", w.Path(), dst)
 		}
 		lp := filepath.Join(dst, filepath.FromSlash(rel))
+		if link := linkInDest(dst, filepath.FromSlash(rel), w.Stat().IsDir()); link != "" {
+			return st, localLinkStop(rel, link)
+		}
 		if w.Stat().IsDir() {
-			if err := os.MkdirAll(lp, 0o755); err != nil {
+			if err := mkdirLocal(cl, lp); err != nil {
 				return st, err
 			}
 			continue
@@ -98,28 +115,37 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 			st.Skipped = append(st.Skipped, rel)
 			continue
 		}
-		if guardSensitiveCopy(w.Path()) != nil {
-			out.P.Skip(out.Skipped{Name: w.Path(), Kind: "file", Reason: "holds secrets; an AI agent needs --reveal, which the user allows, to copy it here"})
+		if guardSensitiveCopy(cl, w.Path()) != nil {
+			cl.out.Skip(out.Skipped{Name: w.Path(), Kind: "file", Reason: "holds secrets; an AI agent needs --reveal, which the user allows, to copy it here"})
 			continue
+		}
+		if !o.overwrite {
+			if lfi, err := os.Lstat(lp); err == nil {
+				// already here: kept, and the rest still come (as storage -r does)
+				keepLocal(&st, w.Path(), lp, lfi)
+				continue
+			}
 		}
 		in, err := sc.Open(w.Path())
 		if err != nil {
 			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(fsErrHint(w.Path(), err, downloadPermHint)).Message})
 			continue
 		}
-		n, _, masked, err := fetchFile(ctx, in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite, nil)
+		progressFrom(ctx).start(rel)
+		n, _, masked, err := fetchFile(cl, ctx, in, lp, w.Stat().Mode().Perm(), w.Stat().ModTime(), o.overwrite, progressFrom(ctx).writer())
 		in.Close()
 		if ctx.Err() != nil {
 			return st, ctx.Err()
 		}
 		if err != nil {
-			e := toErr(err)
-			if e.Code == "FILE_EXISTS" {
-				return st, err // the same for every file: stop and say so
+			if lfi, lerr := os.Lstat(lp); lerr == nil && !o.overwrite && toErr(err).Code == "FILE_EXISTS" {
+				keepLocal(&st, w.Path(), lp, lfi) // made here while it was copied
+				continue
 			}
-			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: e.Message})
+			st.Errors = append(st.Errors, xferErr{Path: w.Path(), Message: toErr(err).Message})
 			continue
 		}
+		progressFrom(ctx).fileDone()
 		st.Files++
 		st.Bytes += n
 		st.Masked += count(masked)
@@ -127,12 +153,39 @@ func download(ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst str
 	return st, nil
 }
 
+// linkInDest is the first symbolic link on the way from root to rel (the
+// folders above a file, the folder itself), or "": writing through it
+// would put the file wherever the link leads, outside the folder. The
+// file's own name may be a link: a new file replaces the link itself.
+func linkInDest(root, rel string, dir bool) string {
+	if !dir {
+		rel = filepath.Dir(rel)
+	}
+	return symlinkOn(root, rel)
+}
+
+func localLinkStop(rel, link string) error {
+	return out.Errf(out.ExitRemote, "UNSAFE_PATH", "remove the link, or copy into a folder without links",
+		"%s would be written through %s, a symbolic link on this computer that can lead outside the folder; nothing was written through it", rel, link)
+}
+
+// keepLocal counts a file of a folder download that is already on this
+// computer and stays as it is. A folder where the file would go is listed
+// as an error instead: the file is not here, and keeping it is not true.
+func keepLocal(st *xferStats, remote, local string, fi os.FileInfo) {
+	if fi.IsDir() {
+		st.Errors = append(st.Errors, xferErr{Path: remote, Message: local + " is a folder on this computer"})
+		return
+	}
+	st.Kept++
+}
+
 // sudoMaxBytes caps a --sudo download, which is read through memory.
 const sudoMaxBytes = 512 << 20
 
 // sudoDownload reads one file as root (sudo cat) and saves it here.
-func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir, overwrite bool) (xferStats, error) {
-	if err := guardSensitiveCopy(src); err != nil {
+func sudoDownload(cl *call, ctx context.Context, c *sshx.Client, src, dst string, intoDir, overwrite bool) (xferStats, error) {
+	if err := guardSensitiveCopy(cl, src); err != nil {
 		return xferStats{}, err
 	}
 	r, err := sshx.Run(ctx, c, sshx.RunRequest{Command: `if [ -d ` + sshx.Q(src) + ` ]; then echo "is a folder" >&2; exit 81; fi; ` + sudoReadScript(src, "cat"),
@@ -146,7 +199,7 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	case r.ExitCode == sudoExitLink:
 		return xferStats{}, readLinkStop(src)
 	case r.ExitCode != 0 && strings.Contains(r.Stderr, "No such file"):
-		return xferStats{}, fsErr(src, os.ErrNotExist)
+		return xferStats{}, fsErr(cl, src, os.ErrNotExist)
 	case r.ExitCode != 0:
 		return xferStats{}, out.Errf(out.ExitRemote, "READ_FAILED", "check the path and its permissions with `komando fs stat SERVER PATH`, or add --sudo", "%s", strings.TrimSpace(r.Stderr))
 	case r.StdoutTruncated:
@@ -156,13 +209,16 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 	if intoDir {
 		dst = filepath.Join(dst, path.Base(src))
 	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := mkdirLocal(cl, filepath.Dir(dst)); err != nil {
 		return xferStats{}, err
 	}
-	n, sum, masked, err := fetchFile(ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite, nil)
+	pp := progressFrom(ctx)
+	pp.start(src)
+	n, sum, masked, err := fetchFile(cl, ctx, bytes.NewReader([]byte(r.Stdout)), dst, 0o644, time.Time{}, overwrite, pp.writer())
 	if err != nil {
 		return xferStats{}, err
 	}
+	pp.fileDone()
 	return xferStats{Files: 1, Bytes: n, Dest: dst, SHA256: sum, Masked: count(masked)}, nil
 }
 
@@ -171,7 +227,10 @@ func sudoDownload(ctx context.Context, c *sshx.Client, src, dst string, intoDir,
 // out: it would let a weak hidden value be guessed). The real file never
 // reaches dst: the temporary file is masked before it is moved there.
 // watch, when not nil, sees every byte (a progress line).
-func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool, watch io.Writer) (n int64, sum string, masked bool, err error) {
+func fetchFile(cl *call, ctx context.Context, in io.Reader, dst string, perm os.FileMode, mtime time.Time, overwrite bool, watch io.Writer) (n int64, sum string, masked bool, err error) {
+	if err := guardLocalWrite(cl, dst); err != nil {
+		return 0, "", false, err
+	}
 	if _, err := os.Lstat(dst); err == nil && !overwrite {
 		return 0, "", false, fileExists(dst)
 	}
@@ -180,14 +239,15 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 		return 0, "", false, err
 	}
 	defer os.Remove(tmp.Name()) // no-op once it has been moved into place
+	defer tmpclean.Add(tmp.Name())()
 	h := sha256.New()
 	// the destination watches ctx: an SFTP source keeps reading in parallel
 	var w io.Writer = io.MultiWriter(tmp, h)
 	if watch != nil {
 		w = io.MultiWriter(tmp, h, watch)
 	}
-	if out.P.Mask && !revealOK() {
-		n, masked, err = fetchMasked(ctx, in, tmp, h, watch)
+	if cl.out.Mask && !cl.revealOK() {
+		n, masked, err = fetchMasked(cl, ctx, in, tmp, h, watch)
 	} else {
 		n, err = io.Copy(storex.CtxWriter(ctx, w), in)
 	}
@@ -202,6 +262,9 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 	}
 	if !mtime.IsZero() {
 		_ = os.Chtimes(tmp.Name(), mtime, mtime)
+	}
+	if err := guardLocalWrite(cl, dst); err != nil {
+		return 0, "", false, err
 	}
 	if overwrite {
 		err = os.Rename(tmp.Name(), dst)
@@ -221,7 +284,7 @@ func fetchFile(ctx context.Context, in io.Reader, dst string, perm os.FileMode, 
 // read whole is masked in memory, so its real secret values never reach
 // the disk, not even for a moment in the temporary file. A binary or
 // larger file cannot be masked; it is stopped when it holds a vault value.
-func fetchMasked(ctx context.Context, in io.Reader, tmp *os.File, h io.Writer, watch io.Writer) (int64, bool, error) {
+func fetchMasked(cl *call, ctx context.Context, in io.Reader, tmp *os.File, h io.Writer, watch io.Writer) (int64, bool, error) {
 	seen := io.Writer(h)
 	if watch != nil {
 		seen = io.MultiWriter(h, watch)
@@ -233,13 +296,16 @@ func fetchMasked(ctx context.Context, in io.Reader, tmp *os.File, h io.Writer, w
 	}
 	b := head.Bytes()
 	if n <= hiddenScanMax && bytes.IndexByte(b, 0) < 0 {
-		m := out.P.Redact(string(b))
+		m := cl.out.Redact(string(b))
 		if _, err := tmp.WriteString(m); err != nil {
 			return 0, false, err
 		}
 		return int64(len(m)), m != string(b), nil
 	}
-	sc := out.P.NewValueScanner()
+	if err := personalBinary(cl, b, n); err != nil {
+		return 0, false, err
+	}
+	sc := cl.out.NewValueScanner()
 	_, _ = sc.Write(b)
 	if _, err := tmp.Write(b); err != nil {
 		return 0, false, err
@@ -247,7 +313,7 @@ func fetchMasked(ctx context.Context, in io.Reader, tmp *os.File, h io.Writer, w
 	rest, err := io.Copy(storex.CtxWriter(ctx, io.MultiWriter(tmp, seen, sc)), in)
 	if err == nil && sc.Found() {
 		err = out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			revealHint("it is binary or larger than komando reads whole, so its secrets cannot be shown as [hidden]; if the user wants the real file on this computer, re-run with --reveal"),
+			revealHint(cl, "it is binary or larger than komando reads whole, so its secrets cannot be shown as [hidden]; if the user wants the real file on this computer, re-run with --reveal"),
 			"the file holds a value from komando's vault; komando does not copy it to this computer for an AI agent")
 	}
 	return n + rest, false, err

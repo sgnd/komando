@@ -17,9 +17,9 @@ func FuzzGuard(f *testing.F) {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {
-		_ = checkTool("Bash", map[string]any{"command": s}, "/home/u", "")
-		_ = checkTool("Read", map[string]any{"file_path": s}, "/home/u", "")
-		if !checkTool("Bash", map[string]any{"command": s + "; cat ~/.komando/vault.key"}, "/home/u", "").Deny {
+		_ = checkTool(tcl, "Bash", map[string]any{"command": s}, "/home/u", "")
+		_ = checkTool(tcl, "Read", map[string]any{"file_path": s}, "/home/u", "")
+		if !checkTool(tcl, "Bash", map[string]any{"command": s + "; cat ~/.komando/vault.key"}, "/home/u", "").Deny {
 			t.Fatalf("vault read after %q not stopped", s)
 		}
 	})

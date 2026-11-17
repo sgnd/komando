@@ -36,7 +36,10 @@ usual place for that source.
 | `docker` | `~/.docker/config.json` (and credential helpers) | registry conns |
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP sites are listed, not added) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
+| `mobaxterm` | MobaXterm's exported sessions (`.mxtsessions`; no default: give the file) | servers (SSH sessions; a session's folder becomes a group; other session types are listed) |
+| `putty` | PuTTY's sessions exported from the Windows registry (no default: give the file, see below) | servers (SSH sessions; a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do) |
 | `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied ([Cloud logins](cloud.md#add-a-conn-for-every-s3-bucket)) |
+| `aws-ec2` | `~/.aws/config` (and `credentials`) | a server per running EC2 instance of each profile, in the profile's region, read with the profile's login (nothing is changed in AWS): named by its `Name` tag, in a group named after the region, labelled `aws-instance`. Instances with no public address, Windows ones and their key pairs are listed with what to do |
 | `dbeaver` | DBeaver's `data-sources.json` | database conns (set the passwords afterwards) |
 | `komando` | a file from `komando export` | servers, conns, VPNs and recipes |
 | `csv` | a spreadsheet saved as CSV (no default: give the file) | servers, one per row; see [Add many servers from a spreadsheet](servers.md#add-many-servers-from-a-spreadsheet) |
@@ -69,7 +72,15 @@ appear in komando's list, output or history.
   other clear-text URL to another computer is skipped unless it ends in
   `?insecure=1`.
 - With `--overwrite`, the result lists what it replaced. Without a yes, a
-  protected server or conn is skipped, in the dry run too.
+  protected server, conn or VPN is skipped, in the dry run too.
+- A file cannot turn on what `host edit` and `vpn edit` ask a person for:
+  `forward_agent` on a server that did not lend your ssh-agent before,
+  `legacy_crypto` or `allow_pap` on a VPN, and, for a VPN it replaces, a CA
+  it no longer checks the server against or `mfa` or protection turned
+  off. Each stops with `SAFETY_SETTING` (exit 6) until you say yes: at your
+  terminal komando asks, a script adds `--yes`, and an AI agent's yes comes
+  from you in komando's window. Settings in the file are never applied;
+  the result lists them in `settings_differ` with the command to run.
 - The result names the command that checks what came in in `data.next`,
   and a person sees it on stderr: `Next: komando test @shop`.
 - Servers are checked like `host add` (ports, users, `--via`). A bad one is
@@ -84,6 +95,37 @@ appear in komando's list, output or history.
   reason, the other servers still come in, and the import ends with
   `IMPORT_INCOMPLETE` (exit 1).
 
+### Coming from PuTTY
+
+PuTTY keeps its sessions in the Windows registry. Export them to a file,
+then import that file (a dry run first lists what comes in):
+
+```bash
+reg export HKCU\Software\SimonTatham\PuTTY\Sessions putty.reg
+komando import putty putty.reg --dry-run
+komando import putty putty.reg
+```
+
+PuTTY keeps no passwords, so set them with `komando secret set` or use a
+key. A key in PuTTY's own format (`.ppk`) is listed: convert it with
+`puttygen KEY.ppk -O private-openssh -o KEY`, then `komando key add NAME
+KEY`. A session that reaches its server through a proxy is listed too: set
+the way there with `komando host edit NAME --via JUMP`.
+
+### Coming from MobaXterm
+
+In MobaXterm, right-click **User sessions** and pick **Export all sessions
+to file**, then import that file:
+
+```bash
+komando import mobaxterm sessions.mxtsessions --dry-run
+komando import mobaxterm sessions.mxtsessions
+```
+
+SSH sessions come in with their host, port and user, and the folder a
+session sits in becomes a group. MobaXterm keeps passwords apart, so set
+them with `komando secret set` or use a key.
+
 ### Coming from Termius or TablePlus
 
 Termius and TablePlus have no open export format. From Termius, export your
@@ -92,10 +134,12 @@ databases, put their URLs in a `.env` file and run `komando import env FILE`.
 
 ## Move to another computer
 
-There are two ways. An export moves your servers, conns, VPNs, recipes,
+There are three ways. An export moves your servers, conns, VPNs, recipes,
 your own deny rules and settings, but no passwords and no key files: you
-set those again. Copying the folder moves everything, passwords included,
-once the vault has a passphrase.
+set those again. A [sealed export](#a-sealed-export-everything-with-passwords)
+moves the same with the passwords in one file that opens only with a
+passphrase you choose. Copying the folder moves everything, passwords
+included, once the vault has a passphrase.
 
 ### Export and import (no passwords)
 
@@ -154,6 +198,81 @@ these limits:
 
 Each dropped setting is listed in the result.
 
+### A sealed export (everything, with passwords)
+
+`--sealed` writes the export and the passwords its servers, conns and VPNs
+use into one sealed file. Only a person at a terminal can make one (an AI
+agent gets `NEEDS_PERSON`), and komando asks for a passphrase for the
+file, twice, hidden:
+
+```bash
+komando export --sealed --to move.kmdseal                # asks a passphrase (15+ characters)
+komando export --sealed --with-keys --to move.kmdseal    # and the private keys the servers use
+komando export @prod --sealed --to prod.kmdseal          # only what a target picks
+komando export --sealed --to move.kmdseal --dry-run      # what would be sealed; asks nothing
+```
+
+```text
+Choose a passphrase for the file: 15 or more characters (random words work).
+Passphrase (hidden):
+Type it again (hidden):
+sealed 2 servers, 1 conn, 2 secrets, 1 key into move.kmdseal (it opens with its passphrase)
+check phrase: kangaroo maximum crush write exit shock
+Next: komando import komando move.kmdseal (on the other computer; it asks for the passphrase)
+```
+
+The file is written with mode 0600; nothing in it is readable without the
+passphrase, and changing a byte stops it from opening. A secret a server
+names that is not in the vault is listed, and stays out. A security key
+(FIDO2) stays on its device.
+
+On the other computer, the same import reads it and asks for the
+passphrase once:
+
+```bash
+komando import komando move.kmdseal
+komando import komando move.kmdseal --overwrite   # also replace secrets that are here with another value (asks first)
+```
+
+The import keeps the limits of any export file (below). A password from the
+file goes into the vault when that name is not here yet. When the vault
+has that name with another value, it keeps its own, and the file's servers
+do not get it, unless you add `--overwrite` and say yes. A key from the
+file is kept in komando's store, as one `key gen` made; a key with a name
+that is here already is left out.
+
+A wrong passphrase, or a file changed after it was sealed, stops with
+`WRONG_PASSPHRASE`; a damaged file with `SEALED_FILE_INVALID`. Nothing is
+imported then.
+
+### Send everything to the iPhone app
+
+From Linux or Windows, with only an iPhone, `--for-phone` seals the file to
+a key the iPhone app makes for this one export. Only that phone opens it;
+the terminal cannot:
+
+```bash
+komando export --for-phone --to phone.kmdseal
+```
+
+komando asks for the key file the phone shared (or the key itself, as the
+phone shows it) and the key check the phone shows (64 letters and digits,
+spaces and dashes do not matter). A key that does not match the key check
+is refused (`PHONE_KEY_INVALID`), so a key file swapped on the way is
+caught. Then it prints a check phrase of six words: move the file to the
+phone any way you like, and check that the phone shows the same six words.
+If they differ, do not use the file. The phone reads servers, conns, VPNs,
+their passwords and, with `--with-keys`, the keys.
+
+The file is sealed with post-quantum encryption (X-Wing: ML-KEM-768 with
+X25519), so a copy left in mail or a cloud backup stays closed even to a
+future quantum computer. It needs the iPhone app for iOS 26 or later. A
+file made by komando 0.14.0 (X25519 only) no longer opens on the phone,
+and a key from an older app is refused: update the app and make the file
+again.
+
+The format is in [the sealed file design](../design/sealed-file.md).
+
 ### Copy the folder (everything, with passwords)
 
 The vault's key must travel with it, so give the vault a passphrase first.
@@ -172,12 +291,58 @@ On the new computer you can go back to a key file and move it into the
 keychain: `komando secret passphrase --off --yes`, then `komando secret
 keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
 
+### Restore from a backup (Time Machine, a new computer)
+
+A backup of `~/.komando` (Time Machine, a disk image, a copy) holds the
+store, but not always its key. `komando doctor` says where the key lives;
+check it before you need the backup:
+
+| Key lives in | The backup on this computer | The backup on a new computer |
+|---|---|---|
+| a passphrase | opens with the passphrase | opens with the passphrase |
+| `store.key` (inside the folder) | opens | opens, so treat the backup like the passwords themselves |
+| the OS keychain (the default) | opens: the keychain still has the key | does not open its secrets: the key stayed in the old computer's keychain |
+
+So for a backup you can take to a new computer, give the vault a
+passphrase first (`komando secret passphrase`), or keep an
+[export](#export-and-import-no-passwords) next to it and set the passwords
+again from your password manager.
+
+Put the folder back with komando running nothing (no VPN, tunnel or job
+started from it; `komando status` shows them), then:
+
+```bash
+komando doctor                                # the vault opens, the servers are there
+```
+
+When the key is in the keychain, the keychain also remembers how many
+changes the store had. A restored copy is older, so every command then
+stops with `STORE_OLD_COPY` (exit 6): its servers, rules, secrets or
+pinned host keys may be out of date, and an old copy put back by someone
+else looks the same. `komando doctor` and dry runs still work. If you put
+it back yourself, accept it in your own terminal (an AI agent cannot):
+
+```bash
+komando doctor --accept-old-copy
+```
+
+Then check what changed since the backup: servers or rules you added
+later, and host keys pinned since (`komando host trust` asks again for a
+server it no longer knows).
+
 ## Limits
 
-- Passwords, private key files and keys komando made never travel in an
-  export file; set or copy them on the other computer.
+- Passwords, private key files and keys komando made never travel in a
+  plain export file; set or copy them on the other computer, or use a
+  [sealed export](#a-sealed-export-everything-with-passwords).
+- Only a person at a terminal makes or opens a sealed file. A file for the
+  phone opens only on that phone.
 - An import changes no setting: it lists the ones that differ.
-- A copied folder opens its secrets only when the vault has a passphrase.
+- A copied folder opens its secrets on another computer only when the vault
+  has a passphrase (or its key is in `store.key`, inside the folder).
+- A backup put back on the same computer stops with `STORE_OLD_COPY` until
+  a person runs `komando doctor --accept-old-copy`, when the key is in the
+  keychain.
 - Termius and TablePlus have no open export format (see
   [above](#coming-from-termius-or-tableplus)).
 
@@ -189,4 +354,6 @@ keychain`. Copy SSH key files kept outside `~/.komando` (in `~/.ssh`) too.
 | `USAGE` (exit 2) | an unknown source, or `komando` or `csv` without a file | the hint lists the sources and an example |
 | `FILE_EXISTS` (exit 8) | `export --to` a file that exists | add `--overwrite`, or pick another file |
 | `PROTECTED_HOST`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
+| `SAFETY_SETTING` (exit 6) | the file turns on agent forwarding, old VPN ciphers or PAP, or weakens a VPN it replaces | check the file; at your terminal komando asks, a script adds `--yes` |
+| `STORE_OLD_COPY` (exit 6) | a backup of the folder was put back; the keychain remembers a newer store | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
 | `VAULT_LOCKED` (exit 1) | a copied folder whose vault has a passphrase, without `KOMANDO_VAULT_PASS` | set `KOMANDO_VAULT_PASS`; see [Secrets](secrets.md#troubleshooting) |

@@ -65,15 +65,18 @@ says `supported`, `extended` (Ubuntu ESM, Debian LTS), `unsupported` or
 containers, listening ports and hand-made systemd units, so nothing running
 on the server surprises you.
 
-Multi-target results name each server in `results[].host` (also in
-`test`, which keeps `name` only for older scripts).
+Multi-target results, `test` included, name each server in
+`results[].host`.
 
 komando itself: `komando update --dry-run` says whether a newer release is
 out. Update only when the human asks: `komando update` replaces the program
 every agent and person on this computer uses. When it stops with
 `NOT_WRITABLE` (komando is in a folder only root may change), ask the human
 to run `sudo komando update` in their terminal. Going back to an older
-version (`komando update v0.6.0`) needs their yes.
+version (`komando update VERSION`) needs their yes.
+`RELEASE_SIGNATURE_INVALID` or `RELEASE_SIGNATURE_NOT_FOUND` means komando
+cannot show that the release comes from the komando project: never install
+it another way; tell the human.
 
 ## 2. Targets
 
@@ -265,6 +268,9 @@ the database.
 **Storage** (S3, MinIO, R2, Google Cloud Storage, Azure Blob, WebDAV, FTPS, SFTP, SMB shares): `komando storage list CONN [FOLDER]`,
 `storage cat CONN OBJECT --tail 50` and `komando download CONN OBJECT` read;
 `komando upload CONN FILE` and `storage link` change or share;
+`storage mkdir CONN PATH`, `storage mv CONN SRC DST` (on S3, Google Cloud
+and Azure: a copy that is checked, then the delete) and `storage chmod CONN
+MODE PATH` (SFTP only) change;
 `storage rm` deletes (needs `--allow-dangerous`): list first with
 `storage rm CONN --prefix FOLDER/ --older-than 30d --dry-run`. Object
 names are relative to the conn's folder. On a versioned bucket `rm` keeps the old
@@ -423,7 +429,8 @@ Anything that must keep running (a temporary web server, a watcher) is a
 | 5    | FAILED                            | read `data.results[].stderr` and `exit_code` |
 | 5    | DB_ERROR                          | fix the SQL; check `db schema` |
 | 5    | WRITE_FAILED (a file on a server) | check that the folder is writable and has free space (`komando exec TARGET --read-only -- df -h`) |
-| 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_HOST, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_HUMAN, REVEAL_NEEDS_PERSON, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SQL_STRING_RULES, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_HUMAN, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
+| 6    | CONFIRM_REQUIRED, DB_BYTES_LIMIT, DECLINED, NEEDS_PERSON, OPEN_BIND, POLICY_BLOCKED, PROTECTED_HOST, PROTECTED_TARGET, READ_ONLY_VIOLATION, REVEAL_NEEDS_HUMAN, REVEAL_NEEDS_PERSON, SAFETY_SETTING, SECRET_DESTINATION, SENSITIVE_FILE, SQL_STRING_RULES, SSH_GATE_NETWORK_REQUIRED, SSH_GATE_READ_ONLY, SSH_GATE_REFUSED, STORE_OLD_COPY, UNSAFE_BACKUP, WRITE_REQUIRES_FLAG | stop and ask the human; no flag clears NEEDS_PERSON, REVEAL_NEEDS_HUMAN, SSH_GATE_* or STORE_OLD_COPY: a person runs those in their own terminal |
+| 6    | NEEDS_PERSON or DECLINED from a server or conn whose login is `ask` (`host show`/`conn show`: `login: ask`) | its password is typed by the human in komando's window, never by you; do not retry: ask them to run `komando login SERVER` (a conn: the command itself) in their own terminal. Adding one or changing where it goes (address, `--via`, a jump host or VPN on its way) is theirs too |
 | 7    | CONNECT_TIMEOUT                   | the server did not answer: check the address, `--via` or the VPN; on a slow link raise `--connect-timeout` |
 | 7    | TIMEOUT                           | raise `--timeout` or use `job start` |
 | 8    | NO_MATCH, AMBIGUOUS_MATCH         | re-read the file; use exact, unique `--old` text |

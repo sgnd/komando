@@ -10,10 +10,7 @@ import (
 // (a hint can carry the command line).
 func TestTextHintIsRedactedAndSafe(t *testing.T) {
 	var buf bytes.Buffer
-	saved := hintW
-	hintW = &buf
-	defer func() { hintW = saved }()
-	p := &Printer{Format: "text", Mask: true, W: &bytes.Buffer{},
+	p := &Printer{Format: "text", Mask: true, W: &bytes.Buffer{}, Err: &buf,
 		Secrets: func() map[string]string { return map[string]string{"DB_PASS": "Vault-Value-123"} }}
 	hint := "run: komando exec web -- 'mysql --password=hunter2abcdef Vault-Value-123' '\x1b]52;c;ZXZpbA==\a' '\x1b[8mhidden\x1b[0m' 'cover\rup'"
 	for name, run := range map[string]func(){
@@ -28,9 +25,9 @@ func TestTextHintIsRedactedAndSafe(t *testing.T) {
 	} {
 		buf.Reset()
 		run()
-		got := buf.String()
-		if !strings.HasPrefix(got, "Hint: ") {
-			t.Fatalf("%s: no hint printed: %q", name, got)
+		_, got, ok := strings.Cut(buf.String(), "Hint: ")
+		if !ok {
+			t.Fatalf("%s: no hint printed: %q", name, buf.String())
 		}
 		for _, bad := range []string{"Vault-Value-123", "hunter2abcdef", "\x1b", "\a", "\r"} {
 			if strings.Contains(got, bad) {

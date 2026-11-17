@@ -41,6 +41,55 @@ komando secret set prod-db-pass
 komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --password-ref secret:prod-db-pass --protected
 ```
 
+A URL says more than its address: Postgres reads `host=`, `port=`,
+`hostaddr=` and `service=`, Redis `sentinels=`, MongoDB more seed hosts,
+RabbitMQ `management=`, and most kinds a CA or TLS mode. So for a conn
+with a stored password, every setting of its URL counts as part of where
+the password goes, except the few that move nothing (`connect_timeout`,
+`application_name` and other timeouts): an AI agent's change of any other
+needs your yes (`SECRET_DESTINATION`). komando reads a Postgres conn from
+its URL only: never from `PG*` environment variables, and never with a
+password from `~/.pgpass` unless the URL names a `passfile=`.
+
+A SQLite conn never opens komando's own folder. For an AI agent it also
+never opens a file in a folder where logins are kept (`~/.ssh`, `~/.aws`,
+`~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`) or any other file
+komando keeps from agents, links followed, and `db dump --to` and
+`db restore --from` refuse the same paths (`SENSITIVE_FILE`).
+
+A password that should never be kept on this computer can be typed each
+time instead, with `--login ask`:
+
+```bash
+komando db add prod-db postgres://app@10.0.0.5:5432/app --via web1 --login ask
+komando conn edit prod-db --login ask        # stop using the stored password
+komando conn edit prod-db --login password --ask-password   # back to a stored one
+```
+
+`--login` takes the words `conn show` and `list` print in their `login`
+field: `ask` (a person types the password at every connect; never
+stored), `password` (a stored one: `--ask-password` or `--password-ref`)
+or `none` (komando sends no password of its own: the URL's own login, a
+cloud login, or none). A login-ask conn asks as a
+[login-ask server](servers.md#type-the-password-each-time---login-ask)
+does: at your terminal (hidden), in an app's window, or, for an AI agent's
+command, in komando's own window, which names the conn, its user,
+address, the way there (`--via`) and the command; the agent never sees
+the password. A cancel stops the command with `DECLINED`, and the window
+stays shut for that conn for a minute. A script, or an agent with no
+screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
+agent that adds a login-ask conn, changes its URL or `--via`, turns one
+to `--login ask`, changes a server or VPN on its way, or replaces a
+secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
+password (above), every setting of the URL except the few that move
+nothing counts as where it goes. An agent's `db dump` and `db restore`
+of such a conn stop too: the dump tool would get the password in its environment, where
+the agent's own programs could read it; run those yourself. A file
+(SQLite) or a cluster has no password to type: `--login ask` is refused
+there. A conn has no `komando login`, so every command asks; use TLS
+(`sslmode=verify-full`, `tls=true`) so the server is checked before the
+password goes out.
+
 `--via web1` means "the database is only reachable from web1". komando
 connects through web1 over SSH by itself: there is no tunnel to start and no
 port opens on your computer. `--via` can also be a chain or a VPN (see
@@ -166,6 +215,11 @@ whole, for the agent: see [Personal data](safety.md#personal-data).
 ```bash
 komando conn edit prod-db --option 'mask_columns=full_name address birth_date'
 ```
+
+An AI agent's query that names such a column (to rename it, compute from
+it or filter on it) stops with `REVEAL_NEEDS_PERSON`; `SELECT *` shows it as
+`[hidden: column]`. An agent's `db dump` of a database whose personal data
+is hidden stops with `SENSITIVE_FILE`: a person allows it with `--reveal`.
 
 SQL that starts with a `-- comment` looks like a flag to the command
 line. Put `--` before it, or use `--file -`.
@@ -629,7 +683,7 @@ giving them the password:
 
 A MongoDB conn takes the same `db query`, with a command document in
 JSON instead of SQL: its first key names the command, as in `runCommand`.
-`db schema` and `db info` work too.
+`db schema`, `db info`, `db explain` and `db activity` work too.
 
 ```bash
 komando secret set shop-mongo-pass
@@ -640,6 +694,8 @@ komando db query shop-mongo --write '{"update": "orders", "updates": [{"q": {"_i
 komando db schema shop-mongo                      # collections, sizes, indexes
 komando db schema shop-mongo orders               # fields and their types, from a sample
 komando db info shop-mongo                        # version, primary or secondary, sizes
+komando db explain shop-mongo '{"find": "orders", "filter": {"status": "open"}}'   # the plan (--analyze: run it, with the numbers)
+komando db activity shop-mongo                    # what runs now (currentOp); --all for idle connections too
 ```
 
 - komando rates each command before it sends it, as it does SQL: `find`,
@@ -662,11 +718,13 @@ komando db info shop-mongo                        # version, primary or secondar
   others. `-o text` prints one document per line.
 - Every member of a replica set is reached through `--via`. A private CA
   works with `?tls=true&ca=secret:NAME`.
-- For SQL databases only: `db explain`, `dump`, `restore`, `activity`,
-  `locks`, `sizes`, `kill`, users and grants, and `db shell`. On MongoDB
-  they say so (`NOT_SUPPORTED`). Explain a query with
-  `db query '{"explain": {"find": "users", "filter": {}}, "verbosity": "queryPlanner"}'`;
-  for a backup, see [Back up and restore](#back-up-and-restore).
+- `db explain` takes a read (`find`, `aggregate`, `count`, `distinct`):
+  `queryPlanner`, or with `--analyze` `executionStats`, which runs the read.
+  A command that writes is refused.
+- For SQL databases only: `dump`, `restore`, `locks`, `sizes`, `kill`,
+  users and grants, and `db shell`. On MongoDB they say so
+  (`NOT_SUPPORTED`). For a backup, see
+  [Back up and restore](#back-up-and-restore).
 
 ## SQL Server
 
@@ -1070,6 +1128,12 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
   `revoke` (Google Cloud IAM), and `db locks`.
 
 ## Limits
+
+- `--login ask` relies on komando telling an AI agent from a person, by
+  the agent's environment only. Any program of your user can fake
+  komando's window, replace its binary or read its memory; see
+  [Servers](servers.md#limits). Files under `~/.postgresql` (a
+  `root.crt` there) are read as Postgres does.
 
 **SQL Server**
 

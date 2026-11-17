@@ -35,6 +35,13 @@ Rules that cannot change because of the contract:
   No new flag may do what they do, and no change may let an agent skip a
   stop it gets today (S-7.1).
 
+One more line for every review:
+
+- **No plan, account or service check in any command.** A command never
+  asks whether someone paid and never asks Komando Cloud whether something
+  is allowed (the paid boundary, [principles.md](principles.md#15-technical-rules)).
+  [review]
+
 ---
 
 ## 1. Grammar
@@ -205,7 +212,8 @@ own tool, is allowed when this list names it:
 `user add`, `db user add` (useradd; hidden alias `create`),
 `db grant/revoke` (SQL), `pkg installed/upgradable/security`,
 `queue peek/send/lag/groups`, `db activity/locks/sizes/explain/kill`,
-`fs cat/stat/chmod/mkdir/write/replace/mv`, `svc daemon-reload`,
+`fs cat/stat/chmod/mkdir/write/replace/mv`, `storage mkdir/mv/chmod`,
+`svc daemon-reload`,
 `cluster scale/apply/rollback/forward/values`, `net dns/http/ports/check`,
 `key gen/deploy`, `host trust/ssh-command`, `ssh-gate line`, `conn kinds`,
 `audit verify`, `config approval-code`, `secret keychain/passphrase`.
@@ -308,6 +316,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--key` | | string | *exception*: `queue send --key` is the message key (Kafka); elsewhere an SSH key file | |
 | `--env`, `--label`, `--option`, `--var`, `--header`, `--config` (queue) | `-e` for --env | stringArray | `KEY=VALUE`, repeatable, never split on commas. A value whose text after a comma looks like `KEY=` is a USAGE error: "repeat --option for each KEY=VALUE" | |
 | `--group`, `--tag`, `--add-*`, `--rm-*`, `--kind`, `--unset` | `-g`, `-t` | stringSlice | a list of names, comma-separated | |
+| `--only` | | stringSlice | run only these parts of a read (`facts --only load,mem,disks`); the usage text lists the values, an unknown one is a USAGE error naming them | all parts |
 | `--all` | `-a` on read commands only | bool | also what is normally left out (read), or every item instead of one named item (change: no shorthand) | false |
 | `--all-namespaces` | `-A` | bool | every namespace (cluster) | false |
 | `--namespace` | `-n` (cluster only) | string | Kubernetes namespace. An all-digit value given as `-n` is a USAGE error: "`--limit N`, or `--namespace=N` for a namespace named N" | the conn's |
@@ -315,6 +324,7 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--sudo-user` | | string | run it as this user with `sudo -u` | |
 | `--no-sudo` | | bool | do not use sudo (system commands that default to sudo) | off |
 | `--overwrite` | | bool | replace what is there | false |
+| `--new` | | bool | *exception*: `secret set --new` = only store a new item, stop with SECRET_EXISTS when it is there (`set` replaces by default, so the opposite of `--overwrite`); on `fs replace` a string, the text to put in place of `--old` | false |
 | `--backup` | | bool | keep the previous version as PATH.bak | false |
 | `--recursive` | `-r` | bool | include everything under a folder | false |
 | `--follow` | `-f` (log streamers) | bool | stream new lines until Ctrl-C or `--timeout` | false |
@@ -323,10 +333,12 @@ group has one type; meanings checked by usage-text template where one exists]
 | `--dry-run` | | bool (global) | show the plan, change nothing; never blocked | false |
 | `--refresh` | | bool | update the package index first (dnf, zypper) | false |
 | `--*-ref` | | string | where a secret is: `secret:NAME`, `env:VAR`, `file:PATH` or a manager ref | |
+| `--login` | | word | how komando logs in to a server or conn, in the words `show` and `list` print in `login`: `ask` (a person types the password at every connect; never stored), `password` (a stored one); servers also `key` and `agent`, conns `none`. One usage text (S-5.11); contradicting flags are USAGE | as the settings say |
 | `--user` | | string | the account on the target the command acts as or on | |
 | `--container` | `-c` | string | a container name | |
 | `--dir` | `-C` | string | the working folder | |
 | `--revision` | | int | a release or rollout revision | 0 = previous |
+| `--progress` | | bool | with `-o json`, progress as one JSON object per line on stderr (`upload`, `download`, `cp`, `sync`, `storage upload/download`); text mode keeps its own progress line | false |
 
 **S-5.2** Durations use one komando type (`Type() == "duration"`): Go units
 and `Nd` days. A bare integer is accepted only as `0`; every other span
@@ -356,7 +368,8 @@ no default, never `-1`. [schema: no default "-1"; no default "1h0m0s"-style]
 
 **S-5.8** Every list command has `--limit` (S-5.1 defaults). A run that
 stops at the limit sets the additive `meta.truncated: true` and, in text
-mode, prints one stderr line `showing N of more; use --limit 0 for all`.
+mode, prints one stderr line `Note: showing the first N; --limit 0 shows all`
+(or the command's own cut note in its output).
 [schema: every leaf whose verb is list/ls (or a list tool word) has --limit;
 code: truncation sets the field]
 

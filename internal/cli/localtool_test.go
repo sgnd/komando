@@ -9,19 +9,19 @@ import (
 )
 
 func TestToolSafe(t *testing.T) {
-	if !toolSafe("/bin/sh") {
+	if !toolSafe(tcl, "/bin/sh") {
 		t.Error("/bin/sh counts as changeable")
 	}
 	p := filepath.Join(t.TempDir(), "pg_dump")
 	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if toolSafe(p) {
+	if toolSafe(tcl, p) {
 		t.Error("a program in a folder of this user counts as safe")
 	}
 	// a root-owned link to a file of this user is not safe: the target counts
 	link := filepath.Join(t.TempDir(), "sh")
-	if err := os.Symlink(p, link); err == nil && toolSafe(link) {
+	if err := os.Symlink(p, link); err == nil && toolSafe(tcl, link) {
 		t.Error("a link to a program of this user counts as safe")
 	}
 }
@@ -30,7 +30,7 @@ func TestToolSafe(t *testing.T) {
 // VPN password: the program never runs without a person's yes.
 func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	secretHome(t)
-	defer func() { g.yes, g.dryRun = false, false }()
+	defer func() { tcl.flags.yes, tcl.flags.dryRun = false, false }()
 	mustRun(t, "vpn", "add", "office", "fortinet", "--portal", "vpn.example.com", "--user", "u", "--password-ref", "secret:db-pass")
 	bin := t.TempDir()
 	leak := filepath.Join(t.TempDir(), "leak")
@@ -41,10 +41,10 @@ func TestVPNClientFromPATHNeedsAPerson(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	windows := asAgent(t, false, false)
-	if _, err := localTool("openconnect", []string{"secret:db-pass"}); toErr(err).Code != "SECRET_DESTINATION" {
+	if _, err := localTool(tcl, "openconnect", []string{"secret:db-pass"}); toErr(err).Code != "SECRET_DESTINATION" {
 		t.Fatalf("localTool: %v", err)
 	}
-	if p, err := localTool("sh", []string{"secret:db-pass"}); err != nil || !filepath.IsAbs(p) {
+	if p, err := localTool(tcl, "sh", []string{"secret:db-pass"}); err != nil || !filepath.IsAbs(p) {
 		t.Fatalf("a system program: %q %v", p, err)
 	}
 	wantCode(t, "SECRET_DESTINATION", "vpn", "up", "office")

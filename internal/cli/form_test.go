@@ -17,7 +17,7 @@ import (
 // exists, its flags exist and parse, its arguments fit the command.
 func formParse(t *testing.T, source string, args []string) *cobra.Command {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(treeCall())
 	cmd, rest, err := root.Find(args)
 	if err != nil || cmd == root || !cmd.Runnable() {
 		t.Errorf("%s: `komando %s`: no such command", source, strings.Join(args, " "))
@@ -90,7 +90,7 @@ func TestFormEveryCommandBuilds(t *testing.T) {
 			}
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 	if n < 150 {
 		t.Errorf("only %d commands have questions", n)
 	}
@@ -139,7 +139,7 @@ func TestFormHintCannotApprove(t *testing.T) {
 
 // Every command is in an area of formAreas.
 func TestFormEveryCommandHasAnArea(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
 		for _, s := range c.Commands() {
@@ -176,9 +176,9 @@ func TestFormEveryCommandHasAnArea(t *testing.T) {
 // drivers read, for every kind and every choice of their first questions.
 func TestFormAddKindsBuild(t *testing.T) {
 	for _, st := range []*store.State{testState(), {Hosts: map[string]*store.Host{}}} {
-		for _, g := range formGroups() {
+		for _, g := range formGroups(tcl) {
 			for _, k := range g.kinds {
-				sp := k.spec()
+				sp := k.spec(tcl)
 				a := formAnswers{}
 				for _, q := range sp.qs {
 					if q.visible(st, a) {
@@ -362,7 +362,7 @@ func TestFormEveryCommandHasAHint(t *testing.T) {
 			}
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 }
 
 // formKindCovers says which conn kinds (driver) and VPN kinds (netx) each
@@ -388,7 +388,7 @@ var formKindCovers = map[string][]string{
 
 func TestFormEveryKindHasAnAddForm(t *testing.T) {
 	covered := map[string]bool{}
-	for _, g := range formGroups() {
+	for _, g := range formGroups(tcl) {
 		for _, k := range g.kinds {
 			kinds, ok := formKindCovers[k.label]
 			if !ok {
@@ -416,7 +416,7 @@ func TestFormEveryKindHasAnAddForm(t *testing.T) {
 // --allow-dangerous, --reveal, -o and --dry-run, which a person gives when
 // the command asks), and its words fit the command's arguments.
 func TestFormEveryHelpExampleIsReachable(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	n := 0
 	var walk func(c *cobra.Command)
 	walk = func(c *cobra.Command) {
@@ -504,7 +504,7 @@ func TestFormRequiredFlagsAreAsked(t *testing.T) {
 			})
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 }
 
 // formHides are the flags a hint keeps out of the menu, each with why. Any
@@ -537,7 +537,7 @@ func TestFormPickKinds(t *testing.T) {
 	mustRun(t, "host", "add", "web1", "root@10.0.0.5")
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	mustRun(t, "recipe", "add", "up", "uptime")
-	root := newRoot()
+	root := newRoot(tcl)
 	c, _, _ := root.Find([]string{"db", "dump"})
 	got, _ := c.ValidArgsFunction(c, nil, "")
 	if !slices.Contains(got, "app-db") {

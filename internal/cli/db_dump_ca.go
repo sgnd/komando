@@ -13,6 +13,7 @@ import (
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 )
 
 // A conn URL's ?ca=secret:NAME (a private CA, driver/ca.go) holds for the
@@ -39,6 +40,8 @@ type toolCA struct {
 	dir   string // the private folder that holds ca.crt
 	pem   string // the certificates, as clean PEM (no blank lines)
 	local bool   // the folder is on this computer: komando writes and removes it
+	// forget takes a local folder off tmpclean's list
+	forget func()
 }
 
 func (ca *toolCA) file() string { return filepath.ToSlash(filepath.Join(ca.dir, "ca.crt")) }
@@ -58,6 +61,9 @@ func (ca *toolCA) onServer() (dir, lines string) {
 func (ca *toolCA) remove() {
 	if ca != nil && ca.local {
 		os.RemoveAll(ca.dir)
+		if ca.forget != nil {
+			ca.forget()
+		}
 	}
 }
 
@@ -76,10 +82,11 @@ func toolWithCA(c *store.Conn, h *store.Host, tool dumpTool, argv []string) (dum
 	}
 	ca := &toolCA{pem: certs, dir: toolCABase + "/komando-ca-" + strings.ToLower(rand.Text())}
 	if h == nil {
+		tmpclean.Sweep(os.TempDir(), "komando-ca-", "")
 		if ca.dir, err = os.MkdirTemp("", "komando-ca-*"); err != nil {
 			return tool, nil, nil, out.Errf(out.ExitError, "FILE_ERROR", "check that the temporary folder is writable", "%v", err)
 		}
-		ca.local = true
+		ca.local, ca.forget = true, tmpclean.Add(ca.dir)
 		if err := os.WriteFile(ca.file(), []byte(certs), 0o600); err != nil {
 			ca.remove()
 			return tool, nil, nil, out.Errf(out.ExitError, "FILE_ERROR", "check that the temporary folder is writable", "%v", err)

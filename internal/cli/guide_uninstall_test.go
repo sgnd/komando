@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // A guide uninstall that stops for the guard removes nothing, not even the
@@ -49,7 +51,7 @@ func TestGuideUninstallStopsBeforeRemovingAnything(t *testing.T) {
 // Text says what a dry run would do, and asks for a restart only after a
 // change, in words that fit install or uninstall.
 func TestSkillResultText(t *testing.T) {
-	t.Cleanup(func() { g.dryRun = false })
+	t.Cleanup(func() { tcl.flags.dryRun = false })
 	files := []skillFile{{Path: "/h/.claude/skills/komando/SKILL.md", Action: "created"}, {Path: "/h/.claude/settings.json", Action: "unchanged"}}
 	for _, tc := range []struct {
 		dry       bool
@@ -63,8 +65,7 @@ func TestSkillResultText(t *testing.T) {
 		{true, skillResult{Files: []skillFile{{Path: "/x", Action: "removed"}}, uninstall: true}, "would remove  /x", "Restart"},
 		{false, skillResult{Files: []skillFile{}, uninstall: true}, "nothing to remove", "Restart"},
 	} {
-		g.dryRun = tc.dry
-		got := tc.r.Text()
+		got := tc.r.TextFor(&out.Printer{DryRun: tc.dry})
 		if !strings.Contains(got, tc.want) || tc.not != "" && strings.Contains(got, tc.not) {
 			t.Errorf("dry %v %+v:\n%s", tc.dry, tc.r, got)
 		}

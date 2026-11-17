@@ -159,6 +159,7 @@ login.aws
 login.azure
 login.gcp
 logout
+logout.aws
 logs
 net
 net.check
@@ -220,13 +221,17 @@ secret.show
 shell
 ssh-gate
 ssh-gate.line
+ssh-gate.status
 status
 storage
 storage.add
 storage.cat
+storage.chmod
 storage.download
 storage.link
 storage.list
+storage.mkdir
+storage.mv
 storage.rm
 storage.upload
 svc

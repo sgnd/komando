@@ -82,7 +82,7 @@ func TestClickHouseRedactAndImport(t *testing.T) {
 			t.Errorf("redact %s: %s, want %s", in, got, want)
 		}
 	}
-	p, err := importDBeaver(writeTemp(t, "data-sources.json", `{"connections":{
+	p, err := importDBeaver(tcl, writeTemp(t, "data-sources.json", `{"connections":{
 		"clickhouse-1":{"name":"Events","provider":"clickhouse","configuration":{"host":"ch.lan","port":"8123","database":"events","user":"app"}}}}`))
 	if err != nil {
 		t.Fatal(err)

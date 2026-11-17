@@ -27,10 +27,15 @@ func vpnServeCmd() *cobra.Command {
 		Use:    "serve NAME",
 		Hidden: true,
 		Args:   cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			fail := func(err error) error { fmt.Printf("ERROR %v\n", err); return exitCode(1) }
-			socksUser, socksPass, err := serveStdin(os.Stdin, passwordStdin, passStdin)
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			fail := func(err error) error { fmt.Fprintf(cl.out.W, "ERROR %v\n", err); return exitCode(1) }
+			in := bufio.NewReader(cl.stdin)
+			ticket := readTicket(in)
+			socksUser, socksPass, err := serveStdin(in, passwordStdin, passStdin)
 			if err != nil {
+				return fail(err)
+			}
+			if err := checkTicket(cl, ticket, "vpn serve", "vpn up "+args[0]); err != nil {
 				return fail(err)
 			}
 			st, err := loadState()
@@ -43,7 +48,7 @@ func vpnServeCmd() *cobra.Command {
 			}
 			ctx := cmd.Context()
 			started := time.Now()
-			d, closer, err := netx.OpenDirect(ctx, v, sshOpts(st).ConnectTimeout)
+			d, closer, err := netx.OpenDirect(ctx, v, sshOpts(cl, st).ConnectTimeout)
 			if err != nil {
 				return fail(err)
 			}
@@ -52,7 +57,7 @@ func vpnServeCmd() *cobra.Command {
 			if err != nil {
 				return fail(err)
 			}
-			fmt.Printf("READY %s\n", ln.Addr())
+			fmt.Fprintf(cl.out.W, "READY %s\n", ln.Addr())
 			idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 			var use sessionUse
 			use.touch()
@@ -74,13 +79,13 @@ func vpnServeCmd() *cobra.Command {
 					<-ended.Done()
 					if e, ok := closer.(interface{ Err() error }); ok && e.Err() != nil {
 						// a timestamp like the log's other lines, and how long it ran
-						fmt.Printf("%s ENDED %v (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), e.Err(), time.Since(started).Round(time.Second))
+						fmt.Fprintf(cl.out.W, "%s ENDED %v (after %s)\n", time.Now().Format("2006/01/02 15:04:05"), e.Err(), time.Since(started).Round(time.Second))
 					}
 					ln.Close()
 				}()
 			}
-			cm := &connMgr{ctx: ctx, st: st, vpnDial: d}
-			logger := log.New(os.Stdout, "", log.LstdFlags)
+			cm := &connMgr{cl: cl, ctx: ctx, st: st, vpnDial: d}
+			logger := log.New(cl.out.W, "", log.LstdFlags)
 			// only a client that logged in keeps the session from going
 			// idle, for as long as its connection stays open
 			acceptLoop(ln, logger, func(c net.Conn) {
@@ -89,22 +94,22 @@ func vpnServeCmd() *cobra.Command {
 				defer done()
 				socks5Auth(c, cm, logger, socksUser, socksPass, loggedIn)
 			})
-			_ = store.UpdateRuntime(func(s *store.State) error {
+			_ = store.UpdateRuntime(cl.storeWrite(), func(s *store.State) error {
 				if x := s.Sessions[v.Name]; x != nil && x.PID == os.Getpid() { // not a newer session's entry
 					delete(s.Sessions, v.Name)
 				}
 				return nil
 			})
 			return nil
-		},
+		}),
 	}
 	c.Flags().BoolVar(&passwordStdin, "password-stdin", false, "read the SOCKS login and a typed VPN password from stdin")
 	c.Flags().BoolVar(&passStdin, strings.TrimPrefix(vault.PassStdinFlag, "--"), false, "then read the vault passphrase from stdin (vpn up passes it)")
 	return c
 }
 
-// serveStdin reads what spawnServeWith sends `vpn serve` on stdin: the
-// SOCKS login for this session and a typed VPN password, one line each
+// serveStdin reads what spawnServeWith sends `vpn serve` on stdin after
+// the ticket (readTicket): the SOCKS login for this session and a typed VPN password, one line each
 // (with password), then the vault passphrase up to the end (with pass;
 // vault.PassOnStdin).
 func serveStdin(r io.Reader, password, pass bool) (socksUser, socksPass string, err error) {

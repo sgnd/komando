@@ -118,7 +118,7 @@ var riskRows = []riskRow{
 	{id: "key.rm", when: givesFlag("delete-file"), cond: "with --delete-file, for a key komando made", tier: tierDangerous, what: "deletes the private key komando keeps"},
 	{id: "pkg.rm", when: func(w []string) bool { return slices.ContainsFunc(riskArgs(w), essentialPkg) }, cond: "a package the server needs (openssh-server, sudo, systemd, ...)", tier: tierDangerous, what: "removes a package the server needs to run or to let you in"},
 	{id: "pkg.rm", tier: tierChange, typed: "removes the packages", items: "packages"},
-	{id: "cron.rm", tier: tierChange, typed: "deletes the scheduled task", items: "scheduled tasks"},
+	{id: "cron.rm", tier: tierChange, typed: "deletes the cron entry", items: "cron entries"},
 	{id: "reboot", tier: tierDangerous, what: "restarts the server (it is away until it is back)"},
 	{id: "svc.stop", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "stops sshd (no one can log in remotely)"},
 	{id: "svc.disable", when: sshUnit, cond: "the unit is ssh or sshd", tier: tierDangerous, what: "turns sshd off (no one can log in remotely after a restart)"},
@@ -177,6 +177,8 @@ var riskRows = []riskRow{
 	{id: "host.ssh-command", tier: tierPerson},
 	{id: "secret.keychain", when: func(w []string) bool { return !givesFlag("off")(w) }, cond: "without --off (moving the key into the keychain)", tier: tierPerson},
 	{id: "host.trust", when: anyWord("--reset", "--reset=true"), cond: "with --reset, when a key is pinned", tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
+	{id: "export", when: func(w []string) bool { return givesFlag("sealed")(w) || givesFlag("for-phone")(w) }, cond: "with --sealed or --for-phone", tier: tierPerson},
+	{id: "import", when: anyWord("komando"), cond: "SOURCE komando", tier: tierPerson, dynamic: "the file is sealed (export --sealed): a person types its passphrase"},
 
 	// a bulk change keeps its own confirm (CONFIRM_REQUIRED for an agent)
 	{id: "group.rm", when: func(w []string) bool { return len(riskArgs(w)) == 1 }, cond: "GROUP alone", tier: tierChange, bulk: "deleting a group of more than 3 members"},
@@ -247,7 +249,7 @@ func riskOfLine(line []string) riskRow {
 // are not among them. pos is the positional arguments before any --. c is
 // nil when line names no command.
 func lineWords(line []string) (c *cobra.Command, words, pos []string) {
-	root := newRoot()
+	root := newRoot(treeCall())
 	c, rest, err := root.Find(line)
 	if err != nil || c == root {
 		return nil, nil, nil

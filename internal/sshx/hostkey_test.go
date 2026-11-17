@@ -20,11 +20,11 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 	var note bytes.Buffer
 	var got []NewHostKey
 	oldNote, oldHook := hostKeyNote, HostKeyPinned
-	hostKeyNote, HostKeyPinned = &note, func(k NewHostKey) { got = append(got, k) }
+	hostKeyNote, HostKeyPinned = &note, func(_ context.Context, k NewHostKey) { got = append(got, k) }
 	t.Cleanup(func() { hostKeyNote, HostKeyPinned = oldNote, oldHook })
 	key := newSigner(t).PublicKey()
 	addr := &net.TCPAddr{IP: net.IPv4(10, 0, 0, 5), Port: 22}
-	cb, err := hostKeyCallback(context.Background(), "web1", "accept-new")
+	cb, err := hostKeyCallback(context.Background(), &store.Host{Name: "web1"}, "accept-new", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 	if err := cb("10.0.0.5:22", addr, newSigner(t).PublicKey()); err == nil || note.Len() != 0 || len(got) != 1 {
 		t.Errorf("a changed key: %v %q", err, note.String())
 	}
-	strict, _ := hostKeyCallback(context.Background(), "web2", "strict")
+	strict, _ := hostKeyCallback(context.Background(), &store.Host{Name: "web2"}, "strict", nil)
 	err = strict("10.0.0.6:22", addr, key)
 	if err == nil || len(got) != 1 {
 		t.Errorf("strict pinned a new key: %v", err)
@@ -55,5 +55,27 @@ func TestFirstUsePinIsAnnounced(t *testing.T) {
 	if oe := classify(newState(h), h, err); oe.Code != "HOSTKEY_UNKNOWN" || !strings.Contains(oe.Message, "it shows "+fp) ||
 		!strings.Contains(oe.Hint, "`komando host trust web2`") {
 		t.Errorf("HOSTKEY_UNKNOWN: %s / %s", oe.Message, oe.Hint)
+	}
+}
+
+// Only the listed policies are known: any other value, a typo of strict
+// too, is an error, never accept-new.
+func TestUnknownHostKeyPolicyFailsClosed(t *testing.T) {
+	// a login-ask server's connection (q set) is no exception
+	hosts := []struct {
+		h *store.Host
+		q *LoginAsk
+	}{{&store.Host{Name: "web1"}, nil}, {&store.Host{Name: "web1", Login: store.LoginAsk}, &LoginAsk{}}}
+	for _, c := range hosts {
+		for _, p := range []string{"Strict", "STRICT", "bogus", "accept_new", " strict"} {
+			if cb, err := hostKeyCallback(context.Background(), c.h, p, c.q); err == nil || cb != nil {
+				t.Errorf("%q: callback %v, err %v", p, cb != nil, err)
+			}
+		}
+		for _, p := range []string{"", "accept-new", "strict", "off"} {
+			if _, err := hostKeyCallback(context.Background(), c.h, p, c.q); err != nil {
+				t.Errorf("%q: %v", p, err)
+			}
+		}
 	}
 }

@@ -123,3 +123,7 @@ func PrivateFix() string {
 	return fmt.Sprintf(`icacls "%s" /reset, then icacls "%s" /inheritance:r /grant:r "%s:(OI)(CI)F" "*%s:(OI)(CI)F", then icacls "%s" /reset /T /C`,
 		h, h, user, sidSystem, filepath.Join(h, "*"))
 }
+
+// tightenHome: on Windows the access list is set when the folder is made;
+// doctor checks and fixes one that was already there.
+func tightenHome(string) {}

@@ -2,6 +2,7 @@ package sshx
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -9,6 +10,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // hostKeyStore keeps the server host keys komando pinned, in the sealed
@@ -32,8 +35,15 @@ type hostKeyTx interface {
 	Pins(addr string) (keys []ssh.PublicKey, count int, err error)
 	// Add pins key for addr beside its other pins.
 	Add(addr string, key ssh.PublicKey) error
-	// Replace makes key the only pin for addr, in one write.
+	// Replace makes key the only pin for addr, in one write; the logins
+	// met with the old pins are forgotten.
 	Replace(addr string, key ssh.PublicKey) error
+	// LoginMet reports that a person logged in to login-ask server id at
+	// addr with key, with a password they typed (MarkLogin).
+	LoginMet(addr, id string, key ssh.PublicKey) (bool, error)
+	// MarkLogin notes that a person did: later connections of id to addr
+	// that offer key may ask for the password in an agent's window.
+	MarkLogin(addr, id string, key ssh.PublicKey) error
 }
 
 // HostKeys is where this process keeps pins: the sealed store.
@@ -61,4 +71,12 @@ func WritePinsFile(dir string, addrs []string) (string, error) {
 	}
 	p := filepath.Join(dir, "known_hosts")
 	return p, os.WriteFile(p, []byte(strings.Join(lines, "\n")+"\n"), 0o600)
+}
+
+// FingerprintMismatch is host trust --fingerprint's error: the server shows
+// another key than the fingerprint given, so nothing was pinned.
+func FingerprintMismatch(host, want, offered string) *out.Error {
+	hint := fmt.Sprintf("possible man-in-the-middle, or the fingerprint of another key type: compare again with `ssh-keygen -lf` on %s's console for the key type it offers, then run `komando host trust %s --fingerprint` with that one; do not pin this key without it", host, host)
+	return out.Errf(out.ExitConnect, "HOSTKEY_MISMATCH", hint,
+		"host key for %s is not the one given: --fingerprint %s, the server shows %s; nothing was pinned", host, want, offered)
 }

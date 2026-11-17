@@ -26,14 +26,14 @@ type securityCheck struct {
 	Detail  string `json:"detail"`
 }
 
-func securityChecks(st *store.State) []securityCheck {
+func securityChecks(cl *call, st *store.State) []securityCheck {
 	var cs []securityCheck
 	add := func(name string, ok, warn bool, detail string) {
 		cs = append(cs, securityCheck{Name: "security:" + name, OK: ok || warn, Warning: warn && !ok, Detail: detail})
 	}
 
 	// komando's folder and files: this user only (ASVS 14.1, CWE-276)
-	platformChecks(add)
+	platformChecks(cl, add)
 	if loose := looseFiles(); len(loose) == 0 {
 		add("permissions", true, false, store.Home()+" is private to you")
 	} else {
@@ -92,7 +92,7 @@ func weakVpn(v *store.Vpn) string {
 		why = append(why, "legacy crypto is allowed (3DES, DH groups 2 and 5, which a well-funded attacker can break); once the server offers AES and DH group 14: komando vpn edit "+v.Name+" --legacy-crypto=false")
 	}
 	if v.AllowPAP {
-		why = append(why, "PAP is allowed, which hands the server your password itself; once it offers MS-CHAPv2: komando vpn edit "+v.Name+" --allow-pap=false")
+		why = append(why, "weak PPP logins are allowed (PAP hands the server your password itself; CHAP-MD5 or no login do not prove it is the server); once it offers MS-CHAPv2: komando vpn edit "+v.Name+" --allow-pap=false")
 	}
 	return strings.Join(why, "; ")
 }

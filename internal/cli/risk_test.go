@@ -233,7 +233,7 @@ func TestSchemaConfirm(t *testing.T) {
 			}
 		}
 	}
-	walk(newRoot())
+	walk(newRoot(tcl))
 	d := mustRun(t, "schema", "secret", "rm")
 	cmd := d["commands"].([]any)[0].(map[string]any)
 	if c, _ := cmd["confirm"].([]any); len(c) != 1 || c[0].(map[string]any)["flag"] != "--allow-dangerous" {

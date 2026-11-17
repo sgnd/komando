@@ -83,21 +83,21 @@ type renameOpts struct {
 // last. When anything fails (a check, the vault, a file, the save), what
 // already moved is put back and the state is not saved, so nothing
 // changes. Under --dry-run only the plan runs.
-func renameTx(plan func(s *store.State) (renameSet, renameOpts, error)) (renameResult, error) {
+func renameTx(cl *call, plan func(s *store.State) (renameSet, renameOpts, error)) (renameResult, error) {
 	var res renameResult
 	var moves []renamePair
 	var secrets map[string]string
 	moved := 0
-	err := store.Update(func(s *store.State) error {
+	err := store.Update(cl.storeWrite(), func(s *store.State) error {
 		set, opts, err := plan(s)
 		if err != nil {
 			return err
 		}
-		if res, moves, err = applyRenames(s, set, opts); err != nil || g.dryRun || set.size() == 0 {
+		if res, moves, err = applyRenames(cl, s, set, opts); err != nil || cl.flags.dryRun || set.size() == 0 {
 			return err
 		}
 		if sec := set["secret"]; len(sec) > 0 {
-			if err := vault.RenameMany(sec); err != nil {
+			if err := vault.RenameMany(cl.storeWrite(), sec); err != nil {
 				return out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
 					"the vault cannot rename the secrets: %v; nothing was renamed", err)
 			}
@@ -121,7 +121,7 @@ func renameTx(plan func(s *store.State) (renameSet, renameOpts, error)) (renameR
 			for from, to := range secrets {
 				back[to] = from
 			}
-			_ = vault.RenameMany(back)
+			_ = vault.RenameMany(cl.storeWrite(), back)
 		}
 		return res, err
 	}
@@ -132,13 +132,13 @@ func renameTx(plan func(s *store.State) (renameSet, renameOpts, error)) (renameR
 // in s: the entries, then every reference to them. It returns the files
 // that must move (key files, a Tailscale VPN's state folder); renameTx
 // moves them.
-func applyRenames(s *store.State, set renameSet, opts renameOpts) (renameResult, []renamePair, error) {
-	res := renameResult{Action: mvVerb(), Renamed: map[string][]renamePair{}, Protected: []string{}, Updated: []renameRef{}, Moved: []renamePair{}}
+func applyRenames(cl *call, s *store.State, set renameSet, opts renameOpts) (renameResult, []renamePair, error) {
+	res := renameResult{Action: mvVerb(cl), Renamed: map[string][]renamePair{}, Protected: []string{}, Updated: []renameRef{}, Moved: []renamePair{}}
 	if set.size() == 0 {
 		res.Action = "unchanged"
 		return res, nil, nil
 	}
-	if err := checkRenameSet(s, set); err != nil {
+	if err := checkRenameSet(cl, s, set); err != nil {
 		return res, nil, err
 	}
 	res.Protected = renameProtected(s, set)
@@ -444,6 +444,7 @@ func (w *refRewriter) rewriteRest(s *store.State) {
 
 // renameChecker collects what stops a rename.
 type renameChecker struct {
+	cl      *call // the call it works for
 	s       *store.State
 	secrets []string          // the vault's names, when secrets are renamed
 	groups  []string          // every group as written
@@ -459,8 +460,8 @@ type renameChecker struct {
 // new name that exists is refused even when it is renamed too: no swaps or
 // chains, so a reference komando does not know of (a {{secret:NAME}} in a
 // file on a server) never gets another entry's value.
-func checkRenameSet(s *store.State, set renameSet) error {
-	c := &renameChecker{s: s, groups: mapKeys(allGroups(s).Groups), shared: map[string]string{}}
+func checkRenameSet(cl *call, s *store.State, set renameSet) error {
+	c := &renameChecker{cl: cl, s: s, groups: mapKeys(allGroups(s).Groups), shared: map[string]string{}}
 	if len(set["secret"]) > 0 {
 		c.secrets = secretNames()
 	}
@@ -519,7 +520,7 @@ func (c *renameChecker) check(k, from, to string) error {
 	switch k {
 	case "host", "conn", "vpn":
 		if !map[string]bool{"host": s.Hosts[from] != nil, "conn": s.Conns[from] != nil, "vpn": s.Vpns[from] != nil}[k] {
-			return notFoundSuggest(k, from, nil)
+			return notFoundSuggest(c.cl, k, from, nil)
 		}
 		if kind, existing, ok := s.FindName(to); ok && !(kind == k && existing == from) {
 			c.clashes = append(c.clashes, fmt.Sprintf("%s %s would take the name of %s %s", k, from, kind, existing))
@@ -535,21 +536,21 @@ func (c *renameChecker) check(k, from, to string) error {
 			}
 		}
 		if !slices.Contains(c.secrets, from) {
-			return notFoundSuggest("secret", from, c.secrets)
+			return notFoundSuggest(c.cl, "secret", from, c.secrets)
 		}
 		if slices.Contains(c.secrets, to) {
 			c.clashes = append(c.clashes, fmt.Sprintf("secret %s would take the name of secret %s", from, to))
 		}
 	case "key":
 		if s.Keys[from] == nil {
-			return keyNotFound(s, from)
+			return keyNotFound(c.cl, s, from)
 		}
 		if s.Keys[to] != nil {
 			c.clashes = append(c.clashes, fmt.Sprintf("key %s would take the name of key %s", from, to))
 		}
 	case "group":
 		if !slices.Contains(c.groups, from) {
-			return groupNotFound(s, from)
+			return groupNotFound(c.cl, s, from)
 		}
 		if !strings.EqualFold(from, to) && slices.ContainsFunc(c.groups, func(x string) bool { return strings.EqualFold(x, to) }) {
 			c.clashes = append(c.clashes, fmt.Sprintf("group %s would take the name of group %s", from, to))

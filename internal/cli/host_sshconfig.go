@@ -15,11 +15,11 @@ import (
 
 // Import from and export to ~/.ssh/config.
 
-func readFileOrStdin(p string) ([]byte, error) {
+func readFileOrStdin(cl *call, p string) ([]byte, error) {
 	if p == "-" {
-		return readAllStdin()
+		return readAllStdin(cl)
 	}
-	return readLocalFile(p)
+	return readLocalFile(cl, p)
 }
 
 // sshUsed are the ssh_config directives komando turns into host settings.

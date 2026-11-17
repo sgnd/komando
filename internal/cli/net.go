@@ -79,6 +79,7 @@ func netCheckText(data any) string {
 }
 
 func netCheckRun(cmd *cobra.Command, args []string) error {
+	cl := callOf(cmd)
 	var sb strings.Builder
 	sb.WriteString(netCheckFn)
 	for _, hp := range args[1:] {
@@ -94,7 +95,7 @@ func netCheckRun(cmd *cobra.Command, args []string) error {
 		}
 		sb.WriteString("chk " + sshx.Q(h) + " " + p + " " + sshx.Q(hp) + "\n")
 	}
-	return runOps(cmd.Context(), opsSpec{name: "net.check", target: args[0], command: sb.String(), display: "net check " + strings.Join(args[1:], " "),
+	return runOps(cl, cmd.Context(), opsSpec{name: "net.check", target: args[0], command: sb.String(), display: "net check " + strings.Join(args[1:], " "),
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			rows, err := parseNetCheck(rr.Stdout)
 			return rows, err
@@ -182,7 +183,8 @@ func netPortsText(data any) string {
 }
 
 func netPortsRun(cmd *cobra.Command, target string, sudo bool, limit int) error {
-	return runOps(cmd.Context(), opsSpec{name: "net.ports", target: target, command: netPortsScript, display: "net ports", sudo: sudo, limit: limit,
+	cl := callOf(cmd)
+	return runOps(cl, cmd.Context(), opsSpec{name: "net.ports", target: target, command: netPortsScript, display: "net ports", sudo: sudo, limit: limit,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			rows, err := parsePorts(rr.Stdout)
 			if err != nil {
@@ -229,7 +231,8 @@ func dnsCommand(name, typ string) (string, error) {
 	case "AAAA":
 		c += "else getent ahostsv6 " + q + " | awk '{print $1}' | sort -u\n"
 	default:
-		c += "else echo '#komando:no-dig'\n"
+		// no dig: komando asks the server's resolver itself (dnsWithoutDig)
+		c += "else echo '#komando:no-dig'; grep -i '^nameserver' /etc/resolv.conf 2>/dev/null\n"
 	}
 	return c + "fi", nil
 }
@@ -237,7 +240,7 @@ func dnsCommand(name, typ string) (string, error) {
 func dnsResult(name, typ, s string) (any, *out.Error) {
 	if marker(s) == "no-dig" {
 		return nil, out.Errf(out.ExitNotFound, "DIG_MISSING", "install dig (Debian/Ubuntu: dnsutils, Alpine: bind-tools, RHEL: bind-utils), for example `komando pkg install TARGET dnsutils`; A and AAAA work without it",
-			"%s records need dig, which is not installed on this server", strings.ToUpper(typ))
+			"%s records need dig, which is not installed on this server, and komando could not ask the server's resolver itself (no nameserver in /etc/resolv.conf, or the server does not forward TCP for it)", strings.ToUpper(typ))
 	}
 	var recs []string
 	for _, l := range strings.Split(s, "\n") {

@@ -124,7 +124,8 @@ func programFiles(t *testing.T, fn func(rel, name string), dirs ...string) {
 func TestPackagesListed(t *testing.T) {
 	listed := docTable(t, "## Packages")
 	found := map[string]bool{}
-	for _, dir := range []string{"internal", "cmd"} {
+	// sync/ is a module of its own (the sync library), listed on the same page
+	for _, dir := range []string{"internal", "cmd", "sync"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d os.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -292,7 +293,7 @@ func TestPlatformFileNames(t *testing.T) {
 		if msg := checkPlatform(name, expr, siblings(filepath.Dir(rel))); msg != "" {
 			t.Errorf("%s: %s", rel, msg)
 		}
-	}, "internal", "cmd")
+	}, "internal", "cmd", "sync")
 }
 
 // The checks themselves, on names that break each rule.

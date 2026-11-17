@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/url"
@@ -81,7 +82,7 @@ func hasControl(s string) bool {
 
 // checkHost validates a host before it is saved into s: its port, user,
 // --via path and identity file.
-func checkHost(s *store.State, h *store.Host) error {
+func checkHost(cl *call, s *store.State, h *store.Host) error {
 	if err := validPort(h.Port); err != nil {
 		return err
 	}
@@ -104,7 +105,7 @@ func checkHost(s *store.State, h *store.Host) error {
 	if err := checkLabels(h.Groups, h.Tags, h.Labels); err != nil {
 		return err
 	}
-	return checkHostVia(s, h)
+	return checkHostVia(cl, s, h)
 }
 
 // errText is an OS error without the path it repeats.
@@ -117,7 +118,7 @@ func errText(err error) string {
 
 // checkHostVia: every step of the --via path exists, a VPN comes first,
 // the host is not on its own path, and no step's own path leads back.
-func checkHostVia(s *store.State, h *store.Host) error {
+func checkHostVia(cl *call, s *store.State, h *store.Host) error {
 	steps := viaChain(h.Via)
 	if err := viaTwice(steps); err != nil {
 		return err
@@ -136,7 +137,7 @@ func checkHostVia(s *store.State, h *store.Host) error {
 		if _, ok := s.Hosts[step]; !ok {
 			e := out.Errf(out.ExitNotFound, "VIA_NOT_FOUND", "--via takes server and VPN names; see them with `komando list`", "no server or VPN named %q", step)
 			if c := closest(step, viaNames(s)); c != "" {
-				suggest(e, step, c)
+				suggest(cl, e, step, c)
 			}
 			return e
 		}
@@ -354,6 +355,22 @@ type hostResult struct {
 	Changed  *bool    `json:"changed,omitempty"` // edit: false when the edit changed nothing
 	Warnings []string `json:"warnings,omitempty"`
 	Next     string   `json:"next,omitempty"` // add: the command to run next
+	// SecretsUnused: edit --login ask or agent let go of these stored passwords;
+	// they stay in the vault (`komando secret rm NAME`)
+	SecretsUnused []string `json:"secrets_unused,omitempty"`
+}
+
+// MarshalJSON adds login (ask, password, key or agent) to the server's
+// settings, as host show prints it.
+func (r hostResult) MarshalJSON() ([]byte, error) {
+	type plain hostResult
+	if r.Host == nil {
+		return json.Marshal(plain(r))
+	}
+	return json.Marshal(struct {
+		plain
+		Login string `json:"login"`
+	}{plain(r), r.LoginMode()})
 }
 
 type connResult struct {
@@ -362,6 +379,22 @@ type connResult struct {
 	Changed  *bool    `json:"changed,omitempty"` // edit: false when the edit changed nothing
 	Warnings []string `json:"warnings,omitempty"`
 	Next     string   `json:"next,omitempty"` // add: the command to run next
+	// SecretsUnused: edit --login ask or none let go of this stored
+	// password; it stays in the vault (`komando secret rm NAME`)
+	SecretsUnused []string `json:"secrets_unused,omitempty"`
+}
+
+// MarshalJSON adds login (ask, password or none) to the conn's settings,
+// as conn show prints it.
+func (r connResult) MarshalJSON() ([]byte, error) {
+	type plain connResult
+	if r.Conn == nil {
+		return json.Marshal(plain(r))
+	}
+	return json.Marshal(struct {
+		plain
+		Login string `json:"login"`
+	}{plain(r), r.LoginMode()})
 }
 
 // sameTwinWarning is the warning when an entry turns out to be a protected

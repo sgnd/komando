@@ -68,7 +68,7 @@ read from docker on the server. The real run deletes and needs
   komando docker prune web1 --older-than 30d --all --dry-run
   komando docker prune web1 --older-than 30d --allow-dangerous`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if o.ageText != "" {
 				d, err := parseAge(o.ageText, "--older-than")
 				if err != nil {
@@ -80,15 +80,15 @@ read from docker on the server. The real run deletes and needs
 				return out.Usage("docker cannot combine --volumes with --older-than (volumes have no age filter); run them as two prunes")
 			}
 			pa := o.args()
-			if _, err := guardDocker(args[0], pa); err != nil {
+			if _, err := guardDocker(cl, args[0], pa); err != nil {
 				return err
 			}
 			line := "docker " + strings.Join(pa, " ") // fixed words and a number: nothing to quote
-			if g.dryRun {
-				return previewPrune(cmd.Context(), args[0], line, o, *sudo)
+			if cl.flags.dryRun {
+				return previewPrune(cl, cmd.Context(), args[0], line, o, *sudo)
 			}
-			return runDocker(cmd.Context(), "docker.prune", args[0], line, *sudo, true)
-		},
+			return runDocker(cl, cmd.Context(), "docker.prune", args[0], line, *sudo, true)
+		}),
 	}
 	spanText(c.Flags(), &o.ageText, "older-than", "", true, "only what is older than this (like 30d, 12h)")
 	c.Flags().BoolVarP(&o.all, "all", "a", false, "every image no container uses, not only dangling ones")
@@ -196,20 +196,20 @@ echo "== volume-sizes"; docker system df -v 2>&1 | sed -n '/^VOLUME NAME/,/^$/p'
 	return s + "true\n"
 }
 
-func previewPrune(ctx context.Context, target, line string, o pruneOpts, sudo bool) error {
+func previewPrune(cl *call, ctx context.Context, target, line string, o pruneOpts, sudo bool) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	hosts, err := resolveTargets(st, target)
+	hosts, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return err
 	}
-	_ = guard(st, hosts, line, true) // under --dry-run a stop only lands in meta.would_be_blocked
+	_ = guard(cl, st, hosts, line, true) // under --dry-run a stop only lands in meta.would_be_blocked
 	script := prunePreviewScript(o)
-	data := prunePreviewData{DryRun: true, Results: []prunePreview{}, WouldBeBlocked: out.P.Blocked()}
-	for _, oc := range fanout(ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
-		return sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: sudo, Timeout: cmdTimeout(st), MaxOutput: max(maxOutput(st), 8<<20)})
+	data := prunePreviewData{DryRun: true, Results: []prunePreview{}, WouldBeBlocked: cl.out.Blocked()}
+	for _, oc := range fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		return sshx.Run(ctx, c, sshx.RunRequest{Command: script, Sudo: sudo, Timeout: cmdTimeout(cl, st), MaxOutput: max(maxOutput(cl, st), 8<<20)})
 	}) {
 		r := prunePreview{Host: oc.Host.Name, WouldRun: line, Containers: []pruneItem{}, Images: []pruneItem{}}
 		if oc.Err != nil {
@@ -233,9 +233,9 @@ func previewPrune(ctx context.Context, target, line string, o pruneOpts, sudo bo
 			fails = append(fails, hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error})
 		}
 	}
-	audit(st, "docker.prune", hostNames(hosts), "preview: "+line, len(fails) == 0, nil)
+	audit(cl, st, "docker.prune", hostNames(hosts), "preview: "+line, len(fails) == 0, nil)
 	sum := runSummary{fleetSummary: fleetSummary{Total: len(data.Results), OK: len(data.Results) - len(fails), Failed: len(fails)}}
-	return finishFleet("docker.prune", data, sum, worst, fails)
+	return finishFleet(cl, "docker.prune", data, sum, worst, fails)
 }
 
 // dockerTime reads docker's CreatedAt ("2026-10-01 10:00:00 +0200 CEST").

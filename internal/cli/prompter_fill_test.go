@@ -20,8 +20,9 @@ func fillTest(t *testing.T) {
 	mustRun(t, "conn", "add", "app-db", "postgres://app@10.0.0.9/app")
 	mustRun(t, "conn", "add", "cache1", "redis://127.0.0.1:6379")
 	saved := promptable
-	promptable = func(string) bool { return true }
-	t.Cleanup(func() { promptable, promptConfirmed = saved, "" })
+	promptable = func(*call, string) bool { return true }
+	// promptFill parses the line's flags in tcl (--dry-run ...)
+	t.Cleanup(func() { promptable, tcl.promptConfirmed = saved, ""; endCommand() })
 }
 
 // What is missing is asked by its real name, added to the line, and the
@@ -48,7 +49,7 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"reboot"}, []string{"web1", "y"}, "reboot web1", []string{"Run it? [y/N, d = --dry-run first]"}},
 		{[]string{"svc", "stop", "web1"}, []string{"sshd", "y"}, "svc stop web1 sshd", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// easy to redo, no agent stop (OD-7), yet a person types what goes
-		{[]string{"cron", "rm", "web1"}, []string{"backup", "backup"}, "cron rm web1 backup", []string{"This deletes the scheduled task.", "Type the name backup to continue"}},
+		{[]string{"cron", "rm", "web1"}, []string{"backup", "backup"}, "cron rm web1 backup", []string{"This deletes the cron entry.", "Type the name backup to continue"}},
 		{[]string{"pkg", "rm", "web1"}, []string{"nginx curl", "2"}, "pkg rm web1 nginx curl", []string{"This removes the packages.", "Type 2 (packages on web1) to continue"}},
 		{[]string{"svc", "stop", "web1"}, []string{"nginx", "y"}, "svc stop web1 nginx", []string{"Run it? [y/N, d = --dry-run first]"}},
 		// komando and csv have no usual file, so FILE is asked; the other
@@ -64,7 +65,7 @@ func TestPromptFill(t *testing.T) {
 		{[]string{"packages", "rm", "web1"}, []string{"nginx curl", "2"}, "packages rm web1 nginx curl", []string{"Type 2 (packages on web1) to continue"}},
 	} {
 		drawn := promptFake(t, c.answers...)
-		got, err := promptFill(c.args)
+		got, err := promptFill(tcl, c.args)
 		if err != nil {
 			t.Errorf("%v: %v\n%s", c.args, err, drawn)
 			continue
@@ -98,7 +99,7 @@ func TestPromptFillCancel(t *testing.T) {
 		{[]string{"logs"}, nil},                                      // Ctrl-C at the first question
 	} {
 		promptFake(t, c.answers...)
-		got, err := promptFill(c.args)
+		got, err := promptFill(tcl, c.args)
 		var oe *out.Error
 		want, exit := "DECLINED", out.ExitPolicy // a no exits 6, as at any safety question (S-8.9)
 		if c.answers == nil {
@@ -118,15 +119,15 @@ func TestPromptFillPicks(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "prod1", "root@10.0.0.6", "--protected")
 	saved := promptable
-	promptable = func(string) bool { return true }
+	promptable = func(*call, string) bool { return true }
 	defer func() { promptable = saved }()
 	drawn := promptFake(t, "1")
-	got, err := promptFill([]string{"facts"})
+	got, err := promptFill(tcl, []string{"facts"})
 	if err != nil || pickCommandLine(got) != "facts prod1" || strings.Contains(drawn.String(), "Using") {
 		t.Errorf("%v %v\n%s", got, err, drawn)
 	}
 	drawn = promptFake(t)
-	if _, err := promptFill([]string{"db", "info"}); err == nil || !strings.Contains(drawn.String(), "No databases yet: `komando db add`") {
+	if _, err := promptFill(tcl, []string{"db", "info"}); err == nil || !strings.Contains(drawn.String(), "No databases yet: `komando db add`") {
 		t.Errorf("%v\n%s", err, drawn)
 	}
 }
@@ -135,9 +136,9 @@ func TestPromptFillPicks(t *testing.T) {
 func TestPromptFillOnlyForAPerson(t *testing.T) {
 	invHome(t)
 	saved := promptable
-	promptable = func(string) bool { return false }
+	promptable = func(*call, string) bool { return false }
 	defer func() { promptable = saved }()
-	if got, err := promptFill([]string{"logs"}); err != nil || !slices.Equal(got, []string{"logs"}) {
+	if got, err := promptFill(tcl, []string{"logs"}); err != nil || !slices.Equal(got, []string{"logs"}) {
 		t.Errorf("%v %v", got, err)
 	}
 }

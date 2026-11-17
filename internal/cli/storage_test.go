@@ -40,13 +40,13 @@ func TestOpenBucketSMB(t *testing.T) {
 	t.Setenv("KOMANDO_TEST_SMB_PW", os.Getenv("KOMANDO_TEST_SMB_PASSWORD"))
 	st := &store.State{Hosts: map[string]*store.Host{}, Conns: map[string]*store.Conn{}}
 	c := &store.Conn{Name: "share", URL: "smb://alice@127.0.0.1:1/team", PasswordRef: "env:KOMANDO_TEST_SMB_PW"}
-	if _, err := openBucket(context.Background(), st, c); toErr(err).Code != "STORAGE_CONNECT" {
+	if _, err := openBucket(tcl, context.Background(), st, c); toErr(err).Code != "STORAGE_CONNECT" {
 		t.Errorf("closed port: %v", err)
 	}
 	if c.URL = os.Getenv("KOMANDO_TEST_SMB"); c.URL == "" {
 		return
 	}
-	b, err := openBucket(context.Background(), st, c)
+	b, err := openBucket(tcl, context.Background(), st, c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,6 +71,9 @@ func (m *memBucket) List(_ context.Context, prefix string, recursive bool, limit
 	for k, v := range m.objs {
 		if !strings.HasPrefix(k, prefix) {
 			continue
+		}
+		if strings.HasSuffix(k, "/") && (recursive || k == prefix) {
+			continue // a folder marker, as a bucket lists it
 		}
 		rest := strings.TrimPrefix(k, prefix)
 		if i := strings.Index(rest, "/"); !recursive && i >= 0 {
@@ -123,6 +126,59 @@ func (m *memBucket) Link(context.Context, string, time.Duration) (*url.URL, erro
 	return nil, out.Errf(out.ExitUsage, "NOT_SUPPORTED", "", "no links")
 }
 
+// Lookup: a key is a file; a folder is any key under name/.
+func (m *memBucket) Lookup(_ context.Context, rel string) (storex.Object, bool, error) {
+	r := strings.Trim(rel, "/")
+	if err := storex.CheckKey(r); err != nil {
+		return storex.Object{}, false, err
+	}
+	if v, ok := m.objs[r]; ok {
+		return storex.Object{Key: r, Size: int64(len(v))}, true, nil
+	}
+	for k := range m.objs {
+		if strings.HasPrefix(k, r+"/") {
+			return storex.Object{Key: r + "/", Dir: true}, true, nil
+		}
+	}
+	return storex.Object{}, false, nil
+}
+
+// Mkdir makes a folder marker, as on S3.
+func (m *memBucket) Mkdir(ctx context.Context, rel string) (bool, error) {
+	o, found, err := m.Lookup(ctx, rel)
+	if err != nil || found {
+		if found && !o.Dir {
+			err = out.Errf(out.ExitConflict, "FILE_EXISTS", "", "a file named %q is already there", rel)
+		}
+		return found, err
+	}
+	m.objs[strings.Trim(rel, "/")+"/"] = ""
+	return false, nil
+}
+
+// Move copies and deletes, as on S3: one object, no folders.
+func (m *memBucket) Move(ctx context.Context, src, dst string, o storex.MoveOpts) (storex.Moved, error) {
+	so, found, err := m.Lookup(ctx, src)
+	switch {
+	case err != nil:
+		return storex.Moved{}, err
+	case !found:
+		return storex.Moved{}, storex.NotThere(src)
+	case so.Dir:
+		return storex.Moved{}, out.Errf(out.ExitUsage, "STORAGE_UNSUPPORTED", "", "%q is a folder", src)
+	}
+	_, replaced, _ := m.Lookup(ctx, dst)
+	if replaced && !o.Overwrite {
+		return storex.Moved{}, out.Errf(out.ExitConflict, "FILE_EXISTS", "", "a file named %q is already there", dst)
+	}
+	mv := storex.Moved{Replaced: replaced, Size: so.Size, Copied: true}
+	if !o.DryRun {
+		m.objs[dst] = m.objs[src]
+		delete(m.objs, src)
+	}
+	return mv, nil
+}
+
 func (m *memBucket) Close() error { return nil }
 
 // withMemBucket adds the storage conn bk, backed by m.
@@ -131,7 +187,7 @@ func withMemBucket(t *testing.T, m *memBucket) {
 	invHome(t)
 	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
 	saved := openBucket
-	openBucket = func(context.Context, *store.State, *store.Conn) (storex.Bucket, error) { return m, nil }
+	openBucket = func(*call, context.Context, *store.State, *store.Conn) (storex.Bucket, error) { return m, nil }
 	t.Cleanup(func() { openBucket = saved })
 }
 
@@ -144,9 +200,9 @@ func typing(t *testing.T, answer string) {
 	}
 	w.WriteString(answer)
 	w.Close()
-	saved, savedI := os.Stdin, interactive
-	os.Stdin, interactive = r, func() bool { return true }
-	t.Cleanup(func() { os.Stdin, interactive = saved, savedI; r.Close() })
+	saved, savedI := tcl.stdin, tcl.terminal
+	tcl.stdin, tcl.terminal = r, true
+	t.Cleanup(func() { tcl.stdin, tcl.terminal = saved, savedI; r.Close() })
 }
 
 // rm --prefix at a person's terminal lists what goes before asking for
@@ -176,9 +232,9 @@ func TestStorageRmPrefixShowsBeforeAsking(t *testing.T) {
 func TestStorageRmPrefixAgentStopsFirst(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa"}}
 	withMemBucket(t, m)
-	saved := interactive
-	interactive = func() bool { return false }
-	t.Cleanup(func() { interactive = saved })
+	saved := tcl.terminal
+	tcl.terminal = false
+	t.Cleanup(func() { tcl.terminal = saved })
 	if e := wantCode(t, "POLICY_BLOCKED", "storage", "rm", "bk", "--prefix", "daily/"); e.Exit != out.ExitPolicy || m.listed != 0 || len(m.objs) != 1 {
 		t.Errorf("exit %d, listed %d, %d objects", e.Exit, m.listed, len(m.objs))
 	}
@@ -235,7 +291,7 @@ func TestStorageLinkTemporaryKeysWarns(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "bk", "s3://shop-dev/backups?region=eu-west-1", "--option", "aws_profile=dev")
 	saved := openBucket
-	openBucket = func(context.Context, *store.State, *store.Conn) (storex.Bucket, error) {
+	openBucket = func(*call, context.Context, *store.State, *store.Conn) (storex.Bucket, error) {
 		return tempKeyBucket{&memBucket{objs: map[string]string{"a.txt": "a"}}}, nil
 	}
 	t.Cleanup(func() { openBucket = saved })
@@ -264,8 +320,8 @@ func TestStorageJourneyCommands(t *testing.T) {
 func TestStorageRmMaxRemove(t *testing.T) {
 	m := &memBucket{objs: map[string]string{"daily/a.gz": "aa", "daily/b.gz": "bbb"}}
 	withMemBucket(t, m)
-	defer func() { g.dryRun = false }()
-	out.P.Reset()
+	defer func() { tcl.flags.dryRun = false }()
+	tcl.out.Reset()
 	e := wantCode(t, "TOO_MANY", "storage", "rm", "bk", "--prefix", "daily/", "--dry-run", "--max-remove", "1")
 	if !strings.Contains(e.Message, "more than --max-remove 1") || !strings.Contains(e.Hint, "raise --max-remove") {
 		t.Errorf("--max-remove 1: %+v", e)
@@ -273,7 +329,7 @@ func TestStorageRmMaxRemove(t *testing.T) {
 	if len(m.objs) != 2 {
 		t.Errorf("a dry run removed objects: %v", m.objs)
 	}
-	c, _, _ := newRoot().Find([]string{"storage", "rm"})
+	c, _, _ := newRoot(tcl).Find([]string{"storage", "rm"})
 	if c.Flags().ShorthandLookup("n") != nil || c.Flags().Lookup("limit") != nil || c.Flags().Lookup("max-remove").Shorthand != "" {
 		t.Error("storage rm has -n or --limit, or a short --max-remove")
 	}

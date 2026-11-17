@@ -68,7 +68,7 @@ func TestNewConnsCheckTLS(t *testing.T) {
 
 	// a conn saved before this default keeps its URL and stays usable
 	now := time.Now().UTC()
-	if err := store.Update(func(s *store.State) error {
+	if err := store.Update(store.Save(), func(s *store.State) error {
 		s.Conns["old-cache"] = &store.Conn{Name: "old-cache", Kind: "redis", URL: "redis://default@cache.example.com:6379/0", CreatedAt: now, UpdatedAt: now}
 		s.Conns["old-pg"] = &store.Conn{Name: "old-pg", Kind: "postgres", URL: "postgres://app@db.example.com/app", CreatedAt: now, UpdatedAt: now}
 		return nil

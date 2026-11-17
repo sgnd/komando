@@ -30,16 +30,17 @@ func guideGuardCmd() *cobra.Command {
 		Short:  "Stop AI agent tool calls that would read secrets on this computer",
 		Hidden: true,
 		Args:   cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
 			if agent != "" && agent != "claude" {
-				b, err := io.ReadAll(io.LimitReader(os.Stdin, 4<<20))
-				home, herr := os.UserHomeDir()
+				b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
 				d := allow()
-				if err == nil && herr == nil {
-					d = guardAgent(agent, b, home)
+				for _, home := range guardHomes() {
+					if err == nil && !d.Deny {
+						d = guardAgent(cl, agent, b, home)
+					}
 				}
 				if a := guardAnswer(agent, d); a != nil {
-					os.Stdout.Write(a)
+					cl.out.W.Write(a)
 				}
 				return nil
 			}
@@ -48,24 +49,25 @@ func guideGuardCmd() *cobra.Command {
 				Input map[string]any `json:"tool_input"`
 				Cwd   string         `json:"cwd"`
 			}
-			b, err := io.ReadAll(io.LimitReader(os.Stdin, 4<<20))
+			b, err := io.ReadAll(io.LimitReader(cl.stdin, 4<<20))
 			if err != nil || json.Unmarshal(b, &call) != nil {
 				return nil
 			}
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return nil
+			d := allow()
+			for _, home := range guardHomes() {
+				if !d.Deny {
+					d = checkTool(cl, call.Tool, call.Input, home, hookCwd(call.Cwd))
+				}
 			}
-			d := checkTool(call.Tool, call.Input, home, hookCwd(call.Cwd))
 			if !d.Deny {
 				return nil
 			}
-			return json.NewEncoder(os.Stdout).Encode(map[string]any{"hookSpecificOutput": map[string]any{
+			return json.NewEncoder(cl.out.W).Encode(map[string]any{"hookSpecificOutput": map[string]any{
 				"hookEventName":            "PreToolUse",
 				"permissionDecision":       "deny",
 				"permissionDecisionReason": "komando guard: " + d.Reason,
 			}})
-		},
+		}),
 	}
 	c.Flags().StringVar(&agent, "for", "", "the harness: claude (default), cursor, gemini or codex")
 	return c
@@ -128,13 +130,13 @@ func installGuardHook(path, komandoPath string, dryRun bool) (skillFile, error) 
 		return f, nil
 	}
 	if f.Action == "updated" {
-		f.Backup = settingsBackup(path)
+		f.Backup = newBackup(path)
 	}
 	if dryRun {
 		return f, nil
 	}
 	if f.Backup != "" {
-		if err := saveSettingsBackup(f.Backup, old); err != nil {
+		if err := saveBackup(f.Backup, old); err != nil {
 			return f, err
 		}
 	}
@@ -144,16 +146,17 @@ func installGuardHook(path, komandoPath string, dryRun bool) (skillFile, error) 
 	return f, store.WriteFileAtomic(path, buf.Bytes(), 0o600)
 }
 
-// settingsBackup is the name the old copy of an agent's settings file
+// newBackup is the name the old copy of an agent's settings or skill file
 // gets: PATH.bak, or PATH.bak.<UTC time> when that is taken. A backup
-// there already (the user's own .bak too) is never written over.
-func settingsBackup(path string) string {
+// there already (the user's own .bak too, or a link of that name) is never
+// written over.
+func newBackup(path string) string {
 	return backupName(path, time.Now(), func(p string) bool { _, err := os.Lstat(p); return err == nil })
 }
 
-// saveSettingsBackup writes it 0600 (settings files can hold tokens),
-// whatever mode a file of that name had before.
-func saveSettingsBackup(name string, old []byte) error {
+// saveBackup writes it 0600 (settings files can hold tokens) through a
+// temporary file of a random name, so never through a link.
+func saveBackup(name string, old []byte) error {
 	if _, err := os.Lstat(name); err == nil {
 		return fmt.Errorf("%s appeared while komando wrote it; nothing was changed, run it again", name)
 	}

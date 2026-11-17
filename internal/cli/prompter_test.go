@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"io"
 	"strings"
 	"testing"
 )
@@ -10,9 +11,10 @@ import (
 func promptFake(t *testing.T, answers ...string) *strings.Builder {
 	t.Helper()
 	var drawn strings.Builder
-	savedW, savedRead, savedOn := promptW, promptRead, promptOn
-	promptW, promptOn = &drawn, true
-	promptRead = func(label string) (string, error) {
+	savedW, savedRead, savedOn := promptW, promptRead, tcl.promptOn
+	promptW = func(*call) io.Writer { return &drawn }
+	tcl.promptOn = true
+	promptRead = func(_ *call, label string) (string, error) {
 		drawn.WriteString(label)
 		if len(answers) == 0 {
 			return "", errPromptCancel // as Ctrl-C
@@ -22,7 +24,7 @@ func promptFake(t *testing.T, answers ...string) *strings.Builder {
 		drawn.WriteString(a + "\n")
 		return a, nil
 	}
-	t.Cleanup(func() { promptW, promptRead, promptOn = savedW, savedRead, savedOn })
+	t.Cleanup(func() { promptW, promptRead, tcl.promptOn = savedW, savedRead, savedOn })
 	return &drawn
 }
 
@@ -47,18 +49,18 @@ func TestAskGate(t *testing.T) {
 
 // A question asked where nobody may be asked is a bug, never a hang.
 func TestAskNeverWithoutAPerson(t *testing.T) {
-	promptOn = false
+	tcl.promptOn = false
 	defer func() {
 		if recover() == nil {
 			t.Error("a question was asked without a person")
 		}
 	}()
-	_, _ = askText(promptQ{label: "CONN"})
+	_, _ = askText(tcl, promptQ{label: "CONN"})
 }
 
 func TestAskText(t *testing.T) {
 	drawn := promptFake(t, "?", "", "abc", "42")
-	v, err := askText(promptQ{label: "--limit", help: "How many rows.", check: func(v string) string { return formValueProblem("int", v) }})
+	v, err := askText(tcl, promptQ{label: "--limit", help: "How many rows.", check: func(v string) string { return formValueProblem("int", v) }})
 	if err != nil || v != "42" {
 		t.Fatalf("%q %v", v, err)
 	}
@@ -68,15 +70,15 @@ func TestAskText(t *testing.T) {
 		}
 	}
 	promptFake(t, "")
-	if v, _ := askText(promptQ{label: "--since", def: "1h"}); v != "1h" {
+	if v, _ := askText(tcl, promptQ{label: "--since", def: "1h"}); v != "1h" {
 		t.Errorf("Enter on a default: %q", v)
 	}
 	promptFake(t, "", "", "")
-	if _, err := askText(promptQ{label: "SQL"}); !errors.Is(err, errPromptCancel) {
+	if _, err := askText(tcl, promptQ{label: "SQL"}); !errors.Is(err, errPromptCancel) {
 		t.Errorf("three empty answers: %v", err)
 	}
 	promptFake(t) // Ctrl-C
-	if _, err := askText(promptQ{label: "SQL"}); !errors.Is(err, errPromptCancel) {
+	if _, err := askText(tcl, promptQ{label: "SQL"}); !errors.Is(err, errPromptCancel) {
 		t.Errorf("Ctrl-C: %v", err)
 	}
 }
@@ -97,13 +99,13 @@ func TestAskPick(t *testing.T) {
 		{[]string{"9", "nothing", "1"}, false, "db-pass"},
 	} {
 		drawn := promptFake(t, c.answers...)
-		got, err := askPick(promptQ{label: "TARGET"}, rows, c.free)
+		got, err := askPick(tcl, promptQ{label: "TARGET"}, rows, c.free)
 		if err != nil || got != c.want {
 			t.Errorf("%v: %q %v\n%s", c.answers, got, err, drawn)
 		}
 	}
 	drawn := promptFake(t, "")
-	if got, _ := askPick(promptQ{label: "--via", optional: true}, rows, true); got != "" {
+	if got, _ := askPick(tcl, promptQ{label: "--via", optional: true}, rows, true); got != "" {
 		t.Errorf("Enter on an optional pick: %q", got)
 	}
 	if !strings.Contains(drawn.String(), " 1  db-pass") || !strings.Contains(drawn.String(), " 2  web-1    10.0.0.5") {
@@ -114,16 +116,16 @@ func TestAskPick(t *testing.T) {
 func TestAskRunAndTypeName(t *testing.T) {
 	for answer, want := range map[string]string{"y": "y", "YES": "y", "d": "d", "": "n", "x": "n"} {
 		promptFake(t, answer)
-		if got, _ := askRun(); got != want {
+		if got, _ := askRun(tcl); got != want {
 			t.Errorf("Run it? %q: %q, want %q", answer, got, want)
 		}
 	}
 	promptFake(t, "old-box")
-	if ok, _ := askTypeName("old-box", "the name old-box"); !ok {
+	if ok, _ := askTypeName(tcl, "old-box", "the name old-box"); !ok {
 		t.Error("the right name is a no")
 	}
 	promptFake(t, "old")
-	if ok, _ := askTypeName("old-box", "the name old-box"); ok {
+	if ok, _ := askTypeName(tcl, "old-box", "the name old-box"); ok {
 		t.Error("a wrong name is a yes")
 	}
 }
@@ -132,7 +134,7 @@ func TestAskRunAndTypeName(t *testing.T) {
 func TestCIRunIsNoPerson(t *testing.T) {
 	for v, want := range map[string]bool{"": false, "false": false, "0": false, "true": true, "1": true} {
 		t.Setenv("CI", v)
-		if ciRun() != want {
+		if ciRun(tcl) != want {
 			t.Errorf("CI=%q: %v", v, !want)
 		}
 	}
@@ -162,7 +164,7 @@ func TestColorNeedsVT(t *testing.T) {
 	saved := vtOK
 	t.Cleanup(func() { vtOK = saved })
 	vtOK = false
-	if colorOK() {
+	if colorOK(tcl) {
 		t.Error("colour on a console that shows escape sequences as text")
 	}
 }

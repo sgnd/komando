@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/sgnd/komando/internal/out"
 )
 
 // Every db command names its conn CONN in Use, so completion and the
@@ -18,7 +16,7 @@ import (
 var requiredInUse = regexp.MustCompile(` --[a-z-]+ [A-Z_]+`)
 
 func TestDBUseLines(t *testing.T) {
-	root := newRoot()
+	root := newRoot(tcl)
 	db, _, err := root.Find([]string{"db"})
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +44,7 @@ func TestDBKillDryRunWouldBeBlocked(t *testing.T) {
 	invHome(t)
 	mustRun(t, "conn", "add", "pg", "postgres://app@127.0.0.1:1/app", "--protected")
 	_, _ = invRun(t, "db", "kill", "pg", "42", "--dry-run")
-	if b := out.P.Blocked(); b == nil || b.Code != "PROTECTED_TARGET" {
+	if b := tcl.out.Blocked(); b == nil || b.Code != "PROTECTED_TARGET" {
 		t.Fatalf("would_be_blocked = %+v, want PROTECTED_TARGET", b)
 	}
 }

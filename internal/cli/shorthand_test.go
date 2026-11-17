@@ -15,7 +15,7 @@ import (
 func TestFsMkdirParentsNoOp(t *testing.T) {
 	invHome(t)
 	mustRun(t, "host", "add", "web1", "u@10.0.0.1")
-	defer func() { g.dryRun = false }()
+	defer func() { tcl.flags.dryRun = false }()
 	plan := func(args ...string) string {
 		d := mustRun(t, append([]string{"fs", "mkdir", "web1"}, args...)...)
 		delete(d, "_meta")
@@ -27,7 +27,7 @@ func TestFsMkdirParentsNoOp(t *testing.T) {
 			t.Errorf("%s changes the plan:\n%s\n%s", p, a, b)
 		}
 	}
-	c, _, _ := newRoot().Find([]string{"fs", "mkdir"})
+	c, _, _ := newRoot(tcl).Find([]string{"fs", "mkdir"})
 	if f := c.Flags().Lookup("parents"); f == nil || !f.Hidden || f.Shorthand != "p" {
 		t.Errorf("--parents: %+v", f)
 	}
@@ -66,7 +66,7 @@ func TestShorthandDidYouMean(t *testing.T) {
 			t.Errorf("%v suggests an approval flag: %q", c.args, e.Message)
 		}
 	}
-	c, _, _ := newRoot().Find([]string{"fs", "ls"})
+	c, _, _ := newRoot(treeCall()).Find([]string{"fs", "ls"})
 	_ = c.ParseFlags(nil)
 	if s := shorthandSuggest(c, "y", "-y"); s != "" {
 		t.Errorf("-y on fs ls suggests %q", s)
@@ -116,7 +116,7 @@ func TestStandardShorthands(t *testing.T) {
 		"R": {"remote": func(p string) bool { return in(p, "tunnel start") }},
 	}
 	never := []string{"allow-dangerous", "reveal", "write", "dry-run", "port", "user", "label"}
-	root := newRoot()
+	root := newRoot(tcl)
 	check := func(path string, c *cobra.Command, f *pflag.Flag) {
 		if f.Shorthand == "" {
 			return

@@ -24,8 +24,9 @@ import (
 // Mac has), the Secret Service on Linux (GNOME Keyring, KWallet, through
 // `secret-tool`), or the Windows Credential Manager (advapi32, called
 // directly: credman_windows.go). The key never goes on a command line: `security -i` and
-// `secret-tool store` read it from standard input. Moving the key does not
-// re-encrypt anything: it is the same key, kept elsewhere.
+// `secret-tool store` read it from standard input. Moving the key into the
+// keychain gives the store a new key (sealed_keys.go), so a copy of
+// store.key from before opens nothing; moving it back keeps the key.
 //
 // A new vault without a passphrase starts with its key in the keychain
 // when there is one (keychainNewKey); KOMANDO_KEYCHAIN=off keeps komando
@@ -71,9 +72,32 @@ func keychainCmd(args ...string) *exec.Cmd {
 
 // keychainCmdCtx is keychainCmd, stopped when ctx ends.
 func keychainCmdCtx(ctx context.Context, args ...string) *exec.Cmd {
-	tool := securityTool
-	if keychainOS != "darwin" {
-		tool = systemTool("secret-tool")
+	return keychainNow().cmd(ctx, args...)
+}
+
+// keychainAt is where this system's keychain tools are, read once from
+// the settings tests change (keychainOS, securityTool, toolDirs,
+// defaultKeychainTimeout). A keychain call its caller may stop waiting
+// for (the store's probe of its change count) reads them before it
+// starts, never while it runs.
+type keychainAt struct {
+	os, security, secretTool string
+	defaultTimeout           time.Duration
+}
+
+func keychainNow() keychainAt {
+	at := keychainAt{os: keychainOS, security: securityTool, defaultTimeout: defaultKeychainTimeout}
+	if at.os != "darwin" {
+		at.secretTool = systemTool("secret-tool")
+	}
+	return at
+}
+
+// cmd runs the keychain tool with args, stopped when ctx ends.
+func (at keychainAt) cmd(ctx context.Context, args ...string) *exec.Cmd {
+	tool := at.security
+	if at.os != "darwin" {
+		tool = at.secretTool
 	}
 	c := exec.CommandContext(ctx, tool, args...)
 	c.WaitDelay = time.Second // a child holding the pipes must not keep komando waiting
@@ -88,26 +112,65 @@ func keychainCmdCtx(ctx context.Context, args ...string) *exec.Cmd {
 // the prompt. Tests shorten it.
 var newKeyTimeout = 5 * time.Second
 
+// newKeyContext bounds one keychain call of a new vault (newKeyTimeout).
+// A test that must cut short one call and not another replaces it.
+var newKeyContext = func() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), newKeyTimeout)
+}
+
 // errNoKeychainKey: the keychain answered, and holds no key under this
 // komando home's name. Any other error (locked, a dismissed prompt, a
 // timeout) says nothing about whether a key is there.
 var errNoKeychainKey = errors.New("the vault key is not in the keychain")
 
 // keychainFile is a keychain file to use instead of the login keychain
-// (macOS; KOMANDO_KEYCHAIN, for tests and separate keychains).
+// (macOS; KOMANDO_KEYCHAIN, for tests and a person's separate keychain),
+// for the store's key and its change count alike. An AI agent's path is
+// not used for either: pointed at a new, empty keychain file it would find
+// no count, and komando would start an empty store over one the agent
+// moved aside. An agent's call uses the default keychain, as its "off"
+// does for the count (countOff), so the key and the count of a store are
+// always in one keychain.
 func keychainFile() string {
-	if keychainOff() {
+	if keychainOff() || agentCall() {
 		return ""
 	}
 	return os.Getenv("KOMANDO_KEYCHAIN")
 }
 
+// agentKeychainPath reports an AI agent's call with KOMANDO_KEYCHAIN set
+// to a keychain file, which komando does not use (keychainFile).
+func agentKeychainPath() bool {
+	return agentCall() && !keychainOff() && os.Getenv("KOMANDO_KEYCHAIN") != ""
+}
+
 // keychainOff: KOMANDO_KEYCHAIN=off, komando uses no keychain here.
 func keychainOff() bool { return os.Getenv("KOMANDO_KEYCHAIN") == "off" }
 
+// AgentCall reports that an AI agent makes this call; the cli sets it.
+var AgentCall func() bool
+
+// agentCall asks AgentCall for the keychain's settings. Unset, the
+// caller's own settings count: the tests and programs that set no hook
+// keep KOMANDO_KEYCHAIN=off, and must never reach the login keychain.
+// store.AgentCaller, which decides who may start a store beside a keychain
+// that cannot be read, counts an unset hook as an agent instead.
+func agentCall() bool { return AgentCall != nil && AgentCall() }
+
+// countOff is keychainOff for the store's change count (generation.go).
+// An agent's KOMANDO_KEYCHAIN=off does not count there: with it, an agent
+// could move store.db and store.key aside, or put an old copy back, and
+// komando would start or open that store without the old-copy check (no
+// pinned host keys, no protected flags). The count is a number, not a
+// secret, so reading it gives the agent nothing.
+func countOff() bool { return keychainOff() && !agentCall() }
+
 // KeychainTool says which tool keeps the key here, or why there is none.
-func KeychainTool() (string, error) {
-	if keychainOff() {
+func KeychainTool() (string, error) { return keychainTool(keychainOff()) }
+
+// keychainTool is KeychainTool with off given.
+func keychainTool(off bool) (string, error) {
+	if off {
 		return "", errors.New("komando uses no keychain on this computer (KOMANDO_KEYCHAIN is off)")
 	}
 	switch keychainOS {
@@ -145,20 +208,23 @@ var (
 // sudo -E, a sandbox, CI, a test run; or no login keychain), while
 // `security default-keychain` only exits 1, with no dialog. So komando
 // asks that first, once per process.
-func macDefaultKeychain() error {
-	if keychainOS != "darwin" || keychainFile() != "" {
+func macDefaultKeychain(kc string) error { return keychainNow().macDefault(kc) }
+
+// macDefault is macDefaultKeychain with the tools at.
+func (at keychainAt) macDefault(kc string) error {
+	if at.os != "darwin" || kc != "" {
 		return nil
 	}
 	home := os.Getenv("HOME")
-	id := securityTool + "\x00" + home
+	id := at.security + "\x00" + home
 	defaultKCMu.Lock()
 	defer defaultKCMu.Unlock()
 	if err, ok := defaultKCSeen[id]; ok {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), defaultKeychainTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), at.defaultTimeout)
 	defer cancel()
-	c := exec.CommandContext(ctx, securityTool, "default-keychain")
+	c := exec.CommandContext(ctx, at.security, "default-keychain")
 	c.WaitDelay = time.Second
 	var err error
 	if out, rerr := c.CombinedOutput(); rerr != nil || len(bytes.TrimSpace(out)) == 0 {
@@ -173,12 +239,16 @@ func macDefaultKeychain() error {
 // keychain`: on macOS it also needs a default keychain, so komando never
 // makes macOS show a dialog. A use nobody asked for then goes on without
 // the keychain.
-func autoKeychainTool() (string, error) {
-	tool, err := KeychainTool()
+func autoKeychainTool() (string, error) { return autoKeychainToolFor(keychainOff(), keychainFile()) }
+
+// autoKeychainToolFor is autoKeychainTool with off and the keychain file
+// given (countOff and keychainFile for the change count).
+func autoKeychainToolFor(off bool, kc string) (string, error) {
+	tool, err := keychainTool(off)
 	if err != nil {
 		return "", err
 	}
-	if err := macDefaultKeychain(); err != nil {
+	if err := macDefaultKeychain(kc); err != nil {
 		return "", err
 	}
 	return tool, nil
@@ -419,9 +489,7 @@ func keychainNewKey() ([]byte, bool) {
 	if _, err := autoKeychainTool(); err != nil {
 		return nil, false
 	}
-	ctx := func() (context.Context, context.CancelFunc) {
-		return context.WithTimeout(context.Background(), newKeyTimeout)
-	}
+	ctx := newKeyContext
 	get := func() ([]byte, error) {
 		c, cancel := ctx()
 		defer cancel()
@@ -459,11 +527,11 @@ func keychainNewKey() ([]byte, bool) {
 	return key, true
 }
 
-// KeyToKeychain moves the vault key from store.key into the keychain. It
-// never replaces a key the keychain already holds for this komando folder
-// (ErrKeychainTaken): that one may be the only key of a vault moved aside.
-// The same key there (a move that stopped before vault.json said so) is
-// fine. When keychainHas cannot tell (on Linux, a locked default
+// KeyToKeychain gives the vault a new key, kept in the keychain, and
+// removes store.key. It never replaces a key the keychain already holds
+// for this komando folder (ErrKeychainTaken): that one may be the only key
+// of a vault moved aside, even when it is this store's own old key. The
+// new key of a move that stopped part way is fine. When keychainHas cannot tell (on Linux, a locked default
 // collection among other things) it stores nothing and asks for the
 // keychain to be unlocked first.
 func KeyToKeychain() (string, error) { return sealedKeyToKeychain() }

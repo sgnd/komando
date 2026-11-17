@@ -29,9 +29,9 @@ var personalCmds = map[string]bool{
 	"cluster helm status": true, "cluster helm values": true,
 	"cron list":   true,
 	"db activity": true, "db explain": true, "db locks": true, "db query": true,
-	"docker exec": true, "docker inspect": true, "docker logs": true, "docker raw": true,
-	"download": true, "exec": true, "recipe run": true,
-	"fs cat": true, "fs list": true,
+	"docker compose": true, "docker exec": true, "docker inspect": true, "docker logs": true, "docker raw": true,
+	"cp": true, "download": true, "exec": true, "recipe run": true, "sync": true,
+	"fs cat": true, "fs list": true, "fs replace": true, "fs restore": true, "fs write": true,
 	"job logs": true, "job status": true, "job wait": true,
 	"logs": true, "svc logs": true, "svc status": true,
 	"net http":    true,
@@ -40,78 +40,72 @@ var personalCmds = map[string]bool{
 	"user list": true,
 }
 
-// personalCmd: this command, run by an AI agent, may hide personal data.
-var personalCmd bool
-
 // startPersonal decides, before a command runs, whether it may hide
 // personal data; notePersonal then turns it on per target.
 func startPersonal(cmd *cobra.Command) {
-	out.P.Personal = false
-	personalCmd = out.P.Mask && personalCmds[idKey(cmd)]
+	cl := callOf(cmd)
+	cl.out.Personal, cl.twinMask = false, nil
+	cl.personalCmd = cl.out.Mask && personalCmds[idKey(cmd)]
 }
 
 // notePersonal turns on personal data masking when the command works on a
 // target the mask_personal setting covers.
-func notePersonal(st *store.State, hosts []*store.Host, conns []*store.Conn) {
-	if !personalCmd || out.P.Personal {
+func notePersonal(cl *call, st *store.State, hosts []*store.Host, conns []*store.Conn) {
+	if !cl.personalCmd {
 		return
 	}
-	for _, c := range conns {
-		if strings.EqualFold(c.Options["mask_personal"], "on") || c.Options["mask_columns"] != "" {
-			out.P.Personal = true
-			return
-		}
-	}
-	switch st.Settings.MaskPersonal {
-	case "off":
-		return
-	case "all":
-		out.P.Personal = len(hosts)+len(conns) > 0
-		return
-	}
-	for _, h := range hosts {
-		if protectedHost(st, h) {
-			out.P.Personal = true
-			return
-		}
-	}
-	for _, c := range conns {
-		if protectedConn(st, c) {
-			out.P.Personal = true
-			return
-		}
+	noteTwinMask(cl, st, conns)
+	if !cl.out.Personal {
+		cl.out.Personal = personalTarget(st, hosts, conns)
 	}
 }
 
-// maskColumns hides whole values of the conn's mask_columns (names,
-// addresses, birth dates: personal data no pattern finds) in query
-// results, when personal data is hidden for this command.
-func maskColumns(c *store.Conn, res *dbx.Result) {
-	if !out.P.Mask || !out.P.Personal || c.Options["mask_columns"] == "" {
-		return
-	}
-	want := map[string]bool{}
-	// names split by spaces (--option takes a comma as the next option)
-	for _, n := range strings.FieldsFunc(c.Options["mask_columns"], func(r rune) bool { return r == ' ' || r == ',' || r == ';' }) {
-		want[strings.ToLower(n)] = true
+// maskColumns hides, in query results, what no output pass can see: a
+// binary cell that holds a hidden value (as [hidden], so -o text and csv,
+// which print it as hex, show no more than JSON), and, where personal data
+// is hidden, whole values of the conn's mask_columns (names, addresses,
+// birth dates: personal data no pattern finds), by column and inside cells
+// that hold JSON (to_jsonb(row), row_to_json).
+func maskColumns(cl *call, c *store.Conn, res *dbx.Result) {
+	names := map[string]bool{}
+	if cl.out.Mask && cl.out.Personal {
+		for _, n := range maskedColumnsFor(cl, c) {
+			names[n] = true
+		}
 	}
 	label := out.PersonalLabel(out.PersonalColumn)
 	for ri := range res.Results {
 		r := &res.Results[ri]
-		var idx []int
+		hide := map[int]bool{}
 		for i, col := range r.Columns {
-			if want[strings.ToLower(col.Name)] {
-				idx = append(idx, i)
+			if names[strings.ToLower(col.Name)] || names[strings.ToLower(lastPart(col.Name))] {
+				hide[i] = true
 			}
 		}
 		for _, row := range r.Rows {
-			for _, i := range idx {
-				if i < len(row) && row[i] != nil {
+			for i := range row {
+				switch {
+				case row[i] == nil:
+				case hide[i]:
 					row[i] = label
+				default:
+					row[i] = maskCell(cl, row[i], names, label)
 				}
 			}
 		}
 	}
+}
+
+// lastPart is a result column's name without the table in front (b.name)
+// or the number a database adds to a name that is there twice (name_1).
+func lastPart(n string) string {
+	if i := strings.LastIndexByte(n, '.'); i >= 0 {
+		n = n[i+1:]
+	}
+	if i := strings.LastIndexByte(n, '_'); i > 0 && strings.Trim(n[i+1:], "0123456789") == "" && i+1 < len(n) {
+		n = n[:i]
+	}
+	return n
 }
 
 // refuseHiddenWrite stops a write that carries a value komando hid from the

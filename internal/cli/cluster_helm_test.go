@@ -121,7 +121,7 @@ func TestHelmReadOnly(t *testing.T) {
 		t.Errorf("--all merges the chart's defaults under them: %v", all)
 	}
 
-	t.Setenv("KOMANDO_AGENT", "1") // an agent does not see a password in values
+	setCallerEnv(t, "KOMANDO_AGENT", "1") // an agent does not see a password in values
 	b, _ := json.Marshal(mustRun(t, "cluster", "helm", "values", "prod", "api"))
 	if strings.Contains(string(b), "s3cret-pw") {
 		t.Errorf("values show a password to an agent: %s", b)

@@ -17,9 +17,9 @@ func withStdin(t *testing.T, s string, fn func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stdin
-	defer func() { os.Stdin = saved; r.Close() }()
-	os.Stdin = r
+	saved := tcl.stdin
+	defer func() { tcl.stdin = saved; r.Close() }()
+	tcl.stdin = r
 	w.WriteString(s)
 	w.Close()
 	fn()
@@ -35,7 +35,7 @@ func setSecret(t *testing.T, name, value string) {
 func refsTo(t *testing.T, name string) {
 	t.Helper()
 	ref := "secret:" + name
-	err := store.Update(func(s *store.State) error {
+	err := store.Update(store.Save(), func(s *store.State) error {
 		s.Hosts["h1"] = &store.Host{Name: "h1", Address: "10.0.0.1", PasswordRef: ref}
 		s.Hosts["h2"] = &store.Host{Name: "h2", Address: "10.0.0.2", SudoRef: ref, Env: map[string]string{"TOKEN": ref, "OTHER": "secret:other"}}
 		s.Conns = map[string]*store.Conn{"db": {Name: "db", Kind: "postgres", URL: "postgres://u@db/x", PasswordRef: ref}}
@@ -156,7 +156,7 @@ func TestSecretCp(t *testing.T) {
 // an agent must not replace, move, copy or remove it.
 func TestSecretReservedName(t *testing.T) {
 	invHome(t)
-	_ = vault.Set(approvalSecret, "SEED")
+	_ = vault.Set(store.Save(), approvalSecret, "SEED")
 	setSecret(t, "x", "v")
 	t.Setenv("SECRET_TEST_VALUE", "MYSEED")
 	wantCode(t, "RESERVED_SECRET", "secret", "set", approvalSecret, "--from-env", "SECRET_TEST_VALUE")
@@ -186,9 +186,7 @@ func TestSecretSetFromPipe(t *testing.T) {
 		t.Errorf("warning %q", w)
 	}
 	// secret get says so too, for an agent, without the value or its length
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	d = mustRun(t, "secret", "get", "p2")
 	if w, _ := d["warning"].(string); !strings.Contains(w, "space") {
 		t.Errorf("get: %v", d)
@@ -225,9 +223,7 @@ func TestSecretCheck(t *testing.T) {
 	}
 
 	// an agent could guess with it one try at a time
-	t.Setenv("KOMANDO_AGENT", "1")
-	resetApproval()
-	t.Cleanup(resetApproval)
+	setCallerEnv(t, "KOMANDO_AGENT", "1")
 	withStdin(t, "Hunter2 \n", func() {
 		if e := wantCode(t, "NEEDS_PERSON", "secret", "check", "vpn-pass"); e.Exit != out.ExitPolicy || strings.Contains(e.Hint, "add the flag") {
 			t.Errorf("no flag allows it: %+v", e)
@@ -270,9 +266,9 @@ func TestSecretSetWithoutValueSendsAgentToUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	saved := os.Stdin
-	os.Stdin = devnull
-	t.Cleanup(func() { os.Stdin = saved; devnull.Close() })
+	saved := tcl.stdin
+	tcl.stdin = devnull
+	t.Cleanup(func() { tcl.stdin = saved; devnull.Close() })
 
 	if e := wantCode(t, "USAGE", "secret", "set", "web1-pass"); !strings.Contains(e.Message, "--from-env") {
 		t.Errorf("script: %+v", e)

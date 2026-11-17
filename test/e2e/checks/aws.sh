@@ -56,6 +56,60 @@ check "login aws: an agent's dry run is not blocked" NEEDS_PERSON \
 O=$(ptyrun "" env NO_COLOR=1 TERM=dumb AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null "$K" -o text --dry-run login aws --profile e2e-sso | tr -d '\r')
 check "person: login aws --dry-run shows the SSO start page" 1 "$(grep -c 'sso_start_url: https://e2e-nowhere.awsapps.com/start' <<<"$O")"
 
+# status lists an SSO login saved in ~/.aws/sso/cache (here in a home of
+# its own) and when it ends; logout aws ends it. The real logout tells AWS,
+# which the lab cannot answer for: unit tests cover it, here only the parts
+# that stay on this computer.
+SSOHOME="$TMP/ssohome"; mkdir -p "$SSOHOME/.aws/sso/cache"
+python3 -c "
+import hashlib,json,datetime,sys
+exp=(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=3)).strftime('%Y-%m-%dT%H:%M:%SZ')
+json.dump({'startUrl':'https://e2e-nowhere.awsapps.com/start','region':'us-east-1','accessToken':'e2e-sso-token','expiresAt':exp},
+  open(sys.argv[1]+'/'+hashlib.sha1(b'corp').hexdigest()+'.json','w'))" "$SSOHOME/.aws/sso/cache"
+SSOENV=(env HOME="$SSOHOME" AWS_CONFIG_FILE="$TMP/aws-sso-config" AWS_SHARED_CREDENTIALS_FILE=/dev/null)
+ST=$("${SSOENV[@]}" $K status)
+check "status lists the AWS SSO login" "e2e-sso corp" "$(jget '" ".join(d["data"]["aws_logins"][0]["profiles"])+" "+d["data"]["aws_logins"][0]["sso_session"]' <<<"$ST")"
+check "status says when it ends (in the future)" True "$(jget '__import__("datetime").datetime.fromisoformat(d["data"]["aws_logins"][0]["expires_at"].replace("Z", "+00:00")) > __import__("datetime").datetime.now(__import__("datetime").timezone.utc)' <<<"$ST")"
+check "status never shows the token" 0 "$(grep -c e2e-sso-token <<<"$ST")"
+check "logout aws --dry-run names the profile" e2e-sso "$("${SSOENV[@]}" $K logout aws --profile e2e-sso --dry-run | jget '",".join(d["data"]["would_log_out"])')"
+check "logout aws without a login says so" e2e-sso "$(env HOME="$TMP" AWS_CONFIG_FILE="$TMP/aws-sso-config" $K logout aws --profile e2e-sso | jget '",".join(d["data"]["not_logged_in"])')"
+check "logout aws is not a server name any more" True "$("${SSOENV[@]}" $K logout aws --profile e2e-sso --dry-run | jget 'd["ok"]')"
+rm -rf "$SSOHOME"
+
+# import aws-ec2: a server per running EC2 instance, read from moto with the
+# profile's keys (the instance is made with curl's own SigV4)
+curl -sf --aws-sigv4 "aws:amz:us-east-1:ec2" --user test:test "http://127.0.0.1:$E2E_MOTO/" \
+  -d 'Action=RunInstances&Version=2016-11-15&ImageId=ami-12c6146b&MinCount=1&MaxCount=1&TagSpecification.1.ResourceType=instance&TagSpecification.1.Tag.1.Key=Name&TagSpecification.1.Tag.1.Value=e2e-ec2' >/dev/null ||
+  echo "  (could not start an instance in moto)"
+printf '[profile e2e-ec2]\nregion = us-east-1\nendpoint_url = http://127.0.0.1:%s\n' "$E2E_MOTO" > "$TMP/aws-ec2-config"
+printf '[e2e-ec2]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/credentials"
+EC2ENV=(env AWS_CONFIG_FILE="$TMP/aws-ec2-config" AWS_SHARED_CREDENTIALS_FILE="$TMP/credentials" AWS_EC2_METADATA_DISABLED=true AWS_PROFILE=)
+check "import aws-ec2 --dry-run finds the instance" True "$("${EC2ENV[@]}" $K import aws-ec2 "$TMP/aws-ec2-config" --dry-run | jget '"e2e-ec2" in json.dumps(d["data"])')"
+q "${EC2ENV[@]}" $K import aws-ec2 "$TMP/aws-ec2-config"
+check "import aws-ec2 groups it by region" True "$($K host show e2e-ec2 | jget '"us-east-1" in d["data"]["groups"] and d["data"]["labels"]["aws-instance"].startswith("i-")')"
+q $K host rm e2e-ec2
+rm -f "$TMP/credentials"
+
+# storage list/rm --all-versions in a bucket with versioning (moto)
+VB="http://127.0.0.1:$E2E_MOTO/e2e-ver"
+# moto takes signed and unsigned requests; like e2e-sts above, try both
+mput() { curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "$@" >/dev/null || curl -sf -X PUT "$@" >/dev/null; }
+mput "$VB" || echo "  (could not create the e2e-ver bucket in moto)"
+mput "$VB?versioning" -H 'Content-Type: application/xml' \
+  -d '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Status>Enabled</Status></VersioningConfiguration>' ||
+  echo "  (could not turn on versioning in moto)"
+for v in one two; do mput "$VB/app.cfg" -d "$v" || echo "  (could not put app.cfg in moto)"; done
+printf '[default]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/ver-credentials"
+VERENV=(env AWS_SHARED_CREDENTIALS_FILE="$TMP/ver-credentials" AWS_CONFIG_FILE=/dev/null AWS_EC2_METADATA_DISABLED=true AWS_PROFILE=)
+q "${VERENV[@]}" $K conn add t-ver "s3://e2e-ver?endpoint=http://127.0.0.1:$E2E_MOTO&region=us-east-1" --option aws_profile=default
+q "${VERENV[@]}" $K storage rm t-ver app.cfg --allow-dangerous
+check "storage list --all-versions shows the old ones" 3 "$("${VERENV[@]}" $K storage list t-ver --all-versions | jget 'd["data"]["count"]')"
+check "storage rm --all-versions --dry-run counts them" 3 "$("${VERENV[@]}" $K storage rm t-ver app.cfg --all-versions --dry-run | jget 'd["data"]["count"]')"
+q "${VERENV[@]}" $K storage rm t-ver app.cfg --all-versions --allow-dangerous
+check "storage rm --all-versions leaves nothing" 0 "$("${VERENV[@]}" $K storage list t-ver --all-versions | jget 'd["data"]["count"]')"
+q $K conn rm t-ver
+rm -f "$TMP/ver-credentials"
+
 # a role assumed from static keys through STS (moto): komando's own STS
 # call gives the role's keys, which then list the bucket
 curl -sf -X PUT --aws-sigv4 "aws:amz:us-east-1:s3" --user test:test "http://127.0.0.1:$E2E_MOTO/e2e-sts" >/dev/null ||
@@ -71,11 +125,21 @@ check "STS: a refused role is AWS_FAILED, not a login" AWS_FAILED \
 q $K conn rm t-aws-role
 
 # Amazon ECR: a fresh login from the ECR API (moto here) on every call,
-# with the region from the host name and the conn's aws_profile
+# with the region from the host name and the conn's aws_profile. The login
+# is good for every repository of the AWS account, so it goes only over
+# https with the registry's certificate checked (C98): the lab's registry
+# speaks plain http, so a tls=false conn is refused before any login is
+# made, and an https conn makes the login, then cannot reach that registry.
 printf '[e2e]\naws_access_key_id = test\naws_secret_access_key = test\n' > "$TMP/aws-ecr-credentials"
 ECRENV=(env PATH=/usr/bin:/bin AWS_SHARED_CREDENTIALS_FILE="$TMP/aws-ecr-credentials" AWS_CONFIG_FILE=/dev/null AWS_ENDPOINT_URL="http://127.0.0.1:$E2E_MOTO" AWS_EC2_METADATA_DISABLED=true)
 q $K conn add t-ecr "registry://AWS@123456789012.dkr.ecr.us-east-1.amazonaws.com:5000?tls=false" --via bastion --option aws_profile=e2e
-check "ECR: registry ls with a login from the ECR API, no aws CLI" True "$("${ECRENV[@]}" $K registry ls t-ecr | jget 'd["ok"]')"
+check "ECR: no login over plain http" "USAGE Amazon ECR" \
+  "$("${ECRENV[@]}" $K registry ls t-ecr | jget 'd["error"]["code"] + (" Amazon ECR" if "Amazon ECR" in d["error"]["message"] else "")' || true)"
+q $K conn rm t-ecr
+q $K conn add t-ecr "registry://AWS@123456789012.dkr.ecr.us-east-1.amazonaws.com:5000" --via bastion --option aws_profile=e2e
+ECRCODE=$("${ECRENV[@]}" $K registry ls t-ecr | jget 'd["error"]["code"] if not d["ok"] else "OK"' || true)
+case "$ECRCODE" in AWS_*|USAGE|"") ECRMADE=False ;; *) ECRMADE=True ;; esac
+check "ECR: the login comes from the ECR API, no aws CLI (then the plain-http lab registry is not reached: $ECRCODE)" True "$ECRMADE"
 check "ECR: an unknown profile is named" AWS_PROFILE_NOT_FOUND \
   "$(env PATH=/usr/bin:/bin AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null $K registry ls t-ecr | jget 'd["error"]["code"]' || true)"
 q $K conn rm t-ecr

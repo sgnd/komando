@@ -1,6 +1,7 @@
 package sshx
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,6 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -43,6 +43,9 @@ type lockedKey struct {
 	path    string
 	keyName string        // the keychain key (--key); "" for --identity
 	pub     ssh.PublicKey // nil when unknown: not in the file, no .pub
+	// sk: a security key (FIDO2: sk-ssh-ed25519, sk-ecdsa), which only
+	// ssh-agent can sign with (the key asks for a touch); no passphrase helps
+	sk bool
 }
 
 // loginKeys is what the key files and ssh-agent gave for one login.
@@ -53,7 +56,10 @@ type loginKeys struct {
 }
 
 // authMethods also returns the ssh-agent connection it opened (or nil).
-func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
+// ctx is the Dial's: a server whose login is "ask" asks for the password
+// for the command that connects (LoginPassword), with q saying where it
+// goes (nil: h's own address and user).
+func authMethods(ctx context.Context, st *store.State, h *store.Host, timeout time.Duration, q *LoginAsk) (methods []ssh.AuthMethod, agentConn io.Closer, err error) {
 	defer func() {
 		if err != nil && agentConn != nil {
 			agentConn.Close()
@@ -65,7 +71,7 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	explicit := func(path, passRef string, k *store.Key) error {
 		s, err := lk.keyFile(path, passRef, k, true)
 		if s != nil {
-			signers = append(signers, s)
+			signers = append(signers, CertSigners(s, certPathFor(path, k))...)
 		}
 		return err
 	}
@@ -94,17 +100,27 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	}
 	signers = append(signers, fromAgent...)
 	if h.Key == "" && h.Identity == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := store.UserHome()
 		for _, n := range []string{"id_ed25519", "id_ecdsa", "id_rsa"} {
-			if s, _ := lk.keyFile(filepath.Join(home, ".ssh", n), "", nil, false); s != nil {
-				signers = append(signers, s)
+			p := filepath.Join(home, ".ssh", n)
+			if s, _ := lk.keyFile(p, "", nil, false); s != nil {
+				signers = append(signers, CertSigners(s, p+"-cert.pub")...)
 			}
 		}
 	}
 	if len(signers) > 0 {
 		methods = append(methods, ssh.PublicKeys(signers...))
 	}
-	if h.PasswordRef != "" {
+	if h.AskLogin() {
+		// login ask: the password is never stored; a person types it
+		// when the server first wants it (after the keys, as ssh does)
+		if q == nil {
+			lq := LoginAskFor(st, h)
+			q = &lq
+		}
+		p := &passwordLogin{ask: personFor(h), typed: func() (string, func(), error) { return loginPassword(ctx, *q) }}
+		methods = append(methods, p.methods()...)
+	} else if h.PasswordRef != "" {
 		pw, err := vault.Resolve(h.PasswordRef)
 		if err != nil && len(methods) > 0 {
 			return methods, agentConn, nil // keys are available; an unresolvable password is not fatal
@@ -124,9 +140,72 @@ func authMethods(st *store.State, h *store.Host, timeout time.Duration) (methods
 	return methods, agentConn, nil
 }
 
-// personFor is Ask for the login to h, or nil when no person can be asked.
+// certPathFor is where a key's user certificate is: the one key add
+// --cert named, else KEY-cert.pub next to a key file (as ssh looks for
+// it). A key komando keeps sealed has none unless --cert named one.
+func certPathFor(path string, k *store.Key) string {
+	if k != nil && k.CertPath != "" {
+		return k.CertPath
+	}
+	if strings.HasPrefix(path, "sealed:") {
+		return ""
+	}
+	return expand(path) + "-cert.pub"
+}
+
+// CertSigners is s, after it the same key with its OpenSSH user
+// certificate from certPath when there is one that belongs to s and has
+// not run out: the server picks what it trusts, as with ssh (the
+// certificate first). A certificate that is missing, unreadable, for
+// another key or out of date is left out.
+func CertSigners(s ssh.Signer, certPath string) []ssh.Signer {
+	if certPath == "" {
+		return []ssh.Signer{s}
+	}
+	b, err := os.ReadFile(expand(certPath))
+	if err != nil {
+		return []ssh.Signer{s}
+	}
+	cert, err := ParseUserCert(b, s.PublicKey())
+	if err != nil || !CertCurrent(cert, time.Now()) {
+		return []ssh.Signer{s}
+	}
+	cs, err := ssh.NewCertSigner(cert, s)
+	if err != nil {
+		return []ssh.Signer{s}
+	}
+	return []ssh.Signer{cs, s}
+}
+
+// ParseUserCert reads an OpenSSH user certificate (KEY-cert.pub) and
+// checks that it is for pub.
+func ParseUserCert(b []byte, pub ssh.PublicKey) (*ssh.Certificate, error) {
+	k, _, _, _, err := ssh.ParseAuthorizedKey(b)
+	if err != nil {
+		return nil, err
+	}
+	cert, ok := k.(*ssh.Certificate)
+	switch {
+	case !ok:
+		return nil, errors.New("not an SSH certificate")
+	case cert.CertType != ssh.UserCert:
+		return nil, errors.New("a host certificate, not a user certificate")
+	case pub != nil && !SameKey(cert.Key, pub):
+		return nil, errors.New("the certificate is for another key")
+	}
+	return cert, nil
+}
+
+// CertCurrent: now lies in the certificate's valid time.
+func CertCurrent(cert *ssh.Certificate, now time.Time) bool {
+	u := uint64(now.Unix())
+	return u >= cert.ValidAfter && (cert.ValidBefore == ssh.CertTimeInfinity || u < cert.ValidBefore)
+}
+
+// personFor is the question for the login to h, or nil when no person can
+// be asked.
 func personFor(h *store.Host) func(text string, hidden bool) (string, error) {
-	ask := Ask
+	ask := ask()
 	if ask == nil {
 		return nil
 	}
@@ -175,12 +254,27 @@ func (lk *loginKeys) keyFile(path, passRef string, k *store.Key, explicit bool) 
 		s, err = ssh.ParsePrivateKeyWithPassphrase(b, []byte(pass))
 	}
 	if err != nil {
+		if pub := publicPart(path, nil, k); explicit && IsSecurityKey(pub) {
+			// a FIDO2 key: ssh-agent signs with it, found by its public key
+			name := ""
+			if k != nil {
+				name = k.Name
+			}
+			lk.locked = append(lk.locked, lockedKey{path: path, keyName: name, pub: pub, sk: true})
+			return nil, nil
+		}
 		if explicit {
 			return nil, out.Errf(out.ExitUsage, "KEY_INVALID", "check that "+path+" is a private key in OpenSSH or PEM format, and that its passphrase ref is right", "cannot parse key %s: %v", path, err)
 		}
 		return nil, nil
 	}
 	return s, nil
+}
+
+// IsSecurityKey: pub is a FIDO2 security key's (sk-ssh-ed25519@openssh.com,
+// sk-ecdsa-sha2-nistp256@openssh.com), which only ssh-agent can sign with.
+func IsSecurityKey(pub ssh.PublicKey) bool {
+	return pub != nil && strings.HasPrefix(pub.Type(), "sk-")
 }
 
 // publicPart is an encrypted key's public key: from the key file itself
@@ -264,6 +358,9 @@ func sameAgentKey(a, want ssh.PublicKey) bool {
 // ssh-agent does not hold: load it there, or store its passphrase.
 func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k lockedKey) *out.Error {
 	p := shellPath(k.path)
+	if k.sk {
+		return lk.securityKeyNeeded(p)
+	}
 	var why, load string
 	switch lk.agent {
 	case agentUnset:
@@ -279,6 +376,17 @@ func (lk *loginKeys) passphraseRequired(st *store.State, h *store.Host, k locked
 		hint = storePassphrase(st, h, k)
 	}
 	return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", hint, "key %s is encrypted and %s", p, why)
+}
+
+// securityKeyNeeded is KEY_PASSPHRASE_REQUIRED for a security key (FIDO2)
+// ssh-agent does not hold: no passphrase helps, only ssh-add.
+func (lk *loginKeys) securityKeyNeeded(p string) *out.Error {
+	why := "ssh-agent does not hold it"
+	if lk.agent == agentUnset || lk.agent == agentDown {
+		why = "no ssh-agent answers"
+	}
+	hint := "load it into ssh-agent with `ssh-add " + p + "` (touch the key when it blinks); komando then logs in through the agent"
+	return out.Errf(out.ExitUsage, "KEY_PASSPHRASE_REQUIRED", hint, "key %s is a security key (FIDO2), which only ssh-agent can use, and %s", p, why)
 }
 
 // storePassphrase says how to keep an encrypted key's passphrase in the
@@ -345,7 +453,7 @@ func (lk *loginKeys) noAuth(st *store.State, h *store.Host) *out.Error {
 	default:
 		why, hint = "the ssh-agent at SSH_AUTH_SOCK does not answer", loginWay(st, h)
 	}
-	if lk.skipped == "" && Ask == nil && !adhoc(st, h) {
+	if lk.skipped == "" && ask() == nil && !adhoc(st, h) {
 		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
 	}
 	return out.Errf(out.ExitConnect, "NO_AUTH", hint, "no authentication method available for %s: it has no key or password, and %s", h.Name, why)
@@ -374,7 +482,7 @@ func adhoc(st *store.State, h *store.Host) bool {
 // logs in the same way and would fail too.
 func authFailedHint(st *store.State, h *store.Host) string {
 	hint := authFailedCheck(st, h)
-	if Ask == nil && !adhoc(st, h) {
+	if ask() == nil && !adhoc(st, h) {
 		// no person here (an AI agent, a script): one can log in once for it
 		hint += "; if only a person knows the password or code, ask the user to run `komando login " + h.Name + "` once, and later commands use that login"
 	}
@@ -384,6 +492,8 @@ func authFailedHint(st *store.State, h *store.Host) string {
 func authFailedCheck(st *store.State, h *store.Host) string {
 	name := h.Name
 	switch {
+	case h.AskLogin():
+		return fmt.Sprintf("check the user with `komando host show %s` and run the command again to type the password again; komando never stores it (login ask)", name)
 	case adhoc(st, h):
 		return "check the user, and that ssh-agent or ~/.ssh holds a key the server accepts; save it with `komando host add NAME " + name + " --key KEY` (or --password-ref) to log in another way"
 	case h.Key == "" && h.Identity == "" && h.PasswordRef != "":
@@ -424,188 +534,24 @@ func shellPath(p string) string {
 	return prefix + p
 }
 
-// Ask, when set, asks the person at the terminal what a login wants that
+// Asker, when set, gives the question for the person at the terminal, or
+// nil when nobody can be asked. The question asks what a login wants that
 // komando cannot answer by itself: the password when none is stored, a
 // one-time code (a two-factor login), or any other question the server
 // asks, the way ssh does. host is the server's name in komando; text is
-// the server's own words (Ask makes them safe to show); hidden is false
-// only when the server lets the answer show. The cli sets it only for a
-// person at a terminal: AI agents, scripts and background processes have
-// no one to ask, so they get NO_AUTH or AUTH_FAILED with a hint instead.
-var Ask func(host, text string, hidden bool) (string, error)
+// the server's own words (the question makes them safe to show); hidden
+// is false only when the server lets the answer show. The cli gives one
+// only for a person at a terminal: AI agents, scripts and background
+// processes have no one to ask, so they get NO_AUTH or AUTH_FAILED with a
+// hint instead.
+var Asker func() func(host, text string, hidden bool) (string, error)
 
-// passwordLogin answers the server's login questions. The stored password
-// goes out at most once per login (the password method and
-// keyboard-interactive share it), and in keyboard-interactive only to a
-// hidden question that asks for a password: a refused one is not sent
-// again, so a wrong password in the vault cannot lock the account. With a
-// person to ask (ask), every other question goes to them; without one, a
-// one-time code or any other question gets no answer and the login stops
-// before a wrong answer counts against the account.
-type passwordLogin struct {
-	pw   string // the stored password, "" when none is stored
-	sent bool
-	ask  func(text string, hidden bool) (string, error) // nil: no person at a terminal
-	stop error                                          // the person cancelled: every later question ends the same way
-}
-
-func (p *passwordLogin) methods() []ssh.AuthMethod {
-	if p.ask == nil {
-		return []ssh.AuthMethod{
-			ssh.PasswordCallback(func() (string, error) {
-				p.sent = true
-				return p.pw, nil
-			}),
-			ssh.KeyboardInteractive(p.answer),
-		}
+// ask is the question for the person at the terminal, or nil.
+func ask() func(host, text string, hidden bool) (string, error) {
+	if Asker == nil {
+		return nil
 	}
-	// keyboard-interactive first, as OpenSSH tries them: a two-factor
-	// server asks the password and the code there, so a person types the
-	// password once, not once per method
-	return []ssh.AuthMethod{
-		ssh.KeyboardInteractive(p.answer),
-		ssh.PasswordCallback(func() (string, error) {
-			switch {
-			case p.pw == "":
-				return p.askPerson("Password: ", true)
-			case p.sent:
-				return "", &unanswered{question: "Password:", kind: askAgain}
-			}
-			p.sent = true
-			return p.pw, nil
-		}),
-	}
-}
-
-func (p *passwordLogin) answer(_, instruction string, questions []string, echos []bool) ([]string, error) {
-	answers := make([]string, len(questions))
-	sent := p.sent
-	for i, q := range questions {
-		echo := i < len(echos) && echos[i]
-		kind := questionKind(q, echo)
-		switch {
-		case kind == askPassword && p.pw != "" && !sent:
-			answers[i], sent = p.pw, true
-			continue
-		case kind == askPassword && p.pw != "":
-			kind = askAgain // the stored one went out and was refused
-		case p.ask != nil:
-			text := q
-			if i == 0 && strings.TrimSpace(instruction) != "" {
-				text = strings.TrimSpace(instruction) + "\n" + q
-			}
-			a, err := p.askPerson(text, !echo)
-			if err != nil {
-				return nil, err
-			}
-			answers[i] = a
-			continue
-		}
-		if kind == askPassword {
-			kind = askOther // no password stored and no one to ask
-		}
-		return nil, &unanswered{question: cleanQuestion(q), kind: kind}
-	}
-	p.sent = sent
-	return answers, nil
-}
-
-// askPerson asks the person at the terminal. After a Ctrl-C every later
-// question ends the same way at once: the person wants out.
-func (p *passwordLogin) askPerson(text string, hidden bool) (string, error) {
-	if p.stop != nil {
-		return "", p.stop
-	}
-	a, err := p.ask(text, hidden)
-	if err != nil {
-		p.stop = err
-	}
-	return a, err
-}
-
-// The kinds of keyboard-interactive question.
-const (
-	askPassword = iota // a hidden question for the password
-	askCode            // a one-time code: a two-factor login
-	askAgain           // the password once more: the server refused it
-	askOther           // anything else (a shown answer, a username, a menu)
-)
-
-var (
-	codeWords     = []string{"one-time", "one time", "onetime", "code", "token", "otp", "passcode", "verification"}
-	passwordWords = []string{"password", "passwort", "mot de passe", "contraseña", "senha", "wachtwoord"}
-)
-
-// questionKind sorts a keyboard-interactive question. A user@host in it
-// (OpenSSH shows "(user@host) Password:") does not count.
-func questionKind(q string, echo bool) int {
-	var words []string
-	for _, f := range strings.Fields(strings.ToLower(q)) {
-		if !strings.Contains(f, "@") {
-			words = append(words, f)
-		}
-	}
-	l := strings.Join(words, " ")
-	for _, w := range codeWords {
-		if strings.Contains(l, w) {
-			return askCode
-		}
-	}
-	if echo {
-		return askOther
-	}
-	for _, w := range passwordWords {
-		if strings.Contains(l, w) {
-			return askPassword
-		}
-	}
-	return askOther
-}
-
-// cleanQuestion makes a server's question safe to show: printable
-// characters only, one line, at most 80 characters.
-func cleanQuestion(q string) string {
-	q = strings.Map(func(r rune) rune {
-		if unicode.IsPrint(r) {
-			return r
-		}
-		return ' '
-	}, q)
-	q = strings.Join(strings.Fields(q), " ")
-	if r := []rune(q); len(r) > 80 {
-		q = string(r[:79]) + "…"
-	}
-	return q
-}
-
-// unanswered is a keyboard-interactive question komando gave no answer;
-// the login stops there.
-type unanswered struct {
-	question string // the server's words, made safe to show
-	kind     int
-}
-
-func (e *unanswered) Error() string { return "the server asks " + strconv.Quote(e.question) }
-
-// authFailed is the AUTH_FAILED error that quotes the question.
-func (e *unanswered) authFailed(st *store.State, h *store.Host) *out.Error {
-	name := h.Name
-	// Ask was not set: no person at a terminal (an AI agent, a script, a
-	// background process). A person who runs the command is asked.
-	switch e.kind {
-	case askCode:
-		oe := out.Errf(out.ExitConnect, "AUTH_FAILED",
-			"run `komando login SERVER` in a terminal: komando asks you for the code once and keeps the login, so later commands (an AI agent's too) need no code; an AI agent asks the user to run it",
-			"%s asks %s (two-factor login); only a person can answer it, and none is at a terminal here", name, strconv.Quote(e.question))
-		oe.Hint = strings.Replace(oe.Hint, "HOST", name, 1) // a command to run as it is
-		return oe
-	case askAgain:
-		return out.Errf(out.ExitConnect, "AUTH_FAILED", authFailedHint(st, h),
-			"%s asks %s again: it refused the stored password, which komando sends only once", name, strconv.Quote(e.question))
-	}
-	return out.Errf(out.ExitConnect, "AUTH_FAILED",
-		"run `komando login "+name+"` in a terminal: komando shows you the question once and keeps the login, so later commands (an AI agent's too) need no answer; an AI agent asks the user to run it",
-		"%s asks %s; komando answers only a hidden password question by itself, and no person is at a terminal here", name, strconv.Quote(e.question))
+	return Asker()
 }
 
 // agentDeadline gives every request written to the ssh-agent (and the
@@ -626,7 +572,7 @@ func (c *agentDeadline) Read(b []byte) (int, error) { return c.conn.Read(b) }
 
 func expand(p string) string {
 	if strings.HasPrefix(p, "~/") {
-		home, _ := os.UserHomeDir()
+		home, _ := store.UserHome()
 		return filepath.Join(home, p[2:])
 	}
 	return p
@@ -655,8 +601,8 @@ func secretUnresolved(h *store.Host, err error) *out.Error {
 		return out.Errf(out.ExitError, "VAULT_KEY", "restore ~/.komando/store.key from a backup, or move the key back with `komando secret keychain` on the computer whose keychain holds it; `komando doctor` checks the vault",
 			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
 	case errors.Is(err, vault.ErrDecrypt):
-		return out.Errf(out.ExitError, "VAULT_DECRYPT", "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use); nothing was lost",
-			"password for %s (%s): %v", h.Name, h.PasswordRef, err)
+		return out.Errf(out.ExitError, "VAULT_DECRYPT", "KOMANDO_VAULT_PASS is not the passphrase this vault was saved with: set the right one (`komando doctor` says which vault mode is in use)",
+			"password for %s (%s): %v; nothing was lost", h.Name, h.PasswordRef, err)
 	}
 	return out.Errf(out.ExitNotFound, "SECRET_UNRESOLVED", netx.SecretHint(h.PasswordRef), "password for %s (%s): %v", h.Name, h.PasswordRef, err)
 }

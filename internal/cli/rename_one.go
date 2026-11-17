@@ -97,8 +97,8 @@ func renameVia(s *store.State, old, now string) []string {
 
 // renameHost renames a server in s. A protected one needs --yes (a person's
 // yes for an AI agent), as for every change to a protected entry's identity.
-func renameHost(s *store.State, from, to string) (mvResult, error) {
-	h, err := findHost(s, from)
+func renameHost(cl *call, s *store.State, from, to string) (mvResult, error) {
+	h, err := findHost(cl, s, from)
 	if err != nil {
 		return mvResult{}, err
 	}
@@ -111,7 +111,7 @@ func renameHost(s *store.State, from, to string) (mvResult, error) {
 		return res, err
 	}
 	if h.Protected { // a second name for a protected server is marked protected when added
-		if err := guardProtection("host", "renaming", []string{h.Name}); err != nil {
+		if err := guardProtection(cl, "host", "renaming", []string{h.Name}); err != nil {
 			return res, err
 		}
 	}
@@ -132,13 +132,13 @@ func renameHost(s *store.State, from, to string) (mvResult, error) {
 			res.Updated = append(res.Updated, "tunnel "+id)
 		}
 	}
-	res.Action = mvVerb()
+	res.Action = mvVerb(cl)
 	return res, nil
 }
 
 // renameConn renames a conn in s; a protected one needs --yes.
-func renameConn(s *store.State, from, to string) (mvResult, error) {
-	c, err := findConn(s, from)
+func renameConn(cl *call, s *store.State, from, to string) (mvResult, error) {
+	c, err := findConn(cl, s, from)
 	if err != nil {
 		return mvResult{}, err
 	}
@@ -151,7 +151,7 @@ func renameConn(s *store.State, from, to string) (mvResult, error) {
 		return res, err
 	}
 	if c.Protected {
-		if err := guardProtection("conn", "renaming", []string{c.Name}); err != nil {
+		if err := guardProtection(cl, "conn", "renaming", []string{c.Name}); err != nil {
 			return res, err
 		}
 	}
@@ -165,17 +165,17 @@ func renameConn(s *store.State, from, to string) (mvResult, error) {
 			res.Updated = append(res.Updated, "tunnel "+id)
 		}
 	}
-	res.Action = mvVerb()
+	res.Action = mvVerb(cl)
 	return res, nil
 }
 
 // renameVpn renames a VPN in s. A connected VPN is refused: its background
 // session runs under the old name. A Tailscale VPN's login state folder
 // moves along (not under --dry-run).
-func renameVpn(s *store.State, from, to string) (mvResult, error) {
+func renameVpn(cl *call, s *store.State, from, to string) (mvResult, error) {
 	v, ok := s.Vpns[from]
 	if !ok {
-		return mvResult{}, notFoundSuggest("vpn", from, mapKeys(s.Vpns))
+		return mvResult{}, notFoundSuggest(cl, "vpn", from, mapKeys(s.Vpns))
 	}
 	res := mvResult{Kind: "vpn", From: from, To: to, Updated: []string{}}
 	if from == to {
@@ -199,8 +199,8 @@ func renameVpn(s *store.State, from, to string) (mvResult, error) {
 		renameSecretRefs(s, n, secrets[n])
 		res.Updated = append(res.Updated, "secret "+n+", now "+secrets[n])
 	}
-	if len(secrets) > 0 && !g.dryRun {
-		if err := vault.RenameMany(secrets); err != nil {
+	if len(secrets) > 0 && !cl.flags.dryRun {
+		if err := vault.RenameMany(cl.storeWrite(), secrets); err != nil {
 			return res, out.Errf(out.ExitError, "RENAME_FAILED", "check that the vault opens (`komando secret list`, KOMANDO_VAULT_PASS)",
 				"the vault cannot rename the VPN's secrets: %v; nothing was renamed", err)
 		}
@@ -208,13 +208,13 @@ func renameVpn(s *store.State, from, to string) (mvResult, error) {
 		for old, now := range secrets {
 			back[now] = old
 		}
-		res.undo = func() { _ = vault.RenameMany(back) }
+		res.undo = func() { _ = vault.RenameMany(cl.storeWrite(), back) }
 	}
 	if v.Kind == "tailscale" {
 		oldDir := netx.TailscaleDir(&store.Vpn{Name: from})
 		if _, err := os.Stat(oldDir); err == nil {
 			res.Updated = append(res.Updated, "login state folder")
-			if !g.dryRun {
+			if !cl.flags.dryRun {
 				if err := os.Rename(oldDir, netx.TailscaleDir(v)); err != nil && !errors.Is(err, os.ErrNotExist) {
 					if res.undo != nil {
 						res.undo()
@@ -225,7 +225,7 @@ func renameVpn(s *store.State, from, to string) (mvResult, error) {
 			}
 		}
 	}
-	res.Action = mvVerb()
+	res.Action = mvVerb(cl)
 	return res, nil
 }
 
@@ -255,15 +255,15 @@ func vpnOwnSecrets(s *store.State, v *store.Vpn, to string) (map[string]string, 
 	return pairs, kept
 }
 
-func mvVerb() string {
-	if g.dryRun {
+func mvVerb(cl *call) string {
+	if cl.flags.dryRun {
 		return "would_rename"
 	}
 	return "renamed"
 }
 
 // mvCmd builds `KIND mv OLD NEW` around one of the rename functions.
-func mvCmd(kind, example string, rename func(s *store.State, from, to string) (mvResult, error)) *cobra.Command {
+func mvCmd(kind, example string, rename func(cl *call, s *store.State, from, to string) (mvResult, error)) *cobra.Command {
 	long := map[string]string{
 		"host": `Gives a server a new name. Everything about it stays: address, login,
 references, protected mark, groups, tags and labels. Servers, conns and
@@ -286,11 +286,11 @@ uses them, so the old name is free again. Disconnect it first
 		Long:    long,
 		Example: example,
 		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			var res mvResult
-			err := store.Update(func(s *store.State) error {
+			err := store.Update(cl.storeWrite(), func(s *store.State) error {
 				var err error
-				res, err = rename(s, args[0], args[1])
+				res, err = rename(cl, s, args[0], args[1])
 				return err
 			})
 			if err != nil {
@@ -300,11 +300,11 @@ uses them, so the old name is free again. Disconnect it first
 				return err
 			}
 			if res.Action == "renamed" {
-				audit(nil, kind+".rename", []string{res.To}, "", true, map[string]any{"from": res.From, "to": res.To, "updated": len(res.Updated)})
+				audit(cl, nil, kind+".rename", []string{res.To}, "", true, map[string]any{"from": res.From, "to": res.To, "updated": len(res.Updated)})
 			}
-			out.P.Print(kind+".rename", res, nil)
+			cl.out.Print(kind+".rename", res, nil)
 			return nil
-		},
+		}),
 	}
 }
 

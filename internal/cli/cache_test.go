@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -12,18 +13,18 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/store"
 )
 
 // runCache runs komando in this process and returns what it printed.
 func runCache(t *testing.T, args ...string) (string, error) {
 	t.Helper()
-	root := newRoot()
+	root := newRoot(tcl)
+	t.Cleanup(endCommand) // the next test starts with none of this command's flags
 	root.SetArgs(args)
 	var b strings.Builder
-	saved := out.P.W
-	out.P.W = &b
-	defer func() { out.P.W = saved; out.P.Reset() }()
+	saved := tcl.out.W
+	tcl.out.W = &b
+	defer func() { tcl.out.W = saved; tcl.out.Reset() }()
 	err := root.Execute()
 	return b.String(), err
 }
@@ -38,7 +39,7 @@ func runCache(t *testing.T, args ...string) (string, error) {
 func TestCacheRunScriptsNeedApproval(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +75,7 @@ func TestCacheRunScriptsNeedApproval(t *testing.T) {
 		if err != nil || !strings.Contains(s, "nothing sent") || !strings.Contains(s, "POLICY_BLOCKED") {
 			t.Errorf("%s --write --dry-run: %v\n%s", command[0], err, s)
 		}
-		g.dryRun, store.DryRun = false, false
+		tcl.flags.dryRun = false
 	}
 }
 
@@ -94,7 +95,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 		t.Fatal(err)
 	}
 	asAgent(t, false, true)
-	defer func() { out.P.Mask = false }()
+	defer func() { tcl.out.Mask = false }()
 	for _, format := range []string{"json", "text"} {
 		for _, param := range []string{"requirepass", "masterauth", "*"} {
 			s, err := runCache(t, "-o", format, "cache", "run", "c", "--", "CONFIG", "GET", param)
@@ -113,7 +114,7 @@ func TestCacheRunHidesPasswordsLive(t *testing.T) {
 func TestCacheRunQuotedCommand(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "c", "redis://127.0.0.1:1/0"); err != nil {
 		t.Fatal(err)
 	}
@@ -173,8 +174,13 @@ func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
 						reply = "VERSION 1.6.39"
 					case f[0] == "mn":
 						reply = "MN"
-					case f[0] == "get" || f[0] == "stats":
+					case f[0] == "get":
 						reply = "END"
+					case f[0] == "stats":
+						reply = "STAT time 1731500100\r\nEND"
+					case f[0] == "lru_crawler":
+						reply = "key=s%3A1 exp=1731500130 la=1731500000 cas=1 fetch=no cls=1 size=60\r\n" +
+							"key=s%3A2 exp=-1 la=1731500000 cas=2 fetch=no cls=1 size=60\r\nEND"
 					case f[0] == "flush_all":
 						reply = "OK"
 					case f[0] == "mg":
@@ -201,7 +207,7 @@ func fakeMemcached(t *testing.T) (addr string, lines func() []string) {
 func TestCacheRunMemcachedLineInjection(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	addr, lines := fakeMemcached(t)
 	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
 		t.Fatal(err)
@@ -269,7 +275,7 @@ func TestCacheLimitMustBePositive(t *testing.T) {
 func TestCacheRunClusterWide(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_VAULT_PASS", "test")
-	defer func() { g.dryRun, store.DryRun = false, false }()
+	defer func() { tcl.flags.dryRun = false }()
 	if _, err := runCache(t, "-o", "json", "conn", "add", "cl", "redis://127.0.0.1:1?cluster=1"); err != nil {
 		t.Fatal(err)
 	}
@@ -283,5 +289,55 @@ func TestCacheRunClusterWide(t *testing.T) {
 	var e *out.Error
 	if _, err := runCache(t, "-o", "json", "cache", "run", "cl", "--", "DBSIZE"); !errors.As(err, &e) || e.Code != "CACHE_CONNECT" {
 		t.Errorf("DBSIZE is summed over the masters, so it is sent: %v", err)
+	}
+}
+
+// cache keys gives each key's type and time to live in items, next to the
+// plain keys list, and shows them as columns.
+func TestCacheKeysTypeAndTTL(t *testing.T) {
+	setHome(t, t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	addr, lines := fakeMemcached(t)
+	if _, err := runCache(t, "-o", "json", "conn", "add", "m", "memcached://"+addr); err != nil {
+		t.Fatal(err)
+	}
+	s, err := runCache(t, "-o", "json", "cache", "keys", "m", "s:*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var res struct {
+		Data struct {
+			Keys  []string `json:"keys"`
+			Count int      `json:"count"`
+			Items []struct {
+				Key  string  `json:"key"`
+				Type *string `json:"type"`
+				TTL  *int64  `json:"ttl_seconds"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(s), &res); err != nil {
+		t.Fatalf("%v\n%s", err, s)
+	}
+	d := res.Data
+	if strings.Join(d.Keys, ",") != "s:1,s:2" || d.Count != 2 || len(d.Items) != 2 {
+		t.Fatalf("keys %v, items %+v", d.Keys, d.Items)
+	}
+	for i, want := range []int64{30, -1} {
+		it := d.Items[i]
+		if it.Key != d.Keys[i] || it.Type == nil || *it.Type != "string" || it.TTL == nil || *it.TTL != want {
+			t.Errorf("item %d: %+v, want ttl %d", i, it, want)
+		}
+	}
+	if !slices.Contains(lines(), "lru_crawler metadump all") {
+		t.Errorf("sent %q", lines())
+	}
+	text, err := runCache(t, "-o", "text", "cache", "keys", "m", "s:*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "KEY  TYPE    TTL\ns:1  string  30s\ns:2  string  none\n"
+	if text != want {
+		t.Errorf("text:\n%s\nwant:\n%s", text, want)
 	}
 }

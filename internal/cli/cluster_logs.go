@@ -40,7 +40,7 @@ the pods that exist when it starts. --since takes a duration back from now
   komando cluster logs prod-k8s -l app=api --namespace shop --limit 50
   komando cluster logs swarm1 service/web -f`,
 		Args: cobra.RangeArgs(1, 2),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if len(args) == 1 && selector == "" {
 				return out.Usage("name a pod or TYPE/NAME, or pick pods with -l")
 			}
@@ -52,7 +52,7 @@ the pods that exist when it starts. --since takes a duration back from now
 			if err != nil {
 				return err
 			}
-			t, err := resolveCluster(st, args[0])
+			t, err := resolveCluster(cl, st, args[0])
 			if err != nil {
 				return err
 			}
@@ -70,18 +70,18 @@ the pods that exist when it starts. --since takes a duration back from now
 					}
 					svc = n
 				}
-				return swarmLogs(cmd.Context(), t, svc, limit, since, follow, timestamps)
+				return swarmLogs(cl, cmd.Context(), t, svc, limit, since, follow, timestamps)
 			}
-			if follow && !g.dryRun {
+			if follow && !cl.flags.dryRun {
 				what := "following logs"
 				if len(args) == 2 {
 					what += " of " + args[1]
 				} else if selector != "" {
 					what += " of -l " + selector
 				}
-				showStatus(statusLine{What: what, Target: t.conn.Name, Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn), Tail: "Ctrl-C stops"})
+				showStatus(cl, statusLine{What: what, Target: t.conn.Name, Route: connRoute(st, t.conn), Protected: protectedConn(st, t.conn), Tail: "Ctrl-C stops"})
 			}
-			return withKube(ownTimeLimit(cmd.Context(), follow), "cluster.logs", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
+			return withKube(cl, ownTimeLimit(cmd.Context(), follow), "cluster.logs", t, driver.RiskRead, nil, func(ctx context.Context, k *kube.Client) (any, error) {
 				space := cmp.Or(ns, k.Namespace)
 				ref := selector
 				if len(args) == 2 {
@@ -91,7 +91,10 @@ the pods that exist when it starts. --since takes a duration back from now
 				if err != nil {
 					return nil, err
 				}
-				q := url.Values{"tailLines": {strconv.Itoa(limit)}}
+				q := url.Values{}
+				if limit > 0 { // --limit 0 is every line
+					q.Set("tailLines", strconv.Itoa(limit))
+				}
 				if timestamps {
 					q.Set("timestamps", "true")
 				}
@@ -108,45 +111,120 @@ the pods that exist when it starts. --since takes a duration back from now
 					q[k] = v
 				}
 				if follow {
-					return followPods(ctx, k, space, pods, q)
+					return followPods(cl, ctx, k, space, pods, q)
 				}
 				res := logText{Namespace: space, Pods: pods}
 				if len(args) == 2 && strings.Contains(args[1], "/") || selector != "" {
 					res.Object = ref
 				}
-				if len(pods) == 1 {
-					res.Pod = pods[0]
-				}
-				many := len(pods) > 1
-				var sb strings.Builder
-				for _, p := range pods {
-					b, err := k.Do(ctx, "GET", podLogPath(space, p), q, nil, "")
-					if err != nil {
-						if many {
-							fmt.Fprintf(&sb, "[%s] (no logs: %v)\n", p, err)
-							continue
-						}
-						return nil, err
-					}
-					if !many {
-						res.Logs = string(b)
-						return res, nil
-					}
-					for _, line := range strings.SplitAfter(string(b), "\n") {
-						if line != "" {
-							sb.WriteString("[" + p + "] " + line)
-						}
-					}
-				}
-				res.Logs = sb.String()
-				return res, nil
+				return readLogs(cl, ctx, k, res, q, container, limit, timestamps)
 			})
-		},
+		}),
 	}
 	nsFlags(c, &ns, nil, &limitOpt{&limit, 200, "the most lines per pod (the last ones)"})
 	flagAlias(c, "tail", "limit") // kubectl's word: a permanent synonym
 	clusterLogFlags(c.Flags(), &container, &since, &selector, &previous, &timestamps, &follow)
 	return c
+}
+
+// readLogs reads the logs of res.Pods once (no -f): the text, and in JSON
+// each line with its time and container.
+func readLogs(cl *call, ctx context.Context, k *kube.Client, res logText, q url.Values, container string, limit int, timestamps bool) (any, error) {
+	pods, space := res.Pods, res.Namespace
+	if len(pods) == 1 {
+		res.Pod = pods[0]
+	}
+	// JSON gets each line on its own, with its time: ask the
+	// API for times, and keep them in logs only when asked
+	lined := cl.out.Format != "text"
+	if lined {
+		q.Set("timestamps", "true")
+		res.Lines = []logLine{}
+	}
+	many := len(pods) > 1
+	var sb strings.Builder
+	for _, p := range pods {
+		b, err := k.Do(ctx, "GET", podLogPath(space, p), q, nil, "")
+		if err != nil {
+			if many {
+				fmt.Fprintf(&sb, "[%s] (no logs: %v)\n", p, err)
+				if lined {
+					res.Lines = append(res.Lines, logLine{Pod: p, Container: container, Text: fmt.Sprintf("(no logs: %v)", err)})
+				}
+				continue
+			}
+			return nil, err
+		}
+		text := string(b)
+		if lined {
+			var ls []logLine
+			ls, text = splitLogLines(text, p, logContainer(ctx, k, space, p, container), timestamps)
+			res.Lines = append(res.Lines, ls...)
+			if limit > 0 && len(ls) >= limit {
+				res.Truncated = true // the pod may have older lines
+				cl.out.CutNoted()
+			}
+		}
+		if !many {
+			res.Logs = text
+			return res, nil
+		}
+		for _, line := range strings.SplitAfter(text, "\n") {
+			if line != "" {
+				sb.WriteString("[" + p + "] " + out.NoCR(line)) // no \r back over the name
+			}
+		}
+	}
+	res.Logs = sb.String()
+	return res, nil
+}
+
+// splitLogLines splits what the API sent with timestamps=true into lines
+// with their times, and gives back the text as the user asked for it:
+// with the times only under --timestamps.
+func splitLogLines(raw, pod, container string, timestamps bool) ([]logLine, string) {
+	if raw == "" {
+		return nil, ""
+	}
+	var lines []logLine
+	var b strings.Builder
+	for _, line := range strings.SplitAfter(raw, "\n") {
+		if line == "" {
+			continue
+		}
+		body := strings.TrimSuffix(line, "\n")
+		at, text := "", body
+		if ts, rest, ok := strings.Cut(body, " "); ok {
+			if _, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+				at, text = ts, rest
+			}
+		}
+		lines = append(lines, logLine{LoggedAt: at, Pod: pod, Container: container, Text: text})
+		if timestamps {
+			b.WriteString(line)
+		} else {
+			b.WriteString(text + line[len(body):])
+		}
+	}
+	return lines, b.String()
+}
+
+// logContainer is the container whose logs were read: the one named with
+// -c, else the pod's only container ("" when that cannot be read).
+func logContainer(ctx context.Context, k *kube.Client, space, pod, named string) string {
+	if named != "" {
+		return named
+	}
+	var o map[string]any
+	if k.Get(ctx, "/api/v1/namespaces/"+url.PathEscape(space)+"/pods/"+url.PathEscape(pod), nil, &o) != nil {
+		return ""
+	}
+	spec, _ := o["spec"].(map[string]any)
+	if cs, _ := spec["containers"].([]any); len(cs) == 1 {
+		c, _ := cs[0].(map[string]any)
+		return str(c["name"])
+	}
+	return ""
 }
 
 // clusterLogFlags are cluster logs' own flags.
@@ -225,10 +303,10 @@ func logPods(ctx context.Context, k *kube.Client, space, ref, selector string) (
 // followPods streams new lines from every pod until the context ends
 // (Ctrl-C or --timeout) or all streams close. Lines are printed as they
 // come: plain "[pod] line" for a person, output events in JSON.
-func followPods(ctx context.Context, k *kube.Client, space string, pods []string, q url.Values) (any, error) {
-	if g.timeout > 0 {
+func followPods(cl *call, ctx context.Context, k *kube.Client, space string, pods []string, q url.Values) (any, error) {
+	if cl.flags.timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, g.timeout)
+		ctx, cancel = context.WithTimeout(ctx, cl.flags.timeout)
 		defer cancel()
 	}
 	prefix := func(pod string) string {
@@ -237,7 +315,7 @@ func followPods(ctx context.Context, k *kube.Client, space string, pods []string
 		}
 		return ""
 	}
-	lines, err := streamPods(ctx, k, space, pods, q, func(pod, line string) { printLogLine(pod, prefix(pod), line) })
+	lines, err := streamPods(ctx, k, space, pods, q, func(pod, line string) { printLogLine(cl, pod, prefix(pod), line) })
 	if err != nil {
 		return nil, err
 	}
@@ -293,12 +371,18 @@ func streamPods(ctx context.Context, k *kube.Client, space string, pods []string
 	return lines, nil
 }
 
-// printLogLine prints one followed log line at once: the line for a
-// person, an output event in JSON.
-func printLogLine(pod, prefix, line string) {
-	if out.P.Format == "text" {
-		fmt.Println(out.SafeText(out.P.Redact(prefix + line)))
+// printLogLine prints one followed log line at once to the call's stdout:
+// the line for a person, an output event in JSON. Lines of pods (and of
+// clusters) followed at the same time never run into each other.
+func printLogLine(cl *call, pod, prefix, line string) {
+	cl.liveMu.Lock()
+	defer cl.liveMu.Unlock()
+	if cl.out.Format == "text" {
+		if prefix != "" {
+			line = out.NoCR(line) // no \r back over the pod's name
+		}
+		fmt.Fprintln(cl.out.W, out.SafeText(cl.out.Redact(prefix+line)))
 		return
 	}
-	out.P.Event(map[string]any{"event": "output", "pod": pod, "data": line + "\n"})
+	cl.out.Event(map[string]any{"event": "output", "pod": pod, "data": line + "\n"})
 }

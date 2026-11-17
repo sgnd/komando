@@ -51,7 +51,7 @@ func syslogTarget(v string) (network, addr string, err error) {
 var syslogWarned sync.Once
 
 // sendSyslog sends one audit record (its JSON line) to the log server.
-func sendSyslog(target string, line []byte, ts time.Time) {
+func sendSyslog(cl *call, target string, line []byte, ts time.Time) {
 	network, addr, err := syslogTarget(target)
 	if err != nil || network == "" {
 		return
@@ -64,7 +64,7 @@ func sendSyslog(target string, line []byte, ts time.Time) {
 	msg := fmt.Sprintf("<86>1 %s %s komando %d audit - %s", ts.UTC().Format(time.RFC3339Nano), sdName(host), os.Getpid(), line)
 	if err := deliver(network, addr, msg); err != nil {
 		syslogWarned.Do(func() {
-			fmt.Fprintf(os.Stderr, "Warning: the audit record was not sent to %s (%v); it is in the local audit log\n", target, err)
+			fmt.Fprintf(cl.out.Err, "Warning: the audit record was not sent to %s (%v); it is in the local audit log\n", target, err)
 		})
 	}
 }

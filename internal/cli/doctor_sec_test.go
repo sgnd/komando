@@ -67,7 +67,7 @@ func TestWeakVpn(t *testing.T) {
 	setHome(t, t.TempDir())
 	st := &store.State{Conns: map[string]*store.Conn{}, Hosts: map[string]*store.Host{}, Vpns: map[string]*store.Vpn{"office": {Name: "office", Kind: "ipsec", LocalID: "staff"}}}
 	found := false
-	for _, c := range securityChecks(st) {
+	for _, c := range securityChecks(tcl, st) {
 		found = found || c.Name == "security:vpn:office" && c.Warning
 	}
 	if !found {

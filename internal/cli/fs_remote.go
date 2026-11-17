@@ -59,8 +59,8 @@ func rqAll(ps []string) string {
 
 // oneServer is singleHost with a hint that fits the command when the
 // target picks several servers.
-func oneServer(st *store.State, target, manyHint string) (*store.Host, error) {
-	hs, err := resolveTargets(st, target)
+func oneServer(cl *call, st *store.State, target, manyHint string) (*store.Host, error) {
+	hs, err := resolveTargets(cl, st, target)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func lsMode(e fileInfo) string {
 // sentence plus the diff for a person.
 type fsChange map[string]any
 
-func (r fsChange) Text() string {
+func (r fsChange) TextFor(pr *out.Printer) string {
 	var b strings.Builder
 	p := fmt.Sprint(r["path"])
 	if f, ok := r["followed"]; ok {
@@ -150,7 +150,7 @@ func (r fsChange) Text() string {
 		if n, ok := r["note"]; ok {
 			b.WriteString(fmt.Sprint(n) + "\n")
 		}
-	case g.dryRun:
+	case pr.DryRun:
 		if r["exists"] == false {
 			b.WriteString("would create " + p + "\n")
 		} else if isReplace {
@@ -181,7 +181,7 @@ func (r fsChange) Text() string {
 
 // resolveLink follows a symlink chain to the file it names (which may not
 // exist yet), so a write changes the target and keeps the link.
-func resolveLink(sc *sftp.Client, p string) (string, error) {
+func resolveLink(cl *call, sc *sftp.Client, p string) (string, error) {
 	cur := p
 	for i := 0; i < 40; i++ {
 		fi, err := sc.Lstat(cur)
@@ -190,7 +190,7 @@ func resolveLink(sc *sftp.Client, p string) (string, error) {
 		}
 		t, err := sc.ReadLink(cur)
 		if err != nil {
-			return "", fsErr(cur, err)
+			return "", fsErr(cl, cur, err)
 		}
 		if !path.IsAbs(t) {
 			t = path.Join(path.Dir(cur), t)
@@ -243,7 +243,7 @@ const (
 )
 
 // fsExitMap turns those exit codes into typed errors.
-func fsExitMap(code int, stderr string) *out.Error {
+func fsExitMap(cl *call, code int, stderr string) *out.Error {
 	msg := strings.TrimSpace(stderr)
 	switch code {
 	case fsExitIsFolder:
@@ -254,11 +254,13 @@ func fsExitMap(code int, stderr string) *out.Error {
 		return out.Errf(out.ExitNotFound, "PATH_NOT_FOUND", "check the path with `komando fs list TARGET FOLDER`", "%s", msg)
 	case fsExitDestExists:
 		return out.Errf(out.ExitConflict, "FILE_EXISTS", "add --overwrite to replace it", "%s", msg)
+	case sudoExitFolder:
+		return toErr(unsafeFolder("", stderr))
 	case sudoExitLink:
 		return out.Errf(out.ExitConflict, "IS_A_SYMLINK", "look at where it leads (`komando fs stat TARGET PATH`), then change that file by its own path, or run without --sudo", "%s", msg)
 	}
 	if strings.Contains(msg, "Permission denied") || strings.Contains(msg, "Operation not permitted") {
-		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", fsSudoRetry, "%s", msg)
+		return out.Errf(out.ExitRemote, "PERMISSION_DENIED", cl.fsSudoRetry, "%s", msg)
 	}
 	return nil
 }
@@ -273,35 +275,101 @@ func failWith(code int, msg string) string {
 
 func hasGlob(p string) bool { return strings.ContainsAny(p, "*?[") }
 
+// rootStop is the exit 92 of a root fs script for the path p.
+func rootStop(p string) string {
+	return failWith(sudoExitLink, p+" is, or leads through, a link made by a user other than root and the SSH user: as root, komando does not follow it")
+}
+
+// rootOK starts a root fs script: only links root or the SSH user made
+// are followed.
+const rootOK = `me=${SUDO_UID:-0}; ok="0 $me"; `
+
+// rootParentScript sets $d to the real folder the path in the shell word w
+// is in, following as root only links in $ok (exit 92 for any other), and
+// $n to its last name, trailing slashes dropped: a link at the end is the
+// link itself, never what it names.
+func rootParentScript(w, p string) string {
+	return `x=` + w + `; while :; do case $x in ?*/) x=${x%/};; *) break;; esac; done; ` +
+		`case $x in */*) p=${x%/*}; n=${x##*/};; *) p=.; n=$x;; esac; [ -n "$p" ] || p=/; [ -n "$n" ] || n=.; ` +
+		sudoWalkScript(rootStop(p)) + `d=$p; `
+}
+
+// rootCdScript enters $d and stops (exit 92) unless the folder entered is
+// $d itself: a folder swapped for a link after the walk is not followed,
+// and from here on the names are taken inside that folder.
+func rootCdScript(p string) string {
+	return `[ "$(pwd -P)" = "$d" ] || ` + rootStop(p) + `; `
+}
+
 // rmScript removes paths. A missing one is reported, not an error (rm -f);
-// a folder needs recursive. All checks run before anything is removed.
-func rmScript(paths []string, recursive bool) string {
+// a folder needs recursive. All checks run before anything is removed. As
+// root (asRoot, --sudo) each path's folder is first turned into its real
+// path following only links root or the SSH user made, and the last name
+// is removed from inside that folder: a link another server user planted
+// on the way (cache/x -> /etc) is never followed.
+func rmScript(paths []string, recursive, asRoot bool) string {
 	var b strings.Builder
+	flags := "-f"
+	if recursive {
+		flags = "-rf"
+	}
+	if asRoot {
+		b.WriteString(rootOK)
+		for _, p := range paths {
+			b.WriteString(rootParentScript(rq(p), p))
+			if !recursive {
+				b.WriteString(`if [ -d "$d/$n" ] && [ ! -L "$d/$n" ]; then ` + failWith(fsExitIsFolder, p+" is a folder") + "; fi; ")
+			}
+		}
+		b.WriteString("st=0; ")
+		for _, p := range paths {
+			b.WriteString("( " + rootParentScript(rq(p), p) + `if cd -- "$d" 2>/dev/null; then ` + rootCdScript(p) +
+				`if [ -e "./$n" ] || [ -L "./$n" ]; then rm ` + flags + ` -- "./$n" && ` + say("removed: "+p) + " || exit 1; else " + say(rmMissing(p)) + "; fi; " +
+				"else " + say(rmMissing(p)) + "; fi ) || { c=$?; [ $c = " + strconv.Itoa(sudoExitLink) + " ] && exit $c; st=1; }; ")
+		}
+		b.WriteString("exit $st")
+		return b.String()
+	}
 	if !recursive {
 		for _, p := range paths {
 			b.WriteString("if [ -d " + rq(p) + " ] && [ ! -L " + rq(p) + " ]; then " + failWith(fsExitIsFolder, p+" is a folder") + "; fi; ")
 		}
 	}
-	flags := "-f"
-	if recursive {
-		flags = "-rf"
-	}
 	b.WriteString("st=0; ")
 	for _, p := range paths {
-		missing := "not found: " + p + " (nothing removed)"
-		if hasGlob(p) {
-			missing = "no file named '" + p + "' (globs are not expanded; use `komando exec` for patterns)"
-		}
-		b.WriteString("if [ -e " + rq(p) + " ] || [ -L " + rq(p) + " ]; then rm " + flags + " -- " + rq(p) + " && " + say("removed: "+p) + " || st=1; else " + say(missing) + "; fi; ")
+		b.WriteString("if [ -e " + rq(p) + " ] || [ -L " + rq(p) + " ]; then rm " + flags + " -- " + rq(p) + " && " + say("removed: "+p) + " || st=1; else " + say(rmMissing(p)) + "; fi; ")
 	}
 	b.WriteString("exit $st")
 	return b.String()
 }
 
-func mkdirScript(paths []string) string {
+func rmMissing(p string) string {
+	if hasGlob(p) {
+		return "no file named '" + p + "' (globs are not expanded; use `komando exec` for patterns)"
+	}
+	return "not found: " + p + " (nothing removed)"
+}
+
+// mkdirScript makes folders with their parents. As root (asRoot, --sudo)
+// the existing part of each path is turned into its real path following
+// only links root or the SSH user made, then each missing folder is made
+// and entered one at a time: a link put in the way meanwhile stops it.
+func mkdirScript(paths []string, asRoot bool) string {
 	var b strings.Builder
 	for _, p := range paths {
 		b.WriteString("if [ -e " + rq(p) + " ] && [ ! -d " + rq(p) + " ]; then " + failWith(fsExitNotFolder, p+" exists and is not a folder") + "; fi; ")
+	}
+	if asRoot {
+		b.WriteString(rootOK)
+		for _, p := range paths {
+			b.WriteString("( p=" + rq(p) + "; " + sudoWalkScript(rootStop(p)) +
+				`cd / || exit 1; s=${p#/}; w=; while [ -n "$s" ]; do c=${s%%/*}; case $s in */*) s=${s#*/};; *) s=;; esac; ` +
+				`[ -n "$c" ] || continue; w=$w/$c; if [ -L "$c" ]; then ` + rootStop(p) + `; fi; ` +
+				`[ -d "$c" ] || mkdir -- "$c" || exit 1; cd -- "$c" || exit 1; [ "$(pwd -P)" = "$w" ] || ` + rootStop(p) + `; done ) || exit $?; ` +
+				say("made: "+p) + "; ")
+		}
+		b.WriteString("exit 0")
+		return b.String()
 	}
 	b.WriteString("mkdir -p -- " + rqAll(paths))
 	for _, p := range paths {
@@ -311,18 +379,52 @@ func mkdirScript(paths []string) string {
 }
 
 // mvScript moves src to dst like mv, but never replaces a file unless
-// overwrite: into an existing folder it moves to folder/name.
-func mvScript(src, dst string, overwrite bool) string {
+// overwrite: into an existing folder it moves to folder/name. As root
+// (asRoot, --sudo) it is mvRootScript.
+func mvScript(src, dst string, overwrite, asRoot bool) string {
+	if asRoot {
+		return mvRootScript(src, dst, overwrite)
+	}
 	var b strings.Builder
 	b.WriteString("s=" + rq(src) + "; t=" + rq(dst) + "; ")
 	b.WriteString(`if [ ! -e "$s" ] && [ ! -L "$s" ]; then ` + failWith(fsExitNoSource, src+": no such file or directory") + "; fi; ")
 	b.WriteString(`if [ -d "$t" ] && [ ! -L "$t" ]; then t="${t%/}/$(basename -- "$s")"; fi; `)
-	if overwrite {
-		b.WriteString(`if [ -e "$t" ] || [ -L "$t" ]; then printf 'replaced: %s\n' "$t"; fi; `)
-	} else {
-		b.WriteString(`if [ -e "$t" ] || [ -L "$t" ]; then printf '%s already exists\n' "$t" >&2; exit ` + strconv.Itoa(fsExitDestExists) + "; fi; ")
-	}
+	b.WriteString(mvExistsScript(overwrite, `"$t"`))
 	b.WriteString(`mv -- "$s" "$t" && printf 'moved to: %s\n' "$t"`)
+	return b.String()
+}
+
+// mvExistsScript reports, or refuses without overwrite, a file already
+// at the destination q.
+func mvExistsScript(overwrite bool, q string) string {
+	if overwrite {
+		return `if [ -e ` + q + ` ] || [ -L ` + q + ` ]; then printf 'replaced: %s\n' "$t"; fi; `
+	}
+	return `if [ -e ` + q + ` ] || [ -L ` + q + ` ]; then printf '%s already exists\n' "$t" >&2; exit ` + strconv.Itoa(fsExitDestExists) + "; fi; "
+}
+
+// mvRootScript is mvScript as root. Both paths are turned into their real
+// paths following only links root or the SSH user made (for the source
+// only its folder: a link there is moved, not what it names). The folder
+// the file moves into must be one only root and the SSH user can change
+// (sudoFolderScript, exit 93), so no one else can swap it or put a link
+// in it; the move runs from inside that folder, checked with pwd -P, to a
+// name in it, and a link at that name stops it.
+func mvRootScript(src, dst string, overwrite bool) string {
+	var b strings.Builder
+	b.WriteString(rootOK + "p=" + rq(dst) + "; " + sudoWalkScript(rootStop(dst)) + "dt=$p; " +
+		rootParentScript(rq(src), src) + `s="${d%/}/$n"; sn=$n; `)
+	b.WriteString(`if [ ! -e "$s" ] && [ ! -L "$s" ]; then ` + failWith(fsExitNoSource, src+": no such file or directory") + "; fi; ")
+	b.WriteString(`if [ -d "$dt" ] && [ ! -L "$dt" ]; then td=$dt; tn=$sn; else td=${dt%/*}; tn=${dt##*/}; [ -n "$td" ] || td=/; fi; `)
+	b.WriteString(`t="${td%/}/$tn"; p=$t; ` + sudoFolderScript("''"))
+	b.WriteString(`cd -- "$td" || exit 1; d=$td; ` + rootCdScript(dst))
+	b.WriteString(`if [ -L "./$tn" ]; then ` + rootStop(dst) + "; fi; ")
+	b.WriteString(mvExistsScript(overwrite, `"./$tn"`))
+	flag := "-n"
+	if overwrite {
+		flag = "-f"
+	}
+	b.WriteString(`mv ` + flag + ` -- "$s" "./$tn" && printf 'moved to: %s\n' "$t"`)
 	return b.String()
 }
 

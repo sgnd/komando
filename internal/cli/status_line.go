@@ -2,12 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 	"unicode"
-
-	"golang.org/x/term"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
@@ -54,16 +51,16 @@ func (s statusLine) format(color bool) string {
 
 // showStatus prints the line for a person at the terminal, and nothing for
 // agents and scripts.
-func showStatus(s statusLine) {
-	if interactive() {
-		fmt.Fprintln(os.Stderr, out.Marks(s.format(colorOK())))
+func showStatus(cl *call, s statusLine) {
+	if cl.interactive() {
+		fmt.Fprintln(cl.out.Err, out.Marks(s.format(colorOK(cl))))
 	}
 }
 
 // noticef prints one komando: line for a person at the terminal.
-func noticef(format string, args ...any) {
-	if interactive() {
-		fmt.Fprintln(os.Stderr, "komando: "+cleanText(fmt.Sprintf(format, args...)))
+func noticef(cl *call, format string, args ...any) {
+	if cl.interactive() {
+		fmt.Fprintln(cl.out.Err, "komando: "+cleanText(fmt.Sprintf(format, args...)))
 	}
 }
 
@@ -77,9 +74,9 @@ func exitLine(target string, code int, lost bool, took time.Duration) string {
 	return fmt.Sprintf("komando: left %s (exit %d, %s)", cleanText(target), code, d)
 }
 
-func showExit(target string, code int, lost bool, took time.Duration) {
-	if interactive() {
-		fmt.Fprintln(os.Stderr, exitLine(target, code, lost, took))
+func showExit(cl *call, target string, code int, lost bool, took time.Duration) {
+	if cl.interactive() {
+		fmt.Fprintln(cl.out.Err, exitLine(target, code, lost, took))
 	}
 }
 
@@ -87,8 +84,8 @@ func showExit(target string, code int, lost bool, took time.Duration) {
 // the person did not turn color off (NO_COLOR, TERM=dumb). Color only ever adds to a word: PROTECTED is
 // bold red and still says PROTECTED without color. Bold red reads on light
 // and dark terminals; yellow and dim do not, so they are not used here.
-var colorOK = func() bool {
-	return vtOK && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" && term.IsTerminal(int(os.Stderr.Fd()))
+var colorOK = func(cl *call) bool {
+	return vtOK && cl.getenv("NO_COLOR") == "" && cl.getenv("TERM") != "dumb" && isTerminal(cl.out.Err)
 }
 
 // cleanText drops control and bidi characters, so a name or address cannot

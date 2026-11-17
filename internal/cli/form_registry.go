@@ -59,7 +59,7 @@ func registryKinds() []registryKind {
 
 // registryForms are the registries people use most, then any other one,
 // then every login `docker login` saved on this computer at once.
-func registryForms() []formKind {
+func registryForms(cl *call) []formKind {
 	var kinds []formKind
 	details := map[string]string{
 		regHub:  "hub.docker.com, with your Docker ID",
@@ -75,14 +75,14 @@ func registryForms() []formKind {
 		if k.id == regOwn {
 			label = "Your own registry"
 		}
-		kinds = append(kinds, formKind{label, details[k.id], func() formSpec { return registryForm(k) }})
+		kinds = append(kinds, formKind{label, details[k.id], func(cl *call) formSpec { return registryForm(cl, k) }})
 	}
 	return append(kinds, formKind{"From docker login", "every registry you logged in to with docker on this computer", dockerLoginForm})
 }
 
 // registryForm asks for one registry: where it is, who logs in, and how
 // the token is given (never typed here: the command asks for it hidden).
-func registryForm(k registryKind) formSpec {
+func registryForm(cl *call, k registryKind) formSpec {
 	is := func(ids ...string) func(formAnswers) bool {
 		return func(formAnswers) bool { return strings.Contains(" "+strings.Join(ids, " ")+" ", " "+k.id+" ") }
 	}
@@ -102,7 +102,7 @@ func registryForm(k registryKind) formSpec {
 		formWhen(registrySecretQ("secret", "Saved token", "Which saved password holds the token?",
 			"One you saved with komando secret set. Kept somewhere else? Type where, like env:REGISTRY_TOKEN."),
 			func(a formAnswers) bool { return !registryCloud(k.id) && a["login"] == regVault }),
-		formWhen(registryProfileQ(), is(regECR)),
+		formWhen(registryProfileQ(cl), is(regECR)),
 		formProtectQ("registry"),
 		formWhen(formViaQ("registry", true), is(regOwn, regLab)),
 	}
@@ -257,13 +257,13 @@ func registrySecretQ(key, label, ask, help string) formQ {
 		}}
 }
 
-func registryProfileQ() formQ {
+func registryProfileQ(cl *call) formQ {
 	return formQ{key: "profile", label: "AWS profile", ask: "Which AWS profile should komando log in with?", free: true,
 		help: "A profile from ~/.aws/config, the one the aws command uses. komando gets a fresh 12 hour login from it each time.",
 		def:  func(*store.State, formAnswers) string { return "default" },
 		choices: func(*store.State, formAnswers) []pickRow {
 			var rows []pickRow
-			for _, p := range registryAWSProfiles() {
+			for _, p := range registryAWSProfiles(cl) {
 				rows = append(rows, pickRow{label: p, value: p})
 			}
 			return rows
@@ -271,8 +271,8 @@ func registryProfileQ() formQ {
 }
 
 // registryAWSProfiles are the profile names in the AWS config file.
-func registryAWSProfiles() []string {
-	path := os.Getenv("AWS_CONFIG_FILE")
+func registryAWSProfiles(cl *call) []string {
+	path := cl.getenv("AWS_CONFIG_FILE")
 	if path == "" {
 		home, _ := os.UserHomeDir()
 		path = filepath.Join(home, ".aws", "config")
@@ -372,7 +372,7 @@ func registryBuild(k registryKind, a formAnswers) [][]string {
 
 const dockerConfigDefault = "~/.docker/config.json"
 
-func dockerLoginForm() formSpec {
+func dockerLoginForm(_ *call) formSpec {
 	return formSpec{title: "Add the registries you use with docker", qs: []formQ{
 		{key: "file", label: "File", ask: "Where is docker's config file?",
 			help: "docker login keeps your logins there. With Docker Desktop they are in its credential helper; komando asks it.",

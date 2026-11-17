@@ -32,16 +32,16 @@ func TestPTYChild(t *testing.T) {
 	if !ok {
 		t.Skip("the pty tests run it")
 	}
-	interactive = func() bool { return true }
 	switch os.Getenv("KOMANDO_PTY_AS") {
 	case "person": // whatever TERM and CI the tests run with
-		promptable = func(f string) bool { return promptGate(f, isAgent(), "", "xterm") }
+		promptable = func(cl *call, f string) bool { return promptGate(f, cl.isAgent(), "", "xterm") }
 	case "agent": // TestMain took the agent variables away
 		os.Setenv("KOMANDO_AGENT", "1")
-		resetApproval()
-		interactive = func() bool { return false } // as the real one says for an agent
 	}
 	os.Args = append([]string{"komando"}, strings.Split(args, "\x1f")...)
+	// as in the komando program, its call is the only one running
+	// (TestMain counted tcl in for the other tests)
+	tcl.leave()
 	code := Execute()
 	// the terminal as komando leaves it (the test cannot look itself: the
 	// system takes the terminal away when this process ends)
@@ -56,6 +56,16 @@ func TestPTYChild(t *testing.T) {
 	_ = os.WriteFile(os.Getenv("KOMANDO_PTY_REPORT"), fmt.Appendf(nil, "%v %d", echo, left), 0o600)
 	os.Exit(code)
 }
+
+// ptyWait is how long a pty test waits for something komando should do at
+// once (show a question, end): far longer than it takes, so a busy machine
+// or the race detector does not fail the test. A komando that hangs still
+// fails it, later.
+const ptyWait = 2 * time.Minute
+
+// ptyChildLimit ends a child komando that hangs even when its test is no
+// longer there to stop it (one ran for 18 hours once).
+const ptyChildLimit = "15m"
 
 type ptyRun struct {
 	t      *testing.T
@@ -81,7 +91,7 @@ func startPTYEnv(t *testing.T, env []string, args ...string) *ptyRun {
 		t.Skipf("no pseudo-terminal here: %v", err)
 	}
 	p := &ptyRun{t: t, master: m, tty: tty, report: filepath.Join(t.TempDir(), "report")}
-	p.cmd = exec.Command(os.Args[0], "-test.run=^TestPTYChild$")
+	p.cmd = exec.Command(os.Args[0], "-test.run=^TestPTYChild$", "-test.timeout="+ptyChildLimit)
 	p.cmd.Env = append(append(environWithout("CI"), "KOMANDO_PTY_ARGS="+strings.Join(args, "\x1f"), "KOMANDO_PTY_REPORT="+p.report, "KOMANDO_OUTPUT=text"), env...)
 	// this process took the passphrase out of its environment; the child
 	// needs it for every command, as a person's own shell would give it
@@ -125,7 +135,7 @@ func (p *ptyRun) shown() string {
 // waitFor waits until s is on the screen.
 func (p *ptyRun) waitFor(s string) {
 	p.t.Helper()
-	for end := time.Now().Add(10 * time.Second); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
+	for end := time.Now().Add(ptyWait); time.Now().Before(end); time.Sleep(20 * time.Millisecond) {
 		if strings.Contains(p.shown(), s) {
 			return
 		}
@@ -146,11 +156,18 @@ func (p *ptyRun) answer(q, s string) {
 // exit waits for komando to end and returns its exit code.
 func (p *ptyRun) exit() int {
 	p.t.Helper()
+	return p.exitWithin(ptyWait)
+}
+
+// exitWithin is exit for a command that may take longer than most: sealing
+// or opening a file runs a key derivation made to be slow.
+func (p *ptyRun) exitWithin(d time.Duration) int {
+	p.t.Helper()
 	done := make(chan error, 1)
 	go func() { done <- p.cmd.Wait() }()
 	select {
 	case <-done:
-	case <-time.After(10 * time.Second):
+	case <-time.After(d):
 		_ = p.cmd.Process.Kill()
 		<-done
 		p.t.Fatalf("komando went on waiting; the screen:\n%s", p.shown())
