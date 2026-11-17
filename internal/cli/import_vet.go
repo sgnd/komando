@@ -202,7 +202,7 @@ func guardImportVpns(cl *call, st *store.State, vpns []*store.Vpn) error {
 			return err
 		}
 		old := st.Vpns[v.Name]
-		if err := guardVpnSends(cl, st, old, v, ""); err != nil {
+		if err := guardVpnSends(cl, st, old, v, "", true); err != nil {
 			return err
 		}
 		if old != nil {

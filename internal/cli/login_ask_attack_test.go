@@ -141,3 +141,17 @@ func TestLoginAskViaAtRunTime(t *testing.T) {
 		}
 	}
 }
+
+// A VPN on the way to a login-ask server that an agent adds again with
+// --overwrite stops even with the same flags: the profile or key in its
+// secret may be new. An edit that changes only its groups goes on.
+func TestLoginAskVpnOverwriteWay(t *testing.T) {
+	invHome(t)
+	t.Setenv("K", "x")
+	mustRun(t, "secret", "set", "tskey", "--from-env", "K")
+	mustRun(t, "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey")
+	mustRun(t, "host", "add", "web1", "u@100.64.0.5", "--login", "ask", "--via", "ts")
+	setCallerEnv(t, "CLAUDECODE", "1")
+	wantCode(t, "NEEDS_PERSON", "vpn", "add", "ts", "tailscale", "--password-ref", "secret:tskey", "--overwrite")
+	mustRun(t, "vpn", "edit", "ts", "-g", "lab")
+}

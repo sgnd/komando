@@ -150,7 +150,9 @@ func vpnPlaceChanges(s *store.State, name string, changed bool) []string {
 }
 
 // vpnWayChanged: an edit changes how VPN a connects (anything but its
-// groups, tags, labels, notes and protection).
+// groups, tags, labels, notes and protection). A replace (add --overwrite,
+// import) always counts as changed: its profile or key secret may be new
+// while every field stays.
 func vpnWayChanged(a, b *store.Vpn) bool {
 	x, y := *a, *b
 	for _, v := range []*store.Vpn{&x, &y} {
@@ -164,8 +166,8 @@ func vpnWayChanged(a, b *store.Vpn) bool {
 func importVpnPlaces(cl *call, st *store.State, vpns []*store.Vpn) error {
 	var replacing []string
 	for _, v := range vpns {
-		if o, ok := st.Vpns[v.Name]; ok {
-			replacing = append(replacing, vpnPlaceChanges(st, v.Name, vpnWayChanged(o, v))...)
+		if _, ok := st.Vpns[v.Name]; ok { // replaced: counts as changed
+			replacing = append(replacing, vpnPlaceChanges(st, v.Name, true)...)
 		}
 	}
 	return loginPlaceStop(cl, replacing)
