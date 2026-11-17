@@ -248,14 +248,6 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 		if second == "OVERWRITE" {
 			flag("sql-truncate")
 		}
-	case "COPY":
-		// PURGE = TRUE deletes the staged files after the load; any
-		// value but a plain FALSE counts
-		for i, t := range ts {
-			if t.word == "PURGE" && !(i+2 < len(ts) && ts[i+1].punct == '=' && ts[i+2].word == "FALSE") {
-				flag("sql-server-file")
-			}
-		}
 	case "WITH":
 		// WITH p AS PROCEDURE (...) AS $$ ... $$ CALL p(): an anonymous
 		// procedure, whose body komando cannot see, runs without CREATE rights
@@ -269,6 +261,11 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 			name = t.ident
 		}
 		switch {
+		case t.word == "PURGE" && oneOfWord(first, "COPY", "CREATE", "ALTER") && !(i+2 < len(ts) && ts[i+1].punct == '=' && ts[i+2].word == "FALSE"):
+			// PURGE = TRUE deletes the staged files after a load: in the
+			// COPY itself, or as a table's or stage's copy option, which a
+			// later plain COPY obeys. Any value but a plain FALSE counts.
+			flag("sql-server-file")
 		case t.word == "INTO" && i+1 < len(ts) && (ts[i+1].punct == '@' || ts[i+1].punct == '\''):
 			flag("sql-server-file") // COPY INTO @stage or 's3://...': writes files
 		case (t.word == "URL" || t.word == "CREDENTIALS") && i+1 < len(ts) && ts[i+1].punct == '=',
@@ -363,4 +360,13 @@ func snowflakeRows(kw string) bool {
 func snowflakeNoTx(ts []token) bool {
 	risk, _, err := snowflakeStatement(ts)
 	return err != nil || risk != RiskRead
+}
+
+func oneOfWord(w string, words ...string) bool {
+	for _, x := range words {
+		if w == x {
+			return true
+		}
+	}
+	return false
 }

@@ -2,6 +2,7 @@ package driver
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -233,5 +234,21 @@ func TestCheckRestoreDelimiterAfterStatement(t *testing.T) {
 	// a column or text that only looks like it is fine
 	if _, err := CheckRestore("mysql", strings.NewReader("SELECT 1; SELECT delimiter FROM t;\nINSERT INTO t VALUES ('; DELIMITER //');\n")); err != nil {
 		t.Errorf("plain statements: %v", err)
+	}
+}
+
+// The check and the restore end a COPY block at the same line: the end
+// marker with more than one CR after it ends it for both, so the SQL
+// after it is read as SQL.
+func TestCheckRestoreCopyEndWithCRs(t *testing.T) {
+	sql := "COPY t (a) FROM stdin;\n\\.\r\r\r\nCOPY t FROM PROGRAM 'id';\nGRANT ALL ON t TO PUBLIC;\nSELECT '\n\\.\n--';\n"
+	v, err := CheckRestore("postgres", strings.NewReader(sql))
+	if err != nil {
+		return // refused outright is fine too
+	}
+	for _, id := range []string{"sql-program", "sql-privileges"} {
+		if !slices.Contains(v.RuleIDs, id) {
+			t.Errorf("%s after the end marker was not seen: %v", id, v.RuleIDs)
+		}
 	}
 }

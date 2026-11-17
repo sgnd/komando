@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -22,5 +23,16 @@ func TestDBUserCommandsArePrivilegeChanges(t *testing.T) {
 		if e == nil || e.Code != "POLICY_BLOCKED" {
 			t.Errorf("%v: want POLICY_BLOCKED, got %+v", args[1:], e)
 		}
+	}
+}
+
+// An AI agent's --allow-dangerous opens the window, which names the rule.
+func TestDBGrantAsksForAnAgent(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "local", "postgres://app@127.0.0.1:1/app")
+	texts := windowText(t, false)
+	_, e := invRun(t, "db", "grant", "local", "app_ro", "--role", "readers", "--allow-dangerous")
+	if e == nil || len(*texts) != 1 || !strings.Contains((*texts)[0], "sql-privileges") {
+		t.Errorf("want one window naming sql-privileges and a stop, got %+v, windows %q", e, *texts)
 	}
 }

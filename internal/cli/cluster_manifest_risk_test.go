@@ -37,6 +37,13 @@ func TestManifestEscalates(t *testing.T) {
 		"cronjob":            {"apiVersion: batch/v1\nkind: CronJob\nmetadata: {name: a}\nspec:\n  jobTemplate:\n    spec:\n      template:\n        spec:\n          hostPID: true\n          containers: [{name: c, image: a}]\n", true},
 		"list":               {"apiVersion: v1\nkind: List\nmetadata: {name: l}\nitems:\n- apiVersion: rbac.authorization.k8s.io/v1\n  kind: ClusterRoleBinding\n  metadata: {name: a}\n", true},
 		"pv hostPath":        {"apiVersion: v1\nkind: PersistentVolume\nmetadata: {name: a}\nspec:\n  hostPath: {path: /}\n", true},
+		"pv local":           {"apiVersion: v1\nkind: PersistentVolume\nmetadata: {name: a}\nspec:\n  capacity: {storage: 1Gi}\n  local: {path: /}\n", true},
+		"hostProcess":        {pod("  containers: [{name: c, image: a, securityContext: {windowsOptions: {hostProcess: true}}}]\n"), true},
+		"admission policy":   {"apiVersion: admissionregistration.k8s.io/v1alpha1\nkind: MutatingAdmissionPolicy\nmetadata: {name: a}\n", true},
+		"psa privileged":     {"apiVersion: v1\nkind: Namespace\nmetadata: {name: a, labels: {pod-security.kubernetes.io/enforce: privileged}}\n", true},
+		"psa restricted":     {"apiVersion: v1\nkind: Namespace\nmetadata: {name: a, labels: {pod-security.kubernetes.io/enforce: restricted}}\n", false},
+		"hostPath as data":   {"apiVersion: v1\nkind: ConfigMap\nmetadata: {name: a}\ndata: {hostPath: /x, local: y}\n", false},
+		"crd schema":         {"apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata: {name: a}\nspec:\n  versions:\n  - schema:\n      openAPIV3Schema:\n        properties:\n          hostPath: {type: string}\n", false},
 		"second document":    {"apiVersion: v1\nkind: ConfigMap\nmetadata: {name: a}\n---\n" + pod("  hostPID: true\n  containers: [{name: c, image: a}]\n"), true},
 	} {
 		docs, err := splitYAML([]byte(c.yaml))
@@ -56,8 +63,8 @@ func TestManifestReadOnce(t *testing.T) {
 	plain := "apiVersion: v1\nkind: ConfigMap\nmetadata: {name: a}\n"
 	os.WriteFile(file, []byte(plain), 0o600)
 	cl := newCall(tcl.io, nil)
-	if risk, why := kubectlFileRisk(cl, []string{"apply", "-f", file}, driver.RiskWrite); risk != driver.RiskWrite || why != "" {
-		t.Fatalf("plain file: %v %q", risk, why)
+	if risk, why, err := kubectlFileRisk(cl, []string{"apply", "-f", file}, driver.RiskWrite); risk != driver.RiskWrite || why != "" || err != nil {
+		t.Fatalf("plain file: %v %q %v", risk, why, err)
 	}
 	os.WriteFile(file, []byte("apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRoleBinding\nmetadata: {name: a}\n"), 0o600)
 	b, err := readManifest(cl, file, false)
@@ -66,8 +73,24 @@ func TestManifestReadOnce(t *testing.T) {
 	}
 	// and the other way round: a file that escalates is rated so
 	cl2 := newCall(tcl.io, nil)
-	if risk, why := kubectlFileRisk(cl2, []string{"create", "--filename=" + file}, driver.RiskWrite); risk != driver.RiskDestructive || why == "" {
-		t.Errorf("binding file: %v %q", risk, why)
+	if risk, why, err := kubectlFileRisk(cl2, []string{"create", "--filename=" + file}, driver.RiskWrite); risk != driver.RiskDestructive || why == "" || err != nil {
+		t.Errorf("binding file: %v %q %v", risk, why, err)
+	}
+	// a file that is not there (or not YAML) when it is rated stops the
+	// command: created a moment later, it would be sent unrated
+	cl3 := newCall(tcl.io, nil)
+	missing := filepath.Join(t.TempDir(), "later.yaml")
+	if _, _, err := kubectlFileRisk(cl3, []string{"apply", "-f", missing}, driver.RiskWrite); err == nil {
+		t.Error("a missing manifest was not an error at rating time")
+	}
+	bad := filepath.Join(t.TempDir(), "bad.yaml")
+	os.WriteFile(bad, []byte("a: [1\n"), 0o600)
+	if _, _, err := kubectlFileRisk(cl3, []string{"apply", "-f", bad}, driver.RiskWrite); err == nil {
+		t.Error("a manifest that is not YAML was not an error at rating time")
+	}
+	// a read (diff) is not held up
+	if _, _, err := kubectlFileRisk(cl3, []string{"diff", "-f", missing}, driver.RiskRead); err != nil {
+		t.Errorf("diff: %v", err)
 	}
 	if got := classifyKubectl(tcl, []string{"create", "role", "r", "--verb=get", "--resource=pods"}); got != driver.RiskDestructive {
 		t.Errorf("create role: %v", got)
@@ -92,6 +115,15 @@ func TestComposeEscapes(t *testing.T) {
 		"pid host":         {svc("    pid: host\n"), true},
 		"network_mode":     {svc("    network_mode: host\n"), true},
 		"volume device":    {svc("    volumes: ['h:/h']\nvolumes:\n  h:\n    driver_opts: {type: none, o: bind, device: /}\n"), true},
+		"host network":     {svc("    networks: [h]\nnetworks:\n  h: {external: true, name: host}\n"), true},
+		"host network old": {svc("    networks: [host]\nnetworks:\n  host: {external: true}\n"), true},
+		"overlay network":  {svc("    networks: [app]\nnetworks:\n  app: {driver: overlay}\n"), false},
+		"secret from key":  {svc("    secrets: [k]\nsecrets:\n  k: {file: /root/.ssh/id_rsa}\n"), true},
+		"config from etc":  {svc("    configs: [c]\nconfigs:\n  c: {file: /etc/shadow}\n"), true},
+		"config from site": {svc("    configs: [c]\nconfigs:\n  c: {file: ./nginx.conf}\n"), false},
+		"env_file":         {svc("    env_file: /root/.env\n"), true},
+		"duplicate key":    {svc("    volumes: ['/:/h']\nx-a: 1\nx-a: 2\n"), true},
+		"not yaml":         {"services: [1\n", true},
 		"nfs volume":       {svc("    volumes: ['n:/n']\nvolumes:\n  n:\n    driver_opts: {type: nfs, o: addr=10.0.0.9, device: ':/export'}\n"), false},
 	} {
 		if why := composeEscapes([]byte(c.yaml)); (why != "") != c.esc {

@@ -55,7 +55,7 @@ func openMemcache(ctx context.Context, t driver.Target, password string, dial Di
 		}
 		c = tc
 	}
-	m := &memcache{c: c, r: bufio.NewReader(c), tmo: timeout}
+	m := &memcache{c: c, r: bufio.NewReaderSize(c, 64<<10), tmo: timeout}
 	if t.User != "" || password != "" {
 		cred := t.User + " " + password
 		line, err := m.cmd(ctx, fmt.Sprintf("set auth 0 0 %d\r\n%s", len(cred), cred))
@@ -98,10 +98,16 @@ func (m *memcache) send(ctx context.Context, line string) error {
 }
 
 func (m *memcache) line() (string, error) {
-	s, err := m.r.ReadString('\n')
+	// a line is a few words; a server that never ends one must not fill
+	// this computer's memory
+	b, err := m.r.ReadSlice('\n')
+	if err == bufio.ErrBufferFull {
+		return "", fmt.Errorf("the server sent a line of more than %d bytes", m.r.Size())
+	}
 	if err != nil {
 		return "", err
 	}
+	s := string(b)
 	s = strings.TrimRight(s, "\r\n")
 	if strings.HasPrefix(s, "CLIENT_ERROR") || strings.HasPrefix(s, "SERVER_ERROR") || s == "ERROR" {
 		return s, &mcError{s}

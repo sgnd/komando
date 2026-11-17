@@ -2,11 +2,13 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/sgnd/komando/internal/driver"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // rightsKinds are the kinds that hand out rights in a cluster: who may do
@@ -19,6 +21,8 @@ var rightsKinds = map[string]string{
 	"role":                           "sets what a role may do",
 	"mutatingwebhookconfiguration":   "changes every object sent to the cluster",
 	"validatingwebhookconfiguration": "sees every object sent to the cluster",
+	"mutatingadmissionpolicy":        "changes every object sent to the cluster",
+	"mutatingadmissionpolicybinding": "changes every object sent to the cluster",
 	"apiservice":                     "puts another server behind the cluster's API",
 }
 
@@ -78,8 +82,16 @@ func podEscapes(m map[string]any) string {
 			return "a pod with " + k + " shares its node's processes or network"
 		}
 	}
-	if p, ok := m["hostPath"]; ok && p != nil {
+	// a volume source is a map ({path: ...}); a ConfigMap value or a
+	// schema property that happens to be called hostPath is not one
+	if p, ok := m["hostPath"].(map[string]any); ok && p["path"] != nil {
 		return "a hostPath volume opens a folder of the node"
+	}
+	if p, ok := m["local"].(map[string]any); ok && p["path"] != nil && m["capacity"] != nil {
+		return "a local PersistentVolume opens a folder of the node"
+	}
+	if labels, ok := m["labels"].(map[string]any); ok && strings.EqualFold(str(labels["pod-security.kubernetes.io/enforce"]), "privileged") {
+		return "the label pod-security.kubernetes.io/enforce=privileged lets a namespace run privileged pods"
 	}
 	if sc, ok := m["securityContext"].(map[string]any); ok {
 		if on(sc["privileged"]) {
@@ -89,6 +101,9 @@ func podEscapes(m map[string]any) string {
 			if add, isList := caps["add"].([]any); caps["add"] != nil && (!isList || len(add) > 0) {
 				return "a container with added capabilities has more rights on its node"
 			}
+		}
+		if wo, ok := sc["windowsOptions"].(map[string]any); ok && on(wo["hostProcess"]) {
+			return "a hostProcess container runs on its Windows node"
 		}
 		if pm := str(sc["procMount"]); pm != "" && !strings.EqualFold(pm, "Default") {
 			return "a container with an unmasked /proc sees its node"
@@ -113,42 +128,68 @@ func on(v any) bool {
 // manifest (-f) whose objects give out rights or escape to a node. The
 // files are read here once and kept for the run (readManifest), so what
 // was rated is what is sent. A file that cannot be read or parsed leaves
-// the rating alone: the run stops on it with its own message.
-func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, string) {
+// was rated is what is sent. A file that cannot be read or parsed stops
+// the command here: one that only appears after the rating would be sent
+// unrated.
+func kubectlFileRisk(cl *call, args []string, risk driver.Risk) (driver.Risk, string, error) {
 	if risk >= driver.RiskDestructive || risk == driver.RiskRead {
-		return risk, ""
+		return risk, "", nil
 	}
 	a, err := parseKargs(args)
 	if err != nil {
-		return risk, ""
+		return risk, "", nil // the run says what is wrong with the words
 	}
 	for _, f := range a.vals["filename"] {
 		b, err := readManifest(cl, f, a.bools["recursive"])
 		if err != nil {
-			continue
+			var stop *out.Error
+			if errors.As(err, &stop) {
+				return risk, "", stop
+			}
+			return risk, "", localFileErr("FILE_NOT_FOUND", err, "")
 		}
 		docs, err := splitYAML(b)
 		if err != nil {
-			continue
+			return risk, "", out.Usage("%s: %v", f, err)
 		}
 		if why := manifestEscalates(docs); why != "" {
-			return driver.RiskDestructive, why
+			return driver.RiskDestructive, why, nil
 		}
 	}
-	return risk, ""
+	return risk, "", nil
 }
 
 // composeEscapes says why a compose file handed to `docker stack deploy`
 // gives a service its server: "" when it does not. It is the file form of
-// runEscapesHost. A file komando cannot read as YAML is left to docker,
-// which refuses it.
+// runEscapesHost. A file komando cannot read as YAML counts: docker may
+// read it another way.
 func composeEscapes(file []byte) string {
 	var c struct {
 		Services map[string]map[string]any `yaml:"services"`
 		Volumes  map[string]map[string]any `yaml:"volumes"`
+		Networks map[string]map[string]any `yaml:"networks"`
+		Configs  map[string]map[string]any `yaml:"configs"`
+		Secrets  map[string]map[string]any `yaml:"secrets"`
 	}
-	if yaml.Unmarshal(file, &c) != nil {
-		return ""
+	if err := yaml.Unmarshal(file, &c); err != nil {
+		return "komando cannot read it as YAML (" + firstLine(err.Error()) + "), so it cannot check what the services get"
+	}
+	for name, n := range c.Networks {
+		if strings.EqualFold(name, "host") && n["external"] != nil || strings.EqualFold(str(n["name"]), "host") {
+			return "network " + name + " is the server's own network"
+		}
+		if ext, ok := n["external"].(map[string]any); ok && strings.EqualFold(str(ext["name"]), "host") {
+			return "network " + name + " is the server's own network"
+		}
+	}
+	// a config or secret made from a file: docker reads that file on the
+	// manager and hands it to the service
+	for kind, set := range map[string]map[string]map[string]any{"config": c.Configs, "secret": c.Secrets} {
+		for name, v := range set {
+			if f := str(v["file"]); strings.Contains(f, "$") || strings.HasPrefix(f, "~") || strings.HasPrefix(f, "/") && hostPathEscapes(f, true) {
+				return kind + " " + name + " is the server file " + f
+			}
+		}
 	}
 	for name, v := range c.Volumes {
 		opts, _ := v["driver_opts"].(map[string]any)
@@ -169,6 +210,13 @@ func composeEscapes(file []byte) string {
 		for _, k := range []string{"pid", "ipc", "userns_mode", "uts", "cgroup", "network_mode"} {
 			if v := strings.ToLower(str(s[k])); v == "host" || strings.HasPrefix(v, "container:") || strings.HasPrefix(v, "service:") || strings.Contains(v, "$") {
 				return pre + "shares the server's " + k
+			}
+		}
+		if s["env_file"] != nil {
+			for _, f := range composeStrings(s["env_file"]) {
+				if strings.Contains(f, "$") || strings.HasPrefix(f, "~") || strings.HasPrefix(f, "/") && hostPathEscapes(f, true) {
+					return pre + "reads the server file " + f
+				}
 			}
 		}
 		vols, _ := s["volumes"].([]any)
@@ -195,4 +243,24 @@ func composeEscapes(file []byte) string {
 		}
 	}
 	return ""
+}
+
+// composeStrings reads a YAML value that is one string, a list of strings, or
+// a list of {path: ...} maps (env_file's forms).
+func composeStrings(v any) []string {
+	switch x := v.(type) {
+	case string:
+		return []string{x}
+	case []any:
+		var all []string
+		for _, e := range x {
+			if m, ok := e.(map[string]any); ok {
+				all = append(all, str(m["path"]))
+			} else {
+				all = append(all, str(e))
+			}
+		}
+		return all
+	}
+	return nil
 }

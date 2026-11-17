@@ -80,7 +80,10 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 	line := 0
 	for sc.Scan() {
 		line++
-		text := strings.TrimSuffix(sc.Text(), "\r")
+		// every trailing CR goes, as the restore's own line reader drops
+		// them (dbx sqlScanner.rawLine): a line the two read differently
+		// (the COPY end marker \. with more than one CR) would hide SQL
+		text := strings.TrimRight(sc.Text(), "\r")
 		if inCopy { // COPY data: backslashes are escapes, the block ends with \.
 			if text == `\.` {
 				inCopy = false

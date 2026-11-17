@@ -82,3 +82,12 @@ func TestMemcacheGoodLength(t *testing.T) {
 		t.Errorf("get: %+v %v", v, err)
 	}
 }
+
+// A server that never ends its line does not fill memory.
+func TestMemcacheEndlessLine(t *testing.T) {
+	m := scripted(t, true, strings.Repeat("A", 200<<10))
+	m.r = bufio.NewReaderSize(m.c, 64<<10)
+	if _, err := m.Get(context.Background(), "k", 0, 0); err == nil || !strings.Contains(err.Error(), "line of more than") {
+		t.Errorf("want a line length error, got %v", err)
+	}
+}

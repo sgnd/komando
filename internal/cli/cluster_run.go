@@ -286,7 +286,9 @@ risky verbs also need --allow-dangerous.`,
 			reason := "kubectl " + verb
 			if t.host == nil {
 				var why string
-				if risk, why = kubectlFileRisk(cl, args[1:], risk); why != "" {
+				if risk, why, err = kubectlFileRisk(cl, args[1:], risk); err != nil {
+					return err
+				} else if why != "" {
 					reason += " -f: " + why
 				}
 			}
