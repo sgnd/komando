@@ -195,3 +195,20 @@ func TestStorageOpsRefuseDotPaths(t *testing.T) {
 		t.Errorf("changed: %v", m.objs)
 	}
 }
+
+// An AI agent cannot rename a file that is secret by its name into one
+// that is not: the new name would pass every stop for secret files
+// (download, cat, cp). Moving it with its name kept is an ordinary move.
+func TestStorageMvKeepsASecretFilesName(t *testing.T) {
+	m := &memBucket{objs: map[string]string{"app/.env": "DB=1", "keys/site.p12": "p"}}
+	withMemBucket(t, m)
+	windowText(t, false)
+	e := wantCode(t, "SENSITIVE_FILE", "storage", "mv", "bk", "app/.env", "app/notes.txt")
+	if e.Exit != out.ExitPolicy || m.objs["app/.env"] != "DB=1" {
+		t.Errorf("exit %d, objects %v", e.Exit, m.objs)
+	}
+	wantCode(t, "SENSITIVE_FILE", "storage", "mv", "bk", "keys/site.p12", "keys/site.bin", "--dry-run")
+	if d := mustRun(t, "storage", "mv", "bk", "app/.env", "old/"); d["dst"] != "old/.env" {
+		t.Errorf("a move that keeps the name: %v", d)
+	}
+}

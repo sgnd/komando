@@ -27,8 +27,9 @@ type fakeS3 struct {
 	mu      sync.Mutex
 	objs    map[string][]byte
 	copies  int
-	badCopy bool // a copy loses its last byte
-	denyDel bool // DELETE answers AccessDenied
+	badCopy bool   // a copy loses its last byte
+	sse     string // the encryption every object reports; its ETag is then no MD5
+	denyDel bool   // DELETE answers AccessDenied
 }
 
 func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -52,12 +53,13 @@ func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPut:
 		if src := r.Header.Get("X-Amz-Copy-Source"); src != "" {
 			src, _ = url.PathUnescape(src)
-			from, ok := f.objs[strings.TrimPrefix(strings.TrimPrefix(src, "/"), "media/")]
+			srcKey := strings.TrimPrefix(strings.TrimPrefix(src, "/"), "media/")
+			from, ok := f.objs[srcKey]
 			if !ok {
 				s3Error(w, http.StatusNotFound, "NoSuchKey")
 				return
 			}
-			if m := r.Header.Get("X-Amz-Copy-Source-If-Match"); m != "" && strings.Trim(m, `"`) != etag(from) {
+			if m := r.Header.Get("X-Amz-Copy-Source-If-Match"); m != "" && strings.Trim(m, `"`) != f.etagOf(srcKey, from) {
 				s3Error(w, http.StatusPreconditionFailed, "PreconditionFailed")
 				return
 			}
@@ -93,13 +95,25 @@ func (f *fakeS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			s3Error(w, http.StatusNotFound, "NoSuchKey")
 			return
 		}
-		w.Header().Set("ETag", `"`+etag(body)+`"`)
+		w.Header().Set("ETag", `"`+f.etagOf(key, body)+`"`)
+		if f.sse != "" {
+			w.Header().Set("X-Amz-Server-Side-Encryption", f.sse)
+		}
 		w.Header().Set("Last-Modified", "Sun, 08 Nov 2026 10:00:00 GMT")
 		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 		if r.Method == http.MethodGet {
 			w.Write(body)
 		}
 	}
+}
+
+// etagOf is the ETag an object reports: with encryption, 32 hex digits
+// that say nothing of the body.
+func (f *fakeS3) etagOf(key string, body []byte) string {
+	if f.sse != "" {
+		return etag([]byte(key))
+	}
+	return etag(body)
 }
 
 func etag(b []byte) string {

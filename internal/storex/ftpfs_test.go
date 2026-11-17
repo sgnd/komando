@@ -19,8 +19,9 @@ import (
 // STOR, SIZE, MKD, RNFR/RNTO and DELE for every Bucket call. Like many
 // servers, RNTO never renames over an existing file.
 type dirFTP struct {
-	ln   net.Listener
-	root string
+	ln      net.Listener
+	root    string
+	hideDot bool // LIST leaves out names that start with a dot, as vsftpd does
 }
 
 func newDirFTP(t *testing.T) *dirFTP {
@@ -97,6 +98,9 @@ func (s *dirFTP) serve(c net.Conn) {
 			}
 			say("150 here")
 			for _, e := range es {
+				if s.hideDot && strings.HasPrefix(e.Name(), ".") {
+					continue
+				}
 				fi, _ := e.Info()
 				kind := "-rw-r--r--"
 				if e.IsDir() {

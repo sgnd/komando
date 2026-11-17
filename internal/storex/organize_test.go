@@ -485,3 +485,49 @@ func TestCopyFailedHintNamesTheFiles(t *testing.T) {
 		t.Errorf("hint: %s", h)
 	}
 }
+
+// A server whose LIST hides dot files still has them: mv does not replace
+// one without --overwrite, and can move one.
+func TestFTPMoveSeesAHiddenDotFile(t *testing.T) {
+	s := newDirFTP(t)
+	s.hideDot = true
+	site := filepath.Join(s.root, "site")
+	if err := os.MkdirAll(site, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(site, ".htaccess"), []byte("old"), 0o644)
+	os.WriteFile(filepath.Join(site, "new.conf"), []byte("new"), 0o644)
+	b := s.open(t)
+	_, err := b.Move(context.Background(), "new.conf", ".htaccess", MoveOpts{})
+	if errCode(err) != "OBJECT_EXISTS" {
+		t.Fatalf("mv onto a hidden file: %v, want OBJECT_EXISTS", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(site, ".htaccess")); string(got) != "old" {
+		t.Fatalf(".htaccess is now %q", got)
+	}
+	if _, err := b.Move(context.Background(), ".htaccess", "htaccess.old", MoveOpts{}); err != nil {
+		t.Fatalf("mv of a hidden file: %v", err)
+	}
+}
+
+// With KMS encryption, single or double (DSSE), an object's ETag is no
+// MD5 of its body: the copy is checked by size, and the move works.
+func TestS3MoveWithKMSEncryption(t *testing.T) {
+	for _, sse := range []string{"aws:kms", "aws:kms:dsse"} {
+		b, f := openFakeS3(t)
+		ctx := context.Background()
+		if err := b.Put(ctx, "a.txt", strings.NewReader("abc"), 3, ""); err != nil {
+			t.Fatal(err)
+		}
+		if err := b.Put(ctx, "b.txt", strings.NewReader("old"), 3, ""); err != nil {
+			t.Fatal(err)
+		}
+		f.sse = sse
+		if _, err := b.Move(ctx, "a.txt", "b.txt", MoveOpts{Overwrite: true}); err != nil {
+			t.Errorf("%s: %v", sse, err)
+		}
+		if string(f.objs["site/b.txt"]) != "abc" {
+			t.Errorf("%s: b.txt is %q", sse, f.objs["site/b.txt"])
+		}
+	}
+}
