@@ -242,6 +242,10 @@ so you can check them.
 `--to -` streams one file to stdout, and `-` as the file to upload reads
 it from stdin. Nothing is saved on this computer on the way, so an app (or
 a phone through [ssh-gate](safety.md)) can read and write files with them.
+An ssh-gate key counts as an AI agent, so its streams keep the rules
+below for agents: a file over 16 MiB is refused, and a text file arrives
+with secret values as `[hidden]` (such a copy cannot be uploaded back).
+`--progress` does not go with `--to -`.
 
 ```bash
 komando download web1 /etc/nginx/nginx.conf --to - > nginx.conf

@@ -146,8 +146,8 @@ func gateLocalDst(c *cobra.Command) string {
 	if len(args) != 2 {
 		return "" // a usage error: nothing runs
 	}
-	if args[1] == "-" {
-		return "" // a stream to the key's own output
+	if args[1] == "-" && c.Name() == "cp" {
+		return "" // cp's stream to the key's own output; to sync, - is a folder here
 	}
 	if _, _, remote := splitArg(cl, args[1]); !remote {
 		return "its DST is on this computer; a key copies to servers or storage only"

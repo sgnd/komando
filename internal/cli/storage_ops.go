@@ -160,6 +160,9 @@ versions, the original's old versions stay.`,
 			if src == dst {
 				return out.Usage("SRC and DST are the same (%q)", src)
 			}
+			if err := guardSensitiveRename(cl, src, dst); err != nil {
+				return err
+			}
 			_, kind, err := storageKind(cl, args[0])
 			if err != nil {
 				return err
@@ -185,6 +188,19 @@ versions, the original's old versions stay.`,
 	}
 	c.Flags().BoolVar(&overwrite, "overwrite", false, "replace a file already at DST (never a folder)")
 	return c
+}
+
+// guardSensitiveRename stops an AI agent from giving a file that is secret
+// by its name (.env, a private key, a key store) a name that is not: under
+// the new name it would pass the stops for secret files (storage download,
+// cat, cp). A move that keeps a secret name is an ordinary move.
+func guardSensitiveRename(cl *call, src, dst string) error {
+	if !cl.isAgent() || !sensitiveName(src) || sensitiveName(dst) {
+		return nil
+	}
+	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+		fmt.Sprintf("move it with its name kept (`komando storage mv CONN %s FOLDER/`), or ask the user to run the command in their own terminal", argQ(src)),
+		"%s holds secrets; komando does not give it another kind of name for an AI agent", src).NoFlag()
 }
 
 type mvData struct {

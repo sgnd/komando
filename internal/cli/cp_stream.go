@@ -241,11 +241,12 @@ type stdinSource struct {
 	sized bool
 	head  []byte
 	h     hash.Hash
+	ctx   context.Context
 	err   error // the stream's own refusal, kept so a store's wrapping cannot hide it
 }
 
-func newStdinSource(cl *call, o cpOpts) *stdinSource {
-	return &stdinSource{r: cl.stdin, size: o.size, sized: o.sized, h: sha256.New()}
+func newStdinSource(cl *call, ctx context.Context, o cpOpts) *stdinSource {
+	return &stdinSource{ctx: ctx, r: cl.stdin, size: o.size, sized: o.sized, h: sha256.New()}
 }
 
 func (s *stdinSource) Read(p []byte) (int, error) {
@@ -259,6 +260,10 @@ func (s *stdinSource) Read(p []byte) (int, error) {
 		s.head = append(s.head, p[:min(n, room)]...)
 	}
 	switch {
+	case s.ctx.Err() != nil:
+		// Ctrl-C or a dropped link: stdin closing now (the program feeding
+		// it got the same signal) is not the end of the file
+		s.err = s.ctx.Err()
 	case s.sized && s.n > s.size:
 		s.err = sizeMismatch(s.size, "more")
 	case err == io.EOF && s.sized && s.n != s.size:
@@ -309,7 +314,7 @@ func storageUploadStdin(cl *call, ctx context.Context, name, conn, key string, o
 			// the length goes to the store as unknown even with --size, so it
 			// reads stdin to its end and a stream that sends more is caught
 			// (a store told the length would stop reading there and keep it)
-			in := newStdinSource(cl, o)
+			in := newStdinSource(cl, ctx, o)
 			if err := s.Put(ctx, key, storex.CtxReader(ctx, in), -1, mime.TypeByExtension(path.Ext(key))); err != nil {
 				if in.err != nil {
 					return nil, in.err
@@ -334,7 +339,7 @@ func uploadStdin(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client,
 	if err := stdinDest(dst); err != nil {
 		return xferStats{}, err
 	}
-	in := newStdinSource(cl, o)
+	in := newStdinSource(cl, ctx, o)
 	r, err := writeRemoteFrom(cl, ctx, c, sc, dst, storex.CtxReader(ctx, in), writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: o.mode})
 	if err != nil {
 		if in.err != nil {

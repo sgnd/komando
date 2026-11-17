@@ -213,7 +213,8 @@ func TestGateCheck(t *testing.T) {
 		{"upload web - /tmp/app.conf", "", "SSH_GATE_READ_ONLY"}, // from the key's stdin, to a server
 		{"storage upload s3 - backups/db.gz", "", "SSH_GATE_READ_ONLY"},
 		{"cp - web:/tmp/app.conf", "", "SSH_GATE_READ_ONLY"},
-		{"cp web:/etc/hosts -", "", "SSH_GATE_READ_ONLY"}, // cp is a change kind: read-only keys use download --to -
+		{"cp web:/etc/hosts -", "", "SSH_GATE_READ_ONLY"},                   // cp is a change kind: read-only keys use download --to -
+		{"sync web:/var/log/app -", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"}, // sync has no stream: - is a folder here
 		{"db dump pg --to /tmp/x.sql", "SSH_GATE_REFUSED", "SSH_GATE_REFUSED"},
 		{"storage link s3 report.pdf", "", "SSH_GATE_READ_ONLY"},
 		{"storage mkdir s3 reports/2026", "", "SSH_GATE_READ_ONLY"},

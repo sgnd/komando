@@ -237,3 +237,53 @@ func TestStreamUploadChecks(t *testing.T) {
 		t.Errorf("dry run: %v", d)
 	}
 }
+
+// cutStdin sends its bytes, then the command is cancelled (Ctrl-C, a
+// dropped link) and stdin closes, as when the program feeding it dies of
+// the same signal.
+type cutStdin struct {
+	data   string
+	cancel context.CancelFunc
+}
+
+func (c *cutStdin) Read(p []byte) (int, error) {
+	if c.data == "" {
+		c.cancel()
+		return 0, io.EOF
+	}
+	n := copy(p, c.data)
+	c.data = c.data[n:]
+	return n, nil
+}
+
+// A cancelled upload from stdin replaces nothing: stdin closing after the
+// cancel is not the end of the file.
+func TestStreamUploadCancelledReplacesNothing(t *testing.T) {
+	saved := tcl.stdin
+	t.Cleanup(func() { tcl.stdin = saved })
+	sc := localSFTP(t)
+	dst := filepath.Join(t.TempDir(), "app.conf")
+	writeFile(t, dst, []byte("old"))
+	ctx, cancel := context.WithCancel(context.Background())
+	tcl.stdin = &cutStdin{data: "partial", cancel: cancel}
+	if _, err := upload(tcl, ctx, nil, sc, "-", dst, cpOpts{}); err == nil {
+		t.Error("server: a cancelled upload said it worked")
+	}
+	if got := string(readBytes(t, dst)); got != "old" {
+		t.Errorf("server: the file is now %q", got)
+	}
+	m := &memBucket{objs: map[string]string{"keep.bin": "old"}}
+	withMemBucket(t, m)
+	ctx, cancel = context.WithCancel(context.Background())
+	tcl.stdin = &cutStdin{data: "partial", cancel: cancel}
+	if err := storageUploadStdin(tcl, ctx, "storage.upload", "bk", "keep.bin", cpOpts{}); err == nil || m.objs["keep.bin"] != "old" {
+		t.Errorf("storage: %v, keep.bin %q", err, m.objs["keep.bin"])
+	}
+}
+
+// --progress counts files and bytes saved; a stream to stdout has its one
+// answer on stderr and nothing else there.
+func TestStreamRefusesProgress(t *testing.T) {
+	withMemBucket(t, &memBucket{objs: map[string]string{"a.bin": "abc"}})
+	wantCode(t, "USAGE", "download", "bk", "a.bin", "--to", "-", "--progress")
+}

@@ -248,6 +248,9 @@ func runDownload(ctx context.Context, cmd *cobra.Command, target, p, to string, 
 	if o.resume && to == "-" {
 		return out.Usage("--continue adds to a file; --to - (stdout) has none")
 	}
+	if o.progress && to == "-" {
+		return out.Usage("--progress counts what is saved; --to - (stdout) has one answer on stderr, at the end")
+	}
 	if cmd.Flags().Lookup("size") != nil && cmd.Flags().Changed("size") {
 		return out.Usage("--size is for an upload from stdin (-)")
 	}

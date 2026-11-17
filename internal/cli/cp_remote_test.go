@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/storex"
 )
@@ -237,5 +240,80 @@ func TestRemoteCopyProtectedServer(t *testing.T) {
 	}
 	if meta, _ := d["_meta"].(map[string]any); meta["would_need"] != nil {
 		t.Errorf("a protected source needs nothing: %v", meta)
+	}
+}
+
+// --continue makes an empty file that is not there yet, like a whole copy.
+func TestRemoteCopyContinueAnEmptyFile(t *testing.T) {
+	sc := localSFTP(t)
+	web1 := &copyEnd{host: &store.Host{Name: "web1"}, sc: sc}
+	web2 := &copyEnd{host: &store.Host{Name: "web2"}, sc: sc}
+	src := filepath.Join(t.TempDir(), "empty.txt")
+	writeFile(t, src, nil)
+	dst := filepath.Join(t.TempDir(), "empty.txt")
+	st, err := remoteCopy(tcl, context.Background(), web1, web2, src, dst, cpOpts{resume: true})
+	if err != nil || st.Bytes != 0 {
+		t.Fatalf("an empty file: %+v %v", st, err)
+	}
+	if fi, err := os.Stat(dst); err != nil || fi.Size() != 0 {
+		t.Fatalf("the empty file was not made: %v", err)
+	}
+}
+
+// fileServerBucket answers Stat for a folder as SFTP, FTP, SMB and WebDAV
+// conns do: a usage error, not "not found".
+type fileServerBucket struct{ *memBucket }
+
+func (b fileServerBucket) Stat(ctx context.Context, key string) (storex.Object, error) {
+	if o, found, _ := b.Lookup(ctx, key); found && o.Dir {
+		return storex.Object{}, out.Usage("%q is a folder; give a file, or use -r for everything in it", key)
+	}
+	return b.memBucket.Stat(ctx, key)
+}
+
+// A folder in a file-server conn is a folder to cp -r, with or without a
+// slash at its end.
+func TestRemoteCopyStatsAFileServerFolder(t *testing.T) {
+	e := &copyEnd{conn: &store.Conn{Name: "files"}, b: fileServerBucket{&memBucket{objs: map[string]string{"reports/a.txt": "a", "top.txt": "t"}}}}
+	for _, p := range []string{"reports", "reports/"} {
+		if s, ok, err := e.stat(context.Background(), p); err != nil || !ok || !s.dir {
+			t.Errorf("%q: %+v %v %v, want a folder", p, s, ok, err)
+		}
+	}
+	if s, ok, err := e.stat(context.Background(), "top.txt"); err != nil || !ok || s.dir || s.size != 1 {
+		t.Errorf("a file: %+v %v %v", s, ok, err)
+	}
+	if _, ok, err := e.stat(context.Background(), "nope"); err != nil || ok {
+		t.Errorf("nothing there: %v %v", ok, err)
+	}
+}
+
+// For an AI agent a copy between two remote places is read on its way: a
+// file holding a value from komando's vault does not land in another
+// place, where a link or another server could show it unhidden.
+func TestRemoteCopyStopsAVaultValueForAgents(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true,
+		Secrets: func() map[string]string { return map[string]string{"db": "vault-value-77"} }}
+	ctx := context.Background()
+	one := &memBucket{objs: map[string]string{"app/config.yml": "password: vault-value-77\n", "app/a.txt": "a"}}
+	two := &memBucket{objs: map[string]string{}}
+	src := &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}
+	dst := &copyEnd{conn: &store.Conn{Name: "bk2"}, b: two}
+	if _, err := remoteCopy(tcl, ctx, src, dst, "app/config.yml", "x.yml", cpOpts{}); toErr(err).Code != "SENSITIVE_FILE" || len(two.objs) != 0 {
+		t.Fatalf("one file: %v %v", err, two.objs)
+	}
+	st, err := remoteCopy(tcl, ctx, src, dst, "app", "", cpOpts{recursive: true})
+	if err != nil || len(st.Errors) != 1 || st.Errors[0].Path != "config.yml" || two.objs["app/a.txt"] != "a" || two.objs["app/config.yml"] != "" {
+		t.Fatalf("folder: %+v %v %v", st, err, two.objs)
+	}
+	// --continue writes in place: the source is read before anything is added
+	sc := localSFTP(t)
+	web := &copyEnd{host: &store.Host{Name: "web1"}, sc: sc}
+	dstFile := filepath.Join(t.TempDir(), "config.yml")
+	writeFile(t, dstFile, []byte("pass"))
+	if _, err := remoteCopy(tcl, ctx, src, web, "app/config.yml", dstFile, cpOpts{resume: true}); toErr(err).Code != "SENSITIVE_FILE" || string(readBytes(t, dstFile)) != "pass" {
+		t.Fatalf("--continue: %v %q", err, readBytes(t, dstFile))
 	}
 }

@@ -77,7 +77,7 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 	if err := dst.notLink(); err != nil {
 		return resumed{}, err
 	}
-	ds, _, err := dst.size(ctx)
+	ds, there, err := dst.size(ctx)
 	if err != nil {
 		return resumed{}, err
 	}
@@ -108,7 +108,7 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 	pp.total(1, ss)
 	pp.start(label)
 	pp.skip(ds)
-	if ds < ss {
+	if ds < ss || !there { // an empty source still makes its file
 		r, err := src.openAt(ctx, ds)
 		if err != nil {
 			return resumed{}, err
@@ -142,7 +142,7 @@ func resumeCopy(ctx context.Context, src resumeEnd, dst resumeDst, label string)
 		return resumed{}, err
 	}
 	if got != want {
-		return resumed{}, out.Errf(out.ExitRemote, "RESUME_FAILED", "copy the whole file again without --continue: `komando cp SRC DST`",
+		return resumed{}, out.Errf(out.ExitRemote, "RESUME_FAILED", "copy the whole file again without --continue, replacing this one: `komando cp SRC DST` (a download: with --overwrite)",
 			"%s does not match the source after the copy (sha256 %s, the source %s); it was left as it is", dst.where(), got, want)
 	}
 	pp.fileDone()
