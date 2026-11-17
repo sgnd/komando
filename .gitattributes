@@ -1,1 +1,4 @@
 internal/sealfile/bip39_english.txt -text
+# Two branches that each add a line to the same place in CHANGELOG.md no longer conflict:
+# git keeps both lines. Read the section after such a merge: the order of the lines is git's.
+CHANGELOG.md merge=union
