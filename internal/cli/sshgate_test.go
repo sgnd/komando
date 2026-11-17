@@ -294,6 +294,9 @@ func TestGateLocalTargets(t *testing.T) {
 		"cluster run k8slocal --write -- delete pod x":                            R,
 		"cluster apply k8s --file pod.yaml":                                       R, // reads a file here
 		"storage upload sftplocal x.txt .ssh/authorized_keys":                     R,
+		"storage mkdir sftplocal x":                                               R, // the storage changes meet the local-target rule too
+		"storage mv sftplocal a.txt b.txt":                                        R,
+		"storage chmod sftplocal 0600 a.txt":                                      R,
 		"registry rm reglocal app:1":                                              R,
 		"registry copy reg:app:1 reglocal:app:1":                                  R,
 		"registry copy reg:app:1 reg:app:2":                                       "",
