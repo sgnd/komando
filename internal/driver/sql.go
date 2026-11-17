@@ -818,12 +818,12 @@ func hasPunct(ts []token, c byte) bool {
 // Postgres, WHERE CURRENT OF) at its own nesting level before its scope ends.
 func hasWhere(ts []token, i int) bool {
 	d := ts[i].depth
-	for _, t := range ts[i+1:] {
+	for j, t := range ts[i+1:] {
 		if t.depth < d || t.punct == ')' && t.depth == d-1 {
 			return false
 		}
 		if t.depth == d && t.word == "WHERE" {
-			return true
+			return !whereKeepsAll(ts, i+1+j) // WHERE true limits nothing (sql_where.go)
 		}
 		// a later statement part at the same level (RETURNING, a new CTE body) ends nothing; keep scanning
 	}

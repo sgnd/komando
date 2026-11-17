@@ -27,6 +27,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- A `DELETE` or `UPDATE` whose `WHERE` keeps every row (`WHERE true`,
+  `WHERE 1`, `WHERE 1=1`, `x OR true`), and a `MERGE ... ON TRUE`, are
+  rated like no `WHERE`: they need `--allow-dangerous`
+  (`sql-delete-no-where`, `sql-update-no-where`) on every SQL kind.
 - `db grant`, `db revoke`, `db user add` and `db user passwd` now need
   `--allow-dangerous` (at a terminal: type the user's name). They send
   the statements `db query` already rates as privilege changes

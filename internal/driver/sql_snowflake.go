@@ -216,7 +216,7 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 	if (first == "LIST" || first == "LS") && risk == RiskWrite && len(rules) == 0 {
 		risk = RiskRead // LIST @stage: the files there
 	}
-	if first == "MERGE" { // WHEN MATCHED THEN UPDATE (or DELETE) touches the matched rows only
+	if first == "MERGE" && !mergeOnKeepsAll(ts) { // WHEN MATCHED THEN UPDATE (or DELETE) touches the matched rows only
 		rules = slices.DeleteFunc(rules, func(id string) bool { return id == "sql-update-no-where" || id == "sql-delete-no-where" })
 		if len(rules) == 0 {
 			risk = RiskWrite
