@@ -132,7 +132,7 @@ stops with USAGE and runs nothing (komando would read `-y` as `--yes`).
    never blocked: when the real run would stop (protected target, destructive
    command), `meta.would_be_blocked` names the stop, so you can show the human
    the plan before asking. One exception: with `KOMANDO_HOME` set to
-   another folder every command stops, a dry run too (`SAFETY_SETTING`),
+   another folder every command stops, a dry run too (`NEEDS_PERSON`),
    and no flag clears it.
 2. **Edit** config with `fs replace` and `--backup`. It needs an exact match
    and fails on 0 or more than 1 matches:

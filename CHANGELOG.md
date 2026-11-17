@@ -75,7 +75,7 @@ its highlights; the sections below them give the details. Versions follow
   removed after the run; a released komando has no such variable, and
   `make bins` and `make dist` refuse a binary that has it.
 - An AI agent's command with `KOMANDO_HOME` set to another folder than
-  `~/.komando` now stops for good (`SAFETY_SETTING`): no flag and no
+  `~/.komando` now stops for good (`NEEDS_PERSON`, was `SAFETY_SETTING`): no flag and no
   window lets it through, and a dry run stops too. Before, `--dry-run`
   went on and still connected to servers from a folder without the
   person's pinned host keys, protection and deny rules, and `--yes`

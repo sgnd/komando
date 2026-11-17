@@ -140,5 +140,5 @@ func guardHome(cmd *cobra.Command) error {
 // other folder's, and komando makes nothing there.
 func homeStop(cl *call, msg, hint string) error {
 	cl.blockAudited = true
-	return out.Errf(out.ExitPolicy, "SAFETY_SETTING", hint, "%s", msg).NoFlag()
+	return out.Errf(out.ExitPolicy, "NEEDS_PERSON", hint, "%s", msg).NoFlag()
 }

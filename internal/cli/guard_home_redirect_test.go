@@ -136,8 +136,8 @@ func TestAgentHomePairStops(t *testing.T) {
 	t.Setenv("HOME", fake)
 	t.Setenv("USERPROFILE", fake)
 	t.Setenv("KOMANDO_HOME", filepath.Join(fake, ".komando"))
-	wantCode(t, "SAFETY_SETTING", "list")
-	wantCode(t, "SAFETY_SETTING", "exec", "web2", "--", "touch", "/tmp/x")
+	wantCode(t, "NEEDS_PERSON", "list")
+	wantCode(t, "NEEDS_PERSON", "exec", "web2", "--", "touch", "/tmp/x")
 	if len(*texts) != 0 {
 		t.Errorf("no flag, no window: %q", *texts)
 	}
@@ -194,7 +194,7 @@ func TestAgentOtherHomeIsFinal(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", other)
 	for _, args := range [][]string{{"list"}, {"list", "--yes"}, {"list", "--dry-run"}, {"list", "--reveal"}, {"guide", "uninstall", "--yes"}} {
 		code, text := runMain(t, args...)
-		if code != out.ExitPolicy || !strings.Contains(text, `"code":"SAFETY_SETTING"`) {
+		if code != out.ExitPolicy || !strings.Contains(text, `"code":"NEEDS_PERSON"`) {
 			t.Errorf("%v: exit %d %s", args, code, text)
 			continue
 		}
