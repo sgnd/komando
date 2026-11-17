@@ -473,7 +473,7 @@ func readOnlyFill(command string, env []string) (filled, codeRunner string) {
 		}
 	}
 	if k := quotedEnv(command, kv); k != "" {
-		return command, "-e " + k + ` inside double quotes ("$` + k + `" is one word komando cannot check: leave the quotes off)`
+		return command, "-e " + k + ` in a command with double quotes ("$` + k + `" is one word komando cannot check: leave the quotes off)`
 	}
 	return os.Expand(command, func(k string) string {
 		v, ok := kv[k]
@@ -491,30 +491,31 @@ func readOnlyFill(command string, env []string) (filled, codeRunner string) {
 	}), ""
 }
 
-// quotedEnv returns the name of a value in kv the command uses inside
-// double quotes, or "".
+// quotedEnv returns the name of a value in kv the command uses while it
+// has a double quote anywhere, or "". Inside double quotes a value is one
+// word komando cannot check, and bash's own quoting ($'..', comments,
+// here-documents) can hide where a double quote starts, so any use counts.
 func quotedEnv(command string, kv map[string]string) string {
-	single, double := false, false
-	for i := 0; i < len(command); i++ {
-		switch c := command[i]; {
-		case c == '\\' && !single:
-			i++
-		case c == '\'' && !double:
-			single = !single
-		case c == '"' && !single:
-			double = !double
-		case c == '$' && double && i+1 < len(command):
-			name := strings.TrimPrefix(command[i+1:], "{")
-			end := 0
-			for end < len(name) && (name[end] == '_' || name[end] >= 'a' && name[end] <= 'z' || name[end] >= 'A' && name[end] <= 'Z' || end > 0 && name[end] >= '0' && name[end] <= '9') {
-				end++
+	if !strings.Contains(command, `"`) {
+		return ""
+	}
+	for _, k := range slices.Sorted(maps.Keys(kv)) {
+		for rest := command; ; {
+			i := strings.Index(rest, "$")
+			if i < 0 {
+				break
 			}
-			if _, ok := kv[name[:end]]; ok && end > 0 {
-				return name[:end]
+			rest = strings.TrimPrefix(rest[i+1:], "{")
+			if strings.HasPrefix(rest, k) && (len(rest) == len(k) || !isNameChar(rest[len(k)])) {
+				return k
 			}
 		}
 	}
 	return ""
+}
+
+func isNameChar(c byte) bool {
+	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
 }
 
 // readOnlyMutates reports whether command, with its -e values filled in,

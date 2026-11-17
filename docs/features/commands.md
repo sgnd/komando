@@ -151,8 +151,10 @@ expansions bash evaluates, `let`, `printf -v`, `test -v`, `set -x`,
 name (`PATH`, `PS4`, `TAR_OPTIONS`, `KUBECONFIG` ...: programs read such
 names as settings or code) by `NAME=`, `export`, `read`, `for` or `-e`.
 Use a name with a lower-case letter (`-e dir=/var/log -- 'du -sh $dir'`);
-`LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS` are fine. An `-e` value goes in
-unquoted: in `"$dir"` it is one word komando cannot check, so it is refused. For a server's state, komando's
+`LANG`, `LC_*`, `TZ`, `TERM` and `COLUMNS` are fine. A command that uses an
+`-e` value has no double quotes: in `"$dir"` the value is one word komando
+cannot check. `kubectl config view --raw` is refused too: it prints the
+kubeconfig's credentials. For a server's state, komando's
 own reads need no shell command at all: `komando facts`, `logs`,
 `svc status`, `fs read`, `docker ps`, `cert check`. `docker exec` and
 `cluster exec` check their `--read-only` the same way.

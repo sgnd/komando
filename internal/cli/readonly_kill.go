@@ -235,6 +235,12 @@ func kubectlConfigOption(args []string) string {
 			break
 		}
 		name, _, _ := strings.Cut(a, "=")
+		if strings.HasPrefix(a, "-s") && !strings.HasPrefix(a, "--") {
+			name = "-s" // -sURL: the server, attached
+		}
+		if a == "--raw" {
+			return "kubectl --raw (prints the credentials in a kubeconfig)"
+		}
 		switch name {
 		case "--kubeconfig", "--server", "-s", "--token", "--as", "--as-group", "--as-uid", "--username", "--password",
 			"--certificate-authority", "--client-certificate", "--client-key", "--insecure-skip-tls-verify", "--tls-server-name":
