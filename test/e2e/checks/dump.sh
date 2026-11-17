@@ -39,8 +39,8 @@ grep -q '"ok":true' "$TMP/restore.json" || { echo "  restore said:"; head -c 150
 # newer pg_dump prints each column's pg_attver, an internal number that differs
 # per database, so those lines are left out of the comparison
 PGD='pg_dump -h pg -U app --schema-only --no-owner --no-acl'
-$K exec bastion --read-only -e PGPASSWORD=secret:pg-pass -- "$PGD app | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-a.txt"
-$K exec bastion --read-only -e PGPASSWORD=secret:pg-pass -- "$PGD app_copy | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-b.txt"
+$K exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-a.txt"
+$K exec bastion -e PGPASSWORD=secret:pg-pass -- "$PGD app_copy | grep -v '^\\\\' | grep -v '^--' | grep -v '^\$'" | jget 'd["data"]["results"][0]["stdout"]' | grep -v 'pg_attver=' > "$TMP/schema-b.txt"
 check "restored schema equals the original (pg_dump compares)" "" "$(diff "$TMP/schema-a.txt" "$TMP/schema-b.txt" | head -20)"
 ROWS="select (select string_agg(name || '|' || coalesce(note,'') || '|' || name_upper, ',' order by id) from dumpt.customers) || (select string_agg(total::text, ',' order by id) from dumpt.orders) || (select n::text from dumpt.order_count) || (select count(*)::text from dumpt.events)"
 check "restored rows equal the original" "$($K db query pg "$ROWS" | jget 'd["data"]["results"][0]["rows"][0][0]')" "$($K db query pg-copy "$ROWS" | jget 'd["data"]["results"][0]["rows"][0][0]')"
