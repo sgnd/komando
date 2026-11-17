@@ -94,8 +94,8 @@ func TestCheckVersion(t *testing.T) {
 	}{
 		{VersionLine("v0.15.0", "2026-11-20") + sums, "v0.15.0", nil},
 		{VersionLine("v0.14.1", "2026-11-14") + sums, "v0.16.0", ErrOtherVersion}, // an old release under a new tag
-		{sums, "v0.16.0", ErrNoVersion},                                             // a pre-C114 release under a new tag
-		{sums, "v0.14.1", nil},                                                      // signed before the version line
+		{sums, "v0.16.0", ErrNoVersion},                                           // a pre-C114 release under a new tag
+		{sums, "v0.14.1", nil},                                                    // signed before the version line
 		{sums, "v0.14.0", nil},
 		{"komando-release v0.15.0\n" + sums, "v0.15.0", ErrNoVersion}, // no day: not a version line
 	} {
