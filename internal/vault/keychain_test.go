@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/sgnd/komando/internal/sealdb"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -241,9 +242,11 @@ func TestKeyToKeychainCollectionLocked(t *testing.T) {
 	stillKeyFile(t)
 }
 
-// This store's own key already in the keychain (a move made before
-// komando changed the key, stopped before the store said so) is no other
-// vault's: the move finishes, with a new key.
+// This store's own key already in the keychain is refused like any other
+// key there: it may be the only key of a vault moved aside (moved into the
+// keychain by an older komando, which kept the key, then set aside while
+// a backup from before came back). Nothing changes: the key stays in the
+// keychain and in store.key.
 func TestKeyToKeychainSameKey(t *testing.T) {
 	freshHome(t)
 	keychainStandIn(t, false)
@@ -251,18 +254,59 @@ func TestKeyToKeychainSameKey(t *testing.T) {
 	if err := os.WriteFile(keptItem(), []byte(hex.EncodeToString(key)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := KeyToKeychain(); err != nil {
-		t.Fatal(err)
+	if _, err := KeyToKeychain(); !errors.Is(err, ErrKeychainTaken) {
+		t.Fatalf("KeyToKeychain with the store's own key there: %v", err)
 	}
-	if m := modeOnDisk(t); m != "keychain" {
-		t.Errorf("mode %q, want keychain", m)
+	if b, _ := os.ReadFile(keptItem()); string(b) != hex.EncodeToString(key) {
+		t.Errorf("the keychain item changed: %q", b)
 	}
-	if err := opensStore(key); !errors.Is(err, ErrWrongKey) {
-		t.Errorf("the old key still opens the store: %v", err)
+	if b, _ := os.ReadFile(storeKeyFile()); hex.EncodeToString(b) != hex.EncodeToString(key) {
+		t.Error("store.key changed")
 	}
-	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
-		t.Errorf("Get: %q %v", v, err)
-	}
+	stillKeyFile(t)
+}
+
+// A move whose rekey fails takes its new key out of the keychain again,
+// and the store keeps store.key. A key found in the keychain (from a move
+// that stopped before) stays there for the next run.
+func TestKeyToKeychainRekeyFails(t *testing.T) {
+	saved := rekeyStore
+	rekeyStore = func([]byte, map[string]string, func(*sealdb.Tx) error) error { return errors.New("disk full") }
+	t.Cleanup(func() { rekeyStore = saved })
+
+	t.Run("a new key", func(t *testing.T) {
+		freshHome(t)
+		keychainStandIn(t, false)
+		keyFileVault(t)
+		if _, err := KeyToKeychain(); err == nil {
+			t.Fatal("no error")
+		}
+		if _, err := os.Stat(keptItem()); !os.IsNotExist(err) {
+			t.Error("the failed move's key stayed in the keychain")
+		}
+		stillKeyFile(t)
+	})
+	t.Run("a key a stopped move left", func(t *testing.T) {
+		freshHome(t)
+		keychainStandIn(t, false)
+		keyFileVault(t)
+		left := strings.Repeat("ef", 32)
+		b, _ := hex.DecodeString(left)
+		if err := store.SetStoreMeta(map[string]string{"key_moving": keyHash(b)}); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(keptItem(), []byte(left), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		store.Close()
+		if _, err := KeyToKeychain(); err == nil {
+			t.Fatal("no error")
+		}
+		if got, _ := os.ReadFile(keptItem()); string(got) != left {
+			t.Errorf("the key found in the keychain was removed: %q", got)
+		}
+		stillKeyFile(t)
+	})
 }
 
 // A move that stopped after it put its new key into the keychain, before

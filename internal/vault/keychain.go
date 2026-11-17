@@ -530,8 +530,8 @@ func keychainNewKey() ([]byte, bool) {
 // KeyToKeychain gives the vault a new key, kept in the keychain, and
 // removes store.key. It never replaces a key the keychain already holds
 // for this komando folder (ErrKeychainTaken): that one may be the only key
-// of a vault moved aside. This store's own old key there, or the new key
-// of a move that stopped part way, is fine. When keychainHas cannot tell (on Linux, a locked default
+// of a vault moved aside, even when it is this store's own old key. The
+// new key of a move that stopped part way is fine. When keychainHas cannot tell (on Linux, a locked default
 // collection among other things) it stores nothing and asks for the
 // keychain to be unlocked first.
 func KeyToKeychain() (string, error) { return sealedKeyToKeychain() }

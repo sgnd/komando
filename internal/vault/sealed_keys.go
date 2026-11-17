@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -343,7 +342,7 @@ func sealedKeyToKeychain() (string, error) {
 	// A new key, not the one in store.key: a copy of store.key from
 	// before (a backup, a synced folder's history) must not open this
 	// store, nor anything added to it later.
-	newKey, err := keyForMove(meta, oldKey)
+	newKey, fresh, err := keyForMove(meta)
 	if err != nil {
 		return "", err
 	}
@@ -364,18 +363,20 @@ func sealedKeyToKeychain() (string, error) {
 	// the change count next: a keychain store without one never opens.
 	// The rekey below raises the store's count past it, which is allowed.
 	if err := store.StartGeneration(); err != nil {
-		_ = keychainDel()
+		dropMoveKey(fresh, oldKey)
 		return "", err
 	}
 	// the store sealed again with the new key, its secrets with it, and
 	// key_mode keychain, in one step: it either all happens or none of it
-	err = store.Rekey(newKey, map[string]string{"key_mode": "keychain", "key_moving": ""}, func(tx *sealdb.Tx) error {
+	err = rekeyStore(newKey, map[string]string{"key_mode": "keychain", "key_moving": ""}, func(tx *sealdb.Tx) error {
 		_, err := resealSecrets(tx, oldA, newA)
 		return err
 	})
 	if err != nil {
-		genDel()
-		_ = keychainDel()
+		if opensStore(oldKey) == nil {
+			genDel()
+			dropMoveKey(fresh, oldKey)
+		}
 		return "", err
 	}
 	// overwrite, then remove: nothing uses the old key now
@@ -383,37 +384,46 @@ func sealedKeyToKeychain() (string, error) {
 	return tool, os.Remove(kp)
 }
 
-// keyForMove is the key a store gets as it moves into the keychain. A
-// move that stopped after it put its new key there left that key's hash
-// in the store's key_moving: the key is used again, so the move finishes.
-// This store's own old key there (a move from before komando changed the
-// key) is taken out first. Any other key there stays, and keychainAdopt
-// refuses it (ErrKeychainTaken). A new key's hash goes into key_moving
-// before the key goes into the keychain.
-func keyForMove(meta map[string]string, oldKey []byte) ([]byte, error) {
-	if has, err := keychainHas(context.Background()); err == nil && has {
-		if k, err := keychainGet(); err == nil {
-			switch {
-			case bytes.Equal(k, oldKey):
-				if err := keychainDel(); err != nil {
-					return nil, err
+// rekeyStore is store.Rekey; tests make it fail.
+var rekeyStore = store.Rekey
+
+// keyForMove is the key a store gets as it moves into the keychain, and
+// whether it is new (fresh). A move that stopped after it put its new key
+// there left that key's hash in the store's key_moving: that key is used
+// again, so the move finishes. Any other key there, this store's old key
+// included (it may be the only key of a vault moved aside), stays, and
+// keychainAdopt refuses it (ErrKeychainTaken). A new key's hash goes into
+// key_moving before the key goes into the keychain.
+func keyForMove(meta map[string]string) (key []byte, fresh bool, err error) {
+	if meta["key_moving"] != "" {
+		if has, err := keychainHas(context.Background()); err == nil && has {
+			if k, err := keychainGet(); err == nil {
+				if keyHash(k) == meta["key_moving"] {
+					return k, false, nil
 				}
-			case meta["key_moving"] != "" && keyHash(k) == meta["key_moving"]:
-				return k, nil
-			default:
 				clear(k)
 			}
 		}
 	}
 	k, _, err := newStoreKey("")
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := store.SetStoreMeta(map[string]string{"key_moving": keyHash(k)}); err != nil {
 		clear(k)
-		return nil, err
+		return nil, false, err
 	}
-	return k, nil
+	return k, true, nil
+}
+
+// dropMoveKey takes a move's key out of the keychain again after the move
+// failed, while the store still opens with its old key: only a key this
+// run made (fresh) and put there. A key found there (a move that stopped
+// before) stays for the next run.
+func dropMoveKey(fresh bool, oldKey []byte) {
+	if fresh && opensStore(oldKey) == nil {
+		_ = keychainDel()
+	}
 }
 
 // keyHash names a random key without giving it away: its SHA-256, in hex.
