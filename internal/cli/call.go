@@ -81,6 +81,7 @@ type call struct {
 	blockAudited    bool                // the command recorded its safety stop already (auditBlocked)
 	interrupted     bool                // the person pressed Ctrl-C at a question (ttyin.go)
 	personalCmd     bool                // this command, run by an AI agent, may hide personal data
+	twinMask        map[string][]string // per conn: the mask_columns of other conns to the same resource
 	fsSudoRetry     string              // the hint of a permission error in an fs command: the line with --sudo
 	carriedSecrets  map[string]bool     // the secrets a sealed file being imported brings (import_sealed.go)
 	importOverwrite bool                // the import's --overwrite, for a sealed file's secrets
