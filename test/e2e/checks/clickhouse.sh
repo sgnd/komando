@@ -42,8 +42,8 @@ check "clickhouse explain" True "$($K db explain shop-ch 'select * from orders w
 check "clickhouse sizes lists the table" True "$($K db sizes admin-ch | jget 'any(t["name"] == "orders" for t in d["data"]["tables"])')"
 check "clickhouse activity answers" True "$($K db activity admin-ch | jget 'd["ok"]')"
 check "clickhouse locks is not supported" NOT_SUPPORTED "$($K db locks admin-ch | jget 'd["error"]["code"]')"
-q $K db user add admin-ch e2e_ro --password-ref secret:ch-ro
-q $K db grant admin-ch e2e_ro --privileges SELECT --on 'e2e_ch.*'
+q $K db user add admin-ch e2e_ro --password-ref secret:ch-ro --allow-dangerous
+q $K db grant admin-ch e2e_ro --privileges SELECT --on 'e2e_ch.*' --allow-dangerous
 q $K conn add ro-ch 'clickhouse://e2e_ro@clickhouse:8123/e2e_ch' --via bastion --password-ref secret:ch-ro
 check "clickhouse: the new user logs in with the vault password" 2 "$($K db query ro-ch 'select count() from orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "clickhouse: and may only read what was granted" False "$($K db query ro-ch --write "insert into orders (id) values (9)" | jget 'd["ok"]')"

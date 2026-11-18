@@ -1,6 +1,8 @@
 package driver
 
 import (
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -213,6 +215,40 @@ func TestLexerStatements(t *testing.T) {
 		}
 		if strings.Join(got, "|") != strings.Join(c.want, "|") {
 			t.Errorf("%s %q:\n got %q\nwant %q", c.kind, c.sql, got, c.want)
+		}
+	}
+}
+
+func TestCheckRestoreDelimiterAfterStatement(t *testing.T) {
+	for _, sql := range []string{
+		"SELECT 1; DELIMITER //\nSELECT 2 # ; DROP DATABASE shop //\n",
+		"SELECT 1;\tdelimiter $$\nGRANT ALL ON *.* TO x $$\n",
+		"DELIMITER ;;\nSELECT 1;; DELIMITER ;\nSELECT 2;\n",
+	} {
+		_, err := CheckRestore("mysql", strings.NewReader(sql))
+		var e *out.Error
+		if !errors.As(err, &e) || e.Code != "UNSAFE_BACKUP" {
+			t.Errorf("%q: want UNSAFE_BACKUP, got %v", sql, err)
+		}
+	}
+	// a column or text that only looks like it is fine
+	if _, err := CheckRestore("mysql", strings.NewReader("SELECT 1; SELECT delimiter FROM t;\nINSERT INTO t VALUES ('; DELIMITER //');\n")); err != nil {
+		t.Errorf("plain statements: %v", err)
+	}
+}
+
+// The check and the restore end a COPY block at the same line: the end
+// marker with more than one CR after it ends it for both, so the SQL
+// after it is read as SQL.
+func TestCheckRestoreCopyEndWithCRs(t *testing.T) {
+	sql := "COPY t (a) FROM stdin;\n\\.\r\r\r\nCOPY t FROM PROGRAM 'id';\nGRANT ALL ON t TO PUBLIC;\nSELECT '\n\\.\n--';\n"
+	v, err := CheckRestore("postgres", strings.NewReader(sql))
+	if err != nil {
+		return // refused outright is fine too
+	}
+	for _, id := range []string{"sql-program", "sql-privileges"} {
+		if !slices.Contains(v.RuleIDs, id) {
+			t.Errorf("%s after the end marker was not seen: %v", id, v.RuleIDs)
 		}
 	}
 }

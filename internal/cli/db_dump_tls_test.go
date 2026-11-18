@@ -2,26 +2,23 @@ package cli
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/sgnd/komando/internal/store"
 )
 
-// fakePgDump puts a pg_dump on PATH that prints version for --version and
-// counts its runs in the returned file.
-func fakePgDump(t *testing.T, version string) string {
+// fakePgDump answers for pg_dump --version on the server and counts how
+// often it was asked.
+func fakePgDump(t *testing.T, version string) *int {
 	t.Helper()
-	unixOnly(t, "an sh script plays pg_dump")
-	dir := t.TempDir()
-	runs := filepath.Join(dir, "runs")
-	script := "#!/bin/sh\necho run >> " + runs + "\necho 'pg_dump (PostgreSQL) " + version + " (Debian " + version + "-1)'\n"
-	if err := os.WriteFile(filepath.Join(dir, "pg_dump"), []byte(script), 0o755); err != nil {
-		t.Fatal(err)
+	runs := new(int)
+	saved := toolVersion
+	toolVersion = func(*call, context.Context, *store.State, *store.Conn, *store.Host, dumpTool, string) (string, error) {
+		*runs++
+		return "pg_dump (PostgreSQL) " + version + " (Debian " + version + "-1)\n", nil
 	}
-	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Cleanup(func() { toolVersion = saved })
 	return runs
 }
 
@@ -50,11 +47,11 @@ func TestPgDumpTLSRoots(t *testing.T) {
 		"postgres://app@db.example.com/app?sslmode=verify-ca&sslrootcert=/etc/ssl/db-ca.pem",
 		"postgres://app@db.example.com/app?sslmode=verify-full&ca=secret:pg-ca",
 	} {
-		before, _ := os.ReadFile(runs)
+		before := *runs
 		if got := args(url); got[2] != url {
 			t.Errorf("%s: %q", url, got)
 		}
-		if after, _ := os.ReadFile(runs); len(after) != len(before) {
+		if *runs != before {
 			t.Errorf("%s: asked pg_dump for its version", url)
 		}
 	}

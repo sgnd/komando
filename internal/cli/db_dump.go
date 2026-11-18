@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -430,22 +429,21 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err != nil {
 		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `komando db dump`")
 	}
-	var argv []string
-	custom, err := isPgArchive(cl, from)
-	if err != nil {
+	// One read of the file before anyone is asked: what kind of backup it
+	// is, what its SQL does, and a seal over its bytes (backupSeal). The
+	// restore below reads it through that seal, so it runs what was checked.
+	seal := &backupSeal{}
+	v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}
+	if err := checkRestoreSQL(cl, t.Kind.Name, from, seal, &v); err != nil {
 		return err
 	}
+	var argv []string
+	custom := seal.archive()
 	if custom {
 		if tool.restoreCustom == nil {
 			return out.Usage("%s is a PostgreSQL archive; restore it into a PostgreSQL database", from)
 		}
 		argv = tool.restoreCustom // pg_restore: an archive holds no client commands to check
-	}
-	v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-restore"}, Reasons: []string{driver.RuleReason("db-restore")}}
-	if !custom {
-		if err := checkRestoreSQL(cl, t.Kind.Name, from, &v); err != nil {
-			return err
-		}
 	}
 	if !custom && on != "" {
 		return out.Usage("%s is plain SQL, which komando always restores itself (psql and mysql would obey client commands in it); --run-on is only for pg_dump archives", from)
@@ -475,30 +473,16 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err := offerBackup(cl, ctx, c.Name); err != nil {
 		return err
 	}
-	builtinRestore := func() error {
-		db, closeDB, err := openDB(cl, ctx, st, c, false)
-		if err != nil {
-			return err
-		}
-		defer closeDB()
-		return withBackup(cl, from, func(r io.Reader) error {
-			if err := dbx.Restore(ctx, db, t.Kind.Name, r); err != nil {
-				// what the database holds now depends on the engine (S-8.4):
-				// PostgreSQL restores in one transaction, MySQL cannot
-				state := "nothing was changed (PostgreSQL restores in one transaction)"
-				if t.Kind.Name == "mysql" {
-					state = "the statements before that line were applied (MySQL cannot roll back tables)"
-				}
-				return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando db restore "+c.Name+" --from "+from+"`",
-					"%v; %s", err, state)
-			}
-			return nil
-		})
+	// The yes took time: a file that is no longer the one that was checked
+	// stops here, before the database is touched. (The restore checks every
+	// chunk again as it reads.)
+	if err := verifyBackup(cl, from, seal); err != nil {
+		return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
 	}
 	if builtin {
-		err = builtinRestore()
+		err = builtinRestore(cl, ctx, st, c, t.Kind.Name, from, seal)
 	} else {
-		err = withBackup(cl, from, func(r io.Reader) error { return runTool(cl, ctx, st, c, h, tool, argv, r, io.Discard, false) })
+		err = withBackup(cl, from, seal, func(r io.Reader) error { return runTool(cl, ctx, st, c, h, tool, argv, r, io.Discard, false) })
 	}
 	return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
 }
@@ -531,9 +515,12 @@ func noteRestoreFile(cl *call, from string, custom bool) error {
 // checkRestoreSQL checks the whole file before sending any of it: what the
 // SQL does beyond writing data (COPY ... PROGRAM, INTO OUTFILE, GRANT, ...)
 // is added to v, so it is named in the approval and in POLICY_BLOCKED.
-func checkRestoreSQL(cl *call, kind, from string, v *driver.Verdict) error {
+func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Verdict) error {
 	var sqlV driver.Verdict
-	if err := withBackup(cl, from, func(r io.Reader) (err error) {
+	if err := withBackup(cl, from, seal, func(r io.Reader) (err error) {
+		if seal.archive() {
+			return nil // a pg_dump archive: pg_restore reads it, and it holds no SQL text to check
+		}
 		sqlV, err = driver.CheckRestore(kind, r)
 		return err
 	}); err != nil {
@@ -542,43 +529,6 @@ func checkRestoreSQL(cl *call, kind, from string, v *driver.Verdict) error {
 	v.RuleIDs = append(v.RuleIDs, sqlV.RuleIDs...)
 	v.Reasons = append(v.Reasons, sqlV.Reasons...)
 	return nil
-}
-
-// isPgArchive reports whether path is a pg_dump custom archive ("PGDMP").
-func isPgArchive(cl *call, path string) (bool, error) {
-	if err := guardBackupFile(cl, path); err != nil {
-		return false, err
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return false, localFileErr("FILE_NOT_FOUND", err, "")
-	}
-	defer f.Close()
-	head := make([]byte, 5)
-	n, _ := io.ReadFull(f, head)
-	return string(head[:n]) == "PGDMP", nil
-}
-
-// withBackup opens a backup file (decompressing .gz) and passes it to fn.
-func withBackup(cl *call, path string, fn func(io.Reader) error) error {
-	if err := guardBackupFile(cl, path); err != nil {
-		return err
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return localFileErr("FILE_NOT_FOUND", err, "")
-	}
-	defer f.Close()
-	var r io.Reader = f
-	if strings.HasSuffix(path, ".gz") {
-		gz, err := gzip.NewReader(f)
-		if err != nil {
-			return out.Errf(out.ExitUsage, "BAD_FILE", "the file ends in .gz but is not gzip data", "%v", err)
-		}
-		defer gz.Close()
-		r = gz
-	}
-	return fn(r)
 }
 
 func finishTransfer(cl *call, st *store.State, name string, data transferData, rec map[string]any, err error) error {
@@ -600,8 +550,7 @@ func finishTransfer(cl *call, st *store.State, name string, data transferData, r
 }
 
 // runTool runs argv with the conn's password in tool.passwordEnv, on the
-// server h (see toolHost) or, when h is nil, here, streaming stdin and
-// stdout. low runs it under nice and ionice on the server.
+// server h (see toolHost), streaming stdin and stdout. low runs it under nice and ionice on the server.
 func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, argv []string, stdin io.Reader, stdout io.Writer, low bool) error {
 	if c.AskLogin() && cl.isAgent() {
 		// the tool gets the password in its environment, where any program
@@ -610,6 +559,11 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 			"ask the user to run `"+commandLine(cl)+"` in their own terminal; never ask for the password in the chat",
 			"%s runs with the password of conn %s in its environment, which an AI agent's programs could read, and %s logs in with a password a person types each time (login ask)",
 			argv[0], c.Name, c.Name).NoFlag()
+	}
+	if h == nil {
+		// never a program of this computer: it would be found on PATH and
+		// get the conn's password in its environment
+		return out.Usage("%s runs on a server: add --run-on HOST", argv[0])
 	}
 	password, err := resolvePassword(cl, st, c)
 	if err != nil {
@@ -634,21 +588,6 @@ func runTool(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *s
 	// after toolWithCA: a URL with its own CA file gets no sslrootcert=system
 	if argv, err = toolTLSArgs(cl, ctx, st, c, h, tool, argv); err != nil {
 		return err
-	}
-	if h == nil {
-		if _, err := exec.LookPath(argv[0]); err != nil {
-			return out.Errf(out.ExitNotFound, "TOOL_MISSING",
-				fmt.Sprintf("install %s on this computer, or run it on a server that has it (--run-on HOST)", tool.pkg),
-				"%s is not installed here", argv[0])
-		}
-		p := exec.CommandContext(ctx, argv[0], argv[1:]...)
-		p.Env = append(toolEnv(cl.environ()), tool.passwordEnv+"="+password)
-		var stderr strings.Builder
-		p.Stdin, p.Stdout, p.Stderr = stdin, stdout, &limitWriter{w: &stderr, n: 64 << 10}
-		if err := p.Run(); err != nil {
-			return toolErr(ctx, argv[0], "local", strings.TrimSpace(stderr.String()), err, c, tool)
-		}
-		return nil
 	}
 	// komando reaches the server through its own --via path
 	if h.Windows() {
@@ -777,4 +716,30 @@ func unreachableHint(tool, where string, c *store.Conn) string {
 	}
 	return fmt.Sprintf("%s runs on %s and connects to %s from there. If the database listens only on 127.0.0.1 on %s, add a conn for that address reached through it (`komando conn add %s-local %s --via %s --password-ref ...`) and dump that conn; otherwise name a server that can reach %s with --run-on HOST",
 		tool, where, addr, where, c.Name, local, where, addr)
+}
+
+// builtinRestore restores plain SQL with komando's own client, reading the
+// file through its seal.
+func builtinRestore(cl *call, ctx context.Context, st *store.State, c *store.Conn, kind, from string, seal *backupSeal) error {
+	db, closeDB, err := openDB(cl, ctx, st, c, false)
+	if err != nil {
+		return err
+	}
+	defer closeDB()
+	return withBackup(cl, from, seal, func(r io.Reader) error {
+		if err := dbx.Restore(ctx, db, kind, r); err != nil {
+			if seal.changed {
+				return err // withBackup says FILE_CHANGED
+			}
+			// what the database holds now depends on the engine (S-8.4):
+			// PostgreSQL restores in one transaction, MySQL cannot
+			state := "nothing was changed (PostgreSQL restores in one transaction)"
+			if kind == "mysql" {
+				state = "the statements before that line were applied (MySQL cannot roll back tables)"
+			}
+			return out.Errf(out.ExitRemote, "RESTORE_FAILED", "fix the file, then restore it again: `komando db restore "+c.Name+" --from "+from+"`",
+				"%v; %s", err, state)
+		}
+		return nil
+	})
 }
