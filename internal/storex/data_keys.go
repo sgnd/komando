@@ -9,7 +9,6 @@ import (
 	"github.com/jlaffaye/ftp"
 	"github.com/minio/minio-go/v7"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -76,7 +75,7 @@ func (b *ftpBucket) Stat(_ context.Context, rel string) (Object, error) {
 	}
 	entries, err := b.c.List(path.Dir(p))
 	if err != nil && !isMissingDir(err) {
-		return Object{}, ftpErr(err, driver.Target{})
+		return Object{}, ftpStepErr("LIST", err)
 	}
 	for _, e := range entries {
 		if e.Name != path.Base(p) {

@@ -258,3 +258,32 @@ func TestAgentDocsUsePrimaryNames(t *testing.T) {
 		t.Error("skills/komando/SKILL.md differs from internal/cli/skill.md: copy skill.md over it")
 	}
 }
+
+// TestChangelogHeadingsOnce: each version section of CHANGELOG.md has each
+// heading (### Added, ### Fixed ...) once. With merge=union in
+// .gitattributes, two branches that both add a heading leave it twice
+// without a conflict; this test catches that split.
+func TestChangelogHeadingsOnce(t *testing.T) {
+	b, err := os.ReadFile("../../CHANGELOG.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, seen, sections := "", map[string]int{}, 0
+	for i, line := range strings.Split(string(b), "\n") {
+		switch {
+		case strings.HasPrefix(line, "## "):
+			version, seen = strings.TrimPrefix(line, "## "), map[string]int{}
+			sections++
+		case strings.HasPrefix(line, "### ") && version != "":
+			h := strings.TrimSpace(strings.TrimPrefix(line, "### "))
+			if first, ok := seen[h]; ok {
+				t.Errorf("CHANGELOG.md:%d: %q has %q twice (first at line %d); fold the second into the first", i+1, version, "### "+h, first)
+				continue
+			}
+			seen[h] = i + 1
+		}
+	}
+	if sections < 5 {
+		t.Errorf("only %d version sections found; the scan is broken", sections)
+	}
+}

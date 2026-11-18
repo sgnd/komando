@@ -31,6 +31,23 @@ its highlights; the sections below them give the details. Versions follow
 - `komando cp SRC_TARGET:PATH DST_TARGET:PATH` copies between two remote places: server to server, storage to storage, or a server and a storage conn. The data streams through this computer and is never saved on its disk; folders go with `-r`. A single file reports its `sha256`, the result names its `source`, a protected destination asks once, `--progress` writes the same lines as an upload, and the audit log has one record for the whole copy (source, destination, size, `sha256`). For an AI agent the copy is read on its way: a file holding a value from komando's vault stops with `SENSITIVE_FILE` before it is put in place (in a folder copy it is listed in `errors` and the rest go), as a file that is secret by its name does. A folder without `-r` stops with `IS_A_DIRECTORY` (exit 2).
 - `--continue` on `upload`, `download`, `cp` and `storage upload/download` goes on with one file that was cut off: the part already at the destination is checked against the source (sha256), only the rest is sent, and the whole file is checked before komando says it worked. The result has `continued_from_bytes` and `sha256`. A destination that is longer or differs, before the copy or by its sum after it, stops with `RESUME_CONFLICT` (exit 8: copy the whole file again without `--continue`); one that changed while komando copied stops with `FILE_CHANGED` (exit 8: run the same command again); S3, Google Cloud Storage, Azure Blob and WebDAV, which store a file whole, stop with `RESUME_UNSUPPORTED` (SFTP, FTP, FTPS and SMB conns can go on). Servers work out the sums themselves (`sha256sum` or `shasum`).
 
+- `komando ssh-gate status` says which ssh-gate key runs it, and whether it
+  may change things or reach the network (`gate`, `name`, `read_only`,
+  `network`, `komando`). ssh-gate answers it itself; typed on the komando
+  computer it says `gate: false`.
+- `komando facts` lists every real file system as `disks`: mount point,
+  device, size, used and free in MiB, and use %.
+- `komando facts SERVER --only load,mem,disks` runs just those probes, in
+  about a second, for an app that polls: the same keys, the other sections
+  left out. `--only system` gives the OS name and the time the server has
+  been up (`os`, `os_version`, `os_pretty`, `uptime_sec`). A read-only
+  ssh-gate key without `--network` runs it.
+
+- A `--login ask` conn follows the same rule as a stored password for where its password goes (every URL setting except the few that move nothing): an AI agent's other change of its URL gets `NEEDS_PERSON`. A WinRM server's `ca=` and `auth=` count as where its password goes too.
+- An AI agent's `config set default_user` gets `NEEDS_PERSON` while a `--login ask` server has no user of its own; replacing a secret on the way to a login-ask server or conn (a VPN's key or profile, a WinRM or conn CA) does too. The same holds for `default_user` while a jump server on the way to a login-ask server or conn has no user of its own, and for an `import --overwrite` that would replace such a secret (a conn's password in the file is stored as `NAME-pass`); a secret a protected entry uses needs a person's yes there, as in `secret set`.
+
+- An AI agent that changes the user or the transport (WinRM, its `tls=`) of a server with a stored password now needs a person's yes (`SECRET_DESTINATION`), as it did for the address, port and `--via`: the password goes there.
+
 ### Changed
 
 - `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
@@ -98,25 +115,6 @@ its highlights; the sections below them give the details. Versions follow
   `aws_s3.*`, `aws_lambda.*`, `aws_commons.*` and `pg_background_*`; a
   BigQuery routine or model named with a project (`proj.ds.fn`), which may be
   another project's remote function.
-
-### Added
-
-- `komando ssh-gate status` says which ssh-gate key runs it, and whether it
-  may change things or reach the network (`gate`, `name`, `read_only`,
-  `network`, `komando`). ssh-gate answers it itself; typed on the komando
-  computer it says `gate: false`.
-- `komando facts` lists every real file system as `disks`: mount point,
-  device, size, used and free in MiB, and use %.
-- `komando facts SERVER --only load,mem,disks` runs just those probes, in
-  about a second, for an app that polls: the same keys, the other sections
-  left out. `--only system` gives the OS name and the time the server has
-  been up (`os`, `os_version`, `os_pretty`, `uptime_sec`). A read-only
-  ssh-gate key without `--network` runs it.
-
-- A `--login ask` conn follows the same rule as a stored password for where its password goes (every URL setting except the few that move nothing): an AI agent's other change of its URL gets `NEEDS_PERSON`. A WinRM server's `ca=` and `auth=` count as where its password goes too.
-- An AI agent's `config set default_user` gets `NEEDS_PERSON` while a `--login ask` server has no user of its own; replacing a secret on the way to a login-ask server or conn (a VPN's key or profile, a WinRM or conn CA) does too. The same holds for `default_user` while a jump server on the way to a login-ask server or conn has no user of its own, and for an `import --overwrite` that would replace such a secret (a conn's password in the file is stored as `NAME-pass`); a secret a protected entry uses needs a person's yes there, as in `secret set`.
-
-- An AI agent that changes the user or the transport (WinRM, its `tls=`) of a server with a stored password now needs a person's yes (`SECRET_DESTINATION`), as it did for the address, port and `--via`: the password goes there.
 
 ### Changed for scripts and agents
 
@@ -205,6 +203,10 @@ its highlights; the sections below them give the details. Versions follow
 ### Security
 
 - Moving a VPN now counts for the stored passwords behind it (C111). An AI agent's `vpn edit` that changes how a VPN connects, `vpn add --overwrite`, an import that replaces a VPN, or a new OpenVPN profile in the vault, gets `SECRET_DESTINATION` (exit 6) when servers or conns with a stored password reach their server through that VPN, and the window names each one, as for a moved jump server. Login-ask servers and conns behind it still need a person (`NEEDS_PERSON`). A person's own commands are unchanged.
+- An approval code works once (C10). komando keeps the last accepted
+  30-second step in its sealed store and refuses that code, or an older
+  one, a second time: two windows in the same 30 seconds need two codes.
+  The agent's hint says so (`code-used`).
 
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
@@ -441,6 +443,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An FTPS listing whose data connection closed before TLS was set up was
+  read as an empty folder with no error. `sync --delete` from such a
+  source could then remove that folder's files on the destination, and
+  `mv`, `cp` and `storage stat` could miss a folder that is there. It now
+  stops with `STORAGE_CONNECT`. Every FTP connection error also names the
+  FTP command it came from ("EOF (during APPE)").
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
@@ -1928,8 +1936,6 @@ instead.
   menu.
 - README: the Windows `.zip` is an install option, and `prompt` (now
   `status --short`) is no longer listed as a command.
-
-### Fixed
 
 - `key gen`, `key rm` and `rename` help said keys komando makes live in
   `~/.komando/keys`; they are kept in the sealed store, with no file, and
