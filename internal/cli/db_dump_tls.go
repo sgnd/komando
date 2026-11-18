@@ -29,11 +29,7 @@ import (
 // toolTLSArgs passes the conn URL's TLS settings on to the tool's command
 // line argv, asking the tool for its version where that matters.
 func toolTLSArgs(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, argv []string) ([]string, error) {
-	version := func() (string, error) {
-		var b bytes.Buffer
-		err := runTool(cl, ctx, st, c, h, dumpTool{passwordEnv: tool.passwordEnv, pkg: tool.pkg}, []string{argv[0], "--version"}, nil, &b, false)
-		return b.String(), err
-	}
+	version := func() (string, error) { return toolVersion(cl, ctx, st, c, h, tool, argv[0]) }
 	switch {
 	case tool.tls != "": // the URL asks for TLS: pass it on in this client's own flags
 		v, err := version()
@@ -121,4 +117,16 @@ func mysqlTLSFlags(tls, version string) []string {
 		"preferred":   {"--ssl-mode=PREFERRED"},
 		"false":       {"--ssl-mode=DISABLED"},
 	}[tls]
+}
+
+// toolVersion asks the tool on its server for its version line. A
+// variable, so a test can answer for a server.
+var toolVersion func(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, name string) (string, error)
+
+func init() { toolVersion = askToolVersion }
+
+func askToolVersion(cl *call, ctx context.Context, st *store.State, c *store.Conn, h *store.Host, tool dumpTool, name string) (string, error) {
+	var b bytes.Buffer
+	err := runTool(cl, ctx, st, c, h, dumpTool{passwordEnv: tool.passwordEnv, pkg: tool.pkg}, []string{name, "--version"}, nil, &b, false)
+	return b.String(), err
 }

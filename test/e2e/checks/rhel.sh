@@ -53,6 +53,8 @@ for rh in rocky:rockylinux/rockylinux:9:dnf:rocky:supported:${E2E_SSH_ROCKY:-222
   check "$name: pkg security uses $pm" "$pm" "$(psec "['package_manager']")"
   check "$name: pkg security = $pm check-update --security" "$secpk" "$(psec "['count']")"
   check "$name: pkg security state pending = $pm check-update" "$upd" "$(psec "['state']['pending_updates']")"
+  notices=$([ -n "$({ rx "$pm" -q -C updateinfo list --all 2>/dev/null || rx "$pm" -q -C updateinfo list all 2>/dev/null; } | head -n 1)" ] && echo True || echo False)
+  check "$name: pkg security security_notices = $pm updateinfo has notices" "$notices" "$(psec "['security_notices']")"
   # facts and pkg security read the server's state with the same check
   check "$name: facts and pkg security agree (reboot, restarts, support)" \
     "$(f "['reboot_required'], d['data']['results'][0]['data']['services_need_restart'] or [], d['data']['results'][0]['data']['os_support']['status']")" \

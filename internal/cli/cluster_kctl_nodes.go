@@ -279,7 +279,28 @@ func (r *kctlRun) config(sub string) error {
 }
 
 // readManifest reads a file, or the .yaml/.yml/.json files of a directory.
+// A command reads each one once: a second read gets the same bytes, or the
+// same error, so a file changed or made after it was rated
+// (kubectlFileRisk) is not what is sent.
 func readManifest(cl *call, p string, recursive bool) ([]byte, error) {
+	key := fmt.Sprintf("%t\x00%s", recursive, p)
+	if r, ok := cl.manifests[key]; ok {
+		return r.b, r.err
+	}
+	b, err := readManifestFile(cl, p, recursive)
+	if cl.manifests == nil {
+		cl.manifests = map[string]manifestRead{}
+	}
+	cl.manifests[key] = manifestRead{b, err}
+	return b, err
+}
+
+type manifestRead struct {
+	b   []byte
+	err error
+}
+
+func readManifestFile(cl *call, p string, recursive bool) ([]byte, error) {
 	p = expandHome(p)
 	fi, err := os.Stat(p)
 	if err != nil {

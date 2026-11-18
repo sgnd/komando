@@ -47,7 +47,7 @@ var examples = map[string]string{
 	"komando db user": "  komando db user list prod-db\n" +
 		"  komando db user show prod-db app\n" +
 		"  komando db user add prod-db app --password-ref secret:app-pass --dry-run\n" +
-		"  komando db user add prod-db app --password-ref secret:app-pass",
+		"  komando db user add prod-db app --password-ref secret:app-pass --allow-dangerous",
 	"komando fs": "  komando fs list web1 /etc/nginx\n" +
 		"  komando fs cat web1 /etc/nginx/nginx.conf\n" +
 		"  komando fs replace web1 /etc/nginx/nginx.conf --old 'worker_connections 512' --new 'worker_connections 1024' --backup --dry-run\n" +
