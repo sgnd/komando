@@ -455,6 +455,10 @@ its highlights; the sections below them give the details. Versions follow
   `host edit --address` or `import`, a stored password could go to a
   server komando does not check, or travel unencrypted, with only a
   warning; now it stops with `SAFETY_SETTING`, as a conn's weak TLS does.
+- A registry's token service can no longer make komando read a reply of
+  any size: komando reads at most 1 MiB of it. (Every SSH, Kubernetes,
+  database, queue, VPN and cloud reply was checked for a size limit; the
+  memcached and pod-copy gaps are fixed with the cluster tier changes.)
 
 ### Fixed
 
