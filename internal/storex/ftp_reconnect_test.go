@@ -136,7 +136,7 @@ func (s *fakeFTP) serve(c net.Conn) {
 			s.mu.Unlock()
 			dc.Close()
 			say("226 done")
-		case "STOR":
+		case "STOR", "APPE":
 			dc, err := data.Accept()
 			if err != nil {
 				return
@@ -145,6 +145,9 @@ func (s *fakeFTP) serve(c net.Conn) {
 			b, _ := io.ReadAll(dc)
 			dc.Close()
 			s.mu.Lock()
+			if cmd == "APPE" {
+				b = append(s.file, b...)
+			}
 			s.file = b
 			s.mu.Unlock()
 			say("226 stored")

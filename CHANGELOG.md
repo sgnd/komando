@@ -437,11 +437,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
-- A storage conn, database or cache reached through `--via` could fail a
-  command that had worked with `the server: EOF` (seen most on FTPS: an
-  upload, a download, a listing). When the server behind the hop closed
-  its side first, closing komando's side was taken as an error. It is no
-  longer one.
+- An FTP or FTPS conn reached through `--via` could report a transfer that
+  had worked as failed, with `the server: EOF`: an upload, a download, a
+  listing, `--continue`, or the check `storage mv` makes. When the server
+  behind the jump host closed its side first, komando took closing its own
+  side as an error. It no longer does, for every conn through `--via`.
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")

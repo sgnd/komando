@@ -3,6 +3,7 @@ package sshx
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"io"
 	"net"
 	"testing"
@@ -14,7 +15,10 @@ import (
 // hopServer is an SSH server in this process whose direct-tcpip channels
 // send one line and close at once, as the far end of a hop does when the
 // server behind it closes its socket (an FTP data connection after 226).
-func hopServer(t *testing.T) *ssh.Client {
+func hopServer(t *testing.T) *ssh.Client { t.Helper(); return hopServerKeep(t, false) }
+
+// hopServerKeep is hopServer; with keep, its channels stay open.
+func hopServerKeep(t *testing.T, keep bool) *ssh.Client {
 	t.Helper()
 	_, key, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -48,7 +52,9 @@ func hopServer(t *testing.T) *ssh.Client {
 			}
 			go ssh.DiscardRequests(creqs)
 			ch.Write([]byte("226\n"))
-			ch.Close()
+			if !keep {
+				ch.Close()
+			}
 		}
 	}()
 	b, err := net.Dial("tcp", ln.Addr().String())
@@ -63,6 +69,16 @@ func hopServer(t *testing.T) *ssh.Client {
 	}
 	c := ssh.NewClient(cc, chans, reqs)
 	t.Cleanup(func() { c.Close() })
+	return c
+}
+
+// hopOpen is a channel through a hop whose far end keeps it open.
+func hopOpen(t *testing.T) net.Conn {
+	t.Helper()
+	c, err := hopServerKeep(t, true).Dial("tcp", "db:5432")
+	if err != nil {
+		t.Fatal(err)
+	}
 	return c
 }
 
@@ -94,3 +110,42 @@ func TestWithDeadlinesCloseAfterTheFarEndClosed(t *testing.T) {
 		t.Errorf("Close after the far end closed: %v", err)
 	}
 }
+
+// A Close on a channel that is still open closes it, as before: the far
+// end sees it.
+func TestWithDeadlinesCloseAnOpenChannel(t *testing.T) {
+	c := WithDeadlines(hopOpen(t))
+	if err := c.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if _, err := c.Write([]byte("x")); err == nil {
+		t.Error("a write after Close worked")
+	}
+}
+
+// Any other error from Close is still returned, and io.EOF from Read or
+// Write is untouched.
+func TestWithDeadlinesKeepsOtherErrors(t *testing.T) {
+	boom := errors.New("boom")
+	c := WithDeadlines(errConn{closeErr: boom})
+	if err := c.Close(); err != boom {
+		t.Errorf("Close: %v, want boom", err)
+	}
+	c = WithDeadlines(errConn{closeErr: io.EOF})
+	if _, err := c.Read(nil); err != io.EOF {
+		t.Errorf("Read: %v, want io.EOF", err)
+	}
+	if _, err := c.Write(nil); err != io.EOF {
+		t.Errorf("Write: %v, want io.EOF", err)
+	}
+}
+
+// errConn fails every call: Read and Write with io.EOF, Close with closeErr.
+type errConn struct {
+	net.Conn
+	closeErr error
+}
+
+func (e errConn) Read([]byte) (int, error)  { return 0, io.EOF }
+func (e errConn) Write([]byte) (int, error) { return 0, io.EOF }
+func (e errConn) Close() error              { return e.closeErr }
