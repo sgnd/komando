@@ -444,6 +444,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `sync --delete` stops before it empties a folder that the source lists
+  as empty while the destination still has files in it
+  (`EMPTY_FOLDER_CONFIRM_REQUIRED`, exit 6, with the folders and counts in
+  `error.details.folders`): a listing cut short, as on plain FTP, looks
+  just like that. A person types the folder; an AI agent needs a person's
+  yes in the window (`--allow-dangerous`); a script names each folder it
+  empties on purpose with the new `--emptied FOLDER`, since
+  `--allow-dangerous` alone no longer does for it.
 - An FTP or FTPS conn reached through `--via` could report a transfer that
   had worked as failed, with `the server: EOF`: an upload, a download, a
   listing, `--continue`, or the check `storage mv` makes. When the server
