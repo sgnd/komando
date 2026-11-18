@@ -117,7 +117,7 @@ func (b *ftpBucket) Lookup(_ context.Context, rel string) (Object, bool, error) 
 		if isMissingDir(err) {
 			return Object{}, false, nil
 		}
-		return Object{}, false, ftpErr(err, driver.Target{})
+		return Object{}, false, ftpStepErr("LIST", err)
 	}
 	for _, e := range entries {
 		if e.Name != path.Base(p) {
@@ -190,7 +190,7 @@ func (b *ftpBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Move
 	}
 	err = b.c.Rename(ps, pd)
 	if err == nil || !m.Replaced {
-		return m, ftpErr(err, driver.Target{})
+		return m, ftpStepErr("RNFR/RNTO", err)
 	}
 	return m, renameOver(b.c.Rename, b.c.Delete, func(err error) error { return ftpErr(err, driver.Target{}) }, ps, pd, s, d)
 }

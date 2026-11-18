@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -32,6 +33,8 @@ type fakeFTP struct {
 	file     []byte
 	exists   bool
 	dirs     map[string]string // LIST lines by folder, in place of obj.txt
+	tls      *tls.Config       // set: FTPS, explicit TLS on control and data
+	cutData  string            // LIST only: its data connection closes before TLS is set up, then 226
 }
 
 func newFakeFTP(t *testing.T) *fakeFTP {
@@ -71,6 +74,21 @@ func (s *fakeFTP) serve(c net.Conn) {
 	say("220 fake")
 	var data net.Listener
 	var rnfr string
+	// accept opens the data connection for cmd; nil when the fake cut it
+	accept := func(cmd string) (net.Conn, error) {
+		dc, err := data.Accept()
+		if err != nil || s.tls == nil {
+			return dc, err
+		}
+		s.mu.Lock()
+		cut := cmd == s.cutData
+		s.mu.Unlock()
+		if cut {
+			dc.Close()
+			return nil, nil
+		}
+		return tls.Server(dc, s.tls), nil
+	}
 	for {
 		line, err := r.ReadString('\n')
 		if err != nil {
@@ -102,8 +120,19 @@ func (s *fakeFTP) serve(c net.Conn) {
 			say("230 in")
 		case "FEAT":
 			say("211 no features")
-		case "TYPE", "OPTS", "MKD":
+		case "TYPE", "OPTS", "MKD", "PBSZ", "PROT":
 			say("200 ok")
+		case "AUTH":
+			if s.tls == nil {
+				say("502 no TLS")
+				continue
+			}
+			say("234 go ahead")
+			tc := tls.Server(c, s.tls)
+			if tc.Handshake() != nil {
+				return
+			}
+			c, r = tc, bufio.NewReader(tc)
 		case "EPSV":
 			if data != nil {
 				data.Close()
@@ -111,11 +140,15 @@ func (s *fakeFTP) serve(c net.Conn) {
 			data, _ = net.Listen("tcp", "127.0.0.1:0")
 			say("229 ok (|||%d|)", data.Addr().(*net.TCPAddr).Port)
 		case "LIST":
-			dc, err := data.Accept()
+			dc, err := accept(cmd)
 			if err != nil {
 				return
 			}
 			say("150 here")
+			if dc == nil {
+				say("226 done")
+				continue
+			}
 			s.mu.Lock()
 			if s.dirs != nil {
 				fmt.Fprint(dc, s.dirs[arg])
@@ -126,7 +159,7 @@ func (s *fakeFTP) serve(c net.Conn) {
 			dc.Close()
 			say("226 done")
 		case "RETR":
-			dc, err := data.Accept()
+			dc, err := accept(cmd)
 			if err != nil {
 				return
 			}
@@ -137,7 +170,7 @@ func (s *fakeFTP) serve(c net.Conn) {
 			dc.Close()
 			say("226 done")
 		case "STOR":
-			dc, err := data.Accept()
+			dc, err := accept(cmd)
 			if err != nil {
 				return
 			}
