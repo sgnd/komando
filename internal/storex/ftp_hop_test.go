@@ -15,6 +15,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/storex/ftptest"
 )
 
 // hopDial is a --via hop in this process: an SSH server that forwards
@@ -97,8 +98,8 @@ func hopDial(t *testing.T) DialFunc {
 // connection before komando does. Each step runs many times: the far
 // end's close and komando's race.
 func TestFTPThroughAHopEndsWithoutEOF(t *testing.T) {
-	s := newFakeFTP(t)
-	b, err := OpenFTP(context.Background(), s.target(), "p", hopDial(t), 5*time.Second)
+	s := ftptest.New(t)
+	b, err := OpenFTP(context.Background(), s.Target(), "p", hopDial(t), 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
