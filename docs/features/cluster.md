@@ -373,6 +373,17 @@ is kubectl's namespace flag.
 
 - It only reads unless you add `--write`. Delete, drain, scaling to 0 and
   similar also need `--allow-dangerous`.
+- A file (`apply -f`, `create -f`, and `cluster apply --file`) is rated by
+  what is in it. One that gives out rights (a Role, ClusterRole or their
+  bindings, a webhook configuration, an APIService, a service account
+  token Secret) or opens a node to a pod (`hostPID`, `hostNetwork`,
+  `hostIPC`, a privileged container, added capabilities, a `hostPath`
+  volume) also needs `--allow-dangerous`, like `create clusterrolebinding`
+  and `run --privileged` do. The same holds for a Swarm stack file whose
+  service is privileged, adds capabilities or devices, shares the
+  server's namespaces, or mounts `/`, the docker socket, system or
+  credential folders. komando reads each file once, so the file that was
+  rated is the file that is sent.
 - `--dry-run` sends a change to the server as a server-side dry run
   (`apply`, `create`, `delete`, `scale`, `patch`, ...). A command the server
   cannot dry-run (`exec`, `cp`, `create token`, `config view`, `get` of

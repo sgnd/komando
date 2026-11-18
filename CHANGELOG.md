@@ -151,6 +151,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- A `DELETE` or `UPDATE` whose `WHERE` keeps every row (`WHERE true`,
+  `WHERE 1`, `WHERE 1=1`, `x OR true`), and a `MERGE ... ON TRUE`, are
+  rated like no `WHERE`: they need `--allow-dangerous`
+  (`sql-delete-no-where`, `sql-update-no-where`) on every SQL kind.
+- `db grant`, `db revoke`, `db user add` and `db user passwd` now need
+  `--allow-dangerous` (at a terminal: type the user's name). They send
+  the statements `db query` already rates as privilege changes
+  (`sql-privileges`); without the flag they stop with `POLICY_BLOCKED`.
+- `cluster apply` and `cluster run -- apply|create -f` need
+  `--allow-dangerous` for a file that gives out rights (roles, bindings,
+  webhook configurations, service account token Secrets) or opens a node
+  to a pod (host namespaces, privileged, added capabilities, `hostPath`),
+  and for a Swarm stack file that hands a service the server. `cluster
+  run -- create role` needs it too.
+- `db restore` has a new stop, `FILE_CHANGED` (exit 8): the file
+  changed after komando checked it.
 - `komando doctor -o json`: a check that one komando command puts right,
   asking nothing, has `fix`, the words to run as a list. `error.message`,
   `error.hint`, `error.suggestion` (also in per-server error objects),
@@ -489,6 +505,22 @@ its highlights; the sections below them give the details. Versions follow
   any size: komando reads at most 1 MiB of it. (Every SSH, Kubernetes,
   database, queue, VPN and cloud reply was checked for a size limit; the
   memcached and pod-copy gaps are fixed with the cluster tier changes.)
+
+- `db restore` restores the bytes it checked. It used to open the backup
+  again by path after the approval, so a file swapped in between was
+  restored unchecked. A MySQL `DELIMITER` after a statement on the same
+  line, which the check and the restore read differently, is refused.
+- A memcached server can no longer crash komando, or make it reserve
+  memory, with a bad value length; `cluster cp` refuses a sparse tar
+  entry and holds the files of a copy to 512 MiB together; `net http`
+  reads the redirect address as text, so a server cannot forge the
+  status; `db explain --analyze` on MariaDB refuses `TABLE` (it became
+  `ANALYZE TABLE`); Snowflake `INSERT OVERWRITE`, `CREATE OR ALTER` and
+  `COPY ... PURGE` need `--allow-dangerous`.
+- `import kubeconfig` reads the certificate, key and token files a
+  kubeconfig names under the same rule as the kubeconfig: for an AI
+  agent, never komando's own folder. `cluster deploy` refuses an
+  `--image` with spaces or unprintable characters.
 
 ### Fixed
 

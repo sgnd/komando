@@ -173,10 +173,17 @@ func TestDumpOpts(t *testing.T) {
 	arch, plain := filepath.Join(dir, "a.dump"), filepath.Join(dir, "a.sql")
 	os.WriteFile(arch, []byte("PGDMP\x01\x0e"), 0o600)
 	os.WriteFile(plain, []byte("-- SQL"), 0o600)
-	if ok, _ := isPgArchive(tcl, arch); !ok {
+	isArchive := func(p string) bool {
+		seal := &backupSeal{}
+		if err := withBackup(tcl, p, seal, func(io.Reader) error { return nil }); err != nil {
+			t.Fatal(err)
+		}
+		return seal.archive()
+	}
+	if !isArchive(arch) {
 		t.Error("PGDMP file not recognised")
 	}
-	if ok, _ := isPgArchive(tcl, plain); ok {
+	if isArchive(plain) {
 		t.Error("plain SQL taken for an archive")
 	}
 }
