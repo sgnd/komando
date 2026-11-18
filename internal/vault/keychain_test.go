@@ -524,6 +524,13 @@ func TestNoRealKeychainTool(t *testing.T) {
 			t.Errorf("toolDirs holds the system folder %s", d)
 		}
 	}
+	// Windows has no keychain tool to stand in for: komando calls the
+	// Credential Manager API itself (credRead, credWrite), so asking for
+	// the count there would ask the machine's real Credential Manager.
+	// Only the checks above are true there; CI's Windows job runs them.
+	if runtime.GOOS == "windows" {
+		return
+	}
 	// with the keychain on and an agent asking, the count reaches only the stand-in
 	saved := AgentCall
 	t.Cleanup(func() { AgentCall = saved })
