@@ -103,7 +103,7 @@ func TestUnshowableContentIsRefused(t *testing.T) {
 	}
 	*texts = nil
 	resetApproval()
-	b := &approvalBody{label: scriptLabel("the content", "-"), body: []byte(strings.Repeat("line\n", bodyMaxLines+5)), data: true}
+	b := newBody(scriptLabel("the content", "-"), []byte(strings.Repeat("line\n", bodyMaxLines+5)), true)
 	if _, bad := b.shown(tcl); bad == "" {
 		t.Error("long content on stdin is shown by its digest only")
 	}

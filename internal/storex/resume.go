@@ -9,7 +9,6 @@ import (
 
 	"github.com/minio/minio-go/v7"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -205,7 +204,7 @@ func (b *ftpBucket) Append(ctx context.Context, key string, off int64, r io.Read
 	}
 	cr := &countReader{r: CtxReader(ctx, r)}
 	if err := b.c.Append(p, cr); err != nil {
-		return cr.n, ftpErr(err, driver.Target{})
+		return cr.n, ftpStepErr("APPE", err)
 	}
 	return cr.n, nil
 }
