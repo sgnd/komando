@@ -121,6 +121,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- `komando doctor -o json`: a check that one komando command puts right,
+  asking nothing, has `fix`, the words to run as a list. `error.message`,
+  `error.hint`, `error.suggestion` (also in per-server error objects),
+  `meta.warnings`, `meta.skipped` and doctor's `name` and `detail` are
+  made safe to show in JSON as they are on the terminal: escape
+  sequences, text-direction marks and invisible format characters show
+  as `\e`, `\xNN`, `\uNNNN`. The rest of `data` is unchanged.
 - **One error code each (output contract 2).** `meta.contract` is now 2.
   Every error code means one thing and has one exit code; there are no old
   names to fall back on. Scripts and apps that read `error.code` change
