@@ -215,3 +215,29 @@ func TestImportUsageHints(t *testing.T) {
 		t.Errorf("unknown source: %+v", e)
 	}
 }
+
+// A server an import brings with its password (FileZilla) gets that
+// password in the vault, under the name its --password-ref points at.
+func TestImportFileZillaStoresServerPassword(t *testing.T) {
+	invHome(t)
+	d := mustRun(t, "import", "filezilla", writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
+<Server><Host>web.example</Host><Port>2222</Port><Protocol>1</Protocol><User>deploy</User><Pass encoding="base64">czNjcmV0</Pass><Name>Web</Name></Server>
+</Servers></FileZilla3>`))
+	if s, _ := d["secrets"].([]any); len(s) != 1 || s[0] != "web-pass" {
+		t.Errorf("import says secrets %v", d["secrets"])
+	}
+	if !strings.Contains(fmt.Sprint(mustRun(t, "secret", "list")), "web-pass") {
+		t.Errorf("web-pass is not in the vault")
+	}
+	if ref := mustRun(t, "host", "show", "web")["password_ref"]; ref != "secret:web-pass" {
+		t.Errorf("password_ref %v", ref)
+	}
+	// a secret of that name in the vault stays: the server comes without it
+	mustRun(t, "host", "rm", "web")
+	d = mustRun(t, "import", "filezilla", writeTemp(t, "sitemanager.xml", `<?xml version="1.0"?><FileZilla3><Servers>
+<Server><Host>web.example</Host><Port>2222</Port><Protocol>1</Protocol><User>deploy</User><Pass encoding="base64">b3RoZXI=</Pass><Name>Web</Name></Server>
+</Servers></FileZilla3>`))
+	if s, _ := d["secrets"].([]any); len(s) != 0 || !strings.Contains(fmt.Sprint(d["not_imported"]), `dropped password_ref "secret:web-pass"`) {
+		t.Errorf("second import: %v", d)
+	}
+}

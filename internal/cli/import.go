@@ -238,7 +238,7 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		return out.Errf(out.ExitUsage, "USAGE", "fix these rows and import again",
 			"%s cannot be added: %s; nothing was imported", countOf(len(bad), "server"), strings.Join(bad, "; "))
 	}
-	hosts := v.Add
+	hosts := importHostSecrets(v.Add, plan, &res)
 	for _, n := range v.Existing {
 		res.Skipped = append(res.Skipped, importSkip{n, "a server with this name exists (use --overwrite to replace it)"})
 	}

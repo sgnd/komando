@@ -264,6 +264,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- Four more ways an AI agent could move where a person's typed password
+  (`--login ask`) goes now stop with `NEEDS_PERSON`. A server with no
+  user logs in as the account komando runs as, from the system, no
+  longer as `$USER`, which an agent sets. A `cert check --via` path that
+  reaches a login-ask server another way than its own stops. A login-ask
+  conn's URL user is part of where its password goes. And an agent's
+  `vpn add --overwrite` or import of a VPN on such a way stops even with
+  the same flags: its profile or key secret may be new.
 - `cluster run -- cp POD:SRC DST` by an AI agent, with SRC named like a
   secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
   komando reads the pod, as `download` does; before, the pod's files were
@@ -530,6 +538,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando import filezilla` now stores the password FileZilla keeps for
+  an SFTP server in the vault: the server pointed at `secret:NAME-pass`,
+  but nothing was stored there.
+- `login-holder` started by hand answers every broken input with
+  `NEEDS_PERSON`, not with a parse error.
 - `key gen --dry-run` shows where the real run keeps the key (`path`
   `sealed:`; the record's ID is made only when the key is written) and
   the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
