@@ -28,6 +28,11 @@ type keyData struct {
 	Public  []byte `json:"public"`
 }
 
+// SealedKeyPrefix starts the Path of a key kept in the sealed store; a
+// preview of a new key shows it alone, as the record's ID is made only
+// when the key is written.
+const SealedKeyPrefix = sealedKeyPrefix
+
 // SealedKey reports a key kept inside the sealed store, which has no file.
 func SealedKey(k *Key) bool { return strings.HasPrefix(k.Path, sealedKeyPrefix) }
 
