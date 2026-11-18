@@ -39,6 +39,21 @@ After you write or change a unit file, reload systemd so it reads it:
 komando svc daemon-reload web1                # names any unit that still needs a reload
 ```
 
+A user's own units (`~/.config/systemd/user`, `systemctl --user`) take
+`--user` on `svc status`, `list`, `start`, `stop`, `restart`, `reload`,
+`enable`, `disable` and `daemon-reload`. They are the login user's units,
+so komando runs them without sudo:
+
+```bash
+komando svc list web1 --user
+komando svc restart web1 --user syncthing --wait 10s
+```
+
+A user's manager runs only while they are logged in, unless lingering is
+on; without it komando stops with `NO_USER_MANAGER` (exit 3). A person
+with sudo turns lingering on once: `loginctl enable-linger USER` on the
+server.
+
 ## Logs
 
 `logs` reads one source: the systemd journal (`--unit`), a file (`--file`)
@@ -120,8 +135,11 @@ dangling images, unused networks and build cache.
 - `--all` removes every image no container uses, not only dangling ones;
   the next deploy pulls them again.
 - `--volumes` also removes unused anonymous volumes. That is data: look at
-  the dry run first. It cannot be combined with `--older-than` (docker has
-  no age filter for volumes).
+  the dry run first. With `--older-than`, docker has no age filter for
+  volumes, so komando reads when each unused anonymous volume was made and
+  removes only the older ones by name (`docker volume rm`), after the
+  prune; a volume whose age it cannot read stays. The answer lists them in
+  `volumes_removed`.
 - The real run deletes, so it is confirmed like `docker rm`.
 
 ## Packages
@@ -343,8 +361,6 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 
 ## Limits
 
-- `svc` works on system services only: komando does not manage a user's
-  own units (`systemctl --user`); use `komando exec` for those.
 - `svc` and `logs --unit` need systemd; a server without it (most
   containers) stops with `NO_SYSTEMD`.
 - On apt servers only, `pkg rm` and `pkg upgrade --security` check whether
@@ -355,12 +371,13 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
   in `meta.skipped`: use `pkg upgrade` there.
 - `pkg` takes exact package names only; for a local `.deb` or `.rpm`, use
   `upload` and `exec`.
-- `docker prune --volumes` cannot be combined with `--older-than`.
 - komando never reboots as part of a patch round.
 - On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
   package (`useradd`, `usermod`, `userdel`).
 - `user list` does not read rules in `sudoers.d`.
 - `svc logs` does not take `--file` or `--container`; use `logs`.
+- `svc logs` and `logs --unit` read the system journal; they take no
+  `--user`.
 
 ## Troubleshooting
 
@@ -368,6 +385,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 |------------|---------------|------------|
 | `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando svc list TARGET` |
 | `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
+| `NO_USER_MANAGER` | `--user`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
 | `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref secret:NAME` |
 | `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
 | `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |

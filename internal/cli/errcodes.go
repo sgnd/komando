@@ -142,6 +142,7 @@ var errorCodes = []errorCode{
 	{"NO_RESPONSE", 4, "no HTTP answer from …", "check the URL, and that the server can reach it: `komando net check … ADDRESS:443`"},
 	{"NO_SYSTEMD", 3, "systemd is not running on this server", "this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs`"},
 	{"NO_TUNNEL_NEEDED", 2, "… has no --via, so it is reachable without a tunnel", "connect to … directly"},
+	{"NO_USER_MANAGER", 3, "the login user has no systemd user manager running on this server", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server"},
 	{"NXDOMAIN", 3, "… does not resolve from this server", "check the name, and the server's DNS (/etc/resolv.conf)"},
 	{"OBJECT_NOT_FOUND", 3, "… not found", "list files with `komando storage list CONN [PREFIX]`"},
 	{"OPEN_BIND", 6, "the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer)", "check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen)"},

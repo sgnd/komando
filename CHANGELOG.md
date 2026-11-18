@@ -9,6 +9,17 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `--user` on `komando svc status`, `list`, `start`, `stop`, `restart`,
+  `reload`, `enable`, `disable` and `daemon-reload` manages the login
+  user's own units (`systemctl --user`), without sudo. A user with no
+  systemd manager running stops with the new code `NO_USER_MANAGER`
+  (exit 3); the hint names `loginctl enable-linger USER`.
+- `komando docker prune --volumes` takes `--older-than`. Docker has no age
+  filter for volumes, so komando prunes with the age filter, then removes
+  only the unused anonymous volumes made before the cut-off, by name; the
+  dry run lists exactly those, and the answer lists them in
+  `volumes_removed`. A volume whose age komando cannot read stays.
+
 - `komando host trust NAME --fingerprint SHA256:...` pins a server's key
   only when the server shows the key with that fingerprint: compare and
   pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and

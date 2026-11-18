@@ -51,6 +51,20 @@ else
   sys sed -i 's/^Description=.*/Description=komando test service v2/' /etc/systemd/system/t-svc.service
   check "svc daemon-reload = systemctl daemon-reload" "komando test service v2 komando test service v2" \
     "$($K svc daemon-reload t-sysd >/dev/null; sys systemctl show -p Description --value t-svc) $($K svc status t-sysd t-svc | jget 'd["data"]["results"][0]["data"][0]["description"]')"
+  # --user: the login user's own manager (systemctl --user), without sudo
+  check "svc list --user without a user manager = NO_USER_MANAGER" NO_USER_MANAGER "$($K svc list t-sysd --user | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+  sys loginctl enable-linger agent
+  sys sh -c 'mkdir -p /home/agent/.config/systemd/user && printf "[Unit]\nDescription=komando user unit\n[Service]\nExecStart=/bin/sh -c \"echo hello from t-user; exec sleep infinity\"\n" >/home/agent/.config/systemd/user/t-user.service && chown -R agent /home/agent/.config'
+  usys() { sys su agent -s /bin/sh -c "XDG_RUNTIME_DIR=/run/user/\$(id -u) systemctl --user $*"; }
+  for _ in $(seq 1 20); do usys show-environment >/dev/null 2>&1 && break; sleep 1; done
+  q $K svc daemon-reload t-sysd --user
+  q $K svc start t-sysd --user t-user --wait 10s
+  check "svc start --user = systemctl --user is-active" "active active" \
+    "$(usys is-active t-user || true) $($K svc status t-sysd --user t-user | jget 'd["data"]["results"][0]["data"][0]["active_state"]')"
+  check "svc list --user = systemctl --user list-units" True "$($K svc list t-sysd --user | jget '"t-user.service" in json.dumps(d["data"])')"
+  check "svc status without --user does not see the user's unit" UNIT_NOT_FOUND "$($K svc status t-sysd t-user | jget 'd["data"]["results"][0]["error"]["code"]' || true)"
+  q $K svc stop t-sysd --user t-user
+  check "svc stop --user = systemctl --user is-active" inactive "$(usys is-active t-user || true)"
   # reboot: destructive, so blocked without --allow-dangerous; then it waits for the server
   check "reboot needs --allow-dangerous" 6 "$($K reboot t-sysd >/dev/null 2>&1; echo $?)"
   pid1=$(sys cut -d' ' -f22 /proc/1/stat)
