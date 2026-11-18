@@ -5,6 +5,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/sgnd/komando/internal/out"
 )
@@ -21,9 +22,12 @@ type emptiedFolder struct {
 // deletes while the source lists nothing under it: the top folder of an
 // emptied subtree, once. Files at the top of the sync are never named
 // (SOURCE_EMPTY covers a source with no files at all).
-func emptiedFolders(src, dst map[string]syncFile, acts []syncAction) []emptiedFolder {
-	listed := map[string]bool{} // every folder the source has a file under
-	for rel := range src {
+func emptiedFolders(src, dst map[string]syncFile, acts []syncAction, exclude []string) []emptiedFolder {
+	listed := map[string]bool{} // every folder the source has a file to sync under
+	for rel, f := range src {
+		if f.Skip || excluded(rel, exclude) {
+			continue // a link or an excluded file does not show the folder was listed whole
+		}
 		for d := path.Dir(rel); d != "."; d = path.Dir(d) {
 			listed[d] = true
 		}
@@ -55,18 +59,18 @@ func emptiedFolders(src, dst map[string]syncFile, acts []syncAction) []emptiedFo
 // a script names each folder with --emptied. --allow-dangerous alone does
 // not do for a script: an unattended run is the one that loses files
 // without anyone seeing.
-func guardEmptied(cl *call, found []emptiedFolder, named []string, srcName, dstName string) error {
+func guardEmptied(cl *call, found []emptiedFolder, named []string, multi bool, srcName, dstName string) error {
 	byPath := map[string]bool{}
 	for _, f := range found {
 		byPath[f.Path] = true
 	}
 	ok := map[string]bool{}
 	for _, n := range named {
-		p := strings.Trim(path.Clean("/"+strings.TrimSpace(n)), "/")
-		if !byPath[p] {
+		p := emptiedName(n)
+		if !byPath[p] && !multi {
 			return out.Usage("--emptied %s: this sync empties no folder by that name (folders are named from the top of the sync, as the error lists them)", n)
 		}
-		ok[p] = true
+		ok[p] = true // on several servers a folder may be gone on some already
 	}
 	var left []emptiedFolder
 	var names []string
@@ -90,11 +94,50 @@ func guardEmptied(cl *call, found []emptiedFolder, named []string, srcName, dstN
 			return nil
 		}
 	case cl.interactive():
-		if confirmDangerous(cl, names, what+" (a listing cut short looks like this)") {
+		if askEmptied(cl, names, what) {
 			return nil
 		}
 	}
 	return cl.policyStop(emptiedErr(cl, left, srcName, joinAnd(names), files, dstName))
+}
+
+// emptiedName is a folder as --emptied names it, cleaned; "" for none.
+func emptiedName(n string) string {
+	return strings.Trim(path.Clean("/"+strings.TrimSpace(strings.ReplaceAll(n, "\\", "/"))), "/")
+}
+
+// checkEmptied refuses --emptied before anything is listed: it goes with
+// --delete, and names a folder (not the top of the sync).
+func checkEmptied(o syncOpts) error {
+	if len(o.emptied) > 0 && !o.delete {
+		return out.Usage("--emptied goes with --delete")
+	}
+	for _, n := range o.emptied {
+		if emptiedName(n) == "" {
+			return out.Usage("--emptied %q names no folder: name a folder inside the sync, as the error lists them", n)
+		}
+	}
+	return nil
+}
+
+// askMu: a sync to several servers plans them at once; one question at
+// a time.
+var askMu sync.Mutex
+
+// askEmptied asks the person to type the folders, every time: an answer
+// to another question (--delete's, another server's) never counts here,
+// since this one names other files.
+func askEmptied(cl *call, names []string, what string) bool {
+	askMu.Lock()
+	defer askMu.Unlock()
+	want, shown := typedAnswer(names, "the number of folders")
+	fmt.Fprintln(cl.out.Err, dangerLine(what+" (a listing cut short looks like this)"))
+	ok := ask(cl, "Type "+shown+" to continue: ") == want
+	cl.sess.SaidNo(!ok)
+	if ok {
+		ttyYes(cl, "typed "+want+": "+what)
+	}
+	return ok
 }
 
 // emptiedErr is EMPTY_FOLDER_CONFIRM_REQUIRED. An agent's hint is the one

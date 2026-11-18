@@ -41,11 +41,12 @@ func TestEmptiedFolders(t *testing.T) {
 		{"top-level file: no folder", files("a/x"), files("a/x", "old.txt"), nil, nil},
 		{"excluded files are not deleted", files("a/x"), files("a/x", "b/y.log"), []string{"*.log"}, nil},
 		{"excluded and not", files("a/x"), files("a/x", "b/y.log", "b/z"), []string{"*.log"}, []emptiedFolder{{"b", 1}}},
-		{"excluded source files still list the folder", files("a/x", "b/s.log"), files("a/x", "b/z"), []string{"*.log"}, nil},
+		{"only excluded source files: still emptied", files("a/x", "b/s.log"), files("a/x", "b/z"), []string{"*.log"}, []emptiedFolder{{"b", 1}}},
+		{"only a skipped link: still emptied", map[string]syncFile{"a/x": {Size: 1}, "b/link": {Skip: true}}, files("a/x", "b/y"), nil, []emptiedFolder{{"b", 1}}},
 		{"first sync into an empty destination", files("a/x", "b/y"), files(), nil, nil},
 	} {
 		o := syncOpts{delete: true, exclude: c.exclude}
-		got := emptiedFolders(c.src, c.dst, planSync(c.src, c.dst, o))
+		got := emptiedFolders(c.src, c.dst, planSync(c.src, c.dst, o), o.exclude)
 		if !reflect.DeepEqual(got, c.want) {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
 		}
@@ -212,5 +213,78 @@ func TestSyncEmptiedFolderPlainFTP(t *testing.T) {
 	}
 	if !exists(t, filepath.Join(dst, "sub/a.txt")) {
 		t.Error("sub/a.txt was deleted")
+	}
+}
+
+// --emptied is checked before anything is listed.
+func TestCheckEmptied(t *testing.T) {
+	for _, c := range []struct {
+		o  syncOpts
+		ok bool
+	}{
+		{syncOpts{delete: true, emptied: []string{"b"}}, true},
+		{syncOpts{delete: true, emptied: []string{"./b/"}}, true},
+		{syncOpts{emptied: []string{"b"}}, false},
+		{syncOpts{delete: true, emptied: []string{"/"}}, false},
+		{syncOpts{delete: true, emptied: []string{"."}}, false},
+		{syncOpts{delete: true, emptied: []string{""}}, false},
+		{syncOpts{delete: true, emptied: []string{"b/../.."}}, false},
+	} {
+		if err := checkEmptied(c.o); (err == nil) != c.ok {
+			t.Errorf("%+v: %v", c.o, err)
+		}
+	}
+	if emptiedName(`b\c`) != "b/c" {
+		t.Error(`--emptied b\c is not b/c`)
+	}
+}
+
+// A script's error names --emptied, never --allow-dangerous (which it
+// already gave, and which does not do here).
+func TestSyncEmptiedFolderScriptHint(t *testing.T) {
+	noAgent(t)
+	resetGuardFlags(t)
+	tcl.flags.allowDangerous = true
+	src, dst := guardTrees(t)
+	_, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
+	j, _ := json.Marshal(toErr(err))
+	if strings.Contains(string(j), "allow-dangerous") {
+		t.Errorf("a script's error suggests --allow-dangerous: %s", j)
+	}
+}
+
+// On several servers a name may match nothing on one of them (the folder
+// is gone there already): that is no error, and an unnamed folder still
+// stops.
+func TestSyncEmptiedFolderSeveralServers(t *testing.T) {
+	noAgent(t)
+	resetGuardFlags(t)
+	tcl.flags.allowDangerous = true
+	src, dst := guardTrees(t)
+	_, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true, multi: true, emptied: []string{"b", "gone"}})
+	if e := toErr(err); e == nil || e.Code != "EMPTY_FOLDER_CONFIRM_REQUIRED" {
+		t.Fatalf("several servers: %v", err)
+	}
+	r, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true, multi: true, emptied: []string{"b", "c", "gone"}})
+	if err != nil || r.Deleted != 2 {
+		t.Errorf("several servers, all named: %+v %v", r, err)
+	}
+}
+
+// An answer the person typed to another question in the same command
+// (--delete's, another server's) does not answer this one.
+func TestSyncEmptiedFolderAsksAgain(t *testing.T) {
+	noAgent(t)
+	resetGuardFlags(t)
+	resetApproval()
+	src, dst := t.TempDir(), t.TempDir()
+	long := strings.Repeat("x", 70) // a long name is asked as a count: "1"
+	writeTree(t, src, map[string]string{"a/x": "x"})
+	writeTree(t, dst, map[string]string{"a/x": "x", long + "/y": "y"})
+	tcl.sess.ConfirmDanger("1") // the person typed 1 for --delete's question
+	tcl.terminal, tcl.stdin = true, strings.NewReader("")
+	_, err := runSync(tcl, context.Background(), localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true})
+	if err == nil || !exists(t, filepath.Join(dst, long, "y")) {
+		t.Errorf("the earlier answer counted: %v", err)
 	}
 }

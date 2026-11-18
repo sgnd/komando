@@ -302,6 +302,7 @@ type syncOpts struct {
 	sudo            bool // servers: write and remove as root (sudoSftpSide)
 	exclude         []string
 	emptied         []string // --emptied: folders the source may list as empty (C124)
+	multi           bool     // the destination is several servers
 }
 
 type syncAction struct {
@@ -408,11 +409,9 @@ func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName 
 	}
 	acts := planSync(sf, df, o)
 	if o.delete {
-		if err := guardEmptied(cl, emptiedFolders(sf, df, acts), o.emptied, srcName, dstName); err != nil {
+		if err := guardEmptied(cl, emptiedFolders(sf, df, acts, o.exclude), o.emptied, o.multi, srcName, dstName); err != nil {
 			return nil, err
 		}
-	} else if len(o.emptied) > 0 {
-		return nil, out.Usage("--emptied goes with --delete")
 	}
 	for _, a := range acts {
 		switch a.Op {
@@ -554,6 +553,9 @@ the SSH user still needs to read the folder.`,
 
 // runSyncArgs is sync: up or down, by which side is remote.
 func runSyncArgs(cl *call, ctx context.Context, args []string, o syncOpts) error {
+	if err := checkEmptied(o); err != nil {
+		return err
+	}
 	srcT, srcP, srcRemote := splitArg(cl, args[0])
 	dstT, dstP, dstRemote := splitArg(cl, args[1])
 	switch {
@@ -632,6 +634,7 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 		return err
 	}
 	progressFrom(ctx).eachServer(len(hosts)) // each server needs its own files
+	o.multi = len(hosts) > 1
 	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		ctx, settle := progressServer(ctx)
 		defer settle()
