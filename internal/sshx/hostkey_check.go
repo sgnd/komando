@@ -50,6 +50,10 @@ func keyFileType(t string) string {
 	return "*"
 }
 
+// HostCATrusted, when set, hears that server name was trusted through
+// the host CA named ca (for the output and the audit log).
+var HostCATrusted func(ctx context.Context, name, ca string)
+
 // hostKeyCallback checks the key of server h. q (nil: not a login-ask
 // server's connection) hears of a key trusted on first use: a login-ask
 // server's new key is pinned only when askLoginNewKey allows it, as a
@@ -76,6 +80,33 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 		return nil, fmt.Errorf("host key policy %q is not accept-new, strict or off", policy)
 	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		if cert, ok := key.(*ssh.Certificate); ok {
+			// a host certificate: a trusted CA vouches for it, or its
+			// plain key is checked against the pins as any key is. A
+			// login-ask server is never trusted through a CA: a person's
+			// typed password goes only where a person met the key.
+			var ca string
+			var cerr error
+			if !ask {
+				if verr := HostKeys().view(ctx, func(t hostKeyTx) error {
+					ca, cerr = t.(*sealedTx).certTrusted(hostname, cert)
+					return nil
+				}); verr != nil {
+					return verr
+				}
+				var re *knownhosts.RevokedError
+				if errors.As(cerr, &re) {
+					return cerr
+				}
+				if ca != "" {
+					if HostCATrusted != nil {
+						HostCATrusted(ctx, name, ca)
+					}
+					return nil
+				}
+			}
+			key = cert.Key
+		}
 		// a known server is checked in a read step; only a new one takes
 		// the write step that pins it (and checks again inside it)
 		var known error
