@@ -448,6 +448,22 @@ komando sync backups:2026/ ./restore                               # from storag
 - A source that does not exist is an error (`PATH_NOT_FOUND`, exit 3), and
   `--delete` never runs from an empty source, so a typo cannot wipe the
   destination.
+- `--delete` also stops before it empties a folder that the source lists
+  as empty while the destination still has files in it
+  (`EMPTY_FOLDER_CONFIRM_REQUIRED`, exit 6): a listing cut short, for
+  example by a dropped FTP connection, looks just like that. The error
+  lists each folder and how many files would go (`error.details.folders`
+  in JSON).
+  - At your terminal, komando asks you to type the folder.
+  - An AI agent adds `--allow-dangerous` after a person agrees; komando
+    then names the folders in its window.
+  - A script names each folder it empties on purpose:
+    `--emptied old-assets` (repeatable). `--allow-dangerous` alone does
+    not do here: an unattended run is the one that would lose files with
+    nobody watching. A folder name that matches nothing is an error.
+  - The other way: remove the folder on the destination first
+    (`komando fs rm web1 /var/www/site/old-assets --recursive`, or
+    `komando storage rm CONN --prefix old-assets/`), then sync.
 - Symbolic links inside the folder are not copied; they are listed as
   `skipped`. A source folder given as a link is synced as the folder it
   names.
@@ -501,6 +517,7 @@ For a single file, use `komando upload` or `komando download`.
 | `SHARED_FOLDER_CONFLICT` | `--sudo` into a folder another server user can change | write the file as that user, without `--sudo` |
 | `CHMOD_FAILED` | an SFTP server does not allow setting modes, and its new files are more open than asked | write without `--mode`, or on a server that allows it |
 | `POLICY_BLOCKED` | `fs rm`, `rm -r` or `sync --delete` from an AI agent or a script without `--allow-dangerous` | check with `--dry-run`, ask a person, then add `--allow-dangerous` |
+| `EMPTY_FOLDER_CONFIRM_REQUIRED` | `sync --delete` would empty a folder that the source lists as empty | check the source; a script adds `--emptied FOLDER`, an AI agent asks a person and adds `--allow-dangerous` |
 | `CANCELLED` | Ctrl-C stopped a copy or sync | run the same command again to finish |
 | `SIZE_CONFLICT` | an upload from stdin sent another number of bytes than `--size` | send the whole file again; nothing was replaced |
 | `RESUME_CONFLICT` | `--continue` found a destination longer than the source, or one that differs from it, before the copy or by its sum after it | copy it again without `--continue` |

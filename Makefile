@@ -118,7 +118,8 @@ dist: ## Build release archives + checksums into ./dist (SIGNED=DIR: take the ma
 	  else tar -czf dist/$$name.tar.gz -C dist/$$name .; fi && rm -rf dist/$$name || exit 1; \
 	done
 	rm dist/THIRD_PARTY_LICENSES
-	cd dist && (sha256sum *.tar.gz *.zip 2>/dev/null || shasum -a 256 *.tar.gz *.zip) > checksums.txt
+	# the first line names the release, so its signature covers the version (internal/releasesig)
+	cd dist && { echo "komando-release $(VERSION) $$(date -u +%Y-%m-%d)"; sha256sum *.tar.gz *.zip 2>/dev/null || shasum -a 256 *.tar.gz *.zip; } > checksums.txt
 
 clean: ## Remove build output
 	rm -rf bin bins dist
