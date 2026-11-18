@@ -71,7 +71,7 @@ Only the newest release gets fixes. `install.sh` downloads the newest release (o
 
 ## Check a download
 
-Every release has `checksums.txt`, its signature `checksums.txt.sig`, and signed build provenance (SLSA level 2). `komando update` and `install.sh` install a release only when `checksums.txt.sig` is a signature by the komando project's key, whose public half is built into komando: someone who replaces a release's files cannot sign them. To check that a file was built by this repository's release workflow from its source:
+Every release has `checksums.txt`, its signature `checksums.txt.sig`, and signed build provenance (SLSA level 2). `komando update` and `install.sh` install a release only when `checksums.txt.sig` is a signature by the komando project's key, whose public half is built into komando: someone who replaces a release's files cannot sign them. From 0.15.0 on, the first line of `checksums.txt` names the release, so the signature covers its version and an older release's signed files cannot pass as a newer one; a real, older release served as the newest is a known limit ([install](docs/features/install.md)). To check that a file was built by this repository's release workflow from its source:
 
 ```bash
 gh attestation verify komando_darwin_arm64.tar.gz --repo sgnd/komando
