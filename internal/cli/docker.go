@@ -85,11 +85,13 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 		Example: "  komando docker compose app1 --dir /srv/shop -- up -d --pull always",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			mutating, err := guardDocker(cl, args[0], append([]string{"compose"}, args[1:]...))
+			mutating, err := guardDocker(cl, args[0], composeGuardArgs(dir, file, args[1:]))
 			if err != nil {
 				return err
 			}
-			c := "docker compose"
+			// the server's own COMPOSE_FILE never picks other files than
+			// the ones the guard read (C113)
+			c := "env -u COMPOSE_FILE -u COMPOSE_PATH_SEPARATOR docker compose"
 			if dir != "" {
 				c = "cd " + sshx.Q(dir) + " && " + c
 			}
@@ -111,7 +113,7 @@ or a date (2026-01-02T10:00:00). --sudo runs docker with sudo.`
 			if err != nil {
 				return err
 			}
-			return runDocker(cl, cmd.Context(), "docker.raw", args[0], "docker "+quoteAll(args[1:]), sudo, mutating)
+			return runDocker(cl, cmd.Context(), "docker.raw", args[0], dockerLine(args[1:]), sudo, mutating)
 		}),
 	}
 	c.AddCommand(logs, inspect, execC, compose, raw, dockerPruneCmd(&sudo))
@@ -313,8 +315,18 @@ func guardDocker(cl *call, target string, args []string) (mutating bool, err err
 	if hits := policy.Check("docker "+strings.Join(args, " "), st.Settings.ExtraDenyPattern); len(hits) > 0 {
 		risk = driver.RiskDestructive
 	}
+	fileWhy := ""
+	if risk < driver.RiskDestructive {
+		hosts, _ := resolveTargets(cl, st, target)
+		if fileWhy = serverComposeReason(cl, st, hosts, args); fileWhy != "" {
+			risk = driver.RiskDestructive // a compose file on the server that gets the host (C113)
+		}
+	}
 	if risk >= driver.RiskDestructive && !cl.dangerOK() {
 		reason := "docker " + strings.Join(args, " ")
+		if fileWhy != "" {
+			reason += ": " + fileWhy
+		}
 		if v, _ := dockerVerbArgs(args); len(v) > 0 && strings.EqualFold(v[0], "exec") {
 			reason += " (runs anything in the container; `komando docker exec` checks the command itself)"
 		}

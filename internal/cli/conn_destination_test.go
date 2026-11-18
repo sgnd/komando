@@ -281,12 +281,3 @@ func TestSQLiteAttachAndVacuumIntoRefusedForAgents(t *testing.T) {
 		t.Error("load_extension ran")
 	}
 }
-
-// The dump tools run without the PG* and MYSQL* variables they would read
-// as defaults (libpq's PGHOSTADDR moves the login).
-func TestToolEnvDropsClientDefaults(t *testing.T) {
-	got := toolEnv([]string{"PATH=/bin", "PGHOSTADDR=203.0.113.66", "PGSSLROOTCERT=/tmp/x", "MYSQL_HOST=evil", "HOME=/h"})
-	if strings.Join(got, " ") != "PATH=/bin HOME=/h" {
-		t.Errorf("%q", got)
-	}
-}

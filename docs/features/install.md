@@ -9,8 +9,11 @@ it again.
 Open a terminal (on macOS the **Terminal** app) and paste:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.14.1/install.sh | KOMANDO_VERSION=v0.14.1 sh
 ```
+
+The line runs the installer of release v0.14.1 and installs exactly that
+release.
 
 Then check that it works:
 
@@ -25,12 +28,13 @@ and add that line to `~/.zshrc` (macOS) or `~/.bashrc` (Linux) so it stays.
 Want to read the script first? Download it, read it, then run it:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/sgnd/komando/main/install.sh
-sh install.sh
+curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/sgnd/komando/v0.14.1/install.sh
+less install.sh
+KOMANDO_VERSION=v0.14.1 sh install.sh
 ```
 
-`KOMANDO_INSTALL_DIR=DIR` picks the folder, and `KOMANDO_VERSION=v0.14.1`
-picks one version (`KOMANDO_VERSION=v0.14.1 sh install.sh`).
+`KOMANDO_INSTALL_DIR=DIR` picks the folder. `KOMANDO_VERSION` picks the
+version; without it (`sh install.sh`) the installer takes the newest release.
 
 The installer installs a release only when it is signed with the komando
 project's key, the check `komando update` makes: someone who replaced a
@@ -139,8 +143,9 @@ your AI agents get the skill of the new version. Until then
 - `--timeout` (default 10 minutes) limits the whole update. When GitHub
   answers with an error, it tries twice more.
 
-Installed with `sudo` and the install line? Update the same way:
-`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/main/install.sh | sudo sh`.
+Installed with `sudo` and the install line? Update the same way, with the
+install line of the release you want:
+`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.14.1/install.sh | sudo KOMANDO_VERSION=v0.14.1 sh`.
 Without `sudo` the installer cannot write there, puts the new version in
 `~/.local/bin`, and your terminal may keep running the old one.
 `komando version` shows which one runs.

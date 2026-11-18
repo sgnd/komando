@@ -230,13 +230,16 @@ func (c *Config) Resolve(name string) (*Context, error) {
 }
 
 // Standalone returns a kubeconfig with only this context, files read into
-// the *-data fields, so it can live in the vault and travel.
-func (x *Context) Standalone() ([]byte, error) {
+// the *-data fields, so it can live in the vault and travel. The files the
+// kubeconfig names (CA, client certificate and key, token) are read with
+// read, so the caller's rules for local files apply to them as they do to
+// the kubeconfig itself.
+func (x *Context) Standalone(read func(path string) ([]byte, error)) ([]byte, error) {
 	inline := func(path, data *string) error {
 		if *path == "" {
 			return nil
 		}
-		b, err := os.ReadFile(expandHome(*path))
+		b, err := read(expandHome(*path))
 		if err != nil {
 			return err
 		}
@@ -254,7 +257,7 @@ func (x *Context) Standalone() ([]byte, error) {
 		return nil, err
 	}
 	if u.TokenFile != "" {
-		b, err := os.ReadFile(expandHome(u.TokenFile))
+		b, err := read(expandHome(u.TokenFile))
 		if err != nil {
 			return nil, err
 		}

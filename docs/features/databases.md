@@ -78,7 +78,7 @@ address, the way there (`--via`) and the command; the agent never sees
 the password. A cancel stops the command with `DECLINED`, and the window
 stays shut for that conn for a minute. A script, or an agent with no
 screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
-agent that adds a login-ask conn, changes its URL or `--via`, turns one
+agent that adds a login-ask conn, changes its URL (its user too) or `--via`, turns one
 to `--login ask`, changes a server or VPN on its way, or replaces a
 secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
 password (above), every setting of the URL except the few that move
@@ -460,6 +460,22 @@ Plain SQL that psql and mysql can also read:
   question: run `komando db dump CONN` first yourself, then add
   `--allow-dangerous` (and `--yes` on a protected conn) after a person
   agrees.
+- The file that was checked is the file that is restored. komando keeps
+  a fingerprint of every part of the file from the check; a file that is
+  changed, replaced or made longer afterwards stops with `FILE_CHANGED`
+  (exit 8) before the changed part is sent, and before the database is
+  opened when the change came while you were asked. Run the restore
+  again: komando checks the file as it is now.
+- A MySQL `DELIMITER` after a statement on the same line is refused
+  (`UNSAFE_BACKUP`); mysqldump writes it on a line of its own.
+- A PostgreSQL archive (`--format custom`) is read too: komando checks the
+  SQL in its table of contents (pg_dump 9.5 to 17 archives) and names what
+  it does beyond writing data, as for plain SQL (`COPY ... PROGRAM`,
+  `GRANT`, ...). The line numbers count in that SQL, as `pg_restore -f -`
+  prints it. An archive komando cannot read (another version, cut short)
+  is named "could not read the archive's contents" in the approval, and so
+  is one that keeps table data as SQL (`pg_dump --inserts`). A gzipped
+  archive (`.dump.gz`) is refused: unpack it first.
 - PostgreSQL restores run in one transaction: if anything fails, nothing
   changes. MySQL runs the statements in order and stops at the first error;
   what ran before it stays (`RESTORE_FAILED`).
@@ -558,6 +574,11 @@ Typed alone, `komando db user add` asks which database, the user, then
 where the password is kept. To change the password of the conn's own
 user, see [Rotate passwords](rotate.md).
 
+- `db user add`, `db user passwd`, `db grant` and `db revoke` change who
+  may do what, like `GRANT` or `CREATE USER` sent with `db query`. At
+  your terminal komando asks you to type the user's name; scripts and AI
+  agents add `--allow-dangerous` after a person agrees (`POLICY_BLOCKED`
+  without it). `db user rm` asks the same.
 - Passwords come only from a secret reference. They are never typed on a
   command line, shown, or written to the audit log (`--dry-run` and the
   answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that

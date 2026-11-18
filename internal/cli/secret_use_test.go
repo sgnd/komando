@@ -360,11 +360,16 @@ func TestDBUserPasswordNeedsAPerson(t *testing.T) {
 	secretHome(t)
 	mustRun(t, "conn", "add", "local", "sqlite://"+filepath.Join(t.TempDir(), "app.db"))
 	texts := windowText(t, true)
-	e := wantCode(t, "SECRET_DESTINATION", "db", "user", "add", "local", "app", "--password-ref", "secret:db-pass")
+	// a new login is a privilege change: that stop comes first
+	wantCode(t, "POLICY_BLOCKED", "db", "user", "add", "local", "app", "--password-ref", "secret:db-pass")
+	if len(*texts) != 0 {
+		t.Errorf("no flag, no window: %q", *texts)
+	}
+	e := wantCode(t, "SECRET_DESTINATION", "db", "user", "add", "local", "app", "--password-ref", "secret:db-pass", "--allow-dangerous")
 	if !strings.Contains(e.Message, "database user app (conn local)") {
 		t.Errorf("message: %q", e.Message)
 	}
-	if len(*texts) != 0 {
-		t.Errorf("no flag, no window: %q", *texts)
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "sql-privileges") {
+		t.Errorf("one window, for the privilege change: %q", *texts)
 	}
 }

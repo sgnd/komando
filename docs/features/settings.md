@@ -28,7 +28,7 @@ In JSON, `config show` gives each setting in `data.keys`.
 | Key | What it controls | Values | Default |
 |-----|------------------|--------|---------|
 | `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it and show its fingerprint), `strict` (refuse it until you run `komando host trust`), `off` (turns a check off) | `accept-new` |
-| `default_user` | login name when a server has none | a login name; empty = your own user name | (empty) |
+| `default_user` | login name when a server has none | a login name; empty = the account komando runs as (from the system, not `$USER`) | (empty) |
 | `default_timeout` | how long a command may run on each server | a duration above 0 (`30s`, `5m`, `1h`) | `5m` |
 | `connect_timeout` | how long to wait for a server to answer | a duration above 0 | `15s` |
 | `parallel` | how many servers to work on at once | 1 or more | `10` |
