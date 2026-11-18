@@ -437,6 +437,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `sync --delete` stops before it empties a folder that the source lists
+  as empty while the destination still has files in it
+  (`EMPTY_FOLDER_CONFIRM_REQUIRED`, exit 6, with the folders and counts in
+  `error.details.folders`): a listing cut short, as on plain FTP, looks
+  just like that. A person types the folder; an AI agent needs a person's
+  yes in the window (`--allow-dangerous`); a script names each folder it
+  empties on purpose with the new `--emptied FOLDER`, since
+  `--allow-dangerous` alone no longer does for it.
 - An FTPS listing whose data connection closed before TLS was set up was
   read as an empty folder with no error. `sync --delete` from such a
   source could then remove that folder's files on the destination, and

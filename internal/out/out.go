@@ -37,7 +37,11 @@ type Error struct {
 	// Suggestion is the word komando thinks was meant ("did you mean"),
 	// S-8.8; the hint has the whole command line with it; additive
 	Suggestion string `json:"suggestion,omitempty"`
-	Exit       int    `json:"-"`
+	// Details holds what a person or an app needs to act on this stop,
+	// when the message alone is not enough (EMPTY_FOLDER_CONFIRM_REQUIRED:
+	// the folders); additive
+	Details any `json:"details,omitempty"`
+	Exit    int `json:"-"`
 	// Final: no flag lifts this stop (no --yes, --allow-dangerous or
 	// --reveal), so an AI agent is not told that adding one asks the user
 	Final bool `json:"-"`
@@ -369,7 +373,7 @@ func ApprovalFlag(e *Error) string {
 		return ""
 	}
 	switch e.Code {
-	case "POLICY_BLOCKED":
+	case "POLICY_BLOCKED", "EMPTY_FOLDER_CONFIRM_REQUIRED":
 		return "--allow-dangerous"
 	case "PROTECTED_TARGET", "SAFETY_SETTING", "OPEN_BIND", "SECRET_DESTINATION", "CONFIRM_REQUIRED":
 		return "--yes"

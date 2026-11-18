@@ -301,6 +301,7 @@ type syncOpts struct {
 	delete, onlyNew bool
 	sudo            bool // servers: write and remove as root (sudoSftpSide)
 	exclude         []string
+	emptied         []string // --emptied: folders the source may list as empty (C124)
 }
 
 type syncAction struct {
@@ -406,6 +407,13 @@ func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName 
 			"%s has no files to sync, so --delete would remove everything in %s; nothing was deleted", srcName, dstName)
 	}
 	acts := planSync(sf, df, o)
+	if o.delete {
+		if err := guardEmptied(cl, emptiedFolders(sf, df, acts), o.emptied, srcName, dstName); err != nil {
+			return nil, err
+		}
+	} else if len(o.emptied) > 0 {
+		return nil, out.Usage("--emptied goes with --delete")
+	}
 	for _, a := range acts {
 		switch a.Op {
 		case "copy":
@@ -514,6 +522,11 @@ newer in SRC are copied; the rest are left alone. --delete also removes files SR
 (that needs --allow-dangerous). --exclude skips names or paths (shell globs,
 repeatable). Try --dry-run first: it lists every file it would touch.
 
+--delete stops before it empties a folder that SRC lists as empty while
+DST has files in it: a listing cut short looks like that. A person types
+the folder to go on; a script names each folder it means with --emptied
+(--allow-dangerous alone does not do), or removes the folder on DST first.
+
 --sudo writes on the servers as root, for a folder the SSH user cannot
 write (/etc/nginx): each file goes in as ` + "`upload --sudo`" + ` puts one, staged
 privately and checked by root, keeping the owner of a file that is there;
@@ -531,6 +544,7 @@ the SSH user still needs to read the folder.`,
 		}),
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
+	c.Flags().StringArrayVar(&o.emptied, "emptied", nil, "with --delete: this folder of SRC is empty on purpose, so its files go from DST (repeatable)")
 	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
 	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write on the servers as root, file by file as upload --sudo does (a folder here to servers)")
 
