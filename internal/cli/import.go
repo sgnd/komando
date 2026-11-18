@@ -74,6 +74,7 @@ var importSources = []importSource{
 	{"rclone", "~/.config/rclone/rclone.conf", "SFTP remotes from rclone", importRclone},
 	{"putty", "", "SSH sessions from PuTTY (a .reg file: `reg export HKCU\\Software\\SimonTatham\\PuTTY\\Sessions putty.reg`)", importPuTTY},
 	{"mobaxterm", "", "SSH sessions from MobaXterm (a .mxtsessions file: right-click User sessions, Export all sessions to file)", importMobaXterm},
+	{"securecrt", "", "SSH2 sessions from SecureCRT (File > Export Settings gives an .xml file; or its Sessions folder)", importSecureCRT},
 	{"aws", "~/.aws/config", "an S3 storage conn per bucket of each AWS profile (uses the profile; no key is copied)", importAWS},
 	{"aws-ec2", "~/.aws/config", "a server per running EC2 instance of each AWS profile, in its region (read only, with the profile's login)", importAWSEC2},
 	{"dbeaver", "~/Library/DBeaverData/workspace6/General/.dbeaver/data-sources.json", "databases from DBeaver (passwords set afterwards)", importDBeaver},

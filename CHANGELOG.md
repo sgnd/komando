@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando import securecrt FILE|FOLDER` adds SecureCRT's SSH2 sessions,
+  from its exported settings (File > Export Settings, an `.xml` file) or
+  its `Sessions` folder: host, port, user and key file, with each
+  session's folder as a group. Other session types, a firewall and a
+  `.ppk` key are listed with what to do. Stored passwords and key
+  passphrases are never read.
 - `komando pkg security` works on zypper (security patches; `pkg upgrade
   --security` runs `zypper patch --category security`), and on pacman
   with `arch-audit`. Where the repositories publish no security notices
