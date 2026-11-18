@@ -144,7 +144,9 @@ activity shows for the query (made from its query_id); ClickHouse stops
 queries, not connections, so there is no --session. On Snowflake, too, the
 PID is the number db activity shows for the query; --session ends its
 session (SYSTEM$ABORT_SESSION). On BigQuery it is the number db activity
-shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
+shows for a job, which db kill cancels (jobs.cancel); there is no --session.
+On MongoDB the PID is the opid that db activity shows; db kill stops that
+operation (killOp) and the client stays connected, so there is no --session.`,
 		Example: `  komando db kill prod-db 4821 --dry-run
   komando db kill prod-db 4821
   komando db kill prod-db 4821 --session --allow-dangerous`,
@@ -171,6 +173,9 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 			if c.Kind == "clickhouse" && session {
 				return dbx.KillNoSession()
 			}
+			if c.Kind == "mongodb" && session {
+				return dbx.MongoKillNoSession()
+			}
 			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-kill"}, Reasons: []string{"stops the running query of session " + args[1]}}
 			if session {
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-kill-session"}, Reasons: []string{"ends session " + args[1] + " (its client loses the connection)"}}
@@ -178,6 +183,9 @@ shows for a job, which db kill cancels (jobs.cancel); there is no --session.`,
 			// under --dry-run guardConns stops nothing: it fills meta.would_be_blocked
 			if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
 				return err
+			}
+			if c.Kind == "mongodb" {
+				return runMongoKill(cl, cmd.Context(), st, c, pid)
 			}
 			db, closeDB, err := openDB(cl, cmd.Context(), st, c, false)
 			if err != nil {

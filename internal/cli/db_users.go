@@ -39,6 +39,9 @@ func dbUserLsCmd() *cobra.Command {
 		Example: "  komando db user list prod-db",
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(cl, args[0]); ok {
+				return runMongoUsers(cl, cmd.Context(), st, c, limit)
+			}
 			return readDB(cl, cmd.Context(), "db.user.list", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Users(ctx, db, c.Kind, connTimeout(cl, c))
 				if err != nil {
@@ -138,6 +141,9 @@ func changeDB(cl *call, ctx context.Context, name, connExpr string, v driver.Ver
 	if c.Kind == "snowflake" { // users and grants are read-only here
 		return dbx.SFNoUserChange(strings.ReplaceAll(name, ".", " "))
 	}
+	if c.Kind == "mongodb" { // createUser and the like go through db query
+		return dbx.MongoNoUserChange(strings.ReplaceAll(name, ".", " "))
+	}
 	if c.Kind == "bigquery" { // Google Cloud IAM
 		return dbx.BQNoUsers(strings.ReplaceAll(name, ".", " "))
 	}
@@ -182,7 +188,8 @@ all-tables:SCHEMA; --role ROLE ` + map[bool]string{false: "makes the user a memb
 DB.*, DB.TABLE or *.* (with --from-host for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
 available (db user show reads them). BigQuery: not available (Google Cloud
-IAM). --dry-run shows the statement.`,
+IAM). MongoDB: not available (db user show reads them; send grantRolesToUser
+with db query). --dry-run shows the statement.`,
 		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
   komando db ` + verb + ` prod-db app_ro --role readers
   komando db ` + verb + ` prod-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*'`,
@@ -235,6 +242,9 @@ func dbUserShowCmd() *cobra.Command {
 		Example: "  komando db user show prod-db app_ro",
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(cl, args[0]); ok {
+				return runMongoUserShow(cl, cmd.Context(), st, c, args[1])
+			}
 			return readDB(cl, cmd.Context(), "db.user.show", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Grants(ctx, db, c.Kind, args[1], host, connTimeout(cl, c))
 				if err != nil {
