@@ -43,7 +43,14 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 	if s, err := vault.Check(); err != nil {
 		add("vault", false, false, err.Error())
 	} else if !s.NoVaultYet {
-		sealedStoreCheck(add, s)
+		if err := storeOpens(s); err != nil {
+			// the readable settings row says nothing until the key opens
+			// the store: it may have been changed
+			add("vault", false, false, err.Error())
+		} else {
+			sealedStoreCheck(add, s)
+			metaSealCheck(add)
+		}
 		oldCopyCheck(add)
 	}
 	vaultKeyChecks(add)

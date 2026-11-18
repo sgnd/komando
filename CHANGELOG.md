@@ -202,6 +202,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- The store's readable settings row (key mode, salt, scrypt cost) has a
+  sealed copy (C08). A change made outside komando stops every command
+  with `STATE_CORRUPT`; `komando doctor --reseal-meta` (a person only)
+  checks the store with your key and seals the row again. `doctor`
+  reports the key mode and scrypt cost only once the key opened the
+  store. A store from an older komando gets the copy at the first command
+  a person runs at a terminal, never from an AI agent's or a script's.
+
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
   `~/.komando` of the changed `HOME` as the usual folder, so only the

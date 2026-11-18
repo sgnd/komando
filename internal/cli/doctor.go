@@ -198,7 +198,7 @@ func connHygiene(st *store.State, warn func(name, detail string)) {
 }
 
 func doctorCmd() *cobra.Command {
-	var acceptOld bool
+	var acceptOld, resealMetaFlag bool
 	c := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check komando's setup, your list and its security",
@@ -209,6 +209,9 @@ password, repeat another conn or belong to a protected server without being
 protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
+			if resealMetaFlag {
+				return resealMeta(cl)
+			}
 			if acceptOld {
 				return acceptOldCopy(cl)
 			}
@@ -289,6 +292,7 @@ protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 			return nil
 		}),
 	}
+	c.Flags().BoolVar(&resealMetaFlag, "reseal-meta", false, "check the store with your key and seal its settings row again, after STATE_CORRUPT for a changed settings row (a person only)")
 	c.Flags().BoolVar(&acceptOld, "accept-old-copy", false, "use the komando folder as it is now after a restore from a backup, though it is older than the keychain remembers (a person only)")
 	return c
 }

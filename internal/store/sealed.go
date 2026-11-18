@@ -27,6 +27,10 @@ func storeErr(err error) error {
 	case errors.Is(err, sealdb.ErrKeyChanged):
 		return out.Errf(out.ExitError, "STORE_KEY_CHANGED", "run it again: another komando changed the store's key while this one ran",
 			"%s: %v", Path(StoreFile), err)
+	case errors.Is(err, sealdb.ErrMetaTampered):
+		return out.Errf(out.ExitError, "STATE_CORRUPT",
+			"ask the user to run `komando doctor --reseal-meta` in their own terminal: it opens the store with their key, checks that the key opens every record, shows the settings it keeps (key mode, scrypt cost) and seals that row again; if the key does not open the store it changes nothing, and the folder is restored from a backup",
+			"%s: its settings row (key mode, salt, scrypt cost) was changed outside komando", Path(StoreFile))
 	case errors.Is(err, sealdb.ErrTampered), errors.Is(err, sealdb.ErrWrongKey), errors.Is(err, sealrow.ErrOpen):
 		return out.Errf(out.ExitError, "STATE_CORRUPT",
 			"the store does not open with this key or was changed outside komando; ask the user to restore the komando folder from a backup, which then needs the step that accepts an older copy",

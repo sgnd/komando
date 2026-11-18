@@ -330,6 +330,25 @@ Then check what changed since the backup: servers or rules you added
 later, and host keys pinned since (`komando host trust` asks again for a
 server it no longer knows).
 
+The store's settings row (its key mode, salt and scrypt cost) must stay
+readable without the key, so komando also keeps a sealed copy of it. A
+change to that row made outside komando stops every command with
+`STATE_CORRUPT`; `komando doctor` reports the key mode and scrypt cost
+only once the key has opened the store. To recover, in your own terminal
+(an AI agent cannot):
+
+```bash
+komando doctor --reseal-meta
+```
+
+It opens the store with your key, checks that the key opens every record,
+shows the key mode and scrypt cost it keeps, and seals that row again. If
+your key does not open the store, it changes nothing: restore the folder
+from a backup. A store made by an older komando gets the sealed copy the
+first time you run any komando command in your own terminal (one line on
+stderr says so); an AI agent's or a script's command never writes it, and
+until then `komando doctor` warns.
+
 ## Limits
 
 - Passwords, private key files and keys komando made never travel in a
@@ -356,4 +375,5 @@ server it no longer knows).
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` (exit 6) | `--overwrite` of a protected entry | at your terminal komando asks; a script adds `--yes` |
 | `SAFETY_SETTING` (exit 6) | the file turns on agent forwarding, old VPN ciphers or PAP, or weakens a VPN it replaces | check the file; at your terminal komando asks, a script adds `--yes` |
 | `STORE_OLD_COPY` (exit 6) | a backup of the folder was put back; the keychain remembers a newer store | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
+| `STATE_CORRUPT` (exit 1), "settings row was changed outside komando" | the readable settings row of `store.db` no longer matches its sealed copy | run `komando doctor --reseal-meta` in your own terminal; if your key does not open the store, restore a backup |
 | `VAULT_LOCKED` (exit 1) | a copied folder whose vault has a passphrase, without `KOMANDO_VAULT_PASS` | set `KOMANDO_VAULT_PASS`; see [Secrets](secrets.md#troubleshooting) |

@@ -108,8 +108,9 @@ CREATE TABLE IF NOT EXISTS audit (
 
 // DB is an open store.
 type DB struct {
-	db  *sql.DB
-	key *sealrow.Key
+	db       *sql.DB
+	key      *sealrow.Key
+	skipMeta bool // opened by ResealMeta: the meta table is not compared
 	// one step at a time in this process (the store has one connection);
 	// holder is the goroutine running it, so a call from inside a step is
 	// told apart from another goroutine waiting its turn
@@ -151,16 +152,16 @@ var ErrNotStore = errors.New("sealdb: not a komando store")
 // without a finished store is ErrNotStore. It stops with ErrNewerFormat
 // for a file from a newer komando.
 func Open(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
-	return openFile(ctx, path, key, false)
+	return openFile(ctx, path, key, false, false)
 }
 
 // Create makes a new store at path, which must not exist (mode 0600),
 // in one write step: a crash leaves no half-made store that Open takes.
 func Create(ctx context.Context, path string, key *sealrow.Key) (*DB, error) {
-	return openFile(ctx, path, key, true)
+	return openFile(ctx, path, key, true, false)
 }
 
-func openFile(ctx context.Context, path string, key *sealrow.Key, create bool) (*DB, error) {
+func openFile(ctx context.Context, path string, key *sealrow.Key, create, skipMeta bool) (*DB, error) {
 	if key == nil {
 		return nil, errors.New("sealdb: no key")
 	}
@@ -206,7 +207,7 @@ func openFile(ctx context.Context, path string, key *sealrow.Key, create bool) (
 	// one connection per process: transactions are begun by hand on it, and
 	// SQLite allows one writer anyway
 	sdb.SetMaxOpenConns(1)
-	d := &DB{db: sdb, key: key}
+	d := &DB{db: sdb, key: key, skipMeta: skipMeta}
 	if err := d.init(ctx, create); err != nil {
 		sdb.Close()
 		if _, serr := os.Stat(path); errors.Is(serr, os.ErrNotExist) {
@@ -243,8 +244,10 @@ func (d *DB) init(ctx context.Context, create bool) error {
 		if _, err := tx.c.ExecContext(ctx, `INSERT INTO meta(k,v) VALUES('format',?)`, strconv.Itoa(Format)); err != nil {
 			return err
 		}
-		_, err := tx.Put(keycheckType, keycheckID, []byte("komando"))
-		return err
+		if _, err := tx.Put(keycheckType, keycheckID, []byte("komando")); err != nil || !SealNewStores {
+			return err
+		}
+		return tx.SealMeta()
 	})
 }
 
@@ -266,6 +269,15 @@ func (d *DB) checkOpened(tx *Tx, v string) error {
 			return fmt.Errorf("record %s: %w", keycheckID, ErrTampered)
 		}
 		return err
+	}
+	if d.skipMeta {
+		return nil // ResealMeta: it checks every record instead
+	}
+	if have, match, err := tx.metaSealState(); err != nil || (have && !match) {
+		if err != nil {
+			return err
+		}
+		return ErrMetaTampered
 	}
 	return nil
 }
@@ -739,8 +751,15 @@ func (t *Tx) SetMeta(k, v string) error {
 	if k == "format" {
 		return errors.New("sealdb: the format is set by the store itself")
 	}
-	_, err := t.c.ExecContext(t.ctx, `INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v`, k, v)
-	return err
+	if _, err := t.c.ExecContext(t.ctx, `INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v`, k, v); err != nil {
+		return err
+	}
+	// the sealed copy follows in the same step; an older store without
+	// one gets it only when a person carries it over
+	if have, _, err := t.metaSealState(); err != nil || !have {
+		return err
+	}
+	return t.SealMeta()
 }
 
 // checkKey stops a step whose key no longer opens the store's keycheck
