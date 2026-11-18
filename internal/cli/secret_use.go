@@ -560,9 +560,12 @@ func guardTypedLoginMove(cl *call, old, now *store.Vpn, servers string) error {
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
 // is the VPN before (nil: a new one). servers is as for vpnPlace: an
 // OpenVPN VPN added again with a new profile may have new servers.
-func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string) error {
+// replaced: an add --overwrite or an import makes the VPN anew, so it
+// counts as changed even with the same fields (its profile or key secret
+// may be new).
+func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string, replaced bool) error {
 	if old != nil && cl.isAgent() {
-		if what := vpnPlaceChanges(s, now.Name, vpnWayChanged(old, now)); len(what) > 0 {
+		if what := vpnPlaceChanges(s, now.Name, replaced || vpnWayChanged(old, now)); len(what) > 0 {
 			return loginPlaceStop(cl, what)
 		}
 	}

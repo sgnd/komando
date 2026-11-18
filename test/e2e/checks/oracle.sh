@@ -23,7 +23,7 @@ if [ "$($K conn test sys-ora | jget 'd["data"]["results"][0]["ok"]' 2>/dev/null)
 fi
 check "oracle conn test logs in through --via" login "$($K conn test sys-ora | jget 'd["data"]["results"][0]["detail"]["check"]')"
 check "oracle create user needs --write" WRITE_REQUIRES_FLAG "$($K db query sys-ora 'create user e2e_shop identified by x' | jget 'd["error"]["code"]')"
-q $K db user add sys-ora e2e_shop --password-ref secret:ora-shop
+q $K db user add sys-ora e2e_shop --password-ref secret:ora-shop --allow-dangerous
 q $K db query sys-ora --write --allow-dangerous 'grant create table, create sequence, unlimited tablespace to e2e_shop'
 q $K conn add shop-ora 'oracle://e2e_shop@oracle:1521/FREEPDB1' --via bastion --password-ref secret:ora-shop
 # an identity column makes a sequence behind the table: CREATE SEQUENCE is needed too
@@ -47,8 +47,8 @@ check "oracle explain plans a delete without --write" True "$($K db explain shop
 check "oracle explain ran nothing" 2 "$($K db query shop-ora 'select count(*) from orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "oracle sizes lists the table" True "$($K db sizes shop-ora | jget 'any(t["name"] == "ORDERS" for t in d["data"]["tables"])')"
 check "oracle activity answers" True "$($K db activity sys-ora --all | jget 'd["ok"]')"
-q $K db user add sys-ora e2e_ro --password-ref secret:ora-ro
-q $K db grant sys-ora e2e_ro --privileges SELECT --on table:e2e_shop.orders
+q $K db user add sys-ora e2e_ro --password-ref secret:ora-ro --allow-dangerous
+q $K db grant sys-ora e2e_ro --privileges SELECT --on table:e2e_shop.orders --allow-dangerous
 q $K conn add ro-ora 'oracle://e2e_ro@oracle:1521/FREEPDB1' --via bastion --password-ref secret:ora-ro
 check "oracle: the new user logs in with the vault password" 2 "$($K db query ro-ora 'select count(*) from e2e_shop.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "oracle: and may only read what was granted" False "$($K db query ro-ora --write "insert into e2e_shop.orders (item) values ('x')" | jget 'd["ok"]')"

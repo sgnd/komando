@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando import securecrt FILE|FOLDER` adds SecureCRT's SSH2 sessions,
+  from its exported settings (File > Export Settings, an `.xml` file) or
+  its `Sessions` folder: host, port, user and key file, with each
+  session's folder as a group. Other session types, a firewall and a
+  `.ppk` key are listed with what to do. Stored passwords and key
+  passphrases are never read.
 - `komando pkg security` works on zypper (security patches; `pkg upgrade
   --security` runs `zypper patch --category security`), and on pacman
   with `arch-audit`. Where the repositories publish no security notices
@@ -151,6 +157,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- A `DELETE` or `UPDATE` whose `WHERE` keeps every row (`WHERE true`,
+  `WHERE 1`, `WHERE 1=1`, `x OR true`), and a `MERGE ... ON TRUE`, are
+  rated like no `WHERE`: they need `--allow-dangerous`
+  (`sql-delete-no-where`, `sql-update-no-where`) on every SQL kind.
+- `db grant`, `db revoke`, `db user add` and `db user passwd` now need
+  `--allow-dangerous` (at a terminal: type the user's name). They send
+  the statements `db query` already rates as privilege changes
+  (`sql-privileges`); without the flag they stop with `POLICY_BLOCKED`.
+- `cluster apply` and `cluster run -- apply|create -f` need
+  `--allow-dangerous` for a file that gives out rights (roles, bindings,
+  webhook configurations, service account token Secrets) or opens a node
+  to a pod (host namespaces, privileged, added capabilities, `hostPath`),
+  and for a Swarm stack file that hands a service the server. `cluster
+  run -- create role` needs it too.
+- `db restore` has a new stop, `FILE_CHANGED` (exit 8): the file
+  changed after komando checked it.
 - `komando doctor -o json`: a check that one komando command puts right,
   asking nothing, has `fix`, the words to run as a list. `error.message`,
   `error.hint`, `error.suggestion` (also in per-server error objects),
@@ -242,6 +264,33 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- `cluster run` and `docker raw|compose` read a compose or stack file
+  that is already on the server before they rate the command: a
+  privileged service or a bind of `/` there now needs `--allow-dangerous`,
+  as in a local file, and so does a file komando cannot read or one that
+  pulls in files it does not check (`include:`, `extends: file:`, a
+  `COMPOSE_FILE` in `.env`, `privileged` left to a variable). Manifests
+  that install through a controller (k3s `HelmChart`, Argo CD, Flux), EKS's
+  `aws-auth` ConfigMap, a `kube-system` pod with one of its service
+  accounts, `label ... pod-security.kubernetes.io/enforce=privileged` (or
+  removing it), `set serviceaccount`, `create configmap aws-auth` and
+  Argo Workflows need it too. (C113)
+- An AI agent's `import kubeconfig` no longer copies a file from `~/.ssh`
+  or another credential store (other than `~/.kube`) into the vault when
+  the kubeconfig names it as a client key, certificate or token file
+  (`SENSITIVE_FILE`). (C113)
+- `db restore` of a PostgreSQL archive now checks the SQL inside it, as
+  for a plain SQL file: what it does beyond writing data (`COPY ...
+  PROGRAM`, `GRANT`, ...) is named in the approval; before, an archive
+  went to pg_restore unread. (C113)
+- Four more ways an AI agent could move where a person's typed password
+  (`--login ask`) goes now stop with `NEEDS_PERSON`. A server with no
+  user logs in as the account komando runs as, from the system, no
+  longer as `$USER`, which an agent sets. A `cert check --via` path that
+  reaches a login-ask server another way than its own stops. A login-ask
+  conn's URL user is part of where its password goes. And an agent's
+  `vpn add --overwrite` or import of a VPN on such a way stops even with
+  the same flags: its profile or key secret may be new.
 - `cluster run -- cp POD:SRC DST` by an AI agent, with SRC named like a
   secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
   komando reads the pod, as `download` does; before, the pod's files were
@@ -490,8 +539,29 @@ its highlights; the sections below them give the details. Versions follow
   database, queue, VPN and cloud reply was checked for a size limit; the
   memcached and pod-copy gaps are fixed with the cluster tier changes.)
 
+- `db restore` restores the bytes it checked. It used to open the backup
+  again by path after the approval, so a file swapped in between was
+  restored unchecked. A MySQL `DELIMITER` after a statement on the same
+  line, which the check and the restore read differently, is refused.
+- A memcached server can no longer crash komando, or make it reserve
+  memory, with a bad value length; `cluster cp` refuses a sparse tar
+  entry and holds the files of a copy to 512 MiB together; `net http`
+  reads the redirect address as text, so a server cannot forge the
+  status; `db explain --analyze` on MariaDB refuses `TABLE` (it became
+  `ANALYZE TABLE`); Snowflake `INSERT OVERWRITE`, `CREATE OR ALTER` and
+  `COPY ... PURGE` need `--allow-dangerous`.
+- `import kubeconfig` reads the certificate, key and token files a
+  kubeconfig names under the same rule as the kubeconfig: for an AI
+  agent, never komando's own folder. `cluster deploy` refuses an
+  `--image` with spaces or unprintable characters.
+
 ### Fixed
 
+- `komando import filezilla` now stores the password FileZilla keeps for
+  an SFTP server in the vault: the server pointed at `secret:NAME-pass`,
+  but nothing was stored there.
+- `login-holder` started by hand answers every broken input with
+  `NEEDS_PERSON`, not with a parse error.
 - `key gen --dry-run` shows where the real run keeps the key (`path`
   `sealed:`; the record's ID is made only when the key is written) and
   the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.

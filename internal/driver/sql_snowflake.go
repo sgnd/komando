@@ -216,7 +216,7 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 	if (first == "LIST" || first == "LS") && risk == RiskWrite && len(rules) == 0 {
 		risk = RiskRead // LIST @stage: the files there
 	}
-	if first == "MERGE" { // WHEN MATCHED THEN UPDATE (or DELETE) touches the matched rows only
+	if first == "MERGE" && !mergeOnKeepsAll(ts) { // WHEN MATCHED THEN UPDATE (or DELETE) touches the matched rows only
 		rules = slices.DeleteFunc(rules, func(id string) bool { return id == "sql-update-no-where" || id == "sql-delete-no-where" })
 		if len(rules) == 0 {
 			risk = RiskWrite
@@ -230,6 +230,9 @@ func snowflakeStatement(ts []token) (Risk, []string, error) {
 			rules = append(rules, id)
 		}
 		risk = RiskDestructive
+	}
+	for _, id := range sfEmptiesRules(ts, first, second, word(2)) {
+		flag(id)
 	}
 	switch first {
 	case "CREATE", "ALTER", "DROP", "UNDROP":
@@ -348,4 +351,32 @@ func snowflakeRows(kw string) bool {
 func snowflakeNoTx(ts []token) bool {
 	risk, _, err := snowflakeStatement(ts)
 	return err != nil || risk != RiskRead
+}
+
+// sfEmptiesRules are the rules for Snowflake statements that empty a
+// table, drop columns or delete staged files under another name than
+// TRUNCATE, DROP or REMOVE:
+//   - INSERT OVERWRITE [ALL|FIRST] INTO t empties the table first;
+//   - CREATE OR ALTER drops the columns (and their data) that the new
+//     definition leaves out;
+//   - PURGE = TRUE deletes the staged files after a load, in the COPY
+//     itself or as a table's or stage's copy option, which a later plain
+//     COPY obeys. Any value but a plain FALSE counts.
+func sfEmptiesRules(ts []token, first, second, third string) []string {
+	var ids []string
+	if first == "INSERT" && second == "OVERWRITE" {
+		ids = append(ids, "sql-truncate")
+	}
+	if first == "CREATE" && second == "OR" && third == "ALTER" {
+		ids = append(ids, "sql-drop")
+	}
+	if first == "COPY" || first == "CREATE" || first == "ALTER" {
+		for i, t := range ts {
+			if t.word == "PURGE" && !(i+2 < len(ts) && ts[i+1].punct == '=' && ts[i+2].word == "FALSE") {
+				ids = append(ids, "sql-server-file")
+				break
+			}
+		}
+	}
+	return ids
 }

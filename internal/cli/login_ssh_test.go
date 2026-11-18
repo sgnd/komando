@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
@@ -244,4 +245,26 @@ func TestLoginForSetting(t *testing.T) {
 func asJSON(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// login-holder's input comes only from `komando login`: anything else on
+// it (by hand, or a broken line) is one answer, NEEDS_PERSON, never a
+// parse error that reads as a failed login.
+func TestHolderStdinNotByHand(t *testing.T) {
+	tok := strings.Repeat("a", 32)
+	for _, in := range []string{
+		"",
+		"TOKEN " + tok + "\nUNTIL soon\nPASS \n",
+		"TOKEN " + tok + "\nUNTIL 1\nPASS !!notbase64\n",
+		"TOKEN short\nUNTIL 1\nPASS \n",
+	} {
+		_, _, err := holderStdin(bufio.NewReader(strings.NewReader(in)))
+		e, ok := err.(*out.Error)
+		if !ok || e.Code != "NEEDS_PERSON" {
+			t.Errorf("%q: %v", in, err)
+		}
+	}
+	if tk, _, err := holderStdin(bufio.NewReader(strings.NewReader("TOKEN " + tok + "\nUNTIL 1\nPASS \n"))); err != nil || tk != tok {
+		t.Errorf("good input: %q %v", tk, err)
+	}
 }

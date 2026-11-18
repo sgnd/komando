@@ -228,15 +228,25 @@ type certURL struct {
 	via        string
 }
 
+// checkCertVia checks a --via path before anything connects: its names,
+// and for an AI agent the way to a login-ask server (viaAskStop).
+func checkCertVia(cl *call, st *store.State, via string) error {
+	if via == "" {
+		return nil
+	}
+	if _, _, err := resolveVia(st, via); err != nil {
+		return err
+	}
+	return viaAskStop(cl, st, via)
+}
+
 func runCertCheck(cl *call, ctx context.Context, args []string, o certOpts) error {
 	st, err := loadState()
 	if err != nil {
 		return err
 	}
-	if o.via != "" {
-		if _, _, err := resolveVia(st, o.via); err != nil {
-			return err
-		}
+	if err := checkCertVia(cl, st, o.via); err != nil {
+		return err
 	}
 	var hosts []*store.Host
 	var urls []certURL

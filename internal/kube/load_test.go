@@ -41,7 +41,7 @@ contexts:
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := x.Standalone()
+	b, err := x.Standalone(os.ReadFile)
 	if err != nil {
 		t.Fatalf("from another folder: %v", err)
 	}
