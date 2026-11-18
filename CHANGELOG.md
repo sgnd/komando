@@ -9,6 +9,16 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando pkg security` works on zypper (security patches; `pkg upgrade
+  --security` runs `zypper patch --category security`), and on pacman
+  with `arch-audit`. Where the repositories publish no security notices
+  (apk, pacman without `arch-audit`, dnf/yum repositories such as
+  CentOS's) the list is no longer silently empty: the new
+  `security_notices` field is false, `unclassified_updates` lists every
+  pending update, and a warning says why. `pkg upgrade --security` stops
+  there with `SECURITY_UNSUPPORTED` (exit 3) and changes nothing; apk,
+  zypper and pacman servers are no longer in `meta.skipped`.
+
 - `--user` on `komando svc status`, `list`, `start`, `stop`, `restart`,
   `reload`, `enable`, `disable` and `daemon-reload` manages the login
   user's own units (`systemctl --user`), without sudo. A user with no

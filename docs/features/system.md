@@ -193,10 +193,16 @@ komando pkg upgrade @web --security --keep-going # do not stop at a server that 
 
 - `pkg security` only looks. It lists the security updates (apt:
   packages from the `-security` pocket; dnf and yum: updates with a
-  security notice) and the server's state: running containers, failed
+  security notice; zypper: security patches; pacman: what `arch-audit`
+  names, when it is installed) and the server's state: running containers, failed
   units, pending updates, whether a reboot is required, and services that
   still run old code (from `needrestart` or `needs-restarting`). These
   come from the same check as `komando facts`, so both say the same.
+- Some repositories say nothing about which update fixes a security hole:
+  apk, pacman without `arch-audit`, and dnf/yum repositories without
+  security notices (for example CentOS). There `security_notices` is
+  false, `unclassified_updates` lists every pending update, and
+  `warnings` says why the security list is empty.
 - It also judges the OS (`os_support`, as in `komando facts`). On an OS past
   end of life the list can be empty while the server is not safe: the
   repositories publish no new fixes for it. komando then says so in
@@ -206,7 +212,10 @@ komando pkg upgrade @web --security --keep-going # do not stop at a server that 
   follows the server's own settings), otherwise `apt-get install
   --only-upgrade` of the listed packages; changed config files are kept.
   If the server's unattended-upgrades is set to reboot by itself, komando
-  uses apt-get instead. dnf and yum run `upgrade --security`.
+  uses apt-get instead. dnf and yum run `upgrade --security`, zypper
+  `patch --category security`. On a server without security notices, and
+  on pacman (Arch supports no partial upgrades), it stops with
+  `SECURITY_UNSUPPORTED` and changes nothing: use `komando pkg upgrade`.
 - needrestart does not restart services during the run. The result lists
   the services that need a restart (`services_need_restart`): restart them
   with `komando svc restart` when it suits you.
@@ -366,9 +375,9 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 - On apt servers only, `pkg rm` and `pkg upgrade --security` check whether
   an essential package would go with another one; other package managers
   are not checked this way.
-- `pkg security` lists nothing on dnf/yum for repositories without security
-  notices (for example CentOS). apk, zypper and pacman servers are listed
-  in `meta.skipped`: use `pkg upgrade` there.
+- `pkg upgrade --security` does not run on apk, pacman, or dnf/yum
+  repositories without security notices: komando cannot pick only the
+  security updates there.
 - `pkg` takes exact package names only; for a local `.deb` or `.rpm`, use
   `upload` and `exec`.
 - komando never reboots as part of a patch round.

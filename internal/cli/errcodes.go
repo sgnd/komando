@@ -212,7 +212,7 @@ var errorCodes = []errorCode{
 	{"SECRET_MISMATCH", 1, "the value is not the one stored in …", "if the stored one is wrong, store the right one with `komando secret set …`"},
 	{"SECRET_NOT_FOUND", 3, "no secret named …", "see them with `komando secret list`"},
 	{"SECRET_UNRESOLVED", 3, "registry CA …: …", "store the CA certificate with `komando secret set NAME < ca.crt`"},
-	{"SECURITY_UNSUPPORTED", 3, "komando picks security updates on apt and dnf/yum servers only; … uses …", "use `komando pkg upgrade TARGET` on these servers"},
+	{"SECURITY_UNSUPPORTED", 3, "no package manager komando knows on …", "komando knows apt, dnf, yum, zypper, apk and pacman"},
 	{"SELF_NOT_FOUND", 1, "cannot find the komando program that is running: …", "run komando by its full path, for example /usr/local/bin/komando update"},
 	{"SENSITIVE_FILE", 6, "… is …, not …", "use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`)"},
 	{"SESSION_NOT_FOUND", 3, "no session …", "list sessions with `komando db activity CONN --all`"},
