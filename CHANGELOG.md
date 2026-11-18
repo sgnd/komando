@@ -50,6 +50,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- An old copy of `runtime.json` put back no longer opens (C115). store.db keeps a mark that changes whenever a VPN session or a held server login starts, ends or changes, and `runtime.json` must carry the same mark; one that does not is read as empty, like a plain one, so its sessions are found or made again. Marking a VPN used does not change the mark. Folders from before keep working: neither file has a mark until the first session change.
 - The release signature covers the version (C114). From 0.15.0 on, the first line of `checksums.txt` is `komando-release vX.Y.Z YYYY-MM-DD`, signed with the rest. `komando update` and `install.sh` install a release only as the version that line names, so the signed files of an older release put under a newer tag, or served as the newest, stop with `RELEASE_SIGNATURE_INVALID` (exit 2) and nothing is changed; a release after 0.14.1 without the line stops the same way. 0.14.0 and 0.14.1, signed before the line, still install when asked for by version. `install.sh` prints the version and day it installs. Known limit: a real, older release served as the newest is not detected (`update` never goes back on its own). For releases: `releasesig sign` takes the tag and refuses a `checksums.txt` that does not name it.
 - `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
   read-only recipes) is now a strict allowlist on every server: the
