@@ -69,7 +69,8 @@ How the login works:
   language, screen, temp folder) of its own environment: what the program
   needs beyond those goes in the kubeconfig's `env`. If the file is one
   that programs of your user can replace (Homebrew's `bin`,
-  `~/.local/bin`) and its contents changed, for example after an update,
+  `~/.local/bin`, or on Windows a folder under Program Files that an
+  installer let every user write) and its contents changed, for example after an update,
   agents are asked again until you import the kubeconfig again.
 - An import an AI agent made with your yes trusts nothing for later: its
   cluster commands ask you each time, and after your yes the program runs
