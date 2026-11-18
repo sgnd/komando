@@ -239,7 +239,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SSH_GATE_SYNTAX` | 2 | an ssh-gate key sent more than one komando command, or a character a shell would expand (the message names it) | send one komando command; put an argument with ; \| & $ or backquotes in single quotes ($ and backquotes are refused even in double quotes) |
 | `SSH_KEY_NOT_FOUND` | 3 | no SSH key named … | see them with `komando key list` |
 | `SSM_FAILED` | 4 | AWS Session Manager could not open a session to the instance | check the instance ID, its SSM agent and your AWS login (`komando login aws`) |
-| `STATE_CORRUPT` | 1 | nothing was changed: … | the key does not open every record: restore the komando folder from a backup |
+| `STATE_CORRUPT` | 1 | nothing was changed: … | the key does not open every record: restore the komando folder from a backup; if komando then calls it an older copy, run `komando doctor --accept-old-copy` |
 | `STORAGE_AUTH` | 4 | an azblob conn needs the storage account's key or a SAS token | store the account key or a SAS token with `komando secret set NAME` and pass --password-ref secret:NAME |
 | `STORAGE_CONNECT` | 4 | komando could not reach the bucket or file server | run `komando test TARGET` to check reachability |
 | `STORAGE_ERROR` | 5 | the file is in use | another program has the file open; close it there and run it again |

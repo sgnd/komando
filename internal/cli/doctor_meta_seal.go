@@ -52,8 +52,11 @@ func resealMeta(cl *call) error {
 		return cl.policyStop(out.Errf(out.ExitError, "CANCELLED", "run `komando doctor --reseal-meta` again to be asked again", "%s", "nothing was changed in "+store.Home()))
 	}
 	meta, err := store.ResealMeta()
-	if errors.Is(err, vault.ErrLocked) || errors.Is(err, vault.ErrKey) {
-		return err // no key to check with: the usual words for that
+	var oe *out.Error
+	if errors.Is(err, vault.ErrLocked) || errors.Is(err, vault.ErrKey) || errors.As(err, &oe) {
+		// no key to check with, or an older copy than the keychain
+		// remembers: the usual words for those
+		return err
 	}
 	if err != nil {
 		return out.Errf(out.ExitError, "STATE_CORRUPT", "the key does not open every record: restore the komando folder from a backup; if komando then calls it an older copy, run `komando doctor --accept-old-copy`", "nothing was changed: %v", err)

@@ -88,13 +88,13 @@ func TestResealMeta(t *testing.T) {
 	}
 	d.Close()
 	rawMeta(t, path, `INSERT INTO meta(k,v) VALUES('note','x')`)
-	if _, err := ResealMeta(ctx, path, key(t, 2)); err == nil {
+	if _, err := ResealMeta(ctx, path, key(t, 2), nil); err == nil {
 		t.Fatal("the wrong key resealed")
 	}
 	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrMetaTampered) {
 		t.Fatalf("the wrong key changed something: %v", err)
 	}
-	m, err := ResealMeta(ctx, path, key(t, 1))
+	m, err := ResealMeta(ctx, path, key(t, 1), nil)
 	if err != nil || m["note"] != "x" {
 		t.Fatalf("reseal: %v %v", m, err)
 	}

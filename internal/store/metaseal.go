@@ -50,7 +50,9 @@ func SealMeta() (bool, error) {
 
 // ResealMeta is doctor --reseal-meta: this home's store is closed, opened
 // with its key without comparing its meta table, every record checked,
-// and its meta sealed again. It returns the meta it kept.
+// and its meta sealed again. It returns the meta it kept. An older copy
+// than the keychain remembers is not resealed: the write would raise its
+// change count, and it could pass for the newest.
 func ResealMeta() (map[string]string, error) {
 	path := DBPath()
 	meta, err := sealdb.Peek(context.Background(), path)
@@ -69,5 +71,10 @@ func ResealMeta() (map[string]string, error) {
 		return nil, err
 	}
 	Close()
-	return sealdb.ResealMeta(context.Background(), path, k)
+	return sealdb.ResealMeta(context.Background(), path, k, func(d *sealdb.DB) error {
+		// a store it does not find checked has its writes stopped
+		_, raise, err := checkGeneration(d, meta, false)
+		d.OnGeneration = committer(raise)
+		return err
+	})
 }

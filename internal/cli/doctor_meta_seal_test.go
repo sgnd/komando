@@ -95,8 +95,26 @@ func TestMetaTamperedNeedsAPerson(t *testing.T) {
 	if _, e := invRun(t, "doctor", "--reseal-meta"); e == nil || e.Code != "NEEDS_PERSON" {
 		t.Fatalf("a script resealed: %+v", e)
 	}
-	saved, savedIn := tcl.terminal, tcl.stdin
-	t.Cleanup(func() { tcl.terminal, tcl.stdin = saved, savedIn })
+	saved, savedIn, savedErr := tcl.terminal, tcl.stdin, tcl.out.Err
+	t.Cleanup(func() { tcl.terminal, tcl.stdin, tcl.out.Err = saved, savedIn, savedErr })
+	var asked bytes.Buffer
+	tcl.out.Err = &asked // the question, kept out of the test's output
+	// an agent at a terminal is no person
+	setCallerEnv(t, "CLAUDECODE", "1")
+	tcl.terminal, tcl.stdin = true, strings.NewReader("y\n")
+	if _, e := invRun(t, "doctor", "--reseal-meta"); e == nil || e.Code != "NEEDS_PERSON" {
+		t.Fatalf("an agent resealed: %+v", e)
+	}
+	noAgent(t)
+	// a no changes nothing
+	tcl.terminal, tcl.stdin = true, strings.NewReader("n\n")
+	if _, e := invRun(t, "doctor", "--reseal-meta"); e == nil || e.Code != "CANCELLED" || !strings.Contains(asked.String(), "seal its settings row") {
+		t.Fatalf("a no: %+v, asked %q", e, asked.String())
+	}
+	tcl.terminal = saved
+	if _, e := invRun(t, "list"); e == nil || e.Code != "STATE_CORRUPT" {
+		t.Fatalf("list after a no: %+v", e)
+	}
 	// without the passphrase there is no key to check with: that is not
 	// a damaged store
 	t.Setenv("KOMANDO_VAULT_PASS", "")

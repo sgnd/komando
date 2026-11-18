@@ -99,13 +99,19 @@ func (d *DB) MetaSealed(ctx context.Context) (bool, error) {
 // that key opens every record and audit entry (so the key, and the meta
 // it was made from, are the right ones), and seals the meta table as it
 // is now. It returns the meta it sealed. A record that does not open
-// stops it and changes nothing.
-func ResealMeta(ctx context.Context, path string, key *sealrow.Key) (map[string]string, error) {
+// stops it and changes nothing. check, when set, runs on the opened store
+// before anything is written; its error stops the reseal.
+func ResealMeta(ctx context.Context, path string, key *sealrow.Key, check func(*DB) error) (map[string]string, error) {
 	d, err := openFile(ctx, path, key, false, true)
 	if err != nil {
 		return nil, err
 	}
 	defer d.Close()
+	if check != nil {
+		if err := check(d); err != nil {
+			return nil, err
+		}
+	}
 	meta := map[string]string{}
 	err = d.Update(ctx, func(tx *Tx) error {
 		ids, err := tx.recordIDs()

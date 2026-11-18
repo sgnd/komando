@@ -224,7 +224,8 @@ its highlights; the sections below them give the details. Versions follow
 - The store's readable settings row (key mode, salt, scrypt cost) has a
   sealed copy (C08). A change made outside komando stops every command
   with `STATE_CORRUPT`; `komando doctor --reseal-meta` (a person only)
-  checks the store with your key and seals the row again. `doctor`
+  checks the store with your key and seals the row again; it does not
+  write into an older copy than the keychain remembers. `doctor`
   reports the key mode and scrypt cost only once the key opened the
   store. A store from an older komando gets the copy at the first command
   a person runs at a terminal, never from an AI agent's or a script's.
@@ -482,7 +483,6 @@ its highlights; the sections below them give the details. Versions follow
   `sealed:`; the record's ID is made only when the key is written) and
   the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
   No key is made (C08).
-
 - An upload to a WebDAV conn that is cut off partway (a dropped link,
   Ctrl-C, or a copy komando refuses) no longer replaces the file there with
   the part that arrived, or leaves a part under a new name: it goes to a

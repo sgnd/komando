@@ -344,7 +344,9 @@ komando doctor --reseal-meta
 It opens the store with your key, checks that the key opens every record,
 shows the key mode and scrypt cost it keeps, and seals that row again. If
 your key does not open the store, it changes nothing: restore the folder
-from a backup. A store made by an older komando gets the sealed copy the
+from a backup. An older copy than the keychain remembers is not sealed
+again (`STORE_OLD_COPY`): accept it first, if you restored it on purpose.
+A store made by an older komando gets the sealed copy the
 first time you run any komando command in your own terminal (one line on
 stderr says so); an AI agent's or a script's command never writes it, and
 until then `komando doctor` warns.
