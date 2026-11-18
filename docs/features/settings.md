@@ -92,6 +92,11 @@ On a Linux or BSD desktop the code is required: another of your programs
 could press the window's buttons there, so without the code komando opens
 no window and the agent asks you to run the command yourself.
 
+Each code works once. komando remembers, in its sealed store, the last
+code it took; the same code, or an older one, does not allow a second
+window, even within the same 30 seconds. Wait for the next code your app
+shows. The code you type while turning it on counts as used too.
+
 Only a person at a terminal can turn it on: the secret is shown once,
 there. Turning it off is a yes like any other safety change, so for an AI
 agent it needs the window and the code too. `komando config show` says
