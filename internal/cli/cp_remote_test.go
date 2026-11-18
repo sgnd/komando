@@ -335,3 +335,105 @@ func TestRemoteCopyFolderNeedsR(t *testing.T) {
 		t.Fatalf("a folder without -r: %v (exit %d, hint %q)", err, e.Exit, e.Hint)
 	}
 }
+
+// For an AI agent a copy between two remote places stops on everything a
+// download would hide (C120): a secret by its shape, not only a vault
+// value, and personal data where the source hides it. Nothing is put in
+// place; a file with neither is copied as it is.
+func TestRemoteCopyStopsHiddenValuesForAgents(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		personal bool
+		body     string
+	}{
+		"a secret by its shape":       {false, "DB_PASSWORD=Sup3rS3cretPw\n"},
+		"personal data, where hidden": {true, "name,email\nAlice,alice@example.com\n"},
+	} {
+		tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true, Personal: tc.personal}
+		one := &memBucket{objs: map[string]string{"a.txt": tc.body}}
+		two := &memBucket{objs: map[string]string{}}
+		src := &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}
+		dst := &copyEnd{conn: &store.Conn{Name: "bk2"}, b: two}
+		_, err := remoteCopy(tcl, ctx, src, dst, "a.txt", "a.txt", cpOpts{})
+		if e := toErr(err); e == nil || e.Code != "SENSITIVE_FILE" || len(two.objs) != 0 {
+			t.Errorf("%s: %v, copied %v", name, err, two.objs)
+		}
+	}
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true, Personal: false}
+	one := &memBucket{objs: map[string]string{"a.txt": "name,email\nAlice,alice@example.com\n"}}
+	two := &memBucket{objs: map[string]string{}}
+	if _, err := remoteCopy(tcl, ctx, &copyEnd{conn: &store.Conn{Name: "bk"}, b: one}, &copyEnd{conn: &store.Conn{Name: "bk2"}, b: two}, "a.txt", "a.txt", cpOpts{}); err != nil || two.objs["a.txt"] != one.objs["a.txt"] {
+		t.Errorf("personal data where the source does not hide it: %v %v", err, two.objs)
+	}
+}
+
+// The command turns personal data hiding on for the copy's source, as
+// download does for its server or conn (mask_personal on the conn).
+func TestRemoteCopyPersonalFromTheSource(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "bk", "s3://AKIAEXAMPLE@shop-dev/backups?region=eu-west-1")
+	mustRun(t, "conn", "add", "bk2", "s3://AKIAEXAMPLE@shop-dev/other?region=eu-west-1")
+	mustRun(t, "conn", "edit", "bk", "--option", "mask_personal=on")
+	one := &memBucket{objs: map[string]string{"people.csv": "name,email\nAlice,alice@example.com\n"}}
+	two := &memBucket{objs: map[string]string{}}
+	withBuckets(t, map[string]*memBucket{"bk": one, "bk2": two})
+	asAgent(t, false, false)
+	wantCode(t, "SENSITIVE_FILE", "cp", "bk:people.csv", "bk2:people.csv")
+	if len(two.objs) != 0 {
+		t.Errorf("copied: %v", two.objs)
+	}
+}
+
+// fixedReader hands out its bytes n at a time, so a test controls where
+// a window ends.
+type fixedReader struct {
+	b []byte
+	n int
+}
+
+func (f *fixedReader) Read(p []byte) (int, error) {
+	if len(f.b) == 0 {
+		return 0, io.EOF
+	}
+	k := copy(p[:min(len(p), f.n)], f.b)
+	f.b = f.b[k:]
+	return k, nil
+}
+
+// A vault value longer than the 4 KiB overlap, more than 4 KiB of it
+// before a 64 KiB window edge, is still found: the vault scan keeps as
+// much as its longest value.
+func TestRemoteCopyFindsALongVaultValueAcrossWindows(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	long := strings.Repeat("plain words ", 450) // 5400 bytes no shape rule matches
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true,
+		Secrets: func() map[string]string { return map[string]string{"cert": long} }}
+	body := strings.Repeat(".", scanStep-5<<10) + long + strings.Repeat(".", 10<<10)
+	r := agentScan(tcl, &fixedReader{b: []byte(body), n: scanStep}, "bk:a.txt")
+	_, err := io.Copy(io.Discard, r)
+	if e := toErr(err); e == nil || e.Code != "SENSITIVE_FILE" {
+		t.Fatalf("a 5400-byte vault value across a window edge: %v", err)
+	}
+}
+
+// With --continue the bytes that are added are scanned as they are read,
+// not only in the first pass: a source that changed between the two reads
+// cannot bring a hidden value in (scannedEnd).
+func TestRemoteCopyContinueScansWhatItAdds(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true,
+		Secrets: func() map[string]string { return map[string]string{"db": "vault-value-77"} }}
+	src := &memEnd{name: "bk:a.txt", b: []byte("clean start, then vault-value-77")}
+	r, err := scannedEnd{resumeEnd: src, cl: tcl}.openAt(context.Background(), 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if _, err := io.Copy(io.Discard, r); toErr(err) == nil || toErr(err).Code != "SENSITIVE_FILE" {
+		t.Fatalf("the added part holds a vault value: %v", err)
+	}
+}
