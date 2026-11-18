@@ -31,6 +31,23 @@ Not sure? Ask, we are happy to help. This page is a summary, the
 - Priority support and security notices, if you choose a support plan.
 - Help from the people who build komando.
 
+## PT Efolusi Dunia Teknologi
+
+Sugeng Agung Suganda, who holds the copyright in komando, has given
+PT Efolusi Dunia Teknologi ([efolusi.com](https://efolusi.com)) a
+commercial license to komando.
+
+Under that license, PT Efolusi Dunia Teknologi may:
+
+- build komando, or part of it, into paid products and services, such as apps
+  and a cloud service;
+- keep the source code of those products closed;
+- release them without publishing their source code under the AGPL.
+
+The komando in this repository stays open source under the AGPL-3.0.
+Contributions are covered by the [CLA](CLA.md), which lets the copyright
+holder license them this way.
+
 ## Contact
 
 Email **sugandaletters@gmail.com** with your company name, how you plan to
