@@ -301,6 +301,8 @@ type syncOpts struct {
 	delete, onlyNew bool
 	sudo            bool // servers: write and remove as root (sudoSftpSide)
 	exclude         []string
+	emptied         []string // --emptied: folders the source may list as empty (C124)
+	multi           bool     // the destination is several servers
 }
 
 type syncAction struct {
@@ -324,23 +326,6 @@ type syncResult struct {
 	Actions   []syncAction `json:"actions"`
 	More      bool         `json:"more_actions,omitempty"`
 	DryRun    bool         `json:"dry_run,omitempty"`
-}
-
-// excluded matches a path, or any of its folders, against the patterns
-// (shell globs: *.log, node_modules, .git).
-func excluded(rel string, patterns []string) bool {
-	parts := strings.Split(rel, "/")
-	for _, p := range patterns {
-		if ok, _ := path.Match(p, rel); ok {
-			return true
-		}
-		for _, part := range parts {
-			if ok, _ := path.Match(p, part); ok {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // planSync decides what to do with every path. A file is sent when the
@@ -406,6 +391,11 @@ func runSync(cl *call, ctx context.Context, src, dst syncSide, srcName, dstName 
 			"%s has no files to sync, so --delete would remove everything in %s; nothing was deleted", srcName, dstName)
 	}
 	acts := planSync(sf, df, o)
+	if o.delete {
+		if err := guardEmptied(cl, emptiedFolders(sf, df, acts, o.exclude), o.emptied, o.multi, srcName, dstName); err != nil {
+			return nil, err
+		}
+	}
 	for _, a := range acts {
 		switch a.Op {
 		case "copy":
@@ -514,6 +504,11 @@ newer in SRC are copied; the rest are left alone. --delete also removes files SR
 (that needs --allow-dangerous). --exclude skips names or paths (shell globs,
 repeatable). Try --dry-run first: it lists every file it would touch.
 
+--delete stops before it empties a folder that SRC lists as empty while
+DST has files in it: a listing cut short looks like that. A person types
+the folder to go on; a script names each folder it means with --emptied
+(--allow-dangerous alone does not do), or removes the folder on DST first.
+
 --sudo writes on the servers as root, for a folder the SSH user cannot
 write (/etc/nginx): each file goes in as ` + "`upload --sudo`" + ` puts one, staged
 privately and checked by root, keeping the owner of a file that is there;
@@ -531,6 +526,7 @@ the SSH user still needs to read the folder.`,
 		}),
 	}
 	c.Flags().BoolVar(&o.delete, "delete", false, "also remove files that SRC does not have (needs --allow-dangerous)")
+	c.Flags().StringArrayVar(&o.emptied, "emptied", nil, "with --delete: this folder of SRC is empty on purpose, so its files go from DST (repeatable)")
 	c.Flags().StringArrayVar(&o.exclude, "exclude", nil, "skip names or paths matching this glob (repeatable), like .git, '*.log'")
 	c.Flags().BoolVarP(&o.sudo, "sudo", "s", false, "write on the servers as root, file by file as upload --sudo does (a folder here to servers)")
 
@@ -540,6 +536,9 @@ the SSH user still needs to read the folder.`,
 
 // runSyncArgs is sync: up or down, by which side is remote.
 func runSyncArgs(cl *call, ctx context.Context, args []string, o syncOpts) error {
+	if err := checkEmptied(o); err != nil {
+		return err
+	}
 	srcT, srcP, srcRemote := splitArg(cl, args[0])
 	dstT, dstP, dstRemote := splitArg(cl, args[1])
 	switch {
@@ -563,17 +562,6 @@ func runSyncArgs(cl *call, ctx context.Context, args []string, o syncOpts) error
 	return colonHint(syncDown(cl, ctx, "sync", srcT, srcP, dstP, o), args[0])
 }
 
-// guardDelete: --delete removes files for good, like `storage rm`. A person
-// at the terminal confirms by typing the destination.
-// Under --dry-run the stop goes to meta.would_be_blocked.
-func guardDelete(cl *call, o syncOpts, dst string) error {
-	if o.delete && !cl.dangerOK() && !confirmDangerous(cl, []string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
-		return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
-			"--delete removes files in the destination that the source does not have"))
-	}
-	return nil
-}
-
 // syncUp sends a local folder to servers or to a storage conn.
 func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o syncOpts) error {
 	storage, err := fileTarget(cl, target)
@@ -584,6 +572,9 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 		return err
 	}
 	if err := guardLocalRead(cl, local); err != nil {
+		return err
+	}
+	if err := noteUpload(cl, local, o.exclude); err != nil {
 		return err
 	}
 	var src syncSide = localSide{cl: cl, root: local}
@@ -618,6 +609,7 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 		return err
 	}
 	progressFrom(ctx).eachServer(len(hosts)) // each server needs its own files
+	o.multi = len(hosts) > 1
 	res := fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
 		ctx, settle := progressServer(ctx)
 		defer settle()

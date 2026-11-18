@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -213,8 +212,7 @@ func shownKeys(cl *call, what string, why []string) []string {
 		keys = append(keys, what)
 	}
 	if cl.body != nil {
-		sum := sha256.Sum256(cl.body.body)
-		keys = append(keys, "body "+cl.body.label+" "+hex.EncodeToString(sum[:]))
+		keys = append(keys, "body "+cl.body.label+" "+hex.EncodeToString(cl.body.sum[:]))
 	}
 	for _, w := range why {
 		if w = strings.TrimSpace(w); w != "" {
@@ -232,8 +230,14 @@ func (cl *call) askPerson(text string) (allowed, shown bool) {
 	if secret := approvalCodeSecret(); secret != nil {
 		// a second factor: the code from the person's authenticator app
 		code, pressed, ok := askCodeOnScreen(cl, text)
-		allowed = pressed && len(secret) > 0 && codeOK(secret, code, time.Now())
-		if pressed && !allowed {
+		used := false
+		if pressed && len(secret) > 0 {
+			allowed, used = codeAccepted(secret, code, time.Now())
+		}
+		switch {
+		case used:
+			cl.sess.SetWhy("code-used")
+		case pressed && !allowed:
 			cl.sess.SetWhy("wrong-code")
 		}
 		return allowed, ok
@@ -384,6 +388,8 @@ func approvalHint(cl *call, e *out.Error) {
 		e.Hint = "nobody answered komando's window within 2 minutes (the user may be away); ask the user whether to try again, and do not retry before they say so"
 	case "wrong-code":
 		e.Hint = "the code typed in komando's window was wrong or missing; ask the user whether to try again"
+	case "code-used":
+		e.Hint = "the code typed in komando's window was already used for another approval; a code works once. Ask the user whether to try again with the next code their app shows"
 	case "needs-code":
 		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
 	case "no-screen":

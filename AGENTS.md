@@ -46,7 +46,8 @@ under a pseudo-terminal and komando does not know your agent, set
    2 minutes or runs over a shaky link: a job survives a dropped connection.
 7. Never add `--allow-dangerous`, `--yes` or `--reveal` on your own. If a
    command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
-   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`,
+   `DECLINED`, `EMPTY_FOLDER_CONFIRM_REQUIRED`, `NEEDS_PERSON`, `OPEN_BIND`,
+   `POLICY_BLOCKED`,
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
    `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,
