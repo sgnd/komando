@@ -303,8 +303,8 @@ risky verbs also need --allow-dangerous.`,
 				return runOne(cl, cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
 			}
 			// under --dry-run every stop only lands in meta.would_be_blocked
-			if err := guardConns(cl, st, []*store.Conn{t.conn}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{reason}}); err != nil {
-				return execInstead(err, verb)
+			if err := guardKubectlRun(cl, st, t.conn, risk, verb, reason, args[1:]); err != nil {
+				return err
 			}
 			plan := map[string]any{"conn": t.conn.Name, "dry_run": true, "would_run": "kubectl " + strings.Join(redactArgs(args[1:]), " ")}
 			if cl.flags.dryRun && risk > driver.RiskRead && !serverDryRun(args[1:]) {

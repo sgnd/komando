@@ -85,3 +85,25 @@ func TestKeys(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestCheckVersion(t *testing.T) {
+	sums := "abc  komando_linux_amd64.tar.gz\n"
+	for _, c := range []struct {
+		sums, tag string
+		want      error
+	}{
+		{VersionLine("v0.15.0", "2026-11-20") + sums, "v0.15.0", nil},
+		{VersionLine("v0.14.1", "2026-11-14") + sums, "v0.16.0", ErrOtherVersion}, // an old release under a new tag
+		{sums, "v0.16.0", ErrNoVersion},                                           // a pre-C114 release under a new tag
+		{sums, "v0.14.1", nil},                                                    // signed before the version line
+		{sums, "v0.14.0", nil},
+		{"komando-release v0.15.0\n" + sums, "v0.15.0", ErrNoVersion}, // no day: not a version line
+	} {
+		if err := CheckVersion([]byte(c.sums), c.tag); !errors.Is(err, c.want) {
+			t.Errorf("CheckVersion(%q, %s) = %v, want %v", c.sums, c.tag, err, c.want)
+		}
+	}
+	if tag, day, ok := Version([]byte(VersionLine("v1.2.3", "2026-01-02"))); !ok || tag != "v1.2.3" || day != "2026-01-02" {
+		t.Errorf("Version = %s %s %v", tag, day, ok)
+	}
+}
