@@ -492,6 +492,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `key gen --dry-run` shows where the real run keeps the key (`path`
+  `sealed:`; the record's ID is made only when the key is written) and
+  the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
+  No key is made (C08).
+
 - An upload to a WebDAV conn that is cut off partway (a dropped link,
   Ctrl-C, or a copy komando refuses) no longer replaces the file there with
   the part that arrived, or leaves a part under a new name: it goes to a
