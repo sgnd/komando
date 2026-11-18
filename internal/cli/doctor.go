@@ -213,11 +213,8 @@ password, repeat another conn or belong to a protected server without being
 protected. ✗ lines need fixing (exit 1); ! lines are worth a look.`,
 		Args: cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, _ []string) error {
-			if resealMetaFlag {
-				return resealMeta(cl)
-			}
-			if acceptOld {
-				return acceptOldCopy(cl)
+			if resealMetaFlag || acceptOld {
+				return doctorRepair(cl, resealMetaFlag)
 			}
 			defer lookAtOldCopy(cl)() // doctor must be able to say what is wrong
 			r := doctorReport{optional: map[string]bool{"ssh_agent": true, "openssh_client": true, "hosts": true, "agent_skill": true, "agent_guard": true}, width: textWidth(cl)}

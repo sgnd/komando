@@ -18,8 +18,17 @@ func carryMetaSeal(cl *call) {
 		return
 	}
 	if wrote, err := store.SealMeta(); err == nil && wrote {
-		fmt.Fprintln(cl.out.Err, "komando: sealed the store's settings row (key mode, salt, scrypt cost), once: a change to it made outside komando is now noticed")
+		fmt.Fprintln(cl.out.Err, "komando: sealed the store's settings row (key mode, salt, scrypt cost), once\nkomando: a change to it made outside komando is now noticed")
 	}
+}
+
+// doctorRepair is doctor's two repairs for a person: --reseal-meta, or
+// else --accept-old-copy.
+func doctorRepair(cl *call, reseal bool) error {
+	if reseal {
+		return resealMeta(cl)
+	}
+	return acceptOldCopy(cl)
 }
 
 // metaSealCheck is doctor's line about the sealed copy of the settings row.
