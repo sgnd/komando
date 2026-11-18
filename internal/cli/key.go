@@ -66,6 +66,17 @@ func checkKeyType(typ string, bits int) error {
 	return nil
 }
 
+// sshKeyType is the SSH type of the key newSigner makes for typ and bits.
+func sshKeyType(typ string, bits int) string {
+	switch typ {
+	case "rsa":
+		return ssh.KeyAlgoRSA
+	case "ecdsa":
+		return map[int]string{0: ssh.KeyAlgoECDSA256, 256: ssh.KeyAlgoECDSA256, 384: ssh.KeyAlgoECDSA384, 521: ssh.KeyAlgoECDSA521}[bits]
+	}
+	return ssh.KeyAlgoED25519
+}
+
 func newSigner(typ string, bits int) (crypto.Signer, error) {
 	if err := checkKeyType(typ, bits); err != nil {
 		return nil, err
@@ -121,7 +132,8 @@ bits.`,
 				if _, ok := st.Keys[name]; ok {
 					return keyExists(name)
 				}
-				k := &store.Key{Name: name, Type: typ, Managed: true}
+				// where and what the real run makes, without making a key
+				k := &store.Key{Name: name, Path: store.SealedKeyPrefix, Type: sshKeyType(typ, bits), Managed: true}
 				cl.out.Print("key.gen", keyResult{Key: k, Action: "would_add"}, nil)
 				return nil
 			}
