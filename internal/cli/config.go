@@ -301,7 +301,9 @@ func configCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res := configShow{Settings: st.Settings, Keys: []configRow{}, ApprovalCode: map[bool]string{true: "on", false: "off"}[st.Settings.ApprovalCode], Home: store.Home(),
+			shown := st.Settings
+			shown.ApprovalCodeStep = 0 // komando's own bookkeeping, not a setting
+			res := configShow{Settings: shown, Keys: []configRow{}, ApprovalCode: map[bool]string{true: "on", false: "off"}[st.Settings.ApprovalCode], Home: store.Home(),
 				Files: dataFiles()}
 			for _, s := range settings {
 				res.Keys = append(res.Keys, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
