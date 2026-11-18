@@ -9,6 +9,27 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando pkg security` works on zypper (security patches; `pkg upgrade
+  --security` runs `zypper patch --category security`), and on pacman
+  with `arch-audit`. Where the repositories publish no security notices
+  (apk, pacman without `arch-audit`, dnf/yum repositories such as
+  CentOS's) the list is no longer silently empty: the new
+  `security_notices` field is false, `unclassified_updates` lists every
+  pending update, and a warning says why. `pkg upgrade --security` stops
+  there with `SECURITY_UNSUPPORTED` (exit 3) and changes nothing; apk,
+  zypper and pacman servers are no longer in `meta.skipped`.
+
+- `--user-units` on `komando svc status`, `list`, `start`, `stop`, `restart`,
+  `reload`, `enable`, `disable` and `daemon-reload` manages the login
+  user's own units (`systemctl --user`), without sudo. A user with no
+  systemd manager running stops with the new code `NO_USER_MANAGER`
+  (exit 3); the hint names `loginctl enable-linger USER`.
+- `komando docker prune --volumes` takes `--older-than`. Docker has no age
+  filter for volumes, so komando prunes with the age filter, then removes
+  only the unused anonymous volumes made before the cut-off, by name; the
+  dry run lists exactly those, and the answer lists them in
+  `volumes_removed`. A volume whose age komando cannot read stays. A dry
+  run with `--volumes` now always has `volumes`, empty when none would go.
 - MongoDB conns take `komando db kill CONN OPID` (stops the operation
   `db activity` shows, with `killOp`; `--dry-run` shows it first; no
   `--session`), `komando db user list` (the users of every database, with
@@ -502,6 +523,11 @@ its highlights; the sections below them give the details. Versions follow
   `--image` with spaces or unprintable characters.
 
 ### Fixed
+
+- `key gen --dry-run` shows where the real run keeps the key (`path`
+  `sealed:`; the record's ID is made only when the key is written) and
+  the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
+  No key is made (C08).
 
 - An upload to a WebDAV conn that is cut off partway (a dropped link,
   Ctrl-C, or a copy komando refuses) no longer replaces the file there with

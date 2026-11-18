@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
 	"github.com/sgnd/komando/internal/store"
 )
@@ -55,6 +56,54 @@ func TestSvcActionResult(t *testing.T) {
 	if s := svcScript("restart", []string{"web"}, false, 7); !strings.Contains(s, "-lt 7") {
 		t.Fatalf("wait loop missing:\n%s", s)
 	}
+}
+
+// --user-units: the script talks to the login user's own manager, and a user
+// with none running gets NO_USER_MANAGER.
+func TestSvcUser(t *testing.T) {
+	s := svcScope(svcScript("restart", []string{"web"}, false, 0), true)
+	if !strings.HasPrefix(s, noSystemd+userManager) || !strings.Contains(s, `systemctl() { command systemctl --user "$@"; }`) || !strings.Contains(s, "XDG_RUNTIME_DIR") {
+		t.Fatalf("script:\n%s", s)
+	}
+	if svcScope("x", false) != "x" {
+		t.Error("without --user the script stays")
+	}
+	for _, parse := range []func() *out.Error{
+		func() *out.Error { _, e := svcResult(&sshx.RunResult{Stdout: "#komando:no-user-manager\n"}); return e },
+		func() *out.Error {
+			_, e := svcListResult(&sshx.RunResult{Stdout: "#komando:no-user-manager\n"})
+			return e
+		},
+		func() *out.Error {
+			_, e := daemonReloadResult(&sshx.RunResult{Stdout: "#komando:no-user-manager\n"})
+			return e
+		},
+	} {
+		if e := parse(); e == nil || e.Code != "NO_USER_MANAGER" || e.Exit != 3 || !strings.Contains(e.Hint, "enable-linger") {
+			t.Errorf("%+v", e)
+		}
+	}
+
+	srv := startFakeServer(t)
+	srv.reply("Id=web.service\nLoadState=loaded\nActiveState=active\n#komando:rc=0\n")
+	pre := []string{"--host-key-policy", "accept-new"}
+	if _, e := invRun(t, append(pre, "svc", "restart", "dev", "web", "--user-units", "--yes")...); e != nil {
+		t.Fatalf("%+v", e)
+	}
+	if _, e := invRun(t, append(pre, "svc", "status", "dev", "web", "--user-units")...); e != nil {
+		t.Fatalf("%+v", e)
+	}
+	ex := srv.take()
+	if len(ex) != 2 {
+		t.Fatalf("execs %v", ex)
+	}
+	for _, x := range ex {
+		if !strings.Contains(x.cmd, "command systemctl --user") || strings.Contains(x.cmd, "sudo") {
+			t.Errorf("--user-units runs the user's manager, without sudo: %s", x.cmd)
+		}
+	}
+	wantCode(t, "USAGE", append(pre, "svc", "restart", "dev", "web", "--user-units", "--no-sudo")...)
+	wantCode(t, "USAGE", append(pre, "svc", "daemon-reload", "dev", "--user-units", "--no-sudo")...)
 }
 
 func TestLogOptsCheck(t *testing.T) {
