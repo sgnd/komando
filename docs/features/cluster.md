@@ -422,7 +422,8 @@ is kubectl's namespace flag.
   (`FILE_TOO_LARGE`): komando checks every name before it writes any, so
   it holds the copy in memory. For an AI agent it copies as `download`
   does: a file that is a secret by its name (`.env`, a private key) is
-  refused (`SENSITIVE_FILE`), a text file is written with its secret
+  refused (`SENSITIVE_FILE`; when SRC itself is named so, before komando
+  reads the pod), a text file is written with its secret
   values `[hidden]`, and a binary or larger file that holds a vault value
   is refused; nothing is written when any file is refused.
 - On Swarm, `docker run`, `create` and `service create|update` that give a
