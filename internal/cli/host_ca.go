@@ -48,6 +48,10 @@ certificate from a trusted CA, for the name komando dials, is trusted
 without a pin. Adding a CA trusts every server it ever signs, so only a
 person at a terminal can add one. Removing one, and putting a key on the
 never-trust list, anyone may do.`,
+		Example: `  komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
+  komando host ca list
+  komando host ca rm corp
+  komando host ca revoke --key old-ca.pub`,
 	}
 	c.AddCommand(hostCAListCmd(), hostCAAddCmd(), hostCARmCmd(), hostCARevokeCmd())
 	return c
@@ -56,10 +60,11 @@ never-trust list, anyone may do.`,
 func hostCAListCmd() *cobra.Command {
 	var limit int
 	c := &cobra.Command{
-		Use:     "list",
-		Short:   "List the trusted server CAs",
-		Example: `  komando host ca list`,
-		Args:    cobra.NoArgs,
+		Use:   "list",
+		Short: "List the trusted server CAs",
+		Example: `  komando host ca list
+  komando host ca list -o json   # what the apps read`,
+		Args: cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			cas, err := sshx.HostCAs(cmd.Context())
 			if err != nil {
@@ -126,12 +131,12 @@ func caPatterns(raw []string) ([]string, error) {
 		}
 		n, err := sshx.CheckCAPattern(p)
 		if err != nil {
-			return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "name the domains the CA may vouch for, at least two fixed labels: --hosts '*.corp.example' or '10.1.2.*'", "%v", err)
+			return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "name at least the domain, as in `komando host ca add NAME --key FILE --hosts '*.corp.example'` or '10.1.2.*'", "%v", err)
 		}
 		pats = append(pats, n)
 	}
 	if len(pats) == 0 {
-		return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "add --hosts '*.corp.example' (the domains the CA may vouch for)", "a server CA needs the server names it may vouch for")
+		return nil, out.Errf(out.ExitUsage, "CA_HOSTS_INVALID", "run `komando host ca add NAME --key FILE --hosts '*.corp.example'`, with the domains the CA may vouch for", "a server CA needs the server names it may vouch for")
 	}
 	sort.Strings(pats)
 	return pats, nil
@@ -173,28 +178,9 @@ ever signs.`,
 			if (keyFile == "") == (from == "") {
 				return out.Errf(out.ExitUsage, "USAGE", "give --key FILE.pub with --hosts, or --from KNOWN_HOSTS", "`komando host ca add` takes a CA key or a known_hosts file, one of them")
 			}
-			var lines []caLine
-			if from != "" {
-				if len(hosts) > 0 {
-					return out.Errf(out.ExitUsage, "USAGE", "the patterns of --from come from its lines; drop --hosts", "--hosts and --from do not go together")
-				}
-				b, err := readLocalFile(cl, from)
-				if err != nil {
-					return err
-				}
-				if lines, err = parseKnownHostsCAs(b); err != nil {
-					return err
-				}
-			} else {
-				b, err := readLocalFile(cl, keyFile)
-				if err != nil {
-					return err
-				}
-				k, _, _, _, err := ssh.ParseAuthorizedKey(b)
-				if err != nil {
-					return out.Errf(out.ExitUsage, "KEY_INVALID", "give the CA's public key file (.pub)", "%s is not a public key: %v", keyFile, err)
-				}
-				lines = []caLine{{key: k, hosts: hosts}}
+			lines, err := caLinesOf(cl, keyFile, from, hosts)
+			if err != nil {
+				return err
 			}
 			st, err := loadState()
 			if err != nil {
@@ -257,6 +243,30 @@ ever signs.`,
 	return c
 }
 
+// caLinesOf reads the CA lines of host ca add: from --from's known_hosts
+// file, or the one CA of --key with --hosts.
+func caLinesOf(cl *call, keyFile, from string, hosts []string) ([]caLine, error) {
+	if from != "" {
+		if len(hosts) > 0 {
+			return nil, out.Errf(out.ExitUsage, "USAGE", "the patterns of --from come from its lines; drop --hosts", "--hosts and --from do not go together")
+		}
+		b, err := readLocalFile(cl, from)
+		if err != nil {
+			return nil, err
+		}
+		return parseKnownHostsCAs(b)
+	}
+	b, err := readLocalFile(cl, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	k, _, _, _, err := ssh.ParseAuthorizedKey(b)
+	if err != nil {
+		return nil, out.Errf(out.ExitUsage, "KEY_INVALID", "give the CA's public key file (.pub)", "%s is not a public key: %v", keyFile, err)
+	}
+	return []caLine{{key: k, hosts: hosts}}, nil
+}
+
 func hostCARmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "rm NAME",
@@ -295,7 +305,7 @@ func hostCARmCmd() *cobra.Command {
 func hostCARevokeCmd() *cobra.Command {
 	var keyFile string
 	c := &cobra.Command{
-		Use:   "revoke --key FILE.pub",
+		Use:   "revoke --key FILE",
 		Short: "Never trust a host key or a CA key again",
 		Long: `Puts the key in FILE.pub on the never-trust list (an @revoked line): no
 server is reached with it as its host key, no certificate it signed or holds
@@ -303,9 +313,6 @@ is trusted, and it cannot be pinned or added as a CA.`,
 		Example: `  komando host ca revoke --key old-ca.pub`,
 		Args:    cobra.NoArgs,
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			if keyFile == "" {
-				return out.Errf(out.ExitUsage, "USAGE", "add --key FILE.pub", "`komando host ca revoke` needs the key to revoke")
-			}
 			b, err := readLocalFile(cl, keyFile)
 			if err != nil {
 				return err
@@ -327,6 +334,7 @@ is trusted, and it cannot be pinned or added as a CA.`,
 		}),
 	}
 	c.Flags().StringVar(&keyFile, "key", "", "the public key file (.pub) never to trust")
+	_ = c.MarkFlagRequired("key")
 	return c
 }
 

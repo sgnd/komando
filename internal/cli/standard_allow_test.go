@@ -14,8 +14,10 @@ var (
 		"storage cat",
 		"storage link",
 	}
-	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install
+	// S-3.2: key revoke pairs with key deploy, pkg rm with pkg install;
+	// host ca revoke is known_hosts' @revoked, which pairs with host ca add
 	allowPairs = []string{
+		"host ca grant/revoke",
 		"key grant/revoke",
 		"pkg install/uninstall",
 	}

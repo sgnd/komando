@@ -30,7 +30,7 @@ var errorCodes = []errorCode{
 	{"CACHE_SECTION_NOT_FOUND", 3, "INFO … returned nothing", "this server has no such section; try `komando cache info CONN --all`"},
 	{"CANCELLED", 1, "interrupted", "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"},
 	{"CA_EXISTS", 8, "server CA … already exists", "choose another name, or `komando host ca rm …` first"},
-	{"CA_HOSTS_INVALID", 2, "a server CA needs the server names it may vouch for", "add --hosts '*.corp.example' (the domains the CA may vouch for)"},
+	{"CA_HOSTS_INVALID", 2, "a server CA needs the server names it may vouch for", "run `komando host ca add NAME --key FILE --hosts '*.corp.example'`, with the domains the CA may vouch for"},
 	{"CA_NOT_FOUND", 3, "no server CA named …", "see the CAs with `komando host ca list`"},
 	{"CERT_PROBLEMS", 1, "… of … targets need attention: …", "renew or replace the certificates marked expiring, expired or not_trusted; see each result"},
 	{"CHECKSUM_MISMATCH", 1, "… does not match checksums.txt of its release; nothing was changed", "run it again, and report it at …/issues if it happens again"},

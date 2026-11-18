@@ -196,6 +196,7 @@ kind's tier: read, or change. "when the ..." rows are decided at run time.
 | `login aws` | always | person |  |
 | `ssh-gate` | always | person |  |
 | `host ssh-command` | always | person |  |
+| `host ca add` | always | person |  |
 | `secret keychain` | without --off (moving the key into the keychain) | person |  |
 | `host trust` | with --reset, when a key is pinned | person |  |
 | `export` | with --sealed or --for-phone | person |  |
