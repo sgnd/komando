@@ -336,7 +336,8 @@ To update komando itself, see [Install, update, remove](install.md#update).
   komando does, or reads `KOMANDO_VAULT_PASS` from the shell that started
   it. Only two things stop such a program: running it as another OS user
   (or in a container or virtual machine without your home folder and
-  keychain), or the signed komando Mac app, which keeps the key for itself.
+  keychain), or the signed komando Mac app (not released yet), which keeps
+  the key for itself.
 - One case komando cannot see when it stores a new key: an item in a
   KeePassXC database other than the default one, while that database is
   locked.

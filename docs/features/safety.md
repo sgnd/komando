@@ -38,7 +38,7 @@ agrees (see [When you are at the terminal](#when-you-are-at-the-terminal)).
 | **Safety settings** | Turning off the audit log or server identity checks, moving the vault key out of the keychain, removing a deny rule, or an AI agent setting a `--proxy-command` (a program on this computer) needs a yes. |
 | **Server identity** | If a server's fingerprint changes, komando refuses to connect (`HOSTKEY_MISMATCH`). |
 | **Safe edits** | File edits replace exactly the text you name, write the whole file at once (never half-written), and can keep a `.bak` backup. As root (`--sudo`), komando follows no link another server user made, and does not write into a folder another user can change, since that user could swap the file for a link while root writes (`SHARED_FOLDER_CONFLICT`). |
-| **Sealed vault** | Passwords are sealed with AES-256-GCM, with the key in the OS keychain (or, where there is none, in a file beside the store; `komando doctor` warns). Only names are ever shown. Only a person can see a value: at a terminal, or from the Komando Mac app after **Allow once** in komando's window (`secret show --reveal`, `key show --reveal`); an AI agent never can, and every value shown is in the audit log ([See a value again](secrets.md#see-a-value-again)). `secret rename` and `secret cp` rename and copy inside the vault, so a value never has to be shown or typed again. `secret check` lets a person compare a value without showing it. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). See [Secrets](secrets.md). |
+| **Sealed vault** | Passwords are sealed with AES-256-GCM, with the key in the OS keychain (or, where there is none, in a file beside the store; `komando doctor` warns). Only names are ever shown. Only a person can see a value: at a terminal, or from the Komando Mac app (not released yet) after **Allow once** in komando's window (`secret show --reveal`, `key show --reveal`); an AI agent never can, and every value shown is in the audit log ([See a value again](secrets.md#see-a-value-again)). `secret rename` and `secret cp` rename and copy inside the vault, so a value never has to be shown or typed again. `secret check` lets a person compare a value without showing it. The approval code's key can only be changed with `komando config approval-code` (`RESERVED_SECRET`). See [Secrets](secrets.md). |
 | **Secrets hidden in output** | If a vault secret shows up in what a server sends back (a `.env` file, a log line, `env`), komando prints `[secret:NAME]` instead, also when it is base64- or URL-encoded. Values shorter than 6 characters are not hidden. So that this hiding cannot tell an AI agent which of its guesses is a secret, a vault value in an agent's own arguments, script or input is not hidden in that command's output, and the command answers as it would for any other value; it is written to the audit log, where you see the guessing. |
 | **History** | Every action is in `komando audit` (see [below](#history)). |
 
@@ -361,8 +361,8 @@ from the system (`os_user`), and mark the name as the one it claims
 
 ## A key that runs komando and nothing else
 
-To reach komando on this computer from another device (the Komando app on
-your phone, another computer), give that device's SSH key only komando:
+To reach komando on this computer from another device (another computer, or
+the Komando app on your phone when it is released), give that device's SSH key only komando:
 `komando ssh-gate line` prints the line for `~/.ssh/authorized_keys`.
 
 ```bash
