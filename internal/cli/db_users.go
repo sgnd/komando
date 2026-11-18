@@ -60,8 +60,8 @@ func dbUserChangeCmd(action string) *cobra.Command {
 	var ref, host string
 	var noLogin bool
 	parts := map[string][3]string{
-		"add":    {"add CONN USER --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},
-		"passwd": {"passwd CONN USER --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},
+		"add":    {"add CONN USER --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run   # shows the statement\n  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --allow-dangerous"},
+		"passwd": {"passwd CONN USER --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run\n  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --allow-dangerous"},
 		"rm":     {"rm CONN USER", "Remove a database user", "  komando db user rm prod-db old_app --dry-run   # shows the statement\n  komando db user rm prod-db old_app --allow-dangerous"},
 	}[action]
 	c := &cobra.Command{
@@ -186,9 +186,10 @@ DB.*, DB.TABLE or *.* (with --from-host for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
 available (db user show reads them). BigQuery: not available (Google Cloud
 IAM). --dry-run shows the statement.`,
-		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
-  komando db ` + verb + ` prod-db app_ro --role readers
-  komando db ` + verb + ` prod-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*'`,
+		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --dry-run   # shows the statement
+  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --allow-dangerous
+  komando db ` + verb + ` prod-db app_ro --role readers --allow-dangerous
+  komando db ` + verb + ` prod-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*' --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			gr := dbx.Grant{User: args[1], Host: host, On: on, Role: role, Revoke: revoke}
