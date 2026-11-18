@@ -413,6 +413,18 @@ func (d ftpsData) Handshake() error {
 	return err
 }
 
+// Close closes the data connection. TLS first sends its close_notify;
+// through a --via hop whose far end already closed the channel that send
+// fails with io.EOF, and TLS returns it wrapped although the connection
+// is closed and the transfer is over (C132). Only that EOF is no error;
+// anything else from Close is returned.
+func (d ftpsData) Close() error {
+	if err := d.Conn.Close(); !errors.Is(err, io.EOF) {
+		return err
+	}
+	return nil
+}
+
 func (d ftpsData) Write(p []byte) (int, error) {
 	n, err := d.Conn.Write(p)
 	if err == io.EOF && !d.ConnectionState().HandshakeComplete {

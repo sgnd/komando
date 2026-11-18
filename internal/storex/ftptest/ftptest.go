@@ -155,7 +155,7 @@ func (ss *session) handle(cmd, arg string) bool {
 		}
 		ss.data, _ = net.Listen("tcp", "127.0.0.1:0")
 		ss.say("229 ok (|||%d|)", ss.data.Addr().(*net.TCPAddr).Port)
-	case "LIST", "RETR", "STOR":
+	case "LIST", "RETR", "STOR", "APPE":
 		return ss.transfer(cmd, arg)
 	case "QUIT":
 		ss.say("221 bye")
@@ -191,6 +191,9 @@ func (ss *session) transfer(cmd, arg string) bool {
 		dc.Write(s.File)
 	case "STOR":
 		s.File, _ = io.ReadAll(dc)
+	case "APPE":
+		b, _ := io.ReadAll(dc)
+		s.File = append(s.File, b...)
 	}
 	dc.Close()
 	ss.say("226 done")
