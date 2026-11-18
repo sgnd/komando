@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"strings"
 	"sync"
@@ -691,9 +692,19 @@ func FetchHostKey(ctx context.Context, st *store.State, h *store.Host, o Options
 }
 
 // LocalUser is the login name ssh uses when neither the server nor the
-// settings give one: the name of the person at this computer, USER, else
-// USERNAME (Windows sets only that).
+// settings give one: the account this process runs as, from the user
+// database as OpenSSH takes it (on Windows without its domain). USER and
+// USERNAME count only when the database has no answer: an agent sets
+// them, and a login-ask server's password must go to the person's own
+// account.
 func LocalUser() string {
+	if u, err := user.Current(); err == nil && u.Username != "" {
+		name := u.Username
+		if i := strings.LastIndexByte(name, '\\'); i >= 0 {
+			name = name[i+1:]
+		}
+		return name
+	}
 	if u := os.Getenv("USER"); u != "" {
 		return u
 	}
