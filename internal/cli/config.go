@@ -301,7 +301,7 @@ func configCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			res := configShow{Settings: st.Settings, Keys: []configRow{}, ApprovalCode: map[bool]string{true: "on", false: "off"}[st.Settings.ApprovalCode], Home: store.Home(),
+			res := configShow{Settings: shownSettings(st.Settings), Keys: []configRow{}, ApprovalCode: map[bool]string{true: "on", false: "off"}[st.Settings.ApprovalCode], Home: store.Home(),
 				Files: dataFiles()}
 			for _, s := range settings {
 				res.Keys = append(res.Keys, configRow{s.Key, s.get(&st.Settings), s.get(&def), s.Values})
@@ -390,4 +390,10 @@ func configCmd() *cobra.Command {
 func dataFiles() map[string]string {
 	db := store.Path(store.StoreFile)
 	return map[string]string{"state": db, "runtime": store.Path("runtime.json"), "vault": db, "known_hosts": db, "audit": db}
+}
+
+// shownSettings is s without komando's own bookkeeping, which is no setting.
+func shownSettings(s store.Settings) store.Settings {
+	s.ApprovalCodeStep = 0
+	return s
 }

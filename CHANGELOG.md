@@ -202,6 +202,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- An approval code works once (C10). komando keeps the last accepted
+  30-second step in its sealed store and refuses that code, or an older
+  one, a second time: two windows in the same 30 seconds need two codes.
+  The agent's hint says so (`code-used`).
+
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
   `~/.komando` of the changed `HOME` as the usual folder, so only the
@@ -442,6 +447,12 @@ its highlights; the sections below them give the details. Versions follow
   the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
   No key is made (C08).
 
+- An FTP or FTPS conn reached through `--via` could report a transfer that
+  had worked as failed, with `the server: EOF`: an upload, a download, a
+  listing, `--continue`, or the check `storage mv` makes. When the server
+  behind the jump host closed its side first, komando took closing its own
+  side as an error. It no longer does, for FTP and FTPS, and the same
+  close no longer fails for any conn through `--via`.
 - An FTPS listing whose data connection closed before TLS was set up was
   read as an empty folder with no error. `sync --delete` from such a
   source could then remove that folder's files on the destination, and
