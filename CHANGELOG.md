@@ -447,6 +447,12 @@ its highlights; the sections below them give the details. Versions follow
   the part that arrived, or leaves a part under a new name: it goes to a
   temporary name and is moved into place (WebDAV MOVE) only when it arrived
   whole, as on SFTP, FTP and SMB conns. The server must allow `MOVE`; a server that refuses it says so in the hint, and one that removes the old file and then fails the move keeps the new content under its temporary name (`UPLOAD_NOT_RENAMED`).
+- An FTP or FTPS conn reached through `--via` could report a transfer that
+  had worked as failed, with `the server: EOF`: an upload, a download, a
+  listing, `--continue`, or the check `storage mv` makes. When the server
+  behind the jump host closed its side first, komando took closing its own
+  side as an error. It no longer does, for FTP and FTPS, and the same
+  close no longer fails for any conn through `--via`.
 - An FTPS listing whose data connection closed before TLS was set up was
   read as an empty folder with no error. `sync --delete` from such a
   source could then remove that folder's files on the destination, and
