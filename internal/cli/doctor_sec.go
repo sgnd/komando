@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/policy"
@@ -24,12 +25,50 @@ type securityCheck struct {
 	OK      bool   `json:"ok"`
 	Warning bool   `json:"warning,omitempty"`
 	Detail  string `json:"detail"`
+	// Fix is the one komando command that puts this right, as the words
+	// to run (["komando", "conn", "edit", "db2", "--protected"]), when
+	// there is exactly one, it asks nothing and needs nothing filled in,
+	// and it is right whatever else is true. The detail says the same in
+	// prose; a program reads Fix and never takes a command out of text.
+	Fix []string `json:"fix,omitempty"`
+}
+
+// komandoFix is a check's Fix: komando and its words. The names in it come
+// from the store or an imported file; a word that could be read as a flag
+// (it starts with "-") or holds a character that is not printable makes
+// it nil, so no fix is offered at all. The flags komando adds itself are
+// passed as flag.
+func komandoFix(words ...string) []string {
+	for _, w := range words {
+		if w == "" || strings.HasPrefix(w, "-") || strings.ContainsFunc(w, func(r rune) bool { return !unicode.IsPrint(r) || unicode.IsSpace(r) }) {
+			return nil
+		}
+	}
+	return append([]string{"komando"}, words...)
+}
+
+// withFlag is fix with flag added (nil stays nil).
+func withFlag(fix []string, flag string) []string {
+	if fix == nil {
+		return nil
+	}
+	return append(fix, flag)
+}
+
+// fixText is a Fix as a person types it, for the detail: each word quoted
+// where a shell needs it.
+func fixText(fix []string) string {
+	q := make([]string, len(fix))
+	for i, w := range fix {
+		q[i] = argQ(w)
+	}
+	return "`" + strings.Join(q, " ") + "`"
 }
 
 func securityChecks(cl *call, st *store.State) []securityCheck {
 	var cs []securityCheck
-	add := func(name string, ok, warn bool, detail string) {
-		cs = append(cs, securityCheck{Name: "security:" + name, OK: ok || warn, Warning: warn && !ok, Detail: detail})
+	add := func(name string, ok, warn bool, detail string, fix ...string) {
+		cs = append(cs, securityCheck{Name: "security:" + name, OK: ok || warn, Warning: warn && !ok, Detail: detail, Fix: fix})
 	}
 
 	// komando's folder and files: this user only (ASVS 14.1, CWE-276)
@@ -59,10 +98,10 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 			add("audit_chain", true, false, strconv.Itoa(r.Entries)+" entries, chain intact")
 		}
 	} else {
-		add("audit", false, true, "the audit log is off: `komando config set audit on`")
+		add("audit", false, true, "the audit log is off: "+fixText(komandoFix("config", "set", "audit", "on")), komandoFix("config", "set", "audit", "on")...)
 	}
 	if st.Settings.HostKeyPolicy == "off" {
-		add("host_keys", false, true, "server identity checks are off: `komando config set host_key_policy accept-new`")
+		add("host_keys", false, true, "server identity checks are off: "+fixText(komandoFix("config", "set", "host_key_policy", "accept-new")), komandoFix("config", "set", "host_key_policy", "accept-new")...)
 	}
 	bad := policy.Invalid(st.Settings.ExtraDenyPattern)
 	for _, i := range slices.Sorted(maps.Keys(bad)) {
@@ -98,7 +137,7 @@ func weakVpn(v *store.Vpn) string {
 }
 
 // sealedStoreCheck says how a sealed home's store is locked.
-func sealedStoreCheck(add func(name string, ok, warn bool, detail string), s vault.Strength) {
+func sealedStoreCheck(add func(name string, ok, warn bool, detail string, fix ...string), s vault.Strength) {
 	switch {
 	case s.Mode == "keyfile":
 		add("vault", false, true, "everything is sealed in "+store.StoreFile+", but its key is a file next to it (store.key): anyone with a copy of "+store.Home()+" (a backup) can open it. Move it into the OS keychain with `komando secret keychain`, or use a passphrase of 15+ characters with `komando secret passphrase`")
@@ -114,7 +153,7 @@ func sealedStoreCheck(add func(name string, ok, warn bool, detail string), s vau
 }
 
 // oldCopyCheck says whether an old copy of the store would be noticed.
-func oldCopyCheck(add func(name string, ok, warn bool, detail string)) {
+func oldCopyCheck(add func(name string, ok, warn bool, detail string, fix ...string)) {
 	have, kept, guarded, old, err := store.CopyState()
 	switch {
 	case err != nil && old:
@@ -136,7 +175,7 @@ func oldCopyCheck(add func(name string, ok, warn bool, detail string)) {
 
 // vaultKeyChecks: KOMANDO_VAULT_PASS opens a passphrase vault (a changed
 // one locks every secret away).
-func vaultKeyChecks(add func(name string, ok, warn bool, detail string)) {
+func vaultKeyChecks(add func(name string, ok, warn bool, detail string, fix ...string)) {
 	if s, err := vault.Check(); err == nil && s.Mode == "passphrase" && vault.Passphrase() != "" {
 		if err := vault.Opens(""); errors.Is(err, vault.ErrWrongKey) {
 			add("vault_key", false, false, "KOMANDO_VAULT_PASS does not open the vault. If you changed it, run `komando secret passphrase` in your terminal: it asks for the old passphrase and re-encrypts every secret under the new one")
