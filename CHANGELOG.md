@@ -442,6 +442,12 @@ its highlights; the sections below them give the details. Versions follow
   the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
   No key is made (C08).
 
+- An FTPS listing whose data connection closed before TLS was set up was
+  read as an empty folder with no error. `sync --delete` from such a
+  source could then remove that folder's files on the destination, and
+  `mv`, `cp` and `storage stat` could miss a folder that is there. It now
+  stops with `STORAGE_CONNECT`. Every FTP connection error also names the
+  FTP command it came from ("EOF (during APPE)").
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
