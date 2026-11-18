@@ -148,5 +148,8 @@ PRUNE=$($K docker prune swarm1 --dry-run)
 check "docker prune (dry run) lists the stopped container" True "$(echo "$PRUNE" | jget "'$C-c' in [c['name'] for c in d['data']['results'][0]['containers']]")"
 check "docker prune (dry run) says the real run needs --allow-dangerous" POLICY_BLOCKED "$(echo "$PRUNE" | jget 'd["data"]["would_be_blocked"]["code"]')"
 check "docker prune --older-than keeps what is new" False "$($K docker prune swarm1 --older-than 30d --dry-run | jget "'$C-c' in [c['name'] for c in d['data']['results'][0]['containers']]")"
+PRUNEV=$($K docker prune swarm1 --volumes --older-than 30d --dry-run)
+check "docker prune --volumes --older-than (dry run) prunes, then removes old volumes by name" True "$(echo "$PRUNEV" | jget '"until=720h; docker volume rm" in d["data"]["results"][0]["would_run"]')"
+check "docker prune --volumes --older-than (dry run) keeps the lab's new volumes" 0 "$(echo "$PRUNEV" | jget 'len(d["data"]["results"][0]["volumes"])')"
 q $K docker rm swarm1 "$C-c" --allow-dangerous
 fi

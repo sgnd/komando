@@ -38,6 +38,9 @@ Total:		3GB
 VOLUME NAME   LINKS     SIZE
 3f9a0anon     0         64MB
 pgdata        0         5GB
+== volume-created
+3f9a0anon 2026-09-01T10:00:00Z
+pgdata 2026-01-01T10:00:00+02:00
 
 `
 
@@ -86,6 +89,19 @@ func TestParsePrunePreview(t *testing.T) {
 	old := strings.Replace(prunePreviewOut, "1.47", "1.41", 1)
 	if p = parsePrunePreview(old, pruneOpts{volumes: true}, now); len(p.Volumes) != 2 || len(p.Notes) == 0 {
 		t.Errorf("old docker removes named volumes too: %+v", p)
+	}
+	// --volumes --older-than: only volumes made before the cut-off; one of
+	// unknown age is kept
+	young := strings.Replace(prunePreviewOut, "3f9a0anon 2026-09-01T10:00:00Z", "3f9a0anon 2026-11-04T10:00:00Z", 1)
+	if p = parsePrunePreview(young, pruneOpts{volumes: true, olderThan: 30 * 24 * time.Hour}, now); len(p.Volumes) != 0 {
+		t.Errorf("a young volume stays: %+v", p.Volumes)
+	}
+	if p = parsePrunePreview(prunePreviewOut, pruneOpts{volumes: true, olderThan: 30 * 24 * time.Hour}, now); len(p.Volumes) != 1 || p.Volumes[0].Created.IsZero() {
+		t.Errorf("an old volume goes: %+v", p.Volumes)
+	}
+	unknown := strings.Replace(prunePreviewOut, "3f9a0anon 2026-09-01T10:00:00Z\n", "", 1)
+	if p = parsePrunePreview(unknown, pruneOpts{volumes: true, olderThan: 30 * 24 * time.Hour}, now); len(p.Volumes) != 0 {
+		t.Errorf("a volume of unknown age stays: %+v", p.Volumes)
 	}
 	// no builder du
 	if p = parsePrunePreview(strings.Replace(prunePreviewOut, "Reclaimable:\t2.5GB", "", 1), pruneOpts{}, now); p.BuildCache != "" || p.CacheBytes != 0 {
@@ -139,7 +155,29 @@ func TestDockerPruneCommand(t *testing.T) {
 	if n := len(srv.take()); n != 0 {
 		t.Errorf("%d commands ran", n)
 	}
-	wantCode(t, "USAGE", append(pre, "docker", "prune", "dev", "--volumes", "--older-than", "7d")...)
+
+	// --volumes --older-than: the dry run lists the old anonymous volume
+	d, e = invRun(t, append(pre, "docker", "prune", "dev", "--volumes", "--older-than", "30d", "--dry-run")...)
+	if e != nil {
+		t.Fatalf("%+v", e)
+	}
+	r = d["results"].([]any)[0].(map[string]any)
+	if !strings.Contains(r["would_run"].(string), "docker system prune -f --filter until=720h; docker volume rm") || len(r["volumes"].([]any)) != 1 {
+		t.Errorf("preview %v", r)
+	}
+	if ex := srv.take(); len(ex) != 1 || !strings.Contains(ex[0].cmd, "volume inspect") || strings.Contains(ex[0].cmd, " rm ") {
+		t.Errorf("the preview: %v", ex)
+	}
+	// the real run: prune with the age filter (docker refuses --volumes
+	// with it), then the volumes read again and removed by name
+	if _, e := invRun(t, append(pre, "docker", "prune", "dev", "--volumes", "--older-than", "30d", "--allow-dangerous", "--yes")...); e != nil {
+		t.Fatalf("%+v", e)
+	}
+	ex := srv.take()
+	if len(ex) != 3 || !strings.Contains(ex[0].cmd, "docker system prune -f --filter until=720h") || strings.Contains(ex[0].cmd, "--volumes") ||
+		!strings.Contains(ex[1].cmd, "volume inspect") || !strings.Contains(ex[2].cmd, "docker volume rm 3f9a0anon") || strings.Contains(ex[2].cmd, "pgdata") {
+		t.Errorf("the real run: %v", ex)
+	}
 	wantCode(t, "USAGE", append(pre, "docker", "prune", "dev", "--older-than", "-3d")...)
 }
 
