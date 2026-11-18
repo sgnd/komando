@@ -138,7 +138,7 @@ func execCmd() *cobra.Command {
 	var readOnly bool
 	c := &cobra.Command{
 		Use:     "exec TARGET [-- COMMAND...]",
-		Aliases: []string{"run", "x"},
+		Aliases: []string{"x"},
 		Short:   "Run a shell command on one or many servers in parallel",
 		Long: `Runs COMMAND through the login shell on every server TARGET picks
 (PowerShell on Windows servers). Each server's result has its stdout,

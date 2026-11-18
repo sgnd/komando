@@ -83,6 +83,32 @@ Connect (`op://`), Bitwarden or Vaultwarden (`bw://`) and KeePass files
 for each one and the login it uses. komando reads such a value only when it
 needs it and never stores it.
 
+## Run a program on this computer with one
+
+```bash
+komando run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
+komando run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+```
+
+`komando run` starts the program after `--` on this computer, with the
+`--env` values in its environment. komando reads `secret:NAME` from the
+vault right before the program starts, so the value is never in the command
+line or your shell history. The program starts without a shell, and gets
+your environment without komando's own `KOMANDO_*` variables.
+
+- A vault value the program prints shows as `[secret:NAME]`.
+- komando exits with the program's exit code.
+- The audit log records the program's path, the variable names and the
+  secret names, never a value.
+- `--dry-run` shows the program's path and which secret goes into which
+  variable, and reads no value.
+- A reference in the program's arguments is refused: put it in `--env`.
+- An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
+  the program could print a value in a form masking does not know. The
+  window names the secrets and the program's full path.
+- A secret that a protected server, conn or VPN uses asks a person at a
+  terminal too, as a change on a protected server does.
+
 ## Check one
 
 ```bash

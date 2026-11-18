@@ -37,6 +37,7 @@ const (
 	unlessReadOnly = "changes things unless --read-only says the command only reads (the policy checks it either way)"
 	unlessWrite    = "only reads unless --write"
 	bySubcommand   = "decided by the docker subcommand: ps/logs/inspect read, up/down/rm change"
+	localProgram   = "decided by the program it starts on this computer"
 	shellNote      = "an shellNote shell for a person: whatever they type"
 )
 
@@ -266,6 +267,7 @@ var commandKinds = map[string]cmdKind{
 
 	"schema": reads,
 
+	"run":               dependsOn(localProgram),
 	"secret":            reads,
 	"secret check":      reads,
 	"secret cp":         changes,

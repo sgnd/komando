@@ -5,6 +5,16 @@ its highlights; the sections below them give the details. Versions follow
 [Semantic Versioning](https://semver.org), and the format follows
 [Keep a Changelog](https://keepachangelog.com).
 
+## [Unreleased]
+
+### Added
+
+- `komando run --env KEY=secret:NAME -- PROGRAM` starts a program on this
+  computer with vault secrets in its environment, never in its command line.
+  Its output is masked and komando exits with its exit code. An AI agent
+  needs a person's yes for every secret. `run` is no longer a name for
+  `exec`.
+
 ## [0.15.0] - 2026-11-19
 
 ### Highlights

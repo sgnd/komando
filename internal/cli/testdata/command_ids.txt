@@ -206,6 +206,7 @@ registry.list
 registry.prune
 registry.rm
 rename
+run
 safety
 schema
 secret
