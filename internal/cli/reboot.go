@@ -16,32 +16,36 @@ import (
 // svc daemon-reload.
 
 func svcDaemonReloadCmd() *cobra.Command {
-	var noSudo bool
+	var noSudo, user bool
 	c := &cobra.Command{
 		Use:     "daemon-reload TARGET",
 		Short:   "Reload systemd unit files and say which units still need it",
 		Example: "  komando fs write web1 /etc/systemd/system/app.service --from app.service --sudo\n  komando svc daemon-reload web1\n  komando svc restart web1 app",
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if user && noSudo {
+				return out.Usage("--user-units runs without sudo already: drop --no-sudo")
+			}
 			command := noSystemd + "systemctl daemon-reload >&2; rc=$?\n" +
 				// units whose files changed after the reload still say so
 				"for u in $(systemctl list-units --all --no-legend --plain --type=service | awk '{print $1}'); do " +
 				"[ \"$(systemctl show -p NeedDaemonReload --value -- \"$u\" 2>/dev/null)\" = yes ] && echo \"stale=$u\"; done\n" +
 				"echo \"#komando:rc=$rc\"; exit 0"
-			return runOps(cl, cmd.Context(), opsSpec{name: "svc.daemon-reload", target: args[0], command: command, display: "svc daemon-reload",
-				sudo: !noSudo, mutating: true,
+			return runOps(cl, cmd.Context(), opsSpec{name: "svc.daemon-reload", target: args[0], command: svcScope(command, user), display: "svc daemon-reload" + strings.TrimSuffix(" "+userWord(user), " "),
+				sudo: !noSudo && !user, mutating: true,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return daemonReloadResult(rr) }})
 		}),
 	}
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "run without sudo")
+	userFlag(c, &user)
 	return c
 }
 
 func daemonReloadResult(rr *sshx.RunResult) (any, *out.Error) {
-	m := marker(rr.Stdout)
-	if m == "no-systemd" {
-		return nil, errNoSystemd()
+	if e := systemdMissing(rr.Stdout); e != nil {
+		return nil, e
 	}
+	m := marker(rr.Stdout)
 	if m != "rc=0" {
 		return nil, out.Errf(out.ExitRemote, "SVC_FAILED", "read the error output (stderr) for systemd's reason; a unit file with a mistake is named there",
 			"systemctl daemon-reload failed (%s)", strings.TrimPrefix(m, "rc="))

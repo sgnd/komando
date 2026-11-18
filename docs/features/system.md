@@ -39,6 +39,21 @@ After you write or change a unit file, reload systemd so it reads it:
 komando svc daemon-reload web1                # names any unit that still needs a reload
 ```
 
+A user's own units (`~/.config/systemd/user`, `systemctl --user`) take
+`--user-units` on `svc status`, `list`, `start`, `stop`, `restart`, `reload`,
+`enable`, `disable` and `daemon-reload`. They are the login user's units,
+so komando runs them without sudo:
+
+```bash
+komando svc list web1 --user-units
+komando svc restart web1 --user-units syncthing --wait 10s
+```
+
+A user's manager runs only while they are logged in, unless lingering is
+on; without it komando stops with `NO_USER_MANAGER` (exit 3). A person
+with sudo turns lingering on once: `loginctl enable-linger USER` on the
+server.
+
 ## Logs
 
 `logs` reads one source: the systemd journal (`--unit`), a file (`--file`)
@@ -129,8 +144,11 @@ dangling images, unused networks and build cache.
 - `--all` removes every image no container uses, not only dangling ones;
   the next deploy pulls them again.
 - `--volumes` also removes unused anonymous volumes. That is data: look at
-  the dry run first. It cannot be combined with `--older-than` (docker has
-  no age filter for volumes).
+  the dry run first. With `--older-than`, docker has no age filter for
+  volumes, so komando reads when each unused anonymous volume was made and
+  removes only the older ones by name (`docker volume rm`), after the
+  prune; a volume whose age it cannot read stays. The answer lists them in
+  `volumes_removed`.
 - The real run deletes, so it is confirmed like `docker rm`.
 
 ## Packages
@@ -184,10 +202,16 @@ komando pkg upgrade @web --security --keep-going # do not stop at a server that 
 
 - `pkg security` only looks. It lists the security updates (apt:
   packages from the `-security` pocket; dnf and yum: updates with a
-  security notice) and the server's state: running containers, failed
+  security notice; zypper: security patches; pacman: what `arch-audit`
+  names, when it is installed) and the server's state: running containers, failed
   units, pending updates, whether a reboot is required, and services that
   still run old code (from `needrestart` or `needs-restarting`). These
   come from the same check as `komando facts`, so both say the same.
+- Some repositories say nothing about which update fixes a security hole:
+  apk, pacman without `arch-audit`, and dnf/yum repositories without
+  security notices (for example CentOS). There `security_notices` is
+  false, `unclassified_updates` lists every pending update, and
+  `warnings` says why the security list is empty.
 - It also judges the OS (`os_support`, as in `komando facts`). On an OS past
   end of life the list can be empty while the server is not safe: the
   repositories publish no new fixes for it. komando then says so in
@@ -197,7 +221,10 @@ komando pkg upgrade @web --security --keep-going # do not stop at a server that 
   follows the server's own settings), otherwise `apt-get install
   --only-upgrade` of the listed packages; changed config files are kept.
   If the server's unattended-upgrades is set to reboot by itself, komando
-  uses apt-get instead. dnf and yum run `upgrade --security`.
+  uses apt-get instead. dnf and yum run `upgrade --security`, zypper
+  `patch --category security`. On a server without security notices, and
+  on pacman (Arch supports no partial upgrades), it stops with
+  `SECURITY_UNSUPPORTED` and changes nothing: use `komando pkg upgrade`.
 - needrestart does not restart services during the run. The result lists
   the services that need a restart (`services_need_restart`): restart them
   with `komando svc restart` when it suits you.
@@ -352,24 +379,23 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 
 ## Limits
 
-- `svc` works on system services only: komando does not manage a user's
-  own units (`systemctl --user`); use `komando exec` for those.
 - `svc` and `logs --unit` need systemd; a server without it (most
   containers) stops with `NO_SYSTEMD`.
 - On apt servers only, `pkg rm` and `pkg upgrade --security` check whether
   an essential package would go with another one; other package managers
   are not checked this way.
-- `pkg security` lists nothing on dnf/yum for repositories without security
-  notices (for example CentOS). apk, zypper and pacman servers are listed
-  in `meta.skipped`: use `pkg upgrade` there.
+- `pkg upgrade --security` does not run on apk, pacman, or dnf/yum
+  repositories without security notices: komando cannot pick only the
+  security updates there.
 - `pkg` takes exact package names only; for a local `.deb` or `.rpm`, use
   `upload` and `exec`.
-- `docker prune --volumes` cannot be combined with `--older-than`.
 - komando never reboots as part of a patch round.
 - On Alpine, `user add`, `lock`, `unlock` and `rm` need the `shadow`
   package (`useradd`, `usermod`, `userdel`).
 - `user list` does not read rules in `sudoers.d`.
 - `svc logs` does not take `--file` or `--container`; use `logs`.
+- `svc logs` and `logs --unit` read the system journal; they take no
+  `--user-units`.
 
 ## Troubleshooting
 
@@ -377,6 +403,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 |------------|---------------|------------|
 | `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando svc list TARGET` |
 | `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
+| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
 | `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref secret:NAME` |
 | `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
 | `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |

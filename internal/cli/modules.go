@@ -75,29 +75,36 @@ func snake(s string) string {
 }
 
 func svcStatusCmd() *cobra.Command {
-	return &cobra.Command{
+	var user bool
+	c := &cobra.Command{
 		Use:     "status TARGET UNIT...",
 		Short:   "Unit status: state, main pid, restarts, memory",
-		Example: "  komando svc status @web nginx php8.2-fpm",
+		Example: "  komando svc status @web nginx php8.2-fpm\n  komando svc status web1 --user-units syncthing",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			return svcStatus(cl, cmd.Context(), args[0], args[1:])
+			return svcStatus(cl, cmd.Context(), args[0], args[1:], user)
 		}),
 	}
+	userFlag(c, &user)
+	return c
 }
 
 func svcActionCmd(action string) *cobra.Command {
-	var noSudo, now bool
+	var noSudo, now, user bool
 	var wait time.Duration
 	c := &cobra.Command{
 		Use:   action + " TARGET UNIT...",
 		Short: strings.ToUpper(action[:1]) + action[1:] + " units (sudo) and report the resulting state",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			return svcAction(cl, cmd.Context(), action, args[0], args[1:], !noSudo, now, int(math.Ceil(wait.Seconds())))
+			if user && noSudo {
+				return out.Usage("--user-units runs without sudo already: drop --no-sudo")
+			}
+			return svcAction(cl, cmd.Context(), action, args[0], args[1:], !noSudo, now, user, int(math.Ceil(wait.Seconds())))
 		}),
 	}
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (when you log in as root)")
+	userFlag(c, &user)
 	switch action {
 	case "start", "restart", "reload":
 		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"
