@@ -6,23 +6,25 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/storex/ftpfake"
 )
 
-// newFakeFTPS is fakeFTP with explicit TLS on the control and data
+// newFakeFTPS is ftpfake.Server with explicit TLS on the control and data
 // connections, with a test certificate (the conn skips verifying it).
-func newFakeFTPS(t *testing.T) *fakeFTP {
+func newFakeFTPS(t *testing.T) *ftpfake.Server {
 	t.Helper()
 	srv := httptest.NewTLSServer(nil)
 	cfg := srv.TLS.Clone()
 	srv.Close()
-	s := newFakeFTP(t)
-	s.tls = &tls.Config{Certificates: cfg.Certificates}
+	s := ftpfake.New(t)
+	s.TLS = &tls.Config{Certificates: cfg.Certificates}
 	return s
 }
 
-func openFakeFTPS(t *testing.T, s *fakeFTP) Bucket {
+func openFakeFTPS(t *testing.T, s *ftpfake.Server) Bucket {
 	t.Helper()
-	tg := s.target()
+	tg := s.Target()
 	tg.Secure, tg.TLS = true, "skip-verify"
 	b, err := OpenFTP(context.Background(), tg, "p", nil, 5e9)
 	if err != nil {
@@ -36,7 +38,7 @@ const oneEntry = "-rw-r--r-- 1 u u 4 Nov 07 12:00 keep.txt\r\n"
 
 func TestFTPSListWorks(t *testing.T) {
 	s := newFakeFTPS(t)
-	s.dirs = map[string]string{"/": oneEntry}
+	s.Dirs = map[string]string{"/": oneEntry}
 	objs, _, err := openFakeFTPS(t, s).List(context.Background(), "", false, 0)
 	if err != nil || len(objs) != 1 || objs[0].Key != "keep.txt" {
 		t.Fatalf("got %v, %v; want keep.txt", objs, err)
@@ -49,8 +51,8 @@ func TestFTPSListWorks(t *testing.T) {
 // other side).
 func TestFTPSListCutBeforeTLSIsAnError(t *testing.T) {
 	s := newFakeFTPS(t)
-	s.dirs = map[string]string{"/": oneEntry}
-	s.cutData = "LIST"
+	s.Dirs = map[string]string{"/": oneEntry}
+	s.CutData = "LIST"
 	objs, _, err := openFakeFTPS(t, s).List(context.Background(), "", false, 0)
 	if err == nil {
 		t.Fatalf("got %d objects and no error; want an error", len(objs))
@@ -66,8 +68,8 @@ func TestFTPSListCutBeforeTLSIsAnError(t *testing.T) {
 // Lookup lists the folder: a cut listing is an error, not "not there".
 func TestFTPSLookupCutBeforeTLSIsAnError(t *testing.T) {
 	s := newFakeFTPS(t)
-	s.dirs = map[string]string{"/": oneEntry}
-	s.cutData = "LIST"
+	s.Dirs = map[string]string{"/": oneEntry}
+	s.CutData = "LIST"
 	b := openFakeFTPS(t, s)
 	_, found, err := b.(*ftpReconnect).Lookup(context.Background(), "sub")
 	if err == nil {
@@ -77,8 +79,8 @@ func TestFTPSLookupCutBeforeTLSIsAnError(t *testing.T) {
 
 // A dropped connection names the FTP step komando was on.
 func TestFTPErrorNamesTheStep(t *testing.T) {
-	s := newFakeFTP(t)
-	s.drop = "RETR"
+	s := ftpfake.New(t)
+	s.Drop = "RETR"
 	var sb strings.Builder
 	_, err := openFake(t, s).(*ftpReconnect).ftpBucket.Get(context.Background(), "obj.txt", &sb)
 	if err == nil || !strings.Contains(err.Error(), "RETR") {
