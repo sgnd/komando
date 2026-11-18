@@ -3,12 +3,13 @@
 //
 //	go run ./scripts/releasesig new FILE          # a new key: the private key goes into FILE, the public key is printed
 //	go run ./scripts/releasesig public FILE       # the public key of the private key in FILE
-//	go run ./scripts/releasesig sign CHECKSUMS    # write CHECKSUMS.sig (the release workflow runs this)
+//	go run ./scripts/releasesig sign CHECKSUMS TAG   # write CHECKSUMS.sig (the release workflow runs this)
 //
 // sign reads the private key from RELEASE_SIGNING_KEY (one key per line;
 // each key adds a signature), then checks the result with the public keys
 // built into komando, so a release is never published with a signature
-// that komando would refuse.
+// that komando would refuse. The first line of CHECKSUMS must name TAG
+// (`make dist` writes it), so the signature covers the version.
 package main
 
 import (
@@ -28,8 +29,11 @@ func main() {
 }
 
 func run(args []string) error {
-	if len(args) != 2 {
-		return errors.New("usage: releasesig new FILE | public FILE | sign CHECKSUMS")
+	if len(args) == 3 && args[0] == "sign" {
+		return sign(args[1], args[2])
+	}
+	if len(args) != 2 || args[0] == "sign" {
+		return errors.New("usage: releasesig new FILE | public FILE | sign CHECKSUMS TAG")
 	}
 	switch args[0] {
 	case "new":
@@ -45,8 +49,6 @@ func run(args []string) error {
 		}
 		fmt.Println(pub)
 		return nil
-	case "sign":
-		return sign(args[1])
 	}
 	return fmt.Errorf("unknown command %q (new, public or sign)", args[0])
 }
@@ -72,7 +74,7 @@ func newKey(file string) error {
 	return nil
 }
 
-func sign(checksums string) error {
+func sign(checksums, tag string) error {
 	keys := strings.Fields(os.Getenv("RELEASE_SIGNING_KEY"))
 	if len(keys) == 0 {
 		return errors.New("RELEASE_SIGNING_KEY is empty: add the private key as the secret RELEASE_SIGNING_KEY of the GitHub environment \"release\"")
@@ -80,6 +82,9 @@ func sign(checksums string) error {
 	sums, err := os.ReadFile(checksums)
 	if err != nil {
 		return err
+	}
+	if got, _, ok := releasesig.Version(sums); !ok || got != tag {
+		return fmt.Errorf("the first line of %s must name %s, as `make dist VERSION=%s` writes it (\"komando-release %s YYYY-MM-DD\"); it names %q", checksums, tag, tag, tag, got)
 	}
 	var sig strings.Builder
 	for _, k := range keys {
