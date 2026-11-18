@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/base32"
+	"errors"
 	"testing"
 	"time"
 
@@ -54,5 +55,62 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 		if !want && tcl.sess.Window().Why != "wrong-code" {
 			t.Errorf("code %q: why %q", typed, tcl.sess.Window().Why)
 		}
+	}
+}
+
+// A code works once: a second window in the same 30 s, the code of an
+// earlier step (a phone clock behind), and a code older than the last one
+// taken are refused; the next step's code works (C10).
+func TestApprovalCodeOnce(t *testing.T) {
+	setHome(t, t.TempDir())
+	secret := []byte("12345678901234567890")
+	now := time.Unix(1234567890, 0)
+	step := now.Unix() / 30
+	if ok, used := codeAccepted(secret, totp(secret, step), now); !ok || used {
+		t.Fatalf("first use: %v %v", ok, used)
+	}
+	if ok, used := codeAccepted(secret, totp(secret, step), now.Add(10*time.Second)); ok || !used {
+		t.Errorf("same code again: %v %v", ok, used)
+	}
+	if ok, used := codeAccepted(secret, totp(secret, step-1), now); ok || !used {
+		t.Errorf("the step before (clock skew): %v %v", ok, used)
+	}
+	if ok, _ := codeAccepted(secret, "000000", now); ok {
+		t.Error("a wrong code")
+	}
+	// a phone ahead: the next step's code is taken, then the current one is older
+	if ok, _ := codeAccepted(secret, totp(secret, step+1), now); !ok {
+		t.Error("the next step")
+	}
+	if ok, used := codeAccepted(secret, totp(secret, step), now.Add(30*time.Second)); ok || !used {
+		t.Errorf("older than the last taken: %v %v", ok, used)
+	}
+	st, err := store.Load()
+	if err != nil || st.Settings.ApprovalCodeStep != step+1 {
+		t.Fatalf("stored step %d, %v", st.Settings.ApprovalCodeStep, err)
+	}
+}
+
+// An older store copy put back by hand would forget the last step; the
+// store refuses to open it (STORE_OLD_COPY), so no code is taken from it.
+func TestApprovalCodeOnceOldCopy(t *testing.T) {
+	setHome(t, t.TempDir())
+	secret := []byte("12345678901234567890")
+	now := time.Unix(1234567890, 0)
+	step := now.Unix() / 30
+	if ok, _ := codeAccepted(secret, totp(secret, step-1), now); !ok {
+		t.Fatal("first")
+	}
+	store.Close()
+	saved := store.GenerationKeeper
+	t.Cleanup(func() { store.GenerationKeeper = saved; store.Close() })
+	// the keychain remembers a newer change than the store has
+	store.GenerationKeeper = store.GenerationKeep{
+		Get: func() (uint64, bool, error) { return 1 << 40, true, nil },
+		Set: func(uint64) error { return errors.New("read only") },
+		Del: func() {},
+	}
+	if ok, used := codeAccepted(secret, totp(secret, step), now); ok || used {
+		t.Errorf("the old copy took a code: %v %v", ok, used)
 	}
 }
