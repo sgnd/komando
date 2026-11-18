@@ -205,13 +205,14 @@ func writeReplacing(cl *call, dest string, fill func(tmp string) error) error {
 // getMasked saves object key into f for an AI agent, masked before it
 // reaches the disk (fetchMasked). watch, when not nil, sees every byte.
 func getMasked(cl *call, ctx context.Context, s storex.Bucket, key string, f *os.File, watch io.Writer) (int64, bool, error) {
-	pr, pw := io.Pipe()
-	defer pr.Close()
-	go func() {
-		_, err := s.Get(ctx, key, pw)
-		pw.CloseWithError(err)
-	}()
-	return fetchMasked(cl, ctx, pr, f, io.Discard, watch)
+	// getReader: when fetchMasked stops early, Close waits for the download
+	// to end, so the next call on an FTP conn reads its own reply (C122)
+	r := getReader(ctx, func(ctx context.Context, w io.Writer) error {
+		_, err := s.Get(ctx, key, w)
+		return err
+	})
+	defer r.Close()
+	return fetchMasked(cl, ctx, r, f, io.Discard, watch)
 }
 
 // continueObject is storage download --continue: one object into dest,

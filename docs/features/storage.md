@@ -434,8 +434,11 @@ komando conn rm backups                       # komando forgets it; the files st
   FTP, and on FTPS when the connection closes after the encryption is set
   up, the only sign is the server's answer at the end, and a server that
   says "226 Transfer complete" anyway is believed. komando stops when the
-  connection closes before the encryption is set up. Before `sync --delete`
-  from an FTP or FTPS source, run it with `--dry-run` and read what it
+  connection closes before the encryption is set up, and `sync --delete`
+  stops before it empties a folder the source lists as empty
+  (`EMPTY_FOLDER_CONFIRM_REQUIRED`, see [files.md](files.md)). A folder
+  that only lists some of its files is not caught: run `sync --delete`
+  from an FTP or FTPS source with `--dry-run` first and read what it
   would delete.
 
 ## Troubleshooting

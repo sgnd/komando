@@ -50,6 +50,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- The release signature covers the version (C114). From 0.15.0 on, the first line of `checksums.txt` is `komando-release vX.Y.Z YYYY-MM-DD`, signed with the rest. `komando update` and `install.sh` install a release only as the version that line names, so the signed files of an older release put under a newer tag, or served as the newest, stop with `RELEASE_SIGNATURE_INVALID` (exit 2) and nothing is changed; a release after 0.14.1 without the line stops the same way. 0.14.0 and 0.14.1, signed before the line, still install when asked for by version. `install.sh` prints the version and day it installs. Known limit: a real, older release served as the newest is not detected (`update` never goes back on its own). For releases: `releasesig sign` takes the tag and refuses a `checksums.txt` that does not name it.
 - `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
   read-only recipes) is now a strict allowlist on every server: the
   command runs only when komando knows every part of it only reads, and
@@ -202,6 +203,7 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- An AI agent's approval window now shows what an upload, a restore or a kubectl `-f` sends from this computer (C111). `cp`, `upload` and `storage upload` of a file show it, or name its size and SHA-256 when it is too long or not text; `cp -r` and `sync` list each file with its size and SHA-256 (more than 40 files: no window); `cluster run -- apply -f FILE` and `--from-file` show the files; `db restore` shows plain SQL whole or opens no window (a 60-line SQL file is no longer a way past that rule) and names a pg_dump archive by its SHA-256. Indentation past 16 spaces shows as `(+N)`, so deep YAML keeps its nesting. A person's own commands are unchanged.
 - An approval code works once (C10). komando keeps the last accepted
   30-second step in its sealed store and refuses that code, or an older
   one, a second time: two windows in the same 30 seconds need two codes.
@@ -447,6 +449,18 @@ its highlights; the sections below them give the details. Versions follow
   the part that arrived, or leaves a part under a new name: it goes to a
   temporary name and is moved into place (WebDAV MOVE) only when it arrived
   whole, as on SFTP, FTP and SMB conns. The server must allow `MOVE`; a server that refuses it says so in the hint, and one that removes the old file and then fails the move keeps the new content under its temporary name (`UPLOAD_NOT_RENAMED`).
+- An AI agent's `storage download` from an FTP or FTPS conn that komando
+  stops before the end (a file too large to read for personal data) now
+  waits for the download to end, so the next command on that connection
+  reads its own reply instead of the download's.
+- `sync --delete` stops before it empties a folder that the source lists
+  as empty while the destination still has files in it
+  (`EMPTY_FOLDER_CONFIRM_REQUIRED`, exit 6, with the folders and counts in
+  `error.details.folders`): a listing cut short, as on plain FTP, looks
+  just like that. A person types the folder; an AI agent needs a person's
+  yes in the window (`--allow-dangerous`); a script names each folder it
+  empties on purpose with the new `--emptied FOLDER`, since
+  `--allow-dangerous` alone no longer does for it.
 - An FTP or FTPS conn reached through `--via` could report a transfer that
   had worked as failed, with `the server: EOF`: an upload, a download, a
   listing, `--continue`, or the check `storage mv` makes. When the server
