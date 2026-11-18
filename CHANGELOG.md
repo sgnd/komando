@@ -28,7 +28,8 @@ its highlights; the sections below them give the details. Versions follow
   filter for volumes, so komando prunes with the age filter, then removes
   only the unused anonymous volumes made before the cut-off, by name; the
   dry run lists exactly those, and the answer lists them in
-  `volumes_removed`. A volume whose age komando cannot read stays.
+  `volumes_removed`. A volume whose age komando cannot read stays. A dry
+  run with `--volumes` now always has `volumes`, empty when none would go.
 
 - `komando host trust NAME --fingerprint SHA256:...` pins a server's key
   only when the server shows the key with that fingerprint: compare and

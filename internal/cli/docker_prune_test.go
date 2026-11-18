@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -225,5 +226,19 @@ func TestDockerDeleteConfirmsWithTheServerName(t *testing.T) {
 	asked, err = answer("yes", "rm", "old-api")
 	if e := toErr(err); e == nil || e.Code != "POLICY_BLOCKED" || !strings.Contains(asked, "Type the name web1") {
 		t.Errorf("docker rm answered yes: err %v, asked %q", err, asked)
+	}
+}
+
+// A dry run with --volumes has "volumes" even when no volume would go;
+// without --volumes the key is absent.
+func TestPrunePreviewEmptyVolumes(t *testing.T) {
+	for _, volumes := range []bool{true, false} {
+		b, err := json.Marshal(parsePrunePreview("== api\n1.45\n", pruneOpts{volumes: volumes}, time.Now()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := strings.Contains(string(b), `"volumes":[]`); got != volumes {
+			t.Errorf("--volumes=%v: %s", volumes, b)
+		}
 	}
 }

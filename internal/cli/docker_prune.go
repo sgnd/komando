@@ -122,7 +122,7 @@ type prunePreview struct {
 	WouldRun    string      `json:"would_run"`
 	Containers  []pruneItem `json:"containers"`
 	Images      []pruneItem `json:"images"`
-	Volumes     []pruneItem `json:"volumes,omitempty"`
+	Volumes     []pruneItem `json:"volumes,omitzero"`      // with --volumes always there, empty when none would go
 	BuildCache  string      `json:"build_cache,omitempty"` // docker builder du's reclaimable
 	CacheBytes  int64       `json:"build_cache_bytes"`
 	TotalBytes  int64       `json:"total_bytes"`
