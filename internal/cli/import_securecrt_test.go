@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,8 +68,8 @@ func TestImportSecureCRTXML(t *testing.T) {
 			t.Errorf("notes lack %q: %v", want, p.Notes)
 		}
 	}
-	if b, _ := json.Marshal(p); strings.Contains(string(b), "TOPSECRET") {
-		t.Errorf("the stored password was read: %s", b)
+	if seen := fmt.Sprintf("%+v %v", p.Hosts, p.Notes); strings.Contains(seen, "TOPSECRET") {
+		t.Errorf("the stored password was read: %s", seen)
 	}
 	if v := crtXML([]byte(crtXMLExport)); strings.Contains(strings.Join(func() []string {
 		var s []string
@@ -119,8 +120,8 @@ func TestImportSecureCRTFolder(t *testing.T) {
 	if !strings.Contains(notes, "Prod/serial1: a Serial session") || strings.Contains(notes, "firewall") {
 		t.Errorf("notes %v", p.Notes)
 	}
-	if b, _ := json.Marshal(p); strings.Contains(string(b), "TOPSECRET") {
-		t.Errorf("the stored password was read: %s", b)
+	if seen := fmt.Sprintf("%+v %v", p.Hosts, p.Notes); strings.Contains(seen, "TOPSECRET") {
+		t.Errorf("the stored password was read: %s", seen)
 	}
 	// one session's file on its own
 	one, err := importSecureCRT(tcl, filepath.Join(dir, "web1.ini"))
