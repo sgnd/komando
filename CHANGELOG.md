@@ -264,6 +264,25 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- `cluster run` and `docker raw|compose` read a compose or stack file
+  that is already on the server before they rate the command: a
+  privileged service or a bind of `/` there now needs `--allow-dangerous`,
+  as in a local file, and so does a file komando cannot read or one that
+  pulls in files it does not check (`include:`, `extends: file:`, a
+  `COMPOSE_FILE` in `.env`, `privileged` left to a variable). Manifests
+  that install through a controller (k3s `HelmChart`, Argo CD, Flux), EKS's
+  `aws-auth` ConfigMap, a `kube-system` pod with one of its service
+  accounts, `label ... pod-security.kubernetes.io/enforce=privileged` (or
+  removing it), `set serviceaccount`, `create configmap aws-auth` and
+  Argo Workflows need it too. (C113)
+- An AI agent's `import kubeconfig` no longer copies a file from `~/.ssh`
+  or another credential store (other than `~/.kube`) into the vault when
+  the kubeconfig names it as a client key, certificate or token file
+  (`SENSITIVE_FILE`). (C113)
+- `db restore` of a PostgreSQL archive now checks the SQL inside it, as
+  for a plain SQL file: what it does beyond writing data (`COPY ...
+  PROGRAM`, `GRANT`, ...) is named in the approval; before, an archive
+  went to pg_restore unread. (C113)
 - Four more ways an AI agent could move where a person's typed password
   (`--login ask`) goes now stop with `NEEDS_PERSON`. A server with no
   user logs in as the account komando runs as, from the system, no

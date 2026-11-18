@@ -165,7 +165,9 @@ func classifyKubectl(cl *call, args []string) driver.Risk {
 	case verb == "apply" && hasFlag(args, "--prune", "--force"),
 		verb == "scale" && scalesToZero(args),
 		verb == "create" && oneOf(sub, "clusterrolebinding", "rolebinding", "token", "clusterrole", "role"),
-		verb == "set" && sub == "subject",
+		verb == "set" && oneOf(sub, "subject", "serviceaccount", "sa"),
+		verb == "label" && psaLoosens(args),
+		verb == "create" && createsAwsAuth(args),
 		verb == "run" && (hasFlag(args, "--overrides", "--privileged") || strings.Contains(joined, "hostPID")):
 		return driver.RiskDestructive // deletes, outages, or more rights than the conn has
 	}
@@ -276,10 +278,8 @@ risky verbs also need --allow-dangerous.`,
 			if strings.HasPrefix(args[1], "-") {
 				return out.Usage("start with the command (for example `-- get pods -n shop`); put flags after it")
 			}
-			risk, reason := driver.Risk(0), ""
-			if t.host != nil {
-				risk = classifyDocker(args[1:])
-			} else if risk, reason, err = kubectlRunRisk(cl, args[1:]); err != nil {
+			risk, reason, err := clusterRunRisk(cl, st, t, args[1:])
+			if err != nil {
 				return err
 			}
 			verb := strings.ToLower(args[1])
@@ -296,8 +296,8 @@ risky verbs also need --allow-dangerous.`,
 				}
 			}
 			if t.host != nil {
-				line := "docker " + quoteAll(args[1:])
-				if err := guardSwarmRun(cl, st, t.host.Name, risk, verb); err != nil {
+				line := dockerLine(args[1:])
+				if err := guardSwarmRun(cl, st, t.host.Name, risk, strings.TrimSuffix(verb+": "+reason, ": ")); err != nil {
 					return err
 				}
 				return runOne(cl, cmd.Context(), "cluster.run", t.host.Name, line, false, risk > driver.RiskRead)
@@ -412,9 +412,9 @@ func importKubeconfig(cl *call, path string) (*importPlan, error) {
 		if err := guardKubeImport(cl, n, x); err != nil {
 			return nil, err
 		}
-		// the files the kubeconfig names are read like the kubeconfig: for
-		// an AI agent, never komando's own folder
-		kc, err := x.Standalone(func(p string) ([]byte, error) { return readImportFile(cl, p) })
+		// the files the kubeconfig names: for an AI agent, never komando's
+		// own folder, an SSH key or another credential store
+		kc, err := x.Standalone(func(p string) ([]byte, error) { return readKubeRefFile(cl, p) })
 		var stop *out.Error
 		if errors.As(err, &stop) {
 			return nil, stop
@@ -606,6 +606,45 @@ func guardSwarmRun(cl *call, st *store.State, host string, risk driver.Risk, ver
 	}
 	askTypes(cl, []string{host}, "servers")
 	return guardConns(cl, st, nil, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"docker " + verb}})
+}
+
+// createsAwsAuth: `create configmap|cm aws-auth`, flags anywhere. EKS
+// reads that ConfigMap for who may sign in (C113).
+func createsAwsAuth(args []string) bool {
+	a, err := parseKargs(args)
+	if err != nil {
+		return true // cannot tell: the worst
+	}
+	return len(a.pos) > 1 && oneOf(strings.ToLower(a.pos[0]), "configmap", "configmaps", "cm") && a.pos[1] == "aws-auth"
+}
+
+// psaLoosens: a `label` that lets a namespace run privileged pods
+// (pod-security.kubernetes.io/enforce=privileged) or takes its rule away
+// (enforce-). C113.
+func psaLoosens(args []string) bool {
+	for _, a := range args {
+		k, v, set := strings.Cut(strings.ToLower(a), "=")
+		if k == "pod-security.kubernetes.io/enforce-" && !set || k == "pod-security.kubernetes.io/enforce" && strings.TrimSpace(v) == "privileged" {
+			return true
+		}
+	}
+	return false
+}
+
+// clusterRunRisk rates a `cluster run` command line: docker's rules on a
+// Swarm manager (with the stack files there read first), kubectl's
+// otherwise.
+func clusterRunRisk(cl *call, st *store.State, t clusterTarget, args []string) (driver.Risk, string, error) {
+	if t.host == nil {
+		return kubectlRunRisk(cl, args)
+	}
+	risk := classifyDocker(args)
+	if risk < driver.RiskDestructive {
+		if why := serverComposeReason(cl, st, []*store.Host{t.host}, args); why != "" {
+			return driver.RiskDestructive, why, nil // a stack file on the manager that gets the host (C113)
+		}
+	}
+	return risk, "", nil
 }
 
 // kubectlRunRisk is the rating and the reason a person reads for a kubectl
