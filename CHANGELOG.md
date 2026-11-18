@@ -223,6 +223,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- An approval code works once (C10). komando keeps the last accepted
+  30-second step in its sealed store and refuses that code, or an older
+  one, a second time: two windows in the same 30 seconds need two codes.
+  The agent's hint says so (`code-used`).
+
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
   `~/.komando` of the changed `HOME` as the usual folder, so only the
@@ -458,6 +463,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An FTPS listing whose data connection closed before TLS was set up was
+  read as an empty folder with no error. `sync --delete` from such a
+  source could then remove that folder's files on the destination, and
+  `mv`, `cp` and `storage stat` could miss a folder that is there. It now
+  stops with `STORAGE_CONNECT`. Every FTP connection error also names the
+  FTP command it came from ("EOF (during APPE)").
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")

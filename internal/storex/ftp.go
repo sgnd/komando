@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/textproto"
@@ -77,7 +78,7 @@ func loginFTP(ctx context.Context, t driver.Target, password string, dial DialFu
 				return fixedAddr{c, &net.TCPAddr{Port: 21}}, nil
 			}
 			if tlsCfg != nil { // data connections: the library leaves TLS to us
-				return tls.Client(c, tlsCfg), nil
+				return ftpsData{tls.Client(c, tlsCfg)}, nil
 			}
 			return c, nil
 		}),
@@ -98,7 +99,8 @@ func loginFTP(ctx context.Context, t driver.Target, password string, dial DialFu
 
 // ftpReconnect repeats an operation once in a new session when the server
 // dropped the connection (STORAGE_CONNECT: EOF, reset, broken pipe), never
-// after an FTP error reply, a TLS or a timeout error. Only what is safe to
+// after an FTP error reply, a certificate or a timeout error. A data
+// connection cut before TLS was set up counts as dropped. Only what is safe to
 // repeat is repeated: a download that already wrote bytes, or an upload whose
 // source cannot go back to its start, keeps the first error.
 type ftpReconnect struct {
@@ -240,7 +242,7 @@ func (b *ftpBucket) List(_ context.Context, prefix string, recursive bool, limit
 	walk = func(dir string) (bool, error) {
 		entries, err := b.c.List(dir)
 		if err != nil {
-			return false, err
+			return false, &stepErr{"LIST", err}
 		}
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 		for _, e := range entries {
@@ -276,11 +278,11 @@ func (b *ftpBucket) Get(ctx context.Context, key string, w io.Writer) (int64, er
 	}
 	r, err := b.c.Retr(p)
 	if err != nil {
-		return 0, ftpErr(err, driver.Target{})
+		return 0, ftpStepErr("RETR", err)
 	}
 	defer r.Close()
 	n, err := io.Copy(CtxWriter(ctx, w), r)
-	return n, ftpErr(err, driver.Target{})
+	return n, ftpStepErr("RETR", err)
 }
 
 func (b *ftpBucket) Exists(_ context.Context, key string) (bool, error) {
@@ -291,7 +293,7 @@ func (b *ftpBucket) Exists(_ context.Context, key string) (bool, error) {
 	if _, err := b.c.FileSize(p); err == nil {
 		return true, nil
 	} else if !isNotFound(err) && !isNotImplemented(err) {
-		return false, ftpErr(err, driver.Target{})
+		return false, ftpStepErr("SIZE", err)
 	}
 	// SIZE says no (or is not supported): confirm with a listing of the folder
 	entries, err := b.c.List(path.Dir(p))
@@ -300,7 +302,7 @@ func (b *ftpBucket) Exists(_ context.Context, key string) (bool, error) {
 		if isNotFound(err) || isNotImplemented(err) {
 			return false, nil
 		}
-		return false, ftpErr(err, driver.Target{})
+		return false, ftpStepErr("LIST", err)
 	}
 	for _, e := range entries {
 		if e.Name == path.Base(p) && e.Type != ftp.EntryTypeFolder {
@@ -341,7 +343,7 @@ func (b *ftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _
 	tmp := path.Join(dir, ".komando-upload-"+path.Base(p))
 	if err := b.c.Stor(tmp, CtxReader(ctx, r)); err != nil {
 		_ = b.c.Delete(tmp)
-		return ftpErr(err, driver.Target{})
+		return ftpStepErr("STOR", err)
 	}
 	if err := b.c.Rename(tmp, p); err != nil {
 		// some servers refuse to rename over an existing file: remove the old
@@ -349,11 +351,11 @@ func (b *ftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _
 		exists, xerr := b.Exists(context.Background(), key)
 		if xerr != nil || !exists {
 			_ = b.c.Delete(tmp)
-			return ftpErr(err, driver.Target{})
+			return ftpStepErr("RNFR/RNTO", err)
 		}
 		if derr := b.c.Delete(p); derr != nil {
 			_ = b.c.Delete(tmp)
-			return ftpErr(err, driver.Target{})
+			return ftpStepErr("RNFR/RNTO", err)
 		}
 		if rerr := b.c.Rename(tmp, p); rerr != nil {
 			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
@@ -369,7 +371,7 @@ func (b *ftpBucket) Remove(_ context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	return ftpErr(b.c.Delete(p), driver.Target{})
+	return ftpStepErr("DELE", b.c.Delete(p))
 }
 
 func (b *ftpBucket) Link(context.Context, string, time.Duration) (*url.URL, error) {
@@ -384,6 +386,57 @@ func noLinks(what string) error {
 func isNotFound(err error) bool {
 	var te *textproto.Error
 	return errors.As(err, &te) && te.Code == ftp.StatusFileUnavailable
+}
+
+// ftpsData is a TLS data connection. Go's TLS reports a connection that
+// closed before TLS was set up as a plain io.EOF, which the FTP library
+// takes as the normal end of a listing: an empty folder with no error, and
+// sync --delete would remove that folder's files on the other side. Here it
+// is an error.
+type ftpsData struct{ *tls.Conn }
+
+var errDataCut = errors.New("the data connection closed before TLS was set up")
+
+func (d ftpsData) Read(p []byte) (int, error) {
+	n, err := d.Conn.Read(p)
+	if err == io.EOF && !d.ConnectionState().HandshakeComplete {
+		err = errDataCut
+	}
+	return n, err
+}
+
+func (d ftpsData) Handshake() error {
+	err := d.Conn.Handshake()
+	if err == io.EOF {
+		err = errDataCut
+	}
+	return err
+}
+
+func (d ftpsData) Write(p []byte) (int, error) {
+	n, err := d.Conn.Write(p)
+	if err == io.EOF && !d.ConnectionState().HandshakeComplete {
+		err = errDataCut
+	}
+	return n, err
+}
+
+// stepErr names the FTP command an error came from, so a dropped
+// connection says where it dropped.
+type stepErr struct {
+	cmd string
+	err error
+}
+
+func (e *stepErr) Error() string { return fmt.Sprintf("%v (during %s)", e.err, e.cmd) }
+func (e *stepErr) Unwrap() error { return e.err }
+
+// ftpStepErr is ftpErr for an error from the FTP command cmd.
+func ftpStepErr(cmd string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return ftpErr(&stepErr{cmd, err}, driver.Target{})
 }
 
 func ftpErr(err error, t driver.Target) error {
