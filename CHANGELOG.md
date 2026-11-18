@@ -444,6 +444,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- An AI agent's `storage download` from an FTP or FTPS conn that komando
+  stops before the end (a file too large to read for personal data) now
+  waits for the download to end, so the next command on that connection
+  reads its own reply instead of the download's.
 - `sync --delete` stops before it empties a folder that the source lists
   as empty while the destination still has files in it
   (`EMPTY_FOLDER_CONFIRM_REQUIRED`, exit 6, with the folders and counts in
