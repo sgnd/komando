@@ -9,6 +9,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando import securecrt FILE|FOLDER` adds SecureCRT's SSH2 sessions,
+  from its exported settings (File > Export Settings, an `.xml` file) or
+  its `Sessions` folder: host, port, user and key file, with each
+  session's folder as a group. Other session types, a firewall and a
+  `.ppk` key are listed with what to do. Stored passwords and key
+  passphrases are never read.
+
 - `komando host trust NAME --fingerprint SHA256:...` pins a server's key
   only when the server shows the key with that fingerprint: compare and
   pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and
