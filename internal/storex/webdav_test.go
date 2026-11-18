@@ -214,6 +214,35 @@ func TestWebDAVPutFailingPartwayLeavesNothing(t *testing.T) {
 	}
 }
 
+// A server still busy with an upload cut off partway (it makes the
+// temporary file after komando's DELETE arrived) is cleaned up too: the
+// DELETE is repeated until the temporary name is gone.
+func TestWebDAVPutCleansUpAfterASlowServer(t *testing.T) {
+	putDone := make(chan struct{})
+	u := davServerWith(t, func(h http.Handler, w http.ResponseWriter, r *http.Request) bool {
+		if r.Method != http.MethodPut || !strings.Contains(r.URL.Path, ".komando-upload-") {
+			return false
+		}
+		time.Sleep(150 * time.Millisecond) // komando's DELETE comes first
+		h.ServeHTTP(w, r)
+		close(putDone)
+		return true
+	})
+	b := openDav(t, u, "pw")
+	ctx := context.Background()
+	if err := b.Put(ctx, "dir/new.txt", &failAfter{n: 100}, -1, ""); err == nil {
+		t.Fatal("a failing upload said it worked")
+	}
+	<-putDone // the server is done with the upload
+	objs, _, err := b.List(ctx, "dir/", true, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(objs) != 0 {
+		t.Errorf("left behind: %+v", objs)
+	}
+}
+
 // davServerWith is davServer with a hook that may answer a request itself
 // (return true) before x/net/webdav does.
 func davServerWith(t *testing.T, hook func(h http.Handler, w http.ResponseWriter, r *http.Request) bool) *url.URL {

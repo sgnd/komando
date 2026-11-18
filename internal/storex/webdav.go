@@ -258,7 +258,7 @@ func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64
 	}
 	resp, err := do(b.c, "webdav", req, http.StatusOK, http.StatusCreated, http.StatusNoContent)
 	if err != nil {
-		b.removeURL(tmp)
+		b.removeFailedUpload(tmpKey, tmp)
 		return err
 	}
 	resp.Body.Close()
@@ -314,6 +314,24 @@ func refusedMove(status int) bool {
 
 // removeURL deletes what is at u, on a fresh context: a cancelled upload
 // still takes its temporary file away.
+// removeFailedUpload removes the temporary file of an upload that failed.
+// A server may still be busy with the cut-off PUT when the DELETE arrives
+// and write the file after it, so the name is checked a few more times,
+// for about 1.5 s, and deleted again when it is there. Only a failed
+// upload waits for this.
+func (b *davBucket) removeFailedUpload(key string, u *url.URL) {
+	b.removeURL(u)
+	for _, wait := range []time.Duration{100, 200, 400, 800} {
+		time.Sleep(wait * time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		_, err := b.Stat(ctx, key)
+		cancel()
+		if err == nil {
+			b.removeURL(u)
+		}
+	}
+}
+
 func (b *davBucket) removeURL(u *url.URL) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
