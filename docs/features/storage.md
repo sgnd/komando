@@ -348,6 +348,13 @@ komando download site logs/error.log
 - WebDAV makes missing folders as it uploads. For Nextcloud and ownCloud,
   the path is `remote.php/dav/files/USER`, and an app password (Settings,
   Security) is safer than your own.
+- A WebDAV upload goes to a temporary name (`.komando-upload-…`) and is
+  moved into place with WebDAV `MOVE` only when it arrived whole, so a cut
+  upload never replaces the file there. The server must allow `MOVE` (nginx:
+  `dav_methods PUT DELETE MKCOL COPY MOVE;`), and a proxy in front must keep
+  the URL's scheme and address. If the server removes the old file and then fails
+  the move, the new content stays under its temporary name
+  (`UPLOAD_NOT_RENAMED` names it).
 
 ## Add a Windows share (SMB)
 
