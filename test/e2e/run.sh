@@ -78,6 +78,12 @@ if [ "${E2E_AREA_RUN:-0}" = 1 ]; then
     if { [ "$rc" -ne 0 ] || [ "$FAIL" -gt 0 ]; } && [ "${#SERVICES[@]}" -gt 0 ]; then
       echo "==> the lab servers' last lines ($AREA failed)"
       DC logs --no-color --timestamps --tail 200 2>&1 || true
+      # the FTPS server in full: its one failing session is often older
+      # than the last 200 lines (C88)
+      if has_service ftps; then
+        echo "==> the FTPS server's whole log ($AREA failed)"
+        DC logs --no-color --timestamps ftps 2>&1 || true
+      fi
     fi
     lab_down
     "$K" tunnel stop --all >/dev/null 2>&1 || true # only this run's tunnels
