@@ -5,8 +5,10 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/tls"
 	"io"
 	"net"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -100,6 +102,39 @@ func hopDial(t *testing.T) DialFunc {
 func TestFTPThroughAHopEndsWithoutEOF(t *testing.T) {
 	s := ftptest.New(t)
 	b, err := OpenFTP(context.Background(), s.Target(), "p", hopDial(t), 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	ctx := context.Background()
+	for i := range 25 {
+		if err := b.Put(ctx, "obj.txt", strings.NewReader("old\n"), 4, ""); err != nil {
+			t.Fatalf("STOR %d: %v", i, err)
+		}
+		var got bytes.Buffer
+		if _, err := b.Get(ctx, "obj.txt", &got); err != nil || got.String() != "old\n" {
+			t.Fatalf("RETR %d: %q %v", i, got.String(), err)
+		}
+		if _, _, err := b.List(ctx, "", false, 0); err != nil {
+			t.Fatalf("LIST %d: %v", i, err)
+		}
+		if _, err := Append(ctx, b, "obj.txt", 4, strings.NewReader("new\n")); err != nil {
+			t.Fatalf("APPE %d: %v", i, err)
+		}
+	}
+}
+
+// The same through a hop over FTPS: TLS sends its close_notify before it
+// closes the channel, and that send meets a channel the far end closed.
+func TestFTPSThroughAHopEndsWithoutEOF(t *testing.T) {
+	srv := httptest.NewTLSServer(nil)
+	certs := srv.TLS.Certificates
+	srv.Close()
+	s := ftptest.New(t)
+	s.TLS = &tls.Config{Certificates: certs}
+	tg := s.Target()
+	tg.Secure, tg.TLS = true, "skip-verify"
+	b, err := OpenFTP(context.Background(), tg, "p", hopDial(t), 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}

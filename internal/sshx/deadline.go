@@ -39,11 +39,17 @@ func (c *deadlineConn) SetWriteDeadline(t time.Time) error { return c.SetDeadlin
 
 // Close closes the channel. It swallows one error only: the bare io.EOF
 // x/crypto/ssh returns when the channel has already sent its close. That
-// happens when the far end closed first (the server behind the hop closed
-// its socket): the library answers that close itself and marks the channel
-// closed (golang.org/x/crypto v0.59.0 ssh/channel.go:458-461, close() at
-// :414-428), and writePacket then reports any later close as io.EOF
-// (:231-236). The channel is closed either way. Passed on, TLS and the FTP
+// happens in two ways:
+//   - the far end closed first (the server behind the hop closed its
+//     socket): the library answers that close itself and marks the channel
+//     closed (golang.org/x/crypto v0.59.0 ssh/channel.go:458-461, close()
+//     at :414-428);
+//   - the deadline timer closed it: crypto/tls sets a write deadline of
+//     now after its close_notify (go1.27 crypto/tls/conn.go:1480), and
+//     SetDeadline above closes the channel when a deadline passes.
+//
+// writePacket then reports the later close as io.EOF (:231-236). The
+// channel is closed either way. Passed on, TLS and the FTP
 // client turned a transfer that worked into "the server: EOF" (C132). Any
 // other error from Close is returned; io.EOF from Read or Write stays an
 // error; CloseWrite sends EOF, not close, so a Close after it is unchanged.
