@@ -15,6 +15,27 @@ its highlights; the sections below them give the details. Versions follow
   session's folder as a group. Other session types, a firewall and a
   `.ppk` key are listed with what to do. Stored passwords and key
   passphrases are never read.
+- `komando pkg security` works on zypper (security patches; `pkg upgrade
+  --security` runs `zypper patch --category security`), and on pacman
+  with `arch-audit`. Where the repositories publish no security notices
+  (apk, pacman without `arch-audit`, dnf/yum repositories such as
+  CentOS's) the list is no longer silently empty: the new
+  `security_notices` field is false, `unclassified_updates` lists every
+  pending update, and a warning says why. `pkg upgrade --security` stops
+  there with `SECURITY_UNSUPPORTED` (exit 3) and changes nothing; apk,
+  zypper and pacman servers are no longer in `meta.skipped`.
+
+- `--user-units` on `komando svc status`, `list`, `start`, `stop`, `restart`,
+  `reload`, `enable`, `disable` and `daemon-reload` manages the login
+  user's own units (`systemctl --user`), without sudo. A user with no
+  systemd manager running stops with the new code `NO_USER_MANAGER`
+  (exit 3); the hint names `loginctl enable-linger USER`.
+- `komando docker prune --volumes` takes `--older-than`. Docker has no age
+  filter for volumes, so komando prunes with the age filter, then removes
+  only the unused anonymous volumes made before the cut-off, by name; the
+  dry run lists exactly those, and the answer lists them in
+  `volumes_removed`. A volume whose age komando cannot read stays. A dry
+  run with `--volumes` now always has `volumes`, empty when none would go.
 - MongoDB conns take `komando db kill CONN OPID` (stops the operation
   `db activity` shows, with `killOp`; `--dry-run` shows it first; no
   `--session`), `komando db user list` (the users of every database, with
@@ -136,6 +157,22 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- A `DELETE` or `UPDATE` whose `WHERE` keeps every row (`WHERE true`,
+  `WHERE 1`, `WHERE 1=1`, `x OR true`), and a `MERGE ... ON TRUE`, are
+  rated like no `WHERE`: they need `--allow-dangerous`
+  (`sql-delete-no-where`, `sql-update-no-where`) on every SQL kind.
+- `db grant`, `db revoke`, `db user add` and `db user passwd` now need
+  `--allow-dangerous` (at a terminal: type the user's name). They send
+  the statements `db query` already rates as privilege changes
+  (`sql-privileges`); without the flag they stop with `POLICY_BLOCKED`.
+- `cluster apply` and `cluster run -- apply|create -f` need
+  `--allow-dangerous` for a file that gives out rights (roles, bindings,
+  webhook configurations, service account token Secrets) or opens a node
+  to a pod (host namespaces, privileged, added capabilities, `hostPath`),
+  and for a Swarm stack file that hands a service the server. `cluster
+  run -- create role` needs it too.
+- `db restore` has a new stop, `FILE_CHANGED` (exit 8): the file
+  changed after komando checked it.
 - `komando doctor -o json`: a check that one komando command puts right,
   asking nothing, has `fix`, the words to run as a list. `error.message`,
   `error.hint`, `error.suggestion` (also in per-server error objects),
@@ -474,6 +511,22 @@ its highlights; the sections below them give the details. Versions follow
   any size: komando reads at most 1 MiB of it. (Every SSH, Kubernetes,
   database, queue, VPN and cloud reply was checked for a size limit; the
   memcached and pod-copy gaps are fixed with the cluster tier changes.)
+
+- `db restore` restores the bytes it checked. It used to open the backup
+  again by path after the approval, so a file swapped in between was
+  restored unchecked. A MySQL `DELIMITER` after a statement on the same
+  line, which the check and the restore read differently, is refused.
+- A memcached server can no longer crash komando, or make it reserve
+  memory, with a bad value length; `cluster cp` refuses a sparse tar
+  entry and holds the files of a copy to 512 MiB together; `net http`
+  reads the redirect address as text, so a server cannot forge the
+  status; `db explain --analyze` on MariaDB refuses `TABLE` (it became
+  `ANALYZE TABLE`); Snowflake `INSERT OVERWRITE`, `CREATE OR ALTER` and
+  `COPY ... PURGE` need `--allow-dangerous`.
+- `import kubeconfig` reads the certificate, key and token files a
+  kubeconfig names under the same rule as the kubeconfig: for an AI
+  agent, never komando's own folder. `cluster deploy` refuses an
+  `--image` with spaces or unprintable characters.
 
 ### Fixed
 

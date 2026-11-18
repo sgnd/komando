@@ -187,7 +187,7 @@ func bigqueryStatement(ts []token) (Risk, []string, error) {
 	// WHEN MATCHED THEN UPDATE (or DELETE) touches the matched rows only;
 	// WHEN NOT MATCHED BY SOURCE touches every row the source lacks, which
 	// is all of them for an empty source or ON FALSE
-	if first == "MERGE" && !slices.ContainsFunc(ts[1:], func(t token) bool { return t.word == "SOURCE" }) {
+	if first == "MERGE" && !slices.ContainsFunc(ts[1:], func(t token) bool { return t.word == "SOURCE" }) && !mergeOnKeepsAll(ts) {
 		rules = slices.DeleteFunc(rules, func(id string) bool { return id == "sql-update-no-where" || id == "sql-delete-no-where" })
 		if len(rules) == 0 {
 			risk = RiskWrite

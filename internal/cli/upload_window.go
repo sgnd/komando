@@ -155,11 +155,11 @@ func guardUpload(cl *call, st *store.State, hosts []*store.Host, local string) e
 
 // guardKubectlRun is cluster run's guard for a kubectl command line, with
 // the files it sends in the window (noteKubectlFiles).
-func guardKubectlRun(cl *call, st *store.State, c *store.Conn, risk driver.Risk, verb string, args []string) error {
+func guardKubectlRun(cl *call, st *store.State, c *store.Conn, risk driver.Risk, verb, reason string, args []string) error {
 	if err := noteKubectlFiles(cl, args); err != nil {
 		return err
 	}
-	if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{"kubectl " + verb}}); err != nil {
+	if err := guardConns(cl, st, []*store.Conn{c}, driver.Verdict{Risk: risk, RuleIDs: []string{"cluster-run"}, Reasons: []string{reason}}); err != nil {
 		return execInstead(err, verb)
 	}
 	return nil

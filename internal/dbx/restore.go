@@ -173,6 +173,7 @@ func (s *sqlScanner) next() (sqlStatement, error) {
 	var b strings.Builder
 	start := 0
 	for {
+		rest := s.pending != nil // the rest of a line whose first statement has run
 		line, err := s.rawLine()
 		if err != nil {
 			if err != io.EOF {
@@ -198,7 +199,7 @@ func (s *sqlScanner) next() (sqlStatement, error) {
 			}
 			if s.kind == "mysql" {
 				if d, ok := driver.ParseDelimiter(trimmed); ok {
-					if d == "" {
+					if d == "" || rest { // CheckRestore refuses both; so does the restore
 						return sqlStatement{}, fmt.Errorf("line %d: komando cannot follow this DELIMITER line: %s", s.line, trimmed)
 					}
 					s.lex.Delim = d
