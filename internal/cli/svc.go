@@ -21,8 +21,8 @@ import (
 // svcResult reads `systemctl show` output into units and fails the host
 // when systemd is not running or a unit does not exist.
 func svcResult(rr *sshx.RunResult) ([]map[string]any, *out.Error) {
-	if marker(rr.Stdout) == "no-systemd" {
-		return nil, errNoSystemd()
+	if e := systemdMissing(rr.Stdout); e != nil {
+		return nil, e
 	}
 	v := parseSvcShow(nil, rr.Stdout)
 	units, _ := v.([]map[string]any)
@@ -70,14 +70,18 @@ func cell(v any) string {
 	return fmt.Sprint(v)
 }
 
-func svcStatus(cl *call, ctx context.Context, target string, units []string) error {
-	command := noSystemd + "systemctl show --no-pager -p " + strings.Join(svcProps, ",") + " -- " + quoteAll(units)
-	return runOps(cl, ctx, opsSpec{name: "svc.status", target: target, command: command, display: "svc status " + strings.Join(units, " "),
+func svcStatus(cl *call, ctx context.Context, target string, units []string, user bool) error {
+	command := svcScope(noSystemd+"systemctl show --no-pager -p "+strings.Join(svcProps, ",")+" -- "+quoteAll(units), user)
+	win := badServiceNames(units) + winSvcStatusScript(units)
+	if user {
+		win = "" // Windows services have no per-user manager
+	}
+	return runOps(cl, ctx, opsSpec{name: "svc.status", target: target, command: command, display: "svc status " + userWord(user) + strings.Join(units, " "),
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			u, err := svcResult(rr)
 			return u, err
 		}, text: svcTable,
-		win: badServiceNames(units) + winSvcStatusScript(units),
+		win: win,
 		winParse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
 			s, err := winServices(rr)
 			return s, err
@@ -141,21 +145,25 @@ func svcActionResult(action string, wait int, rr *sshx.RunResult) (any, *out.Err
 	return units, nil
 }
 
-func svcAction(cl *call, ctx context.Context, action, target string, units []string, sudo, now bool, wait int) error {
-	display := "svc " + action + " " + strings.Join(units, " ")
+func svcAction(cl *call, ctx context.Context, action, target string, units []string, sudo, now, user bool, wait int) error {
+	display := "svc " + action + " " + userWord(user) + strings.Join(units, " ")
 	if now && (action == "enable" || action == "disable") {
-		display = "svc " + action + " --now " + strings.Join(units, " ")
+		display = "svc " + action + " --now " + userWord(user) + strings.Join(units, " ")
 	}
-	return runOps(cl, ctx, opsSpec{name: "svc." + action, target: target, command: svcScript(action, units, now, wait), display: display,
+	win := winSvcScript(action, units, now, wait)
+	if user {
+		sudo, win = false, "" // the login user's own manager; sudo would reach root's
+	}
+	return runOps(cl, ctx, opsSpec{name: "svc." + action, target: target, command: svcScope(svcScript(action, units, now, wait), user), display: display,
 		sudo: sudo, mutating: true, timeoutAtLeast: time.Duration(wait+30) * time.Second,
 		parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcActionResult(action, wait, rr) },
-		text:  svcTable, win: winSvcScript(action, units, now, wait),
+		text:  svcTable, win: win,
 		winParse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return winSvcActionResult(action, wait, rr) }})
 }
 
 func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
-	if marker(rr.Stdout) == "no-systemd" {
-		return nil, errNoSystemd()
+	if e := systemdMissing(rr.Stdout); e != nil {
+		return nil, e
 	}
 	rows := []map[string]string{}
 	for _, line := range strings.Split(rr.Stdout, "\n") {
@@ -169,9 +177,22 @@ func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
 	return rows, nil
 }
 
+// userWord is --user-units in a shown command line.
+func userWord(user bool) string {
+	if user {
+		return "--user-units "
+	}
+	return ""
+}
+
+// userFlag is --user-units on the svc commands.
+func userFlag(c *cobra.Command, user *bool) {
+	c.Flags().BoolVar(user, "user-units", false, "the login user's own units (systemctl --user), without sudo")
+}
+
 func svcListCmd() *cobra.Command {
 	var state string
-	var failed bool
+	var failed, user bool
 	var limit int
 	c := &cobra.Command{
 		Use:     "list TARGET",
@@ -179,7 +200,7 @@ func svcListCmd() *cobra.Command {
 		Short:   "List the service units of servers",
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			command := noSystemd + "systemctl list-units --type=service --all --no-legend --plain --no-pager"
+			command := "systemctl list-units --type=service --all --no-legend --plain --no-pager"
 			if failed {
 				if state != "" && state != "failed" {
 					return out.Usage("give --failed or --state %s, not both", state)
@@ -189,13 +210,18 @@ func svcListCmd() *cobra.Command {
 			if state != "" {
 				command += " --state=" + sshx.Q(state)
 			}
-			return runOps(cl, cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: command, limit: limit,
+			win := winSvcListScript
+			if user {
+				win = ""
+			}
+			return runOps(cl, cmd.Context(), opsSpec{name: "svc.list", target: args[0], command: svcScope(noSystemd+command, user), limit: limit,
 				parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) { return svcListResult(rr) }, text: svcListTable,
-				win: winSvcListScript, winParse: winSvcList(state)})
+				win: win, winParse: winSvcList(state)})
 		}),
 	}
 	c.Flags().StringVar(&state, "state", "", "only units in this state, such as running or failed")
 	c.Flags().BoolVar(&failed, "failed", false, "only failed units (the same as --state failed)")
+	userFlag(c, &user)
 	limitFlag(c, &limit, 0, "units per server")
 	return c
 }
