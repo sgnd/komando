@@ -9,6 +9,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- MongoDB conns take `komando db kill CONN OPID` (stops the operation
+  `db activity` shows, with `killOp`; `--dry-run` shows it first; no
+  `--session`), `komando db user list` (the users of every database, with
+  their roles, never their stored credentials) and `komando db user show
+  CONN USER` (roles, and the actions they give). The JSON has the same
+  shape as for SQL databases. `db user add`, `passwd`, `rm`, `db grant` and
+  `db revoke` stop with `NOT_SUPPORTED`, whose hint says to send the
+  command with `db query --write` (it needs `--allow-dangerous`).
+
 - `komando host trust NAME --fingerprint SHA256:...` pins a server's key
   only when the server shows the key with that fingerprint: compare and
   pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and
