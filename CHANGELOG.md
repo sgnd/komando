@@ -437,6 +437,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `key gen --dry-run` shows where the real run keeps the key (`path`
+  `sealed:`; the record's ID is made only when the key is written) and
+  the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
+  No key is made (C08).
+
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")
