@@ -453,7 +453,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a server: add --run-on HOST (a server with pg_restore that can reach the database). komando restores plain SQL itself", from)
 	}
 	// the file is checked first, so a dry run also says whether it is fine
-	if err := guardConns(cl, st, []*store.Conn{c}, v); err != nil {
+	if err := guardRestore(cl, st, c, v, from, custom); err != nil {
 		return err
 	}
 	// plain SQL is always run by komando itself: psql and mysql would obey
@@ -486,6 +486,31 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 		err = withBackup(cl, from, seal, func(r io.Reader) error { return runTool(cl, ctx, st, c, h, tool, argv, r, io.Discard, false) })
 	}
 	return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
+}
+
+// noteRestoreFile tells an AI agent's approval window what a restore
+// sends (C111). Plain SQL is code, as for db query --file: shown whole
+// (a .gz unpacked) or no window. A pg_dump archive is not text: the
+// window names its size and SHA-256.
+func noteRestoreFile(cl *call, from string, custom bool) error {
+	if !cl.caller().IsAgent() {
+		return nil
+	}
+	if custom {
+		return noteApprovalFile(cl, "the archive "+from, from)
+	}
+	var unzip func(io.Reader) (io.Reader, error)
+	label := "the SQL in " + from
+	if strings.HasSuffix(from, ".gz") {
+		unzip = func(r io.Reader) (io.Reader, error) { return gzip.NewReader(r) }
+		label += ", unpacked (gunzip -c " + from + " | shasum -a 256)"
+	}
+	c, err := readCapped(from, unzip)
+	if err != nil {
+		return out.Errf(out.ExitUsage, "BAD_FILE", "give a backup made by `komando db dump`", "%v", err)
+	}
+	cl.body = c.as(label, false)
+	return nil
 }
 
 // checkRestoreSQL checks the whole file before sending any of it: what the

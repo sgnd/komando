@@ -24,6 +24,9 @@ type Runtime struct {
 	// a login-ask server, by its record ID (sshx.LoginID); the window stays shut for a
 	// short while after (cli loginCoolDown)
 	LoginDeclined map[string]time.Time `json:"login_declined,omitempty"`
+	// Mark ties the file to store.db: one that differs from the store's is
+	// read as empty (runtime_mark.go)
+	Mark string `json:"mark,omitempty"`
 }
 
 const runtimeLock = ".runtime.lock"
@@ -69,6 +72,10 @@ func (s *State) loadRuntime() error {
 			"the file holds only running VPN sessions, logins, jobs and tunnels, no servers or settings: move it away, then connect again",
 			"corrupt runtime file %s: %v", runtimePath(), err)
 	}
+	if rt.Mark != s.runtimeMark {
+		// an old copy put back: never trusted, like a plain runtime.json
+		rt = Runtime{Mark: s.runtimeMark}
+	}
 	rt.init()
 	s.Runtime = rt
 	return nil
@@ -101,6 +108,13 @@ func ReadRuntime() (*Runtime, error) {
 	var rt Runtime
 	if err := json.Unmarshal(b, &rt); err != nil {
 		return nil, err
+	}
+	mark, err := storeRuntimeMark()
+	if err != nil {
+		return nil, err
+	}
+	if rt.Mark != mark {
+		rt = Runtime{Mark: mark}
 	}
 	rt.init()
 	return &rt, nil
@@ -146,6 +160,10 @@ func UpdateRuntime(w Write, fn func(s *State) error) error {
 	if err != nil {
 		return err
 	}
+	printBefore, err := s.Runtime.sessionPrint()
+	if err != nil {
+		return err
+	}
 	if err := fn(s); err != nil {
 		return err
 	}
@@ -158,6 +176,17 @@ func UpdateRuntime(w Write, fn func(s *State) error) error {
 	}
 	if w == Preview() {
 		return nil
+	}
+	printAfter, err := s.Runtime.sessionPrint()
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(printBefore, printAfter) {
+		// store.db first: a crash before runtime.json is written leaves
+		// a file that reads as empty, never an old one that opens
+		if s.Runtime.Mark, err = newRuntimeMark(); err != nil {
+			return err
+		}
 	}
 	return s.saveRuntime()
 }

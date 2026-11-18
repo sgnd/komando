@@ -120,6 +120,9 @@ func loadSealed(tx *sealdb.Tx) (*State, error) {
 	default:
 		return nil, fmt.Errorf("%d settings records: %w", len(rows), sealdb.ErrTampered)
 	}
+	if s.runtimeMark, err = readRuntimeMark(tx); err != nil {
+		return nil, err
+	}
 	s.init()      // defaults for settings the record does not set
 	s.followIDs() // a rename made elsewhere reaches the references (refs.go)
 	return s, nil
@@ -186,6 +189,10 @@ func updateStore(fn func(*State) error) error {
 		if rtBefore, err = json.Marshal(&s.Runtime); err != nil {
 			return err
 		}
+		printBefore, err := s.Runtime.sessionPrint()
+		if err != nil {
+			return err
+		}
 		before := s.recSnapshot()
 		setBefore, err := json.Marshal(&s.Settings)
 		if err != nil {
@@ -193,6 +200,16 @@ func updateStore(fn func(*State) error) error {
 		}
 		if err := fn(s); err != nil {
 			return err
+		}
+		printAfter, err := s.Runtime.sessionPrint()
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(printBefore, printAfter) {
+			// the new mark in the same write step as the records
+			if s.Runtime.Mark, err = putRuntimeMark(tx); err != nil {
+				return err
+			}
 		}
 		return s.writeSealed(tx, before, setBefore)
 	})

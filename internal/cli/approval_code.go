@@ -46,17 +46,52 @@ func totp(secret []byte, step int64) string {
 // codeOK checks a typed code against the steps around now (a phone's clock
 // may be 30 s off).
 func codeOK(secret []byte, code string, now time.Time) bool {
+	_, ok := codeStep(secret, code, now)
+	return ok
+}
+
+// codeStep is the 30 s step a typed code belongs to, one step either side
+// of now.
+func codeStep(secret []byte, code string, now time.Time) (int64, bool) {
 	code = strings.ReplaceAll(strings.TrimSpace(code), " ", "")
 	if len(code) != 6 {
-		return false
+		return 0, false
 	}
 	step := now.Unix() / 30
 	for d := int64(-1); d <= 1; d++ {
 		if hmac.Equal([]byte(totp(secret, step+d)), []byte(code)) {
-			return true
+			return step + d, true
 		}
 	}
-	return false
+	return 0, false
+}
+
+// errCodeUsed: the code's step, or a later one, was already accepted.
+var errCodeUsed = errors.New("this code was already used")
+
+// useCodeStep records step as the last accepted one, in the sealed store,
+// under its lock: a code is taken once, and never one older than the last
+// accepted (two windows in the same 30 s, or a code seen over a shoulder).
+func useCodeStep(step int64) error {
+	return store.Update(store.Save(), func(st *store.State) error {
+		if step <= st.Settings.ApprovalCodeStep {
+			return errCodeUsed
+		}
+		st.Settings.ApprovalCodeStep = step
+		return nil
+	})
+}
+
+// codeAccepted checks a typed code and takes its step, so it works once.
+func codeAccepted(secret []byte, code string, now time.Time) (ok, used bool) {
+	step, ok := codeStep(secret, code, now)
+	if !ok {
+		return false, false
+	}
+	if err := useCodeStep(step); err != nil {
+		return false, errors.Is(err, errCodeUsed)
+	}
+	return true, false
 }
 
 // approvalCodeSecret is the enrolled secret, or nil when approval codes are off.
@@ -164,13 +199,18 @@ shown once, here); turning it off needs --yes, so that code too.`,
 			if cl.interrupted { // Ctrl-C: nothing was changed
 				return interruptedErr()
 			}
-			if !codeOK(raw, typed, time.Now()) {
+			step, ok := codeStep(raw, typed, time.Now())
+			if !ok {
 				return out.Errf(out.ExitUsage, "CODE_WRONG", "check the phone's clock and run it again", "that code does not match; nothing was changed")
 			}
 			if err := vault.Set(cl.storeWrite(), approvalSecret, b32); err != nil {
 				return err
 			}
-			if err := store.Update(cl.storeWrite(), func(st *store.State) error { st.Settings.ApprovalCode = true; return nil }); err != nil {
+			// the code typed here is used: it cannot allow a window later
+			if err := store.Update(cl.storeWrite(), func(st *store.State) error {
+				st.Settings.ApprovalCode, st.Settings.ApprovalCodeStep = true, max(st.Settings.ApprovalCodeStep, step)
+				return nil
+			}); err != nil {
 				return err
 			}
 			audit(cl, nil, "config.approval-code", nil, "", true, map[string]any{"approval_code": "on"})
