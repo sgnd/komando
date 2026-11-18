@@ -1,10 +1,16 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // TestMongoLive runs komando's db commands against a real MongoDB:
@@ -77,8 +83,75 @@ func TestMongoLive(t *testing.T) {
 	if d := mustRun(t, "db", "activity", "shop", "--all"); d["sessions"] == nil {
 		t.Errorf("activity: %v", d)
 	}
+	users := mustRun(t, "db", "user", "list", "shop")["users"].([]any)
+	if len(users) == 0 || !strings.Contains(fmt.Sprint(users), "root") || strings.Contains(fmt.Sprint(users), "SCRAM-SHA-256:") {
+		t.Errorf("user list: %v", users)
+	}
+	g := mustRun(t, "db", "user", "show", "shop", "root")["grants"].([]any)
+	if !strings.Contains(fmt.Sprint(g), "root") || !strings.Contains(fmt.Sprint(g), "on_type:role") {
+		t.Errorf("user show: %v", g)
+	}
+	wantCode(t, "DB_USER_NOT_FOUND", "db", "user", "show", "shop", "nobody")
+	wantCode(t, "SESSION_NOT_FOUND", "db", "kill", "shop", "999999999", "--dry-run")
+	// a slow read, found with db activity and stopped with db kill
+	cli, err := mongo.Connect(options.Client().ApplyURI("mongodb://root:rootpw@" + addr + "/?authSource=admin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = cli.Disconnect(context.Background()) }()
+	slow := make(chan error, 1)
+	go func() {
+		_, err := cli.Database("shop_e2e").Collection("users").Find(context.Background(), bson.D{{Key: "$where", Value: "sleep(30000) || true"}})
+		slow <- err
+	}()
+	var opid string
+	for i := 0; i < 50 && opid == ""; i++ {
+		time.Sleep(100 * time.Millisecond)
+		for _, x := range mustRun(t, "db", "activity", "shop")["sessions"].([]any) {
+			if r := x.(map[string]any); strings.Contains(fmt.Sprint(r["query"]), "sleep(30000)") {
+				opid = fmt.Sprint(r["pid"])
+			}
+		}
+	}
+	if opid == "" {
+		t.Fatal("db activity does not show the slow read")
+	}
+	if d := mustRun(t, "db", "kill", "shop", opid, "--dry-run"); d["would"] != "cancel query" || d["dry_run"] != true {
+		t.Errorf("kill --dry-run: %v", d)
+	}
+	if d := mustRun(t, "db", "kill", "shop", opid); d["done"] != "cancel query" {
+		t.Errorf("kill: %v", d)
+	}
+	select {
+	case err := <-slow:
+		if err == nil || !strings.Contains(err.Error(), "interrupted") {
+			t.Errorf("the read was not stopped: %v", err)
+		}
+	case <-time.After(15 * time.Second):
+		t.Error("the read still runs after db kill")
+	}
 	mustRun(t, "db", "query", "shop", "--write", "--allow-dangerous", `{"dropDatabase": 1}`)
 	mustRun(t, "conn", "edit", "shop", "--protected")
 	wantCode(t, "PROTECTED_TARGET", "db", "query", "shop", "--write", `{"insert": "users", "documents": [{"name": "Eve"}]}`)
 	mustRun(t, "db", "query", "shop", `{"find": "users"}`) // reading stays allowed
+}
+
+// TestMongoRefusals: what komando does not do for MongoDB says so before
+// connecting (the address answers nothing).
+func TestMongoRefusals(t *testing.T) {
+	invHome(t)
+	mustRun(t, "conn", "add", "m", "mongodb://app@127.0.0.1:1/shop")
+	wantCode(t, "NOT_SUPPORTED", "db", "kill", "m", "42", "--session")
+	wantCode(t, "USAGE", "db", "kill", "m", "shard01:42")
+	for _, args := range [][]string{
+		{"db", "user", "add", "m", "app", "--no-login"},
+		{"db", "user", "rm", "m", "app", "--dry-run"},
+		{"db", "user", "passwd", "m", "app", "--password-ref", "secret:x"},
+		{"db", "grant", "m", "app", "--role", "read"},
+		{"db", "revoke", "m", "app", "--role", "read"},
+	} {
+		if e := wantCode(t, "NOT_SUPPORTED", args...); e == nil || !strings.Contains(e.Hint, "db query") {
+			t.Errorf("%v: the hint names db query: %v", args, e)
+		}
+	}
 }
