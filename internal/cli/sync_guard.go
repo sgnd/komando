@@ -10,6 +10,34 @@ import (
 	"github.com/sgnd/komando/internal/out"
 )
 
+// guardDelete: --delete removes files for good, like `storage rm`. A person
+// at the terminal confirms by typing the destination.
+// Under --dry-run the stop goes to meta.would_be_blocked.
+func guardDelete(cl *call, o syncOpts, dst string) error {
+	if o.delete && !cl.dangerOK() && !confirmDangerous(cl, []string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
+		return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
+			"--delete removes files in the destination that the source does not have"))
+	}
+	return nil
+}
+
+// excluded matches a path, or any of its folders, against the patterns
+// (shell globs: *.log, node_modules, .git).
+func excluded(rel string, patterns []string) bool {
+	parts := strings.Split(rel, "/")
+	for _, p := range patterns {
+		if ok, _ := path.Match(p, rel); ok {
+			return true
+		}
+		for _, part := range parts {
+			if ok, _ := path.Match(p, part); ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // emptiedFolder is a destination folder that sync --delete would empty
 // because the source lists no files in it (C124). A listing cut short
 // looks like that, so sync asks before deleting.
@@ -147,8 +175,9 @@ func emptiedErr(cl *call, left []emptiedFolder, src, folders, files, dst string)
 	const code = "EMPTY_FOLDER_CONFIRM_REQUIRED"
 	var e *out.Error
 	if cl.isAgent() {
-		e = out.Errf(out.ExitPolicy, code, "", "%s lists no files in %s, so --delete would remove %s there in %s; nothing was deleted", src, folders, files, dst)
-		e.Hint = approvalText(cl, e.Flags(), true, cl.flags.dryRun)
+		e = out.Errf(out.ExitPolicy, code,
+			"see what would go with `komando sync SRC DST --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)",
+			"%s lists no files in %s, so --delete would remove %s there in %s; nothing was deleted", src, folders, files, dst)
 	} else {
 		flags := make([]string, len(left))
 		for i, f := range left {

@@ -373,7 +373,7 @@ func ApprovalFlag(e *Error) string {
 		return ""
 	}
 	switch e.Code {
-	case "POLICY_BLOCKED", "EMPTY_FOLDER_CONFIRM_REQUIRED":
+	case "POLICY_BLOCKED":
 		return "--allow-dangerous"
 	case "PROTECTED_TARGET", "SAFETY_SETTING", "OPEN_BIND", "SECRET_DESTINATION", "CONFIRM_REQUIRED":
 		return "--yes"

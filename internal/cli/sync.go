@@ -328,23 +328,6 @@ type syncResult struct {
 	DryRun    bool         `json:"dry_run,omitempty"`
 }
 
-// excluded matches a path, or any of its folders, against the patterns
-// (shell globs: *.log, node_modules, .git).
-func excluded(rel string, patterns []string) bool {
-	parts := strings.Split(rel, "/")
-	for _, p := range patterns {
-		if ok, _ := path.Match(p, rel); ok {
-			return true
-		}
-		for _, part := range parts {
-			if ok, _ := path.Match(p, part); ok {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // planSync decides what to do with every path. A file is sent when the
 // destination lacks it, its size differs, or the source is newer (more than
 // 2 s: FAT and some servers round times).
@@ -577,17 +560,6 @@ func runSyncArgs(cl *call, ctx context.Context, args []string, o syncOpts) error
 		return colonHint(syncUp(cl, ctx, "sync", srcP, dstT, dstP, o), args[1])
 	}
 	return colonHint(syncDown(cl, ctx, "sync", srcT, srcP, dstP, o), args[0])
-}
-
-// guardDelete: --delete removes files for good, like `storage rm`. A person
-// at the terminal confirms by typing the destination.
-// Under --dry-run the stop goes to meta.would_be_blocked.
-func guardDelete(cl *call, o syncOpts, dst string) error {
-	if o.delete && !cl.dangerOK() && !confirmDangerous(cl, []string{dst}, "deletes the files in "+dst+" that the source does not have (--delete)") {
-		return cl.policyStop(approvalErr(cl, "POLICY_BLOCKED",
-			"--delete removes files in the destination that the source does not have"))
-	}
-	return nil
 }
 
 // syncUp sends a local folder to servers or to a storage conn.
