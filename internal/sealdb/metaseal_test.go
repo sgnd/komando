@@ -3,6 +3,7 @@ package sealdb
 import (
 	"database/sql"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -102,4 +103,74 @@ func TestResealMeta(t *testing.T) {
 		t.Fatalf("after reseal: %v", err)
 	}
 	d2.Close()
+}
+
+// A sealed store does not turn back into an unsealed one: with the sealed
+// copy's row removed, or put back as it was before a meta write, a
+// changed meta table does not open (C08).
+func TestMetaSealRemovedOrOld(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.db")
+	d := open(t, path)
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.SetMeta("scrypt_n", "131072") }); err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	old := filepath.Join(t.TempDir(), "old.db")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(old, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d = open(t, path)
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.SetMeta("scrypt_n", "262144") }); err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	// the meta table and its sealed copy as they were one write ago
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`ATTACH DATABASE '` + old + `' AS old`,
+		`UPDATE meta SET v='131072' WHERE k='scrypt_n'`,
+		`DELETE FROM records WHERE id='` + metaSealID + `'`,
+		`INSERT INTO records SELECT * FROM old.records WHERE id='` + metaSealID + `'`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	db.Close()
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrTampered) {
+		t.Fatalf("an older sealed copy opened: %v", err)
+	}
+	rawMeta(t, path, `DELETE FROM records WHERE id=?`, metaSealID)
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrTampered) {
+		t.Fatalf("a store with its sealed copy removed opened: %v", err)
+	}
+}
+
+// Two meta tables never give the same sealed text: a row folded into its
+// neighbour's value is a change (C08).
+func TestMetaSealTextIsExact(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.db")
+	d := open(t, path)
+	err := d.Update(ctx, func(tx *Tx) error {
+		if err := tx.SetMeta("a", "1"); err != nil {
+			return err
+		}
+		return tx.SetMeta("b", "2")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	rawMeta(t, path, `DELETE FROM meta WHERE k='b'`)
+	rawMeta(t, path, `UPDATE meta SET v='1'||char(10)||'b=2' WHERE k='a'`)
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrMetaTampered) {
+		t.Fatalf("a folded row opened: %v", err)
+	}
 }

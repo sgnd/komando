@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/sgnd/komando/internal/out"
@@ -22,7 +23,7 @@ func carryMetaSeal(cl *call) {
 }
 
 // metaSealCheck is doctor's line about the sealed copy of the settings row.
-func metaSealCheck(add func(name string, ok, warn bool, detail string)) {
+func metaSealCheck(add func(name string, ok, warn bool, detail string, fix ...string)) {
 	have, err := store.MetaSealed()
 	switch {
 	case err != nil:
@@ -51,8 +52,11 @@ func resealMeta(cl *call) error {
 		return cl.policyStop(out.Errf(out.ExitError, "CANCELLED", "run `komando doctor --reseal-meta` again to be asked again", "%s", "nothing was changed in "+store.Home()))
 	}
 	meta, err := store.ResealMeta()
+	if errors.Is(err, vault.ErrLocked) || errors.Is(err, vault.ErrKey) {
+		return err // no key to check with: the usual words for that
+	}
 	if err != nil {
-		return out.Errf(out.ExitError, "STATE_CORRUPT", "the key does not open every record: restore the komando folder from a backup", "nothing was changed: %v", err)
+		return out.Errf(out.ExitError, "STATE_CORRUPT", "the key does not open every record: restore the komando folder from a backup; if komando then calls it an older copy, run `komando doctor --accept-old-copy`", "nothing was changed: %v", err)
 	}
 	kept := map[string]any{"key_mode": meta["key_mode"], "scrypt_n": meta["scrypt_n"]}
 	audit(cl, nil, "doctor.reseal-meta", nil, "", true, kept)

@@ -3,6 +3,7 @@ package sealdb
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 
@@ -25,22 +26,26 @@ var SealNewStores = true
 // ErrMetaTampered: the meta table does not match its sealed copy.
 var ErrMetaTampered = fmt.Errorf("the store's settings row does not match its sealed copy: %w", ErrTampered)
 
-// metaText is the meta table, sorted, one k=v line each.
+// metaText is the meta table, sorted by key, each key and value after its
+// length: no two tables give the same text.
 func (t *Tx) metaText() ([]byte, error) {
 	rows, err := t.c.QueryContext(t.ctx, `SELECT k,v FROM meta ORDER BY k`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var b bytes.Buffer
+	var b []byte
 	for rows.Next() {
 		var k, v string
 		if err := rows.Scan(&k, &v); err != nil {
 			return nil, err
 		}
-		fmt.Fprintf(&b, "%s=%s\n", k, v)
+		for _, s := range []string{k, v} {
+			b = binary.AppendUvarint(b, uint64(len(s)))
+			b = append(b, s...)
+		}
 	}
-	return b.Bytes(), rows.Err()
+	return b, rows.Err()
 }
 
 // metaSealState says whether the sealed copy exists and matches.

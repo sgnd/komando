@@ -97,6 +97,14 @@ func TestMetaTamperedNeedsAPerson(t *testing.T) {
 	}
 	saved, savedIn := tcl.terminal, tcl.stdin
 	t.Cleanup(func() { tcl.terminal, tcl.stdin = saved, savedIn })
+	// without the passphrase there is no key to check with: that is not
+	// a damaged store
+	t.Setenv("KOMANDO_VAULT_PASS", "")
+	tcl.terminal, tcl.stdin = true, strings.NewReader("y\n")
+	if _, e := invRun(t, "doctor", "--reseal-meta"); e == nil || e.Code != "VAULT_LOCKED" {
+		t.Fatalf("reseal without the passphrase: %+v", e)
+	}
+	t.Setenv("KOMANDO_VAULT_PASS", "test-passphrase-long-enough") // invHome's
 	tcl.terminal, tcl.stdin = true, strings.NewReader("y\n")
 	d := mustRun(t, "doctor", "--reseal-meta")
 	if d["resealed"] != true {
