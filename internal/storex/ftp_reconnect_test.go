@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
-	"github.com/sgnd/komando/internal/storex/ftpfake"
+	"github.com/sgnd/komando/internal/storex/ftptest"
 )
 
-func openFake(t *testing.T, s *ftpfake.Server) Bucket {
+func openFake(t *testing.T, s *ftptest.Server) Bucket {
 	t.Helper()
 	b, err := OpenFTP(context.Background(), s.Target(), "p", nil, 5*time.Second)
 	if err != nil {
@@ -35,7 +35,7 @@ func errCode(err error) string {
 
 func TestFTPReconnectsOnceAfterADroppedConnection(t *testing.T) {
 	for _, recursive := range []bool{false, true} {
-		s := ftpfake.New(t)
+		s := ftptest.New(t)
 		s.Drop = "LIST"
 		b := openFake(t, s)
 		objs, _, err := b.List(context.Background(), "", recursive, 0)
@@ -52,7 +52,7 @@ func TestFTPReconnectsOnceAfterADroppedConnection(t *testing.T) {
 }
 
 func TestFTPDoesNotRepeatAfterAnFTPError(t *testing.T) {
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.Reply550 = "LIST"
 	b := openFake(t, s)
 	if _, _, err := b.List(context.Background(), "", false, 0); err == nil {
@@ -64,7 +64,7 @@ func TestFTPDoesNotRepeatAfterAnFTPError(t *testing.T) {
 }
 
 func TestFTPGetRepeatsOnlyBeforeAnyByte(t *testing.T) {
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.Drop = "RETR"
 	b := openFake(t, s)
 	var w bytes.Buffer
@@ -81,7 +81,7 @@ func TestFTPGetRepeatsOnlyBeforeAnyByte(t *testing.T) {
 type onlyReader struct{ io.Reader }
 
 func TestFTPPutRepeatsOnlyWhenTheSourceCanStartOver(t *testing.T) {
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.Drop = "STOR"
 	b := openFake(t, s)
 	err := b.Put(context.Background(), "obj.txt", onlyReader{strings.NewReader("new\n")}, 4, "")
@@ -92,7 +92,7 @@ func TestFTPPutRepeatsOnlyWhenTheSourceCanStartOver(t *testing.T) {
 		t.Fatalf("%d logins for a source that cannot start over, want 1", got)
 	}
 
-	s2 := ftpfake.New(t)
+	s2 := ftptest.New(t)
 	s2.Drop = "STOR"
 	b2 := openFake(t, s2)
 	if err := b2.Put(context.Background(), "obj.txt", bytes.NewReader([]byte("new\n")), 4, ""); err != nil {
@@ -110,7 +110,7 @@ func TestFTPPutRepeatsOnlyWhenTheSourceCanStartOver(t *testing.T) {
 }
 
 func TestFTPRemoveCountsAFirstTryThatWorked(t *testing.T) {
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.Drop = "DELE"
 	// the drop happens before the server deletes; remove it by hand to act
 	// like a reply lost after the file was gone
@@ -127,7 +127,7 @@ func TestFTPRemoveCountsAFirstTryThatWorked(t *testing.T) {
 // An FTP server sends a folder in any order; storage ls lists it by name,
 // each folder's contents right after the folder.
 func TestFTPListSortsByName(t *testing.T) {
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	file := func(name string) string { return "-rw-r--r-- 1 u u 1 Nov 07 12:00 " + name + "\r\n" }
 	s.Dirs = map[string]string{
 		"/":  file("c.txt") + "drwxr-xr-x 1 u u 0 Nov 07 12:00 b\r\n" + file("a.txt"),
@@ -159,7 +159,7 @@ func TestFTPListSortsByName(t *testing.T) {
 // When the new session cannot be opened either, the error names both: the
 // drop, and why logging in again failed.
 func TestFTPSaysWhyTheSecondLoginFailed(t *testing.T) {
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.Drop = "LIST"
 	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
 		s.Mu.Lock()

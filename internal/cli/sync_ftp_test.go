@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/storex"
-	"github.com/sgnd/komando/internal/storex/ftpfake"
+	"github.com/sgnd/komando/internal/storex/ftptest"
 )
 
 // C124: an FTPS source whose listing of one folder is cut off (the data
@@ -21,7 +21,7 @@ func TestSyncDeleteStopsOnACutFTPSListing(t *testing.T) {
 	srv := httptest.NewTLSServer(nil)
 	certs := srv.TLS.Certificates
 	srv.Close()
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.TLS = &tls.Config{Certificates: certs}
 	s.Dirs = map[string]string{
 		"/":    "-rw-r--r-- 1 u u 3 Nov 07 12:00 top.txt\r\ndrwxr-xr-x 1 u u 0 Nov 07 12:00 sub\r\n",

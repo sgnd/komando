@@ -7,22 +7,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sgnd/komando/internal/storex/ftpfake"
+	"github.com/sgnd/komando/internal/storex/ftptest"
 )
 
-// newFakeFTPS is ftpfake.Server with explicit TLS on the control and data
+// newFakeFTPS is ftptest.Server with explicit TLS on the control and data
 // connections, with a test certificate (the conn skips verifying it).
-func newFakeFTPS(t *testing.T) *ftpfake.Server {
+func newFakeFTPS(t *testing.T) *ftptest.Server {
 	t.Helper()
 	srv := httptest.NewTLSServer(nil)
 	cfg := srv.TLS.Clone()
 	srv.Close()
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.TLS = &tls.Config{Certificates: cfg.Certificates}
 	return s
 }
 
-func openFakeFTPS(t *testing.T, s *ftpfake.Server) Bucket {
+func openFakeFTPS(t *testing.T, s *ftptest.Server) Bucket {
 	t.Helper()
 	tg := s.Target()
 	tg.Secure, tg.TLS = true, "skip-verify"
@@ -79,7 +79,7 @@ func TestFTPSLookupCutBeforeTLSIsAnError(t *testing.T) {
 
 // A dropped connection names the FTP step komando was on.
 func TestFTPErrorNamesTheStep(t *testing.T) {
-	s := ftpfake.New(t)
+	s := ftptest.New(t)
 	s.Drop = "RETR"
 	var sb strings.Builder
 	_, err := openFake(t, s).(*ftpReconnect).ftpBucket.Get(context.Background(), "obj.txt", &sb)
