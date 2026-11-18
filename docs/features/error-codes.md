@@ -145,7 +145,7 @@ This page is made from the code (`komando schema` lists the same under
 | `NO_RESPONSE` | 4 | no HTTP answer from … | check the URL, and that the server can reach it: `komando net check … ADDRESS:443` |
 | `NO_SYSTEMD` | 3 | systemd is not running on this server | this server runs without systemd (a container?); read logs with `komando logs TARGET --file PATH` or `komando docker logs` |
 | `NO_TUNNEL_NEEDED` | 2 | … has no --via, so it is reachable without a tunnel | connect to … directly |
-| `NO_USER_MANAGER` | 3 | the login user has no systemd user manager running on this server | the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server |
+| `NO_USER_MANAGER` | 3 | the login user has no systemd user manager running on this server | the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server, then try `komando svc list TARGET --user-units` |
 | `NXDOMAIN` | 3 | … does not resolve from this server | check the name, and the server's DNS (/etc/resolv.conf) |
 | `OBJECT_NOT_FOUND` | 3 | … not found | list files with `komando storage list CONN [PREFIX]` |
 | `OPEN_BIND` | 6 | the tunnel would listen on … of …, open to its network (the default 127.0.0.1 keeps it to that computer) | check with --dry-run, ask the user; once they agree, run it again with --yes (komando then asks them in a window on their screen) |
@@ -215,7 +215,7 @@ This page is made from the code (`komando schema` lists the same under
 | `SECRET_MISMATCH` | 1 | the value is not the one stored in … | if the stored one is wrong, store the right one with `komando secret set …` |
 | `SECRET_NOT_FOUND` | 3 | no secret named … | see them with `komando secret list` |
 | `SECRET_UNRESOLVED` | 3 | registry CA …: … | store the CA certificate with `komando secret set NAME < ca.crt` |
-| `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman |
+| `SECURITY_UNSUPPORTED` | 3 | no package manager komando knows on … | komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET` |
 | `SELF_NOT_FOUND` | 1 | cannot find the komando program that is running: … | run komando by its full path, for example /usr/local/bin/komando update |
 | `SENSITIVE_FILE` | 6 | … is …, not … | use a database of your own; komando's data is read only through komando's commands (`komando list`, `komando secret list`) |
 | `SESSION_NOT_FOUND` | 3 | no session … | list sessions with `komando db activity CONN --all` |

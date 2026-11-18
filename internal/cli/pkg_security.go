@@ -703,7 +703,7 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 	data.NotRun = notRun
 	data.Summary.Total = len(data.Results)
 	if len(data.Results) == 0 && len(rows) > 0 {
-		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman",
+		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET`",
 			"no package manager komando knows on %s", rows[0].Host)
 	}
 	if !change && !cl.flags.dryRun {

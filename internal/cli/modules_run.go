@@ -348,7 +348,7 @@ func marker(stdout string) string {
 // containers) with a marker the parser turns into NO_SYSTEMD.
 const noSystemd = "[ -d /run/systemd/system ] || { echo '#komando:no-systemd'; exit 0; }\n"
 
-// userManager follows noSystemd in a script for --user: systemctl and
+// userManager follows noSystemd in a script for --user-units: systemctl and
 // journalctl then talk to the login user's own systemd manager (systemctl
 // --user), found through XDG_RUNTIME_DIR as a login shell would set it.
 // A user with no running manager (no session and no lingering) gets a
@@ -375,7 +375,7 @@ func systemdMissing(stdout string) *out.Error {
 	case "no-systemd":
 		return errNoSystemd()
 	case "no-user-manager":
-		return out.Errf(out.ExitNotFound, "NO_USER_MANAGER", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server",
+		return out.Errf(out.ExitNotFound, "NO_USER_MANAGER", "the login user's systemd manager runs only while they are logged in, unless lingering is on: a person with sudo runs `loginctl enable-linger USER` on the server, then try `komando svc list TARGET --user-units`",
 			"the login user has no systemd user manager running on this server")
 	}
 	return nil

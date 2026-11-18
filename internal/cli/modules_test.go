@@ -58,7 +58,7 @@ func TestSvcActionResult(t *testing.T) {
 	}
 }
 
-// --user: the script talks to the login user's own manager, and a user
+// --user-units: the script talks to the login user's own manager, and a user
 // with none running gets NO_USER_MANAGER.
 func TestSvcUser(t *testing.T) {
 	s := svcScope(svcScript("restart", []string{"web"}, false, 0), true)
@@ -87,10 +87,10 @@ func TestSvcUser(t *testing.T) {
 	srv := startFakeServer(t)
 	srv.reply("Id=web.service\nLoadState=loaded\nActiveState=active\n#komando:rc=0\n")
 	pre := []string{"--host-key-policy", "accept-new"}
-	if _, e := invRun(t, append(pre, "svc", "restart", "dev", "web", "--user", "--yes")...); e != nil {
+	if _, e := invRun(t, append(pre, "svc", "restart", "dev", "web", "--user-units", "--yes")...); e != nil {
 		t.Fatalf("%+v", e)
 	}
-	if _, e := invRun(t, append(pre, "svc", "status", "dev", "web", "--user")...); e != nil {
+	if _, e := invRun(t, append(pre, "svc", "status", "dev", "web", "--user-units")...); e != nil {
 		t.Fatalf("%+v", e)
 	}
 	ex := srv.take()
@@ -99,11 +99,11 @@ func TestSvcUser(t *testing.T) {
 	}
 	for _, x := range ex {
 		if !strings.Contains(x.cmd, "command systemctl --user") || strings.Contains(x.cmd, "sudo") {
-			t.Errorf("--user runs the user's manager, without sudo: %s", x.cmd)
+			t.Errorf("--user-units runs the user's manager, without sudo: %s", x.cmd)
 		}
 	}
-	wantCode(t, "USAGE", append(pre, "svc", "restart", "dev", "web", "--user", "--no-sudo")...)
-	wantCode(t, "USAGE", append(pre, "svc", "daemon-reload", "dev", "--user", "--no-sudo")...)
+	wantCode(t, "USAGE", append(pre, "svc", "restart", "dev", "web", "--user-units", "--no-sudo")...)
+	wantCode(t, "USAGE", append(pre, "svc", "daemon-reload", "dev", "--user-units", "--no-sudo")...)
 }
 
 func TestLogOptsCheck(t *testing.T) {

@@ -80,7 +80,7 @@ func svcStatusCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:     "status TARGET UNIT...",
 		Short:   "Unit status: state, main pid, restarts, memory",
-		Example: "  komando svc status @web nginx php8.2-fpm\n  komando svc status web1 --user syncthing",
+		Example: "  komando svc status @web nginx php8.2-fpm\n  komando svc status web1 --user-units syncthing",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return svcStatus(cl, cmd.Context(), args[0], args[1:], user)
@@ -99,7 +99,7 @@ func svcActionCmd(action string) *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if user && noSudo {
-				return out.Usage("--user runs without sudo already: drop --no-sudo")
+				return out.Usage("--user-units runs without sudo already: drop --no-sudo")
 			}
 			return svcAction(cl, cmd.Context(), action, args[0], args[1:], !noSudo, now, user, int(math.Ceil(wait.Seconds())))
 		}),

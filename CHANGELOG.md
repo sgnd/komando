@@ -19,7 +19,7 @@ its highlights; the sections below them give the details. Versions follow
   there with `SECURITY_UNSUPPORTED` (exit 3) and changes nothing; apk,
   zypper and pacman servers are no longer in `meta.skipped`.
 
-- `--user` on `komando svc status`, `list`, `start`, `stop`, `restart`,
+- `--user-units` on `komando svc status`, `list`, `start`, `stop`, `restart`,
   `reload`, `enable`, `disable` and `daemon-reload` manages the login
   user's own units (`systemctl --user`), without sudo. A user with no
   systemd manager running stops with the new code `NO_USER_MANAGER`

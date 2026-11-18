@@ -24,7 +24,7 @@ func svcDaemonReloadCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if user && noSudo {
-				return out.Usage("--user runs without sudo already: drop --no-sudo")
+				return out.Usage("--user-units runs without sudo already: drop --no-sudo")
 			}
 			command := noSystemd + "systemctl daemon-reload >&2; rc=$?\n" +
 				// units whose files changed after the reload still say so

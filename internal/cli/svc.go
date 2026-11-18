@@ -177,17 +177,17 @@ func svcListResult(rr *sshx.RunResult) (any, *out.Error) {
 	return rows, nil
 }
 
-// userWord is --user in a shown command line.
+// userWord is --user-units in a shown command line.
 func userWord(user bool) string {
 	if user {
-		return "--user "
+		return "--user-units "
 	}
 	return ""
 }
 
-// userFlag is --user on the svc commands.
+// userFlag is --user-units on the svc commands.
 func userFlag(c *cobra.Command, user *bool) {
-	c.Flags().BoolVar(user, "user", false, "the login user's own units (systemctl --user), without sudo")
+	c.Flags().BoolVar(user, "user-units", false, "the login user's own units (systemctl --user), without sudo")
 }
 
 func svcListCmd() *cobra.Command {

@@ -40,13 +40,13 @@ komando svc daemon-reload web1                # names any unit that still needs 
 ```
 
 A user's own units (`~/.config/systemd/user`, `systemctl --user`) take
-`--user` on `svc status`, `list`, `start`, `stop`, `restart`, `reload`,
+`--user-units` on `svc status`, `list`, `start`, `stop`, `restart`, `reload`,
 `enable`, `disable` and `daemon-reload`. They are the login user's units,
 so komando runs them without sudo:
 
 ```bash
-komando svc list web1 --user
-komando svc restart web1 --user syncthing --wait 10s
+komando svc list web1 --user-units
+komando svc restart web1 --user-units syncthing --wait 10s
 ```
 
 A user's manager runs only while they are logged in, unless lingering is
@@ -386,7 +386,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 - `user list` does not read rules in `sudoers.d`.
 - `svc logs` does not take `--file` or `--container`; use `logs`.
 - `svc logs` and `logs --unit` read the system journal; they take no
-  `--user`.
+  `--user-units`.
 
 ## Troubleshooting
 
@@ -394,7 +394,7 @@ komando docker prune web1 --older-than 30d --dry-run # what would go, and how mu
 |------------|---------------|------------|
 | `UNIT_NOT_FOUND` | no service of that name (exit 3) | check the name with `komando svc list TARGET` |
 | `NO_SYSTEMD` | the server runs without systemd (exit 3) | read its logs with `--file` or `komando docker logs` |
-| `NO_USER_MANAGER` | `--user`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
+| `NO_USER_MANAGER` | `--user-units`, and the login user has no systemd manager running (exit 3) | turn lingering on: `loginctl enable-linger USER` (a person with sudo) |
 | `PERMISSION_DENIED` | sudo wants a password komando does not have, or the user may not use sudo | store the sudo password: `komando host edit SERVER --sudo-ref secret:NAME` |
 | `TOOL_MISSING` | sudo, or a tool the command needs, is not installed (exit 3) | as root add `--no-sudo`; on Alpine, `komando pkg install TARGET shadow` for `user` |
 | `PACKAGE_NOT_FOUND` | no such package in the server's package index | check the name; `komando pkg update TARGET` if the package is new |
