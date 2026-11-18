@@ -1,7 +1,6 @@
 package storex
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -9,186 +8,16 @@ import (
 	"io"
 	"net"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/storex/ftptest"
 )
 
-// fakeFTP is a small plain-FTP server for the reconnect tests. It keeps one
-// file, obj.txt, in /. drop names a command (LIST, RETR, STOR, DELE, ...):
-// the first time a session sends it, the server closes the control
-// connection without a reply, like a dropped network path. reply550 makes
-// that command answer 550 instead.
-type fakeFTP struct {
-	ln       net.Listener
-	mu       sync.Mutex
-	logins   int
-	drop     string
-	dropped  bool
-	reply550 string
-	file     []byte
-	exists   bool
-	dirs     map[string]string // LIST lines by folder, in place of obj.txt
-}
-
-func newFakeFTP(t *testing.T) *fakeFTP {
+func openFake(t *testing.T, s *ftptest.Server) Bucket {
 	t.Helper()
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := &fakeFTP{ln: ln, file: []byte("old\n"), exists: true}
-	go func() {
-		for {
-			c, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go s.serve(c)
-		}
-	}()
-	t.Cleanup(func() { ln.Close() })
-	return s
-}
-
-func (s *fakeFTP) target() driver.Target {
-	return driver.Target{Address: s.ln.Addr().String(), User: "u"}
-}
-
-func (s *fakeFTP) loginCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.logins
-}
-
-func (s *fakeFTP) serve(c net.Conn) {
-	defer c.Close()
-	r := bufio.NewReader(c)
-	say := func(f string, a ...any) { fmt.Fprintf(c, f+"\r\n", a...) }
-	say("220 fake")
-	var data net.Listener
-	var rnfr string
-	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			return
-		}
-		cmd, arg, _ := strings.Cut(strings.TrimSpace(line), " ")
-		cmd = strings.ToUpper(cmd)
-		s.mu.Lock()
-		drop := cmd == s.drop && !s.dropped
-		if drop {
-			s.dropped = true
-		}
-		fail := cmd == s.reply550
-		s.mu.Unlock()
-		if drop {
-			return // close without a reply: the client reads EOF
-		}
-		if fail {
-			say("550 refused")
-			continue
-		}
-		switch cmd {
-		case "USER":
-			say("331 password")
-		case "PASS":
-			s.mu.Lock()
-			s.logins++
-			s.mu.Unlock()
-			say("230 in")
-		case "FEAT":
-			say("211 no features")
-		case "TYPE", "OPTS", "MKD":
-			say("200 ok")
-		case "EPSV":
-			if data != nil {
-				data.Close()
-			}
-			data, _ = net.Listen("tcp", "127.0.0.1:0")
-			say("229 ok (|||%d|)", data.Addr().(*net.TCPAddr).Port)
-		case "LIST":
-			dc, err := data.Accept()
-			if err != nil {
-				return
-			}
-			say("150 here")
-			s.mu.Lock()
-			if s.dirs != nil {
-				fmt.Fprint(dc, s.dirs[arg])
-			} else if s.exists {
-				fmt.Fprintf(dc, "-rw-r--r-- 1 u u %d Nov 07 12:00 obj.txt\r\n", len(s.file))
-			}
-			s.mu.Unlock()
-			dc.Close()
-			say("226 done")
-		case "RETR":
-			dc, err := data.Accept()
-			if err != nil {
-				return
-			}
-			say("150 here")
-			s.mu.Lock()
-			dc.Write(s.file)
-			s.mu.Unlock()
-			dc.Close()
-			say("226 done")
-		case "STOR":
-			dc, err := data.Accept()
-			if err != nil {
-				return
-			}
-			say("150 send")
-			b, _ := io.ReadAll(dc)
-			dc.Close()
-			s.mu.Lock()
-			s.file = b
-			s.mu.Unlock()
-			say("226 stored")
-		case "SIZE":
-			s.mu.Lock()
-			ok := s.exists
-			n := len(s.file)
-			s.mu.Unlock()
-			if !ok {
-				say("550 no such file")
-				continue
-			}
-			say("213 %d", n)
-		case "RNFR":
-			rnfr = arg
-			say("350 ready")
-		case "RNTO":
-			_ = rnfr
-			s.mu.Lock()
-			s.exists = true
-			s.mu.Unlock()
-			say("250 renamed")
-		case "DELE":
-			s.mu.Lock()
-			ok := s.exists
-			s.exists = false
-			s.mu.Unlock()
-			if !ok {
-				say("550 no such file")
-				continue
-			}
-			say("250 deleted")
-		case "QUIT":
-			say("221 bye")
-			return
-		default:
-			say("502 not here")
-		}
-	}
-}
-
-func openFake(t *testing.T, s *fakeFTP) Bucket {
-	t.Helper()
-	b, err := OpenFTP(context.Background(), s.target(), "p", nil, 5*time.Second)
+	b, err := OpenFTP(context.Background(), s.Target(), "p", nil, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -206,8 +35,8 @@ func errCode(err error) string {
 
 func TestFTPReconnectsOnceAfterADroppedConnection(t *testing.T) {
 	for _, recursive := range []bool{false, true} {
-		s := newFakeFTP(t)
-		s.drop = "LIST"
+		s := ftptest.New(t)
+		s.Drop = "LIST"
 		b := openFake(t, s)
 		objs, _, err := b.List(context.Background(), "", recursive, 0)
 		if err != nil {
@@ -216,34 +45,34 @@ func TestFTPReconnectsOnceAfterADroppedConnection(t *testing.T) {
 		if len(objs) != 1 || objs[0].Key != "obj.txt" {
 			t.Fatalf("recursive=%v: List = %+v", recursive, objs)
 		}
-		if got := s.loginCount(); got != 2 {
+		if got := s.LoginCount(); got != 2 {
 			t.Fatalf("recursive=%v: %d logins, want 2 (one new session)", recursive, got)
 		}
 	}
 }
 
 func TestFTPDoesNotRepeatAfterAnFTPError(t *testing.T) {
-	s := newFakeFTP(t)
-	s.reply550 = "LIST"
+	s := ftptest.New(t)
+	s.Reply550 = "LIST"
 	b := openFake(t, s)
 	if _, _, err := b.List(context.Background(), "", false, 0); err == nil {
 		t.Fatal("List with a 550 reply: no error")
 	}
-	if got := s.loginCount(); got != 1 {
+	if got := s.LoginCount(); got != 1 {
 		t.Fatalf("%d logins after an FTP error reply, want 1 (no new session)", got)
 	}
 }
 
 func TestFTPGetRepeatsOnlyBeforeAnyByte(t *testing.T) {
-	s := newFakeFTP(t)
-	s.drop = "RETR"
+	s := ftptest.New(t)
+	s.Drop = "RETR"
 	b := openFake(t, s)
 	var w bytes.Buffer
 	n, err := b.Get(context.Background(), "obj.txt", &w)
 	if err != nil || n != 4 || w.String() != "old\n" {
 		t.Fatalf("Get after a drop before the data: n=%d %q err=%v", n, w.String(), err)
 	}
-	if got := s.loginCount(); got != 2 {
+	if got := s.LoginCount(); got != 2 {
 		t.Fatalf("%d logins, want 2", got)
 	}
 }
@@ -252,45 +81,45 @@ func TestFTPGetRepeatsOnlyBeforeAnyByte(t *testing.T) {
 type onlyReader struct{ io.Reader }
 
 func TestFTPPutRepeatsOnlyWhenTheSourceCanStartOver(t *testing.T) {
-	s := newFakeFTP(t)
-	s.drop = "STOR"
+	s := ftptest.New(t)
+	s.Drop = "STOR"
 	b := openFake(t, s)
 	err := b.Put(context.Background(), "obj.txt", onlyReader{strings.NewReader("new\n")}, 4, "")
 	if errCode(err) != "STORAGE_CONNECT" {
 		t.Fatalf("Put from a pipe after a drop: %v, want STORAGE_CONNECT", err)
 	}
-	if got := s.loginCount(); got != 1 {
+	if got := s.LoginCount(); got != 1 {
 		t.Fatalf("%d logins for a source that cannot start over, want 1", got)
 	}
 
-	s2 := newFakeFTP(t)
-	s2.drop = "STOR"
+	s2 := ftptest.New(t)
+	s2.Drop = "STOR"
 	b2 := openFake(t, s2)
 	if err := b2.Put(context.Background(), "obj.txt", bytes.NewReader([]byte("new\n")), 4, ""); err != nil {
 		t.Fatalf("Put from a file after a drop: %v", err)
 	}
-	s2.mu.Lock()
-	got := string(s2.file)
-	s2.mu.Unlock()
+	s2.Mu.Lock()
+	got := string(s2.File)
+	s2.Mu.Unlock()
 	if got != "new\n" {
 		t.Fatalf("server has %q after the repeated upload, want the whole new file", got)
 	}
-	if n := s2.loginCount(); n != 2 {
+	if n := s2.LoginCount(); n != 2 {
 		t.Fatalf("%d logins, want 2", n)
 	}
 }
 
 func TestFTPRemoveCountsAFirstTryThatWorked(t *testing.T) {
-	s := newFakeFTP(t)
-	s.drop = "DELE"
+	s := ftptest.New(t)
+	s.Drop = "DELE"
 	// the drop happens before the server deletes; remove it by hand to act
 	// like a reply lost after the file was gone
-	s.exists = false
+	s.Exists = false
 	b := openFake(t, s)
 	if err := b.Remove(context.Background(), "obj.txt"); err != nil {
 		t.Fatalf("Remove whose repeat finds no file: %v, want nil", err)
 	}
-	if got := s.loginCount(); got != 2 {
+	if got := s.LoginCount(); got != 2 {
 		t.Fatalf("%d logins, want 2", got)
 	}
 }
@@ -298,9 +127,9 @@ func TestFTPRemoveCountsAFirstTryThatWorked(t *testing.T) {
 // An FTP server sends a folder in any order; storage ls lists it by name,
 // each folder's contents right after the folder.
 func TestFTPListSortsByName(t *testing.T) {
-	s := newFakeFTP(t)
+	s := ftptest.New(t)
 	file := func(name string) string { return "-rw-r--r-- 1 u u 1 Nov 07 12:00 " + name + "\r\n" }
-	s.dirs = map[string]string{
+	s.Dirs = map[string]string{
 		"/":  file("c.txt") + "drwxr-xr-x 1 u u 0 Nov 07 12:00 b\r\n" + file("a.txt"),
 		"/b": file("z") + file("y"),
 	}
@@ -330,18 +159,18 @@ func TestFTPListSortsByName(t *testing.T) {
 // When the new session cannot be opened either, the error names both: the
 // drop, and why logging in again failed.
 func TestFTPSaysWhyTheSecondLoginFailed(t *testing.T) {
-	s := newFakeFTP(t)
-	s.drop = "LIST"
+	s := ftptest.New(t)
+	s.Drop = "LIST"
 	dial := func(ctx context.Context, network, addr string) (net.Conn, error) {
-		s.mu.Lock()
-		gone := s.dropped
-		s.mu.Unlock()
+		s.Mu.Lock()
+		gone := s.Dropped
+		s.Mu.Unlock()
 		if gone {
 			return nil, errors.New("the hop is gone")
 		}
 		return (&net.Dialer{}).DialContext(ctx, network, addr)
 	}
-	b, err := OpenFTP(context.Background(), s.target(), "p", dial, 5*time.Second)
+	b, err := OpenFTP(context.Background(), s.Target(), "p", dial, 5*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -354,7 +183,7 @@ func TestFTPSaysWhyTheSecondLoginFailed(t *testing.T) {
 	if !strings.Contains(oe.Message, "EOF") || !strings.Contains(oe.Message, "; logging in again failed: ") || !strings.Contains(oe.Message, "the hop is gone") {
 		t.Fatalf("message %q: want the drop and the second login's error", oe.Message)
 	}
-	if got := s.loginCount(); got != 1 {
+	if got := s.LoginCount(); got != 1 {
 		t.Fatalf("%d logins, want 1", got)
 	}
 }
