@@ -47,6 +47,7 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 		oldCopyCheck(add)
 	}
 	vaultKeyChecks(add)
+	hostCAChecks(cl, st, add)
 
 	if st.Settings.Audit {
 		r, err := verifyAudit()

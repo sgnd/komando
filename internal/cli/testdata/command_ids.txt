@@ -124,6 +124,11 @@ guide.uninstall
 help
 host
 host.add
+host.ca
+host.ca.add
+host.ca.list
+host.ca.revoke
+host.ca.rm
 host.edit
 host.list
 host.rename

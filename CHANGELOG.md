@@ -9,6 +9,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando host ca add|list|rm|revoke`: trust servers through the SSH
+  certificate authority that signs their host keys (`@cert-authority`),
+  with no pin per server (C38b). A pattern names at least the domain
+  (`CA_HOSTS_INVALID`); only a person at a terminal can add a CA
+  (`NEEDS_PERSON`). `--from` reads a known_hosts file's `@cert-authority`
+  and `@revoked` lines. A `--login ask` server is never trusted through a CA.
+
 - `komando host trust NAME --fingerprint SHA256:...` pins a server's key
   only when the server shows the key with that fingerprint: compare and
   pin in one step. Any other key stops with `HOSTKEY_MISMATCH` and

@@ -60,11 +60,11 @@ func (c HostCA) Matches(host string) bool {
 func CheckCAPattern(p string) (string, error) {
 	p = strings.ToLower(strings.TrimSpace(p))
 	if p == "" {
-		return "", errors.New("an empty host pattern")
+		return "", errors.New("an empty server name pattern")
 	}
 	for _, r := range p {
 		if !(r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || strings.ContainsRune(".-_*?:", r)) {
-			return "", fmt.Errorf("host pattern %q: only letters, digits, . - _ : and the wildcards * and ?", p)
+			return "", fmt.Errorf("server name pattern %q: only letters, digits, . - _ : and the wildcards * and ?", p)
 		}
 	}
 	if !strings.ContainsAny(p, "*?") {
@@ -77,7 +77,7 @@ func CheckCAPattern(p string) (string, error) {
 		}
 	}
 	if fixed < 2 {
-		return "", fmt.Errorf("host pattern %q vouches for too many servers: name at least the domain, as in *.corp.example or 10.1.2.*", p)
+		return "", fmt.Errorf("server name pattern %q vouches for too many servers: name at least the domain, as in *.corp.example or 10.1.2.*", p)
 	}
 	return p, nil
 }
@@ -161,8 +161,8 @@ func HostCAs(ctx context.Context) ([]HostCA, error) {
 
 // ErrHostCAExists and ErrNoHostCA answer AddHostCA and RemoveHostCA.
 var (
-	ErrHostCAExists = errors.New("a host CA with that name exists")
-	ErrNoHostCA     = errors.New("no host CA with that name")
+	ErrHostCAExists = errors.New("a server CA with that name exists")
+	ErrNoHostCA     = errors.New("no server CA with that name")
 )
 
 // AddHostCA trusts c. A revoked CA key cannot be added.

@@ -253,6 +253,9 @@ func unlinkedWarnings(names []string) []string {
 type hostView struct {
 	*store.Host
 	Login string `json:"login"`
+	// HostCA: host show only, the trusted host CA that vouches for this
+	// server's host certificate (no pin needed)
+	HostCA string `json:"host_ca,omitempty"`
 }
 
 func viewOf(h *store.Host) hostView { return hostView{Host: h, Login: h.LoginMode()} }

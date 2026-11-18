@@ -3566,6 +3566,54 @@ exit 2
 Error: komando host add needs a name and what to add
 Hint: for example: komando host add web1 deploy@10.0.0.5. A person can type `komando host add` alone at a terminal to be asked step by step
 (code USAGE, exit 2)
+### komando -o json host ca add (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ca.add","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca add NAME","hint":"for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ca add (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando host ca add NAME
+Hint: for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
+(code USAGE, exit 2)
+### komando -o json host ca add (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ca.add","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca add NAME","hint":"for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ca add (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando host ca add NAME
+Hint: for example: komando host ca add corp --key ~/corp-ca.pub --hosts '*.corp.example' --dry-run
+(code USAGE, exit 2)
+### komando -o json host ca rm (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ca.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca rm NAME","hint":"for example: komando host ca rm corp"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ca rm (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando host ca rm NAME
+Hint: for example: komando host ca rm corp
+(code USAGE, exit 2)
+### komando -o json host ca rm (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"host.ca.rm","error":{"code":"USAGE","message":"missing arguments; usage: komando host ca rm NAME","hint":"for example: komando host ca rm corp"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text host ca rm (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando host ca rm NAME
+Hint: for example: komando host ca rm corp
+(code USAGE, exit 2)
 ### komando -o json host edit (agent json)
 exit 2
 --- stdout
