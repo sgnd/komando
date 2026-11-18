@@ -37,7 +37,7 @@ its highlights; the sections below them give the details. Versions follow
 - `komando storage mv CONN SRC DST [--overwrite]` moves or renames inside one conn. File servers (SFTP, FTP, FTPS, WebDAV, SMB) rename on the server, folders too. S3, Google Cloud and Azure cannot rename: there `mv` copies the object on the server, checks the copy's size and checksum, and deletes the original only after that check (`method: copy_then_delete`). Where a file server cannot rename over a file, `--overwrite` moves the old one aside first and puts it back if the rename fails. A file or folder already at DST stops it with `FILE_EXISTS` (exit 8). New error codes: `MOVE_FAILED` (exit 5: the copy did not check out, so the original was kept, or the original could not be deleted after a good copy) and `STORAGE_UNSUPPORTED` (exit 2). For an AI agent, a file that is secret by its name (`.env`, a private key, a key store) keeps such a name: renaming it to another kind of name stops with `SENSITIVE_FILE`. An FTP server whose listing hides dot files is asked for the file itself, so a hidden file at DST is not replaced without `--overwrite`.
 - `komando storage chmod CONN MODE PATH` sets the Unix mode of a file or folder on an SFTP conn and says the old one; other kinds stop with `STORAGE_UNSUPPORTED` before anything is contacted.
 - All three are changes like `storage upload`: `--dry-run` shows what would happen and is never blocked (`meta.would_need`), a protected conn needs a person's yes, and every run is in the audit log. New JSON: `storage.mkdir` `{conn, path, created, dry_run}`, `storage.mv` `{conn, src, dst, folder, replaced, method, size_bytes, dry_run}`, `storage.chmod` `{conn, path, mode, old_mode, dry_run}`.
-- `komando cp SRC_TARGET:PATH DST_TARGET:PATH` copies between two remote places: server to server, storage to storage, or a server and a storage conn. The data streams through this computer and is never saved on its disk; folders go with `-r`. A single file reports its `sha256`, the result names its `source`, a protected destination asks once, `--progress` writes the same lines as an upload, and the audit log has one record for the whole copy (source, destination, size, `sha256`). For an AI agent the copy is read on its way: a file holding a value from komando's vault stops with `SENSITIVE_FILE` before it is put in place (in a folder copy it is listed in `errors` and the rest go), as a file that is secret by its name does. A folder without `-r` stops with `IS_A_DIRECTORY` (exit 2).
+- `komando cp SRC_TARGET:PATH DST_TARGET:PATH` copies between two remote places: server to server, storage to storage, or a server and a storage conn. The data streams through this computer and is never saved on its disk; folders go with `-r`. A single file reports its `sha256`, the result names its `source`, a protected destination asks once, `--progress` writes the same lines as an upload, and the audit log has one record for the whole copy (source, destination, size, `sha256`). For an AI agent the copy is read on its way: a file holding anything komando hides from an agent (a vault value, a secret by its shape, or personal data where the source hides it) stops with `SENSITIVE_FILE` before it is put in place (in a folder copy it is listed in `errors` and the rest go), as a file that is secret by its name does. A folder without `-r` stops with `IS_A_DIRECTORY` (exit 2).
 - `--continue` on `upload`, `download`, `cp` and `storage upload/download` goes on with one file that was cut off: the part already at the destination is checked against the source (sha256), only the rest is sent, and the whole file is checked before komando says it worked. The result has `continued_from_bytes` and `sha256`. A destination that is longer or differs, before the copy or by its sum after it, stops with `RESUME_CONFLICT` (exit 8: copy the whole file again without `--continue`); one that changed while komando copied stops with `FILE_CHANGED` (exit 8: run the same command again); S3, Google Cloud Storage, Azure Blob and WebDAV, which store a file whole, stop with `RESUME_UNSUPPORTED` (SFTP, FTP, FTPS and SMB conns can go on). Servers work out the sums themselves (`sha256sum` or `shasum`).
 
 - `komando ssh-gate status` says which ssh-gate key runs it, and whether it
@@ -59,6 +59,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- Windows: a program under Program Files or the system folder counts as one only an administrator can change (so an AI agent's command may hand it a password, or run a kubeconfig's login program without asking again) only when the file and each folder up to Program Files belong to the system or the administrators and no one else may write them (C116). An installer that let every user write its folder no longer makes its programs count. A ProxyCommand runs with Windows' own `cmd.exe`, never the one `ComSpec` or `SystemRoot` in the environment names.
+- An old copy of `runtime.json` put back no longer opens (C115). store.db keeps a mark that changes whenever a VPN session or a held server login starts, ends or changes, and `runtime.json` must carry the same mark; one that does not is read as empty, like a plain one, so its sessions are found or made again. Marking a VPN used does not change the mark. Folders from before keep working: neither file has a mark until the first session change.
+- The release signature covers the version (C114). From 0.15.0 on, the first line of `checksums.txt` is `komando-release vX.Y.Z YYYY-MM-DD`, signed with the rest. `komando update` and `install.sh` install a release only as the version that line names, so the signed files of an older release put under a newer tag, or served as the newest, stop with `RELEASE_SIGNATURE_INVALID` (exit 2) and nothing is changed; a release after 0.14.1 without the line stops the same way. 0.14.0 and 0.14.1, signed before the line, still install when asked for by version. `install.sh` prints the version and day it installs. Known limit: a real, older release served as the newest is not detected (`update` never goes back on its own). For releases: `releasesig sign` takes the tag and refuses a `checksums.txt` that does not name it.
 - `exec --read-only` (and `job start`, `docker exec`, `cluster exec`,
   read-only recipes) is now a strict allowlist on every server: the
   command runs only when komando knows every part of it only reads, and
@@ -127,6 +130,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed for scripts and agents
 
+- `komando doctor -o json`: a check that one komando command puts right,
+  asking nothing, has `fix`, the words to run as a list. `error.message`,
+  `error.hint`, `error.suggestion` (also in per-server error objects),
+  `meta.warnings`, `meta.skipped` and doctor's `name` and `detail` are
+  made safe to show in JSON as they are on the terminal: escape
+  sequences, text-direction marks and invisible format characters show
+  as `\e`, `\xNN`, `\uNNNN`. The rest of `data` is unchanged.
 - **One error code each (output contract 2).** `meta.contract` is now 2.
   Every error code means one thing and has one exit code; there are no old
   names to fall back on. Scripts and apps that read `error.code` change
@@ -210,6 +220,17 @@ its highlights; the sections below them give the details. Versions follow
 - `komando download TARGET PATH --to -` streams one file to stdout, from a server too now (and `komando cp TARGET:PATH -`); `komando upload TARGET - DEST`, `komando storage upload CONN - KEY` and `komando cp - TARGET:PATH` read it from stdin, for the phone apps' Files view. With `--to -`, stdout carries the file's bytes and nothing else, whatever `-o` says; komando's own answer goes to stderr (with `-o json` one envelope at the end: `{host|conn, path|key, to: "stdout", bytes, sha256, masked}`, or the error), and the exit code says which. Storage downloads to stdout no longer need `-o text`. An upload from stdin goes to one server or conn through a temporary file (an object store finishes it only at the end); `--size N` makes a stream of another length fail with `SIZE_CONFLICT` (exit 8) and replace nothing, and a stream holding a `[hidden]` value is refused (`HIDDEN_VALUE`). `--continue`, `-r` and several servers are refused with `-`; a dry run reads nothing. For an AI agent a stream keeps what a download to a file keeps, before a byte is written: text with secret values as `[hidden]`, a binary file holding a vault value, a secret or personal data komando hides refused (`SENSITIVE_FILE`), anything over 16 MiB refused (`FILE_TOO_LARGE`). Through ssh-gate, `download --to -` is a read (allowed for a read-only key), and uploads from stdin need a key that may change things.
 
 ### Security
+
+- `cluster run -- cp POD:SRC DST` by an AI agent, with SRC named like a
+  secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
+  komando reads the pod, as `download` does; before, the pod's files were
+  read first and refused afterwards. (C04)
+- Moving a VPN now counts for the stored passwords behind it (C111). An AI agent's `vpn edit` that changes how a VPN connects, `vpn add --overwrite`, an import that replaces a VPN, or a new OpenVPN profile in the vault, gets `SECRET_DESTINATION` (exit 6) when servers or conns with a stored password reach their server through that VPN, and the window names each one, as for a moved jump server. Login-ask servers and conns behind it still need a person (`NEEDS_PERSON`). A person's own commands are unchanged.
+- An AI agent's approval window now shows what an upload, a restore or a kubectl `-f` sends from this computer (C111). `cp`, `upload` and `storage upload` of a file show it, or name its size and SHA-256 when it is too long or not text; `cp -r` and `sync` list each file with its size and SHA-256 (more than 40 files: no window); `cluster run -- apply -f FILE` and `--from-file` show the files; `db restore` shows plain SQL whole or opens no window (a 60-line SQL file is no longer a way past that rule) and names a pg_dump archive by its SHA-256. Indentation past 16 spaces shows as `(+N)`, so deep YAML keeps its nesting. A person's own commands are unchanged.
+- An approval code works once (C10). komando keeps the last accepted
+  30-second step in its sealed store and refuses that code, or an older
+  one, a second time: two windows in the same 30 seconds need two codes.
+  The agent's hint says so (`code-used`).
 
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
@@ -443,9 +464,42 @@ its highlights; the sections below them give the details. Versions follow
   `host edit --address` or `import`, a stored password could go to a
   server komando does not check, or travel unencrypted, with only a
   warning; now it stops with `SAFETY_SETTING`, as a conn's weak TLS does.
+- A registry's token service can no longer make komando read a reply of
+  any size: komando reads at most 1 MiB of it. (Every SSH, Kubernetes,
+  database, queue, VPN and cloud reply was checked for a size limit; the
+  memcached and pod-copy gaps are fixed with the cluster tier changes.)
 
 ### Fixed
 
+- An upload to a WebDAV conn that is cut off partway (a dropped link,
+  Ctrl-C, or a copy komando refuses) no longer replaces the file there with
+  the part that arrived, or leaves a part under a new name: it goes to a
+  temporary name and is moved into place (WebDAV MOVE) only when it arrived
+  whole, as on SFTP, FTP and SMB conns. The server must allow `MOVE`; a server that refuses it says so in the hint, and one that removes the old file and then fails the move keeps the new content under its temporary name (`UPLOAD_NOT_RENAMED`).
+- An AI agent's `storage download` from an FTP or FTPS conn that komando
+  stops before the end (a file too large to read for personal data) now
+  waits for the download to end, so the next command on that connection
+  reads its own reply instead of the download's.
+- `sync --delete` stops before it empties a folder that the source lists
+  as empty while the destination still has files in it
+  (`EMPTY_FOLDER_CONFIRM_REQUIRED`, exit 6, with the folders and counts in
+  `error.details.folders`): a listing cut short, as on plain FTP, looks
+  just like that. A person types the folder; an AI agent needs a person's
+  yes in the window (`--allow-dangerous`); a script names each folder it
+  empties on purpose with the new `--emptied FOLDER`, since
+  `--allow-dangerous` alone no longer does for it.
+- An FTP or FTPS conn reached through `--via` could report a transfer that
+  had worked as failed, with `the server: EOF`: an upload, a download, a
+  listing, `--continue`, or the check `storage mv` makes. When the server
+  behind the jump host closed its side first, komando took closing its own
+  side as an error. It no longer does, for FTP and FTPS, and the same
+  close no longer fails for any conn through `--via`.
+- An FTPS listing whose data connection closed before TLS was set up was
+  read as an empty folder with no error. `sync --delete` from such a
+  source could then remove that folder's files on the destination, and
+  `mv`, `cp` and `storage stat` could miss a folder that is there. It now
+  stops with `STORAGE_CONNECT`. Every FTP connection error also names the
+  FTP command it came from ("EOF (during APPE)").
 - A Google Cloud Storage conn reads at most 32 MiB of one listing page or
   one object's details: a broken or hostile endpoint that answers without
   end now stops with `STORAGE_ERROR` ("the answer is larger than 32 MiB")

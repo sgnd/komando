@@ -92,6 +92,11 @@ On a Linux or BSD desktop the code is required: another of your programs
 could press the window's buttons there, so without the code komando opens
 no window and the agent asks you to run the command yourself.
 
+Each code works once. komando remembers, in its sealed store, the last
+code it took; the same code, or an older one, does not allow a second
+window, even within the same 30 seconds. Wait for the next code your app
+shows. The code you type while turning it on counts as used too.
+
 Only a person at a terminal can turn it on: the secret is shown once,
 there. Turning it off is a yes like any other safety change, so for an AI
 agent it needs the window and the code too. `komando config show` says
@@ -150,7 +155,7 @@ komando keeps your data sealed in one file:
 | `store.db` | servers, conns, VPNs, keys, recipes, settings, secrets, remembered server fingerprints and the history of every action, each record sealed (AES-256-GCM). Only a random ID, the kind, a version and the time of a change can be read without the key |
 | `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
 | `store.made` | a note that this folder has had a store. komando writes it with the store and keeps it, so a lost `store.db` is noticed (below). It holds no secret |
-| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the store's key) |
+| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the store's key; it opens only with the mark store.db keeps for it, so an old copy put back reads as empty) |
 | `runtime.pids` | only the process IDs of komando's own background work, so it can tell whether they still run without opening the store |
 | `vpn/`, `tunnels/`, `login/` | VPN, tunnel and server login logs (one that nothing running uses is removed after a week), and the state of built-in VPN clients |
 

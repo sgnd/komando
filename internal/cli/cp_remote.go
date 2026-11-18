@@ -203,6 +203,13 @@ func runRemoteCp(ctx context.Context, cmd *cobra.Command, srcT, srcP, dstT, dstP
 	if err != nil {
 		return err
 	}
+	// what is copied is data from src: personal data hidden there stays
+	// hidden from an AI agent (agentScan), as for a download from src
+	if src.server() {
+		notePersonal(cl, st, []*store.Host{src.host}, nil)
+	} else {
+		notePersonal(cl, st, nil, []*store.Conn{src.conn})
+	}
 	if !dst.server() && (o.mkdirs || o.mode != "") {
 		return out.Usage("-p and --mode are for servers")
 	}
@@ -324,7 +331,11 @@ func remoteCopy(cl *call, ctx context.Context, src, dst *copyEnd, srcP, dstP str
 				return xferStats{}, err
 			}
 		}
-		r, err := resumeCopy(ctx, src.resumeEnd(cl, sp, 0, false), dst.resumeEnd(cl, dp, copyMode(si.mode, o), o.mkdirs), sp)
+		var from resumeEnd = src.resumeEnd(cl, sp, 0, false)
+		if agentScans(cl) {
+			from = scannedEnd{resumeEnd: from, cl: cl} // what is added, as it is read
+		}
+		r, err := resumeCopy(ctx, from, dst.resumeEnd(cl, dp, copyMode(si.mode, o), o.mkdirs), sp)
 		if err != nil {
 			return xferStats{}, err
 		}
@@ -483,33 +494,81 @@ func agentScans(cl *call) bool { return cl.out.Mask && !cl.revealOK() }
 
 // agentScan is r, for a copy between two remote places. The file does not
 // come to this computer, but an AI agent could read it unhidden where it
-// lands (a link from a bucket, another server). A download hides secret
-// values or stops; a copy cannot hide them in a file it does not keep, so
-// it stops with SENSITIVE_FILE at the first value from komando's vault,
-// before the destination puts the file in place.
+// lands (a link from a bucket, another server). A download hides what
+// komando hides from agents or stops; a copy cannot hide it in a file it
+// does not keep, so it stops with SENSITIVE_FILE at the first such value
+// (a vault value, a secret by its shape, personal data where the source
+// hides it: BinaryHidden), before the destination puts the file in place.
 func agentScan(cl *call, r io.Reader, where string) io.Reader {
 	if !agentScans(cl) {
 		return r
 	}
-	return &vaultStop{cl: cl, r: r, sc: cl.out.NewValueScanner(), where: where}
+	return &hiddenStop{cl: cl, r: r, sc: cl.out.NewValueScanner(), where: where}
 }
 
-type vaultStop struct {
+// hiddenStop reads the stream in windows of scanStep bytes, each with the
+// last scanKeep bytes before it, so a secret shape or personal data cut by
+// a read is still found and BinaryHidden never sees more than it reads
+// whole. Vault values are found by the value scanner beside it, which keeps
+// as much as the longest one (a certificate chain may be longer than
+// scanKeep).
+type hiddenStop struct {
 	cl    *call
 	r     io.Reader
 	sc    *out.ValueScanner
+	tail  []byte
 	where string
 }
 
-func (v *vaultStop) Read(p []byte) (int, error) {
-	n, err := v.r.Read(p)
-	_, _ = v.sc.Write(p[:n])
-	if v.sc.Found() {
-		return 0, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
-			revealHint(v.cl, "if the user wants it copied, run it again with --reveal"),
-			"%s holds a value from komando's vault; komando does not copy it to another place for an AI agent", v.where)
+const (
+	scanStep = 64 << 10
+	scanKeep = 4 << 10
+)
+
+func (h *hiddenStop) Read(p []byte) (int, error) {
+	n, err := h.r.Read(p)
+	_, _ = h.sc.Write(p[:n])
+	if h.sc.Found() {
+		return 0, h.refuse()
+	}
+	for chunk := p[:n]; len(chunk) > 0; {
+		k := min(len(chunk), scanStep)
+		win := append(h.tail, chunk[:k]...)
+		if h.cl.out.BinaryHidden(win) {
+			return 0, h.refuse()
+		}
+		if len(win) > scanKeep {
+			win = win[len(win)-scanKeep:]
+		}
+		h.tail = append(h.tail[:0], win...)
+		chunk = chunk[k:]
 	}
 	return n, err
+}
+
+// scannedEnd is a source of --continue whose reads go through agentScan:
+// the part that is added is checked as it is read, so a source that
+// changed after the first pass cannot bring in a hidden value.
+type scannedEnd struct {
+	resumeEnd
+	cl *call
+}
+
+func (e scannedEnd) openAt(ctx context.Context, off int64) (io.ReadCloser, error) {
+	r, err := e.resumeEnd.openAt(ctx, off)
+	if err != nil {
+		return nil, err
+	}
+	return struct {
+		io.Reader
+		io.Closer
+	}{agentScan(e.cl, r, e.where()), r}, nil
+}
+
+func (h *hiddenStop) refuse() error {
+	return out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+		revealHint(h.cl, "if the user wants it copied, run it again with --reveal"),
+		"%s holds a secret or personal data komando hides from AI agents; komando does not copy it to another place for an AI agent", h.where)
 }
 
 // guardSensitiveRemote is guardSensitiveCopy for a copy between two
