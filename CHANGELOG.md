@@ -212,6 +212,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- `cluster run -- cp POD:SRC DST` by an AI agent, with SRC named like a
+  secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
+  komando reads the pod, as `download` does; before, the pod's files were
+  read first and refused afterwards. (C04)
 - Moving a VPN now counts for the stored passwords behind it (C111). An AI agent's `vpn edit` that changes how a VPN connects, `vpn add --overwrite`, an import that replaces a VPN, or a new OpenVPN profile in the vault, gets `SECRET_DESTINATION` (exit 6) when servers or conns with a stored password reach their server through that VPN, and the window names each one, as for a moved jump server. Login-ask servers and conns behind it still need a person (`NEEDS_PERSON`). A person's own commands are unchanged.
 - An AI agent's approval window now shows what an upload, a restore or a kubectl `-f` sends from this computer (C111). `cp`, `upload` and `storage upload` of a file show it, or name its size and SHA-256 when it is too long or not text; `cp -r` and `sync` list each file with its size and SHA-256 (more than 40 files: no window); `cluster run -- apply -f FILE` and `--from-file` show the files; `db restore` shows plain SQL whole or opens no window (a 60-line SQL file is no longer a way past that rule) and names a pg_dump archive by its SHA-256. Indentation past 16 spaces shows as `(+N)`, so deep YAML keeps its nesting. A person's own commands are unchanged.
 - An approval code works once (C10). komando keeps the last accepted
