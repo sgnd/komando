@@ -67,6 +67,7 @@ var errorCodes = []errorCode{
 	{"DRY_RUN_UNSUPPORTED", 2, "this change cannot be previewed; run it without --dry-run to make it", "run it again without --dry-run to make the change"},
 	{"DUMP_FAILED", 5, "the backup stopped before the end; no partial file is left", "check the conn with `komando test …`; with --run-on HOST, pg_dump or mysqldump on that server runs instead"},
 	{"DUMP_UNSUPPORTED", 2, "komando's own dump cannot write an object (the message names it)", "run pg_dump on a server that has it and can reach the database (--run-on HOST), or dump the other tables with --table"},
+	{"EMPTY_FOLDER_CONFIRM_REQUIRED", 6, "… lists no files in …, so --delete would remove … there in …; nothing was deleted", "see what would go with `komando sync SRC DST --delete --dry-run`, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen)"},
 	{"ERROR", 1, "an error with no more specific code (read the message)", "read the message; `komando doctor` checks this computer's setup"},
 	{"FILE_CHANGED", 8, "… …; nothing was added", "run the same command again (`komando cp SRC DST --continue`): komando reads the file's length again"},
 	{"FILE_ERROR", 1, "a file on this computer cannot be read or written", "check that the folder exists and is writable"},
