@@ -209,6 +209,10 @@ its highlights; the sections below them give the details. Versions follow
   reports the key mode and scrypt cost only once the key opened the
   store. A store from an older komando gets the copy at the first command
   a person runs at a terminal, never from an AI agent's or a script's.
+- An approval code works once (C10). komando keeps the last accepted
+  30-second step in its sealed store and refuses that code, or an older
+  one, a second time: two windows in the same 30 seconds need two codes.
+  The agent's hint says so (`code-used`).
 
 - An AI agent that set both `HOME=/x` and `KOMANDO_HOME=/x/.komando` in
   front of komando moved komando's data folder: komando counted
