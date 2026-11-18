@@ -574,6 +574,9 @@ func syncUp(cl *call, ctx context.Context, name, local, target, remote string, o
 	if err := guardLocalRead(cl, local); err != nil {
 		return err
 	}
+	if err := noteUpload(cl, local, o.exclude); err != nil {
+		return err
+	}
 	var src syncSide = localSide{cl: cl, root: local}
 	if cl.isAgent() {
 		// each file is checked as cp -r does: komando's own data and private

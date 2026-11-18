@@ -46,6 +46,20 @@ func TestInstallScriptHasTheReleaseKeys(t *testing.T) {
 	}
 }
 
+var unversionedLine = regexp.MustCompile(`(?m)^UNVERSIONED="([^"]*)"$`)
+
+// install.sh and `komando update` take the same releases as signed before
+// the version line.
+func TestInstallScriptHasTheUnversionedReleases(t *testing.T) {
+	m := unversionedLine.FindStringSubmatch(readScript(t))
+	if m == nil {
+		t.Fatal(`install.sh has no UNVERSIONED="..." line`)
+	}
+	if got := strings.Fields(m[1]); !reflect.DeepEqual(got, Unversioned) {
+		t.Errorf("install.sh UNVERSIONED = %q, releasesig.Unversioned = %q: they must be the same list", got, Unversioned)
+	}
+}
+
 // the programs install.sh may use, besides the one that checks a signature
 var installTools = []string{"sh", "tar", "gzip", "uname", "tr", "grep", "cut", "awk", "sed", "head", "wc", "cat",
 	"mktemp", "rm", "cp", "mv", "chmod", "mkdir", "sha256sum", "shasum", "env", "basename", "dirname"}
@@ -107,7 +121,7 @@ func newRelease(t *testing.T, mark string) release {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(buf.Bytes())
-	return release{archive: buf.Bytes(), sums: hex.EncodeToString(sum[:]) + "  " + archiveFile() + "\n"}
+	return release{archive: buf.Bytes(), sums: VersionLine("v9.9.9", "2026-11-17") + hex.EncodeToString(sum[:]) + "  " + archiveFile() + "\n"}
 }
 
 // runInstall runs script against rel with only checker (and the plain
@@ -271,7 +285,8 @@ func TestInstallScriptAcceptsARealRelease(t *testing.T) {
 		t.Run(checker, func(t *testing.T) {
 			rel := newRelease(t, "stand-in")
 			rel.sums, rel.sig = string(sums), string(sig)
-			out, ok, installed, _ := runInstall(t, script, rel, checker)
+			// signed before the version line: it installs by version only
+			out, ok, installed, _ := runInstall(t, script, rel, checker, "KOMANDO_VERSION=v0.14.1")
 			if ok || installed != "" {
 				t.Fatalf("installed a stand-in archive:\n%s", out)
 			}
@@ -280,7 +295,7 @@ func TestInstallScriptAcceptsARealRelease(t *testing.T) {
 			}
 
 			rel.sums = strings.Replace(string(sums), "a", "b", 1)
-			out, ok, installed, _ = runInstall(t, script, rel, checker)
+			out, ok, installed, _ = runInstall(t, script, rel, checker, "KOMANDO_VERSION=v0.14.1")
 			if ok || installed != "" || !strings.Contains(out, "not signed with the komando project's key") {
 				t.Errorf("a changed checksums.txt was not refused for its signature (ok=%v):\n%s", ok, out)
 			}
@@ -432,5 +447,60 @@ func TestInstallScriptDownloadsOverHTTPSOnly(t *testing.T) {
 		if !strings.Contains(l, "--proto =https") || !strings.Contains(l, "--proto-redir =https") || !strings.Contains(l, " https://github.com/sgnd/komando/releases/") {
 			t.Errorf("a download that is not HTTPS only: curl %s", l)
 		}
+	}
+}
+
+// The signature covers checksums.txt's version line: a signed release
+// installs only as the version it names (C114).
+func TestInstallScriptChecksTheVersionLine(t *testing.T) {
+	pub, priv, err := NewKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := withKey(t, pub)
+	ran := 0
+	for _, checker := range checkers {
+		if !canCheck(checker) {
+			continue
+		}
+		ran++
+		named := func(line string) release {
+			r := newRelease(t, "rel")
+			_, rest, _ := strings.Cut(r.sums, "\n")
+			r.sums = line + rest
+			r.sig = sign(t, priv, r.sums)
+			return r
+		}
+		for _, c := range []struct {
+			name    string
+			rel     release
+			version string
+			install bool
+			say     string
+		}{
+			{"the newest, named", named(VersionLine("v0.15.0", "2026-11-20")), "", true, "Installing komando 0.15.0 (released 2026-11-20)"},
+			{"the version asked for", named(VersionLine("v0.15.0", "2026-11-20")), "v0.15.0", true, ""},
+			{"an older release under a newer tag", named(VersionLine("v0.14.9", "2026-11-14")), "v0.16.0", false, "The release under v0.16.0 holds komando v0.14.9"},
+			{"the newest without the line", named(""), "", false, "does not name its version, though every release after v0.14.1 does"},
+			{"a newer tag without the line", named(""), "v0.16.0", false, "does not name its version"},
+			{"signed before the line, by version", named(""), "v0.14.1", true, ""},
+		} {
+			t.Run(checker+"/"+c.name, func(t *testing.T) {
+				var env []string
+				if c.version != "" {
+					env = append(env, "KOMANDO_VERSION="+c.version)
+				}
+				out, ok, installed, _ := runInstall(t, script, c.rel, checker, env...)
+				if c.install != (ok && installed != "") {
+					t.Fatalf("ok=%v installed=%q, want install %v:\n%s", ok, installed, c.install, out)
+				}
+				if !strings.Contains(out, c.say) || !c.install && !strings.Contains(out, "nothing was installed") {
+					t.Errorf("the output does not say %q:\n%s", c.say, out)
+				}
+			})
+		}
+	}
+	if ran == 0 {
+		noChecker(t)
 	}
 }

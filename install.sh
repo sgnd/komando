@@ -22,6 +22,10 @@ REPO="sgnd/komando"
 # The komando project's release keys (Ed25519 public keys in base64, with a
 # space between two): the same list as Keys in internal/releasesig/releasesig.go.
 KEYS="GO75zZSPgMzciJXLqfbDrefUFaNQo3sfAZJx1NWxv2k="
+# The releases signed before checksums.txt named its version (its first
+# line, "komando-release v0.15.0 2026-11-20"): the same list as Unversioned
+# in internal/releasesig/releasesig.go. Every later release names it.
+UNVERSIONED="v0.14.0 v0.14.1"
 
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 case "$os" in
@@ -257,6 +261,29 @@ Run the line again; if it happens again, report it privately at https://github.c
   exit 1
 }
 
+# check_version: stop unless the signed checksums.txt is the release asked
+# for: its first line names that version (any version for the newest), or
+# it is one of UNVERSIONED asked for by version. Without this the signed
+# files of an older release, put under a newer tag, would install.
+check_version() {
+  refused="nothing was installed. Do not install it another way: someone may have replaced the release's files. Report it privately at https://github.com/$REPO/security"
+  # shellcheck disable=SC2046 # the line's words, one argument each
+  set -- $(head -n 1 "$tmp/checksums.txt" | tr -d '\r')
+  if [ $# -eq 3 ] && [ "$1" = komando-release ]; then
+    if [ -n "$v" ] && [ "$2" != "$v" ]; then
+      echo "The release under $v holds komando $2; $refused" >&2
+      exit 1
+    fi
+    echo "Installing komando ${2#v} (released $3)"
+    return 0
+  fi
+  for u in $UNVERSIONED; do
+    [ "$u" = "$v" ] && return 0
+  done
+  echo "This release does not name its version, though every release after ${UNVERSIONED##* } does; $refused" >&2
+  exit 1
+}
+
 echo "Downloading $file ..."
 get "$base/$file" "$tmp/$file"
 get "$base/checksums.txt" "$tmp/checksums.txt"
@@ -273,6 +300,7 @@ if [ -n "$old" ]; then
 else
   echo "Verifying signature ..."
   check_signature
+  check_version
 fi
 
 echo "Verifying checksum ..."
