@@ -128,10 +128,10 @@ them with `komando secret set` or use a key.
 
 ### Coming from Termius or TablePlus
 
-komando has no importer for Termius or TablePlus files. It imports an SSH
-config file, wherever it comes from: when your servers are in one, run
-`komando import ssh-config FILE`. For databases, put their URLs in a `.env`
-file and run `komando import env FILE`.
+Termius and TablePlus have no open export format. From Termius, copy each
+host's address, user, port and key path into `~/.ssh/config`, one `Host`
+block each, then run `komando import ssh-config`. For databases, put their
+URLs in a `.env` file and run `komando import env FILE`.
 
 ## Move to another computer
 
@@ -344,7 +344,7 @@ server it no longer knows).
 - A backup put back on the same computer stops with `STORE_OLD_COPY` until
   a person runs `komando doctor --accept-old-copy`, when the key is in the
   keychain.
-- There is no importer for Termius or TablePlus files (see
+- Termius and TablePlus have no open export format (see
   [above](#coming-from-termius-or-tableplus)).
 
 ## Troubleshooting
