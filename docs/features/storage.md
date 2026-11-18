@@ -348,6 +348,13 @@ komando download site logs/error.log
 - WebDAV makes missing folders as it uploads. For Nextcloud and ownCloud,
   the path is `remote.php/dav/files/USER`, and an app password (Settings,
   Security) is safer than your own.
+- A WebDAV upload goes to a temporary name (`.komando-upload-…`) and is
+  moved into place with WebDAV `MOVE` only when it arrived whole, so a cut
+  upload never replaces the file there. The server must allow `MOVE` (nginx:
+  `dav_methods PUT DELETE MKCOL COPY MOVE;`), and a proxy in front must keep
+  the URL's scheme and address. If the server removes the old file and then fails
+  the move, the new content stays under its temporary name
+  (`UPLOAD_NOT_RENAMED` names it).
 
 ## Add a Windows share (SMB)
 
@@ -427,8 +434,11 @@ komando conn rm backups                       # komando forgets it; the files st
   FTP, and on FTPS when the connection closes after the encryption is set
   up, the only sign is the server's answer at the end, and a server that
   says "226 Transfer complete" anyway is believed. komando stops when the
-  connection closes before the encryption is set up. Before `sync --delete`
-  from an FTP or FTPS source, run it with `--dry-run` and read what it
+  connection closes before the encryption is set up, and `sync --delete`
+  stops before it empties a folder the source lists as empty
+  (`EMPTY_FOLDER_CONFIRM_REQUIRED`, see [files.md](files.md)). A folder
+  that only lists some of its files is not caught: run `sync --delete`
+  from an FTP or FTPS source with `--dry-run` first and read what it
   would delete.
 
 ## Troubleshooting

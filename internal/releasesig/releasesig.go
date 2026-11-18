@@ -126,3 +126,55 @@ func privateKey(private string) (ed25519.PrivateKey, error) {
 	}
 	return ed25519.NewKeyFromSeed(seed), nil
 }
+
+// The version line: the first line of checksums.txt names the release,
+// "komando-release v0.15.0 2026-11-20" (its tag and the day it was made),
+// so the signature covers the version too. Older komando versions and
+// install.sh read only lines of two fields and skip it.
+const versionWord = "komando-release"
+
+// Unversioned are the releases signed before releases named their
+// version (C114). One of them installs or updates only under its own tag;
+// any other release without the version line is refused. install.sh keeps
+// the same list (UNVERSIONED).
+var Unversioned = []string{"v0.14.0", "v0.14.1"}
+
+var (
+	// ErrNoVersion means a release outside Unversioned has no version line.
+	ErrNoVersion = errors.New("the release does not name its version")
+	// ErrOtherVersion means the version line names another release.
+	ErrOtherVersion = errors.New("the release holds another version")
+)
+
+// VersionLine is the first line of checksums.txt for release tag, made on
+// day (YYYY-MM-DD), with its line end.
+func VersionLine(tag, day string) string { return versionWord + " " + tag + " " + day + "\n" }
+
+// Version reads the version line of sums: the tag and the day, or ok false
+// when there is none.
+func Version(sums []byte) (tag, day string, ok bool) {
+	first, _, _ := strings.Cut(string(sums), "\n")
+	f := strings.Fields(first)
+	if len(f) != 3 || f[0] != versionWord {
+		return "", "", false
+	}
+	return f[1], f[2], true
+}
+
+// CheckVersion checks that signed sums belong to release tag: its version
+// line names tag, or it has none and tag is one of Unversioned.
+func CheckVersion(sums []byte, tag string) error {
+	got, _, ok := Version(sums)
+	switch {
+	case ok && got == tag:
+		return nil
+	case ok:
+		return fmt.Errorf("%w: %s", ErrOtherVersion, got)
+	}
+	for _, u := range Unversioned {
+		if u == tag {
+			return nil
+		}
+	}
+	return ErrNoVersion
+}

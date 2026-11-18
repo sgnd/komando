@@ -119,7 +119,7 @@ Pick the version number from what `## [Unreleased]` holds:
    ```
 
    Do not push the tag before the pull request is merged: the tag starts the release at once, from a commit that is not on `main` yet.
-4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux, macOS and Windows (amd64 and arm64), signs `checksums.txt` with the [release signing key](#the-release-signing-key), signs their build provenance and publishes the release. If a test fails, nothing is published:
+4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux, macOS and Windows (amd64 and arm64), signs `checksums.txt` (whose first line, written by `make dist`, names the version) with the [release signing key](#the-release-signing-key), signs their build provenance and publishes the release. If a test fails, nothing is published:
    - a test that fails now and then (the FTPS end-to-end test has): run the failed jobs again with `gh run rerun RUN_ID --failed`;
    - a real failure: fix it in a pull request, delete the tag (`git push origin :vX.Y.Z`), and tag the new `main` again.
 

@@ -97,7 +97,8 @@ not know? Set `KOMANDO_AGENT=1`.
    read-only command before you run it again.
 5. **Never add `--allow-dangerous`, `--yes` or `--reveal` on your own.**
    When a command is blocked (exit 6: `CONFIRM_REQUIRED`, `DB_BYTES_LIMIT`,
-   `DECLINED`, `NEEDS_PERSON`, `OPEN_BIND`, `POLICY_BLOCKED`,
+   `DECLINED`, `EMPTY_FOLDER_CONFIRM_REQUIRED`, `NEEDS_PERSON`, `OPEN_BIND`,
+   `POLICY_BLOCKED`,
    `PROTECTED_TARGET`, `READ_ONLY_VIOLATION`, `REVEAL_NEEDS_PERSON`,
    `REVEAL_NEEDS_TERMINAL`, `SAFETY_SETTING`, `SECRET_DESTINATION`,
    `SENSITIVE_FILE`, `SQL_SAFE_SETTINGS_REQUIRED`, `SQL_TX_CHECK_REQUIRED`,

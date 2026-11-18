@@ -51,3 +51,25 @@ func TestToolSafeLeavesWritableWindowsFoldersOut(t *testing.T) {
 		t.Errorf("a login program's PATH follows SystemRoot from the environment: %s", systemPathFor())
 	}
 }
+
+// A program under Program Files counts only when it and its folders belong
+// to the administrators and no one else may write them: an installer may
+// give every user write access to its folder. A file this user made fails
+// the same check komando makes there (no test can write under Program
+// Files without an administrator).
+func TestToolSafeChecksOwnerAndAccessList(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "pg_dump.exe")
+	if err := os.WriteFile(p, []byte("MZ"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if adminsAlone(p) {
+		t.Error("a file this user owns and may write counts as the administrators' alone")
+	}
+	sys := filepath.Join(windowsDir(), "System32")
+	if !pathAdminsAlone(filepath.Join(sys, "cmd.exe"), sys) {
+		t.Error("cmd.exe in System32 does not count as the administrators' alone")
+	}
+	if pathAdminsAlone(p, sys) {
+		t.Error("a file outside the folder passed the walk up to it")
+	}
+}

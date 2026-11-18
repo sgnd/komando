@@ -2,7 +2,9 @@ package storex
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/xml"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -222,14 +224,29 @@ func (b *davBucket) Get(ctx context.Context, key string, w io.Writer) (int64, er
 
 // Put makes the missing parent folders (MKCOL), then writes the file.
 func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
-	u, err := b.url(key, false)
+	k := strings.Trim(key, "/")
+	u, err := b.url(k, false)
 	if err != nil {
 		return err
 	}
-	if err := b.mkdirs(ctx, path.Dir(strings.Trim(key, "/"))); err != nil {
+	if err := b.mkdirs(ctx, path.Dir(k)); err != nil {
 		return err
 	}
-	req, err := b.request(ctx, http.MethodPut, u, r)
+	// to a temporary name first, moved into place only when it arrived
+	// whole: many servers write a PUT straight into the file, so one cut
+	// off partway would leave part of it, or replace the old file with part
+	// of the new one
+	// whether a file is there now: a MOVE that fails after removing it
+	// leaves the upload as the only copy
+	_, serr := b.Stat(ctx, k)
+	existed := serr == nil
+	// a name of its own per upload: two uploads of one file never share it
+	tmpKey := path.Join(path.Dir(k), ".komando-upload-"+strings.ToLower(rand.Text()))
+	tmp, err := b.url(tmpKey, false)
+	if err != nil {
+		return err
+	}
+	req, err := b.request(ctx, http.MethodPut, tmp, r)
 	if err != nil {
 		return err
 	}
@@ -241,9 +258,90 @@ func (b *davBucket) Put(ctx context.Context, key string, r io.Reader, size int64
 	}
 	resp, err := do(b.c, "webdav", req, http.StatusOK, http.StatusCreated, http.StatusNoContent)
 	if err != nil {
+		b.removeFailedUpload(tmpKey, tmp)
 		return err
 	}
-	return resp.Body.Close()
+	resp.Body.Close()
+	mv, err := b.request(ctx, "MOVE", tmp, nil)
+	if err != nil {
+		b.removeURL(tmp)
+		return err
+	}
+	mv.Header.Set("Destination", u.String())
+	mv.Header.Set("Overwrite", "T")
+	status := 0
+	resp, err = b.c.Do(mv)
+	if err == nil {
+		status = resp.StatusCode
+		switch status {
+		case http.StatusOK, http.StatusCreated, http.StatusNoContent:
+			return resp.Body.Close()
+		}
+		err = webErr("webdav", resp, nil)
+		resp.Body.Close()
+	} else {
+		err = webErr("webdav", nil, err)
+	}
+	if refusedMove(status) { // the server did nothing
+		b.removeURL(tmp)
+		return out.Errf(out.ExitRemote, "STORAGE_ERROR",
+			"the server refuses WebDAV MOVE, which every upload uses: allow it (nginx: `dav_methods PUT DELETE MKCOL COPY MOVE;`), and behind a proxy check that it keeps the URL's scheme and address; then run `komando test TARGET`",
+			"could not move the upload into place: %v; nothing was changed", err)
+	}
+	// a server that replaces by deleting first may have removed the old
+	// file before its MOVE failed: then the upload is the only copy left,
+	// and it stays where it is
+	if _, serr := b.Stat(context.Background(), k); existed && serr != nil && code404(serr) {
+		return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
+			"the new content is on the server as "+tmpKey+": rename it by hand",
+			"could not move the upload into place: %v; the old file was removed", err)
+	}
+	b.removeURL(tmp)
+	return err
+}
+
+// code404: err says the object is not there.
+func code404(err error) bool {
+	var oe *out.Error
+	return errors.As(err, &oe) && oe.Code == "OBJECT_NOT_FOUND"
+}
+
+// refusedMove: the server does not do MOVE here (not allowed, not built in,
+// or a proxy in front that changes the Destination's scheme or host).
+func refusedMove(status int) bool {
+	return status == http.StatusMethodNotAllowed || status == http.StatusNotImplemented || status == http.StatusBadGateway
+}
+
+// removeURL deletes what is at u, on a fresh context: a cancelled upload
+// still takes its temporary file away.
+// removeFailedUpload removes the temporary file of an upload that failed.
+// A server may still be busy with the cut-off PUT when the DELETE arrives
+// and write the file after it, so the name is checked a few more times,
+// for about 1.5 s, and deleted again when it is there. Only a failed
+// upload waits for this.
+func (b *davBucket) removeFailedUpload(key string, u *url.URL) {
+	b.removeURL(u)
+	for _, wait := range []time.Duration{100, 200, 400, 800} {
+		time.Sleep(wait * time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		_, err := b.Stat(ctx, key)
+		cancel()
+		if err == nil {
+			b.removeURL(u)
+		}
+	}
+}
+
+func (b *davBucket) removeURL(u *url.URL) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := b.request(ctx, http.MethodDelete, u, nil)
+	if err != nil {
+		return
+	}
+	if resp, err := b.c.Do(req); err == nil {
+		resp.Body.Close()
+	}
 }
 
 // mkdirs creates dir and its parents, from the top; a folder that is

@@ -69,7 +69,8 @@ How the login works:
   language, screen, temp folder) of its own environment: what the program
   needs beyond those goes in the kubeconfig's `env`. If the file is one
   that programs of your user can replace (Homebrew's `bin`,
-  `~/.local/bin`) and its contents changed, for example after an update,
+  `~/.local/bin`, or on Windows a folder under Program Files that an
+  installer let every user write) and its contents changed, for example after an update,
   agents are asked again until you import the kubeconfig again.
 - An import an AI agent made with your yes trusts nothing for later: its
   cluster commands ask you each time, and after your yes the program runs
@@ -392,7 +393,8 @@ is kubectl's namespace flag.
   (`FILE_TOO_LARGE`): komando checks every name before it writes any, so
   it holds the copy in memory. For an AI agent it copies as `download`
   does: a file that is a secret by its name (`.env`, a private key) is
-  refused (`SENSITIVE_FILE`), a text file is written with its secret
+  refused (`SENSITIVE_FILE`; when SRC itself is named so, before komando
+  reads the pod), a text file is written with its secret
   values `[hidden]`, and a binary or larger file that holds a vault value
   is refused; nothing is written when any file is refused.
 - On Swarm, `docker run`, `create` and `service create|update` that give a
