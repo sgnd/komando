@@ -1,6 +1,7 @@
 package sshx
 
 import (
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -36,11 +37,19 @@ func (c *deadlineConn) SetDeadline(t time.Time) error {
 func (c *deadlineConn) SetReadDeadline(t time.Time) error  { return c.SetDeadline(t) }
 func (c *deadlineConn) SetWriteDeadline(t time.Time) error { return c.SetDeadline(t) }
 
+// Close closes the channel. When the far end closed it first (the server
+// behind the hop closed its socket), x/crypto/ssh has already answered
+// that close and reports this one as io.EOF. The connection is closed
+// either way, so that is no error: passed on, TLS and the FTP client
+// turned a transfer that worked into "EOF".
 func (c *deadlineConn) Close() error {
 	c.mu.Lock()
 	if c.timer != nil {
 		c.timer.Stop()
 	}
 	c.mu.Unlock()
-	return c.Conn.Close()
+	if err := c.Conn.Close(); err != io.EOF {
+		return err
+	}
+	return nil
 }
