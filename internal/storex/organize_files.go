@@ -11,7 +11,6 @@ import (
 
 	"github.com/jlaffaye/ftp"
 
-	"github.com/sgnd/komando/internal/driver"
 	"github.com/sgnd/komando/internal/out"
 )
 
@@ -171,7 +170,7 @@ func (b *ftpBucket) Mkdir(ctx context.Context, rel string) (bool, error) {
 	if merr == nil {
 		merr = errors.New("the server made no folder")
 	}
-	return false, ftpErr(merr, driver.Target{})
+	return false, ftpStepErr("MKD", merr)
 }
 
 // Move renames on the server (RNFR, RNTO). With Overwrite, a server that
@@ -192,7 +191,7 @@ func (b *ftpBucket) Move(ctx context.Context, src, dst string, o MoveOpts) (Move
 	if err == nil || !m.Replaced {
 		return m, ftpStepErr("RNFR/RNTO", err)
 	}
-	return m, renameOver(b.c.Rename, b.c.Delete, func(err error) error { return ftpErr(err, driver.Target{}) }, ps, pd, s, d)
+	return m, renameOver(b.c.Rename, b.c.Delete, func(err error) error { return ftpStepErr("RNFR/RNTO", err) }, ps, pd, s, d)
 }
 
 func (r *ftpReconnect) Lookup(ctx context.Context, rel string) (Object, bool, error) {

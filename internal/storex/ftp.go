@@ -99,7 +99,8 @@ func loginFTP(ctx context.Context, t driver.Target, password string, dial DialFu
 
 // ftpReconnect repeats an operation once in a new session when the server
 // dropped the connection (STORAGE_CONNECT: EOF, reset, broken pipe), never
-// after an FTP error reply, a TLS or a timeout error. Only what is safe to
+// after an FTP error reply, a certificate or a timeout error. A data
+// connection cut before TLS was set up counts as dropped. Only what is safe to
 // repeat is repeated: a download that already wrote bytes, or an upload whose
 // source cannot go back to its start, keeps the first error.
 type ftpReconnect struct {
@@ -350,11 +351,11 @@ func (b *ftpBucket) Put(ctx context.Context, key string, r io.Reader, _ int64, _
 		exists, xerr := b.Exists(context.Background(), key)
 		if xerr != nil || !exists {
 			_ = b.c.Delete(tmp)
-			return ftpErr(err, driver.Target{})
+			return ftpStepErr("RNFR/RNTO", err)
 		}
 		if derr := b.c.Delete(p); derr != nil {
 			_ = b.c.Delete(tmp)
-			return ftpErr(err, driver.Target{})
+			return ftpStepErr("RNFR/RNTO", err)
 		}
 		if rerr := b.c.Rename(tmp, p); rerr != nil {
 			return out.Errf(out.ExitRemote, "UPLOAD_NOT_RENAMED",
@@ -402,6 +403,14 @@ func (d ftpsData) Read(p []byte) (int, error) {
 		err = errDataCut
 	}
 	return n, err
+}
+
+func (d ftpsData) Handshake() error {
+	err := d.Conn.Handshake()
+	if err == io.EOF {
+		err = errDataCut
+	}
+	return err
 }
 
 func (d ftpsData) Write(p []byte) (int, error) {
