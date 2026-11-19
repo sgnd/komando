@@ -41,7 +41,6 @@ var (
 	procGetStockObject   = gdi32.NewProc("GetStockObject")
 	procCreateFontW      = gdi32.NewProc("CreateFontW")
 	procDeleteObject     = gdi32.NewProc("DeleteObject")
-	procGetObjectW       = gdi32.NewProc("GetObjectW")
 	procInputSource      = user32.NewProc("GetCurrentInputMessageSource")
 )
 
@@ -52,8 +51,6 @@ const (
 	wsChild        = 0x40000000
 	wsVisible      = 0x10000000
 	wsTabStop      = 0x00010000
-	wsVScroll      = 0x00200000
-	wsHScroll      = 0x00100000
 	wsBorder       = 0x00800000
 	wsExTopmost    = 0x00000008
 	wsExDlgModal   = 0x00000001
@@ -61,13 +58,13 @@ const (
 	esReadOnly     = 0x0800
 	esPassword     = 0x0020
 	esAutoHScroll  = 0x0080
+	wsVScroll      = 0x00200000
 	ssNoPrefix     = 0x0080 // a "&" in the text shows as itself
 	bsPushButton   = 0x0000
 	bsDefPush      = 0x0001
 	wmDestroy      = 0x0002
 	wmClose        = 0x0010
 	wmSetFont      = 0x0030
-	emLineScroll   = 0x00B6
 	wmCommand      = 0x0111
 	wmTimer        = 0x0113
 	smCxScreen     = 0
@@ -78,7 +75,7 @@ const (
 	defaultGUIFont = 17
 	swShow         = 5
 	idcArrow       = 32512
-	colorWindow    = 5
+	colorBtnFace   = 15 // a dialog's own grey, as the labels draw on
 )
 
 type wndClassEx struct {
@@ -177,19 +174,17 @@ func interactiveDesktop() bool {
 	return user32.Load() == nil && procCreateWindowExW.Find() == nil
 }
 
-// monoFont is Consolas at the labels' size, for the command box; fallback when
-// it cannot be made.
-func monoFont(fallback uintptr) uintptr {
-	// the labels' height (LOGFONTW.lfHeight, the first field of 92 bytes),
-	// so both fonts are the same size
-	var lf [92]byte
-	height := int32(-11)
-	if n, _, _ := procGetObjectW.Call(fallback, uintptr(len(lf)), uintptr(unsafe.Pointer(&lf[0]))); n != 0 {
-		height = *(*int32)(unsafe.Pointer(&lf[0]))
+// winFont is face at 9 pt (12 px), normal or bold; fallback when it
+// cannot be made. Segoe UI draws "--" as two hyphens, which the stock GUI
+// font ran together into a dash.
+func winFont(face string, bold bool, fallback uintptr) uintptr {
+	f16, _ := windows.UTF16PtrFromString(face)
+	weight := uintptr(400)
+	if bold {
+		weight = 700
 	}
-	face, _ := windows.UTF16PtrFromString("Consolas")
-	// normal weight, fixed pitch (FIXED_PITCH|FF_MODERN)
-	f, _, _ := procCreateFontW.Call(uintptr(int64(height)), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 0, 0x31, uintptr(unsafe.Pointer(face)))
+	height := int32(-12)
+	f, _, _ := procCreateFontW.Call(uintptr(int64(height)), 0, 0, 0, weight, 0, 0, 0, 1, 0, 0, 5, 0, uintptr(unsafe.Pointer(f16)))
 	if f == 0 {
 		return fallback
 	}
@@ -215,7 +210,7 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 		winClass, _ = windows.UTF16PtrFromString("komandoApproval")
 		cur, _, _ := procLoadCursorW.Call(0, idcArrow)
 		wc := wndClassEx{wndProc: syscall.NewCallback(wndProc), instance: inst, className: winClass,
-			cursor: windows.Handle(cur), background: windows.Handle(colorWindow + 1)}
+			cursor: windows.Handle(cur), background: windows.Handle(colorBtnFace + 1)}
 		wc.size = uint32(unsafe.Sizeof(wc))
 		if r, _, e := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
 			winRegErr = e
@@ -227,23 +222,26 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	winAnswer, winCode, winCodeEdit, winAllowBtn = idDeny, "", 0, 0
 	const pad, btnW, btnH, codeH = winPad, 110, 28, 24
 
-	l := winLayoutFor(v)
-	h := l.height + pad + btnH + pad + 40 // 40: the title bar and borders
-	if withCode {
-		h += codeH + pad
-	}
 	sw, _, _ := procGetSystemMetrics.Call(smCxScreen)
 	sh, _, _ := procGetSystemMetrics.Call(smCyScreen)
-	title, _ := windows.UTF16PtrFromString("komando: allow?")
+	extra := btnH + pad + 40 // 40: the title bar and borders
+	if withCode {
+		extra += codeH + pad
+	}
+	l := winLayoutFor(v).fit(int(sh) - 60 - extra)
+	h := l.height + extra
+	title, _ := windows.UTF16PtrFromString("komando needs your OK")
 	hwnd, _, _ := procCreateWindowExW.Call(wsExTopmost|wsExDlgModal, uintptr(unsafe.Pointer(winClass)), uintptr(unsafe.Pointer(title)),
 		wsOverlapped|wsCaption|wsSysMenu, (sw-winW)/2, (sh-uintptr(h))/2, winW, uintptr(h), 0, 0, uintptr(inst), 0)
 	if hwnd == 0 {
 		return "", false, false, false
 	}
-	font, _, _ := procGetStockObject.Call(defaultGUIFont)
-	mono := monoFont(font)
-	if mono != font {
-		defer procDeleteObject.Call(mono)
+	stock, _, _ := procGetStockObject.Call(defaultGUIFont)
+	font, bold := winFont("Segoe UI", false, stock), winFont("Segoe UI", true, stock)
+	for _, f := range []uintptr{font, bold} {
+		if f != stock {
+			defer procDeleteObject.Call(f)
+		}
 	}
 	child := func(class, label string, style, f uintptr, x, y, cw, ch int, id uintptr) uintptr {
 		c, _ := windows.UTF16PtrFromString(class)
@@ -253,17 +251,7 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 		procSendMessageW.Call(hw, wmSetFont, f, 1)
 		return hw
 	}
-	child("STATIC", v.title()+"\n"+v.header(), ssNoPrefix, font, pad, pad, winInner, l.headH, 0)
-	y := pad + l.headH + pad
-	box := child("EDIT", v.command(), esMultiline|esReadOnly|esAutoHScroll|wsVScroll|wsHScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
-	if i := v.riskyLine(); i >= boxMaxLines {
-		procSendMessageW.Call(box, emLineScroll, 0, uintptr(i-2)) // the line a rule matched, in view (no highlight)
-	}
-	y += l.cmdH + pad
-	if l.notesH > 0 {
-		child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)
-		y += l.notesH + pad
-	}
+	y := winContent(v, l, child, font, bold)
 	allowStyle, denyStyle := uintptr(bsPushButton), uintptr(bsDefPush)
 	if withCode {
 		winCodeEdit = child("EDIT", "", esPassword|esAutoHScroll|wsBorder|wsTabStop, font, pad, y, winInner, codeH, idCode)
@@ -297,6 +285,24 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	code = strings.TrimSpace(winCode)
 	winCode = ""
 	return code, winAnswer == idAllow, winAnswer == 0, true
+}
+
+// winChild makes a child control: class, text, style, font, x, y, w, h, id.
+type winChild func(class, label string, style, f uintptr, x, y, cw, ch int, id uintptr) uintptr
+
+// winContent draws the title and the text under it, and returns where
+// the code field and the buttons start.
+func winContent(v approvalView, l winLayout, child winChild, font, bold uintptr) int {
+	child("STATIC", v.title(), ssNoPrefix, bold, winPad, winPad, winInner, l.titleH, 0)
+	y := winPad + l.titleH + winPad/2
+	if l.scroll {
+		// taller than the screen: every line stays in the dialog, in a
+		// read-only text box that scrolls down
+		child("EDIT", v.details(), esMultiline|esReadOnly|wsVScroll|wsTabStop, font, winPad, y, winInner, l.textH, 0)
+	} else {
+		child("STATIC", v.details(), ssNoPrefix, font, winPad, y, winInner, l.textH, 0)
+	}
+	return y + l.textH + winPad
 }
 
 // crlf is s with Windows line ends, which an edit control needs.

@@ -9,9 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf16"
 
-	"github.com/sgnd/komando/internal/policy"
+	"regexp"
 	"unicode/utf8"
 )
 
@@ -97,120 +96,36 @@ func (v approvalView) flagLines() string {
 	return strings.Join(b, "\n")
 }
 
-// title is the window's first, bold line.
+// title is the window's first, bold line: the action in plain words.
 func (v approvalView) title() string {
-	switch {
-	case v.raw != "":
-		return "komando: allow?"
-	case len(v.Targets) > 0:
-		return v.Agent + " wants to change " + strings.Join(v.Targets, ", ")
-	}
-	return v.Agent + " " + v.Head
-}
-
-// header is the labelled lines above the command: where, how risky, why.
-func (v approvalView) header() string {
 	if v.raw != "" {
-		return ""
-	}
-	var b []string
-	if len(v.Targets) > 0 {
-		b = append(b, "Target: "+strings.Join(v.Targets, ", "))
-	}
-	if v.Protected {
-		b = append(b, "Protected: yes")
-	}
-	for _, r := range v.Risks {
-		b = append(b, "Risk: "+r)
-	}
-	if len(v.Flags) > 0 {
-		b = append(b, "Skips: "+strings.Join(v.Flags, ", "))
-	}
-	return strings.Join(b, "\n")
-}
-
-// command is the monospace box: the command line, then the body.
-func (v approvalView) command() string {
-	if v.raw != "" {
-		return strings.TrimRight(v.raw, "\n")
-	}
-	if v.Body == "" {
-		return v.Line
-	}
-	return v.Line + "\n\n" + strings.TrimRight(v.Body, "\n")
-}
-
-// boxMaxLines is how many lines the command box shows before it scrolls,
-// on macOS and Windows alike.
-const boxMaxLines = 15
-
-// moreHint is the line under a box that scrolls, or "".
-func (v approvalView) moreHint() string {
-	if n := lineCount(v.command()) - boxMaxLines; n > 0 {
-		return fmt.Sprintf("%d more lines: scroll to read all", n)
-	}
-	return ""
-}
-
-// riskyLine is the first line of the box that a deny rule matches (the
-// check that rated the command), or -1. The box opens scrolled to it.
-func (v approvalView) riskyLine() int {
-	for i, l := range strings.Split(v.command(), "\n") {
-		if len(policy.Check(l, nil)) > 0 {
-			return i
+		if what, ok := strings.CutPrefix(v.Owner, "komando: show "); ok {
+			return "Show " + what
 		}
+		return "komando: allow?"
 	}
-	return -1
+	verb := "Change"
+	switch {
+	case strings.HasPrefix(v.Line, "komando exec "):
+		verb = "Run a command on"
+	case strings.HasPrefix(v.Line, "komando db query "):
+		verb = "Run a query on"
+	}
+	switch len(v.Targets) {
+	case 0:
+		return "Run a komando command"
+	case 1:
+		return verb + " " + v.Targets[0]
+	}
+	return verb + " " + strconv.Itoa(len(v.Targets)) + " servers"
 }
 
-// riskyRange is riskyLine as a UTF-16 offset and length into command(),
-// as AppKit counts; -1, 0 for none.
-func (v approvalView) riskyRange() (off, n int) {
-	i := v.riskyLine()
-	if i < 0 {
-		return -1, 0
-	}
-	lines := strings.Split(v.command(), "\n")
-	for _, l := range lines[:i] {
-		off += len(utf16.Encode([]rune(l))) + 1
-	}
-	return off, len(utf16.Encode([]rune(lines[i])))
-}
-
-// notes is the explanation under the box, the question last.
-func (v approvalView) notes() string {
-	if v.raw != "" {
-		return v.moreHint()
-	}
-	var b []string
-	if h := v.moreHint(); h != "" {
-		b = append(b, h)
-	}
-	if v.What != "" {
-		b = append(b, "This also lets through: "+v.What)
-	}
-	if f := v.flagLines(); f != "" {
-		b = append(b, f)
-	}
-	return strings.Join(append(b, "Allow this once?"), "\n\n")
-}
+// bodyHead is the first line of a body that approval_body.go shows whole.
+var bodyHead = regexp.MustCompile(`^It also sends (?:the )?(.+) \((\d+) bytes, (\d+) lines, SHA-256 ([0-9a-f]+)\)(?:, all of it:|\.)$`)
 
 // layout is the window's content as plain text, for the golden test.
 func (v approvalView) layout() string {
-	s := "[title]\n" + v.title() + "\n[header]\n" + v.header() + "\n[command]\n" + v.command() + "\n"
-	return s + "[owner]\n" + v.ownerReason() + "\n[notes]\n" + v.notes() + "\n[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n"
-}
-
-// lineCount is how many lines s has (the command box does not wrap).
-func lineCount(s string) int { return strings.Count(s, "\n") + 1 }
-
-// commandRows is how many rows s takes, wrapped at cols.
-func commandRows(s string, cols int) int {
-	n := 0
-	for l := range strings.SplitSeq(s, "\n") {
-		n += max(1, (utf8.RuneCountInString(l)+cols-1)/cols)
-	}
-	return n
+	return "[title]\n" + v.title() + "\n[text]\n" + v.details() + "\n[owner]\n" + v.ownerReason() + "\n"
 }
 
 // viewFor is the window content for text: the view this call built for
@@ -222,13 +137,19 @@ func viewFor(cl *call, text string) approvalView {
 	return approvalView{raw: text}
 }
 
-// macAlertScript draws the macOS window (JXA, AppKit's NSAlert). Every
-// text arrives in argv after macArgMarker, never in the script. Deny is
-// the default (Return) and Esc; after 120 seconds it closes as "gave up".
-// After "Allow once" the same run asks LocalAuthentication for the device
-// owner (policy 2: Touch ID, an Apple Watch or the login password) with
-// argv[8] as the reason, waiting at most argv[9] seconds of its own; it
-// prints "owner ok" on the next line only when the reply says ok.
+// macAlertScript draws the macOS window: a plain NSPanel of standard
+// AppKit controls (no icon, no colours), titled "komando needs your OK":
+// argv[1] as the bold first label, argv[2] (the info lines, selectable)
+// under it, then argv[5] (what runs, not selectable), one label per group
+// split at blank lines, 12 pt apart, 440 pt wide with 20 pt
+// padding, then the buttons on the right. Every text arrives in argv after
+// macArgMarker, never in the script. Deny is the default (Return), Esc,
+// the close button and Cmd-W, and has the first focus; only the 120 s
+// timer prints "gave up", and any other end is a Deny. After
+// "Allow once" the same run asks LocalAuthentication for the device owner
+// (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
+// as the reason, waiting at most argv[4] seconds of its own; it prints
+// "owner ok" on the next line only when the reply says ok.
 const macAlertScript = `ObjC.import('AppKit');
 ObjC.import('LocalAuthentication');
 function owner(reason, secs) {
@@ -243,67 +164,82 @@ function owner(reason, secs) {
   if (res === null) { ctx.invalidate; return 'owner timeout'; }
   return res;
 }
+// $.NSApp is not the application in JXA: the actions use APP, set in run
+var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
+// the answer each path sets itself; a close after a choice keeps it
+var CHOICE = 'Deny', CHOSEN = false;
+ObjC.registerSubclass({
+  name: 'KomandoAnswer',
+  methods: {
+    'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
+  }
+});
+function label(text, font, w, copy) {
+  var l = $.NSTextField.wrappingLabelWithString(text);
+  l.font = font;
+  // the command and script are not selectable: they show U+2011 so a
+  // flag never breaks over a line, and a copy of them would not run as shown
+  l.selectable = copy;
+  l.preferredMaxLayoutWidth = w;
+  return { v: l, h: Math.ceil(l.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height) };
+}
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
+  APP = app;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
-  var a = $.NSAlert.alloc.init;
-  a.alertStyle = $.NSAlertStyleCritical;
-  a.messageText = argv[1];
-  a.informativeText = argv[2];
-  var deny = a.addButtonWithTitle('Deny');
+  var w = 440, pad = 20, gap = 12, fs = $.NSFont.systemFontSize;
+  var parts = [label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)];
+  if (argv[2] !== '') parts.push(label(argv[2], $.NSFont.systemFontOfSize(fs), w, true));
+  argv[5].split('\n\n').forEach(function (g) { if (g !== '') parts.push(label(g, $.NSFont.systemFontOfSize(fs), w, false)); });
+  var answer = $.KomandoAnswer.alloc.init;
+  var deny = $.NSButton.buttonWithTitleTargetAction('Deny', answer, 'deny:');
   deny.keyEquivalent = '\r';
-  var allow = a.addButtonWithTitle('Allow once');
+  deny.setAccessibilityLabel('Deny');
+  var allow = $.NSButton.buttonWithTitleTargetAction('Allow once', answer, 'allow:');
   allow.keyEquivalent = '';
-  var w = 600, h = Number(argv[5]) || 120;
-  var sv = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h));
-  sv.hasVerticalScroller = true;
-  sv.hasHorizontalScroller = true;
-  sv.borderType = $.NSBezelBorder;
-  var tv = $.NSTextView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h));
-  tv.editable = false;
-  tv.selectable = true;
-  tv.richText = false;
-  var fs = $.NSFont.smallSystemFontSize, mf = null;
-  try { mf = $.NSFont.monospacedSystemFontOfSizeWeight(fs, 0); } catch (e) {}
-  tv.font = (mf && !mf.isNil()) ? mf : $.NSFont.userFixedPitchFontOfSize(fs);
-  tv.textContainerInset = $.NSMakeSize(6, 6);
-  tv.horizontallyResizable = true;
-  tv.maxSize = $.NSMakeSize(1e7, 1e7);
-  tv.textContainer.widthTracksTextView = false;
-  tv.textContainer.containerSize = $.NSMakeSize(1e7, 1e7);
-  tv.string = argv[3];
-  sv.documentView = tv;
-  var ro = Number(argv[6]), rn = Number(argv[7]);
-  if (ro >= 0) {
-    var rr = $.NSMakeRange(ro, rn);
-    tv.textStorage.addAttributeValueRange($.NSBackgroundColorAttributeName, $.NSColor.findHighlightColor, rr);
-    tv.scrollRangeToVisible(rr);
-  }
-  var note = $.NSTextField.wrappingLabelWithString(argv[4]);
-  note.preferredMaxLayoutWidth = w;
-  var nh = argv[4] === '' ? 0 : Math.ceil(note.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height);
-  var under = nh ? nh + 12 : 0;
-  var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h + under));
-  sv.frame = $.NSMakeRect(0, under, w, h);
-  note.frame = $.NSMakeRect(0, 0, w, nh);
-  box.addSubview(sv);
-  if (nh) box.addSubview(note);
-  a.accessoryView = box;
-  a.layout;
-  a.window.level = $.NSFloatingWindowLevel;
+  allow.setAccessibilityLabel('Allow once');
+  var bh = Math.ceil(deny.fittingSize.height), dw = Math.ceil(deny.fittingSize.width), aw = Math.ceil(allow.fittingSize.width);
+  var h = pad + bh + pad;
+  parts.forEach(function (p, i) { h += p.h + (i ? gap : 0); });
+  h += pad;
+  var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
+  panel.title = 'komando needs your OK';
+  panel.delegate = answer;
+  var view = panel.contentView, y = h - pad;
+  parts.forEach(function (p, i) {
+    if (i) y -= gap;
+    y -= p.h;
+    p.v.frame = $.NSMakeRect(pad, y, w, p.h);
+    view.addSubview(p.v);
+  });
+  allow.frame = $.NSMakeRect(pad + w - aw, pad, aw, bh);
+  deny.frame = $.NSMakeRect(pad + w - aw - 12 - dw, pad, dw, bh);
+  view.addSubview(deny);
+  view.addSubview(allow);
+  deny.nextKeyView = allow;
+  allow.nextKeyView = deny;
+  panel.initialFirstResponder = deny;
+  panel.level = $.NSFloatingWindowLevel;
+  panel.center;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
-    if (e.keyCode === 53) { app.stopModalWithCode($.NSAlertFirstButtonReturn); return null; }
+    if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
+    if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
     return e;
   });
-  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { app.abortModal; });
+  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); });
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
-  var r = a.runModal;
+  panel.makeKeyAndOrderFront(null);
+  app.runModalForWindow(panel); // the answer is CHOICE: JXA returns NSInteger as a string
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
-  if (r === $.NSAlertSecondButtonReturn) return 'Allow once\n' + owner(argv[8], argv[9]);
-  if (r === $.NSAlertFirstButtonReturn) return 'Deny';
-  return 'gave up';
+  panel.delegate = null;
+  panel.orderOut(null);
+  if (CHOICE === 'Allow') return 'Allow once\n' + owner(argv[3], argv[4]);
+  if (CHOICE === 'gave up') return 'gave up';
+  return 'Deny';
 }`
 
 // macArgMarker is the first argument after every osascript script, so a
@@ -334,11 +270,13 @@ func (v approvalView) ownerReason() string {
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
-	rows := min(lineCount(v.command()), boxMaxLines)
-	off, n := v.riskyRange()
-	// 15 px a row, 12 for the insets, 16 for the sideways scroller
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), noBreakHyphens(v.shown())}
 }
+
+// noBreakHyphens keeps "--yes" and "rm -rf" whole when a label wraps:
+// AppKit may break a line after a hyphen, so each becomes U+2011, the
+// non-breaking hyphen, which looks the same.
+func noBreakHyphens(s string) string { return strings.ReplaceAll(s, "-", "\u2011") }
 
 // macOutcome is how the macOS window ended.
 type macOutcome int
@@ -396,28 +334,35 @@ var askMac = func(v approvalView) (ans macOutcome, shown bool) {
 	return macAnswer(b), true
 }
 
-// The Windows window's size, in pixels: 16 px rows of the GUI font and of
-// Consolas; the command box shows up to 15 lines, then scrolls (also sideways).
+// The Windows window's size, in pixels: a dialog of the system's own
+// look (Segoe UI 9 pt, 16 px rows), the title in bold, the text under it.
 const (
-	winW, winPad = 680, 12
+	winW, winPad = 480, 12              // 440 px of text, as the macOS window
 	winInner     = winW - 2*winPad - 16 // 16: the window's side borders
 	winRowH      = 16
-	winTextCols  = 80 // GUI-font characters on a row, kept low so wrapped text is never cut
-	winHScrollH  = 17
+	winTextCols  = 60 // characters on a row, kept low so wrapped text is never cut
 )
 
-type winLayout struct{ headH, cmdH, notesH, height int }
+type winLayout struct {
+	titleH, textH, height int
+	scroll                bool // the text is taller than the screen allows
+}
+
+// fit shrinks the text area so the window is at most maxH tall; the text
+// then scrolls, every line still in the dialog.
+func (l winLayout) fit(maxH int) winLayout {
+	if over := l.height - maxH; over > 0 && l.textH-over >= 4*winRowH {
+		l.textH -= over
+		l.height -= over
+		l.scroll = true
+	}
+	return l
+}
 
 func winLayoutFor(v approvalView) winLayout {
 	var l winLayout
-	l.headH = commandRows(v.title()+"\n"+v.header(), winTextCols) * winRowH
-	l.cmdH = min(lineCount(v.command()), boxMaxLines)*winRowH + 8 + winHScrollH
-	if n := v.notes(); n != "" {
-		l.notesH = commandRows(n, winTextCols) * winRowH
-	}
-	l.height = winPad + l.headH + winPad + l.cmdH + winPad
-	if l.notesH > 0 {
-		l.height += l.notesH + winPad
-	}
+	l.titleH = textRows(v.title(), winTextCols-8)*winRowH + 4
+	l.textH = textRows(v.details(), winTextCols) * winRowH
+	l.height = winPad + l.titleH + winPad/2 + l.textH + winPad
 	return l
 }

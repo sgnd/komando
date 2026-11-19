@@ -60,17 +60,17 @@ func TestMacDeviceOwner(t *testing.T) {
 	}
 	// the reason names the target and goes in through argv after the marker
 	args := macArgs(seen)
-	if args[4] != macArgMarker || args[12] != "komando: allow web-1.example.test" {
+	if args[4] != macArgMarker || args[7] != "komando: allow web-1.example.test" {
 		t.Errorf("argv %q", args[4:])
 	}
 	if strings.Contains(macAlertScript, "web-1.example.test") || strings.Contains(args[3], "web-1") {
 		t.Error("the target is in the script")
 	}
 	// the owner check runs only on the Allow once branch: Deny never calls it
-	if strings.Count(macAlertScript, "owner(argv[8], argv[9])") != 1 || strings.Count(macAlertScript, "evaluatePolicyLocalizedReasonReply") != 1 {
+	if strings.Count(macAlertScript, "owner(argv[3], argv[4])") != 1 || strings.Count(macAlertScript, "evaluatePolicyLocalizedReasonReply") != 1 {
 		t.Error("the owner check is called outside the Allow once branch")
 	}
-	deny := macAlertScript[strings.Index(macAlertScript, "if (r === $.NSAlertFirstButtonReturn)"):]
+	deny := macAlertScript[strings.Index(macAlertScript, "if (CHOICE === 'gave up')"):]
 	if strings.Contains(deny, "owner(") {
 		t.Error("Deny calls the owner check")
 	}
@@ -117,8 +117,8 @@ func TestMacIgnoresApprovalCode(t *testing.T) {
 // and the check together stay inside macWindowTimeout.
 func TestMacOwnerTimeoutBound(t *testing.T) {
 	args := macArgs(approvalView{raw: "t"})
-	if args[13] != "50" || windowGiveUp+ownerTimeout > macWindowTimeout {
-		t.Errorf("owner bound %q, window %v + %v > %v", args[13], windowGiveUp, ownerTimeout, macWindowTimeout)
+	if args[8] != "50" || windowGiveUp+ownerTimeout > macWindowTimeout {
+		t.Errorf("owner bound %q, window %v + %v > %v", args[8], windowGiveUp, ownerTimeout, macWindowTimeout)
 	}
 	if !strings.Contains(macAlertScript, "function owner(reason, secs)") {
 		t.Error("the owner check does not take its own bound")
