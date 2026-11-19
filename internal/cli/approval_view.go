@@ -9,6 +9,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf16"
+
+	"github.com/sgnd/komando/internal/policy"
 	"unicode/utf8"
 )
 
@@ -136,12 +139,52 @@ func (v approvalView) command() string {
 	return v.Line + "\n\n" + strings.TrimRight(v.Body, "\n")
 }
 
+// boxMaxLines is how many lines the command box shows before it scrolls,
+// on macOS and Windows alike.
+const boxMaxLines = 15
+
+// moreHint is the line under a box that scrolls, or "".
+func (v approvalView) moreHint() string {
+	if n := lineCount(v.command()) - boxMaxLines; n > 0 {
+		return fmt.Sprintf("%d more lines: scroll to read all", n)
+	}
+	return ""
+}
+
+// riskyLine is the first line of the box that a deny rule matches (the
+// check that rated the command), or -1. The box opens scrolled to it.
+func (v approvalView) riskyLine() int {
+	for i, l := range strings.Split(v.command(), "\n") {
+		if len(policy.Check(l, nil)) > 0 {
+			return i
+		}
+	}
+	return -1
+}
+
+// riskyRange is riskyLine as a UTF-16 offset and length into command(),
+// as AppKit counts; -1, 0 for none.
+func (v approvalView) riskyRange() (off, n int) {
+	i := v.riskyLine()
+	if i < 0 {
+		return -1, 0
+	}
+	lines := strings.Split(v.command(), "\n")
+	for _, l := range lines[:i] {
+		off += len(utf16.Encode([]rune(l))) + 1
+	}
+	return off, len(utf16.Encode([]rune(lines[i])))
+}
+
 // notes is the explanation under the box, the question last.
 func (v approvalView) notes() string {
 	if v.raw != "" {
-		return ""
+		return v.moreHint()
 	}
 	var b []string
+	if h := v.moreHint(); h != "" {
+		b = append(b, h)
+	}
 	if v.What != "" {
 		b = append(b, "This also lets through: "+v.What)
 	}
@@ -153,7 +196,8 @@ func (v approvalView) notes() string {
 
 // layout is the window's content as plain text, for the golden test.
 func (v approvalView) layout() string {
-	return "[title]\n" + v.title() + "\n[header]\n" + v.header() + "\n[command]\n" + v.command() + "\n[notes]\n" + v.notes() + "\n"
+	return "[title]\n" + v.title() + "\n[header]\n" + v.header() + "\n[command]\n" + v.command() + "\n[notes]\n" + v.notes() +
+		"\n[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n"
 }
 
 // lineCount is how many lines s has (the command box does not wrap).
@@ -201,7 +245,9 @@ function run(argv) {
   tv.editable = false;
   tv.selectable = true;
   tv.richText = false;
-  tv.font = $.NSFont.userFixedPitchFontOfSize(12);
+  var fs = $.NSFont.smallSystemFontSize, mf = null;
+  try { mf = $.NSFont.monospacedSystemFontOfSizeWeight(fs, 0); } catch (e) {}
+  tv.font = (mf && !mf.isNil()) ? mf : $.NSFont.userFixedPitchFontOfSize(fs);
   tv.textContainerInset = $.NSMakeSize(6, 6);
   tv.horizontallyResizable = true;
   tv.maxSize = $.NSMakeSize(1e7, 1e7);
@@ -209,6 +255,12 @@ function run(argv) {
   tv.textContainer.containerSize = $.NSMakeSize(1e7, 1e7);
   tv.string = argv[3];
   sv.documentView = tv;
+  var ro = Number(argv[6]), rn = Number(argv[7]);
+  if (ro >= 0) {
+    var rr = $.NSMakeRange(ro, rn);
+    tv.textStorage.addAttributeValueRange($.NSBackgroundColorAttributeName, $.NSColor.findHighlightColor, rr);
+    tv.scrollRangeToVisible(rr);
+  }
   var note = $.NSTextField.wrappingLabelWithString(argv[4]);
   note.preferredMaxLayoutWidth = w;
   var nh = argv[4] === '' ? 0 : Math.ceil(note.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height);
@@ -247,9 +299,10 @@ func appleScriptArgs(script string, texts ...string) []string {
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
-	rows := min(lineCount(v.command()), 20)
+	rows := min(lineCount(v.command()), boxMaxLines)
+	off, n := v.riskyRange()
 	// 15 px a row, 12 for the insets, 16 for the sideways scroller
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28)}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n)}
 }
 
 // macAnswer reads what osascript printed: only "Allow once" allows; every
@@ -282,7 +335,7 @@ func askMac(v approvalView) (allowed, gaveUp, shown bool) {
 }
 
 // The Windows window's size, in pixels: 16 px rows of the GUI font and of
-// Consolas; the command box scrolls past 18 rows and sideways.
+// Consolas; the command box shows up to 15 lines, then scrolls (also sideways).
 const (
 	winW, winPad = 680, 12
 	winInner     = winW - 2*winPad - 16 // 16: the window's side borders
@@ -296,7 +349,7 @@ type winLayout struct{ headH, cmdH, notesH, height int }
 func winLayoutFor(v approvalView) winLayout {
 	var l winLayout
 	l.headH = commandRows(v.title()+"\n"+v.header(), winTextCols) * winRowH
-	l.cmdH = min(lineCount(v.command()), 18)*winRowH + 8 + winHScrollH
+	l.cmdH = min(lineCount(v.command()), boxMaxLines)*winRowH + 8 + winHScrollH
 	if n := v.notes(); n != "" {
 		l.notesH = commandRows(n, winTextCols) * winRowH
 	}

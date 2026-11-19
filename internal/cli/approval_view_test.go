@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -75,8 +76,8 @@ func TestApprovalViewText(t *testing.T) {
 	}
 }
 
-// Golden: what the window shows for a multi-line command, a long line and
-// a script body. KOMANDO_GOLDEN_UPDATE=1 records it again.
+// Golden: what the window shows for a multi-line command, a long line,
+// a script body and the 4-line screenshot sample. KOMANDO_GOLDEN_UPDATE=1 records it again.
 func TestApprovalWindowGolden(t *testing.T) {
 	long := "komando exec web-1.example.test -- " + strings.Repeat("echo abcdefghij && ", 12) + "true"
 	views := []approvalView{
@@ -85,6 +86,7 @@ func TestApprovalWindowGolden(t *testing.T) {
 		testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected)", "[R-7] rm -rf deletes files", protWhy([]string{"web-1.example.test"})}, long, ""),
 		testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando exec db-2.example.test --script ./deploy.sh --yes",
 			"It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n"),
+		shotView(), // the 4-line deploy.sh: every line shows, no "more lines" hint
 	}
 	var b strings.Builder
 	for _, v := range views {
@@ -150,4 +152,37 @@ func testView(agent string, flags []string, what string, why []string, line, bod
 	v := newApprovalView(tcl, flags, what, why, line, body)
 	v.Agent = agent
 	return v
+}
+
+// The box shows up to boxMaxLines lines: the 4-line script sample fits
+// with no hint; a 40-line script gets the "more lines" hint and opens
+// scrolled to the line a deny rule matches.
+func TestApprovalBoxScroll(t *testing.T) {
+	if v := shotView(); v.moreHint() != "" || lineCount(v.command()) > boxMaxLines {
+		t.Errorf("the 4-line sample scrolls: %d lines, hint %q", lineCount(v.command()), v.moreHint())
+	}
+	var body strings.Builder
+	body.WriteString("It also sends the script ./long.sh (1 bytes, 40 lines, SHA-256 ab), all of it:\n\n")
+	for i := 1; i <= 40; i++ {
+		l := "echo step " + strconv.Itoa(i)
+		if i == 30 {
+			l = "dd if=/dev/zero of=/dev/sda"
+		}
+		fmt.Fprintf(&body, "  %2d  %s\n", i, l)
+	}
+	v := testView("Claude Code", []string{"--allow-dangerous"}, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test --script ./long.sh --allow-dangerous", body.String())
+	if !strings.HasPrefix(v.notes(), "29 more lines: scroll to read all") {
+		t.Errorf("notes: %q", v.notes())
+	}
+	i := v.riskyLine()
+	if i < boxMaxLines || !strings.Contains(strings.Split(v.command(), "\n")[i], "of=/dev/sda") {
+		t.Fatalf("risky line %d", i)
+	}
+	off, n := v.riskyRange()
+	if got := v.command()[off : off+n]; !strings.Contains(got, "of=/dev/sda") {
+		t.Errorf("range %d,%d is %q", off, n, got)
+	}
+	if args := macArgs(v); args[10] != strconv.Itoa(off) || args[11] != strconv.Itoa(n) {
+		t.Errorf("argv %q", args[9:])
+	}
 }

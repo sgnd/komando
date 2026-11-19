@@ -41,6 +41,7 @@ var (
 	procGetStockObject   = gdi32.NewProc("GetStockObject")
 	procCreateFontW      = gdi32.NewProc("CreateFontW")
 	procDeleteObject     = gdi32.NewProc("DeleteObject")
+	procGetObjectW       = gdi32.NewProc("GetObjectW")
 	procInputSource      = user32.NewProc("GetCurrentInputMessageSource")
 )
 
@@ -66,6 +67,7 @@ const (
 	wmDestroy      = 0x0002
 	wmClose        = 0x0010
 	wmSetFont      = 0x0030
+	emLineScroll   = 0x00B6
 	wmCommand      = 0x0111
 	wmTimer        = 0x0113
 	smCxScreen     = 0
@@ -175,12 +177,19 @@ func interactiveDesktop() bool {
 	return user32.Load() == nil && procCreateWindowExW.Find() == nil
 }
 
-// monoFont is Consolas, 16 px high, for the command block; fallback when
+// monoFont is Consolas at the labels' size, for the command box; fallback when
 // it cannot be made.
 func monoFont(fallback uintptr) uintptr {
+	// the labels' height (LOGFONTW.lfHeight, the first field of 92 bytes),
+	// so both fonts are the same size
+	var lf [92]byte
+	height := int32(-11)
+	if n, _, _ := procGetObjectW.Call(fallback, uintptr(len(lf)), uintptr(unsafe.Pointer(&lf[0]))); n != 0 {
+		height = *(*int32)(unsafe.Pointer(&lf[0]))
+	}
 	face, _ := windows.UTF16PtrFromString("Consolas")
 	// normal weight, fixed pitch (FIXED_PITCH|FF_MODERN)
-	f, _, _ := procCreateFontW.Call(^uintptr(15), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 0, 0x31, uintptr(unsafe.Pointer(face)))
+	f, _, _ := procCreateFontW.Call(uintptr(int64(height)), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 0, 0x31, uintptr(unsafe.Pointer(face)))
 	if f == 0 {
 		return fallback
 	}
@@ -246,7 +255,10 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	}
 	child("STATIC", v.title()+"\n"+v.header(), ssNoPrefix, font, pad, pad, winInner, l.headH, 0)
 	y := pad + l.headH + pad
-	child("EDIT", v.command(), esMultiline|esReadOnly|esAutoHScroll|wsVScroll|wsHScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
+	box := child("EDIT", v.command(), esMultiline|esReadOnly|esAutoHScroll|wsVScroll|wsHScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
+	if i := v.riskyLine(); i >= boxMaxLines {
+		procSendMessageW.Call(box, emLineScroll, 0, uintptr(i-2)) // the line a rule matched, in view (no highlight)
+	}
 	y += l.cmdH + pad
 	if l.notesH > 0 {
 		child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)
