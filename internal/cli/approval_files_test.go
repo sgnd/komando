@@ -102,7 +102,7 @@ func TestApprovalWindowBigUploads(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	archive := writeTemp(t, "app.dump", "PGDMP"+strings.Repeat("\x00\x01archive", 3000))
+	archive := writeTemp(t, "app.dump", testPGArchive(t))
 	texts := windowText(t, false)
 	invRun(t, "cp", big, "web:/etc/big.conf", "--yes")
 	b, _ := os.ReadFile(big)

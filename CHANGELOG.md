@@ -40,6 +40,19 @@ its highlights; the sections below them give the details. Versions follow
 
 - On macOS and Windows, an AI agent's `import kubeconfig` accepts the
   files it names under `~/.KUBE` (any case), as it does under `~/.kube`.
+- `db restore` refuses a pg_dump custom archive whose table of contents
+  komando cannot read (`BAD_FILE`). Before, it was approved as
+  `sql-opaque`, so a person could approve SQL nobody had checked.
+- Reading an archive's table of contents no longer allocates a string's
+  full stated length (up to 64 MiB) before its bytes arrive.
+
+### Fixed
+
+- `db restore` names pg_dump tar (`-Ft`) and directory (`-Fd`) archives and
+  refuses them with `USAGE`, saying to dump with `-Fc` or `-Fp`. Before, a
+  tar archive was read as plain SQL (with a misleading `UNSAFE_BACKUP`, or
+  a check that passed and a restore that then failed), and a directory
+  archive failed with `BAD_FILE` "is a directory".
 
 ## [0.15.0] - 2026-11-19
 

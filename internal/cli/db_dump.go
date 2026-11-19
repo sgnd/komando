@@ -430,6 +430,9 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err != nil {
 		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `komando db dump`")
 	}
+	if isPGDirArchive(from, fi) {
+		return otherPGArchive(from, "directory archive (pg_dump -Fd)")
+	}
 	// One read of the file before anyone is asked: what kind of backup it
 	// is, what its SQL does, and a seal over its bytes (backupSeal). The
 	// restore below reads it through that seal, so it runs what was checked.
@@ -522,14 +525,18 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 		if seal.archive() {
 			// a pg_dump archive: the SQL in its table of contents is
 			// checked; the rest is read too, so the seal covers every byte
-			if sqlV, err = driver.CheckRestoreArchive(r); err == nil {
-				_, err = io.Copy(io.Discard, r)
+			if sqlV, err = driver.CheckRestoreArchive(r); err != nil {
+				return out.Errf(out.ExitUsage, "BAD_FILE", "dump it again with `komando db dump` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
 			}
+			_, err = io.Copy(io.Discard, r)
 			return err
 		}
-		br := bufio.NewReader(r)
+		br := bufio.NewReaderSize(r, 512)
 		if head, _ := br.Peek(5); string(head) == "PGDMP" {
 			return out.Usage("%s is a gzipped pg_dump archive: unpack it first (`gunzip -k %s`), then restore the .dump file", from, from)
+		}
+		if head, _ := br.Peek(512); isPGTarArchive(head) {
+			return otherPGArchive(from, "tar archive (pg_dump -Ft)")
 		}
 		sqlV, err = driver.CheckRestore(kind, br)
 		return err
