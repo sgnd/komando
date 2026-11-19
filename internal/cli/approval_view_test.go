@@ -53,7 +53,7 @@ func TestMacAlertScript(t *testing.T) {
 		"$.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "panel.title = 'komando needs your OK'",
 		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
 		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel('Deny')", "setAccessibilityLabel('Allow once')",
-		"e.keyCode === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
+		"Number(e.keyCode) === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
 		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)", "argv[2].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
@@ -311,8 +311,8 @@ func TestMacPanelAnswers(t *testing.T) {
 		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { APP.stopModalWithCode(DENY); } }"},
 		{"close wired", "panel.delegate = answer"},
 		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
-		{"esc", "if (e.keyCode === 53) { app.stopModalWithCode(DENY); return null; }"},
-		{"cmd-w", "if (e.keyCode === 13 && (e.modifierFlags & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }"},
+		{"esc", "if (Number(e.keyCode) === 53) { app.stopModalWithCode(DENY); return null; }"},
+		{"cmd-w", "if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }"},
 		{"give-up timer", "timerWithTimeIntervalRepeatsBlock(120, false, function () { app.stopModalWithCode(GAVE_UP); })"},
 		{"gave up only from the timer", "if (r === GAVE_UP) return 'gave up';"},
 		{"allow goes to the owner check", "if (r === ALLOW) return 'Allow once\\n' + owner(argv[3], argv[4]);"},
@@ -335,5 +335,34 @@ func TestMacPanelAnswers(t *testing.T) {
 		if got := macAnswer([]byte(out)); got != want {
 			t.Errorf("%q: %v, want %v", out, got, want)
 		}
+	}
+}
+
+// Each button stops the panel with its own code, and the code runModal
+// returns is compared with the same constants as a number: JXA hands an
+// NSInteger back as a string ("1001"), so without Number() the Allow code
+// never matched and fell through to Deny. Only ALLOW reaches the owner
+// check, and the Deny fallback comes after both checks.
+func TestMacPanelCodes(t *testing.T) {
+	s := macAlertScript
+	consts := regexp.MustCompile(`var DENY = (\d+), ALLOW = (\d+), GAVE_UP = (\d+)`).FindStringSubmatch(s)
+	if consts == nil || consts[1] == consts[2] || consts[2] == consts[3] || consts[1] == consts[3] {
+		t.Fatalf("codes not distinct: %q", consts)
+	}
+	for _, want := range []string{
+		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(DENY); } }",
+		"buttonWithTitleTargetAction('Allow once', answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(ALLOW); } }",
+		"var r = Number(app.runModalForWindow(panel));",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	allow, gave, deny := strings.Index(s, "if (r === ALLOW) return 'Allow once"), strings.Index(s, "if (r === GAVE_UP) return 'gave up';"), strings.LastIndex(s, "return 'Deny';")
+	if allow < 0 || gave < 0 || deny < allow || deny < gave {
+		t.Errorf("answer order: allow %d, gave up %d, deny %d", allow, gave, deny)
+	}
+	if strings.Count(s, "owner(argv[3], argv[4])") != 1 {
+		t.Error("the owner check is reached other than from ALLOW")
 	}
 }

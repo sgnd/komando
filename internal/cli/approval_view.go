@@ -218,15 +218,16 @@ function run(argv) {
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
-    if (e.keyCode === 53) { app.stopModalWithCode(DENY); return null; }
-    if (e.keyCode === 13 && (e.modifierFlags & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }
+    if (Number(e.keyCode) === 53) { app.stopModalWithCode(DENY); return null; }
+    if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }
     return e;
   });
   var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { app.stopModalWithCode(GAVE_UP); });
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
   panel.makeKeyAndOrderFront(null);
-  var r = app.runModalForWindow(panel);
+  // JXA returns an NSInteger as a string ("1001"): compare it as a number
+  var r = Number(app.runModalForWindow(panel));
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
   panel.delegate = null;
