@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,7 +21,7 @@ func TestRunChild(t *testing.T) {
 	if os.Getenv("RUN_CHILD") != "1" {
 		t.Skip("helper for the run tests")
 	}
-	fmt.Printf("TOKEN=%s\nPLAIN=%s\nPAGER=%s\nPATH=%s\n", os.Getenv("TOKEN"), os.Getenv("PLAIN"), os.Getenv("PAGER"), os.Getenv("PATH"))
+	fmt.Printf("TOKEN=%s\nPLAIN=%s\nPAGER=%s\nPATH=%s\nHOME=%s\n", os.Getenv("TOKEN"), os.Getenv("PLAIN"), os.Getenv("PAGER"), os.Getenv("PATH"), os.Getenv("HOME"))
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "KOMANDO_") {
 			fmt.Println("leaked " + kv)
@@ -164,6 +166,7 @@ func TestRunAgentEnvAllowlist(t *testing.T) {
 	if strings.Contains(text, "agent-pager") || strings.Contains(text, "agent-bin") || !strings.Contains(text, "PATH="+systemPath) {
 		t.Errorf("the agent's environment reached the program: %q", text)
 	}
+
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "RUN_CHILD=1") {
 		t.Errorf("window does not show the plain value: %q", *texts)
 	}
@@ -175,5 +178,19 @@ func TestRunPersonKeepsEnv(t *testing.T) {
 	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
 	if exit != 0 || !strings.Contains(text, "PAGER=/tmp/my-pager") {
 		t.Errorf("exit %d %q", exit, text)
+	}
+}
+
+// The test binary that plays the program sets its own HOME as it starts,
+// so the account's HOME is checked on the environment komando builds.
+func TestRunAgentHomeFromAccount(t *testing.T) {
+	u, err := user.Current()
+	if err != nil {
+		t.Skip(err)
+	}
+	env := agentBaseEnv([]string{"HOME=/tmp/agent-home", "USER=agent", "LOGNAME=agent", "PAGER=less", "LANG=C"})
+	got := strings.Join(env, "\n")
+	if strings.Contains(got, "agent") || !slices.Contains(env, "HOME="+u.HomeDir) || !slices.Contains(env, "LANG=C") || strings.Contains(got, "PAGER") {
+		t.Errorf("environment for an agent's run: %q", env)
 	}
 }

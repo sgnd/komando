@@ -7,7 +7,9 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -31,8 +33,8 @@ directly, without a shell, with your environment minus komando's own
 KOMANDO_* variables and the values that unlock the vault. For an AI agent
 with secrets, variables that make a program load other code (LD_PRELOAD,
 DYLD_*, NODE_OPTIONS, PYTHON*, BASH_ENV and the like) are refused in --env
-and the program gets only HOME, USER, LANG, LC_*, TERM, TMPDIR, TZ, a
-system PATH and its --env values.
+and the program gets only HOME and USER from your OS account, LANG,
+LC_*, TERM, TMPDIR, TZ, a system PATH and its --env values.
 
 The program's output goes through komando's masking: a vault value it
 prints shows as [secret:NAME]. komando exits with the program's exit code.
@@ -214,13 +216,23 @@ func plainPairs(env map[string]string) []string {
 // agentKeep are the variables an AI agent's run with secrets keeps from the
 // environment. Anything else (a pager, an editor, an askpass helper, a
 // proxy, a startup file) could hand the values to a program the agent
-// chose, so the program gets only these, its --env values, and a fixed
-// system PATH.
-var agentKeep = []string{"HOME", "USER", "LOGNAME", "LANG", "TERM", "TMPDIR", "TZ",
-	"SYSTEMROOT", "WINDIR", "USERPROFILE", "TEMP", "TMP"}
+// chose, so the program gets only these, its --env values, a fixed system
+// PATH, and HOME and the user name from the OS account: a HOME the agent
+// picked could hold a .psqlrc, .gitconfig or .npmrc that runs its code.
+var agentKeep = []string{"LANG", "TERM", "TMPDIR", "TZ", "SYSTEMROOT", "WINDIR", "TEMP", "TMP"}
 
 func agentBaseEnv(env []string) []string {
 	kept := []string{"PATH=" + systemPath}
+	if u, err := user.Current(); err == nil {
+		name := u.Username
+		if _, after, ok := strings.Cut(name, `\`); ok {
+			name = after // DOMAIN\name on Windows
+		}
+		kept = append(kept, "HOME="+u.HomeDir, "USER="+name, "LOGNAME="+name)
+		if runtime.GOOS == "windows" {
+			kept = append(kept, "USERPROFILE="+u.HomeDir)
+		}
+	}
 	for _, kv := range env {
 		k, _, _ := strings.Cut(kv, "=")
 		if slices.Contains(agentKeep, strings.ToUpper(k)) || strings.HasPrefix(k, "LC_") {

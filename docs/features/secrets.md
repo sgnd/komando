@@ -108,9 +108,9 @@ values that unlock the vault.
   the program could print a value in a form masking does not know. The
   window names the secrets, the program's full path, the other `--env`
   variables, and says when any program of yours could replace the program.
-- In an AI agent's run with secrets, the program gets only `HOME`, `USER`,
-  `LANG`, `LC_*`, `TERM`, `TMPDIR`, `TZ`, a system `PATH` and its `--env`
-  values: a pager, editor, askpass helper or proxy the agent set could
+- In an AI agent's run with secrets, the program gets only `HOME` and
+  `USER` from your account (not from the agent's environment), `LANG`,
+  `LC_*`, `TERM`, `TMPDIR`, `TZ`, a system `PATH` and its `--env` values: a pager, editor, askpass helper or proxy the agent set could
   otherwise hand the values on. Variables that make a program load other
   code (`LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`, `PYTHON*`, `BASH_ENV` and
   the like) are refused in `--env` (`USAGE`). The window shows the plain
@@ -118,6 +118,10 @@ values that unlock the vault.
 - If the program file changes between the check and the start, komando
   stops (`TOOL_MISSING`) and the program does not run. On Linux komando
   starts the file it checked, through the open file.
+- Accepted risk: a program in a folder any program of yours can write
+  (Homebrew's, npm's, `~/.local/bin`) is not refused, because that is where
+  tools like `wrangler` live. For an AI agent the window names its full
+  path and warns that it can be replaced, and the person decides.
 - A secret that a protected server, conn or VPN uses asks a person at a
   terminal too, as a change on a protected server does.
 
