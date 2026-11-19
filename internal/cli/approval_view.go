@@ -228,8 +228,7 @@ function run(argv) {
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
   panel.makeKeyAndOrderFront(null);
-  var r = app.runModalForWindow(panel);
-  try { $.NSFileHandle.fileHandleWithStandardError.writeData($('modal: ' + typeof r + ' ' + ObjC.unwrap(r) + '\n').dataUsingEncoding($.NSUTF8StringEncoding)); } catch (e) {}
+  app.runModalForWindow(panel); // the answer is CHOICE: JXA returns NSInteger as a string
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
   panel.delegate = null;

@@ -352,7 +352,7 @@ func TestMacPanelCodes(t *testing.T) {
 	for _, want := range []string{
 		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
 		"buttonWithTitleTargetAction('Allow once', answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
-		"var r = app.runModalForWindow(panel);",
+		"app.runModalForWindow(panel); // the answer is CHOICE",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
@@ -387,5 +387,12 @@ func TestMacPanelChoice(t *testing.T) {
 	}
 	if strings.Contains(s, "r === ") {
 		t.Error("the runModal code still decides the answer")
+	}
+}
+
+// No debug output reaches stderr in a normal run.
+func TestMacPanelNoDebugStderr(t *testing.T) {
+	if strings.Contains(macAlertScript, "typeof r") || strings.Contains(macAlertScript, "'modal: '") {
+		t.Error("the panel script still writes the modal debug line")
 	}
 }
