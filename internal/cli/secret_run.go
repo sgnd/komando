@@ -7,17 +7,20 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
+	"github.com/sgnd/komando/internal/tmpclean"
 	"github.com/sgnd/komando/internal/vault"
 )
 
@@ -57,7 +60,7 @@ server, conn or VPN uses asks a person at a terminal too.`,
 
 func runLocal(cl *call, pairs, args []string) error {
 	for _, a := range args[1:] {
-		if strings.Contains(a, "secret:") {
+		if argHasRef(a) {
 			return out.Usage("a secret reference goes in --env KEY=secret:NAME, not in the program's arguments (%q)", a)
 		}
 	}
@@ -133,7 +136,9 @@ func runLocal(cl *call, pairs, args []string) error {
 	c.Args[0] = args[0]
 	base := withoutKomandoEnv(cl.environ(), keys)
 	if agentSecrets {
-		base = agentBaseEnv(base)
+		var cleanup func()
+		base, cleanup = agentBaseEnv(cl, base)
+		defer cleanup()
 	}
 	c.Env = append(base, vals...)
 	done, err := pinProgram(c, before)
@@ -160,10 +165,15 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 			maskCopy(cl, &mu, w, r)
 		}()
 	}
+	started, stop := forwardSignals()
 	err := c.Start()
 	if err == nil {
+		forget := runningPrograms.add(c.Process)
+		started <- c.Process
 		err = c.Wait()
+		forget()
 	}
+	stop()
 	stdoutW.Close()
 	stderrW.Close()
 	wg.Wait()
@@ -173,11 +183,84 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 		if code := ee.ExitCode(); code > 0 {
 			return exitCode(code)
 		}
-		return exitCode(out.ExitError) // ended by a signal
+		if ws, ok := ee.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+			return exitCode(128 + int(ws.Signal())) // as a shell reports it
+		}
+		return exitCode(out.ExitError)
 	case err != nil:
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "check that the program runs on this computer", "%s did not start: %v", prog, err)
 	}
 	return nil
+}
+
+// forwardSignals passes a SIGTERM or SIGHUP komando gets on to the
+// program, so it does not run on with the secrets after komando is
+// stopped. A Ctrl-C at the terminal already reaches the program itself (it
+// is in the same process group); sending it again would count as a second
+// Ctrl-C, which many programs (terraform) take as "stop now". Signals are
+// caught from before the start, and passed on once the program runs.
+// Windows cannot pass a signal on, so there the program is ended.
+func forwardSignals() (started chan<- *os.Process, stop func()) {
+	ch := make(chan os.Signal, 2)
+	signal.Notify(ch, forwardedSignals...)
+	start := make(chan *os.Process, 1)
+	done := make(chan struct{})
+	go func() {
+		var p *os.Process
+		var held []os.Signal
+		for {
+			select {
+			case p = <-start:
+				for _, s := range held {
+					passSignal(p, s)
+				}
+			case s := <-ch:
+				if p == nil {
+					held = append(held, s)
+				} else {
+					passSignal(p, s)
+				}
+			case <-done:
+				return
+			}
+		}
+	}()
+	return start, func() {
+		signal.Stop(ch)
+		close(done)
+	}
+}
+
+func passSignal(p *os.Process, s os.Signal) {
+	if runtime.GOOS == "windows" {
+		p.Kill()
+	} else {
+		p.Signal(s)
+	}
+}
+
+// argHasRef reports whether a program argument holds a secret reference
+// of any form komando resolves (secret:, env:, vault:, op://, ...), as the
+// whole argument or after an = (--password=env:PW).
+func argHasRef(a string) bool {
+	if strings.Contains(a, "secret:") {
+		return true
+	}
+	for _, r := range vault.Refs {
+		p, _, _ := strings.Cut(r, " ")
+		if i := strings.Index(p, "://"); i >= 0 {
+			p = p[:i+3]
+		} else {
+			p = p[:strings.IndexByte(p, ':')+1]
+		}
+		if p == "file:" && strings.Contains(a, "file://") {
+			continue // a file:// URL, not a reference
+		}
+		if strings.HasPrefix(a, p) || strings.Contains(a, "="+p) {
+			return true
+		}
+	}
+	return false
 }
 
 // runGuard is run's approval: an AI agent needs a person's yes for every
@@ -227,16 +310,21 @@ func plainPairs(env map[string]string) []string {
 // picked could hold a .psqlrc, .gitconfig or .npmrc that runs its code.
 var agentKeep = []string{"LANG", "TERM", "TMPDIR", "TZ", "SYSTEMROOT", "WINDIR", "TEMP", "TMP"}
 
-func agentBaseEnv(env []string) []string {
+func agentBaseEnv(cl *call, env []string) ([]string, func()) {
 	kept := []string{"PATH=" + systemPath}
+	cleanup := func() {}
 	if u, err := user.Current(); err == nil {
 		name := u.Username
 		if _, after, ok := strings.Cut(name, `\`); ok {
 			name = after // DOMAIN\name on Windows
 		}
-		kept = append(kept, "HOME="+u.HomeDir, "USER="+name, "LOGNAME="+name)
+		home := u.HomeDir
+		if runtime.GOOS == "linux" && home == os.Getenv("HOME") && !inPasswd(passwdPath, u.Uid) {
+			home, cleanup = freshHome(cl)
+		}
+		kept = append(kept, "HOME="+home, "USER="+name, "LOGNAME="+name)
 		if runtime.GOOS == "windows" {
-			kept = append(kept, "USERPROFILE="+u.HomeDir)
+			kept = append(kept, "USERPROFILE="+home)
 		}
 	}
 	for _, kv := range env {
@@ -245,7 +333,42 @@ func agentBaseEnv(env []string) []string {
 			kept = append(kept, kv)
 		}
 	}
-	return kept
+	return kept, cleanup
+}
+
+// passwdPath is the account list a Linux build reads; tests change it.
+var passwdPath = "/etc/passwd"
+
+// inPasswd reports whether uid has a line in the passwd file at path. A
+// build without cgo finds no account that only NSS (LDAP, sssd) knows, and
+// user.Current then takes HOME from the environment, which the agent sets.
+func inPasswd(path, uid string) bool {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	for line := range strings.Lines(string(b)) {
+		if f := strings.Split(line, ":"); len(f) > 2 && f[2] == uid {
+			return true
+		}
+	}
+	return false
+}
+
+// freshHome makes an empty HOME for the program, removed by the returned
+// func: komando could not read the account's own HOME.
+func freshHome(cl *call) (string, func()) {
+	dir, err := os.MkdirTemp("", "komando-home-")
+	if err != nil {
+		fmt.Fprintf(cl.out.Stderr(), "komando: your account is not in %s and no empty HOME could be made (%v), so the program gets HOME=%s\n", passwdPath, err, os.DevNull)
+		return os.DevNull, func() {}
+	}
+	forget := tmpclean.Add(dir)
+	fmt.Fprintf(cl.out.Stderr(), "komando: your account is not in %s, so the program gets an empty HOME (%s), not the one in your environment\n", passwdPath, dir)
+	return dir, func() {
+		os.RemoveAll(dir)
+		forget()
+	}
 }
 
 // loadsCode reports whether an environment variable makes a program, its
@@ -289,7 +412,7 @@ func withoutKomandoEnv(env, set []string) []string {
 // maskCopy copies the program's output to w by whole lines, through the
 // masker, so a value split across two reads is still hidden.
 func maskCopy(cl *call, mu *sync.Mutex, w io.Writer, r io.Reader) {
-	var lb lineBuffer
+	lb := lineBuffer{mask: cl.out}
 	buf := make([]byte, 32<<10)
 	show := func(s string) {
 		if s == "" || w == nil {
@@ -309,4 +432,37 @@ func maskCopy(cl *call, mu *sync.Mutex, w io.Writer, r io.Reader) {
 		}
 	}
 	show(lb.flush())
+}
+
+// runningPrograms are the programs secret run started that still run. A second
+// Ctrl-C ends komando at once (hardStop); it ends these first, so none
+// runs on with the secrets, unmasked, in a HOME komando removes.
+var runningPrograms procSet
+
+type procSet struct {
+	mu    sync.Mutex
+	procs map[*os.Process]bool
+}
+
+func (s *procSet) add(p *os.Process) (forget func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.procs == nil {
+		s.procs = map[*os.Process]bool{}
+	}
+	s.procs[p] = true
+	return func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		delete(s.procs, p)
+	}
+}
+
+// killAll ends every running program (SIGKILL: it cannot be caught).
+func (s *procSet) killAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for p := range s.procs {
+		p.Kill()
+	}
 }

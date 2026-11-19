@@ -456,7 +456,7 @@ func swarmLogs(cl *call, ctx context.Context, t clusterTarget, service string, l
 		Protected: protectedHost(st, t.host), Tail: "Ctrl-C stops"})
 	lines := 0
 	var res *sshx.RunResult
-	var buf lineBuffer // whole lines, so a split secret is still redacted
+	buf := lineBuffer{mask: cl.out} // whole lines, so a split secret is still redacted
 	show := func(text string) {
 		if text == "" {
 			return
