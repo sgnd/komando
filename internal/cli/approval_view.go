@@ -27,6 +27,7 @@ type approvalView struct {
 	Targets     []string // where it runs, each named once
 	Protected   bool     // a target is protected (targetsWhy, protWhy)
 	Risks       []string // the reasons left once targets and protection have their own lines
+	Code        bool     // a secure field for the approval code under the command
 	raw         string   // a window with no parts: the text as it came
 }
 
@@ -196,8 +197,11 @@ func (v approvalView) notes() string {
 
 // layout is the window's content as plain text, for the golden test.
 func (v approvalView) layout() string {
-	return "[title]\n" + v.title() + "\n[header]\n" + v.header() + "\n[command]\n" + v.command() + "\n[notes]\n" + v.notes() +
-		"\n[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n"
+	s := "[title]\n" + v.title() + "\n[header]\n" + v.header() + "\n[command]\n" + v.command() + "\n"
+	if v.Code {
+		s += "[code]\n" + macCodeLabel + "\n"
+	}
+	return s + "[notes]\n" + v.notes() + "\n[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n"
 }
 
 // lineCount is how many lines s has (the command box does not wrap).
@@ -224,6 +228,8 @@ func viewFor(cl *call, text string) approvalView {
 // macAlertScript draws the macOS window (JXA, AppKit's NSAlert). Every
 // text arrives in argv after macArgMarker, never in the script. Deny is
 // the default (Return) and Esc; after 120 seconds it closes as "gave up".
+// With argv[8] set, a secure field under the command takes the approval
+// code; "Allow once" then prints it on the next line, for komando to check.
 const macAlertScript = `ObjC.import('AppKit');
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
@@ -264,13 +270,24 @@ function run(argv) {
   var note = $.NSTextField.wrappingLabelWithString(argv[4]);
   note.preferredMaxLayoutWidth = w;
   var nh = argv[4] === '' ? 0 : Math.ceil(note.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height);
-  var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h + (nh ? nh + 12 : 0)));
-  sv.frame = $.NSMakeRect(0, nh ? nh + 12 : 0, w, h);
+  var ch = argv[8] === '' ? 0 : 52;
+  var under = (nh ? nh + 12 : 0) + ch;
+  var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h + under));
+  sv.frame = $.NSMakeRect(0, under, w, h);
   note.frame = $.NSMakeRect(0, 0, w, nh);
   box.addSubview(sv);
   if (nh) box.addSubview(note);
+  var field = null;
+  if (ch) {
+    var label = $.NSTextField.labelWithString(argv[8]);
+    label.frame = $.NSMakeRect(0, under - 26, w, 18);
+    field = $.NSSecureTextField.alloc.initWithFrame($.NSMakeRect(0, under - 52, 160, 24));
+    box.addSubview(label);
+    box.addSubview(field);
+  }
   a.accessoryView = box;
   a.layout;
+  if (field) a.window.initialFirstResponder = field;
   a.window.level = $.NSFloatingWindowLevel;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
     if (e.keyCode === 53) { app.stopModalWithCode($.NSAlertFirstButtonReturn); return null; }
@@ -282,7 +299,7 @@ function run(argv) {
   var r = a.runModal;
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
-  if (r === $.NSAlertSecondButtonReturn) return 'Allow once';
+  if (r === $.NSAlertSecondButtonReturn) return field ? 'Allow once\n' + field.stringValue.js : 'Allow once';
   if (r === $.NSAlertFirstButtonReturn) return 'Deny';
   return 'gave up';
 }`
@@ -297,19 +314,31 @@ func appleScriptArgs(script string, texts ...string) []string {
 	return append([]string{"-e", script, macArgMarker}, texts...)
 }
 
+// macCodeLabel names the code field in the macOS window.
+const macCodeLabel = "Type the code from your authenticator app, then click Allow once:"
+
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
 	rows := min(lineCount(v.command()), boxMaxLines)
 	off, n := v.riskyRange()
+	label := ""
+	if v.Code {
+		label = macCodeLabel
+	}
 	// 15 px a row, 12 for the insets, 16 for the sideways scroller
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n)}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n), label}
 }
 
 // macAnswer reads what osascript printed: only "Allow once" allows; every
-// other answer, an error included, is a no. gaveUp: nobody answered.
-func macAnswer(out []byte) (allowed, gaveUp bool) {
-	a := strings.TrimSpace(string(out))
-	return a == "Allow once", a == "gave up"
+// other answer, an error included, is a no. gaveUp: nobody answered. code
+// is the line after "Allow once" (the window with the code field).
+func macAnswer(out []byte) (code string, allowed, gaveUp bool) {
+	btn, code, _ := strings.Cut(strings.TrimSuffix(string(out), "\n"), "\n")
+	btn = strings.TrimSpace(btn)
+	if btn != "Allow once" {
+		code = ""
+	}
+	return strings.TrimSpace(code), btn == "Allow once", btn == "gave up"
 }
 
 // windowGiveUp is when the Windows window closes itself (the macOS one
@@ -322,16 +351,16 @@ var (
 
 // askMac shows the macOS window. shown is false when osascript could not
 // start; an error exit after it started (the script failed) is a no.
-func askMac(v approvalView) (allowed, gaveUp, shown bool) {
+var askMac = func(v approvalView) (code string, allowed, gaveUp, shown bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), macWindowTimeout)
 	defer cancel()
 	b, err := exec.CommandContext(ctx, "/usr/bin/osascript", macArgs(v)...).Output()
 	var ee *exec.ExitError
 	if err != nil && !errors.As(err, &ee) {
-		return false, false, false
+		return "", false, false, false
 	}
-	allowed, gaveUp = macAnswer(b)
-	return allowed, gaveUp, true
+	code, allowed, gaveUp = macAnswer(b)
+	return code, allowed, gaveUp, true
 }
 
 // The Windows window's size, in pixels: 16 px rows of the GUI font and of

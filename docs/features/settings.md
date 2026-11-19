@@ -107,8 +107,11 @@ keyboard: another program cannot press "Allow once" for you. This also
 means a screen reader or other tool that presses buttons for you cannot
 press it. On macOS a program that has Accessibility permission (System
 Settings, Privacy & Security) can click buttons in any window, this one
-included. Do not give that permission to a terminal an agent works in, or
-turn on the approval code.
+included. Turn on the approval code: the macOS window then has a field for
+it under the command, and "Allow once" counts only with the right code.
+Without it, komando opens no window for a terminal that has that
+permission and asks for the code instead (see
+[Safety](safety.md#seatbelts-for-ai-agents)).
 
 ## Environment variables
 

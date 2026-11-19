@@ -26,6 +26,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- On macOS any program with Accessibility permission (your terminal,
+  Hammerspoon, Keyboard Maestro) can press "Allow once" in the approval
+  window. With `komando config approval-code` set up, the window now has a
+  field for the code, and "Allow once" counts only with the right, unused
+  code, which komando checks itself. Without a code, a terminal that has
+  Accessibility permission (or one komando cannot check) gets no window and
+  needs the code; other terminals keep the window, and komando says once per
+  run that the code closes the remaining gap.
 - `komando secret run` for an AI agent with secrets: `--env` may not set
   a tool's config file (`KUBECONFIG`, `DOCKER_CONFIG`, `*_CONFIG_FILE`,
   `AWS_*_FILE`) or a toolchain variable that picks binaries (`CC`, `CXX`,

@@ -62,6 +62,24 @@ mac height 133, windows 48/137/96/329
 Claude Code wants to change web-1.example.test
 [header]
 Target: web-1.example.test
+Skips: --yes
+[command]
+komando host rm web-1.example.test --yes
+[code]
+Type the code from your authenticator app, then click Allow once:
+[notes]
+--yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
+
+Allow this once?
+[risky line]
+-1
+[sizes]
+mac height 43, windows 48/41/64/201
+
+[title]
+Claude Code wants to change web-1.example.test
+[header]
+Target: web-1.example.test
 Protected: yes
 Risk: [R-7] rm -rf deletes files
 Skips: --allow-dangerous, --yes

@@ -118,19 +118,17 @@ var askCodeOnScreen = func(cl *call, text string) (code string, allowed, shown b
 	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return "", false, false
 	}
+	if desktopOS == "darwin" {
+		v := viewFor(cl, text)
+		v.Code = true
+		code, allowed, gaveUp, shown := askMac(v)
+		noteGaveUp(text, gaveUp)
+		return code, allowed, shown
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	text += "\n\nType the code from your authenticator app:"
 	switch runtime.GOOS {
-	case "darwin":
-		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", appleScriptArgs(codeDialogScript, text)...).Output()
-		var ee *exec.ExitError
-		if err != nil && !errors.As(err, &ee) {
-			return "", false, false
-		}
-		btn, typed, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
-		noteGaveUp(text, btn == "gave up")
-		return typed, btn == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if cl.getenv("DISPLAY") == "" && cl.getenv("WAYLAND_DISPLAY") == "" {
 			return "", false, false
@@ -224,11 +222,3 @@ func groupBy4(s string) string {
 	}
 	return strings.Join(parts, " ")
 }
-
-// codeDialogScript is the macOS window with the code field; item 1 of
-// argv is macArgMarker, item 2 the text.
-const codeDialogScript = `on run argv
-set r to display dialog (item 2 of argv) with title "komando: allow?" default answer "" with hidden answer buttons {"Deny", "Allow once"} default button "Allow once" cancel button "Deny" giving up after 120 with icon caution
-if gave up of r then return "gave up"
-return (button returned of r) & linefeed & (text returned of r)
-end run`

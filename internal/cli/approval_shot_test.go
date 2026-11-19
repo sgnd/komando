@@ -30,7 +30,7 @@ func TestApprovalWindowShot(t *testing.T) {
 		defer cancel()
 		out, err := exec.CommandContext(ctx, "/usr/bin/osascript", macArgs(v)...).CombinedOutput()
 		t.Logf("osascript: err %v, output %q", err, out)
-		allowed, _ = macAnswer(out)
+		_, allowed, _ = macAnswer(out)
 	case "windows":
 		_, allowed, _, _ = approvalWindow(v, false)
 	}
