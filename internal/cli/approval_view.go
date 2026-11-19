@@ -27,7 +27,7 @@ type approvalView struct {
 	Targets     []string // where it runs, each named once
 	Protected   bool     // a target is protected (targetsWhy, protWhy)
 	Risks       []string // the reasons left once targets and protection have their own lines
-	Code        bool     // a secure field for the approval code under the command
+	Owner       string   // what the device-owner prompt names, when not the targets
 	raw         string   // a window with no parts: the text as it came
 }
 
@@ -198,10 +198,7 @@ func (v approvalView) notes() string {
 // layout is the window's content as plain text, for the golden test.
 func (v approvalView) layout() string {
 	s := "[title]\n" + v.title() + "\n[header]\n" + v.header() + "\n[command]\n" + v.command() + "\n"
-	if v.Code {
-		s += "[code]\n" + macCodeLabel + "\n"
-	}
-	return s + "[notes]\n" + v.notes() + "\n[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n"
+	return s + "[owner]\n" + v.ownerReason() + "\n[notes]\n" + v.notes() + "\n[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n"
 }
 
 // lineCount is how many lines s has (the command box does not wrap).
@@ -228,9 +225,24 @@ func viewFor(cl *call, text string) approvalView {
 // macAlertScript draws the macOS window (JXA, AppKit's NSAlert). Every
 // text arrives in argv after macArgMarker, never in the script. Deny is
 // the default (Return) and Esc; after 120 seconds it closes as "gave up".
-// With argv[8] set, a secure field under the command takes the approval
-// code; "Allow once" then prints it on the next line, for komando to check.
+// After "Allow once" the same run asks LocalAuthentication for the device
+// owner (policy 2: Touch ID, an Apple Watch or the login password) with
+// argv[8] as the reason, waiting at most argv[9] seconds of its own; it
+// prints "owner ok" on the next line only when the reply says ok.
 const macAlertScript = `ObjC.import('AppKit');
+ObjC.import('LocalAuthentication');
+function owner(reason, secs) {
+  var until = $.NSDate.dateWithTimeIntervalSinceNow(Number(secs) || 1);
+  var ctx = $.LAContext.alloc.init;
+  if (!ctx.canEvaluatePolicyError(2, null)) return 'owner unavailable';
+  var res = null;
+  ctx.evaluatePolicyLocalizedReasonReply(2, reason, function (ok, err) { res = (ok === true || ok === 1) ? 'owner ok' : 'owner denied'; });
+  while (res === null && until.timeIntervalSinceNow > 0) {
+    $.NSRunLoop.currentRunLoop.runModeBeforeDate($.NSDefaultRunLoopMode, $.NSDate.dateWithTimeIntervalSinceNow(0.2));
+  }
+  if (res === null) { ctx.invalidate; return 'owner timeout'; }
+  return res;
+}
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
@@ -270,24 +282,14 @@ function run(argv) {
   var note = $.NSTextField.wrappingLabelWithString(argv[4]);
   note.preferredMaxLayoutWidth = w;
   var nh = argv[4] === '' ? 0 : Math.ceil(note.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height);
-  var ch = argv[8] === '' ? 0 : 52;
-  var under = (nh ? nh + 12 : 0) + ch;
+  var under = nh ? nh + 12 : 0;
   var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h + under));
   sv.frame = $.NSMakeRect(0, under, w, h);
   note.frame = $.NSMakeRect(0, 0, w, nh);
   box.addSubview(sv);
   if (nh) box.addSubview(note);
-  var field = null;
-  if (ch) {
-    var label = $.NSTextField.labelWithString(argv[8]);
-    label.frame = $.NSMakeRect(0, under - 26, w, 18);
-    field = $.NSSecureTextField.alloc.initWithFrame($.NSMakeRect(0, under - 52, 160, 24));
-    box.addSubview(label);
-    box.addSubview(field);
-  }
   a.accessoryView = box;
   a.layout;
-  if (field) a.window.initialFirstResponder = field;
   a.window.level = $.NSFloatingWindowLevel;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
     if (e.keyCode === 53) { app.stopModalWithCode($.NSAlertFirstButtonReturn); return null; }
@@ -299,7 +301,7 @@ function run(argv) {
   var r = a.runModal;
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
-  if (r === $.NSAlertSecondButtonReturn) return field ? 'Allow once\n' + field.stringValue.js : 'Allow once';
+  if (r === $.NSAlertSecondButtonReturn) return 'Allow once\n' + owner(argv[8], argv[9]);
   if (r === $.NSAlertFirstButtonReturn) return 'Deny';
   return 'gave up';
 }`
@@ -314,31 +316,56 @@ func appleScriptArgs(script string, texts ...string) []string {
 	return append([]string{"-e", script, macArgMarker}, texts...)
 }
 
-// macCodeLabel names the code field in the macOS window.
-const macCodeLabel = "Type the code from your authenticator app, then click Allow once:"
+// ownerReason is what the macOS device-owner prompt says komando asks
+// for: Owner when set (a reveal), the targets, or the command line.
+func (v approvalView) ownerReason() string {
+	if v.Owner != "" {
+		return v.Owner
+	}
+	what := strings.Join(v.Targets, ", ")
+	if what == "" {
+		what = v.Line
+	}
+	if what == "" || utf8.RuneCountInString(what) > 120 {
+		what = "this command"
+	}
+	return "komando: allow " + what
+}
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
 	rows := min(lineCount(v.command()), boxMaxLines)
 	off, n := v.riskyRange()
-	label := ""
-	if v.Code {
-		label = macCodeLabel
-	}
 	// 15 px a row, 12 for the insets, 16 for the sideways scroller
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n), label}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
 }
 
-// macAnswer reads what osascript printed: only "Allow once" allows; every
-// other answer, an error included, is a no. gaveUp: nobody answered. code
-// is the line after "Allow once" (the window with the code field).
-func macAnswer(out []byte) (code string, allowed, gaveUp bool) {
-	btn, code, _ := strings.Cut(strings.TrimSuffix(string(out), "\n"), "\n")
-	btn = strings.TrimSpace(btn)
-	if btn != "Allow once" {
-		code = ""
+// macOutcome is how the macOS window ended.
+type macOutcome int
+
+const (
+	macDenied       macOutcome = iota // Deny, Esc, an error or anything unexpected
+	macAllowed                        // Allow once, then the device owner confirmed
+	macOwnerFailed                    // Allow once, but the owner check did not say ok
+	macOwnerTimeout                   // Allow once, then nobody confirmed in ownerTimeout
+	macGaveUp                         // nobody answered in 120 seconds
+)
+
+// macAnswer reads what osascript printed. Only "Allow once" followed by
+// "owner ok" allows; every other answer, an error included, is a no.
+func macAnswer(out []byte) macOutcome {
+	switch strings.TrimSuffix(string(out), "\n") {
+	case "Allow once\nowner ok":
+		return macAllowed
+	case "gave up":
+		return macGaveUp
+	case "Allow once\nowner timeout":
+		return macOwnerTimeout
 	}
-	return strings.TrimSpace(code), btn == "Allow once", btn == "gave up"
+	if strings.HasPrefix(string(out), "Allow once\n") {
+		return macOwnerFailed
+	}
+	return macDenied
 }
 
 // windowGiveUp is when the Windows window closes itself (the macOS one
@@ -349,18 +376,24 @@ var (
 	macWindowTimeout = 3 * time.Minute
 )
 
+// ownerTimeout bounds the device-owner check after "Allow once"; the
+// window's 120 s plus this stay inside macWindowTimeout.
+const ownerTimeout = 50 * time.Second
+
 // askMac shows the macOS window. shown is false when osascript could not
 // start; an error exit after it started (the script failed) is a no.
-var askMac = func(v approvalView) (code string, allowed, gaveUp, shown bool) {
+var askMac = func(v approvalView) (ans macOutcome, shown bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), macWindowTimeout)
 	defer cancel()
 	b, err := exec.CommandContext(ctx, "/usr/bin/osascript", macArgs(v)...).Output()
 	var ee *exec.ExitError
 	if err != nil && !errors.As(err, &ee) {
-		return "", false, false, false
+		return macDenied, false
 	}
-	code, allowed, gaveUp = macAnswer(b)
-	return code, allowed, gaveUp, true
+	if err != nil {
+		return macDenied, true
+	}
+	return macAnswer(b), true
 }
 
 // The Windows window's size, in pixels: 16 px rows of the GUI font and of

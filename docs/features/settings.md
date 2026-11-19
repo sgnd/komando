@@ -80,8 +80,11 @@ the setting `host_key_policy` (`accept-new` while the setting is
 When an AI agent adds `--yes`, `--allow-dangerous` or `--reveal`, komando
 opens an "Allow once" window on your screen (see
 [Safety](safety.md#when-you-are-at-the-terminal)). To need more than a
-click, turn on an approval code: the window then also asks for the 6-digit
-code from the authenticator app on your phone.
+click on Linux, BSD or Windows, turn on an approval code: the window then
+also asks for the 6-digit code from the authenticator app on your phone.
+On macOS the window asks for Touch ID, an Apple Watch or your login
+password after **Allow once** instead, and does not use the code. The code stays set for
+Linux, BSD and Windows when they use the same vault.
 
 ```bash
 komando config approval-code             # shows a secret to add to your authenticator app
@@ -91,10 +94,6 @@ komando config approval-code --off       # turn it off again (komando asks first
 On a Linux or BSD desktop the code is required: another of your programs
 could press the window's buttons there, so without the code komando opens
 no window and the agent asks you to run the command yourself.
-
-On macOS the window has a field for the code under the command. Type the
-code, then click **Allow once**: Return in the field denies, as Deny is the
-default button.
 
 The code stops an agent that only works through komando or is held in a
 sandbox. A program that runs freely as you can read the vault and compute
@@ -115,11 +114,11 @@ keyboard: another program cannot press "Allow once" for you. This also
 means a screen reader or other tool that presses buttons for you cannot
 press it. On macOS a program that has Accessibility permission (System
 Settings, Privacy & Security) can click buttons in any window, this one
-included. Turn on the approval code: the macOS window then has a field for
-it under the command, and "Allow once" counts only with the right code.
-Without it, komando opens no window for a terminal that has that
-permission and asks for the code instead (see
-[Safety](safety.md#seatbelts-for-ai-agents)).
+included. So "Allow once" on macOS counts only after Touch ID, an Apple
+Watch or your login password, which no program can give for you, and a
+terminal that has that permission gets the window too. Only where that
+check cannot run does such a terminal get no window: the agent asks you to
+run the command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
 
 ## Environment variables
 

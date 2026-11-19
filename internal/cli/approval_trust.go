@@ -40,3 +40,34 @@ func accessibilityTrusted() bool {
 
 // resetAccessibilityTrust forgets the kept answer (tests).
 func resetAccessibilityTrust() { axTrust.once = sync.Once{} }
+
+// ownerCheckOutput asks LocalAuthentication whether the device-owner check
+// (policy 2) can run; tests set another so they never run osascript.
+// canEvaluatePolicy never prompts.
+var ownerCheckOutput = func(ctx context.Context) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", "-l", "JavaScript", "-e",
+		"ObjC.import('LocalAuthentication'); $.LAContext.alloc.init.canEvaluatePolicyError(2, null)")
+	cmd.WaitDelay = time.Second
+	return cmd.Output()
+}
+
+var ownerCheck struct {
+	once      sync.Once
+	available bool
+}
+
+// ownerCheckAvailable reports whether the macOS window can ask for Touch ID,
+// an Apple Watch or the login password. Only the answer "true" counts; an
+// error or anything else is unavailable. Kept for the rest of the run.
+func ownerCheckAvailable() bool {
+	ownerCheck.once.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		b, err := ownerCheckOutput(ctx)
+		ownerCheck.available = err == nil && strings.TrimSpace(string(b)) == "true"
+	})
+	return ownerCheck.available
+}
+
+// resetOwnerCheck forgets the kept answer (tests).
+func resetOwnerCheck() { ownerCheck.once = sync.Once{} }

@@ -25,7 +25,7 @@ func TestTOTPVectors(t *testing.T) {
 	}
 }
 
-// With an approval code on, an agent's --yes needs the right code typed in
+// With an approval code on (Linux, BSD, Windows), an agent's --yes needs the right code typed in
 // the window; a click alone, or a wrong code, is not enough.
 func TestApprovalNeedsTheCode(t *testing.T) {
 	setHome(t, t.TempDir())
@@ -38,8 +38,13 @@ func TestApprovalNeedsTheCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
-	savedA, savedC := askOnScreen, askCodeOnScreen
-	defer func() { askOnScreen, askCodeOnScreen = savedA, savedC; tcl.flags.yes = false; resetApproval() }()
+	savedA, savedC, savedOS := askOnScreen, askCodeOnScreen, desktopOS
+	defer func() {
+		askOnScreen, askCodeOnScreen, desktopOS = savedA, savedC, savedOS
+		tcl.flags.yes = false
+		resetApproval()
+	}()
+	desktopOS = "linux" // macOS asks for the device owner instead (approval_owner_test.go)
 	askOnScreen = func(*call, string) (bool, bool) { t.Error("the plain window was used"); return true, true }
 	for typed, want := range map[string]bool{"": false, "123456": false, "now": true} {
 		resetApproval()
