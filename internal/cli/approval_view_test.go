@@ -96,6 +96,27 @@ func TestApprovalWindowGolden(t *testing.T) {
 		testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host rm web-1.example.test --yes", ""),
 		shotView(), // the 4-line deploy.sh: every line shows, no "more lines" hint
 	}
+	windowGolden(t, "approval_window.txt", views)
+}
+
+// Golden: each screenshot case's text layout, so a case's content is
+// checked without a window. KOMANDO_GOLDEN_UPDATE=1 records it again.
+func TestApprovalShotCasesGolden(t *testing.T) {
+	var views []approvalView
+	seen := map[string]bool{}
+	for _, c := range shotCases {
+		if seen[c.name] || c.name != strings.ToLower(c.name) || strings.ContainsAny(c.name, " _/") {
+			t.Errorf("case name %q: want unique, lowercase, hyphens only", c.name)
+		}
+		seen[c.name] = true
+		views = append(views, c.view())
+	}
+	windowGolden(t, "approval_shot_cases.txt", views)
+}
+
+// windowGolden compares each view's layout and sizes with testdata/name.
+func windowGolden(t *testing.T, name string, views []approvalView) {
+	t.Helper()
 	var b strings.Builder
 	for _, v := range views {
 		b.WriteString(v.layout())
@@ -103,7 +124,7 @@ func TestApprovalWindowGolden(t *testing.T) {
 		b.WriteString("[sizes]\n")
 		b.WriteString("mac height " + macArgs(v)[9] + ", windows " + strconv.Itoa(l.headH) + "/" + strconv.Itoa(l.cmdH) + "/" + strconv.Itoa(l.notesH) + "/" + strconv.Itoa(l.height) + "\n\n")
 	}
-	path := filepath.Join("testdata", "approval_window.txt")
+	path := filepath.Join("testdata", name)
 	if os.Getenv("KOMANDO_GOLDEN_UPDATE") != "" {
 		if err := os.WriteFile(path, []byte(b.String()), 0o644); err != nil {
 			t.Fatal(err)
