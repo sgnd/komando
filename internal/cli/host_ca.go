@@ -339,7 +339,7 @@ is trusted, and it cannot be pinned or added as a CA.`,
 }
 
 // hostCAChecks are doctor's lines about the trusted host CAs.
-func hostCAChecks(cl *call, st *store.State, add func(name string, ok, warn bool, detail string)) {
+func hostCAChecks(cl *call, st *store.State, add func(name string, ok, warn bool, detail string, fix ...string)) {
 	cas, err := sshx.HostCAs(context.Background())
 	if err != nil || len(cas) == 0 {
 		return
