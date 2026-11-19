@@ -55,7 +55,7 @@ func TestMacAlertScript(t *testing.T) {
 		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel('Deny')", "setAccessibilityLabel('Allow once')",
 		"Number(e.keyCode) === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
-		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)", "argv[2].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
+		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "argv[5].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
@@ -64,7 +64,7 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[5]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[6]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
@@ -75,11 +75,11 @@ func TestMacAlertScript(t *testing.T) {
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if len(args) != 9 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != noBreakHyphens(v.raw) {
+	if len(args) != 10 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
-	if args = macArgs(v); args[4] != macArgMarker || args[5] != "Run a komando command" || !strings.HasPrefix(args[6], "Asked by \u2011e\n") {
+	if args = macArgs(v); args[4] != macArgMarker || args[5] != "Run a komando command" || args[6] != "Asked by -e" {
 		t.Errorf("title %q", args)
 	}
 }
@@ -280,7 +280,12 @@ func TestApprovalOptions(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			v := testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, tc.line, "")
-			if got := v.shown(); got != tc.want {
+			got := v.shown()
+			if o := v.optionLine(); o != "" {
+				got = o + "\n" + got
+			}
+			got = strings.TrimSuffix(got, "\n")
+			if got != tc.want {
 				t.Errorf("shown:\n%s\nwant:\n%s", got, tc.want)
 			}
 			if strings.Contains(v.shown(), "abc") || strings.Contains(v.shown(), "=x") {
@@ -394,5 +399,26 @@ func TestMacPanelChoice(t *testing.T) {
 func TestMacPanelNoDebugStderr(t *testing.T) {
 	if strings.Contains(macAlertScript, "typeof r") || strings.Contains(macAlertScript, "'modal: '") {
 		t.Error("the panel script still writes the modal debug line")
+	}
+}
+
+// What runs (the command, a script) is drawn with non-breaking hyphens
+// and cannot be selected, so no copy of it runs differently; the info
+// lines can be copied and keep plain hyphens.
+func TestMacCopyRule(t *testing.T) {
+	for _, want := range []string{"function label(text, font, w, copy) {", "l.selectable = copy;",
+		"label(argv[2], $.NSFont.systemFontOfSize(fs), w, true)", "label(g, $.NSFont.systemFontOfSize(fs), w, false)", "argv[5].split("} {
+		if !strings.Contains(macAlertScript, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	for _, c := range shotCases {
+		args := macArgs(c.view())
+		if strings.ContainsRune(args[5]+args[6], '\u2011') {
+			t.Errorf("%s: a copyable label has U+2011: %q", c.name, args[6])
+		}
+		if strings.Contains(args[9], "-") {
+			t.Errorf("%s: the command label has a breakable hyphen", c.name)
+		}
 	}
 }

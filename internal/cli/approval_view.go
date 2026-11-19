@@ -139,8 +139,9 @@ func viewFor(cl *call, text string) approvalView {
 
 // macAlertScript draws the macOS window: a plain NSPanel of standard
 // AppKit controls (no icon, no colours), titled "komando needs your OK":
-// argv[1] as the bold first label, argv[2] under it, one label per group
-// (groups are split by a blank line, 12 pt apart), 440 pt wide with 20 pt
+// argv[1] as the bold first label, argv[2] (the info lines, selectable)
+// under it, then argv[5] (what runs, not selectable), one label per group
+// split at blank lines, 12 pt apart, 440 pt wide with 20 pt
 // padding, then the buttons on the right. Every text arrives in argv after
 // macArgMarker, never in the script. Deny is the default (Return), Esc,
 // the close button and Cmd-W, and has the first focus; only the 120 s
@@ -175,10 +176,12 @@ ObjC.registerSubclass({
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
-function label(text, font, w) {
+function label(text, font, w, copy) {
   var l = $.NSTextField.wrappingLabelWithString(text);
   l.font = font;
-  l.selectable = true;
+  // the command and script are not selectable: they show U+2011 so a
+  // flag never breaks over a line, and a copy of them would not run as shown
+  l.selectable = copy;
   l.preferredMaxLayoutWidth = w;
   return { v: l, h: Math.ceil(l.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height) };
 }
@@ -187,8 +190,9 @@ function run(argv) {
   APP = app;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
   var w = 440, pad = 20, gap = 12, fs = $.NSFont.systemFontSize;
-  var parts = [label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)];
-  argv[2].split('\n\n').forEach(function (g) { if (g !== '') parts.push(label(g, $.NSFont.systemFontOfSize(fs), w)); });
+  var parts = [label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)];
+  if (argv[2] !== '') parts.push(label(argv[2], $.NSFont.systemFontOfSize(fs), w, true));
+  argv[5].split('\n\n').forEach(function (g) { if (g !== '') parts.push(label(g, $.NSFont.systemFontOfSize(fs), w, false)); });
   var answer = $.KomandoAnswer.alloc.init;
   var deny = $.NSButton.buttonWithTitleTargetAction('Deny', answer, 'deny:');
   deny.keyEquivalent = '\r';
@@ -266,7 +270,7 @@ func (v approvalView) ownerReason() string {
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), noBreakHyphens(v.details()), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), noBreakHyphens(v.shown())}
 }
 
 // noBreakHyphens keeps "--yes" and "rm -rf" whole when a label wraps:

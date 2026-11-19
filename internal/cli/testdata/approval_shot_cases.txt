@@ -95,8 +95,8 @@ Run a query on db-2.example.test
 Asked by Claude Code
 Risk: --write lets the query change data
 Skips: the dangerous-command check
-
 Options: --write
+
 Command: "UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
 [owner]
 komando: allow db-2.example.test

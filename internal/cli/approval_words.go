@@ -95,6 +95,16 @@ func (v approvalView) details() string {
 	if v.raw != "" {
 		return v.shown()
 	}
+	return v.info() + "\n\n" + v.shown()
+}
+
+// info is the lines about the request: who asks, the targets, status,
+// risks, skipped checks and options. The macOS window lets a person
+// select and copy them, so they keep plain ASCII hyphens.
+func (v approvalView) info() string {
+	if v.raw != "" {
+		return ""
+	}
 	var b []string
 	if v.Agent != "" {
 		b = append(b, "Asked by "+v.Agent)
@@ -116,12 +126,28 @@ func (v approvalView) details() string {
 	if v.What != "" {
 		b = append(b, "Also lets through: "+v.What)
 	}
-	return strings.Join(b, "\n") + "\n\n" + v.shown()
+	if o := v.optionLine(); o != "" {
+		b = append(b, o)
+	}
+	return strings.Join(b, "\n")
 }
 
-// shown is what runs, as the window shows it: the options that change
-// what runs or where, the command after "--" (or the whole line when it
-// has none), then a script or file whole with its size and SHA-256. A body
+// optionLine is "Options: ..." for the flags before "--" (or on a
+// --script line) that change what runs or where, or "".
+func (v approvalView) optionLine() string {
+	pre, _, split := strings.Cut(v.Line, " -- ")
+	if !split && !strings.Contains(v.Line, " --script ") {
+		return ""
+	}
+	if o := v.options(pre); o != "" {
+		return "Options: " + o
+	}
+	return ""
+}
+
+// shown is what runs, as the window shows it: the command after "--" (or
+// the whole line when it has none), then a script or file whole with its
+// size and SHA-256. A body
 // reaches the window only when approval_body.go can show it whole
 // (bodyMaxLines); a longer one opens no window at all.
 func (v approvalView) shown() string {
@@ -129,17 +155,11 @@ func (v approvalView) shown() string {
 		return strings.TrimRight(v.raw, "\n")
 	}
 	var out []string
-	pre, run, split := strings.Cut(v.Line, " -- ")
+	_, run, split := strings.Cut(v.Line, " -- ")
 	switch {
 	case split:
-		if o := v.options(pre); o != "" {
-			out = append(out, "Options: "+o)
-		}
 		out = append(out, "Command: "+run)
 	case strings.Contains(v.Line, " --script "):
-		if o := v.options(v.Line); o != "" {
-			out = append(out, "Options: "+o)
-		}
 	default:
 		out = append(out, "Command: "+v.Line)
 	}
