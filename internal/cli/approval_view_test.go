@@ -422,3 +422,18 @@ func TestMacCopyRule(t *testing.T) {
 		}
 	}
 }
+
+// C189: the macOS window's 120-second timer stops before the owner check
+// (Touch ID or the password) starts, so it cannot end that check's run
+// loop as "gave up" while the person is still proving who they are.
+func TestMacAlertTimerStopsBeforeOwnerCheck(t *testing.T) {
+	stop := strings.Index(macAlertScript, "t.invalidate")
+	call := strings.LastIndex(macAlertScript, "owner(")
+	def := strings.Index(macAlertScript, "function owner(")
+	if stop < 0 || call < 0 || call == def+len("function ") {
+		t.Fatalf("script: timer stop at %d, owner call at %d", stop, call)
+	}
+	if stop > call {
+		t.Errorf("the timer stops (at %d) after the owner check is called (at %d)", stop, call)
+	}
+}
