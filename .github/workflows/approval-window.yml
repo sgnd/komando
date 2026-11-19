@@ -18,8 +18,6 @@ jobs:
     name: Approval window (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
-    # a hosted runner may have no screen session: a failed shot never fails the PR
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -33,8 +31,39 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test -c -o shot.test ./internal/cli
+      # macOS: the id of osascript's window (the dialog), for screencapture -l;
+      # waits up to 10 s and fails when there is none
+      - name: Window finder (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/winid.js" <<'JS'
+          ObjC.import('CoreGraphics');
+          function run() {
+            var list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, $.kCGNullWindowID)));
+            var best = null;
+            (list || []).forEach(function (w) {
+              var b = w.kCGWindowBounds || {};
+              if (w.kCGWindowOwnerName === 'osascript' && b.Height > 60 && (!best || b.Height * b.Width > best.a)) best = { id: w.kCGWindowNumber, a: b.Height * b.Width };
+            });
+            return best ? String(best.id) : '';
+          }
+          JS
+          cat > "$RUNNER_TEMP/shot.sh" <<'SH'
+          # shot.sh FILE: capture osascript's window into FILE, or fail
+          for i in $(seq 20); do
+            id=$(osascript -l JavaScript "$RUNNER_TEMP/winid.js" 2>/dev/null)
+            if [ -n "$id" ]; then
+              sleep 1
+              screencapture -x -o -l "$id" "$1" && exit 0
+            fi
+            sleep 0.5
+          done
+          echo "no approval window within 10 s" >&2
+          exit 1
+          SH
       # before: main's old AppleScript dialog (internal/cli/approval.go,
-      # askOnScreen), with the same sample text and 10 s instead of 120
+      # askOnScreen), with the same sample text and 20 s instead of 120
       - name: Before, the old dialog (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -43,32 +72,50 @@ jobs:
         run: |
           ./shot.test -test.run '^TestApprovalWindowShotText$' -test.v
           osascript -e 'on run argv
-          set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 10 with icon caution
+          set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 20 with icon caution
           if gave up of r then return "gave up"
           return button returned of r
           end run' "$(cat "$KOMANDO_SHOT_TEXT")" &
-          sleep 5
-          screencapture -x before-macos.png
+          bash "$RUNNER_TEMP/shot.sh" before-macos.png
           wait || true
       - name: After, the new window (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           ./shot.test -test.run '^TestApprovalWindowShot$' -test.v &
-          sleep 5
-          screencapture -x after-macos.png
+          bash "$RUNNER_TEMP/shot.sh" after-macos.png
           wait
+      # Windows: the window by its class (komandoApproval), brought to the
+      # front, and only its rectangle captured; fails when it is not there
       - name: After, the new window (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          Add-Type -AssemblyName System.Drawing
+          Add-Type @"
+          using System;
+          using System.Runtime.InteropServices;
+          public struct RECT { public int Left, Top, Right, Bottom; }
+          public static class W {
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+            [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+          }
+          "@
           $p = Start-Process -FilePath .\shot.test -ArgumentList '-test.run','^TestApprovalWindowShot$','-test.v' -PassThru -NoNewWindow
-          Start-Sleep -Seconds 5
-          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $h = [IntPtr]::Zero
+          for ($i = 0; $i -lt 20 -and $h -eq [IntPtr]::Zero; $i++) {
+            Start-Sleep -Milliseconds 500
+            $h = [W]::FindWindow("komandoApproval", $null)
+          }
+          if ($h -eq [IntPtr]::Zero) { Write-Error "no approval window within 10 s"; exit 1 }
+          [W]::SetForegroundWindow($h) | Out-Null
+          Start-Sleep -Seconds 1
+          $r = New-Object RECT
+          [W]::GetWindowRect($h, [ref]$r) | Out-Null
+          $bmp = New-Object System.Drawing.Bitmap ($r.Right - $r.Left), ($r.Bottom - $r.Top)
           $g = [System.Drawing.Graphics]::FromImage($bmp)
-          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
           $bmp.Save("$PWD\after-windows.png")
           $p.WaitForExit()
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
@@ -84,4 +131,4 @@ jobs:
       - name: Note in the job summary
         if: failure()
         shell: bash
-        run: echo "The window could not be shown or captured on this runner (no screen session?). This job does not fail the pull request." >> "$GITHUB_STEP_SUMMARY"
+        run: echo "The approval window was not found or not captured on this runner." >> "$GITHUB_STEP_SUMMARY"

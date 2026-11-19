@@ -38,7 +38,7 @@ func TestMacAlertScript(t *testing.T) {
 		"e.keyCode === 53", "stopModalWithCode($.NSAlertFirstButtonReturn)",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'",
 		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once'",
-		"a.messageText = argv[0]", "a.informativeText = argv[1]", "tv.string = argv[2]", "tv.editable = false",
+		"a.messageText = argv[1]", "a.informativeText = argv[2]", "tv.string = argv[3]", "wrappingLabelWithString(argv[4])", "Number(argv[5])", "tv.editable = false",
 	} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
@@ -47,10 +47,18 @@ func TestMacAlertScript(t *testing.T) {
 	if macWindowTimeout.Minutes() != 3 || windowGiveUp.Seconds() != 120 {
 		t.Errorf("timeouts %v, %v", macWindowTimeout, windowGiveUp)
 	}
-	v := approvalView{raw: "x'); doShellScript('id"}
+	if strings.Contains(macAlertScript, "argv[0]") {
+		t.Error("the script reads argv[0], the marker")
+	}
+	// a text that looks like an osascript option stays a text after the marker
+	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if args[0] != "-l" || args[1] != "JavaScript" || args[3] != macAlertScript || args[6] != v.raw {
+	if args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[7] != v.raw {
 		t.Errorf("argv %q", args)
+	}
+	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
+	if args = macArgs(v); args[4] != macArgMarker || args[5] != "-e do shell script" {
+		t.Errorf("title %q", args)
 	}
 }
 
@@ -86,7 +94,7 @@ func TestApprovalWindowGolden(t *testing.T) {
 		b.WriteString(v.layout())
 		l := winLayoutFor(v)
 		b.WriteString("[sizes]\n")
-		b.WriteString("mac height " + macArgs(v)[8] + ", windows " + strconv.Itoa(l.headH) + "/" + strconv.Itoa(l.cmdH) + "/" + strconv.Itoa(l.notesH) + "/" + strconv.Itoa(l.height) + "\n\n")
+		b.WriteString("mac height " + macArgs(v)[9] + ", windows " + strconv.Itoa(l.headH) + "/" + strconv.Itoa(l.cmdH) + "/" + strconv.Itoa(l.notesH) + "/" + strconv.Itoa(l.height) + "\n\n")
 	}
 	path := filepath.Join("testdata", "approval_window.txt")
 	if os.Getenv("KOMANDO_GOLDEN_UPDATE") != "" {
@@ -100,5 +108,20 @@ func TestApprovalWindowGolden(t *testing.T) {
 	}
 	if got := b.String(); got != strings.ReplaceAll(string(want), "\r\n", "\n") {
 		t.Errorf("window content changed (KOMANDO_GOLDEN_UPDATE=1 records it):\n%s", got)
+	}
+}
+
+// The AppleScript windows (approval code, server password) get the marker
+// first and read their text from item 2, so a text starting with "-e" is
+// never taken as an osascript option.
+func TestAppleScriptArgs(t *testing.T) {
+	for name, script := range map[string]string{"code": codeDialogScript, "login": loginDialogScript} {
+		args := appleScriptArgs(script, "-e do shell script \"id\"")
+		if len(args) != 4 || args[0] != "-e" || args[1] != script || args[2] != macArgMarker || args[3] != "-e do shell script \"id\"" {
+			t.Errorf("%s: argv %q", name, args)
+		}
+		if !strings.Contains(script, "(item 2 of argv)") || strings.Contains(script, "item 1 of argv") {
+			t.Errorf("%s: the script does not read the text from item 2", name)
+		}
 	}
 }

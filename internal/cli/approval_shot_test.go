@@ -8,13 +8,13 @@ import (
 )
 
 // TestApprovalWindowShot shows the real window for a screenshot on a
-// GitHub runner (approval-window.yml) and lets it time out: a no. It never
+// GitHub runner (approval-window.yml) and lets it time out after 20 s: a no. It never
 // runs anywhere else, so no window opens on a person's computer.
 func TestApprovalWindowShot(t *testing.T) {
 	shotRunner(t)
 	t.Setenv("HOME", t.TempDir())
 	savedGive, savedMac := windowGiveUp, macWindowTimeout
-	windowGiveUp, macWindowTimeout = 10*time.Second, 10*time.Second
+	windowGiveUp, macWindowTimeout = 20*time.Second, 20*time.Second
 	t.Cleanup(func() { windowGiveUp, macWindowTimeout = savedGive, savedMac })
 
 	v := shotView

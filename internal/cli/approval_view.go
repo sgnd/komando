@@ -163,21 +163,21 @@ func viewFor(cl *call, text string) approvalView {
 }
 
 // macAlertScript draws the macOS window (JXA, AppKit's NSAlert). Every
-// text arrives in argv, never in the script. Deny is the default (Return)
-// and Esc; after 120 seconds the window closes itself as "gave up".
+// text arrives in argv after macArgMarker, never in the script. Deny is
+// the default (Return) and Esc; after 120 seconds it closes as "gave up".
 const macAlertScript = `ObjC.import('AppKit');
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
   var a = $.NSAlert.alloc.init;
   a.alertStyle = $.NSAlertStyleCritical;
-  a.messageText = argv[0];
-  a.informativeText = argv[1];
+  a.messageText = argv[1];
+  a.informativeText = argv[2];
   var deny = a.addButtonWithTitle('Deny');
   deny.keyEquivalent = '\r';
   var allow = a.addButtonWithTitle('Allow once');
   allow.keyEquivalent = '';
-  var w = 600, h = Number(argv[4]) || 120;
+  var w = 600, h = Number(argv[5]) || 120;
   var sv = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h));
   sv.hasVerticalScroller = true;
   sv.borderType = $.NSBezelBorder;
@@ -189,11 +189,11 @@ function run(argv) {
   tv.textContainerInset = $.NSMakeSize(6, 6);
   tv.autoresizingMask = $.NSViewWidthSizable;
   tv.textContainer.widthTracksTextView = true;
-  tv.string = argv[2];
+  tv.string = argv[3];
   sv.documentView = tv;
-  var note = $.NSTextField.wrappingLabelWithString(argv[3]);
+  var note = $.NSTextField.wrappingLabelWithString(argv[4]);
   note.preferredMaxLayoutWidth = w;
-  var nh = argv[3] === '' ? 0 : note.fittingSize.height;
+  var nh = argv[4] === '' ? 0 : note.fittingSize.height;
   var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h + (nh ? nh + 12 : 0)));
   sv.frame = $.NSMakeRect(0, nh ? nh + 12 : 0, w, h);
   note.frame = $.NSMakeRect(0, 0, w, nh);
@@ -217,10 +217,20 @@ function run(argv) {
   return 'gave up';
 }`
 
-// macArgs is what macAlertScript gets in argv.
+// macArgMarker is the first argument after every osascript script, so a
+// text (which may start with "-e") is never the first one.
+const macArgMarker = "komando"
+
+// appleScriptArgs is osascript's command line for an AppleScript that
+// reads its texts from item 2 of argv on.
+func appleScriptArgs(script string, texts ...string) []string {
+	return append([]string{"-e", script, macArgMarker}, texts...)
+}
+
+// macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
 	rows := min(commandRows(v.command(), 80), 20)
-	return []string{"-l", "JavaScript", "-e", macAlertScript, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 16)}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 16)}
 }
 
 // macAnswer reads what osascript printed: only "Allow once" allows; every
