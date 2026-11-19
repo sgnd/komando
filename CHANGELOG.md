@@ -21,7 +21,7 @@ its highlights; the sections below them give the details. Versions follow
   stop: an agent that works through komando or is held in a sandbox. A
   program that runs freely as you can read the vault key (keychain or
   `store.key`) and so every secret; a passphrase or the agent's own sandbox
-  is the boundary. On macOS, Return in the code field denies.
+  is the boundary.
 - The approval window an AI agent's `--yes`, `--allow-dangerous` or
   `--reveal` opens on macOS and Windows is easier to read: labelled lines
   for the target, the protected marker, the risk and the skipped flags,

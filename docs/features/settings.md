@@ -95,10 +95,6 @@ On a Linux or BSD desktop the code is required: another of your programs
 could press the window's buttons there, so without the code komando opens
 no window and the agent asks you to run the command yourself.
 
-On macOS the window has a field for the code under the command. Type the
-code, then click **Allow once**: Return in the field denies, as Deny is the
-default button.
-
 The code stops an agent that only works through komando or is held in a
 sandbox. A program that runs freely as you can read the vault and compute
 codes itself; see [Limits](safety.md#limits).
