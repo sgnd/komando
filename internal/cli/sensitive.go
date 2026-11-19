@@ -380,7 +380,10 @@ func kubeRefSecret(cl *call, p string) string {
 func inKubeDir(p, home string) bool {
 	for _, d := range []string{filepath.Join(realPath(home), ".kube"), filepath.Join(home, ".kube")} {
 		if caseFoldFS {
-			if pathIn(asciiLower(p), asciiLower(d)) {
+			// byte for byte after lowering ASCII: filepath.Rel (pathIn) folds
+			// Unicode on Windows, which turns the Kelvin sign into k again
+			lp, ld := asciiLower(filepath.Clean(p)), asciiLower(filepath.Clean(d))
+			if lp == ld || strings.HasPrefix(lp, ld+string(filepath.Separator)) {
 				return true
 			}
 		} else if pathIn(p, d) {
