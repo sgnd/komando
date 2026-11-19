@@ -460,6 +460,10 @@ func TestApprovalWrapSpoof(t *testing.T) {
 		{"real mark line", "  » rm -rf /srv", "  \\» rm -rf /srv"},
 		{"real escaped line", "  \\» x", "  \\\\» x"},
 		{"script mark line", "   2  » x", "   2  \\» x"},
+		{"tab-led mark", "\t» rm -rf /srv", "\t\\» rm -rf /srv"},
+		{"nbsp-led mark", "\u00a0» rm -rf /srv", "\u00a0\\» rm -rf /srv"},
+		{"double angle lookalike", "  ≫ rm -rf /srv", "  \\≫ rm -rf /srv"},
+		{"single angle lookalike", "  › rm -rf /srv", "  \\› rm -rf /srv"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			rows := testView("Codex", nil, "", nil, tc.line, "").boxText()

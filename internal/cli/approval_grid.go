@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf16"
 	"unicode/utf8"
 
@@ -188,18 +189,26 @@ func (v approvalView) boxText() string {
 // above never looks like a line of its own.
 const wrapMark = "» "
 
-// escapeMark shows a real line whose text starts with the mark (after its
-// indent or script line number) with a backslash in front, so it cannot
-// pass for a wrapped row; a leading backslash before the mark is escaped
-// the same way.
+// markLike are the wrap mark and the runes that look like it: a real line
+// that starts with any of them is escaped, so it cannot pass for a wrapped
+// row.
+var markLike = []string{"»", "≫", "›"}
+
+// escapeMark shows a real line whose text starts with the mark or a
+// lookalike (after its indent of any Unicode space, or its script line
+// number) with a backslash in front, so it cannot pass for a wrapped row;
+// a leading backslash before such a rune is escaped the same way.
 func escapeMark(l string) string {
-	lead := len(l) - len(strings.TrimLeft(l, " "))
+	lead := 0
 	if m := scriptLineNo.FindString(l); m != "" {
 		lead = len(m)
 	}
+	lead += len(l[lead:]) - len(strings.TrimLeftFunc(l[lead:], unicode.IsSpace))
 	text := strings.TrimLeft(l[lead:], "\\")
-	if strings.HasPrefix(text, "»") {
-		return l[:lead] + "\\" + l[lead:]
+	for _, m := range markLike {
+		if strings.HasPrefix(text, m) {
+			return l[:lead] + "\\" + l[lead:]
+		}
 	}
 	return l
 }
