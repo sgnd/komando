@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -37,12 +39,28 @@ func TestApprovalWindowShot(t *testing.T) {
 	}
 }
 
-// shotRunner skips unless this is a macOS or Windows GitHub runner with
-// KOMANDO_WINDOW_SHOT=1.
+// ciAtStart is CI as the runner set it: TestMain takes CI out of the
+// environment, and package variables are set before TestMain runs.
+var ciAtStart = os.Getenv("CI")
+
+// shotRunner skips when KOMANDO_WINDOW_SHOT is not 1. With it set, it
+// fails unless this is a macOS or Windows GitHub runner, naming why.
 func shotRunner(t *testing.T) {
-	runner := map[string]string{"darwin": "macOS", "windows": "Windows"}[runtime.GOOS]
-	if os.Getenv("CI") != "true" || os.Getenv("KOMANDO_WINDOW_SHOT") != "1" || runner == "" || os.Getenv("RUNNER_OS") != runner {
-		t.Skip("for the window screenshots: only on a macOS or Windows GitHub runner with KOMANDO_WINDOW_SHOT=1")
+	if os.Getenv("KOMANDO_WINDOW_SHOT") != "1" {
+		t.Skip("for the window screenshots: set KOMANDO_WINDOW_SHOT=1 on a macOS or Windows GitHub runner")
+	}
+	want := map[string]string{"darwin": "macOS", "windows": "Windows"}[runtime.GOOS]
+	var bad []string
+	if ciAtStart != "true" {
+		bad = append(bad, fmt.Sprintf("CI=%q, want \"true\"", ciAtStart))
+	}
+	if want == "" {
+		bad = append(bad, fmt.Sprintf("GOOS=%q has no approval window to capture", runtime.GOOS))
+	} else if got := os.Getenv("RUNNER_OS"); got != want {
+		bad = append(bad, fmt.Sprintf("RUNNER_OS=%q, want %q", got, want))
+	}
+	if len(bad) > 0 {
+		t.Fatalf("KOMANDO_WINDOW_SHOT=1, but not on a matching GitHub runner: %s", strings.Join(bad, "; "))
 	}
 }
 

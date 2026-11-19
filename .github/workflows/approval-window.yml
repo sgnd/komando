@@ -56,27 +56,30 @@ jobs:
             return best ? String(best.id) : '';
           }
           JS
+          # asgui runs a command in the logged-in user's GUI session, as
+          # that user, with the gate's variables (sudo drops the environment)
+          cat > "$RUNNER_TEMP/asgui.sh" <<'SH'
+          exec sudo launchctl asuser "$(id -u)" sudo -u "$(id -un)" env CI=true KOMANDO_WINDOW_SHOT=1 RUNNER_OS=macOS HOME="$HOME" PATH="$PATH" "$@"
+          SH
+          # shot.sh FILE: while the window is up, log the on-screen windows
+          # every 0.5 s and capture the osascript or komando one into FILE;
+          # fail after 10 s without one. All in the GUI session.
           cat > "$RUNNER_TEMP/shot.sh" <<'SH'
-          # shot.sh FILE: capture the osascript or komando window into FILE, or fail
+          gui="$RUNNER_TEMP/asgui.sh"
           for i in $(seq 20); do
-            id=$(osascript -l JavaScript "$RUNNER_TEMP/winid.js" find 2>/dev/null)
+            echo "on-screen windows, try $i (owner | name | id | bounds):"
+            bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" list
+            id=$(bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" find 2>/dev/null)
             if [ -n "$id" ]; then
               sleep 1
-              echo "on-screen windows:"; osascript -l JavaScript "$RUNNER_TEMP/winid.js" list
-              screencapture -x -o -l "$id" "$1" && exit 0
+              bash "$gui" screencapture -x -o -l "$id" "$PWD/$1" && exit 0
               echo "screencapture -l $id failed" >&2
               exit 1
             fi
             sleep 0.5
           done
-          echo "no window owned by osascript or komando within 10 s; on-screen windows:" >&2
-          osascript -l JavaScript "$RUNNER_TEMP/winid.js" list >&2
+          echo "no window owned by osascript or komando within 10 s" >&2
           exit 1
-          SH
-          # the runner service may run outside the logged-in user's GUI
-          # session: asgui runs a command in that session (launchctl asuser)
-          cat > "$RUNNER_TEMP/asgui.sh" <<'SH'
-          exec sudo launchctl asuser "$(id -u)" sudo -u "$(id -un)" "$@"
           SH
       # before: main's old AppleScript dialog (internal/cli/approval.go,
       # askOnScreen), with the same sample text and 20 s instead of 120
@@ -86,7 +89,7 @@ jobs:
         env:
           KOMANDO_SHOT_TEXT: ${{ runner.temp }}/shot.txt
         run: |
-          ./shot.test -test.run '^TestApprovalWindowShotText$' -test.v
+          bash "$RUNNER_TEMP/asgui.sh" KOMANDO_SHOT_TEXT="$KOMANDO_SHOT_TEXT" ./shot.test -test.run '^TestApprovalWindowShotText$' -test.v
           bash "$RUNNER_TEMP/asgui.sh" osascript -e 'on run argv
           set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 20 with icon caution
           if gave up of r then return "gave up"
@@ -103,7 +106,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          bash "$RUNNER_TEMP/asgui.sh" env CI=true KOMANDO_WINDOW_SHOT=1 RUNNER_OS=macOS ./shot.test -test.run '^TestApprovalWindowShot$' -test.v >"$RUNNER_TEMP/after.out" 2>&1 &
+          bash "$RUNNER_TEMP/asgui.sh" ./shot.test -test.run '^TestApprovalWindowShot$' -test.v >"$RUNNER_TEMP/after.out" 2>&1 &
           pid=$!
           shot=0
           bash "$RUNNER_TEMP/shot.sh" after-macos.png || shot=$?
