@@ -126,6 +126,7 @@ var (
 		"pkg security",
 		"pkg upgradable",
 		"recipe run",
+		"secret run",
 		"shell",
 	}
 )

@@ -83,6 +83,48 @@ Connect (`op://`), Bitwarden or Vaultwarden (`bw://`) and KeePass files
 for each one and the login it uses. komando reads such a value only when it
 needs it and never stores it.
 
+## Run a program on this computer with one
+
+```bash
+komando secret run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
+komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+```
+
+`komando secret run` starts the program after `--` on this computer, with the
+`--env` values in its environment. komando reads `secret:NAME` from the
+vault right before the program starts, so the value is never in the command
+line or your shell history. The program starts without a shell, and gets
+your environment without komando's own `KOMANDO_*` variables and the
+values that unlock the vault.
+
+- A vault value the program prints shows as `[secret:NAME]`.
+- komando exits with the program's exit code.
+- The audit log records the program's path, the variable names and the
+  secret names, never a value.
+- `--dry-run` shows the program's path and which secret goes into which
+  variable, and reads no value.
+- A reference in the program's arguments is refused: put it in `--env`.
+- An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
+  the program could print a value in a form masking does not know. The
+  window names the secrets, the program's full path, the other `--env`
+  variables, and says when any program of yours could replace the program.
+- In an AI agent's run with secrets, the program gets only `HOME` and
+  `USER` from your account (not from the agent's environment), `LANG`,
+  `LC_*`, `TERM`, `TMPDIR`, `TZ`, a system `PATH` and its `--env` values: a pager, editor, askpass helper or proxy the agent set could
+  otherwise hand the values on. Variables that make a program load other
+  code (`LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`, `PYTHON*`, `BASH_ENV` and
+  the like) are refused in `--env` (`USAGE`). The window shows the plain
+  `--env` values.
+- If the program file changes between the check and the start, komando
+  stops (`TOOL_MISSING`) and the program does not run. On Linux komando
+  starts the file it checked, through the open file.
+- Accepted risk: a program in a folder any program of yours can write
+  (Homebrew's, npm's, `~/.local/bin`) is not refused, because that is where
+  tools like `wrangler` live. For an AI agent the window names its full
+  path and warns that it can be replaced, and the person decides.
+- A secret that a protected server, conn or VPN uses asks a person at a
+  terminal too, as a change on a protected server does.
+
 ## Check one
 
 ```bash
