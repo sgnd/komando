@@ -5,7 +5,19 @@ its highlights; the sections below them give the details. Versions follow
 [Semantic Versioning](https://semver.org), and the format follows
 [Keep a Changelog](https://keepachangelog.com).
 
-## [Unreleased]
+## [0.16.0] - 2026-11-19
+
+### Highlights
+
+- **Run a local program with vault secrets.** `komando secret run --env
+  KEY=secret:NAME -- COMMAND` puts secrets in a program's environment, never
+  in its command line, and masks its output. An AI agent needs a person's
+  yes for every secret, and its program gets a clean environment.
+- **pg_dump archives.** `db restore` refuses tar and directory archives with
+  a clear message, and refuses a custom archive it cannot read instead of
+  approving it unchecked.
+- Smaller fixes to masking of very long output lines, the pod-security
+  label check, docker target errors and `~/.kube` paths on macOS and Windows.
 
 ### Added
 
@@ -5093,7 +5105,8 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/sgnd/komando/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/sgnd/komando/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/sgnd/komando/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/sgnd/komando/compare/v0.13.0...v0.14.0
