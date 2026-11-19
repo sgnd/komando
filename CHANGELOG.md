@@ -23,11 +23,17 @@ its highlights; the sections below them give the details. Versions follow
   `store.key`) and so every secret; a passphrase or the agent's own sandbox
   is the boundary.
 - The approval window an AI agent's `--yes`, `--allow-dangerous` or
-  `--reveal` opens on macOS and Windows is easier to read: labelled lines
-  for the target, the protected marker, the risk and the skipped flags,
-  then the command and its script in a monospaced box that keeps line
-  breaks, wraps and scrolls. Deny stays the default and the Esc key, and
-  the window still closes itself after 2 minutes.
+  `--reveal` opens on macOS and Windows is easier to read: the action as
+  the title ("Change db-2.example.test") with the agent's name under it,
+  an aligned grid for the target, a "Protected" badge and each risk in
+  plain words with a red warning sign ("Deletes a system folder
+  recursively (rm -rf)", no rule ids), then the command and its script in
+  a monospaced box that wraps (never scrolls sideways, so no tail is out
+  of view) and scrolls down only past 15 rows, and one short line per
+  skipped flag. "Allow once" is red whenever a risk shows; Deny stays the
+  default and the Esc key, and the window still closes itself after 2
+  minutes. macOS shows a shield icon and follows dark mode; the Windows
+  window is titled "komando needs your OK" and shows `--` as two hyphens.
 
 ### Security
 

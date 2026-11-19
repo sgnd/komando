@@ -1,30 +1,35 @@
 [title]
-Claude Code wants to change web-1.example.test
-[header]
-Target: web-1.example.test
-Skips: --yes
+Change web-1.example.test
+[subtitle]
+Asked by Claude Code
+[grid]
+Target   web-1.example.test
 [command]
 komando exec web-1.example.test --yes -- systemctl restart app
 [owner]
 komando: allow web-1.example.test
 [notes]
---yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
-
+Skips the protected-server stop (--yes)
+[question]
 Allow this once?
 [risky line]
 -1
+[allow is destructive]
+false
 [sizes]
-mac height 43, windows 48/41/64/201
+mac box 29, windows 20/16/26/16/186
 
 [title]
-Codex wants to change web-1.example.test
-[header]
-Target: web-1.example.test
-Skips: --yes
+Change web-1.example.test
+[subtitle]
+Asked by Codex
+[grid]
+Target   web-1.example.test
 [command]
 komando exec web-1.example.test --script ./migrate.sh --yes
 
-It also sends the script ./migrate.sh (1210 bytes, 24 lines, SHA-256 4be1), all of it:
+It also sends the script ./migrate.sh (1210 bytes, 24 lines, SHA-256 4be1), all
+    of it:
 
    1  #!/bin/sh
    2  set -eu
@@ -53,111 +58,132 @@ It also sends the script ./migrate.sh (1210 bytes, 24 lines, SHA-256 4be1), all 
 [owner]
 komando: allow web-1.example.test
 [notes]
-13 more lines: scroll to read all
+14 more lines: scroll to read all
 
---yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
-
+Skips the protected-server stop (--yes)
+[question]
 Allow this once?
 [risky line]
 -1
+[allow is destructive]
+false
 [sizes]
-mac height 253, windows 48/265/96/457
+mac box 239, windows 20/16/250/48/442
 
 [title]
-Claude Code wants to change web-1.example.test
-[header]
-Target: web-1.example.test
-Risk: sudo runs the command as root
-Skips: --yes
+Change web-1.example.test
+[subtitle]
+Asked by Claude Code
+[grid]
+Target   web-1.example.test
+Risk     (!) Sudo runs the command as root
 [command]
 komando exec web-1.example.test --sudo --yes -- apt-get install -y nginx
 [owner]
 komando: allow web-1.example.test
 [notes]
---yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
-
+Skips the protected-server stop (--yes)
+[question]
 Allow this once?
 [risky line]
 -1
+[allow is destructive]
+true
 [sizes]
-mac height 43, windows 64/41/64/217
+mac box 29, windows 20/16/26/16/206
 
 [title]
-Claude Code wants to change web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
-[header]
-Target: web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
-Protected: yes
-Skips: --yes
+Change web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
+[subtitle]
+Asked by Claude Code
+[grid]
+Target   web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
+         [Protected]
 [command]
-komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx
+komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.1
+    0 --yes -- systemctl reload nginx
 [owner]
 komando: allow web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
 [notes]
---yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
-
+Skips the protected-server stop (--yes)
+[question]
 Allow this once?
 [risky line]
 -1
+[allow is destructive]
+false
 [sizes]
-mac height 43, windows 80/41/64/233
+mac box 44, windows 40/16/42/16/242
 
 [title]
-Codex wants to change db-2.example.test
-[header]
-Target: db-2.example.test
-Protected: yes
-Risk: [R-7] rm -rf deletes files
-Risk: DROP TABLE deletes a table and its rows
-Skips: --allow-dangerous, --yes
+Change db-2.example.test
+[subtitle]
+Asked by Codex
+[grid]
+Target   db-2.example.test
+         [Protected]
+Risk     (!) Deletes a system folder recursively (rm -rf)
+         (!) Drops a database (DROP DATABASE)
 [command]
-komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /var/lib/app/uploads && psql -d app -c 'DROP TABLE sessions'
+komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql
+    -d app -c 'DROP DATABASE app'
 [owner]
 komando: allow db-2.example.test
 [notes]
---allow-dangerous skips one of komando's safety stops (an action that can delete or break things).
---yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
-
+Skips the dangerous-command stop (--allow-dangerous)
+Skips the protected-server stop (--yes)
+[question]
 Allow this once?
 [risky line]
--1
+0
+[allow is destructive]
+true
 [sizes]
-mac height 43, windows 96/41/96/281
+mac box 44, windows 20/16/42/32/278
 
 [title]
-Claude Code wants to change db-2.example.test
-[header]
-Target: db-2.example.test
-Risk: --write lets the query change data
-Skips: --allow-dangerous
+Change db-2.example.test
+[subtitle]
+Asked by Claude Code
+[grid]
+Target   db-2.example.test
+Risk     (!) --write lets the query change data
 [command]
-komando db query db-2.example.test --write --allow-dangerous -- "UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
+komando db query db-2.example.test --write --allow-dangerous -- "UPDATE orders
+    SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
 [owner]
 komando: allow db-2.example.test
 [notes]
---allow-dangerous skips one of komando's safety stops (an action that can delete or break things).
-
+Skips the dangerous-command stop (--allow-dangerous)
+[question]
 Allow this once?
 [risky line]
 -1
+[allow is destructive]
+true
 [sizes]
-mac height 43, windows 64/41/64/217
+mac box 44, windows 20/16/42/16/222
 
 [title]
-Claude Code wants to change web-1.example.test
-[header]
-Target: web-1.example.test
-Risk: pengguna minta: hapus cache lama sebelum rilis
-Skips: --yes
+Change web-1.example.test
+[subtitle]
+Asked by Claude Code
+[grid]
+Target   web-1.example.test
+Risk     (!) Pengguna minta: hapus cache lama sebelum rilis
 [command]
-komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama
+komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi,
+    mohon tunggu' && rm -r /srv/app/cache/lama
 [owner]
 komando: allow web-1.example.test
 [notes]
---yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
-
+Skips the protected-server stop (--yes)
+[question]
 Allow this once?
 [risky line]
 -1
+[allow is destructive]
+true
 [sizes]
-mac height 43, windows 64/41/64/217
+mac box 44, windows 20/16/42/16/222
 

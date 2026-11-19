@@ -41,8 +41,10 @@ var (
 	procGetStockObject   = gdi32.NewProc("GetStockObject")
 	procCreateFontW      = gdi32.NewProc("CreateFontW")
 	procDeleteObject     = gdi32.NewProc("DeleteObject")
-	procGetObjectW       = gdi32.NewProc("GetObjectW")
 	procInputSource      = user32.NewProc("GetCurrentInputMessageSource")
+	procSetBkColor       = gdi32.NewProc("SetBkColor")
+	procSetTextColor     = gdi32.NewProc("SetTextColor")
+	procCreateSolidBrush = gdi32.NewProc("CreateSolidBrush")
 )
 
 const (
@@ -61,6 +63,7 @@ const (
 	esReadOnly     = 0x0800
 	esPassword     = 0x0020
 	esAutoHScroll  = 0x0080
+	ssCenter       = 0x0001
 	ssNoPrefix     = 0x0080 // a "&" in the text shows as itself
 	bsPushButton   = 0x0000
 	bsDefPush      = 0x0001
@@ -70,6 +73,9 @@ const (
 	emLineScroll   = 0x00B6
 	wmCommand      = 0x0111
 	wmTimer        = 0x0113
+	wmCtlColorEdit = 0x0133
+	wmCtlColorStat = 0x0138
+	whiteBrush     = 0
 	smCxScreen     = 0
 	smCyScreen     = 1
 	idAllow        = 1
@@ -115,6 +121,19 @@ var (
 	winCodeEdit uintptr
 	winAllowBtn uintptr
 	winCode     string
+	winColour   map[uintptr]uint32 // a label's text colour (0x00BBGGRR)
+	winBox      uintptr            // the command box, on its own grey
+	winBoxBrush uintptr
+)
+
+// The window's colours (COLORREF, 0x00BBGGRR): white content, a light
+// grey command card, red risk lines and grey secondary text, each at
+// least 4.5:1 on its ground.
+const (
+	rgbWhite = 0x00FFFFFF
+	rgbCard  = 0x00F5F5F5
+	rgbRed   = 0x001C2BC4 // #C42B1C
+	rgbGrey  = 0x00595959 // #595959
 )
 
 // imoHardware is INPUT_MESSAGE_SOURCE's origin for a real keyboard or
@@ -151,6 +170,18 @@ func wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			procDestroyWindow.Call(hwnd)
 			return 0
 		}
+	case wmCtlColorStat, wmCtlColorEdit:
+		bg, brush := uintptr(rgbWhite), uintptr(0)
+		if lParam == winBox && winBoxBrush != 0 {
+			bg, brush = rgbCard, winBoxBrush
+		} else {
+			brush, _, _ = procGetStockObject.Call(whiteBrush)
+		}
+		procSetBkColor.Call(wParam, bg)
+		if c, ok := winColour[lParam]; ok {
+			procSetTextColor.Call(wParam, uintptr(c))
+		}
+		return brush
 	case wmTimer:
 		winAnswer = 0 // gave up
 		procDestroyWindow.Call(hwnd)
@@ -177,19 +208,20 @@ func interactiveDesktop() bool {
 	return user32.Load() == nil && procCreateWindowExW.Find() == nil
 }
 
-// monoFont is Consolas at the labels' size, for the command box; fallback when
-// it cannot be made.
-func monoFont(fallback uintptr) uintptr {
-	// the labels' height (LOGFONTW.lfHeight, the first field of 92 bytes),
-	// so both fonts are the same size
-	var lf [92]byte
-	height := int32(-11)
-	if n, _, _ := procGetObjectW.Call(fallback, uintptr(len(lf)), uintptr(unsafe.Pointer(&lf[0]))); n != 0 {
-		height = *(*int32)(unsafe.Pointer(&lf[0]))
+// winFont is face at 9 pt (12 px), normal or bold; fallback when it
+// cannot be made. Segoe UI draws "--" as two hyphens, which the stock GUI
+// font ran together into a dash.
+func winFont(face string, bold, fixed bool, fallback uintptr) uintptr {
+	f16, _ := windows.UTF16PtrFromString(face)
+	weight, pitch := uintptr(400), uintptr(0)
+	if bold {
+		weight = 700
 	}
-	face, _ := windows.UTF16PtrFromString("Consolas")
-	// normal weight, fixed pitch (FIXED_PITCH|FF_MODERN)
-	f, _, _ := procCreateFontW.Call(uintptr(int64(height)), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 0, 0x31, uintptr(unsafe.Pointer(face)))
+	if fixed {
+		pitch = 0x31 // FIXED_PITCH|FF_MODERN
+	}
+	height := int32(-12)
+	f, _, _ := procCreateFontW.Call(uintptr(int64(height)), 0, 0, 0, weight, 0, 0, 0, 1, 0, 0, 5, pitch, uintptr(unsafe.Pointer(f16)))
 	if f == 0 {
 		return fallback
 	}
@@ -225,25 +257,35 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 		return "", false, false, false
 	}
 	winAnswer, winCode, winCodeEdit, winAllowBtn = idDeny, "", 0, 0
+	winColour, winBox = map[uintptr]uint32{}, 0
+	winBoxBrush, _, _ = procCreateSolidBrush.Call(rgbCard)
+	defer func() {
+		if winBoxBrush != 0 {
+			procDeleteObject.Call(winBoxBrush)
+			winBoxBrush = 0
+		}
+	}()
 	const pad, btnW, btnH, codeH = winPad, 110, 28, 24
 
 	l := winLayoutFor(v)
-	h := l.height + pad + btnH + pad + 40 // 40: the title bar and borders
+	h := l.height + btnH + pad + 40 // 40: the title bar and borders
 	if withCode {
 		h += codeH + pad
 	}
 	sw, _, _ := procGetSystemMetrics.Call(smCxScreen)
 	sh, _, _ := procGetSystemMetrics.Call(smCyScreen)
-	title, _ := windows.UTF16PtrFromString("komando: allow?")
+	title, _ := windows.UTF16PtrFromString("komando needs your OK")
 	hwnd, _, _ := procCreateWindowExW.Call(wsExTopmost|wsExDlgModal, uintptr(unsafe.Pointer(winClass)), uintptr(unsafe.Pointer(title)),
 		wsOverlapped|wsCaption|wsSysMenu, (sw-winW)/2, (sh-uintptr(h))/2, winW, uintptr(h), 0, 0, uintptr(inst), 0)
 	if hwnd == 0 {
 		return "", false, false, false
 	}
-	font, _, _ := procGetStockObject.Call(defaultGUIFont)
-	mono := monoFont(font)
-	if mono != font {
-		defer procDeleteObject.Call(mono)
+	stock, _, _ := procGetStockObject.Call(defaultGUIFont)
+	font, bold, mono := winFont("Segoe UI", false, false, stock), winFont("Segoe UI", true, false, stock), winFont("Consolas", false, true, stock)
+	for _, f := range []uintptr{font, bold, mono} {
+		if f != stock {
+			defer procDeleteObject.Call(f)
+		}
 	}
 	child := func(class, label string, style, f uintptr, x, y, cw, ch int, id uintptr) uintptr {
 		c, _ := windows.UTF16PtrFromString(class)
@@ -253,17 +295,44 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 		procSendMessageW.Call(hw, wmSetFont, f, 1)
 		return hw
 	}
-	child("STATIC", v.title()+"\n"+v.header(), ssNoPrefix, font, pad, pad, winInner, l.headH, 0)
-	y := pad + l.headH + pad
-	box := child("EDIT", v.command(), esMultiline|esReadOnly|esAutoHScroll|wsVScroll|wsHScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
+	y := pad
+	child("STATIC", v.title(), ssNoPrefix, bold, pad, y, winInner, l.titleH, 0)
+	y += l.titleH
+	if l.subH > 0 {
+		winColour[child("STATIC", v.subtitle(), ssNoPrefix, font, pad, y, winInner, l.subH, 0)] = rgbGrey
+		y += l.subH
+	}
+	y += pad
+	vx := pad + winLabelW + 8
+	for i, gh := range winGridH(v) {
+		r := v.grid()[i]
+		if r.Label != "" {
+			winColour[child("STATIC", r.Label, ssNoPrefix, font, pad, y, winLabelW, winRowH, 0)] = rgbGrey
+		}
+		switch r.Kind {
+		case rowBadge:
+			child("STATIC", r.Text, ssNoPrefix|ssCenter|wsBorder, font, vx, y, winBadgeW, winRowH+2, 0)
+		case rowRisk:
+			winColour[child("STATIC", "\u26a0 "+r.Text, ssNoPrefix, font, vx, y, winInner-winLabelW-8, gh-4, 0)] = rgbRed
+		default:
+			child("STATIC", r.Text, ssNoPrefix, font, vx, y, winInner-winLabelW-8, gh-4, 0)
+		}
+		y += gh
+	}
+	y += pad
+	// no ES_AUTOHSCROLL or WS_HSCROLL: boxText() is wrapped, nothing scrolls sideways
+	box := child("EDIT", v.boxText(), esMultiline|esReadOnly|wsVScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
+	winBox = box
 	if i := v.riskyLine(); i >= boxMaxLines {
 		procSendMessageW.Call(box, emLineScroll, 0, uintptr(i-2)) // the line a rule matched, in view (no highlight)
 	}
 	y += l.cmdH + pad
 	if l.notesH > 0 {
-		child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)
+		winColour[child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)] = rgbGrey
 		y += l.notesH + pad
 	}
+	child("STATIC", question, ssNoPrefix, bold, pad, y, winInner, winRowH, 0)
+	y += winRowH + pad
 	allowStyle, denyStyle := uintptr(bsPushButton), uintptr(bsDefPush)
 	if withCode {
 		winCodeEdit = child("EDIT", "", esPassword|esAutoHScroll|wsBorder|wsTabStop, font, pad, y, winInner, codeH, idCode)

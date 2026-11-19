@@ -97,16 +97,18 @@ jobs:
           echo "no window owned by osascript or komando within 10 s" >&2
           exit 1
           SH
+      # System Events switches the running session (a defaults write alone
+      # does not reach it); the step fails when dark was asked but is not on
       - name: Appearance (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          if [ "${{ matrix.mode }}" = dark ]; then
-            bash "$RUNNER_TEMP/asgui.sh" defaults write -g AppleInterfaceStyle Dark
-          else
-            bash "$RUNNER_TEMP/asgui.sh" defaults delete -g AppleInterfaceStyle 2>/dev/null || true
-          fi
-          echo "AppleInterfaceStyle: $(bash "$RUNNER_TEMP/asgui.sh" defaults read -g AppleInterfaceStyle 2>/dev/null || echo light)"
+          dark=false; [ "${{ matrix.mode }}" = dark ] && dark=true
+          bash "$RUNNER_TEMP/asgui.sh" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $dark"
+          style=$(bash "$RUNNER_TEMP/asgui.sh" defaults read -g AppleInterfaceStyle 2>/dev/null || true)
+          echo "AppleInterfaceStyle: ${style:-(none, light)}"
+          if [ "$dark" = true ] && [ "$style" != Dark ]; then echo "dark mode was asked but is not on" >&2; exit 1; fi
+          if [ "$dark" = false ] && [ -n "$style" ]; then echo "light mode was asked but $style is on" >&2; exit 1; fi
       - name: The window (macOS)
         if: runner.os == 'macOS'
         shell: bash

@@ -68,7 +68,7 @@ func shotRunner(t *testing.T) {
 // scroll test share: example hosts, a made-up script.
 func shotView() approvalView {
 	return testView("Claude Code", []string{"--allow-dangerous", "--yes"}, "",
-		[]string{"it runs on web-1.example.test (protected)", protWhy([]string{"web-1.example.test"}), "[R-7] rm -rf deletes files"},
+		[]string{"it runs on web-1.example.test (protected)", protWhy([]string{"web-1.example.test"}), "[rm-system-dir] deletes a system folder recursively"},
 		"komando exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes",
 		"It also sends the script ./deploy.sh (98 bytes, 4 lines, SHA-256 9f2c), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n"+
 			"  3  systemctl stop app && rm -rf /srv/app/cache && tar -xzf /tmp/release.tgz -C /srv/app && systemctl start app\n  4  echo done\n")
@@ -112,8 +112,8 @@ var shotCases = []shotCase{
 	}},
 	{"destructive", func() approvalView {
 		return testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on db-2.example.test (protected)", protWhy([]string{"db-2.example.test"}),
-			"[R-7] rm -rf deletes files", "DROP TABLE deletes a table and its rows"},
-			"komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /var/lib/app/uploads && psql -d app -c 'DROP TABLE sessions'", "")
+			"[rm-system-dir,db-drop] deletes a system folder recursively; drops a database"},
+			"komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql -d app -c 'DROP DATABASE app'", "")
 	}},
 	{"db-query", func() approvalView {
 		return testView("Claude Code", []string{"--allow-dangerous"}, "", []string{"it runs on db-2.example.test", "--write lets the query change data"},

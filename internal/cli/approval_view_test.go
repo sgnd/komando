@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+	"unicode/utf16"
+	"unicode/utf8"
+
+	"github.com/sgnd/komando/internal/policy"
 )
 
 // Only "Allow once" followed by "owner ok" allows. A failed, cancelled,
@@ -43,10 +49,12 @@ func TestMacAlertScript(t *testing.T) {
 		"addButtonWithTitle('Deny')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
 		"e.keyCode === 53", "stopModalWithCode($.NSAlertFirstButtonReturn)",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'",
-		"a.messageText = argv[1]", "a.informativeText = argv[2]", "tv.string = argv[3]", "wrappingLabelWithString(argv[4])", "Number(argv[5])", "tv.editable = false",
+		"a.messageText = argv[1]", "a.informativeText = argv[2]", "tv.string = argv[3]", "label(argv[4],", "Number(argv[5])", "tv.editable = false",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[8], argv[9]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
+		"symbol('lock.shield', 48)", "if (argv[11] === '1') { try { allow.hasDestructiveAction = true; }", "sv.hasHorizontalScroller = false",
+		"tv.horizontallyResizable = false", "argv[10].split(", "label(argv[12], bold", "symbol('exclamationmark.triangle', fs)", "$.NSColor.systemRedColor",
 	} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
@@ -55,17 +63,23 @@ func TestMacAlertScript(t *testing.T) {
 	if macWindowTimeout.Minutes() != 3 || windowGiveUp.Seconds() != 120 {
 		t.Errorf("timeouts %v, %v", macWindowTimeout, windowGiveUp)
 	}
+	// semantic colours only, so dark mode works
+	for _, c := range regexp.MustCompile(`NSColor\.(\w+)`).FindAllStringSubmatch(macAlertScript, -1) {
+		if !slices.Contains([]string{"labelColor", "secondaryLabelColor", "systemRedColor", "controlBackgroundColor", "findHighlightColor"}, c[1]) {
+			t.Errorf("the script uses NSColor.%s, not a semantic colour", c[1])
+		}
+	}
 	if strings.Contains(macAlertScript, "argv[0]") {
 		t.Error("the script reads argv[0], the marker")
 	}
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[7] != v.raw {
+	if args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[7] != v.raw {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
-	if args = macArgs(v); args[4] != macArgMarker || args[5] != "-e do shell script" {
+	if args = macArgs(v); args[4] != macArgMarker || args[5] != "Run a komando command" || args[6] != "Asked by -e" {
 		t.Errorf("title %q", args)
 	}
 }
@@ -90,7 +104,7 @@ func TestApprovalWindowGolden(t *testing.T) {
 	views := []approvalView{
 		testView("Claude Code", []string{"--yes"}, "", []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected)"},
 			"komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\\nb:\\n  c: 2' --yes", ""),
-		testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected)", "[R-7] rm -rf deletes files", protWhy([]string{"web-1.example.test"})}, long, ""),
+		testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected)", "[rm-system-dir] deletes a system folder recursively", protWhy([]string{"web-1.example.test"})}, long, ""),
 		testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando exec db-2.example.test --script ./deploy.sh --yes",
 			"It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n"),
 		testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host rm web-1.example.test --yes", ""),
@@ -122,7 +136,7 @@ func windowGolden(t *testing.T, name string, views []approvalView) {
 		b.WriteString(v.layout())
 		l := winLayoutFor(v)
 		b.WriteString("[sizes]\n")
-		b.WriteString("mac height " + macArgs(v)[9] + ", windows " + strconv.Itoa(l.headH) + "/" + strconv.Itoa(l.cmdH) + "/" + strconv.Itoa(l.notesH) + "/" + strconv.Itoa(l.height) + "\n\n")
+		b.WriteString("mac box " + macArgs(v)[9] + ", windows " + strconv.Itoa(l.titleH) + "/" + strconv.Itoa(l.subH) + "/" + strconv.Itoa(l.cmdH) + "/" + strconv.Itoa(l.notesH) + "/" + strconv.Itoa(l.height) + "\n\n")
 	}
 	path := filepath.Join("testdata", name)
 	if os.Getenv("KOMANDO_GOLDEN_UPDATE") != "" {
@@ -158,16 +172,16 @@ func TestAppleScriptArgs(t *testing.T) {
 // title, the target or a Risk line), and keeps the other reasons as risks.
 func TestApprovalViewDedupes(t *testing.T) {
 	why := []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected), web-2.example.test",
-		"it runs on web-2.example.test, db-1.example.test", "[R-7] rm -rf deletes files"}
+		"it runs on web-2.example.test, db-1.example.test", "[rm-system-dir] deletes a system folder recursively"}
 	v := newApprovalView(tcl, []string{"--allow-dangerous", "--yes"}, "", why, "komando exec web -- id", "")
-	want := "Target: web-1.example.test, web-2.example.test, db-1.example.test\nProtected: yes\nRisk: [R-7] rm -rf deletes files\nSkips: --allow-dangerous, --yes"
+	want := "Target   web-1.example.test, web-2.example.test, db-1.example.test\n         [Protected]\nRisk     (!) Deletes a system folder recursively (rm -rf)"
 	if got := v.header(); got != want {
 		t.Errorf("header:\n%s\nwant:\n%s", got, want)
 	}
 	if strings.Contains(v.title(), "protected") || strings.Count(v.title()+"\n"+v.header(), "rotected") != 1 {
 		t.Errorf("protected is named more than once:\n%s", v.layout())
 	}
-	if !strings.HasSuffix(v.notes(), "Allow this once?") || !strings.Contains(v.notes(), "--yes skips") {
+	if v.notes() != "Skips the dangerous-command stop (--allow-dangerous)\nSkips the protected-server stop (--yes)" {
 		t.Errorf("notes: %q", v.notes())
 	}
 	// the request text (the window's key) is as before
@@ -187,8 +201,8 @@ func testView(agent string, flags []string, what string, why []string, line, bod
 // with no hint; a 40-line script gets the "more lines" hint and opens
 // scrolled to the line a deny rule matches.
 func TestApprovalBoxScroll(t *testing.T) {
-	if v := shotView(); v.moreHint() != "" || lineCount(v.command()) > boxMaxLines {
-		t.Errorf("the 4-line sample scrolls: %d lines, hint %q", lineCount(v.command()), v.moreHint())
+	if v := shotView(); v.moreHint() != "" || v.boxRows() > boxMaxLines {
+		t.Errorf("the 4-line sample scrolls: %d rows, hint %q", v.boxRows(), v.moreHint())
 	}
 	var body strings.Builder
 	body.WriteString("It also sends the script ./long.sh (1 bytes, 40 lines, SHA-256 ab), all of it:\n\n")
@@ -204,14 +218,84 @@ func TestApprovalBoxScroll(t *testing.T) {
 		t.Errorf("notes: %q", v.notes())
 	}
 	i := v.riskyLine()
-	if i < boxMaxLines || !strings.Contains(strings.Split(v.command(), "\n")[i], "of=/dev/sda") {
+	if i < boxMaxLines || !strings.Contains(strings.Split(v.boxText(), "\n")[i], "of=/dev/sda") {
 		t.Fatalf("risky line %d", i)
 	}
 	off, n := v.riskyRange()
-	if got := v.command()[off : off+n]; !strings.Contains(got, "of=/dev/sda") {
+	if got := string(utf16.Decode(utf16.Encode([]rune(v.boxText()))[off : off+n])); !strings.Contains(got, "of=/dev/sda") {
 		t.Errorf("range %d,%d is %q", off, n, got)
 	}
 	if args := macArgs(v); args[10] != strconv.Itoa(off) || args[11] != strconv.Itoa(n) {
 		t.Errorf("argv %q", args[9:])
+	}
+}
+
+// A deny-rule reason loses its rule ids and names its trigger; every
+// built-in rule has one; any other reason stays as it is, capitalised.
+func TestRiskWords(t *testing.T) {
+	for in, want := range map[string][]string{
+		"[rm-system-dir,db-drop] deletes a system folder recursively; drops a database":                         {"Deletes a system folder recursively (rm -rf)", "Drops a database (DROP DATABASE)"},
+		"[rm-root,rm-system-dir] deletes / or the home folder recursively; deletes a system folder recursively": {"Deletes / or the home folder recursively (rm -rf)", "Deletes a system folder recursively (rm -rf)"},
+		"[" + policy.CustomID("x") + "] matches your deny rule x":                                               {"Matches your deny rule x"},
+		"[web] restarts the service":    {"[web] restarts the service"},
+		"[a,b] one reason":              {"[a,b] one reason"},
+		"sudo runs the command as root": {"Sudo runs the command as root"},
+	} {
+		if got := riskWords(in); !slices.Equal(got, want) {
+			t.Errorf("riskWords(%q) = %q, want %q", in, got, want)
+		}
+	}
+	for _, r := range policy.Rules() {
+		if ruleTrigger[r.ID] == "" {
+			t.Errorf("rule %s has no trigger in ruleTrigger", r.ID)
+		}
+	}
+}
+
+// No row of the command box is wider than boxCols, so it never scrolls
+// sideways; a wrapped row hangs under the text, after a script line's
+// number; nothing of the command is lost.
+func TestApprovalBoxWraps(t *testing.T) {
+	long := "komando exec web-1.example.test -- " + strings.Repeat("echo abcdefghij && ", 20) + "true"
+	views := []approvalView{testView("Codex", nil, "", nil, long, "It also sends the script ./a.sh (1 bytes, 1 lines, SHA-256 ab), all of it:\n\n   1  "+long+"\n")}
+	for _, c := range shotCases {
+		views = append(views, c.view())
+	}
+	for _, v := range views {
+		rows, _ := v.box()
+		for _, r := range rows {
+			if utf8.RuneCountInString(r) > boxCols {
+				t.Errorf("row of %d characters: %q", utf8.RuneCountInString(r), r)
+			}
+		}
+		if strings.Join(strings.Fields(v.boxText()), "") != strings.Join(strings.Fields(v.command()), "") {
+			t.Errorf("wrapping lost text:\n%s", v.boxText())
+		}
+	}
+	rows, start := views[0].box()
+	if strings.Contains(rows[1], "komando") || !strings.HasPrefix(rows[1], "    ") {
+		t.Errorf("command continuation row %q", rows[1])
+	}
+	n := start[len(start)-1]
+	if !strings.HasPrefix(rows[n], "   1  komando") || !strings.HasPrefix(rows[n+1], "      ") || strings.HasPrefix(rows[n+1], "       ") {
+		t.Errorf("script rows %q / %q", rows[n], rows[n+1])
+	}
+	if !strings.Contains(macAlertScript, "hasHorizontalScroller = false") {
+		t.Error("the macOS box may scroll sideways")
+	}
+}
+
+// "Allow once" is dangerous (red) exactly when a risk line shows, and
+// the script gets that as argv[11].
+func TestApprovalDestructiveButton(t *testing.T) {
+	for _, c := range shotCases {
+		v := c.view()
+		want := strings.Contains(v.header(), "(!)")
+		if v.destructive() != want || (macArgs(v)[15] == "1") != want {
+			t.Errorf("%s: destructive %v, argv %q, want %v", c.name, v.destructive(), macArgs(v)[15], want)
+		}
+	}
+	if (approvalView{raw: "t"}).destructive() {
+		t.Error("a plain text is dangerous")
 	}
 }
