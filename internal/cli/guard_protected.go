@@ -67,13 +67,21 @@ func protectedHost(st *store.State, h *store.Host) bool {
 	return false
 }
 
+// protectedMark follows a protected target in targetsWhy, and
+// protChangePrefix starts protWhy; the approval window reads both
+// (newApprovalView) to show the protected fact once.
+const (
+	protectedMark    = " (protected)"
+	protChangePrefix = "a change on protected "
+)
+
 // protWhy is the approval window's line for the protected servers a
 // command changes, or "" for none.
 func protWhy(prot []string) string {
 	if len(prot) == 0 {
 		return ""
 	}
-	return "a change on protected " + nouns(len(prot), "host") + " " + strings.Join(prot, ", ")
+	return protChangePrefix + nouns(len(prot), "host") + " " + strings.Join(prot, ", ")
 }
 
 // connProtWhy is protWhy for conns.
@@ -81,5 +89,5 @@ func connProtWhy(prot []string) string {
 	if len(prot) == 0 {
 		return ""
 	}
-	return "a change on protected " + nouns(len(prot), "conn") + " " + strings.Join(prot, ", ")
+	return protChangePrefix + nouns(len(prot), "conn") + " " + strings.Join(prot, ", ")
 }

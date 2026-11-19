@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -146,36 +144,10 @@ func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bo
 		return false
 	}
 	// what and where first, the question next, komando's rule details last
-	head, reasons := "wants komando to run", []string{}
-	for _, w := range why {
-		if w = strings.TrimSpace(w); w != "" {
-			if unshowable(w) != "" {
-				w = strconv.QuoteToASCII(w)
-			}
-			if on, ok := strings.CutPrefix(w, "it runs on "); ok && head == "wants komando to run" {
-				head = "wants to change " + on
-				continue
-			}
-			reasons = append(reasons, w)
-		}
-	}
-	text := fmt.Sprintf("%s %s:\n\n%s\n\n", cl.caller().Agent, head, line) + body
-	if what != "" {
-		if unshowable(what) != "" {
-			what = strconv.QuoteToASCII(what)
-		}
-		text += "This also lets through:\n\n" + what + "\n\n"
-	}
-	text += "Allow this once?\n\n"
-	for _, w := range reasons {
-		text += "Why komando asks: " + w + "\n"
-	}
-	for i, f := range flags {
-		if i > 0 {
-			text += "\n"
-		}
-		text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", f, flagMeaning[f])
-	}
+	v := newApprovalView(cl, flags, what, why, line, body)
+	cl.view = &v
+	defer func() { cl.view = nil }()
+	text := v.text()
 	sess.SetGaveUp(false)
 	allowed, shown := cl.askPerson(text)
 	gaveUp := tookGaveUp(text)
@@ -428,25 +400,13 @@ var askOnScreen = func(cl *call, text string) (allowed, shown bool) {
 	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return false, false
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
 	switch runtime.GOOS {
 	case "darwin":
-		const script = `on run argv
-set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 120 with icon caution
-if gave up of r then return "gave up"
-return button returned of r
-end run`
-		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
-		var ee *exec.ExitError
-		if err != nil && !errors.As(err, &ee) {
-			return false, false
-		}
-		answer := strings.TrimSpace(string(b))
-		noteGaveUp(text, answer == "gave up")
-		return answer == "Allow once", true
+		allowed, gaveUp, shown := askMac(viewFor(cl, text))
+		noteGaveUp(text, gaveUp)
+		return allowed, shown
 	case "windows":
-		_, allowed, gaveUp, shown := approvalWindow(text, false)
+		_, allowed, gaveUp, shown := approvalWindow(viewFor(cl, text), false)
 		noteGaveUp(text, gaveUp)
 		return allowed, shown
 	}

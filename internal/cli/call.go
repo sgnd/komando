@@ -63,6 +63,7 @@ type call struct {
 	typedProt []string   // protected targets a typed answer covered
 
 	body *approvalBody // a file the command sends, which the window shows
+	view *approvalView // the window being shown (personAllowsFlags)
 
 	// manifests: the manifest files this command has read (readManifest),
 	// and why one could not be read, so the bytes that were rated are the

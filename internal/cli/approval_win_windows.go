@@ -39,6 +39,9 @@ var (
 	procSetFocus         = user32.NewProc("SetFocus")
 	procLoadCursorW      = user32.NewProc("LoadCursorW")
 	procGetStockObject   = gdi32.NewProc("GetStockObject")
+	procCreateFontW      = gdi32.NewProc("CreateFontW")
+	procDeleteObject     = gdi32.NewProc("DeleteObject")
+	procGetObjectW       = gdi32.NewProc("GetObjectW")
 	procInputSource      = user32.NewProc("GetCurrentInputMessageSource")
 )
 
@@ -50,6 +53,7 @@ const (
 	wsVisible      = 0x10000000
 	wsTabStop      = 0x00010000
 	wsVScroll      = 0x00200000
+	wsHScroll      = 0x00100000
 	wsBorder       = 0x00800000
 	wsExTopmost    = 0x00000008
 	wsExDlgModal   = 0x00000001
@@ -57,11 +61,13 @@ const (
 	esReadOnly     = 0x0800
 	esPassword     = 0x0020
 	esAutoHScroll  = 0x0080
+	ssNoPrefix     = 0x0080 // a "&" in the text shows as itself
 	bsPushButton   = 0x0000
 	bsDefPush      = 0x0001
 	wmDestroy      = 0x0002
 	wmClose        = 0x0010
 	wmSetFont      = 0x0030
+	emLineScroll   = 0x00B6
 	wmCommand      = 0x0111
 	wmTimer        = 0x0113
 	smCxScreen     = 0
@@ -171,9 +177,28 @@ func interactiveDesktop() bool {
 	return user32.Load() == nil && procCreateWindowExW.Find() == nil
 }
 
+// monoFont is Consolas at the labels' size, for the command box; fallback when
+// it cannot be made.
+func monoFont(fallback uintptr) uintptr {
+	// the labels' height (LOGFONTW.lfHeight, the first field of 92 bytes),
+	// so both fonts are the same size
+	var lf [92]byte
+	height := int32(-11)
+	if n, _, _ := procGetObjectW.Call(fallback, uintptr(len(lf)), uintptr(unsafe.Pointer(&lf[0]))); n != 0 {
+		height = *(*int32)(unsafe.Pointer(&lf[0]))
+	}
+	face, _ := windows.UTF16PtrFromString("Consolas")
+	// normal weight, fixed pitch (FIXED_PITCH|FF_MODERN)
+	f, _, _ := procCreateFontW.Call(uintptr(int64(height)), 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 0, 0x31, uintptr(unsafe.Pointer(face)))
+	if f == 0 {
+		return fallback
+	}
+	return f
+}
+
 // approvalWindow shows the window; see askOnScreen. withCode adds the
 // hidden field for an authenticator code.
-func approvalWindow(text string, withCode bool) (code string, allowed, gaveUp, shown bool) {
+func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp, shown bool) {
 	if !interactiveDesktop() {
 		return "", false, false, false
 	}
@@ -200,9 +225,10 @@ func approvalWindow(text string, withCode bool) (code string, allowed, gaveUp, s
 		return "", false, false, false
 	}
 	winAnswer, winCode, winCodeEdit, winAllowBtn = idDeny, "", 0, 0
+	const pad, btnW, btnH, codeH = winPad, 110, 28, 24
 
-	const w, textH, pad, btnW, btnH, codeH = 560, 240, 12, 110, 28, 24
-	h := pad + textH + pad + btnH + pad + 40 // 40: the title bar and borders
+	l := winLayoutFor(v)
+	h := l.height + pad + btnH + pad + 40 // 40: the title bar and borders
 	if withCode {
 		h += codeH + pad
 	}
@@ -210,31 +236,42 @@ func approvalWindow(text string, withCode bool) (code string, allowed, gaveUp, s
 	sh, _, _ := procGetSystemMetrics.Call(smCyScreen)
 	title, _ := windows.UTF16PtrFromString("komando: allow?")
 	hwnd, _, _ := procCreateWindowExW.Call(wsExTopmost|wsExDlgModal, uintptr(unsafe.Pointer(winClass)), uintptr(unsafe.Pointer(title)),
-		wsOverlapped|wsCaption|wsSysMenu, (sw-w)/2, (sh-uintptr(h))/2, w, uintptr(h), 0, 0, uintptr(inst), 0)
+		wsOverlapped|wsCaption|wsSysMenu, (sw-winW)/2, (sh-uintptr(h))/2, winW, uintptr(h), 0, 0, uintptr(inst), 0)
 	if hwnd == 0 {
 		return "", false, false, false
 	}
 	font, _, _ := procGetStockObject.Call(defaultGUIFont)
-	child := func(class, label string, style uintptr, x, y, cw, ch int, id uintptr) uintptr {
+	mono := monoFont(font)
+	if mono != font {
+		defer procDeleteObject.Call(mono)
+	}
+	child := func(class, label string, style, f uintptr, x, y, cw, ch int, id uintptr) uintptr {
 		c, _ := windows.UTF16PtrFromString(class)
-		l, _ := windows.UTF16PtrFromString(label)
-		hw, _, _ := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(c)), uintptr(unsafe.Pointer(l)),
+		lb, _ := windows.UTF16PtrFromString(crlf(label))
+		hw, _, _ := procCreateWindowExW.Call(0, uintptr(unsafe.Pointer(c)), uintptr(unsafe.Pointer(lb)),
 			wsChild|wsVisible|style, uintptr(x), uintptr(y), uintptr(cw), uintptr(ch), hwnd, id, uintptr(inst), 0)
-		procSendMessageW.Call(hw, wmSetFont, font, 1)
+		procSendMessageW.Call(hw, wmSetFont, f, 1)
 		return hw
 	}
-	inner := w - 2*pad - 16 // 16: the window's side borders
-	body := strings.ReplaceAll(strings.ReplaceAll(text, "\r\n", "\n"), "\n", "\r\n")
-	child("EDIT", body, esMultiline|esReadOnly|wsVScroll|wsBorder, pad, pad, inner, textH, 0)
-	y := pad + textH + pad
+	child("STATIC", v.title()+"\n"+v.header(), ssNoPrefix, font, pad, pad, winInner, l.headH, 0)
+	y := pad + l.headH + pad
+	box := child("EDIT", v.command(), esMultiline|esReadOnly|esAutoHScroll|wsVScroll|wsHScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
+	if i := v.riskyLine(); i >= boxMaxLines {
+		procSendMessageW.Call(box, emLineScroll, 0, uintptr(i-2)) // the line a rule matched, in view (no highlight)
+	}
+	y += l.cmdH + pad
+	if l.notesH > 0 {
+		child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)
+		y += l.notesH + pad
+	}
 	allowStyle, denyStyle := uintptr(bsPushButton), uintptr(bsDefPush)
 	if withCode {
-		winCodeEdit = child("EDIT", "", esPassword|esAutoHScroll|wsBorder|wsTabStop, pad, y, inner, codeH, idCode)
+		winCodeEdit = child("EDIT", "", esPassword|esAutoHScroll|wsBorder|wsTabStop, font, pad, y, winInner, codeH, idCode)
 		y += codeH + pad
 		allowStyle, denyStyle = bsDefPush, bsPushButton // as on macOS: Enter after the code allows
 	}
-	deny := child("BUTTON", "Deny", denyStyle|wsTabStop, pad+inner-2*btnW-pad, y, btnW, btnH, idDeny)
-	winAllowBtn = child("BUTTON", "Allow once", allowStyle|wsTabStop, pad+inner-btnW, y, btnW, btnH, idAllow)
+	deny := child("BUTTON", "Deny", denyStyle|wsTabStop, font, pad+winInner-2*btnW-pad, y, btnW, btnH, idDeny)
+	winAllowBtn = child("BUTTON", "Allow once", allowStyle|wsTabStop, font, pad+winInner-btnW, y, btnW, btnH, idAllow)
 
 	procShowWindow.Call(hwnd, swShow)
 	procSetForegroundWin.Call(hwnd)
@@ -243,7 +280,7 @@ func approvalWindow(text string, withCode bool) (code string, allowed, gaveUp, s
 	} else {
 		procSetFocus.Call(deny)
 	}
-	procSetTimer.Call(hwnd, 1, 120*1000, 0)
+	procSetTimer.Call(hwnd, 1, uintptr(windowGiveUp.Milliseconds()), 0)
 
 	var m winMsg
 	for {
@@ -260,4 +297,9 @@ func approvalWindow(text string, withCode bool) (code string, allowed, gaveUp, s
 	code = strings.TrimSpace(winCode)
 	winCode = ""
 	return code, winAnswer == idAllow, winAnswer == 0, true
+}
+
+// crlf is s with Windows line ends, which an edit control needs.
+func crlf(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\n", "\r\n")
 }

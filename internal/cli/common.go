@@ -347,7 +347,7 @@ func targetsWhy(st *store.State, hosts []*store.Host) string {
 		}
 		n := h.Name
 		if protectedHost(st, h) {
-			n += " (protected)"
+			n += protectedMark
 		}
 		names = append(names, n)
 	}
