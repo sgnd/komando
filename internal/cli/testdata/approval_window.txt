@@ -19,7 +19,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-false
+true
 [sizes]
 mac box 44, windows 20/16/42/0/194
 
@@ -60,7 +60,7 @@ Skips    the protected-server stop
 [command]
 komando exec db-2.example.test --script ./deploy.sh --yes
 
-Script ./deploy.sh · 3 lines · sha256 ab12…
+Script ./deploy.sh · 3 lines · 40 bytes · sha256 ab12…
 
   1  #!/bin/sh
   2  set -e
@@ -76,7 +76,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-false
+true
 [sizes]
 mac box 119, windows 20/16/122/16/282
 
@@ -99,7 +99,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-false
+true
 [sizes]
 mac box 29, windows 20/16/26/0/158
 
@@ -114,7 +114,7 @@ Skips    the dangerous-command stop, the protected-server stop
 [command]
 komando exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes
 
-Script ./deploy.sh · 4 lines · sha256 9f2c…
+Script ./deploy.sh · 4 lines · 98 bytes · sha256 9f2c…
 
   1  #!/bin/sh
   2  set -e

@@ -145,7 +145,7 @@ func (v approvalView) command() string {
 	body := strings.TrimRight(v.Body, "\n")
 	if first, rest, _ := strings.Cut(body, "\n"); bodyHead.MatchString(first) {
 		m := bodyHead.FindStringSubmatch(first)
-		body = capitalise(m[1]) + " · " + m[3] + " lines · sha256 " + m[4][:min(8, len(m[4]))] + "…\n" + rest
+		body = capitalise(m[1]) + " · " + m[3] + " lines · " + m[2] + " bytes · sha256 " + m[4][:min(8, len(m[4]))] + "…\n" + rest
 	}
 	return v.Line + "\n\n" + body
 }
@@ -287,10 +287,21 @@ function symbol(name, size) {
   im.size = $.NSMakeSize(size, size);
   return im;
 }
+// style runs one styling step; an error drops only that style (logged
+// once), so the window still opens. Content, buttons and answers never
+// run inside it: an error there ends the script, which is a no.
+var styleFailed = false;
+function style(name, fn) {
+  try { fn(); } catch (e) {
+    if (!styleFailed) { styleFailed = true; warn('style ' + name + ': ' + e); }
+  }
+}
 function label(text, font, colour, w) {
   var l = $.NSTextField.wrappingLabelWithString(text);
-  l.font = font;
-  l.textColor = colour;
+  style('label', function () {
+    l.font = font;
+    l.textColor = colour;
+  });
   l.preferredMaxLayoutWidth = w;
   var h = text === '' ? 0 : Math.ceil(l.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height);
   return { v: l, h: h };
@@ -300,16 +311,18 @@ function run(argv) {
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
   var a = $.NSAlert.alloc.init;
   a.alertStyle = $.NSAlertStyleWarning;
-  var icon = symbol('lock.shield', 48);
-  if (!icon) { icon = $.NSImage.imageNamed('NSCaution'); if (icon && icon.isNil()) icon = null; }
-  if (icon) a.icon = icon;
+  style('icon', function () {
+    var icon = symbol('lock.shield', 48);
+    if (!icon) { icon = $.NSImage.imageNamed('NSCaution'); if (icon && icon.isNil()) icon = null; }
+    if (icon) a.icon = icon;
+  });
   a.messageText = argv[1];
   a.informativeText = argv[2];
   var deny = a.addButtonWithTitle('Deny');
   deny.keyEquivalent = '\r';
   var allow = a.addButtonWithTitle('Allow once');
   allow.keyEquivalent = '';
-  if (argv[11] === '1') {
+  if (argv[11] === '1') style('allow', function () {
     // red title text on a normal button, the same weight as Deny
     // NSAttributedString's init methods are not bridged in JXA: build it with new
     var m = $.NSMutableAttributedString.new;
@@ -321,7 +334,7 @@ function run(argv) {
     ps.alignment = $.NSTextAlignmentCenter;
     m.addAttributeValueRange($.NSParagraphStyleAttributeName, ps, all);
     allow.attributedTitle = m;
-  }
+  });
   var x0 = 4, w = 596, gap = 10, lw = 64, vx = lw + 8, fs = $.NSFont.systemFontSize;
   var font = $.NSFont.systemFontOfSize(fs), bold = $.NSFont.boldSystemFontOfSize(fs);
   var parts = []; // {v, x, h, w}, top to bottom; a row of the grid is one part
@@ -331,18 +344,18 @@ function run(argv) {
     var row = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, 0));
     var lab = label(f[1], font, $.NSColor.secondaryLabelColor, lw);
     var tx = vx, h = 0;
-    if (kind === '2') {
-      var warn = symbol('exclamationmark.triangle', fs);
-      if (warn) {
-        var iv = $.NSImageView.imageViewWithImage(warn);
-        iv.contentTintColor = $.NSColor.systemRedColor;
-        iv.setAccessibilityLabel('Risk');
-        iv.frame = $.NSMakeRect(vx, 0, 16, 16);
-        row.addSubview(iv);
-        tx = vx + 22;
-      }
-    }
-    if (kind === '1') {
+    var iv = null;
+    if (kind === '2') style('risk', function () {
+      var tri = symbol('exclamationmark.triangle', fs);
+      if (!tri) return;
+      iv = $.NSImageView.imageViewWithImage(tri);
+      iv.contentTintColor = $.NSColor.systemRedColor;
+      iv.setAccessibilityLabel('Risk');
+      row.addSubview(iv);
+      tx = vx + 22;
+    });
+    var framed = false;
+    if (kind === '1') style('badge', function () {
       var bl = label(f[2], $.NSFont.systemFontOfSizeWeight(fs - 2, 0.23), $.NSColor.secondaryLabelColor, 200);
       var bw = Math.ceil(bl.v.fittingSize.width) + 12;
       var badge = $.NSBox.alloc.initWithFrame($.NSMakeRect(vx, 0, bw, bl.h + 4));
@@ -357,12 +370,14 @@ function run(argv) {
       badge.contentView.addSubview(bl.v);
       row.addSubview(badge);
       h = bl.h + 4;
-    } else {
+      framed = true;
+    });
+    if (!framed) {
       var val = label(f[2], font, kind === '2' ? $.NSColor.systemRedColor : $.NSColor.labelColor, w - tx);
       h = Math.max(val.h, 16);
       val.v.frame = $.NSMakeRect(tx, h - val.h, w - tx, val.h);
       row.addSubview(val.v);
-      if (kind === '2' && row.subviews.count > 1) row.subviews.objectAtIndex(0).frame = $.NSMakeRect(vx, h - 16, 16, 16);
+      if (iv) iv.frame = $.NSMakeRect(vx, h - 16, 16, 16);
     }
     lab.v.frame = $.NSMakeRect(0, h - lab.h, lw, lab.h);
     row.addSubview(lab.v);
@@ -382,10 +397,12 @@ function run(argv) {
   var ms = $.NSFont.smallSystemFontSize, mf = null;
   try { mf = $.NSFont.monospacedSystemFontOfSizeWeight(ms, 0); } catch (e) {}
   tv.font = (mf && !mf.isNil()) ? mf : $.NSFont.userFixedPitchFontOfSize(ms);
-  tv.textColor = $.NSColor.labelColor;
-  var fill = $.NSColor.quaternarySystemFillColor;
-  tv.backgroundColor = (fill && !fill.isNil()) ? fill : $.NSColor.controlBackgroundColor;
-  sv.drawsBackground = false;
+  style('card', function () {
+    tv.textColor = $.NSColor.labelColor;
+    var fill = $.NSColor.quaternarySystemFillColor;
+    tv.backgroundColor = (fill && !fill.isNil()) ? fill : $.NSColor.controlBackgroundColor;
+    sv.drawsBackground = false;
+  });
   tv.textContainerInset = $.NSMakeSize(6, 6);
   tv.horizontallyResizable = false;
   tv.textContainer.widthTracksTextView = true;
@@ -393,12 +410,14 @@ function run(argv) {
   tv.setAccessibilityLabel('Command');
   sv.documentView = tv;
   // only the dangerous commands are marked: red text, a thin underline
-  argv[7].split(',').forEach(function (r) {
-    var p = r.split(':');
-    if (p.length !== 2) return;
-    var rr = $.NSMakeRange(Number(p[0]), Number(p[1]));
-    tv.textStorage.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, rr);
-    tv.textStorage.addAttributeValueRange($.NSUnderlineStyleAttributeName, 1, rr);
+  style('danger', function () {
+    argv[7].split(',').forEach(function (r) {
+      var p = r.split(':');
+      if (p.length !== 2) return;
+      var rr = $.NSMakeRange(Number(p[0]), Number(p[1]));
+      tv.textStorage.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, rr);
+      tv.textStorage.addAttributeValueRange($.NSUnderlineStyleAttributeName, 1, rr);
+    });
   });
   if (Number(argv[6]) >= 0) tv.scrollRangeToVisible($.NSMakeRange(Number(argv[6]), 0));
   parts.push({ v: sv, h: h, gap: gap });

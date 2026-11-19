@@ -53,7 +53,7 @@ func TestMacAlertScript(t *testing.T) {
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[8], argv[9]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
-		"symbol('lock.shield', 48)", "allow.attributedTitle = m;", "$.NSMutableAttributedString.new", "if (argv[11] === '1') {", "sv.hasHorizontalScroller = false",
+		"symbol('lock.shield', 48)", "allow.attributedTitle = m;", "$.NSMutableAttributedString.new", "if (argv[11] === '1') style('allow', function () {", "sv.hasHorizontalScroller = false",
 		"tv.horizontallyResizable = false", "argv[10].split(", "label(argv[12], bold", "symbol('exclamationmark.triangle', fs)", "$.NSColor.systemRedColor",
 		"$.NSUnderlineStyleAttributeName, 1, rr", "argv[7].split(',')", "quaternarySystemFillColor", "kind === '2' ? $.NSColor.systemRedColor", "imageNamed('NSCaution')",
 	} {
@@ -296,13 +296,51 @@ func TestApprovalBoxWraps(t *testing.T) {
 func TestApprovalDestructiveButton(t *testing.T) {
 	for _, c := range shotCases {
 		v := c.view()
-		want := strings.Contains(v.header(), "(!)")
+		want := strings.Contains(v.header(), "(!)") || v.Protected || len(v.Flags) > 0
 		if v.destructive() != want || (macArgs(v)[15] == "1") != want {
-			t.Errorf("%s: destructive %v, argv %q, want %v", c.name, v.destructive(), macArgs(v)[15], want)
+			t.Errorf("%s: red %v, argv %q, want %v", c.name, v.destructive(), macArgs(v)[15], want)
 		}
 	}
-	if (approvalView{raw: "t"}).destructive() {
-		t.Error("a plain text is dangerous")
+	if (approvalView{raw: "t"}).destructive() || testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test -- id", "").destructive() {
+		t.Error("red without a risk, protection or a skipped stop")
+	}
+	if !testView("Codex", nil, "", []string{"it runs on web-1.example.test (protected)"}, "komando exec web-1.example.test -- id", "").destructive() {
+		t.Error("a protected target is not red")
+	}
+}
+
+// Every styling step runs inside style(), so a bridge error drops only
+// that style; the buttons, the answer and the timeouts never do.
+func TestMacScriptStyleGuards(t *testing.T) {
+	for _, name := range []string{"icon", "allow", "risk", "badge", "card", "danger", "label"} {
+		if !strings.Contains(macAlertScript, "style('"+name+"', function () {") {
+			t.Errorf("no style block %q", name)
+		}
+	}
+	run := macAlertScript[strings.Index(macAlertScript, "function run(argv)"):]
+	inStyle, indent := false, ""
+	for _, l := range strings.Split(run, "\n") {
+		trim := strings.TrimLeft(l, " ")
+		pre := l[:len(l)-len(trim)]
+		switch {
+		case !inStyle && strings.Contains(l, "style('") && strings.HasSuffix(l, "function () {"):
+			inStyle, indent = true, pre
+			continue
+		case inStyle && l == indent+"});":
+			inStyle = false
+			continue
+		}
+		for _, key := range []string{"addButtonWithTitle", "keyEquivalent", "messageText", "informativeText", "tv.string", "accessoryView", "runModal", "stopModalWithCode", "abortModal", "owner(argv", "return '"} {
+			if inStyle && strings.Contains(l, key) {
+				t.Errorf("%q runs inside a style block: %s", key, trim)
+			}
+		}
+		if !inStyle && strings.Contains(l, "try {") && !strings.Contains(l, "monospacedSystemFontOfSizeWeight") {
+			t.Errorf("a try outside style(): %s", trim)
+		}
+	}
+	if inStyle {
+		t.Error("a style block is not closed")
 	}
 }
 
@@ -344,7 +382,7 @@ func TestApprovalDangerAndCaption(t *testing.T) {
 		t.Errorf("title %q, grid\n%s", d.title(), d.header())
 	}
 	cmd := shotView().command()
-	if !strings.Contains(cmd, "\n\nScript ./deploy.sh · 4 lines · sha256 9f2c…\n") || strings.Contains(cmd, "It also sends") {
+	if !strings.Contains(cmd, "\n\nScript ./deploy.sh · 4 lines · 98 bytes · sha256 9f2c…\n") || strings.Contains(cmd, "It also sends") {
 		t.Errorf("caption:\n%s", cmd)
 	}
 	if r := (approvalView{raw: "x", Owner: "komando: show secret:db"}); r.title() != "Show secret:db" {

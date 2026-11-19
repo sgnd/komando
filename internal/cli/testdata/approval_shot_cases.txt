@@ -17,7 +17,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-false
+true
 [sizes]
 mac box 29, windows 20/16/26/0/158
 
@@ -30,7 +30,7 @@ Skips    the protected-server stop
 [command]
 komando exec web-1.example.test --script ./migrate.sh --yes
 
-Script ./migrate.sh · 24 lines · sha256 4be1…
+Script ./migrate.sh · 24 lines · 1210 bytes · sha256 4be1…
 
    1  #!/bin/sh
    2  set -eu
@@ -67,7 +67,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-false
+true
 [sizes]
 mac box 239, windows 20/16/250/16/410
 
@@ -117,7 +117,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-false
+true
 [sizes]
 mac box 44, windows 20/16/42/0/214
 

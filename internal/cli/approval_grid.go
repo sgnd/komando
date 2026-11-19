@@ -61,15 +61,13 @@ func (v approvalView) grid() []gridRow {
 	return g
 }
 
-// destructive says whether "Allow once" is drawn as a dangerous button:
-// whenever a risk line is shown.
+// destructive says whether "Allow once" has red text: whenever a risk
+// line shows, the target is protected or a flag skips a safety stop.
 func (v approvalView) destructive() bool {
-	for _, r := range v.grid() {
-		if r.Kind == rowRisk {
-			return true
-		}
+	if v.raw != "" {
+		return false
 	}
-	return false
+	return v.Protected || len(v.Flags) > 0 || slices.ContainsFunc(v.grid(), func(r gridRow) bool { return r.Kind == rowRisk })
 }
 
 // header is the grid as plain text, for the golden test.
