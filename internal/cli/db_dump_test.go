@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
 	"fmt"
@@ -12,6 +13,17 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 )
+
+// testPGArchive is a real pg_dump 17 custom archive: komando refuses an
+// archive whose table of contents it cannot read (C135).
+func testPGArchive(t *testing.T) string {
+	t.Helper()
+	b, err := os.ReadFile("../driver/testdata/pgdump17.custom")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
 
 // TestRestorePlainSQLIsBuiltIn: a plain SQL backup is never piped into psql
 // or mysql on the --via server (they would obey \! inside it); komando
@@ -54,7 +66,7 @@ func TestRestorePlainSQLIsBuiltIn(t *testing.T) {
 	if _, e := invRun(t, "db", "restore", "pg", "--from", connect, "--dry-run"); e == nil || e.Code != "RESTORE_UNSUPPORTED" {
 		t.Errorf("\\connect: want RESTORE_UNSUPPORTED, got %v", e)
 	}
-	archive := write("a.dump", "PGDMP rest of a pg_dump archive")
+	archive := write("a.dump", testPGArchive(t))
 	d = mustRun(t, "db", "restore", "pg", "--from", archive, "--dry-run")
 	if tool, _ := d["tool"].([]any); len(tool) == 0 || tool[0] != "pg_restore" {
 		t.Errorf("archive restore uses %v, want pg_restore", d["tool"])
@@ -151,12 +163,13 @@ func TestDumpOnHost(t *testing.T) {
 	}
 
 	// the real run: the fake server answers with the "dump"
-	srv.reply("PGDMP archive bytes")
+	arch := testPGArchive(t)
+	srv.reply(arch)
 	to := filepath.Join(dir, "prod.dump")
 	if _, e = run("db", "dump", "pg", "--to", to, "--format", "custom", "--run-on", "dev"); e != nil {
 		t.Fatal(e)
 	}
-	if b, _ := os.ReadFile(to); string(b) != "PGDMP archive bytes" {
+	if b, _ := os.ReadFile(to); string(b) != arch {
 		t.Errorf("file holds %q", b)
 	}
 	if fi, _ := os.Stat(to); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
@@ -200,7 +213,7 @@ func TestDumpOnHost(t *testing.T) {
 		t.Fatal(e)
 	}
 	ex = srv.take()
-	if len(ex) != 1 || strings.Contains(ex[0].cmd, pw) || ex[0].stdin != pw+"\nPGDMP archive bytes" {
+	if len(ex) != 1 || strings.Contains(ex[0].cmd, pw) || ex[0].stdin != pw+"\n"+arch {
 		t.Fatalf("restore execs: %+v", ex)
 	}
 	if strings.Contains(ex[0].cmd, "nice") || !strings.Contains(ex[0].cmd, "pg_restore") {
@@ -222,5 +235,39 @@ func TestToolScriptLowPriority(t *testing.T) {
 	s = toolScript([]string{"pg_dump", "--dbname", "postgres://a@h/db"}, "PGPASSWORD", "", true)
 	if strings.Index(s, "nice -n 10") > strings.Index(s, "ionice -c3") || !strings.HasSuffix(s, `exec "$@"`) {
 		t.Errorf("low: %s", s)
+	}
+}
+
+// C135: pg_dump tar (-Ft) and directory (-Fd) archives are refused by name,
+// and a custom archive komando cannot read is refused, not approved unread.
+func TestRestoreOtherPGArchives(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "dev", "deploy@10.0.0.1")
+	mustRun(t, "conn", "add", "pg", "postgres://app@10.0.0.2/app")
+	dir := t.TempDir()
+	var tb bytes.Buffer
+	tw := tar.NewWriter(&tb)
+	for _, m := range []string{"toc.dat", "restore.sql"} {
+		body := "-- schema only, no data\n"
+		tw.WriteHeader(&tar.Header{Name: m, Mode: 0o600, Size: int64(len(body)), Format: tar.FormatUSTAR})
+		tw.Write([]byte(body))
+	}
+	tw.Close()
+	tarFile := filepath.Join(dir, "a.tar")
+	folder := filepath.Join(dir, "a.dir")
+	bad := filepath.Join(dir, "bad.dump")
+	os.WriteFile(tarFile, tb.Bytes(), 0o600)
+	os.Mkdir(folder, 0o700)
+	os.WriteFile(filepath.Join(folder, "toc.dat"), []byte("PGDMP"), 0o600)
+	os.WriteFile(bad, []byte(testPGArchive(t)[:300]), 0o600)
+	for _, c := range []struct{ from, code, want string }{
+		{tarFile, "USAGE", "tar archive (pg_dump -Ft)"},
+		{folder, "USAGE", "directory archive (pg_dump -Fd)"},
+		{bad, "BAD_FILE", "cannot read this pg_dump archive"},
+	} {
+		_, e := invRun(t, "db", "restore", "pg", "--from", c.from, "--run-on", "dev", "--dry-run")
+		if e == nil || e.Code != c.code || !strings.Contains(e.Message, c.want) {
+			t.Errorf("%s: want %s %q, got %+v", filepath.Base(c.from), c.code, c.want, e)
+		}
 	}
 }

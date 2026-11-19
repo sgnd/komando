@@ -75,11 +75,13 @@ func (a *pgArchive) readStr() (string, bool, error) {
 	if n > pgArchiveMaxStr {
 		return "", false, errPGArchive
 	}
-	b := make([]byte, n)
-	if _, err := io.ReadFull(a.r, b); err != nil {
+	// grown with the bytes that arrive, so a damaged length does not
+	// allocate 64 MiB up front
+	var b strings.Builder
+	if _, err := io.CopyN(&b, a.r, n); err != nil {
 		return "", false, err
 	}
-	return string(b), true, nil
+	return b.String(), true, nil
 }
 
 func (a *pgArchive) str() (string, error) {
@@ -210,7 +212,7 @@ func (a *pgArchive) entry() (pgTocEntry, error) {
 }
 
 // pgArchiveSQLMax is the most SQL komando collects from an archive's
-// table of contents; a larger one is named sql-opaque.
+// table of contents; a larger one is refused.
 const pgArchiveSQLMax = 256 << 20
 
 // pgArchiveSQL reads an archive's table of contents and returns its SQL as
@@ -259,14 +261,18 @@ func pgArchiveSQL(r io.Reader) (sql, unread string, err error) {
 	return b.String(), unread, nil
 }
 
+// ErrBadArchive is what CheckRestoreArchive returns for an archive komando
+// cannot read.
+var ErrBadArchive = errors.New("komando cannot read this pg_dump archive's table of contents")
+
 // CheckRestoreArchive checks a pg_dump custom archive as CheckRestore checks
 // a plain dump. An archive komando cannot read (another version, cut or
-// damaged) is named sql-opaque, so the approval says komando could not look
-// inside; the restore itself is pg_restore's to refuse.
+// damaged) is refused with ErrBadArchive: approving SQL nobody could look
+// at would leave the check to pg_restore.
 func CheckRestoreArchive(r io.Reader) (Verdict, error) {
 	sql, unread, err := pgArchiveSQL(r)
 	if err != nil {
-		return opaqueArchive(Verdict{}, "komando could not read the archive's contents ("+err.Error()+"), so it cannot say what it does"), nil
+		return Verdict{}, fmt.Errorf("%w: %v", ErrBadArchive, err)
 	}
 	v, err := CheckRestore("postgres", strings.NewReader(sql))
 	if err != nil || unread == "" {

@@ -472,10 +472,14 @@ Plain SQL that psql and mysql can also read:
   SQL in its table of contents (pg_dump 9.5 to 17 archives) and names what
   it does beyond writing data, as for plain SQL (`COPY ... PROGRAM`,
   `GRANT`, ...). The line numbers count in that SQL, as `pg_restore -f -`
-  prints it. An archive komando cannot read (another version, cut short)
-  is named "could not read the archive's contents" in the approval, and so
-  is one that keeps table data as SQL (`pg_dump --inserts`). A gzipped
-  archive (`.dump.gz`) is refused: unpack it first.
+  prints it. An archive komando cannot read (another version, cut short,
+  damaged) is refused (`BAD_FILE`). One that keeps table data as SQL
+  (`pg_dump --inserts`) is named in the approval as SQL komando did not
+  read. A gzipped archive (`.dump.gz`) is refused: unpack it first.
+- A pg_dump tar archive (`-Ft`) or directory archive (`-Fd`) is refused
+  (`USAGE`) with its format named: komando does not check those formats.
+  Dump again with `--format custom` (`pg_dump -Fc`) or as plain SQL
+  (`pg_dump -Fp`).
 - PostgreSQL restores run in one transaction: if anything fails, nothing
   changes. MySQL runs the statements in order and stops at the first error;
   what ran before it stays (`RESTORE_FAILED`).

@@ -1,7 +1,9 @@
 package driver
 
 import (
+	"bufio"
 	"bytes"
+	"errors"
 	"os"
 	"slices"
 	"strings"
@@ -31,13 +33,22 @@ func TestCheckRestoreArchive(t *testing.T) {
 		if err != nil || !slices.Contains(v.RuleIDs, "sql-program") {
 			t.Errorf("%s: COPY TO PROGRAM in an archive: %+v %v", f, v, err)
 		}
-		// a cut archive is not read as harmless
-		if v, err := CheckRestoreArchive(bytes.NewReader(b[:len(b)/3])); err == nil && !slices.Contains(v.RuleIDs, "sql-opaque") {
-			t.Errorf("%s: a cut archive: %+v", f, v)
+		// a cut archive is refused, not approved unread (C135)
+		if v, err := CheckRestoreArchive(bytes.NewReader(b[:len(b)/3])); !errors.Is(err, ErrBadArchive) {
+			t.Errorf("%s: a cut archive: %+v %v", f, v, err)
 		}
 	}
-	if v, err := CheckRestoreArchive(strings.NewReader("PGDMP\x09\x09\x09junk")); err == nil && !slices.Contains(v.RuleIDs, "sql-opaque") {
-		t.Errorf("an unknown version: %+v", v)
+	if v, err := CheckRestoreArchive(strings.NewReader("PGDMP\x09\x09\x09junk")); !errors.Is(err, ErrBadArchive) {
+		t.Errorf("an unknown version: %+v %v", v, err)
+	}
+}
+
+// C135: a string length near the cap with few bytes behind it fails on
+// the missing bytes without allocating the whole length first.
+func TestPGArchiveReadStrGrows(t *testing.T) {
+	a := &pgArchive{r: bufio.NewReader(strings.NewReader("\x00\x00\x00\x00\x04short")), intSize: 4}
+	if _, _, err := a.readStr(); err == nil {
+		t.Fatal("a 64 MiB length with 5 bytes behind it was read")
 	}
 }
 
