@@ -54,7 +54,7 @@ func TestMacAlertScript(t *testing.T) {
 		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
 		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel('Deny')", "setAccessibilityLabel('Allow once')",
 		"e.keyCode === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
-		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'", "return 'Deny'",
+		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
 		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)", "argv[2].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (r === ALLOW) return 'Allow once\\n' + owner(argv[3], argv[4]);",
@@ -295,5 +295,45 @@ func TestApprovalOptions(t *testing.T) {
 	prot := testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test (protected)"}, "komando exec web-1.example.test --yes -- id", "")
 	if strings.Contains(prot.details(), "Skips") {
 		t.Errorf("Skips with only --yes on a protected target:\n%s", prot.details())
+	}
+}
+
+// The panel prints "gave up" only when its 120 s timer fires; Deny, Esc,
+// Return, the close button and Cmd-W print "Deny"; Allow once goes to the
+// owner check. The button actions stop the modal through the app object
+// itself: in JXA $.NSApp is not the application (it reads as a nil
+// function), so calling it threw and the panel ended as "gave up".
+func TestMacPanelAnswers(t *testing.T) {
+	script := macAlertScript
+	for _, tc := range []struct{ name, want string }{
+		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(DENY); } }"},
+		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(ALLOW); } }"},
+		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { APP.stopModalWithCode(DENY); } }"},
+		{"close wired", "panel.delegate = answer"},
+		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
+		{"esc", "if (e.keyCode === 53) { app.stopModalWithCode(DENY); return null; }"},
+		{"cmd-w", "if (e.keyCode === 13 && (e.modifierFlags & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }"},
+		{"give-up timer", "timerWithTimeIntervalRepeatsBlock(120, false, function () { app.stopModalWithCode(GAVE_UP); })"},
+		{"gave up only from the timer", "if (r === GAVE_UP) return 'gave up';"},
+		{"allow goes to the owner check", "if (r === ALLOW) return 'Allow once\\n' + owner(argv[3], argv[4]);"},
+		{"anything else is Deny", "return 'Deny';\n}`"},
+	} {
+		if !strings.Contains(script+"`", tc.want) {
+			t.Errorf("%s: the script has no %q", tc.name, tc.want)
+		}
+	}
+	for _, bad := range []string{"$.NSApp.", "abortModal", "return 'gave up';\n}"} {
+		if strings.Contains(script+"`", bad) {
+			t.Errorf("the script has %q", bad)
+		}
+	}
+	// what each printed answer means: only Allow once with owner ok allows
+	for out, want := range map[string]macOutcome{
+		"Deny\n": macDenied, "gave up\n": macGaveUp,
+		"Allow once\nowner ok\n": macAllowed, "Allow once\nowner denied\n": macOwnerFailed,
+	} {
+		if got := macAnswer([]byte(out)); got != want {
+			t.Errorf("%q: %v, want %v", out, got, want)
+		}
 	}
 }

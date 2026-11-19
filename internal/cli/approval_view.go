@@ -142,8 +142,9 @@ func viewFor(cl *call, text string) approvalView {
 // argv[1] as the bold first label, argv[2] under it, one label per group
 // (groups are split by a blank line, 12 pt apart), 440 pt wide with 20 pt
 // padding, then the buttons on the right. Every text arrives in argv after
-// macArgMarker, never in the script. Deny is the default (Return) and Esc
-// and has the first focus; after 120 seconds it closes as "gave up". After
+// macArgMarker, never in the script. Deny is the default (Return), Esc,
+// the close button and Cmd-W, and has the first focus; only the 120 s
+// timer prints "gave up", and any other end is a Deny. After
 // "Allow once" the same run asks LocalAuthentication for the device owner
 // (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
 // as the reason, waiting at most argv[4] seconds of its own; it prints
@@ -162,12 +163,14 @@ function owner(reason, secs) {
   if (res === null) { ctx.invalidate; return 'owner timeout'; }
   return res;
 }
-var DENY = 1000, ALLOW = 1001;
+// $.NSApp is not the application in JXA: the actions use APP, set in run
+var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
-    'deny:': { types: ['void', ['id']], implementation: function (s) { $.NSApp.stopModalWithCode(DENY); } },
-    'allow:': { types: ['void', ['id']], implementation: function (s) { $.NSApp.stopModalWithCode(ALLOW); } }
+    'deny:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(DENY); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(ALLOW); } },
+    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { APP.stopModalWithCode(DENY); } }
   }
 });
 function label(text, font, w) {
@@ -179,6 +182,7 @@ function label(text, font, w) {
 }
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
+  APP = app;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
   var w = 440, pad = 20, gap = 12, fs = $.NSFont.systemFontSize;
   var parts = [label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)];
@@ -194,8 +198,9 @@ function run(argv) {
   var h = pad + bh + pad;
   parts.forEach(function (p, i) { h += p.h + (i ? gap : 0); });
   h += pad;
-  var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled, $.NSBackingStoreBuffered, false);
+  var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
   panel.title = 'komando needs your OK';
+  panel.delegate = answer;
   var view = panel.contentView, y = h - pad;
   parts.forEach(function (p, i) {
     if (i) y -= gap;
@@ -214,19 +219,21 @@ function run(argv) {
   panel.center;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
     if (e.keyCode === 53) { app.stopModalWithCode(DENY); return null; }
+    if (e.keyCode === 13 && (e.modifierFlags & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }
     return e;
   });
-  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { app.abortModal; });
+  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { app.stopModalWithCode(GAVE_UP); });
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
   panel.makeKeyAndOrderFront(null);
   var r = app.runModalForWindow(panel);
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
+  panel.delegate = null;
   panel.orderOut(null);
   if (r === ALLOW) return 'Allow once\n' + owner(argv[3], argv[4]);
-  if (r === DENY) return 'Deny';
-  return 'gave up';
+  if (r === GAVE_UP) return 'gave up';
+  return 'Deny';
 }`
 
 // macArgMarker is the first argument after every osascript script, so a
