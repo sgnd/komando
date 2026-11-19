@@ -165,12 +165,15 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 			maskCopy(cl, &mu, w, r)
 		}()
 	}
+	started, stop := forwardSignals()
 	err := c.Start()
 	if err == nil {
-		stop := forwardSignals(c.Process)
+		forget := runningPrograms.add(c.Process)
+		started <- c.Process
 		err = c.Wait()
-		stop()
+		forget()
 	}
+	stop()
 	stdoutW.Close()
 	stderrW.Close()
 	wg.Wait()
@@ -190,30 +193,49 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 	return nil
 }
 
-// forwardSignals passes the Ctrl-C or SIGTERM komando gets on to the
-// program until stop, so it does not run on with the secrets after komando
-// is stopped. Windows cannot send it a Ctrl-C, so there it ends it.
-func forwardSignals(p *os.Process) (stop func()) {
+// forwardSignals passes a SIGTERM or SIGHUP komando gets on to the
+// program, so it does not run on with the secrets after komando is
+// stopped. A Ctrl-C at the terminal already reaches the program itself (it
+// is in the same process group); sending it again would count as a second
+// Ctrl-C, which many programs (terraform) take as "stop now". Signals are
+// caught from before the start, and passed on once the program runs.
+// Windows cannot pass a signal on, so there the program is ended.
+func forwardSignals() (started chan<- *os.Process, stop func()) {
 	ch := make(chan os.Signal, 2)
-	signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(ch, forwardedSignals...)
+	start := make(chan *os.Process, 1)
 	done := make(chan struct{})
 	go func() {
+		var p *os.Process
+		var held []os.Signal
 		for {
 			select {
+			case p = <-start:
+				for _, s := range held {
+					passSignal(p, s)
+				}
 			case s := <-ch:
-				if runtime.GOOS == "windows" {
-					p.Kill()
+				if p == nil {
+					held = append(held, s)
 				} else {
-					p.Signal(s)
+					passSignal(p, s)
 				}
 			case <-done:
 				return
 			}
 		}
 	}()
-	return func() {
+	return start, func() {
 		signal.Stop(ch)
 		close(done)
+	}
+}
+
+func passSignal(p *os.Process, s os.Signal) {
+	if runtime.GOOS == "windows" {
+		p.Kill()
+	} else {
+		p.Signal(s)
 	}
 }
 
@@ -230,6 +252,9 @@ func argHasRef(a string) bool {
 			p = p[:i+3]
 		} else {
 			p = p[:strings.IndexByte(p, ':')+1]
+		}
+		if p == "file:" && strings.Contains(a, "file://") {
+			continue // a file:// URL, not a reference
 		}
 		if strings.HasPrefix(a, p) || strings.Contains(a, "="+p) {
 			return true
@@ -294,7 +319,7 @@ func agentBaseEnv(cl *call, env []string) ([]string, func()) {
 			name = after // DOMAIN\name on Windows
 		}
 		home := u.HomeDir
-		if runtime.GOOS == "linux" && !inPasswd(passwdPath, u.Uid) {
+		if runtime.GOOS == "linux" && home == os.Getenv("HOME") && !inPasswd(passwdPath, u.Uid) {
 			home, cleanup = freshHome(cl)
 		}
 		kept = append(kept, "HOME="+home, "USER="+name, "LOGNAME="+name)
@@ -335,6 +360,7 @@ func inPasswd(path, uid string) bool {
 func freshHome(cl *call) (string, func()) {
 	dir, err := os.MkdirTemp("", "komando-home-")
 	if err != nil {
+		fmt.Fprintf(cl.out.Stderr(), "komando: your account is not in %s and no empty HOME could be made (%v), so the program gets HOME=%s\n", passwdPath, err, os.DevNull)
 		return os.DevNull, func() {}
 	}
 	forget := tmpclean.Add(dir)
@@ -406,4 +432,37 @@ func maskCopy(cl *call, mu *sync.Mutex, w io.Writer, r io.Reader) {
 		}
 	}
 	show(lb.flush())
+}
+
+// runningPrograms are the programs secret run started that still run. A second
+// Ctrl-C ends komando at once (hardStop); it ends these first, so none
+// runs on with the secrets, unmasked, in a HOME komando removes.
+var runningPrograms procSet
+
+type procSet struct {
+	mu    sync.Mutex
+	procs map[*os.Process]bool
+}
+
+func (s *procSet) add(p *os.Process) (forget func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.procs == nil {
+		s.procs = map[*os.Process]bool{}
+	}
+	s.procs[p] = true
+	return func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		delete(s.procs, p)
+	}
+}
+
+// killAll ends every running program (SIGKILL: it cannot be caught).
+func (s *procSet) killAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for p := range s.procs {
+		p.Kill()
+	}
 }

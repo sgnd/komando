@@ -14,8 +14,9 @@ its highlights; the sections below them give the details. Versions follow
   line. Its output is masked and komando exits with its exit code. An AI
   agent needs a person's yes for every secret, and may not set variables
   that make the program load other code (`LD_PRELOAD`, `NODE_OPTIONS`, ...).
-  Ctrl-C and `SIGTERM` go on to the program, and a program ended by signal
-  N makes komando exit 128+N on Linux and macOS.
+  `SIGTERM` and `SIGHUP` go on to the program, a second Ctrl-C ends it
+  with komando, and a program ended by signal N makes komando exit 128+N
+  on Linux and macOS.
 
 ### Security
 

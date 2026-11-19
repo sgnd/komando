@@ -101,8 +101,10 @@ values that unlock the vault.
 - komando exits with the program's exit code. On Linux and macOS, a
   program ended by signal N makes komando exit 128+N (143 for `SIGTERM`),
   as a shell does.
-- Ctrl-C or `SIGTERM` to komando goes on to the program, so it does not run
-  on with the secrets. On Windows komando ends the program.
+- `SIGTERM` or `SIGHUP` to komando goes on to the program, so it does not
+  run on with the secrets. Ctrl-C at the terminal reaches the program by
+  itself, once. A second Ctrl-C ends komando at once and ends the program
+  first. On Windows komando ends the program.
 - Output lines longer than 256 KiB are cut, but never inside a hidden
   value.
 - The audit log records the program's path, the variable names and the

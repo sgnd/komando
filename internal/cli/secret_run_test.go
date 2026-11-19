@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"runtime"
@@ -256,5 +257,34 @@ func TestRunDryRunAsksNobody(t *testing.T) {
 	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=secret:tok", "--yes"}, childArgs()...)...)
 	if len(*texts) != 0 || d["dry_run"] != true {
 		t.Errorf("a dry run opened the window: %q %v", *texts, d)
+	}
+}
+
+func TestRunSecondStopEndsProgram(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no sleep program")
+	}
+	c := exec.Command("sleep", "30")
+	if err := c.Start(); err != nil {
+		t.Skip(err)
+	}
+	forget := runningPrograms.add(c.Process)
+	defer forget()
+	runningPrograms.killAll()
+	done := make(chan error, 1)
+	go func() { done <- c.Wait() }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the program still runs after killAll")
+	}
+}
+
+func TestRunCtrlCNotSentTwice(t *testing.T) {
+	if runtime.GOOS != "windows" && slices.Contains(forwardedSignals, os.Interrupt) {
+		t.Error("Ctrl-C reaches the program from the terminal; forwarding it makes a second one")
+	}
+	if argHasRef("file:///tmp/plan.json") || !argHasRef("--password=env:PW") || !argHasRef("file:token") {
+		t.Error("argHasRef")
 	}
 }
