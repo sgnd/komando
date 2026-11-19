@@ -1,6 +1,7 @@
-# Screenshots of the approval window on macOS and Windows, to compare a
-# change before and after. Runs on a pull request that touches the window,
-# or by hand ("Run workflow", on any branch).
+# Screenshots of the approval window on macOS and Windows, one per case
+# (shotCases in internal/cli/approval_shot_test.go), to compare a change
+# before and after: run it by hand with prefix "before" on the old code and
+# "after" on the new. Also runs on a pull request that touches the window.
 name: Approval window
 
 on:
@@ -9,21 +10,36 @@ on:
       - "internal/cli/approval*.go"
       - ".github/workflows/approval-window.yml"
   workflow_dispatch:
+    inputs:
+      prefix:
+        description: "PNG name prefix: before (old window) or after (new window)"
+        type: choice
+        options: [after, before]
+        default: after
 
 permissions:
   contents: read
 
 jobs:
   shot:
-    name: Approval window (${{ matrix.os }})
+    name: Approval window (${{ matrix.os }}, ${{ matrix.case }}, ${{ matrix.mode }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
+        # keep in step with shotCases
+        case: [short, script, sudo, hosts, destructive, db-query, indonesian]
+        mode: [light, dark]
+        exclude:
+          - os: windows-latest
+            mode: dark
     env:
       KOMANDO_WINDOW_SHOT: "1"
+      KOMANDO_SHOT_CASE: ${{ matrix.case }}
+      # a pull request has no inputs: its shots are "after"
+      SHOT_PNG: ${{ inputs.prefix || 'after' }}-${{ matrix.case }}-${{ matrix.mode }}.png
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -81,41 +97,32 @@ jobs:
           echo "no window owned by osascript or komando within 10 s" >&2
           exit 1
           SH
-      # before: main's old AppleScript dialog (internal/cli/approval.go,
-      # askOnScreen), with the same sample text and 20 s instead of 120
-      - name: Before, the old dialog (macOS)
-        if: runner.os == 'macOS'
-        shell: bash
-        env:
-          KOMANDO_SHOT_TEXT: ${{ runner.temp }}/shot.txt
-        run: |
-          bash "$RUNNER_TEMP/asgui.sh" KOMANDO_SHOT_TEXT="$KOMANDO_SHOT_TEXT" ./shot.test -test.run '^TestApprovalWindowShotText$' -test.v
-          bash "$RUNNER_TEMP/asgui.sh" osascript -e 'on run argv
-          set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 20 with icon caution
-          if gave up of r then return "gave up"
-          return button returned of r
-          end run' "$(cat "$KOMANDO_SHOT_TEXT")" >"$RUNNER_TEMP/before.out" 2>"$RUNNER_TEMP/before.err" &
-          pid=$!
-          shot=0
-          bash "$RUNNER_TEMP/shot.sh" before-macos.png || shot=$?
-          code=0; wait "$pid" || code=$?
-          echo "osascript exit $code, stdout: $(cat "$RUNNER_TEMP/before.out")"
-          echo "osascript stderr:"; cat "$RUNNER_TEMP/before.err"
-          exit "$shot"
-      - name: After, the new window (macOS)
+      # System Events switches the running session (a defaults write alone
+      # does not reach it); the step fails when dark was asked but is not on
+      - name: Appearance (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          bash "$RUNNER_TEMP/asgui.sh" ./shot.test -test.run '^TestApprovalWindowShot$' -test.v >"$RUNNER_TEMP/after.out" 2>&1 &
+          dark=false; [ "${{ matrix.mode }}" = dark ] && dark=true
+          bash "$RUNNER_TEMP/asgui.sh" osascript -e "tell application \"System Events\" to tell appearance preferences to set dark mode to $dark"
+          style=$(bash "$RUNNER_TEMP/asgui.sh" defaults read -g AppleInterfaceStyle 2>/dev/null || true)
+          echo "AppleInterfaceStyle: ${style:-(none, light)}"
+          if [ "$dark" = true ] && [ "$style" != Dark ]; then echo "dark mode was asked but is not on" >&2; exit 1; fi
+          if [ "$dark" = false ] && [ -n "$style" ]; then echo "light mode was asked but $style is on" >&2; exit 1; fi
+      - name: The window (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          bash "$RUNNER_TEMP/asgui.sh" KOMANDO_SHOT_CASE="$KOMANDO_SHOT_CASE" ./shot.test -test.run '^TestApprovalWindowShot$' -test.v >"$RUNNER_TEMP/after.out" 2>&1 &
           pid=$!
           shot=0
-          bash "$RUNNER_TEMP/shot.sh" after-macos.png || shot=$?
+          bash "$RUNNER_TEMP/shot.sh" "$SHOT_PNG" || shot=$?
           code=0; wait "$pid" || code=$?
           echo "helper exit $code, output (osascript's exit and stderr included):"; cat "$RUNNER_TEMP/after.out"
           [ "$shot" = 0 ] && [ "$code" = 0 ]
       # Windows: the window by its class (komandoApproval, an EnumWindows walk), brought to the
       # front, and only its rectangle captured; fails when it is not there
-      - name: After, the new window (Windows)
+      - name: The window (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -178,17 +185,14 @@ jobs:
           $bmp = New-Object System.Drawing.Bitmap ($r.Right - $r.Left), ($r.Bottom - $r.Top)
           $g = [System.Drawing.Graphics]::FromImage($bmp)
           $g.CopyFromScreen($r.Left, $r.Top, 0, 0, $bmp.Size)
-          $bmp.Save("$PWD\after-windows.png")
+          $bmp.Save("$PWD\$env:SHOT_PNG")
           $p.WaitForExit()
           if ($p.ExitCode -ne 0) { exit $p.ExitCode }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: approval-window-${{ runner.os }}
-          path: |
-            before-macos.png
-            after-macos.png
-            after-windows.png
+          name: approval-window-${{ runner.os }}-${{ inputs.prefix || 'after' }}-${{ matrix.case }}-${{ matrix.mode }}
+          path: ${{ env.SHOT_PNG }}
           if-no-files-found: warn
       - name: Note in the job summary
         if: failure()

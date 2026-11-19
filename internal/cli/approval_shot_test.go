@@ -21,7 +21,7 @@ func TestApprovalWindowShot(t *testing.T) {
 	windowGiveUp, macWindowTimeout = 20*time.Second, 20*time.Second
 	t.Cleanup(func() { windowGiveUp, macWindowTimeout = savedGive, savedMac })
 
-	v := shotView()
+	v := shotCaseView(t)
 	var allowed bool
 	switch runtime.GOOS {
 	case "darwin":
@@ -64,20 +64,75 @@ func shotRunner(t *testing.T) {
 	}
 }
 
-// TestApprovalWindowShotText writes the sample's text to
-// KOMANDO_SHOT_TEXT, for the "before" picture drawn by the old dialog.
-func TestApprovalWindowShotText(t *testing.T) {
-	shotRunner(t)
-	if err := os.WriteFile(os.Getenv("KOMANDO_SHOT_TEXT"), []byte(shotView().text()), 0o600); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// shotView is the screenshots' sample: example hosts, a made-up script.
+// shotView is the 4-line script sample the window golden and the box
+// scroll test share: example hosts, a made-up script.
 func shotView() approvalView {
 	return testView("Claude Code", []string{"--allow-dangerous", "--yes"}, "",
-		[]string{"it runs on web-1.example.test (protected)", protWhy([]string{"web-1.example.test"}), "[R-7] rm -rf deletes files"},
+		[]string{"it runs on web-1.example.test (protected)", protWhy([]string{"web-1.example.test"}), "[rm-system-dir] deletes a system folder recursively"},
 		"komando exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes",
 		"It also sends the script ./deploy.sh (98 bytes, 4 lines, SHA-256 9f2c), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n"+
 			"  3  systemctl stop app && rm -rf /srv/app/cache && tar -xzf /tmp/release.tgz -C /srv/app && systemctl start app\n  4  echo done\n")
+}
+
+// shotCase is one screenshot case: its name goes in KOMANDO_SHOT_CASE
+// and in the PNG's name, so it stays lowercase with hyphens.
+type shotCase struct {
+	name string
+	view func() approvalView
+}
+
+// shotCases are the windows approval-window.yml captures, one per case.
+// Keep the names in step with the workflow's matrix.
+var shotCases = []shotCase{
+	{"short", func() approvalView {
+		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
+			"komando exec web-1.example.test --yes -- systemctl restart app", "")
+	}},
+	{"script", func() approvalView {
+		var body strings.Builder
+		body.WriteString("It also sends the script ./migrate.sh (1210 bytes, 24 lines, SHA-256 4be1), all of it:\n\n")
+		lines := []string{"#!/bin/sh", "set -eu", "cat > /etc/app/release.env <<'EOF'", "APP_PORT=8080", "APP_MODE=production", "EOF",
+			"systemctl stop app", "cd /srv/app", "tar -xzf /tmp/release.tgz", "for f in migrations/*.sql; do", "  psql -d app -f \"$f\"", "done",
+			"chown -R deploy:deploy /srv/app", "systemctl start app", "for i in 1 2 3 4 5; do", "  curl -fsS http://127.0.0.1:8080/health && break",
+			"  sleep 2", "done", "journalctl -u app -n 20 --no-pager", "rm -f /tmp/release.tgz", "echo migrated", "date -u", "uptime", "exit 0"}
+		for i, l := range lines {
+			fmt.Fprintf(&body, "  %2d  %s\n", i+1, l)
+		}
+		return testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
+			"komando exec web-1.example.test --script ./migrate.sh --yes", body.String())
+	}},
+	{"sudo", func() approvalView {
+		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test", "sudo runs the command as root"},
+			"komando exec web-1.example.test --sudo --yes -- apt-get install -y nginx", "")
+	}},
+	{"hosts", func() approvalView {
+		hosts := []string{"web-1.example.test", "web-2.example.test", "db-2.example.test", "203.0.113.10"}
+		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on " + strings.Join(hosts, ", "), protWhy(hosts[2:3])},
+			"komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx", "")
+	}},
+	{"destructive", func() approvalView {
+		return testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on db-2.example.test (protected)", protWhy([]string{"db-2.example.test"}),
+			"[rm-system-dir,db-drop] deletes a system folder recursively; drops a database"},
+			"komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql -d app -c 'DROP DATABASE app'", "")
+	}},
+	{"db-query", func() approvalView {
+		return testView("Claude Code", []string{"--allow-dangerous"}, "", []string{"it runs on db-2.example.test", "--write lets the query change data"},
+			"komando db query db-2.example.test --write --allow-dangerous -- \"UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'\"", "")
+	}},
+	{"indonesian", func() approvalView {
+		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test", "pengguna minta: hapus cache lama sebelum rilis"},
+			"komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama", "")
+	}},
+}
+
+// shotCaseView is the case KOMANDO_SHOT_CASE names; it fails on an unknown name.
+func shotCaseView(t *testing.T) approvalView {
+	name := os.Getenv("KOMANDO_SHOT_CASE")
+	for _, c := range shotCases {
+		if c.name == name {
+			return c.view()
+		}
+	}
+	t.Fatalf("KOMANDO_SHOT_CASE=%q: not a screenshot case", name)
+	return approvalView{}
 }
