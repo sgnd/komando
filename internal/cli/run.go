@@ -31,7 +31,8 @@ directly, without a shell, with your environment minus komando's own
 KOMANDO_* variables and the values that unlock the vault. For an AI agent
 with secrets, variables that make a program load other code (LD_PRELOAD,
 DYLD_*, NODE_OPTIONS, PYTHON*, BASH_ENV and the like) are refused in --env
-and dropped from the environment.
+and the program gets only HOME, USER, LANG, LC_*, TERM, TMPDIR, TZ, a
+system PATH and its --env values.
 
 The program's output goes through komando's masking: a vault value it
 prints shows as [secret:NAME]. komando exits with the program's exit code.
@@ -93,7 +94,7 @@ func runLocal(cl *call, pairs, args []string) error {
 	rec := map[string]any{"program": prog, "env": keys, "secrets": refs}
 	shown := strings.Join(append([]string{prog}, args[1:]...), " ")
 
-	if err := runGuard(cl, st, refs, prog, plainKeys(env)); err != nil {
+	if err := runGuard(cl, st, refs, prog, plainPairs(env)); err != nil {
 		if !cl.flags.dryRun {
 			audit(cl, st, "secret run", nil, shown, false, withBlocked(rec, err))
 		}
@@ -130,12 +131,14 @@ func runLocal(cl *call, pairs, args []string) error {
 	c.Args[0] = args[0]
 	base := withoutKomandoEnv(cl.environ(), keys)
 	if agentSecrets {
-		base = slices.DeleteFunc(base, func(kv string) bool {
-			k, _, _ := strings.Cut(kv, "=")
-			return loadsCode(k)
-		})
+		base = agentBaseEnv(base)
 	}
 	c.Env = append(base, vals...)
+	done, err := pinProgram(c, before)
+	if err != nil {
+		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "run it again", "%s changed after komando checked it; it did not run", prog)
+	}
+	defer done()
 	c.Stdin = cl.stdin
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -190,21 +193,41 @@ func runGuard(cl *call, st *store.State, refs []string, prog string, plain []str
 		where += " (a program any program of yours can replace)"
 	}
 	if len(plain) > 0 {
-		where += ", with " + strings.Join(plain, ", ") + " also set"
+		where += ", with " + strings.Join(plain, " ") + " also set"
 	}
 	return guardSecretUse(cl, refs, where)
 }
 
-// plainKeys are the --env keys whose value is not a secret reference; the
-// approval window names them, since they shape what the program does.
-func plainKeys(env map[string]string) []string {
-	var keys []string
+// plainPairs are the --env pairs whose value is not a secret reference, as
+// KEY=VALUE; the approval window shows them, since they shape what the
+// program does.
+func plainPairs(env map[string]string) []string {
+	var pairs []string
 	for _, k := range slices.Sorted(maps.Keys(env)) {
 		if !strings.HasPrefix(env[k], "secret:") {
-			keys = append(keys, k)
+			pairs = append(pairs, k+"="+env[k])
 		}
 	}
-	return keys
+	return pairs
+}
+
+// agentKeep are the variables an AI agent's run with secrets keeps from the
+// environment. Anything else (a pager, an editor, an askpass helper, a
+// proxy, a startup file) could hand the values to a program the agent
+// chose, so the program gets only these, its --env values, and a fixed
+// system PATH.
+var agentKeep = []string{"HOME", "USER", "LOGNAME", "LANG", "TERM", "TMPDIR", "TZ",
+	"SYSTEMROOT", "WINDIR", "USERPROFILE", "TEMP", "TMP"}
+
+func agentBaseEnv(env []string) []string {
+	kept := []string{"PATH=" + systemPath}
+	for _, kv := range env {
+		k, _, _ := strings.Cut(kv, "=")
+		if slices.Contains(agentKeep, strings.ToUpper(k)) || strings.HasPrefix(k, "LC_") {
+			kept = append(kept, kv)
+		}
+	}
+	return kept
 }
 
 // loadsCode reports whether an environment variable makes a program, its

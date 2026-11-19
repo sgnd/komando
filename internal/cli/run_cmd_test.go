@@ -19,7 +19,7 @@ func TestRunChild(t *testing.T) {
 	if os.Getenv("RUN_CHILD") != "1" {
 		t.Skip("helper for the run tests")
 	}
-	fmt.Printf("TOKEN=%s\nPLAIN=%s\n", os.Getenv("TOKEN"), os.Getenv("PLAIN"))
+	fmt.Printf("TOKEN=%s\nPLAIN=%s\nPAGER=%s\nPATH=%s\n", os.Getenv("TOKEN"), os.Getenv("PLAIN"), os.Getenv("PAGER"), os.Getenv("PATH"))
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "KOMANDO_") {
 			fmt.Println("leaked " + kv)
@@ -148,5 +148,32 @@ func TestRunWindowNamesPlainKeys(t *testing.T) {
 	}
 	if len(*texts) != 1 || !strings.Contains((*texts)[0], "REGION") {
 		t.Errorf("window: %q", *texts)
+	}
+}
+
+func TestRunAgentEnvAllowlist(t *testing.T) {
+	runHome(t)
+	setCallerEnv(t, "CLAUDECODE", "1")
+	t.Setenv("PAGER", "/tmp/agent-pager")
+	t.Setenv("PATH", "/tmp/agent-bin:"+os.Getenv("PATH"))
+	texts := windowText(t, true)
+	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "RUN_CHILD=1", "-e", "TOKEN=secret:tok", "--yes"}, childArgs()...)...)
+	if exit != 0 {
+		t.Fatalf("exit %d %q", exit, text)
+	}
+	if strings.Contains(text, "agent-pager") || strings.Contains(text, "agent-bin") || !strings.Contains(text, "PATH="+systemPath) {
+		t.Errorf("the agent's environment reached the program: %q", text)
+	}
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "RUN_CHILD=1") {
+		t.Errorf("window does not show the plain value: %q", *texts)
+	}
+}
+
+func TestRunPersonKeepsEnv(t *testing.T) {
+	runHome(t)
+	t.Setenv("PAGER", "/tmp/my-pager")
+	text, exit, _ := runOut(t, append([]string{"secret", "run", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
+	if exit != 0 || !strings.Contains(text, "PAGER=/tmp/my-pager") {
+		t.Errorf("exit %d %q", exit, text)
 	}
 }
