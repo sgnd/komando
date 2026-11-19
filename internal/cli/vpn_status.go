@@ -82,7 +82,8 @@ func vpnStatusRows(st *store.State) []vpnStatusRow {
 			r.Up, r.Since, r.LastUsed, r.Socks = true, s.StartedAt, s.LastUsed, s.Socks
 			r.Detail = "session running"
 			if v.Kind == "wireguard" {
-				wgHealth(&r, readHandshake(cmp.Or(s.SharedWith, v.Name)), s.StartedAt, vpnNow())
+				hf, _ := readHandshake(cmp.Or(s.SharedWith, v.Name))
+				wgHealth(&r, hf, s.StartedAt, vpnNow())
 			}
 		} else if v.Kind == "socks" || v.Kind == "proxy" || v.Kind == "system" {
 			rows[i] = r // before the check fills it, not after (a lost answer read "no")

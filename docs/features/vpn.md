@@ -142,8 +142,10 @@ How long a VPN stays up depends on its kind:
   reuses the running session when it belongs to the same home and
   answers (`shared_with` names the VPN it shares); otherwise it stops with
   `VPN_KEY_IN_USE`, which names the other process and its home. A lock
-  whose process has ended is taken over. `vpn down` on either VPN stops
-  the shared session.
+  whose process has ended is taken over. `vpn down` on one of them
+  removes only its own entry: the session keeps running for the others,
+  and the last one's `vpn down` stops it. The answer and its `--dry-run`
+  say which.
 - **SOCKS, HTTP proxy and `system`** VPNs are already running; komando
   only uses them.
 
@@ -207,10 +209,13 @@ komando vpn edit tag:prod --protected         # mark VPNs protected (like host e
   `--check` address answers. WireGuard connects for each command, unless
   you ran `komando vpn up` for it: then it stays up like a session, and
   `vpn status` shows how long ago its last WireGuard handshake was
-  (`last_handshake_at`, `handshake_age_seconds`). With no handshake for 3
-  minutes, it says the tunnel looks dead (`tunnel_dead: true`). A tunnel
-  without `PersistentKeepalive` that nothing used for a while also stops
-  handshaking, so check it with `komando vpn test NAME`.
+  (`last_handshake_at`, `handshake_age_seconds`) and the tunnel's state
+  (`tunnel_state`): `up`; `idle` when there was no handshake for 3
+  minutes but nothing was sent either (WireGuard does not handshake on an
+  unused tunnel); `dead` (also `tunnel_dead: true`) when there was no
+  handshake for 3 minutes although something was sent or a
+  `PersistentKeepalive` is set. Check a dead one with
+  `komando vpn test NAME`.
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its answer lists the
   VPNs it removed (`removed`, always a list); `--dry-run` lists them as

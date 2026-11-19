@@ -224,29 +224,47 @@ type wgCloser struct{ dev *device.Device }
 
 func (w wgCloser) Close() error { w.dev.Close(); return nil }
 
-// LastHandshake is the newest handshake with any peer; zero before the first.
-func (w wgCloser) LastHandshake() time.Time {
-	conf, err := w.dev.IpcGet()
-	if err != nil {
-		return time.Time{}
-	}
-	return lastHandshake(conf)
+// WGStats is what a WireGuard device reports about its peers: the newest
+// handshake (zero before the first), the bytes sent to all peers, and the
+// longest PersistentKeepalive in seconds (0 when none is set).
+type WGStats struct {
+	LastHandshake time.Time
+	TxBytes       uint64
+	Keepalive     int
 }
 
-// lastHandshake reads the newest last_handshake_time_sec of a UAPI dump.
-func lastHandshake(uapi string) time.Time {
+// Stats reads the device's WGStats.
+func (w wgCloser) Stats() (WGStats, error) {
+	conf, err := w.dev.IpcGet()
+	if err != nil {
+		return WGStats{}, err
+	}
+	return parseWGStats(conf), nil
+}
+
+// parseWGStats reads WGStats from a UAPI dump.
+func parseWGStats(uapi string) WGStats {
+	var st WGStats
 	var newest int64
 	for _, line := range strings.Split(uapi, "\n") {
-		if v, ok := strings.CutPrefix(line, "last_handshake_time_sec="); ok {
-			if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > newest {
-				newest = n
-			}
+		k, v, _ := strings.Cut(line, "=")
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			continue
+		}
+		switch k {
+		case "last_handshake_time_sec":
+			newest = max(newest, n)
+		case "tx_bytes":
+			st.TxBytes += uint64(max(n, 0))
+		case "persistent_keepalive_interval":
+			st.Keepalive = max(st.Keepalive, int(n))
 		}
 	}
-	if newest == 0 {
-		return time.Time{}
+	if newest > 0 {
+		st.LastHandshake = time.Unix(newest, 0)
 	}
-	return time.Unix(newest, 0)
+	return st
 }
 
 // StartWG brings up a userspace WireGuard device for c and returns a

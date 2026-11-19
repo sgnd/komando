@@ -1,10 +1,15 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"net"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -124,23 +129,149 @@ func TestWGKeyFree(t *testing.T) {
 func TestWGHealth(t *testing.T) {
 	now := time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)
 	since := now.Add(-time.Hour)
+	at := func(d time.Duration) int64 { return now.Add(-d).Unix() }
 	for _, c := range []struct {
-		last   time.Time
+		f      wgHealthFile
 		since  time.Time
-		dead   bool
+		state  string
 		age    int64
 		detail string
 	}{
-		{now.Add(-40 * time.Second), since, false, 40, "last WireGuard handshake 40s ago"},
-		{now.Add(-5 * time.Minute), since, true, 300, "last WireGuard handshake 5m ago: the tunnel looks dead"},
-		{time.Time{}, now.Add(-time.Minute), false, 0, "session running, no WireGuard handshake yet"},
-		{time.Time{}, since, true, 0, "no WireGuard handshake in the 1h since it started: the tunnel looks dead"},
+		{wgHealthFile{HandshakeAt: at(40 * time.Second), TxSince: 99}, since, "up", 40, "last WireGuard handshake 40s ago"},
+		{wgHealthFile{HandshakeAt: at(5 * time.Minute), TxSince: 120}, since, "dead", 300, "last WireGuard handshake 5m ago: the tunnel looks dead"},
+		{wgHealthFile{HandshakeAt: at(5 * time.Minute), Keepalive: 25}, since, "dead", 300, "last WireGuard handshake 5m ago: the tunnel looks dead"},
+		{wgHealthFile{HandshakeAt: at(5 * time.Minute)}, since, "idle", 300, "last WireGuard handshake 5m ago: idle, nothing sent since"},
+		{wgHealthFile{}, now.Add(-time.Minute), "up", 0, "session running, no WireGuard handshake yet"},
+		{wgHealthFile{TxSince: 300}, since, "dead", 0, "no WireGuard handshake in the 1h since it started: the tunnel looks dead"},
+		{wgHealthFile{}, since, "idle", 0, "idle: nothing used it since it started, so no WireGuard handshake yet"},
 	} {
 		var r vpnStatusRow
-		wgHealth(&r, c.last, c.since, now)
-		if r.TunnelDead != c.dead || r.HandshakeAge != c.age || r.Detail != c.detail {
-			t.Errorf("last %v: got dead=%v age=%d %q", c.last, r.TunnelDead, r.HandshakeAge, r.Detail)
+		wgHealth(&r, c.f, c.since, now)
+		if r.TunnelState != c.state || r.TunnelDead != (c.state == "dead") || r.HandshakeAge != c.age || r.Detail != c.detail {
+			t.Errorf("%+v: got %s dead=%v age=%d %q", c.f, r.TunnelState, r.TunnelDead, r.HandshakeAge, r.Detail)
 		}
+	}
+}
+
+// The writer counts bytes sent since the last handshake, writes only on a
+// change, and leaves no temporary file.
+func TestWGHealthWriter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "office.handshake")
+	var hw wgHealthWriter
+	var log strings.Builder
+	h1 := time.Unix(1700000000, 0)
+	hw.write(path, netx.WGStats{LastHandshake: h1, TxBytes: 1000, Keepalive: 25}, &log)
+	hw.write(path, netx.WGStats{LastHandshake: h1, TxBytes: 1300, Keepalive: 25}, &log)
+	var f wgHealthFile
+	b, _ := os.ReadFile(path)
+	if err := json.Unmarshal(b, &f); err != nil || f.HandshakeAt != h1.Unix() || f.TxSince != 300 || f.Keepalive != 25 {
+		t.Fatalf("file = %s (%v)", b, err)
+	}
+	hw.write(path, netx.WGStats{LastHandshake: h1.Add(2 * time.Minute), TxBytes: 1400}, &log)
+	b, _ = os.ReadFile(path)
+	if json.Unmarshal(b, &f); f.TxSince != 0 {
+		t.Fatalf("after a new handshake: %s", b)
+	}
+	if _, err := os.Stat(path + ".tmp"); !os.IsNotExist(err) {
+		t.Fatal("temporary file left")
+	}
+	bad := filepath.Join(t.TempDir(), "missing", "x.handshake")
+	var hw2 wgHealthWriter
+	hw2.write(bad, netx.WGStats{TxBytes: 1}, &log)
+	hw2.write(bad, netx.WGStats{TxBytes: 2}, &log)
+	if n := strings.Count(log.String(), "cannot write"); n != 1 {
+		t.Fatalf("logged %d times: %s", n, log.String())
+	}
+}
+
+// vpn down on one of two VPNs sharing a session removes only its entry
+// and leaves the process running for the other; the last one's stops it.
+// The dry run says which.
+func TestVpnDownSharedSession(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses sleep(1) as the session process")
+	}
+	wgKeyHome(t, "office")
+	proc := exec.Command("sleep", "60")
+	if err := proc.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = proc.Process.Kill(); _ = proc.Wait() })
+	now := time.Now().UTC()
+	pid := proc.Process.Pid
+	start, err := netx.RecordStart(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpdateRuntime(store.Save(), func(st *store.State) error {
+		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: pid, ProcStart: start, Socks: "127.0.0.1:1", StartedAt: now, LastUsed: now}
+		st.Sessions["office-2"] = &store.VpnSession{Vpn: "office-2", PID: pid, ProcStart: start, Socks: "127.0.0.1:1", SharedWith: "office", StartedAt: now, LastUsed: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	run := func(args ...string) string {
+		tcl.flags.dryRun, tcl.flags.yes = false, false
+		root := newRoot(tcl)
+		t.Cleanup(endCommand)
+		root.SetArgs(append([]string{"-o", "json"}, args...))
+		var buf bytes.Buffer
+		saved := tcl.out.W
+		tcl.out.W = &buf
+		err := root.Execute()
+		tcl.out.W = saved
+		if err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		return buf.String()
+	}
+	if o := run("vpn", "down", "office-2", "--dry-run"); !strings.Contains(o, "stays up for office") {
+		t.Fatalf("dry run: %s", o)
+	}
+	if o := run("vpn", "down", "office-2"); !strings.Contains(o, "stays up for office") {
+		t.Fatalf("down: %s", o)
+	}
+	st, _ := store.Load()
+	if st.Sessions["office-2"] != nil || st.Sessions["office"] == nil || !netx.SessionAlive(st.Sessions["office"]) {
+		t.Fatalf("after B down: %v", st.Sessions)
+	}
+	st.Sessions["office-2"] = st.Sessions["office"] // only to ask the dry run with a sharer present
+	if n := keptNotes(st, []string{"office", "office-2"}); len(n) != 2 || !strings.Contains(n[0], "stops the session") {
+		t.Fatalf("both down: %v", n)
+	}
+	run("vpn", "down", "office")
+	if !waitFor(5*time.Second, func() bool { return !netx.Alive(pid) || proc.ProcessState != nil || netx.ProcessStart(pid) != start }) {
+		_ = proc.Wait()
+	}
+	st, _ = store.Load()
+	if st.Sessions["office"] != nil {
+		t.Fatalf("A's record left: %v", st.Sessions)
+	}
+}
+
+// A user whose session record is gone (a crash) is dropped from the key
+// lock's users the next time a VPN joins the session.
+func TestWGKeyUsersPruned(t *testing.T) {
+	pub := wgKeyHome(t, "office")
+	h := liveSocks(t, pub, store.Home(), "office")
+	h.Users = []string{"office", "crashed"}
+	if _, err := netx.ClaimKey(h); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC()
+	if err := store.UpdateRuntime(store.Save(), func(st *store.State) error {
+		st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: h.PID, ProcStart: h.ProcStart, Socks: h.Socks, StartedAt: now, LastUsed: now}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := store.Load()
+	if _, err := wgSharedSession(testCall(), st.Vpns["office-2"]); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := netx.KeyInUse(pub)
+	if got == nil || strings.Join(got.Users, ",") != "office,office-2" {
+		t.Fatalf("users = %+v", got)
 	}
 }
 
@@ -160,7 +291,7 @@ func TestVpnStatusHandshake(t *testing.T) {
 	if err := store.MkdirPrivate("vpn"); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(handshakeFile("office"), []byte(itoa64(now.Add(-4*time.Minute).Unix())), 0o600); err != nil {
+	if err := os.WriteFile(handshakeFile("office"), []byte(`{"handshake_at":`+itoa64(now.Add(-4*time.Minute).Unix())+`,"tx_since_handshake":52}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	st, _ := store.Load()
@@ -170,7 +301,7 @@ func TestVpnStatusHandshake(t *testing.T) {
 			row = r
 		}
 	}
-	if !row.Up || !row.TunnelDead || row.HandshakeAge != 240 || row.LastHandshake.IsZero() {
+	if !row.Up || !row.TunnelDead || row.TunnelState != "dead" || row.HandshakeAge != 240 || row.LastHandshake.IsZero() {
 		t.Fatalf("row = %+v", row)
 	}
 	if txt := (vpnStatusData{Vpns: []vpnStatusRow{row}}).Text(); !strings.Contains(txt, "last WireGuard handshake 4m ago: the tunnel looks dead") {

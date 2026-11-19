@@ -46,7 +46,7 @@ func vpnServeCmd() *cobra.Command {
 			if !ok {
 				return fail(errors.New("no such VPN"))
 			}
-			hold, err := holdWGKey(v)
+			hold, err := holdWGKey(v, cl.out.W)
 			if err != nil {
 				return fail(err)
 			}

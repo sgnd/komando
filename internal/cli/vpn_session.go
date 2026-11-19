@@ -581,6 +581,9 @@ func vpnDownCmd() *cobra.Command {
 			}
 			if cl.flags.dryRun {
 				res := map[string]any{"would_disconnect": names}
+				if k := keptNotes(st, names); len(k) > 0 {
+					res["notes"] = k
+				}
 				if a := vpnDownAffects(st, names); len(a) > 0 {
 					res["affects"] = a
 				}
@@ -594,7 +597,9 @@ func vpnDownCmd() *cobra.Command {
 					v = &store.Vpn{Name: n} // a session left from a removed VPN
 				}
 				if s := st.Sessions[n]; s != nil {
-					if err := netx.StopSession(s); err != nil {
+					if keep := leaveSharedSession(st, n, names); len(keep) > 0 {
+						notes = append(notes, keptNote(n, keep))
+					} else if err := netx.StopSession(s); err != nil {
 						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn down "+n+"` again; if it still fails, end process "+strconv.Itoa(s.PID)+" yourself",
 							"could not disconnect %s: %v", n, err)
 					}
@@ -723,6 +728,7 @@ type vpnStatusRow struct {
 	LastHandshake time.Time `json:"last_handshake_at,omitzero"`
 	HandshakeAge  int64     `json:"handshake_age_seconds,omitempty"`
 	TunnelDead    bool      `json:"tunnel_dead,omitempty"`
+	TunnelState   string    `json:"tunnel_state,omitempty"` // up, idle or dead
 }
 
 func vpnStatusCmd() *cobra.Command {

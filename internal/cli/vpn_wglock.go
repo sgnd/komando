@@ -2,11 +2,13 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
+	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -83,6 +85,9 @@ func wgSharedSession(cl *call, v *store.Vpn) (*store.VpnSession, error) {
 	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.Sessions[v.Name] = &shared; return nil }); err != nil {
 		return nil, err
 	}
+	_ = netx.EditKeyUsers(s.PID, s.ProcStart, func(users []string) []string {
+		return append(liveKeyUsers(users, s, v.Name), v.Name)
+	})
 	noticef(cl, "vpn %s uses the running session of vpn %s (%s): both have the same WireGuard key", v.Name, s.Vpn, s.Socks)
 	return &shared, nil
 }
@@ -107,10 +112,14 @@ func reusableSession(h *netx.KeyHolder) *store.VpnSession {
 
 // wgHold is a `vpn serve` process's claim on its WireGuard key; nil for
 // other kinds, and every method takes nil.
-type wgHold struct{ h netx.KeyHolder }
+type wgHold struct {
+	h    netx.KeyHolder
+	stop chan struct{} // ends the handshake writer
+	log  io.Writer     // the session log, for a write that fails
+}
 
 // holdWGKey claims v's key for this process before the tunnel starts.
-func holdWGKey(v *store.Vpn) (*wgHold, error) {
+func holdWGKey(v *store.Vpn, log io.Writer) (*wgHold, error) {
 	if v.Kind != "wireguard" {
 		return nil, nil
 	}
@@ -119,7 +128,7 @@ func holdWGKey(v *store.Vpn) (*wgHold, error) {
 		return nil, err
 	}
 	pid := os.Getpid()
-	w := &wgHold{netx.KeyHolder{PublicKey: pub, PID: pid, ProcStart: netx.ProcessStart(pid), Home: store.Home(), Vpn: v.Name}}
+	w := &wgHold{h: netx.KeyHolder{PublicKey: pub, PID: pid, ProcStart: netx.ProcessStart(pid), Home: store.Home(), Vpn: v.Name}, stop: make(chan struct{}), log: log}
 	other, err := netx.ClaimKey(w.h)
 	if err != nil {
 		return nil, err
@@ -130,74 +139,214 @@ func holdWGKey(v *store.Vpn) (*wgHold, error) {
 	return w, nil
 }
 
-// serving records the SOCKS address and starts writing handshake times.
+// serving records the SOCKS address and starts writing the tunnel's
+// health for `vpn status` until release.
 func (w *wgHold) serving(addr string, tunnel io.Closer) {
 	if w == nil {
 		return
 	}
 	w.h.Socks = addr
 	_, _ = netx.ClaimKey(w.h)
-	hs, ok := tunnel.(interface{ LastHandshake() time.Time })
+	dev, ok := tunnel.(interface{ Stats() (netx.WGStats, error) })
 	if !ok {
 		return
 	}
 	path := handshakeFile(w.h.Vpn)
 	_ = os.Remove(path) // a file of an earlier session
 	go func() {
-		var last time.Time
+		var hw wgHealthWriter
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
 		for {
-			if t := hs.LastHandshake(); !t.IsZero() && !t.Equal(last) {
-				last = t
-				_ = os.WriteFile(path, []byte(strconv.FormatInt(t.Unix(), 10)), 0o600)
+			if st, err := dev.Stats(); err == nil {
+				hw.write(path, st, w.log)
 			}
-			time.Sleep(10 * time.Second)
+			select {
+			case <-w.stop:
+				return
+			case <-t.C:
+			}
 		}
 	}()
 }
 
-// release gives the key back when the session stops cleanly.
+// release ends the handshake writer and gives the key back when the
+// session stops cleanly.
 func (w *wgHold) release() {
 	if w == nil {
 		return
 	}
+	close(w.stop)
 	_ = netx.ReleaseKey(w.h.PublicKey, w.h.PID)
 	_ = os.Remove(handshakeFile(w.h.Vpn))
 }
 
-// handshakeFile holds the time of a WireGuard session's last handshake,
-// in Unix seconds, for `vpn status`.
-func handshakeFile(vpn string) string { return store.Path("vpn", vpn+".handshake") }
-
-// readHandshake is the last handshake `vpn serve` wrote for vpn; zero when
-// there is none yet.
-func readHandshake(vpn string) time.Time {
-	b, err := os.ReadFile(handshakeFile(vpn))
-	if err != nil {
-		return time.Time{}
-	}
-	n, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
-	if err != nil || n <= 0 {
-		return time.Time{}
-	}
-	return time.Unix(n, 0).UTC()
+// wgHealthFile is what `vpn serve` writes for `vpn status`: the last
+// handshake, the bytes sent since it, and the keepalive interval.
+type wgHealthFile struct {
+	HandshakeAt int64  `json:"handshake_at"` // Unix seconds; 0 before the first
+	TxSince     uint64 `json:"tx_since_handshake"`
+	Keepalive   int    `json:"keepalive_seconds,omitempty"`
 }
 
-// wgHealth fills a running WireGuard session's handshake fields of r at now.
-func wgHealth(r *vpnStatusRow, last, since, now time.Time) {
+// wgHealthWriter turns device stats into wgHealthFile writes: only on a
+// change, by a temporary file and a rename, and a failure is logged once.
+type wgHealthWriter struct {
+	last         wgHealthFile
+	txAt         uint64 // tx bytes when the last handshake was seen
+	seen, logged bool
+}
+
+func (hw *wgHealthWriter) write(path string, st netx.WGStats, log io.Writer) {
+	f := wgHealthFile{HandshakeAt: st.LastHandshake.Unix(), Keepalive: st.Keepalive}
+	if st.LastHandshake.IsZero() {
+		f.HandshakeAt = 0
+	}
+	if !hw.seen || f.HandshakeAt != hw.last.HandshakeAt {
+		hw.txAt = st.TxBytes
+	}
+	if f.HandshakeAt == 0 {
+		hw.txAt = 0 // before the first handshake every byte sent waits for one
+	}
+	f.TxSince = st.TxBytes - min(hw.txAt, st.TxBytes)
+	if hw.seen && f == hw.last {
+		return
+	}
+	b, _ := json.Marshal(f)
+	tmp := path + ".tmp"
+	err := os.WriteFile(tmp, b, 0o600)
+	if err == nil {
+		err = os.Rename(tmp, path)
+	}
+	if err != nil {
+		if !hw.logged && log != nil {
+			fmt.Fprintf(log, "%s cannot write the WireGuard health file: %v\n", time.Now().Format("2006/01/02 15:04:05"), err)
+		}
+		hw.logged = true
+		return
+	}
+	hw.last, hw.seen = f, true
+}
+
+// handshakeFile holds a WireGuard session's wgHealthFile for `vpn status`.
+func handshakeFile(vpn string) string { return store.Path("vpn", vpn+".handshake") }
+
+// readHandshake is the wgHealthFile `vpn serve` wrote for vpn; ok is false
+// when there is none.
+func readHandshake(vpn string) (f wgHealthFile, ok bool) {
+	b, err := os.ReadFile(handshakeFile(vpn))
+	if err != nil || json.Unmarshal(b, &f) != nil {
+		return wgHealthFile{}, false
+	}
+	return f, true
+}
+
+// wgHealth fills a running WireGuard session's tunnel fields of r at now.
+// Past wgDeadAfter without a handshake the tunnel is dead only when it had
+// to answer: something was sent since, or a keepalive keeps it busy.
+// Otherwise nothing used it and it is idle: WireGuard does not handshake
+// on an unused tunnel.
+func wgHealth(r *vpnStatusRow, f wgHealthFile, since, now time.Time) {
+	last := time.Time{}
+	if f.HandshakeAt > 0 {
+		last = time.Unix(f.HandshakeAt, 0).UTC()
+	}
 	r.LastHandshake = last
+	quiet := now.Sub(since)
+	if !last.IsZero() {
+		quiet = max(now.Sub(last), 0)
+		r.HandshakeAge = int64(quiet / time.Second)
+	}
+	r.TunnelState = "up"
+	if quiet > wgDeadAfter {
+		r.TunnelState = "idle"
+		if f.TxSince > 0 || f.Keepalive > 0 {
+			r.TunnelState, r.TunnelDead = "dead", true
+		}
+	}
 	switch {
-	case last.IsZero() && now.Sub(since) > wgDeadAfter:
-		r.TunnelDead = true
-		r.Detail = fmt.Sprintf("no WireGuard handshake in the %s since it started: the tunnel looks dead", humanAge(now.Sub(since)))
+	case last.IsZero() && r.TunnelDead:
+		r.Detail = fmt.Sprintf("no WireGuard handshake in the %s since it started: the tunnel looks dead", humanAge(quiet))
+	case last.IsZero() && r.TunnelState == "idle":
+		r.Detail = "idle: nothing used it since it started, so no WireGuard handshake yet"
 	case last.IsZero():
 		r.Detail = "session running, no WireGuard handshake yet"
 	default:
-		age := max(now.Sub(last), 0)
-		r.HandshakeAge = int64(age / time.Second)
-		r.Detail = "last WireGuard handshake " + humanAge(age) + " ago"
-		if age > wgDeadAfter {
-			r.TunnelDead = true
+		r.Detail = "last WireGuard handshake " + humanAge(quiet) + " ago"
+		if r.TunnelDead {
 			r.Detail += ": the tunnel looks dead"
+		} else if r.TunnelState == "idle" {
+			r.Detail += ": idle, nothing sent since"
 		}
 	}
+}
+
+// liveKeyUsers is users without skip and without the entries whose
+// session record is gone or is not process s any more (a crash, a stop).
+func liveKeyUsers(users []string, s *store.VpnSession, skip string) []string {
+	st, err := store.Load()
+	if err != nil {
+		return users
+	}
+	var live []string
+	for _, n := range users {
+		x := st.Sessions[n]
+		if n != skip && x != nil && x.PID == s.PID && x.ProcStart == s.ProcStart && !slices.Contains(live, n) {
+			live = append(live, n)
+		}
+	}
+	return live
+}
+
+// sessionKeptFor names the other VPNs that use the session process of VPN
+// name (one WireGuard key, shared_with) and are not in stopping: `vpn
+// down` removes only name's entry and the process keeps running for them.
+// The last user's `vpn down` stops it.
+func sessionKeptFor(st *store.State, name string, stopping []string) []string {
+	s := st.Sessions[name]
+	if s == nil {
+		return nil
+	}
+	var keep []string
+	for n, x := range st.Sessions {
+		if n != name && !slices.Contains(stopping, n) && x.PID == s.PID && x.ProcStart == s.ProcStart && netx.SessionAlive(x) {
+			keep = append(keep, n)
+		}
+	}
+	sort.Strings(keep)
+	return keep
+}
+
+// leaveSharedSession drops VPN name from its session's users when others
+// still use it; false when name is the last user and the session stops.
+func leaveSharedSession(st *store.State, name string, stopping []string) (kept []string) {
+	keep := sessionKeptFor(st, name, stopping)
+	if len(keep) == 0 {
+		return nil
+	}
+	s := st.Sessions[name]
+	_ = netx.EditKeyUsers(s.PID, s.ProcStart, func([]string) []string { return keep })
+	return keep
+}
+
+func keptNote(name string, keep []string) string {
+	return name + ": the session stays up for " + strings.Join(keep, ", ") + " (the same WireGuard key)"
+}
+
+// keptNotes says for each VPN in names with a session whether `vpn down`
+// leaves the session up for others or stops it.
+func keptNotes(st *store.State, names []string) []string {
+	var notes []string
+	for _, n := range names {
+		s := st.Sessions[n]
+		if s == nil {
+			continue
+		}
+		if keep := sessionKeptFor(st, n, names); len(keep) > 0 {
+			notes = append(notes, keptNote(n, keep))
+		} else if s.SharedWith != "" || len(sessionKeptFor(st, n, nil)) > 0 {
+			notes = append(notes, n+": stops the session")
+		}
+	}
+	return notes
 }

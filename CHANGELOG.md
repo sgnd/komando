@@ -9,9 +9,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
-- `komando vpn status` shows a WireGuard session's last handshake and its
-  age, and says when the tunnel looks dead (no handshake for 3 minutes).
-  JSON: `last_handshake_at`, `handshake_age_seconds` and `tunnel_dead`.
+- `komando vpn status` shows a WireGuard session's last handshake, its
+  age and the tunnel's state: `up`, `idle` (no handshake for 3 minutes
+  and nothing sent) or `dead` (no handshake for 3 minutes although
+  something was sent or a keepalive is set). JSON: `last_handshake_at`,
+  `handshake_age_seconds`, `tunnel_state` and `tunnel_dead`.
 
 ### Security
 
@@ -39,7 +41,8 @@ its highlights; the sections below them give the details. Versions follow
   per-user lock outside any home records the session by its public key;
   `vpn up` reuses a running session of the same home and otherwise stops
   with the new code `VPN_KEY_IN_USE`. A lock of an ended process is taken
-  over.
+  over. `vpn down` on one VPN of a shared session leaves it running for
+  the other.
 - `db restore`: an archive whose table of contents holds more than 256 MiB
   of SQL is refused with `FILE_TOO_LARGE` (was `BAD_FILE`), naming the
   limit and a way forward instead of asking for the same dump again. Any

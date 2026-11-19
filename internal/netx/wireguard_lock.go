@@ -29,6 +29,9 @@ type KeyHolder struct {
 	Socks     string `json:"socks,omitempty"`
 	Home      string `json:"home"`
 	Vpn       string `json:"vpn"`
+	// Users are the VPN entries of Home that use this session (the same
+	// key); the last one's `vpn down` stops it.
+	Users []string `json:"users,omitempty"`
 }
 
 // KeyLockDir is the per-user folder of key locks; tests point it elsewhere.
@@ -75,6 +78,9 @@ func withKeyRecord(pub string, fn func(path string, cur *KeyHolder) error) error
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
+	if err := privateDir(dir); err != nil {
+		return err
+	}
 	sum := sha256.Sum256([]byte(pub))
 	path := filepath.Join(dir, hex.EncodeToString(sum[:12])+".json")
 	lf, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0o600)
@@ -117,17 +123,51 @@ func ClaimKey(h KeyHolder) (other *KeyHolder, err error) {
 			other = cur
 			return nil
 		}
-		b, err := json.Marshal(h)
-		if err != nil {
-			return err
+		if cur != nil && cur.PID == h.PID && len(h.Users) == 0 {
+			h.Users = cur.Users
 		}
-		tmp := path + ".tmp"
-		if err := os.WriteFile(tmp, b, 0o600); err != nil {
-			return err
+		if len(h.Users) == 0 {
+			h.Users = []string{h.Vpn}
 		}
-		return os.Rename(tmp, path)
+		return writeKeyRecord(path, h)
 	})
 	return other, err
+}
+
+func writeKeyRecord(path string, h KeyHolder) error {
+	b, err := json.Marshal(h)
+	if err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// EditKeyUsers changes the Users of the key record the process pid
+// (started at procStart) holds; nothing when it holds none.
+func EditKeyUsers(pid int, procStart string, fn func(users []string) []string) error {
+	dir, err := KeyLockDir()
+	if err != nil {
+		return err
+	}
+	files, _ := filepath.Glob(filepath.Join(dir, "*.json"))
+	for _, f := range files {
+		var h KeyHolder
+		if b, err := os.ReadFile(f); err != nil || json.Unmarshal(b, &h) != nil || h.PID != pid || h.ProcStart != procStart {
+			continue
+		}
+		return withKeyRecord(h.PublicKey, func(path string, cur *KeyHolder) error {
+			if cur == nil || cur.PID != pid || cur.ProcStart != procStart {
+				return nil
+			}
+			cur.Users = fn(cur.Users)
+			return writeKeyRecord(path, *cur)
+		})
+	}
+	return nil
 }
 
 // ReleaseKey removes the record of pub while it is still pid's.

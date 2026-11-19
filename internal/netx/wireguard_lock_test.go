@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -90,12 +91,30 @@ func TestClaimKeyStale(t *testing.T) {
 	}
 }
 
-func TestLastHandshake(t *testing.T) {
-	dump := "public_key=aa\nlast_handshake_time_sec=0\npublic_key=bb\nlast_handshake_time_sec=1700000100\nlast_handshake_time_nsec=5\n"
-	if got := lastHandshake(dump); got.Unix() != 1700000100 {
-		t.Fatalf("lastHandshake = %v", got)
+func TestParseWGStats(t *testing.T) {
+	dump := "public_key=aa\nlast_handshake_time_sec=0\ntx_bytes=100\npersistent_keepalive_interval=0\npublic_key=bb\nlast_handshake_time_sec=1700000100\nlast_handshake_time_nsec=5\ntx_bytes=50\npersistent_keepalive_interval=25\n"
+	st := parseWGStats(dump)
+	if st.LastHandshake.Unix() != 1700000100 || st.TxBytes != 150 || st.Keepalive != 25 {
+		t.Fatalf("parseWGStats = %+v", st)
 	}
-	if got := lastHandshake("last_handshake_time_sec=0\n"); !got.IsZero() {
-		t.Fatalf("no handshake = %v", got)
+	if st := parseWGStats("last_handshake_time_sec=0\n"); !st.LastHandshake.IsZero() {
+		t.Fatalf("no handshake = %+v", st)
+	}
+}
+
+// A lock folder others can open is narrowed to this user.
+func TestKeyLockDirNarrowed(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows folders have access lists, not modes")
+	}
+	dir, _, pub := testKeyLock(t)
+	if err := os.Chmod(dir, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := KeyInUse(pub); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(dir); fi.Mode().Perm() != 0o700 {
+		t.Fatalf("mode %v; want 0700", fi.Mode().Perm())
 	}
 }
