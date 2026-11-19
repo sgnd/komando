@@ -347,6 +347,41 @@ once. A certificate for another key is refused (`KEY_INVALID`); one that is
 not valid now is left out (`key add` warns), and the key alone is offered.
 An ssh-agent that holds a certificate offers it too.
 
+### Servers with a host certificate
+
+Where servers have host keys signed by a certificate authority (an
+`@cert-authority` line in `known_hosts`), trust the CA once instead of
+pinning each server:
+
+```bash
+komando host ca add corp --key ~/corp-host-ca.pub --hosts '*.corp.example' --dry-run   # the servers it matches now
+komando host ca add corp --key ~/corp-host-ca.pub --hosts '*.corp.example'
+komando host ca add corp --from ~/.ssh/known_hosts   # its @cert-authority and @revoked lines
+komando host ca list
+komando host ca rm corp
+komando host ca revoke --key old-host-ca.pub   # never trust this key again (an @revoked line)
+```
+
+A server whose name a CA's patterns match is asked for its host certificate
+first. A pin always wins: a pinned server's key, plain or inside a
+certificate, must match its pin, or the connection stops with
+`HOSTKEY_MISMATCH`. For a server with no pin, the certificate is trusted,
+with no pin, when the CA signed it, the
+name komando dials is among its names, it is valid now, and neither its key
+nor the CA is revoked. Any other certificate falls back to its plain key and
+the pins. With `host_key_policy strict` a trusted certificate counts as
+known. A `--login ask` server is never trusted through a CA: a typed
+password goes only where a person met the key.
+
+A pattern names at least the domain: `*.corp.example`, `web*.corp.example`,
+`10.1.2.*`. `*`, `*.*`, `*.com` and any other public suffix, such as
+`*.co.uk` or `*.github.io`, are refused (`CA_HOSTS_INVALID`). A certificate
+that names no server is refused. Names match whatever their case and one
+trailing dot.
+Adding a CA trusts every server it ever signs, so only a person at a
+terminal can add one (`NEEDS_PERSON`); an AI agent may preview it with
+`--dry-run`, remove a CA and revoke a key, which only narrow trust.
+
 ### Lend a jump host your ssh-agent
 
 Some work needs your keys on the server itself, for example a `git pull`
@@ -800,8 +835,6 @@ told to use `komando exec` or `komando shell`.
   `azure`: `komando login aws` is the AWS login.
 - `--address` in `host edit` works on one server only.
 - A key file added with `key add` is never moved or deleted by komando.
-- Host certificates (`@cert-authority` in known_hosts) are not read yet:
-  komando pins each server's own host key.
 - `--ask-password`, `komando login`, `host ssh-command` and replacing a
   pinned host key (`host trust --reset`) need a person at a terminal.
 - A `--login ask` server's password is typed by a person: a script, cron

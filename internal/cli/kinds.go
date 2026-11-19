@@ -189,6 +189,11 @@ var commandKinds = map[string]cmdKind{
 
 	"host":             reads,
 	"host add":         changes,
+	"host ca":          reads,
+	"host ca add":      changes,
+	"host ca list":     reads,
+	"host ca revoke":   changes,
+	"host ca rm":       changes,
 	"host edit":        changes,
 	"host list":        reads,
 	"host rename":      changes,

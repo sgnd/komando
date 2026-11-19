@@ -175,6 +175,7 @@ var riskRows = []riskRow{
 	{id: "login.aws", tier: tierPerson},
 	{id: "ssh-gate", tier: tierPerson},
 	{id: "host.ssh-command", tier: tierPerson},
+	{id: "host.ca.add", tier: tierPerson, what: "trusts every server the CA signs"},
 	{id: "secret.keychain", when: func(w []string) bool { return !givesFlag("off")(w) }, cond: "without --off (moving the key into the keychain)", tier: tierPerson},
 	{id: "host.trust", when: anyWord("--reset", "--reset=true"), cond: "with --reset, when a key is pinned", tier: tierPerson, what: "replaces a pinned host key (OD-9)"},
 	{id: "export", when: func(w []string) bool { return givesFlag("sealed")(w) || givesFlag("for-phone")(w) }, cond: "with --sealed or --for-phone", tier: tierPerson},

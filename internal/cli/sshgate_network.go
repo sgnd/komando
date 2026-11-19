@@ -47,7 +47,7 @@ var gateNoNetwork = map[string]func(c *cobra.Command) string{
 	"docker": nil, "docker.images": nil, "docker.inspect": nil, "docker.logs": nil, "docker.ps": nil, "docker.stats": nil,
 	"fs": nil, "fs.cat": nil, "fs.list": nil, "fs.stat": nil,
 	"group": nil, "group.list": nil,
-	"host": nil, "host.list": nil, "host.show": nil, "host.ssh-command": nil, "host.test": nil,
+	"host": nil, "host.ca": nil, "host.ca.list": nil, "host.list": nil, "host.show": nil, "host.ssh-command": nil, "host.test": nil,
 	"job": nil, "job.list": nil, "job.logs": nil, "job.status": nil, "job.wait": nil,
 	"key": nil, "key.list": nil, "key.show": nil,
 	"pkg": nil, "pkg.installed": nil, "pkg.security": nil, "pkg.upgradable": nil,

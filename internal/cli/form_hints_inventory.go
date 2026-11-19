@@ -95,6 +95,19 @@ var invHostHints = map[string]formHint{
 	"host show":        {args: []formArg{invServer}},
 	"host ssh-command": {args: []formArg{invServer}},
 	"host test":        {args: []formArg{invServers}, flags: []formFlag{invWait}},
+	"host ca list":     {},
+	"host ca add": {
+		args: []formArg{{ask: "A short name for this CA?", example: "corp"}},
+		flags: []formFlag{
+			{name: "key", ask: "The CA's public key file (.pub)?", local: true, example: "~/corp-ca.pub",
+				help: "Check its fingerprint with the people who run the CA first: it will vouch for every server it signs."},
+			{name: "hosts", ask: "Which server names may it vouch for?", example: "*.corp.example",
+				help: "Name at least the domain: *.corp.example or 10.1.2.*. A lone * is refused."},
+			{name: "from", ask: "Or read a known_hosts file's @cert-authority lines?", local: true, example: "~/.ssh/known_hosts"},
+		},
+	},
+	"host ca rm":     {args: []formArg{{ask: "Which CA should komando stop trusting?", help: "See them with `komando host ca list`."}}},
+	"host ca revoke": {flags: []formFlag{{name: "key", ask: "Which public key file (.pub) should never be trusted?", local: true, required: true}}},
 	"host trust": {
 		args: []formArg{invServers},
 		flags: []formFlag{{name: "reset", ask: "Replace a key komando saved before?",
