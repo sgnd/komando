@@ -392,6 +392,14 @@ is kubectl's namespace flag.
   namespace, or removes that label, and `set serviceaccount` need
   `--allow-dangerous` too. A Namespace in a manifest (`apply -f`,
   `run -- apply|create -f`) with that label is read by the same rule.
+  A Namespace that sets other `pod-security.kubernetes.io/` labels but
+  leaves `enforce` out counts as removing it: `apply` drops a label the
+  last apply set. A Namespace with no pod-security labels is not rated,
+  because komando cannot see the live labels and such manifests are
+  common. Lowering `enforce` to `baseline` is not rated, as with `label`.
+- `-k` (`--kustomize`) is refused: komando checks every manifest it sends
+  and does not render kustomize. Render it first (`kubectl kustomize DIR >
+  app.yaml`) and pass `-f app.yaml`.
 - A compose or stack file already on the server (`stack deploy -c FILE`,
   `docker compose -f FILE up`, or compose's own file names when there is
   no `-f`, with their override files) is read there first (at most

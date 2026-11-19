@@ -473,11 +473,15 @@ Plain SQL that psql and mysql can also read:
   it does beyond writing data, as for plain SQL (`COPY ... PROGRAM`,
   `GRANT`, ...). The line numbers count in that SQL, as `pg_restore -f -`
   prints it. An archive komando cannot read (another version, cut short,
-  damaged) is refused (`BAD_FILE`). One that keeps table data as SQL
+  damaged) is refused (`BAD_FILE`). One whose table of contents holds
+  more than 256 MiB of SQL is refused with `FILE_TOO_LARGE`: dump fewer objects (`pg_dump -Fc -n
+  SCHEMA` or `-t TABLE`) and restore each part, or run `pg_restore` by
+  hand. One that keeps table data as SQL
   (`pg_dump --inserts`) is named in the approval as SQL komando did not
   read. A gzipped archive (`.dump.gz`) is refused: unpack it first.
 - A pg_dump tar archive (`-Ft`) or directory archive (`-Fd`) is refused
   (`USAGE`) with its format named: komando does not check those formats.
+  Any other tar file is refused the same way.
   Dump again with `--format custom` (`pg_dump -Fc`) or as plain SQL
   (`pg_dump -Fp`).
 - PostgreSQL restores run in one transaction: if anything fails, nothing
