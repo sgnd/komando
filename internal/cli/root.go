@@ -790,6 +790,7 @@ func signalContext(parent context.Context) (context.Context, context.CancelFunc)
 // temporary files: it dies of s, so a shell that runs it (a loop) sees
 // the Ctrl-C too. Tests replace it.
 var hardStop = func(s os.Signal) {
+	runningPrograms.killAll()
 	tmpclean.RemoveAll()
 	signal.Reset(s)
 	raise(s)

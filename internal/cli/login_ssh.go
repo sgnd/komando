@@ -423,12 +423,13 @@ func holdUntil(ctx context.Context, c *sshx.Client, until time.Time) string {
 // holderStdin reads what startHolder sends after the ticket: the socket's
 // token, the end time and the vault passphrase.
 func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
+	notByHand := out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando login`: it checks and records what login-holder does",
+		"login-holder is started by `komando login`, not by hand").NoFlag()
 	for _, want := range []string{"TOKEN", "UNTIL", "PASS"} {
 		line, rerr := in.ReadString('\n')
 		word, rest, _ := strings.Cut(strings.TrimRight(line, "\r\n"), " ")
 		if rerr != nil || word != want {
-			return "", time.Time{}, out.Errf(out.ExitPolicy, "NEEDS_PERSON", "run `komando login`: it checks and records what login-holder does",
-				"login-holder is started by `komando login`, not by hand").NoFlag()
+			return "", time.Time{}, notByHand
 		}
 		switch want {
 		case "TOKEN":
@@ -436,13 +437,13 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 		case "UNTIL":
 			var sec int64
 			if _, err := fmt.Sscan(rest, &sec); err != nil {
-				return "", time.Time{}, err
+				return "", time.Time{}, notByHand
 			}
 			until = time.Unix(sec, 0)
 		case "PASS":
 			p, err := base64.StdEncoding.DecodeString(rest)
 			if err != nil {
-				return "", time.Time{}, err
+				return "", time.Time{}, notByHand
 			}
 			if len(p) > 0 {
 				if err := vault.ReadPassStdin(strings.NewReader(string(p))); err != nil {
@@ -452,7 +453,7 @@ func holderStdin(in *bufio.Reader) (token string, until time.Time, err error) {
 		}
 	}
 	if len(token) < 32 {
-		return "", time.Time{}, errors.New("no login token")
+		return "", time.Time{}, notByHand
 	}
 	return token, until, nil
 }

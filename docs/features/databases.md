@@ -78,7 +78,7 @@ address, the way there (`--via`) and the command; the agent never sees
 the password. A cancel stops the command with `DECLINED`, and the window
 stays shut for that conn for a minute. A script, or an agent with no
 screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
-agent that adds a login-ask conn, changes its URL or `--via`, turns one
+agent that adds a login-ask conn, changes its URL (its user too) or `--via`, turns one
 to `--login ask`, changes a server or VPN on its way, or replaces a
 secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
 password (above), every setting of the URL except the few that move
@@ -468,6 +468,22 @@ Plain SQL that psql and mysql can also read:
   again: komando checks the file as it is now.
 - A MySQL `DELIMITER` after a statement on the same line is refused
   (`UNSAFE_BACKUP`); mysqldump writes it on a line of its own.
+- A PostgreSQL archive (`--format custom`) is read too: komando checks the
+  SQL in its table of contents (pg_dump 9.5 to 17 archives) and names what
+  it does beyond writing data, as for plain SQL (`COPY ... PROGRAM`,
+  `GRANT`, ...). The line numbers count in that SQL, as `pg_restore -f -`
+  prints it. An archive komando cannot read (another version, cut short,
+  damaged) is refused (`BAD_FILE`). One whose table of contents holds
+  more than 256 MiB of SQL is refused with `FILE_TOO_LARGE`: dump fewer objects (`pg_dump -Fc -n
+  SCHEMA` or `-t TABLE`) and restore each part, or run `pg_restore` by
+  hand. One that keeps table data as SQL
+  (`pg_dump --inserts`) is named in the approval as SQL komando did not
+  read. A gzipped archive (`.dump.gz`) is refused: unpack it first.
+- A pg_dump tar archive (`-Ft`) or directory archive (`-Fd`) is refused
+  (`USAGE`) with its format named: komando does not check those formats.
+  Any other tar file is refused the same way.
+  Dump again with `--format custom` (`pg_dump -Fc`) or as plain SQL
+  (`pg_dump -Fp`).
 - PostgreSQL restores run in one transaction: if anything fails, nothing
   changes. MySQL runs the statements in order and stops at the first error;
   what ran before it stays (`RESTORE_FAILED`).

@@ -83,6 +83,85 @@ Connect (`op://`), Bitwarden or Vaultwarden (`bw://`) and KeePass files
 for each one and the login it uses. komando reads such a value only when it
 needs it and never stores it.
 
+## Run a program on this computer with one
+
+```bash
+komando secret run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
+komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+```
+
+`komando secret run` starts the program after `--` on this computer, with the
+`--env` values in its environment. komando reads `secret:NAME` from the
+vault right before the program starts, so the value is never in the command
+line or your shell history. The program starts without a shell, and gets
+your environment without komando's own `KOMANDO_*` variables and the
+values that unlock the vault.
+
+- A vault value the program prints shows as `[secret:NAME]`.
+- komando exits with the program's exit code. On Linux and macOS, a
+  program ended by signal N makes komando exit 128+N (143 for `SIGTERM`),
+  as a shell does.
+- `SIGTERM` or `SIGHUP` to komando goes on to the program, so it does not
+  run on with the secrets. Ctrl-C at the terminal reaches the program by
+  itself, once. A second Ctrl-C ends komando at once and ends the program
+  first. On Windows komando ends the program.
+- On Linux the program gets `SIGTERM` when komando dies, even by
+  `SIGKILL`. On macOS and Windows a komando killed that way leaves the
+  program running with the secrets.
+- komando waits 3 seconds after the program exits for its output to end.
+  A background process the program left behind that still holds the
+  output is cut off then, and komando exits.
+- Output lines longer than 256 KiB are cut, but never inside a hidden
+  value up to 1 MiB or a masked pattern such as `password=...`. A private
+  key open at the cut is hidden from its `BEGIN` line through its `END`
+  line (at most 16 KiB more).
+- The audit log records the program's path, the variable names and the
+  secret names, never a value.
+- `--dry-run` shows the program's path and which secret goes into which
+  variable, and reads no value. It asks nobody: the approval the real run
+  needs is in `meta.would_need` and `meta.would_be_blocked`.
+- A reference of any form (`secret:`, `env:`, `file:`, `vault:`, `op://`,
+  ...) in the program's arguments is refused: put it in `--env`. A
+  `file://` URL is not a reference and passes. This is a guard against
+  mistakes, not a security boundary: komando never resolves a reference in
+  the arguments. It finds `secret:` anywhere, but the other forms only at
+  the start of an argument or after an `=`, so `-penv:PW` is passed on as
+  written.
+- An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
+  the program could print a value in a form masking does not know. The
+  window names the secrets, the program's full path, the other `--env`
+  variables, and says when any program of yours could replace the program.
+- In an AI agent's run with secrets, the program gets `HOME`, `USER` and
+  `LOGNAME` from your account (`USERPROFILE` on Windows), not from the
+  agent's environment, plus `LANG`, `LC_*`, `TERM`, `TMPDIR`, `TZ`, the
+  Windows system folders, a system `PATH` and its `--env` values. A pager,
+  editor, askpass helper or proxy the agent set could otherwise hand the
+  values on.
+- In that run the agent's plain `--env` values may add variables but never
+  replace one komando sets (`HOME`, `PATH`, `USER`, `LANG`, `LC_*`, ...,
+  in any case), and may not set what decides which code or settings the
+  program loads (`USAGE`): `LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`,
+  `PYTHON*`, `BASH_ENV`, a pager (`*PAGER`), `EDITOR`, `VISUAL`, an askpass
+  helper, an rc file (`PSQLRC`, `*RC`), a proxy (`*_proxy`), `GIT_*`,
+  `SSH_*`, `XDG_*`, a tool's config file (`KUBECONFIG`, `DOCKER_CONFIG`,
+  `*_CONFIG_FILE`, `AWS_*_FILE`, `NPM_CONFIG_*`), a toolchain that picks
+  binaries (`CC`, `CXX`, `GOFLAGS`, `GOTOOLCHAIN`, `CARGO_*`,
+  `RUSTC_WRAPPER`, `JAVA_HOME`, `MAVEN_OPTS`, `GRADLE_OPTS`) and the like.
+  Variables such as `PGHOST`, `AWS_REGION` or `TF_VAR_*` pass. The window shows the plain `--env` values.
+- On Linux, when your account is not in `/etc/passwd` (only LDAP or sssd
+  knows it), komando cannot read your account's `HOME`. The program then
+  gets an empty temporary `HOME` that komando removes afterwards, and
+  komando says so on stderr.
+- If the program file changes between the check and the start, komando
+  stops (`TOOL_MISSING`) and the program does not run. On Linux komando
+  starts the file it checked, through the open file.
+- Accepted risk: a program in a folder any program of yours can write
+  (Homebrew's, npm's, `~/.local/bin`) is not refused, because that is where
+  tools like `wrangler` live. For an AI agent the window names its full
+  path and warns that it can be replaced, and the person decides.
+- A secret that a protected server, conn or VPN uses asks a person at a
+  terminal too, as a change on a protected server does.
+
 ## Check one
 
 ```bash
@@ -103,11 +182,12 @@ komando key show deploy --reveal > deploy.key     # the private key of a key kom
 ```
 
 - **At a terminal** komando prints the value: you typed the command.
-- **From a program without a terminal**, such as the Komando Mac app,
-  komando first asks you in its own window, naming the secret, the command
-  and the programs that started it ("Started from: Komando"). It shows the
-  value only after **Allow once**; with `komando config approval-code` on,
-  the window also asks for the 6-digit code. A Linux or BSD desktop gets
+- **From a program without a terminal**, such as the Komando Mac app (not
+  released yet), komando first asks you in its own window, naming the
+  secret, the command and the programs that started it ("Started from:
+  Komando"). It shows the value only after **Allow once**: on macOS
+  followed by Touch ID, an Apple Watch or your login password; elsewhere, with `komando config
+  approval-code` on, the window also asks for the 6-digit code. A Linux or BSD desktop gets
   that window only with the approval code, and with no screen it stops
   with `REVEAL_NEEDS_TERMINAL`: run it in a terminal.
 - **An AI agent never gets a value or a private key**, not even with your

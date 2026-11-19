@@ -1,0 +1,112 @@
+[title]
+Claude Code wants to change web-1.example.test
+[header]
+Target: web-1.example.test
+Protected: yes
+Skips: --yes
+[command]
+komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\nb:\n  c: 2' --yes
+[owner]
+komando: allow web-1.example.test
+[notes]
+--yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
+
+Allow this once?
+[risky line]
+-1
+[sizes]
+mac height 43, windows 64/41/64/217
+
+[title]
+Codex wants to change web-1.example.test
+[header]
+Target: web-1.example.test
+Protected: yes
+Risk: [R-7] rm -rf deletes files
+Skips: --allow-dangerous, --yes
+[command]
+komando exec web-1.example.test -- echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && true
+[owner]
+komando: allow web-1.example.test
+[notes]
+--allow-dangerous skips one of komando's safety stops (an action that can delete or break things).
+--yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
+
+Allow this once?
+[risky line]
+-1
+[sizes]
+mac height 43, windows 80/41/96/265
+
+[title]
+Claude Code wants to change db-2.example.test
+[header]
+Target: db-2.example.test
+Skips: --yes
+[command]
+komando exec db-2.example.test --script ./deploy.sh --yes
+
+It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:
+
+  1  #!/bin/sh
+  2  set -e
+  3  systemctl restart app
+[owner]
+komando: allow db-2.example.test
+[notes]
+This also lets through: the program /usr/local/bin/x
+
+--yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
+
+Allow this once?
+[risky line]
+-1
+[sizes]
+mac height 133, windows 48/137/96/329
+
+[title]
+Claude Code wants to change web-1.example.test
+[header]
+Target: web-1.example.test
+Skips: --yes
+[command]
+komando host rm web-1.example.test --yes
+[owner]
+komando: allow web-1.example.test
+[notes]
+--yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
+
+Allow this once?
+[risky line]
+-1
+[sizes]
+mac height 43, windows 48/41/64/201
+
+[title]
+Claude Code wants to change web-1.example.test
+[header]
+Target: web-1.example.test
+Protected: yes
+Risk: [R-7] rm -rf deletes files
+Skips: --allow-dangerous, --yes
+[command]
+komando exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes
+
+It also sends the script ./deploy.sh (98 bytes, 4 lines, SHA-256 9f2c), all of it:
+
+  1  #!/bin/sh
+  2  set -e
+  3  systemctl stop app && rm -rf /srv/app/cache && tar -xzf /tmp/release.tgz -C /srv/app && systemctl start app
+  4  echo done
+[owner]
+komando: allow web-1.example.test
+[notes]
+--allow-dangerous skips one of komando's safety stops (an action that can delete or break things).
+--yes skips one of komando's safety stops (a change to a protected server or conn, to a safety setting, or to where a secret goes).
+
+Allow this once?
+[risky line]
+-1
+[sizes]
+mac height 148, windows 80/153/96/377
+

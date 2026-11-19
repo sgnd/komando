@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -146,36 +144,10 @@ func (cl *call) personAllowsFlags(flags []string, what string, why ...string) bo
 		return false
 	}
 	// what and where first, the question next, komando's rule details last
-	head, reasons := "wants komando to run", []string{}
-	for _, w := range why {
-		if w = strings.TrimSpace(w); w != "" {
-			if unshowable(w) != "" {
-				w = strconv.QuoteToASCII(w)
-			}
-			if on, ok := strings.CutPrefix(w, "it runs on "); ok && head == "wants komando to run" {
-				head = "wants to change " + on
-				continue
-			}
-			reasons = append(reasons, w)
-		}
-	}
-	text := fmt.Sprintf("%s %s:\n\n%s\n\n", cl.caller().Agent, head, line) + body
-	if what != "" {
-		if unshowable(what) != "" {
-			what = strconv.QuoteToASCII(what)
-		}
-		text += "This also lets through:\n\n" + what + "\n\n"
-	}
-	text += "Allow this once?\n\n"
-	for _, w := range reasons {
-		text += "Why komando asks: " + w + "\n"
-	}
-	for i, f := range flags {
-		if i > 0 {
-			text += "\n"
-		}
-		text += fmt.Sprintf("%s skips one of komando's safety stops (%s).", f, flagMeaning[f])
-	}
+	v := newApprovalView(cl, flags, what, why, line, body)
+	cl.view = &v
+	defer func() { cl.view = nil }()
+	text := v.text()
 	sess.SetGaveUp(false)
 	allowed, shown := cl.askPerson(text)
 	gaveUp := tookGaveUp(text)
@@ -222,12 +194,15 @@ func shownKeys(cl *call, what string, why []string) []string {
 	return keys
 }
 
-// askPerson opens the window: with a field for the code when the approval
-// code is on, and never a window a click alone allows where another
-// program can click it (a Linux or BSD desktop, clickForgeable): that
-// needs the code (why "needs-code").
+// askPerson opens the window: on Linux, BSD and Windows with a field for
+// the code when the approval code is on; on macOS "Allow once" is followed
+// by the device-owner check (Touch ID, an Apple Watch or the login
+// password). It never opens a window that another program could answer
+// (clickForgeable): a Linux or BSD desktop without the code (why
+// "needs-code"), or a Mac terminal with Accessibility permission where the
+// device-owner check cannot run (why "ax-trusted").
 func (cl *call) askPerson(text string) (allowed, shown bool) {
-	if secret := approvalCodeSecret(); secret != nil {
+	if secret := approvalCodeSecret(); secret != nil && desktopOS != "darwin" {
 		// a second factor: the code from the person's authenticator app
 		code, pressed, ok := askCodeOnScreen(cl, text)
 		used := false
@@ -246,7 +221,11 @@ func (cl *call) askPerson(text string) (allowed, shown bool) {
 		return cl.ask(text)
 	}
 	if clickForgeable(cl) {
-		cl.sess.SetWhy("needs-code")
+		if desktopOS == "darwin" {
+			cl.sess.SetWhy("ax-trusted")
+		} else {
+			cl.sess.SetWhy("needs-code")
+		}
 		return false, true
 	}
 	return askOnScreen(cl, text)
@@ -262,7 +241,11 @@ var desktopOS = runtime.GOOS
 // start a compositor of its own, point WAYLAND_DISPLAY at it and press
 // "Allow once" there through that compositor's virtual pointer. So
 // neither gets a window a click alone allows: the person needs the
-// approval code, which no program can read off the screen.
+// approval code, which no program can read off the screen. On macOS the
+// same holds when the app that started komando has Accessibility
+// permission (an agent there can press the button through System Events),
+// unless the device-owner check can run: a click cannot answer Touch ID,
+// an Apple Watch or the login password.
 func clickForgeable(cl *call) bool {
 	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return false // no window at all (askOnScreen)
@@ -270,6 +253,8 @@ func clickForgeable(cl *call) bool {
 	switch desktopOS {
 	case "linux", "freebsd", "openbsd", "netbsd", "dragonfly":
 		return cl.getenv("DISPLAY") != "" || cl.getenv("WAYLAND_DISPLAY") != ""
+	case "darwin":
+		return accessibilityTrusted() && !ownerCheckAvailable()
 	}
 	return false
 }
@@ -392,6 +377,12 @@ func approvalHint(cl *call, e *out.Error) {
 		e.Hint = "the code typed in komando's window was already used for another approval; a code works once. Ask the user whether to try again with the next code their app shows"
 	case "needs-code":
 		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
+	case "ax-trusted":
+		e.Hint = "komando did not open its window: the terminal that started it has Accessibility permission on this Mac and the Touch ID, Apple Watch or password check cannot run, so another program could click Allow once. Ask the user to run this exact command in their own terminal: " + commandLine(cl)
+	case "owner-failed":
+		e.Hint = "the user clicked Allow once but did not confirm with Touch ID, an Apple Watch or their Mac password; do not retry. Ask the user whether to try again"
+	case "owner-timeout":
+		e.Hint = "the user clicked Allow once but nobody confirmed with Touch ID, an Apple Watch or their Mac password within 50 seconds; ask the user whether to try again, and do not retry before they say so"
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "unshowable":
@@ -428,29 +419,30 @@ var askOnScreen = func(cl *call, text string) (allowed, shown bool) {
 	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return false, false
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
 	switch runtime.GOOS {
 	case "darwin":
-		const script = `on run argv
-set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 120 with icon caution
-if gave up of r then return "gave up"
-return button returned of r
-end run`
-		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
-		var ee *exec.ExitError
-		if err != nil && !errors.As(err, &ee) {
-			return false, false
-		}
-		answer := strings.TrimSpace(string(b))
-		noteGaveUp(text, answer == "gave up")
-		return answer == "Allow once", true
+		return askMacWindow(cl, text)
 	case "windows":
-		_, allowed, gaveUp, shown := approvalWindow(text, false)
+		_, allowed, gaveUp, shown := approvalWindow(viewFor(cl, text), false)
 		noteGaveUp(text, gaveUp)
 		return allowed, shown
 	}
 	return false, false
+}
+
+// askMacWindow shows the macOS window and reads its outcome: allowed only
+// when the person clicked "Allow once" and then passed the device-owner
+// check.
+func askMacWindow(cl *call, text string) (allowed, shown bool) {
+	ans, shown := askMac(viewFor(cl, text))
+	noteGaveUp(text, ans == macGaveUp)
+	switch ans {
+	case macOwnerFailed:
+		cl.sess.SetWhy("owner-failed")
+	case macOwnerTimeout:
+		cl.sess.SetWhy("owner-timeout")
+	}
+	return ans == macAllowed, shown
 }
 
 func systemTool(name string) string {

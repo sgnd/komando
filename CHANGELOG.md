@@ -9,6 +9,171 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando vpn status` shows a WireGuard session's last handshake, its
+  age and the tunnel's state: `up`, `idle` (no handshake for 3 minutes
+  and nothing sent) or `dead` (no handshake for 3 minutes although
+  something was sent or a keepalive is set). JSON: `last_handshake_at`,
+  `handshake_age_seconds`, `tunnel_state` and `tunnel_dead`.
+
+### Changed
+
+- The safety docs now say what the approval window and the approval code
+  stop: an agent that works through komando or is held in a sandbox. A
+  program that runs freely as you can read the vault key (keychain or
+  `store.key`) and so every secret; a passphrase or the agent's own sandbox
+  is the boundary.
+- The approval window an AI agent's `--yes`, `--allow-dangerous` or
+  `--reveal` opens on macOS and Windows is easier to read: labelled lines
+  for the target, the protected marker, the risk and the skipped flags,
+  then the command and its script in a monospaced box that keeps line
+  breaks, wraps and scrolls. Deny stays the default and the Esc key, and
+  the window still closes itself after 2 minutes.
+
+### Security
+
+- On macOS "Allow once" in the approval window now counts only after you
+  confirm with Touch ID, an Apple Watch or your login password, in the
+  same step. A click alone, by you or by a program that can click, no
+  longer allows an AI agent's `--yes`, `--allow-dangerous` or `--reveal`.
+  A cancelled or failed check, or none within 50 seconds, is a no. The window has no
+  code field on macOS: `komando config approval-code` still works and keeps
+  the code for Linux, BSD and Windows on the same vault, but the macOS window
+  does not ask for it. A terminal that has Accessibility permission now
+  gets the window too, since a click cannot answer the check. Only where
+  the check cannot run (no Touch ID, watch or password set up, or komando
+  cannot tell) does such a terminal get no window: the agent asks you to
+  run the command yourself.
+- `komando secret run` for an AI agent with secrets: `--env` may not set
+  a tool's config file (`KUBECONFIG`, `DOCKER_CONFIG`, `*_CONFIG_FILE`,
+  `AWS_*_FILE`) or a toolchain variable that picks binaries (`CC`, `CXX`,
+  `GOFLAGS`, `CARGO_HOME`, `RUSTC_WRAPPER`, `JAVA_HOME`).
+- `komando secret run` on Linux: the program gets `SIGTERM` when komando
+  dies, so it does not run on with the secrets.
+- Streamed output (`exec`, `secret run`, `service log --follow`): a cut
+  of a line over 256 KiB no longer splits a masked pattern
+  (`password=...`), and a private key open at the cut is hidden through
+  its `END` line. The held tail is bounded at 1 MiB.
+- `cluster run` and `cluster apply`: a Namespace manifest that sets
+  pod-security labels without `enforce` needs `--allow-dangerous`, as
+  `cluster label ...enforce-` does. `-k` (kustomize) is refused, since
+  komando cannot read what it renders.
+- The `~/.kube` exception for credential files folds ASCII case only, so a
+  lookalike such as the Kelvin sign no longer matches `.kube`.
+
+### Fixed
+
+- A second WireGuard session with the same key (another komando home,
+  or another VPN entry) no longer fights the first over the peer. A
+  per-user lock outside any home records the session by its public key;
+  `vpn up` reuses a running session of the same home and otherwise stops
+  with the new code `VPN_KEY_IN_USE`. A lock of an ended process is taken
+  over. `vpn down` on one VPN of a shared session leaves it running for
+  the other.
+- `db restore`: an archive whose table of contents holds more than 256 MiB
+  of SQL is refused with `FILE_TOO_LARGE` (was `BAD_FILE`), naming the
+  limit and a way forward instead of asking for the same dump again. Any
+  tar file is refused as a tar, not with an SQL error. The `BAD_FILE` hint
+  covers archives too.
+- `komando secret run` no longer waits for a background process that the
+  program left holding its output: it stops reading 3 seconds after the
+  program exits.
+
+## [0.16.0] - 2026-11-19
+
+### Highlights
+
+- **Run a local program with vault secrets.** `komando secret run --env
+  KEY=secret:NAME -- COMMAND` puts secrets in a program's environment, never
+  in its command line, and masks its output. An AI agent needs a person's
+  yes for every secret, and its program gets a clean environment.
+- **pg_dump archives.** `db restore` refuses tar and directory archives with
+  a clear message, and refuses a custom archive it cannot read instead of
+  approving it unchecked.
+- Smaller fixes to masking of very long output lines, the pod-security
+  label check, docker target errors and `~/.kube` paths on macOS and Windows.
+
+### Added
+
+- `komando secret run --env KEY=secret:NAME -- COMMAND` starts a program on
+  this computer with vault secrets in its environment, never in its command
+  line. Its output is masked and komando exits with its exit code. An AI
+  agent needs a person's yes for every secret, and may not set variables
+  that make the program load other code (`LD_PRELOAD`, `NODE_OPTIONS`, ...).
+  `SIGTERM` and `SIGHUP` go on to the program, a second Ctrl-C ends it
+  with komando, and a program ended by signal N makes komando exit 128+N
+  on Linux and macOS.
+
+### Security
+
+- `komando secret run` for an AI agent with secrets: its plain `--env`
+  values may add variables but never replace one komando sets (`HOME`,
+  `PATH`, `USER`, `LANG`, ..., in any case), and may not name a pager, an
+  editor, an askpass helper, an rc file (`PSQLRC`), a proxy, or `GIT_*`,
+  `SSH_*` or `XDG_*` settings. Before, `-e HOME=/tmp/x` won over the
+  account's `HOME`, so the program could read an rc file the agent wrote.
+- `komando secret run` refuses every secret reference form in the
+  program's arguments (`env:`, `vault:`, `op://`, ...), not only `secret:`.
+- `komando secret run` for an AI agent on Linux gives the program an empty
+  temporary `HOME` when the account is not in `/etc/passwd`, instead of the
+  `HOME` from the agent's environment.
+- Streamed output lines over 256 KiB (`exec`, `secret run`, service logs)
+  are no longer cut inside a hidden value, which printed it as two
+  unmasked halves.
+- `cluster apply -f` and `cluster run -- apply|create -f` read the label
+  `pod-security.kubernetes.io/enforce=privileged` on a Namespace with the
+  same rule as `cluster label`: case and spaces around the value do not
+  matter, so the manifest needs `--allow-dangerous` either way.
+- A docker command whose target komando cannot find now stops with that
+  error before the rating, instead of rating it without reading the
+  compose files on the server.
+- `db restore` refuses a pg_dump custom archive whose table of contents
+  komando cannot read (`BAD_FILE`). Before, it was approved as
+  `sql-opaque`, so a person could approve SQL nobody had checked.
+- Reading an archive's table of contents no longer allocates a string's
+  full stated length (up to 64 MiB) before its bytes arrive.
+
+### Fixed
+
+- On macOS and Windows, an AI agent's `import kubeconfig` accepts the
+  files it names under `~/.KUBE` (any case), as it does under `~/.kube`.
+- `db restore` names pg_dump tar (`-Ft`) and directory (`-Fd`) archives and
+  refuses them with `USAGE`, saying to dump with `-Fc` or `-Fp`. Before, a
+  tar archive was read as plain SQL (with a misleading `UNSAFE_BACKUP`, or
+  a check that passed and a restore that then failed), and a directory
+  archive failed with `BAD_FILE` "is a directory".
+
+## [0.15.0] - 2026-11-19
+
+### Highlights
+
+- **Passwords komando never stores.** `--login ask` on `host add`, `host
+  edit`, `conn add` and `conn edit`: a person types the password when it is
+  needed, and an AI agent cannot move where it goes.
+- **Strict read-only.** `exec --read-only` (and `job start`, `docker exec`,
+  `cluster exec`, read-only recipes) runs a command only when komando knows
+  it cannot change anything, on every server.
+- **Riskier changes need a person.** `db grant`, `db user add`, `cluster
+  apply` of a file that gives out rights, and a `DELETE` or `UPDATE` that
+  keeps every row now need `--allow-dangerous`.
+- **Output contract 2.** Every error code means one thing and has one exit
+  code; `meta.contract` is 2. Scripts that read error codes should check
+  "Changed for scripts and agents".
+- **New commands.** `import securecrt`, `storage mkdir`, `storage mv`,
+  `storage chmod`, `cp` between two remote places, `--continue` for a cut-off
+  transfer, `db kill` on MongoDB, `svc --user-units`, and `facts --only`.
+- **Releases name their version.** The signature of `checksums.txt` now
+  covers the version, so an older release cannot pass as a newer one.
+- Many security fixes for AI agents, VPNs, file transfers and approval
+  windows; see Security.
+
+### Added
+
+- `komando import securecrt FILE|FOLDER` adds SecureCRT's SSH2 sessions,
+  from its exported settings (File > Export Settings, an `.xml` file) or
+  its `Sessions` folder: host, port, user and key file, with each
+  session's folder as a group. Other session types, a firewall and a
+  `.ppk` key are listed with what to do. Stored passwords and key
+  passphrases are never read.
 - `komando pkg security` works on zypper (security patches; `pkg upgrade
   --security` runs `zypper patch --category security`), and on pacman
   with `arch-audit`. Where the repositories publish no security notices
@@ -266,6 +431,33 @@ its highlights; the sections below them give the details. Versions follow
   reports the key mode and scrypt cost only once the key opened the
   store. A store from an older komando gets the copy at the first command
   a person runs at a terminal, never from an AI agent's or a script's.
+- `cluster run` and `docker raw|compose` read a compose or stack file
+  that is already on the server before they rate the command: a
+  privileged service or a bind of `/` there now needs `--allow-dangerous`,
+  as in a local file, and so does a file komando cannot read or one that
+  pulls in files it does not check (`include:`, `extends: file:`, a
+  `COMPOSE_FILE` in `.env`, `privileged` left to a variable). Manifests
+  that install through a controller (k3s `HelmChart`, Argo CD, Flux), EKS's
+  `aws-auth` ConfigMap, a `kube-system` pod with one of its service
+  accounts, `label ... pod-security.kubernetes.io/enforce=privileged` (or
+  removing it), `set serviceaccount`, `create configmap aws-auth` and
+  Argo Workflows need it too. (C113)
+- An AI agent's `import kubeconfig` no longer copies a file from `~/.ssh`
+  or another credential store (other than `~/.kube`) into the vault when
+  the kubeconfig names it as a client key, certificate or token file
+  (`SENSITIVE_FILE`). (C113)
+- `db restore` of a PostgreSQL archive now checks the SQL inside it, as
+  for a plain SQL file: what it does beyond writing data (`COPY ...
+  PROGRAM`, `GRANT`, ...) is named in the approval; before, an archive
+  went to pg_restore unread. (C113)
+- Four more ways an AI agent could move where a person's typed password
+  (`--login ask`) goes now stop with `NEEDS_PERSON`. A server with no
+  user logs in as the account komando runs as, from the system, no
+  longer as `$USER`, which an agent sets. A `cert check --via` path that
+  reaches a login-ask server another way than its own stops. A login-ask
+  conn's URL user is part of where its password goes. And an agent's
+  `vpn add --overwrite` or import of a VPN on such a way stops even with
+  the same flags: its profile or key secret may be new.
 - `cluster run -- cp POD:SRC DST` by an AI agent, with SRC named like a
   secret (`.env`, a private key), now stops with `SENSITIVE_FILE` before
   komando reads the pod, as `download` does; before, the pod's files were
@@ -532,6 +724,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- `komando import filezilla` now stores the password FileZilla keeps for
+  an SFTP server in the vault: the server pointed at `secret:NAME-pass`,
+  but nothing was stored there.
+- `login-holder` started by hand answers every broken input with
+  `NEEDS_PERSON`, not with a parse error.
 - `key gen --dry-run` shows where the real run keeps the key (`path`
   `sealed:`; the record's ID is made only when the key is written) and
   the key's SSH type (`ssh-ed25519`, not `ed25519`), as the real run does.
@@ -4988,7 +5185,9 @@ First release.
 - Safety: dangerous-command filter, protected servers, dry run, server identity check, audit log
 - Readable text in a terminal, JSON for AI agents
 
-[Unreleased]: https://github.com/sgnd/komando/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/sgnd/komando/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/sgnd/komando/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/sgnd/komando/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/sgnd/komando/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/sgnd/komando/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/sgnd/komando/compare/v0.12.0...v0.13.0

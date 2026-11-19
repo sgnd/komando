@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bufio"
 	"cmp"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -429,6 +431,9 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err != nil {
 		return localFileErr("FILE_NOT_FOUND", err, "give the path of a backup made by `komando db dump`")
 	}
+	if isPGDirArchive(from, fi) {
+		return otherPGArchive(from, "directory archive (pg_dump -Fd)")
+	}
 	// One read of the file before anyone is asked: what kind of backup it
 	// is, what its SQL does, and a seal over its bytes (backupSeal). The
 	// restore below reads it through that seal, so it runs what was checked.
@@ -443,7 +448,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 		if tool.restoreCustom == nil {
 			return out.Usage("%s is a PostgreSQL archive; restore it into a PostgreSQL database", from)
 		}
-		argv = tool.restoreCustom // pg_restore: an archive holds no client commands to check
+		argv = tool.restoreCustom // pg_restore runs no client commands; the archive's SQL was checked (checkRestoreSQL)
 	}
 	if !custom && on != "" {
 		return out.Usage("%s is plain SQL, which komando always restores itself (psql and mysql would obey client commands in it); --run-on is only for pg_dump archives", from)
@@ -519,9 +524,24 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 	var sqlV driver.Verdict
 	if err := withBackup(cl, from, seal, func(r io.Reader) (err error) {
 		if seal.archive() {
-			return nil // a pg_dump archive: pg_restore reads it, and it holds no SQL text to check
+			// a pg_dump archive: the SQL in its table of contents is
+			// checked; the rest is read too, so the seal covers every byte
+			if sqlV, err = driver.CheckRestoreArchive(r); errors.Is(err, driver.ErrArchiveTooLarge) {
+				return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "dump fewer objects (pg_dump -Fc -n SCHEMA or -t TABLE) and restore each part, or restore this one with pg_restore by hand", "%s: %v", from, err)
+			} else if err != nil {
+				return out.Errf(out.ExitUsage, "BAD_FILE", "dump it again with `komando db dump` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
+			}
+			_, err = io.Copy(io.Discard, r)
+			return err
 		}
-		sqlV, err = driver.CheckRestore(kind, r)
+		br := bufio.NewReaderSize(r, 512)
+		if head, _ := br.Peek(5); string(head) == "PGDMP" {
+			return out.Usage("%s is a gzipped pg_dump archive: unpack it first (`gunzip -k %s`), then restore the .dump file", from, from)
+		}
+		if head, _ := br.Peek(512); isTar(head) {
+			return otherPGArchive(from, tarKind(head))
+		}
+		sqlV, err = driver.CheckRestore(kind, br)
 		return err
 	}); err != nil {
 		return err

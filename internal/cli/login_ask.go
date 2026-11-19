@@ -336,12 +336,7 @@ var askLoginOnScreen = func(cl *call, text string) (pw string, given, shown bool
 	defer cancel()
 	switch runtime.GOOS {
 	case "darwin":
-		const script = `on run argv
-set r to display dialog (item 1 of argv) with title "komando: password" default answer "" with hidden answer buttons {"Cancel", "Log in"} default button "Log in" cancel button "Cancel" giving up after 120 with icon caution
-if gave up of r then return "gave up"
-return (button returned of r) & linefeed & (text returned of r)
-end run`
-		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
+		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", appleScriptArgs(loginDialogScript, text)...).Output()
 		var ee *exec.ExitError
 		if err != nil && !errors.As(err, &ee) {
 			return "", false, false
@@ -363,7 +358,7 @@ end run`
 			return strings.TrimSuffix(string(b), "\n"), err == nil, true
 		}
 	case "windows":
-		pw, given, gaveUp, shown := approvalWindow(text, true)
+		pw, given, gaveUp, shown := approvalWindow(approvalView{raw: text}, true)
 		noteGaveUp(text, gaveUp)
 		return pw, given, shown
 	}
@@ -499,3 +494,11 @@ func connTarget(cl *call, st *store.State, c *store.Conn) askTarget {
 		},
 	}
 }
+
+// loginDialogScript is the macOS password window; item 1 of argv is
+// macArgMarker, item 2 the text.
+const loginDialogScript = `on run argv
+set r to display dialog (item 2 of argv) with title "komando: password" default answer "" with hidden answer buttons {"Cancel", "Log in"} default button "Log in" cancel button "Cancel" giving up after 120 with icon caution
+if gave up of r then return "gave up"
+return (button returned of r) & linefeed & (text returned of r)
+end run`

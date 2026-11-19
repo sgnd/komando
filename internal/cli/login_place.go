@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -132,8 +133,19 @@ func connPlaceChanges(old, now *store.Conn) []string {
 		return []string{fmt.Sprintf("conn %s would ask for a typed password for %s", now.Name, dest)}
 	case connPlace(old).dest != dest:
 		return []string{fmt.Sprintf("conn %s would send its typed password to %s instead of %s", now.Name, dest, connPlace(old).dest)}
+	case connURLUser(old) != connURLUser(now):
+		return []string{fmt.Sprintf("conn %s would ask for the password of user %q instead of %q", now.Name, connURLUser(now), connURLUser(old))}
 	}
 	return nil
+}
+
+// connURLUser is the user a conn's URL logs in as: for a login-ask conn,
+// the account whose password the person types.
+func connURLUser(c *store.Conn) string {
+	if u, err := url.Parse(c.URL); err == nil && u.User != nil {
+		return u.User.Username()
+	}
+	return ""
 }
 
 // vpnPlaceChanges: a VPN an edit, an add --overwrite or an import
@@ -150,7 +162,9 @@ func vpnPlaceChanges(s *store.State, name string, changed bool) []string {
 }
 
 // vpnWayChanged: an edit changes how VPN a connects (anything but its
-// groups, tags, labels, notes and protection).
+// groups, tags, labels, notes and protection). A replace (add --overwrite,
+// import) always counts as changed: its profile or key secret may be new
+// while every field stays.
 func vpnWayChanged(a, b *store.Vpn) bool {
 	x, y := *a, *b
 	for _, v := range []*store.Vpn{&x, &y} {
@@ -164,8 +178,8 @@ func vpnWayChanged(a, b *store.Vpn) bool {
 func importVpnPlaces(cl *call, st *store.State, vpns []*store.Vpn) error {
 	var replacing []string
 	for _, v := range vpns {
-		if o, ok := st.Vpns[v.Name]; ok {
-			replacing = append(replacing, vpnPlaceChanges(st, v.Name, vpnWayChanged(o, v))...)
+		if _, ok := st.Vpns[v.Name]; ok { // replaced: counts as changed
+			replacing = append(replacing, vpnPlaceChanges(st, v.Name, true)...)
 		}
 	}
 	return loginPlaceStop(cl, replacing)

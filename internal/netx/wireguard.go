@@ -224,6 +224,49 @@ type wgCloser struct{ dev *device.Device }
 
 func (w wgCloser) Close() error { w.dev.Close(); return nil }
 
+// WGStats is what a WireGuard device reports about its peers: the newest
+// handshake (zero before the first), the bytes sent to all peers, and the
+// longest PersistentKeepalive in seconds (0 when none is set).
+type WGStats struct {
+	LastHandshake time.Time
+	TxBytes       uint64
+	Keepalive     int
+}
+
+// Stats reads the device's WGStats.
+func (w wgCloser) Stats() (WGStats, error) {
+	conf, err := w.dev.IpcGet()
+	if err != nil {
+		return WGStats{}, err
+	}
+	return parseWGStats(conf), nil
+}
+
+// parseWGStats reads WGStats from a UAPI dump.
+func parseWGStats(uapi string) WGStats {
+	var st WGStats
+	var newest int64
+	for _, line := range strings.Split(uapi, "\n") {
+		k, v, _ := strings.Cut(line, "=")
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			continue
+		}
+		switch k {
+		case "last_handshake_time_sec":
+			newest = max(newest, n)
+		case "tx_bytes":
+			st.TxBytes += uint64(max(n, 0))
+		case "persistent_keepalive_interval":
+			st.Keepalive = max(st.Keepalive, int(n))
+		}
+	}
+	if newest > 0 {
+		st.LastHandshake = time.Unix(newest, 0)
+	}
+	return st
+}
+
 // StartWG brings up a userspace WireGuard device for c and returns a
 // dialer into its network.
 func StartWG(c *WGConfig) (Dialer, io.Closer, error) {

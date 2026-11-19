@@ -376,14 +376,41 @@ is kubectl's namespace flag.
 - A file (`apply -f`, `create -f`, and `cluster apply --file`) is rated by
   what is in it. One that gives out rights (a Role, ClusterRole or their
   bindings, a webhook configuration, an APIService, a service account
-  token Secret) or opens a node to a pod (`hostPID`, `hostNetwork`,
-  `hostIPC`, a privileged container, added capabilities, a `hostPath`
-  volume) also needs `--allow-dangerous`, like `create clusterrolebinding`
-  and `run --privileged` do. The same holds for a Swarm stack file whose
-  service is privileged, adds capabilities or devices, shares the
+  token Secret, EKS's `aws-auth` ConfigMap) or opens a node to a pod
+  (`hostPID`, `hostNetwork`, `hostIPC`, a privileged container, added
+  capabilities, a `hostPath` volume, a pod in `kube-system` that runs as
+  one of its service accounts) also needs `--allow-dangerous`, like
+  `create clusterrolebinding` and `run --privileged` do. So does an
+  object a controller installs with its own rights: a k3s `HelmChart`, an
+  Argo CD `Application`, `ApplicationSet` or `AppProject`, a Flux
+  `Kustomization` or `HelmRelease`. The same holds for a Swarm stack file
+  whose service is privileged, adds capabilities or devices, shares the
   server's namespaces, or mounts `/`, the docker socket, system or
   credential folders. komando reads each file once, so the file that was
   rated is the file that is sent.
+- `label` that sets `pod-security.kubernetes.io/enforce=privileged` on a
+  namespace, or removes that label, and `set serviceaccount` need
+  `--allow-dangerous` too. A Namespace in a manifest (`apply -f`,
+  `run -- apply|create -f`) with that label is read by the same rule.
+  A Namespace that sets other `pod-security.kubernetes.io/` labels but
+  leaves `enforce` out counts as removing it: `apply` drops a label the
+  last apply set. A Namespace with no pod-security labels is not rated,
+  because komando cannot see the live labels and such manifests are
+  common. Lowering `enforce` to `baseline` is not rated, as with `label`.
+- `-k` (`--kustomize`) is refused: komando checks every manifest it sends
+  and does not render kustomize. Render it first (`kubectl kustomize DIR >
+  app.yaml`) and pass `-f app.yaml`.
+- A compose or stack file already on the server (`stack deploy -c FILE`,
+  `docker compose -f FILE up`, or compose's own file names when there is
+  no `-f`, with their override files) is read there first (at most
+  1 MiB, without sudo) and rated the same way. These count as dangerous
+  too, because komando cannot check what they lead to: a file it cannot
+  read, `include:`, `extends:` with another `file:`, `privileged` left to
+  a variable, and a `COMPOSE_FILE` in the folder's `.env`.
+- The rating reads the file a moment before docker does. Someone who can
+  change that file on the server can swap it in between: the rating stops
+  an agent's mistake and a file that was dangerous already, not a person
+  who can already write there.
 - `--dry-run` sends a change to the server as a server-side dry run
   (`apply`, `create`, `delete`, `scale`, `patch`, ...). A command the server
   cannot dry-run (`exec`, `cp`, `create token`, `config view`, `get` of
@@ -431,9 +458,9 @@ is kubectl's namespace flag.
 - `cluster run` knows kubectl's own commands, not kubectl plugins (krew).
   `edit` is refused (get the YAML, change it, then `apply -f`), and of
   `config` only `current-context` and `get-contexts` work.
-- On Swarm, komando cannot see inside a compose or stack file on the
-  server, so `cluster run swarm1 -- stack deploy -c FILE` and `compose up`
-  are rated by their flags only.
+- komando cannot tell which service accounts outside `kube-system` have
+  strong rights (an operator's own namespace, `argocd`, `flux-system`),
+  nor that a kubeconfig's default namespace is `kube-system`.
 - Helm: komando reads releases only; install, upgrade and rollback stay
   with `helm` (`cluster deploy` and `cluster apply` change what runs).
 

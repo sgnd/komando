@@ -157,7 +157,7 @@ func CheckRestore(kind string, r io.Reader) (Verdict, error) {
 		l.EndLine()
 	}
 	if err := sc.Err(); err != nil {
-		return Verdict{}, out.Errf(out.ExitUsage, "BAD_FILE", "the file is not readable text SQL", "cannot read backup: %v", err)
+		return Verdict{}, out.Errf(out.ExitUsage, "BAD_FILE", "give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc)", "not a backup komando can read: %v", err)
 	}
 	if inCopy {
 		return Verdict{}, unsureLine(copyLine, "COPY ... FROM stdin", `its data has no \. end line`)
