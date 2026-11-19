@@ -7,7 +7,7 @@ Status   [Protected]
 Skips    the protected-server stop
 [command]
 komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\nb:\n  c: 2'
-    --yes
+  » --yes
 [owner]
 komando: allow web-1.example.test
 [notes]
@@ -33,9 +33,9 @@ Risk     (!) Deletes a system folder recursively (rm -rf)
 Skips    the dangerous-command stop, the protected-server stop
 [command]
 komando exec web-1.example.test -- echo abcdefghij && echo abcdefghij && echo
-    abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo
-    abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo
-    abcdefghij && echo abcdefghij && true
+  » abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo
+  » abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo
+  » abcdefghij && echo abcdefghij && true
 [owner]
 komando: allow web-1.example.test
 [notes]
@@ -119,7 +119,7 @@ Script ./deploy.sh · 4 lines · 98 bytes · sha256 9f2c…
   1  #!/bin/sh
   2  set -e
   3  systemctl stop app && rm -rf /srv/app/cache && tar -xzf /tmp/release.tgz
-     -C /srv/app && systemctl start app
+   » -C /srv/app && systemctl start app
   4  echo done
 [owner]
 komando: allow web-1.example.test

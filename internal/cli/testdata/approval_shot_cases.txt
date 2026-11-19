@@ -105,7 +105,7 @@ Status   [Protected]
 Skips    the protected-server stop
 [command]
 komando exec web-1.example.test,web-2.example.test,db-2.example.test,
-    203.0.113.10 --yes -- systemctl reload nginx
+  » 203.0.113.10 --yes -- systemctl reload nginx
 [owner]
 komando: allow web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
 [notes]
@@ -132,7 +132,7 @@ Risk     (!) Deletes a system folder recursively (rm -rf)
 Skips    the dangerous-command stop, the protected-server stop
 [command]
 komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql
-    -d app -c 'DROP DATABASE app'
+  » -d app -c 'DROP DATABASE app'
 [owner]
 komando: allow db-2.example.test
 [notes]
@@ -157,7 +157,7 @@ Risk     (!) --write lets the query change data
 Skips    the dangerous-command stop
 [command]
 komando db query db-2.example.test --write --allow-dangerous -- "UPDATE orders
-    SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
+  » SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
 [owner]
 komando: allow db-2.example.test
 [notes]
@@ -182,7 +182,7 @@ Risk     (!) Pengguna minta: hapus cache lama sebelum rilis
 Skips    the protected-server stop
 [command]
 komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi,
-    mohon tunggu' && rm -r /srv/app/cache/lama
+  » mohon tunggu' && rm -r /srv/app/cache/lama
 [owner]
 komando: allow web-1.example.test
 [notes]

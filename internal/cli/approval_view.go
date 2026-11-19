@@ -309,6 +309,15 @@ function label(text, font, colour, w) {
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
+  // red text at 4.5:1 or more on its ground (window, card, button):
+  // #B3261E in light mode, #FF6961 in dark mode; systemRed if unknown
+  var red = $.NSColor.systemRedColor;
+  style('red', function () {
+    var best = app.effectiveAppearance.bestMatchFromAppearancesWithNames($([$.NSAppearanceNameAqua, $.NSAppearanceNameDarkAqua]));
+    red = ObjC.unwrap(best) === ObjC.unwrap($.NSAppearanceNameDarkAqua)
+      ? $.NSColor.colorWithSRGBRedGreenBlueAlpha(255 / 255, 105 / 255, 97 / 255, 1)
+      : $.NSColor.colorWithSRGBRedGreenBlueAlpha(179 / 255, 38 / 255, 30 / 255, 1);
+  });
   var a = $.NSAlert.alloc.init;
   a.alertStyle = $.NSAlertStyleWarning;
   style('icon', function () {
@@ -336,7 +345,7 @@ function run(argv) {
       var tri = symbol('exclamationmark.triangle', fs);
       if (!tri) return;
       iv = $.NSImageView.imageViewWithImage(tri);
-      iv.contentTintColor = $.NSColor.systemRedColor;
+      iv.contentTintColor = red;
       iv.setAccessibilityLabel('Risk');
       row.addSubview(iv);
       tx = vx + 22;
@@ -360,7 +369,7 @@ function run(argv) {
       framed = true;
     });
     if (!framed) {
-      var val = label(f[2], font, kind === '2' ? $.NSColor.systemRedColor : $.NSColor.labelColor, w - tx);
+      var val = label(f[2], font, kind === '2' ? red : $.NSColor.labelColor, w - tx);
       h = Math.max(val.h, 16);
       val.v.frame = $.NSMakeRect(tx, h - val.h, w - tx, val.h);
       row.addSubview(val.v);
@@ -402,7 +411,7 @@ function run(argv) {
       var p = r.split(':');
       if (p.length !== 2) return;
       var rr = $.NSMakeRange(Number(p[0]), Number(p[1]));
-      tv.textStorage.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, rr);
+      tv.textStorage.addAttributeValueRange($.NSForegroundColorAttributeName, red, rr);
       tv.textStorage.addAttributeValueRange($.NSUnderlineStyleAttributeName, 1, rr);
     });
   });
@@ -428,12 +437,12 @@ function run(argv) {
   if (argv[11] === '1') style('allow', function () {
     // red title text on a normal button, the same weight as Deny; set after
     // the alert's layout, which otherwise draws the plain title again
-    allow.contentTintColor = $.NSColor.systemRedColor;
+    allow.contentTintColor = red;
     // NSAttributedString's init methods are not bridged in JXA: build it with new
     var m = $.NSMutableAttributedString.new;
     m.replaceCharactersInRangeWithString($.NSMakeRange(0, 0), 'Allow once');
     var all = $.NSMakeRange(0, m.length);
-    m.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, all);
+    m.addAttributeValueRange($.NSForegroundColorAttributeName, red, all);
     m.addAttributeValueRange($.NSFontAttributeName, allow.font, all);
     var ps = $.NSMutableParagraphStyle.new;
     ps.alignment = $.NSTextAlignmentCenter;

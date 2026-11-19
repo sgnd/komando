@@ -173,7 +173,7 @@ func (v approvalView) skips() string {
 func (v approvalView) box() (rows []string, start []int) {
 	for _, l := range strings.Split(v.command(), "\n") {
 		start = append(start, len(rows))
-		rows = append(rows, wrapLine(l, boxCols)...)
+		rows = append(rows, wrapLine(escapeMark(l), boxCols)...)
 	}
 	return rows, start
 }
@@ -184,42 +184,88 @@ func (v approvalView) boxText() string {
 	return strings.Join(rows, "\n")
 }
 
-// wrapLine breaks l into rows of at most cols characters, after a space,
-// a comma or a slash; a token is split only when it is longer than a row.
-// Rows after the first hang under the text: after a script line's number
-// ("  12  "), or four spaces in from the line's own indent.
+// wrapMark starts every wrapped row, so a row that continues the line
+// above never looks like a line of its own.
+const wrapMark = "» "
+
+// escapeMark shows a real line whose text starts with the mark (after its
+// indent or script line number) with a backslash in front, so it cannot
+// pass for a wrapped row; a leading backslash before the mark is escaped
+// the same way.
+func escapeMark(l string) string {
+	lead := len(l) - len(strings.TrimLeft(l, " "))
+	if m := scriptLineNo.FindString(l); m != "" {
+		lead = len(m)
+	}
+	text := strings.TrimLeft(l[lead:], "\\")
+	if strings.HasPrefix(text, "»") {
+		return l[:lead] + "\\" + l[lead:]
+	}
+	return l
+}
+
+// cellWidth is how many monospace columns r takes: 2 for wide East Asian
+// characters and emoji, 8 for a tab (its widest), 1 for the rest.
+func cellWidth(r rune) int {
+	switch {
+	case r == '\t':
+		return 8
+	case r >= 0x1100 && r <= 0x115F, r >= 0x2E80 && r <= 0xA4CF, r >= 0xAC00 && r <= 0xD7A3,
+		r >= 0xF900 && r <= 0xFAFF, r >= 0xFE30 && r <= 0xFE4F, r >= 0xFF00 && r <= 0xFF60,
+		r >= 0xFFE0 && r <= 0xFFE6, r >= 0x1F300 && r <= 0x1FAFF, r >= 0x20000 && r <= 0x3FFFD:
+		return 2
+	}
+	return 1
+}
+
+func cellsWidth(r []rune) int {
+	w := 0
+	for _, c := range r {
+		w += cellWidth(c)
+	}
+	return w
+}
+
+// wrapLine breaks l into rows of at most cols columns, after a space, a
+// comma or a slash; a token is split only when it is longer than a row.
+// Rows after the first start with wrapMark and hang under the text: in a
+// script line's number column, or two spaces in from the line's indent.
 func wrapLine(l string, cols int) []string {
 	r := []rune(l)
-	if len(r) <= cols {
+	if cellsWidth(r) <= cols {
 		return []string{l}
 	}
-	indent := len(r) - len([]rune(strings.TrimLeft(l, " ")))
+	indent := len(r) - len([]rune(strings.TrimLeft(l, " "))) + 4
 	if m := scriptLineNo.FindString(l); m != "" {
 		indent = utf8.RuneCountInString(m)
-	} else {
-		indent += 4
 	}
 	if indent > cols/2 {
 		indent = 4
 	}
+	cont := strings.Repeat(" ", indent-utf8.RuneCountInString(wrapMark)) + wrapMark
 	var rows []string
 	pad := ""
 	for len(r) > 0 {
-		room := cols - utf8.RuneCountInString(pad)
-		if len(r) <= room {
+		room := cols - cellsWidth([]rune(pad))
+		fit, w := 0, 0
+		for fit < len(r) && w+cellWidth(r[fit]) <= room {
+			w += cellWidth(r[fit])
+			fit++
+		}
+		if fit == len(r) {
 			rows = append(rows, pad+string(r))
 			break
 		}
-		cut := room
-		for i := room; i > 0; i-- {
+		cut := max(fit, 1)
+		for i := fit; i > 0; i-- {
 			if c := r[i-1]; c == ' ' || c == ',' || c == '/' {
 				cut = i
 				break
 			}
 		}
 		rows = append(rows, pad+strings.TrimRight(string(r[:cut]), " "))
-		r = r[cut:]
-		pad = strings.Repeat(" ", indent)
+		r = []rune(strings.TrimLeft(string(r[cut:]), " "))
+		pad = cont
 	}
 	return rows
 }

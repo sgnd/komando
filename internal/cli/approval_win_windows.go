@@ -45,6 +45,7 @@ var (
 	procSetBkColor       = gdi32.NewProc("SetBkColor")
 	procSetTextColor     = gdi32.NewProc("SetTextColor")
 	procCreateSolidBrush = gdi32.NewProc("CreateSolidBrush")
+	procSysParamsInfoW   = user32.NewProc("SystemParametersInfoW")
 )
 
 const (
@@ -124,7 +125,21 @@ var (
 	winColour   map[uintptr]uint32 // a label's text colour (0x00BBGGRR)
 	winBox      uintptr            // the command box, on its own grey
 	winBoxBrush uintptr
+	winHC       bool // high contrast is on: system colours only
 )
+
+// highContrast says whether Windows' high contrast theme is on
+// (SPI_GETHIGHCONTRAST, HCF_HIGHCONTRASTON); the window then draws with
+// the theme's own colours, no white fill, grey card or red.
+func highContrast() bool {
+	var hc struct {
+		size, flags uint32
+		scheme      *uint16
+	}
+	hc.size = uint32(unsafe.Sizeof(hc))
+	r, _, _ := procSysParamsInfoW.Call(0x0042, uintptr(hc.size), uintptr(unsafe.Pointer(&hc)), 0)
+	return r != 0 && hc.flags&1 != 0
+}
 
 // The window's colours (COLORREF, 0x00BBGGRR): white content, a light
 // grey command card, red risk lines and grey secondary text, each at
@@ -171,6 +186,9 @@ func wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			return 0
 		}
 	case wmCtlColorStat, wmCtlColorEdit:
+		if winHC {
+			break // the theme's colours, from DefWindowProc
+		}
 		bg, brush := uintptr(rgbWhite), uintptr(0)
 		if lParam == winBox && winBoxBrush != 0 {
 			bg, brush = rgbCard, winBoxBrush
@@ -257,7 +275,7 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 		return "", false, false, false
 	}
 	winAnswer, winCode, winCodeEdit, winAllowBtn = idDeny, "", 0, 0
-	winColour, winBox = map[uintptr]uint32{}, 0
+	winColour, winBox, winHC = map[uintptr]uint32{}, 0, highContrast()
 	winBoxBrush, _, _ = procCreateSolidBrush.Call(rgbCard)
 	defer func() {
 		if winBoxBrush != 0 {

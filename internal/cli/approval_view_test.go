@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -55,7 +56,7 @@ func TestMacAlertScript(t *testing.T) {
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
 		"symbol('lock.shield', 48)", "allow.attributedTitle = m;", "$.NSMutableAttributedString.new", "if (argv[11] === '1') style('allow', function () {", "sv.hasHorizontalScroller = false",
 		"tv.horizontallyResizable = false", "argv[10].split(", "label(argv[12], bold", "symbol('exclamationmark.triangle', fs)", "$.NSColor.systemRedColor",
-		"$.NSUnderlineStyleAttributeName, 1, rr", "argv[7].split(',')", "quaternarySystemFillColor", "kind === '2' ? $.NSColor.systemRedColor", "imageNamed('NSCaution')",
+		"$.NSUnderlineStyleAttributeName, 1, rr", "argv[7].split(',')", "quaternarySystemFillColor", "kind === '2' ? red", "colorWithSRGBRedGreenBlueAlpha(179 / 255, 38 / 255, 30 / 255, 1)", "colorWithSRGBRedGreenBlueAlpha(255 / 255, 105 / 255, 97 / 255, 1)", "style('red', function () {", "imageNamed('NSCaution')",
 	} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
@@ -66,7 +67,7 @@ func TestMacAlertScript(t *testing.T) {
 	}
 	// semantic colours only, so dark mode works
 	for _, c := range regexp.MustCompile(`NSColor\.(\w+)`).FindAllStringSubmatch(macAlertScript, -1) {
-		if !slices.Contains([]string{"labelColor", "secondaryLabelColor", "systemRedColor", "controlBackgroundColor", "quaternarySystemFillColor"}, c[1]) {
+		if !slices.Contains([]string{"labelColor", "secondaryLabelColor", "systemRedColor", "controlBackgroundColor", "quaternarySystemFillColor", "colorWithSRGBRedGreenBlueAlpha"}, c[1]) {
 			t.Errorf("the script uses NSColor.%s, not a semantic colour", c[1])
 		}
 	}
@@ -270,20 +271,20 @@ func TestApprovalBoxWraps(t *testing.T) {
 	for _, v := range views {
 		rows, _ := v.box()
 		for _, r := range rows {
-			if utf8.RuneCountInString(r) > boxCols {
-				t.Errorf("row of %d characters: %q", utf8.RuneCountInString(r), r)
+			if cellsWidth([]rune(r)) > boxCols {
+				t.Errorf("row of %d columns: %q", cellsWidth([]rune(r)), r)
 			}
 		}
-		if strings.Join(strings.Fields(v.boxText()), "") != strings.Join(strings.Fields(v.command()), "") {
+		if unwrap(v.boxText()) != strings.Join(strings.Fields(v.command()), "") {
 			t.Errorf("wrapping lost text:\n%s", v.boxText())
 		}
 	}
 	rows, start := views[0].box()
-	if strings.Contains(rows[1], "komando") || !strings.HasPrefix(rows[1], "    ") {
+	if strings.Contains(rows[1], "komando") || !strings.HasPrefix(rows[1], "  "+wrapMark) {
 		t.Errorf("command continuation row %q", rows[1])
 	}
 	n := start[len(start)-1]
-	if !strings.HasPrefix(rows[n], "   1  komando") || !strings.HasPrefix(rows[n+1], "      ") || strings.HasPrefix(rows[n+1], "       ") {
+	if !strings.HasPrefix(rows[n], "   1  komando") || !strings.HasPrefix(rows[n+1], "    "+wrapMark) {
 		t.Errorf("script rows %q / %q", rows[n], rows[n+1])
 	}
 	if !strings.Contains(macAlertScript, "hasHorizontalScroller = false") {
@@ -352,7 +353,7 @@ func TestMacScriptStyleGuards(t *testing.T) {
 func TestWrapLineBreaks(t *testing.T) {
 	l := "komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx"
 	rows := wrapLine(l, boxCols)
-	if !strings.HasSuffix(rows[0], ",") || !strings.HasPrefix(strings.TrimSpace(rows[1]), "203.0.113.10") {
+	if !strings.HasSuffix(rows[0], ",") || !strings.HasPrefix(strings.TrimSpace(rows[1]), wrapMark+"203.0.113.10") {
 		t.Errorf("rows %q", rows)
 	}
 	long := strings.Repeat("x", 100)
@@ -433,4 +434,117 @@ func TestApprovalGridOrder(t *testing.T) {
 	if !strings.Contains(macAlertScript, "gap: gap, dx: 5 }") {
 		t.Error("the hint is not on the card text's edge")
 	}
+}
+
+// unwrap is a box's text without the wrap marks and white space, to
+// compare with the command it shows.
+func unwrap(box string) string {
+	var b strings.Builder
+	for _, row := range strings.Split(box, "\n") {
+		f := strings.Fields(row)
+		if len(f) > 0 && f[0]+" " == wrapMark {
+			f = f[1:]
+		}
+		b.WriteString(strings.Join(f, ""))
+	}
+	return b.String()
+}
+
+// A wrapped row starts with the wrap mark; a real line that starts with
+// the mark (or an escaping backslash) is shown escaped, so the two never
+// look the same.
+func TestApprovalWrapSpoof(t *testing.T) {
+	long := "echo " + strings.Repeat("abcdefghij ", 9)
+	for _, tc := range []struct{ name, line, want string }{
+		{"wrapped row", long, "  " + wrapMark},
+		{"real mark line", "  » rm -rf /srv", "  \\» rm -rf /srv"},
+		{"real escaped line", "  \\» x", "  \\\\» x"},
+		{"script mark line", "   2  » x", "   2  \\» x"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rows := testView("Codex", nil, "", nil, tc.line, "").boxText()
+			got := strings.Split(rows, "\n")
+			if tc.name == "wrapped row" {
+				if len(got) < 2 || !strings.HasPrefix(got[1], tc.want) {
+					t.Errorf("rows %q", got)
+				}
+				return
+			}
+			if got[0] != tc.want {
+				t.Errorf("row %q, want %q", got[0], tc.want)
+			}
+		})
+	}
+}
+
+// Multi-byte, wide (CJK, emoji) and tab text wraps without a panic,
+// within boxCols columns (wide characters count 2, a tab 8), and the
+// danger ranges stay inside the text.
+func TestApprovalWrapWideText(t *testing.T) {
+	for _, line := range []string{
+		"komando exec web-1.example.test -- echo " + strings.Repeat("日本語のテキスト", 12) + " && rm -rf /srv",
+		"komando exec web-1.example.test -- echo " + strings.Repeat("🚀🔥", 40) + " && rm -rf /srv",
+		"komando exec web-1.example.test -- printf '" + strings.Repeat("\tcol", 30) + "' && rm -rf /srv",
+		"komando exec web-1.example.test -- echo " + strings.Repeat("çãéü", 30) + " && rm -rf /srv",
+		strings.Repeat("語", 200),
+	} {
+		v := testView("Codex", nil, "", nil, line, "")
+		text := v.boxText()
+		for _, r := range strings.Split(text, "\n") {
+			if w := cellsWidth([]rune(r)); w > boxCols {
+				t.Errorf("row of %d columns: %q", w, r)
+			}
+		}
+		n := len(utf16.Encode([]rune(text)))
+		for _, r := range v.dangerRanges() {
+			if r[0] < 0 || r[1] <= 0 || r[0]+r[1] > n {
+				t.Errorf("range %v outside %d", r, n)
+			}
+		}
+	}
+}
+
+// Every red text reaches WCAG AA (4.5:1) on the ground it is drawn on.
+// The grounds are the pixels of the CI screenshots (run 44597619273):
+// macOS window, card and button, light and dark; Windows content and card.
+func TestApprovalRedContrast(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		red, bg uint32
+	}{
+		{"macOS light window", 0xB3261E, 0xF2F2F2},
+		{"macOS light card", 0xB3261E, 0xEBEBEB},
+		{"macOS light button", 0xB3261E, 0xE0E0E0},
+		{"macOS dark window", 0xFF6961, 0x141414},
+		{"macOS dark card", 0xFF6961, 0x1A1A1A},
+		{"macOS dark button", 0xFF6961, 0x262626},
+		{"Windows content", rgbHex(0x001C2BC4), 0xFFFFFF},
+		{"Windows card", rgbHex(0x001C2BC4), rgbHex(0x00F5F5F5)},
+	} {
+		if r := contrast(tc.red, tc.bg); r < 4.5 {
+			t.Errorf("%s: #%06X on #%06X is %.2f:1", tc.name, tc.red, tc.bg, r)
+		}
+	}
+}
+
+// rgbHex turns a Windows COLORREF (0x00BBGGRR) into 0xRRGGBB.
+func rgbHex(c uint32) uint32 { return c&0xFF<<16 | c&0xFF00 | c>>16&0xFF }
+
+// contrast is the WCAG 2 contrast ratio of two sRGB colours.
+func contrast(a, b uint32) float64 {
+	lum := func(h uint32) float64 {
+		lin := func(c uint32) float64 {
+			v := float64(c) / 255
+			if v <= 0.03928 {
+				return v / 12.92
+			}
+			return math.Pow((v+0.055)/1.055, 2.4)
+		}
+		return 0.2126*lin(h>>16&255) + 0.7152*lin(h>>8&255) + 0.0722*lin(h&255)
+	}
+	x, y := lum(a), lum(b)
+	if x < y {
+		x, y = y, x
+	}
+	return (x + 0.05) / (y + 0.05)
 }
