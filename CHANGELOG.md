@@ -69,6 +69,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Two `vpn up` with the same WireGuard key at the same moment no longer
+  end in `VPN_DOWN` or a brief `VPN_KEY_IN_USE`: the second waits up to
+  5 seconds for the first session of the same home to come up, then
+  reuses it. The key lock folder is checked with Lstat: a symlink or a
+  folder of another user is refused with a clear error.
 - A second WireGuard session with the same key (another komando home,
   or another VPN entry) no longer fights the first over the peer. A
   per-user lock outside any home records the session by its public key;

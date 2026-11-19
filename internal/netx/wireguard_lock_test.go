@@ -118,3 +118,24 @@ func TestKeyLockDirNarrowed(t *testing.T) {
 		t.Fatalf("mode %v; want 0700", fi.Mode().Perm())
 	}
 }
+
+// A symlink in place of the lock folder is refused, not followed.
+func TestKeyLockDirSymlinkRefused(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the folder is in the user's own LocalAppData")
+	}
+	target := t.TempDir()
+	link := filepath.Join(t.TempDir(), "wireguard")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	old := KeyLockDir
+	KeyLockDir = func() (string, error) { return link, nil }
+	t.Cleanup(func() { KeyLockDir = old })
+	if _, err := KeyInUse("pub"); err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Fatalf("err = %v; want the symlink refused", err)
+	}
+	if files, _ := os.ReadDir(target); len(files) != 0 {
+		t.Fatalf("wrote through the symlink: %v", files)
+	}
+}

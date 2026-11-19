@@ -365,8 +365,9 @@ func loginSecret(cl *call, label string) (string, error) {
 	return v, err
 }
 
-// spawnServe starts `komando vpn serve NAME` and waits for its SOCKS port.
-func spawnServe(ctx context.Context, name, logFile string, wait time.Duration, s *store.VpnSession) (int, string, error) {
+// spawnServe starts `komando vpn serve NAME` and waits for its SOCKS port;
+// tests replace it.
+var spawnServe = func(ctx context.Context, name, logFile string, wait time.Duration, s *store.VpnSession) (int, string, error) {
 	return spawnServeWith(ctx, name, logFile, wait, "", s)
 }
 

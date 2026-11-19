@@ -46,11 +46,18 @@ func vpnInUse(v *store.Vpn, h *netx.KeyHolder) error {
 // startWGSession starts the `vpn serve` process of WireGuard VPN v, or
 // reuses the session that already runs its key in this home.
 func startWGSession(cl *call, ctx context.Context, v *store.Vpn, logFile string, s *store.VpnSession) (*store.VpnSession, error) {
-	if shared, err := wgSharedSession(cl, v); err != nil || shared != nil {
+	if shared, err := wgSharedSession(cl, ctx, v); err != nil || shared != nil {
 		return shared, err
 	}
 	pid, addr, err := spawnServe(ctx, v.Name, logFile, 15*time.Second, s)
 	if err != nil {
+		// The serve lost the key to another `vpn up`: reuse that session or
+		// name it. Any other VPN_DOWN keeps its own log.
+		if e := toErr(err); e.Code == "VPN_DOWN" && strings.Contains(e.Message, "ERROR VPN_KEY_IN_USE") {
+			if shared, err2 := wgSharedSession(cl, ctx, v); err2 != nil || shared != nil {
+				return shared, err2
+			}
+		}
 		return nil, err
 	}
 	s.PID, s.Socks = pid, addr
@@ -63,23 +70,54 @@ func startWGSession(cl *call, ctx context.Context, v *store.Vpn, logFile string,
 	return s, nil
 }
 
+// wgStartWait bounds how long `vpn up` waits for a session of this home
+// that holds the key but is not READY yet; tests shorten it.
+var wgStartWait = 5 * time.Second
+
 // wgSharedSession checks the key lock before a new session starts. A
 // session of this home that runs the key and answers is reused for v; one
-// that runs elsewhere, or does not answer, is VPN_KEY_IN_USE. The SOCKS login
-// of a session never leaves the home that started it.
-func wgSharedSession(cl *call, v *store.Vpn) (*store.VpnSession, error) {
+// of this home that is still starting is waited for, up to wgStartWait or
+// ctx; one that runs elsewhere, or does not answer, is VPN_KEY_IN_USE.
+// The SOCKS login of a session never leaves the home that started it.
+func wgSharedSession(cl *call, ctx context.Context, v *store.Vpn) (*store.VpnSession, error) {
 	pub, err := wgPublicKeyOf(v)
 	if err != nil {
 		return nil, err
 	}
-	h, err := netx.KeyInUse(pub)
-	if err != nil || h == nil {
-		return nil, err
+	deadline := time.Now().Add(wgStartWait)
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		h, err := netx.KeyInUse(pub)
+		if err != nil || h == nil {
+			return nil, err
+		}
+		if s := reusableSession(h); s != nil {
+			return shareSession(cl, v, s)
+		}
+		if !wgStarting(h) || time.Now().After(deadline) {
+			return nil, vpnInUse(v, h)
+		}
+		select {
+		case <-ctx.Done():
+			return nil, toErr(ctx.Err())
+		case <-tick.C:
+		}
 	}
-	s := reusableSession(h)
-	if s == nil {
-		return nil, vpnInUse(v, h)
+}
+
+// wgStarting reports whether holder h is a session of this home on its
+// way up: no SOCKS address yet, or one that answers before `vpn up` has
+// saved its session.
+func wgStarting(h *netx.KeyHolder) bool {
+	if filepath.Clean(h.Home) != filepath.Clean(store.Home()) {
+		return false
 	}
+	return h.Socks == "" || listening(h.Socks)
+}
+
+// shareSession records session s, which runs v's key, as v's session too.
+func shareSession(cl *call, v *store.Vpn, s *store.VpnSession) (*store.VpnSession, error) {
 	shared := *s
 	shared.Vpn, shared.SharedWith, shared.LastUsed = v.Name, s.Vpn, time.Now().UTC()
 	if err := store.UpdateRuntime(cl.storeWrite(), func(st *store.State) error { st.Sessions[v.Name] = &shared; return nil }); err != nil {

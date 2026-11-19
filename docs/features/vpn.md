@@ -141,8 +141,12 @@ How long a VPN stays up depends on its kind:
   every komando home of your user. A second `vpn up` with the same key
   reuses the running session when it belongs to the same home and
   answers (`shared_with` names the VPN it shares); otherwise it stops with
-  `VPN_KEY_IN_USE`, which names the other process and its home. A lock
-  whose process has ended is taken over. `vpn down` on one of them
+  `VPN_KEY_IN_USE`, which names the other process and its home. Two
+  `vpn up` at the same moment: the second waits up to 5 seconds for the
+  first session of the same home to come up, then reuses it. A lock
+  whose process has ended is taken over. The lock folder must be a real
+  folder of your user: a symlink or another user's folder is refused,
+  and a wider mode is set to 0700. `vpn down` on one of them
   removes only its own entry: the session keeps running for the others,
   and the last one's `vpn down` stops it. The answer and its `--dry-run`
   say which.
