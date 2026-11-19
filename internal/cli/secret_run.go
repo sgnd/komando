@@ -34,10 +34,13 @@ A value secret:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own
 KOMANDO_* variables and the values that unlock the vault. For an AI agent
-with secrets, variables that make a program load other code (LD_PRELOAD,
-DYLD_*, NODE_OPTIONS, PYTHON*, BASH_ENV and the like) are refused in --env
-and the program gets only HOME and USER from your OS account, LANG,
-LC_*, TERM, TMPDIR, TZ, a system PATH and its --env values.
+with secrets, --env may add variables but never replace one komando sets
+(HOME, PATH, USER, LANG, ...), and may not set what decides which code or
+settings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,
+BASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy,
+GIT_*, SSH_* or XDG_*. The program gets HOME, USER and LOGNAME from your
+OS account (USERPROFILE on Windows), LANG, LC_*, TERM, TMPDIR, TZ, the
+Windows system folders, a system PATH and its --env values.
 
 The program's output goes through komando's masking: a vault value it
 prints shows as [secret:NAME]. komando exits with the program's exit code.
@@ -75,8 +78,8 @@ func runLocal(cl *call, pairs, args []string) error {
 	agentSecrets := cl.isAgent() && len(refs) > 0
 	if agentSecrets {
 		for _, k := range slices.Sorted(maps.Keys(env)) {
-			if loadsCode(k) {
-				return out.Usage("an AI agent's run with secrets may not set %s: it makes the program load other code, which could read the values", k)
+			if loadsCode(k) || baseSets(k) {
+				return out.Usage("an AI agent's run with secrets may not set %s: it decides which code or settings the program loads, which could read the values", k)
 			}
 		}
 	}
@@ -202,7 +205,11 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 // Windows cannot pass a signal on, so there the program is ended.
 func forwardSignals() (started chan<- *os.Process, stop func()) {
 	ch := make(chan os.Signal, 2)
-	signal.Notify(ch, forwardedSignals...)
+	for _, sig := range forwardedSignals {
+		if !signal.Ignored(sig) { // nohup: a closed terminal does not stop the program
+			signal.Notify(ch, sig)
+		}
+	}
 	start := make(chan *os.Process, 1)
 	done := make(chan struct{})
 	go func() {
@@ -310,6 +317,17 @@ func plainPairs(env map[string]string) []string {
 // picked could hold a .psqlrc, .gitconfig or .npmrc that runs its code.
 var agentKeep = []string{"LANG", "TERM", "TMPDIR", "TZ", "SYSTEMROOT", "WINDIR", "TEMP", "TMP"}
 
+// accountKeys are what agentBaseEnv sets itself, from the OS account.
+var accountKeys = []string{"PATH", "HOME", "USER", "LOGNAME", "USERPROFILE"}
+
+// baseSets reports whether agentBaseEnv sets k (any case): from the
+// account, or kept from the environment. An agent's plain --env may add
+// keys, never replace one of these.
+func baseSets(k string) bool {
+	k = strings.ToUpper(k)
+	return slices.Contains(accountKeys, k) || slices.Contains(agentKeep, k) || strings.HasPrefix(k, "LC_")
+}
+
 func agentBaseEnv(cl *call, env []string) ([]string, func()) {
 	kept := []string{"PATH=" + systemPath}
 	cleanup := func() {}
@@ -329,7 +347,7 @@ func agentBaseEnv(cl *call, env []string) ([]string, func()) {
 	}
 	for _, kv := range env {
 		k, _, _ := strings.Cut(kv, "=")
-		if slices.Contains(agentKeep, strings.ToUpper(k)) || strings.HasPrefix(k, "LC_") {
+		if baseSets(k) && !slices.Contains(accountKeys, strings.ToUpper(k)) {
 			kept = append(kept, kv)
 		}
 	}
@@ -372,17 +390,28 @@ func freshHome(cl *call) (string, func()) {
 }
 
 // loadsCode reports whether an environment variable makes a program, its
-// runtime or its shell load code it names (a library, a startup file, an
-// interpreter option). Code loaded that way could read the injected values
-// and write them where masking never sees them.
+// runtime or its shell load or run code it names: a library, a startup or
+// rc file, an interpreter option, a pager, an editor, an askpass helper, a
+// proxy, git's and ssh's settings. Code reached that way could read the
+// injected values and write them where masking never sees them.
 func loadsCode(k string) bool {
 	k = strings.ToUpper(k)
-	for _, p := range []string{"LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GIT_SSH", "GIT_EXEC_PATH", "GIT_CONFIG"} {
+	for _, p := range []string{"LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GIT_", "SSH_", "XDG_"} {
 		if strings.HasPrefix(k, p) {
 			return true
 		}
 	}
-	return k == "BASH_ENV" || k == "ENV" || k == "ZDOTDIR" || k == "PROMPT_COMMAND" || k == "SHELLOPTS" || k == "IFS"
+	for _, sfx := range []string{"PAGER", "RC", "_PROXY"} { // PSQL_PAGER, PSQLRC, INPUTRC, https_proxy
+		if strings.HasSuffix(k, sfx) {
+			return true
+		}
+	}
+	switch k {
+	case "BASH_ENV", "ENV", "ZDOTDIR", "PROMPT_COMMAND", "SHELLOPTS", "IFS", "EDITOR", "VISUAL",
+		"BROWSER", "LESSOPEN", "LESSCLOSE", "SHELL", "NPM_CONFIG_USERCONFIG":
+		return true
+	}
+	return strings.Contains(k, "ASKPASS")
 }
 
 // sameFile reports whether the program file is the one komando checked.

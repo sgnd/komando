@@ -146,7 +146,7 @@ func (p *Printer) hideList() []hidden {
 func (p *Printer) Longest() int {
 	n := 0
 	for _, h := range p.hideList() {
-		n = max(n, len(h.raw))
+		n = max(n, len(h.raw), len(jsonEscaped(h.raw)))
 	}
 	return n
 }
@@ -196,4 +196,11 @@ func (p *Printer) HoldsVaultValue(s string) bool {
 		}
 	}
 	return false
+}
+
+// jsonEscaped is raw as it appears inside a JSON string, which can be
+// longer than raw (quotes, control characters, < > &).
+func jsonEscaped(raw string) string {
+	b, _ := json.Marshal(raw)
+	return string(b[1 : len(b)-1])
 }
