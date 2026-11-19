@@ -100,13 +100,26 @@ func (v approvalView) flagLines() string {
 
 // title is the window's first, bold line: the action in plain words.
 func (v approvalView) title() string {
-	switch {
-	case v.raw != "":
+	if v.raw != "" {
+		if what, ok := strings.CutPrefix(v.Owner, "komando: show "); ok {
+			return "Show " + what
+		}
 		return "komando: allow?"
-	case len(v.Targets) > 0:
-		return "Change " + strings.Join(v.Targets, ", ")
 	}
-	return "Run a komando command"
+	verb := "Change"
+	switch {
+	case strings.HasPrefix(v.Line, "komando exec "):
+		verb = "Run a command on"
+	case strings.HasPrefix(v.Line, "komando db query "):
+		verb = "Run a query on"
+	}
+	switch len(v.Targets) {
+	case 0:
+		return "Run a komando command"
+	case 1:
+		return verb + " " + v.Targets[0]
+	}
+	return verb + " " + strconv.Itoa(len(v.Targets)) + " servers"
 }
 
 // subtitle is the secondary line under the title: who asks.
@@ -120,156 +133,8 @@ func (v approvalView) subtitle() string {
 // question is the window's last line, above the buttons.
 const question = "Allow this once?"
 
-// rowKind is how a grid row is drawn.
-type rowKind int
-
-const (
-	rowPlain rowKind = iota
-	rowBadge         // a small framed label ("Protected")
-	rowRisk          // a red warning symbol, then the text
-)
-
-// gridRow is one line of the two-column grid above the command.
-type gridRow struct {
-	Label, Text string // Label is "" on a row that continues the one above
-	Kind        rowKind
-}
-
-// grid is where it runs, whether that is protected, and each risk in
-// plain words, one per line.
-func (v approvalView) grid() []gridRow {
-	if v.raw != "" {
-		return nil
-	}
-	var g []gridRow
-	if len(v.Targets) > 0 {
-		g = append(g, gridRow{"Target", strings.Join(v.Targets, ", "), rowPlain})
-	}
-	if v.Protected {
-		g = append(g, gridRow{"", "Protected", rowBadge})
-	}
-	label := "Risk"
-	for _, r := range v.Risks {
-		for _, w := range riskWords(r) {
-			g = append(g, gridRow{label, w, rowRisk})
-			label = ""
-		}
-	}
-	return g
-}
-
-// destructive says whether "Allow once" is drawn as a dangerous button:
-// whenever a risk line is shown.
-func (v approvalView) destructive() bool {
-	for _, r := range v.grid() {
-		if r.Kind == rowRisk {
-			return true
-		}
-	}
-	return false
-}
-
-// header is the grid as plain text, for the golden test.
-func (v approvalView) header() string {
-	var b []string
-	for _, r := range v.grid() {
-		t := r.Text
-		switch r.Kind {
-		case rowBadge:
-			t = "[" + t + "]"
-		case rowRisk:
-			t = "(!) " + t
-		}
-		b = append(b, fmt.Sprintf("%-8s %s", r.Label, t))
-	}
-	return strings.Join(b, "\n")
-}
-
-// gridArg is the grid for the macOS script's argv: one row a line,
-// kind, label and text split by tabs (unshowable keeps both out of a text).
-func (v approvalView) gridArg() string {
-	var b []string
-	for _, r := range v.grid() {
-		b = append(b, strconv.Itoa(int(r.Kind))+"\t"+r.Label+"\t"+r.Text)
-	}
-	return strings.Join(b, "\n")
-}
-
-// ruleTrigger is the command a built-in deny rule (internal/policy) is
-// about, shown after its reason so a person sees what triggered it.
-var ruleTrigger = map[string]string{
-	"rm-root": "rm -rf", "rm-cd-root": "rm -rf", "find-delete-root": "find -delete", "rm-system-dir": "rm -rf",
-	"mkfs": "mkfs", "dd-device": "dd", "redirect-device": "> /dev", "wipefs": "wipefs", "fdisk": "fdisk",
-	"power": "shutdown", "power-systemctl": "systemctl reboot", "fork-bomb": "fork bomb",
-	"chmod-root": "chmod -R", "chown-root": "chown -R", "firewall-flush": "firewall flush", "firewall-drop-all": "iptables -P DROP",
-	"sshd-stop": "stop sshd", "passwd-files": "/etc/passwd", "passwd-files-write": "/etc/passwd", "db-drop": "DROP DATABASE",
-	"docker-prune-all": "docker prune", "kubectl-delete-ns": "kubectl delete", "base64-pipe-sh": "base64 | sh",
-	"curl-pipe-sh": "curl | sh", "crontab-r": "crontab -r", "userdel": "userdel",
-	"win-rm-root": "Remove-Item -Recurse", "win-format": "Format-Volume", "win-power": "Stop-Computer", "win-remote-access": "Stop-Service",
-	"win-firewall-block": "Set-NetFirewallProfile", "win-user-delete": "Remove-LocalUser", "win-encoded": "-EncodedCommand",
-	"win-download-run": "download | iex", "win-backups": "vssadmin delete", "win-registry-hive": "reg delete",
-}
-
-// riskWords is a risk reason in plain words, one line each: a deny-rule
-// reason ("[rm-system-dir,db-drop] deletes ...; drops a database") loses
-// its rule ids and names what triggered it ("Deletes a system folder
-// recursively (rm -rf)"); any other reason is shown as it is, capitalised.
-func riskWords(r string) []string {
-	if ids, rest, ok := strings.Cut(strings.TrimPrefix(r, "["), "] "); ok && strings.HasPrefix(r, "[") {
-		idl, reasons := strings.Split(ids, ","), strings.Split(rest, "; ")
-		if len(idl) == len(reasons) {
-			var out []string
-			for i, id := range idl {
-				t, known := ruleTrigger[id]
-				if !known && !strings.HasPrefix(id, "custom-") {
-					out = nil
-					break
-				}
-				w := capitalise(reasons[i])
-				if t != "" {
-					w += " (" + t + ")"
-				}
-				if !slices.Contains(out, w) {
-					out = append(out, w)
-				}
-			}
-			if out != nil {
-				return out
-			}
-		}
-	}
-	return []string{capitalise(r)}
-}
-
-func capitalise(s string) string {
-	r, n := utf8.DecodeRuneInString(s)
-	if n == 0 {
-		return s
-	}
-	return strings.ToUpper(string(r)) + s[n:]
-}
-
-// flagSkip is the stop each approval flag skips, in a few words.
-var flagSkip = map[string]string{
-	"--yes":             "the protected-server stop",
-	"--allow-dangerous": "the dangerous-command stop",
-	"--reveal":          "the secret-hiding stop",
-}
-
-// skipLines is one short line per skipped flag.
-func (v approvalView) skipLines() string {
-	var b []string
-	for _, f := range v.Flags {
-		what := flagSkip[f]
-		if what == "" {
-			what = "a safety stop"
-		}
-		b = append(b, "Skips "+what+" ("+f+")")
-	}
-	return strings.Join(b, "\n")
-}
-
-// command is the command line, then the body, as sent.
+// command is the command line, then the body, as sent; a body's
+// "It also sends ..." line shows as a short caption.
 func (v approvalView) command() string {
 	if v.raw != "" {
 		return strings.TrimRight(v.raw, "\n")
@@ -277,8 +142,16 @@ func (v approvalView) command() string {
 	if v.Body == "" {
 		return v.Line
 	}
-	return v.Line + "\n\n" + strings.TrimRight(v.Body, "\n")
+	body := strings.TrimRight(v.Body, "\n")
+	if first, rest, _ := strings.Cut(body, "\n"); bodyHead.MatchString(first) {
+		m := bodyHead.FindStringSubmatch(first)
+		body = capitalise(m[1]) + " · " + m[3] + " lines · sha256 " + m[4][:min(8, len(m[4]))] + "…\n" + rest
+	}
+	return v.Line + "\n\n" + body
 }
+
+// bodyHead is the first line of a body that approval_body.go shows whole.
+var bodyHead = regexp.MustCompile(`^It also sends (?:the )?(.+) \((\d+) bytes, (\d+) lines, SHA-256 ([0-9a-f]+)\)(?:, all of it:|\.)$`)
 
 // boxMaxLines is how many rows the command box shows before it scrolls
 // (only down, never sideways), on macOS and Windows alike.
@@ -288,70 +161,6 @@ const boxMaxLines = 15
 // and Windows alike: box() wraps every line to it, so it never scrolls
 // sideways and no tail of a command is out of view.
 const boxCols = 80
-
-// box is command() wrapped at boxCols; start[i] is the row where line i
-// of command() begins.
-func (v approvalView) box() (rows []string, start []int) {
-	for _, l := range strings.Split(v.command(), "\n") {
-		start = append(start, len(rows))
-		rows = append(rows, wrapLine(l, boxCols)...)
-	}
-	return rows, start
-}
-
-// boxText is the command box's text.
-func (v approvalView) boxText() string {
-	rows, _ := v.box()
-	return strings.Join(rows, "\n")
-}
-
-// wrapLine breaks l into rows of at most cols characters, at a space
-// where it can. Rows after the first hang under the text: after a script
-// line's number ("  12  "), or four spaces in from the line's own indent.
-func wrapLine(l string, cols int) []string {
-	r := []rune(l)
-	if len(r) <= cols {
-		return []string{l}
-	}
-	indent := len(r) - len([]rune(strings.TrimLeft(l, " ")))
-	if m := scriptLineNo.FindString(l); m != "" {
-		indent = utf8.RuneCountInString(m)
-	} else {
-		indent += 4
-	}
-	if indent > cols/2 {
-		indent = 4
-	}
-	var rows []string
-	pad := ""
-	for len(r) > 0 {
-		room := cols - utf8.RuneCountInString(pad)
-		if len(r) <= room {
-			rows = append(rows, pad+string(r))
-			break
-		}
-		cut := room
-		for i := room; i > room/2; i-- {
-			if r[i-1] == ' ' {
-				cut = i
-				break
-			}
-		}
-		rows = append(rows, pad+strings.TrimRight(string(r[:cut]), " "))
-		r = r[cut:]
-		pad = strings.Repeat(" ", indent)
-	}
-	return rows
-}
-
-// scriptLineNo is the number in front of a script line in the body.
-var scriptLineNo = regexp.MustCompile(`^ *\d+  `)
-
-// boxRows is how many rows the command box has.
-func (v approvalView) boxRows() int {
-	rows, _ := v.box()
-	return len(rows)
-}
 
 // moreHint is the line under a box that scrolls, or "".
 func (v approvalView) moreHint() string {
@@ -396,8 +205,8 @@ func (v approvalView) riskyRange() (off, n int) {
 	return off, n
 }
 
-// notes is the secondary text under the box: the scroll hint, what the
-// flag also lets through, and the skipped stops.
+// notes is the secondary text under the box: the scroll hint and what
+// the flag also lets through.
 func (v approvalView) notes() string {
 	if v.raw != "" {
 		return v.moreHint()
@@ -409,16 +218,13 @@ func (v approvalView) notes() string {
 	if v.What != "" {
 		b = append(b, "Also lets through: "+v.What)
 	}
-	if f := v.skipLines(); f != "" {
-		b = append(b, f)
-	}
 	return strings.Join(b, "\n\n")
 }
 
 // layout is the window's content as plain text, for the golden test.
 func (v approvalView) layout() string {
 	s := "[title]\n" + v.title() + "\n[subtitle]\n" + v.subtitle() + "\n[grid]\n" + v.header() + "\n[command]\n" + v.boxText() + "\n"
-	s += "[owner]\n" + v.ownerReason() + "\n[notes]\n" + v.notes() + "\n[question]\n" + question + "\n"
+	s += "[owner]\n" + v.ownerReason() + "\n[notes]\n" + v.notes() + "\n[question]\n" + question + "\n[danger]\n" + v.dangerArg() + "\n"
 	return s + "[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n[allow is destructive]\n" + strconv.FormatBool(v.destructive()) + "\n"
 }
 
@@ -443,8 +249,9 @@ func viewFor(cl *call, text string) approvalView {
 // macAlertScript draws the macOS window (JXA, AppKit's NSAlert). Every
 // text arrives in argv after macArgMarker, never in the script: 1 the
 // title, 2 who asks, 3 the command box, 4 the notes, 5 the box height,
-// 6 and 7 the risky range, 8 and 9 the owner check, 10 the grid (kind,
-// label, text a line), 11 "1" when Allow once is dangerous, 12 the question.
+// 6 the risky line's offset (the box opens scrolled to it), 7 the
+// dangerous commands' ranges ("off:len,..."), 8 and 9 the owner check, 10 the grid (kind,
+// label, text a line), 11 "1" when Allow once shows red, 12 the question.
 // Deny is the default (Return) and Esc; after 120 seconds it closes as
 // "gave up". After "Allow once" the same run asks LocalAuthentication for
 // the device owner (policy 2: Touch ID, an Apple Watch or the login
@@ -465,13 +272,20 @@ function owner(reason, secs) {
   if (res === null) { ctx.invalidate; return 'owner timeout'; }
   return res;
 }
+function warn(msg) {
+  try { $.NSFileHandle.fileHandleWithStandardError.writeData($(msg + '\n').dataUsingEncoding($.NSUTF8StringEncoding)); } catch (e) {}
+}
 function symbol(name, size) {
+  var im = null;
+  try { im = $.NSImage.imageWithSystemSymbolNameAccessibilityDescription(name, name); } catch (e) { warn('symbol ' + name + ': ' + e); }
+  if (!im || im.isNil()) { warn('symbol ' + name + ': none'); return null; }
   try {
-    var im = $.NSImage.imageWithSystemSymbolNameAccessibilityDescription(name, null);
-    if (!im || im.isNil()) return null;
-    var c = im.imageWithSymbolConfiguration($.NSImageSymbolConfiguration.configurationWithPointSizeWeight(size, 0));
-    return (c && !c.isNil()) ? c : im;
-  } catch (e) { return null; }
+    var cfg = $.NSClassFromString('NSImageSymbolConfiguration').configurationWithPointSizeWeight(size, 0);
+    var c = im.imageWithSymbolConfiguration(cfg);
+    if (c && !c.isNil()) return c;
+  } catch (e) { warn('symbol ' + name + ' size: ' + e); }
+  im.size = $.NSMakeSize(size, size);
+  return im;
 }
 function label(text, font, colour, w) {
   var l = $.NSTextField.wrappingLabelWithString(text);
@@ -487,6 +301,7 @@ function run(argv) {
   var a = $.NSAlert.alloc.init;
   a.alertStyle = $.NSAlertStyleWarning;
   var icon = symbol('lock.shield', 48);
+  if (!icon) { icon = $.NSImage.imageNamed('NSCaution'); if (icon && icon.isNil()) icon = null; }
   if (icon) a.icon = icon;
   a.messageText = argv[1];
   a.informativeText = argv[2];
@@ -494,8 +309,14 @@ function run(argv) {
   deny.keyEquivalent = '\r';
   var allow = a.addButtonWithTitle('Allow once');
   allow.keyEquivalent = '';
-  if (argv[11] === '1') { try { allow.hasDestructiveAction = true; } catch (e) {} }
-  var w = 600, gap = 10, lw = 64, vx = lw + 8, fs = $.NSFont.systemFontSize;
+  if (argv[11] === '1') {
+    // red title text on a normal button, the same weight as Deny
+    var ps = $.NSMutableParagraphStyle.alloc.init;
+    ps.alignment = $.NSTextAlignmentCenter;
+    allow.attributedTitle = $.NSAttributedString.alloc.initWithStringAttributes('Allow once',
+      $.NSDictionary.dictionaryWithObjectsForKeys([$.NSColor.systemRedColor, allow.font, ps], [$.NSForegroundColorAttributeName, $.NSFontAttributeName, $.NSParagraphStyleAttributeName]));
+  }
+  var x0 = 4, w = 596, gap = 10, lw = 64, vx = lw + 8, fs = $.NSFont.systemFontSize;
   var font = $.NSFont.systemFontOfSize(fs), bold = $.NSFont.boldSystemFontOfSize(fs);
   var parts = []; // {v, x, h, w}, top to bottom; a row of the grid is one part
   argv[10].split('\n').forEach(function (line) {
@@ -531,7 +352,7 @@ function run(argv) {
       row.addSubview(badge);
       h = bl.h + 4;
     } else {
-      var val = label(f[2], font, $.NSColor.labelColor, w - tx);
+      var val = label(f[2], font, kind === '2' ? $.NSColor.systemRedColor : $.NSColor.labelColor, w - tx);
       h = Math.max(val.h, 16);
       val.v.frame = $.NSMakeRect(tx, h - val.h, w - tx, val.h);
       row.addSubview(val.v);
@@ -556,19 +377,24 @@ function run(argv) {
   try { mf = $.NSFont.monospacedSystemFontOfSizeWeight(ms, 0); } catch (e) {}
   tv.font = (mf && !mf.isNil()) ? mf : $.NSFont.userFixedPitchFontOfSize(ms);
   tv.textColor = $.NSColor.labelColor;
-  tv.backgroundColor = $.NSColor.controlBackgroundColor;
+  var fill = $.NSColor.quaternarySystemFillColor;
+  tv.backgroundColor = (fill && !fill.isNil()) ? fill : $.NSColor.controlBackgroundColor;
+  sv.drawsBackground = false;
   tv.textContainerInset = $.NSMakeSize(6, 6);
   tv.horizontallyResizable = false;
   tv.textContainer.widthTracksTextView = true;
   tv.string = argv[3];
   tv.setAccessibilityLabel('Command');
   sv.documentView = tv;
-  var ro = Number(argv[6]), rn = Number(argv[7]);
-  if (ro >= 0) {
-    var rr = $.NSMakeRange(ro, rn);
-    tv.textStorage.addAttributeValueRange($.NSBackgroundColorAttributeName, $.NSColor.findHighlightColor, rr);
-    tv.scrollRangeToVisible(rr);
-  }
+  // only the dangerous commands are marked: red text, a thin underline
+  argv[7].split(',').forEach(function (r) {
+    var p = r.split(':');
+    if (p.length !== 2) return;
+    var rr = $.NSMakeRange(Number(p[0]), Number(p[1]));
+    tv.textStorage.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, rr);
+    tv.textStorage.addAttributeValueRange($.NSUnderlineStyleAttributeName, 1, rr);
+  });
+  if (Number(argv[6]) >= 0) tv.scrollRangeToVisible($.NSMakeRange(Number(argv[6]), 0));
   parts.push({ v: sv, h: h, gap: gap });
   var note = label(argv[4], $.NSFont.systemFontOfSize($.NSFont.smallSystemFontSize), $.NSColor.secondaryLabelColor, w);
   if (note.h) parts.push({ v: note.v, h: note.h, gap: gap });
@@ -576,11 +402,11 @@ function run(argv) {
   parts.push({ v: ask.v, h: ask.h, gap: 0 });
   var total = 0;
   parts.forEach(function (p) { total += p.h + p.gap; });
-  var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, total));
+  var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, x0 + w, total));
   var y = total;
   parts.forEach(function (p) {
     y -= p.h;
-    p.v.frame = $.NSMakeRect(0, y, w, p.h);
+    p.v.frame = $.NSMakeRect(x0, y, w, p.h);
     box.addSubview(p.v);
     y -= p.gap;
   });
@@ -631,14 +457,14 @@ func (v approvalView) ownerReason() string {
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
 	rows := min(v.boxRows(), boxMaxLines)
-	off, n := v.riskyRange()
+	off, _ := v.riskyRange()
 	dangerous := "0"
 	if v.destructive() {
 		dangerous = "1"
 	}
 	// 15 px a row, 12 for the insets; no sideways scroller (box() wraps)
 	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.subtitle(), v.boxText(), v.notes(), strconv.Itoa(rows*15 + 14),
-		strconv.Itoa(off), strconv.Itoa(n), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), v.gridArg(), dangerous, question}
+		strconv.Itoa(off), v.dangerArg(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), v.gridArg(), dangerous, question}
 }
 
 // macOutcome is how the macOS window ended.
@@ -708,7 +534,7 @@ const (
 	winLabelW    = 64
 	winTextCols  = 88 // Segoe UI characters on a full row, kept low so wrapped text is never cut
 	winValueCols = 76 // the same in the grid's value column
-	winTitleCols = 60 // the bold title is wider
+	winTitleCols = 80 // bold characters on a full row
 	winBadgeW    = 72
 )
 
@@ -729,7 +555,7 @@ func winGridH(v approvalView) []int {
 
 func winLayoutFor(v approvalView) winLayout {
 	var l winLayout
-	l.titleH = textRows(v.title(), winTitleCols) * (winRowH + 4)
+	l.titleH = textRows(v.title(), winTitleCols)*winRowH + 4
 	if s := v.subtitle(); s != "" {
 		l.subH = winRowH
 	}

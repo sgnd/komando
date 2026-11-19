@@ -295,44 +295,7 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 		procSendMessageW.Call(hw, wmSetFont, f, 1)
 		return hw
 	}
-	y := pad
-	child("STATIC", v.title(), ssNoPrefix, bold, pad, y, winInner, l.titleH, 0)
-	y += l.titleH
-	if l.subH > 0 {
-		winColour[child("STATIC", v.subtitle(), ssNoPrefix, font, pad, y, winInner, l.subH, 0)] = rgbGrey
-		y += l.subH
-	}
-	y += pad
-	vx := pad + winLabelW + 8
-	for i, gh := range winGridH(v) {
-		r := v.grid()[i]
-		if r.Label != "" {
-			winColour[child("STATIC", r.Label, ssNoPrefix, font, pad, y, winLabelW, winRowH, 0)] = rgbGrey
-		}
-		switch r.Kind {
-		case rowBadge:
-			child("STATIC", r.Text, ssNoPrefix|ssCenter|wsBorder, font, vx, y, winBadgeW, winRowH+2, 0)
-		case rowRisk:
-			winColour[child("STATIC", "\u26a0 "+r.Text, ssNoPrefix, font, vx, y, winInner-winLabelW-8, gh-4, 0)] = rgbRed
-		default:
-			child("STATIC", r.Text, ssNoPrefix, font, vx, y, winInner-winLabelW-8, gh-4, 0)
-		}
-		y += gh
-	}
-	y += pad
-	// no ES_AUTOHSCROLL or WS_HSCROLL: boxText() is wrapped, nothing scrolls sideways
-	box := child("EDIT", v.boxText(), esMultiline|esReadOnly|wsVScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
-	winBox = box
-	if i := v.riskyLine(); i >= boxMaxLines {
-		procSendMessageW.Call(box, emLineScroll, 0, uintptr(i-2)) // the line a rule matched, in view (no highlight)
-	}
-	y += l.cmdH + pad
-	if l.notesH > 0 {
-		winColour[child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)] = rgbGrey
-		y += l.notesH + pad
-	}
-	child("STATIC", question, ssNoPrefix, bold, pad, y, winInner, winRowH, 0)
-	y += winRowH + pad
+	y := winContent(v, l, child, font, bold, mono)
 	allowStyle, denyStyle := uintptr(bsPushButton), uintptr(bsDefPush)
 	if withCode {
 		winCodeEdit = child("EDIT", "", esPassword|esAutoHScroll|wsBorder|wsTabStop, font, pad, y, winInner, codeH, idCode)
@@ -366,6 +329,59 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	code = strings.TrimSpace(winCode)
 	winCode = ""
 	return code, winAnswer == idAllow, winAnswer == 0, true
+}
+
+// winChild makes a child control: class, text, style, font, x, y, w, h, id.
+type winChild func(class, label string, style, f uintptr, x, y, cw, ch int, id uintptr) uintptr
+
+// winContent draws everything above the code field and the buttons, and
+// returns where they start.
+func winContent(v approvalView, l winLayout, child winChild, font, bold, mono uintptr) int {
+	const pad = winPad
+	y := pad
+	child("STATIC", v.title(), ssNoPrefix, bold, pad, y, winInner, l.titleH, 0)
+	y += l.titleH
+	if l.subH > 0 {
+		winColour[child("STATIC", v.subtitle(), ssNoPrefix, font, pad, y, winInner, l.subH, 0)] = rgbGrey
+		y += l.subH
+	}
+	y += pad
+	vx := pad + winLabelW + 8
+	for i, gh := range winGridH(v) {
+		r := v.grid()[i]
+		if r.Label != "" {
+			winColour[child("STATIC", r.Label, ssNoPrefix, font, pad, y, winLabelW, winRowH, 0)] = rgbGrey
+		}
+		switch r.Kind {
+		case rowBadge:
+			child("STATIC", r.Text, ssNoPrefix|ssCenter|wsBorder, font, vx, y, winBadgeW, winRowH+2, 0)
+		case rowRisk:
+			winColour[child("STATIC", "\u26a0 "+r.Text, ssNoPrefix, font, vx, y, winInner-winLabelW-8, gh-4, 0)] = rgbRed
+		default:
+			child("STATIC", r.Text, ssNoPrefix, font, vx, y, winInner-winLabelW-8, gh-4, 0)
+		}
+		y += gh
+	}
+	y += pad
+	// no ES_AUTOHSCROLL or WS_HSCROLL: boxText() is wrapped, nothing scrolls
+	// sideways; a scroll bar only when there is more than the box shows
+	boxStyle := uintptr(esMultiline | esReadOnly | wsBorder | wsTabStop)
+	if v.boxRows() > boxMaxLines {
+		boxStyle |= wsVScroll
+	}
+	box := child("EDIT", v.boxText(), boxStyle, mono, pad, y, winInner, l.cmdH, 0)
+	winBox = box
+	if i := v.riskyLine(); i >= boxMaxLines {
+		procSendMessageW.Call(box, emLineScroll, 0, uintptr(i-2)) // the line a rule matched, in view (no highlight)
+	}
+	y += l.cmdH + pad
+	if l.notesH > 0 {
+		winColour[child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)] = rgbGrey
+		y += l.notesH + pad
+	}
+	child("STATIC", question, ssNoPrefix, bold, pad, y, winInner, winRowH, 0)
+	y += winRowH + pad
+	return y
 }
 
 // crlf is s with Windows line ends, which an edit control needs.

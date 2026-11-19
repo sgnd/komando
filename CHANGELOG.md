@@ -24,16 +24,18 @@ its highlights; the sections below them give the details. Versions follow
   is the boundary.
 - The approval window an AI agent's `--yes`, `--allow-dangerous` or
   `--reveal` opens on macOS and Windows is easier to read: the action as
-  the title ("Change db-2.example.test") with the agent's name under it,
-  an aligned grid for the target, a "Protected" badge and each risk in
-  plain words with a red warning sign ("Deletes a system folder
-  recursively (rm -rf)", no rule ids), then the command and its script in
-  a monospaced box that wraps (never scrolls sideways, so no tail is out
-  of view) and scrolls down only past 15 rows, and one short line per
-  skipped flag. "Allow once" is red whenever a risk shows; Deny stays the
-  default and the Esc key, and the window still closes itself after 2
-  minutes. macOS shows a shield icon and follows dark mode; the Windows
-  window is titled "komando needs your OK" and shows `--` as two hyphens.
+  the title ("Run a command on db-2.example.test", "Change 4 servers")
+  with the agent's name under it; an aligned grid with the targets (when
+  the title does not name them), a "Protected" badge, each risk in plain
+  red words with a warning sign ("Deletes a system folder recursively
+  (rm -rf)", no rule ids) and one "Skips" line for the flags; then the
+  command on a grey code card that wraps (never sideways, so no tail is
+  out of view; a script gets a short caption) and scrolls down only past
+  15 rows, with only the dangerous commands marked in red. "Allow once"
+  has red text whenever a risk shows; Deny stays the default and the Esc
+  key, and the window still closes itself after 2 minutes. macOS shows a
+  shield icon and follows dark mode; the Windows window is titled
+  "komando needs your OK" and shows `--` as two hyphens.
 
 ### Security
 

@@ -53,8 +53,9 @@ func TestMacAlertScript(t *testing.T) {
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[8], argv[9]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
-		"symbol('lock.shield', 48)", "if (argv[11] === '1') { try { allow.hasDestructiveAction = true; }", "sv.hasHorizontalScroller = false",
+		"symbol('lock.shield', 48)", "allow.attributedTitle = ", "if (argv[11] === '1') {", "sv.hasHorizontalScroller = false",
 		"tv.horizontallyResizable = false", "argv[10].split(", "label(argv[12], bold", "symbol('exclamationmark.triangle', fs)", "$.NSColor.systemRedColor",
+		"$.NSUnderlineStyleAttributeName, 1, rr", "argv[7].split(',')", "quaternarySystemFillColor", "kind === '2' ? $.NSColor.systemRedColor", "imageNamed('NSCaution')",
 	} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
@@ -65,8 +66,13 @@ func TestMacAlertScript(t *testing.T) {
 	}
 	// semantic colours only, so dark mode works
 	for _, c := range regexp.MustCompile(`NSColor\.(\w+)`).FindAllStringSubmatch(macAlertScript, -1) {
-		if !slices.Contains([]string{"labelColor", "secondaryLabelColor", "systemRedColor", "controlBackgroundColor", "findHighlightColor"}, c[1]) {
+		if !slices.Contains([]string{"labelColor", "secondaryLabelColor", "systemRedColor", "controlBackgroundColor", "quaternarySystemFillColor"}, c[1]) {
 			t.Errorf("the script uses NSColor.%s, not a semantic colour", c[1])
+		}
+	}
+	for _, bad := range []string{"findHighlightColor", "NSBackgroundColorAttributeName", "hasDestructiveAction"} {
+		if strings.Contains(macAlertScript, bad) {
+			t.Errorf("the script uses %s", bad)
 		}
 	}
 	if strings.Contains(macAlertScript, "argv[0]") {
@@ -174,14 +180,14 @@ func TestApprovalViewDedupes(t *testing.T) {
 	why := []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected), web-2.example.test",
 		"it runs on web-2.example.test, db-1.example.test", "[rm-system-dir] deletes a system folder recursively"}
 	v := newApprovalView(tcl, []string{"--allow-dangerous", "--yes"}, "", why, "komando exec web -- id", "")
-	want := "Target   web-1.example.test, web-2.example.test, db-1.example.test\n         [Protected]\nRisk     (!) Deletes a system folder recursively (rm -rf)"
+	want := "Target   web-1.example.test, web-2.example.test, db-1.example.test\n         [Protected]\nRisk     (!) Deletes a system folder recursively (rm -rf)\nSkips    the dangerous-command stop, the protected-server stop"
 	if got := v.header(); got != want {
 		t.Errorf("header:\n%s\nwant:\n%s", got, want)
 	}
-	if strings.Contains(v.title(), "protected") || strings.Count(v.title()+"\n"+v.header(), "rotected") != 1 {
+	if strings.Contains(v.title(), "protected") || strings.Count(v.title()+"\n"+v.header(), "Protected") != 1 {
 		t.Errorf("protected is named more than once:\n%s", v.layout())
 	}
-	if v.notes() != "Skips the dangerous-command stop (--allow-dangerous)\nSkips the protected-server stop (--yes)" {
+	if v.notes() != "" || v.title() != "Run a command on 3 servers" {
 		t.Errorf("notes: %q", v.notes())
 	}
 	// the request text (the window's key) is as before
@@ -225,7 +231,7 @@ func TestApprovalBoxScroll(t *testing.T) {
 	if got := string(utf16.Decode(utf16.Encode([]rune(v.boxText()))[off : off+n])); !strings.Contains(got, "of=/dev/sda") {
 		t.Errorf("range %d,%d is %q", off, n, got)
 	}
-	if args := macArgs(v); args[10] != strconv.Itoa(off) || args[11] != strconv.Itoa(n) {
+	if args := macArgs(v); args[10] != strconv.Itoa(off) || args[11] != v.dangerArg() || !strings.Contains(args[11], ":") {
 		t.Errorf("argv %q", args[9:])
 	}
 }
@@ -297,5 +303,51 @@ func TestApprovalDestructiveButton(t *testing.T) {
 	}
 	if (approvalView{raw: "t"}).destructive() {
 		t.Error("a plain text is dangerous")
+	}
+}
+
+// Wrapping breaks after a space, a comma or a slash, and splits a token
+// only when it is longer than a whole row.
+func TestWrapLineBreaks(t *testing.T) {
+	l := "komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx"
+	rows := wrapLine(l, boxCols)
+	if !strings.HasSuffix(rows[0], ",") || !strings.HasPrefix(strings.TrimSpace(rows[1]), "203.0.113.10") {
+		t.Errorf("rows %q", rows)
+	}
+	long := strings.Repeat("x", 100)
+	if rows := wrapLine("echo "+long, boxCols); len(rows) != 3 || rows[0] != "echo" || utf8.RuneCountInString(rows[1]) != boxCols {
+		t.Errorf("a token past the width: %q", rows)
+	}
+	if rows := wrapLine("cat /srv/app/"+strings.Repeat("dir/", 20)+"file", boxCols); !strings.HasSuffix(rows[0], "/") {
+		t.Errorf("path rows %q", rows)
+	}
+}
+
+// Only the dangerous commands are marked, at their place in the box; a
+// script body gets a short caption; the title names the action.
+func TestApprovalDangerAndCaption(t *testing.T) {
+	var d approvalView
+	for _, c := range shotCases {
+		if c.name == "destructive" {
+			d = c.view()
+		}
+	}
+	u := utf16.Encode([]rune(d.boxText()))
+	var got []string
+	for _, r := range d.dangerRanges() {
+		got = append(got, string(utf16.Decode(u[r[0]:r[0]+r[1]])))
+	}
+	if !slices.Equal(got, []string{"rm -rf", "DROP DATABASE"}) {
+		t.Errorf("danger %q in\n%s", got, d.boxText())
+	}
+	if d.title() != "Run a command on db-2.example.test" || strings.Contains(d.header(), "Target") {
+		t.Errorf("title %q, grid\n%s", d.title(), d.header())
+	}
+	cmd := shotView().command()
+	if !strings.Contains(cmd, "\n\nScript ./deploy.sh · 4 lines · sha256 9f2c…\n") || strings.Contains(cmd, "It also sends") {
+		t.Errorf("caption:\n%s", cmd)
+	}
+	if r := (approvalView{raw: "x", Owner: "komando: show secret:db"}); r.title() != "Show secret:db" {
+		t.Errorf("reveal title %q", r.title())
 	}
 }
