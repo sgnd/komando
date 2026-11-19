@@ -50,6 +50,34 @@ func keyFileType(t string) string {
 	return "*"
 }
 
+// HostCATrusted, when set, hears that server name was trusted through
+// the host CA named ca (for the output and the audit log).
+var HostCATrusted func(ctx context.Context, name, ca string)
+
+// caVouches checks a host certificate against the trusted CAs: trusted
+// when one vouches for it, an error when its key or CA is revoked.
+func caVouches(ctx context.Context, name, hostname string, cert *ssh.Certificate) (bool, error) {
+	var ca string
+	var cerr error
+	if err := HostKeys().view(ctx, func(t hostKeyTx) error {
+		ca, cerr = t.(*sealedTx).certTrusted(hostname, cert)
+		return nil
+	}); err != nil {
+		return false, err
+	}
+	var re *knownhosts.RevokedError
+	if errors.As(cerr, &re) {
+		return false, cerr
+	}
+	if ca == "" {
+		return false, nil
+	}
+	if HostCATrusted != nil {
+		HostCATrusted(ctx, name, ca)
+	}
+	return true, nil
+}
+
 // hostKeyCallback checks the key of server h. q (nil: not a login-ask
 // server's connection) hears of a key trusted on first use: a login-ask
 // server's new key is pinned only when askLoginNewKey allows it, as a
@@ -76,6 +104,10 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 		return nil, fmt.Errorf("host key policy %q is not accept-new, strict or off", policy)
 	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		cert, isCert := key.(*ssh.Certificate)
+		if isCert {
+			key = cert.Key // the plain key is checked against the pins
+		}
 		// a known server is checked in a read step; only a new one takes
 		// the write step that pins it (and checks again inside it)
 		var known error
@@ -83,6 +115,14 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 			return verr
 		}
 		var ke0 *knownhosts.KeyError
+		// a pin always wins: a CA vouches only for a server with no pin.
+		// A login-ask server is never trusted through a CA: a person's
+		// typed password goes only where a person met the key
+		if isCert && !ask && errors.As(known, &ke0) && len(ke0.Want) == 0 {
+			if trusted, err := caVouches(ctx, name, hostname, cert); trusted || err != nil {
+				return err
+			}
+		}
 		if known == nil && ask {
 			return loginKnownKey(ctx, h, hostname, key, q)
 		}

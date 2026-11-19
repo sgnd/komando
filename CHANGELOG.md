@@ -9,6 +9,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `komando host ca add|list|rm|revoke`: trust servers through the SSH
+  certificate authority that signs their host keys (`@cert-authority`),
+  with no pin per server (C38b). A pattern names at least the domain
+  (`CA_HOSTS_INVALID`); only a person at a terminal can add a CA
+  (`NEEDS_PERSON`). `--from` reads a known_hosts file's `@cert-authority`
+  and `@revoked` lines. A `--login ask` server is never trusted through a CA.
 - `komando vpn status` shows a WireGuard session's last handshake, its
   age and the tunnel's state: `up`, `idle` (no handshake for 3 minutes
   and nothing sent) or `dead` (no handshake for 3 minutes although

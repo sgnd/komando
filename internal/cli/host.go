@@ -78,7 +78,7 @@ func (f *hostFlags) bind(c *cobra.Command, edit bool) {
 
 func hostCmd() *cobra.Command {
 	c := &cobra.Command{Use: "host", Aliases: []string{"hosts"}, Short: "Servers in komando's list: add, change, check, remove"}
-	c.AddCommand(hostAddCmd(), hostEditCmd(), hostMvCmd(), alias(listCmdFor("host"), "list kind:host", "List servers"), hostShowCmd(), hostRmCmd(), alias(testCmdFor("host"), "test", "Check that servers answer and let you in"), hostTrustCmd(), hostSSHArgsCmd())
+	c.AddCommand(hostAddCmd(), hostEditCmd(), hostMvCmd(), alias(listCmdFor("host"), "list kind:host", "List servers"), hostShowCmd(), hostRmCmd(), alias(testCmdFor("host"), "test", "Check that servers answer and let you in"), hostTrustCmd(), hostSSHArgsCmd(), hostCACmd())
 	return c
 }
 
@@ -727,7 +727,13 @@ func hostShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cl.out.Print("host.show", viewOf(h), nil)
+			v := viewOf(h)
+			if !h.AskLogin() { // a login-ask server is never trusted through a CA
+				if ca, err := sshx.HostCAFor(cmd.Context(), h.Address); err == nil && ca != nil {
+					v.HostCA = ca.Name
+				}
+			}
+			cl.out.Print("host.show", v, nil)
 			return nil
 		}),
 	}

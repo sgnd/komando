@@ -7,7 +7,9 @@ services:
     networks: [public, private]
   target:
     build: .
-    networks: [private]
+    networks:
+      # the name its host certificate carries (checks/hostca.sh)
+      private: { aliases: [web.corp.example] }
     hostname: target
   direct:
     build: .

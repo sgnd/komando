@@ -556,12 +556,20 @@ func clientConfig(ctx context.Context, st *store.State, h *store.Host, o Options
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return &ssh.ClientConfig{
+	cfg := &ssh.ClientConfig{
 		User:            user,
 		Auth:            auths,
 		HostKeyCallback: hkc,
 		Timeout:         o.ConnectTimeout,
-	}, &q, agentConn, nil
+	}
+	// a server a trusted CA may vouch for is asked for its certificate
+	// first; any other keeps the plain keys, so its pins never change
+	if o.HostKeyPolicy != "off" && !h.AskLogin() {
+		if ca, err := HostCAFor(ctx, h.Address); err == nil && ca != nil {
+			cfg.HostKeyAlgorithms = certFirst()
+		}
+	}
+	return cfg, &q, agentConn, nil
 }
 
 // NewHostKey is a host key komando pinned the first time it reached a
