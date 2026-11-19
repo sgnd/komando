@@ -16,9 +16,9 @@ func TestKubectlKustomizeRefused(t *testing.T) {
 
 // Only ASCII is folded when a credential store is let through as ~/.kube.
 func TestInKubeDirASCIIFold(t *testing.T) {
-	if !caseFoldFS {
-		t.Skip("case is only folded where the file system ignores it")
-	}
+	saved := caseFoldFS
+	caseFoldFS = true // as on macOS and Windows; the Linux CI runs it too
+	t.Cleanup(func() { caseFoldFS = saved })
 	home := t.TempDir()
 	if !inKubeDir(home+"/.KUBE/config", home) {
 		t.Error("~/.KUBE/config should be in ~/.kube")

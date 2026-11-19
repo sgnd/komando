@@ -473,8 +473,8 @@ Plain SQL that psql and mysql can also read:
   it does beyond writing data, as for plain SQL (`COPY ... PROGRAM`,
   `GRANT`, ...). The line numbers count in that SQL, as `pg_restore -f -`
   prints it. An archive komando cannot read (another version, cut short,
-  damaged) is refused (`BAD_FILE`). So is one whose table of contents
-  holds more than 256 MiB of SQL: dump fewer objects (`pg_dump -Fc -n
+  damaged) is refused (`BAD_FILE`). One whose table of contents holds
+  more than 256 MiB of SQL is refused with `FILE_TOO_LARGE`: dump fewer objects (`pg_dump -Fc -n
   SCHEMA` or `-t TABLE`) and restore each part, or run `pg_restore` by
   hand. One that keeps table data as SQL
   (`pg_dump --inserts`) is named in the approval as SQL komando did not

@@ -527,7 +527,7 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 			// a pg_dump archive: the SQL in its table of contents is
 			// checked; the rest is read too, so the seal covers every byte
 			if sqlV, err = driver.CheckRestoreArchive(r); errors.Is(err, driver.ErrArchiveTooLarge) {
-				return out.Errf(out.ExitUsage, "BAD_FILE", "dump fewer objects (pg_dump -Fc -n SCHEMA or -t TABLE) and restore each part, or restore this one with pg_restore by hand", "%s: %v", from, err)
+				return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "dump fewer objects (pg_dump -Fc -n SCHEMA or -t TABLE) and restore each part, or restore this one with pg_restore by hand", "%s: %v", from, err)
 			} else if err != nil {
 				return out.Errf(out.ExitUsage, "BAD_FILE", "dump it again with `komando db dump` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
 			}

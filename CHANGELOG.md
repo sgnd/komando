@@ -19,8 +19,8 @@ its highlights; the sections below them give the details. Versions follow
 ### Fixed
 
 - `db restore`: an archive whose table of contents holds more than 256 MiB
-  of SQL names the limit and a way forward instead of asking for the same
-  dump again. Any tar file is refused as a tar, not with an SQL error. The
+  of SQL is refused with `FILE_TOO_LARGE` (was `BAD_FILE`), naming the
+  limit and a way forward instead of asking for the same dump again. Any tar file is refused as a tar, not with an SQL error. The
   `BAD_FILE` hint covers archives too.
 
 ## [0.16.0] - 2026-11-19

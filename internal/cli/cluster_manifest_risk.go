@@ -125,8 +125,7 @@ func namespaceDropsEnforce(ns map[string]any) string {
 	labels, _ := md["labels"].(map[string]any)
 	psa := false
 	for k := range labels {
-		k = strings.ToLower(strings.TrimSpace(k))
-		if k == "pod-security.kubernetes.io/enforce" {
+		if k == "pod-security.kubernetes.io/enforce" { // label keys are case-sensitive
 			return ""
 		}
 		psa = psa || strings.HasPrefix(k, "pod-security.kubernetes.io/")
