@@ -165,12 +165,14 @@ function owner(reason, secs) {
 }
 // $.NSApp is not the application in JXA: the actions use APP, set in run
 var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
+// the answer each path sets itself; a close after a choice keeps it
+var CHOICE = 'Deny', CHOSEN = false;
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
-    'deny:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(DENY); } },
-    'allow:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(ALLOW); } },
-    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { APP.stopModalWithCode(DENY); } }
+    'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
 function label(text, font, w) {
@@ -218,22 +220,22 @@ function run(argv) {
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
-    if (Number(e.keyCode) === 53) { app.stopModalWithCode(DENY); return null; }
-    if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }
+    if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
+    if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
     return e;
   });
-  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { app.stopModalWithCode(GAVE_UP); });
+  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); });
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
   panel.makeKeyAndOrderFront(null);
-  // JXA returns an NSInteger as a string ("1001"): compare it as a number
-  var r = Number(app.runModalForWindow(panel));
+  var r = app.runModalForWindow(panel);
+  try { $.NSFileHandle.fileHandleWithStandardError.writeData($('modal: ' + typeof r + ' ' + ObjC.unwrap(r) + '\n').dataUsingEncoding($.NSUTF8StringEncoding)); } catch (e) {}
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
   panel.delegate = null;
   panel.orderOut(null);
-  if (r === ALLOW) return 'Allow once\n' + owner(argv[3], argv[4]);
-  if (r === GAVE_UP) return 'gave up';
+  if (CHOICE === 'Allow') return 'Allow once\n' + owner(argv[3], argv[4]);
+  if (CHOICE === 'gave up') return 'gave up';
   return 'Deny';
 }`
 

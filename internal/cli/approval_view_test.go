@@ -57,7 +57,7 @@ func TestMacAlertScript(t *testing.T) {
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
 		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)", "argv[2].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
-		"if (r === ALLOW) return 'Allow once\\n' + owner(argv[3], argv[4]);",
+		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
 	} {
 		if !strings.Contains(macAlertScript, want) {
@@ -306,16 +306,16 @@ func TestApprovalOptions(t *testing.T) {
 func TestMacPanelAnswers(t *testing.T) {
 	script := macAlertScript
 	for _, tc := range []struct{ name, want string }{
-		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(DENY); } }"},
-		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(ALLOW); } }"},
-		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { APP.stopModalWithCode(DENY); } }"},
+		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }"},
+		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
+		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }"},
 		{"close wired", "panel.delegate = answer"},
 		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
-		{"esc", "if (Number(e.keyCode) === 53) { app.stopModalWithCode(DENY); return null; }"},
-		{"cmd-w", "if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { app.stopModalWithCode(DENY); return null; }"},
-		{"give-up timer", "timerWithTimeIntervalRepeatsBlock(120, false, function () { app.stopModalWithCode(GAVE_UP); })"},
-		{"gave up only from the timer", "if (r === GAVE_UP) return 'gave up';"},
-		{"allow goes to the owner check", "if (r === ALLOW) return 'Allow once\\n' + owner(argv[3], argv[4]);"},
+		{"esc", "if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }"},
+		{"cmd-w", "if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }"},
+		{"give-up timer", "timerWithTimeIntervalRepeatsBlock(120, false, function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); })"},
+		{"gave up only from the timer", "if (CHOICE === 'gave up') return 'gave up';"},
+		{"allow goes to the owner check", "if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);"},
 		{"anything else is Deny", "return 'Deny';\n}`"},
 	} {
 		if !strings.Contains(script+"`", tc.want) {
@@ -350,19 +350,42 @@ func TestMacPanelCodes(t *testing.T) {
 		t.Fatalf("codes not distinct: %q", consts)
 	}
 	for _, want := range []string{
-		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(DENY); } }",
-		"buttonWithTitleTargetAction('Allow once', answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { APP.stopModalWithCode(ALLOW); } }",
-		"var r = Number(app.runModalForWindow(panel));",
+		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
+		"buttonWithTitleTargetAction('Allow once', answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
+		"var r = app.runModalForWindow(panel);",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	allow, gave, deny := strings.Index(s, "if (r === ALLOW) return 'Allow once"), strings.Index(s, "if (r === GAVE_UP) return 'gave up';"), strings.LastIndex(s, "return 'Deny';")
+	allow, gave, deny := strings.Index(s, "if (CHOICE === 'Allow') return 'Allow once"), strings.Index(s, "if (CHOICE === 'gave up') return 'gave up';"), strings.LastIndex(s, "return 'Deny';")
 	if allow < 0 || gave < 0 || deny < allow || deny < gave {
 		t.Errorf("answer order: allow %d, gave up %d, deny %d", allow, gave, deny)
 	}
 	if strings.Count(s, "owner(argv[3], argv[4])") != 1 {
 		t.Error("the owner check is reached other than from ALLOW")
+	}
+}
+
+// The answer is decided by CHOICE, which each path sets itself, not by
+// the code runModal returns (JXA may hand that back wrapped); a close after
+// a choice never downgrades it.
+func TestMacPanelChoice(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"var CHOICE = 'Deny', CHOSEN = false;",
+		"implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); }",
+		"implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
+		"implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); }",
+		"function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
+		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",
+		"if (CHOICE === 'gave up') return 'gave up';",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	if strings.Contains(s, "r === ") {
+		t.Error("the runModal code still decides the answer")
 	}
 }
