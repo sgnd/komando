@@ -471,17 +471,25 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 // past that the BEGIN line was only a mention (a log line, a grep). Then
 // the key-like lines after it are hidden and the rest goes out. Past
 // streamCap without a line end, all but the last streamKeep bytes go out
-// (or the longest hidden value, if longer). Before that cut the held text
-// goes through mask, when set, so no value can straddle the cut.
+// (or the longest hidden value, if longer, up to streamHold). Before that
+// cut the held text goes through mask, when set, and the cut moves back
+// until no vault value or pattern mask (password=...) changes across it. An open private
+// key at a forced cut is hidden from its BEGIN line, and what follows is
+// dropped up to its END line or pemHold bytes.
 type lineBuffer struct {
 	buf  []byte
 	mask *out.Printer
+	drop int // bytes still to drop of a key hidden at a forced cut
 }
 
 const (
 	streamCap  = 256 << 10
 	streamKeep = 4 << 10
 	pemHold    = 16 << 10
+	// streamHold bounds the tail kept at a forced cut: a vault value
+	// longer than this can be split there and show in part.
+	streamHold = 1 << 20
+	cutWindow  = 1 << 10 // text each side of a cut that the pattern check reads
 )
 
 var (
@@ -494,6 +502,9 @@ var (
 // add takes a chunk and returns the text that is ready to show.
 func (l *lineBuffer) add(chunk []byte) string {
 	l.buf = append(l.buf, chunk...)
+	if l.drop > 0 && !l.dropKey() {
+		return ""
+	}
 	var ready strings.Builder
 	for {
 		cut := bytes.LastIndexByte(l.buf, '\n') + 1
@@ -523,11 +534,8 @@ func (l *lineBuffer) add(chunk []byte) string {
 			cut = open
 		}
 		if len(l.buf) > streamCap && cut < len(l.buf)-streamKeep {
-			cut = max(cut, len(l.buf)-streamKeep)
-			if l.mask != nil { // redacting moves the line ends, so cut by length only
-				l.buf = []byte(l.mask.Redact(string(l.buf)))
-				cut = max(0, len(l.buf)-max(streamKeep, l.mask.Longest()))
-			}
+			l.forcedCut(&ready)
+			return ready.String()
 		}
 		ready.Write(l.buf[:cut])
 		l.buf = append(l.buf[:0], l.buf[cut:]...)
@@ -537,9 +545,102 @@ func (l *lineBuffer) add(chunk []byte) string {
 
 // flush returns what is left, at the end of the run.
 func (l *lineBuffer) flush() string {
+	if l.drop > 0 {
+		l.buf = nil
+		return ""
+	}
 	s := string(l.buf)
 	l.buf = nil
 	return s
+}
+
+// forcedCut sends out all but the tail of a held text past streamCap.
+func (l *lineBuffer) forcedCut(ready *strings.Builder) {
+	if locs := pemBegin.FindAllIndex(l.buf, -1); len(locs) > 0 {
+		if last := locs[len(locs)-1]; !pemEnd.Match(l.buf[last[1]:]) {
+			before := string(l.buf[:last[0]])
+			if l.mask != nil {
+				before = l.mask.Redact(before)
+			}
+			ready.WriteString(before + "[hidden: private key]\n")
+			l.buf, l.drop = l.buf[:0], pemHold
+			return
+		}
+	}
+	keep := streamKeep
+	if l.mask != nil {
+		keep = min(max(keep, l.mask.Longest()), streamHold)
+	}
+	cut := len(l.buf) - keep
+	if cut <= 0 {
+		return
+	}
+	if l.mask == nil {
+		ready.Write(l.buf[:cut])
+	} else {
+		cut = l.maskSafeCut(cut)
+		ready.WriteString(l.mask.Redact(string(l.buf[:cut])))
+	}
+	l.buf = append(l.buf[:0], l.buf[cut:]...)
+}
+
+// maskSafeCut moves cut back to a place where masking the two sides apart
+// gives what masking them together does, so no vault value or pattern
+// (password=value) is split there and shown in part. It tries the spaces
+// and line ends before cut, then steps back through text without them
+// (JSON, base64). The held tail stays unmasked, so a value that goes on in
+// the next read is still seen whole. With no safe place behind cut, all
+// held text up to the next safe place after it is hidden; with none
+// there either, all of it.
+func (l *lineBuffer) maskSafeCut(cut int) int {
+	s := string(l.buf)
+	win := min(max(cutWindow, l.mask.Longest()), streamHold)
+	safe := func(c int) bool {
+		lo, hi := max(0, c-win), min(len(s), c+win)
+		return l.mask.Redact(s[lo:c])+l.mask.Redact(s[c:hi]) == l.mask.Redact(s[lo:hi])
+	}
+	for c, try := cut, 0; c > 0 && try < 32; try++ {
+		if safe(c) {
+			return c
+		}
+		c = strings.LastIndexAny(s[:c-1], " \t\n,\"}") + 1
+	}
+	step := max(1, win/16)
+	for c := cut - step; c > 0 && c > cut-64*step; c -= step {
+		if safe(c) {
+			return c
+		}
+	}
+	end := len(s)
+	for c := cut + step; c < len(s) && c < cut+64*step; c += step {
+		if safe(c) {
+			end = c
+			break
+		}
+	}
+	l.buf = []byte(out.Hidden + s[end:])
+	return len(out.Hidden)
+}
+
+// dropKey drops held text of a key hidden at a forced cut, through its END
+// line or until pemHold bytes are gone, and reports whether the stream
+// goes on (false: still dropping, nothing left to show).
+func (l *lineBuffer) dropKey() bool {
+	if loc := pemEnd.FindIndex(l.buf); loc != nil && loc[0] <= l.drop {
+		l.buf = append(l.buf[:0], l.buf[loc[1]:]...)
+		l.drop = 0
+		return true
+	}
+	// keep a short tail: an END line may arrive split across two reads
+	n := max(0, len(l.buf)-64)
+	if n >= l.drop {
+		l.buf = append(l.buf[:0], l.buf[l.drop:]...)
+		l.drop = 0
+		return true
+	}
+	l.drop -= n
+	l.buf = append(l.buf[:0], l.buf[n:]...)
+	return false
 }
 
 // exitCodes is each server's exit code for the audit log; -1 when the
