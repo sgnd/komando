@@ -137,12 +137,13 @@ func viewFor(cl *call, text string) approvalView {
 	return approvalView{raw: text}
 }
 
-// macAlertScript draws the macOS window: a plain NSAlert, argv[1] the
-// title, argv[2] the text under it in a plain wrapping label 440 pt wide
-// (a little wider than the alert's own text). Every text arrives
-// in argv after macArgMarker, never in the script. The icon is an empty
-// image of size 0x0: NSAlert has no documented way to show none. Deny is the default
-// (Return) and Esc; after 120 seconds it closes as "gave up". After
+// macAlertScript draws the macOS window: a plain NSPanel of standard
+// AppKit controls (no icon, no colours), titled "komando needs your OK":
+// argv[1] as the bold first label, argv[2] under it, one label per group
+// (groups are split by a blank line, 12 pt apart), 440 pt wide with 20 pt
+// padding, then the buttons on the right. Every text arrives in argv after
+// macArgMarker, never in the script. Deny is the default (Return) and Esc
+// and has the first focus; after 120 seconds it closes as "gave up". After
 // "Allow once" the same run asks LocalAuthentication for the device owner
 // (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
 // as the reason, waiting at most argv[4] seconds of its own; it prints
@@ -161,38 +162,70 @@ function owner(reason, secs) {
   if (res === null) { ctx.invalidate; return 'owner timeout'; }
   return res;
 }
+var DENY = 1000, ALLOW = 1001;
+ObjC.registerSubclass({
+  name: 'KomandoAnswer',
+  methods: {
+    'deny:': { types: ['void', ['id']], implementation: function (s) { $.NSApp.stopModalWithCode(DENY); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { $.NSApp.stopModalWithCode(ALLOW); } }
+  }
+});
+function label(text, font, w) {
+  var l = $.NSTextField.wrappingLabelWithString(text);
+  l.font = font;
+  l.selectable = true;
+  l.preferredMaxLayoutWidth = w;
+  return { v: l, h: Math.ceil(l.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height) };
+}
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
-  var a = $.NSAlert.alloc.init;
-  a.alertStyle = $.NSAlertStyleInformational;
-  var none = $.NSImage.alloc.initWithSize($.NSMakeSize(1, 1));
-  none.size = $.NSMakeSize(0, 0);
-  a.icon = none;
-  a.messageText = argv[1];
-  a.informativeText = '';
-  var body = $.NSTextField.wrappingLabelWithString(argv[2]);
-  body.selectable = true;
-  body.preferredMaxLayoutWidth = 440;
-  body.frame = $.NSMakeRect(0, 0, 440, Math.ceil(body.cell.cellSizeForBounds($.NSMakeRect(0, 0, 440, 1e5)).height));
-  a.accessoryView = body;
-  var deny = a.addButtonWithTitle('Deny');
+  var w = 440, pad = 20, gap = 12, fs = $.NSFont.systemFontSize;
+  var parts = [label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)];
+  argv[2].split('\n\n').forEach(function (g) { if (g !== '') parts.push(label(g, $.NSFont.systemFontOfSize(fs), w)); });
+  var answer = $.KomandoAnswer.alloc.init;
+  var deny = $.NSButton.buttonWithTitleTargetAction('Deny', answer, 'deny:');
   deny.keyEquivalent = '\r';
-  var allow = a.addButtonWithTitle('Allow once');
+  deny.setAccessibilityLabel('Deny');
+  var allow = $.NSButton.buttonWithTitleTargetAction('Allow once', answer, 'allow:');
   allow.keyEquivalent = '';
-  a.window.level = $.NSFloatingWindowLevel;
+  allow.setAccessibilityLabel('Allow once');
+  var bh = Math.ceil(deny.fittingSize.height), dw = Math.ceil(deny.fittingSize.width), aw = Math.ceil(allow.fittingSize.width);
+  var h = pad + bh + pad;
+  parts.forEach(function (p, i) { h += p.h + (i ? gap : 0); });
+  h += pad;
+  var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled, $.NSBackingStoreBuffered, false);
+  panel.title = 'komando needs your OK';
+  var view = panel.contentView, y = h - pad;
+  parts.forEach(function (p, i) {
+    if (i) y -= gap;
+    y -= p.h;
+    p.v.frame = $.NSMakeRect(pad, y, w, p.h);
+    view.addSubview(p.v);
+  });
+  allow.frame = $.NSMakeRect(pad + w - aw, pad, aw, bh);
+  deny.frame = $.NSMakeRect(pad + w - aw - 12 - dw, pad, dw, bh);
+  view.addSubview(deny);
+  view.addSubview(allow);
+  deny.nextKeyView = allow;
+  allow.nextKeyView = deny;
+  panel.initialFirstResponder = deny;
+  panel.level = $.NSFloatingWindowLevel;
+  panel.center;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
-    if (e.keyCode === 53) { app.stopModalWithCode($.NSAlertFirstButtonReturn); return null; }
+    if (e.keyCode === 53) { app.stopModalWithCode(DENY); return null; }
     return e;
   });
   var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { app.abortModal; });
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
-  var r = a.runModal;
+  panel.makeKeyAndOrderFront(null);
+  var r = app.runModalForWindow(panel);
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
-  if (r === $.NSAlertSecondButtonReturn) return 'Allow once\n' + owner(argv[3], argv[4]);
-  if (r === $.NSAlertFirstButtonReturn) return 'Deny';
+  panel.orderOut(null);
+  if (r === ALLOW) return 'Allow once\n' + owner(argv[3], argv[4]);
+  if (r === DENY) return 'Deny';
   return 'gave up';
 }`
 
@@ -227,7 +260,7 @@ func macArgs(v approvalView) []string {
 	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), noBreakHyphens(v.details()), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
 }
 
-// noBreakHyphens keeps "--yes" and "rm -rf" whole when the label wraps:
+// noBreakHyphens keeps "--yes" and "rm -rf" whole when a label wraps:
 // AppKit may break a line after a hyphen, so each becomes U+2011, the
 // non-breaking hyphen, which looks the same.
 func noBreakHyphens(s string) string { return strings.ReplaceAll(s, "-", "\u2011") }

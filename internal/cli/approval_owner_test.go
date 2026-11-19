@@ -70,7 +70,7 @@ func TestMacDeviceOwner(t *testing.T) {
 	if strings.Count(macAlertScript, "owner(argv[3], argv[4])") != 1 || strings.Count(macAlertScript, "evaluatePolicyLocalizedReasonReply") != 1 {
 		t.Error("the owner check is called outside the Allow once branch")
 	}
-	deny := macAlertScript[strings.Index(macAlertScript, "if (r === $.NSAlertFirstButtonReturn)"):]
+	deny := macAlertScript[strings.Index(macAlertScript, "if (r === DENY)"):]
 	if strings.Contains(deny, "owner(") {
 		t.Error("Deny calls the owner check")
 	}

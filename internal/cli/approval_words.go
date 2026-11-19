@@ -147,7 +147,7 @@ func (v approvalView) shown() string {
 		if first, rest, _ := strings.Cut(body, "\n"); bodyHead.MatchString(first) {
 			m := bodyHead.FindStringSubmatch(first)
 			kind, name, _ := strings.Cut(m[1], " ")
-			body = capitalise(kind) + ": " + name + " · " + m[3] + " lines · " + m[2] + " bytes\nSHA-256: " + m[4] + "\n" + rest
+			body = capitalise(kind) + ": " + name + " · " + m[3] + " lines · " + m[2] + " bytes\nSHA-256: " + shortSum(m[4]) + "\n" + rest
 		}
 		if len(out) > 0 {
 			out = append(out, "")
@@ -155,6 +155,15 @@ func (v approvalView) shown() string {
 		out = append(out, body)
 	}
 	return strings.Join(out, "\n")
+}
+
+// shortSum is a SHA-256 as the window shows it: its first 16 hex digits,
+// enough to compare with `shasum -a 256` on one line.
+func shortSum(sum string) string {
+	if len(sum) <= 16 {
+		return sum
+	}
+	return sum[:16] + "…"
 }
 
 // coveredFlags are said by the Status, Risk and Skips lines already.

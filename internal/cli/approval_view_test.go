@@ -43,25 +43,28 @@ func TestMacAnswer(t *testing.T) {
 // The macOS script keeps Deny as the default and the Esc answer, closes
 // itself after 120 seconds as "gave up", and takes every text from argv.
 
-// The macOS script is a plain NSAlert: no accessory view, no custom
-// colour, an empty 1x1 icon; Deny is the default and Esc, it closes
-// itself after 120 seconds, takes every text from argv, and asks for the
-// device owner only after Allow once.
+// The macOS script is a plain NSPanel of standard controls: no NSAlert,
+// no icon, no colour; Deny is the default (Return), Esc and the first
+// focus; it gives up after 120 seconds, answers with the strings
+// macAnswer reads, takes every text from argv, and asks for the device
+// owner only after Allow once.
 func TestMacAlertScript(t *testing.T) {
 	for _, want := range []string{
-		"addButtonWithTitle('Deny')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
-		"e.keyCode === 53", "stopModalWithCode($.NSAlertFirstButtonReturn)",
-		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'",
-		"a.messageText = argv[1]", "a.informativeText = ''", "wrappingLabelWithString(argv[2])", "preferredMaxLayoutWidth = 440", "none.size = $.NSMakeSize(0, 0)", "a.icon = none",
+		"$.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "panel.title = 'komando needs your OK'",
+		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
+		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel('Deny')", "setAccessibilityLabel('Allow once')",
+		"e.keyCode === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
+		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'", "return 'Deny'",
+		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w)", "argv[2].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
-		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[3], argv[4]);",
+		"if (r === ALLOW) return 'Allow once\\n' + owner(argv[3], argv[4]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
 	} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSColor", "NSScrollView", "NSTextView", "NSFont", "AttributedString", "hasDestructiveAction", "argv[0]", "argv[5]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[5]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
@@ -218,7 +221,7 @@ func TestApprovalScriptWhole(t *testing.T) {
 			t.Errorf("line %d is not shown", i)
 		}
 	}
-	if !strings.Contains(shown, "Script: ./a.sh · 40 lines · ") || !regexp.MustCompile(`SHA-256: [0-9a-f]{64}\n`).MatchString(shown) {
+	if !strings.Contains(shown, "Script: ./a.sh · 40 lines · ") || !regexp.MustCompile(`SHA-256: [0-9a-f]{16}…\n`).MatchString(shown) {
 		t.Errorf("caption:\n%s", shown)
 	}
 	if _, bad := newBody("the script ./a.sh", script(bodyMaxLines+1), false).shown(tcl); bad == "" {

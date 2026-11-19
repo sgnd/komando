@@ -23,7 +23,7 @@ its highlights; the sections below them give the details. Versions follow
   `store.key`) and so every secret; a passphrase or the agent's own sandbox
   is the boundary.
 - The approval window an AI agent's `--yes`, `--allow-dangerous` or
-  `--reveal` opens on macOS and Windows is a plain system dialog, 440
+  `--reveal` opens on macOS and Windows is a plain system window, 440
   points of text wide, with no icon: the action as the title ("Run a
   command on db-2.example.test", "Change 4 servers"), then "Asked by"
   the agent, "Status: Protected", one "Risk:" line per risk in plain
@@ -31,7 +31,8 @@ its highlights; the sections below them give the details. Versions follow
   "Skips:" only for a check the other lines do not name, "Options:" for
   every flag that changes what runs or where (an --env value never),
   and "Command:" with what runs. A script shows its line count, size,
-  full SHA-256 and every line, as before (a longer one opens no window).
+  the first 16 digits of its SHA-256 and every line, as before (a longer
+  one opens no window).
   Deny stays the default and the Esc key, and the window still closes
   itself after 2 minutes.
 
