@@ -322,19 +322,6 @@ function run(argv) {
   deny.keyEquivalent = '\r';
   var allow = a.addButtonWithTitle('Allow once');
   allow.keyEquivalent = '';
-  if (argv[11] === '1') style('allow', function () {
-    // red title text on a normal button, the same weight as Deny
-    // NSAttributedString's init methods are not bridged in JXA: build it with new
-    var m = $.NSMutableAttributedString.new;
-    m.replaceCharactersInRangeWithString($.NSMakeRange(0, 0), 'Allow once');
-    var all = $.NSMakeRange(0, m.length);
-    m.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, all);
-    m.addAttributeValueRange($.NSFontAttributeName, allow.font, all);
-    var ps = $.NSMutableParagraphStyle.new;
-    ps.alignment = $.NSTextAlignmentCenter;
-    m.addAttributeValueRange($.NSParagraphStyleAttributeName, ps, all);
-    allow.attributedTitle = m;
-  });
   var x0 = 4, w = 596, gap = 10, lw = 64, vx = lw + 8, fs = $.NSFont.systemFontSize;
   var font = $.NSFont.systemFontOfSize(fs), bold = $.NSFont.boldSystemFontOfSize(fs);
   var parts = []; // {v, x, h, w}, top to bottom; a row of the grid is one part
@@ -422,7 +409,7 @@ function run(argv) {
   if (Number(argv[6]) >= 0) tv.scrollRangeToVisible($.NSMakeRange(Number(argv[6]), 0));
   parts.push({ v: sv, h: h, gap: gap });
   var note = label(argv[4], $.NSFont.systemFontOfSize($.NSFont.smallSystemFontSize), $.NSColor.secondaryLabelColor, w);
-  if (note.h) parts.push({ v: note.v, h: note.h, gap: gap });
+  if (note.h) parts.push({ v: note.v, h: note.h, gap: gap, dx: 5 }); // its text on the card text's edge
   var ask = label(argv[12], bold, $.NSColor.labelColor, w);
   parts.push({ v: ask.v, h: ask.h, gap: 0 });
   var total = 0;
@@ -431,12 +418,28 @@ function run(argv) {
   var y = total;
   parts.forEach(function (p) {
     y -= p.h;
-    p.v.frame = $.NSMakeRect(x0, y, w, p.h);
+    var dx = p.dx || 0;
+    p.v.frame = $.NSMakeRect(x0 + dx, y, w - dx, p.h);
     box.addSubview(p.v);
     y -= p.gap;
   });
   a.accessoryView = box;
   a.layout;
+  if (argv[11] === '1') style('allow', function () {
+    // red title text on a normal button, the same weight as Deny; set after
+    // the alert's layout, which otherwise draws the plain title again
+    allow.contentTintColor = $.NSColor.systemRedColor;
+    // NSAttributedString's init methods are not bridged in JXA: build it with new
+    var m = $.NSMutableAttributedString.new;
+    m.replaceCharactersInRangeWithString($.NSMakeRange(0, 0), 'Allow once');
+    var all = $.NSMakeRange(0, m.length);
+    m.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, all);
+    m.addAttributeValueRange($.NSFontAttributeName, allow.font, all);
+    var ps = $.NSMutableParagraphStyle.new;
+    ps.alignment = $.NSTextAlignmentCenter;
+    m.addAttributeValueRange($.NSParagraphStyleAttributeName, ps, all);
+    allow.attributedTitle = m;
+  });
   a.window.level = $.NSFloatingWindowLevel;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
     if (e.keyCode === 53) { app.stopModalWithCode($.NSAlertFirstButtonReturn); return null; }

@@ -76,7 +76,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-true
+false
 [sizes]
 mac box 119, windows 20/16/122/16/282
 
@@ -99,7 +99,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-true
+false
 [sizes]
 mac box 29, windows 20/16/26/0/158
 

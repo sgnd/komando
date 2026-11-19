@@ -376,7 +376,8 @@ func winContent(v approvalView, l winLayout, child winChild, font, bold, mono ui
 	}
 	y += l.cmdH + pad
 	if l.notesH > 0 {
-		winColour[child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)] = rgbGrey
+		// the hint starts where the card's text does (its border and margin)
+		winColour[child("STATIC", v.notes(), ssNoPrefix, font, pad+4, y, winInner-4, l.notesH, 0)] = rgbGrey
 		y += l.notesH + pad
 	}
 	child("STATIC", question, ssNoPrefix, bold, pad, y, winInner, winRowH, 0)

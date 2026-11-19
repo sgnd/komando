@@ -42,11 +42,7 @@ func (v approvalView) grid() []gridRow {
 		g = append(g, gridRow{"Target", strings.Join(v.Targets, ", "), rowPlain})
 	}
 	if v.Protected {
-		label := "" // under the Target row
-		if len(g) == 0 {
-			label = "Status"
-		}
-		g = append(g, gridRow{label, "Protected", rowBadge})
+		g = append(g, gridRow{"Status", "Protected", rowBadge})
 	}
 	label := "Risk"
 	for _, r := range v.Risks {
@@ -62,12 +58,12 @@ func (v approvalView) grid() []gridRow {
 }
 
 // destructive says whether "Allow once" has red text: whenever a risk
-// line shows, the target is protected or a flag skips a safety stop.
+// line shows or the target is protected (a skipped flag alone is not).
 func (v approvalView) destructive() bool {
 	if v.raw != "" {
 		return false
 	}
-	return v.Protected || len(v.Flags) > 0 || slices.ContainsFunc(v.grid(), func(r gridRow) bool { return r.Kind == rowRisk })
+	return v.Protected || slices.ContainsFunc(v.grid(), func(r gridRow) bool { return r.Kind == rowRisk })
 }
 
 // header is the grid as plain text, for the golden test.

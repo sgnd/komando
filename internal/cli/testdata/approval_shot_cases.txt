@@ -17,7 +17,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-true
+false
 [sizes]
 mac box 29, windows 20/16/26/0/158
 
@@ -67,7 +67,7 @@ Allow this once?
 [risky line]
 -1
 [allow is destructive]
-true
+false
 [sizes]
 mac box 239, windows 20/16/250/16/410
 
@@ -101,7 +101,7 @@ Run a command on 4 servers
 Asked by Claude Code
 [grid]
 Target   web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
-         [Protected]
+Status   [Protected]
 Skips    the protected-server stop
 [command]
 komando exec web-1.example.test,web-2.example.test,db-2.example.test,

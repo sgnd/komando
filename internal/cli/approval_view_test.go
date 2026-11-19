@@ -180,7 +180,7 @@ func TestApprovalViewDedupes(t *testing.T) {
 	why := []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected), web-2.example.test",
 		"it runs on web-2.example.test, db-1.example.test", "[rm-system-dir] deletes a system folder recursively"}
 	v := newApprovalView(tcl, []string{"--allow-dangerous", "--yes"}, "", why, "komando exec web -- id", "")
-	want := "Target   web-1.example.test, web-2.example.test, db-1.example.test\n         [Protected]\nRisk     (!) Deletes a system folder recursively (rm -rf)\nSkips    the dangerous-command stop, the protected-server stop"
+	want := "Target   web-1.example.test, web-2.example.test, db-1.example.test\nStatus   [Protected]\nRisk     (!) Deletes a system folder recursively (rm -rf)\nSkips    the dangerous-command stop, the protected-server stop"
 	if got := v.header(); got != want {
 		t.Errorf("header:\n%s\nwant:\n%s", got, want)
 	}
@@ -296,16 +296,19 @@ func TestApprovalBoxWraps(t *testing.T) {
 func TestApprovalDestructiveButton(t *testing.T) {
 	for _, c := range shotCases {
 		v := c.view()
-		want := strings.Contains(v.header(), "(!)") || v.Protected || len(v.Flags) > 0
+		want := strings.Contains(v.header(), "(!)") || v.Protected
 		if v.destructive() != want || (macArgs(v)[15] == "1") != want {
 			t.Errorf("%s: red %v, argv %q, want %v", c.name, v.destructive(), macArgs(v)[15], want)
 		}
 	}
-	if (approvalView{raw: "t"}).destructive() || testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test -- id", "").destructive() {
-		t.Error("red without a risk, protection or a skipped stop")
+	if (approvalView{raw: "t"}).destructive() || testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test --yes -- id", "").destructive() {
+		t.Error("red for --yes alone on an unprotected target")
 	}
 	if !testView("Codex", nil, "", []string{"it runs on web-1.example.test (protected)"}, "komando exec web-1.example.test -- id", "").destructive() {
 		t.Error("a protected target is not red")
+	}
+	if !testView("Codex", nil, "", []string{"it runs on web-1.example.test", "[rm-system-dir] deletes a system folder recursively"}, "komando exec web-1.example.test -- id", "").destructive() {
+		t.Error("a risk line is not red")
 	}
 }
 
@@ -400,5 +403,34 @@ func TestMacProtectedBadge(t *testing.T) {
 	}
 	if regexp.MustCompile(`(NSAttributedString|NSMutableAttributedString)\.alloc\.initWith`).MatchString(macAlertScript) {
 		t.Error("the script builds an attributed string with alloc.initWith")
+	}
+}
+
+// The grid's rows always come in one order: Target (several targets),
+// Status, Risk, Skips; the hint sits on the card text's edge.
+func TestApprovalGridOrder(t *testing.T) {
+	rank := map[string]int{"Target": 0, "Status": 1, "Risk": 2, "Skips": 3}
+	views := []approvalView{testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"[rm-system-dir] deletes a system folder recursively",
+		protWhy([]string{"db-2.example.test"}), "it runs on web-1.example.test, db-2.example.test (protected)"}, "komando exec web-1.example.test,db-2.example.test -- id", "")}
+	for _, c := range shotCases {
+		views = append(views, c.view())
+	}
+	for _, v := range views {
+		last := -1
+		for _, r := range v.grid() {
+			if r.Label == "" {
+				continue
+			}
+			if rank[r.Label] <= last {
+				t.Errorf("row %q out of order:\n%s", r.Label, v.header())
+			}
+			last = rank[r.Label]
+		}
+		if v.Protected && !strings.Contains(v.header(), "Status   [Protected]") {
+			t.Errorf("protected without a Status row:\n%s", v.header())
+		}
+	}
+	if !strings.Contains(macAlertScript, "gap: gap, dx: 5 }") {
+		t.Error("the hint is not on the card text's edge")
 	}
 }
