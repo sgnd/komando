@@ -631,8 +631,8 @@ func TestRekey(t *testing.T) {
 }
 
 // The generation counts write steps that change records or add audit
-// entries; readable settings do not count, and a step counts once however many
-// records (or savepoints) it changes.
+// entries, a meta change too (its sealed copy is a record), and a step
+// counts once however many records (or savepoints) it changes.
 func TestGeneration(t *testing.T) {
 	d := open(t, filepath.Join(t.TempDir(), "store.db"))
 	var seen []uint64
@@ -647,7 +647,7 @@ func TestGeneration(t *testing.T) {
 	_ = d.Update(ctx, func(tx *Tx) error { return tx.SetMeta("k", "v") })
 	_ = d.View(ctx, func(tx *Tx) error { _, _ = tx.List("server"); return nil })
 	g1, _ := d.Generation(ctx)
-	if g1 != g0+2 || len(seen) != 2 || seen[1] != g1 {
+	if g1 != g0+3 || len(seen) != 3 || seen[2] != g1 {
 		t.Fatalf("generation %d -> %d, told %v", g0, g1, seen)
 	}
 	var id string

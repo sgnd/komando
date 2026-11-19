@@ -135,6 +135,7 @@ func (cl *call) execute(ctx context.Context, args []string) int {
 	root.SetArgs(args)
 	cmd, err := root.ExecuteContextC(withCall(ctx, cl))
 	if err == nil {
+		carryMetaSeal(cl)
 		promptNext(cl)
 		return 0
 	}
