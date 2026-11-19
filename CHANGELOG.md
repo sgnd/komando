@@ -45,9 +45,6 @@ its highlights; the sections below them give the details. Versions follow
   `sql-opaque`, so a person could approve SQL nobody had checked.
 - Reading an archive's table of contents no longer allocates a string's
   full stated length (up to 64 MiB) before its bytes arrive.
-
-### Fixed
-
 - `db restore` names pg_dump tar (`-Ft`) and directory (`-Fd`) archives and
   refuses them with `USAGE`, saying to dump with `-Fc` or `-Fp`. Before, a
   tar archive was read as plain SQL (with a misleading `UNSAFE_BACKUP`, or
