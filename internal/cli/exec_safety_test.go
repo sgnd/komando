@@ -834,3 +834,25 @@ func TestLineBufferPEMAtCut(t *testing.T) {
 		}
 	}
 }
+
+// A vault value inside a long line with no spaces (JSON, base64) is not
+// split at a forced cut, wherever the cut falls in it.
+func TestLineBufferValueAtCutNoSpaces(t *testing.T) {
+	value := "Zq9" + strings.Repeat("vAlUe", 40) + "9qZ"
+	for _, at := range []int{4, len(value) / 2, len(value) - 4} {
+		p := &out.Printer{Mask: true}
+		p.AddValue(value)
+		b := lineBuffer{mask: p}
+		total := streamCap + 100 // one read past the cap: the cut is at total-streamKeep
+		cut := total - streamKeep
+		line := strings.Repeat("a", cut-at) + value
+		line += strings.Repeat("b", total-len(line))
+		var got strings.Builder
+		got.WriteString(p.Redact(b.add([]byte(line))))
+		got.WriteString(p.Redact(b.add([]byte("\n"))))
+		got.WriteString(p.Redact(b.flush()))
+		if s := got.String(); strings.Contains(s, "vAlUevAlUe") || strings.Contains(s, "Zq9v") || strings.Contains(s, "e9qZ") {
+			t.Errorf("cut %d bytes into the value: part of it showed", at)
+		}
+	}
+}

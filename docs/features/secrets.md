@@ -144,10 +144,10 @@ values that unlock the vault.
   `PYTHON*`, `BASH_ENV`, a pager (`*PAGER`), `EDITOR`, `VISUAL`, an askpass
   helper, an rc file (`PSQLRC`, `*RC`), a proxy (`*_proxy`), `GIT_*`,
   `SSH_*`, `XDG_*`, a tool's config file (`KUBECONFIG`, `DOCKER_CONFIG`,
-  `*_CONFIG_FILE`, `AWS_*_FILE`), a toolchain that picks binaries (`CC`,
-  `CXX`, `GOFLAGS`, `CARGO_HOME`, `RUSTC_WRAPPER`, `JAVA_HOME`) and the
-  like. Variables such as `PGHOST`, `AWS_REGION`
-  or `TF_VAR_*` pass. The window shows the plain `--env` values.
+  `*_CONFIG_FILE`, `AWS_*_FILE`, `NPM_CONFIG_*`), a toolchain that picks
+  binaries (`CC`, `CXX`, `GOFLAGS`, `GOTOOLCHAIN`, `CARGO_*`,
+  `RUSTC_WRAPPER`, `JAVA_HOME`, `MAVEN_OPTS`, `GRADLE_OPTS`) and the like.
+  Variables such as `PGHOST`, `AWS_REGION` or `TF_VAR_*` pass. The window shows the plain `--env` values.
 - On Linux, when your account is not in `/etc/passwd` (only LDAP or sssd
   knows it), komando cannot read your account's `HOME`. The program then
   gets an empty temporary `HOME` that komando removes afterwards, and

@@ -40,8 +40,8 @@ with secrets, --env may add variables but never replace one komando sets
 settings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,
 BASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy,
 GIT_*, SSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,
-*_CONFIG_FILE, AWS_*_FILE) or a toolchain's (CC, CXX, GOFLAGS, CARGO_HOME,
-RUSTC_WRAPPER, JAVA_HOME). The program gets HOME, USER and LOGNAME from your
+*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,
+GOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program gets HOME, USER and LOGNAME from your
 OS account (USERPROFILE on Windows), LANG, LC_*, TERM, TMPDIR, TZ, the
 Windows system folders, a system PATH and its --env values.
 
@@ -411,7 +411,7 @@ func freshHome(cl *call) (string, func()) {
 // them.
 func loadsCode(k string) bool {
 	k = strings.ToUpper(k)
-	for _, p := range []string{"LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GIT_", "SSH_", "XDG_"} {
+	for _, p := range []string{"LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GIT_", "SSH_", "XDG_", "NPM_CONFIG_", "CARGO_"} {
 		if strings.HasPrefix(k, p) {
 			return true
 		}
@@ -430,9 +430,9 @@ func loadsCode(k string) bool {
 		return true
 	}
 	switch k {
-	case "GOFLAGS", "CARGO_HOME", "RUSTC_WRAPPER", "JAVA_HOME", "CC", "CXX", // pick the toolchain's binaries
+	case "GOFLAGS", "GOTOOLCHAIN", "GOENV", "RUSTC", "RUSTC_WRAPPER", "JAVA_HOME", "MAVEN_OPTS", "GRADLE_OPTS", "CC", "CXX", // pick the toolchain's binaries
 		"BASH_ENV", "ENV", "ZDOTDIR", "PROMPT_COMMAND", "SHELLOPTS", "IFS", "EDITOR", "VISUAL",
-		"BROWSER", "LESSOPEN", "LESSCLOSE", "SHELL", "NPM_CONFIG_USERCONFIG":
+		"BROWSER", "LESSOPEN", "LESSCLOSE", "SHELL":
 		return true
 	}
 	return strings.Contains(k, "ASKPASS")

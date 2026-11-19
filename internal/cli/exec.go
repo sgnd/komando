@@ -584,28 +584,42 @@ func (l *lineBuffer) forcedCut(ready *strings.Builder) {
 	l.buf = append(l.buf[:0], l.buf[cut:]...)
 }
 
-// maskSafeCut moves cut back, to just after a space or line end, until
-// masking the two sides apart gives what masking them together does: a
-// vault value or a pattern (password=value) split there would show in
-// part. The held tail stays unmasked, so a value that goes on in the next
-// read is still seen whole. If no such place is near, the first word of
-// the tail is hidden.
+// maskSafeCut moves cut back to a place where masking the two sides apart
+// gives what masking them together does, so no vault value or pattern
+// (password=value) is split there and shown in part. It tries the spaces
+// and line ends before cut, then steps back through text without them
+// (JSON, base64). The held tail stays unmasked, so a value that goes on in
+// the next read is still seen whole. With no safe place behind cut, all
+// held text up to the next safe place after it is hidden; with none
+// there either, all of it.
 func (l *lineBuffer) maskSafeCut(cut int) int {
 	s := string(l.buf)
 	win := min(max(cutWindow, l.mask.Longest()), streamHold)
-	for c, try := cut, 0; c > 0 && try < 64; try++ {
+	safe := func(c int) bool {
 		lo, hi := max(0, c-win), min(len(s), c+win)
-		if l.mask.Redact(s[lo:c])+l.mask.Redact(s[c:hi]) == l.mask.Redact(s[lo:hi]) {
+		return l.mask.Redact(s[lo:c])+l.mask.Redact(s[c:hi]) == l.mask.Redact(s[lo:hi])
+	}
+	for c, try := cut, 0; c > 0 && try < 32; try++ {
+		if safe(c) {
 			return c
 		}
-		c = strings.LastIndexAny(s[:c-1], " \t\n") + 1
+		c = strings.LastIndexAny(s[:c-1], " \t\n,\"}") + 1
+	}
+	step := max(1, win/16)
+	for c := cut - step; c > 0 && c > cut-64*step; c -= step {
+		if safe(c) {
+			return c
+		}
 	}
 	end := len(s)
-	if i := strings.IndexAny(s[cut:], " \t\n"); i >= 0 {
-		end = cut + i
+	for c := cut + step; c < len(s) && c < cut+64*step; c += step {
+		if safe(c) {
+			end = c
+			break
+		}
 	}
-	l.buf = []byte(s[:cut] + out.Hidden + s[end:])
-	return cut
+	l.buf = []byte(out.Hidden + s[end:])
+	return len(out.Hidden)
 }
 
 // dropKey drops held text of a key hidden at a forced cut, through its END
