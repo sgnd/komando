@@ -113,7 +113,8 @@ values that unlock the vault.
   variable, and reads no value. It asks nobody: the approval the real run
   needs is in `meta.would_need` and `meta.would_be_blocked`.
 - A reference of any form (`secret:`, `env:`, `file:`, `vault:`, `op://`,
-  ...) in the program's arguments is refused: put it in `--env`.
+  ...) in the program's arguments is refused: put it in `--env`. A
+  `file://` URL is not a reference and passes.
 - An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
   the program could print a value in a form masking does not know. The
   window names the secrets, the program's full path, the other `--env`
