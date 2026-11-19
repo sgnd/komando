@@ -288,3 +288,16 @@ func TestRunCtrlCNotSentTwice(t *testing.T) {
 		t.Error("argHasRef")
 	}
 }
+
+func TestRunAgentMayNotOverrideBase(t *testing.T) {
+	runHome(t)
+	setCallerEnv(t, "CLAUDECODE", "1")
+	for _, k := range []string{"HOME", "PATH", "PAGER", "PSQL_PAGER", "PSQLRC", "GIT_ASKPASS", "SSH_ASKPASS", "EDITOR", "HTTPS_PROXY", "XDG_CONFIG_HOME", "LESSOPEN"} {
+		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", k + "=/tmp/agent", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
+	}
+	for _, k := range []string{"AWS_REGION", "TF_VAR_name", "PGHOST", "NODE_ENV_NAME"} {
+		if agentFixed(k) && !loadsCode(k) {
+			t.Errorf("%s refused", k)
+		}
+	}
+}

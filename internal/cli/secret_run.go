@@ -34,10 +34,12 @@ A value secret:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own
 KOMANDO_* variables and the values that unlock the vault. For an AI agent
-with secrets, variables that make a program load other code (LD_PRELOAD,
-DYLD_*, NODE_OPTIONS, PYTHON*, BASH_ENV and the like) are refused in --env
-and the program gets only HOME and USER from your OS account, LANG,
-LC_*, TERM, TMPDIR, TZ, a system PATH and its --env values.
+with secrets, --env may not set what decides which code or settings the
+program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*, BASH_ENV, HOME,
+PATH, a pager, an editor, an askpass helper, an rc file, a proxy or an
+XDG folder. The program gets HOME, USER and LOGNAME from your OS account
+(USERPROFILE on Windows), LANG, LC_*, TERM, TMPDIR, TZ, the Windows
+system folders, a system PATH and its --env values.
 
 The program's output goes through komando's masking: a vault value it
 prints shows as [secret:NAME]. komando exits with the program's exit code.
@@ -75,8 +77,8 @@ func runLocal(cl *call, pairs, args []string) error {
 	agentSecrets := cl.isAgent() && len(refs) > 0
 	if agentSecrets {
 		for _, k := range slices.Sorted(maps.Keys(env)) {
-			if loadsCode(k) {
-				return out.Usage("an AI agent's run with secrets may not set %s: it makes the program load other code, which could read the values", k)
+			if loadsCode(k) || agentFixed(k) {
+				return out.Usage("an AI agent's run with secrets may not set %s: it decides which code or settings the program loads, which could read the values", k)
 			}
 		}
 	}
@@ -202,7 +204,11 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 // Windows cannot pass a signal on, so there the program is ended.
 func forwardSignals() (started chan<- *os.Process, stop func()) {
 	ch := make(chan os.Signal, 2)
-	signal.Notify(ch, forwardedSignals...)
+	for _, sig := range forwardedSignals {
+		if !signal.Ignored(sig) { // nohup: a closed terminal does not stop the program
+			signal.Notify(ch, sig)
+		}
+	}
 	start := make(chan *os.Process, 1)
 	done := make(chan struct{})
 	go func() {
@@ -383,6 +389,25 @@ func loadsCode(k string) bool {
 		}
 	}
 	return k == "BASH_ENV" || k == "ENV" || k == "ZDOTDIR" || k == "PROMPT_COMMAND" || k == "SHELLOPTS" || k == "IFS"
+}
+
+// agentFixed reports whether an AI agent's --env may not set k in a run
+// with secrets: komando sets it from the account (HOME, USER, PATH, ...),
+// or it names a helper or settings file the program runs or reads (a
+// pager, an editor, an askpass helper, an rc file, a proxy, an XDG folder).
+// The --env values come last in the environment, so they would win.
+func agentFixed(k string) bool {
+	k = strings.ToUpper(k)
+	switch k {
+	case "HOME", "USER", "LOGNAME", "USERPROFILE", "PATH", "PAGER", "EDITOR", "VISUAL", "LESSOPEN", "LESSCLOSE", "BROWSER", "SHELL", "TMPDIR", "TEMP", "TMP":
+		return true
+	}
+	for _, s := range []string{"_PAGER", "RC", "_PROXY", "_EDITOR", "_CONFIG", "_HOME"} {
+		if strings.HasSuffix(k, s) {
+			return true
+		}
+	}
+	return strings.Contains(k, "ASKPASS") || strings.HasPrefix(k, "XDG_") || strings.HasPrefix(k, "PROXY")
 }
 
 // sameFile reports whether the program file is the one komando checked.
