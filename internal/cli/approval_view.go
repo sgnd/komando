@@ -359,8 +359,3 @@ func winLayoutFor(v approvalView) winLayout {
 	}
 	return l
 }
-
-// crlf is s with Windows line ends, which an edit control needs.
-func crlf(s string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\n", "\r\n")
-}

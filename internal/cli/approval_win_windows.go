@@ -298,3 +298,8 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	winCode = ""
 	return code, winAnswer == idAllow, winAnswer == 0, true
 }
+
+// crlf is s with Windows line ends, which an edit control needs.
+func crlf(s string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(s, "\r\n", "\n"), "\n", "\r\n")
+}
