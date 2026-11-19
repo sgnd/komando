@@ -119,13 +119,20 @@ values that unlock the vault.
   the program could print a value in a form masking does not know. The
   window names the secrets, the program's full path, the other `--env`
   variables, and says when any program of yours could replace the program.
-- In an AI agent's run with secrets, the program gets only `HOME` and
-  `USER` from your account (not from the agent's environment), `LANG`,
-  `LC_*`, `TERM`, `TMPDIR`, `TZ`, a system `PATH` and its `--env` values: a pager, editor, askpass helper or proxy the agent set could
-  otherwise hand the values on. Variables that make a program load other
-  code (`LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`, `PYTHON*`, `BASH_ENV` and
-  the like) are refused in `--env` (`USAGE`). The window shows the plain
-  `--env` values.
+- In an AI agent's run with secrets, the program gets `HOME`, `USER` and
+  `LOGNAME` from your account (`USERPROFILE` on Windows), not from the
+  agent's environment, plus `LANG`, `LC_*`, `TERM`, `TMPDIR`, `TZ`, the
+  Windows system folders, a system `PATH` and its `--env` values. A pager,
+  editor, askpass helper or proxy the agent set could otherwise hand the
+  values on.
+- In that run the agent's plain `--env` values may add variables but never
+  replace one komando sets (`HOME`, `PATH`, `USER`, `LANG`, `LC_*`, ...,
+  in any case), and may not set what decides which code or settings the
+  program loads (`USAGE`): `LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`,
+  `PYTHON*`, `BASH_ENV`, a pager (`*PAGER`), `EDITOR`, `VISUAL`, an askpass
+  helper, an rc file (`PSQLRC`, `*RC`), a proxy (`*_proxy`), `GIT_*`,
+  `SSH_*`, `XDG_*` and the like. Variables such as `PGHOST`, `AWS_REGION`
+  or `TF_VAR_*` pass. The window shows the plain `--env` values.
 - On Linux, when your account is not in `/etc/passwd` (only LDAP or sssd
   knows it), komando cannot read your account's `HOME`. The program then
   gets an empty temporary `HOME` that komando removes afterwards, and
