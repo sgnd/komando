@@ -292,11 +292,15 @@ func TestRunCtrlCNotSentTwice(t *testing.T) {
 func TestRunAgentMayNotOverrideBase(t *testing.T) {
 	runHome(t)
 	setCallerEnv(t, "CLAUDECODE", "1")
-	for _, k := range []string{"HOME", "PATH", "PAGER", "PSQL_PAGER", "PSQLRC", "GIT_ASKPASS", "SSH_ASKPASS", "EDITOR", "HTTPS_PROXY", "XDG_CONFIG_HOME", "LESSOPEN"} {
-		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", k + "=/tmp/agent", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
+	for _, kv := range []string{"HOME=/tmp/x", "path=/x", "PAGER=x", "PSQL_PAGER=x", "PSQLRC=x", "GIT_ASKPASS=x", "SSH_AUTH_SOCK=x", "https_proxy=x", "XDG_CONFIG_HOME=x", "LANG=C"} {
+		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", kv, "-e", "PGPASSWORD=secret:tok"}, childArgs()...)...)
 	}
-	for _, k := range []string{"AWS_REGION", "TF_VAR_name", "PGHOST", "NODE_ENV_NAME"} {
-		if agentFixed(k) && !loadsCode(k) {
+	windowText(t, true)
+	if _, exit, code := runOut(t, append([]string{"secret", "run", "--yes", "-e", "RUN_CHILD=1", "-e", "PGHOST=db1", "-e", "PGPASSWORD=secret:tok"}, childArgs()...)...); exit != 0 {
+		t.Errorf("PGHOST refused: exit %d %s", exit, code)
+	}
+	for _, k := range []string{"AWS_REGION", "TF_VAR_name", "PGHOST", "CLOUDFLARE_ACCOUNT_ID"} {
+		if loadsCode(k) || baseSets(k) {
 			t.Errorf("%s refused", k)
 		}
 	}

@@ -20,12 +20,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
-- `komando secret run` for an AI agent with secrets refuses `--env` values
-  that would replace what komando set or decide which settings the program
-  reads: `HOME`, `PATH`, a pager, an editor, an askpass helper, an rc file
-  (`PSQLRC`), a proxy or an `XDG_*` folder. Before, `-e HOME=/tmp/x` won
-  over the account's `HOME`, so the program could read an rc file the agent
-  wrote.
+- `komando secret run` for an AI agent with secrets: its plain `--env`
+  values may add variables but never replace one komando sets (`HOME`,
+  `PATH`, `USER`, `LANG`, ..., in any case), and may not name a pager, an
+  editor, an askpass helper, an rc file (`PSQLRC`), a proxy, or `GIT_*`,
+  `SSH_*` or `XDG_*` settings. Before, `-e HOME=/tmp/x` won over the
+  account's `HOME`, so the program could read an rc file the agent wrote.
 - `komando secret run` refuses every secret reference form in the
   program's arguments (`env:`, `vault:`, `op://`, ...), not only `secret:`.
 - `komando secret run` for an AI agent on Linux gives the program an empty

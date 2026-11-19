@@ -125,12 +125,14 @@ values that unlock the vault.
   Windows system folders, a system `PATH` and its `--env` values. A pager,
   editor, askpass helper or proxy the agent set could otherwise hand the
   values on.
-- In that run `--env` may not set what decides which code or settings the
+- In that run the agent's plain `--env` values may add variables but never
+  replace one komando sets (`HOME`, `PATH`, `USER`, `LANG`, `LC_*`, ...,
+  in any case), and may not set what decides which code or settings the
   program loads (`USAGE`): `LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`,
-  `PYTHON*`, `BASH_ENV`, `HOME`, `PATH`, a pager (`PAGER`, `*_PAGER`), an
-  editor, an askpass helper, an rc file (`PSQLRC`, `*RC`), a proxy
-  (`*_PROXY`), an `XDG_*` folder and the like. The window shows the plain
-  `--env` values.
+  `PYTHON*`, `BASH_ENV`, a pager (`*PAGER`), `EDITOR`, `VISUAL`, an askpass
+  helper, an rc file (`PSQLRC`, `*RC`), a proxy (`*_proxy`), `GIT_*`,
+  `SSH_*`, `XDG_*` and the like. Variables such as `PGHOST`, `AWS_REGION`
+  or `TF_VAR_*` pass. The window shows the plain `--env` values.
 - On Linux, when your account is not in `/etc/passwd` (only LDAP or sssd
   knows it), komando cannot read your account's `HOME`. The program then
   gets an empty temporary `HOME` that komando removes afterwards, and
