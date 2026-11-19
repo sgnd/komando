@@ -94,7 +94,8 @@ komando run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- te
 `--env` values in its environment. komando reads `secret:NAME` from the
 vault right before the program starts, so the value is never in the command
 line or your shell history. The program starts without a shell, and gets
-your environment without komando's own `KOMANDO_*` variables.
+your environment without komando's own `KOMANDO_*` variables and the
+values that unlock the vault.
 
 - A vault value the program prints shows as `[secret:NAME]`.
 - komando exits with the program's exit code.
@@ -105,7 +106,14 @@ your environment without komando's own `KOMANDO_*` variables.
 - A reference in the program's arguments is refused: put it in `--env`.
 - An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
   the program could print a value in a form masking does not know. The
-  window names the secrets and the program's full path.
+  window names the secrets, the program's full path, the other `--env`
+  variables, and says when any program of yours could replace the program.
+- In an AI agent's run with secrets, variables that make a program load
+  other code (`LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`, `PYTHON*`, `BASH_ENV`
+  and the like) are refused in `--env` (`USAGE`) and dropped from the
+  environment the program gets.
+- If the program file changes between the check and the start, komando
+  stops (`TOOL_MISSING`) and the program does not run.
 - A secret that a protected server, conn or VPN uses asks a person at a
   terminal too, as a change on a protected server does.
 
