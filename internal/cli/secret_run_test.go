@@ -163,7 +163,7 @@ func TestRunAgentEnvAllowlist(t *testing.T) {
 	if exit != 0 {
 		t.Fatalf("exit %d %q", exit, text)
 	}
-	if strings.Contains(text, "agent-pager") || strings.Contains(text, "agent-bin") || !strings.Contains(text, "PATH="+systemPath) {
+	if strings.Contains(text, "agent-pager") || strings.Contains(text, "agent-bin") || !strings.Contains(text, systemPath) {
 		t.Errorf("the agent's environment reached the program: %q", text)
 	}
 

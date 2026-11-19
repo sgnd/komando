@@ -141,6 +141,12 @@ func runLocal(cl *call, pairs, args []string) error {
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "run it again", "%s changed after komando checked it; it did not run", prog)
 	}
 	defer done()
+	return startMasked(cl, c, prog)
+}
+
+// startMasked runs c to the end with its output through the masker, and
+// returns the program's exit code as komando's.
+func startMasked(cl *call, c *exec.Cmd, prog string) error {
 	c.Stdin = cl.stdin
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -154,7 +160,7 @@ func runLocal(cl *call, pairs, args []string) error {
 			maskCopy(cl, &mu, w, r)
 		}()
 	}
-	err = c.Start()
+	err := c.Start()
 	if err == nil {
 		err = c.Wait()
 	}
