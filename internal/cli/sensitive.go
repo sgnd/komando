@@ -365,12 +365,27 @@ func kubeRefSecret(cl *call, p string) string {
 			switch {
 			case why == komandoData || why == procEnv || why == "a private key":
 				return why
-			case why == "a credential store" && !pathIn(real, filepath.Join(realPath(home), ".kube")) && !pathIn(real, filepath.Join(home, ".kube")):
+			case why == "a credential store" && !inKubeDir(real, home):
 				return why
 			}
 		}
 	}
 	return ""
+}
+
+// inKubeDir: p is in home's ~/.kube, compared without case where the file
+// system ignores it (~/.KUBE/config on macOS), as secretPath does.
+func inKubeDir(p, home string) bool {
+	for _, d := range []string{filepath.Join(realPath(home), ".kube"), filepath.Join(home, ".kube")} {
+		if caseFoldFS {
+			if pathIn(foldCase(p), foldCase(d)) {
+				return true
+			}
+		} else if pathIn(p, d) {
+			return true
+		}
+	}
+	return false
 }
 
 // skipLocalSecret reports whether a folder upload leaves a file out for an

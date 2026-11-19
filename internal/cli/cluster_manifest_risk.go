@@ -153,8 +153,12 @@ func podEscapes(m map[string]any) string {
 	if p, ok := m["local"].(map[string]any); ok && p["path"] != nil && m["capacity"] != nil {
 		return "a local PersistentVolume opens a folder of the node"
 	}
-	if labels, ok := m["labels"].(map[string]any); ok && strings.EqualFold(str(labels["pod-security.kubernetes.io/enforce"]), "privileged") {
-		return "the label pod-security.kubernetes.io/enforce=privileged lets a namespace run privileged pods"
+	if labels, ok := m["labels"].(map[string]any); ok {
+		for k, v := range labels {
+			if psaPrivileged(k, str(v)) {
+				return "the label pod-security.kubernetes.io/enforce=privileged lets a namespace run privileged pods"
+			}
+		}
 	}
 	if sc, ok := m["securityContext"].(map[string]any); ok {
 		if on(sc["privileged"]) {

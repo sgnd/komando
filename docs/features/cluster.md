@@ -390,7 +390,8 @@ is kubectl's namespace flag.
   rated is the file that is sent.
 - `label` that sets `pod-security.kubernetes.io/enforce=privileged` on a
   namespace, or removes that label, and `set serviceaccount` need
-  `--allow-dangerous` too.
+  `--allow-dangerous` too. A Namespace in a manifest (`apply -f`,
+  `run -- apply|create -f`) with that label is read by the same rule.
 - A compose or stack file already on the server (`stack deploy -c FILE`,
   `docker compose -f FILE up`, or compose's own file names when there is
   no `-f`, with their override files) is read there first (at most
