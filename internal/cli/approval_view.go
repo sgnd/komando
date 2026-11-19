@@ -9,9 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf16"
 
-	"github.com/sgnd/komando/internal/policy"
 	"regexp"
 	"unicode/utf8"
 )
@@ -122,119 +120,12 @@ func (v approvalView) title() string {
 	return verb + " " + strconv.Itoa(len(v.Targets)) + " servers"
 }
 
-// subtitle is the secondary line under the title: who asks.
-func (v approvalView) subtitle() string {
-	if v.raw != "" || v.Agent == "" {
-		return ""
-	}
-	return "Asked by " + v.Agent
-}
-
-// question is the window's last line, above the buttons.
-const question = "Allow this once?"
-
-// command is the command line, then the body, as sent; a body's
-// "It also sends ..." line shows as a short caption.
-func (v approvalView) command() string {
-	if v.raw != "" {
-		return strings.TrimRight(v.raw, "\n")
-	}
-	if v.Body == "" {
-		return v.Line
-	}
-	body := strings.TrimRight(v.Body, "\n")
-	if first, rest, _ := strings.Cut(body, "\n"); bodyHead.MatchString(first) {
-		m := bodyHead.FindStringSubmatch(first)
-		body = capitalise(m[1]) + " · " + m[3] + " lines · " + m[2] + " bytes · sha256 " + m[4][:min(8, len(m[4]))] + "…\n" + rest
-	}
-	return v.Line + "\n\n" + body
-}
-
 // bodyHead is the first line of a body that approval_body.go shows whole.
 var bodyHead = regexp.MustCompile(`^It also sends (?:the )?(.+) \((\d+) bytes, (\d+) lines, SHA-256 ([0-9a-f]+)\)(?:, all of it:|\.)$`)
 
-// boxMaxLines is how many rows the command box shows before it scrolls
-// (only down, never sideways), on macOS and Windows alike.
-const boxMaxLines = 15
-
-// boxCols is the command box's width in monospace characters, on macOS
-// and Windows alike: box() wraps every line to it, so it never scrolls
-// sideways and no tail of a command is out of view.
-const boxCols = 80
-
-// moreHint is the line under a box that scrolls, or "".
-func (v approvalView) moreHint() string {
-	if n := v.boxRows() - boxMaxLines; n > 0 {
-		return fmt.Sprintf("%d more lines: scroll to read all", n)
-	}
-	return ""
-}
-
-// riskyLine is the first row of the box where a line that a deny rule
-// matches begins (the check that rated the command), or -1. The box opens
-// scrolled to it.
-func (v approvalView) riskyLine() int {
-	_, start := v.box()
-	for i, l := range strings.Split(v.command(), "\n") {
-		if len(policy.Check(l, nil)) > 0 {
-			return start[i]
-		}
-	}
-	return -1
-}
-
-// riskyRange is the risky line's rows as a UTF-16 offset and length into
-// boxText(), as AppKit counts; -1, 0 for none.
-func (v approvalView) riskyRange() (off, n int) {
-	first := v.riskyLine()
-	if first < 0 {
-		return -1, 0
-	}
-	rows, start := v.box()
-	last := len(rows)
-	for _, s := range start {
-		if s > first {
-			last = s
-			break
-		}
-	}
-	for _, l := range rows[:first] {
-		off += len(utf16.Encode([]rune(l))) + 1
-	}
-	n = len(utf16.Encode([]rune(strings.Join(rows[first:last], "\n"))))
-	return off, n
-}
-
-// notes is the secondary text under the box: the scroll hint and what
-// the flag also lets through.
-func (v approvalView) notes() string {
-	if v.raw != "" {
-		return v.moreHint()
-	}
-	var b []string
-	if h := v.moreHint(); h != "" {
-		b = append(b, h)
-	}
-	if v.What != "" {
-		b = append(b, "Also lets through: "+v.What)
-	}
-	return strings.Join(b, "\n\n")
-}
-
 // layout is the window's content as plain text, for the golden test.
 func (v approvalView) layout() string {
-	s := "[title]\n" + v.title() + "\n[subtitle]\n" + v.subtitle() + "\n[grid]\n" + v.header() + "\n[command]\n" + v.boxText() + "\n"
-	s += "[owner]\n" + v.ownerReason() + "\n[notes]\n" + v.notes() + "\n[question]\n" + question + "\n[danger]\n" + v.dangerArg() + "\n"
-	return s + "[risky line]\n" + strconv.Itoa(v.riskyLine()) + "\n[allow is destructive]\n" + strconv.FormatBool(v.destructive()) + "\n"
-}
-
-// textRows is how many rows s takes, wrapped at cols.
-func textRows(s string, cols int) int {
-	n := 0
-	for l := range strings.SplitSeq(s, "\n") {
-		n += max(1, (utf8.RuneCountInString(l)+cols-1)/cols)
-	}
-	return n
+	return "[title]\n" + v.title() + "\n[text]\n" + v.details() + "\n[owner]\n" + v.ownerReason() + "\n"
 }
 
 // viewFor is the window content for text: the view this call built for
@@ -246,18 +137,15 @@ func viewFor(cl *call, text string) approvalView {
 	return approvalView{raw: text}
 }
 
-// macAlertScript draws the macOS window (JXA, AppKit's NSAlert). Every
-// text arrives in argv after macArgMarker, never in the script: 1 the
-// title, 2 who asks, 3 the command box, 4 the notes, 5 the box height,
-// 6 the risky line's offset (the box opens scrolled to it), 7 the
-// dangerous commands' ranges ("off:len,..."), 8 and 9 the owner check, 10 the grid (kind,
-// label, text a line), 11 "1" when Allow once shows red, 12 the question.
-// Deny is the default (Return) and Esc; after 120 seconds it closes as
-// "gave up". After "Allow once" the same run asks LocalAuthentication for
-// the device owner (policy 2: Touch ID, an Apple Watch or the login
-// password) with argv[8] as the reason, waiting at most argv[9] seconds of
-// its own; it prints "owner ok" on the next line only when the reply says
-// ok. Colours are semantic only, so dark mode draws itself.
+// macAlertScript draws the macOS window: a plain NSAlert at its native
+// width, argv[1] the title, argv[2] the text under it. Every text arrives
+// in argv after macArgMarker, never in the script. The icon is an empty
+// 1x1 image (NSAlert has no way to show none). Deny is the default
+// (Return) and Esc; after 120 seconds it closes as "gave up". After
+// "Allow once" the same run asks LocalAuthentication for the device owner
+// (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
+// as the reason, waiting at most argv[4] seconds of its own; it prints
+// "owner ok" on the next line only when the reply says ok.
 const macAlertScript = `ObjC.import('AppKit');
 ObjC.import('LocalAuthentication');
 function owner(reason, secs) {
@@ -272,183 +160,18 @@ function owner(reason, secs) {
   if (res === null) { ctx.invalidate; return 'owner timeout'; }
   return res;
 }
-function warn(msg) {
-  try { $.NSFileHandle.fileHandleWithStandardError.writeData($(msg + '\n').dataUsingEncoding($.NSUTF8StringEncoding)); } catch (e) {}
-}
-function symbol(name, size) {
-  var im = null;
-  try { im = $.NSImage.imageWithSystemSymbolNameAccessibilityDescription(name, name); } catch (e) { warn('symbol ' + name + ': ' + e); }
-  if (!im || im.isNil()) { warn('symbol ' + name + ': none'); return null; }
-  try {
-    var cfg = $.NSClassFromString('NSImageSymbolConfiguration').configurationWithPointSizeWeight(size, 0);
-    var c = im.imageWithSymbolConfiguration(cfg);
-    if (c && !c.isNil()) return c;
-  } catch (e) { warn('symbol ' + name + ' size: ' + e); }
-  im.size = $.NSMakeSize(size, size);
-  return im;
-}
-// style runs one styling step; an error drops only that style (logged
-// once), so the window still opens. Content, buttons and answers never
-// run inside it: an error there ends the script, which is a no.
-var styleFailed = false;
-function style(name, fn) {
-  try { fn(); } catch (e) {
-    if (!styleFailed) { styleFailed = true; warn('style ' + name + ': ' + e); }
-  }
-}
-function label(text, font, colour, w) {
-  var l = $.NSTextField.wrappingLabelWithString(text);
-  style('label', function () {
-    l.font = font;
-    l.textColor = colour;
-  });
-  l.preferredMaxLayoutWidth = w;
-  var h = text === '' ? 0 : Math.ceil(l.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height);
-  return { v: l, h: h };
-}
 function run(argv) {
   var app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
-  // red text at 4.5:1 or more on its ground (window, card, button):
-  // #B3261E in light mode, #FF6961 in dark mode; systemRed if unknown
-  var red = $.NSColor.systemRedColor;
-  style('red', function () {
-    var best = app.effectiveAppearance.bestMatchFromAppearancesWithNames($([$.NSAppearanceNameAqua, $.NSAppearanceNameDarkAqua]));
-    red = ObjC.unwrap(best) === ObjC.unwrap($.NSAppearanceNameDarkAqua)
-      ? $.NSColor.colorWithSRGBRedGreenBlueAlpha(255 / 255, 105 / 255, 97 / 255, 1)
-      : $.NSColor.colorWithSRGBRedGreenBlueAlpha(179 / 255, 38 / 255, 30 / 255, 1);
-  });
   var a = $.NSAlert.alloc.init;
-  a.alertStyle = $.NSAlertStyleWarning;
-  style('icon', function () {
-    var icon = symbol('lock.shield', 48);
-    if (!icon) { icon = $.NSImage.imageNamed('NSCaution'); if (icon && icon.isNil()) icon = null; }
-    if (icon) a.icon = icon;
-  });
+  a.alertStyle = $.NSAlertStyleInformational;
+  a.icon = $.NSImage.alloc.initWithSize($.NSMakeSize(1, 1));
   a.messageText = argv[1];
   a.informativeText = argv[2];
   var deny = a.addButtonWithTitle('Deny');
   deny.keyEquivalent = '\r';
   var allow = a.addButtonWithTitle('Allow once');
   allow.keyEquivalent = '';
-  var x0 = 4, w = 596, gap = 10, lw = 64, vx = lw + 8, fs = $.NSFont.systemFontSize;
-  var font = $.NSFont.systemFontOfSize(fs), bold = $.NSFont.boldSystemFontOfSize(fs);
-  var parts = []; // {v, x, h, w}, top to bottom; a row of the grid is one part
-  argv[10].split('\n').forEach(function (line) {
-    if (line === '') return;
-    var f = line.split('\t'), kind = f[0];
-    var row = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, 0));
-    var lab = label(f[1], font, $.NSColor.secondaryLabelColor, lw);
-    var tx = vx, h = 0;
-    var iv = null;
-    if (kind === '2') style('risk', function () {
-      var tri = symbol('exclamationmark.triangle', fs);
-      if (!tri) return;
-      iv = $.NSImageView.imageViewWithImage(tri);
-      iv.contentTintColor = red;
-      iv.setAccessibilityLabel('Risk');
-      row.addSubview(iv);
-      tx = vx + 22;
-    });
-    var framed = false;
-    if (kind === '1') style('badge', function () {
-      var bl = label(f[2], $.NSFont.systemFontOfSizeWeight(fs - 2, 0.23), $.NSColor.secondaryLabelColor, 200);
-      var bw = Math.ceil(bl.v.fittingSize.width) + 12;
-      var badge = $.NSBox.alloc.initWithFrame($.NSMakeRect(vx, 0, bw, bl.h + 4));
-      badge.boxType = 4;
-      badge.titlePosition = 0;
-      badge.borderWidth = 1;
-      badge.cornerRadius = 4;
-      badge.borderColor = $.NSColor.secondaryLabelColor;
-      badge.fillColor = $.NSColor.controlBackgroundColor;
-      badge.contentViewMargins = $.NSMakeSize(0, 0);
-      bl.v.frame = $.NSMakeRect(6, 2, bw - 12, bl.h);
-      badge.contentView.addSubview(bl.v);
-      row.addSubview(badge);
-      h = bl.h + 4;
-      framed = true;
-    });
-    if (!framed) {
-      var val = label(f[2], font, kind === '2' ? red : $.NSColor.labelColor, w - tx);
-      h = Math.max(val.h, 16);
-      val.v.frame = $.NSMakeRect(tx, h - val.h, w - tx, val.h);
-      row.addSubview(val.v);
-      if (iv) iv.frame = $.NSMakeRect(vx, h - 16, 16, 16);
-    }
-    lab.v.frame = $.NSMakeRect(0, h - lab.h, lw, lab.h);
-    row.addSubview(lab.v);
-    parts.push({ v: row, h: h, gap: 4 });
-  });
-  if (parts.length) parts[parts.length - 1].gap = gap;
-  var h = Number(argv[5]) || 120;
-  var sv = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h));
-  sv.hasVerticalScroller = true;
-  sv.hasHorizontalScroller = false;
-  sv.autohidesScrollers = true;
-  sv.borderType = $.NSBezelBorder;
-  var tv = $.NSTextView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h));
-  tv.editable = false;
-  tv.selectable = true;
-  tv.richText = false;
-  var ms = $.NSFont.smallSystemFontSize, mf = null;
-  try { mf = $.NSFont.monospacedSystemFontOfSizeWeight(ms, 0); } catch (e) {}
-  tv.font = (mf && !mf.isNil()) ? mf : $.NSFont.userFixedPitchFontOfSize(ms);
-  style('card', function () {
-    tv.textColor = $.NSColor.labelColor;
-    var fill = $.NSColor.quaternarySystemFillColor;
-    tv.backgroundColor = (fill && !fill.isNil()) ? fill : $.NSColor.controlBackgroundColor;
-    sv.drawsBackground = false;
-  });
-  tv.textContainerInset = $.NSMakeSize(6, 6);
-  tv.horizontallyResizable = false;
-  tv.textContainer.widthTracksTextView = true;
-  tv.string = argv[3];
-  tv.setAccessibilityLabel('Command');
-  sv.documentView = tv;
-  // only the dangerous commands are marked: red text, a thin underline
-  style('danger', function () {
-    argv[7].split(',').forEach(function (r) {
-      var p = r.split(':');
-      if (p.length !== 2) return;
-      var rr = $.NSMakeRange(Number(p[0]), Number(p[1]));
-      tv.textStorage.addAttributeValueRange($.NSForegroundColorAttributeName, red, rr);
-      tv.textStorage.addAttributeValueRange($.NSUnderlineStyleAttributeName, 1, rr);
-    });
-  });
-  if (Number(argv[6]) >= 0) tv.scrollRangeToVisible($.NSMakeRange(Number(argv[6]), 0));
-  parts.push({ v: sv, h: h, gap: gap });
-  var note = label(argv[4], $.NSFont.systemFontOfSize($.NSFont.smallSystemFontSize), $.NSColor.secondaryLabelColor, w);
-  if (note.h) parts.push({ v: note.v, h: note.h, gap: gap, dx: 5 }); // its text on the card text's edge
-  var ask = label(argv[12], bold, $.NSColor.labelColor, w);
-  parts.push({ v: ask.v, h: ask.h, gap: 0 });
-  var total = 0;
-  parts.forEach(function (p) { total += p.h + p.gap; });
-  var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, x0 + w, total));
-  var y = total;
-  parts.forEach(function (p) {
-    y -= p.h;
-    var dx = p.dx || 0;
-    p.v.frame = $.NSMakeRect(x0 + dx, y, w - dx, p.h);
-    box.addSubview(p.v);
-    y -= p.gap;
-  });
-  a.accessoryView = box;
-  a.layout;
-  if (argv[11] === '1') style('allow', function () {
-    // red title text on a normal button, the same weight as Deny; set after
-    // the alert's layout, which otherwise draws the plain title again
-    allow.contentTintColor = red;
-    // NSAttributedString's init methods are not bridged in JXA: build it with new
-    var m = $.NSMutableAttributedString.new;
-    m.replaceCharactersInRangeWithString($.NSMakeRange(0, 0), 'Allow once');
-    var all = $.NSMakeRange(0, m.length);
-    m.addAttributeValueRange($.NSForegroundColorAttributeName, red, all);
-    m.addAttributeValueRange($.NSFontAttributeName, allow.font, all);
-    var ps = $.NSMutableParagraphStyle.new;
-    ps.alignment = $.NSTextAlignmentCenter;
-    m.addAttributeValueRange($.NSParagraphStyleAttributeName, ps, all);
-    allow.attributedTitle = m;
-  });
   a.window.level = $.NSFloatingWindowLevel;
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
     if (e.keyCode === 53) { app.stopModalWithCode($.NSAlertFirstButtonReturn); return null; }
@@ -460,7 +183,7 @@ function run(argv) {
   var r = a.runModal;
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
-  if (r === $.NSAlertSecondButtonReturn) return 'Allow once\n' + owner(argv[8], argv[9]);
+  if (r === $.NSAlertSecondButtonReturn) return 'Allow once\n' + owner(argv[3], argv[4]);
   if (r === $.NSAlertFirstButtonReturn) return 'Deny';
   return 'gave up';
 }`
@@ -493,15 +216,7 @@ func (v approvalView) ownerReason() string {
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
-	rows := min(v.boxRows(), boxMaxLines)
-	off, _ := v.riskyRange()
-	dangerous := "0"
-	if v.destructive() {
-		dangerous = "1"
-	}
-	// 15 px a row, 12 for the insets; no sideways scroller (box() wraps)
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.subtitle(), v.boxText(), v.notes(), strconv.Itoa(rows*15 + 14),
-		strconv.Itoa(off), v.dangerArg(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), v.gridArg(), dangerous, question}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.details(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
 }
 
 // macOutcome is how the macOS window ended.
@@ -560,54 +275,21 @@ var askMac = func(v approvalView) (ans macOutcome, shown bool) {
 	return macAnswer(b), true
 }
 
-// The Windows window's size, in pixels: a white content area with 12 px
-// padding, 16 px rows of Segoe UI 9 pt and of Consolas; the grid's label
-// column, then the values; the command box shows up to boxMaxLines rows
-// of boxCols characters, then scrolls down (never sideways).
+// The Windows window's size, in pixels: a dialog of the system's own
+// look (Segoe UI 9 pt, 16 px rows), the title in bold, the text under it.
 const (
-	winW, winPad = 680, 12
+	winW, winPad = 520, 12
 	winInner     = winW - 2*winPad - 16 // 16: the window's side borders
 	winRowH      = 16
-	winLabelW    = 64
-	winTextCols  = 88 // Segoe UI characters on a full row, kept low so wrapped text is never cut
-	winValueCols = 76 // the same in the grid's value column
-	winTitleCols = 80 // bold characters on a full row
-	winBadgeW    = 72
+	winTextCols  = 66 // characters on a row, kept low so wrapped text is never cut
 )
 
-type winLayout struct{ titleH, subH, cmdH, notesH, height int }
-
-// winGridH is the height of each grid row, in order.
-func winGridH(v approvalView) []int {
-	var hs []int
-	for _, r := range v.grid() {
-		h := winRowH + 4
-		if r.Kind != rowBadge {
-			h = textRows(r.Text, winValueCols)*winRowH + 4
-		}
-		hs = append(hs, h)
-	}
-	return hs
-}
+type winLayout struct{ titleH, textH, height int }
 
 func winLayoutFor(v approvalView) winLayout {
 	var l winLayout
-	l.titleH = textRows(v.title(), winTitleCols)*winRowH + 4
-	if s := v.subtitle(); s != "" {
-		l.subH = winRowH
-	}
-	l.cmdH = min(v.boxRows(), boxMaxLines)*winRowH + 10
-	if n := v.notes(); n != "" {
-		l.notesH = textRows(n, winTextCols) * winRowH
-	}
-	l.height = winPad + l.titleH + l.subH + winPad
-	for _, h := range winGridH(v) {
-		l.height += h
-	}
-	l.height += winPad + l.cmdH + winPad
-	if l.notesH > 0 {
-		l.height += l.notesH + winPad
-	}
-	l.height += winRowH + winPad // the question
+	l.titleH = textRows(v.title(), winTextCols-8)*winRowH + 4
+	l.textH = textRows(v.details(), winTextCols) * winRowH
+	l.height = winPad + l.titleH + winPad/2 + l.textH + winPad
 	return l
 }

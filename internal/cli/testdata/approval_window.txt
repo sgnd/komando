@@ -1,138 +1,81 @@
 [title]
 Change web-1.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Status   [Protected]
-Skips    the protected-server stop
-[command]
-komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\nb:\n  c: 2'
-  » --yes
+Status: Protected
+Skips: the protected-server stop
+
+komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\nb:\n  c: 2' --yes
 [owner]
 komando: allow web-1.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-true
-[sizes]
-mac box 44, windows 20/16/42/0/194
+[windows sizes]
+20/96/146
 
 [title]
 Run a command on web-1.example.test
-[subtitle]
+[text]
 Asked by Codex
-[grid]
-Status   [Protected]
-Risk     (!) Deletes a system folder recursively (rm -rf)
-Skips    the dangerous-command stop, the protected-server stop
-[command]
-komando exec web-1.example.test -- echo abcdefghij && echo abcdefghij && echo
-  » abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo
-  » abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo
-  » abcdefghij && echo abcdefghij && true
+Status: Protected
+Risk: Deletes a system folder recursively (rm -rf)
+Skips: the dangerous-command stop, the protected-server stop
+
+komando exec web-1.example.test -- echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && true
 [owner]
 komando: allow web-1.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-true
-[sizes]
-mac box 74, windows 20/16/74/0/246
+[windows sizes]
+20/160/210
 
 [title]
 Run a command on db-2.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Skips    the protected-server stop
-[command]
+Skips: the protected-server stop
+Also lets through: the program /usr/local/bin/x
+
 komando exec db-2.example.test --script ./deploy.sh --yes
 
-Script ./deploy.sh · 3 lines · 40 bytes · sha256 ab12…
+Script ./deploy.sh: 3 lines, 40 bytes
+SHA-256: ab12
 
   1  #!/bin/sh
   2  set -e
   3  systemctl restart app
 [owner]
 komando: allow db-2.example.test
-[notes]
-Also lets through: the program /usr/local/bin/x
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-false
-[sizes]
-mac box 119, windows 20/16/122/16/282
+[windows sizes]
+20/192/242
 
 [title]
 Change web-1.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Skips    the protected-server stop
-[command]
+Skips: the protected-server stop
+
 komando host rm web-1.example.test --yes
 [owner]
 komando: allow web-1.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-false
-[sizes]
-mac box 29, windows 20/16/26/0/158
+[windows sizes]
+20/64/114
 
 [title]
 Run a command on web-1.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Status   [Protected]
-Risk     (!) Deletes a system folder recursively (rm -rf)
-Skips    the dangerous-command stop, the protected-server stop
-[command]
+Status: Protected
+Risk: Deletes a system folder recursively (rm -rf)
+Skips: the dangerous-command stop, the protected-server stop
+
 komando exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes
 
-Script ./deploy.sh · 4 lines · 98 bytes · sha256 9f2c…
+Script ./deploy.sh: 4 lines, 98 bytes
+SHA-256: 9f2c
 
   1  #!/bin/sh
   2  set -e
-  3  systemctl stop app && rm -rf /srv/app/cache && tar -xzf /tmp/release.tgz
-   » -C /srv/app && systemctl start app
+  3  systemctl stop app && rm -rf /srv/app/cache && tar -xzf /tmp/release.tgz -C /srv/app && systemctl start app
   4  echo done
 [owner]
 komando: allow web-1.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-true
-[sizes]
-mac box 149, windows 20/16/154/0/326
+[windows sizes]
+20/256/306
 

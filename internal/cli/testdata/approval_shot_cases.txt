@@ -1,36 +1,25 @@
 [title]
 Run a command on web-1.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Skips    the protected-server stop
-[command]
+Skips: the protected-server stop
+
 komando exec web-1.example.test --yes -- systemctl restart app
 [owner]
 komando: allow web-1.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-false
-[sizes]
-mac box 29, windows 20/16/26/0/158
+[windows sizes]
+20/64/114
 
 [title]
 Run a command on web-1.example.test
-[subtitle]
+[text]
 Asked by Codex
-[grid]
-Skips    the protected-server stop
-[command]
+Skips: the protected-server stop
+
 komando exec web-1.example.test --script ./migrate.sh --yes
 
-Script ./migrate.sh · 24 lines · 1210 bytes · sha256 4be1…
+Script ./migrate.sh: 24 lines, 1210 bytes
+SHA-256: 4be1
 
    1  #!/bin/sh
    2  set -eu
@@ -39,162 +28,77 @@ Script ./migrate.sh · 24 lines · 1210 bytes · sha256 4be1…
    5  APP_MODE=production
    6  EOF
    7  systemctl stop app
-   8  cd /srv/app
-   9  tar -xzf /tmp/release.tgz
-  10  for f in migrations/*.sql; do
-  11    psql -d app -f "$f"
-  12  done
-  13  chown -R deploy:deploy /srv/app
-  14  systemctl start app
-  15  for i in 1 2 3 4 5; do
-  16    curl -fsS http://127.0.0.1:8080/health && break
-  17    sleep 2
-  18  done
-  19  journalctl -u app -n 20 --no-pager
-  20  rm -f /tmp/release.tgz
-  21  echo migrated
-  22  date -u
-  23  uptime
-  24  exit 0
+(17 more lines)
 [owner]
 komando: allow web-1.example.test
-[notes]
-13 more lines: scroll to read all
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-false
-[sizes]
-mac box 239, windows 20/16/250/16/410
+[windows sizes]
+20/256/306
 
 [title]
 Run a command on web-1.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Risk     (!) Sudo runs the command as root
-Skips    the protected-server stop
-[command]
+Risk: Sudo runs the command as root
+Skips: the protected-server stop
+
 komando exec web-1.example.test --sudo --yes -- apt-get install -y nginx
 [owner]
 komando: allow web-1.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-true
-[sizes]
-mac box 29, windows 20/16/26/0/178
+[windows sizes]
+20/96/146
 
 [title]
 Run a command on 4 servers
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Target   web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
-Status   [Protected]
-Skips    the protected-server stop
-[command]
-komando exec web-1.example.test,web-2.example.test,db-2.example.test,
-  » 203.0.113.10 --yes -- systemctl reload nginx
+Targets: web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
+Status: Protected
+Skips: the protected-server stop
+
+komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx
 [owner]
 komando: allow web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-true
-[sizes]
-mac box 44, windows 20/16/42/0/214
+[windows sizes]
+20/128/178
 
 [title]
 Run a command on db-2.example.test
-[subtitle]
+[text]
 Asked by Codex
-[grid]
-Status   [Protected]
-Risk     (!) Deletes a system folder recursively (rm -rf)
-         (!) Drops a database (DROP DATABASE)
-Skips    the dangerous-command stop, the protected-server stop
-[command]
-komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql
-  » -d app -c 'DROP DATABASE app'
+Status: Protected
+Risk: Deletes a system folder recursively (rm -rf)
+Risk: Drops a database (DROP DATABASE)
+Skips: the dangerous-command stop, the protected-server stop
+
+komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql -d app -c 'DROP DATABASE app'
 [owner]
 komando: allow db-2.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-58:6,93:13
-[risky line]
-0
-[allow is destructive]
-true
-[sizes]
-mac box 44, windows 20/16/42/0/234
+[windows sizes]
+20/128/178
 
 [title]
 Run a query on db-2.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Risk     (!) --write lets the query change data
-Skips    the dangerous-command stop
-[command]
-komando db query db-2.example.test --write --allow-dangerous -- "UPDATE orders
-  » SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
+Risk: --write lets the query change data
+Skips: the dangerous-command stop
+
+komando db query db-2.example.test --write --allow-dangerous -- "UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
 [owner]
 komando: allow db-2.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-true
-[sizes]
-mac box 44, windows 20/16/42/0/194
+[windows sizes]
+20/112/162
 
 [title]
 Run a command on web-1.example.test
-[subtitle]
+[text]
 Asked by Claude Code
-[grid]
-Risk     (!) Pengguna minta: hapus cache lama sebelum rilis
-Skips    the protected-server stop
-[command]
-komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi,
-  » mohon tunggu' && rm -r /srv/app/cache/lama
+Risk: Pengguna minta: hapus cache lama sebelum rilis
+Skips: the protected-server stop
+
+komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama
 [owner]
 komando: allow web-1.example.test
-[notes]
-
-[question]
-Allow this once?
-[danger]
-
-[risky line]
--1
-[allow is destructive]
-true
-[sizes]
-mac box 44, windows 20/16/42/0/194
+[windows sizes]
+20/96/146
 
