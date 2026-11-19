@@ -127,3 +127,26 @@ func TestRunRefusals(t *testing.T) {
 	wantCode(t, "USAGE", append([]string{"run"}, childArgs("secret:tok")...)...)
 	wantCode(t, "USAGE", "run", "web1", "--", "uptime")
 }
+
+func TestRunAgentLoaderEnv(t *testing.T) {
+	runHome(t)
+	setCallerEnv(t, "CLAUDECODE", "1")
+	for _, k := range []string{"LD_PRELOAD", "DYLD_INSERT_LIBRARIES", "NODE_OPTIONS", "BASH_ENV", "PYTHONSTARTUP"} {
+		wantCode(t, "USAGE", append([]string{"run", "--yes", "-e", k + "=/tmp/x", "-e", "TOKEN=secret:tok"}, childArgs()...)...)
+	}
+	if !loadsCode("ld_preload") || loadsCode("AWS_REGION") || loadsCode("PATH") {
+		t.Error("loadsCode")
+	}
+}
+
+func TestRunWindowNamesPlainKeys(t *testing.T) {
+	runHome(t)
+	setCallerEnv(t, "CLAUDECODE", "1")
+	texts := windowText(t, true)
+	if _, exit, _ := runOut(t, append([]string{"run", "-e", "TOKEN=secret:tok", "-e", "REGION=x", "--yes"}, childArgs()...)...); exit != 0 {
+		t.Fatalf("exit %d", exit)
+	}
+	if len(*texts) != 1 || !strings.Contains((*texts)[0], "REGION") {
+		t.Errorf("window: %q", *texts)
+	}
+}

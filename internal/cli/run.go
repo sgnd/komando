@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -27,7 +28,10 @@ func runCmd() *cobra.Command {
 A value secret:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own
-KOMANDO_* variables.
+KOMANDO_* variables and the values that unlock the vault. For an AI agent
+with secrets, variables that make a program load other code (LD_PRELOAD,
+DYLD_*, NODE_OPTIONS, PYTHON*, BASH_ENV and the like) are refused in --env
+and dropped from the environment.
 
 The program's output goes through komando's masking: a vault value it
 prints shows as [secret:NAME]. komando exits with the program's exit code.
@@ -62,6 +66,14 @@ func runLocal(cl *call, pairs, args []string) error {
 	if err := reservedRefs(refs); err != nil {
 		return err
 	}
+	agentSecrets := cl.isAgent() && len(refs) > 0
+	if agentSecrets {
+		for _, k := range slices.Sorted(maps.Keys(env)) {
+			if loadsCode(k) {
+				return out.Usage("an AI agent's run with secrets may not set %s: it makes the program load other code, which could read the values", k)
+			}
+		}
+	}
 	st, err := loadState()
 	if err != nil {
 		return err
@@ -73,11 +85,15 @@ func runLocal(cl *call, pairs, args []string) error {
 	if real, err := filepath.EvalSymlinks(prog); err == nil {
 		prog = real
 	}
+	before, err := os.Stat(prog)
+	if err != nil {
+		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "check the name, or give the program's path", "%s is not a program on this computer: %v", args[0], err)
+	}
 	keys := slices.Sorted(maps.Keys(env))
 	rec := map[string]any{"program": prog, "env": keys, "secrets": refs}
 	shown := strings.Join(append([]string{prog}, args[1:]...), " ")
 
-	if err := runGuard(cl, st, refs, prog); err != nil {
+	if err := runGuard(cl, st, refs, prog, plainKeys(env)); err != nil {
 		if !cl.flags.dryRun {
 			audit(cl, st, "run", nil, shown, false, withBlocked(rec, err))
 		}
@@ -105,10 +121,21 @@ func runLocal(cl *call, pairs, args []string) error {
 		}
 		vals = append(vals, k+"="+v)
 	}
+	if after, err := os.Stat(prog); err != nil || !sameFile(before, after) {
+		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "run it again", "%s changed after komando checked it; it did not run", prog)
+	}
 	audit(cl, st, "run", nil, shown, true, rec)
 
 	c := exec.Command(prog, args[1:]...)
-	c.Env = append(withoutKomandoEnv(cl.environ(), keys), vals...)
+	c.Args[0] = args[0]
+	base := withoutKomandoEnv(cl.environ(), keys)
+	if agentSecrets {
+		base = slices.DeleteFunc(base, func(kv string) bool {
+			k, _, _ := strings.Cut(kv, "=")
+			return loadsCode(k)
+		})
+	}
+	c.Env = append(base, vals...)
 	c.Stdin = cl.stdin
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -144,7 +171,7 @@ func runLocal(cl *call, pairs, args []string) error {
 
 // runGuard is run's approval: an AI agent needs a person's yes for every
 // secret, and a secret a protected entry uses needs one from anybody.
-func runGuard(cl *call, st *store.State, refs []string, prog string) error {
+func runGuard(cl *call, st *store.State, refs []string, prog string, plain []string) error {
 	if len(refs) == 0 {
 		return nil
 	}
@@ -158,7 +185,45 @@ func runGuard(cl *call, st *store.State, refs []string, prog string) error {
 			return err
 		}
 	}
-	return guardSecretUse(cl, refs, "the program "+prog+" on this computer")
+	where := "the program " + prog + " on this computer"
+	if !toolSafe(cl, prog) {
+		where += " (a program any program of yours can replace)"
+	}
+	if len(plain) > 0 {
+		where += ", with " + strings.Join(plain, ", ") + " also set"
+	}
+	return guardSecretUse(cl, refs, where)
+}
+
+// plainKeys are the --env keys whose value is not a secret reference; the
+// approval window names them, since they shape what the program does.
+func plainKeys(env map[string]string) []string {
+	var keys []string
+	for _, k := range slices.Sorted(maps.Keys(env)) {
+		if !strings.HasPrefix(env[k], "secret:") {
+			keys = append(keys, k)
+		}
+	}
+	return keys
+}
+
+// loadsCode reports whether an environment variable makes a program, its
+// runtime or its shell load code it names (a library, a startup file, an
+// interpreter option). Code loaded that way could read the injected values
+// and write them where masking never sees them.
+func loadsCode(k string) bool {
+	k = strings.ToUpper(k)
+	for _, p := range []string{"LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GIT_SSH", "GIT_EXEC_PATH", "GIT_CONFIG"} {
+		if strings.HasPrefix(k, p) {
+			return true
+		}
+	}
+	return k == "BASH_ENV" || k == "ENV" || k == "ZDOTDIR" || k == "PROMPT_COMMAND" || k == "SHELLOPTS" || k == "IFS"
+}
+
+// sameFile reports whether the program file is the one komando checked.
+func sameFile(a, b os.FileInfo) bool {
+	return os.SameFile(a, b) && a.ModTime().Equal(b.ModTime()) && a.Size() == b.Size()
 }
 
 func withBlocked(rec map[string]any, err error) map[string]any {
