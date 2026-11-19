@@ -264,7 +264,7 @@ var errorCodes = []errorCode{
 	{"TIMEOUT", 7, "redis did not answer in time", "raise --timeout"},
 	{"TLS_HANDSHAKE_FAILED", 4, "TLS handshake with … failed: …", "the server ended the TLS handshake; run it again, and check that … is the TLS port (not plain HTTP)"},
 	{"TOOL_FAILED", 5, "kubectl exited …", "read the error output (stderr) for the reason; `komando cluster events TARGET --warnings` shows the cluster's recent problems"},
-	{"TOOL_MISSING", 3, "curl is not installed", "install curl on the server"},
+	{"TOOL_MISSING", 3, "… is not a program on this computer: …", "check the name, or give the program's path"},
 	{"TOOL_TOO_OLD", 5, "… failed on … (exit …): …", "pg_dump … is older than the server (…): install postgresql-client-… where the tool runs, or name a server that has it with --run-on HOST"},
 	{"TOO_MANY", 8, "… objects match, more than --max-remove …", "narrow --prefix or --older-than, or raise --max-remove above … after checking the list"},
 	{"TOO_MANY_TAGS", 2, "… has more than … tags", "komando prunes a repository of at most 10000 tags, and --match does not change that (every tag is read, so a kept tag protects its image): delete some first with `komando registry rm CONN IMAGE`"},

@@ -5702,6 +5702,30 @@ exit 2
 Error: missing arguments; usage: komando secret rm NAME...
 Hint: for example: komando secret rm old-pass
 (code USAGE, exit 2)
+### komando -o json secret run (agent json)
+exit 2
+--- stdout
+{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret run (agent text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando secret run -- COMMAND [ARGS...]
+Hint: for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
+(code USAGE, exit 2)
+### komando -o json secret run (script json)
+exit 2
+--- stdout
+{"ok":false,"command":"secret.run","error":{"code":"USAGE","message":"missing arguments; usage: komando secret run -- COMMAND [ARGS...]","hint":"for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+--- stderr
+### komando -o text secret run (script text)
+exit 2
+--- stdout
+--- stderr
+Error: missing arguments; usage: komando secret run -- COMMAND [ARGS...]
+Hint: for example: komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
+(code USAGE, exit 2)
 ### komando -o json secret set (agent json)
 exit 2
 --- stdout
