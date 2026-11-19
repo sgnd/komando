@@ -78,11 +78,11 @@ func needsHuman(cmdName, name string, noScreen bool) *out.Error {
 }
 
 // askReveal asks the person in komando's window whether to show what. A
-// Linux or BSD desktop, or a Mac terminal with Accessibility permission,
-// gets no click-only window (clickForgeable): there another program could
-// press "Allow once", so it needs the approval code.
+// Linux or BSD desktop gets no click-only window (clickForgeable): there
+// another program could press "Allow once", so it needs the approval code.
+// A Mac terminal with Accessibility permission gets no window at all.
 func askReveal(cl *call, what string) (allowed, shown bool) {
-	if cl.ask == nil && clickForgeable(cl) && approvalCodeSecret() == nil {
+	if cl.ask == nil && clickForgeable(cl) && (desktopOS == "darwin" || approvalCodeSecret() == nil) {
 		return false, false
 	}
 	line := commandLine(cl)

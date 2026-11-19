@@ -194,13 +194,14 @@ func shownKeys(cl *call, what string, why []string) []string {
 	return keys
 }
 
-// askPerson opens the window: with a field for the code when the approval
-// code is on, and never a window a click alone allows where another
-// program can click it (a Linux or BSD desktop, a Mac terminal with
-// Accessibility permission: clickForgeable): that
-// needs the code (why "needs-code").
+// askPerson opens the window: on Linux, BSD and Windows with a field for
+// the code when the approval code is on; on macOS "Allow once" is followed
+// by the device-owner check (Touch ID or the login password). It never
+// opens a window that another program could answer (clickForgeable): a
+// Linux or BSD desktop without the code (why "needs-code"), or a Mac
+// terminal with Accessibility permission (why "ax-trusted").
 func (cl *call) askPerson(text string) (allowed, shown bool) {
-	if secret := approvalCodeSecret(); secret != nil {
+	if secret := approvalCodeSecret(); secret != nil && desktopOS != "darwin" {
 		// a second factor: the code from the person's authenticator app
 		code, pressed, ok := askCodeOnScreen(cl, text)
 		used := false
@@ -219,21 +220,15 @@ func (cl *call) askPerson(text string) (allowed, shown bool) {
 		return cl.ask(text)
 	}
 	if clickForgeable(cl) {
-		cl.sess.SetWhy("needs-code")
+		if desktopOS == "darwin" {
+			cl.sess.SetWhy("ax-trusted")
+		} else {
+			cl.sess.SetWhy("needs-code")
+		}
 		return false, true
-	}
-	screen := cl.getenv("KOMANDO_NO_DIALOG") == "" && cl.getenv("SSH_CONNECTION") == "" && cl.getenv("SSH_TTY") == ""
-	if desktopOS == "darwin" && screen {
-		noCodeNote.Do(func() {
-			fmt.Fprintln(cl.out.Err, "komando: an app with Accessibility permission could click Allow once.")
-			fmt.Fprintln(cl.out.Err, "komando: `komando config approval-code` makes the window ask for a code.")
-		})
 	}
 	return askOnScreen(cl, text)
 }
-
-// noCodeNote prints once per run that the macOS window has no code yet.
-var noCodeNote sync.Once
 
 // desktopOS is runtime.GOOS; tests set another.
 var desktopOS = runtime.GOOS
@@ -378,7 +373,11 @@ func approvalHint(cl *call, e *out.Error) {
 	case "code-used":
 		e.Hint = "the code typed in komando's window was already used for another approval; a code works once. Ask the user whether to try again with the next code their app shows"
 	case "needs-code":
-		e.Hint = "komando did not open its window: on a Linux or BSD desktop, or a Mac whose terminal has Accessibility permission, another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
+		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
+	case "ax-trusted":
+		e.Hint = "komando did not open its window: the terminal that started it has Accessibility permission on this Mac, so another program could click Allow once. Ask the user to run this exact command in their own terminal: " + commandLine(cl)
+	case "owner-failed":
+		e.Hint = "the user clicked Allow once but did not confirm with Touch ID or their Mac password; do not retry. Ask the user whether to try again"
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "unshowable":
@@ -417,15 +416,25 @@ var askOnScreen = func(cl *call, text string) (allowed, shown bool) {
 	}
 	switch runtime.GOOS {
 	case "darwin":
-		_, allowed, gaveUp, shown := askMac(viewFor(cl, text))
-		noteGaveUp(text, gaveUp)
-		return allowed, shown
+		return askMacWindow(cl, text)
 	case "windows":
 		_, allowed, gaveUp, shown := approvalWindow(viewFor(cl, text), false)
 		noteGaveUp(text, gaveUp)
 		return allowed, shown
 	}
 	return false, false
+}
+
+// askMacWindow shows the macOS window and reads its outcome: allowed only
+// when the person clicked "Allow once" and then passed the device-owner
+// check.
+func askMacWindow(cl *call, text string) (allowed, shown bool) {
+	ans, shown := askMac(viewFor(cl, text))
+	noteGaveUp(text, ans == macGaveUp)
+	if ans == macOwnerFailed {
+		cl.sess.SetWhy("owner-failed")
+	}
+	return ans == macAllowed, shown
 }
 
 func systemTool(name string) string {

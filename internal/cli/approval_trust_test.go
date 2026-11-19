@@ -9,8 +9,8 @@ import (
 )
 
 // C160: on macOS an agent whose terminal has Accessibility permission can
-// press "Allow once" through System Events, so komando asks for the
-// approval code there, as on X11.
+// press "Allow once" through System Events, so komando opens no window
+// there (C187 keeps this beside the device-owner check).
 func TestMacAccessibilityNeedsCode(t *testing.T) {
 	setHome(t, t.TempDir())
 	t.Setenv("KOMANDO_NO_DIALOG", "")
@@ -47,7 +47,7 @@ func TestMacAccessibilityNeedsCode(t *testing.T) {
 		tcl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "Claude Code"})
 		tcl.personAllowsFor("--yes", "")
 		if c.needCode {
-			if tcl.sess.Allowed() || clicked != 0 || tcl.sess.Window().Why != "needs-code" {
+			if tcl.sess.Allowed() || clicked != 0 || tcl.sess.Window().Why != "ax-trusted" {
 				t.Errorf("%s: allowed %v, clicked %d, why %q", c.name, tcl.sess.Allowed(), clicked, tcl.sess.Window().Why)
 			}
 			if _, shown := askReveal(tcl, "the password of db1"); shown {

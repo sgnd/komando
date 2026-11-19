@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 		resetApproval()
 	}
 	askOnScreen = func(*call, string) (bool, bool) { panic("a test opened an approval window") }
-	askMac = func(approvalView) (string, bool, bool, bool) { panic("a test opened the macOS window") }
+	askMac = func(approvalView) (macOutcome, bool) { panic("a test opened the macOS window") }
 	// no test runs the real Accessibility check (osascript)
 	axTrustOutput = func(context.Context) ([]byte, error) { return []byte("false\n"), nil }
 	// no password window either: an agent's login-ask server finds no
