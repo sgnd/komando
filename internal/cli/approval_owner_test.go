@@ -189,3 +189,79 @@ func TestMacRevealReasons(t *testing.T) {
 		t.Errorf("owner-timeout: %s %q", e.Code, e.Message)
 	}
 }
+
+// An Accessibility-trusted terminal gets the window when the device-owner
+// check can run (a click cannot answer it), and "Allow once" still needs
+// "owner ok". Where the check cannot run, or its answer is anything but
+// "true", komando refuses with ax-trusted, for --yes and for a reveal.
+func TestMacAXTrustedOwnerCheck(t *testing.T) {
+	setHome(t, t.TempDir())
+	t.Setenv("KOMANDO_NO_DIALOG", "")
+	t.Setenv("SSH_CONNECTION", "")
+	t.Setenv("SSH_TTY", "")
+	saved, savedOS, savedMac, savedA, savedAX, savedOC, savedFrom := tcl.args, desktopOS, askMac, askOnScreen, axTrustOutput, ownerCheckOutput, startedFrom
+	t.Cleanup(func() {
+		tcl.args, desktopOS, askMac, askOnScreen, axTrustOutput, ownerCheckOutput, startedFrom = saved, savedOS, savedMac, savedA, savedAX, savedOC, savedFrom
+		tcl.flags.yes = false
+		resetAccessibilityTrust()
+		resetOwnerCheck()
+		resetApproval()
+	})
+	tcl.args = []string{"komando", "host", "rm", "web-1.example.test", "--yes"}
+	desktopOS, askOnScreen = "darwin", askMacWindow
+	startedFrom = func(*call) string { return "" }
+	axTrustOutput = func(context.Context) ([]byte, error) { return []byte("true\n"), nil }
+	shown := 0
+	try := func(oc string, ocErr error, ans macOutcome) (yes, reveal bool, why, revealWhy string) {
+		ownerCheckOutput = func(context.Context) ([]byte, error) { return []byte(oc), ocErr }
+		askMac = func(approvalView) (macOutcome, bool) { shown++; return ans, true }
+		resetAccessibilityTrust()
+		resetOwnerCheck()
+		resetApproval()
+		setCallerEnv(t, "CLAUDECODE", "1")
+		tcl.flags.yes = true
+		yes, why = tcl.yesOK(), tcl.sess.Window().Why
+		tcl.flags.yes = false
+		t.Setenv("CLAUDECODE", "")
+		resetApproval()
+		reveal, _ = askReveal(tcl, "secret:db-pass")
+		return yes, reveal, why, tcl.sess.Window().Why
+	}
+	shown = 0
+	if yes, reveal, _, _ := try("true\n", nil, macAllowed); !yes || !reveal || shown != 2 {
+		t.Errorf("owner check available: yes %v, reveal %v, shown %d", yes, reveal, shown)
+	}
+	shown = 0
+	if yes, reveal, why, _ := try("true\n", nil, macOwnerFailed); yes || reveal || shown != 2 || why != "owner-failed" {
+		t.Errorf("owner not confirmed: yes %v, reveal %v, shown %d, why %q", yes, reveal, shown, why)
+	}
+	for name, c := range map[string]struct {
+		out string
+		err error
+	}{"false": {"false\n", nil}, "error": {"", errors.New("osascript failed")}, "timeout": {"", context.DeadlineExceeded},
+		"garbage": {"maybe\n", nil}, "upper": {"TRUE\n", nil}, "empty": {"", nil}} {
+		shown = 0
+		yes, reveal, why, revealWhy := try(c.out, c.err, macAllowed)
+		if yes || reveal || shown != 0 || why != "ax-trusted" || revealWhy != "ax-trusted" {
+			t.Errorf("%s: yes %v, reveal %v, shown %d, why %q/%q", name, yes, reveal, shown, why, revealWhy)
+		}
+	}
+}
+
+func TestOwnerCheckCached(t *testing.T) {
+	saved := ownerCheckOutput
+	t.Cleanup(func() { ownerCheckOutput = saved; resetOwnerCheck() })
+	runs := 0
+	ownerCheckOutput = func(ctx context.Context) ([]byte, error) {
+		runs++
+		if _, ok := ctx.Deadline(); !ok {
+			t.Error("no timeout")
+		}
+		return []byte("true\n"), nil
+	}
+	resetOwnerCheck()
+	first, second := ownerCheckAvailable(), ownerCheckAvailable()
+	if !first || !second || runs != 1 {
+		t.Errorf("runs %d", runs)
+	}
+}

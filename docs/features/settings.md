@@ -115,9 +115,10 @@ means a screen reader or other tool that presses buttons for you cannot
 press it. On macOS a program that has Accessibility permission (System
 Settings, Privacy & Security) can click buttons in any window, this one
 included. So "Allow once" on macOS counts only after Touch ID, an Apple
-Watch or your login password, which no program can give for you. A terminal that has
-that permission still gets no window: the agent asks you to run the
-command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
+Watch or your login password, which no program can give for you, and a
+terminal that has that permission gets the window too. Only where that
+check cannot run does such a terminal get no window: the agent asks you to
+run the command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
 
 ## Environment variables
 

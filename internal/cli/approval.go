@@ -196,10 +196,11 @@ func shownKeys(cl *call, what string, why []string) []string {
 
 // askPerson opens the window: on Linux, BSD and Windows with a field for
 // the code when the approval code is on; on macOS "Allow once" is followed
-// by the device-owner check (Touch ID or the login password). It never
-// opens a window that another program could answer (clickForgeable): a
-// Linux or BSD desktop without the code (why "needs-code"), or a Mac
-// terminal with Accessibility permission (why "ax-trusted").
+// by the device-owner check (Touch ID, an Apple Watch or the login
+// password). It never opens a window that another program could answer
+// (clickForgeable): a Linux or BSD desktop without the code (why
+// "needs-code"), or a Mac terminal with Accessibility permission where the
+// device-owner check cannot run (why "ax-trusted").
 func (cl *call) askPerson(text string) (allowed, shown bool) {
 	if secret := approvalCodeSecret(); secret != nil && desktopOS != "darwin" {
 		// a second factor: the code from the person's authenticator app
@@ -242,7 +243,9 @@ var desktopOS = runtime.GOOS
 // neither gets a window a click alone allows: the person needs the
 // approval code, which no program can read off the screen. On macOS the
 // same holds when the app that started komando has Accessibility
-// permission: an agent there can press the button through System Events.
+// permission (an agent there can press the button through System Events),
+// unless the device-owner check can run: a click cannot answer Touch ID,
+// an Apple Watch or the login password.
 func clickForgeable(cl *call) bool {
 	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return false // no window at all (askOnScreen)
@@ -251,7 +254,7 @@ func clickForgeable(cl *call) bool {
 	case "linux", "freebsd", "openbsd", "netbsd", "dragonfly":
 		return cl.getenv("DISPLAY") != "" || cl.getenv("WAYLAND_DISPLAY") != ""
 	case "darwin":
-		return accessibilityTrusted()
+		return accessibilityTrusted() && !ownerCheckAvailable()
 	}
 	return false
 }
@@ -375,7 +378,7 @@ func approvalHint(cl *call, e *out.Error) {
 	case "needs-code":
 		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
 	case "ax-trusted":
-		e.Hint = "komando did not open its window: the terminal that started it has Accessibility permission on this Mac, so another program could click Allow once. Ask the user to run this exact command in their own terminal: " + commandLine(cl)
+		e.Hint = "komando did not open its window: the terminal that started it has Accessibility permission on this Mac and the Touch ID, Apple Watch or password check cannot run, so another program could click Allow once. Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "owner-failed":
 		e.Hint = "the user clicked Allow once but did not confirm with Touch ID, an Apple Watch or their Mac password; do not retry. Ask the user whether to try again"
 	case "owner-timeout":

@@ -42,6 +42,7 @@ func TestMacAccessibilityNeedsCode(t *testing.T) {
 	for _, c := range cases {
 		axTrustOutput = func(context.Context) ([]byte, error) { return []byte(c.out), c.err }
 		resetAccessibilityTrust()
+		resetOwnerCheck()
 		resetApproval()
 		clicked = 0
 		tcl.setCaller(engine.Caller{Kind: engine.Agent, Agent: "Claude Code"})

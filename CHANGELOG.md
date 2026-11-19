@@ -38,9 +38,11 @@ its highlights; the sections below them give the details. Versions follow
   A cancelled or failed check, or none within 50 seconds, is a no. The window has no
   code field on macOS: `komando config approval-code` still works and keeps
   the code for Linux, BSD and Windows on the same vault, but the macOS window
-  does not ask for it. A terminal that has Accessibility permission (or one
-  komando cannot check) still gets no window: the agent asks you to run the
-  command yourself.
+  does not ask for it. A terminal that has Accessibility permission now
+  gets the window too, since a click cannot answer the check. Only where
+  the check cannot run (no Touch ID, watch or password set up, or komando
+  cannot tell) does such a terminal get no window: the agent asks you to
+  run the command yourself.
 - `komando secret run` for an AI agent with secrets: `--env` may not set
   a tool's config file (`KUBECONFIG`, `DOCKER_CONFIG`, `*_CONFIG_FILE`,
   `AWS_*_FILE`) or a toolchain variable that picks binaries (`CC`, `CXX`,
