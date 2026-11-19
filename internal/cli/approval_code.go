@@ -150,7 +150,7 @@ end run`
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
 	case "windows":
-		code, allowed, gaveUp, shown := approvalWindow(text, true)
+		code, allowed, gaveUp, shown := approvalWindow(approvalView{raw: text}, true)
 		noteGaveUp(text, gaveUp)
 		return code, allowed, shown
 	}

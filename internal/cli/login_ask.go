@@ -363,7 +363,7 @@ end run`
 			return strings.TrimSuffix(string(b), "\n"), err == nil, true
 		}
 	case "windows":
-		pw, given, gaveUp, shown := approvalWindow(text, true)
+		pw, given, gaveUp, shown := approvalWindow(approvalView{raw: text}, true)
 		noteGaveUp(text, gaveUp)
 		return pw, given, shown
 	}

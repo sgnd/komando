@@ -26,6 +26,15 @@ its highlights; the sections below them give the details. Versions follow
   program left holding its output: it stops reading 3 seconds after the
   program exits.
 
+### Changed
+
+- The approval window an AI agent's `--yes`, `--allow-dangerous` or
+  `--reveal` opens on macOS and Windows is easier to read: labelled lines
+  for the target, the protected marker, the risk and the skipped flags,
+  then the command and its script in a monospaced box that keeps line
+  breaks, wraps and scrolls. Deny stays the default and the Esc key, and
+  the window still closes itself after 2 minutes.
+
 ## [0.16.0] - 2026-11-19
 
 ### Highlights
