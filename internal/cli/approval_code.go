@@ -152,9 +152,9 @@ func approvalCodeCmd() *cobra.Command {
 		Long: `Sets up a one-time code (TOTP, like a bank or GitHub login) for komando's
 "Allow once" window: once on, allowing an AI agent's --yes, --allow-dangerous
 or --reveal needs the 6-digit code from the authenticator app on your phone,
-not just a click. On macOS the window asks for Touch ID or your login
-password instead and does not use the code; it stays set for Linux and
-Windows on the same vault. Only a person at a terminal can turn it on (the secret is
+not just a click. On macOS the window asks for Touch ID, an Apple Watch or
+your login password instead and does not use the code; it stays set for
+Linux, BSD and Windows on the same vault. Only a person at a terminal can turn it on (the secret is
 shown once, here); turning it off needs --yes, so that code too.`,
 		Example: "  komando config approval-code          # shows a secret to add to your authenticator app\n  komando config approval-code --off --yes",
 		Args:    cobra.NoArgs,

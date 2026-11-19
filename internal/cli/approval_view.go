@@ -27,6 +27,7 @@ type approvalView struct {
 	Targets     []string // where it runs, each named once
 	Protected   bool     // a target is protected (targetsWhy, protWhy)
 	Risks       []string // the reasons left once targets and protection have their own lines
+	Owner       string   // what the device-owner prompt names, when not the targets
 	raw         string   // a window with no parts: the text as it came
 }
 
@@ -225,12 +226,13 @@ func viewFor(cl *call, text string) approvalView {
 // text arrives in argv after macArgMarker, never in the script. Deny is
 // the default (Return) and Esc; after 120 seconds it closes as "gave up".
 // After "Allow once" the same run asks LocalAuthentication for the device
-// owner (policy 2: Touch ID, a watch or the login password) with argv[8]
-// as the reason, waiting no longer than the window's 120 seconds; it
+// owner (policy 2: Touch ID, an Apple Watch or the login password) with
+// argv[8] as the reason, waiting at most argv[9] seconds of its own; it
 // prints "owner ok" on the next line only when the reply says ok.
 const macAlertScript = `ObjC.import('AppKit');
 ObjC.import('LocalAuthentication');
-function owner(reason, until) {
+function owner(reason, secs) {
+  var until = $.NSDate.dateWithTimeIntervalSinceNow(Number(secs) || 1);
   var ctx = $.LAContext.alloc.init;
   if (!ctx.canEvaluatePolicyError(2, null)) return 'owner unavailable';
   var res = null;
@@ -242,7 +244,6 @@ function owner(reason, until) {
   return res;
 }
 function run(argv) {
-  var until = $.NSDate.dateWithTimeIntervalSinceNow(120);
   var app = $.NSApplication.sharedApplication;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
   var a = $.NSAlert.alloc.init;
@@ -300,7 +301,7 @@ function run(argv) {
   var r = a.runModal;
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
-  if (r === $.NSAlertSecondButtonReturn) return 'Allow once\n' + owner(argv[8], until);
+  if (r === $.NSAlertSecondButtonReturn) return 'Allow once\n' + owner(argv[8], argv[9]);
   if (r === $.NSAlertFirstButtonReturn) return 'Deny';
   return 'gave up';
 }`
@@ -315,9 +316,12 @@ func appleScriptArgs(script string, texts ...string) []string {
 	return append([]string{"-e", script, macArgMarker}, texts...)
 }
 
-// ownerReason is what the macOS Touch ID or password prompt says komando
-// asks for: the targets, or the command line when there are none.
+// ownerReason is what the macOS device-owner prompt says komando asks
+// for: Owner when set (a reveal), the targets, or the command line.
 func (v approvalView) ownerReason() string {
+	if v.Owner != "" {
+		return v.Owner
+	}
 	what := strings.Join(v.Targets, ", ")
 	if what == "" {
 		what = v.Line
@@ -333,17 +337,18 @@ func macArgs(v approvalView) []string {
 	rows := min(lineCount(v.command()), boxMaxLines)
 	off, n := v.riskyRange()
 	// 15 px a row, 12 for the insets, 16 for the sideways scroller
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n), v.ownerReason()}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28), strconv.Itoa(off), strconv.Itoa(n), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
 }
 
 // macOutcome is how the macOS window ended.
 type macOutcome int
 
 const (
-	macDenied      macOutcome = iota // Deny, Esc, an error or anything unexpected
-	macAllowed                       // Allow once, then the device owner confirmed
-	macOwnerFailed                   // Allow once, but the owner check did not say ok
-	macGaveUp                        // nobody answered in 120 seconds
+	macDenied       macOutcome = iota // Deny, Esc, an error or anything unexpected
+	macAllowed                        // Allow once, then the device owner confirmed
+	macOwnerFailed                    // Allow once, but the owner check did not say ok
+	macOwnerTimeout                   // Allow once, then nobody confirmed in ownerTimeout
+	macGaveUp                         // nobody answered in 120 seconds
 )
 
 // macAnswer reads what osascript printed. Only "Allow once" followed by
@@ -354,6 +359,8 @@ func macAnswer(out []byte) macOutcome {
 		return macAllowed
 	case "gave up":
 		return macGaveUp
+	case "Allow once\nowner timeout":
+		return macOwnerTimeout
 	}
 	if strings.HasPrefix(string(out), "Allow once\n") {
 		return macOwnerFailed
@@ -368,6 +375,10 @@ var (
 	windowGiveUp     = 120 * time.Second
 	macWindowTimeout = 3 * time.Minute
 )
+
+// ownerTimeout bounds the device-owner check after "Allow once"; the
+// window's 120 s plus this stay inside macWindowTimeout.
+const ownerTimeout = 50 * time.Second
 
 // askMac shows the macOS window. shown is false when osascript could not
 // start; an error exit after it started (the script failed) is a no.

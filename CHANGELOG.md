@@ -27,12 +27,12 @@ its highlights; the sections below them give the details. Versions follow
 ### Security
 
 - On macOS "Allow once" in the approval window now counts only after you
-  confirm with Touch ID or your login password, in the same step. A click
-  alone, by you or by a program that can click, no longer allows an AI
-  agent's `--yes`, `--allow-dangerous` or `--reveal`. A cancelled or failed
-  check, or none within the window's 2 minutes, is a no. The window has no
+  confirm with Touch ID, an Apple Watch or your login password, in the
+  same step. A click alone, by you or by a program that can click, no
+  longer allows an AI agent's `--yes`, `--allow-dangerous` or `--reveal`.
+  A cancelled or failed check, or none within 50 seconds, is a no. The window has no
   code field on macOS: `komando config approval-code` still works and keeps
-  the code for Linux and Windows on the same vault, but the macOS window
+  the code for Linux, BSD and Windows on the same vault, but the macOS window
   does not ask for it. A terminal that has Accessibility permission (or one
   komando cannot check) still gets no window: the agent asks you to run the
   command yourself.

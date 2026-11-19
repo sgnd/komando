@@ -186,7 +186,7 @@ komando key show deploy --reveal > deploy.key     # the private key of a key kom
   released yet), komando first asks you in its own window, naming the
   secret, the command and the programs that started it ("Started from:
   Komando"). It shows the value only after **Allow once**: on macOS
-  followed by Touch ID or your login password; elsewhere, with `komando config
+  followed by Touch ID, an Apple Watch or your login password; elsewhere, with `komando config
   approval-code` on, the window also asks for the 6-digit code. A Linux or BSD desktop gets
   that window only with the approval code, and with no screen it stops
   with `REVEAL_NEEDS_TERMINAL`: run it in a terminal.

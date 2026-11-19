@@ -82,9 +82,9 @@ opens an "Allow once" window on your screen (see
 [Safety](safety.md#when-you-are-at-the-terminal)). To need more than a
 click on Linux, BSD or Windows, turn on an approval code: the window then
 also asks for the 6-digit code from the authenticator app on your phone.
-On macOS the window asks for Touch ID or your login password after
-**Allow once** instead, and does not use the code. The code stays set for
-Linux and Windows when they use the same vault.
+On macOS the window asks for Touch ID, an Apple Watch or your login
+password after **Allow once** instead, and does not use the code. The code stays set for
+Linux, BSD and Windows when they use the same vault.
 
 ```bash
 komando config approval-code             # shows a secret to add to your authenticator app
@@ -110,8 +110,8 @@ keyboard: another program cannot press "Allow once" for you. This also
 means a screen reader or other tool that presses buttons for you cannot
 press it. On macOS a program that has Accessibility permission (System
 Settings, Privacy & Security) can click buttons in any window, this one
-included. So "Allow once" on macOS counts only after Touch ID or your
-login password, which no program can give for you. A terminal that has
+included. So "Allow once" on macOS counts only after Touch ID, an Apple
+Watch or your login password, which no program can give for you. A terminal that has
 that permission still gets no window: the agent asks you to run the
 command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
 

@@ -377,7 +377,9 @@ func approvalHint(cl *call, e *out.Error) {
 	case "ax-trusted":
 		e.Hint = "komando did not open its window: the terminal that started it has Accessibility permission on this Mac, so another program could click Allow once. Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "owner-failed":
-		e.Hint = "the user clicked Allow once but did not confirm with Touch ID or their Mac password; do not retry. Ask the user whether to try again"
+		e.Hint = "the user clicked Allow once but did not confirm with Touch ID, an Apple Watch or their Mac password; do not retry. Ask the user whether to try again"
+	case "owner-timeout":
+		e.Hint = "the user clicked Allow once but nobody confirmed with Touch ID, an Apple Watch or their Mac password within 50 seconds; ask the user whether to try again, and do not retry before they say so"
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "unshowable":
@@ -431,8 +433,11 @@ var askOnScreen = func(cl *call, text string) (allowed, shown bool) {
 func askMacWindow(cl *call, text string) (allowed, shown bool) {
 	ans, shown := askMac(viewFor(cl, text))
 	noteGaveUp(text, ans == macGaveUp)
-	if ans == macOwnerFailed {
+	switch ans {
+	case macOwnerFailed:
 		cl.sess.SetWhy("owner-failed")
+	case macOwnerTimeout:
+		cl.sess.SetWhy("owner-timeout")
 	}
 	return ans == macAllowed, shown
 }

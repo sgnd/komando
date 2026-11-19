@@ -1,9 +1,13 @@
 package cli
 
 import (
+	"context"
 	"encoding/base32"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/out"
 
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -41,7 +45,7 @@ func TestMacDeviceOwner(t *testing.T) {
 	}
 	for out, why := range map[string]string{
 		"Allow once\nowner denied\n":      "owner-failed",
-		"Allow once\nowner timeout\n":     "owner-failed",
+		"Allow once\nowner timeout\n":     "owner-timeout",
 		"Allow once\nowner unavailable\n": "owner-failed",
 		"Allow once\n":                    "owner-failed",
 		"Allow once\nsomething else\n":    "owner-failed",
@@ -63,7 +67,7 @@ func TestMacDeviceOwner(t *testing.T) {
 		t.Error("the target is in the script")
 	}
 	// the owner check runs only on the Allow once branch: Deny never calls it
-	if strings.Count(macAlertScript, "owner(argv[8], until)") != 1 || strings.Count(macAlertScript, "evaluatePolicyLocalizedReasonReply") != 1 {
+	if strings.Count(macAlertScript, "owner(argv[8], argv[9])") != 1 || strings.Count(macAlertScript, "evaluatePolicyLocalizedReasonReply") != 1 {
 		t.Error("the owner check is called outside the Allow once branch")
 	}
 	deny := macAlertScript[strings.Index(macAlertScript, "if (r === $.NSAlertFirstButtonReturn)"):]
@@ -106,5 +110,82 @@ func TestMacIgnoresApprovalCode(t *testing.T) {
 	tcl.flags.yes = true
 	if !tcl.yesOK() || shown != 1 {
 		t.Errorf("shown %d", shown)
+	}
+}
+
+// C187 L2: the owner check has its own 50 s, passed in argv; the window
+// and the check together stay inside macWindowTimeout.
+func TestMacOwnerTimeoutBound(t *testing.T) {
+	args := macArgs(approvalView{raw: "t"})
+	if args[13] != "50" || windowGiveUp+ownerTimeout > macWindowTimeout {
+		t.Errorf("owner bound %q, window %v + %v > %v", args[13], windowGiveUp, ownerTimeout, macWindowTimeout)
+	}
+	if !strings.Contains(macAlertScript, "function owner(reason, secs)") {
+		t.Error("the owner check does not take its own bound")
+	}
+}
+
+// revealSetup puts tcl on macOS as a program without a terminal, with the
+// window a stand-in that answers ans.
+func revealSetup(t *testing.T, ax string, ans macOutcome) *approvalView {
+	setHome(t, t.TempDir())
+	t.Setenv("KOMANDO_NO_DIALOG", "")
+	t.Setenv("SSH_CONNECTION", "")
+	t.Setenv("SSH_TTY", "")
+	savedOS, savedMac, savedA, savedAX, savedFrom := desktopOS, askMac, askOnScreen, axTrustOutput, startedFrom
+	t.Cleanup(func() {
+		desktopOS, askMac, askOnScreen, axTrustOutput, startedFrom = savedOS, savedMac, savedA, savedAX, savedFrom
+		resetAccessibilityTrust()
+		resetApproval()
+	})
+	desktopOS, askOnScreen = "darwin", askMacWindow
+	startedFrom = func(*call) string { return "" }
+	axTrustOutput = func(context.Context) ([]byte, error) { return []byte(ax), nil }
+	resetAccessibilityTrust()
+	resetApproval()
+	seen := &approvalView{}
+	askMac = func(v approvalView) (macOutcome, bool) { *seen = v; return ans, true }
+	return seen
+}
+
+// C187 L1: a reveal's owner prompt names the secret, quoted when its
+// name does not show as itself.
+func TestMacRevealOwnerReason(t *testing.T) {
+	seen := revealSetup(t, "false\n", macAllowed)
+	if ok, _ := askReveal(tcl, "secret:db-pass"); !ok || seen.ownerReason() != "komando: show secret:db-pass" {
+		t.Errorf("allowed %v, reason %q", ok, seen.ownerReason())
+	}
+	resetApproval()
+	askReveal(tcl, "secret:a\u202eb")
+	if r := seen.ownerReason(); r != "komando: show \"secret:a\\u202eb\"" {
+		t.Errorf("reason %q", r)
+	}
+	if args := macArgs(*seen); strings.Contains(args[3], "secret:") {
+		t.Error("the secret name is in the script")
+	}
+}
+
+// C187 L3: a reveal says why it stopped: an Accessibility-trusted terminal,
+// a failed owner check, or one nobody confirmed in time.
+func TestMacRevealReasons(t *testing.T) {
+	gate := func() *out.Error {
+		_, err := revealGate(tcl, "secret.show", "secret", "db-pass", "secret:db-pass")
+		var e *out.Error
+		if !errors.As(err, &e) {
+			t.Fatalf("err %v", err)
+		}
+		return e
+	}
+	revealSetup(t, "true\n", macAllowed)
+	if e := gate(); e.Code != "REVEAL_NEEDS_TERMINAL" || !strings.Contains(e.Hint, "Accessibility permission") {
+		t.Errorf("ax-trusted: %s %q", e.Code, e.Hint)
+	}
+	revealSetup(t, "false\n", macOwnerFailed)
+	if e := gate(); e.Code != "DECLINED" || !strings.Contains(e.Message, "did not confirm") {
+		t.Errorf("owner-failed: %s %q", e.Code, e.Message)
+	}
+	revealSetup(t, "false\n", macOwnerTimeout)
+	if e := gate(); e.Code != "DECLINED" || !strings.Contains(e.Message, "within 50 seconds") {
+		t.Errorf("owner-timeout: %s %q", e.Code, e.Message)
 	}
 }

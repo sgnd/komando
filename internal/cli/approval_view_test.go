@@ -17,7 +17,7 @@ func TestMacAnswer(t *testing.T) {
 		"Allow once\nowner ok\n":        macAllowed,
 		"Allow once\nowner ok":          macAllowed,
 		"Allow once\nowner denied\n":    macOwnerFailed,
-		"Allow once\nowner timeout\n":   macOwnerFailed,
+		"Allow once\nowner timeout\n":   macOwnerTimeout,
 		"Allow once\nowner unavailable": macOwnerFailed,
 		"Allow once\n\n":                macOwnerFailed,
 		"Allow once\nowner ok please":   macOwnerFailed,
@@ -45,8 +45,8 @@ func TestMacAlertScript(t *testing.T) {
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'",
 		"a.messageText = argv[1]", "a.informativeText = argv[2]", "tv.string = argv[3]", "wrappingLabelWithString(argv[4])", "Number(argv[5])", "tv.editable = false",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
-		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[8], until);",
-		"dateWithTimeIntervalSinceNow(120)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
+		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[8], argv[9]);",
+		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
 	} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
