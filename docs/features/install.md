@@ -9,10 +9,10 @@ it again.
 Open a terminal (on macOS the **Terminal** app) and paste:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.15.0/install.sh | KOMANDO_VERSION=v0.15.0 sh
+curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.16.0/install.sh | KOMANDO_VERSION=v0.16.0 sh
 ```
 
-The line runs the installer of release v0.15.0 and installs exactly that
+The line runs the installer of release v0.16.0 and installs exactly that
 release.
 
 Then check that it works:
@@ -28,9 +28,9 @@ and add that line to `~/.zshrc` (macOS) or `~/.bashrc` (Linux) so it stays.
 Want to read the script first? Download it, read it, then run it:
 
 ```bash
-curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/sgnd/komando/v0.15.0/install.sh
+curl --proto '=https' --tlsv1.2 -fsSLO https://raw.githubusercontent.com/sgnd/komando/v0.16.0/install.sh
 less install.sh
-KOMANDO_VERSION=v0.15.0 sh install.sh
+KOMANDO_VERSION=v0.16.0 sh install.sh
 ```
 
 `KOMANDO_INSTALL_DIR=DIR` picks the folder. `KOMANDO_VERSION` picks the
@@ -99,7 +99,7 @@ your AI agents get the skill of the new version. Until then
   Run `sudo komando update`. As root it writes nothing in `~/.komando`.
 - On Windows the running `komando.exe` is renamed aside (Windows does not
   let a running program be replaced) and the new one takes its name.
-- `komando update v0.15.0` installs that version (only releases after
+- `komando update v0.16.0` installs that version (only releases after
   0.13.0 are signed; see below for older ones). Going back to an older
   version asks you first, because an older komando may lack safety checks
   the newer one has. An AI agent needs `--yes` and your "Allow once".
@@ -110,7 +110,7 @@ your AI agents get the skill of the new version. Until then
   release is older than the komando you run.
 - A komando you built yourself from a commit between releases is not
   replaced (`SOURCE_BUILD`): build it again instead. One built at a release
-  tag (`go install ...@v0.15.0`) counts as that release.
+  tag (`go install ...@v0.16.0`) counts as that release.
 - Run as you, the update is written to the audit log like any other change.
 - `update` installs only a release signed with the komando project's key,
   which is built into komando. The release workflow signs `checksums.txt`
@@ -123,7 +123,7 @@ your AI agents get the skill of the new version. Until then
   them, use the install line with `KOMANDO_VERSION=v0.13.0`.
 - The signature covers the version too. From 0.15.0 on, the first line of
   `checksums.txt` names the release and the day it was made
-  (`komando-release v0.15.0 2026-11-20`). `update` and the install line
+  (`komando-release v0.16.0 2026-11-19`). `update` and the install line
   install a release only as the version that line names, so the signed
   files of an older release cannot pass as a newer one
   (`RELEASE_SIGNATURE_INVALID`). 0.14.0 and 0.14.1 were signed before the
@@ -145,7 +145,7 @@ your AI agents get the skill of the new version. Until then
 
 Installed with `sudo` and the install line? Update the same way, with the
 install line of the release you want:
-`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.15.0/install.sh | sudo KOMANDO_VERSION=v0.15.0 sh`.
+`curl --proto '=https' --tlsv1.2 -fsSL https://raw.githubusercontent.com/sgnd/komando/v0.16.0/install.sh | sudo KOMANDO_VERSION=v0.16.0 sh`.
 Without `sudo` the installer cannot write there, puts the new version in
 `~/.local/bin`, and your terminal may keep running the old one.
 `komando version` shows which one runs.
