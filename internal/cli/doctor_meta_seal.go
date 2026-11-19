@@ -17,10 +17,19 @@ func carryMetaSeal(cl *call) {
 	if cl.isAgent() || !cl.interactive() || cl.flags.dryRun {
 		return
 	}
-	if wrote, err := store.SealMeta(); err == nil && wrote {
+	wrote, err := sealMeta()
+	if err != nil {
+		// the command goes on; the next one of a person's tries again
+		fmt.Fprintf(cl.out.Err, "komando: could not seal the store's settings row: %v\n", err)
+		return
+	}
+	if wrote {
 		fmt.Fprintln(cl.out.Err, "komando: sealed the store's settings row (key mode, salt, scrypt cost), once\nkomando: a change to it made outside komando is now noticed")
 	}
 }
+
+// sealMeta is store.SealMeta; tests replace it to make it fail.
+var sealMeta = store.SealMeta
 
 // doctorRepair is doctor's two repairs for a person: --reseal-meta, or
 // else --accept-old-copy.

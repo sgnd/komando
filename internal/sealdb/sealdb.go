@@ -751,13 +751,22 @@ func (t *Tx) SetMeta(k, v string) error {
 	if k == "format" {
 		return errors.New("sealdb: the format is set by the store itself")
 	}
+	// the row may have changed outside komando since this handle opened:
+	// compare it with its seal in this step before sealing it again
+	have, match, err := t.metaSealState()
+	if err != nil {
+		return err
+	}
+	if have && !match {
+		return ErrMetaTampered
+	}
 	if _, err := t.c.ExecContext(t.ctx, `INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v`, k, v); err != nil {
 		return err
 	}
 	// the sealed copy follows in the same step; an older store without
 	// one gets it only when a person carries it over
-	if have, _, err := t.metaSealState(); err != nil || !have {
-		return err
+	if !have {
+		return nil
 	}
 	return t.SealMeta()
 }

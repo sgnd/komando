@@ -174,3 +174,29 @@ func TestMetaSealTextIsExact(t *testing.T) {
 		t.Fatalf("a folded row opened: %v", err)
 	}
 }
+
+// A settings row changed outside komando while a handle is open is not
+// sealed by that handle's next meta write: the write stops and the old
+// seal stays (C08).
+func TestSetMetaComparesBeforeSealing(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "store.db")
+	d := open(t, path)
+	if err := d.Update(ctx, func(tx *Tx) error { return tx.SetMeta("scrypt_n", "131072") }); err != nil {
+		t.Fatal(err)
+	}
+	rawMeta(t, path, `UPDATE meta SET v='1024' WHERE k='scrypt_n'`)
+	err := d.Update(ctx, func(tx *Tx) error { return tx.SetMeta("key_mode", "keyfile") })
+	if !errors.Is(err, ErrMetaTampered) {
+		t.Fatalf("SetMeta sealed an edited row: %v", err)
+	}
+	d.Close()
+	if _, err := Open(ctx, path, key(t, 1)); !errors.Is(err, ErrMetaTampered) {
+		t.Fatalf("the edited row got a new seal: %v", err)
+	}
+	rawMeta(t, path, `UPDATE meta SET v='131072' WHERE k='scrypt_n'`)
+	d2, err := Open(ctx, path, key(t, 1))
+	if err != nil {
+		t.Fatalf("the old seal is gone: %v", err)
+	}
+	d2.Close()
+}

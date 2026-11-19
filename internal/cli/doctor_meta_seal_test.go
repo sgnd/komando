@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"strings"
 	"testing"
 
@@ -160,5 +161,22 @@ func TestDoctorReportsOnlyAnOpenedStore(t *testing.T) {
 		if m["name"] == "security:vault" && (m["ok"] == true || strings.Contains(m["detail"].(string), "scrypt")) {
 			t.Errorf("doctor trusted the faked row: %v", m)
 		}
+	}
+}
+
+// A first seal that fails says so in one line on stderr and stops
+// nothing (C08).
+func TestMetaSealCarryOverFailureSaysSo(t *testing.T) {
+	invHome(t)
+	noAgent(t)
+	savedSeal := sealMeta
+	saved, savedErr := tcl.terminal, tcl.out.Err
+	t.Cleanup(func() { sealMeta, tcl.terminal, tcl.out.Err = savedSeal, saved, savedErr })
+	sealMeta = func() (bool, error) { return false, errors.New("disk full") }
+	var errBuf bytes.Buffer
+	tcl.terminal, tcl.out.Err = true, &errBuf
+	carryMetaSeal(tcl)
+	if got := errBuf.String(); strings.Count(got, "\n") != 1 || !strings.Contains(got, "disk full") {
+		t.Fatalf("stderr: %q", got)
 	}
 }
