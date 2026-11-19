@@ -267,8 +267,8 @@ var commandKinds = map[string]cmdKind{
 
 	"schema": reads,
 
-	"run":               dependsOn(localProgram),
 	"secret":            reads,
+	"secret run":        dependsOn(localProgram),
 	"secret check":      reads,
 	"secret cp":         changes,
 	"secret show":       reads,

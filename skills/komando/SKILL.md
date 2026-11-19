@@ -135,7 +135,7 @@ not know? Set `KOMANDO_AGENT=1`.
      (`{{secret:NAME}}` becomes the vault value on the server). Text that
      still holds `[hidden]` is never written (`HIDDEN_VALUE`).
    - Sending a secret somewhere (that `fs replace`, `--env K=secret:NAME`,
-     `komando run --env K=secret:NAME -- PROGRAM` on this computer,
+     `komando secret run --env K=secret:NAME -- COMMAND` on this computer,
      a password reference on a new or moved server, conn or VPN) stops with
      `SECRET_DESTINATION`: tell the human which secret goes where, and when
      they agree, re-run with `--yes`.

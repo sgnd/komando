@@ -22,9 +22,9 @@ import (
 func runCmd() *cobra.Command {
 	var env []string
 	c := &cobra.Command{
-		Use:   "run -- PROGRAM [ARGS...]",
-		Short: "Run a program on this computer with secrets from the vault in its environment",
-		Long: `Starts PROGRAM on this computer with the --env values in its environment.
+		Use:   "run -- COMMAND [ARGS...]",
+		Short: "Run a local command with vault secrets in its environment",
+		Long: `Starts COMMAND on this computer with the --env values in its environment.
 A value secret:NAME is read from the vault right before the program starts,
 so it is never in the command line or the shell history. The program starts
 directly, without a shell, with your environment minus komando's own
@@ -40,9 +40,9 @@ For an AI agent every secret:NAME needs a person's yes (--yes, then
 komando's window names the secrets and the program), since the program
 could print a value in a form masking does not know. A secret a protected
 server, conn or VPN uses asks a person at a terminal too.`,
-		Example: `  komando run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
-  komando run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
-  komando run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh`,
+		Example: `  komando secret run --env PGPASSWORD=secret:db-main -- psql -h 10.0.0.5 -U app
+  komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+  komando secret run --dry-run --env TOKEN=secret:gh-token -- ./deploy.sh`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			return runLocal(cl, env, args)
@@ -95,7 +95,7 @@ func runLocal(cl *call, pairs, args []string) error {
 
 	if err := runGuard(cl, st, refs, prog, plainKeys(env)); err != nil {
 		if !cl.flags.dryRun {
-			audit(cl, st, "run", nil, shown, false, withBlocked(rec, err))
+			audit(cl, st, "secret run", nil, shown, false, withBlocked(rec, err))
 		}
 		return err
 	}
@@ -107,7 +107,7 @@ func runLocal(cl *call, pairs, args []string) error {
 				envShown[k] = "[value]"
 			}
 		}
-		cl.out.Print("run", map[string]any{"program": prog, "args": args[1:], "env": envShown, "dry_run": true}, nil)
+		cl.out.Print("secret run", map[string]any{"program": prog, "args": args[1:], "env": envShown, "dry_run": true}, nil)
 		return nil
 	}
 
@@ -124,7 +124,7 @@ func runLocal(cl *call, pairs, args []string) error {
 	if after, err := os.Stat(prog); err != nil || !sameFile(before, after) {
 		return out.Errf(out.ExitNotFound, "TOOL_MISSING", "run it again", "%s changed after komando checked it; it did not run", prog)
 	}
-	audit(cl, st, "run", nil, shown, true, rec)
+	audit(cl, st, "secret run", nil, shown, true, rec)
 
 	c := exec.Command(prog, args[1:]...)
 	c.Args[0] = args[0]

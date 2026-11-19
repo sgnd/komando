@@ -90,8 +90,6 @@ func dashWho(cmd *cobra.Command) string {
 		return "the cluster"
 	case "cache":
 		return "the cache"
-	case "run":
-		return "the program"
 	}
 	return "the server"
 }

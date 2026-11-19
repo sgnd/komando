@@ -86,11 +86,11 @@ needs it and never stores it.
 ## Run a program on this computer with one
 
 ```bash
-komando run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
-komando run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
+komando secret run --env PGPASSWORD=secret:prod-db-pass -- psql -h 10.0.0.5 -U app shop
+komando secret run -e AWS_SECRET_ACCESS_KEY=secret:aws-ci -e AWS_REGION=eu-west-1 -- terraform plan
 ```
 
-`komando run` starts the program after `--` on this computer, with the
+`komando secret run` starts the program after `--` on this computer, with the
 `--env` values in its environment. komando reads `secret:NAME` from the
 vault right before the program starts, so the value is never in the command
 line or your shell history. The program starts without a shell, and gets

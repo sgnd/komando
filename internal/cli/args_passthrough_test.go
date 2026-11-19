@@ -47,7 +47,7 @@ func TestStandardPassthrough(t *testing.T) {
 		}
 	}
 	slices.Sort(want)
-	all := []string{"cache run", "cluster exec", "cluster run", "cluster shell", "docker compose", "docker exec", "docker raw", "exec", "job start", "run"}
+	all := []string{"cache run", "cluster exec", "cluster run", "cluster shell", "docker compose", "docker exec", "docker raw", "exec", "job start", "secret run"}
 	if !slices.Equal(want, all) {
 		t.Errorf("passthrough commands %v, want %v", want, all)
 	}
