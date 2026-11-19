@@ -5,6 +5,24 @@ its highlights; the sections below them give the details. Versions follow
 [Semantic Versioning](https://semver.org), and the format follows
 [Keep a Changelog](https://keepachangelog.com).
 
+## [Unreleased]
+
+### Security
+
+- `cluster run` and `cluster apply`: a Namespace manifest that sets
+  pod-security labels without `enforce` needs `--allow-dangerous`, as
+  `cluster label ...enforce-` does. `-k` (kustomize) is refused, since
+  komando cannot read what it renders.
+- The `~/.kube` exception for credential files folds ASCII case only, so a
+  lookalike such as the Kelvin sign no longer matches `.kube`.
+
+### Fixed
+
+- `db restore`: an archive whose table of contents holds more than 256 MiB
+  of SQL names the limit and a way forward instead of asking for the same
+  dump again. Any tar file is refused as a tar, not with an SQL error. The
+  `BAD_FILE` hint covers archives too.
+
 ## [0.16.0] - 2026-11-19
 
 ### Highlights

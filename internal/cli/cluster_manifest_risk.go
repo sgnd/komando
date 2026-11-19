@@ -98,6 +98,11 @@ func objectEscalates(v any, defNS string) string {
 		if strings.EqualFold(kind, "Secret") && str(x["type"]) == "kubernetes.io/service-account-token" {
 			return ref + " makes a service account token that never runs out"
 		}
+		if strings.EqualFold(kind, "Namespace") {
+			if why := namespaceDropsEnforce(x); why != "" {
+				return ref + " " + why
+			}
+		}
 		if why := podEscapes(x); why != "" {
 			return why
 		}
@@ -106,6 +111,28 @@ func objectEscalates(v any, defNS string) string {
 				return why
 			}
 		}
+	}
+	return ""
+}
+
+// namespaceDropsEnforce: a Namespace that sets pod-security labels but
+// leaves enforce out. apply removes a label the last apply set, so this is
+// the manifest form of `cluster label NS pod-security.kubernetes.io/enforce-`.
+// A Namespace with no pod-security labels at all is not rated: it is common,
+// and komando cannot see the live labels.
+func namespaceDropsEnforce(ns map[string]any) string {
+	md, _ := ns["metadata"].(map[string]any)
+	labels, _ := md["labels"].(map[string]any)
+	psa := false
+	for k := range labels {
+		k = strings.ToLower(strings.TrimSpace(k))
+		if k == "pod-security.kubernetes.io/enforce" {
+			return ""
+		}
+		psa = psa || strings.HasPrefix(k, "pod-security.kubernetes.io/")
+	}
+	if psa {
+		return "sets pod-security labels without enforce, which removes an enforce label an earlier apply set"
 	}
 	return ""
 }

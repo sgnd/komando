@@ -255,7 +255,7 @@ func pgArchiveSQL(r io.Reader) (sql, unread string, err error) {
 			unread = "the archive keeps " + strings.ToLower(e.desc) + " as SQL statements (pg_dump --inserts), which komando does not read"
 		}
 		if b.Len() > pgArchiveSQLMax {
-			return "", "", fmt.Errorf("more than %d MiB of SQL", pgArchiveSQLMax>>20)
+			return "", "", ErrArchiveTooLarge
 		}
 	}
 	return b.String(), unread, nil
@@ -265,12 +265,19 @@ func pgArchiveSQL(r io.Reader) (sql, unread string, err error) {
 // cannot read.
 var ErrBadArchive = errors.New("komando cannot read this pg_dump archive's table of contents")
 
+// ErrArchiveTooLarge is what CheckRestoreArchive returns for an archive
+// whose table of contents holds more SQL than komando collects.
+var ErrArchiveTooLarge = fmt.Errorf("the archive's table of contents holds more than %d MiB of SQL, more than komando checks", pgArchiveSQLMax>>20)
+
 // CheckRestoreArchive checks a pg_dump custom archive as CheckRestore checks
 // a plain dump. An archive komando cannot read (another version, cut or
 // damaged) is refused with ErrBadArchive: approving SQL nobody could look
 // at would leave the check to pg_restore.
 func CheckRestoreArchive(r io.Reader) (Verdict, error) {
 	sql, unread, err := pgArchiveSQL(r)
+	if errors.Is(err, ErrArchiveTooLarge) {
+		return Verdict{}, err
+	}
 	if err != nil {
 		return Verdict{}, fmt.Errorf("%w: %v", ErrBadArchive, err)
 	}
