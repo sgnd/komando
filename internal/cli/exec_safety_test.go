@@ -786,3 +786,19 @@ func TestLineBufferPEMMention(t *testing.T) {
 		t.Errorf("the key did not come out whole: %.100q", s)
 	}
 }
+
+// A forced cut of a long line must not split a hidden value longer than
+// streamKeep into two halves that each pass the masker.
+func TestLineBufferLongValueAtCut(t *testing.T) {
+	secret := strings.Repeat("Q7", streamKeep) // 8 KiB, longer than streamKeep
+	p := &out.Printer{Secrets: func() map[string]string { return map[string]string{"big": secret} }}
+	b := lineBuffer{mask: p}
+	var got strings.Builder
+	got.WriteString(p.Redact(b.add([]byte(strings.Repeat("x", streamCap-len(secret)/2)))))
+	got.WriteString(p.Redact(b.add([]byte(secret))))
+	got.WriteString(p.Redact(b.add([]byte("\n"))))
+	got.WriteString(p.Redact(b.flush()))
+	if strings.Contains(got.String(), secret[:len(secret)/2]) || strings.Contains(got.String(), secret[len(secret)/2:]) || !strings.Contains(got.String(), "[secret:big]") {
+		t.Errorf("value split at the cut: %d bytes out, marker %v", got.Len(), strings.Contains(got.String(), "[secret:big]"))
+	}
+}

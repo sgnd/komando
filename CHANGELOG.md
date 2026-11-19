@@ -14,6 +14,19 @@ its highlights; the sections below them give the details. Versions follow
   line. Its output is masked and komando exits with its exit code. An AI
   agent needs a person's yes for every secret, and may not set variables
   that make the program load other code (`LD_PRELOAD`, `NODE_OPTIONS`, ...).
+  Ctrl-C and `SIGTERM` go on to the program, and a program ended by signal
+  N makes komando exit 128+N on Linux and macOS.
+
+### Security
+
+- `komando secret run` refuses every secret reference form in the
+  program's arguments (`env:`, `vault:`, `op://`, ...), not only `secret:`.
+- `komando secret run` for an AI agent on Linux gives the program an empty
+  temporary `HOME` when the account is not in `/etc/passwd`, instead of the
+  `HOME` from the agent's environment.
+- Streamed output lines over 256 KiB (`exec`, `secret run`, service logs)
+  are no longer cut inside a hidden value, which printed it as two
+  unmasked halves.
 
 ## [0.15.0] - 2026-11-19
 
