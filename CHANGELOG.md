@@ -5,6 +5,27 @@ its highlights; the sections below them give the details. Versions follow
 [Semantic Versioning](https://semver.org), and the format follows
 [Keep a Changelog](https://keepachangelog.com).
 
+## [Unreleased]
+
+### Security
+
+- `komando secret run` for an AI agent with secrets: `--env` may not set
+  a tool's config file (`KUBECONFIG`, `DOCKER_CONFIG`, `*_CONFIG_FILE`,
+  `AWS_*_FILE`) or a toolchain variable that picks binaries (`CC`, `CXX`,
+  `GOFLAGS`, `CARGO_HOME`, `RUSTC_WRAPPER`, `JAVA_HOME`).
+- `komando secret run` on Linux: the program gets `SIGTERM` when komando
+  dies, so it does not run on with the secrets.
+- Streamed output (`exec`, `secret run`, `service log --follow`): a cut
+  of a line over 256 KiB no longer splits a masked pattern
+  (`password=...`), and a private key open at the cut is hidden through
+  its `END` line. The held tail is bounded at 1 MiB.
+
+### Fixed
+
+- `komando secret run` no longer waits for a background process that the
+  program left holding its output: it stops reading 3 seconds after the
+  program exits.
+
 ## [0.16.0] - 2026-11-19
 
 ### Highlights

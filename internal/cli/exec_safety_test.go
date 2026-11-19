@@ -802,3 +802,35 @@ func TestLineBufferLongValueAtCut(t *testing.T) {
 		t.Errorf("value split at the cut: %d bytes out, marker %v", got.Len(), strings.Contains(got.String(), "[secret:big]"))
 	}
 }
+
+// A forced cut must not split a pattern mask so its value shows in the tail.
+func TestLineBufferPatternAtCut(t *testing.T) {
+	p := &out.Printer{Mask: true}
+	b := lineBuffer{mask: p}
+	value := strings.Repeat("h2", 2500) // the cut falls inside it
+	var got strings.Builder
+	got.WriteString(p.Redact(b.add([]byte(strings.Repeat("x ", streamCap/2) + "password=" + value[:10]))))
+	got.WriteString(p.Redact(b.add([]byte(value[10:]))))
+	got.WriteString(p.Redact(b.add([]byte(" done\n"))))
+	got.WriteString(p.Redact(b.flush()))
+	if s := got.String(); strings.Contains(s, "h2h2") || !strings.HasSuffix(s, " done\n") {
+		t.Errorf("the value showed after the cut: %.200q", s[streamCap-100:])
+	}
+}
+
+// A private key open at a forced cut is hidden whole, through its END line,
+// and the stream goes on after it.
+func TestLineBufferPEMAtCut(t *testing.T) {
+	for _, p := range []*out.Printer{nil, {Mask: true}} {
+		b := lineBuffer{mask: p}
+		var got strings.Builder
+		got.WriteString(b.add([]byte("start\n-----BEGIN RSA PRIVATE KEY-----\n")))
+		got.WriteString(b.add([]byte(strings.Repeat("MIIEsecretKEYbody", streamCap/16+10))))
+		got.WriteString(b.add([]byte("MIIEsecretKEYbody\n-----END RSA PRIVATE KEY-----\nafter\n")))
+		got.WriteString(b.flush())
+		s := got.String()
+		if strings.Contains(s, "secretKEY") || !strings.Contains(s, "[hidden: private key]") || !strings.Contains(s, "after\n") || !strings.HasPrefix(s, "start\n") {
+			t.Errorf("mask %v: %.200q", p != nil, s)
+		}
+	}
+}

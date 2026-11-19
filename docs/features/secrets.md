@@ -105,8 +105,16 @@ values that unlock the vault.
   run on with the secrets. Ctrl-C at the terminal reaches the program by
   itself, once. A second Ctrl-C ends komando at once and ends the program
   first. On Windows komando ends the program.
+- On Linux the program gets `SIGTERM` when komando dies, even by
+  `SIGKILL`. On macOS and Windows a komando killed that way leaves the
+  program running with the secrets.
+- komando waits 3 seconds after the program exits for its output to end.
+  A background process the program left behind that still holds the
+  output is cut off then, and komando exits.
 - Output lines longer than 256 KiB are cut, but never inside a hidden
-  value.
+  value up to 1 MiB or a masked pattern such as `password=...`. A private
+  key open at the cut is hidden from its `BEGIN` line through its `END`
+  line (at most 16 KiB more).
 - The audit log records the program's path, the variable names and the
   secret names, never a value.
 - `--dry-run` shows the program's path and which secret goes into which
@@ -114,7 +122,11 @@ values that unlock the vault.
   needs is in `meta.would_need` and `meta.would_be_blocked`.
 - A reference of any form (`secret:`, `env:`, `file:`, `vault:`, `op://`,
   ...) in the program's arguments is refused: put it in `--env`. A
-  `file://` URL is not a reference and passes.
+  `file://` URL is not a reference and passes. This is a guard against
+  mistakes, not a security boundary: komando never resolves a reference in
+  the arguments. It finds `secret:` anywhere, but the other forms only at
+  the start of an argument or after an `=`, so `-penv:PW` is passed on as
+  written.
 - An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
   the program could print a value in a form masking does not know. The
   window names the secrets, the program's full path, the other `--env`
@@ -131,7 +143,10 @@ values that unlock the vault.
   program loads (`USAGE`): `LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`,
   `PYTHON*`, `BASH_ENV`, a pager (`*PAGER`), `EDITOR`, `VISUAL`, an askpass
   helper, an rc file (`PSQLRC`, `*RC`), a proxy (`*_proxy`), `GIT_*`,
-  `SSH_*`, `XDG_*` and the like. Variables such as `PGHOST`, `AWS_REGION`
+  `SSH_*`, `XDG_*`, a tool's config file (`KUBECONFIG`, `DOCKER_CONFIG`,
+  `*_CONFIG_FILE`, `AWS_*_FILE`), a toolchain that picks binaries (`CC`,
+  `CXX`, `GOFLAGS`, `CARGO_HOME`, `RUSTC_WRAPPER`, `JAVA_HOME`) and the
+  like. Variables such as `PGHOST`, `AWS_REGION`
   or `TF_VAR_*` pass. The window shows the plain `--env` values.
 - On Linux, when your account is not in `/etc/passwd` (only LDAP or sssd
   knows it), komando cannot read your account's `HOME`. The program then
