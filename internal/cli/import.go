@@ -274,10 +274,8 @@ func applyImport(cl *call, source, file string, plan *importPlan, groups []strin
 		}
 		return nil
 	}
-	for _, name := range res.Secrets {
-		if err := vault.Set(cl.storeWrite(), name, plan.Secrets[name]); err != nil {
-			return err
-		}
+	if err := storeImportSecrets(cl, res.Secrets, plan.Secrets); err != nil {
+		return err
 	}
 	now := time.Now().UTC()
 	err = store.Update(cl.storeWrite(), func(s *store.State) error {

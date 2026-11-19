@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -297,5 +298,73 @@ func TestSecretSetFromEmptyEnv(t *testing.T) {
 	wantCode(t, "USAGE", "secret", "set", "x", "--from-env", "EMPTY_PASS")
 	if names := secretNames(); len(names) != 0 {
 		t.Errorf("stored %v", names)
+	}
+}
+
+// C186: a value that is a common word is easy to guess, and komando hides
+// that word everywhere in its output, so storing one gets a warning.
+func TestCommonWordValue(t *testing.T) {
+	tests := []struct {
+		name, v string
+		want    bool
+	}{
+		{"short lowercase word", "shared", true},
+		{"short capitalised word", "Sunshine", true},
+		{"listed password with digits", "password1", true},
+		{"listed digits", "123456", true},
+		{"listed, any case", "QWERTY123", true},
+		{"ten letters", "correcthor", false},
+		{"word with a digit", "shar3d", false},
+		{"word with a symbol", "shared!", false},
+		{"long passphrase", "correct horse battery", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := commonWord(tt.v); got != tt.want {
+				t.Errorf("commonWord(%q) = %v, want %v", tt.v, got, tt.want)
+			}
+		})
+	}
+}
+
+func metaWarnings(d map[string]any) string {
+	m, _ := d["_meta"].(map[string]any)
+	return fmt.Sprint(m["warnings"])
+}
+
+// secret set, import and doctor warn about a common-word value by name,
+// never printing the value.
+func TestCommonWordWarnings(t *testing.T) {
+	invHome(t)
+	t.Setenv("SECRET_TEST_VALUE", "sunshine")
+	d := mustRun(t, "secret", "set", "web-pass", "--from-env", "SECRET_TEST_VALUE")
+	w := metaWarnings(d)
+	if !strings.Contains(w, "secret web-pass: this value is a common word") || strings.Contains(w, "sunshine") {
+		t.Errorf("secret set: %s", w)
+	}
+	t.Setenv("SECRET_TEST_VALUE", "Xk3-long-enough-9")
+	if w := metaWarnings(mustRun(t, "secret", "set", "ok-pass", "--from-env", "SECRET_TEST_VALUE")); strings.Contains(w, "common word") {
+		t.Errorf("a strong value: %s", w)
+	}
+	env := writeTemp(t, ".env", "DATABASE_URL=postgres://app:letmein@127.0.0.1:5432/shop\n")
+	d = mustRun(t, "import", "env", env)
+	if w := metaWarnings(d); !strings.Contains(w, "this value is a common word") || strings.Contains(w, "letmein") {
+		t.Errorf("import: %s", w)
+	}
+	st, err := loadState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, c := range securityChecks(tcl, st) {
+		if c.Name == "security:common_secrets" {
+			found = true
+			if !c.Warning || !strings.Contains(c.Detail, "web-pass") || strings.Contains(c.Detail, "ok-pass") || strings.Contains(c.Detail, "sunshine") {
+				t.Errorf("doctor: %+v", c)
+			}
+		}
+	}
+	if !found {
+		t.Error("doctor does not list the common-word secrets")
 	}
 }

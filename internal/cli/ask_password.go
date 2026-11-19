@@ -115,6 +115,7 @@ func askSecretNow(cmd *cobra.Command, kind, name string, a askSecret) (ref strin
 		return "", undo, err
 	}
 	audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": sec, "replaced": existed, "for": self})
+	warnCommonWord(cl, sec, v)
 	if !existed {
 		undo = func() { _ = vault.Delete(cl.storeWrite(), sec) }
 	}
