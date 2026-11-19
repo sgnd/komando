@@ -52,7 +52,7 @@ func TestMacAlertScript(t *testing.T) {
 		"addButtonWithTitle('Deny')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
 		"e.keyCode === 53", "stopModalWithCode($.NSAlertFirstButtonReturn)",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'",
-		"a.messageText = argv[1]", "a.informativeText = argv[2]", "a.icon = $.NSImage.alloc.initWithSize($.NSMakeSize(1, 1))",
+		"a.messageText = argv[1]", "a.informativeText = ''", "wrappingLabelWithString(argv[2])", "preferredMaxLayoutWidth = 440", "none.size = $.NSMakeSize(0, 0)", "a.icon = none",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[3], argv[4]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
@@ -61,7 +61,7 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"accessoryView", "NSColor", "NSScrollView", "NSTextView", "NSFont", "AttributedString", "hasDestructiveAction", "argv[0]", "argv[5]"} {
+	for _, bad := range []string{"NSColor", "NSScrollView", "NSTextView", "NSFont", "AttributedString", "hasDestructiveAction", "argv[0]", "argv[5]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
@@ -72,11 +72,11 @@ func TestMacAlertScript(t *testing.T) {
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if len(args) != 9 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != v.raw {
+	if len(args) != 9 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != noBreakHyphens(v.raw) {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
-	if args = macArgs(v); args[4] != macArgMarker || args[5] != "Run a komando command" || !strings.HasPrefix(args[6], "Asked by -e\n") {
+	if args = macArgs(v); args[4] != macArgMarker || args[5] != "Run a komando command" || !strings.HasPrefix(args[6], "Asked by \u2011e\n") {
 		t.Errorf("title %q", args)
 	}
 }
@@ -177,7 +177,7 @@ func TestApprovalViewDedupes(t *testing.T) {
 	v := newApprovalView(tcl, []string{"--allow-dangerous", "--yes"}, "", why, "komando exec web -- id", "")
 	v.Agent = "Codex"
 	want := "Asked by Codex\nTargets: web-1.example.test, web-2.example.test, db-1.example.test\nStatus: Protected\n" +
-		"Risk: Deletes a system folder recursively (rm -rf)\nSkips: the dangerous-command stop, the protected-server stop\n\nkomando exec web -- id"
+		"Risk: Deletes a system folder recursively (rm -rf)\nSkips: the dangerous-command check\n\nCommand: id"
 	if got := v.details(); got != want {
 		t.Errorf("text:\n%s\nwant:\n%s", got, want)
 	}
@@ -218,7 +218,7 @@ func TestApprovalScriptWhole(t *testing.T) {
 			t.Errorf("line %d is not shown", i)
 		}
 	}
-	if !strings.Contains(shown, "Script ./a.sh: 40 lines, ") || !regexp.MustCompile(`SHA-256: [0-9a-f]{64}\n`).MatchString(shown) {
+	if !strings.Contains(shown, "Script: ./a.sh · 40 lines · ") || !regexp.MustCompile(`SHA-256: [0-9a-f]{64}\n`).MatchString(shown) {
 		t.Errorf("caption:\n%s", shown)
 	}
 	if _, bad := newBody("the script ./a.sh", script(bodyMaxLines+1), false).shown(tcl); bad == "" {
@@ -261,5 +261,36 @@ func TestWinLayoutFit(t *testing.T) {
 	got := l.fit(600)
 	if !got.scroll || got.height != 600 || got.textH != 550 {
 		t.Errorf("too tall: %+v", got)
+	}
+}
+
+// The window shows what runs and nothing approved is hidden: the command
+// after "--", every option that changes what runs or where (an --env
+// value never), and no Options line when only covered flags are given.
+func TestApprovalOptions(t *testing.T) {
+	for _, tc := range []struct{ name, line, want string }{
+		{"user and env", "komando exec web-1.example.test --user deploy --env TOKEN=abc --env=MODE=x --yes -- uptime", "Options: --user deploy, --env TOKEN, --env MODE\nCommand: uptime"},
+		{"yes only", "komando exec web-1.example.test --yes -- uptime", "Command: uptime"},
+		{"via, timeout, sudo", "komando exec web-1.example.test --via bastion --timeout 30s --sudo --allow-dangerous -- id", "Options: --via bastion, --timeout 30s, --sudo\nCommand: id"},
+		{"no --", "komando fs write web-1.example.test /etc/a --content x --yes", "Command: komando fs write web-1.example.test /etc/a --content x --yes"},
+		{"script", "komando exec web-1.example.test --script ./a.sh --user deploy --yes", "Options: --user deploy"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, tc.line, "")
+			if got := v.shown(); got != tc.want {
+				t.Errorf("shown:\n%s\nwant:\n%s", got, tc.want)
+			}
+			if strings.Contains(v.shown(), "abc") || strings.Contains(v.shown(), "=x") {
+				t.Error("an --env value is shown")
+			}
+		})
+	}
+	sudo := testView("Codex", nil, "", []string{"it runs on web-1.example.test", "sudo runs the command as root"}, "komando exec web-1.example.test --sudo -- id", "")
+	if sudo.shown() != "Command: id" {
+		t.Errorf("--sudo repeated next to its Risk line: %q", sudo.shown())
+	}
+	prot := testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test (protected)"}, "komando exec web-1.example.test --yes -- id", "")
+	if strings.Contains(prot.details(), "Skips") {
+		t.Errorf("Skips with only --yes on a protected target:\n%s", prot.details())
 	}
 }

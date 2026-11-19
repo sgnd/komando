@@ -137,10 +137,11 @@ func viewFor(cl *call, text string) approvalView {
 	return approvalView{raw: text}
 }
 
-// macAlertScript draws the macOS window: a plain NSAlert at its native
-// width, argv[1] the title, argv[2] the text under it. Every text arrives
+// macAlertScript draws the macOS window: a plain NSAlert, argv[1] the
+// title, argv[2] the text under it in a plain wrapping label 440 pt wide
+// (a little wider than the alert's own text). Every text arrives
 // in argv after macArgMarker, never in the script. The icon is an empty
-// 1x1 image (NSAlert has no way to show none). Deny is the default
+// image of size 0x0: NSAlert has no documented way to show none. Deny is the default
 // (Return) and Esc; after 120 seconds it closes as "gave up". After
 // "Allow once" the same run asks LocalAuthentication for the device owner
 // (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
@@ -165,9 +166,16 @@ function run(argv) {
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
   var a = $.NSAlert.alloc.init;
   a.alertStyle = $.NSAlertStyleInformational;
-  a.icon = $.NSImage.alloc.initWithSize($.NSMakeSize(1, 1));
+  var none = $.NSImage.alloc.initWithSize($.NSMakeSize(1, 1));
+  none.size = $.NSMakeSize(0, 0);
+  a.icon = none;
   a.messageText = argv[1];
-  a.informativeText = argv[2];
+  a.informativeText = '';
+  var body = $.NSTextField.wrappingLabelWithString(argv[2]);
+  body.selectable = true;
+  body.preferredMaxLayoutWidth = 440;
+  body.frame = $.NSMakeRect(0, 0, 440, Math.ceil(body.cell.cellSizeForBounds($.NSMakeRect(0, 0, 440, 1e5)).height));
+  a.accessoryView = body;
   var deny = a.addButtonWithTitle('Deny');
   deny.keyEquivalent = '\r';
   var allow = a.addButtonWithTitle('Allow once');
@@ -216,8 +224,13 @@ func (v approvalView) ownerReason() string {
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.details(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), noBreakHyphens(v.details()), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds()))}
 }
+
+// noBreakHyphens keeps "--yes" and "rm -rf" whole when the label wraps:
+// AppKit may break a line after a hyphen, so each becomes U+2011, the
+// non-breaking hyphen, which looks the same.
+func noBreakHyphens(s string) string { return strings.ReplaceAll(s, "-", "\u2011") }
 
 // macOutcome is how the macOS window ended.
 type macOutcome int
@@ -278,10 +291,10 @@ var askMac = func(v approvalView) (ans macOutcome, shown bool) {
 // The Windows window's size, in pixels: a dialog of the system's own
 // look (Segoe UI 9 pt, 16 px rows), the title in bold, the text under it.
 const (
-	winW, winPad = 520, 12
+	winW, winPad = 480, 12              // 440 px of text, as the macOS window
 	winInner     = winW - 2*winPad - 16 // 16: the window's side borders
 	winRowH      = 16
-	winTextCols  = 66 // characters on a row, kept low so wrapped text is never cut
+	winTextCols  = 60 // characters on a row, kept low so wrapped text is never cut
 )
 
 type winLayout struct {

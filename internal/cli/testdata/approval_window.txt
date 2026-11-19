@@ -3,13 +3,12 @@ Change web-1.example.test
 [text]
 Asked by Claude Code
 Status: Protected
-Skips: the protected-server stop
 
-komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\nb:\n  c: 2' --yes
+Command: komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\nb:\n  c: 2' --yes
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
-20/96/146
+20/80/130
 
 [title]
 Run a command on web-1.example.test
@@ -17,9 +16,9 @@ Run a command on web-1.example.test
 Asked by Codex
 Status: Protected
 Risk: Deletes a system folder recursively (rm -rf)
-Skips: the dangerous-command stop, the protected-server stop
+Skips: the dangerous-command check
 
-komando exec web-1.example.test -- echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && true
+Command: echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && true
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
@@ -29,12 +28,10 @@ komando: allow web-1.example.test
 Run a command on db-2.example.test
 [text]
 Asked by Claude Code
-Skips: the protected-server stop
+Skips: the safety-change check
 Also lets through: the program /usr/local/bin/x
 
-komando exec db-2.example.test --script ./deploy.sh --yes
-
-Script ./deploy.sh: 3 lines, 40 bytes
+Script: ./deploy.sh · 3 lines · 40 bytes
 SHA-256: ab12
 
   1  #!/bin/sh
@@ -43,15 +40,15 @@ SHA-256: ab12
 [owner]
 komando: allow db-2.example.test
 [windows sizes]
-20/192/242
+20/160/210
 
 [title]
 Change web-1.example.test
 [text]
 Asked by Claude Code
-Skips: the protected-server stop
+Skips: the safety-change check
 
-komando host rm web-1.example.test --yes
+Command: komando host rm web-1.example.test --yes
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
@@ -63,11 +60,9 @@ Run a command on web-1.example.test
 Asked by Claude Code
 Status: Protected
 Risk: Deletes a system folder recursively (rm -rf)
-Skips: the dangerous-command stop, the protected-server stop
+Skips: the dangerous-command check
 
-komando exec web-1.example.test --script ./deploy.sh --allow-dangerous --yes
-
-Script ./deploy.sh: 4 lines, 98 bytes
+Script: ./deploy.sh · 4 lines · 98 bytes
 SHA-256: 9f2c
 
   1  #!/bin/sh
@@ -77,5 +72,5 @@ SHA-256: 9f2c
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
-20/256/306
+20/208/258
 

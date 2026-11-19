@@ -2,9 +2,9 @@
 Run a command on web-1.example.test
 [text]
 Asked by Claude Code
-Skips: the protected-server stop
+Skips: the safety-change check
 
-komando exec web-1.example.test --yes -- systemctl restart app
+Command: systemctl restart app
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
@@ -14,11 +14,9 @@ komando: allow web-1.example.test
 Run a command on web-1.example.test
 [text]
 Asked by Codex
-Skips: the protected-server stop
+Skips: the safety-change check
 
-komando exec web-1.example.test --script ./migrate.sh --yes
-
-Script ./migrate.sh: 24 lines, 1210 bytes
+Script: ./migrate.sh · 24 lines · 1210 bytes
 SHA-256: 4be1
 
    1  #!/bin/sh
@@ -48,20 +46,20 @@ SHA-256: 4be1
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
-20/512/562
+20/480/530
 
 [title]
 Run a command on web-1.example.test
 [text]
 Asked by Claude Code
 Risk: Sudo runs the command as root
-Skips: the protected-server stop
+Skips: the safety-change check
 
-komando exec web-1.example.test --sudo --yes -- apt-get install -y nginx
+Command: apt-get install -y nginx
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
-20/96/146
+20/80/130
 
 [title]
 Run a command on 4 servers
@@ -69,13 +67,12 @@ Run a command on 4 servers
 Asked by Claude Code
 Targets: web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
 Status: Protected
-Skips: the protected-server stop
 
-komando exec web-1.example.test,web-2.example.test,db-2.example.test,203.0.113.10 --yes -- systemctl reload nginx
+Command: systemctl reload nginx
 [owner]
 komando: allow web-1.example.test, web-2.example.test, db-2.example.test, 203.0.113.10
 [windows sizes]
-20/128/178
+20/96/146
 
 [title]
 Run a command on db-2.example.test
@@ -84,22 +81,23 @@ Asked by Codex
 Status: Protected
 Risk: Deletes a system folder recursively (rm -rf)
 Risk: Drops a database (DROP DATABASE)
-Skips: the dangerous-command stop, the protected-server stop
+Skips: the dangerous-command check
 
-komando exec db-2.example.test --allow-dangerous --yes -- rm -rf /srv && psql -d app -c 'DROP DATABASE app'
+Command: rm -rf /srv && psql -d app -c 'DROP DATABASE app'
 [owner]
 komando: allow db-2.example.test
 [windows sizes]
-20/128/178
+20/112/162
 
 [title]
 Run a query on db-2.example.test
 [text]
 Asked by Claude Code
 Risk: --write lets the query change data
-Skips: the dangerous-command stop
+Skips: the dangerous-command check
 
-komando db query db-2.example.test --write --allow-dangerous -- "UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
+Options: --write
+Command: "UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'"
 [owner]
 komando: allow db-2.example.test
 [windows sizes]
@@ -110,9 +108,9 @@ Run a command on web-1.example.test
 [text]
 Asked by Claude Code
 Risk: Pengguna minta: hapus cache lama sebelum rilis
-Skips: the protected-server stop
+Skips: the safety-change check
 
-komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama
+Command: echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
