@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/net/publicsuffix"
 
 	"github.com/sgnd/komando/internal/sealdb"
 )
@@ -43,11 +44,17 @@ func (c HostCA) PublicKey() ssh.PublicKey {
 	return k
 }
 
+// hostName is a name as komando compares it: lower case, without IPv6
+// brackets and one trailing dot (web.corp.example. is web.corp.example).
+func hostName(h string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.Trim(h, "[]")), ".")
+}
+
 // Matches reports host (a name or an address, no port) among c's patterns.
 func (c HostCA) Matches(host string) bool {
-	host = strings.ToLower(strings.Trim(host, "[]"))
+	host = hostName(host)
 	for _, p := range c.Hosts {
-		if ok, _ := path.Match(p, host); ok {
+		if ok, _ := path.Match(hostName(p), host); ok {
 			return true
 		}
 	}
@@ -58,7 +65,7 @@ func (c HostCA) Matches(host string) bool {
 // name at least two fixed labels (*.corp.example, web*.corp.example,
 // 10.1.2.*) or be one exact name. `*`, `*.*` and `*.com` are refused.
 func CheckCAPattern(p string) (string, error) {
-	p = strings.ToLower(strings.TrimSpace(p))
+	p = hostName(strings.TrimSpace(p))
 	if p == "" {
 		return "", errors.New("an empty server name pattern")
 	}
@@ -70,14 +77,27 @@ func CheckCAPattern(p string) (string, error) {
 	if !strings.ContainsAny(p, "*?") {
 		return p, nil
 	}
-	fixed := 0
-	for _, l := range strings.Split(p, ".") {
+	labels := strings.Split(p, ".")
+	fixed, last := 0, -1
+	for i, l := range labels {
 		if l != "" && !strings.ContainsAny(l, "*?") {
 			fixed++
+		} else {
+			last = i
 		}
 	}
+	tooWide := fmt.Errorf("server name pattern %q vouches for too many servers: name at least the domain, as in *.corp.example or 10.1.2.*", p)
 	if fixed < 2 {
-		return "", fmt.Errorf("server name pattern %q vouches for too many servers: name at least the domain, as in *.corp.example or 10.1.2.*", p)
+		return "", tooWide
+	}
+	// the fixed end after the last wildcard must be more than a public
+	// suffix (*.co.uk, *.com.au, *.github.io vouch for strangers' servers)
+	if last < len(labels)-1 {
+		if end := strings.Join(labels[last+1:], "."); net.ParseIP(end) == nil {
+			if ps, _ := publicsuffix.PublicSuffix(end); ps == end {
+				return "", tooWide
+			}
+		}
 	}
 	return p, nil
 }
@@ -117,6 +137,24 @@ func (t *sealedTx) certTrusted(hostname string, cert *ssh.Certificate) (string, 
 	if err != nil {
 		return "", err
 	}
+	host = hostName(host)
+	// a certificate with no principals is valid for every name in old
+	// x/crypto and in OpenSSH's own reading: komando never takes one
+	if len(cert.ValidPrincipals) == 0 {
+		return "", errors.New("the certificate names no server")
+	}
+	// the dialled name among the principals, whatever their case and
+	// trailing dot; the checker then sees that principal as it is written
+	principal := ""
+	for _, p := range cert.ValidPrincipals {
+		if p != "" && hostName(p) == host {
+			principal = p
+			break
+		}
+	}
+	if principal == "" {
+		return "", fmt.Errorf("the certificate does not name %s", host)
+	}
 	for _, k := range []ssh.PublicKey{cert.Key, cert.SignatureKey} {
 		if rev, err := t.isRevoked(k); err != nil || rev {
 			if err != nil {
@@ -139,7 +177,7 @@ func (t *sealedTx) certTrusted(hostname string, cert *ssh.Certificate) (string, 
 		}
 		return false
 	}}
-	if err := checker.CheckHostKey(net.JoinHostPort(host, "22"), nil, cert); err != nil {
+	if err := checker.CheckHostKey(net.JoinHostPort(principal, "22"), nil, cert); err != nil {
 		return "", err
 	}
 	return name, nil

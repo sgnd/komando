@@ -374,7 +374,10 @@ known. A `--login ask` server is never trusted through a CA: a typed
 password goes only where a person met the key.
 
 A pattern names at least the domain: `*.corp.example`, `web*.corp.example`,
-`10.1.2.*`. `*`, `*.*` and `*.com` are refused (`CA_HOSTS_INVALID`).
+`10.1.2.*`. `*`, `*.*`, `*.com` and any other public suffix, such as
+`*.co.uk` or `*.github.io`, are refused (`CA_HOSTS_INVALID`). A certificate
+that names no server is refused. Names match whatever their case and one
+trailing dot.
 Adding a CA trusts every server it ever signs, so only a person at a
 terminal can add one (`NEEDS_PERSON`); an AI agent may preview it with
 `--dry-run`, remove a CA and revoke a key, which only narrow trust.
