@@ -363,7 +363,10 @@ komando host ca revoke --key old-host-ca.pub   # never trust this key again (an 
 ```
 
 A server whose name a CA's patterns match is asked for its host certificate
-first. The certificate is trusted, with no pin, when the CA signed it, the
+first. A pin always wins: a pinned server's key, plain or inside a
+certificate, must match its pin, or the connection stops with
+`HOSTKEY_MISMATCH`. For a server with no pin, the certificate is trusted,
+with no pin, when the CA signed it, the
 name komando dials is among its names, it is valid now, and neither its key
 nor the CA is revoked. Any other certificate falls back to its plain key and
 the pins. With `host_key_policy strict` a trusted certificate counts as

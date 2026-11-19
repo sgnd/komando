@@ -1,17 +1,21 @@
 package cli
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/ssh"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sshx"
+	"github.com/sgnd/komando/internal/store"
 )
 
 func caPub(t *testing.T) (string, ssh.PublicKey) {
@@ -132,5 +136,42 @@ func TestHostCAShowAndDoctor(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("doctor: %v", d["security"])
+	}
+}
+
+// doctor never shows the CAs as healthy when it cannot read them or their
+// revoke list (a tampered store): it warns instead.
+func TestHostCAChecksReportErrors(t *testing.T) {
+	ca := sshx.HostCA{Name: "corp", Key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl", Hosts: []string{"*.corp.example"}, AddedAt: time.Now()}
+	for _, tc := range []struct {
+		name    string
+		list    func(context.Context) ([]sshx.HostCA, error)
+		revoked func(ssh.PublicKey) (bool, error)
+	}{
+		{name: "CA list unreadable", list: func(context.Context) ([]sshx.HostCA, error) { return nil, errors.New("tampered") }},
+		{name: "revoke list unreadable",
+			list:    func(context.Context) ([]sshx.HostCA, error) { return []sshx.HostCA{ca}, nil },
+			revoked: func(ssh.PublicKey) (bool, error) { return false, errors.New("tampered") }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			oldL, oldR := hostCAList, hostKeyRevoked
+			t.Cleanup(func() { hostCAList, hostKeyRevoked = oldL, oldR })
+			hostCAList = tc.list
+			if tc.revoked != nil {
+				hostKeyRevoked = tc.revoked
+			}
+			var warned []string
+			hostCAChecks(nil, &store.State{}, func(name string, ok, warn bool, detail string, _ ...string) {
+				if ok {
+					t.Errorf("%s shown healthy: %s", name, detail)
+				}
+				if warn {
+					warned = append(warned, detail)
+				}
+			})
+			if len(warned) == 0 {
+				t.Fatal("no warning")
+			}
+		})
 	}
 }

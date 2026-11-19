@@ -176,3 +176,49 @@ func TestDialHostCertificate(t *testing.T) {
 		t.Errorf("a CA-trusted host was pinned: %d", len(pins))
 	}
 }
+
+// A pin always wins: a pinned server is checked against its pin even when
+// a trusted CA vouches for the key it shows; CA trust is for unpinned ones.
+func TestHostCertPinWins(t *testing.T) {
+	now := time.Now()
+	remote := &net.TCPAddr{IP: net.IPv4(10, 0, 0, 5), Port: 22}
+	h := &store.Host{Name: "web1", Address: "web1.corp.example", Port: 22, User: "u"}
+	for _, tc := range []struct {
+		name     string
+		pin      bool
+		sameKey  bool
+		mismatch bool
+	}{
+		{name: "pinned, cert over another key", pin: true, mismatch: true},
+		{name: "pinned, cert over the pinned key", pin: true, sameKey: true},
+		{name: "unpinned, valid CA cert"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pinHome(t)
+			ca, pinned, other := newSigner(t), newSigner(t).PublicKey(), newSigner(t).PublicKey()
+			trustCA(t, "corp", ca, "*.corp.example")
+			if tc.pin {
+				if _, err := PinHostKey("web1.corp.example:22", pinned, false); err != nil {
+					t.Fatal(err)
+				}
+			}
+			shown := other
+			if tc.sameKey {
+				shown = pinned
+			}
+			c := hostCert(t, ca, shown, ssh.HostCert, now.Add(-time.Hour), now.Add(time.Hour), "web1.corp.example")
+			cb, err := hostKeyCallback(context.Background(), h, "strict", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = cb("web1.corp.example:22", remote, c)
+			var hc *hostKeyChanged
+			if got := errors.As(err, &hc); got != tc.mismatch {
+				t.Fatalf("mismatch %v, want %v (err %v)", got, tc.mismatch, err)
+			}
+			if !tc.mismatch && err != nil {
+				t.Fatalf("refused: %v", err)
+			}
+		})
+	}
+}

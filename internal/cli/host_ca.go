@@ -339,9 +339,17 @@ is trusted, and it cannot be pinned or added as a CA.`,
 }
 
 // hostCAChecks are doctor's lines about the trusted host CAs.
+// hostCAList and hostKeyRevoked read the trusted CAs and the revoke list
+// (tests stand in a failing store).
+var (
+	hostCAList     = sshx.HostCAs
+	hostKeyRevoked = sshx.HostKeyRevoked
+)
+
 func hostCAChecks(cl *call, st *store.State, add func(name string, ok, warn bool, detail string, fix ...string)) {
-	cas, err := sshx.HostCAs(context.Background())
-	if err != nil || len(cas) == 0 {
+	cas, err := hostCAList(context.Background())
+	if err != nil {
+		add("host_ca", false, true, "komando cannot read its server CAs: "+err.Error())
 		return
 	}
 	for _, c := range cas {
@@ -353,8 +361,13 @@ func hostCAChecks(cl *call, st *store.State, add func(name string, ok, warn bool
 			}
 		}
 		k := c.PublicKey()
-		rev, _ := sshx.HostKeyRevoked(k)
+		rev, rerr := false, error(nil)
+		if k != nil {
+			rev, rerr = hostKeyRevoked(k)
+		}
 		switch {
+		case rerr != nil:
+			add("host_ca:"+c.Name, false, true, "komando cannot read its revoke list to check server CA "+c.Name+": "+rerr.Error())
 		case k == nil || rev:
 			add("host_ca:"+c.Name, false, true, "server CA "+c.Name+" is revoked or unreadable and trusts nothing: `komando host ca rm "+c.Name+"`")
 		case len(prot) > 0:

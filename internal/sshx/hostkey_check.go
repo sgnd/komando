@@ -104,14 +104,8 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 		return nil, fmt.Errorf("host key policy %q is not accept-new, strict or off", policy)
 	}
 	return func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		if cert, ok := key.(*ssh.Certificate); ok {
-			// a login-ask server is never trusted through a CA: a person's
-			// typed password goes only where a person met the key
-			if !ask {
-				if trusted, err := caVouches(ctx, name, hostname, cert); trusted || err != nil {
-					return err
-				}
-			}
+		cert, isCert := key.(*ssh.Certificate)
+		if isCert {
 			key = cert.Key // the plain key is checked against the pins
 		}
 		// a known server is checked in a read step; only a new one takes
@@ -121,6 +115,14 @@ func hostKeyCallback(ctx context.Context, h *store.Host, policy string, q *Login
 			return verr
 		}
 		var ke0 *knownhosts.KeyError
+		// a pin always wins: a CA vouches only for a server with no pin.
+		// A login-ask server is never trusted through a CA: a person's
+		// typed password goes only where a person met the key
+		if isCert && !ask && errors.As(known, &ke0) && len(ke0.Want) == 0 {
+			if trusted, err := caVouches(ctx, name, hostname, cert); trusted || err != nil {
+				return err
+			}
+		}
 		if known == nil && ask {
 			return loginKnownKey(ctx, h, hostname, key, q)
 		}
