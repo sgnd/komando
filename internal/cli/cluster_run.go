@@ -112,6 +112,10 @@ func checkKubectlFlags(args []string) error {
 		if oneOf(name, kubectlForbidden...) {
 			return out.Usage("%s is not allowed in cluster run: the conn decides the cluster and identity (and komando adds --dry-run itself)", name)
 		}
+		if oneOf(name, "-k", "--kustomize") {
+			// komando reads every manifest it sends; it cannot render kustomize
+			return out.Usage("-k (kustomize) is not supported: komando checks the manifests it sends and does not render kustomize; render it first (`kubectl kustomize DIR > app.yaml`) and pass -f app.yaml")
+		}
 		if a == "--" {
 			break // what follows belongs to a command run in a pod
 		}

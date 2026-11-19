@@ -20,7 +20,7 @@ This page is made from the code (`komando schema` lists the same under
 | `BACKUP_FAILED` | 5 | could not make a backup of …: …; the file was not changed | check free space with `komando exec TARGET --read-only -- df -h`, or run without --backup |
 | `BACKUP_NOT_FOUND` | 3 | no backup of … found (looked for ….bak) | komando keeps a backup only when you edit with --backup; give another copy with --copy PATH |
 | `BAD_CA` | 2 | registry CA …: … | store the registry's CA certificate (PEM) with `komando secret set NAME < ca.crt` |
-| `BAD_FILE` | 2 | cannot read backup: … | the file is not readable text SQL |
+| `BAD_FILE` | 2 | not a backup komando can read: … | give a backup komando can read: plain SQL text or a pg_dump custom archive (-Fc) |
 | `BAD_RELEASE` | 1 | … is … bytes, more than komando accepts; nothing was changed | report it at …/issues |
 | `BAD_SECRET` | 2 | the password for … contains a line break | store the password again without line breaks (`komando secret set NAME`) |
 | `BINARY_FILE` | 1 | … is a binary file; fs cat shows text only | save it with `komando download … …` |

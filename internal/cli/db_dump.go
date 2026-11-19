@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -525,7 +526,9 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 		if seal.archive() {
 			// a pg_dump archive: the SQL in its table of contents is
 			// checked; the rest is read too, so the seal covers every byte
-			if sqlV, err = driver.CheckRestoreArchive(r); err != nil {
+			if sqlV, err = driver.CheckRestoreArchive(r); errors.Is(err, driver.ErrArchiveTooLarge) {
+				return out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "dump fewer objects (pg_dump -Fc -n SCHEMA or -t TABLE) and restore each part, or restore this one with pg_restore by hand", "%s: %v", from, err)
+			} else if err != nil {
 				return out.Errf(out.ExitUsage, "BAD_FILE", "dump it again with `komando db dump` (pg_dump -Fc, PostgreSQL 9.5 to 17)", "%s: %v", from, err)
 			}
 			_, err = io.Copy(io.Discard, r)
@@ -535,8 +538,8 @@ func checkRestoreSQL(cl *call, kind, from string, seal *backupSeal, v *driver.Ve
 		if head, _ := br.Peek(5); string(head) == "PGDMP" {
 			return out.Usage("%s is a gzipped pg_dump archive: unpack it first (`gunzip -k %s`), then restore the .dump file", from, from)
 		}
-		if head, _ := br.Peek(512); isPGTarArchive(head) {
-			return otherPGArchive(from, "tar archive (pg_dump -Ft)")
+		if head, _ := br.Peek(512); isTar(head) {
+			return otherPGArchive(from, tarKind(head))
 		}
 		sqlV, err = driver.CheckRestore(kind, br)
 		return err

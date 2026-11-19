@@ -373,12 +373,17 @@ func kubeRefSecret(cl *call, p string) string {
 	return ""
 }
 
-// inKubeDir: p is in home's ~/.kube, compared without case where the file
-// system ignores it (~/.KUBE/config on macOS), as secretPath does.
+// inKubeDir: p is in home's ~/.kube, compared without ASCII case where the
+// file system ignores it (~/.KUBE/config on macOS). It lets a credential
+// store through, so only ASCII is folded: a lookalike such as the Kelvin
+// sign (~/.\u212Aube) is not let through.
 func inKubeDir(p, home string) bool {
 	for _, d := range []string{filepath.Join(realPath(home), ".kube"), filepath.Join(home, ".kube")} {
 		if caseFoldFS {
-			if pathIn(foldCase(p), foldCase(d)) {
+			// byte for byte after lowering ASCII: filepath.Rel (pathIn) folds
+			// Unicode on Windows, which turns the Kelvin sign into k again
+			lp, ld := asciiLower(filepath.Clean(p)), asciiLower(filepath.Clean(d))
+			if lp == ld || strings.HasPrefix(lp, ld+string(filepath.Separator)) {
 				return true
 			}
 		} else if pathIn(p, d) {
@@ -386,6 +391,17 @@ func inKubeDir(p, home string) bool {
 		}
 	}
 	return false
+}
+
+// asciiLower lowers A to Z only; strings.ToLower also turns the Kelvin
+// sign into k.
+func asciiLower(p string) string {
+	return strings.Map(func(r rune) rune {
+		if 'A' <= r && r <= 'Z' {
+			return r + 'a' - 'A'
+		}
+		return r
+	}, p)
 }
 
 // skipLocalSecret reports whether a folder upload leaves a file out for an

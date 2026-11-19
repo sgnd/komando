@@ -255,6 +255,13 @@ func TestRestoreOtherPGArchives(t *testing.T) {
 	tw.Close()
 	tarFile := filepath.Join(dir, "a.tar")
 	folder := filepath.Join(dir, "a.dir")
+	var gb bytes.Buffer
+	gw := tar.NewWriter(&gb)
+	gw.WriteHeader(&tar.Header{Name: "notes.txt", Mode: 0o600, Size: 2, Format: tar.FormatUSTAR})
+	gw.Write([]byte("hi"))
+	gw.Close()
+	generic := filepath.Join(dir, "files.tar")
+	os.WriteFile(generic, gb.Bytes(), 0o600)
 	bad := filepath.Join(dir, "bad.dump")
 	os.WriteFile(tarFile, tb.Bytes(), 0o600)
 	os.Mkdir(folder, 0o700)
@@ -263,6 +270,7 @@ func TestRestoreOtherPGArchives(t *testing.T) {
 	for _, c := range []struct{ from, code, want string }{
 		{tarFile, "USAGE", "tar archive (pg_dump -Ft)"},
 		{folder, "USAGE", "directory archive (pg_dump -Fd)"},
+		{generic, "USAGE", "is a tar file"},
 		{bad, "BAD_FILE", "cannot read this pg_dump archive"},
 	} {
 		_, e := invRun(t, "db", "restore", "pg", "--from", c.from, "--run-on", "dev", "--dry-run")

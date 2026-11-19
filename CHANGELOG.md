@@ -19,9 +19,20 @@ its highlights; the sections below them give the details. Versions follow
   of a line over 256 KiB no longer splits a masked pattern
   (`password=...`), and a private key open at the cut is hidden through
   its `END` line. The held tail is bounded at 1 MiB.
+- `cluster run` and `cluster apply`: a Namespace manifest that sets
+  pod-security labels without `enforce` needs `--allow-dangerous`, as
+  `cluster label ...enforce-` does. `-k` (kustomize) is refused, since
+  komando cannot read what it renders.
+- The `~/.kube` exception for credential files folds ASCII case only, so a
+  lookalike such as the Kelvin sign no longer matches `.kube`.
 
 ### Fixed
 
+- `db restore`: an archive whose table of contents holds more than 256 MiB
+  of SQL is refused with `FILE_TOO_LARGE` (was `BAD_FILE`), naming the
+  limit and a way forward instead of asking for the same dump again. Any
+  tar file is refused as a tar, not with an SQL error. The `BAD_FILE` hint
+  covers archives too.
 - `komando secret run` no longer waits for a background process that the
   program left holding its output: it stops reading 3 seconds after the
   program exits.
