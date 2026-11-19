@@ -33,6 +33,13 @@ func TestRunChild(t *testing.T) {
 		}
 	}
 	fmt.Println("args " + strings.Join(os.Args[1:], " "))
+	if os.Getenv("RUN_CHILD_BG") == "1" { // a background child keeps stdout open
+		bg := exec.Command("sleep", "30")
+		bg.Stdout = os.Stdout
+		if err := bg.Start(); err != nil {
+			fmt.Println("no sleep:", err)
+		}
+	}
 	if os.Getenv("RUN_CHILD_KILL") == "1" {
 		p, _ := os.FindProcess(os.Getpid())
 		p.Signal(syscall.SIGTERM)
@@ -292,7 +299,9 @@ func TestRunCtrlCNotSentTwice(t *testing.T) {
 func TestRunAgentMayNotOverrideBase(t *testing.T) {
 	runHome(t)
 	setCallerEnv(t, "CLAUDECODE", "1")
-	for _, kv := range []string{"HOME=/tmp/x", "path=/x", "PAGER=x", "PSQL_PAGER=x", "PSQLRC=x", "GIT_ASKPASS=x", "SSH_AUTH_SOCK=x", "https_proxy=x", "XDG_CONFIG_HOME=x", "LANG=C"} {
+	for _, kv := range []string{"HOME=/tmp/x", "path=/x", "PAGER=x", "PSQL_PAGER=x", "PSQLRC=x", "GIT_ASKPASS=x", "SSH_AUTH_SOCK=x", "https_proxy=x", "XDG_CONFIG_HOME=x", "LANG=C",
+		"KUBECONFIG=x", "DOCKER_CONFIG=x", "PIP_CONFIG_FILE=x", "NPM_CONFIG_FILE=x", "AWS_SHARED_CREDENTIALS_FILE=x", "AWS_CONFIG_FILE=x", "AWS_WEB_IDENTITY_TOKEN_FILE=x",
+		"GOFLAGS=x", "CARGO_HOME=x", "RUSTC_WRAPPER=x", "JAVA_HOME=x", "CC=x", "cxx=x"} {
 		wantCode(t, "USAGE", append([]string{"secret", "run", "--yes", "-e", kv, "-e", "PGPASSWORD=secret:tok"}, childArgs()...)...)
 	}
 	windowText(t, true)
@@ -303,5 +312,25 @@ func TestRunAgentMayNotOverrideBase(t *testing.T) {
 		if loadsCode(k) || baseSets(k) {
 			t.Errorf("%s refused", k)
 		}
+	}
+}
+
+// A background child that keeps the program's output open must not hold
+// komando after the program exits.
+func TestRunBackgroundChildDoesNotHold(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses sleep")
+	}
+	runHome(t)
+	t.Setenv("RUN_CHILD_BG", "1")
+	saved := outputWait
+	outputWait = 200 * time.Millisecond
+	t.Cleanup(func() { outputWait = saved })
+	start := time.Now()
+	if _, exit, code := runOut(t, append([]string{"secret", "run"}, childArgs()...)...); exit != 0 {
+		t.Errorf("exit %d %s", exit, code)
+	}
+	if d := time.Since(start); d > 15*time.Second {
+		t.Errorf("komando waited %v for the background child", d)
 	}
 }

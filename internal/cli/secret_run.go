@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -38,7 +39,9 @@ with secrets, --env may add variables but never replace one komando sets
 (HOME, PATH, USER, LANG, ...), and may not set what decides which code or
 settings the program loads: LD_PRELOAD, DYLD_*, NODE_OPTIONS, PYTHON*,
 BASH_ENV, a pager, an editor, an askpass helper, an rc file, a proxy,
-GIT_*, SSH_* or XDG_*. The program gets HOME, USER and LOGNAME from your
+GIT_*, SSH_*, XDG_*, a tool's config file (KUBECONFIG, DOCKER_CONFIG,
+*_CONFIG_FILE, AWS_*_FILE, NPM_CONFIG_*) or a toolchain's (CC, CXX, GOFLAGS,
+GOTOOLCHAIN, CARGO_*, RUSTC_WRAPPER, JAVA_HOME, MAVEN_OPTS). The program gets HOME, USER and LOGNAME from your
 OS account (USERPROFILE on Windows), LANG, LC_*, TERM, TMPDIR, TZ, the
 Windows system folders, a system PATH and its --env values.
 
@@ -156,6 +159,10 @@ func runLocal(cl *call, pairs, args []string) error {
 // returns the program's exit code as komando's.
 func startMasked(cl *call, c *exec.Cmd, prog string) error {
 	c.Stdin = cl.stdin
+	// A child the program leaves in the background can keep its output
+	// open; komando stops reading this long after the program exits.
+	c.WaitDelay = outputWait
+	endWithKomando(c)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	stdoutR, stdoutW := io.Pipe()
@@ -182,6 +189,8 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 	wg.Wait()
 	var ee *exec.ExitError
 	switch {
+	case errors.Is(err, exec.ErrWaitDelay): // the program exited 0
+		return nil
 	case errors.As(err, &ee):
 		if code := ee.ExitCode(); code > 0 {
 			return exitCode(code)
@@ -195,6 +204,10 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 	}
 	return nil
 }
+
+// outputWait is how long secret run reads a program's output after the
+// program exits; a background child that holds it longer is cut off.
+var outputWait = 3 * time.Second
 
 // forwardSignals passes a SIGTERM or SIGHUP komando gets on to the
 // program, so it does not run on with the secrets after komando is
@@ -392,11 +405,13 @@ func freshHome(cl *call) (string, func()) {
 // loadsCode reports whether an environment variable makes a program, its
 // runtime or its shell load or run code it names: a library, a startup or
 // rc file, an interpreter option, a pager, an editor, an askpass helper, a
-// proxy, git's and ssh's settings. Code reached that way could read the
-// injected values and write them where masking never sees them.
+// proxy, git's and ssh's settings, a tool's config file (kubectl, docker,
+// aws, pip), or a toolchain's compiler or home. Code reached that way
+// could read the injected values and write them where masking never sees
+// them.
 func loadsCode(k string) bool {
 	k = strings.ToUpper(k)
-	for _, p := range []string{"LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GIT_", "SSH_", "XDG_"} {
+	for _, p := range []string{"LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GIT_", "SSH_", "XDG_", "NPM_CONFIG_", "CARGO_"} {
 		if strings.HasPrefix(k, p) {
 			return true
 		}
@@ -406,9 +421,18 @@ func loadsCode(k string) bool {
 			return true
 		}
 	}
+	for _, sfx := range []string{"_CONFIG_FILE", "KUBECONFIG", "DOCKER_CONFIG"} { // PIP_CONFIG_FILE
+		if strings.HasSuffix(k, sfx) {
+			return true
+		}
+	}
+	if strings.HasPrefix(k, "AWS_") && strings.HasSuffix(k, "_FILE") { // AWS_SHARED_CREDENTIALS_FILE
+		return true
+	}
 	switch k {
-	case "BASH_ENV", "ENV", "ZDOTDIR", "PROMPT_COMMAND", "SHELLOPTS", "IFS", "EDITOR", "VISUAL",
-		"BROWSER", "LESSOPEN", "LESSCLOSE", "SHELL", "NPM_CONFIG_USERCONFIG":
+	case "GOFLAGS", "GOTOOLCHAIN", "GOENV", "RUSTC", "RUSTC_WRAPPER", "JAVA_HOME", "MAVEN_OPTS", "GRADLE_OPTS", "CC", "CXX", // pick the toolchain's binaries
+		"BASH_ENV", "ENV", "ZDOTDIR", "PROMPT_COMMAND", "SHELLOPTS", "IFS", "EDITOR", "VISUAL",
+		"BROWSER", "LESSOPEN", "LESSCLOSE", "SHELL":
 		return true
 	}
 	return strings.Contains(k, "ASKPASS")
