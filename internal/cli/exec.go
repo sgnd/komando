@@ -612,7 +612,9 @@ func (l *lineBuffer) maskSafeCut(cut int) int {
 		}
 	}
 	end := len(s)
-	for c := cut + step; c < len(s) && c < cut+64*step; c += step {
+	// a place closer to the end than the longest value can look safe only
+	// because the rest of a value has not arrived yet
+	for c := cut + step; c <= len(s)-l.mask.Longest() && c < cut+64*step; c += step {
 		if safe(c) {
 			end = c
 			break

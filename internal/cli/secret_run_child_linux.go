@@ -6,7 +6,8 @@ import (
 )
 
 // endWithKomando asks Linux to send the program SIGTERM when komando dies,
-// even by SIGKILL. Linux ties it to the starting thread, so it can fire early.
+// even by SIGKILL. Linux ties it to the starting thread, which startMasked
+// locks until the program ends.
 func endWithKomando(c *exec.Cmd) {
 	if c.SysProcAttr == nil {
 		c.SysProcAttr = &syscall.SysProcAttr{}
