@@ -52,6 +52,7 @@ const (
 	wsVisible      = 0x10000000
 	wsTabStop      = 0x00010000
 	wsVScroll      = 0x00200000
+	wsHScroll      = 0x00100000
 	wsBorder       = 0x00800000
 	wsExTopmost    = 0x00000008
 	wsExDlgModal   = 0x00000001
@@ -245,7 +246,7 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	}
 	child("STATIC", v.title()+"\n"+v.header(), ssNoPrefix, font, pad, pad, winInner, l.headH, 0)
 	y := pad + l.headH + pad
-	child("EDIT", v.command(), esMultiline|esReadOnly|wsVScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
+	child("EDIT", v.command(), esMultiline|esReadOnly|esAutoHScroll|wsVScroll|wsHScroll|wsBorder|wsTabStop, mono, pad, y, winInner, l.cmdH, 0)
 	y += l.cmdH + pad
 	if l.notesH > 0 {
 		child("STATIC", v.notes(), ssNoPrefix, font, pad, y, winInner, l.notesH, 0)

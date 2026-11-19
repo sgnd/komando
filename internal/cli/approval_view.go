@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -16,12 +17,14 @@ import (
 // window held before it had parts, and stays the key of the request.
 type approvalView struct {
 	Agent, Head string   // "Claude Code", "wants to change web"
-	Target      string   // the servers it runs on, "" when not named
 	Line, Body  string   // the command line; the body it sends, as shown
 	What        string   // what the flag also lets through
-	Reasons     []string // why komando asks: a protected target, a rule, a secret's destination
+	Reasons     []string // why komando asks, as text() words them
 	Flags       []string
-	raw         string // a window with no parts: the text as it came
+	Targets     []string // where it runs, each named once
+	Protected   bool     // a target is protected (targetsWhy, protWhy)
+	Risks       []string // the reasons left once targets and protection have their own lines
+	raw         string   // a window with no parts: the text as it came
 }
 
 func newApprovalView(cl *call, flags []string, what string, why []string, line, body string) approvalView {
@@ -31,9 +34,16 @@ func newApprovalView(cl *call, flags []string, what string, why []string, line, 
 			if unshowable(w) != "" {
 				w = strconv.QuoteToASCII(w)
 			}
-			if on, ok := strings.CutPrefix(w, "it runs on "); ok && v.Target == "" {
-				v.Head, v.Target = "wants to change "+on, on
-				continue
+			if on, ok := strings.CutPrefix(w, "it runs on "); ok {
+				v.addTargets(on)
+				if v.Head == "wants komando to run" {
+					v.Head = "wants to change " + on
+					continue
+				}
+			} else if _, ok := strings.CutPrefix(w, protChangePrefix); ok {
+				v.Protected = true
+			} else {
+				v.Risks = append(v.Risks, w)
 			}
 			v.Reasons = append(v.Reasons, w)
 		}
@@ -43,6 +53,19 @@ func newApprovalView(cl *call, flags []string, what string, why []string, line, 
 	}
 	v.What = what
 	return v
+}
+
+// addTargets adds the names of a targetsWhy list, each once, without
+// its protected mark (the Protected line says it).
+func (v *approvalView) addTargets(list string) {
+	for _, n := range strings.Split(list, ", ") {
+		if bare, ok := strings.CutSuffix(n, protectedMark); ok {
+			n, v.Protected = bare, true
+		}
+		if n != "" && !slices.Contains(v.Targets, n) {
+			v.Targets = append(v.Targets, n)
+		}
+	}
 }
 
 // text is the whole request as one text (the key for noteGaveUp and the
@@ -72,23 +95,13 @@ func (v approvalView) flagLines() string {
 
 // title is the window's first, bold line.
 func (v approvalView) title() string {
-	if v.raw != "" {
+	switch {
+	case v.raw != "":
 		return "komando: allow?"
+	case len(v.Targets) > 0:
+		return v.Agent + " wants to change " + strings.Join(v.Targets, ", ")
 	}
 	return v.Agent + " " + v.Head
-}
-
-// protected reports a protected target among the targets or the reasons.
-func (v approvalView) protected() bool {
-	if strings.Contains(v.Target, "(protected)") {
-		return true
-	}
-	for _, r := range v.Reasons {
-		if strings.HasPrefix(r, "a change on protected ") {
-			return true
-		}
-	}
-	return false
 }
 
 // header is the labelled lines above the command: where, how risky, why.
@@ -96,23 +109,23 @@ func (v approvalView) header() string {
 	if v.raw != "" {
 		return ""
 	}
-	var b strings.Builder
-	if v.Target != "" {
-		b.WriteString("Target: " + v.Target + "\n")
+	var b []string
+	if len(v.Targets) > 0 {
+		b = append(b, "Target: "+strings.Join(v.Targets, ", "))
 	}
-	if v.protected() {
-		b.WriteString("Protected: yes\n")
+	if v.Protected {
+		b = append(b, "Protected: yes")
 	}
-	for _, r := range v.Reasons {
-		b.WriteString("Risk: " + r + "\n")
+	for _, r := range v.Risks {
+		b = append(b, "Risk: "+r)
 	}
 	if len(v.Flags) > 0 {
-		b.WriteString("Skips: " + strings.Join(v.Flags, ", ") + "\n")
+		b = append(b, "Skips: "+strings.Join(v.Flags, ", "))
 	}
-	return strings.TrimSuffix(b.String(), "\n")
+	return strings.Join(b, "\n")
 }
 
-// command is the monospace block: the command line, then the body.
+// command is the monospace box: the command line, then the body.
 func (v approvalView) command() string {
 	if v.raw != "" {
 		return strings.TrimRight(v.raw, "\n")
@@ -123,20 +136,19 @@ func (v approvalView) command() string {
 	return v.Line + "\n\n" + strings.TrimRight(v.Body, "\n")
 }
 
-// notes is the explanation under the command.
+// notes is the explanation under the box, the question last.
 func (v approvalView) notes() string {
 	if v.raw != "" {
 		return ""
 	}
-	s := ""
+	var b []string
 	if v.What != "" {
-		s += "This also lets through: " + v.What + "\n\n"
+		b = append(b, "This also lets through: "+v.What)
 	}
-	s += "Allow this once?"
 	if f := v.flagLines(); f != "" {
-		s += "\n\n" + f
+		b = append(b, f)
 	}
-	return s
+	return strings.Join(append(b, "Allow this once?"), "\n\n")
 }
 
 // layout is the window's content as plain text, for the golden test.
@@ -144,7 +156,10 @@ func (v approvalView) layout() string {
 	return "[title]\n" + v.title() + "\n[header]\n" + v.header() + "\n[command]\n" + v.command() + "\n[notes]\n" + v.notes() + "\n"
 }
 
-// commandRows is how many rows the command block takes, wrapped at cols.
+// lineCount is how many lines s has (the command box does not wrap).
+func lineCount(s string) int { return strings.Count(s, "\n") + 1 }
+
+// commandRows is how many rows s takes, wrapped at cols.
 func commandRows(s string, cols int) int {
 	n := 0
 	for l := range strings.SplitSeq(s, "\n") {
@@ -180,6 +195,7 @@ function run(argv) {
   var w = 600, h = Number(argv[5]) || 120;
   var sv = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h));
   sv.hasVerticalScroller = true;
+  sv.hasHorizontalScroller = true;
   sv.borderType = $.NSBezelBorder;
   var tv = $.NSTextView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h));
   tv.editable = false;
@@ -187,13 +203,15 @@ function run(argv) {
   tv.richText = false;
   tv.font = $.NSFont.userFixedPitchFontOfSize(12);
   tv.textContainerInset = $.NSMakeSize(6, 6);
-  tv.autoresizingMask = $.NSViewWidthSizable;
-  tv.textContainer.widthTracksTextView = true;
+  tv.horizontallyResizable = true;
+  tv.maxSize = $.NSMakeSize(1e7, 1e7);
+  tv.textContainer.widthTracksTextView = false;
+  tv.textContainer.containerSize = $.NSMakeSize(1e7, 1e7);
   tv.string = argv[3];
   sv.documentView = tv;
   var note = $.NSTextField.wrappingLabelWithString(argv[4]);
   note.preferredMaxLayoutWidth = w;
-  var nh = argv[4] === '' ? 0 : note.fittingSize.height;
+  var nh = argv[4] === '' ? 0 : Math.ceil(note.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height);
   var box = $.NSView.alloc.initWithFrame($.NSMakeRect(0, 0, w, h + (nh ? nh + 12 : 0)));
   sv.frame = $.NSMakeRect(0, nh ? nh + 12 : 0, w, h);
   note.frame = $.NSMakeRect(0, 0, w, nh);
@@ -229,8 +247,9 @@ func appleScriptArgs(script string, texts ...string) []string {
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
-	rows := min(commandRows(v.command(), 80), 20)
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 16)}
+	rows := min(lineCount(v.command()), 20)
+	// 15 px a row, 12 for the insets, 16 for the sideways scroller
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.header(), v.command(), v.notes(), strconv.Itoa(rows*15 + 28)}
 }
 
 // macAnswer reads what osascript printed: only "Allow once" allows; every
@@ -263,13 +282,13 @@ func askMac(v approvalView) (allowed, gaveUp, shown bool) {
 }
 
 // The Windows window's size, in pixels: 16 px rows of the GUI font and of
-// Consolas; the command block scrolls past 18 rows.
+// Consolas; the command box scrolls past 18 rows and sideways.
 const (
 	winW, winPad = 680, 12
 	winInner     = winW - 2*winPad - 16 // 16: the window's side borders
 	winRowH      = 16
-	winCols      = 78 // Consolas characters on one row of the command block
-	winTextCols  = 100
+	winTextCols  = 80 // GUI-font characters on a row, kept low so wrapped text is never cut
+	winHScrollH  = 17
 )
 
 type winLayout struct{ headH, cmdH, notesH, height int }
@@ -277,7 +296,7 @@ type winLayout struct{ headH, cmdH, notesH, height int }
 func winLayoutFor(v approvalView) winLayout {
 	var l winLayout
 	l.headH = commandRows(v.title()+"\n"+v.header(), winTextCols) * winRowH
-	l.cmdH = min(commandRows(v.command(), winCols), 18)*winRowH + 8
+	l.cmdH = min(lineCount(v.command()), 18)*winRowH + 8 + winHScrollH
 	if n := v.notes(); n != "" {
 		l.notesH = commandRows(n, winTextCols) * winRowH
 	}

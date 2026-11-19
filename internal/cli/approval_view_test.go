@@ -64,7 +64,7 @@ func TestMacAlertScript(t *testing.T) {
 
 // The text of a view is the window's text from before it had parts.
 func TestApprovalViewText(t *testing.T) {
-	v := approvalView{Agent: "Claude Code", Head: "wants to change web", Target: "web", Line: "komando exec web -- id",
+	v := approvalView{Agent: "Claude Code", Head: "wants to change web", Targets: []string{"web"}, Line: "komando exec web -- id",
 		Reasons: []string{"a change on protected host web"}, Flags: []string{"--yes"}}
 	want := "Claude Code wants to change web:\n\nkomando exec web -- id\n\nAllow this once?\n\nWhy komando asks: a change on protected host web\n--yes skips one of komando's safety stops (" + flagMeaning["--yes"] + ")."
 	if got := v.text(); got != want {
@@ -80,14 +80,11 @@ func TestApprovalViewText(t *testing.T) {
 func TestApprovalWindowGolden(t *testing.T) {
 	long := "komando exec web-1.example.test -- " + strings.Repeat("echo abcdefghij && ", 12) + "true"
 	views := []approvalView{
-		{Agent: "Claude Code", Head: "wants to change web-1.example.test (protected)", Target: "web-1.example.test (protected)",
-			Line:    "komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\\nb:\\n  c: 2' --yes",
-			Reasons: []string{"a change on protected host web-1.example.test"}, Flags: []string{"--yes"}},
-		{Agent: "Codex", Head: "wants to change web-1.example.test", Target: "web-1.example.test", Line: long,
-			Reasons: []string{"[R-7] rm -rf deletes files", "a change on protected host web-1.example.test"}, Flags: []string{"--allow-dangerous", "--yes"}},
-		{Agent: "Claude Code", Head: "wants to change db-2.example.test", Target: "db-2.example.test", Line: "komando exec db-2.example.test --script ./deploy.sh --yes",
-			Body: "It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n",
-			What: "the program /usr/local/bin/x", Flags: []string{"--yes"}},
+		testView("Claude Code", []string{"--yes"}, "", []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected)"},
+			"komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\\nb:\\n  c: 2' --yes", ""),
+		testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected)", "[R-7] rm -rf deletes files", protWhy([]string{"web-1.example.test"})}, long, ""),
+		testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando exec db-2.example.test --script ./deploy.sh --yes",
+			"It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n"),
 	}
 	var b strings.Builder
 	for _, v := range views {
@@ -124,4 +121,33 @@ func TestAppleScriptArgs(t *testing.T) {
 			t.Errorf("%s: the script does not read the text from item 2", name)
 		}
 	}
+}
+
+// The header names each target once, says "Protected" once (not in the
+// title, the target or a Risk line), and keeps the other reasons as risks.
+func TestApprovalViewDedupes(t *testing.T) {
+	why := []string{protWhy([]string{"web-1.example.test"}), "it runs on web-1.example.test (protected), web-2.example.test",
+		"it runs on web-2.example.test, db-1.example.test", "[R-7] rm -rf deletes files"}
+	v := newApprovalView(tcl, []string{"--allow-dangerous", "--yes"}, "", why, "komando exec web -- id", "")
+	want := "Target: web-1.example.test, web-2.example.test, db-1.example.test\nProtected: yes\nRisk: [R-7] rm -rf deletes files\nSkips: --allow-dangerous, --yes"
+	if got := v.header(); got != want {
+		t.Errorf("header:\n%s\nwant:\n%s", got, want)
+	}
+	if strings.Contains(v.title(), "protected") || strings.Count(v.title()+"\n"+v.header(), "rotected") != 1 {
+		t.Errorf("protected is named more than once:\n%s", v.layout())
+	}
+	if !strings.HasSuffix(v.notes(), "Allow this once?") || !strings.Contains(v.notes(), "--yes skips") {
+		t.Errorf("notes: %q", v.notes())
+	}
+	// the request text (the window's key) is as before
+	if !strings.Contains(v.text(), "Why komando asks: "+protWhy([]string{"web-1.example.test"})) {
+		t.Errorf("text changed:\n%s", v.text())
+	}
+}
+
+// testView is newApprovalView with the agent's name set.
+func testView(agent string, flags []string, what string, why []string, line, body string) approvalView {
+	v := newApprovalView(tcl, flags, what, why, line, body)
+	v.Agent = agent
+	return v
 }

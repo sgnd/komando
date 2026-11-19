@@ -113,7 +113,7 @@ jobs:
           code=0; wait "$pid" || code=$?
           echo "helper exit $code, output (osascript's exit and stderr included):"; cat "$RUNNER_TEMP/after.out"
           [ "$shot" = 0 ] && [ "$code" = 0 ]
-      # Windows: the window by its class (komandoApproval), brought to the
+      # Windows: the window by its class (komandoApproval, an EnumWindows walk), brought to the
       # front, and only its rectangle captured; fails when it is not there
       - name: After, the new window (Windows)
         if: runner.os == 'Windows'
@@ -125,7 +125,6 @@ jobs:
           using System.Runtime.InteropServices;
           public struct RECT { public int Left, Top, Right, Bottom; }
           public static class W {
-            [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
             [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
             [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
             public delegate bool EnumProc(IntPtr h, IntPtr l);
@@ -133,6 +132,18 @@ jobs:
             [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
             [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int n);
             [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+            // the visible top-level window of class cls (FindWindow from
+            // PowerShell gets "" for a $null title and finds nothing)
+            public static IntPtr Find(string cls) {
+              IntPtr found = IntPtr.Zero;
+              EnumWindows((h, l) => {
+                var c = new System.Text.StringBuilder(256);
+                GetClassName(h, c, 256);
+                if (IsWindowVisible(h) && c.ToString() == cls) { found = h; return false; }
+                return true;
+              }, IntPtr.Zero);
+              return found;
+            }
             public static string Visible() {
               var b = new System.Text.StringBuilder();
               EnumWindows((h, l) => {
@@ -151,7 +162,7 @@ jobs:
           $h = [IntPtr]::Zero
           for ($i = 0; $i -lt 20 -and $h -eq [IntPtr]::Zero; $i++) {
             Start-Sleep -Milliseconds 500
-            $h = [W]::FindWindow("komandoApproval", $null)
+            $h = [W]::Find("komandoApproval")
           }
           if ($h -eq [IntPtr]::Zero) {
             Write-Output "no approval window within 10 s; visible top-level windows (title | class):"
