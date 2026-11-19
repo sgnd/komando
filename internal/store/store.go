@@ -311,6 +311,9 @@ type VpnSession struct {
 	LogFile   string    `json:"log_file,omitempty"`
 	StartedAt time.Time `json:"started_at"`
 	LastUsed  time.Time `json:"last_used"`
+	// SharedWith names the VPN whose WireGuard session this one uses: both
+	// have the same key, which runs in one session at a time.
+	SharedWith string `json:"shared_with,omitempty"`
 }
 
 // SSHLogin is a server login a person made with `komando login SERVER`, held

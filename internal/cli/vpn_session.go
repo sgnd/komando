@@ -181,14 +181,7 @@ func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, 
 	timeout := 60 * time.Second
 	switch {
 	case v.Kind == "wireguard":
-		pid, addr, err := spawnServe(ctx, v.Name, logFile, 15*time.Second, s)
-		if err != nil {
-			return nil, err
-		}
-		s.PID, s.Socks = pid, addr
-		if self, err := os.Executable(); err == nil {
-			s.Exe = filepath.Base(self)
-		}
+		return startWGSession(cl, ctx, v, logFile, s)
 	case v.Kind == "tailscale":
 		if v.MFA { // no auth key: a person logs in through the browser first
 			err := netx.TailscaleLogin(ctx, v, func(url string) {
@@ -588,6 +581,9 @@ func vpnDownCmd() *cobra.Command {
 			}
 			if cl.flags.dryRun {
 				res := map[string]any{"would_disconnect": names}
+				if k := keptNotes(st, names); len(k) > 0 {
+					res["notes"] = k
+				}
 				if a := vpnDownAffects(st, names); len(a) > 0 {
 					res["affects"] = a
 				}
@@ -601,7 +597,9 @@ func vpnDownCmd() *cobra.Command {
 					v = &store.Vpn{Name: n} // a session left from a removed VPN
 				}
 				if s := st.Sessions[n]; s != nil {
-					if err := netx.StopSession(s); err != nil {
+					if keep := leaveSharedSession(st, n, names); len(keep) > 0 {
+						notes = append(notes, keptNote(n, keep))
+					} else if err := netx.StopSession(s); err != nil {
 						return out.Errf(out.ExitError, "VPN_STOP_FAILED", "run `komando vpn down "+n+"` again; if it still fails, end process "+strconv.Itoa(s.PID)+" yourself",
 							"could not disconnect %s: %v", n, err)
 					}
@@ -725,6 +723,12 @@ type vpnStatusRow struct {
 	Detail   string    `json:"detail,omitempty"`   // how "up" was seen, or why not
 	LastEnd  string    `json:"last_end,omitempty"` // why its last session ended, from the session log
 	LastLog  []string  `json:"last_log,omitempty"` // l2tp, ipsec, ikev2: the last lines of that log (no secrets in it)
+	// WireGuard sessions: the last handshake, its age in seconds, and
+	// whether it is older than wgDeadAfter (or none came at all)
+	LastHandshake time.Time `json:"last_handshake_at,omitzero"`
+	HandshakeAge  int64     `json:"handshake_age_seconds,omitempty"`
+	TunnelDead    bool      `json:"tunnel_dead,omitempty"`
+	TunnelState   string    `json:"tunnel_state,omitempty"` // up, idle or dead
 }
 
 func vpnStatusCmd() *cobra.Command {
