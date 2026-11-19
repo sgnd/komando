@@ -407,11 +407,22 @@ another language, gets past it. So:
 - mark production with `komando host edit NAME --protected`;
 - keep the vault key in the OS keychain (move a key from `store.key` there
   with `komando secret keychain`), so other people or backups that reach
-  `~/.komando` cannot open the vault;
+  `~/.komando` cannot open the vault. A program running as you still can:
+  see the approval window below;
 - give another device's SSH key only komando, with `komando ssh-gate line`.
 
 More limits:
 
+- The approval window and the approval code stop an agent that works
+  through komando, or one held in a sandbox that keeps it away from your
+  keychain and `~/.komando`. They do not stop a program that runs freely
+  as you. Such a program can read the vault key (from the keychain with
+  `security find-generic-password`, or from `store.key`), open the vault,
+  and then compute approval codes and read every other secret and SSH key
+  in it, so it does not need komando at all. A passphrase
+  (`komando secret passphrase`) keeps the key out of the keychain and off
+  the disk, so only someone who knows it can open the vault. The agent's
+  own sandbox is the outer boundary; give the agent one.
 - The dangerous-command filter catches common accidents; it is not a
   complete security boundary.
 - Masking is a best effort: a secret under an unusual name, or shorter
