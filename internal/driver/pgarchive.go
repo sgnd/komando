@@ -212,7 +212,7 @@ func (a *pgArchive) entry() (pgTocEntry, error) {
 }
 
 // pgArchiveSQLMax is the most SQL komando collects from an archive's
-// table of contents; a larger one is named sql-opaque.
+// table of contents; a larger one is refused.
 const pgArchiveSQLMax = 256 << 20
 
 // pgArchiveSQL reads an archive's table of contents and returns its SQL as
