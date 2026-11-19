@@ -311,10 +311,16 @@ function run(argv) {
   allow.keyEquivalent = '';
   if (argv[11] === '1') {
     // red title text on a normal button, the same weight as Deny
-    var ps = $.NSMutableParagraphStyle.alloc.init;
+    // NSAttributedString's init methods are not bridged in JXA: build it with new
+    var m = $.NSMutableAttributedString.new;
+    m.replaceCharactersInRangeWithString($.NSMakeRange(0, 0), 'Allow once');
+    var all = $.NSMakeRange(0, m.length);
+    m.addAttributeValueRange($.NSForegroundColorAttributeName, $.NSColor.systemRedColor, all);
+    m.addAttributeValueRange($.NSFontAttributeName, allow.font, all);
+    var ps = $.NSMutableParagraphStyle.new;
     ps.alignment = $.NSTextAlignmentCenter;
-    allow.attributedTitle = $.NSAttributedString.alloc.initWithStringAttributes('Allow once',
-      $.NSDictionary.dictionaryWithObjectsForKeys([$.NSColor.systemRedColor, allow.font, ps], [$.NSForegroundColorAttributeName, $.NSFontAttributeName, $.NSParagraphStyleAttributeName]));
+    m.addAttributeValueRange($.NSParagraphStyleAttributeName, ps, all);
+    allow.attributedTitle = m;
   }
   var x0 = 4, w = 596, gap = 10, lw = 64, vx = lw + 8, fs = $.NSFont.systemFontSize;
   var font = $.NSFont.systemFontOfSize(fs), bold = $.NSFont.boldSystemFontOfSize(fs);

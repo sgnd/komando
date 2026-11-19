@@ -53,7 +53,7 @@ func TestMacAlertScript(t *testing.T) {
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once\\n' + owner(argv[8], argv[9]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
-		"symbol('lock.shield', 48)", "allow.attributedTitle = ", "if (argv[11] === '1') {", "sv.hasHorizontalScroller = false",
+		"symbol('lock.shield', 48)", "allow.attributedTitle = m;", "$.NSMutableAttributedString.new", "if (argv[11] === '1') {", "sv.hasHorizontalScroller = false",
 		"tv.horizontallyResizable = false", "argv[10].split(", "label(argv[12], bold", "symbol('exclamationmark.triangle', fs)", "$.NSColor.systemRedColor",
 		"$.NSUnderlineStyleAttributeName, 1, rr", "argv[7].split(',')", "quaternarySystemFillColor", "kind === '2' ? $.NSColor.systemRedColor", "imageNamed('NSCaution')",
 	} {
@@ -70,7 +70,7 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("the script uses NSColor.%s, not a semantic colour", c[1])
 		}
 	}
-	for _, bad := range []string{"findHighlightColor", "NSBackgroundColorAttributeName", "hasDestructiveAction"} {
+	for _, bad := range []string{"NSAttributedString.alloc", "NSMutableAttributedString.alloc", "findHighlightColor", "NSBackgroundColorAttributeName", "hasDestructiveAction"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
@@ -349,5 +349,18 @@ func TestApprovalDangerAndCaption(t *testing.T) {
 	}
 	if r := (approvalView{raw: "x", Owner: "komando: show secret:db"}); r.title() != "Show secret:db" {
 		t.Errorf("reveal title %q", r.title())
+	}
+}
+
+// A protected single target, named in the title, keeps its Protected
+// badge on its own Status row in the macOS argv; the script builds no
+// attributed string with an init method (not bridged in JXA).
+func TestMacProtectedBadge(t *testing.T) {
+	v := testView("Codex", []string{"--yes"}, "", []string{"it runs on db-2.example.test (protected)"}, "komando exec db-2.example.test --yes -- id", "")
+	if got := macArgs(v)[14]; !strings.HasPrefix(got, "1\tStatus\tProtected\n") {
+		t.Errorf("grid argv %q", got)
+	}
+	if regexp.MustCompile(`(NSAttributedString|NSMutableAttributedString)\.alloc\.initWith`).MatchString(macAlertScript) {
+		t.Error("the script builds an attributed string with alloc.initWith")
 	}
 }
