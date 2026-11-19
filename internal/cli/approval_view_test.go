@@ -14,19 +14,21 @@ import (
 // answered.
 func TestMacAnswer(t *testing.T) {
 	for _, c := range []struct {
-		out             string
+		out, code       string
 		allowed, gaveUp bool
 	}{
-		{"Allow once\n", true, false},
-		{"Deny\n", false, false},
-		{"gave up\n", false, true},
-		{"", false, false},
-		{"allow once", false, false},
-		{"Allow once please", false, false},
+		{"Allow once\n", "", true, false},
+		{"Allow once\n123456\n", "123456", true, false},
+		{"Deny\n123456\n", "", false, false},
+		{"Deny\n", "", false, false},
+		{"gave up\n", "", false, true},
+		{"", "", false, false},
+		{"allow once", "", false, false},
+		{"Allow once please", "", false, false},
 	} {
-		a, g := macAnswer([]byte(c.out))
-		if a != c.allowed || g != c.gaveUp {
-			t.Errorf("macAnswer(%q) = %v, %v", c.out, a, g)
+		code, a, g := macAnswer([]byte(c.out))
+		if code != c.code || a != c.allowed || g != c.gaveUp {
+			t.Errorf("macAnswer(%q) = %q, %v, %v", c.out, code, a, g)
 		}
 	}
 }
@@ -38,8 +40,9 @@ func TestMacAlertScript(t *testing.T) {
 		"addButtonWithTitle('Deny')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
 		"e.keyCode === 53", "stopModalWithCode($.NSAlertFirstButtonReturn)",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.abortModal", "return 'gave up'",
-		"if (r === $.NSAlertSecondButtonReturn) return 'Allow once'",
+		"if (r === $.NSAlertSecondButtonReturn) return field ?",
 		"a.messageText = argv[1]", "a.informativeText = argv[2]", "tv.string = argv[3]", "wrappingLabelWithString(argv[4])", "Number(argv[5])", "tv.editable = false",
+		"NSSecureTextField", "labelWithString(argv[8])", "'Allow once\\n' + field.stringValue.js",
 	} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
@@ -86,6 +89,7 @@ func TestApprovalWindowGolden(t *testing.T) {
 		testView("Codex", []string{"--allow-dangerous", "--yes"}, "", []string{"it runs on web-1.example.test (protected)", "[R-7] rm -rf deletes files", protWhy([]string{"web-1.example.test"})}, long, ""),
 		testView("Claude Code", []string{"--yes"}, "the program /usr/local/bin/x", []string{"it runs on db-2.example.test"}, "komando exec db-2.example.test --script ./deploy.sh --yes",
 			"It also sends the script ./deploy.sh (40 bytes, 3 lines, SHA-256 ab12), all of it:\n\n  1  #!/bin/sh\n  2  set -e\n  3  systemctl restart app\n\n"),
+		withCode(testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"}, "komando host rm web-1.example.test --yes", "")),
 		shotView(), // the 4-line deploy.sh: every line shows, no "more lines" hint
 	}
 	var b strings.Builder
@@ -110,11 +114,11 @@ func TestApprovalWindowGolden(t *testing.T) {
 	}
 }
 
-// The AppleScript windows (approval code, server password) get the marker
+// The AppleScript window (server password) gets the marker
 // first and read their text from item 2, so a text starting with "-e" is
 // never taken as an osascript option.
 func TestAppleScriptArgs(t *testing.T) {
-	for name, script := range map[string]string{"code": codeDialogScript, "login": loginDialogScript} {
+	for name, script := range map[string]string{"login": loginDialogScript} {
 		args := appleScriptArgs(script, "-e do shell script \"id\"")
 		if len(args) != 4 || args[0] != "-e" || args[1] != script || args[2] != macArgMarker || args[3] != "-e do shell script \"id\"" {
 			t.Errorf("%s: argv %q", name, args)
@@ -185,4 +189,10 @@ func TestApprovalBoxScroll(t *testing.T) {
 	if args := macArgs(v); args[10] != strconv.Itoa(off) || args[11] != strconv.Itoa(n) {
 		t.Errorf("argv %q", args[9:])
 	}
+}
+
+// withCode is v with the approval code field.
+func withCode(v approvalView) approvalView {
+	v.Code = true
+	return v
 }

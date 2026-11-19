@@ -196,7 +196,8 @@ func shownKeys(cl *call, what string, why []string) []string {
 
 // askPerson opens the window: with a field for the code when the approval
 // code is on, and never a window a click alone allows where another
-// program can click it (a Linux or BSD desktop, clickForgeable): that
+// program can click it (a Linux or BSD desktop, a Mac terminal with
+// Accessibility permission: clickForgeable): that
 // needs the code (why "needs-code").
 func (cl *call) askPerson(text string) (allowed, shown bool) {
 	if secret := approvalCodeSecret(); secret != nil {
@@ -221,8 +222,18 @@ func (cl *call) askPerson(text string) (allowed, shown bool) {
 		cl.sess.SetWhy("needs-code")
 		return false, true
 	}
+	screen := cl.getenv("KOMANDO_NO_DIALOG") == "" && cl.getenv("SSH_CONNECTION") == "" && cl.getenv("SSH_TTY") == ""
+	if desktopOS == "darwin" && screen {
+		noCodeNote.Do(func() {
+			fmt.Fprintln(cl.out.Err, "komando: an app with Accessibility permission could click Allow once.")
+			fmt.Fprintln(cl.out.Err, "komando: `komando config approval-code` makes the window ask for a code.")
+		})
+	}
 	return askOnScreen(cl, text)
 }
+
+// noCodeNote prints once per run that the macOS window has no code yet.
+var noCodeNote sync.Once
 
 // desktopOS is runtime.GOOS; tests set another.
 var desktopOS = runtime.GOOS
@@ -234,7 +245,9 @@ var desktopOS = runtime.GOOS
 // start a compositor of its own, point WAYLAND_DISPLAY at it and press
 // "Allow once" there through that compositor's virtual pointer. So
 // neither gets a window a click alone allows: the person needs the
-// approval code, which no program can read off the screen.
+// approval code, which no program can read off the screen. On macOS the
+// same holds when the app that started komando has Accessibility
+// permission: an agent there can press the button through System Events.
 func clickForgeable(cl *call) bool {
 	if cl.getenv("KOMANDO_NO_DIALOG") != "" || cl.getenv("SSH_CONNECTION") != "" || cl.getenv("SSH_TTY") != "" {
 		return false // no window at all (askOnScreen)
@@ -242,6 +255,8 @@ func clickForgeable(cl *call) bool {
 	switch desktopOS {
 	case "linux", "freebsd", "openbsd", "netbsd", "dragonfly":
 		return cl.getenv("DISPLAY") != "" || cl.getenv("WAYLAND_DISPLAY") != ""
+	case "darwin":
+		return accessibilityTrusted()
 	}
 	return false
 }
@@ -363,7 +378,7 @@ func approvalHint(cl *call, e *out.Error) {
 	case "code-used":
 		e.Hint = "the code typed in komando's window was already used for another approval; a code works once. Ask the user whether to try again with the next code their app shows"
 	case "needs-code":
-		e.Hint = "komando did not open its window: on a Linux or BSD desktop another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
+		e.Hint = "komando did not open its window: on a Linux or BSD desktop, or a Mac whose terminal has Accessibility permission, another program could click Allow once, so it asks for the approval code here. Ask the user to turn it on in their own terminal (`komando config approval-code`), or to run this exact command there: " + commandLine(cl)
 	case "no-screen":
 		e.Hint = "komando could not show the user an approval window (no screen). Ask the user to run this exact command in their own terminal: " + commandLine(cl)
 	case "unshowable":
@@ -402,7 +417,7 @@ var askOnScreen = func(cl *call, text string) (allowed, shown bool) {
 	}
 	switch runtime.GOOS {
 	case "darwin":
-		allowed, gaveUp, shown := askMac(viewFor(cl, text))
+		_, allowed, gaveUp, shown := askMac(viewFor(cl, text))
 		noteGaveUp(text, gaveUp)
 		return allowed, shown
 	case "windows":
