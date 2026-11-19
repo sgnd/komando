@@ -560,9 +560,12 @@ func guardTypedLoginMove(cl *call, old, now *store.Vpn, servers string) error {
 // guardVpnSends is guardSends for a VPN an add or edit leaves as now; old
 // is the VPN before (nil: a new one). servers is as for vpnPlace: an
 // OpenVPN VPN added again with a new profile may have new servers.
-func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string) error {
+// replaced: an add --overwrite or an import makes the VPN anew, so it
+// counts as changed even with the same fields (its profile or key secret
+// may be new).
+func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string, replaced bool) error {
 	if old != nil && cl.isAgent() {
-		if what := vpnPlaceChanges(s, now.Name, vpnWayChanged(old, now)); len(what) > 0 {
+		if what := vpnPlaceChanges(s, now.Name, replaced || vpnWayChanged(old, now)); len(what) > 0 {
 			return loginPlaceStop(cl, what)
 		}
 	}
@@ -578,12 +581,51 @@ func guardVpnSends(cl *call, s *store.State, old, now *store.Vpn, servers string
 	if err != nil {
 		return err
 	}
+	lines := []string{line}
+	if old != nil && vpnWayChanged(old, now) {
+		behind, err := vpnBehindSends(s, now.Name)
+		if err != nil {
+			return err
+		}
+		lines = append(lines, behind...)
+	}
 	// another CA lets another server pass as this one and get its login
 	var weak []string
 	if old != nil && old.CA != "" && now.CA != old.CA {
 		weak = append(weak, "vpn "+now.Name+" no longer checks its server against the CA certificate it had")
 	}
-	return guardSends(cl, []string{line}, weak)
+	return guardSends(cl, lines, weak)
+}
+
+// vpnBehindSends lists the stored passwords and secrets that travel
+// through VPN name (C111): every server and conn whose --via way
+// (waySteps: jump servers' own --via too) goes through it sends them by
+// the VPN's new way, as behindSends has it for a moved jump server. A
+// server with only a key sends no secret, so it is not named; a login-ask
+// one is stopped before (vpnPlaceChanges).
+func vpnBehindSends(st *store.State, name string) ([]string, error) {
+	var lines []string
+	add := func(label, via string, p secretPlace) error {
+		if len(p.refs) == 0 || !slices.Contains(waySteps(st, via, map[string]bool{}), name) {
+			return nil
+		}
+		if err := reservedRefs(p.refs); err != nil {
+			return err
+		}
+		lines = append(lines, fmt.Sprintf("%s to %s (%s), by way of vpn %s, which moves", strings.Join(p.refs, ", "), p.dest, label, name))
+		return nil
+	}
+	for _, n := range sortedKeys(st.Hosts) {
+		if err := add("server "+n, st.Hosts[n].Via, hostPlace(st.Hosts[n])); err != nil {
+			return nil, err
+		}
+	}
+	for _, n := range sortedKeys(st.Conns) {
+		if err := add("conn "+n, st.Conns[n].Via, connPlace(st.Conns[n])); err != nil {
+			return nil, err
+		}
+	}
+	return lines, nil
 }
 
 // guardTrustSecret stops an AI agent from giving the vault secret name
@@ -627,7 +669,11 @@ func guardTrustSecret(cl *call, st *store.State, name, old string, had bool, now
 		if err != nil {
 			return err
 		}
-		sends = append(sends, line)
+		behind, err := vpnBehindSends(st, v.Name)
+		if err != nil {
+			return err
+		}
+		sends = append(append(sends, line), behind...)
 		weak = append(weak, "vpn "+v.Name+" gets another OpenVPN profile: other servers, checked against another CA certificate, may stand in for it")
 	}
 	for _, n := range sortedKeys(st.Hosts) {

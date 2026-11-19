@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"math"
 	"net/url"
 	"regexp"
@@ -76,29 +75,36 @@ func snake(s string) string {
 }
 
 func svcStatusCmd() *cobra.Command {
-	return &cobra.Command{
+	var user bool
+	c := &cobra.Command{
 		Use:     "status TARGET UNIT...",
 		Short:   "Unit status: state, main pid, restarts, memory",
-		Example: "  komando svc status @web nginx php8.2-fpm",
+		Example: "  komando svc status @web nginx php8.2-fpm\n  komando svc status web1 --user-units syncthing",
 		Args:    cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			return svcStatus(cl, cmd.Context(), args[0], args[1:])
+			return svcStatus(cl, cmd.Context(), args[0], args[1:], user)
 		}),
 	}
+	userFlag(c, &user)
+	return c
 }
 
 func svcActionCmd(action string) *cobra.Command {
-	var noSudo, now bool
+	var noSudo, now, user bool
 	var wait time.Duration
 	c := &cobra.Command{
 		Use:   action + " TARGET UNIT...",
 		Short: strings.ToUpper(action[:1]) + action[1:] + " units (sudo) and report the resulting state",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
-			return svcAction(cl, cmd.Context(), action, args[0], args[1:], !noSudo, now, int(math.Ceil(wait.Seconds())))
+			if user && noSudo {
+				return out.Usage("--user-units runs without sudo already: drop --no-sudo")
+			}
+			return svcAction(cl, cmd.Context(), action, args[0], args[1:], !noSudo, now, user, int(math.Ceil(wait.Seconds())))
 		}),
 	}
 	c.Flags().BoolVar(&noSudo, "no-sudo", false, "do not use sudo (when you log in as root)")
+	userFlag(c, &user)
 	switch action {
 	case "start", "restart", "reload":
 		c.Example = "  komando svc " + action + " @web nginx --wait 10s   # fails unless nginx is active within 10 seconds"
@@ -489,25 +495,11 @@ func netCmd() *cobra.Command {
 			if expect != "" && !expectRe.MatchString(expect) {
 				return out.Usage("--expect takes a status like 200 or a class like 2xx (got %q)", expect)
 			}
-			command := `curl -sS -o /dev/null -m ` + strconv.Itoa(curlSeconds(cl)) + ` --proto =http,https -w '{"code":%{http_code},"time_total":%{time_total},"time_connect":%{time_connect},"time_starttransfer":%{time_starttransfer},"remote_ip":"%{remote_ip}","size":%{size_download},"redirect":"%{redirect_url}"}' --url ` + sshx.Q(args[1])
-			return runOps(cl, cmd.Context(), opsSpec{name: "net.http", target: args[0], command: command, display: "net http " + args[1], parse: func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
-				s := strings.Replace(rr.Stdout, `"code":000`, `"code":0`, 1) // curl writes 000 when nothing answered
-				var v map[string]any
-				if err := json.Unmarshal([]byte(s), &v); err != nil {
-					if rr.ExitCode == 127 {
-						return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "install curl on the server", "curl is not installed")
-					}
-					return s, nil
-				}
-				code, _ := v["code"].(float64)
-				switch {
-				case code == 0:
-					return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" ADDRESS:443`", "no HTTP answer from %s", args[1])
-				case expect != "" && !statusMatches(int(code), expect):
-					return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
-				}
-				return v, nil
-			}, text: func(data any) string {
+			// The numbers go on the first line; the redirect address, which
+			// the HTTP server writes, goes alone on the second and is read
+			// as text, so nothing in it can pass as one of komando's fields.
+			command := `curl -sS -o /dev/null -m ` + strconv.Itoa(curlSeconds(cl)) + ` --proto =http,https -w '%{http_code} %{time_total} %{time_connect} %{time_starttransfer} %{size_download} %{remote_ip}\n%{redirect_url}' --url ` + sshx.Q(args[1])
+			return runOps(cl, cmd.Context(), opsSpec{name: "net.http", target: args[0], command: command, display: "net http " + args[1], parse: netHTTPParse(args, expect), text: func(data any) string {
 				v, _ := data.(map[string]any)
 				if v == nil {
 					return ""
@@ -760,4 +752,49 @@ func parseCronLine(t string) map[string]any {
 		r["command"] = rest
 	}
 	return r
+}
+
+// parseCurlWriteOut reads what net http asks curl to write: one line of
+// numbers and the address that answered, then the redirect address. Only
+// the first line's fields become numbers; the second line is text
+// whatever it holds.
+func parseCurlWriteOut(s string) (map[string]any, bool) {
+	line, redirect, _ := strings.Cut(s, "\n")
+	f := strings.Fields(line)
+	if len(f) < 5 || len(f) > 6 {
+		return nil, false
+	}
+	v := map[string]any{"remote_ip": "", "redirect": strings.TrimSpace(redirect)}
+	for i, k := range []string{"code", "time_total", "time_connect", "time_starttransfer", "size"} {
+		n, err := strconv.ParseFloat(f[i], 64) // curl writes 000 when nothing answered
+		if err != nil {
+			return nil, false
+		}
+		v[k] = n
+	}
+	if len(f) == 6 {
+		v["remote_ip"] = f[5]
+	}
+	return v, true
+}
+
+// netHTTPParse reads what curl wrote for net http and checks --expect.
+func netHTTPParse(args []string, expect string) func(*store.Host, *sshx.RunResult) (any, *out.Error) {
+	return func(_ *store.Host, rr *sshx.RunResult) (any, *out.Error) {
+		v, ok := parseCurlWriteOut(rr.Stdout)
+		if !ok {
+			if rr.ExitCode == 127 {
+				return nil, out.Errf(out.ExitNotFound, "TOOL_MISSING", "install curl on the server", "curl is not installed")
+			}
+			return rr.Stdout, nil
+		}
+		code, _ := v["code"].(float64)
+		switch {
+		case code == 0:
+			return v, out.Errf(out.ExitConnect, "NO_RESPONSE", "check the URL, and that the server can reach it: `komando net check "+args[0]+" ADDRESS:443`", "no HTTP answer from %s", args[1])
+		case expect != "" && !statusMatches(int(code), expect):
+			return v, out.Errf(out.ExitRemote, "UNEXPECTED_STATUS", "check the URL and the service behind it", "HTTP %d, expected %s", int(code), expect)
+		}
+		return v, nil
+	}
 }

@@ -48,8 +48,33 @@ func SafeText(s string) string {
 // carry the command line: no colours or styles either (ESC[8m hides text)
 // and no carriage return (it lets the rest overwrite the line). They show
 // as \e and \r.
+//
+// They also show the invisible format characters SafeText leaves alone
+// (zero-width spaces, word joiners, the byte order mark, the Arabic letter
+// mark, tag characters): in a message those only hide text from the person
+// reading it, while a program still reads it. The zero-width joiner stays,
+// emoji need it.
 func noteText(s string) string {
-	return strings.NewReplacer("\x1b", `\e`, "\r", `\r`).Replace(SafeText(s))
+	s = strings.NewReplacer("\x1b", `\e`, "\r", `\r`).Replace(SafeText(s))
+	if !strings.ContainsFunc(s, invisibleFormat) {
+		return s
+	}
+	var b strings.Builder
+	for _, r := range s {
+		if invisibleFormat(r) {
+			fmt.Fprintf(&b, `\u%04x`, r)
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// invisibleFormat: format characters with no width that a message has no
+// use for.
+func invisibleFormat(r rune) bool {
+	return r == 0x061c || r == 0x200b || r == 0x200c || r == 0x200e || r == 0x200f ||
+		r >= 0x2060 && r <= 0x2064 || r == 0xfeff || r >= 0xe0000 && r <= 0xe007f
 }
 
 func needsSafe(s string) bool {
@@ -105,3 +130,8 @@ func NoCR(s string) string {
 	}
 	return b.String()
 }
+
+// NoteText makes a line komando writes about something (an error, a hint,
+// a doctor detail) safe to show wherever it is read: SafeText, and no
+// colour sequences or carriage returns either.
+func NoteText(s string) string { return noteText(s) }

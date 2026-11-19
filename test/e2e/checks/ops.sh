@@ -84,8 +84,8 @@ check "pkg upgradable lists rows" True "$($K pkg upgradable direct | jget "isins
 check "pkg upgrade --dry-run lists what would change" True "$($K pkg upgrade direct --dry-run | jget "d['meta'].get('dry_run') and isinstance(${r0}['data']['would_upgrade'], list)")"
 check "pkg security lists rows and the state" True "$($K pkg security direct | jget "isinstance(d['data']['results'][0]['security_updates'], list) and 'pending_updates' in d['data']['results'][0]['state']")"
 check "pkg upgrade --security --dry-run changes nothing" True "$($K pkg upgrade direct --security --dry-run | jget "d['meta'].get('dry_run') and not d['data']['applied']")"
+check "pkg security on Alpine says apk has no security notices" "False True" "$($K pkg security swarm1 | jget "d['data']['results'][0]['security_notices'], 'unclassified_updates' in json.dumps(d['data']['results'][0]['warnings'])" | tr -d "(),")"
 set +e
-$K pkg security swarm1 >/dev/null; check "pkg security on Alpine is unsupported" 3 $?
 $K pkg upgrade direct --keep-going >/dev/null; check "pkg upgrade --keep-going needs --security" 2 $?
 set -e
 check "pkg output shows the short command" "pkg install tree" "$($K pkg install direct tree --dry-run | jget 'd["data"]["would_run"][0]["remote_command"]')"

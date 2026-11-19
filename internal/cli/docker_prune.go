@@ -29,7 +29,7 @@ func (o pruneOpts) args() []string {
 	if o.all {
 		a = append(a, "-a")
 	}
-	if o.volumes {
+	if o.volumes && o.olderThan <= 0 { // with an age komando removes the volumes itself (agedVolumes)
 		a = append(a, "--volumes")
 	}
 	if o.olderThan > 0 {
@@ -37,6 +37,10 @@ func (o pruneOpts) args() []string {
 	}
 	return a
 }
+
+// agedVolumes is --volumes with --older-than: docker's prune cannot filter
+// volumes by age, so komando picks them (volumeScript) and removes them.
+func (o pruneOpts) agedVolumes() bool { return o.volumes && o.olderThan > 0 }
 
 // goDuration writes a duration the way docker's until= filter reads it
 // (720h, not 720h0m0s).
@@ -59,14 +63,18 @@ func dockerPruneCmd(sudo *bool) *cobra.Command {
 dangling images (--all: every image no container uses), unused networks
 and build cache; with --volumes also unused anonymous volumes and the data
 in them.
---older-than 30d keeps everything made in the last 30 days.
+--older-than 30d keeps everything made in the last 30 days. Docker has no
+age filter for volumes, so with --volumes komando reads each unused
+anonymous volume's creation time and removes only the older ones
+(docker volume rm NAME), after the prune.
 
 --dry-run changes nothing: it lists what would go, with sizes and a total,
 read from docker on the server. The real run deletes and needs
 --allow-dangerous; a protected server needs --yes too.`,
 		Example: `  komando docker prune web1 --dry-run
   komando docker prune web1 --older-than 30d --all --dry-run
-  komando docker prune web1 --older-than 30d --allow-dangerous`,
+  komando docker prune web1 --older-than 30d --allow-dangerous
+  komando docker prune web1 --volumes --older-than 30d --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			if o.ageText != "" {
@@ -76,16 +84,19 @@ read from docker on the server. The real run deletes and needs
 				}
 				o.olderThan = d
 			}
-			if o.volumes && o.olderThan > 0 {
-				return out.Usage("docker cannot combine --volumes with --older-than (volumes have no age filter); run them as two prunes")
-			}
 			pa := o.args()
 			if _, err := guardDocker(cl, args[0], pa); err != nil {
 				return err
 			}
 			line := "docker " + strings.Join(pa, " ") // fixed words and a number: nothing to quote
+			if o.agedVolumes() {
+				line += "; docker volume rm (each unused anonymous volume older than " + o.ageText + ")"
+			}
 			if cl.flags.dryRun {
 				return previewPrune(cl, cmd.Context(), args[0], line, o, *sudo)
+			}
+			if o.agedVolumes() {
+				return runPruneAged(cl, cmd.Context(), args[0], line, o, *sudo)
 			}
 			return runDocker(cl, cmd.Context(), "docker.prune", args[0], line, *sudo, true)
 		}),
@@ -111,7 +122,7 @@ type prunePreview struct {
 	WouldRun    string      `json:"would_run"`
 	Containers  []pruneItem `json:"containers"`
 	Images      []pruneItem `json:"images"`
-	Volumes     []pruneItem `json:"volumes,omitempty"`
+	Volumes     []pruneItem `json:"volumes,omitzero"`      // with --volumes always there, empty when none would go
 	BuildCache  string      `json:"build_cache,omitempty"` // docker builder du's reclaimable
 	CacheBytes  int64       `json:"build_cache_bytes"`
 	TotalBytes  int64       `json:"total_bytes"`
@@ -189,12 +200,17 @@ echo "== cache"; docker builder du` + until + ` 2>&1 | grep -iE '^(reclaimable|t
 echo "== df"; docker system df --format '{{json .}}' 2>&1
 `
 	if o.volumes {
-		s += `echo "== volumes"; docker volume ls --filter dangling=true --format '{{json .}}' 2>&1
-echo "== volume-sizes"; docker system df -v 2>&1 | sed -n '/^VOLUME NAME/,/^$/p'
-`
+		s += volumeScript
 	}
 	return s + "true\n"
 }
+
+// volumeScript lists the unused volumes, their sizes and when each was
+// made. It only reads. ("== api" comes first in the script it is part of.)
+const volumeScript = `echo "== volumes"; docker volume ls --filter dangling=true --format '{{json .}}' 2>&1
+echo "== volume-sizes"; docker system df -v 2>&1 | sed -n '/^VOLUME NAME/,/^$/p'
+echo "== volume-created"; docker volume ls -q --filter dangling=true | xargs -r docker volume inspect --format '{{.Name}} {{.CreatedAt}}' 2>&1
+`
 
 func previewPrune(cl *call, ctx context.Context, target, line string, o pruneOpts, sudo bool) error {
 	st, err := loadState()
@@ -344,19 +360,25 @@ func parsePrunePreview(s string, o pruneOpts, now time.Time) prunePreview {
 				sizes[f[0]] = f[len(f)-1]
 			}
 		}
+		made := map[string]time.Time{}
+		for _, l := range lines(m["volume-created"]) {
+			if name, at, ok := strings.Cut(l, " "); ok {
+				made[name] = dockerTime(strings.TrimSpace(at))
+			}
+		}
 		api, _ := strconv.ParseFloat(strings.TrimSpace(m["api"]), 64)
 		anonOnly := api >= 1.42 // docker 23 and later keep named volumes
 		for _, r := range jsonRows(m["volumes"]) {
 			name := str(r["Name"])
 			anon := strings.Contains(str(r["Labels"]), "com.docker.volume.anonymous")
-			if anonOnly && !anon {
+			if anonOnly && !anon || !old(made[name]) { // an unknown age is kept
 				continue
 			}
 			detail := "named"
 			if anon {
 				detail = "anonymous"
 			}
-			p.Volumes = append(p.Volumes, pruneItem{Name: name, Detail: detail, Size: sizes[name], Bytes: dockerSize(sizes[name])})
+			p.Volumes = append(p.Volumes, pruneItem{Name: name, Detail: detail, Created: made[name], Size: sizes[name], Bytes: dockerSize(sizes[name])})
 		}
 		if !anonOnly {
 			p.Notes = append(p.Notes, "this docker is older than 23.0: --volumes removes named volumes too")
@@ -410,4 +432,96 @@ func shortID(id string) string {
 		return id[:12]
 	}
 	return id
+}
+
+// prunedHost is one server's answer to a prune with --volumes --older-than.
+type prunedHost struct {
+	Host           string     `json:"host"`
+	OK             bool       `json:"ok"`
+	Stdout         string     `json:"stdout"`
+	VolumesRemoved []string   `json:"volumes_removed"`
+	Error          *out.Error `json:"error,omitempty"`
+}
+
+// runPruneAged is docker prune --volumes --older-than: docker system prune
+// with the age filter, then on each server the unused anonymous volumes
+// older than the cut-off, read as the dry run reads them, removed by name.
+// docker volume rm refuses a volume a container took meanwhile.
+func runPruneAged(cl *call, ctx context.Context, target, line string, o pruneOpts, sudo bool) error {
+	st, err := loadState()
+	if err != nil {
+		return err
+	}
+	hosts, err := resolveTargets(cl, st, target)
+	if err != nil {
+		return err
+	}
+	if err := guard(cl, st, hosts, line, true); err != nil {
+		audit(cl, st, "docker.prune", hostNames(hosts), line, false, map[string]any{"blocked": toErr(err).Code})
+		return err
+	}
+	run := func(ctx context.Context, c *sshx.Client, command string) (*sshx.RunResult, error) {
+		rr, err := sshx.Run(ctx, c, sshx.RunRequest{Command: command, Sudo: sudo, Timeout: cmdTimeout(cl, st), MaxOutput: max(maxOutput(cl, st), 8<<20)})
+		switch {
+		case err != nil:
+			return nil, err
+		case rr.TimedOut:
+			return nil, out.Errf(out.ExitTimeout, "TIMEOUT", "raise --timeout", "docker did not finish in time")
+		}
+		if e := dockerExit(c.Host.Name, sudo, rr); e != nil {
+			return rr, e // docker volume rm names what it did remove
+		}
+		return rr, nil
+	}
+	data := struct {
+		Results []prunedHost `json:"results"`
+	}{Results: []prunedHost{}}
+	for _, oc := range fanout(cl, ctx, st, hosts, func(ctx context.Context, c *sshx.Client) (any, error) {
+		r := prunedHost{Host: c.Host.Name, VolumesRemoved: []string{}}
+		rr, err := run(ctx, c, "docker "+strings.Join(o.args(), " "))
+		if err != nil {
+			return r, err
+		}
+		r.Stdout = rr.Stdout
+		lr, err := run(ctx, c, "echo \"== api\"; docker version --format '{{.Server.APIVersion}}'\n"+volumeScript+"true\n")
+		if err != nil {
+			return r, err
+		}
+		var names []string
+		for _, v := range parsePrunePreview(lr.Stdout, o, time.Now()).Volumes {
+			names = append(names, shellQuote(v.Name))
+		}
+		if len(names) == 0 {
+			return r, nil
+		}
+		rm, err := run(ctx, c, "docker volume rm "+strings.Join(names, " "))
+		if rm != nil {
+			r.VolumesRemoved = append(r.VolumesRemoved, lines(rm.Stdout)...)
+		}
+		return r, err
+	}) {
+		r, _ := oc.Value.(prunedHost)
+		r.Host = oc.Host.Name
+		if r.VolumesRemoved == nil {
+			r.VolumesRemoved = []string{}
+		}
+		r.OK = oc.Err == nil
+		if oc.Err != nil {
+			r.Error = toErr(oc.Err)
+		}
+		data.Results = append(data.Results, r)
+	}
+	worst := 0
+	var fails []hostFail
+	var removed []string
+	for _, r := range data.Results {
+		removed = append(removed, r.VolumesRemoved...)
+		if r.Error != nil {
+			worst = worse(worst, r.Error.Exit)
+			fails = append(fails, hostFail{host: r.Host, reason: failReason(0, r.Error), err: r.Error})
+		}
+	}
+	audit(cl, st, "docker.prune", hostNames(hosts), line, len(fails) == 0, map[string]any{"volumes_removed": removed})
+	sum := runSummary{fleetSummary: fleetSummary{Total: len(data.Results), OK: len(data.Results) - len(fails), Failed: len(fails)}}
+	return finishFleet(cl, "docker.prune", data, sum, worst, fails)
 }

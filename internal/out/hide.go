@@ -142,6 +142,15 @@ func (p *Printer) hideList() []hidden {
 	return p.hide
 }
 
+// Longest is the length of the longest value this printer hides.
+func (p *Printer) Longest() int {
+	n := 0
+	for _, h := range p.hideList() {
+		n = max(n, len(h.raw), len(jsonEscaped(h.raw)))
+	}
+	return n
+}
+
 // ForgetAdded drops what AddValue added: a value one command read is not
 // hidden in the next one's output (tests run many in one process). The
 // CLI calls it before the command counts as running, never while it runs:
@@ -187,4 +196,11 @@ func (p *Printer) HoldsVaultValue(s string) bool {
 		}
 	}
 	return false
+}
+
+// jsonEscaped is raw as it appears inside a JSON string, which can be
+// longer than raw (quotes, control characters, < > &).
+func jsonEscaped(raw string) string {
+	b, _ := json.Marshal(raw)
+	return string(b[1 : len(b)-1])
 }

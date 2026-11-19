@@ -627,10 +627,8 @@ func runSQL(cl *call, ctx context.Context, name, connExpr, query string, f dbFla
 	}
 	defer closeDB()
 	if f.mariaAnalyze && dbx.IsMariaDB(ctx, db) {
-		for i, st := range plan.Statements {
-			if rest, ok := strings.CutPrefix(st.SQL, "EXPLAIN ANALYZE "); ok {
-				plan.Statements[i].SQL = "ANALYZE " + rest
-			}
+		if err := mariaPlan(&plan); err != nil {
+			return fail(err)
 		}
 	}
 	args := make([]any, len(f.args))

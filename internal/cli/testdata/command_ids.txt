@@ -221,6 +221,7 @@ secret.list
 secret.passphrase
 secret.rename
 secret.rm
+secret.run
 secret.set
 secret.show
 shell

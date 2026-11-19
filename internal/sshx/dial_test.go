@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -490,16 +491,22 @@ func TestAgentOutlivesASlowTransport(t *testing.T) {
 	c.Close()
 }
 
-// A server with no user gets the name of the person at this computer:
-// USER, else USERNAME, the only one Windows sets.
+// A server with no user gets the account this process runs as, from the
+// user database as OpenSSH takes it, never the USER or USERNAME an agent
+// can set: else `USER=other komando exec web1` would have a person type
+// the password of another account on a login-ask server.
 func TestLocalUser(t *testing.T) {
-	t.Setenv("USER", "")
-	t.Setenv("USERNAME", "budi")
-	if u := LocalUser(); u != "budi" {
-		t.Errorf("only USERNAME: %q", u)
+	u, err := user.Current()
+	if err != nil {
+		t.Skip(err)
 	}
-	t.Setenv("USER", "ana")
-	if u := LocalUser(); u != "ana" {
-		t.Errorf("USER first: %q", u)
+	want := u.Username
+	if i := strings.LastIndexByte(want, '\\'); i >= 0 {
+		want = want[i+1:]
+	}
+	t.Setenv("USER", "other")
+	t.Setenv("USERNAME", "other")
+	if got := LocalUser(); got != want {
+		t.Errorf("LocalUser = %q, want %q", got, want)
 	}
 }

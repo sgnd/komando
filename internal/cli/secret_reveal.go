@@ -51,6 +51,12 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 	switch {
 	case allowed:
 		return "window", nil
+	case shown && cl.sess.Window().Why == "owner-failed":
+		return refuse(out.Errf(out.ExitPolicy, "DECLINED", "run it again to be asked again",
+			"not run: Allow once was clicked, but Touch ID, the Apple Watch or the Mac password did not confirm it; nothing was changed").NoFlag())
+	case shown && cl.sess.Window().Why == "owner-timeout":
+		return refuse(out.Errf(out.ExitPolicy, "DECLINED", "run it again to be asked again",
+			"not run: nobody confirmed with Touch ID, the Apple Watch or the Mac password within 50 seconds; nothing was changed").NoFlag())
 	case shown && cl.sess.Window().Why == "no-answer":
 		return refuse(out.Errf(out.ExitPolicy, "DECLINED", "nobody answered komando's window within 2 minutes; run it again to be asked again",
 			"not run: the person said no; nothing was changed").NoFlag())
@@ -58,7 +64,12 @@ func revealGate(cl *call, cmdName, field, name, what string) (string, error) {
 		return refuse(out.Errf(out.ExitPolicy, "DECLINED", "run it again to be asked again",
 			"not run: the person said no; nothing was changed").NoFlag())
 	}
-	return refuse(needsHuman(cmdName, name, true))
+	e := needsHuman(cmdName, name, true)
+	if cl.sess.Window().Why == "ax-trusted" {
+		e.Hint = "komando opened no window: the terminal that started it has Accessibility permission on this Mac and the Touch ID, Apple Watch or password check cannot run, so another program could click Allow once; run `komando " +
+			strings.ReplaceAll(cmdName, ".", " ") + " " + name + " --reveal` in a terminal"
+	}
+	return refuse(e)
 }
 
 // needsHuman is REVEAL_NEEDS_TERMINAL for cmdName (secret.show, key.show) and
@@ -80,8 +91,15 @@ func needsHuman(cmdName, name string, noScreen bool) *out.Error {
 // askReveal asks the person in komando's window whether to show what. A
 // Linux or BSD desktop gets no click-only window (clickForgeable): there
 // another program could press "Allow once", so it needs the approval code.
+// A Mac terminal with Accessibility permission gets no window at all when
+// the device-owner check cannot run.
 func askReveal(cl *call, what string) (allowed, shown bool) {
-	if cl.ask == nil && clickForgeable(cl) && approvalCodeSecret() == nil {
+	if cl.ask == nil && clickForgeable(cl) && (desktopOS == "darwin" || approvalCodeSecret() == nil) {
+		if desktopOS == "darwin" {
+			cl.sess.Lock()
+			cl.sess.SetWhy("ax-trusted")
+			cl.sess.Unlock()
+		}
 		return false, false
 	}
 	line := commandLine(cl)
@@ -98,6 +116,15 @@ func askReveal(cl *call, what string) (allowed, shown bool) {
 	defer sess.Unlock()
 	sess.SetAsked(false)
 	sess.SetGaveUp(false)
+	owner := what
+	if unshowable(owner) != "" || len(owner) > 120 {
+		owner = strconv.QuoteToASCII(owner)
+		if len(owner) > 120 {
+			owner = "a secret"
+		}
+	}
+	cl.view = &approvalView{raw: text, Owner: "komando: show " + owner}
+	defer func() { cl.view = nil }()
 	allowed, shown = cl.askPerson(text)
 	gaveUp := tookGaveUp(text)
 	switch {

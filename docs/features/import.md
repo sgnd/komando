@@ -37,6 +37,7 @@ usual place for that source.
 | `filezilla` | FileZilla's `sitemanager.xml` | servers (SFTP sites; FTP sites are listed, not added) |
 | `rclone` | `rclone.conf` | servers (SFTP remotes) |
 | `mobaxterm` | MobaXterm's exported sessions (`.mxtsessions`; no default: give the file) | servers (SSH sessions; a session's folder becomes a group; other session types are listed) |
+| `securecrt` | SecureCRT's exported settings (an `.xml` file) or its `Sessions` folder (no default: give the file or folder) | servers (SSH2 sessions; a session's folder becomes a group; other session types, a firewall and a `.ppk` key are listed) |
 | `putty` | PuTTY's sessions exported from the Windows registry (no default: give the file, see below) | servers (SSH sessions; a `.ppk` key, a proxy and telnet or serial sessions are listed with what to do) |
 | `aws` | `~/.aws/config` (and `credentials`) | an S3 storage conn per bucket of each profile; it uses the profile, so no key is copied ([Cloud logins](cloud.md#add-a-conn-for-every-s3-bucket)) |
 | `aws-ec2` | `~/.aws/config` (and `credentials`) | a server per running EC2 instance of each profile, in the profile's region, read with the profile's login (nothing is changed in AWS): named by its `Name` tag, in a group named after the region, labelled `aws-instance`. Instances with no public address, Windows ones and their key pairs are listed with what to do |
@@ -126,11 +127,32 @@ SSH sessions come in with their host, port and user, and the folder a
 session sits in becomes a group. MobaXterm keeps passwords apart, so set
 them with `komando secret set` or use a key.
 
+### Coming from SecureCRT
+
+In SecureCRT, pick **File > Export Settings** (older versions: **Tools >
+Export Settings**) and import that `.xml` file. Or give the `Sessions`
+folder inside SecureCRT's configuration folder (Options > Global Options >
+Configuration Paths shows where it is):
+
+```bash
+komando import securecrt securecrt.xml --dry-run
+komando import securecrt securecrt.xml
+komando import securecrt ~/Library/Application\ Support/VanDyke/SecureCRT/Config/Sessions --dry-run
+```
+
+SSH2 sessions come in with their host, port, user and key file, and the
+folder a session sits in becomes a group. Telnet, serial and RDP sessions
+are listed. A key in PuTTY's format (`.ppk`) and a firewall or jump host
+are listed with what to do. komando never reads the passwords and key
+passphrases SecureCRT stores: set them with `komando secret set` or use a
+key.
+
 ### Coming from Termius or TablePlus
 
-Termius and TablePlus have no open export format. From Termius, export your
-hosts as an SSH config and run `komando import ssh-config FILE`. For
-databases, put their URLs in a `.env` file and run `komando import env FILE`.
+komando has no importer for Termius or TablePlus files. From Termius, copy
+each host's address, user, port and key path into `~/.ssh/config`, one
+`Host` block each, then run `komando import ssh-config`. For databases, put
+their URLs in a `.env` file and run `komando import env FILE`.
 
 ## Move to another computer
 
@@ -343,7 +365,7 @@ server it no longer knows).
 - A backup put back on the same computer stops with `STORE_OLD_COPY` until
   a person runs `komando doctor --accept-old-copy`, when the key is in the
   keychain.
-- Termius and TablePlus have no open export format (see
+- There is no importer for Termius or TablePlus files (see
   [above](#coming-from-termius-or-tableplus)).
 
 ## Troubleshooting

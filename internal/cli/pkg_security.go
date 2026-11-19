@@ -31,6 +31,9 @@ const snapshotShell = hostStateShell + `snap() {
   hoststate
   case $PM in
   apt) echo "pending=$(apt list --upgradable 2>/dev/null | grep -c /)" ;;
+  zypper) echo "pending=$(allpkgs | grep -c '^v ')" ;;
+  apk) echo "pending=$(allpkgs | grep -c 'upgradable from')" ;;
+  pacman) echo "pending=$(allpkgs | grep -c ' -> ')" ;;
   *) echo "pending=$($PM -q check-update 2>/dev/null | awk '/^Obsoleting/{exit} NF == 3 && $1 ~ /\./' | wc -l | tr -d ' ')" ;;
   esac
   echo "security=$(secpkgs | wc -l | tr -d ' ')"
@@ -53,19 +56,37 @@ unset NEEDRESTART_SUSPEND NEEDRESTART_MODE
 if command -v apt-get >/dev/null 2>&1; then PM=apt
 elif command -v dnf >/dev/null 2>&1; then PM=dnf
 elif command -v yum >/dev/null 2>&1; then PM=yum
-else PM=none; for m in apk zypper pacman; do command -v $m >/dev/null 2>&1 && { PM=$m; break; }; done
-  echo '#komando:unsupported'; echo $PM; exit 0; fi
+elif command -v zypper >/dev/null 2>&1; then PM=zypper
+elif command -v apk >/dev/null 2>&1; then PM=apk
+elif command -v pacman >/dev/null 2>&1; then PM=pacman
+else echo '#komando:unsupported'; echo none; exit 0; fi
 echo "# package-manager: $PM" >&2
 echo '#komando:pm'; echo $PM
 T=""; T20=""; command -v timeout >/dev/null 2>&1 && { T="timeout 60"; T20="timeout 20"; }
 S=""; HS_ROOT=""; [ "$(id -u)" = 0 ] && HS_ROOT=1
 echo '#komando:os'
-` + osShell + `if [ "$REFRESH" = 1 ]; then case $PM in apt) apt-get update -q >&2 ;; *) $PM -q makecache >&2 ;; esac; fi
+` + osShell + `if [ "$REFRESH" = 1 ]; then case $PM in apt) apt-get update -q >&2 ;; zypper) zypper -n -q refresh >&2 ;; apk) apk update -q >&2 ;; pacman) ;; *) $PM -q makecache >&2 ;; esac; fi
+case $PM in
+apt|zypper) N=yes ;;
+dnf|yum) N=no; [ -n "$({ $PM -q updateinfo list --all 2>/dev/null || $PM -q updateinfo list all 2>/dev/null; } | head -n 1)" ] && N=yes ;;
+pacman) N=no; command -v arch-audit >/dev/null 2>&1 && N=yes ;;
+*) N=no ;;
+esac
+echo '#komando:notices'; echo $N
 if [ $PM = apt ]; then t=$(stat -c %Y /var/lib/apt/lists/*Release 2>/dev/null | sort -n | tail -n 1)
   echo '#komando:index-age'; if [ -n "$t" ]; then echo $(( $(date +%s) - t )); else echo never; fi; fi
 secpkgs() { case $PM in
   apt) apt list --upgradable 2>/dev/null | awk -F'[/ ]' '$2 ~ /-security/' ;;
-  *) $PM -q check-update --security 2>/dev/null | awk '/^Obsoleting/{exit} NF == 3 && $1 ~ /\./' ;;
+  zypper) zypper -n -q list-patches --category security 2>/dev/null | awk -F'|' 'NF >= 6 { n = $2; gsub(/^ +| +$/, "", n); if (n != "" && n != "Name") print n }' ;;
+  pacman) [ $N = yes ] && arch-audit -u -q 2>/dev/null ;;
+  apk) ;;
+  *) [ $N = yes ] && $PM -q check-update --security 2>/dev/null | awk '/^Obsoleting/{exit} NF == 3 && $1 ~ /\./' ;;
+  esac; }
+allpkgs() { case $PM in
+  zypper) zypper -n -q list-updates 2>/dev/null ;;
+  apk) apk -u list 2>/dev/null ;;
+  pacman) pacman -Qu 2>/dev/null ;;
+  *) $PM -q check-update 2>/dev/null | awk '/^Obsoleting/{exit} NF == 3 && $1 ~ /\./' ;;
   esac; }
 inst() { case $PM in
   apt) dpkg-query -W -f='${db:Status-Abbrev}\t${binary:Package}\t${Version}\n' 2>/dev/null | awk -F'\t' '$1 ~ /^ii/ {print $2"\t"$3}' ;;
@@ -74,6 +95,7 @@ inst() { case $PM in
 ` + snapshotShell + `B=$(snap)
 echo '#komando:before'; printf '%s\n' "$B"
 echo '#komando:security'; secpkgs
+if [ $N = no ]; then echo '#komando:unclassified'; allpkgs; fi
 names=
 if [ $PM = apt ]; then
   names=$(secpkgs | cut -d/ -f1 | grep -E '^[a-z0-9][a-z0-9.+-]*$' | tr '\n' ' ')
@@ -82,6 +104,8 @@ if [ $PM = apt ]; then
   echo '#komando:removes'; printf '%s\n' "$gone"
 fi
 [ "$ACTION" = apply ] || exit 0
+case $PM in apk|pacman) echo '#komando:no-notices'; exit 0 ;; esac
+[ $N = no ] && { echo '#komando:no-notices'; exit 0; }
 if [ -z "$(secpkgs | head -n 1)" ]; then echo '#komando:nothing'; exit 0; fi
 if [ "$GUARD" = 1 ] && [ -n "$gone" ]; then
   hit=$(printf '%s\n' "$gone" | grep -E "$ESSENTIAL")
@@ -92,6 +116,7 @@ apt) if command -v unattended-upgrade >/dev/null 2>&1 && ! apt-config dump Unatt
     method=unattended-upgrade; run='unattended-upgrade -v'
   else method=apt-get
     run="apt-get install -y -q --only-upgrade -o DPkg::Lock::Timeout=300 -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold $names"; fi ;;
+zypper) method=zypper; run="zypper -n patch --category security" ;;
 *) method=$PM; run="$PM upgrade --security -y" ;;
 esac
 echo '#komando:method'; echo $method
@@ -102,6 +127,8 @@ S=$(command -v setsid)
 $S nohup sh "$d/run.sh" > "$d/log" 2>&1 < /dev/null &
 wait $!
 rc=$(cat "$d/rc" 2>/dev/null || echo 1)
+# zypper: 102 a reboot is needed, 103 zypper updated itself (the rest shows as pending)
+[ $PM = zypper ] && case $rc in 102|103) rc=0 ;; esac
 tail -n 80 "$d/log" >&2
 echo '#komando:rc'; echo "$rc"
 bc=$(printf '%s\n' "$B" | sed -n 's/^containers=//p')
@@ -219,28 +246,34 @@ func diffSnapshots(b, a hostSnapshot) (changes, unexpected []string) {
 }
 
 type pkgSecRow struct {
-	Host           string        `json:"host"`
-	OK             bool          `json:"ok"`
-	PackageManager string        `json:"package_manager,omitempty"`
-	IndexAge       string        `json:"index_age,omitempty"`
-	OSSupport      *osSupport    `json:"os_support,omitempty"`
-	Security       []pkgUpgrade  `json:"security_updates"`
-	Count          int           `json:"count"`
-	WouldRemove    []string      `json:"would_remove,omitempty"`
-	State          *hostSnapshot `json:"state,omitempty"` // without --apply
-	Method         string        `json:"method,omitempty"`
-	Upgraded       []pkgUpgrade  `json:"upgraded,omitempty"`
-	Removed        []pkgUpgrade  `json:"removed,omitempty"`
-	Before         *hostSnapshot `json:"before,omitempty"`
-	After          *hostSnapshot `json:"after,omitempty"`
-	Changes        []string      `json:"changes,omitempty"`
-	Unexpected     []string      `json:"unexpected,omitempty"`
-	RebootRequired bool          `json:"reboot_required"`
-	Warnings       []string      `json:"warnings,omitempty"`
-	Stderr         string        `json:"stderr,omitempty"`
-	DurationMS     int64         `json:"duration_ms,omitempty"`
-	Error          *out.Error    `json:"error,omitempty"`
-	unsupported    string        // the package manager komando does not pick security updates on
+	Host           string       `json:"host"`
+	OK             bool         `json:"ok"`
+	PackageManager string       `json:"package_manager,omitempty"`
+	IndexAge       string       `json:"index_age,omitempty"`
+	OSSupport      *osSupport   `json:"os_support,omitempty"`
+	Security       []pkgUpgrade `json:"security_updates"`
+	Count          int          `json:"count"`
+	// SecurityNotices is false where the repositories say nothing about
+	// which update fixes what (apk, pacman without arch-audit, dnf/yum
+	// repositories without updateinfo): Unclassified then lists every
+	// pending update
+	SecurityNotices bool          `json:"security_notices"`
+	Unclassified    []pkgUpgrade  `json:"unclassified_updates,omitempty"`
+	WouldRemove     []string      `json:"would_remove,omitempty"`
+	State           *hostSnapshot `json:"state,omitempty"` // without --apply
+	Method          string        `json:"method,omitempty"`
+	Upgraded        []pkgUpgrade  `json:"upgraded,omitempty"`
+	Removed         []pkgUpgrade  `json:"removed,omitempty"`
+	Before          *hostSnapshot `json:"before,omitempty"`
+	After           *hostSnapshot `json:"after,omitempty"`
+	Changes         []string      `json:"changes,omitempty"`
+	Unexpected      []string      `json:"unexpected,omitempty"`
+	RebootRequired  bool          `json:"reboot_required"`
+	Warnings        []string      `json:"warnings,omitempty"`
+	Stderr          string        `json:"stderr,omitempty"`
+	DurationMS      int64         `json:"duration_ms,omitempty"`
+	Error           *out.Error    `json:"error,omitempty"`
+	unsupported     string        // the package manager komando does not pick security updates on
 }
 
 type pkgSecData struct {
@@ -263,8 +296,33 @@ func pkgSecLists(r *pkgSecRow, sec map[string]string, refreshed bool) {
 			r.Warnings = append(r.Warnings, w)
 		}
 	}
-	r.Security = parseUpgrades(r.PackageManager, sec["security"])
+	switch r.PackageManager {
+	case "zypper", "pacman": // patch names (zypper) and package names (arch-audit)
+		for _, n := range strings.Fields(sec["security"]) {
+			r.Security = append(r.Security, pkgUpgrade{Name: n})
+		}
+	default:
+		r.Security = parseUpgrades(r.PackageManager, sec["security"])
+	}
+	if r.Security == nil {
+		r.Security = []pkgUpgrade{}
+	}
 	r.Count = len(r.Security)
+	r.SecurityNotices = strings.TrimSpace(sec["notices"]) != "no"
+	if !r.SecurityNotices {
+		r.Unclassified = parseUpgrades(r.PackageManager, sec["unclassified"])
+		why := "the repositories publish no security notices"
+		switch r.PackageManager {
+		case "apk":
+			why = "apk keeps no security notices"
+		case "pacman":
+			why = "pacman keeps no security notices (install arch-audit for them)"
+		}
+		r.Warnings = append(r.Warnings, fmt.Sprintf("%s, so komando cannot tell security updates from the others: unclassified_updates lists all %d pending updates; install them with `komando pkg upgrade`", why, len(r.Unclassified)))
+	}
+	if refreshed && r.PackageManager == "pacman" {
+		r.Warnings = append(r.Warnings, "--refresh does nothing on pacman: syncing the database without upgrading leads to partial upgrades; `komando pkg upgrade` syncs and upgrades together")
+	}
 	r.WouldRemove = strings.Fields(sec["removes"])
 	switch age := strings.TrimSpace(sec["index-age"]); {
 	case age == "never":
@@ -318,6 +376,14 @@ func pkgSecParse(cl *call, host string, rr *sshx.RunResult, apply, refreshed boo
 	}
 	r.Before = &before
 	r.RebootRequired = before.RebootRequired
+	if _, ok := sec["no-notices"]; ok {
+		hint := "install every pending update with `komando pkg upgrade " + host + "` (try --dry-run first)"
+		msg := "komando cannot pick the security updates on " + host + ": " + r.PackageManager + " repositories publish no security notices"
+		if r.PackageManager == "pacman" {
+			msg = "komando does not install only the security updates on " + host + ": Arch Linux supports no partial upgrades"
+		}
+		return fail(out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", hint, "%s", msg))
+	}
 	if e, ok := sec["essential"]; ok {
 		return fail(approvalErr(cl, "POLICY_BLOCKED",
 			"the security updates would remove "+strings.Join(strings.Fields(e), ", ")+", which can lock you out of the server or break it; nothing was changed"))
@@ -456,7 +522,8 @@ const pkgSecRollout = `--security installs only the security updates, one server
 apt servers komando uses unattended-upgrade when it is installed (it picks
 security origins only and follows the server's own settings), otherwise
 apt-get --only-upgrade of the listed packages, keeping changed config
-files. On dnf/yum it runs "upgrade --security". needrestart is kept from
+files. On dnf/yum it runs "upgrade --security", on zypper "patch
+--category security". needrestart is kept from
 restarting services during the run; the result lists the services that
 need it.
 
@@ -467,8 +534,9 @@ reboot_required says when a server needs one, use ` + "`komando reboot`" + `.
 
 The upgrade runs detached on the server, so a dropped connection does not
 break it. It waits up to 30 minutes per server (--timeout changes it).
-Other package managers (apk, zypper, pacman) are listed in meta.skipped:
-use ` + "`komando pkg upgrade`" + ` without --security there.`
+Where komando cannot pick the security updates (apk, pacman, dnf/yum
+repositories without security notices) the server stops with
+SECURITY_UNSUPPORTED: use ` + "`komando pkg upgrade`" + ` without --security there.`
 
 func pkgSecurityCmd(noSudo *bool) *cobra.Command {
 	var refresh bool
@@ -477,9 +545,12 @@ func pkgSecurityCmd(noSudo *bool) *cobra.Command {
 		Short: "Pending security updates and the state of each server",
 		Long: `This only looks: the pending security updates of each server (apt:
 packages from the -security pocket; dnf/yum: updates with a security
-notice), and the server's state: running containers, failed units,
-pending updates, whether a reboot is required, and services that run old
-code.
+notice; zypper: security patches; pacman: what arch-audit names), and the
+server's state: running containers, failed units, pending updates,
+whether a reboot is required, and services that run old code. Where the
+repositories publish no security notices (apk, pacman without
+arch-audit, some dnf/yum repositories), security_notices is false and
+unclassified_updates lists every pending update.
 
 To install them: ` + "`komando pkg upgrade TARGET --security`" + `, one server at a
 time with a check before and after each.`,
@@ -606,7 +677,7 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 	var fails []hostFail
 	for _, r := range rows {
 		if r.unsupported != "" {
-			cl.out.Skip(out.Skipped{Name: r.Host, Kind: "host", Reason: r.unsupported + ": komando picks security updates on apt and dnf/yum servers only; use `komando pkg upgrade` here"})
+			cl.out.Skip(out.Skipped{Name: r.Host, Kind: "host", Reason: "no package manager komando knows (apt, dnf, yum, zypper, apk, pacman)"})
 			continue
 		}
 		if apply && cl.flags.dryRun && r.Error == nil && !cl.flags.allowDangerous {
@@ -632,8 +703,8 @@ func pkgSecurity(cl *call, ctx context.Context, target string, apply, refresh, k
 	data.NotRun = notRun
 	data.Summary.Total = len(data.Results)
 	if len(data.Results) == 0 && len(rows) > 0 {
-		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "use `komando pkg upgrade TARGET` on these servers",
-			"komando picks security updates on apt and dnf/yum servers only; %s uses %s", rows[0].Host, rows[0].unsupported)
+		return out.Errf(out.ExitNotFound, "SECURITY_UNSUPPORTED", "komando knows apt, dnf, yum, zypper, apk and pacman; see what the server has with `komando facts TARGET`",
+			"no package manager komando knows on %s", rows[0].Host)
 	}
 	if !change && !cl.flags.dryRun {
 		audit(cl, st, id, hostNames(hosts), display, len(fails) == 0, nil)

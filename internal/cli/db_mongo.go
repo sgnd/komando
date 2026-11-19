@@ -16,8 +16,9 @@ import (
 
 // MongoDB conns are `db` conns: `db query` takes a command document
 // instead of SQL, `db schema` and `db info` describe the database, `db
-// explain` shows a read's plan and `db activity` what runs now. The
-// SQL-only commands (dump, sizes, users, ...) say so.
+// explain` shows a read's plan, `db activity` what runs now, `db kill`
+// stops an operation and `db user list` and `show` read the users. The
+// SQL-only commands (dump, sizes, user changes, ...) say so.
 
 // mongoConn is the conn expr picks, when it is a MongoDB conn.
 func mongoConn(cl *call, expr string) (*store.State, *store.Conn, bool) {
@@ -244,6 +245,63 @@ func runMongoActivity(cl *call, ctx context.Context, st *store.State, c *store.C
 	}
 	rows = cutRows(cl, rows, limit)
 	cl.out.Print("db.activity", activityData{Conn: c.Name, Count: len(rows), Sessions: rows}, nil)
+	return nil
+}
+
+// runMongoKill is db kill for MongoDB: killOp on one operation. The
+// safety check has run; under --dry-run it shows the operation only.
+func runMongoKill(cl *call, ctx context.Context, st *store.State, c *store.Conn, opid int64) error {
+	m, closeM, err := openMongo(cl, ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer closeM()
+	s, err := dbx.MongoSession(ctx, m, opid)
+	if err != nil {
+		return err
+	}
+	const action = "cancel query"
+	if cl.flags.dryRun {
+		cl.out.Print("db.kill", map[string]any{"conn": c.Name, "would": action, "session": s, "dry_run": true}, nil)
+		return nil
+	}
+	err = dbx.MongoKill(ctx, m, opid)
+	audit(cl, st, "db.kill", nil, "", err == nil, map[string]any{"conns": []string{c.Name}, "pid": opid, "action": action})
+	if err != nil {
+		return err
+	}
+	cl.out.Print("db.kill", map[string]any{"conn": c.Name, "done": action, "session": s}, nil)
+	return nil
+}
+
+// runMongoUsers is db user list for MongoDB: the users of every database.
+func runMongoUsers(cl *call, ctx context.Context, st *store.State, c *store.Conn, limit int) error {
+	m, closeM, err := openMongo(cl, ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer closeM()
+	rows, err := dbx.MongoUsers(ctx, m)
+	if err != nil {
+		return err
+	}
+	rows = cutRows(cl, rows, limit)
+	cl.out.Print("db.user.list", map[string]any{"conn": c.Name, "count": len(rows), "users": rows}, nil)
+	return nil
+}
+
+// runMongoUserShow is db user show for MongoDB: roles and the actions they give.
+func runMongoUserShow(cl *call, ctx context.Context, st *store.State, c *store.Conn, user string) error {
+	m, closeM, err := openMongo(cl, ctx, st, c)
+	if err != nil {
+		return err
+	}
+	defer closeM()
+	rows, err := dbx.MongoGrants(ctx, m, user)
+	if err != nil {
+		return err
+	}
+	cl.out.Print("db.user.show", map[string]any{"conn": c.Name, "user": user, "grants": rows}, nil)
 	return nil
 }
 

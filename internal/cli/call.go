@@ -63,6 +63,12 @@ type call struct {
 	typedProt []string   // protected targets a typed answer covered
 
 	body *approvalBody // a file the command sends, which the window shows
+	view *approvalView // the window being shown (personAllowsFlags)
+
+	// manifests: the manifest files this command has read (readManifest),
+	// and why one could not be read, so the bytes that were rated are the
+	// bytes that are sent.
+	manifests map[string]manifestRead
 
 	// ask opens the approval window; nil is askOnScreen.
 	ask func(text string) (allowed, shown bool)
@@ -133,7 +139,7 @@ func (cl *call) begin() {
 	cl.sess.Reset()
 	cl.oldCopy.Store(false)
 	cl.commits = store.Commits()
-	cl.ttyYes, cl.typed, cl.typedProt, cl.body = nil, nil, nil, nil
+	cl.ttyYes, cl.typed, cl.typedProt, cl.body, cl.manifests = nil, nil, nil, nil, nil
 	cl.logins.reset()
 }
 

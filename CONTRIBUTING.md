@@ -109,7 +109,7 @@ Pick the version number from what `## [Unreleased]` holds:
 - **Minor** (0.14.x → 0.15.0): it adds a feature or changes behaviour that people, scripts or agents can notice: anything under `### Added`, `### Changed`, `### Changed for scripts and agents` or `### Removed`, a new error code, or a new field in the JSON output.
 - **1.0.0**: when the commands and the JSON output are settled, around the public release of the free Mac and iPhone apps. From then on, a change that breaks scripts needs 2.0.0.
 
-1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in the examples in [`docs/features/install.md`](docs/features/install.md) too, but not the lines that name the last unsigned release (0.13.0).
+1. On a new branch from `main`, update [`CHANGELOG.md`](CHANGELOG.md): rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, give it a `### Highlights` list, and start a new empty `## [Unreleased]` above it. In the link footer at the end of the file, add a `[X.Y.Z]` compare link from the previous tag and change `[Unreleased]` to compare from `vX.Y.Z`. Change the version in [`docs/features/install.md`](docs/features/install.md) too: the install lines (the tag in the address and `KOMANDO_VERSION`) and the examples, but not the lines that name the last unsigned release (0.13.0).
 2. Commit it as `Release X.Y.Z` and open a pull request. When its checks pass, merge it with **Create a merge commit**.
 3. Tag the merged `main`, and only then push the tag:
 
@@ -119,9 +119,10 @@ Pick the version number from what `## [Unreleased]` holds:
    ```
 
    Do not push the tag before the pull request is merged: the tag starts the release at once, from a commit that is not on `main` yet.
-4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux, macOS and Windows (amd64 and arm64), signs `checksums.txt` with the [release signing key](#the-release-signing-key), signs their build provenance and publishes the release. If a test fails, nothing is published:
+4. [Release](.github/workflows/release.yml) runs every test again, checks that `CHANGELOG.md` has a section for the version, builds the binaries for Linux, macOS and Windows (amd64 and arm64), signs `checksums.txt` (whose first line, written by `make dist`, names the version) with the [release signing key](#the-release-signing-key), signs their build provenance and publishes the release. If a test fails, nothing is published:
    - a test that fails now and then (the FTPS end-to-end test has): run the failed jobs again with `gh run rerun RUN_ID --failed`;
    - a real failure: fix it in a pull request, delete the tag (`git push origin :vX.Y.Z`), and tag the new `main` again.
+5. Rebuild the docs site. It copies the pages in `docs/features/`, so it shows the old install line until it is built again.
 
 ### The release signing key
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestRuntimeLivesApart(t *testing.T) {
@@ -14,10 +15,17 @@ func TestRuntimeLivesApart(t *testing.T) {
 	t.Setenv("KOMANDO_HOME", home)
 	t.Cleanup(Close) // before the folder goes: Windows cannot remove an open file
 	update(t, func(s *State) { s.Hosts["web"] = &Host{Name: "web"} })
+	// a new session writes its mark into the store (runtime_mark.go)
+	if err := UpdateRuntime(Save(), func(s *State) error {
+		s.Sessions["office"] = &VpnSession{Vpn: "office", PID: 42, SocksPass: "p"}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	inv, _ := os.ReadFile(filepath.Join(home, StoreFile))
 
 	if err := UpdateRuntime(Save(), func(s *State) error {
-		s.Sessions["office"] = &VpnSession{Vpn: "office", PID: 42, SocksPass: "p"}
+		s.Sessions["office"].LastUsed = time.Now()
 		s.Jobs["j1"] = &Job{ID: "j1", Host: "web"}
 		return nil
 	}); err != nil {

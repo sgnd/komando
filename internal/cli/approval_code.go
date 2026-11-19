@@ -23,11 +23,12 @@ import (
 	"github.com/sgnd/komando/internal/vault"
 )
 
-// An approval code makes komando's "Allow once" window a second factor: the
-// person types the 6-digit code from their authenticator app (TOTP, RFC
-// 6238), so one click by whoever sits at the screen, or a program that can
-// click, is not enough. The code's secret is in the vault, which AI agents
-// cannot read.
+// An approval code makes komando's "Allow once" window a second factor on
+// Linux, BSD and Windows: the person types the 6-digit code from their
+// authenticator app (TOTP, RFC 6238), so one click by whoever sits at the
+// screen, or a program that can click, is not enough. The code's secret is
+// in the vault, which AI agents cannot read. macOS asks for the device
+// owner instead (askMac) and ignores the code.
 
 const approvalSecret = "komando-approval-totp"
 
@@ -122,20 +123,6 @@ var askCodeOnScreen = func(cl *call, text string) (code string, allowed, shown b
 	defer cancel()
 	text += "\n\nType the code from your authenticator app:"
 	switch runtime.GOOS {
-	case "darwin":
-		const script = `on run argv
-set r to display dialog (item 1 of argv) with title "komando: allow?" default answer "" with hidden answer buttons {"Deny", "Allow once"} default button "Allow once" cancel button "Deny" giving up after 120 with icon caution
-if gave up of r then return "gave up"
-return (button returned of r) & linefeed & (text returned of r)
-end run`
-		b, err := exec.CommandContext(ctx, "/usr/bin/osascript", "-e", script, text).Output()
-		var ee *exec.ExitError
-		if err != nil && !errors.As(err, &ee) {
-			return "", false, false
-		}
-		btn, typed, _ := strings.Cut(strings.TrimSpace(string(b)), "\n")
-		noteGaveUp(text, btn == "gave up")
-		return typed, btn == "Allow once", true
 	case "linux", "freebsd", "openbsd":
 		if cl.getenv("DISPLAY") == "" && cl.getenv("WAYLAND_DISPLAY") == "" {
 			return "", false, false
@@ -150,7 +137,7 @@ end run`
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
 	case "windows":
-		code, allowed, gaveUp, shown := approvalWindow(text, true)
+		code, allowed, gaveUp, shown := approvalWindow(approvalView{raw: text}, true)
 		noteGaveUp(text, gaveUp)
 		return code, allowed, shown
 	}
@@ -165,7 +152,9 @@ func approvalCodeCmd() *cobra.Command {
 		Long: `Sets up a one-time code (TOTP, like a bank or GitHub login) for komando's
 "Allow once" window: once on, allowing an AI agent's --yes, --allow-dangerous
 or --reveal needs the 6-digit code from the authenticator app on your phone,
-not just a click. Only a person at a terminal can turn it on (the secret is
+not just a click. On macOS the window asks for Touch ID, an Apple Watch or
+your login password instead and does not use the code; it stays set for
+Linux, BSD and Windows on the same vault. Only a person at a terminal can turn it on (the secret is
 shown once, here); turning it off needs --yes, so that code too.`,
 		Example: "  komando config approval-code          # shows a secret to add to your authenticator app\n  komando config approval-code --off --yes",
 		Args:    cobra.NoArgs,

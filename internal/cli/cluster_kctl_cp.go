@@ -38,8 +38,11 @@ func (r *kctlRun) cp() error {
 		tarball := &capBuffer{max: maxPodCopy}
 		var errb bytes.Buffer
 		rpath = path.Clean(rpath) // "/data/" is /data, "/x/.." is /
+		if err := podNameOK(r.cl, rpath); err != nil {
+			return err // named like a secret: stop before the pod is read, as download does
+		}
 		dir, base := path.Dir(rpath), path.Base(rpath)
-		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, base}, Stdout: tarball, Stderr: &errb})
+		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "cf", "-", "-C", dir, "--", base}, Stdout: tarball, Stderr: &limitWriter{w: &errb, n: podErrMax}})
 		if tarball.over {
 			return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE",
 				"copy a smaller part, or pack it smaller in the pod first: `komando cluster run TARGET --write -- exec POD -- gzip PATH`",
@@ -57,7 +60,7 @@ func (r *kctlRun) cp() error {
 		}
 		var errb bytes.Buffer
 		err := r.k.Exec(r.ctx, kube.ExecOptions{Namespace: r.ns(), Pod: pod, Container: c, Command: []string{"tar", "xf", "-", "-C", path.Dir(rpath)},
-			Stdin: &tarball, Stderr: &errb})
+			Stdin: &tarball, Stderr: &limitWriter{w: &errb, n: podErrMax}})
 		if err != nil {
 			return kfail("%s %s", strings.TrimSpace(errb.String()), err)
 		}
@@ -70,6 +73,10 @@ func (r *kctlRun) cp() error {
 // in memory (untarTo checks every name before it writes any), so a pod
 // must not be able to fill this computer's memory.
 const maxPodCopy = 512 << 20
+
+// podErrMax is the most of tar's error output in a pod komando keeps for
+// the message: the pod decides how much it writes.
+const podErrMax = 64 << 10
 
 // capBuffer is a bytes.Buffer that takes at most max bytes: past that it
 // stops the copy (the writer's error ends the stream) and says so.
@@ -97,7 +104,20 @@ func (b *capBuffer) Write(p []byte) (int, error) {
 // does (fetchMasked): a file that is a secret by name is refused, a text
 // file is masked before it is written, and a binary or larger one that
 // holds a vault value is refused; all of it before anything is written.
+//
+// The container also picks every size. The cap on the stream (capBuffer)
+// does not bound what the entries unpack to: a sparse entry of a few
+// hundred bytes names a file of any size. So a sparse entry is refused
+// and the files together may hold no more than maxPodCopy.
 func untarTo(cl *call, tarball []byte, dst, base string) error {
+	return untarLimit(cl, tarball, dst, base, maxPodCopy)
+}
+
+func untarLimit(cl *call, tarball []byte, dst, base string, max int64) error {
+	tooLarge := func() error {
+		return kstop(out.Errf(out.ExitConflict, "FILE_TOO_LARGE", "copy a smaller part of it", "the copy is more than %s", humanBytes(max)))
+	}
+	left := max
 	root, err := filepath.Abs(dst)
 	if err != nil {
 		return kfail("%v", err)
@@ -143,13 +163,22 @@ func untarTo(cl *call, tarball []byte, dst, base string) error {
 		}
 		e := entry{target: target, dir: h.Typeflag == tar.TypeDir, mode: os.FileMode(h.Mode)}
 		if !e.dir {
-			if err := guardSensitiveCopy(cl, h.Name); err != nil {
-				var stop *out.Error
-				errors.As(err, &stop)
-				return kstop(stop)
+			if err := podNameOK(cl, path.Clean(h.Name)); err != nil { // the name that is written: app/.env/. is app/.env
+				return err
 			}
-			if e.data, err = io.ReadAll(tr); err != nil {
+			for k := range h.PAXRecords {
+				if strings.HasPrefix(k, "GNU.sparse.") {
+					return kfail("refusing %q: it is a sparse file, which unpacks to more than was sent", h.Name)
+				}
+			}
+			if h.Size > left {
+				return tooLarge()
+			}
+			if e.data, err = io.ReadAll(io.LimitReader(tr, left+1)); err != nil {
 				return kfail("%v", err)
+			}
+			if left -= int64(len(e.data)); left < 0 {
+				return tooLarge()
 			}
 			if e.data, err = podFileMasked(cl, h.Name, e.data); err != nil {
 				return err
@@ -204,6 +233,16 @@ func podFileMasked(cl *call, name string, b []byte) ([]byte, error) {
 			"%s holds a value from komando's vault; komando does not copy it to this computer for an AI agent", name))
 	}
 	return b, nil
+}
+
+// podNameOK is guardSensitiveCopy for a path in a pod, in kctl's error shape.
+func podNameOK(cl *call, p string) error {
+	err := guardSensitiveCopy(cl, p)
+	var stop *out.Error
+	if errors.As(err, &stop) {
+		return kstop(stop)
+	}
+	return err
 }
 
 // gitPath: rel has a .git part (any case: macOS and Windows ignore it).

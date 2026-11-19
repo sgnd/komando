@@ -159,7 +159,8 @@ func TestDumpOnHostCA(t *testing.T) {
 	}
 	caDir := regexp.MustCompile(`/tmp/komando-ca-[a-z2-7]{26}\b`).FindString
 
-	srv.reply("PGDMP archive bytes")
+	arch := testPGArchive(t)
+	srv.reply(arch)
 	to := filepath.Join(dir, "app.dump")
 	if _, e := run("db", "dump", "pg", "--to", to, "--format", "custom", "--run-on", "dev"); e != nil {
 		t.Fatal(e)
@@ -190,7 +191,7 @@ func TestDumpOnHostCA(t *testing.T) {
 		t.Fatal(e)
 	}
 	ex = srv.take()
-	if len(ex) != 1 || ex[0].stdin != pw+"\n"+ca+"\nPGDMP archive bytes" || !strings.Contains(ex[0].cmd, "pg_restore") {
+	if len(ex) != 1 || ex[0].stdin != pw+"\n"+ca+"\n"+arch || !strings.Contains(ex[0].cmd, "pg_restore") {
 		t.Fatalf("restore execs: %+v", ex)
 	}
 	if caDir(ex[0].cmd) == d {
