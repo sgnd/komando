@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"runtime"
 	"testing"
 	"time"
@@ -21,7 +23,12 @@ func TestApprovalWindowShot(t *testing.T) {
 	var allowed bool
 	switch runtime.GOOS {
 	case "darwin":
-		allowed, _, _ = askMac(v)
+		// osascript directly, so its exit code and stderr reach the CI log
+		ctx, cancel := context.WithTimeout(context.Background(), macWindowTimeout)
+		defer cancel()
+		out, err := exec.CommandContext(ctx, "/usr/bin/osascript", macArgs(v)...).CombinedOutput()
+		t.Logf("osascript: err %v, output %q", err, out)
+		allowed, _ = macAnswer(out)
 	case "windows":
 		_, allowed, _, _ = approvalWindow(v, false)
 	}

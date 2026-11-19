@@ -31,36 +31,52 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test -c -o shot.test ./internal/cli
-      # macOS: the id of osascript's window (the dialog), for screencapture -l;
-      # waits up to 10 s and fails when there is none
+      # macOS: winid.js lists the on-screen windows (owner, name, id, bounds)
+      # and prints the id of the largest one owned by osascript or komando;
+      # shot.sh captures that window, or fails after 10 s with the list.
       - name: Window finder (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           cat > "$RUNNER_TEMP/winid.js" <<'JS'
           ObjC.import('CoreGraphics');
-          function run() {
-            var list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, $.kCGNullWindowID)));
+          function run(argv) {
+            var list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly, $.kCGNullWindowID))) || [];
+            if (argv[0] === 'list') {
+              return list.map(function (w) {
+                var b = w.kCGWindowBounds || {};
+                return [w.kCGWindowOwnerName, w.kCGWindowName || '', w.kCGWindowNumber, b.X + ',' + b.Y + ' ' + b.Width + 'x' + b.Height].join(' | ');
+              }).join('\n');
+            }
             var best = null;
-            (list || []).forEach(function (w) {
+            list.forEach(function (w) {
               var b = w.kCGWindowBounds || {};
-              if (w.kCGWindowOwnerName === 'osascript' && b.Height > 60 && (!best || b.Height * b.Width > best.a)) best = { id: w.kCGWindowNumber, a: b.Height * b.Width };
+              if ((w.kCGWindowOwnerName === 'osascript' || w.kCGWindowOwnerName === 'komando') && b.Height > 60 && (!best || b.Height * b.Width > best.a)) best = { id: w.kCGWindowNumber, a: b.Height * b.Width };
             });
             return best ? String(best.id) : '';
           }
           JS
           cat > "$RUNNER_TEMP/shot.sh" <<'SH'
-          # shot.sh FILE: capture osascript's window into FILE, or fail
+          # shot.sh FILE: capture the osascript or komando window into FILE, or fail
           for i in $(seq 20); do
-            id=$(osascript -l JavaScript "$RUNNER_TEMP/winid.js" 2>/dev/null)
+            id=$(osascript -l JavaScript "$RUNNER_TEMP/winid.js" find 2>/dev/null)
             if [ -n "$id" ]; then
               sleep 1
+              echo "on-screen windows:"; osascript -l JavaScript "$RUNNER_TEMP/winid.js" list
               screencapture -x -o -l "$id" "$1" && exit 0
+              echo "screencapture -l $id failed" >&2
+              exit 1
             fi
             sleep 0.5
           done
-          echo "no approval window within 10 s" >&2
+          echo "no window owned by osascript or komando within 10 s; on-screen windows:" >&2
+          osascript -l JavaScript "$RUNNER_TEMP/winid.js" list >&2
           exit 1
+          SH
+          # the runner service may run outside the logged-in user's GUI
+          # session: asgui runs a command in that session (launchctl asuser)
+          cat > "$RUNNER_TEMP/asgui.sh" <<'SH'
+          exec sudo launchctl asuser "$(id -u)" sudo -u "$(id -un)" "$@"
           SH
       # before: main's old AppleScript dialog (internal/cli/approval.go,
       # askOnScreen), with the same sample text and 20 s instead of 120
@@ -71,20 +87,29 @@ jobs:
           KOMANDO_SHOT_TEXT: ${{ runner.temp }}/shot.txt
         run: |
           ./shot.test -test.run '^TestApprovalWindowShotText$' -test.v
-          osascript -e 'on run argv
+          bash "$RUNNER_TEMP/asgui.sh" osascript -e 'on run argv
           set r to display dialog (item 1 of argv) with title "komando: allow?" buttons {"Deny", "Allow once"} default button "Deny" cancel button "Deny" giving up after 20 with icon caution
           if gave up of r then return "gave up"
           return button returned of r
-          end run' "$(cat "$KOMANDO_SHOT_TEXT")" &
-          bash "$RUNNER_TEMP/shot.sh" before-macos.png
-          wait || true
+          end run' "$(cat "$KOMANDO_SHOT_TEXT")" >"$RUNNER_TEMP/before.out" 2>"$RUNNER_TEMP/before.err" &
+          pid=$!
+          shot=0
+          bash "$RUNNER_TEMP/shot.sh" before-macos.png || shot=$?
+          code=0; wait "$pid" || code=$?
+          echo "osascript exit $code, stdout: $(cat "$RUNNER_TEMP/before.out")"
+          echo "osascript stderr:"; cat "$RUNNER_TEMP/before.err"
+          exit "$shot"
       - name: After, the new window (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          ./shot.test -test.run '^TestApprovalWindowShot$' -test.v &
-          bash "$RUNNER_TEMP/shot.sh" after-macos.png
-          wait
+          bash "$RUNNER_TEMP/asgui.sh" env CI=true KOMANDO_WINDOW_SHOT=1 RUNNER_OS=macOS ./shot.test -test.run '^TestApprovalWindowShot$' -test.v >"$RUNNER_TEMP/after.out" 2>&1 &
+          pid=$!
+          shot=0
+          bash "$RUNNER_TEMP/shot.sh" after-macos.png || shot=$?
+          code=0; wait "$pid" || code=$?
+          echo "helper exit $code, output (osascript's exit and stderr included):"; cat "$RUNNER_TEMP/after.out"
+          [ "$shot" = 0 ] && [ "$code" = 0 ]
       # Windows: the window by its class (komandoApproval), brought to the
       # front, and only its rectangle captured; fails when it is not there
       - name: After, the new window (Windows)
@@ -100,6 +125,23 @@ jobs:
             [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
             [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
             [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+            public delegate bool EnumProc(IntPtr h, IntPtr l);
+            [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc f, IntPtr l);
+            [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, System.Text.StringBuilder s, int n);
+            [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, System.Text.StringBuilder s, int n);
+            public static string Visible() {
+              var b = new System.Text.StringBuilder();
+              EnumWindows((h, l) => {
+                if (IsWindowVisible(h)) {
+                  var t = new System.Text.StringBuilder(256); var c = new System.Text.StringBuilder(256);
+                  GetWindowText(h, t, 256); GetClassName(h, c, 256);
+                  b.AppendLine(t + " | " + c);
+                }
+                return true;
+              }, IntPtr.Zero);
+              return b.ToString();
+            }
           }
           "@
           $p = Start-Process -FilePath .\shot.test -ArgumentList '-test.run','^TestApprovalWindowShot$','-test.v' -PassThru -NoNewWindow
@@ -108,7 +150,13 @@ jobs:
             Start-Sleep -Milliseconds 500
             $h = [W]::FindWindow("komandoApproval", $null)
           }
-          if ($h -eq [IntPtr]::Zero) { Write-Error "no approval window within 10 s"; exit 1 }
+          if ($h -eq [IntPtr]::Zero) {
+            Write-Output "no approval window within 10 s; visible top-level windows (title | class):"
+            Write-Output ([W]::Visible())
+            $p.WaitForExit()
+            Write-Output "helper exit $($p.ExitCode)"
+            exit 1
+          }
           [W]::SetForegroundWindow($h) | Out-Null
           Start-Sleep -Seconds 1
           $r = New-Object RECT
