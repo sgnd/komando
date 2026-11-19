@@ -419,7 +419,10 @@ More limits:
   as you. Such a program can read the vault key (from the keychain with
   `security find-generic-password`, or from `store.key`), open the vault,
   and then compute approval codes and read every other secret and SSH key
-  in it, so it does not need komando at all. A passphrase
+  in it, so it does not need komando at all. On macOS the window asks for
+  Touch ID, an Apple Watch or your login password instead of a code, so
+  reading the vault does not get such a program past the window; it still
+  gets every secret. A passphrase
   (`komando secret passphrase`) keeps the key out of the keychain and off
   the disk, so only someone who knows it can open the vault. The agent's
   own sandbox is the outer boundary; give the agent one.
