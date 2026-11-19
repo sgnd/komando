@@ -317,7 +317,10 @@ func guardDocker(cl *call, target string, args []string) (mutating bool, err err
 	}
 	fileWhy := ""
 	if risk < driver.RiskDestructive {
-		hosts, _ := resolveTargets(cl, st, target)
+		hosts, err := resolveTargets(cl, st, target)
+		if err != nil {
+			return true, err // no hosts to read the compose files from
+		}
 		if fileWhy = serverComposeReason(cl, st, hosts, args); fileWhy != "" {
 			risk = driver.RiskDestructive // a compose file on the server that gets the host (C113)
 		}

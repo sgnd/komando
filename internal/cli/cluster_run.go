@@ -623,12 +623,18 @@ func createsAwsAuth(args []string) bool {
 // (enforce-). C113.
 func psaLoosens(args []string) bool {
 	for _, a := range args {
-		k, v, set := strings.Cut(strings.ToLower(a), "=")
-		if k == "pod-security.kubernetes.io/enforce-" && !set || k == "pod-security.kubernetes.io/enforce" && strings.TrimSpace(v) == "privileged" {
+		k, v, set := strings.Cut(a, "=")
+		if strings.EqualFold(k, "pod-security.kubernetes.io/enforce-") && !set || set && psaPrivileged(k, v) {
 			return true
 		}
 	}
 	return false
+}
+
+// psaPrivileged: the label pod-security.kubernetes.io/enforce=privileged,
+// read the same way by `cluster label` and by a manifest's labels.
+func psaPrivileged(k, v string) bool {
+	return strings.EqualFold(strings.TrimSpace(k), "pod-security.kubernetes.io/enforce") && strings.EqualFold(strings.TrimSpace(v), "privileged")
 }
 
 // clusterRunRisk rates a `cluster run` command line: docker's rules on a

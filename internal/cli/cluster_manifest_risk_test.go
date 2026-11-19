@@ -41,6 +41,7 @@ func TestManifestEscalates(t *testing.T) {
 		"hostProcess":        {pod("  containers: [{name: c, image: a, securityContext: {windowsOptions: {hostProcess: true}}}]\n"), true},
 		"admission policy":   {"apiVersion: admissionregistration.k8s.io/v1alpha1\nkind: MutatingAdmissionPolicy\nmetadata: {name: a}\n", true},
 		"psa privileged":     {"apiVersion: v1\nkind: Namespace\nmetadata: {name: a, labels: {pod-security.kubernetes.io/enforce: privileged}}\n", true},
+		"psa spaced":         {"apiVersion: v1\nkind: Namespace\nmetadata: {name: a, labels: {pod-security.kubernetes.io/enforce: ' Privileged '}}\n", true},
 		"psa restricted":     {"apiVersion: v1\nkind: Namespace\nmetadata: {name: a, labels: {pod-security.kubernetes.io/enforce: restricted}}\n", false},
 		"hostPath as data":   {"apiVersion: v1\nkind: ConfigMap\nmetadata: {name: a}\ndata: {hostPath: /x, local: y}\n", false},
 		"crd schema":         {"apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\nmetadata: {name: a}\nspec:\n  versions:\n  - schema:\n      openAPIV3Schema:\n        properties:\n          hostPath: {type: string}\n", false},

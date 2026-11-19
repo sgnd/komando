@@ -242,3 +242,13 @@ func TestPrunePreviewEmptyVolumes(t *testing.T) {
 		}
 	}
 }
+
+// C136: an unknown target stops the rating with its error, before a
+// compose file check that would find no server to read it from.
+func TestGuardDockerUnknownTarget(t *testing.T) {
+	setHome(t, t.TempDir())
+	t.Setenv("KOMANDO_VAULT_PASS", "test")
+	if _, err := guardDocker(tcl, "nosuch", []string{"compose", "up", "-d"}); err == nil {
+		t.Error("an unknown target was rated without an error")
+	}
+}

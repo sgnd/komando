@@ -28,6 +28,13 @@ its highlights; the sections below them give the details. Versions follow
 - Streamed output lines over 256 KiB (`exec`, `secret run`, service logs)
   are no longer cut inside a hidden value, which printed it as two
   unmasked halves.
+- `cluster apply -f` and `cluster run -- apply|create -f` read the label
+  `pod-security.kubernetes.io/enforce=privileged` on a Namespace with the
+  same rule as `cluster label`: case and spaces around the value do not
+  matter, so the manifest needs `--allow-dangerous` either way.
+- A docker command whose target komando cannot find now stops with that
+  error before the rating, instead of rating it without reading the
+  compose files on the server.
 - `db restore` refuses a pg_dump custom archive whose table of contents
   komando cannot read (`BAD_FILE`). Before, it was approved as
   `sql-opaque`, so a person could approve SQL nobody had checked.
@@ -36,6 +43,8 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- On macOS and Windows, an AI agent's `import kubeconfig` accepts the
+  files it names under `~/.KUBE` (any case), as it does under `~/.kube`.
 - `db restore` names pg_dump tar (`-Ft`) and directory (`-Fd`) archives and
   refuses them with `USAGE`, saying to dump with `-Fc` or `-Fp`. Before, a
   tar archive was read as plain SQL (with a misleading `UNSAFE_BACKUP`, or

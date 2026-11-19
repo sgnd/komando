@@ -67,3 +67,20 @@ func TestKubeconfigLinksIntoSSH(t *testing.T) {
 		t.Errorf("a plain file in ~/.kube: %v", err)
 	}
 }
+
+// C136: on a file system that ignores case, ~/.KUBE is ~/.kube, so a key
+// there still imports; ~/.SSH stays refused.
+func TestKubeconfigKubeDirCase(t *testing.T) {
+	invHome(t)
+	home, _ := os.UserHomeDir()
+	saved := caseFoldFS
+	caseFoldFS = true
+	t.Cleanup(func() { caseFoldFS = saved })
+	asAgent(t, false, false)
+	if why := kubeRefSecret(tcl, filepath.Join(home, ".KUBE", "certs", "client.key")); why != "" {
+		t.Errorf("~/.KUBE/certs/client.key refused: %s", why)
+	}
+	if why := kubeRefSecret(tcl, filepath.Join(home, ".SSH", "id_ed25519")); why == "" {
+		t.Error("~/.SSH/id_ed25519 was let through")
+	}
+}
