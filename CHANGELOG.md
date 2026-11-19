@@ -7,6 +7,14 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando vpn status` shows a WireGuard session's last handshake, its
+  age and the tunnel's state: `up`, `idle` (no handshake for 3 minutes
+  and nothing sent) or `dead` (no handshake for 3 minutes although
+  something was sent or a keepalive is set). JSON: `last_handshake_at`,
+  `handshake_age_seconds`, `tunnel_state` and `tunnel_dead`.
+
 ### Changed
 
 - The approval window an AI agent's `--yes`, `--allow-dangerous` or
@@ -15,13 +23,6 @@ its highlights; the sections below them give the details. Versions follow
   then the command and its script in a monospaced box that keeps line
   breaks, wraps and scrolls. Deny stays the default and the Esc key, and
   the window still closes itself after 2 minutes.
-### Added
-
-- `komando vpn status` shows a WireGuard session's last handshake, its
-  age and the tunnel's state: `up`, `idle` (no handshake for 3 minutes
-  and nothing sent) or `dead` (no handshake for 3 minutes although
-  something was sent or a keepalive is set). JSON: `last_handshake_at`,
-  `handshake_age_seconds`, `tunnel_state` and `tunnel_dead`.
 
 ### Security
 
