@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/netx"
+	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -29,6 +31,9 @@ func wgKeyHome(t *testing.T, name string) string {
 	old := netx.KeyLockDir
 	netx.KeyLockDir = func() (string, error) { return dir, nil }
 	t.Cleanup(func() { netx.KeyLockDir = old })
+	oldWait := wgStartWait
+	wgStartWait = 300 * time.Millisecond
+	t.Cleanup(func() { wgStartWait = oldWait })
 	k := make([]byte, 32)
 	if _, err := rand.Read(k); err != nil {
 		t.Fatal(err)
@@ -71,8 +76,13 @@ func liveSocks(t *testing.T, pub, home, vpn string) netx.KeyHolder {
 func TestWGKeyOtherHomeRefused(t *testing.T) {
 	pub := wgKeyHome(t, "office")
 	liveSocks(t, pub, "/elsewhere/.komando", "corp")
+	wgStartWait = 5 * time.Second
 	st, _ := store.Load()
-	_, err := wgSharedSession(testCall(), st.Vpns["office"])
+	start := time.Now()
+	_, err := wgSharedSession(testCall(), context.Background(), st.Vpns["office"])
+	if d := time.Since(start); d > time.Second {
+		t.Fatalf("waited %v for a session of another home", d)
+	}
 	e := toErr(err)
 	if e == nil || e.Code != "VPN_KEY_IN_USE" || e.Exit != 8 {
 		t.Fatalf("err = %v; want VPN_KEY_IN_USE exit 8", err)
@@ -97,7 +107,7 @@ func TestWGKeySameHomeReused(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, _ := store.Load()
-	s, err := wgSharedSession(testCall(), st.Vpns["office-2"])
+	s, err := wgSharedSession(testCall(), context.Background(), st.Vpns["office-2"])
 	if err != nil || s == nil || s.Socks != h.Socks || s.SharedWith != "office" || s.Vpn != "office-2" {
 		t.Fatalf("shared = %+v, %v", s, err)
 	}
@@ -110,10 +120,128 @@ func TestWGKeySameHomeReused(t *testing.T) {
 // In this home but with no session that answers: refused, not reused.
 func TestWGKeySameHomeDeadSocks(t *testing.T) {
 	pub := wgKeyHome(t, "office")
-	liveSocks(t, pub, store.Home(), "office")
+	h := liveSocks(t, pub, store.Home(), "office")
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Socks = ln.Addr().String()
+	ln.Close()
+	if _, err := netx.ClaimKey(h); err != nil {
+		t.Fatal(err)
+	}
+	wgStartWait = 5 * time.Second
 	st, _ := store.Load()
-	if _, err := wgSharedSession(testCall(), st.Vpns["office-2"]); toErr(err).Code != "VPN_KEY_IN_USE" {
+	start := time.Now()
+	if _, err := wgSharedSession(testCall(), context.Background(), st.Vpns["office-2"]); toErr(err).Code != "VPN_KEY_IN_USE" {
 		t.Fatalf("err = %v; want VPN_KEY_IN_USE", err)
+	}
+	if d := time.Since(start); d > time.Second {
+		t.Fatalf("waited %v for a session whose SOCKS port is closed", d)
+	}
+}
+
+// A session of this home that holds the key but is not READY yet (no
+// SOCKS address, no session record) is waited for and then reused.
+func TestWGKeySameHomeStartingReused(t *testing.T) {
+	pub := wgKeyHome(t, "office")
+	wgStartWait = 5 * time.Second
+	h := liveSocks(t, pub, store.Home(), "office")
+	socks := h.Socks
+	h.Socks = ""
+	if _, err := netx.ClaimKey(h); err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		h.Socks = socks
+		_, _ = netx.ClaimKey(h)
+		now := time.Now().UTC()
+		_ = store.UpdateRuntime(store.Save(), func(st *store.State) error {
+			st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: h.PID, ProcStart: h.ProcStart, Socks: socks, StartedAt: now, LastUsed: now}
+			return nil
+		})
+	}()
+	st, _ := store.Load()
+	s, err := wgSharedSession(testCall(), context.Background(), st.Vpns["office-2"])
+	if err != nil || s == nil || s.Socks != socks || s.SharedWith != "office" {
+		t.Fatalf("shared = %+v, %v", s, err)
+	}
+}
+
+// A starting session that never becomes READY is VPN_KEY_IN_USE after the wait.
+func TestWGKeySameHomeStartingTimesOut(t *testing.T) {
+	pub := wgKeyHome(t, "office")
+	h := netx.KeyHolder{PublicKey: pub, PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), Home: store.Home(), Vpn: "office"}
+	if _, err := netx.ClaimKey(h); err != nil {
+		t.Fatal(err)
+	}
+	st, _ := store.Load()
+	start := time.Now()
+	_, err := wgSharedSession(testCall(), context.Background(), st.Vpns["office-2"])
+	if toErr(err).Code != "VPN_KEY_IN_USE" || time.Since(start) < wgStartWait {
+		t.Fatalf("err = %v after %v; want VPN_KEY_IN_USE after the wait", err, time.Since(start))
+	}
+}
+
+// A `vpn serve` that lost the key to another `vpn up` (VPN_DOWN) leads to
+// reuse of the winner's session, not VPN_DOWN.
+func TestStartWGSessionLostClaimReuses(t *testing.T) {
+	pub := wgKeyHome(t, "office")
+	var h netx.KeyHolder
+	old := spawnServe
+	spawnServe = func(context.Context, string, string, time.Duration, *store.VpnSession) (int, string, error) {
+		h = liveSocks(t, pub, store.Home(), "office")
+		now := time.Now().UTC()
+		_ = store.UpdateRuntime(store.Save(), func(st *store.State) error {
+			st.Sessions["office"] = &store.VpnSession{Vpn: "office", PID: h.PID, ProcStart: h.ProcStart, Socks: h.Socks, StartedAt: now, LastUsed: now}
+			return nil
+		})
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "", "VPN office-2 did not start: ERROR VPN_KEY_IN_USE: VPN office-2: its WireGuard key is in use")
+	}
+	t.Cleanup(func() { spawnServe = old })
+	st, _ := store.Load()
+	s, err := startWGSession(testCall(), context.Background(), st.Vpns["office-2"], filepath.Join(t.TempDir(), "log"), &store.VpnSession{Vpn: "office-2"})
+	if err != nil || s == nil || s.Socks != h.Socks || s.SharedWith != "office" {
+		t.Fatalf("= %+v, %v; want the session of office reused", s, err)
+	}
+}
+
+// Ctrl-C while waiting for a starting session returns at once.
+func TestWGSharedSessionCancelled(t *testing.T) {
+	pub := wgKeyHome(t, "office")
+	wgStartWait = 5 * time.Second
+	h := netx.KeyHolder{PublicKey: pub, PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), Home: store.Home(), Vpn: "office"}
+	if _, err := netx.ClaimKey(h); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	time.AfterFunc(50*time.Millisecond, cancel)
+	st, _ := store.Load()
+	start := time.Now()
+	_, err := wgSharedSession(testCall(), ctx, st.Vpns["office-2"])
+	if err == nil || time.Since(start) > 500*time.Millisecond {
+		t.Fatalf("err = %v after %v; want the cancel at once", err, time.Since(start))
+	}
+}
+
+// A `vpn serve` that failed for another reason keeps its VPN_DOWN: no
+// wait on a holder that is komando's own dying child.
+func TestStartWGSessionDownNotRetried(t *testing.T) {
+	pub := wgKeyHome(t, "office")
+	wgStartWait = 5 * time.Second
+	old := spawnServe
+	spawnServe = func(context.Context, string, string, time.Duration, *store.VpnSession) (int, string, error) {
+		h := netx.KeyHolder{PublicKey: pub, PID: os.Getpid(), ProcStart: netx.ProcessStart(os.Getpid()), Home: store.Home(), Vpn: "office-2"}
+		_, _ = netx.ClaimKey(h)
+		return 0, "", out.Errf(out.ExitConnect, "VPN_DOWN", "", "VPN office-2 did not start: ERROR dial udp: no route to host")
+	}
+	t.Cleanup(func() { spawnServe = old })
+	st, _ := store.Load()
+	start := time.Now()
+	_, err := startWGSession(testCall(), context.Background(), st.Vpns["office-2"], filepath.Join(t.TempDir(), "log"), &store.VpnSession{Vpn: "office-2"})
+	if e := toErr(err); e == nil || e.Code != "VPN_DOWN" || !strings.Contains(e.Message, "no route") || time.Since(start) > time.Second {
+		t.Fatalf("err = %v after %v; want the original VPN_DOWN at once", err, time.Since(start))
 	}
 }
 
@@ -121,7 +249,7 @@ func TestWGKeySameHomeDeadSocks(t *testing.T) {
 func TestWGKeyFree(t *testing.T) {
 	wgKeyHome(t, "office")
 	st, _ := store.Load()
-	if s, err := wgSharedSession(testCall(), st.Vpns["office"]); s != nil || err != nil {
+	if s, err := wgSharedSession(testCall(), context.Background(), st.Vpns["office"]); s != nil || err != nil {
 		t.Fatalf("= %+v, %v; want nothing", s, err)
 	}
 }
@@ -266,7 +394,7 @@ func TestWGKeyUsersPruned(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, _ := store.Load()
-	if _, err := wgSharedSession(testCall(), st.Vpns["office-2"]); err != nil {
+	if _, err := wgSharedSession(testCall(), context.Background(), st.Vpns["office-2"]); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := netx.KeyInUse(pub)
