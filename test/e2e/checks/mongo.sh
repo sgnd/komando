@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # MongoDB through --via bastion: login, a read, a write that needs --write,
-# the destructive guard, schema and info. Uses the e2e_mongo database and
+# the destructive guard, schema, info, users and db kill. Uses the e2e_mongo database and
 # drops it at the end.
 set +e
 MDC() { docker compose -p "$PROJECT" -f "$E2E/compose.yml" "$@"; }
@@ -28,6 +28,23 @@ check "mongo explain shows the plan" True "$($K db explain shop-mongo '{"find": 
 check "mongo explain --analyze has the numbers" True "$($K db explain shop-mongo --analyze '{"find": "users"}' | jget 'd["data"]["plan"]["executionStats"]["nReturned"] >= 2')"
 check "mongo explain of a write is refused" USAGE "$($K db explain shop-mongo '{"delete": "users", "deletes": [{"q": {}, "limit": 0}]}' | jget 'd["error"]["code"]' || true)"
 check "mongo activity lists operations" True "$($K db activity shop-mongo --all | jget 'd["data"]["count"] >= 1')"
+check "mongo user list shows root, no credentials" "True False" "$($K db user list shop-mongo | jget '" ".join(str(x) for x in ["root" in [u["name"] for u in d["data"]["users"]], "SCRAM-SHA-256:" in str(d)])')"
+check "mongo user show lists the roles" True "$($K db user show shop-mongo root | jget '"root" in [g["privileges"] for g in d["data"]["grants"] if g["on_type"] == "role"]')"
+check "mongo user add says to use db query" NOT_SUPPORTED "$($K db user add shop-mongo app --no-login | jget 'd["error"]["code"]')"
+check "mongo kill --session is refused" NOT_SUPPORTED "$($K db kill shop-mongo 42 --session | jget 'd["error"]["code"]')"
+MDC exec -T mongo mongosh --quiet -u root -p mongopass e2e_mongo --authenticationDatabase admin --eval 'db.users.find({$where: "sleep(30000) || true"}).toArray()' >"$TMP/mslow.out" 2>&1 &
+MSLOW=$!
+OPID=
+for _ in $(seq 1 50); do
+  OPID=$($K db activity shop-mongo | jget '([s["pid"] for s in d["data"]["sessions"] if "sleep(30000)" in s["query"]] + [""])[0]')
+  [ -n "$OPID" ] && break
+  sleep 0.2
+done
+check "mongo activity shows the slow read" True "$([ -n "$OPID" ] && echo True || echo False)"
+check "mongo kill --dry-run names the operation" "cancel query" "$($K db kill shop-mongo "$OPID" --dry-run | jget 'd["data"]["would"]')"
+check "mongo kill stops it" "cancel query" "$($K db kill shop-mongo "$OPID" | jget 'd["data"]["done"]')"
+wait "$MSLOW" 2>/dev/null
+check "the slow read was interrupted" 1 "$(grep -c -i interrupted "$TMP/mslow.out")"
 check "mongo dump says SQL only" NOT_SUPPORTED "$($K db dump shop-mongo --to "$TMP/m.dump" | jget 'd["error"]["code"]')"
 q $K db query shop-mongo --write --allow-dangerous '{"dropDatabase": 1}'
 q $K conn rm shop-mongo

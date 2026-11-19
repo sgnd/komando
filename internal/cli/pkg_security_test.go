@@ -132,7 +132,7 @@ func TestPkgSecFailures(t *testing.T) {
 	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: cut, TimedOut: true}, true, false); r.Error == nil || r.Error.Code != "TIMEOUT" || !strings.Contains(r.Error.Hint, "keeps running") {
 		t.Errorf("timeout: %+v", r.Error)
 	}
-	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: "#komando:unsupported\napk\n"}, false, false); r.unsupported != "apk" {
+	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{Stdout: "#komando:unsupported\nnone\n"}, false, false); r.unsupported != "none" {
 		t.Errorf("unsupported: %+v", r)
 	}
 	if r := pkgSecParse(tcl, "web1", &sshx.RunResult{ExitCode: 1, Stderr: "sudo: a password is required"}, false, false); r.Error == nil || r.Error.Code != "PKG_FAILED" {
@@ -257,5 +257,51 @@ func TestPkgRefreshIsAChange(t *testing.T) {
 	tcl.flags.dryRun = true
 	if pkgSecRefresh(tcl, true) {
 		t.Error("a dry run sends REFRESH=1")
+	}
+}
+
+// recorded from alpine:3.20 (trimmed)
+const apkSecList = `#komando:pm
+apk
+#komando:notices
+no
+#komando:before
+pending=3
+security=0
+#komando:security
+#komando:unclassified
+apk-tools-2.14.13-r0 x86_64 {apk-tools} (GPL-2.0-only) [upgradable from: apk-tools-2.14.4-r1]
+musl-1.2.5-r4 x86_64 {musl} (MIT) [upgradable from: musl-1.2.5-r3]
+ca-certificates-bundle-20261020-r0 x86_64 {ca-certificates} (MPL-2.0 AND MIT) [upgradable from: ca-certificates-bundle-20260413-r0]
+`
+
+// Where the repositories keep no security notices, pkg security says so
+// and lists every pending update instead of an empty list; installing
+// "only the security updates" there stops with SECURITY_UNSUPPORTED.
+func TestPkgSecNoNotices(t *testing.T) {
+	r := pkgSecParse(tcl, "a1", &sshx.RunResult{Stdout: apkSecList}, false, false)
+	if !r.OK || r.SecurityNotices || r.Count != 0 || len(r.Unclassified) != 3 || r.Unclassified[1].Name != "musl" || r.Unclassified[1].From != "1.2.5-r3" {
+		t.Fatalf("%+v", r)
+	}
+	if len(r.Warnings) == 0 || !strings.Contains(r.Warnings[0], "all 3 pending updates") {
+		t.Errorf("warnings %v", r.Warnings)
+	}
+	dnf := "#komando:pm\ndnf\n#komando:notices\nno\n#komando:before\npending=1\n#komando:security\n#komando:unclassified\nopenssl.x86_64  1:3.0.7-28.el9  baseos\n"
+	if r := pkgSecParse(tcl, "c1", &sshx.RunResult{Stdout: dnf}, false, false); r.SecurityNotices || len(r.Unclassified) != 1 || r.Unclassified[0].Name != "openssl" {
+		t.Errorf("dnf without notices: %+v", r)
+	}
+	for pm, want := range map[string]string{"apk": "publish no security notices", "pacman": "no partial upgrades"} {
+		out := "#komando:pm\n" + pm + "\n#komando:notices\nno\n#komando:before\npending=1\n#komando:security\n#komando:no-notices\n"
+		if r := pkgSecParse(tcl, "x", &sshx.RunResult{Stdout: out}, true, false); r.Error == nil || r.Error.Code != "SECURITY_UNSUPPORTED" || !strings.Contains(r.Error.Message, want) || !strings.Contains(r.Error.Hint, "pkg upgrade x") {
+			t.Errorf("%s apply: %+v", pm, r.Error)
+		}
+	}
+	// zypper: security patches by name; pacman: arch-audit's package names
+	zy := "#komando:pm\nzypper\n#komando:notices\nyes\n#komando:before\npending=2\n#komando:security\nopenSUSE-SLE-15.6-2026-4101\nopenSUSE-SLE-15.6-2026-4120\n"
+	if r := pkgSecParse(tcl, "s1", &sshx.RunResult{Stdout: zy}, false, false); !r.SecurityNotices || r.Count != 2 || r.Security[0].Name != "openSUSE-SLE-15.6-2026-4101" || len(r.Warnings) != 0 {
+		t.Errorf("zypper: %+v", r)
+	}
+	if !strings.Contains(pkgSecScript(true, false, true), `run="zypper -n patch --category security"`) {
+		t.Error("zypper applies security patches")
 	}
 }

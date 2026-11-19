@@ -87,7 +87,6 @@ var (
 		"ssh-gate",
 		"storage download",
 		"svc logs",
-		"svc status",
 		"tunnel list",
 		"user list",
 		"version",
@@ -127,6 +126,7 @@ var (
 		"pkg security",
 		"pkg upgradable",
 		"recipe run",
+		"secret run",
 		"shell",
 	}
 )

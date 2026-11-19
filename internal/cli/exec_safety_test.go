@@ -786,3 +786,73 @@ func TestLineBufferPEMMention(t *testing.T) {
 		t.Errorf("the key did not come out whole: %.100q", s)
 	}
 }
+
+// A forced cut of a long line must not split a hidden value longer than
+// streamKeep into two halves that each pass the masker.
+func TestLineBufferLongValueAtCut(t *testing.T) {
+	secret := strings.Repeat("Q7", streamKeep) // 8 KiB, longer than streamKeep
+	p := &out.Printer{Secrets: func() map[string]string { return map[string]string{"big": secret} }}
+	b := lineBuffer{mask: p}
+	var got strings.Builder
+	got.WriteString(p.Redact(b.add([]byte(strings.Repeat("x", streamCap-len(secret)/2)))))
+	got.WriteString(p.Redact(b.add([]byte(secret))))
+	got.WriteString(p.Redact(b.add([]byte("\n"))))
+	got.WriteString(p.Redact(b.flush()))
+	if strings.Contains(got.String(), secret[:len(secret)/2]) || strings.Contains(got.String(), secret[len(secret)/2:]) || !strings.Contains(got.String(), "[secret:big]") {
+		t.Errorf("value split at the cut: %d bytes out, marker %v", got.Len(), strings.Contains(got.String(), "[secret:big]"))
+	}
+}
+
+// A forced cut must not split a pattern mask so its value shows in the tail.
+func TestLineBufferPatternAtCut(t *testing.T) {
+	p := &out.Printer{Mask: true}
+	b := lineBuffer{mask: p}
+	value := strings.Repeat("h2", 2500) // the cut falls inside it
+	var got strings.Builder
+	got.WriteString(p.Redact(b.add([]byte(strings.Repeat("x ", streamCap/2) + "password=" + value[:10]))))
+	got.WriteString(p.Redact(b.add([]byte(value[10:]))))
+	got.WriteString(p.Redact(b.add([]byte(" done\n"))))
+	got.WriteString(p.Redact(b.flush()))
+	if s := got.String(); strings.Contains(s, "h2h2") || !strings.HasSuffix(s, " done\n") {
+		t.Errorf("the value showed after the cut: %.200q", s[streamCap-100:])
+	}
+}
+
+// A private key open at a forced cut is hidden whole, through its END line,
+// and the stream goes on after it.
+func TestLineBufferPEMAtCut(t *testing.T) {
+	for _, p := range []*out.Printer{nil, {Mask: true}} {
+		b := lineBuffer{mask: p}
+		var got strings.Builder
+		got.WriteString(b.add([]byte("start\n-----BEGIN RSA PRIVATE KEY-----\n")))
+		got.WriteString(b.add([]byte(strings.Repeat("MIIEsecretKEYbody", streamCap/16+10))))
+		got.WriteString(b.add([]byte("MIIEsecretKEYbody\n-----END RSA PRIVATE KEY-----\nafter\n")))
+		got.WriteString(b.flush())
+		s := got.String()
+		if strings.Contains(s, "secretKEY") || !strings.Contains(s, "[hidden: private key]") || !strings.Contains(s, "after\n") || !strings.HasPrefix(s, "start\n") {
+			t.Errorf("mask %v: %.200q", p != nil, s)
+		}
+	}
+}
+
+// A vault value inside a long line with no spaces (JSON, base64) is not
+// split at a forced cut, wherever the cut falls in it.
+func TestLineBufferValueAtCutNoSpaces(t *testing.T) {
+	value := "Zq9" + strings.Repeat("vAlUe", 40) + "9qZ"
+	for _, at := range []int{4, len(value) / 2, len(value) - 4} {
+		p := &out.Printer{Mask: true}
+		p.AddValue(value)
+		b := lineBuffer{mask: p}
+		total := streamCap + 100 // one read past the cap: the cut is at total-streamKeep
+		cut := total - streamKeep
+		line := strings.Repeat("a", cut-at) + value
+		line += strings.Repeat("b", total-len(line))
+		var got strings.Builder
+		got.WriteString(p.Redact(b.add([]byte(line))))
+		got.WriteString(p.Redact(b.add([]byte("\n"))))
+		got.WriteString(p.Redact(b.flush()))
+		if s := got.String(); strings.Contains(s, "vAlUevAlUe") || strings.Contains(s, "Zq9v") || strings.Contains(s, "e9qZ") {
+			t.Errorf("cut %d bytes into the value: part of it showed", at)
+		}
+	}
+}

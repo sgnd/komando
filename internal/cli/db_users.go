@@ -39,6 +39,9 @@ func dbUserLsCmd() *cobra.Command {
 		Example: "  komando db user list prod-db",
 		Args:    cobra.ExactArgs(1),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(cl, args[0]); ok {
+				return runMongoUsers(cl, cmd.Context(), st, c, limit)
+			}
 			return readDB(cl, cmd.Context(), "db.user.list", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Users(ctx, db, c.Kind, connTimeout(cl, c))
 				if err != nil {
@@ -60,8 +63,8 @@ func dbUserChangeCmd(action string) *cobra.Command {
 	var ref, host string
 	var noLogin bool
 	parts := map[string][3]string{
-		"add":    {"add CONN USER --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass"},
-		"passwd": {"passwd CONN USER --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2"},
+		"add":    {"add CONN USER --password-ref REF", "Create a user with a password from a secret reference", "  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --dry-run   # shows the statement\n  komando db user add prod-db app_ro --password-ref secret:app-ro-pass --allow-dangerous"},
+		"passwd": {"passwd CONN USER --password-ref REF", "Set a user's password from a secret reference (rotation)", "  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --dry-run\n  komando db user passwd prod-db app_ro --password-ref secret:app-ro-pass-2 --allow-dangerous"},
 		"rm":     {"rm CONN USER", "Remove a database user", "  komando db user rm prod-db old_app --dry-run   # shows the statement\n  komando db user rm prod-db old_app --allow-dangerous"},
 	}[action]
 	c := &cobra.Command{
@@ -79,9 +82,12 @@ func dbUserChangeCmd(action string) *cobra.Command {
 			case ref != "" && !vault.ValidRef(ref):
 				return out.Usage("--password-ref: %s", vault.RefHelp())
 			}
-			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-user"}, Reasons: []string{"db user " + action + " " + args[1]}}
+			// the same tier as the statement in `db query` (sql-privileges):
+			// a new login, a new role or another user's password gives rights
+			askTypes(cl, args[1:2], "users")
+			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user", "sql-privileges"},
+				Reasons: []string{"db user " + action + " " + args[1] + ": " + driver.RuleReason("sql-privileges")}}
 			if action == "rm" {
-				askTypes(cl, args[1:2], "users")
 				v = driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-user-rm"}, Reasons: []string{"removes the user " + args[1]}}
 			}
 			return changeDB(cl, cmd.Context(), "db.user."+action, args[0], v, map[string]any{"user": args[1]},
@@ -138,6 +144,9 @@ func changeDB(cl *call, ctx context.Context, name, connExpr string, v driver.Ver
 	if c.Kind == "snowflake" { // users and grants are read-only here
 		return dbx.SFNoUserChange(strings.ReplaceAll(name, ".", " "))
 	}
+	if c.Kind == "mongodb" { // createUser and the like go through db query
+		return dbx.MongoNoUserChange(strings.ReplaceAll(name, ".", " "))
+	}
 	if c.Kind == "bigquery" { // Google Cloud IAM
 		return dbx.BQNoUsers(strings.ReplaceAll(name, ".", " "))
 	}
@@ -182,10 +191,12 @@ all-tables:SCHEMA; --role ROLE ` + map[bool]string{false: "makes the user a memb
 DB.*, DB.TABLE or *.* (with --from-host for the account host). For ClickHouse:
 DB.*, DB.TABLE or *.*, or database:DB, table:DB.TABLE. Snowflake: not
 available (db user show reads them). BigQuery: not available (Google Cloud
-IAM). --dry-run shows the statement.`,
-		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public
-  komando db ` + verb + ` prod-db app_ro --role readers
-  komando db ` + verb + ` prod-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*'`,
+IAM). MongoDB: not available (db user show reads them; send grantRolesToUser
+with db query). --dry-run shows the statement.`,
+		Example: `  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --dry-run   # shows the statement
+  komando db ` + verb + ` prod-db app_ro --privileges SELECT --on all-tables:public --allow-dangerous
+  komando db ` + verb + ` prod-db app_ro --role readers --allow-dangerous
+  komando db ` + verb + ` prod-db app --privileges SELECT,INSERT,UPDATE --on 'shop.*' --allow-dangerous`,
 		Args: cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
 			gr := dbx.Grant{User: args[1], Host: host, On: on, Role: role, Revoke: revoke}
@@ -199,7 +210,10 @@ IAM). --dry-run shows the statement.`,
 			if privs != "" && on == "" {
 				return out.Usage("--privileges needs --on OBJECT").WithHint(ex)
 			}
-			v := driver.Verdict{Risk: driver.RiskWrite, RuleIDs: []string{"db-grant"}, Reasons: []string{"db " + verb + " for " + args[1]}}
+			// the same tier as GRANT and REVOKE in `db query` (sql-privileges)
+			askTypes(cl, args[1:2], "users")
+			v := driver.Verdict{Risk: driver.RiskDestructive, RuleIDs: []string{"db-grant", "sql-privileges"},
+				Reasons: []string{"db " + verb + " for " + args[1] + ": " + driver.RuleReason("sql-privileges")}}
 			return changeDB(cl, cmd.Context(), "db."+verb, args[0], v, map[string]any{"user": args[1]},
 				func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 					stmt, err := dbx.GrantSQL(ctx, db, c.Kind, gr)
@@ -235,6 +249,9 @@ func dbUserShowCmd() *cobra.Command {
 		Example: "  komando db user show prod-db app_ro",
 		Args:    cobra.ExactArgs(2),
 		RunE: inCall(func(cl *call, cmd *cobra.Command, args []string) error {
+			if st, c, ok := mongoConn(cl, args[0]); ok {
+				return runMongoUserShow(cl, cmd.Context(), st, c, args[1])
+			}
 			return readDB(cl, cmd.Context(), "db.user.show", args[0], func(ctx context.Context, c *store.Conn, db *sql.DB) (any, error) {
 				rows, err := dbx.Grants(ctx, db, c.Kind, args[1], host, connTimeout(cl, c))
 				if err != nil {

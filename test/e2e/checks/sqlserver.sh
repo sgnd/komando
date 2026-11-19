@@ -45,8 +45,8 @@ check "sqlserver explain ran nothing" 2 "$($K db query shop-mssql 'select count(
 check "sqlserver sizes lists the table" True "$($K db sizes shop-mssql | jget 'any(t["name"] == "orders" for t in d["data"]["tables"])')"
 check "sqlserver activity answers" True "$($K db activity shop-mssql --all | jget 'd["ok"]')"
 check "sqlserver kill needs --session" NOT_SUPPORTED "$($K db kill shop-mssql 99 | jget 'd["error"]["code"]')"
-q $K db user add shop-mssql sales_ro --password-ref secret:mssql-ro
-q $K db grant shop-mssql sales_ro --privileges SELECT --on schema:dbo
+q $K db user add shop-mssql sales_ro --password-ref secret:mssql-ro --allow-dangerous
+q $K db grant shop-mssql sales_ro --privileges SELECT --on schema:dbo --allow-dangerous
 q $K conn add ro-mssql 'sqlserver://sales_ro@mssql:1433/e2e_sales' --via bastion --password-ref secret:mssql-ro
 check "sqlserver: the new user logs in with the vault password" 2 "$($K db query ro-mssql 'select count(*) from dbo.orders' | jget 'd["data"]["results"][0]["rows"][0][0]')"
 check "sqlserver: and may only read what was granted" False "$($K db query ro-mssql --write "insert into dbo.orders (item) values (N'x')" | jget 'd["ok"]')"

@@ -475,3 +475,28 @@ func TestBucketSideCloseWaitsForTheDownload(t *testing.T) {
 		t.Fatal("a call went to the conn while the download was still finishing")
 	}
 }
+
+// An AI agent's masked storage download that stops before the end (here a
+// file too large to read for personal data) leaves the conn free for the
+// next call: getMasked waits for its download to end (C122).
+func TestGetMaskedWaitsForTheDownload(t *testing.T) {
+	saved := tcl.out
+	t.Cleanup(func() { tcl.out = saved })
+	tcl.out = &out.Printer{Format: "json", W: io.Discard, Mask: true, Personal: true}
+	big := strings.Repeat("\x00", hiddenScanMax+1<<20)
+	b := &oneLineBucket{memBucket: &memBucket{objs: map[string]string{"big.bin": big}}}
+	f, err := os.Create(filepath.Join(t.TempDir(), "big.bin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if _, _, err := getMasked(tcl, context.Background(), b, "big.bin", f, nil); err == nil {
+		t.Fatal("a file too large to read for personal data was saved")
+	}
+	if _, err := b.Stat(context.Background(), "big.bin"); err != nil {
+		t.Fatal(err)
+	}
+	if b.crossed {
+		t.Fatal("a call went to the conn while the download was still finishing")
+	}
+}

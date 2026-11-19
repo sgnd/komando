@@ -456,7 +456,7 @@ func swarmLogs(cl *call, ctx context.Context, t clusterTarget, service string, l
 		Protected: protectedHost(st, t.host), Tail: "Ctrl-C stops"})
 	lines := 0
 	var res *sshx.RunResult
-	var buf lineBuffer // whole lines, so a split secret is still redacted
+	buf := lineBuffer{mask: cl.out} // whole lines, so a split secret is still redacted
 	show := func(text string) {
 		if text == "" {
 			return
@@ -504,7 +504,8 @@ func swarmDo(cl *call, ctx context.Context, name string, t clusterTarget, line s
 	if err != nil {
 		return "", false, err
 	}
-	if risk >= driver.RiskDestructive && !cl.dangerOK() {
+	// the window an AI agent's --allow-dangerous opens says why it is asked
+	if risk >= driver.RiskDestructive && !cl.dangerOK(fmt.Sprintf("[%s] %s", name, why)) {
 		if cl.typed == nil {
 			askTypes(cl, []string{t.host.Name}, "servers") // the whole cluster: its manager's name
 		}

@@ -78,7 +78,7 @@ address, the way there (`--via`) and the command; the agent never sees
 the password. A cancel stops the command with `DECLINED`, and the window
 stays shut for that conn for a minute. A script, or an agent with no
 screen, gets `NEEDS_PERSON`. Only you set where the password goes: an AI
-agent that adds a login-ask conn, changes its URL or `--via`, turns one
+agent that adds a login-ask conn, changes its URL (its user too) or `--via`, turns one
 to `--login ask`, changes a server or VPN on its way, or replaces a
 secret its URL names (`ca=secret:`) gets `NEEDS_PERSON`; as for a stored
 password (above), every setting of the URL except the few that move
@@ -460,6 +460,30 @@ Plain SQL that psql and mysql can also read:
   question: run `komando db dump CONN` first yourself, then add
   `--allow-dangerous` (and `--yes` on a protected conn) after a person
   agrees.
+- The file that was checked is the file that is restored. komando keeps
+  a fingerprint of every part of the file from the check; a file that is
+  changed, replaced or made longer afterwards stops with `FILE_CHANGED`
+  (exit 8) before the changed part is sent, and before the database is
+  opened when the change came while you were asked. Run the restore
+  again: komando checks the file as it is now.
+- A MySQL `DELIMITER` after a statement on the same line is refused
+  (`UNSAFE_BACKUP`); mysqldump writes it on a line of its own.
+- A PostgreSQL archive (`--format custom`) is read too: komando checks the
+  SQL in its table of contents (pg_dump 9.5 to 17 archives) and names what
+  it does beyond writing data, as for plain SQL (`COPY ... PROGRAM`,
+  `GRANT`, ...). The line numbers count in that SQL, as `pg_restore -f -`
+  prints it. An archive komando cannot read (another version, cut short,
+  damaged) is refused (`BAD_FILE`). One whose table of contents holds
+  more than 256 MiB of SQL is refused with `FILE_TOO_LARGE`: dump fewer objects (`pg_dump -Fc -n
+  SCHEMA` or `-t TABLE`) and restore each part, or run `pg_restore` by
+  hand. One that keeps table data as SQL
+  (`pg_dump --inserts`) is named in the approval as SQL komando did not
+  read. A gzipped archive (`.dump.gz`) is refused: unpack it first.
+- A pg_dump tar archive (`-Ft`) or directory archive (`-Fd`) is refused
+  (`USAGE`) with its format named: komando does not check those formats.
+  Any other tar file is refused the same way.
+  Dump again with `--format custom` (`pg_dump -Fc`) or as plain SQL
+  (`pg_dump -Fp`).
 - PostgreSQL restores run in one transaction: if anything fails, nothing
   changes. MySQL runs the statements in order and stops at the first error;
   what ran before it stays (`RESTORE_FAILED`).
@@ -536,6 +560,9 @@ agrees.
   ends its session. There is no `db locks`.
 - On BigQuery the PID is a number `db activity` makes from the job ID;
   `db kill` cancels the job. There is no `--session` or `db locks`.
+- On MongoDB the PID is the operation's `opid` that `db activity` shows;
+  `db kill` stops that operation (`killOp`) and the client stays
+  connected. There is no `--session` or `db locks`.
 
 ## Users and grants
 
@@ -555,6 +582,11 @@ Typed alone, `komando db user add` asks which database, the user, then
 where the password is kept. To change the password of the conn's own
 user, see [Rotate passwords](rotate.md).
 
+- `db user add`, `db user passwd`, `db grant` and `db revoke` change who
+  may do what, like `GRANT` or `CREATE USER` sent with `db query`. At
+  your terminal komando asks you to type the user's name; scripts and AI
+  agents add `--allow-dangerous` after a person agrees (`POLICY_BLOCKED`
+  without it). `db user rm` asks the same.
 - Passwords come only from a secret reference. They are never typed on a
   command line, shown, or written to the audit log (`--dry-run` and the
   answer show `[hidden]`). PostgreSQL gets a SCRAM-SHA-256 verifier that
@@ -568,7 +600,12 @@ user, see [Rotate passwords](rotate.md).
   for ClickHouse [ClickHouse](#clickhouse). On Snowflake, `db user list` and
   `db user show` read; adding, changing and granting are not available. On
   BigQuery, users and rights are Google Cloud IAM, so these commands are
-  not available.
+  not available. On MongoDB, `db user list` shows the users of every
+  database (`usersInfo`, never their stored credentials) and `db user show
+  USER` (or `DB.USER`) their roles and the actions the roles give; adding,
+  changing and granting are not available (send `createUser` or
+  `grantRolesToUser` with `db query --write`, which needs
+  `--allow-dangerous`).
 - Adding users and grants are changes: a protected conn asks first.
   Removing a user is destructive: at your terminal you type the user's
   name; an AI agent or a script adds `--allow-dangerous` after a person
@@ -696,6 +733,9 @@ komando db schema shop-mongo orders               # fields and their types, from
 komando db info shop-mongo                        # version, primary or secondary, sizes
 komando db explain shop-mongo '{"find": "orders", "filter": {"status": "open"}}'   # the plan (--analyze: run it, with the numbers)
 komando db activity shop-mongo                    # what runs now (currentOp); --all for idle connections too
+komando db kill shop-mongo 12345 --dry-run        # the operation it would stop (the pid db activity shows)
+komando db user list shop-mongo                   # users of every database, and their roles
+komando db user show shop-mongo app               # what app may do
 ```
 
 - komando rates each command before it sends it, as it does SQL: `find`,
@@ -721,8 +761,11 @@ komando db activity shop-mongo                    # what runs now (currentOp); -
 - `db explain` takes a read (`find`, `aggregate`, `count`, `distinct`):
   `queryPlanner`, or with `--analyze` `executionStats`, which runs the read.
   A command that writes is refused.
-- For SQL databases only: `dump`, `restore`, `locks`, `sizes`, `kill`,
-  users and grants, and `db shell`. On MongoDB they say so
+- `db kill` stops one operation (`killOp`); there is no `--session`.
+  `db user list` and `db user show` read users; adding, changing and
+  granting go through `db query --write`.
+- For SQL databases only: `dump`, `restore`, `locks`, `sizes`, user
+  changes and grants, and `db shell`. On MongoDB they say so
   (`NOT_SUPPORTED`). For a backup, see
   [Back up and restore](#back-up-and-restore).
 

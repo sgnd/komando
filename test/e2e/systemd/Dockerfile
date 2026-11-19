@@ -2,7 +2,7 @@
 # against the real systemctl and journalctl. Never use in production.
 FROM debian:13-slim
 RUN apt-get update -q && apt-get install -y -q --no-install-recommends \
-      systemd systemd-sysv openssh-server sudo procps dbus \
+      systemd systemd-sysv libpam-systemd openssh-server sudo procps dbus \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -s /bin/bash agent && echo 'agent:agentpass' | chpasswd \
     && echo 'agent ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/agent \

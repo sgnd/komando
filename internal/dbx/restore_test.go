@@ -203,3 +203,16 @@ func TestSetTxTimeoutOff(t *testing.T) {
 		}
 	}
 }
+
+// A DELIMITER after a statement on the same line is not obeyed: the check
+// (driver.CheckRestore) and the restore read a file the same way.
+func TestScanMySQLDelimiterAfterStatement(t *testing.T) {
+	sc := newSQLScanner(strings.NewReader("SELECT 1; DELIMITER //\nSELECT 2 # ; DROP DATABASE shop //\n"), "mysql")
+	st, err := sc.next()
+	if err != nil || st.text != "SELECT 1" {
+		t.Fatalf("first statement: %+v %v", st, err)
+	}
+	if st, err := sc.next(); err == nil || !strings.Contains(err.Error(), "DELIMITER") {
+		t.Errorf("want the DELIMITER refused, got %+v %v", st, err)
+	}
+}

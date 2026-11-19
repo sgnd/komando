@@ -28,7 +28,7 @@ In JSON, `config show` gives each setting in `data.keys`.
 | Key | What it controls | Values | Default |
 |-----|------------------|--------|---------|
 | `host_key_policy` | what happens with a server komando has not seen before | `accept-new` (remember it and show its fingerprint), `strict` (refuse it until you run `komando host trust`), `off` (turns a check off) | `accept-new` |
-| `default_user` | login name when a server has none | a login name; empty = your own user name | (empty) |
+| `default_user` | login name when a server has none | a login name; empty = the account komando runs as (from the system, not `$USER`) | (empty) |
 | `default_timeout` | how long a command may run on each server | a duration above 0 (`30s`, `5m`, `1h`) | `5m` |
 | `connect_timeout` | how long to wait for a server to answer | a duration above 0 | `15s` |
 | `parallel` | how many servers to work on at once | 1 or more | `10` |
@@ -155,7 +155,7 @@ komando keeps your data sealed in one file:
 | `store.db` | servers, conns, VPNs, keys, recipes, settings, secrets, remembered server fingerprints and the history of every action, each record sealed (AES-256-GCM). Only a random ID, the kind, a version and the time of a change can be read without the key |
 | `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
 | `store.made` | a note that this folder has had a store. komando writes it with the store and keeps it, so a lost `store.db` is noticed (below). It holds no secret |
-| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the store's key) |
+| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the store's key; it opens only with the mark store.db keeps for it, so an old copy put back reads as empty) |
 | `runtime.pids` | only the process IDs of komando's own background work, so it can tell whether they still run without opening the store |
 | `vpn/`, `tunnels/`, `login/` | VPN, tunnel and server login logs (one that nothing running uses is removed after a week), and the state of built-in VPN clients |
 
@@ -336,7 +336,8 @@ To update komando itself, see [Install, update, remove](install.md#update).
   komando does, or reads `KOMANDO_VAULT_PASS` from the shell that started
   it. Only two things stop such a program: running it as another OS user
   (or in a container or virtual machine without your home folder and
-  keychain), or the signed komando Mac app, which keeps the key for itself.
+  keychain), or the signed komando Mac app (not released yet), which keeps
+  the key for itself.
 - One case komando cannot see when it stores a new key: an item in a
   KeePassXC database other than the default one, while that database is
   locked.

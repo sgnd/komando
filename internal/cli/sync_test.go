@@ -41,7 +41,7 @@ func TestSyncCopiesOnlyChanges(t *testing.T) {
 	writeTree(t, src, map[string]string{"a.txt": "one, longer"})
 	os.Remove(filepath.Join(src, "dir/b.txt"))
 	writeTree(t, dst, map[string]string{"extra.txt": "only in dst"})
-	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true, exclude: o.exclude})
+	r, _ = runSync(tcl, ctx, localSide{tcl, src}, localSide{tcl, dst}, "src", "dst", syncOpts{delete: true, exclude: o.exclude, emptied: []string{"dir"}}) // dir/ is empty on purpose (C124)
 	if r.Updated != 1 || r.Deleted != 2 {
 		t.Errorf("update + delete: %+v", r)
 	}

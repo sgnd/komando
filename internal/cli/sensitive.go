@@ -335,6 +335,75 @@ func readImportFile(cl *call, p string) ([]byte, error) {
 	return os.ReadFile(p)
 }
 
+// readKubeRefFile reads a file a kubeconfig names (client key and
+// certificate, CA, token file) as readImportFile does. For an AI agent it
+// may not come from a credential store other than ~/.kube, nor be an SSH
+// private key: import keeps it in the vault, so a key the agent may not
+// read would end up in komando's hands without the user (C113).
+func readKubeRefFile(cl *call, p string) ([]byte, error) {
+	if cl.isAgent() && p != "-" {
+		if why := kubeRefSecret(cl, p); why != "" {
+			return nil, out.Errf(out.ExitPolicy, "SENSITIVE_FILE",
+				"a kubeconfig's keys belong in ~/.kube or next to it; ask the user to run the import in their own terminal",
+				"the kubeconfig names %s, which is %s; komando does not copy it into the vault for an AI agent", p, why).NoFlag()
+		}
+	}
+	return readImportFile(cl, p)
+}
+
+// kubeRefSecret decides by the file a path reaches (links followed, hard
+// links compared): an SSH private key, or a credential store other than
+// ~/.kube, is refused; "" otherwise.
+func kubeRefSecret(cl *call, p string) string {
+	abs, err := filepath.Abs(expandHome(p))
+	if err != nil {
+		abs = p
+	}
+	real := realPath(abs)
+	for _, home := range guardHomes() {
+		for _, why := range []string{secretPath(cl, real, home), hardLinkSecret(cl, real, home), secretPath(cl, abs, home)} {
+			switch {
+			case why == komandoData || why == procEnv || why == "a private key":
+				return why
+			case why == "a credential store" && !inKubeDir(real, home):
+				return why
+			}
+		}
+	}
+	return ""
+}
+
+// inKubeDir: p is in home's ~/.kube, compared without ASCII case where the
+// file system ignores it (~/.KUBE/config on macOS). It lets a credential
+// store through, so only ASCII is folded: a lookalike such as the Kelvin
+// sign (~/.\u212Aube) is not let through.
+func inKubeDir(p, home string) bool {
+	for _, d := range []string{filepath.Join(realPath(home), ".kube"), filepath.Join(home, ".kube")} {
+		if caseFoldFS {
+			// byte for byte after lowering ASCII: filepath.Rel (pathIn) folds
+			// Unicode on Windows, which turns the Kelvin sign into k again
+			lp, ld := asciiLower(filepath.Clean(p)), asciiLower(filepath.Clean(d))
+			if lp == ld || strings.HasPrefix(lp, ld+string(filepath.Separator)) {
+				return true
+			}
+		} else if pathIn(p, d) {
+			return true
+		}
+	}
+	return false
+}
+
+// asciiLower lowers A to Z only; strings.ToLower also turns the Kelvin
+// sign into k.
+func asciiLower(p string) string {
+	return strings.Map(func(r rune) rune {
+		if 'A' <= r && r <= 'Z' {
+			return r + 'a' - 'A'
+		}
+		return r
+	}, p)
+}
+
 // skipLocalSecret reports whether a folder upload leaves a file out for an
 // AI agent, as folder downloads do; meta.skipped lists it.
 func skipLocalSecret(cl *call, p string) bool {
