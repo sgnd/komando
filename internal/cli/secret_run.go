@@ -176,6 +176,7 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 		}()
 	}
 	started, stop := forwardSignals()
+	runtime.LockOSThread() // Pdeathsig follows the thread that starts the program
 	err := c.Start()
 	if err == nil {
 		forget := runningPrograms.add(c.Process)
@@ -183,6 +184,7 @@ func startMasked(cl *call, c *exec.Cmd, prog string) error {
 		err = c.Wait()
 		forget()
 	}
+	runtime.UnlockOSThread()
 	stop()
 	stdoutW.Close()
 	stderrW.Close()
