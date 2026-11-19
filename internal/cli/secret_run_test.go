@@ -5,11 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/sgnd/komando/internal/store"
 	"github.com/sgnd/komando/internal/vault"
@@ -28,6 +33,11 @@ func TestRunChild(t *testing.T) {
 		}
 	}
 	fmt.Println("args " + strings.Join(os.Args[1:], " "))
+	if os.Getenv("RUN_CHILD_KILL") == "1" {
+		p, _ := os.FindProcess(os.Getpid())
+		p.Signal(syscall.SIGTERM)
+		time.Sleep(10 * time.Second)
+	}
 	code, _ := strconv.Atoi(os.Getenv("RUN_CHILD_EXIT"))
 	os.Exit(code)
 }
@@ -188,9 +198,93 @@ func TestRunAgentHomeFromAccount(t *testing.T) {
 	if err != nil {
 		t.Skip(err)
 	}
-	env := agentBaseEnv([]string{"HOME=/tmp/agent-home", "USER=agent", "LOGNAME=agent", "PAGER=less", "LANG=C"})
+	if runtime.GOOS == "linux" && !inPasswd(passwdPath, u.Uid) {
+		t.Skip("account not in /etc/passwd")
+	}
+	env, cleanup := agentBaseEnv(tcl, []string{"HOME=/tmp/agent-home", "USER=agent", "LOGNAME=agent", "PAGER=less", "LANG=C"})
+	defer cleanup()
 	got := strings.Join(env, "\n")
 	if strings.Contains(got, "agent") || !slices.Contains(env, "HOME="+u.HomeDir) || !slices.Contains(env, "LANG=C") || strings.Contains(got, "PAGER") {
 		t.Errorf("environment for an agent's run: %q", env)
+	}
+}
+
+func TestInPasswd(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "passwd")
+	if err := os.WriteFile(path, []byte("root:x:0:0:root:/root:/bin/sh\nann:x:1000:1000::/home/ann:/bin/bash\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if !inPasswd(path, "1000") || inPasswd(path, "1001") || inPasswd(path, "100") || inPasswd(filepath.Join(path, "none"), "0") {
+		t.Error("inPasswd")
+	}
+	dir, cleanup := freshHome(tcl)
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() || runtime.GOOS != "windows" && fi.Mode().Perm() != 0o700 {
+		t.Fatalf("fresh home %s: %v %v", dir, fi, err)
+	}
+	cleanup()
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Errorf("fresh home left behind: %v", err)
+	}
+}
+
+func TestRunArgRefsRefused(t *testing.T) {
+	for _, a := range []string{"secret:x", "env:PW", "--pw=vault:kv/db#pw", "op://v/i/f", "bw://i/f", "file:/x", "aws-sm:db"} {
+		if !argHasRef(a) {
+			t.Errorf("%q not refused", a)
+		}
+	}
+	for _, a := range []string{"-h", "http://example.com", "plain"} {
+		if argHasRef(a) {
+			t.Errorf("%q refused", a)
+		}
+	}
+}
+
+func TestRunExitAfterSignal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no signals")
+	}
+	runHome(t)
+	t.Setenv("RUN_CHILD_KILL", "1")
+	if _, exit, code := runOut(t, append([]string{"secret", "run"}, childArgs()...)...); exit != 128+15 {
+		t.Errorf("exit %d %s, want 143", exit, code)
+	}
+}
+
+func TestRunDryRunAsksNobody(t *testing.T) {
+	runHome(t)
+	texts := windowText(t, true)
+	d := mustRun(t, append([]string{"--dry-run", "secret", "run", "-e", "TOKEN=secret:tok", "--yes"}, childArgs()...)...)
+	if len(*texts) != 0 || d["dry_run"] != true {
+		t.Errorf("a dry run opened the window: %q %v", *texts, d)
+	}
+}
+
+func TestRunSecondStopEndsProgram(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no sleep program")
+	}
+	c := exec.Command("sleep", "30")
+	if err := c.Start(); err != nil {
+		t.Skip(err)
+	}
+	forget := runningPrograms.add(c.Process)
+	defer forget()
+	runningPrograms.killAll()
+	done := make(chan error, 1)
+	go func() { done <- c.Wait() }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the program still runs after killAll")
+	}
+}
+
+func TestRunCtrlCNotSentTwice(t *testing.T) {
+	if runtime.GOOS != "windows" && slices.Contains(forwardedSignals, os.Interrupt) {
+		t.Error("Ctrl-C reaches the program from the terminal; forwarding it makes a second one")
+	}
+	if argHasRef("file:///tmp/plan.json") || !argHasRef("--password=env:PW") || !argHasRef("file:token") {
+		t.Error("argHasRef")
 	}
 }

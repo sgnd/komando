@@ -343,7 +343,7 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 		host := c.Host.Name
 		// output is shown by whole lines: a secret split across two reads
 		// is still one piece when it is redacted
-		bufs := map[string]*lineBuffer{"stdout": {}, "stderr": {}}
+		bufs := map[string]*lineBuffer{"stdout": {mask: cl.out}, "stderr": {mask: cl.out}}
 		show := func(stream, text string) { // mu held
 			if text == "" {
 				return
@@ -471,8 +471,12 @@ func runFleet(cl *call, ctx context.Context, name, target, command string, stdin
 // past that the BEGIN line was only a mention (a log line, a grep). Then
 // the key-like lines after it are hidden and the rest goes out. Past
 // streamCap without a line end, all but the last streamKeep bytes go out
-// (a vault value is shorter than that).
-type lineBuffer struct{ buf []byte }
+// (or the longest hidden value, if longer). Before that cut the held text
+// goes through mask, when set, so no value can straddle the cut.
+type lineBuffer struct {
+	buf  []byte
+	mask *out.Printer
+}
 
 const (
 	streamCap  = 256 << 10
@@ -518,8 +522,12 @@ func (l *lineBuffer) add(chunk []byte) string {
 		if open >= 0 {
 			cut = open
 		}
-		if len(l.buf) > streamCap {
+		if len(l.buf) > streamCap && cut < len(l.buf)-streamKeep {
 			cut = max(cut, len(l.buf)-streamKeep)
+			if l.mask != nil { // redacting moves the line ends, so cut by length only
+				l.buf = []byte(l.mask.Redact(string(l.buf)))
+				cut = max(0, len(l.buf)-max(streamKeep, l.mask.Longest()))
+			}
 		}
 		ready.Write(l.buf[:cut])
 		l.buf = append(l.buf[:0], l.buf[cut:]...)

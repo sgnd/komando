@@ -98,12 +98,23 @@ your environment without komando's own `KOMANDO_*` variables and the
 values that unlock the vault.
 
 - A vault value the program prints shows as `[secret:NAME]`.
-- komando exits with the program's exit code.
+- komando exits with the program's exit code. On Linux and macOS, a
+  program ended by signal N makes komando exit 128+N (143 for `SIGTERM`),
+  as a shell does.
+- `SIGTERM` or `SIGHUP` to komando goes on to the program, so it does not
+  run on with the secrets. Ctrl-C at the terminal reaches the program by
+  itself, once. A second Ctrl-C ends komando at once and ends the program
+  first. On Windows komando ends the program.
+- Output lines longer than 256 KiB are cut, but never inside a hidden
+  value.
 - The audit log records the program's path, the variable names and the
   secret names, never a value.
 - `--dry-run` shows the program's path and which secret goes into which
-  variable, and reads no value.
-- A reference in the program's arguments is refused: put it in `--env`.
+  variable, and reads no value. It asks nobody: the approval the real run
+  needs is in `meta.would_need` and `meta.would_be_blocked`.
+- A reference of any form (`secret:`, `env:`, `file:`, `vault:`, `op://`,
+  ...) in the program's arguments is refused: put it in `--env`. A
+  `file://` URL is not a reference and passes.
 - An AI agent needs a person's yes for every secret (`SECRET_DESTINATION`):
   the program could print a value in a form masking does not know. The
   window names the secrets, the program's full path, the other `--env`
@@ -115,6 +126,10 @@ values that unlock the vault.
   code (`LD_PRELOAD`, `DYLD_*`, `NODE_OPTIONS`, `PYTHON*`, `BASH_ENV` and
   the like) are refused in `--env` (`USAGE`). The window shows the plain
   `--env` values.
+- On Linux, when your account is not in `/etc/passwd` (only LDAP or sssd
+  knows it), komando cannot read your account's `HOME`. The program then
+  gets an empty temporary `HOME` that komando removes afterwards, and
+  komando says so on stderr.
 - If the program file changes between the check and the start, komando
   stops (`TOOL_MISSING`) and the program does not run. On Linux komando
   starts the file it checked, through the open file.
