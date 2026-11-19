@@ -300,6 +300,7 @@ var errorCodes = []errorCode{
 	{"VPN_DOWN", 4, "VPN … did not start: …", "the message ends with its log; `komando vpn test …` tries again, and a person reads the whole log in …"},
 	{"VPN_EXISTS", 8, "… … already exists", "use `komando … edit` or pass --overwrite to replace it"},
 	{"VPN_IN_USE", 8, "VPN … is on the --via path of …", "change their --via first: `komando host edit TARGET --via OTHER`"},
+	{"VPN_KEY_IN_USE", 8, "VPN …: its WireGuard key is in use by komando process … (VPN …, komando home …)", "one WireGuard key runs in one session at a time: stop the other with `…`, or give this VPN a key of its own with `komando vpn add … wireguard --config FILE`"},
 	{"VPN_LOGIN_REQUIRED", 4, "VPN … is not connected and needs a person to log in", "ask a person to run `komando vpn up …` (it needs their login); then run it again"},
 	{"VPN_NOT_FOR_OPENSSH", 2, "VPN … (…) runs inside komando; OpenSSH cannot use it", "use `komando shell SERVER` (it opens the VPN itself), or connect the VPN on this computer and leave it out of --via"},
 	{"VPN_STOP_FAILED", 1, "could not disconnect …: …", "run `komando vpn down …` again; if it still fails, end process … yourself"},

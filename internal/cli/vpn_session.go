@@ -181,14 +181,7 @@ func startSession(cl *call, ctx context.Context, st *store.State, v *store.Vpn, 
 	timeout := 60 * time.Second
 	switch {
 	case v.Kind == "wireguard":
-		pid, addr, err := spawnServe(ctx, v.Name, logFile, 15*time.Second, s)
-		if err != nil {
-			return nil, err
-		}
-		s.PID, s.Socks = pid, addr
-		if self, err := os.Executable(); err == nil {
-			s.Exe = filepath.Base(self)
-		}
+		return startWGSession(cl, ctx, v, logFile, s)
 	case v.Kind == "tailscale":
 		if v.MFA { // no auth key: a person logs in through the browser first
 			err := netx.TailscaleLogin(ctx, v, func(url string) {
@@ -725,6 +718,11 @@ type vpnStatusRow struct {
 	Detail   string    `json:"detail,omitempty"`   // how "up" was seen, or why not
 	LastEnd  string    `json:"last_end,omitempty"` // why its last session ended, from the session log
 	LastLog  []string  `json:"last_log,omitempty"` // l2tp, ipsec, ikev2: the last lines of that log (no secrets in it)
+	// WireGuard sessions: the last handshake, its age in seconds, and
+	// whether it is older than wgDeadAfter (or none came at all)
+	LastHandshake time.Time `json:"last_handshake_at,omitzero"`
+	HandshakeAge  int64     `json:"handshake_age_seconds,omitempty"`
+	TunnelDead    bool      `json:"tunnel_dead,omitempty"`
 }
 
 func vpnStatusCmd() *cobra.Command {

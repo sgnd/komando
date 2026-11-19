@@ -46,6 +46,11 @@ func vpnServeCmd() *cobra.Command {
 			if !ok {
 				return fail(errors.New("no such VPN"))
 			}
+			hold, err := holdWGKey(v)
+			if err != nil {
+				return fail(err)
+			}
+			defer hold.release()
 			ctx := cmd.Context()
 			started := time.Now()
 			d, closer, err := netx.OpenDirect(ctx, v, sshOpts(cl, st).ConnectTimeout)
@@ -57,6 +62,7 @@ func vpnServeCmd() *cobra.Command {
 			if err != nil {
 				return fail(err)
 			}
+			hold.serving(ln.Addr().String(), closer)
 			fmt.Fprintf(cl.out.W, "READY %s\n", ln.Addr())
 			idle, _ := time.ParseDuration(st.Settings.VpnIdle)
 			var use sessionUse

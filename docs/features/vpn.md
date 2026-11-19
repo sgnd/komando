@@ -137,6 +137,13 @@ How long a VPN stays up depends on its kind:
 - **WireGuard** connects for each command, so nothing stays running.
   After `komando vpn up office`, a WireGuard VPN is kept up and reused
   like a session, which saves a handshake on every command.
+  One WireGuard key runs in one session at a time on this computer, for
+  every komando home of your user. A second `vpn up` with the same key
+  reuses the running session when it belongs to the same home and
+  answers (`shared_with` names the VPN it shares); otherwise it stops with
+  `VPN_KEY_IN_USE`, which names the other process and its home. A lock
+  whose process has ended is taken over. `vpn down` on either VPN stops
+  the shared session.
 - **SOCKS, HTTP proxy and `system`** VPNs are already running; komando
   only uses them.
 
@@ -198,7 +205,12 @@ komando vpn edit tag:prod --protected         # mark VPNs protected (like host e
 - `vpn status`: a session VPN is up while its session runs; a SOCKS or
   HTTP proxy VPN when its address answers; a `system` VPN when its
   `--check` address answers. WireGuard connects for each command, unless
-  you ran `komando vpn up` for it: then it stays up like a session.
+  you ran `komando vpn up` for it: then it stays up like a session, and
+  `vpn status` shows how long ago its last WireGuard handshake was
+  (`last_handshake_at`, `handshake_age_seconds`). With no handshake for 3
+  minutes, it says the tunnel looks dead (`tunnel_dead: true`). A tunnel
+  without `PersistentKeepalive` that nothing used for a while also stops
+  handshaking, so check it with `komando vpn test NAME`.
 - `vpn rm` refuses a VPN that is still on a `--via` path (`VPN_IN_USE`, also
   with `--dry-run`). Change those `--via` paths first. Its answer lists the
   VPNs it removed (`removed`, always a list); `--dry-run` lists them as
@@ -428,6 +440,7 @@ komando test office
 | `VPN_LOGIN_REQUIRED` (exit 4) | the VPN needs a person's login and has no session | a person runs `komando vpn up NAME` |
 | `VPN_CLIENT_MISSING` (exit 3) | `openconnect` or `ocproxy` is not installed | install the program the message names |
 | `VPN_IN_USE` (exit 8) | `vpn rm` on a VPN still on a `--via` path | change those `--via` paths first |
+| `VPN_KEY_IN_USE` (exit 8) | another komando session runs the same WireGuard key (another home, or one that does not answer) | stop it with the `vpn down` command the hint names, or give this VPN its own key |
 | `VPN_CONFIG` (exit 2) | the stored settings or config file are wrong | fix them with `komando vpn add NAME ... --overwrite` |
 | `OVPN_UNSUPPORTED` (exit 2) | the OpenVPN profile has an option komando's client does not support | change the profile; the message names the option |
 | `SECRET_EXISTS` (exit 8) | a vault secret with the VPN's name exists already | pick another VPN name, or move the secret away first |

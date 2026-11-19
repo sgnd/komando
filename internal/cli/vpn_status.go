@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"net"
 	"os"
@@ -19,6 +20,9 @@ import (
 
 // vpnDialCheck is how long `vpn status` waits for an address to answer.
 const vpnDialCheck = 1500 * time.Millisecond
+
+// vpnNow is the clock of `vpn status`; tests set it.
+var vpnNow = time.Now
 
 // vpnReachable reports, for the kinds komando does not run itself (socks
 // and system), whether the VPN answers right now, and how that was seen.
@@ -77,6 +81,9 @@ func vpnStatusRows(st *store.State) []vpnStatusRow {
 		if s := st.Sessions[v.Name]; s != nil && netx.SessionAlive(s) {
 			r.Up, r.Since, r.LastUsed, r.Socks = true, s.StartedAt, s.LastUsed, s.Socks
 			r.Detail = "session running"
+			if v.Kind == "wireguard" {
+				wgHealth(&r, readHandshake(cmp.Or(s.SharedWith, v.Name)), s.StartedAt, vpnNow())
+			}
 		} else if v.Kind == "socks" || v.Kind == "proxy" || v.Kind == "system" {
 			rows[i] = r // before the check fills it, not after (a lost answer read "no")
 			wg.Add(1)

@@ -224,6 +224,31 @@ type wgCloser struct{ dev *device.Device }
 
 func (w wgCloser) Close() error { w.dev.Close(); return nil }
 
+// LastHandshake is the newest handshake with any peer; zero before the first.
+func (w wgCloser) LastHandshake() time.Time {
+	conf, err := w.dev.IpcGet()
+	if err != nil {
+		return time.Time{}
+	}
+	return lastHandshake(conf)
+}
+
+// lastHandshake reads the newest last_handshake_time_sec of a UAPI dump.
+func lastHandshake(uapi string) time.Time {
+	var newest int64
+	for _, line := range strings.Split(uapi, "\n") {
+		if v, ok := strings.CutPrefix(line, "last_handshake_time_sec="); ok {
+			if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > newest {
+				newest = n
+			}
+		}
+	}
+	if newest == 0 {
+		return time.Time{}
+	}
+	return time.Unix(newest, 0)
+}
+
 // StartWG brings up a userspace WireGuard device for c and returns a
 // dialer into its network.
 func StartWG(c *WGConfig) (Dialer, io.Closer, error) {

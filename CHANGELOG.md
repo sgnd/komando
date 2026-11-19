@@ -7,6 +7,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+### Added
+
+- `komando vpn status` shows a WireGuard session's last handshake and its
+  age, and says when the tunnel looks dead (no handshake for 3 minutes).
+  JSON: `last_handshake_at`, `handshake_age_seconds` and `tunnel_dead`.
+
 ### Security
 
 - `komando secret run` for an AI agent with secrets: `--env` may not set
@@ -28,6 +34,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- A second WireGuard session with the same key (another komando home,
+  or another VPN entry) no longer fights the first over the peer. A
+  per-user lock outside any home records the session by its public key;
+  `vpn up` reuses a running session of the same home and otherwise stops
+  with the new code `VPN_KEY_IN_USE`. A lock of an ended process is taken
+  over.
 - `db restore`: an archive whose table of contents holds more than 256 MiB
   of SQL is refused with `FILE_TOO_LARGE` (was `BAD_FILE`), naming the
   limit and a way forward instead of asking for the same dump again. Any
