@@ -75,6 +75,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- Output no longer hides an ordinary word because a secret has the same
+  value: a secret of only letters shorter than 10 (`shared`) is hidden
+  only where a pattern finds it as a password, not in every sentence
+  (C186). See [Secrets limits](docs/features/secrets.md#limits).
 - A second WireGuard session with the same key (another komando home,
   or another VPN entry) no longer fights the first over the peer. A
   per-user lock outside any home records the session by its public key;

@@ -281,6 +281,13 @@ command the user runs in their own terminal.
 
 - Hiding a value in a server's output is a best effort (see
   [Safety](safety.md#limits)).
+- A secret shorter than 6 characters, or one of only letters shorter than
+  10 (`shared`, `sunshine`), is not hidden wherever it appears, and a
+  copied file or an agent's command that holds it is not stopped or noted
+  for it: it is an ordinary word, and hiding it would garble komando's own
+  notes. It is
+  still hidden where it is given as a password (`password=sunshine`). Use
+  a longer secret, or one with a digit or a symbol.
 - A secret from a password manager (`vault:`, `op://` ...) is read when
   needed and never stored, so that manager must be reachable each time.
 - A vault whose key is in the keychain opens only where that keychain is

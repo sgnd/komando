@@ -20,6 +20,28 @@ type hidden struct {
 // ordinary words and garble output.
 const minSecret = 6
 
+// minWord is the shortest value made only of letters that is hidden: a
+// shorter one is an ordinary word ("shared") that komando's own notes use
+// too, and hiding it there garbles them. Such a value is still hidden where
+// a pattern finds it (password=shared).
+const minWord = 10
+
+// hideable reports whether v is long enough to hide wherever it appears.
+func hideable(v string) bool {
+	if len(v) < minSecret {
+		return false
+	}
+	if len(v) >= minWord {
+		return true
+	}
+	for _, r := range v {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Printer) load() {
 	p.hmu.RLock()
 	loaded := p.loaded
@@ -76,7 +98,7 @@ func keepOnly(hide []hidden, keep func(*hidden) bool) []hidden {
 // both forget it (ForgetAdded, SetSecrets), under the vault's name while
 // the vault holds it. p.hmu is held.
 func (p *Printer) addLocked(v, label string, added bool) {
-	if len(v) < minSecret {
+	if !hideable(v) {
 		return
 	}
 	vault := !added
