@@ -12,8 +12,12 @@ its highlights; the sections below them give the details. Versions follow
 - `komando run --env KEY=secret:NAME -- PROGRAM` starts a program on this
   computer with vault secrets in its environment, never in its command line.
   Its output is masked and komando exits with its exit code. An AI agent
-  needs a person's yes for every secret. `run` is no longer a name for
-  `exec`.
+  needs a person's yes for every secret.
+
+### Changed for scripts and agents
+
+- `run` is no longer a name for `exec`: `komando run SERVER -- CMD` stops
+  with `USAGE` and runs nothing. Use `komando exec SERVER -- CMD`.
 
 ## [0.15.0] - 2026-11-19
 
