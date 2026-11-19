@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -196,58 +197,32 @@ func testView(agent string, flags []string, what string, why []string, line, bod
 	return v
 }
 
-// An alert cannot scroll: a long script shows shownMax lines and says how
-// many it left out; the line a deny rule matches is always shown, with
-// one line before and after it; the caption keeps the full SHA-256.
-func TestApprovalShownCap(t *testing.T) {
-	script := func(n, risky int) approvalView {
-		var body strings.Builder
-		body.WriteString("It also sends the script ./long.sh (100 bytes, " + strconv.Itoa(n) + " lines, SHA-256 " + strings.Repeat("ab", 32) + "), all of it:\n\n")
+// A script the window can show whole (bodyMaxLines) shows every line;
+// one line more opens no window (approval_body.go refuses it).
+func TestApprovalScriptWhole(t *testing.T) {
+	script := func(n int) []byte {
+		var b strings.Builder
 		for i := 1; i <= n; i++ {
-			l := "echo step " + strconv.Itoa(i)
-			if i == risky {
-				l = "dd if=/dev/zero of=/dev/sda"
-			}
-			fmt.Fprintf(&body, "  %2d  %s\n", i, l)
+			fmt.Fprintf(&b, "echo step %d\n", i)
 		}
-		return testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test --script ./long.sh", body.String())
+		return []byte(b.String())
 	}
-	for _, tc := range []struct {
-		name        string
-		n, risky    int
-		lines, more string
-	}{
-		{"fits", 6, 0, "", ""},
-		{"long, risk near the top", 40, 3, "", "(33 more lines)"},
-		{"long, risk far down", 40, 30, "(25 lines not shown)", "(9 more lines)"},
-		{"long, risk last", 40, 40, "(35 lines not shown)", ""},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			v := script(tc.n, tc.risky)
-			shown := v.shown()
-			rows := strings.Split(shown, "\n")
-			if len(rows) > shownMax+2 {
-				t.Errorf("%d rows:\n%s", len(rows), shown)
-			}
-			if !strings.Contains(shown, "SHA-256: "+strings.Repeat("ab", 32)) {
-				t.Errorf("no full SHA-256:\n%s", shown)
-			}
-			if tc.risky > 0 && !strings.Contains(shown, "of=/dev/sda") {
-				t.Errorf("the risky line is not shown:\n%s", shown)
-			}
-			if tc.risky > 1 && !strings.Contains(shown, fmt.Sprintf("  %2d  echo step %d", tc.risky-1, tc.risky-1)) {
-				t.Errorf("no line before the risky one:\n%s", shown)
-			}
-			if tc.risky > 0 && tc.risky < tc.n && !strings.Contains(shown, fmt.Sprintf("  %2d  echo step %d", tc.risky+1, tc.risky+1)) {
-				t.Errorf("no line after the risky one:\n%s", shown)
-			}
-			if (tc.lines != "") != strings.Contains(shown, "lines not shown") || (tc.lines != "" && !strings.Contains(shown, tc.lines)) {
-				t.Errorf("want %q:\n%s", tc.lines, shown)
-			}
-			if (tc.more != "") != strings.Contains(shown, "more lines") || (tc.more != "" && !strings.HasSuffix(shown, tc.more)) {
-				t.Errorf("want %q at the end:\n%s", tc.more, shown)
-			}
-		})
+	text, bad := newBody("the script ./a.sh", script(bodyMaxLines), false).shown(tcl)
+	if bad != "" {
+		t.Fatalf("%d lines refused: %s", bodyMaxLines, bad)
+	}
+	v := testView("Codex", nil, "", []string{"it runs on web-1.example.test"}, "komando exec web-1.example.test --script ./a.sh", text)
+	shown := v.details()
+	for i := 1; i <= bodyMaxLines; i++ {
+		if !strings.Contains(shown, fmt.Sprintf("echo step %d\n", i)) && !strings.HasSuffix(shown, fmt.Sprintf("echo step %d", i)) {
+			t.Errorf("line %d is not shown", i)
+		}
+	}
+	if !strings.Contains(shown, "Script ./a.sh: 40 lines, ") || !regexp.MustCompile(`SHA-256: [0-9a-f]{64}\n`).MatchString(shown) {
+		t.Errorf("caption:\n%s", shown)
+	}
+	if _, bad := newBody("the script ./a.sh", script(bodyMaxLines+1), false).shown(tcl); bad == "" {
+		t.Errorf("%d lines get a window", bodyMaxLines+1)
 	}
 }
 
@@ -275,3 +250,16 @@ func TestRiskWords(t *testing.T) {
 
 // No row of the command box is wider than boxCols, so it never scrolls
 // sideways; a wrapped row hangs under the text, after a script line's
+
+// The Windows dialog grows with its text; on a screen too small for it,
+// the text area shrinks and scrolls, and the window fits the screen.
+func TestWinLayoutFit(t *testing.T) {
+	l := winLayout{titleH: 20, textH: 800, height: 850}
+	if got := l.fit(1000); got != l {
+		t.Errorf("fits, changed: %+v", got)
+	}
+	got := l.fit(600)
+	if !got.scroll || got.height != 600 || got.textH != 550 {
+		t.Errorf("too tall: %+v", got)
+	}
+}

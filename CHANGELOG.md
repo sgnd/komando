@@ -28,10 +28,8 @@ its highlights; the sections below them give the details. Versions follow
   db-2.example.test", "Change 4 servers"), then "Asked by" the agent,
   "Status: Protected", one "Risk:" line per risk in plain words ("Deletes
   a system folder recursively (rm -rf)", no rule ids) and one "Skips:"
-  line, then the command. A script shows its line count, size and full
-  SHA-256, and at most 12 lines: the line a deny rule matched is always
-  shown with one line around it, and the window says how many lines it
-  left out. Deny stays the default and the Esc key, and the window still
+  line, then the command. A script shows its line count, size, full
+  SHA-256 and every line, as before (a longer one opens no window). Deny stays the default and the Esc key, and the window still
   closes itself after 2 minutes.
 
 ### Security

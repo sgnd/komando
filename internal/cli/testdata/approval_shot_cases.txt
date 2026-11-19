@@ -28,11 +28,27 @@ SHA-256: 4be1
    5  APP_MODE=production
    6  EOF
    7  systemctl stop app
-(17 more lines)
+   8  cd /srv/app
+   9  tar -xzf /tmp/release.tgz
+  10  for f in migrations/*.sql; do
+  11    psql -d app -f "$f"
+  12  done
+  13  chown -R deploy:deploy /srv/app
+  14  systemctl start app
+  15  for i in 1 2 3 4 5; do
+  16    curl -fsS http://127.0.0.1:8080/health && break
+  17    sleep 2
+  18  done
+  19  journalctl -u app -n 20 --no-pager
+  20  rm -f /tmp/release.tgz
+  21  echo migrated
+  22  date -u
+  23  uptime
+  24  exit 0
 [owner]
 komando: allow web-1.example.test
 [windows sizes]
-20/256/306
+20/512/562
 
 [title]
 Run a command on web-1.example.test

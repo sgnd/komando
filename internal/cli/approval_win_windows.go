@@ -58,6 +58,7 @@ const (
 	esReadOnly     = 0x0800
 	esPassword     = 0x0020
 	esAutoHScroll  = 0x0080
+	wsVScroll      = 0x00200000
 	ssNoPrefix     = 0x0080 // a "&" in the text shows as itself
 	bsPushButton   = 0x0000
 	bsDefPush      = 0x0001
@@ -221,13 +222,14 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	winAnswer, winCode, winCodeEdit, winAllowBtn = idDeny, "", 0, 0
 	const pad, btnW, btnH, codeH = winPad, 110, 28, 24
 
-	l := winLayoutFor(v)
-	h := l.height + btnH + pad + 40 // 40: the title bar and borders
-	if withCode {
-		h += codeH + pad
-	}
 	sw, _, _ := procGetSystemMetrics.Call(smCxScreen)
 	sh, _, _ := procGetSystemMetrics.Call(smCyScreen)
+	extra := btnH + pad + 40 // 40: the title bar and borders
+	if withCode {
+		extra += codeH + pad
+	}
+	l := winLayoutFor(v).fit(int(sh) - 60 - extra)
+	h := l.height + extra
 	title, _ := windows.UTF16PtrFromString("komando needs your OK")
 	hwnd, _, _ := procCreateWindowExW.Call(wsExTopmost|wsExDlgModal, uintptr(unsafe.Pointer(winClass)), uintptr(unsafe.Pointer(title)),
 		wsOverlapped|wsCaption|wsSysMenu, (sw-winW)/2, (sh-uintptr(h))/2, winW, uintptr(h), 0, 0, uintptr(inst), 0)
@@ -293,7 +295,13 @@ type winChild func(class, label string, style, f uintptr, x, y, cw, ch int, id u
 func winContent(v approvalView, l winLayout, child winChild, font, bold uintptr) int {
 	child("STATIC", v.title(), ssNoPrefix, bold, winPad, winPad, winInner, l.titleH, 0)
 	y := winPad + l.titleH + winPad/2
-	child("STATIC", v.details(), ssNoPrefix, font, winPad, y, winInner, l.textH, 0)
+	if l.scroll {
+		// taller than the screen: every line stays in the dialog, in a
+		// read-only text box that scrolls down
+		child("EDIT", v.details(), esMultiline|esReadOnly|wsVScroll|wsTabStop, font, winPad, y, winInner, l.textH, 0)
+	} else {
+		child("STATIC", v.details(), ssNoPrefix, font, winPad, y, winInner, l.textH, 0)
+	}
 	return y + l.textH + winPad
 }
 

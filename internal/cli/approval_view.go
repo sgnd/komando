@@ -284,7 +284,21 @@ const (
 	winTextCols  = 66 // characters on a row, kept low so wrapped text is never cut
 )
 
-type winLayout struct{ titleH, textH, height int }
+type winLayout struct {
+	titleH, textH, height int
+	scroll                bool // the text is taller than the screen allows
+}
+
+// fit shrinks the text area so the window is at most maxH tall; the text
+// then scrolls, every line still in the dialog.
+func (l winLayout) fit(maxH int) winLayout {
+	if over := l.height - maxH; over > 0 && l.textH-over >= 4*winRowH {
+		l.textH -= over
+		l.height -= over
+		l.scroll = true
+	}
+	return l
+}
 
 func winLayoutFor(v approvalView) winLayout {
 	var l winLayout

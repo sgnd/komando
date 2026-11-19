@@ -1,12 +1,9 @@
 package cli
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/sgnd/komando/internal/policy"
 )
 
 // The approval window's words: the plain lines under the title, and the
@@ -118,45 +115,11 @@ func (v approvalView) details() string {
 	return strings.Join(b, "\n") + "\n\n" + v.shown()
 }
 
-// shownMax is how many lines of the command a window shows: an alert
-// cannot scroll, so a longer command or script is cut, keeping the line a
-// deny rule matched with one line around it.
-const shownMax = 12
-
-// shown is the command as the window shows it, at most shownMax lines
-// and the notes that say what was left out.
+// shown is the command as the window shows it: every line. A body
+// reaches the window only when approval_body.go can show it whole
+// (bodyMaxLines); a longer one opens no window at all.
 func (v approvalView) shown() string {
-	lines := strings.Split(v.command(), "\n")
-	if len(lines) <= shownMax {
-		return strings.Join(lines, "\n")
-	}
-	head := lines[:shownMax]
-	var out []string
-	r := riskyIndex(lines)
-	if r >= shownMax-1 {
-		head = lines[:shownMax-4]
-		out = append(out, head...)
-		out = append(out, fmt.Sprintf("(%d lines not shown)", r-1-len(head)))
-		end := min(r+2, len(lines))
-		out = append(out, lines[r-1:end]...)
-		if left := len(lines) - end; left > 0 {
-			out = append(out, fmt.Sprintf("(%d more lines)", left))
-		}
-		return strings.Join(out, "\n")
-	}
-	out = append(out, head...)
-	out = append(out, fmt.Sprintf("(%d more lines)", len(lines)-shownMax))
-	return strings.Join(out, "\n")
-}
-
-// riskyIndex is the first line a deny rule matches, or -1.
-func riskyIndex(lines []string) int {
-	for i, l := range lines {
-		if len(policy.Check(l, nil)) > 0 {
-			return i
-		}
-	}
-	return -1
+	return v.command()
 }
 
 // command is the command line, then the body, as sent; a body's
