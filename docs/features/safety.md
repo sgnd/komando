@@ -238,7 +238,7 @@ The approval window speaks English or Indonesian. `komando config set approval_l
 | Asked by Claude Code | Diminta oleh Claude Code |
 | Targets: / Status: Protected | Target: / Status: Dilindungi |
 | Risk: Deletes a system folder recursively (rm -rf) | Risiko: Menghapus folder sistem secara rekursif (rm -rf) |
-| Skips: / Options: / Command: / Script: | Melewati: / Opsi: / Perintah: / Skrip: |
+| Skips: / Options: / Command: / Script: | Pengecekan dilewati: / Opsi: / Perintah: / Skrip: |
 | Deny / Allow once | Tolak / Izinkan sekali |
 | komando: allow web-1 (the Touch ID prompt) | komando: izinkan web-1 |
 

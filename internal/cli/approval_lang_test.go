@@ -93,7 +93,7 @@ func TestApprovalViewIndonesian(t *testing.T) {
 	}
 	want := "Diminta oleh Codex\nTarget: web-1.example.test, db-1.example.test\nStatus: Dilindungi\n" +
 		"Risiko: Menghapus folder sistem secara rekursif (rm -rf)\nRisiko: Menghapus database (DROP DATABASE)\n" +
-		"Melewati: pengecekan perintah berbahaya\nOpsi: --user deploy\n\nPerintah: rm -rf /etc/x"
+		"Pengecekan dilewati: pengecekan perintah berbahaya\nOpsi: --user deploy\n\nPerintah: rm -rf /etc/x"
 	if got := v.details(); got != want {
 		t.Errorf("details:\n%s\nwant:\n%s", got, want)
 	}
@@ -173,7 +173,7 @@ func TestApprovalWindowGoldenIndonesian(t *testing.T) {
 		t.Fatal(err)
 	}
 	for l := range strings.SplitSeq(string(b), "\n") {
-		if strings.HasPrefix(l, "Risiko:") || strings.HasPrefix(l, "Melewati:") || strings.HasPrefix(l, "Status:") {
+		if strings.HasPrefix(l, "Risiko:") || strings.HasPrefix(l, "Pengecekan dilewati:") || strings.HasPrefix(l, "Status:") {
 			if n := len([]rune(l)); n > winTextCols {
 				t.Errorf("%d columns: %s", n, l)
 			}
