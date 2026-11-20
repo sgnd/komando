@@ -82,6 +82,9 @@ func (v approvalView) text() string {
 	if v.What != "" {
 		text += "This also lets through:\n\n" + v.What + "\n\n"
 	}
+	for _, e := range encodedRisks(v.Line, v.Body, "en") {
+		text += e + "\n\n"
+	}
 	text += "Allow this once?\n\n"
 	for _, w := range v.Reasons {
 		text += "Why komando asks: " + w + "\n"

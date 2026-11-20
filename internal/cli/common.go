@@ -311,6 +311,9 @@ func guard(cl *call, st *store.State, hosts []*store.Host, command string, mutat
 			}
 		}
 	}
+	if err := refuseEncodedSecret(command); err != nil {
+		return err
+	}
 	if command != "" {
 		hits := policy.Check(command, st.Settings.ExtraDenyPattern)
 		ids := make([]string, len(hits))
