@@ -198,6 +198,9 @@ type Meta struct {
 	// without making them (a MySQL DDL statement commits by itself); the
 	// rest of the preview holds, these were not checked.
 	NotSimulated []string `json:"not_simulated,omitempty"`
+	// BodySHA256: the full SHA-256, lowercase hex, of the script or
+	// content the command sent; the approval window shows its first 16.
+	BodySHA256 string `json:"body_sha256,omitempty"`
 }
 
 // HostKey is a server's host key, as komando pinned it.
@@ -240,6 +243,7 @@ type Printer struct {
 	cut      bool     // meta.truncated
 	cutNoted bool     // the command's own text says it was cut
 	notSim   []string // meta.not_simulated
+	bodySum  string   // meta.body_sha256
 
 	// Secrets returns the secret values (by name) that must never appear in
 	// output: remote files, logs and command output that happen to contain
@@ -332,26 +336,10 @@ type PrinterTexter interface{ TextFor(p *Printer) string }
 
 func (p *Printer) meta() Meta {
 	p.mu.Lock()
-	pinned, warns, cut, ns := slices.Clone(p.pinned), slices.Clone(p.warns), p.cut, slices.Clone(p.notSim)
+	pinned, warns, cut, ns, sum := slices.Clone(p.pinned), slices.Clone(p.warns), p.cut, slices.Clone(p.notSim), p.bodySum
 	p.mu.Unlock()
 	return Meta{Contract: Contract, Version: p.Version, DurationMS: time.Since(p.Start).Milliseconds(), DryRun: p.DryRun, Skipped: safeSkipped(p.skipped), WouldBeBlocked: p.blocked, WouldNeed: slices.Clone(p.need),
-		HostKeysPinned: pinned, Warnings: safeNotes(warns), Truncated: cut, NotSimulated: safeNotes(ns)}
-}
-
-// NotSimulated records a step a dry run left out because trying it would
-// make it (meta.not_simulated).
-func (p *Printer) NotSimulated(what string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.notSim = append(p.notSim, what)
-}
-
-// HostKeyPinned records a host key trusted on first use, for
-// meta.host_keys_pinned (a person reads it on stderr).
-func (p *Printer) HostKeyPinned(k HostKey) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.pinned = append(p.pinned, k)
+		HostKeysPinned: pinned, Warnings: safeNotes(warns), Truncated: cut, NotSimulated: safeNotes(ns), BodySHA256: sum}
 }
 
 // WouldBlock records, under --dry-run, the first safety stop the real run
@@ -396,6 +384,7 @@ func (p *Printer) Reset() {
 	defer p.mu.Unlock()
 	p.blocked, p.need, p.skipped, p.pinned, p.warns, p.notSim = nil, nil, nil, nil, nil, nil
 	p.cut, p.cutNoted, p.cutAt = false, false, 0
+	p.bodySum = ""
 	p.DryRun, p.Pretty, p.Mask, p.Personal, p.NoRedact = false, false, false, false, false
 	p.Start = time.Now()
 }

@@ -606,6 +606,9 @@ func audit(cl *call, st *store.State, command string, hosts []string, remote str
 		rec["confirm"] = "tty" // a person said yes at the terminal
 		rec["confirmed"] = append(slices.Clone(c.ttyYes), slices.DeleteFunc([]string{cl.promptConfirmed}, func(s string) bool { return s == "" })...)
 	}
+	if cl.body != nil {
+		rec["body_sha256"] = cl.body.sha256() // the window shows its first 16
+	}
 	for k, v := range extra {
 		rec[k] = v
 	}

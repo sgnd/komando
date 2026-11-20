@@ -197,6 +197,7 @@ var errorCodes = []errorCode{
 	{"REPOSITORY_NOT_FOUND", 3, "no repository named …", "list the repositories with `komando registry list CONN`"},
 	{"RESERVED_SECRET", 2, "secret … belongs to komando's approval code", "a person manages it with `komando config approval-code`"},
 	{"RESTORE_FAILED", 5, "the restore stopped at a line: PostgreSQL changed nothing (one transaction), MySQL kept the statements before it", "fix the file, then restore it again: `komando db restore … --from …`"},
+	{"RESTORE_SPACE_MISSING", 3, "not enough free space for the restore's copy; nothing was sent to the database", "free … bytes in … (komando checks a private copy of the backup there before the database is touched), then restore again: `komando db restore CONN --from …`"},
 	{"RESTORE_UNSUPPORTED", 2, "line … switches to another database: …", "the file switches databases (pg_dump --create or pg_dumpall); dump the one database without --create and restore that into this conn"},
 	{"RESUME_CONFLICT", 8, "… does not match the source after the copy (sha256 …, the source …); it was left as it is", "copy the whole file again without --continue (a download replaces a file here only with --overwrite): `komando cp SRC DST`"},
 	{"RESUME_UNSUPPORTED", 2, "… cannot be continued: this kind of storage (S3, Google Cloud Storage, Azure Blob, WebDAV) stores a file whole and cannot add to one; nothing was changed", "run it again without --continue to copy the whole file: `komando cp SRC DST`"},

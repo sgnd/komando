@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -106,5 +108,19 @@ func TestUnshowableContentIsRefused(t *testing.T) {
 	b := newBody(scriptLabel("the content", "-"), []byte(strings.Repeat("line\n", bodyMaxLines+5)), true)
 	if _, bad := b.shown(tcl); bad == "" {
 		t.Error("long content on stdin is shown by its digest only")
+	}
+}
+
+// C197: a recipe's body_sha256 is of exactly the command it sends, with
+// no newline added, so `printf %s CMD | shasum -a 256` matches it.
+func TestRecipeRunBodySHA256IsTheCommand(t *testing.T) {
+	invHome(t)
+	mustRun(t, "host", "add", "web", "root@127.0.0.1", "--port", "2", "--protected")
+	mustRun(t, "recipe", "add", "deploy", "touch /tmp/marker-{{name}}")
+	windowText(t, false)
+	wantCode(t, "PROTECTED_TARGET", "recipe", "run", "deploy", "web", "--var", "name=xyz", "--yes")
+	sum := sha256.Sum256([]byte("touch /tmp/marker-'xyz'"))
+	if want := hex.EncodeToString(sum[:]); !strings.Contains(auditText(t), `"body_sha256":"`+want+`"`) {
+		t.Errorf("want body_sha256 %s in: %s", want, auditText(t))
 	}
 }

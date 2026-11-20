@@ -463,9 +463,15 @@ Plain SQL that psql and mysql can also read:
 - The file that was checked is the file that is restored. komando keeps
   a fingerprint of every part of the file from the check; a file that is
   changed, replaced or made longer afterwards stops with `FILE_CHANGED`
-  (exit 8) before the changed part is sent, and before the database is
-  opened when the change came while you were asked. Run the restore
+  (exit 8) before the database is opened. The restore reads a private
+  copy that matched the check whole, so it is never cut in two: a change
+  anywhere in the file leaves the database untouched. Run the restore
   again: komando checks the file as it is now.
+- That copy goes to komando's own run folder (Linux: `$XDG_RUNTIME_DIR/komando`
+  or `~/.local/state/komando/run`; macOS: `~/Library/Application Support/komando/run`;
+  Windows: `%LOCALAPPDATA%\komando\run`), mode 0600, and is removed when
+  the restore ends, whatever the end. Too little free space there stops
+  the restore before it starts (`RESTORE_SPACE_MISSING`).
 - A MySQL `DELIMITER` after a statement on the same line is refused
   (`UNSAFE_BACKUP`); mysqldump writes it on a line of its own.
 - A PostgreSQL archive (`--format custom`) is read too: komando checks the
@@ -1254,6 +1260,7 @@ komando db kill warehouse 4387013457812345          # the pid db activity shows
 | `UNSAFE_BACKUP` | 6 | the backup file has client commands (`\!`, `system`, `\i`) or SQL komando cannot follow | remove that line if the file is not from a trusted dump |
 | `RESTORE_UNSUPPORTED` | 2 | the file switches databases (`\connect`) | dump the one database without `--create` |
 | `RESTORE_FAILED` | 5 | the restore stopped at a line; PostgreSQL changed nothing, MySQL kept what ran before | fix the file, then restore it again |
+| `RESTORE_SPACE_MISSING` | 3 | too little free space in komando's run folder for the checked copy of the backup; the database was not touched | free the bytes the hint names in that folder, then restore again |
 | `DB_USER_IN_USE` | 8 | the user owns objects or has sessions | end its sessions (`komando db activity CONN --all`, then `komando db kill CONN PID --session`) |
 | `NEEDS_TERMINAL` | 2 | `db shell` was run without a terminal | use `db query` |
 

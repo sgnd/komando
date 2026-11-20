@@ -374,7 +374,7 @@ func recipeRunCmd() *cobra.Command {
 			// the approval window shows what runs, not only the recipe's
 			// name: a stored recipe can be replaced between two runs
 			sudo := r.Sudo && !noSudo
-			noteApprovalBody(cl, "the command of recipe "+r.Name+map[bool]string{true: ", which runs with sudo", false: ""}[sudo], []byte(command+"\n"))
+			noteApprovalBody(cl, "the command of recipe "+r.Name+map[bool]string{true: ", which runs with sudo", false: ""}[sudo], []byte(command))
 			return runFleet(cl, cmd.Context(), "recipe.run", args[1], command, nil, execOpts{sudo: sudo, recipe: r.Name, exitMap: orSudo(soleHost(cl, args[1]), nil)}, mutating)
 		}),
 	}
