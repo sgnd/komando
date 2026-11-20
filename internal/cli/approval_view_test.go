@@ -437,3 +437,17 @@ func TestMacAlertTimerStopsBeforeOwnerCheck(t *testing.T) {
 		t.Errorf("the timer stops (at %d) after the owner check is called (at %d)", stop, call)
 	}
 }
+
+// TestRiskWordsTriggerCoversRule: the trigger shown names what the rule
+// really catches, not one command of several (C194 L7).
+func TestRiskWordsTriggerCoversRule(t *testing.T) {
+	for r, want := range map[string]string{
+		"[power] powers off or reboots the server":                                    "Powers off or reboots the server (shutdown or reboot)",
+		"[win-power] powers off or restarts the server":                               "Powers off or restarts the server (Stop-Computer or shutdown)",
+		"[win-remote-access] stops remote access (SSH or WinRM), which locks you out": "Stops remote access (SSH or WinRM), which locks you out (stopping sshd or WinRM)",
+	} {
+		if got := riskWords(r, "en"); len(got) != 1 || got[0] != want {
+			t.Errorf("riskWords(%q) = %q, want %q", r, got, want)
+		}
+	}
+}
