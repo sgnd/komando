@@ -120,6 +120,26 @@ jobs:
           code=0; wait "$pid" || code=$?
           echo "helper exit $code, output (osascript's exit and stderr included):"; cat "$RUNNER_TEMP/after.out"
           [ "$shot" = 0 ] && [ "$code" = 0 ]
+      # A script that scrolls must open at its first line: OCR (Vision) the
+      # screenshot and fail when line 1's mark is not in it
+      - name: Line 1 shows at open (macOS)
+        if: runner.os == 'macOS' && (matrix.case == 'long-lines' || matrix.case == 'tall-script')
+        shell: bash
+        run: |
+          cat > "$RUNNER_TEMP/ocr.swift" <<'SWIFT'
+          import AppKit
+          import Vision
+          let url = URL(fileURLWithPath: CommandLine.arguments[1])
+          guard let img = NSImage(contentsOf: url), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { exit(2) }
+          let req = VNRecognizeTextRequest()
+          req.recognitionLevel = .accurate
+          req.usesLanguageCorrection = false
+          try VNImageRequestHandler(cgImage: cg).perform([req])
+          for o in req.results ?? [] { if let t = o.topCandidates(1).first { print(t.string) } }
+          SWIFT
+          swift "$RUNNER_TEMP/ocr.swift" "$SHOT_PNG" > "$RUNNER_TEMP/ocr.txt"
+          cat "$RUNNER_TEMP/ocr.txt"
+          if ! grep -q LINEONEMARK "$RUNNER_TEMP/ocr.txt"; then echo "script line 1 (LINEONEMARK) is not in the window at open" >&2; exit 1; fi
       # Windows: the window by its class (komandoApproval, an EnumWindows walk), brought to the
       # front, and only its rectangle captured; fails when it is not there
       - name: The window (Windows)

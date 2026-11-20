@@ -83,6 +83,9 @@ type shotCase struct {
 	view func() approvalView
 }
 
+// The long-lines and tall-script cases start with "# LINEONEMARK": the
+// workflow reads it back from the screenshot to prove line 1 shows at open.
+
 // shotCases are the windows approval-window.yml captures, one per case.
 // Keep the names in step with the workflow's matrix.
 var shotCases = []shotCase{
@@ -124,7 +127,7 @@ var shotCases = []shotCase{
 	{"long-lines", func() approvalView {
 		// 13 lines of 300 base64 characters: the window must stay on the
 		// screen with its buttons, the script scrolling (C207)
-		lines := []string{"#!/bin/sh", "base64 -d > /tmp/blob <<'EOF'"}
+		lines := []string{"# LINEONEMARK", "base64 -d > /tmp/blob <<'EOF'"}
 		for i := range 10 {
 			lines = append(lines, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{byte('a' + i), 0xfb, 0x10}, 75)))
 		}
@@ -138,6 +141,7 @@ var shotCases = []shotCase{
 		for i := range 40 {
 			lines = append(lines, fmt.Sprintf("echo step %d && systemctl status app-%d --no-pager", i+1, i+1))
 		}
+		lines[0] = "# LINEONEMARK"
 		return testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
 			"komando exec web-1.example.test --script ./steps.sh --yes", shotScript("./steps.sh", "c3d4", lines))
 	}},

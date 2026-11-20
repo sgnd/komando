@@ -109,10 +109,10 @@ Run a command on web-1.example.test
 Asked by Claude Code
 Skips: the safety-change check
 
-Script: ./blob.sh · 13 lines · 3054 bytes
+Script: ./blob.sh · 13 lines · 3058 bytes
 SHA-256: 77c0
 
-   1  #!/bin/sh
+   1  # LINEONEMARK
    2  base64 -d > /tmp/blob <<'EOF'
    3  YfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQ
    4  YvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQ
@@ -136,10 +136,10 @@ Run a command on web-1.example.test
 Asked by Codex
 Skips: the safety-change check
 
-Script: ./steps.sh · 40 lines · 2022 bytes
+Script: ./steps.sh · 40 lines · 1987 bytes
 SHA-256: c3d4
 
-   1  echo step 1 && systemctl status app-1 --no-pager
+   1  # LINEONEMARK
    2  echo step 2 && systemctl status app-2 --no-pager
    3  echo step 3 && systemctl status app-3 --no-pager
    4  echo step 4 && systemctl status app-4 --no-pager

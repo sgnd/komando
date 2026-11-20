@@ -180,14 +180,25 @@ var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 var CHOICE = 'Deny', CHOSEN = false;
 // a body that scrolls must have shown its last line (SEEN) before
 // "Allow once" works; CLIP is its clip view, ALLOW_BTN the button
-var SEEN = true, CLIP = null, ALLOW_BTN = null;
+var SEEN = true, CLIP = null, DOC = null, ALLOW_BTN = null;
+// seenEnd: the visible rect's bottom (NSMaxY, flipped) has reached the
+// document's last line, with 1 pt of slack; at the top it is false
+function seenEnd(y, h, docH) { return y + h >= docH - 1; }
+// the script's document view is flipped: y 0 is its first line
+ObjC.registerSubclass({
+  name: 'KomandoDoc',
+  superclass: 'NSView',
+  methods: {
+    'isFlipped': { types: ['bool', []], implementation: function () { return true; } }
+  }
+});
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
     'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
     'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
-    // the clip view is not flipped: origin.y 0 is the last line in view
-    'scrolled:': { types: ['void', ['id']], implementation: function (n) { if (SEEN) return; var r = CLIP.bounds; if (r.origin.y <= 1) { SEEN = true; ALLOW_BTN.enabled = true; } } },
+    // the last line is in view when the visible rect reaches the document's bottom
+    'scrolled:': { types: ['void', ['id']], implementation: function (n) { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; } } },
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
@@ -261,13 +272,15 @@ function run(argv) {
     sv.scrollerStyle = 0;
     sv.drawsBackground = false;
     body.v.frame = $.NSMakeRect(0, 0, bw, body.h);
-    sv.documentView = body.v;
+    DOC = $.KomandoDoc.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h));
+    DOC.addSubview(body.v);
+    sv.documentView = DOC;
     // the name before the first colon ("Command", "Script"), else the panel title
     var name = argv[5].split(':')[0];
     sv.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
     view.addSubview(sv);
-    // the label is not flipped: start at its top line
-    sv.contentView.scrollToPoint($.NSMakePoint(0, body.h - bodyH));
+    // start at the first line (the document is flipped)
+    sv.contentView.scrollToPoint($.NSMakePoint(0, 0));
     sv.reflectScrolledClipView(sv.contentView);
     if (scroll) {
       CLIP = sv.contentView;
@@ -341,7 +354,18 @@ func macArgs(v approvalView) []string {
 	w := wordsFor(v.Lang)
 	shown := noBreakHyphens(v.shown())
 	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), shown,
-		w.panel, w.deny, w.allow, fmt.Sprintf(w.scrollAll, strings.Count(shown, "\n")+1)}
+		w.panel, w.deny, w.allow, fmt.Sprintf(w.scrollAll, v.bodyLines())}
+}
+
+// bodyLines is what the scroll hint counts: the script's own lines when
+// the body has its head, else the lines of what the window shows.
+func (v approvalView) bodyLines() int {
+	if first, _, _ := strings.Cut(v.Body, "\n"); v.raw == "" && bodyHead.MatchString(first) {
+		if n, err := strconv.Atoi(bodyHead.FindStringSubmatch(first)[3]); err == nil {
+			return n
+		}
+	}
+	return strings.Count(v.shown(), "\n") + 1
 }
 
 // noBreakHyphens keeps "--yes" and "rm -rf" whole when a label wraps:

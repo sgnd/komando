@@ -92,10 +92,10 @@ func TestMacPanelScrollsBody(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
 		"$.NSScreen.mainScreen", "visibleFrame.size.height", "maxH = ",
-		"$.NSScrollView.alloc.initWithFrame(", "sv.documentView = body.v", "sv.hasHorizontalScroller = false",
+		"$.NSScrollView.alloc.initWithFrame(", "sv.documentView = DOC", "sv.hasHorizontalScroller = false",
 		"sv.hasVerticalScroller = scroll", "sv.drawsBackground = false", "sv.setAccessibilityLabel(",
 		"monospacedSystemFontOfSizeWeight(fs, 0)", "label(argv[5], mono, ", "view.addSubview(sv)",
-		"Math.min(body.h, room)", "scrollToPoint($.NSMakePoint(0, body.h - bodyH))",
+		"Math.min(body.h, room)",
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("script has no %q", want)
@@ -132,7 +132,7 @@ func TestMacPanelScrollGate(t *testing.T) {
 		"sv.contentView.postsBoundsChangedNotifications = true",
 		"addObserverSelectorNameObject(answer, 'scrolled:', $.NSViewBoundsDidChangeNotification, sv.contentView)",
 		"'scrolled:': { types: ['void', ['id']]",
-		"r.origin.y <= 1", "SEEN = true; ALLOW_BTN.enabled = true;",
+		"function seenEnd(y, h, docH) { return y + h >= docH - 1; }", "if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; }",
 		"'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'",
 		"removeObserver(answer)",
 	} {
@@ -159,6 +159,45 @@ func TestMacPanelScrollGate(t *testing.T) {
 		v := approvalView{raw: body, Lang: c.lang}
 		if got := macArgs(v)[13]; got != c.want {
 			t.Errorf("%s: hint %q, want %q", c.lang, got, c.want)
+		}
+	}
+}
+
+// The script region opens at its first line: the document view is
+// flipped, the clip view is put at the top before the panel shows, and
+// the gate looks at the visible rect's bottom edge, so the start position
+// never counts as read (C207, CI shots of 862d50cc).
+func TestMacPanelStartsAtTop(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"name: 'KomandoDoc'", "superclass: 'NSView'", "'isFlipped': { types: ['bool', []], implementation: function () { return true; } }",
+		"DOC = $.KomandoDoc.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h))", "DOC.addSubview(body.v)", "sv.documentView = DOC",
+		"sv.contentView.scrollToPoint($.NSMakePoint(0, 0))",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	for _, bad := range []string{"r.origin.y <= 1", "body.h - bodyH))", "sv.documentView = body.v"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("script still has %q", bad)
+		}
+	}
+	if top, show := strings.Index(s, "scrollToPoint($.NSMakePoint(0, 0))"), strings.Index(s, "panel.makeKeyAndOrderFront(null)"); top < 0 || show < top {
+		t.Error("the region is not put at the top before the panel shows")
+	}
+}
+
+// The hint counts the script's own lines, not the rows the window shows
+// for it (heading and SHA-256 line included).
+func TestMacScrollHintCount(t *testing.T) {
+	for name, want := range map[string]string{"long-lines": "Scroll to read all 13 lines", "tall-script": "Scroll to read all 40 lines"} {
+		for _, c := range shotCases {
+			if c.name == name {
+				if got := macArgs(c.view())[13]; got != want {
+					t.Errorf("%s: %q, want %q", name, got, want)
+				}
+			}
 		}
 	}
 }
