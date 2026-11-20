@@ -111,10 +111,7 @@ func noteKubectlFiles(cl *call, args []string) error {
 		if !ok {
 			p = f
 		}
-		if err := localReadOK(cl, expandHome(p)); err != nil {
-			return fileErr(err)
-		}
-		b, err := os.ReadFile(expandHome(p))
+		b, err := readFromFile(cl, p)
 		if err != nil {
 			return fileErr(err)
 		}
@@ -167,8 +164,8 @@ func guardKubectlRun(cl *call, st *store.State, c *store.Conn, risk driver.Risk,
 
 // guardRestore is db restore's guard, with the file it sends in the
 // window (noteRestoreFile).
-func guardRestore(cl *call, st *store.State, c *store.Conn, v driver.Verdict, from string, custom bool) error {
-	if err := noteRestoreFile(cl, from, custom); err != nil {
+func guardRestore(cl *call, st *store.State, c *store.Conn, v driver.Verdict, from string, custom bool, seal *backupSeal) error {
+	if err := noteRestoreFile(cl, from, custom, seal); err != nil {
 		return err
 	}
 	return guardConns(cl, st, []*store.Conn{c}, v)

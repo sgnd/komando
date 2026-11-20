@@ -442,6 +442,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err := checkRestoreSQL(cl, t.Kind.Name, from, seal, &v); err != nil {
 		return err
 	}
+	afterRestoreSeal(from)
 	var argv []string
 	custom := seal.archive()
 	if custom {
@@ -457,7 +458,7 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 		return out.Usage("%s is a pg_dump archive; restoring it needs pg_restore on a server: add --run-on HOST (a server with pg_restore that can reach the database). komando restores plain SQL itself", from)
 	}
 	// the file is checked first, so a dry run also says whether it is fine
-	if err := guardRestore(cl, st, c, v, from, custom); err != nil {
+	if err := guardRestore(cl, st, c, v, from, custom, seal); err != nil {
 		return err
 	}
 	// plain SQL is always run by komando itself: psql and mysql would obey
@@ -492,16 +493,27 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
 }
 
-// noteRestoreFile tells an AI agent's approval window what a restore
-// sends (C111). Plain SQL is code, as for db query --file: shown whole
-// (a .gz unpacked) or no window. A pg_dump archive is not text: the
-// window names its size and SHA-256.
-func noteRestoreFile(cl *call, from string, custom bool) error {
+// afterRestoreSeal runs between the sealing read and the window's read;
+// only a test swaps the file there.
+var afterRestoreSeal = func(string) {}
+
+// noteRestoreFile records what a restore sends: body_sha256 is the hash
+// from the sealing pass, for every caller (C197). An AI agent's approval
+// window also shows it (C111): plain SQL is code, as for db query --file,
+// shown whole (a .gz unpacked) or no window; a pg_dump archive is not
+// text, so the window names its size and SHA-256. The window's own read
+// must match the seal, or the restore stops with FILE_CHANGED.
+func noteRestoreFile(cl *call, from string, custom bool, seal *backupSeal) error {
 	if !cl.caller().IsAgent() {
+		setBody(cl, &approvalBody{label: "the backup " + from, big: true, sum: seal.body})
 		return nil
 	}
 	if custom {
-		return noteApprovalFile(cl, "the archive "+from, from)
+		c, err := readCapped(from, nil)
+		if err != nil {
+			return localFileErr("FILE_NOT_FOUND", err, "")
+		}
+		return sealedBody(cl, from, seal, c, "the archive "+from, true)
 	}
 	var unzip func(io.Reader) (io.Reader, error)
 	label := "the SQL in " + from
@@ -513,7 +525,20 @@ func noteRestoreFile(cl *call, from string, custom bool) error {
 	if err != nil {
 		return out.Errf(out.ExitUsage, "BAD_FILE", "give a backup made by `komando db dump`", "%v", err)
 	}
-	setBody(cl, c.as(label, false))
+	return sealedBody(cl, from, seal, c, label, false)
+}
+
+// sealedBody records the window's body with the sealed hash; a window
+// read that met other bytes stops the restore before anyone is asked.
+func sealedBody(cl *call, from string, seal *backupSeal, c capped, label string, data bool) error {
+	b := c.as(label, data)
+	if b.sum != seal.body {
+		b.sum = seal.body
+		setBody(cl, b)
+		audit(cl, nil, "db.restore", nil, "", false, map[string]any{"file": from, "blocked": "FILE_CHANGED"})
+		return backupChanged(from)
+	}
+	setBody(cl, b)
 	return nil
 }
 

@@ -373,11 +373,20 @@ you or your agent. An agent's environment can set that name to anything, so
 its records keep the agent itself (`agent`) and your computer account, read
 from the system (`os_user`), and mark the name as the one it claims
 (`actor_claimed`); `komando audit -o text` shows it as
-`Claude Code (as claude)`. A command that sends a script or content
-(`exec --script`, `--stdin-file`, `fs write`, an upload, `queue send`,
-`cluster apply`, a SQL file) records its full SHA-256 (`body_sha256`), so
-you can match the 16 hex characters the approval window showed to the
-exact file. To keep SQL text out of the history, see
+`Claude Code (as claude)`. A command that sends a script or content records its full SHA-256
+(`body_sha256`), so you can match the 16 hex characters the approval
+window showed to the exact file. What the hash covers:
+
+| Command | `body_sha256` is the SHA-256 of |
+|---|---|
+| `exec --script`, `--stdin-file`, `job start`, `db query --file`, `queue send` | the file as sent |
+| `recipe run` | the filled-in command, with no newline added |
+| `upload` of one file | the bytes as they are sent, for every caller. If an agent's window showed other bytes (the file changed after you saw it), the upload stops with `FILE_CHANGED` before the file on the server is touched, and the stop is in the audit log |
+| `upload` of a folder | the list the window shows: each file's name, size and SHA-256, one per line |
+| `db restore` | the bytes the restore reads (a `.gz` unpacked), taken in the same read that seals the file, for every caller |
+| `fs write` (Linux and Windows) | the content before `{{secret:NAME}}` values are filled in, so the hash never describes a secret; with `--append`, only the appended part |
+| `cluster apply` on Kubernetes | the YAML file, though each object is sent as JSON |
+| `cluster run -f`, `--from-file` | all the files joined, in the order given; each file is read once, so the window and the cluster get the same bytes | To keep SQL text out of the history, see
 `audit_sql` in [Settings](settings.md#settings).
 
 ## A key that runs komando and nothing else

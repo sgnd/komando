@@ -23,9 +23,10 @@ const sealChunk = 1 << 20
 // of the file in memory or on disk.
 type backupSeal struct {
 	sums    [][sha256.Size]byte
-	head    []byte // the file's first bytes, as stored (before gunzip)
-	sealed  bool   // the whole file was read once
-	changed bool   // a later read met other bytes
+	head    []byte            // the file's first bytes, as stored (before gunzip)
+	sealed  bool              // the whole file was read once
+	changed bool              // a later read met other bytes
+	body    [sha256.Size]byte // SHA-256 of the bytes the restore reads (a .gz unpacked), from the sealing pass
 }
 
 // archive: the file is a pg_dump custom archive ("PGDMP").
@@ -121,8 +122,9 @@ func withBackup(cl *call, path string, seal *backupSeal, fn func(io.Reader) erro
 		return localFileErr("FILE_NOT_FOUND", sr.err, "")
 	}
 	var r io.Reader = sr
+	var gz *gzip.Reader
 	if strings.HasSuffix(path, ".gz") {
-		gz, err := gzip.NewReader(sr)
+		gz, err = gzip.NewReader(sr)
 		if err != nil {
 			if seal.changed {
 				return backupChanged(path)
@@ -132,6 +134,12 @@ func withBackup(cl *call, path string, seal *backupSeal, fn func(io.Reader) erro
 		defer gz.Close()
 		r = gz
 	}
+	// the sealing pass also hashes what the restore reads, for
+	// body_sha256: the hash and the seal come from one read of the file
+	body := sha256.New()
+	if !seal.sealed {
+		r = io.TeeReader(r, body)
+	}
 	err = fn(r)
 	if seal.changed {
 		return backupChanged(path)
@@ -140,10 +148,15 @@ func withBackup(cl *call, path string, seal *backupSeal, fn func(io.Reader) erro
 		return err
 	}
 	if !seal.sealed {
-		// what fn left unread (bytes after the gzip stream) is sealed too
+		// what fn left unread is hashed and sealed too (bytes after the
+		// gzip stream are sealed, not hashed: the restore never reads them)
+		if _, err := io.Copy(io.Discard, r); err != nil {
+			return localFileErr("FILE_NOT_FOUND", err, "")
+		}
 		if _, err := io.Copy(io.Discard, sr); err != nil {
 			return localFileErr("FILE_NOT_FOUND", err, "")
 		}
+		copy(seal.body[:], body.Sum(nil))
 		seal.sealed = true
 	}
 	return nil

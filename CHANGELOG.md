@@ -21,10 +21,11 @@ its highlights; the sections below them give the details. Versions follow
   something was sent or a keepalive is set). JSON: `last_handshake_at`,
   `handshake_age_seconds`, `tunnel_state` and `tunnel_dead`.
 - A command that sends a script or content (`exec --script`,
-  `--stdin-file`, `fs write`, an upload, `queue send`, `cluster apply`)
-  records its full SHA-256 as `body_sha256` in the audit record and in
-  `meta` of its JSON output, so a person can match the 16 hex characters
-  the approval window shows to the exact file (C197).
+  `--stdin-file`, `fs write`, an upload, `queue send`, `cluster apply`,
+  `db restore`, `recipe run`) records its full SHA-256 as `body_sha256`
+  in the audit record and in `meta` of its JSON output, so a person can
+  match the 16 hex characters the approval window shows to the exact
+  file (C197). Safety (History) says what each command's hash covers.
 
 - The approval window speaks Indonesian (C191): `komando config set
   approval_language id`, or the default `auto`, which follows the system
@@ -60,6 +61,17 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- An upload of one file hashes the bytes as they are sent. When an
+  agent's approval window showed other bytes (the file changed after the
+  yes), the upload stops with `FILE_CHANGED` before the file on the
+  server is touched, and the stop is in the audit log (C213).
+- `db restore` takes its `body_sha256` in the same read that seals the
+  file, for every caller, so the record names the bytes the restore
+  sends. A file whose window read differs from the sealed bytes stops
+  with `FILE_CHANGED` before anyone is asked.
+- `cluster run` reads each `--from-file` file once: the approval window
+  and the secret or config map that is sent use the same bytes (C214).
+
 - On macOS "Allow once" in the approval window now counts only after you
   confirm with Touch ID, an Apple Watch or your login password, in the
   same step. A click alone, by you or by a program that can click, no
@@ -90,6 +102,9 @@ its highlights; the sections below them give the details. Versions follow
   lookalike such as the Kelvin sign no longer matches `.kube`.
 
 ### Fixed
+
+- `recipe run` hashes exactly the command it sends; it added a newline
+  before.
 
 - The macOS approval window no longer grows past the screen when a
   script has long lines (C207). It stays inside the visible screen: the

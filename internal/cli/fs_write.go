@@ -31,6 +31,15 @@ type writeOpts struct {
 	newMode              string // with no mode: the mode of a new file (default 0644); a file there keeps its own
 	owner                string
 	validate             string // command run on the new file (%s) before it goes into place
+	wantSHA256           string // the hash the approval window showed: other bytes stop before the file goes into place
+}
+
+// sentChanged: the bytes read at send time are not the ones the window
+// showed. The temporary copy is removed; the file on the server is as it was.
+func sentChanged(p string) error {
+	return out.Errf(out.ExitConflict, "FILE_CHANGED",
+		"run the command again: komando shows the file as it is now, and asks again",
+		"the file sent to %s changed after it was shown in the approval window; the file on the server was not changed", p)
 }
 
 // validateCmd puts the quoted temporary path where --validate has %s.
@@ -56,6 +65,9 @@ func writeRemoteFrom(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Cli
 	copyIn := func(f io.Writer) error {
 		n, err := io.Copy(io.MultiWriter(f, h), src)
 		res["bytes"], res["sha256"] = n, hex.EncodeToString(h.Sum(nil))
+		if err == nil && o.wantSHA256 != "" && res["sha256"] != o.wantSHA256 {
+			return sentChanged(p)
+		}
 		return err
 	}
 	mode := o.mode

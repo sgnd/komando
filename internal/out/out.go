@@ -342,30 +342,6 @@ func (p *Printer) meta() Meta {
 		HostKeysPinned: pinned, Warnings: safeNotes(warns), Truncated: cut, NotSimulated: safeNotes(ns), BodySHA256: sum}
 }
 
-// NotSimulated records a step a dry run left out because trying it would
-// make it (meta.not_simulated).
-func (p *Printer) NotSimulated(what string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.notSim = append(p.notSim, what)
-}
-
-// BodySHA256 records the SHA-256 (hex) of the body the command sends,
-// for meta.body_sha256.
-func (p *Printer) BodySHA256(sum string) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.bodySum = sum
-}
-
-// HostKeyPinned records a host key trusted on first use, for
-// meta.host_keys_pinned (a person reads it on stderr).
-func (p *Printer) HostKeyPinned(k HostKey) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.pinned = append(p.pinned, k)
-}
-
 // WouldBlock records, under --dry-run, the first safety stop the real run
 // would hit (meta.would_be_blocked), and the flag every stop needs
 // (meta.would_need).

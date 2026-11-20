@@ -8117,7 +8117,7 @@ Hint: check with --dry-run, ask the user; once they agree, run it again with --a
 ### komando -o json db restore db1 --from testdata/golden_restore.sql (script json, gate inventory)
 exit 6
 --- stdout
-{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db restore db1 --from testdata/golden_restore.sql --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0}}
+{"ok":false,"command":"db.restore","error":{"code":"POLICY_BLOCKED","message":"the operation matches destructive rules [db-restore]: restores a backup, which can overwrite existing data","hint":"check with --dry-run, then run it again with --allow-dangerous: `komando -o json db restore db1 --from testdata/golden_restore.sql --allow-dangerous`"},"meta":{"contract":2,"version":"V","duration_ms":0,"body_sha256":"4a45092ccf992ea92250053a80b931b787924ba61648f420555511b84f10ab6c"}}
 --- stderr
 ### komando -o text db restore db1 --from testdata/golden_restore.sql (script text, gate inventory)
 exit 6
