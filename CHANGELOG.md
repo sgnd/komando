@@ -133,6 +133,15 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- In the macOS approval window, Tab, Shift-Tab, the arrows, Page Up,
+  Page Down, Home, End and Space no longer close the window as a Deny
+  (C237, #370). Tab and Shift-Tab move the focus between Deny, **Allow
+  once** (once it is on) and a script that scrolls; the other keys scroll
+  the script, Space only while the script has focus. The focus ring is
+  now a plain box in the system focus colour, the script area no longer
+  has a key handler of its own, and an error in a key, focus or scroll
+  handler no longer ends the window. Only Esc, Return, Cmd-W, the close
+  button, a click on Deny or the 2-minute timeout end it as a no.
 - `recipe run` hashes exactly the command it sends; it added a newline
   before.
 

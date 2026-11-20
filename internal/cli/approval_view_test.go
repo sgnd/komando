@@ -214,14 +214,13 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 	s := macAlertScript
 	for _, want := range []string{
 		"'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } }",
-		"'becomeFirstResponder': { types: ['bool', []], implementation: function () { focusRing(true); return true; } }",
-		"'resignFirstResponder': { types: ['bool', []], implementation: function () { focusRing(false); return true; } }",
-		"'keyDown:': { types: ['void', ['id']], implementation: function (e) { if (!scrollKey(Number(e.keyCode))) ObjC.super(this).keyDown(e); } }",
+		"'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); } catch (x) {} return true; } }",
+		"'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); } catch (x) {} return true; } }",
 		"function keyScroll(code, y, line, page, maxY) {",
 		"code === 126 ? y - line", "code === 125 ? y + line", "code === 116 ? y - page",
 		"code === 121 || code === 49 ? y + page", "code === 115 ? 0", "code === 119 ? maxY",
 		"CLIP.scrollToPoint($.NSMakePoint(0, to))", "SV.reflectScrolledClipView(CLIP)",
-		"$.NSColor.keyboardFocusIndicatorColor.CGColor",
+		"RING.borderColor = $.NSColor.keyboardFocusIndicatorColor;",
 		"SCROLLS = scroll", "allow.nextKeyView = scroll ? DOC : deny", "DOC.nextKeyView = deny",
 		"DOC.setAccessibilityElement(true)", "DOC.setAccessibilityRole($.NSAccessibilityGroupRole)", "DOC.setAccessibilityLabel(",
 		"deny.keyEquivalent = '\\r'", "Number(e.keyCode) === 53",
@@ -247,24 +246,26 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 
 // With macOS keyboard navigation off, Tab may skip the script area, so
 // the window-wide key monitor scrolls it with the arrows, Page Up/Down and
-// Home/End whatever has focus; Space, Return and Tab keep their meaning.
+// Home/End whatever has focus, and with Space only while it has focus;
+// Return keeps its meaning (C237 adds Tab, in approval_keys_test.go).
 func TestMacPanelMonitorScrolls(t *testing.T) {
 	s := macAlertScript
-	i := strings.Index(s, "addLocalMonitorForEventsMatchingMaskHandler(")
-	if i < 0 {
-		t.Fatal("no key monitor")
-	}
-	mon := s[i : i+strings.Index(s[i:], "\n  });")]
-	want := "if (SCROLLS && MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 && scrollKey(Number(e.keyCode))) return null;"
+	mon := macMonitor(t)
+	want := "if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) return null;"
 	if !strings.Contains(mon, want) {
 		t.Errorf("the monitor has no %q", want)
 	}
 	if !strings.Contains(s, "var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];") {
 		t.Error("the monitor keys are not the arrows, Page Up/Down and Home/End")
 	}
-	for _, bad := range []string{"49", "36", "48", "76"} {
+	for _, bad := range []string{"36", "76"} {
 		if strings.Contains(mon, bad) || strings.Contains(s[strings.Index(s, "var MONITOR_KEYS"):strings.Index(s, "var MONITOR_KEYS")+50], bad) {
 			t.Errorf("the monitor routes key %s", bad)
+		}
+	}
+	for _, bad := range []string{"48", "49"} {
+		if strings.Contains(s[strings.Index(s, "var MONITOR_KEYS"):strings.Index(s, "var MONITOR_KEYS")+50], bad) {
+			t.Errorf("key %s scrolls whatever has focus", bad)
 		}
 	}
 	// Esc is still checked first
