@@ -87,6 +87,13 @@ func TestHasPrivateKey(t *testing.T) {
 	if !HasPrivateKey("cat > k <<EOF\n" + key + "\nEOF") {
 		t.Error("a private key block was not found")
 	}
+	// the END line built later or in another heredoc: the BEGIN line is enough
+	if !HasPrivateKey("cat > k <<A\n-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXk\nA\necho \"-----END $T-----\" >> k") {
+		t.Error("a BEGIN line without its END was not refused")
+	}
+	if !HasPrivateKey("cat > k.ppk <<EOF\nPuTTY-User-Key-File-3: ssh-ed25519\nEncryption: none\nEOF") {
+		t.Error("a PuTTY key file was not refused")
+	}
 	if HasPrivateKey("-----BEGIN PUBLIC KEY-----\nMIIB\n-----END PUBLIC KEY-----") {
 		t.Error("a public key counted as private")
 	}

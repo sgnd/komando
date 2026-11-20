@@ -26,10 +26,11 @@ var (
 	pemBegin  = regexp.MustCompile(`-----BEGIN ([A-Z0-9 ]+)-----`)
 	pemEnd    = regexp.MustCompile(`-----END ([A-Z0-9 ]+)-----`)
 	hashWords = regexp.MustCompile(`(?i)\bsha-?(1|224|256|384|512)|shasum|sha\d*sum|checksum|digest`)
-	privKey   = regexp.MustCompile(`(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----.*-----END [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----`)
+	privKey   = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]*PRIVATE KEY( BLOCK)?-----|PuTTY-User-Key-File-`)
 )
 
-// HasPrivateKey reports whether text holds a whole private key block.
+// HasPrivateKey reports whether text holds a private key: its BEGIN line
+// is enough (an END line can be built later), or a PuTTY key file header.
 func HasPrivateKey(text string) bool { return privKey.MatchString(text) }
 
 // tokenKind is what an encoded-looking token is, or "" for a word, a

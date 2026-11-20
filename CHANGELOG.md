@@ -64,14 +64,17 @@ its highlights; the sections below them give the details. Versions follow
 
 - A new deny rule, `decode-run` (and `win-decode-run` for PowerShell),
   stops a script or command that decodes hidden text and runs it: a
-  decoder (`base64 -d`, `xxd -r`, `openssl enc -d`, `rev`, a rot13 `tr`)
+  decoder (`base64 -d`, also as `-di` or `-dw0`, `basenc -d`,
+  `python3 -m base64 -d`, `xxd -r`, `openssl enc -d`, `printf` with escapes
+  or `%b`, `rev`, a rot13 `tr`)
   piped into a shell or interpreter, `eval "$(… base64 -d)"`, a
   `python -c` or `perl -e` that runs decoded text, a decoded file that a
   later step runs, and `FromBase64String` with `iex` or
   `[scriptblock]::Create`. It needs `--allow-dangerous` and a person's yes,
   like the other rules (C208).
-- A script or command that holds a private key is refused, for AI agents
-  and people alike, with the new `ENCODED_SECRET_INVALID`: the key would
+- A script or command that holds a private key (its BEGIN line is
+  enough, or a PuTTY key file header) is refused, for AI agents and
+  people alike, with the new `ENCODED_SECRET_INVALID`: the key would
   reach the approval window, the audit log and the server (C208).
 
 - On macOS "Allow once" in the approval window now counts only after you

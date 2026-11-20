@@ -41,7 +41,7 @@ var builtin = []struct{ id, pattern, reason string }{
 	{"db-drop", `(?i)\b(drop\s+(database|schema)|flushall|dropdatabase\(\))`, "drops a database"},
 	{"docker-prune-all", `\bdocker\s+(system|volume)\s+prune\b.*(-a|--all|--volumes)`, "deletes docker volumes/images"},
 	{"kubectl-delete-ns", `\bkubectl\s+delete\s+(ns|namespace|nodes?)\b`, "deletes kubernetes namespaces or nodes"},
-	{"base64-pipe-sh", `\bbase64\s+(-\S+\s+)*(-d|--decode|-D)\b[^|;&]*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b`, "runs hidden (base64) text as a script"},
+	{"base64-pipe-sh", `\bbase64\s+(-\S+\s+)*` + decodeFlag + `[^|;&]*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b`, "runs hidden (base64) text as a script"},
 	{"curl-pipe-sh", `\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh\b`, "pipes a remote script into a shell"},
 	{"crontab-r", `\bcrontab\s+-r\b`, "removes all cron jobs"},
 	{"userdel", `\b(userdel|deluser)\b`, "deletes a user account"},

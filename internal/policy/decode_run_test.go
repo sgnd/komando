@@ -1,6 +1,9 @@
 package policy
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 const blob = "ZWNobyBoaQ=="
 
@@ -26,6 +29,14 @@ func TestDecodeRun(t *testing.T) {
 		"file chmod run":       "xxd -r -p blob > a; chmod +x a; ./a",
 		"openssl -out run":     "openssl base64 -d -in p -out /tmp/r; chmod +x /tmp/r; /tmp/r",
 		"ps scriptblock":       `[scriptblock]::Create([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('` + blob + `'))).Invoke()`,
+		"base64 -di | sh":      "echo " + blob + " | base64 -di | sh",
+		"base64 -id | sh":      "echo " + blob + " | base64 -id | sh",
+		"base64 -dw0 | sh":     "echo " + blob + " | base64 -dw0 | sh",
+		"python -m base64":     "echo " + blob + " | python3 -m base64 -d | sh",
+		"basenc --base64 -d":   "echo " + blob + " | basenc --base64 -d | bash",
+		"basenc -d":            "basenc -d --base32 < p | sh",
+		"printf octal":         `printf '` + strings.Repeat(`\145`, 16) + `' | sh`,
+		"printf %b":            `printf '%b' "$P" | sh`,
 		"ps iex":               `iex ([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('` + blob + `')))`,
 	}
 	for name, cmd := range blocked {
@@ -44,5 +55,18 @@ func TestDecodeRun(t *testing.T) {
 		if hasRule(Check(cmd, nil), "decode-run") || hasRule(Check(cmd, nil), "win-decode-run") {
 			t.Errorf("%s: %q refused", name, cmd)
 		}
+	}
+}
+
+// base64-pipe-sh sees a decode flag inside a cluster too (-di, -id, -dw0).
+func TestBase64PipeShFlagClusters(t *testing.T) {
+	for _, f := range []string{"-di", "-id", "-dw0"} {
+		cmd := "echo " + blob + " | base64 " + f + " | sh"
+		if !hasRule(Check(cmd, nil), "base64-pipe-sh") {
+			t.Errorf("%q: not base64-pipe-sh, got %v", cmd, Check(cmd, nil))
+		}
+	}
+	if hasRule(Check("echo x | base64 -w0 | sh", nil), "base64-pipe-sh") {
+		t.Error("an encode (-w0) counted as a decode")
 	}
 }

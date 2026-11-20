@@ -9,13 +9,18 @@ import (
 // Matched as text only: a path built from variables still slips past, and
 // the encoded-data risk line (ScanEncoded) shows the blob then.
 
+// decodeFlag is a decode option, also inside a cluster (-di, -dw0).
+const decodeFlag = `(-[A-Za-z0-9]*d[A-Za-z0-9]*|--decode|-D)\b`
+
 // decoder is a command that turns hidden text back into code.
-const decoder = `(\bbase(64|32)\s+(-\S+\s+)*(-d|--decode|-D)\b` +
+const decoder = `(\bbase(64|32)\s+(-\S+\s+)*` + decodeFlag +
+	`|\bbasenc\s+(-\S+\s+)*` + decodeFlag +
+	`|\bpython[0-9.]*\s+(-\S+\s+)*-m\s+base(64|32)\s+(-\S+\s+)*` + decodeFlag +
 	`|\bxxd\s+(-\S+\s+)*-r` +
 	`|\bopenssl\s+(enc|base64)\b[^|;&]*\s-d\b` +
 	`|\buudecode\b|\brev\b` +
 	`|\btr\s+['"]?[a-zA-Z-]+['"]?\s+['"]?[n-zN-Z]-` + // rot13
-	`|\bprintf\s+['"]?(\\x[0-9a-fA-F]{2}){16})`
+	`|\bprintf\s+['"]?((\\x[0-9a-fA-F]{2}){16}|(\\[0-7]{3}){16}|%b))`
 
 // runner is a shell or interpreter that runs what it reads.
 const runner = `(sudo\s+(-\S+\s+)*)?(env\s+)?(/usr)?(/bin/)?((ba|z|da|k|fi)?sh|python[0-9.]*|perl|node|ruby|php)\b`
