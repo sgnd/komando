@@ -27,11 +27,12 @@ type approvalView struct {
 	Protected   bool     // a target is protected (targetsWhy, protWhy)
 	Risks       []string // the reasons left once targets and protection have their own lines
 	Owner       string   // what the device-owner prompt names, when not the targets
+	Lang        string   // en or id: the words komando writes (approval_language)
 	raw         string   // a window with no parts: the text as it came
 }
 
 func newApprovalView(cl *call, flags []string, what string, why []string, line, body string) approvalView {
-	v := approvalView{Agent: cl.caller().Agent, Head: "wants komando to run", Line: line, Body: body, Flags: flags}
+	v := approvalView{Agent: cl.caller().Agent, Head: "wants komando to run", Line: line, Body: body, Flags: flags, Lang: approvalLang(cl)}
 	for _, w := range why {
 		if w = strings.TrimSpace(w); w != "" {
 			if unshowable(w) != "" {
@@ -98,26 +99,27 @@ func (v approvalView) flagLines() string {
 
 // title is the window's first, bold line: the action in plain words.
 func (v approvalView) title() string {
+	w := wordsFor(v.Lang)
 	if v.raw != "" {
 		if what, ok := strings.CutPrefix(v.Owner, "komando: show "); ok {
-			return "Show " + what
+			return w.show + what
 		}
-		return "komando: allow?"
+		return w.allowAny
 	}
-	verb := "Change"
+	verb := w.change
 	switch {
 	case strings.HasPrefix(v.Line, "komando exec "):
-		verb = "Run a command on"
+		verb = w.runOn
 	case strings.HasPrefix(v.Line, "komando db query "):
-		verb = "Run a query on"
+		verb = w.queryOn
 	}
 	switch len(v.Targets) {
 	case 0:
-		return "Run a komando command"
+		return w.runKomando
 	case 1:
 		return verb + " " + v.Targets[0]
 	}
-	return verb + " " + strconv.Itoa(len(v.Targets)) + " servers"
+	return verb + " " + strconv.Itoa(len(v.Targets)) + " " + w.servers
 }
 
 // bodyHead is the first line of a body that approval_body.go shows whole.
@@ -134,15 +136,21 @@ func viewFor(cl *call, text string) approvalView {
 	if cl != nil && cl.view != nil && cl.view.text() == text {
 		return *cl.view
 	}
-	return approvalView{raw: text}
+	if cl != nil && cl.view != nil {
+		return approvalView{raw: text, Lang: cl.view.Lang}
+	}
+	return approvalView{raw: text, Lang: approvalLang(cl)}
 }
 
 // macAlertScript draws the macOS window: a plain NSPanel of standard
-// AppKit controls (no icon, no colours), titled "komando needs your OK":
+// AppKit controls (no icon, no colours), titled argv[6] ("komando needs
+// your OK"):
 // argv[1] as the bold first label, argv[2] (the info lines, selectable)
 // under it, then argv[5] (what runs, not selectable), one label per group
 // split at blank lines, 12 pt apart, 440 pt wide with 20 pt
-// padding, then the buttons on the right. Every text arrives in argv after
+// padding, then the buttons argv[7] (Deny) and argv[8] (Allow once) on
+// the right. Whatever their labels, the script answers with the fixed
+// tokens "Deny" and "Allow once" (macAnswer). Every text arrives in argv after
 // macArgMarker, never in the script. Deny is the default (Return), Esc,
 // the close button and Cmd-W, and has the first focus; only the 120 s
 // timer prints "gave up", and any other end is a Deny. After
@@ -194,18 +202,18 @@ function run(argv) {
   if (argv[2] !== '') parts.push(label(argv[2], $.NSFont.systemFontOfSize(fs), w, true));
   argv[5].split('\n\n').forEach(function (g) { if (g !== '') parts.push(label(g, $.NSFont.systemFontOfSize(fs), w, false)); });
   var answer = $.KomandoAnswer.alloc.init;
-  var deny = $.NSButton.buttonWithTitleTargetAction('Deny', answer, 'deny:');
+  var deny = $.NSButton.buttonWithTitleTargetAction(argv[7], answer, 'deny:');
   deny.keyEquivalent = '\r';
-  deny.setAccessibilityLabel('Deny');
-  var allow = $.NSButton.buttonWithTitleTargetAction('Allow once', answer, 'allow:');
+  deny.setAccessibilityLabel(argv[7]);
+  var allow = $.NSButton.buttonWithTitleTargetAction(argv[8], answer, 'allow:');
   allow.keyEquivalent = '';
-  allow.setAccessibilityLabel('Allow once');
+  allow.setAccessibilityLabel(argv[8]);
   var bh = Math.ceil(deny.fittingSize.height), dw = Math.ceil(deny.fittingSize.width), aw = Math.ceil(allow.fittingSize.width);
   var h = pad + bh + pad;
   parts.forEach(function (p, i) { h += p.h + (i ? gap : 0); });
   h += pad;
   var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
-  panel.title = 'komando needs your OK';
+  panel.title = argv[6];
   panel.delegate = answer;
   var view = panel.contentView, y = h - pad;
   parts.forEach(function (p, i) {
@@ -258,19 +266,22 @@ func (v approvalView) ownerReason() string {
 	if v.Owner != "" {
 		return v.Owner
 	}
+	w := wordsFor(v.Lang)
 	what := strings.Join(v.Targets, ", ")
 	if what == "" {
 		what = v.Line
 	}
 	if what == "" || utf8.RuneCountInString(what) > 120 {
-		what = "this command"
+		what = w.thisCommand
 	}
-	return "komando: allow " + what
+	return w.ownerAllow + what
 }
 
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), noBreakHyphens(v.shown())}
+	w := wordsFor(v.Lang)
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), noBreakHyphens(v.shown()),
+		w.panel, w.deny, w.allow}
 }
 
 // noBreakHyphens keeps "--yes" and "rm -rf" whole when a label wraps:
