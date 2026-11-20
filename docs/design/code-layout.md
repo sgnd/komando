@@ -98,6 +98,7 @@ or a listed one is gone.
 | `internal/queuex/sqs` | Amazon SQS |
 | `internal/registry` | container registries over the OCI Distribution API |
 | `internal/releasesig` | the signature of a release's checksums.txt (`komando update` checks it; `scripts/releasesig` signs) |
+| `internal/rundir` | komando's own per-user run folder for short-lived private files (a restore's checked copy), checked before use |
 | `internal/sealdb` | the local store file (SQLite of sealed rows) |
 | `internal/sealfile` | the sealed file of `export --sealed` and `export --for-phone` ([sealed-file.md](sealed-file.md)) |
 | `internal/sealrow` | seals one record of the local store |

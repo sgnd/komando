@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,20 @@ type approvalBody struct {
 	big   bool     // more than bodyMaxBytes: body is nil, size and sum say what it is
 	size  int64    // bytes sent
 	sum   [32]byte // SHA-256 of what is sent
+	file  string   // the file the window read, resolved (resolvedFile); "" for a body that is not one file
+}
+
+// resolvedFile is path as the file it names: ~ expanded, absolute, cleaned
+// and with symbolic links followed, so two spellings of one file match.
+func resolvedFile(path string) string {
+	a, err := filepath.Abs(expandHome(path))
+	if err != nil {
+		return ""
+	}
+	if r, err := filepath.EvalSymlinks(a); err == nil {
+		return r
+	}
+	return a
 }
 
 // newBody is an approvalBody for body as a whole.
@@ -44,8 +59,18 @@ const (
 
 // noteApprovalBody tells the approval window of this command what it sends.
 func noteApprovalBody(cl *call, label string, body []byte) {
-	cl.body = newBody(label, body, false)
+	setBody(cl, newBody(label, body, false))
 }
+
+// setBody makes b the body this command sends, and puts its full
+// SHA-256 in meta.body_sha256 (the audit record reads cl.body).
+func setBody(cl *call, b *approvalBody) {
+	cl.body = b
+	cl.out.BodySHA256(b.sha256())
+}
+
+// sha256 is the full SHA-256 of the body, lowercase hex.
+func (b *approvalBody) sha256() string { return hex.EncodeToString(b.sum[:]) }
 
 // noteApprovalData is noteApprovalBody for content a command stores or
 // sends as it is: a file's new content, a manifest, a queue message. The
@@ -55,7 +80,7 @@ func noteApprovalBody(cl *call, label string, body []byte) {
 // content is often long, and refusing it would leave a protected target
 // no way to get a config file from an agent at all.
 func noteApprovalData(cl *call, label string, body []byte) {
-	cl.body = newBody(label, body, true)
+	setBody(cl, newBody(label, body, true))
 }
 
 // noteApprovalFile is noteApprovalData for a file on this computer an AI
@@ -70,7 +95,9 @@ func noteApprovalFile(cl *call, label, path string) error {
 	if err != nil {
 		return localFileErr("PATH_NOT_FOUND", err, "")
 	}
-	cl.body = b.as(label, true)
+	body := b.as(label, true)
+	body.file = resolvedFile(path)
+	setBody(cl, body)
 	return nil
 }
 
@@ -166,7 +193,7 @@ func (b *approvalBody) shown(cl *call) (text, bad string) {
 		return text, bad
 	}
 	return fmt.Sprintf("It also sends %s (%d bytes, SHA-256 %s). Its content is not shown here: %s. Check the file (shasum -a 256) before you allow.\n\n",
-		b.label, b.size, hex.EncodeToString(b.sum[:]), why), ""
+		b.label, b.size, b.sha256(), why), ""
 }
 
 // binary reports content that is not text at all (it has a NUL byte, as
@@ -226,7 +253,7 @@ func (b *approvalBody) whole(cl *call) (text, bad string) {
 		}
 	}
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "It also sends %s (%d bytes, %d lines, SHA-256 %s)", b.label, len(b.body), len(lines), hex.EncodeToString(b.sum[:]))
+	fmt.Fprintf(&sb, "It also sends %s (%d bytes, %d lines, SHA-256 %s)", b.label, len(b.body), len(lines), b.sha256())
 	if len(lines) == 0 {
 		return sb.String() + ".\n\n", ""
 	}

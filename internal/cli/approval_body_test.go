@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"strconv"
@@ -106,5 +107,34 @@ func TestApprovalWindowShowsScriptBody(t *testing.T) {
 	// a wrapped piece keeps the line's indent
 	if got := bodyLine(tcl, "\t"+strings.Repeat("a", bodyWrap)+"b"); len(got) != 2 || got[1] != "  b" {
 		t.Errorf("wrapped line: %q", got)
+	}
+}
+
+// C197: the audit record and meta.body_sha256 carry the full SHA-256 of
+// the body sent, so a person can match the 16-hex prefix the window
+// showed; a command that sends no body has neither.
+func TestBodySHA256Recorded(t *testing.T) {
+	setHome(t, t.TempDir())
+	t.Cleanup(func() { tcl.body = nil; tcl.out.Reset() })
+	audit(tcl, nil, "none", nil, "", true, nil)
+	if strings.Contains(auditText(t), "body_sha256") {
+		t.Errorf("no body sent: %s", auditText(t))
+	}
+
+	b := []byte("echo hi\n")
+	sum := sha256.Sum256(b)
+	full := hex.EncodeToString(sum[:])
+	noteApprovalBody(tcl, scriptLabel("the script", "./x.sh"), b)
+	audit(tcl, nil, "exec", nil, "", true, nil)
+	if !strings.Contains(auditText(t), `"body_sha256":"`+full+`"`) {
+		t.Errorf("audit: %s", auditText(t))
+	}
+	var o bytes.Buffer
+	w, f := tcl.out.W, tcl.out.Format
+	tcl.out.W, tcl.out.Format = &o, "json"
+	t.Cleanup(func() { tcl.out.W, tcl.out.Format = w, f })
+	tcl.out.Print("exec", map[string]any{}, nil)
+	if !strings.Contains(o.String(), `"body_sha256":"`+full+`"`) {
+		t.Errorf("--json: %s", o.String())
 	}
 }

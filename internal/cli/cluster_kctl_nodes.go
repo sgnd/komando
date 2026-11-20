@@ -295,6 +295,25 @@ func readManifest(cl *call, p string, recursive bool) ([]byte, error) {
 	return b, err
 }
 
+// readFromFile reads a --from-file file once per command (C214): the
+// approval window and the object that is sent use the same bytes.
+func readFromFile(cl *call, p string) ([]byte, error) {
+	key := "from-file\x00" + p
+	if r, ok := cl.manifests[key]; ok {
+		return r.b, r.err
+	}
+	var data []byte
+	err := localReadOK(cl, expandHome(p))
+	if err == nil {
+		data, err = os.ReadFile(expandHome(p))
+	}
+	if cl.manifests == nil {
+		cl.manifests = map[string]manifestRead{}
+	}
+	cl.manifests[key] = manifestRead{data, err}
+	return data, err
+}
+
 type manifestRead struct {
 	b   []byte
 	err error

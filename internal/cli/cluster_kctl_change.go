@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -18,6 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/sgnd/komando/internal/kube"
+	"github.com/sgnd/komando/internal/out"
 )
 
 // Verbs that change the cluster.
@@ -369,12 +369,9 @@ func (r *kctlRun) fromSources() (map[string]any, map[string]any, error) {
 		if !ok {
 			p, k = f, filepath.Base(f)
 		}
-		if err := localReadOK(r.cl, expandHome(p)); err != nil {
-			return nil, nil, err
-		}
-		b, err := os.ReadFile(expandHome(p))
+		b, err := readFromFile(r.cl, p)
 		if err != nil {
-			if isSensitive(err) {
+			if e := (*out.Error)(nil); errors.As(err, &e) {
 				return nil, nil, err
 			}
 			return nil, nil, kfail("%v", err)
