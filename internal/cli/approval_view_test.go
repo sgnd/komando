@@ -64,7 +64,7 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[9]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[10]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
@@ -75,7 +75,7 @@ func TestMacAlertScript(t *testing.T) {
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if len(args) != 13 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
+	if len(args) != 14 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
@@ -117,6 +117,49 @@ func TestMacPanelScrollsBody(t *testing.T) {
 	// the command and script stay non-selectable
 	if !strings.Contains(s, "label(argv[5], mono, bw, false)") {
 		t.Error("what runs is selectable or not measured at the scroll width")
+	}
+}
+
+// A script that scrolls cannot hide its last lines: the scroller is
+// always drawn, a fixed line says how many lines there are, and "Allow
+// once" stays off until the end has been shown once (C207 audit).
+func TestMacPanelScrollGate(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"sv.scrollerStyle = 0",
+		"hint = label(argv[9], $.NSFont.systemFontOfSize(fs), w, true)",
+		"allow.enabled = !scroll", "SEEN = !scroll",
+		"sv.contentView.postsBoundsChangedNotifications = true",
+		"addObserverSelectorNameObject(answer, 'scrolled:', $.NSViewBoundsDidChangeNotification, sv.contentView)",
+		"'scrolled:': { types: ['void', ['id']]",
+		"r.origin.y <= 1", "SEEN = true; ALLOW_BTN.enabled = true;",
+		"'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'",
+		"removeObserver(answer)",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	// the hint is measured before the panel exists and sits above the buttons
+	if h, p := strings.Index(s, "hint = label(argv[9]"), strings.Index(s, "initWithContentRectStyleMaskBackingDefer("); h < 0 || p < h {
+		t.Error("the hint is not measured before the panel")
+	}
+	if !strings.Contains(s, "hint.v.frame = $.NSMakeRect(pad, y, w, hint.h)") {
+		t.Error("the hint is not placed under the scroll view")
+	}
+	// Deny keeps the default and is never disabled
+	if strings.Contains(s, "deny.enabled") {
+		t.Error("the script disables Deny")
+	}
+	body := strings.Repeat("x\n", 12) + "x"
+	for _, c := range []struct{ lang, want string }{
+		{"en", "Scroll to read all 13 lines"},
+		{"id", "Gulir untuk membaca semua 13 baris"},
+	} {
+		v := approvalView{raw: body, Lang: c.lang}
+		if got := macArgs(v)[13]; got != c.want {
+			t.Errorf("%s: hint %q, want %q", c.lang, got, c.want)
+		}
 	}
 }
 
@@ -348,7 +391,7 @@ func TestMacPanelAnswers(t *testing.T) {
 	script := macAlertScript
 	for _, tc := range []struct{ name, want string }{
 		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }"},
-		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
+		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
 		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }"},
 		{"close wired", "panel.delegate = answer"},
 		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
@@ -392,7 +435,7 @@ func TestMacPanelCodes(t *testing.T) {
 	}
 	for _, want := range []string{
 		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
-		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
+		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
 		"app.runModalForWindow(panel); // the answer is CHOICE",
 	} {
 		if !strings.Contains(s, want) {
@@ -416,7 +459,7 @@ func TestMacPanelChoice(t *testing.T) {
 	for _, want := range []string{
 		"var CHOICE = 'Deny', CHOSEN = false;",
 		"implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); }",
-		"implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
+		"implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
 		"implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); }",
 		"function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
 		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",

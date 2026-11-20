@@ -12,6 +12,7 @@ type approvalWords struct {
 	askedBy, targets, protected, risk    string
 	skips, alsoLets, options, command    string
 	ownerAllow, thisCommand, lines, byts string
+	scrollAll                            string            // the hint over the buttons when what runs scrolls: %d is its line count
 	flagSkip                             map[string]string // the check each approval flag skips
 	aSafetyCheck                         string
 	kinds                                map[string]string // what a body is ("script"): its heading
@@ -24,6 +25,7 @@ var approvalWordsEN = approvalWords{
 	askedBy: "Asked by ", targets: "Targets: ", protected: "Status: Protected", risk: "Risk: ",
 	skips: "Skips: ", alsoLets: "Also lets through: ", options: "Options: ", command: "Command: ",
 	ownerAllow: "komando: allow ", thisCommand: "this command", lines: " lines", byts: " bytes",
+	scrollAll: "Scroll to read all %d lines",
 	flagSkip: map[string]string{
 		"--yes":             "the safety-change check",
 		"--allow-dangerous": "the dangerous-command check",
@@ -39,6 +41,7 @@ var approvalWordsID = approvalWords{
 	askedBy: "Diminta oleh ", targets: "Target: ", protected: "Status: Dilindungi", risk: "Risiko: ",
 	skips: "Pengecekan dilewati: ", alsoLets: "Juga mengizinkan: ", options: "Opsi: ", command: "Perintah: ",
 	ownerAllow: "komando: izinkan ", thisCommand: "perintah ini", lines: " baris", byts: " byte",
+	scrollAll: "Gulir untuk membaca semua %d baris",
 	flagSkip: map[string]string{
 		"--yes":             "pengecekan perubahan berisiko",
 		"--allow-dangerous": "pengecekan perintah berbahaya",

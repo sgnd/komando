@@ -178,11 +178,16 @@ function owner(reason, secs) {
 var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 // the answer each path sets itself; a close after a choice keeps it
 var CHOICE = 'Deny', CHOSEN = false;
+// a body that scrolls must have shown its last line (SEEN) before
+// "Allow once" works; CLIP is its clip view, ALLOW_BTN the button
+var SEEN = true, CLIP = null, ALLOW_BTN = null;
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
     'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
-    'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    // the clip view is not flipped: origin.y 0 is the last line in view
+    'scrolled:': { types: ['void', ['id']], implementation: function (n) { if (SEEN) return; var r = CLIP.bounds; if (r.origin.y <= 1) { SEEN = true; ALLOW_BTN.enabled = true; } } },
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
@@ -218,7 +223,7 @@ function run(argv) {
   // 80 pt: the title bar and a margin above and below the panel
   var maxH = (screen.isNil() ? 600 : Math.floor(screen.visibleFrame.size.height)) - 80;
   var room = Math.max(maxH - fixedH - gap, 80);
-  var mono = $.NSFont.monospacedSystemFontOfSizeWeight(fs, 0), bw = w, body = null, bodyH = 0, scroll = false;
+  var mono = $.NSFont.monospacedSystemFontOfSizeWeight(fs, 0), bw = w, body = null, bodyH = 0, scroll = false, hint = null;
   if (argv[5] !== '') {
     body = label(argv[5], mono, bw, false);
     if (body.h > room) {
@@ -226,10 +231,17 @@ function run(argv) {
       scroll = true;
       bw = w - 16;
       body = label(argv[5], mono, bw, false);
+      // argv[9], "Scroll to read all N lines", sits over the buttons
+      hint = label(argv[9], $.NSFont.systemFontOfSize(fs), w, true);
+      room = Math.max(room - hint.h - gap, 80);
     }
     bodyH = Math.min(body.h, room);
   }
-  var h = fixedH + (body ? gap + bodyH : 0);
+  var h = fixedH + (body ? gap + bodyH : 0) + (hint ? gap + hint.h : 0);
+  // Allow once stays off until the last line has been in view once
+  ALLOW_BTN = allow;
+  SEEN = !scroll;
+  allow.enabled = !scroll;
   var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
   panel.title = argv[6];
   panel.delegate = answer;
@@ -245,6 +257,8 @@ function run(argv) {
     var sv = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(pad, y, w, bodyH));
     sv.hasHorizontalScroller = false;
     sv.hasVerticalScroller = scroll;
+    // legacy scrollers: the bar is drawn even before the first scroll
+    sv.scrollerStyle = 0;
     sv.drawsBackground = false;
     body.v.frame = $.NSMakeRect(0, 0, bw, body.h);
     sv.documentView = body.v;
@@ -255,6 +269,16 @@ function run(argv) {
     // the label is not flipped: start at its top line
     sv.contentView.scrollToPoint($.NSMakePoint(0, body.h - bodyH));
     sv.reflectScrolledClipView(sv.contentView);
+    if (scroll) {
+      CLIP = sv.contentView;
+      sv.contentView.postsBoundsChangedNotifications = true;
+      $.NSNotificationCenter.defaultCenter.addObserverSelectorNameObject(answer, 'scrolled:', $.NSViewBoundsDidChangeNotification, sv.contentView);
+    }
+  }
+  if (hint) {
+    y -= gap + hint.h;
+    hint.v.frame = $.NSMakeRect(pad, y, w, hint.h);
+    view.addSubview(hint.v);
   }
   allow.frame = $.NSMakeRect(pad + w - aw, pad, aw, bh);
   deny.frame = $.NSMakeRect(pad + w - aw - 12 - dw, pad, dw, bh);
@@ -277,6 +301,7 @@ function run(argv) {
   app.runModalForWindow(panel); // the answer is CHOICE: JXA returns NSInteger as a string
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
+  $.NSNotificationCenter.defaultCenter.removeObserver(answer);
   panel.delegate = null;
   panel.orderOut(null);
   if (CHOICE === 'Allow') return 'Allow once\n' + owner(argv[3], argv[4]);
@@ -314,8 +339,9 @@ func (v approvalView) ownerReason() string {
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
 	w := wordsFor(v.Lang)
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), noBreakHyphens(v.shown()),
-		w.panel, w.deny, w.allow}
+	shown := noBreakHyphens(v.shown())
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), shown,
+		w.panel, w.deny, w.allow, fmt.Sprintf(w.scrollAll, strings.Count(shown, "\n")+1)}
 }
 
 // noBreakHyphens keeps "--yes" and "rm -rf" whole when a label wraps:
