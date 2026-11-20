@@ -488,7 +488,7 @@ what an agent or a script gets.
 
 | Error | Exit | What it means | What to do |
 |-------|------|---------------|------------|
-| `ENCODED_SECRET_INVALID` | 2 | The script or command holds a private key. | Put the key in the vault and pass it with `komando secret run`. |
+| `ENCODED_SECRET_INVALID` | 2 | The script or command holds a private key. | Put the key in the vault and pass it with `komando secret run`. To search for keys, quote only `'PRIVATE KEY-----'`, not the whole BEGIN line. |
 | `POLICY_BLOCKED` | 6 | The command looks destructive. | Check the command. At a terminal komando asks you to type the name of what goes; a script adds `--allow-dangerous` after a person agrees. |
 | `PROTECTED_TARGET`, `PROTECTED_TARGET` | 6 | A change to something protected. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). Commands that only look can add `--read-only`. |
 | `SAFETY_SETTING` | 6 | A change that turns a seatbelt off. | At a terminal komando asks `[y/N]`; a script adds `--yes` (an AI agent's `--yes` opens the approval window). |
