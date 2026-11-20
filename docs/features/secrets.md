@@ -281,6 +281,11 @@ command the user runs in their own terminal.
 
 - Hiding a value in a server's output is a best effort (see
   [Safety](safety.md#limits)).
+- A vault value that is a common word (such as `shared`) is hidden
+  wherever that word appears, komando's own notes included. That is the
+  safe side: the value never shows. `secret set`, `import`, `vpn add` and
+  `doctor` warn about a value of only letters shorter than 10 characters,
+  or a common password; use a longer value, or add digits or symbols.
 - A secret from a password manager (`vault:`, `op://` ...) is read when
   needed and never stored, so that manager must be reachable each time.
 - A vault whose key is in the keychain opens only where that keychain is

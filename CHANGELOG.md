@@ -28,6 +28,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Changed
 
+- `secret set`, `import`, `vpn add` and `doctor` warn when a secret's
+  value is a common word (only letters and shorter than 10 characters, or
+  a common password such as `password1`). The warning names the secret,
+  never the value. Such a value is easy to guess, and one of 6 or more
+  characters is hidden wherever that word appears in komando's output
+  (C186).
 - The safety docs now say what the approval window and the approval code
   stop: an agent that works through komando or is held in a sandbox. A
   program that runs freely as you can read the vault key (keychain or

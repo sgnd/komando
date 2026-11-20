@@ -89,6 +89,7 @@ func securityChecks(cl *call, st *store.State) []securityCheck {
 		} else {
 			sealedStoreCheck(add, s)
 			metaSealCheck(add)
+			commonSecretsCheck(add)
 		}
 		oldCopyCheck(add)
 	}
@@ -386,4 +387,22 @@ func tlsFlagRisk(t driver.Target, fix func(string) string, notChecked, plain str
 func storeFileThere() bool {
 	_, err := os.Stat(store.Path(store.StoreFile))
 	return err == nil
+}
+
+// commonSecretsCheck names the vault secrets whose value is a common word
+// (commonWord), never the values.
+func commonSecretsCheck(add func(name string, ok, warn bool, detail string, fix ...string)) {
+	l, err := vault.List()
+	if err != nil {
+		return
+	}
+	var names []string
+	for _, i := range l {
+		if v, err := vault.Get(i.Name); err == nil && commonWord(v) {
+			names = append(names, i.Name)
+		}
+	}
+	if len(names) > 0 {
+		add("common_secrets", false, true, "secrets "+strings.Join(names, ", ")+": these values are common words: komando hides those words everywhere in its output, and they are easy to guess; use longer values or add digits or symbols (`komando secret set NAME`)")
+	}
 }

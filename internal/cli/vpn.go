@@ -453,6 +453,7 @@ func vpnAddSave(cl *call, v *store.Vpn, secrets map[string]string, overwrite boo
 		if err := vault.Set(cl.storeWrite(), n, val); err != nil {
 			return err
 		}
+		warnCommonWord(cl, n, val)
 	}
 	var old *store.Vpn
 	err := store.Update(cl.storeWrite(), func(s *store.State) error {

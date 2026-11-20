@@ -654,3 +654,57 @@ func secretCopyStops(cl *call, st *store.State, from, to string, replaced, overw
 	}
 	return nil
 }
+
+// commonPasswords are values people often pick that the letters-only rule
+// of commonWord does not catch; compared without case.
+var commonPasswords = map[string]bool{
+	"123456": true, "1234567": true, "12345678": true, "123456789": true, "1234567890": true,
+	"password": true, "password1": true, "password123": true, "passw0rd": true, "p@ssw0rd": true,
+	"qwerty": true, "qwerty123": true, "abc123": true, "letmein": true, "welcome": true, "welcome1": true,
+	"admin": true, "admin123": true, "root": true, "toor": true, "changeme": true, "secret": true,
+	"iloveyou": true, "monkey": true, "dragon": true, "111111": true, "000000": true,
+}
+
+// commonWord reports whether v is a common word: only letters and shorter
+// than 10 characters, or a common password. Such a value is easy to guess,
+// and komando hides that word wherever it appears in its output.
+func commonWord(v string) bool {
+	if commonPasswords[strings.ToLower(v)] {
+		return true
+	}
+	if v == "" || len(v) >= 10 {
+		return false
+	}
+	for _, r := range v {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
+			return false
+		}
+	}
+	return true
+}
+
+// commonWordWarning is the warning for a secret whose value is a common
+// word; it names the secret, never the value.
+func commonWordWarning(name string) string {
+	return "secret " + name + ": this value is a common word and easy to guess; use a longer value or add digits or symbols (a value of 6 or more characters is also hidden wherever that word appears in komando's output)"
+}
+
+// warnCommonWord warns, on stderr and in meta.warnings, when the value
+// stored as name is a common word.
+func warnCommonWord(cl *call, name, v string) {
+	if commonWord(v) {
+		cl.out.Warn(commonWordWarning(name))
+	}
+}
+
+// storeImportSecrets puts the named values in the vault, warning about
+// each that is a common word.
+func storeImportSecrets(cl *call, names []string, values map[string]string) error {
+	for _, name := range names {
+		if err := vault.Set(cl.storeWrite(), name, values[name]); err != nil {
+			return err
+		}
+		warnCommonWord(cl, name, values[name])
+	}
+	return nil
+}

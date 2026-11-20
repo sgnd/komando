@@ -106,6 +106,7 @@ noticed. At the terminal, paste or type the value after the prompt appears.`,
 				return err
 			}
 			audit(cl, nil, "secret.set", nil, "", true, map[string]any{"secret": args[0], "replaced": replaced})
+			warnCommonWord(cl, args[0], v)
 			cl.out.Print("secret.set", textAs{res, textFn(func() string { return changeText(cl.out, res) })}, nil)
 			return nil
 		}),
