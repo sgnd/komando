@@ -79,6 +79,24 @@ func TestHostKeysPinnedMeta(t *testing.T) {
 	}
 }
 
+// C197: the full SHA-256 of a body the command sent is in
+// meta.body_sha256, and only for that command.
+func TestBodySHA256Meta(t *testing.T) {
+	var b bytes.Buffer
+	p := &Printer{Format: "json", W: &b, Start: time.Now()}
+	p.BodySHA256("ab12")
+	p.Print("exec", map[string]any{}, nil)
+	if !strings.Contains(b.String(), `"body_sha256":"ab12"`) {
+		t.Errorf("meta: %s", b.String())
+	}
+	p.Reset()
+	b.Reset()
+	p.Print("exec", map[string]any{}, nil)
+	if strings.Contains(b.String(), "body_sha256") {
+		t.Errorf("after Reset: %s", b.String())
+	}
+}
+
 // Reset starts the next command as a new printer: what one command set
 // (--dry-run, --pretty, masking, --reveal) is not the next one's.
 func TestResetForgetsCommandSettings(t *testing.T) {

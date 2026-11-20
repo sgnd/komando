@@ -513,7 +513,7 @@ func noteRestoreFile(cl *call, from string, custom bool) error {
 	if err != nil {
 		return out.Errf(out.ExitUsage, "BAD_FILE", "give a backup made by `komando db dump`", "%v", err)
 	}
-	cl.body = c.as(label, false)
+	setBody(cl, c.as(label, false))
 	return nil
 }
 

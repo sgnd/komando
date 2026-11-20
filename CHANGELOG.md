@@ -20,6 +20,11 @@ its highlights; the sections below them give the details. Versions follow
   and nothing sent) or `dead` (no handshake for 3 minutes although
   something was sent or a keepalive is set). JSON: `last_handshake_at`,
   `handshake_age_seconds`, `tunnel_state` and `tunnel_dead`.
+- A command that sends a script or content (`exec --script`,
+  `--stdin-file`, `fs write`, an upload, `queue send`, `cluster apply`)
+  records its full SHA-256 as `body_sha256` in the audit record and in
+  `meta` of its JSON output, so a person can match the 16 hex characters
+  the approval window shows to the exact file (C197).
 
 ### Changed
 

@@ -356,7 +356,11 @@ you or your agent. An agent's environment can set that name to anything, so
 its records keep the agent itself (`agent`) and your computer account, read
 from the system (`os_user`), and mark the name as the one it claims
 (`actor_claimed`); `komando audit -o text` shows it as
-`Claude Code (as claude)`. To keep SQL text out of the history, see
+`Claude Code (as claude)`. A command that sends a script or content
+(`exec --script`, `--stdin-file`, `fs write`, an upload, `queue send`,
+`cluster apply`, a SQL file) records its full SHA-256 (`body_sha256`), so
+you can match the 16 hex characters the approval window showed to the
+exact file. To keep SQL text out of the history, see
 `audit_sql` in [Settings](settings.md#settings).
 
 ## A key that runs komando and nothing else
