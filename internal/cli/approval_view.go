@@ -180,7 +180,32 @@ var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 var CHOICE = 'Deny', CHOSEN = false;
 // a body that scrolls must have shown its last line (SEEN) before
 // "Allow once" works; CLIP is its clip view, ALLOW_BTN the button
-var SEEN = true, CLIP = null, DOC = null, ALLOW_BTN = null;
+var SEEN = true, CLIP = null, DOC = null, SV = null, ALLOW_BTN = null, SCROLLS = false;
+// keyScroll is where a key moves the script area's top edge: the arrows
+// a line, Page Up/Down and Space a page, Home/End the ends; null for any
+// other key (Return, Tab and Esc keep their meaning)
+function keyScroll(code, y, line, page, maxY) {
+  var to = code === 126 ? y - line : code === 125 ? y + line : code === 116 ? y - page :
+    code === 121 || code === 49 ? y + page : code === 115 ? 0 : code === 119 ? maxY : null;
+  return to === null ? null : Math.max(0, Math.min(maxY, to));
+}
+// scrollKey scrolls the clip view; the bounds observer then runs the gate
+function scrollKey(code) {
+  if (!SCROLLS) return false;
+  var r = CLIP.documentVisibleRect, line = 16;
+  var to = keyScroll(code, r.origin.y, line, Math.max(line, r.size.height - line), Math.max(0, DOC.frame.size.height - r.size.height));
+  if (to === null) return false;
+  CLIP.scrollToPoint($.NSMakePoint(0, to));
+  SV.reflectScrolledClipView(CLIP);
+  return true;
+}
+// the focus ring: the system's focus colour around the scroll view
+function focusRing(on) {
+  SV.wantsLayer = true;
+  SV.layer.borderWidth = on ? 3 : 0;
+  SV.layer.cornerRadius = 4;
+  SV.layer.borderColor = $.NSColor.keyboardFocusIndicatorColor.CGColor;
+}
 // seenEnd: the visible rect's bottom (NSMaxY, flipped) has reached the
 // document's last line, with 1 pt of slack; at the top it is false
 function seenEnd(y, h, docH) { return y + h >= docH - 1; }
@@ -189,7 +214,12 @@ ObjC.registerSubclass({
   name: 'KomandoDoc',
   superclass: 'NSView',
   methods: {
-    'isFlipped': { types: ['bool', []], implementation: function () { return true; } }
+    'isFlipped': { types: ['bool', []], implementation: function () { return true; } },
+    // a script that scrolls takes focus, so the keys can read it to the end
+    'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } },
+    'becomeFirstResponder': { types: ['bool', []], implementation: function () { focusRing(true); return true; } },
+    'resignFirstResponder': { types: ['bool', []], implementation: function () { focusRing(false); return true; } },
+    'keyDown:': { types: ['void', ['id']], implementation: function (e) { if (!scrollKey(Number(e.keyCode))) ObjC.super(this).keyDown(e); } }
   }
 });
 ObjC.registerSubclass({
@@ -202,9 +232,28 @@ ObjC.registerSubclass({
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
+// hanging is text with each numbered script line's wrapped rows indented
+// past its number, so a wrapped row never looks like a line of its own
+// (the attributed-string init methods are not bridged: new, then fill)
+function hanging(text, font) {
+  var as = $.NSMutableAttributedString.new, cw = font.maximumAdvancement.width, at = 0;
+  as.replaceCharactersInRangeWithString($.NSMakeRange(0, 0), text);
+  as.addAttributeValueRange($.NSFontAttributeName, font, $.NSMakeRange(0, text.length));
+  text.split('\n').forEach(function (ln) {
+    var m = /^ *\d+  /.exec(ln);
+    if (m) {
+      var ps = $.NSMutableParagraphStyle.new;
+      ps.headIndent = m[0].length * cw;
+      as.addAttributeValueRange($.NSParagraphStyleAttributeName, ps, $.NSMakeRange(at, ln.length));
+    }
+    at += ln.length + 1;
+  });
+  return as;
+}
 function label(text, font, w, copy) {
   var l = $.NSTextField.wrappingLabelWithString(text);
   l.font = font;
+  if (!copy) l.attributedStringValue = hanging(text, font);
   // the command and script are not selectable: they show U+2011 so a
   // flag never breaks over a line, and a copy of them would not run as shown
   l.selectable = copy;
@@ -275,9 +324,14 @@ function run(argv) {
     DOC = $.KomandoDoc.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h));
     DOC.addSubview(body.v);
     sv.documentView = DOC;
+    SV = sv;
+    SCROLLS = scroll;
+    DOC.setAccessibilityElement(true);
+    DOC.setAccessibilityRole($.NSAccessibilityGroupRole);
     // the name before the first colon ("Command", "Script"), else the panel title
     var name = argv[5].split(':')[0];
     sv.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
+    DOC.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
     view.addSubview(sv);
     // start at the first line (the document is flipped)
     sv.contentView.scrollToPoint($.NSMakePoint(0, 0));
@@ -298,7 +352,9 @@ function run(argv) {
   view.addSubview(deny);
   view.addSubview(allow);
   deny.nextKeyView = allow;
-  allow.nextKeyView = deny;
+  // Tab: Deny, Allow once (skipped while off), then a script that scrolls
+  allow.nextKeyView = scroll ? DOC : deny;
+  if (scroll) DOC.nextKeyView = deny;
   panel.initialFirstResponder = deny;
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
