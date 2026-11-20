@@ -337,6 +337,7 @@
         }
       ],
       "settings": {
+        "approval_language": "string",
         "audit": "bool",
         "audit_sql": "string",
         "connect_timeout": "string",
@@ -547,6 +548,7 @@
         "string"
       ],
       "settings": {
+        "approval_language": "string",
         "audit": "string",
         "audit_sql": "string",
         "audit_syslog": "string",

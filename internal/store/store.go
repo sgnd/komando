@@ -248,20 +248,22 @@ type Settings struct {
 	ApprovalCodeStep int64    `json:"approval_code_step,omitempty"` // the last 30 s step whose code was accepted: it is not taken again
 	AuditSyslog      string   `json:"audit_syslog,omitempty"`       // also send audit records to this log server (udp://, tcp://, tls://)
 	MaskPersonal     string   `json:"mask_personal,omitempty"`      // protected | all | off: where AI agents see personal data hidden
+	ApprovalLanguage string   `json:"approval_language,omitempty"`  // auto | en | id: the approval window's words
 }
 
 func DefaultSettings() Settings {
 	return Settings{
-		HostKeyPolicy:  "accept-new",
-		DefaultTimeout: "5m",
-		ConnectTimeout: "15s",
-		Parallel:       10,
-		MaxOutputBytes: 256 * 1024,
-		Audit:          true,
-		AuditSQL:       "full",
-		VpnIdle:        "30m",
-		LoginFor:       "8h",
-		MaskPersonal:   "protected",
+		HostKeyPolicy:    "accept-new",
+		DefaultTimeout:   "5m",
+		ConnectTimeout:   "15s",
+		Parallel:         10,
+		MaxOutputBytes:   256 * 1024,
+		Audit:            true,
+		AuditSQL:         "full",
+		VpnIdle:          "30m",
+		LoginFor:         "8h",
+		MaskPersonal:     "protected",
+		ApprovalLanguage: "auto",
 	}
 }
 
@@ -455,6 +457,9 @@ func (s *State) init() {
 	}
 	if s.Settings.MaskPersonal == "" {
 		s.Settings.MaskPersonal = d.MaskPersonal
+	}
+	if s.Settings.ApprovalLanguage == "" {
+		s.Settings.ApprovalLanguage = d.ApprovalLanguage
 	}
 	if s.Settings.MaxOutputBytes == 0 {
 		s.Settings.MaxOutputBytes = d.MaxOutputBytes
