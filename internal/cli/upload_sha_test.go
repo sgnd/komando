@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/sgnd/komando/internal/out"
+	"github.com/sgnd/komando/internal/testhome"
 )
 
 // C213: an upload hashes the bytes as they are sent. When the window
@@ -90,7 +91,7 @@ func TestUploadRecordsTheSentHash(t *testing.T) {
 func TestUploadCheckDoesNotDependOnSpelling(t *testing.T) {
 	setHome(t, t.TempDir())
 	home := filepath.Dir(expandHome("~/x.sh"))
-	if err := os.MkdirAll(home, 0o755); err != nil {
+	if err := os.MkdirAll(testhome.Path(t, home), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	setCallerEnv(t, "CLAUDECODE", "1")
@@ -113,14 +114,14 @@ func TestUploadCheckDoesNotDependOnSpelling(t *testing.T) {
 		{"trailing slash", src, src + "/"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if err := os.WriteFile(src, []byte("echo shown\n"), 0o644); err != nil {
+			if err := os.WriteFile(testhome.Path(t, src), []byte("echo shown\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			tcl.body = nil
 			if err := noteUpload(tcl, c.shown, nil); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(src, []byte("echo swapped\n"), 0o644); err != nil {
+			if err := os.WriteFile(testhome.Path(t, src), []byte("echo swapped\n"), 0o644); err != nil {
 				t.Fatal(err)
 			}
 			dst := filepath.Join(t.TempDir(), "x.sh")

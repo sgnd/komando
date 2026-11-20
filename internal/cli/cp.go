@@ -544,64 +544,74 @@ func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src,
 	rfi, rerr := sc.Stat(dst)
 	dstIsDir := rerr == nil && rfi.IsDir()
 	if !fi.IsDir() {
-		// "dst/" or existing remote dir => put inside it
-		if strings.HasSuffix(dst, "/") || dstIsDir {
-			dst = path.Join(dst, filepath.Base(src))
-		}
-		if o.resume {
-			return continueUpload(cl, ctx, c, sc, src, dst, fi.Mode().Perm(), o)
-		}
-		f, err := os.Open(src)
-		if err != nil {
-			return xferStats{}, err
-		}
-		defer f.Close()
-		// a file already there keeps its mode (a 0600 .env stays 0600);
-		// a new one gets the local file's, unless --mode says
-		newMode := "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
-		// streamed: a multi-GB backup never sits in memory
-		pp := progressFrom(ctx)
-		pp.start(src)
-		var in io.Reader = storex.CtxReader(ctx, pp.reader(f))
-		if p := transferProgress(cl, ctx, o, filepath.Base(src), fi.Size()); p != nil {
-			defer p.done()
-			in = io.TeeReader(in, p)
-		}
-		// C213: the bytes are hashed as they go; when an agent's window
-		// approved a hash, other bytes stop before the file goes into place
-		// fail closed: an agent's upload is sent only against the hash its
-		// window showed for this same file (matched on the resolved file,
-		// not on how the path was spelled)
-		var want string
-		agent := cl.caller().IsAgent()
-		if agent {
-			if cl.body == nil || cl.body.file == "" || cl.body.file != resolvedFile(src) {
-				audit(cl, nil, "upload", nil, "", false, map[string]any{"file": src, "to": dst, "blocked": "FILE_CHANGED"})
-				return xferStats{}, notShownFile(src)
-			}
-			want = cl.body.sha256()
-		}
-		r, err := writeRemoteFrom(cl, ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: o.mode, newMode: newMode, wantSHA256: want})
-		if err != nil {
-			if e := (*out.Error)(nil); errors.As(err, &e) && e.Code == "FILE_CHANGED" {
-				audit(cl, nil, "upload", nil, "", false, map[string]any{"file": src, "to": dst, "blocked": "FILE_CHANGED"})
-			}
-			return xferStats{}, err
-		}
-		if !agent {
-			// a person's upload: body_sha256 is the hash of what was sent
-			sum, _ := hex.DecodeString(r["sha256"].(string))
-			b := &approvalBody{label: "the file " + src, big: true, size: r["bytes"].(int64)}
-			copy(b.sum[:], sum)
-			setBody(cl, b)
-		}
-		pp.fileDone()
-		if t, ok := r["followed"].(string); ok {
-			dst = t
-		}
-		replaced, _ := r["replaced"].(bool)
-		return xferStats{Files: 1, Bytes: r["bytes"].(int64), Dest: dst, SHA256: r["sha256"].(string), Replaced: replaced}, nil
+		return uploadFile(cl, ctx, c, sc, src, dst, fi, dstIsDir, o)
 	}
+	return uploadTree(cl, ctx, sc, src, dst, dstIsDir, o)
+}
+
+// uploadFile sends one file, streamed and hashed as it goes.
+func uploadFile(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src, dst string, fi os.FileInfo, dstIsDir bool, o cpOpts) (xferStats, error) {
+	// "dst/" or existing remote dir => put inside it
+	if strings.HasSuffix(dst, "/") || dstIsDir {
+		dst = path.Join(dst, filepath.Base(src))
+	}
+	if o.resume {
+		return continueUpload(cl, ctx, c, sc, src, dst, fi.Mode().Perm(), o)
+	}
+	f, err := os.Open(src)
+	if err != nil {
+		return xferStats{}, err
+	}
+	defer f.Close()
+	// a file already there keeps its mode (a 0600 .env stays 0600);
+	// a new one gets the local file's, unless --mode says
+	newMode := "0" + strings.TrimPrefix(fileModeOctal(fi.Mode()), "0")
+	// streamed: a multi-GB backup never sits in memory
+	pp := progressFrom(ctx)
+	pp.start(src)
+	var in io.Reader = storex.CtxReader(ctx, pp.reader(f))
+	if p := transferProgress(cl, ctx, o, filepath.Base(src), fi.Size()); p != nil {
+		defer p.done()
+		in = io.TeeReader(in, p)
+	}
+	// C213: the bytes are hashed as they go; when an agent's window
+	// approved a hash, other bytes stop before the file goes into place
+	// fail closed: an agent's upload is sent only against the hash its
+	// window showed for this same file (matched on the resolved file,
+	// not on how the path was spelled)
+	var want string
+	agent := cl.caller().IsAgent()
+	if agent {
+		if cl.body == nil || cl.body.file == "" || cl.body.file != resolvedFile(src) {
+			audit(cl, nil, "upload", nil, "", false, map[string]any{"file": src, "to": dst, "blocked": "FILE_CHANGED"})
+			return xferStats{}, notShownFile(src)
+		}
+		want = cl.body.sha256()
+	}
+	r, err := writeRemoteFrom(cl, ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: o.mode, newMode: newMode, wantSHA256: want})
+	if err != nil {
+		if e := (*out.Error)(nil); errors.As(err, &e) && e.Code == "FILE_CHANGED" {
+			audit(cl, nil, "upload", nil, "", false, map[string]any{"file": src, "to": dst, "blocked": "FILE_CHANGED"})
+		}
+		return xferStats{}, err
+	}
+	if !agent {
+		// a person's upload: body_sha256 is the hash of what was sent
+		sum, _ := hex.DecodeString(r["sha256"].(string))
+		b := &approvalBody{label: "the file " + src, big: true, size: r["bytes"].(int64)}
+		copy(b.sum[:], sum)
+		setBody(cl, b)
+	}
+	pp.fileDone()
+	if t, ok := r["followed"].(string); ok {
+		dst = t
+	}
+	replaced, _ := r["replaced"].(bool)
+	return xferStats{Files: 1, Bytes: r["bytes"].(int64), Dest: dst, SHA256: r["sha256"].(string), Replaced: replaced}, nil
+}
+
+// uploadTree sends a folder, file by file.
+func uploadTree(cl *call, ctx context.Context, sc *sftp.Client, src, dst string, dstIsDir bool, o cpOpts) (xferStats, error) {
 	contents := strings.HasSuffix(src, "/") || strings.HasSuffix(src, string(os.PathSeparator))
 	dst = treeDest(strings.TrimSuffix(dst, "/"), filepath.Base(filepath.Clean(src)), contents, dstIsDir, strings.HasSuffix(dst, "/"))
 	if !o.mkdirs {
@@ -616,7 +626,7 @@ func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src,
 	if real, err := filepath.EvalSymlinks(src); err == nil {
 		root = real
 	}
-	err = filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
+	err := filepath.Walk(root, func(p string, info os.FileInfo, err error) error {
 		if cerr := ctx.Err(); cerr != nil {
 			return cerr // Ctrl-C: stop here, the files sent so far stay
 		}
