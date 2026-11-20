@@ -81,6 +81,9 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- The approval window now names everything a power or remote-access
+  rule catches ("shutdown or reboot", "Stop-Computer or shutdown",
+  "stopping sshd or WinRM"), not just one command.
 - Two `vpn up` with the same WireGuard key at the same moment no longer
   end in `VPN_DOWN` or a brief `VPN_KEY_IN_USE`: the second waits up to
   5 seconds for the first session of the same home to come up, then
