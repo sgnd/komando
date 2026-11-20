@@ -41,6 +41,8 @@ var winRules = []struct{ id, pattern, reason string }{
 		"blocks all incoming traffic (may lock you out)"},
 	{"win-user-delete", `(?i)\b(remove-localuser|remove-aduser)\b|(?i)\bnet\s+user\s+\S+\s+/del(ete)?\b`, "deletes a user account"},
 	{"win-encoded", `(?i)\b(powershell|pwsh)(\.exe)?\s[^;|\n]*-e(nc(odedcommand)?|c)?\s+[A-Za-z0-9+/=]{16,}`, "runs hidden (base64) text as a script"},
+	{"win-decode-run", `(?i)\bfrombase64string\b.*(\biex\b|\binvoke-expression\b|\[scriptblock\]::create\b|\[reflection\.assembly\]::load\b)|(?i)(\biex\b|\binvoke-expression\b|\[scriptblock\]::create\b|\[reflection\.assembly\]::load\b).*\bfrombase64string\b`,
+		decodeRunReason},
 	{"win-download-run", `(?i)\b(iwr|irm|invoke-webrequest|invoke-restmethod|downloadstring)\b[^;\n]*\|\s*(iex|invoke-expression)\b|(?i)\b(iex|invoke-expression)\b[^;\n]*\b(iwr|irm|invoke-webrequest|invoke-restmethod|downloadstring)\b`,
 		"runs a script downloaded from the network"},
 	{"win-backups", `(?i)\bvssadmin(\.exe)?\s+(delete|resize)\s+shadow|(?i)\bwbadmin(\.exe)?\s+delete\b|(?i)\bbcdedit(\.exe)?\s+/(delete|set|deletevalue)\b`,

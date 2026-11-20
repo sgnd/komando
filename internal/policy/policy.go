@@ -15,6 +15,7 @@ type Rule struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason"`
 	re     *regexp.Regexp
+	fn     func(string) bool // a check a regular expression cannot say (decode-run)
 }
 
 var builtin = []struct{ id, pattern, reason string }{
@@ -84,7 +85,7 @@ func Check(cmd string, extra []string) []Rule {
 		return re.MatchString(norm) || re.MatchString(plain) || re.MatchString(ps)
 	}
 	for _, r := range compiled {
-		if match(r.re) {
+		if match(r.re) || r.fn != nil && (r.fn(norm) || r.fn(plain)) {
 			hits = append(hits, r)
 		}
 	}
