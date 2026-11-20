@@ -53,7 +53,6 @@ func TestApprovalEncodedRiskLine(t *testing.T) {
 	}
 }
 
-
 // A private key in a script or command is refused, for a person too.
 func TestEncodedSecretRefused(t *testing.T) {
 	srv := startFakeServer(t)

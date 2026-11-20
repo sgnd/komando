@@ -26,6 +26,13 @@ its highlights; the sections below them give the details. Versions follow
   language. Every line komando writes in the window is translated, the
   risk words of each built-in rule too; the command and script are not.
 
+- The approval window names encoded data it cannot show in a readable
+  way (C208): a block of base64, base32 or hex of 64 or more characters
+  (a heredoc or `a+="…"` pieces count as one block), or a long run of
+  `\xNN` or octal escapes, gets a risk line with its kind, size, decoded
+  size and lines, in English and Indonesian. A 64-digit hash on a line
+  that names it and public PEM blocks do not count.
+
 ### Changed
 
 - `secret set`, `import`, `vpn add` and `doctor` warn when a secret's
@@ -54,6 +61,18 @@ its highlights; the sections below them give the details. Versions follow
   itself after 2 minutes.
 
 ### Security
+
+- A new deny rule, `decode-run` (and `win-decode-run` for PowerShell),
+  stops a script or command that decodes hidden text and runs it: a
+  decoder (`base64 -d`, `xxd -r`, `openssl enc -d`, `rev`, a rot13 `tr`)
+  piped into a shell or interpreter, `eval "$(… base64 -d)"`, a
+  `python -c` or `perl -e` that runs decoded text, a decoded file that a
+  later step runs, and `FromBase64String` with `iex` or
+  `[scriptblock]::Create`. It needs `--allow-dangerous` and a person's yes,
+  like the other rules (C208).
+- A script or command that holds a private key is refused, for AI agents
+  and people alike, with the new `ENCODED_SECRET_INVALID`: the key would
+  reach the approval window, the audit log and the server (C208).
 
 - On macOS "Allow once" in the approval window now counts only after you
   confirm with Touch ID, an Apple Watch or your login password, in the
