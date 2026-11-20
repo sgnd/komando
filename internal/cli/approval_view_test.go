@@ -245,6 +245,34 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 	}
 }
 
+// With macOS keyboard navigation off, Tab may skip the script area, so
+// the window-wide key monitor scrolls it with the arrows, Page Up/Down and
+// Home/End whatever has focus; Space, Return and Tab keep their meaning.
+func TestMacPanelMonitorScrolls(t *testing.T) {
+	s := macAlertScript
+	i := strings.Index(s, "addLocalMonitorForEventsMatchingMaskHandler(")
+	if i < 0 {
+		t.Fatal("no key monitor")
+	}
+	mon := s[i : i+strings.Index(s[i:], "\n  });")]
+	want := "if (SCROLLS && MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 && scrollKey(Number(e.keyCode))) return null;"
+	if !strings.Contains(mon, want) {
+		t.Errorf("the monitor has no %q", want)
+	}
+	if !strings.Contains(s, "var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];") {
+		t.Error("the monitor keys are not the arrows, Page Up/Down and Home/End")
+	}
+	for _, bad := range []string{"49", "36", "48", "76"} {
+		if strings.Contains(mon, bad) || strings.Contains(s[strings.Index(s, "var MONITOR_KEYS"):strings.Index(s, "var MONITOR_KEYS")+50], bad) {
+			t.Errorf("the monitor routes key %s", bad)
+		}
+	}
+	// Esc is still checked first
+	if e, r := strings.Index(mon, "=== 53"), strings.Index(mon, "MONITOR_KEYS"); e < 0 || r < e {
+		t.Error("Esc is no longer handled first")
+	}
+}
+
 // A wrapped row of a numbered script line hangs under the text, not under
 // the line number, so it cannot pass for a line of its own (C215).
 func TestMacPanelHangingIndent(t *testing.T) {

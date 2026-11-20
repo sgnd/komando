@@ -189,6 +189,10 @@ function keyScroll(code, y, line, page, maxY) {
     code === 121 || code === 49 ? y + page : code === 115 ? 0 : code === 119 ? maxY : null;
   return to === null ? null : Math.max(0, Math.min(maxY, to));
 }
+// MONITOR_KEYS scroll the script whatever has focus (Tab may skip the
+// area when macOS keyboard navigation is off): Up, Down, Page Up, Page
+// Down, Home, End; Space scrolls only when the area has focus
+var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];
 // scrollKey scrolls the clip view; the bounds observer then runs the gate
 function scrollKey(code) {
   if (!SCROLLS) return false;
@@ -361,6 +365,7 @@ function run(argv) {
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
     if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
     if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
+    if (SCROLLS && MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 && scrollKey(Number(e.keyCode))) return null;
     return e;
   });
   var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); });
