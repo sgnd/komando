@@ -179,8 +179,9 @@ var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 // the answer each path sets itself; a close after a choice keeps it
 var CHOICE = 'Deny', CHOSEN = false;
 // a body that scrolls must have shown its last line (SEEN) before
-// "Allow once" works; CLIP is its clip view, ALLOW_BTN the button
-var SEEN = true, CLIP = null, DOC = null, SV = null, ALLOW_BTN = null, SCROLLS = false;
+// "Allow once" works; CLIP is its clip view, ALLOW_BTN the button; RING
+// is the focus ring, shown while the script area has focus (HAS_FOCUS)
+var SEEN = true, CLIP = null, DOC = null, SV = null, RING = null, ALLOW_BTN = null, SCROLLS = false, HAS_FOCUS = false;
 // keyScroll is where a key moves the script area's top edge: the arrows
 // a line, Page Up/Down and Space a page, Home/End the ends; null for any
 // other key (Return, Tab and Esc keep their meaning)
@@ -193,23 +194,23 @@ function keyScroll(code, y, line, page, maxY) {
 // area when macOS keyboard navigation is off): Up, Down, Page Up, Page
 // Down, Home, End; Space scrolls only when the area has focus
 var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];
-// scrollKey scrolls the clip view; the bounds observer then runs the gate
+// scrollKey scrolls the clip view; the bounds observer then runs the gate.
+// An error in a JXA callback ends the panel as a Deny, so it answers
+// false instead: the key then goes on to the panel (C237)
 function scrollKey(code) {
-  if (!SCROLLS) return false;
-  var r = CLIP.documentVisibleRect, line = 16;
-  var to = keyScroll(code, r.origin.y, line, Math.max(line, r.size.height - line), Math.max(0, DOC.frame.size.height - r.size.height));
-  if (to === null) return false;
-  CLIP.scrollToPoint($.NSMakePoint(0, to));
-  SV.reflectScrolledClipView(CLIP);
-  return true;
+  try {
+    if (!SCROLLS) return false;
+    var r = CLIP.documentVisibleRect, line = 16;
+    var to = keyScroll(code, r.origin.y, line, Math.max(line, r.size.height - line), Math.max(0, DOC.frame.size.height - r.size.height));
+    if (to === null) return false;
+    CLIP.scrollToPoint($.NSMakePoint(0, to));
+    SV.reflectScrolledClipView(CLIP);
+    return true;
+  } catch (x) { return false; }
 }
-// the focus ring: the system's focus colour around the scroll view
-function focusRing(on) {
-  SV.wantsLayer = true;
-  SV.layer.borderWidth = on ? 3 : 0;
-  SV.layer.cornerRadius = 4;
-  SV.layer.borderColor = $.NSColor.keyboardFocusIndicatorColor.CGColor;
-}
+// the focus ring: a box in the system's focus colour around the script
+// area (an NSBox takes the NSColor itself; a layer border needs a CGColor)
+function focusRing(on) { HAS_FOCUS = on; RING.hidden = !on; }
 // seenEnd: the visible rect's bottom (NSMaxY, flipped) has reached the
 // document's last line, with 1 pt of slack; at the top it is false
 function seenEnd(y, h, docH) { return y + h >= docH - 1; }
@@ -219,11 +220,12 @@ ObjC.registerSubclass({
   superclass: 'NSView',
   methods: {
     'isFlipped': { types: ['bool', []], implementation: function () { return true; } },
-    // a script that scrolls takes focus, so the keys can read it to the end
+    // a script that scrolls takes focus, so the keys can read it to the
+    // end; no keyDown: the key monitor scrolls, and every other key goes up
+    // the responder chain as AppKit sends it (Return to Deny)
     'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } },
-    'becomeFirstResponder': { types: ['bool', []], implementation: function () { focusRing(true); return true; } },
-    'resignFirstResponder': { types: ['bool', []], implementation: function () { focusRing(false); return true; } },
-    'keyDown:': { types: ['void', ['id']], implementation: function (e) { if (!scrollKey(Number(e.keyCode))) ObjC.super(this).keyDown(e); } }
+    'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); } catch (x) {} return true; } },
+    'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); } catch (x) {} return true; } }
   }
 });
 ObjC.registerSubclass({
@@ -232,7 +234,7 @@ ObjC.registerSubclass({
     'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
     'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
     // the last line is in view when the visible rect reaches the document's bottom
-    'scrolled:': { types: ['void', ['id']], implementation: function (n) { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; } } },
+    'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; } } catch (x) {} } },
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
@@ -336,6 +338,17 @@ function run(argv) {
     var name = argv[5].split(':')[0];
     sv.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
     DOC.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
+    if (scroll) {
+      // the focus ring, 3 pt outside the script area and behind it (custom box, no title)
+      RING = $.NSBox.alloc.initWithFrame($.NSMakeRect(pad - 3, y - 3, w + 6, bodyH + 6));
+      RING.boxType = 4;
+      RING.titlePosition = 0;
+      RING.borderWidth = 3;
+      RING.cornerRadius = 4;
+      RING.borderColor = $.NSColor.keyboardFocusIndicatorColor;
+      RING.hidden = true;
+      view.addSubview(RING);
+    }
     view.addSubview(sv);
     // start at the first line (the document is flipped)
     sv.contentView.scrollToPoint($.NSMakePoint(0, 0));
@@ -362,10 +375,17 @@ function run(argv) {
   panel.initialFirstResponder = deny;
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
+  // the key monitor: Esc and Cmd-W deny; Tab and Shift-Tab only move the
+  // focus (Deny, Allow once while it is on, the script); the arrows, Page
+  // Up/Down and Home/End scroll the script, Space too while it has focus.
+  // Every other key, and any key after an error, goes on to the panel (C237)
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
-    if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
-    if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
-    if (SCROLLS && MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 && scrollKey(Number(e.keyCode))) return null;
+    try {
+      if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
+      if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
+      if (Number(e.keyCode) === 48) { if (Number(e.modifierFlags) & $.NSEventModifierFlagShift) panel.selectPreviousKeyView(null); else panel.selectNextKeyView(null); return null; }
+      if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) return null;
+    } catch (x) {}
     return e;
   });
   var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); });
