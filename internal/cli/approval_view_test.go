@@ -55,7 +55,7 @@ func TestMacAlertScript(t *testing.T) {
 		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel(argv[7])", "setAccessibilityLabel(argv[8])",
 		"Number(e.keyCode) === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
-		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "argv[5].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
+		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
@@ -64,7 +64,7 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[9]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[10]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
@@ -75,12 +75,130 @@ func TestMacAlertScript(t *testing.T) {
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if len(args) != 13 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
+	if len(args) != 14 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
 	if args = macArgs(v); args[4] != macArgMarker || args[5] != "Run a komando command" || args[6] != "Asked by -e" {
 		t.Errorf("title %q", args)
+	}
+}
+
+// The macOS panel never grows past the screen: the title, the info
+// lines and the buttons stay fixed, and what runs (argv[5]) sits alone in
+// a scroll view that takes the height left over, scrolling only when it
+// has to (C207).
+func TestMacPanelScrollsBody(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"$.NSScreen.mainScreen", "visibleFrame.size.height", "maxH = ",
+		"$.NSScrollView.alloc.initWithFrame(", "sv.documentView = DOC", "sv.hasHorizontalScroller = false",
+		"sv.hasVerticalScroller = scroll", "sv.drawsBackground = false", "sv.setAccessibilityLabel(",
+		"monospacedSystemFontOfSizeWeight(fs, 0)", "label(argv[5], mono, ", "view.addSubview(sv)",
+		"Math.min(body.h, room)",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	// what runs is one label in the scroll view, not stacked parts
+	if strings.Contains(s, "argv[5].split('\\n") {
+		t.Error("argv[5] is still split into stacked parts")
+	}
+	// the fixed parts hold only the title and the info lines
+	fixed := s[strings.Index(s, "var parts = ["):strings.Index(s, "var answer")]
+	if strings.Contains(fixed, "argv[5]") {
+		t.Errorf("argv[5] is among the fixed parts: %s", fixed)
+	}
+	// the panel is made at the capped height, after the cap is known
+	if c, p := strings.Index(s, "maxH = "), strings.Index(s, "initWithContentRectStyleMaskBackingDefer("); c < 0 || p < c {
+		t.Error("the panel is created before the screen cap")
+	}
+	// the command and script stay non-selectable
+	if !strings.Contains(s, "label(argv[5], mono, bw, false)") {
+		t.Error("what runs is selectable or not measured at the scroll width")
+	}
+}
+
+// A script that scrolls cannot hide its last lines: the scroller is
+// always drawn, a fixed line says how many lines there are, and "Allow
+// once" stays off until the end has been shown once (C207 audit).
+func TestMacPanelScrollGate(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"sv.scrollerStyle = 0",
+		"hint = label(argv[9], $.NSFont.systemFontOfSize(fs), w, true)",
+		"allow.enabled = !scroll", "SEEN = !scroll",
+		"sv.contentView.postsBoundsChangedNotifications = true",
+		"addObserverSelectorNameObject(answer, 'scrolled:', $.NSViewBoundsDidChangeNotification, sv.contentView)",
+		"'scrolled:': { types: ['void', ['id']]",
+		"function seenEnd(y, h, docH) { return y + h >= docH - 1; }", "if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; }",
+		"'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'",
+		"removeObserver(answer)",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	// the hint is measured before the panel exists and sits above the buttons
+	if h, p := strings.Index(s, "hint = label(argv[9]"), strings.Index(s, "initWithContentRectStyleMaskBackingDefer("); h < 0 || p < h {
+		t.Error("the hint is not measured before the panel")
+	}
+	if !strings.Contains(s, "hint.v.frame = $.NSMakeRect(pad, y, w, hint.h)") {
+		t.Error("the hint is not placed under the scroll view")
+	}
+	// Deny keeps the default and is never disabled
+	if strings.Contains(s, "deny.enabled") {
+		t.Error("the script disables Deny")
+	}
+	body := strings.Repeat("x\n", 12) + "x"
+	for _, c := range []struct{ lang, want string }{
+		{"en", "Scroll to read all 13 lines"},
+		{"id", "Gulir untuk membaca semua 13 baris"},
+	} {
+		v := approvalView{raw: body, Lang: c.lang}
+		if got := macArgs(v)[13]; got != c.want {
+			t.Errorf("%s: hint %q, want %q", c.lang, got, c.want)
+		}
+	}
+}
+
+// The script region opens at its first line: the document view is
+// flipped, the clip view is put at the top before the panel shows, and
+// the gate looks at the visible rect's bottom edge, so the start position
+// never counts as read (C207, CI shots of 862d50cc).
+func TestMacPanelStartsAtTop(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"name: 'KomandoDoc'", "superclass: 'NSView'", "'isFlipped': { types: ['bool', []], implementation: function () { return true; } }",
+		"DOC = $.KomandoDoc.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h))", "DOC.addSubview(body.v)", "sv.documentView = DOC",
+		"sv.contentView.scrollToPoint($.NSMakePoint(0, 0))",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	for _, bad := range []string{"r.origin.y <= 1", "body.h - bodyH))", "sv.documentView = body.v"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("script still has %q", bad)
+		}
+	}
+	if top, show := strings.Index(s, "scrollToPoint($.NSMakePoint(0, 0))"), strings.Index(s, "panel.makeKeyAndOrderFront(null)"); top < 0 || show < top {
+		t.Error("the region is not put at the top before the panel shows")
+	}
+}
+
+// The hint counts the script's own lines, not the rows the window shows
+// for it (heading and SHA-256 line included).
+func TestMacScrollHintCount(t *testing.T) {
+	for name, want := range map[string]string{"long-lines": "Scroll to read all 13 lines", "tall-script": "Scroll to read all 40 lines"} {
+		for _, c := range shotCases {
+			if c.name == name {
+				if got := macArgs(c.view())[13]; got != want {
+					t.Errorf("%s: %q, want %q", name, got, want)
+				}
+			}
+		}
 	}
 }
 
@@ -312,7 +430,7 @@ func TestMacPanelAnswers(t *testing.T) {
 	script := macAlertScript
 	for _, tc := range []struct{ name, want string }{
 		{"deny button", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }"},
-		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
+		{"allow button", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }"},
 		{"close button", "'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }"},
 		{"close wired", "panel.delegate = answer"},
 		{"closable", "$.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable"},
@@ -356,7 +474,7 @@ func TestMacPanelCodes(t *testing.T) {
 	}
 	for _, want := range []string{
 		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
-		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
+		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
 		"app.runModalForWindow(panel); // the answer is CHOICE",
 	} {
 		if !strings.Contains(s, want) {
@@ -380,7 +498,7 @@ func TestMacPanelChoice(t *testing.T) {
 	for _, want := range []string{
 		"var CHOICE = 'Deny', CHOSEN = false;",
 		"implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); }",
-		"implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
+		"implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); }",
 		"implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); }",
 		"function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); }",
 		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",
@@ -407,7 +525,7 @@ func TestMacPanelNoDebugStderr(t *testing.T) {
 // lines can be copied and keep plain hyphens.
 func TestMacCopyRule(t *testing.T) {
 	for _, want := range []string{"function label(text, font, w, copy) {", "l.selectable = copy;",
-		"label(argv[2], $.NSFont.systemFontOfSize(fs), w, true)", "label(g, $.NSFont.systemFontOfSize(fs), w, false)", "argv[5].split("} {
+		"label(argv[2], $.NSFont.systemFontOfSize(fs), w, true)", "label(argv[5], mono, bw, false)"} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
 		}
