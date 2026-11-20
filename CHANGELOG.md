@@ -68,6 +68,24 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Security
 
+- The safety rows of `store.db` carry a policy MAC (C187, C234): the
+  protected marks of servers, conns and VPNs, the other server, conn and
+  VPN settings komando asks a person for (`forward_agent`,
+  `proxy_command`, a trusted login program, `mfa`, `legacy_crypto`,
+  `allow_pap`), the deny rules and safety settings, the approval code
+  settings, pinned and revoked host keys, trusted host CAs and the
+  settings row's sealed copy. It is an HMAC-SHA256 under a policy key made
+  from the store's key, checked on every read and write; komando writes it
+  again with each change it makes. A row changed outside komando stops
+  every command with `POLICY_MAC_FAILED`, naming the row. The store's
+  keys now come from its key under one label each (row, value, runtime,
+  ticket, policy), and records are sealed under a new row key: a program
+  given the row key alone opens no secret value, makes no ticket and
+  cannot change a safety row unseen. A store made by an older komando
+  gets its MAC once, on its first open; after that an older komando
+  stops with `STORE_NEWER`, so update every komando that uses the folder
+  and restart VPN sessions, tunnels and server logins started before.
+
 - A new deny rule, `decode-run` (and `win-decode-run` for PowerShell),
   stops a script or command that decodes hidden text and runs it: a
   decoder (`base64 -d`, also as `-di` or `-dw0`, `basenc -d`,

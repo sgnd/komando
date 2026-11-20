@@ -1,6 +1,11 @@
 package vault
 
 import (
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -8,6 +13,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/sgnd/komando/internal/sealdb"
+	"github.com/sgnd/komando/internal/sealkey"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -318,4 +325,112 @@ func TestSealedKeyFileChangeStoppedHalfway(t *testing.T) {
 	if _, err := os.Stat(storeKeyFile()); err != nil {
 		t.Fatalf("store.key not in place: %v", err)
 	}
+}
+
+// The row key (handed out later by the vault agent) opens no secret value
+// and makes no ticket: the value and ticket keys come from the master key
+// under their own labels, never from the row key.
+func TestRowKeyOpensNoValue(t *testing.T) {
+	sealedVault(t)
+	if err := Set(store.Save(), "db-pass", "s3cret"); err != nil {
+		t.Fatal(err)
+	}
+	f, err := loadSealed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := f.Entries["db-pass"]
+	master, err := store.MasterKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, _ := sealkey.Derive(master, sealkey.Rows)
+	for _, k := range [][]byte{row, mustDerive(t, row, sealkey.Values)} {
+		blk, _ := aes.NewCipher(k)
+		a, _ := cipher.NewGCM(blk)
+		if _, err := a.Open(nil, e.Nonce, e.Data, []byte("db-pass")); err == nil {
+			t.Error("the row key opened a secret value")
+		}
+	}
+	if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+		t.Fatalf("the value key: %q %v", v, err)
+	}
+	msg := []byte("komando spawn v1\x00ticket")
+	want, err := TicketMAC(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range [][]byte{row, mustDerive(t, row, sealkey.Tickets)} {
+		h := hmac.New(sha256.New, k)
+		h.Write(msg)
+		if hmac.Equal(h.Sum(nil), want) {
+			t.Error("the row key makes the ticket")
+		}
+	}
+}
+
+func mustDerive(t *testing.T, k []byte, l sealkey.Label) []byte {
+	t.Helper()
+	d, err := sealkey.Derive(k, l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+// A store an older komando made (format 1, no policy MAC) is upgraded on
+// its first open in each key mode: its secret values still open, and its
+// protected server stays protected.
+func TestUpgradeEachKeyMode(t *testing.T) {
+	for _, mode := range []string{"keyfile", "passphrase", "keychain"} {
+		t.Run(mode, func(t *testing.T) {
+			switch mode {
+			case "keyfile":
+				freshHome(t)
+			case "passphrase":
+				passHome(t, oldPass)
+			case "keychain":
+				unixOnly(t, "the stand-in keychain is a sh script")
+				freshHome(t)
+				fakeSecretTool(t)
+			}
+			sealdb.CreateFormat = 1 // as an older komando made it
+			t.Cleanup(func() { sealdb.CreateFormat = sealdb.Format })
+			err := Set(store.Save(), "db-pass", "s3cret")
+			if err == nil {
+				err = store.Update(store.Save(), func(s *store.State) error {
+					s.Hosts["web"] = &store.Host{Name: "web", Address: "10.0.0.1", Protected: true}
+					return nil
+				})
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			sealdb.CreateFormat = sealdb.Format
+			if m := peekMeta(t); m["format"] != "1" || m["key_mode"] != mode {
+				t.Fatalf("the old store: %v", m)
+			}
+			store.Close() // the next command
+			if v, err := Get("db-pass"); err != nil || v != "s3cret" {
+				t.Fatalf("a secret of the old store: %q %v", v, err)
+			}
+			if m := peekMeta(t); m["format"] != "2" {
+				t.Fatalf("not upgraded: %v", m)
+			}
+			store.Close()
+			s, err := store.Load()
+			if err != nil || !s.Hosts["web"].Protected {
+				t.Fatalf("after the upgrade: %v", err)
+			}
+		})
+	}
+}
+
+func peekMeta(t *testing.T) map[string]string {
+	t.Helper()
+	m, err := sealdb.Peek(context.Background(), store.DBPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m
 }

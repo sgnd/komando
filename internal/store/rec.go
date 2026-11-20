@@ -26,6 +26,14 @@ const (
 	KindRecipe = "recipe"
 )
 
+// The record types sshx keeps here, named in this package so the policy
+// MAC covers them (policy.go).
+const (
+	KindPin        = "pin"        // a server's pinned host keys
+	KindPinRevoked = "pinrevoked" // host keys never to trust
+	KindHostCA     = "hostca"     // a trusted host CA
+)
+
 // recRef is one record: where its Rec lives and its content.
 type recRef struct {
 	kind, name string

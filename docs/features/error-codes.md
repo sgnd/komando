@@ -167,6 +167,7 @@ This page is made from the code (`komando schema` lists the same under
 | `PHONE_KEY_INVALID` | 2 | the key does not match the key check the phone shows; nothing was written | check that the key file came from the phone, then run `komando export --for-phone --to FILE` again and type the key check it shows |
 | `PKG_FAILED` | 5 | pkg … failed (exit …) | read the error output (stderr) for the package manager's message |
 | `POLICY_BLOCKED` | 6 | the command matches destructive rules [rm-rf]: deletes files recursively | check with --dry-run, ask the user; once they agree, run it again with --allow-dangerous (komando then asks them in a window on their screen) |
+| `POLICY_MAC_FAILED` | 1 | …: …, so komando does not run (the safety rows no longer match their policy MAC) | something other than komando changed a protection, rule, setting or pinned host key; a person finds out what, then restores the komando folder from a backup made before it (`komando doctor` then says whether that copy is older than the keychain remembers) |
 | `PORT_CLOSED` | 5 | cannot connect to … | check the address, firewall or service on the other side |
 | `PORT_IN_USE` | 8 | cannot listen on 127.0.0.1:…: … | pick another LOCAL port (`komando tunnel list` shows the ones komando holds) |
 | `POWERSHELL_FAILED` | 5 | the login check in PowerShell failed on … (exit …): … | komando runs every command on Windows in Windows PowerShell (powershell.exe): check that it is on the PATH of the login user, and read the message |

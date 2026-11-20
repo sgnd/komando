@@ -195,6 +195,9 @@ func toErr(err error) *out.Error {
 			Hint: "it stopped before the end (Ctrl-C or a signal); check what it left, then run it again"}).
 			Say("Stopped (Ctrl-C) before the end; what already ran stays as it is", "check what it left, then run it again")
 	}
+	if e := store.PolicyErr(err); e != nil {
+		return e // a step of sshx or the vault found it, not a load
+	}
 	switch {
 	case errors.Is(err, vault.ErrLocked):
 		return &out.Error{Code: "VAULT_LOCKED", Message: err.Error(), Exit: out.ExitError,

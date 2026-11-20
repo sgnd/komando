@@ -2,13 +2,15 @@ package sealrow
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"errors"
 	"testing"
 )
 
 func testKey(t *testing.T, fill byte) *Key {
 	t.Helper()
-	k, err := NewKey(bytes.Repeat([]byte{fill}, MasterLen))
+	k, err := NewKey(bytes.Repeat([]byte{fill}, KeyLen))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,6 +32,27 @@ func TestRoundTrip(t *testing.T) {
 		if !bytes.Equal(got, plain) {
 			t.Fatalf("got %q", got)
 		}
+	}
+}
+
+// NewKey seals with the row key as it is given (sealkey made it from the
+// master key): no other key is made from it here.
+func TestNewKeyUsesTheRowKey(t *testing.T) {
+	rk := bytes.Repeat([]byte{3}, KeyLen)
+	k, err := NewKey(rk)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := Row{ID: "a", Type: "server", Version: 1}
+	s, err := k.Seal(r, []byte("web-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blk, _ := aes.NewCipher(rk)
+	a, _ := cipher.NewGCM(blk)
+	plain, err := a.Open(nil, s[headerLen:headerLen+nonceLen], s[headerLen+nonceLen:], r.aad(s[0], s[1]))
+	if err != nil || string(plain) != "web-1" {
+		t.Fatalf("AES-GCM under the row key itself: %q %v", plain, err)
 	}
 }
 
@@ -108,7 +131,7 @@ func TestNewerFormat(t *testing.T) {
 
 func TestBadInput(t *testing.T) {
 	if _, err := NewKey(make([]byte, 16)); err == nil {
-		t.Fatal("short master key accepted")
+		t.Fatal("short row key accepted")
 	}
 	k := testKey(t, 1)
 	if _, err := k.Seal(Row{Type: "server"}, nil); err == nil {
@@ -131,7 +154,7 @@ func TestNewID(t *testing.T) {
 }
 
 func FuzzOpen(f *testing.F) {
-	k, _ := NewKey(bytes.Repeat([]byte{1}, MasterLen))
+	k, _ := NewKey(bytes.Repeat([]byte{1}, KeyLen))
 	r := Row{ID: "a", Type: "server", Version: 1}
 	s, _ := k.Seal(r, []byte("seed"))
 	f.Add(s)

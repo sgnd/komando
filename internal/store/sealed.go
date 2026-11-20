@@ -20,6 +20,9 @@ import (
 const kindSettings = "settings"
 
 func storeErr(err error) error {
+	if e := PolicyErr(err); e != nil {
+		return e
+	}
 	switch {
 	case errors.Is(err, sealdb.ErrNewerFormat), errors.Is(err, sealrow.ErrNewerFormat):
 		return out.Errf(out.ExitError, "STORE_NEWER", "a newer komando made or changed this store; update this one: `komando update`",

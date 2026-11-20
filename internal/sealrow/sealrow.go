@@ -8,15 +8,14 @@
 // own columns; everything else, names included, is inside the seal.
 //
 // The package holds no key and reads no file or environment: the caller
-// passes a Key made once from the store's master key.
+// passes the row key, which package sealkey makes from the store's master
+// key.
 package sealrow
 
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hkdf"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -27,17 +26,14 @@ import (
 // was written by a newer komando.
 const Format byte = 1
 
-// SuiteAESGCM is HKDF-SHA256 to an AES-256-GCM key, random 96-bit nonces.
+// SuiteAESGCM is AES-256-GCM under the row key, random 96-bit nonces.
 const SuiteAESGCM byte = 1
 
 const (
 	headerLen = 2
 	nonceLen  = 12
-	// MasterLen is the size of the master key a Key is made from.
-	MasterLen = 32
-	// hkdfInfo separates the store key from every other key made from the
-	// same master key (the vault's per-secret keys).
-	hkdfInfo = "komando local store v1"
+	// KeyLen is the size of the row key.
+	KeyLen = 32
 )
 
 var (
@@ -53,16 +49,12 @@ type Key struct {
 	aead cipher.AEAD
 }
 
-// NewKey makes the row key from the store's 32-byte master key.
-func NewKey(master []byte) (*Key, error) {
-	if len(master) != MasterLen {
-		return nil, fmt.Errorf("sealrow: master key is %d bytes, want %d", len(master), MasterLen)
+// NewKey makes a Key from the 32-byte row key (sealkey.Rows).
+func NewKey(rowKey []byte) (*Key, error) {
+	if len(rowKey) != KeyLen {
+		return nil, fmt.Errorf("sealrow: row key is %d bytes, want %d", len(rowKey), KeyLen)
 	}
-	k, err := hkdf.Key(sha256.New, master, nil, hkdfInfo, 32)
-	if err != nil {
-		return nil, err
-	}
-	blk, err := aes.NewCipher(k)
+	blk, err := aes.NewCipher(rowKey)
 	if err != nil {
 		return nil, err
 	}

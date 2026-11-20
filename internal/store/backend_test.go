@@ -13,7 +13,6 @@ import (
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
-	"github.com/sgnd/komando/internal/sealrow"
 )
 
 // fakeKeys is a KeySource with a fixed key per mode, counting new keys.
@@ -204,13 +203,13 @@ func TestDBReopensAfterKeyChange(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	oldKey, _ := sealrow.NewKey(bytes.Repeat([]byte{7}, 32))
-	newKey, _ := sealrow.NewKey(bytes.Repeat([]byte{9}, 32))
-	other, err := sealdb.Open(ctx, DBPath(), oldKey)
+	oldKeys, _ := keysFor(bytes.Repeat([]byte{7}, 32), newestFormat)
+	newKeys, _ := keysFor(bytes.Repeat([]byte{9}, 32), newestFormat)
+	other, err := sealdb.Open(ctx, DBPath(), oldKeys.row)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := other.Rekey(ctx, newKey, nil); err != nil {
+	if err := other.Rekey(ctx, newKeys.row, func(tx *sealdb.Tx) error { return tx.SealPolicy(newKeys.policy) }); err != nil {
 		t.Fatal(err)
 	}
 	other.Close()

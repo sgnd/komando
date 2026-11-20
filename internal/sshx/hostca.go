@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/publicsuffix"
 
 	"github.com/sgnd/komando/internal/sealdb"
+	"github.com/sgnd/komando/internal/store"
 )
 
 // A host CA is a certificate authority a person trusts to vouch for the
@@ -24,7 +25,7 @@ import (
 // name komando dials, with that name among its principals, inside its
 // validity and not revoked, is trusted without a pin.
 
-const hostCAType = "hostca"
+const hostCAType = store.KindHostCA
 
 // HostCA is one trusted host certificate authority.
 type HostCA struct {
