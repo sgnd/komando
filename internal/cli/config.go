@@ -2,6 +2,7 @@ package cli
 
 import (
 	"cmp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -184,6 +185,17 @@ var settings = []setting{
 				}
 			}
 			st.Settings.LoginFor = v
+			return nil
+		}},
+	{"approval_language", "auto | en | id", "the language of the approval window: auto follows the system language (Indonesian when it is id, else English)",
+		func(s *store.Settings) string { return s.ApprovalLanguage },
+		func(cl *call, st *store.State, v string) error {
+			// the words, not what the window asks or allows: no yes needed
+			v = strings.ToLower(v)
+			if !slices.Contains(approvalLanguages, v) {
+				return out.Errf(out.ExitUsage, "USAGE", "use auto (the default), en or id", "approval_language %q is not auto, en or id", v)
+			}
+			st.Settings.ApprovalLanguage = v
 			return nil
 		}},
 	{"vpn_idle", "duration, 0 = never", "a VPN kept up with `vpn up` is closed after this long unused",

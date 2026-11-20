@@ -230,7 +230,8 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 	}
 	l := winLayoutFor(v).fit(int(sh) - 60 - extra)
 	h := l.height + extra
-	title, _ := windows.UTF16PtrFromString("komando needs your OK")
+	words := wordsFor(v.Lang)
+	title, _ := windows.UTF16PtrFromString(words.panel)
 	hwnd, _, _ := procCreateWindowExW.Call(wsExTopmost|wsExDlgModal, uintptr(unsafe.Pointer(winClass)), uintptr(unsafe.Pointer(title)),
 		wsOverlapped|wsCaption|wsSysMenu, (sw-winW)/2, (sh-uintptr(h))/2, winW, uintptr(h), 0, 0, uintptr(inst), 0)
 	if hwnd == 0 {
@@ -258,8 +259,8 @@ func approvalWindow(v approvalView, withCode bool) (code string, allowed, gaveUp
 		y += codeH + pad
 		allowStyle, denyStyle = bsDefPush, bsPushButton // as on macOS: Enter after the code allows
 	}
-	deny := child("BUTTON", "Deny", denyStyle|wsTabStop, font, pad+winInner-2*btnW-pad, y, btnW, btnH, idDeny)
-	winAllowBtn = child("BUTTON", "Allow once", allowStyle|wsTabStop, font, pad+winInner-btnW, y, btnW, btnH, idAllow)
+	deny := child("BUTTON", words.deny, denyStyle|wsTabStop, font, pad+winInner-2*btnW-pad, y, btnW, btnH, idDeny)
+	winAllowBtn = child("BUTTON", words.allow, allowStyle|wsTabStop, font, pad+winInner-btnW, y, btnW, btnH, idAllow)
 
 	procShowWindow.Call(hwnd, swShow)
 	procSetForegroundWin.Call(hwnd)
