@@ -18,10 +18,10 @@ var ruleTrigger = map[string]string{
 	"chmod-root": "chmod -R", "chown-root": "chown -R", "firewall-flush": "firewall flush", "firewall-drop-all": "iptables -P DROP",
 	"sshd-stop": "stop sshd", "passwd-files": "/etc/passwd", "passwd-files-write": "/etc/passwd", "db-drop": "DROP DATABASE",
 	"docker-prune-all": "docker prune", "kubectl-delete-ns": "kubectl delete", "base64-pipe-sh": "base64 | sh",
-	"curl-pipe-sh": "curl | sh", "crontab-r": "crontab -r", "userdel": "userdel",
+	"curl-pipe-sh": "curl | sh", "decode-run": "decode and run", "crontab-r": "crontab -r", "userdel": "userdel",
 	"win-rm-root": "Remove-Item -Recurse", "win-format": "Format-Volume", "win-power": "Stop-Computer or shutdown", "win-remote-access": "stopping sshd or WinRM",
 	"win-firewall-block": "Set-NetFirewallProfile", "win-user-delete": "Remove-LocalUser", "win-encoded": "-EncodedCommand",
-	"win-download-run": "download | iex", "win-backups": "vssadmin delete", "win-registry-hive": "reg delete",
+	"win-download-run": "download | iex", "win-decode-run": "FromBase64String and iex", "win-backups": "vssadmin delete", "win-registry-hive": "reg delete",
 }
 
 // riskWords is a risk reason in plain words, one line each: a deny-rule
@@ -118,6 +118,9 @@ func (v approvalView) info() string {
 		for _, w := range riskWords(r, v.Lang) {
 			b = append(b, words.risk+w)
 		}
+	}
+	for _, e := range encodedRisks(v.Line, v.Body, v.Lang) {
+		b = append(b, words.risk+e)
 	}
 	if s := v.skips(); s != "" {
 		b = append(b, words.skips+s)
