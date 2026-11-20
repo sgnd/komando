@@ -29,6 +29,12 @@ func Check(dir string) error {
 	return nil
 }
 
+// create opens path O_EXCL (an existing name or link is never opened),
+// mode 0600 in a 0700 folder: no other user may open it.
+func create(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
+}
+
 // Free is the space in dir's file system this user may write.
 func Free(dir string) (uint64, error) {
 	var s unix.Statfs_t

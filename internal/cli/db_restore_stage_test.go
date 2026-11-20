@@ -154,7 +154,10 @@ func TestRestoreStagedRemovesTheCopy(t *testing.T) {
 }
 
 // The restore reads the verified copy through its open descriptor: the
-// path replaced after the check changes nothing.
+// path replaced after the check changes nothing. On Unix the name then
+// points at a new file; on Windows the remove and the write are refused
+// (rundir.create), where os.OpenFile's sharing let the write land in the
+// copy itself.
 func TestRestoreStagedReadsTheVerifiedCopy(t *testing.T) {
 	stageHome(t)
 	path, orig, seal := sealedFile(t)

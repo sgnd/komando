@@ -69,8 +69,9 @@ func Dir() (string, error) {
 // outright (SIGKILL, a power cut) could not remove its own.
 const Stale = 10 * time.Minute
 
-// Create makes a new file NAME-<random>.tmp in dir: O_EXCL (an existing
-// name or link is never opened) and mode 0600.
+// Create makes a new file NAME-<random>.tmp in dir, opened for reading
+// and writing: an existing name or link is never opened, and no one else
+// may change it (create, per OS).
 func Create(dir, name string) (*os.File, error) {
 	b := make([]byte, 12)
 	if _, err := rand.Read(b); err != nil {
@@ -79,14 +80,11 @@ func Create(dir, name string) (*os.File, error) {
 	return create(filepath.Join(dir, name+"-"+hex.EncodeToString(b)+".tmp"))
 }
 
-func create(path string) (*os.File, error) {
-	return os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
-}
-
 // Sweep removes NAME-*.tmp leftovers older than Stale from dir, a folder
 // Dir checked (only this user can write there). Links are removed, never
-// followed. A file another run still reads goes too: it reads through its
-// open descriptor, which keeps the bytes until it closes it.
+// followed. On Unix a file another run still reads goes too: it reads
+// through its open descriptor, which keeps the bytes until it closes it.
+// On Windows that file cannot be removed; it goes when that run closes it.
 func Sweep(dir, name string) {
 	ents, err := os.ReadDir(dir)
 	if err != nil {

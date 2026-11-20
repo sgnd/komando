@@ -20,6 +20,27 @@ func Check(dir string) error {
 	return nil
 }
 
+// create opens path CREATE_NEW (an existing name or link is never opened)
+// and shares it for reading only. os.OpenFile would share it for writing
+// too, so another handle could write into the bytes komando checked; here
+// no other handle may write, truncate, rename or delete the file while
+// komando holds it. DELETE_ON_CLOSE removes it when the handle closes,
+// also when komando ends without its own clean-up.
+func create(path string) (*os.File, error) {
+	p, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return nil, &os.PathError{Op: "open", Path: path, Err: err}
+	}
+	h, err := windows.CreateFile(p,
+		windows.GENERIC_READ|windows.GENERIC_WRITE|windows.DELETE,
+		windows.FILE_SHARE_READ, nil, windows.CREATE_NEW,
+		windows.FILE_ATTRIBUTE_NORMAL|windows.FILE_FLAG_OPEN_REPARSE_POINT|windows.FILE_FLAG_DELETE_ON_CLOSE, 0)
+	if err != nil {
+		return nil, &os.PathError{Op: "open", Path: path, Err: err}
+	}
+	return os.NewFile(uintptr(h), path), nil
+}
+
 // Free is the space on dir's drive this user may write.
 func Free(dir string) (uint64, error) {
 	p, err := windows.UTF16PtrFromString(dir)
