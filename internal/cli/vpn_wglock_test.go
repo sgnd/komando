@@ -353,10 +353,10 @@ func TestVpnDownSharedSession(t *testing.T) {
 		}
 		return buf.String()
 	}
-	if o := run("vpn", "down", "office-2", "--dry-run"); !strings.Contains(o, "stays up for office") {
+	if o := run("vpn", "down", "office-2", "--dry-run"); !strings.Contains(o, "office-2: the session stays up for office (the same WireGuard key)") {
 		t.Fatalf("dry run: %s", o)
 	}
-	if o := run("vpn", "down", "office-2"); !strings.Contains(o, "stays up for office") {
+	if o := run("vpn", "down", "office-2"); !strings.Contains(o, "office-2: the session stays up for office (the same WireGuard key)") {
 		t.Fatalf("down: %s", o)
 	}
 	st, _ := store.Load()

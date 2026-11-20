@@ -54,7 +54,7 @@ func TestVpnAddAskPassword(t *testing.T) {
 		t.Errorf("vault: %q %v", v, err)
 	}
 	// an l2tp login: the password is stored, so no person is needed at vpn up
-	setSecret(t, "office-psk", "shared")
+	setSecret(t, "office-psk", "k3y-0ffice-psk")
 	d = mustRun(t, "vpn", "add", "office", "l2tp", "--server", "vpn.example.com", "--psk-ref", "secret:office-psk", "--user", "budi", "--ask-password")
 	if v, _ := d["vpn"].(map[string]any); v["key_ref"] != "secret:office-pass" || v["mfa"] == true {
 		t.Errorf("l2tp --ask-password: %v", d)
