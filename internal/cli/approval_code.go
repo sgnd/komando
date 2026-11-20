@@ -137,7 +137,7 @@ var askCodeOnScreen = func(cl *call, text string) (code string, allowed, shown b
 			return strings.TrimSpace(string(b)), err == nil, true
 		}
 	case "windows":
-		code, allowed, gaveUp, shown := approvalWindow(approvalView{raw: text}, true)
+		code, allowed, gaveUp, shown := approvalWindow(approvalView{raw: text, Lang: approvalLang(cl)}, true)
 		noteGaveUp(text, gaveUp)
 		return code, allowed, shown
 	}

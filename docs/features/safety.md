@@ -227,6 +227,23 @@ terminal are not affected by them.
 | **Secret files stay on this computer** | komando does not read `~/.komando`, private keys, credential stores or files that are secret by name for an agent when a command takes a local file (`--stdin-file`, `script FILE`, uploads, `sync`, `fs write --from`, `db --file`, `cluster -f`) (`SENSITIVE_FILE`); folder uploads and `sync` check each file and leave those out. That holds for the same file by another name: a link, a hard link, or other upper and lower case on macOS. You allow a project secret such as `.env` with `--reveal`; komando's own data and `/proc/PID/environ` never go. Imports (`komando import kubeconfig`, `pgpass`, `docker`, ...) may read credential files, because they put the secrets into komando's vault, which the agent never sees. The files a kubeconfig names (client key and certificate, CA, token file) are the exception: for an agent they may come from `~/.kube` (in any case on macOS and Windows) or anywhere else, but not from `~/.ssh` or another credential store, so an agent's import never copies your SSH key into the vault. A `file:` or `env:` password reference cannot point at komando's data, a private key, a credential store or the password of a secret store either. No reference, for anyone, reads the approval code's key (`RESERVED_SECRET`). Nor does an agent's command write there: `download`, `cp`, `sync` (and its `--delete`), `storage download`, `db dump --to`, `export --to` and `cluster cp` never save a file into komando's folder, `~/.ssh`, `~/.aws`, `~/.config/gcloud`, `~/.azure`, `~/.kube`, `~/.docker`, `~/.gnupg`, `~/.password-store` or the keychains, also through a link (`SENSITIVE_FILE`, no flag: you run such a command in your own terminal). |
 | **Guard on this computer** | `komando guide install` adds a guard to Claude Code, and to Cursor, Gemini CLI and Codex where you use them. Before the agent reads a file or runs a shell command, komando checks it and stops reading `~/.komando`, private keys, `.env` files and credential stores (`~/.kube`, `~/.aws`, the keychain), listing all environment variables, changing or clearing the variables komando knows an agent by (`CLAUDECODE=0`, `unset`, `env -u`, `env -i`, `read`, `sudo komando`) or `KOMANDO_HOME`, setting `HOME` in front of komando, searching or archiving a folder that holds them (`grep -r ~`, `tar -C ~ ...`), and running `ssh`/`scp` around komando. It reads relative paths from the agent's working folder, follows `cd`, and counts a glob such as `~/.komand?/*` as the path it could match; quoted patterns (`grep '.*' f`) are not globs. Skip it with `--no-guard`. |
 
+### The approval window in Indonesian
+
+The approval window speaks English or Indonesian. `komando config set approval_language id` picks Indonesian, `en` English. The default, `auto`, picks Indonesian when your system language is Indonesian: on Windows the display language; on macOS and Linux `LC_ALL`, `LC_MESSAGES` or `LANG` (the first that is set), and on a Mac where none is set, the first of your preferred languages. The setting changes only the words; what the window asks and allows stays the same, so it needs no yes.
+
+| English | Indonesian |
+|---|---|
+| komando needs your OK | komando minta persetujuan Anda |
+| Change web-1 / Run a command on web-1 / Run a query on web-1 | Ubah web-1 / Jalankan perintah di web-1 / Jalankan query di web-1 |
+| Asked by Claude Code | Diminta oleh Claude Code |
+| Targets: / Status: Protected | Target: / Status: Dilindungi |
+| Risk: Deletes a system folder recursively (rm -rf) | Risiko: Menghapus folder sistem secara rekursif (rm -rf) |
+| Skips: / Options: / Command: / Script: | Melewati: / Opsi: / Perintah: / Skrip: |
+| Deny / Allow once | Tolak / Izinkan sekali |
+| komando: allow web-1 (the Touch ID prompt) | komando: izinkan web-1 |
+
+The command, the script, server names and the agent's name are never translated. A rule you added yourself keeps your words. When a built-in rule's English reason changes, the window shows the new English reason until its Indonesian words are written again, so a translation never says less than the rule.
+
 ## Add your own rules
 
 ```bash

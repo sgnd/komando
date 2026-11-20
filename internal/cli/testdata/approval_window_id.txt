@@ -1,0 +1,68 @@
+[title]
+Ubah web-1.example.test
+[text]
+Diminta oleh Claude Code
+Status: Dilindungi
+
+Perintah: komando fs write web-1.example.test /etc/app.yaml --content $'a: 1\nb:\n  c: 2' --yes
+[owner]
+komando: izinkan web-1.example.test
+[windows sizes]
+20/80/130
+
+[title]
+Jalankan perintah di web-1.example.test
+[text]
+Diminta oleh Codex
+Status: Dilindungi
+Risiko: Menghapus folder sistem secara rekursif (rm -rf)
+Melewati: pengecekan perintah berbahaya
+
+Perintah: echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && echo abcdefghij && true
+[owner]
+komando: izinkan web-1.example.test
+[windows sizes]
+20/160/210
+
+[title]
+Jalankan perintah di db-2.example.test
+[text]
+Diminta oleh Claude Code
+Melewati: pengecekan perubahan keamanan
+Juga meloloskan: the program /usr/local/bin/x
+
+Skrip: ./deploy.sh · 3 baris · 40 byte
+SHA-256: ab12
+
+  1  #!/bin/sh
+  2  set -e
+  3  systemctl restart app
+[owner]
+komando: izinkan db-2.example.test
+[windows sizes]
+20/160/210
+
+[title]
+Ubah web-1.example.test
+[text]
+Diminta oleh Claude Code
+Melewati: pengecekan perubahan keamanan
+
+Perintah: komando host rm web-1.example.test --yes
+[owner]
+komando: izinkan web-1.example.test
+[windows sizes]
+20/64/114
+
+[title]
+Jalankan perintah komando
+[text]
+Diminta oleh Codex
+Melewati: pengecekan penyembunyian rahasia
+
+Perintah: select 1
+[owner]
+komando: izinkan komando db query shop --reveal -- select 1
+[windows sizes]
+20/64/114
+

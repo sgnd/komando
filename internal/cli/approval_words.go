@@ -28,7 +28,7 @@ var ruleTrigger = map[string]string{
 // reason ("[rm-system-dir,db-drop] deletes ...; drops a database") loses
 // its rule ids and names what triggered it ("Deletes a system folder
 // recursively (rm -rf)"); any other reason is shown as it is, capitalised.
-func riskWords(r string) []string {
+func riskWords(r, lang string) []string {
 	if ids, rest, ok := strings.Cut(strings.TrimPrefix(r, "["), "] "); ok && strings.HasPrefix(r, "[") {
 		idl, reasons := strings.Split(ids, ","), strings.Split(rest, "; ")
 		if len(idl) == len(reasons) {
@@ -39,7 +39,11 @@ func riskWords(r string) []string {
 					out = nil
 					break
 				}
-				w := capitalise(reasons[i])
+				w := reasons[i]
+				if tr, ok := riskID[id]; lang == "id" && ok && tr.en == w {
+					w = tr.id
+				}
+				w = capitalise(w)
 				if t != "" {
 					w += " (" + t + ")"
 				}
@@ -63,24 +67,18 @@ func capitalise(s string) string {
 	return strings.ToUpper(string(r)) + s[n:]
 }
 
-// flagSkip is the check each approval flag skips, in a few words.
-var flagSkip = map[string]string{
-	"--yes":             "the safety-change check",
-	"--allow-dangerous": "the dangerous-command check",
-	"--reveal":          "the secret-hiding check",
-}
-
 // skips is the checks the flags skip, on one line. --yes on a protected
 // target is left out: "Status: Protected" says it already.
 func (v approvalView) skips() string {
+	words := wordsFor(v.Lang)
 	var b []string
 	for _, f := range v.Flags {
 		if f == "--yes" && v.Protected {
 			continue
 		}
-		what := flagSkip[f]
+		what := words.flagSkip[f]
 		if what == "" {
-			what = "a safety check"
+			what = words.aSafetyCheck
 		}
 		if !slices.Contains(b, what) {
 			b = append(b, what)
@@ -105,26 +103,27 @@ func (v approvalView) info() string {
 	if v.raw != "" {
 		return ""
 	}
+	words := wordsFor(v.Lang)
 	var b []string
 	if v.Agent != "" {
-		b = append(b, "Asked by "+v.Agent)
+		b = append(b, words.askedBy+v.Agent)
 	}
 	if len(v.Targets) > 1 {
-		b = append(b, "Targets: "+strings.Join(v.Targets, ", "))
+		b = append(b, words.targets+strings.Join(v.Targets, ", "))
 	}
 	if v.Protected {
-		b = append(b, "Status: Protected")
+		b = append(b, words.protected)
 	}
 	for _, r := range v.Risks {
-		for _, w := range riskWords(r) {
-			b = append(b, "Risk: "+w)
+		for _, w := range riskWords(r, v.Lang) {
+			b = append(b, words.risk+w)
 		}
 	}
 	if s := v.skips(); s != "" {
-		b = append(b, "Skips: "+s)
+		b = append(b, words.skips+s)
 	}
 	if v.What != "" {
-		b = append(b, "Also lets through: "+v.What)
+		b = append(b, words.alsoLets+v.What)
 	}
 	if o := v.optionLine(); o != "" {
 		b = append(b, o)
@@ -140,7 +139,7 @@ func (v approvalView) optionLine() string {
 		return ""
 	}
 	if o := v.options(pre); o != "" {
-		return "Options: " + o
+		return wordsFor(v.Lang).options + o
 	}
 	return ""
 }
@@ -154,20 +153,25 @@ func (v approvalView) shown() string {
 	if v.raw != "" {
 		return strings.TrimRight(v.raw, "\n")
 	}
+	words := wordsFor(v.Lang)
 	var out []string
 	_, run, split := strings.Cut(v.Line, " -- ")
 	switch {
 	case split:
-		out = append(out, "Command: "+run)
+		out = append(out, words.command+run)
 	case strings.Contains(v.Line, " --script "):
 	default:
-		out = append(out, "Command: "+v.Line)
+		out = append(out, words.command+v.Line)
 	}
 	if body := strings.TrimRight(v.Body, "\n"); body != "" {
 		if first, rest, _ := strings.Cut(body, "\n"); bodyHead.MatchString(first) {
 			m := bodyHead.FindStringSubmatch(first)
 			kind, name, _ := strings.Cut(m[1], " ")
-			body = capitalise(kind) + ": " + name + " · " + m[3] + " lines · " + m[2] + " bytes\nSHA-256: " + shortSum(m[4]) + "\n" + rest
+			heading := words.kinds[kind]
+			if heading == "" {
+				heading = capitalise(kind)
+			}
+			body = heading + ": " + name + " · " + m[3] + words.lines + " · " + m[2] + words.byts + "\nSHA-256: " + shortSum(m[4]) + "\n" + rest
 		}
 		if len(out) > 0 {
 			out = append(out, "")
