@@ -86,6 +86,13 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- The macOS approval window can be read to the end without a mouse
+  (C209). A script that scrolls takes focus after the buttons (Tab),
+  shows a focus ring, and scrolls with the arrows, Page Up, Page Down,
+  Home, End and Space; **Allow once** still turns on only after its
+  last line has been in view. Return and Esc still mean Deny. A long
+  script line that wraps now hangs under its text, not under its line
+  number, so a wrapped part cannot pass for a line of its own (C215).
 - The macOS approval window no longer grows past the screen when a
   script has long lines (C207). It stays inside the visible screen: the
   title, the lines above the command and the buttons always show, and

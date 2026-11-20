@@ -64,10 +64,14 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[10]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSAttributedString", "initWithString", "argv[0]", "argv[10]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
+	}
+	// no colours of its own: only the system's focus indicator colour
+	if strings.Count(macAlertScript, "NSColor.") != strings.Count(macAlertScript, "NSColor.keyboardFocusIndicatorColor") {
+		t.Error("the script uses a colour other than the focus indicator's")
 	}
 	if macWindowTimeout.Minutes() != 3 || windowGiveUp.Seconds() != 120 {
 		t.Errorf("timeouts %v, %v", macWindowTimeout, windowGiveUp)
@@ -199,6 +203,96 @@ func TestMacScrollHintCount(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+// A keyboard-only person can read a long script to its end: the script
+// takes focus in the Tab order (Deny, Allow once, script), shows a focus
+// ring, and the arrows, Page Up/Down, Home/End and Space scroll it. Return
+// and Esc stay Deny, and the gate is the same seenEnd (C209).
+func TestMacPanelKeyboardScroll(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } }",
+		"'becomeFirstResponder': { types: ['bool', []], implementation: function () { focusRing(true); return true; } }",
+		"'resignFirstResponder': { types: ['bool', []], implementation: function () { focusRing(false); return true; } }",
+		"'keyDown:': { types: ['void', ['id']], implementation: function (e) { if (!scrollKey(Number(e.keyCode))) ObjC.super(this).keyDown(e); } }",
+		"function keyScroll(code, y, line, page, maxY) {",
+		"code === 126 ? y - line", "code === 125 ? y + line", "code === 116 ? y - page",
+		"code === 121 || code === 49 ? y + page", "code === 115 ? 0", "code === 119 ? maxY",
+		"CLIP.scrollToPoint($.NSMakePoint(0, to))", "SV.reflectScrolledClipView(CLIP)",
+		"$.NSColor.keyboardFocusIndicatorColor.CGColor",
+		"SCROLLS = scroll", "allow.nextKeyView = scroll ? DOC : deny", "DOC.nextKeyView = deny",
+		"DOC.setAccessibilityElement(true)", "DOC.setAccessibilityRole($.NSAccessibilityGroupRole)", "DOC.setAccessibilityLabel(",
+		"deny.keyEquivalent = '\\r'", "Number(e.keyCode) === 53",
+		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; }",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	// Return (36), Tab (48) and Esc (53) are never taken by the script area
+	k := s[strings.Index(s, "function keyScroll("):]
+	k = k[:strings.Index(k, "\n}")]
+	for _, code := range []string{"36", "48", "53", "76"} {
+		if strings.Contains(k, "=== "+code) {
+			t.Errorf("keyScroll handles key %s", code)
+		}
+	}
+	// the gate's only way to turn Allow on is the bounds observer
+	if strings.Count(s, "ALLOW_BTN.enabled = true") != 1 {
+		t.Error("Allow is enabled somewhere other than the scroll observer")
+	}
+}
+
+// With macOS keyboard navigation off, Tab may skip the script area, so
+// the window-wide key monitor scrolls it with the arrows, Page Up/Down and
+// Home/End whatever has focus; Space, Return and Tab keep their meaning.
+func TestMacPanelMonitorScrolls(t *testing.T) {
+	s := macAlertScript
+	i := strings.Index(s, "addLocalMonitorForEventsMatchingMaskHandler(")
+	if i < 0 {
+		t.Fatal("no key monitor")
+	}
+	mon := s[i : i+strings.Index(s[i:], "\n  });")]
+	want := "if (SCROLLS && MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 && scrollKey(Number(e.keyCode))) return null;"
+	if !strings.Contains(mon, want) {
+		t.Errorf("the monitor has no %q", want)
+	}
+	if !strings.Contains(s, "var MONITOR_KEYS = [126, 125, 116, 121, 115, 119];") {
+		t.Error("the monitor keys are not the arrows, Page Up/Down and Home/End")
+	}
+	for _, bad := range []string{"49", "36", "48", "76"} {
+		if strings.Contains(mon, bad) || strings.Contains(s[strings.Index(s, "var MONITOR_KEYS"):strings.Index(s, "var MONITOR_KEYS")+50], bad) {
+			t.Errorf("the monitor routes key %s", bad)
+		}
+	}
+	// Esc is still checked first
+	if e, r := strings.Index(mon, "=== 53"), strings.Index(mon, "MONITOR_KEYS"); e < 0 || r < e {
+		t.Error("Esc is no longer handled first")
+	}
+}
+
+// A wrapped row of a numbered script line hangs under the text, not under
+// the line number, so it cannot pass for a line of its own (C215).
+func TestMacPanelHangingIndent(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"function hanging(text, font) {", "$.NSMutableAttributedString.new",
+		"replaceCharactersInRangeWithString($.NSMakeRange(0, 0), text)",
+		"addAttributeValueRange($.NSFontAttributeName, font, $.NSMakeRange(0, text.length))",
+		"$.NSMutableParagraphStyle.new", "ps.headIndent = m[0].length * cw",
+		"addAttributeValueRange($.NSParagraphStyleAttributeName, ps, $.NSMakeRange(at, ln.length))",
+		"/^ *\\d+  /", "font.maximumAdvancement.width",
+		"if (!copy) l.attributedStringValue = hanging(text, font);",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	// the hanging text is set before the label is measured
+	if a, m := strings.Index(s, "l.attributedStringValue = hanging("), strings.Index(s, "cellSizeForBounds"); a < 0 || m < a {
+		t.Error("the label is measured before the hanging indent is set")
 	}
 }
 

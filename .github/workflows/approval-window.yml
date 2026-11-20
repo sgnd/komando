@@ -130,12 +130,20 @@ jobs:
           import AppKit
           import Vision
           let url = URL(fileURLWithPath: CommandLine.arguments[1])
-          guard let img = NSImage(contentsOf: url), let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { exit(2) }
+          guard let img = NSImage(contentsOf: url), let src = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { exit(2) }
+          // read a 3x copy: small monospace text at 1x is misread now and then
+          let w = src.width * 3, h = src.height * 3
+          guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { exit(2) }
+          ctx.interpolationQuality = .high
+          ctx.draw(src, in: CGRect(x: 0, y: 0, width: w, height: h))
+          guard let cg = ctx.makeImage() else { exit(2) }
           let req = VNRecognizeTextRequest()
           req.recognitionLevel = .accurate
           req.usesLanguageCorrection = false
+          req.customWords = ["LINEONEMARK"]
           try VNImageRequestHandler(cgImage: cg).perform([req])
-          for o in req.results ?? [] { if let t = o.topCandidates(1).first { print(t.string) } }
+          for o in req.results ?? [] { for t in o.topCandidates(3) { print(t.string) } }
           SWIFT
           swift "$RUNNER_TEMP/ocr.swift" "$SHOT_PNG" > "$RUNNER_TEMP/ocr.txt"
           cat "$RUNNER_TEMP/ocr.txt"
