@@ -686,7 +686,7 @@ func commonWord(v string) bool {
 // commonWordWarning is the warning for a secret whose value is a common
 // word; it names the secret, never the value.
 func commonWordWarning(name string) string {
-	return "secret " + name + ": this value is a common word: komando hides that word everywhere in its output, and it is easy to guess; use a longer value or add digits or symbols"
+	return "secret " + name + ": this value is a common word and easy to guess; use a longer value or add digits or symbols (a value of 6 or more characters is also hidden wherever that word appears in komando's output)"
 }
 
 // warnCommonWord warns, on stderr and in meta.warnings, when the value
