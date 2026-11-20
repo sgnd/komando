@@ -146,10 +146,12 @@ func viewFor(cl *call, text string) approvalView {
 // AppKit controls (no icon, no colours), titled argv[6] ("komando needs
 // your OK"):
 // argv[1] as the bold first label, argv[2] (the info lines, selectable)
-// under it, then argv[5] (what runs, not selectable), one label per group
-// split at blank lines, 12 pt apart, 440 pt wide with 20 pt
-// padding, then the buttons argv[7] (Deny) and argv[8] (Allow once) on
-// the right. Whatever their labels, the script answers with the fixed
+// under it, then argv[5] (what runs, monospace, not selectable) in a
+// scroll view, 12 pt apart, 440 pt wide with 20 pt padding, then the
+// buttons argv[7] (Deny) and argv[8] (Allow once) on the right. The
+// panel stays inside the screen's visible frame: the title, the info
+// lines and the buttons always show, and what runs takes the height left
+// and scrolls (no scroller when it fits). Whatever their labels, the script answers with the fixed
 // tokens "Deny" and "Allow once" (macAnswer). Every text arrives in argv after
 // macArgMarker, never in the script. Deny is the default (Return), Esc,
 // the close button and Cmd-W, and has the first focus; only the 120 s
@@ -176,11 +178,27 @@ function owner(reason, secs) {
 var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 // the answer each path sets itself; a close after a choice keeps it
 var CHOICE = 'Deny', CHOSEN = false;
+// a body that scrolls must have shown its last line (SEEN) before
+// "Allow once" works; CLIP is its clip view, ALLOW_BTN the button
+var SEEN = true, CLIP = null, DOC = null, ALLOW_BTN = null;
+// seenEnd: the visible rect's bottom (NSMaxY, flipped) has reached the
+// document's last line, with 1 pt of slack; at the top it is false
+function seenEnd(y, h, docH) { return y + h >= docH - 1; }
+// the script's document view is flipped: y 0 is its first line
+ObjC.registerSubclass({
+  name: 'KomandoDoc',
+  superclass: 'NSView',
+  methods: {
+    'isFlipped': { types: ['bool', []], implementation: function () { return true; } }
+  }
+});
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
     'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
-    'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    // the last line is in view when the visible rect reaches the document's bottom
+    'scrolled:': { types: ['void', ['id']], implementation: function (n) { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; } } },
     'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
@@ -200,7 +218,6 @@ function run(argv) {
   var w = 440, pad = 20, gap = 12, fs = $.NSFont.systemFontSize;
   var parts = [label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)];
   if (argv[2] !== '') parts.push(label(argv[2], $.NSFont.systemFontOfSize(fs), w, true));
-  argv[5].split('\n\n').forEach(function (g) { if (g !== '') parts.push(label(g, $.NSFont.systemFontOfSize(fs), w, false)); });
   var answer = $.KomandoAnswer.alloc.init;
   var deny = $.NSButton.buttonWithTitleTargetAction(argv[7], answer, 'deny:');
   deny.keyEquivalent = '\r';
@@ -209,9 +226,33 @@ function run(argv) {
   allow.keyEquivalent = '';
   allow.setAccessibilityLabel(argv[8]);
   var bh = Math.ceil(deny.fittingSize.height), dw = Math.ceil(deny.fittingSize.width), aw = Math.ceil(allow.fittingSize.width);
-  var h = pad + bh + pad;
-  parts.forEach(function (p, i) { h += p.h + (i ? gap : 0); });
-  h += pad;
+  // the title, the info lines and the buttons always show; what runs
+  // (argv[5]) takes the height left on the screen and scrolls past it
+  var fixedH = pad + bh + pad + pad;
+  parts.forEach(function (p, i) { fixedH += p.h + (i ? gap : 0); });
+  var screen = $.NSScreen.mainScreen;
+  // 80 pt: the title bar and a margin above and below the panel
+  var maxH = (screen.isNil() ? 600 : Math.floor(screen.visibleFrame.size.height)) - 80;
+  var room = Math.max(maxH - fixedH - gap, 80);
+  var mono = $.NSFont.monospacedSystemFontOfSizeWeight(fs, 0), bw = w, body = null, bodyH = 0, scroll = false, hint = null;
+  if (argv[5] !== '') {
+    body = label(argv[5], mono, bw, false);
+    if (body.h > room) {
+      // 16 pt for a scroller that does not overlay the text
+      scroll = true;
+      bw = w - 16;
+      body = label(argv[5], mono, bw, false);
+      // argv[9], "Scroll to read all N lines", sits over the buttons
+      hint = label(argv[9], $.NSFont.systemFontOfSize(fs), w, true);
+      room = Math.max(room - hint.h - gap, 80);
+    }
+    bodyH = Math.min(body.h, room);
+  }
+  var h = fixedH + (body ? gap + bodyH : 0) + (hint ? gap + hint.h : 0);
+  // Allow once stays off until the last line has been in view once
+  ALLOW_BTN = allow;
+  SEEN = !scroll;
+  allow.enabled = !scroll;
   var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
   panel.title = argv[6];
   panel.delegate = answer;
@@ -222,6 +263,36 @@ function run(argv) {
     p.v.frame = $.NSMakeRect(pad, y, w, p.h);
     view.addSubview(p.v);
   });
+  if (body) {
+    y -= gap + bodyH;
+    var sv = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(pad, y, w, bodyH));
+    sv.hasHorizontalScroller = false;
+    sv.hasVerticalScroller = scroll;
+    // legacy scrollers: the bar is drawn even before the first scroll
+    sv.scrollerStyle = 0;
+    sv.drawsBackground = false;
+    body.v.frame = $.NSMakeRect(0, 0, bw, body.h);
+    DOC = $.KomandoDoc.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h));
+    DOC.addSubview(body.v);
+    sv.documentView = DOC;
+    // the name before the first colon ("Command", "Script"), else the panel title
+    var name = argv[5].split(':')[0];
+    sv.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
+    view.addSubview(sv);
+    // start at the first line (the document is flipped)
+    sv.contentView.scrollToPoint($.NSMakePoint(0, 0));
+    sv.reflectScrolledClipView(sv.contentView);
+    if (scroll) {
+      CLIP = sv.contentView;
+      sv.contentView.postsBoundsChangedNotifications = true;
+      $.NSNotificationCenter.defaultCenter.addObserverSelectorNameObject(answer, 'scrolled:', $.NSViewBoundsDidChangeNotification, sv.contentView);
+    }
+  }
+  if (hint) {
+    y -= gap + hint.h;
+    hint.v.frame = $.NSMakeRect(pad, y, w, hint.h);
+    view.addSubview(hint.v);
+  }
   allow.frame = $.NSMakeRect(pad + w - aw, pad, aw, bh);
   deny.frame = $.NSMakeRect(pad + w - aw - 12 - dw, pad, dw, bh);
   view.addSubview(deny);
@@ -243,6 +314,7 @@ function run(argv) {
   app.runModalForWindow(panel); // the answer is CHOICE: JXA returns NSInteger as a string
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
+  $.NSNotificationCenter.defaultCenter.removeObserver(answer);
   panel.delegate = null;
   panel.orderOut(null);
   if (CHOICE === 'Allow') return 'Allow once\n' + owner(argv[3], argv[4]);
@@ -280,8 +352,20 @@ func (v approvalView) ownerReason() string {
 // macArgs is osascript's command line: the script, then argv.
 func macArgs(v approvalView) []string {
 	w := wordsFor(v.Lang)
-	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), noBreakHyphens(v.shown()),
-		w.panel, w.deny, w.allow}
+	shown := noBreakHyphens(v.shown())
+	return []string{"-l", "JavaScript", "-e", macAlertScript, macArgMarker, v.title(), v.info(), v.ownerReason(), strconv.Itoa(int(ownerTimeout.Seconds())), shown,
+		w.panel, w.deny, w.allow, fmt.Sprintf(w.scrollAll, v.bodyLines())}
+}
+
+// bodyLines is what the scroll hint counts: the script's own lines when
+// the body has its head, else the lines of what the window shows.
+func (v approvalView) bodyLines() int {
+	if first, _, _ := strings.Cut(v.Body, "\n"); v.raw == "" && bodyHead.MatchString(first) {
+		if n, err := strconv.Atoi(bodyHead.FindStringSubmatch(first)[3]); err == nil {
+			return n
+		}
+	}
+	return strings.Count(v.shown(), "\n") + 1
 }
 
 // noBreakHyphens keeps "--yes" and "rm -rf" whole when a label wraps:

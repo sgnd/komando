@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
@@ -81,6 +83,9 @@ type shotCase struct {
 	view func() approvalView
 }
 
+// The long-lines and tall-script cases start with "# LINEONEMARK": the
+// workflow reads it back from the screenshot to prove line 1 shows at open.
+
 // shotCases are the windows approval-window.yml captures, one per case.
 // Keep the names in step with the workflow's matrix.
 var shotCases = []shotCase{
@@ -119,10 +124,46 @@ var shotCases = []shotCase{
 		return testView("Claude Code", []string{"--allow-dangerous"}, "", []string{"it runs on db-2.example.test", "--write lets the query change data"},
 			"komando db query db-2.example.test --write --allow-dangerous -- \"UPDATE orders SET status = 'cancelled' WHERE created_at < now() - interval '30 days'\"", "")
 	}},
+	{"long-lines", func() approvalView {
+		// 13 lines of 300 base64 characters: the window must stay on the
+		// screen with its buttons, the script scrolling (C207)
+		lines := []string{"# LINEONEMARK", "base64 -d > /tmp/blob <<'EOF'"}
+		for i := range 10 {
+			lines = append(lines, base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{byte('a' + i), 0xfb, 0x10}, 75)))
+		}
+		lines = append(lines, "EOF")
+		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
+			"komando exec web-1.example.test --script ./blob.sh --yes", shotScript("./blob.sh", "77c0", lines))
+	}},
+	{"tall-script", func() approvalView {
+		// 40 lines, the most a window shows: all of it, by scrolling
+		var lines []string
+		for i := range 40 {
+			lines = append(lines, fmt.Sprintf("echo step %d && systemctl status app-%d --no-pager", i+1, i+1))
+		}
+		lines[0] = "# LINEONEMARK"
+		return testView("Codex", []string{"--yes"}, "", []string{"it runs on web-1.example.test"},
+			"komando exec web-1.example.test --script ./steps.sh --yes", shotScript("./steps.sh", "c3d4", lines))
+	}},
 	{"indonesian", func() approvalView {
 		return testView("Claude Code", []string{"--yes"}, "", []string{"it runs on web-1.example.test", "pengguna minta: hapus cache lama sebelum rilis"},
 			"komando exec web-1.example.test --yes -- echo 'Membersihkan cache aplikasi, mohon tunggu' && rm -r /srv/app/cache/lama", "")
 	}},
+}
+
+// shotScript is the body approval_body.go writes for a script: its
+// head, then each line numbered.
+func shotScript(name, sum string, lines []string) string {
+	var b strings.Builder
+	n := 0
+	for _, l := range lines {
+		n += len(l) + 1
+	}
+	fmt.Fprintf(&b, "It also sends the script %s (%d bytes, %d lines, SHA-256 %s), all of it:\n\n", name, n, len(lines), sum)
+	for i, l := range lines {
+		fmt.Fprintf(&b, "  %2d  %s\n", i+1, l)
+	}
+	return b.String()
 }
 
 // shotCaseView is the case KOMANDO_SHOT_CASE names; it fails on an unknown name.

@@ -107,6 +107,87 @@ komando: allow db-2.example.test
 Run a command on web-1.example.test
 [text]
 Asked by Claude Code
+Skips: the safety-change check
+
+Script: ./blob.sh · 13 lines · 3058 bytes
+SHA-256: 77c0
+
+   1  # LINEONEMARK
+   2  base64 -d > /tmp/blob <<'EOF'
+   3  YfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQYfsQ
+   4  YvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQYvsQ
+   5  Y/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQY/sQ
+   6  ZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQZPsQ
+   7  ZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQZfsQ
+   8  ZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQZvsQ
+   9  Z/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQZ/sQ
+  10  aPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQaPsQ
+  11  afsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQafsQ
+  12  avsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQavsQ
+  13  EOF
+[owner]
+komando: allow web-1.example.test
+[windows sizes]
+20/1104/1154
+
+[title]
+Run a command on web-1.example.test
+[text]
+Asked by Codex
+Skips: the safety-change check
+
+Script: ./steps.sh · 40 lines · 1987 bytes
+SHA-256: c3d4
+
+   1  # LINEONEMARK
+   2  echo step 2 && systemctl status app-2 --no-pager
+   3  echo step 3 && systemctl status app-3 --no-pager
+   4  echo step 4 && systemctl status app-4 --no-pager
+   5  echo step 5 && systemctl status app-5 --no-pager
+   6  echo step 6 && systemctl status app-6 --no-pager
+   7  echo step 7 && systemctl status app-7 --no-pager
+   8  echo step 8 && systemctl status app-8 --no-pager
+   9  echo step 9 && systemctl status app-9 --no-pager
+  10  echo step 10 && systemctl status app-10 --no-pager
+  11  echo step 11 && systemctl status app-11 --no-pager
+  12  echo step 12 && systemctl status app-12 --no-pager
+  13  echo step 13 && systemctl status app-13 --no-pager
+  14  echo step 14 && systemctl status app-14 --no-pager
+  15  echo step 15 && systemctl status app-15 --no-pager
+  16  echo step 16 && systemctl status app-16 --no-pager
+  17  echo step 17 && systemctl status app-17 --no-pager
+  18  echo step 18 && systemctl status app-18 --no-pager
+  19  echo step 19 && systemctl status app-19 --no-pager
+  20  echo step 20 && systemctl status app-20 --no-pager
+  21  echo step 21 && systemctl status app-21 --no-pager
+  22  echo step 22 && systemctl status app-22 --no-pager
+  23  echo step 23 && systemctl status app-23 --no-pager
+  24  echo step 24 && systemctl status app-24 --no-pager
+  25  echo step 25 && systemctl status app-25 --no-pager
+  26  echo step 26 && systemctl status app-26 --no-pager
+  27  echo step 27 && systemctl status app-27 --no-pager
+  28  echo step 28 && systemctl status app-28 --no-pager
+  29  echo step 29 && systemctl status app-29 --no-pager
+  30  echo step 30 && systemctl status app-30 --no-pager
+  31  echo step 31 && systemctl status app-31 --no-pager
+  32  echo step 32 && systemctl status app-32 --no-pager
+  33  echo step 33 && systemctl status app-33 --no-pager
+  34  echo step 34 && systemctl status app-34 --no-pager
+  35  echo step 35 && systemctl status app-35 --no-pager
+  36  echo step 36 && systemctl status app-36 --no-pager
+  37  echo step 37 && systemctl status app-37 --no-pager
+  38  echo step 38 && systemctl status app-38 --no-pager
+  39  echo step 39 && systemctl status app-39 --no-pager
+  40  echo step 40 && systemctl status app-40 --no-pager
+[owner]
+komando: allow web-1.example.test
+[windows sizes]
+20/736/786
+
+[title]
+Run a command on web-1.example.test
+[text]
+Asked by Claude Code
 Risk: Pengguna minta: hapus cache lama sebelum rilis
 Skips: the safety-change check
 
