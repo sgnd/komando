@@ -26,6 +26,11 @@ its highlights; the sections below them give the details. Versions follow
   `meta` of its JSON output, so a person can match the 16 hex characters
   the approval window shows to the exact file (C197).
 
+- The approval window speaks Indonesian (C191): `komando config set
+  approval_language id`, or the default `auto`, which follows the system
+  language. Every line komando writes in the window is translated, the
+  risk words of each built-in rule too; the command and script are not.
+
 ### Changed
 
 - `secret set`, `import`, `vpn add` and `doctor` warn when a secret's

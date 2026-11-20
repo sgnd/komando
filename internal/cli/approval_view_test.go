@@ -50,9 +50,9 @@ func TestMacAnswer(t *testing.T) {
 // owner only after Allow once.
 func TestMacAlertScript(t *testing.T) {
 	for _, want := range []string{
-		"$.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "panel.title = 'komando needs your OK'",
-		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
-		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel('Deny')", "setAccessibilityLabel('Allow once')",
+		"$.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer(", "panel.title = argv[6]",
+		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "deny.keyEquivalent = '\\r'", "allow.keyEquivalent = ''",
+		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel(argv[7])", "setAccessibilityLabel(argv[8])",
 		"Number(e.keyCode) === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
 		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "argv[5].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
@@ -64,7 +64,7 @@ func TestMacAlertScript(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[6]"} {
+	for _, bad := range []string{"NSAlert", ".icon", "NSImage", "NSColor", "AttributedString", "argv[0]", "argv[9]"} {
 		if strings.Contains(macAlertScript, bad) {
 			t.Errorf("the script uses %s", bad)
 		}
@@ -75,7 +75,7 @@ func TestMacAlertScript(t *testing.T) {
 	// a text that looks like an osascript option stays a text after the marker
 	v := approvalView{raw: "-e do shell script \"id\""}
 	args := macArgs(v)
-	if len(args) != 10 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
+	if len(args) != 13 || args[0] != "-l" || args[1] != "JavaScript" || args[2] != "-e" || args[3] != macAlertScript || args[4] != macArgMarker || args[5] != "komando: allow?" || args[6] != "" || args[9] != noBreakHyphens(v.raw) {
 		t.Errorf("argv %q", args)
 	}
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
@@ -240,7 +240,7 @@ func TestRiskWords(t *testing.T) {
 		"[a,b] one reason":              {"[a,b] one reason"},
 		"sudo runs the command as root": {"Sudo runs the command as root"},
 	} {
-		if got := riskWords(in); !slices.Equal(got, want) {
+		if got := riskWords(in, "en"); !slices.Equal(got, want) {
 			t.Errorf("riskWords(%q) = %q, want %q", in, got, want)
 		}
 	}
@@ -355,8 +355,8 @@ func TestMacPanelCodes(t *testing.T) {
 		t.Fatalf("codes not distinct: %q", consts)
 	}
 	for _, want := range []string{
-		"buttonWithTitleTargetAction('Deny', answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
-		"buttonWithTitleTargetAction('Allow once', answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
+		"buttonWithTitleTargetAction(argv[7], answer, 'deny:')", "'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } }",
+		"buttonWithTitleTargetAction(argv[8], answer, 'allow:')", "'allow:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } }",
 		"app.runModalForWindow(panel); // the answer is CHOICE",
 	} {
 		if !strings.Contains(s, want) {
