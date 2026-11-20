@@ -69,6 +69,15 @@ its highlights; the sections below them give the details. Versions follow
   file, for every caller, so the record names the bytes the restore
   sends. A file whose window read differs from the sealed bytes stops
   with `FILE_CHANGED` before anyone is asked.
+- `db restore` is atomic against a changed file. It used to check the
+  backup chunk by chunk while restoring, so a change in a later chunk
+  stopped with `FILE_CHANGED` after the earlier chunks had reached the
+  database. It now copies the file into a private file (mode 0600) in
+  komando's own run folder, checks the whole copy against the seal, and
+  only then restores from that copy's open descriptor. A `FILE_CHANGED`
+  leaves the database untouched; the copy is removed on every way out.
+  Too little free space for the copy stops with the new
+  `RESTORE_SPACE_MISSING` (exit 3) before anything is sent.
 - `cluster run` reads each `--from-file` file once: the approval window
   and the secret or config map that is sent use the same bytes (C214).
 

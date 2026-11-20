@@ -28,6 +28,7 @@ var checkedWriters = map[string]bool{"guardLocalWrite": true, "guardDownload": t
 // command's argument points.
 var writesOwnFiles = map[string]string{
 	"placeNew":             "fetchFile's last step, after its guardLocalWrite",
+	"restoreStaged":        "a restore's private copy (O_EXCL, 0600) in komando's checked run folder, removed afterwards",
 	"freshHome":            "a new empty temporary folder (os.MkdirTemp) for an agent program's HOME, removed afterwards",
 	"ticketLine":           "a spawn ticket in komando's own spawn folder, named by komando",
 	"checkTicket":          "removes that ticket once it is used",
@@ -172,6 +173,9 @@ var otherPackageWriters = map[string]string{
 	"store.WriteFileAtomic":     "writes where its caller says; the callers here are checked by TestEveryLocalWriterIsGuarded",
 	"tmpclean.RemoveAll":        "komando's own temporary files",
 	"tmpclean.Sweep":            "komando's own temporary files of earlier runs",
+	"rundir.Dir":                "komando's own per-user run folder (0700)",
+	"rundir.create":             "a new private file (O_EXCL, 0600) in that folder",
+	"rundir.Sweep":              "leftovers of earlier runs in that folder",
 	"vault.removeOldStoreKey":   "the store key in komando's folder",
 	"vault.writeNewKeyFile":     "the store key in komando's folder",
 	"vault.settleNewKeyFile":    "the store key in komando's folder",

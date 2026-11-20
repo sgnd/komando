@@ -19,8 +19,8 @@ const sealChunk = 1 << 20
 // read of the file (the check, before a person is asked) records a hash
 // of every chunk; every later read hands on a chunk only after it matched
 // its hash. So a file that is swapped, edited or grown after the check
-// stops the restore before any changed byte is used, with no second copy
-// of the file in memory or on disk.
+// stops before any changed byte is used. The restore itself checks a
+// whole private copy first (restoreStaged), so it is never cut in two.
 type backupSeal struct {
 	sums    [][sha256.Size]byte
 	head    []byte            // the file's first bytes, as stored (before gunzip)
@@ -158,26 +158,6 @@ func withBackup(cl *call, path string, seal *backupSeal, fn func(io.Reader) erro
 		}
 		copy(seal.body[:], body.Sum(nil))
 		seal.sealed = true
-	}
-	return nil
-}
-
-// verifyBackup reads the whole file against its seal.
-func verifyBackup(cl *call, path string, seal *backupSeal) error {
-	if err := guardBackupFile(cl, path); err != nil {
-		return err
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return localFileErr("FILE_NOT_FOUND", err, "")
-	}
-	defer f.Close()
-	sr := &sealReader{r: f, seal: seal, verify: true, buf: make([]byte, sealChunk)}
-	if _, err := io.Copy(io.Discard, sr); err != nil {
-		if seal.changed {
-			return backupChanged(path)
-		}
-		return localFileErr("FILE_NOT_FOUND", err, "")
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -28,7 +29,13 @@ func sealOf(t *testing.T, path string) (*backupSeal, []byte) {
 	return seal, got
 }
 
+// verifyBackup checks the whole file against its seal, as a restore does.
+func verifyBackup(cl *call, path string, seal *backupSeal) error {
+	return restoreStaged(cl, context.Background(), path, seal, func(io.Reader) error { return nil })
+}
+
 func TestBackupSeal(t *testing.T) {
+	stageHome(t)
 	dir := t.TempDir()
 	path := filepath.Join(dir, "b.sql")
 	// three chunks and a bit

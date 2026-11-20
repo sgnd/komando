@@ -383,7 +383,7 @@ window showed to the exact file. What the hash covers:
 | `recipe run` | the filled-in command, with no newline added |
 | `upload` of one file | the bytes as they are sent, for every caller. If an agent's window showed other bytes (the file changed after you saw it), the upload stops with `FILE_CHANGED` before the file on the server is touched, and the stop is in the audit log |
 | `upload` of a folder | the list the window shows: each file's name, size and SHA-256, one per line |
-| `db restore` | the bytes the restore reads (a `.gz` unpacked), taken in the same read that seals the file, for every caller |
+| `db restore` | the bytes the restore reads (a `.gz` unpacked), taken in the same read that seals the file, for every caller. The restore reads a private copy that matched the seal whole, so a `FILE_CHANGED` leaves nothing behind: the database is untouched and the copy is removed |
 | `fs write` (Linux and Windows) | the content before `{{secret:NAME}}` values are filled in, so the hash never describes a secret; with `--append`, only the appended part |
 | `cluster apply` on Kubernetes | the YAML file, though each object is sent as JSON |
 | `cluster run -f`, `--from-file` | all the files joined, in the order given; each file is read once, so the window and the cluster get the same bytes | To keep SQL text out of the history, see

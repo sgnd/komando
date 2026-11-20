@@ -479,16 +479,14 @@ func runRestore(cl *call, ctx context.Context, connExpr, from, on string) error 
 	if err := offerBackup(cl, ctx, c.Name); err != nil {
 		return err
 	}
-	// The yes took time: a file that is no longer the one that was checked
-	// stops here, before the database is touched. (The restore checks every
-	// chunk again as it reads.)
-	if err := verifyBackup(cl, from, seal); err != nil {
-		return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
-	}
+	// The yes took time: the restore reads a private copy that matched the
+	// seal whole (restoreStaged), so a file changed anywhere after the
+	// check stops before the database gets a byte. pg_restore reads the
+	// copy on its stdin, as before.
 	if builtin {
 		err = builtinRestore(cl, ctx, st, c, t.Kind.Name, from, seal)
 	} else {
-		err = withBackup(cl, from, seal, func(r io.Reader) error { return runTool(cl, ctx, st, c, h, tool, argv, r, io.Discard, false) })
+		err = restoreStaged(cl, ctx, from, seal, func(r io.Reader) error { return runTool(cl, ctx, st, c, h, tool, argv, r, io.Discard, false) })
 	}
 	return finishTransfer(cl, st, "db.restore", data, map[string]any{"conns": []string{c.Name}, "file": from, "runs_on": data.RunsOn}, err)
 }
@@ -764,18 +762,15 @@ func unreachableHint(tool, where string, c *store.Conn) string {
 }
 
 // builtinRestore restores plain SQL with komando's own client, reading the
-// file through its seal.
+// checked copy of the file (restoreStaged).
 func builtinRestore(cl *call, ctx context.Context, st *store.State, c *store.Conn, kind, from string, seal *backupSeal) error {
-	db, closeDB, err := openDB(cl, ctx, st, c, false)
-	if err != nil {
-		return err
-	}
-	defer closeDB()
-	return withBackup(cl, from, seal, func(r io.Reader) error {
+	return restoreStaged(cl, ctx, from, seal, func(r io.Reader) error {
+		db, closeDB, err := openDB(cl, ctx, st, c, false) // after the copy matched the seal
+		if err != nil {
+			return err
+		}
+		defer closeDB()
 		if err := dbx.Restore(ctx, db, kind, r); err != nil {
-			if seal.changed {
-				return err // withBackup says FILE_CHANGED
-			}
 			// what the database holds now depends on the engine (S-8.4):
 			// PostgreSQL restores in one transaction, MySQL cannot
 			state := "nothing was changed (PostgreSQL restores in one transaction)"

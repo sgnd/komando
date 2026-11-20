@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -89,11 +88,13 @@ func TestRestoreBodySHA256ForAPerson(t *testing.T) {
 	}
 }
 
-// The restore reads the file again (withBackup, verify pass), but every
-// chunk is handed on only after it matched its sealed hash: a file swapped
-// after the seal gives the restore only sealed bytes, then FILE_CHANGED.
+// The restore checks a whole private copy against the seal before it
+// reads a byte (restoreStaged): a file whose second chunk changed after
+// the seal gives the restore nothing, then FILE_CHANGED. (Before C197's
+// staged copy it got the first, sealed chunk.)
 func TestRestoreReadGetsOnlySealedBytes(t *testing.T) {
 	setHome(t, t.TempDir())
+	stageHome(t)
 	file := filepath.Join(t.TempDir(), "big.sql")
 	sealed := []byte(strings.Repeat("INSERT INTO t VALUES (1);\n", 3*sealChunk/26))
 	if err := os.WriteFile(file, sealed, 0o600); err != nil {
@@ -109,7 +110,7 @@ func TestRestoreReadGetsOnlySealedBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got []byte
-	err := withBackup(tcl, file, seal, func(r io.Reader) error {
+	err := restoreStaged(tcl, t.Context(), file, seal, func(r io.Reader) error {
 		b, err := io.ReadAll(r)
 		got = b
 		return err
@@ -117,7 +118,7 @@ func TestRestoreReadGetsOnlySealedBytes(t *testing.T) {
 	if e := (*out.Error)(nil); !errors.As(err, &e) || e.Code != "FILE_CHANGED" {
 		t.Fatalf("want FILE_CHANGED, got %v", err)
 	}
-	if !bytes.Equal(got, sealed[:len(got)]) || len(got) > sealChunk {
-		t.Errorf("the restore read %d bytes that are not the sealed ones", len(got))
+	if len(got) != 0 {
+		t.Errorf("the restore read %d bytes; want none", len(got))
 	}
 }
