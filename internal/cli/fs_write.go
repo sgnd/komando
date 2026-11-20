@@ -34,6 +34,14 @@ type writeOpts struct {
 	wantSHA256           string // the hash the approval window showed: other bytes stop before the file goes into place
 }
 
+// notShownFile: an agent's upload of a file its approval window did not
+// read. Nothing is sent.
+func notShownFile(p string) error {
+	return out.Errf(out.ExitConflict, "FILE_CHANGED",
+		"run the command again: komando shows the file as it is now, and asks again",
+		"%s is not the file the approval window showed; nothing was sent", p)
+}
+
 // sentChanged: the bytes read at send time are not the ones the window
 // showed. The temporary copy is removed; the file on the server is as it was.
 func sentChanged(p string) error {

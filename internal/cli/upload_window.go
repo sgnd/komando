@@ -26,6 +26,7 @@ func noteUpload(cl *call, local string, exclude []string) error {
 	if !cl.caller().IsAgent() {
 		return nil
 	}
+	local = expandHome(local)
 	fi, err := os.Stat(local)
 	if err != nil {
 		return localFileErr("PATH_NOT_FOUND", err, "")

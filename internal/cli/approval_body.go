@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,20 @@ type approvalBody struct {
 	big   bool     // more than bodyMaxBytes: body is nil, size and sum say what it is
 	size  int64    // bytes sent
 	sum   [32]byte // SHA-256 of what is sent
+	file  string   // the file the window read, resolved (resolvedFile); "" for a body that is not one file
+}
+
+// resolvedFile is path as the file it names: ~ expanded, absolute, cleaned
+// and with symbolic links followed, so two spellings of one file match.
+func resolvedFile(path string) string {
+	a, err := filepath.Abs(expandHome(path))
+	if err != nil {
+		return ""
+	}
+	if r, err := filepath.EvalSymlinks(a); err == nil {
+		return r
+	}
+	return a
 }
 
 // newBody is an approvalBody for body as a whole.
@@ -80,7 +95,9 @@ func noteApprovalFile(cl *call, label, path string) error {
 	if err != nil {
 		return localFileErr("PATH_NOT_FOUND", err, "")
 	}
-	setBody(cl, b.as(label, true))
+	body := b.as(label, true)
+	body.file = resolvedFile(path)
+	setBody(cl, body)
 	return nil
 }
 

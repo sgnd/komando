@@ -82,3 +82,70 @@ func TestUploadRecordsTheSentHash(t *testing.T) {
 		t.Errorf("recorded body: %+v", tcl.body)
 	}
 }
+
+// The window's record of the file is matched on the file, not on how the
+// path was spelled: whatever spelling the agent gives (~, ./, a symlink,
+// extra slashes), a file that changed after the window stops; the check
+// is never skipped.
+func TestUploadCheckDoesNotDependOnSpelling(t *testing.T) {
+	setHome(t, t.TempDir())
+	home := filepath.Dir(expandHome("~/x.sh"))
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	setCallerEnv(t, "CLAUDECODE", "1")
+	sc := localSFTP(t)
+	src := filepath.Join(home, "x.sh")
+	link := filepath.Join(t.TempDir(), "link.sh")
+	if err := os.Symlink(src, link); err != nil {
+		t.Fatal(err)
+	}
+	wd, _ := os.Getwd()
+	t.Cleanup(func() { os.Chdir(wd); tcl.body = nil; tcl.out.Reset() })
+	if err := os.Chdir(home); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ name, shown, sent string }{
+		{"tilde", "~/x.sh", src},
+		{"dot-relative", "./x.sh", src},
+		{"symlink", link, src},
+		{"extra slashes", home + "//./x.sh", src},
+		{"trailing slash", src, src + "/"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if err := os.WriteFile(src, []byte("echo shown\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			tcl.body = nil
+			if err := noteUpload(tcl, c.shown, nil); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(src, []byte("echo swapped\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			dst := filepath.Join(t.TempDir(), "x.sh")
+			if _, err := upload(tcl, context.Background(), nil, sc, c.sent, dst, cpOpts{}); err == nil {
+				t.Fatalf("the swapped file was sent: %q", read(t, dst))
+			}
+		})
+	}
+}
+
+// An agent's one-file upload with no window record is refused, not sent
+// unchecked.
+func TestUploadAgentWithoutWindowRecordRefuses(t *testing.T) {
+	setHome(t, t.TempDir())
+	setCallerEnv(t, "CLAUDECODE", "1")
+	sc := localSFTP(t)
+	t.Cleanup(func() { tcl.body = nil; tcl.out.Reset() })
+	src := filepath.Join(t.TempDir(), "a.txt")
+	if err := os.WriteFile(src, []byte("a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tcl.body = nil
+	_, err := upload(tcl, context.Background(), nil, sc, src, filepath.Join(t.TempDir(), "a.txt"), cpOpts{})
+	var e *out.Error
+	if !errors.As(err, &e) || e.Code != "FILE_CHANGED" {
+		t.Fatalf("want FILE_CHANGED, got %v", err)
+	}
+}

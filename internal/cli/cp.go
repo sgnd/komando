@@ -569,9 +569,16 @@ func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src,
 		}
 		// C213: the bytes are hashed as they go; when an agent's window
 		// approved a hash, other bytes stop before the file goes into place
+		// fail closed: an agent's upload is sent only against the hash its
+		// window showed for this same file (matched on the resolved file,
+		// not on how the path was spelled)
 		var want string
-		approved := cl.caller().IsAgent() && cl.body != nil && cl.body.label == "the file "+src
-		if approved {
+		agent := cl.caller().IsAgent()
+		if agent {
+			if cl.body == nil || cl.body.file == "" || cl.body.file != resolvedFile(src) {
+				audit(cl, nil, "upload", nil, "", false, map[string]any{"file": src, "to": dst, "blocked": "FILE_CHANGED"})
+				return xferStats{}, notShownFile(src)
+			}
 			want = cl.body.sha256()
 		}
 		r, err := writeRemoteFrom(cl, ctx, c, sc, dst, in, writeOpts{sudo: o.sudo, mkdirs: o.mkdirs, mode: o.mode, newMode: newMode, wantSHA256: want})
@@ -581,7 +588,7 @@ func upload(cl *call, ctx context.Context, c *sshx.Client, sc *sftp.Client, src,
 			}
 			return xferStats{}, err
 		}
-		if !approved {
+		if !agent {
 			// a person's upload: body_sha256 is the hash of what was sent
 			sum, _ := hex.DecodeString(r["sha256"].(string))
 			b := &approvalBody{label: "the file " + src, big: true, size: r["bytes"].(int64)}

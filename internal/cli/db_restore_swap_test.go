@@ -1,12 +1,17 @@
 package cli
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/sgnd/komando/internal/out"
 )
 
 // The file a person said yes to is the file that is restored: one that is
@@ -81,5 +86,38 @@ func TestRestoreBodySHA256ForAPerson(t *testing.T) {
 	d := mustRun(t, "db", "restore", "pg", "--from", file, "--dry-run")
 	if got := d["_meta"].(map[string]any)["body_sha256"]; got != hex.EncodeToString(sum[:]) {
 		t.Errorf("body_sha256 %v, want %x", got, sum)
+	}
+}
+
+// The restore reads the file again (withBackup, verify pass), but every
+// chunk is handed on only after it matched its sealed hash: a file swapped
+// after the seal gives the restore only sealed bytes, then FILE_CHANGED.
+func TestRestoreReadGetsOnlySealedBytes(t *testing.T) {
+	setHome(t, t.TempDir())
+	file := filepath.Join(t.TempDir(), "big.sql")
+	sealed := []byte(strings.Repeat("INSERT INTO t VALUES (1);\n", 3*sealChunk/26))
+	if err := os.WriteFile(file, sealed, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	seal := &backupSeal{}
+	if err := withBackup(tcl, file, seal, func(r io.Reader) error { _, err := io.Copy(io.Discard, r); return err }); err != nil {
+		t.Fatal(err)
+	}
+	swapped := append([]byte(nil), sealed...)
+	copy(swapped[sealChunk+10:], "COPY t TO PROGRAM 'id';\n") // the second chunk changes
+	if err := os.WriteFile(file, swapped, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var got []byte
+	err := withBackup(tcl, file, seal, func(r io.Reader) error {
+		b, err := io.ReadAll(r)
+		got = b
+		return err
+	})
+	if e := (*out.Error)(nil); !errors.As(err, &e) || e.Code != "FILE_CHANGED" {
+		t.Fatalf("want FILE_CHANGED, got %v", err)
+	}
+	if !bytes.Equal(got, sealed[:len(got)]) || len(got) > sealChunk {
+		t.Errorf("the restore read %d bytes that are not the sealed ones", len(got))
 	}
 }
