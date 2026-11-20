@@ -86,6 +86,12 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- The macOS approval window no longer grows past the screen when a
+  script has long lines (C207). It stays inside the visible screen: the
+  title, the lines above the command and the buttons always show, and
+  the command and script scroll in a monospace region that takes the
+  space left. Deny is still the default; a window that fits looks as
+  before, with no scroller.
 - The approval window now names everything a power or remote-access
   rule catches ("shutdown or reboot", "Stop-Computer or shutdown",
   "stopping sshd or WinRM"), not just one command.

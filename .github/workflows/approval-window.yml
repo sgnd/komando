@@ -30,7 +30,7 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest]
         # keep in step with shotCases
-        case: [short, script, sudo, hosts, destructive, db-query, indonesian]
+        case: [short, script, sudo, hosts, destructive, db-query, indonesian, long-lines, tall-script]
         mode: [light, dark]
         exclude:
           - os: windows-latest

@@ -146,10 +146,12 @@ func viewFor(cl *call, text string) approvalView {
 // AppKit controls (no icon, no colours), titled argv[6] ("komando needs
 // your OK"):
 // argv[1] as the bold first label, argv[2] (the info lines, selectable)
-// under it, then argv[5] (what runs, not selectable), one label per group
-// split at blank lines, 12 pt apart, 440 pt wide with 20 pt
-// padding, then the buttons argv[7] (Deny) and argv[8] (Allow once) on
-// the right. Whatever their labels, the script answers with the fixed
+// under it, then argv[5] (what runs, monospace, not selectable) in a
+// scroll view, 12 pt apart, 440 pt wide with 20 pt padding, then the
+// buttons argv[7] (Deny) and argv[8] (Allow once) on the right. The
+// panel stays inside the screen's visible frame: the title, the info
+// lines and the buttons always show, and what runs takes the height left
+// and scrolls (no scroller when it fits). Whatever their labels, the script answers with the fixed
 // tokens "Deny" and "Allow once" (macAnswer). Every text arrives in argv after
 // macArgMarker, never in the script. Deny is the default (Return), Esc,
 // the close button and Cmd-W, and has the first focus; only the 120 s
@@ -200,7 +202,6 @@ function run(argv) {
   var w = 440, pad = 20, gap = 12, fs = $.NSFont.systemFontSize;
   var parts = [label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)];
   if (argv[2] !== '') parts.push(label(argv[2], $.NSFont.systemFontOfSize(fs), w, true));
-  argv[5].split('\n\n').forEach(function (g) { if (g !== '') parts.push(label(g, $.NSFont.systemFontOfSize(fs), w, false)); });
   var answer = $.KomandoAnswer.alloc.init;
   var deny = $.NSButton.buttonWithTitleTargetAction(argv[7], answer, 'deny:');
   deny.keyEquivalent = '\r';
@@ -209,9 +210,26 @@ function run(argv) {
   allow.keyEquivalent = '';
   allow.setAccessibilityLabel(argv[8]);
   var bh = Math.ceil(deny.fittingSize.height), dw = Math.ceil(deny.fittingSize.width), aw = Math.ceil(allow.fittingSize.width);
-  var h = pad + bh + pad;
-  parts.forEach(function (p, i) { h += p.h + (i ? gap : 0); });
-  h += pad;
+  // the title, the info lines and the buttons always show; what runs
+  // (argv[5]) takes the height left on the screen and scrolls past it
+  var fixedH = pad + bh + pad + pad;
+  parts.forEach(function (p, i) { fixedH += p.h + (i ? gap : 0); });
+  var screen = $.NSScreen.mainScreen;
+  // 80 pt: the title bar and a margin above and below the panel
+  var maxH = (screen.isNil() ? 600 : Math.floor(screen.visibleFrame.size.height)) - 80;
+  var room = Math.max(maxH - fixedH - gap, 80);
+  var mono = $.NSFont.monospacedSystemFontOfSizeWeight(fs, 0), bw = w, body = null, bodyH = 0, scroll = false;
+  if (argv[5] !== '') {
+    body = label(argv[5], mono, bw, false);
+    if (body.h > room) {
+      // 16 pt for a scroller that does not overlay the text
+      scroll = true;
+      bw = w - 16;
+      body = label(argv[5], mono, bw, false);
+    }
+    bodyH = Math.min(body.h, room);
+  }
+  var h = fixedH + (body ? gap + bodyH : 0);
   var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
   panel.title = argv[6];
   panel.delegate = answer;
@@ -222,6 +240,22 @@ function run(argv) {
     p.v.frame = $.NSMakeRect(pad, y, w, p.h);
     view.addSubview(p.v);
   });
+  if (body) {
+    y -= gap + bodyH;
+    var sv = $.NSScrollView.alloc.initWithFrame($.NSMakeRect(pad, y, w, bodyH));
+    sv.hasHorizontalScroller = false;
+    sv.hasVerticalScroller = scroll;
+    sv.drawsBackground = false;
+    body.v.frame = $.NSMakeRect(0, 0, bw, body.h);
+    sv.documentView = body.v;
+    // the name before the first colon ("Command", "Script"), else the panel title
+    var name = argv[5].split(':')[0];
+    sv.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
+    view.addSubview(sv);
+    // the label is not flipped: start at its top line
+    sv.contentView.scrollToPoint($.NSMakePoint(0, body.h - bodyH));
+    sv.reflectScrolledClipView(sv.contentView);
+  }
   allow.frame = $.NSMakeRect(pad + w - aw, pad, aw, bh);
   deny.frame = $.NSMakeRect(pad + w - aw - 12 - dw, pad, dw, bh);
   view.addSubview(deny);

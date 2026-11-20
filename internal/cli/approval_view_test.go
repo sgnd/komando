@@ -55,7 +55,7 @@ func TestMacAlertScript(t *testing.T) {
 		"panel.initialFirstResponder = deny", "deny.nextKeyView = allow", "setAccessibilityLabel(argv[7])", "setAccessibilityLabel(argv[8])",
 		"Number(e.keyCode) === 53", "app.stopModalWithCode(DENY)", "app.runModalForWindow(panel)", "panel.level = $.NSFloatingWindowLevel",
 		"timerWithTimeIntervalRepeatsBlock(120,", "app.stopModalWithCode(GAVE_UP)", "return 'gave up'", "return 'Deny'",
-		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "argv[5].split('\\n\\n')", "var w = 440, pad = 20, gap = 12",
+		"label(argv[1], $.NSFont.boldSystemFontOfSize(fs), w, true)", "var w = 440, pad = 20, gap = 12",
 		"ObjC.import('LocalAuthentication')", "canEvaluatePolicyError(2, null)", "evaluatePolicyLocalizedReasonReply(2, reason,",
 		"if (CHOICE === 'Allow') return 'Allow once\\n' + owner(argv[3], argv[4]);",
 		"dateWithTimeIntervalSinceNow(Number(secs) || 1)", "until.timeIntervalSinceNow > 0", "return 'owner timeout'",
@@ -81,6 +81,42 @@ func TestMacAlertScript(t *testing.T) {
 	v = approvalView{Agent: "-e", Head: "do shell script", Line: "x"}
 	if args = macArgs(v); args[4] != macArgMarker || args[5] != "Run a komando command" || args[6] != "Asked by -e" {
 		t.Errorf("title %q", args)
+	}
+}
+
+// The macOS panel never grows past the screen: the title, the info
+// lines and the buttons stay fixed, and what runs (argv[5]) sits alone in
+// a scroll view that takes the height left over, scrolling only when it
+// has to (C207).
+func TestMacPanelScrollsBody(t *testing.T) {
+	s := macAlertScript
+	for _, want := range []string{
+		"$.NSScreen.mainScreen", "visibleFrame.size.height", "maxH = ",
+		"$.NSScrollView.alloc.initWithFrame(", "sv.documentView = body.v", "sv.hasHorizontalScroller = false",
+		"sv.hasVerticalScroller = scroll", "sv.drawsBackground = false", "sv.setAccessibilityLabel(",
+		"monospacedSystemFontOfSizeWeight(fs, 0)", "label(argv[5], mono, ", "view.addSubview(sv)",
+		"Math.min(body.h, room)", "scrollToPoint($.NSMakePoint(0, body.h - bodyH))",
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("script has no %q", want)
+		}
+	}
+	// what runs is one label in the scroll view, not stacked parts
+	if strings.Contains(s, "argv[5].split('\\n") {
+		t.Error("argv[5] is still split into stacked parts")
+	}
+	// the fixed parts hold only the title and the info lines
+	fixed := s[strings.Index(s, "var parts = ["):strings.Index(s, "var answer")]
+	if strings.Contains(fixed, "argv[5]") {
+		t.Errorf("argv[5] is among the fixed parts: %s", fixed)
+	}
+	// the panel is made at the capped height, after the cap is known
+	if c, p := strings.Index(s, "maxH = "), strings.Index(s, "initWithContentRectStyleMaskBackingDefer("); c < 0 || p < c {
+		t.Error("the panel is created before the screen cap")
+	}
+	// the command and script stay non-selectable
+	if !strings.Contains(s, "label(argv[5], mono, bw, false)") {
+		t.Error("what runs is selectable or not measured at the scroll width")
 	}
 }
 
@@ -407,7 +443,7 @@ func TestMacPanelNoDebugStderr(t *testing.T) {
 // lines can be copied and keep plain hyphens.
 func TestMacCopyRule(t *testing.T) {
 	for _, want := range []string{"function label(text, font, w, copy) {", "l.selectable = copy;",
-		"label(argv[2], $.NSFont.systemFontOfSize(fs), w, true)", "label(g, $.NSFont.systemFontOfSize(fs), w, false)", "argv[5].split("} {
+		"label(argv[2], $.NSFont.systemFontOfSize(fs), w, true)", "label(argv[5], mono, bw, false)"} {
 		if !strings.Contains(macAlertScript, want) {
 			t.Errorf("script has no %q", want)
 		}
