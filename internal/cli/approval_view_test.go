@@ -446,7 +446,7 @@ func TestRiskWordsTriggerCoversRule(t *testing.T) {
 		"[win-power] powers off or restarts the server":                               "Powers off or restarts the server (Stop-Computer or shutdown)",
 		"[win-remote-access] stops remote access (SSH or WinRM), which locks you out": "Stops remote access (SSH or WinRM), which locks you out (stopping sshd or WinRM)",
 	} {
-		if got := riskWords(r); len(got) != 1 || got[0] != want {
+		if got := riskWords(r, "en"); len(got) != 1 || got[0] != want {
 			t.Errorf("riskWords(%q) = %q, want %q", r, got, want)
 		}
 	}
