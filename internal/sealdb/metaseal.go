@@ -23,6 +23,11 @@ const metaSealID, metaSealType = "metaseal", "metaseal"
 // false to make a store as an older komando did; nothing else changes it.
 var SealNewStores = true
 
+// CreateFormat is the format Create writes. Tests set it to 1 to make a
+// store as an older komando did (the caller then seals it as format 1);
+// nothing else changes it.
+var CreateFormat = Format
+
 // ErrMetaTampered: the meta table does not match its sealed copy.
 var ErrMetaTampered = fmt.Errorf("the store's settings row does not match its sealed copy: %w", ErrTampered)
 

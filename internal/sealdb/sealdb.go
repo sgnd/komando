@@ -18,7 +18,9 @@
 //
 // A row replaced with an older sealed copy of itself, a whole row removed,
 // or the last audit entries cut off are caught by the index kept in the
-// generation record (index.go, audit.go). An old copy of the whole store
+// generation record (index.go, audit.go). The safety rows are bound by the
+// policy MAC too, so a process that holds only the row key cannot change
+// them unseen (policy.go). An old copy of the whole store
 // is caught by the generation number also kept in the OS keychain
 // (section 16).
 //
@@ -59,8 +61,9 @@ import (
 )
 
 // Format is the database format this komando writes. A file with a higher
-// number was made by a newer komando.
-const Format = 1
+// number was made by a newer komando. Format 2 binds the safety rows with
+// the policy MAC (policy.go); a format-1 store is upgraded to it.
+const Format = 2
 
 // BusyTimeout is how long a writer waits for another writer.
 const BusyTimeout = 10 * time.Second
@@ -119,6 +122,7 @@ type DB struct {
 	cur    *Tx // the step holder is running
 	depth  int // savepoints inside it
 	opened bool
+	policy atomic.Pointer[Policy] // checked by every step (SetPolicy)
 
 	// OnGeneration, when set, is told the new generation after each write
 	// step that changed a record (the store keeps it in the keychain).
@@ -241,7 +245,7 @@ func (d *DB) init(ctx context.Context, create bool) error {
 		if _, err := tx.c.ExecContext(ctx, schema); err != nil {
 			return err
 		}
-		if _, err := tx.c.ExecContext(ctx, `INSERT INTO meta(k,v) VALUES('format',?)`, strconv.Itoa(Format)); err != nil {
+		if _, err := tx.c.ExecContext(ctx, `INSERT INTO meta(k,v) VALUES('format',?)`, strconv.Itoa(CreateFormat)); err != nil {
 			return err
 		}
 		if _, err := tx.Put(keycheckType, keycheckID, []byte("komando")); err != nil || !SealNewStores {
@@ -369,9 +373,14 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 			}
 		}
 	}()
-	tx := &Tx{ctx: ctx, c: c, key: d.key, write: write, ix: &ixState{}}
+	tx := &Tx{ctx: ctx, c: c, key: d.key, write: write, ix: &ixState{}, pol: d.policy.Load()}
 	if d.opened {
 		if err := tx.checkKey(); err != nil {
+			return err
+		}
+	}
+	if tx.pol != nil {
+		if tx.polRows, err = tx.pol.check(tx); err != nil {
 			return err
 		}
 	}
@@ -379,6 +388,11 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 	defer func() { d.cur = nil }()
 	if err := fn(tx); err != nil {
 		return err
+	}
+	if write {
+		if err := tx.keepPolicy(); err != nil {
+			return err
+		}
 	}
 	var gen uint64
 	if tx.changed {
@@ -390,6 +404,9 @@ func (d *DB) run(ctx context.Context, write bool, fn func(*Tx) error) (err error
 		return err
 	}
 	done = true
+	if tx.newPol != nil {
+		d.policy.Store(tx.newPol)
+	}
 	if gen > 0 && d.OnGeneration != nil {
 		d.OnGeneration(gen)
 	}
@@ -462,63 +479,6 @@ func goid() uint64 {
 	return n
 }
 
-// Backup writes a consistent copy of the store to dst, which must not
-// exist. A plain copy of the file taken during a write may be broken.
-func (d *DB) Backup(ctx context.Context, dst string) error {
-	release, err := d.enter()
-	if err != nil {
-		return err
-	}
-	defer release()
-	if err := d.stopped(false); err != nil {
-		return err
-	}
-	if _, err := os.Lstat(dst); err == nil {
-		return fmt.Errorf("sealdb: %s already exists", dst)
-	}
-	f, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
-	if err != nil {
-		return err
-	}
-	f.Close()
-	// VACUUM INTO refuses a non-empty file; an empty one made with 0600
-	// keeps the copy private
-	uri, err := fileURI(dst, nil)
-	if err == nil {
-		_, err = d.db.ExecContext(ctx, `VACUUM INTO ?`, uri)
-	}
-	if err == nil {
-		err = syncFile(dst)
-	}
-	if err != nil {
-		os.Remove(dst)
-	}
-	return err
-}
-
-// syncFile flushes path and its folder to disk; VACUUM INTO does not take
-// the store's sync settings.
-func syncFile(path string) error {
-	for _, p := range []string{path, filepath.Dir(path)} {
-		// the file opened for writing: Windows flushes no file opened to read
-		flag := os.O_RDWR
-		if p != path {
-			flag = os.O_RDONLY
-		}
-		f, err := os.OpenFile(p, flag, 0)
-		if err != nil {
-			return err
-		}
-		err = fullSync(f)
-		f.Close()
-		// a folder cannot be synced on some systems (Windows)
-		if err != nil && p == path {
-			return err
-		}
-	}
-	return nil
-}
-
 // Record is one record, opened.
 type Record struct {
 	ID      string
@@ -544,6 +504,9 @@ type Tx struct {
 	write   bool
 	changed bool // a record or audit entry was written: the generation goes up
 	ix      *ixState
+	pol     *Policy  // the policy this step checks and keeps (policy.go)
+	polRows []polRow // the safety rows as the MAC lists them
+	newPol  *Policy  // the store's policy once this step is kept
 }
 
 // The sealed content of a record starts with its deletion marker and change

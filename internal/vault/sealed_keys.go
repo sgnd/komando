@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hkdf"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -18,7 +17,7 @@ import (
 	"golang.org/x/crypto/scrypt"
 
 	"github.com/sgnd/komando/internal/sealdb"
-	"github.com/sgnd/komando/internal/sealrow"
+	"github.com/sgnd/komando/internal/sealkey"
 	"github.com/sgnd/komando/internal/store"
 )
 
@@ -37,8 +36,9 @@ func storeMeta() (map[string]string, error) {
 	return m, err
 }
 
+// vaultAEADFrom is the value key made from master.
 func vaultAEADFrom(master []byte) (cipher.AEAD, error) {
-	k, err := hkdf.Key(sha256.New, master, nil, vaultHKDFLabel, 32)
+	k, err := sealkey.Derive(master, sealkey.Values)
 	if err != nil {
 		return nil, err
 	}
@@ -62,18 +62,11 @@ func passMaster(meta map[string]string, pass string) ([]byte, error) {
 
 // opensStore reports ErrWrongKey when master does not open the store.
 func opensStore(master []byte) error {
-	k, err := sealrow.NewKey(master)
-	if err != nil {
-		return err
-	}
-	d, err := sealdb.Open(context.Background(), store.DBPath(), k)
+	err := store.Opens(master)
 	if errors.Is(err, sealdb.ErrWrongKey) {
 		return ErrWrongKey
 	}
-	if err != nil {
-		return err
-	}
-	return d.Close()
+	return err
 }
 
 // sealedOpens is Opens on a sealed home.

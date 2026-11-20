@@ -2,9 +2,7 @@ package vault
 
 import (
 	"context"
-	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hkdf"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
@@ -14,19 +12,17 @@ import (
 	"time"
 
 	"github.com/sgnd/komando/internal/sealdb"
+	"github.com/sgnd/komando/internal/sealkey"
 	"github.com/sgnd/komando/internal/store"
 )
 
 // On a sealed home each secret is a record of
 // the store, of type "secret". Inside it the value is still sealed by the
-// vault as before, bound to its name, with a key made from the store's
-// master key under its own label, so the store's row key never opens a
+// vault as before, bound to its name, with the value key (sealkey.Values),
+// made from the store's master key, so the store's row key never opens a
 // value by itself.
 
-const (
-	secretType     = "secret"
-	vaultHKDFLabel = "komando vault entries v1"
-)
+const secretType = "secret"
 
 type sealedEntry struct {
 	Name      string    `json:"name"`
@@ -123,16 +119,17 @@ func changeSealed(fn func(f *file) error) error {
 	})
 }
 
-// TicketMAC is the HMAC-SHA256 of msg under a key made from the store's
-// master key: what komando's background commands check their parent's
-// ticket with, so only a process that can open the store makes one.
+// TicketMAC is the HMAC-SHA256 of msg under the ticket key, made from the
+// store's master key (sealkey.Tickets): what komando's background
+// commands check their parent's ticket with, so only a process that holds
+// the master key makes one; the row key does not.
 func TicketMAC(msg []byte) ([]byte, error) {
 	m, err := store.MasterKey()
 	if err != nil {
 		return nil, err
 	}
 	defer clear(m)
-	k, err := hkdf.Key(sha256.New, m, nil, "komando spawn tickets v1", 32)
+	k, err := sealkey.Derive(m, sealkey.Tickets)
 	if err != nil {
 		return nil, err
 	}
@@ -142,25 +139,16 @@ func TicketMAC(msg []byte) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-// sealedAEAD is the vault's key on a sealed home: HKDF of the store's
-// master key, no scrypt (the master key is random, or already scrypt of
-// the passphrase).
+// sealedAEAD is the vault's key on a sealed home: the value key, made from
+// the store's master key with no scrypt (the master key is random, or
+// already scrypt of the passphrase).
 func sealedAEAD() (cipher.AEAD, error) {
 	m, err := store.MasterKey()
 	if err != nil {
 		return nil, err
 	}
 	defer clear(m)
-	k, err := hkdf.Key(sha256.New, m, nil, vaultHKDFLabel, 32)
-	if err != nil {
-		return nil, err
-	}
-	defer clear(k)
-	blk, err := aes.NewCipher(k)
-	if err != nil {
-		return nil, err
-	}
-	return cipher.NewGCM(blk)
+	return vaultAEADFrom(m)
 }
 
 // sealedStrength is Check on a sealed home: the store's key mode.

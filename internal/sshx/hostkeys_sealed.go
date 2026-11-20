@@ -23,7 +23,7 @@ import (
 // connection was made to, else by the remote address.
 type sealedHostKeys struct{}
 
-const pinType = "pin"
+const pinType = store.KindPin
 
 type pinRecord struct {
 	Addr string   `json:"addr"`
@@ -107,7 +107,7 @@ type sealedTx struct {
 }
 
 // revokedType is the record of host keys never to trust, for any server.
-const revokedType = "pinrevoked"
+const revokedType = store.KindPinRevoked
 
 func (t *sealedTx) revokedKeys() (*sealedPin, error) {
 	if t.revoked != nil {

@@ -166,7 +166,7 @@ komando keeps your data sealed in one file:
 | `store.db` | servers, conns, VPNs, keys, recipes, settings, secrets, remembered server fingerprints and the history of every action, each record sealed (AES-256-GCM). Only a random ID, the kind, a version and the time of a change can be read without the key |
 | `store.key` | the store's key, only where there is no keychain (not there when the key is in the keychain or you use `KOMANDO_VAULT_PASS`) |
 | `store.made` | a note that this folder has had a store. komando writes it with the store and keeps it, so a lost `store.db` is noticed (below). It holds no secret |
-| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the store's key; it opens only with the mark store.db keeps for it, so an old copy put back reads as empty) |
+| `runtime.json` | the jobs, tunnels, server logins and VPN sessions komando started (sealed with the runtime key, made from the store's key; it opens only with the mark store.db keeps for it, so an old copy put back reads as empty) |
 | `runtime.pids` | only the process IDs of komando's own background work, so it can tell whether they still run without opening the store |
 | `vpn/`, `tunnels/`, `login/` | VPN, tunnel and server login logs (one that nothing running uses is removed after a week), and the state of built-in VPN clients |
 
@@ -201,6 +201,62 @@ Unlock the keychain and run it again. On a computer with no working
 keychain, a person sets `KOMANDO_KEYCHAIN=off` (an AI agent's `off` still
 asks the keychain). Where the keychain answers that it keeps no count,
 there is nothing to compare with, and `komando doctor` says so.
+
+### Keys made from the store's key
+
+komando makes one key for each use from the store's key (HKDF-SHA256,
+one label per use). None is made from another, so a program that holds
+one of them can make none of the others:
+
+| Key | Seals or signs |
+|-----|----------------|
+| row key | each record of `store.db` and the history |
+| value key | each secret's value, inside its record |
+| runtime key | `runtime.json` |
+| ticket key | the tickets komando's background commands check |
+| policy key | the policy MAC over the safety rows (below) |
+
+The row key opens and seals the records. It opens no secret value, makes
+no ticket, and cannot change a safety row unseen.
+
+### Safety rows
+
+Some of what `store.db` holds decides what komando lets an AI agent do,
+and komando asks a person before it loosens any of it. These safety rows
+carry a policy MAC: an HMAC-SHA256 under the policy key, kept beside them.
+Every read and write of the store checks it, and every change komando
+makes writes it again in the same step.
+
+| Record | What the MAC covers |
+|--------|---------------------|
+| server | `protected`, `forward_agent`, `proxy_command` |
+| conn | `protected`, and the login program a person trusted on import (`trusted_plugin`, `plugin_program`, `plugin_search_path`) |
+| VPN | `protected`, `mfa`, `legacy_crypto`, `allow_pap` |
+| settings | `host_key_policy`, your deny rules (`extra_deny_patterns`), `audit`, `audit_sql`, `audit_syslog`, `mask_personal`, `login_for`, `vpn_idle`, `approval_code` and the last code step it took |
+| pinned host keys | all of it: the keys, and the login-ask logins made with them |
+| revoked host keys | all of it |
+| trusted host CAs | all of it |
+| the settings row's sealed copy | all of it (key mode, salt, scrypt cost) |
+
+Names, notes, addresses, groups, labels and display settings are not
+covered. An `ssh-gate` read key's `--network` is not in `store.db`: it is
+on the key's line in `~/.ssh/authorized_keys`.
+
+A safety row changed by something other than komando stops every command
+with `POLICY_MAC_FAILED`, which names the row. Find out what changed it,
+then put the folder back from a backup made before the change. Today every
+komando process makes the policy key from the store's key, so the MAC
+stops a program that holds only the row key; a program that can read the
+store's key (the keychain, `store.key` or the passphrase) can still make
+it.
+
+A store made by an older komando gets its policy MAC once, the first time
+this komando opens it: every record is sealed again under the row key, in
+one step, while the store's lock is held. From then on a store without
+its MAC stops with `POLICY_MAC_FAILED`, and an older komando no longer
+opens it (`STORE_NEWER`): update every komando that uses the folder, and
+stop and start again the VPN sessions, tunnels and server logins started
+before the update.
 
 ### Where the vault's key lives
 
@@ -360,6 +416,7 @@ To update komando itself, see [Install, update, remove](install.md#update).
 | `SAFETY_SETTING` (exit 6) | the change turns one of komando's checks off | at your terminal komando asks first; an AI agent or a script adds `--yes` after a person agrees |
 | `STORE_OLD_COPY` (exit 6) | an older copy of `store.db` was put back, `store.db` is missing while the keychain remembers its change count, or the keychain cannot say whether it does | if you restored it on purpose, run `komando doctor --accept-old-copy` in your own terminal; otherwise find out who put it back |
 | `STATE_CORRUPT` (exit 1) | `store.db` is missing in a folder that had a store, or does not open with the key, or its settings row was changed outside komando; or `runtime.json` does not open | for `store.db`: put the folder back from a backup, then `komando doctor --accept-old-copy` in your own terminal; for `runtime.json`: move it away and connect again (it holds only running VPNs, logins, jobs and tunnels); for a changed settings row: `komando doctor --reseal-meta` in your own terminal (see [Import](import.md)) |
+| `POLICY_MAC_FAILED` (exit 1) | a safety row (a protection, deny rule, safety setting, pinned host key, host CA or the settings row's sealed copy) was changed outside komando, or the store lost its policy MAC; the message names the row | find out what changed it, then put the folder back from a backup made before the change (see [Safety rows](#safety-rows)) |
 | `KEYCHAIN_SLOW` (exit 1) | the keychain did not answer in time, so nothing was changed | run it again in a moment; `komando doctor` if it keeps happening |
 | `VAULT_LOCKED`, `VAULT_DECRYPT`, `VAULT_KEY` (exit 1) | the vault does not open | see [Secrets](secrets.md#troubleshooting) |
 | `AUDIT_UNAVAILABLE` (exit 1) | the audit log cannot be written, so nothing runs | `komando doctor` shows why |

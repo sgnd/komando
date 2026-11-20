@@ -2,16 +2,17 @@ package store
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/sgnd/komando/internal/out"
 	"github.com/sgnd/komando/internal/sealdb"
-	"github.com/sgnd/komando/internal/sealrow"
 )
 
 // The sealed store: one SQLite file, store.db,
@@ -219,7 +220,7 @@ func cachedDB(create, oldOK bool) (openStore, error) {
 	ctx := context.Background()
 	meta, err := sealdb.Peek(ctx, path)
 	if err == nil {
-		o, err := openDB(ctx, home, path, meta, oldOK)
+		o, err := openDB(ctx, home, path, meta, oldOK, false)
 		if !errors.Is(err, errStoreGone) {
 			return o, err
 		}
@@ -243,22 +244,43 @@ func cachedDB(create, oldOK bool) (openStore, error) {
 var errStoreGone = errors.New("store: store.db went away while it was opened")
 
 // openDB opens the existing store at path; errStoreGone when it is no
-// longer there (sealdb.Open never makes one).
-func openDB(ctx context.Context, home, path string, meta map[string]string, oldOK bool) (openStore, error) {
+// longer there (sealdb.Open never makes one). locked: the caller holds
+// the store lock, which a store of format 1 is opened under, to be
+// upgraded once (checkAndRemember).
+func openDB(ctx context.Context, home, path string, meta map[string]string, oldOK, locked bool) (openStore, error) {
+	if meta["format"] == "1" && !locked {
+		unlock, err := Lock(storeLock)
+		if err != nil {
+			return openStore{}, err
+		}
+		defer unlock()
+		// another process may have upgraded it while this one waited
+		if meta, err = sealdb.Peek(ctx, path); errors.Is(err, os.ErrNotExist) {
+			return openStore{}, errStoreGone
+		} else if err != nil {
+			return openStore{}, err
+		}
+	}
 	master, _, err := KeySource(meta, false)
 	if err != nil {
 		return openStore{}, err
 	}
-	k, err := sealrow.NewKey(master)
+	ks, err := keysFor(master, meta["format"])
 	if err != nil {
 		return openStore{}, err
 	}
-	d, err := sealdb.Open(ctx, path, k)
+	d, err := sealdb.Open(ctx, path, ks.row)
 	if errors.Is(err, os.ErrNotExist) {
 		return openStore{}, errStoreGone
 	}
 	if err != nil {
 		return openStore{}, err
+	}
+	if ks.policy != nil {
+		if err := d.SetPolicy(ctx, ks.policy); err != nil {
+			d.Close()
+			return openStore{}, err
+		}
 	}
 	// a store made before komando wrote store.made gets it now; a folder
 	// komando cannot write to goes on without it
@@ -284,6 +306,11 @@ func checkAndRemember(home, path string, d *sealdb.DB, meta map[string]string, m
 	}
 	if err == nil && state == checked {
 		d.OnGeneration = committer(raise)
+		// the newest copy of a store an older komando made: given its
+		// policy MAC now, under the store lock openDB took
+		if meta["format"] == "1" {
+			err = upgrade(d, master)
+		}
 	}
 	var fi os.FileInfo
 	if err == nil {
@@ -326,7 +353,7 @@ func createDB(ctx context.Context, home, path string) (openStore, error) {
 	// another process may have made it while this one waited; a caller
 	// that makes a store has something to write, so never an old copy
 	if meta, err := sealdb.Peek(ctx, path); err == nil {
-		o, err := openDB(ctx, home, path, meta, false)
+		o, err := openDB(ctx, home, path, meta, false, true)
 		if !errors.Is(err, errStoreGone) {
 			return o, err
 		}
@@ -351,15 +378,20 @@ func createDB(ctx context.Context, home, path string) (openStore, error) {
 	if unread != nil && meta["key_mode"] == "keychain" {
 		return openStore{}, errors.New("store: the key of a new store went into a keychain that could not be read")
 	}
-	k, err := sealrow.NewKey(master)
+	ks, err := keysFor(master, strconv.Itoa(sealdb.CreateFormat))
 	if err != nil {
 		return openStore{}, err
 	}
-	marked, err := writeNewStore(ctx, path, k, meta)
+	marked, err := writeNewStore(ctx, path, ks, meta)
 	if err != nil {
 		return openStore{}, err
 	}
-	d, err := sealdb.Open(ctx, path, k)
+	d, err := sealdb.Open(ctx, path, ks.row)
+	if err == nil && ks.policy != nil {
+		if err = d.SetPolicy(ctx, ks.policy); err != nil {
+			d.Close()
+		}
+	}
 	if err != nil {
 		return openStore{}, err
 	}
@@ -391,17 +423,17 @@ func createDB(ctx context.Context, home, path string) (openStore, error) {
 	return checkAndRemember(home, path, d, meta, master, false, false)
 }
 
-// writeNewStore makes the store at path with key k and its readable
-// settings meta: under a temporary name, moved into place with its
-// settings, so no process ever opens a store without its key mode. The
-// folder's lasting trace (storeMade) goes first: a crash after the move
-// must not leave a store that, once store.db is lost, looks like none
-// (missingStore found no trace, so this call writes it). marked: it wrote
-// storeMade; on an error nothing is left.
-func writeNewStore(ctx context.Context, path string, k *sealrow.Key, meta map[string]string) (marked bool, err error) {
+// writeNewStore makes the store at path with keys ks (its policy MAC
+// too) and its readable settings meta: under a temporary name, moved into
+// place with its settings, so no process ever opens a store without its
+// key mode. The folder's lasting trace (storeMade) goes first: a crash
+// after the move must not leave a store that, once store.db is lost,
+// looks like none (missingStore found no trace, so this call writes it).
+// marked: it wrote storeMade; on an error nothing is left.
+func writeNewStore(ctx context.Context, path string, ks storeKeys, meta map[string]string) (marked bool, err error) {
 	tmp := path + ".new"
 	_ = os.Remove(tmp)
-	d, err := sealdb.Create(ctx, tmp, k)
+	d, err := sealdb.Create(ctx, tmp, ks.row)
 	if err == nil {
 		err = d.Update(ctx, func(tx *sealdb.Tx) error {
 			for key, v := range meta {
@@ -409,7 +441,10 @@ func writeNewStore(ctx context.Context, path string, k *sealrow.Key, meta map[st
 					return err
 				}
 			}
-			return nil
+			if ks.policy == nil {
+				return nil
+			}
+			return tx.SealPolicy(ks.policy)
 		})
 		if cerr := d.Close(); err == nil {
 			err = cerr
@@ -476,13 +511,22 @@ func MasterKey() ([]byte, error) {
 //
 // Rekey seals this home's store again under a new master key and keeps
 // meta as its readable key settings, in one write step; then runs inside
-// it, with the new key in force (the vault reseals its values there).
+// it, with the new key in force (the vault reseals its values there), and
+// the safety rows get their policy MAC under the new policy key.
 func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) error) error {
 	d, err := DB(false)
 	if err != nil {
 		return err
 	}
-	k, err := sealrow.NewKey(newMaster)
+	// a store DB could not upgrade (it was not checked) is read only
+	if m, err := sealdb.Peek(context.Background(), DBPath()); err != nil || m["format"] != newestFormat {
+		return cmp.Or(err, fmt.Errorf("%s is of format %q; nothing was changed", Path(StoreFile), m["format"]))
+	}
+	ks, err := keysFor(newMaster, newestFormat)
+	if err != nil {
+		return err
+	}
+	newRT, err := runtimeKeyFrom(newMaster)
 	if err != nil {
 		return err
 	}
@@ -499,22 +543,24 @@ func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) er
 			return err
 		}
 	}
-	err = d.Rekey(context.Background(), k, func(tx *sealdb.Tx) error {
+	err = d.Rekey(context.Background(), ks.row, func(tx *sealdb.Tx) error {
 		for key, v := range meta {
 			if err := tx.SetMeta(key, v); err != nil {
 				return err
 			}
 		}
 		if then != nil {
-			return then(tx)
+			if err := then(tx); err != nil {
+				return err
+			}
 		}
-		return nil
+		return tx.SealPolicy(ks.policy)
 	})
 	if err != nil {
 		return err
 	}
 	rtKeyMu.Lock()
-	rtKey, rtKeyHome = k, Home()
+	rtKey, rtKeyHome = newRT, Home()
 	rtKeyMu.Unlock()
 	dbMu.Lock()
 	if o, ok := dbOpen[Home()]; ok {
@@ -529,7 +575,7 @@ func Rekey(newMaster []byte, meta map[string]string, then func(tx *sealdb.Tx) er
 	if rtPlain == nil {
 		return nil
 	}
-	sealed, err := k.Seal(runtimeRow, rtPlain)
+	sealed, err := newRT.Seal(runtimeRow, rtPlain)
 	clear(rtPlain)
 	if err == nil {
 		err = WriteFileAtomic(runtimePath(), append(append([]byte{}, runtimeMagic...), sealed...), 0o600)

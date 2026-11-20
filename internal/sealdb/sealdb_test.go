@@ -21,7 +21,7 @@ var ctx = context.Background()
 
 func key(t testing.TB, fill byte) *sealrow.Key {
 	t.Helper()
-	k, err := sealrow.NewKey(bytes.Repeat([]byte{fill}, sealrow.MasterLen))
+	k, err := sealrow.NewKey(bytes.Repeat([]byte{fill}, sealrow.KeyLen))
 	if err != nil {
 		t.Fatal(err)
 	}

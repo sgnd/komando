@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/sgnd/komando/internal/sealdb"
-	"github.com/sgnd/komando/internal/sealrow"
 )
 
 // The store's meta table (key mode, salt, scrypt cost) is readable
@@ -66,12 +65,19 @@ func ResealMeta() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	k, err := sealrow.NewKey(master)
+	ks, err := keysFor(master, meta["format"])
 	if err != nil {
 		return nil, err
 	}
 	Close()
-	return sealdb.ResealMeta(context.Background(), path, k, func(d *sealdb.DB) error {
+	return sealdb.ResealMeta(context.Background(), path, ks.row, func(d *sealdb.DB) error {
+		// the safety rows must match their MAC; the new meta seal gets a
+		// new one in the same step
+		if ks.policy != nil {
+			if err := d.SetPolicy(context.Background(), ks.policy); err != nil {
+				return err
+			}
+		}
 		// a store it does not find checked has its writes stopped
 		_, raise, err := checkGeneration(d, meta, false)
 		d.OnGeneration = committer(raise)

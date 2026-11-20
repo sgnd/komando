@@ -8,12 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sgnd/komando/internal/sealkey"
 	"github.com/sgnd/komando/internal/sealrow"
 )
 
 // runtime.json is sealed too: it holds the SOCKS logins of running VPNs and the tokens of
-// kept server logins. It is sealed with the store's row key, bound to its
-// own ID and type, so it cannot be swapped with a store record. A plain
+// kept server logins. It is sealed with the runtime key (sealkey.Runtime),
+// not the row key, and bound to its own ID and type, so it cannot be
+// swapped with a store record. A plain
 // runtime.json was put there by something other than komando, and is read
 // as empty. Trusted, it could point a server's
 // held login at a socket of its own, which would then see every command,
@@ -29,7 +31,8 @@ var (
 	rtKey     *sealrow.Key
 )
 
-// runtimeKey is the row key of this home's store, made once per process.
+// runtimeKey is the runtime key of this home's store, made once per
+// process.
 func runtimeKey() (*sealrow.Key, error) {
 	rtKeyMu.Lock()
 	defer rtKeyMu.Unlock()
@@ -41,12 +44,22 @@ func runtimeKey() (*sealrow.Key, error) {
 		return nil, err
 	}
 	defer clear(m)
-	k, err := sealrow.NewKey(m)
+	k, err := runtimeKeyFrom(m)
 	if err != nil {
 		return nil, err
 	}
 	rtKey, rtKeyHome = k, Home()
 	return k, nil
+}
+
+// runtimeKeyFrom makes the runtime key from master (sealkey.Runtime).
+func runtimeKeyFrom(master []byte) (*sealrow.Key, error) {
+	k, err := sealkey.Derive(master, sealkey.Runtime)
+	if err != nil {
+		return nil, err
+	}
+	defer clear(k)
+	return sealrow.NewKey(k)
 }
 
 func sealRuntime(plain []byte) ([]byte, error) {
