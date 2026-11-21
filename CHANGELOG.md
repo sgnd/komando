@@ -7,6 +7,11 @@ its highlights; the sections below them give the details. Versions follow
 
 ## [Unreleased]
 
+Release hold: no release ships with the macOS approval window changes
+below until a retest on a real Mac shows **Allow once** followed by the
+device-owner check, a visible focus on Tab, and the arrows scrolling with
+no click.
+
 ### Added
 
 - `KOMANDO_APPROVAL_DEBUG`: on a Mac, each approval window adds what it
@@ -168,6 +173,20 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Fixed
 
+- The macOS approval window takes the keys as soon as it opens (C237).
+  The script that scrolls has the focus, so the arrows, Page Up, Page
+  Down, Home, End and Space scroll it with no click. Before, they did
+  nothing until a click on the window: macOS may refuse to make komando
+  the active app while another app has the keys. The window now takes
+  the keys without becoming the active app. Tab and Shift-Tab move the
+  focus from the script to **Deny** and, once it is on, **Allow once**,
+  and round, whatever the macOS keyboard-navigation setting, with a ring
+  around the part that has it; before, they moved nothing while keyboard
+  navigation was off. Space presses a focused button (when nothing
+  scrolls, **Deny** has the focus); Return still means Deny wherever the
+  focus is. A click on the script gives it the focus back, also after a
+  click on a line of text above it, and so does a click on the window's
+  background.
 - In the macOS approval window, Tab, Shift-Tab, the arrows, Page Up,
   Page Down, Home, End and Space no longer close the window as a Deny
   (C237, #370). Any key closed it: the window's key monitor handed each
@@ -186,7 +205,7 @@ its highlights; the sections below them give the details. Versions follow
   before.
 
 - The macOS approval window can be read to the end without a mouse
-  (C209). A script that scrolls takes focus after the buttons (Tab),
+  (C209). A script that scrolls has the focus when the window opens,
   shows a focus ring, and scrolls with the arrows, Page Up, Page Down,
   Home, End and Space; **Allow once** still turns on only after its
   last line has been in view. Return and Esc still mean Deny. A long

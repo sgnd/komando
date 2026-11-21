@@ -49,7 +49,8 @@ jobs:
           go-version-file: go.mod
       - run: go test -c -o shot.test ./internal/cli
       # macOS: winid.js lists the on-screen windows (owner, name, id, bounds)
-      # and prints the id of the largest one owned by osascript or komando;
+      # and prints the id of the largest one owned by osascript or komando
+      # ("bounds": its X Y W H in screen points, top-left origin);
       # shot.sh captures that window, or fails after 10 s with the list.
       - name: Window finder (macOS)
         if: runner.os == 'macOS'
@@ -68,8 +69,9 @@ jobs:
             var best = null;
             list.forEach(function (w) {
               var b = w.kCGWindowBounds || {};
-              if ((w.kCGWindowOwnerName === 'osascript' || w.kCGWindowOwnerName === 'komando') && b.Height > 60 && (!best || b.Height * b.Width > best.a)) best = { id: w.kCGWindowNumber, a: b.Height * b.Width };
+              if ((w.kCGWindowOwnerName === 'osascript' || w.kCGWindowOwnerName === 'komando') && b.Height > 60 && (!best || b.Height * b.Width > best.a)) best = { id: w.kCGWindowNumber, a: b.Height * b.Width, b: b };
             });
+            if (best && argv[0] === 'bounds') return [best.b.X, best.b.Y, best.b.Width, best.b.Height].map(Math.round).join(' ');
             return best ? String(best.id) : '';
           }
           JS
@@ -149,15 +151,27 @@ jobs:
           swift "$RUNNER_TEMP/ocr.swift" "$SHOT_PNG" > "$RUNNER_TEMP/ocr.txt"
           cat "$RUNNER_TEMP/ocr.txt"
           if ! grep -q LINEONEMARK "$RUNNER_TEMP/ocr.txt"; then echo "script line 1 (LINEONEMARK) is not in the window at open" >&2; exit 1; fi
-      # C238: press each key in a fresh panel, a debug run
+      # C238: run each key sequence in a fresh panel, a debug run
       # (KOMANDO_APPROVAL_DEBUG, TestApprovalWindowKey). keys.swift posts
-      # the key as a HID event, which needs the runner's Accessibility
-      # (PostEvent) trust; without it the step fails and says so. A key
-      # counts only when the debug log shows the panel got it ("key NAME").
-      # Then Tab, Shift-Tab, the arrows, Page Down, End and Space must leave
-      # the panel open until komando stops it at 15 s, and Return and Esc
-      # must end it as Deny with exit 0. The step prints each run's log and
-      # osascript's stderr; keys-out keeps them with the exit codes.
+      # keys and clicks as HID events, which needs the runner's
+      # Accessibility (PostEvent) trust; without it the step fails and says
+      # so. No step clicks before a key unless it says so. A run counts only
+      # when the debug log shows the panel non-activating, the key window,
+      # and its last key ("key NAME"). Then, by what the run must show:
+      #   stays: open until komando stops it at 15 s;
+      #   scroll: stays, and the script's top edge moved ("scrolled to y=N", N > 0);
+      #   focus: stays, and Tab moved the focus away from where it was at open;
+      #   deny: Deny with exit 0 (Return, Esc, and Space while Deny has the focus);
+      #   bg, field: a click on the background, or on the title (a selectable
+      #     text field, which takes the keys: "script area lost focus"), then a
+      #     click on the script and Down: the script has the keys again and scrolls;
+      #   allow: End, Tab, Tab, Space reach Allow once ("end: Allow once");
+      #   gate: Tab, Tab, Space before the end skip Allow once and scroll.
+      # Clicks land at points of the panel's bounds: the background in its
+      # bottom-left corner, the title 56 pt below its top (the title bar and
+      # 20 pt), the script at its middle. The step prints each run's log and
+      # osascript's stderr; keys-out keeps them, the exit codes and a
+      # screenshot after the last step (the focus ring shows on it).
       - name: Keys in the panel (macOS)
         if: "!cancelled() && runner.os == 'macOS' && matrix.mode == 'light' && (matrix.case == 'short' || matrix.case == 'tall-script')"
         shell: bash
@@ -167,12 +181,22 @@ jobs:
           import Foundation
           // keys check: exit 3 unless this process may post keys
           // keys press CODE MOD: one key down and up; MOD is shift or -
+          // keys click X Y: one left click at screen point X Y (top-left origin)
           let a = CommandLine.arguments
           let post = CGPreflightPostEventAccess()
           print("CGPreflightPostEventAccess=\(post) AXIsProcessTrusted=\(AXIsProcessTrusted())")
           if a.count == 2 && a[1] == "check" { exit(post ? 0 : 3) }
-          guard a.count == 4, a[1] == "press", let code = CGKeyCode(a[2]) else { exit(2) }
           let src = CGEventSource(stateID: .hidSystemState)
+          if a.count == 4, a[1] == "click", let x = Double(a[2]), let y = Double(a[3]) {
+            let at = CGPoint(x: x, y: y)
+            for type in [CGEventType.leftMouseDown, .leftMouseUp] {
+              guard let e = CGEvent(mouseEventSource: src, mouseType: type, mouseCursorPosition: at, mouseButton: .left) else { exit(2) }
+              e.post(tap: .cghidEventTap)
+              usleep(50_000)
+            }
+            exit(0)
+          }
+          guard a.count == 4, a[1] == "press", let code = CGKeyCode(a[2]) else { exit(2) }
           for down in [true, false] {
             guard let e = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: down) else { exit(2) }
             // set every time: a source of the HID state keeps Shift from an earlier key
@@ -190,17 +214,27 @@ jobs:
             exit 1
           fi
           out="$PWD/keys-out"; mkdir -p "$out"
-          # name, key code, modifier, what must happen, the name in the debug log
-          keys=("tab 48 - stays Tab" "shift-tab 48 shift stays Tab" "down 125 - stays Down" "up 126 - stays Up" "right 124 - stays Right"
-            "left 123 - stays Left" "page-down 121 - stays PageDown" "end 119 - stays End" "space 49 - stays Space" "return 36 - deny Return" "esc 53 - deny Esc")
+          # name, steps (kCODE a key, kCODEs with Shift, c:bg c:title c:script a click),
+          # what the run must show, the debug-log name of its last key
+          keys=("tab k48 focus Tab" "shift-tab k48s focus Tab" "up k126 stays Up" "right k124 stays Right" "left k123 stays Left"
+            "return k36 deny Return" "esc k53 deny Esc")
+          if [ "$KOMANDO_SHOT_CASE" = tall-script ]; then
+            # allow runs last: its owner check may leave a system prompt up
+            keys+=("down k125 scroll Down" "page-down k121 scroll PageDown" "end k119 scroll End" "space k49 scroll Space"
+              "click-bg c:bg,c:script,k125 bg Down" "click-title c:title,c:script,k125 field Down"
+              "gate k48,k48,k49 gate Space" "allow k119,k48,k48,k49 allow Space")
+          else
+            # nothing scrolls: the keys reach the panel, and Deny has the focus, so Space presses it
+            keys+=("down k125 stays Down" "page-down k121 stays PageDown" "end k119 stays End" "space k49 deny Space")
+          fi
           {
             echo "### Keys in the panel (${KOMANDO_SHOT_CASE})"
-            echo "| key | reached the panel | osascript | exit | verdict |"
-            echo "|---|---|---|---|---|"
+            echo "| run | steps | reached the panel | osascript | exit | verdict |"
+            echo "|---|---|---|---|---|---|"
           } >> "$GITHUB_STEP_SUMMARY"
           bad=0
           for k in "${keys[@]}"; do
-            read -r name code mod want logname <<< "$k"
+            read -r name steps want logname <<< "$k"
             f="$out/$KOMANDO_SHOT_CASE-$name"
             bash "$gui" KOMANDO_APPROVAL_DEBUG=1 KOMANDO_SHOT_CASE="$KOMANDO_SHOT_CASE" KOMANDO_KEY="$name" KOMANDO_KEY_OUT="$out" \
               ./shot.test -test.run '^TestApprovalWindowKey$' -test.v </dev/null >"$f.test.out" 2>&1 &
@@ -213,8 +247,19 @@ jobs:
             done
             if [ -n "$id" ]; then
               sleep 1
-              bash "$gui" "$RUNNER_TEMP/keys" press "$code" "$mod" </dev/null || echo "keys press $code exit $?"
-              sleep 1.5
+              read -r bx by bw bh <<< "$(bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" bounds </dev/null 2>/dev/null || true)"
+              echo "$name: panel at $bx,$by size ${bw}x$bh"
+              for st in ${steps//,/ }; do
+                case "$st" in
+                  c:bg) bash "$gui" "$RUNNER_TEMP/keys" click $((bx + 10)) $((by + bh - 10)) </dev/null ;;
+                  c:title) bash "$gui" "$RUNNER_TEMP/keys" click $((bx + 60)) $((by + 56)) </dev/null ;;
+                  c:script) bash "$gui" "$RUNNER_TEMP/keys" click $((bx + bw / 2)) $((by + bh / 2)) </dev/null ;;
+                  k*s) bash "$gui" "$RUNNER_TEMP/keys" press "${st:1:${#st}-2}" shift </dev/null ;;
+                  k*) bash "$gui" "$RUNNER_TEMP/keys" press "${st:1}" - </dev/null ;;
+                esac || echo "step $st exit $?"
+                sleep 0.5
+              done
+              sleep 1
               id=$(bash "$gui" osascript -l JavaScript "$RUNNER_TEMP/winid.js" find </dev/null 2>/dev/null || true)
               if [ -n "$id" ]; then bash "$gui" screencapture -x -o -l "$id" "$f.png" </dev/null || echo "screencapture failed"; fi
               found=yes
@@ -230,13 +275,51 @@ jobs:
               note=$(grep -Eo '(end: |error: the modal loop threw)[^|]*' "$f.log" | head -1 | sed 's/ *$//' || true)
               [ -n "$note" ] && why=$note
             fi
+            stayed=no; grep -q '(komando stops it at ' "$f.log" 2>/dev/null && stayed=yes
+            # the script's top edge after the last scroll, and the focus at open and after the last Tab;
+            # "|| true": the step runs with -e and pipefail, and a run may have none of them
+            y=$(grep -Eo 'scrolled to y=[0-9]+' "$f.log" 2>/dev/null | tail -1 | sed 's/.*=//' || true)
+            f0=$(grep -E '^js \+[0-9]+ shown ' "$f.log" 2>/dev/null | sed -n 's/.* focus \([a-z]*\)$/\1/p' || true)
+            f1=$(grep -E '^js \+[0-9]+ focus moved ' "$f.log" 2>/dev/null | tail -1 | sed -n 's/.* focus \([a-z]*\)$/\1/p' || true)
+            # each kind's evidence, in the log's order
+            order() { awk -v a="$1" -v b="$2" 'index($0, a) && !i { i = NR } index($0, b) && i && !j { j = NR } END { exit !(i && j) }' "$f.log"; }
             if [ "$found" = no ]; then verdict="FAIL: no panel on screen within 10 s"
             elif [ ! -s "$f.log" ]; then verdict="FAIL: the test wrote no log"
-            elif [ "$reached" = no ]; then verdict="FAIL: the key never reached the panel"
-            elif [ "$want" = stays ]; then
-              if grep -q '(komando stops it at ' "$f.log"; then verdict="ok: stayed open"; else verdict="FAIL: the panel closed on this key ($why)"; fi
-            elif [ "$exitc" = 0 ] && grep -qx 'stdout: "Deny"' "$f.log"; then verdict="ok: Deny, as designed"
-            else verdict="FAIL: did not end as Deny with exit 0 ($why)"
+            elif ! grep -Eq '^js \+[0-9]+ shown .*nonactivating=true' "$f.log"; then verdict="FAIL: the panel is not non-activating"
+            elif ! grep -q 'panel is key' "$f.log"; then verdict="FAIL: the panel never became the key window"
+            elif [ "$reached" = no ]; then verdict="FAIL: the last key never reached the panel"
+            else
+              case "$want" in
+                stays) [ "$stayed" = yes ] && verdict="ok: stayed open" || verdict="FAIL: the panel closed on this key ($why)" ;;
+                scroll)
+                  if [ "$stayed" != yes ]; then verdict="FAIL: the panel closed ($why)"
+                  elif [ "${y:-0}" -gt 0 ]; then verdict="ok: scrolled to y=$y with no click"
+                  else verdict="FAIL: the script did not scroll (y=${y:-none})"; fi ;;
+                focus)
+                  if [ "$stayed" != yes ]; then verdict="FAIL: the panel closed ($why)"
+                  elif [ -n "$f1" ] && [ "$f1" != "$f0" ]; then verdict="ok: focus $f0 -> $f1"
+                  else verdict="FAIL: the focus did not move (open: ${f0:-none}, after: ${f1:-none})"; fi ;;
+                deny)
+                  if [ "$exitc" = 0 ] && grep -qx 'stdout: "Deny"' "$f.log"; then verdict="ok: Deny, as designed"
+                  else verdict="FAIL: did not end as Deny with exit 0 ($why)"; fi ;;
+                bg)
+                  if [ "$stayed" != yes ]; then verdict="FAIL: the panel closed ($why)"
+                  elif ! order 'click: panel background' 'click: script area'; then verdict="FAIL: the clicks did not land on the background, then the script"
+                  elif [ "${y:-0}" -gt 0 ]; then verdict="ok: background, script, Down scrolled to y=$y"
+                  else verdict="FAIL: Down after the clicks did not scroll (y=${y:-none})"; fi ;;
+                field)
+                  if [ "$stayed" != yes ]; then verdict="FAIL: the panel closed ($why)"
+                  elif ! order 'script area lost focus' 'click: script area'; then verdict="FAIL: the title did not take the keys before the click on the script"
+                  elif [ "${y:-0}" -gt 0 ]; then verdict="ok: title, script, Down scrolled to y=$y"
+                  else verdict="FAIL: Down after the clicks did not scroll (y=${y:-none})"; fi ;;
+                allow)
+                  if grep -q 'end: Allow once, key Space' "$f.log"; then verdict="ok: End, Tab, Tab, Space reached Allow once"
+                  else verdict="FAIL: the keys did not reach Allow once ($why)"; fi ;;
+                gate)
+                  if grep -q 'end: Allow once' "$f.log"; then verdict="FAIL: Allow once worked before the end"
+                  elif [ "$stayed" = yes ] && [ "${y:-0}" -gt 0 ] && [ "$f1" = script ]; then verdict="ok: Tab skipped Allow once, Space scrolled to y=$y"
+                  else verdict="FAIL: want the focus back on the script and a scroll (focus ${f1:-none}, y=${y:-none}, $why)"; fi ;;
+              esac
             fi
             case "$verdict" in FAIL*) bad=1 ;; esac
             echo "::group::$name: $verdict"
@@ -245,7 +328,7 @@ jobs:
             echo "test output:"; cat "$f.test.out"
             echo "::endgroup::"
             echo "$name: $verdict (osascript: $ended)"
-            echo "| $name | $reached | $ended | $exitc | $verdict |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| $name | $steps | $reached | $ended | $exitc | $verdict |" >> "$GITHUB_STEP_SUMMARY"
           done
           [ "$bad" = 0 ]
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

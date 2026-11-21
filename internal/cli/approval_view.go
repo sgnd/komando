@@ -159,9 +159,12 @@ func viewFor(cl *call, text string) approvalView {
 // and scrolls (no scroller when it fits). Whatever their labels, the script answers with the fixed
 // tokens "Deny" and "Allow once" (macAnswer). Every text arrives in argv after
 // macArgMarker, never in the script. Deny is the default (Return), Esc,
-// the close button and Cmd-W, and has the first focus; only the 120 s
-// timer prints "gave up", and any other end is a Deny. Keys reach onKey
-// through typed keyDown: overrides; no callback in the modal loop hands
+// the close button and Cmd-W; only the 120 s timer prints "gave up", and
+// any other end is a Deny. The script area (or, when nothing scrolls, the
+// panel) keeps AppKit's first responder, so every key reaches onKey
+// through typed keyDown: overrides; Tab moves the panel's own focus
+// (nextFocus, a ring on each stop), and a click on the script or the
+// background gives it the keys back. No callback in the modal loop hands
 // AppKit a value it must read as an object (C237). After
 // "Allow once" the same run asks LocalAuthentication for the device owner
 // (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
@@ -188,12 +191,12 @@ var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 // the answer each path sets itself; a close after a choice keeps it
 var CHOICE = 'Deny', CHOSEN = false;
 // DEBUG is set in run for a debug run (KOMANDO_APPROVAL_DEBUG): note writes one
-// line to stderr for komando's debug log, with the first responder, and
-// never throws; PANEL and DENY_BTN let who name the first responder
+// line to stderr for komando's debug log, with the first responder and
+// FOCUS, and never throws; PANEL and DENY_BTN let who name the first responder
 var DEBUG = false, T0 = Date.now(), PANEL = null, DENY_BTN = null;
 function note(what) {
   if (!DEBUG) return;
-  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who()); } catch (x) {}
+  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who() + ' focus ' + (FOCUS || 'none')); } catch (x) {}
 }
 // who is the first responder: deny, allow, script, panel or a class name
 function who() {
@@ -231,13 +234,49 @@ function keyName(e) {
 // state is the focus state when the panel shows (fka: keyboard navigation)
 function state() {
   try {
-    return 'scroll=' + SCROLLS + ' seen=' + SEEN + ' fka=' + APP.isFullKeyboardAccessEnabled + ' key=' + PANEL.isKeyWindow + ' active=' + APP.isActive;
+    return 'scroll=' + SCROLLS + ' seen=' + SEEN + ' ' + where() + ' fka=' + APP.isFullKeyboardAccessEnabled + ' key=' + PANEL.isKeyWindow + ' active=' + APP.isActive +
+      ' nonactivating=' + ((Number(PANEL.styleMask) & 128) !== 0);
+  } catch (x) { return '?'; }
+}
+// where is the script area's top edge in points, for the debug log
+function where() {
+  try {
+    return SCROLLS ? 'y=' + Math.round(CLIP.documentVisibleRect.origin.y) : 'y=-';
   } catch (x) { return '?'; }
 }
 // a body that scrolls must have shown its last line (SEEN) before
-// "Allow once" works; CLIP is its clip view, ALLOW_BTN the button; RING
-// is the focus ring, shown while the script area has focus (HAS_FOCUS)
-var SEEN = true, CLIP = null, DOC = null, SV = null, RING = null, ALLOW_BTN = null, SCROLLS = false, HAS_FOCUS = false;
+// "Allow once" works; CLIP is its clip view, ALLOW_BTN the button
+var SEEN = true, CLIP = null, DOC = null, SV = null, ALLOW_BTN = null, SCROLLS = false;
+// FOCUS is where Tab is: script, deny, allow, or '' while a selectable
+// text field holds the keys. The buttons refuse AppKit's focus, so the
+// first responder stays the script area (or the panel) and every key
+// reaches onKey, whatever the keyboard-navigation setting. RINGS holds a
+// hidden focus ring per stop.
+var FOCUS = '', RINGS = {};
+// nextFocus is where Tab (back: Shift-Tab) goes: script, Deny, then Allow
+// once only while it is on, and round
+function nextFocus(f, back, scrolls, allowOn) {
+  var order = (scrolls ? ['script'] : []).concat(allowOn ? ['deny', 'allow'] : ['deny']);
+  var i = order.indexOf(f);
+  if (i < 0) return order[0];
+  return order[(i + (back ? order.length - 1 : 1)) % order.length];
+}
+function showFocus(f) {
+  FOCUS = f;
+  for (var k in RINGS) RINGS[k].hidden = k !== f;
+}
+// real is true for an AppKit object: JXA hands a JavaScript null to
+// AppKit as NSNull, not nil, and NSNull is no responder
+function real(o) {
+  try { return o !== null && o !== undefined && !o.isNil() && ObjC.unwrap(o.className) !== 'NSNull'; } catch (x) { note('error in real: ' + x); return false; }
+}
+// focusHome gives the keys to the script area, or to the panel itself when
+// nothing scrolls (Deny then has the ring)
+function focusHome() {
+  var toScript = SCROLLS && real(DOC);
+  PANEL.makeFirstResponder(toScript ? DOC : PANEL);
+  showFocus(toScript ? 'script' : 'deny');
+}
 // keyScroll is where a key moves the script area's top edge: the arrows
 // a line, Page Up/Down and Space a page, Home/End the ends; null for any
 // other key (Return, Tab and Esc keep their meaning)
@@ -246,9 +285,8 @@ function keyScroll(code, y, line, page, maxY) {
     code === 121 || code === 49 ? y + page : code === 115 ? 0 : code === 119 ? maxY : null;
   return to === null ? null : Math.max(0, Math.min(maxY, to));
 }
-// SCROLL_KEYS scroll the script whatever has focus (with macOS keyboard
-// navigation off the buttons take no focus): Up, Down, Page Up, Page
-// Down, Home, End; Space scrolls only when the area has focus
+// SCROLL_KEYS scroll the script whatever has the focus: Up, Down, Page
+// Up, Page Down, Home, End; Space scrolls only when the script has it
 var SCROLL_KEYS = [126, 125, 116, 121, 115, 119];
 // scrollKey scrolls the clip view; the bounds observer then runs the gate.
 // An error in a JXA callback ends the panel as a Deny, so it answers
@@ -271,13 +309,25 @@ function onKey(e) {
     var code = Number(e.keyCode), mods = Number(e.modifierFlags);
     if (DEBUG) note('key ' + keyName(e));
     if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }
-    if (code === 48) { if (mods & SHIFT) PANEL.selectPreviousKeyView(null); else PANEL.selectNextKeyView(null); note('focus moved'); return; }
-    if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && HAS_FOCUS)) && scrollKey(code)) note('scrolled');
+    if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }
+    if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { var btn = FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN; note('Space presses the focused button'); btn.performClick(btn); return; }
+    if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }
   } catch (x) { note('error in onKey: ' + x); }
 }
-// the focus ring: a box in the system's focus colour around the script
-// area (an NSBox takes the NSColor itself; a layer border needs a CGColor)
-function focusRing(on) { HAS_FOCUS = on; RING.hidden = !on; }
+// ringBox adds a hidden focus ring 3 pt outside a frame of view: a box in
+// the system's focus colour (an NSBox takes the NSColor itself; a layer
+// border needs a CGColor). Add it before what it rings, so it sits behind.
+function ringBox(view, x, y, w, h) {
+  var b = $.NSBox.alloc.initWithFrame($.NSMakeRect(x - 3, y - 3, w + 6, h + 6));
+  b.boxType = 4;
+  b.titlePosition = 0;
+  b.borderWidth = 3;
+  b.cornerRadius = 4;
+  b.borderColor = $.NSColor.keyboardFocusIndicatorColor;
+  b.hidden = true;
+  view.addSubview(b);
+  return b;
+}
 // seenEnd: the visible rect's bottom (NSMaxY, flipped) has reached the
 // document's last line, with 1 pt of slack; at the top it is false
 function seenEnd(y, h, docH) { return y + h >= docH - 1; }
@@ -290,29 +340,43 @@ ObjC.registerSubclass({
     // a script that scrolls takes focus, so the keys can read it to the end
     'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } },
     'keyDown:': { types: ['void', ['id']], implementation: function (e) { onKey(e); } },
-    'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },
-    'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }
+    'mouseDown:': { types: ['void', ['id']], implementation: function (e) { try { note('click: script area'); focusHome(); } catch (x) { note('error in mouseDown: ' + x); } } },
+    'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { showFocus('script'); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },
+    'resignFirstResponder': { types: ['bool', []], implementation: function () { try { showFocus(''); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }
+  }
+});
+// KomandoClick lies over the script's text, a label that would take a
+// click itself, so a click anywhere on the script gives it the keys back
+ObjC.registerSubclass({
+  name: 'KomandoClick',
+  superclass: 'NSView',
+  methods: {
+    'mouseDown:': { types: ['void', ['id']], implementation: function (e) { try { note('click: script area'); focusHome(); } catch (x) { note('error in mouseDown: ' + x); } } }
   }
 });
 ObjC.registerSubclass({
   name: 'KomandoPanel',
   superclass: 'NSPanel',
   methods: {
-    'keyDown:': { types: ['void', ['id']], implementation: function (e) { onKey(e); } }
+    'keyDown:': { types: ['void', ['id']], implementation: function (e) { onKey(e); } },
+    // a click on the background reaches the window through the content view
+    'mouseDown:': { types: ['void', ['id']], implementation: function (e) { try { note('click: panel background'); focusHome(); } catch (x) { note('error in mouseDown: ' + x); } } }
   }
 });
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
     'deny:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
-    // Space on a focused Allow once button reaches allow: like a click. That
-    // is safe only because the device-owner check (Touch ID or the login
-    // password) runs after this panel and no key press can satisfy it. A
-    // change that drops or weakens that check must stop keys reaching allow:.
+    // Space on a focused Allow once button reaches allow: like a click
+    // (onKey presses it). That is safe only because the device-owner check
+    // (Touch ID or the login password) runs after this panel and no key
+    // press can satisfy it. A change that drops or weakens that check must
+    // stop keys reaching allow:.
     'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
     // the last line is in view when the visible rect reaches the document's bottom
     'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },
-    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
+    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } },
+    'windowDidBecomeKey:': { types: ['void', ['id']], implementation: function (n) { note('panel is key'); } }
   }
 });
 // hanging is text with each numbered script line's wrapped rows indented
@@ -359,6 +423,10 @@ function run(argv) {
   var allow = $.NSButton.buttonWithTitleTargetAction(argv[8], answer, 'allow:');
   allow.keyEquivalent = '';
   allow.setAccessibilityLabel(argv[8]);
+  // the buttons never take AppKit's focus, whatever the keyboard-navigation
+  // setting: the keys stay with onKey, and FOCUS with the rings shows Tab's place
+  deny.refusesFirstResponder = true;
+  allow.refusesFirstResponder = true;
   var bh = Math.ceil(deny.fittingSize.height), dw = Math.ceil(deny.fittingSize.width), aw = Math.ceil(allow.fittingSize.width);
   // the title, the info lines and the buttons always show; what runs
   // (argv[5]) takes the height left on the screen and scrolls past it
@@ -387,7 +455,7 @@ function run(argv) {
   ALLOW_BTN = allow;
   SEEN = !scroll;
   allow.enabled = !scroll;
-  var panel = $.KomandoPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
+  var panel = $.KomandoPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable | $.NSWindowStyleMaskNonactivatingPanel, $.NSBackingStoreBuffered, false);
   PANEL = panel;
   panel.title = argv[6];
   panel.delegate = answer;
@@ -409,6 +477,7 @@ function run(argv) {
     body.v.frame = $.NSMakeRect(0, 0, bw, body.h);
     DOC = $.KomandoDoc.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h));
     DOC.addSubview(body.v);
+    DOC.addSubview($.KomandoClick.alloc.initWithFrame($.NSMakeRect(0, 0, bw, body.h)));
     sv.documentView = DOC;
     SV = sv;
     SCROLLS = scroll;
@@ -418,17 +487,7 @@ function run(argv) {
     var name = argv[5].split(':')[0];
     sv.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
     DOC.setAccessibilityLabel(name !== argv[5] && name.length <= 24 ? name : argv[6]);
-    if (scroll) {
-      // the focus ring, 3 pt outside the script area and behind it (custom box, no title)
-      RING = $.NSBox.alloc.initWithFrame($.NSMakeRect(pad - 3, y - 3, w + 6, bodyH + 6));
-      RING.boxType = 4;
-      RING.titlePosition = 0;
-      RING.borderWidth = 3;
-      RING.cornerRadius = 4;
-      RING.borderColor = $.NSColor.keyboardFocusIndicatorColor;
-      RING.hidden = true;
-      view.addSubview(RING);
-    }
+    if (scroll) RINGS.script = ringBox(view, pad, y, w, bodyH);
     view.addSubview(sv);
     // start at the first line (the document is flipped)
     sv.contentView.scrollToPoint($.NSMakePoint(0, 0));
@@ -446,13 +505,11 @@ function run(argv) {
   }
   allow.frame = $.NSMakeRect(pad + w - aw, pad, aw, bh);
   deny.frame = $.NSMakeRect(pad + w - aw - 12 - dw, pad, dw, bh);
+  RINGS.deny = ringBox(view, pad + w - aw - 12 - dw, pad, dw, bh);
+  RINGS.allow = ringBox(view, pad + w - aw, pad, aw, bh);
   view.addSubview(deny);
   view.addSubview(allow);
-  deny.nextKeyView = allow;
-  // Tab: Deny, Allow once (skipped while off), then a script that scrolls
-  allow.nextKeyView = scroll ? DOC : deny;
-  if (scroll) DOC.nextKeyView = deny;
-  panel.initialFirstResponder = deny;
+  if (scroll && real(DOC)) panel.initialFirstResponder = DOC;
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
   // the timer's block returns nothing: NSTimer's block type is void
@@ -460,6 +517,8 @@ function run(argv) {
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
   panel.makeKeyAndOrderFront(null);
+  // AppKit may have given the keys to a selectable text field
+  focusHome();
   if (DEBUG) note('shown ' + state());
   // the answer is CHOICE (JXA returns NSInteger as a string); an error out
   // of the modal loop is noted and still ends the run
