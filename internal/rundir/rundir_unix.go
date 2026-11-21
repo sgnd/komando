@@ -35,6 +35,12 @@ func create(path string) (*os.File, error) {
 	return os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o600)
 }
 
+// appendFile opens path for adding, 0600 when new; O_NOFOLLOW refuses a
+// link in its place.
+func appendFile(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND|syscall.O_NOFOLLOW, 0o600)
+}
+
 // Free is the space in dir's file system this user may write.
 func Free(dir string) (uint64, error) {
 	var s unix.Statfs_t

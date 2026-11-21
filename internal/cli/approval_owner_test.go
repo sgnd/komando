@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base32"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
@@ -34,7 +35,7 @@ func TestMacDeviceOwner(t *testing.T) {
 	resetAccessibilityTrust()
 	var seen approvalView
 	ask := func(out string) (bool, string) {
-		askMac = func(v approvalView) (macOutcome, bool) { seen = v; return macAnswer([]byte(out)), true }
+		askMac = func(v approvalView, _ io.Writer) (macOutcome, bool) { seen = v; return macAnswer([]byte(out)), true }
 		resetApproval()
 		tcl.flags.yes = true
 		ok := tcl.yesOK("it runs on web-1.example.test")
@@ -105,7 +106,7 @@ func TestMacIgnoresApprovalCode(t *testing.T) {
 		return "", true, true
 	}
 	shown := 0
-	askMac = func(approvalView) (macOutcome, bool) { shown++; return macAllowed, true }
+	askMac = func(approvalView, io.Writer) (macOutcome, bool) { shown++; return macAllowed, true }
 	resetApproval()
 	tcl.flags.yes = true
 	if !tcl.yesOK() || shown != 1 {
@@ -144,7 +145,7 @@ func revealSetup(t *testing.T, ax string, ans macOutcome) *approvalView {
 	resetAccessibilityTrust()
 	resetApproval()
 	seen := &approvalView{}
-	askMac = func(v approvalView) (macOutcome, bool) { *seen = v; return ans, true }
+	askMac = func(v approvalView, _ io.Writer) (macOutcome, bool) { *seen = v; return ans, true }
 	return seen
 }
 
@@ -214,7 +215,7 @@ func TestMacAXTrustedOwnerCheck(t *testing.T) {
 	shown := 0
 	try := func(oc string, ocErr error, ans macOutcome) (yes, reveal bool, why, revealWhy string) {
 		ownerCheckOutput = func(context.Context) ([]byte, error) { return []byte(oc), ocErr }
-		askMac = func(approvalView) (macOutcome, bool) { shown++; return ans, true }
+		askMac = func(approvalView, io.Writer) (macOutcome, bool) { shown++; return ans, true }
 		resetAccessibilityTrust()
 		resetOwnerCheck()
 		resetApproval()

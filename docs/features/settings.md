@@ -136,6 +136,7 @@ run the command yourself (see [Safety](safety.md#seatbelts-for-ai-agents)).
 | `KOMANDO_EXPERIMENTAL` | turn on features still being tested, by name (`ssm`: komando's own AWS Session Manager client, see [Servers](servers.md)) |
 | `KOMANDO_EXPERIMENTAL_VPN` | turn on VPN kinds still being tested (`fortinet,pulse`, or `all`; see [VPNs](vpn.md)) |
 | `KOMANDO_IPSEC_DEBUG` | `1` writes the IPsec exchange to the VPN's log, to find why a server does not answer |
+| `KOMANDO_APPROVAL_DEBUG` | any value: each macOS approval window adds what it saw to `approval-debug.log` in `~/Library/Application Support/komando/run/` (mode 0600): each key it got, which control had the focus, handler errors, how it ended and how `osascript` exited, with its error output. The texts the window shows are replaced by `[panel text]` |
 | `NO_COLOR` | turn off colors in status lines |
 
 Variables for password managers and cloud logins are listed in

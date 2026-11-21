@@ -47,8 +47,8 @@ func macEndLines() []string {
 // Space scrolls only while the script has focus.
 func TestMacPanelKeysNeverDismiss(t *testing.T) {
 	mon := macMonitor(t)
-	scroll := "if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) return null;"
-	tab := "if (Number(e.keyCode) === 48) { if (Number(e.modifierFlags) & $.NSEventModifierFlagShift) panel.selectPreviousKeyView(null); else panel.selectNextKeyView(null); return null; }"
+	scroll := "if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) { note('monitor: scrolled, key taken'); return null; }"
+	tab := "if (Number(e.keyCode) === 48) { if (Number(e.modifierFlags) & $.NSEventModifierFlagShift) panel.selectPreviousKeyView(null); else panel.selectNextKeyView(null); note('monitor: focus moved, key taken'); return null; }"
 	for _, k := range []struct {
 		name, code string
 		want       []string // in the monitor
@@ -114,23 +114,25 @@ func TestMacPanelKeysNeverDismiss(t *testing.T) {
 // panel. The monitor's whole body is in a try, and after a caught error it
 // hands the event back to the system; scrollKey (the bridge calls and
 // keyScroll) answers "not scrolled"; the focus and scroll overrides catch
-// their own. A catch never answers or turns Allow on. The answer handlers
-// (deny:, allow:, windowWillClose:) are meant to end the panel.
+// their own. A catch only notes the error for the debug log (and scrollKey
+// answers false, the modal loop's catch throws on); it never answers or
+// turns Allow on. The answer handlers (deny:, allow:, windowWillClose:) are
+// meant to end the panel.
 func TestMacPanelHandlersCannotThrow(t *testing.T) {
 	mon := macMonitor(t)
-	if !strings.Contains(mon, "function (e) {\n    try {\n") || !strings.HasSuffix(mon, "\n    } catch (x) {}\n    return e;") {
+	if !strings.Contains(mon, "function (e) {\n    try {\n") || !strings.HasSuffix(mon, "\n    } catch (x) { note('error in the key monitor: ' + x); }\n    note('monitor: key passed on');\n    return e;") {
 		t.Errorf("the monitor is not one try that returns the event after an error:\n%s", mon)
 	}
 	s := macAlertScript
 	sk := s[strings.Index(s, "function scrollKey(code) {"):]
 	sk = sk[:strings.Index(sk, "\n}")+2]
-	if !strings.HasPrefix(sk, "function scrollKey(code) {\n  try {\n") || !strings.HasSuffix(sk, "\n  } catch (x) { return false; }\n}") {
+	if !strings.HasPrefix(sk, "function scrollKey(code) {\n  try {\n") || !strings.HasSuffix(sk, "\n  } catch (x) { note('error in scrollKey: ' + x); return false; }\n}") {
 		t.Errorf("scrollKey is not one try that answers false:\n%s", sk)
 	}
 	for name, want := range map[string]string{
-		"becomeFirstResponder": "implementation: function () { try { focusRing(true); } catch (x) {} return true; } },",
-		"resignFirstResponder": "implementation: function () { try { focusRing(false); } catch (x) {} return true; } }",
-		"scrolled:":            "implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; } } catch (x) {} } },",
+		"becomeFirstResponder": "implementation: function () { try { focusRing(true); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },",
+		"resignFirstResponder": "implementation: function () { try { focusRing(false); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }",
+		"scrolled:":            "implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },",
 		// a constant or a variable cannot throw
 		"isFlipped":             "implementation: function () { return true; } },",
 		"acceptsFirstResponder": "implementation: function () { return SCROLLS; } },",
@@ -139,13 +141,17 @@ func TestMacPanelHandlersCannotThrow(t *testing.T) {
 			t.Errorf("%s: %s\nwant it to end with %s", name, got, want)
 		}
 	}
-	for _, c := range regexp.MustCompile(`catch \(x\) \{[^}]*\}`).FindAllString(s, -1) {
-		if c != "catch (x) {}" && c != "catch (x) { return false; }" {
+	// empty (inside note and its helpers), "?" from a helper, a note of the
+	// error, scrollKey's false, the modal loop's throw
+	allowed := regexp.MustCompile(`^catch \(x\) \{(?:| return '\?'; | note\('[a-zA-Z: ]+' \+ x\);(?: return false;| throw x;)? )\}$`)
+	all := regexp.MustCompile(`catch \(x\) \{[^}]*\}`).FindAllString(s, -1)
+	for _, c := range all {
+		if !allowed.MatchString(c) {
 			t.Errorf("a catch does something: %s", c)
 		}
 	}
-	if n, m := strings.Count(s, "catch ("), strings.Count(s, "catch (x) {}")+strings.Count(s, "catch (x) { return false; }"); n != m {
-		t.Errorf("%d catches, %d of them empty or false", n, m)
+	if n := strings.Count(s, "catch ("); n != len(all) {
+		t.Errorf("%d catches, %d of them checked", n, len(all))
 	}
 }
 
@@ -187,8 +193,8 @@ func TestMacPanelReturnEscUnchanged(t *testing.T) {
 	s := macAlertScript
 	mon := macMonitor(t)
 	for _, want := range []string{
-		"if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }",
-		"if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }",
+		"if (Number(e.keyCode) === 53) { note('end: Esc, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }",
+		"if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { note('end: Cmd-W, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }",
 	} {
 		if !strings.Contains(mon, want) {
 			t.Errorf("the monitor has no %q", want)
@@ -204,7 +210,7 @@ func TestMacPanelReturnEscUnchanged(t *testing.T) {
 			t.Errorf("script has no %q", want)
 		}
 	}
-	if strings.Count(s, "ALLOW_BTN.enabled = true") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return;") {
+	if strings.Count(s, "ALLOW_BTN.enabled = true") != 1 || !strings.Contains(s, "'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return;") {
 		t.Error("the Allow gate changed")
 	}
 }

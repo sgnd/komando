@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 	"slices"
 	"strconv"
@@ -162,7 +164,9 @@ func viewFor(cl *call, text string) approvalView {
 // "Allow once" the same run asks LocalAuthentication for the device owner
 // (policy 2: Touch ID, an Apple Watch or the login password) with argv[3]
 // as the reason, waiting at most argv[4] seconds of its own; it prints
-// "owner ok" on the next line only when the reply says ok.
+// "owner ok" on the next line only when the reply says ok. argv[10] is "1"
+// only in a debug run (macDebugArgs): the script then notes on stderr each
+// key, focus change, handler error and end, never a text.
 const macAlertScript = `ObjC.import('AppKit');
 ObjC.import('LocalAuthentication');
 function owner(reason, secs) {
@@ -181,6 +185,39 @@ function owner(reason, secs) {
 var DENY = 1000, ALLOW = 1001, GAVE_UP = 1002, APP = null;
 // the answer each path sets itself; a close after a choice keeps it
 var CHOICE = 'Deny', CHOSEN = false;
+// DEBUG is set in run for a debug run (KOMANDO_APPROVAL_DEBUG): note writes one
+// line to stderr for komando's debug log, with the first responder, and
+// never throws; PANEL and DENY_BTN let who name the first responder
+var DEBUG = false, T0 = Date.now(), PANEL = null, DENY_BTN = null;
+function note(what) {
+  if (!DEBUG) return;
+  try { console.log('komando-debug +' + (Date.now() - T0) + ' ' + what + ' | first ' + who()); } catch (x) {}
+}
+// who is the first responder: deny, allow, script, panel or a class name
+function who() {
+  try {
+    var r = PANEL.firstResponder;
+    if (r.isNil()) return 'none';
+    if (r.isEqual(DENY_BTN)) return 'deny';
+    if (r.isEqual(ALLOW_BTN)) return 'allow';
+    if (DOC !== null && r.isEqual(DOC)) return 'script';
+    if (r.isEqual(PANEL)) return 'panel';
+    return ObjC.unwrap(r.className);
+  } catch (x) { return '?'; }
+}
+// how is the event AppKit is handling: a click, or a key and its code
+function how() {
+  try {
+    var e = APP.currentEvent, t = e.isNil() ? -1 : Number(e.type);
+    return t === 10 ? 'key ' + Number(e.keyCode) : t === 1 || t === 2 ? 'click' : 'event type ' + t;
+  } catch (x) { return '?'; }
+}
+// state is the focus state when the panel shows (fka: keyboard navigation)
+function state() {
+  try {
+    return 'scroll=' + SCROLLS + ' seen=' + SEEN + ' fka=' + APP.isFullKeyboardAccessEnabled + ' key=' + PANEL.isKeyWindow + ' active=' + APP.isActive;
+  } catch (x) { return '?'; }
+}
 // a body that scrolls must have shown its last line (SEEN) before
 // "Allow once" works; CLIP is its clip view, ALLOW_BTN the button; RING
 // is the focus ring, shown while the script area has focus (HAS_FOCUS)
@@ -209,7 +246,7 @@ function scrollKey(code) {
     CLIP.scrollToPoint($.NSMakePoint(0, to));
     SV.reflectScrolledClipView(CLIP);
     return true;
-  } catch (x) { return false; }
+  } catch (x) { note('error in scrollKey: ' + x); return false; }
 }
 // the focus ring: a box in the system's focus colour around the script
 // area (an NSBox takes the NSColor itself; a layer border needs a CGColor)
@@ -227,18 +264,18 @@ ObjC.registerSubclass({
     // end; no keyDown: the key monitor scrolls, and every other key goes up
     // the responder chain as AppKit sends it (Return to Deny)
     'acceptsFirstResponder': { types: ['bool', []], implementation: function () { return SCROLLS; } },
-    'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); } catch (x) {} return true; } },
-    'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); } catch (x) {} return true; } }
+    'becomeFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(true); note('script area has focus'); } catch (x) { note('error in becomeFirstResponder: ' + x); } return true; } },
+    'resignFirstResponder': { types: ['bool', []], implementation: function () { try { focusRing(false); note('script area lost focus'); } catch (x) { note('error in resignFirstResponder: ' + x); } return true; } }
   }
 });
 ObjC.registerSubclass({
   name: 'KomandoAnswer',
   methods: {
-    'deny:': { types: ['void', ['id']], implementation: function (s) { CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
-    'allow:': { types: ['void', ['id']], implementation: function (s) { if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
+    'deny:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note('end: Deny, ' + how()); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); } },
+    'allow:': { types: ['void', ['id']], implementation: function (s) { if (DEBUG) note((SEEN ? 'end: Allow once, ' : 'Allow once ignored: not read to the end, ') + how()); if (!SEEN) return; CHOICE = 'Allow'; CHOSEN = true; APP.stopModalWithCode(ALLOW); } },
     // the last line is in view when the visible rect reaches the document's bottom
-    'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; } } catch (x) {} } },
-    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
+    'scrolled:': { types: ['void', ['id']], implementation: function (n) { try { if (SEEN) return; var r = CLIP.documentVisibleRect; if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); } } catch (x) { note('error in scrolled: ' + x); } } },
+    'windowWillClose:': { types: ['void', ['id']], implementation: function (n) { if (DEBUG) note('end: window closes, ' + how()); if (!CHOSEN) { CHOICE = 'Deny'; CHOSEN = true; } APP.stopModalWithCode(DENY); } }
   }
 });
 // hanging is text with each numbered script line's wrapped rows indented
@@ -270,6 +307,7 @@ function label(text, font, w, copy) {
   return { v: l, h: Math.ceil(l.cell.cellSizeForBounds($.NSMakeRect(0, 0, w, 1e5)).height) };
 }
 function run(argv) {
+  DEBUG = argv[10] === '1';
   var app = $.NSApplication.sharedApplication;
   APP = app;
   app.setActivationPolicy($.NSApplicationActivationPolicyAccessory);
@@ -278,6 +316,7 @@ function run(argv) {
   if (argv[2] !== '') parts.push(label(argv[2], $.NSFont.systemFontOfSize(fs), w, true));
   var answer = $.KomandoAnswer.alloc.init;
   var deny = $.NSButton.buttonWithTitleTargetAction(argv[7], answer, 'deny:');
+  DENY_BTN = deny;
   deny.keyEquivalent = '\r';
   deny.setAccessibilityLabel(argv[7]);
   var allow = $.NSButton.buttonWithTitleTargetAction(argv[8], answer, 'allow:');
@@ -312,6 +351,7 @@ function run(argv) {
   SEEN = !scroll;
   allow.enabled = !scroll;
   var panel = $.NSPanel.alloc.initWithContentRectStyleMaskBackingDefer($.NSMakeRect(0, 0, w + 2 * pad, h), $.NSWindowStyleMaskTitled | $.NSWindowStyleMaskClosable, $.NSBackingStoreBuffered, false);
+  PANEL = panel;
   panel.title = argv[6];
   panel.delegate = answer;
   var view = panel.contentView, y = h - pad;
@@ -384,18 +424,24 @@ function run(argv) {
   // Every other key, and any key after an error, goes on to the panel (C237)
   var esc = $.NSEvent.addLocalMonitorForEventsMatchingMaskHandler($.NSEventMaskKeyDown, function (e) {
     try {
-      if (Number(e.keyCode) === 53) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
-      if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
-      if (Number(e.keyCode) === 48) { if (Number(e.modifierFlags) & $.NSEventModifierFlagShift) panel.selectPreviousKeyView(null); else panel.selectNextKeyView(null); return null; }
-      if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) return null;
-    } catch (x) {}
+      if (DEBUG) note('key ' + Number(e.keyCode) + ' mods ' + (Number(e.modifierFlags) & 0x1e0000).toString(16));
+      if (Number(e.keyCode) === 53) { note('end: Esc, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
+      if (Number(e.keyCode) === 13 && (Number(e.modifierFlags) & $.NSEventModifierFlagCommand)) { note('end: Cmd-W, key monitor'); CHOICE = 'Deny'; CHOSEN = true; app.stopModalWithCode(DENY); return null; }
+      if (Number(e.keyCode) === 48) { if (Number(e.modifierFlags) & $.NSEventModifierFlagShift) panel.selectPreviousKeyView(null); else panel.selectNextKeyView(null); note('monitor: focus moved, key taken'); return null; }
+      if (SCROLLS && (MONITOR_KEYS.indexOf(Number(e.keyCode)) >= 0 || (Number(e.keyCode) === 49 && HAS_FOCUS)) && scrollKey(Number(e.keyCode))) { note('monitor: scrolled, key taken'); return null; }
+    } catch (x) { note('error in the key monitor: ' + x); }
+    note('monitor: key passed on');
     return e;
   });
-  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); });
+  var t = $.NSTimer.timerWithTimeIntervalRepeatsBlock(120, false, function () { note('end: no answer in 120 s'); CHOICE = 'gave up'; CHOSEN = true; app.stopModalWithCode(GAVE_UP); });
   $.NSRunLoop.currentRunLoop.addTimerForMode(t, $.NSRunLoopCommonModes);
   app.activateIgnoringOtherApps(true);
   panel.makeKeyAndOrderFront(null);
-  app.runModalForWindow(panel); // the answer is CHOICE: JXA returns NSInteger as a string
+  if (DEBUG) note('shown ' + state());
+  // the answer is CHOICE (JXA returns NSInteger as a string); an error out
+  // of the modal loop is noted and still ends the run
+  try { app.runModalForWindow(panel); } catch (x) { note('error: the modal loop threw ' + x); throw x; }
+  note('modal ended, answer ' + CHOICE);
   t.invalidate;
   $.NSEvent.removeMonitor(esc);
   $.NSNotificationCenter.defaultCenter.removeObserver(answer);
@@ -487,7 +533,7 @@ func macAnswer(out []byte) macOutcome {
 
 // windowGiveUp is when the Windows window closes itself (the macOS one
 // says 120 in macAlertScript); macWindowTimeout bounds osascript past it.
-// Only the CI screenshot test shortens them.
+// Only the CI window tests (approval_shot_test.go) shorten them.
 var (
 	windowGiveUp     = 120 * time.Second
 	macWindowTimeout = 3 * time.Minute
@@ -497,12 +543,43 @@ var (
 // window's 120 s plus this stay inside macWindowTimeout.
 const ownerTimeout = 50 * time.Second
 
-// askMac shows the macOS window. shown is false when osascript could not
-// start; an error exit after it started (the script failed) is a no.
-var askMac = func(v approvalView) (ans macOutcome, shown bool) {
+// askMac shows the macOS window. With dbg set (KOMANDO_APPROVAL_DEBUG) the
+// panel notes what it sees on stderr, and the run goes to dbg
+// (macDebugLog).
+var askMac = func(v approvalView, dbg io.Writer) (ans macOutcome, shown bool) {
+	r := macPanelRun(v, dbg != nil)
+	if dbg != nil {
+		macDebugLog(dbg, v, r)
+	}
+	return r.ans, r.shown
+}
+
+// macPanelRun runs osascript for the panel once. A debug run turns the
+// script's notes on and keeps its stderr in errOut.
+func macPanelRun(v approvalView, debug bool) macRun {
 	ctx, cancel := context.WithTimeout(context.Background(), macWindowTimeout)
 	defer cancel()
-	b, err := exec.CommandContext(ctx, "/usr/bin/osascript", macArgs(v)...).Output()
+	args := macArgs(v)
+	var errOut bytes.Buffer
+	if debug {
+		args = macDebugArgs(v)
+	}
+	cmd := exec.CommandContext(ctx, "/usr/bin/osascript", args...)
+	if debug {
+		cmd.Stderr = &errOut
+	}
+	r := macRun{start: time.Now()}
+	r.out, r.err = cmd.Output()
+	r.took = time.Since(r.start)
+	r.errOut = errOut.Bytes()
+	r.ans, r.shown = macResult(r.out, r.err)
+	return r
+}
+
+// macResult reads an osascript run of the panel. shown is false when
+// osascript could not start; an error exit after it started (the script
+// failed) is a no.
+func macResult(out []byte, err error) (ans macOutcome, shown bool) {
 	var ee *exec.ExitError
 	if err != nil && !errors.As(err, &ee) {
 		return macDenied, false
@@ -510,7 +587,7 @@ var askMac = func(v approvalView) (ans macOutcome, shown bool) {
 	if err != nil {
 		return macDenied, true
 	}
-	return macAnswer(b), true
+	return macAnswer(out), true
 }
 
 // The Windows window's size, in pixels: a dialog of the system's own

@@ -9,6 +9,10 @@ its highlights; the sections below them give the details. Versions follow
 
 ### Added
 
+- `KOMANDO_APPROVAL_DEBUG`: on a Mac, each approval window adds what it
+  saw to `approval-debug.log` in komando's run folder (0600): the keys,
+  the focus, handler errors, how it ended and `osascript`'s exit and error
+  output, never the texts it shows (C237).
 - `komando host ca add|list|rm|revoke`: trust servers through the SSH
   certificate authority that signs their host keys (`@cert-authority`),
   with no pin per server (C38b). A pattern names at least the domain

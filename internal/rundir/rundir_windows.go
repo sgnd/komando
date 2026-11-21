@@ -41,6 +41,14 @@ func create(path string) (*os.File, error) {
 	return os.NewFile(uintptr(h), path), nil
 }
 
+// appendFile opens path for adding; a link (a reparse point) is refused.
+func appendFile(path string) (*os.File, error) {
+	if fi, err := os.Lstat(path); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("%s is a link, not a file", path)
+	}
+	return os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
+}
+
 // Free is the space on dir's drive this user may write.
 func Free(dir string) (uint64, error) {
 	p, err := windows.UTF16PtrFromString(dir)

@@ -434,7 +434,11 @@ var askOnScreen = func(cl *call, text string) (allowed, shown bool) {
 // when the person clicked "Allow once" and then passed the device-owner
 // check.
 func askMacWindow(cl *call, text string) (allowed, shown bool) {
-	ans, shown := askMac(viewFor(cl, text))
+	dbg := openApprovalDebug(cl)
+	if dbg != nil {
+		defer dbg.Close()
+	}
+	ans, shown := askMac(viewFor(cl, text), dbg)
 	noteGaveUp(text, ans == macGaveUp)
 	switch ans {
 	case macOwnerFailed:
