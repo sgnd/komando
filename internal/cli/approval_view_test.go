@@ -225,7 +225,7 @@ func TestMacPanelKeyboardScroll(t *testing.T) {
 		"code === 121 || code === 49 ? y + page", "code === 115 ? 0", "code === 119 ? maxY",
 		"CLIP.scrollToPoint($.NSMakePoint(0, to))", "SV.reflectScrolledClipView(CLIP)",
 		"b.borderColor = $.NSColor.keyboardFocusIndicatorColor;",
-		"SCROLLS = scroll", "if (scroll) panel.initialFirstResponder = DOC;",
+		"SCROLLS = scroll", "if (scroll && real(DOC)) panel.initialFirstResponder = DOC;",
 		"DOC.setAccessibilityElement(true)", "DOC.setAccessibilityRole($.NSAccessibilityGroupRole)", "DOC.setAccessibilityLabel(",
 		"deny.keyEquivalent = '\\r'", "code === 53 || code === 36",
 		"if (seenEnd(r.origin.y, r.size.height, DOC.frame.size.height)) { SEEN = true; ALLOW_BTN.enabled = true; note('read to the end'); }",

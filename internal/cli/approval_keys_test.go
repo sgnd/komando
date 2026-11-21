@@ -42,7 +42,7 @@ func macEndLines() []string {
 const (
 	onKeyDeny   = "if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }"
 	onKeyTab    = "if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }"
-	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space presses the focused button'); (FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN).performClick(null); return; }"
+	onKeySpace  = "if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { var btn = FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN; note('Space presses the focused button'); btn.performClick(btn); return; }"
 	onKeyScroll = "if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }"
 )
 
@@ -289,15 +289,119 @@ func TestMacPanelFocusRings(t *testing.T) {
 // field AppKit may have picked never holds the keys.
 func TestMacPanelScriptFocusAtOpen(t *testing.T) {
 	s := macAlertScript
-	if got := macFunc(t, "focusHome"); got != "function focusHome() {\n  PANEL.makeFirstResponder(SCROLLS ? DOC : null);\n  showFocus(SCROLLS ? 'script' : 'deny');\n}" {
+	if got := macFunc(t, "focusHome"); got != macFocusHome {
 		t.Errorf("focusHome:\n%s", got)
 	}
-	if !strings.Contains(s, "if (scroll) panel.initialFirstResponder = DOC;") {
+	if !strings.Contains(s, "if (scroll && real(DOC)) panel.initialFirstResponder = DOC;") {
 		t.Error("the script area is not the initial first responder")
 	}
 	front, home, modal := strings.Index(s, "panel.makeKeyAndOrderFront(null);"), strings.Index(s, "  focusHome();\n"), strings.Index(s, "app.runModalForWindow(panel)")
 	if front < 0 || home < front || modal < home {
 		t.Errorf("focusHome must run after the panel is up and before the modal loop: front %d, focusHome %d, modal %d", front, home, modal)
+	}
+}
+
+const macFocusHome = "function focusHome() {\n" +
+	"  var toScript = SCROLLS && real(DOC);\n" +
+	"  PANEL.makeFirstResponder(toScript ? DOC : PANEL);\n" +
+	"  showFocus(toScript ? 'script' : 'deny');\n}"
+
+// C237: JXA hands a JavaScript null to AppKit as NSNull, not nil, so
+// makeFirstResponder(null) raised "-[NSNull becomeFirstResponder]" in every
+// panel with nothing to scroll (run 44874878640). No AppKit call gets a
+// null that stands for a control: real() tells an AppKit object from null,
+// undefined, nil and NSNull, and the only nulls left are a sender AppKit
+// ignores and an NSError out-argument.
+func TestMacPanelNoNullToAppKit(t *testing.T) {
+	s := macAlertScript
+	want := "function real(o) {\n" +
+		"  try { return o !== null && o !== undefined && !o.isNil() && ObjC.unwrap(o.className) !== 'NSNull'; } catch (x) { note('error in real: ' + x); return false; }\n}"
+	if got := macFunc(t, "real"); got != want {
+		t.Errorf("real:\n%s\nwant:\n%s", got, want)
+	}
+	allowed := map[string]bool{
+		"panel.makeKeyAndOrderFront(null)":    true, // sender, unused
+		"panel.orderOut(null)":                true, // sender, unused
+		"ctx.canEvaluatePolicyError(2, null)": true, // NSError ** out-argument
+	}
+	for _, m := range regexp.MustCompile(`[\w.$]+\([^()]*\bnull\)`).FindAllString(s, -1) {
+		if !allowed[m] {
+			t.Errorf("an AppKit call gets null: %s", m)
+		}
+	}
+	for _, bad := range []string{": null)", "makeFirstResponder(null", "performClick(null", "Responder = null"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("the script has %q", bad)
+		}
+	}
+	if n := strings.Count(s, "makeFirstResponder("); n != 1 || !strings.Contains(s, "PANEL.makeFirstResponder(toScript ? DOC : PANEL);") {
+		t.Errorf("%d makeFirstResponder calls; want only focusHome's, with the script or the panel", n)
+	}
+}
+
+// C237: a panel with no script view (no argv[5]) or one whose script fits
+// gives the keys to the panel itself and the ring to Deny. DOC stays null
+// then: the click view, the script's ring and initialFirstResponder are
+// set only where DOC exists and scrolls, and focusHome checks real(DOC).
+func TestMacPanelNoScriptView(t *testing.T) {
+	s := macAlertScript
+	if got := macFunc(t, "focusHome"); got != macFocusHome {
+		t.Errorf("focusHome:\n%s", got)
+	}
+	body := s[strings.Index(s, "  if (body) {\n"):strings.Index(s, "  if (hint) {\n")]
+	for _, want := range []string{"DOC = $.KomandoDoc.alloc.initWithFrame(", "DOC.addSubview($.KomandoClick.alloc.initWithFrame(", "if (scroll) RINGS.script = ringBox("} {
+		if !strings.Contains(body, want) {
+			t.Errorf("%q is not inside if (body)", want)
+		}
+	}
+	if !strings.Contains(s, "var SEEN = true, CLIP = null, DOC = null,") {
+		t.Error("DOC does not start as null")
+	}
+	// with an empty argv[5] there is no body, so no script view at all
+	if !strings.Contains(s, "  if (argv[5] !== '') {\n    body = label(argv[5], mono, bw, false);") {
+		t.Error("the script view is made without an argv[5]")
+	}
+}
+
+// C237: with Allow once off (a script not yet read to its end), Tab and
+// Shift-Tab cycle the script and Deny only; Space on Deny denies.
+func TestMacPanelAllowOff(t *testing.T) {
+	nf := macFunc(t, "nextFocus")
+	if !strings.Contains(nf, "(scrolls ? ['script'] : []).concat(allowOn ? ['deny', 'allow'] : ['deny'])") {
+		t.Errorf("nextFocus does not drop Allow once while it is off:\n%s", nf)
+	}
+	if !strings.Contains(onKeyTab, "nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)") {
+		t.Error("Tab does not pass the gate (SEEN) as allowOn")
+	}
+	if !strings.Contains(macAlertScript, "allow.enabled = !scroll;") || !strings.Contains(macAlertScript, "SEEN = !scroll;") {
+		t.Error("Allow once and SEEN do not start off together for a script that scrolls")
+	}
+}
+
+// C237: the macOS screenshot cases with nothing to scroll (hosts, short,
+// db-query, sudo, destructive, indonesian) show a few lines under the title,
+// far below a screen; their panel takes the focusHome fallback to the
+// panel and Deny, the path that raised the NSNull exception.
+func TestMacPanelShortCases(t *testing.T) {
+	for _, name := range []string{"hosts", "short", "db-query", "sudo", "destructive", "indonesian"} {
+		t.Run(name, func(t *testing.T) {
+			var v approvalView
+			for _, c := range shotCases {
+				if c.name == name {
+					v = c.view()
+				}
+			}
+			if v.Agent == "" {
+				t.Fatalf("no shot case %s", name)
+			}
+			shown := macArgs(v)[9]
+			if n := strings.Count(shown, "\n") + 1; n > 4 {
+				t.Errorf("%s shows %d lines: not a short case", name, n)
+			}
+		})
+	}
+	if !strings.Contains(macFocusHome, "toScript ? DOC : PANEL") {
+		t.Error("the short cases have no fallback to the panel")
 	}
 }
 

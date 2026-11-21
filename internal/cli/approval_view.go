@@ -265,11 +265,17 @@ function showFocus(f) {
   FOCUS = f;
   for (var k in RINGS) RINGS[k].hidden = k !== f;
 }
-// focusHome gives the keys to the script area, or to the panel when
+// real is true for an AppKit object: JXA hands a JavaScript null to
+// AppKit as NSNull, not nil, and NSNull is no responder
+function real(o) {
+  try { return o !== null && o !== undefined && !o.isNil() && ObjC.unwrap(o.className) !== 'NSNull'; } catch (x) { note('error in real: ' + x); return false; }
+}
+// focusHome gives the keys to the script area, or to the panel itself when
 // nothing scrolls (Deny then has the ring)
 function focusHome() {
-  PANEL.makeFirstResponder(SCROLLS ? DOC : null);
-  showFocus(SCROLLS ? 'script' : 'deny');
+  var toScript = SCROLLS && real(DOC);
+  PANEL.makeFirstResponder(toScript ? DOC : PANEL);
+  showFocus(toScript ? 'script' : 'deny');
 }
 // keyScroll is where a key moves the script area's top edge: the arrows
 // a line, Page Up/Down and Space a page, Home/End the ends; null for any
@@ -304,7 +310,7 @@ function onKey(e) {
     if (DEBUG) note('key ' + keyName(e));
     if (code === 53 || code === 36 || (code === 13 && (mods & CMD))) { note('end: Deny, key'); CHOICE = 'Deny'; CHOSEN = true; APP.stopModalWithCode(DENY); return; }
     if (code === 48) { showFocus(nextFocus(FOCUS, (mods & SHIFT) !== 0, SCROLLS, SEEN)); note('focus moved'); return; }
-    if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { note('Space presses the focused button'); (FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN).performClick(null); return; }
+    if (code === 49 && (FOCUS === 'deny' || FOCUS === 'allow')) { var btn = FOCUS === 'allow' ? ALLOW_BTN : DENY_BTN; note('Space presses the focused button'); btn.performClick(btn); return; }
     if (SCROLLS && (SCROLL_KEYS.indexOf(code) >= 0 || (code === 49 && FOCUS === 'script')) && scrollKey(code)) { if (DEBUG) note('scrolled to ' + where()); }
   } catch (x) { note('error in onKey: ' + x); }
 }
@@ -503,7 +509,7 @@ function run(argv) {
   RINGS.allow = ringBox(view, pad + w - aw, pad, aw, bh);
   view.addSubview(deny);
   view.addSubview(allow);
-  if (scroll) panel.initialFirstResponder = DOC;
+  if (scroll && real(DOC)) panel.initialFirstResponder = DOC;
   panel.level = $.NSFloatingWindowLevel;
   panel.center;
   // the timer's block returns nothing: NSTimer's block type is void
