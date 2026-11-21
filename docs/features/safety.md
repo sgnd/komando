@@ -219,8 +219,9 @@ name (`claude`, `codex`, `cursor-agent`, `gemini`, `opencode`, `openhands`,
 agent's too, even when the agent cleared the variables in the command it
 started (`env -i komando ...`). This is checked on macOS and Linux. On macOS, komando cannot read the
 environment of Apple's own programs (`/bin/sh`, `zsh`), so there it relies on the
-harness's name and command line. A harness that is not on the list, or that is
-started under another program name, is recognised only by its variables. A
+harness's name and command line. A harness that is not on the list, that is
+started under another program name, or that is started with interpreter flags
+before its script, is known only by its variables. A
 terminal that sshd gave to a login from this computer (`SSH_CONNECTION` names
 127.0.0.1 or ::1) is not a person's: komando treats it as a script. It adds these rules for them. For any other
 agent, set `KOMANDO_AGENT=1` (or `AI_AGENT=1`) in the environment it runs
