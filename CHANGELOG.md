@@ -109,6 +109,9 @@ line --shell-access` below, with its session audit and idle limit).
   off, and no shell opens when the start record cannot be written. If
   the gate's process is killed, there is no end record; the start record
   still shows the session.
+- `ssh-gate`: started by an AI agent on the komando computer instead of
+  by sshd for a key, the gate runs nothing (`SSH_GATE_REFUSED`); the
+  agent runs komando directly, under its own rules.
 - `ssh-gate`: a key's shell with no input and no output for 30 minutes
   ends (`SHELL_IDLE_TIMEOUT`, exit 7).
 - `komando shell`: when komando's terminal closes or a signal stops it,

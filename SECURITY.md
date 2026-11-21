@@ -59,6 +59,7 @@ A security problem in OpenSSH, a database, a cache, Kubernetes or another tool t
   - nothing written on the komando computer itself: no downloads there, no change to komando's servers, settings, rules, secrets or keys, and nothing at all, not even a read, on a sqlite file or a target at `localhost` or a loopback address;
   - optionally, only commands that read;
   - an audit log line for each command, with the key's name, even with the audit setting off.
+  - ssh-gate runs only for a key that sshd starts it for: started by an AI agent on the komando computer, it runs nothing.
 - At a person's terminal komando asks for what a command is missing. A
   question never adds `--yes`, `--allow-dangerous`, `--reveal` or
   `--write`: a change asks "Run it?", and a step that cannot be undone asks

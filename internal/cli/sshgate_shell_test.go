@@ -359,3 +359,27 @@ func TestGateShellExtraDenyPatterns(t *testing.T) {
 		}
 	})
 }
+
+// ssh-gate is for sshd: an AI agent on this computer that starts it itself
+// is refused, for the shell and every other command, and the refusal is in
+// the audit log.
+func TestSSHGateAgentCaller(t *testing.T) {
+	for _, line := range []string{"komando shell web", "komando list"} {
+		t.Run(line, func(t *testing.T) {
+			gateSessionLab(t)
+			shellDial = func(*call, context.Context, *store.State, *store.Host, func(shellConn) error) error {
+				t.Error("it connected")
+				return nil
+			}
+			shellTerminal(t, "/dev/pts/3", true)
+			setCallerEnv(t, "CLAUDECODE", "1")
+			ran, _, e := gateRun(t, line, "--name", "ops", "--shell-access")
+			if ran != nil || e == nil || e.Code != "SSH_GATE_REFUSED" || !strings.Contains(e.Message, "AI agent") {
+				t.Fatalf("ran %q, error %+v; want SSH_GATE_REFUSED for an AI agent", ran, e)
+			}
+			if a := lastAudit(t); a["ok"] != false || a["blocked"] != "SSH_GATE_REFUSED" {
+				t.Errorf("audit %v", a)
+			}
+		})
+	}
+}
